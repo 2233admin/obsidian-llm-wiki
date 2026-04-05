@@ -224,6 +224,8 @@ export function registerHandlers(
     const topic = typeof p.topic === "string" ? p.topic.trim() : "";
     if (!topic)
       throw { code: RPC_INVALID_PARAMS, message: "topic required" } as RpcError;
+    // validate topic like a path -- block traversal and protected dirs
+    validatePath(topic);
 
     const created: string[] = [];
     const skipped: string[] = [];

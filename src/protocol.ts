@@ -45,6 +45,11 @@ export function parseMessage(raw: string): JsonRpcRequest | { error: JsonRpcErro
     return { error: { code: RPC_INVALID_REQUEST, message: "Invalid request" } };
   }
 
+  // JSON-RPC 2.0: messages without id are notifications -- must not respond
+  if (msg.id === undefined || msg.id === null) {
+    return { error: { code: RPC_INVALID_REQUEST, message: "Notifications not supported (id required)" } };
+  }
+
   return msg as JsonRpcRequest;
 }
 
