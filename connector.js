@@ -10,6 +10,14 @@ const readline = require("readline");
 const PORT_FILE = path.join(os.homedir(), ".obsidian-ws-port");
 const VERSION = "0.2.0";
 
+// ReDoS guard: reject regex patterns with nested quantifiers that cause catastrophic backtracking
+function rejectDangerousRegex(pattern) {
+  // Detect nested quantifiers: (x+)+, (x*)+, (x+)*, (x{2,})+ etc.
+  if (/(\([^)]*[+*}]\s*\))[+*{]/.test(pattern)) throw { code: -32602, message: "regex rejected: nested quantifiers (ReDoS risk)" };
+  // Detect overlapping alternation with quantifiers: (a|a)+
+  if (/\([^)]*\|[^)]*\)[+*{]/.test(pattern) && /(\w)\|.*\1/.test(pattern)) throw { code: -32602, message: "regex rejected: overlapping alternation (ReDoS risk)" };
+}
+
 // --- Transport layer ---
 
 function readPortFile() {
@@ -92,9 +100,11 @@ class WsTransport {
 
 // --- Filesystem fallback ---
 
+const PROTECTED_DIRS = new Set([".obsidian", ".trash", ".git", "node_modules"]);
+
 class FsTransport {
   constructor(vaultPath) {
-    this.vault = vaultPath || "";
+    this.vault = path.resolve(vaultPath || "");
   }
 
   resolve(p) {
@@ -102,7 +112,10 @@ class FsTransport {
     const normalized = p.replace(/\\/g, "/").replace(/\/+/g, "/").replace(/^\//, "");
     if (normalized.split("/").some(s => s === ".." || s === "."))
       throw { code: -32602, message: "path traversal blocked" };
-    const full = path.join(this.vault, normalized);
+    const topSegment = normalized.split("/")[0];
+    if (PROTECTED_DIRS.has(topSegment))
+      throw { code: -32602, message: `protected path: ${topSegment}` };
+    const full = path.resolve(this.vault, normalized);
     if (!full.startsWith(this.vault))
       throw { code: -32602, message: "path escapes vault" };
     return full;
@@ -276,8 +289,9 @@ class FsTransport {
         const flags = p.caseSensitive ? "g" : "gi";
         let pattern;
         try {
+          if (p.regex) rejectDangerousRegex(p.query);
           pattern = p.regex ? new RegExp(p.query, flags) : new RegExp(p.query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), flags);
-        } catch (e) { throw { code: -32602, message: `Invalid regex: ${e.message}` }; }
+        } catch (e) { throw { code: e.code || -32602, message: e.message || `Invalid regex: ${e.message}` }; }
         this.walkMd(this.vault, (relPath, content) => {
           if (total >= max) return;
           if (p.glob && !this.matchGlob(relPath, p.glob)) return;
@@ -383,7 +397,10 @@ class FsTransport {
             case "lte": match = typeof v === "number" && typeof p.value === "number" && v <= p.value; break;
             case "contains": match = typeof v === "string" && typeof p.value === "string" && v.includes(p.value); break;
             case "regex":
-              try { match = typeof v === "string" && typeof p.value === "string" && new RegExp(p.value).test(v); }
+              try {
+                if (typeof p.value === "string") rejectDangerousRegex(p.value);
+                match = typeof v === "string" && typeof p.value === "string" && new RegExp(p.value).test(v);
+              }
               catch { match = false; }
               break;
             default: match = v === p.value;
