@@ -1,0 +1,40 @@
+# vault-mind configuration
+# Copy to vault-mind.yaml and edit
+
+vault_path: "/path/to/your/vault"
+
+# Adapters -- enable what you have, disable what you don't
+adapters:
+  filesystem:
+    enabled: true  # default, always works
+  obsidian:
+    enabled: false
+    ws_url: "ws://127.0.0.1:27124"
+    token: "${VAULT_MIND_OBSIDIAN_TOKEN}"
+  memu:
+    enabled: false
+    pg_url: "postgresql://user:pass@localhost:5432/memu"
+  gitnexus:
+    enabled: false
+
+# Compiler settings
+compiler:
+  model_tier: "haiku"  # haiku (cheap) | sonnet (balanced) | opus (precise)
+  chunk_size: 1000
+  chunk_overlap: 200
+  auto_compile_threshold: 3  # dirty files before auto-compile triggers
+
+# Agent scheduler
+agent:
+  enabled: true
+  night_mode_start: "22:00"
+  night_mode_end: "08:00"
+  days_since_emerge_threshold: 14
+  orphan_threshold: 10
+
+# Unified query weights (higher = more relevant in merged results)
+query:
+  weights:
+    vault: 1.0
+    memu: 0.8
+    gitnexus: 0.6

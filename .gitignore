@@ -1,0 +1,19 @@
+node_modules/
+dist/
+*.js.map
+.env
+vault-mind.yaml
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
