@@ -93,10 +93,11 @@ def extract_wikilinks(text: str) -> list[str]:
 def walk_md(base: Path) -> list[Path]:
     results = []
     for root, dirs, files in os.walk(base):
-        dirs[:] = [d for d in dirs if d not in (".obsidian", "node_modules", ".git", "schema")]
+        dirs[:] = sorted(d for d in dirs if d not in (".obsidian", "node_modules", ".git", "schema", ".trash") and not d.startswith("_"))
         for f in sorted(files):
             if f.endswith(".md"):
                 results.append(Path(root) / f)
+    results.sort()
     return results
 
 
@@ -141,6 +142,7 @@ def cmd_diff(vault: str, topic: str) -> dict:
 
 
 def cmd_update_hash(vault: str, topic: str, file_rel: str) -> dict:
+    file_rel = Path(file_rel).as_posix()
     meta = load_meta(vault, topic)
     full = Path(vault) / topic / file_rel
     if not full.exists():
