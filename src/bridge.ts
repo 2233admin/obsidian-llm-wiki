@@ -1,6 +1,13 @@
 import { App, TFile, TFolder } from "obsidian";
 import type { SearchOptions, SearchResult, SearchMatch } from "./types";
 
+function rejectDangerousRegex(pattern: string): void {
+  if (/(\([^)]*[+*}]\s*\))[+*{]/.test(pattern))
+    throw new Error("regex rejected: nested quantifiers (ReDoS risk)");
+  if (/\([^)]*\|[^)]*\)[+*{]/.test(pattern) && /(\w)\|.*\1/.test(pattern))
+    throw new Error("regex rejected: overlapping alternation (ReDoS risk)");
+}
+
 export class VaultBridge {
   constructor(private app: App) {}
 
@@ -105,6 +112,7 @@ export class VaultBridge {
     let pattern: RegExp;
     try {
       if (opts.regex) {
+        rejectDangerousRegex(query);
         pattern = new RegExp(query, flags);
       } else {
         pattern = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), flags);
@@ -378,7 +386,10 @@ export class VaultBridge {
         case "lte": match = typeof v === "number" && typeof value === "number" && v <= value; break;
         case "contains": match = typeof v === "string" && typeof value === "string" && v.includes(value); break;
         case "regex":
-          try { match = typeof v === "string" && typeof value === "string" && new RegExp(value).test(v); }
+          try {
+            if (typeof value === "string") rejectDangerousRegex(value);
+            match = typeof v === "string" && typeof value === "string" && new RegExp(value).test(v);
+          }
           catch { match = false; }
           break;
         default: match = v === value;
