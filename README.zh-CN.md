@@ -93,6 +93,24 @@ node demo.js
 
 ---
 
+## 思考工具 -- 你的笔记库会反过来想
+
+别的工具把你的笔记当数据库查。Vault Bridge 把它当**第二大脑** -- 一个会反驳、会发现规律、会帮你找到自己都没注意到的联系的大脑。
+
+| 命令 | 干什么 |
+|------|--------|
+| `/vault-challenge` | 笔记库**跟你对线** -- 用你自己写过的话反驳你现在的决定。"你三月试过这个，因为 X 失败了..." |
+| `/vault-emerge` | 从过去 30 天的笔记里浮现**你没命名的模式**。你一直在做但自己没意识到的事。 |
+| `/vault-connect` | 找**跨领域的结构性桥梁**。"你的交易回撤恢复策略和你还技术债的方式是同一个模式。" |
+| `/vault-graduate` | 把散落在各处的提及晋升成**独立概念页**。一个想法出现 3 次以上，它值得有自己的笔记。 |
+| `/vault-ingest` | 吃进一个 URL 或论文，**改写 5-15 个现有页面**来整合它。不是"加一条笔记" -- 知识通过整合增长，不是堆积。 |
+| `/vault-save` | 把对话里值得留的东西存到库里对的地方。并行智能体，一个文件夹一个。 |
+| `/vault-world` | 渐进式上下文加载 -- 用 1-2K token 启动你的笔记库状态。 |
+
+这些是 `setup.js` 安装的 Claude Code 技能。它们适用于任何库结构 -- 你的 `_CLAUDE.md` 文件告诉它们东西在哪。
+
+---
+
 ## 为什么选 Vault Bridge？
 
 |  | Vault Bridge | [obsidian-claude-code-mcp](https://github.com/iansinnott/obsidian-claude-code-mcp) | [obsidian-local-rest-api](https://github.com/coddingtonbear/obsidian-local-rest-api) |
@@ -106,6 +124,7 @@ node demo.js
 | 库体检 | 有（坏链、孤儿、缺 frontmatter） | 没有 | 没有 |
 | 批量操作 | 支持 | 不支持 | 不支持 |
 | 实时事件 | WebSocket 文件变化推送 | 没有 | 没有 |
+| **思考工具** | **7 个技能（challenge、emerge、connect、graduate、ingest、save、world）** | **没有** | **没有** |
 | 认证 | Token + 时序安全对比 | Token | API key + HTTPS |
 
 ---
