@@ -1,7 +1,7 @@
 {
   "name": "obsidian-llm-wiki",
   "version": "0.1.0",
-  "description": "Obsidian plugin that exposes your vault to AI agents via WebSocket + MCP",
+  "description": "Let your AI agent read, search, and build on your Obsidian notes. MCP server + WebSocket + filesystem fallback. Karpathy LLM Wiki implementation.",
   "main": "main.js",
   "license": "MIT",
   "author": "Curry",
@@ -13,10 +13,18 @@
     "obsidian",
     "obsidian-plugin",
     "mcp",
+    "model-context-protocol",
     "websocket",
     "ai-agent",
     "knowledge-base",
-    "vault"
+    "llm-wiki",
+    "karpathy",
+    "claude-code",
+    "cursor",
+    "windsurf",
+    "compiled-knowledge",
+    "personal-wiki",
+    "rag-alternative"
   ],
   "scripts": {
     "build": "node esbuild.config.mjs production",
