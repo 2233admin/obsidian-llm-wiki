@@ -93,6 +93,24 @@ All writes are **dry-run by default** -- your agent must explicitly opt in to ch
 
 ---
 
+## Thinking Tools -- Your Vault Thinks Back
+
+Most tools treat your notes as a database. Vault Bridge treats them as a **second brain** -- one that can argue, notice patterns, and build connections you missed.
+
+| Command | What it does |
+|---------|-------------|
+| `/vault-challenge` | Your vault **argues back** at your decisions, using quotes from your own notes. "You tried this in March and it failed because..." |
+| `/vault-emerge` | Surfaces **unnamed patterns** from the last 30 days. Finds the recurring theme you haven't noticed yet. |
+| `/vault-connect` | Finds **structural bridges** between unrelated domains. "Your trading drawdown recovery looks like your tech debt payoff strategy." |
+| `/vault-graduate` | Promotes scattered mentions into **first-class concept pages**. When an idea appears 3+ times, it deserves its own note. |
+| `/vault-ingest` | Ingests a URL or paper and **rewrites 5-15 existing pages** to integrate it. Not "add a note" -- knowledge by integration, not accumulation. |
+| `/vault-save` | Saves conversation knowledge to the right place in your vault. Parallel agents, one per folder. |
+| `/vault-world` | Progressive context loading -- boots up your vault state in 1-2K tokens. |
+
+These are Claude Code skills installed by `setup.js`. They work with any vault structure -- your `_CLAUDE.md` file tells them where things live.
+
+---
+
 ## Why Vault Bridge?
 
 |  | Vault Bridge | [obsidian-claude-code-mcp](https://github.com/iansinnott/obsidian-claude-code-mcp) | [obsidian-local-rest-api](https://github.com/coddingtonbear/obsidian-local-rest-api) |
@@ -106,6 +124,7 @@ All writes are **dry-run by default** -- your agent must explicitly opt in to ch
 | Vault health | Lint (broken links, orphans, missing frontmatter) | No | No |
 | Batch operations | Yes | No | No |
 | Real-time events | WebSocket push on file changes | No | No |
+| **Thinking tools** | **7 skills (challenge, emerge, connect, graduate, ingest, save, world)** | **No** | **No** |
 | Auth | Token + timing-safe comparison | Token | API key + HTTPS |
 
 ---

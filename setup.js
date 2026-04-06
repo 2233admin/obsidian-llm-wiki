@@ -293,7 +293,59 @@ async function configureMcp(rl, vaultPath) {
 }
 
 // ---------------------------------------------------------------------------
-// Step 6: Print final instructions
+// Step 6: Install Claude Code skills
+// ---------------------------------------------------------------------------
+function installSkills() {
+  step("Installing thinking tools (Claude Code skills)");
+
+  const skillsSource = path.join(PROJECT_DIR, "skills");
+  const skillsTarget = path.join(os.homedir(), ".claude", "skills");
+
+  // Only install vault-* skills (not vault-bridge -- that's the MCP skill)
+  const SKILL_DIRS = [
+    "vault-save", "vault-world",
+    "vault-challenge", "vault-emerge", "vault-connect",
+    "vault-graduate", "vault-ingest",
+  ];
+
+  // Ensure ~/.claude/skills exists
+  try {
+    fs.mkdirSync(skillsTarget, { recursive: true });
+  } catch (err) {
+    warn(`Could not create ${skillsTarget}: ${err.message}`);
+    return;
+  }
+
+  let installed = 0;
+  for (const dir of SKILL_DIRS) {
+    const src = path.join(skillsSource, dir, "SKILL.md");
+    const dstDir = path.join(skillsTarget, dir);
+    const dst = path.join(dstDir, "SKILL.md");
+
+    try {
+      if (!fs.existsSync(src)) {
+        warn(`Skill source not found: ${src}`);
+        continue;
+      }
+      fs.mkdirSync(dstDir, { recursive: true });
+      fs.copyFileSync(src, dst);
+      installed++;
+    } catch (err) {
+      warn(`Could not install skill ${dir}: ${err.message}`);
+    }
+  }
+
+  if (installed > 0) {
+    ok(`Installed ${installed} skills to ${skillsTarget}`);
+    dim("Available commands: /vault-save, /vault-world, /vault-challenge,");
+    dim("/vault-emerge, /vault-connect, /vault-graduate, /vault-ingest");
+  } else {
+    warn("No skills installed. You can copy them manually from skills/ directory.");
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Step 7: Print final instructions
 // ---------------------------------------------------------------------------
 function printFinalInstructions(vaultPath) {
   step("Setup complete");
@@ -310,7 +362,8 @@ ${C.bold}  Next steps:${C.reset}
   ${C.yellow}3.${C.reset} In Claude Code, try:
      ${C.green}"Search my notes for..."${C.reset}
      ${C.green}"What did I write about X last month?"${C.reset}
-     ${C.green}"Create a note called Meeting Notes with..."${C.reset}
+     ${C.green}/vault-challenge${C.reset}  ${C.dim}(vault argues back at your decisions)${C.reset}
+     ${C.green}/vault-emerge${C.reset}     ${C.dim}(surface unnamed patterns from your notes)${C.reset}
 
   ${C.gray}Vault: ${vaultPath}${C.reset}
   ${C.gray}Connector: ${CONNECTOR_PATH}${C.reset}
@@ -339,7 +392,10 @@ ${C.bold}${C.blue}  Vault Bridge Setup${C.reset}
     // 3. Configure MCP
     await configureMcp(rl, vaultPath);
 
-    // 4. Done
+    // 4. Install skills
+    installSkills();
+
+    // 5. Done
     printFinalInstructions(vaultPath);
 
   } catch (err) {
