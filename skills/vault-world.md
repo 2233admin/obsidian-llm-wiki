@@ -1,46 +1,38 @@
 ---
 name: vault-world
 description: >
-  Load vault context progressively -- identity, navigation, current state.
-  Use at session start or when context about the vault is needed.
-  Token-budgeted: start light, go deeper only as needed.
+  Load vault context progressively -- identity, navigation, and current state.
+  Uses the vault-mind MCP server to query unified knowledge.
 ---
 
 # /vault-world
 
-Progressive context loader for your Obsidian vault.
+# Requires: vault-mind MCP server
+
+Load relevant knowledge and current state from your vault to build a starting context.
 
 ## Steps
 
-1. **Read `_CLAUDE.md`** at vault root -- operating rules and folder map.
+1.  **L0 -- Navigation (1-2K tokens)**:
+    -   **Unified Query**: Call `query.unified` with `query: "recent activity, dashboard, and core rules"` to identify the primary context.
+    -   **Read Config**: Read `_CLAUDE.md` to establish the operating environment.
 
-2. **L0 -- Navigation (~1-2K tokens)**
-   - Read `index.md` -- catalog of all pages (cheaper than searching)
-   - Read `log.md` (last 10 entries only) -- what happened recently
+2.  **L1 -- Current State (2-5K tokens)**:
+    -   **Home/Dashboard**: Use `vault.read` on the main entry points (e.g., `_index.md`, `dashboard.md`).
+    -   **Recent Memory**: Read today's daily note and the most recent `Log.md` entries.
+    -   **Current Tasks**: Search for active tasks across the vault using `vault.search`.
 
-3. **L1 -- Current State (~2-5K tokens)**
-   - Read dashboard/home page (if listed in `_CLAUDE.md`)
-   - Read today's daily note if it exists
-   - Read last 3 daily notes for recent momentum
-   - Scan task board for in-progress and overdue items
+3.  **L2 -- Domain Deep Dive (On Demand)**:
+    -   When a specific topic emerges, use `query.explain` to load related concept graphs.
 
-4. **L2 -- Deep Context (on demand, ~5-20K tokens)**
-   - Only load if needed for a specific question or task
-   - Read active project notes
-   - Read relevant research articles
-   - Read technical/engineering notes
+4.  **Present Status**:
+    -   **Current Priorities**: Top 3 active threads.
+    -   **Momentum**: Summary of last session's outcome.
+    -   **System Status**: Note if any vault-health issues need immediate attention.
 
-5. **Present brief status after L0-L1** (do NOT load L2 unless needed):
-   - **Current priorities**: top 3-5 active threads
-   - **Open threads from last session**: anything unfinished
-   - **Overdue / needs attention**: stale tasks or projects
-   - **Today so far**: what's already logged
+## Rules
 
-Keep output concise -- this is a boot-up sequence, not a report.
-All output (status summary, priority list, labels) in the user's language from `_CLAUDE.md` Language section.
-
-## When to Use
-
-- Session start
-- User asks about vault state or what's been happening
-- Before making vault writes (to avoid duplicates)
+-   **Output Language**: Use the user's language (defined in `_CLAUDE.md`).
+-   **Conciseness**: Avoid loading long files entirely unless necessary.
+-   **Don't Re-Invent**: If `query.unified` gives high-confidence results, use those first before manual searching.
+-   **Triggering**: Run this at the start of a session or when context feels lost.

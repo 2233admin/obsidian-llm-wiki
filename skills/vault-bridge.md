@@ -6,6 +6,8 @@ model: sonnet
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, Agent, WebFetch
 ---
 
+# Requires: vault-mind MCP server
+
 Read `kb.yaml` from the vault root before doing anything. Missing? Call MCP `vault.init` with the topic name, then proceed.
 
 ## MCP Tools

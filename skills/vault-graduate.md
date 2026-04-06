@@ -2,11 +2,12 @@
 name: vault-graduate
 description: >
   Promote scattered vault mentions into dedicated notes.
-  When an idea, pattern, or concept reaches critical mass (3+ mentions across contexts),
-  it deserves its own page. Graduate it from scattered references to first-class citizen.
+  Uses the vault-mind MCP server to analyze and structure data.
 ---
 
 # /vault-graduate [concept]
+
+# Requires: vault-mind MCP server
 
 Promote a recurring concept from scattered mentions to a dedicated vault page.
 
