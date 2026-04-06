@@ -14,6 +14,47 @@ export class VaultBridgeSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
 
+    // -- Header --
+    containerEl.createEl("p", {
+      text: "Connect AI agents (Claude Code, Cursor, Windsurf) to this vault via MCP.",
+      cls: "setting-item-description",
+    });
+
+    // -- Status --
+    const running = this.plugin.isServerRunning();
+    const port = this.plugin.getServerPort();
+    const statusSetting = new Setting(containerEl)
+      .setName("Server Status")
+      .setDesc(running ? `Running on port ${port}` : "Not running");
+    if (running) {
+      statusSetting.descEl.style.color = "var(--text-success)";
+    }
+
+    // -- MCP Config Copy --
+    if (running) {
+      const vaultPath = (this.app.vault.adapter as any).basePath?.replace(/\\/g, "/") || "/path/to/vault";
+      const mcpConfig = JSON.stringify({
+        mcpServers: {
+          "vault-bridge": {
+            command: "node",
+            args: ["<path-to>/connector.js", vaultPath],
+          },
+        },
+      }, null, 2);
+
+      new Setting(containerEl)
+        .setName("MCP Config")
+        .setDesc("Copy this to ~/.claude/settings.json or .cursor/mcp.json")
+        .addButton((btn) =>
+          btn.setButtonText("Copy to clipboard").onClick(() => {
+            navigator.clipboard.writeText(mcpConfig);
+            btn.setButtonText("Copied!");
+            setTimeout(() => btn.setButtonText("Copy to clipboard"), 2000);
+          }),
+        );
+    }
+
+    // -- Port --
     new Setting(containerEl)
       .setName("WebSocket Port")
       .setDesc("Default: 48765. Requires plugin reload to take effect.")
@@ -27,6 +68,7 @@ export class VaultBridgeSettingTab extends PluginSettingTab {
         }),
       );
 
+    // -- Token --
     new Setting(containerEl)
       .setName("Auth Token")
       .setDesc("Auto-generated. Shared via ~/.obsidian-ws-port discovery file.")
@@ -39,6 +81,7 @@ export class VaultBridgeSettingTab extends PluginSettingTab {
         }),
       );
 
+    // -- Dry-run --
     new Setting(containerEl)
       .setName("Dry-run by default")
       .setDesc("Write operations require explicit dryRun: false to execute.")
@@ -47,14 +90,6 @@ export class VaultBridgeSettingTab extends PluginSettingTab {
           this.plugin.settings.dryRunDefault = v;
           await this.plugin.saveSettings();
         }),
-      );
-
-    new Setting(containerEl)
-      .setName("Server Status")
-      .setDesc(
-        this.plugin.isServerRunning()
-          ? "Running on port " + this.plugin.getServerPort()
-          : "Not running",
       );
   }
 }

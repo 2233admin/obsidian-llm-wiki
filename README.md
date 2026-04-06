@@ -1,8 +1,20 @@
 # Vault Bridge
 
+[![CI](https://github.com/2233admin/obsidian-vault-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/2233admin/obsidian-vault-bridge/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)](package.json) [![Python](https://img.shields.io/badge/python-%3E%3D3.11-brightgreen.svg)](kb_meta.py)
+
 **Let your AI read, search, and build on your Obsidian notes.**
 
 Inspired by [Karpathy's LLM Wiki](https://www.youtube.com/watch?v=zisonDtp3GQ) -- but you can install it right now.
+
+```
+  .obsidian/vault/          MCP stdio           Claude Code
+  +-----------------+      +----------+        +-----------+
+  | notes/          | <--> | connector| <----> |  agent    |
+  | daily/          |      |    .js   |        |           |
+  | projects/       |  WS  +----------+        +-----------+
+  | [[wikilinks]]   | <-->  Obsidian             Cursor
+  +-----------------+       Plugin               Windsurf
+```
 
 ```
 You:    "What did I write about distributed consensus last month?"
@@ -10,6 +22,8 @@ Claude: *searches your vault, reads 3 notes, synthesizes an answer with [[backli
 ```
 
 Vault Bridge turns your Obsidian vault into an MCP server that any AI agent (Claude Code, Cursor, Windsurf) can connect to. Read, write, search, and compile knowledge -- with your notes as the source of truth.
+
+---
 
 ## Quick Start
 
@@ -57,6 +71,8 @@ node demo.js
 
 </details>
 
+---
+
 ## What Can Your Agent Do?
 
 | Capability | Example |
@@ -73,6 +89,8 @@ node demo.js
 
 All writes are **dry-run by default** -- your agent must explicitly opt in to change anything. Your notes are safe.
 
+---
+
 ## Why Vault Bridge?
 
 |  | Vault Bridge | [obsidian-claude-code-mcp](https://github.com/iansinnott/obsidian-claude-code-mcp) | [obsidian-local-rest-api](https://github.com/coddingtonbear/obsidian-local-rest-api) |
@@ -87,6 +105,8 @@ All writes are **dry-run by default** -- your agent must explicitly opt in to ch
 | Batch operations | Yes | No | No |
 | Real-time events | WebSocket push on file changes | No | No |
 | Auth | Token + timing-safe comparison | Token | API key + HTTPS |
+
+---
 
 ## The Knowledge Compilation Workflow
 
@@ -114,6 +134,8 @@ Compiled wiki with [[wikilinks]], frontmatter, coverage tags
 
 Your agent does the extraction. `kb_meta.py` handles the bookkeeping (diffing, hashing, indexing) -- zero dependencies, pure Python.
 
+---
+
 ## How It Works
 
 ```
@@ -125,6 +147,8 @@ AI Agent  <--MCP stdio-->  connector.js  <--WebSocket-->  Obsidian Plugin
 - **Plugin** runs a WebSocket server inside Obsidian (JSON-RPC 2.0, localhost only)
 - **connector.js** is an MCP server that proxies to WebSocket, or reads the vault directly when Obsidian is closed
 - Auto-discovery via `~/.obsidian-ws-port` -- no manual port configuration needed
+
+---
 
 ## API Reference
 
@@ -181,6 +205,8 @@ AI Agent  <--MCP stdio-->  connector.js  <--WebSocket-->  Obsidian Plugin
 
 </details>
 
+---
+
 ## Security
 
 - **localhost only** -- WebSocket binds to 127.0.0.1, no network exposure
@@ -190,6 +216,8 @@ AI Agent  <--MCP stdio-->  connector.js  <--WebSocket-->  Obsidian Plugin
 - **Connection limits** -- max 20 clients, 10MB payload cap, ReDoS-safe regex
 - **Filesystem fallback** -- same security model when Obsidian is closed
 
+---
+
 ## Python Companions (optional)
 
 | File | Purpose | Dependencies |
@@ -197,6 +225,8 @@ AI Agent  <--MCP stdio-->  connector.js  <--WebSocket-->  Obsidian Plugin
 | `kb_meta.py` | Deterministic KB ops: diff, hash, index, lint, vitality | stdlib only |
 | `vault_bridge.py` | Async Python WebSocket client | `websockets` |
 | `mcp_server.py` | Python MCP server (alternative to connector.js) | `mcp`, `websockets` |
+
+---
 
 ## License
 
