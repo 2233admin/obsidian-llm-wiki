@@ -76,6 +76,7 @@ Ingest a source and rewrite the vault to integrate it.
 
 ## Rules
 
+- **Language follows `_CLAUDE.md`** -- when ingesting content in a different language than the vault's primary language, translate key concepts into the vault language while preserving original terms in parentheses. When updating existing notes, match that note's language.
 - **Rewrite, don't just add** -- integration, not accumulation
 - **Never delete silently** -- contradictions show both versions with dates
 - **Raw sources are immutable** -- edits happen in derived notes

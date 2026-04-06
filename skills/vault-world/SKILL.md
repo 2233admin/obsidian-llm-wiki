@@ -37,6 +37,7 @@ Progressive context loader for your Obsidian vault.
    - **Today so far**: what's already logged
 
 Keep output concise -- this is a boot-up sequence, not a report.
+Output language follows `_CLAUDE.md` Language section.
 
 ## When to Use
 

@@ -52,6 +52,7 @@ The vault challenges your current thinking using your own history.
 
 ## Rules
 
+- **Language follows `_CLAUDE.md`** -- output in the user's configured language. When quoting vault notes, preserve the original language (don't translate quotes).
 - **Quote the user's own words** -- this is what makes it hit different from generic critique
 - **Never fabricate evidence** -- if the vault doesn't have it, say so
 - **Be specific** -- "you tried X on 2026-03-15 and it failed because Y" not "you've had mixed results"

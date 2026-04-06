@@ -48,6 +48,7 @@ Find patterns hiding in your vault that you haven't named yet.
 
 ## Rules
 
+- **Language follows `_CLAUDE.md`** -- pattern names and descriptions in the user's configured language. Evidence quotes stay in original language. Search in all languages present in the vault.
 - **Minimum 3 independent data points** to call something a pattern
 - **Cross-domain signals are gold** -- same pattern in two unrelated areas is more interesting
 - **Name patterns concisely** -- if you can't name it in 5 words, you haven't understood it
