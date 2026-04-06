@@ -13,14 +13,24 @@ Vault Bridge turns your Obsidian vault into an MCP server that any AI agent (Cla
 
 ## Quick Start
 
-**3 steps. 2 minutes.**
-
-### 1. Install the plugin
-
 ```bash
 git clone https://github.com/2233admin/obsidian-vault-bridge.git
 cd obsidian-vault-bridge && npm install && npm run build
+node setup.js
 ```
+
+`setup.js` auto-detects your Obsidian vault, installs the plugin, and configures Claude Code's MCP -- all in one go. Then ask Claude:
+
+```
+"Search my notes for anything about React Server Components"
+```
+
+That's it.
+
+<details>
+<summary>Manual install (if setup.js doesn't work for you)</summary>
+
+### 1. Install the plugin
 
 Copy `main.js`, `manifest.json`, `styles.css` into your vault's `.obsidian/plugins/vault-bridge/`, then enable it in Obsidian Settings > Community Plugins.
 
@@ -39,21 +49,13 @@ Add to `~/.claude/settings.json` (or `.cursor/mcp.json`):
 }
 ```
 
-### 3. Ask something
-
-```
-"Search my notes for anything about React Server Components"
-"Summarize what I know about Kubernetes networking"
-"Create a new note called 'Meeting Notes 2024-01-15' with these bullet points..."
-```
-
-That's it. Your agent can now read, search, and write your vault.
-
-**Want to see it work?** Run the demo to verify your setup:
+### 3. Verify
 
 ```bash
 node demo.js
 ```
+
+</details>
 
 ## What Can Your Agent Do?
 
