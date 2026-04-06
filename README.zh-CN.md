@@ -48,7 +48,7 @@ node setup.js
 
 ### 1. 装插件
 
-把 `main.js`、`manifest.json`、`styles.css` 复制到你的库的 `.obsidian/plugins/vault-bridge/` 里，然后在 Obsidian 的设置 > 社区插件 里启用它。
+把 `main.js`、`manifest.json`、`styles.css` 复制到你的库的 `.obsidian/plugins/llm-wiki/` 里，然后在 Obsidian 的设置 > 社区插件 里启用它。
 
 ### 2. 连接你的智能体
 
@@ -57,7 +57,7 @@ node setup.js
 ```json
 {
   "mcpServers": {
-    "vault-bridge": {
+    "llm-wiki": {
       "command": "node",
       "args": ["/path/to/obsidian-llm-wiki/connector.js", "/path/to/your/vault"]
     }

@@ -65,7 +65,7 @@ export class WsServer {
       });
 
       ws.on("error", (err) => {
-        console.error("Vault Bridge: client error", err.message);
+        console.error("LLM Wiki: client error", err.message);
         clearTimeout(authTimer);
         this.clients.delete(ws);
         ws.terminate();
@@ -129,7 +129,7 @@ export class WsServer {
 
   private tryListen(port: number, attempt: number): void {
     if (attempt >= 3) {
-      console.error("Vault Bridge: failed to bind after 3 attempts");
+      console.error("LLM Wiki: failed to bind after 3 attempts");
       this.wss?.close();
       this.httpServer?.close();
       this.wss = null;
@@ -139,16 +139,16 @@ export class WsServer {
 
     this.httpServer!.once("error", (err: NodeJS.ErrnoException) => {
       if (err.code === "EADDRINUSE") {
-        console.warn(`Vault Bridge: port ${port} in use, trying ${port + 1}`);
+        console.warn(`LLM Wiki: port ${port} in use, trying ${port + 1}`);
         this.tryListen(port + 1, attempt + 1);
       } else {
-        console.error("Vault Bridge: server error", err);
+        console.error("LLM Wiki: server error", err);
       }
     });
 
     this.httpServer!.listen(port, "127.0.0.1", () => {
       const addr = this.httpServer!.address() as { port: number };
-      console.log(`Vault Bridge: listening on 127.0.0.1:${addr.port}`);
+      console.log(`LLM Wiki: listening on 127.0.0.1:${addr.port}`);
       this.onPortResolved(addr.port);
     });
   }

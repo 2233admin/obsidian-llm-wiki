@@ -1,4 +1,4 @@
-[English](README.md) | [中文](README.zh.md) | **日本語**
+[English](README.md) | [中文](README.zh-CN.md) | **日本語**
 
 # Obsidian LLM Wiki
 
@@ -48,7 +48,7 @@ node setup.js
 
 ### 1. プラグインをインストール
 
-`main.js`、`manifest.json`、`styles.css`をボルトの`.obsidian/plugins/vault-bridge/`にコピーし、Obsidian Settings > Community Pluginsで有効にします。
+`main.js`、`manifest.json`、`styles.css`をボルトの`.obsidian/plugins/llm-wiki/`にコピーし、Obsidian Settings > Community Pluginsで有効にします。
 
 ### 2. エージェントを接続
 
@@ -57,7 +57,7 @@ node setup.js
 ```json
 {
   "mcpServers": {
-    "vault-bridge": {
+    "llm-wiki": {
       "command": "node",
       "args": ["/path/to/obsidian-llm-wiki/connector.js", "/path/to/your/vault"]
     }

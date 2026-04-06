@@ -35,7 +35,7 @@ export class VaultBridgeSettingTab extends PluginSettingTab {
       const vaultPath = (this.app.vault.adapter as any).basePath?.replace(/\\/g, "/") || "/path/to/vault";
       const mcpConfig = JSON.stringify({
         mcpServers: {
-          "vault-bridge": {
+          "llm-wiki": {
             command: "node",
             args: ["<path-to>/connector.js", vaultPath],
           },

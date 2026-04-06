@@ -1,4 +1,4 @@
-# vault-bridge
+# llm-wiki
 
 Obsidian plugin that turns a vault into compiled LLM knowledge infrastructure. MCP server exposes vault CRUD, search, graph, lint, and init. A separate Python compiler engine handles deterministic operations (diffing, hashing, link validation, topology analysis).
 
@@ -17,7 +17,7 @@ Add to your agent's MCP config:
 ```json
 {
   "mcpServers": {
-    "vault-bridge": {
+    "llm-wiki": {
       "command": "node",
       "args": ["/path/to/obsidian-llm-wiki/connector.js"]
     }
@@ -27,7 +27,7 @@ Add to your agent's MCP config:
 
 Config file locations:
 - Claude Code: `.mcp.json` (project) or `~/.claude.json`
-- Codex CLI: `.codex/config.toml` — `[mcp_servers.vault-bridge]`
+- Codex CLI: `.codex/config.toml` — `[mcp_servers.llm-wiki]`
 - Gemini CLI: `.gemini/settings.json`
 - Cursor: `.cursor/mcp.json`
 

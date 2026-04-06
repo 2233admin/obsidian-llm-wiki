@@ -1,9 +1,9 @@
 {
-  "name": "vault-bridge",
+  "name": "llm-wiki",
   "owner": "2233admin",
   "plugins": [
     {
-      "name": "vault-bridge",
+      "name": "llm-wiki",
       "path": "."
     }
   ]

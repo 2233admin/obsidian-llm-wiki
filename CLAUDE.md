@@ -1,6 +1,6 @@
-# Vault Bridge -- LLM Knowledge Base Schema
+# LLM Wiki -- Knowledge Base Schema
 
-Opinionated workflow for maintaining a compiled knowledge wiki via vault-bridge.
+Opinionated workflow for maintaining a compiled knowledge wiki via LLM Wiki (obsidian-llm-wiki).
 Transport: **MCP** (primary) or WebSocket. Filesystem fallback is a **global invariant** -- everything works when Obsidian is closed.
 
 ## First Action

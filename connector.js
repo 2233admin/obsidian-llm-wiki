@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// vault-bridge MCP connector -- stdio transport
+// llm-wiki MCP connector -- stdio transport
 // Proxies to WS when Obsidian runs, filesystem fallback when it doesn't.
 
 const fs = require("fs");
@@ -334,7 +334,7 @@ class FsTransport {
         ensureFile(`${base}/wiki/_sources.md`, `---\ntopic: "${p.topic}"\nupdated: ${now}\n---\n\n# Sources\n\nNo sources compiled yet.\n`);
         ensureFile(`${base}/wiki/_categories.md`, `---\ntopic: "${p.topic}"\nupdated: ${now}\n---\n\n# Categories\n\nAuto-generated during compilation.\n`);
         ensureFile(`${base}/Log.md`, `# ${p.topic} -- Operation Log\n\n- ${now}: KB initialized\n`);
-        ensureFile(`${base}/schema/CLAUDE.md`, `# ${p.topic} -- KB Schema\n\nFollows vault-bridge opinionated workflow.\nSee root CLAUDE.md for full documentation.\n`);
+        ensureFile(`${base}/schema/CLAUDE.md`, `# ${p.topic} -- KB Schema\n\nFollows llm-wiki opinionated workflow.\nSee root CLAUDE.md for full documentation.\n`);
         const yamlPath = `${base}/kb.yaml`;
         if (fs.existsSync(this.resolve(yamlPath))) { skipped.push(yamlPath); }
         else { fs.writeFileSync(this.resolve(yamlPath), `topic: "${p.topic}"\nvault_path: "${this.vault.replace(/\\\\/g, "/")}"\ncreated: ${now}\n`, "utf-8"); created.push(yamlPath); }
@@ -580,20 +580,20 @@ async function main() {
       const ws = new WsTransport(info);
       await ws.connect();
       transport = ws;
-      process.stderr.write(`vault-bridge: connected to Obsidian WS on port ${info.port}\n`);
+      process.stderr.write(`llm-wiki: connected to Obsidian WS on port ${info.port}\n`);
     } catch (err) {
-      process.stderr.write(`vault-bridge: WS unavailable (${err.message}), using filesystem fallback\n`);
+      process.stderr.write(`llm-wiki: WS unavailable (${err.message}), using filesystem fallback\n`);
       transport = new FsTransport(info.vault);
     }
   } else {
     // No port file -- try to find vault path from args or env
     const vaultPath = process.argv[2] || process.env.VAULT_BRIDGE_VAULT || "";
     if (!vaultPath) {
-      process.stderr.write("vault-bridge: no port file and no vault path. Pass vault path as first argument.\n");
+      process.stderr.write("llm-wiki: no port file and no vault path. Pass vault path as first argument.\n");
       process.exit(1);
     }
     transport = new FsTransport(vaultPath);
-    process.stderr.write(`vault-bridge: filesystem mode on ${vaultPath}\n`);
+    process.stderr.write(`llm-wiki: filesystem mode on ${vaultPath}\n`);
   }
 
   const rl = readline.createInterface({ input: process.stdin, terminal: false });
@@ -615,7 +615,7 @@ async function main() {
       write({ jsonrpc: "2.0", id, result: {
         protocolVersion: "2024-11-05",
         capabilities: { tools: {} },
-        serverInfo: { name: "vault-bridge", version: VERSION }
+        serverInfo: { name: "llm-wiki", version: VERSION }
       }});
       return;
     }
@@ -674,4 +674,4 @@ function getToolDefinitions() {
   ];
 }
 
-main().catch((err) => { process.stderr.write(`vault-bridge: fatal: ${err.message}\n`); process.exit(1); });
+main().catch((err) => { process.stderr.write(`llm-wiki: fatal: ${err.message}\n`); process.exit(1); });

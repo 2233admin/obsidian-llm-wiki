@@ -1,4 +1,4 @@
-// Demo script: shows vault-bridge in action
+// Demo script: shows llm-wiki in action
 // Simulates what an AI agent does when connected to your vault
 const WebSocket = require("ws");
 const token = require("fs").readFileSync(require("os").homedir() + "/.obsidian-ws-port", "utf-8");

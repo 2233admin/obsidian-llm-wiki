@@ -267,7 +267,7 @@ export function registerHandlers(
     await ensureFile(`${base}/Log.md`, `# ${topic} -- Operation Log\n\n- ${now}: KB initialized via vault.init\n`);
 
     // schema/CLAUDE.md
-    const schemaContent = `# ${topic} -- KB Schema\n\nThis knowledge base follows the vault-bridge opinionated workflow.\nSee the root CLAUDE.md for full workflow documentation.\n\n## Topic Config\n\n- Topic: ${topic}\n- Raw sources: raw/articles/, raw/papers/, raw/notes/, raw/transcripts/\n- Compiled wiki: wiki/summaries/, wiki/concepts/\n- Queries: wiki/queries/\n\n## Conventions\n\n- All internal links use [[wikilinks]]\n- Every compiled article has a coverage tag (high/medium/low)\n- Index files (_index.md, _sources.md, _categories.md) are auto-maintained\n`;
+    const schemaContent = `# ${topic} -- KB Schema\n\nThis knowledge base follows the LLM Wiki opinionated workflow.\nSee the root CLAUDE.md for full workflow documentation.\n\n## Topic Config\n\n- Topic: ${topic}\n- Raw sources: raw/articles/, raw/papers/, raw/notes/, raw/transcripts/\n- Compiled wiki: wiki/summaries/, wiki/concepts/\n- Queries: wiki/queries/\n\n## Conventions\n\n- All internal links use [[wikilinks]]\n- Every compiled article has a coverage tag (high/medium/low)\n- Index files (_index.md, _sources.md, _categories.md) are auto-maintained\n`;
     await ensureFile(`${base}/schema/CLAUDE.md`, schemaContent);
 
     // kb.yaml

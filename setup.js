@@ -165,7 +165,7 @@ function installPlugin(vaultPath) {
     process.exit(1);
   }
 
-  const pluginDir = path.join(vaultPath, ".obsidian", "plugins", "vault-bridge");
+  const pluginDir = path.join(vaultPath, ".obsidian", "plugins", "llm-wiki");
 
   // Create plugin directory
   try {
@@ -226,7 +226,7 @@ function buildMcpEntry(vaultPath) {
 function printMcpSnippet(vaultPath) {
   const snippet = {
     mcpServers: {
-      "vault-bridge": buildMcpEntry(vaultPath),
+      "llm-wiki": buildMcpEntry(vaultPath),
     },
   };
   console.log();
@@ -248,7 +248,7 @@ async function configureMcp(rl, vaultPath) {
   info(`Target: ${settingsPath}`);
   printMcpSnippet(vaultPath);
 
-  const answer = await ask(rl, `${C.cyan}  Add vault-bridge to Claude Code settings? (Y/n): ${C.reset}`);
+  const answer = await ask(rl, `${C.cyan}  Add llm-wiki to Claude Code settings? (Y/n): ${C.reset}`);
   if (answer.toLowerCase() === "n") {
     info("Skipped -- paste the snippet above into ~/.claude/settings.json manually.");
     return;
@@ -270,7 +270,7 @@ async function configureMcp(rl, vaultPath) {
   if (!settings.mcpServers || typeof settings.mcpServers !== "object") {
     settings.mcpServers = {};
   }
-  settings.mcpServers["vault-bridge"] = buildMcpEntry(vaultPath);
+  settings.mcpServers["llm-wiki"] = buildMcpEntry(vaultPath);
 
   // Ensure ~/.claude directory exists
   const claudeDir = path.dirname(settingsPath);
@@ -285,7 +285,7 @@ async function configureMcp(rl, vaultPath) {
   try {
     fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n", "utf-8");
     ok(`Updated ${settingsPath}`);
-    dim(`Added: mcpServers["vault-bridge"]`);
+    dim(`Added: mcpServers["llm-wiki"]`);
   } catch (err) {
     fail(`Could not write ${settingsPath}: ${err.message}`);
     info("Paste the snippet above into ~/.claude/settings.json manually.");

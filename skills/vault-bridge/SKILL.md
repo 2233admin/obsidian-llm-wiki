@@ -1,5 +1,5 @@
 ---
-name: vault-bridge
+name: llm-wiki
 description: "Obsidian vault as compiled knowledge base. Use when user says ingest, compile, query, lint, evolve, or asks questions that should come from a knowledge base. Also triggers on 'init kb', 'new topic', 'health check', 'what's missing'."
 context: fork
 model: sonnet

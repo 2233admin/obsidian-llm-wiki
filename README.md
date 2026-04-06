@@ -48,7 +48,7 @@ That's it.
 
 ### 1. Install the plugin
 
-Copy `main.js`, `manifest.json`, `styles.css` into your vault's `.obsidian/plugins/vault-bridge/`, then enable it in Obsidian Settings > Community Plugins.
+Copy `main.js`, `manifest.json`, `styles.css` into your vault's `.obsidian/plugins/llm-wiki/`, then enable it in Obsidian Settings > Community Plugins.
 
 ### 2. Connect your agent
 
@@ -57,7 +57,7 @@ Add to `~/.claude/settings.json` (or `.cursor/mcp.json`):
 ```json
 {
   "mcpServers": {
-    "vault-bridge": {
+    "llm-wiki": {
       "command": "node",
       "args": ["/path/to/obsidian-llm-wiki/connector.js", "/path/to/your/vault"]
     }

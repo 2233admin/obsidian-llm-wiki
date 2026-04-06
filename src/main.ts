@@ -27,7 +27,7 @@ export default class VaultBridgePlugin extends Plugin {
 
     this.app.workspace.onLayoutReady(() => this.startServer());
 
-    console.log("Vault Bridge: plugin loaded");
+    console.log("LLM Wiki: plugin loaded");
   }
 
   onunload(): void {
@@ -35,7 +35,7 @@ export default class VaultBridgePlugin extends Plugin {
     this.server = null;
     deletePortFile();
     this.actualPort = 0;
-    console.log("Vault Bridge: plugin unloaded");
+    console.log("LLM Wiki: plugin unloaded");
   }
 
   async saveSettings(): Promise<void> {
@@ -61,7 +61,7 @@ export default class VaultBridgePlugin extends Plugin {
           this.settings.token,
           (this.app.vault.adapter as any).basePath,
         );
-        console.log("Vault Bridge: server ready on port " + resolvedPort);
+        console.log("LLM Wiki: server ready on port " + resolvedPort);
       },
     );
     registerHandlers(this.server, bridge, this.settings);

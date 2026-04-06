@@ -17,7 +17,7 @@ export function writePortFile(port: number, token: string, vaultPath: string): v
     fs.writeFileSync(tmp, data, { encoding: "utf-8", mode: 0o600 });
     fs.renameSync(tmp, PORT_FILE);
   } catch (e) {
-    console.error("Vault Bridge: failed to write port file", e);
+    console.error("LLM Wiki: failed to write port file", e);
   }
 }
 
