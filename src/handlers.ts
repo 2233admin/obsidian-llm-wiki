@@ -6,7 +6,11 @@ import {
   RPC_FILE_NOT_FOUND,
   RPC_FILE_EXISTS,
   RPC_METHOD_NOT_FOUND,
+  RPC_SAFETY_PATH_BLOCKED,
+  RPC_SAFETY_CONTENT_REJECTED,
 } from "./protocol";
+import { isSafeToWrite } from "./safety/bridge-safe-paths";
+import { validateVaultWrite } from "./safety/bridge-write-validator";
 
 interface RpcError {
   code: number;
@@ -108,6 +112,25 @@ export function registerHandlers(
   server.registerHandler("vault.create", async (p) => {
     const path = validatePath(p.path);
     const content = typeof p.content === "string" ? p.content : "";
+    if (settings.safety?.enabled !== false) {
+      if (!isSafeToWrite(path, { allowCanvas: settings.safety?.allowCanvas ?? false })) {
+        throw {
+          code: RPC_SAFETY_PATH_BLOCKED,
+          message: "Safety gate rejected: protected path",
+          data: { gate: "path", path },
+        } as RpcError;
+      }
+      const requireFm = settings.safety?.requireFrontmatter === "always" ||
+        settings.safety?.requireFrontmatter === "new-files-only";
+      const validResult = validateVaultWrite(content, null, { requireFrontmatter: requireFm });
+      if (!validResult.isValid) {
+        throw {
+          code: RPC_SAFETY_CONTENT_REJECTED,
+          message: "Safety gate rejected: content validation failed",
+          data: { gate: "content", errors: validResult.errors, warnings: validResult.warnings },
+        } as RpcError;
+      }
+    }
     if (isDryRun(p, settings))
       return { dryRun: true, action: "create", path, wouldSucceed: !bridge.exists(path) };
     const created = await safeExec(() => bridge.create(path, content));
@@ -117,6 +140,25 @@ export function registerHandlers(
   server.registerHandler("vault.modify", async (p) => {
     const path = validatePath(p.path);
     const content = requireString(p, "content");
+    if (settings.safety?.enabled !== false) {
+      if (!isSafeToWrite(path, { allowCanvas: settings.safety?.allowCanvas ?? false })) {
+        throw {
+          code: RPC_SAFETY_PATH_BLOCKED,
+          message: "Safety gate rejected: protected path",
+          data: { gate: "path", path },
+        } as RpcError;
+      }
+      const original = await bridge.read(path).catch(() => null);
+      const requireFm = settings.safety?.requireFrontmatter === "always";
+      const validResult = validateVaultWrite(content, original, { requireFrontmatter: requireFm });
+      if (!validResult.isValid) {
+        throw {
+          code: RPC_SAFETY_CONTENT_REJECTED,
+          message: "Safety gate rejected: content validation failed",
+          data: { gate: "content", errors: validResult.errors, warnings: validResult.warnings },
+        } as RpcError;
+      }
+    }
     if (isDryRun(p, settings))
       return { dryRun: true, action: "modify", path, wouldSucceed: bridge.exists(path) };
     await safeExec(() => bridge.modify(path, content));
@@ -126,6 +168,26 @@ export function registerHandlers(
   server.registerHandler("vault.append", async (p) => {
     const path = validatePath(p.path);
     const content = requireString(p, "content");
+    if (settings.safety?.enabled !== false) {
+      if (!isSafeToWrite(path, { allowCanvas: settings.safety?.allowCanvas ?? false })) {
+        throw {
+          code: RPC_SAFETY_PATH_BLOCKED,
+          message: "Safety gate rejected: protected path",
+          data: { gate: "path", path },
+        } as RpcError;
+      }
+      const original = await bridge.read(path).catch(() => null);
+      const combined = (original ?? "") + content;
+      const requireFm = settings.safety?.requireFrontmatter === "always";
+      const validResult = validateVaultWrite(combined, original, { requireFrontmatter: requireFm });
+      if (!validResult.isValid) {
+        throw {
+          code: RPC_SAFETY_CONTENT_REJECTED,
+          message: "Safety gate rejected: content validation failed",
+          data: { gate: "content", errors: validResult.errors, warnings: validResult.warnings },
+        } as RpcError;
+      }
+    }
     if (isDryRun(p, settings))
       return { dryRun: true, action: "append", path, wouldSucceed: bridge.exists(path) };
     await safeExec(() => bridge.append(path, content));
@@ -135,6 +197,15 @@ export function registerHandlers(
   server.registerHandler("vault.delete", async (p) => {
     const path = validatePath(p.path);
     const force = p.force === true;
+    if (settings.safety?.enabled !== false) {
+      if (!isSafeToWrite(path, { allowCanvas: settings.safety?.allowCanvas ?? false })) {
+        throw {
+          code: RPC_SAFETY_PATH_BLOCKED,
+          message: "Safety gate rejected: protected path",
+          data: { gate: "path", path },
+        } as RpcError;
+      }
+    }
     if (isDryRun(p, settings))
       return { dryRun: true, action: "delete", path, force, wouldSucceed: bridge.exists(path) };
     await safeExec(() => bridge.remove(path, force));
@@ -144,6 +215,23 @@ export function registerHandlers(
   server.registerHandler("vault.rename", async (p) => {
     const from = validatePath(p.from);
     const to = validatePath(p.to);
+    if (settings.safety?.enabled !== false) {
+      const allowCanvas = settings.safety?.allowCanvas ?? false;
+      if (!isSafeToWrite(from, { allowCanvas })) {
+        throw {
+          code: RPC_SAFETY_PATH_BLOCKED,
+          message: "Safety gate rejected: protected path",
+          data: { gate: "path", from, to, rejected: "from" },
+        } as RpcError;
+      }
+      if (!isSafeToWrite(to, { allowCanvas })) {
+        throw {
+          code: RPC_SAFETY_PATH_BLOCKED,
+          message: "Safety gate rejected: protected path",
+          data: { gate: "path", from, to, rejected: "to" },
+        } as RpcError;
+      }
+    }
     if (isDryRun(p, settings))
       return { dryRun: true, action: "rename", from, to, wouldSucceed: bridge.exists(from) && !bridge.exists(to) };
     await safeExec(() => bridge.rename(from, to));
@@ -152,6 +240,14 @@ export function registerHandlers(
 
   server.registerHandler("vault.mkdir", async (p) => {
     const path = validatePath(p.path);
+    if (!isSafeToWrite(path, { allowCanvas: false })) {
+      throw {
+        code: RPC_SAFETY_PATH_BLOCKED,
+        message: "Safety gate rejected mkdir: protected path",
+        data: { gate: "path", path },
+      } as RpcError;
+    }
+    // NOTE: no validateVaultWrite call -- mkdir has no content.
     if (isDryRun(p, settings))
       return { dryRun: true, action: "mkdir", path, wouldSucceed: !bridge.exists(path) };
     await safeExec(() => bridge.mkdir(path));
