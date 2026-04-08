@@ -18,3 +18,13 @@ geo/
 
 # Session-local working notes
 progress.txt
+
+# Test / coverage artifacts
+.coverage
+.pytest_cache/
+htmlcov/
+
+# Benchmark local artifacts
+scripts/bench_cache/
+scripts/bench_results/
+scripts/queries.json

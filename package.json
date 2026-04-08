@@ -29,7 +29,8 @@
   ],
   "scripts": {
     "build": "node esbuild.config.mjs production",
-    "dev": "node esbuild.config.mjs"
+    "dev": "node esbuild.config.mjs",
+    "test": "vitest run"
   },
   "dependencies": {
     "ws": "^8.18.2"
@@ -37,10 +38,11 @@
   "devDependencies": {
     "@types/node": "^22.15.30",
     "@types/ws": "^8.18.1",
-    "typescript": "~5.9.3",
-    "esbuild": "^0.25.5",
     "builtin-modules": "3.3.0",
+    "esbuild": "^0.25.5",
     "obsidian": "latest",
-    "tslib": "2.4.0"
+    "tslib": "2.4.0",
+    "typescript": "~5.9.3",
+    "vitest": "^2.1.9"
   }
 }
