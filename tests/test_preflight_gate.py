@@ -179,3 +179,95 @@ def test_write_tools_content_gated_has_three_entries() -> None:
     assert WRITE_TOOLS_CONTENT_GATED == frozenset({"vault_create", "vault_modify", "vault_append"})
     assert "vault_mkdir" not in WRITE_TOOLS_CONTENT_GATED
     assert "vault_delete" not in WRITE_TOOLS_CONTENT_GATED
+
+
+# ---------- vault_batch sub-op recursion (commit 6) ----------
+
+def make_batch_params(*ops: dict) -> dict:
+    """Helper: build vault_batch params from list of {method, params} dicts."""
+    return {"operations": list(ops)}
+
+
+@pytest.mark.asyncio
+async def test_batch_safe_write_op_passes() -> None:
+    # Batch with one safe vault.create sub-op -> gate passes
+    payload = await gate("vault_batch", make_batch_params(
+        {"method": "vault.create", "params": {"path": "notes/good.md", "content": "# Hi\n"}},
+    ))
+    assert payload is None
+
+
+@pytest.mark.asyncio
+async def test_batch_read_only_ops_pass() -> None:
+    # Batch with only read-only ops -> gate passes entirely
+    payload = await gate("vault_batch", make_batch_params(
+        {"method": "vault.read", "params": {"path": "notes/any.md"}},
+        {"method": "vault.list", "params": {"path": ""}},
+        {"method": "vault.search", "params": {"query": "test"}},
+    ))
+    assert payload is None
+
+
+@pytest.mark.asyncio
+async def test_batch_rejected_vault_create_sub_op() -> None:
+    # Batch with a blocked vault.create sub-op -> whole batch rejected
+    payload = await gate("vault_batch", make_batch_params(
+        {"method": "vault.read", "params": {"path": "notes/any.md"}},
+        {"method": "vault.create", "params": {"path": ".obsidian/evil.json", "content": "{}"}},
+    ))
+    assert is_rejected(payload, "batch_sub_operation_rejected")
+    assert payload["index"] == 1
+    assert payload["method"] == "vault.create"
+    assert "detail" in payload
+    assert payload["detail"]["reason"] == "protected_path"
+
+
+@pytest.mark.asyncio
+async def test_batch_vault_init_sub_op_passes_gate() -> None:
+    # vault.init is absent from reverse_map (ADR Q1 invariant).
+    # As a batch sub-op it should NOT be gated -- gate returns None.
+    payload = await gate("vault_batch", make_batch_params(
+        {"method": "vault.init", "params": {"topic": "test-topic"}},
+    ))
+    assert payload is None
+
+
+@pytest.mark.asyncio
+async def test_batch_vault_mkdir_sub_op_blocked_obsidian() -> None:
+    # vault.mkdir IS in reverse_map (ADR Q2 invariant).
+    # A batch sub-op targeting .obsidian must be rejected.
+    payload = await gate("vault_batch", make_batch_params(
+        {"method": "vault.mkdir", "params": {"path": ".obsidian"}},
+    ))
+    assert is_rejected(payload, "batch_sub_operation_rejected")
+    assert payload["index"] == 0
+    assert payload["method"] == "vault.mkdir"
+    assert payload["detail"]["reason"] == "protected_path"
+
+
+@pytest.mark.asyncio
+async def test_batch_vault_mkdir_sub_op_safe_passes() -> None:
+    # Safe mkdir as batch sub-op -> gate passes
+    payload = await gate("vault_batch", make_batch_params(
+        {"method": "vault.mkdir", "params": {"path": "notes/new-folder"}},
+    ))
+    assert payload is None
+
+
+@pytest.mark.asyncio
+async def test_batch_mixed_read_and_blocked_write() -> None:
+    # Batch: read (ok), safe create (ok), blocked delete (.git) -> rejected at index 2
+    payload = await gate("vault_batch", make_batch_params(
+        {"method": "vault.read", "params": {"path": "notes/a.md"}},
+        {"method": "vault.create", "params": {"path": "notes/good.md", "content": "# Hi\n"}},
+        {"method": "vault.delete", "params": {"path": ".git/config"}},
+    ))
+    assert is_rejected(payload, "batch_sub_operation_rejected")
+    assert payload["index"] == 2
+    assert payload["method"] == "vault.delete"
+
+
+@pytest.mark.asyncio
+async def test_batch_empty_operations_passes() -> None:
+    payload = await gate("vault_batch", {"operations": []})
+    assert payload is None

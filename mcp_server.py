@@ -346,7 +346,48 @@ async def _preflight_write_gate(name: str, params: dict) -> TextContent | None:
                 }, ensure_ascii=False),
             )
 
-    # vault_batch sub-op recursion handled in commit 6 (_preflight_write_gate extension)
+    # vault_batch sub-op recursion:
+    # Walk the operations array and run the single-op gate on each write sub-op.
+    # Fail-fast on first rejection (fail-fast semantics per safety-wiring-proposal Q1).
+    # reverse_map translates vault.* RPC method names to MCP tool names.
+    # vault.init is deliberately ABSENT from reverse_map:
+    #   - It is not in TOOL_MAP (MCP clients cannot call it directly).
+    #   - As a batch sub-op it calls bridge.create/bridge.mkdir directly,
+    #     bypassing the handler-layer gate by construction (ADR Q1 invariant).
+    # vault.mkdir IS present: ADR Q2 decision -- batch sub-ops can reach mkdir
+    #   and must be path-gated.
+    if name == "vault_batch":
+        ops = params.get("operations", [])
+        if not isinstance(ops, list):
+            return None
+        reverse_map = {
+            "vault.create": "vault_create",
+            "vault.modify": "vault_modify",
+            "vault.append": "vault_append",
+            "vault.delete": "vault_delete",
+            "vault.rename": "vault_rename",
+            "vault.mkdir":  "vault_mkdir",   # path-only (no content gate) -- ADR Q2
+        }
+        for i, op in enumerate(ops):
+            if not isinstance(op, dict):
+                continue
+            sub_method = op.get("method", "")
+            sub_params = op.get("params", {}) or {}
+            sub_tool = reverse_map.get(sub_method)
+            if sub_tool is None:
+                continue  # read-only op or vault.init (ADR Q1 bypass)
+            err = await _preflight_write_gate(sub_tool, sub_params)
+            if err is not None:
+                return TextContent(
+                    type="text",
+                    text=json.dumps({
+                        "error": "safety_gate_rejected",
+                        "reason": "batch_sub_operation_rejected",
+                        "index": i,
+                        "method": sub_method,
+                        "detail": json.loads(err.text),
+                    }, ensure_ascii=False),
+                )
 
     return None
 
