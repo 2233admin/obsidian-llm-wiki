@@ -215,7 +215,7 @@ export function registerHandlers(
     for (let i = 0; i < ops.length; i++) {
       const op = ops[i] as { method: string; params?: Record<string, unknown> };
       try {
-        if (!op.method?.startsWith("vault."))
+        if (typeof op.method !== "string" || !op.method.startsWith("vault."))
           throw { code: RPC_INVALID_PARAMS, message: `Batch only supports vault.* methods (index ${i})` };
         if (op.method === "vault.batch")
           throw { code: RPC_INVALID_PARAMS, message: "Recursive batch not allowed" };
