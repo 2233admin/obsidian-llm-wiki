@@ -316,4 +316,25 @@ describe("safety.enabled = false disables all gates", () => {
       expect(r.result).toBeDefined();
     }
   });
+
+  it("vault.mkdir with blocked path succeeds when safety disabled (P2-1 kill-switch regression)", async () => {
+    // Regression test for P2-1 fix in commit 703e8e6:
+    // Before the fix, vault.mkdir was missing the `if (settings.safety?.enabled !== false)`
+    // kill-switch wrapper that every sibling handler already had. Users disabling the
+    // global safety gate would still get mkdir rejections -- a confusing partial-enforcement
+    // failure mode. This test pins the invariant that mkdir respects the kill switch.
+    //
+    // validatePath does NOT block `.obsidian/*` (only traversal markers `..` and `.`),
+    // so the only rejection path is the safety gate. With safety disabled, mkdir should
+    // reach the dry-run branch and report `action: "mkdir"`.
+    const msg = nextMessage(disabledWs);
+    sendRpc(disabledWs, "vault.mkdir", { path: ".obsidian/plugins", dryRun: true }, 61);
+    const r = await msg;
+    // Should NOT get a safety error
+    expect(r.error).toBeUndefined();
+    const result = r.result as Record<string, unknown>;
+    expect(result.dryRun).toBe(true);
+    expect(result.action).toBe("mkdir");
+    expect(result.path).toBe(".obsidian/plugins");
+  });
 });
