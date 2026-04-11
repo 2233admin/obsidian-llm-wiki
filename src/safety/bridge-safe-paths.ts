@@ -2,7 +2,7 @@
  * bridge-safe-paths.ts -- Blocklist of paths that LLMs must never write to.
  *
  * Mirror of vault_safe_paths.py (Python reference implementation).
- * Logic must match byte-for-byte including known TODOs (P2, P3).
+ * Logic must match byte-for-byte with vault_safe_paths.py.
  *
  * DO NOT import the Node `path` module. This file runs in the Obsidian
  * Electron renderer where path.sep is platform-dependent. All path
@@ -95,13 +95,12 @@ export const BLOCKED_DIRECTORIES: ReadonlySet<string> = new Set([
  * PurePosixPath(path).suffix.lower() behavior.
  *
  * Python pathlib: PurePosixPath(".env").suffix == "" (bare dotfile has no suffix).
- * This is the P2 behavior we must preserve.
+ * P2 fix: bare dotfiles are handled separately in isBlockedExtension.
  */
 function _getSuffix(path: string): string {
   const name = path.split("/").pop() ?? "";
   const dotIdx = name.lastIndexOf(".");
-  // If the dot is at index 0 (bare dotfile like ".env"), no suffix -- matches Python P2 behavior.
-  // MATCHES Python vault_safe_paths.py:128-135 P2 TODO
+  // If the dot is at index 0 (bare dotfile like ".env"), no suffix.
   if (dotIdx <= 0) return "";
   return name.slice(dotIdx).toLowerCase();
 }
@@ -142,13 +141,21 @@ function hasPathTraversal(path: string): boolean {
 /**
  * True if the file extension is on the blocklist.
  *
- * Note: bare dotfiles like ".env" have suffix "" (P2 bug preserved from Python).
- * MATCHES Python vault_safe_paths.py:128-135 P2 TODO
+ * P2 fix: bare dotfiles like ".env" have suffix "" from _getSuffix.
+ * Special-case: if the filename starts with "." and has no further ".",
+ * check whether "." + rest is in BLOCKED_EXTENSIONS.
  */
 export function isBlockedExtension(path: string): boolean {
   const normalized = path.replace(/\\/g, "/");
+  const name = normalized.split("/").pop() ?? "";
   const suffix = _getSuffix(normalized);
-  if (!suffix) return false;
+  if (!suffix) {
+    // P2 fix: bare dotfile like ".env" -- check "." + name[1:] in blocklist
+    if (name.startsWith(".") && !name.slice(1).includes(".")) {
+      return BLOCKED_EXTENSIONS.has(("." + name.slice(1)).toLowerCase());
+    }
+    return false;
+  }
   return BLOCKED_EXTENSIONS.has(suffix);
 }
 
@@ -168,9 +175,12 @@ export function isBlockedDirectory(path: string): boolean {
  *
  * @param path - The relative vault path. Forward or back slashes accepted.
  * @param opts.allowCanvas - If true, .canvas files are allowed. Default false.
+ * @param opts.allowExtensionless - If true, extensionless paths are allowed. Default false.
+ *   Used by vault.mkdir (directory names carry no extension by design).
  */
-export function isSafeToWrite(path: string, opts?: { allowCanvas?: boolean }): boolean {
+export function isSafeToWrite(path: string, opts?: { allowCanvas?: boolean; allowExtensionless?: boolean }): boolean {
   const allowCanvas = opts?.allowCanvas ?? false;
+  const allowExtensionless = opts?.allowExtensionless ?? false;
 
   if (!path || !path.trim()) return false;
 
@@ -184,13 +194,13 @@ export function isSafeToWrite(path: string, opts?: { allowCanvas?: boolean }): b
   const suffix = _getSuffix(normalized);
   if (suffix === ".canvas" && !allowCanvas) return false;
 
-  // TODO(P3): the `if suffix` prefix lets extensionless files
-  // (Makefile, README, dotfiles like ".env" -- see isBlockedExtension P2)
-  // fall through and return true. The stated intent is markdown-first,
-  // so unknown OR missing suffixes should both be refused.
-  // Fix direction: drop the `if suffix` prefix, or add an explicit
-  // extensionless branch. Mirrors vault_safe_paths.py:226-232 P3 TODO.
-  if (suffix && !ALLOWED_VAULT_EXTENSIONS.has(suffix)) {
+  // P3 fix: extensionless files (Makefile, README, etc.) are refused.
+  // Bare dotfiles (.env) are already handled by isBlockedExtension above.
+  // allowExtensionless=true exempts vault.mkdir (directory names have no extension).
+  if (!suffix) {
+    return allowExtensionless;
+  }
+  if (!ALLOWED_VAULT_EXTENSIONS.has(suffix)) {
     return false;
   }
   return true;

@@ -125,16 +125,15 @@ BLOCKED_DIRECTORIES: frozenset[str] = frozenset({
 
 def is_blocked_extension(path: str) -> bool:
     """True if the file extension is on the blocklist (Caveman + vault extras)."""
-    # TODO(P2): bare dotfiles like ".env" bypass this check because
-    # PurePosixPath(".env").suffix == "" -- pathlib treats the leading dot
-    # as the stem, not the suffix. So is_safe_to_write(".env") returns True
-    # even though ".env" is in _CAVEMAN_SKIP_EXTENSIONS. Fix direction:
-    # special-case bare dotfile filenames here, or move ".env" out of the
-    # extension blocklist into a filename blocklist. Test
-    # `test_dotenv_filename_reaches_blocklist_via_suffix_only` documents
-    # the current (broken) behavior.
+    name = PurePosixPath(path.replace("\\", "/")).name
     suffix = PurePosixPath(path.replace("\\", "/")).suffix.lower()
+    # P2 fix: bare dotfiles like ".env" have suffix "" in pathlib (leading dot
+    # is treated as the stem, not the extension). Special-case: if the filename
+    # starts with "." and contains no further ".", treat the whole name as a
+    # dotfile key and check whether "." + name[1:] is in the blocklist.
     if not suffix:
+        if name.startswith(".") and "." not in name[1:]:
+            return ("." + name[1:].lower()) in BLOCKED_EXTENSIONS
         return False
     return suffix in BLOCKED_EXTENSIONS
 
@@ -187,7 +186,7 @@ def _has_path_traversal(path: str) -> bool:
     return any(p == ".." for p in parts)
 
 
-def is_safe_to_write(path: str, *, allow_canvas: bool = False) -> bool:
+def is_safe_to_write(path: str, *, allow_canvas: bool = False, allow_extensionless: bool = False) -> bool:
     """Decide if an LLM-driven write to this path is safe.
 
     Args:
@@ -196,6 +195,8 @@ def is_safe_to_write(path: str, *, allow_canvas: bool = False) -> bool:
             because Obsidian Canvas JSON is binary-fragile and one bad
             write can corrupt the entire canvas. Enable only if you
             have a Canvas-aware writer.
+        allow_extensionless: If True, extensionless paths are allowed.
+            Use for vault_mkdir where directory names never have extensions.
 
     Returns:
         True iff the path is safe for LLM-driven write. False otherwise.
@@ -223,14 +224,17 @@ def is_safe_to_write(path: str, *, allow_canvas: bool = False) -> bool:
     suffix = PurePosixPath(normalized).suffix.lower()
     if suffix == ".canvas" and not allow_canvas:
         return False
-    # TODO(P3): the `if suffix` prefix lets extensionless files
-    # (Makefile, README, dotfiles like ".env" -- see is_blocked_extension
-    # P2) fall through and return True. The stated intent of this module
-    # is markdown-first, so unknown OR missing suffixes should both be
-    # refused. Fix direction: drop the `if suffix` prefix, or add an
-    # explicit extensionless branch. Test `test_extensionless_file_refused`
-    # documents the current (broken) behavior.
-    if suffix and suffix not in ALLOWED_VAULT_EXTENSIONS:
+    # P3 fix: extensionless files (Makefile, README, binary blobs) must be
+    # refused. The markdown-first intent means only known-safe extensions pass.
+    # Bare dotfiles (.env) are handled above by is_blocked_extension P2 fix
+    # and will already return False before reaching this point.
+    # allow_extensionless=True is used by vault_mkdir where directory names
+    # never carry file extensions.
+    if not suffix:
+        if allow_extensionless:
+            return True
+        return False
+    if suffix not in ALLOWED_VAULT_EXTENSIONS:
         # Unknown extension -- err on the side of safety.
         return False
     return True

@@ -303,7 +303,9 @@ async def _preflight_write_gate(name: str, params: dict) -> TextContent | None:
         for pth in paths_to_check:
             if not pth:
                 continue
-            if not is_safe_to_write(pth, allow_canvas=False):
+            # vault_mkdir paths are directories -- extensionless names are expected.
+            allow_ext = (name == "vault_mkdir")
+            if not is_safe_to_write(pth, allow_canvas=False, allow_extensionless=allow_ext):
                 return TextContent(
                     type="text",
                     text=json.dumps({
