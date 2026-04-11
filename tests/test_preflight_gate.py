@@ -271,3 +271,50 @@ async def test_batch_mixed_read_and_blocked_write() -> None:
 async def test_batch_empty_operations_passes() -> None:
     payload = await gate("vault_batch", {"operations": []})
     assert payload is None
+
+
+# ---------- Gap #4: vault_mkdir end-to-end via vault_batch ----------
+# vault_mkdir is NOT in TOOL_MAP so it can only be reached via vault_batch.
+# These tests exercise the call_tool -> _handle_batch -> reverse_map path.
+
+@pytest.mark.asyncio
+async def test_call_tool_vault_batch_mkdir_blocked_obsidian_plugins() -> None:
+    # Calling gate with vault_batch containing vault.mkdir to a protected path
+    # must produce a batch_sub_operation_rejected error.
+    payload = await gate("vault_batch", make_batch_params(
+        {"method": "vault.mkdir", "params": {"path": ".obsidian/plugins"}},
+    ))
+    assert is_rejected(payload, "batch_sub_operation_rejected")
+    assert payload["index"] == 0
+    assert payload["method"] == "vault.mkdir"
+    assert payload["detail"]["reason"] == "protected_path"
+    assert payload["detail"]["path"] == ".obsidian/plugins"
+
+
+@pytest.mark.asyncio
+async def test_call_tool_vault_batch_mkdir_safe_path_passes() -> None:
+    # vault.mkdir to a safe directory path must not be blocked.
+    payload = await gate("vault_batch", make_batch_params(
+        {"method": "vault.mkdir", "params": {"path": "notes/subfolder"}},
+    ))
+    assert payload is None
+
+
+# ---------- Gap #5: vault_mkdir does NOT invoke validateVaultWrite ----------
+# vault_mkdir is path-only gated (ADR Q2). The content gate (validateVaultWrite)
+# must never be called for a vault_mkdir preflight check.
+
+@pytest.mark.asyncio
+async def test_vault_mkdir_does_not_call_validate_vault_write() -> None:
+    with patch("mcp_server.validate_vault_write") as mock_validate:
+        payload = await gate("vault_mkdir", {"path": "notes/safe-folder"})
+    assert payload is None
+    mock_validate.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_vault_mkdir_blocked_does_not_call_validate_vault_write() -> None:
+    with patch("mcp_server.validate_vault_write") as mock_validate:
+        payload = await gate("vault_mkdir", {"path": ".obsidian/plugins"})
+    assert is_rejected(payload, "protected_path")
+    mock_validate.assert_not_called()

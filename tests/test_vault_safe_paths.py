@@ -67,22 +67,17 @@ def test_blocked_extensions_are_refused(path: str) -> None:
 
 
 def test_dotenv_filename_reaches_blocklist_via_suffix_only() -> None:
-    # KNOWN QUIRK: ".env" is listed in _CAVEMAN_SKIP_EXTENSIONS but
-    # pathlib treats a filename of literally ".env" as having NO suffix
-    # (leading dot = hidden-file name stem, not an extension). So the
-    # blocklist entry is reachable only via paths whose pathlib suffix
-    # is ".env", e.g. "foo.env". Document the actual behaviour under test.
+    # P2 fix: ".env" is in _CAVEMAN_SKIP_EXTENSIONS. pathlib gives it no
+    # suffix (leading dot = stem, not extension), but is_blocked_extension
+    # now special-cases bare dotfiles and checks "." + name[1:] in the set.
     from pathlib import PurePosixPath
 
     assert PurePosixPath(".env").suffix == ""
     assert PurePosixPath("foo.env").suffix == ".env"
     # "foo.env" is blocked (suffix hits the list).
     assert is_safe_to_write("config/foo.env") is False
-    # Bare ".env" currently falls through the suffix check. The final
-    # guard in is_safe_to_write only refuses on a truthy unknown suffix,
-    # so a file literally called ".env" is NOT refused today.
-    # See source-bug note in the final report.
-    assert is_safe_to_write(".env") is True
+    # Bare ".env" is now correctly blocked after the P2 fix.
+    assert is_safe_to_write(".env") is False
 
 
 @pytest.mark.parametrize(
@@ -199,13 +194,9 @@ def test_unknown_extension_refused() -> None:
 
 
 def test_extensionless_file_refused() -> None:
-    # No suffix -> not in ALLOWED_VAULT_EXTENSIONS -> falls through the
-    # final guard. The final guard only refuses when suffix is truthy,
-    # so an extensionless file currently passes. Document the actual
-    # behaviour of the source under test.
-    # (Note: README for the source says markdown-first; a file with no
-    # extension is legitimately ambiguous. See report for discussion.)
-    assert is_safe_to_write("notes/READMEnoext") is True
+    # P3 fix: extensionless files are now refused. The markdown-first intent
+    # means only known-safe extensions (.md/.txt/etc.) pass.
+    assert is_safe_to_write("notes/READMEnoext") is False
 
 
 # ---------- Canvas gating ----------
@@ -327,3 +318,48 @@ def test_normalize_absolute_still_rejected() -> None:
 def test_normalize_mid_path_dot_segment_accepted() -> None:
     # "notes/./idea.md" -> "notes/idea.md" after dropping bare "." -> safe.
     assert is_safe_to_write("notes/./idea.md") is True
+
+
+# ---------- P2 fix: bare dotfile blocklist ----------
+
+
+def test_bare_dotenv_is_blocked() -> None:
+    assert is_safe_to_write(".env") is False
+
+
+def test_bare_dotenv_nested_is_blocked() -> None:
+    assert is_safe_to_write("notes/.env") is False
+
+
+def test_dotenv_as_suffix_is_blocked() -> None:
+    # "file.env" has suffix ".env" -- still blocked via normal suffix path
+    assert is_safe_to_write("notes/file.env") is False
+
+
+def test_is_blocked_extension_bare_dotenv() -> None:
+    assert is_blocked_extension(".env") is True
+
+
+def test_is_blocked_extension_bare_dotenv_nested() -> None:
+    assert is_blocked_extension("notes/.env") is True
+
+
+def test_bare_dotfile_not_in_blocklist_is_not_blocked_extension() -> None:
+    # ".notblocked" -- starts with dot, no further dot, but "notblocked"
+    # is not in _CAVEMAN_SKIP_EXTENSIONS, so is_blocked_extension is False.
+    assert is_blocked_extension(".notblocked") is False
+
+
+# ---------- P3 fix: extensionless files refused ----------
+
+
+def test_extensionless_makefile_refused() -> None:
+    assert is_safe_to_write("Makefile") is False
+
+
+def test_extensionless_readme_in_subfolder_refused() -> None:
+    assert is_safe_to_write("notes/README") is False
+
+
+def test_extensionless_does_not_affect_md_files() -> None:
+    assert is_safe_to_write("notes/file.md") is True

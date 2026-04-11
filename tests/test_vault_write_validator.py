@@ -251,6 +251,29 @@ def test_heading_skip_h2_to_h4_is_warning() -> None:
     assert any("heading skip" in w.lower() for w in result.warnings)
 
 
+def test_heading_skip_warning_contains_computed_level() -> None:
+    # Fix 5: the second string in the f-string concat was missing the `f`
+    # prefix, so users saw literal "{prev_level + 1}" instead of the number.
+    # After the fix, h1->h3 skip should suggest "h2", not "{prev_level + 1}".
+    text = "# Top\n\n### Deep (skipped h2)\n"
+    result = validate_vault_write(text)
+    assert result.is_valid is True
+    assert result.warnings
+    warning = result.warnings[0]
+    assert "h2" in warning
+    assert "{prev_level + 1}" not in warning
+
+
+def test_heading_skip_h2_to_h4_warning_suggests_h3() -> None:
+    # h2->h4 skip: suggestion should say "h3"
+    text = "## Section\n\n#### SubSub\n"
+    result = validate_vault_write(text)
+    assert result.warnings
+    warning = result.warnings[0]
+    assert "h3" in warning
+    assert "{prev_level + 1}" not in warning
+
+
 # ---------- validate_vault_write: URL preservation ----------
 
 

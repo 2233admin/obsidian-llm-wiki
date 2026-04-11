@@ -338,3 +338,212 @@ describe("safety.enabled = false disables all gates", () => {
     expect(result.path).toBe(".obsidian/plugins");
   });
 });
+
+
+// ---------- allowCanvas propagation across write handlers ----------
+
+describe("allowCanvas propagation across write handlers", () => {
+  const CANVAS_PATH = "notes/test.canvas";
+
+  describe("vault.create", () => {
+    it("blocks .canvas when allowCanvas is false (default)", async () => {
+      const msg = nextMessage(ws);
+      sendRpc(ws, "vault.create", {
+        path: CANVAS_PATH,
+        content: "{}",
+        dryRun: true,
+      }, 100);
+      const r = await msg;
+      expect(r.error).toBeDefined();
+      expect((r.error as Record<string, unknown>).code).toBe(RPC_SAFETY_PATH_BLOCKED);
+    });
+
+    it("allows .canvas when allowCanvas is true", async () => {
+      let canvasServer: WsServer;
+      let canvasPort: number;
+      let canvasWs: WebSocket;
+      ({ server: canvasServer, port: canvasPort } = await startServer({ allowCanvas: true }));
+      canvasWs = connect(canvasPort);
+      await new Promise<void>((res) => canvasWs.once("open", () => res()));
+      const auth = nextMessage(canvasWs);
+      sendRpc(canvasWs, "authenticate", { token: TOKEN }, 0);
+      await auth;
+
+      const msg = nextMessage(canvasWs);
+      sendRpc(canvasWs, "vault.create", { path: CANVAS_PATH, content: "{}", dryRun: true }, 101);
+      const r = await msg;
+      canvasWs.close();
+      canvasServer.stop();
+      if (r.error) {
+        expect((r.error as Record<string, unknown>).code).not.toBe(RPC_SAFETY_PATH_BLOCKED);
+      } else {
+        expect(r.result).toBeDefined();
+      }
+    });
+  });
+
+  describe("vault.modify", () => {
+    it("blocks .canvas when allowCanvas is false (default)", async () => {
+      const msg = nextMessage(ws);
+      sendRpc(ws, "vault.modify", { path: CANVAS_PATH, content: "{}", dryRun: true }, 110);
+      const r = await msg;
+      expect(r.error).toBeDefined();
+      expect((r.error as Record<string, unknown>).code).toBe(RPC_SAFETY_PATH_BLOCKED);
+    });
+
+    it("allows .canvas when allowCanvas is true", async () => {
+      let canvasServer: WsServer;
+      let canvasPort: number;
+      let canvasWs: WebSocket;
+      ({ server: canvasServer, port: canvasPort } = await startServer({ allowCanvas: true }));
+      canvasWs = connect(canvasPort);
+      await new Promise<void>((res) => canvasWs.once("open", () => res()));
+      const auth = nextMessage(canvasWs);
+      sendRpc(canvasWs, "authenticate", { token: TOKEN }, 0);
+      await auth;
+
+      const msg = nextMessage(canvasWs);
+      sendRpc(canvasWs, "vault.modify", { path: CANVAS_PATH, content: "{}", dryRun: true }, 111);
+      const r = await msg;
+      canvasWs.close();
+      canvasServer.stop();
+      if (r.error) {
+        expect((r.error as Record<string, unknown>).code).not.toBe(RPC_SAFETY_PATH_BLOCKED);
+      } else {
+        expect(r.result).toBeDefined();
+      }
+    });
+  });
+
+  describe("vault.append", () => {
+    it("blocks .canvas when allowCanvas is false (default)", async () => {
+      const msg = nextMessage(ws);
+      sendRpc(ws, "vault.append", { path: CANVAS_PATH, content: "{}", dryRun: true }, 120);
+      const r = await msg;
+      expect(r.error).toBeDefined();
+      expect((r.error as Record<string, unknown>).code).toBe(RPC_SAFETY_PATH_BLOCKED);
+    });
+
+    it("allows .canvas when allowCanvas is true", async () => {
+      let canvasServer: WsServer;
+      let canvasPort: number;
+      let canvasWs: WebSocket;
+      ({ server: canvasServer, port: canvasPort } = await startServer({ allowCanvas: true }));
+      canvasWs = connect(canvasPort);
+      await new Promise<void>((res) => canvasWs.once("open", () => res()));
+      const auth = nextMessage(canvasWs);
+      sendRpc(canvasWs, "authenticate", { token: TOKEN }, 0);
+      await auth;
+
+      const msg = nextMessage(canvasWs);
+      sendRpc(canvasWs, "vault.append", { path: CANVAS_PATH, content: "{}", dryRun: true }, 121);
+      const r = await msg;
+      canvasWs.close();
+      canvasServer.stop();
+      if (r.error) {
+        expect((r.error as Record<string, unknown>).code).not.toBe(RPC_SAFETY_PATH_BLOCKED);
+      } else {
+        expect(r.result).toBeDefined();
+      }
+    });
+  });
+
+  describe("vault.delete", () => {
+    it("blocks .canvas when allowCanvas is false (default)", async () => {
+      const msg = nextMessage(ws);
+      sendRpc(ws, "vault.delete", { path: CANVAS_PATH, dryRun: true }, 130);
+      const r = await msg;
+      expect(r.error).toBeDefined();
+      expect((r.error as Record<string, unknown>).code).toBe(RPC_SAFETY_PATH_BLOCKED);
+    });
+
+    it("allows .canvas when allowCanvas is true", async () => {
+      let canvasServer: WsServer;
+      let canvasPort: number;
+      let canvasWs: WebSocket;
+      ({ server: canvasServer, port: canvasPort } = await startServer({ allowCanvas: true }));
+      canvasWs = connect(canvasPort);
+      await new Promise<void>((res) => canvasWs.once("open", () => res()));
+      const auth = nextMessage(canvasWs);
+      sendRpc(canvasWs, "authenticate", { token: TOKEN }, 0);
+      await auth;
+
+      const msg = nextMessage(canvasWs);
+      sendRpc(canvasWs, "vault.delete", { path: CANVAS_PATH, dryRun: true }, 131);
+      const r = await msg;
+      canvasWs.close();
+      canvasServer.stop();
+      if (r.error) {
+        expect((r.error as Record<string, unknown>).code).not.toBe(RPC_SAFETY_PATH_BLOCKED);
+      } else {
+        expect(r.result).toBeDefined();
+      }
+    });
+  });
+
+  describe("vault.rename", () => {
+    it("blocks .canvas destination when allowCanvas is false (default)", async () => {
+      const msg = nextMessage(ws);
+      sendRpc(ws, "vault.rename", { from: "notes/existing.md", to: CANVAS_PATH, dryRun: true }, 140);
+      const r = await msg;
+      expect(r.error).toBeDefined();
+      expect((r.error as Record<string, unknown>).code).toBe(RPC_SAFETY_PATH_BLOCKED);
+    });
+
+    it("allows .canvas destination when allowCanvas is true", async () => {
+      let canvasServer: WsServer;
+      let canvasPort: number;
+      let canvasWs: WebSocket;
+      ({ server: canvasServer, port: canvasPort } = await startServer({ allowCanvas: true }));
+      canvasWs = connect(canvasPort);
+      await new Promise<void>((res) => canvasWs.once("open", () => res()));
+      const auth = nextMessage(canvasWs);
+      sendRpc(canvasWs, "authenticate", { token: TOKEN }, 0);
+      await auth;
+
+      const msg = nextMessage(canvasWs);
+      sendRpc(canvasWs, "vault.rename", { from: "notes/existing.md", to: CANVAS_PATH, dryRun: true }, 141);
+      const r = await msg;
+      canvasWs.close();
+      canvasServer.stop();
+      if (r.error) {
+        expect((r.error as Record<string, unknown>).code).not.toBe(RPC_SAFETY_PATH_BLOCKED);
+      } else {
+        expect(r.result).toBeDefined();
+      }
+    });
+  });
+
+  describe("vault.mkdir", () => {
+    it("blocks .canvas-suffixed dir when allowCanvas is false (default)", async () => {
+      const msg = nextMessage(ws);
+      sendRpc(ws, "vault.mkdir", { path: "notes/board.canvas", dryRun: true }, 150);
+      const r = await msg;
+      expect(r.error).toBeDefined();
+      expect((r.error as Record<string, unknown>).code).toBe(RPC_SAFETY_PATH_BLOCKED);
+    });
+
+    it("allows .canvas-suffixed dir when allowCanvas is true", async () => {
+      let canvasServer: WsServer;
+      let canvasPort: number;
+      let canvasWs: WebSocket;
+      ({ server: canvasServer, port: canvasPort } = await startServer({ allowCanvas: true }));
+      canvasWs = connect(canvasPort);
+      await new Promise<void>((res) => canvasWs.once("open", () => res()));
+      const auth = nextMessage(canvasWs);
+      sendRpc(canvasWs, "authenticate", { token: TOKEN }, 0);
+      await auth;
+
+      const msg = nextMessage(canvasWs);
+      sendRpc(canvasWs, "vault.mkdir", { path: "notes/board.canvas", dryRun: true }, 151);
+      const r = await msg;
+      canvasWs.close();
+      canvasServer.stop();
+      if (r.error) {
+        expect((r.error as Record<string, unknown>).code).not.toBe(RPC_SAFETY_PATH_BLOCKED);
+      } else {
+        expect(r.result).toBeDefined();
+      }
+    });
+  });
+});

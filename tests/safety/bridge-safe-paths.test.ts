@@ -71,12 +71,10 @@ describe("blocked extensions are refused", () => {
   }
 });
 
-it("dotenv P2 bug preserved: bare .env passes (suffix is empty)", () => {
-  // KNOWN QUIRK: ".env" listed in blocklist but bare dotfile has empty suffix.
-  // Python PurePosixPath(".env").suffix == "" -- we match this behavior.
-  // MATCHES Python vault_safe_paths.py:128-135 P2 TODO
-  expect(isSafeToWrite(".env")).toBe(true);
-  // "foo.env" is blocked (suffix ".env" hits the list)
+it("dotenv P2 fixed: bare .env blocked (bare-dotfile special-case)", () => {
+  // P2 fix: isBlockedExtension now special-cases bare dotfiles.
+  expect(isSafeToWrite(".env")).toBe(false);
+  // "foo.env" is also blocked (suffix ".env" hits the list)
   expect(isSafeToWrite("config/foo.env")).toBe(false);
 });
 
@@ -181,10 +179,9 @@ it("refuses unknown extension .xyz", () => {
   expect(isSafeToWrite("notes/weird.xyz")).toBe(false);
 });
 
-it("extensionless file passes (P3 bug preserved)", () => {
-  // P3 TODO: extensionless files fall through `if suffix` guard -> true
-  // Matches Python vault_safe_paths.py:226-232 P3 TODO (current broken behavior)
-  expect(isSafeToWrite("notes/READMEnoext")).toBe(true);
+it("extensionless file blocked (P3 fixed)", () => {
+  // P3 fix: extensionless files are now refused.
+  expect(isSafeToWrite("notes/READMEnoext")).toBe(false);
 });
 
 
