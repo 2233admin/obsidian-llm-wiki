@@ -59,7 +59,7 @@ Expected: JSON response with your user ID and username.
 ### Step 4: Run first sync
 
 ```bash
-cd D:/projects/vault-mind
+cd <VAULT_MIND_DIR>
 node --loader ts-node/esm recipes/collectors/x-collector.ts
 ```
 

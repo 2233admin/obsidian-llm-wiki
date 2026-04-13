@@ -189,7 +189,7 @@ export function getRecipeStatus(recipe: Recipe): RecipeStatus {
 
 /**
  * Run a health check command and return { ok, output }.
- * Uses execSync with 10s timeout, captures stdout+stderr.
+ * Uses execFileSync with explicit bash/sh, 10s timeout, captures stdout+stderr.
  */
 export function runHealthCheck(command: string): { ok: boolean; output: string } {
   // Health check commands come from shipped recipe files (trusted authors).
