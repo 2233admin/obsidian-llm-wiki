@@ -6,11 +6,20 @@ import type { Recipe } from './_types.js';
 
 const DEFAULT_RECIPES_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'recipes');
 
+let _cache: Recipe[] | null = null;
+
+/** Invalidate the scan cache (useful in tests or after recipe hot-reload). */
+export function resetRecipeCache(): void {
+  _cache = null;
+}
+
 /**
  * Scan the recipes/ directory for all .md files (excluding _ prefixed files).
- * Returns parsed Recipe objects.
+ * Results are cached for the lifetime of the process. Pass recipesDir to
+ * bypass the cache (used in tests).
  */
 export function scanRecipes(recipesDir?: string): Recipe[] {
+  if (!recipesDir && _cache) return _cache;
   const dir = recipesDir ?? DEFAULT_RECIPES_DIR;
   if (!existsSync(dir)) return [];
 
@@ -31,6 +40,7 @@ export function scanRecipes(recipesDir?: string): Recipe[] {
     }
   }
 
+  if (!recipesDir) _cache = recipes;
   return recipes;
 }
 
