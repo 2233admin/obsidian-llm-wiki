@@ -272,7 +272,7 @@ export const operations: Operation[] = [
     name: 'recipe.doctor',
     namespace: 'recipe',
     description: 'Full diagnostic: secrets + health checks for a recipe',
-    mutating: false,
+    mutating: true,
     params: {
       id: { type: 'string', required: true, description: 'Recipe id' },
     },

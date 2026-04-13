@@ -27,7 +27,7 @@ secrets:
     description: Twitter API v2 Bearer token
     where: https://developer.x.com/portal
 health_checks:
-  - "curl -sf -H 'Authorization: Bearer $X_BEARER_TOKEN' 'https://api.x.com/2/users/me' && echo OK"
+  - command: 'curl -sf -H "Authorization: Bearer $X_BEARER_TOKEN" "https://api.x.com/2/users/me" && echo OK'
 setup_time: 15 min
 cost_estimate: "$0 (read-only free tier)"
 ---
