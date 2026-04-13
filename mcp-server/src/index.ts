@@ -723,6 +723,19 @@ async function main(): Promise<void> {
     python,
   });
 
+  // Wire Obsidian file events into compile trigger (when Obsidian is running)
+  const obsidianAdapter = registry.get("obsidian");
+  if (obsidianAdapter?.isAvailable && typeof obsidianAdapter.onFileChange === "function") {
+    obsidianAdapter.onFileChange((e) => {
+      if (e.type === "create" || e.type === "modify") {
+        compileTrigger.onFileChange(e.path, e.type);
+      }
+    });
+  }
+
+  // Populate dirty set from kb_meta diff (files changed while server was offline)
+  await compileTrigger.loadInitialDirty();
+
   // --- Dispatchers ---
   const vaultFs = new VaultFs(config.vault_path);
   const queryDispatch = makeQueryDispatch(registry, config.adapter_weights);

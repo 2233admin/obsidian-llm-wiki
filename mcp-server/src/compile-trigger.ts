@@ -7,6 +7,7 @@
  */
 
 import { execFile } from "node:child_process";
+import { readdirSync, existsSync } from "node:fs";
 import { promisify } from "node:util";
 import { resolve } from "node:path";
 
@@ -127,6 +128,49 @@ export class CompileTrigger {
       lastResult: this.lastResult,
       autoCompile: this.autoCompile,
     };
+  }
+
+  /**
+   * Scan vault topics on startup using kb_meta.py diff.
+   * Populates dirty set with files that changed while the server was offline.
+   */
+  async loadInitialDirty(): Promise<void> {
+    if (!this.vaultPath) return;
+    const kbMeta = resolve(this.compilerPath, "kb_meta.py");
+    if (!existsSync(kbMeta)) return;
+
+    let topics: string[];
+    try {
+      topics = readdirSync(this.vaultPath, { withFileTypes: true })
+        .filter((d) => d.isDirectory() && existsSync(resolve(this.vaultPath, d.name, "_meta.json")))
+        .map((d) => d.name);
+    } catch {
+      return;
+    }
+
+    for (const topic of topics) {
+      try {
+        const { stdout } = await exec(this.python, [kbMeta, "diff", this.vaultPath, topic], {
+          timeout: 10_000,
+          maxBuffer: 1024 * 1024,
+          env: { ...process.env },
+        });
+        const result = JSON.parse(stdout) as { new?: string[]; changed?: string[] };
+        const dirty = [...(result.new ?? []), ...(result.changed ?? [])];
+        for (const f of dirty) {
+          if (f.endsWith(".md") && !f.includes("/wiki/")) {
+            this.dirty.add(`${topic}/${f}`);
+          }
+        }
+        if (dirty.length > 0) {
+          process.stderr.write(
+            `vault-mind: [compile] startup: ${dirty.length} dirty in "${topic}"\n`,
+          );
+        }
+      } catch {
+        // No meta or diff failed -- topic is clean, skip
+      }
+    }
   }
 
   /** Abort: just resets running flag (compile.py subprocess isn't killable cleanly). */
