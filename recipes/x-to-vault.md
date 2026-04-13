@@ -2,15 +2,14 @@
 id: x-to-vault
 name: X-to-Vault
 version: 0.1.0
-description: Twitter/X timeline + mentions → vault research notes
+description: Twitter/X timeline + mentions -> vault research notes
 category: sense
-requires: []
 secrets:
   - name: X_BEARER_TOKEN
     description: Twitter API v2 Bearer token (read-only)
     where: https://developer.x.com/portal/projects-and-apps
 health_checks:
-  - command: "curl -sf -H 'Authorization: Bearer $X_BEARER_TOKEN' 'https://api.x.com/2/users/me' && echo OK"
+  - command: 'curl -sf -H "Authorization: Bearer $X_BEARER_TOKEN" "https://api.x.com/2/users/me" && echo OK'
 setup_time: 15 min
 cost_estimate: "$0 (read-only free tier, 1500 tweets/month)"
 ---
@@ -73,10 +72,10 @@ bun run recipes/collectors/x-collector.ts
 
 ```
 # Every 30 minutes
-*/30 * * * * cd D:/projects/vault-mind && bun run recipes/collectors/x-collector.ts >> ~/.vault-mind/recipes/x-to-vault/cron.log 2>&1
+*/30 * * * * cd <VAULT_MIND_DIR> && bun run recipes/collectors/x-collector.ts >> ~/.vault-mind/recipes/x-to-vault/cron.log 2>&1
 
 # Compile digest -> vault 3x/day
-0 8,14,22 * * * cd D:/projects/vault-mind && python mcp-server/kb_meta.py compile 04-Research/x-digest --tier haiku >> ~/.vault-mind/recipes/x-to-vault/compile.log 2>&1
+0 8,14,22 * * * cd <VAULT_MIND_DIR> && python mcp-server/kb_meta.py compile 04-Research/x-digest --tier haiku >> ~/.vault-mind/recipes/x-to-vault/compile.log 2>&1
 ```
 
 ## Rate limits
