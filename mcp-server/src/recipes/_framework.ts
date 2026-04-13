@@ -139,6 +139,11 @@ export function parseRecipe(filePath: string): Recipe {
     }
   }
 
+  // Coerce numeric version to string (e.g. YAML `version: 1` -> "1")
+  if (typeof raw.version === 'number') {
+    raw.version = String(raw.version);
+  }
+
   // Structural validation for optional array fields
   if (raw.secrets != null && !Array.isArray(raw.secrets)) {
     throw new Error(`Recipe '${filePath}': 'secrets' must be an array, got ${typeof raw.secrets}`);
@@ -152,6 +157,30 @@ export function parseRecipe(filePath: string): Recipe {
       raw.requires = [];
     } else {
       throw new Error(`Recipe '${filePath}': 'requires' must be an array, got ${typeof raw.requires}`);
+    }
+  }
+
+  // Category enum validation
+  const validCategories: string[] = ['infra', 'sense', 'reflex'];
+  if (!validCategories.includes(raw.category as string)) {
+    throw new Error(`Recipe '${filePath}': invalid category '${raw.category}', expected infra|sense|reflex`);
+  }
+
+  // Per-item shape validation for secrets array
+  if (Array.isArray(raw.secrets)) {
+    for (const s of raw.secrets as Array<Record<string, unknown>>) {
+      if (typeof s.name !== 'string') {
+        throw new Error(`Recipe '${filePath}': each secret must have a 'name' string field`);
+      }
+    }
+  }
+
+  // Per-item shape validation for health_checks array
+  if (Array.isArray(raw.health_checks)) {
+    for (const hc of raw.health_checks as Array<Record<string, unknown>>) {
+      if (typeof hc.command !== 'string') {
+        throw new Error(`Recipe '${filePath}': each health_check must have a 'command' string field`);
+      }
     }
   }
 

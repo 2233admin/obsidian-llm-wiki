@@ -249,8 +249,10 @@ export const operations: Operation[] = [
       id: { type: 'string', required: true, description: 'Recipe id (e.g. x-to-vault)' },
     },
     handler: async (_ctx, params) => {
-      const recipe = findRecipe(params.id as string);
-      if (!recipe) throw new Error(`Recipe not found: ${params.id}`);
+      const id = params.id;
+      if (typeof id !== 'string' || id === '') throw new Error('Missing required param: id');
+      const recipe = findRecipe(id);
+      if (!recipe) throw new Error(`Recipe not found: ${id}`);
       return { frontmatter: recipe.frontmatter, body: recipe.body };
     },
   },
@@ -263,8 +265,10 @@ export const operations: Operation[] = [
       id: { type: 'string', required: true, description: 'Recipe id' },
     },
     handler: async (_ctx, params) => {
-      const recipe = findRecipe(params.id as string);
-      if (!recipe) throw new Error(`Recipe not found: ${params.id}`);
+      const id = params.id;
+      if (typeof id !== 'string' || id === '') throw new Error('Missing required param: id');
+      const recipe = findRecipe(id);
+      if (!recipe) throw new Error(`Recipe not found: ${id}`);
       return getRecipeStatus(recipe);
     },
   },
@@ -272,13 +276,15 @@ export const operations: Operation[] = [
     name: 'recipe.doctor',
     namespace: 'recipe',
     description: 'Full diagnostic: secrets + health checks for a recipe',
-    mutating: true,
+    mutating: false, // diagnostic only — heartbeat write is non-vault, not dryRun-gated
     params: {
       id: { type: 'string', required: true, description: 'Recipe id' },
     },
     handler: async (_ctx, params) => {
-      const recipe = findRecipe(params.id as string);
-      if (!recipe) throw new Error(`Recipe not found: ${params.id}`);
+      const id = params.id;
+      if (typeof id !== 'string' || id === '') throw new Error('Missing required param: id');
+      const recipe = findRecipe(id);
+      if (!recipe) throw new Error(`Recipe not found: ${id}`);
       const status = getRecipeStatus(recipe);
       const checks: Array<{ command: string; ok: boolean; output: string }> = [];
       for (const hc of recipe.frontmatter.health_checks ?? []) {
