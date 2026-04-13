@@ -23,6 +23,8 @@ import { AdapterRegistry } from "./adapters/registry.js";
 import { unifiedQuery } from "./unified-query.js";
 import { CompileTrigger } from "./compile-trigger.js";
 import type { VaultMindAdapter } from "./adapters/interface.js";
+import { operations } from "./core/operations.js";
+import type { OperationContext, Logger, VaultBackend } from "./core/types.js";
 
 const exec = promisify(execFile);
 
@@ -481,6 +483,10 @@ class VaultFs {
         throw err(-32601, `Unknown method: ${method}`);
     }
   }
+
+  async execute(method: string, params: Record<string, unknown>): Promise<unknown> {
+    return this.dispatch(method, params);
+  }
 }
 
 // Stub namespaces
@@ -738,6 +744,23 @@ async function main(): Promise<void> {
 
   // --- Dispatchers ---
   const vaultFs = new VaultFs(config.vault_path);
+
+  const stderrLogger: Logger = {
+    info: (msg) => process.stderr.write(`[INFO] ${msg}\n`),
+    warn: (msg) => process.stderr.write(`[WARN] ${msg}\n`),
+    error: (msg) => process.stderr.write(`[ERROR] ${msg}\n`),
+  };
+
+  const vaultOps = operations.filter(op => op.namespace === 'vault');
+
+  const ctx: OperationContext = {
+    vault: vaultFs as unknown as VaultBackend,
+    adapters: registry,
+    config,
+    logger: stderrLogger,
+    dryRun: false,
+  };
+
   const queryDispatch = makeQueryDispatch(registry, config.adapter_weights);
   const compileDispatch = makeCompileDispatch(compileTrigger);
   const agentDispatch = makeAgentDispatch(
@@ -753,7 +776,30 @@ async function main(): Promise<void> {
   );
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
-    return { tools: getToolDefinitions() };
+    // vault.* tools auto-generated from operations[]
+    const vaultToolDefs = vaultOps.map(op => ({
+      name: op.name,
+      description: op.description,
+      inputSchema: {
+        type: 'object' as const,
+        properties: Object.fromEntries(
+          Object.entries(op.params).map(([k, v]) => [k, {
+            type: v.type,
+            description: v.description,
+            ...(v.default !== undefined ? { default: v.default } : {}),
+            ...(v.enum ? { enum: v.enum } : {}),
+          }])
+        ),
+        required: Object.entries(op.params)
+          .filter(([, v]) => v.required)
+          .map(([k]) => k),
+      },
+    }));
+
+    // compile/query/agent tool defs stay hardcoded
+    const otherToolDefs = getToolDefinitions().filter(t => !t.name.startsWith('vault.'));
+
+    return { tools: [...vaultToolDefs, ...otherToolDefs] };
   });
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
@@ -770,12 +816,14 @@ async function main(): Promise<void> {
     try {
       let result: unknown;
       if (toolName.startsWith("vault.")) {
-        result = vaultFs.dispatch(toolName, toolArgs);
-        // Hook write ops into compile trigger
+        const op = vaultOps.find(o => o.name === toolName);
+        if (!op) throw err(-32601, `Unknown vault tool: ${toolName}`);
+        result = await op.handler(ctx, toolArgs);
+        // Hook write ops into compile trigger (preserve existing behavior)
         if (toolName === "vault.create" || toolName === "vault.modify" || toolName === "vault.append") {
-          const path = toolArgs.path as string;
-          if (path && toolArgs.dryRun === false) {
-            compileTrigger.onFileChange(path, toolName === "vault.create" ? "create" : "modify");
+          const p = toolArgs.path as string;
+          if (p && toolArgs.dryRun === false) {
+            compileTrigger.onFileChange(p, toolName === "vault.create" ? "create" : "modify");
           }
         }
       } else if (toolName.startsWith("compile.")) {
