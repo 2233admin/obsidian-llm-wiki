@@ -29,8 +29,8 @@ export interface Operation {
 }
 
 export interface OperationContext {
-  vault: VaultBackend;
-  adapters: unknown;   // AdapterRegistry -- typed as unknown to avoid circular import
+  vault: VaultExecutor;
+  adapters: unknown | null;   // AdapterRegistry -- not imported here to avoid circular dep
   config: VaultMindConfig;
   logger: Logger;
   dryRun: boolean;
@@ -106,6 +106,11 @@ export interface VaultBackend {
   graph(): Promise<GraphData>;
   backlinks(path: string): Promise<BacklinkResult[]>;
   // Generic dispatch for vault.* methods not covered by typed methods above
+  execute(method: string, params: Record<string, unknown>): Promise<unknown>;
+}
+
+/** Narrow interface for OperationContext.vault — only execute() is required by operation handlers. */
+export interface VaultExecutor {
   execute(method: string, params: Record<string, unknown>): Promise<unknown>;
 }
 

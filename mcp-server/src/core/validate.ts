@@ -1,5 +1,13 @@
 import type { ParamDef } from './types.js';
 
+/** ReDoS guard: reject regex patterns with nested quantifiers or overlapping alternation. */
+export function rejectDangerousRegex(pattern: string): void {
+  if (/(\([^)]*[+*}]\s*\))[+*{]/.test(pattern))
+    throw new ValidationError('regex rejected: nested quantifiers (ReDoS risk)');
+  if (/\([^)]*\|[^)]*\)[+*{]/.test(pattern) && /(\w)\|.*\1/.test(pattern))
+    throw new ValidationError('regex rejected: overlapping alternation (ReDoS risk)');
+}
+
 export class ValidationError extends Error {
   code = -32602;
   constructor(message: string) {

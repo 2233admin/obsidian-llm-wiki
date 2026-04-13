@@ -5,7 +5,8 @@ import path from 'node:path';
 import { operations } from '../core/operations.js';
 import { WsTransport } from './ws-transport.js';
 import { FsTransport } from './fs-transport.js';
-import type { OperationContext, Logger, VaultBackend } from '../core/types.js';
+import type { OperationContext, Logger, VaultExecutor } from '../core/types.js';
+import { validateParams } from '../core/validate.js';
 
 const PORT_FILE = path.join(os.homedir(), '.obsidian-ws-port');
 const VERSION = '0.3.0';
@@ -56,9 +57,7 @@ async function main(): Promise<void> {
   const vaultPath = transport instanceof FsTransport ? transport.vaultPath : (info?.vault ?? '');
 
   const ctx: OperationContext = {
-    // SAFETY: Only .execute() is called through ctx.vault in all operations[] handlers.
-    // Typed methods (read, write, etc.) are not called directly. TODO: narrow to ConnectorBackend interface.
-    vault: transport as unknown as VaultBackend,
+    vault: transport as VaultExecutor,
     adapters: null,
     config: { vault_path: vaultPath },
     logger,
@@ -133,7 +132,8 @@ async function main(): Promise<void> {
         }
 
         try {
-          const result = await op.handler(ctx, toolArgs);
+          const validatedArgs = validateParams(op.params, toolArgs as Record<string, unknown>);
+          const result = await op.handler(ctx, validatedArgs);
           write({
             jsonrpc: '2.0', id, result: {
               content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],

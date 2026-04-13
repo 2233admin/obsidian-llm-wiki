@@ -24,20 +24,12 @@ import { unifiedQuery } from "./unified-query.js";
 import { CompileTrigger } from "./compile-trigger.js";
 import type { VaultMindAdapter } from "./adapters/interface.js";
 import { operations } from "./core/operations.js";
-import type { OperationContext, Logger, VaultBackend } from "./core/types.js";
+import type { OperationContext, Logger, VaultExecutor, VaultMindConfig } from "./core/types.js";
+import { validateParams, rejectDangerousRegex } from "./core/validate.js";
 
 const exec = promisify(execFile);
 
 // Config
-
-interface VaultMindConfig {
-  vault_path: string;
-  auth_token?: string;
-  adapters?: string[];
-  /** Per-adapter score weight multipliers, e.g. { obsidian: 1.2, filesystem: 0.8 } */
-  adapter_weights?: Record<string, number>;
-  config_path?: string;
-}
 
 function loadConfig(): VaultMindConfig {
   const candidates = [
@@ -286,6 +278,7 @@ class VaultFs {
         const max = (p.maxResults as number) || 50;
         let total = 0;
         const flags = p.caseSensitive ? "g" : "gi";
+        if (p.regex) rejectDangerousRegex(p.query as string);
         const escaped = p.regex
           ? (p.query as string)
           : (p.query as string).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -346,7 +339,10 @@ class VaultFs {
             case "lte": match = typeof v === "number" && typeof p.value === "number" && v <= p.value; break;
             case "contains": match = typeof v === "string" && typeof p.value === "string" && v.includes(p.value); break;
             case "regex":
-              try { match = typeof v === "string" && typeof p.value === "string" && new RegExp(p.value).test(v); }
+              try {
+                if (typeof p.value === "string") rejectDangerousRegex(p.value);
+                match = typeof v === "string" && typeof p.value === "string" && new RegExp(p.value).test(v);
+              }
               catch { match = false; }
               break;
           }
@@ -710,22 +706,6 @@ function makeAgentDispatch(
 
 function getToolDefinitions() {
   return [
-    { name: "vault.read", description: "Read a note", inputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } },
-    { name: "vault.create", description: "Create a new note (dry-run default)", inputSchema: { type: "object", properties: { path: { type: "string" }, content: { type: "string" }, dryRun: { type: "boolean", default: true } }, required: ["path"] } },
-    { name: "vault.modify", description: "Overwrite an existing note", inputSchema: { type: "object", properties: { path: { type: "string" }, content: { type: "string" }, dryRun: { type: "boolean", default: true } }, required: ["path", "content"] } },
-    { name: "vault.append", description: "Append content to a note", inputSchema: { type: "object", properties: { path: { type: "string" }, content: { type: "string" }, dryRun: { type: "boolean", default: true } }, required: ["path", "content"] } },
-    { name: "vault.delete", description: "Delete a note or folder", inputSchema: { type: "object", properties: { path: { type: "string" }, dryRun: { type: "boolean", default: true } }, required: ["path"] } },
-    { name: "vault.rename", description: "Rename or move a file", inputSchema: { type: "object", properties: { from: { type: "string" }, to: { type: "string" }, dryRun: { type: "boolean", default: true } }, required: ["from", "to"] } },
-    { name: "vault.search", description: "Fulltext search across vault", inputSchema: { type: "object", properties: { query: { type: "string" }, regex: { type: "boolean" }, caseSensitive: { type: "boolean" }, maxResults: { type: "integer", default: 50 }, glob: { type: "string" } }, required: ["query"] } },
-    { name: "vault.searchByTag", description: "Find notes with a given tag", inputSchema: { type: "object", properties: { tag: { type: "string" } }, required: ["tag"] } },
-    { name: "vault.searchByFrontmatter", description: "Find notes by frontmatter key-value", inputSchema: { type: "object", properties: { key: { type: "string" }, value: {}, op: { type: "string", default: "eq" } }, required: ["key"] } },
-    { name: "vault.graph", description: "Get the link graph of the vault", inputSchema: { type: "object", properties: { type: { type: "string", default: "both" } } } },
-    { name: "vault.backlinks", description: "Find notes that link to a note", inputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } },
-    { name: "vault.batch", description: "Execute multiple vault operations", inputSchema: { type: "object", properties: { operations: { type: "array" }, dryRun: { type: "boolean" } }, required: ["operations"] } },
-    { name: "vault.lint", description: "Check vault health", inputSchema: { type: "object", properties: { requiredFrontmatter: { type: "array", items: { type: "string" } } } } },
-    { name: "vault.list", description: "List files and folders", inputSchema: { type: "object", properties: { path: { type: "string", default: "" } } } },
-    { name: "vault.stat", description: "Get file or folder metadata", inputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } },
-    { name: "vault.exists", description: "Check if a path exists", inputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } },
     { name: "compile.status", description: "Get compilation status", inputSchema: { type: "object", properties: {} } },
     { name: "compile.run", description: "Run compilation", inputSchema: { type: "object", properties: { topic: { type: "string" } } } },
     { name: "compile.diff", description: "Show compilation diff", inputSchema: { type: "object", properties: { topic: { type: "string" } } } },
@@ -817,9 +797,7 @@ async function main(): Promise<void> {
   const vaultOps = operations.filter(op => op.namespace === 'vault');
 
   const ctx: OperationContext = {
-    // SAFETY: All operations[] handlers only call ctx.vault.execute() — typed methods are not used directly.
-    // TODO: Narrow OperationContext to use a VaultExecutor interface with only execute().
-    vault: vaultFs as unknown as VaultBackend,
+    vault: vaultFs as VaultExecutor,
     adapters: registry,
     config,
     logger: stderrLogger,
@@ -883,7 +861,8 @@ async function main(): Promise<void> {
       if (toolName.startsWith("vault.")) {
         const op = vaultOps.find(o => o.name === toolName);
         if (!op) throw err(-32601, `Unknown vault tool: ${toolName}`);
-        result = await op.handler(ctx, toolArgs);
+        const validatedArgs = validateParams(op.params, toolArgs);
+        result = await op.handler(ctx, validatedArgs);
         // Hook write ops into compile trigger (preserve existing behavior)
         if (toolName === "vault.create" || toolName === "vault.modify" || toolName === "vault.append") {
           const p = toolArgs.path as string;
