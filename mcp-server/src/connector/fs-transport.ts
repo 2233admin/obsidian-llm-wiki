@@ -42,6 +42,8 @@ export class FsTransport {
     this.vault = path.resolve(vaultPath || '');
   }
 
+  get vaultPath(): string { return this.vault; }
+
   resolve(p: string): string {
     if (typeof p !== 'string' || !p.trim()) throw { code: -32602, message: 'path required' };
     const normalized = p.replace(/\\/g, '/').replace(/\/+/g, '/').replace(/^\//, '');
