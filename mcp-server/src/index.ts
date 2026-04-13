@@ -479,6 +479,69 @@ class VaultFs {
           },
         };
       }
+      case "vault.mkdir": {
+        const full = this.resolve(p.path as string);
+        if (existsSync(full)) throw err(-32002, `Already exists: ${p.path}`);
+        if (p.dryRun !== false) return { dryRun: true, action: "mkdir", path: p.path };
+        mkdirSync(full, { recursive: true });
+        return { ok: true, path: p.path };
+      }
+      case "vault.init": {
+        if (!p.topic || typeof p.topic !== "string") throw err(-32602, "topic required");
+        if ((p.topic as string).split("/").some((s: string) => s === ".." || s === "."))
+          throw err(-32602, "path traversal blocked");
+        const created: string[] = [];
+        const skipped: string[] = [];
+        const base = p.topic as string;
+        const now = new Date().toISOString().slice(0, 10);
+        const ensureDir = (rel: string) => {
+          const full = this.resolve(rel);
+          if (existsSync(full)) { skipped.push(rel); return; }
+          mkdirSync(full, { recursive: true });
+          created.push(rel);
+        };
+        const ensureFile = (rel: string, content: string) => {
+          const r = rel.endsWith(".md") ? rel : rel + ".md";
+          const full = this.resolve(r);
+          if (existsSync(full)) { skipped.push(r); return; }
+          mkdirSync(dirname(full), { recursive: true });
+          writeFileSync(full, content, "utf-8");
+          created.push(r);
+        };
+        ensureDir(base);
+        for (const sub of ["raw", "raw/articles", "raw/papers", "raw/notes", "raw/transcripts", "wiki", "wiki/summaries", "wiki/concepts", "wiki/queries", "schema"])
+          ensureDir(`${base}/${sub}`);
+        ensureFile(`${base}/wiki/_index.md`, `---\ntopic: "${p.topic}"\nupdated: ${now}\n---\n\n# ${p.topic} -- Knowledge Index\n\nNo articles compiled yet.\n`);
+        ensureFile(`${base}/wiki/_sources.md`, `---\ntopic: "${p.topic}"\nupdated: ${now}\n---\n\n# Sources\n\nNo sources compiled yet.\n`);
+        ensureFile(`${base}/wiki/_categories.md`, `---\ntopic: "${p.topic}"\nupdated: ${now}\n---\n\n# Categories\n\nAuto-generated during compilation.\n`);
+        ensureFile(`${base}/Log.md`, `# ${p.topic} -- Operation Log\n\n- ${now}: KB initialized\n`);
+        ensureFile(`${base}/schema/CLAUDE.md`, `# ${p.topic} -- KB Schema\n\nFollows llm-wiki opinionated workflow.\nSee root CLAUDE.md for full documentation.\n`);
+        const yamlPath = `${base}/kb.yaml`;
+        if (existsSync(this.resolve(yamlPath))) {
+          skipped.push(yamlPath);
+        } else {
+          writeFileSync(this.resolve(yamlPath), `topic: "${p.topic}"\nvault_path: "${this.vault.replace(/\\\\/g, "/")}"\ncreated: ${now}\n`, "utf-8");
+          created.push(yamlPath);
+        }
+        return { ok: true, topic: p.topic, created, skipped, summary: `Created ${created.length}, skipped ${skipped.length}` };
+      }
+      case "vault.getMetadata": {
+        const full = this.resolve(p.path as string);
+        if (!existsSync(full)) throw err(-32001, `Not found: ${p.path}`);
+        const content = readFileSync(full, "utf-8");
+        const out: Record<string, unknown> = {};
+        const links = this.parseWikilinks(content);
+        if (links.length) out.links = links.map((l) => ({ link: l.link, displayText: l.displayText }));
+        const tags = this.parseTags(content);
+        if (tags.length) out.tags = tags.map((t) => ({ tag: t }));
+        const headings = this.parseHeadings(content);
+        if (headings.length) out.headings = headings;
+        const fm = this.parseFrontmatter(content);
+        if (fm) out.frontmatter = fm;
+        return out;
+      }
+      case "vault.externalSearch":
+        throw err(-32000, "No external search engine configured");
       default:
         throw err(-32601, `Unknown method: ${method}`);
     }
@@ -754,6 +817,8 @@ async function main(): Promise<void> {
   const vaultOps = operations.filter(op => op.namespace === 'vault');
 
   const ctx: OperationContext = {
+    // SAFETY: All operations[] handlers only call ctx.vault.execute() — typed methods are not used directly.
+    // TODO: Narrow OperationContext to use a VaultExecutor interface with only execute().
     vault: vaultFs as unknown as VaultBackend,
     adapters: registry,
     config,
