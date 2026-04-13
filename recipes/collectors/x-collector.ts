@@ -131,8 +131,17 @@ async function xGet(path: string, params: Record<string, string> = {}, attempt =
   });
 
   if (resp.status === 429 && attempt < 3) {
-    const retryAfter = parseInt(resp.headers.get('x-rate-limit-reset') ?? resp.headers.get('retry-after') ?? '60', 10);
-    const waitMs = Math.max(retryAfter, 60) * 1000;
+    const resetEpoch = resp.headers.get('x-rate-limit-reset');
+    const retryAfterSec = resp.headers.get('retry-after');
+    let waitSec: number;
+    if (resetEpoch) {
+      waitSec = Math.max(parseInt(resetEpoch, 10) - Math.floor(Date.now() / 1000), 1);
+    } else if (retryAfterSec) {
+      waitSec = parseInt(retryAfterSec, 10);
+    } else {
+      waitSec = 60;
+    }
+    const waitMs = Math.max(waitSec, 60) * 1000;
     process.stderr.write(`[x-collector] Rate limited (429). Waiting ${waitMs / 1000}s before retry ${attempt + 1}/3...\n`);
     await new Promise<void>(r => setTimeout(r, waitMs));
     return xGet(path, params, attempt + 1);
