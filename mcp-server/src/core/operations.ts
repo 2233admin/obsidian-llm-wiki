@@ -1,6 +1,17 @@
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import type { Operation } from './types.js';
 import { scanRecipes, findRecipe } from '../recipes/_registry.js';
 import { getRecipeStatus, runHealthCheck, appendHeartbeat } from '../recipes/_framework.js';
+import { unifiedQuery } from '../unified-query.js';
+import type { AdapterRegistry } from '../adapters/registry.js';
+import type { CompileTrigger } from '../compile-trigger.js';
+
+const execAsync = promisify(execFile);
+
+function makeErr(code: number, message: string): { code: number; message: string } {
+  return { code, message };
+}
 
 export const operations: Operation[] = [
   {
@@ -276,7 +287,7 @@ export const operations: Operation[] = [
     name: 'recipe.doctor',
     namespace: 'recipe',
     description: 'Full diagnostic: secrets + health checks for a recipe',
-    mutating: false, // diagnostic only — heartbeat write is non-vault, not dryRun-gated
+    mutating: true, // writes heartbeat state — side-effecting even though it's diagnostic
     params: {
       id: { type: 'string', required: true, description: 'Recipe id' },
     },
@@ -300,3 +311,254 @@ export const operations: Operation[] = [
     },
   },
 ];
+
+// ── compile / query / agent namespaces ───────────────────────────────────────
+// These tools need runtime dependencies (CompileTrigger, AdapterRegistry, python
+// path, compilerPath). They are constructed via makeAllOperations() so their
+// handlers can close over the deps without polluting OperationContext.
+
+export interface AllOperationsDeps {
+  compileTrigger: CompileTrigger;
+  registry: AdapterRegistry;
+  defaultWeights?: Record<string, number>;
+  python: string;
+  compilerPath: string;
+  vaultPath: string;
+  configPath?: string;
+}
+
+export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
+  const { compileTrigger, registry, defaultWeights, python, compilerPath, vaultPath, configPath } = deps;
+
+  const compileOps: Operation[] = [
+    {
+      name: 'compile.status',
+      namespace: 'compile',
+      description: 'Get compilation status',
+      mutating: false,
+      params: {},
+      handler: async (_ctx, _params) => compileTrigger.status(),
+    },
+    {
+      name: 'compile.run',
+      namespace: 'compile',
+      description: 'Run compilation',
+      mutating: true,
+      params: {
+        topic: { type: 'string', required: false, description: 'Topic to compile' },
+      },
+      handler: async (_ctx, params) => compileTrigger.run(params.topic as string | undefined),
+    },
+    {
+      name: 'compile.diff',
+      namespace: 'compile',
+      description: 'Show compilation diff',
+      mutating: false,
+      params: {
+        topic: { type: 'string', required: false, description: 'Topic filter' },
+      },
+      handler: async (_ctx, _params) => ({ dirty: compileTrigger.status().dirty }),
+    },
+    {
+      name: 'compile.abort',
+      namespace: 'compile',
+      description: 'Abort running compilation',
+      mutating: true,
+      params: {},
+      handler: async (_ctx, _params) => compileTrigger.abort(),
+    },
+  ];
+
+  const queryOps: Operation[] = [
+    {
+      name: 'query.unified',
+      namespace: 'query',
+      description: 'Unified knowledge query across all active adapters (filesystem, obsidian, memu, gitnexus)',
+      mutating: false,
+      params: {
+        query: { type: 'string', required: true, description: 'Search query string' },
+        maxResults: { type: 'number', required: false, description: 'Maximum results to return (default: 50)', default: 50 },
+        adapters: { type: 'array', required: false, description: 'Limit to specific adapters by name' },
+        weights: { type: 'object', required: false, description: 'Per-adapter score weight multipliers, e.g. {"obsidian":1.2,"filesystem":0.8}' },
+        caseSensitive: { type: 'boolean', required: false, description: 'Case-sensitive matching', default: false },
+        context: { type: 'number', required: false, description: 'Lines of surrounding context per match' },
+      },
+      handler: async (_ctx, params) => {
+        const query = params.query as string;
+        if (!query) throw makeErr(-32602, 'query required');
+        const weights = {
+          ...defaultWeights,
+          ...(params.weights as Record<string, number> | undefined),
+        };
+        return unifiedQuery(registry, query, {
+          maxResults: (params.maxResults as number) ?? 50,
+          caseSensitive: (params.caseSensitive as boolean) ?? false,
+          context: params.context as number | undefined,
+          adapters: params.adapters as string[] | undefined,
+          weights: Object.keys(weights).length > 0 ? weights : undefined,
+        });
+      },
+    },
+    {
+      name: 'query.search',
+      namespace: 'query',
+      description: 'Search knowledge base (filesystem adapter only)',
+      mutating: false,
+      params: {
+        query: { type: 'string', required: true, description: 'Search query string' },
+        maxResults: { type: 'number', required: false, description: 'Maximum results to return (default: 50)', default: 50 },
+      },
+      handler: async (_ctx, params) => {
+        const query = params.query as string;
+        if (!query) throw makeErr(-32602, 'query required');
+        return unifiedQuery(registry, query, {
+          maxResults: (params.maxResults as number) ?? 50,
+          adapters: ['filesystem'],
+        });
+      },
+    },
+    {
+      name: 'query.explain',
+      namespace: 'query',
+      description: 'Explain a concept using top-10 cross-adapter results with 3-line context',
+      mutating: false,
+      params: {
+        concept: { type: 'string', required: true, description: 'Concept to explain' },
+      },
+      handler: async (_ctx, params) => {
+        const concept = params.concept as string;
+        if (!concept) throw makeErr(-32602, 'concept required');
+        const weights = { ...defaultWeights };
+        return unifiedQuery(registry, concept, {
+          maxResults: 10,
+          context: 3,
+          weights: Object.keys(weights).length > 0 ? weights : undefined,
+        });
+      },
+    },
+    {
+      name: 'query.adapters',
+      namespace: 'query',
+      description: 'List registered adapters, their capabilities, and availability',
+      mutating: false,
+      params: {},
+      handler: async (_ctx, _params) => ({
+        adapters: registry.list().map((a) => ({
+          name: a.name,
+          capabilities: [...a.capabilities],
+          isAvailable: a.isAvailable,
+        })),
+      }),
+    },
+  ];
+
+  const agentOps: Operation[] = [
+    {
+      name: 'agent.status',
+      namespace: 'agent',
+      description: 'Get agent status',
+      mutating: false,
+      params: {
+        mode: { type: 'string', required: false, description: 'Agent mode filter' },
+      },
+      handler: async (_ctx, params) => {
+        const { resolve } = await import('node:path');
+        const evaluatePy = resolve(compilerPath, 'evaluate.py');
+        const baseArgs = [evaluatePy];
+        if (configPath) baseArgs.push('--config', configPath);
+        baseArgs.push('--vault', vaultPath);
+        const args = [...baseArgs, '--status'];
+        const mode = params.mode as string | undefined;
+        if (mode) args.push('--mode', mode);
+        try {
+          const { stdout } = await execAsync(python, args, {
+            timeout: 30_000,
+            maxBuffer: 2 * 1024 * 1024,
+            env: { ...process.env },
+          });
+          return JSON.parse(stdout);
+        } catch (e) {
+          throw makeErr(-32000, `agent.status failed: ${(e as Error).message}`);
+        }
+      },
+    },
+    {
+      name: 'agent.trigger',
+      namespace: 'agent',
+      description: 'Trigger an agent action',
+      mutating: true,
+      params: {
+        action: { type: 'string', required: true, description: 'Action to trigger (compile, emerge, reconcile, prune, challenge)' },
+        mode: { type: 'string', required: false, description: 'Agent mode' },
+      },
+      handler: async (_ctx, params) => {
+        const { resolve } = await import('node:path');
+        const evaluatePy = resolve(compilerPath, 'evaluate.py');
+        const baseArgs = [evaluatePy];
+        if (configPath) baseArgs.push('--config', configPath);
+        baseArgs.push('--vault', vaultPath);
+        const action = params.action as string | undefined;
+        if (!action) throw makeErr(-32602, 'action required');
+        const validActions = ['compile', 'emerge', 'reconcile', 'prune', 'challenge'];
+        if (!validActions.includes(action)) {
+          throw makeErr(-32602, `Unknown action: ${action}. Valid: ${validActions.join(', ')}`);
+        }
+        const args = [...baseArgs, '--trigger', action];
+        const mode = params.mode as string | undefined;
+        if (mode) args.push('--mode', mode);
+        try {
+          const { stdout } = await execAsync(python, args, {
+            timeout: 300_000,
+            maxBuffer: 10 * 1024 * 1024,
+            env: { ...process.env },
+          });
+          return JSON.parse(stdout);
+        } catch (e) {
+          throw makeErr(-32000, `agent.trigger failed: ${(e as Error).message}`);
+        }
+      },
+    },
+    {
+      name: 'agent.schedule',
+      namespace: 'agent',
+      description: 'Schedule an agent task',
+      mutating: false,
+      params: {
+        task: { type: 'string', required: true, description: 'Task to schedule' },
+        cron: { type: 'string', required: true, description: 'Cron expression' },
+      },
+      handler: async (_ctx, _params) => ({ status: 'not_implemented', message: 'agent.schedule is Phase 6 work' }),
+    },
+    {
+      name: 'agent.history',
+      namespace: 'agent',
+      description: 'Get agent action history',
+      mutating: false,
+      params: {
+        limit: { type: 'number', required: false, description: 'Maximum number of history entries (default: 20)', default: 20 },
+      },
+      handler: async (_ctx, params) => {
+        const { resolve } = await import('node:path');
+        const evaluatePy = resolve(compilerPath, 'evaluate.py');
+        const baseArgs = [evaluatePy];
+        if (configPath) baseArgs.push('--config', configPath);
+        baseArgs.push('--vault', vaultPath);
+        const args = [...baseArgs, '--history'];
+        const limit = params.limit as number | undefined;
+        if (limit !== undefined) args.push('--limit', String(limit));
+        try {
+          const { stdout } = await execAsync(python, args, {
+            timeout: 10_000,
+            maxBuffer: 2 * 1024 * 1024,
+            env: { ...process.env },
+          });
+          return JSON.parse(stdout);
+        } catch (e) {
+          throw makeErr(-32000, `agent.history failed: ${(e as Error).message}`);
+        }
+      },
+    },
+  ];
+
+  return [...operations, ...compileOps, ...queryOps, ...agentOps];
+}

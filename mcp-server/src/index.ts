@@ -6,28 +6,23 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { execFile } from "node:child_process";
 import {
   readFileSync, existsSync, readdirSync, statSync,
   writeFileSync, appendFileSync, rmSync, renameSync, mkdirSync,
 } from "node:fs";
 import { resolve, join, basename, extname, relative, dirname, posix } from "node:path";
 import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 
 import { FilesystemAdapter } from "./adapters/filesystem.js";
 import { MemUAdapter } from "./adapters/memu.js";
 import { GitNexusAdapter } from "./adapters/gitnexus.js";
 import { ObsidianAdapter } from "./adapters/obsidian.js";
 import { AdapterRegistry } from "./adapters/registry.js";
-import { unifiedQuery } from "./unified-query.js";
 import { CompileTrigger } from "./compile-trigger.js";
 import type { VaultMindAdapter } from "./adapters/interface.js";
-import { operations } from "./core/operations.js";
+import { makeAllOperations } from "./core/operations.js";
 import type { OperationContext, Logger, VaultExecutor, VaultMindConfig } from "./core/types.js";
 import { validateParams, rejectDangerousRegex } from "./core/validate.js";
-
-const exec = promisify(execFile);
 
 // Config
 
@@ -548,179 +543,6 @@ class VaultFs {
   }
 }
 
-// Stub namespaces
-
-function stubResult(ns: string, method: string): unknown {
-  return { status: "not_implemented", namespace: ns, method };
-}
-
-function makeCompileDispatch(trigger: CompileTrigger) {
-  return async (method: string, params: Record<string, unknown>): Promise<unknown> => {
-    switch (method) {
-      case "compile.status":
-        return trigger.status();
-      case "compile.run":
-        return trigger.run(params.topic as string | undefined);
-      case "compile.diff":
-        // diff is just the dirty list
-        return { dirty: trigger.status().dirty };
-      case "compile.abort":
-        return trigger.abort();
-      default:
-        throw err(-32601, `Unknown method: ${method}`);
-    }
-  };
-}
-
-function makeQueryDispatch(registry: AdapterRegistry, defaultWeights?: Record<string, number>) {
-  return async (method: string, params: Record<string, unknown>): Promise<unknown> => {
-    switch (method) {
-      case "query.unified": {
-        const query = params.query as string;
-        if (!query) throw err(-32602, "query required");
-        // Merge: defaultWeights < caller-provided weights (caller wins per-key)
-        const weights = {
-          ...defaultWeights,
-          ...(params.weights as Record<string, number> | undefined),
-        };
-        return unifiedQuery(registry, query, {
-          maxResults: (params.maxResults as number) ?? 50,
-          caseSensitive: (params.caseSensitive as boolean) ?? false,
-          context: params.context as number | undefined,
-          adapters: params.adapters as string[] | undefined,
-          weights: Object.keys(weights).length > 0 ? weights : undefined,
-        });
-      }
-      case "query.search": {
-        // query.search is an alias for query.unified with filesystem-only
-        const query = params.query as string;
-        if (!query) throw err(-32602, "query required");
-        return unifiedQuery(registry, query, {
-          maxResults: (params.maxResults as number) ?? 50,
-          adapters: ["filesystem"],
-        });
-      }
-      case "query.explain": {
-        // explain: search for concept, return top results with context
-        const concept = params.concept as string;
-        if (!concept) throw err(-32602, "concept required");
-        const weights = { ...defaultWeights };
-        return unifiedQuery(registry, concept, {
-          maxResults: 10,
-          context: 3,
-          weights: Object.keys(weights).length > 0 ? weights : undefined,
-        });
-      }
-      case "query.adapters": {
-        return {
-          adapters: registry.list().map((a) => ({
-            name: a.name,
-            capabilities: [...a.capabilities],
-            isAvailable: a.isAvailable,
-          })),
-        };
-      }
-      default:
-        throw err(-32601, `Unknown method: ${method}`);
-    }
-  };
-}
-
-function makeAgentDispatch(
-  vaultPath: string,
-  compilerPath: string,
-  python: string,
-  configPath?: string,
-) {
-  return async (method: string, params: Record<string, unknown>): Promise<unknown> => {
-    const evaluatePy = resolve(compilerPath, "evaluate.py");
-    const baseArgs = [evaluatePy];
-    if (configPath) {
-      baseArgs.push("--config", configPath);
-    }
-    baseArgs.push("--vault", vaultPath);
-
-    switch (method) {
-      case "agent.status": {
-        const args = [...baseArgs, "--status"];
-        const mode = params.mode as string | undefined;
-        if (mode) args.push("--mode", mode);
-        try {
-          const { stdout } = await exec(python, args, {
-            timeout: 30_000,
-            maxBuffer: 2 * 1024 * 1024,
-            env: { ...process.env },
-          });
-          return JSON.parse(stdout);
-        } catch (e) {
-          throw err(-32000, `agent.status failed: ${(e as Error).message}`);
-        }
-      }
-
-      case "agent.trigger": {
-        const action = params.action as string | undefined;
-        if (!action) throw err(-32602, "action required");
-        const validActions = ["compile", "emerge", "reconcile", "prune", "challenge"];
-        if (!validActions.includes(action)) {
-          throw err(-32602, `Unknown action: ${action}. Valid: ${validActions.join(", ")}`);
-        }
-        const args = [...baseArgs, "--trigger", action];
-        const mode = params.mode as string | undefined;
-        if (mode) args.push("--mode", mode);
-        try {
-          const { stdout } = await exec(python, args, {
-            timeout: 300_000, // compile may take a while
-            maxBuffer: 10 * 1024 * 1024,
-            env: { ...process.env },
-          });
-          return JSON.parse(stdout);
-        } catch (e) {
-          throw err(-32000, `agent.trigger failed: ${(e as Error).message}`);
-        }
-      }
-
-      case "agent.schedule":
-        return { status: "not_implemented", message: "agent.schedule is Phase 6 work" };
-
-      case "agent.history": {
-        const args = [...baseArgs, "--history"];
-        const limit = params.limit as number | undefined;
-        if (limit !== undefined) args.push("--limit", String(limit));
-        try {
-          const { stdout } = await exec(python, args, {
-            timeout: 10_000,
-            maxBuffer: 2 * 1024 * 1024,
-            env: { ...process.env },
-          });
-          return JSON.parse(stdout);
-        } catch (e) {
-          throw err(-32000, `agent.history failed: ${(e as Error).message}`);
-        }
-      }
-
-      default:
-        throw err(-32601, `Unknown method: ${method}`);
-    }
-  };
-}
-
-function getToolDefinitions() {
-  return [
-    { name: "compile.status", description: "Get compilation status", inputSchema: { type: "object", properties: {} } },
-    { name: "compile.run", description: "Run compilation", inputSchema: { type: "object", properties: { topic: { type: "string" } } } },
-    { name: "compile.diff", description: "Show compilation diff", inputSchema: { type: "object", properties: { topic: { type: "string" } } } },
-    { name: "compile.abort", description: "Abort running compilation", inputSchema: { type: "object", properties: {} } },
-    { name: "query.unified", description: "Unified knowledge query across all active adapters (filesystem, obsidian, memu, gitnexus)", inputSchema: { type: "object", properties: { query: { type: "string" }, maxResults: { type: "integer", default: 50 }, adapters: { type: "array", items: { type: "string" }, description: "Limit to specific adapters by name" }, weights: { type: "object", description: "Per-adapter score weight multipliers, e.g. {\"obsidian\":1.2,\"filesystem\":0.8}" }, caseSensitive: { type: "boolean", default: false }, context: { type: "integer", description: "Lines of surrounding context per match" } }, required: ["query"] } },
-    { name: "query.search", description: "Search knowledge base (filesystem adapter only)", inputSchema: { type: "object", properties: { query: { type: "string" }, maxResults: { type: "integer", default: 50 } }, required: ["query"] } },
-    { name: "query.explain", description: "Explain a concept using top-10 cross-adapter results with 3-line context", inputSchema: { type: "object", properties: { concept: { type: "string" } }, required: ["concept"] } },
-    { name: "query.adapters", description: "List registered adapters, their capabilities, and availability", inputSchema: { type: "object", properties: {} } },
-    { name: "agent.status", description: "Get agent status", inputSchema: { type: "object", properties: {} } },
-    { name: "agent.trigger", description: "Trigger an agent action", inputSchema: { type: "object", properties: { action: { type: "string" } }, required: ["action"] } },
-    { name: "agent.schedule", description: "Schedule an agent task", inputSchema: { type: "object", properties: { task: { type: "string" }, cron: { type: "string" } }, required: ["task"] } },
-    { name: "agent.history", description: "Get agent action history", inputSchema: { type: "object", properties: { limit: { type: "integer", default: 20 } } } },
-  ];
-}
-
 function checkAuth(config: VaultMindConfig, args: Record<string, unknown>): void {
   if (!config.auth_token) return;
   const provided = (args._auth_token as string) || (args._token as string);
@@ -794,7 +616,16 @@ async function main(): Promise<void> {
     error: (msg) => process.stderr.write(`[ERROR] ${msg}\n`),
   };
 
-  const vaultOps = operations.filter(op => op.namespace === 'vault');
+  // Single source of truth: all tool definitions come from operations
+  const allOps = makeAllOperations({
+    compileTrigger,
+    registry,
+    defaultWeights: config.adapter_weights,
+    python,
+    compilerPath,
+    vaultPath: config.vault_path,
+    configPath: config.config_path,
+  });
 
   const ctx: OperationContext = {
     vault: vaultFs as VaultExecutor,
@@ -804,23 +635,13 @@ async function main(): Promise<void> {
     dryRun: false,
   };
 
-  const queryDispatch = makeQueryDispatch(registry, config.adapter_weights);
-  const compileDispatch = makeCompileDispatch(compileTrigger);
-  const agentDispatch = makeAgentDispatch(
-    config.vault_path,
-    compilerPath,
-    python,
-    config.config_path,
-  );
-
   const server = new Server(
     { name: "vault-mind", version: VERSION },
     { capabilities: { tools: {} } },
   );
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
-    // vault.* tools auto-generated from operations[]
-    const vaultToolDefs = vaultOps.map(op => ({
+    const toolDefs = allOps.map(op => ({
       name: op.name,
       description: op.description,
       inputSchema: {
@@ -839,10 +660,7 @@ async function main(): Promise<void> {
       },
     }));
 
-    // compile/query/agent tool defs stay hardcoded
-    const otherToolDefs = getToolDefinitions().filter(t => !t.name.startsWith('vault.'));
-
-    return { tools: [...vaultToolDefs, ...otherToolDefs] };
+    return { tools: toolDefs };
   });
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
@@ -857,27 +675,16 @@ async function main(): Promise<void> {
     }
 
     try {
-      let result: unknown;
-      if (toolName.startsWith("vault.")) {
-        const op = vaultOps.find(o => o.name === toolName);
-        if (!op) throw err(-32601, `Unknown vault tool: ${toolName}`);
-        const validatedArgs = validateParams(op.params, toolArgs);
-        result = await op.handler(ctx, validatedArgs);
-        // Hook write ops into compile trigger (preserve existing behavior)
-        if (toolName === "vault.create" || toolName === "vault.modify" || toolName === "vault.append") {
-          const p = toolArgs.path as string;
-          if (p && toolArgs.dryRun === false) {
-            compileTrigger.onFileChange(p, toolName === "vault.create" ? "create" : "modify");
-          }
+      const op = allOps.find(o => o.name === toolName);
+      if (!op) throw err(-32601, `Unknown tool: ${toolName}`);
+      const validatedArgs = validateParams(op.params, toolArgs);
+      const result = await op.handler(ctx, validatedArgs);
+      // Hook write ops into compile trigger (preserve existing behavior)
+      if (toolName === "vault.create" || toolName === "vault.modify" || toolName === "vault.append") {
+        const p = toolArgs.path as string;
+        if (p && toolArgs.dryRun === false) {
+          compileTrigger.onFileChange(p, toolName === "vault.create" ? "create" : "modify");
         }
-      } else if (toolName.startsWith("compile.")) {
-        result = await compileDispatch(toolName, toolArgs);
-      } else if (toolName.startsWith("query.")) {
-        result = await queryDispatch(toolName, toolArgs);
-      } else if (toolName.startsWith("agent.")) {
-        result = await agentDispatch(toolName, toolArgs);
-      } else {
-        throw err(-32601, `Unknown tool: ${toolName}`);
       }
       return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
     } catch (e: unknown) {

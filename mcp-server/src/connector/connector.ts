@@ -20,7 +20,9 @@ function write(obj: unknown): void {
   process.stdout.write(JSON.stringify(obj) + '\n');
 }
 
-// vault.* operations only — connector doesn't serve compile/query/agent
+// vault.* operations only — intentional: connector is a lightweight Obsidian bridge
+// that only needs vault ops. compile/query/agent namespaces are served by the full
+// MCP server (index.ts) which has access to CompileTrigger and AdapterRegistry.
 const vaultOps = operations.filter(op => op.namespace === 'vault');
 
 async function main(): Promise<void> {
