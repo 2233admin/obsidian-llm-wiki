@@ -1,4 +1,4 @@
-// vault-mind shared types
+// obsidian-llm-wiki shared types
 
 export interface VaultMindConfig {
   vault_path: string;

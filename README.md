@@ -1,4 +1,4 @@
-# vault-mind: Knowledge OS for your Obsidian Vault
+# obsidian-llm-wiki: Knowledge OS for your Obsidian Vault
 
 A high-performance Knowledge Operating System that turns your flat Markdown files into a structured, queryable, and active knowledge graph using MCP, LLMs, and a unified adapter layer.
 
@@ -6,8 +6,8 @@ A high-performance Knowledge Operating System that turns your flat Markdown file
 
 1.  **Clone the Repo**:
     ```bash
-    git clone https://github.com/your-repo/vault-mind.git
-    cd vault-mind
+    git clone https://github.com/2233admin/obsidian-llm-wiki.git
+    cd obsidian-llm-wiki
     ```
 2.  **Run Setup**:
     ```bash
@@ -40,7 +40,7 @@ A high-performance Knowledge Operating System that turns your flat Markdown file
 
 ## Comparison
 
-| Feature | vault-mind | Obsidian Second Brain | Local REST API |
+| Feature | obsidian-llm-wiki | Obsidian Second Brain | Local REST API |
 | :--- | :--- | :--- | :--- |
 | **Agentic** | Native (Claude Code) | Partial | No |
 | **Multi-Source** | Yes (DB, Git, FS) | No (FS only) | No (FS only) |

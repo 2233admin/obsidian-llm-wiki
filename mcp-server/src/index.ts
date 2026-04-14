@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * vault-mind MCP server -- stdio transport
+ * obsidian-llm-wiki MCP server -- stdio transport
  */
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -592,9 +592,9 @@ async function main(): Promise<void> {
       await vbAdapter.init();
       registry.register(vbAdapter);
       vaultBrainAdapter = vbAdapter;
-      process.stderr.write("vault-mind: [vaultbrain] adapter ready\n");
+      process.stderr.write("obsidian-llm-wiki: [vaultbrain] adapter ready\n");
     } catch (e) {
-      process.stderr.write(`vault-mind: [vaultbrain] init failed (continuing without): ${(e as Error).message}\n`);
+      process.stderr.write(`obsidian-llm-wiki: [vaultbrain] init failed (continuing without): ${(e as Error).message}\n`);
     }
   }
 
@@ -619,7 +619,7 @@ async function main(): Promise<void> {
             const fullPath = join(config.vault_path, e.path.replace(/\\/g, "/"));
             const content = readFileSync(fullPath, "utf-8");
             vaultBrainAdapter.ingest(e.path, content).catch((err) =>
-              process.stderr.write(`vault-mind: [vaultbrain] ingest error: ${(err as Error).message}\n`)
+              process.stderr.write(`obsidian-llm-wiki: [vaultbrain] ingest error: ${(err as Error).message}\n`)
             );
           } catch { /* file may not exist yet */ }
         }
@@ -659,7 +659,7 @@ async function main(): Promise<void> {
   };
 
   const server = new Server(
-    { name: "vault-mind", version: VERSION },
+    { name: "obsidian-llm-wiki", version: VERSION },
     { capabilities: { tools: {} } },
   );
 
@@ -712,7 +712,7 @@ async function main(): Promise<void> {
               const fullPath = join(config.vault_path, p.replace(/\\/g, "/"));
               const content = readFileSync(fullPath, "utf-8");
               vaultBrainAdapter.ingest(p, content).catch((err) =>
-                process.stderr.write(`vault-mind: [vaultbrain] ingest error: ${(err as Error).message}\n`)
+                process.stderr.write(`obsidian-llm-wiki: [vaultbrain] ingest error: ${(err as Error).message}\n`)
               );
             } catch { /* ignore */ }
           }
@@ -729,10 +729,10 @@ async function main(): Promise<void> {
   await server.connect(transport);
 
   const adapterNames = registry.list().map((a) => a.name).join(", ");
-  process.stderr.write(`vault-mind: MCP server running (stdio, v${VERSION}, adapters: ${adapterNames})\n`);
+  process.stderr.write(`obsidian-llm-wiki: MCP server running (stdio, v${VERSION}, adapters: ${adapterNames})\n`);
 }
 
 main().catch((e) => {
-  process.stderr.write("vault-mind: fatal: " + (e as Error).message + "\n");
+  process.stderr.write("obsidian-llm-wiki: fatal: " + (e as Error).message + "\n");
   process.exit(1);
 });
