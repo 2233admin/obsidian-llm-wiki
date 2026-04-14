@@ -17,6 +17,25 @@ adapters:
   gitnexus:
     enabled: false
 
+# --- VaultBrain adapter (semantic search via PGLite + pgvector) ---
+# Enables hybrid search (keyword + vector) across all indexed vault files.
+# Files are indexed automatically on create/modify. Run vault.reindex to bulk-index existing files.
+#
+# Engine options: pglite (embedded, no server needed) | postgres (external Postgres + pgvector)
+# vaultbrain_engine: pglite
+#
+# Data directory for PGLite storage (default: ~/.vault-mind/vaultbrain)
+# vaultbrain_data_dir: ~/.vault-mind/vaultbrain
+#
+# OpenAI API key for vector embeddings (text-embedding-3-small).
+# If omitted, adapter falls back to keyword-only search (pg_trgm).
+# Can also be set via OPENAI_API_KEY environment variable.
+# openai_api_key: sk-...
+#
+# Weight of VaultBrain results in unified search fusion (default: 1.0)
+# Higher than filesystem (0.3) because semantic results are more precise.
+# adapter_weight_vaultbrain: 1.2
+
 # Compiler settings
 compiler:
   model_tier: "haiku"  # haiku (cheap) | sonnet (balanced) | opus (precise)

@@ -29,22 +29,21 @@ export function chunkMarkdown(content: string, maxTokens = 512, overlap = 64): s
       normalized.push(para);
       continue;
     }
-    // Split by sentence ". " while preserving delimiter
     const sentences = para.split(/(?<=\.\s)/);
+    const pieces: string[] = [];
     let buf = "";
     for (const sent of sentences) {
       if ((buf + sent).length > maxChars && buf) {
-        normalized.push(buf);
+        pieces.push(buf);
         buf = sent;
       } else {
         buf += sent;
       }
     }
-    if (buf) normalized.push(buf);
+    if (buf) pieces.push(buf);
 
-    // If any piece still too large, hard-split
     const finalPieces: string[] = [];
-    for (const piece of normalized.splice(normalized.length - (buf ? 1 : 0))) {
+    for (const piece of pieces) {
       if (piece.length <= maxChars) {
         finalPieces.push(piece);
       } else {

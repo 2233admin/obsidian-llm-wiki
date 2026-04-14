@@ -1,13 +1,17 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join, relative } from 'node:path';
 import type { Operation } from './types.js';
 import { scanRecipes, findRecipe } from '../recipes/_registry.js';
 import { getRecipeStatus, runHealthCheck, appendHeartbeat } from '../recipes/_framework.js';
 import { unifiedQuery } from '../unified-query.js';
 import type { AdapterRegistry } from '../adapters/registry.js';
+import type { VaultBrainAdapter } from '../adapters/vaultbrain/index.js';
 import type { CompileTrigger } from '../compile-trigger.js';
 
 const execAsync = promisify(execFile);
+const PROTECTED_DIRS = new Set(['.obsidian', '.trash', '.git', 'node_modules']);
 
 function makeErr(code: number, message: string): { code: number; message: string } {
   return { code, message };
@@ -370,6 +374,50 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
   ];
 
   const queryOps: Operation[] = [
+    {
+      name: 'vault.reindex',
+      namespace: 'vault',
+      description: 'Bulk-index all markdown files into VaultBrain semantic store. Use after initial setup or vault migration.',
+      mutating: false,
+      params: {
+        dryRun: { type: 'boolean', required: false, default: false, description: 'Count files without ingesting (default: false)' },
+        concurrency: { type: 'number', required: false, default: 4, description: 'Max concurrent ingest calls (default: 4)' },
+      },
+      handler: async (_ctx, params) => {
+        const vba = (registry as AdapterRegistry).get('vaultbrain') as VaultBrainAdapter | undefined;
+        if (!vba) throw makeErr(-32001, 'VaultBrain adapter not available or not initialized');
+        const files: string[] = [];
+        const walk = (dir: string): void => {
+          for (const entry of readdirSync(dir, { withFileTypes: true })) {
+            if (entry.isDirectory()) {
+              if (!PROTECTED_DIRS.has(entry.name)) walk(join(dir, entry.name));
+            } else if (entry.isFile() && entry.name.endsWith('.md')) {
+              files.push(join(dir, entry.name));
+            }
+          }
+        };
+        walk(vaultPath);
+        if ((params.dryRun as boolean | undefined) ?? false) {
+          return { dryRun: true, total: files.length, message: 'Run with dryRun: false to index' };
+        }
+        const concurrency = Math.max(1, Math.floor((params.concurrency as number | undefined) ?? 4));
+        let indexed = 0;
+        const errors: string[] = [];
+        for (let i = 0; i < files.length; i += concurrency) {
+          const batch = files.slice(i, i + concurrency);
+          const results = await Promise.allSettled(batch.map(async (fullPath) => {
+            const content = readFileSync(fullPath, 'utf-8');
+            const relPath = relative(vaultPath, fullPath).replace(/\\/g, '/');
+            await vba.ingest(relPath, content);
+          }));
+          results.forEach((result, idx) => {
+            if (result.status === 'fulfilled') indexed++;
+            else errors.push(`${relative(vaultPath, batch[idx]).replace(/\\/g, '/')}: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`);
+          });
+        }
+        return { indexed, skipped: errors.length, errors, totalFiles: files.length };
+      },
+    },
     {
       name: 'query.unified',
       namespace: 'query',
