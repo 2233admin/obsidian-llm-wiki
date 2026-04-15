@@ -222,6 +222,38 @@
 - Optionally push main to gitea mirror
 - Future: narrow VaultBackend cast (VaultExecutor interface)
 
+## 2026-04-15 -- Domestic adaptation COMPLETE (commit 6f6c0e9)
+
+### What done
+
+Track 1 (compiler presets):
+- `compiler/extractor.py`: replaced TIER_MODELS with PROVIDER_PRESETS dict
+  (anthropic/qwen/doubao/minimax, each with base_url + haiku/sonnet/opus mappings)
+  TIER_MODELS kept as backward-compat alias from PROVIDER_PRESETS["anthropic"]
+  resolve_model(tier, provider) + resolve_provider_url(provider) added
+- `compiler/compile.py`: reads COMPILE_PROVIDER env var (default "anthropic");
+  auto-resolves base_url and model name; no more manual URL wrangling
+  Usage: COMPILE_PROVIDER=qwen OPENAI_API_KEY=sk-xxx python compile.py ...
+
+Track 2 (recipe.run MCP):
+- `mcp-server/src/core/operations.ts`: added recipe.run operation
+  spawnSync bun collector with secrets pre-check, 120s timeout, 2000-char tail
+  appendHeartbeat records mcp_run events
+  Collector path: {id}.replace(/-to-vault$/, '')-collector.ts
+  64/64 tests still pass
+
+Track 3 (deployment config):
+- `.npmrc` + `bunfig.toml`: point npm/bun to npmmirror.com CDN
+- `.env.domestic.example`: one-stop template (COMPILE_PROVIDER + all 8 collector secrets)
+
+### Outstanding
+
+- Collector activation (NapCat/Linear/WeChatMsg/AstrBot/WeFlow/Feishu/Voile DB)
+- Track 6 dedup execution (~65 file deletes in E:/knowledge, awaits Curry authorization)
+- main/master branch strategy decision
+- Optionally push main to gitea mirror
+- Future: narrow VaultBackend cast (VaultExecutor interface)
+
 ## Next step
 
 - gmail-to-vault or circleback-to-vault (Circleback has API key auth, simpler than OAuth)
