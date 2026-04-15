@@ -10,11 +10,37 @@ from typing import Any
 
 from models import Chunk
 
-# Model tier mapping -- override via env COMPILE_MODEL or --tier flag
+# Provider presets -- base_url + tier-to-model mapping per provider
+PROVIDER_PRESETS: dict[str, dict[str, str]] = {
+    "anthropic": {
+        "base_url": "https://api.anthropic.com/v1",
+        "haiku":    "claude-haiku-4-5",
+        "sonnet":   "claude-sonnet-4-5",
+        "opus":     "claude-opus-4-5",
+    },
+    "qwen": {
+        "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "haiku":    "qwen-turbo",
+        "sonnet":   "qwen-plus",
+        "opus":     "qwen-max",
+    },
+    "doubao": {
+        "base_url": "https://ark.cn-beijing.volces.com/api/v3",
+        "haiku":    "doubao-lite-32k",
+        "sonnet":   "doubao-pro-32k",
+        "opus":     "doubao-pro-128k",
+    },
+    "minimax": {
+        "base_url": "https://api.minimax.chat/v1",
+        "haiku":    "MiniMax-Text-01",
+        "sonnet":   "MiniMax-Text-01",
+        "opus":     "MiniMax-Text-01",
+    },
+}
+
+# Backward compat: existing code that imports TIER_MODELS still works
 TIER_MODELS: dict[str, str] = {
-    "haiku": "claude-haiku-4-5",
-    "sonnet": "claude-sonnet-4-5",
-    "opus": "claude-opus-4-5",
+    k: v for k, v in PROVIDER_PRESETS["anthropic"].items() if k != "base_url"
 }
 
 _SYSTEM_PROMPT = """\
@@ -143,6 +169,13 @@ def extract_chunk(
     )
 
 
-def resolve_model(tier: str) -> str:
-    """Map tier name to model string, falling back to tier value if not a known alias."""
-    return TIER_MODELS.get(tier, tier)
+def resolve_model(tier: str, provider: str = "anthropic") -> str:
+    """Map tier name to model string for the given provider, falling back to raw tier."""
+    preset = PROVIDER_PRESETS.get(provider, PROVIDER_PRESETS["anthropic"])
+    return preset.get(tier, tier)
+
+
+def resolve_provider_url(provider: str) -> str | None:
+    """Return the base_url for a known provider preset, or None."""
+    preset = PROVIDER_PRESETS.get(provider)
+    return preset.get("base_url") if preset else None

@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from chunker import chunk_file
-from extractor import ExtractionResult, extract_chunk, resolve_model
+from extractor import ExtractionResult, extract_chunk, resolve_model, resolve_provider_url
 from models import Claim, CompileReport, Contradiction
 
 # ---------------------------------------------------------------------------
@@ -442,21 +442,24 @@ def main() -> None:
     topic = topic_path.name
 
     # resolve API config
+    provider = os.environ.get("COMPILE_PROVIDER", "anthropic")
     base_url = (
         args.base_url
-        or os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
+        or os.environ.get("OPENAI_BASE_URL")
+        or resolve_provider_url(provider)
+        or "https://api.openai.com/v1"
     )
     api_key = (
         args.api_key
         or os.environ.get("OPENAI_API_KEY")
         or os.environ.get("ANTHROPIC_API_KEY", "")
     )
-    model = os.environ.get("COMPILE_MODEL") or resolve_model(args.tier)
+    model = os.environ.get("COMPILE_MODEL") or resolve_model(args.tier, provider)
 
     dry_tag = " [DRY RUN]" if args.dry_run else ""
     print(f"\n=== KB Compile: {topic}{dry_tag} ===")
     print(f"    vault : {vault}")
-    print(f"    model : {model}")
+    print(f"    model : {model}  (provider: {provider})")
     print(f"    chunks: size={args.chunk_size} overlap={args.chunk_overlap}")
 
     # ensure init

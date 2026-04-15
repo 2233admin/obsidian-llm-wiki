@@ -1,7 +1,8 @@
-import { execFile } from 'node:child_process';
+import { execFile, spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
-import { readdirSync, readFileSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { dirname, join, relative } from 'node:path';
 import type { Operation } from './types.js';
 import { scanRecipes, findRecipe } from '../recipes/_registry.js';
 import { getRecipeStatus, runHealthCheck, appendHeartbeat } from '../recipes/_framework.js';
@@ -12,6 +13,9 @@ import type { CompileTrigger } from '../compile-trigger.js';
 
 const execAsync = promisify(execFile);
 const PROTECTED_DIRS = new Set(['.obsidian', '.trash', '.git', 'node_modules']);
+
+const _thisDir = dirname(fileURLToPath(import.meta.url));
+const _projectRoot = join(_thisDir, '..', '..', '..');
 
 function makeErr(code: number, message: string): { code: number; message: string } {
   return { code, message };
@@ -312,6 +316,71 @@ export const operations: Operation[] = [
         });
       }
       return { status, health_checks: checks };
+    },
+  },
+  {
+    name: 'recipe.run',
+    namespace: 'recipe',
+    description: 'Run a recipe collector. Secrets must be set in the MCP server environment.',
+    mutating: true,
+    params: {
+      id: { type: 'string', required: true, description: 'Recipe id (e.g. napcat-to-vault)' },
+      timeout_ms: { type: 'number', required: false, description: 'Timeout ms (default 120000)' },
+    },
+    handler: async (_ctx, params) => {
+      const id = params.id;
+      if (typeof id !== 'string' || id === '') throw new Error('Missing required param: id');
+
+      const recipe = findRecipe(id);
+      if (!recipe) throw new Error(`Recipe not found: ${id}`);
+
+      // Early-out: missing secrets
+      const status = getRecipeStatus(recipe);
+      if (status.secrets_missing.length > 0) {
+        return {
+          ok: false,
+          exit_code: null,
+          error: `Missing secrets: ${status.secrets_missing.join(', ')}`,
+          stdout: '',
+          stderr: '',
+        };
+      }
+
+      // Collector path: napcat-to-vault -> napcat-collector.ts
+      const stem = id.replace(/-to-vault$/, '');
+      const collectorPath = join(_projectRoot, 'recipes', 'collectors', `${stem}-collector.ts`);
+      if (!existsSync(collectorPath)) {
+        return {
+          ok: false,
+          exit_code: null,
+          error: `No collector at ${collectorPath}`,
+          stdout: '',
+          stderr: '',
+        };
+      }
+
+      const timeoutMs = typeof params.timeout_ms === 'number' ? params.timeout_ms : 120_000;
+      const result = spawnSync('bun', ['run', collectorPath], {
+        timeout: timeoutMs,
+        encoding: 'utf8',
+        env: process.env,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+
+      const ok = result.status === 0;
+      appendHeartbeat(id, {
+        ts: new Date().toISOString(),
+        event: 'mcp_run',
+        data: { ok, exit_code: result.status },
+      });
+
+      const TAIL = 2000;
+      return {
+        ok,
+        exit_code: result.status,
+        stdout: ((result.stdout as string) ?? '').slice(-TAIL),
+        stderr: ((result.stderr as string) ?? '').slice(-TAIL),
+      };
     },
   },
 ];
