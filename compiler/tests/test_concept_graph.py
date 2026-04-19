@@ -98,6 +98,27 @@ class BuildGraphTest(unittest.TestCase):
         node = next(n for n in graph["nodes"] if n["id"] == "A.md")
         self.assertEqual(sorted(node["tags"]), ["ai", "research"])
 
+    def test_tag_edges_emitted(self) -> None:
+        vault = self._vault({
+            "A.md": "---\ntags: [ai, research]\n---\n# A\n[[B]]\n",
+            "B.md": "# B\n",
+        })
+        graph = cg.build_graph(vault, cg.DEFAULT_SKIP | cg.ARCHIVE_DIRS)
+        tag_edges = [e for e in graph["edges"] if e["kind"] == "tag"]
+        self.assertEqual(len(tag_edges), 2)
+        destinations = sorted(e["dst"] for e in tag_edges)
+        self.assertEqual(destinations, ["tag:ai", "tag:research"])
+        for e in tag_edges:
+            self.assertEqual(e["src"], "A.md")
+            self.assertTrue(e["resolved"])
+        wikilink_edges = [e for e in graph["edges"] if e["kind"] == "wikilink"]
+        self.assertEqual(len(wikilink_edges), 1)
+        self.assertEqual(wikilink_edges[0]["dst"], "B.md")
+        stats = graph["stats"]
+        self.assertEqual(stats["wikilink_edges"], 1)
+        self.assertEqual(stats["tag_edges"], 2)
+        self.assertEqual(stats["edges"], 3)
+
 
 class EndToEndTest(unittest.TestCase):
     def test_run_writes_json(self) -> None:

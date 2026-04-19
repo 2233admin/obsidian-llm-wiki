@@ -53,6 +53,7 @@ class Edge:
     src: str
     dst: str
     resolved: bool = True
+    kind: str = "wikilink"
 
 
 def parse_frontmatter(text: str) -> dict:
@@ -161,7 +162,8 @@ def build_graph(vault: Path, skip_dirs: set[str], limit: int = 0) -> dict:
     # pass 2: extract wikilinks and resolve
     edges: list[Edge] = []
     unresolved = 0
-    seen: set[tuple[str, str]] = set()
+    wikilink_edges = 0
+    seen: set[tuple[str, str, str]] = set()
     for node_id, text in node_texts.items():
         for raw_target in extract_wikilinks(text):
             target_key = raw_target.strip().lower()
@@ -170,11 +172,25 @@ def build_graph(vault: Path, skip_dirs: set[str], limit: int = 0) -> dict:
             if not resolved:
                 dst = raw_target.strip()
                 unresolved += 1
-            pair = (node_id, dst)
-            if pair in seen:
+            triple = (node_id, dst, "wikilink")
+            if triple in seen:
                 continue
-            seen.add(pair)
-            edges.append(Edge(src=node_id, dst=dst, resolved=resolved))
+            seen.add(triple)
+            edges.append(Edge(src=node_id, dst=dst, resolved=resolved, kind="wikilink"))
+            wikilink_edges += 1
+
+    # pass 3: emit tag edges (dst = "tag:X", resolved=True since tag exists on node)
+    # Consumer can synthesize tag-nodes by collecting distinct dst values where kind=="tag".
+    tag_edges = 0
+    for node in nodes:
+        for tag in node.tags:
+            tag_dst = f"tag:{tag}"
+            triple = (node.id, tag_dst, "tag")
+            if triple in seen:
+                continue
+            seen.add(triple)
+            edges.append(Edge(src=node.id, dst=tag_dst, resolved=True, kind="tag"))
+            tag_edges += 1
 
     return {
         "generated": datetime.now().isoformat(timespec="seconds"),
@@ -185,6 +201,8 @@ def build_graph(vault: Path, skip_dirs: set[str], limit: int = 0) -> dict:
             "scanned": scanned,
             "nodes": len(nodes),
             "edges": len(edges),
+            "wikilink_edges": wikilink_edges,
+            "tag_edges": tag_edges,
             "unresolved": unresolved,
         },
     }
@@ -220,6 +238,7 @@ def main(argv: list[str] | None = None) -> int:
     print(
         f"[concept_graph] scanned={stats['scanned']} "
         f"nodes={stats['nodes']} edges={stats['edges']} "
+        f"(wikilink={stats['wikilink_edges']} tag={stats['tag_edges']}) "
         f"unresolved={stats['unresolved']} -> {output}",
         file=sys.stderr,
     )
