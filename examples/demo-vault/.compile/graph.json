@@ -1,0 +1,536 @@
+{
+  "generated": "2026-04-20T05:06:54",
+  "vault": "D:/projects/obsidian-llm-wiki/.compile/specB-demo-vault",
+  "nodes": [
+    {
+      "id": "attention-heads.md",
+      "title": "Attention Heads",
+      "path": "D:/projects/obsidian-llm-wiki/.compile/specB-demo-vault/attention-heads.md",
+      "tags": [
+        "inference",
+        "attention",
+        "architecture"
+      ]
+    },
+    {
+      "id": "evaluations.md",
+      "title": "Evaluations",
+      "path": "D:/projects/obsidian-llm-wiki/.compile/specB-demo-vault/evaluations.md",
+      "tags": [
+        "meta",
+        "evaluation",
+        "benchmarking"
+      ]
+    },
+    {
+      "id": "in-context-learning.md",
+      "title": "In-Context Learning",
+      "path": "D:/projects/obsidian-llm-wiki/.compile/specB-demo-vault/in-context-learning.md",
+      "tags": [
+        "inference",
+        "meta",
+        "learning"
+      ]
+    },
+    {
+      "id": "karpathy-llm-wiki-concept.md",
+      "title": "Karpathy LLM Wiki: Notes as AI-Readable Structure",
+      "path": "D:/projects/obsidian-llm-wiki/.compile/specB-demo-vault/karpathy-llm-wiki-concept.md",
+      "tags": [
+        "meta",
+        "knowledge-system"
+      ]
+    },
+    {
+      "id": "kv-cache.md",
+      "title": "KV Cache",
+      "path": "D:/projects/obsidian-llm-wiki/.compile/specB-demo-vault/kv-cache.md",
+      "tags": [
+        "inference",
+        "memory",
+        "optimization"
+      ]
+    },
+    {
+      "id": "mixture-of-experts.md",
+      "title": "Mixture of Experts",
+      "path": "D:/projects/obsidian-llm-wiki/.compile/specB-demo-vault/mixture-of-experts.md",
+      "tags": [
+        "inference",
+        "architecture",
+        "scale"
+      ]
+    },
+    {
+      "id": "retrieval-augmented-generation.md",
+      "title": "Retrieval-Augmented Generation",
+      "path": "D:/projects/obsidian-llm-wiki/.compile/specB-demo-vault/retrieval-augmented-generation.md",
+      "tags": [
+        "meta",
+        "memory",
+        "architecture"
+      ]
+    },
+    {
+      "id": "speculative-decoding.md",
+      "title": "Speculative Decoding",
+      "path": "D:/projects/obsidian-llm-wiki/.compile/specB-demo-vault/speculative-decoding.md",
+      "tags": [
+        "inference",
+        "latency",
+        "optimization"
+      ]
+    },
+    {
+      "id": "synthetic-data.md",
+      "title": "Synthetic Data",
+      "path": "D:/projects/obsidian-llm-wiki/.compile/specB-demo-vault/synthetic-data.md",
+      "tags": [
+        "training",
+        "synthetic",
+        "augmentation"
+      ]
+    },
+    {
+      "id": "training-data-curation.md",
+      "title": "Training Data Curation",
+      "path": "D:/projects/obsidian-llm-wiki/.compile/specB-demo-vault/training-data-curation.md",
+      "tags": [
+        "training",
+        "data",
+        "curation",
+        "architecture"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "src": "attention-heads.md",
+      "dst": "kv-cache.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "attention-heads.md",
+      "dst": "speculative-decoding.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "attention-heads.md",
+      "dst": "mixture-of-experts.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "attention-heads.md",
+      "dst": "karpathy-llm-wiki-concept.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "evaluations.md",
+      "dst": "in-context-learning.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "evaluations.md",
+      "dst": "retrieval-augmented-generation.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "evaluations.md",
+      "dst": "training-data-curation.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "evaluations.md",
+      "dst": "karpathy-llm-wiki-concept.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "in-context-learning.md",
+      "dst": "attention-heads.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "in-context-learning.md",
+      "dst": "evaluations.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "in-context-learning.md",
+      "dst": "mixture-of-experts.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "in-context-learning.md",
+      "dst": "synthetic-data.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "karpathy-llm-wiki-concept.md",
+      "dst": "sparse-mixture-experts",
+      "resolved": false,
+      "kind": "wikilink"
+    },
+    {
+      "src": "karpathy-llm-wiki-concept.md",
+      "dst": "evaluations.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "karpathy-llm-wiki-concept.md",
+      "dst": "retrieval-augmented-generation.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "karpathy-llm-wiki-concept.md",
+      "dst": "synthetic-data.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "karpathy-llm-wiki-concept.md",
+      "dst": "speculative-decoding.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "kv-cache.md",
+      "dst": "attention-heads.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "kv-cache.md",
+      "dst": "speculative-decoding.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "kv-cache.md",
+      "dst": "training-data-curation.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "mixture-of-experts.md",
+      "dst": "attention-heads.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "mixture-of-experts.md",
+      "dst": "kv-cache.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "mixture-of-experts.md",
+      "dst": "speculative-decoding.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "mixture-of-experts.md",
+      "dst": "in-context-learning.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "mixture-of-experts.md",
+      "dst": "synthetic-data.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "retrieval-augmented-generation.md",
+      "dst": "kv-cache.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "retrieval-augmented-generation.md",
+      "dst": "in-context-learning.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "retrieval-augmented-generation.md",
+      "dst": "evaluations.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "retrieval-augmented-generation.md",
+      "dst": "karpathy-llm-wiki-concept.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "speculative-decoding.md",
+      "dst": "attention-heads.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "speculative-decoding.md",
+      "dst": "kv-cache.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "speculative-decoding.md",
+      "dst": "mixture-of-experts.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "speculative-decoding.md",
+      "dst": "retrieval-augmented-generation.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "synthetic-data.md",
+      "dst": "training-data-curation.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "synthetic-data.md",
+      "dst": "evaluations.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "synthetic-data.md",
+      "dst": "mixture-of-experts.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "synthetic-data.md",
+      "dst": "karpathy-llm-wiki-concept.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "synthetic-data.md",
+      "dst": "in-context-learning.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "training-data-curation.md",
+      "dst": "evaluations.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "training-data-curation.md",
+      "dst": "mixture-of-experts.md",
+      "resolved": true,
+      "kind": "wikilink"
+    },
+    {
+      "src": "attention-heads.md",
+      "dst": "tag:inference",
+      "resolved": true,
+      "kind": "tag"
+    },
+    {
+      "src": "attention-heads.md",
+      "dst": "tag:attention",
+      "resolved": true,
+      "kind": "tag"
+    },
+    {
+      "src": "attention-heads.md",
+      "dst": "tag:architecture",
+      "resolved": true,
+      "kind": "tag"
+    },
+    {
+      "src": "evaluations.md",
+      "dst": "tag:meta",
+      "resolved": true,
+      "kind": "tag"
+    },
+    {
+      "src": "evaluations.md",
+      "dst": "tag:evaluation",
+      "resolved": true,
+      "kind": "tag"
+    },
+    {
+      "src": "evaluations.md",
+      "dst": "tag:benchmarking",
+      "resolved": true,
+      "kind": "tag"
+    },
+    {
+      "src": "in-context-learning.md",
+      "dst": "tag:inference",
+      "resolved": true,
+      "kind": "tag"
+    },
+    {
+      "src": "in-context-learning.md",
+      "dst": "tag:meta",
+      "resolved": true,
+      "kind": "tag"
+    },
+    {
+      "src": "in-context-learning.md",
+      "dst": "tag:learning",
+      "resolved": true,
+      "kind": "tag"
+    },
+    {
+      "src": "karpathy-llm-wiki-concept.md",
+      "dst": "tag:meta",
+      "resolved": true,
+      "kind": "tag"
+    },
+    {
+      "src": "karpathy-llm-wiki-concept.md",
+      "dst": "tag:knowledge-system",
+      "resolved": true,
+      "kind": "tag"
+    },
+    {
+      "src": "kv-cache.md",
+      "dst": "tag:inference",
+      "resolved": true,
+      "kind": "tag"
+    },
+    {
+      "src": "kv-cache.md",
+      "dst": "tag:memory",
+      "resolved": true,
+      "kind": "tag"
+    },
+    {
+      "src": "kv-cache.md",
+      "dst": "tag:optimization",
+      "resolved": true,
+      "kind": "tag"
+    },
+    {
+      "src": "mixture-of-experts.md",
+      "dst": "tag:inference",
+      "resolved": true,
+      "kind": "tag"
+    },
+    {
+      "src": "mixture-of-experts.md",
+      "dst": "tag:architecture",
+      "resolved": true,
+      "kind": "tag"
+    },
+    {
+      "src": "mixture-of-experts.md",
+      "dst": "tag:scale",
+      "resolved": true,
+      "kind": "tag"
+    },
+    {
+      "src": "retrieval-augmented-generation.md",
+      "dst": "tag:meta",
+      "resolved": true,
+      "kind": "tag"
+    },
+    {
+      "src": "retrieval-augmented-generation.md",
+      "dst": "tag:memory",
+      "resolved": true,
+      "kind": "tag"
+    },
+    {
+      "src": "retrieval-augmented-generation.md",
+      "dst": "tag:architecture",
+      "resolved": true,
+      "kind": "tag"
+    },
+    {
+      "src": "speculative-decoding.md",
+      "dst": "tag:inference",
+      "resolved": true,
+      "kind": "tag"
+    },
+    {
+      "src": "speculative-decoding.md",
+      "dst": "tag:latency",
+      "resolved": true,
+      "kind": "tag"
+    },
+    {
+      "src": "speculative-decoding.md",
+      "dst": "tag:optimization",
+      "resolved": true,
+      "kind": "tag"
+    },
+    {
+      "src": "synthetic-data.md",
+      "dst": "tag:training",
+      "resolved": true,
+      "kind": "tag"
+    },
+    {
+      "src": "synthetic-data.md",
+      "dst": "tag:synthetic",
+      "resolved": true,
+      "kind": "tag"
+    },
+    {
+      "src": "synthetic-data.md",
+      "dst": "tag:augmentation",
+      "resolved": true,
+      "kind": "tag"
+    },
+    {
+      "src": "training-data-curation.md",
+      "dst": "tag:training",
+      "resolved": true,
+      "kind": "tag"
+    },
+    {
+      "src": "training-data-curation.md",
+      "dst": "tag:data",
+      "resolved": true,
+      "kind": "tag"
+    },
+    {
+      "src": "training-data-curation.md",
+      "dst": "tag:curation",
+      "resolved": true,
+      "kind": "tag"
+    },
+    {
+      "src": "training-data-curation.md",
+      "dst": "tag:architecture",
+      "resolved": true,
+      "kind": "tag"
+    }
+  ],
+  "stats": {
+    "scanned": 10,
+    "nodes": 10,
+    "edges": 70,
+    "wikilink_edges": 40,
+    "tag_edges": 30,
+    "unresolved": 1
+  }
+}
