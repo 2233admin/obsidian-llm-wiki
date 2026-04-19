@@ -1,0 +1,104 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+header {
+  background: #16213e;
+  padding: 12px 20px;
+  border-bottom: 1px solid #0f3460;
+  flex-shrink: 0;
+}
+
+h1 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #e94560;
+  margin-bottom: 8px;
+}
+
+.paste-area {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.paste-area label {
+  font-size: 0.8rem;
+  color: #a0a0a0;
+  white-space: nowrap;
+  padding-top: 4px;
+}
+
+#graph-json {
+  flex: 1;
+  background: #0f3460;
+  border: 1px solid #1a4a8a;
+  color: #e0e0e0;
+  font-family: 'Courier New', monospace;
+  font-size: 0.75rem;
+  padding: 6px 10px;
+  border-radius: 4px;
+  resize: horizontal;
+  min-height: 36px;
+  max-height: 80px;
+}
+
+#load-btn {
+  background: #e94560;
+  color: #fff;
+  border: none;
+  padding: 7px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+#load-btn:hover { background: #c73e54; }
+#load-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+#cy-container {
+  flex: 1;
+  min-height: 0;
+}
+
+#stats {
+  background: #16213e;
+  padding: 8px 20px;
+  font-size: 0.75rem;
+  color: #a0a0a0;
+  border-top: 1px solid #0f3460;
+  flex-shrink: 0;
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+#stats span { display: inline-flex; gap: 5px; }
+#stats b { color: #e0e0e0; }
+.wikilink { color: #4fc3f7; }
+.tag { color: #a78bfa; }
+.unresolved { color: #ef9a9a; }
+
+#error-msg {
+  background: #3d1a1a;
+  color: #ef9a9a;
+  padding: 8px 20px;
+  font-size: 0.75rem;
+  flex-shrink: 0;
+  display: none;
+}
+
+@media (max-width: 767px) {
+  header { padding: 10px 12px; }
+  .paste-area { flex-direction: column; gap: 6px; }
+  #stats { padding: 6px 12px; font-size: 0.7rem; gap: 12px; }
+}

@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+# obsidian-llm-wiki setup -- install skill + configure MCP
+set -e
+
+IS_WINDOWS=0
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*|Windows_NT) IS_WINDOWS=1 ;;
+esac
+
+DRY_RUN=0
+HOST="claude"
+SKILL_NAME="vault-wiki"
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --host)
+      [ -z "$2" ] && echo "Error: --host requires a value (claude, codex, opencode, gemini)" >&2 && exit 1
+      HOST="$2"; shift 2 ;;
+    --host=*) HOST="${1#--host=}"; shift ;;
+    --dry-run) DRY_RUN=1; shift ;;
+    *) shift ;;
+  esac
+done
+
+case "$HOST" in
+  claude)   SKILLS_DIR="$HOME/.claude/skills/$SKILL_NAME" ;;
+  codex)    SKILLS_DIR="$HOME/.codex/skills/$SKILL_NAME" ;;
+  opencode) SKILLS_DIR="$HOME/.config/opencode/skills/$SKILL_NAME" ;;
+  gemini)   SKILLS_DIR="$HOME/.gemini/skills/$SKILL_NAME" ;;
+  *) echo "Error: Unknown --host '$HOST'. Expected: claude, codex, opencode, gemini" >&2; exit 1 ;;
+esac
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
+if [ "$IS_WINDOWS" = 1 ]; then
+  SCRIPT_DIR="$(cygpath -m "$SCRIPT_DIR")"
+fi
+
+VAULT_PATH="${VAULT_PATH:-}"
+if [ -z "$VAULT_PATH" ]; then
+  if [ -d "$SCRIPT_DIR/../.git" ]; then
+    VAULT_PATH="$(cd "$SCRIPT_DIR/.." && pwd -P)"
+    [ "$IS_WINDOWS" = 1 ] && VAULT_PATH="$(cygpath -m "$VAULT_PATH")"
+  fi
+fi
+
+run() {
+  if [ "$DRY_RUN" = 1 ]; then
+    echo "[dry-run] $*"
+  else
+    "$@"
+  fi
+}
+
+maybe_mkdir() {
+  if [ ! -d "$1" ]; then
+    run mkdir -p "$1"
+  fi
+}
+
+PARENT_DIR="$(dirname "$SKILLS_DIR")"
+if [ ! -d "$PARENT_DIR" ]; then
+  echo "Error: Host directory not found: $PARENT_DIR" >&2
+  echo "Is $HOST installed? Expected $PARENT_DIR to exist." >&2
+  exit 1
+fi
+
+maybe_mkdir "$SKILLS_DIR"
+run cp -r "$SCRIPT_DIR"/. "$SKILLS_DIR"/
+
+if [ "$DRY_RUN" = 0 ]; then
+  rm -f "$SKILLS_DIR/setup"
+  rm -f "$SKILLS_DIR/setup.ps1"
+fi
+
+echo ""
+echo "obsidian-llm-wiki installed to:"
+echo "  $SKILLS_DIR"
+echo ""
+echo "Next steps:"
+echo ""
+echo "1. Set your vault path:"
+echo "   export VAULT_PATH=/path/to/your/vault"
+echo ""
+echo "2. Add to your .mcp.json:"
+echo ""
+echo '{'
+echo '  "mcpServers": {'
+echo '    "vault-mind": {'
+echo '      "command": "node",'
+echo '      "args": ["PATH/TO/SKILL/mcp-server/dist/index.js"],'
+echo '      "env": { "VAULT_PATH": "YOUR_VAULT_PATH" }'
+echo '    }'
+echo '  }'
+echo '}'
+echo ""
+echo "3. Add to CLAUDE.md (Personas section):"
+echo ""
+echo "## Vault Personas"
+echo ""
+echo "Your markdown vault is managed by a 6-persona virtual team:"
+echo ""
+echo "| Persona | Skill | What it does |"
+echo "|---------|-------|--------------|"
+echo "| Librarian  | \`/vault-librarian\`  | Search + read with citations |"
+echo "| Architect  | \`/vault-architect\`  | Run concept_graph, summarize changes |"
+echo "| Curator    | \`/vault-curator\`    | Detect orphans, stale notes, duplicates |"
+echo "| Teacher    | \`/vault-teacher\`    | Explain how a concept relates to others |"
+echo "| Historian  | \`/vault-historian\`  | Time-window search by mtime |"
+echo "| Janitor    | \`/vault-janitor\`    | Propose orphan/duplicate/broken-link fixes |"
+echo ""
+echo "4. Try it:"
+echo "   /vault-librarian what is attention heads"
+echo ""
+echo "5. View your vault graph:"
+echo "   open https://obsidian-llm-wiki.vercel.app"
+echo ""
+echo "Demo vault: https://obsidian-llm-wiki.vercel.app"
+echo "Source: https://github.com/2233admin/obsidian-llm-wiki"
+echo ""
