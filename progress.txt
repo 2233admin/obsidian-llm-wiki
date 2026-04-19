@@ -487,3 +487,39 @@ Codex or Claude own-report:
 - Or: build a first consumer of graph.json (viz? backlink MCP tool? vault
   health report?) -- graph is now rich enough (2507 edges) to drive one
 - Roadmap file: C:/Users/Administrator/.claude/plans/breezy-stargazing-chipmunk.md
+
+
+## 2026-04-20 -- spec-D: Scaffold (setup + cytoscape viewer + vercel) COMPLETE
+
+### What done
+
+- `.compile/specD-scaffold/` produced per spec-D output contract:
+  - `setup` -- POSIX bash script, works under Git Bash/macOS/Linux
+    - `--host claude|codex|opencode|gemini` flag
+    - `--dry-run` prints what it WOULD do, no side effects
+    - Detects missing host dir and exits non-zero with actionable error
+    - Installs skill files to `~/.{claude,codex}/skills/vault-wiki/` etc.
+    - Prints .mcp.json snippet + CLAUDE.md personas table to stdout
+    - Cleans up setup scripts from install target
+    - Never uses sudo, never installs npm/pip
+  - `setup.ps1` -- PowerShell sibling with same semantics
+  - `viewer/index.html` -- static single-file page, no build step
+  - `viewer/viewer.js` -- cytoscape + cose-bilkent loaded from unpkg CDN
+  - `viewer/viewer.css` -- raw CSS, 104 lines (well under 200-line limit)
+  - `viewer/sample-graph.json` -- pre-committed specB demo graph (10 nodes, 70 edges)
+  - `vercel.json` -- static deploy pointing to viewer/, zero functions
+
+### Acceptance checklist (all pass)
+
+- [x] `bash setup --host claude --dry-run` prints dry-run + next steps, no side effects
+- [x] `bash setup --host codex|opencode|gemini --dry-run` each prints plausible target dir
+- [x] Setup fails cleanly if parent dir missing (actionable error, no stack trace)
+- [x] Viewer: `grep -i 'require\|import' viewer/*.js` -- only CDN URL strings match
+- [x] `vercel.json` has zero functions keys, `outputDirectory: viewer`
+- [x] CSS is raw CSS, no tailwind/bootstrap (104 lines)
+- [x] All 7 output files present
+
+### Known risk
+
+- Cytoscape + cose-bilkent loaded from unpkg CDN on each page open.
+  Acceptable for demo; noted in README as "first load may feel laggy".
