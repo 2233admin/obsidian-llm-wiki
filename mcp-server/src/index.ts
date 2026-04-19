@@ -10,7 +10,7 @@ import {
   readFileSync, existsSync, readdirSync, statSync,
   writeFileSync, appendFileSync, rmSync, renameSync, mkdirSync,
 } from "node:fs";
-import { resolve, join, basename, extname, relative, dirname, posix } from "node:path";
+import { resolve, join, basename, extname, relative, dirname, posix, isAbsolute as pathIsAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { FilesystemAdapter } from "./adapters/filesystem.js";
@@ -100,15 +100,28 @@ class VaultFs {
   private readonly vault: string;
   constructor(vaultPath: string) { this.vault = resolve(vaultPath); }
 
-  resolve(p: string): string {
-    if (typeof p !== "string" || !p.trim()) throw err(-32602, "path required");
-    const normalized = p.replace(/\\/g, "/").replace(/\/+/g, "/").replace(/^\//, "");
+  normalizeVaultPath(p: string, opts: { allowRoot?: boolean } = {}): string {
+    if (typeof p !== "string") throw err(-32602, "path required");
+    const raw = p.trim();
+    if (opts.allowRoot && (raw === "" || raw === "." || raw === "/" || raw === "./" || raw === ".\\")) {
+      return "";
+    }
+    if (!raw) throw err(-32602, "path required");
+    if (/^[A-Za-z]:[\\/]/.test(raw) || raw.startsWith("\\\\") || raw.startsWith("//") || pathIsAbsolute(raw))
+      throw err(-32602, "path traversal blocked");
+    const normalized = raw.replace(/\\/g, "/").replace(/\/+/g, "/");
     if (normalized.split("/").some((s) => s === ".." || s === "."))
       throw err(-32602, "path traversal blocked");
     const topSegment = normalized.split("/")[0];
     if (PROTECTED_DIRS.has(topSegment)) throw err(-32602, `protected path: ${topSegment}`);
+    return normalized;
+  }
+
+  resolve(p: string, opts: { allowRoot?: boolean } = {}): string {
+    const normalized = this.normalizeVaultPath(p, opts);
     const full = resolve(this.vault, normalized);
-    if (!full.startsWith(this.vault)) throw err(-32602, "path escapes vault");
+    const rel = relative(this.vault, full);
+    if (rel.startsWith("..") || pathIsAbsolute(rel)) throw err(-32602, "path escapes vault");
     return full;
   }
 
@@ -209,13 +222,14 @@ class VaultFs {
       case "vault.exists":
         return { exists: existsSync(this.resolve(p.path as string)) };
       case "vault.list": {
-        const dir = this.resolve((p.path as string) || "");
+        const listPath = this.normalizeVaultPath((p.path as string) ?? "", { allowRoot: true });
+        const dir = this.resolve(listPath, { allowRoot: true });
         if (!existsSync(dir)) throw err(-32001, `Not found: ${p.path}`);
         const hidden = new Set([".obsidian", ".trash", "node_modules"]);
         const entries = readdirSync(dir, { withFileTypes: true }).filter((e) => !hidden.has(e.name));
         return {
-          files: entries.filter((e) => e.isFile()).map((e) => posix.join((p.path as string) || "", e.name)).sort(),
-          folders: entries.filter((e) => e.isDirectory()).map((e) => posix.join((p.path as string) || "", e.name)).sort(),
+          files: entries.filter((e) => e.isFile()).map((e) => posix.join(listPath, e.name)).sort(),
+          folders: entries.filter((e) => e.isDirectory()).map((e) => posix.join(listPath, e.name)).sort(),
         };
       }
       case "vault.stat": {

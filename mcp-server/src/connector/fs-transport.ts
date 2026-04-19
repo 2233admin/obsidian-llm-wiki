@@ -44,16 +44,29 @@ export class FsTransport {
 
   get vaultPath(): string { return this.vault; }
 
-  resolve(p: string): string {
-    if (typeof p !== 'string' || !p.trim()) throw { code: -32602, message: 'path required' };
-    const normalized = p.replace(/\\/g, '/').replace(/\/+/g, '/').replace(/^\//, '');
+  normalizeVaultPath(p: string, opts: { allowRoot?: boolean } = {}): string {
+    if (typeof p !== 'string') throw { code: -32602, message: 'path required' };
+    const raw = p.trim();
+    if (opts.allowRoot && (raw === '' || raw === '.' || raw === '/' || raw === './' || raw === '.\\')) {
+      return '';
+    }
+    if (!raw) throw { code: -32602, message: 'path required' };
+    if (/^[A-Za-z]:[\\/]/.test(raw) || raw.startsWith('\\\\') || raw.startsWith('//') || path.isAbsolute(raw))
+      throw { code: -32602, message: 'path traversal blocked' };
+    const normalized = raw.replace(/\\/g, '/').replace(/\/+/g, '/');
     if (normalized.split('/').some((s: string) => s === '..' || s === '.'))
       throw { code: -32602, message: 'path traversal blocked' };
     const topSegment = normalized.split('/')[0];
     if (PROTECTED_DIRS.has(topSegment))
       throw { code: -32602, message: `protected path: ${topSegment}` };
+    return normalized;
+  }
+
+  resolve(p: string, opts: { allowRoot?: boolean } = {}): string {
+    const normalized = this.normalizeVaultPath(p, opts);
     const full = path.resolve(this.vault, normalized);
-    if (!full.startsWith(this.vault))
+    const rel = path.relative(this.vault, full);
+    if (rel.startsWith('..') || path.isAbsolute(rel))
       throw { code: -32602, message: 'path escapes vault' };
     return full;
   }
@@ -154,13 +167,14 @@ export class FsTransport {
       case 'vault.exists':
         return { exists: fs.existsSync(this.resolve(p['path'] as string)) };
       case 'vault.list': {
-        const dir = this.resolve((p['path'] as string) || '');
+        const listPath = this.normalizeVaultPath((p['path'] as string) ?? '', { allowRoot: true });
+        const dir = this.resolve(listPath, { allowRoot: true });
         if (!fs.existsSync(dir)) throw { code: -32001, message: `Not found: ${p['path']}` };
         const hidden = new Set(['.obsidian', '.trash', 'node_modules']);
         const entries = fs.readdirSync(dir, { withFileTypes: true }).filter(e => !hidden.has(e.name));
         return {
-          files: entries.filter(e => e.isFile()).map(e => path.posix.join((p['path'] as string) || '', e.name)).sort(),
-          folders: entries.filter(e => e.isDirectory()).map(e => path.posix.join((p['path'] as string) || '', e.name)).sort(),
+          files: entries.filter(e => e.isFile()).map(e => path.posix.join(listPath, e.name)).sort(),
+          folders: entries.filter(e => e.isDirectory()).map(e => path.posix.join(listPath, e.name)).sort(),
         };
       }
       case 'vault.stat': {
