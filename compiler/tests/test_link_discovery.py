@@ -22,6 +22,15 @@ class ParseFrontmatterTest(unittest.TestCase):
     def test_no_frontmatter(self) -> None:
         self.assertEqual(ld.parse_frontmatter("# just a heading\n"), {})
 
+    def test_crlf_frontmatter_parsed(self) -> None:
+        self.assertEqual(ld.parse_frontmatter("---\r\naliases: [Foo, Bar]\r\n---\r\n")["aliases"], ["Foo", "Bar"])
+
+    def test_quoted_list_item_with_comma_kept_whole(self) -> None:
+        self.assertEqual(ld.parse_frontmatter("---\naliases: ['has, comma']\n---\n")["aliases"], ["has, comma"])
+
+    def test_trailing_hash_comment_stripped(self) -> None:
+        self.assertEqual(ld.parse_frontmatter("---\naliases: [Foo, Bar]  # comment\n---\n")["aliases"], ["Foo", "Bar"])
+
 
 class BuildIndexTest(unittest.TestCase):
     def _vault(self, files: dict[str, str]) -> Path:
@@ -83,6 +92,26 @@ class ScanFileTest(unittest.TestCase):
         idx = self._mkindex([("Sprachwelt", "D:/vault/Sprachwelt.md")])
         body = "```\nimport Sprachwelt\n```\n"
         out = ld.scan_file(Path("D:/vault/Other.md"), body, idx)
+        self.assertEqual(out, [])
+
+    def test_html_comment_not_matched(self) -> None:
+        idx = self._mkindex([("Sprachwelt", "D:/vault/Sprachwelt.md")])
+        out = ld.scan_file(Path("D:/vault/Other.md"), "<!-- Sprachwelt -->\n", idx)
+        self.assertEqual(out, [])
+
+    def test_tilde_fence_skipped(self) -> None:
+        idx = self._mkindex([("Sprachwelt", "D:/vault/Sprachwelt.md")])
+        out = ld.scan_file(Path("D:/vault/Other.md"), "~~~\nSprachwelt\n~~~\n", idx)
+        self.assertEqual(out, [])
+
+    def test_indented_code_skipped(self) -> None:
+        idx = self._mkindex([("Sprachwelt", "D:/vault/Sprachwelt.md")])
+        out = ld.scan_file(Path("D:/vault/Other.md"), "    Sprachwelt\n    code\n", idx)
+        self.assertEqual(out, [])
+
+    def test_nested_brackets_no_false_match(self) -> None:
+        idx = self._mkindex([("Sprachwelt", "D:/vault/Sprachwelt.md")])
+        out = ld.scan_file(Path("D:/vault/Other.md"), "[[[[Sprachwelt]]]]\n", idx)
         self.assertEqual(out, [])
 
     def test_self_reference_skipped(self) -> None:

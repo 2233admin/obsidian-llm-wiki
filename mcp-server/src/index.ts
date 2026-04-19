@@ -7,7 +7,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import {
-  readFileSync, existsSync, readdirSync, statSync,
+  readFileSync, existsSync, readdirSync, statSync, realpathSync,
   writeFileSync, appendFileSync, rmSync, renameSync, mkdirSync,
 } from "node:fs";
 import { resolve, join, basename, extname, relative, dirname, posix, isAbsolute as pathIsAbsolute } from "node:path";
@@ -98,7 +98,11 @@ function parseYamlValue(s: string): unknown {
 
 class VaultFs {
   private readonly vault: string;
-  constructor(vaultPath: string) { this.vault = resolve(vaultPath); }
+  private readonly realVault: string;
+  constructor(vaultPath: string) {
+    this.vault = resolve(vaultPath);
+    this.realVault = realpathSync(this.vault);
+  }
 
   normalizeVaultPath(p: string, opts: { allowRoot?: boolean } = {}): string {
     if (typeof p !== "string") throw err(-32602, "path required");
@@ -122,7 +126,26 @@ class VaultFs {
     const full = resolve(this.vault, normalized);
     const rel = relative(this.vault, full);
     if (rel.startsWith("..") || pathIsAbsolute(rel)) throw err(-32602, "path escapes vault");
+    this.assertRealPathInsideVault(full);
     return full;
+  }
+
+  private assertRealPathInsideVault(full: string): void {
+    const realTarget = existsSync(full)
+      ? realpathSync(full)
+      : this.realpathExistingAncestor(dirname(full));
+    const rel = relative(this.realVault, realTarget);
+    if (rel.startsWith("..") || pathIsAbsolute(rel)) throw err(-32602, "path traversal blocked");
+  }
+
+  private realpathExistingAncestor(start: string): string {
+    let current = start;
+    while (!existsSync(current)) {
+      const parent = dirname(current);
+      if (parent === current) throw err(-32602, "path traversal blocked");
+      current = parent;
+    }
+    return realpathSync(current);
   }
 
   parseFrontmatter(content: string): Record<string, unknown> | null {

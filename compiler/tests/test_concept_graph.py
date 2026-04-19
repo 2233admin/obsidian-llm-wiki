@@ -33,6 +33,20 @@ class ExtractWikilinksTest(unittest.TestCase):
         text = "---\ntitle: '[[NotALink]]'\n---\n[[Real]]\n"
         self.assertEqual(cg.extract_wikilinks(text), ["Real"])
 
+    def test_html_comment_not_matched(self) -> None:
+        self.assertEqual(cg.extract_wikilinks("<!-- [[X]] --> [[Y]]"), ["Y"])
+
+    def test_tilde_fence_skipped(self) -> None:
+        text = "~~~\n[[InCode]]\n~~~\n[[Real]]"
+        self.assertEqual(cg.extract_wikilinks(text), ["Real"])
+
+    def test_indented_code_skipped(self) -> None:
+        text = "    [[InCode]]\n    still code\n\n[[Real]]"
+        self.assertEqual(cg.extract_wikilinks(text), ["Real"])
+
+    def test_nested_brackets_no_false_match(self) -> None:
+        self.assertEqual(cg.extract_wikilinks("[[[[Foo]]]] [[Real]]"), ["Real"])
+
 
 class CollectTagsTest(unittest.TestCase):
     def test_frontmatter_bracket_list(self) -> None:
@@ -45,6 +59,15 @@ class CollectTagsTest(unittest.TestCase):
 
     def test_no_tags(self) -> None:
         self.assertEqual(cg.collect_tags("# body\n"), [])
+
+    def test_crlf_frontmatter_parsed(self) -> None:
+        self.assertEqual(cg.collect_tags("---\r\ntags: [a, b]\r\n---\r\n"), ["a", "b"])
+
+    def test_quoted_list_item_with_comma_kept_whole(self) -> None:
+        self.assertEqual(cg.collect_tags("---\ntags: ['has, comma']\n---\n"), ["has, comma"])
+
+    def test_trailing_hash_comment_stripped(self) -> None:
+        self.assertEqual(cg.parse_frontmatter("---\naliases: [Foo, Bar]  # comment\n---\n")["aliases"], ["Foo", "Bar"])
 
 
 class BuildGraphTest(unittest.TestCase):
