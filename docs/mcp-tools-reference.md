@@ -250,7 +250,7 @@ Sweep 00-Inbox/AI-Output for stale drafts (age > persona threshold and no non-AI
 
 ### `vault.writeAIOutput`
 
-Write a persona-authored analysis into 00-Inbox/AI-Output/{persona}/YYYY-MM-DD-{slug}.md with the 6-field provenance frontmatter (generated-by, generated-at, agent, parent-query, source-nodes, status=draft). Dry-run by default.
+Write a persona-authored analysis into 00-Inbox/AI-Output/{persona}/YYYY-MM-DD-{slug}.md with the 8-field provenance frontmatter (generated-by, generated-at, agent, parent-query, source-nodes, status=draft, scope, quarantine-state). Dry-run by default.
 
 **Mutating:** yes
 
@@ -262,6 +262,8 @@ Write a persona-authored analysis into 00-Inbox/AI-Output/{persona}/YYYY-MM-DD-{
 - `agent` (string, required) — Model identifier (e.g. claude-opus-4-7)
 - `body` (string, required) — Markdown body without frontmatter
 - `slug` (string, optional) — Optional filename slug; auto-derived from parentQuery if omitted
+- `scope` (string, optional, default: `"project"`, enum: `project` | `global` | `cross-project` | `host-local`) — Governance namespace for the entry (default: project)
+- `quarantineState` (string, optional, default: `"new"`, enum: `new` | `reviewed` | `promoted` | `discarded`) — Trust-gate state in the candidate lifecycle (default: new)
 - `dryRun` (boolean, optional, default: `true`) — Simulate without writing (default: true)
 
 ## `query.*` (4)

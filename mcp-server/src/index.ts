@@ -703,6 +703,19 @@ export class VaultFs {
         const body = p.body as string;
         if (typeof body !== "string") throw err(-32602, "body required");
 
+        // Step 2 governance: scope (namespace) + quarantine-state (trust gate).
+        // Both optional on write; defaults keep old callers byte-compatible with Step 1.
+        const SCOPE_VALUES = ["project", "global", "cross-project", "host-local"] as const;
+        const QSTATE_VALUES = ["new", "reviewed", "promoted", "discarded"] as const;
+        const scopeRaw = p.scope;
+        const scope: string = scopeRaw === undefined ? "project" : String(scopeRaw);
+        if (!(SCOPE_VALUES as readonly string[]).includes(scope))
+          throw err(-32602, `scope must be one of ${SCOPE_VALUES.join("|")}`);
+        const qStateRaw = p.quarantineState;
+        const quarantineState: string = qStateRaw === undefined ? "new" : String(qStateRaw);
+        if (!(QSTATE_VALUES as readonly string[]).includes(quarantineState))
+          throw err(-32602, `quarantineState must be one of ${QSTATE_VALUES.join("|")}`);
+
         // Sanitize parent-query: truncate to 200 chars, replace " with right-double-quote
         const parentQuery = parentQueryRaw.slice(0, 200).replace(/"/g, "\u201D");
 
@@ -754,6 +767,8 @@ export class VaultFs {
           "parent-query": parentQuery,
           "source-nodes": sourceNodes,
           "status": "draft",
+          "scope": scope,
+          "quarantine-state": quarantineState,
         };
 
         if (p.dryRun !== false) {
@@ -776,6 +791,8 @@ export class VaultFs {
           }
         }
         yamlLines.push(`status: draft`);
+        yamlLines.push(`scope: ${scope}`);
+        yamlLines.push(`quarantine-state: ${quarantineState}`);
 
         const contentOut = `---\n${yamlLines.join("\n")}\n---\n\n${body}\n`;
         mkdirSync(dirname(fullPath), { recursive: true });

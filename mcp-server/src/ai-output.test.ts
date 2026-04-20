@@ -147,6 +147,69 @@ describe('vault.writeAIOutput', () => {
     });
   });
 
+  test('defaults scope=project and quarantine-state=new when not specified', () => {
+    const result = vaultFs.dispatch('vault.writeAIOutput', {
+      persona: 'vault-architect',
+      parentQuery: 'default governance fields',
+      sourceNodes: [],
+      agent: 'claude-opus-4-7',
+      body: 'body',
+      dryRun: false,
+    }) as WriteOk;
+
+    const content = readFileSync(join(vault, result.path!), 'utf-8');
+    const fm = vaultFs.parseFrontmatter(content);
+    assert.equal(fm!['scope'], 'project');
+    assert.equal(fm!['quarantine-state'], 'new');
+  });
+
+  test('accepts explicit scope + quarantineState and writes them to frontmatter', () => {
+    const result = vaultFs.dispatch('vault.writeAIOutput', {
+      persona: 'vault-librarian',
+      parentQuery: 'promote this',
+      sourceNodes: [],
+      agent: 'claude-opus-4-7',
+      body: 'body',
+      scope: 'global',
+      quarantineState: 'reviewed',
+      dryRun: false,
+    }) as WriteOk;
+
+    const content = readFileSync(join(vault, result.path!), 'utf-8');
+    assert.ok(content.includes('scope: global'));
+    assert.ok(content.includes('quarantine-state: reviewed'));
+  });
+
+  test('rejects invalid scope enum', () => {
+    assert.throws(() => vaultFs.dispatch('vault.writeAIOutput', {
+      persona: 'vault-architect',
+      parentQuery: 'x',
+      sourceNodes: [],
+      agent: 'a',
+      body: 'b',
+      scope: 'galactic',
+      dryRun: false,
+    }), (e: unknown) => {
+      const ex = e as { code?: number; message?: string };
+      return ex.code === -32602 && /scope/.test(ex.message ?? '');
+    });
+  });
+
+  test('rejects invalid quarantineState enum', () => {
+    assert.throws(() => vaultFs.dispatch('vault.writeAIOutput', {
+      persona: 'vault-architect',
+      parentQuery: 'x',
+      sourceNodes: [],
+      agent: 'a',
+      body: 'b',
+      quarantineState: 'approved',
+      dryRun: false,
+    }), (e: unknown) => {
+      const ex = e as { code?: number; message?: string };
+      return ex.code === -32602 && /quarantineState/.test(ex.message ?? '');
+    });
+  });
+
   test('empty sourceNodes serialize to inline []', () => {
     const result = vaultFs.dispatch('vault.writeAIOutput', {
       persona: 'vault-gardener',

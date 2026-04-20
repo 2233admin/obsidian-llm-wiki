@@ -15,7 +15,7 @@ The full design rationale (three-gap analysis, step-ordering, status-transition 
 
 Per-persona subdirs keep lint/stale policy local to each persona for MVP; if per-content-type differentiation matters more than per-persona later, the layout can flatten without a schema change (all required info is in frontmatter).
 
-## Schema (6 fields, all required)
+## Schema (8 fields — 6 required, 2 governance with defaults)
 
 ```yaml
 ---
@@ -27,6 +27,8 @@ source-nodes:                           # wikilinks cited during analysis; [] va
   - "[[auth-architecture]]"
   - "[[session-tokens]]"
 status: draft                           # draft | reviewed | stale | superseded
+scope: project                          # project | global | cross-project | host-local
+quarantine-state: new                   # new | reviewed | promoted | discarded
 ---
 
 <body markdown, no frontmatter block inside>
@@ -42,6 +44,18 @@ Each field has a distinct failure mode if absent. None are optional:
 | `parent-query` | Reader sees the conclusion without knowing why the analysis was requested |
 | `source-nodes` | Reverse-linking (`vault.backlinks` onto this entry's citations) breaks |
 | `status` | Inbox accumulates as WORM; no lifecycle management is possible |
+| `scope` | Cross-project leakage risk — entries mint as `project` if caller doesn't specify |
+| `quarantine-state` | Trust gate collapses into content-lifecycle (Step 1 bug); promotion becomes ungoverned |
+
+### `scope` vs `status` vs `quarantine-state` — three orthogonal axes
+
+Step 2 (Appendix D of the governance plan) splits what Step 1 tried to encode in `status` alone. They move independently:
+
+- `scope` — **namespace** of the entry. `project` = this repo only (default). `global` = user-stable fact (e.g. "Curry prefers Bun over npm"). `cross-project` = generalisable pattern. `host-local` = machine-specific (paths, env).
+- `status` — **content timeliness**. Does this analysis still reflect the vault's current state? Gardener sweeps the age+anchor axis here.
+- `quarantine-state` — **trust gate** (from the agent-memory-runtime governance model). An entry can be `status: reviewed` (content-useful) but `quarantine-state: new` (not yet vetted for cross-project promotion). A `quarantine-state: promoted` entry is the gate for Step 3 durable-memory injection.
+
+Rationale for defaults: `scope=project` keeps entries local unless the caller opts into wider namespace; `quarantine-state=new` means no automatic promotion — a human (or future gardener policy) must flip to `reviewed`/`promoted`.
 
 ## Status lifecycle
 
