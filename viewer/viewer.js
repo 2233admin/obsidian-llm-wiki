@@ -2,11 +2,12 @@
 (function () {
   'use strict';
 
-  // ── CDN imports via ES module script trick ────────────────────────
+  // ── CDN imports ──────────────────────────────────────────────────
+  // Single dep: cytoscape ships built-in 'cose' layout that handles
+  // graphs of this size (10s-100s of nodes) without quality compromise.
+  // Avoids the layout-base + cose-base + cose-bilkent CDN chain that
+  // breaks silently when any one script 404s or load-orders wrong.
   var CYTOSCAPE_CDN = 'https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js';
-  var COSEB_CDN     = 'https://unpkg.com/cytoscape-cose-bilkent@4.1.0/cytoscape-cose-bilkent.js';
-
-  var style, coseBilkent;
 
   function loadScript(src) {
     return new Promise(function (resolve, reject) {
@@ -20,9 +21,6 @@
 
   async function loadDeps() {
     await loadScript(CYTOSCAPE_CDN);
-    await loadScript(COSEB_CDN);
-    style      = window.cytoscape.stylesheet;
-    coseBilkent = window.cytoscape;
   }
 
   // ── Graph style ─────────────────────────────────────────────────
@@ -54,6 +52,16 @@
           'height': 10,
           'width': 10,
           'font-size': 8
+        }
+      },
+      {
+        selector: 'node[kind = "unresolved"]',
+        style: {
+          'background-color': '#3d1a1a',
+          'border-color': '#ef9a9a',
+          'border-style': 'dashed',
+          'border-width': 1.5,
+          'color': '#ef9a9a'
         }
       },
       {
@@ -91,24 +99,26 @@
     ];
   }
 
-  // ── Cytoscape options ────────────────────────────────────────────
-  function coseBilkentOptions(eles) {
+  // ── Cytoscape layout options (built-in cose) ─────────────────────
+  function layoutOptions(eles) {
     return {
-      name: 'cose-bilkent',
+      name: 'cose',
       idealEdgeLength: 80,
-      nodeRepulsion: 3000,
-      edgeElasticity: 0.1,
-      nestingFactor: 0.1,
-      gravity: 0.15,
-      numIter: 500,
-      animate: 'end',
+      nodeOverlap: 8,
+      nodeRepulsion: function () { return 4500; },
+      edgeElasticity: function () { return 32; },
+      nestingFactor: 1.2,
+      gravity: 0.25,
+      numIter: 1000,
+      initialTemp: 200,
+      coolingFactor: 0.95,
+      minTemp: 1.0,
+      animate: false,
       randomize: false,
+      componentSpacing: 80,
       nodeDimensionsIncludeLabels: true,
       fit: true,
-      padding: 40,
-      // batching on so it doesn't block the UI thread
-      batching: true,
-      nodeSeparation: 60
+      padding: 40
     };
   }
 
@@ -117,8 +127,10 @@
     var nodes = graphData.nodes || [];
     var edges = graphData.edges || [];
     var eles  = [];
+    var nodeIds = new Set();
 
     nodes.forEach(function (n) {
+      nodeIds.add(n.id);
       var isTag = n.id && n.id.startsWith('tag:');
       eles.push({
         data: {
@@ -129,9 +141,26 @@
       });
     });
 
+    // Cytoscape throws on edges whose source/target nodes don't exist,
+    // so any missing target must be materialized. The compiler emits tags
+    // only as edges (kind="tag"), so tag targets become tag nodes;
+    // missing targets on wikilink edges are genuine unresolved links.
+    var ghostKind = {};
     edges.forEach(function (e) {
-      // Only add if src and dst are defined and different
-      if (e.src && e.dst && e.src !== e.dst) {
+      if (!e.src || !e.dst) return;
+      var derivedKind = (e.kind === 'tag' || (e.dst && e.dst.indexOf('tag:') === 0)) ? 'tag' : 'unresolved';
+      if (!nodeIds.has(e.dst)) ghostKind[e.dst] = derivedKind;
+      if (!nodeIds.has(e.src)) ghostKind[e.src] = derivedKind;
+    });
+    Object.keys(ghostKind).forEach(function (id) {
+      var kind = ghostKind[id];
+      var label = kind === 'tag' ? id.replace('tag:', '#') : id;
+      eles.push({ data: { id: id, label: label, kind: kind } });
+      nodeIds.add(id);
+    });
+
+    edges.forEach(function (e) {
+      if (e.src && e.dst && e.src !== e.dst && nodeIds.has(e.src) && nodeIds.has(e.dst)) {
         eles.push({
           data: {
             id:      e.src + '-->' + e.dst,
@@ -189,15 +218,15 @@
       cy = null;
     }
 
-    cy = coseBilkent({
+    cy = window.cytoscape({
       container: document.getElementById('cy-container'),
       elements: elements,
       style: buildStyle(),
       layout: { name: 'preset' }  // start hidden, then animate
     });
 
-    // Run cose-bilkent layout
-    var layout = cy.layout(coseBilkentOptions(elements));
+    // Run cose layout
+    var layout = cy.layout(layoutOptions(elements));
     layout.run();
 
     document.getElementById('load-btn').disabled = false;
@@ -248,13 +277,21 @@
 
     // Load sample graph on startup
     fetch('sample-graph.json')
-      .then(function (r) { return r.json(); })
+      .then(function (r) {
+        if (!r.ok) throw new Error('sample-graph.json not found (HTTP ' + r.status + ')');
+        return r.json();
+      })
       .then(function (data) {
         jsonInput.value = JSON.stringify(data, null, 2);
         return renderGraph(data);
       })
-      .catch(function () {
-        // No sample-graph.json — that's fine, user can paste
+      .catch(function (err) {
+        // Surface real errors (parse failure, render crash) instead of
+        // silently falling back. A missing sample is fine; everything
+        // else points at a real bug the user should know about.
+        if (/not found/.test(err.message)) return;
+        showError('Sample graph load failed: ' + err.message);
+        if (window.console) console.error(err);
       });
   }
 
