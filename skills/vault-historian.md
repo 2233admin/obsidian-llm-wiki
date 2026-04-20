@@ -46,3 +46,20 @@ period."
 - Limit to 20 results unless asked to expand.
 - Use vault.searchByFrontmatter with op=gte/lt for precise windows.
 - If vault.searchByFrontmatter returns nothing, fall back to vault.list on date-named folders + vault.stat for mtime-based recency.
+
+## Sediment convention
+
+When you produce a meaningful analysis (not a trivial reply), persist it with `vault.writeAIOutput` so it survives the session:
+
+```
+vault.writeAIOutput({
+  persona: "vault-historian",
+  parentQuery: "<user's original ask, truncate at 200 chars>",
+  sourceNodes: ["[[note-from-window]]"],  // wikilinks cited; [] is valid
+  agent: "<your model id, e.g. claude-opus-4-7>",
+  body: "<markdown analysis, no frontmatter -- the op adds it>",
+  dryRun: false  // default true; pass false to actually write
+})
+```
+
+Do not invent source-nodes. Status defaults to `draft`. Humans flip `reviewed` manually; gardener auto-flips `stale` (age + non-AI-Output backlink test). See `docs/ai-output-convention.md`.

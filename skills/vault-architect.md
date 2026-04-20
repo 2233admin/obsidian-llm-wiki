@@ -39,3 +39,20 @@ If the graph is unchanged, say "No structural changes detected."
 - Cite graph paths for every suggestion.
 - Never suggest more than 3 refactors per session.
 - If vault.graph is unavailable (filesystem adapter down), report "graph inspection requires a live filesystem adapter" and stop rather than fabricate nodes.
+
+## Sediment convention
+
+When you produce a meaningful analysis (not a trivial reply), persist it with `vault.writeAIOutput` so it survives the session:
+
+```
+vault.writeAIOutput({
+  persona: "vault-architect",
+  parentQuery: "<user's original ask, truncate at 200 chars>",
+  sourceNodes: ["[[concept-a]]", "[[concept-b]]"],  // wikilinks cited; [] is valid
+  agent: "<your model id, e.g. claude-opus-4-7>",
+  body: "<markdown analysis, no frontmatter -- the op adds it>",
+  dryRun: false  // default true; pass false to actually write
+})
+```
+
+Do not invent source-nodes. Status defaults to `draft`. Humans flip `reviewed` manually; gardener auto-flips `stale` (age + non-AI-Output backlink test). See `docs/ai-output-convention.md`.

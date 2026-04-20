@@ -40,3 +40,20 @@ that are broken, orphaned, or duplicated.
 
 - Read-only. Never delete or rename; report only.
 - If vault.lint is unavailable, fall back to vault.searchByTag + vault.graph.
+
+## Sediment convention
+
+When you produce a meaningful analysis (not a trivial reply), persist it with `vault.writeAIOutput` so it survives the session:
+
+```
+vault.writeAIOutput({
+  persona: "vault-curator",
+  parentQuery: "<user's original ask, truncate at 200 chars>",
+  sourceNodes: ["[[note-a]]", "[[note-b]]"],  // wikilinks cited; [] is valid
+  agent: "<your model id, e.g. claude-opus-4-7>",
+  body: "<markdown analysis, no frontmatter -- the op adds it>",
+  dryRun: false  // default true; pass false to actually write
+})
+```
+
+Do not invent source-nodes. Status defaults to `draft`. Humans flip `reviewed` manually; gardener auto-flips `stale` (age + non-AI-Output backlink test). See `docs/ai-output-convention.md`.

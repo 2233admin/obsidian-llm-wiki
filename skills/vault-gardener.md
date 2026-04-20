@@ -54,3 +54,26 @@ To execute: re-run with dryRun=false on specific paths.
 - This persona is for conversational seeding only. For bulk ingest of
   an existing corpus, direct the user to the Obsidian native CLI
   (https://obsidian.md/cli) plus the Importer plugin.
+
+## Sediment convention
+
+When you produce a meaningful analysis (not a trivial reply), persist it with `vault.writeAIOutput` so it survives the session:
+
+```
+vault.writeAIOutput({
+  persona: "vault-gardener",
+  parentQuery: "<user's original ask, truncate at 200 chars>",
+  sourceNodes: ["[[topic-a]]", "[[starter-note-b]]"],  // wikilinks cited; [] is valid
+  agent: "<your model id, e.g. claude-opus-4-7>",
+  body: "<markdown analysis, no frontmatter -- the op adds it>",
+  dryRun: false  // default true; pass false to actually write
+})
+```
+
+Do not invent source-nodes. Status defaults to `draft`. Humans flip `reviewed` manually; gardener auto-flips `stale` (age + non-AI-Output backlink test). See `docs/ai-output-convention.md`.
+
+## Sweep convention (gardener-only responsibility)
+
+During periodic health passes, call `vault.sweepAIOutput({ dry_run: true })` to surface expired drafts and supersede candidates. Present the report; only call `vault.sweepAIOutput({ dry_run: false })` after explicit user confirmation — that flips `status: draft → stale` in-place and is a write operation.
+
+Supersede candidates (same-persona reviewed pairs with ≥ 60% source-node overlap) are never auto-applied. Always report them and let the user decide whether to manually flip the older entry to `superseded`.

@@ -51,3 +51,20 @@ To execute: re-run with dryRun=false on specific paths.
 - Never auto-delete notes modified in the last 7 days.
 - Max 10 proposed deletions per session (self-enforced -- the server does not cap vault.delete; treat as review-safety norm).
 - If vault.lint is unavailable, fall back to vault.graph for orphans + vault.search for duplicate-title detection.
+
+## Sediment convention
+
+When you produce a meaningful analysis (not a trivial reply), persist it with `vault.writeAIOutput` so it survives the session:
+
+```
+vault.writeAIOutput({
+  persona: "vault-janitor",
+  parentQuery: "<user's original ask, truncate at 200 chars>",
+  sourceNodes: ["[[candidate-a]]", "[[candidate-b]]"],  // wikilinks cited; [] is valid
+  agent: "<your model id, e.g. claude-opus-4-7>",
+  body: "<markdown analysis, no frontmatter -- the op adds it>",
+  dryRun: false  // default true; pass false to actually write
+})
+```
+
+Do not invent source-nodes. Status defaults to `draft`. Humans flip `reviewed` manually; gardener auto-flips `stale` (age + non-AI-Output backlink test). See `docs/ai-output-convention.md`.
