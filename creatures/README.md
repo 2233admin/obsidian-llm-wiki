@@ -1,7 +1,7 @@
 # spec-A Output: 6 Vault Personas
 
 Output of `librarian-author` on MiniMax-M2.7-highspeed via KT.
-Built for `obsidian-llm-wiki` v2.
+Built for `LLM Wiki Bridge` v2.
 
 ## Personas
 

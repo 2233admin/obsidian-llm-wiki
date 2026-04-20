@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# obsidian-llm-wiki setup -- install skill + configure MCP
+# LLM Wiki Bridge setup -- install skill + configure MCP
 #
 # Copies a curated allowlist into the host's skills directory.
 # ~1.7 MB install (vs 64 MB of repo) -- ships a pre-bundled MCP server
@@ -101,7 +101,7 @@ run cp "$SCRIPT_DIR/mcp-server/package.json" "$SKILLS_DIR/mcp-server/package.jso
 INSTALL_PATH="$SKILLS_DIR/mcp-server/bundle.js"
 
 echo ""
-echo "obsidian-llm-wiki installed to:"
+echo "LLM Wiki Bridge installed to:"
 echo "  $SKILLS_DIR"
 echo ""
 echo "Next steps:"

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # dogfood-log.sh — append a single usage record to .dogfood.log
 #
-# Purpose: Track real daily usage of obsidian-llm-wiki so we can see at Week 12
+# Purpose: Track real daily usage of LLM Wiki Bridge so we can see at Week 12
 # which features are used 100+ times (keep) vs 0 times (cut).
 #
 # Usage:

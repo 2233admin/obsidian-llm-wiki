@@ -1,6 +1,6 @@
 # Demo Vault
 
-10 synthetic markdown notes about AI engineering topics, used to demo the obsidian-llm-wiki personas. Points the `/vault-*` skills at this vault for a working demonstration.
+10 synthetic markdown notes about AI engineering topics, used to demo the LLM Wiki Bridge personas. Points the `/vault-*` skills at this vault for a working demonstration.
 
 ## How to point MCP server at this vault
 

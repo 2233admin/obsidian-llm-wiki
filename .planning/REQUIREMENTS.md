@@ -1,4 +1,4 @@
-# Requirements: obsidian-llm-wiki v2 (shipability)
+# Requirements: LLM Wiki Bridge v2 (shipability)
 
 **Defined:** 2026-04-20 (v2 — ship-ready pivot)
 **Core Value:** Your markdown vault becomes a 6-persona virtual team for Claude Code / Codex / OpenCode / any agent. MCP + compiler are plumbing; personas are the product.
@@ -31,7 +31,7 @@ Each persona: 1 markdown file in `skills/`, < 150 lines, calls MCP tools via Cla
 ### Install UX (Layer 1 — distribution)
 
 - [ ] **I-01**: Paste-to-install prompt for Claude Code:
-  `Install obsidian-llm-wiki: git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki ~/.claude/skills/vault-wiki && cd ~/.claude/skills/vault-wiki && ./setup` (mirror gstack).
+  `Install LLM Wiki Bridge: git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki ~/.claude/skills/vault-wiki && cd ~/.claude/skills/vault-wiki && ./setup` (mirror gstack).
 - [ ] **I-02**: `./setup` script: detects vault path (env VAULT_PATH or CWD check), writes `.mcp.json` snippet, appends to CLAUDE.md the 6 persona list.
 - [ ] **I-03**: Multi-agent support: `./setup --host claude|codex|opencode` installs skill in the right dir (match gstack auto-detect table).
 - [ ] **I-04**: Team mode: `./setup --team` puts skill as a dev dep + auto-update check. Deferred to v2.1 if time is tight.

@@ -1,6 +1,6 @@
 # Draft: Show HN post
 
-**Title**: `Show HN: Karpathy's LLM Wiki, without the Postgres (obsidian-llm-wiki v1.0)`
+**Title**: `Show HN: Karpathy's LLM Wiki, without the Postgres (LLM Wiki Bridge v1.0)`
 
 **URL**: https://github.com/2233admin/obsidian-llm-wiki
 
@@ -10,7 +10,7 @@
 
 When Karpathy published his LLM Wiki gist in April, the comment thread immediately filled with variations that added things the gist explicitly said weren't needed at small scale — mostly embeddings and vector DBs.
 
-obsidian-llm-wiki is a deliberately orthodox implementation:
+LLM Wiki Bridge is a deliberately orthodox implementation:
 
 - **Three operations**, as the gist describes: Ingest / Query / Lint. Implemented as MCP tools so any MCP client (Claude Code, Cline, etc.) can drive them.
 - **No embeddings at moderate scale.** Filesystem adapter uses ripgrep. Embeddings/memU/pgvector are *optional* adapters — you can ignore them entirely and still have a working system.

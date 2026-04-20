@@ -1,4 +1,4 @@
-# obsidian-llm-wiki
+# LLM Wiki Bridge
 
 Your markdown vault, compiled into a 6-persona team for any agent.
 
@@ -6,7 +6,7 @@ Your markdown vault, compiled into a 6-persona team for any agent.
 
 Your vault has 500 notes. You forget half of them. Your AI agent cannot read them. Every morning you spend 20 minutes re-finding what you already knew.
 
-obsidian-llm-wiki solves this. It compiles your markdown vault -- wikilinks, aliases, tags, frontmatter -- into an MCP server your agent calls directly. The agent does not guess. It searches, reads, and cites with full vault context.
+LLM Wiki Bridge solves this. It compiles your markdown vault -- wikilinks, aliases, tags, frontmatter -- into an MCP server your agent calls directly. The agent does not guess. It searches, reads, and cites with full vault context.
 
 ---
 

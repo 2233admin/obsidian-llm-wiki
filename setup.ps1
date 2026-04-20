@@ -1,4 +1,4 @@
-# obsidian-llm-wiki setup (PowerShell)
+# LLM Wiki Bridge setup (PowerShell)
 # Usage: .\setup.ps1 [-VaultHost <name>] [-DryRun]
 #
 # Copies a curated allowlist into the host's skills directory.

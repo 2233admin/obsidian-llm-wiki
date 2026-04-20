@@ -7,7 +7,7 @@ Show Claude Code window. Cursor is on an empty line in a project directory.
 Type (animate character by character):
 
 ```
-Install obsidian-llm-wiki: git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki ~/.claude/skills/vault-wiki && cd ~/.claude/skills/vault-wiki && ./setup
+Install LLM Wiki Bridge: git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki ~/.claude/skills/vault-wiki && cd ~/.claude/skills/vault-wiki && ./setup
 ```
 
 Press Enter. Show brief terminal output scrolling (setup runs, completes).

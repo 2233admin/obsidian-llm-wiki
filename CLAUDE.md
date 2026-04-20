@@ -1,4 +1,4 @@
-# CLAUDE.md — obsidian-llm-wiki
+# CLAUDE.md — LLM Wiki Bridge
 
 ## What This Is
 

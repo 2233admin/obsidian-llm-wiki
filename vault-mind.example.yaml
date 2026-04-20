@@ -1,4 +1,4 @@
-# obsidian-llm-wiki -- runtime configuration example
+# LLM Wiki Bridge -- runtime configuration example
 #
 # Copy this file to `vault-mind.yaml` (git-ignored) and edit paths/flags
 # for your machine. Or skip the yaml entirely and set
