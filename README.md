@@ -1,5 +1,7 @@
 # LLM Wiki Bridge
 
+> 📖 **Guide**: [English](docs/GUIDE.md) · [简体中文](docs/GUIDE.zh-CN.md)
+
 Your markdown vault, compiled into a 6-persona team for any agent.
 
 ![demo](docs/gif/demo.gif)
