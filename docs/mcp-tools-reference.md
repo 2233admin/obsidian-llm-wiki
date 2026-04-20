@@ -3,9 +3,9 @@
 > Auto-generated from `mcp-server/src/core/operations.ts`.
 > Run `npm run generate-tools-doc` to regenerate. Do not edit by hand.
 
-Total: **38** operations across **5** namespaces.
+Total: **40** operations across **5** namespaces.
 
-## `vault.*` (21)
+## `vault.*` (23)
 
 ### `vault.append`
 
@@ -236,6 +236,33 @@ Get file/folder metadata
 **Parameters:**
 
 - `path` (string, required) — Vault-relative path
+
+### `vault.sweepAIOutput`
+
+Sweep 00-Inbox/AI-Output for stale drafts (age > persona threshold and no non-AI-Output backlinks) and supersede candidates (same-persona reviewed pairs with source-nodes Jaccard >= 0.6). Reports candidates; when dry_run=false flips draft→stale in place. Never auto-applies supersede.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `dry_run` (boolean, optional, default: `true`) — Report only without writing (default: true)
+- `now` (string, optional) — Inject ISO 8601 timestamp for deterministic tests
+
+### `vault.writeAIOutput`
+
+Write a persona-authored analysis into 00-Inbox/AI-Output/{persona}/YYYY-MM-DD-{slug}.md with the 6-field provenance frontmatter (generated-by, generated-at, agent, parent-query, source-nodes, status=draft). Dry-run by default.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `persona` (string, required) — Persona identifier, must match ^vault-[a-z]+$
+- `parentQuery` (string, required) — User's original query (truncated to 200 chars)
+- `sourceNodes` (array, required) — Wikilinks cited during analysis (empty array is valid)
+- `agent` (string, required) — Model identifier (e.g. claude-opus-4-7)
+- `body` (string, required) — Markdown body without frontmatter
+- `slug` (string, optional) — Optional filename slug; auto-derived from parentQuery if omitted
+- `dryRun` (boolean, optional, default: `true`) — Simulate without writing (default: true)
 
 ## `query.*` (4)
 
