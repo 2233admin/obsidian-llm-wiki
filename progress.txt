@@ -1070,3 +1070,59 @@ Pushed to origin (first-time, upstream set). 15 commits ahead of main.
 Tag v2.0.0-rc1 on ba3451d pushed to origin. Working tree clean.
 Three code commits this session (cb58442, fbd6ed0, ba3451d). First
 action next session: decide whether to open PR v2-staging -> main.
+
+## 2026-04-21 -- v2 shipped for download (PR #4 + release live)
+
+### What done
+
+- Rebrand commit 8bb3be0 lands (14 files, display prose only): README
+  H1+pitch, CLAUDE.md H1, setup/setup.ps1 banners, REQUIREMENTS H1 +
+  install prefix, .outreach/{show-hn,x-thread}, viewer title+h1,
+  demo-vault + creatures READMEs, WHY_NOT_JUST_GREP, gif-script,
+  dogfood-log.sh, vault-mind.example.yaml. Closes step 5/6 of
+  rebrand workflow. Negative grep: 30 residual slug mentions, all
+  technical (URLs, npm scope, clone paths, serverInfo.name, ROOT).
+- v2-staging pushed to origin (8df1848..8bb3be0).
+- PR #4 opened v2-staging -> main with install-first body:
+  https://github.com/2233admin/obsidian-llm-wiki/pull/4
+- GitHub prerelease v2.0.0-rc1 created (tag was already pushed; no
+  body previously). Landing page leads with 30-second paste-install
+  for bash + PowerShell + --host flag variants:
+  https://github.com/2233admin/obsidian-llm-wiki/releases/tag/v2.0.0-rc1
+
+### Verification
+
+- git log shows 8bb3be0 on v2-staging (push output confirmed
+  8df1848..8bb3be0 received).
+- `gh pr create` returned URL #4 (200 OK implicit).
+- `gh release create` returned URL tag v2.0.0-rc1 (200 OK implicit).
+
+### Known gaps (P2/P3)
+
+- P2: tag v2.0.0-rc1 still points to ba3451d (pre-rebrand). Users who
+  land on the Release page and click "source code (tag)" will see
+  pre-rebrand H1 briefly. Fix (if desired): force-move tag to 8bb3be0
+  and `git push origin +v2.0.0-rc1` + `gh release edit v2.0.0-rc1
+  --target 8bb3be0`. Not done this session -- mild inconsistency, no
+  downstream references to the tag commit yet.
+- P2: docs/gif/demo.gif still placeholder (README L5 references it).
+  Recording the demo flow would replace the broken image with a real
+  screencast of `/vault-librarian` in action.
+- P2: obsidian-vault-bridge v2 architecture impl not started (separate
+  local repo at D:/projects/obsidian-vault-bridge/, design in
+  project_bridge_architecture_v2.md memory).
+- P3: CRLF warnings on 7 files (autocrlf on Windows). Cosmetic; would
+  be resolved by adding `.gitattributes` with `* text=auto eol=lf`.
+
+### Next step (next session opener)
+
+Two natural forks:
+
+1. **Ship PR #4**: review merge criteria, either self-merge or invite
+   feedback first. Merging closes the v1.0 -> v2 cutover on `main` and
+   completes the "users can install from default branch" story.
+2. **Record demo.gif** for README L5 + release page (asciinema ->
+   gif conversion, or OBS). Biggest remaining install-UX friction
+   gap -- README currently shows a broken image.
+
+Deferred long-term: bridge v2 architecture, tag re-pointing.
