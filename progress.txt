@@ -694,3 +694,151 @@ tool descriptions + first-prompt UX + cold-start for empty vaults).
 First action next session: cd D:/projects/obsidian-llm-wiki &&
 git status && tail -100 progress.txt && open the 6 persona files
 in skills/ to begin the audit.
+
+
+## 2026-04-20 (late-late) -- persona + MCP tool description audit (read-only)
+
+### What done (no code changes, read-only audit + strategy decisions)
+
+Audited the 6 persona skills (vault-librarian, -architect, -curator,
+-teacher, -historian, -janitor) against the actual MCP tool surface
+(operations.ts + index.ts dispatch). Cross-referenced with
+skills/mcp-tools-reference.md. Produced 12 P0/P1/P2 findings +
+three strategic decisions. Nothing was written to code.
+
+### Audit findings (12 items) -- to execute next session
+
+P0 (correctness bugs that misfire today):
+- #1 vault-curator.md describes "Stale Notes (90+ days)" section --
+  vault.lint does NOT produce stale-notes data (handler returns only
+  orphans / brokenLinks / emptyFiles / missingFrontmatter /
+  duplicateTitles). Either add staleNotes to vault.lint, or strip
+  the section from the persona.
+- #2 skills/mcp-tools-reference.md has drifted from operations.ts:
+    - doc says op "neq"/"not_exists", code expects "ne" and lacks
+      "not_exists" entirely (valid ops at index.ts:358:
+      eq, ne, gt, lt, gte, lte, contains, regex, exists)
+    - vault.delete "force: true" documented, param does not exist
+    - vault.search "context: N" documented, not implemented
+    - vault.graph "type: backlinks/outgoing/both" documented,
+      handler ignores the param entirely
+  Best fix: delete parallel doc, auto-generate from operations.ts
+  descriptions at build time (same SSOT pattern used by index.ts).
+- #3 vault.graph declares enum param `type` (operations.ts:177) but
+  handler ignores it (index.ts:391-421). Schema lies to the LLM.
+  Either wire up or drop the param.
+- #4 vault.externalSearch is registered but always throws
+  "No external search engine configured" -- dead tool in tools/list
+  degrades tool-selection quality. Gate registration on config or
+  return {available:false} instead of throwing.
+
+P1 (descriptions underinform tool selection):
+- #5 Most tool descriptions are 3-word sentences.
+  query.unified vs query.search vs query.explain all say "search";
+  LLM cannot disambiguate multi-adapter-weighted vs filesystem-only
+  vs top-10-with-3-line-context without reading the source.
+  vault.enforceDiscipline + vault.reindex already show the right
+  verbose style -- mimic for the others.
+- #6 vault-architect.md template shows "Unresolved: K" but
+  vault.graph returns only `orphans` (no unresolvedLinks count).
+  Either template drops the line or graph op adds the field.
+- #7 vault-historian.md asks the model to sort by mtime but mtime
+  only comes from vault.stat (1 call per note; 20-result window =
+  20 roundtrips). Add mtime to searchByFrontmatter results or add
+  sort=mtime to vault.list.
+- #8 No persona specifies MCP-unavailable fallback. Librarian has
+  "no source found" -- others don't handle adapter-down. Add one-line
+  fallback per persona per feedback-graduated rule 8 (memory-route-first).
+
+P2 (ergonomics that compound):
+- #9 (revised) Cold-start gap. Build vault-gardener persona. Headless,
+  uses vault.create / vault.append, no plugin deps. See strategic
+  decisions below -- the original proposed vault.import tool is
+  KILLED; bulk ingest goes via Obsidian native CLI + Importer plugin.
+- #10 No first-prompt UX after install. Emit one line from stderr
+  startup banner (or print STARTERS.md): "Try: ask `what do I know
+  about X` to invoke vault-librarian."
+- #11 vault-janitor "Max 10 deletions per session" is persona-prompt-only,
+  not server-enforced. Either enforce in vault.delete or accept as
+  soft norm and document.
+- #12 skills/mcp-tools-reference.md covered by #2 -- auto-gen or delete.
+
+### Strategic decisions (Curry-confirmed this session)
+
+1. KILL the proposed `vault.import` tool. We do not write format
+   converters. Obsidian ships a NATIVE CLI
+   (https://obsidian.md/cli, opt-in in Settings), binary `obsidian`,
+   with commands daily/search/create/tasks/read/write/plugin:reload/
+   devtools/eval/sync. `obsidian eval "app.commands.executeCommandById(
+   'obsidian-importer:open-modal')"` drives any installed plugin.
+   Bulk ingest of existing corpora goes through the native CLI +
+   Obsidian Importer plugin + existing community plugins. Zero
+   conversion code in this repo.
+
+2. KEEP vault-gardener persona (original option b). Pure headless,
+   uses vault.create / vault.append, no plugin dependency. Does NOT
+   overlap with bulk import -- gardener is for conversational
+   empty-vault seeding, not mass data landing. Option (a) starter
+   template could ship as --seed flag on vault.init, low priority.
+
+3. obsidian-vault-bridge (master branch, separate project) gets a
+   strategic repositioning. NOT "WebSocket adapter for Obsidian
+   plugins" (native CLI made that redundant). NEW role =
+   multi-agent coordination + corpus-landing bus:
+     a) multi-agent discovery (other agents find it)
+     b) event stream subscription (vault + other source feeds
+        push to subscribers)
+     c) DB writes for language corpus cleaning workflows
+        (memU pgvector / DuckDB / PG18 are existing backends)
+   Corpus-landing pipeline is the primary consumer
+   (hist-mat entbergen, Sprachwelt training data, Gemma 4 QLoRA,
+   quant-terminal Trading-R1 distillation -- all bench on the
+   same pattern). The Obsidian CLI's "app must be running"
+   constraint is identical to bridge's, so CLI vs bridge is an
+   implementation-mechanism choice, not a capability choice.
+   Full design in separate memory file:
+   ~/.claude/projects/C--Users-Administrator/memory/project_bridge_architecture_v2.md
+
+### Headless / bridge boundary (confirmed)
+
+- Headless-capable (Obsidian not required): pure filesystem ops --
+  read/list/create/modify/append/delete/rename/search/searchByTag/
+  searchByFrontmatter/graph/backlinks/lint/getMetadata/stat/exists.
+  All the current vault.* tools stay headless.
+- Bridge-required (Obsidian must be running): anything that hits
+  Obsidian runtime -- plugin commands, Obsidian metadata cache,
+  Templater rendering, Dataview queries, Importer conversions.
+  Native CLI has the same constraint.
+
+### What blocked
+
+Nothing. All 12 fixes are file-scoped, minimal diff.
+
+### Next step (next session opener)
+
+1. Execute audit fixes on v2-staging in this order:
+   P0 #1 (curator stale section) -> P0 #2 (mcp-tools-reference
+   auto-gen or delete) -> P0 #3 (graph type param) -> P0 #4
+   (externalSearch dead tool) -> P1 #5 (verbose descriptions for
+   query.unified/search/explain + vault.search + vault.lint) ->
+   P1 #6-#8 -> P2 #10-#11.
+2. Build vault-gardener persona. Template after existing 6.
+   Tool budget: vault.create, vault.append, vault.init (optional).
+3. Re-evaluate skills/mcp-tools-reference.md -- likely delete
+   and replace with `npm run generate-tools-doc` that emits from
+   operations.ts.
+
+### Deferred (separate session)
+
+- obsidian-vault-bridge architecture v2 implementation (design
+  captured in project_bridge_architecture_v2.md memory).
+- docs/gif/demo.gif placeholder still.
+- vercel deploy + push v2-staging to origin + tag v2.0.0-rc1
+  (waits for audit fixes to land).
+
+### v2-staging branch state
+
+10 commits ahead of main. Working tree clean. This session made
+zero code changes (read-only audit + strategy decisions only).
+First action next session: cd D:/projects/obsidian-llm-wiki &&
+git status && tail -200 progress.txt && start fixing P0 #1.
