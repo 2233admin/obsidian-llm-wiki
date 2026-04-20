@@ -578,3 +578,119 @@ Codex or Claude own-report:
 5. Record demo GIF per docs/gif-script.md.
 6. Address P2 follow-ups (setup leanness + GIF) before promoting v2-staging
    -> main as v2.0.0 final.
+
+
+## 2026-04-20 evening session 2 -- install leanness + viewer fixes + strategic pivot
+
+### What done (2 atomic commits on v2-staging)
+
+- 9d790c7 feat(install): bundle MCP server + lean allowlist + restore MIT
+  - esbuild --bundle dist/index.js -> mcp-server/bundle.js (1.5 MB,
+    self-contained, ESM with createRequire shim for ws CJS interop)
+  - npm run bundle + npm run rebuild scripts; main switched to bundle.js
+  - setup / setup.ps1: explicit allowlist (skills, examples, docs,
+    terrariums, viewer, smoke, top-level docs, mcp-server/{bundle.js,
+    package.json}). Fail fast if bundle missing. PS variant uses
+    -VaultHost (not -Host -- $Host is reserved in PowerShell).
+  - README quick-start fixed (clones to sibling dir; old command
+    cloned full repo into install dir, bypassing setup entirely)
+  - docs/INSTALL.md rewritten v1 -> v2 (v1 referenced npm install +
+    tsc + yaml prompt + ~/.claude.json registration + smoketest --
+    none of which the current setup actually does)
+  - LICENSE restored from first commit d0f212c (was lost when v2
+    work started on a fresh branch). License inconsistency fixed:
+    package.json said GPL-3.0 (stray scaffold) while README + legacy
+    LICENSE both said MIT. README/intent wins; corrected to MIT.
+  - .gitignore: ignore mcp-server/smoke.{in,out,err} test artifacts
+  - Verified: install 1.6 MB / 406 ms (was 64 MB), boot 76 ms,
+    MCP initialize + tools/list + vault.list all valid JSON-RPC
+
+- 1b153d9 fix(viewer): graph actually renders -- 4 bugs into a blank canvas
+  - Before: stats said "nodes: 10 / edges: 70" but canvas was empty
+  - Drop cose-bilkent CDN chain (needs layout-base + cose-base loaded
+    first); switched to cytoscape's built-in cose layout (zero extension).
+  - Materialize ghost nodes for missing edge targets; classify by
+    edge.kind so tags get tag style, real missing notes get
+    unresolved style.
+  - Stop swallowing render errors. Old .catch(()=>{}) masked every
+    cytoscape failure. Now distinguishes 404 (silent) from real errors.
+  - Add styling for kind=unresolved (dark fill, dashed red border).
+  - Verified in headless playwright at 1440x900 + 390x844: real graph
+    renders, 10 concept nodes (blue) + 17 tag nodes (purple) + 70 edges
+    + 1 unresolved link as dashed-red ghost. Zero console errors.
+
+### Strategic pivot (key for next session)
+
+Surface read of UX work shifted twice:
+
+1. After viewer fix, proposed Tier 1-3 of further viewer polish.
+2. Cross-checked with Codex (TTY-blocked, but agent self-assessed) +
+   GitHub research. Found Juggl (HEmile/juggl) -- mature
+   cytoscape-based Obsidian graph plugin doing what we were
+   independently rediscovering. Codex flagged "bake demo graph
+   inline + click-highlight neighbors" as highest leverage.
+3. Curry pushed back fundamentally: "前端不是必须要的 跟你自然交互
+   才是最好的解决方案" = the conversation IS the interface, not the
+   viewer/frontend. Karpathy LLM Wiki philosophy: vault is the
+   precipitate of conversations, not a thing you visualize.
+
+### What blocked
+
+None. Strategic direction confirmed: stop investing in viewer
+beyond 1b153d9, refocus on conversation quality (personas + MCP
+tool descriptions + first-prompt UX + cold-start for empty vaults).
+
+### Next step (next session opener -- not started)
+
+1. Audit pass on conversation surface (~150 lines of notes):
+   - Read all 6 persona skill files (vault-librarian, -architect,
+     -curator, -teacher, -historian, -janitor) -- prompts delightful?
+     Cite well? Fail gracefully?
+   - Read MCP server tool descriptions in mcp-server/dist/ (or src/) --
+     full vault.{create,append,delete,rename,etc} surface, not just
+     read/list/search. Are descriptions ergonomic for LLM tool selection
+     or just technically accurate one-liners?
+   - First conversation path: after install, what does user type first?
+     Currently zero guidance. Need STARTERS.md or single line printed
+     by setup (Try: /vault-librarian summarize my 3 most recent notes).
+   - vault-mind.yaml: auto-generate from setup vs drop entirely in
+     favor of env vars only.
+2. Cold-start question (Curry raised at session end): new users
+   without an existing vault. Three solution paths to evaluate:
+   (a) Starter vault template in repo (seed 10-20 notes)
+   (b) Add 7th persona vault-gardener -- I have nothing, help me
+       start; uses existing vault.create / vault.append tools to
+       write notes during conversation. Most aligned with Karpathy
+       vault-as-conversation-precipitate philosophy.
+   (c) Importer (Notion / Apple Notes / docx -> markdown). High
+       effort, not differentiator.
+   Audit should rank these.
+3. Output: P0/P1/P2 fix list + verdict on vault-gardener persona.
+
+### Known gaps still open (carried forward)
+
+- [P0-product] docs/gif/demo.gif placeholder. README hero is literally
+  a broken image link. Curry mentioned hyperframes
+  (https://github.com/heygen-com/hyperframes) as the tool to generate
+  this. Higher first-impression leverage than any remaining viewer
+  or persona polish, per the pivot.
+- [P1] vercel deploy + push v2-staging to origin + tag v2.0.0-rc1 --
+  explicitly deferred this session per Curry. Once persona audit
+  lands, push becomes the natural next checkpoint.
+- [P2] In-browser file:// fallback for viewer (graceful fallback when
+  fetch sample-graph.json blocked by CORS at file:// open). Inline
+  sample-graph.json into index.html as window.SAMPLE_GRAPH=. Codex
+  tier-1 pick but parked when viewer dropped from critical path.
+- [P3] Bundle vs source drift CI check (no enforcement that
+  mcp-server/bundle.js matches npm run bundle output)
+- [P3] .gitattributes mark mcp-server/bundle.js linguist-generated
+  so PR diffs collapse it
+- [P3] terrarium yaml flat layout still unverified against actual
+  KT parser
+
+### v2-staging branch state
+
+10 commits ahead of main. Working tree clean.
+First action next session: cd D:/projects/obsidian-llm-wiki &&
+git status && tail -100 progress.txt && open the 6 persona files
+in skills/ to begin the audit.
