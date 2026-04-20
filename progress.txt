@@ -1039,18 +1039,34 @@ Nothing.
 
 ### Next step (next session opener)
 
-Deferred list from previous session, minus the one just done:
+Deferred list. Two items just closed in this session (generate-tools-doc
++ push/tag). Remaining:
 
-1. Push v2-staging to origin GitHub + tag v2.0.0-rc1. Still
-   shared-state -- confirm with Curry before pushing. Current state:
-   15 commits ahead of main (was 13, +2 from this session).
-2. obsidian-vault-bridge architecture v2 implementation (separate
-   repo, design captured in project_bridge_architecture_v2.md memory).
-3. docs/gif/demo.gif placeholder replacement.
+1. obsidian-vault-bridge architecture v2 implementation (separate
+   local project at D:/projects/obsidian-vault-bridge/, design captured
+   in project_bridge_architecture_v2.md memory).
+2. docs/gif/demo.gif placeholder replacement.
+3. Open PR v2-staging -> main on GitHub to start the v2 merge conversation.
+   GitHub emitted the PR-create URL on push:
+   https://github.com/2233admin/obsidian-llm-wiki/pull/new/v2-staging
+4. Consider writing release notes for v2.0.0-rc1 on GitHub Releases UI
+   (tag is pushed, no GitHub release object yet).
+
+### Repo housekeeping surfaced this session (not acted on)
+
+- `origin/master` is NOT orphaned plugin legacy -- it is Curry's active
+  `obsidian-vault-bridge` work using the same GitHub remote as this
+  repo (two projects, one GitHub repo, two disconnected histories).
+  `legacy-v0.1.0-obsidian-plugin` branch archives the ORIGINAL plugin
+  v0.1.0 at SHA 3c045ff; current `master` at 087152b is a different,
+  later line. master MUST NOT be deleted. Long-term tidy: split bridge
+  into its own GitHub repo so the two projects don't share a remote.
+- obsidian-vault-bridge/.git/config has its gitea remote URL with an
+  embedded plaintext token. Cosmetic P1: migrate to credential helper.
 
 ### v2-staging branch state
 
-15 commits ahead of main. Working tree clean. This session landed
-two code commits (cb58442, fbd6ed0). First action next session:
-cd D:/projects/obsidian-llm-wiki && git status &&
-git log --oneline main..v2-staging && decide push vs continue work.
+Pushed to origin (first-time, upstream set). 15 commits ahead of main.
+Tag v2.0.0-rc1 on ba3451d pushed to origin. Working tree clean.
+Three code commits this session (cb58442, fbd6ed0, ba3451d). First
+action next session: decide whether to open PR v2-staging -> main.
