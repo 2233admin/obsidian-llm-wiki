@@ -96,7 +96,7 @@ function parseYamlValue(s: string): unknown {
 
 // VaultFs -- filesystem operations
 
-class VaultFs {
+export class VaultFs {
   private readonly vault: string;
   private readonly realVault: string;
   constructor(vaultPath: string) {
@@ -690,6 +690,235 @@ class VaultFs {
           },
         };
       }
+      case "vault.writeAIOutput": {
+        const persona = p.persona as string;
+        if (typeof persona !== "string" || !/^vault-[a-z]+$/.test(persona))
+          throw err(-32602, "persona must match ^vault-[a-z]+$");
+        const parentQueryRaw = p.parentQuery as string;
+        if (typeof parentQueryRaw !== "string") throw err(-32602, "parentQuery required");
+        const sourceNodes = p.sourceNodes as string[];
+        if (!Array.isArray(sourceNodes)) throw err(-32602, "sourceNodes required (array)");
+        const agent = p.agent as string;
+        if (typeof agent !== "string" || agent === "") throw err(-32602, "agent required");
+        const body = p.body as string;
+        if (typeof body !== "string") throw err(-32602, "body required");
+
+        // Sanitize parent-query: truncate to 200 chars, replace " with right-double-quote
+        const parentQuery = parentQueryRaw.slice(0, 200).replace(/"/g, "\u201D");
+
+        // Derive slug
+        const deriveSlug = (src: string): string => {
+          const cleaned = src
+            .replace(/[<>:"/\\|?*]/g, " ")
+            .replace(/\s+/g, "-")
+            .toLowerCase()
+            .replace(/^-+|-+$/g, "");
+          if (!cleaned) return "";
+          const words = cleaned.split("-").filter((w) => w.length > 0).slice(0, 6);
+          const joined = words.join("-");
+          return joined.slice(0, 60).replace(/-+$/, "");
+        };
+        let slug = typeof p.slug === "string" && p.slug !== "" ? deriveSlug(p.slug) : deriveSlug(parentQueryRaw);
+        if (!slug) {
+          const nowT = new Date();
+          const hh = String(nowT.getUTCHours()).padStart(2, "0");
+          const mm = String(nowT.getUTCMinutes()).padStart(2, "0");
+          const ss = String(nowT.getUTCSeconds()).padStart(2, "0");
+          slug = `note-${hh}${mm}${ss}`;
+        }
+
+        const nowIso = new Date().toISOString();
+        const datePrefix = nowIso.slice(0, 10);
+        const relDir = `00-Inbox/AI-Output/${persona}`;
+        const baseName = `${datePrefix}-${slug}`;
+
+        // Collision loop: append -2, -3, ... up to -99
+        let chosenName = `${baseName}.md`;
+        let relPath = `${relDir}/${chosenName}`;
+        let fullPath = join(this.vault, relDir, chosenName);
+        if (existsSync(fullPath)) {
+          let found = false;
+          for (let i = 2; i <= 99; i++) {
+            chosenName = `${baseName}-${i}.md`;
+            relPath = `${relDir}/${chosenName}`;
+            fullPath = join(this.vault, relDir, chosenName);
+            if (!existsSync(fullPath)) { found = true; break; }
+          }
+          if (!found) throw err(-32002, `Could not find free filename after 99 collisions for ${baseName}`);
+        }
+
+        const frontmatterObj = {
+          "generated-by": persona,
+          "generated-at": nowIso,
+          "agent": agent,
+          "parent-query": parentQuery,
+          "source-nodes": sourceNodes,
+          "status": "draft",
+        };
+
+        if (p.dryRun !== false) {
+          return { dryRun: true, action: "writeAIOutput", path: relPath, frontmatter: frontmatterObj };
+        }
+
+        // Serialize YAML subset compatible with parseFrontmatter
+        const yamlLines: string[] = [];
+        yamlLines.push(`generated-by: ${persona}`);
+        yamlLines.push(`generated-at: ${nowIso}`);
+        yamlLines.push(`agent: ${agent}`);
+        yamlLines.push(`parent-query: "${parentQuery}"`);
+        if (sourceNodes.length === 0) {
+          yamlLines.push(`source-nodes: []`);
+        } else {
+          yamlLines.push(`source-nodes:`);
+          for (const node of sourceNodes) {
+            const escaped = String(node).replace(/"/g, "\u201D");
+            yamlLines.push(`  - "${escaped}"`);
+          }
+        }
+        yamlLines.push(`status: draft`);
+
+        const contentOut = `---\n${yamlLines.join("\n")}\n---\n\n${body}\n`;
+        mkdirSync(dirname(fullPath), { recursive: true });
+        writeFileSync(fullPath, contentOut, "utf-8");
+        return { ok: true, path: relPath, frontmatter: frontmatterObj };
+      }
+      case "vault.sweepAIOutput": {
+        const STALE_THRESHOLDS: Record<string, number> = {
+          "vault-architect": 45,
+          "vault-gardener": 30,
+          "vault-historian": 180,
+          "vault-librarian": 60,
+        };
+        const DEFAULT_THRESHOLD = 60;
+        const dryRun = p.dry_run !== false;
+        const nowMs = typeof p.now === "string" ? Date.parse(p.now as string) : Date.now();
+        const nowValid = !isNaN(nowMs) ? nowMs : Date.now();
+
+        const aiRootRel = "00-Inbox/AI-Output";
+        const aiRootAbs = join(this.vault, aiRootRel);
+        if (!existsSync(aiRootAbs)) {
+          return { staleCandidates: [], supersedeCandidates: [], applied: [] };
+        }
+
+        type Entry = {
+          relPath: string;
+          absPath: string;
+          content: string;
+          fm: Record<string, unknown>;
+          mtimeMs: number;
+          entryMs: number; // frontmatter date primary, mtime fallback
+          persona: string;
+          status: string;
+          sourceNodes: string[];
+        };
+
+        const entries: Entry[] = [];
+        const walkSubtree = (d: string): void => {
+          if (!existsSync(d)) return;
+          for (const ent of readdirSync(d, { withFileTypes: true })) {
+            const full = join(d, ent.name);
+            if (ent.isDirectory() && !PROTECTED_DIRS.has(ent.name)) walkSubtree(full);
+            else if (ent.isFile() && ent.name.endsWith(".md")) {
+              const content = readFileSync(full, "utf-8");
+              const fm = this.parseFrontmatter(content);
+              if (!fm) continue;
+              const persona = typeof fm["generated-by"] === "string" ? (fm["generated-by"] as string) : "";
+              if (!persona) continue;
+              const status = typeof fm["status"] === "string" ? (fm["status"] as string) : "";
+              const relPath = relative(this.vault, full).replace(/\\/g, "/");
+              const st = statSync(full);
+              const mtimeMs = st.mtimeMs;
+              let entryMs = mtimeMs;
+              const ga = fm["generated-at"];
+              if (typeof ga === "string") {
+                const parsed = Date.parse(ga);
+                if (!isNaN(parsed)) entryMs = parsed;
+              }
+              const sn = fm["source-nodes"];
+              const sourceNodes = Array.isArray(sn) ? sn.map((x) => String(x)) : [];
+              entries.push({ relPath, absPath: full, content, fm, mtimeMs, entryMs, persona, status, sourceNodes });
+            }
+          }
+        };
+        walkSubtree(aiRootAbs);
+
+        const aiOutputPaths = new Set(entries.map((e) => e.relPath));
+
+        // Inline backlink computation: for a target path, find non-AI-Output sources
+        const hasRealBacklink = (targetRel: string): boolean => {
+          const targetBase = basename(targetRel, ".md");
+          let found = false;
+          this.walkMd((relPath, content) => {
+            if (found) return;
+            if (relPath === targetRel) return;
+            if (aiOutputPaths.has(relPath)) return; // AI-Output -> AI-Output doesn't anchor
+            for (const l of this.parseWikilinks(content)) {
+              const linkPath = l.link.split("#")[0];
+              if (!linkPath) continue;
+              if (linkPath === targetRel || linkPath === targetBase || linkPath + ".md" === targetRel) {
+                found = true;
+                return;
+              }
+            }
+          });
+          return found;
+        };
+
+        const staleCandidates: Array<{ path: string; persona: string; ageDays: number; threshold: number }> = [];
+
+        for (const e of entries) {
+          if (e.status !== "draft") continue;
+          const ageDays = (nowValid - e.entryMs) / 86_400_000;
+          const threshold = STALE_THRESHOLDS[e.persona] ?? DEFAULT_THRESHOLD;
+          if (ageDays < threshold) continue;
+          if (hasRealBacklink(e.relPath)) continue;
+          staleCandidates.push({ path: e.relPath, persona: e.persona, ageDays, threshold });
+        }
+
+        // Supersede detection: pairs of reviewed same-persona entries
+        const reviewed = entries.filter((e) => e.status === "reviewed");
+        const supersedeCandidates: Array<{ older: string; newer: string; overlap: number }> = [];
+        const jaccard = (a: string[], b: string[]): number => {
+          if (a.length === 0 && b.length === 0) return 0;
+          const sa = new Set(a);
+          const sb = new Set(b);
+          let inter = 0;
+          for (const x of sa) if (sb.has(x)) inter++;
+          const uni = sa.size + sb.size - inter;
+          return uni === 0 ? 0 : inter / uni;
+        };
+        for (let i = 0; i < reviewed.length; i++) {
+          for (let j = i + 1; j < reviewed.length; j++) {
+            const a = reviewed[i];
+            const b = reviewed[j];
+            if (a.persona !== b.persona) continue;
+            if (a.sourceNodes.length === 0 || b.sourceNodes.length === 0) continue;
+            const overlap = jaccard(a.sourceNodes, b.sourceNodes);
+            if (overlap < 0.6) continue;
+            const olderEntry = a.entryMs <= b.entryMs ? a : b;
+            const newerEntry = a.entryMs <= b.entryMs ? b : a;
+            supersedeCandidates.push({ older: olderEntry.relPath, newer: newerEntry.relPath, overlap });
+          }
+        }
+
+        const applied: Array<{ path: string; change: string }> = [];
+        if (!dryRun) {
+          for (const sc of staleCandidates) {
+            const absPath = join(this.vault, sc.path);
+            const original = readFileSync(absPath, "utf-8");
+            const replaced = original.replace(
+              /(^---[\s\S]*?\nstatus: )draft(\n[\s\S]*?^---$)/m,
+              (_m, g1: string, g2: string) => g1 + "stale" + g2,
+            );
+            if (replaced !== original) {
+              writeFileSync(absPath, replaced, "utf-8");
+              applied.push({ path: sc.path, change: "draft→stale" });
+            }
+          }
+        }
+
+        return { staleCandidates, supersedeCandidates, applied };
+      }
       case "vault.getMetadata": {
         const full = this.resolve(p.path as string);
         if (!existsSync(full)) throw err(-32001, `Not found: ${p.path}`);
@@ -914,7 +1143,12 @@ async function main(): Promise<void> {
   process.stderr.write(`obsidian-llm-wiki: try "what do I know about <topic>" to invoke vault-librarian\n`);
 }
 
-main().catch((e) => {
-  process.stderr.write("obsidian-llm-wiki: fatal: " + (e as Error).message + "\n");
-  process.exit(1);
-});
+// Only run main() when invoked as the entrypoint, not on import (e.g. test harness).
+const _entryPath = process.argv[1] ? resolve(process.argv[1]) : "";
+const _thisPath = fileURLToPath(import.meta.url);
+if (_entryPath && _entryPath === _thisPath) {
+  main().catch((e) => {
+    process.stderr.write("obsidian-llm-wiki: fatal: " + (e as Error).message + "\n");
+    process.exit(1);
+  });
+}

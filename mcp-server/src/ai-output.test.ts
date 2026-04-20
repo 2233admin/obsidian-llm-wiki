@@ -1,0 +1,338 @@
+/**
+ * vault.writeAIOutput + vault.sweepAIOutput unit tests.
+ *
+ * Uses node:test + tmpdir isolation. No external test deps.
+ */
+
+import { test, describe, beforeEach, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdirSync, writeFileSync, rmSync, readFileSync, existsSync, utimesSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { randomUUID } from 'node:crypto';
+
+import { VaultFs } from './index.js';
+
+interface WriteOk { ok?: boolean; path?: string; dryRun?: boolean; frontmatter?: Record<string, unknown>; action?: string }
+interface StaleCand { path: string; persona: string; ageDays: number; threshold: number }
+interface SupCand { older: string; newer: string; overlap: number }
+interface AppliedEntry { path: string; change: string }
+interface SweepReport {
+  staleCandidates: StaleCand[];
+  supersedeCandidates: SupCand[];
+  applied: AppliedEntry[];
+}
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+const tempDirs: string[] = [];
+
+function makeTempVault(): { vault: string; vaultFs: VaultFs } {
+  const dir = join(tmpdir(), `ai-output-test-${randomUUID()}`);
+  mkdirSync(dir, { recursive: true });
+  tempDirs.push(dir);
+  const vaultFs = new VaultFs(dir);
+  return { vault: dir, vaultFs };
+}
+
+function writeFile(vault: string, relPath: string, content: string): string {
+  const full = join(vault, relPath.replace(/\//g, '\\').replace(/\\/g, '/')); // normalize
+  const full2 = join(vault, relPath);
+  mkdirSync(join(vault, relPath).replace(/[^/\\]+$/, ''), { recursive: true });
+  writeFileSync(full2, content, 'utf-8');
+  return full2;
+}
+
+after(() => {
+  for (const dir of tempDirs) {
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* ignore */ }
+  }
+});
+
+function daysAgoIso(days: number, base: number = Date.now()): string {
+  return new Date(base - days * 86_400_000).toISOString();
+}
+
+// ── vault.writeAIOutput ──────────────────────────────────────────────────────
+
+describe('vault.writeAIOutput', () => {
+  let vault: string;
+  let vaultFs: VaultFs;
+  beforeEach(() => { ({ vault, vaultFs } = makeTempVault()); });
+
+  test('dryRun=false writes file with all 6 frontmatter fields + status=draft', () => {
+    const result = vaultFs.dispatch('vault.writeAIOutput', {
+      persona: 'vault-architect',
+      parentQuery: 'refactor auth module',
+      sourceNodes: ['[[auth-architecture]]', '[[session-tokens]]'],
+      agent: 'claude-opus-4-7',
+      body: '# analysis body\n\nparagraph.',
+      dryRun: false,
+    }) as WriteOk;
+
+    assert.equal(result.ok, true);
+    assert.ok(result.path);
+    assert.ok(result.path!.startsWith('00-Inbox/AI-Output/vault-architect/'));
+    const abs = join(vault, result.path!);
+    assert.ok(existsSync(abs), `expected ${abs} to exist`);
+
+    const content = readFileSync(abs, 'utf-8');
+    const fm = vaultFs.parseFrontmatter(content);
+    assert.ok(fm, 'frontmatter should parse');
+    assert.equal(fm!['generated-by'], 'vault-architect');
+    assert.equal(fm!['agent'], 'claude-opus-4-7');
+    assert.equal(fm!['parent-query'], 'refactor auth module');
+    assert.equal(fm!['status'], 'draft');
+    assert.ok(typeof fm!['generated-at'] === 'string');
+    assert.deepEqual(fm!['source-nodes'], ['[[auth-architecture]]', '[[session-tokens]]']);
+    assert.ok(content.includes('# analysis body'));
+  });
+
+  test('dryRun default returns plan without writing', () => {
+    const result = vaultFs.dispatch('vault.writeAIOutput', {
+      persona: 'vault-architect',
+      parentQuery: 'some query',
+      sourceNodes: [],
+      agent: 'claude-opus-4-7',
+      body: 'body',
+    }) as WriteOk;
+
+    assert.equal(result.dryRun, true);
+    assert.equal(result.action, 'writeAIOutput');
+    assert.ok(result.path);
+    const abs = join(vault, result.path!);
+    assert.equal(existsSync(abs), false, 'must not write on dry run');
+    assert.ok(result.frontmatter);
+    assert.equal((result.frontmatter as Record<string, unknown>).status, 'draft');
+  });
+
+  test('collision appends -2 suffix on second call same day/slug', () => {
+    const first = vaultFs.dispatch('vault.writeAIOutput', {
+      persona: 'vault-architect',
+      parentQuery: 'same query',
+      sourceNodes: [],
+      agent: 'claude-opus-4-7',
+      body: 'first',
+      slug: 'same-slug',
+      dryRun: false,
+    }) as WriteOk;
+
+    const second = vaultFs.dispatch('vault.writeAIOutput', {
+      persona: 'vault-architect',
+      parentQuery: 'same query',
+      sourceNodes: [],
+      agent: 'claude-opus-4-7',
+      body: 'second',
+      slug: 'same-slug',
+      dryRun: false,
+    }) as WriteOk;
+
+    assert.ok(first.path!.endsWith('-same-slug.md'));
+    assert.ok(second.path!.endsWith('-same-slug-2.md'));
+    assert.ok(existsSync(join(vault, first.path!)));
+    assert.ok(existsSync(join(vault, second.path!)));
+  });
+
+  test('rejects invalid persona without vault- prefix', () => {
+    assert.throws(() => vaultFs.dispatch('vault.writeAIOutput', {
+      persona: 'architect',
+      parentQuery: 'x',
+      sourceNodes: [],
+      agent: 'a',
+      body: 'b',
+      dryRun: false,
+    }), (e: unknown) => {
+      const ex = e as { code?: number; message?: string };
+      return ex.code === -32602 && /persona/.test(ex.message ?? '');
+    });
+  });
+
+  test('empty sourceNodes serialize to inline []', () => {
+    const result = vaultFs.dispatch('vault.writeAIOutput', {
+      persona: 'vault-gardener',
+      parentQuery: 'empty source test',
+      sourceNodes: [],
+      agent: 'claude-opus-4-7',
+      body: 'body',
+      dryRun: false,
+    }) as WriteOk;
+
+    const content = readFileSync(join(vault, result.path!), 'utf-8');
+    assert.ok(content.includes('source-nodes: []'), `expected inline [] in:\n${content}`);
+    assert.ok(!/^\s+-\s/m.test(content.split('---')[1] ?? ''), 'no multiline array items for empty');
+  });
+});
+
+// ── vault.sweepAIOutput ──────────────────────────────────────────────────────
+
+describe('vault.sweepAIOutput', () => {
+  let vault: string;
+  let vaultFs: VaultFs;
+  beforeEach(() => { ({ vault, vaultFs } = makeTempVault()); });
+
+  function writeAIOut(
+    persona: string,
+    fname: string,
+    opts: {
+      status?: string;
+      generatedAt?: string;
+      sourceNodes?: string[];
+      body?: string;
+      mtimeMs?: number;
+    } = {},
+  ): string {
+    const status = opts.status ?? 'draft';
+    const generatedAt = opts.generatedAt ?? new Date().toISOString();
+    const sourceNodes = opts.sourceNodes ?? [];
+    const body = opts.body ?? 'content';
+    const relDir = `00-Inbox/AI-Output/${persona}`;
+    const relPath = `${relDir}/${fname}`;
+    mkdirSync(join(vault, relDir), { recursive: true });
+
+    const lines: string[] = [];
+    lines.push('---');
+    lines.push(`generated-by: ${persona}`);
+    lines.push(`generated-at: ${generatedAt}`);
+    lines.push('agent: claude-opus-4-7');
+    lines.push('parent-query: "test query"');
+    if (sourceNodes.length === 0) {
+      lines.push('source-nodes: []');
+    } else {
+      lines.push('source-nodes:');
+      for (const s of sourceNodes) lines.push(`  - "${s}"`);
+    }
+    lines.push(`status: ${status}`);
+    lines.push('---');
+    lines.push('');
+    lines.push(body);
+    lines.push('');
+
+    const full = join(vault, relPath);
+    writeFileSync(full, lines.join('\n'), 'utf-8');
+    if (opts.mtimeMs !== undefined) {
+      const t = opts.mtimeMs / 1000;
+      utimesSync(full, t, t);
+    }
+    return relPath;
+  }
+
+  test('dry_run=true identifies an expired draft using injected now', () => {
+    const createdAt = daysAgoIso(0); // now
+    writeAIOut('vault-architect', 'old.md', {
+      status: 'draft',
+      generatedAt: createdAt,
+      sourceNodes: [],
+    });
+    // now = 60 days later -> age 60 >= 45 threshold
+    const futureNow = new Date(Date.now() + 60 * 86_400_000).toISOString();
+    const report = vaultFs.dispatch('vault.sweepAIOutput', {
+      dry_run: true,
+      now: futureNow,
+    }) as SweepReport;
+
+    assert.equal(report.staleCandidates.length, 1);
+    assert.equal(report.staleCandidates[0].persona, 'vault-architect');
+    assert.equal(report.staleCandidates[0].threshold, 45);
+    assert.ok(report.staleCandidates[0].ageDays >= 45);
+    assert.equal(report.applied.length, 0);
+  });
+
+  test('ignores drafts with a real backlink from non-AI-Output note', () => {
+    const rel = writeAIOut('vault-architect', 'linked.md', {
+      status: 'draft',
+      generatedAt: daysAgoIso(0),
+      sourceNodes: [],
+    });
+    // Create a human note outside AI-Output linking to it
+    mkdirSync(join(vault, 'human'), { recursive: true });
+    const target = rel.replace(/\.md$/, ''); // full path for wikilink
+    writeFileSync(join(vault, 'human', 'note.md'), `human content\n\nsee [[${target}]]`, 'utf-8');
+
+    const futureNow = new Date(Date.now() + 100 * 86_400_000).toISOString();
+    const report = vaultFs.dispatch('vault.sweepAIOutput', {
+      dry_run: true,
+      now: futureNow,
+    }) as SweepReport;
+
+    assert.equal(report.staleCandidates.length, 0);
+  });
+
+  test('AI-Output -> AI-Output backlinks do not anchor — target still stale', () => {
+    const rel1 = writeAIOut('vault-architect', 'target.md', {
+      status: 'draft',
+      generatedAt: daysAgoIso(0),
+      sourceNodes: [],
+    });
+    // Second AI-Output that links to target
+    const target = rel1.replace(/\.md$/, '');
+    writeAIOut('vault-architect', 'sibling.md', {
+      status: 'draft',
+      generatedAt: daysAgoIso(0),
+      sourceNodes: [],
+      body: `sibling content linking to [[${target}]]`,
+    });
+
+    const futureNow = new Date(Date.now() + 100 * 86_400_000).toISOString();
+    const report = vaultFs.dispatch('vault.sweepAIOutput', {
+      dry_run: true,
+      now: futureNow,
+    }) as SweepReport;
+
+    const targetHit = report.staleCandidates.find((s) => s.path === rel1);
+    assert.ok(targetHit, 'target should still be flagged stale despite AI-Output sibling link');
+  });
+
+  test('dry_run=false flips status draft to stale in place, preserves rest', () => {
+    const rel = writeAIOut('vault-architect', 'to-flip.md', {
+      status: 'draft',
+      generatedAt: daysAgoIso(0),
+      sourceNodes: [],
+      body: '# Important body content\n\nKeep me intact.',
+    });
+    const before = readFileSync(join(vault, rel), 'utf-8');
+    assert.ok(before.includes('status: draft'));
+
+    const futureNow = new Date(Date.now() + 100 * 86_400_000).toISOString();
+    const report = vaultFs.dispatch('vault.sweepAIOutput', {
+      dry_run: false,
+      now: futureNow,
+    }) as SweepReport;
+
+    assert.equal(report.applied.length, 1);
+    assert.equal(report.applied[0].path, rel);
+    assert.equal(report.applied[0].change, 'draft→stale');
+
+    const after = readFileSync(join(vault, rel), 'utf-8');
+    assert.ok(after.includes('status: stale'));
+    assert.ok(!/\nstatus: draft\n/.test(after));
+    assert.ok(after.includes('# Important body content'));
+    assert.ok(after.includes('Keep me intact.'));
+    assert.ok(after.includes('generated-by: vault-architect'));
+  });
+
+  test('supersede candidates fire on same-persona reviewed pair with Jaccard >= 0.6', () => {
+    // Jaccard(A, B) where both have 3 shared + one unique each = 3 / 5 = 0.6
+    writeAIOut('vault-historian', 'older.md', {
+      status: 'reviewed',
+      generatedAt: daysAgoIso(10),
+      sourceNodes: ['[[a]]', '[[b]]', '[[c]]', '[[d]]'],
+      mtimeMs: Date.now() - 10 * 86_400_000,
+    });
+    writeAIOut('vault-historian', 'newer.md', {
+      status: 'reviewed',
+      generatedAt: daysAgoIso(1),
+      sourceNodes: ['[[a]]', '[[b]]', '[[c]]', '[[e]]'],
+      mtimeMs: Date.now() - 1 * 86_400_000,
+    });
+
+    const report = vaultFs.dispatch('vault.sweepAIOutput', {
+      dry_run: true,
+    }) as SweepReport;
+
+    assert.equal(report.supersedeCandidates.length, 1);
+    const sc = report.supersedeCandidates[0];
+    assert.ok(sc.older.endsWith('older.md'));
+    assert.ok(sc.newer.endsWith('newer.md'));
+    assert.ok(sc.overlap >= 0.6);
+  });
+});

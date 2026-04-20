@@ -232,6 +232,33 @@ export const operations: Operation[] = [
     handler: async (ctx, params) => ctx.vault.execute('vault.enforceDiscipline', params),
   },
   {
+    name: 'vault.writeAIOutput',
+    namespace: 'vault',
+    description: 'Write a persona-authored analysis into 00-Inbox/AI-Output/{persona}/YYYY-MM-DD-{slug}.md with the 6-field provenance frontmatter (generated-by, generated-at, agent, parent-query, source-nodes, status=draft). Dry-run by default.',
+    mutating: true,
+    params: {
+      persona: { type: 'string', required: true, description: 'Persona identifier, must match ^vault-[a-z]+$' },
+      parentQuery: { type: 'string', required: true, description: "User's original query (truncated to 200 chars)" },
+      sourceNodes: { type: 'array', required: true, description: 'Wikilinks cited during analysis (empty array is valid)' },
+      agent: { type: 'string', required: true, description: 'Model identifier (e.g. claude-opus-4-7)' },
+      body: { type: 'string', required: true, description: 'Markdown body without frontmatter' },
+      slug: { type: 'string', required: false, description: 'Optional filename slug; auto-derived from parentQuery if omitted' },
+      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: true)', default: true },
+    },
+    handler: async (ctx, params) => ctx.vault.execute('vault.writeAIOutput', params),
+  },
+  {
+    name: 'vault.sweepAIOutput',
+    namespace: 'vault',
+    description: 'Sweep 00-Inbox/AI-Output for stale drafts (age > persona threshold and no non-AI-Output backlinks) and supersede candidates (same-persona reviewed pairs with source-nodes Jaccard >= 0.6). Reports candidates; when dry_run=false flips draft→stale in place. Never auto-applies supersede.',
+    mutating: true,
+    params: {
+      dry_run: { type: 'boolean', required: false, description: 'Report only without writing (default: true)', default: true },
+      now: { type: 'string', required: false, description: 'Inject ISO 8601 timestamp for deterministic tests' },
+    },
+    handler: async (ctx, params) => ctx.vault.execute('vault.sweepAIOutput', params),
+  },
+  {
     name: 'vault.getMetadata',
     namespace: 'vault',
     description: 'Get parsed metadata for a note',
