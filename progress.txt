@@ -842,3 +842,125 @@ Nothing. All 12 fixes are file-scoped, minimal diff.
 zero code changes (read-only audit + strategy decisions only).
 First action next session: cd D:/projects/obsidian-llm-wiki &&
 git status && tail -200 progress.txt && start fixing P0 #1.
+
+## 2026-04-20 late-late-late -- audit fixes #1-#11 + gardener COMPLETE
+
+### What done
+
+All 12 audit items from the previous session's Next-Step block landed
+in three atomic commits on v2-staging.
+
+- b5ddf83 fix: P0 audit fixes (#1-#4)
+  - #1 vault-curator "Stale Notes (90+ days)" section stripped from
+    both skills/ and creatures/ copies (vault.lint never produced
+    mtime data; persona was promising output the handler couldn't
+    deliver).
+  - #2 skills/mcp-tools-reference.md deleted. operations.ts
+    descriptions are now single source of truth. Auto-generator
+    (npm run generate-tools-doc) deferred until actually needed.
+  - #3 vault.graph `type` param wired in VaultFs.dispatch (index.ts).
+    Filters edges by whether target note exists. Accepts
+    resolved | unresolved | both (default both). Throws -32602 on
+    invalid value. Response includes `type: linkType` for round-trip
+    verification.
+  - #4 vault.externalSearch removed entirely from operations.ts and
+    VaultFs.dispatch. Previously always threw "no engine configured"
+    and degraded tool-list quality for LLM planners. Re-register
+    conditionally if/when an external adapter ships.
+
+- b0d4515 feat: P1/P2 audit fixes (#5-#11)
+  - #5 Verbose descriptions for vault.search, vault.lint, vault.graph,
+    query.unified, query.search, query.explain so the LLM can
+    disambiguate overlapping-but-different tools (filesystem grep vs
+    multi-adapter ranked search vs prose-summary fan-out) without
+    reading the source.
+  - #6 vault.graph returns `unresolvedLinks: number` (count of nodes
+    with exists=false). vault-architect template
+    "Nodes: N  Edges: M  Unresolved: K" is now backed by real data.
+  - #7 vault.searchByFrontmatter includes `mtime` (mtimeMs) on each
+    result via an internal pushWithMtime helper. Eliminates the
+    N-roundtrip vault.stat fan-out vault-historian previously needed
+    to sort by recency.
+  - #8 MCP-adapter-unavailable fallback added to architect, historian,
+    janitor, teacher, librarian personas (curator already had one).
+    Each names a specific fallback tool chain rather than failing
+    open. Applied to both skills/ and creatures/ copies.
+  - #10 Startup banner: stderr now emits a first-prompt hint after
+    the adapter list --
+    `obsidian-llm-wiki: try "what do I know about <topic>" to invoke
+    vault-librarian` -- so new users see a concrete entry point.
+  - #11 vault-janitor "Max 10 deletions per session" clarified as
+    self-enforced review-safety norm, not server-side cap. Persona-
+    level discipline rather than code enforcement per audit decision
+    "accept as soft norm and document".
+
+- 765e4ca feat: add vault-gardener persona (audit #9)
+  - New headless persona. Tool budget:
+    vault.list / vault.init / vault.create / vault.append.
+  - dryRun=true default like janitor, max 5 starter notes per
+    session, never overwrite existing notes.
+  - Scope: conversational empty-vault seeding ONLY. Does NOT overlap
+    with bulk corpus ingest (that goes through Obsidian native CLI +
+    Importer plugin per previous session's strategic decisions).
+  - vault.init fallback to vault.create+minimal _index.md when no
+    filesystem adapter.
+  - Mirrors the 6-persona template: skills/vault-gardener.md +
+    creatures/vault-gardener/config.yaml (MiniMax-M2.7-highspeed,
+    same controller block as other creatures) +
+    creatures/vault-gardener/prompts/system.md.
+
+### Verification
+
+- typecheck: 0 errors (tsc --noEmit)
+- build: clean (tsc)
+- tests: 86/86 pass after each commit (node --test dist/**/*.test.js)
+- No behavioral regressions in existing persona tool chains; all
+  changes are additive (new fields, new descriptions, new fallbacks)
+  except the externalSearch removal and mcp-tools-reference deletion
+  -- neither of which had runtime consumers.
+
+### Engineering notes for next editor
+
+- VaultFs.dispatch edge-key encoding uses a literal NULL byte
+  (`\0`) between from/to, not a space. `cat -n` and the Read tool
+  both render NULL as a visible space, so text-based search tools
+  lie about what is in the file. `od -c` is the only reliable check
+  when editing that region. This tripped the first attempt at P0 #3
+  and is worth remembering if anyone touches vault.graph or
+  vault.backlinks in the future.
+- operations.ts descriptions are now the LLM-visible documentation.
+  Keep them verbose enough for tool-selection but under ~300 chars.
+  The vault.enforceDiscipline + vault.reindex style was used as the
+  template: verb + scope + disambiguation vs sibling tools + default
+  behavior.
+- Every persona now has a one-line MCP-unavailable fallback in its
+  Constraints block. If new personas are added later, keep the
+  pattern so we don't regress.
+
+### What blocked
+
+Nothing.
+
+### Next step (next session opener)
+
+Audit backlog is empty. Next session starts on Deferred items
+(user-scoped, not mine to touch without confirmation):
+
+1. Push v2-staging to origin GitHub + tag v2.0.0-rc1. This is a
+   shared-state action -- confirm with Curry before pushing. Current
+   state: 13 commits ahead of main, branch has not been published
+   yet.
+2. obsidian-vault-bridge architecture v2 implementation (separate
+   repo, design captured in project_bridge_architecture_v2.md
+   memory).
+3. docs/gif/demo.gif placeholder replacement.
+4. Optional: write a `npm run generate-tools-doc` script that emits
+   a fresh tool reference from operations.ts descriptions at build
+   time, to avoid future drift (deferred from P0 #2).
+
+### v2-staging branch state
+
+13 commits ahead of main. Working tree clean. This session landed
+three code commits (b5ddf83, b0d4515, 765e4ca). First action next
+session: cd D:/projects/obsidian-llm-wiki && git status &&
+git log --oneline main..v2-staging && decide push vs continue work.
