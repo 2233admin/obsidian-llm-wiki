@@ -57,6 +57,31 @@ Step 2 (Appendix D of the governance plan) splits what Step 1 tried to encode in
 
 Rationale for defaults: `scope=project` keeps entries local unless the caller opts into wider namespace; `quarantine-state=new` means no automatic promotion — a human (or future gardener policy) must flip to `reviewed`/`promoted`.
 
+### `history` — structured audit trail
+
+Any state transition MUST append a flow-style item to the `history:` array. `vault.sweepAIOutput` does this automatically for `draft → stale` flips; human-driven transitions (`draft → reviewed`, `reviewed → superseded`, any `quarantine-state` change) are expected to edit the frontmatter by hand and MUST also append an entry.
+
+```yaml
+history:
+  - {ts: "2026-04-22T10:00:00.000Z", from: draft, to: stale, trigger: auto-stop-summary, evidence_level: low, human_in_loop: false, note: "gardener sweep"}
+  - {ts: "2026-04-23T15:14:00.000Z", from: stale, to: reviewed, trigger: manual-review-approve, evidence_level: high, human_in_loop: true, note: "Curry kept"}
+```
+
+Why flow style (`{key: val, ...}`) rather than block style (`  - ts: ...\n    from: ...`): the current frontmatter parser only handles scalar-array items. Flow style round-trips as an opaque string, preserving the item byte-for-byte on subsequent reads. When the parser graduates to full nested YAML, the flow syntax remains valid — no migration needed.
+
+Required fields in a history entry (enum values from the governance plan):
+
+| Field | Values |
+|---|---|
+| `ts` | ISO 8601 UTC timestamp of the transition |
+| `from` / `to` | any `status` or `quarantine-state` value (the entry records which axis moved in `note`) |
+| `trigger` | `auto-stop-summary` / `auto-observation-pattern` / `manual-promote` / `manual-review-approve` / `manual-user-confirmed-write` / `migration-import` |
+| `evidence_level` | `low` (can't rise above `project` scope) / `medium` / `high` |
+| `human_in_loop` | bool |
+| `note` | ≤2 sentences; free-form justification |
+
+The full relevance/trust gate schema (from `agent-memory-runtime`) is tracked in the project-governance plan — Step 2 records only the fields above; later phases may extend entries with `namespace_basis`, `relevance_basis`, `trust_basis` without breaking existing files.
+
 ## Status lifecycle
 
 Exactly three transitions are legal:

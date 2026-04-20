@@ -84,6 +84,41 @@ function err(code: number, message: string): { code: number; message: string } {
   return { code, message };
 }
 
+/**
+ * Append a flow-style history item to a note's frontmatter block.
+ *
+ * Contract: `content` starts with `---\n<yaml>\n---\n...`. Returns content with
+ * a new `  - {...}` line under the `history:` array. If `history:` is absent,
+ * initialises it at the end of the YAML block. Flow-style keeps the existing
+ * scalar-array parser byte-compatible with older entries.
+ */
+function appendHistoryInYaml(content: string, flowItem: string): string {
+  if (!content.startsWith("---\n")) return content;
+  const end = content.indexOf("\n---", 4);
+  if (end === -1) return content;
+  const yamlBlock = content.slice(4, end);
+  const after = content.slice(end);
+
+  const historyKeyRe = /^history:\s*$/m;
+  let newBlock: string;
+  if (historyKeyRe.test(yamlBlock)) {
+    // Insert after the last `  - ` item following history:
+    const lines = yamlBlock.split("\n");
+    let hIdx = -1;
+    for (let i = 0; i < lines.length; i++) {
+      if (/^history:\s*$/.test(lines[i])) { hIdx = i; break; }
+    }
+    let insertAt = hIdx + 1;
+    while (insertAt < lines.length && /^ {2}- /.test(lines[insertAt])) insertAt++;
+    lines.splice(insertAt, 0, `  - ${flowItem}`);
+    newBlock = lines.join("\n");
+  } else {
+    const trimmed = yamlBlock.replace(/\n+$/, "");
+    newBlock = `${trimmed}\nhistory:\n  - ${flowItem}`;
+  }
+  return `---\n${newBlock}${after}`;
+}
+
 function parseYamlValue(s: string): unknown {
   if (s === "true") return true;
   if (s === "false") return false;
@@ -920,17 +955,24 @@ export class VaultFs {
 
         const applied: Array<{ path: string; change: string }> = [];
         if (!dryRun) {
+          const flipIso = new Date(nowValid).toISOString();
           for (const sc of staleCandidates) {
             const absPath = join(this.vault, sc.path);
             const original = readFileSync(absPath, "utf-8");
-            const replaced = original.replace(
+            // Step 2 governance: append a structured history entry for audit.
+            // YAML flow-style so the Step-1 frontmatter parser (scalar-only arrays)
+            // still round-trips the entry as an opaque string without loss.
+            const historyEntry =
+              `{ts: "${flipIso}", from: draft, to: stale, trigger: auto-stop-summary, ` +
+              `evidence_level: low, human_in_loop: false, note: "gardener sweep"}`;
+            const withStatusFlipped = original.replace(
               /(^---[\s\S]*?\nstatus: )draft(\n[\s\S]*?^---$)/m,
               (_m, g1: string, g2: string) => g1 + "stale" + g2,
             );
-            if (replaced !== original) {
-              writeFileSync(absPath, replaced, "utf-8");
-              applied.push({ path: sc.path, change: "draft→stale" });
-            }
+            if (withStatusFlipped === original) continue;
+            const replaced = appendHistoryInYaml(withStatusFlipped, historyEntry);
+            writeFileSync(absPath, replaced, "utf-8");
+            applied.push({ path: sc.path, change: "draft→stale" });
           }
         }
 

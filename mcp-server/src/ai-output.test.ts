@@ -373,6 +373,66 @@ describe('vault.sweepAIOutput', () => {
     assert.ok(after.includes('generated-by: vault-architect'));
   });
 
+  test('dry_run=false appends a history entry under history: on first transition', () => {
+    const rel = writeAIOut('vault-architect', 'first-flip.md', {
+      status: 'draft',
+      generatedAt: daysAgoIso(0),
+      sourceNodes: [],
+      body: 'body',
+    });
+
+    const futureNow = new Date(Date.now() + 100 * 86_400_000).toISOString();
+    vaultFs.dispatch('vault.sweepAIOutput', { dry_run: false, now: futureNow });
+
+    const after = readFileSync(join(vault, rel), 'utf-8');
+    assert.ok(after.includes('status: stale'), 'status should flip');
+    assert.ok(/\nhistory:\n {2}- \{ts: "/.test(after), `expected history: block, got:\n${after}`);
+    assert.ok(after.includes('from: draft, to: stale'));
+    assert.ok(after.includes('trigger: auto-stop-summary'));
+    assert.ok(after.includes('human_in_loop: false'));
+  });
+
+  test('dry_run=false appends to existing history array rather than overwriting', () => {
+    // Pre-populate a file with one history entry, then trigger the sweep.
+    // The sweep must leave the old entry intact and append a new one.
+    const relDir = `00-Inbox/AI-Output/vault-architect`;
+    const relPath = `${relDir}/preexisting-history.md`;
+    mkdirSync(join(vault, relDir), { recursive: true });
+    const initial = [
+      '---',
+      'generated-by: vault-architect',
+      `generated-at: ${daysAgoIso(0)}`,
+      'agent: claude-opus-4-7',
+      'parent-query: "seed"',
+      'source-nodes: []',
+      'status: draft',
+      'scope: project',
+      'quarantine-state: new',
+      'history:',
+      '  - {ts: "2020-01-01T00:00:00.000Z", from: bootstrap, to: draft, trigger: migration-import, evidence_level: low, human_in_loop: true, note: "seed"}',
+      '---',
+      '',
+      'body',
+      '',
+    ].join('\n');
+    writeFileSync(join(vault, relPath), initial, 'utf-8');
+
+    const futureNow = new Date(Date.now() + 100 * 86_400_000).toISOString();
+    vaultFs.dispatch('vault.sweepAIOutput', { dry_run: false, now: futureNow });
+
+    const after = readFileSync(join(vault, relPath), 'utf-8');
+    // Both entries must survive
+    assert.ok(after.includes('trigger: migration-import'), 'pre-existing entry lost');
+    assert.ok(after.includes('trigger: auto-stop-summary'), 'new entry missing');
+    // And ordering: old first, new second
+    const idxOld = after.indexOf('trigger: migration-import');
+    const idxNew = after.indexOf('trigger: auto-stop-summary');
+    assert.ok(idxOld < idxNew, 'new entry should come after old');
+    // status flipped
+    assert.ok(after.includes('status: stale'));
+    assert.ok(!/\nstatus: draft\n/.test(after));
+  });
+
   test('supersede candidates fire on same-persona reviewed pair with Jaccard >= 0.6', () => {
     // Jaccard(A, B) where both have 3 shared + one unique each = 3 / 5 = 0.6
     writeAIOut('vault-historian', 'older.md', {
