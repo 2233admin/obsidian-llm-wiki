@@ -36,5 +36,10 @@ fm_work/
 .vault-save.log
 .vault-save.failed.log
 
+# Bundle smoke-test artifacts (per-dev)
+mcp-server/smoke.in
+mcp-server/smoke.out
+mcp-server/smoke.err
+
 # link_discovery output (per-dev, regenerate with compiler/link_discovery.py)
 .compile/

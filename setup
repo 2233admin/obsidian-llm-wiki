@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 # obsidian-llm-wiki setup -- install skill + configure MCP
+#
+# Copies a curated allowlist into the host's skills directory.
+# ~1.7 MB install (vs 64 MB of repo) -- ships a pre-bundled MCP server
+# so the user doesn't need to npm install anything.
 set -e
 
 IS_WINDOWS=0
@@ -35,12 +39,18 @@ if [ "$IS_WINDOWS" = 1 ]; then
   SCRIPT_DIR="$(cygpath -m "$SCRIPT_DIR")"
 fi
 
-VAULT_PATH="${VAULT_PATH:-}"
-if [ -z "$VAULT_PATH" ]; then
-  if [ -d "$SCRIPT_DIR/../.git" ]; then
-    VAULT_PATH="$(cd "$SCRIPT_DIR/.." && pwd -P)"
-    [ "$IS_WINDOWS" = 1 ] && VAULT_PATH="$(cygpath -m "$VAULT_PATH")"
-  fi
+# Bundle must exist before install. Fail loud so paste-install users see
+# the real cause instead of a missing-file error at MCP boot.
+BUNDLE_PATH="$SCRIPT_DIR/mcp-server/bundle.js"
+if [ ! -f "$BUNDLE_PATH" ]; then
+  echo "Error: mcp-server/bundle.js not found at $BUNDLE_PATH" >&2
+  echo "" >&2
+  echo "Build it first:" >&2
+  echo "  cd mcp-server && npm install && npm run rebuild" >&2
+  echo "" >&2
+  echo "(Released tarballs ship bundle.js pre-built; this only happens" >&2
+  echo "when installing from a fresh source clone.)" >&2
+  exit 1
 fi
 
 run() {
@@ -65,12 +75,30 @@ if [ ! -d "$PARENT_DIR" ]; then
 fi
 
 maybe_mkdir "$SKILLS_DIR"
-run cp -r "$SCRIPT_DIR"/. "$SKILLS_DIR"/
 
-if [ "$DRY_RUN" = 0 ]; then
-  rm -f "$SKILLS_DIR/setup"
-  rm -f "$SKILLS_DIR/setup.ps1"
-fi
+# Allowlist copy. Anything not listed here is excluded from the install.
+# Adding a new top-level dir? Add it here.
+ALLOWLIST_DIRS="skills examples docs terrariums viewer smoke"
+ALLOWLIST_FILES="README.md CHANGELOG.md RELEASE_NOTES.md vercel.json"
+
+for d in $ALLOWLIST_DIRS; do
+  if [ -d "$SCRIPT_DIR/$d" ]; then
+    run cp -r "$SCRIPT_DIR/$d" "$SKILLS_DIR/$d"
+  fi
+done
+
+for f in $ALLOWLIST_FILES; do
+  if [ -f "$SCRIPT_DIR/$f" ]; then
+    run cp "$SCRIPT_DIR/$f" "$SKILLS_DIR/$f"
+  fi
+done
+
+# mcp-server: ship only bundle.js + package.json (no src/, no node_modules)
+maybe_mkdir "$SKILLS_DIR/mcp-server"
+run cp "$SCRIPT_DIR/mcp-server/bundle.js" "$SKILLS_DIR/mcp-server/bundle.js"
+run cp "$SCRIPT_DIR/mcp-server/package.json" "$SKILLS_DIR/mcp-server/package.json"
+
+INSTALL_PATH="$SKILLS_DIR/mcp-server/bundle.js"
 
 echo ""
 echo "obsidian-llm-wiki installed to:"
@@ -87,7 +115,7 @@ echo '{'
 echo '  "mcpServers": {'
 echo '    "vault-mind": {'
 echo '      "command": "node",'
-echo '      "args": ["PATH/TO/SKILL/mcp-server/dist/index.js"],'
+echo "      \"args\": [\"$INSTALL_PATH\"],"
 echo '      "env": { "VAULT_PATH": "YOUR_VAULT_PATH" }'
 echo '    }'
 echo '  }'

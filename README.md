@@ -12,8 +12,18 @@ obsidian-llm-wiki solves this. It compiles your markdown vault -- wikilinks, ali
 
 ## Quick start (30 seconds)
 
+```bash
+git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git ~/obsidian-llm-wiki-src
+cd ~/obsidian-llm-wiki-src && ./setup                # --host claude | codex | opencode | gemini
 ```
-Install obsidian-llm-wiki: git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki ~/.claude/skills/vault-wiki && cd ~/.claude/skills/vault-wiki && ./setup
+
+Setup copies a 1.6 MB curated bundle into your host's skills directory (not the whole 64 MB repo). The printed `.mcp.json` snippet plus the `CLAUDE.md` persona block is everything else you need. Restart your agent host afterward so the MCP registration takes effect.
+
+Prefer PowerShell on Windows:
+
+```powershell
+git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git "$HOME\obsidian-llm-wiki-src"
+cd "$HOME\obsidian-llm-wiki-src"; .\setup.ps1
 ```
 
 ---

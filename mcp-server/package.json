@@ -3,14 +3,22 @@
   "version": "0.1.0",
   "description": "A faithful reference implementation of Karpathy's LLM Wiki pattern -- headless-first MCP server, plain markdown, no embeddings required, Obsidian-native.",
   "type": "module",
-  "main": "dist/index.js",
+  "main": "bundle.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "bundle.js",
+    "package.json",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "start": "node dist/index.js",
+    "start": "node bundle.js",
+    "start:dev": "node dist/index.js",
     "typecheck": "tsc --noEmit",
-    "test": "node --test dist/**/*.test.js"
+    "test": "node --test dist/**/*.test.js",
+    "bundle": "esbuild dist/index.js --bundle --platform=node --target=node20 --format=esm --outfile=bundle.js --banner:js=\"import{createRequire}from'module';const require=createRequire(import.meta.url);\" --log-level=warning",
+    "rebuild": "npm run build && npm run bundle"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.2.0",
@@ -20,10 +28,11 @@
   "devDependencies": {
     "@types/node": "^22.15.30",
     "@types/ws": "^8.18.1",
+    "esbuild": "^0.24.2",
     "typescript": "~5.9.3"
   },
   "engines": {
     "node": ">=20"
   },
-  "license": "GPL-3.0"
+  "license": "MIT"
 }
