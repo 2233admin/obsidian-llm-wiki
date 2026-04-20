@@ -1,11 +1,11 @@
 {
-  "generated": "2026-04-20T05:06:54",
-  "vault": "D:/projects/obsidian-llm-wiki/.compile/specB-demo-vault",
+  "generated": "2026-04-20T11:37:33",
+  "vault": "D:/projects/obsidian-llm-wiki/examples/demo-vault",
   "nodes": [
     {
       "id": "attention-heads.md",
       "title": "Attention Heads",
-      "path": "D:/projects/obsidian-llm-wiki/.compile/specB-demo-vault/attention-heads.md",
+      "path": "D:/projects/obsidian-llm-wiki/examples/demo-vault/attention-heads.md",
       "tags": [
         "inference",
         "attention",
@@ -15,7 +15,7 @@
     {
       "id": "evaluations.md",
       "title": "Evaluations",
-      "path": "D:/projects/obsidian-llm-wiki/.compile/specB-demo-vault/evaluations.md",
+      "path": "D:/projects/obsidian-llm-wiki/examples/demo-vault/evaluations.md",
       "tags": [
         "meta",
         "evaluation",
@@ -25,7 +25,7 @@
     {
       "id": "in-context-learning.md",
       "title": "In-Context Learning",
-      "path": "D:/projects/obsidian-llm-wiki/.compile/specB-demo-vault/in-context-learning.md",
+      "path": "D:/projects/obsidian-llm-wiki/examples/demo-vault/in-context-learning.md",
       "tags": [
         "inference",
         "meta",
@@ -35,7 +35,7 @@
     {
       "id": "karpathy-llm-wiki-concept.md",
       "title": "Karpathy LLM Wiki: Notes as AI-Readable Structure",
-      "path": "D:/projects/obsidian-llm-wiki/.compile/specB-demo-vault/karpathy-llm-wiki-concept.md",
+      "path": "D:/projects/obsidian-llm-wiki/examples/demo-vault/karpathy-llm-wiki-concept.md",
       "tags": [
         "meta",
         "knowledge-system"
@@ -44,7 +44,7 @@
     {
       "id": "kv-cache.md",
       "title": "KV Cache",
-      "path": "D:/projects/obsidian-llm-wiki/.compile/specB-demo-vault/kv-cache.md",
+      "path": "D:/projects/obsidian-llm-wiki/examples/demo-vault/kv-cache.md",
       "tags": [
         "inference",
         "memory",
@@ -54,7 +54,7 @@
     {
       "id": "mixture-of-experts.md",
       "title": "Mixture of Experts",
-      "path": "D:/projects/obsidian-llm-wiki/.compile/specB-demo-vault/mixture-of-experts.md",
+      "path": "D:/projects/obsidian-llm-wiki/examples/demo-vault/mixture-of-experts.md",
       "tags": [
         "inference",
         "architecture",
@@ -62,9 +62,15 @@
       ]
     },
     {
+      "id": "README.md",
+      "title": "Demo Vault",
+      "path": "D:/projects/obsidian-llm-wiki/examples/demo-vault/README.md",
+      "tags": []
+    },
+    {
       "id": "retrieval-augmented-generation.md",
       "title": "Retrieval-Augmented Generation",
-      "path": "D:/projects/obsidian-llm-wiki/.compile/specB-demo-vault/retrieval-augmented-generation.md",
+      "path": "D:/projects/obsidian-llm-wiki/examples/demo-vault/retrieval-augmented-generation.md",
       "tags": [
         "meta",
         "memory",
@@ -74,7 +80,7 @@
     {
       "id": "speculative-decoding.md",
       "title": "Speculative Decoding",
-      "path": "D:/projects/obsidian-llm-wiki/.compile/specB-demo-vault/speculative-decoding.md",
+      "path": "D:/projects/obsidian-llm-wiki/examples/demo-vault/speculative-decoding.md",
       "tags": [
         "inference",
         "latency",
@@ -84,7 +90,7 @@
     {
       "id": "synthetic-data.md",
       "title": "Synthetic Data",
-      "path": "D:/projects/obsidian-llm-wiki/.compile/specB-demo-vault/synthetic-data.md",
+      "path": "D:/projects/obsidian-llm-wiki/examples/demo-vault/synthetic-data.md",
       "tags": [
         "training",
         "synthetic",
@@ -94,7 +100,7 @@
     {
       "id": "training-data-curation.md",
       "title": "Training Data Curation",
-      "path": "D:/projects/obsidian-llm-wiki/.compile/specB-demo-vault/training-data-curation.md",
+      "path": "D:/projects/obsidian-llm-wiki/examples/demo-vault/training-data-curation.md",
       "tags": [
         "training",
         "data",
@@ -526,8 +532,8 @@
     }
   ],
   "stats": {
-    "scanned": 10,
-    "nodes": 10,
+    "scanned": 11,
+    "nodes": 11,
     "edges": 70,
     "wikilink_edges": 40,
     "tag_edges": 30,
