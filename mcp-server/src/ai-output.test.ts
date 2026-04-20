@@ -195,6 +195,49 @@ describe('vault.writeAIOutput', () => {
     });
   });
 
+  test('defaults review-status=none when not specified', () => {
+    const result = vaultFs.dispatch('vault.writeAIOutput', {
+      persona: 'vault-architect',
+      parentQuery: 'default review-status',
+      sourceNodes: [],
+      agent: 'claude-opus-4-7',
+      body: 'body',
+      dryRun: false,
+    }) as WriteOk;
+    const content = readFileSync(join(vault, result.path!), 'utf-8');
+    const fm = vaultFs.parseFrontmatter(content);
+    assert.equal(fm!['review-status'], 'none');
+  });
+
+  test('accepts reviewStatus=user-confirmed and writes it', () => {
+    const result = vaultFs.dispatch('vault.writeAIOutput', {
+      persona: 'vault-architect',
+      parentQuery: 'user-confirmed entry',
+      sourceNodes: [],
+      agent: 'claude-opus-4-7',
+      body: 'body',
+      reviewStatus: 'user-confirmed',
+      dryRun: false,
+    }) as WriteOk;
+    const content = readFileSync(join(vault, result.path!), 'utf-8');
+    assert.ok(content.includes('review-status: user-confirmed'));
+  });
+
+  test('rejects invalid reviewStatus enum', () => {
+    assert.throws(() => vaultFs.dispatch('vault.writeAIOutput', {
+      persona: 'vault-architect',
+      parentQuery: 'x',
+      sourceNodes: [],
+      agent: 'a',
+      body: 'b',
+      reviewStatus: 'reviewed', // deliberately the forbidden overlap value
+      dryRun: false,
+    }), (e: unknown) => {
+      const ex = e as { code?: number; message?: string };
+      return ex.code === -32602 && /reviewStatus/.test(ex.message ?? '');
+    });
+  });
+
   test('rejects invalid quarantineState enum', () => {
     assert.throws(() => vaultFs.dispatch('vault.writeAIOutput', {
       persona: 'vault-architect',

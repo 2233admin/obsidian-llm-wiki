@@ -751,6 +751,18 @@ export class VaultFs {
         if (!(QSTATE_VALUES as readonly string[]).includes(quarantineState))
           throw err(-32602, `quarantineState must be one of ${QSTATE_VALUES.join("|")}`);
 
+        // review-status: human-signal cache over history. Enum deliberately
+        // excludes "reviewed" to avoid name collision with quarantine-state.
+        // Treat frontmatter value as a cache of the latest history entry whose
+        // trigger equals manual-user-confirmed-write; history itself stays the
+        // source of truth. This cache exists so vault.searchByFrontmatter can
+        // index user-confirmed entries without parsing flow-style history.
+        const REVIEW_STATUS_VALUES = ["none", "user-confirmed"] as const;
+        const reviewStatusRaw = p.reviewStatus;
+        const reviewStatus: string = reviewStatusRaw === undefined ? "none" : String(reviewStatusRaw);
+        if (!(REVIEW_STATUS_VALUES as readonly string[]).includes(reviewStatus))
+          throw err(-32602, `reviewStatus must be one of ${REVIEW_STATUS_VALUES.join("|")}`);
+
         // Sanitize parent-query: truncate to 200 chars, replace " with right-double-quote
         const parentQuery = parentQueryRaw.slice(0, 200).replace(/"/g, "\u201D");
 
@@ -804,6 +816,7 @@ export class VaultFs {
           "status": "draft",
           "scope": scope,
           "quarantine-state": quarantineState,
+          "review-status": reviewStatus,
         };
 
         if (p.dryRun !== false) {
@@ -828,6 +841,7 @@ export class VaultFs {
         yamlLines.push(`status: draft`);
         yamlLines.push(`scope: ${scope}`);
         yamlLines.push(`quarantine-state: ${quarantineState}`);
+        yamlLines.push(`review-status: ${reviewStatus}`);
 
         const contentOut = `---\n${yamlLines.join("\n")}\n---\n\n${body}\n`;
         mkdirSync(dirname(fullPath), { recursive: true });
