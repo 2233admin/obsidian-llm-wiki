@@ -4,6 +4,36 @@ This document describes the sediment layer for persona analyses. Sessions in LLM
 
 The full design rationale (three-gap analysis, step-ordering, status-transition debate) lives in the corresponding planning notes; this page is the reference for humans working with the resulting files.
 
+## Input gate (Step 2.5)
+
+`vault.writeAIOutput` rejects low-signal writes before they sediment into the Inbox. This implements the default-reject rules from the governance plan (`decision-table` §七) adapted for a vault-level base.
+
+Rejected:
+
+- **`body` shorter than 50 chars** — AI-Output entries require enough analysis that the reader can judge the conclusion. Short bodies imply the persona didn't actually think.
+- **`parent-query` is a single shell command** — matches `pwd`, `ls`, `cd`, `cat`, `rg`, `grep`, `echo`, `git status`, `git diff`. These are navigation/inspection, not knowledge worth sedimenting.
+- **empty `parent-query` AND empty `sourceNodes`** — the entry has no anchor (what question did it answer? what notes did it cite?). Prevents orphan analyses from accumulating.
+
+Error code: `-32602` (invalid params). The caller (persona skill) sees a clear rejection and can either strengthen the input or drop the write.
+
+## Sweep metrics (Step 2.5)
+
+`vault.sweepAIOutput` now returns a `metrics` object alongside candidates:
+
+```json
+{
+  "metrics": {
+    "totalEntries": 42,
+    "byPersona": { "vault-architect": 18, "vault-gardener": 9, ... },
+    "byStatus": { "draft": 20, "reviewed": 15, "stale": 7 },
+    "byQuarantineState": { "new": 35, "reviewed": 5, "promoted": 2 },
+    "realBacklinkHitRate": 0.38
+  }
+}
+```
+
+Purpose (from governance-layer §P0.5's "promotion-ready count" signal): future threshold tuning needs evidence. A vault where `realBacklinkHitRate` is <10% suggests the Inbox is producing analyses no human ever cites — the persona prompts need tightening, not the stale thresholds. A vault where most entries sit in `quarantine-state: new` after months is a promotion pipeline stall, distinct from a staleness issue.
+
 ## Storage layout
 
 ```

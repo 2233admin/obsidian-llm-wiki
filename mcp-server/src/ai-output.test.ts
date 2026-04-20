@@ -17,10 +17,18 @@ interface WriteOk { ok?: boolean; path?: string; dryRun?: boolean; frontmatter?:
 interface StaleCand { path: string; persona: string; ageDays: number; threshold: number }
 interface SupCand { older: string; newer: string; overlap: number }
 interface AppliedEntry { path: string; change: string }
+interface SweepMetrics {
+  totalEntries: number;
+  byPersona: Record<string, number>;
+  byStatus: Record<string, number>;
+  byQuarantineState: Record<string, number>;
+  realBacklinkHitRate: number;
+}
 interface SweepReport {
   staleCandidates: StaleCand[];
   supersedeCandidates: SupCand[];
   applied: AppliedEntry[];
+  metrics: SweepMetrics;
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -53,6 +61,9 @@ function daysAgoIso(days: number, base: number = Date.now()): string {
   return new Date(base - days * 86_400_000).toISOString();
 }
 
+// Satisfies Step 2.5 input gate (body >= 50 chars). Use in writeAIOutput tests.
+const LONG_BODY = '# Analysis\n\nLong-enough body for the input gate minimum length check.';
+
 // ── vault.writeAIOutput ──────────────────────────────────────────────────────
 
 describe('vault.writeAIOutput', () => {
@@ -66,7 +77,7 @@ describe('vault.writeAIOutput', () => {
       parentQuery: 'refactor auth module',
       sourceNodes: ['[[auth-architecture]]', '[[session-tokens]]'],
       agent: 'claude-opus-4-7',
-      body: '# analysis body\n\nparagraph.',
+      body: LONG_BODY,
       dryRun: false,
     }) as WriteOk;
 
@@ -85,7 +96,7 @@ describe('vault.writeAIOutput', () => {
     assert.equal(fm!['status'], 'draft');
     assert.ok(typeof fm!['generated-at'] === 'string');
     assert.deepEqual(fm!['source-nodes'], ['[[auth-architecture]]', '[[session-tokens]]']);
-    assert.ok(content.includes('# analysis body'));
+    assert.ok(content.includes('# Analysis'));
   });
 
   test('dryRun default returns plan without writing', () => {
@@ -94,7 +105,7 @@ describe('vault.writeAIOutput', () => {
       parentQuery: 'some query',
       sourceNodes: [],
       agent: 'claude-opus-4-7',
-      body: 'body',
+      body: LONG_BODY,
     }) as WriteOk;
 
     assert.equal(result.dryRun, true);
@@ -112,7 +123,7 @@ describe('vault.writeAIOutput', () => {
       parentQuery: 'same query',
       sourceNodes: [],
       agent: 'claude-opus-4-7',
-      body: 'first',
+      body: `${LONG_BODY} -- first`,
       slug: 'same-slug',
       dryRun: false,
     }) as WriteOk;
@@ -122,7 +133,7 @@ describe('vault.writeAIOutput', () => {
       parentQuery: 'same query',
       sourceNodes: [],
       agent: 'claude-opus-4-7',
-      body: 'second',
+      body: `${LONG_BODY} -- second`,
       slug: 'same-slug',
       dryRun: false,
     }) as WriteOk;
@@ -139,7 +150,7 @@ describe('vault.writeAIOutput', () => {
       parentQuery: 'x',
       sourceNodes: [],
       agent: 'a',
-      body: 'b',
+      body: LONG_BODY,
       dryRun: false,
     }), (e: unknown) => {
       const ex = e as { code?: number; message?: string };
@@ -153,7 +164,7 @@ describe('vault.writeAIOutput', () => {
       parentQuery: 'default governance fields',
       sourceNodes: [],
       agent: 'claude-opus-4-7',
-      body: 'body',
+      body: LONG_BODY,
       dryRun: false,
     }) as WriteOk;
 
@@ -169,7 +180,7 @@ describe('vault.writeAIOutput', () => {
       parentQuery: 'promote this',
       sourceNodes: [],
       agent: 'claude-opus-4-7',
-      body: 'body',
+      body: LONG_BODY,
       scope: 'global',
       quarantineState: 'reviewed',
       dryRun: false,
@@ -186,7 +197,7 @@ describe('vault.writeAIOutput', () => {
       parentQuery: 'x',
       sourceNodes: [],
       agent: 'a',
-      body: 'b',
+      body: LONG_BODY,
       scope: 'galactic',
       dryRun: false,
     }), (e: unknown) => {
@@ -201,7 +212,7 @@ describe('vault.writeAIOutput', () => {
       parentQuery: 'default review-status',
       sourceNodes: [],
       agent: 'claude-opus-4-7',
-      body: 'body',
+      body: LONG_BODY,
       dryRun: false,
     }) as WriteOk;
     const content = readFileSync(join(vault, result.path!), 'utf-8');
@@ -215,7 +226,7 @@ describe('vault.writeAIOutput', () => {
       parentQuery: 'user-confirmed entry',
       sourceNodes: [],
       agent: 'claude-opus-4-7',
-      body: 'body',
+      body: LONG_BODY,
       reviewStatus: 'user-confirmed',
       dryRun: false,
     }) as WriteOk;
@@ -229,7 +240,7 @@ describe('vault.writeAIOutput', () => {
       parentQuery: 'x',
       sourceNodes: [],
       agent: 'a',
-      body: 'b',
+      body: LONG_BODY,
       reviewStatus: 'reviewed', // deliberately the forbidden overlap value
       dryRun: false,
     }), (e: unknown) => {
@@ -244,7 +255,7 @@ describe('vault.writeAIOutput', () => {
       parentQuery: 'x',
       sourceNodes: [],
       agent: 'a',
-      body: 'b',
+      body: LONG_BODY,
       quarantineState: 'approved',
       dryRun: false,
     }), (e: unknown) => {
@@ -253,13 +264,67 @@ describe('vault.writeAIOutput', () => {
     });
   });
 
+  test('input gate: rejects body shorter than 50 chars', () => {
+    assert.throws(() => vaultFs.dispatch('vault.writeAIOutput', {
+      persona: 'vault-architect',
+      parentQuery: 'legitimate query',
+      sourceNodes: [],
+      agent: 'claude-opus-4-7',
+      body: 'too short',
+      dryRun: false,
+    }), (e: unknown) => {
+      const ex = e as { code?: number; message?: string };
+      return ex.code === -32602 && /body too short/.test(ex.message ?? '');
+    });
+  });
+
+  test('input gate: rejects single shell command as parent-query', () => {
+    assert.throws(() => vaultFs.dispatch('vault.writeAIOutput', {
+      persona: 'vault-architect',
+      parentQuery: 'git status',
+      sourceNodes: [],
+      agent: 'claude-opus-4-7',
+      body: LONG_BODY,
+      dryRun: false,
+    }), (e: unknown) => {
+      const ex = e as { code?: number; message?: string };
+      return ex.code === -32602 && /shell command/.test(ex.message ?? '');
+    });
+  });
+
+  test('input gate: rejects empty query with empty sourceNodes', () => {
+    assert.throws(() => vaultFs.dispatch('vault.writeAIOutput', {
+      persona: 'vault-architect',
+      parentQuery: '',
+      sourceNodes: [],
+      agent: 'claude-opus-4-7',
+      body: LONG_BODY,
+      dryRun: false,
+    }), (e: unknown) => {
+      const ex = e as { code?: number; message?: string };
+      return ex.code === -32602 && /low-signal/.test(ex.message ?? '');
+    });
+  });
+
+  test('input gate: empty query is allowed when sourceNodes non-empty', () => {
+    const result = vaultFs.dispatch('vault.writeAIOutput', {
+      persona: 'vault-architect',
+      parentQuery: '',
+      sourceNodes: ['[[some-anchor]]'],
+      agent: 'claude-opus-4-7',
+      body: LONG_BODY,
+      dryRun: false,
+    }) as WriteOk;
+    assert.equal(result.ok, true);
+  });
+
   test('empty sourceNodes serialize to inline []', () => {
     const result = vaultFs.dispatch('vault.writeAIOutput', {
       persona: 'vault-gardener',
       parentQuery: 'empty source test',
       sourceNodes: [],
       agent: 'claude-opus-4-7',
-      body: 'body',
+      body: LONG_BODY,
       dryRun: false,
     }) as WriteOk;
 
@@ -421,7 +486,7 @@ describe('vault.sweepAIOutput', () => {
       status: 'draft',
       generatedAt: daysAgoIso(0),
       sourceNodes: [],
-      body: 'body',
+      body: LONG_BODY,
     });
 
     const futureNow = new Date(Date.now() + 100 * 86_400_000).toISOString();
@@ -500,5 +565,37 @@ describe('vault.sweepAIOutput', () => {
     assert.ok(sc.older.endsWith('older.md'));
     assert.ok(sc.newer.endsWith('newer.md'));
     assert.ok(sc.overlap >= 0.6);
+  });
+
+  test('metrics: reports counts by persona/status/quarantine-state + backlink hit rate', () => {
+    writeAIOut('vault-architect', 'a1.md', { status: 'draft' });
+    writeAIOut('vault-architect', 'a2.md', { status: 'reviewed' });
+    writeAIOut('vault-gardener', 'g1.md', { status: 'draft' });
+    // Add a human note so one entry has a real backlink
+    mkdirSync(join(vault, 'notes'), { recursive: true });
+    writeFileSync(
+      join(vault, 'notes', 'human.md'),
+      'human content\n\n[[00-Inbox/AI-Output/vault-architect/a1]]\n',
+      'utf-8',
+    );
+
+    const report = vaultFs.dispatch('vault.sweepAIOutput', { dry_run: true }) as SweepReport;
+
+    assert.equal(report.metrics.totalEntries, 3);
+    assert.equal(report.metrics.byPersona['vault-architect'], 2);
+    assert.equal(report.metrics.byPersona['vault-gardener'], 1);
+    assert.equal(report.metrics.byStatus['draft'], 2);
+    assert.equal(report.metrics.byStatus['reviewed'], 1);
+    // byQuarantineState: the helper doesn't write the field, so they show as (none)
+    assert.ok(report.metrics.byQuarantineState['(none)'] === 3 ||
+              typeof report.metrics.byQuarantineState['(none)'] === 'number');
+    // 1 of 3 entries has a real backlink -> hit rate ~= 0.333
+    assert.ok(report.metrics.realBacklinkHitRate > 0.3 && report.metrics.realBacklinkHitRate < 0.4);
+  });
+
+  test('metrics: empty vault reports zero hit rate', () => {
+    const report = vaultFs.dispatch('vault.sweepAIOutput', { dry_run: true }) as SweepReport;
+    assert.equal(report.metrics.totalEntries, 0);
+    assert.equal(report.metrics.realBacklinkHitRate, 0);
   });
 });

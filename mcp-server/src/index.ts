@@ -763,6 +763,21 @@ export class VaultFs {
         if (!(REVIEW_STATUS_VALUES as readonly string[]).includes(reviewStatus))
           throw err(-32602, `reviewStatus must be one of ${REVIEW_STATUS_VALUES.join("|")}`);
 
+        // Step 2.5 input gate: reject low-signal writes before they sediment.
+        // Placed after schema/enum validation so enum errors still surface first.
+        // Rationale (governance-layer §P0.5, decision-table §七): persona
+        // judgement drifts; a minimum content bar keeps the vault from filling
+        // with noise that the sweep can't later unclutter.
+        const SINGLE_CMD_RE = /^\s*(pwd|ls|cd|cat|rg|grep|echo|git\s+status|git\s+diff)\b[^\n]*$/i;
+        const bodyTrim = body.trim();
+        const queryTrim = parentQueryRaw.trim();
+        if (bodyTrim.length < 50)
+          throw err(-32602, "body too short: AI-Output entries require at least 50 chars of analysis");
+        if (SINGLE_CMD_RE.test(queryTrim))
+          throw err(-32602, "parent-query looks like a single shell command; not worth sedimenting");
+        if (queryTrim === "" && sourceNodes.length === 0)
+          throw err(-32602, "low-signal entry: need either a parent-query or at least one sourceNode");
+
         // Sanitize parent-query: truncate to 200 chars, replace " with right-double-quote
         const parentQuery = parentQueryRaw.slice(0, 200).replace(/"/g, "\u201D");
 
@@ -862,8 +877,15 @@ export class VaultFs {
 
         const aiRootRel = "00-Inbox/AI-Output";
         const aiRootAbs = join(this.vault, aiRootRel);
+        const emptyMetrics = {
+          totalEntries: 0,
+          byPersona: {} as Record<string, number>,
+          byStatus: {} as Record<string, number>,
+          byQuarantineState: {} as Record<string, number>,
+          realBacklinkHitRate: 0,
+        };
         if (!existsSync(aiRootAbs)) {
-          return { staleCandidates: [], supersedeCandidates: [], applied: [] };
+          return { staleCandidates: [], supersedeCandidates: [], applied: [], metrics: emptyMetrics };
         }
 
         type Entry = {
@@ -990,7 +1012,27 @@ export class VaultFs {
           }
         }
 
-        return { staleCandidates, supersedeCandidates, applied };
+        // Step 2.5 metrics: answer "is the sweep finding anything? where does it land?"
+        // without needing a separate vault.stats call. Drives future threshold tuning.
+        const metrics = {
+          totalEntries: entries.length,
+          byPersona: {} as Record<string, number>,
+          byStatus: {} as Record<string, number>,
+          byQuarantineState: {} as Record<string, number>,
+          realBacklinkHitRate: 0,
+        };
+        let withRealBacklink = 0;
+        for (const e of entries) {
+          metrics.byPersona[e.persona] = (metrics.byPersona[e.persona] ?? 0) + 1;
+          metrics.byStatus[e.status || "(none)"] = (metrics.byStatus[e.status || "(none)"] ?? 0) + 1;
+          const qs = typeof e.fm["quarantine-state"] === "string"
+            ? (e.fm["quarantine-state"] as string) : "(none)";
+          metrics.byQuarantineState[qs] = (metrics.byQuarantineState[qs] ?? 0) + 1;
+          if (hasRealBacklink(e.relPath)) withRealBacklink++;
+        }
+        metrics.realBacklinkHitRate = entries.length === 0 ? 0 : withRealBacklink / entries.length;
+
+        return { staleCandidates, supersedeCandidates, applied, metrics };
       }
       case "vault.getMetadata": {
         const full = this.resolve(p.path as string);
