@@ -241,17 +241,6 @@ export const operations: Operation[] = [
     },
     handler: async (ctx, params) => ctx.vault.execute('vault.getMetadata', params),
   },
-  {
-    name: 'vault.externalSearch',
-    namespace: 'vault',
-    description: 'Search via external search engine',
-    mutating: false,
-    params: {
-      query: { type: 'string', required: true, description: 'Search query string' },
-    },
-    handler: async (ctx, params) => ctx.vault.execute('vault.externalSearch', params),
-  },
-
   // ── recipe namespace ──────────────────────────────────────────
   {
     name: 'recipe.list',

@@ -389,6 +389,9 @@ class VaultFs {
         return { files: results.sort((a, b) => a.path.localeCompare(b.path)) };
       }
       case "vault.graph": {
+        const linkType = (p.type as string) || "both";
+        if (!["resolved", "unresolved", "both"].includes(linkType))
+          throw err(-32602, `Unknown type: ${linkType} (expected resolved|unresolved|both)`);
         const nodeSet = new Set<string>();
         const edgeMap = new Map<string, number>();
         const inbound = new Set<string>();
@@ -409,15 +412,18 @@ class VaultFs {
             edgeMap.set(key, (edgeMap.get(key) || 0) + 1);
           }
         });
-        const edges = Array.from(edgeMap.entries()).map(([key, count]) => {
+        let edges = Array.from(edgeMap.entries()).map(([key, count]) => {
           const [from, to] = key.split(" ");
           return { from, to, count };
         });
         const nodes = Array.from(nodeSet).sort().map((np) => ({
           path: np, exists: (() => { try { return existsSync(this.resolve(np)); } catch { return false; } })(),
         }));
+        const existsMap = new Map(nodes.map((n) => [n.path, n.exists]));
+        if (linkType === "resolved") edges = edges.filter((e) => existsMap.get(e.to) === true);
+        else if (linkType === "unresolved") edges = edges.filter((e) => existsMap.get(e.to) !== true);
         const orphans = nodes.filter((n) => n.exists && n.path.endsWith(".md") && !inbound.has(n.path)).map((n) => n.path);
-        return { nodes, edges, orphans };
+        return { nodes, edges, orphans, type: linkType };
       }
       case "vault.backlinks": {
         if (!p.path) throw err(-32602, "path required");
@@ -694,8 +700,6 @@ class VaultFs {
         if (fm) out.frontmatter = fm;
         return out;
       }
-      case "vault.externalSearch":
-        throw err(-32000, "No external search engine configured");
       default:
         throw err(-32601, `Unknown method: ${method}`);
     }
