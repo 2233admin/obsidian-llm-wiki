@@ -38,3 +38,4 @@ If the graph is unchanged, say "No structural changes detected."
   user confirmation.
 - Cite graph paths for every suggestion.
 - Never suggest more than 3 refactors per session.
+- If vault.graph is unavailable (filesystem adapter down), report "graph inspection requires a live filesystem adapter" and stop rather than fabricate nodes.

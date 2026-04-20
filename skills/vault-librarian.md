@@ -34,4 +34,5 @@ Never fabricate a path. If `vault.search` returns nothing, say so and stop.
 - Read-only. Never call vault.write / vault.delete / vault.rename.
 - Dry-run by default on anything that could modify state.
 - Cite at least one note per claim, or say "no source found".
+- If vault.search is unavailable, fall back to vault.list on likely folders + vault.read on promising paths (bounded to 5 reads).
 - Keep answers under 200 words unless asked to expand.

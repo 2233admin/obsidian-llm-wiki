@@ -45,3 +45,4 @@ period."
 - Default time window is 30 days if none specified.
 - Limit to 20 results unless asked to expand.
 - Use vault.searchByFrontmatter with op=gte/lt for precise windows.
+- If vault.searchByFrontmatter returns nothing, fall back to vault.list on date-named folders + vault.stat for mtime-based recency.

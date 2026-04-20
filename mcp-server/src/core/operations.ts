@@ -135,7 +135,7 @@ export const operations: Operation[] = [
   {
     name: 'vault.search',
     namespace: 'vault',
-    description: 'Fulltext search across vault',
+    description: 'Fulltext grep across vault .md files (filesystem-only, single-adapter). Returns matching lines with line numbers, not ranked results. Use regex=true for patterns, glob to restrict scope. For cross-adapter weighted search use query.unified.',
     mutating: false,
     params: {
       query: { type: 'string', required: true, description: 'Search query string' },
@@ -171,7 +171,7 @@ export const operations: Operation[] = [
   {
     name: 'vault.graph',
     namespace: 'vault',
-    description: 'Get link graph of vault',
+    description: 'Build full wikilink graph of the vault. Returns nodes (with exists flag), edges (from/to/count), orphans (.md files with no inbound links), and unresolvedLinks count. Filter edges with type=resolved|unresolved|both (default both).',
     mutating: false,
     params: {
       type: { type: 'string', required: false, description: 'Link type filter (default: both)', default: 'both', enum: ['resolved', 'unresolved', 'both'] },
@@ -202,7 +202,7 @@ export const operations: Operation[] = [
   {
     name: 'vault.lint',
     namespace: 'vault',
-    description: 'Check vault health',
+    description: 'Vault health audit: finds orphans (no inbound wikilinks), broken wikilinks, empty files, duplicate titles, and optionally missing required frontmatter keys. Read-only; does not check modification time.',
     mutating: false,
     params: {
       requiredFrontmatter: { type: 'array', required: false, description: 'List of frontmatter keys that every note must have' },
@@ -491,7 +491,7 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     {
       name: 'query.unified',
       namespace: 'query',
-      description: 'Unified knowledge query across all active adapters (filesystem, obsidian, memu, gitnexus)',
+      description: 'Weighted multi-adapter search across all active adapters (filesystem, obsidian, memu, gitnexus). Results merged and re-ranked by per-adapter weight. Use when you want best answers anywhere; for single-adapter search use query.search (filesystem-only, ranked) or vault.search (raw filesystem grep, unranked).',
       mutating: false,
       params: {
         query: { type: 'string', required: true, description: 'Search query string' },
@@ -520,7 +520,7 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     {
       name: 'query.search',
       namespace: 'query',
-      description: 'Search knowledge base (filesystem adapter only)',
+      description: 'Filesystem-only ranked knowledge search. Same scoring pipeline as query.unified but restricted to the filesystem adapter. Use for deterministic filesystem-rooted results without memu/gitnexus noise; use vault.search for raw grep-style matching without ranking.',
       mutating: false,
       params: {
         query: { type: 'string', required: true, description: 'Search query string' },
@@ -538,7 +538,7 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     {
       name: 'query.explain',
       namespace: 'query',
-      description: 'Explain a concept using top-10 cross-adapter results with 3-line context',
+      description: 'Concept explanation via top-10 cross-adapter results with 3 lines of surrounding context per match. Same fan-out as query.unified but fixes maxResults=10 and context=3, tuned for paragraph-length summarization. Use when synthesizing prose, not browsing raw results.',
       mutating: false,
       params: {
         concept: { type: 'string', required: true, description: 'Concept to explain' },

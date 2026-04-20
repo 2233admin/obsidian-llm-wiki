@@ -45,5 +45,6 @@ in isolation.
 ## Constraints
 
 - Read-only.
-- If vault.graph is slow, use vault.backlinks alone as fallback.
+- If vault.graph is slow or unavailable, use vault.backlinks alone as fallback.
+- If vault.read fails, check vault.exists and surface "not found" rather than guessing content.
 - Cite paths for every neighbor mentioned.

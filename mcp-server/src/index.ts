@@ -357,12 +357,16 @@ class VaultFs {
         const op = (p.op as string) || "eq";
         const validOps = ["eq", "ne", "gt", "lt", "gte", "lte", "contains", "regex", "exists"];
         if (!validOps.includes(op)) throw err(-32602, `Unknown op: ${op}`);
-        const results: Array<{ path: string; value: unknown }> = [];
+        const results: Array<{ path: string; value: unknown; mtime: number }> = [];
+        const pushWithMtime = (relPath: string, v: unknown): void => {
+          const st = statSync(this.resolve(relPath));
+          results.push({ path: relPath, value: v, mtime: st.mtimeMs });
+        };
         this.walkMd((relPath, content) => {
           const fm = this.parseFrontmatter(content);
           if (!fm) return;
           if (op === "exists") {
-            if ((p.key as string) in fm) results.push({ path: relPath, value: fm[p.key as string] });
+            if ((p.key as string) in fm) pushWithMtime(relPath, fm[p.key as string]);
             return;
           }
           if (!((p.key as string) in fm)) return;
@@ -384,7 +388,7 @@ class VaultFs {
               catch { match = false; }
               break;
           }
-          if (match) results.push({ path: relPath, value: v });
+          if (match) pushWithMtime(relPath, v);
         });
         return { files: results.sort((a, b) => a.path.localeCompare(b.path)) };
       }
@@ -423,7 +427,8 @@ class VaultFs {
         if (linkType === "resolved") edges = edges.filter((e) => existsMap.get(e.to) === true);
         else if (linkType === "unresolved") edges = edges.filter((e) => existsMap.get(e.to) !== true);
         const orphans = nodes.filter((n) => n.exists && n.path.endsWith(".md") && !inbound.has(n.path)).map((n) => n.path);
-        return { nodes, edges, orphans, type: linkType };
+        const unresolvedLinks = nodes.filter((n) => !n.exists).length;
+        return { nodes, edges, orphans, unresolvedLinks, type: linkType };
       }
       case "vault.backlinks": {
         if (!p.path) throw err(-32602, "path required");
@@ -906,6 +911,7 @@ async function main(): Promise<void> {
 
   const adapterNames = registry.list().map((a) => a.name).join(", ");
   process.stderr.write(`obsidian-llm-wiki: MCP server running (stdio, v${VERSION}, adapters: ${adapterNames})\n`);
+  process.stderr.write(`obsidian-llm-wiki: try "what do I know about <topic>" to invoke vault-librarian\n`);
 }
 
 main().catch((e) => {

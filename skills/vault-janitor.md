@@ -49,4 +49,5 @@ To execute: re-run with dryRun=false on specific paths.
 - dryRun=true is the default for ALL mutating operations.
 - Never delete without explicit user confirmation.
 - Never auto-delete notes modified in the last 7 days.
-- Max 10 proposed deletions per session.
+- Max 10 proposed deletions per session (self-enforced -- the server does not cap vault.delete; treat as review-safety norm).
+- If vault.lint is unavailable, fall back to vault.graph for orphans + vault.search for duplicate-title detection.
