@@ -964,3 +964,93 @@ Audit backlog is empty. Next session starts on Deferred items
 three code commits (b5ddf83, b0d4515, 765e4ca). First action next
 session: cd D:/projects/obsidian-llm-wiki && git status &&
 git log --oneline main..v2-staging && decide push vs continue work.
+
+## 2026-04-20 night -- Deferred #4 (generate-tools-doc) DONE
+
+### What done
+
+- mcp-server/src/scripts/generate-tools-doc.ts: 100-line script that
+  imports makeAllOperations(), passes null-cast stub deps (handlers
+  are never invoked, only metadata is read), groups ops by namespace
+  in fixed order (vault, query, compile, recipe, agent), emits
+  markdown. Zero runtime deps beyond node:fs.
+- docs/mcp-tools-reference.md: first generated output, 418 lines,
+  9907 chars, 38 ops across 5 namespaces. Auto-banner forbids hand
+  edits, points at the regen command.
+- package.json: added `npm run generate-tools-doc` -- runs
+  dist/scripts/generate-tools-doc.js after build.
+- mcp-server/src/scripts/generate-tools-doc.test.ts: drift guard
+  asserts on-disk doc equals generator output right now + checks all
+  5 namespace headers are present.
+
+### Commits
+
+- cb58442 feat(mcp): generate-tools-doc script + auto-generated
+  docs/mcp-tools-reference.md
+- fbd6ed0 test(mcp): drift guard for mcp-tools-reference.md
+
+### Verification
+
+- npm run build: clean (tsc, 0 errors)
+- npm test: 88/88 pass (86 baseline + 2 new drift tests)
+- Generator output is deterministic (second run identical to first;
+  drift test passes immediately after regen)
+- Bisect sanity: cb58442 adds script + doc + config only, no existing
+  test touched -- should remain green on its own.
+
+### Engineering notes for next editor
+
+- Stub-deps trick: AllOperationsDeps for makeAllOperations takes
+  CompileTrigger + AdapterRegistry + python/compilerPath/vaultPath.
+  The generator passes `null as never` for compileTrigger/registry,
+  empty strings for the paths. Works because Operation metadata
+  (name/description/params/mutating/namespace) is plain data and
+  handler closures are never invoked. If future ops start doing
+  work at module load (not inside handlers), this will break --
+  prefer keeping factories lazy.
+- Path arithmetic: dist/scripts/generate-tools-doc.js lives 3 levels
+  below repo root (dist/scripts/ -> dist/ -> mcp-server/ -> root).
+  First attempt used 4 levels and wrote to D:/projects/docs/ by
+  accident -- watch out if the script ever moves directories.
+- The doc generator uses operations.ts DESCRIPTIONS verbatim. If you
+  tighten an LLM-facing description in operations.ts, re-run
+  `npm run generate-tools-doc` and commit the doc alongside the
+  operation change, or the drift test will fail CI / local build.
+
+### What blocked
+
+Nothing.
+
+### Known gaps (P2/P3)
+
+- P2: generator includes no example request/response per tool.
+  operations.ts has no sample responses to pull from; adding one
+  would require a new metadata field. Decision: defer until someone
+  asks. Current descriptions + param tables are enough for tool-
+  selection by the LLM.
+- P3: npm run build does NOT chain to generate-tools-doc. If someone
+  edits operations.ts and forgets to regen, the drift test catches
+  it on `npm test`, not on `npm run build`. Acceptable because test
+  is the correct gate (build should stay pure), but worth knowing.
+- P3: script hard-codes NAMESPACE_ORDER. A future namespace (e.g.
+  vaultbrain.*) is appended after the known list at end of doc --
+  correct by construction but order is insertion-order not
+  alphabetical. Low priority.
+
+### Next step (next session opener)
+
+Deferred list from previous session, minus the one just done:
+
+1. Push v2-staging to origin GitHub + tag v2.0.0-rc1. Still
+   shared-state -- confirm with Curry before pushing. Current state:
+   15 commits ahead of main (was 13, +2 from this session).
+2. obsidian-vault-bridge architecture v2 implementation (separate
+   repo, design captured in project_bridge_architecture_v2.md memory).
+3. docs/gif/demo.gif placeholder replacement.
+
+### v2-staging branch state
+
+15 commits ahead of main. Working tree clean. This session landed
+two code commits (cb58442, fbd6ed0). First action next session:
+cd D:/projects/obsidian-llm-wiki && git status &&
+git log --oneline main..v2-staging && decide push vs continue work.
