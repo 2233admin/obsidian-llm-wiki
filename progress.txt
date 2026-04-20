@@ -523,3 +523,58 @@ Codex or Claude own-report:
 
 - Cytoscape + cose-bilkent loaded from unpkg CDN on each page open.
   Acceptable for demo; noted in README as "first load may feel laggy".
+
+---
+
+## Session handoff -- 2026-04-20 06:50 (v2 dispatch + integration)
+
+### What done
+
+- KT routed to MiniMax-M2.7-highspeed via OpenAI-compat path
+  (api.minimaxi.com/v1, profile minimax-local, key in MINIMAX_API_KEY env).
+- 5 worker dispatch executed via `kt run swe --mode cli --no-session`
+  in 3 waves (A+B parallel; C+D parallel; E solo). All 5 specs PASSED
+  HMS gates against acceptance checklists + reject signals. Total burn
+  ~260k tokens, ~30 min wall-clock.
+- v2-staging branch created off main (post bugfix commit 71b0492).
+- 7 atomic commits on v2-staging integrating spec A-E outputs:
+  - 524b339 docs(plan)         -- v2 requirements + 5 specs
+  - e752ba9 feat(personas)     -- 6 skills + KT creature configs
+  - cec28b6 feat(examples)     -- demo-vault (10 notes + graph)
+  - 3f56883 docs(readme)       -- v2 README + WHY_NOT_JUST_GREP + INSTALL
+  - d9a5e88 feat(scaffold)     -- setup + viewer + vercel
+  - 39eba87 feat(kt)           -- terrarium + smoke + KT_DOGFOOD
+  - 7c1729a fix(examples)      -- rebuild graph.json (unresolved=1 fix)
+- Smoke verified: setup --dry-run all 4 hosts (claude/codex/opencode/gemini)
+  prints correct target dirs + paste-able mcp.json + CLAUDE.md snippet;
+  bad host fails clean. README 96 lines, tagline 10 words, 4 example
+  prompts, MIT license. Demo graph rebuilds clean (11 nodes / 70 edges
+  / unresolved=1).
+
+### Known gaps (carried to next session)
+
+- [P2] setup script copies whole repo (.git/.compile/mcp-server/node_modules
+  inflates install). Should select skills/, examples/, docs/, mcp-server/
+  (sans node_modules), terrariums/, viewer/ explicitly.
+- [P2] docs/gif/demo.gif placeholder -- recording per spec-C gif-script.md
+  is a separate task (pre-tag would be ideal).
+- [P3] terrarium yaml uses flat layout (root/creatures/channels at top
+  level, not nested under terrarium:). Worker's interpretation; verify
+  against actual KT terrarium parser before declaring it "validated".
+- [P3] smoke/03-smoke-script.sh is manual checklist mode -- automated
+  end-to-end not yet executed; needs MINIMAX_TOKEN export + kt installed
+  on whatever box runs it.
+- [P3] M2.7-highspeed + KT sub-agents = broken (tool_id mismatch).
+  Workers use direct tools only via prompt guardrail. Worth filing
+  upstream issue against KT or MiniMax provider.
+
+### Next step
+
+1. Eyeball v2-staging diff once more (`git log --oneline main..v2-staging`).
+2. `git push -u origin v2-staging`.
+3. `git tag v2.0.0-rc1 && git push origin v2.0.0-rc1` (announces v2 line
+   without disturbing v1.0.0 stable tag).
+4. `vercel deploy --prod` against viewer/ (may need `vercel link` first).
+5. Record demo GIF per docs/gif-script.md.
+6. Address P2 follow-ups (setup leanness + GIF) before promoting v2-staging
+   -> main as v2.0.0 final.
