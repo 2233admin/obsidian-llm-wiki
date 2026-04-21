@@ -472,11 +472,13 @@ section:last-of-type {
   aspect-ratio: 16 / 9;
 }
 
-.video-frame video {
+.video-frame video,
+.video-frame iframe {
   width: 100%;
   height: 100%;
   display: block;
   object-fit: cover;
+  border: 0;
 }
 
 .video-caption {

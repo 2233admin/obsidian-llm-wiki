@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>architecture deck</title>
+<!--
+  LLM Wiki Bridge -- architecture-deck.html
+  Four-slide auto-advancing deck intended to be iframe-embedded on the
+  landing page. Self-contained: no external deps, no CDN, no React. Visual
+  language borrowed from alchaincyf/huashu-design: Claude mist bg, terracotta
+  accent, system fonts, tight letter-spacing, hairline borders, generous
+  whitespace, no gradients / glow / emoji.
+
+  Behaviour:
+  - Auto-advances every 7s. Pauses on hover. Manual navigation via dots.
+  - Progress bar at bottom visualises slide dwell.
+  - Fade + subtle translate transitions. Honours prefers-reduced-motion.
+  - Fixed seed of layout -- deterministic. No p5, plain DOM + CSS.
+-->
+<style>
+  :root {
+    --bg: #f5f4f0;
+    --bg-card: #ffffff;
+    --ink: #1a1a1a;
+    --ink-soft: #5a5a5a;
+    --ink-faint: #8a8a8a;
+    --accent: #d97757;
+    --hairline: #e0e0da;
+    --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Segoe UI", system-ui, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--bg); color: var(--ink);
+    font-family: var(--font-sans);
+    letter-spacing: -0.01em;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+  .deck {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: grid;
+    grid-template-rows: 1fr auto;
+  }
+  .stage {
+    position: relative;
+    overflow: hidden;
+  }
+  .slide {
+    position: absolute;
+    inset: 0;
+    padding: clamp(24px, 5vw, 56px);
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 480ms ease, transform 560ms ease;
+    display: grid;
+    gap: clamp(12px, 2vw, 24px);
+    align-content: start;
+    pointer-events: none;
+  }
+  .slide.active {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin: 0;
+  }
+  .title {
+    margin: 0;
+    font-size: clamp(1.4rem, 2.6vw, 2.1rem);
+    letter-spacing: -0.02em;
+    font-weight: 600;
+    line-height: 1.15;
+  }
+  .lede {
+    color: var(--ink-soft);
+    max-width: 60ch;
+    margin: 0;
+    font-size: clamp(0.92rem, 1.3vw, 1rem);
+  }
+
+  /* Slide 1 -- 4-layer stack */
+  .layers {
+    display: grid;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .layer {
+    border: 1px solid var(--hairline);
+    border-radius: 6px;
+    padding: 14px 18px;
+    background: var(--bg-card);
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 18px;
+    align-items: baseline;
+  }
+  .layer .tag {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    color: var(--accent);
+  }
+  .layer .name {
+    font-weight: 600;
+    font-size: 0.98rem;
+  }
+  .layer .ops {
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    color: var(--ink-faint);
+    margin-top: 2px;
+  }
+
+  /* Slide 2 -- lifecycle steps */
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px 24px;
+    counter-reset: step;
+  }
+  .step {
+    counter-increment: step;
+    padding: 10px 4px;
+    border-top: 1px solid var(--hairline);
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 12px;
+    align-items: baseline;
+  }
+  .step::before {
+    content: counter(step, decimal-leading-zero);
+    font-family: var(--font-mono);
+    color: var(--accent);
+    font-size: 0.78rem;
+  }
+  .step .s-name {
+    font-size: 0.92rem;
+    color: var(--ink);
+  }
+  .step .s-detail {
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+    margin-top: 2px;
+  }
+
+  /* Slide 3 -- pipeline */
+  .pipeline {
+    display: flex;
+    gap: 0;
+    align-items: stretch;
+    flex-wrap: wrap;
+    font-size: 0.88rem;
+  }
+  .stage-box {
+    flex: 1 1 0;
+    min-width: 110px;
+    padding: 14px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--hairline);
+    border-right: none;
+    text-align: center;
+    position: relative;
+  }
+  .stage-box:last-child {
+    border-right: 1px solid var(--hairline);
+  }
+  .stage-box:first-child { border-radius: 6px 0 0 6px; }
+  .stage-box:last-child { border-radius: 0 6px 6px 0; }
+  .stage-box .s-name {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+  .stage-box .s-desc {
+    font-size: 0.8rem;
+    color: var(--ink-soft);
+    line-height: 1.35;
+  }
+
+  /* Slide 4 -- adapter matrix */
+  table.matrix {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.86rem;
+    margin-top: 4px;
+  }
+  table.matrix th, table.matrix td {
+    text-align: left;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--hairline);
+  }
+  table.matrix th {
+    font-weight: 500;
+    color: var(--ink-faint);
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+  table.matrix td.req { color: var(--ink); font-weight: 600; }
+  table.matrix td.opt { color: var(--accent); }
+  table.matrix td.na { color: var(--ink-faint); }
+  table.matrix tr:last-child td, table.matrix tr:last-child th {
+    border-bottom: 0;
+  }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px clamp(24px, 5vw, 56px);
+    border-top: 1px solid var(--hairline);
+    background: var(--bg);
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--ink-faint);
+  }
+  .dots {
+    display: flex;
+    gap: 8px;
+  }
+  .dot {
+    width: 20px;
+    height: 3px;
+    background: var(--hairline);
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: background 180ms ease, width 220ms ease;
+  }
+  .dot:hover { background: var(--ink-soft); }
+  .dot.active { background: var(--accent); width: 32px; }
+  .progress {
+    flex: 0 0 auto;
+  }
+  .progress-track {
+    width: 80px;
+    height: 2px;
+    background: var(--hairline);
+    border-radius: 1px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    width: 0%;
+    height: 100%;
+    background: var(--accent);
+  }
+  .deck[data-paused="true"] .progress-fill {
+    background: var(--ink-faint);
+  }
+  .caption {
+    color: var(--ink-faint);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .slide { transition: opacity 0ms; transform: none; }
+    .dot { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="deck" id="deck">
+  <div class="stage" id="stage">
+
+    <!-- Slide 1: Four-layer architecture -->
+    <section class="slide active" data-slide="0">
+      <p class="eyebrow">Architecture</p>
+      <h2 class="title">Four layers, one stdio transport.</h2>
+      <p class="lede">
+        Each layer has a narrow job. The MCP server dispatches by namespace.
+        The adapter registry decides which backend services a call. The compiler
+        produces the concept graph. The scheduler picks what the agent should do next.
+      </p>
+      <div class="layers">
+        <div class="layer">
+          <span class="tag">L4</span>
+          <div>
+            <div class="name">Agent scheduler</div>
+            <div class="ops">compile / emerge / reconcile / prune / challenge</div>
+          </div>
+        </div>
+        <div class="layer">
+          <span class="tag">L3</span>
+          <div>
+            <div class="name">Compiler pipeline</div>
+            <div class="ops">link discovery -&gt; graph build -&gt; surplus evaluation</div>
+          </div>
+        </div>
+        <div class="layer">
+          <span class="tag">L2</span>
+          <div>
+            <div class="name">Adapter registry</div>
+            <div class="ops">filesystem (required) | obsidian | memU | gitnexus</div>
+          </div>
+        </div>
+        <div class="layer">
+          <span class="tag">L1</span>
+          <div>
+            <div class="name">MCP server</div>
+            <div class="ops">stdio transport, 40 operations across 5 namespaces</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 2: Request lifecycle -->
+    <section class="slide" data-slide="1">
+      <p class="eyebrow">Request lifecycle</p>
+      <h2 class="title">/vault-librarian to cited answer.</h2>
+      <p class="lede">
+        Eight steps from a user's slash command to an answer the agent can defend
+        with citations. No guessing. No paraphrase. The agent reads what it cites.
+      </p>
+      <div class="steps">
+        <div class="step"><div><div class="s-name">Persona resolves</div><div class="s-detail">Host reads /vault-librarian skill block</div></div></div>
+        <div class="step"><div><div class="s-name">Tool call emitted</div><div class="s-detail">Model calls vault.search over stdio</div></div></div>
+        <div class="step"><div><div class="s-name">Namespace dispatch</div><div class="s-detail">Server routes vault.search to handler</div></div></div>
+        <div class="step"><div><div class="s-name">Adapter invoked</div><div class="s-detail">Filesystem runs ripgrep across .md files</div></div></div>
+        <div class="step"><div><div class="s-name">Results ranked</div><div class="s-detail">query.unified merges weighted adapters</div></div></div>
+        <div class="step"><div><div class="s-name">Response streamed</div><div class="s-detail">JSON-RPC frames back over stdout</div></div></div>
+        <div class="step"><div><div class="s-name">Model reads cited notes</div><div class="s-detail">vault.read follows the top hit paths</div></div></div>
+        <div class="step"><div><div class="s-name">Cited answer</div><div class="s-detail">[[wikilinks]] resolve in the reply</div></div></div>
+      </div>
+    </section>
+
+    <!-- Slide 3: Compile pipeline -->
+    <section class="slide" data-slide="2">
+      <p class="eyebrow">Compile pipeline</p>
+      <h2 class="title">Markdown in, surplus out.</h2>
+      <p class="lede">
+        Zero-dep Python. 554 notes become a 2,507-edge concept graph in under
+        three seconds. Each stage produces signal the next one uses.
+      </p>
+      <div class="pipeline">
+        <div class="stage-box"><div class="s-name">Parse</div><div class="s-desc">YAML frontmatter + body tokens</div></div>
+        <div class="stage-box"><div class="s-name">Extract</div><div class="s-desc">wikilinks, aliases, tags, mtime</div></div>
+        <div class="stage-box"><div class="s-name">Link discovery</div><div class="s-desc">[[target]] resolves to file path</div></div>
+        <div class="stage-box"><div class="s-name">Concept graph</div><div class="s-desc">nodes, edges, orphans, unresolved</div></div>
+        <div class="stage-box"><div class="s-name">Evaluate</div><div class="s-desc">stale, contradictions, coverage</div></div>
+        <div class="stage-box"><div class="s-name">Schedule</div><div class="s-desc">next agent action to propose</div></div>
+      </div>
+    </section>
+
+    <!-- Slide 4: Adapter capability matrix -->
+    <section class="slide" data-slide="3">
+      <p class="eyebrow">Adapter capability matrix</p>
+      <h2 class="title">Filesystem is the floor. The rest is optional.</h2>
+      <p class="lede">
+        Add adapters when you need them. None of them can replace the filesystem,
+        and all of them degrade gracefully when the thing they wrap is offline.
+      </p>
+      <table class="matrix">
+        <thead>
+          <tr>
+            <th>Operation group</th>
+            <th>filesystem</th>
+            <th>obsidian</th>
+            <th>memU</th>
+            <th>gitnexus</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>CRUD + search</td><td class="req">required</td><td class="na">n/a</td><td class="na">n/a</td><td class="na">n/a</td></tr>
+          <tr><td>Graph + lint</td><td class="req">required</td><td class="opt">optional</td><td class="na">n/a</td><td class="opt">optional</td></tr>
+          <tr><td>Unified query</td><td class="req">required</td><td class="opt">optional</td><td class="opt">optional</td><td class="opt">optional</td></tr>
+          <tr><td>Semantic index</td><td class="na">n/a</td><td class="na">n/a</td><td class="opt">optional</td><td class="na">n/a</td></tr>
+          <tr><td>Compile pipeline</td><td class="req">required</td><td class="na">n/a</td><td class="opt">optional</td><td class="opt">optional</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </div>
+
+  <div class="controls">
+    <div class="dots" role="tablist" aria-label="Slides">
+      <button class="dot active" type="button" data-goto="0" aria-label="Slide 1"></button>
+      <button class="dot" type="button" data-goto="1" aria-label="Slide 2"></button>
+      <button class="dot" type="button" data-goto="2" aria-label="Slide 3"></button>
+      <button class="dot" type="button" data-goto="3" aria-label="Slide 4"></button>
+    </div>
+    <div class="caption" id="caption">Architecture -- 4-layer stack</div>
+    <div class="progress">
+      <div class="progress-track"><div class="progress-fill" id="progress"></div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+const CAPTIONS = [
+  "Architecture -- 4-layer stack",
+  "Request lifecycle -- 8 steps",
+  "Compile pipeline -- 6 stages",
+  "Adapters -- capability matrix",
+];
+const SLIDE_MS = 7000;
+const TICK_MS = 60;
+
+const deck = document.getElementById("deck");
+const slides = [...document.querySelectorAll(".slide")];
+const dots = [...document.querySelectorAll(".dot")];
+const caption = document.getElementById("caption");
+const progress = document.getElementById("progress");
+
+let current = 0;
+let elapsed = 0;
+let paused = false;
+let timer = null;
+
+const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function goTo(index) {
+  slides[current].classList.remove("active");
+  dots[current].classList.remove("active");
+  current = (index + slides.length) % slides.length;
+  slides[current].classList.add("active");
+  dots[current].classList.add("active");
+  caption.textContent = CAPTIONS[current];
+  elapsed = 0;
+  progress.style.width = "0%";
+}
+
+function tick() {
+  if (paused) return;
+  elapsed += TICK_MS;
+  const ratio = Math.min(elapsed / SLIDE_MS, 1);
+  progress.style.width = (ratio * 100).toFixed(1) + "%";
+  if (ratio >= 1) goTo(current + 1);
+}
+
+function startTimer() {
+  if (timer) clearInterval(timer);
+  timer = setInterval(tick, TICK_MS);
+}
+
+dots.forEach((d) => {
+  d.addEventListener("click", () => goTo(Number(d.dataset.goto)));
+});
+
+deck.addEventListener("mouseenter", () => {
+  paused = true;
+  deck.dataset.paused = "true";
+});
+deck.addEventListener("mouseleave", () => {
+  paused = false;
+  deck.dataset.paused = "false";
+});
+
+// Keyboard nav for accessibility when the iframe has focus.
+window.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowRight") goTo(current + 1);
+  if (e.key === "ArrowLeft") goTo(current - 1);
+});
+
+// Pause when the iframe is not visible (saves battery).
+document.addEventListener("visibilitychange", () => {
+  paused = document.hidden;
+  deck.dataset.paused = document.hidden ? "true" : "false";
+});
+
+if (prefersReducedMotion) {
+  // Do not auto-advance. User navigates manually.
+} else {
+  startTimer();
+}
+</script>
+</body>
+</html>

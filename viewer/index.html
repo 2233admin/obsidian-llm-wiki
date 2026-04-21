@@ -220,24 +220,17 @@ cd "$HOME\obsidian-llm-wiki-src"; .\setup.ps1</code>
 </section>
 
 <section class="video" id="video">
-  <h2 class="en">See it in motion</h2>
-  <h2 class="zh">看一遍流程</h2>
+  <h2 class="en">Architecture deck</h2>
+  <h2 class="zh">架构展板</h2>
   <div class="video-frame">
-    <video
-      controls
-      muted
-      loop
-      preload="none"
-      poster="assets/intro.poster.jpg"
-      aria-label="20-second architecture flythrough">
-      <source src="assets/intro.webm" type="video/webm" />
-      <source src="assets/intro.mp4" type="video/mp4" />
-      <p class="en">Your browser does not support embedded video. <a href="assets/intro.mp4">Download the MP4.</a></p>
-      <p class="zh">你的浏览器不支持内嵌视频。<a href="assets/intro.mp4">下载 MP4</a>。</p>
-    </video>
+    <iframe
+      src="assets/architecture-deck.html"
+      title="Architecture deck -- auto-advancing slides"
+      loading="lazy"
+      scrolling="no"></iframe>
   </div>
-  <p class="video-caption en">20-second flythrough: filesystem to concept graph to persona call to cited answer.</p>
-  <p class="video-caption zh">20 秒流程：文件系统 -> 概念图 -> persona 调用 -> 带引用的答案。</p>
+  <p class="video-caption en">Four slides, auto-advance. Architecture, request lifecycle, compile pipeline, adapter matrix. Hover to pause; click dots to jump.</p>
+  <p class="video-caption zh">四页自动轮播：架构、请求生命周期、编译管线、adapter 能力矩阵。鼠标悬停暂停，点击圆点跳转。</p>
 </section>
 
 <section class="docs" id="docs">
