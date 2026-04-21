@@ -52,13 +52,13 @@ before(async () => {
     'utf-8',
   );
   // Drop a minimal vault-mind.yaml that loadConfig() picks up as its
-  // first candidate when cwd=vaultRoot. Restricts adapters to
-  // `filesystem` so the bundled pglite/vectorbrain extension (which
-  // mis-resolves `vector.tar.gz` when bundled -- pre-existing bug,
-  // unrelated to this test) does not spawn and crash init.
+  // first candidate when cwd=vaultRoot. Without it, a dev-workspace
+  // yaml above mcp-server/ can capture precedence and redirect the
+  // server to the real vault. Default adapter list is fine post
+  // pglite-externalize fix.
   writeFileSync(
     join(vaultRoot, 'vault-mind.yaml'),
-    `vault_path: "${vaultRoot.replace(/\\/g, '/')}"\nadapters: filesystem\n`,
+    `vault_path: "${vaultRoot.replace(/\\/g, '/')}"\n`,
     'utf-8',
   );
 
@@ -131,4 +131,36 @@ test('tools/call vault.exists agrees with vault.list on the seed', async () => {
   // Accept either boolean or { exists: true }.
   const exists = typeof payload === 'boolean' ? payload : Boolean(payload?.exists);
   assert.equal(exists, true, 'seed note should exist');
+});
+
+// Regression guard for the bundled pglite/vector path bug. Spawns a
+// SECOND server with the default adapter list (which includes
+// vaultbrain) and verifies it boots without crashing. Pre-fix this
+// threw "Extension bundle not found: .../vector.tar.gz" at startup.
+test('server boots with vaultbrain enabled (pglite extension path regression guard)', async () => {
+  const vbRoot = join(tmpdir(), `obsidian-llm-wiki-smoke-vb-${randomUUID()}`);
+  mkdirSync(vbRoot, { recursive: true });
+  writeFileSync(join(vbRoot, 'seed.md'), '# seed\n', 'utf-8');
+  // No yaml: loadConfig falls back to VAULT_MIND_VAULT_PATH env, then
+  // the server uses its default adapter list which includes vaultbrain.
+  const vbTransport = new StdioClientTransport({
+    command: process.execPath,
+    args: [BUNDLE_PATH],
+    cwd: vbRoot,
+    env: { ...process.env, VAULT_MIND_VAULT_PATH: vbRoot },
+    stderr: 'pipe',
+  });
+  const vbClient = new Client(
+    { name: 'smoke-test-vb', version: '0.0.1' },
+    { capabilities: {} },
+  );
+  try {
+    await vbClient.connect(vbTransport);
+    const res = await vbClient.listTools();
+    assert.ok(res.tools.length > 0, 'server with vaultbrain enabled must still register tools');
+  } finally {
+    try { await vbClient.close(); } catch { /* best effort */ }
+    try { await vbTransport.close(); } catch { /* best effort */ }
+    rmSync(vbRoot, { recursive: true, force: true });
+  }
 });
