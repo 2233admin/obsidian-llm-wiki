@@ -45,7 +45,7 @@ Purpose (from governance-layer §P0.5's "promotion-ready count" signal): future 
 
 Per-persona subdirs keep lint/stale policy local to each persona for MVP; if per-content-type differentiation matters more than per-persona later, the layout can flatten without a schema change (all required info is in frontmatter).
 
-## Schema (9 fields — 6 required, 3 governance with defaults)
+## Schema (8 fields — 6 required, 2 governance with defaults; human signature on an Obsidian body tag)
 
 ```yaml
 ---
@@ -59,10 +59,10 @@ source-nodes:                           # wikilinks cited during analysis; [] va
 status: draft                           # draft | reviewed | stale | superseded
 scope: project                          # project | global | cross-project | host-local
 quarantine-state: new                   # new | reviewed | promoted | discarded
-review-status: none                     # none | user-confirmed
 ---
 
 <body markdown, no frontmatter block inside>
+<optional trailing tag: #user-confirmed>  # set by reviewStatus: user-confirmed
 ```
 
 Each field has a distinct failure mode if absent. None are optional:
@@ -77,18 +77,19 @@ Each field has a distinct failure mode if absent. None are optional:
 | `status` | Inbox accumulates as WORM; no lifecycle management is possible |
 | `scope` | Cross-project leakage risk — entries mint as `project` if caller doesn't specify |
 | `quarantine-state` | Trust gate collapses into content-lifecycle (Step 1 bug); promotion becomes ungoverned |
-| `review-status` | Promotion gate can't tell "gardener triaged this" from "human explicitly signed off" |
 
-### `scope` vs `status` vs `quarantine-state` vs `review-status` — four axes
+> Human confirmation is stored as an Obsidian body tag `#user-confirmed`, not a frontmatter field. See *human signature* below.
+
+### `scope` vs `status` vs `quarantine-state` — three axes + body tag
 
 Step 2 (Appendix D of the governance plan) splits what Step 1 tried to encode in `status` alone. They move independently:
 
 - `scope` — **namespace** of the entry. `project` = this repo only (default). `global` = user-stable fact (e.g. "Curry prefers Bun over npm"). `cross-project` = generalisable pattern. `host-local` = machine-specific (paths, env).
 - `status` — **content timeliness**. Does this analysis still reflect the vault's current state? Gardener sweeps the age+anchor axis here.
 - `quarantine-state` — **machine trust gate**. Gardener's model of maturity along the candidate lifecycle (`new → reviewed → promoted`, or `discarded`). An entry can be `status: reviewed` (content-useful) but `quarantine-state: new` (not yet vetted for cross-project promotion). `quarantine-state: promoted` is the gate for Step 3 durable-memory injection.
-- `review-status` — **human signature cache**. `user-confirmed` only when Curry explicitly signed off — not when the gardener auto-advanced. Enum deliberately omits the value `reviewed` to avoid name collision with `quarantine-state: reviewed`. This field is a **cache over history**: the source of truth is `history[].trigger == manual-user-confirmed-write`; frontmatter mirrors the latest signal so `vault.searchByFrontmatter review-status=user-confirmed` works without parsing flow-style history.
+- `#user-confirmed` (body tag) — **human signature**. Curry explicitly signed off — not an automated gardener advance. Rides on Obsidian's native tag infrastructure: `vault.searchByTag user-confirmed` returns the set for free, no frontmatter field needed. The source of truth remains `history[].trigger == manual-user-confirmed-write`; the tag is the index, the history row is the audit trail. Passing `reviewStatus: user-confirmed` to `vault.writeAIOutput` appends the tag at body end (idempotent).
 
-Rationale for defaults: `scope=project` keeps entries local unless the caller opts into wider namespace; `quarantine-state=new` means no automatic machine-promotion; `review-status=none` means no human signature yet — the write op never auto-claims one, only explicit `reviewStatus: user-confirmed` or a manual-user-confirmed-write history append does.
+Rationale for defaults: `scope=project` keeps entries local unless the caller opts into wider namespace; `quarantine-state=new` means no automatic machine-promotion; absence of the `#user-confirmed` tag means no human signature yet — the write op never auto-claims one, only explicit `reviewStatus: user-confirmed` or a manual-user-confirmed-write history append (with a matching hand-added tag) does.
 
 ### `history` — structured audit trail
 

@@ -206,7 +206,7 @@ describe('vault.writeAIOutput', () => {
     });
   });
 
-  test('defaults review-status=none when not specified', () => {
+  test('default (reviewStatus omitted) writes no review-status frontmatter and no body tag', () => {
     const result = vaultFs.dispatch('vault.writeAIOutput', {
       persona: 'vault-architect',
       parentQuery: 'default review-status',
@@ -217,10 +217,11 @@ describe('vault.writeAIOutput', () => {
     }) as WriteOk;
     const content = readFileSync(join(vault, result.path!), 'utf-8');
     const fm = vaultFs.parseFrontmatter(content);
-    assert.equal(fm!['review-status'], 'none');
+    assert.equal(fm!['review-status'], undefined, 'review-status must not appear in frontmatter');
+    assert.ok(!/#user-confirmed/.test(content), 'no tag when default');
   });
 
-  test('accepts reviewStatus=user-confirmed and writes it', () => {
+  test('reviewStatus=user-confirmed appends #user-confirmed body tag, not frontmatter', () => {
     const result = vaultFs.dispatch('vault.writeAIOutput', {
       persona: 'vault-architect',
       parentQuery: 'user-confirmed entry',
@@ -231,7 +232,25 @@ describe('vault.writeAIOutput', () => {
       dryRun: false,
     }) as WriteOk;
     const content = readFileSync(join(vault, result.path!), 'utf-8');
-    assert.ok(content.includes('review-status: user-confirmed'));
+    assert.ok(!/review-status:/.test(content), 'review-status must not be in frontmatter');
+    assert.ok(/#user-confirmed/.test(content), 'body must carry #user-confirmed tag');
+    const bodyOnly = content.split(/\n---\n/).slice(1).join('\n---\n');
+    assert.ok(/#user-confirmed/.test(bodyOnly), 'tag must live in body, not frontmatter');
+  });
+
+  test('reviewStatus=user-confirmed is idempotent when body already has the tag', () => {
+    const result = vaultFs.dispatch('vault.writeAIOutput', {
+      persona: 'vault-architect',
+      parentQuery: 'pre-tagged body',
+      sourceNodes: [],
+      agent: 'claude-opus-4-7',
+      body: `${LONG_BODY}\n\n#user-confirmed`,
+      reviewStatus: 'user-confirmed',
+      dryRun: false,
+    }) as WriteOk;
+    const content = readFileSync(join(vault, result.path!), 'utf-8');
+    const matches = content.match(/#user-confirmed/g) ?? [];
+    assert.equal(matches.length, 1, 'tag must appear exactly once');
   });
 
   test('rejects invalid reviewStatus enum', () => {

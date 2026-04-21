@@ -234,7 +234,7 @@ export const operations: Operation[] = [
   {
     name: 'vault.writeAIOutput',
     namespace: 'vault',
-    description: 'Write a persona-authored analysis into 00-Inbox/AI-Output/{persona}/YYYY-MM-DD-{slug}.md with the 9-field provenance frontmatter (generated-by, generated-at, agent, parent-query, source-nodes, status=draft, scope, quarantine-state, review-status). Dry-run by default.',
+    description: 'Write a persona-authored analysis into 00-Inbox/AI-Output/{persona}/YYYY-MM-DD-{slug}.md with the 8-field provenance frontmatter (generated-by, generated-at, agent, parent-query, source-nodes, status=draft, scope, quarantine-state). Human confirmation rides on an Obsidian body tag (#user-confirmed), not a frontmatter field. Dry-run by default.',
     mutating: true,
     params: {
       persona: { type: 'string', required: true, description: 'Persona identifier, must match ^vault-[a-z]+$' },
@@ -245,7 +245,7 @@ export const operations: Operation[] = [
       slug: { type: 'string', required: false, description: 'Optional filename slug; auto-derived from parentQuery if omitted' },
       scope: { type: 'string', required: false, description: 'Governance namespace for the entry (default: project)', default: 'project', enum: ['project', 'global', 'cross-project', 'host-local'] },
       quarantineState: { type: 'string', required: false, description: 'Trust-gate state in the candidate lifecycle (default: new)', default: 'new', enum: ['new', 'reviewed', 'promoted', 'discarded'] },
-      reviewStatus: { type: 'string', required: false, description: 'Human-signal cache over history; only user-confirmed is distinct from default (default: none)', default: 'none', enum: ['none', 'user-confirmed'] },
+      reviewStatus: { type: 'string', required: false, description: 'When user-confirmed, appends #user-confirmed tag to the body so Obsidian tag search picks it up. Default: none (no tag appended).', default: 'none', enum: ['none', 'user-confirmed'] },
       dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: true)', default: true },
     },
     handler: async (ctx, params) => ctx.vault.execute('vault.writeAIOutput', params),

@@ -751,12 +751,10 @@ export class VaultFs {
         if (!(QSTATE_VALUES as readonly string[]).includes(quarantineState))
           throw err(-32602, `quarantineState must be one of ${QSTATE_VALUES.join("|")}`);
 
-        // review-status: human-signal cache over history. Enum deliberately
-        // excludes "reviewed" to avoid name collision with quarantine-state.
-        // Treat frontmatter value as a cache of the latest history entry whose
-        // trigger equals manual-user-confirmed-write; history itself stays the
-        // source of truth. This cache exists so vault.searchByFrontmatter can
-        // index user-confirmed entries without parsing flow-style history.
+        // review-status: routed to an Obsidian body tag (#user-confirmed) rather
+        // than a frontmatter field. Lets the native Obsidian tag index carry
+        // the signal; vault.searchByTag picks up user-confirmed entries for
+        // free. Enum excludes "reviewed" to avoid collision with quarantine-state.
         const REVIEW_STATUS_VALUES = ["none", "user-confirmed"] as const;
         const reviewStatusRaw = p.reviewStatus;
         const reviewStatus: string = reviewStatusRaw === undefined ? "none" : String(reviewStatusRaw);
@@ -831,8 +829,13 @@ export class VaultFs {
           "status": "draft",
           "scope": scope,
           "quarantine-state": quarantineState,
-          "review-status": reviewStatus,
         };
+
+        // Body tag injection for human-confirmed entries. Obsidian treats
+        // repeated tags as one, but we skip duplicate writes to keep diffs clean.
+        const bodyWithTag = reviewStatus === "user-confirmed" && !/(^|\s)#user-confirmed(\s|$)/m.test(body)
+          ? `${body.replace(/\n+$/, "")}\n\n#user-confirmed`
+          : body;
 
         if (p.dryRun !== false) {
           return { dryRun: true, action: "writeAIOutput", path: relPath, frontmatter: frontmatterObj };
@@ -856,9 +859,8 @@ export class VaultFs {
         yamlLines.push(`status: draft`);
         yamlLines.push(`scope: ${scope}`);
         yamlLines.push(`quarantine-state: ${quarantineState}`);
-        yamlLines.push(`review-status: ${reviewStatus}`);
 
-        const contentOut = `---\n${yamlLines.join("\n")}\n---\n\n${body}\n`;
+        const contentOut = `---\n${yamlLines.join("\n")}\n---\n\n${bodyWithTag}\n`;
         mkdirSync(dirname(fullPath), { recursive: true });
         writeFileSync(fullPath, contentOut, "utf-8");
         return { ok: true, path: relPath, frontmatter: frontmatterObj };

@@ -250,7 +250,7 @@ Sweep 00-Inbox/AI-Output for stale drafts (age > persona threshold and no non-AI
 
 ### `vault.writeAIOutput`
 
-Write a persona-authored analysis into 00-Inbox/AI-Output/{persona}/YYYY-MM-DD-{slug}.md with the 9-field provenance frontmatter (generated-by, generated-at, agent, parent-query, source-nodes, status=draft, scope, quarantine-state, review-status). Dry-run by default.
+Write a persona-authored analysis into 00-Inbox/AI-Output/{persona}/YYYY-MM-DD-{slug}.md with the 8-field provenance frontmatter (generated-by, generated-at, agent, parent-query, source-nodes, status=draft, scope, quarantine-state). Human confirmation rides on an Obsidian body tag (#user-confirmed), not a frontmatter field. Dry-run by default.
 
 **Mutating:** yes
 
@@ -264,7 +264,7 @@ Write a persona-authored analysis into 00-Inbox/AI-Output/{persona}/YYYY-MM-DD-{
 - `slug` (string, optional) — Optional filename slug; auto-derived from parentQuery if omitted
 - `scope` (string, optional, default: `"project"`, enum: `project` | `global` | `cross-project` | `host-local`) — Governance namespace for the entry (default: project)
 - `quarantineState` (string, optional, default: `"new"`, enum: `new` | `reviewed` | `promoted` | `discarded`) — Trust-gate state in the candidate lifecycle (default: new)
-- `reviewStatus` (string, optional, default: `"none"`, enum: `none` | `user-confirmed`) — Human-signal cache over history; only user-confirmed is distinct from default (default: none)
+- `reviewStatus` (string, optional, default: `"none"`, enum: `none` | `user-confirmed`) — When user-confirmed, appends #user-confirmed tag to the body so Obsidian tag search picks it up. Default: none (no tag appended).
 - `dryRun` (boolean, optional, default: `true`) — Simulate without writing (default: true)
 
 ## `query.*` (4)
