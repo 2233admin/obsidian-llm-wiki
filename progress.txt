@@ -1659,3 +1659,124 @@ After Curry hand-tests and reports back:
 - master/main/v2-staging: unchanged; PR #4 still open
 - Full merge chain (active): PR #8 -> PR #7 -> PR #6 ->
   feat/ai-output-sediment -> v2-staging -> main (PR #4)
+
+
+---
+
+## 2026-04-21 session 5 -- end-to-end MCP JSON-RPC smoke test
+
+### What done
+
+Picked up the three-session-deferred carry-forward: an end-to-end
+MCP JSON-RPC smoke test that spawns the built stdio server as a
+child process and speaks real protocol through the SDK client.
+Lives at mcp-server/src/smoke.test.ts, runs under node --test with
+everything else.
+
+Three assertions, each a first-class round-trip:
+
+1. `initialize` handshake completes (implicit in client.connect).
+2. `tools/list` returns a non-empty catalog including the required
+   vault primitives: vault.list, vault.read, vault.exists.
+3. `tools/call vault.list` + `tools/call vault.exists` agree on a
+   seeded temp-vault note (`hello.md`), round-tripping both tool
+   dispatch and filesystem adapter.
+
+Tests 120/120 green (117 pre-existing + 3 smoke). Build clean.
+Bundle rebuilt to keep the shipped artifact byte-current with src.
+
+### Two real issues the smoke test surfaced
+
+First smoke run against the default cwd (mcp-server/) quietly
+returned an empty listing. Second run, with cwd=vaultRoot, crashed
+on server startup. Both are documented here because they are
+real, not test artefacts:
+
+**Issue A -- loadConfig precedence shadow (design choice, not a bug):**
+loadConfig() probes `./vault-mind.yaml` then `../vault-mind.yaml`
+BEFORE honouring `VAULT_MIND_VAULT_PATH`. When the server spawns
+from mcp-server/, the dev-workspace yaml at
+`/d/projects/obsidian-llm-wiki/vault-mind.yaml` (points at
+E:/knowledge) captures precedence and the env var is ignored. The
+test works around this by running the child with cwd=vaultRoot
+and dropping a minimal `vault-mind.yaml` in the seed dir.
+
+**Issue B -- bundled pglite vector extension path (pre-existing bug):**
+`@electric-sql/pglite/vector` resolves `new URL('../vector.tar.gz',
+import.meta.url)` at runtime. When esbuild inlines the vector
+module into bundle.js, `import.meta.url` becomes the bundle's
+path, so `../vector.tar.gz` resolves to
+`D:/projects/obsidian-llm-wiki/vector.tar.gz` (non-existent)
+instead of pglite's ships-in-the-package `release/vector.tar.gz`.
+With the dev yaml's filesystem-only adapter list this never
+tripped, but any deploy that enables `vaultbrain` via the default
+adapter list (`["filesystem", "memu", "gitnexus", "obsidian",
+"qmd", "vaultbrain"]` at src/index.ts line 1108) will crash on
+first VaultBrain init.
+
+The smoke test side-steps B by writing `adapters: filesystem`
+into the seed yaml. The underlying bundle bug is NOT fixed in
+this session -- documented as P1 below.
+
+### Why this matters
+
+Before session 5, every test was either a unit test (pure TS) or
+an adapter test (injects mocks). None of them exercised the stdio
+framing, the SDK Server glue, the tool-name bridge, or the env /
+yaml config loader. Issue B in particular is a shipping-artifact
+bug that has been latent since the vaultbrain adapter was added
+and would not have been caught by unit tests at any resolution.
+
+### Known gaps (explicit, carried to next session)
+
+P1 (real design/impl bugs):
+- **Bundled pglite vector extension path**: fix options are
+  (1) externalize `@electric-sql/pglite/vector` in the esbuild
+  config so its `import.meta.url` resolves to pglite's dir at
+  runtime, (2) ship `release/vector.tar.gz` alongside bundle.js
+  and rewrite the URL, or (3) lazy-require pglite only on first
+  use and skip if absent. Option 1 is cleanest (already the
+  pattern for native modules in esbuild). Low-risk, scoped fix.
+
+P2 (design choices I would revisit):
+- loadConfig precedence: env var below two yaml probes means an
+  abandoned yaml up the tree silently redirects vaults. Consider
+  reversing to `env > ./yaml > ../yaml` or making the probe
+  opt-in via a sentinel env var. Not urgent; documented.
+- Hand-test screenshots still TODO (carry-forward from session 4).
+- sweep.log.md rotation still deferred to Step 3.
+- Smoke test spawns bundle.js, not dist/index.js -- ensures we
+  validate the shipped artifact. Trade-off: forces `npm run
+  rebuild` before `npm test` in dev loop. Acceptable.
+
+P3 (process / honesty):
+- Smoke test deliberately stays tolerant on payload shape
+  (accepts `files` OR `entries` OR top-level array). Future
+  renames will still exercise the round-trip without schema lock.
+  Trade-off: a genuine shape regression could slip if it still
+  contains the string "hello.md" somewhere. Acceptable for a
+  smoke test -- tighter shape assertions belong in unit tests.
+
+### Next step (next session opener)
+
+1. **Fix Issue B** (P1, ~30 min): externalize pglite/vector in
+   the esbuild bundle script. Add a smoke-test variant that
+   enables vaultbrain to catch the fix. This closes the last
+   real blocker between the current branch and a confident v2.
+2. If Curry has hand-tested the guide path: bake real
+   screenshots into GUIDE.md / GUIDE.zh-CN.md.
+3. Either way: session-4's full merge chain (PR #8 -> #7 -> #6
+   -> feat/ai-output-sediment -> v2-staging -> main via PR #4)
+   is still unmerged. Decide whether to land session-5's smoke
+   test as a new commit on top of feat/step2-6-tag-migration or
+   cherry-pick onto a separate branch that targets v2-staging
+   directly.
+
+### Branch / PR state
+
+- feat/step2-6-tag-migration (current): +1 commit for smoke test
+  + regenerated bundle, not yet pushed
+- PR #8 still open, targets feat/step2-5-input-gate
+- master/main/v2-staging: unchanged; PR #4 still open
+- Full merge chain (active): PR #8 -> PR #7 -> PR #6 ->
+  feat/ai-output-sediment -> v2-staging -> main (PR #4)
