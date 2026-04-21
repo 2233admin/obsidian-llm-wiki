@@ -1,34 +1,305 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LLM Wiki Bridge — Concept Graph Viewer</title>
-  <link rel="stylesheet" href="viewer.css" />
+  <title>LLM Wiki Bridge -- your markdown vault, compiled for any agent</title>
+  <meta name="description" content="Headless-first MCP server that compiles your markdown vault into a concept graph. Your agent searches, reads, and cites -- no guessing." />
+  <meta property="og:title" content="LLM Wiki Bridge" />
+  <meta property="og:description" content="Your markdown vault, compiled into a 6-persona team for any MCP-compatible agent." />
+  <meta property="og:type" content="website" />
+  <link rel="stylesheet" href="landing.css" />
 </head>
 <body>
 
-<header>
-  <h1>LLM Wiki Bridge — Concept Graph</h1>
-  <div class="paste-area">
-    <label for="graph-json">Paste your graph.json:</label>
-    <textarea id="graph-json" placeholder="Paste the output of concept_graph.py here..."></textarea>
-    <button id="load-btn" disabled>Loading…</button>
+<nav class="topbar">
+  <a href="/" class="brand">
+    <span class="brand-mark">/</span>
+    <span class="brand-text">LLM Wiki Bridge</span>
+  </a>
+  <div class="nav-links">
+    <a href="#install" class="en">Install</a><a href="#install" class="zh">安装</a>
+    <a href="#architecture" class="en">Architecture</a><a href="#architecture" class="zh">架构</a>
+    <a href="#docs" class="en">Docs</a><a href="#docs" class="zh">文档</a>
+    <a href="graph.html" class="en">Graph tool</a><a href="graph.html" class="zh">图谱工具</a>
+    <a href="https://github.com/2233admin/obsidian-llm-wiki" class="en">GitHub</a><a href="https://github.com/2233admin/obsidian-llm-wiki" class="zh">GitHub</a>
   </div>
-</header>
+  <div class="lang-toggle" role="group" aria-label="Language">
+    <button type="button" data-set-lang="en" aria-pressed="true">EN</button>
+    <button type="button" data-set-lang="zh" aria-pressed="false">中</button>
+  </div>
+</nav>
 
-<div id="error-msg"></div>
-<div id="cy-container"></div>
+<main>
 
-<div id="stats">
-  <span>nodes: <b>—</b></span>
-  <span>edges: <b>—</b></span>
-  <span class="wikilink">wikilink: <b>—</b></span>
-  <span class="tag">tag: <b>—</b></span>
-  <span class="unresolved">unresolved: <b>—</b></span>
-</div>
+<section class="hero" id="hero">
+  <div class="hero-copy">
+    <p class="eyebrow en">v2.0.0 -- Headless MCP + Obsidian</p>
+    <p class="eyebrow zh">v2.0.0 -- Headless MCP + Obsidian</p>
 
-<script src="viewer.js"></script>
+    <h1 class="en">Your markdown vault,<br />compiled for any agent.</h1>
+    <h1 class="zh">你的 markdown 笔记，<br />为 agent 编译一次。</h1>
 
+    <p class="lede en">
+      LLM Wiki Bridge is a headless-first MCP server that turns wikilinks, aliases, and frontmatter
+      into a concept graph your agent can query. Six personas ship with it. Obsidian optional.
+    </p>
+    <p class="lede zh">
+      LLM Wiki Bridge 是一个 headless-first 的 MCP 服务器，把 wikilink、别名和 frontmatter 编译成一张概念图，
+      让你的 agent 直接调用查询。内置六个 persona，Obsidian 可选。
+    </p>
+
+    <div class="cta-row">
+      <div class="copy-block" data-copy="git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git ~/obsidian-llm-wiki-src">
+        <code>git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git ~/obsidian-llm-wiki-src</code>
+        <button type="button" class="copy-btn" aria-label="Copy">
+          <span class="en">Copy</span><span class="zh">复制</span>
+        </button>
+      </div>
+      <a href="https://github.com/2233admin/obsidian-llm-wiki" class="btn-secondary">
+        <span class="en">View on GitHub</span><span class="zh">在 GitHub 查看</span>
+      </a>
+    </div>
+  </div>
+
+  <div class="hero-art" aria-hidden="true">
+    <iframe src="assets/hero-art.html" loading="lazy" title="Generative concept graph" scrolling="no"></iframe>
+  </div>
+</section>
+
+<section class="problem" id="problem">
+  <h2 class="en">The problem this solves</h2>
+  <h2 class="zh">它解决的问题</h2>
+  <div class="problem-grid">
+    <p class="en">You have 500 notes. You wrote half of them last year. You do not remember what is in them.</p>
+    <p class="zh">你有 500 篇笔记。一半是去年写的。你已经想不起来里面写了什么。</p>
+
+    <p class="en">Your agent cannot read your vault. It guesses from its context window and hallucinates citations.</p>
+    <p class="zh">你的 agent 读不到你的 vault。它只能在自己的上下文里猜，然后编造引用。</p>
+
+    <p class="en">Every morning you spend 20 minutes re-finding what you already knew.</p>
+    <p class="zh">每天早上你要花 20 分钟，把昨天已经知道的东西重新找出来。</p>
+  </div>
+</section>
+
+<section class="solution" id="solution">
+  <h2 class="en">Three axioms that shape it</h2>
+  <h2 class="zh">三条基本约束</h2>
+  <ol class="axioms">
+    <li>
+      <h3 class="en">Filesystem is the floor.</h3>
+      <h3 class="zh">文件系统是底线。</h3>
+      <p class="en">If a feature needs more than a directory of markdown files, it is optional -- not default. Obsidian, memU, gitnexus are all opt-in.</p>
+      <p class="zh">任何功能如果要求超过"一个 markdown 文件夹"，它就是可选的，不是默认。Obsidian、memU、gitnexus 全部 opt-in。</p>
+    </li>
+    <li>
+      <h3 class="en">Compile once, query many times.</h3>
+      <h3 class="zh">编译一次，多次查询。</h3>
+      <p class="en">554 notes to 2,507 edges in under 3 seconds. Every subsequent <code>vault.search</code>, <code>vault.backlinks</code>, <code>query.unified</code> reuses that graph.</p>
+      <p class="zh">554 篇笔记、2,507 条边，3 秒内编译完。之后每次 <code>vault.search</code>、<code>vault.backlinks</code>、<code>query.unified</code> 都复用这张图。</p>
+    </li>
+    <li>
+      <h3 class="en">Agents cite, don't guess.</h3>
+      <h3 class="zh">Agent 引用，不瞎猜。</h3>
+      <p class="en">The agent calls <code>vault.read</code> on the cited notes and answers with evidence. It does not paraphrase a grep hit-list from memory.</p>
+      <p class="zh">Agent 对引用的笔记调用 <code>vault.read</code>，拿到原文再作答。它不会看一眼 grep 结果就开始编。</p>
+    </li>
+  </ol>
+</section>
+
+<section class="personas" id="personas">
+  <h2 class="en">Six personas, one MCP surface</h2>
+  <h2 class="zh">六个 persona，一套 MCP 接口</h2>
+  <p class="section-lede en">
+    Each persona is an opinionated prompt over the same 40-operation MCP tool set. One does search and cite. One finds orphans. One answers "what was I thinking on April 3rd".
+  </p>
+  <p class="section-lede zh">
+    每个 persona 都是同一套 40 操作 MCP 接口上的一段有主见的提示词。一个负责检索与引用，一个负责找孤儿笔记，一个回答"我 4 月 3 日在想什么"。
+  </p>
+
+  <div class="persona-grid">
+    <div class="persona-card">
+      <h3>vault-librarian</h3>
+      <p class="role en">reads, searches, cites from the vault</p>
+      <p class="role zh">读取、检索、引用 vault</p>
+      <code class="tools">vault.search, vault.read, vault.list</code>
+    </div>
+    <div class="persona-card">
+      <h3>vault-architect</h3>
+      <p class="role en">compiles concept graph, suggests refactors</p>
+      <p class="role zh">编译概念图，建议重构</p>
+      <code class="tools">vault.graph, vault.backlinks, compile.run</code>
+    </div>
+    <div class="persona-card">
+      <h3>vault-curator</h3>
+      <p class="role en">finds orphans, dead links, duplicates, stale notes</p>
+      <p class="role zh">找孤儿、死链接、重复、过期笔记</p>
+      <code class="tools">vault.lint, vault.searchByTag, vault.search</code>
+    </div>
+    <div class="persona-card">
+      <h3>vault-teacher</h3>
+      <p class="role en">explains a note in context of its neighbors</p>
+      <p class="role zh">结合邻居笔记讲解一篇笔记</p>
+      <code class="tools">vault.backlinks, vault.read, vault.graph</code>
+    </div>
+    <div class="persona-card">
+      <h3>vault-historian</h3>
+      <p class="role en">answers "what was I thinking on date X"</p>
+      <p class="role zh">回答"我 X 日在想什么"</p>
+      <code class="tools">vault.searchByFrontmatter, vault.stat</code>
+    </div>
+    <div class="persona-card">
+      <h3>vault-janitor</h3>
+      <p class="role en">proposes cleanups, dry-run by default</p>
+      <p class="role zh">提议清理，默认 dry-run</p>
+      <code class="tools">vault.lint, vault.delete (dry), vault.rename (dry)</code>
+    </div>
+  </div>
+</section>
+
+<section class="architecture" id="architecture">
+  <h2 class="en">Architecture at a glance</h2>
+  <h2 class="zh">架构一览</h2>
+  <pre class="arch-ascii" aria-label="Four-layer architecture diagram"><code>+-------------------------------------------------------+
+| L4  Agent Scheduler                                   |
+|     compile | emerge | reconcile | prune | challenge  |
++-------------------------------------------------------+
+| L3  Compiler Pipeline                                 |
+|     link discovery -> graph build -> evaluation       |
++-------------------------------------------------------+
+| L2  Adapter Registry                                  |
+|     filesystem (required) | obsidian | memU | gitnexus|
++-------------------------------------------------------+
+| L1  MCP Server                                        |
+|     stdio transport, 40 ops across 5 namespaces       |
++-------------------------------------------------------+</code></pre>
+  <p class="arch-note en">
+    The filesystem adapter is the floor. Obsidian, memU, gitnexus are optional and degrade gracefully when absent.
+    For the full request lifecycle and extension points, see the <a href="https://github.com/2233admin/obsidian-llm-wiki/wiki/Architecture">Architecture wiki page</a>.
+  </p>
+  <p class="arch-note zh">
+    filesystem adapter 是底座。Obsidian、memU、gitnexus 都是可选的，不在时优雅降级。
+    完整请求生命周期与扩展点见 <a href="https://github.com/2233admin/obsidian-llm-wiki/wiki/Architecture">Architecture wiki 页</a>。
+  </p>
+</section>
+
+<section class="install" id="install">
+  <h2 class="en">30-second install</h2>
+  <h2 class="zh">30 秒安装</h2>
+
+  <div class="install-block">
+    <p class="install-os en">macOS / Linux (bash)</p>
+    <p class="install-os zh">macOS / Linux (bash)</p>
+    <div class="copy-block" data-copy="git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git ~/obsidian-llm-wiki-src
+cd ~/obsidian-llm-wiki-src && ./setup"><code>git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git ~/obsidian-llm-wiki-src
+cd ~/obsidian-llm-wiki-src &amp;&amp; ./setup</code>
+      <button type="button" class="copy-btn" aria-label="Copy">
+        <span class="en">Copy</span><span class="zh">复制</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="install-block">
+    <p class="install-os en">Windows (PowerShell)</p>
+    <p class="install-os zh">Windows (PowerShell)</p>
+    <div class="copy-block" data-copy='git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git &quot;$HOME\obsidian-llm-wiki-src&quot;
+cd &quot;$HOME\obsidian-llm-wiki-src&quot;; .\setup.ps1'><code>git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git "$HOME\obsidian-llm-wiki-src"
+cd "$HOME\obsidian-llm-wiki-src"; .\setup.ps1</code>
+      <button type="button" class="copy-btn" aria-label="Copy">
+        <span class="en">Copy</span><span class="zh">复制</span>
+      </button>
+    </div>
+  </div>
+
+  <p class="install-note en">
+    Setup copies a 1.6 MB skill bundle into your agent host's skills directory (Claude Code, Codex, OpenCode, Gemini). Restart the host afterwards. Full guide: <a href="https://github.com/2233admin/obsidian-llm-wiki/blob/main/docs/INSTALL.md">INSTALL.md</a>.
+  </p>
+  <p class="install-note zh">
+    Setup 会把 1.6 MB 的 skill 包复制到你 agent host 的 skills 目录（Claude Code、Codex、OpenCode、Gemini 都支持），之后重启 host。完整指南：<a href="https://github.com/2233admin/obsidian-llm-wiki/blob/main/docs/INSTALL.md">INSTALL.md</a>。
+  </p>
+</section>
+
+<section class="video" id="video">
+  <h2 class="en">See it in motion</h2>
+  <h2 class="zh">看一遍流程</h2>
+  <div class="video-frame">
+    <video
+      controls
+      muted
+      loop
+      preload="none"
+      poster="assets/intro.poster.jpg"
+      aria-label="20-second architecture flythrough">
+      <source src="assets/intro.webm" type="video/webm" />
+      <source src="assets/intro.mp4" type="video/mp4" />
+      <p class="en">Your browser does not support embedded video. <a href="assets/intro.mp4">Download the MP4.</a></p>
+      <p class="zh">你的浏览器不支持内嵌视频。<a href="assets/intro.mp4">下载 MP4</a>。</p>
+    </video>
+  </div>
+  <p class="video-caption en">20-second flythrough: filesystem to concept graph to persona call to cited answer.</p>
+  <p class="video-caption zh">20 秒流程：文件系统 -> 概念图 -> persona 调用 -> 带引用的答案。</p>
+</section>
+
+<section class="docs" id="docs">
+  <h2 class="en">Go deeper</h2>
+  <h2 class="zh">继续深入</h2>
+  <div class="doc-grid">
+    <a class="doc-card" href="https://github.com/2233admin/obsidian-llm-wiki/wiki/Rationale">
+      <h3 class="en">Rationale</h3>
+      <h3 class="zh">Rationale</h3>
+      <p class="en">Why this exists. Why not just grep, not just an Obsidian plugin, not just a vector DB. Honest about positioning drift.</p>
+      <p class="zh">它为什么存在。为什么不是 grep、不是 Obsidian 插件、不是向量数据库。对定位漂移保持诚实。</p>
+    </a>
+    <a class="doc-card" href="https://github.com/2233admin/obsidian-llm-wiki/wiki/FAQ">
+      <h3 class="en">FAQ</h3>
+      <h3 class="zh">FAQ</h3>
+      <p class="en">Does it need Obsidian running? How big a vault? Why dry-run by default? First-draft answers; will iterate as real questions surface.</p>
+      <p class="zh">需要 Obsidian 运行吗？vault 多大能扛？为什么默认 dry-run？首版答案，会随真实问题迭代。</p>
+    </a>
+    <a class="doc-card" href="graph.html">
+      <h3 class="en">Graph viewer</h3>
+      <h3 class="zh">图谱查看器</h3>
+      <p class="en">Paste a <code>concept_graph.py</code> output and explore your vault's wikilink topology interactively.</p>
+      <p class="zh">粘贴 <code>concept_graph.py</code> 的输出，交互式浏览 vault 的 wikilink 拓扑。</p>
+    </a>
+  </div>
+</section>
+
+<section class="limits" id="limits">
+  <h2 class="en">Honest limits</h2>
+  <h2 class="zh">诚实的边界</h2>
+  <ul class="limits-list">
+    <li>
+      <span class="en">It does not understand code in your notes -- it indexes text, wikilinks, and structure.</span>
+      <span class="zh">它不理解笔记里的代码 -- 只索引文本、wikilink、结构。</span>
+    </li>
+    <li>
+      <span class="en">It does not sync bidirectionally with Obsidian in real time -- the WebSocket adapter requires Obsidian to be running.</span>
+      <span class="zh">它不与 Obsidian 实时双向同步 -- WebSocket adapter 需要 Obsidian 在运行。</span>
+    </li>
+    <li>
+      <span class="en">It does not replace a vector database for semantic similarity at scale -- enable the optional memU adapter if you need that.</span>
+      <span class="zh">它在大规模语义相似度上不能替代向量数据库 -- 需要时请启用可选的 memU adapter。</span>
+    </li>
+  </ul>
+</section>
+
+</main>
+
+<footer>
+  <div class="footer-left">
+    <a href="https://github.com/2233admin/obsidian-llm-wiki">GitHub</a>
+    <span class="sep">/</span>
+    <a href="https://github.com/2233admin/obsidian-llm-wiki/blob/main/LICENSE">MIT</a>
+    <span class="sep">/</span>
+    <a href="https://github.com/2233admin/obsidian-llm-wiki/wiki">Wiki</a>
+  </div>
+  <div class="footer-right">
+    <span class="en">v2.0.0 -- shipped 2026-04-21</span>
+    <span class="zh">v2.0.0 -- 2026-04-21 发布</span>
+  </div>
+</footer>
+
+<script src="landing.js" defer></script>
 </body>
 </html>

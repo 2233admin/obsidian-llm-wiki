@@ -1,0 +1,606 @@
+/* LLM Wiki Bridge -- landing page styles.
+ * Design tokens borrowed from alchaincyf/huashu-design visual language:
+ * Claude mist background, terracotta accent, hairline borders, system fonts,
+ * tight letter-spacing, generous negative space. No gradients, no glow, no emoji. */
+
+:root {
+  --bg: #f5f4f0;
+  --bg-card: #ffffff;
+  --bg-dark: #0e0e10;
+  --accent: #d97757;
+  --accent-hover: #c26442;
+  --hairline: #e0e0da;
+  --ink: #1a1a1a;
+  --ink-soft: #5a5a5a;
+  --ink-faint: #8a8a8a;
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Segoe UI",
+    system-ui, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, "Liberation Mono", monospace;
+
+  --outer: clamp(20px, 6vw, 60px);
+  --gap: clamp(32px, 4vw, 48px);
+  --section-y: clamp(80px, 10vw, 140px);
+
+  --radius: 6px;
+  --border: 1px solid var(--hairline);
+
+  --max-w: 1200px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.6;
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 120ms ease, color 120ms ease;
+}
+
+a:hover {
+  border-bottom-color: var(--accent);
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  letter-spacing: 0;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  font-weight: 600;
+}
+
+h1 {
+  font-size: clamp(2.2rem, 4vw, 3.4rem);
+}
+
+h2 {
+  font-size: clamp(1.6rem, 2.4vw, 2.2rem);
+  margin-bottom: calc(var(--gap) * 0.75);
+}
+
+h3 {
+  font-size: 1.1rem;
+  margin-bottom: 0.4rem;
+}
+
+p {
+  margin: 0 0 1rem;
+}
+
+/* ---------- Bilingual toggle ---------- */
+
+html[data-lang="en"] .zh,
+html[data-lang="zh"] .en {
+  display: none;
+}
+
+/* ---------- Top navigation ---------- */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap);
+  padding: 20px var(--outer);
+  border-bottom: var(--border);
+  position: sticky;
+  top: 0;
+  background: rgba(245, 244, 240, 0.94);
+  backdrop-filter: saturate(140%) blur(6px);
+  z-index: 20;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  border-bottom: none;
+}
+
+.brand-mark {
+  color: var(--accent);
+  font-family: var(--font-mono);
+}
+
+.nav-links {
+  display: flex;
+  gap: clamp(16px, 2.4vw, 28px);
+  font-size: 0.92rem;
+  color: var(--ink-soft);
+  flex-wrap: wrap;
+}
+
+.nav-links a {
+  color: var(--ink-soft);
+}
+
+.nav-links a:hover {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+}
+
+.lang-toggle {
+  display: inline-flex;
+  border: var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.lang-toggle button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.lang-toggle button[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.lang-toggle button + button {
+  border-left: var(--border);
+}
+
+/* ---------- Main layout ---------- */
+
+main {
+  max-width: var(--max-w);
+  margin: 0 auto;
+  padding: 0 var(--outer);
+}
+
+section {
+  padding: var(--section-y) 0;
+  border-bottom: var(--border);
+}
+
+section:last-of-type {
+  border-bottom: 0;
+}
+
+/* ---------- Hero ---------- */
+
+.hero {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: var(--gap);
+  align-items: center;
+  padding-top: calc(var(--section-y) * 0.8);
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 1.2rem;
+}
+
+.hero-copy h1 {
+  margin-bottom: 1.5rem;
+}
+
+.lede {
+  font-size: 1.1rem;
+  color: var(--ink-soft);
+  max-width: 52ch;
+  margin-bottom: 2rem;
+}
+
+.cta-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: stretch;
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  padding: 12px 18px;
+  border: 1px solid var(--ink);
+  border-radius: var(--radius);
+  color: var(--ink);
+  font-weight: 500;
+  font-size: 0.95rem;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.btn-secondary:hover {
+  background: var(--ink);
+  color: var(--bg);
+  border-bottom-color: var(--ink);
+}
+
+.copy-block {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  color: var(--ink);
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.copy-block code {
+  white-space: pre;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.copy-btn {
+  appearance: none;
+  border: var(--border);
+  background: var(--bg);
+  color: var(--ink-soft);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.copy-btn:hover {
+  background: var(--ink);
+  color: var(--bg);
+  border-color: var(--ink);
+}
+
+.copy-btn[data-state="copied"] {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.hero-art {
+  border: var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--bg-card);
+  aspect-ratio: 4 / 3;
+  position: relative;
+}
+
+.hero-art iframe {
+  border: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ---------- Problem + Solution ---------- */
+
+.problem-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--gap);
+}
+
+.problem-grid p {
+  font-size: 1.05rem;
+  color: var(--ink-soft);
+  padding-left: 16px;
+  border-left: 2px solid var(--hairline);
+  margin: 0;
+}
+
+.axioms {
+  list-style: none;
+  counter-reset: axiom;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: calc(var(--gap) * 0.8);
+}
+
+.axioms li {
+  counter-increment: axiom;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 18px;
+  padding: 22px 0;
+  border-top: var(--border);
+}
+
+.axioms li::before {
+  content: counter(axiom, decimal-leading-zero);
+  font-family: var(--font-mono);
+  color: var(--accent);
+  font-size: 0.92rem;
+  padding-top: 4px;
+}
+
+.axioms h3 {
+  font-size: 1.2rem;
+}
+
+.axioms p {
+  color: var(--ink-soft);
+  margin: 0.5rem 0 0;
+}
+
+/* ---------- Personas ---------- */
+
+.section-lede {
+  font-size: 1.05rem;
+  color: var(--ink-soft);
+  max-width: 68ch;
+  margin-bottom: var(--gap);
+}
+
+.persona-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.persona-card {
+  padding: 22px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  transition: transform 160ms ease, border-color 160ms ease;
+}
+
+.persona-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+}
+
+.persona-card h3 {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  color: var(--ink);
+  margin-bottom: 0.5rem;
+}
+
+.persona-card .role {
+  color: var(--ink-soft);
+  margin: 0 0 0.8rem;
+  min-height: 2.8em;
+}
+
+.persona-card .tools {
+  font-size: 0.8rem;
+  color: var(--ink-faint);
+  display: block;
+}
+
+/* ---------- Architecture ---------- */
+
+.arch-ascii {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  line-height: 1.35;
+  background: var(--bg-dark);
+  color: var(--bg);
+  padding: 22px 24px;
+  border-radius: var(--radius);
+  overflow-x: auto;
+  margin: 0 0 var(--gap);
+}
+
+.arch-note {
+  color: var(--ink-soft);
+  max-width: 68ch;
+}
+
+/* ---------- Install ---------- */
+
+.install-block + .install-block {
+  margin-top: var(--gap);
+}
+
+.install-os {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--ink-faint);
+  margin: 0 0 8px;
+  letter-spacing: 0.02em;
+}
+
+.install .copy-block {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 14px 16px;
+}
+
+.install .copy-block code {
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.5;
+}
+
+.install-note {
+  color: var(--ink-soft);
+  margin-top: var(--gap);
+  max-width: 68ch;
+}
+
+/* ---------- Video ---------- */
+
+.video-frame {
+  border: var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--bg-dark);
+  aspect-ratio: 16 / 9;
+}
+
+.video-frame video {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.video-caption {
+  color: var(--ink-soft);
+  margin-top: 16px;
+  font-size: 0.92rem;
+}
+
+/* ---------- Docs ---------- */
+
+.doc-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.doc-card {
+  display: block;
+  padding: 24px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  color: var(--ink);
+  transition: border-color 160ms ease, transform 160ms ease;
+}
+
+.doc-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  border-bottom-color: var(--accent);
+}
+
+.doc-card h3 {
+  color: var(--accent);
+  margin-bottom: 0.6rem;
+}
+
+.doc-card p {
+  color: var(--ink-soft);
+  margin: 0;
+}
+
+/* ---------- Limits ---------- */
+
+.limits-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 14px;
+}
+
+.limits-list li {
+  padding: 14px 16px;
+  border-left: 2px solid var(--accent);
+  background: var(--bg-card);
+  color: var(--ink-soft);
+}
+
+/* ---------- Footer ---------- */
+
+footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--gap);
+  padding: 32px var(--outer);
+  border-top: var(--border);
+  font-size: 0.88rem;
+  color: var(--ink-faint);
+  flex-wrap: wrap;
+}
+
+.footer-left a {
+  color: var(--ink-soft);
+}
+
+.sep {
+  margin: 0 8px;
+  color: var(--hairline);
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 900px) {
+  .hero {
+    grid-template-columns: 1fr;
+  }
+  .hero-art {
+    order: -1;
+    aspect-ratio: 16 / 10;
+  }
+  .problem-grid,
+  .persona-grid,
+  .doc-grid {
+    grid-template-columns: 1fr;
+  }
+  .nav-links {
+    display: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .cta-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .copy-block {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .copy-btn {
+    align-self: flex-start;
+  }
+}
+
+/* ---------- Reduced motion ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
