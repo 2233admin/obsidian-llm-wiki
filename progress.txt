@@ -1780,3 +1780,25 @@ P3 (process / honesty):
 - master/main/v2-staging: unchanged; PR #4 still open
 - Full merge chain (active): PR #8 -> PR #7 -> PR #6 ->
   feat/ai-output-sediment -> v2-staging -> main (PR #4)
+
+
+### Session 5 -- addendum: P1 closed same session
+
+After the initial close-out, Curry said "just fix the bug". Done:
+
+- **5ee746a fix(mcp): externalize @electric-sql/pglite so vector.tar.gz resolves**
+  - Added `--external:@electric-sql/pglite --external:@electric-sql/pglite/*`
+    to the esbuild bundle script. pglite resolves from node_modules at
+    runtime, so `import.meta.url` in its vector module correctly points
+    at pglite's own dist/ dir.
+  - Bundle shrinks 1.54MB -> 963KB (-38%).
+  - Smoke test gets a regression guard: a second child server spawned
+    with the default adapter list (vaultbrain enabled) must listTools
+    without crashing. Pre-fix this threw Extension bundle not found.
+  - The `adapters: filesystem` workaround in the main smoke block is
+    gone -- both blocks now exercise the default adapter path.
+- 121/121 tests green.
+
+Remaining P2 carry-forward items unchanged (loadConfig precedence,
+hand-test screenshots, sweep.log.md rotation, smoke test requires
+rebuild-before-test in dev loop).
