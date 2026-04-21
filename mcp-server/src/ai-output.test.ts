@@ -13,7 +13,7 @@ import { randomUUID } from 'node:crypto';
 
 import { VaultFs } from './index.js';
 
-interface WriteOk { ok?: boolean; path?: string; dryRun?: boolean; frontmatter?: Record<string, unknown>; action?: string }
+interface WriteOk { ok?: boolean; path?: string; dryRun?: boolean; frontmatter?: Record<string, unknown>; action?: string; warnings?: string[] }
 interface StaleCand { path: string; persona: string; ageDays: number; threshold: number }
 interface SupCand { older: string; newer: string; overlap: number }
 interface AppliedEntry { path: string; change: string }
@@ -61,8 +61,9 @@ function daysAgoIso(days: number, base: number = Date.now()): string {
   return new Date(base - days * 86_400_000).toISOString();
 }
 
-// Satisfies Step 2.5 input gate (body >= 50 chars). Use in writeAIOutput tests.
-const LONG_BODY = '# Analysis\n\nLong-enough body for the input gate minimum length check.';
+// Step 2.6: input gate now warns instead of rejects, but most tests still want
+// a clean (no-warning) body so they can assert warnings=[] unambiguously.
+const LONG_BODY = '# Analysis\n\nLong-enough body that does not trip the body-too-short warning.';
 
 // ── vault.writeAIOutput ──────────────────────────────────────────────────────
 
@@ -283,49 +284,47 @@ describe('vault.writeAIOutput', () => {
     });
   });
 
-  test('input gate: rejects body shorter than 50 chars', () => {
-    assert.throws(() => vaultFs.dispatch('vault.writeAIOutput', {
+  test('input gate: body shorter than 50 chars warns but still writes', () => {
+    const result = vaultFs.dispatch('vault.writeAIOutput', {
       persona: 'vault-architect',
       parentQuery: 'legitimate query',
       sourceNodes: [],
       agent: 'claude-opus-4-7',
       body: 'too short',
       dryRun: false,
-    }), (e: unknown) => {
-      const ex = e as { code?: number; message?: string };
-      return ex.code === -32602 && /body too short/.test(ex.message ?? '');
-    });
+    }) as WriteOk;
+    assert.equal(result.ok, true, 'write must succeed despite warning');
+    assert.ok(result.warnings?.includes('body-too-short'), 'warnings must contain body-too-short');
+    assert.ok(existsSync(join(vault, result.path!)), 'file must land on disk');
   });
 
-  test('input gate: rejects single shell command as parent-query', () => {
-    assert.throws(() => vaultFs.dispatch('vault.writeAIOutput', {
+  test('input gate: single shell command as parent-query warns but still writes', () => {
+    const result = vaultFs.dispatch('vault.writeAIOutput', {
       persona: 'vault-architect',
       parentQuery: 'git status',
       sourceNodes: [],
       agent: 'claude-opus-4-7',
       body: LONG_BODY,
       dryRun: false,
-    }), (e: unknown) => {
-      const ex = e as { code?: number; message?: string };
-      return ex.code === -32602 && /shell command/.test(ex.message ?? '');
-    });
+    }) as WriteOk;
+    assert.equal(result.ok, true);
+    assert.ok(result.warnings?.includes('query-looks-like-shell-cmd'));
   });
 
-  test('input gate: rejects empty query with empty sourceNodes', () => {
-    assert.throws(() => vaultFs.dispatch('vault.writeAIOutput', {
+  test('input gate: empty query + empty sourceNodes warns but still writes', () => {
+    const result = vaultFs.dispatch('vault.writeAIOutput', {
       persona: 'vault-architect',
       parentQuery: '',
       sourceNodes: [],
       agent: 'claude-opus-4-7',
       body: LONG_BODY,
       dryRun: false,
-    }), (e: unknown) => {
-      const ex = e as { code?: number; message?: string };
-      return ex.code === -32602 && /low-signal/.test(ex.message ?? '');
-    });
+    }) as WriteOk;
+    assert.equal(result.ok, true);
+    assert.ok(result.warnings?.includes('no-anchor'));
   });
 
-  test('input gate: empty query is allowed when sourceNodes non-empty', () => {
+  test('input gate: clean write returns empty warnings array', () => {
     const result = vaultFs.dispatch('vault.writeAIOutput', {
       persona: 'vault-architect',
       parentQuery: '',
@@ -335,6 +334,7 @@ describe('vault.writeAIOutput', () => {
       dryRun: false,
     }) as WriteOk;
     assert.equal(result.ok, true);
+    assert.deepEqual(result.warnings, [], 'no warnings when body long + anchor present');
   });
 
   test('empty sourceNodes serialize to inline []', () => {

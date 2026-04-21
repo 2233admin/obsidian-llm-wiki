@@ -761,20 +761,20 @@ export class VaultFs {
         if (!(REVIEW_STATUS_VALUES as readonly string[]).includes(reviewStatus))
           throw err(-32602, `reviewStatus must be one of ${REVIEW_STATUS_VALUES.join("|")}`);
 
-        // Step 2.5 input gate: reject low-signal writes before they sediment.
-        // Placed after schema/enum validation so enum errors still surface first.
-        // Rationale (governance-layer §P0.5, decision-table §七): persona
-        // judgement drifts; a minimum content bar keeps the vault from filling
-        // with noise that the sweep can't later unclutter.
+        // Step 2.6 input gate: downgraded from reject to warning. Step 2.5 chose
+        // thresholds (body>=50 chars, single-shell-cmd reject, query+sourceNodes
+        // both-empty reject) as guesses. Hard-throw blocked short-but-legitimate
+        // analyses before we had distribution data. Now we emit warnings instead,
+        // let the write land, and collect evidence for 2-4 weeks before retuning.
         const SINGLE_CMD_RE = /^\s*(pwd|ls|cd|cat|rg|grep|echo|git\s+status|git\s+diff)\b[^\n]*$/i;
         const bodyTrim = body.trim();
         const queryTrim = parentQueryRaw.trim();
-        if (bodyTrim.length < 50)
-          throw err(-32602, "body too short: AI-Output entries require at least 50 chars of analysis");
-        if (SINGLE_CMD_RE.test(queryTrim))
-          throw err(-32602, "parent-query looks like a single shell command; not worth sedimenting");
-        if (queryTrim === "" && sourceNodes.length === 0)
-          throw err(-32602, "low-signal entry: need either a parent-query or at least one sourceNode");
+        const warnings: string[] = [];
+        if (bodyTrim.length < 50) warnings.push("body-too-short");
+        if (SINGLE_CMD_RE.test(queryTrim)) warnings.push("query-looks-like-shell-cmd");
+        if (queryTrim === "" && sourceNodes.length === 0) warnings.push("no-anchor");
+        if (warnings.length > 0)
+          process.stderr.write(`[writeAIOutput] low-signal persona=${persona} warnings=${warnings.join(",")}\n`);
 
         // Sanitize parent-query: truncate to 200 chars, replace " with right-double-quote
         const parentQuery = parentQueryRaw.slice(0, 200).replace(/"/g, "\u201D");
@@ -838,7 +838,7 @@ export class VaultFs {
           : body;
 
         if (p.dryRun !== false) {
-          return { dryRun: true, action: "writeAIOutput", path: relPath, frontmatter: frontmatterObj };
+          return { dryRun: true, action: "writeAIOutput", path: relPath, frontmatter: frontmatterObj, warnings };
         }
 
         // Serialize YAML subset compatible with parseFrontmatter
@@ -863,7 +863,7 @@ export class VaultFs {
         const contentOut = `---\n${yamlLines.join("\n")}\n---\n\n${bodyWithTag}\n`;
         mkdirSync(dirname(fullPath), { recursive: true });
         writeFileSync(fullPath, contentOut, "utf-8");
-        return { ok: true, path: relPath, frontmatter: frontmatterObj };
+        return { ok: true, path: relPath, frontmatter: frontmatterObj, warnings };
       }
       case "vault.sweepAIOutput": {
         const STALE_THRESHOLDS: Record<string, number> = {

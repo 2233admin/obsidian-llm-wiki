@@ -4,17 +4,17 @@ This document describes the sediment layer for persona analyses. Sessions in LLM
 
 The full design rationale (three-gap analysis, step-ordering, status-transition debate) lives in the corresponding planning notes; this page is the reference for humans working with the resulting files.
 
-## Input gate (Step 2.5)
+## Input gate (Step 2.5 → Step 2.6: warning mode)
 
-`vault.writeAIOutput` rejects low-signal writes before they sediment into the Inbox. This implements the default-reject rules from the governance plan (`decision-table` §七) adapted for a vault-level base.
+`vault.writeAIOutput` flags low-signal writes with structured warnings but **does not reject** them. Step 2.5 originally chose hard-reject with three thresholds; Step 2.6 downgraded to warnings because the thresholds were guesses and rejection was blocking short-but-legitimate analyses before we had real call-distribution data. Plan: collect 2-4 weeks of warning counts via sweep metrics (Step 2.5), then retune or re-promote to reject.
 
-Rejected:
+Warnings emitted in the `warnings` field of the write result (always present, empty array when clean):
 
-- **`body` shorter than 50 chars** — AI-Output entries require enough analysis that the reader can judge the conclusion. Short bodies imply the persona didn't actually think.
-- **`parent-query` is a single shell command** — matches `pwd`, `ls`, `cd`, `cat`, `rg`, `grep`, `echo`, `git status`, `git diff`. These are navigation/inspection, not knowledge worth sedimenting.
-- **empty `parent-query` AND empty `sourceNodes`** — the entry has no anchor (what question did it answer? what notes did it cite?). Prevents orphan analyses from accumulating.
+- **`body-too-short`** — `body` trims to < 50 chars. AI-Output entries usually need enough analysis that a reader can judge the conclusion.
+- **`query-looks-like-shell-cmd`** — `parent-query` matches `pwd` / `ls` / `cd` / `cat` / `rg` / `grep` / `echo` / `git status` / `git diff`. Suggests navigation/inspection, not knowledge.
+- **`no-anchor`** — both `parent-query` and `sourceNodes` are empty. The entry has no question and no citations.
 
-Error code: `-32602` (invalid params). The caller (persona skill) sees a clear rejection and can either strengthen the input or drop the write.
+Each warning also emits a `[writeAIOutput] low-signal persona=… warnings=…` line on stderr for MCP-server log aggregation.
 
 ## Sweep metrics (Step 2.5)
 
