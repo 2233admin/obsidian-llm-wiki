@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1920px; height: 1080px; overflow: hidden; background: #f5f4f0; font-family: -apple-system, "SF Pro Display", "PingFang SC", system-ui, sans-serif; color: #1a1a1a; }
+      #root { position: relative; width: 1920px; height: 1080px; }
+
+      .scene { position: absolute; inset: 0; }
+
+      /* Scene A: vault emerging */
+      .scene-a-title { position: absolute; top: 440px; left: 0; right: 0; text-align: center; font-size: 96px; font-weight: 600; letter-spacing: -0.02em; opacity: 0; }
+      .scene-a-sub { position: absolute; top: 580px; left: 0; right: 0; text-align: center; font-size: 36px; font-weight: 400; color: #5a5a5a; opacity: 0; }
+      .scene-a-files { position: absolute; top: 680px; left: 0; right: 0; text-align: center; font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 22px; color: #5a5a5a; opacity: 0; letter-spacing: 0.02em; }
+
+      /* Scene B: graph build */
+      .scene-b-canvas { position: absolute; inset: 0; opacity: 0; }
+      .scene-b-canvas svg { width: 100%; height: 100%; display: block; }
+      .scene-b-caption { position: absolute; bottom: 120px; left: 0; right: 0; text-align: center; font-size: 44px; font-weight: 500; letter-spacing: -0.01em; opacity: 0; }
+
+      /* Scene C: terminal */
+      .scene-c-term { position: absolute; top: 340px; left: 240px; right: 240px; background: #0e0e10; color: #f5f4f0; padding: 48px 56px; border-radius: 10px; font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 34px; opacity: 0; box-shadow: 0 30px 80px rgba(14,14,16,0.15); }
+      .scene-c-prompt { color: #d97757; }
+      .scene-c-typed { color: #f5f4f0; }
+      .scene-c-caret { display: inline-block; width: 14px; height: 36px; background: #d97757; vertical-align: -6px; margin-left: 4px; }
+      .scene-c-result { margin-top: 36px; color: #b0b0a6; font-size: 24px; line-height: 1.5; opacity: 0; }
+      .scene-c-result strong { color: #d97757; }
+      .scene-c-pulse-note { position: absolute; top: 760px; left: 0; right: 0; text-align: center; font-size: 28px; color: #5a5a5a; opacity: 0; }
+
+      /* Scene D: cited answer + CTA */
+      .scene-d-card { position: absolute; top: 220px; left: 240px; right: 240px; background: #ffffff; border: 1px solid #e0e0da; border-radius: 12px; padding: 60px 72px; opacity: 0; box-shadow: 0 30px 80px rgba(14,14,16,0.08); }
+      .scene-d-eyebrow { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 20px; color: #d97757; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 24px; }
+      .scene-d-title { font-size: 52px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.2; margin-bottom: 32px; }
+      .scene-d-cites { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 26px; color: #5a5a5a; line-height: 1.7; }
+      .scene-d-cites em { color: #d97757; font-style: normal; }
+      .scene-d-brand { position: absolute; bottom: 140px; left: 0; right: 0; text-align: center; font-size: 52px; font-weight: 600; letter-spacing: -0.02em; opacity: 0; }
+      .scene-d-url { position: absolute; bottom: 80px; left: 0; right: 0; text-align: center; font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 28px; color: #5a5a5a; opacity: 0; }
+
+      /* Constant brand bug in every scene except intro */
+      .brand-bug { position: absolute; top: 48px; left: 64px; font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 22px; color: #5a5a5a; opacity: 0; letter-spacing: 0.05em; }
+      .brand-bug span.mark { color: #d97757; }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="20"
+      data-width="1920"
+      data-height="1080"
+    >
+      <!-- Brand bug: appears at 4s, stays through the rest. -->
+      <div class="clip brand-bug" id="bug" data-start="4" data-duration="16" data-track-index="0">
+        <span class="mark">/</span> LLM Wiki Bridge
+      </div>
+
+      <!-- Scene A: 0 - 4s  "Your markdown vault." -->
+      <div class="clip scene" id="scene-a" data-start="0" data-duration="4" data-track-index="1">
+        <div class="scene-a-title" id="a-title">Your markdown vault.</div>
+        <div class="scene-a-sub" id="a-sub">554 notes. 2,507 wikilinks.</div>
+        <div class="scene-a-files" id="a-files">attention-heads.md &nbsp; kv-cache.md &nbsp; positional-encoding.md</div>
+      </div>
+
+      <!-- Scene B: 4 - 10s  concept graph -->
+      <div class="clip scene" id="scene-b" data-start="4" data-duration="6" data-track-index="1">
+        <div class="scene-b-canvas" id="b-canvas">
+          <svg viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+            <!-- Edges: drawn via stroke-dashoffset animation -->
+            <g id="edges" stroke="#e0e0da" stroke-width="2" fill="none" stroke-linecap="round">
+              <line class="edge" x1="480" y1="420" x2="760" y2="340" />
+              <line class="edge" x1="760" y1="340" x2="1000" y2="500" />
+              <line class="edge" x1="1000" y1="500" x2="1240" y2="420" />
+              <line class="edge" x1="1240" y1="420" x2="1440" y2="580" />
+              <line class="edge" x1="760" y1="340" x2="620" y2="640" />
+              <line class="edge" x1="1000" y1="500" x2="960" y2="780" />
+              <line class="edge" x1="960" y1="780" x2="1240" y2="720" />
+              <line class="edge" x1="620" y1="640" x2="960" y2="780" />
+              <line class="edge" x1="1240" y1="420" x2="960" y2="780" />
+              <line class="edge" x1="480" y1="420" x2="620" y2="640" />
+              <line class="edge" x1="1440" y1="580" x2="1240" y2="720" />
+            </g>
+            <!-- Nodes -->
+            <g id="nodes" fill="#0e0e10">
+              <circle class="node" cx="480" cy="420" r="12" />
+              <circle class="node" cx="760" cy="340" r="16" />
+              <circle class="node" cx="1000" cy="500" r="20" />
+              <circle class="node" cx="1240" cy="420" r="14" />
+              <circle class="node" cx="1440" cy="580" r="12" />
+              <circle class="node" cx="620" cy="640" r="14" />
+              <circle class="node" cx="960" cy="780" r="18" />
+              <circle class="node" cx="1240" cy="720" r="12" />
+            </g>
+          </svg>
+        </div>
+        <div class="scene-b-caption" id="b-caption">Compiled once. Queried from any agent.</div>
+      </div>
+
+      <!-- Scene C: 10 - 14s  persona call + search pulse -->
+      <div class="clip scene" id="scene-c" data-start="10" data-duration="4" data-track-index="1">
+        <!-- Keep the graph in background, faded. -->
+        <div class="scene-b-canvas" id="c-canvas-bg" style="opacity: 0.35">
+          <svg viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+            <g stroke="#e0e0da" stroke-width="2" fill="none" stroke-linecap="round">
+              <line x1="480" y1="420" x2="760" y2="340" />
+              <line x1="760" y1="340" x2="1000" y2="500" />
+              <line x1="1000" y1="500" x2="1240" y2="420" />
+              <line x1="1240" y1="420" x2="1440" y2="580" />
+              <line x1="760" y1="340" x2="620" y2="640" />
+              <line x1="1000" y1="500" x2="960" y2="780" />
+              <line x1="960" y1="780" x2="1240" y2="720" />
+              <line x1="620" y1="640" x2="960" y2="780" />
+              <line x1="1240" y1="420" x2="960" y2="780" />
+              <line x1="480" y1="420" x2="620" y2="640" />
+              <line x1="1440" y1="580" x2="1240" y2="720" />
+            </g>
+            <g fill="#0e0e10">
+              <circle cx="480" cy="420" r="12" />
+              <circle cx="760" cy="340" r="16" />
+              <circle id="c-pulse-origin" cx="1000" cy="500" r="20" />
+              <circle class="c-pulse-hop1" cx="1240" cy="420" r="14" />
+              <circle class="c-pulse-hop1" cx="760" cy="340" r="16" />
+              <circle class="c-pulse-hop1" cx="960" cy="780" r="18" />
+              <circle cx="1440" cy="580" r="12" />
+              <circle cx="620" cy="640" r="14" />
+              <circle cx="1240" cy="720" r="12" />
+            </g>
+          </svg>
+        </div>
+        <div class="scene-c-term" id="c-term">
+          <span class="scene-c-prompt">/vault-librarian</span>
+          <span class="scene-c-typed" id="c-typed"></span><span class="scene-c-caret" id="c-caret"></span>
+          <div class="scene-c-result" id="c-result">
+            Searching vault with <strong>query.unified</strong>...<br />
+            3 notes matched. Reading cited sources.
+          </div>
+        </div>
+        <div class="scene-c-pulse-note" id="c-pulse-note">Search pulse -> 3 notes, 2 hops</div>
+      </div>
+
+      <!-- Scene D: 14 - 20s  cited answer + brand CTA -->
+      <div class="clip scene" id="scene-d" data-start="14" data-duration="6" data-track-index="1">
+        <div class="scene-d-card" id="d-card">
+          <div class="scene-d-eyebrow">Answer with evidence</div>
+          <div class="scene-d-title">Multi-head attention splits the query-key-value space...</div>
+          <div class="scene-d-cites">
+            From <em>[[attention-heads]]</em>, <em>[[kv-cache-optimization]]</em>, <em>[[positional-encoding]]</em>
+          </div>
+        </div>
+        <div class="scene-d-brand" id="d-brand">LLM Wiki Bridge</div>
+        <div class="scene-d-url" id="d-url">github.com/2233admin/obsidian-llm-wiki</div>
+      </div>
+    </div>
+
+    <script>
+      // Deterministic timeline construction. No Date.now, no Math.random.
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true, defaults: { ease: "power2.out" } });
+
+      // --- Scene A: 0-4s ---
+      tl.fromTo("#a-title", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 1.0 }, 0.4);
+      tl.fromTo("#a-sub", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.8 }, 1.2);
+      tl.fromTo("#a-files", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.8 }, 1.8);
+      tl.to(["#a-title", "#a-sub", "#a-files"], { opacity: 0, duration: 0.5 }, 3.4);
+
+      // Brand bug fades in at 4s and stays.
+      tl.fromTo("#bug", { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.6 }, 4.0);
+
+      // --- Scene B: 4-10s  graph materialises ---
+      tl.fromTo("#b-canvas", { opacity: 0 }, { opacity: 1, duration: 0.8 }, 4.2);
+
+      // Nodes scale in with a stagger.
+      tl.fromTo(
+        "#scene-b .node",
+        { scale: 0, transformOrigin: "center" },
+        { scale: 1, duration: 0.6, stagger: 0.08, ease: "back.out(2)" },
+        4.4
+      );
+
+      // Edges stroke-dashoffset draw.
+      gsap.set("#scene-b .edge", { strokeDasharray: 400, strokeDashoffset: 400 });
+      tl.to(
+        "#scene-b .edge",
+        { strokeDashoffset: 0, duration: 1.2, stagger: 0.05 },
+        5.4
+      );
+
+      tl.fromTo("#b-caption", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.7 }, 7.2);
+      tl.to("#b-caption", { opacity: 0, duration: 0.4 }, 9.6);
+
+      // --- Scene C: 10-14s  persona call ---
+      // Dim the foreground graph and keep the backdrop.
+      tl.fromTo("#c-canvas-bg", { opacity: 0 }, { opacity: 0.28, duration: 0.5 }, 10.0);
+      tl.fromTo("#c-term", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5 }, 10.2);
+
+      // Type the query deterministically.
+      const queryText = " what do I know about attention heads";
+      const typed = document.getElementById("c-typed");
+      queryText.split("").forEach((ch, i) => {
+        tl.call(() => { typed.textContent += ch; }, null, 10.7 + i * 0.035);
+      });
+      // Caret blink.
+      tl.to("#c-caret", { opacity: 0, duration: 0.5, repeat: 4, yoyo: true }, 10.7);
+
+      // Search pulse: ring out from origin node.
+      tl.fromTo("#c-pulse-origin", { r: 20 }, { r: 32, fill: "#d97757", duration: 0.5 }, 12.2);
+      tl.fromTo(".c-pulse-hop1", { fill: "#0e0e10" }, { fill: "#d97757", duration: 0.5, stagger: 0.08 }, 12.5);
+
+      tl.fromTo("#c-result", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.5 }, 13.0);
+      tl.fromTo("#c-pulse-note", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.4 }, 13.1);
+
+      // Fade the whole Scene C out at 13.8s so Scene D has the stage.
+      tl.to(["#c-term", "#c-canvas-bg", "#c-pulse-note"], { opacity: 0, duration: 0.4 }, 13.7);
+
+      // --- Scene D: 14-20s  cited answer + CTA ---
+      tl.fromTo("#d-card", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.8 }, 14.2);
+      tl.fromTo("#d-brand", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.7 }, 17.2);
+      tl.fromTo("#d-url", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.7 }, 17.8);
+
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>

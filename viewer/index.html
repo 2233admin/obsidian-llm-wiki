@@ -220,17 +220,24 @@ cd "$HOME\obsidian-llm-wiki-src"; .\setup.ps1</code>
 </section>
 
 <section class="video" id="video">
-  <h2 class="en">Architecture deck</h2>
-  <h2 class="zh">架构展板</h2>
+  <h2 class="en">See it in 20 seconds</h2>
+  <h2 class="zh">20 秒看流程</h2>
   <div class="video-frame">
-    <iframe
-      src="assets/architecture-deck.html"
-      title="Architecture deck -- auto-advancing slides"
-      loading="lazy"
-      scrolling="no"></iframe>
+    <video
+      controls
+      muted
+      loop
+      preload="none"
+      poster="assets/intro.poster.jpg"
+      aria-label="20-second architecture flythrough">
+      <source src="assets/intro.webm" type="video/webm" />
+      <source src="assets/intro.mp4" type="video/mp4" />
+      <p class="en">Your browser does not support embedded video. <a href="assets/intro.mp4">Download the MP4.</a></p>
+      <p class="zh">你的浏览器不支持内嵌视频。<a href="assets/intro.mp4">下载 MP4</a>。</p>
+    </video>
   </div>
-  <p class="video-caption en">Four slides, auto-advance. Architecture, request lifecycle, compile pipeline, adapter matrix. Hover to pause; click dots to jump.</p>
-  <p class="video-caption zh">四页自动轮播：架构、请求生命周期、编译管线、adapter 能力矩阵。鼠标悬停暂停，点击圆点跳转。</p>
+  <p class="video-caption en">Vault to concept graph to persona call to cited answer. Prefer slides? <a href="assets/architecture-deck.html">Open the architecture deck</a>.</p>
+  <p class="video-caption zh">从 vault 到概念图，到 persona 调用，到带引用的答案。想看静态版？<a href="assets/architecture-deck.html">打开架构展板</a>。</p>
 </section>
 
 <section class="docs" id="docs">

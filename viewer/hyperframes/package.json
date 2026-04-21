@@ -1,0 +1,13 @@
+{
+  "name": "llm-wiki-bridge-intro",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Hyperframes composition source for viewer/assets/intro.mp4. Re-render with npm run render.",
+  "scripts": {
+    "render": "hyperframes render -o ../assets/intro.mp4 -f 30 -q standard",
+    "lint": "hyperframes lint ."
+  },
+  "devDependencies": {
+    "hyperframes": "^0.4.11"
+  }
+}
