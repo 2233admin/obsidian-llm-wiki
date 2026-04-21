@@ -1290,3 +1290,127 @@ Three forks, order of cost:
    to get the v2 paste-install UX.
 3. **Record demo.gif**: biggest remaining install-UX friction.
    asciinema or OBS. Replaces the broken image at README L5.
+
+---
+
+## 2026-04-21 session 2 -- Step 2 governance + Step 2.5 + external review
+
+### What done
+
+Two layered PRs off feat/ai-output-sediment with Appendix D of the
+governance plan fully implemented plus one round of external-review
+absorption from Eridanus117/agent-memory-runtime.
+
+PR #6 (feat/step2-governance -> feat/ai-output-sediment, 3 commits):
+- d1862b1 scope + quarantine-state governance fields (zero
+  sweep-logic change; defaults preserve Step 1 byte-for-byte)
+- 5749010 history array audit trail (YAML flow-style keeps Step-1
+  scalar-only parser byte-compatible; sweep appends on draft->stale)
+- 136c40c review-status cache field added AFTER external review;
+  enum none|user-confirmed deliberately drops "reviewed" to avoid
+  name collision with quarantine-state
+
+PR #7 (feat/step2-5-input-gate -> feat/step2-governance, 1 commit
+rebased onto #6 tip, force-pushed once):
+- 4374ce3 input gate (body>=50, single-shell-cmd reject,
+  query+sourceNodes both-empty reject) + sweep metrics object
+  (totalEntries / byPersona / byStatus / byQuarantineState /
+  realBacklinkHitRate)
+
+Verification:
+- npm run build: 0 tsc errors
+- ai-output.test.ts: 25/25 pass (was 10 pre-session)
+- full mcp-server suite: 110/110 green
+- npm run generate-tools-doc: drift guard green, writeAIOutput
+  entry updated to 9-field schema
+
+Memory artefact updated: project_llm_wiki_step2_governance.md
+gained post-external-review section (borrow 3 / skip 3 / 1 open-q
+resolved) and a session-2 closure section listing P1/P2/P3 backlog.
+
+### External review round
+
+Read Eridanus117/agent-memory-runtime's governance-layer.md and
+candidate-promotion-injection-decision-table.md. Takeaways
+adversarially applied to our vault-level base:
+
+Borrowed (-> PR #7 + docs):
+- input gate rules (decision-table §七 adapted for writeAIOutput)
+- metrics object (governance-layer §P0.5 promotion-ready count)
+- review-status vs quarantine-state split (their
+  review_status/user-confirmed distinction resolved my Step 2
+  fusion mistake)
+
+Skipped with reasoning:
+- capture/observation layer: their base handles Bash PostToolUse
+  noise; we filter at writeAIOutput boundary. Double-layering
+  redundant.
+- durable_memory + UserPromptSubmit injection gate: their path is
+  Claude Code hook; our recall goes through librarian skill.
+  Different interface surface.
+- promotion_reason full 7-field schema: kept our 4-field flow-style
+  (trigger/evidence_level/human_in_loop/note). Single-user
+  single-vault makes namespace_basis/relevance_basis/trust_basis
+  signals highly redundant.
+
+### Known gaps (explicit, carried to next session)
+
+P1 (real design/impl bugs):
+- review-status cache has NO sync code: sweep never updates
+  frontmatter from history appends. Drift lurking the moment
+  anyone hand-edits history or a future op appends
+  trigger=manual-user-confirmed-write.
+- history entry from/to axis is ambiguous: "from: reviewed, to:
+  promoted" doesn't say whether status-axis or quarantine-state-axis
+  moved. Needs an `axis:` sub-key.
+
+P2 (design choices I would revisit):
+- review-status should be an Obsidian tag (#user-confirmed) not a
+  frontmatter field. Violates my own adapt-over-build rule.
+  Obsidian tag is ready-made user-signal infrastructure.
+- input gate thresholds (50 chars, single-cmd list) are guesses.
+  Should be downgraded to warning mode until real writeAIOutput
+  call distribution gathered over 2-4 weeks.
+- metrics is snapshot-only; no time-series log for trend analysis.
+  Sweep should append each run's metrics to
+  00-Inbox/AI-Output/sweep.log.md.
+- no end-to-end MCP smoke test (carry-forward from Step 1):
+  operations.ts schema-validation -> handler path untested through
+  real JSON-RPC.
+
+P3 (process / honesty):
+- docs say "human-driven transitions MUST append history" but
+  there is no enforcement. Needs vault.lint rule.
+- my borrow-3/skip-3 analysis was inference, not measurement.
+  "skip observation layer" could be wrong -- belongs in
+  unresolved-questions, not decided.
+- PR #6 and PR #7 should have been one PR for a solo project.
+
+### Next step (next session opener)
+
+Priority by return / code-size:
+
+1. Migrate review-status from frontmatter to Obsidian tag
+   (#user-confirmed on body). Kills P1 (drift) and P2 (tag is
+   native Obsidian signal). ~-30 net lines.
+2. Downgrade input gate to warning mode -- convert three `throw`
+   calls to metrics.warnings.lowSignalCount++ + log line. Unblocks
+   future short-but-legitimate analyses. ~10 lines.
+3. Add `axis:` sub-key to history entries. New field + test + docs.
+   ~20 lines.
+4. Sweep metrics trend log: append each run's metrics snapshot to
+   00-Inbox/AI-Output/sweep.log.md. ~15 lines.
+
+Items 1-4 = ~70 lines, closes all P1 + half of P2. After those:
+end-to-end MCP smoke test is next-largest carry-forward. Item 5
+(vault.lint enforcement) defers to Step 2.7.
+
+### Branch / PR state
+
+- feat/ai-output-sediment: unchanged from previous entry (Step 1)
+- feat/step2-governance: 3 commits ahead, pushed, PR #6 open
+- feat/step2-5-input-gate: 1 commit on top of #6 tip after rebase,
+  force-pushed once, PR #7 open
+- master/main/v2-staging: unchanged. PR #4 still open, unmerged.
+- Merge chain: PR #7 -> PR #6 -> feat/ai-output-sediment ->
+  v2-staging -> main.
