@@ -34,9 +34,9 @@ DEFAULT_SKIP = {
 ARCHIVE_DIRS = {"09-Archive", "10-External"}
 
 try:
-    from ._md_parse import extract_wikilinks, parse_frontmatter, strip_noise
+    from ._md_parse import extract_wikilinks, parse_frontmatter
 except ImportError:
-    from _md_parse import extract_wikilinks, parse_frontmatter, strip_noise
+    from _md_parse import extract_wikilinks, parse_frontmatter
 
 H1_RE = re.compile(r"^#\s+(.+)$", re.MULTILINE)
 

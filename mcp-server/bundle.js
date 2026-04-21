@@ -26740,6 +26740,16 @@ function validateParams(schema, raw) {
 
 // dist/index.js
 function loadConfig() {
+  const envVault = process.env.VAULT_MIND_VAULT_PATH || process.env.VAULT_BRIDGE_VAULT;
+  if (envVault) {
+    const envWeights = process.env.VAULT_MIND_ADAPTER_WEIGHTS;
+    return {
+      vault_path: envVault,
+      auth_token: process.env.VAULT_MIND_AUTH_TOKEN,
+      adapter_weights: envWeights ? JSON.parse(envWeights) : void 0,
+      config_path: void 0
+    };
+  }
   const candidates = [
     resolve2(process.cwd(), "vault-mind.yaml"),
     resolve2(process.cwd(), "../vault-mind.yaml")
@@ -26748,16 +26758,7 @@ function loadConfig() {
     if (existsSync5(p))
       return { ...parseSimpleYaml(readFileSync4(p, "utf-8")), config_path: p };
   }
-  const vaultPath = process.env.VAULT_MIND_VAULT_PATH || process.env.VAULT_BRIDGE_VAULT || "";
-  if (!vaultPath)
-    throw new Error("No vault-mind.yaml found and VAULT_MIND_VAULT_PATH not set");
-  const envWeights = process.env.VAULT_MIND_ADAPTER_WEIGHTS;
-  return {
-    vault_path: vaultPath,
-    auth_token: process.env.VAULT_MIND_AUTH_TOKEN,
-    adapter_weights: envWeights ? JSON.parse(envWeights) : void 0,
-    config_path: void 0
-  };
+  throw new Error("No vault-mind.yaml found and VAULT_MIND_VAULT_PATH not set");
 }
 function parseSimpleYaml(raw) {
   const result = {};

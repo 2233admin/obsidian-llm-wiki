@@ -29,6 +29,20 @@ import { validateParams, rejectDangerousRegex } from "./core/validate.js";
 // Config
 
 function loadConfig(): VaultMindConfig {
+  // Precedence: env var > ./vault-mind.yaml > ../vault-mind.yaml. An explicit
+  // env var is a declaration of intent and must not be silently shadowed by an
+  // abandoned yaml in cwd or parent -- prior to this fix a stale dev-workspace
+  // yaml could quietly redirect the server away from the user's chosen vault.
+  const envVault = process.env.VAULT_MIND_VAULT_PATH || process.env.VAULT_BRIDGE_VAULT;
+  if (envVault) {
+    const envWeights = process.env.VAULT_MIND_ADAPTER_WEIGHTS;
+    return {
+      vault_path: envVault,
+      auth_token: process.env.VAULT_MIND_AUTH_TOKEN,
+      adapter_weights: envWeights ? (JSON.parse(envWeights) as Record<string, number>) : undefined,
+      config_path: undefined,
+    };
+  }
   const candidates = [
     resolve(process.cwd(), "vault-mind.yaml"),
     resolve(process.cwd(), "../vault-mind.yaml"),
@@ -36,15 +50,7 @@ function loadConfig(): VaultMindConfig {
   for (const p of candidates) {
     if (existsSync(p)) return { ...parseSimpleYaml(readFileSync(p, "utf-8")), config_path: p };
   }
-  const vaultPath = process.env.VAULT_MIND_VAULT_PATH || process.env.VAULT_BRIDGE_VAULT || "";
-  if (!vaultPath) throw new Error("No vault-mind.yaml found and VAULT_MIND_VAULT_PATH not set");
-  const envWeights = process.env.VAULT_MIND_ADAPTER_WEIGHTS;
-  return {
-    vault_path: vaultPath,
-    auth_token: process.env.VAULT_MIND_AUTH_TOKEN,
-    adapter_weights: envWeights ? (JSON.parse(envWeights) as Record<string, number>) : undefined,
-    config_path: undefined,
-  };
+  throw new Error("No vault-mind.yaml found and VAULT_MIND_VAULT_PATH not set");
 }
 
 function parseSimpleYaml(raw: string): VaultMindConfig {

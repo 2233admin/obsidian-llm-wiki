@@ -1,5 +1,72 @@
 # Changelog
 
+## v2.0.0 -- 2026-04-21
+
+Name change + architecture consolidation. `vault-mind` → **LLM Wiki Bridge**
+(slug `obsidian-llm-wiki`). Brand-first surfaces renamed; internal config
+keys and binary names keep `vault-mind` for continuity.
+
+### Breaking changes (v1 → v2)
+
+- **MCP tool surface governed by AI-Output sediment convention.** New
+  frontmatter fields `review-status`, `scope`, `quarantine-state`,
+  `history[]` on sweep-managed notes. Plain notes untouched. Migration
+  is additive — running the sweep against a v1 vault annotates over
+  time, no destructive rewrites.
+- **`loadConfig` precedence flipped to `env > ./yaml > ../yaml`.** v1
+  silently let a parent-dir yaml shadow `VAULT_MIND_VAULT_PATH` which
+  could redirect a vault without warning. If you were relying on that
+  (probably not), set a local `./vault-mind.yaml` instead.
+- **Default adapter list now includes `vaultbrain`** at runtime. The
+  pglite vector extension path bug that previously crashed startup
+  with this default is fixed by externalising `@electric-sql/pglite`
+  from the esbuild bundle.
+- **Bundle ships from `mcp-server/bundle.js`** (shrunk 1.54 MB → 963 KB
+  after pglite externalisation). Install path unchanged; users who
+  bundled the artifact themselves must rerun `npm run rebuild`.
+
+### Features
+
+- **7 persona skills** — `vault-architect`, `vault-curator`,
+  `vault-gardener`, `vault-historian`, `vault-janitor`,
+  `vault-librarian`, `vault-teacher`. Loadable as Claude Code skills
+  via `~/.claude/skills/`.
+- **AI-Output sediment pipeline** — `vault.writeAIOutput` +
+  `vault.sweepAIOutput` ops for agent-authored notes with review
+  gating, scope + quarantine-state governance, per-sweep history
+  audit trail, axis sub-key, trend log.
+- **Step 2.5 input gate** — free-form input validation with warning
+  emission (downgraded from throw) to preserve agent UX while
+  surfacing schema drift.
+- **Bilingual user guide** — `docs/GUIDE.md` + `docs/GUIDE.zh-CN.md`
+  with language switch on README.
+- **Auto-generated tools reference** — `docs/mcp-tools-reference.md`
+  regenerated from `operations.ts` at build time, drift-guarded by
+  test.
+- **End-to-end stdio smoke test** — spawns the shipped bundle,
+  exercises JSON-RPC framing, tool-name bridge, config loader.
+  Includes a pglite regression guard.
+- **Paste-install UX** — `setup` (bash) / `setup.ps1` (PowerShell)
+  scripts emit the MCP-server registration command.
+- **Graph viewer** — static `viewer/index.html` renders
+  `kb_meta.json` as an interactive concept graph. Demo data at
+  `viewer/sample-graph.json`.
+- **Headless MCP architecture** — filesystem / memU / gitnexus /
+  obsidian / qmd / vaultbrain adapters; runs without Obsidian open.
+
+### Fixes
+
+- Bundled pglite vector-extension path resolution (5ee746a).
+- realpath traversal guard hardened (71b0492).
+- `_md_parse` shared module extracted; old duplicate parsers removed.
+- generate-tools-doc drift test added (fbd6ed0).
+
+### Deferred
+
+See `docs/ICEBOX.md` for the full list — 2026-04-20 persona+MCP
+audit findings (11 still open), bridge v2 architecture in separate
+repo, screenshots for guide, sweep.log rotation.
+
 ## v1.0.0 -- 2026-04-08
 
 首次公开发布。vault-mind 是 Knowledge OS for Claude Code + Obsidian，采用四层架构：MCP server + unified query adapters + auto-compile pipeline + Claude 驱动的 agent scheduler。

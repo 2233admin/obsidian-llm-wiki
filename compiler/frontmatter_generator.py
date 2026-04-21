@@ -37,13 +37,11 @@ import os
 import random
 import re
 import subprocess
-import sys
 import time
 from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
-
 
 # ─── config loading ──────────────────────────────────────────────────
 
@@ -398,7 +396,7 @@ def git_commit(vault: Path, message: str):
         if r.returncode == 0:
             print(f"  git commit: {message}")
         else:
-            print(f"  git commit skipped (nothing to commit or not a repo)")
+            print("  git commit skipped (nothing to commit or not a repo)")
     except FileNotFoundError:
         print("  git not installed, skipping commit")
 
@@ -437,7 +435,7 @@ def cmd_apply(cfg: dict, execute: bool):
     vault = cfg["vault_path"]
     manifest_path = cfg["work_dir"] / "generate_manifest.json"
     if not manifest_path.exists():
-        raise SystemExit(f"no manifest: run `generate` first")
+        raise SystemExit("no manifest: run `generate` first")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
 
     # Filter: skip entries with no frontmatter content (all-empty LLM failures)
@@ -797,13 +795,20 @@ def cmd_audit(cfg: dict):
 
     lines.append("## Remediation Suggestions")
     lines.append("")
-    lines.append("- Non-canonical `status` values are free-form strings. Consider mapping each to a canonical value (e.g. 'v1.0-shipped' -> 'archived', 'in-progress' -> 'active').")
-    lines.append("- Non-canonical `type` values may represent legitimate sub-kinds not in the canonical list. Decide: promote to canonical, rename to closest canonical, or extend `canonical_types` config.")
+    lines.append(
+        "- Non-canonical `status` values are free-form strings. "
+        "Consider mapping each to a canonical value "
+        "(e.g. 'v1.0-shipped' -> 'archived', 'in-progress' -> 'active')."
+    )
+    lines.append(
+        "- Non-canonical `type` values may represent legitimate sub-kinds not in the canonical list. "
+        "Decide: promote to canonical, rename to closest canonical, or extend `canonical_types` config."
+    )
     lines.append("- Files missing `concepts` can be enriched by a separate `enrich` pass (not yet implemented).")
 
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"audit report written: {out}")
-    print(f"\nstats:")
+    print("\nstats:")
     for k, v in stats.most_common():
         print(f"  {k}: {v}")
     print(f"\nnon-canonical status values: {len(status_non_canonical)}")
@@ -830,7 +835,10 @@ def main():
     p_app.add_argument("--config", required=True)
     p_app.add_argument("--execute", action="store_true", help="actually write (default dry-run)")
 
-    p_retry = sub.add_parser("retry", help="retry LLM on files with minimum-only frontmatter (type-tag only, no concepts)")
+    p_retry = sub.add_parser(
+        "retry",
+        help="retry LLM on files with minimum-only frontmatter (type-tag only, no concepts)",
+    )
     p_retry.add_argument("--config", required=True)
     p_retry.add_argument("--execute", action="store_true", help="actually overwrite FM (default dry-run)")
 

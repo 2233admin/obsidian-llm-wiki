@@ -37,9 +37,11 @@ MIN_ALIAS_LEN_ASCII = 4
 MIN_ALIAS_LEN_CJK = 3
 
 try:
-    from ._md_parse import parse_frontmatter, strip_noise as strip_markdown_noise
+    from ._md_parse import parse_frontmatter
+    from ._md_parse import strip_noise as strip_markdown_noise
 except ImportError:
-    from _md_parse import parse_frontmatter, strip_noise as strip_markdown_noise
+    from _md_parse import parse_frontmatter
+    from _md_parse import strip_noise as strip_markdown_noise
 
 H1_RE = re.compile(r"^#\s+(.+)$", re.MULTILINE)
 

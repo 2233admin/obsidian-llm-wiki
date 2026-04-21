@@ -51,22 +51,9 @@ before(async () => {
     '---\ntitle: Hello\n---\n\nsmoke test seed note.\n',
     'utf-8',
   );
-  // Drop a minimal vault-mind.yaml that loadConfig() picks up as its
-  // first candidate when cwd=vaultRoot. Without it, a dev-workspace
-  // yaml above mcp-server/ can capture precedence and redirect the
-  // server to the real vault. Default adapter list is fine post
-  // pglite-externalize fix.
-  writeFileSync(
-    join(vaultRoot, 'vault-mind.yaml'),
-    `vault_path: "${vaultRoot.replace(/\\/g, '/')}"\n`,
-    'utf-8',
-  );
-
-  // Spawn with cwd=vaultRoot so loadConfig()'s yaml-file probes
-  // (`./vault-mind.yaml`, `../vault-mind.yaml`) miss and the
-  // VAULT_MIND_VAULT_PATH env fallback is used. Otherwise a
-  // dev-workspace vault-mind.yaml above mcp-server/ would capture
-  // precedence and redirect the test to the real vault.
+  // loadConfig() precedence is env > ./vault-mind.yaml > ../vault-mind.yaml,
+  // so setting VAULT_MIND_VAULT_PATH below is sufficient -- no yaml drop
+  // required. Default adapter list is fine post pglite-externalize fix.
   transport = new StdioClientTransport({
     command: process.execPath,
     args: [BUNDLE_PATH],
@@ -141,8 +128,9 @@ test('server boots with vaultbrain enabled (pglite extension path regression gua
   const vbRoot = join(tmpdir(), `obsidian-llm-wiki-smoke-vb-${randomUUID()}`);
   mkdirSync(vbRoot, { recursive: true });
   writeFileSync(join(vbRoot, 'seed.md'), '# seed\n', 'utf-8');
-  // No yaml: loadConfig falls back to VAULT_MIND_VAULT_PATH env, then
-  // the server uses its default adapter list which includes vaultbrain.
+  // VAULT_MIND_VAULT_PATH env is authoritative (loadConfig precedence:
+  // env > ./yaml > ../yaml), and the server uses its default adapter list
+  // which includes vaultbrain.
   const vbTransport = new StdioClientTransport({
     command: process.execPath,
     args: [BUNDLE_PATH],
