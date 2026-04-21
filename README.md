@@ -2,7 +2,11 @@
 
 **Your markdown vault, compiled into a 6-persona MCP team for Claude Code, Codex, OpenCode, and Gemini CLI. Headless-first. Cites, doesn't guess.**
 
-> 📖 **Guide**: [English](docs/GUIDE.md) · [简体中文](docs/GUIDE.zh-CN.md) | 🌐 **Wiki**: [Home](https://github.com/2233admin/obsidian-llm-wiki/wiki) · [Architecture](https://github.com/2233admin/obsidian-llm-wiki/wiki/Architecture) · [Rationale](https://github.com/2233admin/obsidian-llm-wiki/wiki/Rationale) · [FAQ](https://github.com/2233admin/obsidian-llm-wiki/wiki/FAQ)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![MCP](https://img.shields.io/badge/MCP-stdio-orange.svg)](https://modelcontextprotocol.io)
+[![Wiki](https://img.shields.io/badge/wiki-deep_dives-D97757.svg)](https://github.com/2233admin/obsidian-llm-wiki/wiki)
+
+**Guide**: [English](docs/GUIDE.md) · [简体中文](docs/GUIDE.zh-CN.md) — **Wiki**: [Home](https://github.com/2233admin/obsidian-llm-wiki/wiki) · [Architecture](https://github.com/2233admin/obsidian-llm-wiki/wiki/Architecture) · [Rationale](https://github.com/2233admin/obsidian-llm-wiki/wiki/Rationale) · [FAQ](https://github.com/2233admin/obsidian-llm-wiki/wiki/FAQ)
 
 ![demo](docs/gif/demo.gif)
 
@@ -17,18 +21,18 @@ Inspired by [Andrej Karpathy's LLM Wiki](https://github.com/karpathy/llm-wiki) c
 ## Quick start (30 seconds)
 
 ```bash
-git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git ~/obsidian-llm-wiki-src
-cd ~/obsidian-llm-wiki-src && ./setup                # --host claude | codex | opencode | gemini
+git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git
+cd obsidian-llm-wiki && ./setup                      # --host claude | codex | opencode | gemini
 ```
 
 Windows (PowerShell):
 
 ```powershell
-git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git "$HOME\obsidian-llm-wiki-src"
-cd "$HOME\obsidian-llm-wiki-src"; .\setup.ps1
+git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git
+cd obsidian-llm-wiki; .\setup.ps1
 ```
 
-Setup copies a 1.6 MB curated skill bundle into your host's skills directory (not the whole 64 MB repo). The printed `.mcp.json` snippet plus the `CLAUDE.md` persona block is everything else you need. Restart your agent host afterward so the MCP registration takes effect.
+The `setup` script extracts a 1.6 MB skill bundle into your host's skills directory, prints the `.mcp.json` snippet to paste into your agent config, and exits. After restart, your agent picks up the new MCP server and the six `/vault-*` personas. The cloned repo can then be deleted if you want — the installed skill is self-contained.
 
 ---
 
@@ -38,12 +42,12 @@ Any MCP-compatible host:
 
 | Host | Command | Status |
 |---|---|---|
-| Claude Code | `./setup --host claude` | tested |
-| Codex CLI | `./setup --host codex` | tested |
-| OpenCode | `./setup --host opencode` | tested |
-| Gemini CLI | `./setup --host gemini` | tested |
+| Claude Code | `./setup --host claude` | primary target, fully exercised |
+| Codex CLI | `./setup --host codex` | path configured, smoke-tested |
+| OpenCode | `./setup --host opencode` | path configured, smoke-tested |
+| Gemini CLI | `./setup --host gemini` | path configured, smoke-tested |
 
-Anything else speaking stdio MCP transport should work; the `setup` script just copies skills into the right directory for the named hosts.
+Anything else speaking stdio MCP transport should work — the `setup` script only copies skills into the right directory and prints the `.mcp.json` snippet. If your host reads MCP config from somewhere else, paste the snippet there by hand.
 
 ---
 
@@ -104,7 +108,7 @@ When Claude Code (or any MCP-compatible agent) runs `/vault-librarian`, it calls
 
 ## Deep dives
 
-The wiki has the long-form answers. These seven pages are the accumulation asset -- read them in any order.
+The wiki has the long-form answers. These eight pages are the accumulation asset -- read them in any order.
 
 | Page | Answers |
 |---|---|
