@@ -16,9 +16,9 @@
 
 You have 500 markdown notes. You forget half of them. Your AI agent cannot read them -- it paraphrases from its context window and fabricates citations. Every morning you spend 20 minutes re-finding what you already knew.
 
-LLM Wiki Bridge is a headless-first MCP server that compiles your vault -- wikilinks, aliases, tags, frontmatter -- into a concept graph your agent calls directly. The agent does not guess. It calls `vault.search`, reads the cited notes with `vault.read`, and answers with evidence. No Obsidian required at runtime; the filesystem adapter is always the floor.
+LLM Wiki Bridge is a headless-first MCP server that compiles your vault -- wikilinks, aliases, tags, frontmatter -- into a concept graph your agent calls directly. The agent doesn't guess. It calls `vault.search`, reads the cited notes with `vault.read`, answers with evidence. Obsidian is optional at runtime; the filesystem adapter is always available.
 
-Inspired by [Andrej Karpathy's LLM Wiki](https://github.com/karpathy/llm-wiki) concept. Orthodox implementation: markdown as the source of truth, compile the structure, expose via MCP.
+Inspired by [Andrej Karpathy's LLM Wiki](https://github.com/karpathy/llm-wiki). Markdown is the source of truth; the compiler turns structure into a graph; MCP exposes it.
 
 ---
 
@@ -36,7 +36,7 @@ git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git
 cd obsidian-llm-wiki; .\setup.ps1
 ```
 
-The `setup` script extracts a 1.6 MB skill bundle into your host's skills directory, prints the `.mcp.json` snippet to paste into your agent config, and exits. After restart, your agent picks up the new MCP server and the six `/vault-*` personas. The cloned repo can then be deleted if you want — the installed skill is self-contained.
+The `setup` script extracts a 1.6 MB skill bundle into your host's skills directory, prints the `.mcp.json` snippet to paste into your agent config, and exits. After restart, your agent picks up the new MCP server and the six `/vault-*` personas. The cloned repo can then be deleted — the installed skill is self-contained. If the one-liner breaks, [docs/INSTALL.md](docs/INSTALL.md) has the per-host paths and the manual recipe.
 
 ---
 
@@ -55,7 +55,7 @@ Anything else speaking stdio MCP transport should work — the `setup` script on
 
 ---
 
-## Try it: example prompts
+## Example prompts
 
 Cold start -- no vault context:
 
@@ -112,36 +112,30 @@ When Claude Code (or any MCP-compatible agent) runs `/vault-librarian`, it calls
 
 ## Deep dives
 
-The wiki has the long-form answers. These eight pages are the accumulation asset -- read them in any order.
+The wiki has the long-form answers. Eight pages, any order.
 
 | Page | Answers |
 |---|---|
-| [**Rationale**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Rationale) | Why this exists. Why not just grep, not just an Obsidian plugin, not just a vector DB, not just a long-context LLM. Honest about product drift. |
+| [**Rationale**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Rationale) | Why this exists. Why not just grep, not just an Obsidian plugin, not just a vector DB, not just a long-context LLM. Covers the product drift. |
 | [**Architecture**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Architecture) | Four-layer system diagram. Request lifecycle (8 steps, `/vault-librarian` to cited answer). Extension points. |
 | [**Adapter-Spec**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Adapter-Spec) | Adapter contract, capability matrix, fan-out and ranking, failure modes, recipe for a fifth adapter. |
 | [**Compile-Pipeline**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Compile-Pipeline) | What each stage produces, where the graph lives on disk, performance reference points. |
 | [**Persona-Design**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Persona-Design) | Six user-facing personas vs seventeen underlying skills. The design discipline that keeps them from collapsing into one generic agent. |
 | [**Security-Model**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Security-Model) | Dry-run default, protected paths, preflight gates, bearer-token transport, what this explicitly does not secure. |
 | [**Recipes**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Recipes) | Content collectors (Feishu, Gmail, Linear, X, WeChat, and more) that land external sources into the vault. |
-| [**FAQ**](https://github.com/2233admin/obsidian-llm-wiki/wiki/FAQ) | Does it need Obsidian running? How big a vault? Why dry-run? First-draft answers; will iterate as real questions surface. |
+| [**FAQ**](https://github.com/2233admin/obsidian-llm-wiki/wiki/FAQ) | Does it need Obsidian running? How big a vault? Why dry-run? First-draft answers, expands as questions come in. |
 
 ---
 
-## Install (if quick-start did not work)
+## Limits
 
-See [docs/INSTALL.md](docs/INSTALL.md).
-
----
-
-## Open questions / honest limits
-
-- It does not understand code in your notes -- it indexes text, wikilinks, and structure. For AST-level code reasoning, enable the optional `gitnexus` adapter.
-- It does not sync bidirectionally with Obsidian in real time -- the WebSocket adapter requires Obsidian to be running.
-- It does not replace a vector database for semantic similarity at scale -- enable the optional `memU` adapter if you need that.
-- The positioning between this repo (headless MCP) and its sibling `obsidian-vault-bridge` (Obsidian plugin) is being refined. See the [Rationale](https://github.com/2233admin/obsidian-llm-wiki/wiki/Rationale) page for the drift discussion.
+- Does not understand code in your notes -- it indexes text, wikilinks, and structure. For AST-level code reasoning, enable the optional `gitnexus` adapter.
+- Does not sync bidirectionally with Obsidian in real time -- the WebSocket adapter requires Obsidian to be running.
+- Does not replace a vector database for semantic similarity at scale -- enable the optional `memU` adapter for that.
+- The split between this repo (headless MCP) and its sibling `obsidian-vault-bridge` (Obsidian plugin) is still settling. See the [Rationale](https://github.com/2233admin/obsidian-llm-wiki/wiki/Rationale) page for the drift discussion.
 
 ---
 
 ## License
 
-MIT. Fork it. Improve it. Make it yours.
+MIT. See [LICENSE](LICENSE).
