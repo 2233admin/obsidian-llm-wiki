@@ -1414,3 +1414,137 @@ end-to-end MCP smoke test is next-largest carry-forward. Item 5
 - master/main/v2-staging: unchanged. PR #4 still open, unmerged.
 - Merge chain: PR #7 -> PR #6 -> feat/ai-output-sediment ->
   v2-staging -> main.
+
+---
+
+## 2026-04-21 session 3 -- P1/P2 close-out (items 1-4 from session-2 plan)
+
+### What done
+
+All four priority items from session-2's "next step" list shipped as
+four stacked commits on a new branch feat/step2-6-tag-migration,
+off the feat/step2-5-input-gate tip (PR #7's branch). 117/117 tests
+green, build clean, drift guard green on mcp-tools-reference.md.
+
+Commit stack (newest first):
+- eab80d6 feat(mcp): sweep metrics trend log (Step 2.8)
+- 14ce9aa feat(mcp): add axis sub-key to history entries (Step 2.7)
+- 58a9029 refactor(mcp): downgrade Step 2.5 input gate from throw to warnings
+- b447e45 refactor(mcp): migrate review-status from frontmatter to Obsidian body tag
+
+Item 1 (review-status migration, b447e45):
+- dropped the review-status frontmatter field from writeAIOutput output
+- reviewStatus param preserved as API surface; user-confirmed now
+  appends #user-confirmed tag at body end (idempotent — skips if body
+  already carries it)
+- vault.searchByTag("user-confirmed") replaces
+  searchByFrontmatter(review-status) with no code change (the tool
+  already existed)
+- Kills P1 drift (no cache to drift from history) and P2 adapt-over-build
+  violation (Obsidian tag index is the native signal substrate)
+
+Item 2 (input-gate warning mode, 58a9029):
+- three throw calls converted to warnings.push() + stderr log
+- writeAIOutput result now always carries warnings: string[] (empty
+  when clean). Values: body-too-short / query-looks-like-shell-cmd / no-anchor
+- Three "rejects" tests rewritten to "warns but still writes";
+  added a clean-write test asserting warnings=[]
+
+Item 3 (history axis sub-key, 14ce9aa):
+- historyEntry template gains axis: status (gardener only auto-flips
+  status). Sits immediately before from/to.
+- Resolves the from/to ambiguity flagged in session-2 gap list:
+  "from: reviewed, to: promoted" was ambiguous because both status and
+  quarantine-state have a 'reviewed' value. axis: status|quarantine-state
+  now names the moved field.
+- Docs: 3-entry example covers both axis values; table documents axis
+  as Step 2.7 addition.
+
+Item 4 (sweep metrics trend log, eab80d6):
+- Each dry_run: false sweep appends a flow-style YAML line to
+  00-Inbox/AI-Output/sweep.log.md. Schema:
+  - {ts: "...", totalEntries: N, staleHits: M, supersedeHits: K, realBacklinkHitRate: 0.XXX}
+- Gates: skipped on dry_run; skipped when entries.length === 0 (no
+  empty-vault noise). File created on first non-empty real sweep
+  with a '# Sweep trend log' header.
+- 3 new tests pin the gates.
+
+### Budget retrospective
+
+Session-2 projection: ~70 lines total for all four items.
+Actual: +88 net lines (+157 ins / -69 del) vs feat/step2-5-input-gate base.
+Overrun +25%. Source: 9 net new tests across the four items; each
+rewrite warranted 2-3 new invariants to pin (idempotency, axis
+position, trend-log gates). Traded line count for regression safety.
+
+The -30 line projection for item 1 alone was based on full
+reviewStatus-param removal; I chose API-preserving migration
+(+22 instead) because the param keeps internal callers unchanged.
+Defensible trade — no persona skill needed updating, and if we later
+want to drop the param, it's a single-commit follow-up.
+
+### Known gaps (explicit, carried to next session)
+
+P1 (real design/impl bugs):
+- (none from this session's scope — P1 drift + axis ambiguity both closed)
+
+P2 (design choices I would revisit):
+- 7 persona skills (skills/vault-*.md) don't surface writeAIOutput
+  warnings back to callers. Right now a low-signal write just lands
+  silently. One-line nudge in each skill's writeAIOutput example
+  would close this. Deferred because it's a 7-file doc edit, not a
+  mcp-server code change.
+- input-gate thresholds (body>=50, single-cmd list) still guesses.
+  Plan: collect 2-4 weeks of sweep.log.md data then retune. The
+  trend log from item 4 is the evidence-gathering hook.
+- no end-to-end MCP smoke test (carry-forward from Step 1 and
+  session-2): operations.ts schema-validation -> handler path still
+  untested through real JSON-RPC.
+
+P3 (process / honesty):
+- PR strategy for this branch is undecided. Three options (see Next
+  step below). Did not push to remote yet.
+- sweep.log.md has no rotation/truncation. At ~1 line per daily
+  sweep it's ~1 KB/month so not urgent, but Step 3 should add a
+  rotation rule (monthly archive to sweep.log-YYYY-MM.md).
+- docs say "human-driven transitions MUST append history" but still
+  no enforcement. vault.lint rule still deferred to Step 2.7+.
+  (carried from session-2)
+- committing session-3 first required cherry-picking session-2's
+  progress handoff (commit d1d192f = original 4c64c47 re-applied)
+  because this branch stacks on pre-handoff feat/step2-5-input-gate.
+
+### Next step (next session opener)
+
+Decisions queued:
+
+1. **Push feat/step2-6-tag-migration and open PR #8 targeting
+   feat/step2-5-input-gate**: cleanest stack. Merge chain gets
+   another layer but keeps per-item review possible.
+2. **Merge feat/step2-5-input-gate into feat/step2-6-tag-migration,
+   force-push back to feat/step2-5-input-gate, extend PR #7**:
+   collapses the stack but rewrites PR #7 history mid-review.
+   Probably not.
+3. **Squash all four commits into one "Step 2 close-out" PR off
+   feat/ai-output-sediment**: optimizes for upstream reviewer but
+   loses the per-item commit boundaries that make the rationale
+   legible.
+
+Follow-up work beyond PR strategy:
+4. Update 7 persona skills to surface warnings (~7-line edit per
+   skill). Low-risk, high doc-value.
+5. End-to-end MCP smoke test (carry-forward).
+6. sweep.log.md rotation rule (Step 3 / low urgency).
+
+### Branch / PR state
+
+- feat/ai-output-sediment: unchanged since session-2
+- feat/step2-governance: 3 commits ahead, pushed, PR #6 open
+- feat/step2-5-input-gate: 1 commit above #6 tip, PR #7 open
+- **feat/step2-6-tag-migration: 5 commits above PR #7 tip (4 items
+  + 1 cherry-pick of session-2 progress handoff), NOT YET PUSHED**
+- master/main/v2-staging: unchanged; PR #4 still open, unmerged
+- Full merge chain (planned, pending decision above):
+  feat/step2-6-tag-migration -> feat/step2-5-input-gate (PR #7)
+  -> feat/step2-governance (PR #6) -> feat/ai-output-sediment
+  -> v2-staging -> main (PR #4)
