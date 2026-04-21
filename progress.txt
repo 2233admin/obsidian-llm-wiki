@@ -1802,3 +1802,80 @@ After the initial close-out, Curry said "just fix the bug". Done:
 Remaining P2 carry-forward items unchanged (loadConfig precedence,
 hand-test screenshots, sweep.log.md rotation, smoke test requires
 rebuild-before-test in dev loop).
+
+
+## 2026-04-21 session 6 -- V2 shipped, chain collapsed, ICEBOX written
+
+### What done
+
+Collapsed the 5-layer PR chain (#4 -> #5 -> #6 -> #7 -> #8) into a
+single squash merge to main. PR #4 now represents the entire v2 line
+as one commit on main (d141e3a). Sub-PRs #6/#7/#8 closed with
+"collapsed into #4" comment; #5 was already merged upstream.
+
+Tag `v2.0.0` force-pushed to d141e3a after an initial mis-tag on
+the stale local main tip (71b0492, a legit intermediate commit that
+is still reachable via v2-staging + the step2-* feature branches but
+is NOT ancestor of the squash commit, so the tag had to be moved).
+
+### Merge-prep commit (c8651f5, folded into the squash)
+
+- loadConfig precedence flipped from yaml-first to env-first
+  (env > ./vault-mind.yaml > ../vault-mind.yaml). Previously an
+  abandoned parent-dir yaml could silently shadow
+  VAULT_MIND_VAULT_PATH. Smoke-test comments updated to match; the
+  explicit yaml-drop workaround in the first smoke block is gone
+  (env var alone is sufficient under the new precedence).
+- compiler ruff cleaned (was 23 errors blocking PR #4 lint-python):
+  drop unused strip_noise import in concept_graph.py, bump
+  line-length 100 -> 120 (LLM prompts + CLI help strings dense),
+  per-file ignore E501 in tests/*.py, wrap 3 long report strings
+  in frontmatter_generator.py, isort auto-fix on link_discovery.py.
+- docs/ICEBOX.md: 2026-04-20 persona+MCP audit 12 items deferred
+  to v3 (item #2 mcp-tools-reference drift noted as already closed
+  via session 3's generate-tools-doc + drift guard). Bridge v2
+  architecture (separate repo at D:/projects/obsidian-vault-bridge/)
+  also parked. P2/P3 carry-forward (sweep.log rotation, hand-test
+  screenshots, CRLF, smoke payload tolerance) documented.
+- CHANGELOG.md: v2.0.0 entry listing breaking changes (loadConfig
+  precedence, bundle path), features (7 personas + AI-Output
+  sediment + bilingual guide + auto-gen tools reference + smoke
+  test + paste-install UX + graph viewer), fixes (pglite vector
+  path, realpath traversal guard).
+- Bundle regenerated after loadConfig edit.
+
+### PR #4 final state
+
+CI all green before merge: build/typecheck/lint-python all SUCCESS.
+23 commits + 1 merge-prep commit squashed into d141e3a. 82 files
+changed. mergeStateStatus=CLEAN.
+
+### Gaps explicitly parked (in docs/ICEBOX.md)
+
+P0: #1 curator stale-notes prompt/data mismatch, #3 vault.graph
+type param ignored, #4 vault.externalSearch always throws.
+P1: #5-#8 tool description verbosity, template drift, persona
+fallbacks.
+P2: #9 gardener persona verification, #10 first-prompt UX, #11
+vault-janitor delete-cap enforcement.
+Plus: bridge v2 impl (separate repo), sweep.log rotation, hand-test
+screenshots, CRLF .gitattributes, smoke payload tolerance tightening.
+
+None of the parked items block v2 usability -- they are v3 triage
+inputs. Curry explicitly requested the whole batch be iceboxed.
+
+### Blocked
+
+None. Everything shipped.
+
+### Next step (optional, v2 is done)
+
+1. If you want to attach a GitHub Release to the v2.0.0 tag with
+   release notes (CHANGELOG-derived), run
+   `gh release create v2.0.0 --notes-from-tag`.
+2. Delete merged feature branches on origin to clean up
+   (feat/ai-output-sediment, feat/step2-governance,
+   feat/step2-5-input-gate, feat/step2-6-tag-migration). All are
+   now squash-merged -- their commits live in d141e3a.
+3. v3 scope triage: walk docs/ICEBOX.md and promote / kill each
+   item.
