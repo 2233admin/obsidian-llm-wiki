@@ -60,14 +60,18 @@ To execute: re-run with dryRun=false on specific paths.
 When you produce a meaningful analysis (not a trivial reply), persist it with `vault.writeAIOutput` so it survives the session:
 
 ```
-vault.writeAIOutput({
+const result = vault.writeAIOutput({
   persona: "vault-gardener",
   parentQuery: "<user's original ask, truncate at 200 chars>",
   sourceNodes: ["[[topic-a]]", "[[starter-note-b]]"],  // wikilinks cited; [] is valid
   agent: "<your model id, e.g. claude-opus-4-7>",
   body: "<markdown analysis, no frontmatter -- the op adds it>",
   dryRun: false  // default true; pass false to actually write
-})
+});
+
+// Surface input-gate warnings (empty array = clean write); never drop silently.
+// Possible values: body-too-short / query-looks-like-shell-cmd / no-anchor
+if (result.warnings.length > 0) console.warn("[AI-Output]", result.warnings);
 ```
 
 Do not invent source-nodes. Status defaults to `draft`. Humans flip `reviewed` manually; gardener auto-flips `stale` (age + non-AI-Output backlink test). See `docs/ai-output-convention.md`.
