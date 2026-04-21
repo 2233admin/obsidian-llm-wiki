@@ -514,9 +514,12 @@ describe('vault.sweepAIOutput', () => {
     const after = readFileSync(join(vault, rel), 'utf-8');
     assert.ok(after.includes('status: stale'), 'status should flip');
     assert.ok(/\nhistory:\n {2}- \{ts: "/.test(after), `expected history: block, got:\n${after}`);
+    assert.ok(after.includes('axis: status'), 'axis sub-key must name the moved field');
     assert.ok(after.includes('from: draft, to: stale'));
     assert.ok(after.includes('trigger: auto-stop-summary'));
     assert.ok(after.includes('human_in_loop: false'));
+    assert.ok(/axis: status,\s*from: draft,\s*to: stale/.test(after),
+      'axis must sit immediately before from/to for readability');
   });
 
   test('dry_run=false appends to existing history array rather than overwriting', () => {

@@ -97,8 +97,9 @@ Any state transition MUST append a flow-style item to the `history:` array. `vau
 
 ```yaml
 history:
-  - {ts: "2026-04-22T10:00:00.000Z", from: draft, to: stale, trigger: auto-stop-summary, evidence_level: low, human_in_loop: false, note: "gardener sweep"}
-  - {ts: "2026-04-23T15:14:00.000Z", from: stale, to: reviewed, trigger: manual-review-approve, evidence_level: high, human_in_loop: true, note: "Curry kept"}
+  - {ts: "2026-04-22T10:00:00.000Z", axis: status, from: draft, to: stale, trigger: auto-stop-summary, evidence_level: low, human_in_loop: false, note: "gardener sweep"}
+  - {ts: "2026-04-23T15:14:00.000Z", axis: status, from: stale, to: reviewed, trigger: manual-review-approve, evidence_level: high, human_in_loop: true, note: "Curry kept"}
+  - {ts: "2026-04-25T08:00:00.000Z", axis: quarantine-state, from: new, to: promoted, trigger: manual-promote, evidence_level: high, human_in_loop: true, note: "cross-project reusable"}
 ```
 
 Why flow style (`{key: val, ...}`) rather than block style (`  - ts: ...\n    from: ...`): the current frontmatter parser only handles scalar-array items. Flow style round-trips as an opaque string, preserving the item byte-for-byte on subsequent reads. When the parser graduates to full nested YAML, the flow syntax remains valid — no migration needed.
@@ -108,7 +109,8 @@ Required fields in a history entry (enum values from the governance plan):
 | Field | Values |
 |---|---|
 | `ts` | ISO 8601 UTC timestamp of the transition |
-| `from` / `to` | any `status` or `quarantine-state` value (the entry records which axis moved in `note`) |
+| `axis` | `status` \| `quarantine-state` — names which governance axis the entry moved along. Added in Step 2.7 because `from: reviewed, to: promoted` alone was ambiguous (both axes have a `reviewed` value) |
+| `from` / `to` | the before/after value on `axis` |
 | `trigger` | `auto-stop-summary` / `auto-observation-pattern` / `manual-promote` / `manual-review-approve` / `manual-user-confirmed-write` / `migration-import` |
 | `evidence_level` | `low` (can't rise above `project` scope) / `medium` / `high` |
 | `human_in_loop` | bool |

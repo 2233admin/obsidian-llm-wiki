@@ -1000,8 +1000,12 @@ export class VaultFs {
             // Step 2 governance: append a structured history entry for audit.
             // YAML flow-style so the Step-1 frontmatter parser (scalar-only arrays)
             // still round-trips the entry as an opaque string without loss.
+            // Step 2.7: axis makes from/to unambiguous. A future
+            // manual-promote entry like {from: reviewed, to: promoted} could
+            // refer to either status or quarantine-state; axis names the one
+            // that moved. Gardener only auto-flips status, so axis: status.
             const historyEntry =
-              `{ts: "${flipIso}", from: draft, to: stale, trigger: auto-stop-summary, ` +
+              `{ts: "${flipIso}", axis: status, from: draft, to: stale, trigger: auto-stop-summary, ` +
               `evidence_level: low, human_in_loop: false, note: "gardener sweep"}`;
             const withStatusFlipped = original.replace(
               /(^---[\s\S]*?\nstatus: )draft(\n[\s\S]*?^---$)/m,
