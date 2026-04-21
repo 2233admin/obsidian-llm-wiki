@@ -78,55 +78,55 @@ class ScanFileTest(unittest.TestCase):
         }
 
     def test_bare_mention_suggested(self) -> None:
-        idx = self._mkindex([("Sprachwelt", "D:/vault/Sprachwelt.md")])
-        out = ld.scan_file(Path("D:/vault/Other.md"), "I talked about Sprachwelt today.\n", idx)
+        idx = self._mkindex([("Sprachwelt", "/fake/vault/Sprachwelt.md")])
+        out = ld.scan_file(Path("/fake/vault/Other.md"), "I talked about Sprachwelt today.\n", idx)
         self.assertEqual(len(out), 1)
         self.assertEqual(out[0].match, "sprachwelt")
 
     def test_existing_wikilink_skipped(self) -> None:
-        idx = self._mkindex([("Sprachwelt", "D:/vault/Sprachwelt.md")])
-        out = ld.scan_file(Path("D:/vault/Other.md"), "See [[Sprachwelt]] for context.\n", idx)
+        idx = self._mkindex([("Sprachwelt", "/fake/vault/Sprachwelt.md")])
+        out = ld.scan_file(Path("/fake/vault/Other.md"), "See [[Sprachwelt]] for context.\n", idx)
         self.assertEqual(out, [])
 
     def test_code_fence_skipped(self) -> None:
-        idx = self._mkindex([("Sprachwelt", "D:/vault/Sprachwelt.md")])
+        idx = self._mkindex([("Sprachwelt", "/fake/vault/Sprachwelt.md")])
         body = "```\nimport Sprachwelt\n```\n"
-        out = ld.scan_file(Path("D:/vault/Other.md"), body, idx)
+        out = ld.scan_file(Path("/fake/vault/Other.md"), body, idx)
         self.assertEqual(out, [])
 
     def test_html_comment_not_matched(self) -> None:
-        idx = self._mkindex([("Sprachwelt", "D:/vault/Sprachwelt.md")])
-        out = ld.scan_file(Path("D:/vault/Other.md"), "<!-- Sprachwelt -->\n", idx)
+        idx = self._mkindex([("Sprachwelt", "/fake/vault/Sprachwelt.md")])
+        out = ld.scan_file(Path("/fake/vault/Other.md"), "<!-- Sprachwelt -->\n", idx)
         self.assertEqual(out, [])
 
     def test_tilde_fence_skipped(self) -> None:
-        idx = self._mkindex([("Sprachwelt", "D:/vault/Sprachwelt.md")])
-        out = ld.scan_file(Path("D:/vault/Other.md"), "~~~\nSprachwelt\n~~~\n", idx)
+        idx = self._mkindex([("Sprachwelt", "/fake/vault/Sprachwelt.md")])
+        out = ld.scan_file(Path("/fake/vault/Other.md"), "~~~\nSprachwelt\n~~~\n", idx)
         self.assertEqual(out, [])
 
     def test_indented_code_skipped(self) -> None:
-        idx = self._mkindex([("Sprachwelt", "D:/vault/Sprachwelt.md")])
-        out = ld.scan_file(Path("D:/vault/Other.md"), "    Sprachwelt\n    code\n", idx)
+        idx = self._mkindex([("Sprachwelt", "/fake/vault/Sprachwelt.md")])
+        out = ld.scan_file(Path("/fake/vault/Other.md"), "    Sprachwelt\n    code\n", idx)
         self.assertEqual(out, [])
 
     def test_nested_brackets_no_false_match(self) -> None:
-        idx = self._mkindex([("Sprachwelt", "D:/vault/Sprachwelt.md")])
-        out = ld.scan_file(Path("D:/vault/Other.md"), "[[[[Sprachwelt]]]]\n", idx)
+        idx = self._mkindex([("Sprachwelt", "/fake/vault/Sprachwelt.md")])
+        out = ld.scan_file(Path("/fake/vault/Other.md"), "[[[[Sprachwelt]]]]\n", idx)
         self.assertEqual(out, [])
 
     def test_self_reference_skipped(self) -> None:
-        idx = self._mkindex([("Sprachwelt", "D:/vault/Sprachwelt.md")])
-        out = ld.scan_file(Path("D:/vault/Sprachwelt.md"), "self-mention of Sprachwelt\n", idx)
+        idx = self._mkindex([("Sprachwelt", "/fake/vault/Sprachwelt.md")])
+        out = ld.scan_file(Path("/fake/vault/Sprachwelt.md"), "self-mention of Sprachwelt\n", idx)
         self.assertEqual(out, [])
 
     def test_ascii_word_boundary(self) -> None:
-        idx = self._mkindex([("CTX", "D:/vault/CTX.md")])
-        out = ld.scan_file(Path("D:/vault/Other.md"), "the contextual ctxish variant\n", idx)
+        idx = self._mkindex([("CTX", "/fake/vault/CTX.md")])
+        out = ld.scan_file(Path("/fake/vault/Other.md"), "the contextual ctxish variant\n", idx)
         self.assertEqual(out, [])
 
     def test_cjk_substring_match(self) -> None:
-        idx = self._mkindex([("历史唯物主义", "D:/vault/HMC.md")])
-        out = ld.scan_file(Path("D:/vault/Other.md"), "这段讨论历史唯物主义的现代意义。\n", idx)
+        idx = self._mkindex([("历史唯物主义", "/fake/vault/HMC.md")])
+        out = ld.scan_file(Path("/fake/vault/Other.md"), "这段讨论历史唯物主义的现代意义。\n", idx)
         self.assertEqual(len(out), 1)
 
 

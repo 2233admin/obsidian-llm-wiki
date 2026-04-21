@@ -12,7 +12,7 @@ import sys
 import time
 from pathlib import Path
 
-ROOT = Path("D:/projects/obsidian-llm-wiki")
+ROOT = Path(__file__).resolve().parents[1]
 SERVER = ["node", "mcp-server/dist/index.js"]
 
 

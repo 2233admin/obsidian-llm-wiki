@@ -12,7 +12,7 @@ import scheduler
 
 class SchedulerDayModeTest(unittest.TestCase):
     def test_day_mode_does_not_execute_compile(self) -> None:
-        settings = evaluate.AgentSettings(vault_path="D:/tmp/vault")
+        settings = evaluate.AgentSettings(vault_path="/fake/vault")
         state = evaluate.VaultState(
             vault_path=settings.vault_path,
             dirty_count=1,

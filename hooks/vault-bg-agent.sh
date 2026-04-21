@@ -3,7 +3,7 @@
 #
 # Fires after Claude compacts conversation context.
 # Reads session summary from stdin JSON, spawns headless Claude
-# to propagate vault-worthy items to E:/knowledge/.
+# to propagate vault-worthy items to the vault (set VAULT env var).
 #
 # Setup:
 #   1. Add PostCompact hook in ~/.claude/settings.json
@@ -11,7 +11,7 @@
 #
 # Logs: /tmp/vault-bg-agent.log
 
-VAULT="E:/knowledge"
+VAULT="${VAULT:-/path/to/your/vault}"
 [[ ! -d "$VAULT" ]] && exit 0
 
 # Parse compaction summary from stdin JSON

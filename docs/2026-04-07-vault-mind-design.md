@@ -133,7 +133,7 @@ async function unifiedQuery(query: string, opts?: QueryOpts): Promise<UnifiedRes
 
 ```yaml
 # vault-mind.yaml (vault 根目录)
-vault_path: "E:/knowledge"
+vault_path: "/path/to/your/vault"
 adapters:
   filesystem:
     enabled: true  # 默认

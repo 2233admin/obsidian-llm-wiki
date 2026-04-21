@@ -26,7 +26,6 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-# per E:/knowledge/_CLAUDE.md "Do Not Touch"
 DEFAULT_SKIP = {
     ".obsidian", ".trash", ".git", ".smart-env", ".omc",
     "Excalidraw", "KB", "08-Templates", "data",

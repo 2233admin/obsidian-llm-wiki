@@ -87,8 +87,8 @@ Listed here so context isn't lost:
 
 ## obsidian-vault-bridge v2 architecture (separate repo)
 
-Lives at `D:/projects/obsidian-vault-bridge/` (master branch). Design
-captured; implementation not started. Three capabilities the native
+Lives in a separate repo (`obsidian-vault-bridge`, master branch).
+Design captured; implementation not started. Three capabilities the native
 Obsidian CLI does NOT cover:
 
 1. Multi-agent discovery (any agent in Curry's cluster finds the bridge)

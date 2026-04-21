@@ -1,0 +1,13 @@
+# Normalize all text files to LF in the repo.
+# Fixes CRLF drift on Windows that breaks byte-exact generator tests
+# and ensures shell scripts run unmodified after clone.
+* text=auto eol=lf
+
+# Binary-ish that must not be normalised.
+*.png binary
+*.jpg binary
+*.ico binary
+*.gif binary
+*.woff binary
+*.woff2 binary
+*.tar.gz binary

@@ -93,8 +93,11 @@ cd ..
 # 4. Configuration
 if [ ! -f "vault-mind.yaml" ]; then
     echo "Generating vault-mind.yaml..."
-    read -p "Enter your vault path (default: E:/knowledge/): " VAULT_PATH
-    VAULT_PATH=${VAULT_PATH:-E:/knowledge/}
+    read -p "Enter your vault path (absolute, e.g. /home/you/vault or D:/notes): " VAULT_PATH
+    if [ -z "$VAULT_PATH" ]; then
+        echo "Error: vault path required."
+        exit 1
+    fi
     # Convert \ to / for consistency
     VAULT_PATH=$(echo $VAULT_PATH | sed 's/\\/\//g')
     

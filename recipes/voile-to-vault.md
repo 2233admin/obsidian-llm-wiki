@@ -36,7 +36,7 @@ read-only adapter -- it never writes to Voile's DB.
 Voile must be running and its DB must contain data:
 
 ```bash
-cd D:/projects/voile
+cd <path-to-voile-repo>
 docker compose up -d
 # Verify:
 psql postgres://postgres:postgres@localhost:5432/voile -c "SELECT COUNT(*) FROM messages"
@@ -56,7 +56,7 @@ psql postgres://postgres:postgres@localhost:5432/voile -c "SELECT COUNT(*) FROM 
 ### Step 1: Start Voile
 
 ```bash
-cd D:/projects/voile
+cd <path-to-voile-repo>
 docker compose up -d
 ```
 

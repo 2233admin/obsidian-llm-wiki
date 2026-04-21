@@ -9,7 +9,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path("D:/projects/obsidian-llm-wiki")
+ROOT = Path(__file__).resolve().parents[1]
 SERVER = ["node", "mcp-server/dist/index.js"]
 
 
@@ -83,7 +83,7 @@ def main() -> int:
         print(s[:800])
 
         # 5. vault.stat on a file we know exists
-        print("\n=== vault.stat on E:/knowledge root ===")
+        print("\n=== vault.stat on vault root ===")
         result = call_tool(proc, 30, "vault.stat", {"path": "."})
         print(json.dumps(result, ensure_ascii=False, indent=2)[:600])
 

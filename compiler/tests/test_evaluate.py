@@ -11,7 +11,7 @@ import evaluate
 
 class EvaluateActionsTest(unittest.TestCase):
     def test_priority_sorting_prefers_compile_then_maintenance(self) -> None:
-        settings = evaluate.AgentSettings(vault_path="D:/tmp/vault")
+        settings = evaluate.AgentSettings(vault_path="/fake/vault")
         state = evaluate.VaultState(
             vault_path=settings.vault_path,
             dirty_count=2,
@@ -35,7 +35,7 @@ class EvaluateActionsTest(unittest.TestCase):
 
     def test_thresholds_filter_non_urgent_actions(self) -> None:
         settings = evaluate.AgentSettings(
-            vault_path="D:/tmp/vault",
+            vault_path="/fake/vault",
             days_since_emerge_threshold=30,
             contradiction_threshold=4,
             orphan_threshold=20,

@@ -3,7 +3,7 @@
 # Closes out the day: saves unsaved items, appends End of Day summary.
 # Setup: Task Scheduler -> daily 22:00 -> bash this-file
 
-VAULT="E:/knowledge"
+VAULT="${VAULT:-/path/to/your/vault}"
 [[ ! -d "$VAULT" ]] && exit 0
 TODAY=$(date +%Y-%m-%d)
 

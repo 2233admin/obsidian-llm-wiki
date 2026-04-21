@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-VAULT = Path(os.environ.get("VAULT_PATH", "E:/knowledge"))
+VAULT = Path(os.environ.get("VAULT_PATH", "/path/to/your/vault"))
 DAILY_DIR = VAULT / "06-Daily"
 SEEN_LOG = ROOT / ".vault-save.log"
 FAIL_LOG = ROOT / ".vault-save.failed.log"

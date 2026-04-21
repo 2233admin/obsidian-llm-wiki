@@ -3,7 +3,7 @@
 # Generates weekly review from daily notes, dev logs, and completed tasks.
 # Setup: Task Scheduler -> every Friday 18:00 -> bash this-file
 
-VAULT="E:/knowledge"
+VAULT="${VAULT:-/path/to/your/vault}"
 [[ ! -d "$VAULT" ]] && exit 0
 TODAY=$(date +%Y-%m-%d)
 WEEK=$(date +%Y-W%V)
