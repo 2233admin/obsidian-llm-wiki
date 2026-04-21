@@ -157,6 +157,58 @@ status: draft
 
 ---
 
+## 手动测试路径（让沉淀在图谱里可见）
+
+沉淀系统真正的回报，是在 Obsidian Local Graph 里看到 `#user-confirmed` 聚类——一条 AI-Output 笔记在视觉上和它引用的 `source-nodes` 连成一簇。五分钟，一次真写，一次图谱视图。
+
+### 1. 安装
+
+跟着 [30 秒装好](#30-秒装好) 的流程走。你需要 MCP server 跑起来，`VAULT_PATH` 指向一个真的 vault。
+
+### 2. 写一条人确认的 AI-Output
+
+从 agent host 里调一次 `vault.writeAIOutput`，带一个真实的 `parentQuery`、至少一个 wikilink 在 `sourceNodes` 里、以及 `reviewStatus: "user-confirmed"`：
+
+```
+vault.writeAIOutput({
+  persona: "vault-librarian",
+  parentQuery: "我对 attention heads 了解多少",
+  sourceNodes: ["[[你 vault 里真有的一条笔记]]"],
+  agent: "claude-opus-4-7",
+  body: "<librarian 的 2-3 段回答>",
+  reviewStatus: "user-confirmed",
+  dryRun: false
+})
+```
+
+server 会写 `00-Inbox/AI-Output/vault-librarian/YYYY-MM-DD-<slug>.md`，在 body 末尾带一个 `#user-confirmed` 标签。
+
+<!-- TODO: screenshot 写好的 AI-Output 笔记，带标签可见 -->
+
+### 3. 在 Obsidian 里打开这条笔记
+
+把 Obsidian 的 vault 对准 `VAULT_PATH`。进入 `00-Inbox/AI-Output/vault-librarian/`，打开新写的笔记。你应该看到 frontmatter、正文、以及末尾一个 `#user-confirmed` 标签——Obsidian 会把它识别成一个真正的 tag 节点。
+
+### 4. 打开 Local Graph（深度 2）
+
+在笔记里：**View → Open local graph**（或 Cmd/Ctrl-P 搜 "Open local graph"）。在图谱面板的筛选里把 **Depth** 调到 `2` 或 `3`。你应该看到：
+
+- 这条 AI-Output 笔记在中心
+- `sourceNodes` 里每个 wikilink 作为邻居节点
+- `#user-confirmed` 标签节点，把这条产出和 vault 里其他所有人确认的产出聚成一簇
+
+<!-- TODO: screenshot local graph depth=2，展示 tag 聚类 -->
+
+这个视觉聚类就是沉淀↔引用不变量的具象：每一条人确认产出距离它引用的任何 source 只有一个 tag 跳，距离其他任何人确认产出也只有一个 tag 跳。
+
+### 5. 跑一次 sweep 收尾
+
+把正文末尾的 `#user-confirmed` 标签删掉保存。调一次 `vault.sweepAIOutput({ dry_run: false })`。再打开这条笔记——frontmatter 里应该出现一条新的 `history` 条目，`axis: status`，说明 sweep 检测到了 status 轴的变动。闭环完成：图谱层的人信号 → 文件系统状态 → 审计轨迹。
+
+如果第 4 步的 local graph 里没看到标签聚类，先确认 `#user-confirmed` 是在正文末尾**独立一行**（不在 frontmatter 里——那是 Step 2.6 之前的行为）。
+
+---
+
 ## Vault 结构
 
 你**不需要**重新组织你的 vault。LLM Wiki Bridge 直接在你现有结构上工作。

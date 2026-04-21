@@ -157,6 +157,58 @@ Full details: [ai-output-convention.md](ai-output-convention.md).
 
 ---
 
+## Hand-test path (see the sediment in your graph)
+
+The payoff for the sediment system lands best when you see it in Obsidian's Local Graph: a `#user-confirmed` cluster that visually connects an AI-Output note to the `source-nodes` it cites. Five minutes, one real write, one graph view.
+
+### 1. Install
+
+Follow the [30-second install](#30-second-install). You need the MCP server running and `VAULT_PATH` pointing at a real vault.
+
+### 2. Write one human-confirmed AI-Output
+
+From your agent host, call `vault.writeAIOutput` once with a real `parentQuery`, at least one wikilink in `sourceNodes`, and `reviewStatus: "user-confirmed"`:
+
+```
+vault.writeAIOutput({
+  persona: "vault-librarian",
+  parentQuery: "what do I know about attention heads",
+  sourceNodes: ["[[an-actual-note-in-your-vault]]"],
+  agent: "claude-opus-4-7",
+  body: "<your librarian's answer, 2-3 paragraphs>",
+  reviewStatus: "user-confirmed",
+  dryRun: false
+})
+```
+
+The server writes `00-Inbox/AI-Output/vault-librarian/YYYY-MM-DD-<slug>.md` with a `#user-confirmed` tag at the body end.
+
+<!-- TODO: screenshot of the written AI-Output note with tag visible -->
+
+### 3. Open the note in Obsidian
+
+Point your Obsidian vault at `VAULT_PATH`. Navigate to `00-Inbox/AI-Output/vault-librarian/` and open the new note. You should see the frontmatter, your body, and a trailing `#user-confirmed` tag that Obsidian treats as a real tag.
+
+### 4. Turn on Local Graph (depth 2)
+
+Inside the note: **View → Open local graph** (or Cmd/Ctrl-P → "Open local graph"). In the graph panel's filter settings, set **Depth** to `2` or `3`. You should see:
+
+- the AI-Output note at the center
+- each wikilink from `sourceNodes` as a neighbor node
+- the `#user-confirmed` tag node, clustering this output with any other human-signed outputs in your vault
+
+<!-- TODO: screenshot of local graph with depth=2 showing tag cluster -->
+
+This visual cluster is the sediment↔citation invariant made concrete: every human-confirmed output is one tag-hop from every source note it cites, and one tag-hop from every other human-confirmed output.
+
+### 5. Round-trip through sweep
+
+Strip the `#user-confirmed` tag from the body and save. Run `vault.sweepAIOutput({ dry_run: false })` once. Re-open the note — a new `history` entry should appear with `axis: status`, confirming the sweep detected the status-axis change. This closes the loop: graph-level human signal → filesystem state → audit trail.
+
+If step 4's local graph does not show the tag cluster, check that `#user-confirmed` is on its own line at the body end (not inside frontmatter — that was the pre-Step-2.6 behavior).
+
+---
+
 ## Vault structure
 
 You do **not** need to restructure your vault. LLM Wiki Bridge works with whatever you already have.
