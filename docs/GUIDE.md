@@ -317,4 +317,4 @@ Generated reference: [mcp-tools-reference.md](mcp-tools-reference.md). 38 tools 
 
 ---
 
-MIT licensed. Fork it, improve it, make it yours.
+GPL-3.0 licensed. See [LICENSE](../LICENSE).

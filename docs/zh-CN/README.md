@@ -6,7 +6,7 @@
 
 **把你的 markdown 笔记库编译成 6 人 MCP 团队，给 Claude Code / Codex / OpenCode / Gemini CLI 使用。Headless-first。引用，不猜。**
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../../LICENSE)
+[![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](../../LICENSE)
 [![MCP](https://img.shields.io/badge/MCP-stdio-orange.svg)](https://modelcontextprotocol.io)
 [![Wiki](https://img.shields.io/badge/wiki-deep_dives-D97757.svg)](https://github.com/2233admin/obsidian-llm-wiki/wiki)
 
@@ -138,4 +138,4 @@ Wiki 放长文答案。8 页，任意顺序读。
 
 ## License
 
-MIT。见 [LICENSE](../../LICENSE)。
+GPL-3.0。见 [LICENSE](../../LICENSE)。

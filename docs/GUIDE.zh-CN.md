@@ -317,4 +317,4 @@ persona 不关心模型——它们就是 prompt。你的 agent host（Claude Co
 
 ---
 
-MIT 协议。随便 fork、改、据为己有。
+GPL-3.0 协议。见 [LICENSE](../LICENSE)。
