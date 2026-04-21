@@ -34,6 +34,17 @@ Each warning also emits a `[writeAIOutput] low-signal persona=… warnings=…` 
 
 Purpose (from governance-layer §P0.5's "promotion-ready count" signal): future threshold tuning needs evidence. A vault where `realBacklinkHitRate` is <10% suggests the Inbox is producing analyses no human ever cites — the persona prompts need tightening, not the stale thresholds. A vault where most entries sit in `quarantine-state: new` after months is a promotion pipeline stall, distinct from a staleness issue.
 
+### Trend log (Step 2.8)
+
+Each `dry_run: false` sweep appends a single flow-style YAML line to `00-Inbox/AI-Output/sweep.log.md`. This turns the metrics snapshot above into a time-series so tuning decisions have evidence not just a point-in-time read:
+
+```yaml
+- {ts: "2026-04-22T03:00:00.000Z", totalEntries: 42, staleHits: 3, supersedeHits: 0, realBacklinkHitRate: 0.381}
+- {ts: "2026-04-23T03:00:00.000Z", totalEntries: 45, staleHits: 1, supersedeHits: 1, realBacklinkHitRate: 0.400}
+```
+
+Dry-run sweeps skip the append (no-write-on-dry-run invariant). Empty-vault sweeps skip too (no need to spam zero-entry lines). The file is created on first non-empty real sweep with a `# Sweep trend log` header.
+
 ## Storage layout
 
 ```

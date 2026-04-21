@@ -1038,6 +1038,25 @@ export class VaultFs {
         }
         metrics.realBacklinkHitRate = entries.length === 0 ? 0 : withRealBacklink / entries.length;
 
+        // Step 2.8: append a trend-log line per real sweep so threshold tuning
+        // has a time-series (not just the latest snapshot). Skipped on dry_run
+        // to keep no-write-on-dry-run invariant. Only appends when there is
+        // something to report — empty vaults leave the log alone.
+        if (!dryRun && entries.length > 0) {
+          const sweepLogRel = "00-Inbox/AI-Output/sweep.log.md";
+          const sweepLogAbs = join(this.vault, sweepLogRel);
+          const stamp = new Date(nowValid).toISOString();
+          const logLine =
+            `- {ts: "${stamp}", totalEntries: ${metrics.totalEntries}, ` +
+            `staleHits: ${staleCandidates.length}, supersedeHits: ${supersedeCandidates.length}, ` +
+            `realBacklinkHitRate: ${metrics.realBacklinkHitRate.toFixed(3)}}\n`;
+          if (!existsSync(sweepLogAbs)) {
+            mkdirSync(dirname(sweepLogAbs), { recursive: true });
+            writeFileSync(sweepLogAbs, "# Sweep trend log\n\n", "utf-8");
+          }
+          appendFileSync(sweepLogAbs, logLine, "utf-8");
+        }
+
         return { staleCandidates, supersedeCandidates, applied, metrics };
       }
       case "vault.getMetadata": {

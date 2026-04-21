@@ -620,4 +620,31 @@ describe('vault.sweepAIOutput', () => {
     assert.equal(report.metrics.totalEntries, 0);
     assert.equal(report.metrics.realBacklinkHitRate, 0);
   });
+
+  test('trend log: dry_run=true does not write sweep.log.md', () => {
+    writeAIOut('vault-architect', 'a.md', { status: 'draft' });
+    vaultFs.dispatch('vault.sweepAIOutput', { dry_run: true });
+    assert.equal(existsSync(join(vault, '00-Inbox/AI-Output/sweep.log.md')), false);
+  });
+
+  test('trend log: dry_run=false appends one line per sweep', () => {
+    writeAIOut('vault-architect', 'a.md', { status: 'draft' });
+    vaultFs.dispatch('vault.sweepAIOutput', { dry_run: false });
+    vaultFs.dispatch('vault.sweepAIOutput', { dry_run: false });
+
+    const logPath = join(vault, '00-Inbox/AI-Output/sweep.log.md');
+    assert.ok(existsSync(logPath), 'sweep.log.md must exist after real sweep');
+    const log = readFileSync(logPath, 'utf-8');
+    assert.ok(log.startsWith('# Sweep trend log'), 'log starts with header');
+    const lines = log.split('\n').filter((l) => l.startsWith('- {ts:'));
+    assert.equal(lines.length, 2, 'one flow-style line per real sweep');
+    assert.ok(/totalEntries: 1/.test(lines[0]));
+    assert.ok(/realBacklinkHitRate: 0\.\d{3}/.test(lines[0]));
+  });
+
+  test('trend log: empty vault does not create sweep.log.md', () => {
+    vaultFs.dispatch('vault.sweepAIOutput', { dry_run: false });
+    assert.equal(existsSync(join(vault, '00-Inbox/AI-Output/sweep.log.md')), false,
+      'no entries -> no log file (avoid empty-file noise)');
+  });
 });
