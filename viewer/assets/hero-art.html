@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>hero graph</title>
+<!--
+  LLM Wiki Bridge -- hero-art.html
+  Algorithmic philosophy: "Quiet Graph" -- a contemplative force-directed
+  topology. Nodes drift under weak repulsion + spring attraction, softly
+  perturbed by layered Perlin noise so the system breathes rather than
+  settling flat. Every ~8 seconds a "search pulse" travels outward from a
+  random node along the BFS frontier in terracotta, then fades, echoing the
+  way an agent would traverse the concept graph from a query hit.
+  Seed fixed at 42 -> deterministic composition; reload yields identical
+  initial state. No UI chrome, no glow, no particles. Quiet, functional.
+-->
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #F5F4F0; overflow: hidden; }
+  canvas { display: block; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/p5@1.11.3/lib/p5.min.js"></script>
+</head>
+<body>
+<script>
+"use strict";
+
+const PARAMS = {
+  seed: 42,
+  nodeCount: 48,
+  avgDegree: 3.4,
+  repel: 2400,       // Coulomb-like constant
+  springK: 0.018,    // Hooke spring stiffness
+  springRest: 90,    // ideal edge length at 1200 wide reference
+  damping: 0.82,     // velocity damping per frame
+  driftAmp: 0.16,    // Perlin-noise drift amplitude
+  driftScale: 0.0018,
+  pulseEveryMs: 7800,
+  pulseDurationMs: 2200,
+  pulseMaxHops: 3,
+  colors: {
+    bg: "#F5F4F0",
+    node: "#0e0e10",
+    edgeFaint: "#E0E0DA",
+    accent: "#D97757",
+  },
+};
+
+let nodes = [];
+let edges = [];
+let adjacency = [];
+let lastPulseAt = -Infinity;
+let pulse = null; // { origin, startMs, rings:[Set<nodeIdx>, Set<nodeIdx>, ...] }
+
+function setup() {
+  const c = createCanvas(windowWidth, windowHeight);
+  c.style("display", "block");
+  pixelDensity(Math.min(window.devicePixelRatio || 1, 2));
+  randomSeed(PARAMS.seed);
+  noiseSeed(PARAMS.seed);
+  buildGraph();
+  lastPulseAt = millis() - PARAMS.pulseEveryMs * 0.6;
+}
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+  // Re-center graph on resize without full regen.
+  rescatterIntoBounds();
+}
+
+function buildGraph() {
+  nodes = [];
+  for (let i = 0; i < PARAMS.nodeCount; i++) {
+    nodes.push({
+      x: random(width * 0.12, width * 0.88),
+      y: random(height * 0.14, height * 0.86),
+      vx: 0,
+      vy: 0,
+      noiseOff: random(1000),
+    });
+  }
+
+  // Build a spanning tree first (guarantees a connected graph), then add
+  // random extra edges up to the target average degree.
+  edges = [];
+  const connected = new Set([0]);
+  const remaining = new Set();
+  for (let i = 1; i < PARAMS.nodeCount; i++) remaining.add(i);
+
+  while (remaining.size > 0) {
+    const a = pickNearest(Array.from(connected), Array.from(remaining));
+    edges.push([a.from, a.to]);
+    connected.add(a.to);
+    remaining.delete(a.to);
+  }
+
+  const targetExtraEdges = Math.round(
+    (PARAMS.nodeCount * PARAMS.avgDegree) / 2 - edges.length
+  );
+  const existing = new Set(edges.map(([a, b]) => edgeKey(a, b)));
+  let attempts = 0;
+  while (edges.length < PARAMS.nodeCount * PARAMS.avgDegree * 0.5 && attempts < 4000) {
+    attempts++;
+    const a = Math.floor(random(PARAMS.nodeCount));
+    const b = Math.floor(random(PARAMS.nodeCount));
+    if (a === b) continue;
+    const k = edgeKey(a, b);
+    if (existing.has(k)) continue;
+    existing.add(k);
+    edges.push([a, b]);
+  }
+
+  adjacency = Array.from({ length: PARAMS.nodeCount }, () => []);
+  edges.forEach(([a, b]) => {
+    adjacency[a].push(b);
+    adjacency[b].push(a);
+  });
+}
+
+function edgeKey(a, b) {
+  return a < b ? `${a}_${b}` : `${b}_${a}`;
+}
+
+function pickNearest(fromSet, toSet) {
+  let best = { from: fromSet[0], to: toSet[0], d2: Infinity };
+  for (const f of fromSet) {
+    for (const t of toSet) {
+      const dx = nodes[f].x - nodes[t].x;
+      const dy = nodes[f].y - nodes[t].y;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < best.d2) best = { from: f, to: t, d2 };
+    }
+  }
+  return best;
+}
+
+function rescatterIntoBounds() {
+  // If the window got smaller, push nodes back in.
+  const padX = width * 0.08;
+  const padY = height * 0.1;
+  for (const n of nodes) {
+    n.x = constrain(n.x, padX, width - padX);
+    n.y = constrain(n.y, padY, height - padY);
+  }
+}
+
+function stepPhysics() {
+  // Reference scale: keep forces stable across viewport sizes.
+  const scale = Math.max(width, 600) / 1200;
+  const springRest = PARAMS.springRest * scale;
+
+  // Reset accumulators.
+  for (const n of nodes) { n._fx = 0; n._fy = 0; }
+
+  // Pairwise repulsion.
+  for (let i = 0; i < nodes.length; i++) {
+    for (let j = i + 1; j < nodes.length; j++) {
+      const a = nodes[i], b = nodes[j];
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const d2 = dx * dx + dy * dy + 0.01;
+      const d = Math.sqrt(d2);
+      const f = (PARAMS.repel * scale * scale) / d2;
+      const fx = (dx / d) * f;
+      const fy = (dy / d) * f;
+      a._fx -= fx; a._fy -= fy;
+      b._fx += fx; b._fy += fy;
+    }
+  }
+
+  // Spring attraction along edges.
+  for (const [ia, ib] of edges) {
+    const a = nodes[ia], b = nodes[ib];
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const d = Math.max(Math.sqrt(dx * dx + dy * dy), 0.001);
+    const stretch = d - springRest;
+    const f = PARAMS.springK * stretch;
+    const fx = (dx / d) * f;
+    const fy = (dy / d) * f;
+    a._fx += fx; a._fy += fy;
+    b._fx -= fx; b._fy -= fy;
+  }
+
+  // Soft centring toward canvas middle so the graph never drifts off.
+  const cx = width * 0.5, cy = height * 0.5;
+  for (const n of nodes) {
+    n._fx += (cx - n.x) * 0.0012;
+    n._fy += (cy - n.y) * 0.0012;
+  }
+
+  // Perlin drift -- keeps the system breathing after it settles.
+  const t = millis() * 0.00018;
+  for (let i = 0; i < nodes.length; i++) {
+    const n = nodes[i];
+    const nx = noise(n.noiseOff + t, 0) - 0.5;
+    const ny = noise(0, n.noiseOff + t) - 0.5;
+    n._fx += nx * PARAMS.driftAmp;
+    n._fy += ny * PARAMS.driftAmp;
+  }
+
+  // Integrate with damping.
+  for (const n of nodes) {
+    n.vx = (n.vx + n._fx) * PARAMS.damping;
+    n.vy = (n.vy + n._fy) * PARAMS.damping;
+    n.x += n.vx;
+    n.y += n.vy;
+  }
+
+  // Soft wall -- push back if near edges.
+  const padX = width * 0.06;
+  const padY = height * 0.08;
+  for (const n of nodes) {
+    if (n.x < padX) n.vx += (padX - n.x) * 0.04;
+    if (n.x > width - padX) n.vx += (width - padX - n.x) * 0.04;
+    if (n.y < padY) n.vy += (padY - n.y) * 0.04;
+    if (n.y > height - padY) n.vy += (height - padY - n.y) * 0.04;
+  }
+}
+
+function maybeStartPulse() {
+  const now = millis();
+  if (pulse && now - pulse.startMs > PARAMS.pulseDurationMs) pulse = null;
+  if (!pulse && now - lastPulseAt > PARAMS.pulseEveryMs) {
+    const origin = Math.floor(random(nodes.length));
+    const rings = [new Set([origin])];
+    const seen = new Set([origin]);
+    for (let hop = 0; hop < PARAMS.pulseMaxHops; hop++) {
+      const next = new Set();
+      for (const v of rings[hop]) {
+        for (const nb of adjacency[v]) {
+          if (!seen.has(nb)) {
+            seen.add(nb);
+            next.add(nb);
+          }
+        }
+      }
+      if (next.size === 0) break;
+      rings.push(next);
+    }
+    pulse = { origin, startMs: now, rings };
+    lastPulseAt = now;
+  }
+}
+
+function pulseIntensity(hop, ageMs) {
+  // Travel outward: each hop peaks 300ms after the previous.
+  const travelMs = 320;
+  const windowMs = 900;
+  const peak = hop * travelMs;
+  const dt = ageMs - peak;
+  if (dt < 0) return Math.max(0, 1 + dt / 300); // brief pre-echo
+  if (dt > windowMs) {
+    // Fade tail.
+    const tail = PARAMS.pulseDurationMs - peak - windowMs;
+    return Math.max(0, 1 - (dt - windowMs) / Math.max(tail, 1));
+  }
+  return 1;
+}
+
+function nodeAccent(i) {
+  if (!pulse) return 0;
+  const age = millis() - pulse.startMs;
+  for (let hop = 0; hop < pulse.rings.length; hop++) {
+    if (pulse.rings[hop].has(i)) return pulseIntensity(hop, age);
+  }
+  return 0;
+}
+
+function edgeAccent(ia, ib) {
+  if (!pulse) return 0;
+  const age = millis() - pulse.startMs;
+  let hopA = -1, hopB = -1;
+  for (let hop = 0; hop < pulse.rings.length; hop++) {
+    if (pulse.rings[hop].has(ia)) hopA = hop;
+    if (pulse.rings[hop].has(ib)) hopB = hop;
+  }
+  if (hopA < 0 || hopB < 0) return 0;
+  // Only highlight edges that step outward by exactly one hop.
+  if (Math.abs(hopA - hopB) !== 1) return 0;
+  const hop = Math.max(hopA, hopB);
+  return pulseIntensity(hop, age);
+}
+
+function lerpHex(a, b, t) {
+  const ca = hexToRgb(a), cb = hexToRgb(b);
+  return `rgb(${Math.round(ca.r + (cb.r - ca.r) * t)},${Math.round(ca.g + (cb.g - ca.g) * t)},${Math.round(ca.b + (cb.b - ca.b) * t)})`;
+}
+
+function hexToRgb(h) {
+  const m = h.replace("#", "");
+  return {
+    r: parseInt(m.substring(0, 2), 16),
+    g: parseInt(m.substring(2, 4), 16),
+    b: parseInt(m.substring(4, 6), 16),
+  };
+}
+
+function draw() {
+  background(PARAMS.colors.bg);
+
+  stepPhysics();
+  maybeStartPulse();
+
+  // Edges first (behind nodes).
+  strokeCap(ROUND);
+  for (const [ia, ib] of edges) {
+    const a = nodes[ia], b = nodes[ib];
+    const accent = edgeAccent(ia, ib);
+    if (accent > 0.01) {
+      stroke(lerpHex(PARAMS.colors.edgeFaint, PARAMS.colors.accent, accent));
+      strokeWeight(1 + 1.2 * accent);
+    } else {
+      stroke(PARAMS.colors.edgeFaint);
+      strokeWeight(1);
+    }
+    line(a.x, a.y, b.x, b.y);
+  }
+
+  // Nodes on top.
+  noStroke();
+  for (let i = 0; i < nodes.length; i++) {
+    const n = nodes[i];
+    const accent = nodeAccent(i);
+    const degree = adjacency[i].length;
+    const baseR = 2.4 + Math.min(degree, 6) * 0.35;
+    if (accent > 0.01) {
+      // Soft ring underneath.
+      fill(hexToRgb(PARAMS.colors.accent).r, hexToRgb(PARAMS.colors.accent).g, hexToRgb(PARAMS.colors.accent).b, 40 + 120 * accent);
+      circle(n.x, n.y, baseR * 2 + 10 * accent);
+      fill(lerpHex(PARAMS.colors.node, PARAMS.colors.accent, accent));
+      circle(n.x, n.y, baseR * 2);
+    } else {
+      fill(PARAMS.colors.node);
+      circle(n.x, n.y, baseR * 2);
+    }
+  }
+}
+</script>
+</body>
+</html>
