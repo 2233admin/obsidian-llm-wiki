@@ -135,7 +135,7 @@ export const operations: Operation[] = [
   {
     name: 'vault.search',
     namespace: 'vault',
-    description: 'Fulltext search across vault',
+    description: 'Fulltext grep across vault .md files (filesystem-only, single-adapter). Returns matching lines with line numbers, not ranked results. Use regex=true for patterns, glob to restrict scope. For cross-adapter weighted search use query.unified.',
     mutating: false,
     params: {
       query: { type: 'string', required: true, description: 'Search query string' },
@@ -171,7 +171,7 @@ export const operations: Operation[] = [
   {
     name: 'vault.graph',
     namespace: 'vault',
-    description: 'Get link graph of vault',
+    description: 'Build full wikilink graph of the vault. Returns nodes (with exists flag), edges (from/to/count), orphans (.md files with no inbound links), and unresolvedLinks count. Filter edges with type=resolved|unresolved|both (default both).',
     mutating: false,
     params: {
       type: { type: 'string', required: false, description: 'Link type filter (default: both)', default: 'both', enum: ['resolved', 'unresolved', 'both'] },
@@ -202,7 +202,7 @@ export const operations: Operation[] = [
   {
     name: 'vault.lint',
     namespace: 'vault',
-    description: 'Check vault health',
+    description: 'Vault health audit: finds orphans (no inbound wikilinks), broken wikilinks, empty files, duplicate titles, and optionally missing required frontmatter keys. Read-only; does not check modification time.',
     mutating: false,
     params: {
       requiredFrontmatter: { type: 'array', required: false, description: 'List of frontmatter keys that every note must have' },
@@ -232,6 +232,36 @@ export const operations: Operation[] = [
     handler: async (ctx, params) => ctx.vault.execute('vault.enforceDiscipline', params),
   },
   {
+    name: 'vault.writeAIOutput',
+    namespace: 'vault',
+    description: 'Write a persona-authored analysis into 00-Inbox/AI-Output/{persona}/YYYY-MM-DD-{slug}.md with the 8-field provenance frontmatter (generated-by, generated-at, agent, parent-query, source-nodes, status=draft, scope, quarantine-state). Human confirmation rides on an Obsidian body tag (#user-confirmed), not a frontmatter field. Dry-run by default.',
+    mutating: true,
+    params: {
+      persona: { type: 'string', required: true, description: 'Persona identifier, must match ^vault-[a-z]+$' },
+      parentQuery: { type: 'string', required: true, description: "User's original query (truncated to 200 chars)" },
+      sourceNodes: { type: 'array', required: true, description: 'Wikilinks cited during analysis (empty array is valid)' },
+      agent: { type: 'string', required: true, description: 'Model identifier (e.g. claude-opus-4-7)' },
+      body: { type: 'string', required: true, description: 'Markdown body without frontmatter' },
+      slug: { type: 'string', required: false, description: 'Optional filename slug; auto-derived from parentQuery if omitted' },
+      scope: { type: 'string', required: false, description: 'Governance namespace for the entry (default: project)', default: 'project', enum: ['project', 'global', 'cross-project', 'host-local'] },
+      quarantineState: { type: 'string', required: false, description: 'Trust-gate state in the candidate lifecycle (default: new)', default: 'new', enum: ['new', 'reviewed', 'promoted', 'discarded'] },
+      reviewStatus: { type: 'string', required: false, description: 'When user-confirmed, appends #user-confirmed tag to the body so Obsidian tag search picks it up. Default: none (no tag appended).', default: 'none', enum: ['none', 'user-confirmed'] },
+      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: true)', default: true },
+    },
+    handler: async (ctx, params) => ctx.vault.execute('vault.writeAIOutput', params),
+  },
+  {
+    name: 'vault.sweepAIOutput',
+    namespace: 'vault',
+    description: 'Sweep 00-Inbox/AI-Output for stale drafts (age > persona threshold and no non-AI-Output backlinks) and supersede candidates (same-persona reviewed pairs with source-nodes Jaccard >= 0.6). Reports candidates; when dry_run=false flips draft→stale in place. Never auto-applies supersede.',
+    mutating: true,
+    params: {
+      dry_run: { type: 'boolean', required: false, description: 'Report only without writing (default: true)', default: true },
+      now: { type: 'string', required: false, description: 'Inject ISO 8601 timestamp for deterministic tests' },
+    },
+    handler: async (ctx, params) => ctx.vault.execute('vault.sweepAIOutput', params),
+  },
+  {
     name: 'vault.getMetadata',
     namespace: 'vault',
     description: 'Get parsed metadata for a note',
@@ -241,17 +271,6 @@ export const operations: Operation[] = [
     },
     handler: async (ctx, params) => ctx.vault.execute('vault.getMetadata', params),
   },
-  {
-    name: 'vault.externalSearch',
-    namespace: 'vault',
-    description: 'Search via external search engine',
-    mutating: false,
-    params: {
-      query: { type: 'string', required: true, description: 'Search query string' },
-    },
-    handler: async (ctx, params) => ctx.vault.execute('vault.externalSearch', params),
-  },
-
   // ── recipe namespace ──────────────────────────────────────────
   {
     name: 'recipe.list',
@@ -502,7 +521,7 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     {
       name: 'query.unified',
       namespace: 'query',
-      description: 'Unified knowledge query across all active adapters (filesystem, obsidian, memu, gitnexus)',
+      description: 'Weighted multi-adapter search across all active adapters (filesystem, obsidian, memu, gitnexus). Results merged and re-ranked by per-adapter weight. Use when you want best answers anywhere; for single-adapter search use query.search (filesystem-only, ranked) or vault.search (raw filesystem grep, unranked).',
       mutating: false,
       params: {
         query: { type: 'string', required: true, description: 'Search query string' },
@@ -531,7 +550,7 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     {
       name: 'query.search',
       namespace: 'query',
-      description: 'Search knowledge base (filesystem adapter only)',
+      description: 'Filesystem-only ranked knowledge search. Same scoring pipeline as query.unified but restricted to the filesystem adapter. Use for deterministic filesystem-rooted results without memu/gitnexus noise; use vault.search for raw grep-style matching without ranking.',
       mutating: false,
       params: {
         query: { type: 'string', required: true, description: 'Search query string' },
@@ -549,7 +568,7 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     {
       name: 'query.explain',
       namespace: 'query',
-      description: 'Explain a concept using top-10 cross-adapter results with 3-line context',
+      description: 'Concept explanation via top-10 cross-adapter results with 3 lines of surrounding context per match. Same fan-out as query.unified but fixes maxResults=10 and context=3, tuned for paragraph-length summarization. Use when synthesizing prose, not browsing raw results.',
       mutating: false,
       params: {
         concept: { type: 'string', required: true, description: 'Concept to explain' },

@@ -7,7 +7,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import {
-  readFileSync, existsSync, readdirSync, statSync,
+  readFileSync, existsSync, readdirSync, statSync, realpathSync,
   writeFileSync, appendFileSync, rmSync, renameSync, mkdirSync,
 } from "node:fs";
 import { resolve, join, basename, extname, relative, dirname, posix, isAbsolute as pathIsAbsolute } from "node:path";
@@ -29,6 +29,20 @@ import { validateParams, rejectDangerousRegex } from "./core/validate.js";
 // Config
 
 function loadConfig(): VaultMindConfig {
+  // Precedence: env var > ./vault-mind.yaml > ../vault-mind.yaml. An explicit
+  // env var is a declaration of intent and must not be silently shadowed by an
+  // abandoned yaml in cwd or parent -- prior to this fix a stale dev-workspace
+  // yaml could quietly redirect the server away from the user's chosen vault.
+  const envVault = process.env.VAULT_MIND_VAULT_PATH || process.env.VAULT_BRIDGE_VAULT;
+  if (envVault) {
+    const envWeights = process.env.VAULT_MIND_ADAPTER_WEIGHTS;
+    return {
+      vault_path: envVault,
+      auth_token: process.env.VAULT_MIND_AUTH_TOKEN,
+      adapter_weights: envWeights ? (JSON.parse(envWeights) as Record<string, number>) : undefined,
+      config_path: undefined,
+    };
+  }
   const candidates = [
     resolve(process.cwd(), "vault-mind.yaml"),
     resolve(process.cwd(), "../vault-mind.yaml"),
@@ -36,15 +50,7 @@ function loadConfig(): VaultMindConfig {
   for (const p of candidates) {
     if (existsSync(p)) return { ...parseSimpleYaml(readFileSync(p, "utf-8")), config_path: p };
   }
-  const vaultPath = process.env.VAULT_MIND_VAULT_PATH || process.env.VAULT_BRIDGE_VAULT || "";
-  if (!vaultPath) throw new Error("No vault-mind.yaml found and VAULT_MIND_VAULT_PATH not set");
-  const envWeights = process.env.VAULT_MIND_ADAPTER_WEIGHTS;
-  return {
-    vault_path: vaultPath,
-    auth_token: process.env.VAULT_MIND_AUTH_TOKEN,
-    adapter_weights: envWeights ? (JSON.parse(envWeights) as Record<string, number>) : undefined,
-    config_path: undefined,
-  };
+  throw new Error("No vault-mind.yaml found and VAULT_MIND_VAULT_PATH not set");
 }
 
 function parseSimpleYaml(raw: string): VaultMindConfig {
@@ -84,6 +90,41 @@ function err(code: number, message: string): { code: number; message: string } {
   return { code, message };
 }
 
+/**
+ * Append a flow-style history item to a note's frontmatter block.
+ *
+ * Contract: `content` starts with `---\n<yaml>\n---\n...`. Returns content with
+ * a new `  - {...}` line under the `history:` array. If `history:` is absent,
+ * initialises it at the end of the YAML block. Flow-style keeps the existing
+ * scalar-array parser byte-compatible with older entries.
+ */
+function appendHistoryInYaml(content: string, flowItem: string): string {
+  if (!content.startsWith("---\n")) return content;
+  const end = content.indexOf("\n---", 4);
+  if (end === -1) return content;
+  const yamlBlock = content.slice(4, end);
+  const after = content.slice(end);
+
+  const historyKeyRe = /^history:\s*$/m;
+  let newBlock: string;
+  if (historyKeyRe.test(yamlBlock)) {
+    // Insert after the last `  - ` item following history:
+    const lines = yamlBlock.split("\n");
+    let hIdx = -1;
+    for (let i = 0; i < lines.length; i++) {
+      if (/^history:\s*$/.test(lines[i])) { hIdx = i; break; }
+    }
+    let insertAt = hIdx + 1;
+    while (insertAt < lines.length && /^ {2}- /.test(lines[insertAt])) insertAt++;
+    lines.splice(insertAt, 0, `  - ${flowItem}`);
+    newBlock = lines.join("\n");
+  } else {
+    const trimmed = yamlBlock.replace(/\n+$/, "");
+    newBlock = `${trimmed}\nhistory:\n  - ${flowItem}`;
+  }
+  return `---\n${newBlock}${after}`;
+}
+
 function parseYamlValue(s: string): unknown {
   if (s === "true") return true;
   if (s === "false") return false;
@@ -96,9 +137,13 @@ function parseYamlValue(s: string): unknown {
 
 // VaultFs -- filesystem operations
 
-class VaultFs {
+export class VaultFs {
   private readonly vault: string;
-  constructor(vaultPath: string) { this.vault = resolve(vaultPath); }
+  private readonly realVault: string;
+  constructor(vaultPath: string) {
+    this.vault = resolve(vaultPath);
+    this.realVault = realpathSync(this.vault);
+  }
 
   normalizeVaultPath(p: string, opts: { allowRoot?: boolean } = {}): string {
     if (typeof p !== "string") throw err(-32602, "path required");
@@ -122,7 +167,26 @@ class VaultFs {
     const full = resolve(this.vault, normalized);
     const rel = relative(this.vault, full);
     if (rel.startsWith("..") || pathIsAbsolute(rel)) throw err(-32602, "path escapes vault");
+    this.assertRealPathInsideVault(full);
     return full;
+  }
+
+  private assertRealPathInsideVault(full: string): void {
+    const realTarget = existsSync(full)
+      ? realpathSync(full)
+      : this.realpathExistingAncestor(dirname(full));
+    const rel = relative(this.realVault, realTarget);
+    if (rel.startsWith("..") || pathIsAbsolute(rel)) throw err(-32602, "path traversal blocked");
+  }
+
+  private realpathExistingAncestor(start: string): string {
+    let current = start;
+    while (!existsSync(current)) {
+      const parent = dirname(current);
+      if (parent === current) throw err(-32602, "path traversal blocked");
+      current = parent;
+    }
+    return realpathSync(current);
   }
 
   parseFrontmatter(content: string): Record<string, unknown> | null {
@@ -334,12 +398,16 @@ class VaultFs {
         const op = (p.op as string) || "eq";
         const validOps = ["eq", "ne", "gt", "lt", "gte", "lte", "contains", "regex", "exists"];
         if (!validOps.includes(op)) throw err(-32602, `Unknown op: ${op}`);
-        const results: Array<{ path: string; value: unknown }> = [];
+        const results: Array<{ path: string; value: unknown; mtime: number }> = [];
+        const pushWithMtime = (relPath: string, v: unknown): void => {
+          const st = statSync(this.resolve(relPath));
+          results.push({ path: relPath, value: v, mtime: st.mtimeMs });
+        };
         this.walkMd((relPath, content) => {
           const fm = this.parseFrontmatter(content);
           if (!fm) return;
           if (op === "exists") {
-            if ((p.key as string) in fm) results.push({ path: relPath, value: fm[p.key as string] });
+            if ((p.key as string) in fm) pushWithMtime(relPath, fm[p.key as string]);
             return;
           }
           if (!((p.key as string) in fm)) return;
@@ -361,11 +429,14 @@ class VaultFs {
               catch { match = false; }
               break;
           }
-          if (match) results.push({ path: relPath, value: v });
+          if (match) pushWithMtime(relPath, v);
         });
         return { files: results.sort((a, b) => a.path.localeCompare(b.path)) };
       }
       case "vault.graph": {
+        const linkType = (p.type as string) || "both";
+        if (!["resolved", "unresolved", "both"].includes(linkType))
+          throw err(-32602, `Unknown type: ${linkType} (expected resolved|unresolved|both)`);
         const nodeSet = new Set<string>();
         const edgeMap = new Map<string, number>();
         const inbound = new Set<string>();
@@ -386,15 +457,19 @@ class VaultFs {
             edgeMap.set(key, (edgeMap.get(key) || 0) + 1);
           }
         });
-        const edges = Array.from(edgeMap.entries()).map(([key, count]) => {
+        let edges = Array.from(edgeMap.entries()).map(([key, count]) => {
           const [from, to] = key.split(" ");
           return { from, to, count };
         });
         const nodes = Array.from(nodeSet).sort().map((np) => ({
           path: np, exists: (() => { try { return existsSync(this.resolve(np)); } catch { return false; } })(),
         }));
+        const existsMap = new Map(nodes.map((n) => [n.path, n.exists]));
+        if (linkType === "resolved") edges = edges.filter((e) => existsMap.get(e.to) === true);
+        else if (linkType === "unresolved") edges = edges.filter((e) => existsMap.get(e.to) !== true);
         const orphans = nodes.filter((n) => n.exists && n.path.endsWith(".md") && !inbound.has(n.path)).map((n) => n.path);
-        return { nodes, edges, orphans };
+        const unresolvedLinks = nodes.filter((n) => !n.exists).length;
+        return { nodes, edges, orphans, unresolvedLinks, type: linkType };
       }
       case "vault.backlinks": {
         if (!p.path) throw err(-32602, "path required");
@@ -656,6 +731,340 @@ class VaultFs {
           },
         };
       }
+      case "vault.writeAIOutput": {
+        const persona = p.persona as string;
+        if (typeof persona !== "string" || !/^vault-[a-z]+$/.test(persona))
+          throw err(-32602, "persona must match ^vault-[a-z]+$");
+        const parentQueryRaw = p.parentQuery as string;
+        if (typeof parentQueryRaw !== "string") throw err(-32602, "parentQuery required");
+        const sourceNodes = p.sourceNodes as string[];
+        if (!Array.isArray(sourceNodes)) throw err(-32602, "sourceNodes required (array)");
+        const agent = p.agent as string;
+        if (typeof agent !== "string" || agent === "") throw err(-32602, "agent required");
+        const body = p.body as string;
+        if (typeof body !== "string") throw err(-32602, "body required");
+
+        // Step 2 governance: scope (namespace) + quarantine-state (trust gate).
+        // Both optional on write; defaults keep old callers byte-compatible with Step 1.
+        const SCOPE_VALUES = ["project", "global", "cross-project", "host-local"] as const;
+        const QSTATE_VALUES = ["new", "reviewed", "promoted", "discarded"] as const;
+        const scopeRaw = p.scope;
+        const scope: string = scopeRaw === undefined ? "project" : String(scopeRaw);
+        if (!(SCOPE_VALUES as readonly string[]).includes(scope))
+          throw err(-32602, `scope must be one of ${SCOPE_VALUES.join("|")}`);
+        const qStateRaw = p.quarantineState;
+        const quarantineState: string = qStateRaw === undefined ? "new" : String(qStateRaw);
+        if (!(QSTATE_VALUES as readonly string[]).includes(quarantineState))
+          throw err(-32602, `quarantineState must be one of ${QSTATE_VALUES.join("|")}`);
+
+        // review-status: routed to an Obsidian body tag (#user-confirmed) rather
+        // than a frontmatter field. Lets the native Obsidian tag index carry
+        // the signal; vault.searchByTag picks up user-confirmed entries for
+        // free. Enum excludes "reviewed" to avoid collision with quarantine-state.
+        const REVIEW_STATUS_VALUES = ["none", "user-confirmed"] as const;
+        const reviewStatusRaw = p.reviewStatus;
+        const reviewStatus: string = reviewStatusRaw === undefined ? "none" : String(reviewStatusRaw);
+        if (!(REVIEW_STATUS_VALUES as readonly string[]).includes(reviewStatus))
+          throw err(-32602, `reviewStatus must be one of ${REVIEW_STATUS_VALUES.join("|")}`);
+
+        // Step 2.6 input gate: downgraded from reject to warning. Step 2.5 chose
+        // thresholds (body>=50 chars, single-shell-cmd reject, query+sourceNodes
+        // both-empty reject) as guesses. Hard-throw blocked short-but-legitimate
+        // analyses before we had distribution data. Now we emit warnings instead,
+        // let the write land, and collect evidence for 2-4 weeks before retuning.
+        const SINGLE_CMD_RE = /^\s*(pwd|ls|cd|cat|rg|grep|echo|git\s+status|git\s+diff)\b[^\n]*$/i;
+        const bodyTrim = body.trim();
+        const queryTrim = parentQueryRaw.trim();
+        const warnings: string[] = [];
+        if (bodyTrim.length < 50) warnings.push("body-too-short");
+        if (SINGLE_CMD_RE.test(queryTrim)) warnings.push("query-looks-like-shell-cmd");
+        if (queryTrim === "" && sourceNodes.length === 0) warnings.push("no-anchor");
+        if (warnings.length > 0)
+          process.stderr.write(`[writeAIOutput] low-signal persona=${persona} warnings=${warnings.join(",")}\n`);
+
+        // Sanitize parent-query: truncate to 200 chars, replace " with right-double-quote
+        const parentQuery = parentQueryRaw.slice(0, 200).replace(/"/g, "\u201D");
+
+        // Derive slug
+        const deriveSlug = (src: string): string => {
+          const cleaned = src
+            .replace(/[<>:"/\\|?*]/g, " ")
+            .replace(/\s+/g, "-")
+            .toLowerCase()
+            .replace(/^-+|-+$/g, "");
+          if (!cleaned) return "";
+          const words = cleaned.split("-").filter((w) => w.length > 0).slice(0, 6);
+          const joined = words.join("-");
+          return joined.slice(0, 60).replace(/-+$/, "");
+        };
+        let slug = typeof p.slug === "string" && p.slug !== "" ? deriveSlug(p.slug) : deriveSlug(parentQueryRaw);
+        if (!slug) {
+          const nowT = new Date();
+          const hh = String(nowT.getUTCHours()).padStart(2, "0");
+          const mm = String(nowT.getUTCMinutes()).padStart(2, "0");
+          const ss = String(nowT.getUTCSeconds()).padStart(2, "0");
+          slug = `note-${hh}${mm}${ss}`;
+        }
+
+        const nowIso = new Date().toISOString();
+        const datePrefix = nowIso.slice(0, 10);
+        const relDir = `00-Inbox/AI-Output/${persona}`;
+        const baseName = `${datePrefix}-${slug}`;
+
+        // Collision loop: append -2, -3, ... up to -99
+        let chosenName = `${baseName}.md`;
+        let relPath = `${relDir}/${chosenName}`;
+        let fullPath = join(this.vault, relDir, chosenName);
+        if (existsSync(fullPath)) {
+          let found = false;
+          for (let i = 2; i <= 99; i++) {
+            chosenName = `${baseName}-${i}.md`;
+            relPath = `${relDir}/${chosenName}`;
+            fullPath = join(this.vault, relDir, chosenName);
+            if (!existsSync(fullPath)) { found = true; break; }
+          }
+          if (!found) throw err(-32002, `Could not find free filename after 99 collisions for ${baseName}`);
+        }
+
+        const frontmatterObj = {
+          "generated-by": persona,
+          "generated-at": nowIso,
+          "agent": agent,
+          "parent-query": parentQuery,
+          "source-nodes": sourceNodes,
+          "status": "draft",
+          "scope": scope,
+          "quarantine-state": quarantineState,
+        };
+
+        // Body tag injection for human-confirmed entries. Obsidian treats
+        // repeated tags as one, but we skip duplicate writes to keep diffs clean.
+        const bodyWithTag = reviewStatus === "user-confirmed" && !/(^|\s)#user-confirmed(\s|$)/m.test(body)
+          ? `${body.replace(/\n+$/, "")}\n\n#user-confirmed`
+          : body;
+
+        if (p.dryRun !== false) {
+          return { dryRun: true, action: "writeAIOutput", path: relPath, frontmatter: frontmatterObj, warnings };
+        }
+
+        // Serialize YAML subset compatible with parseFrontmatter
+        const yamlLines: string[] = [];
+        yamlLines.push(`generated-by: ${persona}`);
+        yamlLines.push(`generated-at: ${nowIso}`);
+        yamlLines.push(`agent: ${agent}`);
+        yamlLines.push(`parent-query: "${parentQuery}"`);
+        if (sourceNodes.length === 0) {
+          yamlLines.push(`source-nodes: []`);
+        } else {
+          yamlLines.push(`source-nodes:`);
+          for (const node of sourceNodes) {
+            const escaped = String(node).replace(/"/g, "\u201D");
+            yamlLines.push(`  - "${escaped}"`);
+          }
+        }
+        yamlLines.push(`status: draft`);
+        yamlLines.push(`scope: ${scope}`);
+        yamlLines.push(`quarantine-state: ${quarantineState}`);
+
+        const contentOut = `---\n${yamlLines.join("\n")}\n---\n\n${bodyWithTag}\n`;
+        mkdirSync(dirname(fullPath), { recursive: true });
+        writeFileSync(fullPath, contentOut, "utf-8");
+        return { ok: true, path: relPath, frontmatter: frontmatterObj, warnings };
+      }
+      case "vault.sweepAIOutput": {
+        const STALE_THRESHOLDS: Record<string, number> = {
+          "vault-architect": 45,
+          "vault-gardener": 30,
+          "vault-historian": 180,
+          "vault-librarian": 60,
+        };
+        const DEFAULT_THRESHOLD = 60;
+        const dryRun = p.dry_run !== false;
+        const nowMs = typeof p.now === "string" ? Date.parse(p.now as string) : Date.now();
+        const nowValid = !isNaN(nowMs) ? nowMs : Date.now();
+
+        const aiRootRel = "00-Inbox/AI-Output";
+        const aiRootAbs = join(this.vault, aiRootRel);
+        const emptyMetrics = {
+          totalEntries: 0,
+          byPersona: {} as Record<string, number>,
+          byStatus: {} as Record<string, number>,
+          byQuarantineState: {} as Record<string, number>,
+          realBacklinkHitRate: 0,
+        };
+        if (!existsSync(aiRootAbs)) {
+          return { staleCandidates: [], supersedeCandidates: [], applied: [], metrics: emptyMetrics };
+        }
+
+        type Entry = {
+          relPath: string;
+          absPath: string;
+          content: string;
+          fm: Record<string, unknown>;
+          mtimeMs: number;
+          entryMs: number; // frontmatter date primary, mtime fallback
+          persona: string;
+          status: string;
+          sourceNodes: string[];
+        };
+
+        const entries: Entry[] = [];
+        const walkSubtree = (d: string): void => {
+          if (!existsSync(d)) return;
+          for (const ent of readdirSync(d, { withFileTypes: true })) {
+            const full = join(d, ent.name);
+            if (ent.isDirectory() && !PROTECTED_DIRS.has(ent.name)) walkSubtree(full);
+            else if (ent.isFile() && ent.name.endsWith(".md")) {
+              const content = readFileSync(full, "utf-8");
+              const fm = this.parseFrontmatter(content);
+              if (!fm) continue;
+              const persona = typeof fm["generated-by"] === "string" ? (fm["generated-by"] as string) : "";
+              if (!persona) continue;
+              const status = typeof fm["status"] === "string" ? (fm["status"] as string) : "";
+              const relPath = relative(this.vault, full).replace(/\\/g, "/");
+              const st = statSync(full);
+              const mtimeMs = st.mtimeMs;
+              let entryMs = mtimeMs;
+              const ga = fm["generated-at"];
+              if (typeof ga === "string") {
+                const parsed = Date.parse(ga);
+                if (!isNaN(parsed)) entryMs = parsed;
+              }
+              const sn = fm["source-nodes"];
+              const sourceNodes = Array.isArray(sn) ? sn.map((x) => String(x)) : [];
+              entries.push({ relPath, absPath: full, content, fm, mtimeMs, entryMs, persona, status, sourceNodes });
+            }
+          }
+        };
+        walkSubtree(aiRootAbs);
+
+        const aiOutputPaths = new Set(entries.map((e) => e.relPath));
+
+        // Inline backlink computation: for a target path, find non-AI-Output sources
+        const hasRealBacklink = (targetRel: string): boolean => {
+          const targetBase = basename(targetRel, ".md");
+          let found = false;
+          this.walkMd((relPath, content) => {
+            if (found) return;
+            if (relPath === targetRel) return;
+            if (aiOutputPaths.has(relPath)) return; // AI-Output -> AI-Output doesn't anchor
+            for (const l of this.parseWikilinks(content)) {
+              const linkPath = l.link.split("#")[0];
+              if (!linkPath) continue;
+              if (linkPath === targetRel || linkPath === targetBase || linkPath + ".md" === targetRel) {
+                found = true;
+                return;
+              }
+            }
+          });
+          return found;
+        };
+
+        const staleCandidates: Array<{ path: string; persona: string; ageDays: number; threshold: number }> = [];
+
+        for (const e of entries) {
+          if (e.status !== "draft") continue;
+          const ageDays = (nowValid - e.entryMs) / 86_400_000;
+          const threshold = STALE_THRESHOLDS[e.persona] ?? DEFAULT_THRESHOLD;
+          if (ageDays < threshold) continue;
+          if (hasRealBacklink(e.relPath)) continue;
+          staleCandidates.push({ path: e.relPath, persona: e.persona, ageDays, threshold });
+        }
+
+        // Supersede detection: pairs of reviewed same-persona entries
+        const reviewed = entries.filter((e) => e.status === "reviewed");
+        const supersedeCandidates: Array<{ older: string; newer: string; overlap: number }> = [];
+        const jaccard = (a: string[], b: string[]): number => {
+          if (a.length === 0 && b.length === 0) return 0;
+          const sa = new Set(a);
+          const sb = new Set(b);
+          let inter = 0;
+          for (const x of sa) if (sb.has(x)) inter++;
+          const uni = sa.size + sb.size - inter;
+          return uni === 0 ? 0 : inter / uni;
+        };
+        for (let i = 0; i < reviewed.length; i++) {
+          for (let j = i + 1; j < reviewed.length; j++) {
+            const a = reviewed[i];
+            const b = reviewed[j];
+            if (a.persona !== b.persona) continue;
+            if (a.sourceNodes.length === 0 || b.sourceNodes.length === 0) continue;
+            const overlap = jaccard(a.sourceNodes, b.sourceNodes);
+            if (overlap < 0.6) continue;
+            const olderEntry = a.entryMs <= b.entryMs ? a : b;
+            const newerEntry = a.entryMs <= b.entryMs ? b : a;
+            supersedeCandidates.push({ older: olderEntry.relPath, newer: newerEntry.relPath, overlap });
+          }
+        }
+
+        const applied: Array<{ path: string; change: string }> = [];
+        if (!dryRun) {
+          const flipIso = new Date(nowValid).toISOString();
+          for (const sc of staleCandidates) {
+            const absPath = join(this.vault, sc.path);
+            const original = readFileSync(absPath, "utf-8");
+            // Step 2 governance: append a structured history entry for audit.
+            // YAML flow-style so the Step-1 frontmatter parser (scalar-only arrays)
+            // still round-trips the entry as an opaque string without loss.
+            // Step 2.7: axis makes from/to unambiguous. A future
+            // manual-promote entry like {from: reviewed, to: promoted} could
+            // refer to either status or quarantine-state; axis names the one
+            // that moved. Gardener only auto-flips status, so axis: status.
+            const historyEntry =
+              `{ts: "${flipIso}", axis: status, from: draft, to: stale, trigger: auto-stop-summary, ` +
+              `evidence_level: low, human_in_loop: false, note: "gardener sweep"}`;
+            const withStatusFlipped = original.replace(
+              /(^---[\s\S]*?\nstatus: )draft(\n[\s\S]*?^---$)/m,
+              (_m, g1: string, g2: string) => g1 + "stale" + g2,
+            );
+            if (withStatusFlipped === original) continue;
+            const replaced = appendHistoryInYaml(withStatusFlipped, historyEntry);
+            writeFileSync(absPath, replaced, "utf-8");
+            applied.push({ path: sc.path, change: "draft→stale" });
+          }
+        }
+
+        // Step 2.5 metrics: answer "is the sweep finding anything? where does it land?"
+        // without needing a separate vault.stats call. Drives future threshold tuning.
+        const metrics = {
+          totalEntries: entries.length,
+          byPersona: {} as Record<string, number>,
+          byStatus: {} as Record<string, number>,
+          byQuarantineState: {} as Record<string, number>,
+          realBacklinkHitRate: 0,
+        };
+        let withRealBacklink = 0;
+        for (const e of entries) {
+          metrics.byPersona[e.persona] = (metrics.byPersona[e.persona] ?? 0) + 1;
+          metrics.byStatus[e.status || "(none)"] = (metrics.byStatus[e.status || "(none)"] ?? 0) + 1;
+          const qs = typeof e.fm["quarantine-state"] === "string"
+            ? (e.fm["quarantine-state"] as string) : "(none)";
+          metrics.byQuarantineState[qs] = (metrics.byQuarantineState[qs] ?? 0) + 1;
+          if (hasRealBacklink(e.relPath)) withRealBacklink++;
+        }
+        metrics.realBacklinkHitRate = entries.length === 0 ? 0 : withRealBacklink / entries.length;
+
+        // Step 2.8: append a trend-log line per real sweep so threshold tuning
+        // has a time-series (not just the latest snapshot). Skipped on dry_run
+        // to keep no-write-on-dry-run invariant. Only appends when there is
+        // something to report — empty vaults leave the log alone.
+        if (!dryRun && entries.length > 0) {
+          const sweepLogRel = "00-Inbox/AI-Output/sweep.log.md";
+          const sweepLogAbs = join(this.vault, sweepLogRel);
+          const stamp = new Date(nowValid).toISOString();
+          const logLine =
+            `- {ts: "${stamp}", totalEntries: ${metrics.totalEntries}, ` +
+            `staleHits: ${staleCandidates.length}, supersedeHits: ${supersedeCandidates.length}, ` +
+            `realBacklinkHitRate: ${metrics.realBacklinkHitRate.toFixed(3)}}\n`;
+          if (!existsSync(sweepLogAbs)) {
+            mkdirSync(dirname(sweepLogAbs), { recursive: true });
+            writeFileSync(sweepLogAbs, "# Sweep trend log\n\n", "utf-8");
+          }
+          appendFileSync(sweepLogAbs, logLine, "utf-8");
+        }
+
+        return { staleCandidates, supersedeCandidates, applied, metrics };
+      }
       case "vault.getMetadata": {
         const full = this.resolve(p.path as string);
         if (!existsSync(full)) throw err(-32001, `Not found: ${p.path}`);
@@ -671,8 +1080,6 @@ class VaultFs {
         if (fm) out.frontmatter = fm;
         return out;
       }
-      case "vault.externalSearch":
-        throw err(-32000, "No external search engine configured");
       default:
         throw err(-32601, `Unknown method: ${method}`);
     }
@@ -879,9 +1286,15 @@ async function main(): Promise<void> {
 
   const adapterNames = registry.list().map((a) => a.name).join(", ");
   process.stderr.write(`obsidian-llm-wiki: MCP server running (stdio, v${VERSION}, adapters: ${adapterNames})\n`);
+  process.stderr.write(`obsidian-llm-wiki: try "what do I know about <topic>" to invoke vault-librarian\n`);
 }
 
-main().catch((e) => {
-  process.stderr.write("obsidian-llm-wiki: fatal: " + (e as Error).message + "\n");
-  process.exit(1);
-});
+// Only run main() when invoked as the entrypoint, not on import (e.g. test harness).
+const _entryPath = process.argv[1] ? resolve(process.argv[1]) : "";
+const _thisPath = fileURLToPath(import.meta.url);
+if (_entryPath && _entryPath === _thisPath) {
+  main().catch((e) => {
+    process.stderr.write("obsidian-llm-wiki: fatal: " + (e as Error).message + "\n");
+    process.exit(1);
+  });
+}

@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+# LLM Wiki Bridge setup -- install skill + configure MCP
+#
+# Copies a curated allowlist into the host's skills directory.
+# ~1.7 MB install (vs 64 MB of repo) -- ships a pre-bundled MCP server
+# so the user doesn't need to npm install anything.
+set -e
+
+IS_WINDOWS=0
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*|Windows_NT) IS_WINDOWS=1 ;;
+esac
+
+DRY_RUN=0
+HOST="claude"
+SKILL_NAME="vault-wiki"
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --host)
+      [ -z "$2" ] && echo "Error: --host requires a value (claude, codex, opencode, gemini)" >&2 && exit 1
+      HOST="$2"; shift 2 ;;
+    --host=*) HOST="${1#--host=}"; shift ;;
+    --dry-run) DRY_RUN=1; shift ;;
+    *) shift ;;
+  esac
+done
+
+case "$HOST" in
+  claude)   SKILLS_DIR="$HOME/.claude/skills/$SKILL_NAME" ;;
+  codex)    SKILLS_DIR="$HOME/.codex/skills/$SKILL_NAME" ;;
+  opencode) SKILLS_DIR="$HOME/.config/opencode/skills/$SKILL_NAME" ;;
+  gemini)   SKILLS_DIR="$HOME/.gemini/skills/$SKILL_NAME" ;;
+  *) echo "Error: Unknown --host '$HOST'. Expected: claude, codex, opencode, gemini" >&2; exit 1 ;;
+esac
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
+if [ "$IS_WINDOWS" = 1 ]; then
+  SCRIPT_DIR="$(cygpath -m "$SCRIPT_DIR")"
+fi
+
+# Bundle must exist before install. Fail loud so paste-install users see
+# the real cause instead of a missing-file error at MCP boot.
+BUNDLE_PATH="$SCRIPT_DIR/mcp-server/bundle.js"
+if [ ! -f "$BUNDLE_PATH" ]; then
+  echo "Error: mcp-server/bundle.js not found at $BUNDLE_PATH" >&2
+  echo "" >&2
+  echo "Build it first:" >&2
+  echo "  cd mcp-server && npm install && npm run rebuild" >&2
+  echo "" >&2
+  echo "(Released tarballs ship bundle.js pre-built; this only happens" >&2
+  echo "when installing from a fresh source clone.)" >&2
+  exit 1
+fi
+
+run() {
+  if [ "$DRY_RUN" = 1 ]; then
+    echo "[dry-run] $*"
+  else
+    "$@"
+  fi
+}
+
+maybe_mkdir() {
+  if [ ! -d "$1" ]; then
+    run mkdir -p "$1"
+  fi
+}
+
+PARENT_DIR="$(dirname "$SKILLS_DIR")"
+if [ ! -d "$PARENT_DIR" ]; then
+  echo "Error: Host directory not found: $PARENT_DIR" >&2
+  echo "Is $HOST installed? Expected $PARENT_DIR to exist." >&2
+  exit 1
+fi
+
+maybe_mkdir "$SKILLS_DIR"
+
+# Allowlist copy. Anything not listed here is excluded from the install.
+# Adding a new top-level dir? Add it here.
+ALLOWLIST_DIRS="skills examples docs terrariums viewer smoke"
+ALLOWLIST_FILES="README.md CHANGELOG.md RELEASE_NOTES.md vercel.json"
+
+for d in $ALLOWLIST_DIRS; do
+  if [ -d "$SCRIPT_DIR/$d" ]; then
+    run cp -r "$SCRIPT_DIR/$d" "$SKILLS_DIR/$d"
+  fi
+done
+
+for f in $ALLOWLIST_FILES; do
+  if [ -f "$SCRIPT_DIR/$f" ]; then
+    run cp "$SCRIPT_DIR/$f" "$SKILLS_DIR/$f"
+  fi
+done
+
+# mcp-server: ship only bundle.js + package.json (no src/, no node_modules)
+maybe_mkdir "$SKILLS_DIR/mcp-server"
+run cp "$SCRIPT_DIR/mcp-server/bundle.js" "$SKILLS_DIR/mcp-server/bundle.js"
+run cp "$SCRIPT_DIR/mcp-server/package.json" "$SKILLS_DIR/mcp-server/package.json"
+
+INSTALL_PATH="$SKILLS_DIR/mcp-server/bundle.js"
+
+echo ""
+echo "LLM Wiki Bridge installed to:"
+echo "  $SKILLS_DIR"
+echo ""
+echo "Next steps:"
+echo ""
+echo "1. Set your vault path:"
+echo "   export VAULT_PATH=/path/to/your/vault"
+echo ""
+echo "2. Add to your .mcp.json:"
+echo ""
+echo '{'
+echo '  "mcpServers": {'
+echo '    "vault-mind": {'
+echo '      "command": "node",'
+echo "      \"args\": [\"$INSTALL_PATH\"],"
+echo '      "env": { "VAULT_PATH": "YOUR_VAULT_PATH" }'
+echo '    }'
+echo '  }'
+echo '}'
+echo ""
+echo "3. Add to CLAUDE.md (Personas section):"
+echo ""
+echo "## Vault Personas"
+echo ""
+echo "Your markdown vault is managed by a 6-persona virtual team:"
+echo ""
+echo "| Persona | Skill | What it does |"
+echo "|---------|-------|--------------|"
+echo "| Librarian  | \`/vault-librarian\`  | Search + read with citations |"
+echo "| Architect  | \`/vault-architect\`  | Run concept_graph, summarize changes |"
+echo "| Curator    | \`/vault-curator\`    | Detect orphans, stale notes, duplicates |"
+echo "| Teacher    | \`/vault-teacher\`    | Explain how a concept relates to others |"
+echo "| Historian  | \`/vault-historian\`  | Time-window search by mtime |"
+echo "| Janitor    | \`/vault-janitor\`    | Propose orphan/duplicate/broken-link fixes |"
+echo ""
+echo "4. Try it:"
+echo "   /vault-librarian what is attention heads"
+echo ""
+echo "5. View your vault graph:"
+echo "   open https://obsidian-llm-wiki.vercel.app"
+echo ""
+echo "Demo vault: https://obsidian-llm-wiki.vercel.app"
+echo "Source: https://github.com/2233admin/obsidian-llm-wiki"
+echo ""

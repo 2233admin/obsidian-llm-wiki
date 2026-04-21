@@ -36,11 +36,13 @@ ARCHIVE_DIRS = {"09-Archive", "10-External"}
 MIN_ALIAS_LEN_ASCII = 4
 MIN_ALIAS_LEN_CJK = 3
 
-FENCE_RE = re.compile(r"```.*?```", re.DOTALL)
-INLINE_CODE_RE = re.compile(r"`[^`\n]+`")
-WIKILINK_RE = re.compile(r"\[\[[^\]]+\]\]")
-MDLINK_RE = re.compile(r"\[[^\]]*\]\([^)]+\)")
-FRONTMATTER_RE = re.compile(r"\A---\n.*?\n---\n", re.DOTALL)
+try:
+    from ._md_parse import parse_frontmatter
+    from ._md_parse import strip_noise as strip_markdown_noise
+except ImportError:
+    from _md_parse import parse_frontmatter
+    from _md_parse import strip_noise as strip_markdown_noise
+
 H1_RE = re.compile(r"^#\s+(.+)$", re.MULTILINE)
 
 
@@ -62,38 +64,6 @@ class Suggestion:
 
 def is_cjk(s: str) -> bool:
     return any("\u4e00" <= c <= "\u9fff" for c in s)
-
-
-def parse_frontmatter(text: str) -> dict:
-    """Minimal YAML subset: strings, bracketed lists, bullet lists under key."""
-    m = FRONTMATTER_RE.match(text)
-    if not m:
-        return {}
-    fm = m.group(0)
-    out: dict = {}
-    current_key: str | None = None
-    for raw in fm.splitlines():
-        if raw.strip() in ("", "---"):
-            continue
-        if re.match(r"^[A-Za-z_][\w-]*\s*:", raw):
-            k, _, v = raw.partition(":")
-            k = k.strip()
-            v = v.strip()
-            if v.startswith("[") and v.endswith("]"):
-                out[k] = [x.strip().strip("'\"") for x in v[1:-1].split(",") if x.strip()]
-                current_key = None
-            elif v:
-                out[k] = v.strip("'\"")
-                current_key = None
-            else:
-                out[k] = []
-                current_key = k
-        elif current_key and raw.lstrip().startswith("- "):
-            val = raw.lstrip()[2:].strip().strip("'\"")
-            lst = out.get(current_key)
-            if isinstance(lst, list):
-                lst.append(val)
-    return out
 
 
 def collect_aliases(path: Path, text: str) -> NoteEntry:
@@ -143,12 +113,7 @@ def build_index(vault: Path, skip_dirs: set[str]) -> dict[str, NoteEntry]:
 
 
 def strip_noise(text: str) -> str:
-    t = FRONTMATTER_RE.sub("", text, count=1)
-    t = FENCE_RE.sub("", t)
-    t = INLINE_CODE_RE.sub("", t)
-    t = WIKILINK_RE.sub("", t)
-    t = MDLINK_RE.sub("", t)
-    return t
+    return strip_markdown_noise(text, strip_wikilinks=True, strip_mdlinks=True)
 
 
 def scan_file(path: Path, text: str, index: dict[str, NoteEntry]) -> list[Suggestion]:

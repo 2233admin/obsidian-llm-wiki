@@ -487,3 +487,1318 @@ Codex or Claude own-report:
 - Or: build a first consumer of graph.json (viz? backlink MCP tool? vault
   health report?) -- graph is now rich enough (2507 edges) to drive one
 - Roadmap file: C:/Users/Administrator/.claude/plans/breezy-stargazing-chipmunk.md
+
+
+## 2026-04-20 -- spec-D: Scaffold (setup + cytoscape viewer + vercel) COMPLETE
+
+### What done
+
+- `.compile/specD-scaffold/` produced per spec-D output contract:
+  - `setup` -- POSIX bash script, works under Git Bash/macOS/Linux
+    - `--host claude|codex|opencode|gemini` flag
+    - `--dry-run` prints what it WOULD do, no side effects
+    - Detects missing host dir and exits non-zero with actionable error
+    - Installs skill files to `~/.{claude,codex}/skills/vault-wiki/` etc.
+    - Prints .mcp.json snippet + CLAUDE.md personas table to stdout
+    - Cleans up setup scripts from install target
+    - Never uses sudo, never installs npm/pip
+  - `setup.ps1` -- PowerShell sibling with same semantics
+  - `viewer/index.html` -- static single-file page, no build step
+  - `viewer/viewer.js` -- cytoscape + cose-bilkent loaded from unpkg CDN
+  - `viewer/viewer.css` -- raw CSS, 104 lines (well under 200-line limit)
+  - `viewer/sample-graph.json` -- pre-committed specB demo graph (10 nodes, 70 edges)
+  - `vercel.json` -- static deploy pointing to viewer/, zero functions
+
+### Acceptance checklist (all pass)
+
+- [x] `bash setup --host claude --dry-run` prints dry-run + next steps, no side effects
+- [x] `bash setup --host codex|opencode|gemini --dry-run` each prints plausible target dir
+- [x] Setup fails cleanly if parent dir missing (actionable error, no stack trace)
+- [x] Viewer: `grep -i 'require\|import' viewer/*.js` -- only CDN URL strings match
+- [x] `vercel.json` has zero functions keys, `outputDirectory: viewer`
+- [x] CSS is raw CSS, no tailwind/bootstrap (104 lines)
+- [x] All 7 output files present
+
+### Known risk
+
+- Cytoscape + cose-bilkent loaded from unpkg CDN on each page open.
+  Acceptable for demo; noted in README as "first load may feel laggy".
+
+---
+
+## Session handoff -- 2026-04-20 06:50 (v2 dispatch + integration)
+
+### What done
+
+- KT routed to MiniMax-M2.7-highspeed via OpenAI-compat path
+  (api.minimaxi.com/v1, profile minimax-local, key in MINIMAX_API_KEY env).
+- 5 worker dispatch executed via `kt run swe --mode cli --no-session`
+  in 3 waves (A+B parallel; C+D parallel; E solo). All 5 specs PASSED
+  HMS gates against acceptance checklists + reject signals. Total burn
+  ~260k tokens, ~30 min wall-clock.
+- v2-staging branch created off main (post bugfix commit 71b0492).
+- 7 atomic commits on v2-staging integrating spec A-E outputs:
+  - 524b339 docs(plan)         -- v2 requirements + 5 specs
+  - e752ba9 feat(personas)     -- 6 skills + KT creature configs
+  - cec28b6 feat(examples)     -- demo-vault (10 notes + graph)
+  - 3f56883 docs(readme)       -- v2 README + WHY_NOT_JUST_GREP + INSTALL
+  - d9a5e88 feat(scaffold)     -- setup + viewer + vercel
+  - 39eba87 feat(kt)           -- terrarium + smoke + KT_DOGFOOD
+  - 7c1729a fix(examples)      -- rebuild graph.json (unresolved=1 fix)
+- Smoke verified: setup --dry-run all 4 hosts (claude/codex/opencode/gemini)
+  prints correct target dirs + paste-able mcp.json + CLAUDE.md snippet;
+  bad host fails clean. README 96 lines, tagline 10 words, 4 example
+  prompts, MIT license. Demo graph rebuilds clean (11 nodes / 70 edges
+  / unresolved=1).
+
+### Known gaps (carried to next session)
+
+- [P2] setup script copies whole repo (.git/.compile/mcp-server/node_modules
+  inflates install). Should select skills/, examples/, docs/, mcp-server/
+  (sans node_modules), terrariums/, viewer/ explicitly.
+- [P2] docs/gif/demo.gif placeholder -- recording per spec-C gif-script.md
+  is a separate task (pre-tag would be ideal).
+- [P3] terrarium yaml uses flat layout (root/creatures/channels at top
+  level, not nested under terrarium:). Worker's interpretation; verify
+  against actual KT terrarium parser before declaring it "validated".
+- [P3] smoke/03-smoke-script.sh is manual checklist mode -- automated
+  end-to-end not yet executed; needs MINIMAX_TOKEN export + kt installed
+  on whatever box runs it.
+- [P3] M2.7-highspeed + KT sub-agents = broken (tool_id mismatch).
+  Workers use direct tools only via prompt guardrail. Worth filing
+  upstream issue against KT or MiniMax provider.
+
+### Next step
+
+1. Eyeball v2-staging diff once more (`git log --oneline main..v2-staging`).
+2. `git push -u origin v2-staging`.
+3. `git tag v2.0.0-rc1 && git push origin v2.0.0-rc1` (announces v2 line
+   without disturbing v1.0.0 stable tag).
+4. `vercel deploy --prod` against viewer/ (may need `vercel link` first).
+5. Record demo GIF per docs/gif-script.md.
+6. Address P2 follow-ups (setup leanness + GIF) before promoting v2-staging
+   -> main as v2.0.0 final.
+
+
+## 2026-04-20 evening session 2 -- install leanness + viewer fixes + strategic pivot
+
+### What done (2 atomic commits on v2-staging)
+
+- 9d790c7 feat(install): bundle MCP server + lean allowlist + restore MIT
+  - esbuild --bundle dist/index.js -> mcp-server/bundle.js (1.5 MB,
+    self-contained, ESM with createRequire shim for ws CJS interop)
+  - npm run bundle + npm run rebuild scripts; main switched to bundle.js
+  - setup / setup.ps1: explicit allowlist (skills, examples, docs,
+    terrariums, viewer, smoke, top-level docs, mcp-server/{bundle.js,
+    package.json}). Fail fast if bundle missing. PS variant uses
+    -VaultHost (not -Host -- $Host is reserved in PowerShell).
+  - README quick-start fixed (clones to sibling dir; old command
+    cloned full repo into install dir, bypassing setup entirely)
+  - docs/INSTALL.md rewritten v1 -> v2 (v1 referenced npm install +
+    tsc + yaml prompt + ~/.claude.json registration + smoketest --
+    none of which the current setup actually does)
+  - LICENSE restored from first commit d0f212c (was lost when v2
+    work started on a fresh branch). License inconsistency fixed:
+    package.json said GPL-3.0 (stray scaffold) while README + legacy
+    LICENSE both said MIT. README/intent wins; corrected to MIT.
+  - .gitignore: ignore mcp-server/smoke.{in,out,err} test artifacts
+  - Verified: install 1.6 MB / 406 ms (was 64 MB), boot 76 ms,
+    MCP initialize + tools/list + vault.list all valid JSON-RPC
+
+- 1b153d9 fix(viewer): graph actually renders -- 4 bugs into a blank canvas
+  - Before: stats said "nodes: 10 / edges: 70" but canvas was empty
+  - Drop cose-bilkent CDN chain (needs layout-base + cose-base loaded
+    first); switched to cytoscape's built-in cose layout (zero extension).
+  - Materialize ghost nodes for missing edge targets; classify by
+    edge.kind so tags get tag style, real missing notes get
+    unresolved style.
+  - Stop swallowing render errors. Old .catch(()=>{}) masked every
+    cytoscape failure. Now distinguishes 404 (silent) from real errors.
+  - Add styling for kind=unresolved (dark fill, dashed red border).
+  - Verified in headless playwright at 1440x900 + 390x844: real graph
+    renders, 10 concept nodes (blue) + 17 tag nodes (purple) + 70 edges
+    + 1 unresolved link as dashed-red ghost. Zero console errors.
+
+### Strategic pivot (key for next session)
+
+Surface read of UX work shifted twice:
+
+1. After viewer fix, proposed Tier 1-3 of further viewer polish.
+2. Cross-checked with Codex (TTY-blocked, but agent self-assessed) +
+   GitHub research. Found Juggl (HEmile/juggl) -- mature
+   cytoscape-based Obsidian graph plugin doing what we were
+   independently rediscovering. Codex flagged "bake demo graph
+   inline + click-highlight neighbors" as highest leverage.
+3. Curry pushed back fundamentally: "前端不是必须要的 跟你自然交互
+   才是最好的解决方案" = the conversation IS the interface, not the
+   viewer/frontend. Karpathy LLM Wiki philosophy: vault is the
+   precipitate of conversations, not a thing you visualize.
+
+### What blocked
+
+None. Strategic direction confirmed: stop investing in viewer
+beyond 1b153d9, refocus on conversation quality (personas + MCP
+tool descriptions + first-prompt UX + cold-start for empty vaults).
+
+### Next step (next session opener -- not started)
+
+1. Audit pass on conversation surface (~150 lines of notes):
+   - Read all 6 persona skill files (vault-librarian, -architect,
+     -curator, -teacher, -historian, -janitor) -- prompts delightful?
+     Cite well? Fail gracefully?
+   - Read MCP server tool descriptions in mcp-server/dist/ (or src/) --
+     full vault.{create,append,delete,rename,etc} surface, not just
+     read/list/search. Are descriptions ergonomic for LLM tool selection
+     or just technically accurate one-liners?
+   - First conversation path: after install, what does user type first?
+     Currently zero guidance. Need STARTERS.md or single line printed
+     by setup (Try: /vault-librarian summarize my 3 most recent notes).
+   - vault-mind.yaml: auto-generate from setup vs drop entirely in
+     favor of env vars only.
+2. Cold-start question (Curry raised at session end): new users
+   without an existing vault. Three solution paths to evaluate:
+   (a) Starter vault template in repo (seed 10-20 notes)
+   (b) Add 7th persona vault-gardener -- I have nothing, help me
+       start; uses existing vault.create / vault.append tools to
+       write notes during conversation. Most aligned with Karpathy
+       vault-as-conversation-precipitate philosophy.
+   (c) Importer (Notion / Apple Notes / docx -> markdown). High
+       effort, not differentiator.
+   Audit should rank these.
+3. Output: P0/P1/P2 fix list + verdict on vault-gardener persona.
+
+### Known gaps still open (carried forward)
+
+- [P0-product] docs/gif/demo.gif placeholder. README hero is literally
+  a broken image link. Curry mentioned hyperframes
+  (https://github.com/heygen-com/hyperframes) as the tool to generate
+  this. Higher first-impression leverage than any remaining viewer
+  or persona polish, per the pivot.
+- [P1] vercel deploy + push v2-staging to origin + tag v2.0.0-rc1 --
+  explicitly deferred this session per Curry. Once persona audit
+  lands, push becomes the natural next checkpoint.
+- [P2] In-browser file:// fallback for viewer (graceful fallback when
+  fetch sample-graph.json blocked by CORS at file:// open). Inline
+  sample-graph.json into index.html as window.SAMPLE_GRAPH=. Codex
+  tier-1 pick but parked when viewer dropped from critical path.
+- [P3] Bundle vs source drift CI check (no enforcement that
+  mcp-server/bundle.js matches npm run bundle output)
+- [P3] .gitattributes mark mcp-server/bundle.js linguist-generated
+  so PR diffs collapse it
+- [P3] terrarium yaml flat layout still unverified against actual
+  KT parser
+
+### v2-staging branch state
+
+10 commits ahead of main. Working tree clean.
+First action next session: cd D:/projects/obsidian-llm-wiki &&
+git status && tail -100 progress.txt && open the 6 persona files
+in skills/ to begin the audit.
+
+
+## 2026-04-20 (late-late) -- persona + MCP tool description audit (read-only)
+
+### What done (no code changes, read-only audit + strategy decisions)
+
+Audited the 6 persona skills (vault-librarian, -architect, -curator,
+-teacher, -historian, -janitor) against the actual MCP tool surface
+(operations.ts + index.ts dispatch). Cross-referenced with
+skills/mcp-tools-reference.md. Produced 12 P0/P1/P2 findings +
+three strategic decisions. Nothing was written to code.
+
+### Audit findings (12 items) -- to execute next session
+
+P0 (correctness bugs that misfire today):
+- #1 vault-curator.md describes "Stale Notes (90+ days)" section --
+  vault.lint does NOT produce stale-notes data (handler returns only
+  orphans / brokenLinks / emptyFiles / missingFrontmatter /
+  duplicateTitles). Either add staleNotes to vault.lint, or strip
+  the section from the persona.
+- #2 skills/mcp-tools-reference.md has drifted from operations.ts:
+    - doc says op "neq"/"not_exists", code expects "ne" and lacks
+      "not_exists" entirely (valid ops at index.ts:358:
+      eq, ne, gt, lt, gte, lte, contains, regex, exists)
+    - vault.delete "force: true" documented, param does not exist
+    - vault.search "context: N" documented, not implemented
+    - vault.graph "type: backlinks/outgoing/both" documented,
+      handler ignores the param entirely
+  Best fix: delete parallel doc, auto-generate from operations.ts
+  descriptions at build time (same SSOT pattern used by index.ts).
+- #3 vault.graph declares enum param `type` (operations.ts:177) but
+  handler ignores it (index.ts:391-421). Schema lies to the LLM.
+  Either wire up or drop the param.
+- #4 vault.externalSearch is registered but always throws
+  "No external search engine configured" -- dead tool in tools/list
+  degrades tool-selection quality. Gate registration on config or
+  return {available:false} instead of throwing.
+
+P1 (descriptions underinform tool selection):
+- #5 Most tool descriptions are 3-word sentences.
+  query.unified vs query.search vs query.explain all say "search";
+  LLM cannot disambiguate multi-adapter-weighted vs filesystem-only
+  vs top-10-with-3-line-context without reading the source.
+  vault.enforceDiscipline + vault.reindex already show the right
+  verbose style -- mimic for the others.
+- #6 vault-architect.md template shows "Unresolved: K" but
+  vault.graph returns only `orphans` (no unresolvedLinks count).
+  Either template drops the line or graph op adds the field.
+- #7 vault-historian.md asks the model to sort by mtime but mtime
+  only comes from vault.stat (1 call per note; 20-result window =
+  20 roundtrips). Add mtime to searchByFrontmatter results or add
+  sort=mtime to vault.list.
+- #8 No persona specifies MCP-unavailable fallback. Librarian has
+  "no source found" -- others don't handle adapter-down. Add one-line
+  fallback per persona per feedback-graduated rule 8 (memory-route-first).
+
+P2 (ergonomics that compound):
+- #9 (revised) Cold-start gap. Build vault-gardener persona. Headless,
+  uses vault.create / vault.append, no plugin deps. See strategic
+  decisions below -- the original proposed vault.import tool is
+  KILLED; bulk ingest goes via Obsidian native CLI + Importer plugin.
+- #10 No first-prompt UX after install. Emit one line from stderr
+  startup banner (or print STARTERS.md): "Try: ask `what do I know
+  about X` to invoke vault-librarian."
+- #11 vault-janitor "Max 10 deletions per session" is persona-prompt-only,
+  not server-enforced. Either enforce in vault.delete or accept as
+  soft norm and document.
+- #12 skills/mcp-tools-reference.md covered by #2 -- auto-gen or delete.
+
+### Strategic decisions (Curry-confirmed this session)
+
+1. KILL the proposed `vault.import` tool. We do not write format
+   converters. Obsidian ships a NATIVE CLI
+   (https://obsidian.md/cli, opt-in in Settings), binary `obsidian`,
+   with commands daily/search/create/tasks/read/write/plugin:reload/
+   devtools/eval/sync. `obsidian eval "app.commands.executeCommandById(
+   'obsidian-importer:open-modal')"` drives any installed plugin.
+   Bulk ingest of existing corpora goes through the native CLI +
+   Obsidian Importer plugin + existing community plugins. Zero
+   conversion code in this repo.
+
+2. KEEP vault-gardener persona (original option b). Pure headless,
+   uses vault.create / vault.append, no plugin dependency. Does NOT
+   overlap with bulk import -- gardener is for conversational
+   empty-vault seeding, not mass data landing. Option (a) starter
+   template could ship as --seed flag on vault.init, low priority.
+
+3. obsidian-vault-bridge (master branch, separate project) gets a
+   strategic repositioning. NOT "WebSocket adapter for Obsidian
+   plugins" (native CLI made that redundant). NEW role =
+   multi-agent coordination + corpus-landing bus:
+     a) multi-agent discovery (other agents find it)
+     b) event stream subscription (vault + other source feeds
+        push to subscribers)
+     c) DB writes for language corpus cleaning workflows
+        (memU pgvector / DuckDB / PG18 are existing backends)
+   Corpus-landing pipeline is the primary consumer
+   (hist-mat entbergen, Sprachwelt training data, Gemma 4 QLoRA,
+   quant-terminal Trading-R1 distillation -- all bench on the
+   same pattern). The Obsidian CLI's "app must be running"
+   constraint is identical to bridge's, so CLI vs bridge is an
+   implementation-mechanism choice, not a capability choice.
+   Full design in separate memory file:
+   ~/.claude/projects/C--Users-Administrator/memory/project_bridge_architecture_v2.md
+
+### Headless / bridge boundary (confirmed)
+
+- Headless-capable (Obsidian not required): pure filesystem ops --
+  read/list/create/modify/append/delete/rename/search/searchByTag/
+  searchByFrontmatter/graph/backlinks/lint/getMetadata/stat/exists.
+  All the current vault.* tools stay headless.
+- Bridge-required (Obsidian must be running): anything that hits
+  Obsidian runtime -- plugin commands, Obsidian metadata cache,
+  Templater rendering, Dataview queries, Importer conversions.
+  Native CLI has the same constraint.
+
+### What blocked
+
+Nothing. All 12 fixes are file-scoped, minimal diff.
+
+### Next step (next session opener)
+
+1. Execute audit fixes on v2-staging in this order:
+   P0 #1 (curator stale section) -> P0 #2 (mcp-tools-reference
+   auto-gen or delete) -> P0 #3 (graph type param) -> P0 #4
+   (externalSearch dead tool) -> P1 #5 (verbose descriptions for
+   query.unified/search/explain + vault.search + vault.lint) ->
+   P1 #6-#8 -> P2 #10-#11.
+2. Build vault-gardener persona. Template after existing 6.
+   Tool budget: vault.create, vault.append, vault.init (optional).
+3. Re-evaluate skills/mcp-tools-reference.md -- likely delete
+   and replace with `npm run generate-tools-doc` that emits from
+   operations.ts.
+
+### Deferred (separate session)
+
+- obsidian-vault-bridge architecture v2 implementation (design
+  captured in project_bridge_architecture_v2.md memory).
+- docs/gif/demo.gif placeholder still.
+- vercel deploy + push v2-staging to origin + tag v2.0.0-rc1
+  (waits for audit fixes to land).
+
+### v2-staging branch state
+
+10 commits ahead of main. Working tree clean. This session made
+zero code changes (read-only audit + strategy decisions only).
+First action next session: cd D:/projects/obsidian-llm-wiki &&
+git status && tail -200 progress.txt && start fixing P0 #1.
+
+## 2026-04-20 late-late-late -- audit fixes #1-#11 + gardener COMPLETE
+
+### What done
+
+All 12 audit items from the previous session's Next-Step block landed
+in three atomic commits on v2-staging.
+
+- b5ddf83 fix: P0 audit fixes (#1-#4)
+  - #1 vault-curator "Stale Notes (90+ days)" section stripped from
+    both skills/ and creatures/ copies (vault.lint never produced
+    mtime data; persona was promising output the handler couldn't
+    deliver).
+  - #2 skills/mcp-tools-reference.md deleted. operations.ts
+    descriptions are now single source of truth. Auto-generator
+    (npm run generate-tools-doc) deferred until actually needed.
+  - #3 vault.graph `type` param wired in VaultFs.dispatch (index.ts).
+    Filters edges by whether target note exists. Accepts
+    resolved | unresolved | both (default both). Throws -32602 on
+    invalid value. Response includes `type: linkType` for round-trip
+    verification.
+  - #4 vault.externalSearch removed entirely from operations.ts and
+    VaultFs.dispatch. Previously always threw "no engine configured"
+    and degraded tool-list quality for LLM planners. Re-register
+    conditionally if/when an external adapter ships.
+
+- b0d4515 feat: P1/P2 audit fixes (#5-#11)
+  - #5 Verbose descriptions for vault.search, vault.lint, vault.graph,
+    query.unified, query.search, query.explain so the LLM can
+    disambiguate overlapping-but-different tools (filesystem grep vs
+    multi-adapter ranked search vs prose-summary fan-out) without
+    reading the source.
+  - #6 vault.graph returns `unresolvedLinks: number` (count of nodes
+    with exists=false). vault-architect template
+    "Nodes: N  Edges: M  Unresolved: K" is now backed by real data.
+  - #7 vault.searchByFrontmatter includes `mtime` (mtimeMs) on each
+    result via an internal pushWithMtime helper. Eliminates the
+    N-roundtrip vault.stat fan-out vault-historian previously needed
+    to sort by recency.
+  - #8 MCP-adapter-unavailable fallback added to architect, historian,
+    janitor, teacher, librarian personas (curator already had one).
+    Each names a specific fallback tool chain rather than failing
+    open. Applied to both skills/ and creatures/ copies.
+  - #10 Startup banner: stderr now emits a first-prompt hint after
+    the adapter list --
+    `obsidian-llm-wiki: try "what do I know about <topic>" to invoke
+    vault-librarian` -- so new users see a concrete entry point.
+  - #11 vault-janitor "Max 10 deletions per session" clarified as
+    self-enforced review-safety norm, not server-side cap. Persona-
+    level discipline rather than code enforcement per audit decision
+    "accept as soft norm and document".
+
+- 765e4ca feat: add vault-gardener persona (audit #9)
+  - New headless persona. Tool budget:
+    vault.list / vault.init / vault.create / vault.append.
+  - dryRun=true default like janitor, max 5 starter notes per
+    session, never overwrite existing notes.
+  - Scope: conversational empty-vault seeding ONLY. Does NOT overlap
+    with bulk corpus ingest (that goes through Obsidian native CLI +
+    Importer plugin per previous session's strategic decisions).
+  - vault.init fallback to vault.create+minimal _index.md when no
+    filesystem adapter.
+  - Mirrors the 6-persona template: skills/vault-gardener.md +
+    creatures/vault-gardener/config.yaml (MiniMax-M2.7-highspeed,
+    same controller block as other creatures) +
+    creatures/vault-gardener/prompts/system.md.
+
+### Verification
+
+- typecheck: 0 errors (tsc --noEmit)
+- build: clean (tsc)
+- tests: 86/86 pass after each commit (node --test dist/**/*.test.js)
+- No behavioral regressions in existing persona tool chains; all
+  changes are additive (new fields, new descriptions, new fallbacks)
+  except the externalSearch removal and mcp-tools-reference deletion
+  -- neither of which had runtime consumers.
+
+### Engineering notes for next editor
+
+- VaultFs.dispatch edge-key encoding uses a literal NULL byte
+  (`\0`) between from/to, not a space. `cat -n` and the Read tool
+  both render NULL as a visible space, so text-based search tools
+  lie about what is in the file. `od -c` is the only reliable check
+  when editing that region. This tripped the first attempt at P0 #3
+  and is worth remembering if anyone touches vault.graph or
+  vault.backlinks in the future.
+- operations.ts descriptions are now the LLM-visible documentation.
+  Keep them verbose enough for tool-selection but under ~300 chars.
+  The vault.enforceDiscipline + vault.reindex style was used as the
+  template: verb + scope + disambiguation vs sibling tools + default
+  behavior.
+- Every persona now has a one-line MCP-unavailable fallback in its
+  Constraints block. If new personas are added later, keep the
+  pattern so we don't regress.
+
+### What blocked
+
+Nothing.
+
+### Next step (next session opener)
+
+Audit backlog is empty. Next session starts on Deferred items
+(user-scoped, not mine to touch without confirmation):
+
+1. Push v2-staging to origin GitHub + tag v2.0.0-rc1. This is a
+   shared-state action -- confirm with Curry before pushing. Current
+   state: 13 commits ahead of main, branch has not been published
+   yet.
+2. obsidian-vault-bridge architecture v2 implementation (separate
+   repo, design captured in project_bridge_architecture_v2.md
+   memory).
+3. docs/gif/demo.gif placeholder replacement.
+4. Optional: write a `npm run generate-tools-doc` script that emits
+   a fresh tool reference from operations.ts descriptions at build
+   time, to avoid future drift (deferred from P0 #2).
+
+### v2-staging branch state
+
+13 commits ahead of main. Working tree clean. This session landed
+three code commits (b5ddf83, b0d4515, 765e4ca). First action next
+session: cd D:/projects/obsidian-llm-wiki && git status &&
+git log --oneline main..v2-staging && decide push vs continue work.
+
+## 2026-04-20 night -- Deferred #4 (generate-tools-doc) DONE
+
+### What done
+
+- mcp-server/src/scripts/generate-tools-doc.ts: 100-line script that
+  imports makeAllOperations(), passes null-cast stub deps (handlers
+  are never invoked, only metadata is read), groups ops by namespace
+  in fixed order (vault, query, compile, recipe, agent), emits
+  markdown. Zero runtime deps beyond node:fs.
+- docs/mcp-tools-reference.md: first generated output, 418 lines,
+  9907 chars, 38 ops across 5 namespaces. Auto-banner forbids hand
+  edits, points at the regen command.
+- package.json: added `npm run generate-tools-doc` -- runs
+  dist/scripts/generate-tools-doc.js after build.
+- mcp-server/src/scripts/generate-tools-doc.test.ts: drift guard
+  asserts on-disk doc equals generator output right now + checks all
+  5 namespace headers are present.
+
+### Commits
+
+- cb58442 feat(mcp): generate-tools-doc script + auto-generated
+  docs/mcp-tools-reference.md
+- fbd6ed0 test(mcp): drift guard for mcp-tools-reference.md
+
+### Verification
+
+- npm run build: clean (tsc, 0 errors)
+- npm test: 88/88 pass (86 baseline + 2 new drift tests)
+- Generator output is deterministic (second run identical to first;
+  drift test passes immediately after regen)
+- Bisect sanity: cb58442 adds script + doc + config only, no existing
+  test touched -- should remain green on its own.
+
+### Engineering notes for next editor
+
+- Stub-deps trick: AllOperationsDeps for makeAllOperations takes
+  CompileTrigger + AdapterRegistry + python/compilerPath/vaultPath.
+  The generator passes `null as never` for compileTrigger/registry,
+  empty strings for the paths. Works because Operation metadata
+  (name/description/params/mutating/namespace) is plain data and
+  handler closures are never invoked. If future ops start doing
+  work at module load (not inside handlers), this will break --
+  prefer keeping factories lazy.
+- Path arithmetic: dist/scripts/generate-tools-doc.js lives 3 levels
+  below repo root (dist/scripts/ -> dist/ -> mcp-server/ -> root).
+  First attempt used 4 levels and wrote to D:/projects/docs/ by
+  accident -- watch out if the script ever moves directories.
+- The doc generator uses operations.ts DESCRIPTIONS verbatim. If you
+  tighten an LLM-facing description in operations.ts, re-run
+  `npm run generate-tools-doc` and commit the doc alongside the
+  operation change, or the drift test will fail CI / local build.
+
+### What blocked
+
+Nothing.
+
+### Known gaps (P2/P3)
+
+- P2: generator includes no example request/response per tool.
+  operations.ts has no sample responses to pull from; adding one
+  would require a new metadata field. Decision: defer until someone
+  asks. Current descriptions + param tables are enough for tool-
+  selection by the LLM.
+- P3: npm run build does NOT chain to generate-tools-doc. If someone
+  edits operations.ts and forgets to regen, the drift test catches
+  it on `npm test`, not on `npm run build`. Acceptable because test
+  is the correct gate (build should stay pure), but worth knowing.
+- P3: script hard-codes NAMESPACE_ORDER. A future namespace (e.g.
+  vaultbrain.*) is appended after the known list at end of doc --
+  correct by construction but order is insertion-order not
+  alphabetical. Low priority.
+
+### Next step (next session opener)
+
+Deferred list. Two items just closed in this session (generate-tools-doc
++ push/tag). Remaining:
+
+1. obsidian-vault-bridge architecture v2 implementation (separate
+   local project at D:/projects/obsidian-vault-bridge/, design captured
+   in project_bridge_architecture_v2.md memory).
+2. docs/gif/demo.gif placeholder replacement.
+3. Open PR v2-staging -> main on GitHub to start the v2 merge conversation.
+   GitHub emitted the PR-create URL on push:
+   https://github.com/2233admin/obsidian-llm-wiki/pull/new/v2-staging
+4. Consider writing release notes for v2.0.0-rc1 on GitHub Releases UI
+   (tag is pushed, no GitHub release object yet).
+
+### Repo housekeeping surfaced this session (not acted on)
+
+- `origin/master` is NOT orphaned plugin legacy -- it is Curry's active
+  `obsidian-vault-bridge` work using the same GitHub remote as this
+  repo (two projects, one GitHub repo, two disconnected histories).
+  `legacy-v0.1.0-obsidian-plugin` branch archives the ORIGINAL plugin
+  v0.1.0 at SHA 3c045ff; current `master` at 087152b is a different,
+  later line. master MUST NOT be deleted. Long-term tidy: split bridge
+  into its own GitHub repo so the two projects don't share a remote.
+- obsidian-vault-bridge/.git/config has its gitea remote URL with an
+  embedded plaintext token. Cosmetic P1: migrate to credential helper.
+
+### v2-staging branch state
+
+Pushed to origin (first-time, upstream set). 15 commits ahead of main.
+Tag v2.0.0-rc1 on ba3451d pushed to origin. Working tree clean.
+Three code commits this session (cb58442, fbd6ed0, ba3451d). First
+action next session: decide whether to open PR v2-staging -> main.
+
+## 2026-04-21 -- v2 shipped for download (PR #4 + release live)
+
+### What done
+
+- Rebrand commit 8bb3be0 lands (14 files, display prose only): README
+  H1+pitch, CLAUDE.md H1, setup/setup.ps1 banners, REQUIREMENTS H1 +
+  install prefix, .outreach/{show-hn,x-thread}, viewer title+h1,
+  demo-vault + creatures READMEs, WHY_NOT_JUST_GREP, gif-script,
+  dogfood-log.sh, vault-mind.example.yaml. Closes step 5/6 of
+  rebrand workflow. Negative grep: 30 residual slug mentions, all
+  technical (URLs, npm scope, clone paths, serverInfo.name, ROOT).
+- v2-staging pushed to origin (8df1848..8bb3be0).
+- PR #4 opened v2-staging -> main with install-first body:
+  https://github.com/2233admin/obsidian-llm-wiki/pull/4
+- GitHub prerelease v2.0.0-rc1 created (tag was already pushed; no
+  body previously). Landing page leads with 30-second paste-install
+  for bash + PowerShell + --host flag variants:
+  https://github.com/2233admin/obsidian-llm-wiki/releases/tag/v2.0.0-rc1
+
+### Verification
+
+- git log shows 8bb3be0 on v2-staging (push output confirmed
+  8df1848..8bb3be0 received).
+- `gh pr create` returned URL #4 (200 OK implicit).
+- `gh release create` returned URL tag v2.0.0-rc1 (200 OK implicit).
+
+### Known gaps (P2/P3)
+
+- P2: tag v2.0.0-rc1 still points to ba3451d (pre-rebrand). Users who
+  land on the Release page and click "source code (tag)" will see
+  pre-rebrand H1 briefly. Fix (if desired): force-move tag to 8bb3be0
+  and `git push origin +v2.0.0-rc1` + `gh release edit v2.0.0-rc1
+  --target 8bb3be0`. Not done this session -- mild inconsistency, no
+  downstream references to the tag commit yet.
+- P2: docs/gif/demo.gif still placeholder (README L5 references it).
+  Recording the demo flow would replace the broken image with a real
+  screencast of `/vault-librarian` in action.
+- P2: obsidian-vault-bridge v2 architecture impl not started (separate
+  local repo at D:/projects/obsidian-vault-bridge/, design in
+  project_bridge_architecture_v2.md memory).
+- P3: CRLF warnings on 7 files (autocrlf on Windows). Cosmetic; would
+  be resolved by adding `.gitattributes` with `* text=auto eol=lf`.
+
+### Next step (next session opener)
+
+Two natural forks:
+
+1. **Ship PR #4**: review merge criteria, either self-merge or invite
+   feedback first. Merging closes the v1.0 -> v2 cutover on `main` and
+   completes the "users can install from default branch" story.
+2. **Record demo.gif** for README L5 + release page (asciinema ->
+   gif conversion, or OBS). Biggest remaining install-UX friction
+   gap -- README currently shows a broken image.
+
+Deferred long-term: bridge v2 architecture, tag re-pointing.
+
+## 2026-04-21 afternoon -- Tag retarget + Step 1 (AI-Output sediment) shipped
+
+### What done (tag retarget)
+
+- v2.0.0-rc1 annotated tag force-moved from ba3451d to 4a92cfd
+  (post-rebrand HEAD of v2-staging). Annotation message refreshed in
+  place: "6-persona" -> "7-persona", and added a one-line note that
+  the tag was re-pointed + why (display-prose rebrand inclusion).
+- Remote tag updated via `git push origin +refs/tags/v2.0.0-rc1`.
+  GitHub Release object auto-follows the tag name; no gh release
+  edit needed. Verified: gh release view returns targetCommitish:
+  "v2-staging" with tag at 4a92cfd. Old tag commit bd87cb4 orphaned
+  and will be GC'd.
+- Release page "Source code (tag)" now resolves to post-rebrand
+  content (README H1 "LLM Wiki Bridge"), closing the minor
+  inconsistency flagged as P2 in the previous entry.
+
+### What done (Step 1: AI-Output sediment writeback + stale sweep)
+
+Landed the "persona outputs survive the session" design agreed in
+the design conversation (Voile Taggers three-gap analysis surfaced
+via Curry's introspection; dependency chain @ writeback -> provenance
+-> active-push). Branch `feat/ai-output-sediment` cut off
+`v2-staging` at 4a92cfd.
+
+Design decisions locked (see planning note
+`C:/Users/Administrator/.claude/plans/1-stale-clever-glacier.md`
+for full rationale; summary here):
+
+- **Schema**: 6-field frontmatter, all required on write:
+  generated-by / generated-at / agent / parent-query / source-nodes
+  / status. Each field prevents a distinct class of future
+  failure (who / when / what quality / why generated / from where
+  / still valid).
+- **Lifecycle**: exactly 3 legal transitions. draft->reviewed is
+  manual (human only). draft->stale is automatic (gardener by age
+  + non-AI-Output backlink test). reviewed->superseded is
+  semi-automatic (gardener reports candidates, human confirms).
+  Chose B->A (default trust + gardener sweep stale) over A->B
+  (default suspicion + human promotes reviewed) because the
+  maintenance cost axis of B->A is O(误判 rate) whereas A->B is
+  O(total volume).
+- **Directory**: {vault}/00-Inbox/AI-Output/{persona}/
+  YYYY-MM-DD-{slug}.md with per-persona subdirs. MVP simple;
+  schema carries enough info that graduating to flat + yaml-lookup
+  is a no-code change later if data justifies it.
+- **Stale thresholds**: architect=45d, gardener=30d, historian=180d,
+  librarian=60d, catch-all=60d. Hardcoded for MVP. Rationale:
+  architect ideas iterate, gardener reports are periodic,
+  historian facts age slowly, librarian is synthesis-medium.
+- **Backlink rule**: a file has a "real" backlink iff the source
+  file's own frontmatter does NOT carry `generated-by`.
+  AI-Output->AI-Output references are self-anchoring hallucination
+  chains and do not count as anchor votes.
+
+Commits on feat/ai-output-sediment (3, pushed to origin):
+
+- 0ec14cb feat(mcp): vault.writeAIOutput + vault.sweepAIOutput ops
+  - 3 files changed, +604 / -5
+  - mcp-server/src/core/operations.ts: 2 new op entries
+  - mcp-server/src/index.ts: 2 dispatch cases (+190 lines total);
+    also exported `class VaultFs` and guarded main() with
+    `import.meta.url === process.argv[1]` so importing VaultFs
+    from tests doesn't spin up StdioServerTransport (would hold
+    stdin open and block subsequent test files).
+  - mcp-server/src/ai-output.test.ts: NEW, 297 lines, 10 tests
+    covering dryRun write contract, frontmatter round-trip,
+    collision -2 suffix, persona validation, empty sourceNodes
+    serialization, threshold detection with injected `now`,
+    backlink exemption, AI-Output->AI-Output non-anchoring,
+    in-place status flip preserving body, supersede Jaccard gate.
+
+- 431ac48 feat(skills): AI-Output sediment convention + schema doc
+  - 8 files, +277 insertions
+  - skills/vault-{architect,curator,gardener,historian,janitor,
+    librarian,teacher}.md: appended per-persona Sediment
+    convention block with vault.writeAIOutput invocation template.
+  - skills/vault-gardener.md: additional Sweep convention block
+    instructing dry-run-first pattern + require explicit user
+    confirmation before dry_run:false.
+  - docs/ai-output-convention.md: NEW, ~120 lines. Schema table,
+    legal status transitions, per-persona thresholds, FAQ
+    ("who flips reviewed", "what counts as backlink", "why
+    exclude AI->AI", "what happens to stale entries").
+
+- bf97451 docs(mcp): regenerate mcp-tools-reference.md
+  - 1 file, +29 / -2. Auto-generated by
+    `npm run generate-tools-doc` after ops landed. Drift guard
+    test now green.
+
+### Verification
+
+- npm run build: tsc 0 errors
+- All 7 test files run via node.exe --test (bypassing the
+  `node` -> `winpty node.exe` alias that breaks the Bash tool
+  harness): 98 tests pass, 0 fail. Breakdown:
+  - adapters/obsidian.test.js
+  - adapters/qmd.test.js
+  - ai-output.test.js (10 new tests, all pass)
+  - compile-trigger.test.js
+  - connector/fs-transport.test.js
+  - recipes/recipes.test.js
+  - scripts/generate-tools-doc.test.js (drift guard, green)
+- npm run generate-tools-doc: deterministic, 445 lines (+27 from
+  baseline 418), adds entries for vault.writeAIOutput +
+  vault.sweepAIOutput under the vault.* section.
+
+### Engineering notes for next editor
+
+- `node` in Git Bash is aliased to `winpty node.exe`; winpty
+  requires a TTY which the Bash tool doesn't provide. Use
+  `node.exe` directly when invoking tests / generator scripts.
+  `npm run build` and `npm run generate-tools-doc` both work
+  because npm internally invokes node without the alias.
+- The `import.meta.url === process.argv[1]` main() guard in
+  index.ts is a dual-role enabler (importable + runnable). If
+  future refactors move main() into a different module, keep the
+  guard — any future test importing VaultFs (or any other class
+  from index.ts) will hang indefinitely without it.
+- Stale-sweep's in-place status flip uses a narrow regex scoped
+  to the first `---...---` block. This preserves body content and
+  other fm fields but assumes the status field is a single `status:
+  <word>` line (not multiline YAML). If future schemas add
+  multiline fields around status, the regex needs widening.
+
+### Known gaps (P2/P3 carry-forward + new)
+
+- P2 (NEW): no end-to-end smoke yet. Unit tests exercise VaultFs
+  directly, not the full MCP stdio round-trip. A real smoke would
+  call vault.writeAIOutput over JSON-RPC from an actual persona
+  running in Claude Code.
+- P2 (carry): obsidian-vault-bridge v2 architecture impl still
+  not started.
+- P2 (carry): docs/gif/demo.gif still placeholder.
+- P3 (carry): CRLF warnings on several files; would be resolved
+  by adding `.gitattributes` with `* text=auto eol=lf`.
+- P3 (NEW): Step 1.5 work items backlog for when data warrants:
+  graduate hardcoded stale thresholds to yaml config; add
+  `user-verdict` frontmatter field for human approval signal;
+  provenance enrichment of other MCP op responses (Step 2 in
+  dependency chain).
+
+### v2-staging / feat/ai-output-sediment branch state
+
+- v2-staging: unchanged from previous entry (17 commits ahead of
+  main, tag v2.0.0-rc1 at tip 4a92cfd).
+- feat/ai-output-sediment: 3 commits ahead of v2-staging, pushed
+  to origin. PR-create URL emitted:
+  https://github.com/2233admin/obsidian-llm-wiki/pull/new/feat/ai-output-sediment
+- PR #4 (v2-staging -> main): still open, unmerged.
+
+### Next step (next session opener)
+
+Three forks, order of cost:
+
+1. **Open PR feat/ai-output-sediment -> v2-staging**: cleanest
+   layering. Merges only after PR #4 lands. One `gh pr create`
+   call. Branch topology stays clean.
+2. **Ship PR #4** to close v2 cutover on main. Could
+   self-merge or invite review first. Unblocks users cloning main
+   to get the v2 paste-install UX.
+3. **Record demo.gif**: biggest remaining install-UX friction.
+   asciinema or OBS. Replaces the broken image at README L5.
+
+---
+
+## 2026-04-21 session 2 -- Step 2 governance + Step 2.5 + external review
+
+### What done
+
+Two layered PRs off feat/ai-output-sediment with Appendix D of the
+governance plan fully implemented plus one round of external-review
+absorption from Eridanus117/agent-memory-runtime.
+
+PR #6 (feat/step2-governance -> feat/ai-output-sediment, 3 commits):
+- d1862b1 scope + quarantine-state governance fields (zero
+  sweep-logic change; defaults preserve Step 1 byte-for-byte)
+- 5749010 history array audit trail (YAML flow-style keeps Step-1
+  scalar-only parser byte-compatible; sweep appends on draft->stale)
+- 136c40c review-status cache field added AFTER external review;
+  enum none|user-confirmed deliberately drops "reviewed" to avoid
+  name collision with quarantine-state
+
+PR #7 (feat/step2-5-input-gate -> feat/step2-governance, 1 commit
+rebased onto #6 tip, force-pushed once):
+- 4374ce3 input gate (body>=50, single-shell-cmd reject,
+  query+sourceNodes both-empty reject) + sweep metrics object
+  (totalEntries / byPersona / byStatus / byQuarantineState /
+  realBacklinkHitRate)
+
+Verification:
+- npm run build: 0 tsc errors
+- ai-output.test.ts: 25/25 pass (was 10 pre-session)
+- full mcp-server suite: 110/110 green
+- npm run generate-tools-doc: drift guard green, writeAIOutput
+  entry updated to 9-field schema
+
+Memory artefact updated: project_llm_wiki_step2_governance.md
+gained post-external-review section (borrow 3 / skip 3 / 1 open-q
+resolved) and a session-2 closure section listing P1/P2/P3 backlog.
+
+### External review round
+
+Read Eridanus117/agent-memory-runtime's governance-layer.md and
+candidate-promotion-injection-decision-table.md. Takeaways
+adversarially applied to our vault-level base:
+
+Borrowed (-> PR #7 + docs):
+- input gate rules (decision-table §七 adapted for writeAIOutput)
+- metrics object (governance-layer §P0.5 promotion-ready count)
+- review-status vs quarantine-state split (their
+  review_status/user-confirmed distinction resolved my Step 2
+  fusion mistake)
+
+Skipped with reasoning:
+- capture/observation layer: their base handles Bash PostToolUse
+  noise; we filter at writeAIOutput boundary. Double-layering
+  redundant.
+- durable_memory + UserPromptSubmit injection gate: their path is
+  Claude Code hook; our recall goes through librarian skill.
+  Different interface surface.
+- promotion_reason full 7-field schema: kept our 4-field flow-style
+  (trigger/evidence_level/human_in_loop/note). Single-user
+  single-vault makes namespace_basis/relevance_basis/trust_basis
+  signals highly redundant.
+
+### Known gaps (explicit, carried to next session)
+
+P1 (real design/impl bugs):
+- review-status cache has NO sync code: sweep never updates
+  frontmatter from history appends. Drift lurking the moment
+  anyone hand-edits history or a future op appends
+  trigger=manual-user-confirmed-write.
+- history entry from/to axis is ambiguous: "from: reviewed, to:
+  promoted" doesn't say whether status-axis or quarantine-state-axis
+  moved. Needs an `axis:` sub-key.
+
+P2 (design choices I would revisit):
+- review-status should be an Obsidian tag (#user-confirmed) not a
+  frontmatter field. Violates my own adapt-over-build rule.
+  Obsidian tag is ready-made user-signal infrastructure.
+- input gate thresholds (50 chars, single-cmd list) are guesses.
+  Should be downgraded to warning mode until real writeAIOutput
+  call distribution gathered over 2-4 weeks.
+- metrics is snapshot-only; no time-series log for trend analysis.
+  Sweep should append each run's metrics to
+  00-Inbox/AI-Output/sweep.log.md.
+- no end-to-end MCP smoke test (carry-forward from Step 1):
+  operations.ts schema-validation -> handler path untested through
+  real JSON-RPC.
+
+P3 (process / honesty):
+- docs say "human-driven transitions MUST append history" but
+  there is no enforcement. Needs vault.lint rule.
+- my borrow-3/skip-3 analysis was inference, not measurement.
+  "skip observation layer" could be wrong -- belongs in
+  unresolved-questions, not decided.
+- PR #6 and PR #7 should have been one PR for a solo project.
+
+### Next step (next session opener)
+
+Priority by return / code-size:
+
+1. Migrate review-status from frontmatter to Obsidian tag
+   (#user-confirmed on body). Kills P1 (drift) and P2 (tag is
+   native Obsidian signal). ~-30 net lines.
+2. Downgrade input gate to warning mode -- convert three `throw`
+   calls to metrics.warnings.lowSignalCount++ + log line. Unblocks
+   future short-but-legitimate analyses. ~10 lines.
+3. Add `axis:` sub-key to history entries. New field + test + docs.
+   ~20 lines.
+4. Sweep metrics trend log: append each run's metrics snapshot to
+   00-Inbox/AI-Output/sweep.log.md. ~15 lines.
+
+Items 1-4 = ~70 lines, closes all P1 + half of P2. After those:
+end-to-end MCP smoke test is next-largest carry-forward. Item 5
+(vault.lint enforcement) defers to Step 2.7.
+
+### Branch / PR state
+
+- feat/ai-output-sediment: unchanged from previous entry (Step 1)
+- feat/step2-governance: 3 commits ahead, pushed, PR #6 open
+- feat/step2-5-input-gate: 1 commit on top of #6 tip after rebase,
+  force-pushed once, PR #7 open
+- master/main/v2-staging: unchanged. PR #4 still open, unmerged.
+- Merge chain: PR #7 -> PR #6 -> feat/ai-output-sediment ->
+  v2-staging -> main.
+
+---
+
+## 2026-04-21 session 3 -- P1/P2 close-out (items 1-4 from session-2 plan)
+
+### What done
+
+All four priority items from session-2's "next step" list shipped as
+four stacked commits on a new branch feat/step2-6-tag-migration,
+off the feat/step2-5-input-gate tip (PR #7's branch). 117/117 tests
+green, build clean, drift guard green on mcp-tools-reference.md.
+
+Commit stack (newest first):
+- eab80d6 feat(mcp): sweep metrics trend log (Step 2.8)
+- 14ce9aa feat(mcp): add axis sub-key to history entries (Step 2.7)
+- 58a9029 refactor(mcp): downgrade Step 2.5 input gate from throw to warnings
+- b447e45 refactor(mcp): migrate review-status from frontmatter to Obsidian body tag
+
+Item 1 (review-status migration, b447e45):
+- dropped the review-status frontmatter field from writeAIOutput output
+- reviewStatus param preserved as API surface; user-confirmed now
+  appends #user-confirmed tag at body end (idempotent — skips if body
+  already carries it)
+- vault.searchByTag("user-confirmed") replaces
+  searchByFrontmatter(review-status) with no code change (the tool
+  already existed)
+- Kills P1 drift (no cache to drift from history) and P2 adapt-over-build
+  violation (Obsidian tag index is the native signal substrate)
+
+Item 2 (input-gate warning mode, 58a9029):
+- three throw calls converted to warnings.push() + stderr log
+- writeAIOutput result now always carries warnings: string[] (empty
+  when clean). Values: body-too-short / query-looks-like-shell-cmd / no-anchor
+- Three "rejects" tests rewritten to "warns but still writes";
+  added a clean-write test asserting warnings=[]
+
+Item 3 (history axis sub-key, 14ce9aa):
+- historyEntry template gains axis: status (gardener only auto-flips
+  status). Sits immediately before from/to.
+- Resolves the from/to ambiguity flagged in session-2 gap list:
+  "from: reviewed, to: promoted" was ambiguous because both status and
+  quarantine-state have a 'reviewed' value. axis: status|quarantine-state
+  now names the moved field.
+- Docs: 3-entry example covers both axis values; table documents axis
+  as Step 2.7 addition.
+
+Item 4 (sweep metrics trend log, eab80d6):
+- Each dry_run: false sweep appends a flow-style YAML line to
+  00-Inbox/AI-Output/sweep.log.md. Schema:
+  - {ts: "...", totalEntries: N, staleHits: M, supersedeHits: K, realBacklinkHitRate: 0.XXX}
+- Gates: skipped on dry_run; skipped when entries.length === 0 (no
+  empty-vault noise). File created on first non-empty real sweep
+  with a '# Sweep trend log' header.
+- 3 new tests pin the gates.
+
+### Budget retrospective
+
+Session-2 projection: ~70 lines total for all four items.
+Actual: +88 net lines (+157 ins / -69 del) vs feat/step2-5-input-gate base.
+Overrun +25%. Source: 9 net new tests across the four items; each
+rewrite warranted 2-3 new invariants to pin (idempotency, axis
+position, trend-log gates). Traded line count for regression safety.
+
+The -30 line projection for item 1 alone was based on full
+reviewStatus-param removal; I chose API-preserving migration
+(+22 instead) because the param keeps internal callers unchanged.
+Defensible trade — no persona skill needed updating, and if we later
+want to drop the param, it's a single-commit follow-up.
+
+### Known gaps (explicit, carried to next session)
+
+P1 (real design/impl bugs):
+- (none from this session's scope — P1 drift + axis ambiguity both closed)
+
+P2 (design choices I would revisit):
+- 7 persona skills (skills/vault-*.md) don't surface writeAIOutput
+  warnings back to callers. Right now a low-signal write just lands
+  silently. One-line nudge in each skill's writeAIOutput example
+  would close this. Deferred because it's a 7-file doc edit, not a
+  mcp-server code change.
+- input-gate thresholds (body>=50, single-cmd list) still guesses.
+  Plan: collect 2-4 weeks of sweep.log.md data then retune. The
+  trend log from item 4 is the evidence-gathering hook.
+- no end-to-end MCP smoke test (carry-forward from Step 1 and
+  session-2): operations.ts schema-validation -> handler path still
+  untested through real JSON-RPC.
+
+P3 (process / honesty):
+- PR strategy for this branch is undecided. Three options (see Next
+  step below). Did not push to remote yet.
+- sweep.log.md has no rotation/truncation. At ~1 line per daily
+  sweep it's ~1 KB/month so not urgent, but Step 3 should add a
+  rotation rule (monthly archive to sweep.log-YYYY-MM.md).
+- docs say "human-driven transitions MUST append history" but still
+  no enforcement. vault.lint rule still deferred to Step 2.7+.
+  (carried from session-2)
+- committing session-3 first required cherry-picking session-2's
+  progress handoff (commit d1d192f = original 4c64c47 re-applied)
+  because this branch stacks on pre-handoff feat/step2-5-input-gate.
+
+### Next step (next session opener)
+
+Decisions queued:
+
+1. **Push feat/step2-6-tag-migration and open PR #8 targeting
+   feat/step2-5-input-gate**: cleanest stack. Merge chain gets
+   another layer but keeps per-item review possible.
+2. **Merge feat/step2-5-input-gate into feat/step2-6-tag-migration,
+   force-push back to feat/step2-5-input-gate, extend PR #7**:
+   collapses the stack but rewrites PR #7 history mid-review.
+   Probably not.
+3. **Squash all four commits into one "Step 2 close-out" PR off
+   feat/ai-output-sediment**: optimizes for upstream reviewer but
+   loses the per-item commit boundaries that make the rationale
+   legible.
+
+Follow-up work beyond PR strategy:
+4. Update 7 persona skills to surface warnings (~7-line edit per
+   skill). Low-risk, high doc-value.
+5. End-to-end MCP smoke test (carry-forward).
+6. sweep.log.md rotation rule (Step 3 / low urgency).
+
+### Branch / PR state
+
+- feat/ai-output-sediment: unchanged since session-2
+- feat/step2-governance: 3 commits ahead, pushed, PR #6 open
+- feat/step2-5-input-gate: 1 commit above #6 tip, PR #7 open
+- **feat/step2-6-tag-migration: 5 commits above PR #7 tip (4 items
+  + 1 cherry-pick of session-2 progress handoff), NOT YET PUSHED**
+- master/main/v2-staging: unchanged; PR #4 still open, unmerged
+- Full merge chain (planned, pending decision above):
+  feat/step2-6-tag-migration -> feat/step2-5-input-gate (PR #7)
+  -> feat/step2-governance (PR #6) -> feat/ai-output-sediment
+  -> v2-staging -> main (PR #4)
+
+---
+
+## 2026-04-21 session 4 -- close-out for Curry's hand-test
+
+### What done
+
+Picked session-3's option 1 (stacked PR #8) and the deferred
+doc/UX items needed to hand the branch off for manual testing in
+Obsidian. Two commits on top of session-3 tip:
+
+- cfd5028 docs(skills): surface writeAIOutput warnings in all 7 personas
+- 5b7e4c6 docs(guide): hand-test path -- Obsidian Local Graph + #user-confirmed
+
+Plus one GitHub action: opened PR #8 targeting feat/step2-5-input-gate
+(https://github.com/2233admin/obsidian-llm-wiki/pull/8).
+
+Tests 117/117 green. Build clean. Drift guard green. +146 net lines
+across 9 files (7 skills + 2 guides). Zero mcp-server code edits.
+
+Skill nudge (cfd5028):
+- Each skills/vault-*.md writeAIOutput example now assigns
+  const result = vault.writeAIOutput(...) and follows with a
+  3-line warnings check that console.warn's on non-empty arrays.
+- Closes session-3 P2 item: "7 persona skills don't surface
+  writeAIOutput warnings back to callers." One-line nudge per
+  file, as projected.
+
+Hand-test section (5b7e4c6):
+- New "Hand-test path" H2 in GUIDE.md and "手动测试路径" in
+  GUIDE.zh-CN.md, sitting between AI-Output sediment and Vault
+  structure.
+- Five numbered steps: install -> real writeAIOutput call with
+  reviewStatus: "user-confirmed" and at least one wikilink ->
+  open in Obsidian -> Local Graph depth 2 (sees #user-confirmed
+  tag cluster) -> sweep round-trip (axis: status history entry).
+- Two <!-- TODO: screenshot --> placeholders ship today. Real
+  images land after Curry runs the flow against a live vault.
+- Bilingual parity preserved; CN mirrors EN structure per
+  [language-chinese] feedback rule.
+
+### Why this makes the branch shippable for hand-test
+
+The four Step 2.6-2.8 commits moved governance state around
+(tag migration, warnings, axis, trend log) but left callers
+reading an old surface: skills still showed pre-gate example
+code, and the GUIDE had no guided path that made the
+#user-confirmed tag cluster visible in Obsidian. Without session
+4, a fresh user running writeAIOutput would get silent warnings
+and no clear expectation of what "success" looks like visually.
+
+Now there's one paved path: call writeAIOutput with reviewStatus:
+"user-confirmed", open Local Graph depth 2, see the tag cluster.
+If the cluster is there, the sediment -> citation invariant is
+visually confirmed end-to-end.
+
+### Known gaps (explicit, carried to next session)
+
+P1 (real design/impl bugs):
+- (none)
+
+P2 (design choices I would revisit):
+- Hand-test screenshots are TODO placeholders, not real images.
+  Visual confirmation for first-time users benefits from baked-in
+  screenshots. ~20 min of Obsidian capture work, deferred to
+  when Curry runs the flow for real.
+- No end-to-end MCP JSON-RPC smoke test (carry-forward from
+  Step 1, session-2, session-3). Not a blocker for hand-test,
+  but useful for CI confidence. Next session should pick this up.
+- sweep.log.md rotation rule still deferred to Step 3.
+
+P3 (process / honesty):
+- vault.lint enforcement of "human-driven transitions MUST append
+  history" still deferred to Step 2.7+.
+- Three session-3 PR-stack options collapsed to option 1
+  (stacked PR #8) based on Curry's session-4 opening confirmation.
+  No regret -- cleanest review trail.
+- Two doc commits committed separately (skills vs guide) for
+  review legibility. Could have been one; trade -1 commit for
+  harder per-concern review. Stuck with the split.
+
+### Next step (next session opener)
+
+After Curry hand-tests and reports back:
+
+1. If hand-test passes end-to-end (tag cluster visible in Local
+   Graph, sweep produces axis: status history entry), bake
+   real screenshots into the Hand-test path section.
+2. If hand-test reveals a bug in #user-confirmed injection or
+   sweep axis detection, reopen the relevant Step 2.6-2.8 commit
+   on a fix branch.
+3. Either way: queue end-to-end MCP JSON-RPC smoke test. This is
+   the last remaining carry-forward from Step 1 and has been
+   deferred for three sessions running. Step 3 blocker.
+4. If ready to merge the stack: PR #8 -> PR #7 -> PR #6 ->
+   feat/ai-output-sediment (PR #5) -> v2-staging -> main (PR #4).
+   Five-hop merge, should be sequential squash-merges with
+   each PR's commit boundaries flattened.
+
+### Branch / PR state
+
+- feat/ai-output-sediment: unchanged since session-2
+- feat/step2-governance: PR #6 open
+- feat/step2-5-input-gate: PR #7 open
+- feat/step2-6-tag-migration: 7 commits above PR #7 tip (4 items
+  + 1 cherry-pick + session-3 handoff + 2 session-4 commits +
+  session-4 progress handoff), pushed to origin, PR #8 OPEN
+  targeting feat/step2-5-input-gate
+- master/main/v2-staging: unchanged; PR #4 still open
+- Full merge chain (active): PR #8 -> PR #7 -> PR #6 ->
+  feat/ai-output-sediment -> v2-staging -> main (PR #4)
+
+
+---
+
+## 2026-04-21 session 5 -- end-to-end MCP JSON-RPC smoke test
+
+### What done
+
+Picked up the three-session-deferred carry-forward: an end-to-end
+MCP JSON-RPC smoke test that spawns the built stdio server as a
+child process and speaks real protocol through the SDK client.
+Lives at mcp-server/src/smoke.test.ts, runs under node --test with
+everything else.
+
+Three assertions, each a first-class round-trip:
+
+1. `initialize` handshake completes (implicit in client.connect).
+2. `tools/list` returns a non-empty catalog including the required
+   vault primitives: vault.list, vault.read, vault.exists.
+3. `tools/call vault.list` + `tools/call vault.exists` agree on a
+   seeded temp-vault note (`hello.md`), round-tripping both tool
+   dispatch and filesystem adapter.
+
+Tests 120/120 green (117 pre-existing + 3 smoke). Build clean.
+Bundle rebuilt to keep the shipped artifact byte-current with src.
+
+### Two real issues the smoke test surfaced
+
+First smoke run against the default cwd (mcp-server/) quietly
+returned an empty listing. Second run, with cwd=vaultRoot, crashed
+on server startup. Both are documented here because they are
+real, not test artefacts:
+
+**Issue A -- loadConfig precedence shadow (design choice, not a bug):**
+loadConfig() probes `./vault-mind.yaml` then `../vault-mind.yaml`
+BEFORE honouring `VAULT_MIND_VAULT_PATH`. When the server spawns
+from mcp-server/, the dev-workspace yaml at
+`/d/projects/obsidian-llm-wiki/vault-mind.yaml` (points at
+E:/knowledge) captures precedence and the env var is ignored. The
+test works around this by running the child with cwd=vaultRoot
+and dropping a minimal `vault-mind.yaml` in the seed dir.
+
+**Issue B -- bundled pglite vector extension path (pre-existing bug):**
+`@electric-sql/pglite/vector` resolves `new URL('../vector.tar.gz',
+import.meta.url)` at runtime. When esbuild inlines the vector
+module into bundle.js, `import.meta.url` becomes the bundle's
+path, so `../vector.tar.gz` resolves to
+`D:/projects/obsidian-llm-wiki/vector.tar.gz` (non-existent)
+instead of pglite's ships-in-the-package `release/vector.tar.gz`.
+With the dev yaml's filesystem-only adapter list this never
+tripped, but any deploy that enables `vaultbrain` via the default
+adapter list (`["filesystem", "memu", "gitnexus", "obsidian",
+"qmd", "vaultbrain"]` at src/index.ts line 1108) will crash on
+first VaultBrain init.
+
+The smoke test side-steps B by writing `adapters: filesystem`
+into the seed yaml. The underlying bundle bug is NOT fixed in
+this session -- documented as P1 below.
+
+### Why this matters
+
+Before session 5, every test was either a unit test (pure TS) or
+an adapter test (injects mocks). None of them exercised the stdio
+framing, the SDK Server glue, the tool-name bridge, or the env /
+yaml config loader. Issue B in particular is a shipping-artifact
+bug that has been latent since the vaultbrain adapter was added
+and would not have been caught by unit tests at any resolution.
+
+### Known gaps (explicit, carried to next session)
+
+P1 (real design/impl bugs):
+- **Bundled pglite vector extension path**: fix options are
+  (1) externalize `@electric-sql/pglite/vector` in the esbuild
+  config so its `import.meta.url` resolves to pglite's dir at
+  runtime, (2) ship `release/vector.tar.gz` alongside bundle.js
+  and rewrite the URL, or (3) lazy-require pglite only on first
+  use and skip if absent. Option 1 is cleanest (already the
+  pattern for native modules in esbuild). Low-risk, scoped fix.
+
+P2 (design choices I would revisit):
+- loadConfig precedence: env var below two yaml probes means an
+  abandoned yaml up the tree silently redirects vaults. Consider
+  reversing to `env > ./yaml > ../yaml` or making the probe
+  opt-in via a sentinel env var. Not urgent; documented.
+- Hand-test screenshots still TODO (carry-forward from session 4).
+- sweep.log.md rotation still deferred to Step 3.
+- Smoke test spawns bundle.js, not dist/index.js -- ensures we
+  validate the shipped artifact. Trade-off: forces `npm run
+  rebuild` before `npm test` in dev loop. Acceptable.
+
+P3 (process / honesty):
+- Smoke test deliberately stays tolerant on payload shape
+  (accepts `files` OR `entries` OR top-level array). Future
+  renames will still exercise the round-trip without schema lock.
+  Trade-off: a genuine shape regression could slip if it still
+  contains the string "hello.md" somewhere. Acceptable for a
+  smoke test -- tighter shape assertions belong in unit tests.
+
+### Next step (next session opener)
+
+1. **Fix Issue B** (P1, ~30 min): externalize pglite/vector in
+   the esbuild bundle script. Add a smoke-test variant that
+   enables vaultbrain to catch the fix. This closes the last
+   real blocker between the current branch and a confident v2.
+2. If Curry has hand-tested the guide path: bake real
+   screenshots into GUIDE.md / GUIDE.zh-CN.md.
+3. Either way: session-4's full merge chain (PR #8 -> #7 -> #6
+   -> feat/ai-output-sediment -> v2-staging -> main via PR #4)
+   is still unmerged. Decide whether to land session-5's smoke
+   test as a new commit on top of feat/step2-6-tag-migration or
+   cherry-pick onto a separate branch that targets v2-staging
+   directly.
+
+### Branch / PR state
+
+- feat/step2-6-tag-migration (current): +1 commit for smoke test
+  + regenerated bundle, not yet pushed
+- PR #8 still open, targets feat/step2-5-input-gate
+- master/main/v2-staging: unchanged; PR #4 still open
+- Full merge chain (active): PR #8 -> PR #7 -> PR #6 ->
+  feat/ai-output-sediment -> v2-staging -> main (PR #4)
+
+
+### Session 5 -- addendum: P1 closed same session
+
+After the initial close-out, Curry said "just fix the bug". Done:
+
+- **5ee746a fix(mcp): externalize @electric-sql/pglite so vector.tar.gz resolves**
+  - Added `--external:@electric-sql/pglite --external:@electric-sql/pglite/*`
+    to the esbuild bundle script. pglite resolves from node_modules at
+    runtime, so `import.meta.url` in its vector module correctly points
+    at pglite's own dist/ dir.
+  - Bundle shrinks 1.54MB -> 963KB (-38%).
+  - Smoke test gets a regression guard: a second child server spawned
+    with the default adapter list (vaultbrain enabled) must listTools
+    without crashing. Pre-fix this threw Extension bundle not found.
+  - The `adapters: filesystem` workaround in the main smoke block is
+    gone -- both blocks now exercise the default adapter path.
+- 121/121 tests green.
+
+Remaining P2 carry-forward items unchanged (loadConfig precedence,
+hand-test screenshots, sweep.log.md rotation, smoke test requires
+rebuild-before-test in dev loop).

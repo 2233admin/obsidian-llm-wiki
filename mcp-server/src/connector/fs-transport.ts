@@ -37,9 +37,11 @@ interface BatchOperation {
 
 export class FsTransport {
   private vault: string;
+  private realVault: string;
 
   constructor(vaultPath: string) {
     this.vault = path.resolve(vaultPath || '');
+    this.realVault = fs.realpathSync(this.vault);
   }
 
   get vaultPath(): string { return this.vault; }
@@ -68,7 +70,28 @@ export class FsTransport {
     const rel = path.relative(this.vault, full);
     if (rel.startsWith('..') || path.isAbsolute(rel))
       throw { code: -32602, message: 'path escapes vault' };
+    this.assertRealPathInsideVault(full);
     return full;
+  }
+
+  private assertRealPathInsideVault(full: string): void {
+    const realTarget = fs.existsSync(full)
+      ? fs.realpathSync(full)
+      : this.realpathExistingAncestor(path.dirname(full));
+    const rel = path.relative(this.realVault, realTarget);
+    if (rel.startsWith('..') || path.isAbsolute(rel))
+      throw { code: -32602, message: 'path traversal blocked' };
+  }
+
+  private realpathExistingAncestor(start: string): string {
+    let current = start;
+    while (!fs.existsSync(current)) {
+      const parent = path.dirname(current);
+      if (parent === current)
+        throw { code: -32602, message: 'path traversal blocked' };
+      current = parent;
+    }
+    return fs.realpathSync(current);
   }
 
   parseFrontmatter(content: string): FrontmatterValue | null {

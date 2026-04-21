@@ -28,7 +28,7 @@ Why not gbrain? Different use case.
 
 gbrain = Postgres + pgvector + dream cycles. Built for 10k+ files and long-running agents.
 
-obsidian-llm-wiki = plain markdown + Obsidian UI + MCP. Built for your personal vault, your laptop, your Claude Code session.
+LLM Wiki Bridge = plain markdown + Obsidian UI + MCP. Built for your personal vault, your laptop, your Claude Code session.
 
 **Tweet 4 (collectors)**
 Ships with 10 source collectors that dump directly to your vault:

@@ -33,11 +33,12 @@ DEFAULT_SKIP = {
 }
 ARCHIVE_DIRS = {"09-Archive", "10-External"}
 
-FENCE_RE = re.compile(r"```.*?```", re.DOTALL)
-INLINE_CODE_RE = re.compile(r"`[^`\n]+`")
-FRONTMATTER_RE = re.compile(r"\A---\n.*?\n---\n", re.DOTALL)
+try:
+    from ._md_parse import extract_wikilinks, parse_frontmatter
+except ImportError:
+    from _md_parse import extract_wikilinks, parse_frontmatter
+
 H1_RE = re.compile(r"^#\s+(.+)$", re.MULTILINE)
-WIKILINK_RE = re.compile(r"\[\[([^\]|#\n]+)(?:#[^\]|\n]+)?(?:\|[^\]\n]+)?\]\]")
 
 
 @dataclass
@@ -56,55 +57,12 @@ class Edge:
     kind: str = "wikilink"
 
 
-def parse_frontmatter(text: str) -> dict:
-    m = FRONTMATTER_RE.match(text)
-    if not m:
-        return {}
-    fm = m.group(0)
-    out: dict = {}
-    current_key: str | None = None
-    for raw in fm.splitlines():
-        if raw.strip() in ("", "---"):
-            continue
-        if re.match(r"^[A-Za-z_][\w-]*\s*:", raw):
-            k, _, v = raw.partition(":")
-            k = k.strip()
-            v = v.strip()
-            if v.startswith("[") and v.endswith("]"):
-                out[k] = [x.strip().strip("'\"") for x in v[1:-1].split(",") if x.strip()]
-                current_key = None
-            elif v:
-                out[k] = v.strip("'\"")
-                current_key = None
-            else:
-                out[k] = []
-                current_key = k
-        elif current_key and raw.lstrip().startswith("- "):
-            val = raw.lstrip()[2:].strip().strip("'\"")
-            lst = out.get(current_key)
-            if isinstance(lst, list):
-                lst.append(val)
-    return out
-
-
 def collect_tags(text: str) -> list[str]:
     fm = parse_frontmatter(text)
     raw = fm.get("tags") or fm.get("tag") or []
     if isinstance(raw, str):
         raw = [raw]
     return [t for t in raw if t]
-
-
-def strip_noise(text: str) -> str:
-    t = FRONTMATTER_RE.sub("", text, count=1)
-    t = FENCE_RE.sub("", t)
-    t = INLINE_CODE_RE.sub("", t)
-    return t
-
-
-def extract_wikilinks(text: str) -> list[str]:
-    cleaned = strip_noise(text)
-    return [m.group(1).strip() for m in WIKILINK_RE.finditer(cleaned)]
 
 
 def iter_vault_md(vault: Path, skip_dirs: set[str]):

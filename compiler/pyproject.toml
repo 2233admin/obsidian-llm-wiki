@@ -14,7 +14,10 @@ dev = ["ruff>=0.4", "pytest>=8.0"]
 kb-meta = "compiler.kb_meta:main"
 
 [tool.ruff]
-line-length = 100
+line-length = 120
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = ["E501"]
