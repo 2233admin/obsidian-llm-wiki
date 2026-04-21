@@ -1548,3 +1548,114 @@ Follow-up work beyond PR strategy:
   feat/step2-6-tag-migration -> feat/step2-5-input-gate (PR #7)
   -> feat/step2-governance (PR #6) -> feat/ai-output-sediment
   -> v2-staging -> main (PR #4)
+
+---
+
+## 2026-04-21 session 4 -- close-out for Curry's hand-test
+
+### What done
+
+Picked session-3's option 1 (stacked PR #8) and the deferred
+doc/UX items needed to hand the branch off for manual testing in
+Obsidian. Two commits on top of session-3 tip:
+
+- cfd5028 docs(skills): surface writeAIOutput warnings in all 7 personas
+- 5b7e4c6 docs(guide): hand-test path -- Obsidian Local Graph + #user-confirmed
+
+Plus one GitHub action: opened PR #8 targeting feat/step2-5-input-gate
+(https://github.com/2233admin/obsidian-llm-wiki/pull/8).
+
+Tests 117/117 green. Build clean. Drift guard green. +146 net lines
+across 9 files (7 skills + 2 guides). Zero mcp-server code edits.
+
+Skill nudge (cfd5028):
+- Each skills/vault-*.md writeAIOutput example now assigns
+  const result = vault.writeAIOutput(...) and follows with a
+  3-line warnings check that console.warn's on non-empty arrays.
+- Closes session-3 P2 item: "7 persona skills don't surface
+  writeAIOutput warnings back to callers." One-line nudge per
+  file, as projected.
+
+Hand-test section (5b7e4c6):
+- New "Hand-test path" H2 in GUIDE.md and "手动测试路径" in
+  GUIDE.zh-CN.md, sitting between AI-Output sediment and Vault
+  structure.
+- Five numbered steps: install -> real writeAIOutput call with
+  reviewStatus: "user-confirmed" and at least one wikilink ->
+  open in Obsidian -> Local Graph depth 2 (sees #user-confirmed
+  tag cluster) -> sweep round-trip (axis: status history entry).
+- Two <!-- TODO: screenshot --> placeholders ship today. Real
+  images land after Curry runs the flow against a live vault.
+- Bilingual parity preserved; CN mirrors EN structure per
+  [language-chinese] feedback rule.
+
+### Why this makes the branch shippable for hand-test
+
+The four Step 2.6-2.8 commits moved governance state around
+(tag migration, warnings, axis, trend log) but left callers
+reading an old surface: skills still showed pre-gate example
+code, and the GUIDE had no guided path that made the
+#user-confirmed tag cluster visible in Obsidian. Without session
+4, a fresh user running writeAIOutput would get silent warnings
+and no clear expectation of what "success" looks like visually.
+
+Now there's one paved path: call writeAIOutput with reviewStatus:
+"user-confirmed", open Local Graph depth 2, see the tag cluster.
+If the cluster is there, the sediment -> citation invariant is
+visually confirmed end-to-end.
+
+### Known gaps (explicit, carried to next session)
+
+P1 (real design/impl bugs):
+- (none)
+
+P2 (design choices I would revisit):
+- Hand-test screenshots are TODO placeholders, not real images.
+  Visual confirmation for first-time users benefits from baked-in
+  screenshots. ~20 min of Obsidian capture work, deferred to
+  when Curry runs the flow for real.
+- No end-to-end MCP JSON-RPC smoke test (carry-forward from
+  Step 1, session-2, session-3). Not a blocker for hand-test,
+  but useful for CI confidence. Next session should pick this up.
+- sweep.log.md rotation rule still deferred to Step 3.
+
+P3 (process / honesty):
+- vault.lint enforcement of "human-driven transitions MUST append
+  history" still deferred to Step 2.7+.
+- Three session-3 PR-stack options collapsed to option 1
+  (stacked PR #8) based on Curry's session-4 opening confirmation.
+  No regret -- cleanest review trail.
+- Two doc commits committed separately (skills vs guide) for
+  review legibility. Could have been one; trade -1 commit for
+  harder per-concern review. Stuck with the split.
+
+### Next step (next session opener)
+
+After Curry hand-tests and reports back:
+
+1. If hand-test passes end-to-end (tag cluster visible in Local
+   Graph, sweep produces axis: status history entry), bake
+   real screenshots into the Hand-test path section.
+2. If hand-test reveals a bug in #user-confirmed injection or
+   sweep axis detection, reopen the relevant Step 2.6-2.8 commit
+   on a fix branch.
+3. Either way: queue end-to-end MCP JSON-RPC smoke test. This is
+   the last remaining carry-forward from Step 1 and has been
+   deferred for three sessions running. Step 3 blocker.
+4. If ready to merge the stack: PR #8 -> PR #7 -> PR #6 ->
+   feat/ai-output-sediment (PR #5) -> v2-staging -> main (PR #4).
+   Five-hop merge, should be sequential squash-merges with
+   each PR's commit boundaries flattened.
+
+### Branch / PR state
+
+- feat/ai-output-sediment: unchanged since session-2
+- feat/step2-governance: PR #6 open
+- feat/step2-5-input-gate: PR #7 open
+- feat/step2-6-tag-migration: 7 commits above PR #7 tip (4 items
+  + 1 cherry-pick + session-3 handoff + 2 session-4 commits +
+  session-4 progress handoff), pushed to origin, PR #8 OPEN
+  targeting feat/step2-5-input-gate
+- master/main/v2-staging: unchanged; PR #4 still open
+- Full merge chain (active): PR #8 -> PR #7 -> PR #6 ->
+  feat/ai-output-sediment -> v2-staging -> main (PR #4)
