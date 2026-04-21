@@ -32212,7 +32212,7 @@ var operations = [
   {
     name: "vault.search",
     namespace: "vault",
-    description: "Fulltext search across vault",
+    description: "Fulltext grep across vault .md files (filesystem-only, single-adapter). Returns matching lines with line numbers, not ranked results. Use regex=true for patterns, glob to restrict scope. For cross-adapter weighted search use query.unified.",
     mutating: false,
     params: {
       query: { type: "string", required: true, description: "Search query string" },
@@ -32248,7 +32248,7 @@ var operations = [
   {
     name: "vault.graph",
     namespace: "vault",
-    description: "Get link graph of vault",
+    description: "Build full wikilink graph of the vault. Returns nodes (with exists flag), edges (from/to/count), orphans (.md files with no inbound links), and unresolvedLinks count. Filter edges with type=resolved|unresolved|both (default both).",
     mutating: false,
     params: {
       type: { type: "string", required: false, description: "Link type filter (default: both)", default: "both", enum: ["resolved", "unresolved", "both"] }
@@ -32279,7 +32279,7 @@ var operations = [
   {
     name: "vault.lint",
     namespace: "vault",
-    description: "Check vault health",
+    description: "Vault health audit: finds orphans (no inbound wikilinks), broken wikilinks, empty files, duplicate titles, and optionally missing required frontmatter keys. Read-only; does not check modification time.",
     mutating: false,
     params: {
       requiredFrontmatter: { type: "array", required: false, description: "List of frontmatter keys that every note must have" }
@@ -32309,6 +32309,36 @@ var operations = [
     handler: async (ctx, params) => ctx.vault.execute("vault.enforceDiscipline", params)
   },
   {
+    name: "vault.writeAIOutput",
+    namespace: "vault",
+    description: "Write a persona-authored analysis into 00-Inbox/AI-Output/{persona}/YYYY-MM-DD-{slug}.md with the 8-field provenance frontmatter (generated-by, generated-at, agent, parent-query, source-nodes, status=draft, scope, quarantine-state). Human confirmation rides on an Obsidian body tag (#user-confirmed), not a frontmatter field. Dry-run by default.",
+    mutating: true,
+    params: {
+      persona: { type: "string", required: true, description: "Persona identifier, must match ^vault-[a-z]+$" },
+      parentQuery: { type: "string", required: true, description: "User's original query (truncated to 200 chars)" },
+      sourceNodes: { type: "array", required: true, description: "Wikilinks cited during analysis (empty array is valid)" },
+      agent: { type: "string", required: true, description: "Model identifier (e.g. claude-opus-4-7)" },
+      body: { type: "string", required: true, description: "Markdown body without frontmatter" },
+      slug: { type: "string", required: false, description: "Optional filename slug; auto-derived from parentQuery if omitted" },
+      scope: { type: "string", required: false, description: "Governance namespace for the entry (default: project)", default: "project", enum: ["project", "global", "cross-project", "host-local"] },
+      quarantineState: { type: "string", required: false, description: "Trust-gate state in the candidate lifecycle (default: new)", default: "new", enum: ["new", "reviewed", "promoted", "discarded"] },
+      reviewStatus: { type: "string", required: false, description: "When user-confirmed, appends #user-confirmed tag to the body so Obsidian tag search picks it up. Default: none (no tag appended).", default: "none", enum: ["none", "user-confirmed"] },
+      dryRun: { type: "boolean", required: false, description: "Simulate without writing (default: true)", default: true }
+    },
+    handler: async (ctx, params) => ctx.vault.execute("vault.writeAIOutput", params)
+  },
+  {
+    name: "vault.sweepAIOutput",
+    namespace: "vault",
+    description: "Sweep 00-Inbox/AI-Output for stale drafts (age > persona threshold and no non-AI-Output backlinks) and supersede candidates (same-persona reviewed pairs with source-nodes Jaccard >= 0.6). Reports candidates; when dry_run=false flips draft\u2192stale in place. Never auto-applies supersede.",
+    mutating: true,
+    params: {
+      dry_run: { type: "boolean", required: false, description: "Report only without writing (default: true)", default: true },
+      now: { type: "string", required: false, description: "Inject ISO 8601 timestamp for deterministic tests" }
+    },
+    handler: async (ctx, params) => ctx.vault.execute("vault.sweepAIOutput", params)
+  },
+  {
     name: "vault.getMetadata",
     namespace: "vault",
     description: "Get parsed metadata for a note",
@@ -32317,16 +32347,6 @@ var operations = [
       path: { type: "string", required: true, description: "Vault-relative path to the note" }
     },
     handler: async (ctx, params) => ctx.vault.execute("vault.getMetadata", params)
-  },
-  {
-    name: "vault.externalSearch",
-    namespace: "vault",
-    description: "Search via external search engine",
-    mutating: false,
-    params: {
-      query: { type: "string", required: true, description: "Search query string" }
-    },
-    handler: async (ctx, params) => ctx.vault.execute("vault.externalSearch", params)
   },
   // ── recipe namespace ──────────────────────────────────────────
   {
@@ -32565,7 +32585,7 @@ function makeAllOperations(deps) {
     {
       name: "query.unified",
       namespace: "query",
-      description: "Unified knowledge query across all active adapters (filesystem, obsidian, memu, gitnexus)",
+      description: "Weighted multi-adapter search across all active adapters (filesystem, obsidian, memu, gitnexus). Results merged and re-ranked by per-adapter weight. Use when you want best answers anywhere; for single-adapter search use query.search (filesystem-only, ranked) or vault.search (raw filesystem grep, unranked).",
       mutating: false,
       params: {
         query: { type: "string", required: true, description: "Search query string" },
@@ -32595,7 +32615,7 @@ function makeAllOperations(deps) {
     {
       name: "query.search",
       namespace: "query",
-      description: "Search knowledge base (filesystem adapter only)",
+      description: "Filesystem-only ranked knowledge search. Same scoring pipeline as query.unified but restricted to the filesystem adapter. Use for deterministic filesystem-rooted results without memu/gitnexus noise; use vault.search for raw grep-style matching without ranking.",
       mutating: false,
       params: {
         query: { type: "string", required: true, description: "Search query string" },
@@ -32614,7 +32634,7 @@ function makeAllOperations(deps) {
     {
       name: "query.explain",
       namespace: "query",
-      description: "Explain a concept using top-10 cross-adapter results with 3-line context",
+      description: "Concept explanation via top-10 cross-adapter results with 3 lines of surrounding context per match. Same fan-out as query.unified but fixes maxResults=10 and context=3, tuned for paragraph-length summarization. Use when synthesizing prose, not browsing raw results.",
       mutating: false,
       params: {
         concept: { type: "string", required: true, description: "Concept to explain" }
@@ -32867,6 +32887,39 @@ var PROTECTED_DIRS2 = /* @__PURE__ */ new Set([".obsidian", ".trash", ".git", "n
 var VERSION = "0.3.0";
 function err2(code, message) {
   return { code, message };
+}
+function appendHistoryInYaml(content, flowItem) {
+  if (!content.startsWith("---\n"))
+    return content;
+  const end = content.indexOf("\n---", 4);
+  if (end === -1)
+    return content;
+  const yamlBlock = content.slice(4, end);
+  const after = content.slice(end);
+  const historyKeyRe = /^history:\s*$/m;
+  let newBlock;
+  if (historyKeyRe.test(yamlBlock)) {
+    const lines = yamlBlock.split("\n");
+    let hIdx = -1;
+    for (let i3 = 0; i3 < lines.length; i3++) {
+      if (/^history:\s*$/.test(lines[i3])) {
+        hIdx = i3;
+        break;
+      }
+    }
+    let insertAt = hIdx + 1;
+    while (insertAt < lines.length && /^ {2}- /.test(lines[insertAt]))
+      insertAt++;
+    lines.splice(insertAt, 0, `  - ${flowItem}`);
+    newBlock = lines.join("\n");
+  } else {
+    const trimmed = yamlBlock.replace(/\n+$/, "");
+    newBlock = `${trimmed}
+history:
+  - ${flowItem}`;
+  }
+  return `---
+${newBlock}${after}`;
 }
 function parseYamlValue(s4) {
   if (s4 === "true")
@@ -33176,13 +33229,17 @@ var VaultFs = class {
         if (!validOps.includes(op))
           throw err2(-32602, `Unknown op: ${op}`);
         const results = [];
+        const pushWithMtime = (relPath, v3) => {
+          const st2 = statSync(this.resolve(relPath));
+          results.push({ path: relPath, value: v3, mtime: st2.mtimeMs });
+        };
         this.walkMd((relPath, content) => {
           const fm = this.parseFrontmatter(content);
           if (!fm)
             return;
           if (op === "exists") {
             if (p4.key in fm)
-              results.push({ path: relPath, value: fm[p4.key] });
+              pushWithMtime(relPath, fm[p4.key]);
             return;
           }
           if (!(p4.key in fm))
@@ -33222,11 +33279,14 @@ var VaultFs = class {
               break;
           }
           if (match)
-            results.push({ path: relPath, value: v3 });
+            pushWithMtime(relPath, v3);
         });
         return { files: results.sort((a2, b4) => a2.path.localeCompare(b4.path)) };
       }
       case "vault.graph": {
+        const linkType = p4.type || "both";
+        if (!["resolved", "unresolved", "both"].includes(linkType))
+          throw err2(-32602, `Unknown type: ${linkType} (expected resolved|unresolved|both)`);
         const nodeSet = /* @__PURE__ */ new Set();
         const edgeMap = /* @__PURE__ */ new Map();
         const inbound = /* @__PURE__ */ new Set();
@@ -33254,7 +33314,7 @@ var VaultFs = class {
             edgeMap.set(key, (edgeMap.get(key) || 0) + 1);
           }
         });
-        const edges = Array.from(edgeMap.entries()).map(([key, count]) => {
+        let edges = Array.from(edgeMap.entries()).map(([key, count]) => {
           const [from, to] = key.split("\0");
           return { from, to, count };
         });
@@ -33268,8 +33328,14 @@ var VaultFs = class {
             }
           })()
         }));
+        const existsMap = new Map(nodes.map((n4) => [n4.path, n4.exists]));
+        if (linkType === "resolved")
+          edges = edges.filter((e) => existsMap.get(e.to) === true);
+        else if (linkType === "unresolved")
+          edges = edges.filter((e) => existsMap.get(e.to) !== true);
         const orphans = nodes.filter((n4) => n4.exists && n4.path.endsWith(".md") && !inbound.has(n4.path)).map((n4) => n4.path);
-        return { nodes, edges, orphans };
+        const unresolvedLinks = nodes.filter((n4) => !n4.exists).length;
+        return { nodes, edges, orphans, unresolvedLinks, type: linkType };
       }
       case "vault.backlinks": {
         if (!p4.path)
@@ -33594,6 +33660,299 @@ updated: ${now}
           }
         };
       }
+      case "vault.writeAIOutput": {
+        const persona = p4.persona;
+        if (typeof persona !== "string" || !/^vault-[a-z]+$/.test(persona))
+          throw err2(-32602, "persona must match ^vault-[a-z]+$");
+        const parentQueryRaw = p4.parentQuery;
+        if (typeof parentQueryRaw !== "string")
+          throw err2(-32602, "parentQuery required");
+        const sourceNodes = p4.sourceNodes;
+        if (!Array.isArray(sourceNodes))
+          throw err2(-32602, "sourceNodes required (array)");
+        const agent = p4.agent;
+        if (typeof agent !== "string" || agent === "")
+          throw err2(-32602, "agent required");
+        const body2 = p4.body;
+        if (typeof body2 !== "string")
+          throw err2(-32602, "body required");
+        const SCOPE_VALUES = ["project", "global", "cross-project", "host-local"];
+        const QSTATE_VALUES = ["new", "reviewed", "promoted", "discarded"];
+        const scopeRaw = p4.scope;
+        const scope = scopeRaw === void 0 ? "project" : String(scopeRaw);
+        if (!SCOPE_VALUES.includes(scope))
+          throw err2(-32602, `scope must be one of ${SCOPE_VALUES.join("|")}`);
+        const qStateRaw = p4.quarantineState;
+        const quarantineState = qStateRaw === void 0 ? "new" : String(qStateRaw);
+        if (!QSTATE_VALUES.includes(quarantineState))
+          throw err2(-32602, `quarantineState must be one of ${QSTATE_VALUES.join("|")}`);
+        const REVIEW_STATUS_VALUES = ["none", "user-confirmed"];
+        const reviewStatusRaw = p4.reviewStatus;
+        const reviewStatus = reviewStatusRaw === void 0 ? "none" : String(reviewStatusRaw);
+        if (!REVIEW_STATUS_VALUES.includes(reviewStatus))
+          throw err2(-32602, `reviewStatus must be one of ${REVIEW_STATUS_VALUES.join("|")}`);
+        const SINGLE_CMD_RE = /^\s*(pwd|ls|cd|cat|rg|grep|echo|git\s+status|git\s+diff)\b[^\n]*$/i;
+        const bodyTrim = body2.trim();
+        const queryTrim = parentQueryRaw.trim();
+        const warnings = [];
+        if (bodyTrim.length < 50)
+          warnings.push("body-too-short");
+        if (SINGLE_CMD_RE.test(queryTrim))
+          warnings.push("query-looks-like-shell-cmd");
+        if (queryTrim === "" && sourceNodes.length === 0)
+          warnings.push("no-anchor");
+        if (warnings.length > 0)
+          process.stderr.write(`[writeAIOutput] low-signal persona=${persona} warnings=${warnings.join(",")}
+`);
+        const parentQuery = parentQueryRaw.slice(0, 200).replace(/"/g, "\u201D");
+        const deriveSlug = (src) => {
+          const cleaned = src.replace(/[<>:"/\\|?*]/g, " ").replace(/\s+/g, "-").toLowerCase().replace(/^-+|-+$/g, "");
+          if (!cleaned)
+            return "";
+          const words = cleaned.split("-").filter((w4) => w4.length > 0).slice(0, 6);
+          const joined = words.join("-");
+          return joined.slice(0, 60).replace(/-+$/, "");
+        };
+        let slug = typeof p4.slug === "string" && p4.slug !== "" ? deriveSlug(p4.slug) : deriveSlug(parentQueryRaw);
+        if (!slug) {
+          const nowT = /* @__PURE__ */ new Date();
+          const hh = String(nowT.getUTCHours()).padStart(2, "0");
+          const mm = String(nowT.getUTCMinutes()).padStart(2, "0");
+          const ss = String(nowT.getUTCSeconds()).padStart(2, "0");
+          slug = `note-${hh}${mm}${ss}`;
+        }
+        const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+        const datePrefix = nowIso.slice(0, 10);
+        const relDir = `00-Inbox/AI-Output/${persona}`;
+        const baseName = `${datePrefix}-${slug}`;
+        let chosenName = `${baseName}.md`;
+        let relPath = `${relDir}/${chosenName}`;
+        let fullPath = join8(this.vault, relDir, chosenName);
+        if (existsSync6(fullPath)) {
+          let found = false;
+          for (let i3 = 2; i3 <= 99; i3++) {
+            chosenName = `${baseName}-${i3}.md`;
+            relPath = `${relDir}/${chosenName}`;
+            fullPath = join8(this.vault, relDir, chosenName);
+            if (!existsSync6(fullPath)) {
+              found = true;
+              break;
+            }
+          }
+          if (!found)
+            throw err2(-32002, `Could not find free filename after 99 collisions for ${baseName}`);
+        }
+        const frontmatterObj = {
+          "generated-by": persona,
+          "generated-at": nowIso,
+          "agent": agent,
+          "parent-query": parentQuery,
+          "source-nodes": sourceNodes,
+          "status": "draft",
+          "scope": scope,
+          "quarantine-state": quarantineState
+        };
+        const bodyWithTag = reviewStatus === "user-confirmed" && !/(^|\s)#user-confirmed(\s|$)/m.test(body2) ? `${body2.replace(/\n+$/, "")}
+
+#user-confirmed` : body2;
+        if (p4.dryRun !== false) {
+          return { dryRun: true, action: "writeAIOutput", path: relPath, frontmatter: frontmatterObj, warnings };
+        }
+        const yamlLines = [];
+        yamlLines.push(`generated-by: ${persona}`);
+        yamlLines.push(`generated-at: ${nowIso}`);
+        yamlLines.push(`agent: ${agent}`);
+        yamlLines.push(`parent-query: "${parentQuery}"`);
+        if (sourceNodes.length === 0) {
+          yamlLines.push(`source-nodes: []`);
+        } else {
+          yamlLines.push(`source-nodes:`);
+          for (const node of sourceNodes) {
+            const escaped = String(node).replace(/"/g, "\u201D");
+            yamlLines.push(`  - "${escaped}"`);
+          }
+        }
+        yamlLines.push(`status: draft`);
+        yamlLines.push(`scope: ${scope}`);
+        yamlLines.push(`quarantine-state: ${quarantineState}`);
+        const contentOut = `---
+${yamlLines.join("\n")}
+---
+
+${bodyWithTag}
+`;
+        mkdirSync3(dirname4(fullPath), { recursive: true });
+        writeFileSync(fullPath, contentOut, "utf-8");
+        return { ok: true, path: relPath, frontmatter: frontmatterObj, warnings };
+      }
+      case "vault.sweepAIOutput": {
+        const STALE_THRESHOLDS = {
+          "vault-architect": 45,
+          "vault-gardener": 30,
+          "vault-historian": 180,
+          "vault-librarian": 60
+        };
+        const DEFAULT_THRESHOLD = 60;
+        const dryRun = p4.dry_run !== false;
+        const nowMs = typeof p4.now === "string" ? Date.parse(p4.now) : Date.now();
+        const nowValid = !isNaN(nowMs) ? nowMs : Date.now();
+        const aiRootRel = "00-Inbox/AI-Output";
+        const aiRootAbs = join8(this.vault, aiRootRel);
+        const emptyMetrics = {
+          totalEntries: 0,
+          byPersona: {},
+          byStatus: {},
+          byQuarantineState: {},
+          realBacklinkHitRate: 0
+        };
+        if (!existsSync6(aiRootAbs)) {
+          return { staleCandidates: [], supersedeCandidates: [], applied: [], metrics: emptyMetrics };
+        }
+        const entries = [];
+        const walkSubtree = (d2) => {
+          if (!existsSync6(d2))
+            return;
+          for (const ent of readdirSync4(d2, { withFileTypes: true })) {
+            const full = join8(d2, ent.name);
+            if (ent.isDirectory() && !PROTECTED_DIRS2.has(ent.name))
+              walkSubtree(full);
+            else if (ent.isFile() && ent.name.endsWith(".md")) {
+              const content = readFileSync4(full, "utf-8");
+              const fm = this.parseFrontmatter(content);
+              if (!fm)
+                continue;
+              const persona = typeof fm["generated-by"] === "string" ? fm["generated-by"] : "";
+              if (!persona)
+                continue;
+              const status = typeof fm["status"] === "string" ? fm["status"] : "";
+              const relPath = relative3(this.vault, full).replace(/\\/g, "/");
+              const st2 = statSync(full);
+              const mtimeMs = st2.mtimeMs;
+              let entryMs = mtimeMs;
+              const ga = fm["generated-at"];
+              if (typeof ga === "string") {
+                const parsed = Date.parse(ga);
+                if (!isNaN(parsed))
+                  entryMs = parsed;
+              }
+              const sn2 = fm["source-nodes"];
+              const sourceNodes = Array.isArray(sn2) ? sn2.map((x5) => String(x5)) : [];
+              entries.push({ relPath, absPath: full, content, fm, mtimeMs, entryMs, persona, status, sourceNodes });
+            }
+          }
+        };
+        walkSubtree(aiRootAbs);
+        const aiOutputPaths = new Set(entries.map((e) => e.relPath));
+        const hasRealBacklink = (targetRel) => {
+          const targetBase = basename(targetRel, ".md");
+          let found = false;
+          this.walkMd((relPath, content) => {
+            if (found)
+              return;
+            if (relPath === targetRel)
+              return;
+            if (aiOutputPaths.has(relPath))
+              return;
+            for (const l4 of this.parseWikilinks(content)) {
+              const linkPath = l4.link.split("#")[0];
+              if (!linkPath)
+                continue;
+              if (linkPath === targetRel || linkPath === targetBase || linkPath + ".md" === targetRel) {
+                found = true;
+                return;
+              }
+            }
+          });
+          return found;
+        };
+        const staleCandidates = [];
+        for (const e of entries) {
+          if (e.status !== "draft")
+            continue;
+          const ageDays = (nowValid - e.entryMs) / 864e5;
+          const threshold = STALE_THRESHOLDS[e.persona] ?? DEFAULT_THRESHOLD;
+          if (ageDays < threshold)
+            continue;
+          if (hasRealBacklink(e.relPath))
+            continue;
+          staleCandidates.push({ path: e.relPath, persona: e.persona, ageDays, threshold });
+        }
+        const reviewed = entries.filter((e) => e.status === "reviewed");
+        const supersedeCandidates = [];
+        const jaccard = (a2, b4) => {
+          if (a2.length === 0 && b4.length === 0)
+            return 0;
+          const sa = new Set(a2);
+          const sb = new Set(b4);
+          let inter = 0;
+          for (const x5 of sa)
+            if (sb.has(x5))
+              inter++;
+          const uni = sa.size + sb.size - inter;
+          return uni === 0 ? 0 : inter / uni;
+        };
+        for (let i3 = 0; i3 < reviewed.length; i3++) {
+          for (let j4 = i3 + 1; j4 < reviewed.length; j4++) {
+            const a2 = reviewed[i3];
+            const b4 = reviewed[j4];
+            if (a2.persona !== b4.persona)
+              continue;
+            if (a2.sourceNodes.length === 0 || b4.sourceNodes.length === 0)
+              continue;
+            const overlap = jaccard(a2.sourceNodes, b4.sourceNodes);
+            if (overlap < 0.6)
+              continue;
+            const olderEntry = a2.entryMs <= b4.entryMs ? a2 : b4;
+            const newerEntry = a2.entryMs <= b4.entryMs ? b4 : a2;
+            supersedeCandidates.push({ older: olderEntry.relPath, newer: newerEntry.relPath, overlap });
+          }
+        }
+        const applied = [];
+        if (!dryRun) {
+          const flipIso = new Date(nowValid).toISOString();
+          for (const sc of staleCandidates) {
+            const absPath = join8(this.vault, sc.path);
+            const original = readFileSync4(absPath, "utf-8");
+            const historyEntry = `{ts: "${flipIso}", axis: status, from: draft, to: stale, trigger: auto-stop-summary, evidence_level: low, human_in_loop: false, note: "gardener sweep"}`;
+            const withStatusFlipped = original.replace(/(^---[\s\S]*?\nstatus: )draft(\n[\s\S]*?^---$)/m, (_m, g1, g22) => g1 + "stale" + g22);
+            if (withStatusFlipped === original)
+              continue;
+            const replaced = appendHistoryInYaml(withStatusFlipped, historyEntry);
+            writeFileSync(absPath, replaced, "utf-8");
+            applied.push({ path: sc.path, change: "draft\u2192stale" });
+          }
+        }
+        const metrics = {
+          totalEntries: entries.length,
+          byPersona: {},
+          byStatus: {},
+          byQuarantineState: {},
+          realBacklinkHitRate: 0
+        };
+        let withRealBacklink = 0;
+        for (const e of entries) {
+          metrics.byPersona[e.persona] = (metrics.byPersona[e.persona] ?? 0) + 1;
+          metrics.byStatus[e.status || "(none)"] = (metrics.byStatus[e.status || "(none)"] ?? 0) + 1;
+          const qs = typeof e.fm["quarantine-state"] === "string" ? e.fm["quarantine-state"] : "(none)";
+          metrics.byQuarantineState[qs] = (metrics.byQuarantineState[qs] ?? 0) + 1;
+          if (hasRealBacklink(e.relPath))
+            withRealBacklink++;
+        }
+        metrics.realBacklinkHitRate = entries.length === 0 ? 0 : withRealBacklink / entries.length;
+        if (!dryRun && entries.length > 0) {
+          const sweepLogRel = "00-Inbox/AI-Output/sweep.log.md";
+          const sweepLogAbs = join8(this.vault, sweepLogRel);
+          const stamp = new Date(nowValid).toISOString();
+          const logLine = `- {ts: "${stamp}", totalEntries: ${metrics.totalEntries}, staleHits: ${staleCandidates.length}, supersedeHits: ${supersedeCandidates.length}, realBacklinkHitRate: ${metrics.realBacklinkHitRate.toFixed(3)}}
+`;
+          if (!existsSync6(sweepLogAbs)) {
+            mkdirSync3(dirname4(sweepLogAbs), { recursive: true });
+            writeFileSync(sweepLogAbs, "# Sweep trend log\n\n", "utf-8");
+          }
+          appendFileSync2(sweepLogAbs, logLine, "utf-8");
+        }
+        return { staleCandidates, supersedeCandidates, applied, metrics };
+      }
       case "vault.getMetadata": {
         const full = this.resolve(p4.path);
         if (!existsSync6(full))
@@ -33614,8 +33973,6 @@ updated: ${now}
           out2.frontmatter = fm;
         return out2;
       }
-      case "vault.externalSearch":
-        throw err2(-32e3, "No external search engine configured");
       default:
         throw err2(-32601, `Unknown method: ${method}`);
     }
@@ -33791,8 +34148,17 @@ async function main() {
   const adapterNames = registry2.list().map((a2) => a2.name).join(", ");
   process.stderr.write(`obsidian-llm-wiki: MCP server running (stdio, v${VERSION}, adapters: ${adapterNames})
 `);
+  process.stderr.write(`obsidian-llm-wiki: try "what do I know about <topic>" to invoke vault-librarian
+`);
 }
-main().catch((e) => {
-  process.stderr.write("obsidian-llm-wiki: fatal: " + e.message + "\n");
-  process.exit(1);
-});
+var _entryPath = process.argv[1] ? resolve3(process.argv[1]) : "";
+var _thisPath = fileURLToPath3(import.meta.url);
+if (_entryPath && _entryPath === _thisPath) {
+  main().catch((e) => {
+    process.stderr.write("obsidian-llm-wiki: fatal: " + e.message + "\n");
+    process.exit(1);
+  });
+}
+export {
+  VaultFs
+};
