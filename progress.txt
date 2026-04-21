@@ -1879,3 +1879,97 @@ None. Everything shipped.
    now squash-merged -- their commits live in d141e3a.
 3. v3 scope triage: walk docs/ICEBOX.md and promote / kill each
    item.
+
+
+## 2026-04-21 session 6 addendum -- privacy sweep 2 + v2 gap-list handoff
+
+### Extra done after session 6 close-out
+
+Curry asked for release-readiness pass: "能下载能用没有我们隐私 隐形链接 硬链接". Second privacy sweep found and fixed issues the session 6 commit did not cover.
+
+- Branch 1 (commit 92f680b): .planning/ (14 tracked files) untracked
+  + .gitignore update, root CLAUDE.md absolute paths replaced with
+  <path-to-vault> placeholders.
+- Default branch flipped v2-staging -> main via gh api PATCH. Before
+  this, users cloning landed on the stale v2-staging tip.
+- 5 stale remote branches deleted: v2-staging, feat/ai-output-sediment,
+  feat/step2-governance, feat/step2-5-input-gate,
+  feat/step2-6-tag-migration. Only main + legacy-v0.1.0-obsidian-plugin
+  remain.
+- Local untracked clutter cleaned (caches, .omc state, fm_work, dist,
+  planning, pytest/ruff caches, __pycache__). Kept venv/ node_modules/
+  fm_config.local.json vault-mind.yaml (personal / expensive).
+- Branch 2 (commit 456b61d): deeper leak sweep. 8 real tracked leaks
+  fixed + .gitattributes added:
+    - scripts/mcp_probe.py, mcp_smoketest.py, probe_enforce.py: ROOT
+      hardcode D:/projects/obsidian-llm-wiki -> Path(__file__).resolve().parents[1]
+    - scripts/hooks/vault-save-hook.py, hooks/vault-{morning,nightly,weekly,bg-agent}.sh:
+      VAULT fallback E:/knowledge -> /path/to/your/vault placeholder;
+      env var VAULT / VAULT_PATH overrides.
+    - compiler/tests/test_{link_discovery,evaluate,scheduler}.py:
+      arbitrary Windows paths -> /fake/vault
+    - compiler/link_discovery.py: dev-only E:/knowledge/_CLAUDE.md
+      comment removed.
+    - docs/2026-04-07-vault-mind-design.md, docs/ICEBOX.md: vault_path
+      + bridge repo references genericised.
+    - recipes/voile-to-vault.md: cd D:/projects/voile -> <path-to-voile-repo>.
+    - setup.sh: vault-path prompt default dropped; explicit input
+      required.
+    - viewer/sample-graph.json: all 14 absolute paths rewritten to
+      relative examples/demo-vault/...; examples/demo-vault/.compile/
+      untracked (build artifact).
+- .gitattributes added with `* text=auto eol=lf` + binary list.
+  Closes progress P3 CRLF carry-forward and prevents
+  mcp-tools-reference drift-guard test from flapping on Windows.
+
+### Final clone state (verified with `git clone --depth 1`)
+
+HEAD = 456b61d. No real vault paths anywhere in tracked files; the
+only remaining absolute Windows paths are the fs-transport.test.ts
+security fixture (`C:\\escape` tests path-traversal rejection) and
+user-facing AstrBot doc examples (with <username> placeholder). No
+symlinks / junctions / hardlinks. v2.0.0 tag points at d141e3a.
+
+### What blocked
+
+None. v2 shipped and release-ready.
+
+### Next session backlog (Curry-confirmed 2026-04-21 evening)
+
+Four gaps the technical sprint did not cover. Ordered by leverage:
+
+1. **GEO (highest)** -- project's users ARE LLMs (Claude/GPT/Gemini
+   reading "what does this MCP do?"). If the repo is invisible when
+   agents search for "Obsidian MCP server" / "Karpathy LLM Wiki
+   implementation" / "Claude Code knowledge base", it fails its own
+   premise. Needs: README keyword density pass, GitHub repo topics
+   refresh, schema.org meta in any landing page, Karpathy gist
+   comment timing, HN Show submission, x-thread launch copy
+   (.outreach/ drafts already exist -- audit + fire).
+2. **Multi-language README** -- current README is bilingual mixed.
+   Split into README.md (EN authoritative) + README.zh-CN.md with
+   top-of-file language switch. docs/GUIDE already bilingual; README
+   layer just needs the same treatment.
+3. **Design / landing** -- Curry referenced
+   https://github.com/alchaincyf/huashu-design as the pattern. Not
+   yet fetched -- first action next session is to read what kind of
+   design that is (HTML landing page? README visual polish? repo
+   hero image?).
+4. **GitHub Wiki pages** -- architecture diagram, FAQ, rationale for
+   "why not just grep" (docs/WHY_NOT_JUST_GREP.md exists and could
+   seed this), comparison with Obsidian native CLI, adapter spec.
+   Accumulation asset, not launch-critical. V2 design decisions
+   still fresh in head = gold window to write.
+
+Each of the four is 1-3 hours minimum. Do NOT try to batch them all
+in one session. Pick one, ship it, repeat.
+
+### Next step (session 7 opener)
+
+1. Recall docs/ICEBOX.md status + this backlog.
+2. Curry picks one of {GEO, multi-lang README, design, wiki}.
+3. If design is picked, first action = WebFetch
+   https://github.com/alchaincyf/huashu-design (or
+   huashu-design README raw) to understand the pattern being
+   referenced.
+4. Otherwise go straight to execution on the chosen item.
