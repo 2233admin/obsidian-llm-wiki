@@ -522,7 +522,7 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     {
       name: 'query.unified',
       namespace: 'query',
-      description: 'Weighted multi-adapter search across all active adapters (filesystem, obsidian, memu, gitnexus). Results merged and re-ranked by per-adapter weight. Use when you want best answers anywhere; for single-adapter search use query.search (filesystem-only, ranked) or vault.search (raw filesystem grep, unranked).',
+      description: 'Reciprocal Rank Fusion (RRF) search across all active adapters (filesystem, obsidian, memu, gitnexus). Each adapter returns its ranked top-N; results are merged by RRF score = sum over sources (weight / (60 + rank_in_source)), so a doc that appears in top-5 of multiple sources beats a doc at top-1 of just one. Weights now scale each source\'s rank contribution (not raw score), so weight=2 doubles a source\'s influence on tied docs. Use when you want best answers anywhere; for single-adapter ranked search use query.search, for raw grep use vault.search.',
       mutating: false,
       params: {
         query: { type: 'string', required: true, description: 'Search query string' },
@@ -551,7 +551,7 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     {
       name: 'query.search',
       namespace: 'query',
-      description: 'Filesystem-only ranked knowledge search. Same scoring pipeline as query.unified but restricted to the filesystem adapter. Use for deterministic filesystem-rooted results without memu/gitnexus noise; use vault.search for raw grep-style matching without ranking.',
+      description: 'Filesystem-only RRF-ranked knowledge search. Same fusion pipeline as query.unified restricted to the filesystem adapter (single-source RRF degenerates to rank preservation). Use for deterministic filesystem-rooted results without memu/gitnexus noise; use vault.search for raw grep-style matching without ranking.',
       mutating: false,
       params: {
         query: { type: 'string', required: true, description: 'Search query string' },
@@ -569,7 +569,7 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     {
       name: 'query.semantic',
       namespace: 'query',
-      description: 'Text-input semantic search. Embeds the query via an OpenAI-compatible embedding endpoint (default: ollama qwen3-embedding:0.6b at localhost:11434 -- the same model that produced memU\'s stored 1024-dim vectors), then fans out to all embeddings-capable adapters (currently memu, pgvector cosine). Use this for natural-language queries that should match by meaning rather than keyword. Override endpoint/model via VAULT_MIND_EMBED_URL and VAULT_MIND_EMBED_MODEL env. For pre-computed vectors use query.vector; for keyword matching use query.unified.',
+      description: 'Text-input semantic search. Embeds the query via an OpenAI-compatible embedding endpoint (default: ollama qwen3-embedding:0.6b at localhost:11434 -- the same model that produced memU\'s stored 1024-dim vectors), then fans out to all embeddings-capable adapters (currently memu, pgvector cosine). Use this for natural-language queries that should match by meaning rather than keyword. Override endpoint/model via VAULT_MIND_EMBED_URL and VAULT_MIND_EMBED_MODEL env. For pre-computed vectors use query.vector; for keyword matching use query.unified (RRF fusion of keyword adapters).',
       mutating: false,
       params: {
         query: { type: 'string', required: true, description: 'Natural-language text to embed and semantic-search' },
@@ -598,7 +598,7 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     {
       name: 'query.vector',
       namespace: 'query',
-      description: 'Weighted multi-adapter semantic search via pre-computed query vector. Fans out to adapters declaring the "embeddings" capability (currently memu via pgvector cosine). Caller supplies the vector -- adapters are model-agnostic, so callers must produce an embedding matching the adapter\'s stored vector space (memu: 1024-dim). Use for vector-similarity ranking when you already have an embedding; for text-input semantic search use query.semantic; for keyword fusion use query.unified.',
+      description: 'Weighted multi-adapter semantic search via pre-computed query vector. Fans out to adapters declaring the "embeddings" capability (currently memu via pgvector cosine). Caller supplies the vector -- adapters are model-agnostic, so callers must produce an embedding matching the adapter\'s stored vector space (memu: 1024-dim). Use for vector-similarity ranking when you already have an embedding; for text-input semantic search use query.semantic; for keyword fusion use query.unified (RRF).',
       mutating: false,
       params: {
         vector: { type: 'array', required: true, description: 'Pre-computed query embedding as number[] (memu expects 1024-dim)' },

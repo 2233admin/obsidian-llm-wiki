@@ -7,6 +7,7 @@
 
 import type { AdapterRegistry } from "./adapters/registry.js";
 import type { SearchResult, SearchOpts } from "./adapters/interface.js";
+import { fuseRRF, type RankedBundle } from "./rrf.js";
 
 export interface UnifiedQueryOpts extends SearchOpts {
   /** Only query these adapter names (default: all search-capable) */
@@ -46,34 +47,47 @@ export async function unifiedQuery(
 
   // Per-adapter limit: request ~1.5x share so fusion has headroom to merge
   const totalMax = opts?.maxResults ?? 50;
-  const perAdapterMax = Math.ceil((totalMax * 1.5) / filtered.length);
+  // Each adapter gets at least totalMax results so weak sources can still
+  // contribute to RRF fusion. Without this floor, the old formula capped
+  // per-adapter results at totalMax*1.5/N which (at N=4) gave each adapter
+  // only ~19 rows; a weak adapter's rank-20 relevant doc could never enter
+  // the fusion pool, defeating RRF's whole purpose of lifting weak-source
+  // signals.
+  const perAdapterMax = Math.max(
+    totalMax,
+    Math.ceil((totalMax * 1.5) / filtered.length),
+  );
 
   const settled = await Promise.allSettled(
-    filtered.map(async (adapter) => {
+    filtered.map(async (adapter): Promise<RankedBundle> => {
       const start = Date.now();
+      const w = weights[adapter.name] ?? 1.0;
       try {
         const results = await adapter.search!(query, { ...opts, maxResults: perAdapterMax });
         sources[adapter.name] = { count: results.length, latencyMs: Date.now() - start };
-        const w = weights[adapter.name] ?? 1.0;
-        return results.map((r) => ({ ...r, score: r.score * w, source: adapter.name }));
+        return {
+          source: adapter.name,
+          weight: w,
+          results: results.map((r) => ({ ...r, source: adapter.name })),
+        };
       } catch (e) {
         sources[adapter.name] = {
           count: 0,
           latencyMs: Date.now() - start,
           error: (e as Error).message,
         };
-        return [] as SearchResult[];
+        return { source: adapter.name, weight: w, results: [] };
       }
     }),
   );
 
-  const merged: SearchResult[] = [];
+  const bundles: RankedBundle[] = [];
   for (const r of settled) {
-    if (r.status === "fulfilled") merged.push(...r.value);
+    if (r.status === "fulfilled") bundles.push(r.value);
   }
 
-  // Descending score
-  merged.sort((a, b) => b.score - a.score);
+  // RRF fusion: rank-based not score-based, same doc across sources accumulates.
+  const merged = fuseRRF(bundles);
 
   const maxResults = opts?.maxResults ?? 50;
   return {
@@ -122,35 +136,49 @@ export async function unifiedQueryByVector(
   const weights = opts?.weights ?? {};
   const sources: Record<string, AdapterStats> = {};
   const totalMax = opts?.maxResults ?? 50;
-  const perAdapterMax = Math.ceil((totalMax * 1.5) / filtered.length);
+  // Each adapter gets at least totalMax results so weak sources can still
+  // contribute to RRF fusion. Without this floor, the old formula capped
+  // per-adapter results at totalMax*1.5/N which (at N=4) gave each adapter
+  // only ~19 rows; a weak adapter's rank-20 relevant doc could never enter
+  // the fusion pool, defeating RRF's whole purpose of lifting weak-source
+  // signals.
+  const perAdapterMax = Math.max(
+    totalMax,
+    Math.ceil((totalMax * 1.5) / filtered.length),
+  );
 
   const settled = await Promise.allSettled(
-    filtered.map(async (adapter) => {
+    filtered.map(async (adapter): Promise<RankedBundle> => {
       const start = Date.now();
+      const w = weights[adapter.name] ?? 1.0;
       try {
         const results = await adapter.searchByVector!(vector, {
           maxResults: perAdapterMax,
         });
         sources[adapter.name] = { count: results.length, latencyMs: Date.now() - start };
-        const w = weights[adapter.name] ?? 1.0;
-        return results.map((r) => ({ ...r, score: r.score * w, source: adapter.name }));
+        return {
+          source: adapter.name,
+          weight: w,
+          results: results.map((r) => ({ ...r, source: adapter.name })),
+        };
       } catch (e) {
         sources[adapter.name] = {
           count: 0,
           latencyMs: Date.now() - start,
           error: (e as Error).message,
         };
-        return [] as SearchResult[];
+        return { source: adapter.name, weight: w, results: [] };
       }
     }),
   );
 
-  const merged: SearchResult[] = [];
+  const bundles: RankedBundle[] = [];
   for (const r of settled) {
-    if (r.status === "fulfilled") merged.push(...r.value);
+    if (r.status === "fulfilled") bundles.push(r.value);
   }
 
-  merged.sort((a, b) => b.score - a.score);
+  // RRF fusion: see unifiedQuery for rationale.
+  const merged = fuseRRF(bundles);
 
   return {
     results: merged.slice(0, totalMax),
