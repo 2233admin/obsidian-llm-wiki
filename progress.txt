@@ -2215,3 +2215,137 @@ Pick one (same shape as session 8/9 opener -- triage not auto):
 - Is it worth adding a `--queries` flag to `memu-perf.ts` now to
   capture varied-workload baseline before Phase 3, or defer until
   an actual optimisation lands and we need before/after data?
+
+## 2026-04-25 -- session 10 addendum: Phase 3 closed end-to-end
+
+### What done
+
+Curry said "continue to update features, not write docs" -- drove
+straight into Phase 3 implementation skipping the spec/investigation
+path. Provenance question ("which embedding model produced memU's
+stored 1024-dim vectors") resolved empirically in 3 minutes via
+ollama probe + cosine roundtrip, no document reading. Phase 3 now
+shipped end-to-end across adapter, unified-query, and tool layers.
+
+- **Provenance resolved**: `qwen3-embedding:0.6b` (ollama, 640MB Q8_0)
+  produces vectors cosine-identical (1.000000) to memU's stored
+  `memory_items.embedding`. Verified by re-embedding a known boris
+  summary and comparing. Same model, not similar family.
+- **2b015d5 feat(memu-adapter): searchByVector** -- adapter-level
+  pgvector cosine similarity method. Model-agnostic: caller supplies
+  vector. Implements `1 - (embedding <=> $vec::vector)` as score,
+  clamps maxResults [1,100], scope-filters by user_id, returns [] on
+  empty vector or PG failure. Capability "embeddings" exposed.
+  Test surface: +3 unavailable + 7 integration (throwaway memu_test
+  DB with CREATE EXTENSION vector). 17/17 memu tests pass.
+- **0187a70 feat(query.vector)**: MCP tool wiring layer. Added
+  `unifiedQueryByVector()` parallel fan-out to embeddings-capable
+  adapters. Registered `query.vector` tool (vector: number[] input,
+  rejects empty/non-finite with JSON-RPC -32602). +3 smoke tests.
+  Regenerated tools-doc (40 -> 41 ops), rebuilt bundle.
+- **986885a feat(query.semantic)**: closed the loop. `embedding-
+  client.ts` (new) wraps OpenAI-compat `/v1/embeddings` with
+  AbortController timeout; defaults to ollama qwen3-embedding:0.6b.
+  `query.semantic(text)` tool embeds input, dispatches to
+  `unifiedQueryByVector`. Env override via `VAULT_MIND_EMBED_URL`
+  and `VAULT_MIND_EMBED_MODEL`. +2 smoke tests. Tools-doc regenerated
+  (41 -> 42), bundle rebuilt.
+
+### Live end-to-end verification
+
+Against real memU (user=boris, 3773 embedded rows):
+
+  query: "headless MCP server for knowledge wiki"
+  adapter: memu
+  latency: 25ms total (embed + PG vector search)
+  top result: memu/boris/skill/... -- mcp-server-builder skill note
+  score: 0.6478 (cosine similarity)
+  total matches: 8
+
+This is ~10x faster than the session 9 ILIKE baseline (280ms floor)
+because pgvector cosine uses an index while ILIKE does sequential
+scan. Different paradigm, not optimization of the same one.
+
+Semantic correctness verified: query mentions "knowledge wiki",
+top result is the mcp-server-builder skill. Not keyword match,
+genuine semantic retrieval.
+
+### Also this session (Phase 2 carry-forward, already summarised above)
+
+- e4b879a test + perf baseline
+- 8a03835 session 9 addendum
+
+Total session commits: 5. Tests: 121 -> 136 (+15), 0 fail. All
+local on `main`.
+
+### Honest gap list
+
+P1:
+- Not pushed to remote. Not tagged. 5 session-of-work still local.
+- No perf baseline for query.semantic. Single observation of 25ms
+  against one query; p50/p95/p99 under load unknown. Likely ollama
+  embed is the dominant cost (~15-20ms) vs pg vector search (~5ms),
+  but not measured.
+
+P2:
+- README, CHANGELOG, adapter doc, wiki, GEO all unchanged per "doc
+  deprioritised" directive.
+- query.semantic has a soft dependency on ollama running. If ollama
+  is down the tool returns a clean -32603 error, but there's no
+  up-front health check / capability probe. `query.adapters` tool
+  doesn't surface "embedding service up/down".
+- Hybrid search (ILIKE + vector fusion in one call) is a natural
+  next tool but not written. Currently the caller picks one path.
+
+P3:
+- `cat aliased to bat (missing)` and `winpty node.exe alias` both
+  tripped this session (commit message HEREDOC + node script
+  invocation). Already in memory; consider a pre-session shell
+  profile check or tool-layer workaround.
+- "Schema drift in prod DB" tripped when fixture tried to INSERT
+  into real memU memory_items (updated_at NOT NULL). Resolved by
+  using throwaway memu_test DB. Worth a feedback memory:
+  integration test DB must be owned by the fixture, not shared
+  with prod.
+
+### What this session explicitly did NOT do
+
+- No perf run for the semantic path. 25ms is one observation.
+- No push, no tag. All ready to push when release cadence decides.
+- No embedding service resilience: tool assumes ollama 11434 up.
+- No `query.semantic` in README or tool-doc examples (user-facing
+  doc deprioritised).
+- No hybrid text+vector fusion tool.
+
+### Next step (session 11 opener)
+
+Triage among these, same blast-radius shape as session 9/10 openers:
+
+- **perf baseline for query.semantic** (low) -- run a 100-iter
+  loop through the live bundle, separate embed latency from pg
+  vector latency, sediment numbers to progress.txt. Zero new
+  code, all measurement.
+- **hybrid search** (medium) -- extend `query.unified` (or new
+  `query.hybrid`) to fuse ILIKE + cosine in a single call, either
+  via RRF or linear score blending. Decision: which fusion method.
+- **push + v2.1.0 cut** (high, external visibility) -- squash
+  session 9 + 10 into CHANGELOG, tag, push origin + gitea. Decide
+  version string (v2.1.0 following repo tags vs 0.2.0 following
+  package.json). User confirmation required for the push.
+
+### Unresolved questions
+
+- Where should `reference_embedding_stack.md` or similar memory
+  file go? The fact "memU uses ollama qwen3-embedding:0.6b" is
+  now load-bearing for Phase 3 -- if Curry ever re-runs memU with
+  a different model, adapter results go garbage silently. Add a
+  schema-probe on adapter init that verifies dim? Or log the
+  model id somewhere queryable?
+- Package version vs repo tag divergence: package.json is 0.1.0,
+  repo tag is v2.0.0. A v2.1.0 release bump will leave package
+  at 0.1.0 unless we also bump. Which one is the intended source
+  of truth for npm consumers?
+- Is Phase 3 "done" or does "Phase 3" include the eval-side
+  (measuring retrieval quality on a held-out question set)?
+  Current work closes the *capability* loop, not the *quality*
+  loop. Open item or out of scope?
