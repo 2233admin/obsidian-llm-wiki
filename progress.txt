@@ -2349,3 +2349,188 @@ Triage among these, same blast-radius shape as session 9/10 openers:
   (measuring retrieval quality on a held-out question set)?
   Current work closes the *capability* loop, not the *quality*
   loop. Open item or out of scope?
+
+---
+
+## Session 11 -- 2026-04-25 -- RRF fusion + obsidian-second-brain fork scan + fusion plan
+
+### What this session did
+
+- **RRF (Reciprocal Rank Fusion) landed** in `unifiedQuery`
+  and `unifiedQueryByVector`. Pattern adopted from GBrain
+  (garrytan/gbrain) hybrid-search. Replaces the old
+  `score * weight` weighted-sum fusion. Each adapter returns
+  its top-N ranked, merged by
+  `sum over sources (weight / (60 + rank_in_source))`.
+  Eliminates the score-magnitude bias where memU 0.001-0.05
+  scores could never beat filesystem 0.1-1.0 scores.
+- **Independent code review by Opus reviewer** (spawned as
+  general-purpose agent with model=opus). Four P1 findings
+  all fixed in same commit:
+  - P1 within-bundle dedup: same path at rank 1 + rank 5 in
+    one adapter was double-counted. Cormack 2009 assumes
+    unique lists per source. Fix: `seenInBundle` Set,
+    first-rank-wins.
+  - P1 tool description drift: four MCP tool descriptions
+    (`query.unified` / `query.search` / `query.semantic` /
+    `query.vector`) still claimed "weighted-score merge".
+    Rewrote to name RRF + new weight semantics. Caught by
+    `generate-tools-doc.test.js` drift test -- that test
+    earned its keep.
+  - P1 non-deterministic tie-break: equal RRF scores resolved
+    by Map insertion order = `Promise.allSettled` race.
+    Fixed with secondary sort by path ascending.
+  - P1 `perAdapterMax` cap defeated RRF: pre-fix
+    `ceil(totalMax * 1.5 / N)` at N=4 gave each adapter ~19
+    rows; weak-source rank-20 relevant doc never entered the
+    fusion pool. Fixed with
+    `max(totalMax, ceil(totalMax * 1.5 / N))` floor.
+- **3 new RRF tests** (within-bundle dup, tie-break
+  determinism, all-empty-bundles). 145/145 pass post-fix.
+- **obsidian-second-brain fork scanned end-to-end**. Curry
+  forked `eugeniughelbur/obsidian-second-brain` on 2026-04-24.
+  It is a 26-command Claude Code skill (markdown + shell +
+  Python scripts, no MCP server). Compared to llm-wiki's 17
+  `vault-*` persona skills they are **parallel and
+  complementary**: llm-wiki = thinking personas (architect,
+  curator, gardener, ...), second-brain = operational commands
+  (daily, task, person, log, board, ...). Found 9 concept-
+  overlapping pairs, 15 second-brain-unique commands, plus
+  6 infra pieces worth absorbing.
+- **Fusion plan doc** written to
+  `docs/fusion-with-second-brain-2026-04-25.md`. 4 phases
+  (tracer-bullet done / concept merges / unique migrations /
+  infra adoption). Fork strategy: keep as upstream-watch only,
+  all development in llm-wiki.
+- **Tracer-bullet skill migration**: `skills/vault-daily.md`
+  translated from `obsidian-daily.md`. MCP tool refs adapted
+  from upstream `mcp-obsidian` surface
+  (`get_file_contents` / `write_file` / ...) to vault-mind
+  surface (`vault.exists` / `vault.read` / `vault.create` /
+  `vault.modify` / `vault.append`). Zero conflict -- llm-wiki
+  had no daily note skill before.
+- **2 commits landed**:
+  - `fd9bd81` feat(skills): migrate /vault-daily + fusion
+    plan from obsidian-second-brain (+223)
+  - `469f792` feat(query): RRF fusion for multi-adapter
+    search + 4 review P1 fixes (+308 -25)
+
+### What surfaced
+
+- **comrade-bus was a concept bubble.** Earlier sessions'
+  handoff kept "independent comrade-bus repo" as a decided
+  item but the repo never had substance -- just a name with
+  accreting responsibilities. User pushed back mid-session
+  after surfacing obsidian-second-brain; turns out most of
+  what comrade-bus was supposed to do either duplicates
+  second-brain (operational commands) or can live as
+  adapters in llm-wiki. Decision: **kill comrade-bus** as a
+  separate repo.
+- **Knowledge OS self-pollution.** The slogan "Knowledge OS"
+  (never endorsed by Curry) appears in 7 files including
+  global `C:/Users/Administrator/CLAUDE.md:117` and
+  project `D:/projects/obsidian-llm-wiki/CLAUDE.md:5`.
+  Classic LLM loop: an earlier session wrote it, subsequent
+  sessions auto-loaded it as "established", kept building
+  brand narrative on top. Cleared the global CLAUDE.md line
+  this session; remaining 6 pollutions deferred. Lesson for
+  future sessions: `verify-before-accepting` memory rule
+  applies to *the previous Claude's artifacts*, not just the
+  user's assertions.
+- **GBrain reference repo paid off**: reading it surfaced
+  RRF as a proven pattern, confirmed k=60 is load-bearing
+  (not arbitrary), gave the rank-based semantics that made
+  the weight-meaning change defensible. Single
+  `git clone --depth 1` for two hours of re-invented-wheel
+  avoidance.
+- **`generate-tools-doc.test.js` is high-value for MCP**:
+  drift test between `core/operations.ts` and
+  `docs/mcp-tools-reference.md` caught description changes
+  immediately. Cheaper than snapshot testing (no snapshot
+  files), catches "description says X but code does Y"
+  failures that pure unit tests miss. Template pattern worth
+  copying for any code-generated doc.
+- **`cat aliased to bat (missing)` pitfall tripped once**:
+  first attempt at `git commit -m "$(cat <<EOF ... EOF)"`
+  produced empty commit message (bat not installed, heredoc
+  contents lost). Fallback: `Write + git commit -F`. Already
+  recorded in ~/.claude memory; the pre-existing memory
+  caught it on second attempt rather than third.
+
+### What this session explicitly did NOT do
+
+- No Phase 1b, 1c, 2, or 3 of fusion plan. Only Phase 1a
+  tracer-bullet (vault-daily migration).
+- No `_CLAUDE.md` convention adoption in llm-wiki -- the new
+  `vault-daily.md` references `_CLAUDE.md` but llm-wiki has
+  no template or docs for it yet. Short-term fallback
+  documented in the skill itself.
+- No `CRITICAL_FACTS.md` convention adoption.
+- No push. 8 commits ahead of `origin/main`. Never pushes
+  without explicit user confirmation.
+- No actual invocation test of `/vault-daily`. Skills are
+  markdown, runtime-untestable; only MCP tool name alignment
+  was verified via grep.
+- No scan for external consumers of `unifiedQuery` /
+  `unifiedQueryByVector` that might have depended on raw
+  score values. In-repo callers (5 sites in operations.ts)
+  all pass through untouched. External (OpenClaw etc.) not
+  audited.
+- No Knowledge OS pollution cleanup beyond the one line in
+  global CLAUDE.md. 6 files still carry the phrase.
+
+### Next step (session 12 opener)
+
+Same blast-radius-ranked triage as sessions 9/10/11 openers:
+
+- **Phase 1b -- diff-merge 9 concept-overlap skills** (low
+  risk, high reward). For each of `vault-save` /
+  `vault-ingest` / `vault-challenge` / `vault-connect` /
+  `vault-emerge` / `vault-graduate` / `vault-health` /
+  `vault-reconcile` / `vault-world` -- diff vs the
+  `obsidian-*` counterpart in
+  `D:/projects/obsidian-second-brain/commands/`, merge the
+  stronger content, keep `vault-*` naming. One skill per
+  commit. ~1.5-2h total.
+- **Phase 1c -- migrate 15 unique commands** (medium risk,
+  repetitive). Translate `obsidian-daily`-style commands
+  (task / person / project / log / adr / board / capture /
+  decide / export / find / init / recap / review /
+  synthesize / visualize) to `vault-*.md` with MCP refs
+  rewritten. Pattern proven by vault-daily.
+- **push + v2.1.0 cut** (high, external visibility) -- if
+  Curry wants external release, squash session 11 into a
+  CHANGELOG entry, decide version string (package.json 0.1.0
+  vs repo tag v2.0.0 divergence still open from session 10),
+  push origin + gitea.
+- **Knowledge OS pollution cleanup** (low risk, hygiene).
+  6 remaining files. Trivial diff but needs user signoff on
+  each (some are release artifacts).
+
+### Unresolved questions
+
+- Pre-RRF, `weights: {filesystem: 2, memu: 1}` meant
+  "filesystem scores doubled"; post-RRF it means "filesystem
+  rank contributions doubled". External consumers (OpenClaw
+  deployments, user scripts) that tuned weights empirically
+  will now see different top-K. Breaking change? Does v2.1.0
+  need a migration note?
+- `_CLAUDE.md` adoption -- optional convention with strong
+  default template, or required file with a validator? The
+  latter breaks anyone using llm-wiki as a library import.
+  Previous lean: optional. Decide in Phase 2.
+- Phase 1b canonical-choice policy: when both sides have
+  working content for the same skill, which side is the base
+  and which side is the merge delta? Default "llm-wiki is
+  base, second-brain is delta" because llm-wiki has the
+  published v2.0.0 release line, but some commands
+  (`obsidian-ingest` 111 lines vs `vault-ingest` 91 lines)
+  the delta is bigger than the base.
+- Bi-temporal frontmatter (`valid_from` / `known_since`)
+  retrofit: migrate 17k existing vault notes on adoption day,
+  or tolerate mixed-frontmatter vault indefinitely? Probably
+  the latter with opt-in, but need a frontmatter-gap linter
+  first.
+- `2233admin/obsidian-second-brain` upstream-watch cadence:
+  monthly `git fetch upstream` manual, or automate via cron?
+  If automated, where does the diff notification land?
