@@ -22,6 +22,7 @@
     "typecheck": "tsc --noEmit",
     "test": "node --test dist/**/*.test.js",
     "memu-query": "node dist/scripts/memu-query.js",
+    "sync-vault-to-memu": "node dist/scripts/sync-vault-to-memu.js",
     "generate-tools-doc": "node dist/scripts/generate-tools-doc.js",
     "bundle": "esbuild dist/index.js --bundle --platform=node --target=node20 --format=esm --outfile=bundle.js --external:@electric-sql/pglite --external:@electric-sql/pglite/* --banner:js=\"import{createRequire}from'module';const require=createRequire(import.meta.url);\" --log-level=warning",
     "rebuild": "npm run build && npm run bundle"
