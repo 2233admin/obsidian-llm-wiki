@@ -2350,6 +2350,75 @@ Triage among these, same blast-radius shape as session 9/10 openers:
   Current work closes the *capability* loop, not the *quality*
   loop. Open item or out of scope?
 
+## 2026-04-25 -- session 11 addendum: RRF hybrid search + integration test
+
+### What done
+
+Picked up from session 10's "hybrid search (medium)" option. Session 10 had already
+committed the full implementation (commit `469f792`) including rrf.ts, 9 unit tests,
+and unified-query.ts changes. Session 11 closed the remaining P1/P2 gaps:
+
+- **unified-query.test.ts** (NEW) -- 2 integration tests for the call site:
+  1. Single adapter round-trip: confirms original rank order is preserved when
+     only one adapter is in the registry (RRF with one source = rank-preserved).
+  2. Two adapters with shared doc: adapter A returns [docX, docA], adapter B
+     returns [docB, docX] -- verifies docX ranks first (cross-source accumulation
+     is RRF's core value), and rrfSources metadata lists both contributing adapters.
+  Test count: 145 -> 147, 0 fail. Build + typecheck clean.
+
+- **AUTHORSHIP_NOTES.md** (NEW, top-level) -- investigation of who authored rrf.ts.
+  Conclusion: INCONCLUSIVE (see file). Most likely: Claude Code executor session
+  authored the code, committed by Curry under 2233admin no-reply alias. No stash
+  trail, no Co-Authored-By trailer in 469f792. Curry decides attribution for next
+  commit.
+
+- **CHANGELOG.md** -- added `## [Unreleased]` section with RRF Added/Fixed entries.
+
+- **progress.txt** -- this addendum.
+
+### Design decision recorded
+
+**Upgrade `query.unified` in place vs add new `query.hybrid` tool.**
+
+Call: upgrade in place (what was implemented in 469f792).
+
+Rationale: fewer MCP tools = less surface area for agents to confuse. Callers that
+want to opt a specific adapter out of fusion can pass `weights: { adapterName: 0 }`.
+Adding `query.hybrid` as a separate tool would duplicate the entire fan-out +
+fusion machinery for no gain -- the only difference would be the default adapter
+set, which weights already controls. Simpler is stable.
+
+### Honest gap list
+
+P1:
+- Authorship of 469f792 is unresolved. No Co-Authored-By trailer. Curry must
+  decide before tagging v2.1.0 whether to amend the commit or leave it.
+- Not pushed to remote. Sessions 9, 10, 11 work still local-only.
+
+P2:
+- No integration test for unifiedQueryByVector (vector fan-out path). The two new
+  tests cover only the text-search path. Vector path shares the same fuseRRF call
+  so it's de-risked, but a dedicated integration test would be cleaner.
+- README, CHANGELOG entry for Phase 3 (query.semantic / query.vector), GUIDE -- all
+  unchanged per "doc deprioritised" directive.
+- package.json still at 0.1.0 while repo tag is v2.0.0. Needs decision: bump
+  package.json to 0.2.0 or 2.1.0 alongside repo v2.1.0 tag, or leave diverged.
+
+P3:
+- No perf baseline for unified fusion path (how much overhead does RRF add over
+  the old score-merge at N=4 adapters with 50 results each?). Likely negligible
+  (pure in-memory sort), but unmeasured.
+- AUTHORSHIP_NOTES.md is a scratch file -- should be deleted or gitignored before
+  v2.1.0 tag to avoid polluting the repo root.
+
+### Unresolved questions
+
+- Should package.json bump to 0.2.0 alongside v2.1.0 repo tag? Or is 0.1.0 the
+  intended floor until a breaking API change (which RRF is not -- same tool surface,
+  same query params)?
+- v2.1.0 tag timing: push sessions 9+10+11 as one batch, or separate commits?
+  Session 10 P1 gap ("not pushed") has been open for a full session now.
+
 ---
 
 ## Session 11 -- 2026-04-25 -- RRF fusion + obsidian-second-brain fork scan + fusion plan
@@ -2534,3 +2603,66 @@ Same blast-radius-ranked triage as sessions 9/10/11 openers:
 - `2233admin/obsidian-second-brain` upstream-watch cadence:
   monthly `git fetch upstream` manual, or automate via cron?
   If automated, where does the diff notification land?
+
+## 2026-04-29 -- C1 + B Path 1 + store.py fix (memU layer reactivated)
+
+### What done
+
+- **C1 -- PPR query path** (commit 072b060): `mcp-server/src/adapters/memu.ts`
+  rewritten so 1024d query path routes through `memu_graph.cli graph-recall`
+  subprocess (PPR + LPA community + dual-path recall) instead of raw cosine.
+  4096d path kept as fallback. Embedding source: ollama qwen3-embedding:0.6b
+  (`src/embedding/ollama.ts`). Warm latency p50=638ms / p95=690ms (n=20),
+  documented in `docs/PERF-MEMU.md`. Smoke test rewritten as PPR-path e2e:
+  `_probe_memu.mjs` (commit c94ba30).
+- **B Path 1 -- vault sync** (commit 6debb1c): `compiler/memu_sync.py` (666 LOC,
+  zero new deps) walks `E:/knowledge` skipping 8 dirs, hash-incremental against
+  `vault_sync_state` sidecar (PostgreSQL), batched ollama embedding (size 8),
+  spawns `memu_graph.cli graph-write`. First sync: 2990 MDs scanned, 2985 added,
+  68.4s total. Idempotent rerun = 157ms. TS spawn wrapper:
+  `mcp-server/src/scripts/sync-vault-to-memu.ts`. Schema migration 003 in
+  memu-graph repo: VAULT_NOTE node type + WIKILINK edge type + vault_sync_state
+  table.
+- **memu-graph store.py fix** (memu-graph commit c1dbe22): swapped
+  `session.exec` -> `session.execute` at 5 sites (lines 199, 204, 230, 315, 804)
+  + dropped 5 `# type: ignore[attr-defined]` annotations that were masking a
+  runtime AttributeError. Half-finished sqlmodel->sqlalchemy migration. Verified
+  by full PPR + LPA recompute on 4124-node graph: 12.6s, 4049 PR-populated,
+  2969 communities. Top-5 PPR hubs intuitive (Claude Code, ClaudeLog index,
+  memu, project index, GitHub Stars index). 50/50 tests still pass.
+
+### Push state
+
+- obsidian-llm-wiki 14 commits (bdc2ac2..6debb1c) -> GitHub origin OK.
+- memu-graph 4 commits (ad1aafd..c1dbe22) -> Gitea origin **failed** (HTTP 400
+  on entire claw.xart.top:8418 host -- not token, server-level outage).
+  Commits sit local until Gitea recovered; consider mirror to GitHub if
+  outage long-lived.
+
+### Outstanding
+
+- **Gitea host outage**: SSH central server, check Docker / nginx / Gitea
+  container. (P1, blocks memu-graph push.)
+- **Periodic sync + maintenance**: vault-sync + run-maintenance currently
+  manual. Wire to Win Task Scheduler or NAS cron. (P1.)
+- **Daemon mode for memu_graph.cli**: 630ms cold spawn per query. Drop to
+  ~150ms with stdin/stdout JSON-RPC daemon. (P2, deferred.)
+- **156 unresolved wikilinks** in vault (broken `[[...]]` references):
+  acceptable Obsidian state, not a sync bug. (P2, content hygiene.)
+- **Phase B (Claude dispatch surface)**: implement `mcp__llm-wiki__agent_*`
+  4 tools so Claude can dispatch to agentbridge / APEX-Go / APEX-CNAIFREE
+  from chat. Plan locked at
+  `~/.claude/plans/snug-drifting-squid.md`.
+- **Phase C (APEX-CNAIFREE hardening)**: daemon-ize, captcha detection,
+  rate-limit queues for DeepSeek + Kimi + MiMo (3 of 9, scoped down).
+
+### Unresolved questions
+
+- Gitea outage: temporary or permanent? If permanent, fold memu-graph mirror
+  into GitHub remote setup (decision needed: public or private repo).
+- Embedded plaintext token in memu-graph .git/config origin URL:
+  `http://claudeQWQ:&lt;token&gt;@claw.xart.top:...`. Should be moved to credential
+  helper / env var. Token already exposed in this session's chat
+  context -- consider revoking in Gitea once host recovers.
+- Vault sync schedule cadence: hourly / daily / on-demand? Auto-trigger on
+  vault file change (filesystem watcher) vs. periodic poll?
