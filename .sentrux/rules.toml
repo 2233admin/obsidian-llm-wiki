@@ -1,0 +1,72 @@
+# Sentrux architectural constraints for obsidian-llm-wiki
+# Authored: 2026-04-28 (Comrade Claude)
+# Audit reference: .planning/sentrux-audit-2026-04-28.md
+#
+# IMPORTANT sentrux 0.3.12 semantics (empirically verified, README is misleading):
+#   "Layer X depends on layer Y" requires order(Y) > order(X).
+#   I.e. lower-order can import higher-order, NOT the other way around.
+#   Therefore: order=0 is the TOP of the stack (entry / leaf),
+#              order=N (high) is the BEDROCK.
+#
+# Dependency chain (low order -> high order, allowed direction):
+#   server-entry(0) -> methods(1) -> recipes(2) -> adapters(3) -> connector(4) -> core(5)
+
+[constraints]
+max_cycles = 0          # Already 0 across all of Curry's projects -- lock it in
+no_god_files = true     # Active concern: mcp-server/src/index.ts (1100+ lines, 18 churn / 90d)
+
+# === TypeScript MCP server layers (mcp-server/src/) ===
+
+[[layers]]
+name = "ts-server-entry"
+paths = ["mcp-server/src/index.ts", "mcp-server/src/unified-query.ts"]
+order = 0
+
+[[layers]]
+name = "ts-methods"
+paths = ["mcp-server/src/methods/**"]
+order = 1
+
+[[layers]]
+name = "ts-recipes"
+paths = ["mcp-server/src/recipes/**"]
+order = 2
+
+[[layers]]
+name = "ts-adapters"
+paths = ["mcp-server/src/adapters/**"]
+order = 3
+
+[[layers]]
+name = "ts-connector"
+paths = ["mcp-server/src/connector/**"]
+order = 4
+
+[[layers]]
+name = "ts-core"
+paths = ["mcp-server/src/core/**"]
+order = 5
+
+# === Python compiler (parallel runtime, no TS imports) ===
+
+[[layers]]
+name = "py-compiler"
+paths = ["compiler/**"]
+order = 10
+
+# === Explicit deny rules (extra precision beyond layer-order) ===
+
+[[boundaries]]
+from = "mcp-server/src/core/**"
+to = "mcp-server/src/adapters/**"
+reason = "Core types/utilities must not depend on concrete adapter impls (current real violation: core/operations.ts imports adapters/registry.ts)"
+
+[[boundaries]]
+from = "compiler/**"
+to = "mcp-server/**"
+reason = "Python compile pipeline runs independently of TS MCP server"
+
+[[boundaries]]
+from = "mcp-server/**"
+to = "compiler/**"
+reason = "TS MCP server must not import Python compile pipeline directly"

@@ -46,3 +46,10 @@ mcp-server/smoke.err
 
 # Local planning / GSD artifacts (per-dev, not part of shipped product)
 .planning/
+.gitnexus
+
+# Per-dev tooling caches (sentrux/cnxq/pytest/ruff/venv)
+compiler/venv/
+.pytest_cache/
+.ruff_cache/
+.cnxq/

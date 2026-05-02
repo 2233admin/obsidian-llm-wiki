@@ -15,6 +15,8 @@ import { fileURLToPath } from "node:url";
 
 import { FilesystemAdapter } from "./adapters/filesystem.js";
 import { MemUAdapter } from "./adapters/memu.js";
+import { MemorixAdapter } from "./adapters/memorix.js";
+import { ClaudeMemAdapter } from "./adapters/claudemem.js";
 import { GitNexusAdapter } from "./adapters/gitnexus.js";
 import { ObsidianAdapter } from "./adapters/obsidian.js";
 import { QmdAdapter } from "./adapters/qmd.js";
@@ -1110,34 +1112,70 @@ async function main(): Promise<void> {
     registry.register(fsAdapter);
   }
 
-  // Optional adapters -- init gracefully, don't block if unavailable
-  const enabledAdapters = new Set(config.adapters ?? ["filesystem", "memu", "gitnexus", "obsidian", "qmd", "vaultbrain"]);
+  // Optional adapters -- init gracefully, don't block if unavailable.
+  // qmd intentionally NOT in default list: CLI not installed on common dev boxes
+  // and init() exec'd it once per startup as a probe. To re-enable, add "qmd"
+  // to config.adapters in your VAULT_MIND_CONFIG file (don't add it back here).
+  const enabledAdapters = new Set(config.adapters ?? ["filesystem", "memu", "gitnexus", "obsidian", "vaultbrain", "memorix", "claudemem"]);
 
   if (enabledAdapters.has("memu")) {
     const memuAdapter = new MemUAdapter();
-    await memuAdapter.init();
-    if (memuAdapter.isAvailable) registry.register(memuAdapter);
+    try {
+      await memuAdapter.init();
+      if (memuAdapter.isAvailable) {
+        registry.register(memuAdapter);
+        process.stderr.write("obsidian-llm-wiki: [memu] adapter ready\n");
+      } else {
+        process.stderr.write("obsidian-llm-wiki: [memu] init returned isAvailable=false (see warn above)\n");
+      }
+    } catch (e) {
+      process.stderr.write(`obsidian-llm-wiki: [memu] init threw (continuing without): ${(e as Error).message}\n`);
+    }
   }
 
   if (enabledAdapters.has("gitnexus")) {
     const gnAdapter = new GitNexusAdapter();
-    await gnAdapter.init();
-    if (gnAdapter.isAvailable) registry.register(gnAdapter);
+    try {
+      await gnAdapter.init();
+      if (gnAdapter.isAvailable) {
+        registry.register(gnAdapter);
+        process.stderr.write("obsidian-llm-wiki: [gitnexus] adapter ready\n");
+      } else {
+        process.stderr.write("obsidian-llm-wiki: [gitnexus] init returned isAvailable=false (see warn above)\n");
+      }
+    } catch (e) {
+      process.stderr.write(`obsidian-llm-wiki: [gitnexus] init threw (continuing without): ${(e as Error).message}\n`);
+    }
   }
 
   if (enabledAdapters.has("obsidian")) {
     const obsAdapter = new ObsidianAdapter();
-    await obsAdapter.init();
-    if (obsAdapter.isAvailable) registry.register(obsAdapter);
+    try {
+      await obsAdapter.init();
+      if (obsAdapter.isAvailable) {
+        registry.register(obsAdapter);
+        process.stderr.write("obsidian-llm-wiki: [obsidian] adapter ready\n");
+      } else {
+        process.stderr.write("obsidian-llm-wiki: [obsidian] init returned isAvailable=false (see warn above)\n");
+      }
+    } catch (e) {
+      process.stderr.write(`obsidian-llm-wiki: [obsidian] init threw (continuing without): ${(e as Error).message}\n`);
+    }
   }
 
   if (enabledAdapters.has("qmd")) {
     const qmdCollection = process.env.VAULT_MIND_QMD_COLLECTION || undefined;
     const qmdAdapter = new QmdAdapter({ collection: qmdCollection });
-    await qmdAdapter.init();
-    if (qmdAdapter.isAvailable) {
-      registry.register(qmdAdapter);
-      process.stderr.write("obsidian-llm-wiki: [qmd] adapter ready\n");
+    try {
+      await qmdAdapter.init();
+      if (qmdAdapter.isAvailable) {
+        registry.register(qmdAdapter);
+        process.stderr.write("obsidian-llm-wiki: [qmd] adapter ready\n");
+      } else {
+        process.stderr.write("obsidian-llm-wiki: [qmd] init returned isAvailable=false (see warn above)\n");
+      }
+    } catch (e) {
+      process.stderr.write(`obsidian-llm-wiki: [qmd] init threw (continuing without): ${(e as Error).message}\n`);
     }
   }
 
@@ -1151,6 +1189,36 @@ async function main(): Promise<void> {
       process.stderr.write("obsidian-llm-wiki: [vaultbrain] adapter ready\n");
     } catch (e) {
       process.stderr.write(`obsidian-llm-wiki: [vaultbrain] init failed (continuing without): ${(e as Error).message}\n`);
+    }
+  }
+
+  if (enabledAdapters.has("memorix")) {
+    const memorixAdapter = new MemorixAdapter();
+    try {
+      await memorixAdapter.init();
+      if (memorixAdapter.isAvailable) {
+        registry.register(memorixAdapter);
+        process.stderr.write("obsidian-llm-wiki: [memorix] adapter ready\n");
+      } else {
+        process.stderr.write("obsidian-llm-wiki: [memorix] init returned isAvailable=false (see warn above)\n");
+      }
+    } catch (e) {
+      process.stderr.write(`obsidian-llm-wiki: [memorix] init threw (continuing without): ${(e as Error).message}\n`);
+    }
+  }
+
+  if (enabledAdapters.has("claudemem")) {
+    const cmAdapter = new ClaudeMemAdapter();
+    try {
+      await cmAdapter.init();
+      if (cmAdapter.isAvailable) {
+        registry.register(cmAdapter);
+        process.stderr.write("obsidian-llm-wiki: [claudemem] adapter ready\n");
+      } else {
+        process.stderr.write("obsidian-llm-wiki: [claudemem] init returned isAvailable=false (see warn above)\n");
+      }
+    } catch (e) {
+      process.stderr.write(`obsidian-llm-wiki: [claudemem] init threw (continuing without): ${(e as Error).message}\n`);
     }
   }
 

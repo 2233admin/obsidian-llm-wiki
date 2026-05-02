@@ -29,6 +29,12 @@ export interface VaultBrainEngine {
   // chunks
   upsertChunks(slug: string, chunks: ChunkInput[]): Promise<void>;
   deleteChunks(slug: string): Promise<void>;
+  /**
+   * Drop the entire content_chunks table (CASCADE). Used by vault.reset
+   * for schema migration (e.g. embedding dim 1536 -> 1024). Caller must
+   * re-run initSchema() to recreate the table with the new schema.
+   */
+  dropChunks(): Promise<void>;
 
   // search
   searchKeyword(query: string, limit: number): Promise<ChunkResult[]>;

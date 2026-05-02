@@ -1,5 +1,40 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- **RRF hybrid fusion in `query.unified`** -- replaces weighted-score merge with
+  Reciprocal Rank Fusion (Cormack et al. 2009). Each adapter returns its top-N
+  ranked; merged score = sum over sources (weight / (k + rank)), k=60. Eliminates
+  score-magnitude bias between adapters (filesystem 0.1-1.0 vs memu 0.001-0.05
+  no longer penalises weak sources). Same tool surface and parameters -- no
+  breaking change for callers.
+- **`rrf.ts` module** -- `fuseRRF()` + `RankedBundle` interface + `RRF_K` constant.
+  Pure function, no I/O. Includes within-bundle dedup guard (Cormack uniqueness
+  assumption), deterministic path-ascending tie-break, and `rrfSources` metadata
+  annotation on merged results.
+- **Integration tests for `unifiedQuery`** (`unified-query.test.ts`) -- two tests
+  using inline fake adapters: single-adapter rank preservation and cross-source
+  accumulation. Regression surface for future fusion algorithm changes.
+
+### Fixed
+
+- **Per-adapter result cap** in `unifiedQuery` and `unifiedQueryByVector` --
+  previous formula `ceil(totalMax * 1.5 / N)` capped each adapter at ~19 results
+  at N=4, preventing weak-source rank-20+ results from entering the fusion pool
+  (defeating RRF's entire purpose). New floor: `Math.max(totalMax, ceil(...))` so
+  each adapter always gets at least `totalMax` rows regardless of N.
+- **Within-bundle deduplication** -- if an adapter returns the same path at
+  multiple ranks (grep multi-line match, memu multi-chunk page), only the
+  first (highest-rank) occurrence contributes to RRF. Prevents score inflation.
+- **Deterministic tie-break** -- equal RRF scores now resolve by path ascending
+  (`localeCompare`) instead of Map insertion order (which was
+  `Promise.allSettled` completion race, non-deterministic across runs).
+- **Tool descriptions** for `query.unified`, `query.search`, `query.semantic`,
+  `query.vector` updated to name RRF and clarify that `weights` scales rank
+  contribution, not raw score magnitude.
+
 ## v2.0.0 -- 2026-04-21
 
 Name change + architecture consolidation. `vault-mind` → **LLM Wiki Bridge**

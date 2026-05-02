@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Memory Router Phase 4 evaluation suite.
+  10 cases covering: cross-adapter fusion, code symbols, Chinese long query,
+  rare term recall, null-hit fail mode, claudemem subdir coverage.
+
+  Expected adapters: filesystem, memu, vaultbrain, memorix, claudemem
+  (gitnexus optional -- requires repos[] config to participate).
+
+  Run procedure (after MCP server restart loads new bundle.js):
+    For each case, call:
+      mcp__llm-wiki__query_unified({ query: "<query>", maxResults: 10 })
+    Record actual sources distribution + check expected-sources subset rule.
+
+  Verdict per case:
+    PASS  -- expected-sources is subset of actual top-N sources
+    FLAG  -- expected sources missing but plausibly explainable
+    FAIL  -- expected source completely absent from top-N
+-->
+<eval-suite name="memory-router-phase-4" version="1.0" generated-on="2026-04-29">
+
+  <case id="Q01" intent="cross-adapter high-frequency English term">
+    <query>memory router</query>
+    <expected-sources>claudemem,filesystem</expected-sources>
+    <expected-min-hits>5</expected-min-hits>
+    <rationale>This session's project memory + filesystem markdown both contain the phrase. Tests basic RRF fusion across two sources.</rationale>
+  </case>
+
+  <case id="Q02" intent="code symbol -- pascalCase">
+    <query>MemUAdapter</query>
+    <expected-sources>gitnexus,filesystem</expected-sources>
+    <expected-min-hits>2</expected-min-hits>
+    <rationale>Class symbol indexed by gitnexus (label=Class on memu.ts). filesystem can grep the source file. claudemem unlikely.</rationale>
+    <preconditions>gitnexus adapter must be configured with repos=["obsidian-llm-wiki"]</preconditions>
+  </case>
+
+  <case id="Q03" intent="cross-source common Chinese feedback memory">
+    <query>okaoi</query>
+    <expected-sources>claudemem,memu,filesystem</expected-sources>
+    <expected-min-hits>10</expected-min-hits>
+    <rationale>okaoi appears in feedback_okaoi_worker_layer.md (claudemem), memU chat history mentions, filesystem 04-Research notes.</rationale>
+  </case>
+
+  <case id="Q04" intent="memorix observation recall (cross-adapter placement test)">
+    <query>codex shell env inherit</query>
+    <expected-sources>memorix</expected-sources>
+    <expected-min-hits>1</expected-min-hits>
+    <rationale>This phrase only exists as a memorix observation (sess-mndj1lcs-r78gh7, 2026-03-30 codex shell environment policy change). NOT in any claudemem .md (verified 2026-04-29: grep -i "shell.*env.*inherit" against ~/.claude/.../memory/ returns 0 hits). Tests router's ability to surface info from the only adapter that has it. Pre-2026-04-29 expected-sources was incorrectly "claudemem" -- corrected after Phase 4 eval surfaced the placement asymmetry.</rationale>
+  </case>
+
+  <case id="Q05" intent="rare named-entity recall">
+    <query>Lyapunov</query>
+    <expected-sources>claudemem</expected-sources>
+    <expected-min-hits>1</expected-min-hits>
+    <rationale>Persona constitution (CLAUDE.md). Tests rare term recall against literal substring match.</rationale>
+  </case>
+
+  <case id="Q06" intent="project-specific memory">
+    <query>stable-ops</query>
+    <expected-sources>claudemem,filesystem</expected-sources>
+    <expected-min-hits>2</expected-min-hits>
+    <rationale>project_gitnexus_stable_ops.md (claudemem) + this session's project memory references.</rationale>
+  </case>
+
+  <case id="Q07" intent="Chinese long query -- ILIKE limitation test">
+    <query>之前讨论的记忆路由</query>
+    <expected-sources>claudemem</expected-sources>
+    <expected-min-hits>1</expected-min-hits>
+    <rationale>The exact phrase appears verbatim in this project memory file. ILIKE substring match should find it. If 0 hits, confirms hypothesis that long Chinese queries fail under literal substring (motivates vector search wiring task #4).</rationale>
+    <fail-tolerance>FLAG-not-FAIL if 0 hits -- known limitation, not adapter bug</fail-tolerance>
+  </case>
+
+  <case id="Q08" intent="null-hit fail mode">
+    <query>asdfqwertyzxcvbnmhjkl</query>
+    <expected-sources></expected-sources>
+    <expected-min-hits>0</expected-min-hits>
+    <expected-max-hits>0</expected-max-hits>
+    <rationale>Random gibberish should return zero hits across all adapters. Tests that adapters don't fabricate matches.</rationale>
+  </case>
+
+  <case id="Q09" intent="self-referential adapter name">
+    <query>claudemem</query>
+    <expected-sources>claudemem,filesystem,gitnexus</expected-sources>
+    <expected-min-hits>5</expected-min-hits>
+    <rationale>The new adapter referenced in source code (gitnexus Class), project memories (claudemem), and filesystem markdown.</rationale>
+  </case>
+
+  <case id="Q10" intent="recent Phase 3.5 addition">
+    <query>ReasoningBank</query>
+    <expected-sources>claudemem</expected-sources>
+    <expected-min-hits>1</expected-min-hits>
+    <rationale>Added to project_memory_router_extension.md this session. Tests freshness of new memory in claudemem cache (requires restart to re-index).</rationale>
+  </case>
+
+</eval-suite>

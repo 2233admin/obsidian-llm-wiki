@@ -49,6 +49,21 @@ export class VaultBrainAdapter implements VaultMindAdapter {
     }
   }
 
+  /**
+   * Drop content_chunks and recreate via initSchema. Used after embedding
+   * dimension change (e.g. 1536 -> 1024 for Jina v3 migration). Caller
+   * should follow up with vault.reindex to repopulate. Pages, links, tags
+   * tables are preserved (only chunks have the dim-bound vector column).
+   */
+  async reset(): Promise<{ dropped: boolean; recreated: boolean }> {
+    if (!this.engine) {
+      throw new Error("vaultbrain not initialized");
+    }
+    await this.engine.dropChunks();
+    await this.engine.initSchema();
+    return { dropped: true, recreated: true };
+  }
+
   async search(query: string, opts?: SearchOpts): Promise<SearchResult[]> {
     if (!this.engine) return [];
     const limit = opts?.maxResults ?? 20;

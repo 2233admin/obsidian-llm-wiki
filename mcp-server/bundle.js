@@ -3595,49 +3595,49 @@ var require_fast_uri = __commonJS({
       schemelessOptions.skipEscape = true;
       return serialize(resolved, schemelessOptions);
     }
-    function resolveComponent(base, relative4, options, skipNormalization) {
+    function resolveComponent(base, relative5, options, skipNormalization) {
       const target = {};
       if (!skipNormalization) {
         base = parse3(serialize(base, options), options);
-        relative4 = parse3(serialize(relative4, options), options);
+        relative5 = parse3(serialize(relative5, options), options);
       }
       options = options || {};
-      if (!options.tolerant && relative4.scheme) {
-        target.scheme = relative4.scheme;
-        target.userinfo = relative4.userinfo;
-        target.host = relative4.host;
-        target.port = relative4.port;
-        target.path = removeDotSegments(relative4.path || "");
-        target.query = relative4.query;
+      if (!options.tolerant && relative5.scheme) {
+        target.scheme = relative5.scheme;
+        target.userinfo = relative5.userinfo;
+        target.host = relative5.host;
+        target.port = relative5.port;
+        target.path = removeDotSegments(relative5.path || "");
+        target.query = relative5.query;
       } else {
-        if (relative4.userinfo !== void 0 || relative4.host !== void 0 || relative4.port !== void 0) {
-          target.userinfo = relative4.userinfo;
-          target.host = relative4.host;
-          target.port = relative4.port;
-          target.path = removeDotSegments(relative4.path || "");
-          target.query = relative4.query;
+        if (relative5.userinfo !== void 0 || relative5.host !== void 0 || relative5.port !== void 0) {
+          target.userinfo = relative5.userinfo;
+          target.host = relative5.host;
+          target.port = relative5.port;
+          target.path = removeDotSegments(relative5.path || "");
+          target.query = relative5.query;
         } else {
-          if (!relative4.path) {
+          if (!relative5.path) {
             target.path = base.path;
-            if (relative4.query !== void 0) {
-              target.query = relative4.query;
+            if (relative5.query !== void 0) {
+              target.query = relative5.query;
             } else {
               target.query = base.query;
             }
           } else {
-            if (relative4.path[0] === "/") {
-              target.path = removeDotSegments(relative4.path);
+            if (relative5.path[0] === "/") {
+              target.path = removeDotSegments(relative5.path);
             } else {
               if ((base.userinfo !== void 0 || base.host !== void 0 || base.port !== void 0) && !base.path) {
-                target.path = "/" + relative4.path;
+                target.path = "/" + relative5.path;
               } else if (!base.path) {
-                target.path = relative4.path;
+                target.path = relative5.path;
               } else {
-                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative4.path;
+                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative5.path;
               }
               target.path = removeDotSegments(target.path);
             }
-            target.query = relative4.query;
+            target.query = relative5.query;
           }
           target.userinfo = base.userinfo;
           target.host = base.host;
@@ -3645,7 +3645,7 @@ var require_fast_uri = __commonJS({
         }
         target.scheme = base.scheme;
       }
-      target.fragment = relative4.fragment;
+      target.fragment = relative5.fragment;
       return target;
     }
     function equal(uriA, uriB, options) {
@@ -10214,7 +10214,7 @@ var require_helper = __commonJS({
     var split = require_split2();
     var util2 = __require("util");
     var defaultPort = 5432;
-    var isWin = process.platform === "win32";
+    var isWin2 = process.platform === "win32";
     var warnStream = process.stderr;
     var S_IRWXG = 56;
     var S_IRWXO = 7;
@@ -10235,10 +10235,10 @@ var require_helper = __commonJS({
     }
     Object.defineProperty(module.exports, "isWin", {
       get: function() {
-        return isWin;
+        return isWin2;
       },
       set: function(val) {
-        isWin = val;
+        isWin2 = val;
       }
     });
     module.exports.warnTo = function(stream) {
@@ -10248,14 +10248,14 @@ var require_helper = __commonJS({
     };
     module.exports.getFileName = function(rawEnv) {
       var env = rawEnv || process.env;
-      var file2 = env.PGPASSFILE || (isWin ? path.join(env.APPDATA || "./", "postgresql", "pgpass.conf") : path.join(env.HOME || "./", ".pgpass"));
+      var file2 = env.PGPASSFILE || (isWin2 ? path.join(env.APPDATA || "./", "postgresql", "pgpass.conf") : path.join(env.HOME || "./", ".pgpass"));
       return file2;
     };
     module.exports.usePgPass = function(stats, fname) {
       if (Object.prototype.hasOwnProperty.call(process.env, "PGPASSWORD")) {
         return false;
       }
-      if (isWin) {
+      if (isWin2) {
         return true;
       }
       fname = fname || "<unkn>";
@@ -11041,7 +11041,7 @@ var require_pg_pool = __commonJS({
     function throwOnDoubleRelease() {
       throw new Error("Release called on client which has already been released to the pool.");
     }
-    function promisify5(Promise2, callback) {
+    function promisify4(Promise2, callback) {
       if (callback) {
         return { callback, result: void 0 };
       }
@@ -11179,7 +11179,7 @@ var require_pg_pool = __commonJS({
           const err2 = new Error("Cannot use a pool after calling end on the pool");
           return cb ? cb(err2) : this.Promise.reject(err2);
         }
-        const response = promisify5(this.Promise, cb);
+        const response = promisify4(this.Promise, cb);
         const result = response.result;
         if (this._isFull() || this._idle.length) {
           if (this._idle.length) {
@@ -11364,7 +11364,7 @@ var require_pg_pool = __commonJS({
       }
       query(text, values, cb) {
         if (typeof text === "function") {
-          const response2 = promisify5(this.Promise, text);
+          const response2 = promisify4(this.Promise, text);
           setImmediate(function() {
             return response2.callback(new Error("Passing a function as the first parameter to pool.query is not supported"));
           });
@@ -11374,7 +11374,7 @@ var require_pg_pool = __commonJS({
           cb = values;
           values = void 0;
         }
-        const response = promisify5(this.Promise, cb);
+        const response = promisify4(this.Promise, cb);
         cb = response.callback;
         this.connect((err2, client) => {
           if (err2) {
@@ -11419,7 +11419,7 @@ var require_pg_pool = __commonJS({
           return cb ? cb(err2) : this.Promise.reject(err2);
         }
         this.ending = true;
-        const promised = promisify5(this.Promise, cb);
+        const promised = promisify4(this.Promise, cb);
         this._endCallback = promised.callback;
         this._pulseQueue();
         return promised.result;
@@ -29561,8 +29561,8 @@ var StdioServerTransport = class {
 };
 
 // dist/index.js
-import { readFileSync as readFileSync4, existsSync as existsSync5, readdirSync as readdirSync4, statSync, realpathSync, writeFileSync, appendFileSync as appendFileSync2, rmSync, renameSync, mkdirSync as mkdirSync2 } from "node:fs";
-import { resolve as resolve2, join as join7, basename, extname, relative as relative3, dirname as dirname4, posix, isAbsolute as pathIsAbsolute } from "node:path";
+import { readFileSync as readFileSync5, existsSync as existsSync8, readdirSync as readdirSync5, statSync, realpathSync, writeFileSync, appendFileSync as appendFileSync3, rmSync, renameSync, mkdirSync as mkdirSync2 } from "node:fs";
+import { resolve as resolve2, join as join9, basename, extname, relative as relative4, dirname as dirname4, posix, isAbsolute as pathIsAbsolute } from "node:path";
 import { fileURLToPath as fileURLToPath3 } from "node:url";
 
 // dist/adapters/filesystem.js
@@ -29690,8 +29690,57 @@ var defaults = import_lib.default.defaults;
 var esm_default = import_lib.default;
 
 // dist/adapters/memu.js
+import { spawn } from "node:child_process";
+
+// dist/embedding/ollama.js
+var DEFAULT_BASE = "http://localhost:11434/v1";
+var DEFAULT_MODEL = "qwen3-embedding:0.6b";
+async function embedTextOllama(text, opts) {
+  if (!text || text.length === 0)
+    return [];
+  const baseUrl = opts?.baseUrl ?? process.env.OLLAMA_EMBED_BASE_URL ?? DEFAULT_BASE;
+  const model = opts?.model ?? process.env.OLLAMA_EMBED_MODEL ?? DEFAULT_MODEL;
+  const timeoutMs = opts?.timeoutMs ?? 3e4;
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const resp = await fetch(`${baseUrl}/embeddings`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ model, input: [text] }),
+      signal: controller.signal
+    });
+    clearTimeout(t);
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => "");
+      process.stderr.write(`obsidian-llm-wiki: [warn] ollama embed HTTP ${resp.status}: ${errText.slice(0, 200)}
+`);
+      return [];
+    }
+    const json2 = await resp.json();
+    const first = json2.data?.[0];
+    const vec = first?.embedding;
+    if (!Array.isArray(vec) || vec.length === 0) {
+      process.stderr.write(`obsidian-llm-wiki: [warn] ollama embed returned no vector
+`);
+      return [];
+    }
+    return vec;
+  } catch (err2) {
+    clearTimeout(t);
+    const msg = err2 instanceof Error ? err2.message : String(err2);
+    process.stderr.write(`obsidian-llm-wiki: [warn] ollama embed failed: ${msg}
+`);
+    return [];
+  }
+}
+
+// dist/adapters/memu.js
 var { Pool: Pool2 } = esm_default;
 var DEFAULT_DSN = "postgresql://postgres:postgres@localhost:5432/memu";
+var DEFAULT_PYTHON = "D:/projects/memu-graph/.venv/Scripts/python.exe";
+var DEFAULT_MEMU_GRAPH_CWD = "D:/projects/memu-graph";
+var DEFAULT_GRAPH_RECALL_TIMEOUT_MS = 15e3;
 var MemUAdapter = class {
   name = "memu";
   capabilities = ["search", "embeddings"];
@@ -29699,6 +29748,10 @@ var MemUAdapter = class {
   userId;
   defaultMax;
   timeout;
+  excludeMemoryTypes;
+  pythonExe;
+  memuGraphCwd;
+  graphRecallTimeoutMs;
   pool = null;
   available = false;
   get isAvailable() {
@@ -29709,6 +29762,12 @@ var MemUAdapter = class {
     this.userId = config2?.userId ?? process.env.MEMU_USER_ID ?? "boris";
     this.defaultMax = config2?.maxResults ?? 20;
     this.timeout = config2?.timeout ?? 5e3;
+    this.excludeMemoryTypes = config2?.excludeMemoryTypes ?? ["event"];
+    this.pythonExe = config2?.pythonExe ?? process.env.MEMU_GRAPH_PYTHON ?? DEFAULT_PYTHON;
+    this.memuGraphCwd = config2?.memuGraphCwd ?? process.env.MEMU_GRAPH_CWD ?? DEFAULT_MEMU_GRAPH_CWD;
+    const envTimeout = process.env.MEMU_GRAPH_TIMEOUT_MS;
+    const envTimeoutNum = envTimeout ? Number(envTimeout) : NaN;
+    this.graphRecallTimeoutMs = config2?.graphRecallTimeoutMs ?? (Number.isFinite(envTimeoutNum) && envTimeoutNum > 0 ? envTimeoutNum : DEFAULT_GRAPH_RECALL_TIMEOUT_MS);
   }
   async init() {
     try {
@@ -29748,59 +29807,55 @@ var MemUAdapter = class {
     if (!this.available || !this.pool)
       return [];
     const limit = Math.max(1, Math.min(opts?.maxResults ?? this.defaultMax, 100));
-    const escaped = query.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
-    const pattern = `%${escaped}%`;
-    try {
-      const { rows } = await this.pool.query(`SELECT id, summary, memory_type, user_id, created_at
-         FROM memory_items
-         WHERE user_id = $1
-           AND summary ILIKE $2 ESCAPE '\\'
-         ORDER BY created_at DESC
-         LIMIT $3`, [this.userId, pattern, limit]);
-      return rows.map((r) => ({
-        source: this.name,
-        path: `memu/${r.user_id}/${r.memory_type}/${r.id}`,
-        content: String(r.summary ?? "").slice(0, 500),
-        // Text-ILIKE has no intrinsic relevance score. 0.5 keeps memu neutral
-        // in the unified fusion layer; tune via adapter_weights if needed.
-        score: 0.5,
-        metadata: {
-          memory_type: r.memory_type,
-          user_id: r.user_id,
-          created_at: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
-          item_id: r.id
-        }
-      }));
-    } catch (err2) {
-      const msg = err2 instanceof Error ? err2.message : String(err2);
-      process.stderr.write(`obsidian-llm-wiki: [error] memU PG query failed: ${msg}
-`);
+    const vec = await embedTextOllama(query);
+    const queryVec = vec.length === 1024 ? vec : null;
+    const result = await this.runGraphRecall(query, queryVec, limit);
+    if (!result)
       return [];
-    }
+    return this.mapRecallResult(result);
   }
   async searchByVector(vector, opts) {
     if (!this.available || !this.pool)
       return [];
     if (vector.length === 0)
       return [];
+    if (vector.length === 1024) {
+      const limit = Math.max(1, Math.min(opts?.maxResults ?? this.defaultMax, 100));
+      const result = await this.runGraphRecall("", vector, limit);
+      if (!result)
+        return [];
+      return this.mapRecallResult(result);
+    }
+    if (vector.length === 4096)
+      return this.searchMemoryItemsByVector(vector, opts);
+    return [];
+  }
+  /**
+   * Vector search against memory_items (Qwen3-Embedding-8B, 4096-dim).
+   * No local 4096-dim inference service is typically running, so this path
+   * is rarely exercised. Kept for forward compatibility.
+   */
+  async searchMemoryItemsByVector(vector, opts) {
+    if (!this.pool)
+      return [];
     const limit = Math.max(1, Math.min(opts?.maxResults ?? this.defaultMax, 100));
     const vecLiteral = `[${vector.join(",")}]`;
+    const excludeArr = this.excludeMemoryTypes.length > 0 ? [...this.excludeMemoryTypes] : null;
     try {
       const { rows } = await this.pool.query(`SELECT id, summary, memory_type, user_id, created_at,
                 (1 - (embedding <=> $2::vector))::float8 AS similarity
          FROM memory_items
          WHERE user_id = $1 AND embedding IS NOT NULL
+           AND ($4::text[] IS NULL OR memory_type <> ALL($4::text[]))
          ORDER BY embedding <=> $2::vector
-         LIMIT $3`, [this.userId, vecLiteral, limit]);
+         LIMIT $3`, [this.userId, vecLiteral, limit, excludeArr]);
       return rows.map((r) => ({
         source: this.name,
         path: `memu/${r.user_id}/${r.memory_type}/${r.id}`,
         content: String(r.summary ?? "").slice(0, 500),
-        // Cosine similarity. For unit vectors this is in [-1, 1]; for
-        // unnormalised vectors it can exceed that range. Callers should
-        // rely on ordering (higher = closer), not absolute magnitude.
         score: typeof r.similarity === "number" ? r.similarity : 0,
         metadata: {
+          table: "memory_items",
           memory_type: r.memory_type,
           user_id: r.user_id,
           created_at: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
@@ -29810,21 +29865,448 @@ var MemUAdapter = class {
       }));
     } catch (err2) {
       const msg = err2 instanceof Error ? err2.message : String(err2);
-      process.stderr.write(`obsidian-llm-wiki: [error] memU PG vector query failed: ${msg}
+      process.stderr.write(`obsidian-llm-wiki: [error] memU PG vector query (memory_items) failed: ${msg}
+`);
+      return [];
+    }
+  }
+  /**
+   * Spawn `python -m memu_graph.cli graph-recall --dsn <DSN>`, write JSON
+   * request to stdin, parse JSON from stdout. Kill on timeout. Returns null
+   * on any error (silent fail + stderr warn, mirrors adapter pattern).
+   */
+  async runGraphRecall(query, queryVec, maxNodes) {
+    const request = {
+      query,
+      query_vec: queryVec && queryVec.length === 1024 ? Array.from(queryVec) : null,
+      max_nodes: maxNodes
+    };
+    return new Promise((resolve3) => {
+      let stdout = "";
+      let stderr = "";
+      let settled = false;
+      const proc = spawn(this.pythonExe, ["-m", "memu_graph.cli", "graph-recall", "--dsn", this.dsn], {
+        cwd: this.memuGraphCwd,
+        windowsHide: true,
+        stdio: ["pipe", "pipe", "pipe"]
+      });
+      const timer = setTimeout(() => {
+        if (settled)
+          return;
+        settled = true;
+        proc.kill("SIGKILL");
+        process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli timeout after ${this.graphRecallTimeoutMs}ms
+`);
+        resolve3(null);
+      }, this.graphRecallTimeoutMs);
+      proc.stdout.on("data", (d) => {
+        stdout += d.toString("utf-8");
+      });
+      proc.stderr.on("data", (d) => {
+        stderr += d.toString("utf-8");
+      });
+      proc.on("error", (err2) => {
+        if (settled)
+          return;
+        settled = true;
+        clearTimeout(timer);
+        process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli spawn failed: ${err2.message}
+`);
+        resolve3(null);
+      });
+      proc.on("close", (code) => {
+        if (settled)
+          return;
+        settled = true;
+        clearTimeout(timer);
+        if (code !== 0) {
+          process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli exit ${code}: ${stderr.slice(0, 400)}
+`);
+          resolve3(null);
+          return;
+        }
+        try {
+          const parsed = JSON.parse(stdout);
+          resolve3(parsed);
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli stdout JSON parse failed: ${msg}
+`);
+          resolve3(null);
+        }
+      });
+      try {
+        proc.stdin.end(JSON.stringify(request));
+      } catch (e) {
+        if (settled)
+          return;
+        settled = true;
+        clearTimeout(timer);
+        const msg = e instanceof Error ? e.message : String(e);
+        process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli stdin write failed: ${msg}
+`);
+        resolve3(null);
+      }
+    });
+  }
+  /**
+   * Convert a graph_recall RecallResult into the unified SearchResult shape.
+   * Score: max-norm PPR to [0,1] for fusion compatibility; raw pagerank /
+   * ppr_score / recall_path retained in metadata for downstream callers
+   * that want to weight by community / path / centrality.
+   */
+  mapRecallResult(result) {
+    if (result.nodes.length === 0)
+      return [];
+    const maxPpr = Math.max(...result.nodes.map((n) => n.ppr_score), 1e-9);
+    return result.nodes.map((n) => {
+      const desc = n.description ? n.description.slice(0, 400) : "";
+      const namedTitle = `${n.name} (${n.type})`;
+      return {
+        source: this.name,
+        path: `memu/graph/${n.type}/${n.id}`,
+        content: desc ? `${namedTitle}: ${desc}` : namedTitle,
+        score: n.ppr_score / maxPpr,
+        metadata: {
+          table: "gm_nodes",
+          recall_path: result.path,
+          type: n.type,
+          name: n.name,
+          community_id: n.community_id,
+          pagerank: n.pagerank,
+          ppr_score: n.ppr_score,
+          item_id: n.id
+        }
+      };
+    });
+  }
+};
+
+// dist/adapters/memorix.js
+import { DatabaseSync } from "node:sqlite";
+import { existsSync } from "node:fs";
+import { homedir } from "node:os";
+import { join as join2 } from "node:path";
+var DEFAULT_DB = join2(homedir(), ".memorix", "data", "memorix.db");
+var MemorixAdapter = class {
+  name = "memorix";
+  capabilities = ["search"];
+  dbPath;
+  defaultMax;
+  db = null;
+  available = false;
+  get isAvailable() {
+    return this.available;
+  }
+  constructor(config2) {
+    this.dbPath = config2?.dbPath ?? process.env.MEMORIX_DB ?? DEFAULT_DB;
+    this.defaultMax = config2?.maxResults ?? 20;
+  }
+  async init() {
+    try {
+      if (!existsSync(this.dbPath)) {
+        process.stderr.write(`obsidian-llm-wiki: [warn] memorix DB not found at ${this.dbPath}, adapter disabled
+`);
+        this.available = false;
+        return;
+      }
+      this.db = new DatabaseSync(this.dbPath, { readOnly: true });
+      const probe = this.db.prepare("SELECT COUNT(*) AS n FROM observations").get();
+      const n = probe?.n ?? 0;
+      if (n === 0) {
+        process.stderr.write(`obsidian-llm-wiki: [warn] memorix DB reachable but 0 observations
+`);
+      }
+      this.available = true;
+    } catch (err2) {
+      const msg = err2 instanceof Error ? err2.message : String(err2);
+      process.stderr.write(`obsidian-llm-wiki: [warn] memorix DB unavailable (${msg}), adapter disabled
+`);
+      this.available = false;
+      if (this.db) {
+        try {
+          this.db.close();
+        } catch {
+        }
+        this.db = null;
+      }
+    }
+  }
+  async dispose() {
+    if (this.db) {
+      try {
+        this.db.close();
+      } catch {
+      }
+      this.db = null;
+    }
+  }
+  async search(query, opts) {
+    if (!this.available || !this.db)
+      return [];
+    const limit = Math.max(1, Math.min(opts?.maxResults ?? this.defaultMax, 100));
+    const escaped = query.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+    const pattern = `%${escaped}%`;
+    try {
+      const stmt = this.db.prepare(`SELECT id, entityName, type, title, narrative, projectId, sessionId,
+                topicKey, valueCategory, createdAt, status
+         FROM observations
+         WHERE status = 'active'
+           AND (title LIKE ? ESCAPE '\\'
+                OR narrative LIKE ? ESCAPE '\\'
+                OR concepts LIKE ? ESCAPE '\\')
+         ORDER BY createdAt DESC
+         LIMIT ?`);
+      const rows = stmt.all(pattern, pattern, pattern, limit);
+      return rows.map((r) => ({
+        source: this.name,
+        path: `memorix/${r.projectId || "global"}/${r.type}/${r.id}`,
+        content: `${r.title}: ${String(r.narrative ?? "").slice(0, 400)}`,
+        // Text-LIKE has no intrinsic relevance; 0.5 keeps memorix neutral
+        // in unified RRF fusion. Tune via adapter_weights if needed.
+        score: 0.5,
+        metadata: {
+          type: r.type,
+          entityName: r.entityName,
+          projectId: r.projectId,
+          sessionId: r.sessionId,
+          topicKey: r.topicKey,
+          valueCategory: r.valueCategory,
+          createdAt: r.createdAt,
+          item_id: r.id
+        }
+      }));
+    } catch (err2) {
+      const msg = err2 instanceof Error ? err2.message : String(err2);
+      process.stderr.write(`obsidian-llm-wiki: [error] memorix query failed: ${msg}
 `);
       return [];
     }
   }
 };
 
+// dist/adapters/claudemem.js
+import { existsSync as existsSync2, readdirSync, readFileSync } from "node:fs";
+import { homedir as homedir2 } from "node:os";
+import { join as join3, relative as relative2, sep as sep2 } from "node:path";
+var DEFAULT_DIR = join3(homedir2(), ".claude", "projects", "C--Users-Administrator", "memory");
+function parseFrontmatter(raw) {
+  const empty = { name: "", description: "", type: "", recall_role: "", workset: "" };
+  if (!raw.startsWith("---"))
+    return { fm: empty, body: raw };
+  const afterFirst = raw.indexOf("\n");
+  if (afterFirst < 0)
+    return { fm: empty, body: raw };
+  const rest = raw.slice(afterFirst + 1);
+  const closeIdx = rest.indexOf("\n---");
+  if (closeIdx < 0)
+    return { fm: empty, body: raw };
+  const fmBlock = rest.slice(0, closeIdx);
+  const body = rest.slice(closeIdx + 4).replace(/^\r?\n/, "");
+  const fm = { ...empty };
+  for (const line of fmBlock.split(/\r?\n/)) {
+    const m = line.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.*)$/);
+    if (!m)
+      continue;
+    const key = m[1];
+    let val = m[2].trim();
+    if (val.startsWith('"') && val.endsWith('"') || val.startsWith("'") && val.endsWith("'")) {
+      val = val.slice(1, -1);
+    }
+    if (key === "name")
+      fm.name = val;
+    else if (key === "description")
+      fm.description = val;
+    else if (key === "type")
+      fm.type = val;
+    else if (key === "recall_role")
+      fm.recall_role = val;
+    else if (key === "workset")
+      fm.workset = val;
+  }
+  return { fm, body };
+}
+var ClaudeMemAdapter = class {
+  name = "claudemem";
+  capabilities = ["search"];
+  dir;
+  defaultMax;
+  files = [];
+  available = false;
+  get isAvailable() {
+    return this.available;
+  }
+  constructor(config2) {
+    this.dir = config2?.dir ?? process.env.CLAUDE_MEMORY_DIR ?? DEFAULT_DIR;
+    this.defaultMax = config2?.maxResults ?? 20;
+  }
+  async init() {
+    try {
+      if (!existsSync2(this.dir)) {
+        process.stderr.write(`obsidian-llm-wiki: [warn] claudemem dir not found at ${this.dir}, adapter disabled
+`);
+        this.available = false;
+        return;
+      }
+      const entries = readdirSync(this.dir, {
+        recursive: true,
+        withFileTypes: true
+      });
+      const cached2 = [];
+      let skipped = 0;
+      for (const entry of entries) {
+        if (!entry.isFile())
+          continue;
+        if (!entry.name.endsWith(".md"))
+          continue;
+        const parent = entry.parentPath ?? entry.path ?? this.dir;
+        const full = join3(parent, entry.name);
+        const rel = relative2(this.dir, full);
+        const firstSeg = rel.split(sep2)[0];
+        if (firstSeg === "_inbox" || firstSeg === "_meta") {
+          skipped++;
+          continue;
+        }
+        let raw;
+        try {
+          raw = readFileSync(full, "utf-8");
+        } catch {
+          continue;
+        }
+        const { fm, body } = parseFrontmatter(raw);
+        const filename = entry.name.replace(/\.md$/i, "");
+        cached2.push({
+          path: full,
+          filename,
+          description: fm.description,
+          name: fm.name,
+          type: fm.type,
+          recall_role: fm.recall_role,
+          workset: fm.workset,
+          body,
+          haystack: (filename + "\n" + fm.description + "\n" + body).toLowerCase()
+        });
+      }
+      this.files = cached2;
+      if (cached2.length === 0) {
+        process.stderr.write(`obsidian-llm-wiki: [warn] claudemem dir reachable but 0 .md files
+`);
+      } else {
+        process.stderr.write(`obsidian-llm-wiki: [info] claudemem indexed ${cached2.length} .md files (skipped ${skipped} in _inbox/_meta)
+`);
+      }
+      this.available = true;
+    } catch (err2) {
+      const msg = err2 instanceof Error ? err2.message : String(err2);
+      process.stderr.write(`obsidian-llm-wiki: [warn] claudemem unavailable (${msg}), adapter disabled
+`);
+      this.available = false;
+      this.files = [];
+    }
+  }
+  async dispose() {
+    this.files = [];
+  }
+  async search(query, opts) {
+    if (!this.available || this.files.length === 0)
+      return [];
+    const limit = Math.max(1, Math.min(opts?.maxResults ?? this.defaultMax, 100));
+    const q = query.toLowerCase().trim();
+    if (q.length === 0)
+      return [];
+    const scored = [];
+    for (const f of this.files) {
+      let count = 0;
+      let pos = 0;
+      while (true) {
+        const idx = f.haystack.indexOf(q, pos);
+        if (idx < 0)
+          break;
+        count++;
+        pos = idx + q.length;
+        if (count >= 100)
+          break;
+      }
+      if (count > 0)
+        scored.push({ file: f, count });
+    }
+    scored.sort((a, b) => b.count - a.count);
+    const top = scored.slice(0, limit);
+    return top.map(({ file: file2, count }) => {
+      const bodyLower = file2.body.toLowerCase();
+      const bodyIdx = bodyLower.indexOf(q);
+      let snippet;
+      if (bodyIdx >= 0) {
+        const start = Math.max(0, bodyIdx - 50);
+        const end = Math.min(file2.body.length, bodyIdx + q.length + 50);
+        snippet = file2.body.slice(start, end).replace(/\s+/g, " ").trim();
+      } else {
+        snippet = file2.description.slice(0, 200);
+      }
+      const desc = file2.description || file2.filename;
+      return {
+        source: this.name,
+        path: file2.path,
+        content: `${desc}: ${snippet}`,
+        score: Math.min(1, count / 10),
+        metadata: {
+          name: file2.name,
+          type: file2.type,
+          recall_role: file2.recall_role,
+          workset: file2.workset,
+          match_count: count
+        }
+      };
+    });
+  }
+};
+
 // dist/adapters/gitnexus.js
-import { execFile as execFile2 } from "node:child_process";
-import { promisify as promisify2 } from "node:util";
-var exec2 = promisify2(execFile2);
+import { spawn as spawn2 } from "node:child_process";
+import { existsSync as existsSync3 } from "node:fs";
+var isWin = process.platform === "win32";
+function firstExisting(candidates) {
+  for (const c of candidates) {
+    if (c && existsSync3(c))
+      return c;
+  }
+  return null;
+}
+function resolveDefaultBinary() {
+  const appdata = process.env.APPDATA ? process.env.APPDATA.replace(/\\/g, "/") : null;
+  const userprofile = process.env.USERPROFILE ? process.env.USERPROFILE.replace(/\\/g, "/") : null;
+  const found = firstExisting([
+    process.env.OBSIDIAN_LLM_WIKI_GITNEXUS_BIN,
+    "D:/projects/gitnexus-stable-ops/bin/gni",
+    userprofile ? `${userprofile}/.local/bin/gni` : null,
+    appdata ? `${appdata}/npm/gitnexus` : null
+  ]);
+  return found ?? "gni";
+}
+function resolveDefaultRawBinary() {
+  const appdata = process.env.APPDATA ? process.env.APPDATA.replace(/\\/g, "/") : null;
+  const userprofile = process.env.USERPROFILE ? process.env.USERPROFILE.replace(/\\/g, "/") : null;
+  const found = firstExisting([
+    process.env.OBSIDIAN_LLM_WIKI_GITNEXUS_RAW_BIN,
+    appdata ? `${appdata}/npm/gitnexus` : null,
+    userprofile ? `${userprofile}/.local/bin/gitnexus` : null
+  ]);
+  return found ?? "gitnexus";
+}
+function resolveBashExe() {
+  const found = firstExisting([
+    process.env.OBSIDIAN_LLM_WIKI_BASH_EXE,
+    "C:\\Program Files\\Git\\bin\\bash.exe",
+    "C:\\Program Files (x86)\\Git\\bin\\bash.exe"
+  ]);
+  return found ?? "bash";
+}
 var GitNexusAdapter = class {
   name = "gitnexus";
   capabilities = ["search"];
   binary;
+  rawBinary;
+  bashExe;
   repos;
   timeout;
   available = false;
@@ -29832,53 +30314,139 @@ var GitNexusAdapter = class {
     return this.available;
   }
   constructor(config2) {
-    this.binary = config2?.binary ?? "gitnexus";
-    this.repos = config2?.repos ?? [];
+    this.binary = config2?.binary ?? resolveDefaultBinary();
+    this.rawBinary = config2?.rawBinary ?? resolveDefaultRawBinary();
+    this.bashExe = config2?.bashExe ?? resolveBashExe();
+    const envRepos = process.env.OBSIDIAN_LLM_WIKI_GITNEXUS_REPOS ? process.env.OBSIDIAN_LLM_WIKI_GITNEXUS_REPOS.split(",").map((s) => s.trim()).filter(Boolean) : [];
+    this.repos = config2?.repos ?? envRepos;
     this.timeout = config2?.timeout ?? 15e3;
   }
+  async run(binary, args, timeoutMs) {
+    return new Promise((resolve3) => {
+      const useBashWrap = isWin && !/\.exe$/i.test(binary);
+      const cmd = useBashWrap ? this.bashExe : binary;
+      const cmdArgs = useBashWrap ? [binary, ...args] : [...args];
+      let stdout = "";
+      let resolved = false;
+      const settle = (code) => {
+        if (resolved)
+          return;
+        resolved = true;
+        resolve3({ stdout, code });
+      };
+      const childEnv = { ...process.env };
+      if (!childEnv.GITNEXUS_BIN) {
+        childEnv.GITNEXUS_BIN = this.rawBinary;
+      }
+      let p;
+      try {
+        p = spawn2(cmd, cmdArgs, { env: childEnv });
+      } catch {
+        settle(-1);
+        return;
+      }
+      const t = setTimeout(() => {
+        try {
+          p.kill("SIGKILL");
+        } catch {
+        }
+        settle(-1);
+      }, timeoutMs);
+      p.stdout?.on("data", (d) => {
+        stdout += d.toString();
+      });
+      p.on("close", (code) => {
+        clearTimeout(t);
+        settle(code ?? -1);
+      });
+      p.on("error", () => {
+        clearTimeout(t);
+        settle(-1);
+      });
+    });
+  }
   async init() {
-    try {
-      await exec2(this.binary, ["--version"], { timeout: 5e3 });
+    const { code } = await this.run(this.binary, ["--version"], 5e3);
+    if (code === 0) {
       this.available = true;
-    } catch {
-      process.stderr.write("vault-mind: [warn] gitnexus CLI not found, adapter disabled\n");
+      return;
     }
+    process.stderr.write(`obsidian-llm-wiki: [warn] gitnexus CLI not runnable (binary=${this.binary}, bashWrap=${isWin}), adapter disabled
+`);
   }
   async dispose() {
   }
   async search(query, opts) {
     if (!this.available)
       return [];
+    if (this.repos.length === 0)
+      return [];
     const limit = opts?.maxResults ?? 20;
-    const args = ["query", "--json", "--limit", String(limit), "--", query];
-    if (this.repos.length > 0) {
-      for (const repo of this.repos) {
-        args.push("--repo", repo);
-      }
+    const perRepoLimit = Math.max(1, Math.ceil(limit / this.repos.length));
+    const all = [];
+    for (const repo of this.repos) {
+      const rows = await this.cypherSearch(repo, query, perRepoLimit);
+      all.push(...rows);
+      if (all.length >= limit)
+        break;
     }
+    return all.slice(0, limit);
+  }
+  /**
+   * Run a Cypher query against `repo` to find nodes whose name / filePath /
+   * description contain `query` (case-insensitive). Parses the markdown table
+   * payload returned by `gitnexus cypher`.
+   *
+   * Output shape: {"markdown": "| col | col |\n| --- | --- |\n| v | v |", "row_count": N}
+   * or {"error": "..."} on failure.
+   */
+  async cypherSearch(repo, query, limit) {
+    const escaped = query.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+    const cypher = `MATCH (n) WHERE toLower(coalesce(n.name, '')) CONTAINS toLower('${escaped}')    OR toLower(coalesce(n.filePath, '')) CONTAINS toLower('${escaped}')    OR toLower(coalesce(n.description, '')) CONTAINS toLower('${escaped}') RETURN label(n) AS label,        coalesce(n.name, '') AS name,        coalesce(n.filePath, '') AS path,        coalesce(n.description, '') AS description LIMIT ${limit}`;
+    const { stdout, code } = await this.run(this.rawBinary, ["cypher", "--repo", repo, cypher], this.timeout);
+    if (code !== 0 || !stdout.trim())
+      return [];
+    let payload;
     try {
-      const { stdout } = await exec2(this.binary, args, {
-        timeout: this.timeout,
-        maxBuffer: 10 * 1024 * 1024
-      });
-      const parsed = JSON.parse(stdout.trim() || "[]");
-      const items = Array.isArray(parsed) ? parsed : parsed.results ?? [];
-      return items.map((item) => ({
-        source: this.name,
-        path: item.file ?? item.path ?? "unknown",
-        content: (item.snippet ?? "").slice(0, 500),
-        score: item.score ?? 0.7
-      }));
+      payload = JSON.parse(stdout.trim());
     } catch {
       return [];
     }
+    if (payload.error || !payload.markdown)
+      return [];
+    return parseCypherMarkdownTable(payload.markdown).map((row) => {
+      const [label, name, path, description] = row;
+      const content = description ? `${name} (${label}): ${description}`.slice(0, 500) : `${name} (${label})`;
+      return {
+        source: this.name,
+        path: path || `gitnexus://${repo}/${label}/${name}`,
+        content,
+        score: 0.6,
+        metadata: { repo, label, name }
+      };
+    });
   }
 };
+function parseCypherMarkdownTable(markdown) {
+  const lines = markdown.split("\n").filter((l) => l.trim().length > 0);
+  if (lines.length < 3)
+    return [];
+  const rows = [];
+  for (let i = 2; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line.startsWith("|") || !line.endsWith("|"))
+      continue;
+    const inner = line.slice(1, -1);
+    const cells = inner.split("|").map((c) => c.trim());
+    rows.push(cells);
+  }
+  return rows;
+}
 
 // dist/adapters/obsidian.js
-import { readFileSync } from "node:fs";
-import { join as join2 } from "node:path";
-import { homedir } from "node:os";
+import { readFileSync as readFileSync2 } from "node:fs";
+import { join as join4 } from "node:path";
+import { homedir as homedir3 } from "node:os";
 
 // node_modules/ws/wrapper.mjs
 var import_stream = __toESM(require_stream2(), 1);
@@ -29892,7 +30460,7 @@ var import_websocket_server = __toESM(require_websocket_server(), 1);
 var wrapper_default = import_websocket.default;
 
 // dist/adapters/obsidian.js
-var DEFAULT_PORT_FILE = join2(homedir(), ".obsidian-ws-port");
+var DEFAULT_PORT_FILE = join4(homedir3(), ".obsidian-ws-port");
 var CONNECT_TIMEOUT_MS = 5e3;
 var ObsidianAdapter = class {
   name = "obsidian";
@@ -29920,7 +30488,7 @@ var ObsidianAdapter = class {
   async init() {
     let info;
     try {
-      info = JSON.parse(readFileSync(this.portFile, "utf-8"));
+      info = JSON.parse(readFileSync2(this.portFile, "utf-8"));
     } catch {
       process.stderr.write("vault-mind: [warn] ~/.obsidian-ws-port not found -- obsidian adapter disabled\n");
       return;
@@ -30109,7 +30677,7 @@ var ObsidianAdapter = class {
 };
 
 // dist/adapters/qmd.js
-import { spawn } from "node:child_process";
+import { spawn as spawn3 } from "node:child_process";
 var QmdAdapter = class {
   name = "qmd";
   capabilities = ["search"];
@@ -30177,7 +30745,7 @@ var QmdAdapter = class {
     return new Promise((resolve3) => {
       let proc;
       try {
-        proc = spawn(this.binary, [...this.binaryArgs, ...args], { stdio: ["ignore", "pipe", "pipe"] });
+        proc = spawn3(this.binary, [...this.binaryArgs, ...args], { stdio: ["ignore", "pipe", "pipe"] });
       } catch {
         resolve3({ stdout: "", stderr: "spawn failed synchronously", code: -1 });
         return;
@@ -30201,8 +30769,8 @@ var QmdAdapter = class {
 };
 
 // dist/adapters/vaultbrain/index.js
-import { homedir as homedir2 } from "node:os";
-import { join as join3 } from "node:path";
+import { homedir as homedir4 } from "node:os";
+import { join as join5 } from "node:path";
 
 // dist/adapters/vaultbrain/schema.js
 var VAULTBRAIN_SCHEMA_SQL = `
@@ -30225,7 +30793,7 @@ CREATE TABLE IF NOT EXISTS content_chunks (
   slug TEXT NOT NULL,
   chunk_index INTEGER NOT NULL,
   chunk_text TEXT NOT NULL,
-  embedding vector(1536),
+  embedding vector(1024),
   token_count INTEGER,
   UNIQUE(slug, chunk_index)
 );
@@ -30334,11 +30902,19 @@ var PGliteEngine = class {
   async deleteChunks(slug) {
     await this.requireDb().query(`DELETE FROM content_chunks WHERE slug = $1`, [slug]);
   }
+  async dropChunks() {
+    await this.requireDb().query(`DROP TABLE IF EXISTS content_chunks CASCADE`);
+  }
   async searchKeyword(query, limit) {
     const { rows } = await this.requireDb().query(`SELECT slug, chunk_index, chunk_text,
-              similarity(chunk_text, $1) AS score
+              GREATEST(
+                similarity(chunk_text, $1),
+                CASE WHEN chunk_text ILIKE '%' || $1 || '%' THEN 0.5 ELSE 0 END
+              ) AS score
        FROM content_chunks
        WHERE chunk_text % $1
+          OR chunk_text ILIKE '%' || $1 || '%'
+          OR similarity(chunk_text, $1) > 0.08
        ORDER BY score DESC
        LIMIT $2`, [query, limit]);
     return rows.map((r) => ({
@@ -30382,8 +30958,10 @@ var PGliteEngine = class {
 
 // dist/adapters/vaultbrain/ingest.js
 var CHARS_PER_TOKEN = 4;
-var OPENAI_EMBEDDING_MODEL = "text-embedding-3-small";
-var OPENAI_EMBEDDING_URL = "https://api.openai.com/v1/embeddings";
+var JINA_EMBEDDING_MODEL = "jina-embeddings-v3";
+var JINA_EMBEDDING_URL = "https://api.jina.ai/v1/embeddings";
+var JINA_EMBEDDING_DIMS = 1024;
+var JINA_EMBEDDING_TASK = "retrieval.passage";
 var EMBED_BATCH_SIZE = 20;
 function chunkMarkdown(content, maxTokens = 512, overlap = 64) {
   if (!content.trim())
@@ -30453,26 +31031,29 @@ function chunkMarkdown(content, maxTokens = 512, overlap = 64) {
 async function embedTexts(texts) {
   if (texts.length === 0)
     return [];
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.JINA_API_KEY;
   if (!apiKey)
     return [];
   const allEmbeddings = [];
   for (let i = 0; i < texts.length; i += EMBED_BATCH_SIZE) {
     const batch = texts.slice(i, i + EMBED_BATCH_SIZE);
     try {
-      const response = await fetch(OPENAI_EMBEDDING_URL, {
+      const response = await fetch(JINA_EMBEDDING_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-          model: OPENAI_EMBEDDING_MODEL,
+          model: JINA_EMBEDDING_MODEL,
+          task: JINA_EMBEDDING_TASK,
+          dimensions: JINA_EMBEDDING_DIMS,
           input: batch
         })
       });
       if (!response.ok) {
-        console.warn(`[vaultbrain] embedding request failed: ${response.status}`);
+        const body = await response.text().catch(() => "");
+        console.warn(`[vaultbrain] Jina embedding request failed: ${response.status} ${body.slice(0, 200)}`);
         return [];
       }
       const data = await response.json();
@@ -30480,7 +31061,7 @@ async function embedTexts(texts) {
         allEmbeddings.push(item.embedding);
       }
     } catch (err2) {
-      console.warn(`[vaultbrain] embedding request error: ${err2.message}`);
+      console.warn(`[vaultbrain] Jina embedding request error: ${err2.message}`);
       return [];
     }
   }
@@ -30498,7 +31079,7 @@ var VaultBrainAdapter = class {
     this.dataDir = dataDir;
   }
   async init() {
-    const dir = this.dataDir ?? join3(homedir2(), ".vault-mind", "vaultbrain");
+    const dir = this.dataDir ?? join5(homedir4(), ".vault-mind", "vaultbrain");
     try {
       const engine = new PGliteEngine(dir);
       await engine.connect();
@@ -30517,6 +31098,20 @@ var VaultBrainAdapter = class {
       }
       this.engine = null;
     }
+  }
+  /**
+   * Drop content_chunks and recreate via initSchema. Used after embedding
+   * dimension change (e.g. 1536 -> 1024 for Jina v3 migration). Caller
+   * should follow up with vault.reindex to repopulate. Pages, links, tags
+   * tables are preserved (only chunks have the dim-bound vector column).
+   */
+  async reset() {
+    if (!this.engine) {
+      throw new Error("vaultbrain not initialized");
+    }
+    await this.engine.dropChunks();
+    await this.engine.initSchema();
+    return { dropped: true, recreated: true };
   }
   async search(query, opts) {
     if (!this.engine)
@@ -30670,11 +31265,11 @@ var AdapterRegistry = class {
 };
 
 // dist/compile-trigger.js
-import { execFile as execFile3 } from "node:child_process";
-import { readdirSync, existsSync } from "node:fs";
-import { promisify as promisify3 } from "node:util";
+import { execFile as execFile2 } from "node:child_process";
+import { readdirSync as readdirSync2, existsSync as existsSync4 } from "node:fs";
+import { promisify as promisify2 } from "node:util";
 import { resolve } from "node:path";
-var exec3 = promisify3(execFile3);
+var exec2 = promisify2(execFile2);
 var CompileTrigger = class {
   dirty = /* @__PURE__ */ new Set();
   running = false;
@@ -30757,17 +31352,17 @@ var CompileTrigger = class {
     if (!this.vaultPath)
       return;
     const kbMeta = resolve(this.compilerPath, "kb_meta.py");
-    if (!existsSync(kbMeta))
+    if (!existsSync4(kbMeta))
       return;
     let topics;
     try {
-      topics = readdirSync(this.vaultPath, { withFileTypes: true }).filter((d) => d.isDirectory() && existsSync(resolve(this.vaultPath, d.name, "_meta.json"))).map((d) => d.name);
+      topics = readdirSync2(this.vaultPath, { withFileTypes: true }).filter((d) => d.isDirectory() && existsSync4(resolve(this.vaultPath, d.name, "_meta.json"))).map((d) => d.name);
     } catch {
       return;
     }
     for (const topic of topics) {
       try {
-        const { stdout } = await exec3(this.python, [kbMeta, "diff", this.vaultPath, topic], {
+        const { stdout } = await exec2(this.python, [kbMeta, "diff", this.vaultPath, topic], {
           timeout: 1e4,
           maxBuffer: 1024 * 1024,
           env: { ...process.env }
@@ -30826,7 +31421,7 @@ var CompileTrigger = class {
     const args = [compilePy, topicPath, "--tier", this.tier];
     const timestamp = (/* @__PURE__ */ new Date()).toISOString();
     try {
-      const { stdout, stderr } = await exec3(this.python, args, {
+      const { stdout, stderr } = await exec2(this.python, args, {
         timeout: 12e4,
         // 2 min max
         maxBuffer: 10 * 1024 * 1024,
@@ -30883,22 +31478,23 @@ var CompileTrigger = class {
 };
 
 // dist/core/operations.js
-import { execFile as execFile4, spawnSync } from "node:child_process";
+import { execFile as execFile3, spawnSync } from "node:child_process";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
-import { promisify as promisify4 } from "node:util";
-import { existsSync as existsSync4, readdirSync as readdirSync3, readFileSync as readFileSync3 } from "node:fs";
-import { dirname as dirname3, join as join6, relative as relative2 } from "node:path";
+import { promisify as promisify3 } from "node:util";
+import { appendFileSync as appendFileSync2, existsSync as existsSync7, readdirSync as readdirSync4, readFileSync as readFileSync4 } from "node:fs";
+import os from "node:os";
+import { dirname as dirname3, join as join8, relative as relative3 } from "node:path";
 
 // dist/recipes/_registry.js
-import { readdirSync as readdirSync2, existsSync as existsSync3 } from "node:fs";
-import { join as join5, dirname as dirname2 } from "node:path";
+import { readdirSync as readdirSync3, existsSync as existsSync6 } from "node:fs";
+import { join as join7, dirname as dirname2 } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // dist/recipes/_framework.js
-import { readFileSync as readFileSync2, existsSync as existsSync2, appendFileSync, mkdirSync } from "node:fs";
-import { join as join4 } from "node:path";
+import { readFileSync as readFileSync3, existsSync as existsSync5, appendFileSync, mkdirSync } from "node:fs";
+import { join as join6 } from "node:path";
 import { execFileSync } from "node:child_process";
-import { homedir as homedir3 } from "node:os";
+import { homedir as homedir5 } from "node:os";
 function parseScalar(raw) {
   const s = raw.trim();
   if (s === "true")
@@ -31000,7 +31596,7 @@ function parseYaml(text) {
   return result;
 }
 function parseRecipe(filePath) {
-  const content = readFileSync2(filePath, "utf8");
+  const content = readFileSync3(filePath, "utf8");
   const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)/);
   if (!fmMatch) {
     throw new Error(`Recipe file has no valid frontmatter: ${filePath}`);
@@ -31087,24 +31683,24 @@ function runHealthCheck(command) {
   }
 }
 function appendHeartbeat(recipeId, event) {
-  const dir = join4(homedir3(), ".vault-mind", "recipes", recipeId);
-  if (!existsSync2(dir)) {
+  const dir = join6(homedir5(), ".vault-mind", "recipes", recipeId);
+  if (!existsSync5(dir)) {
     mkdirSync(dir, { recursive: true });
   }
-  const filePath = join4(dir, "heartbeat.jsonl");
+  const filePath = join6(dir, "heartbeat.jsonl");
   appendFileSync(filePath, JSON.stringify(event) + "\n", "utf8");
 }
 
 // dist/recipes/_registry.js
-var DEFAULT_RECIPES_DIR = join5(dirname2(fileURLToPath(import.meta.url)), "..", "..", "..", "recipes");
+var DEFAULT_RECIPES_DIR = join7(dirname2(fileURLToPath(import.meta.url)), "..", "..", "..", "recipes");
 var _cache = null;
 function scanRecipes(recipesDir) {
   if (!recipesDir && _cache)
     return _cache;
   const dir = recipesDir ?? DEFAULT_RECIPES_DIR;
-  if (!existsSync3(dir))
+  if (!existsSync6(dir))
     return [];
-  const entries = readdirSync2(dir, { withFileTypes: true });
+  const entries = readdirSync3(dir, { withFileTypes: true });
   const recipes = [];
   for (const entry of entries) {
     if (!entry.isFile())
@@ -31113,7 +31709,7 @@ function scanRecipes(recipesDir) {
       continue;
     if (entry.name.startsWith("_"))
       continue;
-    const filePath = join5(dir, entry.name);
+    const filePath = join7(dir, entry.name);
     try {
       recipes.push(parseRecipe(filePath));
     } catch (err2) {
@@ -31130,6 +31726,47 @@ function findRecipe(id, recipesDir) {
   return scanRecipes(recipesDir).find((r) => r.frontmatter.id === id);
 }
 
+// dist/rrf.js
+var RRF_K2 = 60;
+function fuseRRF(bundles, getKey = (r) => r.path) {
+  const scored = /* @__PURE__ */ new Map();
+  for (const bundle of bundles) {
+    const seenInBundle = /* @__PURE__ */ new Set();
+    bundle.results.forEach((r, i) => {
+      const key = getKey(r);
+      if (seenInBundle.has(key))
+        return;
+      seenInBundle.add(key);
+      const rank = i + 1;
+      const contribution = bundle.weight / (RRF_K2 + rank);
+      const prev = scored.get(key);
+      if (prev) {
+        prev.score += contribution;
+        prev.sources.add(bundle.source);
+      } else {
+        scored.set(key, {
+          result: { ...r, source: bundle.source },
+          score: contribution,
+          sources: /* @__PURE__ */ new Set([bundle.source])
+        });
+      }
+    });
+  }
+  return Array.from(scored.values()).map((e) => ({
+    ...e.result,
+    score: e.score,
+    metadata: {
+      ...e.result.metadata,
+      rrfSources: Array.from(e.sources)
+    }
+  })).sort((a, b) => {
+    const delta = b.score - a.score;
+    if (delta !== 0)
+      return delta;
+    return a.path.localeCompare(b.path);
+  });
+}
+
 // dist/unified-query.js
 async function unifiedQuery(registry2, query, opts) {
   const searchAdapters = registry2.getByCapability("search");
@@ -31140,29 +31777,33 @@ async function unifiedQuery(registry2, query, opts) {
   const weights = opts?.weights ?? {};
   const sources = {};
   const totalMax = opts?.maxResults ?? 50;
-  const perAdapterMax = Math.ceil(totalMax * 1.5 / filtered.length);
+  const perAdapterMax = Math.max(totalMax, Math.ceil(totalMax * 1.5 / filtered.length));
   const settled = await Promise.allSettled(filtered.map(async (adapter) => {
     const start = Date.now();
+    const w = weights[adapter.name] ?? 1;
     try {
       const results = await adapter.search(query, { ...opts, maxResults: perAdapterMax });
       sources[adapter.name] = { count: results.length, latencyMs: Date.now() - start };
-      const w = weights[adapter.name] ?? 1;
-      return results.map((r) => ({ ...r, score: r.score * w, source: adapter.name }));
+      return {
+        source: adapter.name,
+        weight: w,
+        results: results.map((r) => ({ ...r, source: adapter.name }))
+      };
     } catch (e) {
       sources[adapter.name] = {
         count: 0,
         latencyMs: Date.now() - start,
         error: e.message
       };
-      return [];
+      return { source: adapter.name, weight: w, results: [] };
     }
   }));
-  const merged = [];
+  const bundles = [];
   for (const r of settled) {
     if (r.status === "fulfilled")
-      merged.push(...r.value);
+      bundles.push(r.value);
   }
-  merged.sort((a, b) => b.score - a.score);
+  const merged = fuseRRF(bundles);
   const maxResults = opts?.maxResults ?? 50;
   return {
     results: merged.slice(0, maxResults),
@@ -31182,31 +31823,35 @@ async function unifiedQueryByVector(registry2, vector, opts) {
   const weights = opts?.weights ?? {};
   const sources = {};
   const totalMax = opts?.maxResults ?? 50;
-  const perAdapterMax = Math.ceil(totalMax * 1.5 / filtered.length);
+  const perAdapterMax = Math.max(totalMax, Math.ceil(totalMax * 1.5 / filtered.length));
   const settled = await Promise.allSettled(filtered.map(async (adapter) => {
     const start = Date.now();
+    const w = weights[adapter.name] ?? 1;
     try {
       const results = await adapter.searchByVector(vector, {
         maxResults: perAdapterMax
       });
       sources[adapter.name] = { count: results.length, latencyMs: Date.now() - start };
-      const w = weights[adapter.name] ?? 1;
-      return results.map((r) => ({ ...r, score: r.score * w, source: adapter.name }));
+      return {
+        source: adapter.name,
+        weight: w,
+        results: results.map((r) => ({ ...r, source: adapter.name }))
+      };
     } catch (e) {
       sources[adapter.name] = {
         count: 0,
         latencyMs: Date.now() - start,
         error: e.message
       };
-      return [];
+      return { source: adapter.name, weight: w, results: [] };
     }
   }));
-  const merged = [];
+  const bundles = [];
   for (const r of settled) {
     if (r.status === "fulfilled")
-      merged.push(...r.value);
+      bundles.push(r.value);
   }
-  merged.sort((a, b) => b.score - a.score);
+  const merged = fuseRRF(bundles);
   return {
     results: merged.slice(0, totalMax),
     sources,
@@ -31216,14 +31861,14 @@ async function unifiedQueryByVector(registry2, vector, opts) {
 
 // dist/embedding-client.js
 var DEFAULT_URL = "http://localhost:11434/v1/embeddings";
-var DEFAULT_MODEL = "qwen3-embedding:0.6b";
+var DEFAULT_MODEL2 = "qwen3-embedding:0.6b";
 var DEFAULT_TIMEOUT_MS = 15e3;
 async function embed(text, opts) {
   if (typeof text !== "string" || text.length === 0) {
     throw new Error("embed: empty text");
   }
   const url2 = opts?.url ?? process.env.VAULT_MIND_EMBED_URL ?? DEFAULT_URL;
-  const model = opts?.model ?? process.env.VAULT_MIND_EMBED_MODEL ?? DEFAULT_MODEL;
+  const model = opts?.model ?? process.env.VAULT_MIND_EMBED_MODEL ?? DEFAULT_MODEL2;
   const timeoutMs = opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -31255,10 +31900,10 @@ async function embed(text, opts) {
 }
 
 // dist/core/operations.js
-var execAsync = promisify4(execFile4);
+var execAsync = promisify3(execFile3);
 var PROTECTED_DIRS = /* @__PURE__ */ new Set([".obsidian", ".trash", ".git", "node_modules"]);
 var _thisDir = dirname3(fileURLToPath2(import.meta.url));
-var _projectRoot = join6(_thisDir, "..", "..", "..");
+var _projectRoot = join8(_thisDir, "..", "..", "..");
 function makeErr(code, message) {
   return { code, message };
 }
@@ -31624,8 +32269,8 @@ var operations = [
         };
       }
       const stem = id.replace(/-to-vault$/, "");
-      const collectorPath = join6(_projectRoot, "recipes", "collectors", `${stem}-collector.ts`);
-      if (!existsSync4(collectorPath)) {
+      const collectorPath = join8(_projectRoot, "recipes", "collectors", `${stem}-collector.ts`);
+      if (!existsSync7(collectorPath)) {
         return {
           ok: false,
           exit_code: null,
@@ -31699,6 +32344,33 @@ function makeAllOperations(deps) {
   ];
   const queryOps = [
     {
+      name: "vault.reset",
+      namespace: "vault",
+      description: 'Drop and recreate VaultBrain content_chunks table. Use after embedding dimension change (e.g. Jina v3 1536 -> 1024 migration). Pages/links/tags tables are preserved. Follow up with vault.reindex to repopulate. Requires confirm: "yes-drop-chunks" to prevent accidental data loss.',
+      mutating: true,
+      params: {
+        confirm: { type: "string", required: true, description: 'Must be the literal string "yes-drop-chunks" to proceed' }
+      },
+      handler: async (_ctx, params) => {
+        if (params.confirm !== "yes-drop-chunks") {
+          throw makeErr(-32602, 'vault.reset requires confirm: "yes-drop-chunks"');
+        }
+        const vba = registry2.get("vaultbrain");
+        if (!vba)
+          throw makeErr(-32001, "VaultBrain adapter not available or not initialized");
+        process.stderr.write("[vault.reset] requested at " + (/* @__PURE__ */ new Date()).toISOString() + " -- about to drop content_chunks\n");
+        const result = await vba.reset();
+        process.stderr.write("[vault.reset] completed at " + (/* @__PURE__ */ new Date()).toISOString() + "\n");
+        try {
+          const auditPath = join8(os.homedir(), ".vault-mind", ".reset-audit.log");
+          appendFileSync2(auditPath, (/* @__PURE__ */ new Date()).toISOString() + "	vault.reset	" + JSON.stringify(result) + "\n", { flag: "a" });
+        } catch (auditErr) {
+          process.stderr.write("[vault.reset] audit log write failed: " + String(auditErr) + "\n");
+        }
+        return result;
+      }
+    },
+    {
       name: "vault.reindex",
       namespace: "vault",
       description: "Bulk-index all markdown files into VaultBrain semantic store. Use after initial setup or vault migration.",
@@ -31713,12 +32385,12 @@ function makeAllOperations(deps) {
           throw makeErr(-32001, "VaultBrain adapter not available or not initialized");
         const files = [];
         const walk = (dir) => {
-          for (const entry of readdirSync3(dir, { withFileTypes: true })) {
+          for (const entry of readdirSync4(dir, { withFileTypes: true })) {
             if (entry.isDirectory()) {
               if (!PROTECTED_DIRS.has(entry.name))
-                walk(join6(dir, entry.name));
+                walk(join8(dir, entry.name));
             } else if (entry.isFile() && entry.name.endsWith(".md")) {
-              files.push(join6(dir, entry.name));
+              files.push(join8(dir, entry.name));
             }
           }
         };
@@ -31732,15 +32404,15 @@ function makeAllOperations(deps) {
         for (let i = 0; i < files.length; i += concurrency) {
           const batch = files.slice(i, i + concurrency);
           const results = await Promise.allSettled(batch.map(async (fullPath) => {
-            const content = readFileSync3(fullPath, "utf-8");
-            const relPath = relative2(vaultPath, fullPath).replace(/\\/g, "/");
+            const content = readFileSync4(fullPath, "utf-8");
+            const relPath = relative3(vaultPath, fullPath).replace(/\\/g, "/");
             await vba.ingest(relPath, content);
           }));
           results.forEach((result, idx) => {
             if (result.status === "fulfilled")
               indexed++;
             else
-              errors.push(`${relative2(vaultPath, batch[idx]).replace(/\\/g, "/")}: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`);
+              errors.push(`${relative3(vaultPath, batch[idx]).replace(/\\/g, "/")}: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`);
           });
         }
         return { indexed, skipped: errors.length, errors, totalFiles: files.length };
@@ -31749,7 +32421,7 @@ function makeAllOperations(deps) {
     {
       name: "query.unified",
       namespace: "query",
-      description: "Weighted multi-adapter search across all active adapters (filesystem, obsidian, memu, gitnexus). Results merged and re-ranked by per-adapter weight. Use when you want best answers anywhere; for single-adapter search use query.search (filesystem-only, ranked) or vault.search (raw filesystem grep, unranked).",
+      description: "Reciprocal Rank Fusion (RRF) search across all active adapters (filesystem, obsidian, memu, gitnexus). Each adapter returns its ranked top-N; results are merged by RRF score = sum over sources (weight / (60 + rank_in_source)), so a doc that appears in top-5 of multiple sources beats a doc at top-1 of just one. Weights now scale each source's rank contribution (not raw score), so weight=2 doubles a source's influence on tied docs. Use when you want best answers anywhere; for single-adapter ranked search use query.search, for raw grep use vault.search.",
       mutating: false,
       params: {
         query: { type: "string", required: true, description: "Search query string" },
@@ -31779,7 +32451,7 @@ function makeAllOperations(deps) {
     {
       name: "query.search",
       namespace: "query",
-      description: "Filesystem-only ranked knowledge search. Same scoring pipeline as query.unified but restricted to the filesystem adapter. Use for deterministic filesystem-rooted results without memu/gitnexus noise; use vault.search for raw grep-style matching without ranking.",
+      description: "Filesystem-only RRF-ranked knowledge search. Same fusion pipeline as query.unified restricted to the filesystem adapter (single-source RRF degenerates to rank preservation). Use for deterministic filesystem-rooted results without memu/gitnexus noise; use vault.search for raw grep-style matching without ranking.",
       mutating: false,
       params: {
         query: { type: "string", required: true, description: "Search query string" },
@@ -31798,7 +32470,7 @@ function makeAllOperations(deps) {
     {
       name: "query.semantic",
       namespace: "query",
-      description: "Text-input semantic search. Embeds the query via an OpenAI-compatible embedding endpoint (default: ollama qwen3-embedding:0.6b at localhost:11434 -- the same model that produced memU's stored 1024-dim vectors), then fans out to all embeddings-capable adapters (currently memu, pgvector cosine). Use this for natural-language queries that should match by meaning rather than keyword. Override endpoint/model via VAULT_MIND_EMBED_URL and VAULT_MIND_EMBED_MODEL env. For pre-computed vectors use query.vector; for keyword matching use query.unified.",
+      description: "Text-input semantic search. Embeds the query via an OpenAI-compatible embedding endpoint (default: ollama qwen3-embedding:0.6b at localhost:11434 -- the same model that produced memU's stored 1024-dim vectors), then fans out to all embeddings-capable adapters (currently memu, pgvector cosine). Use this for natural-language queries that should match by meaning rather than keyword. Override endpoint/model via VAULT_MIND_EMBED_URL and VAULT_MIND_EMBED_MODEL env. For pre-computed vectors use query.vector; for keyword matching use query.unified (RRF fusion of keyword adapters).",
       mutating: false,
       params: {
         query: { type: "string", required: true, description: "Natural-language text to embed and semantic-search" },
@@ -31827,7 +32499,7 @@ function makeAllOperations(deps) {
     {
       name: "query.vector",
       namespace: "query",
-      description: `Weighted multi-adapter semantic search via pre-computed query vector. Fans out to adapters declaring the "embeddings" capability (currently memu via pgvector cosine). Caller supplies the vector -- adapters are model-agnostic, so callers must produce an embedding matching the adapter's stored vector space (memu: 1024-dim). Use for vector-similarity ranking when you already have an embedding; for text-input semantic search use query.semantic; for keyword fusion use query.unified.`,
+      description: `Weighted multi-adapter semantic search via pre-computed query vector. Fans out to adapters declaring the "embeddings" capability (currently memu via pgvector cosine). Caller supplies the vector -- adapters are model-agnostic, so callers must produce an embedding matching the adapter's stored vector space (memu: 1024-dim). Use for vector-similarity ranking when you already have an embedding; for text-input semantic search use query.semantic; for keyword fusion use query.unified (RRF).`,
       mutating: false,
       params: {
         vector: { type: "array", required: true, description: "Pre-computed query embedding as number[] (memu expects 1024-dim)" },
@@ -32071,8 +32743,8 @@ function loadConfig() {
     resolve2(process.cwd(), "../vault-mind.yaml")
   ];
   for (const p of candidates) {
-    if (existsSync5(p))
-      return { ...parseSimpleYaml(readFileSync4(p, "utf-8")), config_path: p };
+    if (existsSync8(p))
+      return { ...parseSimpleYaml(readFileSync5(p, "utf-8")), config_path: p };
   }
   throw new Error("No vault-mind.yaml found and VAULT_MIND_VAULT_PATH not set");
 }
@@ -32186,21 +32858,21 @@ var VaultFs = class {
   resolve(p, opts = {}) {
     const normalized = this.normalizeVaultPath(p, opts);
     const full = resolve2(this.vault, normalized);
-    const rel = relative3(this.vault, full);
+    const rel = relative4(this.vault, full);
     if (rel.startsWith("..") || pathIsAbsolute(rel))
       throw err(-32602, "path escapes vault");
     this.assertRealPathInsideVault(full);
     return full;
   }
   assertRealPathInsideVault(full) {
-    const realTarget = existsSync5(full) ? realpathSync(full) : this.realpathExistingAncestor(dirname4(full));
-    const rel = relative3(this.realVault, realTarget);
+    const realTarget = existsSync8(full) ? realpathSync(full) : this.realpathExistingAncestor(dirname4(full));
+    const rel = relative4(this.realVault, realTarget);
     if (rel.startsWith("..") || pathIsAbsolute(rel))
       throw err(-32602, "path traversal blocked");
   }
   realpathExistingAncestor(start) {
     let current = start;
-    while (!existsSync5(current)) {
+    while (!existsSync8(current)) {
       const parent = dirname4(current);
       if (parent === current)
         throw err(-32602, "path traversal blocked");
@@ -32284,13 +32956,13 @@ var VaultFs = class {
   }
   walkMd(fn) {
     const walk = (d) => {
-      for (const ent of readdirSync4(d, { withFileTypes: true })) {
-        const full = join7(d, ent.name);
+      for (const ent of readdirSync5(d, { withFileTypes: true })) {
+        const full = join9(d, ent.name);
         if (ent.isDirectory() && !PROTECTED_DIRS2.has(ent.name))
           walk(full);
         else if (ent.isFile() && ent.name.endsWith(".md")) {
-          const rel = relative3(this.vault, full).replace(/\\/g, "/");
-          fn(rel, readFileSync4(full, "utf-8"));
+          const rel = relative4(this.vault, full).replace(/\\/g, "/");
+          fn(rel, readFileSync5(full, "utf-8"));
         }
       }
     };
@@ -32304,21 +32976,21 @@ var VaultFs = class {
     switch (method) {
       case "vault.read": {
         const full = this.resolve(p.path);
-        if (!existsSync5(full))
+        if (!existsSync8(full))
           throw err(-32001, `Not found: ${p.path}`);
-        return { content: readFileSync4(full, "utf-8") };
+        return { content: readFileSync5(full, "utf-8") };
       }
       case "vault.exists": {
         const existsPath = this.normalizeVaultPath(p.path ?? "", { allowRoot: true });
-        return { exists: existsSync5(this.resolve(existsPath, { allowRoot: true })) };
+        return { exists: existsSync8(this.resolve(existsPath, { allowRoot: true })) };
       }
       case "vault.list": {
         const listPath = this.normalizeVaultPath(p.path ?? "", { allowRoot: true });
         const dir = this.resolve(listPath, { allowRoot: true });
-        if (!existsSync5(dir))
+        if (!existsSync8(dir))
           throw err(-32001, `Not found: ${p.path}`);
         const hidden = /* @__PURE__ */ new Set([".obsidian", ".trash", "node_modules"]);
-        const entries = readdirSync4(dir, { withFileTypes: true }).filter((e) => !hidden.has(e.name));
+        const entries = readdirSync5(dir, { withFileTypes: true }).filter((e) => !hidden.has(e.name));
         return {
           files: entries.filter((e) => e.isFile()).map((e) => posix.join(listPath, e.name)).sort(),
           folders: entries.filter((e) => e.isDirectory()).map((e) => posix.join(listPath, e.name)).sort()
@@ -32327,12 +32999,12 @@ var VaultFs = class {
       case "vault.stat": {
         const statPath = this.normalizeVaultPath(p.path ?? "", { allowRoot: true });
         const full = this.resolve(statPath, { allowRoot: true });
-        if (!existsSync5(full))
+        if (!existsSync8(full))
           throw err(-32001, `Not found: ${p.path}`);
         const st = statSync(full);
         const displayName = statPath === "" ? basename(this.vault) : basename(statPath);
         if (st.isDirectory())
-          return { type: "folder", path: statPath, name: displayName, children: readdirSync4(full).length };
+          return { type: "folder", path: statPath, name: displayName, children: readdirSync5(full).length };
         return {
           type: "file",
           path: statPath,
@@ -32345,7 +33017,7 @@ var VaultFs = class {
       }
       case "vault.create": {
         const full = this.resolve(p.path);
-        if (existsSync5(full))
+        if (existsSync8(full))
           throw err(-32002, `Already exists: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "create", path: p.path };
@@ -32355,7 +33027,7 @@ var VaultFs = class {
       }
       case "vault.modify": {
         const full = this.resolve(p.path);
-        if (!existsSync5(full))
+        if (!existsSync8(full))
           throw err(-32001, `Not found: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "modify", path: p.path };
@@ -32364,16 +33036,16 @@ var VaultFs = class {
       }
       case "vault.append": {
         const full = this.resolve(p.path);
-        if (!existsSync5(full))
+        if (!existsSync8(full))
           throw err(-32001, `Not found: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "append", path: p.path };
-        appendFileSync2(full, p.content, "utf-8");
+        appendFileSync3(full, p.content, "utf-8");
         return { ok: true, path: p.path };
       }
       case "vault.delete": {
         const full = this.resolve(p.path);
-        if (!existsSync5(full))
+        if (!existsSync8(full))
           throw err(-32001, `Not found: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "delete", path: p.path };
@@ -32383,9 +33055,9 @@ var VaultFs = class {
       case "vault.rename": {
         const from = this.resolve(p.from);
         const to = this.resolve(p.to);
-        if (!existsSync5(from))
+        if (!existsSync8(from))
           throw err(-32001, `Not found: ${p.from}`);
-        if (existsSync5(to))
+        if (existsSync8(to))
           throw err(-32002, `Already exists: ${p.to}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "rename", from: p.from, to: p.to };
@@ -32524,7 +33196,7 @@ var VaultFs = class {
             if (!target.includes("/")) {
               const withMd = target.endsWith(".md") ? target : target + ".md";
               try {
-                if (existsSync5(this.resolve(withMd)))
+                if (existsSync8(this.resolve(withMd)))
                   target = withMd;
               } catch {
               }
@@ -32545,7 +33217,7 @@ var VaultFs = class {
           path: np,
           exists: (() => {
             try {
-              return existsSync5(this.resolve(np));
+              return existsSync8(this.resolve(np));
             } catch {
               return false;
             }
@@ -32632,7 +33304,7 @@ var VaultFs = class {
         for (const [from, targets] of linkMap) {
           for (const [to] of targets) {
             try {
-              if (!existsSync5(this.resolve(to)))
+              if (!existsSync8(this.resolve(to)))
                 brokenLinks.push({ from, to });
             } catch {
               brokenLinks.push({ from, to });
@@ -32679,7 +33351,7 @@ var VaultFs = class {
       }
       case "vault.mkdir": {
         const full = this.resolve(p.path);
-        if (existsSync5(full))
+        if (existsSync8(full))
           throw err(-32002, `Already exists: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "mkdir", path: p.path };
@@ -32697,7 +33369,7 @@ var VaultFs = class {
         const now = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
         const ensureDir = (rel) => {
           const full = this.resolve(rel);
-          if (existsSync5(full)) {
+          if (existsSync8(full)) {
             skipped.push(rel);
             return;
           }
@@ -32707,7 +33379,7 @@ var VaultFs = class {
         const ensureFile = (rel, content) => {
           const r = rel.endsWith(".md") ? rel : rel + ".md";
           const full = this.resolve(r);
-          if (existsSync5(full)) {
+          if (existsSync8(full)) {
             skipped.push(r);
             return;
           }
@@ -32755,7 +33427,7 @@ Follows llm-wiki opinionated workflow.
 See root CLAUDE.md for full documentation.
 `);
         const yamlPath = `${base}/kb.yaml`;
-        if (existsSync5(this.resolve(yamlPath))) {
+        if (existsSync8(this.resolve(yamlPath))) {
           skipped.push(yamlPath);
         } else {
           writeFileSync(this.resolve(yamlPath), `topic: "${p.topic}"
@@ -32790,7 +33462,7 @@ created: ${now}
             created: [],
             skipped: []
           };
-          const entries = readdirSync4(absDir, { withFileTypes: true });
+          const entries = readdirSync5(absDir, { withFileTypes: true });
           for (const ent of entries) {
             if (!ent.isFile())
               continue;
@@ -32847,7 +33519,7 @@ updated: ${now}
         const allSkipped = [];
         const errors = [];
         try {
-          const topEntries = readdirSync4(this.vault, { withFileTypes: true });
+          const topEntries = readdirSync5(this.vault, { withFileTypes: true });
           for (const ent of topEntries) {
             if (!ent.isDirectory())
               continue;
@@ -32950,14 +33622,14 @@ updated: ${now}
         const baseName = `${datePrefix}-${slug}`;
         let chosenName = `${baseName}.md`;
         let relPath = `${relDir}/${chosenName}`;
-        let fullPath = join7(this.vault, relDir, chosenName);
-        if (existsSync5(fullPath)) {
+        let fullPath = join9(this.vault, relDir, chosenName);
+        if (existsSync8(fullPath)) {
           let found = false;
           for (let i = 2; i <= 99; i++) {
             chosenName = `${baseName}-${i}.md`;
             relPath = `${relDir}/${chosenName}`;
-            fullPath = join7(this.vault, relDir, chosenName);
-            if (!existsSync5(fullPath)) {
+            fullPath = join9(this.vault, relDir, chosenName);
+            if (!existsSync8(fullPath)) {
               found = true;
               break;
             }
@@ -33020,7 +33692,7 @@ ${bodyWithTag}
         const nowMs = typeof p.now === "string" ? Date.parse(p.now) : Date.now();
         const nowValid = !isNaN(nowMs) ? nowMs : Date.now();
         const aiRootRel = "00-Inbox/AI-Output";
-        const aiRootAbs = join7(this.vault, aiRootRel);
+        const aiRootAbs = join9(this.vault, aiRootRel);
         const emptyMetrics = {
           totalEntries: 0,
           byPersona: {},
@@ -33028,19 +33700,19 @@ ${bodyWithTag}
           byQuarantineState: {},
           realBacklinkHitRate: 0
         };
-        if (!existsSync5(aiRootAbs)) {
+        if (!existsSync8(aiRootAbs)) {
           return { staleCandidates: [], supersedeCandidates: [], applied: [], metrics: emptyMetrics };
         }
         const entries = [];
         const walkSubtree = (d) => {
-          if (!existsSync5(d))
+          if (!existsSync8(d))
             return;
-          for (const ent of readdirSync4(d, { withFileTypes: true })) {
-            const full = join7(d, ent.name);
+          for (const ent of readdirSync5(d, { withFileTypes: true })) {
+            const full = join9(d, ent.name);
             if (ent.isDirectory() && !PROTECTED_DIRS2.has(ent.name))
               walkSubtree(full);
             else if (ent.isFile() && ent.name.endsWith(".md")) {
-              const content = readFileSync4(full, "utf-8");
+              const content = readFileSync5(full, "utf-8");
               const fm = this.parseFrontmatter(content);
               if (!fm)
                 continue;
@@ -33048,7 +33720,7 @@ ${bodyWithTag}
               if (!persona)
                 continue;
               const status = typeof fm["status"] === "string" ? fm["status"] : "";
-              const relPath = relative3(this.vault, full).replace(/\\/g, "/");
+              const relPath = relative4(this.vault, full).replace(/\\/g, "/");
               const st = statSync(full);
               const mtimeMs = st.mtimeMs;
               let entryMs = mtimeMs;
@@ -33134,8 +33806,8 @@ ${bodyWithTag}
         if (!dryRun) {
           const flipIso = new Date(nowValid).toISOString();
           for (const sc of staleCandidates) {
-            const absPath = join7(this.vault, sc.path);
-            const original = readFileSync4(absPath, "utf-8");
+            const absPath = join9(this.vault, sc.path);
+            const original = readFileSync5(absPath, "utf-8");
             const historyEntry = `{ts: "${flipIso}", axis: status, from: draft, to: stale, trigger: auto-stop-summary, evidence_level: low, human_in_loop: false, note: "gardener sweep"}`;
             const withStatusFlipped = original.replace(/(^---[\s\S]*?\nstatus: )draft(\n[\s\S]*?^---$)/m, (_m, g1, g2) => g1 + "stale" + g2);
             if (withStatusFlipped === original)
@@ -33164,23 +33836,23 @@ ${bodyWithTag}
         metrics.realBacklinkHitRate = entries.length === 0 ? 0 : withRealBacklink / entries.length;
         if (!dryRun && entries.length > 0) {
           const sweepLogRel = "00-Inbox/AI-Output/sweep.log.md";
-          const sweepLogAbs = join7(this.vault, sweepLogRel);
+          const sweepLogAbs = join9(this.vault, sweepLogRel);
           const stamp = new Date(nowValid).toISOString();
           const logLine = `- {ts: "${stamp}", totalEntries: ${metrics.totalEntries}, staleHits: ${staleCandidates.length}, supersedeHits: ${supersedeCandidates.length}, realBacklinkHitRate: ${metrics.realBacklinkHitRate.toFixed(3)}}
 `;
-          if (!existsSync5(sweepLogAbs)) {
+          if (!existsSync8(sweepLogAbs)) {
             mkdirSync2(dirname4(sweepLogAbs), { recursive: true });
             writeFileSync(sweepLogAbs, "# Sweep trend log\n\n", "utf-8");
           }
-          appendFileSync2(sweepLogAbs, logLine, "utf-8");
+          appendFileSync3(sweepLogAbs, logLine, "utf-8");
         }
         return { staleCandidates, supersedeCandidates, applied, metrics };
       }
       case "vault.getMetadata": {
         const full = this.resolve(p.path);
-        if (!existsSync5(full))
+        if (!existsSync8(full))
           throw err(-32001, `Not found: ${p.path}`);
-        const content = readFileSync4(full, "utf-8");
+        const content = readFileSync5(full, "utf-8");
         const out = {};
         const links = this.parseWikilinks(content);
         if (links.length)
@@ -33220,32 +33892,66 @@ async function main() {
     await fsAdapter.init();
     registry2.register(fsAdapter);
   }
-  const enabledAdapters = new Set(config2.adapters ?? ["filesystem", "memu", "gitnexus", "obsidian", "qmd", "vaultbrain"]);
+  const enabledAdapters = new Set(config2.adapters ?? ["filesystem", "memu", "gitnexus", "obsidian", "vaultbrain", "memorix", "claudemem"]);
   if (enabledAdapters.has("memu")) {
     const memuAdapter = new MemUAdapter();
-    await memuAdapter.init();
-    if (memuAdapter.isAvailable)
-      registry2.register(memuAdapter);
+    try {
+      await memuAdapter.init();
+      if (memuAdapter.isAvailable) {
+        registry2.register(memuAdapter);
+        process.stderr.write("obsidian-llm-wiki: [memu] adapter ready\n");
+      } else {
+        process.stderr.write("obsidian-llm-wiki: [memu] init returned isAvailable=false (see warn above)\n");
+      }
+    } catch (e) {
+      process.stderr.write(`obsidian-llm-wiki: [memu] init threw (continuing without): ${e.message}
+`);
+    }
   }
   if (enabledAdapters.has("gitnexus")) {
     const gnAdapter = new GitNexusAdapter();
-    await gnAdapter.init();
-    if (gnAdapter.isAvailable)
-      registry2.register(gnAdapter);
+    try {
+      await gnAdapter.init();
+      if (gnAdapter.isAvailable) {
+        registry2.register(gnAdapter);
+        process.stderr.write("obsidian-llm-wiki: [gitnexus] adapter ready\n");
+      } else {
+        process.stderr.write("obsidian-llm-wiki: [gitnexus] init returned isAvailable=false (see warn above)\n");
+      }
+    } catch (e) {
+      process.stderr.write(`obsidian-llm-wiki: [gitnexus] init threw (continuing without): ${e.message}
+`);
+    }
   }
   if (enabledAdapters.has("obsidian")) {
     const obsAdapter = new ObsidianAdapter();
-    await obsAdapter.init();
-    if (obsAdapter.isAvailable)
-      registry2.register(obsAdapter);
+    try {
+      await obsAdapter.init();
+      if (obsAdapter.isAvailable) {
+        registry2.register(obsAdapter);
+        process.stderr.write("obsidian-llm-wiki: [obsidian] adapter ready\n");
+      } else {
+        process.stderr.write("obsidian-llm-wiki: [obsidian] init returned isAvailable=false (see warn above)\n");
+      }
+    } catch (e) {
+      process.stderr.write(`obsidian-llm-wiki: [obsidian] init threw (continuing without): ${e.message}
+`);
+    }
   }
   if (enabledAdapters.has("qmd")) {
     const qmdCollection = process.env.VAULT_MIND_QMD_COLLECTION || void 0;
     const qmdAdapter = new QmdAdapter({ collection: qmdCollection });
-    await qmdAdapter.init();
-    if (qmdAdapter.isAvailable) {
-      registry2.register(qmdAdapter);
-      process.stderr.write("obsidian-llm-wiki: [qmd] adapter ready\n");
+    try {
+      await qmdAdapter.init();
+      if (qmdAdapter.isAvailable) {
+        registry2.register(qmdAdapter);
+        process.stderr.write("obsidian-llm-wiki: [qmd] adapter ready\n");
+      } else {
+        process.stderr.write("obsidian-llm-wiki: [qmd] init returned isAvailable=false (see warn above)\n");
+      }
+    } catch (e) {
+      process.stderr.write(`obsidian-llm-wiki: [qmd] init threw (continuing without): ${e.message}
+`);
     }
   }
   let vaultBrainAdapter = null;
@@ -33258,6 +33964,36 @@ async function main() {
       process.stderr.write("obsidian-llm-wiki: [vaultbrain] adapter ready\n");
     } catch (e) {
       process.stderr.write(`obsidian-llm-wiki: [vaultbrain] init failed (continuing without): ${e.message}
+`);
+    }
+  }
+  if (enabledAdapters.has("memorix")) {
+    const memorixAdapter = new MemorixAdapter();
+    try {
+      await memorixAdapter.init();
+      if (memorixAdapter.isAvailable) {
+        registry2.register(memorixAdapter);
+        process.stderr.write("obsidian-llm-wiki: [memorix] adapter ready\n");
+      } else {
+        process.stderr.write("obsidian-llm-wiki: [memorix] init returned isAvailable=false (see warn above)\n");
+      }
+    } catch (e) {
+      process.stderr.write(`obsidian-llm-wiki: [memorix] init threw (continuing without): ${e.message}
+`);
+    }
+  }
+  if (enabledAdapters.has("claudemem")) {
+    const cmAdapter = new ClaudeMemAdapter();
+    try {
+      await cmAdapter.init();
+      if (cmAdapter.isAvailable) {
+        registry2.register(cmAdapter);
+        process.stderr.write("obsidian-llm-wiki: [claudemem] adapter ready\n");
+      } else {
+        process.stderr.write("obsidian-llm-wiki: [claudemem] init returned isAvailable=false (see warn above)\n");
+      }
+    } catch (e) {
+      process.stderr.write(`obsidian-llm-wiki: [claudemem] init threw (continuing without): ${e.message}
 `);
     }
   }
@@ -33276,8 +34012,8 @@ async function main() {
         compileTrigger.onFileChange(e.path, e.type);
         if (vaultBrainAdapter && e.path.endsWith(".md")) {
           try {
-            const fullPath = join7(config2.vault_path, e.path.replace(/\\/g, "/"));
-            const content = readFileSync4(fullPath, "utf-8");
+            const fullPath = join9(config2.vault_path, e.path.replace(/\\/g, "/"));
+            const content = readFileSync5(fullPath, "utf-8");
             vaultBrainAdapter.ingest(e.path, content).catch((err2) => process.stderr.write(`obsidian-llm-wiki: [vaultbrain] ingest error: ${err2.message}
 `));
           } catch {
@@ -33351,8 +34087,8 @@ async function main() {
           compileTrigger.onFileChange(p, toolName === "vault.create" ? "create" : "modify");
           if (vaultBrainAdapter && p.endsWith(".md")) {
             try {
-              const fullPath = join7(config2.vault_path, p.replace(/\\/g, "/"));
-              const content = readFileSync4(fullPath, "utf-8");
+              const fullPath = join9(config2.vault_path, p.replace(/\\/g, "/"));
+              const content = readFileSync5(fullPath, "utf-8");
               vaultBrainAdapter.ingest(p, content).catch((err2) => process.stderr.write(`obsidian-llm-wiki: [vaultbrain] ingest error: ${err2.message}
 `));
             } catch {

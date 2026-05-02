@@ -8,6 +8,7 @@
 import type { AdapterRegistry } from "./adapters/registry.js";
 import type { SearchResult, SearchOpts } from "./adapters/interface.js";
 import { fuseRRF, type RankedBundle } from "./rrf.js";
+import { embedTextOllama, type OllamaEmbedOpts } from "./embedding/ollama.js";
 
 export interface UnifiedQueryOpts extends SearchOpts {
   /** Only query these adapter names (default: all search-capable) */
@@ -111,7 +112,10 @@ export interface UnifiedVectorQueryOpts {
  * declare the "embeddings" capability AND implement the method. Same
  * fusion + weighting semantics as unifiedQuery; caller is responsible for
  * providing a vector that matches each target adapter's stored vector
- * space (memu: 1024-dim).
+ * space.
+ *
+ * memu adapter is dim-aware: 1024-dim -> gm_nodes table, 4096-dim ->
+ * memory_items table. Caller's chosen embedding model determines target.
  */
 export async function unifiedQueryByVector(
   registry: AdapterRegistry,
@@ -185,4 +189,47 @@ export async function unifiedQueryByVector(
     sources,
     totalResults: merged.length,
   };
+}
+
+export interface UnifiedQueryByTextOpts extends UnifiedVectorQueryOpts {
+  /** Ollama embedding endpoint config (default: localhost:11434, qwen3-embedding:0.6b) */
+  embedding?: OllamaEmbedOpts;
+}
+
+/**
+ * Text-then-vector convenience: embed the query string via Ollama, then
+ * fan out to vector-capable adapters. Returns empty result with `embedding-failed`
+ * source stat if embedding step fails (caller can fall back to lexical).
+ *
+ * Default model qwen3-embedding:0.6b yields 1024-dim vectors -> memu
+ * adapter routes to gm_nodes. Override via opts.embedding.model + .baseUrl
+ * (or OLLAMA_EMBED_MODEL / OLLAMA_EMBED_BASE_URL env) for other dims.
+ */
+export async function unifiedQueryByText(
+  registry: AdapterRegistry,
+  query: string,
+  opts?: UnifiedQueryByTextOpts,
+): Promise<UnifiedQueryResult> {
+  const embedStart = Date.now();
+  const vector = await embedTextOllama(query, opts?.embedding);
+  if (vector.length === 0) {
+    return {
+      results: [],
+      sources: {
+        "embedding-step": {
+          count: 0,
+          latencyMs: Date.now() - embedStart,
+          error: "ollama embed returned empty vector (see stderr)",
+        },
+      },
+      totalResults: 0,
+    };
+  }
+  const result = await unifiedQueryByVector(registry, vector, opts);
+  // Inject embedding latency for observability.
+  result.sources["embedding-step"] = {
+    count: vector.length,
+    latencyMs: Date.now() - embedStart,
+  };
+  return result;
 }

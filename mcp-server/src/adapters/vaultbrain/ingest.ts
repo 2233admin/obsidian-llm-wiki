@@ -4,8 +4,14 @@
  */
 
 const CHARS_PER_TOKEN = 4;
-const OPENAI_EMBEDDING_MODEL = "text-embedding-3-small";
-const OPENAI_EMBEDDING_URL = "https://api.openai.com/v1/embeddings";
+// Jina v3: 1024-dim default (Matryoshka), 89 languages, paid endpoint.
+// Curry has JINA_API_KEY setx-persisted (HKCU\Environment); .claude.json
+// llm-wiki MCP env block must explicitly include JINA_API_KEY because
+// child process env from cmd /c node spawn doesn't auto-load setx registry.
+const JINA_EMBEDDING_MODEL = "jina-embeddings-v3";
+const JINA_EMBEDDING_URL = "https://api.jina.ai/v1/embeddings";
+const JINA_EMBEDDING_DIMS = 1024;
+const JINA_EMBEDDING_TASK = "retrieval.passage";
 const EMBED_BATCH_SIZE = 20;
 
 /**
@@ -88,12 +94,13 @@ export function chunkMarkdown(content: string, maxTokens = 512, overlap = 64): s
 }
 
 /**
- * Embed texts via OpenAI text-embedding-3-small.
- * Returns [] if OPENAI_API_KEY missing or request fails (non-fatal).
+ * Embed texts via Jina jina-embeddings-v3 (1024d, paid).
+ * Returns [] if JINA_API_KEY missing or request fails (non-fatal -- chunks
+ * still get inserted with embedding=null, keyword path remains usable).
  */
 export async function embedTexts(texts: string[]): Promise<number[][]> {
   if (texts.length === 0) return [];
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.JINA_API_KEY;
   if (!apiKey) return [];
 
   const allEmbeddings: number[][] = [];
@@ -101,20 +108,23 @@ export async function embedTexts(texts: string[]): Promise<number[][]> {
   for (let i = 0; i < texts.length; i += EMBED_BATCH_SIZE) {
     const batch = texts.slice(i, i + EMBED_BATCH_SIZE);
     try {
-      const response = await fetch(OPENAI_EMBEDDING_URL, {
+      const response = await fetch(JINA_EMBEDDING_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: OPENAI_EMBEDDING_MODEL,
+          model: JINA_EMBEDDING_MODEL,
+          task: JINA_EMBEDDING_TASK,
+          dimensions: JINA_EMBEDDING_DIMS,
           input: batch,
         }),
       });
 
       if (!response.ok) {
-        console.warn(`[vaultbrain] embedding request failed: ${response.status}`);
+        const body = await response.text().catch(() => "");
+        console.warn(`[vaultbrain] Jina embedding request failed: ${response.status} ${body.slice(0, 200)}`);
         return [];
       }
 
@@ -123,7 +133,7 @@ export async function embedTexts(texts: string[]): Promise<number[][]> {
         allEmbeddings.push(item.embedding);
       }
     } catch (err) {
-      console.warn(`[vaultbrain] embedding request error: ${(err as Error).message}`);
+      console.warn(`[vaultbrain] Jina embedding request error: ${(err as Error).message}`);
       return [];
     }
   }

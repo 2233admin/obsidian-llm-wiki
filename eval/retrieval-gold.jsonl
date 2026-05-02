@@ -1,0 +1,25 @@
+{"id":"q01","q":"这个 我们gitea不能备份吗?","gold":["gitea.md","backup-strategy.md"],"group":"entity"}接受
+{"id":"q02","q":"Gitea 跟 /volume1/K-project/backups/duckdb/ 本身就都在NAS山 我感觉备份两份是没问题 但是gitea 你不是更好用?","gold":["gitea.md","nas-services-2026-03.md","backup-strategy.md"],"group":"entity"}修改
+{"id":"q03","q":"astrbot dashboard 上 X.R 这个 platform 显示在线？","gold":["nas_astrbot_napcat.md"],"group":"entity"}接受 
+{"id":"q04","q":"3 个 mission 是不同 project 还是同 team 下 label？","gold":["project_mission_ops.md","project_mission_ops_runbook.md"],"group":"entity"}
+{"id":"q05","q":"还有个问题 .claude 文件 或者告诉你是claude同志的文件你备份gitea了吗 为什么我找不到 备份下?","gold":["gitea.md","backup-strategy.md"],"group":"entity"}
+{"id":"q06","q":"我们本地文字语音识别用的什么模型?","gold":["project_fish_speech.md"],"group":"entity","note":"split from original composite 'HMC文件夹在哪儿' — HMC anchor dropped, no clean gold"}
+{"id":"q07","q":"能不能直接改 TradingView的收藏夹 ?","gold":["project_ai_trading_loop.md"],"group":"entity"}
+{"id":"q08","q":"Windows ML stack 那就 3.12 但是其他代码开发 是可以用 3.13吧?","gold":["python-toolkit.md","pitfall_windows_clipboard_encoding.md"],"group":"entity"}
+{"id":"q09","q":"也就是说,Sprachwelt 相对于'裸 LLM 对话'到底好在哪,是用什么东西测的?","gold":["project_sprachwelt_strategy.md","feedback_sprachwelt_infrastructure.md","project_sprachwelt_memory_arch.md"],"group":"concept"}
+{"id":"q10","q":"obsidian 先收口了 我觉得记忆系统得更新调整研究下?","gold":["project_memu_reactivate.md","project_memory_executor_infra_2026_04_24.md","feedback_memory_architecture.md"],"group":"concept"}
+{"id":"q11","q":"还有什么skill 可以在 cli里面画图 我记得还有个K线的","gold":["reference_skill_index.md","feedback_skill_usage_protocol.md"],"group":"concept"}
+{"id":"q12","q":"那我们这个东西算skill 还是hook?","gold":["project_hook_infrastructure.md","feedback_skill_usage_protocol.md"],"group":"concept"}
+{"id":"q13","q":"OMC 能无人值守自动化推进到实际测试为止吗?","gold":["feedback_auto_session_wrapup.md","feedback_omc_invoke_directly.md"],"group":"concept","note":"split from long composite q19 — OMC-unattended fragment"}
+{"id":"q14","q":"Codex + Gemini 在自动化 GSD 里怎么分工?","gold":["feedback_codex_dual_verify.md","feedback_codex_exec_flags.md"],"group":"concept","note":"split from long composite q19 — codex/gemini fragment; GSD-自动化 fragment dropped (no memory anchor)"}
+{"id":"q15","q":"为什么这个持有期 + A 股场景适合 Mamba？","gold":["project_p_risk_pipeline.md","quant_daily_pipeline.md","project_shinka_evolve_quant.md","project_itransformer_mvp.md"],"group":"hybrid","note":"regrouped from entity to hybrid"}
+{"id":"q16","q":"为啥obsidian 不能直接自动搞 一定得N8N?","gold":["project_n8n_nas.md","feedback_obsidian_path.md","project_kb_compiler.md","project_vault_mind_philosophy.md"],"group":"hybrid","note":"regrouped from entity to hybrid"}
+{"id":"q17","q":"OpenViking 早删掉了 为什么每次都复活 memU 和 memorix 的边界：都能 store/search，什么情况走哪个？","gold":["project_memu_migration.md","project_memu_reactivate.md","project_sprachwelt_memory_arch.md","feedback_memory_architecture.md"],"group":"hybrid","note":"regrouped from concept to hybrid"}
+{"id":"q18","q":"Server is up on 127.0.0.1:8765 为什么一定要部署?","gold":["project_llk_server_pentest.md","user_llk_identity.md"],"group":"hybrid"}
+{"id":"q19","q":"有个问题 为什么C盘是爆炸的C:\\new_tdx64 C:\\new_tdx64","gold":["pitfall_tdxw_cef_scraping.md","pitfall_winget_reparse_points.md"],"group":"hybrid","note":"dev-env-standards reference removed (lives in ~/.claude/rules/common/, not memory/)"}
+{"id":"q20","q":"实际上这就是 MMC 的短板 为什么MMC没发现这个问题 ?","gold":["project_my_code_machine.md","feedback_adapt_over_build.md","feedback_engineering_vs_ux.md"],"group":"hybrid"}
+{"id":"q21","q":"vault-mind 是那个项目 ?","gold":["project_vault_mind_philosophy.md","project_obsidian_llm_wiki_branding.md","project_obsidian_vault_merge.md","project_kb_compiler.md"],"group":"hybrid"}
+{"id":"q22","q":"claude 同志的配置文件在哪儿 ?","gold":["reference_claude_code_source_analysis.md","project_my_code_machine.md"],"group":"hybrid"}
+{"id":"q23","q":"为啥不能让 openclaw 去实现呢 ?","gold":["feedback_openclaw_philosophy.md","openclaw-father.md","openclaw-xiaofeixiang.md"],"group":"hybrid"}
+{"id":"q24","q":"要不要用我们今天开发的CC管家来整理下 ?","gold":["project_my_code_machine.md","project_toolchain_2026_04_07.md"],"group":"hybrid"}
+{"id":"q25","q":"Python 工具链 我们推 CC 但其他也要支持 怎么设计?","gold":["python-toolkit.md","pitfall_pixi_torch_nightly_setuptools.md","pitfall_windows_clipboard_encoding.md"],"group":"hybrid","note":"split from q29 — OMC-vs-GSD ownership fragment dropped (no clear gold)"}

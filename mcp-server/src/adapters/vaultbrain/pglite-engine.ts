@@ -105,7 +105,18 @@ export class PGliteEngine implements VaultBrainEngine {
     await this.requireDb().query(`DELETE FROM content_chunks WHERE slug = $1`, [slug]);
   }
 
+  async dropChunks(): Promise<void> {
+    // CASCADE not strictly needed -- pages.id is referenced FROM chunks
+    // (chunks.page_id REFERENCES pages(id)), not the other way around.
+    // But include it for safety against future schema changes.
+    await this.requireDb().query(`DROP TABLE IF EXISTS content_chunks CASCADE`);
+  }
+
   async searchKeyword(query: string, limit: number): Promise<ChunkResult[]> {
+    // Hybrid keyword search: trigram (low threshold 0.08) UNION ILIKE substring.
+    // Trigram default % threshold ~0.3 too tight for natural-language queries;
+    // ILIKE catches exact substrings (case-insensitive) that trigram misses
+    // when the query is short or contains rare names (e.g. "Lyapunov").
     const { rows } = await this.requireDb().query<{
       slug: string;
       chunk_index: number;
@@ -113,9 +124,14 @@ export class PGliteEngine implements VaultBrainEngine {
       score: number;
     }>(
       `SELECT slug, chunk_index, chunk_text,
-              similarity(chunk_text, $1) AS score
+              GREATEST(
+                similarity(chunk_text, $1),
+                CASE WHEN chunk_text ILIKE '%' || $1 || '%' THEN 0.5 ELSE 0 END
+              ) AS score
        FROM content_chunks
        WHERE chunk_text % $1
+          OR chunk_text ILIKE '%' || $1 || '%'
+          OR similarity(chunk_text, $1) > 0.08
        ORDER BY score DESC
        LIMIT $2`,
       [query, limit],

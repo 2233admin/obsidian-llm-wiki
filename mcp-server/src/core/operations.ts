@@ -1,7 +1,8 @@
 import { execFile, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { appendFileSync, existsSync, readdirSync, readFileSync } from 'node:fs';
+import os from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import type { Operation } from './types.js';
 import { scanRecipes, findRecipe } from '../recipes/_registry.js';
@@ -475,6 +476,32 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
   ];
 
   const queryOps: Operation[] = [
+    {
+      name: 'vault.reset',
+      namespace: 'vault',
+      description: 'Drop and recreate VaultBrain content_chunks table. Use after embedding dimension change (e.g. Jina v3 1536 -> 1024 migration). Pages/links/tags tables are preserved. Follow up with vault.reindex to repopulate. Requires confirm: "yes-drop-chunks" to prevent accidental data loss.',
+      mutating: true,
+      params: {
+        confirm: { type: 'string', required: true, description: 'Must be the literal string "yes-drop-chunks" to proceed' },
+      },
+      handler: async (_ctx, params) => {
+        if (params.confirm !== 'yes-drop-chunks') {
+          throw makeErr(-32602, 'vault.reset requires confirm: "yes-drop-chunks"');
+        }
+        const vba = (registry as AdapterRegistry).get('vaultbrain') as VaultBrainAdapter | undefined;
+        if (!vba) throw makeErr(-32001, 'VaultBrain adapter not available or not initialized');
+        process.stderr.write('[vault.reset] requested at ' + new Date().toISOString() + ' -- about to drop content_chunks\n');
+        const result = await vba.reset();
+        process.stderr.write('[vault.reset] completed at ' + new Date().toISOString() + '\n');
+        try {
+          const auditPath = join(os.homedir(), '.vault-mind', '.reset-audit.log');
+          appendFileSync(auditPath, new Date().toISOString() + '\tvault.reset\t' + JSON.stringify(result) + '\n', { flag: 'a' });
+        } catch (auditErr) {
+          process.stderr.write('[vault.reset] audit log write failed: ' + String(auditErr) + '\n');
+        }
+        return result;
+      },
+    },
     {
       name: 'vault.reindex',
       namespace: 'vault',
