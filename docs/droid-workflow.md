@@ -4,7 +4,8 @@ How to drive this repo with the Factory droid CLI in non-interactive mode.
 
 ## Prerequisites
 
-- Install the CLI: `npm i -g @factory-ai/droid` (or use your preferred runner).
+- Install the CLI: `irm https://app.factory.ai/cli/windows | iex`
+  (PowerShell remote install; see Factory docs for macOS/Linux variants).
 - Set the API key in your shell:
   - bash/zsh: `export FACTORY_API_KEY=fk_...`
   - PowerShell: `$env:FACTORY_API_KEY = "fk_..."`
@@ -25,8 +26,10 @@ droid exec --cwd D:/projects/obsidian-llm-wiki-droid-wt \
 ```
 
 This runs in default approval mode, so any write would prompt and be
-blocked under `exec`. The JSON envelope contains `session_id`,
-`final_message`, and a `transcript` array.
+blocked under `exec`. The JSON envelope contains `result` (string),
+`session_id` (string), `usage` (object with `input_tokens`,
+`output_tokens`, `cache_read`, `cache_creation`), `is_error` (bool),
+`duration_ms` (number), and `num_turns` (number).
 
 ## Low-risk auto write task
 
@@ -45,8 +48,8 @@ still refuses network installs, deletions, and pushes.
 
 ## Worktree mode keeps main clean
 
-`-w` (or `--worktree`) creates an isolated git worktree under
-`.factory/worktrees/<task>/` and runs the task there:
+`-w` (or `--worktree`) creates an isolated git worktree and runs the
+task there:
 
 ```
 droid exec -w \
@@ -55,10 +58,10 @@ droid exec -w \
   'Add a failing pytest for compiler/chunker edge cases.'
 ```
 
-`main` and your current branch stay untouched. Inspect the worktree,
-keep what works with `git -C .factory/worktrees/<task> diff`, then
-cherry-pick or discard. Drop the worktree with
-`git worktree remove .factory/worktrees/<task>`.
+The worktree directory defaults to a sibling path next to the repo and
+can be overridden with `--worktree-dir <path>`. `main` and your current
+branch stay untouched. Inspect the worktree with `git -C <wt> diff`,
+then cherry-pick or discard. Drop it with `git worktree remove <wt>`.
 
 ## Parsing JSON and resuming with -s
 
