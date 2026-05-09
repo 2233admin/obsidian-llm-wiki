@@ -231,7 +231,7 @@ def _embed_records(
 # Vault scan
 # --------------------------------------------------------------------------
 
-def _scan_vault(vault: Path, limit: int = 0) -> list[dict]:
+def _scan_vault(vault: Path, limit: int = 0, node_id_prefix: str = "vault") -> list[dict]:
     """Walk vault, build per-file record dicts (no embeddings yet)."""
     records: list[dict] = []
     scanned = 0
@@ -250,7 +250,7 @@ def _scan_vault(vault: Path, limit: int = 0) -> list[dict]:
             continue
 
         relpath = _posix_relpath(vault, md)
-        node_id = f"vault:{relpath}"
+        node_id = f"{node_id_prefix}:{relpath}"
         fm = parse_frontmatter(text)
         tags, aliases = _collect_frontmatter_meta(fm)
         title = _title_of(md, text)
@@ -284,10 +284,12 @@ def _build_node_payload(
     rec: dict,
     vault_root: str,
     user_id: str,
+    node_type: str = "VAULT_NOTE",
+    source_label: str = "obsidian",
 ) -> dict:
     description = json.dumps(
         {
-            "source": "obsidian",
+            "source": source_label,
             "vault_root": vault_root,
             "relpath": rec["relpath"],
             "tags": rec["tags"],
@@ -310,7 +312,7 @@ def _build_node_payload(
     body_clipped = rec["body"][:NODE_CONTENT_LIMIT]
     return {
         "id": rec["node_id"],
-        "type": "VAULT_NOTE",
+        "type": node_type,
         "name": name,
         "description": description,
         "content": body_clipped,
@@ -472,6 +474,12 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     p.add_argument("--user-id", default=DEFAULT_USER_ID)
     p.add_argument("--ollama-url", default=DEFAULT_OLLAMA_URL)
     p.add_argument("--embed-model", default=DEFAULT_EMBED_MODEL)
+    p.add_argument("--node-id-prefix", default="vault",
+                   help="Prefix for node_id (e.g. vault, claudemem)")
+    p.add_argument("--node-type", default="VAULT_NOTE",
+                   help="gm_nodes.type value (VAULT_NOTE or CLAUDE_MEMORY)")
+    p.add_argument("--source-label", default="obsidian",
+                   help="description.source label (obsidian or claudemem)")
     return p.parse_args(argv)
 
 
@@ -485,7 +493,7 @@ def main(argv: list[str] | None = None) -> int:
     vault_root = vault.as_posix()
     t_start = time.monotonic()
 
-    records = _scan_vault(vault, limit=args.limit)
+    records = _scan_vault(vault, limit=args.limit, node_id_prefix=args.node_id_prefix)
     if not records:
         sys.stderr.write("[memu_sync] no MD files found\n")
         if args.json:
@@ -580,7 +588,7 @@ def main(argv: list[str] | None = None) -> int:
 
     # 2. Build node payloads
     node_payloads = [
-        _build_node_payload(rec, vault_root, args.user_id)
+        _build_node_payload(rec, vault_root, args.user_id, args.node_type, args.source_label)
         for rec in changed_records
     ]
 
