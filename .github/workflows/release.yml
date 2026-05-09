@@ -1,0 +1,72 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-mcp:
+    name: Build MCP Server
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: mcp-server/package-lock.json
+      - run: cd mcp-server && npm install
+      - run: cd mcp-server && npm run build
+      - name: Package MCP Server
+        run: tar czf obsidian-llm-wiki-mcp.tar.gz -C mcp-server/dist .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mcp-server
+          path: obsidian-llm-wiki-mcp.tar.gz
+
+  build-compiler:
+    name: Build Compiler
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Package compiler
+        run: |
+          tar czf obsidian-llm-wiki-compiler.tar.gz compiler/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: compiler
+          path: obsidian-llm-wiki-compiler.tar.gz
+
+  release:
+    name: Create Release
+    needs: [build-mcp, build-compiler]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download MCP Server
+        uses: actions/download-artifact@v4
+        with:
+          name: mcp-server
+          path: dist-mcp
+      - name: Download Compiler
+        uses: actions/download-artifact@v4
+        with:
+          name: compiler
+          path: dist-compiler
+      - name: List files
+        run: |
+          ls -la dist-mcp/
+          ls -la dist-compiler/
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist-mcp/*.tar.gz
+            dist-compiler/*.tar.gz
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

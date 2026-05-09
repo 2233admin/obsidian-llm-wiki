@@ -40,3 +40,18 @@ jobs:
           python-version: "3.11"
       - run: pip install ruff
       - run: cd compiler && ruff check .
+
+  deepsource:
+    name: DeepSource Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run DeepSource
+        run: |
+          pip install deepsource
+          deepsource init --token ${{ secrets.DEEPSOURCE_TOKEN }}
+          deepsource test
+          deepsource analyze
