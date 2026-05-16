@@ -46,3 +46,8 @@ mcp-server/smoke.err
 
 # Local planning / GSD artifacts (per-dev, not part of shipped product)
 .planning/
+.gitnexus
+.repowise/
+.cocoindex_code/
+.claude/
+/package-lock.json
