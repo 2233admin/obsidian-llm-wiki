@@ -33,3 +33,6 @@ real writes. Example:
 ```bash
 VAULT_MIND_ACTOR=codex VAULT_MIND_ROLE=agent
 ```
+
+Successful real writes are appended to `.wiki-audit/YYYY-MM-DD.jsonl` so the
+team can trace which actor wrote which vault path.

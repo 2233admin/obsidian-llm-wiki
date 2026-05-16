@@ -20,7 +20,7 @@
 
 import { test, after, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs';
+import { mkdirSync, writeFileSync, rmSync, existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
@@ -187,5 +187,106 @@ test('server boots with vaultbrain enabled (pglite extension path regression gua
     try { await vbClient.close(); } catch { /* best effort */ }
     try { await vbTransport.close(); } catch { /* best effort */ }
     rmSync(vbRoot, { recursive: true, force: true });
+  }
+});
+
+test('collaboration policy enforces actor write boundaries and audits writes', async () => {
+  const policyRoot = join(tmpdir(), `obsidian-llm-wiki-policy-${randomUUID()}`);
+  mkdirSync(join(policyRoot, '00-Inbox', 'AI-Output', 'codex'), { recursive: true });
+  mkdirSync(join(policyRoot, '00-Inbox', 'AI-Output', 'claude'), { recursive: true });
+  mkdirSync(join(policyRoot, '30-Architecture'), { recursive: true });
+  writeFileSync(
+    join(policyRoot, '.vault-collab.json'),
+    JSON.stringify({ agents: ['codex', 'claude'], protected_paths: ['30-Architecture/**'] }),
+    'utf-8',
+  );
+  const policyTransport = new StdioClientTransport({
+    command: process.execPath,
+    args: [BUNDLE_PATH],
+    cwd: policyRoot,
+    env: {
+      ...process.env,
+      VAULT_MIND_VAULT_PATH: policyRoot,
+      VAULT_MIND_ADAPTERS: 'filesystem',
+      VAULT_MIND_ACTOR: 'codex',
+      VAULT_MIND_ROLE: 'agent',
+    },
+    stderr: 'pipe',
+  });
+  const policyClient = new Client(
+    { name: 'smoke-test-policy', version: '0.0.1' },
+    { capabilities: {} },
+  );
+  try {
+    await policyClient.connect(policyTransport);
+    const allowed = await policyClient.callTool({
+      name: 'vault.create',
+      arguments: { path: '00-Inbox/AI-Output/codex/ok.md', content: 'ok', dryRun: false },
+    });
+    assert.ok(!allowed.isError, `own actor path should be allowed: ${JSON.stringify(allowed.content)}`);
+
+    const otherAgent = await policyClient.callTool({
+      name: 'vault.create',
+      arguments: { path: '00-Inbox/AI-Output/claude/no.md', content: 'no', dryRun: false },
+    });
+    assert.ok(otherAgent.isError, 'writing another agent namespace must be blocked');
+
+    const batch = await policyClient.callTool({
+      name: 'vault.batch',
+      arguments: {
+        dryRun: false,
+        operations: [{ method: 'vault.create', params: { path: '30-Architecture/batch-hole.md', content: 'no' } }],
+      },
+    });
+    assert.ok(batch.isError, 'batch must not bypass collaboration policy');
+
+    const auditDir = join(policyRoot, '.wiki-audit');
+    assert.ok(existsSync(auditDir), 'successful real write must create audit directory');
+    const auditFiles = readdirSync(auditDir).filter((f) => f.endsWith('.jsonl'));
+    assert.ok(auditFiles.length > 0, 'audit jsonl file must be present');
+    const auditBody = readFileSync(join(auditDir, auditFiles[0]), 'utf-8');
+    assert.ok(auditBody.includes('"actor":"codex"'), 'audit log records actor');
+    assert.ok(auditBody.includes('00-Inbox/AI-Output/codex/ok.md'), 'audit log records target path');
+  } finally {
+    try { await policyClient.close(); } catch { /* best effort */ }
+    try { await policyTransport.close(); } catch { /* best effort */ }
+    rmSync(policyRoot, { recursive: true, force: true });
+  }
+});
+
+test('collaboration policy rejects malformed policy JSON objects', async () => {
+  const badPolicyRoot = join(tmpdir(), `obsidian-llm-wiki-bad-policy-${randomUUID()}`);
+  mkdirSync(join(badPolicyRoot, '00-Inbox', 'AI-Output', 'codex'), { recursive: true });
+  writeFileSync(join(badPolicyRoot, '.vault-collab.json'), 'null', 'utf-8');
+  const badPolicyTransport = new StdioClientTransport({
+    command: process.execPath,
+    args: [BUNDLE_PATH],
+    cwd: badPolicyRoot,
+    env: {
+      ...process.env,
+      VAULT_MIND_VAULT_PATH: badPolicyRoot,
+      VAULT_MIND_ADAPTERS: 'filesystem',
+      VAULT_MIND_ACTOR: 'codex',
+      VAULT_MIND_ROLE: 'agent',
+    },
+    stderr: 'pipe',
+  });
+  const badPolicyClient = new Client(
+    { name: 'smoke-test-bad-policy', version: '0.0.1' },
+    { capabilities: {} },
+  );
+  try {
+    await badPolicyClient.connect(badPolicyTransport);
+    const res = await badPolicyClient.callTool({
+      name: 'vault.create',
+      arguments: { path: '00-Inbox/AI-Output/codex/no.md', content: 'no', dryRun: false },
+    });
+    assert.ok(res.isError, 'non-object policy JSON must reject real writes');
+    const text = (res.content as Array<{ text: string }>)[0]?.text ?? '';
+    assert.ok(text.includes('expected a JSON object'), `unexpected error: ${text}`);
+  } finally {
+    try { await badPolicyClient.close(); } catch { /* best effort */ }
+    try { await badPolicyTransport.close(); } catch { /* best effort */ }
+    rmSync(badPolicyRoot, { recursive: true, force: true });
   }
 });

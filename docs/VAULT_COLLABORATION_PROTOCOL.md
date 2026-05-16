@@ -38,3 +38,18 @@ For Git-managed vaults, install the pre-commit hook:
 ```bash
 python scripts/install_vault_git_hook.py --vault /path/to/vault
 ```
+
+For hosted review, copy one of the CI templates into the vault repository:
+
+```text
+docs/templates/github-vault-lint.yml
+docs/templates/gitea-vault-lint.yml
+docs/templates/CODEOWNERS.example
+docs/templates/PULL_REQUEST_TEMPLATE.md
+```
+
+The `.vault-collab.json` policy shape is documented in:
+
+```text
+docs/schemas/vault-collab.schema.json
+```

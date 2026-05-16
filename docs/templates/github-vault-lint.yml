@@ -1,0 +1,22 @@
+name: Vault Collaboration Lint
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  vault-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Checkout LLMwiki tools
+        uses: actions/checkout@v4
+        with:
+          repository: 2233admin/obsidian-llm-wiki
+          path: .llmwiki-tools
+      - name: Lint vault collaboration rules
+        run: python .llmwiki-tools/scripts/vault_collab_lint.py --vault .

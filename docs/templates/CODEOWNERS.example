@@ -1,0 +1,7 @@
+# Durable shared knowledge needs human review.
+/20-Decisions/ @knowledge-maintainers
+/30-Architecture/ @architecture-reviewers
+/40-Runbooks/ @ops-reviewers
+
+# Agent scratch space can be reviewed opportunistically.
+/00-Inbox/AI-Output/ @agent-maintainers

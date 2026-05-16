@@ -32261,6 +32261,43 @@ function enforceCollaborationPolicy(config2, toolName, args) {
     }
   }
 }
+function shouldAuditWrite(toolName, args) {
+  if (toolName === "vault.batch")
+    return args.dryRun === false || args.dry_run === false;
+  const mutatingTargets = /* @__PURE__ */ new Set([
+    "vault.create",
+    "vault.modify",
+    "vault.append",
+    "vault.delete",
+    "vault.rename",
+    "vault.mkdir",
+    "vault.writeAIOutput"
+  ]);
+  return mutatingTargets.has(toolName) && (args.dryRun === false || args.dry_run === false);
+}
+function auditWrite(config2, toolName, args, result) {
+  const actor = config2.collaboration?.actor;
+  if (!actor || config2.collaboration?.enforce === false || !shouldAuditWrite(toolName, args))
+    return;
+  try {
+    const day = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+    const auditDir = resolve2(config2.vault_path, ".wiki-audit");
+    mkdirSync(auditDir, { recursive: true });
+    const entry = {
+      ts: (/* @__PURE__ */ new Date()).toISOString(),
+      actor,
+      role: config2.collaboration?.role,
+      tool: toolName,
+      targets: writeTargetPaths(toolName, args).map(normalizePolicyPath),
+      ok: true,
+      resultPath: typeof result === "object" && result !== null && "path" in result ? result.path : void 0
+    };
+    appendFileSync(resolve2(auditDir, `${day}.jsonl`), JSON.stringify(entry) + "\n", "utf-8");
+  } catch (e) {
+    process.stderr.write(`obsidian-llm-wiki: [warn] audit write failed: ${e.message}
+`);
+  }
+}
 function appendHistoryInYaml(content, flowItem) {
   if (!content.startsWith("---\n"))
     return content;
@@ -33496,6 +33533,7 @@ async function main() {
       const validatedArgs = validateParams(op.params, toolArgs);
       enforceCollaborationPolicy(config2, toolName, validatedArgs);
       const result = await op.handler(ctx, validatedArgs);
+      auditWrite(config2, toolName, validatedArgs, result);
       if (toolName === "vault.create" || toolName === "vault.modify" || toolName === "vault.append") {
         const p = toolArgs.path;
         if (p && toolArgs.dryRun === false) {

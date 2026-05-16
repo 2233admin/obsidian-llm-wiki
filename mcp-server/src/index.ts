@@ -240,6 +240,36 @@ function enforceCollaborationPolicy(config: VaultMindConfig, toolName: string, a
   }
 }
 
+function shouldAuditWrite(toolName: string, args: Record<string, unknown>): boolean {
+  if (toolName === "vault.batch") return args.dryRun === false || args.dry_run === false;
+  const mutatingTargets = new Set([
+    "vault.create", "vault.modify", "vault.append", "vault.delete", "vault.rename", "vault.mkdir", "vault.writeAIOutput",
+  ]);
+  return mutatingTargets.has(toolName) && (args.dryRun === false || args.dry_run === false);
+}
+
+function auditWrite(config: VaultMindConfig, toolName: string, args: Record<string, unknown>, result: unknown): void {
+  const actor = config.collaboration?.actor;
+  if (!actor || config.collaboration?.enforce === false || !shouldAuditWrite(toolName, args)) return;
+  try {
+    const day = new Date().toISOString().slice(0, 10);
+    const auditDir = resolve(config.vault_path, ".wiki-audit");
+    mkdirSync(auditDir, { recursive: true });
+    const entry = {
+      ts: new Date().toISOString(),
+      actor,
+      role: config.collaboration?.role,
+      tool: toolName,
+      targets: writeTargetPaths(toolName, args).map(normalizePolicyPath),
+      ok: true,
+      resultPath: typeof result === "object" && result !== null && "path" in result ? (result as { path?: unknown }).path : undefined,
+    };
+    appendFileSync(resolve(auditDir, `${day}.jsonl`), JSON.stringify(entry) + "\n", "utf-8");
+  } catch (e) {
+    process.stderr.write(`obsidian-llm-wiki: [warn] audit write failed: ${(e as Error).message}\n`);
+  }
+}
+
 /**
  * Append a flow-style history item to a note's frontmatter block.
  *
@@ -1409,6 +1439,7 @@ async function main(): Promise<void> {
       const validatedArgs = validateParams(op.params, toolArgs);
       enforceCollaborationPolicy(config, toolName, validatedArgs);
       const result = await op.handler(ctx, validatedArgs);
+      auditWrite(config, toolName, validatedArgs, result);
       // Hook write ops into compile trigger (preserve existing behavior)
       if (toolName === "vault.create" || toolName === "vault.modify" || toolName === "vault.append") {
         const p = toolArgs.path as string;

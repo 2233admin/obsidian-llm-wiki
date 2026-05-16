@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/2233admin/obsidian-llm-wiki/schemas/vault-collab.schema.json",
+  "title": "LLMwiki Vault Collaboration Policy",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "team": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "agents": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "human_inbox": { "type": "string" },
+    "agent_inbox": { "type": "string" },
+    "project_agent_notes": { "type": "string" },
+    "allowed_write_paths": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "protected_paths": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "decision_pattern": { "type": "string" }
+  }
+}
