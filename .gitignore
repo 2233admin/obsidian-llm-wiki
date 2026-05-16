@@ -50,4 +50,5 @@ mcp-server/smoke.err
 .repowise/
 .cocoindex_code/
 .claude/
+.outreach/
 /package-lock.json
