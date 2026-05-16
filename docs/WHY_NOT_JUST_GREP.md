@@ -26,4 +26,4 @@ Grep returns a list of filenames and line numbers. `vault.search` returns struct
 
 ## 4. Grep is for you. This is for your agent.
 
-When you run grep, you interpret the results and decide what to do. When Claude Code runs `/vault-librarian what do I know about X`, the agent calls `vault.search` and `vault.read` directly and uses the citations to construct a grounded answer. The agent does not guess from a grep hit-list. It reads the cited notes and answers with evidence. Six personas wrap the MCP tools so the agent knows what to ask for and how to interpret the results.
+When you run grep, you interpret the results and decide what to do. When Claude Code runs `/vault-librarian what do I know about X`, the agent calls `vault.search` and `vault.read` directly and uses the citations to construct a grounded answer. The agent does not guess from a grep hit-list. It reads the cited notes and answers with evidence. Knowledge roles wrap the MCP tools so the agent knows what to ask for and how to interpret the results.

@@ -1,0 +1,6 @@
+# Example review ownership for durable team memory.
+
+/20-Decisions/ @alice @bob
+/30-Architecture/ @alice @bob
+/40-Runbooks/ @alice @bob
+/00-Inbox/AI-Output/ @agent-maintainers

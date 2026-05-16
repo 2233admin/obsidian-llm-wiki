@@ -1,6 +1,6 @@
 ---
 date: 2026-04-25
-status: draft
+status: superseded
 owner: Curry
 related:
   - upstream: https://github.com/eugeniughelbur/obsidian-second-brain
@@ -8,6 +8,8 @@ related:
 ---
 
 # Fusion Plan: obsidian-second-brain -> obsidian-llm-wiki
+
+> Superseded pre-pivot planning note. Do not use this document for current product positioning. The current product is the Team Research Memory Compiler loop: `raw/ -> wiki/ -> query -> 00-Inbox/AI-Output/ -> reviewed/promoted`.
 
 ## Context
 

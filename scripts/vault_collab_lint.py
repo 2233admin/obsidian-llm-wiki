@@ -89,6 +89,83 @@ def has_generated_frontmatter(path: Path) -> bool:
     return bool(re.search(r"(?m)^generated-by:\s*(codex|claude|vault-|agent)", head))
 
 
+def parse_frontmatter(path: Path) -> tuple[dict[str, object], str]:
+    text = path.read_text(encoding="utf-8-sig", errors="replace")
+    if not text.startswith("---\n"):
+        return {}, text
+    end = text.find("\n---", 4)
+    if end == -1:
+        return {}, text
+    fm: dict[str, object] = {}
+    current_key: str | None = None
+    current_items: list[str] = []
+    for raw_line in text[4:end].splitlines():
+        line = raw_line.rstrip()
+        if not line.strip():
+            continue
+        if line.startswith("  - ") and current_key:
+            current_items.append(line[4:].strip().strip('"'))
+            fm[current_key] = current_items
+            continue
+        current_key = None
+        current_items = []
+        if ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        key = key.strip()
+        value = value.strip()
+        if not value:
+            current_key = key
+            current_items = []
+            fm[key] = current_items
+        elif value.startswith("[") and value.endswith("]"):
+            fm[key] = [item.strip().strip('"') for item in value[1:-1].split(",") if item.strip()]
+        else:
+            fm[key] = value.strip('"')
+    return fm, text[end + 4:]
+
+
+def lint_ai_output(path: Path, rel_path: str) -> list[Finding]:
+    fm, body = parse_frontmatter(path)
+    findings: list[Finding] = []
+    required = [
+        "generated-by",
+        "generated-at",
+        "agent",
+        "parent-query",
+        "source-nodes",
+        "status",
+        "scope",
+        "quarantine-state",
+    ]
+    for key in required:
+        if key not in fm:
+            findings.append(Finding("error", "ai-output-frontmatter-missing", rel_path, f"AI-Output missing required frontmatter field: {key}"))
+
+    status = fm.get("status")
+    if status and status not in {"draft", "reviewed", "stale", "superseded"}:
+        findings.append(Finding("error", "ai-output-status-invalid", rel_path, f"invalid AI-Output status: {status}"))
+    scope = fm.get("scope")
+    if scope and scope not in {"project", "global", "cross-project", "host-local"}:
+        findings.append(Finding("error", "ai-output-scope-invalid", rel_path, f"invalid AI-Output scope: {scope}"))
+    quarantine_state = fm.get("quarantine-state")
+    if quarantine_state and quarantine_state not in {"new", "reviewed", "promoted", "discarded"}:
+        findings.append(Finding("error", "ai-output-quarantine-invalid", rel_path, f"invalid AI-Output quarantine-state: {quarantine_state}"))
+
+    source_nodes = fm.get("source-nodes")
+    if source_nodes is not None and not isinstance(source_nodes, list):
+        findings.append(Finding("error", "ai-output-source-nodes-invalid", rel_path, "source-nodes must be a YAML list"))
+
+    if status == "reviewed" and "#user-confirmed" not in body:
+        findings.append(Finding("warn", "ai-output-reviewed-without-user-tag", rel_path, "reviewed AI-Output should include #user-confirmed in the body"))
+    if status in {"reviewed", "superseded"} or quarantine_state in {"reviewed", "promoted", "discarded"}:
+        if "history" not in fm:
+            findings.append(Finding("warn", "ai-output-history-missing", rel_path, "reviewed/promoted AI-Output should include history entries"))
+    if quarantine_state == "promoted" and not re.search(r"\[\[(20-Decisions|30-Architecture|40-Runbooks)/", body):
+        findings.append(Finding("warn", "ai-output-promoted-link-missing", rel_path, "promoted AI-Output should link to the durable reviewed note"))
+    return findings
+
+
 def lint(vault: Path, policy: dict) -> list[Finding]:
     findings: list[Finding] = []
     team = set(policy.get("team", []))
@@ -118,6 +195,7 @@ def lint(vault: Path, policy: dict) -> list[Finding]:
                     findings.append(Finding("warn", "unowned-agent-note", rel_path, "put AI output under 00-Inbox/AI-Output/<agent>/"))
                 elif agents and parts[2] not in agents:
                     findings.append(Finding("warn", "unknown-agent", rel_path, f"agent '{parts[2]}' is not listed in .vault-collab.json"))
+                findings.extend(lint_ai_output(path, rel_path))
             elif team and parts[1] not in team:
                 findings.append(Finding("warn", "unknown-person", rel_path, f"person '{parts[1]}' is not listed in .vault-collab.json"))
 

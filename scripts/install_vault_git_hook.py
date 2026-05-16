@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Install a pre-commit hook that runs vault_collab_lint.py for a vault repo."""
+"""Install a pre-commit hook that runs llmwiki_doctor.py for a vault repo."""
 from __future__ import annotations
 
 import argparse
@@ -13,12 +13,12 @@ set -eu
 VAULT_ROOT="$(git rev-parse --show-toplevel)"
 LLMWIKI_ROOT="{llmwiki_root}"
 
-python "$LLMWIKI_ROOT/scripts/vault_collab_lint.py" --vault "$VAULT_ROOT"
+python "$LLMWIKI_ROOT/scripts/llmwiki_doctor.py" --vault "$VAULT_ROOT"
 """
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Install collaborative vault hygiene pre-commit hook.")
+    parser = argparse.ArgumentParser(description="Install collaborative vault doctor pre-commit hook.")
     parser.add_argument("--vault", required=True, help="Path to the Git-managed Obsidian vault")
     parser.add_argument("--llmwiki-root", default=None, help="Path to this LLMwiki checkout")
     parser.add_argument("--force", action="store_true", help="Overwrite an existing pre-commit hook")
@@ -30,9 +30,9 @@ def main() -> int:
         raise SystemExit(f"not a Git repository: {vault}")
 
     llmwiki_root = Path(args.llmwiki_root).expanduser().resolve() if args.llmwiki_root else Path(__file__).resolve().parents[1]
-    lint_script = llmwiki_root / "scripts" / "vault_collab_lint.py"
-    if not lint_script.exists():
-        raise SystemExit(f"lint script not found: {lint_script}")
+    doctor_script = llmwiki_root / "scripts" / "llmwiki_doctor.py"
+    if not doctor_script.exists():
+        raise SystemExit(f"doctor script not found: {doctor_script}")
 
     hooks_dir = git_dir / "hooks"
     hooks_dir.mkdir(parents=True, exist_ok=True)

@@ -1,10 +1,10 @@
 <p align="center">
-  <img src="../assets/banner.svg" alt="LLM Wiki Bridge — 把你的 markdown vault 编译成 6 人 MCP 团队" width="100%">
+  <img src="../assets/banner.svg" alt="LLMwiki — 把 raw research 编译成经过 review 的团队 wiki" width="100%">
 </p>
 
-# LLM Wiki Bridge
+# LLMwiki
 
-**把你的 markdown 笔记库编译成 6 人 MCP 团队，给 Claude Code / Codex / OpenCode / Gemini CLI 使用。Headless-first。引用，不猜。**
+**把团队 raw research 文件夹编译成经过 review、可追问、会沉淀的 Obsidian wiki。Headless-first。引用，不猜。**
 
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](../../LICENSE)
 [![MCP](https://img.shields.io/badge/MCP-stdio-orange.svg)](https://modelcontextprotocol.io)
@@ -16,7 +16,9 @@
 
 你 vault 里堆了 500 条笔记。一半你已经忘了。你的 AI agent 读不到它们——它只在上下文窗口里拼凑，顺手编造引用。你每天早上花 20 分钟重新翻找自己已经写过的东西。
 
-LLM Wiki Bridge 是一个 headless-first 的 MCP 服务器，把你的 vault——wikilinks、aliases、tags、frontmatter——编译成一张概念图，让你的 agent 直接调用。Agent 不猜。它调 `vault.search`、用 `vault.read` 读被引用的笔记、用证据回答。运行时不依赖 Obsidian；filesystem adapter 永远是兜底。
+LLMwiki 是一个面向团队 research vault 的 headless-first MCP 服务器和编译循环。论文、剪藏、repo notes、datasets、图片注释先进 `raw/`；编译器把它们变成 `wiki/` summaries、concept pages、backlinks 和 indexes；agent 通过 `vault.search` 和 `vault.read` 基于引用回答。
+
+它不是 AI companion。它是团队 vault 的知识编译器。Obsidian 是 IDE，Git/Gitea review 是账本，MCP/CLI 是执行面。
 
 概念源自 [Andrej Karpathy 的 LLM Wiki](https://github.com/karpathy/llm-wiki)。markdown 是唯一事实来源，编译出结构，MCP 暴露。
 
@@ -36,7 +38,7 @@ git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git
 cd obsidian-llm-wiki; .\setup.ps1
 ```
 
-`setup` 脚本把一份 1.6 MB 的 skill 包解压到 host 的 skills 目录，把 `.mcp.json` 片段打到屏幕让你贴进 agent 配置，然后退出。重启 agent host 之后就能看到 MCP 服务器和 6 个 `/vault-*` persona。装完仓库本体可以删——skill 是独立的。一条命令跑不通，[INSTALL.md](../INSTALL.md) 里有各 host 的路径和手工安装流程。
+`setup` 脚本把一份 1.6 MB 的 skill 包解压到 host 的 skills 目录，把 `.mcp.json` 片段打到屏幕让你贴进 agent 配置，然后退出。重启 agent host 之后就能看到 MCP 服务器和 `/vault-*` 知识工种。装完仓库本体可以删——skill 是独立的。一条命令跑不通，[INSTALL.md](../INSTALL.md) 里有各 host 的路径和手工安装流程。
 
 ---
 
@@ -83,9 +85,21 @@ cd obsidian-llm-wiki; .\setup.ps1
 
 ---
 
-## 6 个 persona，一套 MCP 接口
+## Compile、Query、Govern
 
-每个 persona 是同一套 40 个 MCP 操作上的一份有立场的 prompt。
+| Loop | 发生什么 | 持久路径 |
+|---|---|---|
+| Compile | 把 source material 放进 `raw/`；编译成 summaries、concepts、backlinks、contradiction reports。 | `wiki/` |
+| Query | Agent 从带引用的 vault notes 回答，并把有价值的草稿写回 inbox。 | `00-Inbox/AI-Output/<agent>/` |
+| Govern | 人 review、promote、supersede 或 discard 候选知识。共享团队记忆走 PR review。 | `20-Decisions/`、`30-Architecture/`、`40-Runbooks/` |
+
+标准操作见 [RESEARCH_COMPILER_LOOP.md](../RESEARCH_COMPILER_LOOP.md)。
+
+---
+
+## 知识工种，一套 MCP 接口
+
+每个 `/vault-*` 命令是同一套 40 个 MCP 操作上的一个知识工种。它们是 pipeline 里的岗位，不是人格化产品核心。
 
 | 名字 | 做什么 | 主要用的 MCP 工具 |
 |---|---|---|
@@ -100,7 +114,7 @@ cd obsidian-llm-wiki; .\setup.ps1
 
 ## 工作原理（30 秒版）
 
-你的 markdown 文件——含 wikilinks `[[这样]]`、aliases、frontmatter tags、修改时间——是唯一事实来源。编译器跑一次，产出一张概念图（节点=笔记，边=链接+语义关系）。MCP 服务器把这张图暴露为工具：`vault.search`、`vault.backlinks`、`vault.graph`，以及 40+ 个其他操作。
+你的 markdown 文件——含 wikilinks `[[这样]]`、aliases、frontmatter tags、修改时间——是唯一事实来源。编译器把 raw topic folders 变成概念图（节点=笔记，边=链接+语义关系）、summaries 和 concept pages。MCP 服务器把这张图暴露为工具：`vault.search`、`vault.backlinks`、`vault.graph`，以及 40+ 个其他操作。
 
 当 Claude Code（或任何 MCP agent）调用 `/vault-librarian`，它直接调 `vault.search` 和 `vault.read`。Agent 拿到的是引用，不是猜测。
 
@@ -112,7 +126,7 @@ cd obsidian-llm-wiki; .\setup.ps1
 
 ## 深潜
 
-Wiki 放长文答案。8 页，任意顺序读。
+Wiki 放长文答案，任意顺序读。
 
 | 页面 | 回答什么 |
 |---|---|
@@ -120,7 +134,7 @@ Wiki 放长文答案。8 页，任意顺序读。
 | [**Architecture**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Architecture) | 四层系统图。请求生命周期（8 步，从 `/vault-librarian` 到带引用的回答）。扩展点。 |
 | [**Adapter-Spec**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Adapter-Spec) | Adapter 契约、能力矩阵、fan-out 与排序、失败模式、写第五个 adapter 的 recipe。 |
 | [**Compile-Pipeline**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Compile-Pipeline) | 编译每阶段的产物、概念图存哪、性能参考点。 |
-| [**Persona-Design**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Persona-Design) | 6 个面向用户的 persona vs 17 个底层 skill。不让它们退化成一个 generic agent 的设计纪律。 |
+| [**Persona-Design**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Persona-Design) | 面向用户的知识工种 vs 底层 skill。不让它们退化成一个 generic agent 的设计纪律。 |
 | [**Security-Model**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Security-Model) | Dry-run 默认、受保护路径、preflight 门、bearer token 传输、明确不解决的安全问题。 |
 | [**Recipes**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Recipes) | 内容采集器和本地知识喂料器（Feishu、Gmail、Linear、X、WeChat、Dreamtime 等）把外部源落地进 vault。 |
 | [**FAQ**](https://github.com/2233admin/obsidian-llm-wiki/wiki/FAQ) | Obsidian 一定要开吗？vault 多大行？为什么 dry-run？初版答案，有人问就迭代。 |

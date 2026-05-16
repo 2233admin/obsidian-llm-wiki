@@ -1,8 +1,8 @@
-# LLM Wiki Bridge 使用指南
+# LLMwiki 使用指南
 
 > 🌐 **语言**：[English](GUIDE.md) · 简体中文（本页）
 
-一份好上手的走读：安装 → 第一条有用的提问 → 七个 persona 各做什么 → AI 如何把自己的分析沉淀下来。
+一份实用走读：安装 → 编译 raw research → 带引用提问 → 把有价值的 AI 输出放进 review。
 
 遇到问题直接跳到 [故障排查](#故障排查)，或者去 [issues](https://github.com/2233admin/obsidian-llm-wiki/issues) 开一个。
 
@@ -12,7 +12,9 @@
 
 你的 markdown 笔记库里堆了几百条笔记。你的 AI 读不到它们。每天早上你花时间重新翻找自己已经写过的东西。
 
-**LLM Wiki Bridge** 把你的 vault 变成一支 6 人 persona 虚拟团队，你的 AI agent 可以直接调用。你输入 `/vault-librarian 我对 attention heads 了解多少`，agent 去搜你真实的笔记、读它们、引用路径——它不猜。
+**LLMwiki** 把团队 raw research 文件夹变成经过 review、可追问的 Obsidian wiki。你输入 `/vault-librarian 我对 attention heads 了解多少`，agent 去搜真实笔记、读它们、引用路径——它不猜。
+
+它不是 AI companion。它是团队 vault 的知识编译器：`raw/` 变成 `wiki/`，有价值的回答进入 `00-Inbox/AI-Output/`，可长期使用的团队知识通过 review 晋升。
 
 支持 **Claude Code、Codex、OpenCode、Gemini CLI** 四种 agent host。Obsidian 可选，不开也能用——filesystem adapter 独立工作。
 
@@ -44,6 +46,25 @@ cd "$HOME\obsidian-llm-wiki-src"; .\setup.ps1
 setup 跑完会打两个片段给你贴——一个进 `.mcp.json`，一个进 `CLAUDE.md`（或等价的 host 指令文件）。贴完重启 agent host，MCP 注册才生效。
 
 更细的每 host 路径、手工安装、卸载流程在 [INSTALL.md](INSTALL.md)。
+
+---
+
+## Research compiler loop
+
+团队 vault 使用这条主线：
+
+```
+raw/ -> wiki/ -> query -> 00-Inbox/AI-Output/ -> reviewed/promoted
+```
+
+当前 compiler 按 topic 目录运行。一个 topic 目录里有自己的 `raw/` 和 `wiki/`：
+
+```bash
+python compiler/compile.py examples/collab-vault/research-compiler --tier haiku --dry-run
+python scripts/knowledge_health.py --vault examples/collab-vault
+```
+
+完整操作见 [RESEARCH_COMPILER_LOOP.md](RESEARCH_COMPILER_LOOP.md)。
 
 ---
 
@@ -93,13 +114,13 @@ teacher 读取目标笔记，拉出它的双向链接，告诉你它在你的知
 
 historian 按 frontmatter 日期 + mtime 检索，按主题聚合。
 
-循环就是这样。5 个 persona，5 种不同问题，全部基于你真实的笔记。
+闭环就是这样：编译、查询、归档有价值输出，再 review 哪些值得成为团队记忆。
 
 ---
 
-## 7 个 persona
+## 知识工种
 
-| Persona | 最适合 | 读 | 写 |
+| 工种 | 最适合 | 读 | 写 |
 |---|---|---|---|
 | **vault-librarian** | "我了解 X 吗"——带引用的答案 | ✅ | — |
 | **vault-architect** | 概念图编译 + 重构建议 | ✅ | 只提议 |
@@ -111,19 +132,19 @@ historian 按 frontmatter 日期 + mtime 检索，按主题聚合。
 
 **所有写操作默认 dry-run。** 你先看到计划，磁盘什么都不会动，直到你确认。
 
-每个 persona 的具体约束在安装后的 `skills/vault-*.md` 里。
+每个知识工种的具体约束在安装后的 `skills/vault-*.md` 里。
 
 ---
 
-## AI-Output 沉淀（这个功能会复利）
+## AI-Output 归档
 
-每次 persona 做出有意义的分析，都会自动存到：
+每次知识工种做出有意义的分析，都可以存到：
 
 ```
-{vault}/00-Inbox/AI-Output/{persona}/YYYY-MM-DD-{slug}.md
+{vault}/00-Inbox/AI-Output/{role}/YYYY-MM-DD-{slug}.md
 ```
 
-每条保存的分析都带一份 6 字段 frontmatter：
+每条保存的分析都带 provenance frontmatter：
 
 ```yaml
 ---
@@ -135,23 +156,26 @@ source-nodes:
   - "[[auth-architecture]]"
   - "[[session-tokens]]"
 status: draft
+scope: project
+quarantine-state: new
 ---
 ```
 
 ### 为什么这件事重要
 
-不做这件事，每次 persona 产出都在 session 结束时蒸发。做了之后，你的 vault 同时沉淀两种东西：**你自己的笔记** + **你和 AI 的协作历史**。下次你问 `/vault-librarian architect 上次对 auth 说了什么`，它能找到。
+不做这件事，有价值的 agent 工作会在 session 结束时蒸发。做了之后，vault 保存带引用和 review 状态的候选输出。下次你问 `/vault-librarian architect role 上次对 auth 说了什么`，它能找到。
 
-### 4 种 status
+### 生命周期标记
 
 - `draft`（默认，写入时自动）——新产出，未审阅
 - `reviewed`——你手动翻牌，确认有用
 - `stale`——gardener 自动翻牌，条件：超过阈值天数 + 没有来自人写笔记的反向链接
 - `superseded`——同一组 source-nodes 有了更新的分析（gardener 建议候选，你确认）
+- `quarantine-state: promoted`——持久知识已经移动或重写到经过 review 的团队路径
 
 ### 怎么审阅
 
-打开 `00-Inbox/AI-Output/{persona}/` 目录，值得保留的在 frontmatter 里把 `status: draft` 改成 `reviewed`。不想管的也不用动——gardener 会按 persona 阈值（architect=45 天、gardener=30 天、historian=180 天、其他 60 天）自动标 stale。
+打开 `00-Inbox/AI-Output/{role}/` 目录，值得保留的在 frontmatter 里把 `status: draft` 改成 `reviewed`。长期有效的结论通过 review 移动或重写到 `20-Decisions/`、`30-Architecture/`、`40-Runbooks/`。不想管的也不用动——gardener 会按工种阈值报告 stale 候选。
 
 完整细节：[ai-output-convention.md](ai-output-convention.md)。
 
@@ -213,7 +237,7 @@ server 会写 `00-Inbox/AI-Output/vault-librarian/YYYY-MM-DD-<slug>.md`，在 bo
 
 你**不需要**重新组织你的 vault。LLM Wiki Bridge 直接在你现有结构上工作。
 
-它只会在 persona 写产出时新建一个目录：
+它只会在知识工种写产出时新建一个目录：
 
 ```
 your-vault/
@@ -245,7 +269,7 @@ your-vault/
 
 ## 故障排查
 
-### persona 没反应
+### role command 没反应
 
 重启 agent host。MCP 注册只在启动时读取。还不行就看 host 的 MCP 日志，应该有一行 `obsidian-llm-wiki: server running (stdio ...)`。
 
@@ -299,7 +323,7 @@ server 用 UTC 统一时间。你的本地时钟可能差了一个时区。vault
 
 ### 能换我自己的模型吗？
 
-persona 不关心模型——它们就是 prompt。你的 agent host（Claude Code / Codex / ...）决定模型。
+知识工种不关心模型——它们是 MCP 工具上的 prompt。你的 agent host（Claude Code / Codex / ...）决定模型。
 
 ### MCP 工具列表在哪？
 

@@ -1,0 +1,20 @@
+{
+  "team": [
+    "alice",
+    "bob"
+  ],
+  "agents": [
+    "codex",
+    "claude"
+  ],
+  "human_inbox": "00-Inbox/<person>/",
+  "agent_inbox": "00-Inbox/AI-Output/<agent>/",
+  "project_agent_notes": "10-Projects/<project>/agents/<agent>/",
+  "protected_paths": [
+    "20-Decisions/**",
+    "30-Architecture/**",
+    "40-Runbooks/**",
+    "README.md"
+  ],
+  "decision_pattern": "20-Decisions/YYYY-MM-DD-title.md"
+}

@@ -31,7 +31,9 @@ people/<person>.md                  member profile and inbox link
 - Obsidian local state and sync conflict copies stay out of Git.
 
 Use `scripts/init_collab_vault.py` to create the structure and
-`scripts/vault_collab_lint.py` to check the vault.
+`scripts/llmwiki_doctor.py` to check the vault. Doctor includes collaboration
+lint and knowledge-health reporting. `vault_collab_lint.py` remains the
+lower-level collaboration lint used by doctor.
 
 For Git-managed vaults, install the pre-commit hook:
 
@@ -46,6 +48,12 @@ docs/templates/github-vault-lint.yml
 docs/templates/gitea-vault-lint.yml
 docs/templates/CODEOWNERS.example
 docs/templates/PULL_REQUEST_TEMPLATE.md
+```
+
+For report-only compiler-loop health without the full runtime doctor:
+
+```bash
+python scripts/knowledge_health.py --vault /path/to/vault
 ```
 
 The `.vault-collab.json` policy shape is documented in:

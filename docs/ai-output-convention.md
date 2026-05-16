@@ -1,6 +1,6 @@
 # AI-Output Convention
 
-This document describes the sediment layer for persona analyses. Sessions in LLM Wiki Bridge are write-once-read-many by default: each persona (`vault-architect`, `vault-gardener`, ...) can produce a useful analysis and then lose it at session end. The AI-Output convention fixes that by persisting persona outputs into a dedicated subtree of the vault with a typed frontmatter schema, status lifecycle, and automated staling policy.
+This document describes the filing layer for role-authored analyses. Sessions in LLMwiki are write-once-read-many by default: each role command (`vault-architect`, `vault-gardener`, ...) can produce a useful analysis and then lose it at session end. The AI-Output convention fixes that by persisting role outputs into a dedicated subtree of the vault with a typed frontmatter schema, status lifecycle, and automated staling policy.
 
 The full design rationale (three-gap analysis, step-ordering, status-transition debate) lives in the corresponding planning notes; this page is the reference for humans working with the resulting files.
 
@@ -14,7 +14,7 @@ Warnings emitted in the `warnings` field of the write result (always present, em
 - **`query-looks-like-shell-cmd`** — `parent-query` matches `pwd` / `ls` / `cd` / `cat` / `rg` / `grep` / `echo` / `git status` / `git diff`. Suggests navigation/inspection, not knowledge.
 - **`no-anchor`** — both `parent-query` and `sourceNodes` are empty. The entry has no question and no citations.
 
-Each warning also emits a `[writeAIOutput] low-signal persona=… warnings=…` line on stderr for MCP-server log aggregation.
+Each warning also emits a `[writeAIOutput] low-signal persona=… warnings=…` line on stderr for MCP-server log aggregation. `persona` is the current API parameter name; product docs call these role commands.
 
 ## Sweep metrics (Step 2.5)
 
@@ -32,7 +32,7 @@ Each warning also emits a `[writeAIOutput] low-signal persona=… warnings=…` 
 }
 ```
 
-Purpose (from governance-layer §P0.5's "promotion-ready count" signal): future threshold tuning needs evidence. A vault where `realBacklinkHitRate` is <10% suggests the Inbox is producing analyses no human ever cites — the persona prompts need tightening, not the stale thresholds. A vault where most entries sit in `quarantine-state: new` after months is a promotion pipeline stall, distinct from a staleness issue.
+Purpose (from governance-layer §P0.5's "promotion-ready count" signal): future threshold tuning needs evidence. A vault where `realBacklinkHitRate` is <10% suggests the Inbox is producing analyses no human ever cites — the role prompts need tightening, not the stale thresholds. A vault where most entries sit in `quarantine-state: new` after months is a promotion pipeline stall, distinct from a staleness issue.
 
 ### Trend log (Step 2.8)
 
@@ -48,19 +48,19 @@ Dry-run sweeps skip the append (no-write-on-dry-run invariant). Empty-vault swee
 ## Storage layout
 
 ```
-{vault}/00-Inbox/AI-Output/{persona}/YYYY-MM-DD-{slug}.md
+{vault}/00-Inbox/AI-Output/{role}/YYYY-MM-DD-{slug}.md
 ```
 
-- `{persona}` — one of `vault-architect`, `vault-gardener`, `vault-curator`, `vault-teacher`, `vault-historian`, `vault-janitor`, `vault-librarian`
+- `{role}` — one of `vault-architect`, `vault-gardener`, `vault-curator`, `vault-teacher`, `vault-historian`, `vault-janitor`, `vault-librarian`; the MCP API still names this parameter `persona` for backward compatibility
 - `{slug}` — auto-derived by `vault.writeAIOutput` from the user's query (first ~6 words, lowercase, kebab-case, filesystem-unsafe chars stripped). Collisions on the same day append `-2`, `-3`, ...
 
-Per-persona subdirs keep lint/stale policy local to each persona for MVP; if per-content-type differentiation matters more than per-persona later, the layout can flatten without a schema change (all required info is in frontmatter).
+Per-role subdirs keep lint/stale policy local to each role for MVP; if per-content-type differentiation matters more than per-role later, the layout can flatten without a schema change (all required info is in frontmatter).
 
 ## Schema (8 fields — 6 required, 2 governance with defaults; human signature on an Obsidian body tag)
 
 ```yaml
 ---
-generated-by: vault-architect           # one of the 7 personas
+generated-by: vault-architect           # role command / output owner
 generated-at: 2026-04-21T14:32:00.000Z  # ISO 8601 UTC; primary age signal
 agent: claude-opus-4-7                  # model identifier, version included
 parent-query: "user's original ask"     # ≤ 200 chars, verbatim, no fm reserved chars
@@ -80,7 +80,7 @@ Each field has a distinct failure mode if absent. None are optional:
 
 | Field | Failure if absent |
 |---|---|
-| `generated-by` | No per-persona aggregation — "show me what architect said" becomes impossible |
+| `generated-by` | No per-role aggregation — "show me what architect said" becomes impossible |
 | `generated-at` | Rename/move strips mtime; age judgments become fiction |
 | `agent` | Cross-model quality regression becomes undiagnosable |
 | `parent-query` | Reader sees the conclusion without knowing why the analysis was requested |
@@ -151,7 +151,7 @@ Curry (or the vault owner) manually flips `status: draft` to `status: reviewed` 
 
 Run by `vault.sweepAIOutput({ dry_run: false })`. Flips when **both** conditions hold:
 
-1. Age (from `generated-at`) exceeds the per-persona threshold, and
+1. Age (from `generated-at`) exceeds the per-role threshold, and
 2. No non-AI-Output file in the vault contains a wikilink to this entry.
 
 "Non-AI-Output" means: source file's own frontmatter does **not** carry a `generated-by` key. AI-Output entries citing each other form self-anchoring hallucination chains; they do not count as anchor votes.
@@ -168,7 +168,7 @@ The sweep op **reports** candidates but never applies. A candidate is a pair (ol
 
 The human reads the candidate list and manually flips the older entry's frontmatter to `status: superseded`, typically after writing a `[[...]]` reference from the newer entry back to the older one in the body.
 
-## Stale thresholds (per-persona, days)
+## Stale thresholds (per-role, days)
 
 ```
 vault-architect   45
@@ -181,7 +181,7 @@ vault-janitor     60   (catch-all)
 any other         60   (catch-all)
 ```
 
-These are initial guesses, intentionally hardcoded in `mcp-server/src/index.ts` for MVP. When usage produces enough data to show per-persona differences are real (or unreal), they can graduate to `vault-mind.yaml` config. Don't tune them speculatively — let the sweep reports tell you which numbers are wrong.
+These are initial guesses, intentionally hardcoded in `mcp-server/src/index.ts` for MVP. When usage produces enough data to show per-role differences are real (or unreal), they can graduate to `vault-mind.yaml` config. Don't tune them speculatively — let the sweep reports tell you which numbers are wrong.
 
 Rationale for current picks:
 
@@ -225,7 +225,7 @@ No. Staling is a soft signal, not deletion. `status: stale` just means "age+anch
 
 ### How do I tell the gardener to run a sweep?
 
-Invoke the `vault-gardener` persona. Its skill file instructs it to call `vault.sweepAIOutput({ dry_run: true })`, show results, ask for confirmation, then call with `dry_run: false` if you approve.
+Invoke the `vault-gardener` role. Its skill file instructs it to call `vault.sweepAIOutput({ dry_run: true })`, show results, ask for confirmation, then call with `dry_run: false` if you approve.
 
 ### Is there a way to see what the sweep did without running it?
 
@@ -234,5 +234,5 @@ Yes — `dry_run: true` (the default) returns exactly what would change without 
 ## Related reading
 
 - `docs/mcp-tools-reference.md` — auto-generated reference for all MCP tools including `vault.writeAIOutput` and `vault.sweepAIOutput`
-- `skills/vault-*.md` — each persona's skill file documents the exact params to pass to `vault.writeAIOutput`
+- `skills/vault-*.md` — each role skill file documents the exact params to pass to `vault.writeAIOutput`
 - `skills/vault-gardener.md` — the sweep-invocation instructions and the review-before-apply contract

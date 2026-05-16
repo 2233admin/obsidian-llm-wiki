@@ -1,5 +1,7 @@
 # vault-mind Design Spec
 
+> Superseded pre-pivot design note. Do not use this document for current product positioning. Current positioning lives in `docs/RESEARCH_COMPILER_LOOP.md`: LLMwiki is a team research memory compiler, not a broad Knowledge OS platform.
+
 > 给 vault 装一个大脑 -- 不是 second-brain skill 包，是 Knowledge OS。
 
 **Date**: 2026-04-07

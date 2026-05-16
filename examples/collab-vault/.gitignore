@@ -1,0 +1,20 @@
+# Obsidian local state
+.obsidian/workspace*.json
+.obsidian/cache/
+.obsidian/workspaces.json
+
+# Obsidian trash and OS noise
+.trash/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Sync conflict copies
+*sync-conflict*
+*conflicted copy*
+*conflict copy*
+
+# LLMwiki local/runtime state
+.vault-mind/
+.vaultbrain/
+.llmwiki-cache/

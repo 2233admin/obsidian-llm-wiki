@@ -44,7 +44,7 @@ Setup prints both snippets at the end. Copy them into the right place:
 
 **1. Add to your `.mcp.json`:** the printed JSON snippet registers `vault-mind` as an MCP server pointing at the installed `bundle.js`. The `VAULT_PATH` env var must be set to the absolute path of your Obsidian vault (or any markdown directory).
 
-**2. Add to `CLAUDE.md` (or equivalent host instructions):** the printed `## Vault Personas` section tells your agent which persona to invoke for which task.
+**2. Add to `CLAUDE.md` (or equivalent host instructions):** the printed `## Vault Roles` section tells your agent which `/vault-*` role command to invoke for each task.
 
 Restart your agent host so the MCP registration is picked up.
 

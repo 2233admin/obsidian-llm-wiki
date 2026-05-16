@@ -1,9 +1,9 @@
-# spec-A Output: 6 Vault Personas
+# Historical Role Prompt Exports
 
 Output of `librarian-author` on MiniMax-M2.7-highspeed via KT.
-Built for `LLM Wiki Bridge` v2.
+Built for an early `LLM Wiki Bridge` v2 draft. Kept as historical prompt export material, not current product positioning.
 
-## Personas
+## Roles
 
 | Name | Tagline | Role | Primary MCP tools |
 |---|---|---|---|
@@ -17,7 +17,7 @@ Built for `LLM Wiki Bridge` v2.
 ## Directory layout
 
 ```
-.compile/specA-personas/
+.compile/specA-roles/
   skills/                        -- Claude Code slash-command skills (markdown)
     vault-librarian.md
     vault-architect.md
@@ -25,7 +25,7 @@ Built for `LLM Wiki Bridge` v2.
     vault-teacher.md
     vault-historian.md
     vault-janitor.md
-  creatures/                    -- KT creatures (dual-format, unchanged from skills)
+  role-configs/                 -- KT role configs (dual-format, unchanged from skills)
     vault-librarian/
       config.yaml
       prompts/system.md
@@ -50,7 +50,7 @@ recipe.list, recipe.show, recipe.status, recipe.doctor, recipe.run
 ## Config override note
 
 The spec template used `auth_mode: anthropic-key` with env vars
-`ANTHROPIC_BASE_URL` + `ANTHROPIC_AUTH_TOKEN`. The actual creatures
+`ANTHROPIC_BASE_URL` + `ANTHROPIC_AUTH_TOKEN`. The actual historical role configs
 use `auth_mode: api-key` + `MINIMAX_API_KEY` + `base_url:
 https://api.minimaxi.com/v1` matching the project's domestic adaptation
 (commit 6f6c0e9). Swap these fields to switch provider.

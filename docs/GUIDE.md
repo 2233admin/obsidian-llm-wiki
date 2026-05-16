@@ -2,7 +2,7 @@
 
 > 🌐 **Languages**: English (this page) · [简体中文](GUIDE.zh-CN.md)
 
-A friendly walk-through: install, first useful prompt, what each persona does, and how the AI keeps its own work.
+A practical walk-through: install, compile raw research, ask cited questions, and file useful AI output for review.
 
 If you hit a wall, jump to [Troubleshooting](#troubleshooting) or open [an issue](https://github.com/2233admin/obsidian-llm-wiki/issues).
 
@@ -12,7 +12,9 @@ If you hit a wall, jump to [Troubleshooting](#troubleshooting) or open [an issue
 
 Your markdown vault already has hundreds of notes. Your AI agent cannot read them. Every morning you spend time re-finding what you already knew.
 
-**LLM Wiki Bridge** turns your vault into a 6-persona virtual team that your AI agent can call directly. You paste a prompt like `/vault-librarian what do I know about attention heads` and the agent searches your real notes, reads them, and cites paths — it does not guess.
+**LLMwiki** turns a team's raw research folder into a reviewed, queryable Obsidian wiki. You paste a prompt like `/vault-librarian what do I know about attention heads` and the agent searches real notes, reads them, and cites paths — it does not guess.
+
+It is not an AI companion. It is a knowledge compiler for team vaults: `raw/` becomes `wiki/`, useful answers land in `00-Inbox/AI-Output/`, and durable team memory is promoted through review.
 
 It works with **Claude Code, Codex, OpenCode, and Gemini CLI**. Obsidian is optional — the filesystem adapter handles everything without it.
 
@@ -41,9 +43,28 @@ cd "$HOME\obsidian-llm-wiki-src"; .\setup.ps1
 ./setup --host gemini
 ```
 
-After setup prints two paste-in snippets (a `.mcp.json` entry + a `CLAUDE.md` persona block), restart your agent host.
+After setup prints two paste-in snippets (a `.mcp.json` entry + a `CLAUDE.md` role block), restart your agent host.
 
 Full install details, per-host paths, manual install, and uninstall are in [INSTALL.md](INSTALL.md).
+
+---
+
+## Research compiler loop
+
+For team vaults, use this loop:
+
+```
+raw/ -> wiki/ -> query -> 00-Inbox/AI-Output/ -> reviewed/promoted
+```
+
+The current compiler runs per topic directory. A topic has `raw/` and `wiki/` under it:
+
+```bash
+python compiler/compile.py examples/collab-vault/research-compiler --tier haiku --dry-run
+python scripts/knowledge_health.py --vault examples/collab-vault
+```
+
+See [RESEARCH_COMPILER_LOOP.md](RESEARCH_COMPILER_LOOP.md) for the full operating procedure.
 
 ---
 
@@ -51,7 +72,7 @@ Full install details, per-host paths, manual install, and uninstall are in [INST
 
 Assume your vault has any `.md` files at all.
 
-### 1. Sanity check — list one persona
+### 1. Sanity check — list one role
 
 In Claude Code (or your agent host), type:
 
@@ -93,13 +114,13 @@ Teacher pulls the note, finds its backlinks and outbound links, and explains whe
 
 Historian searches by frontmatter dates + mtime, groups by theme.
 
-That's the loop. Five personas, five different questions, all grounded in your actual notes.
+That's the loop: compile, query, file useful output, then review what deserves to become team memory.
 
 ---
 
-## The 7 personas
+## Knowledge roles
 
-| Persona | Best for | Reads | Writes |
+| Role | Best for | Reads | Writes |
 |---|---|---|---|
 | **vault-librarian** | "What do I know about X?" — source-cited answers | ✅ | — |
 | **vault-architect** | Concept graph compile + refactor suggestions | ✅ | proposes only |
@@ -111,19 +132,19 @@ That's the loop. Five personas, five different questions, all grounded in your a
 
 **All write operations default to dry-run.** You see the plan before anything touches disk.
 
-Detailed persona constraints live in `skills/vault-*.md` once installed.
+Detailed role constraints live in `skills/vault-*.md` once installed.
 
 ---
 
-## AI-Output sediment (the feature that compounds)
+## AI-Output filing
 
-Every meaningful persona analysis is automatically saved under:
+Every meaningful role analysis can be saved under:
 
 ```
-{vault}/00-Inbox/AI-Output/{persona}/YYYY-MM-DD-{slug}.md
+{vault}/00-Inbox/AI-Output/{role}/YYYY-MM-DD-{slug}.md
 ```
 
-Each saved analysis has a 6-field frontmatter:
+Each saved analysis has provenance frontmatter:
 
 ```yaml
 ---
@@ -135,23 +156,26 @@ source-nodes:
   - "[[auth-architecture]]"
   - "[[session-tokens]]"
 status: draft
+scope: project
+quarantine-state: new
 ---
 ```
 
 ### Why this matters
 
-Without this, every persona output evaporates when your session ends. With it, your vault sediments **both** your notes **and** the AI collaboration history. Next time you ask `/vault-librarian what did the architect say about auth`, it can find it.
+Without this, useful agent work evaporates when your session ends. With it, the vault keeps candidate outputs with citations and review state. Next time you ask `/vault-librarian what did the architect role say about auth`, it can find the filed draft.
 
-### The 3 statuses
+### Lifecycle markers
 
 - `draft` (auto, on write) — fresh output, not reviewed
 - `reviewed` — you manually flipped it after confirming it's useful
 - `stale` — gardener auto-flipped after N days with no backlinks from your own notes
 - `superseded` — newer analysis covers the same source notes (gardener proposes, you confirm)
+- `quarantine-state: promoted` — durable knowledge was moved or rewritten into a reviewed team path
 
 ### How to review
 
-Open `00-Inbox/AI-Output/{persona}/` in your editor. Flip `status: draft` → `reviewed` in the frontmatter of anything you want to keep. Do nothing for the rest — the gardener will mark stale ones automatically after the per-persona timeout (architect=45d, gardener=30d, historian=180d, others=60d).
+Open `00-Inbox/AI-Output/{role}/` in your editor. Flip `status: draft` → `reviewed` in the frontmatter of anything you want to keep. Promote durable conclusions by moving or rewriting them into `20-Decisions/`, `30-Architecture/`, or `40-Runbooks/` through review. Do nothing for the rest — the gardener will report stale candidates after the role-specific timeout.
 
 Full details: [ai-output-convention.md](ai-output-convention.md).
 
@@ -213,7 +237,7 @@ If step 4's local graph does not show the tag cluster, check that `#user-confirm
 
 You do **not** need to restructure your vault. LLM Wiki Bridge works with whatever you already have.
 
-It only creates one new directory when a persona writes an analysis:
+It only creates one new directory when a role writes an analysis:
 
 ```
 your-vault/
@@ -245,7 +269,7 @@ If you don't want AI-Output in your root, set `VAULT_PATH` in `.mcp.json` to a s
 
 ## Troubleshooting
 
-### Persona doesn't respond
+### Role command doesn't respond
 
 Restart your agent host. MCP registration is picked up at startup. If it still doesn't work, check the host's MCP logs for `obsidian-llm-wiki: server running (stdio ...)`.
 
@@ -299,7 +323,7 @@ Yes. All mutating operations default to `dryRun: true`. The server refuses paths
 
 ### Can I use my own models?
 
-The personas don't care about the model — they're prompts. Whatever agent host you use (Claude Code / Codex / etc.) decides the model.
+The roles don't care about the model — they're prompts over MCP tools. Whatever agent host you use (Claude Code / Codex / etc.) decides the model.
 
 ### Where do the MCP tools live?
 

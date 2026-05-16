@@ -1,4 +1,4 @@
-name: Vault Collaboration Lint
+name: Vault Doctor
 
 on:
   pull_request:
@@ -6,11 +6,13 @@ on:
     branches: [main]
 
 jobs:
-  vault-lint:
+  vault-doctor:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Checkout LLMwiki tools
         run: git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git .llmwiki-tools
-      - name: Lint vault collaboration rules
-        run: python3 .llmwiki-tools/scripts/vault_collab_lint.py --vault .
+      - name: Run LLMwiki doctor
+        run: python3 .llmwiki-tools/scripts/llmwiki_doctor.py --vault . --json
+      - name: Report knowledge health
+        run: python3 .llmwiki-tools/scripts/knowledge_health.py --vault . --json

@@ -1,12 +1,14 @@
 # Built with KohakuTerrarium
 
-This repository was authored by a 5-creature KT terrarium run over ~4 hours on 2026-04-20.
+> Historical build note. This is provenance for an early implementation run, not current product positioning. Current positioning is the Team Research Memory Compiler loop in `docs/RESEARCH_COMPILER_LOOP.md`.
+
+This repository was initially authored by a KT multi-agent run over ~4 hours on 2026-04-20.
 
 ## Why KT?
 
-Claude Code slash commands are fine for single-agent tasks. But this project needed 6 distinct personas—librarian, architect, curator, teacher, historian, janitor—each with different skills and responsibilities. Slash commands can't coordinate that.
+Claude Code slash commands are fine for single-agent tasks. But this project needed distinct knowledge-work roles—librarian, architect, curator, teacher, historian, janitor—each with different skills and responsibilities. Slash commands can't coordinate that.
 
-KT solves this with dual-host creature configs. Each persona runs as its own agent, configured independently, communicating via typed channels. The root agent routes requests; creatures handle execution. This is actual multi-agent orchestration, not a prompt engineering trick.
+KT solved this with dual-host role configs. Each role ran as its own agent, configured independently, communicating via typed channels. The root agent routed requests; role workers handled execution. This is historical implementation provenance, not the product architecture.
 
 ## What the Terrarium Looks Like
 
@@ -14,7 +16,7 @@ KT solves this with dual-host creature configs. Each persona runs as its own age
 user_request
     |
     v
-[vault-root]  (routes to appropriate creature)
+[vault-root]  (routes to appropriate worker)
     |
     +--> [librarian]  --> "what do I know about X"
     +--> [architect]  --> "compile graph"
@@ -23,15 +25,15 @@ user_request
     +--> [historian]  --> "what was I thinking"
     +--> [janitor]    --> "prune orphans"
 
-All creatures listen on team_chat for coordination.
+All workers listened on team_chat for coordination.
 Results flow back via results queue.
 ```
 
 ## How It Worked
 
-Each spec was assigned to a creature with specific domain knowledge. Spec-A built the persona system. Spec-B created the demo vault. Spec-C wrote the README. Spec-D scaffolded setup + viewer. Spec-E wired everything into a working team.
+Each spec was assigned to a worker with specific domain knowledge. Spec-A built the role system. Spec-B created the demo vault. Spec-C wrote the README. Spec-D scaffolded setup + viewer. Spec-E wired everything into a working team.
 
-The parallelization was real: 5 creatures working simultaneously, each producing artifacts that fed into the next phase. HMS coordinated via channel broadcast. No creature waited idle if there was work to do.
+The parallelization was real: 5 workers running simultaneously, each producing artifacts that fed into the next phase. HMS coordinated via channel broadcast. No worker waited idle if there was work to do.
 
 ## Gotchas Worth Knowing
 
@@ -55,6 +57,6 @@ kt terrarium run @vault-wiki/terrariums/vault-wiki-team
 send_message tasks "what do I know about attention heads"
 ```
 
-Your markdown vault becomes a 6-persona team. Each persona is a markdown skill file. The MCP server handles tool execution. KT handles orchestration.
+Your markdown vault becomes a knowledge-role team. Each role is a markdown skill file. The MCP server handles tool execution. KT handles orchestration.
 
 *Last built by KT terrarium on 2026-04-20.*

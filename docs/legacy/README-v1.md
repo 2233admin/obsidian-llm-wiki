@@ -1,5 +1,7 @@
 # obsidian-llm-wiki
 
+> Legacy pre-pivot README. This file is kept for historical context only. Current positioning is the Team Research Memory Compiler loop in `docs/RESEARCH_COMPILER_LOOP.md`.
+
 > **A faithful reference implementation of [Andrej Karpathy's LLM Wiki pattern](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f).**
 > Plain markdown, no embeddings at small scale, headless-first MCP, native to any Obsidian vault.
 

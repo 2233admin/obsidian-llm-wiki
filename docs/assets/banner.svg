@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 280" role="img" aria-label="LLM Wiki Bridge banner">
   <title>LLM Wiki Bridge</title>
-  <desc>Your markdown vault, compiled into a 6-persona MCP team. Cites, doesn't guess.</desc>
+  <desc>Raw research compiled into a reviewed team wiki. Cites, doesn't guess.</desc>
 
   <rect width="1200" height="280" fill="#F5F4F0"/>
   <line x1="0" y1="279" x2="1200" y2="279" stroke="#E0E0DA" stroke-width="1"/>
@@ -9,7 +9,7 @@
   <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif">
     <text x="60" y="108" font-size="48" font-weight="600" fill="#1a1a1a" letter-spacing="-1.4">LLM Wiki Bridge</text>
     <text x="60" y="150" font-size="19" fill="#5a5a5a" letter-spacing="-0.2">Your markdown vault, compiled into a</text>
-    <text x="60" y="178" font-size="19" fill="#5a5a5a" letter-spacing="-0.2">6-persona MCP team. Cites, doesn't guess.</text>
+    <text x="60" y="178" font-size="19" fill="#5a5a5a" letter-spacing="-0.2">Compile. Query. Govern. Cites, doesn't guess.</text>
     <rect x="60" y="204" width="72" height="3" fill="#D97757"/>
     <text x="60" y="240" font-size="12" fill="#8a8a8a" letter-spacing="0.4">headless-first  ·  Claude Code  ·  Codex  ·  OpenCode  ·  Gemini CLI</text>
   </g>

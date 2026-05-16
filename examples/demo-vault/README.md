@@ -1,6 +1,6 @@
 # Demo Vault
 
-10 synthetic markdown notes about AI engineering topics, used to demo the LLM Wiki Bridge personas. Points the `/vault-*` skills at this vault for a working demonstration.
+10 synthetic markdown notes about AI engineering topics, used to demo cited query and graph health. Point the `/vault-*` skills at this vault for a working demonstration.
 
 ## How to point MCP server at this vault
 
@@ -39,7 +39,7 @@ Stderr output from last build:
 | training | training, synthetic | training-data-curation, synthetic-data |
 | meta | meta, evaluation, benchmarking, memory, architecture, retrieval | karpathy-llm-wiki-concept, evaluations, retrieval-augmented-generation |
 
-## Deliberate defects (drive persona demos)
+## Deliberate defects (drive role demos)
 
 | Defect | File | Drives skill |
 |--------|------|-------------|

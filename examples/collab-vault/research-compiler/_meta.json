@@ -1,0 +1,21 @@
+{
+  "topic": "research-compiler",
+  "created": "2026-05-16",
+  "sources": {
+    "raw/team-memory-os.md": {
+      "source_type": "clipping",
+      "captured_at": "2026-05-16",
+      "origin": "internal-product-note",
+      "compiled_summary": "wiki/summaries/team-memory-os.md",
+      "compiled_concepts": [
+        "wiki/concepts/team-memory-os.md"
+      ]
+    }
+  },
+  "access_log": {
+    "2026-05-16T00:00:00Z": "compile raw/team-memory-os.md -> wiki/summaries/team-memory-os.md",
+    "2026-05-16T00:05:00Z": "query wiki/summaries/team-memory-os.md -> wiki/queries/filed-output-example.md",
+    "2026-05-16T00:10:00Z": "file query result -> 00-Inbox/AI-Output/codex/project-setup-proposal.md",
+    "2026-05-16T00:20:00Z": "promote reviewed output -> 20-Decisions/2026-05-16-gitea-reviewed-vault.md"
+  }
+}

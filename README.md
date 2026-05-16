@@ -1,10 +1,10 @@
 <p align="center">
-  <img src="docs/assets/banner.svg" alt="LLM Wiki Bridge — your markdown vault, compiled into a 6-persona MCP team" width="100%">
+  <img src="docs/assets/banner.svg" alt="LLMwiki — raw research compiled into a reviewed team wiki" width="100%">
 </p>
 
-# LLM Wiki Bridge
+# LLMwiki
 
-**Your markdown vault, compiled into a 6-persona MCP team for Claude Code, Codex, OpenCode, and Gemini CLI. Headless-first. Cites, doesn't guess.**
+**LLMwiki turns a team's raw research folder into a reviewed, queryable, self-improving Obsidian wiki. Headless-first. Cites, doesn't guess.**
 
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 [![MCP](https://img.shields.io/badge/MCP-stdio-orange.svg)](https://modelcontextprotocol.io)
@@ -16,7 +16,9 @@
 
 You have 500 markdown notes. You forget half of them. Your AI agent cannot read them -- it paraphrases from its context window and fabricates citations. Every morning you spend 20 minutes re-finding what you already knew.
 
-LLM Wiki Bridge is a headless-first MCP server that compiles your vault -- wikilinks, aliases, tags, frontmatter -- into a concept graph your agent calls directly. The agent doesn't guess. It calls `vault.search`, reads the cited notes with `vault.read`, answers with evidence. Obsidian is optional at runtime; the filesystem adapter is always available.
+LLMwiki is a headless-first MCP server and compiler loop for team research vaults. Raw papers, clippings, repo notes, datasets, and meeting-free research fragments land in `raw/`; the compiler turns them into `wiki/` summaries, concept pages, backlinks, and indexes; agents answer by calling `vault.search` and `vault.read` against cited notes.
+
+It is not an AI companion. It is a knowledge compiler for team vaults. Obsidian is the IDE, Git/Gitea review is the ledger, and MCP/CLI tools are the execution surface.
 
 Inspired by [Andrej Karpathy's LLM Wiki](https://github.com/karpathy/llm-wiki). Markdown is the source of truth; the compiler turns structure into a graph; MCP exposes it.
 
@@ -36,7 +38,7 @@ git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git
 cd obsidian-llm-wiki; .\setup.ps1
 ```
 
-The `setup` script extracts a 1.6 MB skill bundle into your host's skills directory, prints the `.mcp.json` snippet to paste into your agent config, and exits. After restart, your agent picks up the new MCP server and the six `/vault-*` personas. The cloned repo can then be deleted — the installed skill is self-contained. If the one-liner breaks, [docs/INSTALL.md](docs/INSTALL.md) has the per-host paths and the manual recipe.
+The `setup` script extracts a 1.6 MB skill bundle into your host's skills directory, prints the `.mcp.json` snippet to paste into your agent config, and exits. After restart, your agent picks up the new MCP server and the `/vault-*` knowledge-work roles. The cloned repo can then be deleted — the installed skill is self-contained. If the one-liner breaks, [docs/INSTALL.md](docs/INSTALL.md) has the per-host paths and the manual recipe.
 
 ---
 
@@ -83,9 +85,21 @@ Iterate -- refine an answer:
 
 ---
 
-## Six personas, one MCP surface
+## Compile, Query, Govern
 
-Each persona is an opinionated prompt over the same 40-operation MCP tool set.
+| Loop | What happens | Durable path |
+|---|---|---|
+| Compile | Drop source material into `raw/`; run the compiler to produce summaries, concepts, backlinks, and contradiction reports. | `wiki/` |
+| Query | Agents answer from cited vault notes and file useful drafts back into the inbox. | `00-Inbox/AI-Output/<agent>/` |
+| Govern | Humans review, promote, supersede, or discard candidate knowledge. Shared team memory moves through PR review. | `20-Decisions/`, `30-Architecture/`, `40-Runbooks/` |
+
+See [docs/RESEARCH_COMPILER_LOOP.md](docs/RESEARCH_COMPILER_LOOP.md) for the standard operating loop.
+
+---
+
+## Knowledge roles, one MCP surface
+
+Each `/vault-*` command is a knowledge-work role over the same 40-operation MCP tool set. They are jobs in the pipeline, not product mascots.
 
 | Name | What it does | Primary MCP tools |
 |---|---|---|
@@ -100,7 +114,7 @@ Each persona is an opinionated prompt over the same 40-operation MCP tool set.
 
 ## How it works (30-second tour)
 
-Your markdown files -- with wikilinks `[[like this]]`, aliases, frontmatter tags, and mtime -- are the source of truth. The compiler runs once and produces a concept graph (nodes = notes, edges = links and semantic relationships). The MCP server exposes this graph as tools: `vault.search`, `vault.backlinks`, `vault.graph`, and 40+ more.
+Your markdown files -- with wikilinks `[[like this]]`, aliases, frontmatter tags, and mtime -- are the source of truth. The compiler turns raw topic folders into a concept graph (nodes = notes, edges = links and semantic relationships), summaries, and concept pages. The MCP server exposes this graph as tools: `vault.search`, `vault.backlinks`, `vault.graph`, and 40+ more.
 
 When Claude Code (or any MCP-compatible agent) runs `/vault-librarian`, it calls `vault.search` and `vault.read` directly. The agent gets citations -- not guesses.
 
@@ -112,7 +126,7 @@ When Claude Code (or any MCP-compatible agent) runs `/vault-librarian`, it calls
 
 ## Deep dives
 
-The wiki has the long-form answers. Eight pages, any order.
+The wiki has the long-form answers. Read them in any order.
 
 | Page | Answers |
 |---|---|
@@ -120,7 +134,8 @@ The wiki has the long-form answers. Eight pages, any order.
 | [**Architecture**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Architecture) | Four-layer system diagram. Request lifecycle (8 steps, `/vault-librarian` to cited answer). Extension points. |
 | [**Adapter-Spec**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Adapter-Spec) | Adapter contract, capability matrix, fan-out and ranking, failure modes, recipe for a fifth adapter. |
 | [**Compile-Pipeline**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Compile-Pipeline) | What each stage produces, where the graph lives on disk, performance reference points. |
-| [**Persona-Design**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Persona-Design) | Six user-facing personas vs seventeen underlying skills. The design discipline that keeps them from collapsing into one generic agent. |
+| [**Research Compiler Loop**](docs/RESEARCH_COMPILER_LOOP.md) | The product loop: raw materials, compiled wiki, cited Q&A, AI-Output filing, review, promotion. |
+| [**Persona-Design**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Persona-Design) | User-facing knowledge roles vs underlying skills. The design discipline that keeps them from collapsing into one generic agent. |
 | [**Security-Model**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Security-Model) | Dry-run default, protected paths, preflight gates, bearer-token transport, what this explicitly does not secure. |
 | [**Recipes**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Recipes) | Content collectors and local knowledge feeders (Feishu, Gmail, Linear, X, WeChat, Dreamtime, and more) that land external sources into the vault. |
 | [**FAQ**](https://github.com/2233admin/obsidian-llm-wiki/wiki/FAQ) | Does it need Obsidian running? How big a vault? Why dry-run? First-draft answers, expands as questions come in. |
