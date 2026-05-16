@@ -57,3 +57,21 @@ query:
     vault: 1.0
     memu: 0.8
     gitnexus: 0.6
+
+# Collaborative vault governance (used by scripts/init_collab_vault.py and
+# scripts/vault_collab_lint.py; MCP write enforcement can consume the same
+# policy in a later release). The init script also writes a conservative vault
+# .gitignore for Obsidian workspace state, sync conflict copies, and local
+# LLMwiki runtime files.
+collaboration:
+  actor: "codex"
+  role: "agent"
+  enforce: true
+  allowed_write_paths:
+    - "00-Inbox/AI-Output/codex/**"
+    - "10-Projects/*/agents/codex/**"
+  protected_paths:
+    - "20-Decisions/**"
+    - "30-Architecture/**"
+    - "40-Runbooks/**"
+    - "README.md"
