@@ -4,9 +4,18 @@ export interface VaultMindConfig {
   vault_path: string;
   auth_token?: string;
   adapters?: string[];
+  collaboration?: CollaborationConfig;
   /** Per-adapter score weight multipliers */
   adapter_weights?: Record<string, number>;
   config_path?: string;
+}
+
+export interface CollaborationConfig {
+  actor?: string;
+  role?: 'agent' | 'human' | string;
+  allowed_write_paths?: string[];
+  protected_paths?: string[];
+  enforce?: boolean;
 }
 
 export type ParamType = 'string' | 'number' | 'boolean' | 'object' | 'array';

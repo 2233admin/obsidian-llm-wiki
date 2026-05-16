@@ -32059,9 +32059,12 @@ function loadConfig() {
   const envVault = process.env.VAULT_MIND_VAULT_PATH || process.env.VAULT_BRIDGE_VAULT;
   if (envVault) {
     const envWeights = process.env.VAULT_MIND_ADAPTER_WEIGHTS;
+    const envAdapters = process.env.VAULT_MIND_ADAPTERS;
     return {
       vault_path: envVault,
       auth_token: process.env.VAULT_MIND_AUTH_TOKEN,
+      adapters: envAdapters?.split(",").map((s) => s.trim()).filter(Boolean),
+      collaboration: loadEnvCollaboration(),
       adapter_weights: envWeights ? JSON.parse(envWeights) : void 0,
       config_path: void 0
     };
@@ -32103,13 +32106,160 @@ function parseSimpleYaml(raw) {
     vault_path: result["vault_path"] || "",
     auth_token: result["auth_token"],
     adapters: result["adapters"]?.split(",").map((s) => s.trim()),
+    collaboration: loadEnvCollaboration(result),
     adapter_weights: Object.keys(adapterWeights).length > 0 ? adapterWeights : void 0
+  };
+}
+function loadEnvCollaboration(result = {}) {
+  const actor = process.env.VAULT_MIND_ACTOR || result["collaboration_actor"];
+  const role = process.env.VAULT_MIND_ROLE || result["collaboration_role"];
+  const allowed = process.env.VAULT_MIND_ALLOWED_WRITE_PATHS || result["collaboration_allowed_write_paths"];
+  const protectedPaths = process.env.VAULT_MIND_PROTECTED_PATHS || result["collaboration_protected_paths"];
+  const enforceRaw = process.env.VAULT_MIND_COLLAB_ENFORCE || result["collaboration_enforce"];
+  if (!actor && !role && !allowed && !protectedPaths && !enforceRaw)
+    return void 0;
+  return {
+    actor,
+    role,
+    allowed_write_paths: allowed?.split(",").map((s) => s.trim()).filter(Boolean),
+    protected_paths: protectedPaths?.split(",").map((s) => s.trim()).filter(Boolean),
+    enforce: enforceRaw === void 0 ? void 0 : enforceRaw !== "false"
   };
 }
 var PROTECTED_DIRS2 = /* @__PURE__ */ new Set([".obsidian", ".trash", ".git", "node_modules"]);
 var VERSION = "0.3.0";
 function err(code, message) {
   return { code, message };
+}
+var DEFAULT_PROTECTED_PATHS = ["20-Decisions/**", "30-Architecture/**", "40-Runbooks/**", "README.md"];
+var globCache = /* @__PURE__ */ new Map();
+function readVaultCollabPolicy(vaultPath) {
+  const policyPath = resolve2(vaultPath, ".vault-collab.json");
+  if (!existsSync5(policyPath))
+    return {};
+  try {
+    const parsed = JSON.parse(readFileSync4(policyPath, "utf-8"));
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error("expected a JSON object");
+    }
+    return parsed;
+  } catch (e) {
+    throw err(-32602, `.vault-collab.json is invalid JSON: ${e.message}`);
+  }
+}
+function globToRegExp(glob) {
+  const cached = globCache.get(glob);
+  if (cached)
+    return cached;
+  let pattern = "";
+  for (let i = 0; i < glob.length; i++) {
+    const ch = glob[i];
+    if (ch === "*" && glob[i + 1] === "*") {
+      pattern += ".*";
+      i++;
+    } else if (ch === "*") {
+      pattern += "[^/]*";
+    } else if (ch === "?") {
+      pattern += "[^/]";
+    } else {
+      pattern += ch.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+    }
+  }
+  const re = new RegExp(`^${pattern}$`);
+  globCache.set(glob, re);
+  return re;
+}
+function matchAny(path, patterns) {
+  return patterns.some((p) => globToRegExp(p).test(path));
+}
+function normalizePolicyPath(path) {
+  return path.replace(/\\/g, "/").replace(/^\/+/, "");
+}
+function defaultAllowedPaths(actor, role) {
+  if (!actor)
+    return [];
+  if (role === "human")
+    return [`00-Inbox/${actor}`, `00-Inbox/${actor}/**`];
+  return [
+    `00-Inbox/AI-Output/${actor}`,
+    `00-Inbox/AI-Output/${actor}/**`,
+    `10-Projects/*/agents/${actor}`,
+    `10-Projects/*/agents/${actor}/**`
+  ];
+}
+function writeTargetPaths(toolName, args) {
+  if (toolName === "vault.rename") {
+    return [args.from, args.to].filter((p) => typeof p === "string");
+  }
+  if (toolName === "vault.writeAIOutput") {
+    const persona = typeof args.persona === "string" ? args.persona : "*";
+    return [`00-Inbox/AI-Output/${persona}/**`];
+  }
+  return typeof args.path === "string" ? [args.path] : [];
+}
+function enforceCollaborationPolicy(config2, toolName, args) {
+  if (toolName === "vault.batch") {
+    if (!Array.isArray(args.operations))
+      return;
+    for (const op of args.operations) {
+      if (!op || typeof op !== "object")
+        continue;
+      const batchOp = op;
+      if (typeof batchOp.method !== "string")
+        continue;
+      if (batchOp.method === "vault.batch")
+        throw err(-32602, "Recursive batch not allowed");
+      const opArgs = {
+        ...batchOp.params && typeof batchOp.params === "object" && !Array.isArray(batchOp.params) ? batchOp.params : {}
+      };
+      if (args.dryRun !== void 0 && opArgs.dryRun === void 0)
+        opArgs.dryRun = args.dryRun;
+      if (args.dry_run !== void 0 && opArgs.dry_run === void 0)
+        opArgs.dry_run = args.dry_run;
+      enforceCollaborationPolicy(config2, batchOp.method, opArgs);
+    }
+    return;
+  }
+  const mutatingTargets = /* @__PURE__ */ new Set([
+    "vault.create",
+    "vault.modify",
+    "vault.append",
+    "vault.delete",
+    "vault.rename",
+    "vault.mkdir",
+    "vault.writeAIOutput"
+  ]);
+  if (!mutatingTargets.has(toolName))
+    return;
+  if (args.dryRun !== false && args.dry_run !== false)
+    return;
+  const collab = config2.collaboration;
+  const actor = collab?.actor;
+  if (!actor || collab?.enforce === false)
+    return;
+  const policy = readVaultCollabPolicy(config2.vault_path);
+  const role = collab?.role || (policy.agents?.includes(actor) ? "agent" : policy.team?.includes(actor) ? "human" : "agent");
+  const allowed = [
+    ...defaultAllowedPaths(actor, role),
+    ...policy.allowed_write_paths ?? [],
+    ...collab?.allowed_write_paths ?? []
+  ];
+  const protectedPaths = [
+    ...DEFAULT_PROTECTED_PATHS,
+    ...policy.protected_paths ?? [],
+    ...collab?.protected_paths ?? []
+  ];
+  for (const rawTarget of writeTargetPaths(toolName, args)) {
+    const target = normalizePolicyPath(rawTarget);
+    const protectedHit = matchAny(target, protectedPaths);
+    const allowedHit = allowed.length > 0 && matchAny(target, allowed);
+    if (protectedHit && !allowedHit) {
+      throw err(-32403, `Collaboration policy blocked ${toolName} by ${actor}: protected path ${target}`);
+    }
+    if (!allowedHit) {
+      throw err(-32403, `Collaboration policy blocked ${toolName} by ${actor}: ${target} is outside allowed write paths`);
+    }
+  }
 }
 function appendHistoryInYaml(content, flowItem) {
   if (!content.startsWith("---\n"))
@@ -33344,6 +33494,7 @@ async function main() {
       if (!op)
         throw err(-32601, `Unknown tool: ${toolName}`);
       const validatedArgs = validateParams(op.params, toolArgs);
+      enforceCollaborationPolicy(config2, toolName, validatedArgs);
       const result = await op.handler(ctx, validatedArgs);
       if (toolName === "vault.create" || toolName === "vault.modify" || toolName === "vault.append") {
         const p = toolArgs.path;

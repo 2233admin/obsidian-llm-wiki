@@ -36,9 +36,12 @@ function loadConfig(): VaultMindConfig {
   const envVault = process.env.VAULT_MIND_VAULT_PATH || process.env.VAULT_BRIDGE_VAULT;
   if (envVault) {
     const envWeights = process.env.VAULT_MIND_ADAPTER_WEIGHTS;
+    const envAdapters = process.env.VAULT_MIND_ADAPTERS;
     return {
       vault_path: envVault,
       auth_token: process.env.VAULT_MIND_AUTH_TOKEN,
+      adapters: envAdapters?.split(",").map((s) => s.trim()).filter(Boolean),
+      collaboration: loadEnvCollaboration(),
       adapter_weights: envWeights ? (JSON.parse(envWeights) as Record<string, number>) : undefined,
       config_path: undefined,
     };
@@ -77,7 +80,24 @@ function parseSimpleYaml(raw: string): VaultMindConfig {
     vault_path: result["vault_path"] || "",
     auth_token: result["auth_token"],
     adapters: result["adapters"]?.split(",").map((s) => s.trim()),
+    collaboration: loadEnvCollaboration(result),
     adapter_weights: Object.keys(adapterWeights).length > 0 ? adapterWeights : undefined,
+  };
+}
+
+function loadEnvCollaboration(result: Record<string, string> = {}): VaultMindConfig["collaboration"] | undefined {
+  const actor = process.env.VAULT_MIND_ACTOR || result["collaboration_actor"];
+  const role = process.env.VAULT_MIND_ROLE || result["collaboration_role"];
+  const allowed = process.env.VAULT_MIND_ALLOWED_WRITE_PATHS || result["collaboration_allowed_write_paths"];
+  const protectedPaths = process.env.VAULT_MIND_PROTECTED_PATHS || result["collaboration_protected_paths"];
+  const enforceRaw = process.env.VAULT_MIND_COLLAB_ENFORCE || result["collaboration_enforce"];
+  if (!actor && !role && !allowed && !protectedPaths && !enforceRaw) return undefined;
+  return {
+    actor,
+    role,
+    allowed_write_paths: allowed?.split(",").map((s) => s.trim()).filter(Boolean),
+    protected_paths: protectedPaths?.split(",").map((s) => s.trim()).filter(Boolean),
+    enforce: enforceRaw === undefined ? undefined : enforceRaw !== "false",
   };
 }
 
@@ -88,6 +108,136 @@ const VERSION = "0.3.0";
 
 function err(code: number, message: string): { code: number; message: string } {
   return { code, message };
+}
+
+type CollabPolicy = {
+  team?: string[];
+  agents?: string[];
+  allowed_write_paths?: string[];
+  protected_paths?: string[];
+};
+
+const DEFAULT_PROTECTED_PATHS = ["20-Decisions/**", "30-Architecture/**", "40-Runbooks/**", "README.md"];
+const globCache = new Map<string, RegExp>();
+
+function readVaultCollabPolicy(vaultPath: string): CollabPolicy {
+  const policyPath = resolve(vaultPath, ".vault-collab.json");
+  if (!existsSync(policyPath)) return {};
+  try {
+    const parsed = JSON.parse(readFileSync(policyPath, "utf-8")) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error("expected a JSON object");
+    }
+    return parsed as CollabPolicy;
+  } catch (e) {
+    throw err(-32602, `.vault-collab.json is invalid JSON: ${(e as Error).message}`);
+  }
+}
+
+function globToRegExp(glob: string): RegExp {
+  const cached = globCache.get(glob);
+  if (cached) return cached;
+  let pattern = "";
+  for (let i = 0; i < glob.length; i++) {
+    const ch = glob[i];
+    if (ch === "*" && glob[i + 1] === "*") {
+      pattern += ".*";
+      i++;
+    } else if (ch === "*") {
+      pattern += "[^/]*";
+    } else if (ch === "?") {
+      pattern += "[^/]";
+    } else {
+      pattern += ch.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+    }
+  }
+  const re = new RegExp(`^${pattern}$`);
+  globCache.set(glob, re);
+  return re;
+}
+
+function matchAny(path: string, patterns: string[]): boolean {
+  return patterns.some((p) => globToRegExp(p).test(path));
+}
+
+function normalizePolicyPath(path: string): string {
+  return path.replace(/\\/g, "/").replace(/^\/+/, "");
+}
+
+function defaultAllowedPaths(actor: string, role: string | undefined): string[] {
+  if (!actor) return [];
+  if (role === "human") return [`00-Inbox/${actor}`, `00-Inbox/${actor}/**`];
+  return [
+    `00-Inbox/AI-Output/${actor}`,
+    `00-Inbox/AI-Output/${actor}/**`,
+    `10-Projects/*/agents/${actor}`,
+    `10-Projects/*/agents/${actor}/**`,
+  ];
+}
+
+function writeTargetPaths(toolName: string, args: Record<string, unknown>): string[] {
+  if (toolName === "vault.rename") {
+    return [args.from, args.to].filter((p): p is string => typeof p === "string");
+  }
+  if (toolName === "vault.writeAIOutput") {
+    const persona = typeof args.persona === "string" ? args.persona : "*";
+    return [`00-Inbox/AI-Output/${persona}/**`];
+  }
+  return typeof args.path === "string" ? [args.path] : [];
+}
+
+function enforceCollaborationPolicy(config: VaultMindConfig, toolName: string, args: Record<string, unknown>): void {
+  if (toolName === "vault.batch") {
+    if (!Array.isArray(args.operations)) return;
+    for (const op of args.operations) {
+      if (!op || typeof op !== "object") continue;
+      const batchOp = op as { method?: unknown; params?: unknown };
+      if (typeof batchOp.method !== "string") continue;
+      if (batchOp.method === "vault.batch") throw err(-32602, "Recursive batch not allowed");
+      const opArgs = {
+        ...((batchOp.params && typeof batchOp.params === "object" && !Array.isArray(batchOp.params)) ? batchOp.params as Record<string, unknown> : {}),
+      };
+      if (args.dryRun !== undefined && opArgs.dryRun === undefined) opArgs.dryRun = args.dryRun;
+      if (args.dry_run !== undefined && opArgs.dry_run === undefined) opArgs.dry_run = args.dry_run;
+      enforceCollaborationPolicy(config, batchOp.method, opArgs);
+    }
+    return;
+  }
+
+  const mutatingTargets = new Set([
+    "vault.create", "vault.modify", "vault.append", "vault.delete", "vault.rename", "vault.mkdir", "vault.writeAIOutput",
+  ]);
+  if (!mutatingTargets.has(toolName)) return;
+  if (args.dryRun !== false && args.dry_run !== false) return;
+
+  const collab = config.collaboration;
+  const actor = collab?.actor;
+  if (!actor || collab?.enforce === false) return;
+
+  const policy = readVaultCollabPolicy(config.vault_path);
+  const role = collab?.role || (policy.agents?.includes(actor) ? "agent" : policy.team?.includes(actor) ? "human" : "agent");
+  const allowed = [
+    ...defaultAllowedPaths(actor, role),
+    ...(policy.allowed_write_paths ?? []),
+    ...(collab?.allowed_write_paths ?? []),
+  ];
+  const protectedPaths = [
+    ...DEFAULT_PROTECTED_PATHS,
+    ...(policy.protected_paths ?? []),
+    ...(collab?.protected_paths ?? []),
+  ];
+
+  for (const rawTarget of writeTargetPaths(toolName, args)) {
+    const target = normalizePolicyPath(rawTarget);
+    const protectedHit = matchAny(target, protectedPaths);
+    const allowedHit = allowed.length > 0 && matchAny(target, allowed);
+    if (protectedHit && !allowedHit) {
+      throw err(-32403, `Collaboration policy blocked ${toolName} by ${actor}: protected path ${target}`);
+    }
+    if (!allowedHit) {
+      throw err(-32403, `Collaboration policy blocked ${toolName} by ${actor}: ${target} is outside allowed write paths`);
+    }
+  }
 }
 
 /**
@@ -1257,6 +1407,7 @@ async function main(): Promise<void> {
       const op = allOps.find(o => o.name === toolName);
       if (!op) throw err(-32601, `Unknown tool: ${toolName}`);
       const validatedArgs = validateParams(op.params, toolArgs);
+      enforceCollaborationPolicy(config, toolName, validatedArgs);
       const result = await op.handler(ctx, validatedArgs);
       // Hook write ops into compile trigger (preserve existing behavior)
       if (toolName === "vault.create" || toolName === "vault.modify" || toolName === "vault.append") {
