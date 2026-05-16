@@ -1,5 +1,37 @@
 # Changelog
 
+## v2.2.0 -- 2026-05-17
+
+LLMwiki is now positioned around one product loop: scattered research and
+agent output become cited, reviewable, promoted team memory.
+
+### Highlights
+
+- **Reviewed team memory compiler story.** README and guides now open with
+  the problem of knowledge with no source, reviewer, or promotion path.
+- **Five-minute first success path.** Users can run the bundled
+  `examples/collab-vault` demo before wiring an agent host:
+  compiler dry-run, knowledge health, and doctor.
+- **Research compiler loop.** New docs describe
+  `raw/ -> wiki/ -> query -> AI-Output -> reviewed/promoted` as the core
+  operating model.
+- **Collaborative vault governance.** Added example team vault layout,
+  collaboration policy, CODEOWNERS templates, PR templates, and Gitea/GitHub
+  lint workflows.
+- **Health and release verification tools.** Added `llmwiki_doctor.py`,
+  `knowledge_health.py`, `vault_collab_lint.py`, `mcp_sync_probe.py`, and
+  `verify_release_install.py`.
+- **Brand cleanup.** Public docs now use **LLMwiki** and avoid the old
+  "LLM Wiki Bridge" surface.
+
+### Notes
+
+- No new required service dependency.
+- The first-success compiler demo uses `--dry-run` stub extraction and does
+  not need an API key.
+- The demo vault warning `git-missing` is expected because
+  `examples/collab-vault` is not its own Git worktree.
+
 ## v2.0.0 -- 2026-04-21
 
 Name change + architecture consolidation. `vault-mind` → **LLM Wiki Bridge**
