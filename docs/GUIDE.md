@@ -1,4 +1,4 @@
-# LLM Wiki Bridge — User Guide
+# LLMwiki — User Guide
 
 > 🌐 **Languages**: English (this page) · [简体中文](GUIDE.zh-CN.md)
 
@@ -10,11 +10,19 @@ If you hit a wall, jump to [Troubleshooting](#troubleshooting) or open [an issue
 
 ## What this gives you
 
-Your markdown vault already has hundreds of notes. Your AI agent cannot read them. Every morning you spend time re-finding what you already knew.
+You are here because your team already lost knowledge once.
 
-**LLMwiki** turns a team's raw research folder into a reviewed, queryable Obsidian wiki. You paste a prompt like `/vault-librarian what do I know about attention heads` and the agent searches real notes, reads them, and cites paths — it does not guess.
+Not because nobody wrote it down. They did. The problem is that notes, repo findings, and agent answers have no state: no source, no reviewer, no promotion path.
 
-It is not an AI companion. It is a knowledge compiler for team vaults: `raw/` becomes `wiki/`, useful answers land in `00-Inbox/AI-Output/`, and durable team memory is promoted through review.
+**LLMwiki** turns that into a simple loop:
+
+```
+capture -> compile -> ask -> file -> review -> promote
+```
+
+Raw notes become compiled summaries and concepts. Useful agent answers become quarantined drafts. Only reviewed conclusions become durable team memory.
+
+It is not an AI companion. It is a knowledge compiler for team vaults: `raw/` becomes `wiki/`, cited answers land in `00-Inbox/AI-Output/`, and durable memory is promoted through review.
 
 It works with **Claude Code, Codex, OpenCode, and Gemini CLI**. Obsidian is optional — the filesystem adapter handles everything without it.
 
@@ -49,28 +57,42 @@ Full install details, per-host paths, manual install, and uninstall are in [INST
 
 ---
 
-## Research compiler loop
+## First success path
 
-For team vaults, use this loop:
+Run this before touching your real vault. It proves the product loop with the bundled demo vault.
+
+The current compiler runs per topic directory. In this demo, `examples/collab-vault/research-compiler/` has its own `raw/` and `wiki/`:
+
+```bash
+python compiler/compile.py examples/collab-vault/research-compiler --tier haiku --dry-run
+python scripts/knowledge_health.py --vault examples/collab-vault --json
+python scripts/llmwiki_doctor.py --vault examples/collab-vault --json
+```
+
+The dry-run compiler uses stub extraction, so this does not need an API key. `knowledge_health.py` checks whether raw sources, compiled wiki artifacts, AI-Output, and promoted memory still line up. `llmwiki_doctor.py` checks runtime, policy, lint, and governance.
+
+Open these files side by side:
+
+| What to inspect | Path |
+|---|---|
+| Source material | `examples/collab-vault/research-compiler/raw/team-memory-os.md` |
+| Compiled summary | `examples/collab-vault/research-compiler/wiki/summaries/team-memory-os.md` |
+| Filed AI draft | `examples/collab-vault/00-Inbox/AI-Output/codex/project-setup-proposal.md` |
+| Reviewed memory | `examples/collab-vault/20-Decisions/2026-05-16-gitea-reviewed-vault.md` |
+
+That is the loop:
 
 ```
 raw/ -> wiki/ -> query -> 00-Inbox/AI-Output/ -> reviewed/promoted
 ```
 
-The current compiler runs per topic directory. A topic has `raw/` and `wiki/` under it:
-
-```bash
-python compiler/compile.py examples/collab-vault/research-compiler --tier haiku --dry-run
-python scripts/knowledge_health.py --vault examples/collab-vault
-```
-
-See [RESEARCH_COMPILER_LOOP.md](RESEARCH_COMPILER_LOOP.md) for the full operating procedure.
+See [RESEARCH_COMPILER_LOOP.md](RESEARCH_COMPILER_LOOP.md) for the full operating procedure and technical model.
 
 ---
 
-## Your first useful session (5 minutes)
+## First agent session
 
-Assume your vault has any `.md` files at all.
+After install, point `VAULT_PATH` at a real markdown vault and restart your agent host.
 
 ### 1. Sanity check — list one role
 
@@ -114,7 +136,7 @@ Teacher pulls the note, finds its backlinks and outbound links, and explains whe
 
 Historian searches by frontmatter dates + mtime, groups by theme.
 
-That's the loop: compile, query, file useful output, then review what deserves to become team memory.
+That is the agent side of the loop: query with citations, file useful output, then review what deserves to become team memory.
 
 ---
 
@@ -181,61 +203,19 @@ Full details: [ai-output-convention.md](ai-output-convention.md).
 
 ---
 
-## Hand-test path (see the sediment in your graph)
+## Optional Obsidian graph check
 
-The payoff for the sediment system lands best when you see it in Obsidian's Local Graph: a `#user-confirmed` cluster that visually connects an AI-Output note to the `source-nodes` it cites. Five minutes, one real write, one graph view.
-
-### 1. Install
-
-Follow the [30-second install](#30-second-install). You need the MCP server running and `VAULT_PATH` pointing at a real vault.
-
-### 2. Write one human-confirmed AI-Output
-
-From your agent host, call `vault.writeAIOutput` once with a real `parentQuery`, at least one wikilink in `sourceNodes`, and `reviewStatus: "user-confirmed"`:
+After you have real AI-Output notes, open one in Obsidian and turn on Local Graph at depth `2`. You should see the draft linked to its `source-nodes` and review tags. This is only a visual check; the product invariant is still the filesystem state:
 
 ```
-vault.writeAIOutput({
-  persona: "vault-librarian",
-  parentQuery: "what do I know about attention heads",
-  sourceNodes: ["[[an-actual-note-in-your-vault]]"],
-  agent: "claude-opus-4-7",
-  body: "<your librarian's answer, 2-3 paragraphs>",
-  reviewStatus: "user-confirmed",
-  dryRun: false
-})
+source note -> cited AI-Output draft -> reviewed durable note
 ```
-
-The server writes `00-Inbox/AI-Output/vault-librarian/YYYY-MM-DD-<slug>.md` with a `#user-confirmed` tag at the body end.
-
-<!-- TODO: screenshot of the written AI-Output note with tag visible -->
-
-### 3. Open the note in Obsidian
-
-Point your Obsidian vault at `VAULT_PATH`. Navigate to `00-Inbox/AI-Output/vault-librarian/` and open the new note. You should see the frontmatter, your body, and a trailing `#user-confirmed` tag that Obsidian treats as a real tag.
-
-### 4. Turn on Local Graph (depth 2)
-
-Inside the note: **View → Open local graph** (or Cmd/Ctrl-P → "Open local graph"). In the graph panel's filter settings, set **Depth** to `2` or `3`. You should see:
-
-- the AI-Output note at the center
-- each wikilink from `sourceNodes` as a neighbor node
-- the `#user-confirmed` tag node, clustering this output with any other human-signed outputs in your vault
-
-<!-- TODO: screenshot of local graph with depth=2 showing tag cluster -->
-
-This visual cluster is the sediment↔citation invariant made concrete: every human-confirmed output is one tag-hop from every source note it cites, and one tag-hop from every other human-confirmed output.
-
-### 5. Round-trip through sweep
-
-Strip the `#user-confirmed` tag from the body and save. Run `vault.sweepAIOutput({ dry_run: false })` once. Re-open the note — a new `history` entry should appear with `axis: status`, confirming the sweep detected the status-axis change. This closes the loop: graph-level human signal → filesystem state → audit trail.
-
-If step 4's local graph does not show the tag cluster, check that `#user-confirmed` is on its own line at the body end (not inside frontmatter — that was the pre-Step-2.6 behavior).
 
 ---
 
 ## Vault structure
 
-You do **not** need to restructure your vault. LLM Wiki Bridge works with whatever you already have.
+You do **not** need to restructure your vault. LLMwiki works with whatever you already have.
 
 It only creates one new directory when a role writes an analysis:
 

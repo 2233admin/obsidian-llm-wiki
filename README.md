@@ -14,11 +14,19 @@
 
 ![demo](docs/gif/demo.gif)
 
-You have 500 markdown notes. You forget half of them. Your AI agent cannot read them -- it paraphrases from its context window and fabricates citations. Every morning you spend 20 minutes re-finding what you already knew.
+You are reading this because your team has already lost knowledge.
 
-LLMwiki is a headless-first MCP server and compiler loop for team research vaults. Raw papers, clippings, repo notes, datasets, and meeting-free research fragments land in `raw/`; the compiler turns them into `wiki/` summaries, concept pages, backlinks, and indexes; agents answer by calling `vault.search` and `vault.read` against cited notes.
+Not because nobody wrote it down. They did: papers, meeting notes, repo findings, screenshots, agent answers. The problem is worse: the knowledge has no state. No source. No reviewer. No promotion path. No way to tell a draft from team truth.
 
-It is not an AI companion. It is a knowledge compiler for team vaults. Obsidian is the IDE, Git/Gitea review is the ledger, and MCP/CLI tools are the execution surface.
+LLMwiki gives that mess a compiler pass:
+
+```
+capture -> compile -> ask -> file -> review -> promote
+```
+
+Put source material in `raw/`. Compile it into `wiki/` summaries, concept pages, backlinks, and contradiction reports. Ask agents cited questions. File useful answers into `00-Inbox/AI-Output/`. Promote only reviewed knowledge into decisions, architecture, and runbooks.
+
+It is not an AI companion. It is a reviewed team memory compiler. Obsidian is the IDE, Git/Gitea review is the ledger, and MCP/CLI tools are the execution surface.
 
 Inspired by [Andrej Karpathy's LLM Wiki](https://github.com/karpathy/llm-wiki). Markdown is the source of truth; the compiler turns structure into a graph; MCP exposes it.
 
@@ -39,6 +47,30 @@ cd obsidian-llm-wiki; .\setup.ps1
 ```
 
 The `setup` script extracts a 1.6 MB skill bundle into your host's skills directory, prints the `.mcp.json` snippet to paste into your agent config, and exits. After restart, your agent picks up the new MCP server and the `/vault-*` knowledge-work roles. The cloned repo can then be deleted — the installed skill is self-contained. If the one-liner breaks, [docs/INSTALL.md](docs/INSTALL.md) has the per-host paths and the manual recipe.
+
+---
+
+## See the loop (5 minutes)
+
+You can verify the compiler loop before wiring any agent host. This demo is local, report-only, and the compiler dry-run uses stub extraction, so it does not need an API key.
+
+```bash
+python compiler/compile.py examples/collab-vault/research-compiler --tier haiku --dry-run
+python scripts/knowledge_health.py --vault examples/collab-vault --json
+python scripts/llmwiki_doctor.py --vault examples/collab-vault --json
+```
+
+Then inspect the before/after:
+
+| Step | Path |
+|---|---|
+| Raw source | `examples/collab-vault/research-compiler/raw/team-memory-os.md` |
+| Compiled summary | `examples/collab-vault/research-compiler/wiki/summaries/team-memory-os.md` |
+| Compiled concept | `examples/collab-vault/research-compiler/wiki/concepts/team-memory-os.md` |
+| Filed AI output | `examples/collab-vault/00-Inbox/AI-Output/codex/project-setup-proposal.md` |
+| Reviewed memory | `examples/collab-vault/20-Decisions/2026-05-16-gitea-reviewed-vault.md` |
+
+That is the product: raw material becomes cited, inspectable, reviewable team memory.
 
 ---
 

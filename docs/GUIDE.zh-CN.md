@@ -10,11 +10,19 @@
 
 ## 这东西到底给你什么
 
-你的 markdown 笔记库里堆了几百条笔记。你的 AI 读不到它们。每天早上你花时间重新翻找自己已经写过的东西。
+你会看这份指南，是因为你的团队已经丢过知识。
 
-**LLMwiki** 把团队 raw research 文件夹变成经过 review、可追问的 Obsidian wiki。你输入 `/vault-librarian 我对 attention heads 了解多少`，agent 去搜真实笔记、读它们、引用路径——它不猜。
+不是没人写。大家写了。问题是笔记、代码发现、agent 回答没有状态：没有出处，没人审核，没有晋升路径。
 
-它不是 AI companion。它是团队 vault 的知识编译器：`raw/` 变成 `wiki/`，有价值的回答进入 `00-Inbox/AI-Output/`，可长期使用的团队知识通过 review 晋升。
+**LLMwiki** 把它变成一条简单闭环：
+
+```
+收集 -> 编译 -> 提问 -> 归档 -> 审核 -> 晋升
+```
+
+原始笔记变成摘要和概念页。有价值的 agent 回答先变成待审核草稿。只有审核过的结论，才成为团队记忆。
+
+它不是 AI companion。它是团队 vault 的知识编译器：`raw/` 变成 `wiki/`，带引用回答进入 `00-Inbox/AI-Output/`，可长期使用的团队知识通过 review 晋升。
 
 支持 **Claude Code、Codex、OpenCode、Gemini CLI** 四种 agent host。Obsidian 可选，不开也能用——filesystem adapter 独立工作。
 
@@ -49,28 +57,42 @@ setup 跑完会打两个片段给你贴——一个进 `.mcp.json`，一个进 `
 
 ---
 
-## Research compiler loop
+## 第一次成功路径
 
-团队 vault 使用这条主线：
+先别碰真实 vault。用内置 demo vault 跑通产品闭环。
+
+当前 compiler 按 topic 目录运行。这个 demo 里，`examples/collab-vault/research-compiler/` 有自己的 `raw/` 和 `wiki/`：
+
+```bash
+python compiler/compile.py examples/collab-vault/research-compiler --tier haiku --dry-run
+python scripts/knowledge_health.py --vault examples/collab-vault --json
+python scripts/llmwiki_doctor.py --vault examples/collab-vault --json
+```
+
+compiler dry-run 使用 stub extraction，不需要 API key。`knowledge_health.py` 检查 raw sources、compiled wiki artifacts、AI-Output 和 promoted memory 是否对齐。`llmwiki_doctor.py` 检查 runtime、policy、lint 和 governance。
+
+把这些文件并排打开：
+
+| 看什么 | 路径 |
+|---|---|
+| Source material | `examples/collab-vault/research-compiler/raw/team-memory-os.md` |
+| Compiled summary | `examples/collab-vault/research-compiler/wiki/summaries/team-memory-os.md` |
+| Filed AI draft | `examples/collab-vault/00-Inbox/AI-Output/codex/project-setup-proposal.md` |
+| Reviewed memory | `examples/collab-vault/20-Decisions/2026-05-16-gitea-reviewed-vault.md` |
+
+闭环就是：
 
 ```
 raw/ -> wiki/ -> query -> 00-Inbox/AI-Output/ -> reviewed/promoted
 ```
 
-当前 compiler 按 topic 目录运行。一个 topic 目录里有自己的 `raw/` 和 `wiki/`：
-
-```bash
-python compiler/compile.py examples/collab-vault/research-compiler --tier haiku --dry-run
-python scripts/knowledge_health.py --vault examples/collab-vault
-```
-
-完整操作见 [RESEARCH_COMPILER_LOOP.md](RESEARCH_COMPILER_LOOP.md)。
+完整操作和技术模型见 [RESEARCH_COMPILER_LOOP.md](RESEARCH_COMPILER_LOOP.md)。
 
 ---
 
-## 第一次真正用起来（5 分钟）
+## 第一次 agent session
 
-前提：你的 vault 里随便有几个 `.md` 文件就行。
+安装后，把 `VAULT_PATH` 指向一个真实 markdown vault，然后重启 agent host。
 
 ### 1. 先确认通路——问个计数
 
@@ -114,7 +136,7 @@ teacher 读取目标笔记，拉出它的双向链接，告诉你它在你的知
 
 historian 按 frontmatter 日期 + mtime 检索，按主题聚合。
 
-闭环就是这样：编译、查询、归档有价值输出，再 review 哪些值得成为团队记忆。
+agent 侧闭环就是这样：带引用查询、归档有价值输出，再 review 哪些值得成为团队记忆。
 
 ---
 
@@ -181,61 +203,19 @@ quarantine-state: new
 
 ---
 
-## 手动测试路径（让沉淀在图谱里可见）
+## 可选 Obsidian 图谱检查
 
-沉淀系统真正的回报，是在 Obsidian Local Graph 里看到 `#user-confirmed` 聚类——一条 AI-Output 笔记在视觉上和它引用的 `source-nodes` 连成一簇。五分钟，一次真写，一次图谱视图。
-
-### 1. 安装
-
-跟着 [30 秒装好](#30-秒装好) 的流程走。你需要 MCP server 跑起来，`VAULT_PATH` 指向一个真的 vault。
-
-### 2. 写一条人确认的 AI-Output
-
-从 agent host 里调一次 `vault.writeAIOutput`，带一个真实的 `parentQuery`、至少一个 wikilink 在 `sourceNodes` 里、以及 `reviewStatus: "user-confirmed"`：
+有了真实 AI-Output 笔记之后，在 Obsidian 里打开一条，把 Local Graph 调到 depth `2`。你应该看到 draft 连到它的 `source-nodes` 和 review tags。这只是视觉检查；产品不变量仍然是文件系统状态：
 
 ```
-vault.writeAIOutput({
-  persona: "vault-librarian",
-  parentQuery: "我对 attention heads 了解多少",
-  sourceNodes: ["[[你 vault 里真有的一条笔记]]"],
-  agent: "claude-opus-4-7",
-  body: "<librarian 的 2-3 段回答>",
-  reviewStatus: "user-confirmed",
-  dryRun: false
-})
+source note -> cited AI-Output draft -> reviewed durable note
 ```
-
-server 会写 `00-Inbox/AI-Output/vault-librarian/YYYY-MM-DD-<slug>.md`，在 body 末尾带一个 `#user-confirmed` 标签。
-
-<!-- TODO: screenshot 写好的 AI-Output 笔记，带标签可见 -->
-
-### 3. 在 Obsidian 里打开这条笔记
-
-把 Obsidian 的 vault 对准 `VAULT_PATH`。进入 `00-Inbox/AI-Output/vault-librarian/`，打开新写的笔记。你应该看到 frontmatter、正文、以及末尾一个 `#user-confirmed` 标签——Obsidian 会把它识别成一个真正的 tag 节点。
-
-### 4. 打开 Local Graph（深度 2）
-
-在笔记里：**View → Open local graph**（或 Cmd/Ctrl-P 搜 "Open local graph"）。在图谱面板的筛选里把 **Depth** 调到 `2` 或 `3`。你应该看到：
-
-- 这条 AI-Output 笔记在中心
-- `sourceNodes` 里每个 wikilink 作为邻居节点
-- `#user-confirmed` 标签节点，把这条产出和 vault 里其他所有人确认的产出聚成一簇
-
-<!-- TODO: screenshot local graph depth=2，展示 tag 聚类 -->
-
-这个视觉聚类就是沉淀↔引用不变量的具象：每一条人确认产出距离它引用的任何 source 只有一个 tag 跳，距离其他任何人确认产出也只有一个 tag 跳。
-
-### 5. 跑一次 sweep 收尾
-
-把正文末尾的 `#user-confirmed` 标签删掉保存。调一次 `vault.sweepAIOutput({ dry_run: false })`。再打开这条笔记——frontmatter 里应该出现一条新的 `history` 条目，`axis: status`，说明 sweep 检测到了 status 轴的变动。闭环完成：图谱层的人信号 → 文件系统状态 → 审计轨迹。
-
-如果第 4 步的 local graph 里没看到标签聚类，先确认 `#user-confirmed` 是在正文末尾**独立一行**（不在 frontmatter 里——那是 Step 2.6 之前的行为）。
 
 ---
 
 ## Vault 结构
 
-你**不需要**重新组织你的 vault。LLM Wiki Bridge 直接在你现有结构上工作。
+你**不需要**重新组织你的 vault。LLMwiki 直接在你现有结构上工作。
 
 它只会在知识工种写产出时新建一个目录：
 

@@ -8,6 +8,29 @@ raw/ -> wiki/ -> query -> 00-Inbox/AI-Output/ -> reviewed/promoted durable knowl
 
 This is not an AI companion workflow. The agent is a compiler/operator in the knowledge pipeline.
 
+## Technical Model
+
+Think of the vault as a small machine with explicit memory and explicit state transitions:
+
+| Layer | What it is | Concrete surface |
+|---|---|---|
+| Storage | Markdown files on disk. | `raw/`, `wiki/`, `00-Inbox/AI-Output/`, reviewed team paths |
+| Instruction surface | The ways work enters the machine. | CLI scripts, MCP tools, `/vault-*` role prompts |
+| Compute step | Code or agent work that transforms state. | compiler, search/read tools, doctor, human review |
+| Memory state | The current trustedness of knowledge. | raw source, compiled draft, quarantined output, reviewed memory |
+
+The core state transition is:
+
+```
+source -> compiled artifact -> cited answer -> quarantined draft -> reviewed durable memory
+```
+
+Three invariants keep the system from becoming chat sludge:
+
+- Agents may write drafts, but not durable team truth.
+- `00-Inbox/AI-Output/` is quarantine, not memory.
+- Durable paths are human-reviewed and versioned through Git/Gitea.
+
 ## Vault Layout
 
 ```

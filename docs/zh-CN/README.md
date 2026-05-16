@@ -14,11 +14,19 @@
 
 ![demo](../gif/demo.gif)
 
-你 vault 里堆了 500 条笔记。一半你已经忘了。你的 AI agent 读不到它们——它只在上下文窗口里拼凑，顺手编造引用。你每天早上花 20 分钟重新翻找自己已经写过的东西。
+你会看到这个项目，是因为你的团队已经丢过知识。
 
-LLMwiki 是一个面向团队 research vault 的 headless-first MCP 服务器和编译循环。论文、剪藏、repo notes、datasets、图片注释先进 `raw/`；编译器把它们变成 `wiki/` summaries、concept pages、backlinks 和 indexes；agent 通过 `vault.search` 和 `vault.read` 基于引用回答。
+不是没人写。大家写了：论文、会议记录、代码发现、截图、agent 回答。问题更坏：这些东西没有状态。没有出处。没人审核。没有晋升路径。没人分得清草稿和团队事实。
 
-它不是 AI companion。它是团队 vault 的知识编译器。Obsidian 是 IDE，Git/Gitea review 是账本，MCP/CLI 是执行面。
+LLMwiki 给这堆东西补一个编译流程：
+
+```
+收集 -> 编译 -> 提问 -> 归档 -> 审核 -> 晋升
+```
+
+材料放进 `raw/`。编译成 `wiki/` 里的摘要、概念页、反向链接和矛盾报告。agent 带引用回答。有价值的答案进 `00-Inbox/AI-Output/`。只有审核过的结论，才晋升到决策、架构和运行手册。
+
+它不是 AI companion。它是经过 review 的团队记忆编译器。Obsidian 是 IDE，Git/Gitea review 是账本，MCP/CLI 是执行面。
 
 概念源自 [Andrej Karpathy 的 LLM Wiki](https://github.com/karpathy/llm-wiki)。markdown 是唯一事实来源，编译出结构，MCP 暴露。
 
@@ -39,6 +47,30 @@ cd obsidian-llm-wiki; .\setup.ps1
 ```
 
 `setup` 脚本把一份 1.6 MB 的 skill 包解压到 host 的 skills 目录，把 `.mcp.json` 片段打到屏幕让你贴进 agent 配置，然后退出。重启 agent host 之后就能看到 MCP 服务器和 `/vault-*` 知识工种。装完仓库本体可以删——skill 是独立的。一条命令跑不通，[INSTALL.md](../INSTALL.md) 里有各 host 的路径和手工安装流程。
+
+---
+
+## 5 分钟看懂闭环
+
+不用先接 agent host，也能验证 compiler loop。这个 demo 是本地、report-only；compiler dry-run 使用 stub extraction，不需要 API key。
+
+```bash
+python compiler/compile.py examples/collab-vault/research-compiler --tier haiku --dry-run
+python scripts/knowledge_health.py --vault examples/collab-vault --json
+python scripts/llmwiki_doctor.py --vault examples/collab-vault --json
+```
+
+然后看 before/after：
+
+| 步骤 | 路径 |
+|---|---|
+| Raw source | `examples/collab-vault/research-compiler/raw/team-memory-os.md` |
+| Compiled summary | `examples/collab-vault/research-compiler/wiki/summaries/team-memory-os.md` |
+| Compiled concept | `examples/collab-vault/research-compiler/wiki/concepts/team-memory-os.md` |
+| Filed AI output | `examples/collab-vault/00-Inbox/AI-Output/codex/project-setup-proposal.md` |
+| Reviewed memory | `examples/collab-vault/20-Decisions/2026-05-16-gitea-reviewed-vault.md` |
+
+这就是产品本体：raw material 变成带引用、可检查、可 review 的团队记忆。
 
 ---
 
@@ -134,6 +166,7 @@ Wiki 放长文答案，任意顺序读。
 | [**Architecture**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Architecture) | 四层系统图。请求生命周期（8 步，从 `/vault-librarian` 到带引用的回答）。扩展点。 |
 | [**Adapter-Spec**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Adapter-Spec) | Adapter 契约、能力矩阵、fan-out 与排序、失败模式、写第五个 adapter 的 recipe。 |
 | [**Compile-Pipeline**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Compile-Pipeline) | 编译每阶段的产物、概念图存哪、性能参考点。 |
+| [**Research Compiler Loop**](../RESEARCH_COMPILER_LOOP.md) | 产品闭环：raw materials、compiled wiki、带引用 Q&A、AI-Output 归档、review、promotion。 |
 | [**Persona-Design**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Persona-Design) | 面向用户的知识工种 vs 底层 skill。不让它们退化成一个 generic agent 的设计纪律。 |
 | [**Security-Model**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Security-Model) | Dry-run 默认、受保护路径、preflight 门、bearer token 传输、明确不解决的安全问题。 |
 | [**Recipes**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Recipes) | 内容采集器和本地知识喂料器（Feishu、Gmail、Linear、X、WeChat、Dreamtime 等）把外部源落地进 vault。 |

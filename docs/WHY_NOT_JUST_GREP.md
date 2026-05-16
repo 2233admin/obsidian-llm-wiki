@@ -14,7 +14,7 @@ Example: your vault has a note titled `A3: KV-Cache Optimization` with alias `kv
 
 ## 2. Grep is stateless. This is compiled.
 
-Grep scans on every invocation. The first query costs the same as the 1,000th. LLM Wiki Bridge compiles your vault once. On a 554-note vault, it produces a concept graph with 2,507 edges in under 3 seconds. Every subsequent query reuses that graph. The agent calls `vault.backlinks` and gets the full backlink map without rescanning the filesystem.
+Grep scans on every invocation. The first query costs the same as the 1,000th. LLMwiki compiles your vault once. On a 554-note vault, it produces a concept graph with 2,507 edges in under 3 seconds. Every subsequent query reuses that graph. The agent calls `vault.backlinks` and gets the full backlink map without rescanning the filesystem.
 
 ---
 
