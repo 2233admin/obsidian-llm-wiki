@@ -30,6 +30,15 @@ from chunker import chunk_file
 from extractor import ExtractionResult, extract_chunk, resolve_model, resolve_provider_url
 from models import Claim, CompileReport, Contradiction
 
+# HTML export (optional)
+try:
+    from html_export import ExportOptions, ExportReport, export_to_html
+    HTML_EXPORT_AVAILABLE = True
+except ImportError:
+    HTML_EXPORT_AVAILABLE = False
+    ExportOptions = None
+    ExportReport = None
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -389,6 +398,43 @@ def step_index(vault: str, topic: str, dry_run: bool) -> int:
 
 
 # ---------------------------------------------------------------------------
+# Step: html-export (optional)
+# ---------------------------------------------------------------------------
+
+def step_html_export(
+    wiki_dir: Path,
+    theme: str,
+    output_dir: Path | None,
+    dry_run: bool,
+) -> ExportReport | None:
+    """Export wiki to HTML using the selected theme."""
+    if not HTML_EXPORT_AVAILABLE:
+        print("  [warn] html_export module not available, skipping HTML export")
+        return None
+
+    options = ExportOptions(
+        theme=theme,
+        include_summaries=True,
+        include_concepts=True,
+        include_index=True,
+        output_dir=output_dir,
+    )
+
+    if dry_run:
+        out_dir = output_dir or wiki_dir.parent / "html"
+        print(f"  [dry-run] would export HTML to {out_dir}")
+        print(f"  [dry-run] theme: {theme}")
+        return None
+
+    try:
+        out_dir = output_dir or wiki_dir.parent / "html"
+        return export_to_html(wiki_dir, out_dir, options)
+    except RuntimeError as e:
+        print(f"  [warn] HTML export failed: {e}")
+        return None
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -431,6 +477,23 @@ def main() -> None:
         default=None,
         help="API key (env: OPENAI_API_KEY or ANTHROPIC_API_KEY)",
     )
+    # HTML export options
+    parser.add_argument(
+        "--export-html",
+        action="store_true",
+        help="Export compiled wiki to HTML (requires Pandoc)",
+    )
+    parser.add_argument(
+        "--theme",
+        default="reading",
+        choices=["article", "report", "reading", "interactive"],
+        help="HTML theme for export (default: reading)",
+    )
+    parser.add_argument(
+        "--html-output-dir",
+        default=None,
+        help="Output directory for HTML (default: <topic>/html)",
+    )
     args = parser.parse_args()
 
     # resolve vault / topic
@@ -470,8 +533,20 @@ def main() -> None:
     dirty = step_diff(vault, topic)
     if not dirty:
         print("  Nothing to compile. All sources up to date.")
-        report = CompileReport(0, 0, 0, 0, 0, 0)
-        _print_report(report)
+        # Still allow HTML export if requested
+        if args.export_html:
+            wiki_path = Path(vault) / topic / "wiki"
+            if wiki_path.exists():
+                html_output = Path(args.html_output_dir) if args.html_output_dir else None
+                print(f"\n[2/2] html-export -- theme={args.theme}...")
+                html_report = step_html_export(wiki_path, args.theme, html_output, args.dry_run)
+                report = CompileReport(0, 0, 0, 0, 0, 0)
+                _print_report(report, html_report)
+            else:
+                print("  [warn] No wiki/ directory found, skipping HTML export")
+                _print_report(CompileReport(0, 0, 0, 0, 0, 0))
+        else:
+            _print_report(CompileReport(0, 0, 0, 0, 0, 0))
         return
     print(f"  {len(dirty)} file(s) to compile: {dirty}")
 
@@ -508,6 +583,14 @@ def main() -> None:
     print("\n[7/7] index + check-links...")
     broken_links = step_index(vault, topic, args.dry_run)
 
+    # 8. html-export (optional)
+    html_report = None
+    if args.export_html:
+        wiki_path = Path(vault) / topic / "wiki"
+        html_output = Path(args.html_output_dir) if args.html_output_dir else None
+        print(f"\n[8/8] html-export -- theme={args.theme}...")
+        html_report = step_html_export(wiki_path, args.theme, html_output, args.dry_run)
+
     # report
     report = CompileReport(
         sources_compiled=len(dirty),
@@ -517,7 +600,7 @@ def main() -> None:
         contradictions_found=contradictions_found,
         broken_links=broken_links,
     )
-    _print_report(report)
+    _print_report(report, html_report)
 
 
 def _load_existing_concept_names(concepts_dir: Path) -> list[str]:
@@ -537,7 +620,7 @@ def _load_existing_concept_names(concepts_dir: Path) -> list[str]:
     return names
 
 
-def _print_report(report: CompileReport) -> None:
+def _print_report(report: CompileReport, html_report: ExportReport | None = None) -> None:
     print("\n=== Compilation Report ===")
     print(f"  Sources compiled  : {report.sources_compiled}")
     print(f"  Summaries written : {report.summaries_written}")
@@ -545,6 +628,10 @@ def _print_report(report: CompileReport) -> None:
     print(f"  Concepts updated  : {report.concepts_updated}")
     print(f"  Contradictions    : {report.contradictions_found}")
     print(f"  Broken links      : {report.broken_links}")
+    if html_report:
+        print(f"  HTML exported     : {html_report.files_exported} file(s) [{html_report.theme}]")
+        if html_report.files_failed > 0:
+            print(f"  HTML failed       : {html_report.files_failed} file(s)")
     print()
 
 
