@@ -26,6 +26,28 @@ import { makeAllOperations } from "./core/operations.js";
 import type { OperationContext, Logger, VaultExecutor, VaultMindConfig } from "./core/types.js";
 import { validateParams, rejectDangerousRegex } from "./core/validate.js";
 
+// Precompiled regex patterns for performance (avoid recompilation on every call)
+const WIKILINK_RE = /\[\[([^\]|]+)(?:\|([^\]]*))?\]\]/g;
+const TAG_RE = /(?:^|\s)#([a-zA-Z_一-鿿][\w/一-鿿-]*)/gm;
+const CODE_FENCE_RE = /```[\s\S]*?```/g;
+const INLINE_CODE_RE = /`[^`]*`/g;
+
+// Simple LRU cache for frontmatter parsing (keyed by content hash)
+const FRONTMATTER_CACHE = new Map<string, Record<string, unknown> | null>();
+const FRONTMATTER_CACHE_MAX = 100;
+
+function getCachedFrontmatter(key: string): Record<string, unknown> | null | undefined {
+  return FRONTMATTER_CACHE.get(key);
+}
+
+function setCachedFrontmatter(key: string, value: Record<string, unknown> | null): void {
+  if (FRONTMATTER_CACHE.size >= FRONTMATTER_CACHE_MAX) {
+    const firstKey = FRONTMATTER_CACHE.keys().next().value;
+    if (firstKey !== undefined) FRONTMATTER_CACHE.delete(firstKey);
+  }
+  FRONTMATTER_CACHE.set(key, value);
+}
+
 // Config
 
 function loadConfig(): VaultMindConfig {
@@ -371,8 +393,12 @@ export class VaultFs {
 
   parseFrontmatter(content: string): Record<string, unknown> | null {
     if (!content.startsWith("---")) return null;
+    // Use cache key based on first 200 chars of frontmatter block
     const end = content.indexOf("\n---", 3);
     if (end === -1) return null;
+    const cacheKey = content.slice(0, Math.min(end, 200));
+    const cached = getCachedFrontmatter(cacheKey);
+    if (cached !== undefined) return cached;
     const block = content.slice(4, end);
     const fm: Record<string, unknown> = {};
     let currentKey: string | null = null;
@@ -403,25 +429,28 @@ export class VaultFs {
       }
     }
     if (inArray && currentKey) fm[currentKey] = arrayItems;
+    setCachedFrontmatter(cacheKey, fm);
     return fm;
   }
 
   parseWikilinks(content: string): Array<{ link: string; displayText: string }> {
     const links: Array<{ link: string; displayText: string }> = [];
-    const re = /\[\[([^\]|]+)(?:\|([^\]]*))?\]\]/g;
+    // Use precompiled regex from module level
+    WIKILINK_RE.lastIndex = 0;
     let m: RegExpExecArray | null;
-    while ((m = re.exec(content)) !== null) {
+    while ((m = WIKILINK_RE.exec(content)) !== null) {
       links.push({ link: m[1], displayText: m[2] || m[1] });
     }
     return links;
   }
 
   parseTags(content: string): string[] {
-    const cleaned = content.replace(/```[\s\S]*?```/g, "").replace(/`[^`]*`/g, "");
+    const cleaned = content.replace(CODE_FENCE_RE, "").replace(INLINE_CODE_RE, "");
     const tags: string[] = [];
-    const re = /(?:^|\s)#([a-zA-Z_一-鿿][\w/一-鿿-]*)/gm;
+    // Use precompiled regex from module level
+    TAG_RE.lastIndex = 0;
     let m: RegExpExecArray | null;
-    while ((m = re.exec(cleaned)) !== null) { tags.push("#" + m[1]); }
+    while ((m = TAG_RE.exec(cleaned)) !== null) { tags.push("#" + m[1]); }
     return [...new Set(tags)];
   }
 
