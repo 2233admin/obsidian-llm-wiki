@@ -2,13 +2,16 @@
 
 Usage:
     from wal import WAL
-    wal = WAL(vault_path / ".vault_wal.jsonl")
+    wal = WAL(vault_root)          # writes vault_root/.vault_wal.jsonl
 
     # Log operations
     wal.append("create", "path/to/file.md", "abc123")
     wal.append("update", "path/to/file.md", "def456")
 
-    # Replay changes
+    # Read all entries
+    entries = WAL.read_all(vault_root)
+
+    # Replay from a timestamp
     for entry in wal.replay():
         print(entry)
 """
@@ -34,8 +37,10 @@ class WALEntry:
 class WAL:
     """Append-only Write-Ahead Log for change tracking and time-travel debugging."""
 
-    def __init__(self, path: Path | str):
-        self.path = Path(path)
+    def __init__(self, vault_root: Path | str):
+        """Initialise WAL pointing at vault_root / '.vault_wal.jsonl'."""
+        root = Path(vault_root)
+        self.path = root / ".vault_wal.jsonl"
         self.path.parent.mkdir(parents=True, exist_ok=True)
 
     def append(self, action: str, path: str, hash: str | None = None) -> None:
@@ -86,3 +91,21 @@ class WAL:
         """Get the last n entries."""
         entries = list(self.replay())
         return entries[-n:] if len(entries) > n else entries
+
+    @classmethod
+    def read_all(cls, vault_root: Path | str) -> list[WALEntry]:
+        """Read every entry from the WAL at vault_root (classmethod reader)."""
+        path = Path(vault_root) / ".vault_wal.jsonl"
+        if not path.exists():
+            return []
+        entries: list[WALEntry] = []
+        with open(path, "rb") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entries.append(WALEntry(**orjson.loads(line)))
+                except (orjson.JSONDecodeError, TypeError):
+                    continue
+        return entries
