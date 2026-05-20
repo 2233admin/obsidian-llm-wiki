@@ -79,8 +79,60 @@ def _run_kb_meta_cmd(args: list[str]) -> dict:
 # Step: diff
 # ---------------------------------------------------------------------------
 
+def _git_diff_dirty(vault: str, topic: str) -> list[str]:
+    """Return changed file paths via git diff --name-only, filtered to the topic's raw/ dir.
+
+    Returns an empty list if not in a git repo or if the command fails.
+    """
+    base = Path(vault) / topic
+    raw_dir = base / "raw"
+    if not raw_dir.exists():
+        return []
+
+    try:
+        result = subprocess.run(
+            ["git", "diff", "--name-only", "HEAD"],
+            cwd=str(base),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+    except FileNotFoundError:
+        # git not on PATH
+        return []
+
+    if result.returncode != 0:
+        return []
+
+    dirty: list[str] = []
+    for line in result.stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        # git diff returns paths relative to base (cwd); strip raw/ prefix if present
+        if line.startswith("raw/"):
+            rel = line[4:]
+        elif line.startswith("raw\\"):
+            rel = line[4:]
+        else:
+            # not under raw/ -- skip
+            continue
+        dirty.append(rel)
+
+    return dirty
+
+
 def step_diff(vault: str, topic: str) -> list[str]:
-    """Return relative paths of new/changed raw files."""
+    """Return relative paths of new/changed raw files.
+
+    Uses git diff --name-only when available (incremental mode) and falls back
+    to kb_meta diff for non-git vaults.
+    """
+    git_dirty = _git_diff_dirty(vault, topic)
+    if git_dirty:
+        return git_dirty
+
+    # Fallback: use kb_meta diff (handles non-git vaults and untracked files)
     result = _run_kb_meta_cmd(["diff", vault, topic])
     dirty = result.get("new", []) + result.get("changed", [])
     return dirty
