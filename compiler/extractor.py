@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-import json
 import sys
 import urllib.request
 from dataclasses import dataclass
 from typing import Any
+
+import orjson
 
 from models import Chunk
 
@@ -99,12 +100,12 @@ def _call_api(
     timeout: int = 60,
 ) -> str:
     """Minimal HTTP call to OpenAI-compatible /chat/completions endpoint."""
-    payload = json.dumps({
+    payload = orjson.dumps({
         "model": model,
         "messages": messages,
         "max_tokens": 1024,
         "temperature": 0.2,
-    }).encode("utf-8")
+    })
 
     url = base_url.rstrip("/") + "/chat/completions"
     req = urllib.request.Request(
@@ -117,7 +118,7 @@ def _call_api(
         method="POST",
     )
     with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
-        body = json.loads(resp.read().decode("utf-8"))
+        body = orjson.loads(resp.read())
 
     return body["choices"][0]["message"]["content"]
 
@@ -146,13 +147,18 @@ def extract_chunk(
     # strip markdown fences if model ignores instruction
     raw = raw.strip()
     if raw.startswith("```"):
-        raw = "\n".join(raw.split("\n")[1:])
+        first_newline = raw.find("\n")
+        last_newline = raw.rfind("\n")
+        if first_newline != last_newline:
+            raw = raw[first_newline+1:last_newline]
+        else:
+            raw = raw[first_newline+1:] if first_newline >= 0 else ""
     if raw.endswith("```"):
-        raw = "\n".join(raw.split("\n")[:-1])
+        raw = raw[:-3].rstrip()
 
     try:
-        data = json.loads(raw)
-    except json.JSONDecodeError as exc:
+        data = orjson.loads(raw)
+    except orjson.JSONDecodeError as exc:
         print(
             f"[warn] JSON parse failed for chunk {chunk.source!r} "
             f"(heading={chunk.heading!r}): {exc}",

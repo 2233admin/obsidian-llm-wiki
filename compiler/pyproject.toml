@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Knowledge compiler -- raw notes to structured concept graph"
 requires-python = ">=3.11"
 license = "GPL-3.0-only"
-dependencies = []
+dependencies = ["orjson>=3.9"]
 
 [project.optional-dependencies]
 llm = ["openai>=1.0", "anthropic>=0.30"]
