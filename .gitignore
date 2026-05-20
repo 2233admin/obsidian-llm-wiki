@@ -52,3 +52,4 @@ mcp-server/smoke.err
 .claude/
 .outreach/
 /package-lock.json
+agent_logs/
