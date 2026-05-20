@@ -32,6 +32,38 @@ const TAG_RE = /(?:^|\s)#([a-zA-Z_一-鿿][\w/一-鿿-]*)/gm;
 const CODE_FENCE_RE = /```[\s\S]*?```/g;
 const INLINE_CODE_RE = /`[^`]*`/g;
 
+/** Markdown heading: # through ###### followed by space and text */
+const HEADING_RE = /^(#{1,6})\s+(.+)/;
+/** YAML history key (flow-style) */
+const HISTORY_KEY_RE = /^history:\s*$/m;
+/** YAML history key on a single line (used inline) */
+const HISTORY_LINE_RE = /^history:\s*$/;
+/** YAML array item under a key (two leading spaces + dash) */
+const HISTORY_ITEM_RE = /^ {2}- /;
+/** Strip trailing newlines */
+const TRAILING_NL_RE = /
++$/;
+/** Escape regex special chars in plain-text vault.search queries */
+const SEARCH_ESCAPE_RE = /[.*+?^${}()|[\]\]/g;
+/** Detect single shell-command queries (writeAIOutput guard) */
+const SINGLE_CMD_RE = /^\s*(pwd|ls|cd|cat|rg|grep|echo|git\s+status|git\s+diff)[^
+]*$/i;
+/** Detect existing #user-confirmed tag */
+const USER_CONFIRMED_RE = /(^|\s)#user-confirmed(\s|$)/m;
+/** Flip status: draft → stale in frontmatter (multiline) */
+const STATUS_FLIP_RE = /(^---[\s\S]*?
+status: )draft(
+[\s\S]*?^---$)/m;
+/** Escape glob special characters for use in a RegExp */
+const GLOB_ESCAPE_RE = /[.+^${}()|[\]\]/g;
+/** Normalize Windows backslash to forward slash */
+const PATHSEP_RE = /\/g;
+/** Detect Windows absolute-path prefix (e.g. C:\) */
+const WIN_ABS_RE = /^[A-Za-z]:[\/]/;
+/** Remove fenced code blocks (alias for CODE_FENCE_RE for API compat) */
+const CODE_BLOCK_RE = CODE_FENCE_RE;
+
+
 // Simple LRU cache for frontmatter parsing (keyed by content hash)
 const FRONTMATTER_CACHE = new Map<string, Record<string, unknown> | null>();
 const FRONTMATTER_CACHE_MAX = 100;
@@ -307,17 +339,17 @@ function appendHistoryInYaml(content: string, flowItem: string): string {
   const yamlBlock = content.slice(4, end);
   const after = content.slice(end);
 
-  const historyKeyRe = /^history:\s*$/m;
+  // uses HISTORY_KEY_RE (module-level)
   let newBlock: string;
-  if (historyKeyRe.test(yamlBlock)) {
+  if (HISTORY_KEY_RE.test(yamlBlock)) {
     // Insert after the last `  - ` item following history:
     const lines = yamlBlock.split("\n");
     let hIdx = -1;
     for (let i = 0; i < lines.length; i++) {
-      if (/^history:\s*$/.test(lines[i])) { hIdx = i; break; }
+      if (HISTORY_LINE_RE.test(lines[i])) { hIdx = i; break; }
     }
     let insertAt = hIdx + 1;
-    while (insertAt < lines.length && /^ {2}- /.test(lines[insertAt])) insertAt++;
+    while (insertAt < lines.length && HISTORY_ITEM_RE.test(lines[insertAt])) insertAt++;
     lines.splice(insertAt, 0, `  - ${flowItem}`);
     newBlock = lines.join("\n");
   } else {
@@ -445,7 +477,7 @@ export class VaultFs {
   }
 
   parseTags(content: string): string[] {
-    const cleaned = content.replace(CODE_FENCE_RE, "").replace(INLINE_CODE_RE, "");
+    const cleaned = content.replace(CODE_BLOCK_RE, "").replace(INLINE_CODE_RE, "");
     const tags: string[] = [];
     // Use precompiled regex from module level
     TAG_RE.lastIndex = 0;
@@ -1048,7 +1080,7 @@ export class VaultFs {
 
         // Body tag injection for human-confirmed entries. Obsidian treats
         // repeated tags as one, but we skip duplicate writes to keep diffs clean.
-        const bodyWithTag = reviewStatus === "user-confirmed" && !/(^|\s)#user-confirmed(\s|$)/m.test(body)
+        const bodyWithTag = reviewStatus === "user-confirmed" && !USER_CONFIRMED_RE.test(body)
           ? `${body.replace(/\n+$/, "")}\n\n#user-confirmed`
           : body;
 
