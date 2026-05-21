@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator
 
@@ -55,24 +55,10 @@ def _get_theme_path(theme: str) -> Path | None:
 def _convert_code_blocks(text: str) -> str:
     """Convert markdown code blocks to Prism-compatible format.
 
-    Adds data-lang attribute for Prism to detect and highlight.
+    Currently a no-op: Pandoc emits ``language-xxx`` classes on ``<code>``
+    elements, which Prism.js re-highlights at load time, so no preprocessing
+    is needed here.
     """
-    import re
-
-    # Pattern: ```language\ncontent\n```
-    code_block_re = re.compile(
-        r"```(\w+)\n(.*?)```",
-        re.DOTALL
-    )
-
-    def replace_code_block(match: re.Match) -> str:
-        lang = match.group(1).lower()
-        content = match.group(2)
-        # Use language-xxx class for Prism
-        return f'```python\n{content}```'  # Let Pandoc handle the language
-
-    # Don't modify - let Pandoc handle it with its own highlighting
-    # Prism will re-highlight via class="language-xxx"
     return text
 
 
@@ -191,7 +177,7 @@ def _run_pandoc(
     ]
 
     if css_file and css_file.exists():
-        cmd.append(f"--css=css/style.css")
+        cmd.append("--css=css/style.css")
 
     if title:
         cmd.extend(["--metadata", f"title={title}"])
@@ -218,7 +204,6 @@ def _process_markdown(content: str, source_path: Path | None = None) -> str:
     - Convert Obsidian callouts
     - Clean up Obsidian-specific syntax
     """
-    import re
 
     # Convert code blocks for Prism.js (before Pandoc processes them)
     content = _convert_code_blocks(content)
@@ -288,7 +273,7 @@ def _convert_tabs(text: str) -> str:
         tab_content = ['<div class="tab-set">']
         for label, content in tabs:
             safe_label = re.sub(r"[^\w\s-]", "", label)
-            tab_content.append(f'<div class="tab" data-label="{label}">')
+            tab_content.append(f'<div class="tab" data-label="{safe_label}">')
             tab_content.append(content)
             tab_content.append("</div>")
         tab_content.append("</div>")
@@ -332,7 +317,7 @@ def _convert_callouts(text: str) -> str:
             f'<div class="callout callout-{callout_type}">\n'
             f"<strong>{title}</strong>\n"
             + "\n".join(paragraphs) +
-            f"\n</div>\n"
+            "\n</div>\n"
         )
 
     return callout_re.sub(replace_callout, text)
@@ -595,7 +580,7 @@ def main() -> None:
 
     try:
         report = export_to_html(args.wiki_dir, output_dir, options)
-        print(f"\nExport complete:")
+        print("\nExport complete:")
         print(f"  Files exported: {report.files_exported}")
         print(f"  Files failed:   {report.files_failed}")
         print(f"  Links converted: {report.links_converted}")

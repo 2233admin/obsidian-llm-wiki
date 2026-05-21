@@ -6,7 +6,7 @@ from pathlib import Path
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from html_export.wikilink_converter import wikilinks_to_html, slugify
+from html_export.wikilink_converter import slugify, wikilinks_to_html
 
 
 def test_basic_wikilink():
@@ -89,8 +89,9 @@ def test_callout_types():
 
 def test_markdown_processing():
     """Test full markdown processing pipeline."""
-    from html_export.exporter import _process_markdown
     from pathlib import Path
+
+    from html_export.exporter import _process_markdown
 
     text = """# Test Document
 
