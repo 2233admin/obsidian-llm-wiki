@@ -1,0 +1,254 @@
+/* Report theme - Professional whitepaper style
+   Clean corporate design, high information density, numbered sections */
+
+:root {
+  --text-primary: #1a1a2e;
+  --text-secondary: #4a4a68;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8f9fa;
+  --bg-header: #1a1a2e;
+  --text-header: #ffffff;
+  --border-color: #dee2e6;
+  --accent-color: #0d6efd;
+  --accent-secondary: #198754;
+  --warning-color: #dc3545;
+  --code-bg: #f1f3f4;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+}
+
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 40px;
+}
+
+/* Header / Cover */
+header {
+  background: var(--bg-header);
+  color: var(--text-header);
+  padding: 60px 0;
+  text-align: center;
+}
+
+header h1 {
+  font-size: 2.5em;
+  font-weight: 700;
+  margin: 0 0 20px;
+  color: var(--text-header);
+}
+
+header .meta {
+  font-size: 0.95em;
+  opacity: 0.8;
+  margin-top: 30px;
+}
+
+/* Main content */
+main {
+  padding: 40px 0 80px;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: inherit;
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 1.8em 0 0.8em;
+  color: var(--text-primary);
+}
+
+h1 { font-size: 1.8em; border-bottom: 2px solid var(--accent-color); padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; }
+h3 { font-size: 1.25em; }
+h4 { font-size: 1.1em; }
+
+h1:first-child, h2:first-child { margin-top: 0; }
+
+/* Numbered sections */
+h2 { counter-increment: h2-counter; }
+h2::before {
+  content: counter(h2-counter) ". ";
+  color: var(--accent-color);
+  font-weight: 700;
+}
+
+body { counter-reset: h2-counter; }
+
+a {
+  color: var(--accent-color);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+p {
+  margin: 1em 0;
+}
+
+ul, ol {
+  margin: 1em 0;
+  padding-left: 1.8em;
+}
+
+li {
+  margin: 0.4em 0;
+}
+
+/* Table of Contents */
+.toc {
+  background: var(--bg-secondary);
+  padding: 25px 30px;
+  margin: 2em 0;
+  border-radius: 6px;
+  border-left: 4px solid var(--accent-color);
+}
+
+.toc h2 {
+  margin-top: 0;
+  font-size: 1.2em;
+}
+
+.toc ul {
+  list-style: none;
+  margin: 0.5em 0;
+}
+
+.toc li {
+  margin: 0.3em 0;
+}
+
+.toc a {
+  color: var(--text-secondary);
+}
+
+blockquote {
+  margin: 1.5em 0;
+  padding: 1em 1.5em;
+  border-left: 4px solid var(--accent-secondary);
+  background: var(--bg-secondary);
+}
+
+blockquote::before {
+  content: "Note: ";
+  font-weight: 600;
+  color: var(--accent-secondary);
+}
+
+code {
+  font-family: 'SF Mono', Monaco, 'Consolas', monospace;
+  font-size: 0.9em;
+  background: var(--code-bg);
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+}
+
+pre {
+  margin: 1.5em 0;
+  padding: 1em;
+  background: var(--code-bg);
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 0.85em;
+  line-height: 1.5;
+  border: 1px solid var(--border-color);
+}
+
+pre code {
+  background: none;
+  padding: 0;
+}
+
+table {
+  width: 100%;
+  margin: 1.5em 0;
+  border-collapse: collapse;
+  font-size: 0.95em;
+}
+
+th, td {
+  padding: 0.75em 1em;
+  text-align: left;
+  border: 1px solid var(--border-color);
+}
+
+th {
+  background: var(--bg-secondary);
+  font-weight: 600;
+}
+
+tr:nth-child(even) {
+  background: var(--bg-secondary);
+}
+
+hr {
+  border: none;
+  border-top: 1px solid var(--border-color);
+  margin: 2em 0;
+}
+
+/* Callout boxes */
+.callout {
+  margin: 1.5em 0;
+  padding: 1em 1.2em;
+  border-radius: 4px;
+  border-left: 4px solid;
+}
+
+.callout-note { background: #e7f3ff; border-color: #0d6efd; }
+.callout-tip { background: #d1e7dd; border-color: #198754; }
+.callout-warning { background: #fff3cd; border-color: #dc3545; }
+.callout-info { background: #cff4fc; border-color: #0dcaf0; }
+
+/* Index */
+.index-list {
+  list-style: none;
+  padding: 0;
+  columns: 3;
+  column-gap: 2em;
+}
+
+.index-list li {
+  break-inside: avoid;
+  padding: 0.5em 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.index-list li:last-child {
+  border-bottom: none;
+}
+
+.index-list a {
+  color: var(--text-primary);
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 0 20px;
+  }
+
+  .index-list {
+    columns: 1;
+  }
+
+  header {
+    padding: 40px 0;
+  }
+
+  header h1 {
+    font-size: 1.8em;
+  }
+}
