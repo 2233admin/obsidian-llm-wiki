@@ -96,41 +96,37 @@ if ($DryRun) {
 Copy-Item-OrDryRun -Source (Join-Path $ScriptDir "mcp-server\bundle.js")    -Destination $McpDest
 Copy-Item-OrDryRun -Source (Join-Path $ScriptDir "mcp-server\package.json") -Destination $McpDest
 
-# Register skills: copy each skill to top-level ~/.claude/skills/<name>/SKILL.md
-# Claude Code slash commands expect skills at this level, not in a subdirectory.
-$SkillDirs = @("vault-save", "vault-world", "vault-challenge", "vault-emerge",
-                "vault-connect", "vault-health", "vault-reconcile", "vault-graduate",
-                "vault-ingest", "vault-bridge", "vault-librarian", "vault-architect",
-                "vault-curator", "vault-teacher", "vault-historian", "vault-janitor")
+# Register every vault skill at the host skill root so hosts that expose
+# skill/slash-command discovery do not need to know about vault-wiki/skills.
 $InstalledSkills = 0
-foreach ($skill in $SkillDirs) {
-  $src = Join-Path $ScriptDir "skills" "${skill}.md"
-  if (Test-Path $src) {
-    $destDir = Join-Path $SkillsDir "..\$skill"
-    if ($DryRun) {
-      Write-Host "[dry-run] mkdir $destDir"
-      Write-Host "[dry-run] copy $src -> $destDir\SKILL.md"
-    } else {
-      New-Item -ItemType Directory -Force -Path $destDir | Out-Null
-      Copy-Item -Path $src -Destination (Join-Path $destDir "SKILL.md") -Force
-    }
-    $InstalledSkills++
+$SkillRoot = Join-Path $ScriptDir "skills"
+foreach ($skillFile in Get-ChildItem -Path $SkillRoot -Filter "vault-*.md" -File) {
+  $skill = [System.IO.Path]::GetFileNameWithoutExtension($skillFile.Name)
+  $destDir = Join-Path $ParentDir $skill
+  if ($DryRun) {
+    Write-Host "[dry-run] mkdir $destDir"
+    Write-Host "[dry-run] copy $($skillFile.FullName) -> $destDir\SKILL.md"
+  } else {
+    New-Item -ItemType Directory -Force -Path $destDir | Out-Null
+    Copy-Item -Path $skillFile.FullName -Destination (Join-Path $destDir "SKILL.md") -Force
   }
+  $InstalledSkills++
 }
 
 $InstallPath = (Join-Path $SkillsDir "mcp-server\bundle.js") -replace '\\', '/'
 
 if (-not $DryRun) {
   Write-Host "Installed to: $SkillsDir" -ForegroundColor Green
-  Write-Host "Skills registered: $InstalledSkills to $HOME\.claude\skills\" -ForegroundColor Green
+  Write-Host "Top-level skills registered: $InstalledSkills to $ParentDir" -ForegroundColor Green
 }
 
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor White
 Write-Host "1. Add vault-mind to your .mcp.json (snippet below)"
-Write-Host "2. Restart Claude Code"
-Write-Host "3. Try: /vault-librarian what is attention heads"
-Write-Host "4. View graph: open https://obsidian-llm-wiki.vercel.app"
+Write-Host "2. Add the Vault Roles block below to your host instructions (CLAUDE.md, AGENTS.md, or equivalent)"
+Write-Host "3. Restart $VaultHost"
+Write-Host "4. Try: /vault-librarian what is attention heads"
+Write-Host "5. View graph: open https://obsidian-llm-wiki.vercel.app"
 Write-Host ""
 Write-Host ".mcp.json snippet:"
 Write-Host @"
@@ -143,4 +139,21 @@ Write-Host @"
     }
   }
 }
+"@
+Write-Host ""
+Write-Host "Vault Roles block:"
+Write-Host @"
+## Vault Roles
+
+Your markdown vault is managed by host-neutral LLMwiki roles:
+
+| Role | Skill | What it does |
+|---|---|---|
+| Librarian | `/vault-librarian` | Search + read with citations |
+| Architect | `/vault-architect` | Run concept graph and summarize changes |
+| Curator | `/vault-curator` | Detect orphans, stale notes, duplicates |
+| Teacher | `/vault-teacher` | Explain concepts in graph context |
+| Historian | `/vault-historian` | Time-window search by mtime |
+| Janitor | `/vault-janitor` | Propose cleanup fixes |
+| Closeout | `/vault-agent-closeout` | File agent work into AI-Output draft quarantine |
 "@

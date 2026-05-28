@@ -12,6 +12,9 @@ var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require
   if (typeof require !== "undefined") return require.apply(this, arguments);
   throw Error('Dynamic require of "' + x + '" is not supported');
 });
+var __esm = (fn, res) => function __init() {
+  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+};
 var __commonJS = (cb, mod) => function __require2() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
@@ -15525,6 +15528,56 @@ var require_websocket_server = __commonJS({
   }
 });
 
+// dist/embedding-client.js
+var embedding_client_exports = {};
+__export(embedding_client_exports, {
+  embed: () => embed
+});
+async function embed(text, opts) {
+  if (typeof text !== "string" || text.length === 0) {
+    throw new Error("embed: empty text");
+  }
+  const url2 = opts?.url ?? process.env.VAULT_MIND_EMBED_URL ?? DEFAULT_URL;
+  const model = opts?.model ?? process.env.VAULT_MIND_EMBED_MODEL ?? DEFAULT_MODEL2;
+  const timeoutMs = opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url2, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ input: text, model }),
+      signal: ctrl.signal
+    });
+    if (!res.ok) {
+      const body2 = await res.text().catch(() => "");
+      throw new Error(`embed: HTTP ${res.status} ${body2.slice(0, 200)}`);
+    }
+    const body = await res.json();
+    const vec = body.data?.[0]?.embedding;
+    if (!Array.isArray(vec) || vec.length === 0) {
+      throw new Error("embed: response missing data[0].embedding");
+    }
+    return vec;
+  } catch (e) {
+    if (e?.name === "AbortError") {
+      throw new Error(`embed: timeout after ${timeoutMs}ms`);
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+var DEFAULT_URL, DEFAULT_MODEL2, DEFAULT_TIMEOUT_MS;
+var init_embedding_client = __esm({
+  "dist/embedding-client.js"() {
+    "use strict";
+    DEFAULT_URL = "http://localhost:11434/v1/embeddings";
+    DEFAULT_MODEL2 = "qwen3-embedding:0.6b";
+    DEFAULT_TIMEOUT_MS = 15e3;
+  }
+});
+
 // node_modules/zod/v3/helpers/util.js
 var util;
 (function(util2) {
@@ -15940,15 +15993,15 @@ var ParseStatus = class _ParseStatus {
       this.value = "aborted";
   }
   static mergeArray(status, results) {
-    const arrayValue = [];
+    const arrayValue2 = [];
     for (const s of results) {
       if (s.status === "aborted")
         return INVALID;
       if (s.status === "dirty")
         status.dirty();
-      arrayValue.push(s.value);
+      arrayValue2.push(s.value);
     }
-    return { status: status.value, value: arrayValue };
+    return { status: status.value, value: arrayValue2 };
   }
   static async mergeObjectAsync(status, pairs) {
     const syncPairs = [];
@@ -29561,8 +29614,8 @@ var StdioServerTransport = class {
 };
 
 // dist/index.js
-import { readFileSync as readFileSync4, existsSync as existsSync5, readdirSync as readdirSync4, statSync, realpathSync, writeFileSync, appendFileSync as appendFileSync2, rmSync, renameSync, mkdirSync as mkdirSync2 } from "node:fs";
-import { resolve as resolve2, join as join7, basename, extname, relative as relative3, dirname as dirname4, posix, isAbsolute as pathIsAbsolute } from "node:path";
+import { readFileSync as readFileSync5, existsSync as existsSync5, readdirSync as readdirSync4, statSync, realpathSync, writeFileSync as writeFileSync2, appendFileSync as appendFileSync2, rmSync, renameSync, mkdirSync as mkdirSync3 } from "node:fs";
+import { resolve as resolve2, join as join7, basename as basename2, extname, relative as relative3, dirname as dirname4, posix, isAbsolute as pathIsAbsolute } from "node:path";
 import { fileURLToPath as fileURLToPath3 } from "node:url";
 
 // dist/adapters/filesystem.js
@@ -29690,8 +29743,57 @@ var defaults = import_lib.default.defaults;
 var esm_default = import_lib.default;
 
 // dist/adapters/memu.js
+import { spawn } from "node:child_process";
+
+// dist/embedding/ollama.js
+var DEFAULT_BASE = "http://localhost:11434/v1";
+var DEFAULT_MODEL = "qwen3-embedding:0.6b";
+async function embedTextOllama(text, opts) {
+  if (!text || text.length === 0)
+    return [];
+  const baseUrl = opts?.baseUrl ?? process.env.OLLAMA_EMBED_BASE_URL ?? DEFAULT_BASE;
+  const model = opts?.model ?? process.env.OLLAMA_EMBED_MODEL ?? DEFAULT_MODEL;
+  const timeoutMs = opts?.timeoutMs ?? 3e4;
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const resp = await fetch(`${baseUrl}/embeddings`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ model, input: [text] }),
+      signal: controller.signal
+    });
+    clearTimeout(t);
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => "");
+      process.stderr.write(`obsidian-llm-wiki: [warn] ollama embed HTTP ${resp.status}: ${errText.slice(0, 200)}
+`);
+      return [];
+    }
+    const json2 = await resp.json();
+    const first = json2.data?.[0];
+    const vec = first?.embedding;
+    if (!Array.isArray(vec) || vec.length === 0) {
+      process.stderr.write(`obsidian-llm-wiki: [warn] ollama embed returned no vector
+`);
+      return [];
+    }
+    return vec;
+  } catch (err2) {
+    clearTimeout(t);
+    const msg = err2 instanceof Error ? err2.message : String(err2);
+    process.stderr.write(`obsidian-llm-wiki: [warn] ollama embed failed: ${msg}
+`);
+    return [];
+  }
+}
+
+// dist/adapters/memu.js
 var { Pool: Pool2 } = esm_default;
 var DEFAULT_DSN = "postgresql://postgres:postgres@localhost:5432/memu";
+var DEFAULT_PYTHON = "D:/projects/memu-graph/.venv/Scripts/python.exe";
+var DEFAULT_MEMU_GRAPH_CWD = "D:/projects/memu-graph";
+var DEFAULT_GRAPH_RECALL_TIMEOUT_MS = 15e3;
 var MemUAdapter = class {
   name = "memu";
   capabilities = ["search", "embeddings"];
@@ -29699,6 +29801,10 @@ var MemUAdapter = class {
   userId;
   defaultMax;
   timeout;
+  excludeMemoryTypes;
+  pythonExe;
+  memuGraphCwd;
+  graphRecallTimeoutMs;
   pool = null;
   available = false;
   get isAvailable() {
@@ -29709,6 +29815,12 @@ var MemUAdapter = class {
     this.userId = config2?.userId ?? process.env.MEMU_USER_ID ?? "boris";
     this.defaultMax = config2?.maxResults ?? 20;
     this.timeout = config2?.timeout ?? 5e3;
+    this.excludeMemoryTypes = config2?.excludeMemoryTypes ?? ["event"];
+    this.pythonExe = config2?.pythonExe ?? process.env.MEMU_GRAPH_PYTHON ?? DEFAULT_PYTHON;
+    this.memuGraphCwd = config2?.memuGraphCwd ?? process.env.MEMU_GRAPH_CWD ?? DEFAULT_MEMU_GRAPH_CWD;
+    const envTimeout = process.env.MEMU_GRAPH_TIMEOUT_MS;
+    const envTimeoutNum = envTimeout ? Number(envTimeout) : NaN;
+    this.graphRecallTimeoutMs = config2?.graphRecallTimeoutMs ?? (Number.isFinite(envTimeoutNum) && envTimeoutNum > 0 ? envTimeoutNum : DEFAULT_GRAPH_RECALL_TIMEOUT_MS);
   }
   async init() {
     try {
@@ -29748,59 +29860,55 @@ var MemUAdapter = class {
     if (!this.available || !this.pool)
       return [];
     const limit = Math.max(1, Math.min(opts?.maxResults ?? this.defaultMax, 100));
-    const escaped = query.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
-    const pattern = `%${escaped}%`;
-    try {
-      const { rows } = await this.pool.query(`SELECT id, summary, memory_type, user_id, created_at
-         FROM memory_items
-         WHERE user_id = $1
-           AND summary ILIKE $2 ESCAPE '\\'
-         ORDER BY created_at DESC
-         LIMIT $3`, [this.userId, pattern, limit]);
-      return rows.map((r) => ({
-        source: this.name,
-        path: `memu/${r.user_id}/${r.memory_type}/${r.id}`,
-        content: String(r.summary ?? "").slice(0, 500),
-        // Text-ILIKE has no intrinsic relevance score. 0.5 keeps memu neutral
-        // in the unified fusion layer; tune via adapter_weights if needed.
-        score: 0.5,
-        metadata: {
-          memory_type: r.memory_type,
-          user_id: r.user_id,
-          created_at: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
-          item_id: r.id
-        }
-      }));
-    } catch (err2) {
-      const msg = err2 instanceof Error ? err2.message : String(err2);
-      process.stderr.write(`obsidian-llm-wiki: [error] memU PG query failed: ${msg}
-`);
+    const vec = await embedTextOllama(query);
+    const queryVec = vec.length === 1024 ? vec : null;
+    const result = await this.runGraphRecall(query, queryVec, limit);
+    if (!result)
       return [];
-    }
+    return this.mapRecallResult(result);
   }
   async searchByVector(vector, opts) {
     if (!this.available || !this.pool)
       return [];
     if (vector.length === 0)
       return [];
+    if (vector.length === 1024) {
+      const limit = Math.max(1, Math.min(opts?.maxResults ?? this.defaultMax, 100));
+      const result = await this.runGraphRecall("", vector, limit);
+      if (!result)
+        return [];
+      return this.mapRecallResult(result);
+    }
+    if (vector.length === 4096)
+      return this.searchMemoryItemsByVector(vector, opts);
+    return [];
+  }
+  /**
+   * Vector search against memory_items (Qwen3-Embedding-8B, 4096-dim).
+   * No local 4096-dim inference service is typically running, so this path
+   * is rarely exercised. Kept for forward compatibility.
+   */
+  async searchMemoryItemsByVector(vector, opts) {
+    if (!this.pool)
+      return [];
     const limit = Math.max(1, Math.min(opts?.maxResults ?? this.defaultMax, 100));
     const vecLiteral = `[${vector.join(",")}]`;
+    const excludeArr = this.excludeMemoryTypes.length > 0 ? [...this.excludeMemoryTypes] : null;
     try {
       const { rows } = await this.pool.query(`SELECT id, summary, memory_type, user_id, created_at,
                 (1 - (embedding <=> $2::vector))::float8 AS similarity
          FROM memory_items
          WHERE user_id = $1 AND embedding IS NOT NULL
+           AND ($4::text[] IS NULL OR memory_type <> ALL($4::text[]))
          ORDER BY embedding <=> $2::vector
-         LIMIT $3`, [this.userId, vecLiteral, limit]);
+         LIMIT $3`, [this.userId, vecLiteral, limit, excludeArr]);
       return rows.map((r) => ({
         source: this.name,
         path: `memu/${r.user_id}/${r.memory_type}/${r.id}`,
         content: String(r.summary ?? "").slice(0, 500),
-        // Cosine similarity. For unit vectors this is in [-1, 1]; for
-        // unnormalised vectors it can exceed that range. Callers should
-        // rely on ordering (higher = closer), not absolute magnitude.
         score: typeof r.similarity === "number" ? r.similarity : 0,
         metadata: {
+          table: "memory_items",
           memory_type: r.memory_type,
           user_id: r.user_id,
           created_at: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
@@ -29810,10 +29918,120 @@ var MemUAdapter = class {
       }));
     } catch (err2) {
       const msg = err2 instanceof Error ? err2.message : String(err2);
-      process.stderr.write(`obsidian-llm-wiki: [error] memU PG vector query failed: ${msg}
+      process.stderr.write(`obsidian-llm-wiki: [error] memU PG vector query (memory_items) failed: ${msg}
 `);
       return [];
     }
+  }
+  /**
+   * Spawn `python -m memu_graph.cli graph-recall --dsn <DSN>`, write JSON
+   * request to stdin, parse JSON from stdout. Kill on timeout. Returns null
+   * on any error (silent fail + stderr warn, mirrors adapter pattern).
+   */
+  async runGraphRecall(query, queryVec, maxNodes) {
+    const request = {
+      query,
+      query_vec: queryVec && queryVec.length === 1024 ? Array.from(queryVec) : null,
+      max_nodes: maxNodes
+    };
+    return new Promise((resolve3) => {
+      let stdout = "";
+      let stderr = "";
+      let settled = false;
+      const proc = spawn(this.pythonExe, ["-m", "memu_graph.cli", "graph-recall", "--dsn", this.dsn], {
+        cwd: this.memuGraphCwd,
+        windowsHide: true,
+        stdio: ["pipe", "pipe", "pipe"]
+      });
+      const timer = setTimeout(() => {
+        if (settled)
+          return;
+        settled = true;
+        proc.kill("SIGKILL");
+        process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli timeout after ${this.graphRecallTimeoutMs}ms
+`);
+        resolve3(null);
+      }, this.graphRecallTimeoutMs);
+      proc.stdout.on("data", (d) => {
+        stdout += d.toString("utf-8");
+      });
+      proc.stderr.on("data", (d) => {
+        stderr += d.toString("utf-8");
+      });
+      proc.on("error", (err2) => {
+        if (settled)
+          return;
+        settled = true;
+        clearTimeout(timer);
+        process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli spawn failed: ${err2.message}
+`);
+        resolve3(null);
+      });
+      proc.on("close", (code) => {
+        if (settled)
+          return;
+        settled = true;
+        clearTimeout(timer);
+        if (code !== 0) {
+          process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli exit ${code}: ${stderr.slice(0, 400)}
+`);
+          resolve3(null);
+          return;
+        }
+        try {
+          const parsed = JSON.parse(stdout);
+          resolve3(parsed);
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli stdout JSON parse failed: ${msg}
+`);
+          resolve3(null);
+        }
+      });
+      try {
+        proc.stdin.end(JSON.stringify(request));
+      } catch (e) {
+        if (settled)
+          return;
+        settled = true;
+        clearTimeout(timer);
+        const msg = e instanceof Error ? e.message : String(e);
+        process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli stdin write failed: ${msg}
+`);
+        resolve3(null);
+      }
+    });
+  }
+  /**
+   * Convert a graph_recall RecallResult into the unified SearchResult shape.
+   * Score: max-norm PPR to [0,1] for fusion compatibility; raw pagerank /
+   * ppr_score / recall_path retained in metadata for downstream callers
+   * that want to weight by community / path / centrality.
+   */
+  mapRecallResult(result) {
+    if (result.nodes.length === 0)
+      return [];
+    const maxPpr = Math.max(...result.nodes.map((n) => n.ppr_score), 1e-9);
+    return result.nodes.map((n) => {
+      const desc = n.description ? n.description.slice(0, 400) : "";
+      const namedTitle = `${n.name} (${n.type})`;
+      return {
+        source: this.name,
+        path: `memu/graph/${n.type}/${n.id}`,
+        content: desc ? `${namedTitle}: ${desc}` : namedTitle,
+        score: n.ppr_score / maxPpr,
+        metadata: {
+          table: "gm_nodes",
+          recall_path: result.path,
+          type: n.type,
+          name: n.name,
+          community_id: n.community_id,
+          pagerank: n.pagerank,
+          ppr_score: n.ppr_score,
+          item_id: n.id
+        }
+      };
+    });
   }
 };
 
@@ -30109,7 +30327,7 @@ var ObsidianAdapter = class {
 };
 
 // dist/adapters/qmd.js
-import { spawn } from "node:child_process";
+import { spawn as spawn2 } from "node:child_process";
 var QmdAdapter = class {
   name = "qmd";
   capabilities = ["search"];
@@ -30177,7 +30395,7 @@ var QmdAdapter = class {
     return new Promise((resolve3) => {
       let proc;
       try {
-        proc = spawn(this.binary, [...this.binaryArgs, ...args], { stdio: ["ignore", "pipe", "pipe"] });
+        proc = spawn2(this.binary, [...this.binaryArgs, ...args], { stdio: ["ignore", "pipe", "pipe"] });
       } catch {
         resolve3({ stdout: "", stderr: "spawn failed synchronously", code: -1 });
         return;
@@ -30200,11 +30418,395 @@ var QmdAdapter = class {
   }
 };
 
+// dist/adapters/lightrag.js
+import { readFileSync as readFileSync2 } from "node:fs";
+import { basename } from "node:path";
+var LightRAGAdapter = class {
+  name = "lightrag";
+  capabilities = ["search"];
+  _available = false;
+  baseUrl;
+  apiKey;
+  mode;
+  queryPath;
+  queryDataPath;
+  documentsTextPath;
+  documentsUploadPath;
+  fetchImpl;
+  constructor(opts) {
+    this.baseUrl = normalizeBaseUrl(opts?.baseUrl ?? process.env.LIGHTRAG_URL);
+    this.apiKey = opts?.apiKey ?? process.env.LIGHTRAG_API_KEY;
+    this.mode = opts?.mode ?? process.env.LIGHTRAG_MODE ?? "hybrid";
+    this.queryPath = normalizePath(opts?.queryPath ?? process.env.LIGHTRAG_QUERY_PATH ?? "/query");
+    this.queryDataPath = normalizePath(opts?.queryDataPath ?? process.env.LIGHTRAG_QUERY_DATA_PATH ?? "/query/data");
+    this.documentsTextPath = normalizePath(opts?.documentsTextPath ?? process.env.LIGHTRAG_DOCUMENTS_TEXT_PATH ?? "/documents/text");
+    this.documentsUploadPath = normalizePath(opts?.documentsUploadPath ?? process.env.LIGHTRAG_DOCUMENTS_UPLOAD_PATH ?? "/documents/upload");
+    this.fetchImpl = opts?.fetchImpl ?? fetch;
+  }
+  get isAvailable() {
+    return this._available;
+  }
+  async init() {
+    if (!this.baseUrl) {
+      this._available = false;
+      process.stderr.write("vault-mind: [lightrag] LIGHTRAG_URL not set -- adapter disabled\n");
+      return;
+    }
+    try {
+      const res = await this.fetchImpl(`${this.baseUrl}/health`, {
+        method: "GET",
+        headers: this.headers()
+      });
+      this._available = res.ok;
+    } catch {
+      this._available = false;
+    }
+    if (!this._available) {
+      process.stderr.write(`vault-mind: [lightrag] unavailable at ${this.baseUrl} -- adapter disabled
+`);
+    }
+  }
+  async search(query, opts) {
+    if (!this._available || !this.baseUrl)
+      return [];
+    const limit = opts?.maxResults ?? 20;
+    const data = await this.queryData(query, limit);
+    if (data.length > 0)
+      return data;
+    return this.queryText(query, limit);
+  }
+  async dispose() {
+  }
+  async insertText(req) {
+    if (!this._available || !this.baseUrl) {
+      throw new Error("LightRAG adapter is not available");
+    }
+    const res = await this.fetchImpl(`${this.baseUrl}${this.documentsTextPath}`, {
+      method: "POST",
+      headers: this.headers(),
+      body: JSON.stringify({
+        text: req.text,
+        file_source: req.fileSource
+      })
+    });
+    const raw = await safeJson(res);
+    if (!res.ok)
+      throw new Error(`LightRAG text ingest failed: HTTP ${res.status}`);
+    return mapDocumentResult(raw);
+  }
+  async uploadFile(req) {
+    if (!this._available || !this.baseUrl) {
+      throw new Error("LightRAG adapter is not available");
+    }
+    const form = new FormData();
+    const bytes = readFileSync2(req.filePath);
+    const fileName = req.fileName ?? basename(req.filePath);
+    form.append("file", new Blob([bytes]), fileName);
+    const res = await this.fetchImpl(`${this.baseUrl}${this.documentsUploadPath}`, {
+      method: "POST",
+      headers: this.authHeaders(),
+      body: form
+    });
+    const raw = await safeJson(res);
+    if (!res.ok)
+      throw new Error(`LightRAG file upload failed: HTTP ${res.status}`);
+    return mapDocumentResult(raw);
+  }
+  async queryData(query, limit) {
+    if (!this.baseUrl)
+      return [];
+    try {
+      const res = await this.fetchImpl(`${this.baseUrl}${this.queryDataPath}`, {
+        method: "POST",
+        headers: this.headers(),
+        body: JSON.stringify({
+          query,
+          mode: this.mode,
+          top_k: limit,
+          only_need_context: true
+        })
+      });
+      if (!res.ok)
+        return [];
+      const body = await res.json();
+      return this.mapQueryData(body, limit);
+    } catch {
+      return [];
+    }
+  }
+  async queryText(query, limit) {
+    if (!this.baseUrl)
+      return [];
+    try {
+      const res = await this.fetchImpl(`${this.baseUrl}${this.queryPath}`, {
+        method: "POST",
+        headers: this.headers(),
+        body: JSON.stringify({
+          query,
+          mode: this.mode,
+          top_k: limit
+        })
+      });
+      if (!res.ok)
+        return [];
+      const body = await res.json();
+      const text = typeof body.response === "string" ? body.response : typeof body.result === "string" ? body.result : "";
+      if (!text)
+        return [];
+      return [{
+        source: this.name,
+        path: "lightrag:/query",
+        content: text,
+        score: 1,
+        metadata: { mode: this.mode }
+      }];
+    } catch {
+      return [];
+    }
+  }
+  mapQueryData(body, limit) {
+    const data = body.data && typeof body.data === "object" && !Array.isArray(body.data) ? body.data : void 0;
+    const chunks = Array.isArray(body.chunks) ? body.chunks : Array.isArray(data?.chunks) ? data.chunks : Array.isArray(body.sources) ? body.sources : Array.isArray(data?.sources) ? data.sources : [];
+    return chunks.slice(0, limit).map((raw, index) => {
+      const c = raw;
+      const filePath = typeof c.file_path === "string" ? c.file_path : void 0;
+      const docId = typeof c.full_doc_id === "string" ? c.full_doc_id : void 0;
+      const id = typeof c.id === "string" ? c.id : void 0;
+      const content = typeof c.content === "string" ? c.content : JSON.stringify(raw);
+      const score = typeof c.score === "number" ? c.score : 1 / (index + 1);
+      return {
+        source: this.name,
+        path: filePath ?? docId ?? id ?? `lightrag:/chunk/${index}`,
+        content,
+        score,
+        metadata: {
+          id,
+          fullDocId: docId,
+          filePath,
+          chunkOrderIndex: c.chunk_order_index,
+          mode: this.mode
+        }
+      };
+    });
+  }
+  headers() {
+    return { "Content-Type": "application/json", ...this.authHeaders() };
+  }
+  authHeaders() {
+    if (!this.apiKey)
+      return {};
+    return {
+      "X-API-Key": this.apiKey,
+      Authorization: `Bearer ${this.apiKey}`
+    };
+  }
+};
+function normalizeBaseUrl(raw) {
+  if (!raw)
+    return void 0;
+  return raw.replace(/\/+$/, "");
+}
+function normalizePath(raw) {
+  return raw.startsWith("/") ? raw : `/${raw}`;
+}
+async function safeJson(res) {
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+function mapDocumentResult(raw) {
+  const obj = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+  const trackId = stringValue(obj.track_id) ?? stringValue(obj.trackId);
+  const status = stringValue(obj.status) ?? stringValue(obj.message);
+  return { ok: true, trackId, status, raw };
+}
+function stringValue(v) {
+  return typeof v === "string" && v.length > 0 ? v : void 0;
+}
+
+// dist/adapters/raganything.js
+var RAGAnythingAdapter = class {
+  name = "raganything";
+  capabilities = ["search"];
+  _available = false;
+  baseUrl;
+  apiKey;
+  queryPath;
+  processPath;
+  fetchImpl;
+  constructor(opts) {
+    this.baseUrl = normalizeBaseUrl2(opts?.baseUrl ?? process.env.RAGANYTHING_URL);
+    this.apiKey = opts?.apiKey ?? process.env.RAGANYTHING_API_KEY;
+    this.queryPath = normalizePath2(opts?.queryPath ?? process.env.RAGANYTHING_QUERY_PATH ?? "/query");
+    this.processPath = normalizePath2(opts?.processPath ?? process.env.RAGANYTHING_PROCESS_PATH ?? "/process_document");
+    this.fetchImpl = opts?.fetchImpl ?? fetch;
+  }
+  get isAvailable() {
+    return this._available;
+  }
+  async init() {
+    if (!this.baseUrl) {
+      this._available = false;
+      process.stderr.write("vault-mind: [raganything] RAGANYTHING_URL not set -- adapter disabled\n");
+      return;
+    }
+    try {
+      const res = await this.fetchImpl(`${this.baseUrl}/health`, {
+        method: "GET",
+        headers: this.headers()
+      });
+      this._available = res.ok;
+    } catch {
+      this._available = false;
+    }
+    if (!this._available) {
+      process.stderr.write(`vault-mind: [raganything] unavailable at ${this.baseUrl} -- adapter disabled
+`);
+    }
+  }
+  async search(query, opts) {
+    if (!this._available || !this.baseUrl)
+      return [];
+    const limit = opts?.maxResults ?? 20;
+    try {
+      const res = await this.fetchImpl(`${this.baseUrl}${this.queryPath}`, {
+        method: "POST",
+        headers: this.headers(),
+        body: JSON.stringify({
+          query,
+          top_k: limit,
+          max_results: limit
+        })
+      });
+      if (!res.ok)
+        return [];
+      const body = await res.json();
+      return this.mapQueryBody(body, limit);
+    } catch {
+      return [];
+    }
+  }
+  async processDocument(req) {
+    if (!this._available || !this.baseUrl) {
+      throw new Error("RAG-Anything adapter is not available");
+    }
+    const res = await this.fetchImpl(`${this.baseUrl}${this.processPath}`, {
+      method: "POST",
+      headers: this.headers(),
+      body: JSON.stringify({
+        file_path: req.filePath,
+        source_path: req.sourcePath,
+        parser: req.parser,
+        doc_id: req.docId,
+        output_format: req.outputFormat ?? "markdown"
+      })
+    });
+    if (!res.ok)
+      throw new Error(`RAG-Anything process failed: HTTP ${res.status}`);
+    const body = await res.json();
+    const markdown = stringValue2(body.markdown) ?? stringValue2(body.content) ?? stringValue2(body.text) ?? "";
+    const contentList = arrayValue(body.content_list) ?? arrayValue(body.contentList);
+    const metadata = objectValue(body.metadata) ?? {};
+    const docId = stringValue2(body.doc_id) ?? stringValue2(body.docId);
+    if (docId)
+      metadata.docId = docId;
+    if (req.parser)
+      metadata.parser = req.parser;
+    return { markdown: markdown || contentListToMarkdown(contentList), contentList, metadata };
+  }
+  async dispose() {
+  }
+  mapQueryBody(body, limit) {
+    const chunks = Array.isArray(body.results) ? body.results : Array.isArray(body.chunks) ? body.chunks : Array.isArray(body.sources) ? body.sources : [];
+    if (chunks.length > 0) {
+      return chunks.slice(0, limit).map((raw, index) => {
+        const c = raw;
+        const filePath = stringValue2(c.file_path) ?? stringValue2(c.filePath) ?? stringValue2(c.source);
+        const docId = stringValue2(c.doc_id) ?? stringValue2(c.docId);
+        const id = stringValue2(c.id);
+        const content = stringValue2(c.content) ?? stringValue2(c.text) ?? stringValue2(c.markdown) ?? JSON.stringify(raw);
+        const score = numberValue(c.score) ?? 1 / (index + 1);
+        return {
+          source: this.name,
+          path: filePath ?? docId ?? id ?? `raganything:/chunk/${index}`,
+          content,
+          score,
+          metadata: {
+            id,
+            docId,
+            filePath,
+            page: c.page_idx ?? c.page,
+            type: c.type
+          }
+        };
+      });
+    }
+    const answer = stringValue2(body.response) ?? stringValue2(body.answer);
+    if (!answer)
+      return [];
+    return [{
+      source: this.name,
+      path: "raganything:/query",
+      content: answer,
+      score: 1,
+      metadata: {}
+    }];
+  }
+  headers() {
+    const headers = { "Content-Type": "application/json" };
+    if (this.apiKey)
+      headers.Authorization = `Bearer ${this.apiKey}`;
+    return headers;
+  }
+};
+function normalizeBaseUrl2(raw) {
+  if (!raw)
+    return void 0;
+  return raw.replace(/\/+$/, "");
+}
+function normalizePath2(raw) {
+  return raw.startsWith("/") ? raw : `/${raw}`;
+}
+function stringValue2(v) {
+  return typeof v === "string" && v.length > 0 ? v : void 0;
+}
+function numberValue(v) {
+  return typeof v === "number" && Number.isFinite(v) ? v : void 0;
+}
+function arrayValue(v) {
+  return Array.isArray(v) ? v : void 0;
+}
+function objectValue(v) {
+  return v && typeof v === "object" && !Array.isArray(v) ? v : void 0;
+}
+function contentListToMarkdown(contentList) {
+  if (!contentList || contentList.length === 0)
+    return "";
+  const blocks = [];
+  for (const raw of contentList) {
+    const item = objectValue(raw);
+    if (!item)
+      continue;
+    const type = stringValue2(item.type) ?? "block";
+    const page = item.page_idx ?? item.page;
+    const prefix = page === void 0 ? `<!-- ${type} -->` : `<!-- ${type} page=${page} -->`;
+    const text = stringValue2(item.text) ?? stringValue2(item.markdown) ?? stringValue2(item.table_body) ?? stringValue2(item.latex) ?? stringValue2(item.image_caption);
+    if (text)
+      blocks.push(`${prefix}
+
+${text}`);
+  }
+  return blocks.join("\n\n");
+}
+
 // dist/adapters/vaultbrain/index.js
 import { homedir as homedir2 } from "node:os";
 import { join as join3 } from "node:path";
 
 // dist/adapters/vaultbrain/schema.js
+var EMBED_DIM = parseInt(process.env.VAULTBRAIN_EMBED_DIM ?? "1536", 10);
 var VAULTBRAIN_SCHEMA_SQL = `
 CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
@@ -30225,7 +30827,7 @@ CREATE TABLE IF NOT EXISTS content_chunks (
   slug TEXT NOT NULL,
   chunk_index INTEGER NOT NULL,
   chunk_text TEXT NOT NULL,
-  embedding vector(1536),
+  embedding vector(${EMBED_DIM}),
   token_count INTEGER,
   UNIQUE(slug, chunk_index)
 );
@@ -30382,9 +30984,15 @@ var PGliteEngine = class {
 
 // dist/adapters/vaultbrain/ingest.js
 var CHARS_PER_TOKEN = 4;
-var OPENAI_EMBEDDING_MODEL = "text-embedding-3-small";
-var OPENAI_EMBEDDING_URL = "https://api.openai.com/v1/embeddings";
 var EMBED_BATCH_SIZE = 20;
+async function getEmbedFn() {
+  try {
+    const { embed: embed2 } = await Promise.resolve().then(() => (init_embedding_client(), embedding_client_exports));
+    return embed2;
+  } catch {
+    return null;
+  }
+}
 function chunkMarkdown(content, maxTokens = 512, overlap = 64) {
   if (!content.trim())
     return [];
@@ -30453,34 +31061,19 @@ function chunkMarkdown(content, maxTokens = 512, overlap = 64) {
 async function embedTexts(texts) {
   if (texts.length === 0)
     return [];
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey)
+  const embed2 = await getEmbedFn();
+  if (!embed2) {
+    console.warn("[vaultbrain] embedTexts: no embedding provider (VAULT_MIND_EMBED_URL not set, embedding-client unavailable)");
     return [];
+  }
   const allEmbeddings = [];
   for (let i = 0; i < texts.length; i += EMBED_BATCH_SIZE) {
     const batch = texts.slice(i, i + EMBED_BATCH_SIZE);
     try {
-      const response = await fetch(OPENAI_EMBEDDING_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: OPENAI_EMBEDDING_MODEL,
-          input: batch
-        })
-      });
-      if (!response.ok) {
-        console.warn(`[vaultbrain] embedding request failed: ${response.status}`);
-        return [];
-      }
-      const data = await response.json();
-      for (const item of data.data) {
-        allEmbeddings.push(item.embedding);
-      }
+      const results = await Promise.all(batch.map((t) => embed2(t)));
+      allEmbeddings.push(...results);
     } catch (err2) {
-      console.warn(`[vaultbrain] embedding request error: ${err2.message}`);
+      console.warn(`[vaultbrain] embedTexts batch error: ${err2.message}`);
       return [];
     }
   }
@@ -30686,6 +31279,7 @@ var CompileTrigger = class {
   threshold;
   tier;
   autoCompile;
+  onCompileSuccess;
   constructor(config2) {
     this.vaultPath = config2.vaultPath;
     this.compilerPath = config2.compilerPath;
@@ -30693,6 +31287,7 @@ var CompileTrigger = class {
     this.threshold = config2.threshold ?? 3;
     this.tier = config2.tier ?? "haiku";
     this.autoCompile = config2.autoCompile ?? true;
+    this.onCompileSuccess = config2.onCompileSuccess;
   }
   /**
    * Called when a vault file is created or modified.
@@ -30842,6 +31437,9 @@ var CompileTrigger = class {
           this.dirty.delete(path);
         }
       }
+      if (this.onCompileSuccess) {
+        this.onCompileSuccess(this.findWikiFiles(topic));
+      }
       this.lastRun = timestamp;
       this.lastResult = result;
       this.running = false;
@@ -30880,13 +31478,31 @@ var CompileTrigger = class {
     const m = text.match(re);
     return m ? parseInt(m[1], 10) : 0;
   }
+  /** Find all wiki/ output files for a topic after compilation */
+  findWikiFiles(topic) {
+    const wikiDir = resolve(this.vaultPath, topic, "wiki");
+    if (!existsSync(wikiDir))
+      return [];
+    const files = [];
+    const walk = (d) => {
+      for (const ent of readdirSync(d, { withFileTypes: true })) {
+        const full = resolve(d, ent.name);
+        if (ent.isDirectory())
+          walk(full);
+        else if (ent.name.endsWith(".md"))
+          files.push(full);
+      }
+    };
+    walk(wikiDir);
+    return files;
+  }
 };
 
 // dist/core/operations.js
 import { execFile as execFile4, spawnSync } from "node:child_process";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 import { promisify as promisify4 } from "node:util";
-import { existsSync as existsSync4, readdirSync as readdirSync3, readFileSync as readFileSync3 } from "node:fs";
+import { existsSync as existsSync4, mkdirSync as mkdirSync2, readdirSync as readdirSync3, readFileSync as readFileSync4, writeFileSync } from "node:fs";
 import { dirname as dirname3, join as join6, relative as relative2 } from "node:path";
 
 // dist/recipes/_registry.js
@@ -30895,7 +31511,7 @@ import { join as join5, dirname as dirname2 } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // dist/recipes/_framework.js
-import { readFileSync as readFileSync2, existsSync as existsSync2, appendFileSync, mkdirSync } from "node:fs";
+import { readFileSync as readFileSync3, existsSync as existsSync2, appendFileSync, mkdirSync } from "node:fs";
 import { join as join4 } from "node:path";
 import { execFileSync } from "node:child_process";
 import { homedir as homedir3 } from "node:os";
@@ -31000,7 +31616,7 @@ function parseYaml(text) {
   return result;
 }
 function parseRecipe(filePath) {
-  const content = readFileSync2(filePath, "utf8");
+  const content = readFileSync3(filePath, "utf8");
   const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)/);
   if (!fmMatch) {
     throw new Error(`Recipe file has no valid frontmatter: ${filePath}`);
@@ -31130,6 +31746,51 @@ function findRecipe(id, recipesDir) {
   return scanRecipes(recipesDir).find((r) => r.frontmatter.id === id);
 }
 
+// dist/rrf.js
+var RRF_K2 = 60;
+function fuseRRF(bundles, getKey = (r) => r.path) {
+  const scored = /* @__PURE__ */ new Map();
+  for (const bundle of bundles) {
+    const seenInBundle = /* @__PURE__ */ new Set();
+    bundle.results.forEach((r, i) => {
+      const key = getKey(r);
+      if (seenInBundle.has(key))
+        return;
+      seenInBundle.add(key);
+      const rank = i + 1;
+      const contribution = bundle.weight / (RRF_K2 + rank);
+      const prev = scored.get(key);
+      if (prev) {
+        prev.score += contribution;
+        prev.sources.add(bundle.source);
+      } else {
+        scored.set(key, {
+          key,
+          result: { ...r, source: bundle.source },
+          score: contribution,
+          sources: /* @__PURE__ */ new Set([bundle.source])
+        });
+      }
+    });
+  }
+  return _sortCandidates(Array.from(scored.values()));
+}
+function _sortCandidates(candidates) {
+  return candidates.sort((a, b) => {
+    const delta = b.score - a.score;
+    if (delta !== 0)
+      return delta;
+    return a.key.localeCompare(b.key);
+  }).map((c) => ({
+    ...c.result,
+    score: c.score,
+    metadata: {
+      ...c.result.metadata,
+      rrfSources: Array.from(c.sources)
+    }
+  }));
+}
+
 // dist/unified-query.js
 async function unifiedQuery(registry2, query, opts) {
   const searchAdapters = registry2.getByCapability("search");
@@ -31140,29 +31801,33 @@ async function unifiedQuery(registry2, query, opts) {
   const weights = opts?.weights ?? {};
   const sources = {};
   const totalMax = opts?.maxResults ?? 50;
-  const perAdapterMax = Math.ceil(totalMax * 1.5 / filtered.length);
+  const perAdapterMax = Math.max(totalMax, Math.ceil(totalMax * 1.5 / filtered.length));
   const settled = await Promise.allSettled(filtered.map(async (adapter) => {
     const start = Date.now();
+    const w = weights[adapter.name] ?? 1;
     try {
       const results = await adapter.search(query, { ...opts, maxResults: perAdapterMax });
       sources[adapter.name] = { count: results.length, latencyMs: Date.now() - start };
-      const w = weights[adapter.name] ?? 1;
-      return results.map((r) => ({ ...r, score: r.score * w, source: adapter.name }));
+      return {
+        source: adapter.name,
+        weight: w,
+        results: results.map((r) => ({ ...r, source: adapter.name }))
+      };
     } catch (e) {
       sources[adapter.name] = {
         count: 0,
         latencyMs: Date.now() - start,
         error: e.message
       };
-      return [];
+      return { source: adapter.name, weight: w, results: [] };
     }
   }));
-  const merged = [];
+  const bundles = [];
   for (const r of settled) {
     if (r.status === "fulfilled")
-      merged.push(...r.value);
+      bundles.push(r.value);
   }
-  merged.sort((a, b) => b.score - a.score);
+  const merged = fuseRRF(bundles);
   const maxResults = opts?.maxResults ?? 50;
   return {
     results: merged.slice(0, maxResults),
@@ -31182,31 +31847,35 @@ async function unifiedQueryByVector(registry2, vector, opts) {
   const weights = opts?.weights ?? {};
   const sources = {};
   const totalMax = opts?.maxResults ?? 50;
-  const perAdapterMax = Math.ceil(totalMax * 1.5 / filtered.length);
+  const perAdapterMax = Math.max(totalMax, Math.ceil(totalMax * 1.5 / filtered.length));
   const settled = await Promise.allSettled(filtered.map(async (adapter) => {
     const start = Date.now();
+    const w = weights[adapter.name] ?? 1;
     try {
       const results = await adapter.searchByVector(vector, {
         maxResults: perAdapterMax
       });
       sources[adapter.name] = { count: results.length, latencyMs: Date.now() - start };
-      const w = weights[adapter.name] ?? 1;
-      return results.map((r) => ({ ...r, score: r.score * w, source: adapter.name }));
+      return {
+        source: adapter.name,
+        weight: w,
+        results: results.map((r) => ({ ...r, source: adapter.name }))
+      };
     } catch (e) {
       sources[adapter.name] = {
         count: 0,
         latencyMs: Date.now() - start,
         error: e.message
       };
-      return [];
+      return { source: adapter.name, weight: w, results: [] };
     }
   }));
-  const merged = [];
+  const bundles = [];
   for (const r of settled) {
     if (r.status === "fulfilled")
-      merged.push(...r.value);
+      bundles.push(r.value);
   }
-  merged.sort((a, b) => b.score - a.score);
+  const merged = fuseRRF(bundles);
   return {
     results: merged.slice(0, totalMax),
     sources,
@@ -31214,47 +31883,8 @@ async function unifiedQueryByVector(registry2, vector, opts) {
   };
 }
 
-// dist/embedding-client.js
-var DEFAULT_URL = "http://localhost:11434/v1/embeddings";
-var DEFAULT_MODEL = "qwen3-embedding:0.6b";
-var DEFAULT_TIMEOUT_MS = 15e3;
-async function embed(text, opts) {
-  if (typeof text !== "string" || text.length === 0) {
-    throw new Error("embed: empty text");
-  }
-  const url2 = opts?.url ?? process.env.VAULT_MIND_EMBED_URL ?? DEFAULT_URL;
-  const model = opts?.model ?? process.env.VAULT_MIND_EMBED_MODEL ?? DEFAULT_MODEL;
-  const timeoutMs = opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-  try {
-    const res = await fetch(url2, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ input: text, model }),
-      signal: ctrl.signal
-    });
-    if (!res.ok) {
-      const body2 = await res.text().catch(() => "");
-      throw new Error(`embed: HTTP ${res.status} ${body2.slice(0, 200)}`);
-    }
-    const body = await res.json();
-    const vec = body.data?.[0]?.embedding;
-    if (!Array.isArray(vec) || vec.length === 0) {
-      throw new Error("embed: response missing data[0].embedding");
-    }
-    return vec;
-  } catch (e) {
-    if (e?.name === "AbortError") {
-      throw new Error(`embed: timeout after ${timeoutMs}ms`);
-    }
-    throw e;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 // dist/core/operations.js
+init_embedding_client();
 var execAsync = promisify4(execFile4);
 var PROTECTED_DIRS = /* @__PURE__ */ new Set([".obsidian", ".trash", ".git", "node_modules"]);
 var _thisDir = dirname3(fileURLToPath2(import.meta.url));
@@ -31732,7 +32362,7 @@ function makeAllOperations(deps) {
         for (let i = 0; i < files.length; i += concurrency) {
           const batch = files.slice(i, i + concurrency);
           const results = await Promise.allSettled(batch.map(async (fullPath) => {
-            const content = readFileSync3(fullPath, "utf-8");
+            const content = readFileSync4(fullPath, "utf-8");
             const relPath = relative2(vaultPath, fullPath).replace(/\\/g, "/");
             await vba.ingest(relPath, content);
           }));
@@ -31749,7 +32379,7 @@ function makeAllOperations(deps) {
     {
       name: "query.unified",
       namespace: "query",
-      description: "Weighted multi-adapter search across all active adapters (filesystem, obsidian, memu, gitnexus). Results merged and re-ranked by per-adapter weight. Use when you want best answers anywhere; for single-adapter search use query.search (filesystem-only, ranked) or vault.search (raw filesystem grep, unranked).",
+      description: "Reciprocal Rank Fusion (RRF) search across all active adapters (filesystem, obsidian, memu, gitnexus). Each adapter returns its ranked top-N; results are merged by RRF score = sum over sources (weight / (60 + rank_in_source)), so a doc that appears in top-5 of multiple sources beats a doc at top-1 of just one. Weights now scale each source's rank contribution (not raw score), so weight=2 doubles a source's influence on tied docs. Use when you want best answers anywhere; for single-adapter ranked search use query.search, for raw grep use vault.search.",
       mutating: false,
       params: {
         query: { type: "string", required: true, description: "Search query string" },
@@ -31779,7 +32409,7 @@ function makeAllOperations(deps) {
     {
       name: "query.search",
       namespace: "query",
-      description: "Filesystem-only ranked knowledge search. Same scoring pipeline as query.unified but restricted to the filesystem adapter. Use for deterministic filesystem-rooted results without memu/gitnexus noise; use vault.search for raw grep-style matching without ranking.",
+      description: "Filesystem-only RRF-ranked knowledge search. Same fusion pipeline as query.unified restricted to the filesystem adapter (single-source RRF degenerates to rank preservation). Use for deterministic filesystem-rooted results without memu/gitnexus noise; use vault.search for raw grep-style matching without ranking.",
       mutating: false,
       params: {
         query: { type: "string", required: true, description: "Search query string" },
@@ -31798,7 +32428,7 @@ function makeAllOperations(deps) {
     {
       name: "query.semantic",
       namespace: "query",
-      description: "Text-input semantic search. Embeds the query via an OpenAI-compatible embedding endpoint (default: ollama qwen3-embedding:0.6b at localhost:11434 -- the same model that produced memU's stored 1024-dim vectors), then fans out to all embeddings-capable adapters (currently memu, pgvector cosine). Use this for natural-language queries that should match by meaning rather than keyword. Override endpoint/model via VAULT_MIND_EMBED_URL and VAULT_MIND_EMBED_MODEL env. For pre-computed vectors use query.vector; for keyword matching use query.unified.",
+      description: "Text-input semantic search. Embeds the query via an OpenAI-compatible embedding endpoint (default: ollama qwen3-embedding:0.6b at localhost:11434 -- the same model that produced memU's stored 1024-dim vectors), then fans out to all embeddings-capable adapters (currently memu, pgvector cosine). Use this for natural-language queries that should match by meaning rather than keyword. Override endpoint/model via VAULT_MIND_EMBED_URL and VAULT_MIND_EMBED_MODEL env. For pre-computed vectors use query.vector; for keyword matching use query.unified (RRF fusion of keyword adapters).",
       mutating: false,
       params: {
         query: { type: "string", required: true, description: "Natural-language text to embed and semantic-search" },
@@ -31827,7 +32457,7 @@ function makeAllOperations(deps) {
     {
       name: "query.vector",
       namespace: "query",
-      description: `Weighted multi-adapter semantic search via pre-computed query vector. Fans out to adapters declaring the "embeddings" capability (currently memu via pgvector cosine). Caller supplies the vector -- adapters are model-agnostic, so callers must produce an embedding matching the adapter's stored vector space (memu: 1024-dim). Use for vector-similarity ranking when you already have an embedding; for text-input semantic search use query.semantic; for keyword fusion use query.unified.`,
+      description: `Weighted multi-adapter semantic search via pre-computed query vector. Fans out to adapters declaring the "embeddings" capability (currently memu via pgvector cosine). Caller supplies the vector -- adapters are model-agnostic, so callers must produce an embedding matching the adapter's stored vector space (memu: 1024-dim). Use for vector-similarity ranking when you already have an embedding; for text-input semantic search use query.semantic; for keyword fusion use query.unified (RRF).`,
       mutating: false,
       params: {
         vector: { type: "array", required: true, description: "Pre-computed query embedding as number[] (memu expects 1024-dim)" },
@@ -31886,6 +32516,121 @@ function makeAllOperations(deps) {
           isAvailable: a.isAvailable
         }))
       })
+    }
+  ];
+  const multimodalOps = [
+    {
+      name: "multimodal.ingest",
+      namespace: "multimodal",
+      description: "Parse a vault-relative multimodal document through the RAG-Anything HTTP bridge and write the extracted Markdown back into the vault. Dry-run by default. Requires RAGANYTHING_URL and a running wrapper service.",
+      mutating: true,
+      params: {
+        path: { type: "string", required: true, description: "Vault-relative source file path, e.g. attachments/report.pdf" },
+        outputPath: { type: "string", required: false, description: "Vault-relative Markdown output path. Defaults to 00-Inbox/Multimodal/<source-name>.md" },
+        parser: { type: "string", required: false, description: "Parser hint passed to RAG-Anything, e.g. mineru, docling, paddleocr" },
+        docId: { type: "string", required: false, description: "Optional document id passed through to the processing service" },
+        dryRun: { type: "boolean", required: false, default: true, description: "Return extracted Markdown without writing (default: true)" }
+      },
+      handler: async (_ctx, params) => {
+        const adapter = registry2.get("raganything");
+        if (!adapter || !adapter.isAvailable || typeof adapter.processDocument !== "function") {
+          throw makeErr(-32001, "RAG-Anything adapter not available or not initialized");
+        }
+        const inputPath = params.path;
+        if (!inputPath)
+          throw makeErr(-32602, "path required");
+        const normalizedInput = normalizeVaultRelPath(inputPath);
+        const fullInput = join6(vaultPath, normalizedInput);
+        if (!existsSync4(fullInput))
+          throw makeErr(-32001, `Source file not found: ${normalizedInput}`);
+        const outputPath = normalizeVaultRelPath(typeof params.outputPath === "string" && params.outputPath.length > 0 ? params.outputPath : defaultMultimodalOutputPath(normalizedInput));
+        if (!outputPath.endsWith(".md"))
+          throw makeErr(-32602, "outputPath must end with .md");
+        const result = await adapter.processDocument({
+          filePath: fullInput,
+          sourcePath: normalizedInput,
+          parser: params.parser,
+          docId: params.docId,
+          outputFormat: "markdown"
+        });
+        if (!result.markdown.trim()) {
+          throw makeErr(-32603, "RAG-Anything returned no markdown content");
+        }
+        const content = multimodalMarkdown({
+          sourcePath: normalizedInput,
+          parser: params.parser,
+          metadata: result.metadata,
+          markdown: result.markdown
+        });
+        const dryRun = params.dryRun ?? true;
+        if (dryRun) {
+          return {
+            dryRun: true,
+            sourcePath: normalizedInput,
+            outputPath,
+            markdownBytes: Buffer.byteLength(content, "utf-8"),
+            metadata: result.metadata,
+            preview: content.slice(0, 2e3)
+          };
+        }
+        const fullOutput = join6(vaultPath, outputPath);
+        mkdirSync2(dirname3(fullOutput), { recursive: true });
+        writeFileSync(fullOutput, content, "utf-8");
+        const vba = registry2.get("vaultbrain");
+        if (vba)
+          await vba.ingest(outputPath, content);
+        return {
+          dryRun: false,
+          sourcePath: normalizedInput,
+          outputPath,
+          markdownBytes: Buffer.byteLength(content, "utf-8"),
+          metadata: result.metadata
+        };
+      }
+    }
+  ];
+  const lightRagOps = [
+    {
+      name: "lightrag.ingest",
+      namespace: "lightrag",
+      description: "Send a vault-relative file into an external LightRAG server. Markdown/text files use /documents/text; other files use /documents/upload. Dry-run by default. Requires LIGHTRAG_URL.",
+      mutating: true,
+      params: {
+        path: { type: "string", required: true, description: "Vault-relative source file path" },
+        mode: { type: "string", required: false, default: "auto", enum: ["auto", "text", "upload"], description: "Ingest mode. auto sends .md/.txt as text and other files as upload." },
+        dryRun: { type: "boolean", required: false, default: true, description: "Return the planned LightRAG request without sending it (default: true)" }
+      },
+      handler: async (_ctx, params) => {
+        const adapter = registry2.get("lightrag");
+        if (!adapter || !adapter.isAvailable) {
+          throw makeErr(-32001, "LightRAG adapter not available or not initialized");
+        }
+        const inputPath = params.path;
+        if (!inputPath)
+          throw makeErr(-32602, "path required");
+        const normalizedInput = normalizeVaultRelPath(inputPath);
+        const fullInput = join6(vaultPath, normalizedInput);
+        if (!existsSync4(fullInput))
+          throw makeErr(-32001, `Source file not found: ${normalizedInput}`);
+        const mode = params.mode ?? "auto";
+        const effectiveMode = mode === "auto" ? /\.(md|markdown|txt)$/i.test(normalizedInput) ? "text" : "upload" : mode;
+        const dryRun = params.dryRun ?? true;
+        if (dryRun) {
+          return {
+            dryRun: true,
+            sourcePath: normalizedInput,
+            mode: effectiveMode,
+            endpoint: effectiveMode === "text" ? "/documents/text" : "/documents/upload"
+          };
+        }
+        if (effectiveMode === "text") {
+          const text = readFileSync4(fullInput, "utf-8");
+          const result2 = await adapter.insertText({ text, fileSource: normalizedInput });
+          return { dryRun: false, sourcePath: normalizedInput, mode: effectiveMode, result: result2 };
+        }
+        const result = await adapter.uploadFile({ filePath: fullInput, fileName: normalizedInput.split("/").pop() });
+        return { dryRun: false, sourcePath: normalizedInput, mode: effectiveMode, result };
+      }
     }
   ];
   const agentOps = [
@@ -32002,7 +32747,37 @@ function makeAllOperations(deps) {
       }
     }
   ];
-  return [...operations, ...compileOps, ...queryOps, ...agentOps];
+  return [...operations, ...compileOps, ...queryOps, ...multimodalOps, ...lightRagOps, ...agentOps];
+}
+function normalizeVaultRelPath(path) {
+  const normalized = path.trim().replace(/\\/g, "/").replace(/^\/+/, "").replace(/\/+/g, "/");
+  if (!normalized || /^[A-Za-z]:/.test(normalized) || normalized.startsWith("//") || normalized.split("/").some((part) => part === ".." || part === ".")) {
+    throw makeErr(-32602, "path traversal blocked");
+  }
+  return normalized;
+}
+function defaultMultimodalOutputPath(sourcePath) {
+  const name = sourcePath.split("/").pop() ?? "document";
+  const stem = name.replace(/\.[^.]+$/, "") || "document";
+  return `00-Inbox/Multimodal/${stem}.md`;
+}
+function multimodalMarkdown(opts) {
+  const generatedAt = (/* @__PURE__ */ new Date()).toISOString();
+  const metadata = JSON.stringify(opts.metadata).replace(/'/g, "''");
+  const parser = opts.parser ?? "raganything";
+  return [
+    "---",
+    `source: "${opts.sourcePath.replace(/"/g, '\\"')}"`,
+    "generated-by: raganything",
+    `generated-at: "${generatedAt}"`,
+    `parser: "${parser.replace(/"/g, '\\"')}"`,
+    `metadata-json: '${metadata}'`,
+    "status: draft",
+    "---",
+    "",
+    opts.markdown.replace(/\n+$/, ""),
+    ""
+  ].join("\n");
 }
 
 // dist/core/validate.js
@@ -32055,6 +32830,28 @@ function validateParams(schema, raw) {
 }
 
 // dist/index.js
+var WIKILINK_RE = /\[\[([^\]|]+)(?:\|([^\]]*))?\]\]/g;
+var TAG_RE = /(?:^|\s)#([a-zA-Z_一-鿿][\w/一-鿿-]*)/gm;
+var CODE_FENCE_RE = /```[\s\S]*?```/g;
+var INLINE_CODE_RE = /`[^`]*`/g;
+var HISTORY_KEY_RE = /^history:\s*$/m;
+var HISTORY_LINE_RE = /^history:\s*$/;
+var HISTORY_ITEM_RE = /^ {2}- /;
+var USER_CONFIRMED_RE = /(^|\s)#user-confirmed(\s|$)/m;
+var CODE_BLOCK_RE = CODE_FENCE_RE;
+var FRONTMATTER_CACHE = /* @__PURE__ */ new Map();
+var FRONTMATTER_CACHE_MAX = 100;
+function getCachedFrontmatter(key) {
+  return FRONTMATTER_CACHE.get(key);
+}
+function setCachedFrontmatter(key, value) {
+  if (FRONTMATTER_CACHE.size >= FRONTMATTER_CACHE_MAX) {
+    const firstKey = FRONTMATTER_CACHE.keys().next().value;
+    if (firstKey !== void 0)
+      FRONTMATTER_CACHE.delete(firstKey);
+  }
+  FRONTMATTER_CACHE.set(key, value);
+}
 function loadConfig() {
   const envVault = process.env.VAULT_MIND_VAULT_PATH || process.env.VAULT_BRIDGE_VAULT;
   if (envVault) {
@@ -32075,7 +32872,7 @@ function loadConfig() {
   ];
   for (const p of candidates) {
     if (existsSync5(p))
-      return { ...parseSimpleYaml(readFileSync4(p, "utf-8")), config_path: p };
+      return { ...parseSimpleYaml(readFileSync5(p, "utf-8")), config_path: p };
   }
   throw new Error("No vault-mind.yaml found and VAULT_MIND_VAULT_PATH not set");
 }
@@ -32138,7 +32935,7 @@ function readVaultCollabPolicy(vaultPath) {
   if (!existsSync5(policyPath))
     return {};
   try {
-    const parsed = JSON.parse(readFileSync4(policyPath, "utf-8"));
+    const parsed = JSON.parse(readFileSync5(policyPath, "utf-8"));
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
       throw new Error("expected a JSON object");
     }
@@ -32148,9 +32945,9 @@ function readVaultCollabPolicy(vaultPath) {
   }
 }
 function globToRegExp(glob) {
-  const cached = globCache.get(glob);
-  if (cached)
-    return cached;
+  const cached2 = globCache.get(glob);
+  if (cached2)
+    return cached2;
   let pattern = "";
   for (let i = 0; i < glob.length; i++) {
     const ch = glob[i];
@@ -32195,6 +32992,9 @@ function writeTargetPaths(toolName, args) {
     const persona = typeof args.persona === "string" ? args.persona : "*";
     return [`00-Inbox/AI-Output/${persona}/**`];
   }
+  if (toolName === "multimodal.ingest") {
+    return typeof args.outputPath === "string" ? [args.outputPath] : ["00-Inbox/Multimodal/**"];
+  }
   return typeof args.path === "string" ? [args.path] : [];
 }
 function enforceCollaborationPolicy(config2, toolName, args) {
@@ -32227,7 +33027,8 @@ function enforceCollaborationPolicy(config2, toolName, args) {
     "vault.delete",
     "vault.rename",
     "vault.mkdir",
-    "vault.writeAIOutput"
+    "vault.writeAIOutput",
+    "multimodal.ingest"
   ]);
   if (!mutatingTargets.has(toolName))
     return;
@@ -32271,7 +33072,8 @@ function shouldAuditWrite(toolName, args) {
     "vault.delete",
     "vault.rename",
     "vault.mkdir",
-    "vault.writeAIOutput"
+    "vault.writeAIOutput",
+    "multimodal.ingest"
   ]);
   return mutatingTargets.has(toolName) && (args.dryRun === false || args.dry_run === false);
 }
@@ -32282,7 +33084,7 @@ function auditWrite(config2, toolName, args, result) {
   try {
     const day = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
     const auditDir = resolve2(config2.vault_path, ".wiki-audit");
-    mkdirSync(auditDir, { recursive: true });
+    mkdirSync3(auditDir, { recursive: true });
     const entry = {
       ts: (/* @__PURE__ */ new Date()).toISOString(),
       actor,
@@ -32292,7 +33094,7 @@ function auditWrite(config2, toolName, args, result) {
       ok: true,
       resultPath: typeof result === "object" && result !== null && "path" in result ? result.path : void 0
     };
-    appendFileSync(resolve2(auditDir, `${day}.jsonl`), JSON.stringify(entry) + "\n", "utf-8");
+    appendFileSync2(resolve2(auditDir, `${day}.jsonl`), JSON.stringify(entry) + "\n", "utf-8");
   } catch (e) {
     process.stderr.write(`obsidian-llm-wiki: [warn] audit write failed: ${e.message}
 `);
@@ -32306,19 +33108,18 @@ function appendHistoryInYaml(content, flowItem) {
     return content;
   const yamlBlock = content.slice(4, end);
   const after = content.slice(end);
-  const historyKeyRe = /^history:\s*$/m;
   let newBlock;
-  if (historyKeyRe.test(yamlBlock)) {
+  if (HISTORY_KEY_RE.test(yamlBlock)) {
     const lines = yamlBlock.split("\n");
     let hIdx = -1;
     for (let i = 0; i < lines.length; i++) {
-      if (/^history:\s*$/.test(lines[i])) {
+      if (HISTORY_LINE_RE.test(lines[i])) {
         hIdx = i;
         break;
       }
     }
     let insertAt = hIdx + 1;
-    while (insertAt < lines.length && /^ {2}- /.test(lines[insertAt]))
+    while (insertAt < lines.length && HISTORY_ITEM_RE.test(lines[insertAt]))
       insertAt++;
     lines.splice(insertAt, 0, `  - ${flowItem}`);
     newBlock = lines.join("\n");
@@ -32401,6 +33202,10 @@ var VaultFs = class {
     const end = content.indexOf("\n---", 3);
     if (end === -1)
       return null;
+    const cacheKey = content.slice(0, Math.min(end, 200));
+    const cached2 = getCachedFrontmatter(cacheKey);
+    if (cached2 !== void 0)
+      return cached2;
     const block = content.slice(4, end);
     const fm = {};
     let currentKey = null;
@@ -32438,23 +33243,24 @@ var VaultFs = class {
     }
     if (inArray && currentKey)
       fm[currentKey] = arrayItems;
+    setCachedFrontmatter(cacheKey, fm);
     return fm;
   }
   parseWikilinks(content) {
     const links = [];
-    const re = /\[\[([^\]|]+)(?:\|([^\]]*))?\]\]/g;
+    WIKILINK_RE.lastIndex = 0;
     let m;
-    while ((m = re.exec(content)) !== null) {
+    while ((m = WIKILINK_RE.exec(content)) !== null) {
       links.push({ link: m[1], displayText: m[2] || m[1] });
     }
     return links;
   }
   parseTags(content) {
-    const cleaned = content.replace(/```[\s\S]*?```/g, "").replace(/`[^`]*`/g, "");
+    const cleaned = content.replace(CODE_BLOCK_RE, "").replace(INLINE_CODE_RE, "");
     const tags = [];
-    const re = /(?:^|\s)#([a-zA-Z_一-鿿][\w/一-鿿-]*)/gm;
+    TAG_RE.lastIndex = 0;
     let m;
-    while ((m = re.exec(cleaned)) !== null) {
+    while ((m = TAG_RE.exec(cleaned)) !== null) {
       tags.push("#" + m[1]);
     }
     return [...new Set(tags)];
@@ -32477,7 +33283,7 @@ var VaultFs = class {
           walk(full);
         else if (ent.isFile() && ent.name.endsWith(".md")) {
           const rel = relative3(this.vault, full).replace(/\\/g, "/");
-          fn(rel, readFileSync4(full, "utf-8"));
+          fn(rel, readFileSync5(full, "utf-8"));
         }
       }
     };
@@ -32493,7 +33299,7 @@ var VaultFs = class {
         const full = this.resolve(p.path);
         if (!existsSync5(full))
           throw err(-32001, `Not found: ${p.path}`);
-        return { content: readFileSync4(full, "utf-8") };
+        return { content: readFileSync5(full, "utf-8") };
       }
       case "vault.exists": {
         const existsPath = this.normalizeVaultPath(p.path ?? "", { allowRoot: true });
@@ -32517,7 +33323,7 @@ var VaultFs = class {
         if (!existsSync5(full))
           throw err(-32001, `Not found: ${p.path}`);
         const st = statSync(full);
-        const displayName = statPath === "" ? basename(this.vault) : basename(statPath);
+        const displayName = statPath === "" ? basename2(this.vault) : basename2(statPath);
         if (st.isDirectory())
           return { type: "folder", path: statPath, name: displayName, children: readdirSync4(full).length };
         return {
@@ -32536,8 +33342,8 @@ var VaultFs = class {
           throw err(-32002, `Already exists: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "create", path: p.path };
-        mkdirSync2(dirname4(full), { recursive: true });
-        writeFileSync(full, p.content || "", "utf-8");
+        mkdirSync3(dirname4(full), { recursive: true });
+        writeFileSync2(full, p.content || "", "utf-8");
         return { ok: true, path: p.path };
       }
       case "vault.modify": {
@@ -32546,7 +33352,7 @@ var VaultFs = class {
           throw err(-32001, `Not found: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "modify", path: p.path };
-        writeFileSync(full, p.content, "utf-8");
+        writeFileSync2(full, p.content, "utf-8");
         return { ok: true, path: p.path };
       }
       case "vault.append": {
@@ -32576,7 +33382,7 @@ var VaultFs = class {
           throw err(-32002, `Already exists: ${p.to}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "rename", from: p.from, to: p.to };
-        mkdirSync2(dirname4(to), { recursive: true });
+        mkdirSync3(dirname4(to), { recursive: true });
         renameSync(from, to);
         return { ok: true, from: p.from, to: p.to };
       }
@@ -32751,7 +33557,7 @@ var VaultFs = class {
         if (!p.path)
           throw err(-32602, "path required");
         const target = p.path.endsWith(".md") ? p.path : p.path + ".md";
-        const targetBase = basename(target, ".md");
+        const targetBase = basename2(target, ".md");
         const results = [];
         this.walkMd((relPath, content) => {
           if (relPath === target)
@@ -32838,7 +33644,7 @@ var VaultFs = class {
         }
         const titleMap = /* @__PURE__ */ new Map();
         for (const fi of allFiles) {
-          const t = basename(fi.path, ".md").toLowerCase();
+          const t = basename2(fi.path, ".md").toLowerCase();
           const arr = titleMap.get(t) || [];
           arr.push(fi.path);
           titleMap.set(t, arr);
@@ -32870,7 +33676,7 @@ var VaultFs = class {
           throw err(-32002, `Already exists: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "mkdir", path: p.path };
-        mkdirSync2(full, { recursive: true });
+        mkdirSync3(full, { recursive: true });
         return { ok: true, path: p.path };
       }
       case "vault.init": {
@@ -32888,7 +33694,7 @@ var VaultFs = class {
             skipped.push(rel);
             return;
           }
-          mkdirSync2(full, { recursive: true });
+          mkdirSync3(full, { recursive: true });
           created.push(rel);
         };
         const ensureFile = (rel, content) => {
@@ -32898,8 +33704,8 @@ var VaultFs = class {
             skipped.push(r);
             return;
           }
-          mkdirSync2(dirname4(full), { recursive: true });
-          writeFileSync(full, content, "utf-8");
+          mkdirSync3(dirname4(full), { recursive: true });
+          writeFileSync2(full, content, "utf-8");
           created.push(r);
         };
         ensureDir(base);
@@ -32945,7 +33751,7 @@ See root CLAUDE.md for full documentation.
         if (existsSync5(this.resolve(yamlPath))) {
           skipped.push(yamlPath);
         } else {
-          writeFileSync(this.resolve(yamlPath), `topic: "${p.topic}"
+          writeFileSync2(this.resolve(yamlPath), `topic: "${p.topic}"
 vault_path: "${this.vault.replace(/\\\\/g, "/")}"
 created: ${now}
 `, "utf-8");
@@ -32989,7 +33795,7 @@ created: ${now}
           }
           const mdFiles = entries.filter((e) => e.isFile() && e.name.endsWith(".md")).map((e) => e.name).sort();
           const subDirs = entries.filter((e) => e.isDirectory() && !PROTECTED_DIRS2.has(e.name) && !extraSkip.has(e.name)).map((e) => e.name).sort();
-          const topicName = basename(relDir || this.vault);
+          const topicName = basename2(relDir || this.vault);
           if (!report.hasCatalog) {
             const catalogPath = relDir ? posix.join(relDir, "_index.md") : "_index.md";
             const absCatalog = this.resolve(catalogPath);
@@ -33002,7 +33808,7 @@ updated: ${now}
 
 ` + (mdFiles.length ? "## Notes in this topic\n\n" + mdFiles.map((f) => `- [[${f.replace(/\.md$/, "")}]]`).join("\n") + "\n\n" : "") + (subDirs.length ? "## Subtopics\n\n" + subDirs.map((d) => `- \`${d}/\``).join("\n") + "\n" : "");
             if (!dryRun) {
-              writeFileSync(absCatalog, body, "utf-8");
+              writeFileSync2(absCatalog, body, "utf-8");
             }
             report.created.push(catalogPath);
           } else {
@@ -33021,7 +33827,7 @@ updated: ${now}
 - ${now}: Karpathy LLM Wiki discipline enforced (retroactive).
 `;
             if (!dryRun) {
-              writeFileSync(absChronicle, body, "utf-8");
+              writeFileSync2(absChronicle, body, "utf-8");
             }
             report.created.push(chroniclePath);
           } else {
@@ -33162,7 +33968,7 @@ updated: ${now}
           "scope": scope,
           "quarantine-state": quarantineState
         };
-        const bodyWithTag = reviewStatus === "user-confirmed" && !/(^|\s)#user-confirmed(\s|$)/m.test(body) ? `${body.replace(/\n+$/, "")}
+        const bodyWithTag = reviewStatus === "user-confirmed" && !USER_CONFIRMED_RE.test(body) ? `${body.replace(/\n+$/, "")}
 
 #user-confirmed` : body;
         if (p.dryRun !== false) {
@@ -33191,8 +33997,8 @@ ${yamlLines.join("\n")}
 
 ${bodyWithTag}
 `;
-        mkdirSync2(dirname4(fullPath), { recursive: true });
-        writeFileSync(fullPath, contentOut, "utf-8");
+        mkdirSync3(dirname4(fullPath), { recursive: true });
+        writeFileSync2(fullPath, contentOut, "utf-8");
         return { ok: true, path: relPath, frontmatter: frontmatterObj, warnings };
       }
       case "vault.sweepAIOutput": {
@@ -33227,7 +34033,7 @@ ${bodyWithTag}
             if (ent.isDirectory() && !PROTECTED_DIRS2.has(ent.name))
               walkSubtree(full);
             else if (ent.isFile() && ent.name.endsWith(".md")) {
-              const content = readFileSync4(full, "utf-8");
+              const content = readFileSync5(full, "utf-8");
               const fm = this.parseFrontmatter(content);
               if (!fm)
                 continue;
@@ -33254,7 +34060,7 @@ ${bodyWithTag}
         walkSubtree(aiRootAbs);
         const aiOutputPaths = new Set(entries.map((e) => e.relPath));
         const hasRealBacklink = (targetRel) => {
-          const targetBase = basename(targetRel, ".md");
+          const targetBase = basename2(targetRel, ".md");
           let found = false;
           this.walkMd((relPath, content) => {
             if (found)
@@ -33322,13 +34128,13 @@ ${bodyWithTag}
           const flipIso = new Date(nowValid).toISOString();
           for (const sc of staleCandidates) {
             const absPath = join7(this.vault, sc.path);
-            const original = readFileSync4(absPath, "utf-8");
+            const original = readFileSync5(absPath, "utf-8");
             const historyEntry = `{ts: "${flipIso}", axis: status, from: draft, to: stale, trigger: auto-stop-summary, evidence_level: low, human_in_loop: false, note: "gardener sweep"}`;
             const withStatusFlipped = original.replace(/(^---[\s\S]*?\nstatus: )draft(\n[\s\S]*?^---$)/m, (_m, g1, g2) => g1 + "stale" + g2);
             if (withStatusFlipped === original)
               continue;
             const replaced = appendHistoryInYaml(withStatusFlipped, historyEntry);
-            writeFileSync(absPath, replaced, "utf-8");
+            writeFileSync2(absPath, replaced, "utf-8");
             applied.push({ path: sc.path, change: "draft\u2192stale" });
           }
         }
@@ -33356,8 +34162,8 @@ ${bodyWithTag}
           const logLine = `- {ts: "${stamp}", totalEntries: ${metrics.totalEntries}, staleHits: ${staleCandidates.length}, supersedeHits: ${supersedeCandidates.length}, realBacklinkHitRate: ${metrics.realBacklinkHitRate.toFixed(3)}}
 `;
           if (!existsSync5(sweepLogAbs)) {
-            mkdirSync2(dirname4(sweepLogAbs), { recursive: true });
-            writeFileSync(sweepLogAbs, "# Sweep trend log\n\n", "utf-8");
+            mkdirSync3(dirname4(sweepLogAbs), { recursive: true });
+            writeFileSync2(sweepLogAbs, "# Sweep trend log\n\n", "utf-8");
           }
           appendFileSync2(sweepLogAbs, logLine, "utf-8");
         }
@@ -33367,7 +34173,7 @@ ${bodyWithTag}
         const full = this.resolve(p.path);
         if (!existsSync5(full))
           throw err(-32001, `Not found: ${p.path}`);
-        const content = readFileSync4(full, "utf-8");
+        const content = readFileSync5(full, "utf-8");
         const out = {};
         const links = this.parseWikilinks(content);
         if (links.length)
@@ -33407,7 +34213,7 @@ async function main() {
     await fsAdapter.init();
     registry2.register(fsAdapter);
   }
-  const enabledAdapters = new Set(config2.adapters ?? ["filesystem", "memu", "gitnexus", "obsidian", "qmd", "vaultbrain"]);
+  const enabledAdapters = new Set(config2.adapters ?? ["filesystem", "memu", "gitnexus", "obsidian", "qmd", "lightrag", "raganything", "vaultbrain"]);
   if (enabledAdapters.has("memu")) {
     const memuAdapter = new MemUAdapter();
     await memuAdapter.init();
@@ -33435,6 +34241,22 @@ async function main() {
       process.stderr.write("obsidian-llm-wiki: [qmd] adapter ready\n");
     }
   }
+  if (enabledAdapters.has("lightrag")) {
+    const lightragAdapter = new LightRAGAdapter();
+    await lightragAdapter.init();
+    if (lightragAdapter.isAvailable) {
+      registry2.register(lightragAdapter);
+      process.stderr.write("obsidian-llm-wiki: [lightrag] adapter ready\n");
+    }
+  }
+  if (enabledAdapters.has("raganything")) {
+    const ragAnythingAdapter = new RAGAnythingAdapter();
+    await ragAnythingAdapter.init();
+    if (ragAnythingAdapter.isAvailable) {
+      registry2.register(ragAnythingAdapter);
+      process.stderr.write("obsidian-llm-wiki: [raganything] adapter ready\n");
+    }
+  }
   let vaultBrainAdapter = null;
   if (enabledAdapters.has("vaultbrain")) {
     const vbAdapter = new VaultBrainAdapter();
@@ -33454,7 +34276,20 @@ async function main() {
   const compileTrigger = new CompileTrigger({
     vaultPath: config2.vault_path,
     compilerPath,
-    python
+    python,
+    onCompileSuccess: (wikiPaths) => {
+      if (!vaultBrainAdapter)
+        return;
+      for (const fullPath of wikiPaths) {
+        try {
+          const relPath = relative3(config2.vault_path, fullPath).replace(/\\/g, "/");
+          const content = readFileSync5(fullPath, "utf-8");
+          vaultBrainAdapter.ingest(relPath, content).catch((err2) => process.stderr.write(`obsidian-llm-wiki: [vaultbrain] ingest error: ${err2.message}
+`));
+        } catch {
+        }
+      }
+    }
   });
   const obsidianAdapter = registry2.get("obsidian");
   if (obsidianAdapter?.isAvailable && typeof obsidianAdapter.onFileChange === "function") {
@@ -33464,7 +34299,7 @@ async function main() {
         if (vaultBrainAdapter && e.path.endsWith(".md")) {
           try {
             const fullPath = join7(config2.vault_path, e.path.replace(/\\/g, "/"));
-            const content = readFileSync4(fullPath, "utf-8");
+            const content = readFileSync5(fullPath, "utf-8");
             vaultBrainAdapter.ingest(e.path, content).catch((err2) => process.stderr.write(`obsidian-llm-wiki: [vaultbrain] ingest error: ${err2.message}
 `));
           } catch {
@@ -33541,7 +34376,7 @@ async function main() {
           if (vaultBrainAdapter && p.endsWith(".md")) {
             try {
               const fullPath = join7(config2.vault_path, p.replace(/\\/g, "/"));
-              const content = readFileSync4(fullPath, "utf-8");
+              const content = readFileSync5(fullPath, "utf-8");
               vaultBrainAdapter.ingest(p, content).catch((err2) => process.stderr.write(`obsidian-llm-wiki: [vaultbrain] ingest error: ${err2.message}
 `));
             } catch {

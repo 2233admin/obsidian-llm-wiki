@@ -11,6 +11,7 @@ type PGliteDB = {
   exec(sql: string): Promise<unknown>;
   query<T = unknown>(sql: string, params?: unknown[]): Promise<{ rows: T[] }>;
   close(): Promise<void>;
+  waitReady: Promise<void>;
 };
 
 export class PGliteEngine implements VaultBrainEngine {
@@ -24,10 +25,8 @@ export class PGliteEngine implements VaultBrainEngine {
     const { vector } = await import("@electric-sql/pglite/vector");
     const { pg_trgm } = await import("@electric-sql/pglite/contrib/pg_trgm");
 
-    this.db = await PGlite.create({
-      dataDir: this.dataDir,
-      extensions: { vector, pg_trgm },
-    }) as unknown as PGliteDB;
+    this.db = new PGlite(this.dataDir, { extensions: { vector, pg_trgm } }) as unknown as PGliteDB;
+    await this.db.waitReady;
   }
 
   async disconnect(): Promise<void> {
@@ -43,12 +42,12 @@ export class PGliteEngine implements VaultBrainEngine {
 
   async upsertPage(slug: string, title: string, content: string, hash: string): Promise<void> {
     await this.requireDb().query(
-      `INSERT INTO pages (slug, title, content, content_hash, updated_at)
+      `INSERT INTO pages (slug, title, content, hash, updated_at)
        VALUES ($1, $2, $3, $4, now())
        ON CONFLICT (slug) DO UPDATE SET
          title = EXCLUDED.title,
          content = EXCLUDED.content,
-         content_hash = EXCLUDED.content_hash,
+         hash = EXCLUDED.hash,
          updated_at = now()`,
       [slug, title, content, hash],
     );
@@ -62,17 +61,6 @@ export class PGliteEngine implements VaultBrainEngine {
     if (chunks.length === 0) return;
     const db = this.requireDb();
 
-    // Resolve page_id for FK
-    const pageRes = await db.query<{ id: number }>(
-      `SELECT id FROM pages WHERE slug = $1`,
-      [slug],
-    );
-    if (pageRes.rows.length === 0) {
-      // No page -- skip silently (caller should upsertPage first)
-      return;
-    }
-    const pageId = pageRes.rows[0].id;
-
     for (const chunk of chunks) {
       const embeddingStr = chunk.embedding && chunk.embedding.length > 0
         ? JSON.stringify(chunk.embedding)
@@ -80,29 +68,29 @@ export class PGliteEngine implements VaultBrainEngine {
 
       if (embeddingStr) {
         await db.query(
-          `INSERT INTO content_chunks (page_id, slug, chunk_index, chunk_text, embedding, token_count)
-           VALUES ($1, $2, $3, $4, $5::vector, $6)
+          `INSERT INTO chunks (slug, chunk_index, chunk_text, embedding, token_count)
+           VALUES ($1, $2, $3, $4::vector, $5)
            ON CONFLICT (slug, chunk_index) DO UPDATE SET
              chunk_text = EXCLUDED.chunk_text,
              embedding = EXCLUDED.embedding,
              token_count = EXCLUDED.token_count`,
-          [pageId, slug, chunk.chunkIndex, chunk.chunkText, embeddingStr, chunk.tokenCount],
+          [slug, chunk.chunkIndex, chunk.chunkText, embeddingStr, chunk.tokenCount],
         );
       } else {
         await db.query(
-          `INSERT INTO content_chunks (page_id, slug, chunk_index, chunk_text, embedding, token_count)
-           VALUES ($1, $2, $3, $4, NULL, $5)
+          `INSERT INTO chunks (slug, chunk_index, chunk_text, embedding, token_count)
+           VALUES ($1, $2, $3, NULL, $4)
            ON CONFLICT (slug, chunk_index) DO UPDATE SET
              chunk_text = EXCLUDED.chunk_text,
              token_count = EXCLUDED.token_count`,
-          [pageId, slug, chunk.chunkIndex, chunk.chunkText, chunk.tokenCount],
+          [slug, chunk.chunkIndex, chunk.chunkText, chunk.tokenCount],
         );
       }
     }
   }
 
   async deleteChunks(slug: string): Promise<void> {
-    await this.requireDb().query(`DELETE FROM content_chunks WHERE slug = $1`, [slug]);
+    await this.requireDb().query(`DELETE FROM chunks WHERE slug = $1`, [slug]);
   }
 
   async searchKeyword(query: string, limit: number): Promise<ChunkResult[]> {
@@ -114,7 +102,7 @@ export class PGliteEngine implements VaultBrainEngine {
     }>(
       `SELECT slug, chunk_index, chunk_text,
               similarity(chunk_text, $1) AS score
-       FROM content_chunks
+       FROM chunks
        WHERE chunk_text % $1
        ORDER BY score DESC
        LIMIT $2`,
@@ -138,7 +126,7 @@ export class PGliteEngine implements VaultBrainEngine {
     }>(
       `SELECT slug, chunk_index, chunk_text,
               1 - (embedding <=> $1::vector) AS score
-       FROM content_chunks
+       FROM chunks
        WHERE embedding IS NOT NULL
        ORDER BY embedding <=> $1::vector
        LIMIT $2`,
@@ -154,7 +142,7 @@ export class PGliteEngine implements VaultBrainEngine {
 
   async upsertLink(fromSlug: string, toSlug: string): Promise<void> {
     await this.requireDb().query(
-      `INSERT INTO links (from_slug, to_slug)
+      `INSERT INTO page_links (from_slug, to_slug)
        VALUES ($1, $2)
        ON CONFLICT (from_slug, to_slug) DO NOTHING`,
       [fromSlug, toSlug],
@@ -163,7 +151,7 @@ export class PGliteEngine implements VaultBrainEngine {
 
   async upsertTag(slug: string, tag: string): Promise<void> {
     await this.requireDb().query(
-      `INSERT INTO tags (slug, tag)
+      `INSERT INTO page_tags (slug, tag)
        VALUES ($1, $2)
        ON CONFLICT (slug, tag) DO NOTHING`,
       [slug, tag],

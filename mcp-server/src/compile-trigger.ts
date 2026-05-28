@@ -26,6 +26,8 @@ export interface CompileTriggerConfig {
   tier?: string;
   /** Auto-compile enabled (default: true) */
   autoCompile?: boolean;
+  /** Called after successful compile with list of modified wiki paths for re-indexing */
+  onCompileSuccess?: (wikiPaths: string[]) => void;
 }
 
 export interface CompileStatus {
@@ -60,6 +62,7 @@ export class CompileTrigger {
   private readonly threshold: number;
   private readonly tier: string;
   private readonly autoCompile: boolean;
+  private readonly onCompileSuccess?: (wikiPaths: string[]) => void;
 
   constructor(config: CompileTriggerConfig) {
     this.vaultPath = config.vaultPath;
@@ -68,6 +71,7 @@ export class CompileTrigger {
     this.threshold = config.threshold ?? 3;
     this.tier = config.tier ?? "haiku";
     this.autoCompile = config.autoCompile ?? true;
+    this.onCompileSuccess = config.onCompileSuccess;
   }
 
   /**
@@ -232,6 +236,11 @@ export class CompileTrigger {
         }
       }
 
+      // Notify index to re-index vaultbrain after compile writes wiki/ files
+      if (this.onCompileSuccess) {
+        this.onCompileSuccess(this.findWikiFiles(topic));
+      }
+
       this.lastRun = timestamp;
       this.lastResult = result;
       this.running = false;
@@ -273,5 +282,21 @@ export class CompileTrigger {
     const re = new RegExp(label + "\\s*:\\s*(\\d+)");
     const m = text.match(re);
     return m ? parseInt(m[1], 10) : 0;
+  }
+
+  /** Find all wiki/ output files for a topic after compilation */
+  private findWikiFiles(topic: string): string[] {
+    const wikiDir = resolve(this.vaultPath, topic, "wiki");
+    if (!existsSync(wikiDir)) return [];
+    const files: string[] = [];
+    const walk = (d: string): void => {
+      for (const ent of readdirSync(d, { withFileTypes: true })) {
+        const full = resolve(d, ent.name);
+        if (ent.isDirectory()) walk(full);
+        else if (ent.name.endsWith(".md")) files.push(full);
+      }
+    };
+    walk(wikiDir);
+    return files;
   }
 }

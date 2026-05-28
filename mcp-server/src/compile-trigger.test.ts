@@ -1,13 +1,16 @@
 /**
  * CompileTrigger unit tests
  *
- * Tests pure in-process logic only -- no Python subprocess is spawned.
- * The trigger is always constructed with autoCompile=false so the threshold
- * never fires and we never hit the filesystem or the compiler.
+ * Most tests are pure in-process logic. The compile success hook test uses a
+ * temporary vault and runs Node as a fake compiler so no Python dependency is
+ * required.
  */
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { tmpdir } from "node:os";
 import { CompileTrigger } from "./compile-trigger.js";
 
 const FAKE_VAULT = "/nonexistent/vault";
@@ -114,5 +117,52 @@ describe("CompileTrigger -- run", () => {
     // Either ok (Python happened to work) or failed gracefully with an error
     assert.ok(typeof result.ok === "boolean");
     assert.ok(typeof result.timestamp === "string");
+  });
+
+  test("run() calls onCompileSuccess with generated wiki markdown files", async () => {
+    const root = mkdtempSync(join(tmpdir(), "vault-compile-trigger-"));
+    try {
+      const vaultPath = join(root, "vault");
+      const compilerPath = join(root, "compiler");
+      const topicPath = join(vaultPath, "topic-a");
+      const wikiDir = join(topicPath, "wiki");
+      mkdirSync(wikiDir, { recursive: true });
+      mkdirSync(compilerPath, { recursive: true });
+      writeFileSync(join(wikiDir, "summary.md"), "# Summary\n", "utf-8");
+      mkdirSync(join(wikiDir, "concepts"), { recursive: true });
+      writeFileSync(join(wikiDir, "concepts", "memory.md"), "# Memory\n", "utf-8");
+      writeFileSync(join(wikiDir, "skip.txt"), "not markdown\n", "utf-8");
+
+      const compileScript = join(compilerPath, "compile.py");
+      writeFileSync(
+        compileScript,
+        "console.log('=== Compilation Report ===');\n" +
+          "console.log('Sources compiled: 2');\n" +
+          "console.log('Concepts created: 1');\n" +
+          "console.log('Contradictions: 0');\n",
+        "utf-8",
+      );
+
+      let indexedPaths: string[] = [];
+      const trigger = new CompileTrigger({
+        vaultPath,
+        compilerPath,
+        python: process.execPath,
+        autoCompile: false,
+        onCompileSuccess: (wikiPaths) => {
+          indexedPaths = wikiPaths.map((p) => resolve(p)).sort();
+        },
+      });
+
+      const result = await trigger.run("topic-a");
+      assert.equal(result.ok, true);
+      assert.equal(result.sourcesCompiled, 2);
+      assert.deepEqual(indexedPaths, [
+        resolve(join(wikiDir, "concepts", "memory.md")),
+        resolve(join(wikiDir, "summary.md")),
+      ].sort());
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

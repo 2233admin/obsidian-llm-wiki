@@ -18,6 +18,8 @@ import { MemUAdapter } from "./adapters/memu.js";
 import { GitNexusAdapter } from "./adapters/gitnexus.js";
 import { ObsidianAdapter } from "./adapters/obsidian.js";
 import { QmdAdapter } from "./adapters/qmd.js";
+import { LightRAGAdapter } from "./adapters/lightrag.js";
+import { RAGAnythingAdapter } from "./adapters/raganything.js";
 import { VaultBrainAdapter } from "./adapters/vaultbrain/index.js";
 import { AdapterRegistry } from "./adapters/registry.js";
 import { CompileTrigger } from "./compile-trigger.js";
@@ -41,25 +43,21 @@ const HISTORY_LINE_RE = /^history:\s*$/;
 /** YAML array item under a key (two leading spaces + dash) */
 const HISTORY_ITEM_RE = /^ {2}- /;
 /** Strip trailing newlines */
-const TRAILING_NL_RE = /
-+$/;
+const TRAILING_NL_RE = /\n+$/;
 /** Escape regex special chars in plain-text vault.search queries */
-const SEARCH_ESCAPE_RE = /[.*+?^${}()|[\]\]/g;
+const SEARCH_ESCAPE_RE = /[.*+?^${}()|[\]\\]/g;
 /** Detect single shell-command queries (writeAIOutput guard) */
-const SINGLE_CMD_RE = /^\s*(pwd|ls|cd|cat|rg|grep|echo|git\s+status|git\s+diff)[^
-]*$/i;
+const SINGLE_CMD_RE = /^\s*(pwd|ls|cd|cat|rg|grep|echo|git\s+status|git\s+diff)\b[^\n]*$/i;
 /** Detect existing #user-confirmed tag */
 const USER_CONFIRMED_RE = /(^|\s)#user-confirmed(\s|$)/m;
 /** Flip status: draft → stale in frontmatter (multiline) */
-const STATUS_FLIP_RE = /(^---[\s\S]*?
-status: )draft(
-[\s\S]*?^---$)/m;
+const STATUS_FLIP_RE = /(^---[\s\S]*?\nstatus: )draft(\n[\s\S]*?^---$)/m;
 /** Escape glob special characters for use in a RegExp */
-const GLOB_ESCAPE_RE = /[.+^${}()|[\]\]/g;
+const GLOB_ESCAPE_RE = /[.+^${}()|[\]\\]/g;
 /** Normalize Windows backslash to forward slash */
-const PATHSEP_RE = /\/g;
+const PATHSEP_RE = /\\/g;
 /** Detect Windows absolute-path prefix (e.g. C:\) */
-const WIN_ABS_RE = /^[A-Za-z]:[\/]/;
+const WIN_ABS_RE = /^[A-Za-z]:[\\/]/;
 /** Remove fenced code blocks (alias for CODE_FENCE_RE for API compat) */
 const CODE_BLOCK_RE = CODE_FENCE_RE;
 
@@ -237,6 +235,11 @@ function writeTargetPaths(toolName: string, args: Record<string, unknown>): stri
     const persona = typeof args.persona === "string" ? args.persona : "*";
     return [`00-Inbox/AI-Output/${persona}/**`];
   }
+  if (toolName === "multimodal.ingest") {
+    return typeof args.outputPath === "string"
+      ? [args.outputPath]
+      : ["00-Inbox/Multimodal/**"];
+  }
   return typeof args.path === "string" ? [args.path] : [];
 }
 
@@ -260,6 +263,7 @@ function enforceCollaborationPolicy(config: VaultMindConfig, toolName: string, a
 
   const mutatingTargets = new Set([
     "vault.create", "vault.modify", "vault.append", "vault.delete", "vault.rename", "vault.mkdir", "vault.writeAIOutput",
+    "multimodal.ingest",
   ]);
   if (!mutatingTargets.has(toolName)) return;
   if (args.dryRun !== false && args.dry_run !== false) return;
@@ -298,6 +302,7 @@ function shouldAuditWrite(toolName: string, args: Record<string, unknown>): bool
   if (toolName === "vault.batch") return args.dryRun === false || args.dry_run === false;
   const mutatingTargets = new Set([
     "vault.create", "vault.modify", "vault.append", "vault.delete", "vault.rename", "vault.mkdir", "vault.writeAIOutput",
+    "multimodal.ingest",
   ]);
   return mutatingTargets.has(toolName) && (args.dryRun === false || args.dry_run === false);
 }
@@ -1352,7 +1357,7 @@ async function main(): Promise<void> {
   }
 
   // Optional adapters -- init gracefully, don't block if unavailable
-  const enabledAdapters = new Set(config.adapters ?? ["filesystem", "memu", "gitnexus", "obsidian", "qmd", "vaultbrain"]);
+  const enabledAdapters = new Set(config.adapters ?? ["filesystem", "memu", "gitnexus", "obsidian", "qmd", "lightrag", "raganything", "vaultbrain"]);
 
   if (enabledAdapters.has("memu")) {
     const memuAdapter = new MemUAdapter();
@@ -1382,6 +1387,24 @@ async function main(): Promise<void> {
     }
   }
 
+  if (enabledAdapters.has("lightrag")) {
+    const lightragAdapter = new LightRAGAdapter();
+    await lightragAdapter.init();
+    if (lightragAdapter.isAvailable) {
+      registry.register(lightragAdapter);
+      process.stderr.write("obsidian-llm-wiki: [lightrag] adapter ready\n");
+    }
+  }
+
+  if (enabledAdapters.has("raganything")) {
+    const ragAnythingAdapter = new RAGAnythingAdapter();
+    await ragAnythingAdapter.init();
+    if (ragAnythingAdapter.isAvailable) {
+      registry.register(ragAnythingAdapter);
+      process.stderr.write("obsidian-llm-wiki: [raganything] adapter ready\n");
+    }
+  }
+
   let vaultBrainAdapter: VaultBrainAdapter | null = null;
   if (enabledAdapters.has("vaultbrain")) {
     const vbAdapter = new VaultBrainAdapter();
@@ -1403,6 +1426,18 @@ async function main(): Promise<void> {
     vaultPath: config.vault_path,
     compilerPath,
     python,
+    onCompileSuccess: (wikiPaths: string[]) => {
+      if (!vaultBrainAdapter) return;
+      for (const fullPath of wikiPaths) {
+        try {
+          const relPath = relative(config.vault_path, fullPath).replace(/\\/g, "/");
+          const content = readFileSync(fullPath, "utf-8");
+          vaultBrainAdapter.ingest(relPath, content).catch((err: Error) =>
+            process.stderr.write(`obsidian-llm-wiki: [vaultbrain] ingest error: ${err.message}\n`)
+          );
+        } catch { /* ignore */ }
+      }
+    },
   });
 
   // Wire Obsidian file events into compile trigger (when Obsidian is running)

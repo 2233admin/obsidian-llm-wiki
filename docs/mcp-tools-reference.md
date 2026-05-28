@@ -3,7 +3,7 @@
 > Auto-generated from `mcp-server/src/core/operations.ts`.
 > Run `npm run generate-tools-doc` to regenerate. Do not edit by hand.
 
-Total: **42** operations across **5** namespaces.
+Total: **44** operations across **7** namespaces.
 
 ## `vault.*` (23)
 
@@ -471,3 +471,33 @@ Trigger an agent action
 
 - `action` (string, required) — Action to trigger (compile, emerge, reconcile, prune, challenge)
 - `mode` (string, optional) — Agent mode
+
+## `multimodal.*` (1)
+
+### `multimodal.ingest`
+
+Parse a vault-relative multimodal document through the RAG-Anything HTTP bridge and write the extracted Markdown back into the vault. Dry-run by default. Requires RAGANYTHING_URL and a running wrapper service.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `path` (string, required) — Vault-relative source file path, e.g. attachments/report.pdf
+- `outputPath` (string, optional) — Vault-relative Markdown output path. Defaults to 00-Inbox/Multimodal/<source-name>.md
+- `parser` (string, optional) — Parser hint passed to RAG-Anything, e.g. mineru, docling, paddleocr
+- `docId` (string, optional) — Optional document id passed through to the processing service
+- `dryRun` (boolean, optional, default: `true`) — Return extracted Markdown without writing (default: true)
+
+## `lightrag.*` (1)
+
+### `lightrag.ingest`
+
+Send a vault-relative file into an external LightRAG server. Markdown/text files use /documents/text; other files use /documents/upload. Dry-run by default. Requires LIGHTRAG_URL.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `path` (string, required) — Vault-relative source file path
+- `mode` (string, optional, default: `"auto"`, enum: `auto` | `text` | `upload`) — Ingest mode. auto sends .md/.txt as text and other files as upload.
+- `dryRun` (boolean, optional, default: `true`) — Return the planned LightRAG request without sending it (default: true)
