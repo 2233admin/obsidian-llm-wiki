@@ -94,7 +94,7 @@ export class PGliteEngine implements VaultBrainEngine {
   }
 
   async searchKeyword(query: string, limit: number): Promise<ChunkResult[]> {
-    const { rows } = await this.requireDb().query<{
+    let { rows } = await this.requireDb().query<{
       slug: string;
       chunk_index: number;
       chunk_text: string;
@@ -108,6 +108,27 @@ export class PGliteEngine implements VaultBrainEngine {
        LIMIT $2`,
       [query, limit],
     );
+
+    // Fallback to ILIKE when pg_trgm returns no results.
+    // pg_trgm's default similarity threshold (0.3) is too strict for CJK text
+    // where character n-gram overlap is naturally lower.
+    if (rows.length === 0) {
+      ({ rows } = await this.requireDb().query<{
+        slug: string;
+        chunk_index: number;
+        chunk_text: string;
+        score: number;
+      }>(
+        `SELECT slug, chunk_index, chunk_text,
+                0.5 AS score
+         FROM chunks
+         WHERE chunk_text ILIKE $1
+         ORDER BY chunk_index
+         LIMIT $2`,
+        [`%${query}%`, limit],
+      ));
+    }
+
     return rows.map((r) => ({
       slug: r.slug,
       chunkIndex: r.chunk_index,
