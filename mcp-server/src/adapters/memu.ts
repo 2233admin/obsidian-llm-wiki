@@ -1,43 +1,25 @@
 /**
- * adapter-memu -- routes memU graph recall through the memu-graph CLI bridge.
+ * adapter-memu -- routes memU graph recall through two search paths.
  *
- * memU's Python surface (MemuService / RetrieveMixin) is an internal workflow
- * orchestrator (async, LLM-gated, heavy config) and not a public API. Instead
- * of bridging it directly, this adapter targets two surfaces:
+ * This adapter implements a cascading fallback strategy:
  *
- *   1. Graph layer (gm_nodes / gm_edges / gm_communities, 1024-dim) via a
- *      stdin/stdout JSON CLI bridge: `python -m memu_graph.cli graph-recall`.
- *      The bridge implements the dual-path PPR + community recall logic that
- *      lives in memu-graph; we cannot replicate it from Node without porting
- *      a non-trivial pile of SQL + scoring math, so we shell out instead.
- *      Cold-start ~630ms per call (Python interp + sqlalchemy + pg connect +
- *      load_graph + recall). Caller-visible cost is the dominant component.
+ *   1. Graph recall (primary): spawns `python -m memu_graph.cli graph-recall`
+ *      via stdin/stdout JSON bridge. Implements PPR + community recall from
+ *      gm_nodes / gm_edges (1024-dim). Cold-start ~630ms. Unavailable if
+ *      memu_graph is not importable in the target Python environment.
  *
- *   2. memory_items table (4096-dim Qwen3-Embedding-8B) via raw pgvector
- *      cosine. Kept for forward compatibility -- no local 4096d inference
- *      service is typically running, so this path is rarely exercised.
+ *   2. Pure-PG search (fallback): spawns `memu_search.py` which uses Python-side
+ *      cosine similarity against memory_items (1024-dim bge-m3 embeddings stored
+ *      as JSONB). Bypasses pgvector entirely -- works on Windows where pgvector
+ *      is unavailable. Also handles ILIKE fallback when embedding generation fails.
  *
- * Search paths exposed to callers:
- *   - search(query)                 -> embeds via ollama qwen3-embedding:0.6b
- *                                      (1024-dim) and routes the query string
- *                                      + vector through graph_recall.
- *   - searchByVector(vec) 1024-dim  -> graph_recall vec-only (empty query).
- *   - searchByVector(vec) 4096-dim  -> raw pgvector cosine on memory_items.
- *   - searchByVector(vec) other     -> [] (caller responsibility).
+ * Search paths:
+ *   - search(query)  -> embeds via Ollama bge-m3 (1024-dim), falls back to ILIKE
+ *   - searchByVector(vec) 1024-dim -> cosine via memu_search.py
+ *   - searchByVector(vec) 4096-dim -> raw pgvector cosine on memory_items
  *
- * No lexical ILIKE fallback. On graph_recall failure search() returns []
- * rather than degrading to ILIKE -- on graph-domain queries the ILIKE rows
- * (chat-history events) are noise, not signal.
- *
- * Schema reality (audited 2026-04-29):
- *   memory_items.embedding_model = "Qwen3-Embedding-8B" v1, dim=4096
- *   gm_nodes.embedding = dim=1024 (filled by .memu/scripts/embed_nodes.py via
- *     Ollama qwen3-embedding:0.6b at localhost:11434/v1)
- *
- * Requires: Postgres reachable via MEMU_DSN (default localhost:5432/memu),
- * Python with memu_graph importable (default D:/projects/memu-graph/.venv),
- * ollama serving qwen3-embedding:0.6b at OLLAMA_EMBED_BASE_URL. Gracefully
- * returns [] if any of these are unavailable.
+ * Requires: Postgres reachable via MEMU_DSN, Ollama serving bge-m3 at :11434.
+ * Gracefully degrades to [] if unavailable.
  */
 
 import pg from "pg";
@@ -75,12 +57,20 @@ export interface MemUAdapterConfig {
   memuGraphCwd?: string;
   /** Subprocess timeout in ms. Default: 15_000 (cold-start ~630ms + worst-case slow PG) */
   graphRecallTimeoutMs?: number;
+  /** Path to memu_search.py fallback script. Default: D:/projects/memu/scripts/memu_search.py */
+  memuSearchPy?: string;
+  /** Python interpreter for memu_search.py (may differ from memuGraph python). Default: python from PATH */
+  memuSearchPythonExe?: string;
+  /** Ollama embedding model. Default: bge-m3 (1024-dim, available on this machine) */
+  embedModel?: string;
 }
 
 const DEFAULT_DSN = "postgresql://postgres:postgres@localhost:5432/memu";
-const DEFAULT_PYTHON = "D:/projects/memu-graph/.venv/Scripts/python.exe";
-const DEFAULT_MEMU_GRAPH_CWD = "D:/projects/memu-graph";
+const DEFAULT_PYTHON = "D:/projects/_active/memu/.venv/Scripts/python.exe";
+const DEFAULT_MEMU_GRAPH_CWD = "D:/projects/_active/memu";
 const DEFAULT_GRAPH_RECALL_TIMEOUT_MS = 15_000;
+const DEFAULT_MEMU_SEARCH_PY = "D:/projects/_active/memu/scripts/memu_search.py";
+const DEFAULT_MEMU_SEARCH_TIMEOUT_MS = 20_000;
 
 interface RecallNode {
   id: string;
@@ -118,6 +108,10 @@ export class MemUAdapter implements VaultMindAdapter {
   private readonly pythonExe: string;
   private readonly memuGraphCwd: string;
   private readonly graphRecallTimeoutMs: number;
+  private readonly memuSearchPy: string;
+  private readonly memuSearchPythonExe: string;
+  private readonly memuSearchTimeoutMs: number;
+  private readonly embedModel: string;
   private pool: pg.Pool | null = null;
   private available = false;
 
@@ -140,6 +134,14 @@ export class MemUAdapter implements VaultMindAdapter {
       (Number.isFinite(envTimeoutNum) && envTimeoutNum > 0
         ? envTimeoutNum
         : DEFAULT_GRAPH_RECALL_TIMEOUT_MS);
+    this.memuSearchPy =
+      config?.memuSearchPy ?? process.env.MEMU_SEARCH_PY ?? DEFAULT_MEMU_SEARCH_PY;
+    this.memuSearchPythonExe =
+      config?.memuSearchPythonExe ?? process.env.MEMU_SEARCH_PYTHON
+      ?? "D:/projects/_active/memu/.venv/Scripts/python.exe";
+    this.memuSearchTimeoutMs = 20_000;
+    this.embedModel =
+      config?.embedModel ?? process.env.OLLAMA_EMBED_MODEL ?? "bge-m3";
   }
 
   async init(): Promise<void> {
@@ -186,11 +188,13 @@ export class MemUAdapter implements VaultMindAdapter {
   async search(query: string, opts?: SearchOpts): Promise<SearchResult[]> {
     if (!this.available || !this.pool) return [];
     const limit = Math.max(1, Math.min(opts?.maxResults ?? this.defaultMax, 100));
-    const vec = await embedTextOllama(query);
+    const vec = await embedTextOllama(query, { model: this.embedModel });
     const queryVec = vec.length === 1024 ? vec : null;
     const result = await this.runGraphRecall(query, queryVec, limit);
-    if (!result) return [];
-    return this.mapRecallResult(result);
+    if (result) return this.mapRecallResult(result);
+    // Fallback: pure-PG cosine via memu_search.py (bypasses pgvector, pg_trgm fallback)
+    const pyResult = await this.runMemuSearchPy(query, queryVec, limit);
+    return pyResult;
   }
 
   async searchByVector(
@@ -202,8 +206,9 @@ export class MemUAdapter implements VaultMindAdapter {
     if (vector.length === 1024) {
       const limit = Math.max(1, Math.min(opts?.maxResults ?? this.defaultMax, 100));
       const result = await this.runGraphRecall("", vector, limit);
-      if (!result) return [];
-      return this.mapRecallResult(result);
+      if (result) return this.mapRecallResult(result);
+      const pyResult = await this.runMemuSearchPy("", vector, limit);
+      return pyResult;
     }
     if (vector.length === 4096) return this.searchMemoryItemsByVector(vector, opts);
     return [];
@@ -357,6 +362,121 @@ export class MemUAdapter implements VaultMindAdapter {
         resolve(null);
       }
     });
+  }
+
+  /**
+   * Fallback: spawn memu_search.py for pure-PG cosine search via Python-side
+   * computation (bypasses pgvector on Windows). Used when memu_graph.cli is
+   * unavailable or times out.
+   */
+  private async runMemuSearchPy(
+    query: string,
+    vec: readonly number[] | null,
+    limit: number,
+  ): Promise<SearchResult[]> {
+    return new Promise<SearchResult[]>((resolve) => {
+      let stdout = "";
+      let stderr = "";
+      let settled = false;
+
+      const args = [
+        this.memuSearchPy,
+        "--dsn", this.dsn,
+        "--limit", String(limit),
+      ];
+      if (query) {
+        args.push("--query", query);
+        if (vec) args.push("--embed", JSON.stringify(Array.from(vec)));
+      } else if (vec) {
+        args.push("--embed", JSON.stringify(Array.from(vec)));
+      } else {
+        resolve([]);
+        return;
+      }
+
+      const proc = spawn(this.memuSearchPythonExe, args, {
+        windowsHide: true,
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        proc.kill("SIGKILL");
+        process.stderr.write(
+          `obsidian-llm-wiki: [warn] memu_search.py timeout after ${this.memuSearchTimeoutMs}ms\n`,
+        );
+        resolve([]);
+      }, this.memuSearchTimeoutMs);
+
+      proc.stdout.on("data", (d) => { stdout += d.toString("utf-8"); });
+      proc.stderr.on("data", (d) => { stderr += d.toString("utf-8"); });
+
+      proc.on("error", (err) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        process.stderr.write(
+          `obsidian-llm-wiki: [warn] memu_search.py spawn failed: ${err.message}\n`,
+        );
+        resolve([]);
+      });
+
+      proc.on("close", (code) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (code !== 0) {
+          process.stderr.write(
+            `obsidian-llm-wiki: [warn] memu_search.py exit ${code}: ${stderr.slice(0, 300)}\n`,
+          );
+          resolve([]);
+          return;
+        }
+        try {
+          const parsed = JSON.parse(stdout) as Array<{
+            id?: string;
+            summary?: string;
+            memory_type?: string;
+            happened_at?: string;
+            extra?: Record<string, unknown>;
+            score?: number;
+          }>;
+          resolve(this.mapMemuSearchPyResult(parsed));
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          process.stderr.write(
+            `obsidian-llm-wiki: [warn] memu_search.py stdout JSON parse failed: ${msg}\n`,
+          );
+          resolve([]);
+        }
+      });
+    });
+  }
+
+  private mapMemuSearchPyResult(rows: Array<{
+    id?: string;
+    summary?: string;
+    memory_type?: string;
+    happened_at?: string;
+    extra?: Record<string, unknown>;
+    score?: number;
+  }>): SearchResult[] {
+    if (rows.length === 0) return [];
+    const maxScore = Math.max(...rows.map((r) => r.score ?? 0), 1e-9);
+    return rows.map((r) => ({
+      source: this.name,
+      path: `memu/item/${r.id ?? "?"}`,
+      content: String(r.summary ?? "").slice(0, 500),
+      score: (r.score ?? 0) / maxScore,
+      metadata: {
+        table: "memory_items",
+        memory_type: r.memory_type ?? "note",
+        item_id: r.id,
+        happened_at: r.happened_at,
+        extra: r.extra ?? {},
+      },
+    }));
   }
 
   /**

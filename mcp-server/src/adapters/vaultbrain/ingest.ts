@@ -1,12 +1,20 @@
 /**
- * ingest -- markdown chunker + OpenAI embedding client.
- * Graceful degradation: if OPENAI_API_KEY missing, embedTexts returns [].
+ * ingest -- markdown chunker + embedding client.
+ * Uses embedding-client.ts (Ollama/OpenAI/vLLM/TEI) with graceful degradation.
  */
 
 const CHARS_PER_TOKEN = 4;
-const OPENAI_EMBEDDING_MODEL = "text-embedding-3-small";
-const OPENAI_EMBEDDING_URL = "https://api.openai.com/v1/embeddings";
 const EMBED_BATCH_SIZE = 20;
+
+// Defer import so embedding-client can be absent without breaking other vaultbrain code
+async function getEmbedFn() {
+  try {
+    const { embed } = await import("../../embedding-client.js");
+    return embed;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Chunk markdown content into approximately `maxTokens`-sized chunks.
@@ -88,45 +96,27 @@ export function chunkMarkdown(content: string, maxTokens = 512, overlap = 64): s
 }
 
 /**
- * Embed texts via OpenAI text-embedding-3-small.
- * Returns [] if OPENAI_API_KEY missing or request fails (non-fatal).
+ * Embed texts via embedding-client.ts (Ollama, OpenAI, vLLM, TEI).
+ * Returns [] if no embedding provider available (non-fatal).
  */
 export async function embedTexts(texts: string[]): Promise<number[][]> {
   if (texts.length === 0) return [];
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return [];
+  const embed = await getEmbedFn();
+  if (!embed) {
+    console.warn("[vaultbrain] embedTexts: no embedding provider (VAULT_MIND_EMBED_URL not set, embedding-client unavailable)");
+    return [];
+  }
 
   const allEmbeddings: number[][] = [];
-
   for (let i = 0; i < texts.length; i += EMBED_BATCH_SIZE) {
     const batch = texts.slice(i, i + EMBED_BATCH_SIZE);
     try {
-      const response = await fetch(OPENAI_EMBEDDING_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: OPENAI_EMBEDDING_MODEL,
-          input: batch,
-        }),
-      });
-
-      if (!response.ok) {
-        console.warn(`[vaultbrain] embedding request failed: ${response.status}`);
-        return [];
-      }
-
-      const data = await response.json() as { data: Array<{ embedding: number[] }> };
-      for (const item of data.data) {
-        allEmbeddings.push(item.embedding);
-      }
+      const results = await Promise.all(batch.map((t) => embed(t)));
+      allEmbeddings.push(...results);
     } catch (err) {
-      console.warn(`[vaultbrain] embedding request error: ${(err as Error).message}`);
+      console.warn(`[vaultbrain] embedTexts batch error: ${(err as Error).message}`);
       return [];
     }
   }
-
   return allEmbeddings;
 }

@@ -516,7 +516,7 @@ export class FsTransport {
         };
       }
       case 'vault.externalSearch':
-        throw { code: -32000, message: 'No external search engine configured' };
+        return { available: false, message: 'No external search engine configured' };
       case 'listCapabilities':
         return { methods: ['vault.read', 'vault.create', 'vault.modify', 'vault.append', 'vault.delete', 'vault.rename', 'vault.mkdir', 'vault.search', 'vault.list', 'vault.stat', 'vault.exists', 'vault.init', 'vault.getMetadata', 'vault.searchByTag', 'vault.searchByFrontmatter', 'vault.graph', 'vault.backlinks', 'vault.batch', 'vault.lint', 'vault.externalSearch'], version: VERSION };
       default:

@@ -98,11 +98,23 @@ maybe_mkdir "$SKILLS_DIR/mcp-server"
 run cp "$SCRIPT_DIR/mcp-server/bundle.js" "$SKILLS_DIR/mcp-server/bundle.js"
 run cp "$SCRIPT_DIR/mcp-server/package.json" "$SKILLS_DIR/mcp-server/package.json"
 
+# Register every vault skill at the host skill root so hosts that expose
+# skill/slash-command discovery do not need to know about vault-wiki/skills.
+INSTALLED_SKILLS=0
+for skill_file in "$SCRIPT_DIR"/skills/vault-*.md; do
+  [ -f "$skill_file" ] || continue
+  skill="$(basename "$skill_file" .md)"
+  maybe_mkdir "$PARENT_DIR/$skill"
+  run cp "$skill_file" "$PARENT_DIR/$skill/SKILL.md"
+  INSTALLED_SKILLS=$((INSTALLED_SKILLS + 1))
+done
+
 INSTALL_PATH="$SKILLS_DIR/mcp-server/bundle.js"
 
 echo ""
 echo "LLM Wiki Bridge installed to:"
 echo "  $SKILLS_DIR"
+echo "Top-level skills registered: $INSTALLED_SKILLS"
 echo ""
 echo "Next steps:"
 echo ""
@@ -121,13 +133,13 @@ echo '    }'
 echo '  }'
 echo '}'
 echo ""
-echo "3. Add to CLAUDE.md (Personas section):"
+echo "3. Add to your host instructions (CLAUDE.md, AGENTS.md, or equivalent):"
 echo ""
-echo "## Vault Personas"
+echo "## Vault Roles"
 echo ""
-echo "Your markdown vault is managed by a 6-persona virtual team:"
+echo "Your markdown vault is managed by host-neutral LLMwiki roles:"
 echo ""
-echo "| Persona | Skill | What it does |"
+echo "| Role | Skill | What it does |"
 echo "|---------|-------|--------------|"
 echo "| Librarian  | \`/vault-librarian\`  | Search + read with citations |"
 echo "| Architect  | \`/vault-architect\`  | Run concept_graph, summarize changes |"
@@ -135,6 +147,7 @@ echo "| Curator    | \`/vault-curator\`    | Detect orphans, stale notes, duplic
 echo "| Teacher    | \`/vault-teacher\`    | Explain how a concept relates to others |"
 echo "| Historian  | \`/vault-historian\`  | Time-window search by mtime |"
 echo "| Janitor    | \`/vault-janitor\`    | Propose orphan/duplicate/broken-link fixes |"
+echo "| Closeout   | \`/vault-agent-closeout\` | File agent work into AI-Output draft quarantine |"
 echo ""
 echo "4. Try it:"
 echo "   /vault-librarian what is attention heads"

@@ -2,10 +2,8 @@
  * embedding-client -- thin HTTP client for OpenAI-compatible embedding
  * endpoints (ollama /v1/embeddings, vLLM, TEI, OpenAI itself).
  *
- * Defaults match the verified memU stack on this machine: ollama at
- * localhost:11434 serving qwen3-embedding:0.6b, which produces 1024-dim
- * L2-normalised vectors matching memU's stored `memory_items.embedding`
- * column (cosine similarity 1.000000 on roundtrip of stored summaries).
+ * Defaults match BGE-M3 via Ollama at localhost:11434, producing 1024-dim
+ * L2-normalised vectors matching vaultbrain's stored chunk embeddings.
  *
  * Env overrides:
  *   VAULT_MIND_EMBED_URL    default http://localhost:11434/v1/embeddings
@@ -17,7 +15,7 @@
  */
 
 const DEFAULT_URL = "http://localhost:11434/v1/embeddings";
-const DEFAULT_MODEL = "qwen3-embedding:0.6b";
+const DEFAULT_MODEL = "bge-m3";
 const DEFAULT_TIMEOUT_MS = 15_000;
 
 export interface EmbedOpts {

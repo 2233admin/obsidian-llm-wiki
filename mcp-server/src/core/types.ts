@@ -30,7 +30,7 @@ export interface ParamDef {
 
 export interface Operation {
   name: string;
-  namespace: 'vault' | 'compile' | 'query' | 'agent' | 'recipe';
+  namespace: 'vault' | 'compile' | 'query' | 'agent' | 'recipe' | 'multimodal' | 'lightrag';
   description: string;
   params: Record<string, ParamDef>;
   handler: (ctx: OperationContext, params: Record<string, unknown>) => Promise<unknown>;

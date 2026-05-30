@@ -8,11 +8,12 @@ from pathlib import Path
 from models import Chunk  # noqa: E402
 
 _HEADING_RE = re.compile(r"^(#{1,6})\s+(.+)$")
+_PARAGRAPH_RE = re.compile(r"\n{2,}")
 
 
 def _split_by_paragraphs(text: str, chunk_size: int, overlap: int) -> list[str]:
     """Split text into chunks of at most chunk_size chars with overlap."""
-    paragraphs = [p.strip() for p in re.split(r"\n{2,}", text) if p.strip()]
+    paragraphs = [p.strip() for p in _PARAGRAPH_RE.split(text) if p.strip()]
     if not paragraphs:
         return []
 
@@ -23,11 +24,10 @@ def _split_by_paragraphs(text: str, chunk_size: int, overlap: int) -> list[str]:
     for para in paragraphs:
         para_len = len(para)
         if current_len + para_len + 1 > chunk_size and current_parts:
-            chunks.append("\n\n".join(current_parts))
+            joined = "\n\n".join(current_parts)
+            chunks.append(joined)
             # keep tail for overlap
-            tail = "\n\n".join(current_parts)
-            if overlap > 0 and len(tail) > overlap:
-                tail = tail[-overlap:]
+            tail = joined[-overlap:] if overlap > 0 and len(joined) > overlap else joined
             current_parts = [tail] if overlap > 0 else []
             current_len = len(tail) if overlap > 0 else 0
         current_parts.append(para)
@@ -52,6 +52,7 @@ def chunk_file(
     2. If a block exceeds chunk_size, further split by paragraphs with overlap.
     """
     text = path.read_text("utf-8-sig", errors="replace")
+    text_stripped = text.strip()
     lines = text.splitlines()
 
     # --- phase 1: segment by headings ---
@@ -90,18 +91,19 @@ def chunk_file(
         else:
             sub_chunks = _split_by_paragraphs(block, chunk_size, chunk_overlap)
             for sub in sub_chunks:
-                if sub.strip():
+                stripped = sub.strip()
+                if stripped:
                     result.append(Chunk(
-                        content=sub.strip(),
+                        content=stripped,
                         source=source,
                         heading=heading,
                         start_line=start_line,
                     ))
 
     # fallback: entire file as one chunk if no sections found
-    if not result and text.strip():
+    if not result and text_stripped:
         result.append(Chunk(
-            content=text.strip()[:chunk_size],
+            content=text_stripped[:chunk_size],
             source=source,
             heading=None,
             start_line=0,

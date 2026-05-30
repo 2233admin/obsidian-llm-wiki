@@ -48,7 +48,12 @@ mcp-server/smoke.err
 .planning/
 .gitnexus
 .repowise/
+.repowise-workspace.yaml
+.sentrux/
 .cocoindex_code/
 .claude/
 .outreach/
 /package-lock.json
+agent_logs/
+TASKS.md
+workspaces/

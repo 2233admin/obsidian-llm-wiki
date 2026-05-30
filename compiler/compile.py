@@ -29,6 +29,7 @@ from pathlib import Path
 from chunker import chunk_file
 from extractor import ExtractionResult, extract_chunk, resolve_model, resolve_provider_url
 from models import Claim, CompileReport, Contradiction
+from wal import WAL
 
 # HTML export (optional)
 try:
@@ -88,10 +89,68 @@ def _run_kb_meta_cmd(args: list[str]) -> dict:
 # Step: diff
 # ---------------------------------------------------------------------------
 
-def step_diff(vault: str, topic: str) -> list[str]:
-    """Return relative paths of new/changed raw files."""
+def _git_diff_dirty(vault: str, topic: str) -> list[str]:
+    """Return changed file paths via git diff --name-only, filtered to the topic's raw/ dir.
+
+    Returns an empty list if not in a git repo or if the command fails.
+    """
+    base = Path(vault) / topic
+    raw_dir = base / "raw"
+    if not raw_dir.exists():
+        return []
+
+    try:
+        result = subprocess.run(
+            ["git", "diff", "--name-only", "HEAD"],
+            cwd=str(base),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+    except FileNotFoundError:
+        # git not on PATH
+        return []
+
+    if result.returncode != 0:
+        return []
+
+    dirty: list[str] = []
+    for line in result.stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        # git diff returns paths relative to base (cwd); strip raw/ prefix if present
+        if line.startswith("raw/"):
+            rel = line[4:]
+        elif line.startswith("raw\\"):
+            rel = line[4:]
+        else:
+            # not under raw/ -- skip
+            continue
+        dirty.append(rel)
+
+    return dirty
+
+
+def step_diff(vault: str, topic: str, wal: WAL | None = None) -> list[str]:
+    """Return relative paths of new/changed raw files.
+
+    Uses git diff --name-only when available (incremental mode) and falls back
+    to kb_meta diff for non-git vaults.
+    """
+    git_dirty = _git_diff_dirty(vault, topic)
+    if git_dirty:
+        if wal is not None:
+            for rel in git_dirty:
+                wal.append("discover", rel)
+        return git_dirty
+
+    # Fallback: use kb_meta diff (handles non-git vaults and untracked files)
     result = _run_kb_meta_cmd(["diff", vault, topic])
     dirty = result.get("new", []) + result.get("changed", [])
+    if wal is not None:
+        for rel in dirty:
+            wal.append("discover", rel)
     return dirty
 
 
@@ -187,6 +246,7 @@ def step_merge_write(
     vault: str,
     topic: str,
     dry_run: bool,
+    wal: WAL | None = None,
 ) -> tuple[int, int, int, int, list[Contradiction]]:
     """Merge extracted knowledge into wiki/.
 
@@ -239,6 +299,8 @@ def step_merge_write(
             print(f"  [dry-run] would write {summary_path.relative_to(base)}")
         else:
             _write_atomic(summary_path, summary_content)
+            if wal is not None:
+                wal.append("write", str(summary_path.relative_to(base)))
         summaries_written += 1
 
         # --- process concepts ---
@@ -264,6 +326,8 @@ def step_merge_write(
                         print(f"  [dry-run] would create concept: {slug}.md")
                     else:
                         _write_atomic(concept_path, content)
+                        if wal is not None:
+                            wal.append("write", str(concept_path.relative_to(base)))
                     existing_slugs[slug] = name
                     concepts_created += 1
                 else:
@@ -274,6 +338,8 @@ def step_merge_write(
                             print(f"  [dry-run] would update concept: {slug}.md")
                         else:
                             _write_atomic(concept_path, appended)
+                            if wal is not None:
+                                wal.append("write", str(concept_path.relative_to(base)))
                         concepts_updated += 1
 
             # --- collect claims for contradiction detection ---
@@ -370,12 +436,14 @@ def _write_contradictions(wiki: Path, contradictions: list[Contradiction], dry_r
 # Step: update hash
 # ---------------------------------------------------------------------------
 
-def step_update_hashes(vault: str, topic: str, dirty: list[str], dry_run: bool) -> None:
+def step_update_hashes(vault: str, topic: str, dirty: list[str], dry_run: bool, wal: WAL | None = None) -> None:
     for rel in dirty:
         if dry_run:
             print(f"  [dry-run] would update hash for {rel}")
         else:
             _run_kb_meta_cmd(["update-hash", vault, topic, rel])
+            if wal is not None:
+                wal.append("hash-update", rel)
 
 
 # ---------------------------------------------------------------------------
@@ -528,9 +596,12 @@ def main() -> None:
     # ensure init
     _run_kb_meta_cmd(["init", vault, topic])
 
+    # WAL
+    wal = WAL(vault)
+
     # 1. diff
     print("\n[1/7] diff -- finding dirty files...")
-    dirty = step_diff(vault, topic)
+    dirty = step_diff(vault, topic, wal)
     if not dirty:
         print("  Nothing to compile. All sources up to date.")
         # Still allow HTML export if requested
@@ -572,12 +643,12 @@ def main() -> None:
     # 4+5. merge + write
     print("\n[4/7] merge + [5/7] write -- updating wiki...")
     summaries_written, concepts_created, concepts_updated, contradictions_found, _ = (
-        step_merge_write(extractions, vault, topic, args.dry_run)
+        step_merge_write(extractions, vault, topic, args.dry_run, wal)
     )
 
     # 6. update hashes
     print("\n[6/7] update-hash -- marking sources compiled...")
-    step_update_hashes(vault, topic, dirty, args.dry_run)
+    step_update_hashes(vault, topic, dirty, args.dry_run, wal)
 
     # 7. index + links
     print("\n[7/7] index + check-links...")

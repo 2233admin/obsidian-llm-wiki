@@ -18,6 +18,8 @@ import { MemUAdapter } from "./adapters/memu.js";
 import { GitNexusAdapter } from "./adapters/gitnexus.js";
 import { ObsidianAdapter } from "./adapters/obsidian.js";
 import { QmdAdapter } from "./adapters/qmd.js";
+import { LightRAGAdapter } from "./adapters/lightrag.js";
+import { RAGAnythingAdapter } from "./adapters/raganything.js";
 import { VaultBrainAdapter } from "./adapters/vaultbrain/index.js";
 import { AdapterRegistry } from "./adapters/registry.js";
 import { CompileTrigger } from "./compile-trigger.js";
@@ -25,6 +27,56 @@ import type { VaultMindAdapter } from "./adapters/interface.js";
 import { makeAllOperations } from "./core/operations.js";
 import type { OperationContext, Logger, VaultExecutor, VaultMindConfig } from "./core/types.js";
 import { validateParams, rejectDangerousRegex } from "./core/validate.js";
+
+// Precompiled regex patterns for performance (avoid recompilation on every call)
+const WIKILINK_RE = /\[\[([^\]|]+)(?:\|([^\]]*))?\]\]/g;
+const TAG_RE = /(?:^|\s)#([a-zA-Z_一-鿿][\w/一-鿿-]*)/gm;
+const CODE_FENCE_RE = /```[\s\S]*?```/g;
+const INLINE_CODE_RE = /`[^`]*`/g;
+
+/** Markdown heading: # through ###### followed by space and text */
+const HEADING_RE = /^(#{1,6})\s+(.+)/;
+/** YAML history key (flow-style) */
+const HISTORY_KEY_RE = /^history:\s*$/m;
+/** YAML history key on a single line (used inline) */
+const HISTORY_LINE_RE = /^history:\s*$/;
+/** YAML array item under a key (two leading spaces + dash) */
+const HISTORY_ITEM_RE = /^ {2}- /;
+/** Strip trailing newlines */
+const TRAILING_NL_RE = /\n+$/;
+/** Escape regex special chars in plain-text vault.search queries */
+const SEARCH_ESCAPE_RE = /[.*+?^${}()|[\]\\]/g;
+/** Detect single shell-command queries (writeAIOutput guard) */
+const SINGLE_CMD_RE = /^\s*(pwd|ls|cd|cat|rg|grep|echo|git\s+status|git\s+diff)\b[^\n]*$/i;
+/** Detect existing #user-confirmed tag */
+const USER_CONFIRMED_RE = /(^|\s)#user-confirmed(\s|$)/m;
+/** Flip status: draft → stale in frontmatter (multiline) */
+const STATUS_FLIP_RE = /(^---[\s\S]*?\nstatus: )draft(\n[\s\S]*?^---$)/m;
+/** Escape glob special characters for use in a RegExp */
+const GLOB_ESCAPE_RE = /[.+^${}()|[\]\\]/g;
+/** Normalize Windows backslash to forward slash */
+const PATHSEP_RE = /\\/g;
+/** Detect Windows absolute-path prefix (e.g. C:\) */
+const WIN_ABS_RE = /^[A-Za-z]:[\\/]/;
+/** Remove fenced code blocks (alias for CODE_FENCE_RE for API compat) */
+const CODE_BLOCK_RE = CODE_FENCE_RE;
+
+
+// Simple LRU cache for frontmatter parsing (keyed by content hash)
+const FRONTMATTER_CACHE = new Map<string, Record<string, unknown> | null>();
+const FRONTMATTER_CACHE_MAX = 100;
+
+function getCachedFrontmatter(key: string): Record<string, unknown> | null | undefined {
+  return FRONTMATTER_CACHE.get(key);
+}
+
+function setCachedFrontmatter(key: string, value: Record<string, unknown> | null): void {
+  if (FRONTMATTER_CACHE.size >= FRONTMATTER_CACHE_MAX) {
+    const firstKey = FRONTMATTER_CACHE.keys().next().value;
+    if (firstKey !== undefined) FRONTMATTER_CACHE.delete(firstKey);
+  }
+  FRONTMATTER_CACHE.set(key, value);
+}
 
 // Config
 
@@ -183,6 +235,11 @@ function writeTargetPaths(toolName: string, args: Record<string, unknown>): stri
     const persona = typeof args.persona === "string" ? args.persona : "*";
     return [`00-Inbox/AI-Output/${persona}/**`];
   }
+  if (toolName === "multimodal.ingest") {
+    return typeof args.outputPath === "string"
+      ? [args.outputPath]
+      : ["00-Inbox/Multimodal/**"];
+  }
   return typeof args.path === "string" ? [args.path] : [];
 }
 
@@ -206,6 +263,7 @@ function enforceCollaborationPolicy(config: VaultMindConfig, toolName: string, a
 
   const mutatingTargets = new Set([
     "vault.create", "vault.modify", "vault.append", "vault.delete", "vault.rename", "vault.mkdir", "vault.writeAIOutput",
+    "multimodal.ingest",
   ]);
   if (!mutatingTargets.has(toolName)) return;
   if (args.dryRun !== false && args.dry_run !== false) return;
@@ -244,6 +302,7 @@ function shouldAuditWrite(toolName: string, args: Record<string, unknown>): bool
   if (toolName === "vault.batch") return args.dryRun === false || args.dry_run === false;
   const mutatingTargets = new Set([
     "vault.create", "vault.modify", "vault.append", "vault.delete", "vault.rename", "vault.mkdir", "vault.writeAIOutput",
+    "multimodal.ingest",
   ]);
   return mutatingTargets.has(toolName) && (args.dryRun === false || args.dry_run === false);
 }
@@ -285,17 +344,17 @@ function appendHistoryInYaml(content: string, flowItem: string): string {
   const yamlBlock = content.slice(4, end);
   const after = content.slice(end);
 
-  const historyKeyRe = /^history:\s*$/m;
+  // uses HISTORY_KEY_RE (module-level)
   let newBlock: string;
-  if (historyKeyRe.test(yamlBlock)) {
+  if (HISTORY_KEY_RE.test(yamlBlock)) {
     // Insert after the last `  - ` item following history:
     const lines = yamlBlock.split("\n");
     let hIdx = -1;
     for (let i = 0; i < lines.length; i++) {
-      if (/^history:\s*$/.test(lines[i])) { hIdx = i; break; }
+      if (HISTORY_LINE_RE.test(lines[i])) { hIdx = i; break; }
     }
     let insertAt = hIdx + 1;
-    while (insertAt < lines.length && /^ {2}- /.test(lines[insertAt])) insertAt++;
+    while (insertAt < lines.length && HISTORY_ITEM_RE.test(lines[insertAt])) insertAt++;
     lines.splice(insertAt, 0, `  - ${flowItem}`);
     newBlock = lines.join("\n");
   } else {
@@ -371,8 +430,12 @@ export class VaultFs {
 
   parseFrontmatter(content: string): Record<string, unknown> | null {
     if (!content.startsWith("---")) return null;
+    // Use cache key based on first 200 chars of frontmatter block
     const end = content.indexOf("\n---", 3);
     if (end === -1) return null;
+    const cacheKey = content.slice(0, Math.min(end, 200));
+    const cached = getCachedFrontmatter(cacheKey);
+    if (cached !== undefined) return cached;
     const block = content.slice(4, end);
     const fm: Record<string, unknown> = {};
     let currentKey: string | null = null;
@@ -403,25 +466,28 @@ export class VaultFs {
       }
     }
     if (inArray && currentKey) fm[currentKey] = arrayItems;
+    setCachedFrontmatter(cacheKey, fm);
     return fm;
   }
 
   parseWikilinks(content: string): Array<{ link: string; displayText: string }> {
     const links: Array<{ link: string; displayText: string }> = [];
-    const re = /\[\[([^\]|]+)(?:\|([^\]]*))?\]\]/g;
+    // Use precompiled regex from module level
+    WIKILINK_RE.lastIndex = 0;
     let m: RegExpExecArray | null;
-    while ((m = re.exec(content)) !== null) {
+    while ((m = WIKILINK_RE.exec(content)) !== null) {
       links.push({ link: m[1], displayText: m[2] || m[1] });
     }
     return links;
   }
 
   parseTags(content: string): string[] {
-    const cleaned = content.replace(/```[\s\S]*?```/g, "").replace(/`[^`]*`/g, "");
+    const cleaned = content.replace(CODE_BLOCK_RE, "").replace(INLINE_CODE_RE, "");
     const tags: string[] = [];
-    const re = /(?:^|\s)#([a-zA-Z_一-鿿][\w/一-鿿-]*)/gm;
+    // Use precompiled regex from module level
+    TAG_RE.lastIndex = 0;
     let m: RegExpExecArray | null;
-    while ((m = re.exec(cleaned)) !== null) { tags.push("#" + m[1]); }
+    while ((m = TAG_RE.exec(cleaned)) !== null) { tags.push("#" + m[1]); }
     return [...new Set(tags)];
   }
 
@@ -1019,7 +1085,7 @@ export class VaultFs {
 
         // Body tag injection for human-confirmed entries. Obsidian treats
         // repeated tags as one, but we skip duplicate writes to keep diffs clean.
-        const bodyWithTag = reviewStatus === "user-confirmed" && !/(^|\s)#user-confirmed(\s|$)/m.test(body)
+        const bodyWithTag = reviewStatus === "user-confirmed" && !USER_CONFIRMED_RE.test(body)
           ? `${body.replace(/\n+$/, "")}\n\n#user-confirmed`
           : body;
 
@@ -1291,7 +1357,7 @@ async function main(): Promise<void> {
   }
 
   // Optional adapters -- init gracefully, don't block if unavailable
-  const enabledAdapters = new Set(config.adapters ?? ["filesystem", "memu", "gitnexus", "obsidian", "qmd", "vaultbrain"]);
+  const enabledAdapters = new Set(config.adapters ?? ["filesystem", "memu", "gitnexus", "obsidian", "qmd", "lightrag", "raganything", "vaultbrain"]);
 
   if (enabledAdapters.has("memu")) {
     const memuAdapter = new MemUAdapter();
@@ -1321,6 +1387,24 @@ async function main(): Promise<void> {
     }
   }
 
+  if (enabledAdapters.has("lightrag")) {
+    const lightragAdapter = new LightRAGAdapter();
+    await lightragAdapter.init();
+    if (lightragAdapter.isAvailable) {
+      registry.register(lightragAdapter);
+      process.stderr.write("obsidian-llm-wiki: [lightrag] adapter ready\n");
+    }
+  }
+
+  if (enabledAdapters.has("raganything")) {
+    const ragAnythingAdapter = new RAGAnythingAdapter();
+    await ragAnythingAdapter.init();
+    if (ragAnythingAdapter.isAvailable) {
+      registry.register(ragAnythingAdapter);
+      process.stderr.write("obsidian-llm-wiki: [raganything] adapter ready\n");
+    }
+  }
+
   let vaultBrainAdapter: VaultBrainAdapter | null = null;
   if (enabledAdapters.has("vaultbrain")) {
     const vbAdapter = new VaultBrainAdapter();
@@ -1342,6 +1426,18 @@ async function main(): Promise<void> {
     vaultPath: config.vault_path,
     compilerPath,
     python,
+    onCompileSuccess: (wikiPaths: string[]) => {
+      if (!vaultBrainAdapter) return;
+      for (const fullPath of wikiPaths) {
+        try {
+          const relPath = relative(config.vault_path, fullPath).replace(/\\/g, "/");
+          const content = readFileSync(fullPath, "utf-8");
+          vaultBrainAdapter.ingest(relPath, content).catch((err: Error) =>
+            process.stderr.write(`obsidian-llm-wiki: [vaultbrain] ingest error: ${err.message}\n`)
+          );
+        } catch { /* ignore */ }
+      }
+    },
   });
 
   // Wire Obsidian file events into compile trigger (when Obsidian is running)

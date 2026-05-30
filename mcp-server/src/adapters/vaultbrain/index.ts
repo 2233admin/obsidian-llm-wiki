@@ -22,6 +22,9 @@ export class VaultBrainAdapter implements VaultMindAdapter {
   readonly capabilities: readonly AdapterCapability[] = ["search", "embeddings"];
 
   private engine: VaultBrainEngine | null = null;
+  private _available = false;
+
+  get isAvailable(): boolean { return this._available; }
 
   constructor(private readonly dataDir?: string) {}
 
@@ -32,9 +35,11 @@ export class VaultBrainAdapter implements VaultMindAdapter {
       await engine.connect();
       await engine.initSchema();
       this.engine = engine;
+      this._available = true;
     } catch (err) {
       console.warn(`[vaultbrain] init failed, adapter disabled: ${(err as Error).message}`);
       this.engine = null;
+      this._available = false;
     }
   }
 
@@ -62,17 +67,15 @@ export class VaultBrainAdapter implements VaultMindAdapter {
       // non-fatal
     }
 
-    // Vector search (only if API key present)
+    // Vector search (via Ollama BGE-M3 by default, falls back gracefully)
     let vecResults: ChunkResult[] = [];
-    if (process.env.OPENAI_API_KEY) {
-      try {
-        const embeddings = await embedTexts([query]);
-        if (embeddings.length > 0) {
-          vecResults = await this.engine.searchVector(embeddings[0], perListLimit);
-        }
-      } catch {
-        // non-fatal, fall back to keyword-only
+    try {
+      const embeddings = await embedTexts([query]);
+      if (embeddings.length > 0 && embeddings[0].length > 0) {
+        vecResults = await this.engine.searchVector(embeddings[0], perListLimit);
       }
+    } catch {
+      // non-fatal, fall back to keyword-only
     }
 
     // RRF fusion
