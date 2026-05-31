@@ -48,4 +48,18 @@ CREATE INDEX IF NOT EXISTS chunks_trgm_idx
 
 CREATE INDEX IF NOT EXISTS chunks_slug_idx
   ON chunks (slug);
+
+-- Tree index: heading hierarchy for PageIndex-style section-aware retrieval
+CREATE TABLE IF NOT EXISTS sections (
+  slug TEXT NOT NULL,
+  level INTEGER NOT NULL,
+  heading TEXT NOT NULL,
+  path TEXT NOT NULL,
+  chunk_start INTEGER,
+  chunk_end INTEGER,
+  PRIMARY KEY (slug, level, heading)
+);
+
+CREATE INDEX IF NOT EXISTS sections_path_idx ON sections (slug, path);
+CREATE INDEX IF NOT EXISTS sections_trgm_idx ON sections USING gin (heading gin_trgm_ops);
 `;

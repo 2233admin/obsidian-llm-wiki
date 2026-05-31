@@ -1,6 +1,9 @@
 /**
  * VaultBrainAdapter -- semantic storage adapter backed by PGLite (pgvector + pg_trgm).
- * Hybrid search via RRF fusion of keyword (pg_trgm similarity) and vector (cosine) results.
+ * Hybrid search via RRF fusion of:
+ *   1. Section search (heading hierarchy, PageIndex-style)
+ *   2. Keyword search (pg_trgm)
+ *   3. Vector search (pgvector)
  */
 
 import { homedir } from "node:os";
@@ -11,9 +14,9 @@ import type {
   SearchResult,
   SearchOpts,
 } from "../interface.js";
-import type { VaultBrainEngine, ChunkResult } from "./engine.js";
+import type { VaultBrainEngine, ChunkResult, SectionResult } from "./engine.js";
 import { PGliteEngine } from "./pglite-engine.js";
-import { chunkMarkdown, embedTexts } from "./ingest.js";
+import { chunkMarkdown, embedTexts, extractSections, assignChunkRanges, sectionToResult } from "./ingest.js";
 
 const RRF_K = 60;
 
@@ -59,7 +62,29 @@ export class VaultBrainAdapter implements VaultMindAdapter {
     const limit = opts?.maxResults ?? 20;
     const perListLimit = Math.ceil(limit * 2);
 
-    // Keyword search (always runs)
+    // Step 1: Section search (PageIndex-style heading hierarchy)
+    let sectionResults: SectionResult[] = [];
+    try {
+      sectionResults = await this.engine.searchSections(query, perListLimit);
+    } catch {
+      // non-fatal
+    }
+
+    // Build section → chunk scoring map (chunks in matching sections get boost)
+    const sectionChunkBoost = new Map<string, number>();
+    for (const s of sectionResults) {
+      // Boost all chunks in this section's range
+      const slug = s.slug;
+      if (s.chunkStart >= 0 && s.chunkEnd >= 0) {
+        for (let i = s.chunkStart; i <= s.chunkEnd; i++) {
+          const key = `${slug}::${i}`;
+          const boost = (sectionResults[0]?.score ?? 1) * (1 / (sectionResults.indexOf(s) + 1));
+          sectionChunkBoost.set(key, (sectionChunkBoost.get(key) ?? 0) + boost);
+        }
+      }
+    }
+
+    // Step 2: Keyword search (pg_trgm)
     let kwResults: ChunkResult[] = [];
     try {
       kwResults = await this.engine.searchKeyword(query, perListLimit);
@@ -67,7 +92,7 @@ export class VaultBrainAdapter implements VaultMindAdapter {
       // non-fatal
     }
 
-    // Vector search (via Ollama BGE-M3 by default, falls back gracefully)
+    // Step 3: Vector search (pgvector via Ollama BGE-M3)
     let vecResults: ChunkResult[] = [];
     try {
       const embeddings = await embedTexts([query]);
@@ -78,9 +103,18 @@ export class VaultBrainAdapter implements VaultMindAdapter {
       // non-fatal, fall back to keyword-only
     }
 
-    // RRF fusion
-    const scoreMap = new Map<string, { result: ChunkResult; score: number }>();
+    // RRF fusion with section boost
+    const scoreMap = new Map<string, { result: ChunkResult; score: number; sectionPath?: string }>();
 
+    // Section boost (highest priority)
+    for (const [key, boost] of sectionChunkBoost) {
+      const existing = scoreMap.get(key);
+      if (existing) {
+        existing.score += boost;
+      }
+    }
+
+    // Keyword RRF
     for (let rank = 0; rank < kwResults.length; rank++) {
       const r = kwResults[rank];
       const key = `${r.slug}::${r.chunkIndex}`;
@@ -90,6 +124,7 @@ export class VaultBrainAdapter implements VaultMindAdapter {
       else scoreMap.set(key, { result: r, score: rrfScore });
     }
 
+    // Vector RRF
     for (let rank = 0; rank < vecResults.length; rank++) {
       const r = vecResults[rank];
       const key = `${r.slug}::${r.chunkIndex}`;
@@ -102,17 +137,19 @@ export class VaultBrainAdapter implements VaultMindAdapter {
     return Array.from(scoreMap.values())
       .sort((a, b) => b.score - a.score)
       .slice(0, limit)
-      .map(({ result, score }) => ({
+      .map(({ result, score, sectionPath }) => ({
         source: this.name,
         path: result.slug,
         content: result.chunkText,
         score,
+        // Include section context if available
+        ...(sectionPath ? { sectionPath } : {}),
       }));
   }
 
   /**
-   * Ingest a compiled file -- upsert page, re-chunk, re-embed, extract links/tags.
-   * Called by compile-trigger in Phase 3 (not wired up yet).
+   * Ingest a compiled file -- upsert page, re-chunk, re-embed, extract links/tags/sections.
+   * Sections enable PageIndex-style tree-structured retrieval.
    */
   async ingest(path: string, content: string): Promise<void> {
     if (!this.engine) return;
@@ -123,10 +160,20 @@ export class VaultBrainAdapter implements VaultMindAdapter {
 
     await this.engine.upsertPage(slug, title, content, hash);
 
+    // Extract sections and chunks
+    const sections = extractSections(content, slug);
     await this.engine.deleteChunks(slug);
     const chunks = chunkMarkdown(content);
-    const embeddings = await embedTexts(chunks);
 
+    // Assign chunk ranges to sections after chunking
+    assignChunkRanges(sections, chunks, content);
+
+    // Store sections
+    await this.engine.deleteSections(slug);
+    await this.engine.upsertSections(slug, sections.map(sectionToResult));
+
+    // Store chunks with embeddings
+    const embeddings = await embedTexts(chunks);
     await this.engine.upsertChunks(
       slug,
       chunks.map((chunkText, i) => ({

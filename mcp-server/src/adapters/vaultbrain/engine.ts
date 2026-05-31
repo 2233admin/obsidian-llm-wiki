@@ -17,6 +17,16 @@ export interface ChunkInput {
   tokenCount: number;
 }
 
+export interface SectionResult {
+  slug: string;
+  level: number;
+  heading: string;
+  path: string;
+  chunkStart: number;
+  chunkEnd: number;
+  score?: number;
+}
+
 export interface VaultBrainEngine {
   connect(): Promise<void>;
   disconnect(): Promise<void>;
@@ -29,6 +39,11 @@ export interface VaultBrainEngine {
   // chunks
   upsertChunks(slug: string, chunks: ChunkInput[]): Promise<void>;
   deleteChunks(slug: string): Promise<void>;
+
+  // sections (Tree Index for PageIndex-style retrieval)
+  upsertSections(slug: string, sections: SectionResult[]): Promise<void>;
+  deleteSections(slug: string): Promise<void>;
+  searchSections(query: string, limit: number): Promise<SectionResult[]>;
 
   // search
   searchKeyword(query: string, limit: number): Promise<ChunkResult[]>;

@@ -3,7 +3,7 @@
  * Uses @electric-sql/pglite with pgvector + pg_trgm extensions.
  */
 
-import type { VaultBrainEngine, ChunkResult, ChunkInput } from "./engine.js";
+import type { VaultBrainEngine, ChunkResult, ChunkInput, SectionResult } from "./engine.js";
 import { VAULTBRAIN_SCHEMA_SQL } from "./schema.js";
 
 // Dynamic type placeholder -- PGlite's exact type is resolved at runtime
@@ -91,6 +91,56 @@ export class PGliteEngine implements VaultBrainEngine {
 
   async deleteChunks(slug: string): Promise<void> {
     await this.requireDb().query(`DELETE FROM chunks WHERE slug = $1`, [slug]);
+  }
+
+  // --- Sections (Tree Index) ---
+  async upsertSections(slug: string, sections: SectionResult[]): Promise<void> {
+    if (sections.length === 0) return;
+    const db = this.requireDb();
+    for (const s of sections) {
+      await db.query(
+        `INSERT INTO sections (slug, level, heading, path, chunk_start, chunk_end)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (slug, level, heading) DO UPDATE SET
+           path = EXCLUDED.path,
+           chunk_start = EXCLUDED.chunk_start,
+           chunk_end = EXCLUDED.chunk_end`,
+        [slug, s.level, s.heading, s.path, s.chunkStart, s.chunkEnd],
+      );
+    }
+  }
+
+  async deleteSections(slug: string): Promise<void> {
+    await this.requireDb().query(`DELETE FROM sections WHERE slug = $1`, [slug]);
+  }
+
+  async searchSections(query: string, limit: number): Promise<SectionResult[]> {
+    const { rows } = await this.requireDb().query<{
+      slug: string;
+      level: number;
+      heading: string;
+      path: string;
+      chunk_start: number;
+      chunk_end: number;
+      score: number;
+    }>(
+      `SELECT slug, level, heading, path, chunk_start, chunk_end,
+              similarity(heading, $1) AS score
+       FROM sections
+       WHERE similarity(heading, $1) >= 0.1
+       ORDER BY score DESC
+       LIMIT $2`,
+      [query, limit],
+    );
+    return rows.map((r) => ({
+      slug: r.slug,
+      level: r.level,
+      heading: r.heading,
+      path: r.path,
+      chunkStart: r.chunk_start ?? -1,
+      chunkEnd: r.chunk_end ?? -1,
+      score: Number(r.score),
+    }));
   }
 
   async searchKeyword(query: string, limit: number): Promise<ChunkResult[]> {
