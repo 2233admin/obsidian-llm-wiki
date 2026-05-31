@@ -15573,7 +15573,7 @@ var init_embedding_client = __esm({
   "dist/embedding-client.js"() {
     "use strict";
     DEFAULT_URL = "http://localhost:11434/v1/embeddings";
-    DEFAULT_MODEL2 = "qwen3-embedding:0.6b";
+    DEFAULT_MODEL2 = "bge-m3";
     DEFAULT_TIMEOUT_MS = 15e3;
   }
 });
@@ -29791,9 +29791,10 @@ async function embedTextOllama(text, opts) {
 // dist/adapters/memu.js
 var { Pool: Pool2 } = esm_default;
 var DEFAULT_DSN = "postgresql://postgres:postgres@localhost:5432/memu";
-var DEFAULT_PYTHON = "D:/projects/memu-graph/.venv/Scripts/python.exe";
-var DEFAULT_MEMU_GRAPH_CWD = "D:/projects/memu-graph";
+var DEFAULT_PYTHON = "D:/projects/_active/memu/.venv/Scripts/python.exe";
+var DEFAULT_MEMU_GRAPH_CWD = "D:/projects/_active/memu";
 var DEFAULT_GRAPH_RECALL_TIMEOUT_MS = 15e3;
+var DEFAULT_MEMU_SEARCH_PY = "D:/projects/_active/memu/scripts/memu_search.py";
 var MemUAdapter = class {
   name = "memu";
   capabilities = ["search", "embeddings"];
@@ -29805,6 +29806,10 @@ var MemUAdapter = class {
   pythonExe;
   memuGraphCwd;
   graphRecallTimeoutMs;
+  memuSearchPy;
+  memuSearchPythonExe;
+  memuSearchTimeoutMs;
+  embedModel;
   pool = null;
   available = false;
   get isAvailable() {
@@ -29821,6 +29826,10 @@ var MemUAdapter = class {
     const envTimeout = process.env.MEMU_GRAPH_TIMEOUT_MS;
     const envTimeoutNum = envTimeout ? Number(envTimeout) : NaN;
     this.graphRecallTimeoutMs = config2?.graphRecallTimeoutMs ?? (Number.isFinite(envTimeoutNum) && envTimeoutNum > 0 ? envTimeoutNum : DEFAULT_GRAPH_RECALL_TIMEOUT_MS);
+    this.memuSearchPy = config2?.memuSearchPy ?? process.env.MEMU_SEARCH_PY ?? DEFAULT_MEMU_SEARCH_PY;
+    this.memuSearchPythonExe = config2?.memuSearchPythonExe ?? process.env.MEMU_SEARCH_PYTHON ?? "D:/projects/_active/memu/.venv/Scripts/python.exe";
+    this.memuSearchTimeoutMs = 2e4;
+    this.embedModel = config2?.embedModel ?? process.env.OLLAMA_EMBED_MODEL ?? "bge-m3";
   }
   async init() {
     try {
@@ -29860,12 +29869,13 @@ var MemUAdapter = class {
     if (!this.available || !this.pool)
       return [];
     const limit = Math.max(1, Math.min(opts?.maxResults ?? this.defaultMax, 100));
-    const vec = await embedTextOllama(query);
+    const vec = await embedTextOllama(query, { model: this.embedModel });
     const queryVec = vec.length === 1024 ? vec : null;
     const result = await this.runGraphRecall(query, queryVec, limit);
-    if (!result)
-      return [];
-    return this.mapRecallResult(result);
+    if (result)
+      return this.mapRecallResult(result);
+    const pyResult = await this.runMemuSearchPy(query, queryVec, limit);
+    return pyResult;
   }
   async searchByVector(vector, opts) {
     if (!this.available || !this.pool)
@@ -29875,9 +29885,10 @@ var MemUAdapter = class {
     if (vector.length === 1024) {
       const limit = Math.max(1, Math.min(opts?.maxResults ?? this.defaultMax, 100));
       const result = await this.runGraphRecall("", vector, limit);
-      if (!result)
-        return [];
-      return this.mapRecallResult(result);
+      if (result)
+        return this.mapRecallResult(result);
+      const pyResult = await this.runMemuSearchPy("", vector, limit);
+      return pyResult;
     }
     if (vector.length === 4096)
       return this.searchMemoryItemsByVector(vector, opts);
@@ -30001,6 +30012,102 @@ var MemUAdapter = class {
         resolve3(null);
       }
     });
+  }
+  /**
+   * Fallback: spawn memu_search.py for pure-PG cosine search via Python-side
+   * computation (bypasses pgvector on Windows). Used when memu_graph.cli is
+   * unavailable or times out.
+   */
+  async runMemuSearchPy(query, vec, limit) {
+    return new Promise((resolve3) => {
+      let stdout = "";
+      let stderr = "";
+      let settled = false;
+      const args = [
+        this.memuSearchPy,
+        "--dsn",
+        this.dsn,
+        "--limit",
+        String(limit)
+      ];
+      if (query) {
+        args.push("--query", query);
+        if (vec)
+          args.push("--embed", JSON.stringify(Array.from(vec)));
+      } else if (vec) {
+        args.push("--embed", JSON.stringify(Array.from(vec)));
+      } else {
+        resolve3([]);
+        return;
+      }
+      const proc = spawn(this.memuSearchPythonExe, args, {
+        windowsHide: true,
+        stdio: ["pipe", "pipe", "pipe"]
+      });
+      const timer = setTimeout(() => {
+        if (settled)
+          return;
+        settled = true;
+        proc.kill("SIGKILL");
+        process.stderr.write(`obsidian-llm-wiki: [warn] memu_search.py timeout after ${this.memuSearchTimeoutMs}ms
+`);
+        resolve3([]);
+      }, this.memuSearchTimeoutMs);
+      proc.stdout.on("data", (d) => {
+        stdout += d.toString("utf-8");
+      });
+      proc.stderr.on("data", (d) => {
+        stderr += d.toString("utf-8");
+      });
+      proc.on("error", (err2) => {
+        if (settled)
+          return;
+        settled = true;
+        clearTimeout(timer);
+        process.stderr.write(`obsidian-llm-wiki: [warn] memu_search.py spawn failed: ${err2.message}
+`);
+        resolve3([]);
+      });
+      proc.on("close", (code) => {
+        if (settled)
+          return;
+        settled = true;
+        clearTimeout(timer);
+        if (code !== 0) {
+          process.stderr.write(`obsidian-llm-wiki: [warn] memu_search.py exit ${code}: ${stderr.slice(0, 300)}
+`);
+          resolve3([]);
+          return;
+        }
+        try {
+          const parsed = JSON.parse(stdout);
+          resolve3(this.mapMemuSearchPyResult(parsed));
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          process.stderr.write(`obsidian-llm-wiki: [warn] memu_search.py stdout JSON parse failed: ${msg}
+`);
+          resolve3([]);
+        }
+      });
+    });
+  }
+  mapMemuSearchPyResult(rows) {
+    if (rows.length === 0)
+      return [];
+    const maxScore = Math.max(...rows.map((r) => r.score ?? 0), 1e-9);
+    return rows.map((r) => ({
+      source: this.name,
+      path: `memu/item/${r.id ?? "?"}`,
+      content: String(r.summary ?? "").slice(0, 500),
+      score: (r.score ?? 0) / maxScore,
+      metadata: {
+        table: "memory_items",
+        memory_type: r.memory_type ?? "note",
+        item_id: r.id,
+        happened_at: r.happened_at,
+        extra: r.extra ?? {}
+      }
+    }));
   }
   /**
    * Convert a graph_recall RecallResult into the unified SearchResult shape.
@@ -30806,7 +30913,7 @@ import { homedir as homedir2 } from "node:os";
 import { join as join3 } from "node:path";
 
 // dist/adapters/vaultbrain/schema.js
-var EMBED_DIM = parseInt(process.env.VAULTBRAIN_EMBED_DIM ?? "1536", 10);
+var EMBED_DIM = parseInt(process.env.VAULTBRAIN_EMBED_DIM ?? "1024", 10);
 var VAULTBRAIN_SCHEMA_SQL = `
 CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
@@ -30816,14 +30923,11 @@ CREATE TABLE IF NOT EXISTS pages (
   slug TEXT NOT NULL UNIQUE,
   title TEXT,
   content TEXT,
-  content_hash TEXT,
-  search_vector tsvector,
+  hash TEXT,
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS content_chunks (
-  id SERIAL PRIMARY KEY,
-  page_id INTEGER REFERENCES pages(id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS chunks (
   slug TEXT NOT NULL,
   chunk_index INTEGER NOT NULL,
   chunk_text TEXT NOT NULL,
@@ -30832,41 +30936,40 @@ CREATE TABLE IF NOT EXISTS content_chunks (
   UNIQUE(slug, chunk_index)
 );
 
-CREATE TABLE IF NOT EXISTS links (
-  id SERIAL PRIMARY KEY,
-  from_slug TEXT NOT NULL,
-  to_slug TEXT NOT NULL,
-  UNIQUE(from_slug, to_slug)
+CREATE TABLE IF NOT EXISTS page_tags (
+  slug TEXT,
+  tag TEXT,
+  PRIMARY KEY (slug, tag)
 );
 
-CREATE TABLE IF NOT EXISTS tags (
-  id SERIAL PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS page_links (
+  from_slug TEXT,
+  to_slug TEXT,
+  PRIMARY KEY (from_slug, to_slug)
+);
+
+CREATE INDEX IF NOT EXISTS chunks_embedding_idx
+  ON chunks USING hnsw (embedding vector_cosine_ops);
+
+CREATE INDEX IF NOT EXISTS chunks_trgm_idx
+  ON chunks USING gin (chunk_text gin_trgm_ops);
+
+CREATE INDEX IF NOT EXISTS chunks_slug_idx
+  ON chunks (slug);
+
+-- Tree index: heading hierarchy for PageIndex-style section-aware retrieval
+CREATE TABLE IF NOT EXISTS sections (
   slug TEXT NOT NULL,
-  tag TEXT NOT NULL,
-  UNIQUE(slug, tag)
+  level INTEGER NOT NULL,
+  heading TEXT NOT NULL,
+  path TEXT NOT NULL,
+  chunk_start INTEGER,
+  chunk_end INTEGER,
+  PRIMARY KEY (slug, level, heading)
 );
 
-CREATE INDEX IF NOT EXISTS content_chunks_embedding_idx
-  ON content_chunks USING hnsw (embedding vector_cosine_ops);
-
-CREATE INDEX IF NOT EXISTS pages_search_vector_idx
-  ON pages USING gin(search_vector);
-
-CREATE INDEX IF NOT EXISTS pages_content_trgm_idx
-  ON pages USING gin(content gin_trgm_ops);
-
-CREATE OR REPLACE FUNCTION update_page_search_vector()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.search_vector := setweight(to_tsvector('english', coalesce(NEW.title, '')), 'A')
-                    || setweight(to_tsvector('english', coalesce(NEW.content, '')), 'B');
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE TRIGGER pages_search_vector_trigger
-BEFORE INSERT OR UPDATE ON pages
-FOR EACH ROW EXECUTE FUNCTION update_page_search_vector();
+CREATE INDEX IF NOT EXISTS sections_path_idx ON sections (slug, path);
+CREATE INDEX IF NOT EXISTS sections_trgm_idx ON sections USING gin (heading gin_trgm_ops);
 `;
 
 // dist/adapters/vaultbrain/pglite-engine.js
@@ -30880,10 +30983,8 @@ var PGliteEngine = class {
     const { PGlite } = await import("@electric-sql/pglite");
     const { vector } = await import("@electric-sql/pglite/vector");
     const { pg_trgm } = await import("@electric-sql/pglite/contrib/pg_trgm");
-    this.db = await PGlite.create({
-      dataDir: this.dataDir,
-      extensions: { vector, pg_trgm }
-    });
+    this.db = new PGlite(this.dataDir, { extensions: { vector, pg_trgm } });
+    await this.db.waitReady;
   }
   async disconnect() {
     if (this.db) {
@@ -30895,12 +30996,12 @@ var PGliteEngine = class {
     await this.requireDb().exec(VAULTBRAIN_SCHEMA_SQL);
   }
   async upsertPage(slug, title, content, hash2) {
-    await this.requireDb().query(`INSERT INTO pages (slug, title, content, content_hash, updated_at)
+    await this.requireDb().query(`INSERT INTO pages (slug, title, content, hash, updated_at)
        VALUES ($1, $2, $3, $4, now())
        ON CONFLICT (slug) DO UPDATE SET
          title = EXCLUDED.title,
          content = EXCLUDED.content,
-         content_hash = EXCLUDED.content_hash,
+         hash = EXCLUDED.hash,
          updated_at = now()`, [slug, title, content, hash2]);
   }
   async deletePage(slug) {
@@ -30910,37 +31011,66 @@ var PGliteEngine = class {
     if (chunks.length === 0)
       return;
     const db = this.requireDb();
-    const pageRes = await db.query(`SELECT id FROM pages WHERE slug = $1`, [slug]);
-    if (pageRes.rows.length === 0) {
-      return;
-    }
-    const pageId = pageRes.rows[0].id;
     for (const chunk of chunks) {
       const embeddingStr = chunk.embedding && chunk.embedding.length > 0 ? JSON.stringify(chunk.embedding) : null;
       if (embeddingStr) {
-        await db.query(`INSERT INTO content_chunks (page_id, slug, chunk_index, chunk_text, embedding, token_count)
-           VALUES ($1, $2, $3, $4, $5::vector, $6)
+        await db.query(`INSERT INTO chunks (slug, chunk_index, chunk_text, embedding, token_count)
+           VALUES ($1, $2, $3, $4::vector, $5)
            ON CONFLICT (slug, chunk_index) DO UPDATE SET
              chunk_text = EXCLUDED.chunk_text,
              embedding = EXCLUDED.embedding,
-             token_count = EXCLUDED.token_count`, [pageId, slug, chunk.chunkIndex, chunk.chunkText, embeddingStr, chunk.tokenCount]);
+             token_count = EXCLUDED.token_count`, [slug, chunk.chunkIndex, chunk.chunkText, embeddingStr, chunk.tokenCount]);
       } else {
-        await db.query(`INSERT INTO content_chunks (page_id, slug, chunk_index, chunk_text, embedding, token_count)
-           VALUES ($1, $2, $3, $4, NULL, $5)
+        await db.query(`INSERT INTO chunks (slug, chunk_index, chunk_text, embedding, token_count)
+           VALUES ($1, $2, $3, NULL, $4)
            ON CONFLICT (slug, chunk_index) DO UPDATE SET
              chunk_text = EXCLUDED.chunk_text,
-             token_count = EXCLUDED.token_count`, [pageId, slug, chunk.chunkIndex, chunk.chunkText, chunk.tokenCount]);
+             token_count = EXCLUDED.token_count`, [slug, chunk.chunkIndex, chunk.chunkText, chunk.tokenCount]);
       }
     }
   }
   async deleteChunks(slug) {
-    await this.requireDb().query(`DELETE FROM content_chunks WHERE slug = $1`, [slug]);
+    await this.requireDb().query(`DELETE FROM chunks WHERE slug = $1`, [slug]);
+  }
+  // --- Sections (Tree Index) ---
+  async upsertSections(slug, sections) {
+    if (sections.length === 0)
+      return;
+    const db = this.requireDb();
+    for (const s of sections) {
+      await db.query(`INSERT INTO sections (slug, level, heading, path, chunk_start, chunk_end)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (slug, level, heading) DO UPDATE SET
+           path = EXCLUDED.path,
+           chunk_start = EXCLUDED.chunk_start,
+           chunk_end = EXCLUDED.chunk_end`, [slug, s.level, s.heading, s.path, s.chunkStart, s.chunkEnd]);
+    }
+  }
+  async deleteSections(slug) {
+    await this.requireDb().query(`DELETE FROM sections WHERE slug = $1`, [slug]);
+  }
+  async searchSections(query, limit) {
+    const { rows } = await this.requireDb().query(`SELECT slug, level, heading, path, chunk_start, chunk_end,
+              similarity(heading, $1) AS score
+       FROM sections
+       WHERE similarity(heading, $1) >= 0.1
+       ORDER BY score DESC
+       LIMIT $2`, [query, limit]);
+    return rows.map((r) => ({
+      slug: r.slug,
+      level: r.level,
+      heading: r.heading,
+      path: r.path,
+      chunkStart: r.chunk_start ?? -1,
+      chunkEnd: r.chunk_end ?? -1,
+      score: Number(r.score)
+    }));
   }
   async searchKeyword(query, limit) {
     const { rows } = await this.requireDb().query(`SELECT slug, chunk_index, chunk_text,
               similarity(chunk_text, $1) AS score
-       FROM content_chunks
-       WHERE chunk_text % $1
+       FROM chunks
+       WHERE similarity(chunk_text, $1) >= 0.1
        ORDER BY score DESC
        LIMIT $2`, [query, limit]);
     return rows.map((r) => ({
@@ -30954,7 +31084,7 @@ var PGliteEngine = class {
     const vecStr = JSON.stringify(embedding);
     const { rows } = await this.requireDb().query(`SELECT slug, chunk_index, chunk_text,
               1 - (embedding <=> $1::vector) AS score
-       FROM content_chunks
+       FROM chunks
        WHERE embedding IS NOT NULL
        ORDER BY embedding <=> $1::vector
        LIMIT $2`, [vecStr, limit]);
@@ -30966,12 +31096,12 @@ var PGliteEngine = class {
     }));
   }
   async upsertLink(fromSlug, toSlug) {
-    await this.requireDb().query(`INSERT INTO links (from_slug, to_slug)
+    await this.requireDb().query(`INSERT INTO page_links (from_slug, to_slug)
        VALUES ($1, $2)
        ON CONFLICT (from_slug, to_slug) DO NOTHING`, [fromSlug, toSlug]);
   }
   async upsertTag(slug, tag) {
-    await this.requireDb().query(`INSERT INTO tags (slug, tag)
+    await this.requireDb().query(`INSERT INTO page_tags (slug, tag)
        VALUES ($1, $2)
        ON CONFLICT (slug, tag) DO NOTHING`, [slug, tag]);
   }
@@ -30985,6 +31115,66 @@ var PGliteEngine = class {
 // dist/adapters/vaultbrain/ingest.js
 var CHARS_PER_TOKEN = 4;
 var EMBED_BATCH_SIZE = 20;
+function extractSections(content, slug) {
+  const lines = content.split("\n");
+  const sections = [];
+  const headingStack = [];
+  for (const line of lines) {
+    const match = line.match(/^(#{1,6})\s+(.+)$/);
+    if (!match)
+      continue;
+    const level = match[1].length;
+    const heading = match[2].trim();
+    while (headingStack.length > 0 && headingStack[headingStack.length - 1].level >= level) {
+      headingStack.pop();
+    }
+    headingStack.push({ level, heading });
+    const path = headingStack.map((h) => h.heading).join("/");
+    sections.push({ slug, level, heading, path, chunkStart: -1, chunkEnd: -1 });
+  }
+  return sections;
+}
+function assignChunkRanges(sections, chunks, content) {
+  if (sections.length === 0 || chunks.length === 0)
+    return;
+  const lines = content.split("\n");
+  const chunkSize = Math.ceil(lines.length / chunks.length);
+  for (const section of sections) {
+    let sectionLineIdx = -1;
+    for (let i = 0; i < lines.length; i++) {
+      const match = lines[i].match(/^(#{1,6})\s+(.+)$/);
+      if (match && match[1].length === section.level && match[2].trim() === section.heading) {
+        sectionLineIdx = i;
+        break;
+      }
+    }
+    if (sectionLineIdx >= 0) {
+      section.chunkStart = Math.min(Math.floor(sectionLineIdx / chunkSize), chunks.length - 1);
+      let nextSectionLineIdx = lines.length;
+      for (let i = sectionLineIdx + 1; i < lines.length; i++) {
+        const match = lines[i].match(/^(#{1,6})\s+(.+)$/);
+        if (match && match[1].length <= section.level) {
+          nextSectionLineIdx = i;
+          break;
+        }
+      }
+      section.chunkEnd = Math.min(Math.ceil(nextSectionLineIdx / chunkSize), chunks.length - 1);
+    } else {
+      section.chunkStart = 0;
+      section.chunkEnd = chunks.length - 1;
+    }
+  }
+}
+function sectionToResult(s) {
+  return {
+    slug: s.slug,
+    level: s.level,
+    heading: s.heading,
+    path: s.path,
+    chunkStart: s.chunkStart,
+    chunkEnd: s.chunkEnd
+  };
+}
 async function getEmbedFn() {
   try {
     const { embed: embed2 } = await Promise.resolve().then(() => (init_embedding_client(), embedding_client_exports));
@@ -31087,6 +31277,10 @@ var VaultBrainAdapter = class {
   name = "vaultbrain";
   capabilities = ["search", "embeddings"];
   engine = null;
+  _available = false;
+  get isAvailable() {
+    return this._available;
+  }
   constructor(dataDir) {
     this.dataDir = dataDir;
   }
@@ -31097,9 +31291,11 @@ var VaultBrainAdapter = class {
       await engine.connect();
       await engine.initSchema();
       this.engine = engine;
+      this._available = true;
     } catch (err2) {
       console.warn(`[vaultbrain] init failed, adapter disabled: ${err2.message}`);
       this.engine = null;
+      this._available = false;
     }
   }
   async dispose() {
@@ -31116,22 +31312,42 @@ var VaultBrainAdapter = class {
       return [];
     const limit = opts?.maxResults ?? 20;
     const perListLimit = Math.ceil(limit * 2);
+    let sectionResults = [];
+    try {
+      sectionResults = await this.engine.searchSections(query, perListLimit);
+    } catch {
+    }
+    const sectionChunkBoost = /* @__PURE__ */ new Map();
+    for (const s of sectionResults) {
+      const slug = s.slug;
+      if (s.chunkStart >= 0 && s.chunkEnd >= 0) {
+        for (let i = s.chunkStart; i <= s.chunkEnd; i++) {
+          const key = `${slug}::${i}`;
+          const boost = (sectionResults[0]?.score ?? 1) * (1 / (sectionResults.indexOf(s) + 1));
+          sectionChunkBoost.set(key, (sectionChunkBoost.get(key) ?? 0) + boost);
+        }
+      }
+    }
     let kwResults = [];
     try {
       kwResults = await this.engine.searchKeyword(query, perListLimit);
     } catch {
     }
     let vecResults = [];
-    if (process.env.OPENAI_API_KEY) {
-      try {
-        const embeddings = await embedTexts([query]);
-        if (embeddings.length > 0) {
-          vecResults = await this.engine.searchVector(embeddings[0], perListLimit);
-        }
-      } catch {
+    try {
+      const embeddings = await embedTexts([query]);
+      if (embeddings.length > 0 && embeddings[0].length > 0) {
+        vecResults = await this.engine.searchVector(embeddings[0], perListLimit);
       }
+    } catch {
     }
     const scoreMap = /* @__PURE__ */ new Map();
+    for (const [key, boost] of sectionChunkBoost) {
+      const existing = scoreMap.get(key);
+      if (existing) {
+        existing.score += boost;
+      }
+    }
     for (let rank = 0; rank < kwResults.length; rank++) {
       const r = kwResults[rank];
       const key = `${r.slug}::${r.chunkIndex}`;
@@ -31152,16 +31368,18 @@ var VaultBrainAdapter = class {
       else
         scoreMap.set(key, { result: r, score: rrfScore });
     }
-    return Array.from(scoreMap.values()).sort((a, b) => b.score - a.score).slice(0, limit).map(({ result, score }) => ({
+    return Array.from(scoreMap.values()).sort((a, b) => b.score - a.score).slice(0, limit).map(({ result, score, sectionPath }) => ({
       source: this.name,
       path: result.slug,
       content: result.chunkText,
-      score
+      score,
+      // Include section context if available
+      ...sectionPath ? { sectionPath } : {}
     }));
   }
   /**
-   * Ingest a compiled file -- upsert page, re-chunk, re-embed, extract links/tags.
-   * Called by compile-trigger in Phase 3 (not wired up yet).
+   * Ingest a compiled file -- upsert page, re-chunk, re-embed, extract links/tags/sections.
+   * Sections enable PageIndex-style tree-structured retrieval.
    */
   async ingest(path, content) {
     if (!this.engine)
@@ -31170,8 +31388,12 @@ var VaultBrainAdapter = class {
     const title = extractTitle(content);
     const hash2 = simpleHash(content);
     await this.engine.upsertPage(slug, title, content, hash2);
+    const sections = extractSections(content, slug);
     await this.engine.deleteChunks(slug);
     const chunks = chunkMarkdown(content);
+    assignChunkRanges(sections, chunks, content);
+    await this.engine.deleteSections(slug);
+    await this.engine.upsertSections(slug, sections.map(sectionToResult));
     const embeddings = await embedTexts(chunks);
     await this.engine.upsertChunks(slug, chunks.map((chunkText, i) => ({
       chunkIndex: i,
