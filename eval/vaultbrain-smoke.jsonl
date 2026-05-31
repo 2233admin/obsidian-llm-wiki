@@ -1,0 +1,10 @@
+{"id":"量化交易","question":"量化交易","expected_paths":["01-清华大学量化交易学习笔记","10-量化工程师实战录"],"retrieved":[{"path":"01-清华大学量化交易学习笔记"}],"answer":"检索结果","citations":["01-清华大学量化交易学习笔记"],"reference":"包含量化交易"}
+{"id":"Python 金融","question":"Python 金融","expected_paths":["06-Python_for_Finance"],"retrieved":[{"path":"06-Python_for_Finance"}],"answer":"检索结果","citations":["06-Python_for_Finance"],"reference":"包含Python金融"}
+{"id":"线性代数","question":"线性代数","expected_paths":["05-线代基础"],"retrieved":[{"path":"05-线代基础"}],"answer":"检索结果","citations":["05-线代基础"],"reference":"包含线性代数"}
+{"id":"财务报表","question":"财务报表","expected_paths":["03-财务报表分析"],"retrieved":[{"path":"03-财务报表分析"}],"answer":"检索结果","citations":["03-财务报表分析"],"reference":"包含财务报表"}
+{"id":"投资学","question":"投资学","expected_paths":["09-投资学"],"retrieved":[{"path":"09-投资学"}],"answer":"检索结果","citations":["09-投资学"],"reference":"包含投资学"}
+{"id":"金融术语","question":"金融术语","expected_paths":["02-100个金融术语"],"retrieved":[{"path":"02-100个金融术语"}],"answer":"检索结果","citations":["02-100个金融术语"],"reference":"包含金融术语"}
+{"id":"概率论","question":"概率论","expected_paths":["07-概率论统计学基础"],"retrieved":[{"path":"07-概率论统计学基础"}],"answer":"检索结果","citations":["07-概率论统计学基础"],"reference":"包含概率论"}
+{"id":"数据分析","question":"数据分析","expected_paths":["01-清华大学量化交易学习笔记"],"retrieved":[{"path":"01-清华大学量化交易学习笔记"}],"answer":"检索结果","citations":["01-清华大学量化交易学习笔记"],"reference":"包含数据分析"}
+{"id":"回测","question":"回测","expected_paths":["hftbacktest-references"],"retrieved":[{"path":"hftbacktest-references"}],"answer":"检索结果","citations":["hftbacktest-references"],"reference":"包含回测"}
+{"id":"K线","question":"K线","expected_paths":["01-清华大学量化交易学习笔记"],"retrieved":[{"path":"01-清华大学量化交易学习笔记"}],"answer":"检索结果","citations":["01-清华大学量化交易学习笔记"],"reference":"包含K线"}
