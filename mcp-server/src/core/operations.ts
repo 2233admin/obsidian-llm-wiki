@@ -307,10 +307,12 @@ export const operations: Operation[] = [
   {
     name: 'vault.init',
     namespace: 'vault',
-    description: 'Scaffold a new knowledge base topic',
+    description: 'Scaffold the vault. methodology mode creates the folder layout (generic|para|lyt|zettelkasten) plus a Home.md index with AI-First frontmatter, dry-run by default, existing folders are skipped; topic mode scaffolds a knowledge base topic directory (writes immediately).',
     mutating: true,
     params: {
-      topic: { type: 'string', required: true, description: 'Topic name (used as directory name and KB title)' },
+      topic: { type: 'string', required: false, description: 'Topic name (used as directory name and KB title); topic mode' },
+      methodology: { type: 'string', required: false, description: 'Vault folder scaffold to create; methodology mode', enum: ['generic', 'para', 'lyt', 'zettelkasten'] },
+      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (methodology mode only, default: true)', default: true },
     },
     handler: async (ctx, params) => ctx.vault.execute('vault.init', params),
   },

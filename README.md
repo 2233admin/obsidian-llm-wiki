@@ -159,11 +159,13 @@ Six tools that create AI-First notes with full frontmatter, wikilinks, and a "Fo
 
 Every note gets `ai-first: true` in frontmatter and a two-sentence preamble so a future Claude can decide relevance in seconds without reading the full note.
 
+`vault.init` (v2.5.0) scaffolds a methodology layout — `generic`, `para`, `lyt`, or `zettelkasten` — into an empty or existing vault, safe by default (`dryRun: true`). All write operations are now covered by per-file advisory locking with a 60s TTL, so multiple agents can write to the same vault concurrently without clobbering each other. Inspired by [claude-obsidian](https://github.com/AgriciDaniel/claude-obsidian).
+
 ---
 
 ## Thinking and research commands (v2.4.0)
 
-Ten slash commands in `commands/` for use in any Claude Code, Codex CLI, Gemini CLI, or OpenCode session. They run reasoning over the vault using the MCP tools above — no LLM logic lives in the server.
+Thirteen slash commands in `commands/` for use in any Claude Code, Codex CLI, Gemini CLI, or OpenCode session. They run reasoning over the vault using the MCP tools above — no LLM logic lives in the server.
 
 | Command | What it does |
 |---|---|
@@ -177,8 +179,11 @@ Ten slash commands in `commands/` for use in any Claude Code, Codex CLI, Gemini 
 | `/vault-recap` | Period review (week/month/quarter) from vault activity |
 | `/vault-graduate` | Graduation decision on an idea: ship / invest more / archive |
 | `/vault-learn` | Extract transferable principles from an experience and save to `Knowledge/` |
+| `/vault-autoresearch` | Three-round autonomous research loop: question, investigate, refine, write up |
+| `/vault-think` | Apply a 10-principle thinking framework to a topic or note |
+| `/vault-expand` | Expand a single source into 8–15 interlinked wiki pages |
 
-Inspired by [obsidian-second-brain](https://github.com/eugeniughelbur/obsidian-second-brain). vault-mind provides the infrastructure; these commands provide the workflow patterns that sit on top.
+Inspired by [obsidian-second-brain](https://github.com/eugeniughelbur/obsidian-second-brain) and [claude-obsidian](https://github.com/AgriciDaniel/claude-obsidian). vault-mind provides the infrastructure; these commands provide the workflow patterns that sit on top.
 
 ---
 

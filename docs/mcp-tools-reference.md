@@ -3,9 +3,9 @@
 > Auto-generated from `mcp-server/src/core/operations.ts`.
 > Run `npm run generate-tools-doc` to regenerate. Do not edit by hand.
 
-Total: **44** operations across **7** namespaces.
+Total: **50** operations across **7** namespaces.
 
-## `vault.*` (23)
+## `vault.*` (29)
 
 ### `vault.append`
 
@@ -50,6 +50,37 @@ Create a new note (dry-run by default)
 
 - `path` (string, required) — Vault-relative path for the new note
 - `content` (string, optional) — Initial content
+- `dryRun` (boolean, optional, default: `true`) — Simulate without writing (default: true)
+
+### `vault.daily`
+
+Create or update today's daily note with AI-First frontmatter (date, mood, energy, summary). Path: Daily/YYYY-MM-DD.md
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `summary` (string, optional) — 1-3 sentence day summary
+- `mood` (string, optional, enum: `great` | `good` | `neutral` | `low` | `bad`) — Mood rating
+- `energy` (string, optional, enum: `high` | `medium` | `low`) — Energy level
+- `tags` (array, optional) — Extra tags
+- `dryRun` (boolean, optional, default: `true`) — Simulate without writing (default: true)
+
+### `vault.decide`
+
+Create a structured decision log (ADR). Path: Decisions/YYYY-MM-DD -- {title-slug}.md
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `title` (string, required) — Decision title
+- `context` (string, required) — Situation and constraints
+- `decision` (string, required) — What was decided
+- `rationale` (string, optional) — Why this decision
+- `consequences` (string, optional) — Trade-offs and outcomes
+- `status` (string, optional, default: `"accepted"`, enum: `proposed` | `accepted` | `deprecated` | `superseded`) — Decision status
+- `tags` (array, optional) — Extra tags
 - `dryRun` (boolean, optional, default: `true`) — Simulate without writing (default: true)
 
 ### `vault.delete`
@@ -105,15 +136,33 @@ Build full wikilink graph of the vault. Returns nodes (with exists flag), edges 
 
 - `type` (string, optional, default: `"both"`, enum: `resolved` | `unresolved` | `both`) — Link type filter (default: both)
 
-### `vault.init`
+### `vault.ingest`
 
-Scaffold a new knowledge base topic
+Ingest content into vault with AI-First frontmatter (ai-first: true, source, recency markers). Path: 00-Inbox/{title-slug}.md
 
 **Mutating:** yes
 
 **Parameters:**
 
-- `topic` (string, required) — Topic name (used as directory name and KB title)
+- `content` (string, required) — Content to ingest (text, URL, or pasted article)
+- `title` (string, required) — Note title
+- `source` (string, optional) — Source URL if from web
+- `type` (string, optional, default: `"note"`, enum: `article` | `research` | `note` | `reference`) — Content type
+- `tags` (array, optional) — Extra tags
+- `preamble` (string, optional) — 2-3 sentence "For future Claude" preamble
+- `dryRun` (boolean, optional, default: `true`) — Simulate without writing (default: true)
+
+### `vault.init`
+
+Scaffold the vault. methodology mode creates the folder layout (generic|para|lyt|zettelkasten) plus a Home.md index with AI-First frontmatter, dry-run by default, existing folders are skipped; topic mode scaffolds a knowledge base topic directory (writes immediately).
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `topic` (string, optional) — Topic name (used as directory name and KB title); topic mode
+- `methodology` (string, optional, enum: `generic` | `para` | `lyt` | `zettelkasten`) — Vault folder scaffold to create; methodology mode
+- `dryRun` (boolean, optional, default: `true`) — Simulate without writing (methodology mode only, default: true)
 
 ### `vault.lint`
 
@@ -134,6 +183,21 @@ List files and folders
 **Parameters:**
 
 - `path` (string, optional, default: `""`) — Vault-relative directory path (default: root)
+
+### `vault.meeting`
+
+Create a meeting note with attendees, decisions, and action items. Path: Meetings/YYYY-MM-DD -- {title-slug}.md
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `title` (string, required) — Meeting title
+- `attendees` (array, optional) — Attendee names (wikilinked)
+- `decisions` (array, optional) — List of decisions made
+- `actions` (array, optional) — Action items (strings)
+- `summary` (string, optional) — Meeting summary
+- `dryRun` (boolean, optional, default: `true`) — Simulate without writing (default: true)
 
 ### `vault.mkdir`
 
@@ -156,6 +220,36 @@ Overwrite an existing note
 
 - `path` (string, required) — Vault-relative path to the note
 - `content` (string, required) — New content
+- `dryRun` (boolean, optional, default: `true`) — Simulate without writing (default: true)
+
+### `vault.person`
+
+Create or update a person note with AI-First frontmatter. Path: People/{name}.md
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `name` (string, required) — Person's full name
+- `role` (string, optional) — Job title or role
+- `company` (string, optional) — Organization
+- `relationship` (string, optional) — How you know them
+- `notes` (string, optional) — Additional context
+- `dryRun` (boolean, optional, default: `true`) — Simulate without writing (default: true)
+
+### `vault.project`
+
+Create or update a project note with AI-First frontmatter. Path: Projects/{name}.md
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `name` (string, required) — Project name
+- `status` (string, optional, default: `"active"`, enum: `active` | `paused` | `completed` | `archived` | `planned`) — Project status
+- `summary` (string, optional) — 1-3 sentence project summary
+- `team` (array, optional) — Team member names (wikilinked in content)
+- `tags` (array, optional) — Extra tags
 - `dryRun` (boolean, optional, default: `true`) — Simulate without writing (default: true)
 
 ### `vault.read`

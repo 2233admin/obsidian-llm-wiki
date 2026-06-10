@@ -44,3 +44,20 @@ creation tools and thinking/research slash commands on top of the existing MCP i
 - [x] vault.meeting -- creates Meetings/YYYY-MM-DD--{slug}.md with attendees/actions
 - [x] vault.ingest -- creates 00-Inbox/{slug}.md with AI-First format
 - [x] 10 slash commands under commands/
+
+## Phase: claude-obsidian port (v2.5.0)
+
+**Goal**: Port claude-obsidian's vault bootstrapping and concurrency layer into vault-mind:
+methodology scaffolding, autonomous research/thinking commands, and multi-agent write safety.
+
+**Scope**:
+- `vault.init` MCP tool: methodology scaffolding (generic/para/lyt/zettelkasten), dryRun default true
+- 3 new slash commands in `commands/`: autoresearch, think, expand
+- Per-file advisory locking (60s TTL) across all write operations
+
+**Definition of done**:
+- [x] vault.init -- scaffolds generic/para/lyt/zettelkasten layouts, dryRun default true
+- [x] /vault-autoresearch -- 3-round autonomous research loop
+- [x] /vault-think -- 10-principle thinking framework
+- [x] /vault-expand -- expands a single source into 8-15 interlinked wiki pages
+- [x] Per-file advisory locking (60s TTL) covers all write operations; multi-agent concurrent writes are safe

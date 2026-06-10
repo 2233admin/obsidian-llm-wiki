@@ -163,6 +163,32 @@ function err(code: number, message: string): { code: number; message: string } {
   return { code, message };
 }
 
+const LOCK_TTL_MS = 60_000;
+
+function withFileLock<T>(fullPath: string, fn: () => T): T {
+  const lockPath = fullPath + ".lock";
+  const acquire = () =>
+    writeFileSync(lockPath, JSON.stringify({ pid: process.pid, timestamp: Date.now() }), { encoding: "utf-8", flag: "wx" });
+  try {
+    acquire();
+  } catch (e: unknown) {
+    if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
+    const ageMs = Date.now() - statSync(lockPath).mtimeMs;
+    if (ageMs < LOCK_TTL_MS) {
+      let holder = "unknown";
+      try { holder = readFileSync(lockPath, "utf-8").trim(); } catch {}
+      throw err(-32010, `Lock conflict on ${basename(fullPath)}: held by ${holder}, ttl remaining ${LOCK_TTL_MS - ageMs}ms`);
+    }
+    rmSync(lockPath, { force: true });
+    acquire();
+  }
+  try {
+    return fn();
+  } finally {
+    try { rmSync(lockPath, { force: true }); } catch {}
+  }
+}
+
 type CollabPolicy = {
   team?: string[];
   agents?: string[];
@@ -562,30 +588,38 @@ export class VaultFs {
         const full = this.resolve(p.path as string);
         if (existsSync(full)) throw err(-32002, `Already exists: ${p.path}`);
         if (p.dryRun !== false) return { dryRun: true, action: "create", path: p.path };
-        mkdirSync(dirname(full), { recursive: true });
-        writeFileSync(full, (p.content as string) || "", "utf-8");
-        return { ok: true, path: p.path };
+        return withFileLock(full, () => {
+          mkdirSync(dirname(full), { recursive: true });
+          writeFileSync(full, (p.content as string) || "", "utf-8");
+          return { ok: true, path: p.path };
+        });
       }
       case "vault.modify": {
         const full = this.resolve(p.path as string);
         if (!existsSync(full)) throw err(-32001, `Not found: ${p.path}`);
         if (p.dryRun !== false) return { dryRun: true, action: "modify", path: p.path };
-        writeFileSync(full, p.content as string, "utf-8");
-        return { ok: true, path: p.path };
+        return withFileLock(full, () => {
+          writeFileSync(full, p.content as string, "utf-8");
+          return { ok: true, path: p.path };
+        });
       }
       case "vault.append": {
         const full = this.resolve(p.path as string);
         if (!existsSync(full)) throw err(-32001, `Not found: ${p.path}`);
         if (p.dryRun !== false) return { dryRun: true, action: "append", path: p.path };
-        appendFileSync(full, p.content as string, "utf-8");
-        return { ok: true, path: p.path };
+        return withFileLock(full, () => {
+          appendFileSync(full, p.content as string, "utf-8");
+          return { ok: true, path: p.path };
+        });
       }
       case "vault.delete": {
         const full = this.resolve(p.path as string);
         if (!existsSync(full)) throw err(-32001, `Not found: ${p.path}`);
         if (p.dryRun !== false) return { dryRun: true, action: "delete", path: p.path };
-        rmSync(full, { recursive: true });
-        return { ok: true, path: p.path };
+        return withFileLock(full, () => {
+          rmSync(full, { recursive: true });
+          return { ok: true, path: p.path };
+        });
       }
       case "vault.rename": {
         const from = this.resolve(p.from as string);
@@ -593,9 +627,11 @@ export class VaultFs {
         if (!existsSync(from)) throw err(-32001, `Not found: ${p.from}`);
         if (existsSync(to)) throw err(-32002, `Already exists: ${p.to}`);
         if (p.dryRun !== false) return { dryRun: true, action: "rename", from: p.from, to: p.to };
-        mkdirSync(dirname(to), { recursive: true });
-        renameSync(from, to);
-        return { ok: true, from: p.from, to: p.to };
+        return withFileLock(from, () => {
+          mkdirSync(dirname(to), { recursive: true });
+          renameSync(from, to);
+          return { ok: true, from: p.from, to: p.to };
+        });
       }
       case "vault.search": {
         if (typeof p.query !== "string" || (p.query as string).length > 500)
@@ -824,9 +860,11 @@ export class VaultFs {
         const preamble = summary ? `\n## For future Claude\n${summary}\n` : "";
         const content = `---\ndate: ${today}\ntype: daily\nai-first: true\nmood: ${mood}\nenergy: ${energy}\ntags:\n${tagLine}\n---\n${preamble}\n## ${today}\n\n${summary ? `> ${summary}\n\n` : ""}## Log\n\n## Decisions\n\n## Tomorrow\n`;
         if (p.dryRun !== false) return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
-        mkdirSync(dirname(full), { recursive: true });
-        writeFileSync(full, content, "utf-8");
-        return { ok: true, path };
+        return withFileLock(full, () => {
+          mkdirSync(dirname(full), { recursive: true });
+          writeFileSync(full, content, "utf-8");
+          return { ok: true, path };
+        });
       }
       case "vault.person": {
         if (!p.name) throw err(-32602, "name required");
@@ -843,9 +881,11 @@ export class VaultFs {
         const content = `---\nname: ${name}\ntype: person\nai-first: true\nrole: "${role}"\ncompany: "${company}"\nrelationship: "${relationship}"\ncreated: ${today}\n---\n\n## For future Claude\n${preamble}\n\n## Background\n\n${notes}\n\n## Interactions\n\n## Related Projects\n\n## Notes\n`;
         const alreadyExists = existsSync(full);
         if (p.dryRun !== false) return { dryRun: true, action: alreadyExists ? "update" : "create", path, preview: content.slice(0, 200) };
-        mkdirSync(dirname(full), { recursive: true });
-        writeFileSync(full, content, "utf-8");
-        return { ok: true, path, action: alreadyExists ? "updated" : "created" };
+        return withFileLock(full, () => {
+          mkdirSync(dirname(full), { recursive: true });
+          writeFileSync(full, content, "utf-8");
+          return { ok: true, path, action: alreadyExists ? "updated" : "created" };
+        });
       }
       case "vault.project": {
         if (!p.name) throw err(-32602, "name required");
@@ -862,9 +902,11 @@ export class VaultFs {
         const preamble = summary || `Project: ${name}. Status: ${status}${team.length ? `. Team: ${team.join(", ")}` : ""}.`;
         const content = `---\nname: "${name}"\ntype: project\nai-first: true\nstatus: ${status}\ncreated: ${today}\nupdated: ${today}\ntags:\n${tagLine}\n---\n\n## For future Claude\n${preamble}\n\n## Overview\n\n${summary}\n\n## Team\n\n${teamLinks || "- TBD"}\n\n## Milestones\n\n## Decisions\n\n## Metrics\n\n## Notes\n`;
         if (p.dryRun !== false) return { dryRun: true, action: existsSync(full) ? "update" : "create", path, preview: content.slice(0, 200) };
-        mkdirSync(dirname(full), { recursive: true });
-        writeFileSync(full, content, "utf-8");
-        return { ok: true, path };
+        return withFileLock(full, () => {
+          mkdirSync(dirname(full), { recursive: true });
+          writeFileSync(full, content, "utf-8");
+          return { ok: true, path };
+        });
       }
       case "vault.decide": {
         if (!p.title) throw err(-32602, "title required");
@@ -882,9 +924,11 @@ export class VaultFs {
         const tagLine = ["decision", "adr", ...tags].map(t => `  - ${t}`).join("\n");
         const content = `---\ntitle: "${title}"\ntype: decision\nai-first: true\nstatus: ${status}\ndate: ${today}\ntags:\n${tagLine}\n---\n\n## For future Claude\nDecision: ${p.decision as string}. Status: ${status} (${today}).\n\n## Context\n\n${p.context as string}\n\n## Decision\n\n${p.decision as string}\n\n## Rationale\n\n${rationale}\n\n## Consequences\n\n${consequences}\n`;
         if (p.dryRun !== false) return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
-        mkdirSync(dirname(full), { recursive: true });
-        writeFileSync(full, content, "utf-8");
-        return { ok: true, path };
+        return withFileLock(full, () => {
+          mkdirSync(dirname(full), { recursive: true });
+          writeFileSync(full, content, "utf-8");
+          return { ok: true, path };
+        });
       }
       case "vault.meeting": {
         if (!p.title) throw err(-32602, "title required");
@@ -903,9 +947,11 @@ export class VaultFs {
         const preamble = summary || `Meeting: ${title} (${today})${attendees.length ? `. Attendees: ${attendees.join(", ")}` : ""}.`;
         const content = `---\ntitle: "${title}"\ntype: meeting\nai-first: true\ndate: ${today}\nattendees: [${attendees.map(a => `"${a}"`).join(", ")}]\n---\n\n## For future Claude\n${preamble}\n\n## Attendees\n\n${attendeeLines || "- TBD"}\n\n## Summary\n\n${summary}\n\n## Decisions\n\n${decisionLines || "- None recorded"}\n\n## Action Items\n\n${actionLines || "- None assigned"}\n\n## Notes\n`;
         if (p.dryRun !== false) return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
-        mkdirSync(dirname(full), { recursive: true });
-        writeFileSync(full, content, "utf-8");
-        return { ok: true, path };
+        return withFileLock(full, () => {
+          mkdirSync(dirname(full), { recursive: true });
+          writeFileSync(full, content, "utf-8");
+          return { ok: true, path };
+        });
       }
       case "vault.ingest": {
         if (!p.title) throw err(-32602, "title required");
@@ -923,9 +969,11 @@ export class VaultFs {
         const sourceTag = source ? `\nsource: "${source}"` : "";
         const content = `---\ntitle: "${title}"\ntype: ${type}\nai-first: true\ndate: ${today}${sourceTag}\ntags:\n${tagLine}\n---\n\n## For future Claude\n${preamble}\n\n## Content\n\n${p.content as string}\n`;
         if (p.dryRun !== false) return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
-        mkdirSync(dirname(full), { recursive: true });
-        writeFileSync(full, content, "utf-8");
-        return { ok: true, path };
+        return withFileLock(full, () => {
+          mkdirSync(dirname(full), { recursive: true });
+          writeFileSync(full, content, "utf-8");
+          return { ok: true, path };
+        });
       }
       case "vault.mkdir": {
         const full = this.resolve(p.path as string);
@@ -935,7 +983,72 @@ export class VaultFs {
         return { ok: true, path: p.path };
       }
       case "vault.init": {
-        if (!p.topic || typeof p.topic !== "string") throw err(-32602, "topic required");
+        if (typeof p.methodology === "string") {
+          const scaffolds: Record<string, Array<[string, string]>> = {
+            generic: [
+              ["00-Inbox", "Capture zone for unprocessed notes"],
+              ["Daily", "Daily notes (YYYY-MM-DD.md)"],
+              ["People", "Person notes with relationships and context"],
+              ["Projects", "Project notes with status and milestones"],
+              ["Decisions", "Decision logs (ADRs)"],
+              ["Meetings", "Meeting notes with attendees and actions"],
+              ["Research", "Research notes and findings"],
+              ["Knowledge", "Distilled evergreen knowledge"],
+              ["Wiki", "Compiled wiki articles and indexes"],
+            ],
+            para: [
+              ["1-Projects", "Active projects with goals and deadlines"],
+              ["2-Areas", "Ongoing areas of responsibility"],
+              ["3-Resources", "Topics and references of lasting interest"],
+              ["4-Archive", "Inactive items from the other categories"],
+              ["00-Inbox", "Capture zone for unprocessed notes"],
+            ],
+            lyt: [
+              ["Atlas", "Maps of Content (MOCs) linking ideas together"],
+              ["Calendar", "Time-based notes (daily, weekly, reviews)"],
+              ["Cards", "Atomic idea notes"],
+              ["Extras", "Templates, attachments, and supporting files"],
+              ["00-Inbox", "Capture zone for unprocessed notes"],
+            ],
+            zettelkasten: [
+              ["fleeting", "Quick transient captures awaiting processing"],
+              ["literature", "Notes on sources in your own words"],
+              ["permanent", "Evergreen atomic ideas linked into the web"],
+              ["references", "Bibliographic metadata for sources"],
+              ["00-Inbox", "Capture zone for unprocessed notes"],
+            ],
+          };
+          const methodologyNotes: Record<string, string> = {
+            generic: "Generic second-brain layout: inbox capture, daily logs, and typed notes (people, projects, decisions, meetings) feeding research, knowledge, and wiki layers.",
+            para: "PARA (Tiago Forte): organize by actionability -- Projects (active), Areas (ongoing), Resources (interesting), Archive (inactive).",
+            lyt: "LYT (Nick Milo): Atlas holds Maps of Content that link Cards (atomic notes); Calendar anchors notes in time.",
+            zettelkasten: "Zettelkasten (Luhmann): fleeting captures get processed into literature notes, then distilled into permanent atomic notes linked into a web.",
+          };
+          const methodology = p.methodology as string;
+          const scaffold = scaffolds[methodology];
+          if (!scaffold) throw err(-32602, `methodology must be one of ${Object.keys(scaffolds).join("|")}`);
+          const dryRun = p.dryRun !== false;
+          const created: string[] = [];
+          const skipped: string[] = [];
+          const today = new Date().toISOString().slice(0, 10);
+          for (const [dir] of scaffold) {
+            const full = this.resolve(dir);
+            if (existsSync(full)) { skipped.push(dir); continue; }
+            if (!dryRun) mkdirSync(full, { recursive: true });
+            created.push(dir);
+          }
+          const folderLines = scaffold.map(([dir, purpose]) => `- [[${dir}/README|${dir}]] -- ${purpose}`).join("\n");
+          const homeContent = `---\ntype: index\nai-first: true\nmethodology: ${methodology}\ncreated: ${today}\n---\n\n# Home\n\n## For future Claude\n${methodologyNotes[methodology]}\n\n## Folders\n\n${folderLines}\n`;
+          const homeFull = this.resolve("Home.md");
+          if (existsSync(homeFull)) {
+            skipped.push("Home.md");
+          } else {
+            if (!dryRun) writeFileSync(homeFull, homeContent, "utf-8");
+            created.push("Home.md");
+          }
+          return { ok: true, dryRun, methodology, created, skipped, summary: `Created ${created.length}, skipped ${skipped.length}` };
+        }
+        if (!p.topic || typeof p.topic !== "string") throw err(-32602, "topic or methodology required");
         if ((p.topic as string).split("/").some((s: string) => s === ".." || s === "."))
           throw err(-32602, "path traversal blocked");
         const created: string[] = [];
