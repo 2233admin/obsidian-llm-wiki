@@ -291,7 +291,72 @@ export class FsTransport {
         return { results, totalMatches: total };
       }
       case 'vault.init': {
-        if (!p['topic'] || typeof p['topic'] !== 'string') throw { code: -32602, message: 'topic required' };
+        if (typeof p['methodology'] === 'string') {
+          const scaffolds: Record<string, Array<[string, string]>> = {
+            generic: [
+              ['00-Inbox', 'Capture zone for unprocessed notes'],
+              ['Daily', 'Daily notes (YYYY-MM-DD.md)'],
+              ['People', 'Person notes with relationships and context'],
+              ['Projects', 'Project notes with status and milestones'],
+              ['Decisions', 'Decision logs (ADRs)'],
+              ['Meetings', 'Meeting notes with attendees and actions'],
+              ['Research', 'Research notes and findings'],
+              ['Knowledge', 'Distilled evergreen knowledge'],
+              ['Wiki', 'Compiled wiki articles and indexes'],
+            ],
+            para: [
+              ['1-Projects', 'Active projects with goals and deadlines'],
+              ['2-Areas', 'Ongoing areas of responsibility'],
+              ['3-Resources', 'Topics and references of lasting interest'],
+              ['4-Archive', 'Inactive items from the other categories'],
+              ['00-Inbox', 'Capture zone for unprocessed notes'],
+            ],
+            lyt: [
+              ['Atlas', 'Maps of Content (MOCs) linking ideas together'],
+              ['Calendar', 'Time-based notes (daily, weekly, reviews)'],
+              ['Cards', 'Atomic idea notes'],
+              ['Extras', 'Templates, attachments, and supporting files'],
+              ['00-Inbox', 'Capture zone for unprocessed notes'],
+            ],
+            zettelkasten: [
+              ['fleeting', 'Quick transient captures awaiting processing'],
+              ['literature', 'Notes on sources in your own words'],
+              ['permanent', 'Evergreen atomic ideas linked into the web'],
+              ['references', 'Bibliographic metadata for sources'],
+              ['00-Inbox', 'Capture zone for unprocessed notes'],
+            ],
+          };
+          const methodologyNotes: Record<string, string> = {
+            generic: 'Generic second-brain layout: inbox capture, daily logs, and typed notes (people, projects, decisions, meetings) feeding research, knowledge, and wiki layers.',
+            para: 'PARA (Tiago Forte): organize by actionability -- Projects (active), Areas (ongoing), Resources (interesting), Archive (inactive).',
+            lyt: 'LYT (Nick Milo): Atlas holds Maps of Content that link Cards (atomic notes); Calendar anchors notes in time.',
+            zettelkasten: 'Zettelkasten (Luhmann): fleeting captures get processed into literature notes, then distilled into permanent atomic notes linked into a web.',
+          };
+          const methodology = p['methodology'] as string;
+          const scaffold = scaffolds[methodology];
+          if (!scaffold) throw { code: -32602, message: `methodology must be one of ${Object.keys(scaffolds).join('|')}` };
+          const dryRun = p['dryRun'] !== false;
+          const created: string[] = [];
+          const skipped: string[] = [];
+          const today = new Date().toISOString().slice(0, 10);
+          for (const [dir] of scaffold) {
+            const full = this.resolve(dir);
+            if (fs.existsSync(full)) { skipped.push(dir); continue; }
+            if (!dryRun) fs.mkdirSync(full, { recursive: true });
+            created.push(dir);
+          }
+          const folderLines = scaffold.map(([dir, purpose]) => `- [[${dir}/README|${dir}]] -- ${purpose}`).join('\n');
+          const homeContent = `---\ntype: index\nai-first: true\nmethodology: ${methodology}\ncreated: ${today}\n---\n\n# Home\n\n## For future Claude\n${methodologyNotes[methodology]}\n\n## Folders\n\n${folderLines}\n`;
+          const homeFull = this.resolve('Home.md');
+          if (fs.existsSync(homeFull)) {
+            skipped.push('Home.md');
+          } else {
+            if (!dryRun) fs.writeFileSync(homeFull, homeContent, 'utf-8');
+            created.push('Home.md');
+          }
+          return { ok: true, dryRun, methodology, created, skipped, summary: `Created ${created.length}, skipped ${skipped.length}` };
+        }
+        if (!p['topic'] || typeof p['topic'] !== 'string') throw { code: -32602, message: 'topic or methodology required' };
         if ((p['topic'] as string).split('/').some((s: string) => s === '..' || s === '.')) throw { code: -32602, message: 'path traversal blocked' };
         const created: string[] = [], skipped: string[] = [];
         const base = p['topic'] as string;

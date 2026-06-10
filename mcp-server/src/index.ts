@@ -629,8 +629,10 @@ export class VaultFs {
         if (p.dryRun !== false) return { dryRun: true, action: "rename", from: p.from, to: p.to };
         return withFileLock(from, () => {
           mkdirSync(dirname(to), { recursive: true });
-          renameSync(from, to);
-          return { ok: true, from: p.from, to: p.to };
+          return withFileLock(to, () => {
+            renameSync(from, to);
+            return { ok: true, from: p.from, to: p.to };
+          });
         });
       }
       case "vault.search": {
@@ -1343,8 +1345,10 @@ export class VaultFs {
 
         const contentOut = `---\n${yamlLines.join("\n")}\n---\n\n${bodyWithTag}\n`;
         mkdirSync(dirname(fullPath), { recursive: true });
-        writeFileSync(fullPath, contentOut, "utf-8");
-        return { ok: true, path: relPath, frontmatter: frontmatterObj, warnings };
+        return withFileLock(fullPath, () => {
+          writeFileSync(fullPath, contentOut, "utf-8");
+          return { ok: true, path: relPath, frontmatter: frontmatterObj, warnings };
+        });
       }
       case "vault.sweepAIOutput": {
         const STALE_THRESHOLDS: Record<string, number> = {
@@ -1477,7 +1481,6 @@ export class VaultFs {
           const flipIso = new Date(nowValid).toISOString();
           for (const sc of staleCandidates) {
             const absPath = join(this.vault, sc.path);
-            const original = readFileSync(absPath, "utf-8");
             // Step 2 governance: append a structured history entry for audit.
             // YAML flow-style so the Step-1 frontmatter parser (scalar-only arrays)
             // still round-trips the entry as an opaque string without loss.
@@ -1488,14 +1491,18 @@ export class VaultFs {
             const historyEntry =
               `{ts: "${flipIso}", axis: status, from: draft, to: stale, trigger: auto-stop-summary, ` +
               `evidence_level: low, human_in_loop: false, note: "gardener sweep"}`;
-            const withStatusFlipped = original.replace(
-              /(^---[\s\S]*?\nstatus: )draft(\n[\s\S]*?^---$)/m,
-              (_m, g1: string, g2: string) => g1 + "stale" + g2,
-            );
-            if (withStatusFlipped === original) continue;
-            const replaced = appendHistoryInYaml(withStatusFlipped, historyEntry);
-            writeFileSync(absPath, replaced, "utf-8");
-            applied.push({ path: sc.path, change: "draft→stale" });
+            const flipped = withFileLock(absPath, () => {
+              const original = readFileSync(absPath, "utf-8");
+              const withStatusFlipped = original.replace(
+                /(^---[\s\S]*?\nstatus: )draft(\n[\s\S]*?^---$)/m,
+                (_m, g1: string, g2: string) => g1 + "stale" + g2,
+              );
+              if (withStatusFlipped === original) return false;
+              const replaced = appendHistoryInYaml(withStatusFlipped, historyEntry);
+              writeFileSync(absPath, replaced, "utf-8");
+              return true;
+            });
+            if (flipped) applied.push({ path: sc.path, change: "draft→stale" });
           }
         }
 
@@ -1531,11 +1538,13 @@ export class VaultFs {
             `- {ts: "${stamp}", totalEntries: ${metrics.totalEntries}, ` +
             `staleHits: ${staleCandidates.length}, supersedeHits: ${supersedeCandidates.length}, ` +
             `realBacklinkHitRate: ${metrics.realBacklinkHitRate.toFixed(3)}}\n`;
-          if (!existsSync(sweepLogAbs)) {
-            mkdirSync(dirname(sweepLogAbs), { recursive: true });
-            writeFileSync(sweepLogAbs, "# Sweep trend log\n\n", "utf-8");
-          }
-          appendFileSync(sweepLogAbs, logLine, "utf-8");
+          withFileLock(sweepLogAbs, () => {
+            if (!existsSync(sweepLogAbs)) {
+              mkdirSync(dirname(sweepLogAbs), { recursive: true });
+              writeFileSync(sweepLogAbs, "# Sweep trend log\n\n", "utf-8");
+            }
+            appendFileSync(sweepLogAbs, logLine, "utf-8");
+          });
         }
 
         return { staleCandidates, supersedeCandidates, applied, metrics };
