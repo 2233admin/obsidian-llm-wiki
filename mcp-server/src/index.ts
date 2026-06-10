@@ -738,12 +738,12 @@ export class VaultFs {
             if (!target.endsWith(".md")) target += ".md";
             nodeSet.add(target);
             inbound.add(target);
-            const key = relPath + " " + target;
+            const key = relPath + "\u0000" + target;
             edgeMap.set(key, (edgeMap.get(key) || 0) + 1);
           }
         });
         let edges = Array.from(edgeMap.entries()).map(([key, count]) => {
-          const [from, to] = key.split(" ");
+          const [from, to] = key.split("\u0000");
           return { from, to, count };
         });
         const nodes = Array.from(nodeSet).sort().map((np) => ({
