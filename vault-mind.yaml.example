@@ -16,6 +16,13 @@ adapters:
     pg_url: "postgresql://user:pass@localhost:5432/memu"
   gitnexus:
     enabled: false
+  graphify:
+    enabled: false
+    # vault_path: "/path/to/your/project"  # defaults to top-level vault_path
+    # output_dir: ""                        # defaults to <vault_path>/graphify-out
+    # binary: "graphify"                    # override if not on PATH
+    # auto_rescan: false                    # run 'graphify update' before graph queries
+    # timeout: 30000                        # ms
 
 # --- VaultBrain adapter (semantic search via PGLite + pgvector) ---
 # Enables hybrid search (keyword + vector) across all indexed vault files.

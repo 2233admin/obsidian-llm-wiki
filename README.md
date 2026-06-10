@@ -153,6 +153,7 @@ When Claude Code (or any MCP-compatible agent) runs `/vault-librarian`, it calls
 - No embeddings required at small scale. Optional pgvector-backed semantic search via the `memU` adapter.
 - No database. Filesystem-only by default; a compiled graph is cached as plain JSON alongside the vault.
 - No Obsidian required at runtime. The `filesystem` adapter is always available. Obsidian is an optional adapter if you want live plugin-API features via a WebSocket bridge.
+- No code intelligence required at small scale. Optional project-wide knowledge graph (code + docs + PDFs + images) via the `graphify` adapter (`uv tool install graphifyy`).
 
 ---
 
@@ -176,7 +177,7 @@ The wiki has the long-form answers. Read them in any order.
 
 ## Limits
 
-- Does not understand code in your notes -- it indexes text, wikilinks, and structure. For AST-level code reasoning, enable the optional `gitnexus` adapter.
+- Does not understand code in your notes -- it indexes text, wikilinks, and structure. For git-history and AST-level code reasoning, enable the optional `gitnexus` adapter. For a project-wide knowledge graph that spans code, docs, PDFs, and images, enable the optional `graphify` adapter.
 - Does not sync bidirectionally with Obsidian in real time -- the WebSocket adapter requires Obsidian to be running.
 - Does not replace a vector database for semantic similarity at scale -- enable the optional `memU` adapter for that.
 - The split between this repo (headless MCP) and its sibling `obsidian-vault-bridge` (Obsidian plugin) is still settling. See the [Rationale](https://github.com/2233admin/obsidian-llm-wiki/wiki/Rationale) page for the drift discussion.
