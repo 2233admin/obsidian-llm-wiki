@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "vault-mind": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-server/bundle.js"],
+      "env": {}
+    }
+  }
+}

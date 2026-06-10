@@ -11044,7 +11044,7 @@ var require_pg_pool = __commonJS({
     function throwOnDoubleRelease() {
       throw new Error("Release called on client which has already been released to the pool.");
     }
-    function promisify5(Promise2, callback) {
+    function promisify6(Promise2, callback) {
       if (callback) {
         return { callback, result: void 0 };
       }
@@ -11182,7 +11182,7 @@ var require_pg_pool = __commonJS({
           const err2 = new Error("Cannot use a pool after calling end on the pool");
           return cb ? cb(err2) : this.Promise.reject(err2);
         }
-        const response = promisify5(this.Promise, cb);
+        const response = promisify6(this.Promise, cb);
         const result = response.result;
         if (this._isFull() || this._idle.length) {
           if (this._idle.length) {
@@ -11367,7 +11367,7 @@ var require_pg_pool = __commonJS({
       }
       query(text, values, cb) {
         if (typeof text === "function") {
-          const response2 = promisify5(this.Promise, text);
+          const response2 = promisify6(this.Promise, text);
           setImmediate(function() {
             return response2.callback(new Error("Passing a function as the first parameter to pool.query is not supported"));
           });
@@ -11377,7 +11377,7 @@ var require_pg_pool = __commonJS({
           cb = values;
           values = void 0;
         }
-        const response = promisify5(this.Promise, cb);
+        const response = promisify6(this.Promise, cb);
         cb = response.callback;
         this.connect((err2, client) => {
           if (err2) {
@@ -11422,7 +11422,7 @@ var require_pg_pool = __commonJS({
           return cb ? cb(err2) : this.Promise.reject(err2);
         }
         this.ending = true;
-        const promised = promisify5(this.Promise, cb);
+        const promised = promisify6(this.Promise, cb);
         this._endCallback = promised.callback;
         this._pulseQueue();
         return promised.result;
@@ -15573,7 +15573,7 @@ var init_embedding_client = __esm({
   "dist/embedding-client.js"() {
     "use strict";
     DEFAULT_URL = "http://localhost:11434/v1/embeddings";
-    DEFAULT_MODEL2 = "qwen3-embedding:0.6b";
+    DEFAULT_MODEL2 = "bge-m3";
     DEFAULT_TIMEOUT_MS = 15e3;
   }
 });
@@ -29615,7 +29615,7 @@ var StdioServerTransport = class {
 
 // dist/index.js
 import { readFileSync as readFileSync5, existsSync as existsSync5, readdirSync as readdirSync4, statSync, realpathSync, writeFileSync as writeFileSync2, appendFileSync as appendFileSync2, rmSync, renameSync, mkdirSync as mkdirSync3 } from "node:fs";
-import { resolve as resolve2, join as join7, basename as basename2, extname, relative as relative3, dirname as dirname4, posix, isAbsolute as pathIsAbsolute } from "node:path";
+import { resolve as resolve2, join as join8, basename as basename3, extname, relative as relative3, dirname as dirname4, posix, isAbsolute as pathIsAbsolute } from "node:path";
 import { fileURLToPath as fileURLToPath3 } from "node:url";
 
 // dist/adapters/filesystem.js
@@ -29791,9 +29791,10 @@ async function embedTextOllama(text, opts) {
 // dist/adapters/memu.js
 var { Pool: Pool2 } = esm_default;
 var DEFAULT_DSN = "postgresql://postgres:postgres@localhost:5432/memu";
-var DEFAULT_PYTHON = "D:/projects/memu-graph/.venv/Scripts/python.exe";
-var DEFAULT_MEMU_GRAPH_CWD = "D:/projects/memu-graph";
+var DEFAULT_PYTHON = "D:/projects/_active/memu/.venv/Scripts/python.exe";
+var DEFAULT_MEMU_GRAPH_CWD = "D:/projects/_active/memu";
 var DEFAULT_GRAPH_RECALL_TIMEOUT_MS = 15e3;
+var DEFAULT_MEMU_SEARCH_PY = "D:/projects/_active/memu/scripts/memu_search.py";
 var MemUAdapter = class {
   name = "memu";
   capabilities = ["search", "embeddings"];
@@ -29805,6 +29806,10 @@ var MemUAdapter = class {
   pythonExe;
   memuGraphCwd;
   graphRecallTimeoutMs;
+  memuSearchPy;
+  memuSearchPythonExe;
+  memuSearchTimeoutMs;
+  embedModel;
   pool = null;
   available = false;
   get isAvailable() {
@@ -29821,6 +29826,10 @@ var MemUAdapter = class {
     const envTimeout = process.env.MEMU_GRAPH_TIMEOUT_MS;
     const envTimeoutNum = envTimeout ? Number(envTimeout) : NaN;
     this.graphRecallTimeoutMs = config2?.graphRecallTimeoutMs ?? (Number.isFinite(envTimeoutNum) && envTimeoutNum > 0 ? envTimeoutNum : DEFAULT_GRAPH_RECALL_TIMEOUT_MS);
+    this.memuSearchPy = config2?.memuSearchPy ?? process.env.MEMU_SEARCH_PY ?? DEFAULT_MEMU_SEARCH_PY;
+    this.memuSearchPythonExe = config2?.memuSearchPythonExe ?? process.env.MEMU_SEARCH_PYTHON ?? "D:/projects/_active/memu/.venv/Scripts/python.exe";
+    this.memuSearchTimeoutMs = 2e4;
+    this.embedModel = config2?.embedModel ?? process.env.OLLAMA_EMBED_MODEL ?? "bge-m3";
   }
   async init() {
     try {
@@ -29860,12 +29869,13 @@ var MemUAdapter = class {
     if (!this.available || !this.pool)
       return [];
     const limit = Math.max(1, Math.min(opts?.maxResults ?? this.defaultMax, 100));
-    const vec = await embedTextOllama(query);
+    const vec = await embedTextOllama(query, { model: this.embedModel });
     const queryVec = vec.length === 1024 ? vec : null;
     const result = await this.runGraphRecall(query, queryVec, limit);
-    if (!result)
-      return [];
-    return this.mapRecallResult(result);
+    if (result)
+      return this.mapRecallResult(result);
+    const pyResult = await this.runMemuSearchPy(query, queryVec, limit);
+    return pyResult;
   }
   async searchByVector(vector, opts) {
     if (!this.available || !this.pool)
@@ -29875,9 +29885,10 @@ var MemUAdapter = class {
     if (vector.length === 1024) {
       const limit = Math.max(1, Math.min(opts?.maxResults ?? this.defaultMax, 100));
       const result = await this.runGraphRecall("", vector, limit);
-      if (!result)
-        return [];
-      return this.mapRecallResult(result);
+      if (result)
+        return this.mapRecallResult(result);
+      const pyResult = await this.runMemuSearchPy("", vector, limit);
+      return pyResult;
     }
     if (vector.length === 4096)
       return this.searchMemoryItemsByVector(vector, opts);
@@ -30001,6 +30012,102 @@ var MemUAdapter = class {
         resolve3(null);
       }
     });
+  }
+  /**
+   * Fallback: spawn memu_search.py for pure-PG cosine search via Python-side
+   * computation (bypasses pgvector on Windows). Used when memu_graph.cli is
+   * unavailable or times out.
+   */
+  async runMemuSearchPy(query, vec, limit) {
+    return new Promise((resolve3) => {
+      let stdout = "";
+      let stderr = "";
+      let settled = false;
+      const args = [
+        this.memuSearchPy,
+        "--dsn",
+        this.dsn,
+        "--limit",
+        String(limit)
+      ];
+      if (query) {
+        args.push("--query", query);
+        if (vec)
+          args.push("--embed", JSON.stringify(Array.from(vec)));
+      } else if (vec) {
+        args.push("--embed", JSON.stringify(Array.from(vec)));
+      } else {
+        resolve3([]);
+        return;
+      }
+      const proc = spawn(this.memuSearchPythonExe, args, {
+        windowsHide: true,
+        stdio: ["pipe", "pipe", "pipe"]
+      });
+      const timer = setTimeout(() => {
+        if (settled)
+          return;
+        settled = true;
+        proc.kill("SIGKILL");
+        process.stderr.write(`obsidian-llm-wiki: [warn] memu_search.py timeout after ${this.memuSearchTimeoutMs}ms
+`);
+        resolve3([]);
+      }, this.memuSearchTimeoutMs);
+      proc.stdout.on("data", (d) => {
+        stdout += d.toString("utf-8");
+      });
+      proc.stderr.on("data", (d) => {
+        stderr += d.toString("utf-8");
+      });
+      proc.on("error", (err2) => {
+        if (settled)
+          return;
+        settled = true;
+        clearTimeout(timer);
+        process.stderr.write(`obsidian-llm-wiki: [warn] memu_search.py spawn failed: ${err2.message}
+`);
+        resolve3([]);
+      });
+      proc.on("close", (code) => {
+        if (settled)
+          return;
+        settled = true;
+        clearTimeout(timer);
+        if (code !== 0) {
+          process.stderr.write(`obsidian-llm-wiki: [warn] memu_search.py exit ${code}: ${stderr.slice(0, 300)}
+`);
+          resolve3([]);
+          return;
+        }
+        try {
+          const parsed = JSON.parse(stdout);
+          resolve3(this.mapMemuSearchPyResult(parsed));
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          process.stderr.write(`obsidian-llm-wiki: [warn] memu_search.py stdout JSON parse failed: ${msg}
+`);
+          resolve3([]);
+        }
+      });
+    });
+  }
+  mapMemuSearchPyResult(rows) {
+    if (rows.length === 0)
+      return [];
+    const maxScore = Math.max(...rows.map((r) => r.score ?? 0), 1e-9);
+    return rows.map((r) => ({
+      source: this.name,
+      path: `memu/item/${r.id ?? "?"}`,
+      content: String(r.summary ?? "").slice(0, 500),
+      score: (r.score ?? 0) / maxScore,
+      metadata: {
+        table: "memory_items",
+        memory_type: r.memory_type ?? "note",
+        item_id: r.id,
+        happened_at: r.happened_at,
+        extra: r.extra ?? {}
+      }
+    }));
   }
   /**
    * Convert a graph_recall RecallResult into the unified SearchResult shape.
@@ -30806,7 +30913,7 @@ import { homedir as homedir2 } from "node:os";
 import { join as join3 } from "node:path";
 
 // dist/adapters/vaultbrain/schema.js
-var EMBED_DIM = parseInt(process.env.VAULTBRAIN_EMBED_DIM ?? "1536", 10);
+var EMBED_DIM = parseInt(process.env.VAULTBRAIN_EMBED_DIM ?? "1024", 10);
 var VAULTBRAIN_SCHEMA_SQL = `
 CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
@@ -30816,14 +30923,11 @@ CREATE TABLE IF NOT EXISTS pages (
   slug TEXT NOT NULL UNIQUE,
   title TEXT,
   content TEXT,
-  content_hash TEXT,
-  search_vector tsvector,
+  hash TEXT,
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS content_chunks (
-  id SERIAL PRIMARY KEY,
-  page_id INTEGER REFERENCES pages(id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS chunks (
   slug TEXT NOT NULL,
   chunk_index INTEGER NOT NULL,
   chunk_text TEXT NOT NULL,
@@ -30832,41 +30936,26 @@ CREATE TABLE IF NOT EXISTS content_chunks (
   UNIQUE(slug, chunk_index)
 );
 
-CREATE TABLE IF NOT EXISTS links (
-  id SERIAL PRIMARY KEY,
-  from_slug TEXT NOT NULL,
-  to_slug TEXT NOT NULL,
-  UNIQUE(from_slug, to_slug)
+CREATE TABLE IF NOT EXISTS page_tags (
+  slug TEXT,
+  tag TEXT,
+  PRIMARY KEY (slug, tag)
 );
 
-CREATE TABLE IF NOT EXISTS tags (
-  id SERIAL PRIMARY KEY,
-  slug TEXT NOT NULL,
-  tag TEXT NOT NULL,
-  UNIQUE(slug, tag)
+CREATE TABLE IF NOT EXISTS page_links (
+  from_slug TEXT,
+  to_slug TEXT,
+  PRIMARY KEY (from_slug, to_slug)
 );
 
-CREATE INDEX IF NOT EXISTS content_chunks_embedding_idx
-  ON content_chunks USING hnsw (embedding vector_cosine_ops);
+CREATE INDEX IF NOT EXISTS chunks_embedding_idx
+  ON chunks USING hnsw (embedding vector_cosine_ops);
 
-CREATE INDEX IF NOT EXISTS pages_search_vector_idx
-  ON pages USING gin(search_vector);
+CREATE INDEX IF NOT EXISTS chunks_trgm_idx
+  ON chunks USING gin (chunk_text gin_trgm_ops);
 
-CREATE INDEX IF NOT EXISTS pages_content_trgm_idx
-  ON pages USING gin(content gin_trgm_ops);
-
-CREATE OR REPLACE FUNCTION update_page_search_vector()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.search_vector := setweight(to_tsvector('english', coalesce(NEW.title, '')), 'A')
-                    || setweight(to_tsvector('english', coalesce(NEW.content, '')), 'B');
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE TRIGGER pages_search_vector_trigger
-BEFORE INSERT OR UPDATE ON pages
-FOR EACH ROW EXECUTE FUNCTION update_page_search_vector();
+CREATE INDEX IF NOT EXISTS chunks_slug_idx
+  ON chunks (slug);
 `;
 
 // dist/adapters/vaultbrain/pglite-engine.js
@@ -30880,10 +30969,8 @@ var PGliteEngine = class {
     const { PGlite } = await import("@electric-sql/pglite");
     const { vector } = await import("@electric-sql/pglite/vector");
     const { pg_trgm } = await import("@electric-sql/pglite/contrib/pg_trgm");
-    this.db = await PGlite.create({
-      dataDir: this.dataDir,
-      extensions: { vector, pg_trgm }
-    });
+    this.db = new PGlite(this.dataDir, { extensions: { vector, pg_trgm } });
+    await this.db.waitReady;
   }
   async disconnect() {
     if (this.db) {
@@ -30895,12 +30982,12 @@ var PGliteEngine = class {
     await this.requireDb().exec(VAULTBRAIN_SCHEMA_SQL);
   }
   async upsertPage(slug, title, content, hash2) {
-    await this.requireDb().query(`INSERT INTO pages (slug, title, content, content_hash, updated_at)
+    await this.requireDb().query(`INSERT INTO pages (slug, title, content, hash, updated_at)
        VALUES ($1, $2, $3, $4, now())
        ON CONFLICT (slug) DO UPDATE SET
          title = EXCLUDED.title,
          content = EXCLUDED.content,
-         content_hash = EXCLUDED.content_hash,
+         hash = EXCLUDED.hash,
          updated_at = now()`, [slug, title, content, hash2]);
   }
   async deletePage(slug) {
@@ -30910,37 +30997,32 @@ var PGliteEngine = class {
     if (chunks.length === 0)
       return;
     const db = this.requireDb();
-    const pageRes = await db.query(`SELECT id FROM pages WHERE slug = $1`, [slug]);
-    if (pageRes.rows.length === 0) {
-      return;
-    }
-    const pageId = pageRes.rows[0].id;
     for (const chunk of chunks) {
       const embeddingStr = chunk.embedding && chunk.embedding.length > 0 ? JSON.stringify(chunk.embedding) : null;
       if (embeddingStr) {
-        await db.query(`INSERT INTO content_chunks (page_id, slug, chunk_index, chunk_text, embedding, token_count)
-           VALUES ($1, $2, $3, $4, $5::vector, $6)
+        await db.query(`INSERT INTO chunks (slug, chunk_index, chunk_text, embedding, token_count)
+           VALUES ($1, $2, $3, $4::vector, $5)
            ON CONFLICT (slug, chunk_index) DO UPDATE SET
              chunk_text = EXCLUDED.chunk_text,
              embedding = EXCLUDED.embedding,
-             token_count = EXCLUDED.token_count`, [pageId, slug, chunk.chunkIndex, chunk.chunkText, embeddingStr, chunk.tokenCount]);
+             token_count = EXCLUDED.token_count`, [slug, chunk.chunkIndex, chunk.chunkText, embeddingStr, chunk.tokenCount]);
       } else {
-        await db.query(`INSERT INTO content_chunks (page_id, slug, chunk_index, chunk_text, embedding, token_count)
-           VALUES ($1, $2, $3, $4, NULL, $5)
+        await db.query(`INSERT INTO chunks (slug, chunk_index, chunk_text, embedding, token_count)
+           VALUES ($1, $2, $3, NULL, $4)
            ON CONFLICT (slug, chunk_index) DO UPDATE SET
              chunk_text = EXCLUDED.chunk_text,
-             token_count = EXCLUDED.token_count`, [pageId, slug, chunk.chunkIndex, chunk.chunkText, chunk.tokenCount]);
+             token_count = EXCLUDED.token_count`, [slug, chunk.chunkIndex, chunk.chunkText, chunk.tokenCount]);
       }
     }
   }
   async deleteChunks(slug) {
-    await this.requireDb().query(`DELETE FROM content_chunks WHERE slug = $1`, [slug]);
+    await this.requireDb().query(`DELETE FROM chunks WHERE slug = $1`, [slug]);
   }
   async searchKeyword(query, limit) {
     const { rows } = await this.requireDb().query(`SELECT slug, chunk_index, chunk_text,
               similarity(chunk_text, $1) AS score
-       FROM content_chunks
-       WHERE chunk_text % $1
+       FROM chunks
+       WHERE similarity(chunk_text, $1) >= 0.1
        ORDER BY score DESC
        LIMIT $2`, [query, limit]);
     return rows.map((r) => ({
@@ -30954,7 +31036,7 @@ var PGliteEngine = class {
     const vecStr = JSON.stringify(embedding);
     const { rows } = await this.requireDb().query(`SELECT slug, chunk_index, chunk_text,
               1 - (embedding <=> $1::vector) AS score
-       FROM content_chunks
+       FROM chunks
        WHERE embedding IS NOT NULL
        ORDER BY embedding <=> $1::vector
        LIMIT $2`, [vecStr, limit]);
@@ -30966,12 +31048,12 @@ var PGliteEngine = class {
     }));
   }
   async upsertLink(fromSlug, toSlug) {
-    await this.requireDb().query(`INSERT INTO links (from_slug, to_slug)
+    await this.requireDb().query(`INSERT INTO page_links (from_slug, to_slug)
        VALUES ($1, $2)
        ON CONFLICT (from_slug, to_slug) DO NOTHING`, [fromSlug, toSlug]);
   }
   async upsertTag(slug, tag) {
-    await this.requireDb().query(`INSERT INTO tags (slug, tag)
+    await this.requireDb().query(`INSERT INTO page_tags (slug, tag)
        VALUES ($1, $2)
        ON CONFLICT (slug, tag) DO NOTHING`, [slug, tag]);
   }
@@ -31087,6 +31169,10 @@ var VaultBrainAdapter = class {
   name = "vaultbrain";
   capabilities = ["search", "embeddings"];
   engine = null;
+  _available = false;
+  get isAvailable() {
+    return this._available;
+  }
   constructor(dataDir) {
     this.dataDir = dataDir;
   }
@@ -31097,9 +31183,11 @@ var VaultBrainAdapter = class {
       await engine.connect();
       await engine.initSchema();
       this.engine = engine;
+      this._available = true;
     } catch (err2) {
       console.warn(`[vaultbrain] init failed, adapter disabled: ${err2.message}`);
       this.engine = null;
+      this._available = false;
     }
   }
   async dispose() {
@@ -31122,14 +31210,12 @@ var VaultBrainAdapter = class {
     } catch {
     }
     let vecResults = [];
-    if (process.env.OPENAI_API_KEY) {
-      try {
-        const embeddings = await embedTexts([query]);
-        if (embeddings.length > 0) {
-          vecResults = await this.engine.searchVector(embeddings[0], perListLimit);
-        }
-      } catch {
+    try {
+      const embeddings = await embedTexts([query]);
+      if (embeddings.length > 0 && embeddings[0].length > 0) {
+        vecResults = await this.engine.searchVector(embeddings[0], perListLimit);
       }
+    } catch {
     }
     const scoreMap = /* @__PURE__ */ new Map();
     for (let rank = 0; rank < kwResults.length; rank++) {
@@ -31221,6 +31307,144 @@ function extractTags(content) {
   return tagSource.split(/[\n,]/).map((t) => t.replace(/^-\s*/, "").replace(/['"]/g, "").trim()).filter(Boolean);
 }
 
+// dist/adapters/graphify.js
+import { execFile as execFile3 } from "node:child_process";
+import { readFile as readFile2 } from "node:fs/promises";
+import { promisify as promisify3 } from "node:util";
+import { join as join4, basename as basename2 } from "node:path";
+var exec3 = promisify3(execFile3);
+function shellOpt(binary) {
+  return /\.(cmd|bat)$/i.test(binary) ? { shell: true } : {};
+}
+var TAG_RELATIONS = /* @__PURE__ */ new Set(["contains", "method"]);
+var GraphifyAdapter = class {
+  name = "graphify";
+  capabilities = ["search", "graph", "read"];
+  binary;
+  vaultPath;
+  graphPath;
+  timeout;
+  autoRescan;
+  available = false;
+  get isAvailable() {
+    return this.available;
+  }
+  constructor(config2) {
+    this.binary = config2?.binary ?? "graphify";
+    this.vaultPath = config2?.vaultPath ?? process.cwd();
+    const outputDir = config2?.outputDir ?? join4(this.vaultPath, "graphify-out");
+    this.graphPath = join4(outputDir, "graph.json");
+    this.timeout = config2?.timeout ?? 3e4;
+    this.autoRescan = config2?.autoRescan ?? false;
+  }
+  async init() {
+    try {
+      await exec3(this.binary, ["--version"], { timeout: 5e3, ...shellOpt(this.binary) });
+      this.available = true;
+    } catch {
+      process.stderr.write("vault-mind: [warn] graphify CLI not found -- adapter disabled (install: uv tool install graphifyy)\n");
+    }
+  }
+  async dispose() {
+  }
+  async search(query, opts) {
+    if (!this.available)
+      return [];
+    const budget = (opts?.maxResults ?? 20) * 100;
+    const args = ["query", query, "--graph", this.graphPath, "--budget", String(budget)];
+    try {
+      const { stdout } = await exec3(this.binary, args, {
+        timeout: this.timeout,
+        maxBuffer: 10 * 1024 * 1024,
+        cwd: this.vaultPath,
+        ...shellOpt(this.binary)
+      });
+      const text = stdout.trim();
+      if (!text)
+        return [];
+      return [
+        {
+          source: this.name,
+          path: this.graphPath,
+          content: text.slice(0, 4e3),
+          score: 1,
+          metadata: { query }
+        }
+      ];
+    } catch {
+      return [];
+    }
+  }
+  async graph() {
+    if (!this.available)
+      return { nodes: [], edges: [] };
+    if (this.autoRescan) {
+      try {
+        await exec3(this.binary, ["update", this.vaultPath], {
+          timeout: this.timeout * 3,
+          cwd: this.vaultPath,
+          ...shellOpt(this.binary)
+        });
+      } catch {
+      }
+    }
+    const raw = await this.readGraphJson();
+    if (!raw)
+      return { nodes: [], edges: [] };
+    const rawNodes = Array.isArray(raw.nodes) ? raw.nodes : [];
+    const rawEdges = Array.isArray(raw.edges) ? raw.edges : Array.isArray(raw.links) ? raw.links : [];
+    const idToFile = /* @__PURE__ */ new Map();
+    for (const n of rawNodes) {
+      if (n.id && n.source_file)
+        idToFile.set(n.id, n.source_file);
+    }
+    const fileSet = /* @__PURE__ */ new Set();
+    for (const n of rawNodes) {
+      if (n.source_file)
+        fileSet.add(n.source_file);
+    }
+    const nodes = [...fileSet].map((path) => ({
+      path,
+      title: basename2(path)
+    }));
+    const edgeSet = /* @__PURE__ */ new Set();
+    const edges = [];
+    for (const e of rawEdges) {
+      const fromFile = idToFile.get(e.source);
+      const toFile = idToFile.get(e.target);
+      if (!fromFile || !toFile || fromFile === toFile)
+        continue;
+      const type = TAG_RELATIONS.has(e.relation) ? "tag" : "link";
+      const key = `${fromFile}\0${toFile}\0${type}`;
+      if (!edgeSet.has(key)) {
+        edgeSet.add(key);
+        edges.push({ from: fromFile, to: toFile, type });
+      }
+    }
+    return { nodes, edges };
+  }
+  async read(path) {
+    if (!this.available)
+      return "";
+    const raw = await this.readGraphJson();
+    if (!raw)
+      return "";
+    const rawNodes = Array.isArray(raw.nodes) ? raw.nodes : [];
+    const matched = rawNodes.filter((n) => n.source_file === path || n.source_file.endsWith(path));
+    if (matched.length === 0)
+      return "";
+    return matched.map((n) => `[${n.file_type}] ${n.label}`).join("\n");
+  }
+  async readGraphJson() {
+    try {
+      const json2 = await readFile2(this.graphPath, "utf-8");
+      return JSON.parse(json2);
+    } catch {
+      return null;
+    }
+  }
+};
+
 // dist/adapters/registry.js
 var AdapterRegistry = class {
   adapters = /* @__PURE__ */ new Map();
@@ -31263,11 +31487,11 @@ var AdapterRegistry = class {
 };
 
 // dist/compile-trigger.js
-import { execFile as execFile3 } from "node:child_process";
+import { execFile as execFile4 } from "node:child_process";
 import { readdirSync, existsSync } from "node:fs";
-import { promisify as promisify3 } from "node:util";
+import { promisify as promisify4 } from "node:util";
 import { resolve } from "node:path";
-var exec3 = promisify3(execFile3);
+var exec4 = promisify4(execFile4);
 var CompileTrigger = class {
   dirty = /* @__PURE__ */ new Set();
   running = false;
@@ -31362,7 +31586,7 @@ var CompileTrigger = class {
     }
     for (const topic of topics) {
       try {
-        const { stdout } = await exec3(this.python, [kbMeta, "diff", this.vaultPath, topic], {
+        const { stdout } = await exec4(this.python, [kbMeta, "diff", this.vaultPath, topic], {
           timeout: 1e4,
           maxBuffer: 1024 * 1024,
           env: { ...process.env }
@@ -31421,7 +31645,7 @@ var CompileTrigger = class {
     const args = [compilePy, topicPath, "--tier", this.tier];
     const timestamp = (/* @__PURE__ */ new Date()).toISOString();
     try {
-      const { stdout, stderr } = await exec3(this.python, args, {
+      const { stdout, stderr } = await exec4(this.python, args, {
         timeout: 12e4,
         // 2 min max
         maxBuffer: 10 * 1024 * 1024,
@@ -31499,20 +31723,20 @@ var CompileTrigger = class {
 };
 
 // dist/core/operations.js
-import { execFile as execFile4, spawnSync } from "node:child_process";
+import { execFile as execFile5, spawnSync } from "node:child_process";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
-import { promisify as promisify4 } from "node:util";
+import { promisify as promisify5 } from "node:util";
 import { existsSync as existsSync4, mkdirSync as mkdirSync2, readdirSync as readdirSync3, readFileSync as readFileSync4, writeFileSync } from "node:fs";
-import { dirname as dirname3, join as join6, relative as relative2 } from "node:path";
+import { dirname as dirname3, join as join7, relative as relative2 } from "node:path";
 
 // dist/recipes/_registry.js
 import { readdirSync as readdirSync2, existsSync as existsSync3 } from "node:fs";
-import { join as join5, dirname as dirname2 } from "node:path";
+import { join as join6, dirname as dirname2 } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // dist/recipes/_framework.js
 import { readFileSync as readFileSync3, existsSync as existsSync2, appendFileSync, mkdirSync } from "node:fs";
-import { join as join4 } from "node:path";
+import { join as join5 } from "node:path";
 import { execFileSync } from "node:child_process";
 import { homedir as homedir3 } from "node:os";
 function parseScalar(raw) {
@@ -31703,16 +31927,16 @@ function runHealthCheck(command) {
   }
 }
 function appendHeartbeat(recipeId, event) {
-  const dir = join4(homedir3(), ".vault-mind", "recipes", recipeId);
+  const dir = join5(homedir3(), ".vault-mind", "recipes", recipeId);
   if (!existsSync2(dir)) {
     mkdirSync(dir, { recursive: true });
   }
-  const filePath = join4(dir, "heartbeat.jsonl");
+  const filePath = join5(dir, "heartbeat.jsonl");
   appendFileSync(filePath, JSON.stringify(event) + "\n", "utf8");
 }
 
 // dist/recipes/_registry.js
-var DEFAULT_RECIPES_DIR = join5(dirname2(fileURLToPath(import.meta.url)), "..", "..", "..", "recipes");
+var DEFAULT_RECIPES_DIR = join6(dirname2(fileURLToPath(import.meta.url)), "..", "..", "..", "recipes");
 var _cache = null;
 function scanRecipes(recipesDir) {
   if (!recipesDir && _cache)
@@ -31729,7 +31953,7 @@ function scanRecipes(recipesDir) {
       continue;
     if (entry.name.startsWith("_"))
       continue;
-    const filePath = join5(dir, entry.name);
+    const filePath = join6(dir, entry.name);
     try {
       recipes.push(parseRecipe(filePath));
     } catch (err2) {
@@ -31885,10 +32109,10 @@ async function unifiedQueryByVector(registry2, vector, opts) {
 
 // dist/core/operations.js
 init_embedding_client();
-var execAsync = promisify4(execFile4);
+var execAsync = promisify5(execFile5);
 var PROTECTED_DIRS = /* @__PURE__ */ new Set([".obsidian", ".trash", ".git", "node_modules"]);
 var _thisDir = dirname3(fileURLToPath2(import.meta.url));
-var _projectRoot = join6(_thisDir, "..", "..", "..");
+var _projectRoot = join7(_thisDir, "..", "..", "..");
 function makeErr(code, message) {
   return { code, message };
 }
@@ -32081,12 +32305,106 @@ var operations = [
     handler: async (ctx, params) => ctx.vault.execute("vault.lint", params)
   },
   {
-    name: "vault.init",
+    name: "vault.daily",
     namespace: "vault",
-    description: "Scaffold a new knowledge base topic",
+    description: "Create or update today's daily note with AI-First frontmatter (date, mood, energy, summary). Path: Daily/YYYY-MM-DD.md",
     mutating: true,
     params: {
-      topic: { type: "string", required: true, description: "Topic name (used as directory name and KB title)" }
+      summary: { type: "string", required: false, description: "1-3 sentence day summary" },
+      mood: { type: "string", required: false, description: "Mood rating", enum: ["great", "good", "neutral", "low", "bad"] },
+      energy: { type: "string", required: false, description: "Energy level", enum: ["high", "medium", "low"] },
+      tags: { type: "array", required: false, description: "Extra tags" },
+      dryRun: { type: "boolean", required: false, description: "Simulate without writing (default: true)", default: true }
+    },
+    handler: async (ctx, params) => ctx.vault.execute("vault.daily", params)
+  },
+  {
+    name: "vault.person",
+    namespace: "vault",
+    description: "Create or update a person note with AI-First frontmatter. Path: People/{name}.md",
+    mutating: true,
+    params: {
+      name: { type: "string", required: true, description: "Person's full name" },
+      role: { type: "string", required: false, description: "Job title or role" },
+      company: { type: "string", required: false, description: "Organization" },
+      relationship: { type: "string", required: false, description: "How you know them" },
+      notes: { type: "string", required: false, description: "Additional context" },
+      dryRun: { type: "boolean", required: false, description: "Simulate without writing (default: true)", default: true }
+    },
+    handler: async (ctx, params) => ctx.vault.execute("vault.person", params)
+  },
+  {
+    name: "vault.project",
+    namespace: "vault",
+    description: "Create or update a project note with AI-First frontmatter. Path: Projects/{name}.md",
+    mutating: true,
+    params: {
+      name: { type: "string", required: true, description: "Project name" },
+      status: { type: "string", required: false, description: "Project status", default: "active", enum: ["active", "paused", "completed", "archived", "planned"] },
+      summary: { type: "string", required: false, description: "1-3 sentence project summary" },
+      team: { type: "array", required: false, description: "Team member names (wikilinked in content)" },
+      tags: { type: "array", required: false, description: "Extra tags" },
+      dryRun: { type: "boolean", required: false, description: "Simulate without writing (default: true)", default: true }
+    },
+    handler: async (ctx, params) => ctx.vault.execute("vault.project", params)
+  },
+  {
+    name: "vault.decide",
+    namespace: "vault",
+    description: "Create a structured decision log (ADR). Path: Decisions/YYYY-MM-DD -- {title-slug}.md",
+    mutating: true,
+    params: {
+      title: { type: "string", required: true, description: "Decision title" },
+      context: { type: "string", required: true, description: "Situation and constraints" },
+      decision: { type: "string", required: true, description: "What was decided" },
+      rationale: { type: "string", required: false, description: "Why this decision" },
+      consequences: { type: "string", required: false, description: "Trade-offs and outcomes" },
+      status: { type: "string", required: false, description: "Decision status", default: "accepted", enum: ["proposed", "accepted", "deprecated", "superseded"] },
+      tags: { type: "array", required: false, description: "Extra tags" },
+      dryRun: { type: "boolean", required: false, description: "Simulate without writing (default: true)", default: true }
+    },
+    handler: async (ctx, params) => ctx.vault.execute("vault.decide", params)
+  },
+  {
+    name: "vault.meeting",
+    namespace: "vault",
+    description: "Create a meeting note with attendees, decisions, and action items. Path: Meetings/YYYY-MM-DD -- {title-slug}.md",
+    mutating: true,
+    params: {
+      title: { type: "string", required: true, description: "Meeting title" },
+      attendees: { type: "array", required: false, description: "Attendee names (wikilinked)" },
+      decisions: { type: "array", required: false, description: "List of decisions made" },
+      actions: { type: "array", required: false, description: "Action items (strings)" },
+      summary: { type: "string", required: false, description: "Meeting summary" },
+      dryRun: { type: "boolean", required: false, description: "Simulate without writing (default: true)", default: true }
+    },
+    handler: async (ctx, params) => ctx.vault.execute("vault.meeting", params)
+  },
+  {
+    name: "vault.ingest",
+    namespace: "vault",
+    description: "Ingest content into vault with AI-First frontmatter (ai-first: true, source, recency markers). Path: 00-Inbox/{title-slug}.md",
+    mutating: true,
+    params: {
+      content: { type: "string", required: true, description: "Content to ingest (text, URL, or pasted article)" },
+      title: { type: "string", required: true, description: "Note title" },
+      source: { type: "string", required: false, description: "Source URL if from web" },
+      type: { type: "string", required: false, description: "Content type", default: "note", enum: ["article", "research", "note", "reference"] },
+      tags: { type: "array", required: false, description: "Extra tags" },
+      preamble: { type: "string", required: false, description: '2-3 sentence "For future Claude" preamble' },
+      dryRun: { type: "boolean", required: false, description: "Simulate without writing (default: true)", default: true }
+    },
+    handler: async (ctx, params) => ctx.vault.execute("vault.ingest", params)
+  },
+  {
+    name: "vault.init",
+    namespace: "vault",
+    description: "Scaffold the vault. methodology mode creates the folder layout (generic|para|lyt|zettelkasten) plus a Home.md index with AI-First frontmatter, dry-run by default, existing folders are skipped; topic mode scaffolds a knowledge base topic directory (writes immediately).",
+    mutating: true,
+    params: {
+      topic: { type: "string", required: false, description: "Topic name (used as directory name and KB title); topic mode" },
+      methodology: { type: "string", required: false, description: "Vault folder scaffold to create; methodology mode", enum: ["generic", "para", "lyt", "zettelkasten"] },
+      dryRun: { type: "boolean", required: false, description: "Simulate without writing (methodology mode only, default: true)", default: true }
     },
     handler: async (ctx, params) => ctx.vault.execute("vault.init", params)
   },
@@ -32254,7 +32572,7 @@ var operations = [
         };
       }
       const stem = id.replace(/-to-vault$/, "");
-      const collectorPath = join6(_projectRoot, "recipes", "collectors", `${stem}-collector.ts`);
+      const collectorPath = join7(_projectRoot, "recipes", "collectors", `${stem}-collector.ts`);
       if (!existsSync4(collectorPath)) {
         return {
           ok: false,
@@ -32346,9 +32664,9 @@ function makeAllOperations(deps) {
           for (const entry of readdirSync3(dir, { withFileTypes: true })) {
             if (entry.isDirectory()) {
               if (!PROTECTED_DIRS.has(entry.name))
-                walk(join6(dir, entry.name));
+                walk(join7(dir, entry.name));
             } else if (entry.isFile() && entry.name.endsWith(".md")) {
-              files.push(join6(dir, entry.name));
+              files.push(join7(dir, entry.name));
             }
           }
         };
@@ -32540,7 +32858,7 @@ function makeAllOperations(deps) {
         if (!inputPath)
           throw makeErr(-32602, "path required");
         const normalizedInput = normalizeVaultRelPath(inputPath);
-        const fullInput = join6(vaultPath, normalizedInput);
+        const fullInput = join7(vaultPath, normalizedInput);
         if (!existsSync4(fullInput))
           throw makeErr(-32001, `Source file not found: ${normalizedInput}`);
         const outputPath = normalizeVaultRelPath(typeof params.outputPath === "string" && params.outputPath.length > 0 ? params.outputPath : defaultMultimodalOutputPath(normalizedInput));
@@ -32573,7 +32891,7 @@ function makeAllOperations(deps) {
             preview: content.slice(0, 2e3)
           };
         }
-        const fullOutput = join6(vaultPath, outputPath);
+        const fullOutput = join7(vaultPath, outputPath);
         mkdirSync2(dirname3(fullOutput), { recursive: true });
         writeFileSync(fullOutput, content, "utf-8");
         const vba = registry2.get("vaultbrain");
@@ -32609,7 +32927,7 @@ function makeAllOperations(deps) {
         if (!inputPath)
           throw makeErr(-32602, "path required");
         const normalizedInput = normalizeVaultRelPath(inputPath);
-        const fullInput = join6(vaultPath, normalizedInput);
+        const fullInput = join7(vaultPath, normalizedInput);
         if (!existsSync4(fullInput))
           throw makeErr(-32001, `Source file not found: ${normalizedInput}`);
         const mode = params.mode ?? "auto";
@@ -32927,6 +33245,36 @@ var PROTECTED_DIRS2 = /* @__PURE__ */ new Set([".obsidian", ".trash", ".git", "n
 var VERSION = "0.3.0";
 function err(code, message) {
   return { code, message };
+}
+var LOCK_TTL_MS = 6e4;
+function withFileLock(fullPath, fn) {
+  const lockPath = fullPath + ".lock";
+  const acquire = () => writeFileSync2(lockPath, JSON.stringify({ pid: process.pid, timestamp: Date.now() }), { encoding: "utf-8", flag: "wx" });
+  try {
+    acquire();
+  } catch (e) {
+    if (e.code !== "EEXIST")
+      throw e;
+    const ageMs = Date.now() - statSync(lockPath).mtimeMs;
+    if (ageMs < LOCK_TTL_MS) {
+      let holder = "unknown";
+      try {
+        holder = readFileSync5(lockPath, "utf-8").trim();
+      } catch {
+      }
+      throw err(-32010, `Lock conflict on ${basename3(fullPath)}: held by ${holder}, ttl remaining ${LOCK_TTL_MS - ageMs}ms`);
+    }
+    rmSync(lockPath, { force: true });
+    acquire();
+  }
+  try {
+    return fn();
+  } finally {
+    try {
+      rmSync(lockPath, { force: true });
+    } catch {
+    }
+  }
 }
 var DEFAULT_PROTECTED_PATHS = ["20-Decisions/**", "30-Architecture/**", "40-Runbooks/**", "README.md"];
 var globCache = /* @__PURE__ */ new Map();
@@ -33278,7 +33626,7 @@ var VaultFs = class {
   walkMd(fn) {
     const walk = (d) => {
       for (const ent of readdirSync4(d, { withFileTypes: true })) {
-        const full = join7(d, ent.name);
+        const full = join8(d, ent.name);
         if (ent.isDirectory() && !PROTECTED_DIRS2.has(ent.name))
           walk(full);
         else if (ent.isFile() && ent.name.endsWith(".md")) {
@@ -33323,7 +33671,7 @@ var VaultFs = class {
         if (!existsSync5(full))
           throw err(-32001, `Not found: ${p.path}`);
         const st = statSync(full);
-        const displayName = statPath === "" ? basename2(this.vault) : basename2(statPath);
+        const displayName = statPath === "" ? basename3(this.vault) : basename3(statPath);
         if (st.isDirectory())
           return { type: "folder", path: statPath, name: displayName, children: readdirSync4(full).length };
         return {
@@ -33342,9 +33690,11 @@ var VaultFs = class {
           throw err(-32002, `Already exists: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "create", path: p.path };
-        mkdirSync3(dirname4(full), { recursive: true });
-        writeFileSync2(full, p.content || "", "utf-8");
-        return { ok: true, path: p.path };
+        return withFileLock(full, () => {
+          mkdirSync3(dirname4(full), { recursive: true });
+          writeFileSync2(full, p.content || "", "utf-8");
+          return { ok: true, path: p.path };
+        });
       }
       case "vault.modify": {
         const full = this.resolve(p.path);
@@ -33352,8 +33702,10 @@ var VaultFs = class {
           throw err(-32001, `Not found: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "modify", path: p.path };
-        writeFileSync2(full, p.content, "utf-8");
-        return { ok: true, path: p.path };
+        return withFileLock(full, () => {
+          writeFileSync2(full, p.content, "utf-8");
+          return { ok: true, path: p.path };
+        });
       }
       case "vault.append": {
         const full = this.resolve(p.path);
@@ -33361,8 +33713,10 @@ var VaultFs = class {
           throw err(-32001, `Not found: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "append", path: p.path };
-        appendFileSync2(full, p.content, "utf-8");
-        return { ok: true, path: p.path };
+        return withFileLock(full, () => {
+          appendFileSync2(full, p.content, "utf-8");
+          return { ok: true, path: p.path };
+        });
       }
       case "vault.delete": {
         const full = this.resolve(p.path);
@@ -33370,8 +33724,10 @@ var VaultFs = class {
           throw err(-32001, `Not found: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "delete", path: p.path };
-        rmSync(full, { recursive: true });
-        return { ok: true, path: p.path };
+        return withFileLock(full, () => {
+          rmSync(full, { recursive: true });
+          return { ok: true, path: p.path };
+        });
       }
       case "vault.rename": {
         const from = this.resolve(p.from);
@@ -33382,9 +33738,13 @@ var VaultFs = class {
           throw err(-32002, `Already exists: ${p.to}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "rename", from: p.from, to: p.to };
-        mkdirSync3(dirname4(to), { recursive: true });
-        renameSync(from, to);
-        return { ok: true, from: p.from, to: p.to };
+        return withFileLock(from, () => {
+          mkdirSync3(dirname4(to), { recursive: true });
+          return withFileLock(to, () => {
+            renameSync(from, to);
+            return { ok: true, from: p.from, to: p.to };
+          });
+        });
       }
       case "vault.search": {
         if (typeof p.query !== "string" || p.query.length > 500)
@@ -33557,7 +33917,7 @@ var VaultFs = class {
         if (!p.path)
           throw err(-32602, "path required");
         const target = p.path.endsWith(".md") ? p.path : p.path + ".md";
-        const targetBase = basename2(target, ".md");
+        const targetBase = basename3(target, ".md");
         const results = [];
         this.walkMd((relPath, content) => {
           if (relPath === target)
@@ -33644,7 +34004,7 @@ var VaultFs = class {
         }
         const titleMap = /* @__PURE__ */ new Map();
         for (const fi of allFiles) {
-          const t = basename2(fi.path, ".md").toLowerCase();
+          const t = basename3(fi.path, ".md").toLowerCase();
           const arr = titleMap.get(t) || [];
           arr.push(fi.path);
           titleMap.set(t, arr);
@@ -33670,6 +34030,292 @@ var VaultFs = class {
           }
         };
       }
+      case "vault.daily": {
+        const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+        const path = `Daily/${today}.md`;
+        const full = this.resolve(path);
+        const mood = p.mood || "";
+        const energy = p.energy || "";
+        const summary = p.summary || "";
+        const tags = Array.isArray(p.tags) ? p.tags : [];
+        const tagLine = ["daily", ...tags].map((t) => `  - ${t}`).join("\n");
+        const preamble = summary ? `
+## For future Claude
+${summary}
+` : "";
+        const content = `---
+date: ${today}
+type: daily
+ai-first: true
+mood: ${mood}
+energy: ${energy}
+tags:
+${tagLine}
+---
+${preamble}
+## ${today}
+
+${summary ? `> ${summary}
+
+` : ""}## Log
+
+## Decisions
+
+## Tomorrow
+`;
+        if (p.dryRun !== false)
+          return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
+        return withFileLock(full, () => {
+          mkdirSync3(dirname4(full), { recursive: true });
+          writeFileSync2(full, content, "utf-8");
+          return { ok: true, path };
+        });
+      }
+      case "vault.person": {
+        if (!p.name)
+          throw err(-32602, "name required");
+        const name = p.name;
+        const path = `People/${name}.md`;
+        const full = this.resolve(path);
+        const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+        const role = p.role || "";
+        const company = p.company || "";
+        const relationship = p.relationship || "";
+        const notes = p.notes || "";
+        const companyLink = company ? `[[${company}]]` : "";
+        const preamble = `${name}${role ? `, ${role}` : ""}${company ? ` at ${companyLink}` : ""}. ${relationship ? `Relationship: ${relationship}.` : ""}`;
+        const content = `---
+name: ${name}
+type: person
+ai-first: true
+role: "${role}"
+company: "${company}"
+relationship: "${relationship}"
+created: ${today}
+---
+
+## For future Claude
+${preamble}
+
+## Background
+
+${notes}
+
+## Interactions
+
+## Related Projects
+
+## Notes
+`;
+        const alreadyExists = existsSync5(full);
+        if (p.dryRun !== false)
+          return { dryRun: true, action: alreadyExists ? "update" : "create", path, preview: content.slice(0, 200) };
+        return withFileLock(full, () => {
+          mkdirSync3(dirname4(full), { recursive: true });
+          writeFileSync2(full, content, "utf-8");
+          return { ok: true, path, action: alreadyExists ? "updated" : "created" };
+        });
+      }
+      case "vault.project": {
+        if (!p.name)
+          throw err(-32602, "name required");
+        const name = p.name;
+        const path = `Projects/${name}.md`;
+        const full = this.resolve(path);
+        const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+        const status = p.status || "active";
+        const summary = p.summary || "";
+        const team = Array.isArray(p.team) ? p.team : [];
+        const tags = Array.isArray(p.tags) ? p.tags : [];
+        const tagLine = ["project", ...tags].map((t) => `  - ${t}`).join("\n");
+        const teamLinks = team.map((m) => `- [[${m}]]`).join("\n");
+        const preamble = summary || `Project: ${name}. Status: ${status}${team.length ? `. Team: ${team.join(", ")}` : ""}.`;
+        const content = `---
+name: "${name}"
+type: project
+ai-first: true
+status: ${status}
+created: ${today}
+updated: ${today}
+tags:
+${tagLine}
+---
+
+## For future Claude
+${preamble}
+
+## Overview
+
+${summary}
+
+## Team
+
+${teamLinks || "- TBD"}
+
+## Milestones
+
+## Decisions
+
+## Metrics
+
+## Notes
+`;
+        if (p.dryRun !== false)
+          return { dryRun: true, action: existsSync5(full) ? "update" : "create", path, preview: content.slice(0, 200) };
+        return withFileLock(full, () => {
+          mkdirSync3(dirname4(full), { recursive: true });
+          writeFileSync2(full, content, "utf-8");
+          return { ok: true, path };
+        });
+      }
+      case "vault.decide": {
+        if (!p.title)
+          throw err(-32602, "title required");
+        if (!p.context)
+          throw err(-32602, "context required");
+        if (!p.decision)
+          throw err(-32602, "decision required");
+        const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+        const title = p.title;
+        const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+        const path = `Decisions/${today} -- ${slug}.md`;
+        const full = this.resolve(path);
+        const status = p.status || "accepted";
+        const rationale = p.rationale || "";
+        const consequences = p.consequences || "";
+        const tags = Array.isArray(p.tags) ? p.tags : [];
+        const tagLine = ["decision", "adr", ...tags].map((t) => `  - ${t}`).join("\n");
+        const content = `---
+title: "${title}"
+type: decision
+ai-first: true
+status: ${status}
+date: ${today}
+tags:
+${tagLine}
+---
+
+## For future Claude
+Decision: ${p.decision}. Status: ${status} (${today}).
+
+## Context
+
+${p.context}
+
+## Decision
+
+${p.decision}
+
+## Rationale
+
+${rationale}
+
+## Consequences
+
+${consequences}
+`;
+        if (p.dryRun !== false)
+          return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
+        return withFileLock(full, () => {
+          mkdirSync3(dirname4(full), { recursive: true });
+          writeFileSync2(full, content, "utf-8");
+          return { ok: true, path };
+        });
+      }
+      case "vault.meeting": {
+        if (!p.title)
+          throw err(-32602, "title required");
+        const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+        const title = p.title;
+        const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+        const path = `Meetings/${today} -- ${slug}.md`;
+        const full = this.resolve(path);
+        const attendees = Array.isArray(p.attendees) ? p.attendees : [];
+        const decisions = Array.isArray(p.decisions) ? p.decisions : [];
+        const actions = Array.isArray(p.actions) ? p.actions : [];
+        const summary = p.summary || "";
+        const attendeeLines = attendees.map((a) => `- [[${a}]]`).join("\n");
+        const decisionLines = decisions.map((d) => `- ${d}`).join("\n");
+        const actionLines = actions.map((a) => `- [ ] ${a}`).join("\n");
+        const preamble = summary || `Meeting: ${title} (${today})${attendees.length ? `. Attendees: ${attendees.join(", ")}` : ""}.`;
+        const content = `---
+title: "${title}"
+type: meeting
+ai-first: true
+date: ${today}
+attendees: [${attendees.map((a) => `"${a}"`).join(", ")}]
+---
+
+## For future Claude
+${preamble}
+
+## Attendees
+
+${attendeeLines || "- TBD"}
+
+## Summary
+
+${summary}
+
+## Decisions
+
+${decisionLines || "- None recorded"}
+
+## Action Items
+
+${actionLines || "- None assigned"}
+
+## Notes
+`;
+        if (p.dryRun !== false)
+          return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
+        return withFileLock(full, () => {
+          mkdirSync3(dirname4(full), { recursive: true });
+          writeFileSync2(full, content, "utf-8");
+          return { ok: true, path };
+        });
+      }
+      case "vault.ingest": {
+        if (!p.title)
+          throw err(-32602, "title required");
+        if (!p.content)
+          throw err(-32602, "content required");
+        const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+        const title = p.title;
+        const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+        const path = `00-Inbox/${slug}.md`;
+        const full = this.resolve(path);
+        const source = p.source || "";
+        const type = p.type || "note";
+        const tags = Array.isArray(p.tags) ? p.tags : [];
+        const tagLine = [type, "inbox", ...tags].map((t) => `  - ${t}`).join("\n");
+        const preamble = p.preamble || `Ingested: ${title}${source ? ` from ${source}` : ""} (${today}).`;
+        const sourceTag = source ? `
+source: "${source}"` : "";
+        const content = `---
+title: "${title}"
+type: ${type}
+ai-first: true
+date: ${today}${sourceTag}
+tags:
+${tagLine}
+---
+
+## For future Claude
+${preamble}
+
+## Content
+
+${p.content}
+`;
+        if (p.dryRun !== false)
+          return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
+        return withFileLock(full, () => {
+          mkdirSync3(dirname4(full), { recursive: true });
+          writeFileSync2(full, content, "utf-8");
+          return { ok: true, path };
+        });
+      }
       case "vault.mkdir": {
         const full = this.resolve(p.path);
         if (existsSync5(full))
@@ -33680,8 +34326,94 @@ var VaultFs = class {
         return { ok: true, path: p.path };
       }
       case "vault.init": {
+        if (typeof p.methodology === "string") {
+          const scaffolds = {
+            generic: [
+              ["00-Inbox", "Capture zone for unprocessed notes"],
+              ["Daily", "Daily notes (YYYY-MM-DD.md)"],
+              ["People", "Person notes with relationships and context"],
+              ["Projects", "Project notes with status and milestones"],
+              ["Decisions", "Decision logs (ADRs)"],
+              ["Meetings", "Meeting notes with attendees and actions"],
+              ["Research", "Research notes and findings"],
+              ["Knowledge", "Distilled evergreen knowledge"],
+              ["Wiki", "Compiled wiki articles and indexes"]
+            ],
+            para: [
+              ["1-Projects", "Active projects with goals and deadlines"],
+              ["2-Areas", "Ongoing areas of responsibility"],
+              ["3-Resources", "Topics and references of lasting interest"],
+              ["4-Archive", "Inactive items from the other categories"],
+              ["00-Inbox", "Capture zone for unprocessed notes"]
+            ],
+            lyt: [
+              ["Atlas", "Maps of Content (MOCs) linking ideas together"],
+              ["Calendar", "Time-based notes (daily, weekly, reviews)"],
+              ["Cards", "Atomic idea notes"],
+              ["Extras", "Templates, attachments, and supporting files"],
+              ["00-Inbox", "Capture zone for unprocessed notes"]
+            ],
+            zettelkasten: [
+              ["fleeting", "Quick transient captures awaiting processing"],
+              ["literature", "Notes on sources in your own words"],
+              ["permanent", "Evergreen atomic ideas linked into the web"],
+              ["references", "Bibliographic metadata for sources"],
+              ["00-Inbox", "Capture zone for unprocessed notes"]
+            ]
+          };
+          const methodologyNotes = {
+            generic: "Generic second-brain layout: inbox capture, daily logs, and typed notes (people, projects, decisions, meetings) feeding research, knowledge, and wiki layers.",
+            para: "PARA (Tiago Forte): organize by actionability -- Projects (active), Areas (ongoing), Resources (interesting), Archive (inactive).",
+            lyt: "LYT (Nick Milo): Atlas holds Maps of Content that link Cards (atomic notes); Calendar anchors notes in time.",
+            zettelkasten: "Zettelkasten (Luhmann): fleeting captures get processed into literature notes, then distilled into permanent atomic notes linked into a web."
+          };
+          const methodology = p.methodology;
+          const scaffold = scaffolds[methodology];
+          if (!scaffold)
+            throw err(-32602, `methodology must be one of ${Object.keys(scaffolds).join("|")}`);
+          const dryRun = p.dryRun !== false;
+          const created2 = [];
+          const skipped2 = [];
+          const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+          for (const [dir] of scaffold) {
+            const full = this.resolve(dir);
+            if (existsSync5(full)) {
+              skipped2.push(dir);
+              continue;
+            }
+            if (!dryRun)
+              mkdirSync3(full, { recursive: true });
+            created2.push(dir);
+          }
+          const folderLines = scaffold.map(([dir, purpose]) => `- [[${dir}/README|${dir}]] -- ${purpose}`).join("\n");
+          const homeContent = `---
+type: index
+ai-first: true
+methodology: ${methodology}
+created: ${today}
+---
+
+# Home
+
+## For future Claude
+${methodologyNotes[methodology]}
+
+## Folders
+
+${folderLines}
+`;
+          const homeFull = this.resolve("Home.md");
+          if (existsSync5(homeFull)) {
+            skipped2.push("Home.md");
+          } else {
+            if (!dryRun)
+              writeFileSync2(homeFull, homeContent, "utf-8");
+            created2.push("Home.md");
+          }
+          return { ok: true, dryRun, methodology, created: created2, skipped: skipped2, summary: `Created ${created2.length}, skipped ${skipped2.length}` };
+        }
         if (!p.topic || typeof p.topic !== "string")
-          throw err(-32602, "topic required");
+          throw err(-32602, "topic or methodology required");
         if (p.topic.split("/").some((s) => s === ".." || s === "."))
           throw err(-32602, "path traversal blocked");
         const created = [];
@@ -33795,7 +34527,7 @@ created: ${now}
           }
           const mdFiles = entries.filter((e) => e.isFile() && e.name.endsWith(".md")).map((e) => e.name).sort();
           const subDirs = entries.filter((e) => e.isDirectory() && !PROTECTED_DIRS2.has(e.name) && !extraSkip.has(e.name)).map((e) => e.name).sort();
-          const topicName = basename2(relDir || this.vault);
+          const topicName = basename3(relDir || this.vault);
           if (!report.hasCatalog) {
             const catalogPath = relDir ? posix.join(relDir, "_index.md") : "_index.md";
             const absCatalog = this.resolve(catalogPath);
@@ -33943,13 +34675,13 @@ updated: ${now}
         const baseName = `${datePrefix}-${slug}`;
         let chosenName = `${baseName}.md`;
         let relPath = `${relDir}/${chosenName}`;
-        let fullPath = join7(this.vault, relDir, chosenName);
+        let fullPath = join8(this.vault, relDir, chosenName);
         if (existsSync5(fullPath)) {
           let found = false;
           for (let i = 2; i <= 99; i++) {
             chosenName = `${baseName}-${i}.md`;
             relPath = `${relDir}/${chosenName}`;
-            fullPath = join7(this.vault, relDir, chosenName);
+            fullPath = join8(this.vault, relDir, chosenName);
             if (!existsSync5(fullPath)) {
               found = true;
               break;
@@ -33998,8 +34730,10 @@ ${yamlLines.join("\n")}
 ${bodyWithTag}
 `;
         mkdirSync3(dirname4(fullPath), { recursive: true });
-        writeFileSync2(fullPath, contentOut, "utf-8");
-        return { ok: true, path: relPath, frontmatter: frontmatterObj, warnings };
+        return withFileLock(fullPath, () => {
+          writeFileSync2(fullPath, contentOut, "utf-8");
+          return { ok: true, path: relPath, frontmatter: frontmatterObj, warnings };
+        });
       }
       case "vault.sweepAIOutput": {
         const STALE_THRESHOLDS = {
@@ -34013,7 +34747,7 @@ ${bodyWithTag}
         const nowMs = typeof p.now === "string" ? Date.parse(p.now) : Date.now();
         const nowValid = !isNaN(nowMs) ? nowMs : Date.now();
         const aiRootRel = "00-Inbox/AI-Output";
-        const aiRootAbs = join7(this.vault, aiRootRel);
+        const aiRootAbs = join8(this.vault, aiRootRel);
         const emptyMetrics = {
           totalEntries: 0,
           byPersona: {},
@@ -34029,7 +34763,7 @@ ${bodyWithTag}
           if (!existsSync5(d))
             return;
           for (const ent of readdirSync4(d, { withFileTypes: true })) {
-            const full = join7(d, ent.name);
+            const full = join8(d, ent.name);
             if (ent.isDirectory() && !PROTECTED_DIRS2.has(ent.name))
               walkSubtree(full);
             else if (ent.isFile() && ent.name.endsWith(".md")) {
@@ -34060,7 +34794,7 @@ ${bodyWithTag}
         walkSubtree(aiRootAbs);
         const aiOutputPaths = new Set(entries.map((e) => e.relPath));
         const hasRealBacklink = (targetRel) => {
-          const targetBase = basename2(targetRel, ".md");
+          const targetBase = basename3(targetRel, ".md");
           let found = false;
           this.walkMd((relPath, content) => {
             if (found)
@@ -34127,15 +34861,19 @@ ${bodyWithTag}
         if (!dryRun) {
           const flipIso = new Date(nowValid).toISOString();
           for (const sc of staleCandidates) {
-            const absPath = join7(this.vault, sc.path);
-            const original = readFileSync5(absPath, "utf-8");
+            const absPath = join8(this.vault, sc.path);
             const historyEntry = `{ts: "${flipIso}", axis: status, from: draft, to: stale, trigger: auto-stop-summary, evidence_level: low, human_in_loop: false, note: "gardener sweep"}`;
-            const withStatusFlipped = original.replace(/(^---[\s\S]*?\nstatus: )draft(\n[\s\S]*?^---$)/m, (_m, g1, g2) => g1 + "stale" + g2);
-            if (withStatusFlipped === original)
-              continue;
-            const replaced = appendHistoryInYaml(withStatusFlipped, historyEntry);
-            writeFileSync2(absPath, replaced, "utf-8");
-            applied.push({ path: sc.path, change: "draft\u2192stale" });
+            const flipped = withFileLock(absPath, () => {
+              const original = readFileSync5(absPath, "utf-8");
+              const withStatusFlipped = original.replace(/(^---[\s\S]*?\nstatus: )draft(\n[\s\S]*?^---$)/m, (_m, g1, g2) => g1 + "stale" + g2);
+              if (withStatusFlipped === original)
+                return false;
+              const replaced = appendHistoryInYaml(withStatusFlipped, historyEntry);
+              writeFileSync2(absPath, replaced, "utf-8");
+              return true;
+            });
+            if (flipped)
+              applied.push({ path: sc.path, change: "draft\u2192stale" });
           }
         }
         const metrics = {
@@ -34157,15 +34895,17 @@ ${bodyWithTag}
         metrics.realBacklinkHitRate = entries.length === 0 ? 0 : withRealBacklink / entries.length;
         if (!dryRun && entries.length > 0) {
           const sweepLogRel = "00-Inbox/AI-Output/sweep.log.md";
-          const sweepLogAbs = join7(this.vault, sweepLogRel);
+          const sweepLogAbs = join8(this.vault, sweepLogRel);
           const stamp = new Date(nowValid).toISOString();
           const logLine = `- {ts: "${stamp}", totalEntries: ${metrics.totalEntries}, staleHits: ${staleCandidates.length}, supersedeHits: ${supersedeCandidates.length}, realBacklinkHitRate: ${metrics.realBacklinkHitRate.toFixed(3)}}
 `;
-          if (!existsSync5(sweepLogAbs)) {
-            mkdirSync3(dirname4(sweepLogAbs), { recursive: true });
-            writeFileSync2(sweepLogAbs, "# Sweep trend log\n\n", "utf-8");
-          }
-          appendFileSync2(sweepLogAbs, logLine, "utf-8");
+          withFileLock(sweepLogAbs, () => {
+            if (!existsSync5(sweepLogAbs)) {
+              mkdirSync3(dirname4(sweepLogAbs), { recursive: true });
+              writeFileSync2(sweepLogAbs, "# Sweep trend log\n\n", "utf-8");
+            }
+            appendFileSync2(sweepLogAbs, logLine, "utf-8");
+          });
         }
         return { staleCandidates, supersedeCandidates, applied, metrics };
       }
@@ -34213,7 +34953,7 @@ async function main() {
     await fsAdapter.init();
     registry2.register(fsAdapter);
   }
-  const enabledAdapters = new Set(config2.adapters ?? ["filesystem", "memu", "gitnexus", "obsidian", "qmd", "lightrag", "raganything", "vaultbrain"]);
+  const enabledAdapters = new Set(config2.adapters ?? ["filesystem", "memu", "gitnexus", "obsidian", "qmd", "lightrag", "raganything", "vaultbrain", "graphify"]);
   if (enabledAdapters.has("memu")) {
     const memuAdapter = new MemUAdapter();
     await memuAdapter.init();
@@ -34270,6 +35010,14 @@ async function main() {
 `);
     }
   }
+  if (enabledAdapters.has("graphify")) {
+    const graphifyAdapter = new GraphifyAdapter({ vaultPath: config2.vault_path });
+    await graphifyAdapter.init();
+    if (graphifyAdapter.isAvailable) {
+      registry2.register(graphifyAdapter);
+      process.stderr.write("obsidian-llm-wiki: [graphify] adapter ready\n");
+    }
+  }
   const __dirname = dirname4(fileURLToPath3(import.meta.url));
   const compilerPath = resolve2(__dirname, "../../compiler");
   const python = process.env.VAULT_MIND_PYTHON ?? process.env.PYTHON ?? "python";
@@ -34298,7 +35046,7 @@ async function main() {
         compileTrigger.onFileChange(e.path, e.type);
         if (vaultBrainAdapter && e.path.endsWith(".md")) {
           try {
-            const fullPath = join7(config2.vault_path, e.path.replace(/\\/g, "/"));
+            const fullPath = join8(config2.vault_path, e.path.replace(/\\/g, "/"));
             const content = readFileSync5(fullPath, "utf-8");
             vaultBrainAdapter.ingest(e.path, content).catch((err2) => process.stderr.write(`obsidian-llm-wiki: [vaultbrain] ingest error: ${err2.message}
 `));
@@ -34375,7 +35123,7 @@ async function main() {
           compileTrigger.onFileChange(p, toolName === "vault.create" ? "create" : "modify");
           if (vaultBrainAdapter && p.endsWith(".md")) {
             try {
-              const fullPath = join7(config2.vault_path, p.replace(/\\/g, "/"));
+              const fullPath = join8(config2.vault_path, p.replace(/\\/g, "/"));
               const content = readFileSync5(fullPath, "utf-8");
               vaultBrainAdapter.ingest(p, content).catch((err2) => process.stderr.write(`obsidian-llm-wiki: [vaultbrain] ingest error: ${err2.message}
 `));

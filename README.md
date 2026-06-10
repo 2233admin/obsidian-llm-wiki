@@ -32,21 +32,25 @@ Inspired by [Andrej Karpathy's LLM Wiki](https://github.com/karpathy/llm-wiki). 
 
 ---
 
-## Quick start (30 seconds)
+## Quick start (10 seconds, Claude Code)
+
+Inside any Claude Code session:
+
+```
+/plugin marketplace add 2233admin/obsidian-llm-wiki
+/plugin install llmwiki@obsidian-llm-wiki
+```
+
+That's it. No clone, no build, no config file to edit. The plugin ships the MCP server (runs from the plugin directory, Node 20+), all `/llmwiki:vault-*` knowledge-work roles, and the thinking/research commands. Start Claude Code inside your vault and the server finds it automatically (cwd is the vault); otherwise set `VAULT_MIND_VAULT_PATH` or drop a `vault-mind.yaml`.
+
+### Other hosts (Codex / OpenCode / Gemini)
 
 ```bash
 git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git
-cd obsidian-llm-wiki && ./setup                      # --host claude | codex | opencode | gemini
+cd obsidian-llm-wiki && ./setup                      # --host codex | opencode | gemini
 ```
 
-Windows (PowerShell):
-
-```powershell
-git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git
-cd obsidian-llm-wiki; .\setup.ps1
-```
-
-The `setup` script extracts a 1.6 MB skill bundle into your host's skills directory, prints the `.mcp.json` snippet to paste into your agent config, and exits. After restart, your agent picks up the new MCP server and the `/vault-*` knowledge-work roles. The cloned repo can then be deleted — the installed skill is self-contained. If the one-liner breaks, [docs/INSTALL.md](docs/INSTALL.md) has the per-host paths and the manual recipe.
+Windows: `.\setup.ps1`. The script copies the skill bundle into your host's skills directory and prints the `.mcp.json` snippet to paste into your agent config. [docs/INSTALL.md](docs/INSTALL.md) has per-host paths and the manual recipe.
 
 ---
 
