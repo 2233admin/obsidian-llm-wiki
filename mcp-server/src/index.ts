@@ -812,6 +812,121 @@ export class VaultFs {
           },
         };
       }
+      case "vault.daily": {
+        const today = new Date().toISOString().slice(0, 10);
+        const path = `Daily/${today}.md`;
+        const full = this.resolve(path);
+        const mood = (p.mood as string) || "";
+        const energy = (p.energy as string) || "";
+        const summary = (p.summary as string) || "";
+        const tags = Array.isArray(p.tags) ? (p.tags as string[]) : [];
+        const tagLine = ["daily", ...tags].map(t => `  - ${t}`).join("\n");
+        const preamble = summary ? `\n## For future Claude\n${summary}\n` : "";
+        const content = `---\ndate: ${today}\ntype: daily\nai-first: true\nmood: ${mood}\nenergy: ${energy}\ntags:\n${tagLine}\n---\n${preamble}\n## ${today}\n\n${summary ? `> ${summary}\n\n` : ""}## Log\n\n## Decisions\n\n## Tomorrow\n`;
+        if (p.dryRun !== false) return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
+        mkdirSync(dirname(full), { recursive: true });
+        writeFileSync(full, content, "utf-8");
+        return { ok: true, path };
+      }
+      case "vault.person": {
+        if (!p.name) throw err(-32602, "name required");
+        const name = p.name as string;
+        const path = `People/${name}.md`;
+        const full = this.resolve(path);
+        const today = new Date().toISOString().slice(0, 10);
+        const role = (p.role as string) || "";
+        const company = (p.company as string) || "";
+        const relationship = (p.relationship as string) || "";
+        const notes = (p.notes as string) || "";
+        const companyLink = company ? `[[${company}]]` : "";
+        const preamble = `${name}${role ? `, ${role}` : ""}${company ? ` at ${companyLink}` : ""}. ${relationship ? `Relationship: ${relationship}.` : ""}`;
+        const content = `---\nname: ${name}\ntype: person\nai-first: true\nrole: "${role}"\ncompany: "${company}"\nrelationship: "${relationship}"\ncreated: ${today}\n---\n\n## For future Claude\n${preamble}\n\n## Background\n\n${notes}\n\n## Interactions\n\n## Related Projects\n\n## Notes\n`;
+        const alreadyExists = existsSync(full);
+        if (p.dryRun !== false) return { dryRun: true, action: alreadyExists ? "update" : "create", path, preview: content.slice(0, 200) };
+        mkdirSync(dirname(full), { recursive: true });
+        writeFileSync(full, content, "utf-8");
+        return { ok: true, path, action: alreadyExists ? "updated" : "created" };
+      }
+      case "vault.project": {
+        if (!p.name) throw err(-32602, "name required");
+        const name = p.name as string;
+        const path = `Projects/${name}.md`;
+        const full = this.resolve(path);
+        const today = new Date().toISOString().slice(0, 10);
+        const status = (p.status as string) || "active";
+        const summary = (p.summary as string) || "";
+        const team = Array.isArray(p.team) ? (p.team as string[]) : [];
+        const tags = Array.isArray(p.tags) ? (p.tags as string[]) : [];
+        const tagLine = ["project", ...tags].map(t => `  - ${t}`).join("\n");
+        const teamLinks = team.map(m => `- [[${m}]]`).join("\n");
+        const preamble = summary || `Project: ${name}. Status: ${status}${team.length ? `. Team: ${team.join(", ")}` : ""}.`;
+        const content = `---\nname: "${name}"\ntype: project\nai-first: true\nstatus: ${status}\ncreated: ${today}\nupdated: ${today}\ntags:\n${tagLine}\n---\n\n## For future Claude\n${preamble}\n\n## Overview\n\n${summary}\n\n## Team\n\n${teamLinks || "- TBD"}\n\n## Milestones\n\n## Decisions\n\n## Metrics\n\n## Notes\n`;
+        if (p.dryRun !== false) return { dryRun: true, action: existsSync(full) ? "update" : "create", path, preview: content.slice(0, 200) };
+        mkdirSync(dirname(full), { recursive: true });
+        writeFileSync(full, content, "utf-8");
+        return { ok: true, path };
+      }
+      case "vault.decide": {
+        if (!p.title) throw err(-32602, "title required");
+        if (!p.context) throw err(-32602, "context required");
+        if (!p.decision) throw err(-32602, "decision required");
+        const today = new Date().toISOString().slice(0, 10);
+        const title = p.title as string;
+        const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+        const path = `Decisions/${today} -- ${slug}.md`;
+        const full = this.resolve(path);
+        const status = (p.status as string) || "accepted";
+        const rationale = (p.rationale as string) || "";
+        const consequences = (p.consequences as string) || "";
+        const tags = Array.isArray(p.tags) ? (p.tags as string[]) : [];
+        const tagLine = ["decision", "adr", ...tags].map(t => `  - ${t}`).join("\n");
+        const content = `---\ntitle: "${title}"\ntype: decision\nai-first: true\nstatus: ${status}\ndate: ${today}\ntags:\n${tagLine}\n---\n\n## For future Claude\nDecision: ${p.decision as string}. Status: ${status} (${today}).\n\n## Context\n\n${p.context as string}\n\n## Decision\n\n${p.decision as string}\n\n## Rationale\n\n${rationale}\n\n## Consequences\n\n${consequences}\n`;
+        if (p.dryRun !== false) return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
+        mkdirSync(dirname(full), { recursive: true });
+        writeFileSync(full, content, "utf-8");
+        return { ok: true, path };
+      }
+      case "vault.meeting": {
+        if (!p.title) throw err(-32602, "title required");
+        const today = new Date().toISOString().slice(0, 10);
+        const title = p.title as string;
+        const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+        const path = `Meetings/${today} -- ${slug}.md`;
+        const full = this.resolve(path);
+        const attendees = Array.isArray(p.attendees) ? (p.attendees as string[]) : [];
+        const decisions = Array.isArray(p.decisions) ? (p.decisions as string[]) : [];
+        const actions = Array.isArray(p.actions) ? (p.actions as string[]) : [];
+        const summary = (p.summary as string) || "";
+        const attendeeLines = attendees.map(a => `- [[${a}]]`).join("\n");
+        const decisionLines = decisions.map(d => `- ${d}`).join("\n");
+        const actionLines = actions.map(a => `- [ ] ${a}`).join("\n");
+        const preamble = summary || `Meeting: ${title} (${today})${attendees.length ? `. Attendees: ${attendees.join(", ")}` : ""}.`;
+        const content = `---\ntitle: "${title}"\ntype: meeting\nai-first: true\ndate: ${today}\nattendees: [${attendees.map(a => `"${a}"`).join(", ")}]\n---\n\n## For future Claude\n${preamble}\n\n## Attendees\n\n${attendeeLines || "- TBD"}\n\n## Summary\n\n${summary}\n\n## Decisions\n\n${decisionLines || "- None recorded"}\n\n## Action Items\n\n${actionLines || "- None assigned"}\n\n## Notes\n`;
+        if (p.dryRun !== false) return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
+        mkdirSync(dirname(full), { recursive: true });
+        writeFileSync(full, content, "utf-8");
+        return { ok: true, path };
+      }
+      case "vault.ingest": {
+        if (!p.title) throw err(-32602, "title required");
+        if (!p.content) throw err(-32602, "content required");
+        const today = new Date().toISOString().slice(0, 10);
+        const title = p.title as string;
+        const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+        const path = `00-Inbox/${slug}.md`;
+        const full = this.resolve(path);
+        const source = (p.source as string) || "";
+        const type = (p.type as string) || "note";
+        const tags = Array.isArray(p.tags) ? (p.tags as string[]) : [];
+        const tagLine = [type, "inbox", ...tags].map(t => `  - ${t}`).join("\n");
+        const preamble = (p.preamble as string) || `Ingested: ${title}${source ? ` from ${source}` : ""} (${today}).`;
+        const sourceTag = source ? `\nsource: "${source}"` : "";
+        const content = `---\ntitle: "${title}"\ntype: ${type}\nai-first: true\ndate: ${today}${sourceTag}\ntags:\n${tagLine}\n---\n\n## For future Claude\n${preamble}\n\n## Content\n\n${p.content as string}\n`;
+        if (p.dryRun !== false) return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
+        mkdirSync(dirname(full), { recursive: true });
+        writeFileSync(full, content, "utf-8");
+        return { ok: true, path };
+      }
       case "vault.mkdir": {
         const full = this.resolve(p.path as string);
         if (existsSync(full)) throw err(-32002, `Already exists: ${p.path}`);
