@@ -174,14 +174,6 @@ The wiki has the long-form answers. Read them in any order.
 | [**FAQ**](https://github.com/2233admin/obsidian-llm-wiki/wiki/FAQ) | Does it need Obsidian running? How big a vault? Why dry-run? First-draft answers, expands as questions come in. |
 
 ---
-
-## Limits
-
-- Does not understand code in your notes -- it indexes text, wikilinks, and structure. For git-history and AST-level code reasoning, enable the optional `gitnexus` adapter. For a project-wide knowledge graph that spans code, docs, PDFs, and images, enable the optional `graphify` adapter.
-- Does not sync bidirectionally with Obsidian in real time -- the WebSocket adapter requires Obsidian to be running.
-- Does not replace a vector database for semantic similarity at scale -- enable the optional `memU` adapter for that.
-- The split between this repo (headless MCP) and its sibling `obsidian-vault-bridge` (Obsidian plugin) is still settling. See the [Rationale](https://github.com/2233admin/obsidian-llm-wiki/wiki/Rationale) page for the drift discussion.
-
 ---
 
 ## License
