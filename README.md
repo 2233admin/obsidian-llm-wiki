@@ -144,6 +144,44 @@ Each `/vault-*` command is a knowledge-work role over the same 40-operation MCP 
 
 ---
 
+## Structured notes (v2.4.0)
+
+Six tools that create AI-First notes with full frontmatter, wikilinks, and a "For future Claude" preamble — safe by default (`dryRun: true`).
+
+| Tool | Creates | Key fields |
+|---|---|---|
+| `vault.daily` | `Daily/YYYY-MM-DD.md` | mood, energy, summary, tags |
+| `vault.person` | `People/{name}.md` | role, company, relationship |
+| `vault.project` | `Projects/{name}.md` | status, team (wikilinked), summary |
+| `vault.decide` | `Decisions/YYYY-MM-DD--{slug}.md` | context, decision, rationale, consequences |
+| `vault.meeting` | `Meetings/YYYY-MM-DD--{slug}.md` | attendees, decisions, action items |
+| `vault.ingest` | `00-Inbox/{slug}.md` | content, source URL, type, preamble |
+
+Every note gets `ai-first: true` in frontmatter and a two-sentence preamble so a future Claude can decide relevance in seconds without reading the full note.
+
+---
+
+## Thinking and research commands (v2.4.0)
+
+Ten slash commands in `commands/` for use in any Claude Code, Codex CLI, Gemini CLI, or OpenCode session. They run reasoning over the vault using the MCP tools above — no LLM logic lives in the server.
+
+| Command | What it does |
+|---|---|
+| `/vault-synthesize` | Scan recent notes for unnamed cross-source patterns; write synthesis notes |
+| `/vault-reconcile` | Find semantic contradictions across vault notes; auto-resolve or flag ambiguous ones |
+| `/vault-emerge` | Identify topics gaining momentum in the last 14 days |
+| `/vault-research` | Web research dossier (Wikipedia, HN, arXiv, etc.) saved to `Research/` |
+| `/vault-challenge` | Devil's advocate: surface weak claims and counter-evidence in a note |
+| `/vault-connect` | Map unexpected connections between concepts, people, and projects |
+| `/vault-panel` | Multi-perspective take: generate 3–5 stakeholder views with tensions |
+| `/vault-recap` | Period review (week/month/quarter) from vault activity |
+| `/vault-graduate` | Graduation decision on an idea: ship / invest more / archive |
+| `/vault-learn` | Extract transferable principles from an experience and save to `Knowledge/` |
+
+Inspired by [obsidian-second-brain](https://github.com/eugeniughelbur/obsidian-second-brain). vault-mind provides the infrastructure; these commands provide the workflow patterns that sit on top.
+
+---
+
 ## How it works (30-second tour)
 
 Your markdown files -- with wikilinks `[[like this]]`, aliases, frontmatter tags, and mtime -- are the source of truth. The compiler turns raw topic folders into a concept graph (nodes = notes, edges = links and semantic relationships), summaries, and concept pages. The MCP server exposes this graph as tools: `vault.search`, `vault.backlinks`, `vault.graph`, and 40+ more.
