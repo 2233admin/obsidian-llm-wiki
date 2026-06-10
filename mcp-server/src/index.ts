@@ -21,6 +21,7 @@ import { QmdAdapter } from "./adapters/qmd.js";
 import { LightRAGAdapter } from "./adapters/lightrag.js";
 import { RAGAnythingAdapter } from "./adapters/raganything.js";
 import { VaultBrainAdapter } from "./adapters/vaultbrain/index.js";
+import { GraphifyAdapter } from "./adapters/graphify.js";
 import { AdapterRegistry } from "./adapters/registry.js";
 import { CompileTrigger } from "./compile-trigger.js";
 import type { VaultMindAdapter } from "./adapters/interface.js";
@@ -1357,7 +1358,7 @@ async function main(): Promise<void> {
   }
 
   // Optional adapters -- init gracefully, don't block if unavailable
-  const enabledAdapters = new Set(config.adapters ?? ["filesystem", "memu", "gitnexus", "obsidian", "qmd", "lightrag", "raganything", "vaultbrain"]);
+  const enabledAdapters = new Set(config.adapters ?? ["filesystem", "memu", "gitnexus", "obsidian", "qmd", "lightrag", "raganything", "vaultbrain", "graphify"]);
 
   if (enabledAdapters.has("memu")) {
     const memuAdapter = new MemUAdapter();
@@ -1415,6 +1416,15 @@ async function main(): Promise<void> {
       process.stderr.write("obsidian-llm-wiki: [vaultbrain] adapter ready\n");
     } catch (e) {
       process.stderr.write(`obsidian-llm-wiki: [vaultbrain] init failed (continuing without): ${(e as Error).message}\n`);
+    }
+  }
+
+  if (enabledAdapters.has("graphify")) {
+    const graphifyAdapter = new GraphifyAdapter({ vaultPath: config.vault_path });
+    await graphifyAdapter.init();
+    if (graphifyAdapter.isAvailable) {
+      registry.register(graphifyAdapter);
+      process.stderr.write("obsidian-llm-wiki: [graphify] adapter ready\n");
     }
   }
 
