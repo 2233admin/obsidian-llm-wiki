@@ -13,6 +13,10 @@ import type { VaultBrainAdapter } from '../adapters/vaultbrain/index.js';
 import type { RAGAnythingAdapter } from '../adapters/raganything.js';
 import type { LightRAGAdapter } from '../adapters/lightrag.js';
 import type { CompileTrigger } from '../compile-trigger.js';
+import { ContextCoreLoader } from '../holons/loader.js';
+import { makeHolonOps } from '../holons/holon.js';
+import { makeCausalOps } from '../holons/causal.js';
+import { makeProvenanceOps } from '../holons/provenance.js';
 
 const execAsync = promisify(execFile);
 const PROTECTED_DIRS = new Set(['.obsidian', '.trash', '.git', 'node_modules']);
@@ -526,10 +530,15 @@ export interface AllOperationsDeps {
   compilerPath: string;
   vaultPath: string;
   configPath?: string;
+  contextCorePath?: string;
 }
 
 export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
   const { compileTrigger, registry, defaultWeights, python, compilerPath, vaultPath, configPath } = deps;
+  const ccPath = deps.contextCorePath
+    ?? process.env['CONTEXT_CORE_PATH']
+    ?? join(dirname(compilerPath), 'context-core.json');
+  const contextCoreLoader = new ContextCoreLoader(ccPath);
 
   const compileOps: Operation[] = [
     {
@@ -993,7 +1002,12 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     },
   ];
 
-  return [...operations, ...compileOps, ...queryOps, ...multimodalOps, ...lightRagOps, ...agentOps];
+  const holonOps = [
+    ...makeHolonOps(contextCoreLoader),
+    ...makeCausalOps(contextCoreLoader),
+    ...makeProvenanceOps(contextCoreLoader),
+  ];
+  return [...operations, ...compileOps, ...queryOps, ...multimodalOps, ...lightRagOps, ...agentOps, ...holonOps];
 }
 
 function normalizeVaultRelPath(path: string): string {

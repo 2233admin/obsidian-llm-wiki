@@ -3,7 +3,7 @@
 > Auto-generated from `mcp-server/src/core/operations.ts`.
 > Run `npm run generate-tools-doc` to regenerate. Do not edit by hand.
 
-Total: **50** operations across **7** namespaces.
+Total: **57** operations across **10** namespaces.
 
 ## `vault.*` (29)
 
@@ -595,3 +595,85 @@ Send a vault-relative file into an external LightRAG server. Markdown/text files
 - `path` (string, required) — Vault-relative source file path
 - `mode` (string, optional, default: `"auto"`, enum: `auto` | `text` | `upload`) — Ingest mode. auto sends .md/.txt as text and other files as upload.
 - `dryRun` (boolean, optional, default: `true`) — Return the planned LightRAG request without sending it (default: true)
+
+## `holon.*` (4)
+
+### `holon.get`
+
+Get a compiled holon by ID
+
+**Mutating:** no
+
+**Parameters:**
+
+- `id` (string, required) — Holon ID (e.g. concepts/attention)
+
+### `holon.list`
+
+List compiled holons with optional kind/status filter
+
+**Mutating:** no
+
+**Parameters:**
+
+- `kind` (string, optional) — Filter by kind (research, decision, note, knowledge-task, …)
+- `status` (string, optional) — Filter by status (active, frozen, …)
+- `limit` (number, optional, default: `50`) — Max results (default: 50)
+
+### `holon.search`
+
+Search holons by title or summary (case-insensitive substring)
+
+**Mutating:** no
+
+**Parameters:**
+
+- `query` (string, required) — Search string
+- `limit` (number, optional, default: `20`) — Max results (default: 20)
+
+### `holon.tasks`
+
+List knowledge-task holons with task stats
+
+**Mutating:** no
+
+**Parameters:**
+
+- `status` (string, optional) — Filter by status (active, frozen, …)
+
+## `causal.*` (2)
+
+### `causal.chain`
+
+BFS-traverse the causal graph outward from a starting holon
+
+**Mutating:** no
+
+**Parameters:**
+
+- `id` (string, required) — Starting holon ID
+- `max_depth` (number, optional, default: `3`) — Max traversal depth (default: 3)
+- `min_confidence` (number, optional, default: `0`) — Min edge confidence 0–1 (default: 0)
+
+### `causal.neighbors`
+
+Get direct causal neighbors (depth 1) of a holon
+
+**Mutating:** no
+
+**Parameters:**
+
+- `id` (string, required) — Holon ID
+- `direction` (string, optional, default: `"outbound"`, enum: `outbound` | `inbound` | `both`) — outbound | inbound | both (default: outbound)
+
+## `provenance.*` (1)
+
+### `provenance.get`
+
+Get provenance for a holon: content hash, wikilinks, and annotated causal edges
+
+**Mutating:** no
+
+**Parameters:**
+
+- `id` (string, required) — Holon ID
