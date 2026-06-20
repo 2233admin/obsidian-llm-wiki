@@ -1,0 +1,12 @@
+version: "1"
+domain: sample
+
+entity_types:
+  - name: Tool
+    parent: Entity
+    description: Software tool or library
+
+causal_hints:
+  - from: Tool
+    to: Concept
+    relation: enables

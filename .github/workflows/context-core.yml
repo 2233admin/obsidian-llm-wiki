@@ -1,0 +1,43 @@
+name: Context Core
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  compile-and-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile sample vault
+        run: |
+          python -m compiler tests/fixtures/sample-vault \
+            -o context-core.json \
+            --indent 2 \
+            --stats \
+            --tasks
+
+      - name: Publish to context-core branch
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          COUNT=$(python -c "import json; d=json.load(open('context-core.json')); print(d['holon_count'])")
+          SHA=$(git rev-parse --short HEAD)
+
+          git checkout --orphan context-core
+          git rm -rf . --quiet
+
+          cp $GITHUB_WORKSPACE/context-core.json context-core.json
+
+          git add context-core.json
+          git commit -m "chore: context-core ${COUNT} holons from ${SHA}"
+          git push origin context-core --force
