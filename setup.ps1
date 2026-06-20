@@ -135,7 +135,7 @@ Write-Host @"
     "vault-mind": {
       "command": "node",
       "args": ["$InstallPath"],
-      "env": { "VAULT_PATH": "YOUR_VAULT_PATH" }
+      "env": { "VAULT_MIND_VAULT_PATH": "YOUR_VAULT_PATH" }
     }
   }
 }

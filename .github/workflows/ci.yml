@@ -112,3 +112,15 @@ jobs:
           path: mcp-server/node_modules
           key: ${{ runner.os }}-deps-${{ hashFiles('mcp-server/package-lock.json') }}
       - run: cd mcp-server && npx eslint src/ --ext .ts
+
+  test-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install test deps
+        run: pip install pytest
+      - name: Run compiler tests
+        run: python -m pytest tests/ -v --tb=short
