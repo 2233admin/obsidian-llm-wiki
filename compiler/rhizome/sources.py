@@ -14,8 +14,6 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .contract import id_from_path  # re-export
-
 
 @dataclass
 class Domain:

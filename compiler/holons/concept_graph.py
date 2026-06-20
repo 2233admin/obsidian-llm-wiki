@@ -13,7 +13,6 @@ from __future__ import annotations
 from collections import defaultdict, deque
 from dataclasses import dataclass
 
-from ..meta_ontology import CAUSAL_TYPES
 from .holon import CausalEdge, HolonSet
 
 
