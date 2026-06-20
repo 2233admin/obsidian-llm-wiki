@@ -36,8 +36,7 @@ jobs:
           git checkout --orphan context-core
           git rm -rf . --quiet
 
-          cp $GITHUB_WORKSPACE/context-core.json context-core.json
-
+          # context-core.json is untracked so survives git rm; add directly
           git add context-core.json
           git commit -m "chore: context-core ${COUNT} holons from ${SHA}"
           git push origin context-core --force
