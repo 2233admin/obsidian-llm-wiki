@@ -3,9 +3,22 @@
 > Auto-generated from `mcp-server/src/core/operations.ts`.
 > Run `npm run generate-tools-doc` to regenerate. Do not edit by hand.
 
-Total: **58** operations across **10** namespaces.
+Total: **65** operations across **12** namespaces.
 
-## `vault.*` (29)
+## `vault.*` (31)
+
+### `vault.annotate`
+
+Append an AI-generated section to an existing vault note. Accepts a holon ID (resolves source_path automatically) or a vault-relative path. Adds a timestamped callout block under the given heading.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `id` (string, optional) — Holon ID — used to locate the source .md file automatically
+- `path` (string, optional) — Vault-relative path (alternative to id)
+- `content` (string, required) — Markdown text to append
+- `heading` (string, optional, default: `"## AI Notes"`) — Section heading (default: "## AI Notes")
 
 ### `vault.append`
 
@@ -342,6 +355,18 @@ Sweep 00-Inbox/AI-Output for stale drafts (age > persona threshold and no non-AI
 - `dry_run` (boolean, optional, default: `true`) — Report only without writing (default: true)
 - `now` (string, optional) — Inject ISO 8601 timestamp for deterministic tests
 
+### `vault.write`
+
+Create or overwrite a Markdown note in the vault. Use to write LLM-inferred conclusions, summaries, or AI-generated notes back into the knowledge base.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `path` (string, required) — Vault-relative path, e.g. "notes/summary.md"
+- `content` (string, required) — Full Markdown content of the note
+- `overwrite` (boolean, optional, default: `false`) — Allow overwriting an existing file (default: false)
+
 ### `vault.writeAIOutput`
 
 Write a persona-authored analysis into 00-Inbox/AI-Output/{persona}/YYYY-MM-DD-{slug}.md with the 8-field provenance frontmatter (generated-by, generated-at, agent, parent-query, source-nodes, status=draft, scope, quarantine-state). Human confirmation rides on an Obsidian body tag (#user-confirmed), not a frontmatter field. Dry-run by default.
@@ -622,7 +647,7 @@ List compiled holons with optional kind/status filter
 
 ### `holon.search`
 
-Search holons by title or summary (case-insensitive substring)
+Search holons by title or summary. Supports substring (default), BM25 keyword ranking, and hybrid (BM25 + substring merged) modes.
 
 **Mutating:** no
 
@@ -630,6 +655,7 @@ Search holons by title or summary (case-insensitive substring)
 
 - `query` (string, required) — Search string
 - `limit` (number, optional, default: `20`) — Max results (default: 20)
+- `mode` (string, optional, default: `"substring"`, enum: `substring` | `bm25` | `hybrid`) — substring | bm25 | hybrid (default: substring)
 
 ### `holon.tasks`
 
@@ -688,3 +714,61 @@ Get provenance for a holon: content hash, wikilinks, and annotated causal edges
 **Parameters:**
 
 - `id` (string, required) — Holon ID
+
+## `graph.*` (1)
+
+### `graph.export`
+
+Export a causal subgraph as Mermaid diagram, Obsidian Canvas JSON, or Graphviz DOT. When format=canvas and output_path is given, writes the .canvas file into the vault.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `id` (string, required) — Starting holon ID
+- `depth` (number, optional, default: `3`) — BFS depth (default: 3)
+- `format` (string, optional, default: `"mermaid"`, enum: `mermaid` | `canvas` | `dot`) — mermaid | canvas | dot (default: mermaid)
+- `output_path` (string, optional) — Vault-relative path to write canvas file (e.g. "graphs/attention.canvas"). Only used when format=canvas.
+
+## `memory.*` (4)
+
+### `memory.forget`
+
+Delete a persisted memory by key.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `key` (string, required) — Key to delete
+
+### `memory.get`
+
+Retrieve persisted memories by exact key or tag. Returns all memories if neither is specified.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `key` (string, optional) — Exact key to retrieve
+- `tag` (string, optional) — Tag to filter by
+
+### `memory.list`
+
+List all persisted memories (key, tags, preview, timestamp). Use memory.get to retrieve full values.
+
+**Mutating:** no
+
+**Parameters:** none
+
+### `memory.set`
+
+Persist a named memory across MCP sessions. Use for inferences, user preferences, project state, or any context that should survive server restarts. Storage: <vault>/_ai_memory.json (excluded from holon compilation).
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `key` (string, required) — Unique memory key, e.g. "project/status" or "user_goal"
+- `value` (string, required) — Memory content (Markdown supported)
+- `tags` (array, optional) — Optional tags for grouping, e.g. ["project", "decision"]

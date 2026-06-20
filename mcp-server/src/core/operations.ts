@@ -17,6 +17,9 @@ import { ContextCoreLoader } from '../holons/loader.js';
 import { makeHolonOps } from '../holons/holon.js';
 import { makeCausalOps } from '../holons/causal.js';
 import { makeProvenanceOps } from '../holons/provenance.js';
+import { makeGraphOps } from '../holons/graph.js';
+import { makeVaultWriteOps } from '../holons/write.js';
+import { makeMemoryOps } from '../memory/memory.js';
 
 const execAsync = promisify(execFile);
 const PROTECTED_DIRS = new Set(['.obsidian', '.trash', '.git', 'node_modules']);
@@ -1006,6 +1009,9 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     ...makeHolonOps(contextCoreLoader),
     ...makeCausalOps(contextCoreLoader),
     ...makeProvenanceOps(contextCoreLoader),
+    ...makeGraphOps(contextCoreLoader, vaultPath),
+    ...makeVaultWriteOps(vaultPath, contextCoreLoader),
+    ...makeMemoryOps(vaultPath),
   ];
   return [...operations, ...compileOps, ...queryOps, ...multimodalOps, ...lightRagOps, ...agentOps, ...holonOps];
 }
