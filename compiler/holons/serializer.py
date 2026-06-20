@@ -6,7 +6,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .holon import CausalEdge, Holon, HolonSet
+from .holon import CausalEdge, Holon, HolonSet, HyperEdge
 
 _SCHEMA_VERSION = "1"
 
@@ -42,13 +42,24 @@ def holon_set_to_dict(hs: HolonSet) -> dict:
                 "causal_edges": edges,
             }
         )
+    hyper = [
+        {
+            "participants": e.participants,
+            "relation": e.relation,
+            "confidence": e.confidence,
+            "provenance_id": e.provenance_id,
+        }
+        for e in hs.hyper_edges
+    ]
     return {
         "schema_version": _SCHEMA_VERSION,
         "version": hs.version,
         "vault_path": hs.vault_path,
         "holon_count": len(holons),
+        "hyper_edge_count": len(hyper),
         "exported_at": datetime.now(timezone.utc).isoformat(),
         "holons": holons,
+        "hyper_edges": hyper,
     }
 
 
@@ -83,8 +94,18 @@ def holon_set_from_dict(d: dict) -> HolonSet:
                 causal_edges=edges,
             )
         )
+    hyper_edges = [
+        HyperEdge(
+            participants=list(e["participants"]),
+            relation=e.get("relation", ""),
+            confidence=float(e.get("confidence", 1.0)),
+            provenance_id=e.get("provenance_id", ""),
+        )
+        for e in d.get("hyper_edges", [])
+    ]
     return HolonSet(
         holons=holons,
+        hyper_edges=hyper_edges,
         version=d.get("version", ""),
         vault_path=d.get("vault_path", ""),
     )

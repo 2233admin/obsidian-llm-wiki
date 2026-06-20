@@ -8,7 +8,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from compiler.holons.holon import CausalEdge, Holon, HolonSet
+from compiler.holons.holon import CausalEdge, Holon, HolonSet, HyperEdge
 from compiler.holons.serializer import (
     dump_json,
     holon_set_from_dict,
@@ -24,7 +24,9 @@ def _make_hs() -> HolonSet:
     h2 = Holon("b/y", "decision", "Decision", "Beta", "", "def456", status="frozen")
     h3 = Holon("tasks/t1", "knowledge-task", "Concept", "Task 1", "do something", "ghi789",
                 status="active")
-    return HolonSet(holons=[h1, h2, h3], version="1", vault_path="/fake/vault")
+    he = HyperEdge(participants=["a/x", "b/y", "tasks/t1"], relation="co-decided",
+                   confidence=0.9, provenance_id="events/meeting-1")
+    return HolonSet(holons=[h1, h2, h3], hyper_edges=[he], version="1", vault_path="/fake/vault")
 
 
 class TestToDict:
@@ -59,6 +61,14 @@ class TestToDict:
         ax = next(h for h in d["holons"] if h["id"] == "a/x")
         assert ax["wikilinks"] == ["b-y"]
 
+    def test_hyper_edges_serialized(self):
+        d = holon_set_to_dict(_make_hs())
+        assert d["hyper_edge_count"] == 1
+        he = d["hyper_edges"][0]
+        assert he["relation"] == "co-decided"
+        assert "a/x" in he["participants"]
+        assert he["provenance_id"] == "events/meeting-1"
+
 
 class TestFromDict:
     def test_round_trip_ids(self):
@@ -92,6 +102,19 @@ class TestFromDict:
         assert h.status == "active"
         assert h.wikilinks == []
         assert h.causal_edges == []
+
+    def test_round_trip_hyper_edges(self):
+        hs2 = holon_set_from_dict(holon_set_to_dict(_make_hs()))
+        assert len(hs2.hyper_edges) == 1
+        he = hs2.hyper_edges[0]
+        assert he.relation == "co-decided"
+        assert set(he.participants) == {"a/x", "b/y", "tasks/t1"}
+        assert abs(he.confidence - 0.9) < 1e-9
+        assert he.provenance_id == "events/meeting-1"
+
+    def test_empty_hyper_edges_ok(self):
+        hs = holon_set_from_dict({"holons": []})
+        assert hs.hyper_edges == []
 
 
 class TestFileIO:

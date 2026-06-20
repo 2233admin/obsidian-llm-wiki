@@ -14,7 +14,12 @@ from pathlib import Path
 from ..meta_ontology import resolve_entity_class
 from ..ontology import DomainOntology
 from ..rhizome.contract import id_from_path
-from .holon import Holon, HolonSet, sha256_file
+from .holon import Holon, HolonSet, HyperEdge, sha256_file
+
+# Notes whose kind triggers automatic HyperEdge synthesis from participants/wikilinks.
+HYPEREDGE_KINDS: frozenset[str] = frozenset({
+    "meeting", "event", "collaboration", "workshop", "seminar", "decision-group",
+})
 
 _WIKILINK_RE = re.compile(r"\[\[([^\]|]+?)(?:\|[^\]]*)?\]\]")
 _H1_RE = re.compile(r"^#\s+(.+)$", re.MULTILINE)
@@ -66,7 +71,68 @@ def extract_vault(vault_root: Path, ontology: DomainOntology) -> HolonSet:
             if holon is not None:
                 holons.append(holon)
 
-    return HolonSet(holons=holons, vault_path=str(vault_root))
+    hs = HolonSet(holons=holons, vault_path=str(vault_root))
+    _attach_hyper_edges(hs, vault_root)
+    return hs
+
+
+def _attach_hyper_edges(hs: HolonSet, vault_root: Path) -> None:
+    """Scan vault for HYPEREDGE_KINDS notes and synthesize HyperEdges."""
+    # Build same slug index as concept_graph.build_wikilink_graph
+    slug_index: dict[str, str] = {}
+    for h in hs.holons:
+        slug_index[h.id] = h.id
+        if "/" in h.id:
+            slug_index[h.id.split("/", 1)[1]] = h.id
+        title_key = h.title.lower().replace(" ", "-")
+        if title_key not in slug_index:
+            slug_index[title_key] = h.id
+
+    def _resolve(raw: str) -> str | None:
+        raw = raw.strip().strip("[]")
+        key = raw.lower().replace(" ", "-")
+        return slug_index.get(raw) or slug_index.get(key)
+
+    skip = {".obsidian", "node_modules", ".git", ".trash", "venv"}
+    for root, dirs, files in os.walk(vault_root):
+        dirs[:] = sorted(d for d in dirs if d not in skip and not d.startswith("."))
+        for f in sorted(files):
+            if not f.endswith(".md"):
+                continue
+            path = Path(root) / f
+            try:
+                text = path.read_text("utf-8-sig", errors="replace")
+            except OSError:
+                continue
+            fm, _ = _split_frontmatter(text)
+            kind = str(fm.get("kind", "note")).strip()
+            if kind not in HYPEREDGE_KINDS:
+                continue
+
+            raw_parts = _parse_list(fm.get("participants", ""))
+            if not raw_parts:
+                raw_parts = _extract_wikilinks(text)
+
+            resolved: list[str] = []
+            seen: set[str] = set()
+            for p in raw_parts:
+                rid = _resolve(p)
+                if rid and rid not in seen:
+                    seen.add(rid)
+                    resolved.append(rid)
+
+            if len(resolved) < 2:
+                continue
+
+            note_id = str(fm.get("id", "")).strip() or id_from_path(
+                path.relative_to(vault_root)
+            )
+            hs.hyper_edges.append(HyperEdge(
+                participants=resolved,
+                relation=str(fm.get("relation", kind)).strip(),
+                confidence=1.0,
+                provenance_id=note_id,
+            ))
 
 
 def _split_frontmatter(text: str) -> tuple[dict, str]:

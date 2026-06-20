@@ -46,8 +46,18 @@ class Holon:
 
 
 @dataclass
+class HyperEdge:
+    """N-ary hyperedge connecting ≥2 holons (e.g. meeting participants)."""
+    participants: list[str]   # holon IDs — order not significant
+    relation: str             # "meeting", "co-decided", "co-authored", …
+    confidence: float = 1.0
+    provenance_id: str = ""   # source note id
+
+
+@dataclass
 class HolonSet:
     holons: list[Holon] = field(default_factory=list)
+    hyper_edges: list[HyperEdge] = field(default_factory=list)
     version: str = ""
     vault_path: str = ""
 
@@ -56,6 +66,10 @@ class HolonSet:
 
     def ids(self) -> set[str]:
         return {h.id for h in self.holons}
+
+    def hyper_edges_for(self, holon_id: str) -> list[HyperEdge]:
+        """Return all hyperedges where holon_id is a participant."""
+        return [e for e in self.hyper_edges if holon_id in e.participants]
 
 
 def sha256_file(path: Path) -> str:

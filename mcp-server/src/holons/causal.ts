@@ -124,5 +124,44 @@ export function makeCausalOps(loader: ContextCoreLoader): Operation[] {
         return { id, outbound, inbound };
       },
     },
+
+    {
+      name: 'causal.hyperedges',
+      namespace: 'causal' as Operation['namespace'],
+      description: 'List all n-ary hyperedges (meetings, events, collaborations) involving a holon, or all hyperedges if no id given',
+      mutating: false,
+      params: {
+        id:       { type: 'string', required: false, description: 'Holon ID to filter by (omit for all hyperedges)' },
+        relation: { type: 'string', required: false, description: 'Filter by relation type (e.g. "meeting")' },
+      },
+      handler: async (_ctx, params) => {
+        const cc = loader.get();
+        if (!cc) return notReady(loader.path);
+        const id       = params.id as string | undefined;
+        const relation = params.relation as string | undefined;
+
+        let edges = cc.hyper_edges ?? [];
+        if (id) {
+          if (!loader.byId(id)) return { error: `Holon not found: ${id}` };
+          edges = edges.filter(e => e.participants.includes(id));
+        }
+        if (relation) {
+          edges = edges.filter(e => e.relation === relation);
+        }
+
+        const enriched = edges.map(e => ({
+          participants: e.participants.map(pid => ({
+            id:    pid,
+            title: loader.byId(pid)?.title ?? pid,
+          })),
+          relation:      e.relation,
+          confidence:    e.confidence,
+          provenance_id: e.provenance_id,
+          provenance_title: loader.byId(e.provenance_id)?.title ?? e.provenance_id,
+        }));
+
+        return { count: enriched.length, hyper_edges: enriched };
+      },
+    },
   ];
 }

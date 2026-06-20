@@ -3,7 +3,7 @@
 > Auto-generated from `mcp-server/src/core/operations.ts`.
 > Run `npm run generate-tools-doc` to regenerate. Do not edit by hand.
 
-Total: **57** operations across **10** namespaces.
+Total: **58** operations across **10** namespaces.
 
 ## `vault.*` (29)
 
@@ -641,7 +641,7 @@ List knowledge-task holons with task stats
 
 - `status` (string, optional) — Filter by status (active, frozen, …)
 
-## `causal.*` (2)
+## `causal.*` (3)
 
 ### `causal.chain`
 
@@ -654,6 +654,17 @@ BFS-traverse the causal graph outward from a starting holon
 - `id` (string, required) — Starting holon ID
 - `max_depth` (number, optional, default: `3`) — Max traversal depth (default: 3)
 - `min_confidence` (number, optional, default: `0`) — Min edge confidence 0–1 (default: 0)
+
+### `causal.hyperedges`
+
+List all n-ary hyperedges (meetings, events, collaborations) involving a holon, or all hyperedges if no id given
+
+**Mutating:** no
+
+**Parameters:**
+
+- `id` (string, optional) — Holon ID to filter by (omit for all hyperedges)
+- `relation` (string, optional) — Filter by relation type (e.g. "meeting")
 
 ### `causal.neighbors`
 

@@ -9,7 +9,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { ContextCoreLoader } from './loader.js';
-import type { ContextCore, Holon } from './loader.js';
+import type { ContextCore, Holon, HyperEdge } from './loader.js';
 import { makeHolonOps } from './holon.js';
 import { makeCausalOps } from './causal.js';
 import { makeProvenanceOps } from './provenance.js';
@@ -17,12 +17,29 @@ import type { OperationContext } from '../core/types.js';
 
 // ── Fixture ────────────────────────────────────────────────────────────────
 
+const FIXTURE_HYPEREDGES: HyperEdge[] = [
+  {
+    participants: ['concepts/attention', 'concepts/transformer', 'decisions/use-rope'],
+    relation: 'co-decided',
+    confidence: 1.0,
+    provenance_id: 'events/arch-meeting',
+  },
+  {
+    participants: ['concepts/attention', 'tasks/kv-cache'],
+    relation: 'meeting',
+    confidence: 0.9,
+    provenance_id: 'events/kv-kickoff',
+  },
+];
+
 const FIXTURE: ContextCore = {
   schema_version: '1',
   version: '0',
   vault_path: '/fake/vault',
   holon_count: 5,
+  hyper_edge_count: 2,
   exported_at: '2026-01-01T00:00:00Z',
+  hyper_edges: FIXTURE_HYPEREDGES,
   holons: [
     {
       id: 'concepts/attention',
@@ -322,5 +339,55 @@ describe('provenance.get', () => {
   test('returns error for unknown id', async () => {
     const r = await prov.handler(CTX, { id: 'nope' }) as Record<string, string>;
     assert.ok(r.error);
+  });
+});
+
+// ── causal.hyperedges ─────────────────────────────────────────────────────
+
+describe('causal.hyperedges', () => {
+  const ops = makeCausalOps(makeLoader());
+  const hyper = ops.find(o => o.name === 'causal.hyperedges')!;
+
+  test('returns all hyperedges when no id given', async () => {
+    const r = await hyper.handler(CTX, {}) as { count: number; hyper_edges: unknown[] };
+    assert.equal(r.count, 2);
+    assert.equal(r.hyper_edges.length, 2);
+  });
+
+  test('filters by holon id', async () => {
+    const r = await hyper.handler(CTX, { id: 'tasks/kv-cache' }) as {
+      count: number;
+      hyper_edges: Array<{ relation: string; participants: Array<{ id: string; title: string }> }>;
+    };
+    assert.equal(r.count, 1);
+    assert.equal(r.hyper_edges[0].relation, 'meeting');
+    const participantIds = r.hyper_edges[0].participants.map(p => p.id);
+    assert.ok(participantIds.includes('tasks/kv-cache'));
+  });
+
+  test('enriches participant titles', async () => {
+    const r = await hyper.handler(CTX, { id: 'concepts/attention' }) as {
+      hyper_edges: Array<{ participants: Array<{ id: string; title: string }> }>;
+    };
+    assert.ok(r.hyper_edges.length > 0);
+    const attentionPart = r.hyper_edges[0].participants.find(p => p.id === 'concepts/attention');
+    assert.equal(attentionPart?.title, 'Attention Mechanism');
+  });
+
+  test('filters by relation', async () => {
+    const r = await hyper.handler(CTX, { relation: 'meeting' }) as { count: number };
+    assert.equal(r.count, 1);
+  });
+
+  test('returns error for unknown id', async () => {
+    const r = await hyper.handler(CTX, { id: 'nope' }) as Record<string, string>;
+    assert.ok(r.error);
+  });
+
+  test('hyperedgesFor helper on loader', () => {
+    const loader = makeLoader();
+    const edges = loader.hyperEdgesFor('tasks/kv-cache');
+    assert.equal(edges.length, 1);
+    assert.equal(edges[0].relation, 'meeting');
   });
 });

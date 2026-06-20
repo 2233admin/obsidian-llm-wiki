@@ -23,13 +23,22 @@ export interface Holon {
   causal_edges: CausalEdge[];
 }
 
+export interface HyperEdge {
+  participants: string[];  // ≥2 holon IDs
+  relation: string;
+  confidence: number;
+  provenance_id: string;
+}
+
 export interface ContextCore {
   schema_version: string;
   version: string;
   vault_path: string;
   holon_count: number;
+  hyper_edge_count: number;
   exported_at: string;
   holons: Holon[];
+  hyper_edges: HyperEdge[];
 }
 
 /**
@@ -69,6 +78,12 @@ export class ContextCoreLoader {
       this._load();
     }
     return this._byId!.get(id);
+  }
+
+  hyperEdgesFor(holonId: string): HyperEdge[] {
+    const core = this.get();
+    if (!core) return [];
+    return (core.hyper_edges ?? []).filter(e => e.participants.includes(holonId));
   }
 
   invalidate(): void {
