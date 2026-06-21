@@ -184,6 +184,80 @@ describe('holon.search', () => {
     const r = await search.handler(CTX, { query: 'zzznomatch' }) as { holons: Holon[]; total: number };
     assert.equal(r.total, 0);
   });
+
+  // Phase 8 BM25 + hybrid regression tests (fix: standard IDF formula + expose score)
+
+  test('bm25 mode returns hits ordered by score, not insertion order', async () => {
+    const r = await search.handler(CTX, { query: 'rope', mode: 'bm25' }) as {
+      holons: Array<Holon & { score?: number }>; total: number; mode: string;
+    };
+    assert.equal(r.mode, 'bm25');
+    assert.equal(r.total, 2);
+    // Both hits carry a numeric score (regression: previously score was stripped)
+    for (const h of r.holons) {
+      assert.equal(typeof h.score, 'number');
+      assert.ok((h.score ?? 0) > 0);
+    }
+    // Scores must be monotonically non-increasing (BM25 ranking property)
+    const s0 = r.holons[0].score ?? 0;
+    const s1 = r.holons[1].score ?? 0;
+    assert.ok(s0 >= s1, `expected desc order, got ${s0} < ${s1}`);
+  });
+
+  test('bm25 mode ranks doc-with-higher-tf higher than doc-with-lower-tf', async () => {
+    // Build a corpus where the standard BM25 IDF and the broken formula
+    // give different rankings. Then assert the standard-formula order.
+    const sparseFixture: ContextCore = {
+      ...FIXTURE,
+      holons: [
+        { ...FIXTURE.holons[0], id: 'high-tf', title: 'attention attention attention', summary: 'noise' },
+        { ...FIXTURE.holons[0], id: 'low-tf',  title: 'noise noise',                 summary: 'attention' },
+      ],
+    };
+    const loader = makeLoader();
+    (loader as unknown as Record<string, unknown>)['_cache']    = sparseFixture;
+    (loader as unknown as Record<string, unknown>)['_byId']     = new Map(sparseFixture.holons.map(h => [h.id, h]));
+    const sparseOps     = makeHolonOps(loader);
+    const sparseSearch  = sparseOps.find(o => o.name === 'holon.search')!;
+    const r = await sparseSearch.handler(CTX, { query: 'attention', mode: 'bm25' }) as {
+      holons: Array<Holon & { score?: number }>; total: number;
+    };
+    assert.equal(r.total, 2);
+    assert.equal(r.holons[0].id, 'high-tf', 'high-tf doc must rank first under standard BM25');
+    const s0 = r.holons[0].score ?? 0;
+    const s1 = r.holons[1].score ?? 0;
+    assert.ok(s0 > s1);
+  });
+
+  test('hybrid mode union: BM25 matches first, then substring-only matches', async () => {
+    // 'rope' matches both RoPE-bearing docs by BM25 AND substring.
+    const r = await search.handler(CTX, { query: 'rope', mode: 'hybrid' }) as {
+      holons: Array<Holon & { score?: number }>; total: number; mode: string;
+    };
+    assert.equal(r.mode, 'hybrid');
+    assert.equal(r.total, 2);
+    for (const h of r.holons) {
+      assert.equal(typeof h.score, 'number');
+    }
+    // Hybrid boost (+1000) means BM25 hits sort first, but within the
+    // BM25-ranked tier the relative order should match the bm25 mode.
+    const bm25Only = await search.handler(CTX, { query: 'rope', mode: 'bm25' }) as {
+      holons: Array<Holon & { score?: number }>;
+    };
+    assert.deepEqual(
+      r.holons.map(h => h.id),
+      bm25Only.holons.map(h => h.id),
+    );
+  });
+
+  test('substring mode does not attach score field', async () => {
+    const r = await search.handler(CTX, { query: 'rope' }) as {
+      holons: Array<Holon & { score?: number }>;
+    };
+    for (const h of r.holons) {
+      assert.equal(h.score, undefined, 'substring mode should not attach score');
+    }
+  });
 });
 
 describe('holon.tasks', () => {

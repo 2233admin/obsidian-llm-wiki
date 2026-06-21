@@ -78,15 +78,19 @@ export function makeHolonOps(loader: ContextCoreLoader): Operation[] {
         if (terms.length === 0) return { holons: [], total: 0, query, mode };
 
         const docs     = cc.holons.map(h => tokenize(`${h.title} ${h.summary}`));
-        const avgLen   = docs.reduce((s, d) => s + d.length, 0) / (docs.length || 1);
+        const N        = docs.length;
+        const avgLen   = docs.reduce((s, d) => s + d.length, 0) / (N || 1);
         const K1 = 1.5, B = 0.75;
 
         const bm25Score = (docTokens: string[]) => {
           const dl = docTokens.length;
           return terms.reduce((sum, term) => {
+            const df   = docs.filter(d => d.includes(term)).length;
+            if (df === 0) return sum;
             const freq = docTokens.filter(t => t === term).length;
             if (freq === 0) return sum;
-            const idf = Math.log((1 + avgLen) / freq + 1);
+            // Standard BM25 IDF with Laplace smoothing (+1 inside log to keep it >= 0).
+            const idf = Math.log((N - df + 0.5) / (df + 0.5) + 1);
             const tf  = (freq * (K1 + 1)) / (freq + K1 * (1 - B + B * dl / avgLen));
             return sum + idf * tf;
           }, 0);
@@ -97,7 +101,12 @@ export function makeHolonOps(loader: ContextCoreLoader): Operation[] {
             .map((h, i) => ({ h, score: bm25Score(docs[i]) }))
             .filter(x => x.score > 0)
             .sort((a, b) => b.score - a.score);
-          return { holons: scored.slice(0, limit).map(x => x.h), total: scored.length, query, mode };
+          return {
+            holons: scored.slice(0, limit).map(x => ({ ...x.h, score: x.score })),
+            total: scored.length,
+            query,
+            mode,
+          };
         }
 
         // hybrid: union of substring matches + BM25, deduped, BM25-ranked first
@@ -111,7 +120,12 @@ export function makeHolonOps(loader: ContextCoreLoader): Operation[] {
           }))
           .filter(x => x.score > 0)
           .sort((a, b) => b.score - a.score);
-        return { holons: scored.slice(0, limit).map(x => x.h), total: scored.length, query, mode };
+        return {
+          holons: scored.slice(0, limit).map(x => ({ ...x.h, score: x.score })),
+          total: scored.length,
+          query,
+          mode,
+        };
       },
     },
 

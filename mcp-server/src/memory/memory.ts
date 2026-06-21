@@ -115,7 +115,12 @@ export function makeMemoryOps(vaultPath: string): Operation[] {
           memories: entries.map(e => ({
             key:        e.key,
             tags:       e.tags,
-            preview:    e.value.slice(0, 120),
+            // Defensive: the schema declares value as string, but list previews
+            // must not throw if a non-string slipped in (e.g. via direct file
+            // edit or older caller). Coerce before slicing.
+            preview:    typeof e.value === 'string'
+                          ? e.value.slice(0, 120)
+                          : String(e.value).slice(0, 120),
             updated_at: e.updated_at,
           })),
         };
