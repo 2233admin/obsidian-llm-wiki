@@ -1,0 +1,3 @@
+# Route ingest through local providers instead of bundling platform scrapers
+
+LLMwiki treats ingest as a local-provider pipeline rather than embedding platform scrapers in the MCP server. Sources from platforms such as Douyin, Bilibili, Xiaohongshu, X, YouTube, podcasts, GitHub, or local vault paths are classified and planned by LLMwiki, while local Providers such as OPENCLI, MEDIA_TRANSCRIBE, ChubbySkills, or skill bridges perform capture, media parsing, transcription, and Markdown production; LLMwiki then indexes, cites, relates, and operates on the resulting Knowledge Items. This keeps heavy, brittle, login-sensitive, platform-specific logic outside the core server while preserving a stable vault-visible knowledge layer and auditable ingest runs.

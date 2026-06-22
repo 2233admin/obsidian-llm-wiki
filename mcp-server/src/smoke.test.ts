@@ -51,6 +51,36 @@ before(async () => {
     '---\ntitle: Hello\n---\n\nsmoke test seed note.\n',
     'utf-8',
   );
+  writeFileSync(
+    join(vaultRoot, 'team-board.md'),
+    [
+      '---',
+      'kanban-plugin: board',
+      '---',
+      '',
+      '## Backlog',
+      '',
+      '- [ ] Capture markdown memory ^capture-memory',
+      '',
+      '## Done',
+      '',
+      '- [x] Wire kanban adapter',
+      '',
+      '***',
+      '',
+      '## Archive',
+      '',
+      '- [ ] Archived card should stay archived',
+      '',
+      '%% kanban:settings',
+      '```json',
+      '{"kanban-plugin":"board"}',
+      '```',
+      '%%',
+      '',
+    ].join('\n'),
+    'utf-8',
+  );
   // loadConfig() precedence is env > ./vault-mind.yaml > ../vault-mind.yaml,
   // so setting VAULT_MIND_VAULT_PATH below is sufficient -- no yaml drop
   // required. Default adapter list is fine post pglite-externalize fix.
@@ -86,6 +116,143 @@ test('tools/list returns the core vault operations', async () => {
   for (const required of ['vault.list', 'vault.read', 'vault.exists']) {
     assert.ok(names.has(required), `missing required tool: ${required}`);
   }
+});
+
+test('tools/list includes markdown memory operations', async () => {
+  const res = await client.listTools();
+  const names = new Set(res.tools.map((t) => t.name));
+  for (const required of [
+    'memory.passport.get',
+    'memory.passport.upsert',
+    'memory.handoff.latest',
+    'memory.handoff.write',
+    'memory.session.save',
+    'memory.session.list',
+  ]) {
+    assert.ok(names.has(required), `missing required tool: ${required}`);
+  }
+});
+
+test('tools/list includes local project management operations', async () => {
+  const res = await client.listTools();
+  const names = new Set(res.tools.map((t) => t.name));
+  for (const required of [
+    'project.init',
+    'project.issue.create',
+    'project.issue.list',
+    'project.issue.get',
+    'project.issue.update',
+    'project.issue.link',
+    'project.comment.add',
+    'project.board.get',
+  ]) {
+    assert.ok(names.has(required), `missing required tool: ${required}`);
+  }
+});
+test('tools/list includes OPENCLI and MEDIA_TRANSCRIBE ingest preflight operations', async () => {
+  const res = await client.listTools();
+  const names = new Set(res.tools.map((t) => t.name));
+  for (const required of ['ingest.providers', 'ingest.link.preflight']) {
+    assert.ok(names.has(required), `missing required tool: ${required}`);
+  }
+});
+
+test('project tools create docket-compatible searchable local issues', async () => {
+  const init = await client.callTool({ name: 'project.init', arguments: { project: 'smokeproj' } });
+  assert.ok(!init.isError, `project.init errored: ${JSON.stringify(init.content)}`);
+
+  const created = await client.callTool({
+    name: 'project.issue.create',
+    arguments: {
+      project: 'smokeproj',
+      title: 'Local Linear smoke',
+      summary: 'local-linear-smoke-token',
+      status: 'started',
+      priority: 'High',
+      tags: ['docket', 'rhizome'],
+    },
+  });
+  assert.ok(!created.isError, `project.issue.create errored: ${JSON.stringify(created.content)}`);
+
+  const updated = await client.callTool({
+    name: 'project.issue.update',
+    arguments: { project: 'smokeproj', id: 'ISSUE-1', status: 'Done' },
+  });
+  assert.ok(!updated.isError, `project.issue.update errored: ${JSON.stringify(updated.content)}`);
+
+  const commented = await client.callTool({
+    name: 'project.comment.add',
+    arguments: { project: 'smokeproj', id: 'ISSUE-1', body: 'Comment from smoke test' },
+  });
+  assert.ok(!commented.isError, `project.comment.add errored: ${JSON.stringify(commented.content)}`);
+
+  const search = await client.callTool({
+    name: 'query.unified',
+    arguments: { query: 'local-linear-smoke-token', adapters: ['filesystem'], maxResults: 10 },
+  });
+  assert.ok(!search.isError, `query.unified project errored: ${JSON.stringify(search.content)}`);
+  const payload = JSON.parse((search.content as Array<{ text: string }>)[0].text) as {
+    results: Array<{ path: string }>
+  };
+  assert.ok(
+    payload.results.some((result) => result.path.replaceAll('\\', '/') === '10-Projects/smokeproj/docket/issues/ISSUE-1.md'),
+    `project issue not searchable: ${JSON.stringify(payload)}`,
+  );
+});
+
+test('query.adapters includes kanban by default', async () => {
+  const res = await client.callTool({ name: 'query.adapters', arguments: {} });
+  assert.ok(!res.isError, `query.adapters errored: ${JSON.stringify(res.content)}`);
+  const payload = JSON.parse((res.content as Array<{ text: string }>)[0].text) as {
+    adapters: Array<{ name: string; isAvailable: boolean }>;
+  };
+  assert.ok(
+    payload.adapters.some((adapter) => adapter.name === 'kanban' && adapter.isAvailable),
+    `kanban adapter missing: ${JSON.stringify(payload)}`,
+  );
+});
+
+test('query.unified can find kanban cards and markdown memory files', async () => {
+  const memoryWrite = await client.callTool({
+    name: 'memory.handoff.write',
+    arguments: {
+      currentState: 'Smoke searchable markdown memory',
+      nextSteps: ['Search for smoke-memory-token'],
+      files: ['team-board.md'],
+    },
+  });
+  assert.ok(!memoryWrite.isError, `memory.handoff.write errored: ${JSON.stringify(memoryWrite.content)}`);
+
+  const kanbanRes = await client.callTool({
+    name: 'query.unified',
+    arguments: { query: 'Capture markdown memory', adapters: ['kanban'], maxResults: 5 },
+  });
+  assert.ok(!kanbanRes.isError, `query.unified kanban errored: ${JSON.stringify(kanbanRes.content)}`);
+  const kanbanPayload = JSON.parse((kanbanRes.content as Array<{ text: string }>)[0].text) as {
+    results: Array<{ path: string; metadata?: Record<string, unknown> }>;
+  };
+  assert.ok(
+    kanbanPayload.results.some(
+      (result) =>
+        result.path.startsWith('team-board.md') &&
+        result.metadata?.entityType === 'card' &&
+        result.metadata?.lane === 'Backlog',
+    ),
+    `kanban card not found: ${JSON.stringify(kanbanPayload)}`,
+  );
+
+  const memoryRes = await client.callTool({
+    name: 'query.unified',
+    arguments: { query: 'smoke-memory-token', adapters: ['filesystem'], maxResults: 10 },
+  });
+  assert.ok(!memoryRes.isError, `query.unified memory errored: ${JSON.stringify(memoryRes.content)}`);
+  const memoryPayload = JSON.parse((memoryRes.content as Array<{ text: string }>)[0].text) as {
+    results: Array<{ path: string }>;
+  };
+  assert.ok(
+    memoryPayload.results.some((result) => result.path.replaceAll('\\', '/') === '00-Inbox/Agent-Memory/agent/handoff.md'),
+    `markdown memory file not found: ${JSON.stringify(memoryPayload)}`,
+  );
 });
 
 test('tools/list includes query.vector (pgvector semantic search)', async () => {

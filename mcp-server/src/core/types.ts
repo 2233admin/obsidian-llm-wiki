@@ -1,4 +1,4 @@
-// obsidian-llm-wiki shared types
+// obsidian-llm-wiki shared operation types
 
 export interface VaultMindConfig {
   vault_path: string;
@@ -28,9 +28,27 @@ export interface ParamDef {
   enum?: string[];
 }
 
+export type OperationNamespace =
+  | 'vault'
+  | 'compile'
+  | 'query'
+  | 'agent'
+  | 'recipe'
+  | 'multimodal'
+  | 'lightrag'
+  | 'holon'
+  | 'causal'
+  | 'provenance'
+  | 'graph'
+  | 'memory'
+  | 'project'
+  | 'ingest'
+  | 'source'
+  | 'skills';
+
 export interface Operation {
   name: string;
-  namespace: 'vault' | 'compile' | 'query' | 'agent' | 'recipe' | 'multimodal' | 'lightrag' | 'holon' | 'causal' | 'provenance' | 'graph' | 'memory';
+  namespace: OperationNamespace;
   description: string;
   params: Record<string, ParamDef>;
   handler: (ctx: OperationContext, params: Record<string, unknown>) => Promise<unknown>;
@@ -39,7 +57,7 @@ export interface Operation {
 
 export interface OperationContext {
   vault: VaultExecutor;
-  adapters: unknown | null;   // AdapterRegistry -- not imported here to avoid circular dep
+  adapters: unknown | null; // AdapterRegistry -- not imported here to avoid circular deps.
   config: VaultMindConfig;
   logger: Logger;
   dryRun: boolean;
@@ -87,42 +105,54 @@ export interface GraphData {
   nodes: GraphNode[];
   edges: GraphEdge[];
   orphans: string[];
+  unresolvedLinks: Record<string, string[]>;
 }
 
-export interface BacklinkResult {
-  from: string;
-  count: number;
-}
-
-export interface SearchOpts {
-  maxResults?: number;
-  caseSensitive?: boolean;
-  regex?: boolean;
-  glob?: string;
-}
-
-// VaultBackend -- the abstraction both WsTransport and FsTransport implement
-export interface VaultBackend {
-  read(path: string): Promise<string>;
-  write(path: string, content: string): Promise<void>;
-  append(path: string, content: string): Promise<void>;
-  delete(path: string): Promise<void>;
-  rename(from: string, to: string): Promise<void>;
-  search(query: string, opts?: SearchOpts): Promise<SearchResult[]>;
-  list(dir: string): Promise<{ files: string[]; folders: string[] }>;
-  stat(path: string): Promise<FileStat | null>;
-  exists(path: string): Promise<boolean>;
-  graph(): Promise<GraphData>;
-  backlinks(path: string): Promise<BacklinkResult[]>;
-  // Generic dispatch for vault.* methods not covered by typed methods above
-  execute(method: string, params: Record<string, unknown>): Promise<unknown>;
-}
-
-/** Narrow interface for OperationContext.vault — only execute() is required by operation handlers. */
+/** Narrow interface OperationContext.vault -- only execute() is required by operation handlers. */
 export interface VaultExecutor {
   execute(method: string, params: Record<string, unknown>): Promise<unknown>;
 }
 
-export function makeErr(code: number, message: string): { code: number; message: string } {
-  return { code, message };
+export class OperationError extends Error {
+  readonly code: number;
+  readonly data?: unknown;
+
+  constructor(code: number, message: string, options?: { data?: unknown; cause?: unknown }) {
+    super(message, { cause: options?.cause });
+    this.name = 'OperationError';
+    this.code = code;
+    this.data = options?.data;
+  }
+}
+
+export function isOperationError(value: unknown): value is OperationError {
+  return value instanceof OperationError
+    || (typeof value === 'object'
+      && value !== null
+      && typeof (value as { code?: unknown }).code === 'number'
+      && typeof (value as { message?: unknown }).message === 'string');
+}
+
+export function makeErr(code: number, message: string, data?: unknown): OperationError {
+  return new OperationError(code, message, { data });
+}
+
+export function badRequest(message: string, data?: unknown): OperationError {
+  return makeErr(-32602, message, data);
+}
+
+export function notFound(message: string, data?: unknown): OperationError {
+  return makeErr(-32004, message, data);
+}
+
+export function conflict(message: string, data?: unknown): OperationError {
+  return makeErr(-32010, message, data);
+}
+
+export function unsupported(message: string, data?: unknown): OperationError {
+  return makeErr(-32040, message, data);
+}
+
+export function internal(message: string, data?: unknown): OperationError {
+  return makeErr(-32603, message, data);
 }

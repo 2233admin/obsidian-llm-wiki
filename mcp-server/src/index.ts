@@ -3,9 +3,7 @@
  * obsidian-llm-wiki MCP server -- stdio transport
  */
 
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import { createMcpServer, startStdioServer } from "./runtime/mcp-runtime.js";
 import {
   readFileSync, existsSync, readdirSync, statSync, realpathSync,
   writeFileSync, appendFileSync, rmSync, renameSync, mkdirSync,
@@ -17,6 +15,7 @@ import { FilesystemAdapter } from "./adapters/filesystem.js";
 import { MemUAdapter } from "./adapters/memu.js";
 import { GitNexusAdapter } from "./adapters/gitnexus.js";
 import { ObsidianAdapter } from "./adapters/obsidian.js";
+import { KanbanAdapter } from "./adapters/kanban.js";
 import { QmdAdapter } from "./adapters/qmd.js";
 import { LightRAGAdapter } from "./adapters/lightrag.js";
 import { RAGAnythingAdapter } from "./adapters/raganything.js";
@@ -243,18 +242,67 @@ function normalizePolicyPath(path: string): string {
   return path.replace(/\\/g, "/").replace(/^\/+/, "");
 }
 
+function safeMemorySegment(value: string, label: string): string {
+  const trimmed = value.trim();
+  if (
+    !trimmed ||
+    trimmed === "." ||
+    trimmed === ".." ||
+    trimmed.includes("/") ||
+    trimmed.includes("\\") ||
+    /^[A-Za-z]:/.test(trimmed) ||
+    trimmed.startsWith("//")
+  ) {
+    throw err(-32602, `${label} must be a single safe path segment`);
+  }
+  return trimmed;
+}
+
+function memoryPolicyBasePath(config: VaultMindConfig, args: Record<string, unknown>): string {
+  const actor = safeMemorySegment(config.collaboration?.actor || process.env.VAULT_MIND_ACTOR || "agent", "actor");
+  const project = typeof args.project === "string" && args.project.trim()
+    ? safeMemorySegment(args.project, "project")
+    : undefined;
+  return project
+    ? `10-Projects/${project}/agents/${actor}/memory`
+    : `00-Inbox/Agent-Memory/${actor}`;
+}
+
+function projectPolicyBasePath(args: Record<string, unknown>): string {
+  const project = typeof args.project === "string" && args.project.trim()
+    ? safeMemorySegment(args.project, "project")
+    : "*";
+  return `10-Projects/${project}`;
+}
+
+function sourcePolicyTargetPaths(args: Record<string, unknown>): string[] {
+  const project = typeof args.project === "string" && args.project.trim()
+    ? safeMemorySegment(args.project, "project")
+    : undefined;
+  const platform = typeof args.platform === "string" && args.platform.trim()
+    ? safeMemorySegment(args.platform, "platform")
+    : "*";
+  const sourceNotePath = project
+    ? `10-Projects/${project}/sources/${platform}/**`
+    : `00-Inbox/Sources/${platform}/**`;
+  return ["_llmwiki/source-registry.json", sourceNotePath];
+}
 function defaultAllowedPaths(actor: string, role: string | undefined): string[] {
   if (!actor) return [];
   if (role === "human") return [`00-Inbox/${actor}`, `00-Inbox/${actor}/**`];
   return [
     `00-Inbox/AI-Output/${actor}`,
     `00-Inbox/AI-Output/${actor}/**`,
+    `00-Inbox/Agent-Memory/${actor}`,
+    `00-Inbox/Agent-Memory/${actor}/**`,
     `10-Projects/*/agents/${actor}`,
     `10-Projects/*/agents/${actor}/**`,
+    `10-Projects/*/project.md`,
+    `10-Projects/*/docket/**`,
   ];
 }
 
-function writeTargetPaths(toolName: string, args: Record<string, unknown>): string[] {
+function writeTargetPaths(config: VaultMindConfig, toolName: string, args: Record<string, unknown>): string[] {
   if (toolName === "vault.rename") {
     return [args.from, args.to].filter((p): p is string => typeof p === "string");
   }
@@ -267,6 +315,15 @@ function writeTargetPaths(toolName: string, args: Record<string, unknown>): stri
       ? [args.outputPath]
       : ["00-Inbox/Multimodal/**"];
   }
+  if (toolName === "memory.passport.upsert") return [`${memoryPolicyBasePath(config, args)}/passport.md`];
+  if (toolName === "memory.handoff.write") return [`${memoryPolicyBasePath(config, args)}/handoff.md`];
+  if (toolName === "memory.session.save") return [`${memoryPolicyBasePath(config, args)}/sessions/**`];
+  if (toolName === "source.register") return sourcePolicyTargetPaths(args);
+  if (toolName === "project.init") return [`${projectPolicyBasePath(args)}/project.md`, `${projectPolicyBasePath(args)}/docket/**`];
+  if (toolName === "project.issue.create") return [`${projectPolicyBasePath(args)}/docket/**`];
+  if (toolName === "project.issue.update") return [`${projectPolicyBasePath(args)}/docket/**`];
+  if (toolName === "project.issue.link") return [`${projectPolicyBasePath(args)}/docket/**`];
+  if (toolName === "project.comment.add") return [`${projectPolicyBasePath(args)}/docket/comments/**`];
   return typeof args.path === "string" ? [args.path] : [];
 }
 
@@ -291,9 +348,17 @@ function enforceCollaborationPolicy(config: VaultMindConfig, toolName: string, a
   const mutatingTargets = new Set([
     "vault.create", "vault.modify", "vault.append", "vault.delete", "vault.rename", "vault.mkdir", "vault.writeAIOutput",
     "multimodal.ingest",
+    "source.register",
+    "memory.passport.upsert", "memory.handoff.write", "memory.session.save",
   ]);
   if (!mutatingTargets.has(toolName)) return;
-  if (args.dryRun !== false && args.dry_run !== false) return;
+  const alwaysRealWriteTargets = new Set([
+    "source.register",
+    "memory.passport.upsert",
+    "memory.handoff.write",
+    "memory.session.save",
+  ]);
+  if (!alwaysRealWriteTargets.has(toolName) && args.dryRun !== false && args.dry_run !== false) return;
 
   const collab = config.collaboration;
   const actor = collab?.actor;
@@ -312,7 +377,7 @@ function enforceCollaborationPolicy(config: VaultMindConfig, toolName: string, a
     ...(collab?.protected_paths ?? []),
   ];
 
-  for (const rawTarget of writeTargetPaths(toolName, args)) {
+  for (const rawTarget of writeTargetPaths(config, toolName, args)) {
     const target = normalizePolicyPath(rawTarget);
     const protectedHit = matchAny(target, protectedPaths);
     const allowedHit = allowed.length > 0 && matchAny(target, allowed);
@@ -327,6 +392,12 @@ function enforceCollaborationPolicy(config: VaultMindConfig, toolName: string, a
 
 function shouldAuditWrite(toolName: string, args: Record<string, unknown>): boolean {
   if (toolName === "vault.batch") return args.dryRun === false || args.dry_run === false;
+  const alwaysRealWriteTargets = new Set([
+    "memory.passport.upsert",
+    "memory.handoff.write",
+    "memory.session.save",
+  ]);
+  if (alwaysRealWriteTargets.has(toolName)) return true;
   const mutatingTargets = new Set([
     "vault.create", "vault.modify", "vault.append", "vault.delete", "vault.rename", "vault.mkdir", "vault.writeAIOutput",
     "multimodal.ingest",
@@ -346,7 +417,7 @@ function auditWrite(config: VaultMindConfig, toolName: string, args: Record<stri
       actor,
       role: config.collaboration?.role,
       tool: toolName,
-      targets: writeTargetPaths(toolName, args).map(normalizePolicyPath),
+      targets: writeTargetPaths(config, toolName, args).map(normalizePolicyPath),
       ok: true,
       resultPath: typeof result === "object" && result !== null && "path" in result ? (result as { path?: unknown }).path : undefined,
     };
@@ -1595,7 +1666,7 @@ async function main(): Promise<void> {
   }
 
   // Optional adapters -- init gracefully, don't block if unavailable
-  const enabledAdapters = new Set(config.adapters ?? ["filesystem", "memu", "gitnexus", "obsidian", "qmd", "lightrag", "raganything", "vaultbrain", "graphify"]);
+  const enabledAdapters = new Set(config.adapters ?? ["filesystem", "memu", "gitnexus", "obsidian", "kanban", "qmd", "lightrag", "raganything", "vaultbrain", "graphify"]);
 
   if (enabledAdapters.has("memu")) {
     const memuAdapter = new MemUAdapter();
@@ -1613,6 +1684,18 @@ async function main(): Promise<void> {
     const obsAdapter = new ObsidianAdapter();
     await obsAdapter.init();
     if (obsAdapter.isAvailable) registry.register(obsAdapter);
+  }
+
+  if (enabledAdapters.has("kanban")) {
+    const kanbanAdapter = new KanbanAdapter({
+      vaultPath: config.vault_path,
+      glob: process.env.VAULT_MIND_KANBAN_GLOB,
+    });
+    await kanbanAdapter.init();
+    if (kanbanAdapter.isAvailable) {
+      registry.register(kanbanAdapter);
+      process.stderr.write("obsidian-llm-wiki: [kanban] adapter ready\n");
+    }
   }
 
   if (enabledAdapters.has("qmd")) {
@@ -1737,77 +1820,89 @@ async function main(): Promise<void> {
     dryRun: false,
   };
 
-  const server = new Server(
-    { name: "obsidian-llm-wiki", version: VERSION },
-    { capabilities: { tools: {} } },
-  );
-
-  server.setRequestHandler(ListToolsRequestSchema, async () => {
-    const toolDefs = allOps.map(op => ({
-      name: op.name,
-      description: op.description,
-      inputSchema: {
-        type: 'object' as const,
-        properties: Object.fromEntries(
-          Object.entries(op.params).map(([k, v]) => [k, {
-            type: v.type,
-            description: v.description,
-            ...(v.default !== undefined ? { default: v.default } : {}),
-            ...(v.enum ? { enum: v.enum } : {}),
-          }])
-        ),
-        required: Object.entries(op.params)
-          .filter(([, v]) => v.required)
-          .map(([k]) => k),
-      },
-    }));
-
-    return { tools: toolDefs };
-  });
-
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    const toolName = request.params.name;
-    const toolArgs = (request.params.arguments || {}) as Record<string, unknown>;
-
+  const ingestMarkdownIntoVaultBrain = (relPath: string): void => {
+    if (!vaultBrainAdapter || !relPath.endsWith(".md")) return;
     try {
+      const fullPath = join(config.vault_path, relPath.replace(/\\/g, "/"));
+      if (!existsSync(fullPath)) return;
+      const content = readFileSync(fullPath, "utf-8");
+      vaultBrainAdapter.ingest(relPath, content).catch((err) =>
+        process.stderr.write(`obsidian-llm-wiki: [vaultbrain] ingest error: ${(err as Error).message}\n`)
+      );
+    } catch { /* ignore */ }
+  };
+
+  const resultPath = (result: unknown): string | undefined => {
+    if (typeof result !== "object" || result === null) return undefined;
+    const path = (result as { path?: unknown; outputPath?: unknown }).path;
+    if (typeof path === "string") return path;
+    const outputPath = (result as { outputPath?: unknown }).outputPath;
+    return typeof outputPath === "string" ? outputPath : undefined;
+  };
+
+  const isRealWrite = (params: Record<string, unknown>): boolean =>
+    params.dryRun === false || params.dry_run === false;
+
+  const touchMarkdown = (relPath: unknown, event: "create" | "modify" | "delete"): void => {
+    if (typeof relPath !== "string" || !relPath.endsWith(".md")) return;
+    compileTrigger.onFileChange(relPath, event);
+    if (event !== "delete") ingestMarkdownIntoVaultBrain(relPath);
+  };
+
+  const handleWriteSideEffects = (toolName: string, params: Record<string, unknown>, result: unknown): void => {
+    if (toolName === "source.register") {
+      touchMarkdown(resultPath(result), "create");
+      return;
+    }
+
+    if (toolName === "vault.rename" && isRealWrite(params)) {
+      touchMarkdown(params.from, "delete");
+      touchMarkdown(params.to, "create");
+      return;
+    }
+
+    if (!isRealWrite(params)) return;
+
+    if (toolName === "vault.delete") {
+      touchMarkdown(params.path, "delete");
+      return;
+    }
+
+    if (
+      toolName === "vault.create" ||
+      toolName === "vault.modify" ||
+      toolName === "vault.write" ||
+      toolName === "vault.append" ||
+      toolName === "vault.writeAIOutput"
+    ) {
+      touchMarkdown(params.path ?? resultPath(result), toolName === "vault.create" ? "create" : "modify");
+      return;
+    }
+
+    if (toolName === "multimodal.ingest") {
+      touchMarkdown(params.outputPath ?? resultPath(result), "create");
+    }
+  };
+
+  const server = createMcpServer({
+    name: "obsidian-llm-wiki",
+    version: VERSION,
+    operations: allOps,
+    ctx,
+    logger: stderrLogger,
+    prepareParams: (operation, toolArgs) => {
       checkAuth(config, toolArgs);
-    } catch (e: unknown) {
-      const ex = e as { message?: string };
-      return { content: [{ type: "text" as const, text: `Error: ${ex.message}` }], isError: true };
-    }
-
-    try {
-      const op = allOps.find(o => o.name === toolName);
-      if (!op) throw err(-32601, `Unknown tool: ${toolName}`);
-      const validatedArgs = validateParams(op.params, toolArgs);
-      enforceCollaborationPolicy(config, toolName, validatedArgs);
-      const result = await op.handler(ctx, validatedArgs);
-      auditWrite(config, toolName, validatedArgs, result);
-      // Hook write ops into compile trigger (preserve existing behavior)
-      if (toolName === "vault.create" || toolName === "vault.modify" || toolName === "vault.append") {
-        const p = toolArgs.path as string;
-        if (p && toolArgs.dryRun === false) {
-          compileTrigger.onFileChange(p, toolName === "vault.create" ? "create" : "modify");
-          if (vaultBrainAdapter && p.endsWith(".md")) {
-            try {
-              const fullPath = join(config.vault_path, p.replace(/\\/g, "/"));
-              const content = readFileSync(fullPath, "utf-8");
-              vaultBrainAdapter.ingest(p, content).catch((err) =>
-                process.stderr.write(`obsidian-llm-wiki: [vaultbrain] ingest error: ${(err as Error).message}\n`)
-              );
-            } catch { /* ignore */ }
-          }
-        }
-      }
-      return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
-    } catch (e: unknown) {
-      const ex = e as { message?: string };
-      return { content: [{ type: "text" as const, text: `Error: ${ex.message || String(e)}` }], isError: true };
-    }
+      const validatedArgs = validateParams(operation.params, toolArgs);
+      enforceCollaborationPolicy(config, operation.name, validatedArgs);
+      return validatedArgs;
+    },
+    afterOperation: (operation, validatedArgs, result) => {
+      auditWrite(config, operation.name, validatedArgs, result);
+      handleWriteSideEffects(operation.name, validatedArgs, result);
+    },
   });
 
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
+  await startStdioServer(server);
 
   const adapterNames = registry.list().map((a) => a.name).join(", ");
   process.stderr.write(`obsidian-llm-wiki: MCP server running (stdio, v${VERSION}, adapters: ${adapterNames})\n`);

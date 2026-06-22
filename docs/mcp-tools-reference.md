@@ -3,7 +3,7 @@
 > Auto-generated from `mcp-server/src/core/operations.ts`.
 > Run `npm run generate-tools-doc` to regenerate. Do not edit by hand.
 
-Total: **65** operations across **12** namespaces.
+Total: **84** operations across **15** namespaces.
 
 ## `vault.*` (31)
 
@@ -432,7 +432,7 @@ Text-input semantic search. Embeds the query via an OpenAI-compatible embedding 
 
 ### `query.unified`
 
-Reciprocal Rank Fusion (RRF) search across all active adapters (filesystem, obsidian, memu, gitnexus). Each adapter returns its ranked top-N; results are merged by RRF score = sum over sources (weight / (60 + rank_in_source)), so a doc that appears in top-5 of multiple sources beats a doc at top-1 of just one. Weights now scale each source's rank contribution (not raw score), so weight=2 doubles a source's influence on tied docs. Use when you want best answers anywhere; for single-adapter ranked search use query.search, for raw grep use vault.search.
+Reciprocal Rank Fusion (RRF) search across all active adapters (filesystem, obsidian, kanban, memu, gitnexus). Each adapter returns its ranked top-N; results are merged by RRF score = sum over sources (weight / (60 + rank_in_source)), so a doc that appears in top-5 of multiple sources beats a doc at top-1 of just one. Weights now scale each source's rank contribution (not raw score), so weight=2 doubles a source's influence on tied docs. Use when you want best answers anywhere; for single-adapter ranked search use query.search, for raw grep use vault.search.
 
 **Mutating:** no
 
@@ -730,7 +730,7 @@ Export a causal subgraph as Mermaid diagram, Obsidian Canvas JSON, or Graphviz D
 - `format` (string, optional, default: `"mermaid"`, enum: `mermaid` | `canvas` | `dot`) — mermaid | canvas | dot (default: mermaid)
 - `output_path` (string, optional) — Vault-relative path to write canvas file (e.g. "graphs/attention.canvas"). Only used when format=canvas.
 
-## `memory.*` (4)
+## `memory.*` (10)
 
 ### `memory.forget`
 
@@ -753,6 +753,30 @@ Retrieve persisted memories by exact key or tag. Returns all memories if neither
 - `key` (string, optional) — Exact key to retrieve
 - `tag` (string, optional) — Tag to filter by
 
+### `memory.handoff.latest`
+
+Read the current Markdown handoff for the current actor. Returns the default handoff template when no file exists.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, optional) — Optional project key; stores under 10-Projects/<project>/agents/<actor>/memory
+
+### `memory.handoff.write`
+
+Create or replace the Markdown handoff with Current State, Next Steps, Risks, and Files sections.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, optional) — Optional project key; stores under 10-Projects/<project>/agents/<actor>/memory
+- `currentState` (string, optional) — Where the work stands now
+- `nextSteps` (array, optional) — Concrete next actions
+- `risks` (array, optional) — Known risks or blockers
+- `files` (array, optional) — Relevant vault paths or workspace files
+
 ### `memory.list`
 
 List all persisted memories (key, tags, preview, timestamp). Use memory.get to retrieve full values.
@@ -760,6 +784,57 @@ List all persisted memories (key, tags, preview, timestamp). Use memory.get to r
 **Mutating:** no
 
 **Parameters:** none
+
+### `memory.passport.get`
+
+Read the Markdown memory passport for the current actor. Returns the default passport template when no file exists.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, optional) — Optional project key; stores under 10-Projects/<project>/agents/<actor>/memory
+
+### `memory.passport.upsert`
+
+Create or replace the Markdown memory passport with Goal, Constraints, Decisions, Open Questions, and Pointers sections.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, optional) — Optional project key; stores under 10-Projects/<project>/agents/<actor>/memory
+- `goal` (string, optional) — Project or agent goal
+- `constraints` (array, optional) — Constraints that future sessions should preserve
+- `decisions` (array, optional) — Durable decisions to carry forward
+- `openQuestions` (array, optional) — Open questions for the next session
+- `pointers` (array, optional) — Files, notes, or links worth revisiting
+
+### `memory.session.list`
+
+List timestamped Markdown session notes for the current actor, newest first.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, optional) — Optional project key; reads from 10-Projects/<project>/agents/<actor>/memory
+- `limit` (number, optional, default: `20`) — Maximum sessions to return (default: 20)
+
+### `memory.session.save`
+
+Save a timestamped Markdown session note with Summary, Decisions, Actions, and References sections.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, optional) — Optional project key; stores under 10-Projects/<project>/agents/<actor>/memory
+- `title` (string, optional) — Optional session title used in the heading and filename slug
+- `summary` (string, required) — Session summary
+- `decisions` (array, optional) — Decisions made during the session
+- `actions` (array, optional) — Follow-up actions
+- `references` (array, optional) — Files, notes, links, or identifiers referenced by the session
 
 ### `memory.set`
 
@@ -772,3 +847,180 @@ Persist a named memory across MCP sessions. Use for inferences, user preferences
 - `key` (string, required) — Unique memory key, e.g. "project/status" or "user_goal"
 - `value` (string, required) — Memory content (Markdown supported)
 - `tags` (array, optional) — Optional tags for grouping, e.g. ["project", "decision"]
+
+## `project.*` (8)
+
+### `project.board.get`
+
+Return the generated Markdown Kanban board for a local project.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, required) — Project key
+
+### `project.comment.add`
+
+Append a docket-style comment block under docket/comments/<issue-id>.md.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, required) — Project key
+- `id` (string, required) — Issue id
+- `body` (string, required) — Comment Markdown body
+- `actor` (string, optional) — Comment actor; defaults to collaboration actor
+- `session` (string, optional) — Optional session/thread id
+
+### `project.init`
+
+Seed a local docket/rhizome/seed-inspired project workspace under 10-Projects/<project>.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, required) — Project key, single safe path segment
+
+### `project.issue.create`
+
+Create a docket-compatible Markdown issue. Default status is Todo/unstarted.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, required) — Project key
+- `title` (string, required) — Issue title
+- `summary` (string, optional) — Short issue summary
+- `body` (string, optional) — Detailed issue body
+- `status` (string, optional) — Docket status or state_type
+- `priority` (string, optional, default: `"No priority"`, enum: `Urgent` | `High` | `Medium` | `Low` | `No priority`) — Docket priority
+- `assignee` (string, optional) — Actor or human owner
+- `tags` (array, optional) — Issue tags
+- `blocked_by` (array, optional) — Blocking issue ids
+- `parent` (string, optional) — Parent issue id or ~
+- `milestone` (string, optional) — Milestone label
+- `batch` (number, optional) — Rolling batch ordinal
+
+### `project.issue.get`
+
+Read a local project issue by id.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, required) — Project key
+- `id` (string, required) — Issue id, e.g. ISSUE-1
+
+### `project.issue.link`
+
+Add a rhizome relationship. blocks/blocked_by also update docket blocked_by dependencies.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, required) — Project key
+- `id` (string, required) — Source issue id
+- `relation` (string, required, enum: `blocks` | `blocked_by` | `relates` | `duplicates` | `parent` | `child` | `depends_on`) — Relationship type
+- `target` (string, required) — Target issue id or note slug/path
+
+### `project.issue.list`
+
+List local project issues, optionally filtered by docket status/state_type or assignee.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, required) — Project key
+- `status` (string, optional) — Optional status or state_type filter
+- `assignee` (string, optional) — Optional assignee filter
+
+### `project.issue.update`
+
+Update status/state_type, priority, assignee, dependency fields, summary, or body for a local project issue.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, required) — Project key
+- `id` (string, required) — Issue id
+- `status` (string, optional) — New status or state_type
+- `priority` (string, optional, enum: `Urgent` | `High` | `Medium` | `Low` | `No priority`) — New priority
+- `assignee` (string, optional) — New assignee
+- `tags` (array, optional) — Replacement tags
+- `blocked_by` (array, optional) — Replacement blocking issue ids
+- `parent` (string, optional) — Replacement parent issue id or ~
+- `summary` (string, optional) — Replacement summary
+- `body` (string, optional) — Replacement details body
+
+## `ingest.*` (2)
+
+### `ingest.link.preflight`
+
+Classify a source URL and route it to OPENCLI or MEDIA_TRANSCRIBE. Read-only capability check; capture succeeds only after a provider writes Markdown into the vault.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `url` (string, required) — Absolute source URL to classify
+- `preferredProvider` (string, optional, default: `"auto"`, enum: `auto` | `opencli` | `media`) — Override provider routing when needed
+
+### `ingest.providers`
+
+List supported local ingest providers. LLMwiki routes to OPENCLI for text/web capture and MEDIA_TRANSCRIBE for audio/video parsing, download, and transcription; it does not bundle platform scrapers.
+
+**Mutating:** no
+
+**Parameters:** none
+
+## `source.*` (3)
+
+### `source.get`
+
+Get one Source Registry record by id, canonical URL/path, or original input.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `id` (string, optional) — Source id returned by source.register
+- `input` (string, optional) — Original URL or vault-relative path
+- `inputType` (string, optional, default: `"url"`, enum: `url` | `vaultPath`) — Input type used when resolving input to a source id
+
+### `source.list`
+
+List Source Registry records, optionally filtered by project, platform, or inputType.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, optional) — Filter by project slug
+- `platform` (string, optional) — Filter by platform
+- `inputType` (string, optional, enum: `url` | `vaultPath`) — Filter by supported input type
+
+### `source.register`
+
+Register a long-lived source in the lightweight Source Registry. URL inputs run ingest preflight only; no download or transcription is executed.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `input` (string, required) — URL or vault-relative path to register
+- `inputType` (string, optional, default: `"url"`, enum: `url` | `vaultPath` | `filePath` | `directoryPath` | `repoPath` | `text`) — Source input type. Phase 1 supports url and vaultPath only.
+- `title` (string, optional) — Human-readable source title
+- `project` (string, optional) — Optional project slug for project-scoped Source Notes
+- `platform` (string, optional) — Optional platform override such as douyin, bilibili, x, youtube
+- `sourceKind` (string, optional) — Optional source kind override such as profile, video, post, channel
+- `preferredProvider` (string, optional, enum: `opencli` | `media`) — Optional preflight provider preference. Preflight remains read-only.
+- `tags` (array, optional) — Optional tags for the Source Note and registry record
+- `notes` (string, optional) — Optional operator notes stored in the Source Note

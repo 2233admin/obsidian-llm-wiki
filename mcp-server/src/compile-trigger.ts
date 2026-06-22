@@ -78,7 +78,7 @@ export class CompileTrigger {
    * Called when a vault file is created or modified.
    * Enqueues to dirty set; triggers auto-compile if threshold reached.
    */
-  onFileChange(path: string, type: "create" | "modify"): void {
+  onFileChange(path: string, type: "create" | "modify" | "delete"): void {
     // Only track raw/ or top-level md files (not wiki/ output)
     if (path.includes("/wiki/") || path.includes("\\wiki\\")) return;
     if (!path.endsWith(".md")) return;

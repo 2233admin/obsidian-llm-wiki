@@ -203,6 +203,111 @@ Full details: [ai-output-convention.md](ai-output-convention.md).
 
 ---
 
+---
+
+## Local project management
+
+Use `project.*` tools when you want local Linear-style task state inside the vault. The workflow is file-backed: issues, comments, project containers, rhizome links, and Kanban board state all live under `10-Projects/<project>/docket/`.
+
+Good first flow:
+
+```text
+project.init project=alpha
+project.issue.create project=alpha title="Build local Linear" priority=High status=started
+project.comment.add project=alpha id=ISSUE-1 body="Validated through smoke test"
+project.issue.update project=alpha id=ISSUE-1 status=Done
+```
+
+After that, `query.unified` and the `kanban` adapter can find the issue and board cards. Details: [LOCAL_PROJECTS.md](LOCAL_PROJECTS.md).
+
+## Local NotebookLM-style ingest
+
+Use `/chubbyskills` when the goal is broader than one source: Bilibili videos, Douyin clips, podcasts, WeChat articles, Xiaohongshu notes, X/Twitter posts, YouTube videos, and content enrichment. ChubbySkills does the capture/transcription; LLMwiki does retrieval, citation, memory, and review.
+
+Good first prompt:
+
+```text
+/chubbyskills make this vault work like a local NotebookLM over my saved feeds
+```
+
+The key environment bridge is:
+
+```bash
+export VAULT_MIND_VAULT_PATH=/path/to/your/vault
+export VAULT_DIR="$VAULT_MIND_VAULT_PATH"
+```
+
+Details: [CHUBBYSKILLS.md](CHUBBYSKILLS.md).
+
+## X/Twitter capture
+
+Use `/x-to-obsidian` when you want posts from X/Twitter saved into the vault through Obsidian Web Clipper. The skill is intentionally local-browser-first: it expects macOS, a logged-in browser session, Obsidian, and the official Web Clipper extension.
+
+Good first prompt:
+
+```text
+/x-to-obsidian collect the top 20 posts from this X search and save them to Obsidian
+```
+
+After clipping, use normal LLMwiki tools to find and govern the notes: `query.unified`, `vault.search`, `vault.writeAIOutput`, and `memory.handoff.write`. Details: [X_TO_OBSIDIAN.md](X_TO_OBSIDIAN.md).
+
+
+## Source Registry
+
+Use `source.register` before promising that an external link has been captured. It records the source and preflight plan without downloading media or scraping private data.
+
+Path rules are fixed:
+
+```text
+_llmwiki/source-registry.json
+00-Inbox/Sources/<platform>/<source>.md
+10-Projects/<project>/sources/<platform>/<source>.md
+```
+
+For URLs, `source.register` runs the same read-only `ingest.link.preflight` classifier so the record says whether the route is `OPENCLI`, `MEDIA_TRANSCRIBE`, or a chained local pipeline. For existing vault notes, use `inputType=vaultPath`; LLMwiki creates a Source Note and leaves the original note untouched.
+
+## Markdown agent memory
+
+AI-Output is for reviewable drafts. Markdown memory is for continuity between agent sessions.
+
+Use the new `memory.*` tools when an agent should leave visible state for the next run:
+
+| Tool | Writes or reads |
+|---|---|
+| `memory.passport.get` / `memory.passport.upsert` | `passport.md` with Goal, Constraints, Decisions, Open Questions, Pointers |
+| `memory.handoff.latest` / `memory.handoff.write` | `handoff.md` with Current State, Next Steps, Risks, Files |
+| `memory.session.save` / `memory.session.list` | timestamped `sessions/<timestamp>-<slug>.md` notes with Summary, Decisions, Actions, References |
+
+Path rules are fixed:
+
+```text
+10-Projects/<project>/agents/<actor>/memory/
+00-Inbox/Agent-Memory/<actor>/
+```
+
+`<actor>` comes from `VAULT_MIND_ACTOR`; if it is not set, LLMwiki uses `agent`. Existing `memory.set/get/list/forget` remains backed by `_ai_memory.json` and is not migrated automatically.
+
+Because Markdown memory lands in the vault, regular filesystem search and `query.unified` can find it. A useful handoff prompt is: "write a handoff for project X with current state, next steps, risks, and files".
+
+## Kanban board search
+
+The read-only `kanban` adapter indexes Obsidian Kanban plugin boards that are stored as Markdown:
+
+```yaml
+---
+kanban-plugin: board
+---
+```
+
+It parses lanes from `## Lane`, cards from `- [ ]` and `- [x]`, archive sections after `***`, and ignores the `%% kanban:settings` footer. Search results include board summaries and card entities with metadata such as `entityType`, `boardPath`, `lane`, `checked`, `archived`, and optional `blockId`.
+
+The default adapter list includes `kanban`. If you set adapters manually, include it:
+
+```bash
+VAULT_MIND_ADAPTERS=filesystem,kanban
+VAULT_MIND_KANBAN_GLOB='**/*.md'
+```
+
 ## Optional Obsidian graph check
 
 After you have real AI-Output notes, open one in Obsidian and turn on Local Graph at depth `2`. You should see the draft linked to its `source-nodes` and review tags. This is only a visual check; the product invariant is still the filesystem state:
@@ -307,7 +412,7 @@ The roles don't care about the model — they're prompts over MCP tools. Whateve
 
 ### Where do the MCP tools live?
 
-Generated reference: [mcp-tools-reference.md](mcp-tools-reference.md). 38 tools across 5 namespaces. Drift-guarded by a CI test.
+Generated reference: [mcp-tools-reference.md](mcp-tools-reference.md). the full MCP tool catalog. Drift-guarded by a CI test.
 
 ---
 

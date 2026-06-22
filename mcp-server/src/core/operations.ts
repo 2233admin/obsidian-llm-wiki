@@ -20,6 +20,9 @@ import { makeProvenanceOps } from '../holons/provenance.js';
 import { makeGraphOps } from '../holons/graph.js';
 import { makeVaultWriteOps } from '../holons/write.js';
 import { makeMemoryOps } from '../memory/memory.js';
+import { makeProjectOps } from '../project/project.js';
+import { makeIngestOps } from '../ingest/ingest.js';
+import { makeSourceOps } from '../source/source.js';
 
 const execAsync = promisify(execFile);
 const PROTECTED_DIRS = new Set(['.obsidian', '.trash', '.git', 'node_modules']);
@@ -630,7 +633,7 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     {
       name: 'query.unified',
       namespace: 'query',
-      description: 'Reciprocal Rank Fusion (RRF) search across all active adapters (filesystem, obsidian, memu, gitnexus). Each adapter returns its ranked top-N; results are merged by RRF score = sum over sources (weight / (60 + rank_in_source)), so a doc that appears in top-5 of multiple sources beats a doc at top-1 of just one. Weights now scale each source\'s rank contribution (not raw score), so weight=2 doubles a source\'s influence on tied docs. Use when you want best answers anywhere; for single-adapter ranked search use query.search, for raw grep use vault.search.',
+      description: 'Reciprocal Rank Fusion (RRF) search across all active adapters (filesystem, obsidian, kanban, memu, gitnexus). Each adapter returns its ranked top-N; results are merged by RRF score = sum over sources (weight / (60 + rank_in_source)), so a doc that appears in top-5 of multiple sources beats a doc at top-1 of just one. Weights now scale each source\'s rank contribution (not raw score), so weight=2 doubles a source\'s influence on tied docs. Use when you want best answers anywhere; for single-adapter ranked search use query.search, for raw grep use vault.search.',
       mutating: false,
       params: {
         query: { type: 'string', required: true, description: 'Search query string' },
@@ -1012,6 +1015,9 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     ...makeGraphOps(contextCoreLoader, vaultPath),
     ...makeVaultWriteOps(vaultPath, contextCoreLoader),
     ...makeMemoryOps(vaultPath),
+    ...makeProjectOps(vaultPath),
+    ...makeIngestOps(),
+    ...makeSourceOps(vaultPath),
   ];
   return [...operations, ...compileOps, ...queryOps, ...multimodalOps, ...lightRagOps, ...agentOps, ...holonOps];
 }
