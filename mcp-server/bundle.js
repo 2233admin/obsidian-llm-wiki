@@ -43827,7 +43827,7 @@ function registerSource(ctx, vaultPath, params) {
       created_at: existing?.created_at ?? now,
       updated_at: now
     };
-    writeTextLocked(join12(vaultPath, notePath.replace(/\//g, "\\")), sourceNoteMarkdown(record2));
+    writeTextLocked(vaultFullPath(vaultPath, notePath), sourceNoteMarkdown(record2));
     registry2.sources[id] = record2;
     registry2.updated_at = now;
     writeFileSync5(registryPath, JSON.stringify(registry2, null, 2) + "\n", "utf-8");
@@ -43882,7 +43882,7 @@ function prepareUrlSource(input, params) {
 }
 function prepareVaultPathSource(vaultPath, input, params) {
   const normalized = normalizeVaultRelPath(vaultPath, input);
-  if (!existsSync9(join12(vaultPath, normalized.replace(/\//g, "\\")))) {
+  if (!existsSync9(vaultFullPath(vaultPath, normalized))) {
     throw notFound(`Vault path not found: ${normalized}`);
   }
   return {
@@ -43947,7 +43947,10 @@ function readRegistry(fullPath) {
   };
 }
 function registryFullPath(vaultPath) {
-  return join12(vaultPath, REGISTRY_REL_PATH.replace(/\//g, "\\"));
+  return vaultFullPath(vaultPath, REGISTRY_REL_PATH);
+}
+function vaultFullPath(vaultPath, relPath) {
+  return join12(vaultPath, ...relPath.split("/"));
 }
 function sourceNotePath(project, platform, slug) {
   return project ? `10-Projects/${project}/sources/${platform}/${slug}.md` : `00-Inbox/Sources/${platform}/${slug}.md`;

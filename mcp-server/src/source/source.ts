@@ -165,10 +165,7 @@ function registerSource(
       updated_at: now,
     };
 
-    writeTextLocked(
-      join(vaultPath, notePath.replace(/\//g, '\\')),
-      sourceNoteMarkdown(record),
-    );
+    writeTextLocked(vaultFullPath(vaultPath, notePath), sourceNoteMarkdown(record));
     registry.sources[id] = record;
     registry.updated_at = now;
     writeFileSync(registryPath, JSON.stringify(registry, null, 2) + '\n', 'utf-8');
@@ -247,7 +244,7 @@ function prepareVaultPathSource(
   preflight?: Record<string, unknown>;
 } {
   const normalized = normalizeVaultRelPath(vaultPath, input);
-  if (!existsSync(join(vaultPath, normalized.replace(/\//g, '\\')))) {
+  if (!existsSync(vaultFullPath(vaultPath, normalized))) {
     throw notFound(`Vault path not found: ${normalized}`);
   }
   return {
@@ -313,7 +310,11 @@ function readRegistry(fullPath: string): SourceRegistry {
 }
 
 function registryFullPath(vaultPath: string): string {
-  return join(vaultPath, REGISTRY_REL_PATH.replace(/\//g, '\\'));
+  return vaultFullPath(vaultPath, REGISTRY_REL_PATH);
+}
+
+function vaultFullPath(vaultPath: string, relPath: string): string {
+  return join(vaultPath, ...relPath.split('/'));
 }
 
 function sourceNotePath(project: string | undefined, platform: string, slug: string): string {
