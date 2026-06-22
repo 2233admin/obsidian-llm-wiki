@@ -324,6 +324,7 @@ function writeTargetPaths(config: VaultMindConfig, toolName: string, args: Recor
   if (toolName === "project.issue.update") return [`${projectPolicyBasePath(args)}/docket/**`];
   if (toolName === "project.issue.link") return [`${projectPolicyBasePath(args)}/docket/**`];
   if (toolName === "project.comment.add") return [`${projectPolicyBasePath(args)}/docket/comments/**`];
+  if (toolName === "project.canvas.export" || toolName === "project.base.export") return [`${projectPolicyBasePath(args)}/views/**`];
   return typeof args.path === "string" ? [args.path] : [];
 }
 
@@ -613,10 +614,31 @@ export class VaultFs {
     walk(this.vault);
   }
 
+
+  walkSearchableText(fn: (relPath: string, content: string) => void): void {
+    const searchableExts = new Set([".md", ".canvas", ".base"]);
+    const walk = (d: string): void => {
+      for (const ent of readdirSync(d, { withFileTypes: true })) {
+        const full = join(d, ent.name);
+        if (ent.isDirectory() && !PROTECTED_DIRS.has(ent.name)) walk(full);
+        if (ent.isFile() && searchableExts.has(extname(ent.name))) {
+const rel = relative(this.vault, full).replace(/\\/g, "/");
+          fn(rel, readFileSync(full, "utf-8"));
+        }
+      }
+    };
+    walk(this.vault);
+  }
+
   matchGlob(p: string, glob: string): boolean {
-    const re = new RegExp(
-      "^" + glob.replace(/\*\*/g, ".*").replace(/\*/g, "[^/]*").replace(/\?/g, ".") + "$",
-    );
+const re = new RegExp(
+"^" + glob
+.replace(/[.+^${}()|[\]\\]/g, "\\$&")
+.replace(/\*\*/g, "\0")
+.replace(/\*/g, "[^/]*")
+.replace(/\0/g, ".*")
+.replace(/\?/g, ".") + "$",
+);
     return re.test(p);
   }
 
@@ -718,7 +740,7 @@ export class VaultFs {
           ? (p.query as string)
           : (p.query as string).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
         const pattern = new RegExp(escaped, flags);
-        this.walkMd((relPath, content) => {
+        this.walkSearchableText((relPath, content) => {
           if (total >= max) return;
           if (p.glob && !this.matchGlob(relPath, p.glob as string)) return;
           const lines = content.split("\n");

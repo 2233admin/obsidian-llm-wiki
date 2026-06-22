@@ -123,6 +123,8 @@ Released bundles now include Markdown memory tools and the read-only `kanban` ad
 
 Markdown memory files are written under `10-Projects/<project>/agents/<actor>/memory/` when `project` is provided, otherwise under `00-Inbox/Agent-Memory/<actor>/`. Existing `memory.set/get/list/forget` still uses `_ai_memory.json`.
 
+Visual exports use Obsidian core plugins when available: Canvas reads `.canvas` files, Bases reads `.base` dashboards, and Graph/Backlinks use normal Markdown links. No extra community plugin is required for Phase 1 visual exports. Kanban is still optional but recommended if you want Markdown board search.
+
 Source Registry Phase 1 adds `source.register`, `source.list`, and `source.get`. It writes `_llmwiki/source-registry.json` plus Source Notes under `00-Inbox/Sources/<platform>/`, or `10-Projects/<project>/sources/<platform>/` when `project` is provided. URL registration runs read-only ingest preflight; it does not download, transcribe, or scrape.
 
 ## Building from source (rare)

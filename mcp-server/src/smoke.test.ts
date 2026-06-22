@@ -145,6 +145,8 @@ test('tools/list includes local project management operations', async () => {
     'project.issue.link',
     'project.comment.add',
     'project.board.get',
+'project.canvas.export',
+'project.base.export',
   ]) {
     assert.ok(names.has(required), `missing required tool: ${required}`);
   }
@@ -198,6 +200,56 @@ test('project tools create docket-compatible searchable local issues', async () 
     payload.results.some((result) => result.path.replaceAll('\\', '/') === '10-Projects/smokeproj/docket/issues/ISSUE-1.md'),
     `project issue not searchable: ${JSON.stringify(payload)}`,
   );
+});
+
+test('project visual exports are searchable', async () => {
+const init = await client.callTool({ name: 'project.init', arguments: { project: 'visualsmoke' } });
+assert.ok(!init.isError, `project.init errored: ${JSON.stringify(init.content)}`);
+
+const created = await client.callTool({
+name: 'project.issue.create',
+arguments: {
+project: 'visualsmoke',
+title: 'Visual smoke issue',
+summary: 'visual-smoke-issue-token',
+status: 'started',
+},
+});
+assert.ok(!created.isError, `project.issue.create errored: ${JSON.stringify(created.content)}`);
+
+const canvas = await client.callTool({
+name: 'project.canvas.export',
+arguments: { project: 'visualsmoke', dryRun: false },
+});
+assert.ok(!canvas.isError, `project.canvas.export errored: ${JSON.stringify(canvas.content)}`);
+
+const base = await client.callTool({
+name: 'project.base.export',
+arguments: { project: 'visualsmoke', dryRun: false },
+});
+assert.ok(!base.isError, `project.base.export errored: ${JSON.stringify(base.content)}`);
+
+const canvasSearch = await client.callTool({
+name: 'vault.search',
+arguments: { query: 'LLMwiki project map', glob: '**/*.canvas', maxResults: 5 },
+});
+assert.ok(!canvasSearch.isError, `vault.search canvas errored: ${JSON.stringify(canvasSearch.content)}`);
+const canvasPayload = JSON.parse((canvasSearch.content as Array<{ text: string }>)[0].text) as { results: Array<{ path: string }> };
+assert.ok(
+  canvasPayload.results.some((file) => file.path.replaceAll('\\', '/') === '10-Projects/visualsmoke/views/project-map.canvas'),
+  `visual canvas not searchable: ${JSON.stringify(canvasPayload)}`,
+);
+
+const baseSearch = await client.callTool({
+name: 'vault.search',
+arguments: { query: 'Obsidian Bases dashboard', glob: '**/*.base', maxResults: 5 },
+});
+assert.ok(!baseSearch.isError, `vault.search base errored: ${JSON.stringify(baseSearch.content)}`);
+const basePayload = JSON.parse((baseSearch.content as Array<{ text: string }>)[0].text) as { results: Array<{ path: string }> };
+assert.ok(
+  basePayload.results.some((file) => file.path.replaceAll('\\', '/') === '10-Projects/visualsmoke/views/issues.base'),
+  `visual base not searchable: ${JSON.stringify(basePayload)}`,
+);
 });
 
 test('query.adapters includes kanban by default', async () => {

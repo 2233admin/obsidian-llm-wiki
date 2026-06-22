@@ -92,7 +92,7 @@ export class FilesystemAdapter implements VaultMindAdapter {
       try {
         const msg = JSON.parse(line);
         if (msg.type === "match") {
-          const path = relative(this.vaultPath, msg.data.path.text);
+          const path = relative(this.vaultPath, msg.data.path.text).replace(/\\/g, "/");
           results.push({
             source: this.name,
             path,
@@ -113,7 +113,7 @@ export class FilesystemAdapter implements VaultMindAdapter {
       const { stdout } = await exec("grep", args, { maxBuffer: 5 * 1024 * 1024 });
       return stdout.split("\n").filter(Boolean).slice(0, opts?.maxResults ?? 20).map(p => ({
         source: this.name,
-        path: relative(this.vaultPath, p),
+        path: relative(this.vaultPath, p).replace(/\\/g, "/"),
         content: "",
         score: 1.0,
       }));

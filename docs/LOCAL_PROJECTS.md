@@ -124,3 +124,11 @@ query.unified query="Build local Linear" adapters=["filesystem", "kanban"]
 - The source of truth is Markdown in the vault.
 - The Kanban board is generated Markdown and remains readable by Obsidian Kanban.
 - Reviewed durable knowledge should still move through `20-Decisions/`, `30-Architecture/`, or `40-Runbooks/`.
+
+## Obsidian visual exports
+
+Use `project.canvas.export` to create `10-Projects/<project>/views/project-map.canvas`. The Canvas contains a project text card, status groups, issue file cards, and edges for `blocked_by` plus issue links written through `project.issue.link`.
+
+Use `project.base.export` to create `10-Projects/<project>/views/issues.base`. The Base filters to `10-Projects/<project>/docket/issues/` and renders a table of issue frontmatter fields.
+
+Both tools default to `dryRun=true`, support `overwrite=true`, and only generate view files. They do not rewrite issue notes or parse user-edited Canvas files. Obsidian Graph and Backlinks continue to come from normal Markdown wikilinks and properties.

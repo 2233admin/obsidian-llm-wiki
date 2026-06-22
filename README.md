@@ -141,6 +141,10 @@ LLMwiki now includes a local-first project management layer under `project.*`, i
 
 The default layout lives under `10-Projects/<project>/docket/`. Issues use docket-compatible `ISSUE-N.md` frontmatter with `status` + `state_type`, dependencies use `blocked_by`, and the generated board is readable by the `kanban` adapter. See [docs/LOCAL_PROJECTS.md](docs/LOCAL_PROJECTS.md).
 
+## Obsidian visual layer
+
+Project management can now export native Obsidian views without requiring Obsidian to be running. Use `project.canvas.export` for `10-Projects/<project>/views/project-map.canvas`, and `project.base.export` for `10-Projects/<project>/views/issues.base`. Canvas gives a spatial project map; Bases gives a table dashboard over issue properties. Kanban remains the supported third-party read-side board adapter; Dataview and Tasks are documented as optional advanced alternatives, not required dependencies.
+
 ## Local NotebookLM-style ingest with ChubbySkills
 
 LLMwiki can now treat [chubbyguan/chubbyskills](https://github.com/chubbyguan/chubbyskills) as an optional local ingest pack. ChubbySkills handles platform capture and transcription for Douyin, Bilibili, Xiaohongshu, WeChat, X/Twitter, podcasts, YouTube, and more; LLMwiki handles the local vault layer: search, citations, graph, Markdown memory, AI-Output review, and promotion.

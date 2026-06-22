@@ -443,8 +443,238 @@ function appendRhizome(vaultPath: string, project: string, line: string): void {
   writeVaultText(vaultPath, rhizomePath, next);
 }
 
+const BASE_FIELDS = ['id', 'title', 'status', 'state_type', 'priority', 'assignee', 'blocked_by', 'updated_at', 'tags'] as const;
+const CANVAS_STATE_ORDER: StateType[] = ['backlog', 'unstarted', 'started', 'completed', 'canceled'];
+const CANVAS_COLORS: Record<StateType, string> = {
+  backlog: '6',
+  unstarted: '4',
+  started: '3',
+  completed: '5',
+  canceled: '1',
+};
+
+interface CanvasNode {
+  id: string;
+  type: 'text' | 'file' | 'group';
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  text?: string;
+  file?: string;
+  label?: string;
+  color?: string;
+}
+
+interface CanvasEdge {
+  id: string;
+  fromNode: string;
+  fromSide?: 'top' | 'right' | 'bottom' | 'left';
+  toNode: string;
+  toSide?: 'top' | 'right' | 'bottom' | 'left';
+  label?: string;
+  color?: string;
+}
+
+function viewsRoot(project: string): string {
+  return `${projectRoot(project)}/views`;
+}
+
+function projectCanvasPath(project: string): string {
+  return `${viewsRoot(project)}/project-map.canvas`;
+}
+
+function projectBasePath(project: string): string {
+  return `${viewsRoot(project)}/issues.base`;
+}
+
+function canvasId(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'node';
+}
+
+function issueNodeId(issue: IssueRecord): string {
+  return `issue-${canvasId(issue.id)}`;
+}
+
+function groupNodeId(state: StateType): string {
+  return `group-${state}`;
+}
+
+function edgeId(from: string, to: string, label: string): string {
+  return `edge-${canvasId(from)}-${canvasId(to)}-${canvasId(label)}`;
+}
+
+function buildProjectCanvas(project: string, issues: IssueRecord[]): { nodes: CanvasNode[]; edges: CanvasEdge[] } {
+  const nodes: CanvasNode[] = [
+    {
+      id: 'project',
+      type: 'text',
+      x: -420,
+      y: -180,
+      width: 340,
+      height: 150,
+      color: '2',
+      text: [`# ${project}`, '', 'LLMwiki project map', '', `${issues.length} issues`].join('\n'),
+    },
+  ];
+  const edges: CanvasEdge[] = [];
+  const issueById = new Map(issues.map((issue) => [issue.id, issue]));
+  const emittedEdges = new Set<string>();
+
+  for (const [columnIndex, state] of CANVAS_STATE_ORDER.entries()) {
+    const laneIssues = issues.filter((issue) => issue.state_type === state);
+    const x = columnIndex * 430;
+    const height = Math.max(260, 110 + laneIssues.length * 170);
+    nodes.push({
+      id: groupNodeId(state),
+      type: 'group',
+      x,
+      y: 0,
+      width: 380,
+      height,
+      label: STATE_TYPE_TO_STATUS[state],
+      color: CANVAS_COLORS[state],
+    });
+
+    for (const [rowIndex, issue] of laneIssues.entries()) {
+      nodes.push({
+        id: issueNodeId(issue),
+        type: 'file',
+        x: x + 30,
+        y: 70 + rowIndex * 165,
+        width: 320,
+        height: 120,
+        file: issue.path,
+        color: CANVAS_COLORS[state],
+      });
+    }
+  }
+
+  const addEdge = (fromIssue: IssueRecord, toIssue: IssueRecord, label: string, color = '2'): void => {
+    const fromNode = issueNodeId(fromIssue);
+    const toNode = issueNodeId(toIssue);
+    const id = edgeId(fromNode, toNode, label);
+    if (emittedEdges.has(id)) return;
+    emittedEdges.add(id);
+    edges.push({ id, fromNode, fromSide: 'right', toNode, toSide: 'left', label, color });
+  };
+
+  for (const issue of issues) {
+    for (const blockerId of issue.blocked_by) {
+      const blocker = issueById.get(blockerId);
+      if (blocker) addEdge(blocker, issue, 'blocks', '1');
+    }
+    for (const link of issue.links) {
+      const target = issueById.get(link.target);
+      if (target) addEdge(issue, target, link.relation, '4');
+    }
+  }
+
+  return { nodes, edges };
+}
+
+function buildProjectBase(project: string): { sourceFolder: string; fields: string[]; content: string } {
+  const sourceFolder = `${docketRoot(project)}/issues`;
+  const fields = [...BASE_FIELDS];
+  const content = [
+    `# LLMwiki Obsidian Bases dashboard for ${project}`,
+    'filters:',
+    '  and:',
+    `    - 'file.inFolder("${sourceFolder}")'`,
+    '    - \'file.ext == "md"\'',
+    'properties:',
+    '  id:',
+    '    displayName: ID',
+    '  title:',
+    '    displayName: Title',
+    '  status:',
+    '    displayName: Status',
+    '  state_type:',
+    '    displayName: State',
+    '  priority:',
+    '    displayName: Priority',
+    '  assignee:',
+    '    displayName: Assignee',
+    '  blocked_by:',
+    '    displayName: Blocked by',
+    '  updated_at:',
+    '    displayName: Updated',
+    '  tags:',
+    '    displayName: Tags',
+    'views:',
+    '  - type: table',
+    '    name: Issues',
+    '    order:',
+    '      - file.name',
+    ...fields.map((field) => `      - ${field}`),
+    '    groupBy:',
+    '      property: state_type',
+    '      direction: ASC',
+    '',
+  ].join('\n');
+  return { sourceFolder, fields, content };
+}
+
+function ensureCanWriteVisual(vaultPath: string, path: string, overwrite: boolean): void {
+  if (!overwrite && existsSync(join(vaultPath, path))) {
+    throw makeErr(-32002, `Already exists: ${path}`);
+  }
+}
+
+function boolParam(value: unknown, defaultValue: boolean): boolean {
+  return typeof value === 'boolean' ? value : defaultValue;
+}
+
 export function makeProjectOps(vaultPath: string): Operation[] {
   return [
+    {
+      name: 'project.canvas.export',
+      namespace: 'project' as Operation['namespace'],
+      description: 'Export an Obsidian Canvas project map under 10-Projects/<project>/views/project-map.canvas.',
+      mutating: true,
+      params: {
+        project: { type: 'string', required: true, description: 'Project key' },
+        dryRun: { type: 'boolean', required: false, default: true, description: 'Preview Canvas JSON without writing (default: true)' },
+        overwrite: { type: 'boolean', required: false, default: true, description: 'Overwrite existing Canvas file (default: true)' },
+      },
+      handler: async (_ctx, params) => {
+        const project = safeSegment(params.project as string, 'project');
+        const dryRun = boolParam(params.dryRun, true);
+        const overwrite = boolParam(params.overwrite, true);
+        const path = projectCanvasPath(project);
+        const issues = listIssues(vaultPath, project, {});
+        const canvas = buildProjectCanvas(project, issues);
+        const content = JSON.stringify(canvas, null, 2) + '\n';
+        if (!dryRun) {
+          ensureCanWriteVisual(vaultPath, path, overwrite);
+          writeVaultText(vaultPath, path, content);
+        }
+        return { path, nodes: canvas.nodes, edges: canvas.edges, dryRun };
+      },
+    },
+    {
+      name: 'project.base.export',
+      namespace: 'project' as Operation['namespace'],
+      description: 'Export an Obsidian Bases issues dashboard under 10-Projects/<project>/views/issues.base.',
+      mutating: true,
+      params: {
+        project: { type: 'string', required: true, description: 'Project key' },
+        dryRun: { type: 'boolean', required: false, default: true, description: 'Preview Bases YAML without writing (default: true)' },
+        overwrite: { type: 'boolean', required: false, default: true, description: 'Overwrite existing Bases file (default: true)' },
+      },
+      handler: async (_ctx, params) => {
+        const project = safeSegment(params.project as string, 'project');
+        const dryRun = boolParam(params.dryRun, true);
+        const overwrite = boolParam(params.overwrite, true);
+        const path = projectBasePath(project);
+        const base = buildProjectBase(project);
+        if (!dryRun) {
+          ensureCanWriteVisual(vaultPath, path, overwrite);
+          writeVaultText(vaultPath, path, base.content);
+        }
+        return { path, sourceFolder: base.sourceFolder, fields: base.fields, dryRun };
+      },
+    },
     {
       name: 'project.init',
       namespace: 'project' as Operation['namespace'],

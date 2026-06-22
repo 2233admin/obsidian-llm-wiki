@@ -308,6 +308,24 @@ VAULT_MIND_ADAPTERS=filesystem,kanban
 VAULT_MIND_KANBAN_GLOB='**/*.md'
 ```
 
+## Obsidian visual project views
+
+LLMwiki writes native Obsidian visualization files from the same Markdown project data:
+
+```text
+project.canvas.export project=<project> dryRun=false
+project.base.export project=<project> dryRun=false
+```
+
+Files land in `10-Projects/<project>/views/`:
+
+```text
+project-map.canvas
+issues.base
+```
+
+Canvas shows the project, status groups, issue note cards, and dependency/relationship edges. Bases shows a table over issue properties: id, title, status, state_type, priority, assignee, blocked_by, updated_at, and tags. Dataview and Tasks can still be used by advanced Obsidian users, but Bases is the default no-extra-plugin dashboard.
+
 ## Optional Obsidian graph check
 
 After you have real AI-Output notes, open one in Obsidian and turn on Local Graph at depth `2`. You should see the draft linked to its `source-nodes` and review tags. This is only a visual check; the product invariant is still the filesystem state:

@@ -3,7 +3,7 @@
 > Auto-generated from `mcp-server/src/core/operations.ts`.
 > Run `npm run generate-tools-doc` to regenerate. Do not edit by hand.
 
-Total: **84** operations across **15** namespaces.
+Total: **86** operations across **15** namespaces.
 
 ## `vault.*` (31)
 
@@ -848,7 +848,19 @@ Persist a named memory across MCP sessions. Use for inferences, user preferences
 - `value` (string, required) — Memory content (Markdown supported)
 - `tags` (array, optional) — Optional tags for grouping, e.g. ["project", "decision"]
 
-## `project.*` (8)
+## `project.*` (10)
+
+### `project.base.export`
+
+Export an Obsidian Bases issues dashboard under 10-Projects/<project>/views/issues.base.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, required) — Project key
+- `dryRun` (boolean, optional, default: `true`) — Preview Bases YAML without writing (default: true)
+- `overwrite` (boolean, optional, default: `true`) — Overwrite existing Bases file (default: true)
 
 ### `project.board.get`
 
@@ -859,6 +871,18 @@ Return the generated Markdown Kanban board for a local project.
 **Parameters:**
 
 - `project` (string, required) — Project key
+
+### `project.canvas.export`
+
+Export an Obsidian Canvas project map under 10-Projects/<project>/views/project-map.canvas.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, required) — Project key
+- `dryRun` (boolean, optional, default: `true`) — Preview Canvas JSON without writing (default: true)
+- `overwrite` (boolean, optional, default: `true`) — Overwrite existing Canvas file (default: true)
 
 ### `project.comment.add`
 

@@ -39108,7 +39108,7 @@ var FilesystemAdapter = class {
       try {
         const msg = JSON.parse(line);
         if (msg.type === "match") {
-          const path = relative(this.vaultPath, msg.data.path.text);
+          const path = relative(this.vaultPath, msg.data.path.text).replace(/\\/g, "/");
           results.push({
             source: this.name,
             path,
@@ -39128,7 +39128,7 @@ var FilesystemAdapter = class {
       const { stdout } = await exec("grep", args, { maxBuffer: 5 * 1024 * 1024 });
       return stdout.split("\n").filter(Boolean).slice(0, opts?.maxResults ?? 20).map((p) => ({
         source: this.name,
-        path: relative(this.vaultPath, p),
+        path: relative(this.vaultPath, p).replace(/\\/g, "/"),
         content: "",
         score: 1
       }));
@@ -43163,8 +43163,201 @@ ${line}
 `;
   writeVaultText(vaultPath, rhizomePath, next);
 }
+var BASE_FIELDS = ["id", "title", "status", "state_type", "priority", "assignee", "blocked_by", "updated_at", "tags"];
+var CANVAS_STATE_ORDER = ["backlog", "unstarted", "started", "completed", "canceled"];
+var CANVAS_COLORS = {
+  backlog: "6",
+  unstarted: "4",
+  started: "3",
+  completed: "5",
+  canceled: "1"
+};
+function viewsRoot(project) {
+  return `${projectRoot(project)}/views`;
+}
+function projectCanvasPath(project) {
+  return `${viewsRoot(project)}/project-map.canvas`;
+}
+function projectBasePath(project) {
+  return `${viewsRoot(project)}/issues.base`;
+}
+function canvasId(value) {
+  return value.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || "node";
+}
+function issueNodeId(issue2) {
+  return `issue-${canvasId(issue2.id)}`;
+}
+function groupNodeId(state) {
+  return `group-${state}`;
+}
+function edgeId(from, to, label) {
+  return `edge-${canvasId(from)}-${canvasId(to)}-${canvasId(label)}`;
+}
+function buildProjectCanvas(project, issues) {
+  const nodes = [
+    {
+      id: "project",
+      type: "text",
+      x: -420,
+      y: -180,
+      width: 340,
+      height: 150,
+      color: "2",
+      text: [`# ${project}`, "", "LLMwiki project map", "", `${issues.length} issues`].join("\n")
+    }
+  ];
+  const edges = [];
+  const issueById = new Map(issues.map((issue2) => [issue2.id, issue2]));
+  const emittedEdges = /* @__PURE__ */ new Set();
+  for (const [columnIndex, state] of CANVAS_STATE_ORDER.entries()) {
+    const laneIssues = issues.filter((issue2) => issue2.state_type === state);
+    const x = columnIndex * 430;
+    const height = Math.max(260, 110 + laneIssues.length * 170);
+    nodes.push({
+      id: groupNodeId(state),
+      type: "group",
+      x,
+      y: 0,
+      width: 380,
+      height,
+      label: STATE_TYPE_TO_STATUS[state],
+      color: CANVAS_COLORS[state]
+    });
+    for (const [rowIndex, issue2] of laneIssues.entries()) {
+      nodes.push({
+        id: issueNodeId(issue2),
+        type: "file",
+        x: x + 30,
+        y: 70 + rowIndex * 165,
+        width: 320,
+        height: 120,
+        file: issue2.path,
+        color: CANVAS_COLORS[state]
+      });
+    }
+  }
+  const addEdge = (fromIssue, toIssue, label, color = "2") => {
+    const fromNode = issueNodeId(fromIssue);
+    const toNode = issueNodeId(toIssue);
+    const id = edgeId(fromNode, toNode, label);
+    if (emittedEdges.has(id))
+      return;
+    emittedEdges.add(id);
+    edges.push({ id, fromNode, fromSide: "right", toNode, toSide: "left", label, color });
+  };
+  for (const issue2 of issues) {
+    for (const blockerId of issue2.blocked_by) {
+      const blocker = issueById.get(blockerId);
+      if (blocker)
+        addEdge(blocker, issue2, "blocks", "1");
+    }
+    for (const link of issue2.links) {
+      const target = issueById.get(link.target);
+      if (target)
+        addEdge(issue2, target, link.relation, "4");
+    }
+  }
+  return { nodes, edges };
+}
+function buildProjectBase(project) {
+  const sourceFolder = `${docketRoot(project)}/issues`;
+  const fields = [...BASE_FIELDS];
+  const content = [
+    `# LLMwiki Obsidian Bases dashboard for ${project}`,
+    "filters:",
+    "  and:",
+    `    - 'file.inFolder("${sourceFolder}")'`,
+    `    - 'file.ext == "md"'`,
+    "properties:",
+    "  id:",
+    "    displayName: ID",
+    "  title:",
+    "    displayName: Title",
+    "  status:",
+    "    displayName: Status",
+    "  state_type:",
+    "    displayName: State",
+    "  priority:",
+    "    displayName: Priority",
+    "  assignee:",
+    "    displayName: Assignee",
+    "  blocked_by:",
+    "    displayName: Blocked by",
+    "  updated_at:",
+    "    displayName: Updated",
+    "  tags:",
+    "    displayName: Tags",
+    "views:",
+    "  - type: table",
+    "    name: Issues",
+    "    order:",
+    "      - file.name",
+    ...fields.map((field) => `      - ${field}`),
+    "    groupBy:",
+    "      property: state_type",
+    "      direction: ASC",
+    ""
+  ].join("\n");
+  return { sourceFolder, fields, content };
+}
+function ensureCanWriteVisual(vaultPath, path, overwrite) {
+  if (!overwrite && existsSync8(join11(vaultPath, path))) {
+    throw makeErr(-32002, `Already exists: ${path}`);
+  }
+}
+function boolParam(value, defaultValue) {
+  return typeof value === "boolean" ? value : defaultValue;
+}
 function makeProjectOps(vaultPath) {
   return [
+    {
+      name: "project.canvas.export",
+      namespace: "project",
+      description: "Export an Obsidian Canvas project map under 10-Projects/<project>/views/project-map.canvas.",
+      mutating: true,
+      params: {
+        project: { type: "string", required: true, description: "Project key" },
+        dryRun: { type: "boolean", required: false, default: true, description: "Preview Canvas JSON without writing (default: true)" },
+        overwrite: { type: "boolean", required: false, default: true, description: "Overwrite existing Canvas file (default: true)" }
+      },
+      handler: async (_ctx, params) => {
+        const project = safeSegment2(params.project, "project");
+        const dryRun = boolParam(params.dryRun, true);
+        const overwrite = boolParam(params.overwrite, true);
+        const path = projectCanvasPath(project);
+        const issues = listIssues(vaultPath, project, {});
+        const canvas = buildProjectCanvas(project, issues);
+        const content = JSON.stringify(canvas, null, 2) + "\n";
+        if (!dryRun) {
+          ensureCanWriteVisual(vaultPath, path, overwrite);
+          writeVaultText(vaultPath, path, content);
+        }
+        return { path, nodes: canvas.nodes, edges: canvas.edges, dryRun };
+      }
+    },
+    {
+      name: "project.base.export",
+      namespace: "project",
+      description: "Export an Obsidian Bases issues dashboard under 10-Projects/<project>/views/issues.base.",
+      mutating: true,
+      params: {
+        project: { type: "string", required: true, description: "Project key" },
+        dryRun: { type: "boolean", required: false, default: true, description: "Preview Bases YAML without writing (default: true)" },
+        overwrite: { type: "boolean", required: false, default: true, description: "Overwrite existing Bases file (default: true)" }
+      },
+      handler: async (_ctx, params) => {
+        const project = safeSegment2(params.project, "project");
+        const dryRun = boolParam(params.dryRun, true);
+        const overwrite = boolParam(params.overwrite, true);
+        const path = projectBasePath(project);
+        const base = buildProjectBase(project);
+        if (!dryRun) {
+          ensureCanWriteVisual(vaultPath, path, overwrite);
+          writeVaultText(vaultPath, path, base.content);
+        }
+        return { path, sourceFolder: base.sourceFolder, fields: base.fields, dryRun };
+      }
+    },
     {
       name: "project.init",
       namespace: "project",
@@ -45395,6 +45588,8 @@ function writeTargetPaths(config2, toolName, args) {
     return [`${projectPolicyBasePath(args)}/docket/**`];
   if (toolName === "project.comment.add")
     return [`${projectPolicyBasePath(args)}/docket/comments/**`];
+  if (toolName === "project.canvas.export" || toolName === "project.base.export")
+    return [`${projectPolicyBasePath(args)}/views/**`];
   return typeof args.path === "string" ? [args.path] : [];
 }
 function enforceCollaborationPolicy(config2, toolName, args) {
@@ -45706,8 +45901,23 @@ var VaultFs = class {
     };
     walk(this.vault);
   }
+  walkSearchableText(fn) {
+    const searchableExts = /* @__PURE__ */ new Set([".md", ".canvas", ".base"]);
+    const walk = (d) => {
+      for (const ent of readdirSync7(d, { withFileTypes: true })) {
+        const full = join14(d, ent.name);
+        if (ent.isDirectory() && !PROTECTED_DIRS4.has(ent.name))
+          walk(full);
+        if (ent.isFile() && searchableExts.has(extname2(ent.name))) {
+          const rel = relative6(this.vault, full).replace(/\\/g, "/");
+          fn(rel, readFileSync11(full, "utf-8"));
+        }
+      }
+    };
+    walk(this.vault);
+  }
   matchGlob(p, glob) {
-    const re = new RegExp("^" + glob.replace(/\*\*/g, ".*").replace(/\*/g, "[^/]*").replace(/\?/g, ".") + "$");
+    const re = new RegExp("^" + glob.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*\*/g, "\0").replace(/\*/g, "[^/]*").replace(/\0/g, ".*").replace(/\?/g, ".") + "$");
     return re.test(p);
   }
   dispatch(method, p) {
@@ -45826,7 +46036,7 @@ var VaultFs = class {
           rejectDangerousRegex(p.query);
         const escaped = p.regex ? p.query : p.query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
         const pattern = new RegExp(escaped, flags);
-        this.walkMd((relPath, content) => {
+        this.walkSearchableText((relPath, content) => {
           if (total >= max)
             return;
           if (p.glob && !this.matchGlob(relPath, p.glob))
