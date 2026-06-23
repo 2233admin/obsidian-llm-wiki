@@ -38,27 +38,38 @@ export class FilesystemAdapter implements VaultMindAdapter {
   async search(query: string, opts?: SearchOpts): Promise<SearchResult[]> {
     const maxResults = opts?.maxResults ?? 20;
     const args = [
-      "--json",
-      "--fixed-strings",   // treat query as literal, not regex (ReDoS protection)
-      "--max-count", "3",  // per-file cap (--max-count is per-file, not total)
-      "--no-heading",
+      "--files-with-matches",
+      "--fixed-strings", // treat query literal, not regex (ReDoS protection)
+      "--max-count", "1", // stop after the first match in each file
     ];
 
     if (!opts?.caseSensitive) args.push("-i");
     if (opts?.glob) args.push("--glob", opts.glob);
-    if (opts?.context) args.push("-C", String(opts.context));
 
-    args.push("--", query, this.vaultPath);  // "--" stops option parsing
+    args.push("--", query, this.vaultPath); // "--" stops option parsing
 
     try {
-      const { stdout } = await exec("rg", args, { maxBuffer: 10 * 1024 * 1024 });
-      return this.parseRipgrepJson(stdout).slice(0, maxResults);
-    } catch (err: unknown) {
-      if (this.isExitCode(err, 1)) return [];  // rg exit 1 = no matches
-      if (this.isExitCode(err, 2)) {
-        // rg exit 2 = error (not installed, bad args, etc.) -- try grep fallback
-        return this.fallbackSearch(query, opts);
+      const { stdout } = await exec("rg", args, { maxBuffer: 2 * 1024 * 1024 });
+      const files = stdout.split(/\r?\n/).filter(Boolean).slice(0, maxResults);
+      const results: SearchResult[] = [];
+
+      for (const file of files) {
+        try {
+          const content = await readFile(file, "utf-8");
+          results.push({
+            source: this.name,
+            path: relative(this.vaultPath, file).replace(/\\/g, "/"),
+            content: this.extractSnippet(content, query, opts),
+            score: 1.0,
+          });
+        } catch {
+          // File may have changed between rg and read; skip stale matches.
+        }
       }
+
+      return results;
+    } catch (err: unknown) {
+      if (this.isExitCode(err, 1)) return []; // rg exit 1 = no matches
       return this.fallbackSearch(query, opts);
     }
   }
@@ -84,6 +95,23 @@ export class FilesystemAdapter implements VaultMindAdapter {
       throw new Error(`Path traversal blocked: ${p}`);
     }
     return resolved;
+  }
+
+  private extractSnippet(content: string, query: string, opts?: SearchOpts): string {
+    const context = Math.max(0, opts?.context ?? 0);
+    const needle = opts?.caseSensitive ? query : query.toLowerCase();
+    const lines = content.split(/\r?\n/);
+
+    for (let i = 0; i < lines.length; i++) {
+      const haystack = opts?.caseSensitive ? lines[i] : lines[i].toLowerCase();
+      if (haystack.includes(needle)) {
+        const start = Math.max(0, i - context);
+        const end = Math.min(lines.length, i + context + 1);
+        return lines.slice(start, end).join("\n").trim();
+      }
+    }
+
+    return lines.find((line) => line.trim())?.trim() ?? "";
   }
 
   private parseRipgrepJson(stdout: string): SearchResult[] {

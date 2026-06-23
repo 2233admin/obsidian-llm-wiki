@@ -31,6 +31,7 @@ describe('FsTransport symlink traversal guard', () => {
     const outside = join(tmpdir(), `vault-outside-${randomUUID()}`);
     mkdirSync(outside, { recursive: true });
     writeFileSync(join(outside, 'secret.txt'), 'outside secret\n', 'utf8');
+    writeFileSync(join(outside, 'secret.md'), 'outside markdown secret\n', 'utf8');
     tempDirs.push(outside);
     try {
       symlinkSync(outside, join(vault, 'escape'), process.platform === 'win32' ? 'junction' : 'dir');
@@ -56,6 +57,16 @@ describe('FsTransport symlink traversal guard', () => {
       () => transport.dispatch('vault.list', { path: 'escape' }),
       (err: unknown) => typeof err === 'object' && err !== null && 'message' in err && err.message === 'path traversal blocked',
     );
+  });
+
+  test('search does not traverse vault junctions', (t) => {
+    const transport = makeEscapingVault(t);
+    const result = transport.dispatch('vault.search', { query: 'outside markdown secret', maxResults: 10 }) as {
+      results: Array<{ path: string; matches: Array<{ line: number; text: string }> }>;
+      totalMatches: number;
+    };
+    assert.equal(result.totalMatches, 0);
+    assert.deepEqual(result.results, []);
   });
 });
 

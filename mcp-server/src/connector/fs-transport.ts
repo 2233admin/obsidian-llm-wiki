@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 
 import type { JsonRpcResponse } from './ws-transport.js';
 
@@ -274,7 +275,17 @@ export class FsTransport {
           const err = e as { code?: number; message?: string };
           throw { code: err.code || -32602, message: err.message || `Invalid regex: ${err.message}` };
         }
-        this.walkMd(this.vault, (relPath: string, content: string) => {
+        if (!p['regex']) {
+        const rgResult = this.searchVaultWithRipgrep(
+          p['query'] as string,
+          max,
+          Boolean(p['caseSensitive']),
+          typeof p['glob'] === 'string' ? (p['glob'] as string) : undefined,
+        );
+        if (rgResult) return rgResult;
+      }
+
+      this.walkMd(this.vault, (relPath: string, content: string) => {
           if (total >= max) return;
           if (p['glob'] && !this.matchGlob(relPath, p['glob'] as string)) return;
           const lines = content.split('\n');
@@ -589,12 +600,118 @@ export class FsTransport {
     }
   }
 
+  private searchVaultWithRipgrep(
+    query: string,
+    max: number,
+    caseSensitive: boolean,
+    glob?: string,
+  ): { results: Array<{ path: string; matches: Array<{ line: number; text: string }> }>; totalMatches: number } | null {
+    if (!query) return null;
+
+    const args = ["--files-with-matches", "--fixed-strings", "--max-count", "1"];
+    if (!caseSensitive) args.push("-i");
+    if (glob) args.push("--glob", glob);
+    args.push("--", query, this.vault);
+
+    let stdout = "";
+    try {
+      stdout = execFileSync("rg", args, { encoding: "utf8", maxBuffer: 2 * 1024 * 1024 });
+    } catch (err: unknown) {
+      const code = (err as { status?: number; code?: number | string }).status ?? (err as { code?: number | string }).code;
+      if (code === 1) return { results: [], totalMatches: 0 };
+      return null;
+    }
+
+    const results: Array<{ path: string; matches: Array<{ line: number; text: string }> }> = [];
+    let total = 0;
+    for (const filePath of stdout.split(/\r?\n/).filter(Boolean)) {
+      if (total >= max) break;
+      const full = path.resolve(filePath);
+      const rel = path.relative(this.vault, full).replace(/\\/g, "/");
+      if (rel.startsWith("..") || path.isAbsolute(rel)) continue;
+      if (glob && !this.matchGlob(rel, glob)) continue;
+
+      let content = "";
+      try {
+        content = fs.readFileSync(full, "utf8");
+      } catch {
+        continue;
+      }
+
+      const matches = this.findLiteralMatches(content, query, max - total, caseSensitive);
+      if (matches.length > 0) {
+        total += matches.length;
+        results.push({ path: rel, matches });
+      }
+    }
+
+    return { results, totalMatches: total };
+  }
+
+  private findLiteralMatches(
+    content: string,
+    query: string,
+    max: number,
+    caseSensitive: boolean,
+  ): Array<{ line: number; text: string }> {
+    if (max <= 0) return [];
+    const needle = caseSensitive ? query : query.toLowerCase();
+    const lines = content.split(/\r?\n/);
+    const matches: Array<{ line: number; text: string }> = [];
+
+    for (let i = 0; i < lines.length && matches.length < max; i++) {
+      const haystack = caseSensitive ? lines[i] : lines[i].toLowerCase();
+      if (haystack.includes(needle)) matches.push({ line: i + 1, text: lines[i] });
+    }
+
+    return matches;
+  }
+
   walkMd(dir: string, fn: (relPath: string, content: string) => void): void {
+    const visited = new Set<string>();
+    const insideVault = (realPath: string): boolean => {
+      const rel = path.relative(this.realVault, realPath);
+      return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+    };
+
     const walk = (d: string) => {
-      for (const ent of fs.readdirSync(d, { withFileTypes: true })) {
+      let realDir: string;
+      try {
+        realDir = fs.realpathSync(d);
+      } catch {
+        return;
+      }
+      if (!insideVault(realDir) || visited.has(realDir)) return;
+      visited.add(realDir);
+
+      let entries: fs.Dirent[];
+      try {
+        entries = fs.readdirSync(d, { withFileTypes: true });
+      } catch {
+        return;
+      }
+
+      for (const ent of entries) {
+        if (PROTECTED_DIRS.has(ent.name)) continue;
         const full = path.join(d, ent.name);
-        if (ent.isDirectory() && ent.name !== '.obsidian' && ent.name !== '.trash' && ent.name !== 'node_modules') walk(full);
-        else if (ent.isFile() && ent.name.endsWith('.md')) {
+
+        let st: fs.Stats;
+        try {
+          st = fs.lstatSync(full);
+        } catch {
+          continue;
+        }
+        if (st.isSymbolicLink()) continue;
+
+        if (st.isDirectory()) {
+          let realChild: string;
+          try {
+            realChild = fs.realpathSync(full);
+          } catch {
+            continue;
+          }
+          if (insideVault(realChild)) walk(full);
+        } else if (st.isFile() && ent.name.endsWith('.md')) {
           const rel = path.relative(this.vault, full).replace(/\\/g, '/');
           fn(rel, fs.readFileSync(full, 'utf-8'));
         }

@@ -39056,30 +39056,38 @@ var FilesystemAdapter = class {
   async search(query, opts) {
     const maxResults = opts?.maxResults ?? 20;
     const args = [
-      "--json",
+      "--files-with-matches",
       "--fixed-strings",
-      // treat query as literal, not regex (ReDoS protection)
+      // treat query literal, not regex (ReDoS protection)
       "--max-count",
-      "3",
-      // per-file cap (--max-count is per-file, not total)
-      "--no-heading"
+      "1"
+      // stop after the first match in each file
     ];
     if (!opts?.caseSensitive)
       args.push("-i");
     if (opts?.glob)
       args.push("--glob", opts.glob);
-    if (opts?.context)
-      args.push("-C", String(opts.context));
     args.push("--", query, this.vaultPath);
     try {
-      const { stdout } = await exec("rg", args, { maxBuffer: 10 * 1024 * 1024 });
-      return this.parseRipgrepJson(stdout).slice(0, maxResults);
+      const { stdout } = await exec("rg", args, { maxBuffer: 2 * 1024 * 1024 });
+      const files = stdout.split(/\r?\n/).filter(Boolean).slice(0, maxResults);
+      const results = [];
+      for (const file2 of files) {
+        try {
+          const content = await readFile(file2, "utf-8");
+          results.push({
+            source: this.name,
+            path: relative(this.vaultPath, file2).replace(/\\/g, "/"),
+            content: this.extractSnippet(content, query, opts),
+            score: 1
+          });
+        } catch {
+        }
+      }
+      return results;
     } catch (err2) {
       if (this.isExitCode(err2, 1))
         return [];
-      if (this.isExitCode(err2, 2)) {
-        return this.fallbackSearch(query, opts);
-      }
       return this.fallbackSearch(query, opts);
     }
   }
@@ -39101,6 +39109,20 @@ var FilesystemAdapter = class {
       throw new Error(`Path traversal blocked: ${p}`);
     }
     return resolved;
+  }
+  extractSnippet(content, query, opts) {
+    const context = Math.max(0, opts?.context ?? 0);
+    const needle = opts?.caseSensitive ? query : query.toLowerCase();
+    const lines = content.split(/\r?\n/);
+    for (let i = 0; i < lines.length; i++) {
+      const haystack = opts?.caseSensitive ? lines[i] : lines[i].toLowerCase();
+      if (haystack.includes(needle)) {
+        const start = Math.max(0, i - context);
+        const end = Math.min(lines.length, i + context + 1);
+        return lines.slice(start, end).join("\n").trim();
+      }
+    }
+    return lines.find((line) => line.trim())?.trim() ?? "";
   }
   parseRipgrepJson(stdout) {
     const results = [];
