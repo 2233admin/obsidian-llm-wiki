@@ -6,7 +6,7 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { dirname, join, relative, sep } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import type {
   VaultMindAdapter,
   AdapterCapability,
@@ -146,11 +146,15 @@ export class FilesystemAdapter implements VaultMindAdapter {
       const results: SearchResult[] = [];
 
       for (const file of files) {
+        const fullPath = isAbsolute(file) ? file : resolve(file);
+        const relPath = relative(this.vaultPath, fullPath);
+        if (relPath.startsWith("..") || isAbsolute(relPath)) continue;
+
         try {
-          const content = await readFile(file, "utf-8");
+          const content = await readFile(fullPath, "utf-8");
           results.push({
             source: this.name,
-            path: relative(this.vaultPath, file).replace(/\\/g, "/"),
+            path: relPath.replace(/\\/g, "/"),
             content: this.extractSnippet(content, query, opts),
             score: 1.0,
           });

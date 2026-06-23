@@ -239,6 +239,17 @@ export VAULT_DIR="$VAULT_MIND_VAULT_PATH"
 
 Details: [CHUBBYSKILLS.md](CHUBBYSKILLS.md).
 
+## Local security scan evidence
+
+Use `recipe.run id=avira-to-vault` when you want a local Avira / 小红伞 scan report saved as Markdown evidence. LLMwiki does not bundle antivirus software; configure your own trusted local scanner command:
+
+```bash
+export AVIRA_SCAN_CMD='avscan {target}'
+export AVIRA_SCAN_TARGET='/path/to/vault-or-project'
+```
+
+Reports land in `00-Inbox/Security/avira/` when `VAULT_MIND_VAULT_PATH` / `VAULT_PATH` / `VAULT_DIR` is set, then normal `vault.search`, `query.unified`, and `query.answer` can cite them. Treat non-zero scanner exits as `attention-required`, not as final remediation.
+
 ## X/Twitter capture
 
 Use `/x-to-obsidian` when you want posts from X/Twitter saved into the vault through Obsidian Web Clipper. The skill is intentionally local-browser-first: it expects macOS, a logged-in browser session, Obsidian, and the official Web Clipper extension.

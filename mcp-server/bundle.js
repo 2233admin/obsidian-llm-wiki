@@ -2990,7 +2990,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve5.call(this, root, ref);
+      let _sch = resolve6.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a2 = root.localRefs) === null || _a2 === void 0 ? void 0 : _a2[ref];
         const { schemaId } = this.opts;
@@ -3017,7 +3017,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve5(root, ref) {
+    function resolve6(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -3592,7 +3592,7 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve5(baseURI, relativeURI, options) {
+    function resolve6(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const resolved = resolveComponent(parse3(baseURI, schemelessOptions), parse3(relativeURI, schemelessOptions), schemelessOptions, true);
       schemelessOptions.skipEscape = true;
@@ -3819,7 +3819,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve: resolve5,
+      resolve: resolve6,
       resolveComponent,
       equal,
       serialize,
@@ -9843,7 +9843,7 @@ var require_dist2 = __commonJS({
     function parse3(stream, callback) {
       const parser = new parser_1.Parser();
       stream.on("data", (buffer) => parser.parse(buffer, callback));
-      return new Promise((resolve5) => stream.on("end", () => resolve5()));
+      return new Promise((resolve6) => stream.on("end", () => resolve6()));
     }
     exports.parse = parse3;
   }
@@ -10574,12 +10574,12 @@ var require_client = __commonJS({
           this._connect(callback);
           return;
         }
-        return new this._Promise((resolve5, reject) => {
+        return new this._Promise((resolve6, reject) => {
           this._connect((error48) => {
             if (error48) {
               reject(error48);
             } else {
-              resolve5(this);
+              resolve6(this);
             }
           });
         });
@@ -10925,8 +10925,8 @@ var require_client = __commonJS({
           readTimeout = config2.query_timeout || this.connectionParameters.query_timeout;
           query = new Query2(config2, values, callback);
           if (!query.callback) {
-            result = new this._Promise((resolve5, reject) => {
-              query.callback = (err2, res) => err2 ? reject(err2) : resolve5(res);
+            result = new this._Promise((resolve6, reject) => {
+              query.callback = (err2, res) => err2 ? reject(err2) : resolve6(res);
             }).catch((err2) => {
               Error.captureStackTrace(err2);
               throw err2;
@@ -11003,8 +11003,8 @@ var require_client = __commonJS({
         if (cb) {
           this.connection.once("end", cb);
         } else {
-          return new this._Promise((resolve5) => {
-            this.connection.once("end", resolve5);
+          return new this._Promise((resolve6) => {
+            this.connection.once("end", resolve6);
           });
         }
       }
@@ -11053,8 +11053,8 @@ var require_pg_pool = __commonJS({
       const cb = function(err2, client) {
         err2 ? rej(err2) : res(client);
       };
-      const result = new Promise2(function(resolve5, reject) {
-        res = resolve5;
+      const result = new Promise2(function(resolve6, reject) {
+        res = resolve6;
         rej = reject;
       }).catch((err2) => {
         Error.captureStackTrace(err2);
@@ -11115,7 +11115,7 @@ var require_pg_pool = __commonJS({
         if (typeof Promise2.try === "function") {
           return Promise2.try(f);
         }
-        return new Promise2((resolve5) => resolve5(f()));
+        return new Promise2((resolve6) => resolve6(f()));
       }
       _isFull() {
         return this._clients.length >= this.options.max;
@@ -11508,8 +11508,8 @@ var require_query2 = __commonJS({
     NativeQuery.prototype._getPromise = function() {
       if (this._promise) return this._promise;
       this._promise = new Promise(
-        function(resolve5, reject) {
-          this._once("end", resolve5);
+        function(resolve6, reject) {
+          this._once("end", resolve6);
           this._once("error", reject);
         }.bind(this)
       );
@@ -11686,12 +11686,12 @@ var require_client2 = __commonJS({
         this._connect(callback);
         return;
       }
-      return new this._Promise((resolve5, reject) => {
+      return new this._Promise((resolve6, reject) => {
         this._connect((error48) => {
           if (error48) {
             reject(error48);
           } else {
-            resolve5(this);
+            resolve6(this);
           }
         });
       });
@@ -11715,8 +11715,8 @@ var require_client2 = __commonJS({
         query = new NativeQuery(config2, values, callback);
         if (!query.callback) {
           let resolveOut, rejectOut;
-          result = new this._Promise((resolve5, reject) => {
-            resolveOut = resolve5;
+          result = new this._Promise((resolve6, reject) => {
+            resolveOut = resolve6;
             rejectOut = reject;
           }).catch((err2) => {
             Error.captureStackTrace(err2);
@@ -11776,8 +11776,8 @@ var require_client2 = __commonJS({
       }
       let result;
       if (!cb) {
-        result = new this._Promise(function(resolve5, reject) {
-          cb = (err2) => err2 ? reject(err2) : resolve5();
+        result = new this._Promise(function(resolve6, reject) {
+          cb = (err2) => err2 ? reject(err2) : resolve6();
         });
       }
       this.native.end(function() {
@@ -36771,7 +36771,7 @@ var Protocol = class {
           return;
         }
         const pollInterval = task2.pollInterval ?? this._options?.defaultTaskPollInterval ?? 1e3;
-        await new Promise((resolve5) => setTimeout(resolve5, pollInterval));
+        await new Promise((resolve6) => setTimeout(resolve6, pollInterval));
         options?.signal?.throwIfAborted();
       }
     } catch (error48) {
@@ -36788,7 +36788,7 @@ var Protocol = class {
    */
   request(request, resultSchema, options) {
     const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options ?? {};
-    return new Promise((resolve5, reject) => {
+    return new Promise((resolve6, reject) => {
       const earlyReject = (error48) => {
         reject(error48);
       };
@@ -36866,7 +36866,7 @@ var Protocol = class {
           if (!parseResult.success) {
             reject(parseResult.error);
           } else {
-            resolve5(parseResult.data);
+            resolve6(parseResult.data);
           }
         } catch (error48) {
           reject(error48);
@@ -37127,12 +37127,12 @@ var Protocol = class {
       }
     } catch {
     }
-    return new Promise((resolve5, reject) => {
+    return new Promise((resolve6, reject) => {
       if (signal.aborted) {
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
         return;
       }
-      const timeoutId = setTimeout(resolve5, interval);
+      const timeoutId = setTimeout(resolve6, interval);
       signal.addEventListener("abort", () => {
         clearTimeout(timeoutId);
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
@@ -38232,7 +38232,7 @@ var McpServer = class {
     let task = createTaskResult.task;
     const pollInterval = task.pollInterval ?? 5e3;
     while (task.status !== "completed" && task.status !== "failed" && task.status !== "cancelled") {
-      await new Promise((resolve5) => setTimeout(resolve5, pollInterval));
+      await new Promise((resolve6) => setTimeout(resolve6, pollInterval));
       const updatedTask = await extra.taskStore.getTask(taskId);
       if (!updatedTask) {
         throw new McpError(ErrorCode.InternalError, `Task ${taskId} not found during polling`);
@@ -38881,12 +38881,12 @@ var StdioServerTransport = class {
     this.onclose?.();
   }
   send(message) {
-    return new Promise((resolve5) => {
+    return new Promise((resolve6) => {
       const json2 = serializeMessage(message);
       if (this._stdout.write(json2)) {
-        resolve5();
+        resolve6();
       } else {
-        this._stdout.once("drain", resolve5);
+        this._stdout.once("drain", resolve6);
       }
     });
   }
@@ -39031,14 +39031,14 @@ function formatInternalError(operationName, error48) {
 
 // dist/index.js
 import { readFileSync as readFileSync13, existsSync as existsSync13, readdirSync as readdirSync9, statSync as statSync5, realpathSync, writeFileSync as writeFileSync8, appendFileSync as appendFileSync2, rmSync as rmSync4, renameSync, mkdirSync as mkdirSync9 } from "node:fs";
-import { resolve as resolve4, join as join16, basename as basename6, extname as extname2, relative as relative6, dirname as dirname10, posix, isAbsolute as pathIsAbsolute2 } from "node:path";
+import { resolve as resolve5, join as join16, basename as basename6, extname as extname2, relative as relative6, dirname as dirname10, posix, isAbsolute as pathIsAbsolute2 } from "node:path";
 import { fileURLToPath as fileURLToPath3 } from "node:url";
 
 // dist/adapters/filesystem.js
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { dirname, join, relative, sep } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 var exec = promisify(execFile);
 var FilesystemAdapter = class {
   vaultPath;
@@ -39145,15 +39145,31 @@ var FilesystemAdapter = class {
     return results;
   }
   async fallbackSearch(query, opts) {
-    const args = ["-r", "-l", "-i", "-F", "--", query, this.vaultPath];
+    const args = ["-r", "-l", "-F"];
+    if (!opts?.caseSensitive)
+      args.push("-i");
+    args.push("--", query, this.vaultPath);
     try {
       const { stdout } = await exec("grep", args, { maxBuffer: 5 * 1024 * 1024 });
-      return stdout.split("\n").filter(Boolean).slice(0, opts?.maxResults ?? 20).map((p) => ({
-        source: this.name,
-        path: relative(this.vaultPath, p).replace(/\\/g, "/"),
-        content: "",
-        score: 1
-      }));
+      const files = stdout.split(/\r?\n/).filter(Boolean).slice(0, opts?.maxResults ?? 20);
+      const results = [];
+      for (const file2 of files) {
+        const fullPath = isAbsolute(file2) ? file2 : resolve(file2);
+        const relPath = relative(this.vaultPath, fullPath);
+        if (relPath.startsWith("..") || isAbsolute(relPath))
+          continue;
+        try {
+          const content = await readFile(fullPath, "utf-8");
+          results.push({
+            source: this.name,
+            path: relPath.replace(/\\/g, "/"),
+            content: this.extractSnippet(content, query, opts),
+            score: 1
+          });
+        } catch {
+        }
+      }
+      return results;
     } catch (err2) {
       if (this.isExitCode(err2, 1))
         return [];
@@ -39383,7 +39399,7 @@ var MemUAdapter = class {
       query_vec: queryVec && queryVec.length === 1024 ? Array.from(queryVec) : null,
       max_nodes: maxNodes
     };
-    return new Promise((resolve5) => {
+    return new Promise((resolve6) => {
       let stdout = "";
       let stderr = "";
       let settled = false;
@@ -39399,7 +39415,7 @@ var MemUAdapter = class {
         proc.kill("SIGKILL");
         process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli timeout after ${this.graphRecallTimeoutMs}ms
 `);
-        resolve5(null);
+        resolve6(null);
       }, this.graphRecallTimeoutMs);
       proc.stdout.on("data", (d) => {
         stdout += d.toString("utf-8");
@@ -39414,7 +39430,7 @@ var MemUAdapter = class {
         clearTimeout(timer);
         process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli spawn failed: ${err2.message}
 `);
-        resolve5(null);
+        resolve6(null);
       });
       proc.on("close", (code) => {
         if (settled)
@@ -39424,17 +39440,17 @@ var MemUAdapter = class {
         if (code !== 0) {
           process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli exit ${code}: ${stderr.slice(0, 400)}
 `);
-          resolve5(null);
+          resolve6(null);
           return;
         }
         try {
           const parsed = JSON.parse(stdout);
-          resolve5(parsed);
+          resolve6(parsed);
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli stdout JSON parse failed: ${msg}
 `);
-          resolve5(null);
+          resolve6(null);
         }
       });
       try {
@@ -39447,7 +39463,7 @@ var MemUAdapter = class {
         const msg = e instanceof Error ? e.message : String(e);
         process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli stdin write failed: ${msg}
 `);
-        resolve5(null);
+        resolve6(null);
       }
     });
   }
@@ -39457,7 +39473,7 @@ var MemUAdapter = class {
    * unavailable or times out.
    */
   async runMemuSearchPy(query, vec, limit) {
-    return new Promise((resolve5) => {
+    return new Promise((resolve6) => {
       let stdout = "";
       let stderr = "";
       let settled = false;
@@ -39475,7 +39491,7 @@ var MemUAdapter = class {
       } else if (vec) {
         args.push("--embed", JSON.stringify(Array.from(vec)));
       } else {
-        resolve5([]);
+        resolve6([]);
         return;
       }
       const proc = spawn(this.memuSearchPythonExe, args, {
@@ -39489,7 +39505,7 @@ var MemUAdapter = class {
         proc.kill("SIGKILL");
         process.stderr.write(`obsidian-llm-wiki: [warn] memu_search.py timeout after ${this.memuSearchTimeoutMs}ms
 `);
-        resolve5([]);
+        resolve6([]);
       }, this.memuSearchTimeoutMs);
       proc.stdout.on("data", (d) => {
         stdout += d.toString("utf-8");
@@ -39504,7 +39520,7 @@ var MemUAdapter = class {
         clearTimeout(timer);
         process.stderr.write(`obsidian-llm-wiki: [warn] memu_search.py spawn failed: ${err2.message}
 `);
-        resolve5([]);
+        resolve6([]);
       });
       proc.on("close", (code) => {
         if (settled)
@@ -39514,17 +39530,17 @@ var MemUAdapter = class {
         if (code !== 0) {
           process.stderr.write(`obsidian-llm-wiki: [warn] memu_search.py exit ${code}: ${stderr.slice(0, 300)}
 `);
-          resolve5([]);
+          resolve6([]);
           return;
         }
         try {
           const parsed = JSON.parse(stdout);
-          resolve5(this.mapMemuSearchPyResult(parsed));
+          resolve6(this.mapMemuSearchPyResult(parsed));
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           process.stderr.write(`obsidian-llm-wiki: [warn] memu_search.py stdout JSON parse failed: ${msg}
 `);
-          resolve5([]);
+          resolve6([]);
         }
       });
     });
@@ -39688,12 +39704,12 @@ var ObsidianAdapter = class {
       process.stderr.write("vault-mind: [warn] ~/.obsidian-ws-port not found -- obsidian adapter disabled\n");
       return;
     }
-    await new Promise((resolve5) => {
+    await new Promise((resolve6) => {
       const ws = new wrapper_default(`ws://127.0.0.1:${info.port}`);
       const connectTimer = setTimeout(() => {
         ws.terminate();
         process.stderr.write("vault-mind: [warn] obsidian WS connect timeout -- adapter disabled\n");
-        resolve5();
+        resolve6();
       }, CONNECT_TIMEOUT_MS);
       ws.once("open", async () => {
         clearTimeout(connectTimer);
@@ -39713,13 +39729,13 @@ var ObsidianAdapter = class {
           ws.close();
           this.ws = null;
         }
-        resolve5();
+        resolve6();
       });
       ws.once("error", (e) => {
         clearTimeout(connectTimer);
         process.stderr.write(`vault-mind: [warn] obsidian WS error: ${e.message} -- adapter disabled
 `);
-        resolve5();
+        resolve6();
       });
     });
   }
@@ -39842,7 +39858,7 @@ var ObsidianAdapter = class {
       cb(event);
   }
   call(method, params) {
-    return new Promise((resolve5, reject) => {
+    return new Promise((resolve6, reject) => {
       if (!this.ws || this.ws.readyState !== wrapper_default.OPEN) {
         reject(new Error("WebSocket not connected"));
         return;
@@ -39852,7 +39868,7 @@ var ObsidianAdapter = class {
         this.pending.delete(id);
         reject(new Error(`RPC timeout: ${method} (${this.timeout}ms)`));
       }, this.timeout);
-      this.pending.set(id, { resolve: resolve5, reject, timer });
+      this.pending.set(id, { resolve: resolve6, reject, timer });
       this.ws.send(JSON.stringify({ jsonrpc: "2.0", id, method, params }), (e) => {
         if (e) {
           clearTimeout(timer);
@@ -40092,12 +40108,12 @@ var QmdAdapter = class {
   async dispose() {
   }
   runQmd(args) {
-    return new Promise((resolve5) => {
+    return new Promise((resolve6) => {
       let proc;
       try {
         proc = spawn2(this.binary, [...this.binaryArgs, ...args], { stdio: ["ignore", "pipe", "pipe"] });
       } catch {
-        resolve5({ stdout: "", stderr: "spawn failed synchronously", code: -1 });
+        resolve6({ stdout: "", stderr: "spawn failed synchronously", code: -1 });
         return;
       }
       let stdout = "";
@@ -40109,10 +40125,10 @@ var QmdAdapter = class {
         stderr += d.toString("utf-8");
       });
       proc.on("error", () => {
-        resolve5({ stdout, stderr: stderr || "spawn error", code: -1 });
+        resolve6({ stdout, stderr: stderr || "spawn error", code: -1 });
       });
       proc.on("close", (code) => {
-        resolve5({ stdout, stderr, code: code ?? -1 });
+        resolve6({ stdout, stderr, code: code ?? -1 });
       });
     });
   }
@@ -41085,7 +41101,7 @@ var AdapterRegistry = class {
 import { execFile as execFile4 } from "node:child_process";
 import { readdirSync as readdirSync2, existsSync as existsSync2 } from "node:fs";
 import { promisify as promisify4 } from "node:util";
-import { resolve } from "node:path";
+import { resolve as resolve2 } from "node:path";
 var exec4 = promisify4(execFile4);
 var CompileTrigger = class {
   dirty = /* @__PURE__ */ new Set();
@@ -41170,12 +41186,12 @@ var CompileTrigger = class {
   async loadInitialDirty() {
     if (!this.vaultPath)
       return;
-    const kbMeta = resolve(this.compilerPath, "kb_meta.py");
+    const kbMeta = resolve2(this.compilerPath, "kb_meta.py");
     if (!existsSync2(kbMeta))
       return;
     let topics;
     try {
-      topics = readdirSync2(this.vaultPath, { withFileTypes: true }).filter((d) => d.isDirectory() && existsSync2(resolve(this.vaultPath, d.name, "_meta.json"))).map((d) => d.name);
+      topics = readdirSync2(this.vaultPath, { withFileTypes: true }).filter((d) => d.isDirectory() && existsSync2(resolve2(this.vaultPath, d.name, "_meta.json"))).map((d) => d.name);
     } catch {
       return;
     }
@@ -41235,8 +41251,8 @@ var CompileTrigger = class {
   }
   async compile(topic) {
     this.running = true;
-    const topicPath = resolve(this.vaultPath, topic);
-    const compilePy = resolve(this.compilerPath, "compile.py");
+    const topicPath = resolve2(this.vaultPath, topic);
+    const compilePy = resolve2(this.compilerPath, "compile.py");
     const args = [compilePy, topicPath, "--tier", this.tier];
     const timestamp = (/* @__PURE__ */ new Date()).toISOString();
     try {
@@ -41299,13 +41315,13 @@ var CompileTrigger = class {
   }
   /** Find all wiki/ output files for a topic after compilation */
   findWikiFiles(topic) {
-    const wikiDir = resolve(this.vaultPath, topic, "wiki");
+    const wikiDir = resolve2(this.vaultPath, topic, "wiki");
     if (!existsSync2(wikiDir))
       return [];
     const files = [];
     const walk = (d) => {
       for (const ent of readdirSync2(d, { withFileTypes: true })) {
-        const full = resolve(d, ent.name);
+        const full = resolve2(d, ent.name);
         if (ent.isDirectory())
           walk(full);
         else if (ent.name.endsWith(".md"))
@@ -41916,13 +41932,13 @@ init_embedding_client();
 
 // dist/holons/loader.js
 import { existsSync as existsSync5, readFileSync as readFileSync5 } from "node:fs";
-import { resolve as resolve2 } from "node:path";
+import { resolve as resolve3 } from "node:path";
 var ContextCoreLoader = class {
   _cache = null;
   _byId = null;
   path;
   constructor(path) {
-    this.path = resolve2(path);
+    this.path = resolve3(path);
   }
   available() {
     return existsSync5(this.path);
@@ -44531,7 +44547,7 @@ function fencedJson(value) {
 
 // dist/conversation/conversation.js
 import { existsSync as existsSync10, mkdirSync as mkdirSync7, readdirSync as readdirSync6, readFileSync as readFileSync10, rmSync as rmSync3, statSync as statSync3, writeFileSync as writeFileSync6 } from "node:fs";
-import { basename as basename5, dirname as dirname8, join as join13, resolve as resolve3, sep as sep2 } from "node:path";
+import { basename as basename5, dirname as dirname8, join as join13, resolve as resolve4, sep as sep2 } from "node:path";
 var DEFAULT_ACTOR2 = "agent";
 var LOCK_TTL_MS3 = 6e4;
 function withFileLock3(fullPath, fn) {
@@ -44638,8 +44654,8 @@ function normalizeVaultRelPath2(path) {
   return normalized;
 }
 function ensureInsideVault(vaultPath, relPath) {
-  const root = resolve3(vaultPath);
-  const fullPath = resolve3(vaultPath, relPath);
+  const root = resolve4(vaultPath);
+  const fullPath = resolve4(vaultPath, relPath);
   const rootPrefix = root.endsWith(sep2) ? root : root + sep2;
   if (fullPath !== root && !fullPath.startsWith(rootPrefix))
     throw makeErr(-32602, "path traversal blocked");
@@ -46111,8 +46127,8 @@ function makeAllOperations(deps) {
         mode: { type: "string", required: false, description: "Agent mode filter" }
       },
       handler: async (_ctx, params) => {
-        const { resolve: resolve5 } = await import("node:path");
-        const evaluatePy = resolve5(compilerPath, "evaluate.py");
+        const { resolve: resolve6 } = await import("node:path");
+        const evaluatePy = resolve6(compilerPath, "evaluate.py");
         const baseArgs = [evaluatePy];
         if (configPath)
           baseArgs.push("--config", configPath);
@@ -46143,8 +46159,8 @@ function makeAllOperations(deps) {
         mode: { type: "string", required: false, description: "Agent mode" }
       },
       handler: async (_ctx, params) => {
-        const { resolve: resolve5 } = await import("node:path");
-        const evaluatePy = resolve5(compilerPath, "evaluate.py");
+        const { resolve: resolve6 } = await import("node:path");
+        const evaluatePy = resolve6(compilerPath, "evaluate.py");
         const baseArgs = [evaluatePy];
         if (configPath)
           baseArgs.push("--config", configPath);
@@ -46192,8 +46208,8 @@ function makeAllOperations(deps) {
         limit: { type: "number", required: false, description: "Maximum number of history entries (default: 20)", default: 20 }
       },
       handler: async (_ctx, params) => {
-        const { resolve: resolve5 } = await import("node:path");
-        const evaluatePy = resolve5(compilerPath, "evaluate.py");
+        const { resolve: resolve6 } = await import("node:path");
+        const evaluatePy = resolve6(compilerPath, "evaluate.py");
         const baseArgs = [evaluatePy];
         if (configPath)
           baseArgs.push("--config", configPath);
@@ -46348,8 +46364,8 @@ function loadConfig() {
     };
   }
   const candidates = [
-    resolve4(process.cwd(), "vault-mind.yaml"),
-    resolve4(process.cwd(), "../vault-mind.yaml")
+    resolve5(process.cwd(), "vault-mind.yaml"),
+    resolve5(process.cwd(), "../vault-mind.yaml")
   ];
   for (const p of candidates) {
     if (existsSync13(p))
@@ -46442,7 +46458,7 @@ function withFileLock4(fullPath, fn) {
 var DEFAULT_PROTECTED_PATHS = ["20-Decisions/**", "30-Architecture/**", "40-Runbooks/**", "README.md"];
 var globCache = /* @__PURE__ */ new Map();
 function readVaultCollabPolicy(vaultPath) {
-  const policyPath = resolve4(vaultPath, ".vault-collab.json");
+  const policyPath = resolve5(vaultPath, ".vault-collab.json");
   if (!existsSync13(policyPath))
     return {};
   try {
@@ -46657,7 +46673,7 @@ function auditWrite(config2, toolName, args, result) {
     return;
   try {
     const day = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-    const auditDir = resolve4(config2.vault_path, ".wiki-audit");
+    const auditDir = resolve5(config2.vault_path, ".wiki-audit");
     mkdirSync9(auditDir, { recursive: true });
     const entry = {
       ts: (/* @__PURE__ */ new Date()).toISOString(),
@@ -46668,7 +46684,7 @@ function auditWrite(config2, toolName, args, result) {
       ok: true,
       resultPath: typeof result === "object" && result !== null && "path" in result ? result.path : void 0
     };
-    appendFileSync2(resolve4(auditDir, `${day}.jsonl`), JSON.stringify(entry) + "\n", "utf-8");
+    appendFileSync2(resolve5(auditDir, `${day}.jsonl`), JSON.stringify(entry) + "\n", "utf-8");
   } catch (e) {
     process.stderr.write(`obsidian-llm-wiki: [warn] audit write failed: ${e.message}
 `);
@@ -46723,7 +46739,7 @@ var VaultFs = class {
   vault;
   realVault;
   constructor(vaultPath) {
-    this.vault = resolve4(vaultPath);
+    this.vault = resolve5(vaultPath);
     this.realVault = realpathSync(this.vault);
   }
   normalizeVaultPath(p, opts = {}) {
@@ -46747,7 +46763,7 @@ var VaultFs = class {
   }
   resolve(p, opts = {}) {
     const normalized = this.normalizeVaultPath(p, opts);
-    const full = resolve4(this.vault, normalized);
+    const full = resolve5(this.vault, normalized);
     const rel = relative6(this.vault, full);
     if (rel.startsWith("..") || pathIsAbsolute2(rel))
       throw err(-32602, "path escapes vault");
@@ -48271,7 +48287,7 @@ async function main() {
     }
   }
   const __dirname = dirname10(fileURLToPath3(import.meta.url));
-  const compilerPath = resolve4(__dirname, "../../compiler");
+  const compilerPath = resolve5(__dirname, "../../compiler");
   const python = process.env.VAULT_MIND_PYTHON ?? process.env.PYTHON ?? "python";
   const compileTrigger = new CompileTrigger({
     vaultPath: config2.vault_path,
@@ -48412,7 +48428,7 @@ async function main() {
   process.stderr.write(`obsidian-llm-wiki: try "what do I know about <topic>" to invoke vault-librarian
 `);
 }
-var _entryPath = process.argv[1] ? resolve4(process.argv[1]) : "";
+var _entryPath = process.argv[1] ? resolve5(process.argv[1]) : "";
 var _thisPath = fileURLToPath3(import.meta.url);
 if (_entryPath && _entryPath === _thisPath) {
   main().catch((e) => {

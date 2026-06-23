@@ -711,7 +711,7 @@ export class FsTransport {
             continue;
           }
           if (insideVault(realChild)) walk(full);
-        } else if (st.isFile() && ent.name.endsWith('.md')) {
+        } else if (st.isFile() && ['.md', '.canvas', '.base'].includes(path.extname(ent.name))) {
           const rel = path.relative(this.vault, full).replace(/\\/g, '/');
           fn(rel, fs.readFileSync(full, 'utf-8'));
         }

@@ -496,3 +496,12 @@ describe('findRecipe', () => {
     assert.equal(recipe, undefined);
   });
 });
+
+
+test('default registry includes Avira / 小红伞 security scan recipe', () => {
+  const recipe = findRecipe('avira-to-vault');
+  assert.ok(recipe, 'expected avira-to-vault shipped recipe');
+  assert.equal(recipe.frontmatter.category, 'sense');
+  assert.ok(recipe.frontmatter.secrets?.some((secret) => secret.name === 'AVIRA_SCAN_CMD'));
+  assert.ok(recipe.body.includes('小红伞'));
+});
