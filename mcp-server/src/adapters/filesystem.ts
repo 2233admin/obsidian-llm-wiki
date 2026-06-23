@@ -136,17 +136,32 @@ export class FilesystemAdapter implements VaultMindAdapter {
   }
 
   private async fallbackSearch(query: string, opts?: SearchOpts): Promise<SearchResult[]> {
-    const args = ["-r", "-l", "-i", "-F", "--", query, this.vaultPath];  // -F = fixed string
+    const args = ["-r", "-l", "-F"];
+    if (!opts?.caseSensitive) args.push("-i");
+    args.push("--", query, this.vaultPath);
+
     try {
       const { stdout } = await exec("grep", args, { maxBuffer: 5 * 1024 * 1024 });
-      return stdout.split("\n").filter(Boolean).slice(0, opts?.maxResults ?? 20).map(p => ({
-        source: this.name,
-        path: relative(this.vaultPath, p).replace(/\\/g, "/"),
-        content: "",
-        score: 1.0,
-      }));
+      const files = stdout.split(/\r?\n/).filter(Boolean).slice(0, opts?.maxResults ?? 20);
+      const results: SearchResult[] = [];
+
+      for (const file of files) {
+        try {
+          const content = await readFile(file, "utf-8");
+          results.push({
+            source: this.name,
+            path: relative(this.vaultPath, file).replace(/\\/g, "/"),
+            content: this.extractSnippet(content, query, opts),
+            score: 1.0,
+          });
+        } catch {
+          // File may have changed between grep and read; skip stale matches.
+        }
+      }
+
+      return results;
     } catch (err: unknown) {
-      if (this.isExitCode(err, 1)) return [];  // grep exit 1 = no matches
+      if (this.isExitCode(err, 1)) return []; // grep exit 1 = no matches
       throw new Error("Search failed: neither ripgrep nor grep available");
     }
   }
