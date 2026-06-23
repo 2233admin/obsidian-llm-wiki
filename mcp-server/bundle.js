@@ -40552,6 +40552,7 @@ CREATE INDEX IF NOT EXISTS chunks_slug_idx
 `;
 
 // dist/adapters/vaultbrain/pglite-engine.js
+var dynamicImport = new Function("specifier", "return import(specifier)");
 var PGliteEngine = class {
   dataDir;
   db = null;
@@ -40560,9 +40561,10 @@ var PGliteEngine = class {
   }
   async connect() {
     const { PGlite } = await import("@electric-sql/pglite");
-    const { vector } = await import("@electric-sql/pglite/vector");
+    const { vector } = await dynamicImport("@electric-sql/pglite/vector");
     const { pg_trgm } = await import("@electric-sql/pglite/contrib/pg_trgm");
-    this.db = new PGlite(this.dataDir, { extensions: { vector, pg_trgm } });
+    const vectorExtension = vector;
+    this.db = new PGlite(this.dataDir, { extensions: { vector: vectorExtension, pg_trgm } });
     await this.db.waitReady;
   }
   async disconnect() {
