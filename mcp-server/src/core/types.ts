@@ -44,6 +44,8 @@ export type OperationNamespace =
   | 'project'
   | 'ingest'
   | 'source'
+  | 'conversation'
+  | 'context'
   | 'skills';
 
 export interface Operation {

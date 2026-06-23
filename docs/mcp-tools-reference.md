@@ -3,7 +3,7 @@
 > Auto-generated from `mcp-server/src/core/operations.ts`.
 > Run `npm run generate-tools-doc` to regenerate. Do not edit by hand.
 
-Total: **86** operations across **15** namespaces.
+Total: **94** operations across **17** namespaces.
 
 ## `vault.*` (31)
 
@@ -386,7 +386,7 @@ Write a persona-authored analysis into 00-Inbox/AI-Output/{persona}/YYYY-MM-DD-{
 - `reviewStatus` (string, optional, default: `"none"`, enum: `none` | `user-confirmed`) — When user-confirmed, appends #user-confirmed tag to the body so Obsidian tag search picks it up. Default: none (no tag appended).
 - `dryRun` (boolean, optional, default: `true`) — Simulate without writing (default: true)
 
-## `query.*` (6)
+## `query.*` (8)
 
 ### `query.adapters`
 
@@ -395,6 +395,21 @@ List registered adapters, their capabilities, and availability
 **Mutating:** no
 
 **Parameters:** none
+
+### `query.answer`
+
+Citation-backed extractive answer built on query.trace. Returns answer, claims, citations, gaps, contradictions, confidence, and the underlying trace. Phase A is deterministic and conservative: it cites retrieved snippets and reports gaps instead of inventing missing context.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `query` (string, required) — Question or search query to answer from vault evidence
+- `maxResults` (number, optional, default: `5`) — Maximum evidence items to cite (default: 5)
+- `adapters` (array, optional) — Limit specific adapters by name
+- `weights` (object, optional) — Per-adapter score weight multipliers, e.g. {"obsidian":1.2,"filesystem":0.8}
+- `caseSensitive` (boolean, optional, default: `false`) — Case-sensitive matching
+- `context` (number, optional) — Lines surrounding context per match
 
 ### `query.explain`
 
@@ -430,6 +445,21 @@ Text-input semantic search. Embeds the query via an OpenAI-compatible embedding 
 - `adapters` (array, optional) — Limit to specific embedding-capable adapters by name
 - `weights` (object, optional) — Per-adapter score weight multipliers
 
+### `query.trace`
+
+Transparent retrieval trace for query.unified. Returns the query plan, selected adapters, per-adapter branch stats, RRF fusion settings, ranked evidence snippets, and known limitations. Use before evidence-backed answers when you need to explain why results were chosen.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `query` (string, required) — Search query string
+- `maxResults` (number, optional, default: `10`) — Maximum evidence items return (default: 10)
+- `adapters` (array, optional) — Limit specific adapters by name
+- `weights` (object, optional) — Per-adapter score weight multipliers, e.g. {"obsidian":1.2,"filesystem":0.8}
+- `caseSensitive` (boolean, optional, default: `false`) — Case-sensitive matching
+- `context` (number, optional) — Lines surrounding context per match
+
 ### `query.unified`
 
 Reciprocal Rank Fusion (RRF) search across all active adapters (filesystem, obsidian, kanban, memu, gitnexus). Each adapter returns its ranked top-N; results are merged by RRF score = sum over sources (weight / (60 + rank_in_source)), so a doc that appears in top-5 of multiple sources beats a doc at top-1 of just one. Weights now scale each source's rank contribution (not raw score), so weight=2 doubles a source's influence on tied docs. Use when you want best answers anywhere; for single-adapter ranked search use query.search, for raw grep use vault.search.
@@ -457,6 +487,99 @@ Weighted multi-adapter semantic search via pre-computed query vector. Fans out t
 - `maxResults` (number, optional, default: `50`) — Maximum results to return (default: 50)
 - `adapters` (array, optional) — Limit to specific embedding-capable adapters by name
 - `weights` (object, optional) — Per-adapter score weight multipliers
+
+## `context.*` (3)
+
+### `context.deep_search`
+
+Heavier citation-backed context search returning full query.answer trace for complex cross-vault or project-scoped questions.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `query` (string, required) — Question to answer with deeper trace
+- `project` (string, optional) — Optional project key to scope search
+- `maxResults` (number, optional, default: `20`) — Maximum evidence items (default: 20)
+- `adapters` (array, optional) — Limit specific adapters by name
+- `weights` (object, optional) — Per-adapter score weight multipliers
+
+### `context.recall`
+
+Topic-scoped citation-backed recall using query.answer. Project argument restricts search to 10-Projects/<project>/**.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `query` (string, required) — Topic or question to recall
+- `project` (string, optional) — Optional project key to scope recall
+- `maxResults` (number, optional, default: `8`) — Maximum evidence items (default: 8)
+- `adapters` (array, optional) — Limit specific adapters by name
+- `weights` (object, optional) — Per-adapter score weight multipliers
+
+### `context.wakeup`
+
+Read-only MemPalace-style startup context: L0 passport, L1 handoff/sessions/decisions, optional L2 topic recall. Does not write files.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, optional) — Optional project key; reads project-scoped actor memory
+- `topic` (string, optional) — Optional topic/room for recall
+- `maxChars` (number, optional, default: `6000`) — Approximate maximum JSON character budget (default: 6000)
+- `maxDecisions` (number, optional, default: `5`) — Maximum recent conversation decisions include (default: 5)
+- `maxSessions` (number, optional, default: `5`) — Maximum recent session memories include (default: 5)
+- `includeRecall` (boolean, optional) — Run topic recall when topic provided (default: true when topic provided)
+
+## `conversation.*` (3)
+
+### `conversation.decision.capture`
+
+Capture an AI conversation decision as append-only Markdown memory with summary, decision, why, rejected options, constraints, risks, actions, references, and excerpts.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, optional) — Optional project key; stores under 10-Projects/<project>/agents/<actor>/memory/decisions
+- `title` (string, required) — Decision title
+- `summary` (string, optional) — Short decision context summary
+- `decision` (string, optional) — Final decision or current captured conclusion
+- `why` (string, optional) — Reasoning behind the decision
+- `rejectedOptions` (array, optional) — Alternatives considered and rejected
+- `constraints` (array, optional) — Constraint snapshot at decision time
+- `assumptions` (array, optional) — Assumptions that may invalidate decision later
+- `risks` (array, optional) — Risks and caveats
+- `actions` (array, optional) — Follow-up actions
+- `references` (array, optional) — Files, notes, links, issues, or sources referenced
+- `excerpts` (array, optional) — Selected conversation excerpts, not full transcript
+- `tags` (array, optional) — Tags for retrieval and filtering
+- `source` (object, optional) — Optional source metadata object, e.g. {client, threadId, url}
+- `dryRun` (boolean, optional, default: `false`) — Preview without writing (default: false)
+
+### `conversation.decision.get`
+
+Read a captured conversation decision by exact vault-relative path.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `path` (string, required) — Vault-relative decision markdown path
+
+### `conversation.decision.list`
+
+List captured conversation decision Markdown notes newest first.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, optional) — Optional project key; reads project-scoped decision memory
+- `limit` (number, optional, default: `20`) — Maximum decisions return (default: 20)
+- `tag` (string, optional) — Optional tag filter
 
 ## `compile.*` (4)
 

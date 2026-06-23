@@ -100,19 +100,34 @@ Copy-Item-OrDryRun -Source (Join-Path $ScriptDir "mcp-server\package.json") -Des
 # skill/slash-command discovery do not need to know about vault-wiki/skills.
 $InstalledSkills = 0
 $SkillRoot = Join-Path $ScriptDir "skills"
-foreach ($skillFile in Get-ChildItem -Path $SkillRoot -Filter "vault-*.md" -File) {
-  $skill = [System.IO.Path]::GetFileNameWithoutExtension($skillFile.Name)
-  $destDir = Join-Path $ParentDir $skill
-  if ($DryRun) {
-    Write-Host "[dry-run] mkdir $destDir"
-    Write-Host "[dry-run] copy $($skillFile.FullName) -> $destDir\SKILL.md"
-  } else {
-    New-Item -ItemType Directory -Force -Path $destDir | Out-Null
-    Copy-Item -Path $skillFile.FullName -Destination (Join-Path $destDir "SKILL.md") -Force
+if (Test-Path $SkillRoot) {
+  foreach ($skillDir in Get-ChildItem -Path $SkillRoot -Directory) {
+    $skillMd = Join-Path $skillDir.FullName "SKILL.md"
+    if (-not (Test-Path $skillMd)) { continue }
+    $destDir = Join-Path $ParentDir $skillDir.Name
+    if ($DryRun) {
+      Write-Host "[dry-run] mkdir $destDir"
+      Write-Host "[dry-run] copy $($skillDir.FullName)\* -> $destDir"
+    } else {
+      New-Item -ItemType Directory -Force -Path $destDir | Out-Null
+      Copy-Item -Path (Join-Path $skillDir.FullName "*") -Destination $destDir -Recurse -Force
+    }
+    $InstalledSkills++
   }
-  $InstalledSkills++
-}
 
+  foreach ($skillFile in Get-ChildItem -Path $SkillRoot -Filter "*.md" -File) {
+    $skill = [System.IO.Path]::GetFileNameWithoutExtension($skillFile.Name)
+    $destDir = Join-Path $ParentDir $skill
+    if ($DryRun) {
+      Write-Host "[dry-run] mkdir $destDir"
+      Write-Host "[dry-run] copy $($skillFile.FullName) -> $destDir\SKILL.md"
+    } else {
+      New-Item -ItemType Directory -Force -Path $destDir | Out-Null
+      Copy-Item -Path $skillFile.FullName -Destination (Join-Path $destDir "SKILL.md") -Force
+    }
+    $InstalledSkills++
+  }
+}
 $InstallPath = (Join-Path $SkillsDir "mcp-server\bundle.js") -replace '\\', '/'
 
 if (-not $DryRun) {
@@ -155,5 +170,7 @@ Your markdown vault is managed by host-neutral LLMwiki roles:
 | Teacher | `/vault-teacher` | Explain concepts in graph context |
 | Historian | `/vault-historian` | Time-window search by mtime |
 | Janitor | `/vault-janitor` | Propose cleanup fixes |
+| Chubby Ingest | `/chubbyskills` | Install and route multi-platform capture into LLMwiki |
+| X Capture | `/x-to-obsidian` | Save high-signal X posts through Obsidian Web Clipper |
 | Closeout | `/vault-agent-closeout` | File agent work into AI-Output draft quarantine |
 "@

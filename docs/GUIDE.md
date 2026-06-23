@@ -289,6 +289,33 @@ Path rules are fixed:
 
 Because Markdown memory lands in the vault, regular filesystem search and `query.unified` can find it. A useful handoff prompt is: "write a handoff for project X with current state, next steps, risks, and files".
 
+## Conversation decisions
+
+Use `conversation.decision.capture` when the useful part of a chat is a decision, not just a session summary: architecture choices, technical tradeoffs, rejected options, debug root causes, project-state changes, or constraints future agents must preserve.
+
+Decision notes are append-only Markdown under:
+
+```text
+10-Projects/<project>/agents/<actor>/memory/decisions/
+00-Inbox/Agent-Memory/<actor>/decisions/
+```
+
+Each note captures Summary, Decision, Why, Rejected Options, Constraints Snapshot, Assumptions, Risks, Actions, References, and selected Conversation Excerpts. Do not save full transcripts by default; pass only excerpts needed to justify the decision. Because these are normal vault notes, `vault.search`, `query.unified`, `query.trace`, and `query.answer` can cite them later.
+
+## MemPalace-style context stack
+
+Use `context.wakeup` at the start of a new agent session. It packages L0 passport identity, L1 handoff/sessions/conversation decisions, and optional L2 topic recall into a bounded startup context.
+
+Good defaults:
+
+```text
+context.wakeup project=<project> topic=<topic>
+context.recall project=<project> query=<specific topic>
+context.deep_search query=<complex question>
+```
+
+The stack is read-only in Phase 1. It does not save transcripts or mutate memory; it only repackages existing Markdown memory, conversation decisions, and cited search results.
+
 ## Kanban board search
 
 The read-only `kanban` adapter indexes Obsidian Kanban plugin boards that are stored as Markdown:

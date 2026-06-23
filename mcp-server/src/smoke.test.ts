@@ -133,6 +133,30 @@ test('tools/list includes markdown memory operations', async () => {
   }
 });
 
+test('tools/list includes conversation decision operations', async () => {
+  const res = await client.listTools();
+  const names = new Set(res.tools.map((t) => t.name));
+  for (const required of [
+    'conversation.decision.capture',
+    'conversation.decision.list',
+    'conversation.decision.get',
+  ]) {
+    assert.ok(names.has(required), `missing required tool: ${required}`);
+  }
+});
+
+test('tools/list includes context stack operations', async () => {
+  const res = await client.listTools();
+  const names = new Set(res.tools.map((t) => t.name));
+  for (const required of [
+    'context.wakeup',
+    'context.recall',
+    'context.deep_search',
+  ]) {
+    assert.ok(names.has(required), `missing required tool: ${required}`);
+  }
+});
+
 test('tools/list includes local project management operations', async () => {
   const res = await client.listTools();
   const names = new Set(res.tools.map((t) => t.name));
@@ -250,6 +274,276 @@ assert.ok(
   basePayload.results.some((file) => file.path.replaceAll('\\', '/') === '10-Projects/visualsmoke/views/issues.base'),
   `visual base not searchable: ${JSON.stringify(basePayload)}`,
 );
+});
+
+test('query.trace exposes retrieval plan and ranked evidence', async () => {
+  const token = `trace-evidence-${randomUUID()}`;
+  const path = `query-trace-${randomUUID()}.md`;
+  const write = await client.callTool({
+    name: 'vault.create',
+    arguments: {
+      path,
+      content: `# Query Trace Probe\n\n${token}\n`,
+      dryRun: false,
+    },
+  });
+  assert.ok(!write.isError, `vault.create errored: ${JSON.stringify(write.content)}`);
+
+  const res = await client.callTool({
+    name: 'query.trace',
+    arguments: {
+      query: token,
+      maxResults: 3,
+      adapters: ['filesystem'],
+    },
+  });
+  assert.ok(!res.isError, `query.trace errored: ${JSON.stringify(res.content)}`);
+  const payload = JSON.parse((res.content as Array<{ text: string }>)[0].text) as {
+    query: string;
+    mode: string;
+    plan: {
+      selectedAdapters: string[];
+      fusion: { algorithm: string; k: number; rankBase: number };
+      branches: Array<{ adapter: string; status: string; count: number }>;
+    };
+    evidence: Array<{ rank: number; source: string; path: string; snippet: string; rrfSources: string[] }>;
+    limitations: string[];
+  };
+  assert.equal(payload.query, token);
+  assert.equal(payload.mode, 'keyword');
+  assert.deepEqual(payload.plan.selectedAdapters, ['filesystem']);
+  assert.equal(payload.plan.fusion.algorithm, 'reciprocal_rank_fusion');
+  assert.equal(payload.plan.fusion.k, 60);
+  assert.equal(payload.plan.fusion.rankBase, 1);
+  assert.ok(
+    payload.plan.branches.some((branch) => branch.adapter === 'filesystem' && branch.status === 'ok' && branch.count > 0),
+    `filesystem trace branch missing: ${JSON.stringify(payload.plan.branches)}`,
+  );
+  assert.ok(
+    payload.evidence.some((item) => item.source === 'filesystem' && item.path === path && item.snippet.includes(token)),
+    `trace evidence missing seeded note: ${JSON.stringify(payload.evidence)}`,
+  );
+  assert.ok(
+    payload.limitations.some((item) => item.includes('not BM25')),
+    `trace limitations should disclose non-BM25 filesystem search: ${JSON.stringify(payload.limitations)}`,
+  );
+});
+
+test('query.answer returns citation-backed claims and gaps', async () => {
+  const token = `answer-evidence-${randomUUID()}`;
+  const path = `query-answer-${randomUUID()}.md`;
+  const sentence = `The ${token} migration is blocked by missing reranker evaluation.`;
+  const write = await client.callTool({
+    name: 'vault.create',
+    arguments: {
+      path,
+      content: `# Query Answer Probe\n\n${sentence}\n`,
+      dryRun: false,
+    },
+  });
+  assert.ok(!write.isError, `vault.create errored: ${JSON.stringify(write.content)}`);
+
+  const res = await client.callTool({
+    name: 'query.answer',
+    arguments: {
+      query: token,
+      maxResults: 3,
+      adapters: ['filesystem'],
+    },
+  });
+  assert.ok(!res.isError, `query.answer errored: ${JSON.stringify(res.content)}`);
+  const payload = JSON.parse((res.content as Array<{ text: string }>)[0].text) as {
+    query: string;
+    answer: string;
+    claims: Array<{ text: string; citations: string[]; confidence: string }>;
+    citations: Array<{ id: string; source: string; path: string; snippet: string }>;
+    gaps: Array<{ type: string; message: string }>;
+    contradictions: unknown[];
+    confidence: string;
+    trace: { plan: { selectedAdapters: string[] } };
+  };
+  assert.equal(payload.query, token);
+  assert.ok(payload.answer.includes('[C1]'), `answer missing citation marker: ${payload.answer}`);
+  assert.ok(
+    payload.claims.some((claim) => claim.text.includes(token) && claim.citations.includes('C1')),
+    `answer claims missing cited token: ${JSON.stringify(payload.claims)}`,
+  );
+  assert.ok(
+    payload.citations.some((citation) => citation.id === 'C1' && citation.source === 'filesystem' && citation.path === path && citation.snippet.includes(token)),
+    `answer citations missing seeded note: ${JSON.stringify(payload.citations)}`,
+  );
+  assert.ok(
+    payload.gaps.some((gap) => gap.type === 'semantic_review_missing'),
+    `answer gaps should disclose Phase A semantic review boundary: ${JSON.stringify(payload.gaps)}`,
+  );
+  assert.deepEqual(payload.contradictions, []);
+  assert.notEqual(payload.confidence, 'low');
+  assert.deepEqual(payload.trace.plan.selectedAdapters, ['filesystem']);
+});
+
+test('conversation decision capture is searchable and answer-citable', async () => {
+  const token = `conversation-decision-${randomUUID()}`;
+  const capture = await client.callTool({
+    name: 'conversation.decision.capture',
+    arguments: {
+      title: `Capture ${token}`,
+      summary: 'Conversation produced a durable implementation decision.',
+      decision: `Use append-only decision notes for ${token}.`,
+      why: 'Chat decisions otherwise disappear into transcript history.',
+      rejectedOptions: ['Keep decisions only in handoff notes'],
+      constraints: ['Do not store full transcripts by default'],
+      actions: ['Wire automatic capture later'],
+      tags: ['conversation', 'decision'],
+      source: { client: 'smoke-test', threadId: token },
+    },
+  });
+  assert.ok(!capture.isError, `conversation.decision.capture errored: ${JSON.stringify(capture.content)}`);
+  const capturePayload = JSON.parse((capture.content as Array<{ text: string }>)[0].text) as { path: string };
+  assert.match(capturePayload.path, /^00-Inbox\/Agent-Memory\/agent\/decisions\/.+\.md$/);
+
+  const unified = await client.callTool({
+    name: 'query.unified',
+    arguments: {
+      query: token,
+      maxResults: 5,
+      adapters: ['filesystem'],
+    },
+  });
+  assert.ok(!unified.isError, `query.unified errored: ${JSON.stringify(unified.content)}`);
+  const unifiedPayload = JSON.parse((unified.content as Array<{ text: string }>)[0].text) as {
+    results: Array<{ path: string; content: string }>;
+  };
+  assert.ok(
+    unifiedPayload.results.some((item) => item.path === capturePayload.path && item.content.includes(token)),
+    `captured decision not found by query.unified: ${JSON.stringify(unifiedPayload.results)}`,
+  );
+
+  const answer = await client.callTool({
+    name: 'query.answer',
+    arguments: {
+      query: token,
+      maxResults: 5,
+      adapters: ['filesystem'],
+    },
+  });
+  assert.ok(!answer.isError, `query.answer errored: ${JSON.stringify(answer.content)}`);
+  const answerPayload = JSON.parse((answer.content as Array<{ text: string }>)[0].text) as {
+    citations: Array<{ path: string; snippet: string }>;
+  };
+  assert.ok(
+    answerPayload.citations.some((citation) => citation.path === capturePayload.path && citation.snippet.includes(token)),
+    `captured decision not cited by query.answer: ${JSON.stringify(answerPayload.citations)}`,
+  );
+});
+
+test('context stack wakes up and recalls conversation decisions', async () => {
+  const project = `contextsmoke-${randomUUID()}`;
+  const token = `context-stack-${randomUUID()}`;
+  const passport = await client.callTool({
+    name: 'memory.passport.upsert',
+    arguments: {
+      project,
+      goal: `Wake up with ${token}`,
+      decisions: [`Keep ${token} visible in startup context`],
+    },
+  });
+  assert.ok(!passport.isError, `memory.passport.upsert errored: ${JSON.stringify(passport.content)}`);
+  const handoff = await client.callTool({
+    name: 'memory.handoff.write',
+    arguments: {
+      project,
+      currentState: `Context stack is testing ${token}`,
+      nextSteps: ['Run recall after wakeup'],
+    },
+  });
+  assert.ok(!handoff.isError, `memory.handoff.write errored: ${JSON.stringify(handoff.content)}`);
+  const session = await client.callTool({
+    name: 'memory.session.save',
+    arguments: {
+      project,
+      title: 'Context Stack Session',
+      summary: `Session summary mentions ${token}`,
+      decisions: [`Session preserves ${token}`],
+    },
+  });
+  assert.ok(!session.isError, `memory.session.save errored: ${JSON.stringify(session.content)}`);
+  const decision = await client.callTool({
+    name: 'conversation.decision.capture',
+    arguments: {
+      project,
+      title: `Context decision ${token}`,
+      summary: `Decision summary mentions ${token}`,
+      decision: `Use context.wakeup for ${token}`,
+      tags: ['context'],
+    },
+  });
+  assert.ok(!decision.isError, `conversation.decision.capture errored: ${JSON.stringify(decision.content)}`);
+
+  const wakeup = await client.callTool({
+    name: 'context.wakeup',
+    arguments: {
+      project,
+      topic: token,
+      maxChars: 8000,
+    },
+  });
+  assert.ok(!wakeup.isError, `context.wakeup errored: ${JSON.stringify(wakeup.content)}`);
+  const wakeupPayload = JSON.parse((wakeup.content as Array<{ text: string }>)[0].text) as {
+    project: string;
+    layers: {
+      l0Identity: { content: string };
+      l1EssentialStory: {
+        handoff: { content: string };
+        sessions: Array<{ preview: string }>;
+        decisions: Array<{ preview: string }>;
+      };
+      l2RoomRecall?: { citations: Array<{ path: string; snippet: string }> };
+    };
+  };
+  assert.equal(wakeupPayload.project, project);
+  assert.match(wakeupPayload.layers.l0Identity.content, new RegExp(token));
+  assert.match(wakeupPayload.layers.l1EssentialStory.handoff.content, new RegExp(token));
+  assert.ok(wakeupPayload.layers.l1EssentialStory.sessions.some((item) => item.preview.includes(token)));
+  assert.ok(wakeupPayload.layers.l1EssentialStory.decisions.some((item) => item.preview.includes(token)));
+  assert.ok(wakeupPayload.layers.l2RoomRecall?.citations.some((citation) => citation.snippet.includes(token)));
+
+  const recall = await client.callTool({
+    name: 'context.recall',
+    arguments: {
+      project,
+      query: token,
+      adapters: ['filesystem'],
+    },
+  });
+  assert.ok(!recall.isError, `context.recall errored: ${JSON.stringify(recall.content)}`);
+  const recallPayload = JSON.parse((recall.content as Array<{ text: string }>)[0].text) as {
+    scope: { project: string; glob: string };
+    citations: Array<{ path: string; snippet: string }>;
+    traceSummary: { selectedAdapters: string[] };
+  };
+  assert.equal(recallPayload.scope.project, project);
+  assert.equal(recallPayload.scope.glob, `10-Projects/${project}/**`);
+  assert.deepEqual(recallPayload.traceSummary.selectedAdapters, ['filesystem']);
+  assert.ok(
+    recallPayload.citations.some((citation) => citation.path.includes('/decisions/') && citation.snippet.includes(token)),
+    `context.recall did not cite decision: ${JSON.stringify(recallPayload.citations)}`,
+  );
+
+  const deep = await client.callTool({
+    name: 'context.deep_search',
+    arguments: {
+      project,
+      query: token,
+      adapters: ['filesystem'],
+    },
+  });
+  assert.ok(!deep.isError, `context.deep_search errored: ${JSON.stringify(deep.content)}`);
+  const deepPayload = JSON.parse((deep.content as Array<{ text: string }>)[0].text) as {
+    trace: { evidence: Array<{ path: string; snippet: string }> };
+    citations: Array<{ path: string; snippet: string }>;
+  };
+  assert.ok(deepPayload.trace.evidence.length > 0, 'context.deep_search should include full trace evidence');
+  assert.ok(deepPayload.citations.some((citation) => citation.snippet.includes(token)));
 });
 
 test('query.adapters includes kanban by default', async () => {

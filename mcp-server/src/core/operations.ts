@@ -6,7 +6,7 @@ import { dirname, join, relative } from 'node:path';
 import type { Operation } from './types.js';
 import { scanRecipes, findRecipe } from '../recipes/_registry.js';
 import { getRecipeStatus, runHealthCheck, appendHeartbeat } from '../recipes/_framework.js';
-import { unifiedQuery, unifiedQueryByVector } from '../unified-query.js';
+import { answerQuery, traceUnifiedQuery, unifiedQuery, unifiedQueryByVector } from '../unified-query.js';
 import { embed } from '../embedding-client.js';
 import type { AdapterRegistry } from '../adapters/registry.js';
 import type { VaultBrainAdapter } from '../adapters/vaultbrain/index.js';
@@ -23,6 +23,8 @@ import { makeMemoryOps } from '../memory/memory.js';
 import { makeProjectOps } from '../project/project.js';
 import { makeIngestOps } from '../ingest/ingest.js';
 import { makeSourceOps } from '../source/source.js';
+import { makeConversationOps } from '../conversation/conversation.js';
+import { makeContextOps } from '../context/context.js';
 
 const execAsync = promisify(execFile);
 const PROTECTED_DIRS = new Set(['.obsidian', '.trash', '.git', 'node_modules']);
@@ -659,9 +661,67 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
         });
       },
     },
-    {
-      name: 'query.search',
-      namespace: 'query',
+  {
+    name: 'query.trace',
+    namespace: 'query',
+    description: 'Transparent retrieval trace for query.unified. Returns the query plan, selected adapters, per-adapter branch stats, RRF fusion settings, ranked evidence snippets, and known limitations. Use before evidence-backed answers when you need to explain why results were chosen.',
+    mutating: false,
+    params: {
+      query: { type: 'string', required: true, description: 'Search query string' },
+      maxResults: { type: 'number', required: false, description: 'Maximum evidence items return (default: 10)', default: 10 },
+      adapters: { type: 'array', required: false, description: 'Limit specific adapters by name' },
+      weights: { type: 'object', required: false, description: 'Per-adapter score weight multipliers, e.g. {"obsidian":1.2,"filesystem":0.8}' },
+      caseSensitive: { type: 'boolean', required: false, description: 'Case-sensitive matching', default: false },
+      context: { type: 'number', required: false, description: 'Lines surrounding context per match' },
+    },
+    handler: async (_ctx, params) => {
+      const query = params.query as string;
+      if (!query) throw makeErr(-32602, 'query required');
+      const weights = {
+        ...defaultWeights,
+        ...(params.weights as Record<string, number> | undefined),
+      };
+      return traceUnifiedQuery(registry, query, {
+        maxResults: (params.maxResults as number) ?? 10,
+        caseSensitive: (params.caseSensitive as boolean) ?? false,
+        context: params.context as number | undefined,
+        adapters: params.adapters as string[] | undefined,
+        weights: Object.keys(weights).length > 0 ? weights : undefined,
+      });
+    },
+  },
+  {
+    name: 'query.answer',
+    namespace: 'query',
+    description: 'Citation-backed extractive answer built on query.trace. Returns answer, claims, citations, gaps, contradictions, confidence, and the underlying trace. Phase A is deterministic and conservative: it cites retrieved snippets and reports gaps instead of inventing missing context.',
+    mutating: false,
+    params: {
+      query: { type: 'string', required: true, description: 'Question or search query to answer from vault evidence' },
+      maxResults: { type: 'number', required: false, description: 'Maximum evidence items to cite (default: 5)', default: 5 },
+      adapters: { type: 'array', required: false, description: 'Limit specific adapters by name' },
+      weights: { type: 'object', required: false, description: 'Per-adapter score weight multipliers, e.g. {"obsidian":1.2,"filesystem":0.8}' },
+      caseSensitive: { type: 'boolean', required: false, description: 'Case-sensitive matching', default: false },
+      context: { type: 'number', required: false, description: 'Lines surrounding context per match' },
+    },
+    handler: async (_ctx, params) => {
+      const query = params.query as string;
+      if (!query) throw makeErr(-32602, 'query required');
+      const weights = {
+        ...defaultWeights,
+        ...(params.weights as Record<string, number> | undefined),
+      };
+      return answerQuery(registry, query, {
+        maxResults: (params.maxResults as number) ?? 5,
+        caseSensitive: (params.caseSensitive as boolean) ?? false,
+        context: params.context as number | undefined,
+        adapters: params.adapters as string[] | undefined,
+        weights: Object.keys(weights).length > 0 ? weights : undefined,
+      });
+    },
+  },
+  {
+    name: 'query.search',
+    namespace: 'query',
       description: 'Filesystem-only RRF-ranked knowledge search. Same fusion pipeline as query.unified restricted to the filesystem adapter (single-source RRF degenerates to rank preservation). Use for deterministic filesystem-rooted results without memu/gitnexus noise; use vault.search for raw grep-style matching without ranking.',
       mutating: false,
       params: {
@@ -1018,6 +1078,8 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     ...makeProjectOps(vaultPath),
     ...makeIngestOps(),
     ...makeSourceOps(vaultPath),
+    ...makeConversationOps(vaultPath),
+    ...makeContextOps(vaultPath, registry, defaultWeights),
   ];
   return [...operations, ...compileOps, ...queryOps, ...multimodalOps, ...lightRagOps, ...agentOps, ...holonOps];
 }

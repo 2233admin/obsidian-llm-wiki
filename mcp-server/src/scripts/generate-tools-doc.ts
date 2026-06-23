@@ -18,7 +18,7 @@ const _thisDir = dirname(fileURLToPath(import.meta.url));
 const _repoRoot = join(_thisDir, '..', '..', '..');
 const OUTPUT_PATH = join(_repoRoot, 'docs', 'mcp-tools-reference.md');
 
-const NAMESPACE_ORDER: Operation['namespace'][] = ['vault', 'query', 'compile', 'recipe', 'agent'];
+const NAMESPACE_ORDER: Operation['namespace'][] = ['vault', 'query', 'context', 'conversation', 'compile', 'recipe', 'agent'];
 
 function stubDeps(): AllOperationsDeps {
   // Handlers close over these but are never called by the generator.

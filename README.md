@@ -196,6 +196,10 @@ The MCP surface adds `memory.passport.get`, `memory.passport.upsert`, `memory.ha
 
 The `kanban` adapter is read-only in Phase 1. It indexes Obsidian Kanban plugin boards stored as Markdown with `kanban-plugin: board`, emits board summaries plus card results, and preserves lane, checked, archived, and block-id metadata. The default adapter list includes `kanban`; if you override adapters manually, include it explicitly:
 
+Conversation decisions are the harder memory layer: when a session produces an architecture choice, technical tradeoff, rejected option, debug root cause, or project-state change, agents should capture it with `conversation.decision.capture` instead of leaving it buried in chat. Decisions land next to Markdown memory under `decisions/*.md`, include Summary/Decision/Why/Rejected Options/Constraints/Actions/References/Conversation Excerpts, and are searchable by `vault.search`, `query.unified`, `query.trace`, and `query.answer`. Do not store full transcripts by default; pass only selected `excerpts`.
+
+MemPalace-style context stack is exposed through `context.*`: start a new agent session with `context.wakeup project=<project> topic=<topic>`, use `context.recall` for a specific room/topic, and use `context.deep_search` when you need a heavier cited trace. This maps L0 to passport, L1 to handoff/sessions/decisions, L2 to topic recall, and L3 to full trace-backed search.
+
 ```bash
 VAULT_MIND_ADAPTERS=filesystem,kanban
 VAULT_MIND_KANBAN_GLOB='**/*.md'
