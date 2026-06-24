@@ -179,3 +179,73 @@ describe('FsTransport vault.stat root', () => {
     assert.equal(result.ext, 'md');
   });
 });
+
+describe('FsTransport currency annotation (Task 3)', () => {
+  function makeCurrencyVault(): string {
+    const dir = join(tmpdir(), `vault-currency-${randomUUID()}`);
+    mkdirSync(join(dir, 'research', 'wiki', 'entities'), { recursive: true });
+    writeFileSync(
+      join(dir, 'research', 'wiki', 'entities', 'stale-demo.md'),
+      '---\nentity: k-atana/stale-demo\n---\n依赖一个已变更源文件的事实。\n', 'utf8',
+    );
+    writeFileSync(
+      join(dir, 'research', 'wiki', 'entities', 'iii.md'),
+      '---\nentity: k-atana/iii\n---\niii pivot 未完成。\n', 'utf8',
+    );
+    // compiled report exactly as Python `kb_meta currency --apply` emits it
+    const report = {
+      topic: 'research', compiled: '2026-06-25',
+      byNote: {
+        'research/wiki/entities/stale-demo.md': {
+          marker: 'STALE', reasons: ['source changed: research/raw/iii-spec.md'],
+          entity: 'k-atana/stale-demo', currentTruth: true,
+        },
+        'research/wiki/entities/iii.md': {
+          marker: 'SUPERSEDED', reasons: ['explicitly by 00-Inbox/AI-Output/test-agent/iii-done.md'],
+          entity: 'k-atana/iii', currentTruth: false,
+        },
+      },
+    };
+    writeFileSync(join(dir, 'research', 'wiki', '_currency.json'), JSON.stringify(report), 'utf8');
+    tempDirs.push(dir);
+    return dir;
+  }
+
+  test('vault.search inlines STALE marker + reason onto the matching citation', () => {
+    const t = new FsTransport(makeCurrencyVault());
+    const res = t.dispatch('vault.search', { query: '依赖' }) as
+      { results: Array<{ path: string; currency?: { marker: string; reasons: string[] } }> };
+    const hit = res.results.find(r => r.path.endsWith('stale-demo.md'));
+    assert.ok(hit, 'expected a search hit on stale-demo.md');
+    assert.equal(hit!.currency?.marker, 'STALE');
+    assert.match(hit!.currency!.reasons.join(' '), /changed/);
+  });
+
+  test('vault.search marks superseded notes too', () => {
+    const t = new FsTransport(makeCurrencyVault());
+    const res = t.dispatch('vault.search', { query: 'pivot' }) as
+      { results: Array<{ path: string; currency?: { marker: string } }> };
+    const hit = res.results.find(r => r.path.endsWith('iii.md'));
+    assert.equal(hit?.currency?.marker, 'SUPERSEDED');
+  });
+
+  test('vault.read attaches currency for the read path', () => {
+    const t = new FsTransport(makeCurrencyVault());
+    const out = t.dispatch('vault.read', { path: 'research/wiki/entities/stale-demo.md' }) as
+      { content: string; currency?: { marker: string } };
+    assert.equal(out.currency?.marker, 'STALE');
+    assert.ok(out.content.includes('已变更'));
+  });
+
+  test('missing report -> no currency field, no throw', () => {
+    const dir = join(tmpdir(), `vault-nocur-${randomUUID()}`);
+    mkdirSync(join(dir, 'research', 'wiki'), { recursive: true });
+    writeFileSync(join(dir, 'research', 'wiki', 'note.md'), '# hello world\n', 'utf8');
+    tempDirs.push(dir);
+    const t = new FsTransport(dir);
+    const res = t.dispatch('vault.search', { query: 'hello' }) as
+      { results: Array<{ currency?: unknown }> };
+    assert.ok(res.results.length >= 1);
+    assert.equal(res.results[0].currency, undefined);
+  });
+});

@@ -373,6 +373,10 @@ def cmd_log_access(vault: str, topic: str, article: str) -> dict:
 # Derived output filenames (gitignored, recomputed every run).
 CURRENT_TRUTH_FILE = "_current-truth.md"
 SUPERSESSION_FILE = "_supersession.md"
+# Machine-readable report consumed by the Node connector (Task 3). byNote maps a
+# vault-root-relative note_id -> its currency verdict, so vault.search/read can
+# inline markers without recomputing anything on the Node side.
+CURRENCY_REPORT_FILE = "_currency.json"
 
 # A sentinel that sorts BEFORE every real ISO date, so a missing last-verified
 # is treated as "infinitely old" and loses every recency comparison.
@@ -727,11 +731,35 @@ def cmd_currency(vault: str, topic: str, today_str: str | None = None,
         if _currency.MARK_UNSUPPORTED in n.markers:
             unsupported_ids.append(n.note_id)
 
+    # Machine-readable report for the Node connector (Task 3): every scanned note
+    # keyed by note_id, current-truth notes with their OK/STALE/UNSUPPORTED verdict
+    # and superseded notes flagged SUPERSEDED. The connector reads this verbatim.
+    by_note: dict = {}
+    for entity, info in entities_out.items():
+        by_note[info["note_id"]] = {
+            "marker": info["marker"],
+            "reasons": info["reasons"],
+            "entity": entity,
+            "currentTruth": True,
+        }
+    for r in superseded:
+        by_note[r["note_id"]] = {
+            "marker": _currency.MARK_SUPERSEDED,
+            "reasons": [r["reason"]],
+            "entity": r["entity"],
+            "currentTruth": False,
+        }
+    report_json = json.dumps(
+        {"topic": topic, "compiled": today_date.isoformat(), "byNote": by_note},
+        indent=2, ensure_ascii=False,
+    )
+
     written = []
     if apply:
         for fname, content in (
             (CURRENT_TRUTH_FILE, current_truth_md),
             (SUPERSESSION_FILE, supersession_md),
+            (CURRENCY_REPORT_FILE, report_json),
         ):
             p = wiki / fname
             tmp = p.with_suffix(".tmp")
@@ -761,6 +789,7 @@ def cmd_currency(vault: str, topic: str, today_str: str | None = None,
         "unsupported": sorted(unsupported_ids),
         "warnings": warnings,
         "written": written,
+        "by_note": by_note,
         "current_truth_md": current_truth_md,
         "supersession_md": supersession_md,
     }

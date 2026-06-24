@@ -48,6 +48,7 @@ mcp-server/smoke.err
 # Regenerate with: python compiler/kb_meta.py currency <vault> <topic> --apply
 **/wiki/_current-truth.md
 **/wiki/_supersession.md
+**/wiki/_currency.json
 
 # Local planning / GSD artifacts (per-dev, not part of shipped product)
 .planning/
