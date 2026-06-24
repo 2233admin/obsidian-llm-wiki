@@ -50,6 +50,11 @@ mcp-server/smoke.err
 **/wiki/_supersession.md
 **/wiki/_currency.json
 
+# capture-hook (Task 4) per-machine idempotency state (default lives in
+# ~/.vault-mind/; ignored here in case VAULT_CAPTURE_STATE points into the repo)
+capture-hook.seen.log
+**/capture-hook.seen.log
+
 # Local planning / GSD artifacts (per-dev, not part of shipped product)
 .planning/
 .gitnexus
