@@ -60,7 +60,10 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 
 const TRUE_RE = /^(1|true|yes|on)$/i;
-const BLOCK_RE = /```vault-capture[^\S\r\n]*\r?\n([\s\S]*?)\r?\n```/g;
+// Outer fence may be ``` or ~~~ (3+). The closing fence backreferences the
+// opener (\1), so a ~~~-fenced block can contain ``` code blocks in its body
+// without truncating. Body is capture group 2.
+const BLOCK_RE = /(`{3,}|~{3,})vault-capture[^\S\r\n]*\r?\n([\s\S]*?)\r?\n\1/g;
 const META_KEY_RE = /^([A-Za-z][A-Za-z0-9_-]*):\s*(.*)$/;
 const ALLOWED_KEYS = new Set(['entity', 'type', 'source', 'supersedes', 'title', 'status']);
 const VALID_TYPES = new Set(['fact', 'decision', 'note']);
@@ -89,6 +92,13 @@ function safeSegment(s, fallback) {
 // A frontmatter scalar value: single line, no fm-breaking chars left dangling.
 function safeValue(s) {
   return String(s == null ? '' : s).replace(/[\r\n]+/g, ' ').trim();
+}
+
+// entity / supersedes are single-valued. A stray [..] wrapper would be misread
+// as a YAML list by the compiler's frontmatter parser (-> None -> the note is
+// silently de-indexed by the currency passes), so strip it back to a scalar.
+function unbracket(s) {
+  return String(s == null ? '' : s).replace(/^\[\s*/, '').replace(/\s*\]$/, '').trim();
 }
 
 function slugify(s, fallback) {
@@ -180,7 +190,7 @@ function extractBlocks(text) {
   const out = [];
   BLOCK_RE.lastIndex = 0;
   let m;
-  while ((m = BLOCK_RE.exec(text)) !== null) out.push(parseBlock(m[1]));
+  while ((m = BLOCK_RE.exec(text)) !== null) out.push(parseBlock(m[2]));
   return out;
 }
 
@@ -213,8 +223,8 @@ function gitHead(cwd) {
 // --- frontmatter assembly ---------------------------------------------------
 
 function buildNote({ block, writerId, agent, parentQuery, nowIso, today, source }) {
-  const entity = safeValue(block.meta.entity);
-  const supersedes = safeValue(block.meta.supersedes);
+  const entity = unbracket(safeValue(block.meta.entity));
+  const supersedes = unbracket(safeValue(block.meta.supersedes));
   let type = safeValue(block.meta.type).toLowerCase();
   if (!VALID_TYPES.has(type)) type = DEFAULT_TYPE;
   const parentEsc = parentQuery.replace(/"/g, '”');
@@ -289,47 +299,58 @@ function run() {
       source: safeValue(block.meta.source) || defaultSource,
     });
 
-    // Idempotency key: this session + this note's semantic payload. A re-run of
-    // the same Stop on the same transcript hashes identically -> skip.
+    // Idempotency key: session + the AGENT-AUTHORED semantic payload. The
+    // resolved git-HEAD default and timestamps are deliberately excluded so a
+    // re-run of the same Stop hashes identically even if HEAD moved meanwhile.
+    const idSource = safeValue(block.meta.source);
     const blockHash = createHash('sha256')
-      .update(`${note.entity}\n${note.source}\n${block.body}`)
+      .update(`${note.entity}\n${idSource}\n${block.body}`)
       .digest('hex').slice(0, 16);
     const key = `${sid}:${blockHash}`;
     if (seen.has(key)) { skipped++; log(`skip (already captured): ${blockHash}`); continue; }
+    seen.add(key); // also dedupes a duplicate block later in THIS same message
 
     const slug = slugify(block.meta.title || block.body, `note-${blockHash.slice(0, 6)}`);
     const baseName = `${datePrefix}-${slug}`;
 
-    // Append-only: find a free NEW filename; never overwrite an existing file.
-    let chosen = `${baseName}.md`;
-    let abs = join(writerDirAbs, chosen);
-    if (existsSync(abs)) {
-      let found = false;
-      for (let i = 2; i <= 99; i++) {
-        chosen = `${baseName}-${i}.md`;
-        abs = join(writerDirAbs, chosen);
-        if (!existsSync(abs)) { found = true; break; }
-      }
-      if (!found) { log(`no free filename for ${baseName}, skipping`); continue; }
+    if (!note.entity) {
+      log('note: no entity -> filed as plain AI-Output, NOT indexed by the currency passes');
     }
-    const relPath = `${writerDirRel}/${chosen}`;
 
     if (!apply) {
+      // Plan only: probe the next free name for display. No write -> race-free.
+      let chosen = `${baseName}.md`;
+      for (let i = 2; i <= 99 && existsSync(join(writerDirAbs, chosen)); i++) chosen = `${baseName}-${i}.md`;
       planned++;
-      log(`DRY-RUN would write: ${relPath}`);
+      log(`DRY-RUN would write: ${writerDirRel}/${chosen}`);
       log(`  entity=${note.entity || '(none)'} type=${note.type} source=${note.source || '(none)'} status=draft last-verified=${today}`);
       if (note.supersedes) log(`  supersedes=${note.supersedes}`);
       continue;
     }
 
-    try {
-      mkdirSync(writerDirAbs, { recursive: true });
-      writeFileSync(abs, note.content, 'utf8');
+    // Append-only, race-safe: exclusive create (O_EXCL via 'wx'). Never
+    // overwrite; on a real concurrent collision advance to -N instead.
+    try { mkdirSync(writerDirAbs, { recursive: true }); } catch { /* created lazily below */ }
+    let written = null;
+    for (let i = 1; i <= 99; i++) {
+      const chosen = i === 1 ? `${baseName}.md` : `${baseName}-${i}.md`;
+      const abs = join(writerDirAbs, chosen);
+      try {
+        writeFileSync(abs, note.content, { encoding: 'utf8', flag: 'wx' });
+        written = `${writerDirRel}/${chosen}`;
+        break;
+      } catch (e) {
+        if (e && e.code === 'EEXIST') continue; // taken (existing file or a racing writer)
+        log(`write failed for ${writerDirRel}/${chosen}: ${e && e.message}`);
+        break;
+      }
+    }
+    if (written) {
       markSeen(statePath, key);
       wrote++;
-      log(`wrote: ${relPath}`);
-    } catch (e) {
-      log(`write failed for ${relPath}: ${e && e.message}`);
+      log(`wrote: ${written}`);
+    } else {
+      log(`no free filename for ${baseName}, skipping`);
     }
   }
 

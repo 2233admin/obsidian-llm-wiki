@@ -255,7 +255,12 @@ Output path (writer dir is `<machine>-<agent>`, so two machines/agents never tou
 {vault}/00-Inbox/AI-Output/{machine}-{agent}/YYYY-MM-DD-{slug}.md
 ```
 
-Invariants: **dry-run by default** (set `VAULT_CAPTURE_APPLY=1` to write); **append-only** (only ever creates new files, never edits existing ones); idempotent across re-runs of the same Stop (per-machine seen-log keyed by session + note hash); never throws (a hook bug can't block your session). No-op unless `VAULT_PATH` is set.
+Invariants: **dry-run by default** (set `VAULT_CAPTURE_APPLY=1` to write); **append-only** (exclusive `wx` create — never edits or overwrites an existing file, even under concurrent Stops); idempotent across re-runs of the same Stop (per-machine seen-log keyed by session + the *agent-authored* note payload, so the auto-derived `commit:<HEAD>` default and timestamps don't perturb it); never throws (a hook bug can't block your session). No-op unless `VAULT_PATH` is set.
+
+Authoring caveats:
+
+- **Nested code fences.** The block is delimited by its outer fence; a body containing a ```` ``` ```` fence would close a backtick-fenced block early. If your durable claim must embed code, wrap the **outer** block in a tilde fence (`~~~vault-capture … ~~~`) — the parser accepts either and a `~~~` block may contain ``` freely.
+- **`entity` is optional but load-bearing.** A block without `entity:` is still filed as a normal AI-Output note, but the currency/supersession passes index *only* entity-bearing notes (`kb_meta _scan_entity_notes`), so an entity-less note can never become current-truth or supersede anything. The hook logs an explicit `no entity -> … NOT indexed by the currency passes` line so this isn't silent. Bracketed values (`entity: [x]`) are normalized to the scalar `x` to avoid being misparsed as a YAML list.
 
 Wiring (the hook does **not** edit your settings — add it yourself):
 

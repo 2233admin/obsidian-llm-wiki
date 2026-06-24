@@ -181,6 +181,133 @@ test('D: no vault-capture block -> silent no-op', () => {
   }
 });
 
+test('G: two identical blocks in one message file exactly ONE note (in-message dedup)', () => {
+  const { vault, tdir, statePath } = freshVault();
+  const oneBlock = [
+    '```vault-capture',
+    'entity: k-atana/iii',
+    'type: decision',
+    'source: commit:NEW5678',
+    '---',
+    'iii pivot 已完成。',
+    '```',
+  ].join('\n');
+  // same block twice (different surrounding prose) in the final message
+  const transcriptPath = writeTranscript(tdir, { assistantText: `第一次:\n${oneBlock}\n\n再说一次:\n${oneBlock}` });
+  try {
+    runHook({ vault, transcriptPath, statePath, apply: true });
+    assert.equal(listNotes(vault).length, 1, 'two identical blocks must collapse to one note');
+  } finally {
+    rmSync(vault, { recursive: true, force: true });
+    rmSync(tdir, { recursive: true, force: true });
+    rmSync(dirname(statePath), { recursive: true, force: true });
+  }
+});
+
+test('H: bracketed entity is normalized to a scalar (not a YAML list)', () => {
+  const { vault, tdir, statePath } = freshVault();
+  const block = [
+    '```vault-capture',
+    'entity: [k-atana/iii]',
+    'type: note',
+    'source: commit:abc',
+    '---',
+    '括号 entity 测试。',
+    '```',
+  ].join('\n');
+  const transcriptPath = writeTranscript(tdir, { assistantText: block });
+  try {
+    runHook({ vault, transcriptPath, statePath, apply: true });
+    const notes = listNotes(vault);
+    assert.equal(notes.length, 1);
+    assert.match(notes[0].text, /\nentity: k-atana\/iii\n/, 'brackets stripped -> scalar entity');
+    assert.doesNotMatch(notes[0].text, /entity: \[/, 'must not emit a list-shaped entity');
+  } finally {
+    rmSync(vault, { recursive: true, force: true });
+    rmSync(tdir, { recursive: true, force: true });
+    rmSync(dirname(statePath), { recursive: true, force: true });
+  }
+});
+
+test('I: a tilde-fenced block captures a body that contains a ``` code fence in full', () => {
+  const { vault, tdir, statePath } = freshVault();
+  const block = [
+    '~~~vault-capture',
+    'entity: k-atana/iii',
+    'type: note',
+    'source: commit:abc',
+    '---',
+    '实现如下:',
+    '```js',
+    'const x = 1;',
+    '```',
+    '收尾说明。',
+    '~~~',
+  ].join('\n');
+  const transcriptPath = writeTranscript(tdir, { assistantText: block });
+  try {
+    runHook({ vault, transcriptPath, statePath, apply: true });
+    const notes = listNotes(vault);
+    assert.equal(notes.length, 1);
+    assert.match(notes[0].text, /const x = 1;/, 'nested code fence body captured');
+    assert.match(notes[0].text, /收尾说明。/, 'prose after the nested fence captured (not truncated)');
+  } finally {
+    rmSync(vault, { recursive: true, force: true });
+    rmSync(tdir, { recursive: true, force: true });
+    rmSync(dirname(statePath), { recursive: true, force: true });
+  }
+});
+
+test('J: a block without entity is still filed once, with no entity field + a visible note', () => {
+  const { vault, tdir, statePath } = freshVault();
+  const block = [
+    '```vault-capture',
+    'type: note',
+    'source: commit:abc',
+    '---',
+    '一条没有 entity 的普通记录。',
+    '```',
+  ].join('\n');
+  const transcriptPath = writeTranscript(tdir, { assistantText: block });
+  try {
+    const r = runHook({ vault, transcriptPath, statePath, apply: true });
+    const notes = listNotes(vault);
+    assert.equal(notes.length, 1, 'entity-less block is still a valid capture');
+    assert.doesNotMatch(notes[0].text, /\nentity:/, 'no entity field emitted');
+    assert.match(r.stderr, /no entity -> filed as plain AI-Output, NOT indexed/, 'visible orphan-note signal');
+  } finally {
+    rmSync(vault, { recursive: true, force: true });
+    rmSync(tdir, { recursive: true, force: true });
+    rmSync(dirname(statePath), { recursive: true, force: true });
+  }
+});
+
+test('K: idempotency key ignores the auto-derived commit:<HEAD> default (stable across HEADs)', () => {
+  // Block omits `source`, so the hook falls back to commit:<HEAD of cwd>. Two
+  // re-fires of the same Stop with different cwds (=> different default source)
+  // must still collapse to ONE note: the hash must depend only on the block.
+  const { vault, tdir, statePath } = freshVault();
+  const repoRoot = fileURLToPath(new URL('../../', import.meta.url)); // a git repo (vault-mind)
+  const noSourceBlock = [
+    '```vault-capture',
+    'entity: k-atana/iii',
+    'type: decision',
+    '---',
+    'iii 收尾,未显式写 source。',
+    '```',
+  ].join('\n');
+  const transcriptPath = writeTranscript(tdir, { assistantText: noSourceBlock });
+  try {
+    runHook({ vault, transcriptPath, statePath, apply: true, sid: 'sess-k', cwd: repoRoot }); // default=commit:HEAD
+    runHook({ vault, transcriptPath, statePath, apply: true, sid: 'sess-k', cwd: vault });    // default='' (not a git repo)
+    assert.equal(listNotes(vault).length, 1, 'auto-source default must not change the idempotency identity');
+  } finally {
+    rmSync(vault, { recursive: true, force: true });
+    rmSync(tdir, { recursive: true, force: true });
+    rmSync(dirname(statePath), { recursive: true, force: true });
+  }
+});
+
 test('F: hostile entity/title cannot escape the writer dir', () => {
   const { vault, tdir, statePath } = freshVault();
   const evil = [
