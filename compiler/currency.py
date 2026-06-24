@@ -39,6 +39,8 @@ F_SOURCE = "source"
 F_LAST_VERIFIED = "last-verified"
 F_SUPERSEDES = "supersedes"
 F_STATUS = "status"  # reused from the AI-Output convention, not introduced here
+F_OWNER = "owner"    # Task 7B: optional -- who is responsible for an action
+F_DUE = "due"        # Task 7B: optional ISO date -- action deadline
 
 
 # --- note types (drive the stale threshold) --------------------------------
@@ -78,6 +80,14 @@ PROJECT_TERMINAL_STATUSES = frozenset({"completed", "archived"})
 def is_terminal_project_status(status) -> bool:
     return bool(status) and str(status).strip().lower() in PROJECT_TERMINAL_STATUSES
 
+
+# Task 7B: action lifecycle (on sub-entities project/<slug>/action/<name>).
+# A done/cancelled action drops out of the open list (its open note is superseded
+# and surfaced in _supersession.md, not deleted). A blocked action is surfaced
+# under Blockers. Everything else is an open action.
+ACTION_DONE_STATUSES = frozenset({"done", "completed", "cancelled", "canceled", "closed"})
+ACTION_BLOCKED_STATUS = "blocked"
+
 # source pointer schemes that count as "verifiable". Anything else -> UNSUPPORTED.
 SOURCE_SCHEMES = ("commit:", "path:", "test:", "url:")
 
@@ -94,6 +104,8 @@ class CurrencyMeta:
     last_verified: Optional[str]
     supersedes: Optional[str]
     status: Optional[str]
+    owner: Optional[str] = None
+    due: Optional[str] = None
     raw: dict = field(default_factory=dict)
 
     @property
@@ -148,6 +160,8 @@ def normalize(fm: dict) -> CurrencyMeta:
         last_verified=_scalar(fm, F_LAST_VERIFIED),
         supersedes=_scalar(fm, F_SUPERSEDES),
         status=_scalar(fm, F_STATUS),
+        owner=_scalar(fm, F_OWNER),
+        due=_scalar(fm, F_DUE),
         raw=dict(fm),
     )
 

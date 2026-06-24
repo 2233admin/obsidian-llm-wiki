@@ -81,5 +81,69 @@ class ProjectDriftGuard(unittest.TestCase):
             self.assertIn(e, self.res["entities"])
 
 
+class ProjectStatusView(unittest.TestCase):
+    """Task 7B: per-project current-truth view."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="vault-proj-7b-"))
+        self.vault = self.tmp / "vault"
+        shutil.copytree(_FIXTURE, self.vault)
+        self.res = kb_meta.cmd_currency(str(self.vault), "research",
+                                        today_str=TODAY, apply=False)
+        self.ps = self.res["project_status"]
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _entities(self, items):
+        return {i["entity"] for i in items}
+
+    def test_project_appears_with_its_status_and_stale_marker(self):
+        p = self.ps["project/iii-pivot"]
+        self.assertEqual(p["status"], "active")
+        self.assertEqual(p["marker"], "STALE")
+
+    def test_open_action_listed_with_overdue_and_unowned_flags(self):
+        p = self.ps["project/iii-pivot"]
+        opens = {i["entity"]: i for i in p["open_actions"]}
+        self.assertIn("project/iii-pivot/action/wire-auth", opens)
+        flags = " ".join(opens["project/iii-pivot/action/wire-auth"]["flags"])
+        self.assertIn("OVERDUE", flags)
+        self.assertIn("UNOWNED", flags)
+
+    def test_done_action_not_open_and_counted_closed(self):
+        p = self.ps["project/iii-pivot"]
+        self.assertNotIn("project/iii-pivot/action/login-form", self._entities(p["open_actions"]))
+        self.assertGreaterEqual(p["closed_count"], 1)
+        # the superseded open note still exists on disk (not deleted).
+        sup_ids = {s["note_id"] for s in self.res["superseded"]}
+        self.assertIn("Projects/iii-pivot/actions/login-form-open.md", sup_ids)
+        self.assertTrue((self.vault / "Projects/iii-pivot/actions/login-form-open.md").exists())
+
+    def test_blocked_action_in_blockers_not_open(self):
+        p = self.ps["project/iii-pivot"]
+        self.assertIn("project/iii-pivot/action/db-migration", self._entities(p["blockers"]))
+        self.assertNotIn("project/iii-pivot/action/db-migration", self._entities(p["open_actions"]))
+
+    def test_decision_listed_as_decision_not_action(self):
+        p = self.ps["project/iii-pivot"]
+        self.assertIn("project/iii-pivot/decision/db-choice", self._entities(p["decisions"]))
+        self.assertNotIn("project/iii-pivot/decision/db-choice", self._entities(p["open_actions"]))
+
+    def test_project_without_subentities_has_empty_lists(self):
+        p = self.ps["project/fresh-proj"]
+        self.assertEqual(p["open_actions"], [])
+        self.assertEqual(p["blockers"], [])
+
+    def test_apply_writes_project_status_file(self):
+        kb_meta.cmd_currency(str(self.vault), "research", today_str=TODAY, apply=True)
+        f = self.vault / "research" / "wiki" / "_project-status.md"
+        self.assertTrue(f.exists(), "_project-status.md must be written on apply")
+        text = f.read_text("utf-8")
+        for needle in ("project/iii-pivot", "STALE", "wire-auth", "OVERDUE",
+                       "blockers", "db-migration", "db-choice"):
+            self.assertIn(needle, text)
+
+
 if __name__ == "__main__":
     unittest.main()
