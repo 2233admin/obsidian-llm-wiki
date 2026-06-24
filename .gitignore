@@ -44,6 +44,11 @@ mcp-server/smoke.err
 # link_discovery output (per-dev, regenerate with compiler/link_discovery.py)
 .compile/
 
+# Currency passes derived artifacts (Task 2): DERIVED, recomputable, NOT committed.
+# Regenerate with: python compiler/kb_meta.py currency <vault> <topic> --apply
+**/wiki/_current-truth.md
+**/wiki/_supersession.md
+
 # Local planning / GSD artifacts (per-dev, not part of shipped product)
 .planning/
 .gitnexus

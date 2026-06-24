@@ -9,6 +9,7 @@ Usage:
     python kb_meta.py check-links <vault> <topic>
     python kb_meta.py vitality <vault> <topic>
     python kb_meta.py log-access <vault> <topic> <article>
+    python kb_meta.py currency <vault> <topic> [--today YYYY-MM-DD] [--apply]
 
 All commands output JSON to stdout for machine consumption.
 """
@@ -18,8 +19,15 @@ import json
 import os
 import re
 import sys
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
+
+# Currency layer (Task 1 schema landing) + robust frontmatter parser.
+# These live next to this file; import works whether kb_meta.py is invoked as a
+# script (cwd-relative) or imported as a module from compiler/.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import currency as _currency  # noqa: E402
+from _md_parse import parse_frontmatter as robust_parse_frontmatter  # noqa: E402
 
 
 def meta_path(vault: str, topic: str) -> Path:
@@ -225,6 +233,47 @@ def cmd_update_index(vault: str, topic: str) -> dict:
         f"## Queries\n| File | One-liner |\n|------|-----------|\n{table_rows(queries)}\n"
     )
 
+    # --- ADDITIVE: entities/ scan + STALE/UNSUPPORTED visibility (Task 2) ----
+    # Appended AFTER the existing sections so the Summaries/Concepts/Queries
+    # blocks above stay byte-identical. The Entities section appears only when
+    # an entities/ dir exists with notes; the Stale / Unsupported sections appear
+    # only when the currency passes find entries. When nothing is stale/
+    # unsupported and there is no entities/ dir, the output is unchanged.
+    entities = scan_dir("entities")
+    extra = ""
+    if entities:
+        extra += (
+            f"\n## Entities\n| File | One-liner |\n|------|-----------|\n"
+            f"{table_rows(entities)}\n"
+        )
+
+    stale_rows: list[str] = []
+    unsupported_rows: list[str] = []
+    try:
+        cur = cmd_currency(vault, topic, apply=False)
+        for entity, info in sorted(cur.get("entities", {}).items()):
+            reason = "; ".join(info.get("reasons", []))
+            cell = f"| {entity} | {info['note_id']} | {reason} |"
+            if "STALE" in info.get("marker", ""):
+                stale_rows.append(cell)
+            if "UNSUPPORTED" in info.get("marker", ""):
+                unsupported_rows.append(cell)
+    except Exception:
+        pass  # currency passes are additive; never break the base index.
+
+    if stale_rows:
+        extra += (
+            "\n## Stale\n| Entity | Note | Reason |\n|--------|------|--------|\n"
+            + "\n".join(stale_rows) + "\n"
+        )
+    if unsupported_rows:
+        extra += (
+            "\n## Unsupported\n| Entity | Note | Reason |\n|--------|------|--------|\n"
+            + "\n".join(unsupported_rows) + "\n"
+        )
+
+    index_content = index_content + extra
+
     index_path = wiki / "_index.md"
     tmp = index_path.with_suffix(".tmp")
     try:
@@ -314,6 +363,409 @@ def cmd_log_access(vault: str, topic: str, article: str) -> dict:
     return {"ok": True, "article": article, "count": entry["count"]}
 
 
+# --- Currency passes (Task 2): supersession / staleness / unsupported -------
+#
+# Three derived passes that run AFTER the existing compile. NO LLM, NO network,
+# NO git probe. They read note frontmatter via the robust parser, normalize via
+# currency.py, and emit DERIVED, recomputable, gitignored artifacts. Source
+# notes are NEVER mutated -- markers live only in the derived view/log.
+
+# Derived output filenames (gitignored, recomputed every run).
+CURRENT_TRUTH_FILE = "_current-truth.md"
+SUPERSESSION_FILE = "_supersession.md"
+
+# A sentinel that sorts BEFORE every real ISO date, so a missing last-verified
+# is treated as "infinitely old" and loses every recency comparison.
+_OLDEST_DATE = ""
+
+
+class CurrencyNote:
+    """A scanned note carrying its normalized currency metadata + location.
+
+    note_id is the POSIX path relative to the vault root (stable, location-aware
+    so wiki/ and 00-Inbox/ notes for the same entity coexist in one group)."""
+
+    __slots__ = ("note_id", "path", "cm", "body_first_line", "markers", "reasons")
+
+    def __init__(self, note_id: str, path: Path, cm, body_first_line: str) -> None:
+        self.note_id = note_id
+        self.path = path
+        self.cm = cm
+        self.body_first_line = body_first_line
+        self.markers: list[str] = []
+        self.reasons: list[str] = []
+
+    @property
+    def sort_key(self):
+        # Recency: higher last_verified wins. Tiebreak: reviewed > draft >
+        # missing, then alphabetical note_id (stable). Negate via tuple order in
+        # the caller; here we expose comparable parts.
+        lv = self.cm.last_verified or _OLDEST_DATE
+        status_rank = {"reviewed": 2, "draft": 1}.get(self.cm.status or "", 0)
+        return (lv, status_rank, self.note_id)
+
+
+def _first_body_line(text: str) -> str:
+    """First non-empty, non-frontmatter, non-heading line of a note body."""
+    body = text
+    m = re.match(r"\A---\r?\n.*?\r?\n---\r?\n", text, re.DOTALL)
+    if m:
+        body = text[m.end():]
+    for line in body.splitlines():
+        s = line.strip()
+        if s and not s.startswith("#"):
+            return s[:200]
+    return ""
+
+
+def _scan_entity_notes(vault: str, topic: str) -> list[CurrencyNote]:
+    """Scan <topic>/wiki/** and <vault>/00-Inbox/** for notes carrying an
+    `entity` field. Returns notes sorted by note_id for deterministic output."""
+    vault_root = Path(vault)
+    roots = [vault_root / topic / "wiki", vault_root / "00-Inbox"]
+    notes: list[CurrencyNote] = []
+    seen: set[str] = set()
+    for root in roots:
+        if not root.exists():
+            continue
+        for f in walk_md(root):
+            note_id = f.relative_to(vault_root).as_posix()
+            if note_id in seen:
+                continue
+            try:
+                text = f.read_text("utf-8-sig", errors="replace")
+            except OSError:
+                continue
+            fm = robust_parse_frontmatter(text)
+            cm = _currency.normalize(fm)
+            if not cm.entity:
+                continue
+            seen.add(note_id)
+            notes.append(CurrencyNote(note_id, f, cm, _first_body_line(text)))
+    notes.sort(key=lambda n: n.note_id)
+    return notes
+
+
+def _resolve_supersedes(target: str, group: list[CurrencyNote]) -> CurrencyNote | None:
+    """Resolve a `supersedes` pointer to a note in this entity's group.
+
+    Tries, in order: exact note_id, posix-normalized match, filename-stem match.
+    Returns None if the pointer is dangling / external (logged by caller)."""
+    if not target:
+        return None
+    t = target.strip().replace("\\", "/")
+    for n in group:
+        if n.note_id == t:
+            return n
+    # tolerate leading ./ or differing prefixes -> suffix match
+    for n in group:
+        if n.note_id.endswith("/" + t) or n.note_id == t.lstrip("./"):
+            return n
+    # filename / stem match (e.g. supersedes: iii.md or iii)
+    t_stem = Path(t).name
+    t_stem_noext = t_stem[:-3] if t_stem.endswith(".md") else t_stem
+    for n in group:
+        if n.path.name == t_stem or n.path.stem == t_stem_noext:
+            return n
+    return None
+
+
+def _pass1_supersession(notes: list[CurrencyNote]) -> tuple[dict, list, list]:
+    """Group by entity; select current-truth; mark the rest SUPERSEDED.
+
+    Returns (current_truth_by_entity, superseded_records, warnings).
+    superseded_records: list of dicts {entity, note_id, topped_by, reason,
+    status, last_verified, body}. current_truth_by_entity: entity -> CurrencyNote.
+    """
+    groups: dict[str, list[CurrencyNote]] = {}
+    for n in notes:
+        groups.setdefault(n.cm.entity, []).append(n)
+
+    current_truth: dict[str, CurrencyNote] = {}
+    superseded: list[dict] = []
+    warnings: list[str] = []
+
+    for entity in sorted(groups):
+        group = sorted(groups[entity], key=lambda n: n.note_id)
+
+        # Build explicit supersession map: superseded_note -> topping note.
+        superseded_by: dict[str, CurrencyNote] = {}
+        for n in group:
+            tgt = n.cm.supersedes
+            if not tgt:
+                continue
+            victim = _resolve_supersedes(tgt, group)
+            if victim is None:
+                warnings.append(
+                    f"{entity}: {n.note_id} supersedes dangling target '{tgt}'"
+                )
+                continue
+            if victim.note_id == n.note_id:
+                continue  # self-reference, ignore
+            superseded_by[victim.note_id] = n
+
+        # Detect circular supersession; fall back to recency for the whole group.
+        circular = False
+        for vid, topper in superseded_by.items():
+            if topper.note_id in superseded_by and superseded_by[topper.note_id].note_id == vid:
+                circular = True
+                break
+        if circular:
+            warnings.append(f"{entity}: circular supersedes -> falling back to recency")
+            superseded_by = {}
+
+        # Candidates = notes NOT explicitly superseded.
+        survivors = [n for n in group if n.note_id not in superseded_by]
+        if not survivors:
+            # all superseded (cycle/fail-safe) -> use full group by recency
+            survivors = group
+
+        # current-truth = highest recency among survivors.
+        winner = max(survivors, key=lambda n: n.sort_key)
+        current_truth[entity] = winner
+
+        # Everything that is not the winner is superseded (explicit or recency).
+        for n in group:
+            if n.note_id == winner.note_id:
+                continue
+            topper = superseded_by.get(n.note_id)
+            if topper is not None:
+                reason = f"explicitly by {topper.note_id}"
+                topped_by = topper.note_id
+            else:
+                reason = f"recency (current-truth verified {winner.cm.last_verified or '?'})"
+                topped_by = winner.note_id
+            n.markers.append(_currency.MARK_SUPERSEDED)
+            n.reasons.append(reason)
+            superseded.append({
+                "entity": entity,
+                "note_id": n.note_id,
+                "topped_by": topped_by,
+                "reason": reason,
+                "status": n.cm.status,
+                "last_verified": n.cm.last_verified,
+                "body": n.body_first_line,
+            })
+
+    return current_truth, superseded, warnings
+
+
+def _parse_iso(d: str | None):
+    if not d:
+        return None
+    try:
+        return date.fromisoformat(d.strip())
+    except (ValueError, AttributeError):
+        return None
+
+
+def _pass2_3_stale_unsupported(
+    vault: str, topic: str, current_truth: dict, meta: dict, today_date: date,
+) -> None:
+    """On each current-truth note: PASS 3 (unsupported) then PASS 2 (staleness).
+
+    Mutates each note's markers/reasons in place. Order per the brief: a note
+    that is UNSUPPORTED skips the staleness check; a note with a valid source is
+    checked for STALE via hash-change first, then age."""
+    sources = meta.get("sources", {})
+    topic_root = Path(vault) / topic
+
+    for entity in sorted(current_truth):
+        n = current_truth[entity]
+        cm = n.cm
+
+        # PASS 3: unsupported.
+        if not cm.has_source:
+            n.markers.append(_currency.MARK_UNSUPPORTED)
+            n.reasons.append("source field is empty")
+            continue
+        if cm.source_scheme is None:
+            n.markers.append(_currency.MARK_UNSUPPORTED)
+            n.reasons.append(f"unrecognized source scheme: {cm.source!r}")
+            continue
+
+        # PASS 2: staleness. Hash-change signal first (path: scheme only).
+        stale = False
+        reason = ""
+        if cm.source_scheme == "path":
+            target_rel = cm.source_target or ""
+            # normalize to topic-relative rel key used in _meta.json sources.
+            rel_key = target_rel
+            if rel_key.startswith(topic + "/"):
+                rel_key = rel_key[len(topic) + 1:]
+            target_path = topic_root / rel_key
+            if not target_path.exists():
+                stale, reason = True, f"source path unreachable: {target_rel}"
+            else:
+                recorded = sources.get(rel_key, {}).get("hash")
+                if recorded is None:
+                    stale, reason = True, f"source hash never recorded: {target_rel}"
+                else:
+                    current_hash = file_hash(target_path)
+                    if current_hash != recorded:
+                        stale, reason = True, f"source changed: {target_rel}"
+
+        # Age signal (all schemes) -- only if not already stale by hash.
+        if not stale:
+            lv = _parse_iso(cm.last_verified)
+            threshold = _currency.stale_threshold_days(cm.type)
+            if lv is None:
+                stale, reason = True, "last-verified missing/unparseable"
+            else:
+                age_days = (today_date - lv).days
+                if age_days > threshold:
+                    stale = True
+                    reason = f"age {age_days}d > {threshold}d threshold ({cm.type})"
+
+        if stale:
+            n.markers.append(_currency.MARK_STALE)
+            n.reasons.append(reason)
+        else:
+            n.markers.append(_currency.MARK_OK)
+
+
+def _render_current_truth(topic: str, current_truth: dict, today_date: date) -> str:
+    """Grep-friendly per-entity current-truth view (DERIVED)."""
+    lines = [
+        f"# {topic} -- current truth",
+        "",
+        "> DERIVED, recomputable, gitignored. Regenerated by `kb_meta currency`.",
+        "> Do not edit; do not commit. Markers live here, never in source notes.",
+        f"> Compiled: {today_date.isoformat()}",
+        "",
+    ]
+    for entity in sorted(current_truth):
+        n = current_truth[entity]
+        cm = n.cm
+        # markers excluding the bookkeeping OK -> show explicit verdict tags
+        verdict = [m for m in n.markers if m != _currency.MARK_OK]
+        marker_str = " + ".join(verdict) if verdict else _currency.MARK_OK
+        reason_str = "; ".join(n.reasons) if n.reasons else ""
+        lines.append(f"## {entity}")
+        lines.append(f"- current-truth: {n.body_first_line}")
+        lines.append(f"- note: {n.note_id}")
+        lines.append(f"- source: {cm.source or '(none)'}")
+        lines.append(f"- last-verified: {cm.last_verified or '(none)'}")
+        lines.append(f"- status: {cm.status or '(none)'}")
+        marker_line = f"- marker: {marker_str}"
+        if reason_str:
+            marker_line += f" ({reason_str})"
+        lines.append(marker_line)
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _render_supersession(topic: str, current_truth: dict, superseded: list) -> str:
+    """Supersession log (DERIVED): superseded note -> what topped it."""
+    lines = [
+        f"# {topic} -- supersession log",
+        "",
+        "> DERIVED, recomputable, gitignored. Regenerated by `kb_meta currency`.",
+        "> Superseded notes are NOT deleted; they are surfaced here only.",
+        "",
+    ]
+    by_entity: dict[str, list[dict]] = {}
+    for rec in superseded:
+        by_entity.setdefault(rec["entity"], []).append(rec)
+
+    for entity in sorted(by_entity):
+        ct = current_truth.get(entity)
+        lines.append(f"## {entity}")
+        if ct is not None:
+            lines.append(
+                f"- current-truth: {ct.note_id} "
+                f"(verified {ct.cm.last_verified or '?'}, status {ct.cm.status or '?'})"
+            )
+        lines.append("- superseded:")
+        for rec in sorted(by_entity[entity], key=lambda r: r["note_id"]):
+            lines.append(
+                f"  - {rec['note_id']} -> topped by {rec['topped_by']} "
+                f"[{rec['reason']}] (status {rec['status'] or '?'}, "
+                f"verified {rec['last_verified'] or '?'}): {rec['body']}"
+            )
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def cmd_currency(vault: str, topic: str, today_str: str | None = None,
+                 apply: bool = False) -> dict:
+    """Run the three currency passes and emit derived artifacts.
+
+    Dry-run by default (no writes). --apply writes the derived view + log under
+    wiki/ and refreshes the index with STALE/UNSUPPORTED visibility."""
+    base = Path(vault) / topic
+    wiki = base / "wiki"
+    if not wiki.exists():
+        return {"error": "wiki/ directory not found"}
+
+    today_date = _parse_iso(today_str) or date.today()
+    meta = load_meta(vault, topic)
+
+    notes = _scan_entity_notes(vault, topic)
+    current_truth, superseded, warnings = _pass1_supersession(notes)
+    _pass2_3_stale_unsupported(vault, topic, current_truth, meta, today_date)
+
+    current_truth_md = _render_current_truth(topic, current_truth, today_date)
+    supersession_md = _render_supersession(topic, current_truth, superseded)
+
+    # Summaries for machine consumption (returned even in dry-run).
+    entities_out = {}
+    stale_ids, unsupported_ids = [], []
+    for entity in sorted(current_truth):
+        n = current_truth[entity]
+        verdict = [m for m in n.markers if m != _currency.MARK_OK]
+        marker = " + ".join(verdict) if verdict else _currency.MARK_OK
+        entities_out[entity] = {
+            "note_id": n.note_id,
+            "marker": marker,
+            "reasons": list(n.reasons),
+            "last_verified": n.cm.last_verified,
+            "source": n.cm.source,
+        }
+        if _currency.MARK_STALE in n.markers:
+            stale_ids.append(n.note_id)
+        if _currency.MARK_UNSUPPORTED in n.markers:
+            unsupported_ids.append(n.note_id)
+
+    written = []
+    if apply:
+        for fname, content in (
+            (CURRENT_TRUTH_FILE, current_truth_md),
+            (SUPERSESSION_FILE, supersession_md),
+        ):
+            p = wiki / fname
+            tmp = p.with_suffix(".tmp")
+            try:
+                tmp.write_text(content, "utf-8")
+                tmp.replace(p)
+            except Exception:
+                tmp.unlink(missing_ok=True)
+                raise
+            written.append(str(p))
+        # refresh index additively with STALE/UNSUPPORTED visibility.
+        cmd_update_index(vault, topic)
+
+    return {
+        "ok": True,
+        "topic": topic,
+        "today": today_date.isoformat(),
+        "apply": apply,
+        "entities": entities_out,
+        "current_truth": {e: current_truth[e].note_id for e in sorted(current_truth)},
+        "superseded": [
+            {"entity": r["entity"], "note_id": r["note_id"], "topped_by": r["topped_by"],
+             "reason": r["reason"]}
+            for r in superseded
+        ],
+        "stale": sorted(stale_ids),
+        "unsupported": sorted(unsupported_ids),
+        "warnings": warnings,
+        "written": written,
+        "current_truth_md": current_truth_md,
+        "supersession_md": supersession_md,
+    }
+
+
 # --- CLI ---
 
 def main():
@@ -323,6 +775,23 @@ def main():
         sys.exit(1)
 
     cmd = args[0]
+
+    def _currency_cli():
+        # positional: <vault> <topic>; flags: --today YYYY-MM-DD, --apply
+        pos = [a for a in args[1:] if not a.startswith("--")]
+        today_str = None
+        apply = False
+        i = 1
+        while i < len(args):
+            if args[i] == "--today" and i + 1 < len(args):
+                today_str = args[i + 1]
+                i += 2
+                continue
+            if args[i] == "--apply":
+                apply = True
+            i += 1
+        return cmd_currency(pos[0], pos[1], today_str=today_str, apply=apply)
+
     dispatch = {
         "init": lambda: cmd_init(args[1], args[2]),
         "diff": lambda: cmd_diff(args[1], args[2]),
@@ -331,6 +800,7 @@ def main():
         "check-links": lambda: cmd_check_links(args[1], args[2]),
         "vitality": lambda: cmd_vitality(args[1], args[2]),
         "log-access": lambda: cmd_log_access(args[1], args[2], args[3]),
+        "currency": _currency_cli,
     }
 
     if cmd not in dispatch:
