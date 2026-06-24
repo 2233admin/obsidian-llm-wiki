@@ -1,0 +1,11 @@
+{
+  "topic": "research",
+  "created": "2026-05-01",
+  "sources": {
+    "raw/iii-spec.md": {
+      "hash": "deadbeefdeadbeef",
+      "compiled_at": "2026-05-01T00:00:00Z"
+    }
+  },
+  "access_log": {}
+}
