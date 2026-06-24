@@ -381,6 +381,10 @@ CURRENCY_REPORT_FILE = "_currency.json"
 # Task 7B: per-project current-truth view (DERIVED). Compiled from the entity
 # graph: a `type: project` entity plus its project/<slug>/... actions & decisions.
 PROJECT_STATUS_FILE = "_project-status.md"
+# Task 8D: triage view (DERIVED). Lists UNCONSUMED candidate captures from
+# 00-Inbox/AI-Output/** in three sections (Unclassified / Pending Review /
+# Conflicts). A capture consumed by a promotes:/rejects: reference disappears.
+TRIAGE_FILE = "_triage.md"
 
 # A sentinel that sorts BEFORE every real ISO date, so a missing last-verified
 # is treated as "infinitely old" and loses every recency comparison.
@@ -504,19 +508,23 @@ def _pass1_supersession(notes: list[CurrencyNote]) -> tuple[dict, list, list]:
     for entity in sorted(groups):
         group = sorted(groups[entity], key=lambda n: n.note_id)
 
-        # Task 8P (P0-2): the authoritative work index never selects a `status:
+        # Task 8P (P0-2): the authoritative WORK index never selects a `status:
         # draft` capture as current-truth. A draft is a candidate proposal (it
-        # lives in _triage), so when an entity also has an authoritative note
-        # (reviewed snapshot or legacy work/knowledge note) the drafts are
-        # quarantined here -- the head is chosen ONLY among authoritative notes,
-        # so a draft `state:done` can never become current-truth or move the
-        # _pass4 open/closed count. Guard: if EVERY note in the group is a draft
-        # (a never-reviewed knowledge note), keep the group intact so the generic
-        # currency / STALE / UNSUPPORTED passes are unchanged (§0 #8 regression).
-        authoritative = [n for n in group
-                         if _work_protocol.is_authoritative_work_note(n.cm)]
-        if authoritative:
-            group = authoritative
+        # lives in _triage), so when a work entity also has an authoritative note
+        # (reviewed snapshot or legacy work note) the drafts are quarantined here
+        # -- the head is chosen ONLY among authoritative notes, so a draft
+        # `state:done` can never become current-truth or move the _pass4 count.
+        # SCOPE (§0 #8): this only applies to WORK entities (a note carrying a
+        # work signal -- state/issue/action). A pure knowledge entity keeps the
+        # generic Task 0-3 currency behaviour, where a newer *unreviewed* (draft)
+        # note legitimately supersedes the old reviewed one. Guards: act only
+        # when some note in the group is a work note, AND keep the group intact
+        # when every note is a draft (a never-reviewed work item).
+        if any(_work_protocol.is_work_note(n.cm) for n in group):
+            authoritative = [n for n in group
+                             if _work_protocol.is_authoritative_work_note(n.cm)]
+            if authoritative:
+                group = authoritative
 
         # Build explicit supersession map: superseded_note -> topping note.
         superseded_by: dict[str, CurrencyNote] = {}
@@ -728,17 +736,48 @@ def _render_supersession(topic: str, current_truth: dict, superseded: list) -> s
     return "\n".join(lines).rstrip() + "\n"
 
 
+def _current_truth_index(current_truth: dict) -> list:
+    """Task 8C: build a work_protocol index (one WorkNote per entity) from the
+    already-resolved current-truth heads.
+
+    The blocker graph (effective_state / blocker_status) is computed against the
+    AUTHORITATIVE heads -- which is exactly what `current_truth` already is after
+    _pass1_supersession (drafts quarantined, supersession resolved, one winner
+    per entity). Wrapping each CurrencyNote as a WorkNote lets _pass4 reuse the
+    canonical blocker logic from work_protocol without re-scanning the disk or
+    re-deriving relations here. A blocked-by target outside the project prefix is
+    still resolvable because EVERY current-truth entity (project or not) is in
+    this index."""
+    return [
+        _work_protocol.WorkNote(
+            note_id=sn.note_id, path=sn.path, cm=sn.cm,
+            raw=sn.cm.raw, body=sn.body_first_line,
+        )
+        for sn in current_truth.values()
+    ]
+
+
 def _pass4_project_status(current_truth: dict, today_date: date) -> dict:
-    """Task 7B: compile per-project current-truth from the entity graph.
+    """Task 7B + 8C: compile per-project current-truth from the entity graph.
 
     A project is a `type: project` entity `project/<slug>`; its actions and
     decisions are entities namespaced under `project/<slug>/...`. Reuses the
     current-truth + staleness already computed by passes 1-3 -- the only new
     grouping is the entity-name prefix. Adds no new pass over the source notes.
 
+    Task 8C wires the REAL Blockers view: an action is a blocker when its derived
+    `effective_state == 'blocked'` (the real blocked-by graph -- active state AND
+    an unresolved blocker). Legacy `status: blocked` notes that carry NO relation
+    are still surfaced under Blockers, marked `[LEGACY-BLOCKED:NO-RELATION]`, so
+    old data is never lost. Classification (mutually exclusive, in order):
+      decision -> decisions; effective blocked -> blockers (real);
+      legacy_blocked (no relation) -> blockers (legacy); done|canceled -> closed;
+      else -> open_actions (active AND not blocked).
+
     Returns project_entity -> {note_id, status, marker, reasons, open_actions,
     blockers, decisions, closed_count}."""
     out: dict = {}
+    index = _current_truth_index(current_truth)
     projects = [e for e in sorted(current_truth)
                 if current_truth[e].cm.type == _currency.TYPE_PROJECT]
     for pe in projects:
@@ -754,11 +793,10 @@ def _pass4_project_status(current_truth: dict, today_date: date) -> dict:
             # (currency.work_state), NOT raw cm.status. work_state maps done/
             # completed/canceled/archived -> done|canceled and the legacy
             # `blocked` word -> in-progress + a legacy_blocked flag, so a capture
-            # that says "done" via the work axis is counted consistently and a
-            # blocked action is detected via legacy_blocked (work_state alone
-            # canonicalizes blocked to in-progress). Drafts never reach here --
-            # they were quarantined from current-truth selection in
-            # _pass1_supersession, so a non-authoritative draft cannot move a count.
+            # that says "done" via the work axis is counted consistently. Drafts
+            # never reach here -- they were quarantined from current-truth
+            # selection in _pass1_supersession, so a non-authoritative draft
+            # cannot move a count.
             wstate = _currency.work_state(sn.cm)
             entry = {
                 "entity": eid,
@@ -772,8 +810,17 @@ def _pass4_project_status(current_truth: dict, today_date: date) -> dict:
             if "/decision/" in eid:
                 decisions.append(entry)
                 continue
-            # everything else under the project is an action
-            if _currency.legacy_blocked(sn.cm):
+            # everything else under the project is an action.
+            eff = _work_protocol.effective_state(index, eid)
+            if eff["state"] == _currency.STATE_BLOCKED:
+                # REAL blocker: active head + unresolved blocked-by relation.
+                entry["blocked_by"] = [b["target"] for b in eff["blockers"]]
+                entry["blocker_detail"] = list(eff["blockers"])
+                blockers.append(entry)
+            elif _currency.legacy_blocked(sn.cm):
+                # legacy status:blocked with no relation -> keep it visible but
+                # mark it so new data is steered toward real blocked-by relations.
+                entry["legacy_blocked"] = True
                 blockers.append(entry)
             elif wstate in (_currency.STATE_DONE, _currency.STATE_CANCELED):
                 closed += 1
@@ -828,13 +875,57 @@ def _render_project_status(project_status: dict, today_date: date) -> str:
         if p["blockers"]:
             lines.append(f"- blockers: {len(p['blockers'])}")
             for b in p["blockers"]:
-                lines.append(f"  - {b['entity']} -- {b['body']}")
+                if b.get("legacy_blocked"):
+                    # legacy status:blocked with no relation graph.
+                    lines.append(f"  - {b['entity']} -- {b['body']}  [LEGACY-BLOCKED:NO-RELATION]")
+                else:
+                    # real blocked-by graph: name the unresolved dependencies.
+                    detail = "; ".join(
+                        f"{d['target']} ({d['status']})" for d in b.get("blocker_detail", [])
+                    )
+                    suffix = f"  [blocked-by: {detail}]" if detail else ""
+                    lines.append(f"  - {b['entity']} -- {b['body']}{suffix}")
         if p["decisions"]:
             lines.append("- recent decisions:")
             for d in p["decisions"]:
                 lines.append(f"  - {d['entity']} -- {d['body']} (verified {d['last_verified'] or '?'})")
         if p["closed_count"]:
             lines.append(f"- closed/superseded actions: {p['closed_count']} (see _supersession.md)")
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _render_triage(triage_items: list, today_date: date) -> str:
+    """Task 8D triage view (DERIVED): unconsumed candidate captures grouped into
+    Unclassified / Pending Review / Conflicts. Mirrors the _project-status render
+    style. Consumed captures are already excluded by classify_triage, so they do
+    not appear here."""
+    lines = [
+        "# triage -- unconsumed captures (DERIVED)",
+        "",
+        "> DERIVED, recomputable, gitignored. Regenerated by `kb_meta currency`.",
+        "> Do not edit; do not commit. Captures are append-only -- accept via a",
+        "> reviewed snapshot (promotes:) or reject via a decision note (rejects:);",
+        "> a consumed capture disappears from this view (source bytes never change).",
+        f"> Compiled: {today_date.isoformat()}",
+        "",
+    ]
+    sections = (
+        _work_protocol.TRIAGE_UNCLASSIFIED,
+        _work_protocol.TRIAGE_PENDING_REVIEW,
+        _work_protocol.TRIAGE_CONFLICTS,
+    )
+    for section in sections:
+        rows = [it for it in triage_items if it.section == section]
+        if not rows:
+            continue
+        lines.append(f"## {section} ({len(rows)})")
+        for it in rows:
+            head = it.entity or "(no entity)"
+            body = f" -- {it.body}" if it.body else ""
+            lines.append(f"- {head}{body}")
+            lines.append(f"  - capture: {it.note_id}")
+            lines.append(f"  - state: {it.state or '(none)'}; {it.reason}")
         lines.append("")
     return "\n".join(lines).rstrip() + "\n"
 
@@ -861,6 +952,18 @@ def cmd_currency(vault: str, topic: str, today_str: str | None = None,
     supersession_md = _render_supersession(topic, current_truth, superseded)
     project_status = _pass4_project_status(current_truth, today_date)
     project_status_md = _render_project_status(project_status, today_date)
+
+    # Task 8D triage: scan 00-Inbox/AI-Output/** for UNCONSUMED candidate
+    # captures (status:draft not referenced by any promotes:/rejects:) and
+    # classify them Unclassified / Pending Review / Conflicts. Scoped to the
+    # vault root (captures live outside the topic), additive, read-only.
+    triage_items = _work_protocol.classify_triage(vault, today=today_date.isoformat())
+    triage_md = _render_triage(triage_items, today_date)
+    triage_out = [
+        {"note_id": it.note_id, "entity": it.entity, "section": it.section,
+         "state": it.state, "reason": it.reason}
+        for it in triage_items
+    ]
 
     # Summaries for machine consumption (returned even in dry-run).
     entities_out = {}
@@ -915,11 +1018,20 @@ def cmd_currency(vault: str, topic: str, today_str: str | None = None,
         # so non-project vaults get no extra derived file.
         if project_status:
             artifacts.append((PROJECT_STATUS_FILE, project_status_md))
+        # Task 8D: only emit the triage view when there are unconsumed captures,
+        # mirroring _project-status -- a vault with nothing to triage gets no file.
+        if triage_items:
+            artifacts.append((TRIAGE_FILE, triage_md))
         for fname, content in artifacts:
             p = wiki / fname
             tmp = p.with_suffix(".tmp")
             try:
-                tmp.write_text(content, "utf-8")
+                # Write bytes (NOT text mode): the _render_* helpers emit pure LF,
+                # and text-mode write_text applies OS newline translation (CRLF on
+                # Windows), making the on-disk artifact platform-dependent and
+                # defeating the recomputable/byte-stable contract (invariant f).
+                # Bytes keep the file byte-identical to the LF-only render.
+                tmp.write_bytes(content.encode("utf-8"))
                 tmp.replace(p)
             except Exception:
                 tmp.unlink(missing_ok=True)
@@ -949,6 +1061,8 @@ def cmd_currency(vault: str, topic: str, today_str: str | None = None,
         "supersession_md": supersession_md,
         "project_status": project_status,
         "project_status_md": project_status_md,
+        "triage": triage_out,
+        "triage_md": triage_md,
     }
 
 

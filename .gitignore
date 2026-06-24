@@ -50,6 +50,7 @@ mcp-server/smoke.err
 **/wiki/_supersession.md
 **/wiki/_currency.json
 **/wiki/_project-status.md
+**/wiki/_triage.md
 
 # capture-hook (Task 4) per-machine idempotency state (default lives in
 # ~/.vault-mind/; ignored here in case VAULT_CAPTURE_STATE points into the repo)

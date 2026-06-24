@@ -42,6 +42,19 @@ C1_ID = "00-Inbox/AI-Output/db-migration-done-capture.md"
 C2_ID = "00-Inbox/AI-Output/db-migration-canceled-capture.md"
 ENTITY = "project/iii-pivot/issue/db-migration"
 
+# Task 8C blocker-graph players (note-id = repo-relative path).
+A_ID = "Projects/iii-pivot/issues/issue-a.md"
+B_ID = "Projects/iii-pivot/issues/issue-b.md"
+B_DONE_CAPTURE_ID = "00-Inbox/AI-Output/issue-b-done-capture.md"
+SCHEMA_FREEZE_ID = "Projects/iii-pivot/issues/schema-freeze.md"
+ENTITY_A = "project/iii-pivot/issue/issue-a"
+ENTITY_B = "project/iii-pivot/issue/issue-b"
+ENTITY_SCHEMA_FREEZE = "project/iii-pivot/issue/schema-freeze"
+
+# Task 8D triage players (note-id = repo-relative path).
+NO_ENTITY_CAPTURE_ID = "00-Inbox/AI-Output/loose-thought-capture.md"
+CONSUMED_CAPTURE_ID = "00-Inbox/AI-Output/api-rename-done-capture.md"
+
 # Fixed "today" so any due/overdue reasoning is deterministic (mirrors the
 # TODAY constant in test_project_currency.py).
 TODAY = date(2026, 6, 25)
@@ -455,6 +468,32 @@ class WorkProtocolMultiHeadGuard(WorkProtocolFixtureBase):
         self.assertEqual(eff["state"], "in-progress")
         self.assertNotIn(eff["state"], ("done", "canceled"))
 
+    def test_conflict_fallback_reads_ancestor_state_not_a_constant(self) -> None:
+        # Lock in that the truth-conflict fallback reads the LAST-COMMON-ANCESTOR's
+        # actual state, not a hardcoded 'in-progress'. Build a fresh entity whose
+        # ancestor H0 is `todo`, with two reviewed terminal heads (done + canceled)
+        # both superseding H0; the fallback must return the ancestor state `todo`.
+        base = self.vault / "Projects/iii-pivot/issues"
+        ent = "project/iii-pivot/issue/anc-state"
+        (base / "anc-state.md").write_text(
+            "---\ntype: issue\nentity: " + ent + "\nstate: todo\n"
+            "status: reviewed\nlast-verified: 2026-06-20\n---\n\nH0 ancestor (todo).\n",
+            "utf-8")
+        h0_id = "Projects/iii-pivot/issues/anc-state.md"
+        (base / "anc-state.reviewed.1.md").write_text(
+            "---\ntype: issue\nentity: " + ent + "\nstate: done\n"
+            "status: reviewed\nsupersedes: " + h0_id + "\n"
+            "last-verified: 2026-06-25\n---\n\nrival head done.\n", "utf-8")
+        (base / "anc-state.reviewed.2.md").write_text(
+            "---\ntype: issue\nentity: " + ent + "\nstate: canceled\n"
+            "status: reviewed\nsupersedes: " + h0_id + "\n"
+            "last-verified: 2026-06-26\n---\n\nrival head canceled.\n", "utf-8")
+        eff = work_protocol.effective_state(self._scan(), ent)
+        self.assertIn(work_protocol.TRUTH_CONFLICT, eff["marker"])
+        # the fallback is the ANCESTOR's exact state (todo), not a constant.
+        self.assertEqual(eff["state"], "todo")
+        self.assertEqual(eff["head_note_id"], h0_id)
+
 
 class WorkProtocolNewEntity(WorkProtocolFixtureBase):
     """§2: when no head exists for the entity (new), promote materializes a fresh
@@ -662,6 +701,644 @@ class WorkProtocolDraftSupersedesIgnored(WorkProtocolFixtureBase):
         res = work_protocol.resolve_head(notes, ENTITY)
         # H1 is still the head; the draft (even carrying supersedes:H1) is excluded.
         self.assertEqual(res.head.note_id, H1_ID)
+
+
+# --- Task 8C: relations + blocker graph (PR4) --------------------------------
+
+
+class BlockerStatusBranches(WorkProtocolFixtureBase):
+    """blocker_status(target, index): every verdict branch (§2 8C). Only a
+    reviewed-promoted done head RESOLVES; canceled is NOT satisfaction; a missing
+    target is BROKEN_REF; a multi-head target is TRUTH_CONFLICT; an active head
+    is UNRESOLVED."""
+
+    def test_resolved_when_target_head_is_reviewed_done(self) -> None:
+        # schema-freeze is a reviewed state:done head -> RESOLVED.
+        notes = self._scan()
+        self.assertEqual(
+            work_protocol.blocker_status(ENTITY_SCHEMA_FREEZE, notes),
+            work_protocol.BLOCKER_RESOLVED,
+        )
+
+    def test_unresolved_when_target_head_is_active(self) -> None:
+        # B is reviewed but still in-progress -> UNRESOLVED.
+        notes = self._scan()
+        self.assertEqual(
+            work_protocol.blocker_status(ENTITY_B, notes),
+            work_protocol.BLOCKER_UNRESOLVED,
+        )
+
+    def test_broken_ref_when_target_entity_has_no_head(self) -> None:
+        notes = self._scan()
+        self.assertEqual(
+            work_protocol.blocker_status("project/iii-pivot/issue/ghost", notes),
+            work_protocol.BLOCKER_BROKEN_REF,
+        )
+
+    def test_canceled_dependency_is_not_satisfaction(self) -> None:
+        # hand-write a reviewed CANCELED head for a fresh target entity.
+        canceled = self.vault / "Projects/iii-pivot/issues/dropped.md"
+        canceled.write_text(
+            "---\ntype: issue\nentity: project/iii-pivot/issue/dropped\n"
+            "state: canceled\nstatus: reviewed\nlast-verified: 2026-06-23\n---\n"
+            "\na canceled dependency.\n", "utf-8")
+        notes = self._scan()
+        self.assertEqual(
+            work_protocol.blocker_status("project/iii-pivot/issue/dropped", notes),
+            work_protocol.BLOCKER_CANCELED_DEPENDENCY,
+        )
+
+    def test_truth_conflict_when_target_has_two_reviewed_heads(self) -> None:
+        # forge two reviewed terminal heads off db-migration's H1 (mirrors the
+        # multi-head guard fixture), then query that entity as a blocker target.
+        c1 = _note(self._scan(), C1_ID)
+        work_protocol.promote(str(self.vault), c1, apply=True, promoted_by="user/xue")
+        h3 = self.vault / "Projects/iii-pivot/issues/db-migration.reviewed.99.md"
+        h3.write_text(
+            "---\ntype: issue\nentity: " + ENTITY + "\nstate: canceled\n"
+            "status: reviewed\nsupersedes: " + H1_ID + "\n"
+            "last-verified: 2026-06-26\n---\n\nrival reviewed head.\n", "utf-8")
+        notes = self._scan()
+        self.assertEqual(
+            work_protocol.blocker_status(ENTITY, notes),
+            work_protocol.BLOCKER_TRUTH_CONFLICT,
+        )
+
+
+class HasUnresolvedBlocker(WorkProtocolFixtureBase):
+    """has_unresolved_blocker(entity): True iff the entity's authoritative head
+    declares any blocked-by target that is NOT RESOLVED."""
+
+    def test_a_is_blocked_by_active_b(self) -> None:
+        self.assertTrue(work_protocol.has_unresolved_blocker(self._scan(), ENTITY_A))
+
+    def test_entity_with_resolved_only_blocker_is_not_blocked(self) -> None:
+        # db-migration is blocked-by schema-freeze, which is RESOLVED (reviewed
+        # done) -> no unresolved blocker.
+        self.assertFalse(work_protocol.has_unresolved_blocker(self._scan(), ENTITY))
+
+    def test_entity_with_no_blocked_by_is_not_blocked(self) -> None:
+        self.assertFalse(work_protocol.has_unresolved_blocker(self._scan(), ENTITY_B))
+
+    def test_missing_entity_is_not_blocked(self) -> None:
+        self.assertFalse(
+            work_protocol.has_unresolved_blocker(self._scan(), "project/x/issue/none"))
+
+
+class EffectiveStateBlockedDerivation(WorkProtocolFixtureBase):
+    """§3 #4: A blocked-by B (B in-progress) -> A's effective_state is the DERIVED
+    'blocked' (active head + unresolved blocker). A draft state:done for B does
+    NOT resolve A; only a reviewed-promoted done does."""
+
+    def test_active_head_with_unresolved_blocker_derives_blocked(self) -> None:
+        eff = work_protocol.effective_state(self._scan(), ENTITY_A)
+        self.assertEqual(eff["state"], currency.STATE_BLOCKED)
+        self.assertEqual(eff["marker"], "")  # blocked is not a truth-conflict
+        targets = {b["target"] for b in eff["blockers"]}
+        self.assertIn(ENTITY_B, targets)
+
+    def test_draft_done_for_b_does_not_resolve_a(self) -> None:
+        # the draft state:done capture for B is present in the fixture; A stays
+        # blocked because a draft is a candidate, never an authoritative head.
+        b_draft = _note(self._scan(), B_DONE_CAPTURE_ID)
+        self.assertTrue(b_draft.is_candidate)
+        self.assertEqual(currency.work_state(b_draft.cm), "done")  # proposes done
+        self.assertEqual(
+            work_protocol.effective_state(self._scan(), ENTITY_A)["state"],
+            currency.STATE_BLOCKED,
+        )
+
+    def test_after_promote_b_done_a_returns_to_open(self) -> None:
+        b_draft = _note(self._scan(), B_DONE_CAPTURE_ID)
+        res = work_protocol.promote(str(self.vault), b_draft, apply=True,
+                                    promoted_by="user/xue", today="2026-06-25")
+        self.assertEqual(res.outcome, work_protocol.OUTCOME_MATERIALIZED)
+        # B is now reviewed-done -> RESOLVED -> A is no longer blocked (back to
+        # its own head state, in-progress = an Open action).
+        eff = work_protocol.effective_state(self._scan(), ENTITY_A)
+        self.assertEqual(eff["state"], "in-progress")
+        self.assertEqual(eff["blockers"], [])
+
+    def test_done_head_is_not_re_derived_as_blocked(self) -> None:
+        # a terminal (done) head with a stale blocked-by is NOT re-derived blocked.
+        done_blocked = self.vault / "Projects/iii-pivot/issues/finished.md"
+        done_blocked.write_text(
+            "---\ntype: issue\nentity: project/iii-pivot/issue/finished\n"
+            "state: done\nstatus: reviewed\n"
+            "blocked-by: [project/iii-pivot/issue/issue-b]\n"
+            "last-verified: 2026-06-24\n---\n\ndone despite a stale blocker.\n",
+            "utf-8")
+        eff = work_protocol.effective_state(self._scan(),
+                                            "project/iii-pivot/issue/finished")
+        self.assertEqual(eff["state"], "done")
+
+
+class DerivedRelations(WorkProtocolFixtureBase):
+    """blocks (reverse) and related (symmetric) are DERIVED from the only
+    persisted edge, blocked-by -- never double-written."""
+
+    def test_blocked_by_is_read_from_head(self) -> None:
+        rel = work_protocol.derive_relations(self._scan())
+        self.assertEqual(rel[ENTITY_A]["blocked_by"], [ENTITY_B])
+
+    def test_blocks_is_the_reverse_edge(self) -> None:
+        # B blocks A iff A blocked-by B.
+        rel = work_protocol.derive_relations(self._scan())
+        self.assertIn(ENTITY_A, rel[ENTITY_B]["blocks"])
+        self.assertEqual(rel[ENTITY_A]["blocks"], [])  # A blocks nothing
+
+    def test_related_is_symmetric(self) -> None:
+        rel = work_protocol.derive_relations(self._scan())
+        self.assertIn(ENTITY_B, rel[ENTITY_A]["related"])
+        self.assertIn(ENTITY_A, rel[ENTITY_B]["related"])
+
+    def test_relations_read_only_authoritative_head_not_drafts(self) -> None:
+        # a draft capture that forges a blocked-by must not contribute an edge.
+        forged = self.vault / "00-Inbox/AI-Output/forged-blocked-by.md"
+        forged.write_text(
+            "---\ntype: issue\nentity: project/iii-pivot/issue/issue-b\n"
+            "state: in-progress\nstatus: draft\n"
+            "blocked-by: [project/iii-pivot/issue/phantom]\n"
+            "base-head: " + B_ID + "\nlast-verified: 2026-06-26\n---\n\n"
+            "draft forging a blocked-by edge.\n", "utf-8")
+        rel = work_protocol.derive_relations(self._scan())
+        # B's authoritative head declares NO blocked-by; the draft's forged edge
+        # to `phantom` must not appear.
+        self.assertEqual(rel[ENTITY_B]["blocked_by"], [])
+        self.assertNotIn("project/iii-pivot/issue/phantom", rel)
+
+    def test_blocked_by_refs_dedupes_and_handles_scalar(self) -> None:
+        self.assertEqual(
+            work_protocol.blocked_by_refs({"blocked-by": ["x", "x", "y"]}),
+            ["x", "y"])
+        # a scalar value is tolerated and wrapped.
+        self.assertEqual(work_protocol.blocked_by_refs({"blocked-by": "z"}), ["z"])
+        self.assertEqual(work_protocol.blocked_by_refs({}), [])
+
+
+# --- §3 #4: end-to-end through the LIVE kb_meta Blockers view -----------------
+
+
+class LiveBlockersViewFromRealGraph(unittest.TestCase):
+    """§3 #4 enforced in PRODUCTION: the real read path kb_meta.cmd_currency ->
+    _pass4_project_status now computes the Blockers section from the REAL
+    effective_state=='blocked' graph (not the legacy_blocked-only detector). A
+    legacy status:blocked note with NO relation still shows under Blockers with a
+    [LEGACY-BLOCKED:NO-RELATION] marker. Open Actions = active AND not blocked."""
+
+    def setUp(self) -> None:
+        self.tmp = Path(tempfile.mkdtemp(prefix="vault-8c-live-"))
+        self.vault = self.tmp / "vault"
+        (self.vault / "Projects" / "p" / "issues").mkdir(parents=True)
+        (self.vault / "00-Inbox" / "AI-Output").mkdir(parents=True)
+        (self.vault / "research" / "wiki").mkdir(parents=True)
+        (self.vault / "research" / "_meta.json").write_text('{"sources": {}}', "utf-8")
+        (self.vault / "Projects" / "p.md").write_text(
+            "---\ntype: project\nentity: project/p\nstatus: active\n"
+            "last-verified: 2026-06-24\n---\n\nproject p.\n", "utf-8")
+        # A: reviewed in-progress, blocked-by B (real relation).
+        (self.vault / "Projects" / "p" / "issues" / "a.md").write_text(
+            "---\ntype: issue\nentity: project/p/issue/a\nstate: in-progress\n"
+            "status: reviewed\nblocked-by: [project/p/issue/b]\n"
+            "last-verified: 2026-06-24\n---\n\nA blocked-by B.\n", "utf-8")
+        # B: reviewed in-progress (an UNRESOLVED blocker for A).
+        (self.vault / "Projects" / "p" / "issues" / "b.md").write_text(
+            "---\ntype: issue\nentity: project/p/issue/b\nstate: in-progress\n"
+            "status: reviewed\nlast-verified: 2026-06-24\n---\n\nB still open.\n",
+            "utf-8")
+        # legacy: status:blocked with NO relation (old data).
+        (self.vault / "Projects" / "p" / "issues" / "legacy.md").write_text(
+            "---\ntype: issue\nentity: project/p/issue/legacy\nstatus: blocked\n"
+            "owner: bob\nlast-verified: 2026-06-24\n---\n\nlegacy blocked, no relation.\n",
+            "utf-8")
+        # a plain open action (active, not blocked).
+        (self.vault / "Projects" / "p" / "issues" / "open.md").write_text(
+            "---\ntype: issue\nentity: project/p/issue/open\nstate: todo\n"
+            "status: reviewed\nowner: amy\nlast-verified: 2026-06-24\n---\n\nplain open.\n",
+            "utf-8")
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _run(self):
+        return kb_meta.cmd_currency(str(self.vault), "research",
+                                    today_str=TODAY.isoformat(), apply=False)
+
+    def _ents(self, items):
+        return {i["entity"] for i in items}
+
+    def test_real_blocked_action_in_blockers_not_open(self) -> None:
+        ps = self._run()["project_status"]["project/p"]
+        self.assertIn("project/p/issue/a", self._ents(ps["blockers"]))
+        self.assertNotIn("project/p/issue/a", self._ents(ps["open_actions"]))
+
+    def test_blocker_entry_names_its_unresolved_dependency(self) -> None:
+        ps = self._run()["project_status"]["project/p"]
+        a = next(b for b in ps["blockers"] if b["entity"] == "project/p/issue/a")
+        self.assertIn("project/p/issue/b", a.get("blocked_by", []))
+
+    def test_legacy_blocked_no_relation_still_in_blockers(self) -> None:
+        ps = self._run()["project_status"]["project/p"]
+        leg = next((b for b in ps["blockers"]
+                    if b["entity"] == "project/p/issue/legacy"), None)
+        self.assertIsNotNone(leg)
+        self.assertTrue(leg.get("legacy_blocked"))
+
+    def test_legacy_marker_rendered(self) -> None:
+        md = self._run()["project_status_md"]
+        self.assertIn("[LEGACY-BLOCKED:NO-RELATION]", md)
+
+    def test_open_action_is_active_and_not_blocked(self) -> None:
+        ps = self._run()["project_status"]["project/p"]
+        self.assertIn("project/p/issue/open", self._ents(ps["open_actions"]))
+        self.assertNotIn("project/p/issue/open", self._ents(ps["blockers"]))
+
+    def test_b_is_open_not_blocker(self) -> None:
+        # B has no blocked-by and is not legacy-blocked -> a plain Open action.
+        ps = self._run()["project_status"]["project/p"]
+        self.assertIn("project/p/issue/b", self._ents(ps["open_actions"]))
+        self.assertNotIn("project/p/issue/b", self._ents(ps["blockers"]))
+
+    def test_promote_b_done_moves_a_from_blockers_to_open(self) -> None:
+        # before: A is blocked.
+        ps = self._run()["project_status"]["project/p"]
+        self.assertIn("project/p/issue/a", self._ents(ps["blockers"]))
+        # promote a draft done for B -> reviewed done head -> A unblocks.
+        (self.vault / "00-Inbox" / "AI-Output" / "b-done.md").write_text(
+            "---\ntype: issue\nentity: project/p/issue/b\nstate: done\n"
+            "status: draft\nbase-head: Projects/p/issues/b.md\n"
+            "last-verified: 2026-06-25\n---\n\ndraft done for B.\n", "utf-8")
+        cand = _note(work_protocol.scan_work_notes(str(self.vault)),
+                     "00-Inbox/AI-Output/b-done.md")
+        r = work_protocol.promote(str(self.vault), cand, apply=True,
+                                  promoted_by="user/xue", today=TODAY.isoformat())
+        self.assertEqual(r.outcome, work_protocol.OUTCOME_MATERIALIZED)
+        ps2 = self._run()["project_status"]["project/p"]
+        self.assertIn("project/p/issue/a", self._ents(ps2["open_actions"]))
+        self.assertNotIn("project/p/issue/a", self._ents(ps2["blockers"]))
+
+    def test_draft_done_for_b_alone_does_not_unblock_a(self) -> None:
+        # §3 #4: a DRAFT done for B (no promote) must NOT move A out of Blockers.
+        (self.vault / "00-Inbox" / "AI-Output" / "b-done-draft.md").write_text(
+            "---\ntype: issue\nentity: project/p/issue/b\nstate: done\n"
+            "status: draft\nbase-head: Projects/p/issues/b.md\n"
+            "last-verified: 2026-06-25\n---\n\ndraft done, not promoted.\n", "utf-8")
+        ps = self._run()["project_status"]["project/p"]
+        self.assertIn("project/p/issue/a", self._ents(ps["blockers"]))
+        self.assertNotIn("project/p/issue/a", self._ents(ps["open_actions"]))
+
+
+# --- Task 8D: triage view (PR3) ----------------------------------------------
+
+
+def _triage_by_id(items):
+    return {it.note_id: it for it in items}
+
+
+class TriageConsumedRefs(WorkProtocolFixtureBase):
+    """consumed_refs scans EVERY note for promotes:/rejects: and resolves each to
+    a capture note-id. The fixture's reviewed snapshot promotes the api-rename
+    capture, so that capture is in accepted_promotes."""
+
+    def test_promotes_ref_is_collected(self) -> None:
+        ap, ar = work_protocol.consumed_refs(
+            work_protocol.scan_all_notes(str(self.vault)))
+        self.assertIn(CONSUMED_CAPTURE_ID, ap)
+        self.assertEqual(ar, set())
+
+    def test_scan_all_notes_includes_no_entity_capture(self) -> None:
+        # the entity filter is OFF, so the no-entity capture is visible (it must
+        # be, to be classified Unclassified).
+        ids = {n.note_id for n in work_protocol.scan_all_notes(str(self.vault))}
+        self.assertIn(NO_ENTITY_CAPTURE_ID, ids)
+        # ...while the entity-filtered work index excludes it.
+        wids = {n.note_id for n in work_protocol.scan_work_notes(str(self.vault))}
+        self.assertNotIn(NO_ENTITY_CAPTURE_ID, wids)
+
+
+class TriageClassifyFixture(WorkProtocolFixtureBase):
+    """classify_triage against the committed fixture: the no-entity capture is
+    Unclassified, the cleanly-promotable capture is Pending Review, the two
+    competing db-migration captures are Conflicts, and the consumed capture is
+    ABSENT."""
+
+    def _items(self):
+        return work_protocol.classify_triage(str(self.vault), today="2026-06-25")
+
+    def test_no_entity_capture_is_unclassified(self) -> None:
+        it = _triage_by_id(self._items())[NO_ENTITY_CAPTURE_ID]
+        self.assertEqual(it.section, work_protocol.TRIAGE_UNCLASSIFIED)
+        self.assertIsNone(it.entity)
+
+    def test_entity_no_review_is_pending_review(self) -> None:
+        # issue-b-done-capture has an entity and is cleanly promotable (base-head
+        # matches B's head, no multi-head, no competitor) -> Pending Review.
+        it = _triage_by_id(self._items())[B_DONE_CAPTURE_ID]
+        self.assertEqual(it.section, work_protocol.TRIAGE_PENDING_REVIEW)
+        self.assertEqual(it.entity, ENTITY_B)
+
+    def test_competing_promotions_are_conflicts(self) -> None:
+        # C1 and C2 both target db-migration -> competing promotions -> Conflicts.
+        by_id = _triage_by_id(self._items())
+        self.assertEqual(by_id[C1_ID].section, work_protocol.TRIAGE_CONFLICTS)
+        self.assertEqual(by_id[C2_ID].section, work_protocol.TRIAGE_CONFLICTS)
+
+    def test_consumed_capture_is_absent(self) -> None:
+        # the api-rename capture is promoted (consumed) -> not in triage at all.
+        self.assertNotIn(CONSUMED_CAPTURE_ID, _triage_by_id(self._items()))
+
+    def test_source_capture_bytes_unchanged_after_classify(self) -> None:
+        before = {nid: self._read_bytes(nid) for nid in
+                  (NO_ENTITY_CAPTURE_ID, C1_ID, C2_ID, B_DONE_CAPTURE_ID,
+                   CONSUMED_CAPTURE_ID)}
+        self._items()  # the pass runs dry -- it must never edit a source capture.
+        for nid, b in before.items():
+            self.assertEqual(self._read_bytes(nid), b, f"{nid} bytes changed")
+
+
+class TriageConflictsBranches(unittest.TestCase):
+    """The two Conflicts sub-cases the fixture's competing-promotions case does
+    not isolate: a STALE base-head (8P HEAD_MISMATCH) and a multi-head
+    CURRENT-TRUTH-CONFLICT. Each gets a self-contained temp vault."""
+
+    def setUp(self) -> None:
+        self.tmp = Path(tempfile.mkdtemp(prefix="vault-8d-conflict-"))
+        self.vault = self.tmp / "vault"
+        (self.vault / "Projects" / "p" / "issues").mkdir(parents=True)
+        (self.vault / "00-Inbox" / "AI-Output").mkdir(parents=True)
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_stale_base_head_is_conflicts(self) -> None:
+        # H1 head, plus a reviewed H2 that already superseded H1 (the head moved).
+        # A single capture pinned to the now-stale H1 -> HEAD_MISMATCH -> Conflicts.
+        (self.vault / "Projects" / "p" / "issues" / "mig.md").write_text(
+            "---\ntype: issue\nentity: project/p/issue/mig\nstate: in-progress\n"
+            "status: reviewed\nlast-verified: 2026-06-20\n---\n\nH1.\n", "utf-8")
+        (self.vault / "Projects" / "p" / "issues" / "mig.reviewed.1.md").write_text(
+            "---\ntype: issue\nentity: project/p/issue/mig\nstate: done\n"
+            "status: reviewed\nsupersedes: Projects/p/issues/mig.md\n"
+            "promotes: 00-Inbox/AI-Output/old.md\nlast-verified: 2026-06-23\n---\n"
+            "\nH2 (head moved off H1).\n", "utf-8")
+        # the LATE capture still pins the stale H1.
+        (self.vault / "00-Inbox" / "AI-Output" / "late.md").write_text(
+            "---\ntype: issue\nentity: project/p/issue/mig\nstate: canceled\n"
+            "status: draft\nbase-head: Projects/p/issues/mig.md\n"
+            "last-verified: 2026-06-25\n---\n\nlate capture on a stale head.\n",
+            "utf-8")
+        items = _triage_by_id(
+            work_protocol.classify_triage(str(self.vault), today="2026-06-25"))
+        it = items["00-Inbox/AI-Output/late.md"]
+        self.assertEqual(it.section, work_protocol.TRIAGE_CONFLICTS)
+        self.assertIn("base-head", it.reason)
+
+    def test_multi_head_truth_conflict_is_conflicts(self) -> None:
+        # two reviewed terminal heads off one H1 -> CURRENT-TRUTH-CONFLICT; a fresh
+        # capture for that entity is routed to Conflicts (resolve the heads first).
+        (self.vault / "Projects" / "p" / "issues" / "x.md").write_text(
+            "---\ntype: issue\nentity: project/p/issue/x\nstate: in-progress\n"
+            "status: reviewed\nlast-verified: 2026-06-20\n---\n\nH1.\n", "utf-8")
+        (self.vault / "Projects" / "p" / "issues" / "x.reviewed.1.md").write_text(
+            "---\ntype: issue\nentity: project/p/issue/x\nstate: done\n"
+            "status: reviewed\nsupersedes: Projects/p/issues/x.md\n"
+            "last-verified: 2026-06-23\n---\n\nrival head H2.\n", "utf-8")
+        (self.vault / "Projects" / "p" / "issues" / "x.reviewed.2.md").write_text(
+            "---\ntype: issue\nentity: project/p/issue/x\nstate: canceled\n"
+            "status: reviewed\nsupersedes: Projects/p/issues/x.md\n"
+            "last-verified: 2026-06-24\n---\n\nrival head H3.\n", "utf-8")
+        (self.vault / "00-Inbox" / "AI-Output" / "x-cap.md").write_text(
+            "---\ntype: issue\nentity: project/p/issue/x\nstate: done\n"
+            "status: draft\nbase-head: Projects/p/issues/x.md\n"
+            "last-verified: 2026-06-25\n---\n\ncapture onto a conflicted entity.\n",
+            "utf-8")
+        it = _triage_by_id(
+            work_protocol.classify_triage(str(self.vault), today="2026-06-25")
+        )["00-Inbox/AI-Output/x-cap.md"]
+        self.assertEqual(it.section, work_protocol.TRIAGE_CONFLICTS)
+        self.assertIn(work_protocol.TRUTH_CONFLICT, it.reason)
+
+
+class TriageRejectionConsumes(unittest.TestCase):
+    """Rejection consumes a capture too: a `type:decision status:reviewed
+    rejects:<id>` note removes the capture from triage -- the source bytes never
+    change (acceptance/rejection are both new notes, never edits)."""
+
+    def setUp(self) -> None:
+        self.tmp = Path(tempfile.mkdtemp(prefix="vault-8d-reject-"))
+        self.vault = self.tmp / "vault"
+        (self.vault / "Projects" / "p" / "issues").mkdir(parents=True)
+        (self.vault / "00-Inbox" / "AI-Output").mkdir(parents=True)
+        (self.vault / "Decisions").mkdir(parents=True)
+        (self.vault / "Projects" / "p" / "issues" / "dup.md").write_text(
+            "---\ntype: issue\nentity: project/p/issue/dup\nstate: in-progress\n"
+            "status: reviewed\nlast-verified: 2026-06-20\n---\n\nhead.\n", "utf-8")
+        self.cap = self.vault / "00-Inbox" / "AI-Output" / "dup-cap.md"
+        self.cap.write_text(
+            "---\ntype: issue\nentity: project/p/issue/dup\nstate: done\n"
+            "status: draft\nbase-head: Projects/p/issues/dup.md\n"
+            "last-verified: 2026-06-25\n---\n\na duplicate capture to be rejected.\n",
+            "utf-8")
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_capture_pending_before_rejection(self) -> None:
+        items = _triage_by_id(
+            work_protocol.classify_triage(str(self.vault), today="2026-06-25"))
+        self.assertIn("00-Inbox/AI-Output/dup-cap.md", items)
+        self.assertEqual(items["00-Inbox/AI-Output/dup-cap.md"].section,
+                         work_protocol.TRIAGE_PENDING_REVIEW)
+
+    def test_rejection_note_removes_capture_from_triage(self) -> None:
+        cap_bytes = self.cap.read_bytes()
+        (self.vault / "Decisions" / "reject-dup.md").write_text(
+            "---\ntype: decision\nstatus: reviewed\n"
+            "rejects: 00-Inbox/AI-Output/dup-cap.md\n"
+            "reason: duplicate of an already-tracked issue\n"
+            "last-verified: 2026-06-25\n---\n\nrejected as a dup.\n", "utf-8")
+        items = _triage_by_id(
+            work_protocol.classify_triage(str(self.vault), today="2026-06-25"))
+        self.assertNotIn("00-Inbox/AI-Output/dup-cap.md", items)
+        # the source capture is untouched -- rejection is a new note, not an edit.
+        self.assertEqual(self.cap.read_bytes(), cap_bytes)
+
+
+class TriageEntityShapedRefDoesNotConsume(unittest.TestCase):
+    """Invariant (b): promotes:/rejects: reference a note-id, NEVER an entity. An
+    ENTITY string whose last segment collides with an unrelated capture's file
+    stem must NOT consume that capture from triage (the consumption-path namespace
+    leak). Mirrors test_entity_shaped_base_head_is_head_mismatch on the base-head
+    side."""
+
+    def setUp(self) -> None:
+        self.tmp = Path(tempfile.mkdtemp(prefix="vault-8d-nsleak-"))
+        self.vault = self.tmp / "vault"
+        (self.vault / "Projects" / "p" / "issues").mkdir(parents=True)
+        (self.vault / "00-Inbox" / "AI-Output").mkdir(parents=True)
+        (self.vault / "Decisions").mkdir(parents=True)
+        # an UNRELATED, unconsumed capture whose file STEM is `db-migration`.
+        self.cap = self.vault / "00-Inbox" / "AI-Output" / "db-migration.md"
+        self.cap.write_text(
+            "---\ntype: issue\nentity: project/p/issue/db-migration\nstate: done\n"
+            "status: draft\nlast-verified: 2026-06-25\n---\n\nan unconsumed capture.\n",
+            "utf-8")
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_entity_shaped_promotes_does_not_consume_stem_collision(self) -> None:
+        # a reviewed snapshot whose `promotes:` is an ENTITY string (last segment
+        # `db-migration`) -- it stem-collides with the capture but is NOT its note-id.
+        (self.vault / "Projects" / "p" / "issues" / "other.md").write_text(
+            "---\ntype: issue\nentity: project/otherproj/issue/db-migration\n"
+            "state: done\nstatus: reviewed\n"
+            "promotes: project/otherproj/issue/db-migration\n"
+            "last-verified: 2026-06-25\n---\n\nunrelated reviewed note.\n", "utf-8")
+        ap, ar = work_protocol.consumed_refs(
+            work_protocol.scan_all_notes(str(self.vault)))
+        # the entity-shaped ref must NOT resolve to (consume) the capture note-id.
+        self.assertNotIn("00-Inbox/AI-Output/db-migration.md", ap)
+        items = _triage_by_id(
+            work_protocol.classify_triage(str(self.vault), today="2026-06-25"))
+        # the genuinely-unconsumed capture must STILL be present in triage.
+        self.assertIn("00-Inbox/AI-Output/db-migration.md", items)
+
+    def test_entity_shaped_rejects_does_not_consume_stem_collision(self) -> None:
+        (self.vault / "Decisions" / "reject.md").write_text(
+            "---\ntype: decision\nstatus: reviewed\n"
+            "rejects: project/otherproj/issue/db-migration\n"
+            "reason: not the right capture\nlast-verified: 2026-06-25\n---\n\nx.\n",
+            "utf-8")
+        ap, ar = work_protocol.consumed_refs(
+            work_protocol.scan_all_notes(str(self.vault)))
+        self.assertNotIn("00-Inbox/AI-Output/db-migration.md", ar)
+        items = _triage_by_id(
+            work_protocol.classify_triage(str(self.vault), today="2026-06-25"))
+        self.assertIn("00-Inbox/AI-Output/db-migration.md", items)
+
+    def test_genuine_note_id_promotes_still_consumes(self) -> None:
+        # control: a real note-id `promotes:` still consumes the capture.
+        (self.vault / "Projects" / "p" / "issues" / "snap.md").write_text(
+            "---\ntype: issue\nentity: project/p/issue/db-migration\nstate: done\n"
+            "status: reviewed\npromotes: 00-Inbox/AI-Output/db-migration.md\n"
+            "last-verified: 2026-06-25\n---\n\nreal promotion.\n", "utf-8")
+        ap, ar = work_protocol.consumed_refs(
+            work_protocol.scan_all_notes(str(self.vault)))
+        self.assertIn("00-Inbox/AI-Output/db-migration.md", ap)
+        items = _triage_by_id(
+            work_protocol.classify_triage(str(self.vault), today="2026-06-25"))
+        self.assertNotIn("00-Inbox/AI-Output/db-migration.md", items)
+
+
+class LiveTriageThroughCmdCurrency(unittest.TestCase):
+    """§3 #7 / 8D end-to-end through the LIVE read path kb_meta.cmd_currency: the
+    triage pass returns triage / triage_md, writes _triage.md only when there is
+    something to triage, and a consumed capture stays absent. Source captures are
+    byte-identical before/after the (apply) pass."""
+
+    def setUp(self) -> None:
+        self.tmp = Path(tempfile.mkdtemp(prefix="vault-8d-live-"))
+        self.vault = self.tmp / "vault"
+        (self.vault / "Projects" / "p" / "issues").mkdir(parents=True)
+        (self.vault / "00-Inbox" / "AI-Output").mkdir(parents=True)
+        (self.vault / "research" / "wiki").mkdir(parents=True)
+        (self.vault / "research" / "_meta.json").write_text('{"sources": {}}', "utf-8")
+        (self.vault / "Projects" / "p.md").write_text(
+            "---\ntype: project\nentity: project/p\nstatus: active\n"
+            "last-verified: 2026-06-24\n---\n\nproject p.\n", "utf-8")
+        (self.vault / "Projects" / "p" / "issues" / "mig.md").write_text(
+            "---\ntype: issue\nentity: project/p/issue/mig\nstate: in-progress\n"
+            "status: reviewed\nlast-verified: 2026-06-20\n---\n\nhead.\n", "utf-8")
+        # a pending-review capture (clean) ...
+        self.pending = self.vault / "00-Inbox" / "AI-Output" / "mig-cap.md"
+        self.pending.write_text(
+            "---\ntype: issue\nentity: project/p/issue/mig\nstate: done\n"
+            "status: draft\nbase-head: Projects/p/issues/mig.md\n"
+            "last-verified: 2026-06-25\n---\n\npending capture.\n", "utf-8")
+        # ... a no-entity capture (unclassified) ...
+        self.loose = self.vault / "00-Inbox" / "AI-Output" / "loose.md"
+        self.loose.write_text(
+            "---\ntype: note\nstatus: draft\nlast-verified: 2026-06-25\n---\n"
+            "\na loose thought, no entity.\n", "utf-8")
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _run(self, apply=False):
+        return kb_meta.cmd_currency(str(self.vault), "research",
+                                    today_str=TODAY.isoformat(), apply=apply)
+
+    def test_triage_keys_returned_and_classified(self) -> None:
+        res = self._run()
+        sections = {t["note_id"]: t["section"] for t in res["triage"]}
+        self.assertEqual(sections["00-Inbox/AI-Output/mig-cap.md"],
+                         work_protocol.TRIAGE_PENDING_REVIEW)
+        self.assertEqual(sections["00-Inbox/AI-Output/loose.md"],
+                         work_protocol.TRIAGE_UNCLASSIFIED)
+        self.assertIn("Unclassified", res["triage_md"])
+        self.assertIn("Pending Review", res["triage_md"])
+
+    def test_triage_md_written_only_on_apply(self) -> None:
+        triage_path = self.vault / "research" / "wiki" / kb_meta.TRIAGE_FILE
+        self._run(apply=False)
+        self.assertFalse(triage_path.exists(), "dry-run must write nothing")
+        self._run(apply=True)
+        self.assertTrue(triage_path.exists(), "apply must write _triage.md")
+
+    def test_consumed_capture_disappears_from_live_triage(self) -> None:
+        # promote the pending capture -> a reviewed snapshot promotes: it.
+        cand = _note(work_protocol.scan_work_notes(str(self.vault)),
+                     "00-Inbox/AI-Output/mig-cap.md")
+        r = work_protocol.promote(str(self.vault), cand, apply=True,
+                                  promoted_by="user/xue", today=TODAY.isoformat())
+        self.assertEqual(r.outcome, work_protocol.OUTCOME_MATERIALIZED)
+        ids = {t["note_id"] for t in self._run()["triage"]}
+        self.assertNotIn("00-Inbox/AI-Output/mig-cap.md", ids)
+        # the loose (no-entity) capture is still there.
+        self.assertIn("00-Inbox/AI-Output/loose.md", ids)
+
+    def test_empty_triage_writes_no_file(self) -> None:
+        # remove both captures -> nothing to triage -> _triage.md is not written.
+        self.pending.unlink()
+        self.loose.unlink()
+        res = self._run(apply=True)
+        self.assertEqual(res["triage"], [])
+        self.assertFalse(
+            (self.vault / "research" / "wiki" / kb_meta.TRIAGE_FILE).exists())
+
+    def test_source_captures_byte_identical_after_apply(self) -> None:
+        loose_before = self.loose.read_bytes()
+        pending_before = self.pending.read_bytes()
+        self._run(apply=True)
+        self.assertEqual(self.loose.read_bytes(), loose_before)
+        self.assertEqual(self.pending.read_bytes(), pending_before)
+
+    def test_triage_md_on_disk_is_lf_only_and_matches_render(self) -> None:
+        # invariant (f): the derived artifact must be byte-stable / OS-independent.
+        # Text-mode write applied CRLF translation on Windows, so the same render
+        # produced different bytes per platform. Assert the on-disk bytes are
+        # LF-only and byte-identical to the returned render (mirrors the promote
+        # snapshot LF-only test).
+        res = self._run(apply=True)
+        triage_disk = (self.vault / "research" / "wiki"
+                       / kb_meta.TRIAGE_FILE).read_bytes()
+        self.assertNotIn(b"\r\n", triage_disk, "_triage.md must be LF-only on disk")
+        self.assertEqual(triage_disk, res["triage_md"].encode("utf-8"),
+                         "on-disk _triage.md must equal the rendered triage_md")
+
+    def test_all_derived_artifacts_on_disk_are_lf_only(self) -> None:
+        # every cmd_currency artifact (not just _triage.md) shares the byte-stable
+        # writer: none may carry CRLF on disk.
+        self._run(apply=True)
+        wiki = self.vault / "research" / "wiki"
+        for fname in (kb_meta.CURRENT_TRUTH_FILE, kb_meta.SUPERSESSION_FILE,
+                      kb_meta.CURRENCY_REPORT_FILE, kb_meta.PROJECT_STATUS_FILE,
+                      kb_meta.TRIAGE_FILE):
+            p = wiki / fname
+            if not p.exists():
+                continue
+            self.assertNotIn(b"\r\n", p.read_bytes(), f"{fname} must be LF-only")
 
 
 if __name__ == "__main__":
