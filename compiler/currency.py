@@ -46,7 +46,8 @@ F_STATUS = "status"  # reused from the AI-Output convention, not introduced here
 TYPE_FACT = "fact"
 TYPE_DECISION = "decision"
 TYPE_NOTE = "note"
-VALID_TYPES = frozenset({TYPE_FACT, TYPE_DECISION, TYPE_NOTE})
+TYPE_PROJECT = "project"  # Task 7A: a project's status is a high-drift entity
+VALID_TYPES = frozenset({TYPE_FACT, TYPE_DECISION, TYPE_NOTE, TYPE_PROJECT})
 TYPE_DEFAULT = TYPE_NOTE
 
 
@@ -64,8 +65,18 @@ STALE_THRESHOLD_DAYS = {
     TYPE_DECISION: 14,
     TYPE_FACT: 90,
     TYPE_NOTE: 90,
+    TYPE_PROJECT: 30,  # Task 7A: an active project untouched 30d -> "still real?"
 }
 DEFAULT_STALE_THRESHOLD_DAYS = 90
+
+# Task 7A: a project in a terminal status is done, not drifting -- its age is
+# expected, so the staleness guard never flags it. Ongoing statuses
+# (active / paused / planned / ...) still age out at the project threshold.
+PROJECT_TERMINAL_STATUSES = frozenset({"completed", "archived"})
+
+
+def is_terminal_project_status(status) -> bool:
+    return bool(status) and str(status).strip().lower() in PROJECT_TERMINAL_STATUSES
 
 # source pointer schemes that count as "verifiable". Anything else -> UNSUPPORTED.
 SOURCE_SCHEMES = ("commit:", "path:", "test:", "url:")

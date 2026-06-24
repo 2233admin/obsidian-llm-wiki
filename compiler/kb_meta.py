@@ -422,11 +422,19 @@ def _first_body_line(text: str) -> str:
     return ""
 
 
+# Task 7A: vault-global work-state folders also scanned for entity-bearing notes
+# (project / decision / meeting-action), so project status drift is visible.
+# Configurable; absent folders are skipped. Only notes carrying `entity` are kept.
+WORK_DIRS = ("Projects", "Decisions", "Meetings")
+
+
 def _scan_entity_notes(vault: str, topic: str) -> list[CurrencyNote]:
-    """Scan <topic>/wiki/** and <vault>/00-Inbox/** for notes carrying an
-    `entity` field. Returns notes sorted by note_id for deterministic output."""
+    """Scan <topic>/wiki/**, <vault>/00-Inbox/**, and the vault-global work
+    folders (WORK_DIRS) for notes carrying an `entity` field. Returns notes
+    sorted by note_id for deterministic output."""
     vault_root = Path(vault)
     roots = [vault_root / topic / "wiki", vault_root / "00-Inbox"]
+    roots += [vault_root / d for d in WORK_DIRS]
     notes: list[CurrencyNote] = []
     seen: set[str] = set()
     for root in roots:
@@ -613,7 +621,15 @@ def _pass2_3_stale_unsupported(
         if not stale:
             lv = _parse_iso(cm.last_verified)
             threshold = _currency.stale_threshold_days(cm.type)
-            if lv is None:
+            # Task 7A: a project in a terminal status (completed/archived) is
+            # done, not drifting -- its age is expected, so skip age-staleness.
+            project_terminal = (
+                cm.type == _currency.TYPE_PROJECT
+                and _currency.is_terminal_project_status(cm.status)
+            )
+            if project_terminal:
+                pass
+            elif lv is None:
                 stale, reason = True, "last-verified missing/unparseable"
             else:
                 age_days = (today_date - lv).days
