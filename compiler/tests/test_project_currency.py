@@ -81,6 +81,47 @@ class ProjectDriftGuard(unittest.TestCase):
             self.assertIn(e, self.res["entities"])
 
 
+class ProjectSourceExemption(unittest.TestCase):
+    """Task 7C: an auto-generated project note carries no `source` (a project is
+    anchored by its own activity), so it must age-check, not show UNSUPPORTED."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="vault-7c-"))
+        self.vault = self.tmp / "vault"
+        (self.vault / "research" / "wiki").mkdir(parents=True)
+        (self.vault / "Projects").mkdir(parents=True)
+        (self.vault / "research" / "_meta.json").write_text('{"sources": {}}', "utf-8")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _run(self):
+        return kb_meta.cmd_currency(str(self.vault), "research", today_str=TODAY, apply=False)
+
+    def test_sourceless_old_project_is_age_stale_not_unsupported(self):
+        (self.vault / "Projects" / "no-src.md").write_text(
+            "---\nstatus: active\nentity: project/no-src\ntype: project\n"
+            "last-verified: 2026-04-26\n---\n\nsourceless project, 60d old.\n", "utf-8")
+        res = self._run()
+        ent = res["entities"]["project/no-src"]
+        self.assertEqual(ent["marker"], "STALE")
+        self.assertIn("threshold (project)", " ".join(ent["reasons"]))
+        self.assertNotIn("Projects/no-src.md", res["unsupported"])
+
+    def test_sourceless_recent_project_is_ok(self):
+        (self.vault / "Projects" / "ok.md").write_text(
+            "---\nstatus: active\nentity: project/ok\ntype: project\n"
+            "last-verified: 2026-06-20\n---\n\nsourceless project, recent.\n", "utf-8")
+        self.assertEqual(self._run()["entities"]["project/ok"]["marker"], "OK")
+
+    def test_sourceless_nonproject_still_unsupported(self):
+        # §0 #6 regression: the exemption is project-only.
+        (self.vault / "Projects" / "note.md").write_text(
+            "---\nstatus: draft\nentity: thing/x\ntype: note\n"
+            "last-verified: 2026-06-24\n---\n\nsourceless note.\n", "utf-8")
+        self.assertEqual(self._run()["entities"]["thing/x"]["marker"], "UNSUPPORTED")
+
+
 class ProjectStatusView(unittest.TestCase):
     """Task 7B: per-project current-truth view."""
 

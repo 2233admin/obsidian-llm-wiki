@@ -591,10 +591,13 @@ def _pass2_3_stale_unsupported(
 
         # PASS 3: unsupported.
         if not cm.has_source:
-            n.markers.append(_currency.MARK_UNSUPPORTED)
-            n.reasons.append("source field is empty")
-            continue
-        if cm.source_scheme is None:
+            # Task 7C: a project is anchored by its own activity, not a commit --
+            # an empty source is not "unsupported"; fall through to age-staleness.
+            if cm.type != _currency.TYPE_PROJECT:
+                n.markers.append(_currency.MARK_UNSUPPORTED)
+                n.reasons.append("source field is empty")
+                continue
+        elif cm.source_scheme is None:
             n.markers.append(_currency.MARK_UNSUPPORTED)
             n.reasons.append(f"unrecognized source scheme: {cm.source!r}")
             continue

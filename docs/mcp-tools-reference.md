@@ -81,6 +81,9 @@ Create a structured decision log (ADR). Path: Decisions/YYYY-MM-DD -- {title-slu
 - `consequences` (string, optional) — Trade-offs and outcomes
 - `status` (string, optional, default: `"accepted"`, enum: `proposed` | `accepted` | `deprecated` | `superseded`) — Decision status
 - `tags` (array, optional) — Extra tags
+- `project` (string, optional) — Owning project (namespaces the currency entity as project/<slug>/decision/<title>)
+- `entity` (string, optional) — Currency entity key override (default derived from project + title)
+- `source` (string, optional) — Verifiable source (commit:/path:/test:/url:); without it the decision shows UNSUPPORTED in the currency view
 - `dryRun` (boolean, optional, default: `true`) — Simulate without writing (default: true)
 
 ### `vault.delete`
@@ -250,6 +253,7 @@ Create or update a project note with AI-First frontmatter. Path: Projects/{name}
 - `summary` (string, optional) — 1-3 sentence project summary
 - `team` (array, optional) — Team member names (wikilinked in content)
 - `tags` (array, optional) — Extra tags
+- `entity` (string, optional) — Currency entity key (default: project/<name-slug>); drives the status-drift guard
 - `dryRun` (boolean, optional, default: `true`) — Simulate without writing (default: true)
 
 ### `vault.read`
