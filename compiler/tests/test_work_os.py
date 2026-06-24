@@ -55,6 +55,21 @@ ENTITY_SCHEMA_FREEZE = "project/iii-pivot/issue/schema-freeze"
 NO_ENTITY_CAPTURE_ID = "00-Inbox/AI-Output/loose-thought-capture.md"
 CONSUMED_CAPTURE_ID = "00-Inbox/AI-Output/api-rename-done-capture.md"
 
+# Task 8B / PR5 issue-properties players: a dedicated project whose open actions
+# are exactly the three 8B issues (urgent+overdue / medium / unassigned).
+PR5_PROJECT = "project/pr5-board"
+PR5_URGENT_OVERDUE = "project/pr5-board/issue/ship-auth"      # p1, overdue, agent -> [URGENT][OVERDUE]
+PR5_MEDIUM = "project/pr5-board/issue/polish-docs"            # p3, no flags
+PR5_UNASSIGNED = "project/pr5-board/issue/triage-inbox"       # no assignee/owner -> [UNASSIGNED]
+
+# Sort-discrimination project: pins the 8B sort_key components pr5-board cannot.
+SORT_PROJECT = "project/sortspec-board"
+SORT_ZETA = "project/sortspec-board/issue/zeta-urgent-overdue"  # p1 + overdue
+SORT_ALPHA = "project/sortspec-board/issue/alpha-urgent-future"  # p1, future due (not overdue)
+SORT_TIE_APPLE = "project/sortspec-board/issue/tie-apple"        # p3 no-due (tiebreak pair)
+SORT_TIE_MANGO = "project/sortspec-board/issue/tie-mango"        # p3 no-due (tiebreak pair)
+SORT_DONE_OVERDUE = "project/sortspec-board/issue/done-was-overdue"  # done + past due
+
 # Fixed "today" so any due/overdue reasoning is deterministic (mirrors the
 # TODAY constant in test_project_currency.py).
 TODAY = date(2026, 6, 25)
@@ -1339,6 +1354,312 @@ class LiveTriageThroughCmdCurrency(unittest.TestCase):
             if not p.exists():
                 continue
             self.assertNotIn(b"\r\n", p.read_bytes(), f"{fname} must be LF-only")
+
+
+# --- Task 8B: issue PROPERTIES in the project-status view (PR5) ---------------
+
+
+class IssuePropertyHelpersTest(unittest.TestCase):
+    """§3 #5 at the helper layer (shared, not re-spelled in the view): urgent IS
+    strictly priority 1; overdue is parse_due < as_of AND not terminal; UNASSIGNED
+    is resolve_assignee == UNASSIGNED with owner kept as an assignee alias; and the
+    estimate reader ignores missing/garbage so the rollup is deterministic."""
+
+    def test_priority_zero_is_not_urgent_one_is(self) -> None:
+        # the §3 #5 trap: 0 (none) must NOT be urgent; only 1 is.
+        self.assertFalse(currency.is_urgent(_cm(priority=0)))
+        self.assertTrue(currency.is_urgent(_cm(priority=1)))
+        for p in (2, 3, 4):
+            self.assertFalse(currency.is_urgent(_cm(priority=p)))
+
+    def test_overdue_predicate_is_due_before_as_of_and_active(self) -> None:
+        as_of = TODAY
+        past = currency.parse_due(_cm(due="2026-06-20"))
+        future = currency.parse_due(_cm(due="2026-06-30"))
+        self.assertLess(past, as_of)        # due < as_of -> overdue
+        self.assertGreater(future, as_of)   # due >= as_of -> not overdue
+        # a done/canceled note is never OVERDUE even with a past due (the view
+        # guards on work_state; the date math just feeds it).
+        self.assertEqual(currency.work_state(_cm(state="done", due="2026-06-20")), "done")
+
+    def test_unassigned_uses_resolve_assignee_with_owner_alias(self) -> None:
+        # no assignee/owner -> UNASSIGNED ...
+        self.assertEqual(currency.resolve_assignee(_cm()), currency.UNASSIGNED)
+        # ... owner stays a valid assignee alias (so an owned action is NOT
+        # UNASSIGNED -- this is the 7B-UNOWNED -> 8B-UNASSIGNED swap).
+        self.assertNotEqual(currency.resolve_assignee(_cm(owner="amy")), currency.UNASSIGNED)
+        self.assertNotEqual(
+            currency.resolve_assignee(_cm(assignee="agent/opus")), currency.UNASSIGNED)
+
+    def test_work_estimate_reads_points_and_ignores_missing(self) -> None:
+        self.assertEqual(currency.work_estimate(_cm(estimate=5)), 5)
+        self.assertEqual(currency.work_estimate(_cm(estimate="2")), 2)
+        self.assertIsNone(currency.work_estimate(_cm()))
+        self.assertIsNone(currency.work_estimate(_cm(estimate="big")))
+        self.assertIsNone(currency.work_estimate(_cm(estimate=-1)))
+
+
+class LiveIssuePropertiesProjectStatus(unittest.TestCase):
+    """§3 #5 enforced in PRODUCTION through the real read path
+    kb_meta.cmd_currency -> _pass4_project_status -> _render_project_status, over
+    the committed fixtures/vault-work-os pr5-board project. The committed fixture
+    is copied to a temp vault (a research/wiki topic is added so cmd_currency can
+    run); today is pinned via today_str so the OVERDUE math never reads the clock.
+
+    pr5-board's three open actions:
+      ship-auth    p1, due 2026-06-01 (past), assignee agent/opus -> [URGENT][OVERDUE]
+      polish-docs  p3, no due, assignee agent/codex               -> (no flags)
+      triage-inbox p4, no assignee/owner                          -> [UNASSIGNED]
+    estimates 5 / 2 / 1 -> open estimate 8 pts."""
+
+    def setUp(self) -> None:
+        self.tmp = Path(tempfile.mkdtemp(prefix="vault-work-os-8b-"))
+        self.vault = self.tmp / "vault"
+        shutil.copytree(_FIXTURE, self.vault)
+        # cmd_currency needs a topic wiki/ to exist; the pr5-board notes live under
+        # the vault-global Projects/ work dir, so the topic itself can be empty.
+        (self.vault / "research" / "wiki").mkdir(parents=True)
+        (self.vault / "research" / "_meta.json").write_text('{"sources": {}}', "utf-8")
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _run(self, apply=False):
+        return kb_meta.cmd_currency(str(self.vault), "research",
+                                    today_str=TODAY.isoformat(), apply=apply)
+
+    def _board(self):
+        return self._run()["project_status"][PR5_PROJECT]
+
+    def _by_entity(self):
+        return {a["entity"]: a for a in self._board()["open_actions"]}
+
+    def test_priority_one_is_urgent_zero_is_not_via_view_flags(self) -> None:
+        # §3 #5 surfaced as VIEW flags (not just the helper): the p1 action carries
+        # URGENT; no other open action does (p3/p4 are not urgent, p0 would not be).
+        flags = {e: a["flags"] for e, a in self._by_entity().items()}
+        self.assertIn("URGENT", flags[PR5_URGENT_OVERDUE])
+        self.assertNotIn("URGENT", flags[PR5_MEDIUM])
+        self.assertNotIn("URGENT", flags[PR5_UNASSIGNED])
+
+    def test_due_before_as_of_is_overdue(self) -> None:
+        flags = self._by_entity()[PR5_URGENT_OVERDUE]["flags"]
+        self.assertIn("OVERDUE", flags)
+        # both urgent AND overdue -> carries both markers.
+        self.assertEqual(flags, ["URGENT", "OVERDUE"])
+
+    def test_no_due_action_is_not_overdue(self) -> None:
+        self.assertNotIn("OVERDUE", self._by_entity()[PR5_MEDIUM]["flags"])
+
+    def test_unassigned_flag_shown_owned_actions_unflagged(self) -> None:
+        self.assertIn("UNASSIGNED", self._by_entity()[PR5_UNASSIGNED]["flags"])
+        # the owned/assigned actions are NOT unassigned.
+        self.assertNotIn("UNASSIGNED", self._by_entity()[PR5_URGENT_OVERDUE]["flags"])
+        self.assertNotIn("UNASSIGNED", self._by_entity()[PR5_MEDIUM]["flags"])
+
+    def test_urgent_and_overdue_sorts_first(self) -> None:
+        # the 8B sort_key puts (urgent AND overdue) ahead of everything else.
+        order = [a["entity"] for a in self._board()["open_actions"]]
+        self.assertEqual(order[0], PR5_URGENT_OVERDUE)
+        # then by PRIORITY_RANK: p3 (polish) before p4 (triage).
+        self.assertEqual(order, [PR5_URGENT_OVERDUE, PR5_MEDIUM, PR5_UNASSIGNED])
+
+    def test_estimate_rollup_sums_open_actions(self) -> None:
+        # 5 + 2 + 1 = 8, missing estimates ignored (all three carry one here).
+        self.assertEqual(self._board()["open_estimate"], 8)
+
+    def test_render_shows_flags_and_rollup(self) -> None:
+        md = self._run()["project_status_md"]
+        self.assertIn("(open estimate: 8 pts)", md)
+        # combined flags render as [URGENT][OVERDUE] (no space between tags).
+        self.assertIn("[URGENT][OVERDUE]", md)
+        self.assertIn("[UNASSIGNED]", md)
+
+    def test_missing_estimate_ignored_in_rollup(self) -> None:
+        # drop one issue's estimate -> the rollup falls to 3 (2 + 1) and the
+        # estimate-less action still appears (estimate is None, just not summed).
+        p = self.vault / "Projects" / "pr5-board" / "issues" / "ship-auth.md"
+        text = p.read_text("utf-8").replace("estimate: 5\n", "")
+        p.write_text(text, "utf-8")
+        board = self._board()
+        self.assertEqual(board["open_estimate"], 3)
+        self.assertIsNone(self._by_entity()[PR5_URGENT_OVERDUE]["estimate"])
+
+    def test_source_fixture_bytes_unchanged_after_apply(self) -> None:
+        # §3 #7: the project-status pass is derived/read-only -- applying it must
+        # never edit a source issue note.
+        ship = self.vault / "Projects" / "pr5-board" / "issues" / "ship-auth.md"
+        before = ship.read_bytes()
+        self._run(apply=True)
+        self.assertEqual(ship.read_bytes(), before)
+
+
+class SortKeyDiscrimination(unittest.TestCase):
+    """§3 #5 sort determinism, surfaced through the real read path over the
+    committed fixtures/vault-work-os sortspec-board project. Discriminates the
+    8B sort_key components pr5-board cannot, and proves OVERDUE is suppressed for
+    a done action at the VIEW level (not only via the work_state helper)."""
+
+    def setUp(self) -> None:
+        self.tmp = Path(tempfile.mkdtemp(prefix="vault-work-os-sort-"))
+        self.vault = self.tmp / "vault"
+        shutil.copytree(_FIXTURE, self.vault)
+        (self.vault / "research" / "wiki").mkdir(parents=True)
+        (self.vault / "research" / "_meta.json").write_text('{"sources": {}}', "utf-8")
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _board(self):
+        res = kb_meta.cmd_currency(str(self.vault), "research",
+                                   today_str=TODAY.isoformat(), apply=False)
+        return res["project_status"][SORT_PROJECT]
+
+    def _open_order(self):
+        return [a["entity"] for a in self._board()["open_actions"]]
+
+    def test_urgent_overdue_component_beats_priority_rank_and_entity(self) -> None:
+        # zeta (p1 + overdue) and alpha (p1, future due) share priority rank, and
+        # "zeta" > "alpha" lexicographically -- yet zeta sorts FIRST. Only the
+        # urgent&overdue sort component (component-0) can produce that order, so
+        # this pins it independently of priority rank and the entity tiebreak.
+        order = self._open_order()
+        self.assertLess(order.index(SORT_ZETA), order.index(SORT_ALPHA),
+                        "urgent&overdue (zeta) must sort before urgent-not-overdue (alpha)")
+        self.assertEqual(order[0], SORT_ZETA, "the urgent&overdue action sorts first overall")
+
+    def test_entity_tiebreak_orders_identical_sort_tuples(self) -> None:
+        # tie-apple / tie-mango are identical in every sort component except the
+        # final `entity` element -> the lexicographic entity tiebreak alone decides
+        # ("tie-apple" < "tie-mango"), proving the determinism backstop is live.
+        order = self._open_order()
+        self.assertLess(order.index(SORT_TIE_APPLE), order.index(SORT_TIE_MANGO),
+                        "the final entity tiebreak must place tie-apple before tie-mango")
+
+    def test_done_action_with_past_due_carries_no_overdue_flag_in_view(self) -> None:
+        # finding 2: OVERDUE suppression at the VIEW level. done-was-overdue is
+        # state:done with a past due -> it must be classified to `closed` and
+        # never surface as an open action (so it can carry no OVERDUE flag).
+        board = self._board()
+        open_entities = {a["entity"] for a in board["open_actions"]}
+        self.assertNotIn(SORT_DONE_OVERDUE, open_entities,
+                         "a done action must not appear among open actions")
+        self.assertGreaterEqual(board["closed_count"], 1,
+                                "the done action is counted as closed")
+        # and the done action's view line never carries an OVERDUE tag.
+        md = kb_meta.cmd_currency(str(self.vault), "research",
+                                  today_str=TODAY.isoformat(), apply=False)["project_status_md"]
+        for line in md.splitlines():
+            if "done-was-overdue" in line:
+                self.assertNotIn("OVERDUE", line,
+                                 "a done action's view line must not carry OVERDUE")
+
+
+class SnapshotFieldsDeriveOnlyExclusion(unittest.TestCase):
+    """Finding 6: `related` (like `blocks`) is a derive-only symmetric edge -- it
+    must NOT be in SNAPSHOT_FIELDS, so a stray persisted `related:` on a head is
+    NOT inherited/materialized into a promoted snapshot (invariant f/b)."""
+
+    def test_related_and_blocks_are_not_snapshot_fields(self) -> None:
+        self.assertNotIn(work_protocol.F_RELATED, work_protocol.SNAPSHOT_FIELDS)
+        self.assertNotIn(work_protocol.F_BLOCKS, work_protocol.SNAPSHOT_FIELDS)
+        # the authored relation edge is still inherited.
+        self.assertIn(work_protocol.F_BLOCKED_BY, work_protocol.SNAPSHOT_FIELDS)
+
+    def test_materialize_drops_stray_related_like_blocks(self) -> None:
+        # a head that ILLEGALLY carries `related:` (and `blocks:`) -- neither may
+        # leak into the materialized snapshot; only `blocked-by` is inherited.
+        head = work_protocol.WorkNote(
+            note_id="Projects/x/issues/h.md",
+            path=Path("h.md"),
+            cm=currency.normalize({"entity": "project/x/issue/h", "state": "in-progress"}),
+            raw={
+                "entity": "project/x/issue/h",
+                "state": "in-progress",
+                "blocked-by": ["project/x/issue/dep"],
+                "related": ["project/x/issue/other"],
+                "blocks": ["project/x/issue/down"],
+            },
+            body="",
+        )
+        cand = work_protocol.WorkNote(
+            note_id="00-Inbox/AI-Output/c.md",
+            path=Path("c.md"),
+            cm=currency.normalize({"entity": "project/x/issue/h", "state": "done"}),
+            raw={"entity": "project/x/issue/h", "state": "done"},
+            body="",
+        )
+        fields = work_protocol._materialize_fields(cand, head)
+        self.assertEqual(fields["state"], "done")
+        self.assertEqual(fields["blocked-by"], ["project/x/issue/dep"])
+        self.assertNotIn("related", fields, "derive-only `related` must not be materialized")
+        self.assertNotIn("blocks", fields, "derive-only `blocks` must not be materialized")
+
+
+class HookBaseHeadMatchesPromoteResolution(WorkProtocolFixtureBase):
+    """Finding 1: the hook's base-head scan and Python resolve_head must agree on
+    a same-last-verified reviewed-vs-legacy tie. When two terminal authoritative
+    heads share last-verified (one reviewed, one legacy whose note-id sorts
+    LATER), Python resolve_head picks the REVIEWED head (status_rank dominates the
+    note-id tiebreak). A capture stamped base-head = that reviewed head (which the
+    fixed hook now produces) must promote to MATERIALIZED, not HEAD_MISMATCH."""
+
+    ENTITY = "project/iii-pivot/issue/tie-head"
+    REVIEWED_ID = "Projects/iii-pivot/issues/aaa-reviewed.md"
+    LEGACY_ID = "Projects/iii-pivot/issues/zzz-legacy.md"
+    LV = "2026-06-20"
+
+    def _seed_two_heads(self) -> None:
+        issues = self.vault / "Projects" / "iii-pivot" / "issues"
+        # reviewed head: note-id sorts FIRST ("aaa..."), reviewed status.
+        (issues / "aaa-reviewed.md").write_text(
+            f"---\ntype: issue\nentity: {self.ENTITY}\nstate: in-progress\n"
+            f"status: reviewed\ngenerated-by: human\nlast-verified: {self.LV}\n---\n\nreviewed head\n",
+            "utf-8")
+        # legacy head: note-id sorts LATER ("zzz..."), NO status -> authoritative.
+        (issues / "zzz-legacy.md").write_text(
+            f"---\ntype: issue\nentity: {self.ENTITY}\nstate: in-progress\n"
+            f"generated-by: human\nlast-verified: {self.LV}\n---\n\nlegacy head\n",
+            "utf-8")
+
+    def test_python_resolve_head_picks_reviewed_at_equal_last_verified(self) -> None:
+        self._seed_two_heads()
+        res = work_protocol.resolve_head(self._scan(), self.ENTITY)
+        self.assertEqual(res.head.note_id, self.REVIEWED_ID,
+                         "reviewed beats legacy at equal last-verified regardless of note-id")
+
+    def test_capture_stamped_with_reviewed_base_head_materializes(self) -> None:
+        # the candidate carries base-head = the reviewed head (what the fixed hook
+        # tie-break now resolves). promote must MATERIALIZE (the optimistic lock
+        # holds), NOT route to Conflicts with HEAD_MISMATCH.
+        self._seed_two_heads()
+        cap = self.vault / "00-Inbox" / "AI-Output" / "tie-head-done-capture.md"
+        cap.parent.mkdir(parents=True, exist_ok=True)
+        cap.write_text(
+            f"---\ntype: issue\nentity: {self.ENTITY}\nstate: done\nstatus: draft\n"
+            f"generated-by: au-90-opus\nlast-verified: 2026-06-24\n"
+            f"base-head: {self.REVIEWED_ID}\n---\n\ntie-head done.\n",
+            "utf-8")
+        cand = _note(self._scan(), "00-Inbox/AI-Output/tie-head-done-capture.md")
+        res = work_protocol.promote(str(self.vault), cand, apply=False, promoted_by="user/xue")
+        self.assertEqual(res.outcome, work_protocol.OUTCOME_MATERIALIZED,
+                         "base-head = the reviewed head Python resolves -> lock holds")
+
+    def test_capture_stamped_with_legacy_base_head_is_mismatch(self) -> None:
+        # the inverse: stamping the LEGACY head (the OLD hook tie-break) is now a
+        # genuine stale-token mismatch, since Python resolves the reviewed head.
+        self._seed_two_heads()
+        cap = self.vault / "00-Inbox" / "AI-Output" / "tie-head-legacy-capture.md"
+        cap.parent.mkdir(parents=True, exist_ok=True)
+        cap.write_text(
+            f"---\ntype: issue\nentity: {self.ENTITY}\nstate: done\nstatus: draft\n"
+            f"generated-by: au-90-opus\nlast-verified: 2026-06-24\n"
+            f"base-head: {self.LEGACY_ID}\n---\n\ntie-head done (wrong base).\n",
+            "utf-8")
+        cand = _note(self._scan(), "00-Inbox/AI-Output/tie-head-legacy-capture.md")
+        res = work_protocol.promote(str(self.vault), cand, apply=False, promoted_by="user/xue")
+        self.assertEqual(res.outcome, work_protocol.OUTCOME_HEAD_MISMATCH,
+                         "pointing at the non-current legacy head is the lock failure")
 
 
 if __name__ == "__main__":

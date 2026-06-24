@@ -19,6 +19,35 @@ Notes (note-id = repo-relative path, the optimistic-lock token):
 | `Projects/iii-pivot/issues/api-rename.md` | api-rename head | in-progress | reviewed | — |
 | `Projects/iii-pivot/issues/api-rename.reviewed.1.md` | reviewed snapshot, `promotes:` the capture | done | reviewed | — |
 | `00-Inbox/AI-Output/api-rename-done-capture.md` | **8D** CONSUMED capture (absent from triage) | done | draft | api-rename |
+| `Projects/pr5-board/board.md` | **8B** project node (its own board) | active | — | — |
+| `Projects/pr5-board/issues/ship-auth.md` | **8B** p1 + overdue + agent → `[URGENT][OVERDUE]` (sorts first) | in-progress | reviewed | — |
+| `Projects/pr5-board/issues/polish-docs.md` | **8B** p3, no due/flags | todo | reviewed | — |
+| `Projects/pr5-board/issues/triage-inbox.md` | **8B** no assignee/owner → `[UNASSIGNED]` | todo | reviewed | — |
+| `Projects/sortspec-board/board.md` | **8B-sort** project node | active | — | — |
+| `Projects/sortspec-board/issues/zeta-urgent-overdue.md` | p1+overdue → sorts FIRST despite latest entity | in-progress | reviewed | — |
+| `Projects/sortspec-board/issues/alpha-urgent-future.md` | p1, future due (not overdue) → after zeta despite earliest entity | in-progress | reviewed | — |
+| `Projects/sortspec-board/issues/tie-mango.md` | p3 no-due, sort tuple identical to tie-apple except entity | todo | reviewed | — |
+| `Projects/sortspec-board/issues/tie-apple.md` | p3 no-due, entity tiebreak → before tie-mango | todo | reviewed | — |
+| `Projects/sortspec-board/issues/done-was-overdue.md` | done + past due → classified `closed`, NO view OVERDUE | done | reviewed | — |
+
+Task 8B issue PROPERTIES (`_project-status.md`, DERIVED): the `project/pr5-board`
+project's three open issues exercise the per-issue flags and per-project rollup.
+`urgent ⇔ priority == 1` (strictly, not `<= 1`); `[OVERDUE]` iff `due < --as-of`
+and the work state is not done/canceled; `[UNASSIGNED]` iff `resolve_assignee ==
+UNASSIGNED` (owner stays an assignee alias — this REPLACES 7B's `UNOWNED`). Open
+actions sort by `(urgent&overdue, PRIORITY_RANK, overdue, due, entity)`, so
+`ship-auth` (urgent+overdue) sorts first; the project section surfaces the summed
+open estimate (5 + 2 + 1 = 8 pts; missing estimates ignored).
+
+The `project/sortspec-board` project DISCRIMINATES the sort components pr5-board
+cannot: `zeta-urgent-overdue` and `alpha-urgent-future` are BOTH p1 (equal
+priority rank), so only the urgent&overdue component (zeta overdue, alpha not)
+can order them — zeta sorts before alpha despite "zeta" > "alpha" and equal rank.
+`tie-apple`/`tie-mango` are p3, no-due, identical in every sort component except
+entity, pinning the final lexicographic `entity` tiebreak (apple before mango).
+`done-was-overdue` is state:done with a past due — it classifies to `closed` and
+never enters open_actions, so OVERDUE is suppressed at the VIEW (not just via the
+`work_state` helper proxy).
 
 H1 carries the full field set (assignee:agent/opus, priority:1, estimate:3,
 blocked-by:[schema-freeze]). C1 is SPARSE — it sets only `state: done`, so

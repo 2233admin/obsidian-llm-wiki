@@ -144,13 +144,16 @@ class ProjectStatusView(unittest.TestCase):
         self.assertEqual(p["status"], "active")
         self.assertEqual(p["marker"], "STALE")
 
-    def test_open_action_listed_with_overdue_and_unowned_flags(self):
+    def test_open_action_listed_with_overdue_and_unassigned_flags(self):
+        # Task 8B: 7B's UNOWNED flag is REPLACED by UNASSIGNED (owner stays a
+        # valid assignee alias via currency.resolve_assignee). wire-auth carries
+        # neither assignee nor owner -> UNASSIGNED; its due is past TODAY -> OVERDUE.
         p = self.ps["project/iii-pivot"]
         opens = {i["entity"]: i for i in p["open_actions"]}
         self.assertIn("project/iii-pivot/action/wire-auth", opens)
         flags = " ".join(opens["project/iii-pivot/action/wire-auth"]["flags"])
         self.assertIn("OVERDUE", flags)
-        self.assertIn("UNOWNED", flags)
+        self.assertIn("UNASSIGNED", flags)
 
     def test_done_action_not_open_and_counted_closed(self):
         p = self.ps["project/iii-pivot"]

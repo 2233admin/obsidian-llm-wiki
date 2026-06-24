@@ -47,7 +47,10 @@ def save_meta(vault: str, topic: str, meta: dict) -> None:
     p.parent.mkdir(parents=True, exist_ok=True)
     tmp = p.with_suffix(".tmp")
     try:
-        tmp.write_text(json.dumps(meta, indent=2, ensure_ascii=False), "utf-8")
+        # Write bytes (NOT text mode): json.dumps emits LF, but text-mode write
+        # translates to CRLF on Windows -> platform-dependent on-disk state. Bytes
+        # keep it LF-only, matching the derived views (invariant c).
+        tmp.write_bytes(json.dumps(meta, indent=2, ensure_ascii=False).encode("utf-8"))
         tmp.replace(p)
     except Exception:
         tmp.unlink(missing_ok=True)
@@ -278,7 +281,11 @@ def cmd_update_index(vault: str, topic: str) -> dict:
     index_path = wiki / "_index.md"
     tmp = index_path.with_suffix(".tmp")
     try:
-        tmp.write_text(index_content, "utf-8")
+        # Write bytes (NOT text mode) so the derived _index.md is LF-only and
+        # byte-stable across OSes -- text-mode write_text applies OS newline
+        # translation (CRLF on Windows), defeating the recomputable contract
+        # (invariant c), the same reason the work-OS/currency views write bytes.
+        tmp.write_bytes(index_content.replace("\r\n", "\n").encode("utf-8"))
         tmp.replace(index_path)
     except Exception:
         tmp.unlink(missing_ok=True)
@@ -597,6 +604,11 @@ def _parse_iso(d: str | None):
         return None
 
 
+# Task 8B sort_key: an open action with no due date sorts AFTER every dated one
+# (`due or DATE_MAX`). date.max is a stable, comparable sentinel.
+_DATE_MAX = date.max
+
+
 def _pass2_3_stale_unsupported(
     vault: str, topic: str, current_truth: dict, meta: dict, today_date: date,
 ) -> None:
@@ -774,8 +786,19 @@ def _pass4_project_status(current_truth: dict, today_date: date) -> dict:
       legacy_blocked (no relation) -> blockers (legacy); done|canceled -> closed;
       else -> open_actions (active AND not blocked).
 
+    Task 8B (PR5) adds, additively, ISSUE PROPERTIES to the open-action list:
+    each open action carries [URGENT] (currency.is_urgent == priority 1, strictly
+    not <=1), [OVERDUE] (parse_due < today AND work_state not in done|canceled),
+    and [UNASSIGNED] (currency.resolve_assignee == UNASSIGNED -- owner stays a
+    valid assignee alias; this REPLACES 7B's UNOWNED). open_actions are sorted by
+    the 8B sort_key (urgent&overdue first, then PRIORITY_RANK, then overdue, then
+    due date, then entity). The project section also surfaces `open_estimate`, the
+    sum of open-action estimates (missing estimates are ignored). None of this
+    changes generic current-truth / ranking / currency behaviour (§0 #6): it only
+    reshapes the per-project open-action presentation.
+
     Returns project_entity -> {note_id, status, marker, reasons, open_actions,
-    blockers, decisions, closed_count}."""
+    blockers, decisions, closed_count, open_estimate}."""
     out: dict = {}
     index = _current_truth_index(current_truth)
     projects = [e for e in sorted(current_truth)
@@ -825,14 +848,49 @@ def _pass4_project_status(current_truth: dict, today_date: date) -> dict:
             elif wstate in (_currency.STATE_DONE, _currency.STATE_CANCELED):
                 closed += 1
             else:
+                # Task 8B ISSUE PROPERTIES on the open action. urgent/overdue/
+                # unassigned are read through the canonical currency helpers so the
+                # `urgent <=> priority == 1` and `assignee > owner alias` semantics
+                # are shared with the state contract, not re-spelled here.
+                urgent = _currency.is_urgent(sn.cm)
+                due_d = _currency.parse_due(sn.cm)
+                # OVERDUE: due in the past. Terminal (done/canceled) heads were
+                # already classified to `closed` above and never reach here, so the
+                # suppression of OVERDUE for done/canceled is satisfied by
+                # classification -- no redundant wstate guard needed.
+                overdue = due_d is not None and due_d < today_date
+                unassigned = (
+                    _currency.resolve_assignee(sn.cm) == _currency.UNASSIGNED
+                )
                 flags = []
-                due_d = _parse_iso(sn.cm.due) if sn.cm.due else None
-                if due_d is not None and due_d < today_date:
-                    flags.append(f"OVERDUE: due {sn.cm.due}")
-                if not sn.cm.owner:
-                    flags.append("UNOWNED")
+                if urgent:
+                    flags.append("URGENT")
+                if overdue:
+                    flags.append("OVERDUE")
+                if unassigned:
+                    flags.append("UNASSIGNED")
+                entry["assignee"] = _currency.resolve_assignee(sn.cm)
+                entry["priority"] = _currency.work_priority(sn.cm)
+                entry["estimate"] = _currency.work_estimate(sn.cm)
+                entry["urgent"] = urgent
+                entry["overdue"] = overdue
+                entry["unassigned"] = unassigned
+                entry["due_date"] = due_d  # parsed date or None, for the sort_key
                 entry["flags"] = flags
                 open_actions.append(entry)
+        # Task 8B sort_key: urgent&overdue first, then priority rank, then overdue,
+        # then due date (missing -> DATE_MAX so they sink), then entity for a
+        # stable deterministic tie-break.
+        open_actions.sort(key=lambda a: (
+            0 if (a["urgent"] and a["overdue"]) else 1,
+            _currency.PRIORITY_RANK.get(a["priority"], _currency.PRIORITY_RANK[None]),
+            0 if a["overdue"] else 1,
+            a["due_date"] or _DATE_MAX,
+            a["entity"],
+        ))
+        # Task 8B estimate rollup: sum of open-action estimates, ignoring missing.
+        open_estimate = sum(a["estimate"] for a in open_actions
+                            if a["estimate"] is not None)
         decisions.sort(key=lambda d: (d["last_verified"] or "", d["entity"]), reverse=True)
         verdict = [m for m in pn.markers if m != _currency.MARK_OK]
         out[pe] = {
@@ -844,6 +902,7 @@ def _pass4_project_status(current_truth: dict, today_date: date) -> dict:
             "blockers": blockers,
             "decisions": decisions,
             "closed_count": closed,
+            "open_estimate": open_estimate,
         }
     return out
 
@@ -868,9 +927,14 @@ def _render_project_status(project_status: dict, today_date: date) -> str:
             status_line += f"  [{p['marker']}" + (f": {r}" if r else "") + "]"
         lines.append(status_line)
         lines.append(f"- note: {p['note_id']}")
-        lines.append(f"- open actions: {len(p['open_actions'])}")
+        open_line = f"- open actions: {len(p['open_actions'])}"
+        # Task 8B estimate rollup: surface the summed open-action estimate when
+        # any open action carries one (missing estimates were ignored in the sum).
+        if p.get("open_estimate"):
+            open_line += f"  (open estimate: {p['open_estimate']} pts)"
+        lines.append(open_line)
         for a in p["open_actions"]:
-            tag = ("  " + "  ".join(f"[{f}]" for f in a.get("flags", []))) if a.get("flags") else ""
+            tag = ("  " + "".join(f"[{f}]" for f in a.get("flags", []))) if a.get("flags") else ""
             lines.append(f"  - {a['entity']} -- {a['body']}{tag}")
         if p["blockers"]:
             lines.append(f"- blockers: {len(p['blockers'])}")

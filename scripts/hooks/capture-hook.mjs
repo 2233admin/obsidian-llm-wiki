@@ -14,9 +14,13 @@
 //
 // Why a block, not the whole answer: a Stop hook only sees the transcript. The
 // currency passes index ONLY notes that carry an `entity` (compiler/kb_meta.py
-// _scan_entity_notes), and the Task 6 e2e needs the captured note to carry
-// `entity` + `supersedes`. The agent alone knows those, so it declares them in
-// the block; the hook auto-fills the mechanical fields it can derive.
+// _scan_entity_notes). The agent alone knows the entity (and the WORK-axis
+// proposal: `state`/`assignee`), so it declares them in the block; the hook
+// auto-fills the mechanical fields it can derive -- and, for an UPDATE, the
+// `base-head` optimistic lock (Task 8G/8P): it resolves the current
+// authoritative head for the entity and stamps that note-id so promote can
+// reject a stale update (HEAD_MISMATCH). Drafts never carry `supersedes` --
+// that is materialized only when promote writes the reviewed snapshot.
 //
 // §0 hard invariants honored:
 //   #3 inbox append-only, per-writer dir -> writes ONLY new files into its own
@@ -48,6 +52,8 @@
 //   VAULT_CAPTURE_DISABLE "1"/"true" -> hard off
 //   VAULT_CAPTURE_AGENT   override agent id in <machine>-<agent> + frontmatter
 //   VAULT_CAPTURE_TODAY   override last-verified date (YYYY-MM-DD; tests/determinism)
+//   VAULT_CAPTURE_TOPIC   topic dir to prefer when resolving base-head from the
+//                         compiled <topic>/wiki/_currency.json (else all topics scanned)
 //   VAULT_CAPTURE_STATE   seen-log path (default ~/.vault-mind/capture-hook.seen.log)
 //   VAULT_CAPTURE_DEBUG   "1" -> emit a stderr line even on no-op
 
@@ -65,9 +71,15 @@ const TRUE_RE = /^(1|true|yes|on)$/i;
 // without truncating. Body is capture group 2.
 const BLOCK_RE = /(`{3,}|~{3,})vault-capture[^\S\r\n]*\r?\n([\s\S]*?)\r?\n\1/g;
 const META_KEY_RE = /^([A-Za-z][A-Za-z0-9_-]*):\s*(.*)$/;
-const ALLOWED_KEYS = new Set(['entity', 'type', 'source', 'supersedes', 'title', 'status']);
-const VALID_TYPES = new Set(['fact', 'decision', 'note']);
+// Task 8G: honor the WORK-axis proposal fields `state` + `assignee` from the
+// block (a capture is a proposal: the agent declares what state the work is in
+// and who owns it). `supersedes` is intentionally NOT honored from the block --
+// drafts never enter the supersession chain (8P: only `base-head`, an optimistic
+// lock, is stamped on a draft; `supersedes` is materialized at promote time).
+const ALLOWED_KEYS = new Set(['entity', 'type', 'source', 'title', 'status', 'state', 'assignee']);
+const VALID_TYPES = new Set(['fact', 'decision', 'note', 'issue', 'initiative']);
 const DEFAULT_TYPE = 'note';
+const CURRENCY_REPORT_REL = 'wiki/_currency.json';
 
 function envTrue(name) { return TRUE_RE.test(String(process.env[name] || '').trim()); }
 function log(msg) { try { process.stderr.write(`[capture-hook] ${msg}\n`); } catch { /* ignore */ } }
@@ -220,15 +232,149 @@ function gitHead(cwd) {
   } catch { return ''; }
 }
 
+// --- base-head resolution (Task 8G / 8P optimistic lock) --------------------
+//
+// A capture that names an `entity` is an UPDATE proposal against whatever note
+// is the *current authoritative head* for that entity. We stamp that head's
+// note-id as `base-head` so promote (Python, 8P) can verify nobody else moved
+// the head meanwhile (HEAD_MISMATCH -> Conflicts). note-id == repo-relative
+// POSIX path of the note (the same convention promote/supersedes use).
+//
+// Zero-dep, read-only. We do NOT mutate any authoritative state here.
+
+// Repo-relative POSIX path of an absolute file under the vault root.
+function relPosix(vaultRoot, abs) {
+  let rel = abs.startsWith(vaultRoot) ? abs.slice(vaultRoot.length) : abs;
+  return rel.replace(/^[\/\\]+/, '').replace(/\\/g, '/');
+}
+
+// Parse ONLY the leading `---\n...\n---` YAML block of a note into a flat map of
+// lowercase scalar keys. Good enough for the few fields we read (entity, status,
+// last-verified); list/nested values are kept as their raw string. No deps.
+function readFrontmatter(abs) {
+  let text;
+  try { text = readFileSync(abs, 'utf8'); } catch { return null; }
+  const m = /^﻿?---\r?\n([\s\S]*?)\r?\n---/.exec(text);
+  if (!m) return null;
+  const fm = {};
+  for (const line of m[1].split(/\r?\n/)) {
+    const km = META_KEY_RE.exec(line);
+    if (km) fm[km[1].toLowerCase()] = km[2].trim();
+  }
+  return fm;
+}
+
+// Read one currency report and return the head note-id for `entity`, or ''. The
+// on-disk artifact keys every scanned note under
+// `byNote[note_id] = { entity, currentTruth, marker, ... }`; the current-truth
+// note for an entity is the one with currentTruth === true. We also accept a
+// literal top-level `current_truth: { <entity>: <note_id> }` map (the in-memory
+// cmd_currency shape) so either producer resolves identically.
+function headFromReportFile(reportAbs, entity) {
+  if (!existsSync(reportAbs)) return '';
+  let data;
+  try { data = JSON.parse(readFileSync(reportAbs, 'utf8')); }
+  catch { return ''; }                       // corrupt report -> caller falls through to scan
+  if (data && data.current_truth && typeof data.current_truth[entity] === 'string') {
+    return data.current_truth[entity];
+  }
+  const byNote = data && data.byNote;
+  if (byNote && typeof byNote === 'object') {
+    for (const [noteId, info] of Object.entries(byNote)) {
+      if (info && info.currentTruth === true && info.entity === entity) return noteId;
+    }
+  }
+  return '';
+}
+
+// Stage 1: compiled currency report(s). Prefer the explicit topic when given;
+// otherwise (a vault can hold several topics) scan each top-level topic dir for a
+// `wiki/_currency.json` and take the first that resolves the entity.
+function headFromCurrencyReport(vault, topic, entity) {
+  if (topic) {
+    const hit = headFromReportFile(join(vault, topic, CURRENCY_REPORT_REL), entity);
+    if (hit) return hit;
+  }
+  let ents;
+  try { ents = readdirSync(vault, { withFileTypes: true }); } catch { return ''; }
+  for (const e of ents) {
+    if (!e.isDirectory() || e.name === '.git') continue;
+    const hit = headFromReportFile(join(vault, e.name, CURRENCY_REPORT_REL), entity);
+    if (hit) return hit;
+  }
+  return '';
+}
+
+// Stage 2: scan the vault for notes whose `entity` matches and that are
+// AUTHORITATIVE -- status:reviewed, OR a legacy note with no draft/reviewed
+// status (8P: is_authoritative_work_note). Pick the newest head EXACTLY as
+// Python work_protocol._recency_key does, so the stamped base-head equals the
+// head promote() will independently resolve (else a valid 'done' is wrongly
+// routed to Conflicts/HEAD_MISMATCH). Comparator: (last-verified, status-rank,
+// note-id) -- status-rank (reviewed:2 > legacy/none:0) dominates the note-id
+// tiebreak, so a reviewed head beats a legacy head at equal last-verified
+// regardless of path. Skips derived (wiki/) and inbox (00-Inbox/) trees --
+// captures there are candidates, not heads.
+const STATUS_RANK = { reviewed: 2, draft: 1 }; // mirrors work_protocol._recency_key
+function headFromVaultScan(vault, entity) {
+  let best = null; // { noteId, lv, rank }
+  const walk = (absDir) => {
+    let ents;
+    try { ents = readdirSync(absDir, { withFileTypes: true }); } catch { return; }
+    for (const e of ents) {
+      const abs = join(absDir, e.name);
+      if (e.isDirectory()) {
+        if (e.name === 'wiki' || e.name === '00-Inbox' || e.name === '.git') continue;
+        walk(abs);
+        continue;
+      }
+      if (!e.name.endsWith('.md')) continue;
+      const fm = readFrontmatter(abs);
+      if (!fm || fm.entity == null) continue;
+      if (unbracket(fm.entity) !== entity) continue;
+      const status = (fm.status || '').toLowerCase();
+      const authoritative = status === 'reviewed' || status === '';
+      if (!authoritative) continue;            // draft/unreviewed candidate -> not a head
+      const noteId = relPosix(vault, abs);
+      const lv = fm['last-verified'] || '';
+      const rank = STATUS_RANK[status] || 0;   // reviewed:2, legacy/none:0
+      if (best === null
+          || lv > best.lv
+          || (lv === best.lv && rank > best.rank)
+          || (lv === best.lv && rank === best.rank && noteId > best.noteId)) {
+        best = { noteId, lv, rank };
+      }
+    }
+  };
+  walk(vault);
+  return best ? best.noteId : '';
+}
+
+// Resolve the current authoritative head note-id for `entity`, in spec order:
+// (1) currency report, (2) authoritative-note scan, (3) '' (brand-new entity ->
+// promote materializes a fresh head; no optimistic lock to stamp).
+function resolveBaseHead(vault, topic, entity) {
+  if (!entity) return '';
+  return headFromCurrencyReport(vault, topic, entity) || headFromVaultScan(vault, entity);
+}
+
 // --- frontmatter assembly ---------------------------------------------------
 
-function buildNote({ block, writerId, agent, parentQuery, nowIso, today, source }) {
+function buildNote({ block, writerId, agent, parentQuery, nowIso, today, source, baseHead }) {
   const entity = unbracket(safeValue(block.meta.entity));
-  const supersedes = unbracket(safeValue(block.meta.supersedes));
   let type = safeValue(block.meta.type).toLowerCase();
   if (!VALID_TYPES.has(type)) type = DEFAULT_TYPE;
+  // Task 8G WORK-axis proposal fields. `state` is the agent's claim about where
+  // the work stands (validated/normalized by 8P promote, not here -- the hook is
+  // a faithful scribe of the proposal). `assignee` is the work owner the agent
+  // declares; when omitted, promote/resolve_assignee inherits it from the
+  // previous head or maps writer identity -- it is NOT taken from generated-by.
+  const state = safeValue(block.meta.state);
+  const assignee = unbracket(safeValue(block.meta.assignee));
   const parentEsc = parentQuery.replace(/"/g, '”');
 
+  // status: draft is the REVIEW axis and stays draft ALWAYS -- a capture is a
+  // proposal, never self-reviewed. The WORK axis (state) is independent.
   const yaml = [
     `generated-by: ${writerId}`,
     `generated-at: ${nowIso}`,
@@ -241,13 +387,19 @@ function buildNote({ block, writerId, agent, parentQuery, nowIso, today, source 
   ];
   if (entity) yaml.push(`entity: ${entity}`);
   yaml.push(`type: ${type}`);
+  if (state) yaml.push(`state: ${state}`);
+  if (assignee) yaml.push(`assignee: ${assignee}`);
   if (source) yaml.push(`source: ${source}`);
   yaml.push(`last-verified: ${today}`);
-  if (supersedes) yaml.push(`supersedes: ${supersedes}`);
+  // 8P optimistic lock: stamp the resolved authoritative head as `base-head`.
+  // Drafts NEVER carry `supersedes` (that is materialized at promote time) --
+  // only `base-head`. A brand-new entity resolves to '' -> no base-head, and
+  // promote materializes a fresh head.
+  if (entity && baseHead) yaml.push(`base-head: ${baseHead}`);
 
   const body = block.body || '(no body)';
   const content = `---\n${yaml.join('\n')}\n---\n\n${body}\n`;
-  return { content, entity, type, source: source || '', supersedes };
+  return { content, entity, type, source: source || '', state, assignee, baseHead: baseHead || '' };
 }
 
 // --- main -------------------------------------------------------------------
@@ -293,10 +445,22 @@ function run() {
 
   let wrote = 0, skipped = 0, planned = 0;
 
+  // Invariant (a): base-head resolution must NEVER read outside the vault. topic
+  // is joined onto the vault root to find <topic>/wiki/_currency.json, so it must
+  // be a single in-vault path segment -- safeSegment collapses `..` and `/` to
+  // dashes (an unsanitized `../x` would read an out-of-vault report). '' -> the
+  // auto-scan fallback over every in-vault top-level dir (already in-vault).
+  const topic = safeSegment(process.env.VAULT_CAPTURE_TOPIC || '', '');
+
   for (const block of blocks) {
+    // 8G/8P: resolve the current authoritative head for the entity and stamp it
+    // as the optimistic-lock `base-head`. Read-only; never mutates a head.
+    const entityForHead = unbracket(safeValue(block.meta.entity));
+    const baseHead = resolveBaseHead(vault, topic, entityForHead);
     const note = buildNote({
       block, writerId, agent, parentQuery, nowIso, today,
       source: safeValue(block.meta.source) || defaultSource,
+      baseHead,
     });
 
     // Idempotency key: session + the AGENT-AUTHORED semantic payload. The
@@ -323,8 +487,8 @@ function run() {
       for (let i = 2; i <= 99 && existsSync(join(writerDirAbs, chosen)); i++) chosen = `${baseName}-${i}.md`;
       planned++;
       log(`DRY-RUN would write: ${writerDirRel}/${chosen}`);
-      log(`  entity=${note.entity || '(none)'} type=${note.type} source=${note.source || '(none)'} status=draft last-verified=${today}`);
-      if (note.supersedes) log(`  supersedes=${note.supersedes}`);
+      log(`  entity=${note.entity || '(none)'} type=${note.type} state=${note.state || '(none)'} assignee=${note.assignee || '(none)'} source=${note.source || '(none)'} status=draft last-verified=${today}`);
+      if (note.baseHead) log(`  base-head=${note.baseHead}`);
       continue;
     }
 

@@ -90,7 +90,11 @@ SNAPSHOT_FIELDS = (
     "due",
     "tags",
     "blocked-by",
-    "related",
+    # `related` is NOT here: like `blocks` it is a derive-only symmetric-closure
+    # edge (derive_relations, in-memory) declared "never persisted" (F_RELATED).
+    # Inheriting it would leak a derived field into a materialized snapshot, so it
+    # is excluded symmetrically with `blocks`; only the authored `blocked-by` edge
+    # is in the inherit-allowlist.
     "initiative",
     "cycle",
     "squad",

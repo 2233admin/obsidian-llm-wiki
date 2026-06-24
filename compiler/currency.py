@@ -261,6 +261,29 @@ def is_urgent(cm) -> bool:
     return work_priority(cm) == URGENT_PRIORITY
 
 
+def work_estimate(cm) -> Optional[int]:
+    """Read `estimate` (story points) as a non-negative int, or None when absent/
+    unparseable/negative. Never raises -- a note with no estimate is just None and
+    is ignored by the 8B per-project estimate rollup. Booleans are rejected (bool
+    is an int subclass) to mirror work_priority's guard."""
+    raw = _work_raw(cm)
+    v = raw.get(F_ESTIMATE)
+    if isinstance(v, bool):  # guard: bool is an int subclass
+        return None
+    if isinstance(v, int):
+        return v if v >= 0 else None
+    if isinstance(v, str):
+        v = v.strip()
+        if not v:
+            return None
+        try:
+            n = int(v)
+        except ValueError:
+            return None
+        return n if n >= 0 else None
+    return None
+
+
 def parse_due(cm) -> "Optional[object]":
     """Parse the `due` field to a datetime.date, or None when absent/unparseable.
     Reused by the overdue check (8B); kept here so the state contract owns due
