@@ -27,6 +27,7 @@ from pathlib import Path
 # script (cwd-relative) or imported as a module from compiler/.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import currency as _currency  # noqa: E402
+import work_protocol as _work_protocol  # noqa: E402
 from _md_parse import parse_frontmatter as robust_parse_frontmatter  # noqa: E402
 
 
@@ -503,6 +504,20 @@ def _pass1_supersession(notes: list[CurrencyNote]) -> tuple[dict, list, list]:
     for entity in sorted(groups):
         group = sorted(groups[entity], key=lambda n: n.note_id)
 
+        # Task 8P (P0-2): the authoritative work index never selects a `status:
+        # draft` capture as current-truth. A draft is a candidate proposal (it
+        # lives in _triage), so when an entity also has an authoritative note
+        # (reviewed snapshot or legacy work/knowledge note) the drafts are
+        # quarantined here -- the head is chosen ONLY among authoritative notes,
+        # so a draft `state:done` can never become current-truth or move the
+        # _pass4 open/closed count. Guard: if EVERY note in the group is a draft
+        # (a never-reviewed knowledge note), keep the group intact so the generic
+        # currency / STALE / UNSUPPORTED passes are unchanged (§0 #8 regression).
+        authoritative = [n for n in group
+                         if _work_protocol.is_authoritative_work_note(n.cm)]
+        if authoritative:
+            group = authoritative
+
         # Build explicit supersession map: superseded_note -> topping note.
         superseded_by: dict[str, CurrencyNote] = {}
         for n in group:
@@ -735,7 +750,16 @@ def _pass4_project_status(current_truth: dict, today_date: date) -> dict:
             if not eid.startswith(prefix):
                 continue
             sn = current_truth[eid]
-            status = (sn.cm.status or "").strip().lower()
+            # Task 8P/8A contract: classify actions off the canonical WORK axis
+            # (currency.work_state), NOT raw cm.status. work_state maps done/
+            # completed/canceled/archived -> done|canceled and the legacy
+            # `blocked` word -> in-progress + a legacy_blocked flag, so a capture
+            # that says "done" via the work axis is counted consistently and a
+            # blocked action is detected via legacy_blocked (work_state alone
+            # canonicalizes blocked to in-progress). Drafts never reach here --
+            # they were quarantined from current-truth selection in
+            # _pass1_supersession, so a non-authoritative draft cannot move a count.
+            wstate = _currency.work_state(sn.cm)
             entry = {
                 "entity": eid,
                 "note_id": sn.note_id,
@@ -749,9 +773,9 @@ def _pass4_project_status(current_truth: dict, today_date: date) -> dict:
                 decisions.append(entry)
                 continue
             # everything else under the project is an action
-            if status == _currency.ACTION_BLOCKED_STATUS:
+            if _currency.legacy_blocked(sn.cm):
                 blockers.append(entry)
-            elif status in _currency.ACTION_DONE_STATUSES:
+            elif wstate in (_currency.STATE_DONE, _currency.STATE_CANCELED):
                 closed += 1
             else:
                 flags = []
