@@ -167,10 +167,6 @@ const LOCK_TTL_MS = 60_000;
 
 function withFileLock<T>(fullPath: string, fn: () => T): T {
   const lockPath = fullPath + ".lock";
-  // Ensure the target directory exists BEFORE writing the lock file, otherwise
-  // the first write into a never-initialized vault (e.g. missing Decisions/,
-  // Projects/) throws ENOENT on <full>.lock instead of creating the folder.
-  mkdirSync(dirname(lockPath), { recursive: true });
   const acquire = () =>
     writeFileSync(lockPath, JSON.stringify({ pid: process.pid, timestamp: Date.now() }), { encoding: "utf-8", flag: "wx" });
   try {
@@ -593,6 +589,7 @@ export class VaultFs {
         if (existsSync(full)) throw err(-32002, `Already exists: ${p.path}`);
         if (p.dryRun !== false) return { dryRun: true, action: "create", path: p.path };
         return withFileLock(full, () => {
+          mkdirSync(dirname(full), { recursive: true });
           writeFileSync(full, (p.content as string) || "", "utf-8");
           return { ok: true, path: p.path };
         });
@@ -631,6 +628,7 @@ export class VaultFs {
         if (existsSync(to)) throw err(-32002, `Already exists: ${p.to}`);
         if (p.dryRun !== false) return { dryRun: true, action: "rename", from: p.from, to: p.to };
         return withFileLock(from, () => {
+          mkdirSync(dirname(to), { recursive: true });
           return withFileLock(to, () => {
             renameSync(from, to);
             return { ok: true, from: p.from, to: p.to };
@@ -865,6 +863,7 @@ export class VaultFs {
         const content = `---\ndate: ${today}\ntype: daily\nai-first: true\nmood: ${mood}\nenergy: ${energy}\ntags:\n${tagLine}\n---\n${preamble}\n## ${today}\n\n${summary ? `> ${summary}\n\n` : ""}## Log\n\n## Decisions\n\n## Tomorrow\n`;
         if (p.dryRun !== false) return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
         return withFileLock(full, () => {
+          mkdirSync(dirname(full), { recursive: true });
           writeFileSync(full, content, "utf-8");
           return { ok: true, path };
         });
@@ -885,6 +884,7 @@ export class VaultFs {
         const alreadyExists = existsSync(full);
         if (p.dryRun !== false) return { dryRun: true, action: alreadyExists ? "update" : "create", path, preview: content.slice(0, 200) };
         return withFileLock(full, () => {
+          mkdirSync(dirname(full), { recursive: true });
           writeFileSync(full, content, "utf-8");
           return { ok: true, path, action: alreadyExists ? "updated" : "created" };
         });
@@ -910,6 +910,7 @@ export class VaultFs {
         const content = `---\nname: "${name}"\ntype: project\nai-first: true\nstatus: ${status}\nentity: ${entity}\nlast-verified: ${today}\ncreated: ${today}\nupdated: ${today}\ntags:\n${tagLine}\n---\n\n## For future Claude\n${preamble}\n\n## Overview\n\n${summary}\n\n## Team\n\n${teamLinks || "- TBD"}\n\n## Milestones\n\n## Decisions\n\n## Metrics\n\n## Notes\n`;
         if (p.dryRun !== false) return { dryRun: true, action: existsSync(full) ? "update" : "create", path, preview: content.slice(0, 200) };
         return withFileLock(full, () => {
+          mkdirSync(dirname(full), { recursive: true });
           writeFileSync(full, content, "utf-8");
           return { ok: true, path };
         });
@@ -937,6 +938,7 @@ export class VaultFs {
         const content = `---\ntitle: "${title}"\ntype: decision\nai-first: true\nstatus: ${status}\nentity: ${entity}\nlast-verified: ${today}${srcLine}\ndate: ${today}\ntags:\n${tagLine}\n---\n\n## For future Claude\nDecision: ${p.decision as string}. Status: ${status} (${today}).\n\n## Context\n\n${p.context as string}\n\n## Decision\n\n${p.decision as string}\n\n## Rationale\n\n${rationale}\n\n## Consequences\n\n${consequences}\n`;
         if (p.dryRun !== false) return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
         return withFileLock(full, () => {
+          mkdirSync(dirname(full), { recursive: true });
           writeFileSync(full, content, "utf-8");
           return { ok: true, path };
         });
@@ -959,6 +961,7 @@ export class VaultFs {
         const content = `---\ntitle: "${title}"\ntype: meeting\nai-first: true\ndate: ${today}\nattendees: [${attendees.map(a => `"${a}"`).join(", ")}]\n---\n\n## For future Claude\n${preamble}\n\n## Attendees\n\n${attendeeLines || "- TBD"}\n\n## Summary\n\n${summary}\n\n## Decisions\n\n${decisionLines || "- None recorded"}\n\n## Action Items\n\n${actionLines || "- None assigned"}\n\n## Notes\n`;
         if (p.dryRun !== false) return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
         return withFileLock(full, () => {
+          mkdirSync(dirname(full), { recursive: true });
           writeFileSync(full, content, "utf-8");
           return { ok: true, path };
         });
@@ -980,6 +983,7 @@ export class VaultFs {
         const content = `---\ntitle: "${title}"\ntype: ${type}\nai-first: true\ndate: ${today}${sourceTag}\ntags:\n${tagLine}\n---\n\n## For future Claude\n${preamble}\n\n## Content\n\n${p.content as string}\n`;
         if (p.dryRun !== false) return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
         return withFileLock(full, () => {
+          mkdirSync(dirname(full), { recursive: true });
           writeFileSync(full, content, "utf-8");
           return { ok: true, path };
         });
@@ -1547,6 +1551,7 @@ export class VaultFs {
             `realBacklinkHitRate: ${metrics.realBacklinkHitRate.toFixed(3)}}\n`;
           withFileLock(sweepLogAbs, () => {
             if (!existsSync(sweepLogAbs)) {
+              mkdirSync(dirname(sweepLogAbs), { recursive: true });
               writeFileSync(sweepLogAbs, "# Sweep trend log\n\n", "utf-8");
             }
             appendFileSync(sweepLogAbs, logLine, "utf-8");

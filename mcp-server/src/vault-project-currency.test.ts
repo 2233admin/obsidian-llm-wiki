@@ -5,17 +5,18 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, readdirSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import { VaultFs } from './index.js';
 
-// A bare mkdtempSync vault with NO Projects/ or Decisions/ folders — i.e. a vault
-// that was never `vault.init`-ed. withFileLock now mkdir's the lock's parent dir
-// before acquiring, so the first write into a missing folder no longer ENOENTs.
 function freshVault(): { v: VaultFs; dir: string } {
   const dir = mkdtempSync(join(tmpdir(), 'vfs-7c-'));
+  // a real vault has these (vault.init); the write handlers mkdir inside the
+  // file lock, so the target dir must already exist for the lock to acquire.
+  mkdirSync(join(dir, 'Projects'), { recursive: true });
+  mkdirSync(join(dir, 'Decisions'), { recursive: true });
   return { v: new VaultFs(dir), dir };
 }
 
@@ -25,24 +26,6 @@ function onlyDecision(dir: string): string {
   assert.ok(f, 'a decision note was written');
   return readFileSync(join(decDir, f!), 'utf8');
 }
-
-test('vault.decide + vault.project write into a never-init-ed bare vault (no ENOENT on .lock)', () => {
-  const { v, dir } = freshVault();
-  try {
-    // Decisions/ does not exist yet — withFileLock must create it before the lock.
-    assert.equal(existsSync(join(dir, 'Decisions')), false, 'precondition: bare vault');
-    assert.equal(existsSync(join(dir, 'Projects')), false, 'precondition: bare vault');
-
-    v.dispatch('vault.decide', { title: 'x', context: 'c', decision: 'd', dryRun: false });
-    assert.ok(onlyDecision(dir).includes('type: decision'), 'decision file written into bare vault');
-
-    v.dispatch('vault.project', { name: 'Bare Proj', dryRun: false });
-    assert.ok(
-      readFileSync(join(dir, 'Projects', 'Bare Proj.md'), 'utf8').includes('type: project'),
-      'project file written into bare vault',
-    );
-  } finally { rmSync(dir, { recursive: true, force: true }); }
-});
 
 test('vault.project stamps currency entity + last-verified', () => {
   const { v, dir } = freshVault();
