@@ -1,0 +1,3 @@
+# Inventory external skills as Skill Packs
+
+LLMwiki treats external skills such as Matt Pocock's engineering discipline skills, ChubbySkills, and X-to-Obsidian as Skill Packs rather than bundling them into the MCP server core. Skill Packs can be scanned from user-level roots like `.agents/skills` and `.codex/skills`, documented as workflow capabilities, and optionally mirrored into the project for portability; execution remains the responsibility of the agent environment or Agent Layer. This gives LLMwiki visibility into local workflow capability without making the core server depend on a specific skill installer, npm package, or model host.

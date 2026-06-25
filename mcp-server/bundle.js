@@ -479,9 +479,9 @@ var require_codegen = __commonJS({
       }
     };
     var Throw = class extends Node {
-      constructor(error2) {
+      constructor(error48) {
         super();
-        this.error = error2;
+        this.error = error48;
       }
       render({ _n }) {
         return `throw ${this.error};` + _n;
@@ -718,9 +718,9 @@ var require_codegen = __commonJS({
       }
     };
     var Catch = class extends BlockNode {
-      constructor(error2) {
+      constructor(error48) {
         super();
-        this.error = error2;
+        this.error = error48;
       }
       render(opts) {
         return `catch(${this.error})` + super.render(opts);
@@ -911,9 +911,9 @@ var require_codegen = __commonJS({
         this._blockNode(node);
         this.code(tryBody);
         if (catchCode) {
-          const error2 = this.name("e");
-          this._currNode = node.catch = new Catch(error2);
-          catchCode(error2);
+          const error48 = this.name("e");
+          this._currNode = node.catch = new Catch(error48);
+          catchCode(error48);
         }
         if (finallyCode) {
           this._currNode = node.finally = new Finally();
@@ -922,8 +922,8 @@ var require_codegen = __commonJS({
         return this._endBlockNode(Catch, Finally);
       }
       // `throw` statement
-      throw(error2) {
-        return this._leafNode(new Throw(error2));
+      throw(error48) {
+        return this._leafNode(new Throw(error48));
       }
       // start self-balancing block
       block(body, nodeCount) {
@@ -1279,10 +1279,10 @@ var require_errors = __commonJS({
     exports.keyword$DataError = {
       message: ({ keyword, schemaType }) => schemaType ? (0, codegen_1.str)`"${keyword}" keyword must be ${schemaType} ($data)` : (0, codegen_1.str)`"${keyword}" keyword is invalid ($data)`
     };
-    function reportError(cxt, error2 = exports.keywordError, errorPaths, overrideAllErrors) {
+    function reportError(cxt, error48 = exports.keywordError, errorPaths, overrideAllErrors) {
       const { it } = cxt;
       const { gen, compositeRule, allErrors } = it;
-      const errObj = errorObjectCode(cxt, error2, errorPaths);
+      const errObj = errorObjectCode(cxt, error48, errorPaths);
       if (overrideAllErrors !== null && overrideAllErrors !== void 0 ? overrideAllErrors : compositeRule || allErrors) {
         addError(gen, errObj);
       } else {
@@ -1290,10 +1290,10 @@ var require_errors = __commonJS({
       }
     }
     exports.reportError = reportError;
-    function reportExtraError(cxt, error2 = exports.keywordError, errorPaths) {
+    function reportExtraError(cxt, error48 = exports.keywordError, errorPaths) {
       const { it } = cxt;
       const { gen, compositeRule, allErrors } = it;
-      const errObj = errorObjectCode(cxt, error2, errorPaths);
+      const errObj = errorObjectCode(cxt, error48, errorPaths);
       addError(gen, errObj);
       if (!(compositeRule || allErrors)) {
         returnErrors(it, names_1.default.vErrors);
@@ -1344,19 +1344,19 @@ var require_errors = __commonJS({
       schema: new codegen_1.Name("schema"),
       parentSchema: new codegen_1.Name("parentSchema")
     };
-    function errorObjectCode(cxt, error2, errorPaths) {
+    function errorObjectCode(cxt, error48, errorPaths) {
       const { createErrors } = cxt.it;
       if (createErrors === false)
         return (0, codegen_1._)`{}`;
-      return errorObject(cxt, error2, errorPaths);
+      return errorObject(cxt, error48, errorPaths);
     }
-    function errorObject(cxt, error2, errorPaths = {}) {
+    function errorObject(cxt, error48, errorPaths = {}) {
       const { gen, it } = cxt;
       const keyValues = [
         errorInstancePath(it, errorPaths),
         errorSchemaPath(cxt, errorPaths)
       ];
-      extraErrorProps(cxt, error2, keyValues);
+      extraErrorProps(cxt, error48, keyValues);
       return gen.object(...keyValues);
     }
     function errorInstancePath({ errorPath }, { instancePath }) {
@@ -2984,13 +2984,13 @@ var require_compile = __commonJS({
       }
     }
     exports.compileSchema = compileSchema;
-    function resolveRef(root, baseId, ref) {
+    function resolveRef2(root, baseId, ref) {
       var _a2;
       ref = (0, resolve_1.resolveUrl)(this.opts.uriResolver, baseId, ref);
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve3.call(this, root, ref);
+      let _sch = resolve6.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a2 = root.localRefs) === null || _a2 === void 0 ? void 0 : _a2[ref];
         const { schemaId } = this.opts;
@@ -3001,7 +3001,7 @@ var require_compile = __commonJS({
         return;
       return root.refs[ref] = inlineOrCompile.call(this, _sch);
     }
-    exports.resolveRef = resolveRef;
+    exports.resolveRef = resolveRef2;
     function inlineOrCompile(sch) {
       if ((0, resolve_1.inlineRef)(sch.schema, this.opts.inlineRefs))
         return sch.schema;
@@ -3017,7 +3017,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve3(root, ref) {
+    function resolve6(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -3592,55 +3592,55 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve3(baseURI, relativeURI, options) {
+    function resolve6(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const resolved = resolveComponent(parse3(baseURI, schemelessOptions), parse3(relativeURI, schemelessOptions), schemelessOptions, true);
       schemelessOptions.skipEscape = true;
       return serialize(resolved, schemelessOptions);
     }
-    function resolveComponent(base, relative4, options, skipNormalization) {
+    function resolveComponent(base, relative7, options, skipNormalization) {
       const target = {};
       if (!skipNormalization) {
         base = parse3(serialize(base, options), options);
-        relative4 = parse3(serialize(relative4, options), options);
+        relative7 = parse3(serialize(relative7, options), options);
       }
       options = options || {};
-      if (!options.tolerant && relative4.scheme) {
-        target.scheme = relative4.scheme;
-        target.userinfo = relative4.userinfo;
-        target.host = relative4.host;
-        target.port = relative4.port;
-        target.path = removeDotSegments(relative4.path || "");
-        target.query = relative4.query;
+      if (!options.tolerant && relative7.scheme) {
+        target.scheme = relative7.scheme;
+        target.userinfo = relative7.userinfo;
+        target.host = relative7.host;
+        target.port = relative7.port;
+        target.path = removeDotSegments(relative7.path || "");
+        target.query = relative7.query;
       } else {
-        if (relative4.userinfo !== void 0 || relative4.host !== void 0 || relative4.port !== void 0) {
-          target.userinfo = relative4.userinfo;
-          target.host = relative4.host;
-          target.port = relative4.port;
-          target.path = removeDotSegments(relative4.path || "");
-          target.query = relative4.query;
+        if (relative7.userinfo !== void 0 || relative7.host !== void 0 || relative7.port !== void 0) {
+          target.userinfo = relative7.userinfo;
+          target.host = relative7.host;
+          target.port = relative7.port;
+          target.path = removeDotSegments(relative7.path || "");
+          target.query = relative7.query;
         } else {
-          if (!relative4.path) {
+          if (!relative7.path) {
             target.path = base.path;
-            if (relative4.query !== void 0) {
-              target.query = relative4.query;
+            if (relative7.query !== void 0) {
+              target.query = relative7.query;
             } else {
               target.query = base.query;
             }
           } else {
-            if (relative4.path[0] === "/") {
-              target.path = removeDotSegments(relative4.path);
+            if (relative7.path[0] === "/") {
+              target.path = removeDotSegments(relative7.path);
             } else {
               if ((base.userinfo !== void 0 || base.host !== void 0 || base.port !== void 0) && !base.path) {
-                target.path = "/" + relative4.path;
+                target.path = "/" + relative7.path;
               } else if (!base.path) {
-                target.path = relative4.path;
+                target.path = relative7.path;
               } else {
-                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative4.path;
+                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative7.path;
               }
               target.path = removeDotSegments(target.path);
             }
-            target.query = relative4.query;
+            target.query = relative7.query;
           }
           target.userinfo = base.userinfo;
           target.host = base.host;
@@ -3648,7 +3648,7 @@ var require_fast_uri = __commonJS({
         }
         target.scheme = base.scheme;
       }
-      target.fragment = relative4.fragment;
+      target.fragment = relative7.fragment;
       return target;
     }
     function equal(uriA, uriB, options) {
@@ -3819,7 +3819,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve: resolve3,
+      resolve: resolve6,
       resolveComponent,
       equal,
       serialize,
@@ -4624,7 +4624,7 @@ var require_limitNumber = __commonJS({
       exclusiveMaximum: { okStr: "<", ok: ops.LT, fail: ops.GTE },
       exclusiveMinimum: { okStr: ">", ok: ops.GT, fail: ops.LTE }
     };
-    var error2 = {
+    var error48 = {
       message: ({ keyword, schemaCode }) => (0, codegen_1.str)`must be ${KWDs[keyword].okStr} ${schemaCode}`,
       params: ({ keyword, schemaCode }) => (0, codegen_1._)`{comparison: ${KWDs[keyword].okStr}, limit: ${schemaCode}}`
     };
@@ -4633,7 +4633,7 @@ var require_limitNumber = __commonJS({
       type: "number",
       schemaType: "number",
       $data: true,
-      error: error2,
+      error: error48,
       code(cxt) {
         const { keyword, data, schemaCode } = cxt;
         cxt.fail$data((0, codegen_1._)`${data} ${KWDs[keyword].fail} ${schemaCode} || isNaN(${data})`);
@@ -4649,7 +4649,7 @@ var require_multipleOf = __commonJS({
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
-    var error2 = {
+    var error48 = {
       message: ({ schemaCode }) => (0, codegen_1.str)`must be multiple of ${schemaCode}`,
       params: ({ schemaCode }) => (0, codegen_1._)`{multipleOf: ${schemaCode}}`
     };
@@ -4658,7 +4658,7 @@ var require_multipleOf = __commonJS({
       type: "number",
       schemaType: "number",
       $data: true,
-      error: error2,
+      error: error48,
       code(cxt) {
         const { gen, data, schemaCode, it } = cxt;
         const prec = it.opts.multipleOfPrecision;
@@ -4705,7 +4705,7 @@ var require_limitLength = __commonJS({
     var codegen_1 = require_codegen();
     var util_1 = require_util();
     var ucs2length_1 = require_ucs2length();
-    var error2 = {
+    var error48 = {
       message({ keyword, schemaCode }) {
         const comp = keyword === "maxLength" ? "more" : "fewer";
         return (0, codegen_1.str)`must NOT have ${comp} than ${schemaCode} characters`;
@@ -4717,7 +4717,7 @@ var require_limitLength = __commonJS({
       type: "string",
       schemaType: "number",
       $data: true,
-      error: error2,
+      error: error48,
       code(cxt) {
         const { keyword, data, schemaCode, it } = cxt;
         const op = keyword === "maxLength" ? codegen_1.operators.GT : codegen_1.operators.LT;
@@ -4737,7 +4737,7 @@ var require_pattern = __commonJS({
     var code_1 = require_code2();
     var util_1 = require_util();
     var codegen_1 = require_codegen();
-    var error2 = {
+    var error48 = {
       message: ({ schemaCode }) => (0, codegen_1.str)`must match pattern "${schemaCode}"`,
       params: ({ schemaCode }) => (0, codegen_1._)`{pattern: ${schemaCode}}`
     };
@@ -4746,7 +4746,7 @@ var require_pattern = __commonJS({
       type: "string",
       schemaType: "string",
       $data: true,
-      error: error2,
+      error: error48,
       code(cxt) {
         const { gen, data, $data, schema, schemaCode, it } = cxt;
         const u = it.opts.unicodeRegExp ? "u" : "";
@@ -4772,7 +4772,7 @@ var require_limitProperties = __commonJS({
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
-    var error2 = {
+    var error48 = {
       message({ keyword, schemaCode }) {
         const comp = keyword === "maxProperties" ? "more" : "fewer";
         return (0, codegen_1.str)`must NOT have ${comp} than ${schemaCode} properties`;
@@ -4784,7 +4784,7 @@ var require_limitProperties = __commonJS({
       type: "object",
       schemaType: "number",
       $data: true,
-      error: error2,
+      error: error48,
       code(cxt) {
         const { keyword, data, schemaCode } = cxt;
         const op = keyword === "maxProperties" ? codegen_1.operators.GT : codegen_1.operators.LT;
@@ -4803,7 +4803,7 @@ var require_required = __commonJS({
     var code_1 = require_code2();
     var codegen_1 = require_codegen();
     var util_1 = require_util();
-    var error2 = {
+    var error48 = {
       message: ({ params: { missingProperty } }) => (0, codegen_1.str)`must have required property '${missingProperty}'`,
       params: ({ params: { missingProperty } }) => (0, codegen_1._)`{missingProperty: ${missingProperty}}`
     };
@@ -4812,7 +4812,7 @@ var require_required = __commonJS({
       type: "object",
       schemaType: "array",
       $data: true,
-      error: error2,
+      error: error48,
       code(cxt) {
         const { gen, schema, schemaCode, data, $data, it } = cxt;
         const { opts } = it;
@@ -4883,7 +4883,7 @@ var require_limitItems = __commonJS({
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
-    var error2 = {
+    var error48 = {
       message({ keyword, schemaCode }) {
         const comp = keyword === "maxItems" ? "more" : "fewer";
         return (0, codegen_1.str)`must NOT have ${comp} than ${schemaCode} items`;
@@ -4895,7 +4895,7 @@ var require_limitItems = __commonJS({
       type: "array",
       schemaType: "number",
       $data: true,
-      error: error2,
+      error: error48,
       code(cxt) {
         const { keyword, data, schemaCode } = cxt;
         const op = keyword === "maxItems" ? codegen_1.operators.GT : codegen_1.operators.LT;
@@ -4926,7 +4926,7 @@ var require_uniqueItems = __commonJS({
     var codegen_1 = require_codegen();
     var util_1 = require_util();
     var equal_1 = require_equal();
-    var error2 = {
+    var error48 = {
       message: ({ params: { i, j } }) => (0, codegen_1.str)`must NOT have duplicate items (items ## ${j} and ${i} are identical)`,
       params: ({ params: { i, j } }) => (0, codegen_1._)`{i: ${i}, j: ${j}}`
     };
@@ -4935,7 +4935,7 @@ var require_uniqueItems = __commonJS({
       type: "array",
       schemaType: "boolean",
       $data: true,
-      error: error2,
+      error: error48,
       code(cxt) {
         const { gen, data, $data, schema, parentSchema, schemaCode, it } = cxt;
         if (!$data && !schema)
@@ -4992,14 +4992,14 @@ var require_const = __commonJS({
     var codegen_1 = require_codegen();
     var util_1 = require_util();
     var equal_1 = require_equal();
-    var error2 = {
+    var error48 = {
       message: "must be equal to constant",
       params: ({ schemaCode }) => (0, codegen_1._)`{allowedValue: ${schemaCode}}`
     };
     var def = {
       keyword: "const",
       $data: true,
-      error: error2,
+      error: error48,
       code(cxt) {
         const { gen, data, $data, schemaCode, schema } = cxt;
         if ($data || schema && typeof schema == "object") {
@@ -5021,7 +5021,7 @@ var require_enum = __commonJS({
     var codegen_1 = require_codegen();
     var util_1 = require_util();
     var equal_1 = require_equal();
-    var error2 = {
+    var error48 = {
       message: "must be equal to one of the allowed values",
       params: ({ schemaCode }) => (0, codegen_1._)`{allowedValues: ${schemaCode}}`
     };
@@ -5029,7 +5029,7 @@ var require_enum = __commonJS({
       keyword: "enum",
       schemaType: "array",
       $data: true,
-      error: error2,
+      error: error48,
       code(cxt) {
         const { gen, data, $data, schema, schemaCode, it } = cxt;
         if (!$data && schema.length === 0)
@@ -5108,7 +5108,7 @@ var require_additionalItems = __commonJS({
     exports.validateAdditionalItems = void 0;
     var codegen_1 = require_codegen();
     var util_1 = require_util();
-    var error2 = {
+    var error48 = {
       message: ({ params: { len } }) => (0, codegen_1.str)`must NOT have more than ${len} items`,
       params: ({ params: { len } }) => (0, codegen_1._)`{limit: ${len}}`
     };
@@ -5117,7 +5117,7 @@ var require_additionalItems = __commonJS({
       type: "array",
       schemaType: ["boolean", "object"],
       before: "uniqueItems",
-      error: error2,
+      error: error48,
       code(cxt) {
         const { parentSchema, it } = cxt;
         const { items } = parentSchema;
@@ -5236,7 +5236,7 @@ var require_items2020 = __commonJS({
     var util_1 = require_util();
     var code_1 = require_code2();
     var additionalItems_1 = require_additionalItems();
-    var error2 = {
+    var error48 = {
       message: ({ params: { len } }) => (0, codegen_1.str)`must NOT have more than ${len} items`,
       params: ({ params: { len } }) => (0, codegen_1._)`{limit: ${len}}`
     };
@@ -5245,7 +5245,7 @@ var require_items2020 = __commonJS({
       type: "array",
       schemaType: ["object", "boolean"],
       before: "uniqueItems",
-      error: error2,
+      error: error48,
       code(cxt) {
         const { schema, parentSchema, it } = cxt;
         const { prefixItems } = parentSchema;
@@ -5269,7 +5269,7 @@ var require_contains = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var util_1 = require_util();
-    var error2 = {
+    var error48 = {
       message: ({ params: { min, max } }) => max === void 0 ? (0, codegen_1.str)`must contain at least ${min} valid item(s)` : (0, codegen_1.str)`must contain at least ${min} and no more than ${max} valid item(s)`,
       params: ({ params: { min, max } }) => max === void 0 ? (0, codegen_1._)`{minContains: ${min}}` : (0, codegen_1._)`{minContains: ${min}, maxContains: ${max}}`
     };
@@ -5279,7 +5279,7 @@ var require_contains = __commonJS({
       schemaType: ["object", "boolean"],
       before: "uniqueItems",
       trackErrors: true,
-      error: error2,
+      error: error48,
       code(cxt) {
         const { gen, schema, parentSchema, data, it } = cxt;
         let min;
@@ -5457,7 +5457,7 @@ var require_propertyNames = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var util_1 = require_util();
-    var error2 = {
+    var error48 = {
       message: "property name must be valid",
       params: ({ params }) => (0, codegen_1._)`{propertyName: ${params.propertyName}}`
     };
@@ -5465,7 +5465,7 @@ var require_propertyNames = __commonJS({
       keyword: "propertyNames",
       type: "object",
       schemaType: ["object", "boolean"],
-      error: error2,
+      error: error48,
       code(cxt) {
         const { gen, schema, data, it } = cxt;
         if ((0, util_1.alwaysValidSchema)(it, schema))
@@ -5502,7 +5502,7 @@ var require_additionalProperties = __commonJS({
     var codegen_1 = require_codegen();
     var names_1 = require_names();
     var util_1 = require_util();
-    var error2 = {
+    var error48 = {
       message: "must NOT have additional properties",
       params: ({ params }) => (0, codegen_1._)`{additionalProperty: ${params.additionalProperty}}`
     };
@@ -5512,7 +5512,7 @@ var require_additionalProperties = __commonJS({
       schemaType: ["boolean", "object"],
       allowUndefined: true,
       trackErrors: true,
-      error: error2,
+      error: error48,
       code(cxt) {
         const { gen, schema, parentSchema, data, errsCount, it } = cxt;
         if (!errsCount)
@@ -5786,7 +5786,7 @@ var require_oneOf = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var util_1 = require_util();
-    var error2 = {
+    var error48 = {
       message: "must match exactly one schema in oneOf",
       params: ({ params }) => (0, codegen_1._)`{passingSchemas: ${params.passing}}`
     };
@@ -5794,7 +5794,7 @@ var require_oneOf = __commonJS({
       keyword: "oneOf",
       schemaType: "array",
       trackErrors: true,
-      error: error2,
+      error: error48,
       code(cxt) {
         const { gen, schema, parentSchema, it } = cxt;
         if (!Array.isArray(schema))
@@ -5871,7 +5871,7 @@ var require_if = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var util_1 = require_util();
-    var error2 = {
+    var error48 = {
       message: ({ params }) => (0, codegen_1.str)`must match "${params.ifClause}" schema`,
       params: ({ params }) => (0, codegen_1._)`{failingKeyword: ${params.ifClause}}`
     };
@@ -5879,7 +5879,7 @@ var require_if = __commonJS({
       keyword: "if",
       schemaType: ["object", "boolean"],
       trackErrors: true,
-      error: error2,
+      error: error48,
       code(cxt) {
         const { gen, parentSchema, it } = cxt;
         if (parentSchema.then === void 0 && parentSchema.else === void 0) {
@@ -6005,7 +6005,7 @@ var require_format = __commonJS({
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
-    var error2 = {
+    var error48 = {
       message: ({ schemaCode }) => (0, codegen_1.str)`must match format "${schemaCode}"`,
       params: ({ schemaCode }) => (0, codegen_1._)`{format: ${schemaCode}}`
     };
@@ -6014,7 +6014,7 @@ var require_format = __commonJS({
       type: ["number", "string"],
       schemaType: "string",
       $data: true,
-      error: error2,
+      error: error48,
       code(cxt, ruleType) {
         const { gen, data, $data, schema, schemaCode, it } = cxt;
         const { opts, errSchemaPath, schemaEnv, self } = it;
@@ -6169,7 +6169,7 @@ var require_discriminator = __commonJS({
     var compile_1 = require_compile();
     var ref_error_1 = require_ref_error();
     var util_1 = require_util();
-    var error2 = {
+    var error48 = {
       message: ({ params: { discrError, tagName } }) => discrError === types_1.DiscrError.Tag ? `tag "${tagName}" must be string` : `value of tag "${tagName}" must be in oneOf`,
       params: ({ params: { discrError, tag, tagName } }) => (0, codegen_1._)`{error: ${discrError}, tag: ${tagName}, tagValue: ${tag}}`
     };
@@ -6177,7 +6177,7 @@ var require_discriminator = __commonJS({
       keyword: "discriminator",
       type: "object",
       schemaType: "object",
-      error: error2,
+      error: error48,
       code(cxt) {
         const { gen, data, schema, parentSchema, it } = cxt;
         const { oneOf } = parentSchema;
@@ -6502,7 +6502,7 @@ var require_formats = __commonJS({
     }
     exports.fullFormats = {
       // date: http://tools.ietf.org/html/rfc3339#section-5.6
-      date: fmtDef(date4, compareDate),
+      date: fmtDef(date5, compareDate),
       // date-time: http://tools.ietf.org/html/rfc3339#section-5.6
       time: fmtDef(getTime(true), compareTime),
       "date-time": fmtDef(getDateTime(true), compareDateTime),
@@ -6568,7 +6568,7 @@ var require_formats = __commonJS({
     }
     var DATE = /^(\d\d\d\d)-(\d\d)-(\d\d)$/;
     var DAYS = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-    function date4(str) {
+    function date5(str) {
       const matches = DATE.exec(str);
       if (!matches)
         return false;
@@ -6637,7 +6637,7 @@ var require_formats = __commonJS({
       const time3 = getTime(strictTimeZone);
       return function date_time(str) {
         const dateTime = str.split(DATE_TIME_SEPARATOR);
-        return dateTime.length === 2 && date4(dateTime[0]) && time3(dateTime[1]);
+        return dateTime.length === 2 && date5(dateTime[0]) && time3(dateTime[1]);
       };
     }
     function compareDateTime(dt1, dt2) {
@@ -6709,7 +6709,7 @@ var require_limit = __commonJS({
       formatExclusiveMaximum: { okStr: "<", ok: ops.LT, fail: ops.GTE },
       formatExclusiveMinimum: { okStr: ">", ok: ops.GT, fail: ops.LTE }
     };
-    var error2 = {
+    var error48 = {
       message: ({ keyword, schemaCode }) => (0, codegen_1.str)`should be ${KWDs[keyword].okStr} ${schemaCode}`,
       params: ({ keyword, schemaCode }) => (0, codegen_1._)`{comparison: ${KWDs[keyword].okStr}, limit: ${schemaCode}}`
     };
@@ -6718,7 +6718,7 @@ var require_limit = __commonJS({
       type: "string",
       schemaType: "string",
       $data: true,
-      error: error2,
+      error: error48,
       code(cxt) {
         const { gen, data, schemaCode, keyword, it } = cxt;
         const { opts, self } = it;
@@ -6946,23 +6946,23 @@ var require_postgres_date = __commonJS({
       var second = parseInt(matches[6], 10);
       var ms = matches[7];
       ms = ms ? 1e3 * parseFloat(ms) : 0;
-      var date4;
+      var date5;
       var offset = timeZoneOffset(isoDate);
       if (offset != null) {
-        date4 = new Date(Date.UTC(year, month, day, hour, minute, second, ms));
+        date5 = new Date(Date.UTC(year, month, day, hour, minute, second, ms));
         if (is0To99(year)) {
-          date4.setUTCFullYear(year);
+          date5.setUTCFullYear(year);
         }
         if (offset !== 0) {
-          date4.setTime(date4.getTime() - offset);
+          date5.setTime(date5.getTime() - offset);
         }
       } else {
-        date4 = new Date(year, month, day, hour, minute, second, ms);
+        date5 = new Date(year, month, day, hour, minute, second, ms);
         if (is0To99(year)) {
-          date4.setFullYear(year);
+          date5.setFullYear(year);
         }
       }
-      return date4;
+      return date5;
     };
     function getDate(isoDate) {
       var matches = DATE.exec(isoDate);
@@ -6976,11 +6976,11 @@ var require_postgres_date = __commonJS({
       }
       var month = parseInt(matches[2], 10) - 1;
       var day = matches[3];
-      var date4 = new Date(year, month, day);
+      var date5 = new Date(year, month, day);
       if (is0To99(year)) {
-        date4.setFullYear(year);
+        date5.setFullYear(year);
       }
-      return date4;
+      return date5;
     }
     function timeZoneOffset(isoDate) {
       if (isoDate.endsWith("+00")) {
@@ -7173,8 +7173,8 @@ var require_textParsers = __commonJS({
       if (!value) return null;
       return array2.parse(value, parseBool);
     }
-    function parseBaseTenInt(string3) {
-      return parseInt(string3, 10);
+    function parseBaseTenInt(string4) {
+      return parseInt(string4, 10);
     }
     function parseIntegerArray(value) {
       if (!value) return null;
@@ -7886,12 +7886,12 @@ var require_utils2 = __commonJS({
       }
       return JSON.stringify(val);
     }
-    function dateToString(date4) {
-      let offset = -date4.getTimezoneOffset();
-      let year = date4.getFullYear();
+    function dateToString(date5) {
+      let offset = -date5.getTimezoneOffset();
+      let year = date5.getFullYear();
       const isBCYear = year < 1;
       if (isBCYear) year = Math.abs(year) + 1;
-      let ret = String(year).padStart(4, "0") + "-" + String(date4.getMonth() + 1).padStart(2, "0") + "-" + String(date4.getDate()).padStart(2, "0") + "T" + String(date4.getHours()).padStart(2, "0") + ":" + String(date4.getMinutes()).padStart(2, "0") + ":" + String(date4.getSeconds()).padStart(2, "0") + "." + String(date4.getMilliseconds()).padStart(3, "0");
+      let ret = String(year).padStart(4, "0") + "-" + String(date5.getMonth() + 1).padStart(2, "0") + "-" + String(date5.getDate()).padStart(2, "0") + "T" + String(date5.getHours()).padStart(2, "0") + ":" + String(date5.getMinutes()).padStart(2, "0") + ":" + String(date5.getSeconds()).padStart(2, "0") + "." + String(date5.getMilliseconds()).padStart(3, "0");
       if (offset < 0) {
         ret += "-";
         offset *= -1;
@@ -7902,11 +7902,11 @@ var require_utils2 = __commonJS({
       if (isBCYear) ret += " BC";
       return ret;
     }
-    function dateToStringUTC(date4) {
-      let year = date4.getUTCFullYear();
+    function dateToStringUTC(date5) {
+      let year = date5.getUTCFullYear();
       const isBCYear = year < 1;
       if (isBCYear) year = Math.abs(year) + 1;
-      let ret = String(year).padStart(4, "0") + "-" + String(date4.getUTCMonth() + 1).padStart(2, "0") + "-" + String(date4.getUTCDate()).padStart(2, "0") + "T" + String(date4.getUTCHours()).padStart(2, "0") + ":" + String(date4.getUTCMinutes()).padStart(2, "0") + ":" + String(date4.getUTCSeconds()).padStart(2, "0") + "." + String(date4.getUTCMilliseconds()).padStart(3, "0");
+      let ret = String(year).padStart(4, "0") + "-" + String(date5.getUTCMonth() + 1).padStart(2, "0") + "-" + String(date5.getUTCDate()).padStart(2, "0") + "T" + String(date5.getUTCHours()).padStart(2, "0") + ":" + String(date5.getUTCMinutes()).padStart(2, "0") + ":" + String(date5.getUTCSeconds()).padStart(2, "0") + "." + String(date5.getUTCMilliseconds()).padStart(3, "0");
       ret += "+00:00";
       if (isBCYear) ret += " BC";
       return ret;
@@ -7970,8 +7970,8 @@ var require_utils_legacy = __commonJS({
   "node_modules/pg/lib/crypto/utils-legacy.js"(exports, module) {
     "use strict";
     var nodeCrypto = __require("crypto");
-    function md5(string3) {
-      return nodeCrypto.createHash("md5").update(string3, "utf-8").digest("hex");
+    function md5(string4) {
+      return nodeCrypto.createHash("md5").update(string4, "utf-8").digest("hex");
     }
     function postgresMd5PasswordHash(user, password, salt) {
       const inner = md5(password + user);
@@ -8022,11 +8022,11 @@ var require_utils_webcrypto = __commonJS({
     function randomBytes(length) {
       return webCrypto.getRandomValues(Buffer.alloc(length));
     }
-    async function md5(string3) {
+    async function md5(string4) {
       try {
-        return nodeCrypto.createHash("md5").update(string3, "utf-8").digest("hex");
+        return nodeCrypto.createHash("md5").update(string4, "utf-8").digest("hex");
       } catch (e) {
-        const data = typeof string3 === "string" ? textEncoder.encode(string3) : string3;
+        const data = typeof string4 === "string" ? textEncoder.encode(string4) : string4;
         const hash2 = await subtleCrypto.digest("MD5", data);
         return Array.from(new Uint8Array(hash2)).map((b) => b.toString(16).padStart(2, "0")).join("");
       }
@@ -9197,22 +9197,22 @@ var require_buffer_writer = __commonJS({
         this.buffer[this.offset++] = num >>> 0 & 255;
         return this;
       }
-      addCString(string3) {
-        if (!string3) {
+      addCString(string4) {
+        if (!string4) {
           this.ensure(1);
         } else {
-          const len = Buffer.byteLength(string3);
+          const len = Buffer.byteLength(string4);
           this.ensure(len + 1);
-          this.buffer.write(string3, this.offset, "utf-8");
+          this.buffer.write(string4, this.offset, "utf-8");
           this.offset += len;
         }
         this.buffer[this.offset++] = 0;
         return this;
       }
-      addString(string3 = "") {
-        const len = Buffer.byteLength(string3);
+      addString(string4 = "") {
+        const len = Buffer.byteLength(string4);
         this.ensure(len);
-        this.buffer.write(string3, this.offset);
+        this.buffer.write(string4, this.offset);
         this.offset += len;
         return this;
       }
@@ -9384,13 +9384,13 @@ var require_serializer = __commonJS({
       buffer.writeInt32BE(secretKey, 12);
       return buffer;
     };
-    var cstringMessage = (code, string3) => {
-      const stringLen = Buffer.byteLength(string3);
+    var cstringMessage = (code, string4) => {
+      const stringLen = Buffer.byteLength(string4);
       const len = 4 + stringLen + 1;
       const buffer = Buffer.allocUnsafe(1 + len);
       buffer[0] = code;
       buffer.writeInt32BE(len, 1);
-      buffer.write(string3, 5, "utf-8");
+      buffer.write(string4, 5, "utf-8");
       buffer[len] = 0;
       return buffer;
     };
@@ -9843,7 +9843,7 @@ var require_dist2 = __commonJS({
     function parse3(stream, callback) {
       const parser = new parser_1.Parser();
       stream.on("data", (buffer) => parser.parse(buffer, callback));
-      return new Promise((resolve3) => stream.on("end", () => resolve3()));
+      return new Promise((resolve6) => stream.on("end", () => resolve6()));
     }
     exports.parse = parse3;
   }
@@ -9966,11 +9966,11 @@ var require_connection = __commonJS({
           }
           self.emit("connect");
         });
-        const reportStreamError = function(error2) {
-          if (self._ending && (error2.code === "ECONNRESET" || error2.code === "EPIPE")) {
+        const reportStreamError = function(error48) {
+          if (self._ending && (error48.code === "ECONNRESET" || error48.code === "EPIPE")) {
             return;
           }
-          self.emit("error", error2);
+          self.emit("error", error48);
         };
         this.stream.on("error", reportStreamError);
         this.stream.on("close", function() {
@@ -10131,8 +10131,8 @@ var require_split2 = __commonJS({
       for (let i = 0; i < list.length; i++) {
         try {
           push(this, this.mapper(list[i]));
-        } catch (error2) {
-          return cb(error2);
+        } catch (error48) {
+          return cb(error48);
         }
       }
       this.overflow = this[kLast].length > this.maxLength;
@@ -10147,8 +10147,8 @@ var require_split2 = __commonJS({
       if (this[kLast]) {
         try {
           push(this, this.mapper(this[kLast]));
-        } catch (error2) {
-          return cb(error2);
+        } catch (error48) {
+          return cb(error48);
         }
       }
       cb();
@@ -10549,19 +10549,19 @@ var require_client = __commonJS({
         });
         this._attachListeners(con);
         con.once("end", () => {
-          const error2 = this._ending ? new Error("Connection terminated") : new Error("Connection terminated unexpectedly");
+          const error48 = this._ending ? new Error("Connection terminated") : new Error("Connection terminated unexpectedly");
           clearTimeout(this.connectionTimeoutHandle);
-          this._errorAllQueries(error2);
+          this._errorAllQueries(error48);
           this._ended = true;
           if (!this._ending) {
             if (this._connecting && !this._connectionError) {
               if (this._connectionCallback) {
-                this._connectionCallback(error2);
+                this._connectionCallback(error48);
               } else {
-                this._handleErrorEvent(error2);
+                this._handleErrorEvent(error48);
               }
             } else if (!this._connectionError) {
-              this._handleErrorEvent(error2);
+              this._handleErrorEvent(error48);
             }
           }
           process.nextTick(() => {
@@ -10574,12 +10574,12 @@ var require_client = __commonJS({
           this._connect(callback);
           return;
         }
-        return new this._Promise((resolve3, reject) => {
-          this._connect((error2) => {
-            if (error2) {
-              reject(error2);
+        return new this._Promise((resolve6, reject) => {
+          this._connect((error48) => {
+            if (error48) {
+              reject(error48);
             } else {
-              resolve3(this);
+              resolve6(this);
             }
           });
         });
@@ -10748,8 +10748,8 @@ var require_client = __commonJS({
       _handleRowDescription(msg) {
         const activeQuery = this._getActiveQuery();
         if (activeQuery == null) {
-          const error2 = new Error("Received unexpected rowDescription message from backend.");
-          this._handleErrorEvent(error2);
+          const error48 = new Error("Received unexpected rowDescription message from backend.");
+          this._handleErrorEvent(error48);
           return;
         }
         activeQuery.handleRowDescription(msg);
@@ -10757,8 +10757,8 @@ var require_client = __commonJS({
       _handleDataRow(msg) {
         const activeQuery = this._getActiveQuery();
         if (activeQuery == null) {
-          const error2 = new Error("Received unexpected dataRow message from backend.");
-          this._handleErrorEvent(error2);
+          const error48 = new Error("Received unexpected dataRow message from backend.");
+          this._handleErrorEvent(error48);
           return;
         }
         activeQuery.handleDataRow(msg);
@@ -10766,8 +10766,8 @@ var require_client = __commonJS({
       _handlePortalSuspended(msg) {
         const activeQuery = this._getActiveQuery();
         if (activeQuery == null) {
-          const error2 = new Error("Received unexpected portalSuspended message from backend.");
-          this._handleErrorEvent(error2);
+          const error48 = new Error("Received unexpected portalSuspended message from backend.");
+          this._handleErrorEvent(error48);
           return;
         }
         activeQuery.handlePortalSuspended(this.connection);
@@ -10775,8 +10775,8 @@ var require_client = __commonJS({
       _handleEmptyQuery(msg) {
         const activeQuery = this._getActiveQuery();
         if (activeQuery == null) {
-          const error2 = new Error("Received unexpected emptyQuery message from backend.");
-          this._handleErrorEvent(error2);
+          const error48 = new Error("Received unexpected emptyQuery message from backend.");
+          this._handleErrorEvent(error48);
           return;
         }
         activeQuery.handleEmptyQuery(this.connection);
@@ -10784,8 +10784,8 @@ var require_client = __commonJS({
       _handleCommandComplete(msg) {
         const activeQuery = this._getActiveQuery();
         if (activeQuery == null) {
-          const error2 = new Error("Received unexpected commandComplete message from backend.");
-          this._handleErrorEvent(error2);
+          const error48 = new Error("Received unexpected commandComplete message from backend.");
+          this._handleErrorEvent(error48);
           return;
         }
         activeQuery.handleCommandComplete(msg, this.connection);
@@ -10793,8 +10793,8 @@ var require_client = __commonJS({
       _handleParseComplete() {
         const activeQuery = this._getActiveQuery();
         if (activeQuery == null) {
-          const error2 = new Error("Received unexpected parseComplete message from backend.");
-          this._handleErrorEvent(error2);
+          const error48 = new Error("Received unexpected parseComplete message from backend.");
+          this._handleErrorEvent(error48);
           return;
         }
         if (activeQuery.name) {
@@ -10804,8 +10804,8 @@ var require_client = __commonJS({
       _handleCopyInResponse(msg) {
         const activeQuery = this._getActiveQuery();
         if (activeQuery == null) {
-          const error2 = new Error("Received unexpected copyInResponse message from backend.");
-          this._handleErrorEvent(error2);
+          const error48 = new Error("Received unexpected copyInResponse message from backend.");
+          this._handleErrorEvent(error48);
           return;
         }
         activeQuery.handleCopyInResponse(this.connection);
@@ -10813,8 +10813,8 @@ var require_client = __commonJS({
       _handleCopyData(msg) {
         const activeQuery = this._getActiveQuery();
         if (activeQuery == null) {
-          const error2 = new Error("Received unexpected copyData message from backend.");
-          this._handleErrorEvent(error2);
+          const error48 = new Error("Received unexpected copyData message from backend.");
+          this._handleErrorEvent(error48);
           return;
         }
         activeQuery.handleCopyData(msg, this.connection);
@@ -10925,8 +10925,8 @@ var require_client = __commonJS({
           readTimeout = config2.query_timeout || this.connectionParameters.query_timeout;
           query = new Query2(config2, values, callback);
           if (!query.callback) {
-            result = new this._Promise((resolve3, reject) => {
-              query.callback = (err2, res) => err2 ? reject(err2) : resolve3(res);
+            result = new this._Promise((resolve6, reject) => {
+              query.callback = (err2, res) => err2 ? reject(err2) : resolve6(res);
             }).catch((err2) => {
               Error.captureStackTrace(err2);
               throw err2;
@@ -10937,11 +10937,11 @@ var require_client = __commonJS({
           queryCallback = query.callback || (() => {
           });
           readTimeoutTimer = setTimeout(() => {
-            const error2 = new Error("Query read timeout");
+            const error48 = new Error("Query read timeout");
             process.nextTick(() => {
-              query.handleError(error2, this.connection);
+              query.handleError(error48, this.connection);
             });
-            queryCallback(error2);
+            queryCallback(error48);
             query.callback = () => {
             };
             const index = this._queryQueue.indexOf(query);
@@ -11003,8 +11003,8 @@ var require_client = __commonJS({
         if (cb) {
           this.connection.once("end", cb);
         } else {
-          return new this._Promise((resolve3) => {
-            this.connection.once("end", resolve3);
+          return new this._Promise((resolve6) => {
+            this.connection.once("end", resolve6);
           });
         }
       }
@@ -11053,8 +11053,8 @@ var require_pg_pool = __commonJS({
       const cb = function(err2, client) {
         err2 ? rej(err2) : res(client);
       };
-      const result = new Promise2(function(resolve3, reject) {
-        res = resolve3;
+      const result = new Promise2(function(resolve6, reject) {
+        res = resolve6;
         rej = reject;
       }).catch((err2) => {
         Error.captureStackTrace(err2);
@@ -11115,7 +11115,7 @@ var require_pg_pool = __commonJS({
         if (typeof Promise2.try === "function") {
           return Promise2.try(f);
         }
-        return new Promise2((resolve3) => resolve3(f()));
+        return new Promise2((resolve6) => resolve6(f()));
       }
       _isFull() {
         return this._clients.length >= this.options.max;
@@ -11508,8 +11508,8 @@ var require_query2 = __commonJS({
     NativeQuery.prototype._getPromise = function() {
       if (this._promise) return this._promise;
       this._promise = new Promise(
-        function(resolve3, reject) {
-          this._once("end", resolve3);
+        function(resolve6, reject) {
+          this._once("end", resolve6);
           this._once("error", reject);
         }.bind(this)
       );
@@ -11686,12 +11686,12 @@ var require_client2 = __commonJS({
         this._connect(callback);
         return;
       }
-      return new this._Promise((resolve3, reject) => {
-        this._connect((error2) => {
-          if (error2) {
-            reject(error2);
+      return new this._Promise((resolve6, reject) => {
+        this._connect((error48) => {
+          if (error48) {
+            reject(error48);
           } else {
-            resolve3(this);
+            resolve6(this);
           }
         });
       });
@@ -11715,8 +11715,8 @@ var require_client2 = __commonJS({
         query = new NativeQuery(config2, values, callback);
         if (!query.callback) {
           let resolveOut, rejectOut;
-          result = new this._Promise((resolve3, reject) => {
-            resolveOut = resolve3;
+          result = new this._Promise((resolve6, reject) => {
+            resolveOut = resolve6;
             rejectOut = reject;
           }).catch((err2) => {
             Error.captureStackTrace(err2);
@@ -11729,11 +11729,11 @@ var require_client2 = __commonJS({
         queryCallback = query.callback || (() => {
         });
         readTimeoutTimer = setTimeout(() => {
-          const error2 = new Error("Query read timeout");
+          const error48 = new Error("Query read timeout");
           process.nextTick(() => {
-            query.handleError(error2, this.connection);
+            query.handleError(error48, this.connection);
           });
-          queryCallback(error2);
+          queryCallback(error48);
           query.callback = () => {
           };
           const index = this._queryQueue.indexOf(query);
@@ -11776,8 +11776,8 @@ var require_client2 = __commonJS({
       }
       let result;
       if (!cb) {
-        result = new this._Promise(function(resolve3, reject) {
-          cb = (err2) => err2 ? reject(err2) : resolve3();
+        result = new this._Promise(function(resolve6, reject) {
+          cb = (err2) => err2 ? reject(err2) : resolve6();
         });
       }
       this.native.end(function() {
@@ -12805,26 +12805,26 @@ var require_receiver = __commonJS({
         }
         const buf = this.consume(2);
         if ((buf[0] & 48) !== 0) {
-          const error2 = this.createError(
+          const error48 = this.createError(
             RangeError,
             "RSV2 and RSV3 must be clear",
             true,
             1002,
             "WS_ERR_UNEXPECTED_RSV_2_3"
           );
-          cb(error2);
+          cb(error48);
           return;
         }
         const compressed = (buf[0] & 64) === 64;
         if (compressed && !this._extensions[PerMessageDeflate2.extensionName]) {
-          const error2 = this.createError(
+          const error48 = this.createError(
             RangeError,
             "RSV1 must be clear",
             true,
             1002,
             "WS_ERR_UNEXPECTED_RSV_1"
           );
-          cb(error2);
+          cb(error48);
           return;
         }
         this._fin = (buf[0] & 128) === 128;
@@ -12832,109 +12832,109 @@ var require_receiver = __commonJS({
         this._payloadLength = buf[1] & 127;
         if (this._opcode === 0) {
           if (compressed) {
-            const error2 = this.createError(
+            const error48 = this.createError(
               RangeError,
               "RSV1 must be clear",
               true,
               1002,
               "WS_ERR_UNEXPECTED_RSV_1"
             );
-            cb(error2);
+            cb(error48);
             return;
           }
           if (!this._fragmented) {
-            const error2 = this.createError(
+            const error48 = this.createError(
               RangeError,
               "invalid opcode 0",
               true,
               1002,
               "WS_ERR_INVALID_OPCODE"
             );
-            cb(error2);
+            cb(error48);
             return;
           }
           this._opcode = this._fragmented;
         } else if (this._opcode === 1 || this._opcode === 2) {
           if (this._fragmented) {
-            const error2 = this.createError(
+            const error48 = this.createError(
               RangeError,
               `invalid opcode ${this._opcode}`,
               true,
               1002,
               "WS_ERR_INVALID_OPCODE"
             );
-            cb(error2);
+            cb(error48);
             return;
           }
           this._compressed = compressed;
         } else if (this._opcode > 7 && this._opcode < 11) {
           if (!this._fin) {
-            const error2 = this.createError(
+            const error48 = this.createError(
               RangeError,
               "FIN must be set",
               true,
               1002,
               "WS_ERR_EXPECTED_FIN"
             );
-            cb(error2);
+            cb(error48);
             return;
           }
           if (compressed) {
-            const error2 = this.createError(
+            const error48 = this.createError(
               RangeError,
               "RSV1 must be clear",
               true,
               1002,
               "WS_ERR_UNEXPECTED_RSV_1"
             );
-            cb(error2);
+            cb(error48);
             return;
           }
           if (this._payloadLength > 125 || this._opcode === 8 && this._payloadLength === 1) {
-            const error2 = this.createError(
+            const error48 = this.createError(
               RangeError,
               `invalid payload length ${this._payloadLength}`,
               true,
               1002,
               "WS_ERR_INVALID_CONTROL_PAYLOAD_LENGTH"
             );
-            cb(error2);
+            cb(error48);
             return;
           }
         } else {
-          const error2 = this.createError(
+          const error48 = this.createError(
             RangeError,
             `invalid opcode ${this._opcode}`,
             true,
             1002,
             "WS_ERR_INVALID_OPCODE"
           );
-          cb(error2);
+          cb(error48);
           return;
         }
         if (!this._fin && !this._fragmented) this._fragmented = this._opcode;
         this._masked = (buf[1] & 128) === 128;
         if (this._isServer) {
           if (!this._masked) {
-            const error2 = this.createError(
+            const error48 = this.createError(
               RangeError,
               "MASK must be set",
               true,
               1002,
               "WS_ERR_EXPECTED_MASK"
             );
-            cb(error2);
+            cb(error48);
             return;
           }
         } else if (this._masked) {
-          const error2 = this.createError(
+          const error48 = this.createError(
             RangeError,
             "MASK must be clear",
             true,
             1002,
             "WS_ERR_UNEXPECTED_MASK"
           );
-          cb(error2);
+          cb(error48);
           return;
         }
         if (this._payloadLength === 126) this._state = GET_PAYLOAD_LENGTH_16;
@@ -12969,14 +12969,14 @@ var require_receiver = __commonJS({
         const buf = this.consume(8);
         const num = buf.readUInt32BE(0);
         if (num > Math.pow(2, 53 - 32) - 1) {
-          const error2 = this.createError(
+          const error48 = this.createError(
             RangeError,
             "Unsupported WebSocket frame: payload length > 2^53 - 1",
             false,
             1009,
             "WS_ERR_UNSUPPORTED_DATA_PAYLOAD_LENGTH"
           );
-          cb(error2);
+          cb(error48);
           return;
         }
         this._payloadLength = num * Math.pow(2, 32) + buf.readUInt32BE(4);
@@ -12992,14 +12992,14 @@ var require_receiver = __commonJS({
         if (this._payloadLength && this._opcode < 8) {
           this._totalPayloadLength += this._payloadLength;
           if (this._totalPayloadLength > this._maxPayload && this._maxPayload > 0) {
-            const error2 = this.createError(
+            const error48 = this.createError(
               RangeError,
               "Max payload size exceeded",
               false,
               1009,
               "WS_ERR_UNSUPPORTED_MESSAGE_LENGTH"
             );
-            cb(error2);
+            cb(error48);
             return;
           }
         }
@@ -13066,14 +13066,14 @@ var require_receiver = __commonJS({
           if (buf.length) {
             this._messageLength += buf.length;
             if (this._messageLength > this._maxPayload && this._maxPayload > 0) {
-              const error2 = this.createError(
+              const error48 = this.createError(
                 RangeError,
                 "Max payload size exceeded",
                 false,
                 1009,
                 "WS_ERR_UNSUPPORTED_MESSAGE_LENGTH"
               );
-              cb(error2);
+              cb(error48);
               return;
             }
             this._fragments.push(buf);
@@ -13124,14 +13124,14 @@ var require_receiver = __commonJS({
         } else {
           const buf = concat(fragments, messageLength);
           if (!this._skipUTF8Validation && !isValidUTF8(buf)) {
-            const error2 = this.createError(
+            const error48 = this.createError(
               Error,
               "invalid UTF-8 sequence",
               true,
               1007,
               "WS_ERR_INVALID_UTF8"
             );
-            cb(error2);
+            cb(error48);
             return;
           }
           if (this._state === INFLATING || this._allowSynchronousEvents) {
@@ -13163,14 +13163,14 @@ var require_receiver = __commonJS({
           } else {
             const code = data.readUInt16BE(0);
             if (!isValidStatusCode(code)) {
-              const error2 = this.createError(
+              const error48 = this.createError(
                 RangeError,
                 `invalid status code ${code}`,
                 true,
                 1002,
                 "WS_ERR_INVALID_CLOSE_CODE"
               );
-              cb(error2);
+              cb(error48);
               return;
             }
             const buf = new FastBuffer(
@@ -13179,14 +13179,14 @@ var require_receiver = __commonJS({
               data.length - 2
             );
             if (!this._skipUTF8Validation && !isValidUTF8(buf)) {
-              const error2 = this.createError(
+              const error48 = this.createError(
                 Error,
                 "invalid UTF-8 sequence",
                 true,
                 1007,
                 "WS_ERR_INVALID_UTF8"
               );
-              cb(error2);
+              cb(error48);
               return;
             }
             this._loop = false;
@@ -13895,10 +13895,10 @@ var require_event_target = __commonJS({
             callListener(handler, this, event);
           };
         } else if (type === "error") {
-          wrapper = function onError(error2) {
+          wrapper = function onError(error48) {
             const event = new ErrorEvent("error", {
-              error: error2,
-              message: error2.message
+              error: error48,
+              message: error48.message
             });
             event[kTarget] = this;
             callListener(handler, this, event);
@@ -14115,7 +14115,7 @@ var require_websocket = __commonJS({
     var http = __require("http");
     var net = __require("net");
     var tls = __require("tls");
-    var { randomBytes, createHash } = __require("crypto");
+    var { randomBytes, createHash: createHash2 } = __require("crypto");
     var { Duplex, Readable } = __require("stream");
     var { URL: URL2 } = __require("url");
     var PerMessageDeflate2 = require_permessage_deflate();
@@ -14775,7 +14775,7 @@ var require_websocket = __commonJS({
           abortHandshake(websocket, socket, "Invalid Upgrade header");
           return;
         }
-        const digest = createHash("sha1").update(key + GUID).digest("base64");
+        const digest = createHash2("sha1").update(key + GUID).digest("base64");
         if (res.headers["sec-websocket-accept"] !== digest) {
           abortHandshake(websocket, socket, "Invalid Sec-WebSocket-Accept header");
           return;
@@ -15026,7 +15026,7 @@ var require_stream2 = __commonJS({
         const data = !isBinary && duplex._readableState.objectMode ? msg.toString() : msg;
         if (!duplex.push(data)) ws.pause();
       });
-      ws.once("error", function error2(err2) {
+      ws.once("error", function error48(err2) {
         if (duplex.destroyed) return;
         terminateOnDestroy = false;
         duplex.destroy(err2);
@@ -15042,7 +15042,7 @@ var require_stream2 = __commonJS({
           return;
         }
         let called = false;
-        ws.once("error", function error2(err3) {
+        ws.once("error", function error48(err3) {
           called = true;
           callback(err3);
         });
@@ -15142,7 +15142,7 @@ var require_websocket_server = __commonJS({
     var EventEmitter = __require("events");
     var http = __require("http");
     var { Duplex } = __require("stream");
-    var { createHash } = __require("crypto");
+    var { createHash: createHash2 } = __require("crypto");
     var extension2 = require_extension();
     var PerMessageDeflate2 = require_permessage_deflate();
     var subprotocol2 = require_subprotocol();
@@ -15443,7 +15443,7 @@ var require_websocket_server = __commonJS({
           );
         }
         if (this._state > RUNNING) return abortHandshake(socket, 503);
-        const digest = createHash("sha1").update(key + GUID).digest("base64");
+        const digest = createHash2("sha1").update(key + GUID).digest("base64");
         const headers = [
           "HTTP/1.1 101 Switching Protocols",
           "Upgrade: websocket",
@@ -15758,8 +15758,8 @@ var ZodError = class _ZodError extends Error {
       return issue2.message;
     };
     const fieldErrors = { _errors: [] };
-    const processError = (error2) => {
-      for (const issue2 of error2.issues) {
+    const processError = (error48) => {
+      for (const issue2 of error48.issues) {
         if (issue2.code === "invalid_union") {
           issue2.unionErrors.map(processError);
         } else if (issue2.code === "invalid_return_type") {
@@ -15822,8 +15822,8 @@ var ZodError = class _ZodError extends Error {
   }
 };
 ZodError.create = (issues) => {
-  const error2 = new ZodError(issues);
-  return error2;
+  const error48 = new ZodError(issues);
+  return error48;
 };
 
 // node_modules/zod/v3/locales/en.js
@@ -16083,8 +16083,8 @@ var handleResult = (ctx, result) => {
       get error() {
         if (this._error)
           return this._error;
-        const error2 = new ZodError(ctx.common.issues);
-        this._error = error2;
+        const error48 = new ZodError(ctx.common.issues);
+        this._error = error48;
         return this._error;
       }
     };
@@ -18739,25 +18739,25 @@ var ZodFunction = class _ZodFunction extends ZodType {
       });
       return INVALID;
     }
-    function makeArgsIssue(args, error2) {
+    function makeArgsIssue(args, error48) {
       return makeIssue({
         data: args,
         path: ctx.path,
         errorMaps: [ctx.common.contextualErrorMap, ctx.schemaErrorMap, getErrorMap(), en_default].filter((x) => !!x),
         issueData: {
           code: ZodIssueCode.invalid_arguments,
-          argumentsError: error2
+          argumentsError: error48
         }
       });
     }
-    function makeReturnsIssue(returns, error2) {
+    function makeReturnsIssue(returns, error48) {
       return makeIssue({
         data: returns,
         path: ctx.path,
         errorMaps: [ctx.common.contextualErrorMap, ctx.schemaErrorMap, getErrorMap(), en_default].filter((x) => !!x),
         issueData: {
           code: ZodIssueCode.invalid_return_type,
-          returnTypeError: error2
+          returnTypeError: error48
         }
       });
     }
@@ -18766,15 +18766,15 @@ var ZodFunction = class _ZodFunction extends ZodType {
     if (this._def.returns instanceof ZodPromise) {
       const me = this;
       return OK(async function(...args) {
-        const error2 = new ZodError([]);
+        const error48 = new ZodError([]);
         const parsedArgs = await me._def.args.parseAsync(args, params).catch((e) => {
-          error2.addIssue(makeArgsIssue(args, e));
-          throw error2;
+          error48.addIssue(makeArgsIssue(args, e));
+          throw error48;
         });
         const result = await Reflect.apply(fn, this, parsedArgs);
         const parsedReturns = await me._def.returns._def.type.parseAsync(result, params).catch((e) => {
-          error2.addIssue(makeReturnsIssue(result, e));
-          throw error2;
+          error48.addIssue(makeReturnsIssue(result, e));
+          throw error48;
         });
         return parsedReturns;
       });
@@ -19454,6 +19454,284 @@ var optionalType = ZodOptional.create;
 var nullableType = ZodNullable.create;
 var preprocessType = ZodEffects.createWithPreprocess;
 var pipelineType = ZodPipeline.create;
+
+// node_modules/zod/v4/core/index.js
+var core_exports2 = {};
+__export(core_exports2, {
+  $ZodAny: () => $ZodAny,
+  $ZodArray: () => $ZodArray,
+  $ZodAsyncError: () => $ZodAsyncError,
+  $ZodBase64: () => $ZodBase64,
+  $ZodBase64URL: () => $ZodBase64URL,
+  $ZodBigInt: () => $ZodBigInt,
+  $ZodBigIntFormat: () => $ZodBigIntFormat,
+  $ZodBoolean: () => $ZodBoolean,
+  $ZodCIDRv4: () => $ZodCIDRv4,
+  $ZodCIDRv6: () => $ZodCIDRv6,
+  $ZodCUID: () => $ZodCUID,
+  $ZodCUID2: () => $ZodCUID2,
+  $ZodCatch: () => $ZodCatch,
+  $ZodCheck: () => $ZodCheck,
+  $ZodCheckBigIntFormat: () => $ZodCheckBigIntFormat,
+  $ZodCheckEndsWith: () => $ZodCheckEndsWith,
+  $ZodCheckGreaterThan: () => $ZodCheckGreaterThan,
+  $ZodCheckIncludes: () => $ZodCheckIncludes,
+  $ZodCheckLengthEquals: () => $ZodCheckLengthEquals,
+  $ZodCheckLessThan: () => $ZodCheckLessThan,
+  $ZodCheckLowerCase: () => $ZodCheckLowerCase,
+  $ZodCheckMaxLength: () => $ZodCheckMaxLength,
+  $ZodCheckMaxSize: () => $ZodCheckMaxSize,
+  $ZodCheckMimeType: () => $ZodCheckMimeType,
+  $ZodCheckMinLength: () => $ZodCheckMinLength,
+  $ZodCheckMinSize: () => $ZodCheckMinSize,
+  $ZodCheckMultipleOf: () => $ZodCheckMultipleOf,
+  $ZodCheckNumberFormat: () => $ZodCheckNumberFormat,
+  $ZodCheckOverwrite: () => $ZodCheckOverwrite,
+  $ZodCheckProperty: () => $ZodCheckProperty,
+  $ZodCheckRegex: () => $ZodCheckRegex,
+  $ZodCheckSizeEquals: () => $ZodCheckSizeEquals,
+  $ZodCheckStartsWith: () => $ZodCheckStartsWith,
+  $ZodCheckStringFormat: () => $ZodCheckStringFormat,
+  $ZodCheckUpperCase: () => $ZodCheckUpperCase,
+  $ZodCodec: () => $ZodCodec,
+  $ZodCustom: () => $ZodCustom,
+  $ZodCustomStringFormat: () => $ZodCustomStringFormat,
+  $ZodDate: () => $ZodDate,
+  $ZodDefault: () => $ZodDefault,
+  $ZodDiscriminatedUnion: () => $ZodDiscriminatedUnion,
+  $ZodE164: () => $ZodE164,
+  $ZodEmail: () => $ZodEmail,
+  $ZodEmoji: () => $ZodEmoji,
+  $ZodEncodeError: () => $ZodEncodeError,
+  $ZodEnum: () => $ZodEnum,
+  $ZodError: () => $ZodError,
+  $ZodExactOptional: () => $ZodExactOptional,
+  $ZodFile: () => $ZodFile,
+  $ZodFunction: () => $ZodFunction,
+  $ZodGUID: () => $ZodGUID,
+  $ZodIPv4: () => $ZodIPv4,
+  $ZodIPv6: () => $ZodIPv6,
+  $ZodISODate: () => $ZodISODate,
+  $ZodISODateTime: () => $ZodISODateTime,
+  $ZodISODuration: () => $ZodISODuration,
+  $ZodISOTime: () => $ZodISOTime,
+  $ZodIntersection: () => $ZodIntersection,
+  $ZodJWT: () => $ZodJWT,
+  $ZodKSUID: () => $ZodKSUID,
+  $ZodLazy: () => $ZodLazy,
+  $ZodLiteral: () => $ZodLiteral,
+  $ZodMAC: () => $ZodMAC,
+  $ZodMap: () => $ZodMap,
+  $ZodNaN: () => $ZodNaN,
+  $ZodNanoID: () => $ZodNanoID,
+  $ZodNever: () => $ZodNever,
+  $ZodNonOptional: () => $ZodNonOptional,
+  $ZodNull: () => $ZodNull,
+  $ZodNullable: () => $ZodNullable,
+  $ZodNumber: () => $ZodNumber,
+  $ZodNumberFormat: () => $ZodNumberFormat,
+  $ZodObject: () => $ZodObject,
+  $ZodObjectJIT: () => $ZodObjectJIT,
+  $ZodOptional: () => $ZodOptional,
+  $ZodPipe: () => $ZodPipe,
+  $ZodPrefault: () => $ZodPrefault,
+  $ZodPromise: () => $ZodPromise,
+  $ZodReadonly: () => $ZodReadonly,
+  $ZodRealError: () => $ZodRealError,
+  $ZodRecord: () => $ZodRecord,
+  $ZodRegistry: () => $ZodRegistry,
+  $ZodSet: () => $ZodSet,
+  $ZodString: () => $ZodString,
+  $ZodStringFormat: () => $ZodStringFormat,
+  $ZodSuccess: () => $ZodSuccess,
+  $ZodSymbol: () => $ZodSymbol,
+  $ZodTemplateLiteral: () => $ZodTemplateLiteral,
+  $ZodTransform: () => $ZodTransform,
+  $ZodTuple: () => $ZodTuple,
+  $ZodType: () => $ZodType,
+  $ZodULID: () => $ZodULID,
+  $ZodURL: () => $ZodURL,
+  $ZodUUID: () => $ZodUUID,
+  $ZodUndefined: () => $ZodUndefined,
+  $ZodUnion: () => $ZodUnion,
+  $ZodUnknown: () => $ZodUnknown,
+  $ZodVoid: () => $ZodVoid,
+  $ZodXID: () => $ZodXID,
+  $ZodXor: () => $ZodXor,
+  $brand: () => $brand,
+  $constructor: () => $constructor,
+  $input: () => $input,
+  $output: () => $output,
+  Doc: () => Doc,
+  JSONSchema: () => json_schema_exports,
+  JSONSchemaGenerator: () => JSONSchemaGenerator,
+  NEVER: () => NEVER,
+  TimePrecision: () => TimePrecision,
+  _any: () => _any,
+  _array: () => _array,
+  _base64: () => _base64,
+  _base64url: () => _base64url,
+  _bigint: () => _bigint,
+  _boolean: () => _boolean,
+  _catch: () => _catch,
+  _check: () => _check,
+  _cidrv4: () => _cidrv4,
+  _cidrv6: () => _cidrv6,
+  _coercedBigint: () => _coercedBigint,
+  _coercedBoolean: () => _coercedBoolean,
+  _coercedDate: () => _coercedDate,
+  _coercedNumber: () => _coercedNumber,
+  _coercedString: () => _coercedString,
+  _cuid: () => _cuid,
+  _cuid2: () => _cuid2,
+  _custom: () => _custom,
+  _date: () => _date,
+  _decode: () => _decode,
+  _decodeAsync: () => _decodeAsync,
+  _default: () => _default,
+  _discriminatedUnion: () => _discriminatedUnion,
+  _e164: () => _e164,
+  _email: () => _email,
+  _emoji: () => _emoji2,
+  _encode: () => _encode,
+  _encodeAsync: () => _encodeAsync,
+  _endsWith: () => _endsWith,
+  _enum: () => _enum,
+  _file: () => _file,
+  _float32: () => _float32,
+  _float64: () => _float64,
+  _gt: () => _gt,
+  _gte: () => _gte,
+  _guid: () => _guid,
+  _includes: () => _includes,
+  _int: () => _int,
+  _int32: () => _int32,
+  _int64: () => _int64,
+  _intersection: () => _intersection,
+  _ipv4: () => _ipv4,
+  _ipv6: () => _ipv6,
+  _isoDate: () => _isoDate,
+  _isoDateTime: () => _isoDateTime,
+  _isoDuration: () => _isoDuration,
+  _isoTime: () => _isoTime,
+  _jwt: () => _jwt,
+  _ksuid: () => _ksuid,
+  _lazy: () => _lazy,
+  _length: () => _length,
+  _literal: () => _literal,
+  _lowercase: () => _lowercase,
+  _lt: () => _lt,
+  _lte: () => _lte,
+  _mac: () => _mac,
+  _map: () => _map,
+  _max: () => _lte,
+  _maxLength: () => _maxLength,
+  _maxSize: () => _maxSize,
+  _mime: () => _mime,
+  _min: () => _gte,
+  _minLength: () => _minLength,
+  _minSize: () => _minSize,
+  _multipleOf: () => _multipleOf,
+  _nan: () => _nan,
+  _nanoid: () => _nanoid,
+  _nativeEnum: () => _nativeEnum,
+  _negative: () => _negative,
+  _never: () => _never,
+  _nonnegative: () => _nonnegative,
+  _nonoptional: () => _nonoptional,
+  _nonpositive: () => _nonpositive,
+  _normalize: () => _normalize,
+  _null: () => _null2,
+  _nullable: () => _nullable,
+  _number: () => _number,
+  _optional: () => _optional,
+  _overwrite: () => _overwrite,
+  _parse: () => _parse,
+  _parseAsync: () => _parseAsync,
+  _pipe: () => _pipe,
+  _positive: () => _positive,
+  _promise: () => _promise,
+  _property: () => _property,
+  _readonly: () => _readonly,
+  _record: () => _record,
+  _refine: () => _refine,
+  _regex: () => _regex,
+  _safeDecode: () => _safeDecode,
+  _safeDecodeAsync: () => _safeDecodeAsync,
+  _safeEncode: () => _safeEncode,
+  _safeEncodeAsync: () => _safeEncodeAsync,
+  _safeParse: () => _safeParse,
+  _safeParseAsync: () => _safeParseAsync,
+  _set: () => _set,
+  _size: () => _size,
+  _slugify: () => _slugify,
+  _startsWith: () => _startsWith,
+  _string: () => _string,
+  _stringFormat: () => _stringFormat,
+  _stringbool: () => _stringbool,
+  _success: () => _success,
+  _superRefine: () => _superRefine,
+  _symbol: () => _symbol,
+  _templateLiteral: () => _templateLiteral,
+  _toLowerCase: () => _toLowerCase,
+  _toUpperCase: () => _toUpperCase,
+  _transform: () => _transform,
+  _trim: () => _trim,
+  _tuple: () => _tuple,
+  _uint32: () => _uint32,
+  _uint64: () => _uint64,
+  _ulid: () => _ulid,
+  _undefined: () => _undefined2,
+  _union: () => _union,
+  _unknown: () => _unknown,
+  _uppercase: () => _uppercase,
+  _url: () => _url,
+  _uuid: () => _uuid,
+  _uuidv4: () => _uuidv4,
+  _uuidv6: () => _uuidv6,
+  _uuidv7: () => _uuidv7,
+  _void: () => _void,
+  _xid: () => _xid,
+  _xor: () => _xor,
+  clone: () => clone,
+  config: () => config,
+  createStandardJSONSchemaMethod: () => createStandardJSONSchemaMethod,
+  createToJSONSchemaMethod: () => createToJSONSchemaMethod,
+  decode: () => decode,
+  decodeAsync: () => decodeAsync,
+  describe: () => describe,
+  encode: () => encode,
+  encodeAsync: () => encodeAsync,
+  extractDefs: () => extractDefs,
+  finalize: () => finalize,
+  flattenError: () => flattenError,
+  formatError: () => formatError,
+  globalConfig: () => globalConfig,
+  globalRegistry: () => globalRegistry,
+  initializeContext: () => initializeContext,
+  isValidBase64: () => isValidBase64,
+  isValidBase64URL: () => isValidBase64URL,
+  isValidJWT: () => isValidJWT2,
+  locales: () => locales_exports,
+  meta: () => meta,
+  parse: () => parse,
+  parseAsync: () => parseAsync,
+  prettifyError: () => prettifyError,
+  process: () => process2,
+  regexes: () => regexes_exports,
+  registry: () => registry,
+  safeDecode: () => safeDecode,
+  safeDecodeAsync: () => safeDecodeAsync,
+  safeEncode: () => safeEncode,
+  safeEncodeAsync: () => safeEncodeAsync,
+  safeParse: () => safeParse,
+  safeParseAsync: () => safeParseAsync,
+  toDotPath: () => toDotPath,
+  toJSONSchema: () => toJSONSchema,
+  treeifyError: () => treeifyError,
+  util: () => util_exports,
+  version: () => version
+});
 
 // node_modules/zod/v4/core/core.js
 var NEVER = Object.freeze({
@@ -20228,10 +20506,10 @@ var initializer = (inst, def) => {
 };
 var $ZodError = $constructor("$ZodError", initializer);
 var $ZodRealError = $constructor("$ZodError", initializer, { Parent: Error });
-function flattenError(error2, mapper = (issue2) => issue2.message) {
+function flattenError(error48, mapper = (issue2) => issue2.message) {
   const fieldErrors = {};
   const formErrors = [];
-  for (const sub of error2.issues) {
+  for (const sub of error48.issues) {
     if (sub.path.length > 0) {
       fieldErrors[sub.path[0]] = fieldErrors[sub.path[0]] || [];
       fieldErrors[sub.path[0]].push(mapper(sub));
@@ -20241,10 +20519,10 @@ function flattenError(error2, mapper = (issue2) => issue2.message) {
   }
   return { formErrors, fieldErrors };
 }
-function formatError(error2, mapper = (issue2) => issue2.message) {
+function formatError(error48, mapper = (issue2) => issue2.message) {
   const fieldErrors = { _errors: [] };
-  const processError = (error3) => {
-    for (const issue2 of error3.issues) {
+  const processError = (error49) => {
+    for (const issue2 of error49.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
         issue2.errors.map((issues) => processError({ issues }));
       } else if (issue2.code === "invalid_key") {
@@ -20271,8 +20549,78 @@ function formatError(error2, mapper = (issue2) => issue2.message) {
       }
     }
   };
-  processError(error2);
+  processError(error48);
   return fieldErrors;
+}
+function treeifyError(error48, mapper = (issue2) => issue2.message) {
+  const result = { errors: [] };
+  const processError = (error49, path = []) => {
+    var _a2, _b;
+    for (const issue2 of error49.issues) {
+      if (issue2.code === "invalid_union" && issue2.errors.length) {
+        issue2.errors.map((issues) => processError({ issues }, issue2.path));
+      } else if (issue2.code === "invalid_key") {
+        processError({ issues: issue2.issues }, issue2.path);
+      } else if (issue2.code === "invalid_element") {
+        processError({ issues: issue2.issues }, issue2.path);
+      } else {
+        const fullpath = [...path, ...issue2.path];
+        if (fullpath.length === 0) {
+          result.errors.push(mapper(issue2));
+          continue;
+        }
+        let curr = result;
+        let i = 0;
+        while (i < fullpath.length) {
+          const el = fullpath[i];
+          const terminal = i === fullpath.length - 1;
+          if (typeof el === "string") {
+            curr.properties ?? (curr.properties = {});
+            (_a2 = curr.properties)[el] ?? (_a2[el] = { errors: [] });
+            curr = curr.properties[el];
+          } else {
+            curr.items ?? (curr.items = []);
+            (_b = curr.items)[el] ?? (_b[el] = { errors: [] });
+            curr = curr.items[el];
+          }
+          if (terminal) {
+            curr.errors.push(mapper(issue2));
+          }
+          i++;
+        }
+      }
+    }
+  };
+  processError(error48);
+  return result;
+}
+function toDotPath(_path) {
+  const segs = [];
+  const path = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
+  for (const seg of path) {
+    if (typeof seg === "number")
+      segs.push(`[${seg}]`);
+    else if (typeof seg === "symbol")
+      segs.push(`[${JSON.stringify(String(seg))}]`);
+    else if (/[^\w$]/.test(seg))
+      segs.push(`[${JSON.stringify(seg)}]`);
+    else {
+      if (segs.length)
+        segs.push(".");
+      segs.push(seg);
+    }
+  }
+  return segs.join("");
+}
+function prettifyError(error48) {
+  const lines = [];
+  const issues = [...error48.issues].sort((a, b) => (a.path ?? []).length - (b.path ?? []).length);
+  for (const issue2 of issues) {
+    lines.push(`\u2716 ${issue2.message}`);
+    if (issue2.path?.length)
+      lines.push(`  \u2192 at ${toDotPath(issue2.path)}`);
+  }
+  return lines.join("\n");
 }
 
 // node_modules/zod/v4/core/parse.js
@@ -20330,30 +20678,38 @@ var _encode = (_Err) => (schema, value, _ctx) => {
   const ctx = _ctx ? Object.assign(_ctx, { direction: "backward" }) : { direction: "backward" };
   return _parse(_Err)(schema, value, ctx);
 };
+var encode = /* @__PURE__ */ _encode($ZodRealError);
 var _decode = (_Err) => (schema, value, _ctx) => {
   return _parse(_Err)(schema, value, _ctx);
 };
+var decode = /* @__PURE__ */ _decode($ZodRealError);
 var _encodeAsync = (_Err) => async (schema, value, _ctx) => {
   const ctx = _ctx ? Object.assign(_ctx, { direction: "backward" }) : { direction: "backward" };
   return _parseAsync(_Err)(schema, value, ctx);
 };
+var encodeAsync = /* @__PURE__ */ _encodeAsync($ZodRealError);
 var _decodeAsync = (_Err) => async (schema, value, _ctx) => {
   return _parseAsync(_Err)(schema, value, _ctx);
 };
+var decodeAsync = /* @__PURE__ */ _decodeAsync($ZodRealError);
 var _safeEncode = (_Err) => (schema, value, _ctx) => {
   const ctx = _ctx ? Object.assign(_ctx, { direction: "backward" }) : { direction: "backward" };
   return _safeParse(_Err)(schema, value, ctx);
 };
+var safeEncode = /* @__PURE__ */ _safeEncode($ZodRealError);
 var _safeDecode = (_Err) => (schema, value, _ctx) => {
   return _safeParse(_Err)(schema, value, _ctx);
 };
+var safeDecode = /* @__PURE__ */ _safeDecode($ZodRealError);
 var _safeEncodeAsync = (_Err) => async (schema, value, _ctx) => {
   const ctx = _ctx ? Object.assign(_ctx, { direction: "backward" }) : { direction: "backward" };
   return _safeParseAsync(_Err)(schema, value, ctx);
 };
+var safeEncodeAsync = /* @__PURE__ */ _safeEncodeAsync($ZodRealError);
 var _safeDecodeAsync = (_Err) => async (schema, value, _ctx) => {
   return _safeParseAsync(_Err)(schema, value, _ctx);
 };
+var safeDecodeAsync = /* @__PURE__ */ _safeDecodeAsync($ZodRealError);
 
 // node_modules/zod/v4/core/regexes.js
 var regexes_exports = {};
@@ -23074,8 +23430,999 @@ function handleRefineResult(result, payload, input, inst) {
   }
 }
 
-// node_modules/zod/v4/locales/en.js
+// node_modules/zod/v4/locales/index.js
+var locales_exports = {};
+__export(locales_exports, {
+  ar: () => ar_default,
+  az: () => az_default,
+  be: () => be_default,
+  bg: () => bg_default,
+  ca: () => ca_default,
+  cs: () => cs_default,
+  da: () => da_default,
+  de: () => de_default,
+  en: () => en_default2,
+  eo: () => eo_default,
+  es: () => es_default,
+  fa: () => fa_default,
+  fi: () => fi_default,
+  fr: () => fr_default,
+  frCA: () => fr_CA_default,
+  he: () => he_default,
+  hu: () => hu_default,
+  hy: () => hy_default,
+  id: () => id_default,
+  is: () => is_default,
+  it: () => it_default,
+  ja: () => ja_default,
+  ka: () => ka_default,
+  kh: () => kh_default,
+  km: () => km_default,
+  ko: () => ko_default,
+  lt: () => lt_default,
+  mk: () => mk_default,
+  ms: () => ms_default,
+  nl: () => nl_default,
+  no: () => no_default,
+  ota: () => ota_default,
+  pl: () => pl_default,
+  ps: () => ps_default,
+  pt: () => pt_default,
+  ru: () => ru_default,
+  sl: () => sl_default,
+  sv: () => sv_default,
+  ta: () => ta_default,
+  th: () => th_default,
+  tr: () => tr_default,
+  ua: () => ua_default,
+  uk: () => uk_default,
+  ur: () => ur_default,
+  uz: () => uz_default,
+  vi: () => vi_default,
+  yo: () => yo_default,
+  zhCN: () => zh_CN_default,
+  zhTW: () => zh_TW_default
+});
+
+// node_modules/zod/v4/locales/ar.js
 var error = () => {
+  const Sizable = {
+    string: { unit: "\u062D\u0631\u0641", verb: "\u0623\u0646 \u064A\u062D\u0648\u064A" },
+    file: { unit: "\u0628\u0627\u064A\u062A", verb: "\u0623\u0646 \u064A\u062D\u0648\u064A" },
+    array: { unit: "\u0639\u0646\u0635\u0631", verb: "\u0623\u0646 \u064A\u062D\u0648\u064A" },
+    set: { unit: "\u0639\u0646\u0635\u0631", verb: "\u0623\u0646 \u064A\u062D\u0648\u064A" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u0645\u062F\u062E\u0644",
+    email: "\u0628\u0631\u064A\u062F \u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A",
+    url: "\u0631\u0627\u0628\u0637",
+    emoji: "\u0625\u064A\u0645\u0648\u062C\u064A",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "\u062A\u0627\u0631\u064A\u062E \u0648\u0648\u0642\u062A \u0628\u0645\u0639\u064A\u0627\u0631 ISO",
+    date: "\u062A\u0627\u0631\u064A\u062E \u0628\u0645\u0639\u064A\u0627\u0631 ISO",
+    time: "\u0648\u0642\u062A \u0628\u0645\u0639\u064A\u0627\u0631 ISO",
+    duration: "\u0645\u062F\u0629 \u0628\u0645\u0639\u064A\u0627\u0631 ISO",
+    ipv4: "\u0639\u0646\u0648\u0627\u0646 IPv4",
+    ipv6: "\u0639\u0646\u0648\u0627\u0646 IPv6",
+    cidrv4: "\u0645\u062F\u0649 \u0639\u0646\u0627\u0648\u064A\u0646 \u0628\u0635\u064A\u063A\u0629 IPv4",
+    cidrv6: "\u0645\u062F\u0649 \u0639\u0646\u0627\u0648\u064A\u0646 \u0628\u0635\u064A\u063A\u0629 IPv6",
+    base64: "\u0646\u064E\u0635 \u0628\u062A\u0631\u0645\u064A\u0632 base64-encoded",
+    base64url: "\u0646\u064E\u0635 \u0628\u062A\u0631\u0645\u064A\u0632 base64url-encoded",
+    json_string: "\u0646\u064E\u0635 \u0639\u0644\u0649 \u0647\u064A\u0626\u0629 JSON",
+    e164: "\u0631\u0642\u0645 \u0647\u0627\u062A\u0641 \u0628\u0645\u0639\u064A\u0627\u0631 E.164",
+    jwt: "JWT",
+    template_literal: "\u0645\u062F\u062E\u0644"
+  };
+  const TypeDictionary = {
+    nan: "NaN"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u0645\u062F\u062E\u0644\u0627\u062A \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644\u0629: \u064A\u0641\u062A\u0631\u0636 \u0625\u062F\u062E\u0627\u0644 instanceof ${issue2.expected}\u060C \u0648\u0644\u0643\u0646 \u062A\u0645 \u0625\u062F\u062E\u0627\u0644 ${received}`;
+        }
+        return `\u0645\u062F\u062E\u0644\u0627\u062A \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644\u0629: \u064A\u0641\u062A\u0631\u0636 \u0625\u062F\u062E\u0627\u0644 ${expected}\u060C \u0648\u0644\u0643\u0646 \u062A\u0645 \u0625\u062F\u062E\u0627\u0644 ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `\u0645\u062F\u062E\u0644\u0627\u062A \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644\u0629: \u064A\u0641\u062A\u0631\u0636 \u0625\u062F\u062E\u0627\u0644 ${stringifyPrimitive(issue2.values[0])}`;
+        return `\u0627\u062E\u062A\u064A\u0627\u0631 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644: \u064A\u062A\u0648\u0642\u0639 \u0627\u0646\u062A\u0642\u0627\u0621 \u0623\u062D\u062F \u0647\u0630\u0647 \u0627\u0644\u062E\u064A\u0627\u0631\u0627\u062A: ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return ` \u0623\u0643\u0628\u0631 \u0645\u0646 \u0627\u0644\u0644\u0627\u0632\u0645: \u064A\u0641\u062A\u0631\u0636 \u0623\u0646 \u062A\u0643\u0648\u0646 ${issue2.origin ?? "\u0627\u0644\u0642\u064A\u0645\u0629"} ${adj} ${issue2.maximum.toString()} ${sizing.unit ?? "\u0639\u0646\u0635\u0631"}`;
+        return `\u0623\u0643\u0628\u0631 \u0645\u0646 \u0627\u0644\u0644\u0627\u0632\u0645: \u064A\u0641\u062A\u0631\u0636 \u0623\u0646 \u062A\u0643\u0648\u0646 ${issue2.origin ?? "\u0627\u0644\u0642\u064A\u0645\u0629"} ${adj} ${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `\u0623\u0635\u063A\u0631 \u0645\u0646 \u0627\u0644\u0644\u0627\u0632\u0645: \u064A\u0641\u062A\u0631\u0636 \u0644\u0640 ${issue2.origin} \u0623\u0646 \u064A\u0643\u0648\u0646 ${adj} ${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `\u0623\u0635\u063A\u0631 \u0645\u0646 \u0627\u0644\u0644\u0627\u0632\u0645: \u064A\u0641\u062A\u0631\u0636 \u0644\u0640 ${issue2.origin} \u0623\u0646 \u064A\u0643\u0648\u0646 ${adj} ${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `\u0646\u064E\u0635 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644: \u064A\u062C\u0628 \u0623\u0646 \u064A\u0628\u062F\u0623 \u0628\u0640 "${issue2.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `\u0646\u064E\u0635 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644: \u064A\u062C\u0628 \u0623\u0646 \u064A\u0646\u062A\u0647\u064A \u0628\u0640 "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `\u0646\u064E\u0635 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644: \u064A\u062C\u0628 \u0623\u0646 \u064A\u062A\u0636\u0645\u0651\u064E\u0646 "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `\u0646\u064E\u0635 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644: \u064A\u062C\u0628 \u0623\u0646 \u064A\u0637\u0627\u0628\u0642 \u0627\u0644\u0646\u0645\u0637 ${_issue.pattern}`;
+        return `${FormatDictionary[_issue.format] ?? issue2.format} \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644`;
+      }
+      case "not_multiple_of":
+        return `\u0631\u0642\u0645 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644: \u064A\u062C\u0628 \u0623\u0646 \u064A\u0643\u0648\u0646 \u0645\u0646 \u0645\u0636\u0627\u0639\u0641\u0627\u062A ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `\u0645\u0639\u0631\u0641${issue2.keys.length > 1 ? "\u0627\u062A" : ""} \u063A\u0631\u064A\u0628${issue2.keys.length > 1 ? "\u0629" : ""}: ${joinValues(issue2.keys, "\u060C ")}`;
+      case "invalid_key":
+        return `\u0645\u0639\u0631\u0641 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644 \u0641\u064A ${issue2.origin}`;
+      case "invalid_union":
+        return "\u0645\u062F\u062E\u0644 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644";
+      case "invalid_element":
+        return `\u0645\u062F\u062E\u0644 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644 \u0641\u064A ${issue2.origin}`;
+      default:
+        return "\u0645\u062F\u062E\u0644 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644";
+    }
+  };
+};
+function ar_default() {
+  return {
+    localeError: error()
+  };
+}
+
+// node_modules/zod/v4/locales/az.js
+var error2 = () => {
+  const Sizable = {
+    string: { unit: "simvol", verb: "olmal\u0131d\u0131r" },
+    file: { unit: "bayt", verb: "olmal\u0131d\u0131r" },
+    array: { unit: "element", verb: "olmal\u0131d\u0131r" },
+    set: { unit: "element", verb: "olmal\u0131d\u0131r" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "input",
+    email: "email address",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO datetime",
+    date: "ISO date",
+    time: "ISO time",
+    duration: "ISO duration",
+    ipv4: "IPv4 address",
+    ipv6: "IPv6 address",
+    cidrv4: "IPv4 range",
+    cidrv6: "IPv6 range",
+    base64: "base64-encoded string",
+    base64url: "base64url-encoded string",
+    json_string: "JSON string",
+    e164: "E.164 number",
+    jwt: "JWT",
+    template_literal: "input"
+  };
+  const TypeDictionary = {
+    nan: "NaN"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Yanl\u0131\u015F d\u0259y\u0259r: g\xF6zl\u0259nil\u0259n instanceof ${issue2.expected}, daxil olan ${received}`;
+        }
+        return `Yanl\u0131\u015F d\u0259y\u0259r: g\xF6zl\u0259nil\u0259n ${expected}, daxil olan ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Yanl\u0131\u015F d\u0259y\u0259r: g\xF6zl\u0259nil\u0259n ${stringifyPrimitive(issue2.values[0])}`;
+        return `Yanl\u0131\u015F se\xE7im: a\u015Fa\u011F\u0131dak\u0131lardan biri olmal\u0131d\u0131r: ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `\xC7ox b\xF6y\xFCk: g\xF6zl\u0259nil\u0259n ${issue2.origin ?? "d\u0259y\u0259r"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "element"}`;
+        return `\xC7ox b\xF6y\xFCk: g\xF6zl\u0259nil\u0259n ${issue2.origin ?? "d\u0259y\u0259r"} ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `\xC7ox ki\xE7ik: g\xF6zl\u0259nil\u0259n ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        return `\xC7ox ki\xE7ik: g\xF6zl\u0259nil\u0259n ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `Yanl\u0131\u015F m\u0259tn: "${_issue.prefix}" il\u0259 ba\u015Flamal\u0131d\u0131r`;
+        if (_issue.format === "ends_with")
+          return `Yanl\u0131\u015F m\u0259tn: "${_issue.suffix}" il\u0259 bitm\u0259lidir`;
+        if (_issue.format === "includes")
+          return `Yanl\u0131\u015F m\u0259tn: "${_issue.includes}" daxil olmal\u0131d\u0131r`;
+        if (_issue.format === "regex")
+          return `Yanl\u0131\u015F m\u0259tn: ${_issue.pattern} \u015Fablonuna uy\u011Fun olmal\u0131d\u0131r`;
+        return `Yanl\u0131\u015F ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `Yanl\u0131\u015F \u0259d\u0259d: ${issue2.divisor} il\u0259 b\xF6l\xFCn\u0259 bil\u0259n olmal\u0131d\u0131r`;
+      case "unrecognized_keys":
+        return `Tan\u0131nmayan a\xE7ar${issue2.keys.length > 1 ? "lar" : ""}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `${issue2.origin} daxilind\u0259 yanl\u0131\u015F a\xE7ar`;
+      case "invalid_union":
+        return "Yanl\u0131\u015F d\u0259y\u0259r";
+      case "invalid_element":
+        return `${issue2.origin} daxilind\u0259 yanl\u0131\u015F d\u0259y\u0259r`;
+      default:
+        return `Yanl\u0131\u015F d\u0259y\u0259r`;
+    }
+  };
+};
+function az_default() {
+  return {
+    localeError: error2()
+  };
+}
+
+// node_modules/zod/v4/locales/be.js
+function getBelarusianPlural(count, one, few, many) {
+  const absCount = Math.abs(count);
+  const lastDigit = absCount % 10;
+  const lastTwoDigits = absCount % 100;
+  if (lastTwoDigits >= 11 && lastTwoDigits <= 19) {
+    return many;
+  }
+  if (lastDigit === 1) {
+    return one;
+  }
+  if (lastDigit >= 2 && lastDigit <= 4) {
+    return few;
+  }
+  return many;
+}
+var error3 = () => {
+  const Sizable = {
+    string: {
+      unit: {
+        one: "\u0441\u0456\u043C\u0432\u0430\u043B",
+        few: "\u0441\u0456\u043C\u0432\u0430\u043B\u044B",
+        many: "\u0441\u0456\u043C\u0432\u0430\u043B\u0430\u045E"
+      },
+      verb: "\u043C\u0435\u0446\u044C"
+    },
+    array: {
+      unit: {
+        one: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442",
+        few: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u044B",
+        many: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u0430\u045E"
+      },
+      verb: "\u043C\u0435\u0446\u044C"
+    },
+    set: {
+      unit: {
+        one: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442",
+        few: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u044B",
+        many: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u0430\u045E"
+      },
+      verb: "\u043C\u0435\u0446\u044C"
+    },
+    file: {
+      unit: {
+        one: "\u0431\u0430\u0439\u0442",
+        few: "\u0431\u0430\u0439\u0442\u044B",
+        many: "\u0431\u0430\u0439\u0442\u0430\u045E"
+      },
+      verb: "\u043C\u0435\u0446\u044C"
+    }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u0443\u0432\u043E\u0434",
+    email: "email \u0430\u0434\u0440\u0430\u0441",
+    url: "URL",
+    emoji: "\u044D\u043C\u043E\u0434\u0437\u0456",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO \u0434\u0430\u0442\u0430 \u0456 \u0447\u0430\u0441",
+    date: "ISO \u0434\u0430\u0442\u0430",
+    time: "ISO \u0447\u0430\u0441",
+    duration: "ISO \u043F\u0440\u0430\u0446\u044F\u0433\u043B\u0430\u0441\u0446\u044C",
+    ipv4: "IPv4 \u0430\u0434\u0440\u0430\u0441",
+    ipv6: "IPv6 \u0430\u0434\u0440\u0430\u0441",
+    cidrv4: "IPv4 \u0434\u044B\u044F\u043F\u0430\u0437\u043E\u043D",
+    cidrv6: "IPv6 \u0434\u044B\u044F\u043F\u0430\u0437\u043E\u043D",
+    base64: "\u0440\u0430\u0434\u043E\u043A \u0443 \u0444\u0430\u0440\u043C\u0430\u0446\u0435 base64",
+    base64url: "\u0440\u0430\u0434\u043E\u043A \u0443 \u0444\u0430\u0440\u043C\u0430\u0446\u0435 base64url",
+    json_string: "JSON \u0440\u0430\u0434\u043E\u043A",
+    e164: "\u043D\u0443\u043C\u0430\u0440 E.164",
+    jwt: "JWT",
+    template_literal: "\u0443\u0432\u043E\u0434"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "\u043B\u0456\u043A",
+    array: "\u043C\u0430\u0441\u0456\u045E"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u045E\u0432\u043E\u0434: \u0447\u0430\u043A\u0430\u045E\u0441\u044F instanceof ${issue2.expected}, \u0430\u0442\u0440\u044B\u043C\u0430\u043D\u0430 ${received}`;
+        }
+        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u045E\u0432\u043E\u0434: \u0447\u0430\u043A\u0430\u045E\u0441\u044F ${expected}, \u0430\u0442\u0440\u044B\u043C\u0430\u043D\u0430 ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u045E\u0432\u043E\u0434: \u0447\u0430\u043A\u0430\u043B\u0430\u0441\u044F ${stringifyPrimitive(issue2.values[0])}`;
+        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u0432\u0430\u0440\u044B\u044F\u043D\u0442: \u0447\u0430\u043A\u0430\u045E\u0441\u044F \u0430\u0434\u0437\u0456\u043D \u0437 ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          const maxValue = Number(issue2.maximum);
+          const unit = getBelarusianPlural(maxValue, sizing.unit.one, sizing.unit.few, sizing.unit.many);
+          return `\u0417\u0430\u043D\u0430\u0434\u0442\u0430 \u0432\u044F\u043B\u0456\u043A\u0456: \u0447\u0430\u043A\u0430\u043B\u0430\u0441\u044F, \u0448\u0442\u043E ${issue2.origin ?? "\u0437\u043D\u0430\u0447\u044D\u043D\u043D\u0435"} \u043F\u0430\u0432\u0456\u043D\u043D\u0430 ${sizing.verb} ${adj}${issue2.maximum.toString()} ${unit}`;
+        }
+        return `\u0417\u0430\u043D\u0430\u0434\u0442\u0430 \u0432\u044F\u043B\u0456\u043A\u0456: \u0447\u0430\u043A\u0430\u043B\u0430\u0441\u044F, \u0448\u0442\u043E ${issue2.origin ?? "\u0437\u043D\u0430\u0447\u044D\u043D\u043D\u0435"} \u043F\u0430\u0432\u0456\u043D\u043D\u0430 \u0431\u044B\u0446\u044C ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          const minValue = Number(issue2.minimum);
+          const unit = getBelarusianPlural(minValue, sizing.unit.one, sizing.unit.few, sizing.unit.many);
+          return `\u0417\u0430\u043D\u0430\u0434\u0442\u0430 \u043C\u0430\u043B\u044B: \u0447\u0430\u043A\u0430\u043B\u0430\u0441\u044F, \u0448\u0442\u043E ${issue2.origin} \u043F\u0430\u0432\u0456\u043D\u043D\u0430 ${sizing.verb} ${adj}${issue2.minimum.toString()} ${unit}`;
+        }
+        return `\u0417\u0430\u043D\u0430\u0434\u0442\u0430 \u043C\u0430\u043B\u044B: \u0447\u0430\u043A\u0430\u043B\u0430\u0441\u044F, \u0448\u0442\u043E ${issue2.origin} \u043F\u0430\u0432\u0456\u043D\u043D\u0430 \u0431\u044B\u0446\u044C ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u0440\u0430\u0434\u043E\u043A: \u043F\u0430\u0432\u0456\u043D\u0435\u043D \u043F\u0430\u0447\u044B\u043D\u0430\u0446\u0446\u0430 \u0437 "${_issue.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u0440\u0430\u0434\u043E\u043A: \u043F\u0430\u0432\u0456\u043D\u0435\u043D \u0437\u0430\u043A\u0430\u043D\u0447\u0432\u0430\u0446\u0446\u0430 \u043D\u0430 "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u0440\u0430\u0434\u043E\u043A: \u043F\u0430\u0432\u0456\u043D\u0435\u043D \u0437\u043C\u044F\u0448\u0447\u0430\u0446\u044C "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u0440\u0430\u0434\u043E\u043A: \u043F\u0430\u0432\u0456\u043D\u0435\u043D \u0430\u0434\u043F\u0430\u0432\u044F\u0434\u0430\u0446\u044C \u0448\u0430\u0431\u043B\u043E\u043D\u0443 ${_issue.pattern}`;
+        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u043B\u0456\u043A: \u043F\u0430\u0432\u0456\u043D\u0435\u043D \u0431\u044B\u0446\u044C \u043A\u0440\u0430\u0442\u043D\u044B\u043C ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `\u041D\u0435\u0440\u0430\u0441\u043F\u0430\u0437\u043D\u0430\u043D\u044B ${issue2.keys.length > 1 ? "\u043A\u043B\u044E\u0447\u044B" : "\u043A\u043B\u044E\u0447"}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u043A\u043B\u044E\u0447 \u0443 ${issue2.origin}`;
+      case "invalid_union":
+        return "\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u045E\u0432\u043E\u0434";
+      case "invalid_element":
+        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u0430\u0435 \u0437\u043D\u0430\u0447\u044D\u043D\u043D\u0435 \u045E ${issue2.origin}`;
+      default:
+        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u045E\u0432\u043E\u0434`;
+    }
+  };
+};
+function be_default() {
+  return {
+    localeError: error3()
+  };
+}
+
+// node_modules/zod/v4/locales/bg.js
+var error4 = () => {
+  const Sizable = {
+    string: { unit: "\u0441\u0438\u043C\u0432\u043E\u043B\u0430", verb: "\u0434\u0430 \u0441\u044A\u0434\u044A\u0440\u0436\u0430" },
+    file: { unit: "\u0431\u0430\u0439\u0442\u0430", verb: "\u0434\u0430 \u0441\u044A\u0434\u044A\u0440\u0436\u0430" },
+    array: { unit: "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0430", verb: "\u0434\u0430 \u0441\u044A\u0434\u044A\u0440\u0436\u0430" },
+    set: { unit: "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0430", verb: "\u0434\u0430 \u0441\u044A\u0434\u044A\u0440\u0436\u0430" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u0432\u0445\u043E\u0434",
+    email: "\u0438\u043C\u0435\u0439\u043B \u0430\u0434\u0440\u0435\u0441",
+    url: "URL",
+    emoji: "\u0435\u043C\u043E\u0434\u0436\u0438",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO \u0432\u0440\u0435\u043C\u0435",
+    date: "ISO \u0434\u0430\u0442\u0430",
+    time: "ISO \u0432\u0440\u0435\u043C\u0435",
+    duration: "ISO \u043F\u0440\u043E\u0434\u044A\u043B\u0436\u0438\u0442\u0435\u043B\u043D\u043E\u0441\u0442",
+    ipv4: "IPv4 \u0430\u0434\u0440\u0435\u0441",
+    ipv6: "IPv6 \u0430\u0434\u0440\u0435\u0441",
+    cidrv4: "IPv4 \u0434\u0438\u0430\u043F\u0430\u0437\u043E\u043D",
+    cidrv6: "IPv6 \u0434\u0438\u0430\u043F\u0430\u0437\u043E\u043D",
+    base64: "base64-\u043A\u043E\u0434\u0438\u0440\u0430\u043D \u043D\u0438\u0437",
+    base64url: "base64url-\u043A\u043E\u0434\u0438\u0440\u0430\u043D \u043D\u0438\u0437",
+    json_string: "JSON \u043D\u0438\u0437",
+    e164: "E.164 \u043D\u043E\u043C\u0435\u0440",
+    jwt: "JWT",
+    template_literal: "\u0432\u0445\u043E\u0434"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "\u0447\u0438\u0441\u043B\u043E",
+    array: "\u043C\u0430\u0441\u0438\u0432"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u0432\u0445\u043E\u0434: \u043E\u0447\u0430\u043A\u0432\u0430\u043D instanceof ${issue2.expected}, \u043F\u043E\u043B\u0443\u0447\u0435\u043D ${received}`;
+        }
+        return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u0432\u0445\u043E\u0434: \u043E\u0447\u0430\u043A\u0432\u0430\u043D ${expected}, \u043F\u043E\u043B\u0443\u0447\u0435\u043D ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u0432\u0445\u043E\u0434: \u043E\u0447\u0430\u043A\u0432\u0430\u043D ${stringifyPrimitive(issue2.values[0])}`;
+        return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u043D\u0430 \u043E\u043F\u0446\u0438\u044F: \u043E\u0447\u0430\u043A\u0432\u0430\u043D\u043E \u0435\u0434\u043D\u043E \u043E\u0442 ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `\u0422\u0432\u044A\u0440\u0434\u0435 \u0433\u043E\u043B\u044F\u043C\u043E: \u043E\u0447\u0430\u043A\u0432\u0430 \u0441\u0435 ${issue2.origin ?? "\u0441\u0442\u043E\u0439\u043D\u043E\u0441\u0442"} \u0434\u0430 \u0441\u044A\u0434\u044A\u0440\u0436\u0430 ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0430"}`;
+        return `\u0422\u0432\u044A\u0440\u0434\u0435 \u0433\u043E\u043B\u044F\u043C\u043E: \u043E\u0447\u0430\u043A\u0432\u0430 \u0441\u0435 ${issue2.origin ?? "\u0441\u0442\u043E\u0439\u043D\u043E\u0441\u0442"} \u0434\u0430 \u0431\u044A\u0434\u0435 ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `\u0422\u0432\u044A\u0440\u0434\u0435 \u043C\u0430\u043B\u043A\u043E: \u043E\u0447\u0430\u043A\u0432\u0430 \u0441\u0435 ${issue2.origin} \u0434\u0430 \u0441\u044A\u0434\u044A\u0440\u0436\u0430 ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `\u0422\u0432\u044A\u0440\u0434\u0435 \u043C\u0430\u043B\u043A\u043E: \u043E\u0447\u0430\u043A\u0432\u0430 \u0441\u0435 ${issue2.origin} \u0434\u0430 \u0431\u044A\u0434\u0435 ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with") {
+          return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u043D\u0438\u0437: \u0442\u0440\u044F\u0431\u0432\u0430 \u0434\u0430 \u0437\u0430\u043F\u043E\u0447\u0432\u0430 \u0441 "${_issue.prefix}"`;
+        }
+        if (_issue.format === "ends_with")
+          return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u043D\u0438\u0437: \u0442\u0440\u044F\u0431\u0432\u0430 \u0434\u0430 \u0437\u0430\u0432\u044A\u0440\u0448\u0432\u0430 \u0441 "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u043D\u0438\u0437: \u0442\u0440\u044F\u0431\u0432\u0430 \u0434\u0430 \u0432\u043A\u043B\u044E\u0447\u0432\u0430 "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u043D\u0438\u0437: \u0442\u0440\u044F\u0431\u0432\u0430 \u0434\u0430 \u0441\u044A\u0432\u043F\u0430\u0434\u0430 \u0441 ${_issue.pattern}`;
+        let invalid_adj = "\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D";
+        if (_issue.format === "emoji")
+          invalid_adj = "\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u043D\u043E";
+        if (_issue.format === "datetime")
+          invalid_adj = "\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u043D\u043E";
+        if (_issue.format === "date")
+          invalid_adj = "\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u043D\u0430";
+        if (_issue.format === "time")
+          invalid_adj = "\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u043D\u043E";
+        if (_issue.format === "duration")
+          invalid_adj = "\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u043D\u0430";
+        return `${invalid_adj} ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u043D\u043E \u0447\u0438\u0441\u043B\u043E: \u0442\u0440\u044F\u0431\u0432\u0430 \u0434\u0430 \u0431\u044A\u0434\u0435 \u043A\u0440\u0430\u0442\u043D\u043E \u043D\u0430 ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `\u041D\u0435\u0440\u0430\u0437\u043F\u043E\u0437\u043D\u0430\u0442${issue2.keys.length > 1 ? "\u0438" : ""} \u043A\u043B\u044E\u0447${issue2.keys.length > 1 ? "\u043E\u0432\u0435" : ""}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u043A\u043B\u044E\u0447 \u0432 ${issue2.origin}`;
+      case "invalid_union":
+        return "\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u0432\u0445\u043E\u0434";
+      case "invalid_element":
+        return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u043D\u0430 \u0441\u0442\u043E\u0439\u043D\u043E\u0441\u0442 \u0432 ${issue2.origin}`;
+      default:
+        return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u0432\u0445\u043E\u0434`;
+    }
+  };
+};
+function bg_default() {
+  return {
+    localeError: error4()
+  };
+}
+
+// node_modules/zod/v4/locales/ca.js
+var error5 = () => {
+  const Sizable = {
+    string: { unit: "car\xE0cters", verb: "contenir" },
+    file: { unit: "bytes", verb: "contenir" },
+    array: { unit: "elements", verb: "contenir" },
+    set: { unit: "elements", verb: "contenir" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "entrada",
+    email: "adre\xE7a electr\xF2nica",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "data i hora ISO",
+    date: "data ISO",
+    time: "hora ISO",
+    duration: "durada ISO",
+    ipv4: "adre\xE7a IPv4",
+    ipv6: "adre\xE7a IPv6",
+    cidrv4: "rang IPv4",
+    cidrv6: "rang IPv6",
+    base64: "cadena codificada en base64",
+    base64url: "cadena codificada en base64url",
+    json_string: "cadena JSON",
+    e164: "n\xFAmero E.164",
+    jwt: "JWT",
+    template_literal: "entrada"
+  };
+  const TypeDictionary = {
+    nan: "NaN"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Tipus inv\xE0lid: s'esperava instanceof ${issue2.expected}, s'ha rebut ${received}`;
+        }
+        return `Tipus inv\xE0lid: s'esperava ${expected}, s'ha rebut ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Valor inv\xE0lid: s'esperava ${stringifyPrimitive(issue2.values[0])}`;
+        return `Opci\xF3 inv\xE0lida: s'esperava una de ${joinValues(issue2.values, " o ")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "com a m\xE0xim" : "menys de";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `Massa gran: s'esperava que ${issue2.origin ?? "el valor"} contingu\xE9s ${adj} ${issue2.maximum.toString()} ${sizing.unit ?? "elements"}`;
+        return `Massa gran: s'esperava que ${issue2.origin ?? "el valor"} fos ${adj} ${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? "com a m\xEDnim" : "m\xE9s de";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Massa petit: s'esperava que ${issue2.origin} contingu\xE9s ${adj} ${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `Massa petit: s'esperava que ${issue2.origin} fos ${adj} ${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with") {
+          return `Format inv\xE0lid: ha de comen\xE7ar amb "${_issue.prefix}"`;
+        }
+        if (_issue.format === "ends_with")
+          return `Format inv\xE0lid: ha d'acabar amb "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `Format inv\xE0lid: ha d'incloure "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `Format inv\xE0lid: ha de coincidir amb el patr\xF3 ${_issue.pattern}`;
+        return `Format inv\xE0lid per a ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `N\xFAmero inv\xE0lid: ha de ser m\xFAltiple de ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `Clau${issue2.keys.length > 1 ? "s" : ""} no reconeguda${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Clau inv\xE0lida a ${issue2.origin}`;
+      case "invalid_union":
+        return "Entrada inv\xE0lida";
+      // Could also be "Tipus d'unió invàlid" but "Entrada invàlida" is more general
+      case "invalid_element":
+        return `Element inv\xE0lid a ${issue2.origin}`;
+      default:
+        return `Entrada inv\xE0lida`;
+    }
+  };
+};
+function ca_default() {
+  return {
+    localeError: error5()
+  };
+}
+
+// node_modules/zod/v4/locales/cs.js
+var error6 = () => {
+  const Sizable = {
+    string: { unit: "znak\u016F", verb: "m\xEDt" },
+    file: { unit: "bajt\u016F", verb: "m\xEDt" },
+    array: { unit: "prvk\u016F", verb: "m\xEDt" },
+    set: { unit: "prvk\u016F", verb: "m\xEDt" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "regul\xE1rn\xED v\xFDraz",
+    email: "e-mailov\xE1 adresa",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "datum a \u010Das ve form\xE1tu ISO",
+    date: "datum ve form\xE1tu ISO",
+    time: "\u010Das ve form\xE1tu ISO",
+    duration: "doba trv\xE1n\xED ISO",
+    ipv4: "IPv4 adresa",
+    ipv6: "IPv6 adresa",
+    cidrv4: "rozsah IPv4",
+    cidrv6: "rozsah IPv6",
+    base64: "\u0159et\u011Bzec zak\xF3dovan\xFD ve form\xE1tu base64",
+    base64url: "\u0159et\u011Bzec zak\xF3dovan\xFD ve form\xE1tu base64url",
+    json_string: "\u0159et\u011Bzec ve form\xE1tu JSON",
+    e164: "\u010D\xEDslo E.164",
+    jwt: "JWT",
+    template_literal: "vstup"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "\u010D\xEDslo",
+    string: "\u0159et\u011Bzec",
+    function: "funkce",
+    array: "pole"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Neplatn\xFD vstup: o\u010Dek\xE1v\xE1no instanceof ${issue2.expected}, obdr\u017Eeno ${received}`;
+        }
+        return `Neplatn\xFD vstup: o\u010Dek\xE1v\xE1no ${expected}, obdr\u017Eeno ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Neplatn\xFD vstup: o\u010Dek\xE1v\xE1no ${stringifyPrimitive(issue2.values[0])}`;
+        return `Neplatn\xE1 mo\u017Enost: o\u010Dek\xE1v\xE1na jedna z hodnot ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Hodnota je p\u0159\xEDli\u0161 velk\xE1: ${issue2.origin ?? "hodnota"} mus\xED m\xEDt ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "prvk\u016F"}`;
+        }
+        return `Hodnota je p\u0159\xEDli\u0161 velk\xE1: ${issue2.origin ?? "hodnota"} mus\xED b\xFDt ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Hodnota je p\u0159\xEDli\u0161 mal\xE1: ${issue2.origin ?? "hodnota"} mus\xED m\xEDt ${adj}${issue2.minimum.toString()} ${sizing.unit ?? "prvk\u016F"}`;
+        }
+        return `Hodnota je p\u0159\xEDli\u0161 mal\xE1: ${issue2.origin ?? "hodnota"} mus\xED b\xFDt ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `Neplatn\xFD \u0159et\u011Bzec: mus\xED za\u010D\xEDnat na "${_issue.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `Neplatn\xFD \u0159et\u011Bzec: mus\xED kon\u010Dit na "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `Neplatn\xFD \u0159et\u011Bzec: mus\xED obsahovat "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `Neplatn\xFD \u0159et\u011Bzec: mus\xED odpov\xEDdat vzoru ${_issue.pattern}`;
+        return `Neplatn\xFD form\xE1t ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `Neplatn\xE9 \u010D\xEDslo: mus\xED b\xFDt n\xE1sobkem ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `Nezn\xE1m\xE9 kl\xED\u010De: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Neplatn\xFD kl\xED\u010D v ${issue2.origin}`;
+      case "invalid_union":
+        return "Neplatn\xFD vstup";
+      case "invalid_element":
+        return `Neplatn\xE1 hodnota v ${issue2.origin}`;
+      default:
+        return `Neplatn\xFD vstup`;
+    }
+  };
+};
+function cs_default() {
+  return {
+    localeError: error6()
+  };
+}
+
+// node_modules/zod/v4/locales/da.js
+var error7 = () => {
+  const Sizable = {
+    string: { unit: "tegn", verb: "havde" },
+    file: { unit: "bytes", verb: "havde" },
+    array: { unit: "elementer", verb: "indeholdt" },
+    set: { unit: "elementer", verb: "indeholdt" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "input",
+    email: "e-mailadresse",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO dato- og klokkesl\xE6t",
+    date: "ISO-dato",
+    time: "ISO-klokkesl\xE6t",
+    duration: "ISO-varighed",
+    ipv4: "IPv4-omr\xE5de",
+    ipv6: "IPv6-omr\xE5de",
+    cidrv4: "IPv4-spektrum",
+    cidrv6: "IPv6-spektrum",
+    base64: "base64-kodet streng",
+    base64url: "base64url-kodet streng",
+    json_string: "JSON-streng",
+    e164: "E.164-nummer",
+    jwt: "JWT",
+    template_literal: "input"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    string: "streng",
+    number: "tal",
+    boolean: "boolean",
+    array: "liste",
+    object: "objekt",
+    set: "s\xE6t",
+    file: "fil"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Ugyldigt input: forventede instanceof ${issue2.expected}, fik ${received}`;
+        }
+        return `Ugyldigt input: forventede ${expected}, fik ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Ugyldig v\xE6rdi: forventede ${stringifyPrimitive(issue2.values[0])}`;
+        return `Ugyldigt valg: forventede en af f\xF8lgende ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        const origin = TypeDictionary[issue2.origin] ?? issue2.origin;
+        if (sizing)
+          return `For stor: forventede ${origin ?? "value"} ${sizing.verb} ${adj} ${issue2.maximum.toString()} ${sizing.unit ?? "elementer"}`;
+        return `For stor: forventede ${origin ?? "value"} havde ${adj} ${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        const origin = TypeDictionary[issue2.origin] ?? issue2.origin;
+        if (sizing) {
+          return `For lille: forventede ${origin} ${sizing.verb} ${adj} ${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `For lille: forventede ${origin} havde ${adj} ${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `Ugyldig streng: skal starte med "${_issue.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `Ugyldig streng: skal ende med "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `Ugyldig streng: skal indeholde "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `Ugyldig streng: skal matche m\xF8nsteret ${_issue.pattern}`;
+        return `Ugyldig ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `Ugyldigt tal: skal v\xE6re deleligt med ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `${issue2.keys.length > 1 ? "Ukendte n\xF8gler" : "Ukendt n\xF8gle"}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Ugyldig n\xF8gle i ${issue2.origin}`;
+      case "invalid_union":
+        return "Ugyldigt input: matcher ingen af de tilladte typer";
+      case "invalid_element":
+        return `Ugyldig v\xE6rdi i ${issue2.origin}`;
+      default:
+        return `Ugyldigt input`;
+    }
+  };
+};
+function da_default() {
+  return {
+    localeError: error7()
+  };
+}
+
+// node_modules/zod/v4/locales/de.js
+var error8 = () => {
+  const Sizable = {
+    string: { unit: "Zeichen", verb: "zu haben" },
+    file: { unit: "Bytes", verb: "zu haben" },
+    array: { unit: "Elemente", verb: "zu haben" },
+    set: { unit: "Elemente", verb: "zu haben" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "Eingabe",
+    email: "E-Mail-Adresse",
+    url: "URL",
+    emoji: "Emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO-Datum und -Uhrzeit",
+    date: "ISO-Datum",
+    time: "ISO-Uhrzeit",
+    duration: "ISO-Dauer",
+    ipv4: "IPv4-Adresse",
+    ipv6: "IPv6-Adresse",
+    cidrv4: "IPv4-Bereich",
+    cidrv6: "IPv6-Bereich",
+    base64: "Base64-codierter String",
+    base64url: "Base64-URL-codierter String",
+    json_string: "JSON-String",
+    e164: "E.164-Nummer",
+    jwt: "JWT",
+    template_literal: "Eingabe"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "Zahl",
+    array: "Array"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Ung\xFCltige Eingabe: erwartet instanceof ${issue2.expected}, erhalten ${received}`;
+        }
+        return `Ung\xFCltige Eingabe: erwartet ${expected}, erhalten ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Ung\xFCltige Eingabe: erwartet ${stringifyPrimitive(issue2.values[0])}`;
+        return `Ung\xFCltige Option: erwartet eine von ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `Zu gro\xDF: erwartet, dass ${issue2.origin ?? "Wert"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "Elemente"} hat`;
+        return `Zu gro\xDF: erwartet, dass ${issue2.origin ?? "Wert"} ${adj}${issue2.maximum.toString()} ist`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Zu klein: erwartet, dass ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit} hat`;
+        }
+        return `Zu klein: erwartet, dass ${issue2.origin} ${adj}${issue2.minimum.toString()} ist`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `Ung\xFCltiger String: muss mit "${_issue.prefix}" beginnen`;
+        if (_issue.format === "ends_with")
+          return `Ung\xFCltiger String: muss mit "${_issue.suffix}" enden`;
+        if (_issue.format === "includes")
+          return `Ung\xFCltiger String: muss "${_issue.includes}" enthalten`;
+        if (_issue.format === "regex")
+          return `Ung\xFCltiger String: muss dem Muster ${_issue.pattern} entsprechen`;
+        return `Ung\xFCltig: ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `Ung\xFCltige Zahl: muss ein Vielfaches von ${issue2.divisor} sein`;
+      case "unrecognized_keys":
+        return `${issue2.keys.length > 1 ? "Unbekannte Schl\xFCssel" : "Unbekannter Schl\xFCssel"}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Ung\xFCltiger Schl\xFCssel in ${issue2.origin}`;
+      case "invalid_union":
+        return "Ung\xFCltige Eingabe";
+      case "invalid_element":
+        return `Ung\xFCltiger Wert in ${issue2.origin}`;
+      default:
+        return `Ung\xFCltige Eingabe`;
+    }
+  };
+};
+function de_default() {
+  return {
+    localeError: error8()
+  };
+}
+
+// node_modules/zod/v4/locales/en.js
+var error9 = () => {
   const Sizable = {
     string: { unit: "characters", verb: "to have" },
     file: { unit: "bytes", verb: "to have" },
@@ -23179,7 +24526,4484 @@ var error = () => {
 };
 function en_default2() {
   return {
-    localeError: error()
+    localeError: error9()
+  };
+}
+
+// node_modules/zod/v4/locales/eo.js
+var error10 = () => {
+  const Sizable = {
+    string: { unit: "karaktrojn", verb: "havi" },
+    file: { unit: "bajtojn", verb: "havi" },
+    array: { unit: "elementojn", verb: "havi" },
+    set: { unit: "elementojn", verb: "havi" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "enigo",
+    email: "retadreso",
+    url: "URL",
+    emoji: "emo\u011Dio",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO-datotempo",
+    date: "ISO-dato",
+    time: "ISO-tempo",
+    duration: "ISO-da\u016Dro",
+    ipv4: "IPv4-adreso",
+    ipv6: "IPv6-adreso",
+    cidrv4: "IPv4-rango",
+    cidrv6: "IPv6-rango",
+    base64: "64-ume kodita karaktraro",
+    base64url: "URL-64-ume kodita karaktraro",
+    json_string: "JSON-karaktraro",
+    e164: "E.164-nombro",
+    jwt: "JWT",
+    template_literal: "enigo"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "nombro",
+    array: "tabelo",
+    null: "senvalora"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Nevalida enigo: atendi\u011Dis instanceof ${issue2.expected}, ricevi\u011Dis ${received}`;
+        }
+        return `Nevalida enigo: atendi\u011Dis ${expected}, ricevi\u011Dis ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Nevalida enigo: atendi\u011Dis ${stringifyPrimitive(issue2.values[0])}`;
+        return `Nevalida opcio: atendi\u011Dis unu el ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `Tro granda: atendi\u011Dis ke ${issue2.origin ?? "valoro"} havu ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementojn"}`;
+        return `Tro granda: atendi\u011Dis ke ${issue2.origin ?? "valoro"} havu ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Tro malgranda: atendi\u011Dis ke ${issue2.origin} havu ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `Tro malgranda: atendi\u011Dis ke ${issue2.origin} estu ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `Nevalida karaktraro: devas komenci\u011Di per "${_issue.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `Nevalida karaktraro: devas fini\u011Di per "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `Nevalida karaktraro: devas inkluzivi "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `Nevalida karaktraro: devas kongrui kun la modelo ${_issue.pattern}`;
+        return `Nevalida ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `Nevalida nombro: devas esti oblo de ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `Nekonata${issue2.keys.length > 1 ? "j" : ""} \u015Dlosilo${issue2.keys.length > 1 ? "j" : ""}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Nevalida \u015Dlosilo en ${issue2.origin}`;
+      case "invalid_union":
+        return "Nevalida enigo";
+      case "invalid_element":
+        return `Nevalida valoro en ${issue2.origin}`;
+      default:
+        return `Nevalida enigo`;
+    }
+  };
+};
+function eo_default() {
+  return {
+    localeError: error10()
+  };
+}
+
+// node_modules/zod/v4/locales/es.js
+var error11 = () => {
+  const Sizable = {
+    string: { unit: "caracteres", verb: "tener" },
+    file: { unit: "bytes", verb: "tener" },
+    array: { unit: "elementos", verb: "tener" },
+    set: { unit: "elementos", verb: "tener" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "entrada",
+    email: "direcci\xF3n de correo electr\xF3nico",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "fecha y hora ISO",
+    date: "fecha ISO",
+    time: "hora ISO",
+    duration: "duraci\xF3n ISO",
+    ipv4: "direcci\xF3n IPv4",
+    ipv6: "direcci\xF3n IPv6",
+    cidrv4: "rango IPv4",
+    cidrv6: "rango IPv6",
+    base64: "cadena codificada en base64",
+    base64url: "URL codificada en base64",
+    json_string: "cadena JSON",
+    e164: "n\xFAmero E.164",
+    jwt: "JWT",
+    template_literal: "entrada"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    string: "texto",
+    number: "n\xFAmero",
+    boolean: "booleano",
+    array: "arreglo",
+    object: "objeto",
+    set: "conjunto",
+    file: "archivo",
+    date: "fecha",
+    bigint: "n\xFAmero grande",
+    symbol: "s\xEDmbolo",
+    undefined: "indefinido",
+    null: "nulo",
+    function: "funci\xF3n",
+    map: "mapa",
+    record: "registro",
+    tuple: "tupla",
+    enum: "enumeraci\xF3n",
+    union: "uni\xF3n",
+    literal: "literal",
+    promise: "promesa",
+    void: "vac\xEDo",
+    never: "nunca",
+    unknown: "desconocido",
+    any: "cualquiera"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Entrada inv\xE1lida: se esperaba instanceof ${issue2.expected}, recibido ${received}`;
+        }
+        return `Entrada inv\xE1lida: se esperaba ${expected}, recibido ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Entrada inv\xE1lida: se esperaba ${stringifyPrimitive(issue2.values[0])}`;
+        return `Opci\xF3n inv\xE1lida: se esperaba una de ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        const origin = TypeDictionary[issue2.origin] ?? issue2.origin;
+        if (sizing)
+          return `Demasiado grande: se esperaba que ${origin ?? "valor"} tuviera ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementos"}`;
+        return `Demasiado grande: se esperaba que ${origin ?? "valor"} fuera ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        const origin = TypeDictionary[issue2.origin] ?? issue2.origin;
+        if (sizing) {
+          return `Demasiado peque\xF1o: se esperaba que ${origin} tuviera ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `Demasiado peque\xF1o: se esperaba que ${origin} fuera ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `Cadena inv\xE1lida: debe comenzar con "${_issue.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `Cadena inv\xE1lida: debe terminar en "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `Cadena inv\xE1lida: debe incluir "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `Cadena inv\xE1lida: debe coincidir con el patr\xF3n ${_issue.pattern}`;
+        return `Inv\xE1lido ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `N\xFAmero inv\xE1lido: debe ser m\xFAltiplo de ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `Llave${issue2.keys.length > 1 ? "s" : ""} desconocida${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Llave inv\xE1lida en ${TypeDictionary[issue2.origin] ?? issue2.origin}`;
+      case "invalid_union":
+        return "Entrada inv\xE1lida";
+      case "invalid_element":
+        return `Valor inv\xE1lido en ${TypeDictionary[issue2.origin] ?? issue2.origin}`;
+      default:
+        return `Entrada inv\xE1lida`;
+    }
+  };
+};
+function es_default() {
+  return {
+    localeError: error11()
+  };
+}
+
+// node_modules/zod/v4/locales/fa.js
+var error12 = () => {
+  const Sizable = {
+    string: { unit: "\u06A9\u0627\u0631\u0627\u06A9\u062A\u0631", verb: "\u062F\u0627\u0634\u062A\u0647 \u0628\u0627\u0634\u062F" },
+    file: { unit: "\u0628\u0627\u06CC\u062A", verb: "\u062F\u0627\u0634\u062A\u0647 \u0628\u0627\u0634\u062F" },
+    array: { unit: "\u0622\u06CC\u062A\u0645", verb: "\u062F\u0627\u0634\u062A\u0647 \u0628\u0627\u0634\u062F" },
+    set: { unit: "\u0622\u06CC\u062A\u0645", verb: "\u062F\u0627\u0634\u062A\u0647 \u0628\u0627\u0634\u062F" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u0648\u0631\u0648\u062F\u06CC",
+    email: "\u0622\u062F\u0631\u0633 \u0627\u06CC\u0645\u06CC\u0644",
+    url: "URL",
+    emoji: "\u0627\u06CC\u0645\u0648\u062C\u06CC",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "\u062A\u0627\u0631\u06CC\u062E \u0648 \u0632\u0645\u0627\u0646 \u0627\u06CC\u0632\u0648",
+    date: "\u062A\u0627\u0631\u06CC\u062E \u0627\u06CC\u0632\u0648",
+    time: "\u0632\u0645\u0627\u0646 \u0627\u06CC\u0632\u0648",
+    duration: "\u0645\u062F\u062A \u0632\u0645\u0627\u0646 \u0627\u06CC\u0632\u0648",
+    ipv4: "IPv4 \u0622\u062F\u0631\u0633",
+    ipv6: "IPv6 \u0622\u062F\u0631\u0633",
+    cidrv4: "IPv4 \u062F\u0627\u0645\u0646\u0647",
+    cidrv6: "IPv6 \u062F\u0627\u0645\u0646\u0647",
+    base64: "base64-encoded \u0631\u0634\u062A\u0647",
+    base64url: "base64url-encoded \u0631\u0634\u062A\u0647",
+    json_string: "JSON \u0631\u0634\u062A\u0647",
+    e164: "E.164 \u0639\u062F\u062F",
+    jwt: "JWT",
+    template_literal: "\u0648\u0631\u0648\u062F\u06CC"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "\u0639\u062F\u062F",
+    array: "\u0622\u0631\u0627\u06CC\u0647"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u0648\u0631\u0648\u062F\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0645\u06CC\u200C\u0628\u0627\u06CC\u0633\u062A instanceof ${issue2.expected} \u0645\u06CC\u200C\u0628\u0648\u062F\u060C ${received} \u062F\u0631\u06CC\u0627\u0641\u062A \u0634\u062F`;
+        }
+        return `\u0648\u0631\u0648\u062F\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0645\u06CC\u200C\u0628\u0627\u06CC\u0633\u062A ${expected} \u0645\u06CC\u200C\u0628\u0648\u062F\u060C ${received} \u062F\u0631\u06CC\u0627\u0641\u062A \u0634\u062F`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1) {
+          return `\u0648\u0631\u0648\u062F\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0645\u06CC\u200C\u0628\u0627\u06CC\u0633\u062A ${stringifyPrimitive(issue2.values[0])} \u0645\u06CC\u200C\u0628\u0648\u062F`;
+        }
+        return `\u06AF\u0632\u06CC\u0646\u0647 \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0645\u06CC\u200C\u0628\u0627\u06CC\u0633\u062A \u06CC\u06A9\u06CC \u0627\u0632 ${joinValues(issue2.values, "|")} \u0645\u06CC\u200C\u0628\u0648\u062F`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `\u062E\u06CC\u0644\u06CC \u0628\u0632\u0631\u06AF: ${issue2.origin ?? "\u0645\u0642\u062F\u0627\u0631"} \u0628\u0627\u06CC\u062F ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u0639\u0646\u0635\u0631"} \u0628\u0627\u0634\u062F`;
+        }
+        return `\u062E\u06CC\u0644\u06CC \u0628\u0632\u0631\u06AF: ${issue2.origin ?? "\u0645\u0642\u062F\u0627\u0631"} \u0628\u0627\u06CC\u062F ${adj}${issue2.maximum.toString()} \u0628\u0627\u0634\u062F`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `\u062E\u06CC\u0644\u06CC \u06A9\u0648\u0686\u06A9: ${issue2.origin} \u0628\u0627\u06CC\u062F ${adj}${issue2.minimum.toString()} ${sizing.unit} \u0628\u0627\u0634\u062F`;
+        }
+        return `\u062E\u06CC\u0644\u06CC \u06A9\u0648\u0686\u06A9: ${issue2.origin} \u0628\u0627\u06CC\u062F ${adj}${issue2.minimum.toString()} \u0628\u0627\u0634\u062F`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with") {
+          return `\u0631\u0634\u062A\u0647 \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0628\u0627\u06CC\u062F \u0628\u0627 "${_issue.prefix}" \u0634\u0631\u0648\u0639 \u0634\u0648\u062F`;
+        }
+        if (_issue.format === "ends_with") {
+          return `\u0631\u0634\u062A\u0647 \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0628\u0627\u06CC\u062F \u0628\u0627 "${_issue.suffix}" \u062A\u0645\u0627\u0645 \u0634\u0648\u062F`;
+        }
+        if (_issue.format === "includes") {
+          return `\u0631\u0634\u062A\u0647 \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0628\u0627\u06CC\u062F \u0634\u0627\u0645\u0644 "${_issue.includes}" \u0628\u0627\u0634\u062F`;
+        }
+        if (_issue.format === "regex") {
+          return `\u0631\u0634\u062A\u0647 \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0628\u0627\u06CC\u062F \u0628\u0627 \u0627\u0644\u06AF\u0648\u06CC ${_issue.pattern} \u0645\u0637\u0627\u0628\u0642\u062A \u062F\u0627\u0634\u062A\u0647 \u0628\u0627\u0634\u062F`;
+        }
+        return `${FormatDictionary[_issue.format] ?? issue2.format} \u0646\u0627\u0645\u0639\u062A\u0628\u0631`;
+      }
+      case "not_multiple_of":
+        return `\u0639\u062F\u062F \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0628\u0627\u06CC\u062F \u0645\u0636\u0631\u0628 ${issue2.divisor} \u0628\u0627\u0634\u062F`;
+      case "unrecognized_keys":
+        return `\u06A9\u0644\u06CC\u062F${issue2.keys.length > 1 ? "\u0647\u0627\u06CC" : ""} \u0646\u0627\u0634\u0646\u0627\u0633: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `\u06A9\u0644\u06CC\u062F \u0646\u0627\u0634\u0646\u0627\u0633 \u062F\u0631 ${issue2.origin}`;
+      case "invalid_union":
+        return `\u0648\u0631\u0648\u062F\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631`;
+      case "invalid_element":
+        return `\u0645\u0642\u062F\u0627\u0631 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u062F\u0631 ${issue2.origin}`;
+      default:
+        return `\u0648\u0631\u0648\u062F\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631`;
+    }
+  };
+};
+function fa_default() {
+  return {
+    localeError: error12()
+  };
+}
+
+// node_modules/zod/v4/locales/fi.js
+var error13 = () => {
+  const Sizable = {
+    string: { unit: "merkki\xE4", subject: "merkkijonon" },
+    file: { unit: "tavua", subject: "tiedoston" },
+    array: { unit: "alkiota", subject: "listan" },
+    set: { unit: "alkiota", subject: "joukon" },
+    number: { unit: "", subject: "luvun" },
+    bigint: { unit: "", subject: "suuren kokonaisluvun" },
+    int: { unit: "", subject: "kokonaisluvun" },
+    date: { unit: "", subject: "p\xE4iv\xE4m\xE4\xE4r\xE4n" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "s\xE4\xE4nn\xF6llinen lauseke",
+    email: "s\xE4hk\xF6postiosoite",
+    url: "URL-osoite",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO-aikaleima",
+    date: "ISO-p\xE4iv\xE4m\xE4\xE4r\xE4",
+    time: "ISO-aika",
+    duration: "ISO-kesto",
+    ipv4: "IPv4-osoite",
+    ipv6: "IPv6-osoite",
+    cidrv4: "IPv4-alue",
+    cidrv6: "IPv6-alue",
+    base64: "base64-koodattu merkkijono",
+    base64url: "base64url-koodattu merkkijono",
+    json_string: "JSON-merkkijono",
+    e164: "E.164-luku",
+    jwt: "JWT",
+    template_literal: "templaattimerkkijono"
+  };
+  const TypeDictionary = {
+    nan: "NaN"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Virheellinen tyyppi: odotettiin instanceof ${issue2.expected}, oli ${received}`;
+        }
+        return `Virheellinen tyyppi: odotettiin ${expected}, oli ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Virheellinen sy\xF6te: t\xE4ytyy olla ${stringifyPrimitive(issue2.values[0])}`;
+        return `Virheellinen valinta: t\xE4ytyy olla yksi seuraavista: ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Liian suuri: ${sizing.subject} t\xE4ytyy olla ${adj}${issue2.maximum.toString()} ${sizing.unit}`.trim();
+        }
+        return `Liian suuri: arvon t\xE4ytyy olla ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Liian pieni: ${sizing.subject} t\xE4ytyy olla ${adj}${issue2.minimum.toString()} ${sizing.unit}`.trim();
+        }
+        return `Liian pieni: arvon t\xE4ytyy olla ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `Virheellinen sy\xF6te: t\xE4ytyy alkaa "${_issue.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `Virheellinen sy\xF6te: t\xE4ytyy loppua "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `Virheellinen sy\xF6te: t\xE4ytyy sis\xE4lt\xE4\xE4 "${_issue.includes}"`;
+        if (_issue.format === "regex") {
+          return `Virheellinen sy\xF6te: t\xE4ytyy vastata s\xE4\xE4nn\xF6llist\xE4 lauseketta ${_issue.pattern}`;
+        }
+        return `Virheellinen ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `Virheellinen luku: t\xE4ytyy olla luvun ${issue2.divisor} monikerta`;
+      case "unrecognized_keys":
+        return `${issue2.keys.length > 1 ? "Tuntemattomat avaimet" : "Tuntematon avain"}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return "Virheellinen avain tietueessa";
+      case "invalid_union":
+        return "Virheellinen unioni";
+      case "invalid_element":
+        return "Virheellinen arvo joukossa";
+      default:
+        return `Virheellinen sy\xF6te`;
+    }
+  };
+};
+function fi_default() {
+  return {
+    localeError: error13()
+  };
+}
+
+// node_modules/zod/v4/locales/fr.js
+var error14 = () => {
+  const Sizable = {
+    string: { unit: "caract\xE8res", verb: "avoir" },
+    file: { unit: "octets", verb: "avoir" },
+    array: { unit: "\xE9l\xE9ments", verb: "avoir" },
+    set: { unit: "\xE9l\xE9ments", verb: "avoir" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "entr\xE9e",
+    email: "adresse e-mail",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "date et heure ISO",
+    date: "date ISO",
+    time: "heure ISO",
+    duration: "dur\xE9e ISO",
+    ipv4: "adresse IPv4",
+    ipv6: "adresse IPv6",
+    cidrv4: "plage IPv4",
+    cidrv6: "plage IPv6",
+    base64: "cha\xEEne encod\xE9e en base64",
+    base64url: "cha\xEEne encod\xE9e en base64url",
+    json_string: "cha\xEEne JSON",
+    e164: "num\xE9ro E.164",
+    jwt: "JWT",
+    template_literal: "entr\xE9e"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "nombre",
+    array: "tableau"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Entr\xE9e invalide : instanceof ${issue2.expected} attendu, ${received} re\xE7u`;
+        }
+        return `Entr\xE9e invalide : ${expected} attendu, ${received} re\xE7u`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Entr\xE9e invalide : ${stringifyPrimitive(issue2.values[0])} attendu`;
+        return `Option invalide : une valeur parmi ${joinValues(issue2.values, "|")} attendue`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `Trop grand : ${issue2.origin ?? "valeur"} doit ${sizing.verb} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\xE9l\xE9ment(s)"}`;
+        return `Trop grand : ${issue2.origin ?? "valeur"} doit \xEAtre ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Trop petit : ${issue2.origin} doit ${sizing.verb} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `Trop petit : ${issue2.origin} doit \xEAtre ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `Cha\xEEne invalide : doit commencer par "${_issue.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `Cha\xEEne invalide : doit se terminer par "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `Cha\xEEne invalide : doit inclure "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `Cha\xEEne invalide : doit correspondre au mod\xE8le ${_issue.pattern}`;
+        return `${FormatDictionary[_issue.format] ?? issue2.format} invalide`;
+      }
+      case "not_multiple_of":
+        return `Nombre invalide : doit \xEAtre un multiple de ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `Cl\xE9${issue2.keys.length > 1 ? "s" : ""} non reconnue${issue2.keys.length > 1 ? "s" : ""} : ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Cl\xE9 invalide dans ${issue2.origin}`;
+      case "invalid_union":
+        return "Entr\xE9e invalide";
+      case "invalid_element":
+        return `Valeur invalide dans ${issue2.origin}`;
+      default:
+        return `Entr\xE9e invalide`;
+    }
+  };
+};
+function fr_default() {
+  return {
+    localeError: error14()
+  };
+}
+
+// node_modules/zod/v4/locales/fr-CA.js
+var error15 = () => {
+  const Sizable = {
+    string: { unit: "caract\xE8res", verb: "avoir" },
+    file: { unit: "octets", verb: "avoir" },
+    array: { unit: "\xE9l\xE9ments", verb: "avoir" },
+    set: { unit: "\xE9l\xE9ments", verb: "avoir" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "entr\xE9e",
+    email: "adresse courriel",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "date-heure ISO",
+    date: "date ISO",
+    time: "heure ISO",
+    duration: "dur\xE9e ISO",
+    ipv4: "adresse IPv4",
+    ipv6: "adresse IPv6",
+    cidrv4: "plage IPv4",
+    cidrv6: "plage IPv6",
+    base64: "cha\xEEne encod\xE9e en base64",
+    base64url: "cha\xEEne encod\xE9e en base64url",
+    json_string: "cha\xEEne JSON",
+    e164: "num\xE9ro E.164",
+    jwt: "JWT",
+    template_literal: "entr\xE9e"
+  };
+  const TypeDictionary = {
+    nan: "NaN"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Entr\xE9e invalide : attendu instanceof ${issue2.expected}, re\xE7u ${received}`;
+        }
+        return `Entr\xE9e invalide : attendu ${expected}, re\xE7u ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Entr\xE9e invalide : attendu ${stringifyPrimitive(issue2.values[0])}`;
+        return `Option invalide : attendu l'une des valeurs suivantes ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "\u2264" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `Trop grand : attendu que ${issue2.origin ?? "la valeur"} ait ${adj}${issue2.maximum.toString()} ${sizing.unit}`;
+        return `Trop grand : attendu que ${issue2.origin ?? "la valeur"} soit ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? "\u2265" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Trop petit : attendu que ${issue2.origin} ait ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `Trop petit : attendu que ${issue2.origin} soit ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with") {
+          return `Cha\xEEne invalide : doit commencer par "${_issue.prefix}"`;
+        }
+        if (_issue.format === "ends_with")
+          return `Cha\xEEne invalide : doit se terminer par "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `Cha\xEEne invalide : doit inclure "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `Cha\xEEne invalide : doit correspondre au motif ${_issue.pattern}`;
+        return `${FormatDictionary[_issue.format] ?? issue2.format} invalide`;
+      }
+      case "not_multiple_of":
+        return `Nombre invalide : doit \xEAtre un multiple de ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `Cl\xE9${issue2.keys.length > 1 ? "s" : ""} non reconnue${issue2.keys.length > 1 ? "s" : ""} : ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Cl\xE9 invalide dans ${issue2.origin}`;
+      case "invalid_union":
+        return "Entr\xE9e invalide";
+      case "invalid_element":
+        return `Valeur invalide dans ${issue2.origin}`;
+      default:
+        return `Entr\xE9e invalide`;
+    }
+  };
+};
+function fr_CA_default() {
+  return {
+    localeError: error15()
+  };
+}
+
+// node_modules/zod/v4/locales/he.js
+var error16 = () => {
+  const TypeNames = {
+    string: { label: "\u05DE\u05D7\u05E8\u05D5\u05D6\u05EA", gender: "f" },
+    number: { label: "\u05DE\u05E1\u05E4\u05E8", gender: "m" },
+    boolean: { label: "\u05E2\u05E8\u05DA \u05D1\u05D5\u05DC\u05D9\u05D0\u05E0\u05D9", gender: "m" },
+    bigint: { label: "BigInt", gender: "m" },
+    date: { label: "\u05EA\u05D0\u05E8\u05D9\u05DA", gender: "m" },
+    array: { label: "\u05DE\u05E2\u05E8\u05DA", gender: "m" },
+    object: { label: "\u05D0\u05D5\u05D1\u05D9\u05D9\u05E7\u05D8", gender: "m" },
+    null: { label: "\u05E2\u05E8\u05DA \u05E8\u05D9\u05E7 (null)", gender: "m" },
+    undefined: { label: "\u05E2\u05E8\u05DA \u05DC\u05D0 \u05DE\u05D5\u05D2\u05D3\u05E8 (undefined)", gender: "m" },
+    symbol: { label: "\u05E1\u05D9\u05DE\u05D1\u05D5\u05DC (Symbol)", gender: "m" },
+    function: { label: "\u05E4\u05D5\u05E0\u05E7\u05E6\u05D9\u05D4", gender: "f" },
+    map: { label: "\u05DE\u05E4\u05D4 (Map)", gender: "f" },
+    set: { label: "\u05E7\u05D1\u05D5\u05E6\u05D4 (Set)", gender: "f" },
+    file: { label: "\u05E7\u05D5\u05D1\u05E5", gender: "m" },
+    promise: { label: "Promise", gender: "m" },
+    NaN: { label: "NaN", gender: "m" },
+    unknown: { label: "\u05E2\u05E8\u05DA \u05DC\u05D0 \u05D9\u05D3\u05D5\u05E2", gender: "m" },
+    value: { label: "\u05E2\u05E8\u05DA", gender: "m" }
+  };
+  const Sizable = {
+    string: { unit: "\u05EA\u05D5\u05D5\u05D9\u05DD", shortLabel: "\u05E7\u05E6\u05E8", longLabel: "\u05D0\u05E8\u05D5\u05DA" },
+    file: { unit: "\u05D1\u05D9\u05D9\u05D8\u05D9\u05DD", shortLabel: "\u05E7\u05D8\u05DF", longLabel: "\u05D2\u05D3\u05D5\u05DC" },
+    array: { unit: "\u05E4\u05E8\u05D9\u05D8\u05D9\u05DD", shortLabel: "\u05E7\u05D8\u05DF", longLabel: "\u05D2\u05D3\u05D5\u05DC" },
+    set: { unit: "\u05E4\u05E8\u05D9\u05D8\u05D9\u05DD", shortLabel: "\u05E7\u05D8\u05DF", longLabel: "\u05D2\u05D3\u05D5\u05DC" },
+    number: { unit: "", shortLabel: "\u05E7\u05D8\u05DF", longLabel: "\u05D2\u05D3\u05D5\u05DC" }
+    // no unit
+  };
+  const typeEntry = (t) => t ? TypeNames[t] : void 0;
+  const typeLabel = (t) => {
+    const e = typeEntry(t);
+    if (e)
+      return e.label;
+    return t ?? TypeNames.unknown.label;
+  };
+  const withDefinite = (t) => `\u05D4${typeLabel(t)}`;
+  const verbFor = (t) => {
+    const e = typeEntry(t);
+    const gender = e?.gender ?? "m";
+    return gender === "f" ? "\u05E6\u05E8\u05D9\u05DB\u05D4 \u05DC\u05D4\u05D9\u05D5\u05EA" : "\u05E6\u05E8\u05D9\u05DA \u05DC\u05D4\u05D9\u05D5\u05EA";
+  };
+  const getSizing = (origin) => {
+    if (!origin)
+      return null;
+    return Sizable[origin] ?? null;
+  };
+  const FormatDictionary = {
+    regex: { label: "\u05E7\u05DC\u05D8", gender: "m" },
+    email: { label: "\u05DB\u05EA\u05D5\u05D1\u05EA \u05D0\u05D9\u05DE\u05D9\u05D9\u05DC", gender: "f" },
+    url: { label: "\u05DB\u05EA\u05D5\u05D1\u05EA \u05E8\u05E9\u05EA", gender: "f" },
+    emoji: { label: "\u05D0\u05D9\u05DE\u05D5\u05D2'\u05D9", gender: "m" },
+    uuid: { label: "UUID", gender: "m" },
+    nanoid: { label: "nanoid", gender: "m" },
+    guid: { label: "GUID", gender: "m" },
+    cuid: { label: "cuid", gender: "m" },
+    cuid2: { label: "cuid2", gender: "m" },
+    ulid: { label: "ULID", gender: "m" },
+    xid: { label: "XID", gender: "m" },
+    ksuid: { label: "KSUID", gender: "m" },
+    datetime: { label: "\u05EA\u05D0\u05E8\u05D9\u05DA \u05D5\u05D6\u05DE\u05DF ISO", gender: "m" },
+    date: { label: "\u05EA\u05D0\u05E8\u05D9\u05DA ISO", gender: "m" },
+    time: { label: "\u05D6\u05DE\u05DF ISO", gender: "m" },
+    duration: { label: "\u05DE\u05E9\u05DA \u05D6\u05DE\u05DF ISO", gender: "m" },
+    ipv4: { label: "\u05DB\u05EA\u05D5\u05D1\u05EA IPv4", gender: "f" },
+    ipv6: { label: "\u05DB\u05EA\u05D5\u05D1\u05EA IPv6", gender: "f" },
+    cidrv4: { label: "\u05D8\u05D5\u05D5\u05D7 IPv4", gender: "m" },
+    cidrv6: { label: "\u05D8\u05D5\u05D5\u05D7 IPv6", gender: "m" },
+    base64: { label: "\u05DE\u05D7\u05E8\u05D5\u05D6\u05EA \u05D1\u05D1\u05E1\u05D9\u05E1 64", gender: "f" },
+    base64url: { label: "\u05DE\u05D7\u05E8\u05D5\u05D6\u05EA \u05D1\u05D1\u05E1\u05D9\u05E1 64 \u05DC\u05DB\u05EA\u05D5\u05D1\u05D5\u05EA \u05E8\u05E9\u05EA", gender: "f" },
+    json_string: { label: "\u05DE\u05D7\u05E8\u05D5\u05D6\u05EA JSON", gender: "f" },
+    e164: { label: "\u05DE\u05E1\u05E4\u05E8 E.164", gender: "m" },
+    jwt: { label: "JWT", gender: "m" },
+    ends_with: { label: "\u05E7\u05DC\u05D8", gender: "m" },
+    includes: { label: "\u05E7\u05DC\u05D8", gender: "m" },
+    lowercase: { label: "\u05E7\u05DC\u05D8", gender: "m" },
+    starts_with: { label: "\u05E7\u05DC\u05D8", gender: "m" },
+    uppercase: { label: "\u05E7\u05DC\u05D8", gender: "m" }
+  };
+  const TypeDictionary = {
+    nan: "NaN"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expectedKey = issue2.expected;
+        const expected = TypeDictionary[expectedKey ?? ""] ?? typeLabel(expectedKey);
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? TypeNames[receivedType]?.label ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u05E7\u05DC\u05D8 \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF: \u05E6\u05E8\u05D9\u05DA \u05DC\u05D4\u05D9\u05D5\u05EA instanceof ${issue2.expected}, \u05D4\u05EA\u05E7\u05D1\u05DC ${received}`;
+        }
+        return `\u05E7\u05DC\u05D8 \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF: \u05E6\u05E8\u05D9\u05DA \u05DC\u05D4\u05D9\u05D5\u05EA ${expected}, \u05D4\u05EA\u05E7\u05D1\u05DC ${received}`;
+      }
+      case "invalid_value": {
+        if (issue2.values.length === 1) {
+          return `\u05E2\u05E8\u05DA \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF: \u05D4\u05E2\u05E8\u05DA \u05D7\u05D9\u05D9\u05D1 \u05DC\u05D4\u05D9\u05D5\u05EA ${stringifyPrimitive(issue2.values[0])}`;
+        }
+        const stringified = issue2.values.map((v) => stringifyPrimitive(v));
+        if (issue2.values.length === 2) {
+          return `\u05E2\u05E8\u05DA \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF: \u05D4\u05D0\u05E4\u05E9\u05E8\u05D5\u05D9\u05D5\u05EA \u05D4\u05DE\u05EA\u05D0\u05D9\u05DE\u05D5\u05EA \u05D4\u05DF ${stringified[0]} \u05D0\u05D5 ${stringified[1]}`;
+        }
+        const lastValue = stringified[stringified.length - 1];
+        const restValues = stringified.slice(0, -1).join(", ");
+        return `\u05E2\u05E8\u05DA \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF: \u05D4\u05D0\u05E4\u05E9\u05E8\u05D5\u05D9\u05D5\u05EA \u05D4\u05DE\u05EA\u05D0\u05D9\u05DE\u05D5\u05EA \u05D4\u05DF ${restValues} \u05D0\u05D5 ${lastValue}`;
+      }
+      case "too_big": {
+        const sizing = getSizing(issue2.origin);
+        const subject = withDefinite(issue2.origin ?? "value");
+        if (issue2.origin === "string") {
+          return `${sizing?.longLabel ?? "\u05D0\u05E8\u05D5\u05DA"} \u05DE\u05D3\u05D9: ${subject} \u05E6\u05E8\u05D9\u05DB\u05D4 \u05DC\u05D4\u05DB\u05D9\u05DC ${issue2.maximum.toString()} ${sizing?.unit ?? ""} ${issue2.inclusive ? "\u05D0\u05D5 \u05E4\u05D7\u05D5\u05EA" : "\u05DC\u05DB\u05DC \u05D4\u05D9\u05D5\u05EA\u05E8"}`.trim();
+        }
+        if (issue2.origin === "number") {
+          const comparison = issue2.inclusive ? `\u05E7\u05D8\u05DF \u05D0\u05D5 \u05E9\u05D5\u05D5\u05D4 \u05DC-${issue2.maximum}` : `\u05E7\u05D8\u05DF \u05DE-${issue2.maximum}`;
+          return `\u05D2\u05D3\u05D5\u05DC \u05DE\u05D3\u05D9: ${subject} \u05E6\u05E8\u05D9\u05DA \u05DC\u05D4\u05D9\u05D5\u05EA ${comparison}`;
+        }
+        if (issue2.origin === "array" || issue2.origin === "set") {
+          const verb = issue2.origin === "set" ? "\u05E6\u05E8\u05D9\u05DB\u05D4" : "\u05E6\u05E8\u05D9\u05DA";
+          const comparison = issue2.inclusive ? `${issue2.maximum} ${sizing?.unit ?? ""} \u05D0\u05D5 \u05E4\u05D7\u05D5\u05EA` : `\u05E4\u05D7\u05D5\u05EA \u05DE-${issue2.maximum} ${sizing?.unit ?? ""}`;
+          return `\u05D2\u05D3\u05D5\u05DC \u05DE\u05D3\u05D9: ${subject} ${verb} \u05DC\u05D4\u05DB\u05D9\u05DC ${comparison}`.trim();
+        }
+        const adj = issue2.inclusive ? "<=" : "<";
+        const be = verbFor(issue2.origin ?? "value");
+        if (sizing?.unit) {
+          return `${sizing.longLabel} \u05DE\u05D3\u05D9: ${subject} ${be} ${adj}${issue2.maximum.toString()} ${sizing.unit}`;
+        }
+        return `${sizing?.longLabel ?? "\u05D2\u05D3\u05D5\u05DC"} \u05DE\u05D3\u05D9: ${subject} ${be} ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const sizing = getSizing(issue2.origin);
+        const subject = withDefinite(issue2.origin ?? "value");
+        if (issue2.origin === "string") {
+          return `${sizing?.shortLabel ?? "\u05E7\u05E6\u05E8"} \u05DE\u05D3\u05D9: ${subject} \u05E6\u05E8\u05D9\u05DB\u05D4 \u05DC\u05D4\u05DB\u05D9\u05DC ${issue2.minimum.toString()} ${sizing?.unit ?? ""} ${issue2.inclusive ? "\u05D0\u05D5 \u05D9\u05D5\u05EA\u05E8" : "\u05DC\u05E4\u05D7\u05D5\u05EA"}`.trim();
+        }
+        if (issue2.origin === "number") {
+          const comparison = issue2.inclusive ? `\u05D2\u05D3\u05D5\u05DC \u05D0\u05D5 \u05E9\u05D5\u05D5\u05D4 \u05DC-${issue2.minimum}` : `\u05D2\u05D3\u05D5\u05DC \u05DE-${issue2.minimum}`;
+          return `\u05E7\u05D8\u05DF \u05DE\u05D3\u05D9: ${subject} \u05E6\u05E8\u05D9\u05DA \u05DC\u05D4\u05D9\u05D5\u05EA ${comparison}`;
+        }
+        if (issue2.origin === "array" || issue2.origin === "set") {
+          const verb = issue2.origin === "set" ? "\u05E6\u05E8\u05D9\u05DB\u05D4" : "\u05E6\u05E8\u05D9\u05DA";
+          if (issue2.minimum === 1 && issue2.inclusive) {
+            const singularPhrase = issue2.origin === "set" ? "\u05DC\u05E4\u05D7\u05D5\u05EA \u05E4\u05E8\u05D9\u05D8 \u05D0\u05D7\u05D3" : "\u05DC\u05E4\u05D7\u05D5\u05EA \u05E4\u05E8\u05D9\u05D8 \u05D0\u05D7\u05D3";
+            return `\u05E7\u05D8\u05DF \u05DE\u05D3\u05D9: ${subject} ${verb} \u05DC\u05D4\u05DB\u05D9\u05DC ${singularPhrase}`;
+          }
+          const comparison = issue2.inclusive ? `${issue2.minimum} ${sizing?.unit ?? ""} \u05D0\u05D5 \u05D9\u05D5\u05EA\u05E8` : `\u05D9\u05D5\u05EA\u05E8 \u05DE-${issue2.minimum} ${sizing?.unit ?? ""}`;
+          return `\u05E7\u05D8\u05DF \u05DE\u05D3\u05D9: ${subject} ${verb} \u05DC\u05D4\u05DB\u05D9\u05DC ${comparison}`.trim();
+        }
+        const adj = issue2.inclusive ? ">=" : ">";
+        const be = verbFor(issue2.origin ?? "value");
+        if (sizing?.unit) {
+          return `${sizing.shortLabel} \u05DE\u05D3\u05D9: ${subject} ${be} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `${sizing?.shortLabel ?? "\u05E7\u05D8\u05DF"} \u05DE\u05D3\u05D9: ${subject} ${be} ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `\u05D4\u05DE\u05D7\u05E8\u05D5\u05D6\u05EA \u05D7\u05D9\u05D9\u05D1\u05EA \u05DC\u05D4\u05EA\u05D7\u05D9\u05DC \u05D1 "${_issue.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `\u05D4\u05DE\u05D7\u05E8\u05D5\u05D6\u05EA \u05D7\u05D9\u05D9\u05D1\u05EA \u05DC\u05D4\u05E1\u05EA\u05D9\u05D9\u05DD \u05D1 "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `\u05D4\u05DE\u05D7\u05E8\u05D5\u05D6\u05EA \u05D7\u05D9\u05D9\u05D1\u05EA \u05DC\u05DB\u05DC\u05D5\u05DC "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `\u05D4\u05DE\u05D7\u05E8\u05D5\u05D6\u05EA \u05D7\u05D9\u05D9\u05D1\u05EA \u05DC\u05D4\u05EA\u05D0\u05D9\u05DD \u05DC\u05EA\u05D1\u05E0\u05D9\u05EA ${_issue.pattern}`;
+        const nounEntry = FormatDictionary[_issue.format];
+        const noun = nounEntry?.label ?? _issue.format;
+        const gender = nounEntry?.gender ?? "m";
+        const adjective = gender === "f" ? "\u05EA\u05E7\u05D9\u05E0\u05D4" : "\u05EA\u05E7\u05D9\u05DF";
+        return `${noun} \u05DC\u05D0 ${adjective}`;
+      }
+      case "not_multiple_of":
+        return `\u05DE\u05E1\u05E4\u05E8 \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF: \u05D7\u05D9\u05D9\u05D1 \u05DC\u05D4\u05D9\u05D5\u05EA \u05DE\u05DB\u05E4\u05DC\u05D4 \u05E9\u05DC ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `\u05DE\u05E4\u05EA\u05D7${issue2.keys.length > 1 ? "\u05D5\u05EA" : ""} \u05DC\u05D0 \u05DE\u05D6\u05D5\u05D4${issue2.keys.length > 1 ? "\u05D9\u05DD" : "\u05D4"}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key": {
+        return `\u05E9\u05D3\u05D4 \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF \u05D1\u05D0\u05D5\u05D1\u05D9\u05D9\u05E7\u05D8`;
+      }
+      case "invalid_union":
+        return "\u05E7\u05DC\u05D8 \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF";
+      case "invalid_element": {
+        const place = withDefinite(issue2.origin ?? "array");
+        return `\u05E2\u05E8\u05DA \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF \u05D1${place}`;
+      }
+      default:
+        return `\u05E7\u05DC\u05D8 \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF`;
+    }
+  };
+};
+function he_default() {
+  return {
+    localeError: error16()
+  };
+}
+
+// node_modules/zod/v4/locales/hu.js
+var error17 = () => {
+  const Sizable = {
+    string: { unit: "karakter", verb: "legyen" },
+    file: { unit: "byte", verb: "legyen" },
+    array: { unit: "elem", verb: "legyen" },
+    set: { unit: "elem", verb: "legyen" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "bemenet",
+    email: "email c\xEDm",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO id\u0151b\xE9lyeg",
+    date: "ISO d\xE1tum",
+    time: "ISO id\u0151",
+    duration: "ISO id\u0151intervallum",
+    ipv4: "IPv4 c\xEDm",
+    ipv6: "IPv6 c\xEDm",
+    cidrv4: "IPv4 tartom\xE1ny",
+    cidrv6: "IPv6 tartom\xE1ny",
+    base64: "base64-k\xF3dolt string",
+    base64url: "base64url-k\xF3dolt string",
+    json_string: "JSON string",
+    e164: "E.164 sz\xE1m",
+    jwt: "JWT",
+    template_literal: "bemenet"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "sz\xE1m",
+    array: "t\xF6mb"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\xC9rv\xE9nytelen bemenet: a v\xE1rt \xE9rt\xE9k instanceof ${issue2.expected}, a kapott \xE9rt\xE9k ${received}`;
+        }
+        return `\xC9rv\xE9nytelen bemenet: a v\xE1rt \xE9rt\xE9k ${expected}, a kapott \xE9rt\xE9k ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `\xC9rv\xE9nytelen bemenet: a v\xE1rt \xE9rt\xE9k ${stringifyPrimitive(issue2.values[0])}`;
+        return `\xC9rv\xE9nytelen opci\xF3: valamelyik \xE9rt\xE9k v\xE1rt ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `T\xFAl nagy: ${issue2.origin ?? "\xE9rt\xE9k"} m\xE9rete t\xFAl nagy ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elem"}`;
+        return `T\xFAl nagy: a bemeneti \xE9rt\xE9k ${issue2.origin ?? "\xE9rt\xE9k"} t\xFAl nagy: ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `T\xFAl kicsi: a bemeneti \xE9rt\xE9k ${issue2.origin} m\xE9rete t\xFAl kicsi ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `T\xFAl kicsi: a bemeneti \xE9rt\xE9k ${issue2.origin} t\xFAl kicsi ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `\xC9rv\xE9nytelen string: "${_issue.prefix}" \xE9rt\xE9kkel kell kezd\u0151dnie`;
+        if (_issue.format === "ends_with")
+          return `\xC9rv\xE9nytelen string: "${_issue.suffix}" \xE9rt\xE9kkel kell v\xE9gz\u0151dnie`;
+        if (_issue.format === "includes")
+          return `\xC9rv\xE9nytelen string: "${_issue.includes}" \xE9rt\xE9ket kell tartalmaznia`;
+        if (_issue.format === "regex")
+          return `\xC9rv\xE9nytelen string: ${_issue.pattern} mint\xE1nak kell megfelelnie`;
+        return `\xC9rv\xE9nytelen ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `\xC9rv\xE9nytelen sz\xE1m: ${issue2.divisor} t\xF6bbsz\xF6r\xF6s\xE9nek kell lennie`;
+      case "unrecognized_keys":
+        return `Ismeretlen kulcs${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `\xC9rv\xE9nytelen kulcs ${issue2.origin}`;
+      case "invalid_union":
+        return "\xC9rv\xE9nytelen bemenet";
+      case "invalid_element":
+        return `\xC9rv\xE9nytelen \xE9rt\xE9k: ${issue2.origin}`;
+      default:
+        return `\xC9rv\xE9nytelen bemenet`;
+    }
+  };
+};
+function hu_default() {
+  return {
+    localeError: error17()
+  };
+}
+
+// node_modules/zod/v4/locales/hy.js
+function getArmenianPlural(count, one, many) {
+  return Math.abs(count) === 1 ? one : many;
+}
+function withDefiniteArticle(word) {
+  if (!word)
+    return "";
+  const vowels = ["\u0561", "\u0565", "\u0568", "\u056B", "\u0578", "\u0578\u0582", "\u0585"];
+  const lastChar = word[word.length - 1];
+  return word + (vowels.includes(lastChar) ? "\u0576" : "\u0568");
+}
+var error18 = () => {
+  const Sizable = {
+    string: {
+      unit: {
+        one: "\u0576\u0577\u0561\u0576",
+        many: "\u0576\u0577\u0561\u0576\u0576\u0565\u0580"
+      },
+      verb: "\u0578\u0582\u0576\u0565\u0576\u0561\u056C"
+    },
+    file: {
+      unit: {
+        one: "\u0562\u0561\u0575\u0569",
+        many: "\u0562\u0561\u0575\u0569\u0565\u0580"
+      },
+      verb: "\u0578\u0582\u0576\u0565\u0576\u0561\u056C"
+    },
+    array: {
+      unit: {
+        one: "\u057F\u0561\u0580\u0580",
+        many: "\u057F\u0561\u0580\u0580\u0565\u0580"
+      },
+      verb: "\u0578\u0582\u0576\u0565\u0576\u0561\u056C"
+    },
+    set: {
+      unit: {
+        one: "\u057F\u0561\u0580\u0580",
+        many: "\u057F\u0561\u0580\u0580\u0565\u0580"
+      },
+      verb: "\u0578\u0582\u0576\u0565\u0576\u0561\u056C"
+    }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u0574\u0578\u0582\u057F\u0584",
+    email: "\u0567\u056C. \u0570\u0561\u057D\u0581\u0565",
+    url: "URL",
+    emoji: "\u0567\u0574\u0578\u057B\u056B",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO \u0561\u0574\u057D\u0561\u0569\u056B\u057E \u0587 \u056A\u0561\u0574",
+    date: "ISO \u0561\u0574\u057D\u0561\u0569\u056B\u057E",
+    time: "ISO \u056A\u0561\u0574",
+    duration: "ISO \u057F\u0587\u0578\u0572\u0578\u0582\u0569\u0575\u0578\u0582\u0576",
+    ipv4: "IPv4 \u0570\u0561\u057D\u0581\u0565",
+    ipv6: "IPv6 \u0570\u0561\u057D\u0581\u0565",
+    cidrv4: "IPv4 \u0574\u056B\u057B\u0561\u056F\u0561\u0575\u0584",
+    cidrv6: "IPv6 \u0574\u056B\u057B\u0561\u056F\u0561\u0575\u0584",
+    base64: "base64 \u0571\u0587\u0561\u0579\u0561\u0583\u0578\u057E \u057F\u0578\u0572",
+    base64url: "base64url \u0571\u0587\u0561\u0579\u0561\u0583\u0578\u057E \u057F\u0578\u0572",
+    json_string: "JSON \u057F\u0578\u0572",
+    e164: "E.164 \u0570\u0561\u0574\u0561\u0580",
+    jwt: "JWT",
+    template_literal: "\u0574\u0578\u0582\u057F\u0584"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "\u0569\u056B\u057E",
+    array: "\u0566\u0561\u0576\u0563\u057E\u0561\u056E"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u054D\u056D\u0561\u056C \u0574\u0578\u0582\u057F\u0584\u0561\u0563\u0580\u0578\u0582\u0574\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567\u0580 instanceof ${issue2.expected}, \u057D\u057F\u0561\u0581\u057E\u0565\u056C \u0567 ${received}`;
+        }
+        return `\u054D\u056D\u0561\u056C \u0574\u0578\u0582\u057F\u0584\u0561\u0563\u0580\u0578\u0582\u0574\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567\u0580 ${expected}, \u057D\u057F\u0561\u0581\u057E\u0565\u056C \u0567 ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `\u054D\u056D\u0561\u056C \u0574\u0578\u0582\u057F\u0584\u0561\u0563\u0580\u0578\u0582\u0574\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567\u0580 ${stringifyPrimitive(issue2.values[1])}`;
+        return `\u054D\u056D\u0561\u056C \u057F\u0561\u0580\u0562\u0565\u0580\u0561\u056F\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567\u0580 \u0570\u0565\u057F\u0587\u0575\u0561\u056C\u0576\u0565\u0580\u056B\u0581 \u0574\u0565\u056F\u0568\u055D ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          const maxValue = Number(issue2.maximum);
+          const unit = getArmenianPlural(maxValue, sizing.unit.one, sizing.unit.many);
+          return `\u0549\u0561\u0583\u0561\u0566\u0561\u0576\u0581 \u0574\u0565\u056E \u0561\u0580\u056A\u0565\u0584\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567, \u0578\u0580 ${withDefiniteArticle(issue2.origin ?? "\u0561\u0580\u056A\u0565\u0584")} \u056F\u0578\u0582\u0576\u0565\u0576\u0561 ${adj}${issue2.maximum.toString()} ${unit}`;
+        }
+        return `\u0549\u0561\u0583\u0561\u0566\u0561\u0576\u0581 \u0574\u0565\u056E \u0561\u0580\u056A\u0565\u0584\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567, \u0578\u0580 ${withDefiniteArticle(issue2.origin ?? "\u0561\u0580\u056A\u0565\u0584")} \u056C\u056B\u0576\u056B ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          const minValue = Number(issue2.minimum);
+          const unit = getArmenianPlural(minValue, sizing.unit.one, sizing.unit.many);
+          return `\u0549\u0561\u0583\u0561\u0566\u0561\u0576\u0581 \u0583\u0578\u0584\u0580 \u0561\u0580\u056A\u0565\u0584\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567, \u0578\u0580 ${withDefiniteArticle(issue2.origin)} \u056F\u0578\u0582\u0576\u0565\u0576\u0561 ${adj}${issue2.minimum.toString()} ${unit}`;
+        }
+        return `\u0549\u0561\u0583\u0561\u0566\u0561\u0576\u0581 \u0583\u0578\u0584\u0580 \u0561\u0580\u056A\u0565\u0584\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567, \u0578\u0580 ${withDefiniteArticle(issue2.origin)} \u056C\u056B\u0576\u056B ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `\u054D\u056D\u0561\u056C \u057F\u0578\u0572\u2024 \u057A\u0565\u057F\u0584 \u0567 \u057D\u056F\u057D\u057E\u056B "${_issue.prefix}"-\u0578\u057E`;
+        if (_issue.format === "ends_with")
+          return `\u054D\u056D\u0561\u056C \u057F\u0578\u0572\u2024 \u057A\u0565\u057F\u0584 \u0567 \u0561\u057E\u0561\u0580\u057F\u057E\u056B "${_issue.suffix}"-\u0578\u057E`;
+        if (_issue.format === "includes")
+          return `\u054D\u056D\u0561\u056C \u057F\u0578\u0572\u2024 \u057A\u0565\u057F\u0584 \u0567 \u057A\u0561\u0580\u0578\u0582\u0576\u0561\u056F\u056B "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `\u054D\u056D\u0561\u056C \u057F\u0578\u0572\u2024 \u057A\u0565\u057F\u0584 \u0567 \u0570\u0561\u0574\u0561\u057A\u0561\u057F\u0561\u057D\u056D\u0561\u0576\u056B ${_issue.pattern} \u0571\u0587\u0561\u0579\u0561\u0583\u056B\u0576`;
+        return `\u054D\u056D\u0561\u056C ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `\u054D\u056D\u0561\u056C \u0569\u056B\u057E\u2024 \u057A\u0565\u057F\u0584 \u0567 \u0562\u0561\u0566\u0574\u0561\u057A\u0561\u057F\u056B\u056F \u056C\u056B\u0576\u056B ${issue2.divisor}-\u056B`;
+      case "unrecognized_keys":
+        return `\u0549\u0573\u0561\u0576\u0561\u0579\u057E\u0561\u056E \u0562\u0561\u0576\u0561\u056C\u056B${issue2.keys.length > 1 ? "\u0576\u0565\u0580" : ""}. ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `\u054D\u056D\u0561\u056C \u0562\u0561\u0576\u0561\u056C\u056B ${withDefiniteArticle(issue2.origin)}-\u0578\u0582\u0574`;
+      case "invalid_union":
+        return "\u054D\u056D\u0561\u056C \u0574\u0578\u0582\u057F\u0584\u0561\u0563\u0580\u0578\u0582\u0574";
+      case "invalid_element":
+        return `\u054D\u056D\u0561\u056C \u0561\u0580\u056A\u0565\u0584 ${withDefiniteArticle(issue2.origin)}-\u0578\u0582\u0574`;
+      default:
+        return `\u054D\u056D\u0561\u056C \u0574\u0578\u0582\u057F\u0584\u0561\u0563\u0580\u0578\u0582\u0574`;
+    }
+  };
+};
+function hy_default() {
+  return {
+    localeError: error18()
+  };
+}
+
+// node_modules/zod/v4/locales/id.js
+var error19 = () => {
+  const Sizable = {
+    string: { unit: "karakter", verb: "memiliki" },
+    file: { unit: "byte", verb: "memiliki" },
+    array: { unit: "item", verb: "memiliki" },
+    set: { unit: "item", verb: "memiliki" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "input",
+    email: "alamat email",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "tanggal dan waktu format ISO",
+    date: "tanggal format ISO",
+    time: "jam format ISO",
+    duration: "durasi format ISO",
+    ipv4: "alamat IPv4",
+    ipv6: "alamat IPv6",
+    cidrv4: "rentang alamat IPv4",
+    cidrv6: "rentang alamat IPv6",
+    base64: "string dengan enkode base64",
+    base64url: "string dengan enkode base64url",
+    json_string: "string JSON",
+    e164: "angka E.164",
+    jwt: "JWT",
+    template_literal: "input"
+  };
+  const TypeDictionary = {
+    nan: "NaN"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Input tidak valid: diharapkan instanceof ${issue2.expected}, diterima ${received}`;
+        }
+        return `Input tidak valid: diharapkan ${expected}, diterima ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Input tidak valid: diharapkan ${stringifyPrimitive(issue2.values[0])}`;
+        return `Pilihan tidak valid: diharapkan salah satu dari ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `Terlalu besar: diharapkan ${issue2.origin ?? "value"} memiliki ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elemen"}`;
+        return `Terlalu besar: diharapkan ${issue2.origin ?? "value"} menjadi ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Terlalu kecil: diharapkan ${issue2.origin} memiliki ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `Terlalu kecil: diharapkan ${issue2.origin} menjadi ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `String tidak valid: harus dimulai dengan "${_issue.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `String tidak valid: harus berakhir dengan "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `String tidak valid: harus menyertakan "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `String tidak valid: harus sesuai pola ${_issue.pattern}`;
+        return `${FormatDictionary[_issue.format] ?? issue2.format} tidak valid`;
+      }
+      case "not_multiple_of":
+        return `Angka tidak valid: harus kelipatan dari ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `Kunci tidak dikenali ${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Kunci tidak valid di ${issue2.origin}`;
+      case "invalid_union":
+        return "Input tidak valid";
+      case "invalid_element":
+        return `Nilai tidak valid di ${issue2.origin}`;
+      default:
+        return `Input tidak valid`;
+    }
+  };
+};
+function id_default() {
+  return {
+    localeError: error19()
+  };
+}
+
+// node_modules/zod/v4/locales/is.js
+var error20 = () => {
+  const Sizable = {
+    string: { unit: "stafi", verb: "a\xF0 hafa" },
+    file: { unit: "b\xE6ti", verb: "a\xF0 hafa" },
+    array: { unit: "hluti", verb: "a\xF0 hafa" },
+    set: { unit: "hluti", verb: "a\xF0 hafa" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "gildi",
+    email: "netfang",
+    url: "vefsl\xF3\xF0",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO dagsetning og t\xEDmi",
+    date: "ISO dagsetning",
+    time: "ISO t\xEDmi",
+    duration: "ISO t\xEDmalengd",
+    ipv4: "IPv4 address",
+    ipv6: "IPv6 address",
+    cidrv4: "IPv4 range",
+    cidrv6: "IPv6 range",
+    base64: "base64-encoded strengur",
+    base64url: "base64url-encoded strengur",
+    json_string: "JSON strengur",
+    e164: "E.164 t\xF6lugildi",
+    jwt: "JWT",
+    template_literal: "gildi"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "n\xFAmer",
+    array: "fylki"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Rangt gildi: \xDE\xFA sl\xF3st inn ${received} \xFEar sem \xE1 a\xF0 vera instanceof ${issue2.expected}`;
+        }
+        return `Rangt gildi: \xDE\xFA sl\xF3st inn ${received} \xFEar sem \xE1 a\xF0 vera ${expected}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Rangt gildi: gert r\xE1\xF0 fyrir ${stringifyPrimitive(issue2.values[0])}`;
+        return `\xD3gilt val: m\xE1 vera eitt af eftirfarandi ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `Of st\xF3rt: gert er r\xE1\xF0 fyrir a\xF0 ${issue2.origin ?? "gildi"} hafi ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "hluti"}`;
+        return `Of st\xF3rt: gert er r\xE1\xF0 fyrir a\xF0 ${issue2.origin ?? "gildi"} s\xE9 ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Of l\xEDti\xF0: gert er r\xE1\xF0 fyrir a\xF0 ${issue2.origin} hafi ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `Of l\xEDti\xF0: gert er r\xE1\xF0 fyrir a\xF0 ${issue2.origin} s\xE9 ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with") {
+          return `\xD3gildur strengur: ver\xF0ur a\xF0 byrja \xE1 "${_issue.prefix}"`;
+        }
+        if (_issue.format === "ends_with")
+          return `\xD3gildur strengur: ver\xF0ur a\xF0 enda \xE1 "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `\xD3gildur strengur: ver\xF0ur a\xF0 innihalda "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `\xD3gildur strengur: ver\xF0ur a\xF0 fylgja mynstri ${_issue.pattern}`;
+        return `Rangt ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `R\xF6ng tala: ver\xF0ur a\xF0 vera margfeldi af ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `\xD3\xFEekkt ${issue2.keys.length > 1 ? "ir lyklar" : "ur lykill"}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Rangur lykill \xED ${issue2.origin}`;
+      case "invalid_union":
+        return "Rangt gildi";
+      case "invalid_element":
+        return `Rangt gildi \xED ${issue2.origin}`;
+      default:
+        return `Rangt gildi`;
+    }
+  };
+};
+function is_default() {
+  return {
+    localeError: error20()
+  };
+}
+
+// node_modules/zod/v4/locales/it.js
+var error21 = () => {
+  const Sizable = {
+    string: { unit: "caratteri", verb: "avere" },
+    file: { unit: "byte", verb: "avere" },
+    array: { unit: "elementi", verb: "avere" },
+    set: { unit: "elementi", verb: "avere" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "input",
+    email: "indirizzo email",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "data e ora ISO",
+    date: "data ISO",
+    time: "ora ISO",
+    duration: "durata ISO",
+    ipv4: "indirizzo IPv4",
+    ipv6: "indirizzo IPv6",
+    cidrv4: "intervallo IPv4",
+    cidrv6: "intervallo IPv6",
+    base64: "stringa codificata in base64",
+    base64url: "URL codificata in base64",
+    json_string: "stringa JSON",
+    e164: "numero E.164",
+    jwt: "JWT",
+    template_literal: "input"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "numero",
+    array: "vettore"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Input non valido: atteso instanceof ${issue2.expected}, ricevuto ${received}`;
+        }
+        return `Input non valido: atteso ${expected}, ricevuto ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Input non valido: atteso ${stringifyPrimitive(issue2.values[0])}`;
+        return `Opzione non valida: atteso uno tra ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `Troppo grande: ${issue2.origin ?? "valore"} deve avere ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementi"}`;
+        return `Troppo grande: ${issue2.origin ?? "valore"} deve essere ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Troppo piccolo: ${issue2.origin} deve avere ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `Troppo piccolo: ${issue2.origin} deve essere ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `Stringa non valida: deve iniziare con "${_issue.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `Stringa non valida: deve terminare con "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `Stringa non valida: deve includere "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `Stringa non valida: deve corrispondere al pattern ${_issue.pattern}`;
+        return `Invalid ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `Numero non valido: deve essere un multiplo di ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `Chiav${issue2.keys.length > 1 ? "i" : "e"} non riconosciut${issue2.keys.length > 1 ? "e" : "a"}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Chiave non valida in ${issue2.origin}`;
+      case "invalid_union":
+        return "Input non valido";
+      case "invalid_element":
+        return `Valore non valido in ${issue2.origin}`;
+      default:
+        return `Input non valido`;
+    }
+  };
+};
+function it_default() {
+  return {
+    localeError: error21()
+  };
+}
+
+// node_modules/zod/v4/locales/ja.js
+var error22 = () => {
+  const Sizable = {
+    string: { unit: "\u6587\u5B57", verb: "\u3067\u3042\u308B" },
+    file: { unit: "\u30D0\u30A4\u30C8", verb: "\u3067\u3042\u308B" },
+    array: { unit: "\u8981\u7D20", verb: "\u3067\u3042\u308B" },
+    set: { unit: "\u8981\u7D20", verb: "\u3067\u3042\u308B" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u5165\u529B\u5024",
+    email: "\u30E1\u30FC\u30EB\u30A2\u30C9\u30EC\u30B9",
+    url: "URL",
+    emoji: "\u7D75\u6587\u5B57",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO\u65E5\u6642",
+    date: "ISO\u65E5\u4ED8",
+    time: "ISO\u6642\u523B",
+    duration: "ISO\u671F\u9593",
+    ipv4: "IPv4\u30A2\u30C9\u30EC\u30B9",
+    ipv6: "IPv6\u30A2\u30C9\u30EC\u30B9",
+    cidrv4: "IPv4\u7BC4\u56F2",
+    cidrv6: "IPv6\u7BC4\u56F2",
+    base64: "base64\u30A8\u30F3\u30B3\u30FC\u30C9\u6587\u5B57\u5217",
+    base64url: "base64url\u30A8\u30F3\u30B3\u30FC\u30C9\u6587\u5B57\u5217",
+    json_string: "JSON\u6587\u5B57\u5217",
+    e164: "E.164\u756A\u53F7",
+    jwt: "JWT",
+    template_literal: "\u5165\u529B\u5024"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "\u6570\u5024",
+    array: "\u914D\u5217"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u7121\u52B9\u306A\u5165\u529B: instanceof ${issue2.expected}\u304C\u671F\u5F85\u3055\u308C\u307E\u3057\u305F\u304C\u3001${received}\u304C\u5165\u529B\u3055\u308C\u307E\u3057\u305F`;
+        }
+        return `\u7121\u52B9\u306A\u5165\u529B: ${expected}\u304C\u671F\u5F85\u3055\u308C\u307E\u3057\u305F\u304C\u3001${received}\u304C\u5165\u529B\u3055\u308C\u307E\u3057\u305F`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `\u7121\u52B9\u306A\u5165\u529B: ${stringifyPrimitive(issue2.values[0])}\u304C\u671F\u5F85\u3055\u308C\u307E\u3057\u305F`;
+        return `\u7121\u52B9\u306A\u9078\u629E: ${joinValues(issue2.values, "\u3001")}\u306E\u3044\u305A\u308C\u304B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "\u4EE5\u4E0B\u3067\u3042\u308B" : "\u3088\u308A\u5C0F\u3055\u3044";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `\u5927\u304D\u3059\u304E\u308B\u5024: ${issue2.origin ?? "\u5024"}\u306F${issue2.maximum.toString()}${sizing.unit ?? "\u8981\u7D20"}${adj}\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+        return `\u5927\u304D\u3059\u304E\u308B\u5024: ${issue2.origin ?? "\u5024"}\u306F${issue2.maximum.toString()}${adj}\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? "\u4EE5\u4E0A\u3067\u3042\u308B" : "\u3088\u308A\u5927\u304D\u3044";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `\u5C0F\u3055\u3059\u304E\u308B\u5024: ${issue2.origin}\u306F${issue2.minimum.toString()}${sizing.unit}${adj}\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+        return `\u5C0F\u3055\u3059\u304E\u308B\u5024: ${issue2.origin}\u306F${issue2.minimum.toString()}${adj}\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `\u7121\u52B9\u306A\u6587\u5B57\u5217: "${_issue.prefix}"\u3067\u59CB\u307E\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+        if (_issue.format === "ends_with")
+          return `\u7121\u52B9\u306A\u6587\u5B57\u5217: "${_issue.suffix}"\u3067\u7D42\u308F\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+        if (_issue.format === "includes")
+          return `\u7121\u52B9\u306A\u6587\u5B57\u5217: "${_issue.includes}"\u3092\u542B\u3080\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+        if (_issue.format === "regex")
+          return `\u7121\u52B9\u306A\u6587\u5B57\u5217: \u30D1\u30BF\u30FC\u30F3${_issue.pattern}\u306B\u4E00\u81F4\u3059\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+        return `\u7121\u52B9\u306A${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `\u7121\u52B9\u306A\u6570\u5024: ${issue2.divisor}\u306E\u500D\u6570\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+      case "unrecognized_keys":
+        return `\u8A8D\u8B58\u3055\u308C\u3066\u3044\u306A\u3044\u30AD\u30FC${issue2.keys.length > 1 ? "\u7FA4" : ""}: ${joinValues(issue2.keys, "\u3001")}`;
+      case "invalid_key":
+        return `${issue2.origin}\u5185\u306E\u7121\u52B9\u306A\u30AD\u30FC`;
+      case "invalid_union":
+        return "\u7121\u52B9\u306A\u5165\u529B";
+      case "invalid_element":
+        return `${issue2.origin}\u5185\u306E\u7121\u52B9\u306A\u5024`;
+      default:
+        return `\u7121\u52B9\u306A\u5165\u529B`;
+    }
+  };
+};
+function ja_default() {
+  return {
+    localeError: error22()
+  };
+}
+
+// node_modules/zod/v4/locales/ka.js
+var error23 = () => {
+  const Sizable = {
+    string: { unit: "\u10E1\u10D8\u10DB\u10D1\u10DD\u10DA\u10DD", verb: "\u10E3\u10DC\u10D3\u10D0 \u10E8\u10D4\u10D8\u10EA\u10D0\u10D5\u10D3\u10D4\u10E1" },
+    file: { unit: "\u10D1\u10D0\u10D8\u10E2\u10D8", verb: "\u10E3\u10DC\u10D3\u10D0 \u10E8\u10D4\u10D8\u10EA\u10D0\u10D5\u10D3\u10D4\u10E1" },
+    array: { unit: "\u10D4\u10DA\u10D4\u10DB\u10D4\u10DC\u10E2\u10D8", verb: "\u10E3\u10DC\u10D3\u10D0 \u10E8\u10D4\u10D8\u10EA\u10D0\u10D5\u10D3\u10D4\u10E1" },
+    set: { unit: "\u10D4\u10DA\u10D4\u10DB\u10D4\u10DC\u10E2\u10D8", verb: "\u10E3\u10DC\u10D3\u10D0 \u10E8\u10D4\u10D8\u10EA\u10D0\u10D5\u10D3\u10D4\u10E1" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u10E8\u10D4\u10E7\u10D5\u10D0\u10DC\u10D0",
+    email: "\u10D4\u10DA-\u10E4\u10DD\u10E1\u10E2\u10D8\u10E1 \u10DB\u10D8\u10E1\u10D0\u10DB\u10D0\u10E0\u10D7\u10D8",
+    url: "URL",
+    emoji: "\u10D4\u10DB\u10DD\u10EF\u10D8",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "\u10D7\u10D0\u10E0\u10D8\u10E6\u10D8-\u10D3\u10E0\u10DD",
+    date: "\u10D7\u10D0\u10E0\u10D8\u10E6\u10D8",
+    time: "\u10D3\u10E0\u10DD",
+    duration: "\u10EE\u10D0\u10DC\u10D2\u10E0\u10EB\u10DA\u10D8\u10D5\u10DD\u10D1\u10D0",
+    ipv4: "IPv4 \u10DB\u10D8\u10E1\u10D0\u10DB\u10D0\u10E0\u10D7\u10D8",
+    ipv6: "IPv6 \u10DB\u10D8\u10E1\u10D0\u10DB\u10D0\u10E0\u10D7\u10D8",
+    cidrv4: "IPv4 \u10D3\u10D8\u10D0\u10DE\u10D0\u10D6\u10DD\u10DC\u10D8",
+    cidrv6: "IPv6 \u10D3\u10D8\u10D0\u10DE\u10D0\u10D6\u10DD\u10DC\u10D8",
+    base64: "base64-\u10D9\u10DD\u10D3\u10D8\u10E0\u10D4\u10D1\u10E3\u10DA\u10D8 \u10E1\u10E2\u10E0\u10D8\u10DC\u10D2\u10D8",
+    base64url: "base64url-\u10D9\u10DD\u10D3\u10D8\u10E0\u10D4\u10D1\u10E3\u10DA\u10D8 \u10E1\u10E2\u10E0\u10D8\u10DC\u10D2\u10D8",
+    json_string: "JSON \u10E1\u10E2\u10E0\u10D8\u10DC\u10D2\u10D8",
+    e164: "E.164 \u10DC\u10DD\u10DB\u10D4\u10E0\u10D8",
+    jwt: "JWT",
+    template_literal: "\u10E8\u10D4\u10E7\u10D5\u10D0\u10DC\u10D0"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "\u10E0\u10D8\u10EA\u10EE\u10D5\u10D8",
+    string: "\u10E1\u10E2\u10E0\u10D8\u10DC\u10D2\u10D8",
+    boolean: "\u10D1\u10E3\u10DA\u10D4\u10D0\u10DC\u10D8",
+    function: "\u10E4\u10E3\u10DC\u10E5\u10EA\u10D8\u10D0",
+    array: "\u10DB\u10D0\u10E1\u10D8\u10D5\u10D8"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E8\u10D4\u10E7\u10D5\u10D0\u10DC\u10D0: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 instanceof ${issue2.expected}, \u10DB\u10D8\u10E6\u10D4\u10D1\u10E3\u10DA\u10D8 ${received}`;
+        }
+        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E8\u10D4\u10E7\u10D5\u10D0\u10DC\u10D0: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 ${expected}, \u10DB\u10D8\u10E6\u10D4\u10D1\u10E3\u10DA\u10D8 ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E8\u10D4\u10E7\u10D5\u10D0\u10DC\u10D0: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 ${stringifyPrimitive(issue2.values[0])}`;
+        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10D5\u10D0\u10E0\u10D8\u10D0\u10DC\u10E2\u10D8: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8\u10D0 \u10D4\u10E0\u10D7-\u10D4\u10E0\u10D7\u10D8 ${joinValues(issue2.values, "|")}-\u10D3\u10D0\u10DC`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `\u10D6\u10D4\u10D3\u10DB\u10D4\u10E2\u10D0\u10D3 \u10D3\u10D8\u10D3\u10D8: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 ${issue2.origin ?? "\u10DB\u10DC\u10D8\u10E8\u10D5\u10DC\u10D4\u10DA\u10DD\u10D1\u10D0"} ${sizing.verb} ${adj}${issue2.maximum.toString()} ${sizing.unit}`;
+        return `\u10D6\u10D4\u10D3\u10DB\u10D4\u10E2\u10D0\u10D3 \u10D3\u10D8\u10D3\u10D8: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 ${issue2.origin ?? "\u10DB\u10DC\u10D8\u10E8\u10D5\u10DC\u10D4\u10DA\u10DD\u10D1\u10D0"} \u10D8\u10E7\u10DD\u10E1 ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `\u10D6\u10D4\u10D3\u10DB\u10D4\u10E2\u10D0\u10D3 \u10DE\u10D0\u10E2\u10D0\u10E0\u10D0: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 ${issue2.origin} ${sizing.verb} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `\u10D6\u10D4\u10D3\u10DB\u10D4\u10E2\u10D0\u10D3 \u10DE\u10D0\u10E2\u10D0\u10E0\u10D0: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 ${issue2.origin} \u10D8\u10E7\u10DD\u10E1 ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with") {
+          return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E1\u10E2\u10E0\u10D8\u10DC\u10D2\u10D8: \u10E3\u10DC\u10D3\u10D0 \u10D8\u10EC\u10E7\u10D4\u10D1\u10DD\u10D3\u10D4\u10E1 "${_issue.prefix}"-\u10D8\u10D7`;
+        }
+        if (_issue.format === "ends_with")
+          return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E1\u10E2\u10E0\u10D8\u10DC\u10D2\u10D8: \u10E3\u10DC\u10D3\u10D0 \u10DB\u10D7\u10D0\u10D5\u10E0\u10D3\u10D4\u10D1\u10DD\u10D3\u10D4\u10E1 "${_issue.suffix}"-\u10D8\u10D7`;
+        if (_issue.format === "includes")
+          return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E1\u10E2\u10E0\u10D8\u10DC\u10D2\u10D8: \u10E3\u10DC\u10D3\u10D0 \u10E8\u10D4\u10D8\u10EA\u10D0\u10D5\u10D3\u10D4\u10E1 "${_issue.includes}"-\u10E1`;
+        if (_issue.format === "regex")
+          return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E1\u10E2\u10E0\u10D8\u10DC\u10D2\u10D8: \u10E3\u10DC\u10D3\u10D0 \u10E8\u10D4\u10D4\u10E1\u10D0\u10D1\u10D0\u10DB\u10D4\u10D1\u10DD\u10D3\u10D4\u10E1 \u10E8\u10D0\u10D1\u10DA\u10DD\u10DC\u10E1 ${_issue.pattern}`;
+        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E0\u10D8\u10EA\u10EE\u10D5\u10D8: \u10E3\u10DC\u10D3\u10D0 \u10D8\u10E7\u10DD\u10E1 ${issue2.divisor}-\u10D8\u10E1 \u10EF\u10D4\u10E0\u10D0\u10D3\u10D8`;
+      case "unrecognized_keys":
+        return `\u10E3\u10EA\u10DC\u10DD\u10D1\u10D8 \u10D2\u10D0\u10E1\u10D0\u10E6\u10D4\u10D1${issue2.keys.length > 1 ? "\u10D4\u10D1\u10D8" : "\u10D8"}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10D2\u10D0\u10E1\u10D0\u10E6\u10D4\u10D1\u10D8 ${issue2.origin}-\u10E8\u10D8`;
+      case "invalid_union":
+        return "\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E8\u10D4\u10E7\u10D5\u10D0\u10DC\u10D0";
+      case "invalid_element":
+        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10DB\u10DC\u10D8\u10E8\u10D5\u10DC\u10D4\u10DA\u10DD\u10D1\u10D0 ${issue2.origin}-\u10E8\u10D8`;
+      default:
+        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E8\u10D4\u10E7\u10D5\u10D0\u10DC\u10D0`;
+    }
+  };
+};
+function ka_default() {
+  return {
+    localeError: error23()
+  };
+}
+
+// node_modules/zod/v4/locales/km.js
+var error24 = () => {
+  const Sizable = {
+    string: { unit: "\u178F\u17BD\u17A2\u1780\u17D2\u179F\u179A", verb: "\u1782\u17BD\u179A\u1798\u17B6\u1793" },
+    file: { unit: "\u1794\u17C3", verb: "\u1782\u17BD\u179A\u1798\u17B6\u1793" },
+    array: { unit: "\u1792\u17B6\u178F\u17BB", verb: "\u1782\u17BD\u179A\u1798\u17B6\u1793" },
+    set: { unit: "\u1792\u17B6\u178F\u17BB", verb: "\u1782\u17BD\u179A\u1798\u17B6\u1793" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1794\u1789\u17D2\u1785\u17BC\u179B",
+    email: "\u17A2\u17B6\u179F\u1799\u178A\u17D2\u178B\u17B6\u1793\u17A2\u17CA\u17B8\u1798\u17C2\u179B",
+    url: "URL",
+    emoji: "\u179F\u1789\u17D2\u1789\u17B6\u17A2\u17B6\u179A\u1798\u17D2\u1798\u178E\u17CD",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "\u1780\u17B6\u179B\u1794\u179A\u17B7\u1785\u17D2\u1786\u17C1\u1791 \u1793\u17B7\u1784\u1798\u17C9\u17C4\u1784 ISO",
+    date: "\u1780\u17B6\u179B\u1794\u179A\u17B7\u1785\u17D2\u1786\u17C1\u1791 ISO",
+    time: "\u1798\u17C9\u17C4\u1784 ISO",
+    duration: "\u179A\u1799\u17C8\u1796\u17C1\u179B ISO",
+    ipv4: "\u17A2\u17B6\u179F\u1799\u178A\u17D2\u178B\u17B6\u1793 IPv4",
+    ipv6: "\u17A2\u17B6\u179F\u1799\u178A\u17D2\u178B\u17B6\u1793 IPv6",
+    cidrv4: "\u178A\u17C2\u1793\u17A2\u17B6\u179F\u1799\u178A\u17D2\u178B\u17B6\u1793 IPv4",
+    cidrv6: "\u178A\u17C2\u1793\u17A2\u17B6\u179F\u1799\u178A\u17D2\u178B\u17B6\u1793 IPv6",
+    base64: "\u1781\u17D2\u179F\u17C2\u17A2\u1780\u17D2\u179F\u179A\u17A2\u17CA\u17B7\u1780\u17BC\u178A base64",
+    base64url: "\u1781\u17D2\u179F\u17C2\u17A2\u1780\u17D2\u179F\u179A\u17A2\u17CA\u17B7\u1780\u17BC\u178A base64url",
+    json_string: "\u1781\u17D2\u179F\u17C2\u17A2\u1780\u17D2\u179F\u179A JSON",
+    e164: "\u179B\u17C1\u1781 E.164",
+    jwt: "JWT",
+    template_literal: "\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1794\u1789\u17D2\u1785\u17BC\u179B"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "\u179B\u17C1\u1781",
+    array: "\u17A2\u17B6\u179A\u17C1 (Array)",
+    null: "\u1782\u17D2\u1798\u17B6\u1793\u178F\u1798\u17D2\u179B\u17C3 (null)"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1794\u1789\u17D2\u1785\u17BC\u179B\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A instanceof ${issue2.expected} \u1794\u17C9\u17BB\u1793\u17D2\u178F\u17C2\u1791\u1791\u17BD\u179B\u1794\u17B6\u1793 ${received}`;
+        }
+        return `\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1794\u1789\u17D2\u1785\u17BC\u179B\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A ${expected} \u1794\u17C9\u17BB\u1793\u17D2\u178F\u17C2\u1791\u1791\u17BD\u179B\u1794\u17B6\u1793 ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1794\u1789\u17D2\u1785\u17BC\u179B\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A ${stringifyPrimitive(issue2.values[0])}`;
+        return `\u1787\u1798\u17D2\u179A\u17BE\u179F\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1787\u17B6\u1798\u17BD\u1799\u1780\u17D2\u1793\u17BB\u1784\u1785\u17C6\u178E\u17C4\u1798 ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `\u1792\u17C6\u1796\u17C1\u1780\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A ${issue2.origin ?? "\u178F\u1798\u17D2\u179B\u17C3"} ${adj} ${issue2.maximum.toString()} ${sizing.unit ?? "\u1792\u17B6\u178F\u17BB"}`;
+        return `\u1792\u17C6\u1796\u17C1\u1780\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A ${issue2.origin ?? "\u178F\u1798\u17D2\u179B\u17C3"} ${adj} ${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `\u178F\u17BC\u1785\u1796\u17C1\u1780\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A ${issue2.origin} ${adj} ${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `\u178F\u17BC\u1785\u1796\u17C1\u1780\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A ${issue2.origin} ${adj} ${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with") {
+          return `\u1781\u17D2\u179F\u17C2\u17A2\u1780\u17D2\u179F\u179A\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1785\u17B6\u1794\u17CB\u1795\u17D2\u178F\u17BE\u1798\u178A\u17C4\u1799 "${_issue.prefix}"`;
+        }
+        if (_issue.format === "ends_with")
+          return `\u1781\u17D2\u179F\u17C2\u17A2\u1780\u17D2\u179F\u179A\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1794\u1789\u17D2\u1785\u1794\u17CB\u178A\u17C4\u1799 "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `\u1781\u17D2\u179F\u17C2\u17A2\u1780\u17D2\u179F\u179A\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1798\u17B6\u1793 "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `\u1781\u17D2\u179F\u17C2\u17A2\u1780\u17D2\u179F\u179A\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u178F\u17C2\u1795\u17D2\u1782\u17BC\u1795\u17D2\u1782\u1784\u1793\u17B9\u1784\u1791\u1798\u17D2\u179A\u1784\u17CB\u178A\u17C2\u179B\u1794\u17B6\u1793\u1780\u17C6\u178E\u178F\u17CB ${_issue.pattern}`;
+        return `\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `\u179B\u17C1\u1781\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u178F\u17C2\u1787\u17B6\u1796\u17A0\u17BB\u1782\u17BB\u178E\u1793\u17C3 ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `\u179A\u1780\u1783\u17BE\u1789\u179F\u17C4\u1798\u17B7\u1793\u179F\u17D2\u1782\u17B6\u179B\u17CB\u17D6 ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `\u179F\u17C4\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u1793\u17C5\u1780\u17D2\u1793\u17BB\u1784 ${issue2.origin}`;
+      case "invalid_union":
+        return `\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C`;
+      case "invalid_element":
+        return `\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u1793\u17C5\u1780\u17D2\u1793\u17BB\u1784 ${issue2.origin}`;
+      default:
+        return `\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C`;
+    }
+  };
+};
+function km_default() {
+  return {
+    localeError: error24()
+  };
+}
+
+// node_modules/zod/v4/locales/kh.js
+function kh_default() {
+  return km_default();
+}
+
+// node_modules/zod/v4/locales/ko.js
+var error25 = () => {
+  const Sizable = {
+    string: { unit: "\uBB38\uC790", verb: "to have" },
+    file: { unit: "\uBC14\uC774\uD2B8", verb: "to have" },
+    array: { unit: "\uAC1C", verb: "to have" },
+    set: { unit: "\uAC1C", verb: "to have" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\uC785\uB825",
+    email: "\uC774\uBA54\uC77C \uC8FC\uC18C",
+    url: "URL",
+    emoji: "\uC774\uBAA8\uC9C0",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO \uB0A0\uC9DC\uC2DC\uAC04",
+    date: "ISO \uB0A0\uC9DC",
+    time: "ISO \uC2DC\uAC04",
+    duration: "ISO \uAE30\uAC04",
+    ipv4: "IPv4 \uC8FC\uC18C",
+    ipv6: "IPv6 \uC8FC\uC18C",
+    cidrv4: "IPv4 \uBC94\uC704",
+    cidrv6: "IPv6 \uBC94\uC704",
+    base64: "base64 \uC778\uCF54\uB529 \uBB38\uC790\uC5F4",
+    base64url: "base64url \uC778\uCF54\uB529 \uBB38\uC790\uC5F4",
+    json_string: "JSON \uBB38\uC790\uC5F4",
+    e164: "E.164 \uBC88\uD638",
+    jwt: "JWT",
+    template_literal: "\uC785\uB825"
+  };
+  const TypeDictionary = {
+    nan: "NaN"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\uC798\uBABB\uB41C \uC785\uB825: \uC608\uC0C1 \uD0C0\uC785\uC740 instanceof ${issue2.expected}, \uBC1B\uC740 \uD0C0\uC785\uC740 ${received}\uC785\uB2C8\uB2E4`;
+        }
+        return `\uC798\uBABB\uB41C \uC785\uB825: \uC608\uC0C1 \uD0C0\uC785\uC740 ${expected}, \uBC1B\uC740 \uD0C0\uC785\uC740 ${received}\uC785\uB2C8\uB2E4`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `\uC798\uBABB\uB41C \uC785\uB825: \uAC12\uC740 ${stringifyPrimitive(issue2.values[0])} \uC774\uC5B4\uC57C \uD569\uB2C8\uB2E4`;
+        return `\uC798\uBABB\uB41C \uC635\uC158: ${joinValues(issue2.values, "\uB610\uB294 ")} \uC911 \uD558\uB098\uC5EC\uC57C \uD569\uB2C8\uB2E4`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "\uC774\uD558" : "\uBBF8\uB9CC";
+        const suffix = adj === "\uBBF8\uB9CC" ? "\uC774\uC5B4\uC57C \uD569\uB2C8\uB2E4" : "\uC5EC\uC57C \uD569\uB2C8\uB2E4";
+        const sizing = getSizing(issue2.origin);
+        const unit = sizing?.unit ?? "\uC694\uC18C";
+        if (sizing)
+          return `${issue2.origin ?? "\uAC12"}\uC774 \uB108\uBB34 \uD07D\uB2C8\uB2E4: ${issue2.maximum.toString()}${unit} ${adj}${suffix}`;
+        return `${issue2.origin ?? "\uAC12"}\uC774 \uB108\uBB34 \uD07D\uB2C8\uB2E4: ${issue2.maximum.toString()} ${adj}${suffix}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? "\uC774\uC0C1" : "\uCD08\uACFC";
+        const suffix = adj === "\uC774\uC0C1" ? "\uC774\uC5B4\uC57C \uD569\uB2C8\uB2E4" : "\uC5EC\uC57C \uD569\uB2C8\uB2E4";
+        const sizing = getSizing(issue2.origin);
+        const unit = sizing?.unit ?? "\uC694\uC18C";
+        if (sizing) {
+          return `${issue2.origin ?? "\uAC12"}\uC774 \uB108\uBB34 \uC791\uC2B5\uB2C8\uB2E4: ${issue2.minimum.toString()}${unit} ${adj}${suffix}`;
+        }
+        return `${issue2.origin ?? "\uAC12"}\uC774 \uB108\uBB34 \uC791\uC2B5\uB2C8\uB2E4: ${issue2.minimum.toString()} ${adj}${suffix}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with") {
+          return `\uC798\uBABB\uB41C \uBB38\uC790\uC5F4: "${_issue.prefix}"(\uC73C)\uB85C \uC2DC\uC791\uD574\uC57C \uD569\uB2C8\uB2E4`;
+        }
+        if (_issue.format === "ends_with")
+          return `\uC798\uBABB\uB41C \uBB38\uC790\uC5F4: "${_issue.suffix}"(\uC73C)\uB85C \uB05D\uB098\uC57C \uD569\uB2C8\uB2E4`;
+        if (_issue.format === "includes")
+          return `\uC798\uBABB\uB41C \uBB38\uC790\uC5F4: "${_issue.includes}"\uC744(\uB97C) \uD3EC\uD568\uD574\uC57C \uD569\uB2C8\uB2E4`;
+        if (_issue.format === "regex")
+          return `\uC798\uBABB\uB41C \uBB38\uC790\uC5F4: \uC815\uADDC\uC2DD ${_issue.pattern} \uD328\uD134\uACFC \uC77C\uCE58\uD574\uC57C \uD569\uB2C8\uB2E4`;
+        return `\uC798\uBABB\uB41C ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `\uC798\uBABB\uB41C \uC22B\uC790: ${issue2.divisor}\uC758 \uBC30\uC218\uC5EC\uC57C \uD569\uB2C8\uB2E4`;
+      case "unrecognized_keys":
+        return `\uC778\uC2DD\uD560 \uC218 \uC5C6\uB294 \uD0A4: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `\uC798\uBABB\uB41C \uD0A4: ${issue2.origin}`;
+      case "invalid_union":
+        return `\uC798\uBABB\uB41C \uC785\uB825`;
+      case "invalid_element":
+        return `\uC798\uBABB\uB41C \uAC12: ${issue2.origin}`;
+      default:
+        return `\uC798\uBABB\uB41C \uC785\uB825`;
+    }
+  };
+};
+function ko_default() {
+  return {
+    localeError: error25()
+  };
+}
+
+// node_modules/zod/v4/locales/lt.js
+var capitalizeFirstCharacter = (text) => {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+};
+function getUnitTypeFromNumber(number4) {
+  const abs = Math.abs(number4);
+  const last = abs % 10;
+  const last2 = abs % 100;
+  if (last2 >= 11 && last2 <= 19 || last === 0)
+    return "many";
+  if (last === 1)
+    return "one";
+  return "few";
+}
+var error26 = () => {
+  const Sizable = {
+    string: {
+      unit: {
+        one: "simbolis",
+        few: "simboliai",
+        many: "simboli\u0173"
+      },
+      verb: {
+        smaller: {
+          inclusive: "turi b\u016Bti ne ilgesn\u0117 kaip",
+          notInclusive: "turi b\u016Bti trumpesn\u0117 kaip"
+        },
+        bigger: {
+          inclusive: "turi b\u016Bti ne trumpesn\u0117 kaip",
+          notInclusive: "turi b\u016Bti ilgesn\u0117 kaip"
+        }
+      }
+    },
+    file: {
+      unit: {
+        one: "baitas",
+        few: "baitai",
+        many: "bait\u0173"
+      },
+      verb: {
+        smaller: {
+          inclusive: "turi b\u016Bti ne didesnis kaip",
+          notInclusive: "turi b\u016Bti ma\u017Eesnis kaip"
+        },
+        bigger: {
+          inclusive: "turi b\u016Bti ne ma\u017Eesnis kaip",
+          notInclusive: "turi b\u016Bti didesnis kaip"
+        }
+      }
+    },
+    array: {
+      unit: {
+        one: "element\u0105",
+        few: "elementus",
+        many: "element\u0173"
+      },
+      verb: {
+        smaller: {
+          inclusive: "turi tur\u0117ti ne daugiau kaip",
+          notInclusive: "turi tur\u0117ti ma\u017Eiau kaip"
+        },
+        bigger: {
+          inclusive: "turi tur\u0117ti ne ma\u017Eiau kaip",
+          notInclusive: "turi tur\u0117ti daugiau kaip"
+        }
+      }
+    },
+    set: {
+      unit: {
+        one: "element\u0105",
+        few: "elementus",
+        many: "element\u0173"
+      },
+      verb: {
+        smaller: {
+          inclusive: "turi tur\u0117ti ne daugiau kaip",
+          notInclusive: "turi tur\u0117ti ma\u017Eiau kaip"
+        },
+        bigger: {
+          inclusive: "turi tur\u0117ti ne ma\u017Eiau kaip",
+          notInclusive: "turi tur\u0117ti daugiau kaip"
+        }
+      }
+    }
+  };
+  function getSizing(origin, unitType, inclusive, targetShouldBe) {
+    const result = Sizable[origin] ?? null;
+    if (result === null)
+      return result;
+    return {
+      unit: result.unit[unitType],
+      verb: result.verb[targetShouldBe][inclusive ? "inclusive" : "notInclusive"]
+    };
+  }
+  const FormatDictionary = {
+    regex: "\u012Fvestis",
+    email: "el. pa\u0161to adresas",
+    url: "URL",
+    emoji: "jaustukas",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO data ir laikas",
+    date: "ISO data",
+    time: "ISO laikas",
+    duration: "ISO trukm\u0117",
+    ipv4: "IPv4 adresas",
+    ipv6: "IPv6 adresas",
+    cidrv4: "IPv4 tinklo prefiksas (CIDR)",
+    cidrv6: "IPv6 tinklo prefiksas (CIDR)",
+    base64: "base64 u\u017Ekoduota eilut\u0117",
+    base64url: "base64url u\u017Ekoduota eilut\u0117",
+    json_string: "JSON eilut\u0117",
+    e164: "E.164 numeris",
+    jwt: "JWT",
+    template_literal: "\u012Fvestis"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "skai\u010Dius",
+    bigint: "sveikasis skai\u010Dius",
+    string: "eilut\u0117",
+    boolean: "login\u0117 reik\u0161m\u0117",
+    undefined: "neapibr\u0117\u017Eta reik\u0161m\u0117",
+    function: "funkcija",
+    symbol: "simbolis",
+    array: "masyvas",
+    object: "objektas",
+    null: "nulin\u0117 reik\u0161m\u0117"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Gautas tipas ${received}, o tik\u0117tasi - instanceof ${issue2.expected}`;
+        }
+        return `Gautas tipas ${received}, o tik\u0117tasi - ${expected}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Privalo b\u016Bti ${stringifyPrimitive(issue2.values[0])}`;
+        return `Privalo b\u016Bti vienas i\u0161 ${joinValues(issue2.values, "|")} pasirinkim\u0173`;
+      case "too_big": {
+        const origin = TypeDictionary[issue2.origin] ?? issue2.origin;
+        const sizing = getSizing(issue2.origin, getUnitTypeFromNumber(Number(issue2.maximum)), issue2.inclusive ?? false, "smaller");
+        if (sizing?.verb)
+          return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reik\u0161m\u0117")} ${sizing.verb} ${issue2.maximum.toString()} ${sizing.unit ?? "element\u0173"}`;
+        const adj = issue2.inclusive ? "ne didesnis kaip" : "ma\u017Eesnis kaip";
+        return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reik\u0161m\u0117")} turi b\u016Bti ${adj} ${issue2.maximum.toString()} ${sizing?.unit}`;
+      }
+      case "too_small": {
+        const origin = TypeDictionary[issue2.origin] ?? issue2.origin;
+        const sizing = getSizing(issue2.origin, getUnitTypeFromNumber(Number(issue2.minimum)), issue2.inclusive ?? false, "bigger");
+        if (sizing?.verb)
+          return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reik\u0161m\u0117")} ${sizing.verb} ${issue2.minimum.toString()} ${sizing.unit ?? "element\u0173"}`;
+        const adj = issue2.inclusive ? "ne ma\u017Eesnis kaip" : "didesnis kaip";
+        return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reik\u0161m\u0117")} turi b\u016Bti ${adj} ${issue2.minimum.toString()} ${sizing?.unit}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with") {
+          return `Eilut\u0117 privalo prasid\u0117ti "${_issue.prefix}"`;
+        }
+        if (_issue.format === "ends_with")
+          return `Eilut\u0117 privalo pasibaigti "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `Eilut\u0117 privalo \u012Ftraukti "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `Eilut\u0117 privalo atitikti ${_issue.pattern}`;
+        return `Neteisingas ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `Skai\u010Dius privalo b\u016Bti ${issue2.divisor} kartotinis.`;
+      case "unrecognized_keys":
+        return `Neatpa\u017Eint${issue2.keys.length > 1 ? "i" : "as"} rakt${issue2.keys.length > 1 ? "ai" : "as"}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return "Rastas klaidingas raktas";
+      case "invalid_union":
+        return "Klaidinga \u012Fvestis";
+      case "invalid_element": {
+        const origin = TypeDictionary[issue2.origin] ?? issue2.origin;
+        return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reik\u0161m\u0117")} turi klaiding\u0105 \u012Fvest\u012F`;
+      }
+      default:
+        return "Klaidinga \u012Fvestis";
+    }
+  };
+};
+function lt_default() {
+  return {
+    localeError: error26()
+  };
+}
+
+// node_modules/zod/v4/locales/mk.js
+var error27 = () => {
+  const Sizable = {
+    string: { unit: "\u0437\u043D\u0430\u0446\u0438", verb: "\u0434\u0430 \u0438\u043C\u0430\u0430\u0442" },
+    file: { unit: "\u0431\u0430\u0458\u0442\u0438", verb: "\u0434\u0430 \u0438\u043C\u0430\u0430\u0442" },
+    array: { unit: "\u0441\u0442\u0430\u0432\u043A\u0438", verb: "\u0434\u0430 \u0438\u043C\u0430\u0430\u0442" },
+    set: { unit: "\u0441\u0442\u0430\u0432\u043A\u0438", verb: "\u0434\u0430 \u0438\u043C\u0430\u0430\u0442" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u0432\u043D\u0435\u0441",
+    email: "\u0430\u0434\u0440\u0435\u0441\u0430 \u043D\u0430 \u0435-\u043F\u043E\u0448\u0442\u0430",
+    url: "URL",
+    emoji: "\u0435\u043C\u043E\u045F\u0438",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO \u0434\u0430\u0442\u0443\u043C \u0438 \u0432\u0440\u0435\u043C\u0435",
+    date: "ISO \u0434\u0430\u0442\u0443\u043C",
+    time: "ISO \u0432\u0440\u0435\u043C\u0435",
+    duration: "ISO \u0432\u0440\u0435\u043C\u0435\u0442\u0440\u0430\u0435\u045A\u0435",
+    ipv4: "IPv4 \u0430\u0434\u0440\u0435\u0441\u0430",
+    ipv6: "IPv6 \u0430\u0434\u0440\u0435\u0441\u0430",
+    cidrv4: "IPv4 \u043E\u043F\u0441\u0435\u0433",
+    cidrv6: "IPv6 \u043E\u043F\u0441\u0435\u0433",
+    base64: "base64-\u0435\u043D\u043A\u043E\u0434\u0438\u0440\u0430\u043D\u0430 \u043D\u0438\u0437\u0430",
+    base64url: "base64url-\u0435\u043D\u043A\u043E\u0434\u0438\u0440\u0430\u043D\u0430 \u043D\u0438\u0437\u0430",
+    json_string: "JSON \u043D\u0438\u0437\u0430",
+    e164: "E.164 \u0431\u0440\u043E\u0458",
+    jwt: "JWT",
+    template_literal: "\u0432\u043D\u0435\u0441"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "\u0431\u0440\u043E\u0458",
+    array: "\u043D\u0438\u0437\u0430"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u0413\u0440\u0435\u0448\u0435\u043D \u0432\u043D\u0435\u0441: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 instanceof ${issue2.expected}, \u043F\u0440\u0438\u043C\u0435\u043D\u043E ${received}`;
+        }
+        return `\u0413\u0440\u0435\u0448\u0435\u043D \u0432\u043D\u0435\u0441: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 ${expected}, \u043F\u0440\u0438\u043C\u0435\u043D\u043E ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Invalid input: expected ${stringifyPrimitive(issue2.values[0])}`;
+        return `\u0413\u0440\u0435\u0448\u0430\u043D\u0430 \u043E\u043F\u0446\u0438\u0458\u0430: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 \u0435\u0434\u043D\u0430 ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `\u041F\u0440\u0435\u043C\u043D\u043E\u0433\u0443 \u0433\u043E\u043B\u0435\u043C: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 ${issue2.origin ?? "\u0432\u0440\u0435\u0434\u043D\u043E\u0441\u0442\u0430"} \u0434\u0430 \u0438\u043C\u0430 ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0438"}`;
+        return `\u041F\u0440\u0435\u043C\u043D\u043E\u0433\u0443 \u0433\u043E\u043B\u0435\u043C: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 ${issue2.origin ?? "\u0432\u0440\u0435\u0434\u043D\u043E\u0441\u0442\u0430"} \u0434\u0430 \u0431\u0438\u0434\u0435 ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `\u041F\u0440\u0435\u043C\u043D\u043E\u0433\u0443 \u043C\u0430\u043B: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 ${issue2.origin} \u0434\u0430 \u0438\u043C\u0430 ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `\u041F\u0440\u0435\u043C\u043D\u043E\u0433\u0443 \u043C\u0430\u043B: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 ${issue2.origin} \u0434\u0430 \u0431\u0438\u0434\u0435 ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with") {
+          return `\u041D\u0435\u0432\u0430\u0436\u0435\u0447\u043A\u0430 \u043D\u0438\u0437\u0430: \u043C\u043E\u0440\u0430 \u0434\u0430 \u0437\u0430\u043F\u043E\u0447\u043D\u0443\u0432\u0430 \u0441\u043E "${_issue.prefix}"`;
+        }
+        if (_issue.format === "ends_with")
+          return `\u041D\u0435\u0432\u0430\u0436\u0435\u0447\u043A\u0430 \u043D\u0438\u0437\u0430: \u043C\u043E\u0440\u0430 \u0434\u0430 \u0437\u0430\u0432\u0440\u0448\u0443\u0432\u0430 \u0441\u043E "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `\u041D\u0435\u0432\u0430\u0436\u0435\u0447\u043A\u0430 \u043D\u0438\u0437\u0430: \u043C\u043E\u0440\u0430 \u0434\u0430 \u0432\u043A\u043B\u0443\u0447\u0443\u0432\u0430 "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `\u041D\u0435\u0432\u0430\u0436\u0435\u0447\u043A\u0430 \u043D\u0438\u0437\u0430: \u043C\u043E\u0440\u0430 \u0434\u0430 \u043E\u0434\u0433\u043E\u0430\u0440\u0430 \u043D\u0430 \u043F\u0430\u0442\u0435\u0440\u043D\u043E\u0442 ${_issue.pattern}`;
+        return `Invalid ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `\u0413\u0440\u0435\u0448\u0435\u043D \u0431\u0440\u043E\u0458: \u043C\u043E\u0440\u0430 \u0434\u0430 \u0431\u0438\u0434\u0435 \u0434\u0435\u043B\u0438\u0432 \u0441\u043E ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `${issue2.keys.length > 1 ? "\u041D\u0435\u043F\u0440\u0435\u043F\u043E\u0437\u043D\u0430\u0435\u043D\u0438 \u043A\u043B\u0443\u0447\u0435\u0432\u0438" : "\u041D\u0435\u043F\u0440\u0435\u043F\u043E\u0437\u043D\u0430\u0435\u043D \u043A\u043B\u0443\u0447"}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `\u0413\u0440\u0435\u0448\u0435\u043D \u043A\u043B\u0443\u0447 \u0432\u043E ${issue2.origin}`;
+      case "invalid_union":
+        return "\u0413\u0440\u0435\u0448\u0435\u043D \u0432\u043D\u0435\u0441";
+      case "invalid_element":
+        return `\u0413\u0440\u0435\u0448\u043D\u0430 \u0432\u0440\u0435\u0434\u043D\u043E\u0441\u0442 \u0432\u043E ${issue2.origin}`;
+      default:
+        return `\u0413\u0440\u0435\u0448\u0435\u043D \u0432\u043D\u0435\u0441`;
+    }
+  };
+};
+function mk_default() {
+  return {
+    localeError: error27()
+  };
+}
+
+// node_modules/zod/v4/locales/ms.js
+var error28 = () => {
+  const Sizable = {
+    string: { unit: "aksara", verb: "mempunyai" },
+    file: { unit: "bait", verb: "mempunyai" },
+    array: { unit: "elemen", verb: "mempunyai" },
+    set: { unit: "elemen", verb: "mempunyai" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "input",
+    email: "alamat e-mel",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "tarikh masa ISO",
+    date: "tarikh ISO",
+    time: "masa ISO",
+    duration: "tempoh ISO",
+    ipv4: "alamat IPv4",
+    ipv6: "alamat IPv6",
+    cidrv4: "julat IPv4",
+    cidrv6: "julat IPv6",
+    base64: "string dikodkan base64",
+    base64url: "string dikodkan base64url",
+    json_string: "string JSON",
+    e164: "nombor E.164",
+    jwt: "JWT",
+    template_literal: "input"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "nombor"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Input tidak sah: dijangka instanceof ${issue2.expected}, diterima ${received}`;
+        }
+        return `Input tidak sah: dijangka ${expected}, diterima ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Input tidak sah: dijangka ${stringifyPrimitive(issue2.values[0])}`;
+        return `Pilihan tidak sah: dijangka salah satu daripada ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `Terlalu besar: dijangka ${issue2.origin ?? "nilai"} ${sizing.verb} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elemen"}`;
+        return `Terlalu besar: dijangka ${issue2.origin ?? "nilai"} adalah ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Terlalu kecil: dijangka ${issue2.origin} ${sizing.verb} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `Terlalu kecil: dijangka ${issue2.origin} adalah ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `String tidak sah: mesti bermula dengan "${_issue.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `String tidak sah: mesti berakhir dengan "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `String tidak sah: mesti mengandungi "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `String tidak sah: mesti sepadan dengan corak ${_issue.pattern}`;
+        return `${FormatDictionary[_issue.format] ?? issue2.format} tidak sah`;
+      }
+      case "not_multiple_of":
+        return `Nombor tidak sah: perlu gandaan ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `Kunci tidak dikenali: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Kunci tidak sah dalam ${issue2.origin}`;
+      case "invalid_union":
+        return "Input tidak sah";
+      case "invalid_element":
+        return `Nilai tidak sah dalam ${issue2.origin}`;
+      default:
+        return `Input tidak sah`;
+    }
+  };
+};
+function ms_default() {
+  return {
+    localeError: error28()
+  };
+}
+
+// node_modules/zod/v4/locales/nl.js
+var error29 = () => {
+  const Sizable = {
+    string: { unit: "tekens", verb: "heeft" },
+    file: { unit: "bytes", verb: "heeft" },
+    array: { unit: "elementen", verb: "heeft" },
+    set: { unit: "elementen", verb: "heeft" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "invoer",
+    email: "emailadres",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO datum en tijd",
+    date: "ISO datum",
+    time: "ISO tijd",
+    duration: "ISO duur",
+    ipv4: "IPv4-adres",
+    ipv6: "IPv6-adres",
+    cidrv4: "IPv4-bereik",
+    cidrv6: "IPv6-bereik",
+    base64: "base64-gecodeerde tekst",
+    base64url: "base64 URL-gecodeerde tekst",
+    json_string: "JSON string",
+    e164: "E.164-nummer",
+    jwt: "JWT",
+    template_literal: "invoer"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "getal"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Ongeldige invoer: verwacht instanceof ${issue2.expected}, ontving ${received}`;
+        }
+        return `Ongeldige invoer: verwacht ${expected}, ontving ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Ongeldige invoer: verwacht ${stringifyPrimitive(issue2.values[0])}`;
+        return `Ongeldige optie: verwacht \xE9\xE9n van ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        const longName = issue2.origin === "date" ? "laat" : issue2.origin === "string" ? "lang" : "groot";
+        if (sizing)
+          return `Te ${longName}: verwacht dat ${issue2.origin ?? "waarde"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementen"} ${sizing.verb}`;
+        return `Te ${longName}: verwacht dat ${issue2.origin ?? "waarde"} ${adj}${issue2.maximum.toString()} is`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        const shortName = issue2.origin === "date" ? "vroeg" : issue2.origin === "string" ? "kort" : "klein";
+        if (sizing) {
+          return `Te ${shortName}: verwacht dat ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit} ${sizing.verb}`;
+        }
+        return `Te ${shortName}: verwacht dat ${issue2.origin} ${adj}${issue2.minimum.toString()} is`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with") {
+          return `Ongeldige tekst: moet met "${_issue.prefix}" beginnen`;
+        }
+        if (_issue.format === "ends_with")
+          return `Ongeldige tekst: moet op "${_issue.suffix}" eindigen`;
+        if (_issue.format === "includes")
+          return `Ongeldige tekst: moet "${_issue.includes}" bevatten`;
+        if (_issue.format === "regex")
+          return `Ongeldige tekst: moet overeenkomen met patroon ${_issue.pattern}`;
+        return `Ongeldig: ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `Ongeldig getal: moet een veelvoud van ${issue2.divisor} zijn`;
+      case "unrecognized_keys":
+        return `Onbekende key${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Ongeldige key in ${issue2.origin}`;
+      case "invalid_union":
+        return "Ongeldige invoer";
+      case "invalid_element":
+        return `Ongeldige waarde in ${issue2.origin}`;
+      default:
+        return `Ongeldige invoer`;
+    }
+  };
+};
+function nl_default() {
+  return {
+    localeError: error29()
+  };
+}
+
+// node_modules/zod/v4/locales/no.js
+var error30 = () => {
+  const Sizable = {
+    string: { unit: "tegn", verb: "\xE5 ha" },
+    file: { unit: "bytes", verb: "\xE5 ha" },
+    array: { unit: "elementer", verb: "\xE5 inneholde" },
+    set: { unit: "elementer", verb: "\xE5 inneholde" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "input",
+    email: "e-postadresse",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO dato- og klokkeslett",
+    date: "ISO-dato",
+    time: "ISO-klokkeslett",
+    duration: "ISO-varighet",
+    ipv4: "IPv4-omr\xE5de",
+    ipv6: "IPv6-omr\xE5de",
+    cidrv4: "IPv4-spekter",
+    cidrv6: "IPv6-spekter",
+    base64: "base64-enkodet streng",
+    base64url: "base64url-enkodet streng",
+    json_string: "JSON-streng",
+    e164: "E.164-nummer",
+    jwt: "JWT",
+    template_literal: "input"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "tall",
+    array: "liste"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Ugyldig input: forventet instanceof ${issue2.expected}, fikk ${received}`;
+        }
+        return `Ugyldig input: forventet ${expected}, fikk ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Ugyldig verdi: forventet ${stringifyPrimitive(issue2.values[0])}`;
+        return `Ugyldig valg: forventet en av ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `For stor(t): forventet ${issue2.origin ?? "value"} til \xE5 ha ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementer"}`;
+        return `For stor(t): forventet ${issue2.origin ?? "value"} til \xE5 ha ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `For lite(n): forventet ${issue2.origin} til \xE5 ha ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `For lite(n): forventet ${issue2.origin} til \xE5 ha ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `Ugyldig streng: m\xE5 starte med "${_issue.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `Ugyldig streng: m\xE5 ende med "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `Ugyldig streng: m\xE5 inneholde "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `Ugyldig streng: m\xE5 matche m\xF8nsteret ${_issue.pattern}`;
+        return `Ugyldig ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `Ugyldig tall: m\xE5 v\xE6re et multiplum av ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `${issue2.keys.length > 1 ? "Ukjente n\xF8kler" : "Ukjent n\xF8kkel"}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Ugyldig n\xF8kkel i ${issue2.origin}`;
+      case "invalid_union":
+        return "Ugyldig input";
+      case "invalid_element":
+        return `Ugyldig verdi i ${issue2.origin}`;
+      default:
+        return `Ugyldig input`;
+    }
+  };
+};
+function no_default() {
+  return {
+    localeError: error30()
+  };
+}
+
+// node_modules/zod/v4/locales/ota.js
+var error31 = () => {
+  const Sizable = {
+    string: { unit: "harf", verb: "olmal\u0131d\u0131r" },
+    file: { unit: "bayt", verb: "olmal\u0131d\u0131r" },
+    array: { unit: "unsur", verb: "olmal\u0131d\u0131r" },
+    set: { unit: "unsur", verb: "olmal\u0131d\u0131r" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "giren",
+    email: "epostag\xE2h",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO heng\xE2m\u0131",
+    date: "ISO tarihi",
+    time: "ISO zaman\u0131",
+    duration: "ISO m\xFCddeti",
+    ipv4: "IPv4 ni\u015F\xE2n\u0131",
+    ipv6: "IPv6 ni\u015F\xE2n\u0131",
+    cidrv4: "IPv4 menzili",
+    cidrv6: "IPv6 menzili",
+    base64: "base64-\u015Fifreli metin",
+    base64url: "base64url-\u015Fifreli metin",
+    json_string: "JSON metin",
+    e164: "E.164 say\u0131s\u0131",
+    jwt: "JWT",
+    template_literal: "giren"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "numara",
+    array: "saf",
+    null: "gayb"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `F\xE2sit giren: umulan instanceof ${issue2.expected}, al\u0131nan ${received}`;
+        }
+        return `F\xE2sit giren: umulan ${expected}, al\u0131nan ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `F\xE2sit giren: umulan ${stringifyPrimitive(issue2.values[0])}`;
+        return `F\xE2sit tercih: m\xFBteberler ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `Fazla b\xFCy\xFCk: ${issue2.origin ?? "value"}, ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elements"} sahip olmal\u0131yd\u0131.`;
+        return `Fazla b\xFCy\xFCk: ${issue2.origin ?? "value"}, ${adj}${issue2.maximum.toString()} olmal\u0131yd\u0131.`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Fazla k\xFC\xE7\xFCk: ${issue2.origin}, ${adj}${issue2.minimum.toString()} ${sizing.unit} sahip olmal\u0131yd\u0131.`;
+        }
+        return `Fazla k\xFC\xE7\xFCk: ${issue2.origin}, ${adj}${issue2.minimum.toString()} olmal\u0131yd\u0131.`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `F\xE2sit metin: "${_issue.prefix}" ile ba\u015Flamal\u0131.`;
+        if (_issue.format === "ends_with")
+          return `F\xE2sit metin: "${_issue.suffix}" ile bitmeli.`;
+        if (_issue.format === "includes")
+          return `F\xE2sit metin: "${_issue.includes}" ihtiv\xE2 etmeli.`;
+        if (_issue.format === "regex")
+          return `F\xE2sit metin: ${_issue.pattern} nak\u015F\u0131na uymal\u0131.`;
+        return `F\xE2sit ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `F\xE2sit say\u0131: ${issue2.divisor} kat\u0131 olmal\u0131yd\u0131.`;
+      case "unrecognized_keys":
+        return `Tan\u0131nmayan anahtar ${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `${issue2.origin} i\xE7in tan\u0131nmayan anahtar var.`;
+      case "invalid_union":
+        return "Giren tan\u0131namad\u0131.";
+      case "invalid_element":
+        return `${issue2.origin} i\xE7in tan\u0131nmayan k\u0131ymet var.`;
+      default:
+        return `K\u0131ymet tan\u0131namad\u0131.`;
+    }
+  };
+};
+function ota_default() {
+  return {
+    localeError: error31()
+  };
+}
+
+// node_modules/zod/v4/locales/ps.js
+var error32 = () => {
+  const Sizable = {
+    string: { unit: "\u062A\u0648\u06A9\u064A", verb: "\u0648\u0644\u0631\u064A" },
+    file: { unit: "\u0628\u0627\u06CC\u067C\u0633", verb: "\u0648\u0644\u0631\u064A" },
+    array: { unit: "\u062A\u0648\u06A9\u064A", verb: "\u0648\u0644\u0631\u064A" },
+    set: { unit: "\u062A\u0648\u06A9\u064A", verb: "\u0648\u0644\u0631\u064A" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u0648\u0631\u0648\u062F\u064A",
+    email: "\u0628\u0631\u06CC\u069A\u0646\u0627\u0644\u06CC\u06A9",
+    url: "\u06CC\u0648 \u0622\u0631 \u0627\u0644",
+    emoji: "\u0627\u06CC\u0645\u0648\u062C\u064A",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "\u0646\u06CC\u067C\u0647 \u0627\u0648 \u0648\u062E\u062A",
+    date: "\u0646\u06D0\u067C\u0647",
+    time: "\u0648\u062E\u062A",
+    duration: "\u0645\u0648\u062F\u0647",
+    ipv4: "\u062F IPv4 \u067E\u062A\u0647",
+    ipv6: "\u062F IPv6 \u067E\u062A\u0647",
+    cidrv4: "\u062F IPv4 \u0633\u0627\u062D\u0647",
+    cidrv6: "\u062F IPv6 \u0633\u0627\u062D\u0647",
+    base64: "base64-encoded \u0645\u062A\u0646",
+    base64url: "base64url-encoded \u0645\u062A\u0646",
+    json_string: "JSON \u0645\u062A\u0646",
+    e164: "\u062F E.164 \u0634\u0645\u06D0\u0631\u0647",
+    jwt: "JWT",
+    template_literal: "\u0648\u0631\u0648\u062F\u064A"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "\u0639\u062F\u062F",
+    array: "\u0627\u0631\u06D0"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u0646\u0627\u0633\u0645 \u0648\u0631\u0648\u062F\u064A: \u0628\u0627\u06CC\u062F instanceof ${issue2.expected} \u0648\u0627\u06CC, \u0645\u06AB\u0631 ${received} \u062A\u0631\u0644\u0627\u0633\u0647 \u0634\u0648`;
+        }
+        return `\u0646\u0627\u0633\u0645 \u0648\u0631\u0648\u062F\u064A: \u0628\u0627\u06CC\u062F ${expected} \u0648\u0627\u06CC, \u0645\u06AB\u0631 ${received} \u062A\u0631\u0644\u0627\u0633\u0647 \u0634\u0648`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1) {
+          return `\u0646\u0627\u0633\u0645 \u0648\u0631\u0648\u062F\u064A: \u0628\u0627\u06CC\u062F ${stringifyPrimitive(issue2.values[0])} \u0648\u0627\u06CC`;
+        }
+        return `\u0646\u0627\u0633\u0645 \u0627\u0646\u062A\u062E\u0627\u0628: \u0628\u0627\u06CC\u062F \u06CC\u0648 \u0644\u0647 ${joinValues(issue2.values, "|")} \u0685\u062E\u0647 \u0648\u0627\u06CC`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `\u0689\u06CC\u0631 \u0644\u0648\u06CC: ${issue2.origin ?? "\u0627\u0631\u0632\u069A\u062A"} \u0628\u0627\u06CC\u062F ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u0639\u0646\u0635\u0631\u0648\u0646\u0647"} \u0648\u0644\u0631\u064A`;
+        }
+        return `\u0689\u06CC\u0631 \u0644\u0648\u06CC: ${issue2.origin ?? "\u0627\u0631\u0632\u069A\u062A"} \u0628\u0627\u06CC\u062F ${adj}${issue2.maximum.toString()} \u0648\u064A`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `\u0689\u06CC\u0631 \u06A9\u0648\u0686\u0646\u06CC: ${issue2.origin} \u0628\u0627\u06CC\u062F ${adj}${issue2.minimum.toString()} ${sizing.unit} \u0648\u0644\u0631\u064A`;
+        }
+        return `\u0689\u06CC\u0631 \u06A9\u0648\u0686\u0646\u06CC: ${issue2.origin} \u0628\u0627\u06CC\u062F ${adj}${issue2.minimum.toString()} \u0648\u064A`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with") {
+          return `\u0646\u0627\u0633\u0645 \u0645\u062A\u0646: \u0628\u0627\u06CC\u062F \u062F "${_issue.prefix}" \u0633\u0631\u0647 \u067E\u06CC\u0644 \u0634\u064A`;
+        }
+        if (_issue.format === "ends_with") {
+          return `\u0646\u0627\u0633\u0645 \u0645\u062A\u0646: \u0628\u0627\u06CC\u062F \u062F "${_issue.suffix}" \u0633\u0631\u0647 \u067E\u0627\u06CC \u062A\u0647 \u0648\u0631\u0633\u064A\u0696\u064A`;
+        }
+        if (_issue.format === "includes") {
+          return `\u0646\u0627\u0633\u0645 \u0645\u062A\u0646: \u0628\u0627\u06CC\u062F "${_issue.includes}" \u0648\u0644\u0631\u064A`;
+        }
+        if (_issue.format === "regex") {
+          return `\u0646\u0627\u0633\u0645 \u0645\u062A\u0646: \u0628\u0627\u06CC\u062F \u062F ${_issue.pattern} \u0633\u0631\u0647 \u0645\u0637\u0627\u0628\u0642\u062A \u0648\u0644\u0631\u064A`;
+        }
+        return `${FormatDictionary[_issue.format] ?? issue2.format} \u0646\u0627\u0633\u0645 \u062F\u06CC`;
+      }
+      case "not_multiple_of":
+        return `\u0646\u0627\u0633\u0645 \u0639\u062F\u062F: \u0628\u0627\u06CC\u062F \u062F ${issue2.divisor} \u0645\u0636\u0631\u0628 \u0648\u064A`;
+      case "unrecognized_keys":
+        return `\u0646\u0627\u0633\u0645 ${issue2.keys.length > 1 ? "\u06A9\u0644\u06CC\u0689\u0648\u0646\u0647" : "\u06A9\u0644\u06CC\u0689"}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `\u0646\u0627\u0633\u0645 \u06A9\u0644\u06CC\u0689 \u067E\u0647 ${issue2.origin} \u06A9\u06D0`;
+      case "invalid_union":
+        return `\u0646\u0627\u0633\u0645\u0647 \u0648\u0631\u0648\u062F\u064A`;
+      case "invalid_element":
+        return `\u0646\u0627\u0633\u0645 \u0639\u0646\u0635\u0631 \u067E\u0647 ${issue2.origin} \u06A9\u06D0`;
+      default:
+        return `\u0646\u0627\u0633\u0645\u0647 \u0648\u0631\u0648\u062F\u064A`;
+    }
+  };
+};
+function ps_default() {
+  return {
+    localeError: error32()
+  };
+}
+
+// node_modules/zod/v4/locales/pl.js
+var error33 = () => {
+  const Sizable = {
+    string: { unit: "znak\xF3w", verb: "mie\u0107" },
+    file: { unit: "bajt\xF3w", verb: "mie\u0107" },
+    array: { unit: "element\xF3w", verb: "mie\u0107" },
+    set: { unit: "element\xF3w", verb: "mie\u0107" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "wyra\u017Cenie",
+    email: "adres email",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "data i godzina w formacie ISO",
+    date: "data w formacie ISO",
+    time: "godzina w formacie ISO",
+    duration: "czas trwania ISO",
+    ipv4: "adres IPv4",
+    ipv6: "adres IPv6",
+    cidrv4: "zakres IPv4",
+    cidrv6: "zakres IPv6",
+    base64: "ci\u0105g znak\xF3w zakodowany w formacie base64",
+    base64url: "ci\u0105g znak\xF3w zakodowany w formacie base64url",
+    json_string: "ci\u0105g znak\xF3w w formacie JSON",
+    e164: "liczba E.164",
+    jwt: "JWT",
+    template_literal: "wej\u015Bcie"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "liczba",
+    array: "tablica"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Nieprawid\u0142owe dane wej\u015Bciowe: oczekiwano instanceof ${issue2.expected}, otrzymano ${received}`;
+        }
+        return `Nieprawid\u0142owe dane wej\u015Bciowe: oczekiwano ${expected}, otrzymano ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Nieprawid\u0142owe dane wej\u015Bciowe: oczekiwano ${stringifyPrimitive(issue2.values[0])}`;
+        return `Nieprawid\u0142owa opcja: oczekiwano jednej z warto\u015Bci ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Za du\u017Ca warto\u015B\u0107: oczekiwano, \u017Ce ${issue2.origin ?? "warto\u015B\u0107"} b\u0119dzie mie\u0107 ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "element\xF3w"}`;
+        }
+        return `Zbyt du\u017C(y/a/e): oczekiwano, \u017Ce ${issue2.origin ?? "warto\u015B\u0107"} b\u0119dzie wynosi\u0107 ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Za ma\u0142a warto\u015B\u0107: oczekiwano, \u017Ce ${issue2.origin ?? "warto\u015B\u0107"} b\u0119dzie mie\u0107 ${adj}${issue2.minimum.toString()} ${sizing.unit ?? "element\xF3w"}`;
+        }
+        return `Zbyt ma\u0142(y/a/e): oczekiwano, \u017Ce ${issue2.origin ?? "warto\u015B\u0107"} b\u0119dzie wynosi\u0107 ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `Nieprawid\u0142owy ci\u0105g znak\xF3w: musi zaczyna\u0107 si\u0119 od "${_issue.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `Nieprawid\u0142owy ci\u0105g znak\xF3w: musi ko\u0144czy\u0107 si\u0119 na "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `Nieprawid\u0142owy ci\u0105g znak\xF3w: musi zawiera\u0107 "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `Nieprawid\u0142owy ci\u0105g znak\xF3w: musi odpowiada\u0107 wzorcowi ${_issue.pattern}`;
+        return `Nieprawid\u0142ow(y/a/e) ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `Nieprawid\u0142owa liczba: musi by\u0107 wielokrotno\u015Bci\u0105 ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `Nierozpoznane klucze${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Nieprawid\u0142owy klucz w ${issue2.origin}`;
+      case "invalid_union":
+        return "Nieprawid\u0142owe dane wej\u015Bciowe";
+      case "invalid_element":
+        return `Nieprawid\u0142owa warto\u015B\u0107 w ${issue2.origin}`;
+      default:
+        return `Nieprawid\u0142owe dane wej\u015Bciowe`;
+    }
+  };
+};
+function pl_default() {
+  return {
+    localeError: error33()
+  };
+}
+
+// node_modules/zod/v4/locales/pt.js
+var error34 = () => {
+  const Sizable = {
+    string: { unit: "caracteres", verb: "ter" },
+    file: { unit: "bytes", verb: "ter" },
+    array: { unit: "itens", verb: "ter" },
+    set: { unit: "itens", verb: "ter" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "padr\xE3o",
+    email: "endere\xE7o de e-mail",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "data e hora ISO",
+    date: "data ISO",
+    time: "hora ISO",
+    duration: "dura\xE7\xE3o ISO",
+    ipv4: "endere\xE7o IPv4",
+    ipv6: "endere\xE7o IPv6",
+    cidrv4: "faixa de IPv4",
+    cidrv6: "faixa de IPv6",
+    base64: "texto codificado em base64",
+    base64url: "URL codificada em base64",
+    json_string: "texto JSON",
+    e164: "n\xFAmero E.164",
+    jwt: "JWT",
+    template_literal: "entrada"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "n\xFAmero",
+    null: "nulo"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Tipo inv\xE1lido: esperado instanceof ${issue2.expected}, recebido ${received}`;
+        }
+        return `Tipo inv\xE1lido: esperado ${expected}, recebido ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Entrada inv\xE1lida: esperado ${stringifyPrimitive(issue2.values[0])}`;
+        return `Op\xE7\xE3o inv\xE1lida: esperada uma das ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `Muito grande: esperado que ${issue2.origin ?? "valor"} tivesse ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementos"}`;
+        return `Muito grande: esperado que ${issue2.origin ?? "valor"} fosse ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Muito pequeno: esperado que ${issue2.origin} tivesse ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `Muito pequeno: esperado que ${issue2.origin} fosse ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `Texto inv\xE1lido: deve come\xE7ar com "${_issue.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `Texto inv\xE1lido: deve terminar com "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `Texto inv\xE1lido: deve incluir "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `Texto inv\xE1lido: deve corresponder ao padr\xE3o ${_issue.pattern}`;
+        return `${FormatDictionary[_issue.format] ?? issue2.format} inv\xE1lido`;
+      }
+      case "not_multiple_of":
+        return `N\xFAmero inv\xE1lido: deve ser m\xFAltiplo de ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `Chave${issue2.keys.length > 1 ? "s" : ""} desconhecida${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Chave inv\xE1lida em ${issue2.origin}`;
+      case "invalid_union":
+        return "Entrada inv\xE1lida";
+      case "invalid_element":
+        return `Valor inv\xE1lido em ${issue2.origin}`;
+      default:
+        return `Campo inv\xE1lido`;
+    }
+  };
+};
+function pt_default() {
+  return {
+    localeError: error34()
+  };
+}
+
+// node_modules/zod/v4/locales/ru.js
+function getRussianPlural(count, one, few, many) {
+  const absCount = Math.abs(count);
+  const lastDigit = absCount % 10;
+  const lastTwoDigits = absCount % 100;
+  if (lastTwoDigits >= 11 && lastTwoDigits <= 19) {
+    return many;
+  }
+  if (lastDigit === 1) {
+    return one;
+  }
+  if (lastDigit >= 2 && lastDigit <= 4) {
+    return few;
+  }
+  return many;
+}
+var error35 = () => {
+  const Sizable = {
+    string: {
+      unit: {
+        one: "\u0441\u0438\u043C\u0432\u043E\u043B",
+        few: "\u0441\u0438\u043C\u0432\u043E\u043B\u0430",
+        many: "\u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432"
+      },
+      verb: "\u0438\u043C\u0435\u0442\u044C"
+    },
+    file: {
+      unit: {
+        one: "\u0431\u0430\u0439\u0442",
+        few: "\u0431\u0430\u0439\u0442\u0430",
+        many: "\u0431\u0430\u0439\u0442"
+      },
+      verb: "\u0438\u043C\u0435\u0442\u044C"
+    },
+    array: {
+      unit: {
+        one: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442",
+        few: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u0430",
+        many: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u043E\u0432"
+      },
+      verb: "\u0438\u043C\u0435\u0442\u044C"
+    },
+    set: {
+      unit: {
+        one: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442",
+        few: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u0430",
+        many: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u043E\u0432"
+      },
+      verb: "\u0438\u043C\u0435\u0442\u044C"
+    }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u0432\u0432\u043E\u0434",
+    email: "email \u0430\u0434\u0440\u0435\u0441",
+    url: "URL",
+    emoji: "\u044D\u043C\u043E\u0434\u0437\u0438",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO \u0434\u0430\u0442\u0430 \u0438 \u0432\u0440\u0435\u043C\u044F",
+    date: "ISO \u0434\u0430\u0442\u0430",
+    time: "ISO \u0432\u0440\u0435\u043C\u044F",
+    duration: "ISO \u0434\u043B\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u0441\u0442\u044C",
+    ipv4: "IPv4 \u0430\u0434\u0440\u0435\u0441",
+    ipv6: "IPv6 \u0430\u0434\u0440\u0435\u0441",
+    cidrv4: "IPv4 \u0434\u0438\u0430\u043F\u0430\u0437\u043E\u043D",
+    cidrv6: "IPv6 \u0434\u0438\u0430\u043F\u0430\u0437\u043E\u043D",
+    base64: "\u0441\u0442\u0440\u043E\u043A\u0430 \u0432 \u0444\u043E\u0440\u043C\u0430\u0442\u0435 base64",
+    base64url: "\u0441\u0442\u0440\u043E\u043A\u0430 \u0432 \u0444\u043E\u0440\u043C\u0430\u0442\u0435 base64url",
+    json_string: "JSON \u0441\u0442\u0440\u043E\u043A\u0430",
+    e164: "\u043D\u043E\u043C\u0435\u0440 E.164",
+    jwt: "JWT",
+    template_literal: "\u0432\u0432\u043E\u0434"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "\u0447\u0438\u0441\u043B\u043E",
+    array: "\u043C\u0430\u0441\u0441\u0438\u0432"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 \u0432\u0432\u043E\u0434: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C instanceof ${issue2.expected}, \u043F\u043E\u043B\u0443\u0447\u0435\u043D\u043E ${received}`;
+        }
+        return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 \u0432\u0432\u043E\u0434: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C ${expected}, \u043F\u043E\u043B\u0443\u0447\u0435\u043D\u043E ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 \u0432\u0432\u043E\u0434: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C ${stringifyPrimitive(issue2.values[0])}`;
+        return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 \u0432\u0430\u0440\u0438\u0430\u043D\u0442: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0434\u043D\u043E \u0438\u0437 ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          const maxValue = Number(issue2.maximum);
+          const unit = getRussianPlural(maxValue, sizing.unit.one, sizing.unit.few, sizing.unit.many);
+          return `\u0421\u043B\u0438\u0448\u043A\u043E\u043C \u0431\u043E\u043B\u044C\u0448\u043E\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C, \u0447\u0442\u043E ${issue2.origin ?? "\u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435"} \u0431\u0443\u0434\u0435\u0442 \u0438\u043C\u0435\u0442\u044C ${adj}${issue2.maximum.toString()} ${unit}`;
+        }
+        return `\u0421\u043B\u0438\u0448\u043A\u043E\u043C \u0431\u043E\u043B\u044C\u0448\u043E\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C, \u0447\u0442\u043E ${issue2.origin ?? "\u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435"} \u0431\u0443\u0434\u0435\u0442 ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          const minValue = Number(issue2.minimum);
+          const unit = getRussianPlural(minValue, sizing.unit.one, sizing.unit.few, sizing.unit.many);
+          return `\u0421\u043B\u0438\u0448\u043A\u043E\u043C \u043C\u0430\u043B\u0435\u043D\u044C\u043A\u043E\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C, \u0447\u0442\u043E ${issue2.origin} \u0431\u0443\u0434\u0435\u0442 \u0438\u043C\u0435\u0442\u044C ${adj}${issue2.minimum.toString()} ${unit}`;
+        }
+        return `\u0421\u043B\u0438\u0448\u043A\u043E\u043C \u043C\u0430\u043B\u0435\u043D\u044C\u043A\u043E\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C, \u0447\u0442\u043E ${issue2.origin} \u0431\u0443\u0434\u0435\u0442 ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `\u041D\u0435\u0432\u0435\u0440\u043D\u0430\u044F \u0441\u0442\u0440\u043E\u043A\u0430: \u0434\u043E\u043B\u0436\u043D\u0430 \u043D\u0430\u0447\u0438\u043D\u0430\u0442\u044C\u0441\u044F \u0441 "${_issue.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `\u041D\u0435\u0432\u0435\u0440\u043D\u0430\u044F \u0441\u0442\u0440\u043E\u043A\u0430: \u0434\u043E\u043B\u0436\u043D\u0430 \u0437\u0430\u043A\u0430\u043D\u0447\u0438\u0432\u0430\u0442\u044C\u0441\u044F \u043D\u0430 "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `\u041D\u0435\u0432\u0435\u0440\u043D\u0430\u044F \u0441\u0442\u0440\u043E\u043A\u0430: \u0434\u043E\u043B\u0436\u043D\u0430 \u0441\u043E\u0434\u0435\u0440\u0436\u0430\u0442\u044C "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `\u041D\u0435\u0432\u0435\u0440\u043D\u0430\u044F \u0441\u0442\u0440\u043E\u043A\u0430: \u0434\u043E\u043B\u0436\u043D\u0430 \u0441\u043E\u043E\u0442\u0432\u0435\u0442\u0441\u0442\u0432\u043E\u0432\u0430\u0442\u044C \u0448\u0430\u0431\u043B\u043E\u043D\u0443 ${_issue.pattern}`;
+        return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `\u041D\u0435\u0432\u0435\u0440\u043D\u043E\u0435 \u0447\u0438\u0441\u043B\u043E: \u0434\u043E\u043B\u0436\u043D\u043E \u0431\u044B\u0442\u044C \u043A\u0440\u0430\u0442\u043D\u044B\u043C ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `\u041D\u0435\u0440\u0430\u0441\u043F\u043E\u0437\u043D\u0430\u043D\u043D${issue2.keys.length > 1 ? "\u044B\u0435" : "\u044B\u0439"} \u043A\u043B\u044E\u0447${issue2.keys.length > 1 ? "\u0438" : ""}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 \u043A\u043B\u044E\u0447 \u0432 ${issue2.origin}`;
+      case "invalid_union":
+        return "\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0435 \u0432\u0445\u043E\u0434\u043D\u044B\u0435 \u0434\u0430\u043D\u043D\u044B\u0435";
+      case "invalid_element":
+        return `\u041D\u0435\u0432\u0435\u0440\u043D\u043E\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435 \u0432 ${issue2.origin}`;
+      default:
+        return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0435 \u0432\u0445\u043E\u0434\u043D\u044B\u0435 \u0434\u0430\u043D\u043D\u044B\u0435`;
+    }
+  };
+};
+function ru_default() {
+  return {
+    localeError: error35()
+  };
+}
+
+// node_modules/zod/v4/locales/sl.js
+var error36 = () => {
+  const Sizable = {
+    string: { unit: "znakov", verb: "imeti" },
+    file: { unit: "bajtov", verb: "imeti" },
+    array: { unit: "elementov", verb: "imeti" },
+    set: { unit: "elementov", verb: "imeti" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "vnos",
+    email: "e-po\u0161tni naslov",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO datum in \u010Das",
+    date: "ISO datum",
+    time: "ISO \u010Das",
+    duration: "ISO trajanje",
+    ipv4: "IPv4 naslov",
+    ipv6: "IPv6 naslov",
+    cidrv4: "obseg IPv4",
+    cidrv6: "obseg IPv6",
+    base64: "base64 kodiran niz",
+    base64url: "base64url kodiran niz",
+    json_string: "JSON niz",
+    e164: "E.164 \u0161tevilka",
+    jwt: "JWT",
+    template_literal: "vnos"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "\u0161tevilo",
+    array: "tabela"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Neveljaven vnos: pri\u010Dakovano instanceof ${issue2.expected}, prejeto ${received}`;
+        }
+        return `Neveljaven vnos: pri\u010Dakovano ${expected}, prejeto ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Neveljaven vnos: pri\u010Dakovano ${stringifyPrimitive(issue2.values[0])}`;
+        return `Neveljavna mo\u017Enost: pri\u010Dakovano eno izmed ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `Preveliko: pri\u010Dakovano, da bo ${issue2.origin ?? "vrednost"} imelo ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementov"}`;
+        return `Preveliko: pri\u010Dakovano, da bo ${issue2.origin ?? "vrednost"} ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Premajhno: pri\u010Dakovano, da bo ${issue2.origin} imelo ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `Premajhno: pri\u010Dakovano, da bo ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with") {
+          return `Neveljaven niz: mora se za\u010Deti z "${_issue.prefix}"`;
+        }
+        if (_issue.format === "ends_with")
+          return `Neveljaven niz: mora se kon\u010Dati z "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `Neveljaven niz: mora vsebovati "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `Neveljaven niz: mora ustrezati vzorcu ${_issue.pattern}`;
+        return `Neveljaven ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `Neveljavno \u0161tevilo: mora biti ve\u010Dkratnik ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `Neprepoznan${issue2.keys.length > 1 ? "i klju\u010Di" : " klju\u010D"}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Neveljaven klju\u010D v ${issue2.origin}`;
+      case "invalid_union":
+        return "Neveljaven vnos";
+      case "invalid_element":
+        return `Neveljavna vrednost v ${issue2.origin}`;
+      default:
+        return "Neveljaven vnos";
+    }
+  };
+};
+function sl_default() {
+  return {
+    localeError: error36()
+  };
+}
+
+// node_modules/zod/v4/locales/sv.js
+var error37 = () => {
+  const Sizable = {
+    string: { unit: "tecken", verb: "att ha" },
+    file: { unit: "bytes", verb: "att ha" },
+    array: { unit: "objekt", verb: "att inneh\xE5lla" },
+    set: { unit: "objekt", verb: "att inneh\xE5lla" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "regulj\xE4rt uttryck",
+    email: "e-postadress",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO-datum och tid",
+    date: "ISO-datum",
+    time: "ISO-tid",
+    duration: "ISO-varaktighet",
+    ipv4: "IPv4-intervall",
+    ipv6: "IPv6-intervall",
+    cidrv4: "IPv4-spektrum",
+    cidrv6: "IPv6-spektrum",
+    base64: "base64-kodad str\xE4ng",
+    base64url: "base64url-kodad str\xE4ng",
+    json_string: "JSON-str\xE4ng",
+    e164: "E.164-nummer",
+    jwt: "JWT",
+    template_literal: "mall-literal"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "antal",
+    array: "lista"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Ogiltig inmatning: f\xF6rv\xE4ntat instanceof ${issue2.expected}, fick ${received}`;
+        }
+        return `Ogiltig inmatning: f\xF6rv\xE4ntat ${expected}, fick ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Ogiltig inmatning: f\xF6rv\xE4ntat ${stringifyPrimitive(issue2.values[0])}`;
+        return `Ogiltigt val: f\xF6rv\xE4ntade en av ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `F\xF6r stor(t): f\xF6rv\xE4ntade ${issue2.origin ?? "v\xE4rdet"} att ha ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "element"}`;
+        }
+        return `F\xF6r stor(t): f\xF6rv\xE4ntat ${issue2.origin ?? "v\xE4rdet"} att ha ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `F\xF6r lite(t): f\xF6rv\xE4ntade ${issue2.origin ?? "v\xE4rdet"} att ha ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `F\xF6r lite(t): f\xF6rv\xE4ntade ${issue2.origin ?? "v\xE4rdet"} att ha ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with") {
+          return `Ogiltig str\xE4ng: m\xE5ste b\xF6rja med "${_issue.prefix}"`;
+        }
+        if (_issue.format === "ends_with")
+          return `Ogiltig str\xE4ng: m\xE5ste sluta med "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `Ogiltig str\xE4ng: m\xE5ste inneh\xE5lla "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `Ogiltig str\xE4ng: m\xE5ste matcha m\xF6nstret "${_issue.pattern}"`;
+        return `Ogiltig(t) ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `Ogiltigt tal: m\xE5ste vara en multipel av ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `${issue2.keys.length > 1 ? "Ok\xE4nda nycklar" : "Ok\xE4nd nyckel"}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Ogiltig nyckel i ${issue2.origin ?? "v\xE4rdet"}`;
+      case "invalid_union":
+        return "Ogiltig input";
+      case "invalid_element":
+        return `Ogiltigt v\xE4rde i ${issue2.origin ?? "v\xE4rdet"}`;
+      default:
+        return `Ogiltig input`;
+    }
+  };
+};
+function sv_default() {
+  return {
+    localeError: error37()
+  };
+}
+
+// node_modules/zod/v4/locales/ta.js
+var error38 = () => {
+  const Sizable = {
+    string: { unit: "\u0B8E\u0BB4\u0BC1\u0BA4\u0BCD\u0BA4\u0BC1\u0B95\u0BCD\u0B95\u0BB3\u0BCD", verb: "\u0B95\u0BCA\u0BA3\u0BCD\u0B9F\u0BBF\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD" },
+    file: { unit: "\u0BAA\u0BC8\u0B9F\u0BCD\u0B9F\u0BC1\u0B95\u0BB3\u0BCD", verb: "\u0B95\u0BCA\u0BA3\u0BCD\u0B9F\u0BBF\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD" },
+    array: { unit: "\u0B89\u0BB1\u0BC1\u0BAA\u0BCD\u0BAA\u0BC1\u0B95\u0BB3\u0BCD", verb: "\u0B95\u0BCA\u0BA3\u0BCD\u0B9F\u0BBF\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD" },
+    set: { unit: "\u0B89\u0BB1\u0BC1\u0BAA\u0BCD\u0BAA\u0BC1\u0B95\u0BB3\u0BCD", verb: "\u0B95\u0BCA\u0BA3\u0BCD\u0B9F\u0BBF\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u0B89\u0BB3\u0BCD\u0BB3\u0BC0\u0B9F\u0BC1",
+    email: "\u0BAE\u0BBF\u0BA9\u0BCD\u0BA9\u0B9E\u0BCD\u0B9A\u0BB2\u0BCD \u0BAE\u0BC1\u0B95\u0BB5\u0BB0\u0BBF",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO \u0BA4\u0BC7\u0BA4\u0BBF \u0BA8\u0BC7\u0BB0\u0BAE\u0BCD",
+    date: "ISO \u0BA4\u0BC7\u0BA4\u0BBF",
+    time: "ISO \u0BA8\u0BC7\u0BB0\u0BAE\u0BCD",
+    duration: "ISO \u0B95\u0BBE\u0BB2 \u0B85\u0BB3\u0BB5\u0BC1",
+    ipv4: "IPv4 \u0BAE\u0BC1\u0B95\u0BB5\u0BB0\u0BBF",
+    ipv6: "IPv6 \u0BAE\u0BC1\u0B95\u0BB5\u0BB0\u0BBF",
+    cidrv4: "IPv4 \u0BB5\u0BB0\u0BAE\u0BCD\u0BAA\u0BC1",
+    cidrv6: "IPv6 \u0BB5\u0BB0\u0BAE\u0BCD\u0BAA\u0BC1",
+    base64: "base64-encoded \u0B9A\u0BB0\u0BAE\u0BCD",
+    base64url: "base64url-encoded \u0B9A\u0BB0\u0BAE\u0BCD",
+    json_string: "JSON \u0B9A\u0BB0\u0BAE\u0BCD",
+    e164: "E.164 \u0B8E\u0BA3\u0BCD",
+    jwt: "JWT",
+    template_literal: "input"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "\u0B8E\u0BA3\u0BCD",
+    array: "\u0B85\u0BA3\u0BBF",
+    null: "\u0BB5\u0BC6\u0BB1\u0BC1\u0BAE\u0BC8"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B89\u0BB3\u0BCD\u0BB3\u0BC0\u0B9F\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 instanceof ${issue2.expected}, \u0BAA\u0BC6\u0BB1\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${received}`;
+        }
+        return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B89\u0BB3\u0BCD\u0BB3\u0BC0\u0B9F\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${expected}, \u0BAA\u0BC6\u0BB1\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B89\u0BB3\u0BCD\u0BB3\u0BC0\u0B9F\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${stringifyPrimitive(issue2.values[0])}`;
+        return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0BB5\u0BBF\u0BB0\u0BC1\u0BAA\u0BCD\u0BAA\u0BAE\u0BCD: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${joinValues(issue2.values, "|")} \u0B87\u0BB2\u0BCD \u0B92\u0BA9\u0BCD\u0BB1\u0BC1`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `\u0BAE\u0BBF\u0B95 \u0BAA\u0BC6\u0BB0\u0BBF\u0BAF\u0BA4\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${issue2.origin ?? "\u0BAE\u0BA4\u0BBF\u0BAA\u0BCD\u0BAA\u0BC1"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u0B89\u0BB1\u0BC1\u0BAA\u0BCD\u0BAA\u0BC1\u0B95\u0BB3\u0BCD"} \u0B86\u0B95 \u0B87\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+        }
+        return `\u0BAE\u0BBF\u0B95 \u0BAA\u0BC6\u0BB0\u0BBF\u0BAF\u0BA4\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${issue2.origin ?? "\u0BAE\u0BA4\u0BBF\u0BAA\u0BCD\u0BAA\u0BC1"} ${adj}${issue2.maximum.toString()} \u0B86\u0B95 \u0B87\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `\u0BAE\u0BBF\u0B95\u0B9A\u0BCD \u0B9A\u0BBF\u0BB1\u0BBF\u0BAF\u0BA4\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit} \u0B86\u0B95 \u0B87\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+        }
+        return `\u0BAE\u0BBF\u0B95\u0B9A\u0BCD \u0B9A\u0BBF\u0BB1\u0BBF\u0BAF\u0BA4\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${issue2.origin} ${adj}${issue2.minimum.toString()} \u0B86\u0B95 \u0B87\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B9A\u0BB0\u0BAE\u0BCD: "${_issue.prefix}" \u0B87\u0BB2\u0BCD \u0BA4\u0BCA\u0B9F\u0B99\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+        if (_issue.format === "ends_with")
+          return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B9A\u0BB0\u0BAE\u0BCD: "${_issue.suffix}" \u0B87\u0BB2\u0BCD \u0BAE\u0BC1\u0B9F\u0BBF\u0BB5\u0B9F\u0BC8\u0BAF \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+        if (_issue.format === "includes")
+          return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B9A\u0BB0\u0BAE\u0BCD: "${_issue.includes}" \u0B90 \u0B89\u0BB3\u0BCD\u0BB3\u0B9F\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+        if (_issue.format === "regex")
+          return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B9A\u0BB0\u0BAE\u0BCD: ${_issue.pattern} \u0BAE\u0BC1\u0BB1\u0BC8\u0BAA\u0BBE\u0B9F\u0BCD\u0B9F\u0BC1\u0B9F\u0BA9\u0BCD \u0BAA\u0BCA\u0BB0\u0BC1\u0BA8\u0BCD\u0BA4 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+        return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B8E\u0BA3\u0BCD: ${issue2.divisor} \u0B87\u0BA9\u0BCD \u0BAA\u0BB2\u0BAE\u0BBE\u0B95 \u0B87\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+      case "unrecognized_keys":
+        return `\u0B85\u0B9F\u0BC8\u0BAF\u0BBE\u0BB3\u0BAE\u0BCD \u0BA4\u0BC6\u0BB0\u0BBF\u0BAF\u0BBE\u0BA4 \u0BB5\u0BBF\u0B9A\u0BC8${issue2.keys.length > 1 ? "\u0B95\u0BB3\u0BCD" : ""}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `${issue2.origin} \u0B87\u0BB2\u0BCD \u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0BB5\u0BBF\u0B9A\u0BC8`;
+      case "invalid_union":
+        return "\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B89\u0BB3\u0BCD\u0BB3\u0BC0\u0B9F\u0BC1";
+      case "invalid_element":
+        return `${issue2.origin} \u0B87\u0BB2\u0BCD \u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0BAE\u0BA4\u0BBF\u0BAA\u0BCD\u0BAA\u0BC1`;
+      default:
+        return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B89\u0BB3\u0BCD\u0BB3\u0BC0\u0B9F\u0BC1`;
+    }
+  };
+};
+function ta_default() {
+  return {
+    localeError: error38()
+  };
+}
+
+// node_modules/zod/v4/locales/th.js
+var error39 = () => {
+  const Sizable = {
+    string: { unit: "\u0E15\u0E31\u0E27\u0E2D\u0E31\u0E01\u0E29\u0E23", verb: "\u0E04\u0E27\u0E23\u0E21\u0E35" },
+    file: { unit: "\u0E44\u0E1A\u0E15\u0E4C", verb: "\u0E04\u0E27\u0E23\u0E21\u0E35" },
+    array: { unit: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23", verb: "\u0E04\u0E27\u0E23\u0E21\u0E35" },
+    set: { unit: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23", verb: "\u0E04\u0E27\u0E23\u0E21\u0E35" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E35\u0E48\u0E1B\u0E49\u0E2D\u0E19",
+    email: "\u0E17\u0E35\u0E48\u0E2D\u0E22\u0E39\u0E48\u0E2D\u0E35\u0E40\u0E21\u0E25",
+    url: "URL",
+    emoji: "\u0E2D\u0E34\u0E42\u0E21\u0E08\u0E34",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E40\u0E27\u0E25\u0E32\u0E41\u0E1A\u0E1A ISO",
+    date: "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E41\u0E1A\u0E1A ISO",
+    time: "\u0E40\u0E27\u0E25\u0E32\u0E41\u0E1A\u0E1A ISO",
+    duration: "\u0E0A\u0E48\u0E27\u0E07\u0E40\u0E27\u0E25\u0E32\u0E41\u0E1A\u0E1A ISO",
+    ipv4: "\u0E17\u0E35\u0E48\u0E2D\u0E22\u0E39\u0E48 IPv4",
+    ipv6: "\u0E17\u0E35\u0E48\u0E2D\u0E22\u0E39\u0E48 IPv6",
+    cidrv4: "\u0E0A\u0E48\u0E27\u0E07 IP \u0E41\u0E1A\u0E1A IPv4",
+    cidrv6: "\u0E0A\u0E48\u0E27\u0E07 IP \u0E41\u0E1A\u0E1A IPv6",
+    base64: "\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E41\u0E1A\u0E1A Base64",
+    base64url: "\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E41\u0E1A\u0E1A Base64 \u0E2A\u0E33\u0E2B\u0E23\u0E31\u0E1A URL",
+    json_string: "\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E41\u0E1A\u0E1A JSON",
+    e164: "\u0E40\u0E1A\u0E2D\u0E23\u0E4C\u0E42\u0E17\u0E23\u0E28\u0E31\u0E1E\u0E17\u0E4C\u0E23\u0E30\u0E2B\u0E27\u0E48\u0E32\u0E07\u0E1B\u0E23\u0E30\u0E40\u0E17\u0E28 (E.164)",
+    jwt: "\u0E42\u0E17\u0E40\u0E04\u0E19 JWT",
+    template_literal: "\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E35\u0E48\u0E1B\u0E49\u0E2D\u0E19"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "\u0E15\u0E31\u0E27\u0E40\u0E25\u0E02",
+    array: "\u0E2D\u0E32\u0E23\u0E4C\u0E40\u0E23\u0E22\u0E4C (Array)",
+    null: "\u0E44\u0E21\u0E48\u0E21\u0E35\u0E04\u0E48\u0E32 (null)"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E04\u0E27\u0E23\u0E40\u0E1B\u0E47\u0E19 instanceof ${issue2.expected} \u0E41\u0E15\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A ${received}`;
+        }
+        return `\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E04\u0E27\u0E23\u0E40\u0E1B\u0E47\u0E19 ${expected} \u0E41\u0E15\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `\u0E04\u0E48\u0E32\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E04\u0E27\u0E23\u0E40\u0E1B\u0E47\u0E19 ${stringifyPrimitive(issue2.values[0])}`;
+        return `\u0E15\u0E31\u0E27\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E04\u0E27\u0E23\u0E40\u0E1B\u0E47\u0E19\u0E2B\u0E19\u0E36\u0E48\u0E07\u0E43\u0E19 ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "\u0E44\u0E21\u0E48\u0E40\u0E01\u0E34\u0E19" : "\u0E19\u0E49\u0E2D\u0E22\u0E01\u0E27\u0E48\u0E32";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `\u0E40\u0E01\u0E34\u0E19\u0E01\u0E33\u0E2B\u0E19\u0E14: ${issue2.origin ?? "\u0E04\u0E48\u0E32"} \u0E04\u0E27\u0E23\u0E21\u0E35${adj} ${issue2.maximum.toString()} ${sizing.unit ?? "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23"}`;
+        return `\u0E40\u0E01\u0E34\u0E19\u0E01\u0E33\u0E2B\u0E19\u0E14: ${issue2.origin ?? "\u0E04\u0E48\u0E32"} \u0E04\u0E27\u0E23\u0E21\u0E35${adj} ${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? "\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E19\u0E49\u0E2D\u0E22" : "\u0E21\u0E32\u0E01\u0E01\u0E27\u0E48\u0E32";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `\u0E19\u0E49\u0E2D\u0E22\u0E01\u0E27\u0E48\u0E32\u0E01\u0E33\u0E2B\u0E19\u0E14: ${issue2.origin} \u0E04\u0E27\u0E23\u0E21\u0E35${adj} ${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `\u0E19\u0E49\u0E2D\u0E22\u0E01\u0E27\u0E48\u0E32\u0E01\u0E33\u0E2B\u0E19\u0E14: ${issue2.origin} \u0E04\u0E27\u0E23\u0E21\u0E35${adj} ${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with") {
+          return `\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E15\u0E49\u0E2D\u0E07\u0E02\u0E36\u0E49\u0E19\u0E15\u0E49\u0E19\u0E14\u0E49\u0E27\u0E22 "${_issue.prefix}"`;
+        }
+        if (_issue.format === "ends_with")
+          return `\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E15\u0E49\u0E2D\u0E07\u0E25\u0E07\u0E17\u0E49\u0E32\u0E22\u0E14\u0E49\u0E27\u0E22 "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E15\u0E49\u0E2D\u0E07\u0E21\u0E35 "${_issue.includes}" \u0E2D\u0E22\u0E39\u0E48\u0E43\u0E19\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21`;
+        if (_issue.format === "regex")
+          return `\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E15\u0E49\u0E2D\u0E07\u0E15\u0E23\u0E07\u0E01\u0E31\u0E1A\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E17\u0E35\u0E48\u0E01\u0E33\u0E2B\u0E19\u0E14 ${_issue.pattern}`;
+        return `\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `\u0E15\u0E31\u0E27\u0E40\u0E25\u0E02\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E15\u0E49\u0E2D\u0E07\u0E40\u0E1B\u0E47\u0E19\u0E08\u0E33\u0E19\u0E27\u0E19\u0E17\u0E35\u0E48\u0E2B\u0E32\u0E23\u0E14\u0E49\u0E27\u0E22 ${issue2.divisor} \u0E44\u0E14\u0E49\u0E25\u0E07\u0E15\u0E31\u0E27`;
+      case "unrecognized_keys":
+        return `\u0E1E\u0E1A\u0E04\u0E35\u0E22\u0E4C\u0E17\u0E35\u0E48\u0E44\u0E21\u0E48\u0E23\u0E39\u0E49\u0E08\u0E31\u0E01: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `\u0E04\u0E35\u0E22\u0E4C\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07\u0E43\u0E19 ${issue2.origin}`;
+      case "invalid_union":
+        return "\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E44\u0E21\u0E48\u0E15\u0E23\u0E07\u0E01\u0E31\u0E1A\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E22\u0E39\u0E40\u0E19\u0E35\u0E22\u0E19\u0E17\u0E35\u0E48\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E44\u0E27\u0E49";
+      case "invalid_element":
+        return `\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07\u0E43\u0E19 ${issue2.origin}`;
+      default:
+        return `\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07`;
+    }
+  };
+};
+function th_default() {
+  return {
+    localeError: error39()
+  };
+}
+
+// node_modules/zod/v4/locales/tr.js
+var error40 = () => {
+  const Sizable = {
+    string: { unit: "karakter", verb: "olmal\u0131" },
+    file: { unit: "bayt", verb: "olmal\u0131" },
+    array: { unit: "\xF6\u011Fe", verb: "olmal\u0131" },
+    set: { unit: "\xF6\u011Fe", verb: "olmal\u0131" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "girdi",
+    email: "e-posta adresi",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO tarih ve saat",
+    date: "ISO tarih",
+    time: "ISO saat",
+    duration: "ISO s\xFCre",
+    ipv4: "IPv4 adresi",
+    ipv6: "IPv6 adresi",
+    cidrv4: "IPv4 aral\u0131\u011F\u0131",
+    cidrv6: "IPv6 aral\u0131\u011F\u0131",
+    base64: "base64 ile \u015Fifrelenmi\u015F metin",
+    base64url: "base64url ile \u015Fifrelenmi\u015F metin",
+    json_string: "JSON dizesi",
+    e164: "E.164 say\u0131s\u0131",
+    jwt: "JWT",
+    template_literal: "\u015Eablon dizesi"
+  };
+  const TypeDictionary = {
+    nan: "NaN"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Ge\xE7ersiz de\u011Fer: beklenen instanceof ${issue2.expected}, al\u0131nan ${received}`;
+        }
+        return `Ge\xE7ersiz de\u011Fer: beklenen ${expected}, al\u0131nan ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Ge\xE7ersiz de\u011Fer: beklenen ${stringifyPrimitive(issue2.values[0])}`;
+        return `Ge\xE7ersiz se\xE7enek: a\u015Fa\u011F\u0131dakilerden biri olmal\u0131: ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `\xC7ok b\xFCy\xFCk: beklenen ${issue2.origin ?? "de\u011Fer"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\xF6\u011Fe"}`;
+        return `\xC7ok b\xFCy\xFCk: beklenen ${issue2.origin ?? "de\u011Fer"} ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `\xC7ok k\xFC\xE7\xFCk: beklenen ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        return `\xC7ok k\xFC\xE7\xFCk: beklenen ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `Ge\xE7ersiz metin: "${_issue.prefix}" ile ba\u015Flamal\u0131`;
+        if (_issue.format === "ends_with")
+          return `Ge\xE7ersiz metin: "${_issue.suffix}" ile bitmeli`;
+        if (_issue.format === "includes")
+          return `Ge\xE7ersiz metin: "${_issue.includes}" i\xE7ermeli`;
+        if (_issue.format === "regex")
+          return `Ge\xE7ersiz metin: ${_issue.pattern} desenine uymal\u0131`;
+        return `Ge\xE7ersiz ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `Ge\xE7ersiz say\u0131: ${issue2.divisor} ile tam b\xF6l\xFCnebilmeli`;
+      case "unrecognized_keys":
+        return `Tan\u0131nmayan anahtar${issue2.keys.length > 1 ? "lar" : ""}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `${issue2.origin} i\xE7inde ge\xE7ersiz anahtar`;
+      case "invalid_union":
+        return "Ge\xE7ersiz de\u011Fer";
+      case "invalid_element":
+        return `${issue2.origin} i\xE7inde ge\xE7ersiz de\u011Fer`;
+      default:
+        return `Ge\xE7ersiz de\u011Fer`;
+    }
+  };
+};
+function tr_default() {
+  return {
+    localeError: error40()
+  };
+}
+
+// node_modules/zod/v4/locales/uk.js
+var error41 = () => {
+  const Sizable = {
+    string: { unit: "\u0441\u0438\u043C\u0432\u043E\u043B\u0456\u0432", verb: "\u043C\u0430\u0442\u0438\u043C\u0435" },
+    file: { unit: "\u0431\u0430\u0439\u0442\u0456\u0432", verb: "\u043C\u0430\u0442\u0438\u043C\u0435" },
+    array: { unit: "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0456\u0432", verb: "\u043C\u0430\u0442\u0438\u043C\u0435" },
+    set: { unit: "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0456\u0432", verb: "\u043C\u0430\u0442\u0438\u043C\u0435" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u0432\u0445\u0456\u0434\u043D\u0456 \u0434\u0430\u043D\u0456",
+    email: "\u0430\u0434\u0440\u0435\u0441\u0430 \u0435\u043B\u0435\u043A\u0442\u0440\u043E\u043D\u043D\u043E\u0457 \u043F\u043E\u0448\u0442\u0438",
+    url: "URL",
+    emoji: "\u0435\u043C\u043E\u0434\u0437\u0456",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "\u0434\u0430\u0442\u0430 \u0442\u0430 \u0447\u0430\u0441 ISO",
+    date: "\u0434\u0430\u0442\u0430 ISO",
+    time: "\u0447\u0430\u0441 ISO",
+    duration: "\u0442\u0440\u0438\u0432\u0430\u043B\u0456\u0441\u0442\u044C ISO",
+    ipv4: "\u0430\u0434\u0440\u0435\u0441\u0430 IPv4",
+    ipv6: "\u0430\u0434\u0440\u0435\u0441\u0430 IPv6",
+    cidrv4: "\u0434\u0456\u0430\u043F\u0430\u0437\u043E\u043D IPv4",
+    cidrv6: "\u0434\u0456\u0430\u043F\u0430\u0437\u043E\u043D IPv6",
+    base64: "\u0440\u044F\u0434\u043E\u043A \u0443 \u043A\u043E\u0434\u0443\u0432\u0430\u043D\u043D\u0456 base64",
+    base64url: "\u0440\u044F\u0434\u043E\u043A \u0443 \u043A\u043E\u0434\u0443\u0432\u0430\u043D\u043D\u0456 base64url",
+    json_string: "\u0440\u044F\u0434\u043E\u043A JSON",
+    e164: "\u043D\u043E\u043C\u0435\u0440 E.164",
+    jwt: "JWT",
+    template_literal: "\u0432\u0445\u0456\u0434\u043D\u0456 \u0434\u0430\u043D\u0456"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "\u0447\u0438\u0441\u043B\u043E",
+    array: "\u043C\u0430\u0441\u0438\u0432"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0456 \u0432\u0445\u0456\u0434\u043D\u0456 \u0434\u0430\u043D\u0456: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F instanceof ${issue2.expected}, \u043E\u0442\u0440\u0438\u043C\u0430\u043D\u043E ${received}`;
+        }
+        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0456 \u0432\u0445\u0456\u0434\u043D\u0456 \u0434\u0430\u043D\u0456: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F ${expected}, \u043E\u0442\u0440\u0438\u043C\u0430\u043D\u043E ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0456 \u0432\u0445\u0456\u0434\u043D\u0456 \u0434\u0430\u043D\u0456: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F ${stringifyPrimitive(issue2.values[0])}`;
+        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0430 \u043E\u043F\u0446\u0456\u044F: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F \u043E\u0434\u043D\u0435 \u0437 ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `\u0417\u0430\u043D\u0430\u0434\u0442\u043E \u0432\u0435\u043B\u0438\u043A\u0435: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F, \u0449\u043E ${issue2.origin ?? "\u0437\u043D\u0430\u0447\u0435\u043D\u043D\u044F"} ${sizing.verb} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0456\u0432"}`;
+        return `\u0417\u0430\u043D\u0430\u0434\u0442\u043E \u0432\u0435\u043B\u0438\u043A\u0435: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F, \u0449\u043E ${issue2.origin ?? "\u0437\u043D\u0430\u0447\u0435\u043D\u043D\u044F"} \u0431\u0443\u0434\u0435 ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `\u0417\u0430\u043D\u0430\u0434\u0442\u043E \u043C\u0430\u043B\u0435: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F, \u0449\u043E ${issue2.origin} ${sizing.verb} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `\u0417\u0430\u043D\u0430\u0434\u0442\u043E \u043C\u0430\u043B\u0435: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F, \u0449\u043E ${issue2.origin} \u0431\u0443\u0434\u0435 ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0438\u0439 \u0440\u044F\u0434\u043E\u043A: \u043F\u043E\u0432\u0438\u043D\u0435\u043D \u043F\u043E\u0447\u0438\u043D\u0430\u0442\u0438\u0441\u044F \u0437 "${_issue.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0438\u0439 \u0440\u044F\u0434\u043E\u043A: \u043F\u043E\u0432\u0438\u043D\u0435\u043D \u0437\u0430\u043A\u0456\u043D\u0447\u0443\u0432\u0430\u0442\u0438\u0441\u044F \u043D\u0430 "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0438\u0439 \u0440\u044F\u0434\u043E\u043A: \u043F\u043E\u0432\u0438\u043D\u0435\u043D \u043C\u0456\u0441\u0442\u0438\u0442\u0438 "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0438\u0439 \u0440\u044F\u0434\u043E\u043A: \u043F\u043E\u0432\u0438\u043D\u0435\u043D \u0432\u0456\u0434\u043F\u043E\u0432\u0456\u0434\u0430\u0442\u0438 \u0448\u0430\u0431\u043B\u043E\u043D\u0443 ${_issue.pattern}`;
+        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0438\u0439 ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0435 \u0447\u0438\u0441\u043B\u043E: \u043F\u043E\u0432\u0438\u043D\u043D\u043E \u0431\u0443\u0442\u0438 \u043A\u0440\u0430\u0442\u043D\u0438\u043C ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `\u041D\u0435\u0440\u043E\u0437\u043F\u0456\u0437\u043D\u0430\u043D\u0438\u0439 \u043A\u043B\u044E\u0447${issue2.keys.length > 1 ? "\u0456" : ""}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0438\u0439 \u043A\u043B\u044E\u0447 \u0443 ${issue2.origin}`;
+      case "invalid_union":
+        return "\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0456 \u0432\u0445\u0456\u0434\u043D\u0456 \u0434\u0430\u043D\u0456";
+      case "invalid_element":
+        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u043D\u044F \u0443 ${issue2.origin}`;
+      default:
+        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0456 \u0432\u0445\u0456\u0434\u043D\u0456 \u0434\u0430\u043D\u0456`;
+    }
+  };
+};
+function uk_default() {
+  return {
+    localeError: error41()
+  };
+}
+
+// node_modules/zod/v4/locales/ua.js
+function ua_default() {
+  return uk_default();
+}
+
+// node_modules/zod/v4/locales/ur.js
+var error42 = () => {
+  const Sizable = {
+    string: { unit: "\u062D\u0631\u0648\u0641", verb: "\u06C1\u0648\u0646\u0627" },
+    file: { unit: "\u0628\u0627\u0626\u0679\u0633", verb: "\u06C1\u0648\u0646\u0627" },
+    array: { unit: "\u0622\u0626\u0679\u0645\u0632", verb: "\u06C1\u0648\u0646\u0627" },
+    set: { unit: "\u0622\u0626\u0679\u0645\u0632", verb: "\u06C1\u0648\u0646\u0627" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u0627\u0646 \u067E\u0679",
+    email: "\u0627\u06CC \u0645\u06CC\u0644 \u0627\u06CC\u0688\u0631\u06CC\u0633",
+    url: "\u06CC\u0648 \u0622\u0631 \u0627\u06CC\u0644",
+    emoji: "\u0627\u06CC\u0645\u0648\u062C\u06CC",
+    uuid: "\u06CC\u0648 \u06CC\u0648 \u0622\u0626\u06CC \u0688\u06CC",
+    uuidv4: "\u06CC\u0648 \u06CC\u0648 \u0622\u0626\u06CC \u0688\u06CC \u0648\u06CC 4",
+    uuidv6: "\u06CC\u0648 \u06CC\u0648 \u0622\u0626\u06CC \u0688\u06CC \u0648\u06CC 6",
+    nanoid: "\u0646\u06CC\u0646\u0648 \u0622\u0626\u06CC \u0688\u06CC",
+    guid: "\u062C\u06CC \u06CC\u0648 \u0622\u0626\u06CC \u0688\u06CC",
+    cuid: "\u0633\u06CC \u06CC\u0648 \u0622\u0626\u06CC \u0688\u06CC",
+    cuid2: "\u0633\u06CC \u06CC\u0648 \u0622\u0626\u06CC \u0688\u06CC 2",
+    ulid: "\u06CC\u0648 \u0627\u06CC\u0644 \u0622\u0626\u06CC \u0688\u06CC",
+    xid: "\u0627\u06CC\u06A9\u0633 \u0622\u0626\u06CC \u0688\u06CC",
+    ksuid: "\u06A9\u06D2 \u0627\u06CC\u0633 \u06CC\u0648 \u0622\u0626\u06CC \u0688\u06CC",
+    datetime: "\u0622\u0626\u06CC \u0627\u06CC\u0633 \u0627\u0648 \u0688\u06CC\u0679 \u0679\u0627\u0626\u0645",
+    date: "\u0622\u0626\u06CC \u0627\u06CC\u0633 \u0627\u0648 \u062A\u0627\u0631\u06CC\u062E",
+    time: "\u0622\u0626\u06CC \u0627\u06CC\u0633 \u0627\u0648 \u0648\u0642\u062A",
+    duration: "\u0622\u0626\u06CC \u0627\u06CC\u0633 \u0627\u0648 \u0645\u062F\u062A",
+    ipv4: "\u0622\u0626\u06CC \u067E\u06CC \u0648\u06CC 4 \u0627\u06CC\u0688\u0631\u06CC\u0633",
+    ipv6: "\u0622\u0626\u06CC \u067E\u06CC \u0648\u06CC 6 \u0627\u06CC\u0688\u0631\u06CC\u0633",
+    cidrv4: "\u0622\u0626\u06CC \u067E\u06CC \u0648\u06CC 4 \u0631\u06CC\u0646\u062C",
+    cidrv6: "\u0622\u0626\u06CC \u067E\u06CC \u0648\u06CC 6 \u0631\u06CC\u0646\u062C",
+    base64: "\u0628\u06CC\u0633 64 \u0627\u0646 \u06A9\u0648\u0688\u0688 \u0633\u0679\u0631\u0646\u06AF",
+    base64url: "\u0628\u06CC\u0633 64 \u06CC\u0648 \u0622\u0631 \u0627\u06CC\u0644 \u0627\u0646 \u06A9\u0648\u0688\u0688 \u0633\u0679\u0631\u0646\u06AF",
+    json_string: "\u062C\u06D2 \u0627\u06CC\u0633 \u0627\u0648 \u0627\u06CC\u0646 \u0633\u0679\u0631\u0646\u06AF",
+    e164: "\u0627\u06CC 164 \u0646\u0645\u0628\u0631",
+    jwt: "\u062C\u06D2 \u0688\u0628\u0644\u06CC\u0648 \u0679\u06CC",
+    template_literal: "\u0627\u0646 \u067E\u0679"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "\u0646\u0645\u0628\u0631",
+    array: "\u0622\u0631\u06D2",
+    null: "\u0646\u0644"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u063A\u0644\u0637 \u0627\u0646 \u067E\u0679: instanceof ${issue2.expected} \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u0627\u060C ${received} \u0645\u0648\u0635\u0648\u0644 \u06C1\u0648\u0627`;
+        }
+        return `\u063A\u0644\u0637 \u0627\u0646 \u067E\u0679: ${expected} \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u0627\u060C ${received} \u0645\u0648\u0635\u0648\u0644 \u06C1\u0648\u0627`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `\u063A\u0644\u0637 \u0627\u0646 \u067E\u0679: ${stringifyPrimitive(issue2.values[0])} \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u0627`;
+        return `\u063A\u0644\u0637 \u0622\u067E\u0634\u0646: ${joinValues(issue2.values, "|")} \u0645\u06CC\u06BA \u0633\u06D2 \u0627\u06CC\u06A9 \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u0627`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `\u0628\u06C1\u062A \u0628\u0691\u0627: ${issue2.origin ?? "\u0648\u06CC\u0644\u06CC\u0648"} \u06A9\u06D2 ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u0639\u0646\u0627\u0635\u0631"} \u06C1\u0648\u0646\u06D2 \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u06D2`;
+        return `\u0628\u06C1\u062A \u0628\u0691\u0627: ${issue2.origin ?? "\u0648\u06CC\u0644\u06CC\u0648"} \u06A9\u0627 ${adj}${issue2.maximum.toString()} \u06C1\u0648\u0646\u0627 \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u0627`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `\u0628\u06C1\u062A \u0686\u06BE\u0648\u0679\u0627: ${issue2.origin} \u06A9\u06D2 ${adj}${issue2.minimum.toString()} ${sizing.unit} \u06C1\u0648\u0646\u06D2 \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u06D2`;
+        }
+        return `\u0628\u06C1\u062A \u0686\u06BE\u0648\u0679\u0627: ${issue2.origin} \u06A9\u0627 ${adj}${issue2.minimum.toString()} \u06C1\u0648\u0646\u0627 \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u0627`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with") {
+          return `\u063A\u0644\u0637 \u0633\u0679\u0631\u0646\u06AF: "${_issue.prefix}" \u0633\u06D2 \u0634\u0631\u0648\u0639 \u06C1\u0648\u0646\u0627 \u0686\u0627\u06C1\u06CC\u06D2`;
+        }
+        if (_issue.format === "ends_with")
+          return `\u063A\u0644\u0637 \u0633\u0679\u0631\u0646\u06AF: "${_issue.suffix}" \u067E\u0631 \u062E\u062A\u0645 \u06C1\u0648\u0646\u0627 \u0686\u0627\u06C1\u06CC\u06D2`;
+        if (_issue.format === "includes")
+          return `\u063A\u0644\u0637 \u0633\u0679\u0631\u0646\u06AF: "${_issue.includes}" \u0634\u0627\u0645\u0644 \u06C1\u0648\u0646\u0627 \u0686\u0627\u06C1\u06CC\u06D2`;
+        if (_issue.format === "regex")
+          return `\u063A\u0644\u0637 \u0633\u0679\u0631\u0646\u06AF: \u067E\u06CC\u0679\u0631\u0646 ${_issue.pattern} \u0633\u06D2 \u0645\u06CC\u0686 \u06C1\u0648\u0646\u0627 \u0686\u0627\u06C1\u06CC\u06D2`;
+        return `\u063A\u0644\u0637 ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `\u063A\u0644\u0637 \u0646\u0645\u0628\u0631: ${issue2.divisor} \u06A9\u0627 \u0645\u0636\u0627\u0639\u0641 \u06C1\u0648\u0646\u0627 \u0686\u0627\u06C1\u06CC\u06D2`;
+      case "unrecognized_keys":
+        return `\u063A\u06CC\u0631 \u062A\u0633\u0644\u06CC\u0645 \u0634\u062F\u06C1 \u06A9\u06CC${issue2.keys.length > 1 ? "\u0632" : ""}: ${joinValues(issue2.keys, "\u060C ")}`;
+      case "invalid_key":
+        return `${issue2.origin} \u0645\u06CC\u06BA \u063A\u0644\u0637 \u06A9\u06CC`;
+      case "invalid_union":
+        return "\u063A\u0644\u0637 \u0627\u0646 \u067E\u0679";
+      case "invalid_element":
+        return `${issue2.origin} \u0645\u06CC\u06BA \u063A\u0644\u0637 \u0648\u06CC\u0644\u06CC\u0648`;
+      default:
+        return `\u063A\u0644\u0637 \u0627\u0646 \u067E\u0679`;
+    }
+  };
+};
+function ur_default() {
+  return {
+    localeError: error42()
+  };
+}
+
+// node_modules/zod/v4/locales/uz.js
+var error43 = () => {
+  const Sizable = {
+    string: { unit: "belgi", verb: "bo\u2018lishi kerak" },
+    file: { unit: "bayt", verb: "bo\u2018lishi kerak" },
+    array: { unit: "element", verb: "bo\u2018lishi kerak" },
+    set: { unit: "element", verb: "bo\u2018lishi kerak" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "kirish",
+    email: "elektron pochta manzili",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO sana va vaqti",
+    date: "ISO sana",
+    time: "ISO vaqt",
+    duration: "ISO davomiylik",
+    ipv4: "IPv4 manzil",
+    ipv6: "IPv6 manzil",
+    mac: "MAC manzil",
+    cidrv4: "IPv4 diapazon",
+    cidrv6: "IPv6 diapazon",
+    base64: "base64 kodlangan satr",
+    base64url: "base64url kodlangan satr",
+    json_string: "JSON satr",
+    e164: "E.164 raqam",
+    jwt: "JWT",
+    template_literal: "kirish"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "raqam",
+    array: "massiv"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `Noto\u2018g\u2018ri kirish: kutilgan instanceof ${issue2.expected}, qabul qilingan ${received}`;
+        }
+        return `Noto\u2018g\u2018ri kirish: kutilgan ${expected}, qabul qilingan ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Noto\u2018g\u2018ri kirish: kutilgan ${stringifyPrimitive(issue2.values[0])}`;
+        return `Noto\u2018g\u2018ri variant: quyidagilardan biri kutilgan ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `Juda katta: kutilgan ${issue2.origin ?? "qiymat"} ${adj}${issue2.maximum.toString()} ${sizing.unit} ${sizing.verb}`;
+        return `Juda katta: kutilgan ${issue2.origin ?? "qiymat"} ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Juda kichik: kutilgan ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit} ${sizing.verb}`;
+        }
+        return `Juda kichik: kutilgan ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `Noto\u2018g\u2018ri satr: "${_issue.prefix}" bilan boshlanishi kerak`;
+        if (_issue.format === "ends_with")
+          return `Noto\u2018g\u2018ri satr: "${_issue.suffix}" bilan tugashi kerak`;
+        if (_issue.format === "includes")
+          return `Noto\u2018g\u2018ri satr: "${_issue.includes}" ni o\u2018z ichiga olishi kerak`;
+        if (_issue.format === "regex")
+          return `Noto\u2018g\u2018ri satr: ${_issue.pattern} shabloniga mos kelishi kerak`;
+        return `Noto\u2018g\u2018ri ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `Noto\u2018g\u2018ri raqam: ${issue2.divisor} ning karralisi bo\u2018lishi kerak`;
+      case "unrecognized_keys":
+        return `Noma\u2019lum kalit${issue2.keys.length > 1 ? "lar" : ""}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `${issue2.origin} dagi kalit noto\u2018g\u2018ri`;
+      case "invalid_union":
+        return "Noto\u2018g\u2018ri kirish";
+      case "invalid_element":
+        return `${issue2.origin} da noto\u2018g\u2018ri qiymat`;
+      default:
+        return `Noto\u2018g\u2018ri kirish`;
+    }
+  };
+};
+function uz_default() {
+  return {
+    localeError: error43()
+  };
+}
+
+// node_modules/zod/v4/locales/vi.js
+var error44 = () => {
+  const Sizable = {
+    string: { unit: "k\xFD t\u1EF1", verb: "c\xF3" },
+    file: { unit: "byte", verb: "c\xF3" },
+    array: { unit: "ph\u1EA7n t\u1EED", verb: "c\xF3" },
+    set: { unit: "ph\u1EA7n t\u1EED", verb: "c\xF3" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u0111\u1EA7u v\xE0o",
+    email: "\u0111\u1ECBa ch\u1EC9 email",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ng\xE0y gi\u1EDD ISO",
+    date: "ng\xE0y ISO",
+    time: "gi\u1EDD ISO",
+    duration: "kho\u1EA3ng th\u1EDDi gian ISO",
+    ipv4: "\u0111\u1ECBa ch\u1EC9 IPv4",
+    ipv6: "\u0111\u1ECBa ch\u1EC9 IPv6",
+    cidrv4: "d\u1EA3i IPv4",
+    cidrv6: "d\u1EA3i IPv6",
+    base64: "chu\u1ED7i m\xE3 h\xF3a base64",
+    base64url: "chu\u1ED7i m\xE3 h\xF3a base64url",
+    json_string: "chu\u1ED7i JSON",
+    e164: "s\u1ED1 E.164",
+    jwt: "JWT",
+    template_literal: "\u0111\u1EA7u v\xE0o"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "s\u1ED1",
+    array: "m\u1EA3ng"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u0110\u1EA7u v\xE0o kh\xF4ng h\u1EE3p l\u1EC7: mong \u0111\u1EE3i instanceof ${issue2.expected}, nh\u1EADn \u0111\u01B0\u1EE3c ${received}`;
+        }
+        return `\u0110\u1EA7u v\xE0o kh\xF4ng h\u1EE3p l\u1EC7: mong \u0111\u1EE3i ${expected}, nh\u1EADn \u0111\u01B0\u1EE3c ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `\u0110\u1EA7u v\xE0o kh\xF4ng h\u1EE3p l\u1EC7: mong \u0111\u1EE3i ${stringifyPrimitive(issue2.values[0])}`;
+        return `T\xF9y ch\u1ECDn kh\xF4ng h\u1EE3p l\u1EC7: mong \u0111\u1EE3i m\u1ED9t trong c\xE1c gi\xE1 tr\u1ECB ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `Qu\xE1 l\u1EDBn: mong \u0111\u1EE3i ${issue2.origin ?? "gi\xE1 tr\u1ECB"} ${sizing.verb} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "ph\u1EA7n t\u1EED"}`;
+        return `Qu\xE1 l\u1EDBn: mong \u0111\u1EE3i ${issue2.origin ?? "gi\xE1 tr\u1ECB"} ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Qu\xE1 nh\u1ECF: mong \u0111\u1EE3i ${issue2.origin} ${sizing.verb} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `Qu\xE1 nh\u1ECF: mong \u0111\u1EE3i ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `Chu\u1ED7i kh\xF4ng h\u1EE3p l\u1EC7: ph\u1EA3i b\u1EAFt \u0111\u1EA7u b\u1EB1ng "${_issue.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `Chu\u1ED7i kh\xF4ng h\u1EE3p l\u1EC7: ph\u1EA3i k\u1EBFt th\xFAc b\u1EB1ng "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `Chu\u1ED7i kh\xF4ng h\u1EE3p l\u1EC7: ph\u1EA3i bao g\u1ED3m "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `Chu\u1ED7i kh\xF4ng h\u1EE3p l\u1EC7: ph\u1EA3i kh\u1EDBp v\u1EDBi m\u1EABu ${_issue.pattern}`;
+        return `${FormatDictionary[_issue.format] ?? issue2.format} kh\xF4ng h\u1EE3p l\u1EC7`;
+      }
+      case "not_multiple_of":
+        return `S\u1ED1 kh\xF4ng h\u1EE3p l\u1EC7: ph\u1EA3i l\xE0 b\u1ED9i s\u1ED1 c\u1EE7a ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `Kh\xF3a kh\xF4ng \u0111\u01B0\u1EE3c nh\u1EADn d\u1EA1ng: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Kh\xF3a kh\xF4ng h\u1EE3p l\u1EC7 trong ${issue2.origin}`;
+      case "invalid_union":
+        return "\u0110\u1EA7u v\xE0o kh\xF4ng h\u1EE3p l\u1EC7";
+      case "invalid_element":
+        return `Gi\xE1 tr\u1ECB kh\xF4ng h\u1EE3p l\u1EC7 trong ${issue2.origin}`;
+      default:
+        return `\u0110\u1EA7u v\xE0o kh\xF4ng h\u1EE3p l\u1EC7`;
+    }
+  };
+};
+function vi_default() {
+  return {
+    localeError: error44()
+  };
+}
+
+// node_modules/zod/v4/locales/zh-CN.js
+var error45 = () => {
+  const Sizable = {
+    string: { unit: "\u5B57\u7B26", verb: "\u5305\u542B" },
+    file: { unit: "\u5B57\u8282", verb: "\u5305\u542B" },
+    array: { unit: "\u9879", verb: "\u5305\u542B" },
+    set: { unit: "\u9879", verb: "\u5305\u542B" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u8F93\u5165",
+    email: "\u7535\u5B50\u90AE\u4EF6",
+    url: "URL",
+    emoji: "\u8868\u60C5\u7B26\u53F7",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO\u65E5\u671F\u65F6\u95F4",
+    date: "ISO\u65E5\u671F",
+    time: "ISO\u65F6\u95F4",
+    duration: "ISO\u65F6\u957F",
+    ipv4: "IPv4\u5730\u5740",
+    ipv6: "IPv6\u5730\u5740",
+    cidrv4: "IPv4\u7F51\u6BB5",
+    cidrv6: "IPv6\u7F51\u6BB5",
+    base64: "base64\u7F16\u7801\u5B57\u7B26\u4E32",
+    base64url: "base64url\u7F16\u7801\u5B57\u7B26\u4E32",
+    json_string: "JSON\u5B57\u7B26\u4E32",
+    e164: "E.164\u53F7\u7801",
+    jwt: "JWT",
+    template_literal: "\u8F93\u5165"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "\u6570\u5B57",
+    array: "\u6570\u7EC4",
+    null: "\u7A7A\u503C(null)"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u65E0\u6548\u8F93\u5165\uFF1A\u671F\u671B instanceof ${issue2.expected}\uFF0C\u5B9E\u9645\u63A5\u6536 ${received}`;
+        }
+        return `\u65E0\u6548\u8F93\u5165\uFF1A\u671F\u671B ${expected}\uFF0C\u5B9E\u9645\u63A5\u6536 ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `\u65E0\u6548\u8F93\u5165\uFF1A\u671F\u671B ${stringifyPrimitive(issue2.values[0])}`;
+        return `\u65E0\u6548\u9009\u9879\uFF1A\u671F\u671B\u4EE5\u4E0B\u4E4B\u4E00 ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `\u6570\u503C\u8FC7\u5927\uFF1A\u671F\u671B ${issue2.origin ?? "\u503C"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u4E2A\u5143\u7D20"}`;
+        return `\u6570\u503C\u8FC7\u5927\uFF1A\u671F\u671B ${issue2.origin ?? "\u503C"} ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `\u6570\u503C\u8FC7\u5C0F\uFF1A\u671F\u671B ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `\u6570\u503C\u8FC7\u5C0F\uFF1A\u671F\u671B ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `\u65E0\u6548\u5B57\u7B26\u4E32\uFF1A\u5FC5\u987B\u4EE5 "${_issue.prefix}" \u5F00\u5934`;
+        if (_issue.format === "ends_with")
+          return `\u65E0\u6548\u5B57\u7B26\u4E32\uFF1A\u5FC5\u987B\u4EE5 "${_issue.suffix}" \u7ED3\u5C3E`;
+        if (_issue.format === "includes")
+          return `\u65E0\u6548\u5B57\u7B26\u4E32\uFF1A\u5FC5\u987B\u5305\u542B "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `\u65E0\u6548\u5B57\u7B26\u4E32\uFF1A\u5FC5\u987B\u6EE1\u8DB3\u6B63\u5219\u8868\u8FBE\u5F0F ${_issue.pattern}`;
+        return `\u65E0\u6548${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `\u65E0\u6548\u6570\u5B57\uFF1A\u5FC5\u987B\u662F ${issue2.divisor} \u7684\u500D\u6570`;
+      case "unrecognized_keys":
+        return `\u51FA\u73B0\u672A\u77E5\u7684\u952E(key): ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `${issue2.origin} \u4E2D\u7684\u952E(key)\u65E0\u6548`;
+      case "invalid_union":
+        return "\u65E0\u6548\u8F93\u5165";
+      case "invalid_element":
+        return `${issue2.origin} \u4E2D\u5305\u542B\u65E0\u6548\u503C(value)`;
+      default:
+        return `\u65E0\u6548\u8F93\u5165`;
+    }
+  };
+};
+function zh_CN_default() {
+  return {
+    localeError: error45()
+  };
+}
+
+// node_modules/zod/v4/locales/zh-TW.js
+var error46 = () => {
+  const Sizable = {
+    string: { unit: "\u5B57\u5143", verb: "\u64C1\u6709" },
+    file: { unit: "\u4F4D\u5143\u7D44", verb: "\u64C1\u6709" },
+    array: { unit: "\u9805\u76EE", verb: "\u64C1\u6709" },
+    set: { unit: "\u9805\u76EE", verb: "\u64C1\u6709" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u8F38\u5165",
+    email: "\u90F5\u4EF6\u5730\u5740",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO \u65E5\u671F\u6642\u9593",
+    date: "ISO \u65E5\u671F",
+    time: "ISO \u6642\u9593",
+    duration: "ISO \u671F\u9593",
+    ipv4: "IPv4 \u4F4D\u5740",
+    ipv6: "IPv6 \u4F4D\u5740",
+    cidrv4: "IPv4 \u7BC4\u570D",
+    cidrv6: "IPv6 \u7BC4\u570D",
+    base64: "base64 \u7DE8\u78BC\u5B57\u4E32",
+    base64url: "base64url \u7DE8\u78BC\u5B57\u4E32",
+    json_string: "JSON \u5B57\u4E32",
+    e164: "E.164 \u6578\u503C",
+    jwt: "JWT",
+    template_literal: "\u8F38\u5165"
+  };
+  const TypeDictionary = {
+    nan: "NaN"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\u7121\u6548\u7684\u8F38\u5165\u503C\uFF1A\u9810\u671F\u70BA instanceof ${issue2.expected}\uFF0C\u4F46\u6536\u5230 ${received}`;
+        }
+        return `\u7121\u6548\u7684\u8F38\u5165\u503C\uFF1A\u9810\u671F\u70BA ${expected}\uFF0C\u4F46\u6536\u5230 ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `\u7121\u6548\u7684\u8F38\u5165\u503C\uFF1A\u9810\u671F\u70BA ${stringifyPrimitive(issue2.values[0])}`;
+        return `\u7121\u6548\u7684\u9078\u9805\uFF1A\u9810\u671F\u70BA\u4EE5\u4E0B\u5176\u4E2D\u4E4B\u4E00 ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `\u6578\u503C\u904E\u5927\uFF1A\u9810\u671F ${issue2.origin ?? "\u503C"} \u61C9\u70BA ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u500B\u5143\u7D20"}`;
+        return `\u6578\u503C\u904E\u5927\uFF1A\u9810\u671F ${issue2.origin ?? "\u503C"} \u61C9\u70BA ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `\u6578\u503C\u904E\u5C0F\uFF1A\u9810\u671F ${issue2.origin} \u61C9\u70BA ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `\u6578\u503C\u904E\u5C0F\uFF1A\u9810\u671F ${issue2.origin} \u61C9\u70BA ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with") {
+          return `\u7121\u6548\u7684\u5B57\u4E32\uFF1A\u5FC5\u9808\u4EE5 "${_issue.prefix}" \u958B\u982D`;
+        }
+        if (_issue.format === "ends_with")
+          return `\u7121\u6548\u7684\u5B57\u4E32\uFF1A\u5FC5\u9808\u4EE5 "${_issue.suffix}" \u7D50\u5C3E`;
+        if (_issue.format === "includes")
+          return `\u7121\u6548\u7684\u5B57\u4E32\uFF1A\u5FC5\u9808\u5305\u542B "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `\u7121\u6548\u7684\u5B57\u4E32\uFF1A\u5FC5\u9808\u7B26\u5408\u683C\u5F0F ${_issue.pattern}`;
+        return `\u7121\u6548\u7684 ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `\u7121\u6548\u7684\u6578\u5B57\uFF1A\u5FC5\u9808\u70BA ${issue2.divisor} \u7684\u500D\u6578`;
+      case "unrecognized_keys":
+        return `\u7121\u6CD5\u8B58\u5225\u7684\u9375\u503C${issue2.keys.length > 1 ? "\u5011" : ""}\uFF1A${joinValues(issue2.keys, "\u3001")}`;
+      case "invalid_key":
+        return `${issue2.origin} \u4E2D\u6709\u7121\u6548\u7684\u9375\u503C`;
+      case "invalid_union":
+        return "\u7121\u6548\u7684\u8F38\u5165\u503C";
+      case "invalid_element":
+        return `${issue2.origin} \u4E2D\u6709\u7121\u6548\u7684\u503C`;
+      default:
+        return `\u7121\u6548\u7684\u8F38\u5165\u503C`;
+    }
+  };
+};
+function zh_TW_default() {
+  return {
+    localeError: error46()
+  };
+}
+
+// node_modules/zod/v4/locales/yo.js
+var error47 = () => {
+  const Sizable = {
+    string: { unit: "\xE0mi", verb: "n\xED" },
+    file: { unit: "bytes", verb: "n\xED" },
+    array: { unit: "nkan", verb: "n\xED" },
+    set: { unit: "nkan", verb: "n\xED" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const FormatDictionary = {
+    regex: "\u1EB9\u0300r\u1ECD \xECb\xE1w\u1ECDl\xE9",
+    email: "\xE0d\xEDr\u1EB9\u0301s\xEC \xECm\u1EB9\u0301l\xEC",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "\xE0k\xF3k\xF2 ISO",
+    date: "\u1ECDj\u1ECD\u0301 ISO",
+    time: "\xE0k\xF3k\xF2 ISO",
+    duration: "\xE0k\xF3k\xF2 t\xF3 p\xE9 ISO",
+    ipv4: "\xE0d\xEDr\u1EB9\u0301s\xEC IPv4",
+    ipv6: "\xE0d\xEDr\u1EB9\u0301s\xEC IPv6",
+    cidrv4: "\xE0gb\xE8gb\xE8 IPv4",
+    cidrv6: "\xE0gb\xE8gb\xE8 IPv6",
+    base64: "\u1ECD\u0300r\u1ECD\u0300 t\xED a k\u1ECD\u0301 n\xED base64",
+    base64url: "\u1ECD\u0300r\u1ECD\u0300 base64url",
+    json_string: "\u1ECD\u0300r\u1ECD\u0300 JSON",
+    e164: "n\u1ECD\u0301mb\xE0 E.164",
+    jwt: "JWT",
+    template_literal: "\u1EB9\u0300r\u1ECD \xECb\xE1w\u1ECDl\xE9"
+  };
+  const TypeDictionary = {
+    nan: "NaN",
+    number: "n\u1ECD\u0301mb\xE0",
+    array: "akop\u1ECD"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type": {
+        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
+        const receivedType = parsedType(issue2.input);
+        const received = TypeDictionary[receivedType] ?? receivedType;
+        if (/^[A-Z]/.test(issue2.expected)) {
+          return `\xCCb\xE1w\u1ECDl\xE9 a\u1E63\xEC\u1E63e: a n\xED l\xE1ti fi instanceof ${issue2.expected}, \xE0m\u1ECD\u0300 a r\xED ${received}`;
+        }
+        return `\xCCb\xE1w\u1ECDl\xE9 a\u1E63\xEC\u1E63e: a n\xED l\xE1ti fi ${expected}, \xE0m\u1ECD\u0300 a r\xED ${received}`;
+      }
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `\xCCb\xE1w\u1ECDl\xE9 a\u1E63\xEC\u1E63e: a n\xED l\xE1ti fi ${stringifyPrimitive(issue2.values[0])}`;
+        return `\xC0\u1E63\xE0y\xE0n a\u1E63\xEC\u1E63e: yan \u1ECD\u0300kan l\xE1ra ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `T\xF3 p\u1ECD\u0300 j\xF9: a n\xED l\xE1ti j\u1EB9\u0301 p\xE9 ${issue2.origin ?? "iye"} ${sizing.verb} ${adj}${issue2.maximum} ${sizing.unit}`;
+        return `T\xF3 p\u1ECD\u0300 j\xF9: a n\xED l\xE1ti j\u1EB9\u0301 ${adj}${issue2.maximum}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `K\xE9r\xE9 ju: a n\xED l\xE1ti j\u1EB9\u0301 p\xE9 ${issue2.origin} ${sizing.verb} ${adj}${issue2.minimum} ${sizing.unit}`;
+        return `K\xE9r\xE9 ju: a n\xED l\xE1ti j\u1EB9\u0301 ${adj}${issue2.minimum}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with")
+          return `\u1ECC\u0300r\u1ECD\u0300 a\u1E63\xEC\u1E63e: gb\u1ECD\u0301d\u1ECD\u0300 b\u1EB9\u0300r\u1EB9\u0300 p\u1EB9\u0300l\xFA "${_issue.prefix}"`;
+        if (_issue.format === "ends_with")
+          return `\u1ECC\u0300r\u1ECD\u0300 a\u1E63\xEC\u1E63e: gb\u1ECD\u0301d\u1ECD\u0300 par\xED p\u1EB9\u0300l\xFA "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `\u1ECC\u0300r\u1ECD\u0300 a\u1E63\xEC\u1E63e: gb\u1ECD\u0301d\u1ECD\u0300 n\xED "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `\u1ECC\u0300r\u1ECD\u0300 a\u1E63\xEC\u1E63e: gb\u1ECD\u0301d\u1ECD\u0300 b\xE1 \xE0p\u1EB9\u1EB9r\u1EB9 mu ${_issue.pattern}`;
+        return `A\u1E63\xEC\u1E63e: ${FormatDictionary[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `N\u1ECD\u0301mb\xE0 a\u1E63\xEC\u1E63e: gb\u1ECD\u0301d\u1ECD\u0300 j\u1EB9\u0301 \xE8y\xE0 p\xEDp\xEDn ti ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `B\u1ECDt\xECn\xEC \xE0\xECm\u1ECD\u0300: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `B\u1ECDt\xECn\xEC a\u1E63\xEC\u1E63e n\xEDn\xFA ${issue2.origin}`;
+      case "invalid_union":
+        return "\xCCb\xE1w\u1ECDl\xE9 a\u1E63\xEC\u1E63e";
+      case "invalid_element":
+        return `Iye a\u1E63\xEC\u1E63e n\xEDn\xFA ${issue2.origin}`;
+      default:
+        return "\xCCb\xE1w\u1ECDl\xE9 a\u1E63\xEC\u1E63e";
+    }
+  };
+};
+function yo_default() {
+  return {
+    localeError: error47()
   };
 }
 
@@ -23238,6 +29062,14 @@ var globalRegistry = globalThis.__zod_globalRegistry;
 function _string(Class2, params) {
   return new Class2({
     type: "string",
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _coercedString(Class2, params) {
+  return new Class2({
+    type: "string",
+    coerce: true,
     ...normalizeParams(params)
   });
 }
@@ -23474,6 +29306,13 @@ function _jwt(Class2, params) {
     ...normalizeParams(params)
   });
 }
+var TimePrecision = {
+  Any: null,
+  Minute: -1,
+  Second: 0,
+  Millisecond: 3,
+  Microsecond: 6
+};
 // @__NO_SIDE_EFFECTS__
 function _isoDateTime(Class2, params) {
   return new Class2({
@@ -23518,6 +29357,15 @@ function _isoDuration(Class2, params) {
 function _number(Class2, params) {
   return new Class2({
     type: "number",
+    checks: [],
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _coercedNumber(Class2, params) {
+  return new Class2({
+    type: "number",
+    coerce: true,
     checks: [],
     ...normalizeParams(params)
   });
@@ -23580,9 +29428,25 @@ function _boolean(Class2, params) {
   });
 }
 // @__NO_SIDE_EFFECTS__
+function _coercedBoolean(Class2, params) {
+  return new Class2({
+    type: "boolean",
+    coerce: true,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
 function _bigint(Class2, params) {
   return new Class2({
     type: "bigint",
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _coercedBigint(Class2, params) {
+  return new Class2({
+    type: "bigint",
+    coerce: true,
     ...normalizeParams(params)
   });
 }
@@ -23657,6 +29521,14 @@ function _void(Class2, params) {
 function _date(Class2, params) {
   return new Class2({
     type: "date",
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _coercedDate(Class2, params) {
+  return new Class2({
+    type: "date",
+    coerce: true,
     ...normalizeParams(params)
   });
 }
@@ -23884,10 +29756,197 @@ function _array(Class2, element, params) {
   });
 }
 // @__NO_SIDE_EFFECTS__
+function _union(Class2, options, params) {
+  return new Class2({
+    type: "union",
+    options,
+    ...normalizeParams(params)
+  });
+}
+function _xor(Class2, options, params) {
+  return new Class2({
+    type: "union",
+    options,
+    inclusive: false,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _discriminatedUnion(Class2, discriminator, options, params) {
+  return new Class2({
+    type: "union",
+    options,
+    discriminator,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _intersection(Class2, left, right) {
+  return new Class2({
+    type: "intersection",
+    left,
+    right
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _tuple(Class2, items, _paramsOrRest, _params) {
+  const hasRest = _paramsOrRest instanceof $ZodType;
+  const params = hasRest ? _params : _paramsOrRest;
+  const rest = hasRest ? _paramsOrRest : null;
+  return new Class2({
+    type: "tuple",
+    items,
+    rest,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _record(Class2, keyType, valueType, params) {
+  return new Class2({
+    type: "record",
+    keyType,
+    valueType,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _map(Class2, keyType, valueType, params) {
+  return new Class2({
+    type: "map",
+    keyType,
+    valueType,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _set(Class2, valueType, params) {
+  return new Class2({
+    type: "set",
+    valueType,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _enum(Class2, values, params) {
+  const entries = Array.isArray(values) ? Object.fromEntries(values.map((v) => [v, v])) : values;
+  return new Class2({
+    type: "enum",
+    entries,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _nativeEnum(Class2, entries, params) {
+  return new Class2({
+    type: "enum",
+    entries,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _literal(Class2, value, params) {
+  return new Class2({
+    type: "literal",
+    values: Array.isArray(value) ? value : [value],
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
 function _file(Class2, params) {
   return new Class2({
     type: "file",
     ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _transform(Class2, fn) {
+  return new Class2({
+    type: "transform",
+    transform: fn
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _optional(Class2, innerType) {
+  return new Class2({
+    type: "optional",
+    innerType
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _nullable(Class2, innerType) {
+  return new Class2({
+    type: "nullable",
+    innerType
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _default(Class2, innerType, defaultValue) {
+  return new Class2({
+    type: "default",
+    innerType,
+    get defaultValue() {
+      return typeof defaultValue === "function" ? defaultValue() : shallowClone(defaultValue);
+    }
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _nonoptional(Class2, innerType, params) {
+  return new Class2({
+    type: "nonoptional",
+    innerType,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _success(Class2, innerType) {
+  return new Class2({
+    type: "success",
+    innerType
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _catch(Class2, innerType, catchValue) {
+  return new Class2({
+    type: "catch",
+    innerType,
+    catchValue: typeof catchValue === "function" ? catchValue : () => catchValue
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _pipe(Class2, in_, out) {
+  return new Class2({
+    type: "pipe",
+    in: in_,
+    out
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _readonly(Class2, innerType) {
+  return new Class2({
+    type: "readonly",
+    innerType
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _templateLiteral(Class2, parts, params) {
+  return new Class2({
+    type: "template_literal",
+    parts,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _lazy(Class2, getter) {
+  return new Class2({
+    type: "lazy",
+    getter
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _promise(Class2, innerType) {
+  return new Class2({
+    type: "promise",
+    innerType
   });
 }
 // @__NO_SIDE_EFFECTS__
@@ -24864,11 +30923,220 @@ var lazyProcessor = (schema, ctx, _json, params) => {
   const seen = ctx.seen.get(schema);
   seen.ref = innerType;
 };
+var allProcessors = {
+  string: stringProcessor,
+  number: numberProcessor,
+  boolean: booleanProcessor,
+  bigint: bigintProcessor,
+  symbol: symbolProcessor,
+  null: nullProcessor,
+  undefined: undefinedProcessor,
+  void: voidProcessor,
+  never: neverProcessor,
+  any: anyProcessor,
+  unknown: unknownProcessor,
+  date: dateProcessor,
+  enum: enumProcessor,
+  literal: literalProcessor,
+  nan: nanProcessor,
+  template_literal: templateLiteralProcessor,
+  file: fileProcessor,
+  success: successProcessor,
+  custom: customProcessor,
+  function: functionProcessor,
+  transform: transformProcessor,
+  map: mapProcessor,
+  set: setProcessor,
+  array: arrayProcessor,
+  object: objectProcessor,
+  union: unionProcessor,
+  intersection: intersectionProcessor,
+  tuple: tupleProcessor,
+  record: recordProcessor,
+  nullable: nullableProcessor,
+  nonoptional: nonoptionalProcessor,
+  default: defaultProcessor,
+  prefault: prefaultProcessor,
+  catch: catchProcessor,
+  pipe: pipeProcessor,
+  readonly: readonlyProcessor,
+  promise: promiseProcessor,
+  optional: optionalProcessor,
+  lazy: lazyProcessor
+};
+function toJSONSchema(input, params) {
+  if ("_idmap" in input) {
+    const registry2 = input;
+    const ctx2 = initializeContext({ ...params, processors: allProcessors });
+    const defs = {};
+    for (const entry of registry2._idmap.entries()) {
+      const [_, schema] = entry;
+      process2(schema, ctx2);
+    }
+    const schemas = {};
+    const external = {
+      registry: registry2,
+      uri: params?.uri,
+      defs
+    };
+    ctx2.external = external;
+    for (const entry of registry2._idmap.entries()) {
+      const [key, schema] = entry;
+      extractDefs(ctx2, schema);
+      schemas[key] = finalize(ctx2, schema);
+    }
+    if (Object.keys(defs).length > 0) {
+      const defsSegment = ctx2.target === "draft-2020-12" ? "$defs" : "definitions";
+      schemas.__shared = {
+        [defsSegment]: defs
+      };
+    }
+    return { schemas };
+  }
+  const ctx = initializeContext({ ...params, processors: allProcessors });
+  process2(input, ctx);
+  extractDefs(ctx, input);
+  return finalize(ctx, input);
+}
+
+// node_modules/zod/v4/core/json-schema-generator.js
+var JSONSchemaGenerator = class {
+  /** @deprecated Access via ctx instead */
+  get metadataRegistry() {
+    return this.ctx.metadataRegistry;
+  }
+  /** @deprecated Access via ctx instead */
+  get target() {
+    return this.ctx.target;
+  }
+  /** @deprecated Access via ctx instead */
+  get unrepresentable() {
+    return this.ctx.unrepresentable;
+  }
+  /** @deprecated Access via ctx instead */
+  get override() {
+    return this.ctx.override;
+  }
+  /** @deprecated Access via ctx instead */
+  get io() {
+    return this.ctx.io;
+  }
+  /** @deprecated Access via ctx instead */
+  get counter() {
+    return this.ctx.counter;
+  }
+  set counter(value) {
+    this.ctx.counter = value;
+  }
+  /** @deprecated Access via ctx instead */
+  get seen() {
+    return this.ctx.seen;
+  }
+  constructor(params) {
+    let normalizedTarget = params?.target ?? "draft-2020-12";
+    if (normalizedTarget === "draft-4")
+      normalizedTarget = "draft-04";
+    if (normalizedTarget === "draft-7")
+      normalizedTarget = "draft-07";
+    this.ctx = initializeContext({
+      processors: allProcessors,
+      target: normalizedTarget,
+      ...params?.metadata && { metadata: params.metadata },
+      ...params?.unrepresentable && { unrepresentable: params.unrepresentable },
+      ...params?.override && { override: params.override },
+      ...params?.io && { io: params.io }
+    });
+  }
+  /**
+   * Process a schema to prepare it for JSON Schema generation.
+   * This must be called before emit().
+   */
+  process(schema, _params = { path: [], schemaPath: [] }) {
+    return process2(schema, this.ctx, _params);
+  }
+  /**
+   * Emit the final JSON Schema after processing.
+   * Must call process() first.
+   */
+  emit(schema, _params) {
+    if (_params) {
+      if (_params.cycles)
+        this.ctx.cycles = _params.cycles;
+      if (_params.reused)
+        this.ctx.reused = _params.reused;
+      if (_params.external)
+        this.ctx.external = _params.external;
+    }
+    extractDefs(this.ctx, schema);
+    const result = finalize(this.ctx, schema);
+    const { "~standard": _, ...plainResult } = result;
+    return plainResult;
+  }
+};
+
+// node_modules/zod/v4/core/json-schema.js
+var json_schema_exports = {};
+
+// node_modules/zod/v4/mini/schemas.js
+var ZodMiniType = /* @__PURE__ */ $constructor("ZodMiniType", (inst, def) => {
+  if (!inst._zod)
+    throw new Error("Uninitialized schema in ZodMiniType.");
+  $ZodType.init(inst, def);
+  inst.def = def;
+  inst.type = def.type;
+  inst.parse = (data, params) => parse(inst, data, params, { callee: inst.parse });
+  inst.safeParse = (data, params) => safeParse(inst, data, params);
+  inst.parseAsync = async (data, params) => parseAsync(inst, data, params, { callee: inst.parseAsync });
+  inst.safeParseAsync = async (data, params) => safeParseAsync(inst, data, params);
+  inst.check = (...checks) => {
+    return inst.clone({
+      ...def,
+      checks: [
+        ...def.checks ?? [],
+        ...checks.map((ch) => typeof ch === "function" ? { _zod: { check: ch, def: { check: "custom" }, onattach: [] } } : ch)
+      ]
+    }, { parent: true });
+  };
+  inst.with = inst.check;
+  inst.clone = (_def, params) => clone(inst, _def, params);
+  inst.brand = () => inst;
+  inst.register = (reg, meta3) => {
+    reg.add(inst, meta3);
+    return inst;
+  };
+  inst.apply = (fn) => fn(inst);
+});
+var ZodMiniObject = /* @__PURE__ */ $constructor("ZodMiniObject", (inst, def) => {
+  $ZodObject.init(inst, def);
+  ZodMiniType.init(inst, def);
+  defineLazy(inst, "shape", () => def.shape);
+});
+// @__NO_SIDE_EFFECTS__
+function object(shape, params) {
+  const def = {
+    type: "object",
+    shape: shape ?? {},
+    ...normalizeParams(params)
+  };
+  return new ZodMiniObject(def);
+}
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-compat.js
 function isZ4Schema(s) {
   const schema = s;
   return !!schema._zod;
+}
+function objectFromShape(shape) {
+  const values = Object.values(shape);
+  if (values.length === 0)
+    return object({});
+  const allV4 = values.every(isZ4Schema);
+  const allV3 = values.every((s) => !isZ4Schema(s));
+  if (allV4)
+    return object(shape);
+  if (allV3)
+    return objectType(shape);
+  throw new Error("Mixed Zod versions detected in object shape.");
 }
 function safeParse2(schema, data) {
   if (isZ4Schema(schema)) {
@@ -24877,6 +31145,15 @@ function safeParse2(schema, data) {
   }
   const v3Schema = schema;
   const result = v3Schema.safeParse(data);
+  return result;
+}
+async function safeParseAsync2(schema, data) {
+  if (isZ4Schema(schema)) {
+    const result2 = await safeParseAsync(schema, data);
+    return result2;
+  }
+  const v3Schema = schema;
+  const result = await v3Schema.safeParseAsync(data);
   return result;
 }
 function getObjectShape(schema) {
@@ -24900,6 +31177,66 @@ function getObjectShape(schema) {
     }
   }
   return rawShape;
+}
+function normalizeObjectSchema(schema) {
+  if (!schema)
+    return void 0;
+  if (typeof schema === "object") {
+    const asV3 = schema;
+    const asV4 = schema;
+    if (!asV3._def && !asV4._zod) {
+      const values = Object.values(schema);
+      if (values.length > 0 && values.every((v) => typeof v === "object" && v !== null && (v._def !== void 0 || v._zod !== void 0 || typeof v.parse === "function"))) {
+        return objectFromShape(schema);
+      }
+    }
+  }
+  if (isZ4Schema(schema)) {
+    const v4Schema = schema;
+    const def = v4Schema._zod?.def;
+    if (def && (def.type === "object" || def.shape !== void 0)) {
+      return schema;
+    }
+  } else {
+    const v3Schema = schema;
+    if (v3Schema.shape !== void 0) {
+      return schema;
+    }
+  }
+  return void 0;
+}
+function getParseErrorMessage(error48) {
+  if (error48 && typeof error48 === "object") {
+    if ("message" in error48 && typeof error48.message === "string") {
+      return error48.message;
+    }
+    if ("issues" in error48 && Array.isArray(error48.issues) && error48.issues.length > 0) {
+      const firstIssue = error48.issues[0];
+      if (firstIssue && typeof firstIssue === "object" && "message" in firstIssue) {
+        return String(firstIssue.message);
+      }
+    }
+    try {
+      return JSON.stringify(error48);
+    } catch {
+      return String(error48);
+    }
+  }
+  return String(error48);
+}
+function getSchemaDescription(schema) {
+  return schema.description;
+}
+function isSchemaOptional(schema) {
+  if (isZ4Schema(schema)) {
+    const v4Schema = schema;
+    return v4Schema._zod?.def?.type === "optional";
+  }
+  const v3Schema = schema;
+  if (typeof schema.isOptional === "function") {
+    return schema.isOptional();
+  }
+  return v3Schema._def?.typeName === "ZodOptional";
 }
 function getLiteralValue(schema) {
   if (isZ4Schema(schema)) {
@@ -24927,6 +31264,247 @@ function getLiteralValue(schema) {
     return directValue;
   return void 0;
 }
+
+// node_modules/zod/v4/classic/external.js
+var external_exports3 = {};
+__export(external_exports3, {
+  $brand: () => $brand,
+  $input: () => $input,
+  $output: () => $output,
+  NEVER: () => NEVER,
+  TimePrecision: () => TimePrecision,
+  ZodAny: () => ZodAny2,
+  ZodArray: () => ZodArray2,
+  ZodBase64: () => ZodBase64,
+  ZodBase64URL: () => ZodBase64URL,
+  ZodBigInt: () => ZodBigInt2,
+  ZodBigIntFormat: () => ZodBigIntFormat,
+  ZodBoolean: () => ZodBoolean2,
+  ZodCIDRv4: () => ZodCIDRv4,
+  ZodCIDRv6: () => ZodCIDRv6,
+  ZodCUID: () => ZodCUID,
+  ZodCUID2: () => ZodCUID2,
+  ZodCatch: () => ZodCatch2,
+  ZodCodec: () => ZodCodec,
+  ZodCustom: () => ZodCustom,
+  ZodCustomStringFormat: () => ZodCustomStringFormat,
+  ZodDate: () => ZodDate2,
+  ZodDefault: () => ZodDefault2,
+  ZodDiscriminatedUnion: () => ZodDiscriminatedUnion2,
+  ZodE164: () => ZodE164,
+  ZodEmail: () => ZodEmail,
+  ZodEmoji: () => ZodEmoji,
+  ZodEnum: () => ZodEnum2,
+  ZodError: () => ZodError2,
+  ZodExactOptional: () => ZodExactOptional,
+  ZodFile: () => ZodFile,
+  ZodFirstPartyTypeKind: () => ZodFirstPartyTypeKind2,
+  ZodFunction: () => ZodFunction2,
+  ZodGUID: () => ZodGUID,
+  ZodIPv4: () => ZodIPv4,
+  ZodIPv6: () => ZodIPv6,
+  ZodISODate: () => ZodISODate,
+  ZodISODateTime: () => ZodISODateTime,
+  ZodISODuration: () => ZodISODuration,
+  ZodISOTime: () => ZodISOTime,
+  ZodIntersection: () => ZodIntersection2,
+  ZodIssueCode: () => ZodIssueCode2,
+  ZodJWT: () => ZodJWT,
+  ZodKSUID: () => ZodKSUID,
+  ZodLazy: () => ZodLazy2,
+  ZodLiteral: () => ZodLiteral2,
+  ZodMAC: () => ZodMAC,
+  ZodMap: () => ZodMap2,
+  ZodNaN: () => ZodNaN2,
+  ZodNanoID: () => ZodNanoID,
+  ZodNever: () => ZodNever2,
+  ZodNonOptional: () => ZodNonOptional,
+  ZodNull: () => ZodNull2,
+  ZodNullable: () => ZodNullable2,
+  ZodNumber: () => ZodNumber2,
+  ZodNumberFormat: () => ZodNumberFormat,
+  ZodObject: () => ZodObject2,
+  ZodOptional: () => ZodOptional2,
+  ZodPipe: () => ZodPipe,
+  ZodPrefault: () => ZodPrefault,
+  ZodPromise: () => ZodPromise2,
+  ZodReadonly: () => ZodReadonly2,
+  ZodRealError: () => ZodRealError,
+  ZodRecord: () => ZodRecord2,
+  ZodSet: () => ZodSet2,
+  ZodString: () => ZodString2,
+  ZodStringFormat: () => ZodStringFormat,
+  ZodSuccess: () => ZodSuccess,
+  ZodSymbol: () => ZodSymbol2,
+  ZodTemplateLiteral: () => ZodTemplateLiteral,
+  ZodTransform: () => ZodTransform,
+  ZodTuple: () => ZodTuple2,
+  ZodType: () => ZodType2,
+  ZodULID: () => ZodULID,
+  ZodURL: () => ZodURL,
+  ZodUUID: () => ZodUUID,
+  ZodUndefined: () => ZodUndefined2,
+  ZodUnion: () => ZodUnion2,
+  ZodUnknown: () => ZodUnknown2,
+  ZodVoid: () => ZodVoid2,
+  ZodXID: () => ZodXID,
+  ZodXor: () => ZodXor,
+  _ZodString: () => _ZodString,
+  _default: () => _default2,
+  _function: () => _function,
+  any: () => any,
+  array: () => array,
+  base64: () => base642,
+  base64url: () => base64url2,
+  bigint: () => bigint2,
+  boolean: () => boolean2,
+  catch: () => _catch2,
+  check: () => check,
+  cidrv4: () => cidrv42,
+  cidrv6: () => cidrv62,
+  clone: () => clone,
+  codec: () => codec,
+  coerce: () => coerce_exports2,
+  config: () => config,
+  core: () => core_exports2,
+  cuid: () => cuid3,
+  cuid2: () => cuid22,
+  custom: () => custom,
+  date: () => date3,
+  decode: () => decode2,
+  decodeAsync: () => decodeAsync2,
+  describe: () => describe2,
+  discriminatedUnion: () => discriminatedUnion,
+  e164: () => e1642,
+  email: () => email2,
+  emoji: () => emoji2,
+  encode: () => encode2,
+  encodeAsync: () => encodeAsync2,
+  endsWith: () => _endsWith,
+  enum: () => _enum2,
+  exactOptional: () => exactOptional,
+  file: () => file,
+  flattenError: () => flattenError,
+  float32: () => float32,
+  float64: () => float64,
+  formatError: () => formatError,
+  fromJSONSchema: () => fromJSONSchema,
+  function: () => _function,
+  getErrorMap: () => getErrorMap2,
+  globalRegistry: () => globalRegistry,
+  gt: () => _gt,
+  gte: () => _gte,
+  guid: () => guid2,
+  hash: () => hash,
+  hex: () => hex2,
+  hostname: () => hostname2,
+  httpUrl: () => httpUrl,
+  includes: () => _includes,
+  instanceof: () => _instanceof,
+  int: () => int,
+  int32: () => int32,
+  int64: () => int64,
+  intersection: () => intersection,
+  ipv4: () => ipv42,
+  ipv6: () => ipv62,
+  iso: () => iso_exports2,
+  json: () => json,
+  jwt: () => jwt,
+  keyof: () => keyof,
+  ksuid: () => ksuid2,
+  lazy: () => lazy,
+  length: () => _length,
+  literal: () => literal,
+  locales: () => locales_exports,
+  looseObject: () => looseObject,
+  looseRecord: () => looseRecord,
+  lowercase: () => _lowercase,
+  lt: () => _lt,
+  lte: () => _lte,
+  mac: () => mac2,
+  map: () => map,
+  maxLength: () => _maxLength,
+  maxSize: () => _maxSize,
+  meta: () => meta2,
+  mime: () => _mime,
+  minLength: () => _minLength,
+  minSize: () => _minSize,
+  multipleOf: () => _multipleOf,
+  nan: () => nan,
+  nanoid: () => nanoid2,
+  nativeEnum: () => nativeEnum,
+  negative: () => _negative,
+  never: () => never,
+  nonnegative: () => _nonnegative,
+  nonoptional: () => nonoptional,
+  nonpositive: () => _nonpositive,
+  normalize: () => _normalize,
+  null: () => _null3,
+  nullable: () => nullable,
+  nullish: () => nullish2,
+  number: () => number2,
+  object: () => object2,
+  optional: () => optional,
+  overwrite: () => _overwrite,
+  parse: () => parse2,
+  parseAsync: () => parseAsync2,
+  partialRecord: () => partialRecord,
+  pipe: () => pipe,
+  positive: () => _positive,
+  prefault: () => prefault,
+  preprocess: () => preprocess,
+  prettifyError: () => prettifyError,
+  promise: () => promise,
+  property: () => _property,
+  readonly: () => readonly,
+  record: () => record,
+  refine: () => refine,
+  regex: () => _regex,
+  regexes: () => regexes_exports,
+  registry: () => registry,
+  safeDecode: () => safeDecode2,
+  safeDecodeAsync: () => safeDecodeAsync2,
+  safeEncode: () => safeEncode2,
+  safeEncodeAsync: () => safeEncodeAsync2,
+  safeParse: () => safeParse3,
+  safeParseAsync: () => safeParseAsync3,
+  set: () => set,
+  setErrorMap: () => setErrorMap,
+  size: () => _size,
+  slugify: () => _slugify,
+  startsWith: () => _startsWith,
+  strictObject: () => strictObject,
+  string: () => string2,
+  stringFormat: () => stringFormat,
+  stringbool: () => stringbool,
+  success: () => success,
+  superRefine: () => superRefine,
+  symbol: () => symbol,
+  templateLiteral: () => templateLiteral,
+  toJSONSchema: () => toJSONSchema,
+  toLowerCase: () => _toLowerCase,
+  toUpperCase: () => _toUpperCase,
+  transform: () => transform,
+  treeifyError: () => treeifyError,
+  trim: () => _trim,
+  tuple: () => tuple,
+  uint32: () => uint32,
+  uint64: () => uint64,
+  ulid: () => ulid2,
+  undefined: () => _undefined3,
+  union: () => union,
+  unknown: () => unknown,
+  uppercase: () => _uppercase,
+  url: () => url,
+  util: () => util_exports,
+  uuid: () => uuid2,
+  uuidv4: () => uuidv4,
+  uuidv6: () => uuidv6,
+  uuidv7: () => uuidv7,
+  void: () => _void2,
+  xid: () => xid2,
+  xor: () => xor
+});
 
 // node_modules/zod/v4/classic/schemas.js
 var schemas_exports3 = {};
@@ -25000,7 +31578,7 @@ __export(schemas_exports3, {
   ZodXID: () => ZodXID,
   ZodXor: () => ZodXor,
   _ZodString: () => _ZodString,
-  _default: () => _default,
+  _default: () => _default2,
   _function: () => _function,
   any: () => any,
   array: () => array,
@@ -25008,7 +31586,7 @@ __export(schemas_exports3, {
   base64url: () => base64url2,
   bigint: () => bigint2,
   boolean: () => boolean2,
-  catch: () => _catch,
+  catch: () => _catch2,
   check: () => check,
   cidrv4: () => cidrv42,
   cidrv6: () => cidrv62,
@@ -25022,7 +31600,7 @@ __export(schemas_exports3, {
   e164: () => e1642,
   email: () => email2,
   emoji: () => emoji2,
-  enum: () => _enum,
+  enum: () => _enum2,
   exactOptional: () => exactOptional,
   file: () => file,
   float32: () => float32,
@@ -25216,7 +31794,7 @@ var ZodRealError = $constructor("ZodError", initializer2, {
 var parse2 = /* @__PURE__ */ _parse(ZodRealError);
 var parseAsync2 = /* @__PURE__ */ _parseAsync(ZodRealError);
 var safeParse3 = /* @__PURE__ */ _safeParse(ZodRealError);
-var safeParseAsync2 = /* @__PURE__ */ _safeParseAsync(ZodRealError);
+var safeParseAsync3 = /* @__PURE__ */ _safeParseAsync(ZodRealError);
 var encode2 = /* @__PURE__ */ _encode(ZodRealError);
 var decode2 = /* @__PURE__ */ _decode(ZodRealError);
 var encodeAsync2 = /* @__PURE__ */ _encodeAsync(ZodRealError);
@@ -25259,7 +31837,7 @@ var ZodType2 = /* @__PURE__ */ $constructor("ZodType", (inst, def) => {
   inst.parse = (data, params) => parse2(inst, data, params, { callee: inst.parse });
   inst.safeParse = (data, params) => safeParse3(inst, data, params);
   inst.parseAsync = async (data, params) => parseAsync2(inst, data, params, { callee: inst.parseAsync });
-  inst.safeParseAsync = async (data, params) => safeParseAsync2(inst, data, params);
+  inst.safeParseAsync = async (data, params) => safeParseAsync3(inst, data, params);
   inst.spa = inst.safeParseAsync;
   inst.encode = (data, params) => encode2(inst, data, params);
   inst.decode = (data, params) => decode2(inst, data, params);
@@ -25281,9 +31859,9 @@ var ZodType2 = /* @__PURE__ */ $constructor("ZodType", (inst, def) => {
   inst.or = (arg) => union([inst, arg]);
   inst.and = (arg) => intersection(inst, arg);
   inst.transform = (tx) => pipe(inst, transform(tx));
-  inst.default = (def2) => _default(inst, def2);
+  inst.default = (def2) => _default2(inst, def2);
   inst.prefault = (def2) => prefault(inst, def2);
-  inst.catch = (params) => _catch(inst, params);
+  inst.catch = (params) => _catch2(inst, params);
   inst.pipe = (target) => pipe(inst, target);
   inst.readonly = () => readonly(inst);
   inst.describe = (description) => {
@@ -25725,7 +32303,7 @@ function array(element, params) {
 }
 function keyof(schema) {
   const shape = schema._zod.def.shape;
-  return _enum(Object.keys(shape));
+  return _enum2(Object.keys(shape));
 }
 var ZodObject2 = /* @__PURE__ */ $constructor("ZodObject", (inst, def) => {
   $ZodObjectJIT.init(inst, def);
@@ -25734,7 +32312,7 @@ var ZodObject2 = /* @__PURE__ */ $constructor("ZodObject", (inst, def) => {
   util_exports.defineLazy(inst, "shape", () => {
     return def.shape;
   });
-  inst.keyof = () => _enum(Object.keys(inst._zod.def.shape));
+  inst.keyof = () => _enum2(Object.keys(inst._zod.def.shape));
   inst.catchall = (catchall) => inst.clone({ ...inst._zod.def, catchall });
   inst.passthrough = () => inst.clone({ ...inst._zod.def, catchall: unknown() });
   inst.loose = () => inst.clone({ ...inst._zod.def, catchall: unknown() });
@@ -25954,7 +32532,7 @@ var ZodEnum2 = /* @__PURE__ */ $constructor("ZodEnum", (inst, def) => {
     });
   };
 });
-function _enum(values, params) {
+function _enum2(values, params) {
   const entries = Array.isArray(values) ? Object.fromEntries(values.map((v) => [v, v])) : values;
   return new ZodEnum2({
     type: "enum",
@@ -26085,7 +32663,7 @@ var ZodDefault2 = /* @__PURE__ */ $constructor("ZodDefault", (inst, def) => {
   inst.unwrap = () => inst._zod.def.innerType;
   inst.removeDefault = inst.unwrap;
 });
-function _default(innerType, defaultValue) {
+function _default2(innerType, defaultValue) {
   return new ZodDefault2({
     type: "default",
     innerType,
@@ -26141,7 +32719,7 @@ var ZodCatch2 = /* @__PURE__ */ $constructor("ZodCatch", (inst, def) => {
   inst.unwrap = () => inst._zod.def.innerType;
   inst.removeCatch = inst.unwrap;
 });
-function _catch(innerType, catchValue) {
+function _catch2(innerType, catchValue) {
   return new ZodCatch2({
     type: "catch",
     innerType,
@@ -26306,6 +32884,27 @@ function preprocess(fn, schema) {
 }
 
 // node_modules/zod/v4/classic/compat.js
+var ZodIssueCode2 = {
+  invalid_type: "invalid_type",
+  too_big: "too_big",
+  too_small: "too_small",
+  invalid_format: "invalid_format",
+  not_multiple_of: "not_multiple_of",
+  unrecognized_keys: "unrecognized_keys",
+  invalid_union: "invalid_union",
+  invalid_key: "invalid_key",
+  invalid_element: "invalid_element",
+  invalid_value: "invalid_value",
+  custom: "custom"
+};
+function setErrorMap(map2) {
+  config({
+    customError: map2
+  });
+}
+function getErrorMap2() {
+  return config().customError;
+}
 var ZodFirstPartyTypeKind2;
 /* @__PURE__ */ (function(ZodFirstPartyTypeKind3) {
 })(ZodFirstPartyTypeKind2 || (ZodFirstPartyTypeKind2 = {}));
@@ -26316,6 +32915,498 @@ var z = {
   ...checks_exports2,
   iso: iso_exports2
 };
+var RECOGNIZED_KEYS = /* @__PURE__ */ new Set([
+  // Schema identification
+  "$schema",
+  "$ref",
+  "$defs",
+  "definitions",
+  // Core schema keywords
+  "$id",
+  "id",
+  "$comment",
+  "$anchor",
+  "$vocabulary",
+  "$dynamicRef",
+  "$dynamicAnchor",
+  // Type
+  "type",
+  "enum",
+  "const",
+  // Composition
+  "anyOf",
+  "oneOf",
+  "allOf",
+  "not",
+  // Object
+  "properties",
+  "required",
+  "additionalProperties",
+  "patternProperties",
+  "propertyNames",
+  "minProperties",
+  "maxProperties",
+  // Array
+  "items",
+  "prefixItems",
+  "additionalItems",
+  "minItems",
+  "maxItems",
+  "uniqueItems",
+  "contains",
+  "minContains",
+  "maxContains",
+  // String
+  "minLength",
+  "maxLength",
+  "pattern",
+  "format",
+  // Number
+  "minimum",
+  "maximum",
+  "exclusiveMinimum",
+  "exclusiveMaximum",
+  "multipleOf",
+  // Already handled metadata
+  "description",
+  "default",
+  // Content
+  "contentEncoding",
+  "contentMediaType",
+  "contentSchema",
+  // Unsupported (error-throwing)
+  "unevaluatedItems",
+  "unevaluatedProperties",
+  "if",
+  "then",
+  "else",
+  "dependentSchemas",
+  "dependentRequired",
+  // OpenAPI
+  "nullable",
+  "readOnly"
+]);
+function detectVersion(schema, defaultTarget) {
+  const $schema = schema.$schema;
+  if ($schema === "https://json-schema.org/draft/2020-12/schema") {
+    return "draft-2020-12";
+  }
+  if ($schema === "http://json-schema.org/draft-07/schema#") {
+    return "draft-7";
+  }
+  if ($schema === "http://json-schema.org/draft-04/schema#") {
+    return "draft-4";
+  }
+  return defaultTarget ?? "draft-2020-12";
+}
+function resolveRef(ref, ctx) {
+  if (!ref.startsWith("#")) {
+    throw new Error("External $ref is not supported, only local refs (#/...) are allowed");
+  }
+  const path = ref.slice(1).split("/").filter(Boolean);
+  if (path.length === 0) {
+    return ctx.rootSchema;
+  }
+  const defsKey = ctx.version === "draft-2020-12" ? "$defs" : "definitions";
+  if (path[0] === defsKey) {
+    const key = path[1];
+    if (!key || !ctx.defs[key]) {
+      throw new Error(`Reference not found: ${ref}`);
+    }
+    return ctx.defs[key];
+  }
+  throw new Error(`Reference not found: ${ref}`);
+}
+function convertBaseSchema(schema, ctx) {
+  if (schema.not !== void 0) {
+    if (typeof schema.not === "object" && Object.keys(schema.not).length === 0) {
+      return z.never();
+    }
+    throw new Error("not is not supported in Zod (except { not: {} } for never)");
+  }
+  if (schema.unevaluatedItems !== void 0) {
+    throw new Error("unevaluatedItems is not supported");
+  }
+  if (schema.unevaluatedProperties !== void 0) {
+    throw new Error("unevaluatedProperties is not supported");
+  }
+  if (schema.if !== void 0 || schema.then !== void 0 || schema.else !== void 0) {
+    throw new Error("Conditional schemas (if/then/else) are not supported");
+  }
+  if (schema.dependentSchemas !== void 0 || schema.dependentRequired !== void 0) {
+    throw new Error("dependentSchemas and dependentRequired are not supported");
+  }
+  if (schema.$ref) {
+    const refPath = schema.$ref;
+    if (ctx.refs.has(refPath)) {
+      return ctx.refs.get(refPath);
+    }
+    if (ctx.processing.has(refPath)) {
+      return z.lazy(() => {
+        if (!ctx.refs.has(refPath)) {
+          throw new Error(`Circular reference not resolved: ${refPath}`);
+        }
+        return ctx.refs.get(refPath);
+      });
+    }
+    ctx.processing.add(refPath);
+    const resolved = resolveRef(refPath, ctx);
+    const zodSchema2 = convertSchema(resolved, ctx);
+    ctx.refs.set(refPath, zodSchema2);
+    ctx.processing.delete(refPath);
+    return zodSchema2;
+  }
+  if (schema.enum !== void 0) {
+    const enumValues = schema.enum;
+    if (ctx.version === "openapi-3.0" && schema.nullable === true && enumValues.length === 1 && enumValues[0] === null) {
+      return z.null();
+    }
+    if (enumValues.length === 0) {
+      return z.never();
+    }
+    if (enumValues.length === 1) {
+      return z.literal(enumValues[0]);
+    }
+    if (enumValues.every((v) => typeof v === "string")) {
+      return z.enum(enumValues);
+    }
+    const literalSchemas = enumValues.map((v) => z.literal(v));
+    if (literalSchemas.length < 2) {
+      return literalSchemas[0];
+    }
+    return z.union([literalSchemas[0], literalSchemas[1], ...literalSchemas.slice(2)]);
+  }
+  if (schema.const !== void 0) {
+    return z.literal(schema.const);
+  }
+  const type = schema.type;
+  if (Array.isArray(type)) {
+    const typeSchemas = type.map((t) => {
+      const typeSchema = { ...schema, type: t };
+      return convertBaseSchema(typeSchema, ctx);
+    });
+    if (typeSchemas.length === 0) {
+      return z.never();
+    }
+    if (typeSchemas.length === 1) {
+      return typeSchemas[0];
+    }
+    return z.union(typeSchemas);
+  }
+  if (!type) {
+    return z.any();
+  }
+  let zodSchema;
+  switch (type) {
+    case "string": {
+      let stringSchema = z.string();
+      if (schema.format) {
+        const format = schema.format;
+        if (format === "email") {
+          stringSchema = stringSchema.check(z.email());
+        } else if (format === "uri" || format === "uri-reference") {
+          stringSchema = stringSchema.check(z.url());
+        } else if (format === "uuid" || format === "guid") {
+          stringSchema = stringSchema.check(z.uuid());
+        } else if (format === "date-time") {
+          stringSchema = stringSchema.check(z.iso.datetime());
+        } else if (format === "date") {
+          stringSchema = stringSchema.check(z.iso.date());
+        } else if (format === "time") {
+          stringSchema = stringSchema.check(z.iso.time());
+        } else if (format === "duration") {
+          stringSchema = stringSchema.check(z.iso.duration());
+        } else if (format === "ipv4") {
+          stringSchema = stringSchema.check(z.ipv4());
+        } else if (format === "ipv6") {
+          stringSchema = stringSchema.check(z.ipv6());
+        } else if (format === "mac") {
+          stringSchema = stringSchema.check(z.mac());
+        } else if (format === "cidr") {
+          stringSchema = stringSchema.check(z.cidrv4());
+        } else if (format === "cidr-v6") {
+          stringSchema = stringSchema.check(z.cidrv6());
+        } else if (format === "base64") {
+          stringSchema = stringSchema.check(z.base64());
+        } else if (format === "base64url") {
+          stringSchema = stringSchema.check(z.base64url());
+        } else if (format === "e164") {
+          stringSchema = stringSchema.check(z.e164());
+        } else if (format === "jwt") {
+          stringSchema = stringSchema.check(z.jwt());
+        } else if (format === "emoji") {
+          stringSchema = stringSchema.check(z.emoji());
+        } else if (format === "nanoid") {
+          stringSchema = stringSchema.check(z.nanoid());
+        } else if (format === "cuid") {
+          stringSchema = stringSchema.check(z.cuid());
+        } else if (format === "cuid2") {
+          stringSchema = stringSchema.check(z.cuid2());
+        } else if (format === "ulid") {
+          stringSchema = stringSchema.check(z.ulid());
+        } else if (format === "xid") {
+          stringSchema = stringSchema.check(z.xid());
+        } else if (format === "ksuid") {
+          stringSchema = stringSchema.check(z.ksuid());
+        }
+      }
+      if (typeof schema.minLength === "number") {
+        stringSchema = stringSchema.min(schema.minLength);
+      }
+      if (typeof schema.maxLength === "number") {
+        stringSchema = stringSchema.max(schema.maxLength);
+      }
+      if (schema.pattern) {
+        stringSchema = stringSchema.regex(new RegExp(schema.pattern));
+      }
+      zodSchema = stringSchema;
+      break;
+    }
+    case "number":
+    case "integer": {
+      let numberSchema = type === "integer" ? z.number().int() : z.number();
+      if (typeof schema.minimum === "number") {
+        numberSchema = numberSchema.min(schema.minimum);
+      }
+      if (typeof schema.maximum === "number") {
+        numberSchema = numberSchema.max(schema.maximum);
+      }
+      if (typeof schema.exclusiveMinimum === "number") {
+        numberSchema = numberSchema.gt(schema.exclusiveMinimum);
+      } else if (schema.exclusiveMinimum === true && typeof schema.minimum === "number") {
+        numberSchema = numberSchema.gt(schema.minimum);
+      }
+      if (typeof schema.exclusiveMaximum === "number") {
+        numberSchema = numberSchema.lt(schema.exclusiveMaximum);
+      } else if (schema.exclusiveMaximum === true && typeof schema.maximum === "number") {
+        numberSchema = numberSchema.lt(schema.maximum);
+      }
+      if (typeof schema.multipleOf === "number") {
+        numberSchema = numberSchema.multipleOf(schema.multipleOf);
+      }
+      zodSchema = numberSchema;
+      break;
+    }
+    case "boolean": {
+      zodSchema = z.boolean();
+      break;
+    }
+    case "null": {
+      zodSchema = z.null();
+      break;
+    }
+    case "object": {
+      const shape = {};
+      const properties = schema.properties || {};
+      const requiredSet = new Set(schema.required || []);
+      for (const [key, propSchema] of Object.entries(properties)) {
+        const propZodSchema = convertSchema(propSchema, ctx);
+        shape[key] = requiredSet.has(key) ? propZodSchema : propZodSchema.optional();
+      }
+      if (schema.propertyNames) {
+        const keySchema = convertSchema(schema.propertyNames, ctx);
+        const valueSchema = schema.additionalProperties && typeof schema.additionalProperties === "object" ? convertSchema(schema.additionalProperties, ctx) : z.any();
+        if (Object.keys(shape).length === 0) {
+          zodSchema = z.record(keySchema, valueSchema);
+          break;
+        }
+        const objectSchema2 = z.object(shape).passthrough();
+        const recordSchema = z.looseRecord(keySchema, valueSchema);
+        zodSchema = z.intersection(objectSchema2, recordSchema);
+        break;
+      }
+      if (schema.patternProperties) {
+        const patternProps = schema.patternProperties;
+        const patternKeys = Object.keys(patternProps);
+        const looseRecords = [];
+        for (const pattern of patternKeys) {
+          const patternValue = convertSchema(patternProps[pattern], ctx);
+          const keySchema = z.string().regex(new RegExp(pattern));
+          looseRecords.push(z.looseRecord(keySchema, patternValue));
+        }
+        const schemasToIntersect = [];
+        if (Object.keys(shape).length > 0) {
+          schemasToIntersect.push(z.object(shape).passthrough());
+        }
+        schemasToIntersect.push(...looseRecords);
+        if (schemasToIntersect.length === 0) {
+          zodSchema = z.object({}).passthrough();
+        } else if (schemasToIntersect.length === 1) {
+          zodSchema = schemasToIntersect[0];
+        } else {
+          let result = z.intersection(schemasToIntersect[0], schemasToIntersect[1]);
+          for (let i = 2; i < schemasToIntersect.length; i++) {
+            result = z.intersection(result, schemasToIntersect[i]);
+          }
+          zodSchema = result;
+        }
+        break;
+      }
+      const objectSchema = z.object(shape);
+      if (schema.additionalProperties === false) {
+        zodSchema = objectSchema.strict();
+      } else if (typeof schema.additionalProperties === "object") {
+        zodSchema = objectSchema.catchall(convertSchema(schema.additionalProperties, ctx));
+      } else {
+        zodSchema = objectSchema.passthrough();
+      }
+      break;
+    }
+    case "array": {
+      const prefixItems = schema.prefixItems;
+      const items = schema.items;
+      if (prefixItems && Array.isArray(prefixItems)) {
+        const tupleItems = prefixItems.map((item) => convertSchema(item, ctx));
+        const rest = items && typeof items === "object" && !Array.isArray(items) ? convertSchema(items, ctx) : void 0;
+        if (rest) {
+          zodSchema = z.tuple(tupleItems).rest(rest);
+        } else {
+          zodSchema = z.tuple(tupleItems);
+        }
+        if (typeof schema.minItems === "number") {
+          zodSchema = zodSchema.check(z.minLength(schema.minItems));
+        }
+        if (typeof schema.maxItems === "number") {
+          zodSchema = zodSchema.check(z.maxLength(schema.maxItems));
+        }
+      } else if (Array.isArray(items)) {
+        const tupleItems = items.map((item) => convertSchema(item, ctx));
+        const rest = schema.additionalItems && typeof schema.additionalItems === "object" ? convertSchema(schema.additionalItems, ctx) : void 0;
+        if (rest) {
+          zodSchema = z.tuple(tupleItems).rest(rest);
+        } else {
+          zodSchema = z.tuple(tupleItems);
+        }
+        if (typeof schema.minItems === "number") {
+          zodSchema = zodSchema.check(z.minLength(schema.minItems));
+        }
+        if (typeof schema.maxItems === "number") {
+          zodSchema = zodSchema.check(z.maxLength(schema.maxItems));
+        }
+      } else if (items !== void 0) {
+        const element = convertSchema(items, ctx);
+        let arraySchema = z.array(element);
+        if (typeof schema.minItems === "number") {
+          arraySchema = arraySchema.min(schema.minItems);
+        }
+        if (typeof schema.maxItems === "number") {
+          arraySchema = arraySchema.max(schema.maxItems);
+        }
+        zodSchema = arraySchema;
+      } else {
+        zodSchema = z.array(z.any());
+      }
+      break;
+    }
+    default:
+      throw new Error(`Unsupported type: ${type}`);
+  }
+  if (schema.description) {
+    zodSchema = zodSchema.describe(schema.description);
+  }
+  if (schema.default !== void 0) {
+    zodSchema = zodSchema.default(schema.default);
+  }
+  return zodSchema;
+}
+function convertSchema(schema, ctx) {
+  if (typeof schema === "boolean") {
+    return schema ? z.any() : z.never();
+  }
+  let baseSchema = convertBaseSchema(schema, ctx);
+  const hasExplicitType = schema.type || schema.enum !== void 0 || schema.const !== void 0;
+  if (schema.anyOf && Array.isArray(schema.anyOf)) {
+    const options = schema.anyOf.map((s) => convertSchema(s, ctx));
+    const anyOfUnion = z.union(options);
+    baseSchema = hasExplicitType ? z.intersection(baseSchema, anyOfUnion) : anyOfUnion;
+  }
+  if (schema.oneOf && Array.isArray(schema.oneOf)) {
+    const options = schema.oneOf.map((s) => convertSchema(s, ctx));
+    const oneOfUnion = z.xor(options);
+    baseSchema = hasExplicitType ? z.intersection(baseSchema, oneOfUnion) : oneOfUnion;
+  }
+  if (schema.allOf && Array.isArray(schema.allOf)) {
+    if (schema.allOf.length === 0) {
+      baseSchema = hasExplicitType ? baseSchema : z.any();
+    } else {
+      let result = hasExplicitType ? baseSchema : convertSchema(schema.allOf[0], ctx);
+      const startIdx = hasExplicitType ? 0 : 1;
+      for (let i = startIdx; i < schema.allOf.length; i++) {
+        result = z.intersection(result, convertSchema(schema.allOf[i], ctx));
+      }
+      baseSchema = result;
+    }
+  }
+  if (schema.nullable === true && ctx.version === "openapi-3.0") {
+    baseSchema = z.nullable(baseSchema);
+  }
+  if (schema.readOnly === true) {
+    baseSchema = z.readonly(baseSchema);
+  }
+  const extraMeta = {};
+  const coreMetadataKeys = ["$id", "id", "$comment", "$anchor", "$vocabulary", "$dynamicRef", "$dynamicAnchor"];
+  for (const key of coreMetadataKeys) {
+    if (key in schema) {
+      extraMeta[key] = schema[key];
+    }
+  }
+  const contentMetadataKeys = ["contentEncoding", "contentMediaType", "contentSchema"];
+  for (const key of contentMetadataKeys) {
+    if (key in schema) {
+      extraMeta[key] = schema[key];
+    }
+  }
+  for (const key of Object.keys(schema)) {
+    if (!RECOGNIZED_KEYS.has(key)) {
+      extraMeta[key] = schema[key];
+    }
+  }
+  if (Object.keys(extraMeta).length > 0) {
+    ctx.registry.add(baseSchema, extraMeta);
+  }
+  return baseSchema;
+}
+function fromJSONSchema(schema, params) {
+  if (typeof schema === "boolean") {
+    return schema ? z.any() : z.never();
+  }
+  const version2 = detectVersion(schema, params?.defaultTarget);
+  const defs = schema.$defs || schema.definitions || {};
+  const ctx = {
+    version: version2,
+    defs,
+    refs: /* @__PURE__ */ new Map(),
+    processing: /* @__PURE__ */ new Set(),
+    rootSchema: schema,
+    registry: params?.registry ?? globalRegistry
+  };
+  return convertSchema(schema, ctx);
+}
+
+// node_modules/zod/v4/classic/coerce.js
+var coerce_exports2 = {};
+__export(coerce_exports2, {
+  bigint: () => bigint3,
+  boolean: () => boolean3,
+  date: () => date4,
+  number: () => number3,
+  string: () => string3
+});
+function string3(params) {
+  return _coercedString(ZodString2, params);
+}
+function number3(params) {
+  return _coercedNumber(ZodNumber2, params);
+}
+function boolean3(params) {
+  return _coercedBoolean(ZodBoolean2, params);
+}
+function bigint3(params) {
+  return _coercedBigint(ZodBigInt2, params);
+}
+function date4(params) {
+  return _coercedDate(ZodDate2, params);
+}
 
 // node_modules/zod/v4/classic/external.js
 config(en_default2());
@@ -26489,7 +33580,7 @@ var IconSchema = object2({
    *
    * If not provided, the client should assume the icon can be used with any theme.
    */
-  theme: _enum(["light", "dark"]).optional()
+  theme: _enum2(["light", "dark"]).optional()
 });
 var IconsSchema = object2({
   /**
@@ -26768,7 +33859,7 @@ var PaginatedResultSchema = ResultSchema.extend({
    */
   nextCursor: CursorSchema.optional()
 });
-var TaskStatusSchema = _enum(["working", "input_required", "completed", "failed", "cancelled"]);
+var TaskStatusSchema = _enum2(["working", "input_required", "completed", "failed", "cancelled"]);
 var TaskSchema = object2({
   taskId: string2(),
   status: TaskStatusSchema,
@@ -26861,7 +33952,7 @@ var BlobResourceContentsSchema = ResourceContentsSchema.extend({
    */
   blob: Base64Schema
 });
-var RoleSchema = _enum(["user", "assistant"]);
+var RoleSchema = _enum2(["user", "assistant"]);
 var AnnotationsSchema = object2({
   /**
    * Intended audience(s) for the resource.
@@ -27204,7 +34295,7 @@ var ToolExecutionSchema = object2({
    *
    * If not present, defaults to "forbidden".
    */
-  taskSupport: _enum(["required", "optional", "forbidden"]).optional()
+  taskSupport: _enum2(["required", "optional", "forbidden"]).optional()
 });
 var ToolSchema = object2({
   ...BaseMetadataSchema.shape,
@@ -27323,7 +34414,7 @@ var ListChangedOptionsBaseSchema = object2({
    */
   debounceMs: number2().int().nonnegative().default(300)
 });
-var LoggingLevelSchema = _enum(["debug", "info", "notice", "warning", "error", "critical", "alert", "emergency"]);
+var LoggingLevelSchema = _enum2(["debug", "info", "notice", "warning", "error", "critical", "alert", "emergency"]);
 var SetLevelRequestParamsSchema = BaseRequestParamsSchema.extend({
   /**
    * The level of logging that the client wants to receive from the server. The server should send all logs at this level and higher (i.e., more severe) to the client as notifications/logging/message.
@@ -27383,7 +34474,7 @@ var ToolChoiceSchema = object2({
    * - "required": Model MUST use at least one tool before completing
    * - "none": Model MUST NOT use any tools
    */
-  mode: _enum(["auto", "required", "none"]).optional()
+  mode: _enum2(["auto", "required", "none"]).optional()
 });
 var ToolResultContentSchema = object2({
   type: literal("tool_result"),
@@ -27431,7 +34522,7 @@ var CreateMessageRequestParamsSchema = TaskAugmentedRequestParamsSchema.extend({
    * Default is "none". Values "thisServer" and "allServers" are soft-deprecated. Servers SHOULD only use these values if the client
    * declares ClientCapabilities.sampling.context. These values may be removed in future spec releases.
    */
-  includeContext: _enum(["none", "thisServer", "allServers"]).optional(),
+  includeContext: _enum2(["none", "thisServer", "allServers"]).optional(),
   temperature: number2().optional(),
   /**
    * The requested maximum number of tokens to sample (to prevent runaway completions).
@@ -27475,7 +34566,7 @@ var CreateMessageResultSchema = ResultSchema.extend({
    *
    * This field is an open string to allow for provider-specific stop reasons.
    */
-  stopReason: optional(_enum(["endTurn", "stopSequence", "maxTokens"]).or(string2())),
+  stopReason: optional(_enum2(["endTurn", "stopSequence", "maxTokens"]).or(string2())),
   role: RoleSchema,
   /**
    * Response content. Single content block (text, image, or audio).
@@ -27498,7 +34589,7 @@ var CreateMessageResultWithToolsSchema = ResultSchema.extend({
    *
    * This field is an open string to allow for provider-specific stop reasons.
    */
-  stopReason: optional(_enum(["endTurn", "stopSequence", "maxTokens", "toolUse"]).or(string2())),
+  stopReason: optional(_enum2(["endTurn", "stopSequence", "maxTokens", "toolUse"]).or(string2())),
   role: RoleSchema,
   /**
    * Response content. May be a single block or array. May include ToolUseContent if stopReason is "toolUse".
@@ -27517,11 +34608,11 @@ var StringSchemaSchema = object2({
   description: string2().optional(),
   minLength: number2().optional(),
   maxLength: number2().optional(),
-  format: _enum(["email", "uri", "date", "date-time"]).optional(),
+  format: _enum2(["email", "uri", "date", "date-time"]).optional(),
   default: string2().optional()
 });
 var NumberSchemaSchema = object2({
-  type: _enum(["number", "integer"]),
+  type: _enum2(["number", "integer"]),
   title: string2().optional(),
   description: string2().optional(),
   minimum: number2().optional(),
@@ -27645,7 +34736,7 @@ var ElicitResultSchema = ResultSchema.extend({
    * - "decline": User explicitly decline the action
    * - "cancel": User dismissed without making an explicit choice
    */
-  action: _enum(["accept", "decline", "cancel"]),
+  action: _enum2(["accept", "decline", "cancel"]),
   /**
    * The submitted form data, only present when action is "accept".
    * Contains values matching the requested schema.
@@ -27694,6 +34785,16 @@ var CompleteRequestSchema = RequestSchema.extend({
   method: literal("completion/complete"),
   params: CompleteRequestParamsSchema
 });
+function assertCompleteRequestPrompt(request) {
+  if (request.params.ref.type !== "ref/prompt") {
+    throw new TypeError(`Expected CompleteRequestPrompt, but got ${request.params.ref.type}`);
+  }
+}
+function assertCompleteRequestResourceTemplate(request) {
+  if (request.params.ref.type !== "ref/resource") {
+    throw new TypeError(`Expected CompleteRequestResourceTemplate, but got ${request.params.ref.type}`);
+  }
+}
 var CompleteResultSchema = ResultSchema.extend({
   completion: looseObject({
     /**
@@ -27846,11 +34947,1310 @@ function isTerminal(status) {
 
 // node_modules/zod-to-json-schema/dist/esm/Options.js
 var ignoreOverride = Symbol("Let zodToJsonSchema decide on which parser to use");
+var defaultOptions = {
+  name: void 0,
+  $refStrategy: "root",
+  basePath: ["#"],
+  effectStrategy: "input",
+  pipeStrategy: "all",
+  dateStrategy: "format:date-time",
+  mapStrategy: "entries",
+  removeAdditionalStrategy: "passthrough",
+  allowedAdditionalProperties: true,
+  rejectedAdditionalProperties: false,
+  definitionPath: "definitions",
+  target: "jsonSchema7",
+  strictUnions: false,
+  definitions: {},
+  errorMessages: false,
+  markdownDescription: false,
+  patternStrategy: "escape",
+  applyRegexFlags: false,
+  emailStrategy: "format:email",
+  base64Strategy: "contentEncoding:base64",
+  nameStrategy: "ref",
+  openAiAnyTypeName: "OpenAiAnyType"
+};
+var getDefaultOptions = (options) => typeof options === "string" ? {
+  ...defaultOptions,
+  name: options
+} : {
+  ...defaultOptions,
+  ...options
+};
+
+// node_modules/zod-to-json-schema/dist/esm/Refs.js
+var getRefs = (options) => {
+  const _options = getDefaultOptions(options);
+  const currentPath = _options.name !== void 0 ? [..._options.basePath, _options.definitionPath, _options.name] : _options.basePath;
+  return {
+    ..._options,
+    flags: { hasReferencedOpenAiAnyType: false },
+    currentPath,
+    propertyPath: void 0,
+    seen: new Map(Object.entries(_options.definitions).map(([name, def]) => [
+      def._def,
+      {
+        def: def._def,
+        path: [..._options.basePath, _options.definitionPath, name],
+        // Resolution of references will be forced even though seen, so it's ok that the schema is undefined here for now.
+        jsonSchema: void 0
+      }
+    ]))
+  };
+};
+
+// node_modules/zod-to-json-schema/dist/esm/errorMessages.js
+function addErrorMessage(res, key, errorMessage, refs) {
+  if (!refs?.errorMessages)
+    return;
+  if (errorMessage) {
+    res.errorMessage = {
+      ...res.errorMessage,
+      [key]: errorMessage
+    };
+  }
+}
+function setResponseValueAndErrors(res, key, value, errorMessage, refs) {
+  res[key] = value;
+  addErrorMessage(res, key, errorMessage, refs);
+}
+
+// node_modules/zod-to-json-schema/dist/esm/getRelativePath.js
+var getRelativePath = (pathA, pathB) => {
+  let i = 0;
+  for (; i < pathA.length && i < pathB.length; i++) {
+    if (pathA[i] !== pathB[i])
+      break;
+  }
+  return [(pathA.length - i).toString(), ...pathB.slice(i)].join("/");
+};
+
+// node_modules/zod-to-json-schema/dist/esm/parsers/any.js
+function parseAnyDef(refs) {
+  if (refs.target !== "openAi") {
+    return {};
+  }
+  const anyDefinitionPath = [
+    ...refs.basePath,
+    refs.definitionPath,
+    refs.openAiAnyTypeName
+  ];
+  refs.flags.hasReferencedOpenAiAnyType = true;
+  return {
+    $ref: refs.$refStrategy === "relative" ? getRelativePath(anyDefinitionPath, refs.currentPath) : anyDefinitionPath.join("/")
+  };
+}
+
+// node_modules/zod-to-json-schema/dist/esm/parsers/array.js
+function parseArrayDef(def, refs) {
+  const res = {
+    type: "array"
+  };
+  if (def.type?._def && def.type?._def?.typeName !== ZodFirstPartyTypeKind.ZodAny) {
+    res.items = parseDef(def.type._def, {
+      ...refs,
+      currentPath: [...refs.currentPath, "items"]
+    });
+  }
+  if (def.minLength) {
+    setResponseValueAndErrors(res, "minItems", def.minLength.value, def.minLength.message, refs);
+  }
+  if (def.maxLength) {
+    setResponseValueAndErrors(res, "maxItems", def.maxLength.value, def.maxLength.message, refs);
+  }
+  if (def.exactLength) {
+    setResponseValueAndErrors(res, "minItems", def.exactLength.value, def.exactLength.message, refs);
+    setResponseValueAndErrors(res, "maxItems", def.exactLength.value, def.exactLength.message, refs);
+  }
+  return res;
+}
+
+// node_modules/zod-to-json-schema/dist/esm/parsers/bigint.js
+function parseBigintDef(def, refs) {
+  const res = {
+    type: "integer",
+    format: "int64"
+  };
+  if (!def.checks)
+    return res;
+  for (const check2 of def.checks) {
+    switch (check2.kind) {
+      case "min":
+        if (refs.target === "jsonSchema7") {
+          if (check2.inclusive) {
+            setResponseValueAndErrors(res, "minimum", check2.value, check2.message, refs);
+          } else {
+            setResponseValueAndErrors(res, "exclusiveMinimum", check2.value, check2.message, refs);
+          }
+        } else {
+          if (!check2.inclusive) {
+            res.exclusiveMinimum = true;
+          }
+          setResponseValueAndErrors(res, "minimum", check2.value, check2.message, refs);
+        }
+        break;
+      case "max":
+        if (refs.target === "jsonSchema7") {
+          if (check2.inclusive) {
+            setResponseValueAndErrors(res, "maximum", check2.value, check2.message, refs);
+          } else {
+            setResponseValueAndErrors(res, "exclusiveMaximum", check2.value, check2.message, refs);
+          }
+        } else {
+          if (!check2.inclusive) {
+            res.exclusiveMaximum = true;
+          }
+          setResponseValueAndErrors(res, "maximum", check2.value, check2.message, refs);
+        }
+        break;
+      case "multipleOf":
+        setResponseValueAndErrors(res, "multipleOf", check2.value, check2.message, refs);
+        break;
+    }
+  }
+  return res;
+}
+
+// node_modules/zod-to-json-schema/dist/esm/parsers/boolean.js
+function parseBooleanDef() {
+  return {
+    type: "boolean"
+  };
+}
+
+// node_modules/zod-to-json-schema/dist/esm/parsers/branded.js
+function parseBrandedDef(_def, refs) {
+  return parseDef(_def.type._def, refs);
+}
+
+// node_modules/zod-to-json-schema/dist/esm/parsers/catch.js
+var parseCatchDef = (def, refs) => {
+  return parseDef(def.innerType._def, refs);
+};
+
+// node_modules/zod-to-json-schema/dist/esm/parsers/date.js
+function parseDateDef(def, refs, overrideDateStrategy) {
+  const strategy = overrideDateStrategy ?? refs.dateStrategy;
+  if (Array.isArray(strategy)) {
+    return {
+      anyOf: strategy.map((item, i) => parseDateDef(def, refs, item))
+    };
+  }
+  switch (strategy) {
+    case "string":
+    case "format:date-time":
+      return {
+        type: "string",
+        format: "date-time"
+      };
+    case "format:date":
+      return {
+        type: "string",
+        format: "date"
+      };
+    case "integer":
+      return integerDateParser(def, refs);
+  }
+}
+var integerDateParser = (def, refs) => {
+  const res = {
+    type: "integer",
+    format: "unix-time"
+  };
+  if (refs.target === "openApi3") {
+    return res;
+  }
+  for (const check2 of def.checks) {
+    switch (check2.kind) {
+      case "min":
+        setResponseValueAndErrors(
+          res,
+          "minimum",
+          check2.value,
+          // This is in milliseconds
+          check2.message,
+          refs
+        );
+        break;
+      case "max":
+        setResponseValueAndErrors(
+          res,
+          "maximum",
+          check2.value,
+          // This is in milliseconds
+          check2.message,
+          refs
+        );
+        break;
+    }
+  }
+  return res;
+};
+
+// node_modules/zod-to-json-schema/dist/esm/parsers/default.js
+function parseDefaultDef(_def, refs) {
+  return {
+    ...parseDef(_def.innerType._def, refs),
+    default: _def.defaultValue()
+  };
+}
+
+// node_modules/zod-to-json-schema/dist/esm/parsers/effects.js
+function parseEffectsDef(_def, refs) {
+  return refs.effectStrategy === "input" ? parseDef(_def.schema._def, refs) : parseAnyDef(refs);
+}
+
+// node_modules/zod-to-json-schema/dist/esm/parsers/enum.js
+function parseEnumDef(def) {
+  return {
+    type: "string",
+    enum: Array.from(def.values)
+  };
+}
+
+// node_modules/zod-to-json-schema/dist/esm/parsers/intersection.js
+var isJsonSchema7AllOfType = (type) => {
+  if ("type" in type && type.type === "string")
+    return false;
+  return "allOf" in type;
+};
+function parseIntersectionDef(def, refs) {
+  const allOf = [
+    parseDef(def.left._def, {
+      ...refs,
+      currentPath: [...refs.currentPath, "allOf", "0"]
+    }),
+    parseDef(def.right._def, {
+      ...refs,
+      currentPath: [...refs.currentPath, "allOf", "1"]
+    })
+  ].filter((x) => !!x);
+  let unevaluatedProperties = refs.target === "jsonSchema2019-09" ? { unevaluatedProperties: false } : void 0;
+  const mergedAllOf = [];
+  allOf.forEach((schema) => {
+    if (isJsonSchema7AllOfType(schema)) {
+      mergedAllOf.push(...schema.allOf);
+      if (schema.unevaluatedProperties === void 0) {
+        unevaluatedProperties = void 0;
+      }
+    } else {
+      let nestedSchema = schema;
+      if ("additionalProperties" in schema && schema.additionalProperties === false) {
+        const { additionalProperties, ...rest } = schema;
+        nestedSchema = rest;
+      } else {
+        unevaluatedProperties = void 0;
+      }
+      mergedAllOf.push(nestedSchema);
+    }
+  });
+  return mergedAllOf.length ? {
+    allOf: mergedAllOf,
+    ...unevaluatedProperties
+  } : void 0;
+}
+
+// node_modules/zod-to-json-schema/dist/esm/parsers/literal.js
+function parseLiteralDef(def, refs) {
+  const parsedType2 = typeof def.value;
+  if (parsedType2 !== "bigint" && parsedType2 !== "number" && parsedType2 !== "boolean" && parsedType2 !== "string") {
+    return {
+      type: Array.isArray(def.value) ? "array" : "object"
+    };
+  }
+  if (refs.target === "openApi3") {
+    return {
+      type: parsedType2 === "bigint" ? "integer" : parsedType2,
+      enum: [def.value]
+    };
+  }
+  return {
+    type: parsedType2 === "bigint" ? "integer" : parsedType2,
+    const: def.value
+  };
+}
 
 // node_modules/zod-to-json-schema/dist/esm/parsers/string.js
+var emojiRegex2 = void 0;
+var zodPatterns = {
+  /**
+   * `c` was changed to `[cC]` to replicate /i flag
+   */
+  cuid: /^[cC][^\s-]{8,}$/,
+  cuid2: /^[0-9a-z]+$/,
+  ulid: /^[0-9A-HJKMNP-TV-Z]{26}$/,
+  /**
+   * `a-z` was added to replicate /i flag
+   */
+  email: /^(?!\.)(?!.*\.\.)([a-zA-Z0-9_'+\-\.]*)[a-zA-Z0-9_+-]@([a-zA-Z0-9][a-zA-Z0-9\-]*\.)+[a-zA-Z]{2,}$/,
+  /**
+   * Constructed a valid Unicode RegExp
+   *
+   * Lazily instantiate since this type of regex isn't supported
+   * in all envs (e.g. React Native).
+   *
+   * See:
+   * https://github.com/colinhacks/zod/issues/2433
+   * Fix in Zod:
+   * https://github.com/colinhacks/zod/commit/9340fd51e48576a75adc919bff65dbc4a5d4c99b
+   */
+  emoji: () => {
+    if (emojiRegex2 === void 0) {
+      emojiRegex2 = RegExp("^(\\p{Extended_Pictographic}|\\p{Emoji_Component})+$", "u");
+    }
+    return emojiRegex2;
+  },
+  /**
+   * Unused
+   */
+  uuid: /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/,
+  /**
+   * Unused
+   */
+  ipv4: /^(?:(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$/,
+  ipv4Cidr: /^(?:(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\/(3[0-2]|[12]?[0-9])$/,
+  /**
+   * Unused
+   */
+  ipv6: /^(([a-f0-9]{1,4}:){7}|::([a-f0-9]{1,4}:){0,6}|([a-f0-9]{1,4}:){1}:([a-f0-9]{1,4}:){0,5}|([a-f0-9]{1,4}:){2}:([a-f0-9]{1,4}:){0,4}|([a-f0-9]{1,4}:){3}:([a-f0-9]{1,4}:){0,3}|([a-f0-9]{1,4}:){4}:([a-f0-9]{1,4}:){0,2}|([a-f0-9]{1,4}:){5}:([a-f0-9]{1,4}:){0,1})([a-f0-9]{1,4}|(((25[0-5])|(2[0-4][0-9])|(1[0-9]{2})|([0-9]{1,2}))\.){3}((25[0-5])|(2[0-4][0-9])|(1[0-9]{2})|([0-9]{1,2})))$/,
+  ipv6Cidr: /^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))\/(12[0-8]|1[01][0-9]|[1-9]?[0-9])$/,
+  base64: /^([0-9a-zA-Z+/]{4})*(([0-9a-zA-Z+/]{2}==)|([0-9a-zA-Z+/]{3}=))?$/,
+  base64url: /^([0-9a-zA-Z-_]{4})*(([0-9a-zA-Z-_]{2}(==)?)|([0-9a-zA-Z-_]{3}(=)?))?$/,
+  nanoid: /^[a-zA-Z0-9_-]{21}$/,
+  jwt: /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]*$/
+};
+function parseStringDef(def, refs) {
+  const res = {
+    type: "string"
+  };
+  if (def.checks) {
+    for (const check2 of def.checks) {
+      switch (check2.kind) {
+        case "min":
+          setResponseValueAndErrors(res, "minLength", typeof res.minLength === "number" ? Math.max(res.minLength, check2.value) : check2.value, check2.message, refs);
+          break;
+        case "max":
+          setResponseValueAndErrors(res, "maxLength", typeof res.maxLength === "number" ? Math.min(res.maxLength, check2.value) : check2.value, check2.message, refs);
+          break;
+        case "email":
+          switch (refs.emailStrategy) {
+            case "format:email":
+              addFormat(res, "email", check2.message, refs);
+              break;
+            case "format:idn-email":
+              addFormat(res, "idn-email", check2.message, refs);
+              break;
+            case "pattern:zod":
+              addPattern(res, zodPatterns.email, check2.message, refs);
+              break;
+          }
+          break;
+        case "url":
+          addFormat(res, "uri", check2.message, refs);
+          break;
+        case "uuid":
+          addFormat(res, "uuid", check2.message, refs);
+          break;
+        case "regex":
+          addPattern(res, check2.regex, check2.message, refs);
+          break;
+        case "cuid":
+          addPattern(res, zodPatterns.cuid, check2.message, refs);
+          break;
+        case "cuid2":
+          addPattern(res, zodPatterns.cuid2, check2.message, refs);
+          break;
+        case "startsWith":
+          addPattern(res, RegExp(`^${escapeLiteralCheckValue(check2.value, refs)}`), check2.message, refs);
+          break;
+        case "endsWith":
+          addPattern(res, RegExp(`${escapeLiteralCheckValue(check2.value, refs)}$`), check2.message, refs);
+          break;
+        case "datetime":
+          addFormat(res, "date-time", check2.message, refs);
+          break;
+        case "date":
+          addFormat(res, "date", check2.message, refs);
+          break;
+        case "time":
+          addFormat(res, "time", check2.message, refs);
+          break;
+        case "duration":
+          addFormat(res, "duration", check2.message, refs);
+          break;
+        case "length":
+          setResponseValueAndErrors(res, "minLength", typeof res.minLength === "number" ? Math.max(res.minLength, check2.value) : check2.value, check2.message, refs);
+          setResponseValueAndErrors(res, "maxLength", typeof res.maxLength === "number" ? Math.min(res.maxLength, check2.value) : check2.value, check2.message, refs);
+          break;
+        case "includes": {
+          addPattern(res, RegExp(escapeLiteralCheckValue(check2.value, refs)), check2.message, refs);
+          break;
+        }
+        case "ip": {
+          if (check2.version !== "v6") {
+            addFormat(res, "ipv4", check2.message, refs);
+          }
+          if (check2.version !== "v4") {
+            addFormat(res, "ipv6", check2.message, refs);
+          }
+          break;
+        }
+        case "base64url":
+          addPattern(res, zodPatterns.base64url, check2.message, refs);
+          break;
+        case "jwt":
+          addPattern(res, zodPatterns.jwt, check2.message, refs);
+          break;
+        case "cidr": {
+          if (check2.version !== "v6") {
+            addPattern(res, zodPatterns.ipv4Cidr, check2.message, refs);
+          }
+          if (check2.version !== "v4") {
+            addPattern(res, zodPatterns.ipv6Cidr, check2.message, refs);
+          }
+          break;
+        }
+        case "emoji":
+          addPattern(res, zodPatterns.emoji(), check2.message, refs);
+          break;
+        case "ulid": {
+          addPattern(res, zodPatterns.ulid, check2.message, refs);
+          break;
+        }
+        case "base64": {
+          switch (refs.base64Strategy) {
+            case "format:binary": {
+              addFormat(res, "binary", check2.message, refs);
+              break;
+            }
+            case "contentEncoding:base64": {
+              setResponseValueAndErrors(res, "contentEncoding", "base64", check2.message, refs);
+              break;
+            }
+            case "pattern:zod": {
+              addPattern(res, zodPatterns.base64, check2.message, refs);
+              break;
+            }
+          }
+          break;
+        }
+        case "nanoid": {
+          addPattern(res, zodPatterns.nanoid, check2.message, refs);
+        }
+        case "toLowerCase":
+        case "toUpperCase":
+        case "trim":
+          break;
+        default:
+          /* @__PURE__ */ ((_) => {
+          })(check2);
+      }
+    }
+  }
+  return res;
+}
+function escapeLiteralCheckValue(literal2, refs) {
+  return refs.patternStrategy === "escape" ? escapeNonAlphaNumeric(literal2) : literal2;
+}
 var ALPHA_NUMERIC = new Set("ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvxyz0123456789");
+function escapeNonAlphaNumeric(source) {
+  let result = "";
+  for (let i = 0; i < source.length; i++) {
+    if (!ALPHA_NUMERIC.has(source[i])) {
+      result += "\\";
+    }
+    result += source[i];
+  }
+  return result;
+}
+function addFormat(schema, value, message, refs) {
+  if (schema.format || schema.anyOf?.some((x) => x.format)) {
+    if (!schema.anyOf) {
+      schema.anyOf = [];
+    }
+    if (schema.format) {
+      schema.anyOf.push({
+        format: schema.format,
+        ...schema.errorMessage && refs.errorMessages && {
+          errorMessage: { format: schema.errorMessage.format }
+        }
+      });
+      delete schema.format;
+      if (schema.errorMessage) {
+        delete schema.errorMessage.format;
+        if (Object.keys(schema.errorMessage).length === 0) {
+          delete schema.errorMessage;
+        }
+      }
+    }
+    schema.anyOf.push({
+      format: value,
+      ...message && refs.errorMessages && { errorMessage: { format: message } }
+    });
+  } else {
+    setResponseValueAndErrors(schema, "format", value, message, refs);
+  }
+}
+function addPattern(schema, regex, message, refs) {
+  if (schema.pattern || schema.allOf?.some((x) => x.pattern)) {
+    if (!schema.allOf) {
+      schema.allOf = [];
+    }
+    if (schema.pattern) {
+      schema.allOf.push({
+        pattern: schema.pattern,
+        ...schema.errorMessage && refs.errorMessages && {
+          errorMessage: { pattern: schema.errorMessage.pattern }
+        }
+      });
+      delete schema.pattern;
+      if (schema.errorMessage) {
+        delete schema.errorMessage.pattern;
+        if (Object.keys(schema.errorMessage).length === 0) {
+          delete schema.errorMessage;
+        }
+      }
+    }
+    schema.allOf.push({
+      pattern: stringifyRegExpWithFlags(regex, refs),
+      ...message && refs.errorMessages && { errorMessage: { pattern: message } }
+    });
+  } else {
+    setResponseValueAndErrors(schema, "pattern", stringifyRegExpWithFlags(regex, refs), message, refs);
+  }
+}
+function stringifyRegExpWithFlags(regex, refs) {
+  if (!refs.applyRegexFlags || !regex.flags) {
+    return regex.source;
+  }
+  const flags = {
+    i: regex.flags.includes("i"),
+    m: regex.flags.includes("m"),
+    s: regex.flags.includes("s")
+    // `.` matches newlines
+  };
+  const source = flags.i ? regex.source.toLowerCase() : regex.source;
+  let pattern = "";
+  let isEscaped = false;
+  let inCharGroup = false;
+  let inCharRange = false;
+  for (let i = 0; i < source.length; i++) {
+    if (isEscaped) {
+      pattern += source[i];
+      isEscaped = false;
+      continue;
+    }
+    if (flags.i) {
+      if (inCharGroup) {
+        if (source[i].match(/[a-z]/)) {
+          if (inCharRange) {
+            pattern += source[i];
+            pattern += `${source[i - 2]}-${source[i]}`.toUpperCase();
+            inCharRange = false;
+          } else if (source[i + 1] === "-" && source[i + 2]?.match(/[a-z]/)) {
+            pattern += source[i];
+            inCharRange = true;
+          } else {
+            pattern += `${source[i]}${source[i].toUpperCase()}`;
+          }
+          continue;
+        }
+      } else if (source[i].match(/[a-z]/)) {
+        pattern += `[${source[i]}${source[i].toUpperCase()}]`;
+        continue;
+      }
+    }
+    if (flags.m) {
+      if (source[i] === "^") {
+        pattern += `(^|(?<=[\r
+]))`;
+        continue;
+      } else if (source[i] === "$") {
+        pattern += `($|(?=[\r
+]))`;
+        continue;
+      }
+    }
+    if (flags.s && source[i] === ".") {
+      pattern += inCharGroup ? `${source[i]}\r
+` : `[${source[i]}\r
+]`;
+      continue;
+    }
+    pattern += source[i];
+    if (source[i] === "\\") {
+      isEscaped = true;
+    } else if (inCharGroup && source[i] === "]") {
+      inCharGroup = false;
+    } else if (!inCharGroup && source[i] === "[") {
+      inCharGroup = true;
+    }
+  }
+  try {
+    new RegExp(pattern);
+  } catch {
+    console.warn(`Could not convert regex pattern at ${refs.currentPath.join("/")} to a flag-independent form! Falling back to the flag-ignorant source`);
+    return regex.source;
+  }
+  return pattern;
+}
+
+// node_modules/zod-to-json-schema/dist/esm/parsers/record.js
+function parseRecordDef(def, refs) {
+  if (refs.target === "openAi") {
+    console.warn("Warning: OpenAI may not support records in schemas! Try an array of key-value pairs instead.");
+  }
+  if (refs.target === "openApi3" && def.keyType?._def.typeName === ZodFirstPartyTypeKind.ZodEnum) {
+    return {
+      type: "object",
+      required: def.keyType._def.values,
+      properties: def.keyType._def.values.reduce((acc, key) => ({
+        ...acc,
+        [key]: parseDef(def.valueType._def, {
+          ...refs,
+          currentPath: [...refs.currentPath, "properties", key]
+        }) ?? parseAnyDef(refs)
+      }), {}),
+      additionalProperties: refs.rejectedAdditionalProperties
+    };
+  }
+  const schema = {
+    type: "object",
+    additionalProperties: parseDef(def.valueType._def, {
+      ...refs,
+      currentPath: [...refs.currentPath, "additionalProperties"]
+    }) ?? refs.allowedAdditionalProperties
+  };
+  if (refs.target === "openApi3") {
+    return schema;
+  }
+  if (def.keyType?._def.typeName === ZodFirstPartyTypeKind.ZodString && def.keyType._def.checks?.length) {
+    const { type, ...keyType } = parseStringDef(def.keyType._def, refs);
+    return {
+      ...schema,
+      propertyNames: keyType
+    };
+  } else if (def.keyType?._def.typeName === ZodFirstPartyTypeKind.ZodEnum) {
+    return {
+      ...schema,
+      propertyNames: {
+        enum: def.keyType._def.values
+      }
+    };
+  } else if (def.keyType?._def.typeName === ZodFirstPartyTypeKind.ZodBranded && def.keyType._def.type._def.typeName === ZodFirstPartyTypeKind.ZodString && def.keyType._def.type._def.checks?.length) {
+    const { type, ...keyType } = parseBrandedDef(def.keyType._def, refs);
+    return {
+      ...schema,
+      propertyNames: keyType
+    };
+  }
+  return schema;
+}
+
+// node_modules/zod-to-json-schema/dist/esm/parsers/map.js
+function parseMapDef(def, refs) {
+  if (refs.mapStrategy === "record") {
+    return parseRecordDef(def, refs);
+  }
+  const keys = parseDef(def.keyType._def, {
+    ...refs,
+    currentPath: [...refs.currentPath, "items", "items", "0"]
+  }) || parseAnyDef(refs);
+  const values = parseDef(def.valueType._def, {
+    ...refs,
+    currentPath: [...refs.currentPath, "items", "items", "1"]
+  }) || parseAnyDef(refs);
+  return {
+    type: "array",
+    maxItems: 125,
+    items: {
+      type: "array",
+      items: [keys, values],
+      minItems: 2,
+      maxItems: 2
+    }
+  };
+}
+
+// node_modules/zod-to-json-schema/dist/esm/parsers/nativeEnum.js
+function parseNativeEnumDef(def) {
+  const object3 = def.values;
+  const actualKeys = Object.keys(def.values).filter((key) => {
+    return typeof object3[object3[key]] !== "number";
+  });
+  const actualValues = actualKeys.map((key) => object3[key]);
+  const parsedTypes = Array.from(new Set(actualValues.map((values) => typeof values)));
+  return {
+    type: parsedTypes.length === 1 ? parsedTypes[0] === "string" ? "string" : "number" : ["string", "number"],
+    enum: actualValues
+  };
+}
+
+// node_modules/zod-to-json-schema/dist/esm/parsers/never.js
+function parseNeverDef(refs) {
+  return refs.target === "openAi" ? void 0 : {
+    not: parseAnyDef({
+      ...refs,
+      currentPath: [...refs.currentPath, "not"]
+    })
+  };
+}
+
+// node_modules/zod-to-json-schema/dist/esm/parsers/null.js
+function parseNullDef(refs) {
+  return refs.target === "openApi3" ? {
+    enum: ["null"],
+    nullable: true
+  } : {
+    type: "null"
+  };
+}
+
+// node_modules/zod-to-json-schema/dist/esm/parsers/union.js
+var primitiveMappings = {
+  ZodString: "string",
+  ZodNumber: "number",
+  ZodBigInt: "integer",
+  ZodBoolean: "boolean",
+  ZodNull: "null"
+};
+function parseUnionDef(def, refs) {
+  if (refs.target === "openApi3")
+    return asAnyOf(def, refs);
+  const options = def.options instanceof Map ? Array.from(def.options.values()) : def.options;
+  if (options.every((x) => x._def.typeName in primitiveMappings && (!x._def.checks || !x._def.checks.length))) {
+    const types2 = options.reduce((types3, x) => {
+      const type = primitiveMappings[x._def.typeName];
+      return type && !types3.includes(type) ? [...types3, type] : types3;
+    }, []);
+    return {
+      type: types2.length > 1 ? types2 : types2[0]
+    };
+  } else if (options.every((x) => x._def.typeName === "ZodLiteral" && !x.description)) {
+    const types2 = options.reduce((acc, x) => {
+      const type = typeof x._def.value;
+      switch (type) {
+        case "string":
+        case "number":
+        case "boolean":
+          return [...acc, type];
+        case "bigint":
+          return [...acc, "integer"];
+        case "object":
+          if (x._def.value === null)
+            return [...acc, "null"];
+        case "symbol":
+        case "undefined":
+        case "function":
+        default:
+          return acc;
+      }
+    }, []);
+    if (types2.length === options.length) {
+      const uniqueTypes = types2.filter((x, i, a) => a.indexOf(x) === i);
+      return {
+        type: uniqueTypes.length > 1 ? uniqueTypes : uniqueTypes[0],
+        enum: options.reduce((acc, x) => {
+          return acc.includes(x._def.value) ? acc : [...acc, x._def.value];
+        }, [])
+      };
+    }
+  } else if (options.every((x) => x._def.typeName === "ZodEnum")) {
+    return {
+      type: "string",
+      enum: options.reduce((acc, x) => [
+        ...acc,
+        ...x._def.values.filter((x2) => !acc.includes(x2))
+      ], [])
+    };
+  }
+  return asAnyOf(def, refs);
+}
+var asAnyOf = (def, refs) => {
+  const anyOf = (def.options instanceof Map ? Array.from(def.options.values()) : def.options).map((x, i) => parseDef(x._def, {
+    ...refs,
+    currentPath: [...refs.currentPath, "anyOf", `${i}`]
+  })).filter((x) => !!x && (!refs.strictUnions || typeof x === "object" && Object.keys(x).length > 0));
+  return anyOf.length ? { anyOf } : void 0;
+};
+
+// node_modules/zod-to-json-schema/dist/esm/parsers/nullable.js
+function parseNullableDef(def, refs) {
+  if (["ZodString", "ZodNumber", "ZodBigInt", "ZodBoolean", "ZodNull"].includes(def.innerType._def.typeName) && (!def.innerType._def.checks || !def.innerType._def.checks.length)) {
+    if (refs.target === "openApi3") {
+      return {
+        type: primitiveMappings[def.innerType._def.typeName],
+        nullable: true
+      };
+    }
+    return {
+      type: [
+        primitiveMappings[def.innerType._def.typeName],
+        "null"
+      ]
+    };
+  }
+  if (refs.target === "openApi3") {
+    const base2 = parseDef(def.innerType._def, {
+      ...refs,
+      currentPath: [...refs.currentPath]
+    });
+    if (base2 && "$ref" in base2)
+      return { allOf: [base2], nullable: true };
+    return base2 && { ...base2, nullable: true };
+  }
+  const base = parseDef(def.innerType._def, {
+    ...refs,
+    currentPath: [...refs.currentPath, "anyOf", "0"]
+  });
+  return base && { anyOf: [base, { type: "null" }] };
+}
+
+// node_modules/zod-to-json-schema/dist/esm/parsers/number.js
+function parseNumberDef(def, refs) {
+  const res = {
+    type: "number"
+  };
+  if (!def.checks)
+    return res;
+  for (const check2 of def.checks) {
+    switch (check2.kind) {
+      case "int":
+        res.type = "integer";
+        addErrorMessage(res, "type", check2.message, refs);
+        break;
+      case "min":
+        if (refs.target === "jsonSchema7") {
+          if (check2.inclusive) {
+            setResponseValueAndErrors(res, "minimum", check2.value, check2.message, refs);
+          } else {
+            setResponseValueAndErrors(res, "exclusiveMinimum", check2.value, check2.message, refs);
+          }
+        } else {
+          if (!check2.inclusive) {
+            res.exclusiveMinimum = true;
+          }
+          setResponseValueAndErrors(res, "minimum", check2.value, check2.message, refs);
+        }
+        break;
+      case "max":
+        if (refs.target === "jsonSchema7") {
+          if (check2.inclusive) {
+            setResponseValueAndErrors(res, "maximum", check2.value, check2.message, refs);
+          } else {
+            setResponseValueAndErrors(res, "exclusiveMaximum", check2.value, check2.message, refs);
+          }
+        } else {
+          if (!check2.inclusive) {
+            res.exclusiveMaximum = true;
+          }
+          setResponseValueAndErrors(res, "maximum", check2.value, check2.message, refs);
+        }
+        break;
+      case "multipleOf":
+        setResponseValueAndErrors(res, "multipleOf", check2.value, check2.message, refs);
+        break;
+    }
+  }
+  return res;
+}
+
+// node_modules/zod-to-json-schema/dist/esm/parsers/object.js
+function parseObjectDef(def, refs) {
+  const forceOptionalIntoNullable = refs.target === "openAi";
+  const result = {
+    type: "object",
+    properties: {}
+  };
+  const required2 = [];
+  const shape = def.shape();
+  for (const propName in shape) {
+    let propDef = shape[propName];
+    if (propDef === void 0 || propDef._def === void 0) {
+      continue;
+    }
+    let propOptional = safeIsOptional(propDef);
+    if (propOptional && forceOptionalIntoNullable) {
+      if (propDef._def.typeName === "ZodOptional") {
+        propDef = propDef._def.innerType;
+      }
+      if (!propDef.isNullable()) {
+        propDef = propDef.nullable();
+      }
+      propOptional = false;
+    }
+    const parsedDef = parseDef(propDef._def, {
+      ...refs,
+      currentPath: [...refs.currentPath, "properties", propName],
+      propertyPath: [...refs.currentPath, "properties", propName]
+    });
+    if (parsedDef === void 0) {
+      continue;
+    }
+    result.properties[propName] = parsedDef;
+    if (!propOptional) {
+      required2.push(propName);
+    }
+  }
+  if (required2.length) {
+    result.required = required2;
+  }
+  const additionalProperties = decideAdditionalProperties(def, refs);
+  if (additionalProperties !== void 0) {
+    result.additionalProperties = additionalProperties;
+  }
+  return result;
+}
+function decideAdditionalProperties(def, refs) {
+  if (def.catchall._def.typeName !== "ZodNever") {
+    return parseDef(def.catchall._def, {
+      ...refs,
+      currentPath: [...refs.currentPath, "additionalProperties"]
+    });
+  }
+  switch (def.unknownKeys) {
+    case "passthrough":
+      return refs.allowedAdditionalProperties;
+    case "strict":
+      return refs.rejectedAdditionalProperties;
+    case "strip":
+      return refs.removeAdditionalStrategy === "strict" ? refs.allowedAdditionalProperties : refs.rejectedAdditionalProperties;
+  }
+}
+function safeIsOptional(schema) {
+  try {
+    return schema.isOptional();
+  } catch {
+    return true;
+  }
+}
+
+// node_modules/zod-to-json-schema/dist/esm/parsers/optional.js
+var parseOptionalDef = (def, refs) => {
+  if (refs.currentPath.toString() === refs.propertyPath?.toString()) {
+    return parseDef(def.innerType._def, refs);
+  }
+  const innerSchema = parseDef(def.innerType._def, {
+    ...refs,
+    currentPath: [...refs.currentPath, "anyOf", "1"]
+  });
+  return innerSchema ? {
+    anyOf: [
+      {
+        not: parseAnyDef(refs)
+      },
+      innerSchema
+    ]
+  } : parseAnyDef(refs);
+};
+
+// node_modules/zod-to-json-schema/dist/esm/parsers/pipeline.js
+var parsePipelineDef = (def, refs) => {
+  if (refs.pipeStrategy === "input") {
+    return parseDef(def.in._def, refs);
+  } else if (refs.pipeStrategy === "output") {
+    return parseDef(def.out._def, refs);
+  }
+  const a = parseDef(def.in._def, {
+    ...refs,
+    currentPath: [...refs.currentPath, "allOf", "0"]
+  });
+  const b = parseDef(def.out._def, {
+    ...refs,
+    currentPath: [...refs.currentPath, "allOf", a ? "1" : "0"]
+  });
+  return {
+    allOf: [a, b].filter((x) => x !== void 0)
+  };
+};
+
+// node_modules/zod-to-json-schema/dist/esm/parsers/promise.js
+function parsePromiseDef(def, refs) {
+  return parseDef(def.type._def, refs);
+}
+
+// node_modules/zod-to-json-schema/dist/esm/parsers/set.js
+function parseSetDef(def, refs) {
+  const items = parseDef(def.valueType._def, {
+    ...refs,
+    currentPath: [...refs.currentPath, "items"]
+  });
+  const schema = {
+    type: "array",
+    uniqueItems: true,
+    items
+  };
+  if (def.minSize) {
+    setResponseValueAndErrors(schema, "minItems", def.minSize.value, def.minSize.message, refs);
+  }
+  if (def.maxSize) {
+    setResponseValueAndErrors(schema, "maxItems", def.maxSize.value, def.maxSize.message, refs);
+  }
+  return schema;
+}
+
+// node_modules/zod-to-json-schema/dist/esm/parsers/tuple.js
+function parseTupleDef(def, refs) {
+  if (def.rest) {
+    return {
+      type: "array",
+      minItems: def.items.length,
+      items: def.items.map((x, i) => parseDef(x._def, {
+        ...refs,
+        currentPath: [...refs.currentPath, "items", `${i}`]
+      })).reduce((acc, x) => x === void 0 ? acc : [...acc, x], []),
+      additionalItems: parseDef(def.rest._def, {
+        ...refs,
+        currentPath: [...refs.currentPath, "additionalItems"]
+      })
+    };
+  } else {
+    return {
+      type: "array",
+      minItems: def.items.length,
+      maxItems: def.items.length,
+      items: def.items.map((x, i) => parseDef(x._def, {
+        ...refs,
+        currentPath: [...refs.currentPath, "items", `${i}`]
+      })).reduce((acc, x) => x === void 0 ? acc : [...acc, x], [])
+    };
+  }
+}
+
+// node_modules/zod-to-json-schema/dist/esm/parsers/undefined.js
+function parseUndefinedDef(refs) {
+  return {
+    not: parseAnyDef(refs)
+  };
+}
+
+// node_modules/zod-to-json-schema/dist/esm/parsers/unknown.js
+function parseUnknownDef(refs) {
+  return parseAnyDef(refs);
+}
+
+// node_modules/zod-to-json-schema/dist/esm/parsers/readonly.js
+var parseReadonlyDef = (def, refs) => {
+  return parseDef(def.innerType._def, refs);
+};
+
+// node_modules/zod-to-json-schema/dist/esm/selectParser.js
+var selectParser = (def, typeName, refs) => {
+  switch (typeName) {
+    case ZodFirstPartyTypeKind.ZodString:
+      return parseStringDef(def, refs);
+    case ZodFirstPartyTypeKind.ZodNumber:
+      return parseNumberDef(def, refs);
+    case ZodFirstPartyTypeKind.ZodObject:
+      return parseObjectDef(def, refs);
+    case ZodFirstPartyTypeKind.ZodBigInt:
+      return parseBigintDef(def, refs);
+    case ZodFirstPartyTypeKind.ZodBoolean:
+      return parseBooleanDef();
+    case ZodFirstPartyTypeKind.ZodDate:
+      return parseDateDef(def, refs);
+    case ZodFirstPartyTypeKind.ZodUndefined:
+      return parseUndefinedDef(refs);
+    case ZodFirstPartyTypeKind.ZodNull:
+      return parseNullDef(refs);
+    case ZodFirstPartyTypeKind.ZodArray:
+      return parseArrayDef(def, refs);
+    case ZodFirstPartyTypeKind.ZodUnion:
+    case ZodFirstPartyTypeKind.ZodDiscriminatedUnion:
+      return parseUnionDef(def, refs);
+    case ZodFirstPartyTypeKind.ZodIntersection:
+      return parseIntersectionDef(def, refs);
+    case ZodFirstPartyTypeKind.ZodTuple:
+      return parseTupleDef(def, refs);
+    case ZodFirstPartyTypeKind.ZodRecord:
+      return parseRecordDef(def, refs);
+    case ZodFirstPartyTypeKind.ZodLiteral:
+      return parseLiteralDef(def, refs);
+    case ZodFirstPartyTypeKind.ZodEnum:
+      return parseEnumDef(def);
+    case ZodFirstPartyTypeKind.ZodNativeEnum:
+      return parseNativeEnumDef(def);
+    case ZodFirstPartyTypeKind.ZodNullable:
+      return parseNullableDef(def, refs);
+    case ZodFirstPartyTypeKind.ZodOptional:
+      return parseOptionalDef(def, refs);
+    case ZodFirstPartyTypeKind.ZodMap:
+      return parseMapDef(def, refs);
+    case ZodFirstPartyTypeKind.ZodSet:
+      return parseSetDef(def, refs);
+    case ZodFirstPartyTypeKind.ZodLazy:
+      return () => def.getter()._def;
+    case ZodFirstPartyTypeKind.ZodPromise:
+      return parsePromiseDef(def, refs);
+    case ZodFirstPartyTypeKind.ZodNaN:
+    case ZodFirstPartyTypeKind.ZodNever:
+      return parseNeverDef(refs);
+    case ZodFirstPartyTypeKind.ZodEffects:
+      return parseEffectsDef(def, refs);
+    case ZodFirstPartyTypeKind.ZodAny:
+      return parseAnyDef(refs);
+    case ZodFirstPartyTypeKind.ZodUnknown:
+      return parseUnknownDef(refs);
+    case ZodFirstPartyTypeKind.ZodDefault:
+      return parseDefaultDef(def, refs);
+    case ZodFirstPartyTypeKind.ZodBranded:
+      return parseBrandedDef(def, refs);
+    case ZodFirstPartyTypeKind.ZodReadonly:
+      return parseReadonlyDef(def, refs);
+    case ZodFirstPartyTypeKind.ZodCatch:
+      return parseCatchDef(def, refs);
+    case ZodFirstPartyTypeKind.ZodPipeline:
+      return parsePipelineDef(def, refs);
+    case ZodFirstPartyTypeKind.ZodFunction:
+    case ZodFirstPartyTypeKind.ZodVoid:
+    case ZodFirstPartyTypeKind.ZodSymbol:
+      return void 0;
+    default:
+      return /* @__PURE__ */ ((_) => void 0)(typeName);
+  }
+};
+
+// node_modules/zod-to-json-schema/dist/esm/parseDef.js
+function parseDef(def, refs, forceResolution = false) {
+  const seenItem = refs.seen.get(def);
+  if (refs.override) {
+    const overrideResult = refs.override?.(def, refs, seenItem, forceResolution);
+    if (overrideResult !== ignoreOverride) {
+      return overrideResult;
+    }
+  }
+  if (seenItem && !forceResolution) {
+    const seenSchema = get$ref(seenItem, refs);
+    if (seenSchema !== void 0) {
+      return seenSchema;
+    }
+  }
+  const newItem = { def, path: refs.currentPath, jsonSchema: void 0 };
+  refs.seen.set(def, newItem);
+  const jsonSchemaOrGetter = selectParser(def, def.typeName, refs);
+  const jsonSchema = typeof jsonSchemaOrGetter === "function" ? parseDef(jsonSchemaOrGetter(), refs) : jsonSchemaOrGetter;
+  if (jsonSchema) {
+    addMeta(def, refs, jsonSchema);
+  }
+  if (refs.postProcess) {
+    const postProcessResult = refs.postProcess(jsonSchema, def, refs);
+    newItem.jsonSchema = jsonSchema;
+    return postProcessResult;
+  }
+  newItem.jsonSchema = jsonSchema;
+  return jsonSchema;
+}
+var get$ref = (item, refs) => {
+  switch (refs.$refStrategy) {
+    case "root":
+      return { $ref: item.path.join("/") };
+    case "relative":
+      return { $ref: getRelativePath(refs.currentPath, item.path) };
+    case "none":
+    case "seen": {
+      if (item.path.length < refs.currentPath.length && item.path.every((value, index) => refs.currentPath[index] === value)) {
+        console.warn(`Recursive reference detected at ${refs.currentPath.join("/")}! Defaulting to any`);
+        return parseAnyDef(refs);
+      }
+      return refs.$refStrategy === "seen" ? parseAnyDef(refs) : void 0;
+    }
+  }
+};
+var addMeta = (def, refs, jsonSchema) => {
+  if (def.description) {
+    jsonSchema.description = def.description;
+    if (refs.markdownDescription) {
+      jsonSchema.markdownDescription = def.description;
+    }
+  }
+  return jsonSchema;
+};
+
+// node_modules/zod-to-json-schema/dist/esm/zodToJsonSchema.js
+var zodToJsonSchema = (schema, options) => {
+  const refs = getRefs(options);
+  let definitions = typeof options === "object" && options.definitions ? Object.entries(options.definitions).reduce((acc, [name2, schema2]) => ({
+    ...acc,
+    [name2]: parseDef(schema2._def, {
+      ...refs,
+      currentPath: [...refs.basePath, refs.definitionPath, name2]
+    }, true) ?? parseAnyDef(refs)
+  }), {}) : void 0;
+  const name = typeof options === "string" ? options : options?.nameStrategy === "title" ? void 0 : options?.name;
+  const main2 = parseDef(schema._def, name === void 0 ? refs : {
+    ...refs,
+    currentPath: [...refs.basePath, refs.definitionPath, name]
+  }, false) ?? parseAnyDef(refs);
+  const title = typeof options === "object" && options.name !== void 0 && options.nameStrategy === "title" ? options.name : void 0;
+  if (title !== void 0) {
+    main2.title = title;
+  }
+  if (refs.flags.hasReferencedOpenAiAnyType) {
+    if (!definitions) {
+      definitions = {};
+    }
+    if (!definitions[refs.openAiAnyTypeName]) {
+      definitions[refs.openAiAnyTypeName] = {
+        // Skipping "object" as no properties can be defined and additionalProperties must be "false"
+        type: ["string", "number", "integer", "boolean", "array", "null"],
+        items: {
+          $ref: refs.$refStrategy === "relative" ? "1" : [
+            ...refs.basePath,
+            refs.definitionPath,
+            refs.openAiAnyTypeName
+          ].join("/")
+        }
+      };
+    }
+  }
+  const combined = name === void 0 ? definitions ? {
+    ...main2,
+    [refs.definitionPath]: definitions
+  } : main2 : {
+    $ref: [
+      ...refs.$refStrategy === "relative" ? [] : refs.basePath,
+      refs.definitionPath,
+      name
+    ].join("/"),
+    [refs.definitionPath]: {
+      ...definitions,
+      [name]: main2
+    }
+  };
+  if (refs.target === "jsonSchema7") {
+    combined.$schema = "http://json-schema.org/draft-07/schema#";
+  } else if (refs.target === "jsonSchema2019-09" || refs.target === "openAi") {
+    combined.$schema = "https://json-schema.org/draft/2019-09/schema#";
+  }
+  if (refs.target === "openAi" && ("anyOf" in combined || "oneOf" in combined || "allOf" in combined || "type" in combined && Array.isArray(combined.type))) {
+    console.warn("Warning: OpenAI may not support schemas with unions as roots! Try wrapping it in an object property.");
+  }
+  return combined;
+};
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-json-schema-compat.js
+function mapMiniTarget(t) {
+  if (!t)
+    return "draft-7";
+  if (t === "jsonSchema7" || t === "draft-7")
+    return "draft-7";
+  if (t === "jsonSchema2019-09" || t === "draft-2020-12")
+    return "draft-2020-12";
+  return "draft-7";
+}
+function toJsonSchemaCompat(schema, opts) {
+  if (isZ4Schema(schema)) {
+    return toJSONSchema(schema, {
+      target: mapMiniTarget(opts?.target),
+      io: opts?.pipeStrategy ?? "input"
+    });
+  }
+  return zodToJsonSchema(schema, {
+    strictUnions: opts?.strictUnions ?? true,
+    pipeStrategy: opts?.pipeStrategy ?? "input"
+  });
+}
 function getMethodLiteral(schema) {
   const shape = getObjectShape(schema);
   const methodSchema = shape?.method;
@@ -27925,8 +36325,8 @@ var Protocol = class {
                     resolver(message);
                   } else {
                     const errorMessage = message;
-                    const error2 = new McpError(errorMessage.error.code, errorMessage.error.message, errorMessage.error.data);
-                    resolver(error2);
+                    const error48 = new McpError(errorMessage.error.code, errorMessage.error.message, errorMessage.error.data);
+                    resolver(error48);
                   }
                 } else {
                   const messageType = queuedMessage.type === "response" ? "Response" : "Error";
@@ -27970,8 +36370,8 @@ var Protocol = class {
             nextCursor,
             _meta: {}
           };
-        } catch (error2) {
-          throw new McpError(ErrorCode.InvalidParams, `Failed to list tasks: ${error2 instanceof Error ? error2.message : String(error2)}`);
+        } catch (error48) {
+          throw new McpError(ErrorCode.InvalidParams, `Failed to list tasks: ${error48 instanceof Error ? error48.message : String(error48)}`);
         }
       });
       this.setRequestHandler(CancelTaskRequestSchema, async (request, extra) => {
@@ -27993,11 +36393,11 @@ var Protocol = class {
             _meta: {},
             ...cancelledTask
           };
-        } catch (error2) {
-          if (error2 instanceof McpError) {
-            throw error2;
+        } catch (error48) {
+          if (error48 instanceof McpError) {
+            throw error48;
           }
-          throw new McpError(ErrorCode.InvalidRequest, `Failed to cancel task: ${error2 instanceof Error ? error2.message : String(error2)}`);
+          throw new McpError(ErrorCode.InvalidRequest, `Failed to cancel task: ${error48 instanceof Error ? error48.message : String(error48)}`);
         }
       });
     }
@@ -28058,9 +36458,9 @@ var Protocol = class {
       this._onclose();
     };
     const _onerror = this.transport?.onerror;
-    this._transport.onerror = (error2) => {
-      _onerror?.(error2);
-      this._onerror(error2);
+    this._transport.onerror = (error48) => {
+      _onerror?.(error48);
+      this._onerror(error48);
     };
     const _onmessage = this._transport?.onmessage;
     this._transport.onmessage = (message, extra) => {
@@ -28091,22 +36491,22 @@ var Protocol = class {
       controller.abort();
     }
     this._requestHandlerAbortControllers.clear();
-    const error2 = McpError.fromError(ErrorCode.ConnectionClosed, "Connection closed");
+    const error48 = McpError.fromError(ErrorCode.ConnectionClosed, "Connection closed");
     this._transport = void 0;
     this.onclose?.();
     for (const handler of responseHandlers.values()) {
-      handler(error2);
+      handler(error48);
     }
   }
-  _onerror(error2) {
-    this.onerror?.(error2);
+  _onerror(error48) {
+    this.onerror?.(error48);
   }
   _onnotification(notification) {
     const handler = this._notificationHandlers.get(notification.method) ?? this.fallbackNotificationHandler;
     if (handler === void 0) {
       return;
     }
-    Promise.resolve().then(() => handler(notification)).catch((error2) => this._onerror(new Error(`Uncaught error in notification handler: ${error2}`)));
+    Promise.resolve().then(() => handler(notification)).catch((error48) => this._onerror(new Error(`Uncaught error in notification handler: ${error48}`)));
   }
   _onrequest(request, extra) {
     const handler = this._requestHandlers.get(request.method) ?? this.fallbackRequestHandler;
@@ -28126,9 +36526,9 @@ var Protocol = class {
           type: "error",
           message: errorResponse,
           timestamp: Date.now()
-        }, capturedTransport?.sessionId).catch((error2) => this._onerror(new Error(`Failed to enqueue error response: ${error2}`)));
+        }, capturedTransport?.sessionId).catch((error48) => this._onerror(new Error(`Failed to enqueue error response: ${error48}`)));
       } else {
-        capturedTransport?.send(errorResponse).catch((error2) => this._onerror(new Error(`Failed to send an error response: ${error2}`)));
+        capturedTransport?.send(errorResponse).catch((error48) => this._onerror(new Error(`Failed to send an error response: ${error48}`)));
       }
       return;
     }
@@ -28194,7 +36594,7 @@ var Protocol = class {
       } else {
         await capturedTransport?.send(response);
       }
-    }, async (error2) => {
+    }, async (error48) => {
       if (abortController.signal.aborted) {
         return;
       }
@@ -28202,9 +36602,9 @@ var Protocol = class {
         jsonrpc: "2.0",
         id: request.id,
         error: {
-          code: Number.isSafeInteger(error2["code"]) ? error2["code"] : ErrorCode.InternalError,
-          message: error2.message ?? "Internal error",
-          ...error2["data"] !== void 0 && { data: error2["data"] }
+          code: Number.isSafeInteger(error48["code"]) ? error48["code"] : ErrorCode.InternalError,
+          message: error48.message ?? "Internal error",
+          ...error48["data"] !== void 0 && { data: error48["data"] }
         }
       };
       if (relatedTaskId && this._taskMessageQueue) {
@@ -28216,7 +36616,7 @@ var Protocol = class {
       } else {
         await capturedTransport?.send(errorResponse);
       }
-    }).catch((error2) => this._onerror(new Error(`Failed to send response: ${error2}`))).finally(() => {
+    }).catch((error48) => this._onerror(new Error(`Failed to send response: ${error48}`))).finally(() => {
       if (this._requestHandlerAbortControllers.get(request.id) === abortController) {
         this._requestHandlerAbortControllers.delete(request.id);
       }
@@ -28235,11 +36635,11 @@ var Protocol = class {
     if (timeoutInfo && responseHandler && timeoutInfo.resetTimeoutOnProgress) {
       try {
         this._resetTimeout(messageId);
-      } catch (error2) {
+      } catch (error48) {
         this._responseHandlers.delete(messageId);
         this._progressHandlers.delete(messageId);
         this._cleanupTimeout(messageId);
-        responseHandler(error2);
+        responseHandler(error48);
         return;
       }
     }
@@ -28253,8 +36653,8 @@ var Protocol = class {
       if (isJSONRPCResultResponse(response)) {
         resolver(response);
       } else {
-        const error2 = new McpError(response.error.code, response.error.message, response.error.data);
-        resolver(error2);
+        const error48 = new McpError(response.error.code, response.error.message, response.error.data);
+        resolver(error48);
       }
       return;
     }
@@ -28282,8 +36682,8 @@ var Protocol = class {
     if (isJSONRPCResultResponse(response)) {
       handler(response);
     } else {
-      const error2 = McpError.fromError(response.error.code, response.error.message, response.error.data);
-      handler(error2);
+      const error48 = McpError.fromError(response.error.code, response.error.message, response.error.data);
+      handler(error48);
     }
   }
   get transport() {
@@ -28328,10 +36728,10 @@ var Protocol = class {
       try {
         const result = await this.request(request, resultSchema, options);
         yield { type: "result", result };
-      } catch (error2) {
+      } catch (error48) {
         yield {
           type: "error",
-          error: error2 instanceof McpError ? error2 : new McpError(ErrorCode.InternalError, String(error2))
+          error: error48 instanceof McpError ? error48 : new McpError(ErrorCode.InternalError, String(error48))
         };
       }
       return;
@@ -28371,13 +36771,13 @@ var Protocol = class {
           return;
         }
         const pollInterval = task2.pollInterval ?? this._options?.defaultTaskPollInterval ?? 1e3;
-        await new Promise((resolve3) => setTimeout(resolve3, pollInterval));
+        await new Promise((resolve6) => setTimeout(resolve6, pollInterval));
         options?.signal?.throwIfAborted();
       }
-    } catch (error2) {
+    } catch (error48) {
       yield {
         type: "error",
-        error: error2 instanceof McpError ? error2 : new McpError(ErrorCode.InternalError, String(error2))
+        error: error48 instanceof McpError ? error48 : new McpError(ErrorCode.InternalError, String(error48))
       };
     }
   }
@@ -28388,9 +36788,9 @@ var Protocol = class {
    */
   request(request, resultSchema, options) {
     const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options ?? {};
-    return new Promise((resolve3, reject) => {
-      const earlyReject = (error2) => {
-        reject(error2);
+    return new Promise((resolve6, reject) => {
+      const earlyReject = (error48) => {
+        reject(error48);
       };
       if (!this._transport) {
         earlyReject(new Error("Not connected"));
@@ -28450,9 +36850,9 @@ var Protocol = class {
             requestId: messageId,
             reason: String(reason)
           }
-        }, { relatedRequestId, resumptionToken, onresumptiontoken }).catch((error3) => this._onerror(new Error(`Failed to send cancellation: ${error3}`)));
-        const error2 = reason instanceof McpError ? reason : new McpError(ErrorCode.RequestTimeout, String(reason));
-        reject(error2);
+        }, { relatedRequestId, resumptionToken, onresumptiontoken }).catch((error49) => this._onerror(new Error(`Failed to send cancellation: ${error49}`)));
+        const error48 = reason instanceof McpError ? reason : new McpError(ErrorCode.RequestTimeout, String(reason));
+        reject(error48);
       };
       this._responseHandlers.set(messageId, (response) => {
         if (options?.signal?.aborted) {
@@ -28466,10 +36866,10 @@ var Protocol = class {
           if (!parseResult.success) {
             reject(parseResult.error);
           } else {
-            resolve3(parseResult.data);
+            resolve6(parseResult.data);
           }
-        } catch (error2) {
-          reject(error2);
+        } catch (error48) {
+          reject(error48);
         }
       });
       options?.signal?.addEventListener("abort", () => {
@@ -28493,14 +36893,14 @@ var Protocol = class {
           type: "request",
           message: jsonrpcRequest,
           timestamp: Date.now()
-        }).catch((error2) => {
+        }).catch((error48) => {
           this._cleanupTimeout(messageId);
-          reject(error2);
+          reject(error48);
         });
       } else {
-        this._transport.send(jsonrpcRequest, { relatedRequestId, resumptionToken, onresumptiontoken }).catch((error2) => {
+        this._transport.send(jsonrpcRequest, { relatedRequestId, resumptionToken, onresumptiontoken }).catch((error48) => {
           this._cleanupTimeout(messageId);
-          reject(error2);
+          reject(error48);
         });
       }
     });
@@ -28593,7 +36993,7 @@ var Protocol = class {
             }
           };
         }
-        this._transport?.send(jsonrpcNotification2, options).catch((error2) => this._onerror(error2));
+        this._transport?.send(jsonrpcNotification2, options).catch((error48) => this._onerror(error48));
       });
       return;
     }
@@ -28727,12 +37127,12 @@ var Protocol = class {
       }
     } catch {
     }
-    return new Promise((resolve3, reject) => {
+    return new Promise((resolve6, reject) => {
       if (signal.aborted) {
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
         return;
       }
-      const timeoutId = setTimeout(resolve3, interval);
+      const timeoutId = setTimeout(resolve6, interval);
       signal.addEventListener("abort", () => {
         clearTimeout(timeoutId);
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
@@ -29455,11 +37855,11 @@ var Server = class extends Protocol {
             if (!validationResult.valid) {
               throw new McpError(ErrorCode.InvalidParams, `Elicitation response content does not match requested schema: ${validationResult.errorMessage}`);
             }
-          } catch (error2) {
-            if (error2 instanceof McpError) {
-              throw error2;
+          } catch (error48) {
+            if (error48 instanceof McpError) {
+              throw error48;
             }
-            throw new McpError(ErrorCode.InternalError, `Error validating elicitation response: ${error2 instanceof Error ? error2.message : String(error2)}`);
+            throw new McpError(ErrorCode.InternalError, `Error validating elicitation response: ${error48 instanceof Error ? error48.message : String(error48)}`);
           }
         }
         return result;
@@ -29521,6 +37921,885 @@ var Server = class extends Protocol {
   }
 };
 
+// node_modules/@modelcontextprotocol/sdk/dist/esm/server/completable.js
+var COMPLETABLE_SYMBOL = Symbol.for("mcp.completable");
+function isCompletable(schema) {
+  return !!schema && typeof schema === "object" && COMPLETABLE_SYMBOL in schema;
+}
+function getCompleter(schema) {
+  const meta3 = schema[COMPLETABLE_SYMBOL];
+  return meta3?.complete;
+}
+var McpZodTypeKind;
+(function(McpZodTypeKind2) {
+  McpZodTypeKind2["Completable"] = "McpCompletable";
+})(McpZodTypeKind || (McpZodTypeKind = {}));
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/shared/toolNameValidation.js
+var TOOL_NAME_REGEX = /^[A-Za-z0-9._-]{1,128}$/;
+function validateToolName(name) {
+  const warnings = [];
+  if (name.length === 0) {
+    return {
+      isValid: false,
+      warnings: ["Tool name cannot be empty"]
+    };
+  }
+  if (name.length > 128) {
+    return {
+      isValid: false,
+      warnings: [`Tool name exceeds maximum length of 128 characters (current: ${name.length})`]
+    };
+  }
+  if (name.includes(" ")) {
+    warnings.push("Tool name contains spaces, which may cause parsing issues");
+  }
+  if (name.includes(",")) {
+    warnings.push("Tool name contains commas, which may cause parsing issues");
+  }
+  if (name.startsWith("-") || name.endsWith("-")) {
+    warnings.push("Tool name starts or ends with a dash, which may cause parsing issues in some contexts");
+  }
+  if (name.startsWith(".") || name.endsWith(".")) {
+    warnings.push("Tool name starts or ends with a dot, which may cause parsing issues in some contexts");
+  }
+  if (!TOOL_NAME_REGEX.test(name)) {
+    const invalidChars = name.split("").filter((char) => !/[A-Za-z0-9._-]/.test(char)).filter((char, index, arr) => arr.indexOf(char) === index);
+    warnings.push(`Tool name contains invalid characters: ${invalidChars.map((c) => `"${c}"`).join(", ")}`, "Allowed characters are: A-Z, a-z, 0-9, underscore (_), dash (-), and dot (.)");
+    return {
+      isValid: false,
+      warnings
+    };
+  }
+  return {
+    isValid: true,
+    warnings
+  };
+}
+function issueToolNameWarning(name, warnings) {
+  if (warnings.length > 0) {
+    console.warn(`Tool name validation warning for "${name}":`);
+    for (const warning of warnings) {
+      console.warn(`  - ${warning}`);
+    }
+    console.warn("Tool registration will proceed, but this may cause compatibility issues.");
+    console.warn("Consider updating the tool name to conform to the MCP tool naming standard.");
+    console.warn("See SEP: Specify Format for Tool Names (https://github.com/modelcontextprotocol/modelcontextprotocol/issues/986) for more details.");
+  }
+}
+function validateAndWarnToolName(name) {
+  const result = validateToolName(name);
+  issueToolNameWarning(name, result.warnings);
+  return result.isValid;
+}
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/mcp-server.js
+var ExperimentalMcpServerTasks = class {
+  constructor(_mcpServer) {
+    this._mcpServer = _mcpServer;
+  }
+  registerToolTask(name, config2, handler) {
+    const execution = { taskSupport: "required", ...config2.execution };
+    if (execution.taskSupport === "forbidden") {
+      throw new Error(`Cannot register task-based tool '${name}' with taskSupport 'forbidden'. Use registerTool() instead.`);
+    }
+    const mcpServerInternal = this._mcpServer;
+    return mcpServerInternal._createRegisteredTool(name, config2.title, config2.description, config2.inputSchema, config2.outputSchema, config2.annotations, execution, config2._meta, handler);
+  }
+};
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/server/mcp.js
+var McpServer = class {
+  constructor(serverInfo, options) {
+    this._registeredResources = {};
+    this._registeredResourceTemplates = {};
+    this._registeredTools = {};
+    this._registeredPrompts = {};
+    this._toolHandlersInitialized = false;
+    this._completionHandlerInitialized = false;
+    this._resourceHandlersInitialized = false;
+    this._promptHandlersInitialized = false;
+    this.server = new Server(serverInfo, options);
+  }
+  /**
+   * Access experimental features.
+   *
+   * WARNING: These APIs are experimental and may change without notice.
+   *
+   * @experimental
+   */
+  get experimental() {
+    if (!this._experimental) {
+      this._experimental = {
+        tasks: new ExperimentalMcpServerTasks(this)
+      };
+    }
+    return this._experimental;
+  }
+  /**
+   * Attaches to the given transport, starts it, and starts listening for messages.
+   *
+   * The `server` object assumes ownership of the Transport, replacing any callbacks that have already been set, and expects that it is the only user of the Transport instance going forward.
+   */
+  async connect(transport) {
+    return await this.server.connect(transport);
+  }
+  /**
+   * Closes the connection.
+   */
+  async close() {
+    await this.server.close();
+  }
+  setToolRequestHandlers() {
+    if (this._toolHandlersInitialized) {
+      return;
+    }
+    this.server.assertCanSetRequestHandler(getMethodValue(ListToolsRequestSchema));
+    this.server.assertCanSetRequestHandler(getMethodValue(CallToolRequestSchema));
+    this.server.registerCapabilities({
+      tools: {
+        listChanged: true
+      }
+    });
+    this.server.setRequestHandler(ListToolsRequestSchema, () => ({
+      tools: Object.entries(this._registeredTools).filter(([, tool]) => tool.enabled).map(([name, tool]) => {
+        const toolDefinition = {
+          name,
+          title: tool.title,
+          description: tool.description,
+          inputSchema: (() => {
+            const obj = normalizeObjectSchema(tool.inputSchema);
+            return obj ? toJsonSchemaCompat(obj, {
+              strictUnions: true,
+              pipeStrategy: "input"
+            }) : EMPTY_OBJECT_JSON_SCHEMA;
+          })(),
+          annotations: tool.annotations,
+          execution: tool.execution,
+          _meta: tool._meta
+        };
+        if (tool.outputSchema) {
+          const obj = normalizeObjectSchema(tool.outputSchema);
+          if (obj) {
+            toolDefinition.outputSchema = toJsonSchemaCompat(obj, {
+              strictUnions: true,
+              pipeStrategy: "output"
+            });
+          }
+        }
+        return toolDefinition;
+      })
+    }));
+    this.server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
+      try {
+        const tool = this._registeredTools[request.params.name];
+        if (!tool) {
+          throw new McpError(ErrorCode.InvalidParams, `Tool ${request.params.name} not found`);
+        }
+        if (!tool.enabled) {
+          throw new McpError(ErrorCode.InvalidParams, `Tool ${request.params.name} disabled`);
+        }
+        const isTaskRequest = !!request.params.task;
+        const taskSupport = tool.execution?.taskSupport;
+        const isTaskHandler = "createTask" in tool.handler;
+        if ((taskSupport === "required" || taskSupport === "optional") && !isTaskHandler) {
+          throw new McpError(ErrorCode.InternalError, `Tool ${request.params.name} has taskSupport '${taskSupport}' but was not registered with registerToolTask`);
+        }
+        if (taskSupport === "required" && !isTaskRequest) {
+          throw new McpError(ErrorCode.MethodNotFound, `Tool ${request.params.name} requires task augmentation (taskSupport: 'required')`);
+        }
+        if (taskSupport === "optional" && !isTaskRequest && isTaskHandler) {
+          return await this.handleAutomaticTaskPolling(tool, request, extra);
+        }
+        const args = await this.validateToolInput(tool, request.params.arguments, request.params.name);
+        const result = await this.executeToolHandler(tool, args, extra);
+        if (isTaskRequest) {
+          return result;
+        }
+        await this.validateToolOutput(tool, result, request.params.name);
+        return result;
+      } catch (error48) {
+        if (error48 instanceof McpError) {
+          if (error48.code === ErrorCode.UrlElicitationRequired) {
+            throw error48;
+          }
+        }
+        return this.createToolError(error48 instanceof Error ? error48.message : String(error48));
+      }
+    });
+    this._toolHandlersInitialized = true;
+  }
+  /**
+   * Creates a tool error result.
+   *
+   * @param errorMessage - The error message.
+   * @returns The tool error result.
+   */
+  createToolError(errorMessage) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: errorMessage
+        }
+      ],
+      isError: true
+    };
+  }
+  /**
+   * Validates tool input arguments against the tool's input schema.
+   */
+  async validateToolInput(tool, args, toolName) {
+    if (!tool.inputSchema) {
+      return void 0;
+    }
+    const inputObj = normalizeObjectSchema(tool.inputSchema);
+    const schemaToParse = inputObj ?? tool.inputSchema;
+    const parseResult = await safeParseAsync2(schemaToParse, args);
+    if (!parseResult.success) {
+      const error48 = "error" in parseResult ? parseResult.error : "Unknown error";
+      const errorMessage = getParseErrorMessage(error48);
+      throw new McpError(ErrorCode.InvalidParams, `Input validation error: Invalid arguments for tool ${toolName}: ${errorMessage}`);
+    }
+    return parseResult.data;
+  }
+  /**
+   * Validates tool output against the tool's output schema.
+   */
+  async validateToolOutput(tool, result, toolName) {
+    if (!tool.outputSchema) {
+      return;
+    }
+    if (!("content" in result)) {
+      return;
+    }
+    if (result.isError) {
+      return;
+    }
+    if (!result.structuredContent) {
+      throw new McpError(ErrorCode.InvalidParams, `Output validation error: Tool ${toolName} has an output schema but no structured content was provided`);
+    }
+    const outputObj = normalizeObjectSchema(tool.outputSchema);
+    const parseResult = await safeParseAsync2(outputObj, result.structuredContent);
+    if (!parseResult.success) {
+      const error48 = "error" in parseResult ? parseResult.error : "Unknown error";
+      const errorMessage = getParseErrorMessage(error48);
+      throw new McpError(ErrorCode.InvalidParams, `Output validation error: Invalid structured content for tool ${toolName}: ${errorMessage}`);
+    }
+  }
+  /**
+   * Executes a tool handler (either regular or task-based).
+   */
+  async executeToolHandler(tool, args, extra) {
+    const handler = tool.handler;
+    const isTaskHandler = "createTask" in handler;
+    if (isTaskHandler) {
+      if (!extra.taskStore) {
+        throw new Error("No task store provided.");
+      }
+      const taskExtra = { ...extra, taskStore: extra.taskStore };
+      if (tool.inputSchema) {
+        const typedHandler = handler;
+        return await Promise.resolve(typedHandler.createTask(args, taskExtra));
+      } else {
+        const typedHandler = handler;
+        return await Promise.resolve(typedHandler.createTask(taskExtra));
+      }
+    }
+    if (tool.inputSchema) {
+      const typedHandler = handler;
+      return await Promise.resolve(typedHandler(args, extra));
+    } else {
+      const typedHandler = handler;
+      return await Promise.resolve(typedHandler(extra));
+    }
+  }
+  /**
+   * Handles automatic task polling for tools with taskSupport 'optional'.
+   */
+  async handleAutomaticTaskPolling(tool, request, extra) {
+    if (!extra.taskStore) {
+      throw new Error("No task store provided for task-capable tool.");
+    }
+    const args = await this.validateToolInput(tool, request.params.arguments, request.params.name);
+    const handler = tool.handler;
+    const taskExtra = { ...extra, taskStore: extra.taskStore };
+    const createTaskResult = args ? await Promise.resolve(handler.createTask(args, taskExtra)) : (
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await Promise.resolve(handler.createTask(taskExtra))
+    );
+    const taskId = createTaskResult.task.taskId;
+    let task = createTaskResult.task;
+    const pollInterval = task.pollInterval ?? 5e3;
+    while (task.status !== "completed" && task.status !== "failed" && task.status !== "cancelled") {
+      await new Promise((resolve6) => setTimeout(resolve6, pollInterval));
+      const updatedTask = await extra.taskStore.getTask(taskId);
+      if (!updatedTask) {
+        throw new McpError(ErrorCode.InternalError, `Task ${taskId} not found during polling`);
+      }
+      task = updatedTask;
+    }
+    return await extra.taskStore.getTaskResult(taskId);
+  }
+  setCompletionRequestHandler() {
+    if (this._completionHandlerInitialized) {
+      return;
+    }
+    this.server.assertCanSetRequestHandler(getMethodValue(CompleteRequestSchema));
+    this.server.registerCapabilities({
+      completions: {}
+    });
+    this.server.setRequestHandler(CompleteRequestSchema, async (request) => {
+      switch (request.params.ref.type) {
+        case "ref/prompt":
+          assertCompleteRequestPrompt(request);
+          return this.handlePromptCompletion(request, request.params.ref);
+        case "ref/resource":
+          assertCompleteRequestResourceTemplate(request);
+          return this.handleResourceCompletion(request, request.params.ref);
+        default:
+          throw new McpError(ErrorCode.InvalidParams, `Invalid completion reference: ${request.params.ref}`);
+      }
+    });
+    this._completionHandlerInitialized = true;
+  }
+  async handlePromptCompletion(request, ref) {
+    const prompt = this._registeredPrompts[ref.name];
+    if (!prompt) {
+      throw new McpError(ErrorCode.InvalidParams, `Prompt ${ref.name} not found`);
+    }
+    if (!prompt.enabled) {
+      throw new McpError(ErrorCode.InvalidParams, `Prompt ${ref.name} disabled`);
+    }
+    if (!prompt.argsSchema) {
+      return EMPTY_COMPLETION_RESULT;
+    }
+    const promptShape = getObjectShape(prompt.argsSchema);
+    const field = promptShape?.[request.params.argument.name];
+    if (!isCompletable(field)) {
+      return EMPTY_COMPLETION_RESULT;
+    }
+    const completer = getCompleter(field);
+    if (!completer) {
+      return EMPTY_COMPLETION_RESULT;
+    }
+    const suggestions = await completer(request.params.argument.value, request.params.context);
+    return createCompletionResult(suggestions);
+  }
+  async handleResourceCompletion(request, ref) {
+    const template = Object.values(this._registeredResourceTemplates).find((t) => t.resourceTemplate.uriTemplate.toString() === ref.uri);
+    if (!template) {
+      if (this._registeredResources[ref.uri]) {
+        return EMPTY_COMPLETION_RESULT;
+      }
+      throw new McpError(ErrorCode.InvalidParams, `Resource template ${request.params.ref.uri} not found`);
+    }
+    const completer = template.resourceTemplate.completeCallback(request.params.argument.name);
+    if (!completer) {
+      return EMPTY_COMPLETION_RESULT;
+    }
+    const suggestions = await completer(request.params.argument.value, request.params.context);
+    return createCompletionResult(suggestions);
+  }
+  setResourceRequestHandlers() {
+    if (this._resourceHandlersInitialized) {
+      return;
+    }
+    this.server.assertCanSetRequestHandler(getMethodValue(ListResourcesRequestSchema));
+    this.server.assertCanSetRequestHandler(getMethodValue(ListResourceTemplatesRequestSchema));
+    this.server.assertCanSetRequestHandler(getMethodValue(ReadResourceRequestSchema));
+    this.server.registerCapabilities({
+      resources: {
+        listChanged: true
+      }
+    });
+    this.server.setRequestHandler(ListResourcesRequestSchema, async (request, extra) => {
+      const resources = Object.entries(this._registeredResources).filter(([_, resource]) => resource.enabled).map(([uri, resource]) => ({
+        uri,
+        name: resource.name,
+        ...resource.metadata
+      }));
+      const templateResources = [];
+      for (const template of Object.values(this._registeredResourceTemplates)) {
+        if (!template.resourceTemplate.listCallback) {
+          continue;
+        }
+        const result = await template.resourceTemplate.listCallback(extra);
+        for (const resource of result.resources) {
+          templateResources.push({
+            ...template.metadata,
+            // the defined resource metadata should override the template metadata if present
+            ...resource
+          });
+        }
+      }
+      return { resources: [...resources, ...templateResources] };
+    });
+    this.server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => {
+      const resourceTemplates = Object.entries(this._registeredResourceTemplates).map(([name, template]) => ({
+        name,
+        uriTemplate: template.resourceTemplate.uriTemplate.toString(),
+        ...template.metadata
+      }));
+      return { resourceTemplates };
+    });
+    this.server.setRequestHandler(ReadResourceRequestSchema, async (request, extra) => {
+      const uri = new URL(request.params.uri);
+      const resource = this._registeredResources[uri.toString()];
+      if (resource) {
+        if (!resource.enabled) {
+          throw new McpError(ErrorCode.InvalidParams, `Resource ${uri} disabled`);
+        }
+        return resource.readCallback(uri, extra);
+      }
+      for (const template of Object.values(this._registeredResourceTemplates)) {
+        const variables = template.resourceTemplate.uriTemplate.match(uri.toString());
+        if (variables) {
+          return template.readCallback(uri, variables, extra);
+        }
+      }
+      throw new McpError(ErrorCode.InvalidParams, `Resource ${uri} not found`);
+    });
+    this._resourceHandlersInitialized = true;
+  }
+  setPromptRequestHandlers() {
+    if (this._promptHandlersInitialized) {
+      return;
+    }
+    this.server.assertCanSetRequestHandler(getMethodValue(ListPromptsRequestSchema));
+    this.server.assertCanSetRequestHandler(getMethodValue(GetPromptRequestSchema));
+    this.server.registerCapabilities({
+      prompts: {
+        listChanged: true
+      }
+    });
+    this.server.setRequestHandler(ListPromptsRequestSchema, () => ({
+      prompts: Object.entries(this._registeredPrompts).filter(([, prompt]) => prompt.enabled).map(([name, prompt]) => {
+        return {
+          name,
+          title: prompt.title,
+          description: prompt.description,
+          arguments: prompt.argsSchema ? promptArgumentsFromSchema(prompt.argsSchema) : void 0
+        };
+      })
+    }));
+    this.server.setRequestHandler(GetPromptRequestSchema, async (request, extra) => {
+      const prompt = this._registeredPrompts[request.params.name];
+      if (!prompt) {
+        throw new McpError(ErrorCode.InvalidParams, `Prompt ${request.params.name} not found`);
+      }
+      if (!prompt.enabled) {
+        throw new McpError(ErrorCode.InvalidParams, `Prompt ${request.params.name} disabled`);
+      }
+      if (prompt.argsSchema) {
+        const argsObj = normalizeObjectSchema(prompt.argsSchema);
+        const parseResult = await safeParseAsync2(argsObj, request.params.arguments);
+        if (!parseResult.success) {
+          const error48 = "error" in parseResult ? parseResult.error : "Unknown error";
+          const errorMessage = getParseErrorMessage(error48);
+          throw new McpError(ErrorCode.InvalidParams, `Invalid arguments for prompt ${request.params.name}: ${errorMessage}`);
+        }
+        const args = parseResult.data;
+        const cb = prompt.callback;
+        return await Promise.resolve(cb(args, extra));
+      } else {
+        const cb = prompt.callback;
+        return await Promise.resolve(cb(extra));
+      }
+    });
+    this._promptHandlersInitialized = true;
+  }
+  resource(name, uriOrTemplate, ...rest) {
+    let metadata;
+    if (typeof rest[0] === "object") {
+      metadata = rest.shift();
+    }
+    const readCallback = rest[0];
+    if (typeof uriOrTemplate === "string") {
+      if (this._registeredResources[uriOrTemplate]) {
+        throw new Error(`Resource ${uriOrTemplate} is already registered`);
+      }
+      const registeredResource = this._createRegisteredResource(name, void 0, uriOrTemplate, metadata, readCallback);
+      this.setResourceRequestHandlers();
+      this.sendResourceListChanged();
+      return registeredResource;
+    } else {
+      if (this._registeredResourceTemplates[name]) {
+        throw new Error(`Resource template ${name} is already registered`);
+      }
+      const registeredResourceTemplate = this._createRegisteredResourceTemplate(name, void 0, uriOrTemplate, metadata, readCallback);
+      this.setResourceRequestHandlers();
+      this.sendResourceListChanged();
+      return registeredResourceTemplate;
+    }
+  }
+  registerResource(name, uriOrTemplate, config2, readCallback) {
+    if (typeof uriOrTemplate === "string") {
+      if (this._registeredResources[uriOrTemplate]) {
+        throw new Error(`Resource ${uriOrTemplate} is already registered`);
+      }
+      const registeredResource = this._createRegisteredResource(name, config2.title, uriOrTemplate, config2, readCallback);
+      this.setResourceRequestHandlers();
+      this.sendResourceListChanged();
+      return registeredResource;
+    } else {
+      if (this._registeredResourceTemplates[name]) {
+        throw new Error(`Resource template ${name} is already registered`);
+      }
+      const registeredResourceTemplate = this._createRegisteredResourceTemplate(name, config2.title, uriOrTemplate, config2, readCallback);
+      this.setResourceRequestHandlers();
+      this.sendResourceListChanged();
+      return registeredResourceTemplate;
+    }
+  }
+  _createRegisteredResource(name, title, uri, metadata, readCallback) {
+    const registeredResource = {
+      name,
+      title,
+      metadata,
+      readCallback,
+      enabled: true,
+      disable: () => registeredResource.update({ enabled: false }),
+      enable: () => registeredResource.update({ enabled: true }),
+      remove: () => registeredResource.update({ uri: null }),
+      update: (updates) => {
+        if (typeof updates.uri !== "undefined" && updates.uri !== uri) {
+          delete this._registeredResources[uri];
+          if (updates.uri)
+            this._registeredResources[updates.uri] = registeredResource;
+        }
+        if (typeof updates.name !== "undefined")
+          registeredResource.name = updates.name;
+        if (typeof updates.title !== "undefined")
+          registeredResource.title = updates.title;
+        if (typeof updates.metadata !== "undefined")
+          registeredResource.metadata = updates.metadata;
+        if (typeof updates.callback !== "undefined")
+          registeredResource.readCallback = updates.callback;
+        if (typeof updates.enabled !== "undefined")
+          registeredResource.enabled = updates.enabled;
+        this.sendResourceListChanged();
+      }
+    };
+    this._registeredResources[uri] = registeredResource;
+    return registeredResource;
+  }
+  _createRegisteredResourceTemplate(name, title, template, metadata, readCallback) {
+    const registeredResourceTemplate = {
+      resourceTemplate: template,
+      title,
+      metadata,
+      readCallback,
+      enabled: true,
+      disable: () => registeredResourceTemplate.update({ enabled: false }),
+      enable: () => registeredResourceTemplate.update({ enabled: true }),
+      remove: () => registeredResourceTemplate.update({ name: null }),
+      update: (updates) => {
+        if (typeof updates.name !== "undefined" && updates.name !== name) {
+          delete this._registeredResourceTemplates[name];
+          if (updates.name)
+            this._registeredResourceTemplates[updates.name] = registeredResourceTemplate;
+        }
+        if (typeof updates.title !== "undefined")
+          registeredResourceTemplate.title = updates.title;
+        if (typeof updates.template !== "undefined")
+          registeredResourceTemplate.resourceTemplate = updates.template;
+        if (typeof updates.metadata !== "undefined")
+          registeredResourceTemplate.metadata = updates.metadata;
+        if (typeof updates.callback !== "undefined")
+          registeredResourceTemplate.readCallback = updates.callback;
+        if (typeof updates.enabled !== "undefined")
+          registeredResourceTemplate.enabled = updates.enabled;
+        this.sendResourceListChanged();
+      }
+    };
+    this._registeredResourceTemplates[name] = registeredResourceTemplate;
+    const variableNames = template.uriTemplate.variableNames;
+    const hasCompleter = Array.isArray(variableNames) && variableNames.some((v) => !!template.completeCallback(v));
+    if (hasCompleter) {
+      this.setCompletionRequestHandler();
+    }
+    return registeredResourceTemplate;
+  }
+  _createRegisteredPrompt(name, title, description, argsSchema, callback) {
+    const registeredPrompt = {
+      title,
+      description,
+      argsSchema: argsSchema === void 0 ? void 0 : objectFromShape(argsSchema),
+      callback,
+      enabled: true,
+      disable: () => registeredPrompt.update({ enabled: false }),
+      enable: () => registeredPrompt.update({ enabled: true }),
+      remove: () => registeredPrompt.update({ name: null }),
+      update: (updates) => {
+        if (typeof updates.name !== "undefined" && updates.name !== name) {
+          delete this._registeredPrompts[name];
+          if (updates.name)
+            this._registeredPrompts[updates.name] = registeredPrompt;
+        }
+        if (typeof updates.title !== "undefined")
+          registeredPrompt.title = updates.title;
+        if (typeof updates.description !== "undefined")
+          registeredPrompt.description = updates.description;
+        if (typeof updates.argsSchema !== "undefined")
+          registeredPrompt.argsSchema = objectFromShape(updates.argsSchema);
+        if (typeof updates.callback !== "undefined")
+          registeredPrompt.callback = updates.callback;
+        if (typeof updates.enabled !== "undefined")
+          registeredPrompt.enabled = updates.enabled;
+        this.sendPromptListChanged();
+      }
+    };
+    this._registeredPrompts[name] = registeredPrompt;
+    if (argsSchema) {
+      const hasCompletable = Object.values(argsSchema).some((field) => {
+        const inner = field instanceof ZodOptional2 ? field._def?.innerType : field;
+        return isCompletable(inner);
+      });
+      if (hasCompletable) {
+        this.setCompletionRequestHandler();
+      }
+    }
+    return registeredPrompt;
+  }
+  _createRegisteredTool(name, title, description, inputSchema, outputSchema, annotations, execution, _meta, handler) {
+    validateAndWarnToolName(name);
+    const registeredTool = {
+      title,
+      description,
+      inputSchema: getZodSchemaObject(inputSchema),
+      outputSchema: getZodSchemaObject(outputSchema),
+      annotations,
+      execution,
+      _meta,
+      handler,
+      enabled: true,
+      disable: () => registeredTool.update({ enabled: false }),
+      enable: () => registeredTool.update({ enabled: true }),
+      remove: () => registeredTool.update({ name: null }),
+      update: (updates) => {
+        if (typeof updates.name !== "undefined" && updates.name !== name) {
+          if (typeof updates.name === "string") {
+            validateAndWarnToolName(updates.name);
+          }
+          delete this._registeredTools[name];
+          if (updates.name)
+            this._registeredTools[updates.name] = registeredTool;
+        }
+        if (typeof updates.title !== "undefined")
+          registeredTool.title = updates.title;
+        if (typeof updates.description !== "undefined")
+          registeredTool.description = updates.description;
+        if (typeof updates.paramsSchema !== "undefined")
+          registeredTool.inputSchema = objectFromShape(updates.paramsSchema);
+        if (typeof updates.outputSchema !== "undefined")
+          registeredTool.outputSchema = objectFromShape(updates.outputSchema);
+        if (typeof updates.callback !== "undefined")
+          registeredTool.handler = updates.callback;
+        if (typeof updates.annotations !== "undefined")
+          registeredTool.annotations = updates.annotations;
+        if (typeof updates._meta !== "undefined")
+          registeredTool._meta = updates._meta;
+        if (typeof updates.enabled !== "undefined")
+          registeredTool.enabled = updates.enabled;
+        this.sendToolListChanged();
+      }
+    };
+    this._registeredTools[name] = registeredTool;
+    this.setToolRequestHandlers();
+    this.sendToolListChanged();
+    return registeredTool;
+  }
+  /**
+   * tool() implementation. Parses arguments passed to overrides defined above.
+   */
+  tool(name, ...rest) {
+    if (this._registeredTools[name]) {
+      throw new Error(`Tool ${name} is already registered`);
+    }
+    let description;
+    let inputSchema;
+    let outputSchema;
+    let annotations;
+    if (typeof rest[0] === "string") {
+      description = rest.shift();
+    }
+    if (rest.length > 1) {
+      const firstArg = rest[0];
+      if (isZodRawShapeCompat(firstArg)) {
+        inputSchema = rest.shift();
+        if (rest.length > 1 && typeof rest[0] === "object" && rest[0] !== null && !isZodRawShapeCompat(rest[0])) {
+          annotations = rest.shift();
+        }
+      } else if (typeof firstArg === "object" && firstArg !== null) {
+        if (Object.values(firstArg).some((v) => typeof v === "object" && v !== null)) {
+          throw new Error(`Tool ${name} expected a Zod schema or ToolAnnotations, but received an unrecognized object`);
+        }
+        annotations = rest.shift();
+      }
+    }
+    const callback = rest[0];
+    return this._createRegisteredTool(name, void 0, description, inputSchema, outputSchema, annotations, { taskSupport: "forbidden" }, void 0, callback);
+  }
+  /**
+   * Registers a tool with a config object and callback.
+   */
+  registerTool(name, config2, cb) {
+    if (this._registeredTools[name]) {
+      throw new Error(`Tool ${name} is already registered`);
+    }
+    const { title, description, inputSchema, outputSchema, annotations, _meta } = config2;
+    return this._createRegisteredTool(name, title, description, inputSchema, outputSchema, annotations, { taskSupport: "forbidden" }, _meta, cb);
+  }
+  prompt(name, ...rest) {
+    if (this._registeredPrompts[name]) {
+      throw new Error(`Prompt ${name} is already registered`);
+    }
+    let description;
+    if (typeof rest[0] === "string") {
+      description = rest.shift();
+    }
+    let argsSchema;
+    if (rest.length > 1) {
+      argsSchema = rest.shift();
+    }
+    const cb = rest[0];
+    const registeredPrompt = this._createRegisteredPrompt(name, void 0, description, argsSchema, cb);
+    this.setPromptRequestHandlers();
+    this.sendPromptListChanged();
+    return registeredPrompt;
+  }
+  /**
+   * Registers a prompt with a config object and callback.
+   */
+  registerPrompt(name, config2, cb) {
+    if (this._registeredPrompts[name]) {
+      throw new Error(`Prompt ${name} is already registered`);
+    }
+    const { title, description, argsSchema } = config2;
+    const registeredPrompt = this._createRegisteredPrompt(name, title, description, argsSchema, cb);
+    this.setPromptRequestHandlers();
+    this.sendPromptListChanged();
+    return registeredPrompt;
+  }
+  /**
+   * Checks if the server is connected to a transport.
+   * @returns True if the server is connected
+   */
+  isConnected() {
+    return this.server.transport !== void 0;
+  }
+  /**
+   * Sends a logging message to the client, if connected.
+   * Note: You only need to send the parameters object, not the entire JSON RPC message
+   * @see LoggingMessageNotification
+   * @param params
+   * @param sessionId optional for stateless and backward compatibility
+   */
+  async sendLoggingMessage(params, sessionId) {
+    return this.server.sendLoggingMessage(params, sessionId);
+  }
+  /**
+   * Sends a resource list changed event to the client, if connected.
+   */
+  sendResourceListChanged() {
+    if (this.isConnected()) {
+      this.server.sendResourceListChanged();
+    }
+  }
+  /**
+   * Sends a tool list changed event to the client, if connected.
+   */
+  sendToolListChanged() {
+    if (this.isConnected()) {
+      this.server.sendToolListChanged();
+    }
+  }
+  /**
+   * Sends a prompt list changed event to the client, if connected.
+   */
+  sendPromptListChanged() {
+    if (this.isConnected()) {
+      this.server.sendPromptListChanged();
+    }
+  }
+};
+var EMPTY_OBJECT_JSON_SCHEMA = {
+  type: "object",
+  properties: {}
+};
+function isZodTypeLike(value) {
+  return value !== null && typeof value === "object" && "parse" in value && typeof value.parse === "function" && "safeParse" in value && typeof value.safeParse === "function";
+}
+function isZodSchemaInstance(obj) {
+  return "_def" in obj || "_zod" in obj || isZodTypeLike(obj);
+}
+function isZodRawShapeCompat(obj) {
+  if (typeof obj !== "object" || obj === null) {
+    return false;
+  }
+  if (isZodSchemaInstance(obj)) {
+    return false;
+  }
+  if (Object.keys(obj).length === 0) {
+    return true;
+  }
+  return Object.values(obj).some(isZodTypeLike);
+}
+function getZodSchemaObject(schema) {
+  if (!schema) {
+    return void 0;
+  }
+  if (isZodRawShapeCompat(schema)) {
+    return objectFromShape(schema);
+  }
+  if (!isZodSchemaInstance(schema)) {
+    throw new Error("inputSchema must be a Zod schema or raw shape, received an unrecognized object");
+  }
+  return schema;
+}
+function promptArgumentsFromSchema(schema) {
+  const shape = getObjectShape(schema);
+  if (!shape)
+    return [];
+  return Object.entries(shape).map(([name, field]) => {
+    const description = getSchemaDescription(field);
+    const isOptional = isSchemaOptional(field);
+    return {
+      name,
+      description,
+      required: !isOptional
+    };
+  });
+}
+function getMethodValue(schema) {
+  const shape = getObjectShape(schema);
+  const methodSchema = shape?.method;
+  if (!methodSchema) {
+    throw new Error("Schema is missing a method literal");
+  }
+  const value = getLiteralValue(methodSchema);
+  if (typeof value === "string") {
+    return value;
+  }
+  throw new Error("Schema method literal must be a string");
+}
+function createCompletionResult(suggestions) {
+  return {
+    completion: {
+      values: suggestions.slice(0, 100),
+      total: suggestions.length,
+      hasMore: suggestions.length > 100
+    }
+  };
+}
+var EMPTY_COMPLETION_RESULT = {
+  completion: {
+    values: [],
+    hasMore: false
+  }
+};
+
 // node_modules/@modelcontextprotocol/sdk/dist/esm/server/stdio.js
 import process3 from "node:process";
 
@@ -29563,8 +38842,8 @@ var StdioServerTransport = class {
       this._readBuffer.append(chunk);
       this.processReadBuffer();
     };
-    this._onerror = (error2) => {
-      this.onerror?.(error2);
+    this._onerror = (error48) => {
+      this.onerror?.(error48);
     };
   }
   /**
@@ -29586,8 +38865,8 @@ var StdioServerTransport = class {
           break;
         }
         this.onmessage?.(message);
-      } catch (error2) {
-        this.onerror?.(error2);
+      } catch (error48) {
+        this.onerror?.(error48);
       }
     }
   }
@@ -29602,27 +38881,164 @@ var StdioServerTransport = class {
     this.onclose?.();
   }
   send(message) {
-    return new Promise((resolve3) => {
+    return new Promise((resolve6) => {
       const json2 = serializeMessage(message);
       if (this._stdout.write(json2)) {
-        resolve3();
+        resolve6();
       } else {
-        this._stdout.once("drain", resolve3);
+        this._stdout.once("drain", resolve6);
       }
     });
   }
 };
 
+// dist/core/types.js
+var OperationError = class extends Error {
+  code;
+  data;
+  constructor(code, message, options) {
+    super(message, { cause: options?.cause });
+    this.name = "OperationError";
+    this.code = code;
+    this.data = options?.data;
+  }
+};
+function isOperationError(value) {
+  return value instanceof OperationError || typeof value === "object" && value !== null && typeof value.code === "number" && typeof value.message === "string";
+}
+function makeErr(code, message, data) {
+  return new OperationError(code, message, { data });
+}
+function badRequest(message, data) {
+  return makeErr(-32602, message, data);
+}
+function notFound(message, data) {
+  return makeErr(-32004, message, data);
+}
+function conflict(message, data) {
+  return makeErr(-32010, message, data);
+}
+function unsupported(message, data) {
+  return makeErr(-32040, message, data);
+}
+
+// dist/runtime/mcp-runtime.js
+function createMcpServer(options) {
+  const server = new McpServer({ name: options.name, version: options.version });
+  for (const operation of options.operations) {
+    server.registerTool(operation.name, {
+      description: operation.description,
+      inputSchema: paramsToZodShape(operation.params),
+      annotations: {
+        readOnlyHint: !operation.mutating,
+        destructiveHint: false
+      },
+      _meta: {
+        namespace: operation.namespace,
+        mutating: Boolean(operation.mutating)
+      }
+    }, async (params) => {
+      try {
+        const rawParams = params;
+        const preparedParams = options.prepareParams ? await options.prepareParams(operation, rawParams) : rawParams;
+        const result = await operation.handler(options.ctx, preparedParams);
+        if (options.afterOperation) {
+          await options.afterOperation(operation, preparedParams, result);
+        }
+        return formatOperationResult(result);
+      } catch (error48) {
+        options.logger.error(formatInternalError(operation.name, error48));
+        return formatOperationError(error48);
+      }
+    });
+  }
+  return server;
+}
+async function startStdioServer(server) {
+  await server.connect(new StdioServerTransport());
+}
+function paramsToZodShape(params) {
+  const shape = {};
+  for (const [name, def] of Object.entries(params)) {
+    let schema = paramToZod(def);
+    if (def.default !== void 0) {
+      schema = schema.default(def.default);
+    } else if (!def.required) {
+      schema = schema.optional();
+    }
+    shape[name] = schema;
+  }
+  return shape;
+}
+function paramToZod(def) {
+  if (def.enum && def.enum.length > 0) {
+    const [first, ...rest] = def.enum;
+    return external_exports3.enum([first, ...rest]);
+  }
+  switch (def.type) {
+    case "string":
+      return external_exports3.string();
+    case "number":
+      return external_exports3.number();
+    case "boolean":
+      return external_exports3.boolean();
+    case "object":
+      return external_exports3.object({}).passthrough();
+    case "array":
+      return external_exports3.array(external_exports3.unknown());
+    default:
+      return external_exports3.unknown();
+  }
+}
+function formatOperationResult(result) {
+  return {
+    content: [
+      {
+        type: "text",
+        text: JSON.stringify(result ?? null, null, 2)
+      }
+    ]
+  };
+}
+function formatOperationError(error48) {
+  const payload = isOperationError(error48) ? {
+    code: error48.code,
+    message: error48.message,
+    data: error48.data
+  } : {
+    code: -32603,
+    message: error48 instanceof Error ? error48.message : "Internal operation error"
+  };
+  return {
+    content: [
+      {
+        type: "text",
+        text: JSON.stringify(payload, null, 2)
+      }
+    ],
+    isError: true
+  };
+}
+function formatInternalError(operationName, error48) {
+  if (isOperationError(error48)) {
+    return `operation ${operationName} failed: ${error48.message}`;
+  }
+  if (error48 instanceof Error) {
+    return `operation ${operationName} failed: ${error48.message}`;
+  }
+  return `operation ${operationName} failed: ${String(error48)}`;
+}
+
 // dist/index.js
-import { readFileSync as readFileSync5, existsSync as existsSync5, readdirSync as readdirSync4, statSync, realpathSync, writeFileSync as writeFileSync2, appendFileSync as appendFileSync2, rmSync, renameSync, mkdirSync as mkdirSync3 } from "node:fs";
-import { resolve as resolve2, join as join8, basename as basename3, extname, relative as relative3, dirname as dirname4, posix, isAbsolute as pathIsAbsolute } from "node:path";
+import { readFileSync as readFileSync13, existsSync as existsSync13, readdirSync as readdirSync9, statSync as statSync5, realpathSync, writeFileSync as writeFileSync8, appendFileSync as appendFileSync2, rmSync as rmSync4, renameSync, mkdirSync as mkdirSync9 } from "node:fs";
+import { resolve as resolve5, join as join16, basename as basename6, extname as extname2, relative as relative6, dirname as dirname10, posix, isAbsolute as pathIsAbsolute2 } from "node:path";
 import { fileURLToPath as fileURLToPath3 } from "node:url";
 
 // dist/adapters/filesystem.js
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { dirname, join, relative, sep } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 var exec = promisify(execFile);
 var FilesystemAdapter = class {
   vaultPath;
@@ -29640,30 +39056,38 @@ var FilesystemAdapter = class {
   async search(query, opts) {
     const maxResults = opts?.maxResults ?? 20;
     const args = [
-      "--json",
+      "--files-with-matches",
       "--fixed-strings",
-      // treat query as literal, not regex (ReDoS protection)
+      // treat query literal, not regex (ReDoS protection)
       "--max-count",
-      "3",
-      // per-file cap (--max-count is per-file, not total)
-      "--no-heading"
+      "1"
+      // stop after the first match in each file
     ];
     if (!opts?.caseSensitive)
       args.push("-i");
     if (opts?.glob)
       args.push("--glob", opts.glob);
-    if (opts?.context)
-      args.push("-C", String(opts.context));
     args.push("--", query, this.vaultPath);
     try {
-      const { stdout } = await exec("rg", args, { maxBuffer: 10 * 1024 * 1024 });
-      return this.parseRipgrepJson(stdout).slice(0, maxResults);
+      const { stdout } = await exec("rg", args, { maxBuffer: 2 * 1024 * 1024 });
+      const files = stdout.split(/\r?\n/).filter(Boolean).slice(0, maxResults);
+      const results = [];
+      for (const file2 of files) {
+        try {
+          const content = await readFile(file2, "utf-8");
+          results.push({
+            source: this.name,
+            path: relative(this.vaultPath, file2).replace(/\\/g, "/"),
+            content: this.extractSnippet(content, query, opts),
+            score: 1
+          });
+        } catch {
+        }
+      }
+      return results;
     } catch (err2) {
       if (this.isExitCode(err2, 1))
         return [];
-      if (this.isExitCode(err2, 2)) {
-        return this.fallbackSearch(query, opts);
-      }
       return this.fallbackSearch(query, opts);
     }
   }
@@ -29686,13 +39110,27 @@ var FilesystemAdapter = class {
     }
     return resolved;
   }
+  extractSnippet(content, query, opts) {
+    const context = Math.max(0, opts?.context ?? 0);
+    const needle = opts?.caseSensitive ? query : query.toLowerCase();
+    const lines = content.split(/\r?\n/);
+    for (let i = 0; i < lines.length; i++) {
+      const haystack = opts?.caseSensitive ? lines[i] : lines[i].toLowerCase();
+      if (haystack.includes(needle)) {
+        const start = Math.max(0, i - context);
+        const end = Math.min(lines.length, i + context + 1);
+        return lines.slice(start, end).join("\n").trim();
+      }
+    }
+    return lines.find((line) => line.trim())?.trim() ?? "";
+  }
   parseRipgrepJson(stdout) {
     const results = [];
     for (const line of stdout.split("\n").filter(Boolean)) {
       try {
         const msg = JSON.parse(line);
         if (msg.type === "match") {
-          const path = relative(this.vaultPath, msg.data.path.text);
+          const path = relative(this.vaultPath, msg.data.path.text).replace(/\\/g, "/");
           results.push({
             source: this.name,
             path,
@@ -29707,15 +39145,31 @@ var FilesystemAdapter = class {
     return results;
   }
   async fallbackSearch(query, opts) {
-    const args = ["-r", "-l", "-i", "-F", "--", query, this.vaultPath];
+    const args = ["-r", "-l", "-F"];
+    if (!opts?.caseSensitive)
+      args.push("-i");
+    args.push("--", query, this.vaultPath);
     try {
       const { stdout } = await exec("grep", args, { maxBuffer: 5 * 1024 * 1024 });
-      return stdout.split("\n").filter(Boolean).slice(0, opts?.maxResults ?? 20).map((p) => ({
-        source: this.name,
-        path: relative(this.vaultPath, p),
-        content: "",
-        score: 1
-      }));
+      const files = stdout.split(/\r?\n/).filter(Boolean).slice(0, opts?.maxResults ?? 20);
+      const results = [];
+      for (const file2 of files) {
+        const fullPath = isAbsolute(file2) ? file2 : resolve(file2);
+        const relPath = relative(this.vaultPath, fullPath);
+        if (relPath.startsWith("..") || isAbsolute(relPath))
+          continue;
+        try {
+          const content = await readFile(fullPath, "utf-8");
+          results.push({
+            source: this.name,
+            path: relPath.replace(/\\/g, "/"),
+            content: this.extractSnippet(content, query, opts),
+            score: 1
+          });
+        } catch {
+        }
+      }
+      return results;
     } catch (err2) {
       if (this.isExitCode(err2, 1))
         return [];
@@ -29945,7 +39399,7 @@ var MemUAdapter = class {
       query_vec: queryVec && queryVec.length === 1024 ? Array.from(queryVec) : null,
       max_nodes: maxNodes
     };
-    return new Promise((resolve3) => {
+    return new Promise((resolve6) => {
       let stdout = "";
       let stderr = "";
       let settled = false;
@@ -29961,7 +39415,7 @@ var MemUAdapter = class {
         proc.kill("SIGKILL");
         process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli timeout after ${this.graphRecallTimeoutMs}ms
 `);
-        resolve3(null);
+        resolve6(null);
       }, this.graphRecallTimeoutMs);
       proc.stdout.on("data", (d) => {
         stdout += d.toString("utf-8");
@@ -29976,7 +39430,7 @@ var MemUAdapter = class {
         clearTimeout(timer);
         process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli spawn failed: ${err2.message}
 `);
-        resolve3(null);
+        resolve6(null);
       });
       proc.on("close", (code) => {
         if (settled)
@@ -29986,17 +39440,17 @@ var MemUAdapter = class {
         if (code !== 0) {
           process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli exit ${code}: ${stderr.slice(0, 400)}
 `);
-          resolve3(null);
+          resolve6(null);
           return;
         }
         try {
           const parsed = JSON.parse(stdout);
-          resolve3(parsed);
+          resolve6(parsed);
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli stdout JSON parse failed: ${msg}
 `);
-          resolve3(null);
+          resolve6(null);
         }
       });
       try {
@@ -30009,7 +39463,7 @@ var MemUAdapter = class {
         const msg = e instanceof Error ? e.message : String(e);
         process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli stdin write failed: ${msg}
 `);
-        resolve3(null);
+        resolve6(null);
       }
     });
   }
@@ -30019,7 +39473,7 @@ var MemUAdapter = class {
    * unavailable or times out.
    */
   async runMemuSearchPy(query, vec, limit) {
-    return new Promise((resolve3) => {
+    return new Promise((resolve6) => {
       let stdout = "";
       let stderr = "";
       let settled = false;
@@ -30037,7 +39491,7 @@ var MemUAdapter = class {
       } else if (vec) {
         args.push("--embed", JSON.stringify(Array.from(vec)));
       } else {
-        resolve3([]);
+        resolve6([]);
         return;
       }
       const proc = spawn(this.memuSearchPythonExe, args, {
@@ -30051,7 +39505,7 @@ var MemUAdapter = class {
         proc.kill("SIGKILL");
         process.stderr.write(`obsidian-llm-wiki: [warn] memu_search.py timeout after ${this.memuSearchTimeoutMs}ms
 `);
-        resolve3([]);
+        resolve6([]);
       }, this.memuSearchTimeoutMs);
       proc.stdout.on("data", (d) => {
         stdout += d.toString("utf-8");
@@ -30066,7 +39520,7 @@ var MemUAdapter = class {
         clearTimeout(timer);
         process.stderr.write(`obsidian-llm-wiki: [warn] memu_search.py spawn failed: ${err2.message}
 `);
-        resolve3([]);
+        resolve6([]);
       });
       proc.on("close", (code) => {
         if (settled)
@@ -30076,17 +39530,17 @@ var MemUAdapter = class {
         if (code !== 0) {
           process.stderr.write(`obsidian-llm-wiki: [warn] memu_search.py exit ${code}: ${stderr.slice(0, 300)}
 `);
-          resolve3([]);
+          resolve6([]);
           return;
         }
         try {
           const parsed = JSON.parse(stdout);
-          resolve3(this.mapMemuSearchPyResult(parsed));
+          resolve6(this.mapMemuSearchPyResult(parsed));
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           process.stderr.write(`obsidian-llm-wiki: [warn] memu_search.py stdout JSON parse failed: ${msg}
 `);
-          resolve3([]);
+          resolve6([]);
         }
       });
     });
@@ -30250,12 +39704,12 @@ var ObsidianAdapter = class {
       process.stderr.write("vault-mind: [warn] ~/.obsidian-ws-port not found -- obsidian adapter disabled\n");
       return;
     }
-    await new Promise((resolve3) => {
+    await new Promise((resolve6) => {
       const ws = new wrapper_default(`ws://127.0.0.1:${info.port}`);
       const connectTimer = setTimeout(() => {
         ws.terminate();
         process.stderr.write("vault-mind: [warn] obsidian WS connect timeout -- adapter disabled\n");
-        resolve3();
+        resolve6();
       }, CONNECT_TIMEOUT_MS);
       ws.once("open", async () => {
         clearTimeout(connectTimer);
@@ -30275,13 +39729,13 @@ var ObsidianAdapter = class {
           ws.close();
           this.ws = null;
         }
-        resolve3();
+        resolve6();
       });
       ws.once("error", (e) => {
         clearTimeout(connectTimer);
         process.stderr.write(`vault-mind: [warn] obsidian WS error: ${e.message} -- adapter disabled
 `);
-        resolve3();
+        resolve6();
       });
     });
   }
@@ -30404,7 +39858,7 @@ var ObsidianAdapter = class {
       cb(event);
   }
   call(method, params) {
-    return new Promise((resolve3, reject) => {
+    return new Promise((resolve6, reject) => {
       if (!this.ws || this.ws.readyState !== wrapper_default.OPEN) {
         reject(new Error("WebSocket not connected"));
         return;
@@ -30414,7 +39868,7 @@ var ObsidianAdapter = class {
         this.pending.delete(id);
         reject(new Error(`RPC timeout: ${method} (${this.timeout}ms)`));
       }, this.timeout);
-      this.pending.set(id, { resolve: resolve3, reject, timer });
+      this.pending.set(id, { resolve: resolve6, reject, timer });
       this.ws.send(JSON.stringify({ jsonrpc: "2.0", id, method, params }), (e) => {
         if (e) {
           clearTimeout(timer);
@@ -30430,6 +39884,161 @@ var ObsidianAdapter = class {
       p.reject(new Error(reason));
     }
     this.pending.clear();
+  }
+};
+
+// dist/adapters/kanban.js
+import { existsSync, readFileSync as readFileSync2, readdirSync } from "node:fs";
+import { join as join3, relative as relative2 } from "node:path";
+var DEFAULT_GLOB = "**/*.md";
+var PROTECTED_DIRS = /* @__PURE__ */ new Set([".obsidian", ".trash", ".git", "node_modules"]);
+function isKanbanBoardMarkdown(markdown) {
+  const frontmatter = markdown.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  return Boolean(frontmatter?.[1].match(/^kanban-plugin:\s*board\s*$/m));
+}
+function parseKanbanMarkdown(path, markdown) {
+  if (!isKanbanBoardMarkdown(markdown))
+    return null;
+  const withoutFrontmatter = markdown.replace(/^---\r?\n[\s\S]*?\r?\n---\s*/, "");
+  const settingsStart = withoutFrontmatter.search(/^%% kanban:settings\s*$/m);
+  const body = settingsStart === -1 ? withoutFrontmatter : withoutFrontmatter.slice(0, settingsStart);
+  const lanes = [];
+  const cards = [];
+  let currentLane = "";
+  let archived = false;
+  for (const rawLine of body.split(/\r?\n/)) {
+    const line = rawLine.trimEnd();
+    if (line.trim() === "***") {
+      archived = true;
+      continue;
+    }
+    const heading = line.match(/^##\s+(.+?)\s*$/);
+    if (heading) {
+      currentLane = heading[1].trim();
+      if (currentLane && !lanes.includes(currentLane))
+        lanes.push(currentLane);
+      continue;
+    }
+    const card = line.match(/^\s*-\s+\[([ xX])\]\s+(.+?)\s*$/);
+    if (!card)
+      continue;
+    const block = card[2].match(/\s+\^([A-Za-z0-9-]+)\s*$/);
+    const title = block ? card[2].slice(0, block.index).trim() : card[2].trim();
+    cards.push({
+      title,
+      lane: currentLane,
+      checked: card[1].toLowerCase() === "x",
+      archived,
+      ...block ? { blockId: block[1] } : {}
+    });
+  }
+  return { path, lanes, cards };
+}
+var KanbanAdapter = class {
+  name = "kanban";
+  capabilities = ["search"];
+  vaultPath;
+  glob;
+  available = false;
+  constructor(config2) {
+    this.vaultPath = config2.vaultPath;
+    this.glob = config2.glob ?? process.env.VAULT_MIND_KANBAN_GLOB ?? DEFAULT_GLOB;
+  }
+  get isAvailable() {
+    return this.available;
+  }
+  async init() {
+    this.available = existsSync(this.vaultPath);
+  }
+  async dispose() {
+    this.available = false;
+  }
+  async search(query, opts) {
+    if (!this.available)
+      return [];
+    const maxResults = Math.max(1, Math.min(opts?.maxResults ?? 20, 100));
+    const needle = opts?.caseSensitive ? query : query.toLowerCase();
+    const results = [];
+    for (const path of this.walkMarkdown()) {
+      const content = readFileSync2(join3(this.vaultPath, path), "utf-8");
+      const board = parseKanbanMarkdown(path, content);
+      if (!board)
+        continue;
+      const boardText = [
+        board.path,
+        ...board.lanes,
+        ...board.cards.map((card) => card.title)
+      ].join(" ");
+      if (this.matches(boardText, needle, opts?.caseSensitive ?? false)) {
+        results.push({
+          source: this.name,
+          path: board.path,
+          content: `Kanban board ${board.path}: ${board.cards.length} cards across ${board.lanes.length} lanes`,
+          score: 0.82,
+          metadata: {
+            entityType: "board",
+            boardPath: board.path,
+            lane: "",
+            checked: false,
+            archived: false,
+            lanes: board.lanes,
+            cardCount: board.cards.length
+          }
+        });
+      }
+      for (const card of board.cards) {
+        const cardText = [card.title, card.lane, board.path, card.blockId ?? ""].join(" ");
+        if (!this.matches(cardText, needle, opts?.caseSensitive ?? false))
+          continue;
+        results.push({
+          source: this.name,
+          path: card.blockId ? `${board.path}#^${card.blockId}` : board.path,
+          content: card.title,
+          score: card.archived ? 0.72 : 0.92,
+          metadata: {
+            entityType: "card",
+            boardPath: board.path,
+            lane: card.lane,
+            checked: card.checked,
+            archived: card.archived,
+            ...card.blockId ? { blockId: card.blockId } : {}
+          }
+        });
+      }
+      if (results.length >= maxResults)
+        break;
+    }
+    return results.slice(0, maxResults);
+  }
+  matches(text, query, caseSensitive) {
+    if (!query)
+      return false;
+    return (caseSensitive ? text : text.toLowerCase()).includes(query);
+  }
+  walkMarkdown() {
+    const files = [];
+    const walk = (dir) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (entry.isDirectory()) {
+          if (!PROTECTED_DIRS.has(entry.name))
+            walk(join3(dir, entry.name));
+          continue;
+        }
+        if (!entry.isFile() || !entry.name.endsWith(".md"))
+          continue;
+        const rel = relative2(this.vaultPath, join3(dir, entry.name)).replace(/\\/g, "/");
+        if (this.matchGlob(rel))
+          files.push(rel);
+      }
+    };
+    walk(this.vaultPath);
+    return files.sort();
+  }
+  matchGlob(path) {
+    if (this.glob === DEFAULT_GLOB)
+      return path.endsWith(".md");
+    const escaped = this.glob.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*\*/g, "\0").replace(/\*/g, "[^/]*").replace(/\0/g, ".*").replace(/\?/g, ".");
+    return new RegExp(`^${escaped}$`).test(path);
   }
 };
 
@@ -30499,12 +40108,12 @@ var QmdAdapter = class {
   async dispose() {
   }
   runQmd(args) {
-    return new Promise((resolve3) => {
+    return new Promise((resolve6) => {
       let proc;
       try {
         proc = spawn2(this.binary, [...this.binaryArgs, ...args], { stdio: ["ignore", "pipe", "pipe"] });
       } catch {
-        resolve3({ stdout: "", stderr: "spawn failed synchronously", code: -1 });
+        resolve6({ stdout: "", stderr: "spawn failed synchronously", code: -1 });
         return;
       }
       let stdout = "";
@@ -30516,17 +40125,17 @@ var QmdAdapter = class {
         stderr += d.toString("utf-8");
       });
       proc.on("error", () => {
-        resolve3({ stdout, stderr: stderr || "spawn error", code: -1 });
+        resolve6({ stdout, stderr: stderr || "spawn error", code: -1 });
       });
       proc.on("close", (code) => {
-        resolve3({ stdout, stderr, code: code ?? -1 });
+        resolve6({ stdout, stderr, code: code ?? -1 });
       });
     });
   }
 };
 
 // dist/adapters/lightrag.js
-import { readFileSync as readFileSync2 } from "node:fs";
+import { readFileSync as readFileSync3 } from "node:fs";
 import { basename } from "node:path";
 var LightRAGAdapter = class {
   name = "lightrag";
@@ -30606,7 +40215,7 @@ var LightRAGAdapter = class {
       throw new Error("LightRAG adapter is not available");
     }
     const form = new FormData();
-    const bytes = readFileSync2(req.filePath);
+    const bytes = readFileSync3(req.filePath);
     const fileName = req.fileName ?? basename(req.filePath);
     form.append("file", new Blob([bytes]), fileName);
     const res = await this.fetchImpl(`${this.baseUrl}${this.documentsUploadPath}`, {
@@ -30910,7 +40519,7 @@ ${text}`);
 
 // dist/adapters/vaultbrain/index.js
 import { homedir as homedir2 } from "node:os";
-import { join as join3 } from "node:path";
+import { join as join4 } from "node:path";
 
 // dist/adapters/vaultbrain/schema.js
 var EMBED_DIM = parseInt(process.env.VAULTBRAIN_EMBED_DIM ?? "1024", 10);
@@ -30959,6 +40568,7 @@ CREATE INDEX IF NOT EXISTS chunks_slug_idx
 `;
 
 // dist/adapters/vaultbrain/pglite-engine.js
+var dynamicImport = new Function("specifier", "return import(specifier)");
 var PGliteEngine = class {
   dataDir;
   db = null;
@@ -30967,9 +40577,10 @@ var PGliteEngine = class {
   }
   async connect() {
     const { PGlite } = await import("@electric-sql/pglite");
-    const { vector } = await import("@electric-sql/pglite/vector");
+    const { vector } = await dynamicImport("@electric-sql/pglite/vector");
     const { pg_trgm } = await import("@electric-sql/pglite/contrib/pg_trgm");
-    this.db = new PGlite(this.dataDir, { extensions: { vector, pg_trgm } });
+    const vectorExtension = vector;
+    this.db = new PGlite(this.dataDir, { extensions: { vector: vectorExtension, pg_trgm } });
     await this.db.waitReady;
   }
   async disconnect() {
@@ -31177,7 +40788,7 @@ var VaultBrainAdapter = class {
     this.dataDir = dataDir;
   }
   async init() {
-    const dir = this.dataDir ?? join3(homedir2(), ".vault-mind", "vaultbrain");
+    const dir = this.dataDir ?? join4(homedir2(), ".vault-mind", "vaultbrain");
     try {
       const engine = new PGliteEngine(dir);
       await engine.connect();
@@ -31311,7 +40922,7 @@ function extractTags(content) {
 import { execFile as execFile3 } from "node:child_process";
 import { readFile as readFile2 } from "node:fs/promises";
 import { promisify as promisify3 } from "node:util";
-import { join as join4, basename as basename2 } from "node:path";
+import { join as join5, basename as basename2 } from "node:path";
 var exec3 = promisify3(execFile3);
 function shellOpt(binary) {
   return /\.(cmd|bat)$/i.test(binary) ? { shell: true } : {};
@@ -31332,8 +40943,8 @@ var GraphifyAdapter = class {
   constructor(config2) {
     this.binary = config2?.binary ?? "graphify";
     this.vaultPath = config2?.vaultPath ?? process.cwd();
-    const outputDir = config2?.outputDir ?? join4(this.vaultPath, "graphify-out");
-    this.graphPath = join4(outputDir, "graph.json");
+    const outputDir = config2?.outputDir ?? join5(this.vaultPath, "graphify-out");
+    this.graphPath = join5(outputDir, "graph.json");
     this.timeout = config2?.timeout ?? 3e4;
     this.autoRescan = config2?.autoRescan ?? false;
   }
@@ -31488,9 +41099,9 @@ var AdapterRegistry = class {
 
 // dist/compile-trigger.js
 import { execFile as execFile4 } from "node:child_process";
-import { readdirSync, existsSync } from "node:fs";
+import { readdirSync as readdirSync2, existsSync as existsSync2 } from "node:fs";
 import { promisify as promisify4 } from "node:util";
-import { resolve } from "node:path";
+import { resolve as resolve2 } from "node:path";
 var exec4 = promisify4(execFile4);
 var CompileTrigger = class {
   dirty = /* @__PURE__ */ new Set();
@@ -31575,12 +41186,12 @@ var CompileTrigger = class {
   async loadInitialDirty() {
     if (!this.vaultPath)
       return;
-    const kbMeta = resolve(this.compilerPath, "kb_meta.py");
-    if (!existsSync(kbMeta))
+    const kbMeta = resolve2(this.compilerPath, "kb_meta.py");
+    if (!existsSync2(kbMeta))
       return;
     let topics;
     try {
-      topics = readdirSync(this.vaultPath, { withFileTypes: true }).filter((d) => d.isDirectory() && existsSync(resolve(this.vaultPath, d.name, "_meta.json"))).map((d) => d.name);
+      topics = readdirSync2(this.vaultPath, { withFileTypes: true }).filter((d) => d.isDirectory() && existsSync2(resolve2(this.vaultPath, d.name, "_meta.json"))).map((d) => d.name);
     } catch {
       return;
     }
@@ -31640,8 +41251,8 @@ var CompileTrigger = class {
   }
   async compile(topic) {
     this.running = true;
-    const topicPath = resolve(this.vaultPath, topic);
-    const compilePy = resolve(this.compilerPath, "compile.py");
+    const topicPath = resolve2(this.vaultPath, topic);
+    const compilePy = resolve2(this.compilerPath, "compile.py");
     const args = [compilePy, topicPath, "--tier", this.tier];
     const timestamp = (/* @__PURE__ */ new Date()).toISOString();
     try {
@@ -31704,13 +41315,13 @@ var CompileTrigger = class {
   }
   /** Find all wiki/ output files for a topic after compilation */
   findWikiFiles(topic) {
-    const wikiDir = resolve(this.vaultPath, topic, "wiki");
-    if (!existsSync(wikiDir))
+    const wikiDir = resolve2(this.vaultPath, topic, "wiki");
+    if (!existsSync2(wikiDir))
       return [];
     const files = [];
     const walk = (d) => {
-      for (const ent of readdirSync(d, { withFileTypes: true })) {
-        const full = resolve(d, ent.name);
+      for (const ent of readdirSync2(d, { withFileTypes: true })) {
+        const full = resolve2(d, ent.name);
         if (ent.isDirectory())
           walk(full);
         else if (ent.name.endsWith(".md"))
@@ -31726,17 +41337,17 @@ var CompileTrigger = class {
 import { execFile as execFile5, spawnSync } from "node:child_process";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 import { promisify as promisify5 } from "node:util";
-import { existsSync as existsSync4, mkdirSync as mkdirSync2, readdirSync as readdirSync3, readFileSync as readFileSync4, writeFileSync } from "node:fs";
-import { dirname as dirname3, join as join7, relative as relative2 } from "node:path";
+import { existsSync as existsSync12, mkdirSync as mkdirSync8, readdirSync as readdirSync8, readFileSync as readFileSync12, writeFileSync as writeFileSync7 } from "node:fs";
+import { dirname as dirname9, join as join15, relative as relative5 } from "node:path";
 
 // dist/recipes/_registry.js
-import { readdirSync as readdirSync2, existsSync as existsSync3 } from "node:fs";
-import { join as join6, dirname as dirname2 } from "node:path";
+import { readdirSync as readdirSync3, existsSync as existsSync4 } from "node:fs";
+import { join as join7, dirname as dirname2 } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // dist/recipes/_framework.js
-import { readFileSync as readFileSync3, existsSync as existsSync2, appendFileSync, mkdirSync } from "node:fs";
-import { join as join5 } from "node:path";
+import { readFileSync as readFileSync4, existsSync as existsSync3, appendFileSync, mkdirSync } from "node:fs";
+import { join as join6 } from "node:path";
 import { execFileSync } from "node:child_process";
 import { homedir as homedir3 } from "node:os";
 function parseScalar(raw) {
@@ -31840,7 +41451,7 @@ function parseYaml(text) {
   return result;
 }
 function parseRecipe(filePath) {
-  const content = readFileSync3(filePath, "utf8");
+  const content = readFileSync4(filePath, "utf8");
   const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)/);
   if (!fmMatch) {
     throw new Error(`Recipe file has no valid frontmatter: ${filePath}`);
@@ -31927,24 +41538,24 @@ function runHealthCheck(command) {
   }
 }
 function appendHeartbeat(recipeId, event) {
-  const dir = join5(homedir3(), ".vault-mind", "recipes", recipeId);
-  if (!existsSync2(dir)) {
+  const dir = join6(homedir3(), ".vault-mind", "recipes", recipeId);
+  if (!existsSync3(dir)) {
     mkdirSync(dir, { recursive: true });
   }
-  const filePath = join5(dir, "heartbeat.jsonl");
+  const filePath = join6(dir, "heartbeat.jsonl");
   appendFileSync(filePath, JSON.stringify(event) + "\n", "utf8");
 }
 
 // dist/recipes/_registry.js
-var DEFAULT_RECIPES_DIR = join6(dirname2(fileURLToPath(import.meta.url)), "..", "..", "..", "recipes");
+var DEFAULT_RECIPES_DIR = join7(dirname2(fileURLToPath(import.meta.url)), "..", "..", "..", "recipes");
 var _cache = null;
 function scanRecipes(recipesDir) {
   if (!recipesDir && _cache)
     return _cache;
   const dir = recipesDir ?? DEFAULT_RECIPES_DIR;
-  if (!existsSync3(dir))
+  if (!existsSync4(dir))
     return [];
-  const entries = readdirSync2(dir, { withFileTypes: true });
+  const entries = readdirSync3(dir, { withFileTypes: true });
   const recipes = [];
   for (const entry of entries) {
     if (!entry.isFile())
@@ -31953,7 +41564,7 @@ function scanRecipes(recipesDir) {
       continue;
     if (entry.name.startsWith("_"))
       continue;
-    const filePath = join6(dir, entry.name);
+    const filePath = join7(dir, entry.name);
     try {
       recipes.push(parseRecipe(filePath));
     } catch (err2) {
@@ -32059,6 +41670,215 @@ async function unifiedQuery(registry2, query, opts) {
     totalResults: merged.length
   };
 }
+async function traceUnifiedQuery(registry2, query, opts) {
+  const searchAdapters = registry2.getByCapability("search");
+  const selected = opts?.adapters ? searchAdapters.filter((a) => opts.adapters.includes(a.name)) : searchAdapters;
+  const requestedAdapters = opts?.adapters ?? "all-search-capable";
+  const result = await unifiedQuery(registry2, query, opts);
+  const weights = opts?.weights ?? {};
+  const branches = selected.map((adapter) => {
+    const stats = result.sources[adapter.name];
+    const weight = weights[adapter.name] ?? 1;
+    if (!stats) {
+      return {
+        adapter: adapter.name,
+        capabilities: [...adapter.capabilities],
+        weight,
+        status: "skipped",
+        count: 0,
+        latencyMs: 0
+      };
+    }
+    return {
+      adapter: adapter.name,
+      capabilities: [...adapter.capabilities],
+      weight,
+      status: stats.error ? "error" : "ok",
+      count: stats.count,
+      latencyMs: stats.latencyMs,
+      error: stats.error
+    };
+  });
+  const evidence = result.results.map((item, index) => ({
+    rank: index + 1,
+    source: item.source,
+    path: item.path,
+    score: item.score,
+    snippet: trimSnippet(item.content),
+    rrfSources: readRrfSources(item),
+    metadata: item.metadata
+  }));
+  return {
+    ...result,
+    query,
+    mode: "keyword",
+    plan: {
+      intent: "transparent_retrieval_trace",
+      requestedAdapters,
+      selectedAdapters: selected.map((adapter) => adapter.name),
+      fusion: {
+        algorithm: "reciprocal_rank_fusion",
+        k: RRF_K2,
+        rankBase: 1,
+        scoreFormula: "sum(weight / (k + rank_in_source))"
+      },
+      branches
+    },
+    evidence,
+    limitations: buildTraceLimitations(query, opts, searchAdapters.map((adapter) => adapter.name), selected.map((adapter) => adapter.name), result)
+  };
+}
+async function answerQuery(registry2, query, opts) {
+  const trace = await traceUnifiedQuery(registry2, query, opts);
+  const citations = trace.evidence.map((item, index) => ({
+    id: `C${index + 1}`,
+    rank: item.rank,
+    source: item.source,
+    path: item.path,
+    snippet: item.snippet,
+    metadata: item.metadata
+  }));
+  const claims = citations.slice(0, Math.min(5, citations.length)).map((citation) => ({
+    text: claimFromCitation(citation),
+    citations: [citation.id],
+    confidence: claimConfidence(query, citation)
+  }));
+  const gaps = answerGaps(trace);
+  const confidence = answerConfidence(claims, gaps);
+  return {
+    query,
+    answer: renderAnswer(query, claims, gaps),
+    claims,
+    citations,
+    gaps,
+    contradictions: [],
+    confidence,
+    trace
+  };
+}
+function trimSnippet(content, maxLength = 600) {
+  const normalized = content.replace(/\s+/g, " ").trim();
+  if (normalized.length <= maxLength)
+    return normalized;
+  return `${normalized.slice(0, maxLength - 1)}\u2026`;
+}
+function readRrfSources(result) {
+  const sources = result.metadata?.rrfSources;
+  if (Array.isArray(sources)) {
+    return sources.filter((source) => typeof source === "string");
+  }
+  return [result.source];
+}
+function buildTraceLimitations(query, opts, availableAdapters, selectedAdapters, result) {
+  const limitations = [
+    "query.trace explains retrieval and fusion; it does not verify that evidence supports a generated answer."
+  ];
+  if (query.trim().split(/\s+/).length === 1) {
+    limitations.push("single-term queries can over-rank literal matches; use a phrase or more context for better evidence.");
+  }
+  if (selectedAdapters.includes("filesystem")) {
+    limitations.push("filesystem search is literal ripgrep matching, not BM25.");
+  }
+  if (selectedAdapters.includes("vaultbrain")) {
+    limitations.push("vaultbrain keyword search uses pg_trgm similarity plus optional vector search, not a native BM25 scorer.");
+  }
+  const requested = opts?.adapters ?? [];
+  const missing = requested.filter((adapter) => !availableAdapters.includes(adapter));
+  if (missing.length > 0) {
+    limitations.push(`requested adapters not registered or not search-capable: ${missing.join(", ")}`);
+  }
+  if (selectedAdapters.length === 0) {
+    limitations.push("no search-capable adapters were selected.");
+  }
+  if (result.results.length === 0) {
+    limitations.push("no evidence was retrieved for this query.");
+  }
+  return limitations;
+}
+function claimFromCitation(citation) {
+  const sentence = firstUsefulSentence(citation.snippet);
+  if (sentence)
+    return sentence;
+  return `Retrieved evidence from ${citation.path}`;
+}
+function firstUsefulSentence(text) {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (!normalized)
+    return "";
+  const match = normalized.match(/^(.{24,240}?[.!?])(\s|$)/);
+  if (match)
+    return match[1].trim();
+  return normalized.length <= 240 ? normalized : `${normalized.slice(0, 239)}\u2026`;
+}
+function claimConfidence(query, citation) {
+  const q = query.trim().toLowerCase();
+  const snippet = citation.snippet.toLowerCase();
+  if (q && snippet.includes(q))
+    return "high";
+  if (snippet.length > 0)
+    return "medium";
+  return "low";
+}
+function answerGaps(trace) {
+  const gaps = [];
+  if (trace.evidence.length === 0) {
+    gaps.push({
+      type: "no_evidence",
+      message: "No retrieved evidence was available, so no citation-backed answer can be produced."
+    });
+  }
+  for (const branch of trace.plan.branches) {
+    if (branch.status === "error") {
+      gaps.push({
+        type: "adapter_error",
+        source: branch.adapter,
+        message: branch.error ?? `${branch.adapter} search failed.`
+      });
+    }
+  }
+  for (const limitation of trace.limitations) {
+    gaps.push({
+      type: "retrieval_limitation",
+      message: limitation
+    });
+  }
+  if (trace.evidence.length > 0) {
+    gaps.push({
+      type: "unknown_recency",
+      message: "Evidence freshness is not verified unless timestamps are present in source metadata."
+    });
+    gaps.push({
+      type: "semantic_review_missing",
+      message: "Phase A does not perform semantic contradiction detection; contradictions are reported only after a later reviewer/reranker layer exists."
+    });
+  }
+  return gaps;
+}
+function answerConfidence(claims, gaps) {
+  if (claims.length === 0)
+    return "low";
+  if (gaps.some((gap) => gap.type === "adapter_error") && claims.length < 2)
+    return "low";
+  if (claims.length >= 3 && claims.every((claim) => claim.confidence === "high"))
+    return "high";
+  return "medium";
+}
+function renderAnswer(query, claims, gaps) {
+  if (claims.length === 0) {
+    return `I could not answer "${query}" from retrieved vault evidence.`;
+  }
+  const lines = [`Based on retrieved vault evidence for "${query}":`];
+  claims.forEach((claim, index) => {
+    lines.push(`${index + 1}. ${claim.text} [${claim.citations.join(", ")}]`);
+  });
+  const topGaps = gaps.filter((gap) => gap.type !== "retrieval_limitation").slice(0, 3).map((gap) => gap.message);
+  if (topGaps.length > 0) {
+    lines.push("");
+    lines.push("Gaps:");
+    topGaps.forEach((gap) => lines.push(`- ${gap}`));
+  }
+  return lines.join("\n");
+}
 async function unifiedQueryByVector(registry2, vector, opts) {
   if (vector.length === 0) {
     return { results: [], sources: {}, totalResults: 0 };
@@ -32109,11 +41929,3295 @@ async function unifiedQueryByVector(registry2, vector, opts) {
 
 // dist/core/operations.js
 init_embedding_client();
+
+// dist/holons/loader.js
+import { existsSync as existsSync5, readFileSync as readFileSync5 } from "node:fs";
+import { resolve as resolve3 } from "node:path";
+var ContextCoreLoader = class {
+  _cache = null;
+  _byId = null;
+  path;
+  constructor(path) {
+    this.path = resolve3(path);
+  }
+  available() {
+    return existsSync5(this.path);
+  }
+  _load() {
+    const raw = readFileSync5(this.path, "utf-8");
+    const data = JSON.parse(raw);
+    this._cache = data;
+    this._byId = new Map(data.holons.map((h) => [h.id, h]));
+  }
+  get() {
+    if (this._cache)
+      return this._cache;
+    if (!this.available())
+      return null;
+    this._load();
+    return this._cache;
+  }
+  byId(id) {
+    if (!this._byId) {
+      if (!this.available())
+        return void 0;
+      this._load();
+    }
+    return this._byId.get(id);
+  }
+  hyperEdgesFor(holonId) {
+    const core = this.get();
+    if (!core)
+      return [];
+    return (core.hyper_edges ?? []).filter((e) => e.participants.includes(holonId));
+  }
+  invalidate() {
+    this._cache = null;
+    this._byId = null;
+  }
+};
+
+// dist/holons/holon.js
+function notReady(path) {
+  return { error: "context-core.json not found", hint: `Run: python -m compiler <vault_path> -o ${path}` };
+}
+function makeHolonOps(loader) {
+  return [
+    {
+      name: "holon.get",
+      namespace: "holon",
+      description: "Get a compiled holon by ID",
+      mutating: false,
+      params: {
+        id: { type: "string", required: true, description: "Holon ID (e.g. concepts/attention)" }
+      },
+      handler: async (_ctx, params) => {
+        const cc = loader.get();
+        if (!cc)
+          return notReady(loader.path);
+        const h = loader.byId(params.id);
+        if (!h)
+          return { error: `Holon not found: ${params.id}` };
+        return h;
+      }
+    },
+    {
+      name: "holon.list",
+      namespace: "holon",
+      description: "List compiled holons with optional kind/status filter",
+      mutating: false,
+      params: {
+        kind: { type: "string", required: false, description: "Filter by kind (research, decision, note, knowledge-task, \u2026)" },
+        status: { type: "string", required: false, description: "Filter by status (active, frozen, \u2026)" },
+        limit: { type: "number", required: false, description: "Max results (default: 50)", default: 50 }
+      },
+      handler: async (_ctx, params) => {
+        const cc = loader.get();
+        if (!cc)
+          return notReady(loader.path);
+        const kind = params.kind;
+        const status = params.status;
+        const limit = params.limit ?? 50;
+        let holons = cc.holons;
+        if (kind)
+          holons = holons.filter((h) => h.kind === kind);
+        if (status)
+          holons = holons.filter((h) => h.status === status);
+        return { holons: holons.slice(0, limit), total: holons.length, exported_at: cc.exported_at };
+      }
+    },
+    {
+      name: "holon.search",
+      namespace: "holon",
+      description: "Search holons by title or summary. Supports substring (default), BM25 keyword ranking, and hybrid (BM25 + substring merged) modes.",
+      mutating: false,
+      params: {
+        query: { type: "string", required: true, description: "Search string" },
+        limit: { type: "number", required: false, description: "Max results (default: 20)", default: 20 },
+        mode: { type: "string", required: false, description: "substring | bm25 | hybrid (default: substring)", enum: ["substring", "bm25", "hybrid"], default: "substring" }
+      },
+      handler: async (_ctx, params) => {
+        const cc = loader.get();
+        if (!cc)
+          return notReady(loader.path);
+        const query = params.query;
+        const limit = params.limit ?? 20;
+        const mode = params.mode ?? "substring";
+        const q = query.toLowerCase();
+        if (mode === "substring") {
+          const hits = cc.holons.filter((h) => h.title.toLowerCase().includes(q) || h.summary.toLowerCase().includes(q));
+          return { holons: hits.slice(0, limit), total: hits.length, query, mode };
+        }
+        const tokenize = (text) => text.toLowerCase().split(/\W+/).filter((t) => t.length > 1);
+        const terms = tokenize(query);
+        if (terms.length === 0)
+          return { holons: [], total: 0, query, mode };
+        const docs = cc.holons.map((h) => tokenize(`${h.title} ${h.summary}`));
+        const avgLen = docs.reduce((s, d) => s + d.length, 0) / (docs.length || 1);
+        const K1 = 1.5, B = 0.75;
+        const bm25Score = (docTokens) => {
+          const dl = docTokens.length;
+          return terms.reduce((sum, term) => {
+            const freq = docTokens.filter((t) => t === term).length;
+            if (freq === 0)
+              return sum;
+            const idf = Math.log((1 + avgLen) / freq + 1);
+            const tf = freq * (K1 + 1) / (freq + K1 * (1 - B + B * dl / avgLen));
+            return sum + idf * tf;
+          }, 0);
+        };
+        if (mode === "bm25") {
+          const scored2 = cc.holons.map((h, i) => ({ h, score: bm25Score(docs[i]) })).filter((x) => x.score > 0).sort((a, b) => b.score - a.score);
+          return { holons: scored2.slice(0, limit).map((x) => x.h), total: scored2.length, query, mode };
+        }
+        const substringIds = new Set(cc.holons.filter((h) => h.title.toLowerCase().includes(q) || h.summary.toLowerCase().includes(q)).map((h) => h.id));
+        const scored = cc.holons.map((h, i) => ({
+          h,
+          score: bm25Score(docs[i]) + (substringIds.has(h.id) ? 1e3 : 0)
+        })).filter((x) => x.score > 0).sort((a, b) => b.score - a.score);
+        return { holons: scored.slice(0, limit).map((x) => x.h), total: scored.length, query, mode };
+      }
+    },
+    {
+      name: "holon.tasks",
+      namespace: "holon",
+      description: "List knowledge-task holons with task stats",
+      mutating: false,
+      params: {
+        status: { type: "string", required: false, description: "Filter by status (active, frozen, \u2026)" }
+      },
+      handler: async (_ctx, params) => {
+        const cc = loader.get();
+        if (!cc)
+          return notReady(loader.path);
+        const status = params.status;
+        const allTasks = cc.holons.filter((h) => h.kind === "knowledge-task");
+        const byStatus = {};
+        for (const t of allTasks)
+          byStatus[t.status] = (byStatus[t.status] ?? 0) + 1;
+        let tasks = allTasks.sort((a, b) => a.id.localeCompare(b.id));
+        if (status)
+          tasks = tasks.filter((h) => h.status === status);
+        return {
+          tasks,
+          stats: { total: allTasks.length, by_status: byStatus }
+        };
+      }
+    }
+  ];
+}
+
+// dist/holons/causal.js
+function bfsChain(loader, startId, maxDepth, minConf) {
+  const start = loader.byId(startId);
+  if (!start)
+    return [];
+  const visited = /* @__PURE__ */ new Set();
+  const queue = [
+    { holon: start, depth: 0 }
+  ];
+  const result = [];
+  while (queue.length > 0) {
+    const item = queue.shift();
+    if (visited.has(item.holon.id))
+      continue;
+    visited.add(item.holon.id);
+    result.push({
+      id: item.holon.id,
+      title: item.holon.title,
+      kind: item.holon.kind,
+      depth: item.depth,
+      ...item.via ? { via_edge: item.via } : {}
+    });
+    if (item.depth < maxDepth) {
+      for (const edge of item.holon.causal_edges) {
+        if (edge.confidence < minConf)
+          continue;
+        const target = loader.byId(edge.target_id);
+        if (target && !visited.has(target.id)) {
+          queue.push({
+            holon: target,
+            depth: item.depth + 1,
+            via: { relation: edge.relation, confidence: edge.confidence }
+          });
+        }
+      }
+    }
+  }
+  return result;
+}
+function notReady2(path) {
+  return { error: "context-core.json not found", hint: `Run: python -m compiler <vault_path> -o ${path}` };
+}
+function makeCausalOps(loader) {
+  return [
+    {
+      name: "causal.chain",
+      namespace: "causal",
+      description: "BFS-traverse the causal graph outward from a starting holon",
+      mutating: false,
+      params: {
+        id: { type: "string", required: true, description: "Starting holon ID" },
+        max_depth: { type: "number", required: false, description: "Max traversal depth (default: 3)", default: 3 },
+        min_confidence: { type: "number", required: false, description: "Min edge confidence 0\u20131 (default: 0)", default: 0 }
+      },
+      handler: async (_ctx, params) => {
+        if (!loader.get())
+          return notReady2(loader.path);
+        const id = params.id;
+        const maxDepth = params.max_depth ?? 3;
+        const minConf = params.min_confidence ?? 0;
+        if (!loader.byId(id))
+          return { error: `Holon not found: ${id}` };
+        const nodes = bfsChain(loader, id, maxDepth, minConf);
+        return { start_id: id, node_count: nodes.length, nodes };
+      }
+    },
+    {
+      name: "causal.neighbors",
+      namespace: "causal",
+      description: "Get direct causal neighbors (depth 1) of a holon",
+      mutating: false,
+      params: {
+        id: { type: "string", required: true, description: "Holon ID" },
+        direction: {
+          type: "string",
+          required: false,
+          description: "outbound | inbound | both (default: outbound)",
+          enum: ["outbound", "inbound", "both"],
+          default: "outbound"
+        }
+      },
+      handler: async (_ctx, params) => {
+        const cc = loader.get();
+        if (!cc)
+          return notReady2(loader.path);
+        const id = params.id;
+        const dir = params.direction ?? "outbound";
+        const h = loader.byId(id);
+        if (!h)
+          return { error: `Holon not found: ${id}` };
+        const outbound = dir === "outbound" || dir === "both" ? h.causal_edges.map((e) => ({
+          target_id: e.target_id,
+          target_title: loader.byId(e.target_id)?.title ?? e.target_id,
+          relation: e.relation,
+          confidence: e.confidence
+        })) : [];
+        const inbound = dir === "inbound" || dir === "both" ? cc.holons.flatMap((src) => src.causal_edges.filter((e) => e.target_id === id).map((e) => ({
+          source_id: src.id,
+          source_title: src.title,
+          relation: e.relation,
+          confidence: e.confidence
+        }))) : [];
+        return { id, outbound, inbound };
+      }
+    },
+    {
+      name: "causal.hyperedges",
+      namespace: "causal",
+      description: "List all n-ary hyperedges (meetings, events, collaborations) involving a holon, or all hyperedges if no id given",
+      mutating: false,
+      params: {
+        id: { type: "string", required: false, description: "Holon ID to filter by (omit for all hyperedges)" },
+        relation: { type: "string", required: false, description: 'Filter by relation type (e.g. "meeting")' }
+      },
+      handler: async (_ctx, params) => {
+        const cc = loader.get();
+        if (!cc)
+          return notReady2(loader.path);
+        const id = params.id;
+        const relation = params.relation;
+        let edges = cc.hyper_edges ?? [];
+        if (id) {
+          if (!loader.byId(id))
+            return { error: `Holon not found: ${id}` };
+          edges = edges.filter((e) => e.participants.includes(id));
+        }
+        if (relation) {
+          edges = edges.filter((e) => e.relation === relation);
+        }
+        const enriched = edges.map((e) => ({
+          participants: e.participants.map((pid) => ({
+            id: pid,
+            title: loader.byId(pid)?.title ?? pid
+          })),
+          relation: e.relation,
+          confidence: e.confidence,
+          provenance_id: e.provenance_id,
+          provenance_title: loader.byId(e.provenance_id)?.title ?? e.provenance_id
+        }));
+        return { count: enriched.length, hyper_edges: enriched };
+      }
+    }
+  ];
+}
+
+// dist/holons/provenance.js
+function notReady3(path) {
+  return { error: "context-core.json not found", hint: `Run: python -m compiler <vault_path> -o ${path}` };
+}
+function makeProvenanceOps(loader) {
+  return [
+    {
+      name: "provenance.get",
+      namespace: "provenance",
+      description: "Get provenance for a holon: content hash, wikilinks, and annotated causal edges",
+      mutating: false,
+      params: {
+        id: { type: "string", required: true, description: "Holon ID" }
+      },
+      handler: async (_ctx, params) => {
+        const cc = loader.get();
+        if (!cc)
+          return notReady3(loader.path);
+        const id = params.id;
+        const h = loader.byId(id);
+        if (!h)
+          return { error: `Holon not found: ${id}` };
+        const causal_edges = h.causal_edges.map((e) => ({
+          ...e,
+          target_title: loader.byId(e.target_id)?.title ?? e.target_id
+        }));
+        return {
+          id: h.id,
+          title: h.title,
+          kind: h.kind,
+          status: h.status,
+          content_hash: h.content_hash,
+          wikilinks: h.wikilinks,
+          causal_edges,
+          exported_at: cc.exported_at,
+          context_core: loader.path
+        };
+      }
+    }
+  ];
+}
+
+// dist/holons/graph.js
+import { writeFileSync, mkdirSync as mkdirSync2 } from "node:fs";
+import { join as join8, dirname as dirname3 } from "node:path";
+function bfsGraph(loader, startId, maxDepth) {
+  const start = loader.byId(startId);
+  if (!start)
+    return [];
+  const visited = /* @__PURE__ */ new Set();
+  const queue = [{ holon: start, depth: 0 }];
+  const nodes = [];
+  while (queue.length > 0) {
+    const { holon, depth } = queue.shift();
+    if (visited.has(holon.id))
+      continue;
+    visited.add(holon.id);
+    nodes.push({
+      id: holon.id,
+      title: holon.title,
+      kind: holon.kind,
+      depth,
+      edges: holon.causal_edges.map((e) => ({
+        target_id: e.target_id,
+        relation: e.relation,
+        confidence: e.confidence
+      }))
+    });
+    if (depth < maxDepth) {
+      for (const edge of holon.causal_edges) {
+        const target = loader.byId(edge.target_id);
+        if (target && !visited.has(target.id)) {
+          queue.push({ holon: target, depth: depth + 1 });
+        }
+      }
+    }
+  }
+  return nodes;
+}
+function mermaidId(id) {
+  return id.replace(/[^a-zA-Z0-9]/g, "_");
+}
+function toMermaid(nodes) {
+  const lines = ["graph LR"];
+  const nodeIds = new Set(nodes.map((n) => n.id));
+  for (const node of nodes) {
+    const label = node.title.replace(/"/g, "'");
+    lines.push(`  ${mermaidId(node.id)}["${label}"]`);
+  }
+  const seen = /* @__PURE__ */ new Set();
+  for (const node of nodes) {
+    for (const edge of node.edges) {
+      if (!nodeIds.has(edge.target_id))
+        continue;
+      const key = `${node.id}\u2192${edge.target_id}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        lines.push(`  ${mermaidId(node.id)} -->|${edge.relation}| ${mermaidId(edge.target_id)}`);
+      }
+    }
+  }
+  return lines.join("\n");
+}
+var KIND_COLOR = {
+  research: "1",
+  decision: "2",
+  "knowledge-task": "3",
+  meeting: "4",
+  concept: "5",
+  event: "4"
+};
+function toCanvas(nodes) {
+  const W = 260, H = 80, COLS = 4, GAP_X = 60, GAP_Y = 40;
+  const nodeIds = new Set(nodes.map((n) => n.id));
+  const canvasNodes = nodes.map((n, i) => ({
+    id: n.id,
+    type: "text",
+    text: `## ${n.title}
+*${n.kind}*`,
+    x: i % COLS * (W + GAP_X),
+    y: Math.floor(i / COLS) * (H + GAP_Y),
+    width: W,
+    height: H,
+    color: KIND_COLOR[n.kind] ?? "6"
+  }));
+  const canvasEdges = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const node of nodes) {
+    for (const edge of node.edges) {
+      if (!nodeIds.has(edge.target_id))
+        continue;
+      const key = `${node.id}\u2192${edge.target_id}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        canvasEdges.push({
+          id: key,
+          fromNode: node.id,
+          fromSide: "right",
+          toNode: edge.target_id,
+          toSide: "left",
+          label: `${edge.relation} (${edge.confidence.toFixed(2)})`
+        });
+      }
+    }
+  }
+  return { nodes: canvasNodes, edges: canvasEdges };
+}
+function toDot(nodes) {
+  const nodeIds = new Set(nodes.map((n) => n.id));
+  const lines = ["digraph G {", "  rankdir=LR;", "  node [shape=box fontname=Helvetica];"];
+  for (const node of nodes) {
+    const label = node.title.replace(/"/g, "'");
+    lines.push(`  "${node.id}" [label="${label}" tooltip="${node.kind}"];`);
+  }
+  const seen = /* @__PURE__ */ new Set();
+  for (const node of nodes) {
+    for (const edge of node.edges) {
+      if (!nodeIds.has(edge.target_id))
+        continue;
+      const key = `${node.id}\u2192${edge.target_id}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        lines.push(`  "${node.id}" -> "${edge.target_id}" [label="${edge.relation}"];`);
+      }
+    }
+  }
+  lines.push("}");
+  return lines.join("\n");
+}
+function notReady4(path) {
+  return { error: "context-core.json not found", hint: `Run: python -m compiler <vault_path> -o ${path}` };
+}
+function makeGraphOps(loader, vaultPath) {
+  return [
+    {
+      name: "graph.export",
+      namespace: "graph",
+      description: "Export a causal subgraph as Mermaid diagram, Obsidian Canvas JSON, or Graphviz DOT. When format=canvas and output_path is given, writes the .canvas file into the vault.",
+      mutating: false,
+      params: {
+        id: { type: "string", required: true, description: "Starting holon ID" },
+        depth: { type: "number", required: false, description: "BFS depth (default: 3)", default: 3 },
+        format: { type: "string", required: false, description: "mermaid | canvas | dot (default: mermaid)", enum: ["mermaid", "canvas", "dot"], default: "mermaid" },
+        output_path: { type: "string", required: false, description: 'Vault-relative path to write canvas file (e.g. "graphs/attention.canvas"). Only used when format=canvas.' }
+      },
+      handler: async (_ctx, params) => {
+        if (!loader.get())
+          return notReady4(loader.path);
+        const id = params.id;
+        const depth = params.depth ?? 3;
+        const format = params.format ?? "mermaid";
+        if (!loader.byId(id))
+          return { error: `Holon not found: ${id}` };
+        const nodes = bfsGraph(loader, id, depth);
+        const edgeCount = nodes.reduce((s, n) => s + n.edges.length, 0);
+        if (format === "mermaid") {
+          return { format, content: toMermaid(nodes), nodes_count: nodes.length, edge_count: edgeCount };
+        }
+        if (format === "dot") {
+          return { format, content: toDot(nodes), nodes_count: nodes.length, edge_count: edgeCount };
+        }
+        const canvas = toCanvas(nodes);
+        const content = JSON.stringify(canvas, null, 2);
+        const outRel = params.output_path;
+        let writtenTo;
+        if (outRel) {
+          const safe = outRel.trim().replace(/\\/g, "/").replace(/^\/+/, "");
+          if (!safe || safe.split("/").some((p) => p === "..")) {
+            return { error: 'Invalid output_path \u2014 must be vault-relative with no ".."' };
+          }
+          const full = join8(vaultPath, safe);
+          mkdirSync2(dirname3(full), { recursive: true });
+          writeFileSync(full, content, "utf-8");
+          writtenTo = safe;
+        }
+        return {
+          format,
+          content,
+          nodes_count: nodes.length,
+          edge_count: edgeCount,
+          ...writtenTo ? { written_to: writtenTo } : {}
+        };
+      }
+    }
+  ];
+}
+
+// dist/holons/write.js
+import { readFileSync as readFileSync6, writeFileSync as writeFileSync2, mkdirSync as mkdirSync3, existsSync as existsSync6 } from "node:fs";
+import { join as join9, dirname as dirname4 } from "node:path";
+function safePath(vaultPath, relPath) {
+  const clean = relPath.trim().replace(/\\/g, "/").replace(/^\/+/, "");
+  if (!clean || clean.split("/").some((p) => p === ".." || p === "."))
+    return null;
+  return join9(vaultPath, clean);
+}
+function makeVaultWriteOps(vaultPath, loader) {
+  return [
+    {
+      name: "vault.write",
+      namespace: "vault",
+      description: "Create or overwrite a Markdown note in the vault. Use to write LLM-inferred conclusions, summaries, or AI-generated notes back into the knowledge base.",
+      mutating: true,
+      params: {
+        path: { type: "string", required: true, description: 'Vault-relative path, e.g. "notes/summary.md"' },
+        content: { type: "string", required: true, description: "Full Markdown content of the note" },
+        overwrite: { type: "boolean", required: false, description: "Allow overwriting an existing file (default: false)", default: false }
+      },
+      handler: async (_ctx, params) => {
+        const relPath = params.path;
+        const content = params.content;
+        const overwrite = params.overwrite ?? false;
+        const full = safePath(vaultPath, relPath);
+        if (!full)
+          return { error: 'Invalid path \u2014 must be vault-relative with no ".."' };
+        if (!overwrite && existsSync6(full)) {
+          return { error: `File already exists: ${relPath}. Pass overwrite:true to replace.` };
+        }
+        mkdirSync3(dirname4(full), { recursive: true });
+        writeFileSync2(full, content, "utf-8");
+        return { ok: true, path: relPath, bytes: Buffer.byteLength(content, "utf-8") };
+      }
+    },
+    {
+      name: "vault.annotate",
+      namespace: "vault",
+      description: "Append an AI-generated section to an existing vault note. Accepts a holon ID (resolves source_path automatically) or a vault-relative path. Adds a timestamped callout block under the given heading.",
+      mutating: true,
+      params: {
+        id: { type: "string", required: false, description: "Holon ID \u2014 used to locate the source .md file automatically" },
+        path: { type: "string", required: false, description: "Vault-relative path (alternative to id)" },
+        content: { type: "string", required: true, description: "Markdown text to append" },
+        heading: { type: "string", required: false, description: 'Section heading (default: "## AI Notes")', default: "## AI Notes" }
+      },
+      handler: async (_ctx, params) => {
+        const id = params.id;
+        const relPath = params.path;
+        const content = params.content;
+        const heading = params.heading ?? "## AI Notes";
+        let targetRel;
+        if (id) {
+          const holon = loader.byId(id);
+          if (!holon)
+            return { error: `Holon not found: ${id}` };
+          targetRel = `${holon.id}.md`;
+        } else if (relPath) {
+          targetRel = relPath;
+        } else {
+          return { error: "Either id or path is required" };
+        }
+        const full = safePath(vaultPath, targetRel);
+        if (!full)
+          return { error: `Invalid path: ${targetRel}` };
+        if (!existsSync6(full))
+          return { error: `File not found: ${targetRel}` };
+        const existing = readFileSync6(full, "utf-8");
+        const date5 = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+        const block = `
+
+${heading}
+
+> [!AI] ${date5}
+${content.split("\n").map((l) => `> ${l}`).join("\n")}
+`;
+        writeFileSync2(full, existing + block, "utf-8");
+        return { ok: true, path: targetRel, appended_bytes: Buffer.byteLength(block, "utf-8") };
+      }
+    }
+  ];
+}
+
+// dist/memory/memory.js
+import { existsSync as existsSync7, mkdirSync as mkdirSync4, readFileSync as readFileSync7, readdirSync as readdirSync4, rmSync, statSync, writeFileSync as writeFileSync3 } from "node:fs";
+import { basename as basename3, dirname as dirname5, join as join10 } from "node:path";
+var LOCK_TTL_MS = 6e4;
+var DEFAULT_ACTOR = "agent";
+function withFileLock(fullPath, fn) {
+  const lockPath = `${fullPath}.lock`;
+  const acquire = () => writeFileSync3(lockPath, JSON.stringify({ pid: process.pid, timestamp: Date.now() }), {
+    encoding: "utf-8",
+    flag: "wx"
+  });
+  try {
+    acquire();
+  } catch (e) {
+    if (e.code !== "EEXIST")
+      throw e;
+    const ageMs = existsSync7(lockPath) ? Date.now() - statSync(lockPath).mtimeMs : LOCK_TTL_MS + 1;
+    if (ageMs < LOCK_TTL_MS) {
+      throw makeErr(-32010, `Lock conflict on ${basename3(fullPath)}`);
+    }
+    rmSync(lockPath, { force: true });
+    acquire();
+  }
+  try {
+    return fn();
+  } finally {
+    try {
+      rmSync(lockPath, { force: true });
+    } catch {
+    }
+  }
+}
+function safeSegment(value, label) {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "." || trimmed === ".." || trimmed.includes("/") || trimmed.includes("\\") || /^[A-Za-z]:/.test(trimmed) || trimmed.startsWith("//")) {
+    throw makeErr(-32602, `${label} must be a single safe path segment`);
+  }
+  return trimmed;
+}
+function slugify2(value) {
+  const slug = value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
+  return slug || "session";
+}
+function yamlString(value) {
+  return JSON.stringify(value);
+}
+function listSection(values) {
+  if (!Array.isArray(values) || values.length === 0)
+    return "- TBD";
+  return values.map((value) => `- ${String(value).trim() || "TBD"}`).join("\n");
+}
+function textSection(value) {
+  return typeof value === "string" && value.trim() ? value.trim() : "TBD";
+}
+function actorFromContext(ctx) {
+  const actor = ctx.config.collaboration?.actor ?? process.env.VAULT_MIND_ACTOR ?? DEFAULT_ACTOR;
+  return safeSegment(actor, "actor");
+}
+function memoryBasePath(project, actor) {
+  if (project && project.trim()) {
+    return `10-Projects/${safeSegment(project, "project")}/agents/${actor}/memory`;
+  }
+  return `00-Inbox/Agent-Memory/${actor}`;
+}
+function readText(fullPath) {
+  if (!existsSync7(fullPath))
+    return null;
+  return readFileSync7(fullPath, "utf-8");
+}
+function writeText(fullPath, content) {
+  mkdirSync4(dirname5(fullPath), { recursive: true });
+  withFileLock(fullPath, () => writeFileSync3(fullPath, content, "utf-8"));
+}
+function memoryDocFrontmatter(kind, actor, project, now) {
+  return [
+    "---",
+    `llmwiki-memory: ${kind}`,
+    `actor: ${yamlString(actor)}`,
+    project ? `project: ${yamlString(project)}` : "project: null",
+    `updated-at: ${yamlString(now)}`,
+    "---",
+    ""
+  ].join("\n");
+}
+function passportMarkdown(opts) {
+  return [
+    memoryDocFrontmatter("passport", opts.actor, opts.project, opts.now),
+    "# Passport",
+    "",
+    "## Goal",
+    "",
+    textSection(opts.goal),
+    "",
+    "## Constraints",
+    "",
+    listSection(opts.constraints),
+    "",
+    "## Decisions",
+    "",
+    listSection(opts.decisions),
+    "",
+    "## Open Questions",
+    "",
+    listSection(opts.openQuestions),
+    "",
+    "## Pointers",
+    "",
+    listSection(opts.pointers),
+    ""
+  ].join("\n");
+}
+function handoffMarkdown(opts) {
+  return [
+    memoryDocFrontmatter("handoff", opts.actor, opts.project, opts.now),
+    "# Handoff",
+    "",
+    "## Current State",
+    "",
+    textSection(opts.currentState),
+    "",
+    "## Next Steps",
+    "",
+    listSection(opts.nextSteps),
+    "",
+    "## Risks",
+    "",
+    listSection(opts.risks),
+    "",
+    "## Files",
+    "",
+    listSection(opts.files),
+    ""
+  ].join("\n");
+}
+function sessionMarkdown(opts) {
+  const title = typeof opts.title === "string" && opts.title.trim() ? opts.title.trim() : "Session";
+  return [
+    memoryDocFrontmatter("session", opts.actor, opts.project, opts.now),
+    `# ${title}`,
+    "",
+    "## Summary",
+    "",
+    textSection(opts.summary),
+    "",
+    "## Decisions",
+    "",
+    listSection(opts.decisions),
+    "",
+    "## Actions",
+    "",
+    listSection(opts.actions),
+    "",
+    "## References",
+    "",
+    listSection(opts.references),
+    ""
+  ].join("\n");
+}
+var PersistentMemory = class {
+  filePath;
+  constructor(vaultPath) {
+    this.filePath = join10(vaultPath, "_ai_memory.json");
+  }
+  read() {
+    if (!existsSync7(this.filePath))
+      return {};
+    try {
+      return JSON.parse(readFileSync7(this.filePath, "utf-8"));
+    } catch {
+      return {};
+    }
+  }
+  write(data) {
+    mkdirSync4(dirname5(this.filePath), { recursive: true });
+    withFileLock(this.filePath, () => {
+      writeFileSync3(this.filePath, JSON.stringify(data, null, 2), "utf-8");
+    });
+  }
+  set(key, value, tags = []) {
+    const data = this.read();
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    const entry = {
+      key,
+      value,
+      tags,
+      created_at: data[key]?.created_at ?? now,
+      updated_at: now
+    };
+    data[key] = entry;
+    this.write(data);
+    return entry;
+  }
+  get(key, tag) {
+    const entries = Object.values(this.read());
+    if (key)
+      return entries.filter((e) => e.key === key);
+    if (tag)
+      return entries.filter((e) => e.tags.includes(tag));
+    return entries;
+  }
+  forget(key) {
+    const data = this.read();
+    if (!(key in data))
+      return false;
+    delete data[key];
+    this.write(data);
+    return true;
+  }
+};
+var MarkdownMemory = class {
+  vaultPath;
+  constructor(vaultPath) {
+    this.vaultPath = vaultPath;
+  }
+  passport(ctx, project) {
+    const actor = actorFromContext(ctx);
+    const relPath = `${memoryBasePath(project, actor)}/passport.md`;
+    const fullPath = join10(this.vaultPath, relPath);
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    const content = readText(fullPath) ?? passportMarkdown({ actor, project, now });
+    return { exists: existsSync7(fullPath), path: relPath, content };
+  }
+  writePassport(ctx, params) {
+    const actor = actorFromContext(ctx);
+    const project = params.project;
+    const relPath = `${memoryBasePath(project, actor)}/passport.md`;
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    const content = passportMarkdown({
+      actor,
+      project,
+      now,
+      goal: params.goal,
+      constraints: params.constraints,
+      decisions: params.decisions,
+      openQuestions: params.openQuestions,
+      pointers: params.pointers
+    });
+    writeText(join10(this.vaultPath, relPath), content);
+    return { ok: true, path: relPath, bytes: Buffer.byteLength(content, "utf-8") };
+  }
+  handoff(ctx, project) {
+    const actor = actorFromContext(ctx);
+    const relPath = `${memoryBasePath(project, actor)}/handoff.md`;
+    const fullPath = join10(this.vaultPath, relPath);
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    const content = readText(fullPath) ?? handoffMarkdown({ actor, project, now });
+    return { exists: existsSync7(fullPath), path: relPath, content };
+  }
+  writeHandoff(ctx, params) {
+    const actor = actorFromContext(ctx);
+    const project = params.project;
+    const relPath = `${memoryBasePath(project, actor)}/handoff.md`;
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    const content = handoffMarkdown({
+      actor,
+      project,
+      now,
+      currentState: params.currentState,
+      nextSteps: params.nextSteps,
+      risks: params.risks,
+      files: params.files
+    });
+    writeText(join10(this.vaultPath, relPath), content);
+    return { ok: true, path: relPath, bytes: Buffer.byteLength(content, "utf-8") };
+  }
+  saveSession(ctx, params) {
+    const actor = actorFromContext(ctx);
+    const project = params.project;
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    const title = typeof params.title === "string" && params.title.trim() ? params.title.trim() : String(params.summary ?? "").slice(0, 60);
+    const stamp = now.replace(/[:.]/g, "-");
+    const relPath = `${memoryBasePath(project, actor)}/sessions/${stamp}-${slugify2(title)}.md`;
+    const content = sessionMarkdown({
+      actor,
+      project,
+      now,
+      title: params.title,
+      summary: params.summary,
+      decisions: params.decisions,
+      actions: params.actions,
+      references: params.references
+    });
+    writeText(join10(this.vaultPath, relPath), content);
+    return { ok: true, path: relPath, bytes: Buffer.byteLength(content, "utf-8") };
+  }
+  listSessions(ctx, project, limit = 20) {
+    const actor = actorFromContext(ctx);
+    const relDir = `${memoryBasePath(project, actor)}/sessions`;
+    const fullDir = join10(this.vaultPath, relDir);
+    if (!existsSync7(fullDir))
+      return { count: 0, sessions: [] };
+    const sessions = readdirSync4(fullDir, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".md")).map((entry) => {
+      const fullPath = join10(fullDir, entry.name);
+      const content = readFileSync7(fullPath, "utf-8");
+      const heading = content.match(/^#\s+(.+)$/m)?.[1]?.trim() ?? entry.name.replace(/\.md$/, "");
+      const preview3 = content.replace(/^---[\s\S]*?---\s*/m, "").replace(/\s+/g, " ").trim().slice(0, 180);
+      return {
+        path: `${relDir}/${entry.name}`,
+        title: heading,
+        preview: preview3,
+        updated_at: statSync(fullPath).mtime.toISOString()
+      };
+    }).sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, Math.max(1, Math.min(limit, 100)));
+    return { count: sessions.length, sessions };
+  }
+};
+function makeMemoryOps(vaultPath) {
+  const mem = new PersistentMemory(vaultPath);
+  const markdown = new MarkdownMemory(vaultPath);
+  return [
+    {
+      name: "memory.set",
+      namespace: "memory",
+      description: "Persist a named memory across MCP sessions. Use for inferences, user preferences, project state, or any context that should survive server restarts. Storage: <vault>/_ai_memory.json (excluded from holon compilation).",
+      mutating: true,
+      params: {
+        key: { type: "string", required: true, description: 'Unique memory key, e.g. "project/status" or "user_goal"' },
+        value: { type: "string", required: true, description: "Memory content (Markdown supported)" },
+        tags: { type: "array", required: false, description: 'Optional tags for grouping, e.g. ["project", "decision"]' }
+      },
+      handler: async (_ctx, params) => {
+        const key = params.key;
+        const value = params.value;
+        const tags = params.tags ?? [];
+        if (!key.trim())
+          return { error: "key must not be empty" };
+        return mem.set(key, value, tags);
+      }
+    },
+    {
+      name: "memory.get",
+      namespace: "memory",
+      description: "Retrieve persisted memories by exact key or tag. Returns all memories if neither is specified.",
+      mutating: false,
+      params: {
+        key: { type: "string", required: false, description: "Exact key to retrieve" },
+        tag: { type: "string", required: false, description: "Tag to filter by" }
+      },
+      handler: async (_ctx, params) => {
+        const key = params.key;
+        const tag = params.tag;
+        const entries = mem.get(key, tag);
+        return { count: entries.length, memories: entries };
+      }
+    },
+    {
+      name: "memory.list",
+      namespace: "memory",
+      description: "List all persisted memories (key, tags, preview, timestamp). Use memory.get to retrieve full values.",
+      mutating: false,
+      params: {},
+      handler: async (_ctx, _params) => {
+        const entries = mem.get();
+        return {
+          count: entries.length,
+          memories: entries.map((e) => ({
+            key: e.key,
+            tags: e.tags,
+            preview: e.value.slice(0, 120),
+            updated_at: e.updated_at
+          }))
+        };
+      }
+    },
+    {
+      name: "memory.forget",
+      namespace: "memory",
+      description: "Delete a persisted memory by key.",
+      mutating: true,
+      params: {
+        key: { type: "string", required: true, description: "Key to delete" }
+      },
+      handler: async (_ctx, params) => {
+        const key = params.key;
+        const deleted = mem.forget(key);
+        return { ok: deleted, key, message: deleted ? "Deleted" : `Key not found: ${key}` };
+      }
+    },
+    {
+      name: "memory.passport.get",
+      namespace: "memory",
+      description: "Read the Markdown memory passport for the current actor. Returns the default passport template when no file exists.",
+      mutating: false,
+      params: {
+        project: { type: "string", required: false, description: "Optional project key; stores under 10-Projects/<project>/agents/<actor>/memory" }
+      },
+      handler: async (ctx, params) => markdown.passport(ctx, params.project)
+    },
+    {
+      name: "memory.passport.upsert",
+      namespace: "memory",
+      description: "Create or replace the Markdown memory passport with Goal, Constraints, Decisions, Open Questions, and Pointers sections.",
+      mutating: true,
+      params: {
+        project: { type: "string", required: false, description: "Optional project key; stores under 10-Projects/<project>/agents/<actor>/memory" },
+        goal: { type: "string", required: false, description: "Project or agent goal" },
+        constraints: { type: "array", required: false, description: "Constraints that future sessions should preserve" },
+        decisions: { type: "array", required: false, description: "Durable decisions to carry forward" },
+        openQuestions: { type: "array", required: false, description: "Open questions for the next session" },
+        pointers: { type: "array", required: false, description: "Files, notes, or links worth revisiting" }
+      },
+      handler: async (ctx, params) => markdown.writePassport(ctx, params)
+    },
+    {
+      name: "memory.handoff.latest",
+      namespace: "memory",
+      description: "Read the current Markdown handoff for the current actor. Returns the default handoff template when no file exists.",
+      mutating: false,
+      params: {
+        project: { type: "string", required: false, description: "Optional project key; stores under 10-Projects/<project>/agents/<actor>/memory" }
+      },
+      handler: async (ctx, params) => markdown.handoff(ctx, params.project)
+    },
+    {
+      name: "memory.handoff.write",
+      namespace: "memory",
+      description: "Create or replace the Markdown handoff with Current State, Next Steps, Risks, and Files sections.",
+      mutating: true,
+      params: {
+        project: { type: "string", required: false, description: "Optional project key; stores under 10-Projects/<project>/agents/<actor>/memory" },
+        currentState: { type: "string", required: false, description: "Where the work stands now" },
+        nextSteps: { type: "array", required: false, description: "Concrete next actions" },
+        risks: { type: "array", required: false, description: "Known risks or blockers" },
+        files: { type: "array", required: false, description: "Relevant vault paths or workspace files" }
+      },
+      handler: async (ctx, params) => markdown.writeHandoff(ctx, params)
+    },
+    {
+      name: "memory.session.save",
+      namespace: "memory",
+      description: "Save a timestamped Markdown session note with Summary, Decisions, Actions, and References sections.",
+      mutating: true,
+      params: {
+        project: { type: "string", required: false, description: "Optional project key; stores under 10-Projects/<project>/agents/<actor>/memory" },
+        title: { type: "string", required: false, description: "Optional session title used in the heading and filename slug" },
+        summary: { type: "string", required: true, description: "Session summary" },
+        decisions: { type: "array", required: false, description: "Decisions made during the session" },
+        actions: { type: "array", required: false, description: "Follow-up actions" },
+        references: { type: "array", required: false, description: "Files, notes, links, or identifiers referenced by the session" }
+      },
+      handler: async (ctx, params) => markdown.saveSession(ctx, params)
+    },
+    {
+      name: "memory.session.list",
+      namespace: "memory",
+      description: "List timestamped Markdown session notes for the current actor, newest first.",
+      mutating: false,
+      params: {
+        project: { type: "string", required: false, description: "Optional project key; reads from 10-Projects/<project>/agents/<actor>/memory" },
+        limit: { type: "number", required: false, description: "Maximum sessions to return (default: 20)", default: 20 }
+      },
+      handler: async (ctx, params) => markdown.listSessions(ctx, params.project, params.limit ?? 20)
+    }
+  ];
+}
+
+// dist/project/project.js
+import { existsSync as existsSync8, mkdirSync as mkdirSync5, readdirSync as readdirSync5, readFileSync as readFileSync8, writeFileSync as writeFileSync4 } from "node:fs";
+import { dirname as dirname6, join as join11, relative as relative3 } from "node:path";
+var STATE_TYPE_TO_STATUS = {
+  backlog: "Backlog",
+  unstarted: "Todo",
+  started: "In Progress",
+  completed: "Done",
+  canceled: "Canceled"
+};
+var VALID_STATE_TYPES = Object.keys(STATE_TYPE_TO_STATUS);
+var VALID_STATUSES = Object.values(STATE_TYPE_TO_STATUS);
+var VALID_PRIORITIES = ["Urgent", "High", "Medium", "Low", "No priority"];
+var VALID_RELATIONS = ["blocks", "blocked_by", "relates", "duplicates", "parent", "child", "depends_on"];
+function safeSegment2(value, label) {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "." || trimmed === ".." || trimmed.includes("/") || trimmed.includes("\\") || /^[A-Za-z]:/.test(trimmed) || trimmed.startsWith("//")) {
+    throw makeErr(-32602, `${label} must be single safe path segment`);
+  }
+  return trimmed;
+}
+function safeDocketId(value) {
+  const trimmed = value.trim();
+  if (!/^[A-Za-z][A-Za-z0-9]*-\d+$/.test(trimmed))
+    throw makeErr(-32602, "id must look like ISSUE-1");
+  return trimmed.toUpperCase();
+}
+function actorFromContext2(ctx) {
+  return safeSegment2(ctx.config.collaboration?.actor || process.env.VAULT_MIND_ACTOR || "agent", "actor");
+}
+function idPrefix() {
+  const raw = process.env.DOCKET_ID_PREFIX || "ISSUE";
+  const cleaned = raw.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return cleaned || "ISSUE";
+}
+function projectRoot(project) {
+  return `10-Projects/${safeSegment2(project, "project")}`;
+}
+function docketRoot(project) {
+  return `${projectRoot(project)}/docket`;
+}
+function issuesRoot(project) {
+  return `${docketRoot(project)}/issues`;
+}
+function commentsRoot(project) {
+  return `${docketRoot(project)}/comments`;
+}
+function docketProjectsRoot(project) {
+  return `${docketRoot(project)}/projects`;
+}
+function issuePath(project, id) {
+  return `${issuesRoot(project)}/${safeDocketId(id)}.md`;
+}
+function yamlString2(value) {
+  return JSON.stringify(value);
+}
+function yamlFlowList(values) {
+  if (values.length === 0)
+    return "[]";
+  return `[${values.map(yamlString2).join(", ")}]`;
+}
+function normalizeList(value) {
+  if (!Array.isArray(value))
+    return [];
+  return value.filter((item) => typeof item === "string" && item.trim().length > 0).map((item) => item.trim());
+}
+function normalizeState(value, fallback = "unstarted") {
+  if (typeof value !== "string" || !value.trim())
+    return { state_type: fallback, status: STATE_TYPE_TO_STATUS[fallback] };
+  const raw = value.trim();
+  if (VALID_STATE_TYPES.includes(raw)) {
+    const state_type = raw;
+    return { state_type, status: STATE_TYPE_TO_STATUS[state_type] };
+  }
+  const status = VALID_STATUSES.find((candidate) => candidate.toLowerCase() === raw.toLowerCase());
+  if (status) {
+    const state_type = Object.entries(STATE_TYPE_TO_STATUS).find(([, display]) => display === status)?.[0] ?? fallback;
+    return { state_type, status };
+  }
+  throw makeErr(-32602, "unknown status; use backlog/unstarted/started/completed/canceled or Backlog/Todo/In Progress/Done/Canceled");
+}
+function normalizePriority(value, fallback = "No priority") {
+  if (typeof value !== "string" || !value.trim())
+    return fallback;
+  const priority = VALID_PRIORITIES.find((candidate) => candidate.toLowerCase() === value.trim().toLowerCase());
+  if (!priority)
+    throw makeErr(-32602, "unknown priority; use Urgent/High/Medium/Low/No priority");
+  return priority;
+}
+function enumValue(value, allowed, fallback) {
+  return typeof value === "string" && allowed.includes(value) ? value : fallback;
+}
+function readText2(path) {
+  return existsSync8(path) ? readFileSync8(path, "utf-8") : null;
+}
+function writeVaultText(vaultPath, relPath, content) {
+  const fullPath = join11(vaultPath, relPath);
+  mkdirSync5(dirname6(fullPath), { recursive: true });
+  writeFileSync4(fullPath, content, "utf-8");
+}
+function nextIssueId(vaultPath, project) {
+  const dir = join11(vaultPath, issuesRoot(project));
+  let max = 0;
+  const prefix = idPrefix();
+  if (existsSync8(dir)) {
+    for (const entry of readdirSync5(dir, { withFileTypes: true })) {
+      if (!entry.isFile() || !entry.name.endsWith(".md"))
+        continue;
+      const match = entry.name.match(new RegExp(`^${prefix}-(\\d+)`));
+      if (match)
+        max = Math.max(max, Number(match[1]));
+    }
+  }
+  return `${prefix}-${max + 1}`;
+}
+function projectIndex(project, actor, now) {
+  return [
+    "---",
+    "llmwiki-project: true",
+    `project: ${yamlString2(project)}`,
+    `owner: ${yamlString2(actor)}`,
+    `created_at: ${yamlString2(now)}`,
+    `updated_at: ${yamlString2(now)}`,
+    "---",
+    "",
+    `# ${project}`,
+    "",
+    "## Goal",
+    "",
+    "TBD",
+    "",
+    "## Local PM",
+    "",
+    "- [[docket/board|Board]]",
+    "- [[docket/rhizome|Rhizome]]",
+    "- `docket/issues/*.md` uses docket-compatible Markdown frontmatter.",
+    "- `docket/projects/*.md` mirrors docket project containers.",
+    ""
+  ].join("\n");
+}
+function docketProjectMarkdown(project, actor, now) {
+  return [
+    "---",
+    `key: ${project}`,
+    `title: ${yamlString2(project)}`,
+    `prefix: ${project.toUpperCase().slice(0, 8)}`,
+    "status: active",
+    `owner: ${yamlString2(actor)}`,
+    `created_at: ${yamlString2(now)}`,
+    `updated_at: ${yamlString2(now)}`,
+    "---",
+    "",
+    `# ${project}`,
+    ""
+  ].join("\n");
+}
+function boardMarkdown(project, now) {
+  return [
+    "---",
+    "kanban-plugin: board",
+    `project: ${yamlString2(project)}`,
+    `updated_at: ${yamlString2(now)}`,
+    "---",
+    "",
+    "# Board",
+    "",
+    "## Backlog",
+    "",
+    "## Todo",
+    "",
+    "## In Progress",
+    "",
+    "## Done",
+    "",
+    "***",
+    "",
+    "## Canceled",
+    "",
+    "%% kanban:settings",
+    "```json",
+    '{"kanban-plugin":"board"}',
+    "```",
+    "%%",
+    ""
+  ].join("\n");
+}
+function rhizomeMarkdown(project, now) {
+  return [
+    "---",
+    `description: ${yamlString2(`Local project rhizome for ${project}`)}`,
+    `keywords: ${yamlFlowList([project, "docket", "rhizome"])}`,
+    "kind: index",
+    "links: []",
+    "code: []",
+    `updated_at: ${yamlString2(now)}`,
+    "---",
+    "",
+    "# Rhizome",
+    "",
+    "Local issue, note, and asset relationships for this project.",
+    "",
+    "## Links",
+    ""
+  ].join("\n");
+}
+function issueMarkdown(issue2, summary, body, links) {
+  const fields = [
+    "---",
+    `id: ${issue2.id}`,
+    `title: ${yamlString2(issue2.title)}`,
+    `status: ${issue2.status}`,
+    `state_type: ${issue2.state_type}`,
+    `priority: ${issue2.priority}`,
+    `project: ${yamlString2(issue2.project)}`,
+    `assignee: ${yamlString2(issue2.assignee)}`,
+    `parent: ${issue2.parent || "~"}`,
+    `blocked_by: ${yamlFlowList(issue2.blocked_by)}`,
+    `tags: ${yamlFlowList(issue2.tags)}`
+  ];
+  if (issue2.milestone)
+    fields.push(`milestone: ${yamlString2(issue2.milestone)}`);
+  if (issue2.batch)
+    fields.push(`batch: ${issue2.batch}`);
+  fields.push(`created_at: ${yamlString2(issue2.created_at)}`);
+  fields.push(`updated_at: ${yamlString2(issue2.updated_at)}`);
+  fields.push("---");
+  return [
+    ...fields,
+    "",
+    `# ${issue2.id} ${issue2.title}`,
+    "",
+    "## Summary",
+    "",
+    summary || "TBD",
+    "",
+    "## Details",
+    "",
+    body || "",
+    "",
+    "## Links",
+    "",
+    ...links.length ? links.map((link) => `- ${link.relation}: ${link.target}`) : ["- none"],
+    ""
+  ].join("\n");
+}
+function commentBlock(actor, session, body, now) {
+  const sessionPart = session ? ` \xB7 session ${session}` : "";
+  return `## ${now} \xB7 ${actor}${sessionPart}
+
+${body.trim()}
+
+---
+
+`;
+}
+function parseFrontmatter(content) {
+  const match = content.match(/^---\n([\s\S]*?)\n---/);
+  if (!match)
+    return {};
+  const result = {};
+  for (const rawLine of match[1].split("\n")) {
+    const kv = rawLine.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
+    if (!kv)
+      continue;
+    const [, key, rawValue] = kv;
+    const value = rawValue.trim();
+    if (value.startsWith("[") && value.endsWith("]")) {
+      const inner = value.slice(1, -1).trim();
+      result[key] = inner ? inner.split(",").map((item) => item.trim().replace(/^"|"$/g, "")) : [];
+    } else if (value === "true") {
+      result[key] = true;
+    } else if (value === "false") {
+      result[key] = false;
+    } else {
+      result[key] = value.replace(/^"|"$/g, "");
+    }
+  }
+  return result;
+}
+function section(content, heading) {
+  const lines = content.split(/\r?\n/);
+  const start = lines.findIndex((line) => line.trim() === `## ${heading}`);
+  if (start < 0)
+    return "";
+  const out = [];
+  for (let i = start + 1; i < lines.length; i += 1) {
+    if (lines[i].startsWith("## "))
+      break;
+    out.push(lines[i]);
+  }
+  return out.join("\n").trim();
+}
+function parseLinks(content) {
+  const linkSection = section(content, "Links");
+  return linkSection.split("\n").map((line) => line.trim().match(/^-\s+([^:]+):\s+(.+)$/)).filter((match) => Boolean(match)).filter((match) => match[1] !== "none").map((match) => ({ relation: match[1].trim(), target: match[2].trim() }));
+}
+function parseIssue(relPath, content) {
+  const fm = parseFrontmatter(content);
+  const state = normalizeState(String(fm.state_type || fm.status || "unstarted"));
+  return {
+    path: relPath,
+    id: String(fm.id ?? relPath.split("/").pop()?.replace(/\.md$/, "") ?? ""),
+    title: String(fm.title ?? ""),
+    status: state.status,
+    state_type: state.state_type,
+    priority: normalizePriority(fm.priority),
+    project: String(fm.project ?? ""),
+    assignee: String(fm.assignee ?? ""),
+    parent: String(fm.parent ?? "~"),
+    blocked_by: Array.isArray(fm.blocked_by) ? fm.blocked_by.map(String) : [],
+    tags: Array.isArray(fm.tags) ? fm.tags.map(String) : [],
+    milestone: String(fm.milestone ?? ""),
+    batch: String(fm.batch ?? ""),
+    created_at: String(fm.created_at ?? ""),
+    updated_at: String(fm.updated_at ?? ""),
+    summary: section(content, "Summary"),
+    links: parseLinks(content)
+  };
+}
+function findIssue(vaultPath, project, id) {
+  const fullPath = join11(vaultPath, issuePath(project, id));
+  if (!existsSync8(fullPath))
+    throw makeErr(-32001, `Issue not found: ${id}`);
+  return { relPath: relative3(vaultPath, fullPath).replace(/\\/g, "/"), content: readFileSync8(fullPath, "utf-8") };
+}
+function issueToBoardCard(issue2) {
+  return `- [${issue2.state_type === "completed" ? "x" : " "}] ${issue2.id} ${issue2.title}`;
+}
+function listIssues(vaultPath, project, filters) {
+  const dir = join11(vaultPath, issuesRoot(project));
+  if (!existsSync8(dir))
+    return [];
+  const requestedState = typeof filters.status === "string" ? normalizeState(filters.status).state_type : void 0;
+  const assignee = typeof filters.assignee === "string" ? filters.assignee : void 0;
+  return readdirSync5(dir, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".md")).map((entry) => {
+    const relPath = `${issuesRoot(project)}/${entry.name}`;
+    return parseIssue(relPath, readFileSync8(join11(dir, entry.name), "utf-8"));
+  }).filter((issue2) => !requestedState || issue2.state_type === requestedState).filter((issue2) => !assignee || issue2.assignee === assignee).sort((a, b) => Number(a.id.split("-")[1] ?? 0) - Number(b.id.split("-")[1] ?? 0));
+}
+function regenerateBoard(vaultPath, project) {
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  const issues = listIssues(vaultPath, project, {});
+  const lanes = { backlog: [], unstarted: [], started: [], completed: [], canceled: [] };
+  for (const issue2 of issues)
+    lanes[issue2.state_type].push(issue2);
+  const content = [
+    "---",
+    "kanban-plugin: board",
+    `project: ${yamlString2(project)}`,
+    `updated_at: ${yamlString2(now)}`,
+    "---",
+    "",
+    "# Board",
+    "",
+    "## Backlog",
+    "",
+    ...lanes.backlog.map(issueToBoardCard),
+    "",
+    "## Todo",
+    "",
+    ...lanes.unstarted.map(issueToBoardCard),
+    "",
+    "## In Progress",
+    "",
+    ...lanes.started.map(issueToBoardCard),
+    "",
+    "## Done",
+    "",
+    ...lanes.completed.map(issueToBoardCard),
+    "",
+    "***",
+    "",
+    "## Canceled",
+    "",
+    ...lanes.canceled.map(issueToBoardCard),
+    "",
+    "%% kanban:settings",
+    "```json",
+    '{"kanban-plugin":"board"}',
+    "```",
+    "%%",
+    ""
+  ].join("\n");
+  writeVaultText(vaultPath, `${docketRoot(project)}/board.md`, content);
+}
+function appendRhizome(vaultPath, project, line) {
+  const rhizomePath = `${docketRoot(project)}/rhizome.md`;
+  const rhizome = readText2(join11(vaultPath, rhizomePath)) ?? rhizomeMarkdown(project, (/* @__PURE__ */ new Date()).toISOString());
+  const next = rhizome.includes(line) ? rhizome : `${rhizome.trimEnd()}
+${line}
+`;
+  writeVaultText(vaultPath, rhizomePath, next);
+}
+var BASE_FIELDS = ["id", "title", "status", "state_type", "priority", "assignee", "blocked_by", "updated_at", "tags"];
+var CANVAS_STATE_ORDER = ["backlog", "unstarted", "started", "completed", "canceled"];
+var CANVAS_COLORS = {
+  backlog: "6",
+  unstarted: "4",
+  started: "3",
+  completed: "5",
+  canceled: "1"
+};
+function viewsRoot(project) {
+  return `${projectRoot(project)}/views`;
+}
+function projectCanvasPath(project) {
+  return `${viewsRoot(project)}/project-map.canvas`;
+}
+function projectBasePath(project) {
+  return `${viewsRoot(project)}/issues.base`;
+}
+function canvasId(value) {
+  return value.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || "node";
+}
+function issueNodeId(issue2) {
+  return `issue-${canvasId(issue2.id)}`;
+}
+function groupNodeId(state) {
+  return `group-${state}`;
+}
+function edgeId(from, to, label) {
+  return `edge-${canvasId(from)}-${canvasId(to)}-${canvasId(label)}`;
+}
+function buildProjectCanvas(project, issues) {
+  const nodes = [
+    {
+      id: "project",
+      type: "text",
+      x: -420,
+      y: -180,
+      width: 340,
+      height: 150,
+      color: "2",
+      text: [`# ${project}`, "", "LLMwiki project map", "", `${issues.length} issues`].join("\n")
+    }
+  ];
+  const edges = [];
+  const issueById = new Map(issues.map((issue2) => [issue2.id, issue2]));
+  const emittedEdges = /* @__PURE__ */ new Set();
+  for (const [columnIndex, state] of CANVAS_STATE_ORDER.entries()) {
+    const laneIssues = issues.filter((issue2) => issue2.state_type === state);
+    const x = columnIndex * 430;
+    const height = Math.max(260, 110 + laneIssues.length * 170);
+    nodes.push({
+      id: groupNodeId(state),
+      type: "group",
+      x,
+      y: 0,
+      width: 380,
+      height,
+      label: STATE_TYPE_TO_STATUS[state],
+      color: CANVAS_COLORS[state]
+    });
+    for (const [rowIndex, issue2] of laneIssues.entries()) {
+      nodes.push({
+        id: issueNodeId(issue2),
+        type: "file",
+        x: x + 30,
+        y: 70 + rowIndex * 165,
+        width: 320,
+        height: 120,
+        file: issue2.path,
+        color: CANVAS_COLORS[state]
+      });
+    }
+  }
+  const addEdge = (fromIssue, toIssue, label, color = "2") => {
+    const fromNode = issueNodeId(fromIssue);
+    const toNode = issueNodeId(toIssue);
+    const id = edgeId(fromNode, toNode, label);
+    if (emittedEdges.has(id))
+      return;
+    emittedEdges.add(id);
+    edges.push({ id, fromNode, fromSide: "right", toNode, toSide: "left", label, color });
+  };
+  for (const issue2 of issues) {
+    for (const blockerId of issue2.blocked_by) {
+      const blocker = issueById.get(blockerId);
+      if (blocker)
+        addEdge(blocker, issue2, "blocks", "1");
+    }
+    for (const link of issue2.links) {
+      const target = issueById.get(link.target);
+      if (target)
+        addEdge(issue2, target, link.relation, "4");
+    }
+  }
+  return { nodes, edges };
+}
+function buildProjectBase(project) {
+  const sourceFolder = `${docketRoot(project)}/issues`;
+  const fields = [...BASE_FIELDS];
+  const content = [
+    `# LLMwiki Obsidian Bases dashboard for ${project}`,
+    "filters:",
+    "  and:",
+    `    - 'file.inFolder("${sourceFolder}")'`,
+    `    - 'file.ext == "md"'`,
+    "properties:",
+    "  id:",
+    "    displayName: ID",
+    "  title:",
+    "    displayName: Title",
+    "  status:",
+    "    displayName: Status",
+    "  state_type:",
+    "    displayName: State",
+    "  priority:",
+    "    displayName: Priority",
+    "  assignee:",
+    "    displayName: Assignee",
+    "  blocked_by:",
+    "    displayName: Blocked by",
+    "  updated_at:",
+    "    displayName: Updated",
+    "  tags:",
+    "    displayName: Tags",
+    "views:",
+    "  - type: table",
+    "    name: Issues",
+    "    order:",
+    "      - file.name",
+    ...fields.map((field) => `      - ${field}`),
+    "    groupBy:",
+    "      property: state_type",
+    "      direction: ASC",
+    ""
+  ].join("\n");
+  return { sourceFolder, fields, content };
+}
+function ensureCanWriteVisual(vaultPath, path, overwrite) {
+  if (!overwrite && existsSync8(join11(vaultPath, path))) {
+    throw makeErr(-32002, `Already exists: ${path}`);
+  }
+}
+function boolParam(value, defaultValue) {
+  return typeof value === "boolean" ? value : defaultValue;
+}
+function makeProjectOps(vaultPath) {
+  return [
+    {
+      name: "project.canvas.export",
+      namespace: "project",
+      description: "Export an Obsidian Canvas project map under 10-Projects/<project>/views/project-map.canvas.",
+      mutating: true,
+      params: {
+        project: { type: "string", required: true, description: "Project key" },
+        dryRun: { type: "boolean", required: false, default: true, description: "Preview Canvas JSON without writing (default: true)" },
+        overwrite: { type: "boolean", required: false, default: true, description: "Overwrite existing Canvas file (default: true)" }
+      },
+      handler: async (_ctx, params) => {
+        const project = safeSegment2(params.project, "project");
+        const dryRun = boolParam(params.dryRun, true);
+        const overwrite = boolParam(params.overwrite, true);
+        const path = projectCanvasPath(project);
+        const issues = listIssues(vaultPath, project, {});
+        const canvas = buildProjectCanvas(project, issues);
+        const content = JSON.stringify(canvas, null, 2) + "\n";
+        if (!dryRun) {
+          ensureCanWriteVisual(vaultPath, path, overwrite);
+          writeVaultText(vaultPath, path, content);
+        }
+        return { path, nodes: canvas.nodes, edges: canvas.edges, dryRun };
+      }
+    },
+    {
+      name: "project.base.export",
+      namespace: "project",
+      description: "Export an Obsidian Bases issues dashboard under 10-Projects/<project>/views/issues.base.",
+      mutating: true,
+      params: {
+        project: { type: "string", required: true, description: "Project key" },
+        dryRun: { type: "boolean", required: false, default: true, description: "Preview Bases YAML without writing (default: true)" },
+        overwrite: { type: "boolean", required: false, default: true, description: "Overwrite existing Bases file (default: true)" }
+      },
+      handler: async (_ctx, params) => {
+        const project = safeSegment2(params.project, "project");
+        const dryRun = boolParam(params.dryRun, true);
+        const overwrite = boolParam(params.overwrite, true);
+        const path = projectBasePath(project);
+        const base = buildProjectBase(project);
+        if (!dryRun) {
+          ensureCanWriteVisual(vaultPath, path, overwrite);
+          writeVaultText(vaultPath, path, base.content);
+        }
+        return { path, sourceFolder: base.sourceFolder, fields: base.fields, dryRun };
+      }
+    },
+    {
+      name: "project.init",
+      namespace: "project",
+      description: "Seed a local docket/rhizome/seed-inspired project workspace under 10-Projects/<project>.",
+      mutating: true,
+      params: { project: { type: "string", required: true, description: "Project key, single safe path segment" } },
+      handler: async (ctx, params) => {
+        const project = safeSegment2(params.project, "project");
+        const actor = actorFromContext2(ctx);
+        const now = (/* @__PURE__ */ new Date()).toISOString();
+        const writes = [
+          { path: `${projectRoot(project)}/project.md`, content: projectIndex(project, actor, now) },
+          { path: `${docketRoot(project)}/board.md`, content: boardMarkdown(project, now) },
+          { path: `${docketRoot(project)}/rhizome.md`, content: rhizomeMarkdown(project, now) },
+          { path: `${docketProjectsRoot(project)}/${project}.md`, content: docketProjectMarkdown(project, actor, now) },
+          { path: `${docketRoot(project)}/docs/INDEX.md`, content: "# Project docs\n\nRhizome domain index for project documentation.\n" },
+          { path: `${docketRoot(project)}/docs/architecture.md`, content: "# Architecture\n\nLocal development map for this project.\n" }
+        ];
+        for (const write of writes)
+          if (!existsSync8(join11(vaultPath, write.path)))
+            writeVaultText(vaultPath, write.path, write.content);
+        mkdirSync5(join11(vaultPath, issuesRoot(project)), { recursive: true });
+        mkdirSync5(join11(vaultPath, commentsRoot(project)), { recursive: true });
+        return { ok: true, project, root: projectRoot(project), files: writes.map((write) => write.path) };
+      }
+    },
+    {
+      name: "project.issue.create",
+      namespace: "project",
+      description: "Create a docket-compatible Markdown issue. Default status is Todo/unstarted.",
+      mutating: true,
+      params: {
+        project: { type: "string", required: true, description: "Project key" },
+        title: { type: "string", required: true, description: "Issue title" },
+        summary: { type: "string", required: false, description: "Short issue summary" },
+        body: { type: "string", required: false, description: "Detailed issue body" },
+        status: { type: "string", required: false, description: "Docket status or state_type" },
+        priority: { type: "string", required: false, enum: [...VALID_PRIORITIES], default: "No priority", description: "Docket priority" },
+        assignee: { type: "string", required: false, description: "Actor or human owner" },
+        tags: { type: "array", required: false, description: "Issue tags" },
+        blocked_by: { type: "array", required: false, description: "Blocking issue ids" },
+        parent: { type: "string", required: false, description: "Parent issue id or ~" },
+        milestone: { type: "string", required: false, description: "Milestone label" },
+        batch: { type: "number", required: false, description: "Rolling batch ordinal" }
+      },
+      handler: async (ctx, params) => {
+        const project = safeSegment2(params.project, "project");
+        const title = String(params.title ?? "").trim();
+        if (!title)
+          throw makeErr(-32602, "title required");
+        const now = (/* @__PURE__ */ new Date()).toISOString();
+        const id = nextIssueId(vaultPath, project);
+        const state = normalizeState(params.status);
+        const issue2 = {
+          id,
+          title,
+          status: state.status,
+          state_type: state.state_type,
+          priority: normalizePriority(params.priority),
+          project,
+          assignee: typeof params.assignee === "string" && params.assignee.trim() ? params.assignee.trim() : actorFromContext2(ctx),
+          parent: typeof params.parent === "string" && params.parent.trim() ? params.parent.trim() : "~",
+          blocked_by: normalizeList(params.blocked_by).map(safeDocketId),
+          tags: normalizeList(params.tags),
+          milestone: typeof params.milestone === "string" ? params.milestone.trim() : "",
+          batch: typeof params.batch === "number" ? String(Math.trunc(params.batch)) : "",
+          created_at: now,
+          updated_at: now
+        };
+        const path = issuePath(project, id);
+        writeVaultText(vaultPath, path, issueMarkdown(issue2, String(params.summary ?? ""), String(params.body ?? ""), []));
+        regenerateBoard(vaultPath, project);
+        return { ok: true, id, path, issue: issue2 };
+      }
+    },
+    {
+      name: "project.issue.list",
+      namespace: "project",
+      description: "List local project issues, optionally filtered by docket status/state_type or assignee.",
+      mutating: false,
+      params: {
+        project: { type: "string", required: true, description: "Project key" },
+        status: { type: "string", required: false, description: "Optional status or state_type filter" },
+        assignee: { type: "string", required: false, description: "Optional assignee filter" }
+      },
+      handler: async (_ctx, params) => {
+        const project = safeSegment2(params.project, "project");
+        const issues = listIssues(vaultPath, project, params);
+        return { count: issues.length, issues };
+      }
+    },
+    {
+      name: "project.issue.get",
+      namespace: "project",
+      description: "Read a local project issue by id.",
+      mutating: false,
+      params: {
+        project: { type: "string", required: true, description: "Project key" },
+        id: { type: "string", required: true, description: "Issue id, e.g. ISSUE-1" }
+      },
+      handler: async (_ctx, params) => {
+        const project = safeSegment2(params.project, "project");
+        const found = findIssue(vaultPath, project, params.id);
+        return { issue: parseIssue(found.relPath, found.content), content: found.content };
+      }
+    },
+    {
+      name: "project.issue.update",
+      namespace: "project",
+      description: "Update status/state_type, priority, assignee, dependency fields, summary, or body for a local project issue.",
+      mutating: true,
+      params: {
+        project: { type: "string", required: true, description: "Project key" },
+        id: { type: "string", required: true, description: "Issue id" },
+        status: { type: "string", required: false, description: "New status or state_type" },
+        priority: { type: "string", required: false, enum: [...VALID_PRIORITIES], description: "New priority" },
+        assignee: { type: "string", required: false, description: "New assignee" },
+        tags: { type: "array", required: false, description: "Replacement tags" },
+        blocked_by: { type: "array", required: false, description: "Replacement blocking issue ids" },
+        parent: { type: "string", required: false, description: "Replacement parent issue id or ~" },
+        summary: { type: "string", required: false, description: "Replacement summary" },
+        body: { type: "string", required: false, description: "Replacement details body" }
+      },
+      handler: async (_ctx, params) => {
+        const project = safeSegment2(params.project, "project");
+        const found = findIssue(vaultPath, project, params.id);
+        const current = parseIssue(found.relPath, found.content);
+        const state = params.status === void 0 ? current : normalizeState(params.status, current.state_type);
+        const now = (/* @__PURE__ */ new Date()).toISOString();
+        const issue2 = {
+          ...current,
+          status: state.status,
+          state_type: state.state_type,
+          priority: params.priority === void 0 ? current.priority : normalizePriority(params.priority, current.priority),
+          assignee: typeof params.assignee === "string" ? params.assignee.trim() : current.assignee,
+          tags: Array.isArray(params.tags) ? normalizeList(params.tags) : current.tags,
+          blocked_by: Array.isArray(params.blocked_by) ? normalizeList(params.blocked_by).map(safeDocketId) : current.blocked_by,
+          parent: typeof params.parent === "string" ? params.parent.trim() || "~" : current.parent,
+          updated_at: now
+        };
+        const summary = typeof params.summary === "string" ? params.summary : current.summary;
+        const body = typeof params.body === "string" ? params.body : section(found.content, "Details");
+        writeVaultText(vaultPath, found.relPath, issueMarkdown(issue2, summary, body, current.links));
+        regenerateBoard(vaultPath, project);
+        return { ok: true, path: found.relPath, issue: issue2 };
+      }
+    },
+    {
+      name: "project.issue.link",
+      namespace: "project",
+      description: "Add a rhizome relationship. blocks/blocked_by also update docket blocked_by dependencies.",
+      mutating: true,
+      params: {
+        project: { type: "string", required: true, description: "Project key" },
+        id: { type: "string", required: true, description: "Source issue id" },
+        relation: { type: "string", required: true, enum: [...VALID_RELATIONS], description: "Relationship type" },
+        target: { type: "string", required: true, description: "Target issue id or note slug/path" }
+      },
+      handler: async (_ctx, params) => {
+        const project = safeSegment2(params.project, "project");
+        const relation = enumValue(params.relation, VALID_RELATIONS, "relates");
+        const target = String(params.target ?? "").trim();
+        if (!target)
+          throw makeErr(-32602, "target required");
+        const found = findIssue(vaultPath, project, params.id);
+        const issue2 = parseIssue(found.relPath, found.content);
+        const links = [...issue2.links, { relation, target }];
+        writeVaultText(vaultPath, found.relPath, issueMarkdown(issue2, issue2.summary, section(found.content, "Details"), links));
+        if (relation === "blocked_by") {
+          const nextBlockedBy = Array.from(/* @__PURE__ */ new Set([...issue2.blocked_by, safeDocketId(target)]));
+          writeVaultText(vaultPath, found.relPath, issueMarkdown({ ...issue2, blocked_by: nextBlockedBy }, issue2.summary, section(found.content, "Details"), links));
+        }
+        if (relation === "blocks") {
+          const targetFound = findIssue(vaultPath, project, target);
+          const targetIssue = parseIssue(targetFound.relPath, targetFound.content);
+          const nextBlockedBy = Array.from(/* @__PURE__ */ new Set([...targetIssue.blocked_by, issue2.id]));
+          writeVaultText(vaultPath, targetFound.relPath, issueMarkdown({ ...targetIssue, blocked_by: nextBlockedBy }, targetIssue.summary, section(targetFound.content, "Details"), targetIssue.links));
+        }
+        appendRhizome(vaultPath, project, `- ${issue2.id} ${relation} ${target}`);
+        regenerateBoard(vaultPath, project);
+        return { ok: true, path: found.relPath, relation, target, rhizomePath: `${docketRoot(project)}/rhizome.md` };
+      }
+    },
+    {
+      name: "project.comment.add",
+      namespace: "project",
+      description: "Append a docket-style comment block under docket/comments/<issue-id>.md.",
+      mutating: true,
+      params: {
+        project: { type: "string", required: true, description: "Project key" },
+        id: { type: "string", required: true, description: "Issue id" },
+        body: { type: "string", required: true, description: "Comment Markdown body" },
+        actor: { type: "string", required: false, description: "Comment actor; defaults to collaboration actor" },
+        session: { type: "string", required: false, description: "Optional session/thread id" }
+      },
+      handler: async (ctx, params) => {
+        const project = safeSegment2(params.project, "project");
+        const id = safeDocketId(params.id);
+        findIssue(vaultPath, project, id);
+        const body = String(params.body ?? "").trim();
+        if (!body)
+          throw makeErr(-32602, "body required");
+        const actor = typeof params.actor === "string" && params.actor.trim() ? safeSegment2(params.actor, "actor") : actorFromContext2(ctx);
+        const session = typeof params.session === "string" ? params.session.trim() : process.env.CODEX_THREAD_ID || "";
+        const path = `${commentsRoot(project)}/${id}.md`;
+        const existing = readText2(join11(vaultPath, path)) ?? `# Comments for ${id}
+
+`;
+        const now = (/* @__PURE__ */ new Date()).toISOString();
+        writeVaultText(vaultPath, path, existing.trimEnd() + "\n\n" + commentBlock(actor, session, body, now));
+        return { ok: true, path, actor, session };
+      }
+    },
+    {
+      name: "project.board.get",
+      namespace: "project",
+      description: "Return the generated Markdown Kanban board for a local project.",
+      mutating: false,
+      params: { project: { type: "string", required: true, description: "Project key" } },
+      handler: async (_ctx, params) => {
+        const project = safeSegment2(params.project, "project");
+        const path = `${docketRoot(project)}/board.md`;
+        const content = readText2(join11(vaultPath, path)) ?? "";
+        return { exists: Boolean(content), path, content };
+      }
+    }
+  ];
+}
+
+// dist/ingest/ingest.js
+var PROVIDERS = {
+  opencli: {
+    id: "opencli",
+    name: "OPENCLI",
+    env: "VAULT_MIND_OPENCLI_CMD",
+    fallbackEnv: "OPENCLI_CMD",
+    purpose: "OpenCLI plus BBX/browser bridge web capture, article extraction, browser-assisted clipping, and text-first source normalization.",
+    outputContract: "Save Markdown into the vault, preserving source URL and capture metadata."
+  },
+  media: {
+    id: "media",
+    name: "MEDIA_TRANSCRIBE",
+    env: "VAULT_MIND_MEDIA_CMD",
+    fallbackEnv: "MEDIA_TRANSCRIBE_CMD",
+    purpose: "Audio/video parsing, download, subtitle handling, transcription, and media-first source normalization.",
+    outputContract: "Save transcript Markdown into the vault, preserving source URL, media metadata, parser provenance, and transcription provenance."
+  }
+};
+var LOGIN_LIMITATION = "Login-gated, private, deleted, paywalled, or region-blocked content may require browser/cookie-assisted capture.";
+var NO_BYPASS_LIMITATION = "LLMwiki must not bypass platform access controls; use only content available to the user and configured providers.";
+function hostMatches(host, candidates) {
+  return candidates.some((candidate) => host === candidate || host.endsWith(`.${candidate}`));
+}
+function parseInputUrl(value) {
+  if (typeof value !== "string" || !value.trim()) {
+    throw badRequest("url must be a non-empty absolute URL");
+  }
+  try {
+    const url2 = new URL(value);
+    if (!url2.protocol.startsWith("http"))
+      throw new Error("unsupported protocol");
+    return url2;
+  } catch {
+    throw badRequest("url must be absolute http(s) URL");
+  }
+}
+function directMediaProfile(url2) {
+  const path = `${url2.pathname}${url2.search}`.toLowerCase();
+  if (/\.(mp3|m4a|wav|flac|ogg|aac)(\?|$)/i.test(path)) {
+    return {
+      platform: "direct-audio",
+      label: "Direct audio file",
+      sourceType: "audio",
+      sourceKind: "file",
+      defaultProvider: "media",
+      confidence: "high",
+      mode: "media-transcription",
+      accessContext: "public",
+      needs: ["readable media URL", "media transcription provider"],
+      limitations: [NO_BYPASS_LIMITATION]
+    };
+  }
+  if (/\.(mp4|mov|mkv|webm|m4v)(\?|$)/i.test(path)) {
+    return {
+      platform: "direct-video",
+      label: "Direct video file",
+      sourceType: "video",
+      sourceKind: "file",
+      defaultProvider: "media",
+      confidence: "high",
+      mode: "media-transcription",
+      accessContext: "public",
+      needs: ["readable media URL", "media parsing/download/transcription provider"],
+      limitations: [NO_BYPASS_LIMITATION]
+    };
+  }
+  return null;
+}
+function detectPlatform(url2) {
+  const host = url2.hostname.toLowerCase().replace(/^www\./, "");
+  const media = directMediaProfile(url2);
+  if (media)
+    return media;
+  if (hostMatches(host, ["youtube.com", "youtu.be", "youtube-nocookie.com"])) {
+    return mediaProfile("youtube", "YouTube", "video", "media-transcription", "high", "public", [
+      "media parsing/download/transcription provider",
+      "subtitles or transcription model",
+      "cookies only when video requires authenticated access"
+    ]);
+  }
+  if (hostMatches(host, ["bilibili.com", "b23.tv"])) {
+    return mediaProfile("bilibili", "Bilibili", "video", "media-transcription", "medium", "cookie_required", [
+      "media parsing/download/transcription provider",
+      "subtitle/transcription support",
+      "cookies for login-gated or high-risk videos"
+    ]);
+  }
+  if (hostMatches(host, ["douyin.com", "iesdouyin.com"])) {
+    return mediaProfile("douyin", "Douyin", "video", "browser-capture", "low", "browser_required", [
+      "OPENCLI/BBX browser resolver for short links and page metadata",
+      "media parsing/download/transcription provider",
+      "authenticated browser or cookie-assisted capture when required"
+    ], ["Short-video pages change frequently; expect manual fallback."]);
+  }
+  if (hostMatches(host, ["tiktok.com", "vm.tiktok.com"])) {
+    return mediaProfile("tiktok", "TikTok", "video", "browser-capture", "medium", "browser_required", [
+      "OPENCLI/BBX browser resolver for short links and page metadata",
+      "media parsing/download/transcription provider"
+    ], ["TikTok links may need browser resolution before media download/transcription."]);
+  }
+  if (hostMatches(host, ["xiaohongshu.com", "xhslink.com"])) {
+    return webProfile("xiaohongshu", "Xiaohongshu", "social", "browser-capture", "low", "browser_required", [
+      "OPENCLI browser-assisted capture",
+      "authenticated browser session when required",
+      "media provider for video notes"
+    ], ["Video notes may need a second media parsing/download/transcription step."]);
+  }
+  if (hostMatches(host, ["x.com", "twitter.com"])) {
+    return webProfile("x", "X / Twitter", "social", "browser-capture", "medium", "browser_required", [
+      "OPENCLI browser-assisted capture",
+      "authenticated browser session for login-gated posts"
+    ], ["Threads, quote posts, deleted replies, and media need manual review."]);
+  }
+  if (hostMatches(host, ["weibo.com", "weibo.cn", "m.weibo.cn"])) {
+    return webProfile("weibo", "Weibo", "social", "browser-capture", "medium", "browser_required", [
+      "OPENCLI/BBX browser-assisted capture",
+      "authenticated browser session for login-gated posts",
+      "media provider for video posts"
+    ], ["Video posts may need a second media parsing/download/transcription step."]);
+  }
+  if (hostMatches(host, ["mp.weixin.qq.com", "weixin.qq.com"])) {
+    return webProfile("wechat-official-account", "WeChat Official Account", "article", "web-capture", "medium", "public", [
+      "OPENCLI article capture",
+      "browser session when article blocks anonymous access"
+    ]);
+  }
+  if (hostMatches(host, ["zhihu.com", "zhuanlan.zhihu.com"])) {
+    return webProfile("zhihu", "Zhihu", "article", "web-capture", "medium", "login_required", [
+      "OPENCLI article/question/answer capture",
+      "browser session when content blocks anonymous access"
+    ], ["Answers folded behind login or app prompts may need browser-assisted capture."]);
+  }
+  if (hostMatches(host, ["podcasts.apple.com", "open.spotify.com", "podcasters.spotify.com"]) || /\.xml(\?|$)/i.test(url2.pathname)) {
+    return {
+      platform: "podcast",
+      label: "Podcast",
+      sourceType: "podcast",
+      sourceKind: "episode",
+      defaultProvider: "media",
+      confidence: "medium",
+      mode: "media-transcription",
+      accessContext: "public",
+      needs: ["media audio/transcription provider", "episode audio URL or provider-supported podcast page"],
+      limitations: ["Some podcast pages require resolving the episode media URL first.", NO_BYPASS_LIMITATION]
+    };
+  }
+  return webProfile("generic-web", "Generic web page", "web", "web-capture", "medium", "public", ["OPENCLI web capture"]);
+}
+function mediaProfile(platform, label, sourceKind, mode, confidence, accessContext, needs, extraLimitations = []) {
+  return {
+    platform,
+    label,
+    sourceType: "video",
+    sourceKind,
+    defaultProvider: "media",
+    confidence,
+    mode,
+    accessContext,
+    needs,
+    limitations: [LOGIN_LIMITATION, ...extraLimitations, NO_BYPASS_LIMITATION]
+  };
+}
+function webProfile(platform, label, sourceType, mode, confidence, accessContext, needs, extraLimitations = []) {
+  return {
+    platform,
+    label,
+    sourceType,
+    sourceKind: sourceType === "article" ? "article" : "post",
+    defaultProvider: "opencli",
+    confidence,
+    mode,
+    accessContext,
+    needs,
+    limitations: [LOGIN_LIMITATION, ...extraLimitations, NO_BYPASS_LIMITATION]
+  };
+}
+function providerConfig(provider) {
+  const descriptor = PROVIDERS[provider];
+  const command = process.env[descriptor.env] || process.env[descriptor.fallbackEnv] || provider;
+  return {
+    configured: Boolean(process.env[descriptor.env] || process.env[descriptor.fallbackEnv]),
+    command,
+    env: descriptor.env,
+    fallbackEnv: descriptor.fallbackEnv
+  };
+}
+function chooseProvider(profile, preferred) {
+  if (preferred === void 0 || preferred === null || preferred === "" || preferred === "auto") {
+    return profile.defaultProvider;
+  }
+  if (preferred === "opencli" || preferred === "media")
+    return preferred;
+  if (preferred === "openttpe")
+    return "media";
+  throw badRequest("preferredProvider must be auto, opencli, or media");
+}
+function statusFor(profile, configured) {
+  if (!configured)
+    return "needs_provider";
+  if (profile.mode === "browser-capture")
+    return "needs_browser_or_login";
+  if (profile.mode === "manual" || profile.confidence === "low")
+    return "manual_required";
+  return "ready";
+}
+function nextAction(status, provider, config2) {
+  if (status === "needs_provider") {
+    return `Configure ${provider.name} with ${config2.env} or ${config2.fallbackEnv}; then run the provider to produce Markdown in the vault.`;
+  }
+  if (status === "needs_browser_or_login") {
+    return `Use ${provider.name} with browser/cookie-assisted access as needed; claim success only after Markdown lands in the vault and query.unified can find it.`;
+  }
+  if (status === "manual_required") {
+    return `Try ${provider.name}, but expect manual/Web Clipper fallback; LLMwiki should only claim success after a local Markdown note exists.`;
+  }
+  return `Run ${provider.name} via ${config2.command}; once Markdown lands in the vault, use query.unified for cited analysis.`;
+}
+function recommendedVaultPath(profile) {
+  if (profile.defaultProvider === "media")
+    return "\u7D20\u6750\u5E93/media/<source-slug>.md";
+  if (profile.sourceType === "article")
+    return "\u7D20\u6750\u5E93/articles/<source-slug>.md";
+  return "\u7D20\u6750\u5E93/web/<source-slug>.md";
+}
+function pipelineFor(profile, primary) {
+  const ids = ["douyin", "xiaohongshu", "tiktok", "weibo"].includes(profile.platform) ? ["opencli", "media"] : [primary];
+  return ids.map((id) => {
+    const provider = PROVIDERS[id];
+    const config2 = providerConfig(id);
+    return {
+      id: provider.id,
+      name: provider.name,
+      configured: config2.configured,
+      command: config2.command,
+      capability: id === "opencli" ? "resolve.capture" : "media.transcribe",
+      role: id === "opencli" ? "resolve browser/page/source metadata and capture text-first material" : "parse/download media and produce transcript Markdown"
+    };
+  });
+}
+function preflight(params) {
+  const url2 = parseInputUrl(params.url);
+  const profile = detectPlatform(url2);
+  const providerId = chooseProvider(profile, params.preferredProvider);
+  const provider = PROVIDERS[providerId];
+  const config2 = providerConfig(providerId);
+  const status = statusFor(profile, config2.configured);
+  return {
+    url: url2.toString(),
+    platform: profile.platform,
+    label: profile.label,
+    sourceType: profile.sourceType,
+    sourceKind: profile.sourceKind,
+    access_context: profile.accessContext,
+    mode: profile.mode,
+    provider: {
+      id: provider.id,
+      name: provider.name,
+      configured: config2.configured,
+      command: config2.command,
+      env: config2.env,
+      fallbackEnv: config2.fallbackEnv,
+      purpose: provider.purpose
+    },
+    pipeline: pipelineFor(profile, providerId),
+    can_auto_ingest: status === "ready",
+    status,
+    confidence: profile.confidence,
+    needs: profile.needs,
+    limitations: profile.limitations,
+    output_contract: provider.outputContract,
+    recommended_vault_path: recommendedVaultPath(profile),
+    next_action: nextAction(status, provider, config2)
+  };
+}
+function makeIngestOps() {
+  return [
+    {
+      name: "ingest.providers",
+      namespace: "ingest",
+      description: "List supported local ingest providers. LLMwiki routes to OPENCLI for text/web capture and MEDIA_TRANSCRIBE for audio/video parsing, download, and transcription; it does not bundle platform scrapers.",
+      mutating: false,
+      params: {},
+      handler: async () => ({
+        providers: Object.values(PROVIDERS).map((provider) => {
+          const config2 = providerConfig(provider.id);
+          return {
+            id: provider.id,
+            name: provider.name,
+            configured: config2.configured,
+            command: config2.command,
+            env: config2.env,
+            fallbackEnv: config2.fallbackEnv,
+            purpose: provider.purpose,
+            output_contract: provider.outputContract
+          };
+        })
+      })
+    },
+    {
+      name: "ingest.link.preflight",
+      namespace: "ingest",
+      description: "Classify a source URL and route it to OPENCLI or MEDIA_TRANSCRIBE. Read-only capability check; capture succeeds only after a provider writes Markdown into the vault.",
+      mutating: false,
+      params: {
+        url: { type: "string", required: true, description: "Absolute source URL to classify" },
+        preferredProvider: {
+          type: "string",
+          required: false,
+          enum: ["auto", "opencli", "media"],
+          default: "auto",
+          description: "Override provider routing when needed"
+        }
+      },
+      handler: async (_ctx, params) => preflight(params)
+    }
+  ];
+}
+
+// dist/source/source.js
+import { createHash } from "node:crypto";
+import { existsSync as existsSync9, mkdirSync as mkdirSync6, readFileSync as readFileSync9, rmSync as rmSync2, statSync as statSync2, writeFileSync as writeFileSync5 } from "node:fs";
+import { basename as basename4, dirname as dirname7, extname, join as join12, relative as relative4, isAbsolute as pathIsAbsolute } from "node:path";
+var REGISTRY_REL_PATH = "_llmwiki/source-registry.json";
+var LOCK_TTL_MS2 = 6e4;
+var RESERVED_INPUT_TYPES = /* @__PURE__ */ new Set(["filePath", "directoryPath", "repoPath", "text"]);
+var PROTECTED_DIRS2 = /* @__PURE__ */ new Set([".obsidian", ".trash", ".git", "node_modules"]);
+function makeSourceOps(vaultPath) {
+  return [
+    {
+      name: "source.register",
+      namespace: "source",
+      description: "Register a long-lived source in the lightweight Source Registry. URL inputs run ingest preflight only; no download or transcription is executed.",
+      mutating: true,
+      params: {
+        input: { type: "string", required: true, description: "URL or vault-relative path to register" },
+        inputType: {
+          type: "string",
+          required: false,
+          default: "url",
+          enum: ["url", "vaultPath", "filePath", "directoryPath", "repoPath", "text"],
+          description: "Source input type. Phase 1 supports url and vaultPath only."
+        },
+        title: { type: "string", required: false, description: "Human-readable source title" },
+        project: { type: "string", required: false, description: "Optional project slug for project-scoped Source Notes" },
+        platform: { type: "string", required: false, description: "Optional platform override such as douyin, bilibili, x, youtube" },
+        sourceKind: { type: "string", required: false, description: "Optional source kind override such as profile, video, post, channel" },
+        preferredProvider: {
+          type: "string",
+          required: false,
+          enum: ["opencli", "media"],
+          description: "Optional preflight provider preference. Preflight remains read-only."
+        },
+        tags: { type: "array", required: false, description: "Optional tags for the Source Note and registry record" },
+        notes: { type: "string", required: false, description: "Optional operator notes stored in the Source Note" }
+      },
+      handler: async (ctx, params) => registerSource(ctx, vaultPath, params)
+    },
+    {
+      name: "source.list",
+      namespace: "source",
+      description: "List Source Registry records, optionally filtered by project, platform, or inputType.",
+      mutating: false,
+      params: {
+        project: { type: "string", required: false, description: "Filter by project slug" },
+        platform: { type: "string", required: false, description: "Filter by platform" },
+        inputType: {
+          type: "string",
+          required: false,
+          enum: ["url", "vaultPath"],
+          description: "Filter by supported input type"
+        }
+      },
+      handler: async (_ctx, params) => listSources(vaultPath, params)
+    },
+    {
+      name: "source.get",
+      namespace: "source",
+      description: "Get one Source Registry record by id, canonical URL/path, or original input.",
+      mutating: false,
+      params: {
+        id: { type: "string", required: false, description: "Source id returned by source.register" },
+        input: { type: "string", required: false, description: "Original URL or vault-relative path" },
+        inputType: {
+          type: "string",
+          required: false,
+          default: "url",
+          enum: ["url", "vaultPath"],
+          description: "Input type used when resolving input to a source id"
+        }
+      },
+      handler: async (_ctx, params) => getSource(vaultPath, params)
+    }
+  ];
+}
+function registerSource(ctx, vaultPath, params) {
+  const input = requireString(params.input, "input");
+  const inputType = parseInputType(params.inputType);
+  if (RESERVED_INPUT_TYPES.has(inputType)) {
+    throw unsupported(`source.register does not support inputType=${inputType} in Phase 1`);
+  }
+  const project = optionalSafeSegment(params.project, "project");
+  const actor = actorFromContext3(ctx);
+  const titleOverride = optionalString(params.title);
+  const tags = stringArray(params.tags);
+  const notes = optionalString(params.notes);
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  const prepared = inputType === "url" ? prepareUrlSource(input, params) : prepareVaultPathSource(vaultPath, input, params);
+  const title = titleOverride ?? prepared.title;
+  const id = sourceId(prepared.canonical);
+  const registryPath = registryFullPath(vaultPath);
+  let saved;
+  withFileLock2(registryPath, () => {
+    const registry2 = readRegistry(registryPath);
+    const existing = registry2.sources[id];
+    const notePath = existing?.notePath ?? sourceNotePath(project, prepared.platform, `${slugify3(title)}-${id.slice(4)}`);
+    const record2 = {
+      id,
+      inputType,
+      input,
+      canonical: prepared.canonical,
+      platform: prepared.platform,
+      sourceKind: prepared.sourceKind,
+      title,
+      project,
+      actor,
+      notePath,
+      tags,
+      notes,
+      preflight: prepared.preflight,
+      created_at: existing?.created_at ?? now,
+      updated_at: now
+    };
+    writeTextLocked(vaultFullPath(vaultPath, notePath), sourceNoteMarkdown(record2));
+    registry2.sources[id] = record2;
+    registry2.updated_at = now;
+    writeFileSync5(registryPath, JSON.stringify(registry2, null, 2) + "\n", "utf-8");
+    saved = record2;
+  });
+  if (!saved)
+    throw conflict("source.register failed to persist registry record");
+  return { ...saved, ok: true, path: saved.notePath, registryPath: REGISTRY_REL_PATH };
+}
+function listSources(vaultPath, params) {
+  const registry2 = readRegistry(registryFullPath(vaultPath));
+  const project = optionalString(params.project);
+  const platform = optionalString(params.platform);
+  const inputType = optionalString(params.inputType);
+  const sources = Object.values(registry2.sources).filter((source) => project ? source.project === project : true).filter((source) => platform ? source.platform === platform : true).filter((source) => inputType ? source.inputType === inputType : true).sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+  return { sources };
+}
+function getSource(vaultPath, params) {
+  const registry2 = readRegistry(registryFullPath(vaultPath));
+  const id = optionalString(params.id) ?? sourceIdForInput(vaultPath, params);
+  if (!id)
+    throw badRequest("source.get requires id or input");
+  const source = registry2.sources[id];
+  if (!source)
+    throw notFound(`Source not found: ${id}`);
+  return source;
+}
+function sourceIdForInput(vaultPath, params) {
+  const input = optionalString(params.input);
+  if (!input)
+    return void 0;
+  const inputType = parseInputType(params.inputType);
+  if (inputType === "url")
+    return sourceId(canonicalUrl(input));
+  if (inputType === "vaultPath")
+    return sourceId(`vault:${normalizeVaultRelPath(vaultPath, input)}`);
+  throw unsupported(`source.get does not support inputType=${inputType} in Phase 1`);
+}
+function prepareUrlSource(input, params) {
+  const canonical = canonicalUrl(input);
+  const preferredProvider = optionalString(params.preferredProvider);
+  const plan = preflight({ url: canonical, preferredProvider });
+  const platform = safeSegment3(optionalString(params.platform) ?? stringValue3(plan.platform) ?? detectPlatform2(canonical), "platform");
+  const sourceKind = optionalString(params.sourceKind) ?? stringValue3(plan.sourceKind) ?? stringValue3(plan.source_kind) ?? "url";
+  return {
+    canonical,
+    platform,
+    sourceKind,
+    title: titleFromUrl(canonical),
+    preflight: plan
+  };
+}
+function prepareVaultPathSource(vaultPath, input, params) {
+  const normalized = normalizeVaultRelPath(vaultPath, input);
+  if (!existsSync9(vaultFullPath(vaultPath, normalized))) {
+    throw notFound(`Vault path not found: ${normalized}`);
+  }
+  return {
+    canonical: `vault:${normalized}`,
+    platform: safeSegment3(optionalString(params.platform) ?? "vault", "platform"),
+    sourceKind: optionalString(params.sourceKind) ?? "vaultPath",
+    title: basename4(normalized, extname(normalized))
+  };
+}
+function parseInputType(value) {
+  const inputType = typeof value === "string" && value.trim() ? value.trim() : "url";
+  if (!["url", "vaultPath", "filePath", "directoryPath", "repoPath", "text"].includes(inputType)) {
+    throw badRequest(`Unsupported inputType: ${inputType}`);
+  }
+  return inputType;
+}
+function canonicalUrl(input) {
+  let url2;
+  try {
+    url2 = new URL(input.trim());
+  } catch {
+    throw badRequest("input must be a valid URL for inputType=url");
+  }
+  if (url2.protocol !== "http:" && url2.protocol !== "https:") {
+    throw unsupported(`Unsupported URL protocol: ${url2.protocol}`);
+  }
+  url2.hash = "";
+  url2.hostname = url2.hostname.toLowerCase();
+  if (url2.pathname.length > 1)
+    url2.pathname = url2.pathname.replace(/\/+$/, "");
+  return url2.toString();
+}
+function normalizeVaultRelPath(vaultPath, input) {
+  const raw = input.trim();
+  if (!raw)
+    throw badRequest("vaultPath input required");
+  if (/^[A-Za-z]:[\\/]/.test(raw) || raw.startsWith("\\\\") || raw.startsWith("//") || pathIsAbsolute(raw)) {
+    throw badRequest("vaultPath must be vault-relative");
+  }
+  const normalized = raw.replace(/\\/g, "/").replace(/\/+/g, "/");
+  if (normalized.split("/").some((part) => part === ".." || part === ".")) {
+    throw badRequest("vaultPath traversal blocked");
+  }
+  const top = normalized.split("/")[0];
+  if (PROTECTED_DIRS2.has(top))
+    throw badRequest(`protected path: ${top}`);
+  const full = join12(vaultPath, normalized.replace(/\//g, "\\"));
+  const rel = relative4(vaultPath, full);
+  if (rel.startsWith("..") || pathIsAbsolute(rel))
+    throw badRequest("vaultPath escapes vault");
+  return normalized;
+}
+function readRegistry(fullPath) {
+  if (!existsSync9(fullPath)) {
+    return { version: 1, updated_at: (/* @__PURE__ */ new Date(0)).toISOString(), sources: {} };
+  }
+  const parsed = JSON.parse(readFileSync9(fullPath, "utf-8"));
+  return {
+    version: 1,
+    updated_at: typeof parsed.updated_at === "string" ? parsed.updated_at : (/* @__PURE__ */ new Date(0)).toISOString(),
+    sources: parsed.sources && typeof parsed.sources === "object" ? parsed.sources : {}
+  };
+}
+function registryFullPath(vaultPath) {
+  return vaultFullPath(vaultPath, REGISTRY_REL_PATH);
+}
+function vaultFullPath(vaultPath, relPath) {
+  return join12(vaultPath, ...relPath.split("/"));
+}
+function sourceNotePath(project, platform, slug) {
+  return project ? `10-Projects/${project}/sources/${platform}/${slug}.md` : `00-Inbox/Sources/${platform}/${slug}.md`;
+}
+function sourceNoteMarkdown(source) {
+  return [
+    "---",
+    "llmwiki-source: true",
+    `source-id: ${yamlString3(source.id)}`,
+    `input-type: ${yamlString3(source.inputType)}`,
+    `platform: ${yamlString3(source.platform)}`,
+    `source-kind: ${yamlString3(source.sourceKind)}`,
+    `actor: ${yamlString3(source.actor)}`,
+    source.project ? `project: ${yamlString3(source.project)}` : "project: null",
+    `canonical: ${yamlString3(source.canonical)}`,
+    `registered-at: ${yamlString3(source.created_at)}`,
+    `updated-at: ${yamlString3(source.updated_at)}`,
+    source.tags.length ? `tags: [${source.tags.map(yamlString3).join(", ")}]` : "tags: []",
+    "---",
+    "",
+    `# ${source.title}`,
+    "",
+    "## Source",
+    "",
+    `- Input: ${source.input}`,
+    `- Canonical: ${source.canonical}`,
+    `- Platform: ${source.platform}`,
+    `- Source kind: ${source.sourceKind}`,
+    "",
+    "## Preflight",
+    "",
+    source.preflight ? fencedJson(source.preflight) : "- Not applicable for this input type.",
+    "",
+    "## Notes",
+    "",
+    source.notes?.trim() ? source.notes.trim() : "- No notes yet.",
+    "",
+    "## Captures",
+    "",
+    "- Pending. Phase 1 registers the source only.",
+    "",
+    "## Derivatives",
+    "",
+    "- Pending. Transcript/OCR/comment digests are later ingest artifacts.",
+    "",
+    "## References",
+    "",
+    `- ${source.canonical}`,
+    ""
+  ].join("\n");
+}
+function withFileLock2(fullPath, fn) {
+  mkdirSync6(dirname7(fullPath), { recursive: true });
+  const lockPath = `${fullPath}.lock`;
+  const acquire = () => writeFileSync5(lockPath, JSON.stringify({ pid: process.pid, timestamp: Date.now() }), {
+    encoding: "utf-8",
+    flag: "wx"
+  });
+  try {
+    acquire();
+  } catch (e) {
+    if (e.code !== "EEXIST")
+      throw e;
+    const ageMs = existsSync9(lockPath) ? Date.now() - statSync2(lockPath).mtimeMs : LOCK_TTL_MS2 + 1;
+    if (ageMs < LOCK_TTL_MS2)
+      throw conflict(`Lock conflict on ${basename4(fullPath)}`);
+    rmSync2(lockPath, { force: true });
+    acquire();
+  }
+  try {
+    return fn();
+  } finally {
+    rmSync2(lockPath, { force: true });
+  }
+}
+function writeTextLocked(fullPath, content) {
+  withFileLock2(fullPath, () => {
+    mkdirSync6(dirname7(fullPath), { recursive: true });
+    writeFileSync5(fullPath, content, "utf-8");
+  });
+}
+function sourceId(canonical) {
+  return `src_${createHash("sha256").update(canonical).digest("hex").slice(0, 12)}`;
+}
+function actorFromContext3(ctx) {
+  return safeSegment3(ctx.config.collaboration?.actor || process.env.VAULT_MIND_ACTOR || "agent", "actor");
+}
+function optionalSafeSegment(value, label) {
+  const text = optionalString(value);
+  return text ? safeSegment3(text, label) : void 0;
+}
+function safeSegment3(value, label) {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "." || trimmed === ".." || trimmed.includes("/") || trimmed.includes("\\") || /^[A-Za-z]:/.test(trimmed) || trimmed.startsWith("//")) {
+    throw badRequest(`${label} must be a single safe path segment`);
+  }
+  return trimmed;
+}
+function requireString(value, label) {
+  if (typeof value !== "string" || !value.trim())
+    throw badRequest(`${label} required`);
+  return value.trim();
+}
+function optionalString(value) {
+  return typeof value === "string" && value.trim() ? value.trim() : void 0;
+}
+function stringValue3(value) {
+  return typeof value === "string" && value.trim() ? value.trim() : void 0;
+}
+function stringArray(value) {
+  if (!Array.isArray(value))
+    return [];
+  return value.filter((item) => typeof item === "string" && item.trim().length > 0).map((item) => item.trim());
+}
+function detectPlatform2(canonical) {
+  const host = new URL(canonical).hostname.replace(/^www\./, "");
+  if (host.includes("douyin.com"))
+    return "douyin";
+  if (host.includes("bilibili.com") || host === "b23.tv")
+    return "bilibili";
+  if (host.includes("xiaohongshu.com") || host === "xhslink.com")
+    return "xiaohongshu";
+  if (host.includes("tiktok.com"))
+    return "tiktok";
+  if (host.includes("youtube.com") || host === "youtu.be")
+    return "youtube";
+  if (host === "x.com" || host.includes("twitter.com"))
+    return "x";
+  if (host.includes("weibo.com"))
+    return "weibo";
+  if (host.includes("zhihu.com"))
+    return "zhihu";
+  if (host === "mp.weixin.qq.com")
+    return "wechat";
+  return "web";
+}
+function titleFromUrl(canonical) {
+  const url2 = new URL(canonical);
+  const last = url2.pathname.split("/").filter(Boolean).at(-1);
+  return last ? `${url2.hostname} ${last}` : url2.hostname;
+}
+function slugify3(value) {
+  const slug = value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 64);
+  return slug || "source";
+}
+function yamlString3(value) {
+  return JSON.stringify(value);
+}
+function fencedJson(value) {
+  return ["```json", JSON.stringify(value, null, 2), "```"].join("\n");
+}
+
+// dist/conversation/conversation.js
+import { existsSync as existsSync10, mkdirSync as mkdirSync7, readdirSync as readdirSync6, readFileSync as readFileSync10, rmSync as rmSync3, statSync as statSync3, writeFileSync as writeFileSync6 } from "node:fs";
+import { basename as basename5, dirname as dirname8, join as join13, resolve as resolve4, sep as sep2 } from "node:path";
+var DEFAULT_ACTOR2 = "agent";
+var LOCK_TTL_MS3 = 6e4;
+function withFileLock3(fullPath, fn) {
+  const lockPath = `${fullPath}.lock`;
+  const acquire = () => writeFileSync6(lockPath, JSON.stringify({ pid: process.pid, timestamp: Date.now() }), {
+    encoding: "utf-8",
+    flag: "wx"
+  });
+  try {
+    acquire();
+  } catch (e) {
+    if (e.code !== "EEXIST")
+      throw e;
+    const ageMs = existsSync10(lockPath) ? Date.now() - statSync3(lockPath).mtimeMs : LOCK_TTL_MS3 + 1;
+    if (ageMs < LOCK_TTL_MS3)
+      throw makeErr(-32010, `Lock conflict on ${basename5(fullPath)}`);
+    rmSync3(lockPath, { force: true });
+    acquire();
+  }
+  try {
+    return fn();
+  } finally {
+    try {
+      rmSync3(lockPath, { force: true });
+    } catch {
+    }
+  }
+}
+function safeSegment4(value, label) {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "." || trimmed === ".." || trimmed.includes("/") || trimmed.includes("\\") || /^[A-Za-z]:/.test(trimmed) || trimmed.startsWith("//")) {
+    throw makeErr(-32602, `${label} must be single safe path segment`);
+  }
+  return trimmed;
+}
+function actorFromContext4(ctx) {
+  const actor = ctx.config.collaboration?.actor ?? process.env.VAULT_MIND_ACTOR ?? DEFAULT_ACTOR2;
+  return safeSegment4(actor, "actor");
+}
+function slugify4(value) {
+  const slug = value.toLowerCase().normalize("NFKD").replace(/[^\w\s-]/g, "").trim().replace(/[\s_-]+/g, "-").replace(/^-+|-+$/g, "");
+  return slug || "decision";
+}
+function yamlString4(value) {
+  return JSON.stringify(value);
+}
+function yamlList(value) {
+  if (value.length === 0)
+    return "[]";
+  return `[${value.map(yamlString4).join(", ")}]`;
+}
+function normalizeList2(value) {
+  if (!Array.isArray(value))
+    return [];
+  return value.map((item) => {
+    if (typeof item === "string")
+      return item.trim();
+    if (item && typeof item === "object")
+      return JSON.stringify(item);
+    return "";
+  }).filter(Boolean);
+}
+function textSection2(value) {
+  if (typeof value === "string" && value.trim())
+    return value.trim();
+  if (value && typeof value === "object")
+    return `\`\`\`json
+${JSON.stringify(value, null, 2)}
+\`\`\``;
+  return "_Not captured._";
+}
+function listSection2(value) {
+  const items = normalizeList2(value);
+  if (items.length === 0)
+    return "- _None captured._";
+  return items.map((item) => `- ${item.replace(/\n/g, "\n  ")}`).join("\n");
+}
+function sourceObject(value) {
+  if (!value || typeof value !== "object")
+    return {};
+  const source = value;
+  return {
+    client: typeof source.client === "string" ? source.client : void 0,
+    threadId: typeof source.threadId === "string" ? source.threadId : void 0,
+    url: typeof source.url === "string" ? source.url : void 0
+  };
+}
+function decisionBasePath(project, actor) {
+  if (project)
+    return `10-Projects/${safeSegment4(project, "project")}/agents/${actor}/memory/decisions`;
+  return `00-Inbox/Agent-Memory/${actor}/decisions`;
+}
+function filenameTimestamp(now) {
+  return now.replace(/[:.]/g, "-");
+}
+function decisionPath(project, actor, title, now) {
+  return `${decisionBasePath(project, actor)}/${filenameTimestamp(now)}-${slugify4(title)}.md`;
+}
+function normalizeVaultRelPath2(path) {
+  const normalized = path.trim().replace(/\\/g, "/").replace(/^\/+/, "").replace(/\/+/g, "/");
+  if (!normalized || /^[A-Za-z]:/.test(normalized) || normalized.startsWith("//") || normalized.split("/").some((part) => part === ".." || part === ".")) {
+    throw makeErr(-32602, "path traversal blocked");
+  }
+  return normalized;
+}
+function ensureInsideVault(vaultPath, relPath) {
+  const root = resolve4(vaultPath);
+  const fullPath = resolve4(vaultPath, relPath);
+  const rootPrefix = root.endsWith(sep2) ? root : root + sep2;
+  if (fullPath !== root && !fullPath.startsWith(rootPrefix))
+    throw makeErr(-32602, "path traversal blocked");
+  return fullPath;
+}
+function ensureDecisionPath(relPath) {
+  if (!relPath.endsWith(".md") || !relPath.includes("/decisions/")) {
+    throw makeErr(-32602, "path must point to a conversation decision markdown file");
+  }
+}
+function decisionMarkdown(ctx, params, now) {
+  const actor = actorFromContext4(ctx);
+  const project = typeof params.project === "string" && params.project.trim() ? safeSegment4(params.project, "project") : void 0;
+  const title = String(params.title ?? "").trim();
+  if (!title)
+    throw makeErr(-32602, "title required");
+  const source = sourceObject(params.source);
+  const sourceClient = source.client ?? "unknown";
+  const threadId = source.threadId ?? process.env.CODEX_THREAD_ID ?? "";
+  const tags = normalizeList2(params.tags);
+  const path = decisionPath(project, actor, title, now);
+  const content = [
+    "---",
+    "llmwiki-memory: decision",
+    "conversation-decision: true",
+    `actor: ${yamlString4(actor)}`,
+    project ? `project: ${yamlString4(project)}` : "project: null",
+    `title: ${yamlString4(title)}`,
+    "status: captured",
+    `captured-at: ${yamlString4(now)}`,
+    `source-client: ${yamlString4(sourceClient)}`,
+    `thread-id: ${yamlString4(threadId)}`,
+    `tags: ${yamlList(tags)}`,
+    source.url ? `source-url: ${yamlString4(source.url)}` : "source-url: null",
+    "---",
+    "",
+    `# ${title}`,
+    "",
+    "## Summary",
+    "",
+    textSection2(params.summary),
+    "",
+    "## Decision",
+    "",
+    textSection2(params.decision),
+    "",
+    "## Why",
+    "",
+    textSection2(params.why),
+    "",
+    "## Rejected Options",
+    "",
+    listSection2(params.rejectedOptions),
+    "",
+    "## Constraints Snapshot",
+    "",
+    listSection2(params.constraints),
+    "",
+    "## Assumptions",
+    "",
+    listSection2(params.assumptions),
+    "",
+    "## Risks",
+    "",
+    listSection2(params.risks),
+    "",
+    "## Actions",
+    "",
+    listSection2(params.actions),
+    "",
+    "## References",
+    "",
+    listSection2(params.references),
+    "",
+    "## Conversation Excerpts",
+    "",
+    listSection2(params.excerpts),
+    ""
+  ].join("\n");
+  return { path, content };
+}
+function parseFrontmatter2(content) {
+  const match = content.match(/^---\n([\s\S]*?)\n---/);
+  if (!match)
+    return {};
+  const out = {};
+  for (const line of match[1].split("\n")) {
+    const colon = line.indexOf(":");
+    if (colon === -1)
+      continue;
+    const key = line.slice(0, colon).trim();
+    const raw = line.slice(colon + 1).trim();
+    out[key] = raw.replace(/^"|"$/g, "");
+  }
+  return out;
+}
+function parseTags(raw) {
+  if (!raw || raw === "[]")
+    return [];
+  return raw.replace(/^\[|\]$/g, "").split(",").map((tag) => tag.trim().replace(/^"|"$/g, "")).filter(Boolean);
+}
+function preview(content) {
+  return content.replace(/^---[\s\S]*?---\s*/m, "").replace(/\s+/g, " ").trim().slice(0, 180);
+}
+function listDecisionDir(vaultPath, relDir, tag) {
+  const fullDir = join13(vaultPath, relDir);
+  if (!existsSync10(fullDir))
+    return [];
+  return readdirSync6(fullDir, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".md")).map((entry) => {
+    const fullPath = join13(fullDir, entry.name);
+    const content = readFileSync10(fullPath, "utf-8");
+    const fm = parseFrontmatter2(content);
+    const tags = parseTags(fm.tags);
+    return {
+      path: `${relDir}/${entry.name}`,
+      title: fm.title || entry.name.replace(/\.md$/, ""),
+      preview: preview(content),
+      status: fm.status || "captured",
+      captured_at: fm["captured-at"] || statSync3(fullPath).mtime.toISOString(),
+      tags
+    };
+  }).filter((item) => !tag || item.tags.includes(tag)).sort((a, b) => b.captured_at.localeCompare(a.captured_at));
+}
+function makeConversationOps(vaultPath) {
+  return [
+    {
+      name: "conversation.decision.capture",
+      namespace: "conversation",
+      description: "Capture an AI conversation decision as append-only Markdown memory with summary, decision, why, rejected options, constraints, risks, actions, references, and excerpts.",
+      mutating: true,
+      params: {
+        project: { type: "string", required: false, description: "Optional project key; stores under 10-Projects/<project>/agents/<actor>/memory/decisions" },
+        title: { type: "string", required: true, description: "Decision title" },
+        summary: { type: "string", required: false, description: "Short decision context summary" },
+        decision: { type: "string", required: false, description: "Final decision or current captured conclusion" },
+        why: { type: "string", required: false, description: "Reasoning behind the decision" },
+        rejectedOptions: { type: "array", required: false, description: "Alternatives considered and rejected" },
+        constraints: { type: "array", required: false, description: "Constraint snapshot at decision time" },
+        assumptions: { type: "array", required: false, description: "Assumptions that may invalidate decision later" },
+        risks: { type: "array", required: false, description: "Risks and caveats" },
+        actions: { type: "array", required: false, description: "Follow-up actions" },
+        references: { type: "array", required: false, description: "Files, notes, links, issues, or sources referenced" },
+        excerpts: { type: "array", required: false, description: "Selected conversation excerpts, not full transcript" },
+        tags: { type: "array", required: false, description: "Tags for retrieval and filtering" },
+        source: { type: "object", required: false, description: "Optional source metadata object, e.g. {client, threadId, url}" },
+        dryRun: { type: "boolean", required: false, default: false, description: "Preview without writing (default: false)" }
+      },
+      handler: async (ctx, params) => {
+        const now = (/* @__PURE__ */ new Date()).toISOString();
+        const { path, content } = decisionMarkdown(ctx, params, now);
+        const dryRun = params.dryRun ?? false;
+        if (!dryRun) {
+          const fullPath = ensureInsideVault(vaultPath, path);
+          mkdirSync7(dirname8(fullPath), { recursive: true });
+          withFileLock3(fullPath, () => writeFileSync6(fullPath, content, { encoding: "utf-8", flag: "wx" }));
+        }
+        return {
+          ok: true,
+          dryRun,
+          path,
+          bytes: Buffer.byteLength(content, "utf-8"),
+          preview: content.slice(0, 2e3)
+        };
+      }
+    },
+    {
+      name: "conversation.decision.list",
+      namespace: "conversation",
+      description: "List captured conversation decision Markdown notes newest first.",
+      mutating: false,
+      params: {
+        project: { type: "string", required: false, description: "Optional project key; reads project-scoped decision memory" },
+        limit: { type: "number", required: false, default: 20, description: "Maximum decisions return (default: 20)" },
+        tag: { type: "string", required: false, description: "Optional tag filter" }
+      },
+      handler: async (ctx, params) => {
+        const actor = actorFromContext4(ctx);
+        const project = typeof params.project === "string" && params.project.trim() ? safeSegment4(params.project, "project") : void 0;
+        const limit = Math.max(1, Math.min(params.limit ?? 20, 100));
+        const tag = typeof params.tag === "string" && params.tag.trim() ? params.tag.trim() : void 0;
+        const decisions = listDecisionDir(vaultPath, decisionBasePath(project, actor), tag).slice(0, limit);
+        return { count: decisions.length, decisions };
+      }
+    },
+    {
+      name: "conversation.decision.get",
+      namespace: "conversation",
+      description: "Read a captured conversation decision by exact vault-relative path.",
+      mutating: false,
+      params: {
+        path: { type: "string", required: true, description: "Vault-relative decision markdown path" }
+      },
+      handler: async (_ctx, params) => {
+        const relPath = normalizeVaultRelPath2(String(params.path ?? ""));
+        ensureDecisionPath(relPath);
+        const fullPath = ensureInsideVault(vaultPath, relPath);
+        if (!existsSync10(fullPath))
+          throw makeErr(-32001, `Decision not found: ${relPath}`);
+        const content = readFileSync10(fullPath, "utf-8");
+        if (!/^conversation-decision:\s*true/m.test(content)) {
+          throw makeErr(-32602, "path is not a conversation decision note");
+        }
+        return { path: relPath, content };
+      }
+    }
+  ];
+}
+
+// dist/context/context.js
+import { existsSync as existsSync11, readdirSync as readdirSync7, readFileSync as readFileSync11, statSync as statSync4 } from "node:fs";
+import { join as join14 } from "node:path";
+var DEFAULT_ACTOR3 = "agent";
+function safeSegment5(value, label) {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "." || trimmed === ".." || trimmed.includes("/") || trimmed.includes("\\") || /^[A-Za-z]:/.test(trimmed) || trimmed.startsWith("//")) {
+    throw makeErr(-32602, `${label} must be single safe path segment`);
+  }
+  return trimmed;
+}
+function actorFromContext5(ctx) {
+  const actor = ctx.config.collaboration?.actor ?? process.env.VAULT_MIND_ACTOR ?? DEFAULT_ACTOR3;
+  return safeSegment5(actor, "actor");
+}
+function normalizeProject(value) {
+  return typeof value === "string" && value.trim() ? safeSegment5(value, "project") : void 0;
+}
+function memoryBasePath2(project, actor) {
+  if (project)
+    return `10-Projects/${project}/agents/${actor}/memory`;
+  return `00-Inbox/Agent-Memory/${actor}`;
+}
+function readText3(path) {
+  return existsSync11(path) ? readFileSync11(path, "utf-8") : null;
+}
+function defaultPassport(actor, project) {
+  return [
+    "---",
+    "llmwiki-memory: passport",
+    `actor: ${JSON.stringify(actor)}`,
+    project ? `project: ${JSON.stringify(project)}` : "project: null",
+    "---",
+    "",
+    "# Passport",
+    "",
+    "## Goal",
+    "",
+    "_Not captured._",
+    "",
+    "## Constraints",
+    "",
+    "- _None captured._",
+    "",
+    "## Decisions",
+    "",
+    "- _None captured._",
+    "",
+    "## Open Questions",
+    "",
+    "- _None captured._",
+    "",
+    "## Pointers",
+    "",
+    "- _None captured._",
+    ""
+  ].join("\n");
+}
+function defaultHandoff(actor, project) {
+  return [
+    "---",
+    "llmwiki-memory: handoff",
+    `actor: ${JSON.stringify(actor)}`,
+    project ? `project: ${JSON.stringify(project)}` : "project: null",
+    "---",
+    "",
+    "# Handoff",
+    "",
+    "## Current State",
+    "",
+    "_Not captured._",
+    "",
+    "## Next Steps",
+    "",
+    "- _None captured._",
+    "",
+    "## Risks",
+    "",
+    "- _None captured._",
+    "",
+    "## Files",
+    "",
+    "- _None captured._",
+    ""
+  ].join("\n");
+}
+function readMemoryDoc(vaultPath, relPath, fallback) {
+  const fullPath = join14(vaultPath, relPath);
+  const content = readText3(fullPath);
+  return { path: relPath, exists: content !== null, content: content ?? fallback };
+}
+function parseFrontmatter3(content) {
+  const match = content.match(/^---\n([\s\S]*?)\n---/);
+  if (!match)
+    return {};
+  const out = {};
+  for (const line of match[1].split("\n")) {
+    const colon = line.indexOf(":");
+    if (colon === -1)
+      continue;
+    const key = line.slice(0, colon).trim();
+    const value = line.slice(colon + 1).trim();
+    out[key] = value.replace(/^"|"$/g, "");
+  }
+  return out;
+}
+function parseTags2(raw) {
+  if (!raw || raw === "[]")
+    return [];
+  return raw.replace(/^\[|\]$/g, "").split(",").map((tag) => tag.trim().replace(/^"|"$/g, "")).filter(Boolean);
+}
+function preview2(content, max = 220) {
+  return content.replace(/^---[\s\S]*?---\s*/m, "").replace(/\s+/g, " ").trim().slice(0, max);
+}
+function listMarkdownFiles(vaultPath, relDir) {
+  const fullDir = join14(vaultPath, relDir);
+  if (!existsSync11(fullDir))
+    return [];
+  return readdirSync7(fullDir, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".md")).map((entry) => {
+    const fullPath = join14(fullDir, entry.name);
+    return {
+      path: `${relDir}/${entry.name}`,
+      content: readFileSync11(fullPath, "utf-8"),
+      mtime: statSync4(fullPath).mtime.toISOString()
+    };
+  });
+}
+function listSessions(vaultPath, basePath, limit) {
+  return listMarkdownFiles(vaultPath, `${basePath}/sessions`).map((file2) => ({
+    path: file2.path,
+    title: file2.content.match(/^#\s+(.+)$/m)?.[1]?.trim() ?? file2.path.split("/").pop()?.replace(/\.md$/, "") ?? "Session",
+    preview: preview2(file2.content),
+    updated_at: file2.mtime
+  })).sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, limit);
+}
+function listDecisions(vaultPath, basePath, limit) {
+  return listMarkdownFiles(vaultPath, `${basePath}/decisions`).map((file2) => {
+    const fm = parseFrontmatter3(file2.content);
+    return {
+      path: file2.path,
+      title: fm.title || file2.path.split("/").pop()?.replace(/\.md$/, "") || "Decision",
+      preview: preview2(file2.content),
+      status: fm.status || "captured",
+      captured_at: fm["captured-at"] || file2.mtime,
+      tags: parseTags2(fm.tags)
+    };
+  }).sort((a, b) => b.captured_at.localeCompare(a.captured_at)).slice(0, limit);
+}
+function scopeFor(project) {
+  return project ? { project, glob: `10-Projects/${project}/**` } : { project: null };
+}
+function mergeWeights(defaultWeights, params) {
+  const weights = {
+    ...defaultWeights ?? {},
+    ...params.weights
+  };
+  return Object.keys(weights).length > 0 ? weights : void 0;
+}
+async function answerForScope(registry2, defaultWeights, query, project, params, fallbackMaxResults) {
+  if (!query.trim())
+    throw makeErr(-32602, "query required");
+  const scope = scopeFor(project);
+  return answerQuery(registry2, query, {
+    maxResults: params.maxResults ?? fallbackMaxResults,
+    adapters: params.adapters,
+    weights: mergeWeights(defaultWeights, params),
+    glob: scope.glob
+  });
+}
+function summarizeTrace(answer) {
+  return {
+    selectedAdapters: answer.trace.plan.selectedAdapters,
+    sources: answer.trace.sources,
+    totalResults: answer.trace.totalResults,
+    evidenceCount: answer.trace.evidence.length,
+    limitations: answer.trace.limitations
+  };
+}
+function trimText(value, max) {
+  if (value.length <= max)
+    return value;
+  return `${value.slice(0, Math.max(0, max - 1))}\u2026`;
+}
+function boundedWakeup(result, maxChars) {
+  const clone2 = JSON.parse(JSON.stringify(result));
+  if (JSON.stringify(clone2).length <= maxChars)
+    return clone2;
+  clone2.truncated = true;
+  const layers = clone2.layers;
+  if (layers.l2RoomRecall) {
+    layers.l2RoomRecall.answer = trimText(layers.l2RoomRecall.answer ?? "", 600);
+    layers.l2RoomRecall.claims = [];
+    layers.l2RoomRecall.traceSummary = void 0;
+  }
+  if (JSON.stringify(clone2).length <= maxChars)
+    return clone2;
+  if (layers.l2RoomRecall)
+    delete layers.l2RoomRecall;
+  if (layers.l1EssentialStory?.sessions) {
+    layers.l1EssentialStory.sessions = layers.l1EssentialStory.sessions.slice(0, 2).map((session) => ({
+      ...session,
+      preview: trimText(session.preview, 120)
+    }));
+  }
+  if (layers.l1EssentialStory?.decisions) {
+    layers.l1EssentialStory.decisions = layers.l1EssentialStory.decisions.slice(0, 2).map((decision) => ({
+      ...decision,
+      preview: trimText(decision.preview, 120)
+    }));
+  }
+  if (layers.l1EssentialStory?.handoff)
+    layers.l1EssentialStory.handoff.content = trimText(layers.l1EssentialStory.handoff.content, 900);
+  if (layers.l0Identity)
+    layers.l0Identity.content = trimText(layers.l0Identity.content, 900);
+  if (JSON.stringify(clone2).length <= maxChars)
+    return clone2;
+  if (layers.l1EssentialStory?.handoff)
+    layers.l1EssentialStory.handoff.content = trimText(layers.l1EssentialStory.handoff.content, 320);
+  if (layers.l0Identity)
+    layers.l0Identity.content = trimText(layers.l0Identity.content, 320);
+  return clone2;
+}
+function suggestedQueries(project, topic) {
+  const out = ["context.wakeup", "context.deep_search"];
+  if (topic)
+    out.unshift(`context.recall:${topic}`);
+  if (project)
+    out.push(`project:${project}:open-actions`);
+  return out;
+}
+function makeContextOps(vaultPath, registry2, defaultWeights) {
+  return [
+    {
+      name: "context.wakeup",
+      namespace: "context",
+      description: "Read-only MemPalace-style startup context: L0 passport, L1 handoff/sessions/decisions, optional L2 topic recall. Does not write files.",
+      mutating: false,
+      params: {
+        project: { type: "string", required: false, description: "Optional project key; reads project-scoped actor memory" },
+        topic: { type: "string", required: false, description: "Optional topic/room for recall" },
+        maxChars: { type: "number", required: false, default: 6e3, description: "Approximate maximum JSON character budget (default: 6000)" },
+        maxDecisions: { type: "number", required: false, default: 5, description: "Maximum recent conversation decisions include (default: 5)" },
+        maxSessions: { type: "number", required: false, default: 5, description: "Maximum recent session memories include (default: 5)" },
+        includeRecall: { type: "boolean", required: false, description: "Run topic recall when topic provided (default: true when topic provided)" }
+      },
+      handler: async (ctx, params) => {
+        const actor = actorFromContext5(ctx);
+        const project = normalizeProject(params.project);
+        const topic = typeof params.topic === "string" && params.topic.trim() ? params.topic.trim() : void 0;
+        const maxChars = Math.max(1e3, Math.floor(params.maxChars ?? 6e3));
+        const maxDecisions = Math.max(0, Math.min(Math.floor(params.maxDecisions ?? 5), 20));
+        const maxSessions = Math.max(0, Math.min(Math.floor(params.maxSessions ?? 5), 20));
+        const includeRecall = params.includeRecall ?? Boolean(topic);
+        const basePath = memoryBasePath2(project, actor);
+        const l0Identity = readMemoryDoc(vaultPath, `${basePath}/passport.md`, defaultPassport(actor, project));
+        const handoff = readMemoryDoc(vaultPath, `${basePath}/handoff.md`, defaultHandoff(actor, project));
+        const decisions = listDecisions(vaultPath, basePath, maxDecisions);
+        const sessions = listSessions(vaultPath, basePath, maxSessions);
+        const l2RoomRecall = includeRecall && topic ? await answerForScope(registry2, defaultWeights, topic, project, { maxResults: 5 }, 5).then((answer) => ({
+          query: topic,
+          answer: answer.answer,
+          claims: answer.claims,
+          citations: answer.citations,
+          gaps: answer.gaps,
+          traceSummary: summarizeTrace(answer)
+        })) : void 0;
+        const result = {
+          actor,
+          project: project ?? null,
+          topic: topic ?? null,
+          generatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+          layers: {
+            l0Identity,
+            l1EssentialStory: {
+              handoff,
+              decisions,
+              sessions
+            },
+            ...l2RoomRecall ? { l2RoomRecall } : {}
+          },
+          citations: l2RoomRecall?.citations ?? [],
+          suggestedQueries: suggestedQueries(project, topic),
+          truncated: false
+        };
+        return boundedWakeup(result, maxChars);
+      }
+    },
+    {
+      name: "context.recall",
+      namespace: "context",
+      description: "Topic-scoped citation-backed recall using query.answer. Project argument restricts search to 10-Projects/<project>/**.",
+      mutating: false,
+      params: {
+        query: { type: "string", required: true, description: "Topic or question to recall" },
+        project: { type: "string", required: false, description: "Optional project key to scope recall" },
+        maxResults: { type: "number", required: false, default: 8, description: "Maximum evidence items (default: 8)" },
+        adapters: { type: "array", required: false, description: "Limit specific adapters by name" },
+        weights: { type: "object", required: false, description: "Per-adapter score weight multipliers" }
+      },
+      handler: async (_ctx, params) => {
+        const query = String(params.query ?? "");
+        const project = normalizeProject(params.project);
+        const scope = scopeFor(project);
+        const answer = await answerForScope(registry2, defaultWeights, query, project, params, 8);
+        return {
+          query,
+          scope,
+          answer: answer.answer,
+          claims: answer.claims,
+          citations: answer.citations,
+          gaps: answer.gaps,
+          traceSummary: summarizeTrace(answer)
+        };
+      }
+    },
+    {
+      name: "context.deep_search",
+      namespace: "context",
+      description: "Heavier citation-backed context search returning full query.answer trace for complex cross-vault or project-scoped questions.",
+      mutating: false,
+      params: {
+        query: { type: "string", required: true, description: "Question to answer with deeper trace" },
+        project: { type: "string", required: false, description: "Optional project key to scope search" },
+        maxResults: { type: "number", required: false, default: 20, description: "Maximum evidence items (default: 20)" },
+        adapters: { type: "array", required: false, description: "Limit specific adapters by name" },
+        weights: { type: "object", required: false, description: "Per-adapter score weight multipliers" }
+      },
+      handler: async (_ctx, params) => {
+        const query = String(params.query ?? "");
+        const project = normalizeProject(params.project);
+        const scope = scopeFor(project);
+        const answer = await answerForScope(registry2, defaultWeights, query, project, params, 20);
+        return {
+          query,
+          scope,
+          answer: answer.answer,
+          claims: answer.claims,
+          citations: answer.citations,
+          gaps: answer.gaps,
+          contradictions: answer.contradictions,
+          confidence: answer.confidence,
+          trace: answer.trace
+        };
+      }
+    }
+  ];
+}
+
+// dist/core/operations.js
 var execAsync = promisify5(execFile5);
-var PROTECTED_DIRS = /* @__PURE__ */ new Set([".obsidian", ".trash", ".git", "node_modules"]);
-var _thisDir = dirname3(fileURLToPath2(import.meta.url));
-var _projectRoot = join7(_thisDir, "..", "..", "..");
-function makeErr(code, message) {
+var PROTECTED_DIRS3 = /* @__PURE__ */ new Set([".obsidian", ".trash", ".git", "node_modules"]);
+var _thisDir = dirname9(fileURLToPath2(import.meta.url));
+var _projectRoot = join15(_thisDir, "..", "..", "..");
+function makeErr2(code, message) {
   return { code, message };
 }
 var operations = [
@@ -32572,8 +45676,8 @@ var operations = [
         };
       }
       const stem = id.replace(/-to-vault$/, "");
-      const collectorPath = join7(_projectRoot, "recipes", "collectors", `${stem}-collector.ts`);
-      if (!existsSync4(collectorPath)) {
+      const collectorPath = join15(_projectRoot, "recipes", "collectors", `${stem}-collector.ts`);
+      if (!existsSync12(collectorPath)) {
         return {
           ok: false,
           exit_code: null,
@@ -32607,6 +45711,8 @@ var operations = [
 ];
 function makeAllOperations(deps) {
   const { compileTrigger, registry: registry2, defaultWeights, python, compilerPath, vaultPath, configPath } = deps;
+  const ccPath = deps.contextCorePath ?? process.env["CONTEXT_CORE_PATH"] ?? join15(dirname9(compilerPath), "context-core.json");
+  const contextCoreLoader = new ContextCoreLoader(ccPath);
   const compileOps = [
     {
       name: "compile.status",
@@ -32658,15 +45764,15 @@ function makeAllOperations(deps) {
       handler: async (_ctx, params) => {
         const vba = registry2.get("vaultbrain");
         if (!vba)
-          throw makeErr(-32001, "VaultBrain adapter not available or not initialized");
+          throw makeErr2(-32001, "VaultBrain adapter not available or not initialized");
         const files = [];
         const walk = (dir) => {
-          for (const entry of readdirSync3(dir, { withFileTypes: true })) {
+          for (const entry of readdirSync8(dir, { withFileTypes: true })) {
             if (entry.isDirectory()) {
-              if (!PROTECTED_DIRS.has(entry.name))
-                walk(join7(dir, entry.name));
+              if (!PROTECTED_DIRS3.has(entry.name))
+                walk(join15(dir, entry.name));
             } else if (entry.isFile() && entry.name.endsWith(".md")) {
-              files.push(join7(dir, entry.name));
+              files.push(join15(dir, entry.name));
             }
           }
         };
@@ -32680,15 +45786,15 @@ function makeAllOperations(deps) {
         for (let i = 0; i < files.length; i += concurrency) {
           const batch = files.slice(i, i + concurrency);
           const results = await Promise.allSettled(batch.map(async (fullPath) => {
-            const content = readFileSync4(fullPath, "utf-8");
-            const relPath = relative2(vaultPath, fullPath).replace(/\\/g, "/");
+            const content = readFileSync12(fullPath, "utf-8");
+            const relPath = relative5(vaultPath, fullPath).replace(/\\/g, "/");
             await vba.ingest(relPath, content);
           }));
           results.forEach((result, idx) => {
             if (result.status === "fulfilled")
               indexed++;
             else
-              errors.push(`${relative2(vaultPath, batch[idx]).replace(/\\/g, "/")}: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`);
+              errors.push(`${relative5(vaultPath, batch[idx]).replace(/\\/g, "/")}: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`);
           });
         }
         return { indexed, skipped: errors.length, errors, totalFiles: files.length };
@@ -32697,7 +45803,7 @@ function makeAllOperations(deps) {
     {
       name: "query.unified",
       namespace: "query",
-      description: "Reciprocal Rank Fusion (RRF) search across all active adapters (filesystem, obsidian, memu, gitnexus). Each adapter returns its ranked top-N; results are merged by RRF score = sum over sources (weight / (60 + rank_in_source)), so a doc that appears in top-5 of multiple sources beats a doc at top-1 of just one. Weights now scale each source's rank contribution (not raw score), so weight=2 doubles a source's influence on tied docs. Use when you want best answers anywhere; for single-adapter ranked search use query.search, for raw grep use vault.search.",
+      description: "Reciprocal Rank Fusion (RRF) search across all active adapters (filesystem, obsidian, kanban, memu, gitnexus). Each adapter returns its ranked top-N; results are merged by RRF score = sum over sources (weight / (60 + rank_in_source)), so a doc that appears in top-5 of multiple sources beats a doc at top-1 of just one. Weights now scale each source's rank contribution (not raw score), so weight=2 doubles a source's influence on tied docs. Use when you want best answers anywhere; for single-adapter ranked search use query.search, for raw grep use vault.search.",
       mutating: false,
       params: {
         query: { type: "string", required: true, description: "Search query string" },
@@ -32710,13 +45816,73 @@ function makeAllOperations(deps) {
       handler: async (_ctx, params) => {
         const query = params.query;
         if (!query)
-          throw makeErr(-32602, "query required");
+          throw makeErr2(-32602, "query required");
         const weights = {
           ...defaultWeights,
           ...params.weights
         };
         return unifiedQuery(registry2, query, {
           maxResults: params.maxResults ?? 50,
+          caseSensitive: params.caseSensitive ?? false,
+          context: params.context,
+          adapters: params.adapters,
+          weights: Object.keys(weights).length > 0 ? weights : void 0
+        });
+      }
+    },
+    {
+      name: "query.trace",
+      namespace: "query",
+      description: "Transparent retrieval trace for query.unified. Returns the query plan, selected adapters, per-adapter branch stats, RRF fusion settings, ranked evidence snippets, and known limitations. Use before evidence-backed answers when you need to explain why results were chosen.",
+      mutating: false,
+      params: {
+        query: { type: "string", required: true, description: "Search query string" },
+        maxResults: { type: "number", required: false, description: "Maximum evidence items return (default: 10)", default: 10 },
+        adapters: { type: "array", required: false, description: "Limit specific adapters by name" },
+        weights: { type: "object", required: false, description: 'Per-adapter score weight multipliers, e.g. {"obsidian":1.2,"filesystem":0.8}' },
+        caseSensitive: { type: "boolean", required: false, description: "Case-sensitive matching", default: false },
+        context: { type: "number", required: false, description: "Lines surrounding context per match" }
+      },
+      handler: async (_ctx, params) => {
+        const query = params.query;
+        if (!query)
+          throw makeErr2(-32602, "query required");
+        const weights = {
+          ...defaultWeights,
+          ...params.weights
+        };
+        return traceUnifiedQuery(registry2, query, {
+          maxResults: params.maxResults ?? 10,
+          caseSensitive: params.caseSensitive ?? false,
+          context: params.context,
+          adapters: params.adapters,
+          weights: Object.keys(weights).length > 0 ? weights : void 0
+        });
+      }
+    },
+    {
+      name: "query.answer",
+      namespace: "query",
+      description: "Citation-backed extractive answer built on query.trace. Returns answer, claims, citations, gaps, contradictions, confidence, and the underlying trace. Phase A is deterministic and conservative: it cites retrieved snippets and reports gaps instead of inventing missing context.",
+      mutating: false,
+      params: {
+        query: { type: "string", required: true, description: "Question or search query to answer from vault evidence" },
+        maxResults: { type: "number", required: false, description: "Maximum evidence items to cite (default: 5)", default: 5 },
+        adapters: { type: "array", required: false, description: "Limit specific adapters by name" },
+        weights: { type: "object", required: false, description: 'Per-adapter score weight multipliers, e.g. {"obsidian":1.2,"filesystem":0.8}' },
+        caseSensitive: { type: "boolean", required: false, description: "Case-sensitive matching", default: false },
+        context: { type: "number", required: false, description: "Lines surrounding context per match" }
+      },
+      handler: async (_ctx, params) => {
+        const query = params.query;
+        if (!query)
+          throw makeErr2(-32602, "query required");
+        const weights = {
+          ...defaultWeights,
+          ...params.weights
+        };
+        return answerQuery(registry2, query, {
+          maxResults: params.maxResults ?? 5,
           caseSensitive: params.caseSensitive ?? false,
           context: params.context,
           adapters: params.adapters,
@@ -32736,7 +45902,7 @@ function makeAllOperations(deps) {
       handler: async (_ctx, params) => {
         const query = params.query;
         if (!query)
-          throw makeErr(-32602, "query required");
+          throw makeErr2(-32602, "query required");
         return unifiedQuery(registry2, query, {
           maxResults: params.maxResults ?? 50,
           adapters: ["filesystem"]
@@ -32757,13 +45923,13 @@ function makeAllOperations(deps) {
       handler: async (_ctx, params) => {
         const query = params.query;
         if (typeof query !== "string" || query.length === 0) {
-          throw makeErr(-32602, "query required (non-empty string)");
+          throw makeErr2(-32602, "query required (non-empty string)");
         }
         let vector;
         try {
           vector = await embed(query);
         } catch (e) {
-          throw makeErr(-32603, `embedding failed: ${e.message}`);
+          throw makeErr2(-32603, `embedding failed: ${e.message}`);
         }
         return unifiedQueryByVector(registry2, vector, {
           maxResults: params.maxResults ?? 50,
@@ -32786,12 +45952,12 @@ function makeAllOperations(deps) {
       handler: async (_ctx, params) => {
         const vector = params.vector;
         if (!Array.isArray(vector) || vector.length === 0) {
-          throw makeErr(-32602, "vector required (non-empty number[])");
+          throw makeErr2(-32602, "vector required (non-empty number[])");
         }
         const nums = vector;
         for (const n of nums) {
           if (typeof n !== "number" || !Number.isFinite(n)) {
-            throw makeErr(-32602, "vector must contain finite numbers only");
+            throw makeErr2(-32602, "vector must contain finite numbers only");
           }
         }
         return unifiedQueryByVector(registry2, nums, {
@@ -32812,7 +45978,7 @@ function makeAllOperations(deps) {
       handler: async (_ctx, params) => {
         const concept = params.concept;
         if (!concept)
-          throw makeErr(-32602, "concept required");
+          throw makeErr2(-32602, "concept required");
         const weights = { ...defaultWeights };
         return unifiedQuery(registry2, concept, {
           maxResults: 10,
@@ -32852,18 +46018,18 @@ function makeAllOperations(deps) {
       handler: async (_ctx, params) => {
         const adapter = registry2.get("raganything");
         if (!adapter || !adapter.isAvailable || typeof adapter.processDocument !== "function") {
-          throw makeErr(-32001, "RAG-Anything adapter not available or not initialized");
+          throw makeErr2(-32001, "RAG-Anything adapter not available or not initialized");
         }
         const inputPath = params.path;
         if (!inputPath)
-          throw makeErr(-32602, "path required");
-        const normalizedInput = normalizeVaultRelPath(inputPath);
-        const fullInput = join7(vaultPath, normalizedInput);
-        if (!existsSync4(fullInput))
-          throw makeErr(-32001, `Source file not found: ${normalizedInput}`);
-        const outputPath = normalizeVaultRelPath(typeof params.outputPath === "string" && params.outputPath.length > 0 ? params.outputPath : defaultMultimodalOutputPath(normalizedInput));
+          throw makeErr2(-32602, "path required");
+        const normalizedInput = normalizeVaultRelPath3(inputPath);
+        const fullInput = join15(vaultPath, normalizedInput);
+        if (!existsSync12(fullInput))
+          throw makeErr2(-32001, `Source file not found: ${normalizedInput}`);
+        const outputPath = normalizeVaultRelPath3(typeof params.outputPath === "string" && params.outputPath.length > 0 ? params.outputPath : defaultMultimodalOutputPath(normalizedInput));
         if (!outputPath.endsWith(".md"))
-          throw makeErr(-32602, "outputPath must end with .md");
+          throw makeErr2(-32602, "outputPath must end with .md");
         const result = await adapter.processDocument({
           filePath: fullInput,
           sourcePath: normalizedInput,
@@ -32872,7 +46038,7 @@ function makeAllOperations(deps) {
           outputFormat: "markdown"
         });
         if (!result.markdown.trim()) {
-          throw makeErr(-32603, "RAG-Anything returned no markdown content");
+          throw makeErr2(-32603, "RAG-Anything returned no markdown content");
         }
         const content = multimodalMarkdown({
           sourcePath: normalizedInput,
@@ -32891,9 +46057,9 @@ function makeAllOperations(deps) {
             preview: content.slice(0, 2e3)
           };
         }
-        const fullOutput = join7(vaultPath, outputPath);
-        mkdirSync2(dirname3(fullOutput), { recursive: true });
-        writeFileSync(fullOutput, content, "utf-8");
+        const fullOutput = join15(vaultPath, outputPath);
+        mkdirSync8(dirname9(fullOutput), { recursive: true });
+        writeFileSync7(fullOutput, content, "utf-8");
         const vba = registry2.get("vaultbrain");
         if (vba)
           await vba.ingest(outputPath, content);
@@ -32921,15 +46087,15 @@ function makeAllOperations(deps) {
       handler: async (_ctx, params) => {
         const adapter = registry2.get("lightrag");
         if (!adapter || !adapter.isAvailable) {
-          throw makeErr(-32001, "LightRAG adapter not available or not initialized");
+          throw makeErr2(-32001, "LightRAG adapter not available or not initialized");
         }
         const inputPath = params.path;
         if (!inputPath)
-          throw makeErr(-32602, "path required");
-        const normalizedInput = normalizeVaultRelPath(inputPath);
-        const fullInput = join7(vaultPath, normalizedInput);
-        if (!existsSync4(fullInput))
-          throw makeErr(-32001, `Source file not found: ${normalizedInput}`);
+          throw makeErr2(-32602, "path required");
+        const normalizedInput = normalizeVaultRelPath3(inputPath);
+        const fullInput = join15(vaultPath, normalizedInput);
+        if (!existsSync12(fullInput))
+          throw makeErr2(-32001, `Source file not found: ${normalizedInput}`);
         const mode = params.mode ?? "auto";
         const effectiveMode = mode === "auto" ? /\.(md|markdown|txt)$/i.test(normalizedInput) ? "text" : "upload" : mode;
         const dryRun = params.dryRun ?? true;
@@ -32942,7 +46108,7 @@ function makeAllOperations(deps) {
           };
         }
         if (effectiveMode === "text") {
-          const text = readFileSync4(fullInput, "utf-8");
+          const text = readFileSync12(fullInput, "utf-8");
           const result2 = await adapter.insertText({ text, fileSource: normalizedInput });
           return { dryRun: false, sourcePath: normalizedInput, mode: effectiveMode, result: result2 };
         }
@@ -32961,8 +46127,8 @@ function makeAllOperations(deps) {
         mode: { type: "string", required: false, description: "Agent mode filter" }
       },
       handler: async (_ctx, params) => {
-        const { resolve: resolve3 } = await import("node:path");
-        const evaluatePy = resolve3(compilerPath, "evaluate.py");
+        const { resolve: resolve6 } = await import("node:path");
+        const evaluatePy = resolve6(compilerPath, "evaluate.py");
         const baseArgs = [evaluatePy];
         if (configPath)
           baseArgs.push("--config", configPath);
@@ -32979,7 +46145,7 @@ function makeAllOperations(deps) {
           });
           return JSON.parse(stdout);
         } catch (e) {
-          throw makeErr(-32e3, `agent.status failed: ${e.message}`);
+          throw makeErr2(-32e3, `agent.status failed: ${e.message}`);
         }
       }
     },
@@ -32993,18 +46159,18 @@ function makeAllOperations(deps) {
         mode: { type: "string", required: false, description: "Agent mode" }
       },
       handler: async (_ctx, params) => {
-        const { resolve: resolve3 } = await import("node:path");
-        const evaluatePy = resolve3(compilerPath, "evaluate.py");
+        const { resolve: resolve6 } = await import("node:path");
+        const evaluatePy = resolve6(compilerPath, "evaluate.py");
         const baseArgs = [evaluatePy];
         if (configPath)
           baseArgs.push("--config", configPath);
         baseArgs.push("--vault", vaultPath);
         const action = params.action;
         if (!action)
-          throw makeErr(-32602, "action required");
+          throw makeErr2(-32602, "action required");
         const validActions = ["compile", "emerge", "reconcile", "prune", "challenge"];
         if (!validActions.includes(action)) {
-          throw makeErr(-32602, `Unknown action: ${action}. Valid: ${validActions.join(", ")}`);
+          throw makeErr2(-32602, `Unknown action: ${action}. Valid: ${validActions.join(", ")}`);
         }
         const args = [...baseArgs, "--trigger", action];
         const mode = params.mode;
@@ -33018,7 +46184,7 @@ function makeAllOperations(deps) {
           });
           return JSON.parse(stdout);
         } catch (e) {
-          throw makeErr(-32e3, `agent.trigger failed: ${e.message}`);
+          throw makeErr2(-32e3, `agent.trigger failed: ${e.message}`);
         }
       }
     },
@@ -33042,8 +46208,8 @@ function makeAllOperations(deps) {
         limit: { type: "number", required: false, description: "Maximum number of history entries (default: 20)", default: 20 }
       },
       handler: async (_ctx, params) => {
-        const { resolve: resolve3 } = await import("node:path");
-        const evaluatePy = resolve3(compilerPath, "evaluate.py");
+        const { resolve: resolve6 } = await import("node:path");
+        const evaluatePy = resolve6(compilerPath, "evaluate.py");
         const baseArgs = [evaluatePy];
         if (configPath)
           baseArgs.push("--config", configPath);
@@ -33060,17 +46226,30 @@ function makeAllOperations(deps) {
           });
           return JSON.parse(stdout);
         } catch (e) {
-          throw makeErr(-32e3, `agent.history failed: ${e.message}`);
+          throw makeErr2(-32e3, `agent.history failed: ${e.message}`);
         }
       }
     }
   ];
-  return [...operations, ...compileOps, ...queryOps, ...multimodalOps, ...lightRagOps, ...agentOps];
+  const holonOps = [
+    ...makeHolonOps(contextCoreLoader),
+    ...makeCausalOps(contextCoreLoader),
+    ...makeProvenanceOps(contextCoreLoader),
+    ...makeGraphOps(contextCoreLoader, vaultPath),
+    ...makeVaultWriteOps(vaultPath, contextCoreLoader),
+    ...makeMemoryOps(vaultPath),
+    ...makeProjectOps(vaultPath),
+    ...makeIngestOps(),
+    ...makeSourceOps(vaultPath),
+    ...makeConversationOps(vaultPath),
+    ...makeContextOps(vaultPath, registry2, defaultWeights)
+  ];
+  return [...operations, ...compileOps, ...queryOps, ...multimodalOps, ...lightRagOps, ...agentOps, ...holonOps];
 }
-function normalizeVaultRelPath(path) {
+function normalizeVaultRelPath3(path) {
   const normalized = path.trim().replace(/\\/g, "/").replace(/^\/+/, "").replace(/\/+/g, "/");
   if (!normalized || /^[A-Za-z]:/.test(normalized) || normalized.startsWith("//") || normalized.split("/").some((part) => part === ".." || part === ".")) {
-    throw makeErr(-32602, "path traversal blocked");
+    throw makeErr2(-32602, "path traversal blocked");
   }
   return normalized;
 }
@@ -33185,12 +46364,12 @@ function loadConfig() {
     };
   }
   const candidates = [
-    resolve2(process.cwd(), "vault-mind.yaml"),
-    resolve2(process.cwd(), "../vault-mind.yaml")
+    resolve5(process.cwd(), "vault-mind.yaml"),
+    resolve5(process.cwd(), "../vault-mind.yaml")
   ];
   for (const p of candidates) {
-    if (existsSync5(p))
-      return { ...parseSimpleYaml(readFileSync5(p, "utf-8")), config_path: p };
+    if (existsSync13(p))
+      return { ...parseSimpleYaml(readFileSync13(p, "utf-8")), config_path: p };
   }
   throw new Error("No vault-mind.yaml found and VAULT_MIND_VAULT_PATH not set");
 }
@@ -33241,37 +46420,37 @@ function loadEnvCollaboration(result = {}) {
     enforce: enforceRaw === void 0 ? void 0 : enforceRaw !== "false"
   };
 }
-var PROTECTED_DIRS2 = /* @__PURE__ */ new Set([".obsidian", ".trash", ".git", "node_modules"]);
+var PROTECTED_DIRS4 = /* @__PURE__ */ new Set([".obsidian", ".trash", ".git", "node_modules"]);
 var VERSION = "0.3.0";
 function err(code, message) {
   return { code, message };
 }
-var LOCK_TTL_MS = 6e4;
-function withFileLock(fullPath, fn) {
+var LOCK_TTL_MS4 = 6e4;
+function withFileLock4(fullPath, fn) {
   const lockPath = fullPath + ".lock";
-  const acquire = () => writeFileSync2(lockPath, JSON.stringify({ pid: process.pid, timestamp: Date.now() }), { encoding: "utf-8", flag: "wx" });
+  const acquire = () => writeFileSync8(lockPath, JSON.stringify({ pid: process.pid, timestamp: Date.now() }), { encoding: "utf-8", flag: "wx" });
   try {
     acquire();
   } catch (e) {
     if (e.code !== "EEXIST")
       throw e;
-    const ageMs = Date.now() - statSync(lockPath).mtimeMs;
-    if (ageMs < LOCK_TTL_MS) {
+    const ageMs = Date.now() - statSync5(lockPath).mtimeMs;
+    if (ageMs < LOCK_TTL_MS4) {
       let holder = "unknown";
       try {
-        holder = readFileSync5(lockPath, "utf-8").trim();
+        holder = readFileSync13(lockPath, "utf-8").trim();
       } catch {
       }
-      throw err(-32010, `Lock conflict on ${basename3(fullPath)}: held by ${holder}, ttl remaining ${LOCK_TTL_MS - ageMs}ms`);
+      throw err(-32010, `Lock conflict on ${basename6(fullPath)}: held by ${holder}, ttl remaining ${LOCK_TTL_MS4 - ageMs}ms`);
     }
-    rmSync(lockPath, { force: true });
+    rmSync4(lockPath, { force: true });
     acquire();
   }
   try {
     return fn();
   } finally {
     try {
-      rmSync(lockPath, { force: true });
+      rmSync4(lockPath, { force: true });
     } catch {
     }
   }
@@ -33279,11 +46458,11 @@ function withFileLock(fullPath, fn) {
 var DEFAULT_PROTECTED_PATHS = ["20-Decisions/**", "30-Architecture/**", "40-Runbooks/**", "README.md"];
 var globCache = /* @__PURE__ */ new Map();
 function readVaultCollabPolicy(vaultPath) {
-  const policyPath = resolve2(vaultPath, ".vault-collab.json");
-  if (!existsSync5(policyPath))
+  const policyPath = resolve5(vaultPath, ".vault-collab.json");
+  if (!existsSync13(policyPath))
     return {};
   try {
-    const parsed = JSON.parse(readFileSync5(policyPath, "utf-8"));
+    const parsed = JSON.parse(readFileSync13(policyPath, "utf-8"));
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
       throw new Error("expected a JSON object");
     }
@@ -33320,6 +46499,28 @@ function matchAny(path, patterns) {
 function normalizePolicyPath(path) {
   return path.replace(/\\/g, "/").replace(/^\/+/, "");
 }
+function safeMemorySegment(value, label) {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "." || trimmed === ".." || trimmed.includes("/") || trimmed.includes("\\") || /^[A-Za-z]:/.test(trimmed) || trimmed.startsWith("//")) {
+    throw err(-32602, `${label} must be a single safe path segment`);
+  }
+  return trimmed;
+}
+function memoryPolicyBasePath(config2, args) {
+  const actor = safeMemorySegment(config2.collaboration?.actor || process.env.VAULT_MIND_ACTOR || "agent", "actor");
+  const project = typeof args.project === "string" && args.project.trim() ? safeMemorySegment(args.project, "project") : void 0;
+  return project ? `10-Projects/${project}/agents/${actor}/memory` : `00-Inbox/Agent-Memory/${actor}`;
+}
+function projectPolicyBasePath(args) {
+  const project = typeof args.project === "string" && args.project.trim() ? safeMemorySegment(args.project, "project") : "*";
+  return `10-Projects/${project}`;
+}
+function sourcePolicyTargetPaths(args) {
+  const project = typeof args.project === "string" && args.project.trim() ? safeMemorySegment(args.project, "project") : void 0;
+  const platform = typeof args.platform === "string" && args.platform.trim() ? safeMemorySegment(args.platform, "platform") : "*";
+  const sourceNotePath2 = project ? `10-Projects/${project}/sources/${platform}/**` : `00-Inbox/Sources/${platform}/**`;
+  return ["_llmwiki/source-registry.json", sourceNotePath2];
+}
 function defaultAllowedPaths(actor, role) {
   if (!actor)
     return [];
@@ -33328,11 +46529,15 @@ function defaultAllowedPaths(actor, role) {
   return [
     `00-Inbox/AI-Output/${actor}`,
     `00-Inbox/AI-Output/${actor}/**`,
+    `00-Inbox/Agent-Memory/${actor}`,
+    `00-Inbox/Agent-Memory/${actor}/**`,
     `10-Projects/*/agents/${actor}`,
-    `10-Projects/*/agents/${actor}/**`
+    `10-Projects/*/agents/${actor}/**`,
+    `10-Projects/*/project.md`,
+    `10-Projects/*/docket/**`
   ];
 }
-function writeTargetPaths(toolName, args) {
+function writeTargetPaths(config2, toolName, args) {
   if (toolName === "vault.rename") {
     return [args.from, args.to].filter((p) => typeof p === "string");
   }
@@ -33343,6 +46548,26 @@ function writeTargetPaths(toolName, args) {
   if (toolName === "multimodal.ingest") {
     return typeof args.outputPath === "string" ? [args.outputPath] : ["00-Inbox/Multimodal/**"];
   }
+  if (toolName === "memory.passport.upsert")
+    return [`${memoryPolicyBasePath(config2, args)}/passport.md`];
+  if (toolName === "memory.handoff.write")
+    return [`${memoryPolicyBasePath(config2, args)}/handoff.md`];
+  if (toolName === "memory.session.save")
+    return [`${memoryPolicyBasePath(config2, args)}/sessions/**`];
+  if (toolName === "source.register")
+    return sourcePolicyTargetPaths(args);
+  if (toolName === "project.init")
+    return [`${projectPolicyBasePath(args)}/project.md`, `${projectPolicyBasePath(args)}/docket/**`];
+  if (toolName === "project.issue.create")
+    return [`${projectPolicyBasePath(args)}/docket/**`];
+  if (toolName === "project.issue.update")
+    return [`${projectPolicyBasePath(args)}/docket/**`];
+  if (toolName === "project.issue.link")
+    return [`${projectPolicyBasePath(args)}/docket/**`];
+  if (toolName === "project.comment.add")
+    return [`${projectPolicyBasePath(args)}/docket/comments/**`];
+  if (toolName === "project.canvas.export" || toolName === "project.base.export")
+    return [`${projectPolicyBasePath(args)}/views/**`];
   return typeof args.path === "string" ? [args.path] : [];
 }
 function enforceCollaborationPolicy(config2, toolName, args) {
@@ -33376,11 +46601,21 @@ function enforceCollaborationPolicy(config2, toolName, args) {
     "vault.rename",
     "vault.mkdir",
     "vault.writeAIOutput",
-    "multimodal.ingest"
+    "multimodal.ingest",
+    "source.register",
+    "memory.passport.upsert",
+    "memory.handoff.write",
+    "memory.session.save"
   ]);
   if (!mutatingTargets.has(toolName))
     return;
-  if (args.dryRun !== false && args.dry_run !== false)
+  const alwaysRealWriteTargets = /* @__PURE__ */ new Set([
+    "source.register",
+    "memory.passport.upsert",
+    "memory.handoff.write",
+    "memory.session.save"
+  ]);
+  if (!alwaysRealWriteTargets.has(toolName) && args.dryRun !== false && args.dry_run !== false)
     return;
   const collab = config2.collaboration;
   const actor = collab?.actor;
@@ -33398,7 +46633,7 @@ function enforceCollaborationPolicy(config2, toolName, args) {
     ...policy.protected_paths ?? [],
     ...collab?.protected_paths ?? []
   ];
-  for (const rawTarget of writeTargetPaths(toolName, args)) {
+  for (const rawTarget of writeTargetPaths(config2, toolName, args)) {
     const target = normalizePolicyPath(rawTarget);
     const protectedHit = matchAny(target, protectedPaths);
     const allowedHit = allowed.length > 0 && matchAny(target, allowed);
@@ -33413,6 +46648,13 @@ function enforceCollaborationPolicy(config2, toolName, args) {
 function shouldAuditWrite(toolName, args) {
   if (toolName === "vault.batch")
     return args.dryRun === false || args.dry_run === false;
+  const alwaysRealWriteTargets = /* @__PURE__ */ new Set([
+    "memory.passport.upsert",
+    "memory.handoff.write",
+    "memory.session.save"
+  ]);
+  if (alwaysRealWriteTargets.has(toolName))
+    return true;
   const mutatingTargets = /* @__PURE__ */ new Set([
     "vault.create",
     "vault.modify",
@@ -33431,18 +46673,18 @@ function auditWrite(config2, toolName, args, result) {
     return;
   try {
     const day = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-    const auditDir = resolve2(config2.vault_path, ".wiki-audit");
-    mkdirSync3(auditDir, { recursive: true });
+    const auditDir = resolve5(config2.vault_path, ".wiki-audit");
+    mkdirSync9(auditDir, { recursive: true });
     const entry = {
       ts: (/* @__PURE__ */ new Date()).toISOString(),
       actor,
       role: config2.collaboration?.role,
       tool: toolName,
-      targets: writeTargetPaths(toolName, args).map(normalizePolicyPath),
+      targets: writeTargetPaths(config2, toolName, args).map(normalizePolicyPath),
       ok: true,
       resultPath: typeof result === "object" && result !== null && "path" in result ? result.path : void 0
     };
-    appendFileSync2(resolve2(auditDir, `${day}.jsonl`), JSON.stringify(entry) + "\n", "utf-8");
+    appendFileSync2(resolve5(auditDir, `${day}.jsonl`), JSON.stringify(entry) + "\n", "utf-8");
   } catch (e) {
     process.stderr.write(`obsidian-llm-wiki: [warn] audit write failed: ${e.message}
 `);
@@ -33497,7 +46739,7 @@ var VaultFs = class {
   vault;
   realVault;
   constructor(vaultPath) {
-    this.vault = resolve2(vaultPath);
+    this.vault = resolve5(vaultPath);
     this.realVault = realpathSync(this.vault);
   }
   normalizeVaultPath(p, opts = {}) {
@@ -33509,35 +46751,35 @@ var VaultFs = class {
     }
     if (!raw)
       throw err(-32602, "path required");
-    if (/^[A-Za-z]:[\\/]/.test(raw) || raw.startsWith("\\\\") || raw.startsWith("//") || pathIsAbsolute(raw))
+    if (/^[A-Za-z]:[\\/]/.test(raw) || raw.startsWith("\\\\") || raw.startsWith("//") || pathIsAbsolute2(raw))
       throw err(-32602, "path traversal blocked");
     const normalized = raw.replace(/\\/g, "/").replace(/\/+/g, "/");
     if (normalized.split("/").some((s) => s === ".." || s === "."))
       throw err(-32602, "path traversal blocked");
     const topSegment = normalized.split("/")[0];
-    if (PROTECTED_DIRS2.has(topSegment))
+    if (PROTECTED_DIRS4.has(topSegment))
       throw err(-32602, `protected path: ${topSegment}`);
     return normalized;
   }
   resolve(p, opts = {}) {
     const normalized = this.normalizeVaultPath(p, opts);
-    const full = resolve2(this.vault, normalized);
-    const rel = relative3(this.vault, full);
-    if (rel.startsWith("..") || pathIsAbsolute(rel))
+    const full = resolve5(this.vault, normalized);
+    const rel = relative6(this.vault, full);
+    if (rel.startsWith("..") || pathIsAbsolute2(rel))
       throw err(-32602, "path escapes vault");
     this.assertRealPathInsideVault(full);
     return full;
   }
   assertRealPathInsideVault(full) {
-    const realTarget = existsSync5(full) ? realpathSync(full) : this.realpathExistingAncestor(dirname4(full));
-    const rel = relative3(this.realVault, realTarget);
-    if (rel.startsWith("..") || pathIsAbsolute(rel))
+    const realTarget = existsSync13(full) ? realpathSync(full) : this.realpathExistingAncestor(dirname10(full));
+    const rel = relative6(this.realVault, realTarget);
+    if (rel.startsWith("..") || pathIsAbsolute2(rel))
       throw err(-32602, "path traversal blocked");
   }
   realpathExistingAncestor(start) {
     let current = start;
-    while (!existsSync5(current)) {
-      const parent = dirname4(current);
+    while (!existsSync13(current)) {
+      const parent = dirname10(current);
       if (parent === current)
         throw err(-32602, "path traversal blocked");
       current = parent;
@@ -33625,41 +46867,56 @@ var VaultFs = class {
   }
   walkMd(fn) {
     const walk = (d) => {
-      for (const ent of readdirSync4(d, { withFileTypes: true })) {
-        const full = join8(d, ent.name);
-        if (ent.isDirectory() && !PROTECTED_DIRS2.has(ent.name))
+      for (const ent of readdirSync9(d, { withFileTypes: true })) {
+        const full = join16(d, ent.name);
+        if (ent.isDirectory() && !PROTECTED_DIRS4.has(ent.name))
           walk(full);
         else if (ent.isFile() && ent.name.endsWith(".md")) {
-          const rel = relative3(this.vault, full).replace(/\\/g, "/");
-          fn(rel, readFileSync5(full, "utf-8"));
+          const rel = relative6(this.vault, full).replace(/\\/g, "/");
+          fn(rel, readFileSync13(full, "utf-8"));
+        }
+      }
+    };
+    walk(this.vault);
+  }
+  walkSearchableText(fn) {
+    const searchableExts = /* @__PURE__ */ new Set([".md", ".canvas", ".base"]);
+    const walk = (d) => {
+      for (const ent of readdirSync9(d, { withFileTypes: true })) {
+        const full = join16(d, ent.name);
+        if (ent.isDirectory() && !PROTECTED_DIRS4.has(ent.name))
+          walk(full);
+        if (ent.isFile() && searchableExts.has(extname2(ent.name))) {
+          const rel = relative6(this.vault, full).replace(/\\/g, "/");
+          fn(rel, readFileSync13(full, "utf-8"));
         }
       }
     };
     walk(this.vault);
   }
   matchGlob(p, glob) {
-    const re = new RegExp("^" + glob.replace(/\*\*/g, ".*").replace(/\*/g, "[^/]*").replace(/\?/g, ".") + "$");
+    const re = new RegExp("^" + glob.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*\*/g, "\0").replace(/\*/g, "[^/]*").replace(/\0/g, ".*").replace(/\?/g, ".") + "$");
     return re.test(p);
   }
   dispatch(method, p) {
     switch (method) {
       case "vault.read": {
         const full = this.resolve(p.path);
-        if (!existsSync5(full))
+        if (!existsSync13(full))
           throw err(-32001, `Not found: ${p.path}`);
-        return { content: readFileSync5(full, "utf-8") };
+        return { content: readFileSync13(full, "utf-8") };
       }
       case "vault.exists": {
         const existsPath = this.normalizeVaultPath(p.path ?? "", { allowRoot: true });
-        return { exists: existsSync5(this.resolve(existsPath, { allowRoot: true })) };
+        return { exists: existsSync13(this.resolve(existsPath, { allowRoot: true })) };
       }
       case "vault.list": {
         const listPath = this.normalizeVaultPath(p.path ?? "", { allowRoot: true });
         const dir = this.resolve(listPath, { allowRoot: true });
-        if (!existsSync5(dir))
+        if (!existsSync13(dir))
           throw err(-32001, `Not found: ${p.path}`);
         const hidden = /* @__PURE__ */ new Set([".obsidian", ".trash", "node_modules"]);
-        const entries = readdirSync4(dir, { withFileTypes: true }).filter((e) => !hidden.has(e.name));
+        const entries = readdirSync9(dir, { withFileTypes: true }).filter((e) => !hidden.has(e.name));
         return {
           files: entries.filter((e) => e.isFile()).map((e) => posix.join(listPath, e.name)).sort(),
           folders: entries.filter((e) => e.isDirectory()).map((e) => posix.join(listPath, e.name)).sort()
@@ -33668,17 +46925,17 @@ var VaultFs = class {
       case "vault.stat": {
         const statPath = this.normalizeVaultPath(p.path ?? "", { allowRoot: true });
         const full = this.resolve(statPath, { allowRoot: true });
-        if (!existsSync5(full))
+        if (!existsSync13(full))
           throw err(-32001, `Not found: ${p.path}`);
-        const st = statSync(full);
-        const displayName = statPath === "" ? basename3(this.vault) : basename3(statPath);
+        const st = statSync5(full);
+        const displayName = statPath === "" ? basename6(this.vault) : basename6(statPath);
         if (st.isDirectory())
-          return { type: "folder", path: statPath, name: displayName, children: readdirSync4(full).length };
+          return { type: "folder", path: statPath, name: displayName, children: readdirSync9(full).length };
         return {
           type: "file",
           path: statPath,
           name: displayName,
-          ext: extname(statPath).slice(1),
+          ext: extname2(statPath).slice(1),
           size: st.size,
           ctime: st.ctimeMs,
           mtime: st.mtimeMs
@@ -33686,61 +46943,61 @@ var VaultFs = class {
       }
       case "vault.create": {
         const full = this.resolve(p.path);
-        if (existsSync5(full))
+        if (existsSync13(full))
           throw err(-32002, `Already exists: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "create", path: p.path };
-        return withFileLock(full, () => {
-          mkdirSync3(dirname4(full), { recursive: true });
-          writeFileSync2(full, p.content || "", "utf-8");
+        return withFileLock4(full, () => {
+          mkdirSync9(dirname10(full), { recursive: true });
+          writeFileSync8(full, p.content || "", "utf-8");
           return { ok: true, path: p.path };
         });
       }
       case "vault.modify": {
         const full = this.resolve(p.path);
-        if (!existsSync5(full))
+        if (!existsSync13(full))
           throw err(-32001, `Not found: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "modify", path: p.path };
-        return withFileLock(full, () => {
-          writeFileSync2(full, p.content, "utf-8");
+        return withFileLock4(full, () => {
+          writeFileSync8(full, p.content, "utf-8");
           return { ok: true, path: p.path };
         });
       }
       case "vault.append": {
         const full = this.resolve(p.path);
-        if (!existsSync5(full))
+        if (!existsSync13(full))
           throw err(-32001, `Not found: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "append", path: p.path };
-        return withFileLock(full, () => {
+        return withFileLock4(full, () => {
           appendFileSync2(full, p.content, "utf-8");
           return { ok: true, path: p.path };
         });
       }
       case "vault.delete": {
         const full = this.resolve(p.path);
-        if (!existsSync5(full))
+        if (!existsSync13(full))
           throw err(-32001, `Not found: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "delete", path: p.path };
-        return withFileLock(full, () => {
-          rmSync(full, { recursive: true });
+        return withFileLock4(full, () => {
+          rmSync4(full, { recursive: true });
           return { ok: true, path: p.path };
         });
       }
       case "vault.rename": {
         const from = this.resolve(p.from);
         const to = this.resolve(p.to);
-        if (!existsSync5(from))
+        if (!existsSync13(from))
           throw err(-32001, `Not found: ${p.from}`);
-        if (existsSync5(to))
+        if (existsSync13(to))
           throw err(-32002, `Already exists: ${p.to}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "rename", from: p.from, to: p.to };
-        return withFileLock(from, () => {
-          mkdirSync3(dirname4(to), { recursive: true });
-          return withFileLock(to, () => {
+        return withFileLock4(from, () => {
+          mkdirSync9(dirname10(to), { recursive: true });
+          return withFileLock4(to, () => {
             renameSync(from, to);
             return { ok: true, from: p.from, to: p.to };
           });
@@ -33757,7 +47014,7 @@ var VaultFs = class {
           rejectDangerousRegex(p.query);
         const escaped = p.regex ? p.query : p.query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
         const pattern = new RegExp(escaped, flags);
-        this.walkMd((relPath, content) => {
+        this.walkSearchableText((relPath, content) => {
           if (total >= max)
             return;
           if (p.glob && !this.matchGlob(relPath, p.glob))
@@ -33806,7 +47063,7 @@ var VaultFs = class {
           throw err(-32602, `Unknown op: ${op}`);
         const results = [];
         const pushWithMtime = (relPath, v) => {
-          const st = statSync(this.resolve(relPath));
+          const st = statSync5(this.resolve(relPath));
           results.push({ path: relPath, value: v, mtime: st.mtimeMs });
         };
         this.walkMd((relPath, content) => {
@@ -33877,7 +47134,7 @@ var VaultFs = class {
             if (!target.includes("/")) {
               const withMd = target.endsWith(".md") ? target : target + ".md";
               try {
-                if (existsSync5(this.resolve(withMd)))
+                if (existsSync13(this.resolve(withMd)))
                   target = withMd;
               } catch {
               }
@@ -33898,7 +47155,7 @@ var VaultFs = class {
           path: np,
           exists: (() => {
             try {
-              return existsSync5(this.resolve(np));
+              return existsSync13(this.resolve(np));
             } catch {
               return false;
             }
@@ -33917,7 +47174,7 @@ var VaultFs = class {
         if (!p.path)
           throw err(-32602, "path required");
         const target = p.path.endsWith(".md") ? p.path : p.path + ".md";
-        const targetBase = basename3(target, ".md");
+        const targetBase = basename6(target, ".md");
         const results = [];
         this.walkMd((relPath, content) => {
           if (relPath === target)
@@ -33969,7 +47226,7 @@ var VaultFs = class {
         const linkMap = /* @__PURE__ */ new Map();
         const inbound = /* @__PURE__ */ new Set();
         this.walkMd((relPath, content) => {
-          const st = statSync(this.resolve(relPath));
+          const st = statSync5(this.resolve(relPath));
           allFiles.push({ path: relPath, size: st.size, content });
           const targets = /* @__PURE__ */ new Map();
           for (const l of this.parseWikilinks(content)) {
@@ -33985,7 +47242,7 @@ var VaultFs = class {
         for (const [from, targets] of linkMap) {
           for (const [to] of targets) {
             try {
-              if (!existsSync5(this.resolve(to)))
+              if (!existsSync13(this.resolve(to)))
                 brokenLinks.push({ from, to });
             } catch {
               brokenLinks.push({ from, to });
@@ -34004,7 +47261,7 @@ var VaultFs = class {
         }
         const titleMap = /* @__PURE__ */ new Map();
         for (const fi of allFiles) {
-          const t = basename3(fi.path, ".md").toLowerCase();
+          const t = basename6(fi.path, ".md").toLowerCase();
           const arr = titleMap.get(t) || [];
           arr.push(fi.path);
           titleMap.set(t, arr);
@@ -34065,9 +47322,9 @@ ${summary ? `> ${summary}
 `;
         if (p.dryRun !== false)
           return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
-        return withFileLock(full, () => {
-          mkdirSync3(dirname4(full), { recursive: true });
-          writeFileSync2(full, content, "utf-8");
+        return withFileLock4(full, () => {
+          mkdirSync9(dirname10(full), { recursive: true });
+          writeFileSync8(full, content, "utf-8");
           return { ok: true, path };
         });
       }
@@ -34107,12 +47364,12 @@ ${notes}
 
 ## Notes
 `;
-        const alreadyExists = existsSync5(full);
+        const alreadyExists = existsSync13(full);
         if (p.dryRun !== false)
           return { dryRun: true, action: alreadyExists ? "update" : "create", path, preview: content.slice(0, 200) };
-        return withFileLock(full, () => {
-          mkdirSync3(dirname4(full), { recursive: true });
-          writeFileSync2(full, content, "utf-8");
+        return withFileLock4(full, () => {
+          mkdirSync9(dirname10(full), { recursive: true });
+          writeFileSync8(full, content, "utf-8");
           return { ok: true, path, action: alreadyExists ? "updated" : "created" };
         });
       }
@@ -34161,10 +47418,10 @@ ${teamLinks || "- TBD"}
 ## Notes
 `;
         if (p.dryRun !== false)
-          return { dryRun: true, action: existsSync5(full) ? "update" : "create", path, preview: content.slice(0, 200) };
-        return withFileLock(full, () => {
-          mkdirSync3(dirname4(full), { recursive: true });
-          writeFileSync2(full, content, "utf-8");
+          return { dryRun: true, action: existsSync13(full) ? "update" : "create", path, preview: content.slice(0, 200) };
+        return withFileLock4(full, () => {
+          mkdirSync9(dirname10(full), { recursive: true });
+          writeFileSync8(full, content, "utf-8");
           return { ok: true, path };
         });
       }
@@ -34216,9 +47473,9 @@ ${consequences}
 `;
         if (p.dryRun !== false)
           return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
-        return withFileLock(full, () => {
-          mkdirSync3(dirname4(full), { recursive: true });
-          writeFileSync2(full, content, "utf-8");
+        return withFileLock4(full, () => {
+          mkdirSync9(dirname10(full), { recursive: true });
+          writeFileSync8(full, content, "utf-8");
           return { ok: true, path };
         });
       }
@@ -34269,9 +47526,9 @@ ${actionLines || "- None assigned"}
 `;
         if (p.dryRun !== false)
           return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
-        return withFileLock(full, () => {
-          mkdirSync3(dirname4(full), { recursive: true });
-          writeFileSync2(full, content, "utf-8");
+        return withFileLock4(full, () => {
+          mkdirSync9(dirname10(full), { recursive: true });
+          writeFileSync8(full, content, "utf-8");
           return { ok: true, path };
         });
       }
@@ -34310,19 +47567,19 @@ ${p.content}
 `;
         if (p.dryRun !== false)
           return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
-        return withFileLock(full, () => {
-          mkdirSync3(dirname4(full), { recursive: true });
-          writeFileSync2(full, content, "utf-8");
+        return withFileLock4(full, () => {
+          mkdirSync9(dirname10(full), { recursive: true });
+          writeFileSync8(full, content, "utf-8");
           return { ok: true, path };
         });
       }
       case "vault.mkdir": {
         const full = this.resolve(p.path);
-        if (existsSync5(full))
+        if (existsSync13(full))
           throw err(-32002, `Already exists: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "mkdir", path: p.path };
-        mkdirSync3(full, { recursive: true });
+        mkdirSync9(full, { recursive: true });
         return { ok: true, path: p.path };
       }
       case "vault.init": {
@@ -34377,12 +47634,12 @@ ${p.content}
           const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
           for (const [dir] of scaffold) {
             const full = this.resolve(dir);
-            if (existsSync5(full)) {
+            if (existsSync13(full)) {
               skipped2.push(dir);
               continue;
             }
             if (!dryRun)
-              mkdirSync3(full, { recursive: true });
+              mkdirSync9(full, { recursive: true });
             created2.push(dir);
           }
           const folderLines = scaffold.map(([dir, purpose]) => `- [[${dir}/README|${dir}]] -- ${purpose}`).join("\n");
@@ -34403,11 +47660,11 @@ ${methodologyNotes[methodology]}
 ${folderLines}
 `;
           const homeFull = this.resolve("Home.md");
-          if (existsSync5(homeFull)) {
+          if (existsSync13(homeFull)) {
             skipped2.push("Home.md");
           } else {
             if (!dryRun)
-              writeFileSync2(homeFull, homeContent, "utf-8");
+              writeFileSync8(homeFull, homeContent, "utf-8");
             created2.push("Home.md");
           }
           return { ok: true, dryRun, methodology, created: created2, skipped: skipped2, summary: `Created ${created2.length}, skipped ${skipped2.length}` };
@@ -34422,22 +47679,22 @@ ${folderLines}
         const now = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
         const ensureDir = (rel) => {
           const full = this.resolve(rel);
-          if (existsSync5(full)) {
+          if (existsSync13(full)) {
             skipped.push(rel);
             return;
           }
-          mkdirSync3(full, { recursive: true });
+          mkdirSync9(full, { recursive: true });
           created.push(rel);
         };
         const ensureFile = (rel, content) => {
           const r = rel.endsWith(".md") ? rel : rel + ".md";
           const full = this.resolve(r);
-          if (existsSync5(full)) {
+          if (existsSync13(full)) {
             skipped.push(r);
             return;
           }
-          mkdirSync3(dirname4(full), { recursive: true });
-          writeFileSync2(full, content, "utf-8");
+          mkdirSync9(dirname10(full), { recursive: true });
+          writeFileSync8(full, content, "utf-8");
           created.push(r);
         };
         ensureDir(base);
@@ -34480,10 +47737,10 @@ Follows llm-wiki opinionated workflow.
 See root CLAUDE.md for full documentation.
 `);
         const yamlPath = `${base}/kb.yaml`;
-        if (existsSync5(this.resolve(yamlPath))) {
+        if (existsSync13(this.resolve(yamlPath))) {
           skipped.push(yamlPath);
         } else {
-          writeFileSync2(this.resolve(yamlPath), `topic: "${p.topic}"
+          writeFileSync8(this.resolve(yamlPath), `topic: "${p.topic}"
 vault_path: "${this.vault.replace(/\\\\/g, "/")}"
 created: ${now}
 `, "utf-8");
@@ -34515,7 +47772,7 @@ created: ${now}
             created: [],
             skipped: []
           };
-          const entries = readdirSync4(absDir, { withFileTypes: true });
+          const entries = readdirSync9(absDir, { withFileTypes: true });
           for (const ent of entries) {
             if (!ent.isFile())
               continue;
@@ -34526,8 +47783,8 @@ created: ${now}
               report.hasChronicle = ent.name;
           }
           const mdFiles = entries.filter((e) => e.isFile() && e.name.endsWith(".md")).map((e) => e.name).sort();
-          const subDirs = entries.filter((e) => e.isDirectory() && !PROTECTED_DIRS2.has(e.name) && !extraSkip.has(e.name)).map((e) => e.name).sort();
-          const topicName = basename3(relDir || this.vault);
+          const subDirs = entries.filter((e) => e.isDirectory() && !PROTECTED_DIRS4.has(e.name) && !extraSkip.has(e.name)).map((e) => e.name).sort();
+          const topicName = basename6(relDir || this.vault);
           if (!report.hasCatalog) {
             const catalogPath = relDir ? posix.join(relDir, "_index.md") : "_index.md";
             const absCatalog = this.resolve(catalogPath);
@@ -34540,7 +47797,7 @@ updated: ${now}
 
 ` + (mdFiles.length ? "## Notes in this topic\n\n" + mdFiles.map((f) => `- [[${f.replace(/\.md$/, "")}]]`).join("\n") + "\n\n" : "") + (subDirs.length ? "## Subtopics\n\n" + subDirs.map((d) => `- \`${d}/\``).join("\n") + "\n" : "");
             if (!dryRun) {
-              writeFileSync2(absCatalog, body, "utf-8");
+              writeFileSync8(absCatalog, body, "utf-8");
             }
             report.created.push(catalogPath);
           } else {
@@ -34559,7 +47816,7 @@ updated: ${now}
 - ${now}: Karpathy LLM Wiki discipline enforced (retroactive).
 `;
             if (!dryRun) {
-              writeFileSync2(absChronicle, body, "utf-8");
+              writeFileSync8(absChronicle, body, "utf-8");
             }
             report.created.push(chroniclePath);
           } else {
@@ -34572,11 +47829,11 @@ updated: ${now}
         const allSkipped = [];
         const errors = [];
         try {
-          const topEntries = readdirSync4(this.vault, { withFileTypes: true });
+          const topEntries = readdirSync9(this.vault, { withFileTypes: true });
           for (const ent of topEntries) {
             if (!ent.isDirectory())
               continue;
-            if (PROTECTED_DIRS2.has(ent.name) || extraSkip.has(ent.name))
+            if (PROTECTED_DIRS4.has(ent.name) || extraSkip.has(ent.name))
               continue;
             if (ent.name.startsWith("."))
               continue;
@@ -34675,14 +47932,14 @@ updated: ${now}
         const baseName = `${datePrefix}-${slug}`;
         let chosenName = `${baseName}.md`;
         let relPath = `${relDir}/${chosenName}`;
-        let fullPath = join8(this.vault, relDir, chosenName);
-        if (existsSync5(fullPath)) {
+        let fullPath = join16(this.vault, relDir, chosenName);
+        if (existsSync13(fullPath)) {
           let found = false;
           for (let i = 2; i <= 99; i++) {
             chosenName = `${baseName}-${i}.md`;
             relPath = `${relDir}/${chosenName}`;
-            fullPath = join8(this.vault, relDir, chosenName);
-            if (!existsSync5(fullPath)) {
+            fullPath = join16(this.vault, relDir, chosenName);
+            if (!existsSync13(fullPath)) {
               found = true;
               break;
             }
@@ -34729,9 +47986,9 @@ ${yamlLines.join("\n")}
 
 ${bodyWithTag}
 `;
-        mkdirSync3(dirname4(fullPath), { recursive: true });
-        return withFileLock(fullPath, () => {
-          writeFileSync2(fullPath, contentOut, "utf-8");
+        mkdirSync9(dirname10(fullPath), { recursive: true });
+        return withFileLock4(fullPath, () => {
+          writeFileSync8(fullPath, contentOut, "utf-8");
           return { ok: true, path: relPath, frontmatter: frontmatterObj, warnings };
         });
       }
@@ -34747,7 +48004,7 @@ ${bodyWithTag}
         const nowMs = typeof p.now === "string" ? Date.parse(p.now) : Date.now();
         const nowValid = !isNaN(nowMs) ? nowMs : Date.now();
         const aiRootRel = "00-Inbox/AI-Output";
-        const aiRootAbs = join8(this.vault, aiRootRel);
+        const aiRootAbs = join16(this.vault, aiRootRel);
         const emptyMetrics = {
           totalEntries: 0,
           byPersona: {},
@@ -34755,19 +48012,19 @@ ${bodyWithTag}
           byQuarantineState: {},
           realBacklinkHitRate: 0
         };
-        if (!existsSync5(aiRootAbs)) {
+        if (!existsSync13(aiRootAbs)) {
           return { staleCandidates: [], supersedeCandidates: [], applied: [], metrics: emptyMetrics };
         }
         const entries = [];
         const walkSubtree = (d) => {
-          if (!existsSync5(d))
+          if (!existsSync13(d))
             return;
-          for (const ent of readdirSync4(d, { withFileTypes: true })) {
-            const full = join8(d, ent.name);
-            if (ent.isDirectory() && !PROTECTED_DIRS2.has(ent.name))
+          for (const ent of readdirSync9(d, { withFileTypes: true })) {
+            const full = join16(d, ent.name);
+            if (ent.isDirectory() && !PROTECTED_DIRS4.has(ent.name))
               walkSubtree(full);
             else if (ent.isFile() && ent.name.endsWith(".md")) {
-              const content = readFileSync5(full, "utf-8");
+              const content = readFileSync13(full, "utf-8");
               const fm = this.parseFrontmatter(content);
               if (!fm)
                 continue;
@@ -34775,8 +48032,8 @@ ${bodyWithTag}
               if (!persona)
                 continue;
               const status = typeof fm["status"] === "string" ? fm["status"] : "";
-              const relPath = relative3(this.vault, full).replace(/\\/g, "/");
-              const st = statSync(full);
+              const relPath = relative6(this.vault, full).replace(/\\/g, "/");
+              const st = statSync5(full);
               const mtimeMs = st.mtimeMs;
               let entryMs = mtimeMs;
               const ga = fm["generated-at"];
@@ -34794,7 +48051,7 @@ ${bodyWithTag}
         walkSubtree(aiRootAbs);
         const aiOutputPaths = new Set(entries.map((e) => e.relPath));
         const hasRealBacklink = (targetRel) => {
-          const targetBase = basename3(targetRel, ".md");
+          const targetBase = basename6(targetRel, ".md");
           let found = false;
           this.walkMd((relPath, content) => {
             if (found)
@@ -34861,15 +48118,15 @@ ${bodyWithTag}
         if (!dryRun) {
           const flipIso = new Date(nowValid).toISOString();
           for (const sc of staleCandidates) {
-            const absPath = join8(this.vault, sc.path);
+            const absPath = join16(this.vault, sc.path);
             const historyEntry = `{ts: "${flipIso}", axis: status, from: draft, to: stale, trigger: auto-stop-summary, evidence_level: low, human_in_loop: false, note: "gardener sweep"}`;
-            const flipped = withFileLock(absPath, () => {
-              const original = readFileSync5(absPath, "utf-8");
+            const flipped = withFileLock4(absPath, () => {
+              const original = readFileSync13(absPath, "utf-8");
               const withStatusFlipped = original.replace(/(^---[\s\S]*?\nstatus: )draft(\n[\s\S]*?^---$)/m, (_m, g1, g2) => g1 + "stale" + g2);
               if (withStatusFlipped === original)
                 return false;
               const replaced = appendHistoryInYaml(withStatusFlipped, historyEntry);
-              writeFileSync2(absPath, replaced, "utf-8");
+              writeFileSync8(absPath, replaced, "utf-8");
               return true;
             });
             if (flipped)
@@ -34895,14 +48152,14 @@ ${bodyWithTag}
         metrics.realBacklinkHitRate = entries.length === 0 ? 0 : withRealBacklink / entries.length;
         if (!dryRun && entries.length > 0) {
           const sweepLogRel = "00-Inbox/AI-Output/sweep.log.md";
-          const sweepLogAbs = join8(this.vault, sweepLogRel);
+          const sweepLogAbs = join16(this.vault, sweepLogRel);
           const stamp = new Date(nowValid).toISOString();
           const logLine = `- {ts: "${stamp}", totalEntries: ${metrics.totalEntries}, staleHits: ${staleCandidates.length}, supersedeHits: ${supersedeCandidates.length}, realBacklinkHitRate: ${metrics.realBacklinkHitRate.toFixed(3)}}
 `;
-          withFileLock(sweepLogAbs, () => {
-            if (!existsSync5(sweepLogAbs)) {
-              mkdirSync3(dirname4(sweepLogAbs), { recursive: true });
-              writeFileSync2(sweepLogAbs, "# Sweep trend log\n\n", "utf-8");
+          withFileLock4(sweepLogAbs, () => {
+            if (!existsSync13(sweepLogAbs)) {
+              mkdirSync9(dirname10(sweepLogAbs), { recursive: true });
+              writeFileSync8(sweepLogAbs, "# Sweep trend log\n\n", "utf-8");
             }
             appendFileSync2(sweepLogAbs, logLine, "utf-8");
           });
@@ -34911,9 +48168,9 @@ ${bodyWithTag}
       }
       case "vault.getMetadata": {
         const full = this.resolve(p.path);
-        if (!existsSync5(full))
+        if (!existsSync13(full))
           throw err(-32001, `Not found: ${p.path}`);
-        const content = readFileSync5(full, "utf-8");
+        const content = readFileSync13(full, "utf-8");
         const out = {};
         const links = this.parseWikilinks(content);
         if (links.length)
@@ -34953,7 +48210,7 @@ async function main() {
     await fsAdapter.init();
     registry2.register(fsAdapter);
   }
-  const enabledAdapters = new Set(config2.adapters ?? ["filesystem", "memu", "gitnexus", "obsidian", "qmd", "lightrag", "raganything", "vaultbrain", "graphify"]);
+  const enabledAdapters = new Set(config2.adapters ?? ["filesystem", "memu", "gitnexus", "obsidian", "kanban", "qmd", "lightrag", "raganything", "vaultbrain", "graphify"]);
   if (enabledAdapters.has("memu")) {
     const memuAdapter = new MemUAdapter();
     await memuAdapter.init();
@@ -34971,6 +48228,17 @@ async function main() {
     await obsAdapter.init();
     if (obsAdapter.isAvailable)
       registry2.register(obsAdapter);
+  }
+  if (enabledAdapters.has("kanban")) {
+    const kanbanAdapter = new KanbanAdapter({
+      vaultPath: config2.vault_path,
+      glob: process.env.VAULT_MIND_KANBAN_GLOB
+    });
+    await kanbanAdapter.init();
+    if (kanbanAdapter.isAvailable) {
+      registry2.register(kanbanAdapter);
+      process.stderr.write("obsidian-llm-wiki: [kanban] adapter ready\n");
+    }
   }
   if (enabledAdapters.has("qmd")) {
     const qmdCollection = process.env.VAULT_MIND_QMD_COLLECTION || void 0;
@@ -35018,8 +48286,8 @@ async function main() {
       process.stderr.write("obsidian-llm-wiki: [graphify] adapter ready\n");
     }
   }
-  const __dirname = dirname4(fileURLToPath3(import.meta.url));
-  const compilerPath = resolve2(__dirname, "../../compiler");
+  const __dirname = dirname10(fileURLToPath3(import.meta.url));
+  const compilerPath = resolve5(__dirname, "../../compiler");
   const python = process.env.VAULT_MIND_PYTHON ?? process.env.PYTHON ?? "python";
   const compileTrigger = new CompileTrigger({
     vaultPath: config2.vault_path,
@@ -35030,8 +48298,8 @@ async function main() {
         return;
       for (const fullPath of wikiPaths) {
         try {
-          const relPath = relative3(config2.vault_path, fullPath).replace(/\\/g, "/");
-          const content = readFileSync5(fullPath, "utf-8");
+          const relPath = relative6(config2.vault_path, fullPath).replace(/\\/g, "/");
+          const content = readFileSync13(fullPath, "utf-8");
           vaultBrainAdapter.ingest(relPath, content).catch((err2) => process.stderr.write(`obsidian-llm-wiki: [vaultbrain] ingest error: ${err2.message}
 `));
         } catch {
@@ -35046,8 +48314,8 @@ async function main() {
         compileTrigger.onFileChange(e.path, e.type);
         if (vaultBrainAdapter && e.path.endsWith(".md")) {
           try {
-            const fullPath = join8(config2.vault_path, e.path.replace(/\\/g, "/"));
-            const content = readFileSync5(fullPath, "utf-8");
+            const fullPath = join16(config2.vault_path, e.path.replace(/\\/g, "/"));
+            const content = readFileSync13(fullPath, "utf-8");
             vaultBrainAdapter.ingest(e.path, content).catch((err2) => process.stderr.write(`obsidian-llm-wiki: [vaultbrain] ingest error: ${err2.message}
 `));
           } catch {
@@ -35082,71 +48350,85 @@ async function main() {
     logger: stderrLogger,
     dryRun: false
   };
-  const server = new Server({ name: "obsidian-llm-wiki", version: VERSION }, { capabilities: { tools: {} } });
-  server.setRequestHandler(ListToolsRequestSchema, async () => {
-    const toolDefs = allOps.map((op) => ({
-      name: op.name,
-      description: op.description,
-      inputSchema: {
-        type: "object",
-        properties: Object.fromEntries(Object.entries(op.params).map(([k, v]) => [k, {
-          type: v.type,
-          description: v.description,
-          ...v.default !== void 0 ? { default: v.default } : {},
-          ...v.enum ? { enum: v.enum } : {}
-        }])),
-        required: Object.entries(op.params).filter(([, v]) => v.required).map(([k]) => k)
-      }
-    }));
-    return { tools: toolDefs };
-  });
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    const toolName = request.params.name;
-    const toolArgs = request.params.arguments || {};
+  const ingestMarkdownIntoVaultBrain = (relPath) => {
+    if (!vaultBrainAdapter || !relPath.endsWith(".md"))
+      return;
     try {
-      checkAuth(config2, toolArgs);
-    } catch (e) {
-      const ex = e;
-      return { content: [{ type: "text", text: `Error: ${ex.message}` }], isError: true };
-    }
-    try {
-      const op = allOps.find((o) => o.name === toolName);
-      if (!op)
-        throw err(-32601, `Unknown tool: ${toolName}`);
-      const validatedArgs = validateParams(op.params, toolArgs);
-      enforceCollaborationPolicy(config2, toolName, validatedArgs);
-      const result = await op.handler(ctx, validatedArgs);
-      auditWrite(config2, toolName, validatedArgs, result);
-      if (toolName === "vault.create" || toolName === "vault.modify" || toolName === "vault.append") {
-        const p = toolArgs.path;
-        if (p && toolArgs.dryRun === false) {
-          compileTrigger.onFileChange(p, toolName === "vault.create" ? "create" : "modify");
-          if (vaultBrainAdapter && p.endsWith(".md")) {
-            try {
-              const fullPath = join8(config2.vault_path, p.replace(/\\/g, "/"));
-              const content = readFileSync5(fullPath, "utf-8");
-              vaultBrainAdapter.ingest(p, content).catch((err2) => process.stderr.write(`obsidian-llm-wiki: [vaultbrain] ingest error: ${err2.message}
+      const fullPath = join16(config2.vault_path, relPath.replace(/\\/g, "/"));
+      if (!existsSync13(fullPath))
+        return;
+      const content = readFileSync13(fullPath, "utf-8");
+      vaultBrainAdapter.ingest(relPath, content).catch((err2) => process.stderr.write(`obsidian-llm-wiki: [vaultbrain] ingest error: ${err2.message}
 `));
-            } catch {
-            }
-          }
-        }
-      }
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      const ex = e;
-      return { content: [{ type: "text", text: `Error: ${ex.message || String(e)}` }], isError: true };
+    } catch {
+    }
+  };
+  const resultPath = (result) => {
+    if (typeof result !== "object" || result === null)
+      return void 0;
+    const path = result.path;
+    if (typeof path === "string")
+      return path;
+    const outputPath = result.outputPath;
+    return typeof outputPath === "string" ? outputPath : void 0;
+  };
+  const isRealWrite = (params) => params.dryRun === false || params.dry_run === false;
+  const touchMarkdown = (relPath, event) => {
+    if (typeof relPath !== "string" || !relPath.endsWith(".md"))
+      return;
+    compileTrigger.onFileChange(relPath, event);
+    if (event !== "delete")
+      ingestMarkdownIntoVaultBrain(relPath);
+  };
+  const handleWriteSideEffects = (toolName, params, result) => {
+    if (toolName === "source.register") {
+      touchMarkdown(resultPath(result), "create");
+      return;
+    }
+    if (toolName === "vault.rename" && isRealWrite(params)) {
+      touchMarkdown(params.from, "delete");
+      touchMarkdown(params.to, "create");
+      return;
+    }
+    if (!isRealWrite(params))
+      return;
+    if (toolName === "vault.delete") {
+      touchMarkdown(params.path, "delete");
+      return;
+    }
+    if (toolName === "vault.create" || toolName === "vault.modify" || toolName === "vault.write" || toolName === "vault.append" || toolName === "vault.writeAIOutput") {
+      touchMarkdown(params.path ?? resultPath(result), toolName === "vault.create" ? "create" : "modify");
+      return;
+    }
+    if (toolName === "multimodal.ingest") {
+      touchMarkdown(params.outputPath ?? resultPath(result), "create");
+    }
+  };
+  const server = createMcpServer({
+    name: "obsidian-llm-wiki",
+    version: VERSION,
+    operations: allOps,
+    ctx,
+    logger: stderrLogger,
+    prepareParams: (operation, toolArgs) => {
+      checkAuth(config2, toolArgs);
+      const validatedArgs = validateParams(operation.params, toolArgs);
+      enforceCollaborationPolicy(config2, operation.name, validatedArgs);
+      return validatedArgs;
+    },
+    afterOperation: (operation, validatedArgs, result) => {
+      auditWrite(config2, operation.name, validatedArgs, result);
+      handleWriteSideEffects(operation.name, validatedArgs, result);
     }
   });
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
+  await startStdioServer(server);
   const adapterNames = registry2.list().map((a) => a.name).join(", ");
   process.stderr.write(`obsidian-llm-wiki: MCP server running (stdio, v${VERSION}, adapters: ${adapterNames})
 `);
   process.stderr.write(`obsidian-llm-wiki: try "what do I know about <topic>" to invoke vault-librarian
 `);
 }
-var _entryPath = process.argv[1] ? resolve2(process.argv[1]) : "";
+var _entryPath = process.argv[1] ? resolve5(process.argv[1]) : "";
 var _thisPath = fileURLToPath3(import.meta.url);
 if (_entryPath && _entryPath === _thisPath) {
   main().catch((e) => {

@@ -203,6 +203,167 @@ Full details: [ai-output-convention.md](ai-output-convention.md).
 
 ---
 
+---
+
+## Local project management
+
+Use `project.*` tools when you want local Linear-style task state inside the vault. The workflow is file-backed: issues, comments, project containers, rhizome links, and Kanban board state all live under `10-Projects/<project>/docket/`.
+
+Good first flow:
+
+```text
+project.init project=alpha
+project.issue.create project=alpha title="Build local Linear" priority=High status=started
+project.comment.add project=alpha id=ISSUE-1 body="Validated through smoke test"
+project.issue.update project=alpha id=ISSUE-1 status=Done
+```
+
+After that, `query.unified` and the `kanban` adapter can find the issue and board cards. Details: [LOCAL_PROJECTS.md](LOCAL_PROJECTS.md).
+
+## Local NotebookLM-style ingest
+
+Use `/chubbyskills` when the goal is broader than one source: Bilibili videos, Douyin clips, podcasts, WeChat articles, Xiaohongshu notes, X/Twitter posts, YouTube videos, and content enrichment. ChubbySkills does the capture/transcription; LLMwiki does retrieval, citation, memory, and review.
+
+Good first prompt:
+
+```text
+/chubbyskills make this vault work like a local NotebookLM over my saved feeds
+```
+
+The key environment bridge is:
+
+```bash
+export VAULT_MIND_VAULT_PATH=/path/to/your/vault
+export VAULT_DIR="$VAULT_MIND_VAULT_PATH"
+```
+
+Details: [CHUBBYSKILLS.md](CHUBBYSKILLS.md).
+
+## Local security scan evidence
+
+Use `recipe.run id=avira-to-vault` when you want a local Avira / 小红伞 scan report saved as Markdown evidence. LLMwiki does not bundle antivirus software; configure your own trusted local scanner command:
+
+```bash
+export AVIRA_SCAN_CMD='avscan {target}'
+export AVIRA_SCAN_TARGET='/path/to/vault-or-project'
+```
+
+Reports land in `00-Inbox/Security/avira/` when `VAULT_MIND_VAULT_PATH` / `VAULT_PATH` / `VAULT_DIR` is set, then normal `vault.search`, `query.unified`, and `query.answer` can cite them. Treat non-zero scanner exits as `attention-required`, not as final remediation.
+
+## X/Twitter capture
+
+Use `/x-to-obsidian` when you want posts from X/Twitter saved into the vault through Obsidian Web Clipper. The skill is intentionally local-browser-first: it expects macOS, a logged-in browser session, Obsidian, and the official Web Clipper extension.
+
+Good first prompt:
+
+```text
+/x-to-obsidian collect the top 20 posts from this X search and save them to Obsidian
+```
+
+After clipping, use normal LLMwiki tools to find and govern the notes: `query.unified`, `vault.search`, `vault.writeAIOutput`, and `memory.handoff.write`. Details: [X_TO_OBSIDIAN.md](X_TO_OBSIDIAN.md).
+
+
+## Source Registry
+
+Use `source.register` before promising that an external link has been captured. It records the source and preflight plan without downloading media or scraping private data.
+
+Path rules are fixed:
+
+```text
+_llmwiki/source-registry.json
+00-Inbox/Sources/<platform>/<source>.md
+10-Projects/<project>/sources/<platform>/<source>.md
+```
+
+For URLs, `source.register` runs the same read-only `ingest.link.preflight` classifier so the record says whether the route is `OPENCLI`, `MEDIA_TRANSCRIBE`, or a chained local pipeline. For existing vault notes, use `inputType=vaultPath`; LLMwiki creates a Source Note and leaves the original note untouched.
+
+## Markdown agent memory
+
+AI-Output is for reviewable drafts. Markdown memory is for continuity between agent sessions.
+
+Use the new `memory.*` tools when an agent should leave visible state for the next run:
+
+| Tool | Writes or reads |
+|---|---|
+| `memory.passport.get` / `memory.passport.upsert` | `passport.md` with Goal, Constraints, Decisions, Open Questions, Pointers |
+| `memory.handoff.latest` / `memory.handoff.write` | `handoff.md` with Current State, Next Steps, Risks, Files |
+| `memory.session.save` / `memory.session.list` | timestamped `sessions/<timestamp>-<slug>.md` notes with Summary, Decisions, Actions, References |
+
+Path rules are fixed:
+
+```text
+10-Projects/<project>/agents/<actor>/memory/
+00-Inbox/Agent-Memory/<actor>/
+```
+
+`<actor>` comes from `VAULT_MIND_ACTOR`; if it is not set, LLMwiki uses `agent`. Existing `memory.set/get/list/forget` remains backed by `_ai_memory.json` and is not migrated automatically.
+
+Because Markdown memory lands in the vault, regular filesystem search and `query.unified` can find it. A useful handoff prompt is: "write a handoff for project X with current state, next steps, risks, and files".
+
+## Conversation decisions
+
+Use `conversation.decision.capture` when the useful part of a chat is a decision, not just a session summary: architecture choices, technical tradeoffs, rejected options, debug root causes, project-state changes, or constraints future agents must preserve.
+
+Decision notes are append-only Markdown under:
+
+```text
+10-Projects/<project>/agents/<actor>/memory/decisions/
+00-Inbox/Agent-Memory/<actor>/decisions/
+```
+
+Each note captures Summary, Decision, Why, Rejected Options, Constraints Snapshot, Assumptions, Risks, Actions, References, and selected Conversation Excerpts. Do not save full transcripts by default; pass only excerpts needed to justify the decision. Because these are normal vault notes, `vault.search`, `query.unified`, `query.trace`, and `query.answer` can cite them later.
+
+## MemPalace-style context stack
+
+Use `context.wakeup` at the start of a new agent session. It packages L0 passport identity, L1 handoff/sessions/conversation decisions, and optional L2 topic recall into a bounded startup context.
+
+Good defaults:
+
+```text
+context.wakeup project=<project> topic=<topic>
+context.recall project=<project> query=<specific topic>
+context.deep_search query=<complex question>
+```
+
+The stack is read-only in Phase 1. It does not save transcripts or mutate memory; it only repackages existing Markdown memory, conversation decisions, and cited search results.
+
+## Kanban board search
+
+The read-only `kanban` adapter indexes Obsidian Kanban plugin boards that are stored as Markdown:
+
+```yaml
+---
+kanban-plugin: board
+---
+```
+
+It parses lanes from `## Lane`, cards from `- [ ]` and `- [x]`, archive sections after `***`, and ignores the `%% kanban:settings` footer. Search results include board summaries and card entities with metadata such as `entityType`, `boardPath`, `lane`, `checked`, `archived`, and optional `blockId`.
+
+The default adapter list includes `kanban`. If you set adapters manually, include it:
+
+```bash
+VAULT_MIND_ADAPTERS=filesystem,kanban
+VAULT_MIND_KANBAN_GLOB='**/*.md'
+```
+
+## Obsidian visual project views
+
+LLMwiki writes native Obsidian visualization files from the same Markdown project data:
+
+```text
+project.canvas.export project=<project> dryRun=false
+project.base.export project=<project> dryRun=false
+```
+
+Files land in `10-Projects/<project>/views/`:
+
+```text
+project-map.canvas
+issues.base
+```
+
+Canvas shows the project, status groups, issue note cards, and dependency/relationship edges. Bases shows a table over issue properties: id, title, status, state_type, priority, assignee, blocked_by, updated_at, and tags. Dataview and Tasks can still be used by advanced Obsidian users, but Bases is the default no-extra-plugin dashboard.
+
 ## Optional Obsidian graph check
 
 After you have real AI-Output notes, open one in Obsidian and turn on Local Graph at depth `2`. You should see the draft linked to its `source-nodes` and review tags. This is only a visual check; the product invariant is still the filesystem state:
@@ -307,7 +468,7 @@ The roles don't care about the model — they're prompts over MCP tools. Whateve
 
 ### Where do the MCP tools live?
 
-Generated reference: [mcp-tools-reference.md](mcp-tools-reference.md). 38 tools across 5 namespaces. Drift-guarded by a CI test.
+Generated reference: [mcp-tools-reference.md](mcp-tools-reference.md). the full MCP tool catalog. Drift-guarded by a CI test.
 
 ---
 

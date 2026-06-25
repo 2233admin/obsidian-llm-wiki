@@ -52,7 +52,7 @@ identity:
 
 ```bash
 VAULT_MIND_VAULT_PATH=/path/to/team-vault
-VAULT_MIND_ADAPTERS=filesystem
+VAULT_MIND_ADAPTERS=filesystem,kanban
 VAULT_MIND_ACTOR=codex
 VAULT_MIND_ROLE=agent
 node /path/to/obsidian-llm-wiki/mcp-server/bundle.js
@@ -62,6 +62,7 @@ Agents can write by default to:
 
 ```text
 00-Inbox/AI-Output/<agent>/**
+00-Inbox/Agent-Memory/<agent>/**
 10-Projects/*/agents/<agent>/**
 ```
 
@@ -73,6 +74,23 @@ Protected paths require review:
 40-Runbooks/**
 README.md
 ```
+
+### Markdown memory and Kanban search
+
+Markdown memory files are normal vault notes and follow fixed actor-scoped paths:
+
+```text
+10-Projects/<project>/agents/<agent>/memory/passport.md
+10-Projects/<project>/agents/<agent>/memory/handoff.md
+10-Projects/<project>/agents/<agent>/memory/sessions/<timestamp>-<slug>.md
+00-Inbox/Agent-Memory/<agent>/passport.md
+00-Inbox/Agent-Memory/<agent>/handoff.md
+00-Inbox/Agent-Memory/<agent>/sessions/<timestamp>-<slug>.md
+```
+
+Set `VAULT_MIND_ACTOR` per agent identity so write policy, audit logs, AI-Output, and Markdown memory all use the same namespace. Kanban search is read-only; if your team overrides `VAULT_MIND_ADAPTERS`, keep `kanban` in the list. Use `VAULT_MIND_KANBAN_GLOB` only when board files live in a narrower path than `**/*.md`.
+
+Source Registry writes shared source records under `_llmwiki/source-registry.json`, `00-Inbox/Sources/<platform>/`, and `10-Projects/<project>/sources/<platform>/`. In enforced collaboration mode, include those paths in `allowed_write_paths` only for agents trusted to register team-visible sources.
 
 ## 5. Verify Sync
 

@@ -79,6 +79,54 @@ Then add the `.mcp.json` entry manually:
 }
 ```
 
+## Optional ChubbySkills ingest pack
+
+Setup registers `/chubbyskills` as a top-level skill. It does not install upstream media/transcription dependencies into LLMwiki. Instead, it bundles a helper that prints safe install commands for [chubbyguan/chubbyskills](https://github.com/chubbyguan/chubbyskills).
+
+Example after setup:
+
+```bash
+python3 ~/.codex/skills/chubbyskills/scripts/chubbyskills_bridge.py list
+python3 ~/.codex/skills/chubbyskills/scripts/chubbyskills_bridge.py plan \
+  --vault /path/to/your/vault \
+  --skills bilibili-transcribe podcast-transcribe wechat-article-ingest
+```
+
+See [CHUBBYSKILLS.md](CHUBBYSKILLS.md).
+
+## Optional X/Twitter capture skill
+
+Setup now also registers `x-to-obsidian` when the host supports installed skills. It bundles the upstream-style browser automation script under the installed skill directory.
+
+Use it only on machines that can run the workflow requirements: macOS, a supported logged-in browser, Obsidian, and the official Obsidian Web Clipper.
+
+Installed paths usually look like:
+
+```text
+~/.claude/skills/x-to-obsidian/scripts/x_to_obsidian.py
+~/.codex/skills/x-to-obsidian/scripts/x_to_obsidian.py
+~/.config/opencode/skills/x-to-obsidian/scripts/x_to_obsidian.py
+~/.gemini/skills/x-to-obsidian/scripts/x_to_obsidian.py
+```
+
+See [X_TO_OBSIDIAN.md](X_TO_OBSIDIAN.md).
+
+## Optional memory and Kanban settings
+
+Released bundles now include Markdown memory tools and the read-only `kanban` adapter.
+
+| Env var | Default | Use |
+|---|---|---|
+| `VAULT_MIND_ACTOR` | `agent` | Actor namespace for Markdown memory and collaboration policy. |
+| `VAULT_MIND_ADAPTERS` | default adapter list, including `kanban` | If you override it, include `filesystem,kanban` to keep board search. |
+| `VAULT_MIND_KANBAN_GLOB` | `**/*.md` | Optional narrower glob for Markdown-backed Kanban boards. |
+
+Markdown memory files are written under `10-Projects/<project>/agents/<actor>/memory/` when `project` is provided, otherwise under `00-Inbox/Agent-Memory/<actor>/`. Existing `memory.set/get/list/forget` still uses `_ai_memory.json`.
+
+Visual exports use Obsidian core plugins when available: Canvas reads `.canvas` files, Bases reads `.base` dashboards, and Graph/Backlinks use normal Markdown links. No extra community plugin is required for Phase 1 visual exports. Kanban is still optional but recommended if you want Markdown board search.
+
+Source Registry Phase 1 adds `source.register`, `source.list`, and `source.get`. It writes `_llmwiki/source-registry.json` plus Source Notes under `00-Inbox/Sources/<platform>/`, or `10-Projects/<project>/sources/<platform>/` when `project` is provided. URL registration runs read-only ingest preflight; it does not download, transcribe, or scrape.
+
 ## Building from source (rare)
 
 You only need this if you forked the repo and changed `mcp-server/src/`:
@@ -100,7 +148,7 @@ echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":
   | VAULT_PATH=/path/to/your/vault node ~/.claude/skills/vault-wiki/mcp-server/bundle.js
 ```
 
-You should see a JSON-RPC response with `serverInfo.name = "obsidian-llm-wiki"` and `protocolVersion = "2024-11-05"`. Server stderr will say `MCP server running (stdio, vX.Y.Z, adapters: filesystem)`.
+You should see a JSON-RPC response with `serverInfo.name = "obsidian-llm-wiki"` and `protocolVersion = "2024-11-05"`. Server stderr prints the resolved adapter list, including `kanban` when the default adapter list is used.
 
 ## Troubleshooting
 

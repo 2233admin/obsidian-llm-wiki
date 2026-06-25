@@ -133,9 +133,81 @@ See [docs/RESEARCH_COMPILER_LOOP.md](docs/RESEARCH_COMPILER_LOOP.md) for the sta
 
 ---
 
+---
+
+## Local Linear-style project management
+
+LLMwiki now includes a local-first project management layer under `project.*`, inspired by `the-orrery/docket`, `the-orrery/rhizome`, and `the-orrery/seed`. It stores issues, comments, dependencies, generated Kanban boards, and project docs as Markdown inside the vault. Agents can create and update work items through MCP, while humans can review the resulting files and Git diffs.
+
+The default layout lives under `10-Projects/<project>/docket/`. Issues use docket-compatible `ISSUE-N.md` frontmatter with `status` + `state_type`, dependencies use `blocked_by`, and the generated board is readable by the `kanban` adapter. See [docs/LOCAL_PROJECTS.md](docs/LOCAL_PROJECTS.md).
+
+## Obsidian visual layer
+
+Project management can now export native Obsidian views without requiring Obsidian to be running. Use `project.canvas.export` for `10-Projects/<project>/views/project-map.canvas`, and `project.base.export` for `10-Projects/<project>/views/issues.base`. Canvas gives a spatial project map; Bases gives a table dashboard over issue properties. Kanban remains the supported third-party read-side board adapter; Dataview and Tasks are documented as optional advanced alternatives, not required dependencies.
+
+## Local NotebookLM-style ingest with ChubbySkills
+
+LLMwiki can now treat [chubbyguan/chubbyskills](https://github.com/chubbyguan/chubbyskills) as an optional local ingest pack. ChubbySkills handles platform capture and transcription for Douyin, Bilibili, Xiaohongshu, WeChat, X/Twitter, podcasts, YouTube, and more; LLMwiki handles the local vault layer: search, citations, graph, Markdown memory, AI-Output review, and promotion.
+
+Install LLMwiki normally, then use `/chubbyskills` to plan which upstream capture skills to install and how to point them at the same vault. This makes the product shape closer to a local NotebookLM over your own saved feeds, without bundling heavy media dependencies into the MCP server. See [docs/CHUBBYSKILLS.md](docs/CHUBBYSKILLS.md).
+LLMwiki's MCP core deliberately supports two local ingest entrypoints instead of one scraper per platform:
+
+| Entrypoint | Handles | Contract |
+|---|---|---|
+| `OPENCLI` | Web pages, articles, OpenCLI + BBX/browser-assisted captures, X/Weibo/Zhihu/WeChat/Xiaohongshu-style text surfaces. | Produce Markdown in the vault with source URL and capture metadata. |
+| `MEDIA_TRANSCRIBE` | Audio/video parsing, download, subtitles, transcription, YouTube/Bilibili/Douyin/TikTok/Xiaohongshu/podcast-style media surfaces. | Produce transcript Markdown in the vault with media provenance. |
+
+Use `ingest.link.preflight` before promising capture. It classifies the URL, routes it to `OPENCLI` or the media/transcribe toolchain, reports whether the provider is configured, and returns the honest next action. LLMwiki only claims ingest success after Markdown lands in the vault and can be found by `vault.search` or `query.unified`. See [docs/INGEST.md](docs/INGEST.md). OpenTabs remains optional; the default install path should work with OpenCLI plus BBX/browser bridge.
+
+
+## Source Registry Phase 1 {#source-registry-phase-1}
+
+Use `source.register` when a URL or existing vault note should become a long-lived source before any heavy ingest runs. URL registration runs `ingest.link.preflight` and writes two vault-local artifacts only:
+
+- `_llmwiki/source-registry.json` stores the machine index.
+- `00-Inbox/Sources/<platform>/<source>.md` stores the human-readable Source Note.
+- `10-Projects/<project>/sources/<platform>/<source>.md` is used when `project` is provided.
+
+Phase 1 supports `inputType=url` and `inputType=vaultPath`. Reserved input types such as `filePath`, `directoryPath`, `repoPath`, and `text` are rejected until a later ingest-run layer exists. Use `source.list` and `source.get` to inspect registered sources.
+
+## X/Twitter to Obsidian capture
+
+LLMwiki now ships an optional `/x-to-obsidian` skill adapted from [hemoouren/X-to-Obsidian-SKill](https://github.com/hemoouren/X-to-Obsidian-SKill/tree/main). It finds high-signal X/Twitter posts, saves them through the official Obsidian Web Clipper, and then lets LLMwiki search and govern the clipped Markdown notes.
+
+This lives in the skill layer, not the MCP server: browser automation and logged-in X access stay local, while `vault.search`, `query.unified`, `vault.writeAIOutput`, and `memory.handoff.write` handle the reviewable vault workflow after notes land. See [docs/X_TO_OBSIDIAN.md](docs/X_TO_OBSIDIAN.md).
+
+## Markdown memory + Kanban boards (Phase 1)
+
+LLMwiki now has two memory layers:
+
+| Layer | Path | Use |
+|---|---|---|
+| Lightweight KV | `_ai_memory.json` | Existing `memory.set/get/list/forget` API. Fast private key-value state, unchanged. |
+| Markdown memory | vault notes | Visible, searchable handoff state that survives agent sessions and can be reviewed like any other note. |
+
+Markdown memory is actor-scoped. `VAULT_MIND_ACTOR` selects the actor; if unset it falls back to `agent`.
+
+| Scope | Directory |
+|---|---|
+| Project memory | `10-Projects/<project>/agents/<actor>/memory/` |
+| Fallback memory | `00-Inbox/Agent-Memory/<actor>/` |
+
+The MCP surface adds `memory.passport.get`, `memory.passport.upsert`, `memory.handoff.latest`, `memory.handoff.write`, `memory.session.save`, and `memory.session.list`. `passport.md`, `handoff.md`, and timestamped `sessions/*.md` are normal Markdown, so `vault.search` and `query.unified` can find them.
+
+The `kanban` adapter is read-only in Phase 1. It indexes Obsidian Kanban plugin boards stored as Markdown with `kanban-plugin: board`, emits board summaries plus card results, and preserves lane, checked, archived, and block-id metadata. The default adapter list includes `kanban`; if you override adapters manually, include it explicitly:
+
+Conversation decisions are the harder memory layer: when a session produces an architecture choice, technical tradeoff, rejected option, debug root cause, or project-state change, agents should capture it with `conversation.decision.capture` instead of leaving it buried in chat. Decisions land next to Markdown memory under `decisions/*.md`, include Summary/Decision/Why/Rejected Options/Constraints/Actions/References/Conversation Excerpts, and are searchable by `vault.search`, `query.unified`, `query.trace`, and `query.answer`. Do not store full transcripts by default; pass only selected `excerpts`.
+
+MemPalace-style context stack is exposed through `context.*`: start a new agent session with `context.wakeup project=<project> topic=<topic>`, use `context.recall` for a specific room/topic, and use `context.deep_search` when you need a heavier cited trace. This maps L0 to passport, L1 to handoff/sessions/decisions, L2 to topic recall, and L3 to full trace-backed search.
+
+```bash
+VAULT_MIND_ADAPTERS=filesystem,kanban
+VAULT_MIND_KANBAN_GLOB='**/*.md'
+```
+
 ## Knowledge roles, one MCP surface
 
-Each `/vault-*` command is a knowledge-work role over the same 40-operation MCP tool set. They are jobs in the pipeline, not product mascots.
+Each `/vault-*` command is a knowledge-work role over the same MCP tool set. They are jobs in the pipeline, not product mascots.
 
 | Name | What it does | Primary MCP tools |
 |---|---|---|

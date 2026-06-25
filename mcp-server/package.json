@@ -21,7 +21,7 @@
     "start": "node bundle.js",
     "start:dev": "node dist/index.js",
     "typecheck": "tsc --noEmit",
-    "test": "node --test dist/**/*.test.js",
+    "test": "find dist -name '*.test.js' | sort | xargs node --test",
     "memu-query": "node dist/scripts/memu-query.js",
     "sync-vault-to-memu": "node dist/scripts/sync-vault-to-memu.js",
     "generate-tools-doc": "node dist/scripts/generate-tools-doc.js",
@@ -29,17 +29,17 @@
     "rebuild": "npm run build && npm run bundle"
   },
   "dependencies": {
-    "@electric-sql/pglite": "^0.2.0",
-    "@modelcontextprotocol/sdk": "^1.12.0",
+    "@electric-sql/pglite": "^0.5.3",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@types/pg": "^8.20.0",
-    "pg": "^8.20.0",
-    "ws": "^8.18.2"
+    "pg": "^8.22.0",
+    "ws": "^8.21.0"
   },
   "devDependencies": {
-    "@types/node": "^22.15.30",
+    "@types/node": "^26.0.0",
     "@types/ws": "^8.18.1",
-    "esbuild": "^0.24.2",
-    "typescript": "~5.9.3"
+    "esbuild": "^0.28.1",
+    "typescript": "~6.0.3"
   },
   "engines": {
     "node": ">=20"

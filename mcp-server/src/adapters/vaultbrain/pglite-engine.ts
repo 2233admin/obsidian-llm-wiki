@@ -14,6 +14,11 @@ type PGliteDB = {
   waitReady: Promise<void>;
 };
 
+const dynamicImport = new Function(
+  "specifier",
+  "return import(specifier)",
+) as (specifier: string) => Promise<Record<string, unknown>>;
+
 export class PGliteEngine implements VaultBrainEngine {
   private db: PGliteDB | null = null;
 
@@ -22,10 +27,11 @@ export class PGliteEngine implements VaultBrainEngine {
   async connect(): Promise<void> {
     // Dynamic import so loading failure (missing wasm, etc.) is catchable at call-site
     const { PGlite } = await import("@electric-sql/pglite");
-    const { vector } = await import("@electric-sql/pglite/vector");
+    const { vector } = await dynamicImport("@electric-sql/pglite/vector");
     const { pg_trgm } = await import("@electric-sql/pglite/contrib/pg_trgm");
+    const vectorExtension = vector as typeof pg_trgm;
 
-    this.db = new PGlite(this.dataDir, { extensions: { vector, pg_trgm } }) as unknown as PGliteDB;
+    this.db = new PGlite(this.dataDir, { extensions: { vector: vectorExtension, pg_trgm } }) as unknown as PGliteDB;
     await this.db.waitReady;
   }
 

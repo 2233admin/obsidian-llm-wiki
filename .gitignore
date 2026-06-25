@@ -8,7 +8,13 @@ vault-mind.yaml
 __pycache__/
 *.pyc
 .venv/
+venv/
 *.egg-info/
+.pytest_cache/
+
+# Local vault (user's own notes, never committed)
+knowledge/
+.cnxq/
 
 # IDE
 .vscode/
