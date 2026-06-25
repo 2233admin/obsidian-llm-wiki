@@ -76,6 +76,12 @@ F_LAST_VERIFIED = "last-verified"
 # note's promotes: (accepted) OR rejects: (rejected) field.
 F_REJECTS = "rejects"
 F_REASON = "reason"
+# Task 9F: a sync-pulled candidate FLAGGED `conflict: true` when the remote item
+# AND the local reviewed head both diverged since the last sync (forge.py
+# detect_sync_conflict). classify_triage routes such a candidate into the
+# Conflicts section -- it is the federation analogue of an 8P HEAD_MISMATCH, never
+# silently merged into current-truth.
+F_SYNC_CONFLICT = "conflict"
 
 # The allowlist of fields a materialized snapshot may carry (§2 / §3). A snapshot
 # is built ONLY from these keys -- nothing else leaks from the candidate or head.
@@ -778,7 +784,12 @@ def classify_triage(vault_dir, today: Optional[str] = None) -> list:
 
         res = resolve_head(work_notes, cand.entity)
         conflict_reason = None
-        if res.truth_conflict:
+        if _is_sync_conflict_candidate(cand):
+            # Task 9F: a sync-pulled candidate where remote AND local both diverged
+            # since the last sync -- a federation conflict. Routed to Conflicts so a
+            # human reconciles it via triage/promote; never silently merged.
+            conflict_reason = _sync_conflict_reason(cand)
+        elif res.truth_conflict:
             conflict_reason = (
                 f"entity has a {TRUTH_CONFLICT} "
                 f"({','.join(res.conflict_note_ids)}); resolve the heads first."
@@ -817,6 +828,30 @@ def classify_triage(vault_dir, today: Optional[str] = None) -> list:
     items.sort(key=lambda it: (section_order[it.section], it.entity or "",
                                it.note_id))
     return items
+
+
+def _is_sync_conflict_candidate(cand: WorkNote) -> bool:
+    """True when a candidate carries the Task 9F `conflict: true` sync-conflict
+    flag (forge.detect_sync_conflict set it). The flag is a truthy scalar
+    (`true`/`yes`/`1`); anything else is not a sync conflict."""
+    v = cand.raw.get(F_SYNC_CONFLICT)
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, str):
+        return v.strip().lower() in ("true", "yes", "1")
+    return False
+
+
+def _sync_conflict_reason(cand: WorkNote) -> str:
+    """The Conflicts-section reason for a sync-conflict candidate, naming both
+    diverged revisions when the candidate recorded them."""
+    lr = _scalar_field(cand.raw, "conflict-local-revision")
+    rr = _scalar_field(cand.raw, "conflict-remote-revision")
+    detail = ""
+    if lr or rr:
+        detail = f" (local revision {lr or '?'} vs remote {rr or '?'})"
+    return (f"sync conflict: remote and local both diverged since the last "
+            f"sync{detail}; reconcile via triage/promote, no overwrite.")
 
 
 def _first_line(body: str) -> str:

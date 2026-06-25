@@ -13,6 +13,9 @@ Usage:
     python kb_meta.py project-scan <vault> [extra_root ...]
     python kb_meta.py project-adopt <vault> <path> --entity project/<slug> [--apply] [--today YYYY-MM-DD]
     python kb_meta.py workspace-status <vault> [--apply] [--as-of YYYY-MM-DD]
+    python kb_meta.py sync-pull <vault> [--provider X] [--apply] [--today YYYY-MM-DD]
+    python kb_meta.py sync-plan <vault> [--today YYYY-MM-DD]
+    python kb_meta.py sync-apply <vault> [--apply] [--today YYYY-MM-DD]
 
 All commands output JSON to stdout for machine consumption.
 """
@@ -32,6 +35,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import currency as _currency  # noqa: E402
 import work_protocol as _work_protocol  # noqa: E402
 import workspace as _workspace  # noqa: E402
+import forge as _forge  # noqa: E402
 from _md_parse import parse_frontmatter as robust_parse_frontmatter  # noqa: E402
 
 
@@ -1187,6 +1191,59 @@ def cmd_workspace_status(vault: str, apply: bool = False,
     }
 
 
+# --- Task 9 / PR 9F: reconciliation CLI -------------------------------------
+#
+# `sync-pull` pulls remote items (issues + GitHub merged-PR evidence) into
+# status:draft candidates (conflict-aware); `sync-plan` previews the outward push
+# from the REVIEWED current-truth; `sync-apply` executes those pushes (anti-loop
+# first, conflicted entities skipped). DRY-RUN is the default for all three; only
+# --apply writes / pushes. The token is read from the env inside forge (never a
+# CLI arg, never echoed). `transport` / `providers` are INJECTABLE so tests drive
+# these with a FakeTransport + FakeProvider and never touch a live API; production
+# builds a real UrllibTransport + the default adapter registry.
+
+def _sync_transport(transport):
+    """The injected transport, or a real UrllibTransport for the production run.
+    Tests pass a FakeTransport; nothing else constructs network access."""
+    return transport if transport is not None else _forge.UrllibTransport()
+
+
+def cmd_sync_pull(vault: str, provider: str | None = None,
+                  apply: bool = False, today: str | None = None,
+                  transport=None, providers=None) -> dict:
+    """Pull bound projects' remote items into draft candidates (conflict-aware).
+    DRY-RUN by default; --apply writes them append-only. `provider` (optional)
+    restricts the pull to one provider; None pulls every configured provider.
+    `transport`/`providers` are injected by tests (FakeTransport/FakeProvider)."""
+    t = _sync_transport(transport)
+    provs = providers if providers is not None else _forge.default_providers()
+    if provider:
+        # restrict to the named provider only (an unknown name -> empty map -> a
+        # well-formed run that simply pulls nothing for it).
+        provs = {provider: provs[provider]} if provider in provs else {}
+    return _forge.sync_pull(vault, t, providers=provs, apply=apply, today=today)
+
+
+def cmd_sync_plan(vault: str, today: str | None = None,
+                  transport=None, providers=None) -> dict:
+    """Preview the outward push from each project's REVIEWED current-truth (never a
+    draft). Performs NO network write. `transport`/`providers` are injected by
+    tests."""
+    t = _sync_transport(transport)
+    provs = providers if providers is not None else _forge.default_providers()
+    return _forge.sync_plan(vault, t, providers=provs)
+
+
+def cmd_sync_apply(vault: str, apply: bool = False, today: str | None = None,
+                   transport=None, providers=None) -> dict:
+    """Apply the outward projection. DRY-RUN by default (== sync-plan with no
+    push); --apply executes each planned push (anti-loop first, conflicted
+    entities skipped). `transport`/`providers` are injected by tests."""
+    t = _sync_transport(transport)
+    provs = providers if providers is not None else _forge.default_providers()
+    return _forge.sync_apply(vault, t, providers=provs, apply=apply, today=today)
+
+
 # --- CLI ---
 #
 # The project-* argv parsers are module-level pure functions (not closures) so the
@@ -1259,6 +1316,73 @@ def _parse_workspace_status_args(args: list[str]) -> dict:
     return {"vault": pos[0], "apply": apply, "as_of": as_of}
 
 
+def _parse_sync_pull_args(args: list[str]) -> dict:
+    """Parse 'sync-pull <vault> [--provider X] [--apply] [--today YYYY-MM-DD]'
+    (dry-run default). Returns {vault, provider, apply, today}. Missing <vault> ->
+    IndexError. --provider/--today consume the FOLLOWING token."""
+    pos = [a for a in args[1:] if not a.startswith("--")]
+    if not pos:
+        raise IndexError("sync-pull needs <vault>")
+    provider = None
+    apply = False
+    today_str = None
+    i = 1
+    while i < len(args):
+        a = args[i]
+        if a == "--provider" and i + 1 < len(args):
+            provider = args[i + 1]
+            i += 2
+            continue
+        if a == "--today" and i + 1 < len(args):
+            today_str = args[i + 1]
+            i += 2
+            continue
+        if a == "--apply":
+            apply = True
+        i += 1
+    return {"vault": pos[0], "provider": provider, "apply": apply,
+            "today": today_str}
+
+
+def _parse_sync_plan_args(args: list[str]) -> dict:
+    """Parse 'sync-plan <vault> [--today YYYY-MM-DD]' (no network write). Returns
+    {vault, today}. Missing <vault> -> IndexError; --today consumes the next token."""
+    pos = [a for a in args[1:] if not a.startswith("--")]
+    if not pos:
+        raise IndexError("sync-plan needs <vault>")
+    today_str = None
+    i = 1
+    while i < len(args):
+        if args[i] == "--today" and i + 1 < len(args):
+            today_str = args[i + 1]
+            i += 2
+            continue
+        i += 1
+    return {"vault": pos[0], "today": today_str}
+
+
+def _parse_sync_apply_args(args: list[str]) -> dict:
+    """Parse 'sync-apply <vault> [--apply] [--today YYYY-MM-DD]' (dry-run default).
+    Returns {vault, apply, today}. Missing <vault> -> IndexError; --today consumes
+    the following token."""
+    pos = [a for a in args[1:] if not a.startswith("--")]
+    if not pos:
+        raise IndexError("sync-apply needs <vault>")
+    apply = False
+    today_str = None
+    i = 1
+    while i < len(args):
+        a = args[i]
+        if a == "--today" and i + 1 < len(args):
+            today_str = args[i + 1]
+            i += 2
+            continue
+        if a == "--apply":
+            apply = True
+        i += 1
+    return {"vault": pos[0], "apply": apply, "today": today_str}
+
+
 def main():
     args = sys.argv[1:]
     if len(args) < 1:
@@ -1297,6 +1421,19 @@ def main():
         return cmd_workspace_status(p["vault"], apply=p["apply"],
                                     as_of=p["as_of"])
 
+    def _sync_pull_cli():
+        p = _parse_sync_pull_args(args)
+        return cmd_sync_pull(p["vault"], provider=p["provider"],
+                             apply=p["apply"], today=p["today"])
+
+    def _sync_plan_cli():
+        p = _parse_sync_plan_args(args)
+        return cmd_sync_plan(p["vault"], today=p["today"])
+
+    def _sync_apply_cli():
+        p = _parse_sync_apply_args(args)
+        return cmd_sync_apply(p["vault"], apply=p["apply"], today=p["today"])
+
     dispatch = {
         "init": lambda: cmd_init(args[1], args[2]),
         "diff": lambda: cmd_diff(args[1], args[2]),
@@ -1309,6 +1446,9 @@ def main():
         "project-scan": _project_scan_cli,
         "project-adopt": _project_adopt_cli,
         "workspace-status": _workspace_status_cli,
+        "sync-pull": _sync_pull_cli,
+        "sync-plan": _sync_plan_cli,
+        "sync-apply": _sync_apply_cli,
     }
 
     if cmd not in dispatch:

@@ -426,6 +426,10 @@ class SyncPlanReviewedTest(unittest.TestCase):
     """sync_plan/apply project the REVIEWED current-truth head, never a draft."""
 
     def setUp(self):
+        # scrub provider tokens so the apply path is deterministic regardless of
+        # the ambient env (matches the hermetic pattern of the 9F apply tests).
+        self._saved = {k: os.environ.pop(k, None)
+                       for k in ("GITEA_TOKEN", "GITHUB_TOKEN", "LINEAR_TOKEN")}
         self.tmp = Path(tempfile.mkdtemp(prefix="vault-9c-sync-"))
         self.vault = self.tmp / "vault"
         self.vault.mkdir()
@@ -464,6 +468,11 @@ class SyncPlanReviewedTest(unittest.TestCase):
         self.providers = {"gitea": FakeProvider()}
 
     def tearDown(self):
+        for k, v in self._saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
         shutil.rmtree(self.tmp, ignore_errors=True)
 
     def test_plan_pushes_reviewed_not_draft(self):
@@ -481,15 +490,18 @@ class SyncPlanReviewedTest(unittest.TestCase):
         payload = entry["payloads"][0]["payload"]
         self.assertEqual(payload["state"], currency.STATE_IN_PROGRESS)
 
-    def test_apply_is_planned_noop_stub_not_pushed(self):
-        # 9C: apply runs the seam but does NOT actually push (provider-specific).
+    def test_apply_without_configured_token_does_not_push(self):
+        # 9F: with NO provider token in the env (scrubbed in setUp), the apply path
+        # records the planned payload but executes no network write -- the push is
+        # marked not-pushed (the not-configured branch), never a real PATCH/POST.
         out = forge.sync_apply(str(self.vault), self.transport,
                                providers=self.providers, apply=True)
         proj = {p["entity"]: p for p in out["projects"]}["project/web/issue/login"]
         self.assertTrue(proj["pushed"])
         for push in proj["pushed"]:
-            self.assertFalse(push["pushed"])  # planned no-op for 9C.
+            self.assertFalse(push["pushed"])  # not configured -> no execute.
             self.assertIsNotNone(push["payload"])
+        self.assertEqual(self.transport.calls, [])  # no network write at all.
 
     def test_apply_refuses_loop_risk_project(self):
         # add a SECOND bound project with a writable mirror -> refused, not pushed.
@@ -710,6 +722,21 @@ class GiteaPushPlanTest(unittest.TestCase):
         snapshot = {"entity": "e", "state": currency.STATE_CANCELED, "title": "x"}
         plan = self.adapter.push_plan(snapshot, self.repo_cfg)
         self.assertEqual(plan["payload"]["state"], "closed")
+
+    def test_origin_from_other_provider_is_a_create_not_patch(self):
+        # a snapshot whose origin points at a DIFFERENT forge (github/linear) has
+        # NO gitea counterpart yet -> a push to gitea CREATES; it must NOT PATCH a
+        # foreign object-id (which would clobber an unrelated Gitea issue #43).
+        for foreign in ("github", "linear"):
+            snapshot = {"entity": "e", "state": currency.STATE_TODO, "title": "x",
+                        "fields": {"origin": {"provider": foreign,
+                                              "object-id": "43"}}}
+            plan = self.adapter.push_plan(snapshot, self.repo_cfg)
+            self.assertEqual(plan["method"], "POST",
+                             f"{foreign}-origin must CREATE, not PATCH")
+            self.assertEqual(plan["endpoint"],
+                             "/repos/2233admin/vault-mind/issues")
+            self.assertIsNone(plan["object_id"])
 
     def test_push_plan_issues_no_network(self):
         # push_plan is PURE -- a FakeTransport handed nowhere is irrelevant; the
@@ -1821,6 +1848,622 @@ class LinearOriginRoundTripTest(unittest.TestCase):
         self.assertEqual(plan["object_id"], "lin-uuid-43")
         self.assertEqual(plan["variables"]["id"], "lin-uuid-43")
         self.assertEqual(plan["variables"]["input"]["stateId"], "state-done-uuid")
+
+
+# === PR 9F: RECONCILIATION (sync_pull / detect_sync_conflict / sync_apply) ===
+# All driven by FakeTransport + recorded JSON + injected providers -- NEVER a live
+# API. These are the capstone tests that wire the adapters end-to-end.
+
+
+def _write_reviewed_head(vault: Path, rel: str, *, entity: str, state: str,
+                         provider: str, object_id: str, revision: str) -> None:
+    """Write a REVIEWED current-truth head carrying a same-provider origin block
+    (so push_plan PATCHes / issueUpdates it, and detect_sync_conflict can compare
+    revisions). LF-only bytes."""
+    p = vault / rel
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_bytes((
+        "---\n"
+        "type: issue\n"
+        f"entity: {entity}\n"
+        f"state: {state}\n"
+        "origin:\n"
+        f"  provider: {provider}\n"
+        f"  object-id: {object_id}\n"
+        f"  revision: {revision}\n"
+        "  actor: xue\n"
+        "status: reviewed\n"
+        "last-verified: 2026-06-20\n"
+        "---\n\nReviewed work.\n"
+    ).encode("utf-8"))
+
+
+class SyncPullTest(unittest.TestCase):
+    """sync_pull writes issue candidates AND merged-PR evidence candidates
+    (suggested-state, no state) for a GitHub project; dry-run writes nothing."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="vault-9f-pull-"))
+        self.vault = self.tmp / "vault"
+        self.vault.mkdir()
+        _write_forge_config(self.vault, {"projects": {
+            "project/vault-mind": {
+                "forge": {"provider": "github", "repo": "2233admin/vault-mind"},
+            }
+        }})
+        issues_url = ("https://api.github.com/repos/2233admin/vault-mind/"
+                      "issues?state=all&per_page=100&page=1")
+        pulls_url = ("https://api.github.com/repos/2233admin/vault-mind/"
+                     "pulls?state=all&per_page=100&page=1")
+        self.transport = FakeTransport({
+            ("GET", issues_url): {"status": 200, "headers": {},
+                "body": json.dumps(_GITHUB_ISSUES_JSON).encode("utf-8")},
+            ("GET", pulls_url): {"status": 200, "headers": {},
+                "body": json.dumps(_GITHUB_PULLS_JSON).encode("utf-8")},
+        })
+        self.providers = {"github": forge.GitHubAdapter()}
+        self._saved = os.environ.pop("GITHUB_TOKEN", None)
+
+    def tearDown(self):
+        if self._saved is None:
+            os.environ.pop("GITHUB_TOKEN", None)
+        else:
+            os.environ["GITHUB_TOKEN"] = self._saved
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _sync_dir(self) -> Path:
+        return self.vault / "00-Inbox" / "AI-Output" / "sync-github"
+
+    def test_dry_run_pulls_issues_and_evidence_writes_nothing(self):
+        os.environ["GITHUB_TOKEN"] = "ghp_T"
+        res = forge.sync_pull(self.vault, self.transport,
+                              providers=self.providers, today=TODAY)
+        # 3 issues (PR #45 dropped from issues), 1 merged-PR evidence (#50).
+        self.assertEqual(len(res["candidates"]), 3)
+        self.assertEqual(len(res["evidence"]), 1)
+        # the evidence candidate is a suggested-state, NOT a state (never closes).
+        ev = res["evidence"][0]
+        self.assertEqual(ev["suggested_state"], currency.STATE_DONE)
+        self.assertEqual(ev["evidence"], "github:pr/50")
+        ev_fm = parse_frontmatter(ev["text"])
+        self.assertNotIn("state", ev_fm)
+        self.assertEqual(ev_fm["suggested-state"], currency.STATE_DONE)
+        # dry-run wrote NOTHING.
+        self.assertEqual(res["written"], [])
+        self.assertFalse(self._sync_dir().exists())
+
+    def test_apply_writes_issue_and_evidence_candidates_lf(self):
+        os.environ["GITHUB_TOKEN"] = "ghp_T"
+        res = forge.sync_pull(self.vault, self.transport,
+                              providers=self.providers, apply=True, today=TODAY)
+        # 3 issues + 1 evidence = 4 files written, all LF, all frontmatter.
+        self.assertEqual(len(res["written"]), 4)
+        d = self._sync_dir()
+        self.assertTrue(d.exists())
+        names = sorted(p.name for p in d.iterdir())
+        # the evidence file is named pr-<n>.
+        self.assertIn(f"{TODAY}-pr-50.md", names)
+        for p in d.iterdir():
+            raw = p.read_bytes()
+            self.assertNotIn(b"\r", raw)
+            self.assertTrue(raw.startswith(b"---"))
+
+    def test_missing_token_is_reported_not_crash_no_network(self):
+        # no GITHUB_TOKEN -> a per-project error, nothing pulled, no transport call.
+        res = forge.sync_pull(self.vault, self.transport,
+                              providers=self.providers, today=TODAY)
+        self.assertEqual(res["candidates"], [])
+        self.assertEqual(res["evidence"], [])
+        self.assertTrue(res["errors"])
+        self.assertEqual(self.transport.calls, [])
+
+    def test_token_never_leaks_into_result(self):
+        os.environ["GITHUB_TOKEN"] = "ghp_SECRET"
+        res = forge.sync_pull(self.vault, self.transport,
+                              providers=self.providers, apply=True, today=TODAY)
+        blob = json.dumps(res, default=str)
+        self.assertNotIn("ghp_SECRET", blob)
+
+    def test_per_project_error_does_not_abort_other_projects(self):
+        # two GitHub projects: one 500s, the other succeeds -> the good one still
+        # yields candidates and the bad one is recorded in errors.
+        _write_forge_config(self.vault, {"projects": {
+            "project/good": {"forge": {"provider": "github",
+                                       "repo": "2233admin/vault-mind"}},
+            "project/bad": {"forge": {"provider": "github",
+                                      "repo": "2233admin/broken"}},
+        }})
+        bad_url = ("https://api.github.com/repos/2233admin/broken/"
+                   "issues?state=all&per_page=100&page=1")
+        self.transport.responses[("GET", bad_url)] = {
+            "status": 500, "headers": {}, "body": b'{"message":"boom"}'}
+        os.environ["GITHUB_TOKEN"] = "ghp_T"
+        res = forge.sync_pull(self.vault, self.transport,
+                              providers=self.providers, today=TODAY)
+        self.assertTrue(res["candidates"])  # the good project pulled.
+        self.assertTrue(any("500" in e["error"] for e in res["errors"]))
+
+
+class DetectSyncConflictTest(unittest.TestCase):
+    """detect_sync_conflict: remote+local both diverged -> conflict; remote-only
+    change -> no conflict; the conflict candidate lands in _triage Conflicts."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="vault-9f-conflict-"))
+        self.vault = self.tmp / "vault"
+        self.vault.mkdir()
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _remote(self, *, object_id="43", revision, state):
+        return forge.RemoteItem(
+            kind="issue", object_id=object_id, revision=revision, actor="xue",
+            title="Bug in parser", state=state,
+            entity_hint="project/web/issue/parser")
+
+    def test_no_local_head_is_not_a_conflict(self):
+        is_c, info = forge.detect_sync_conflict(
+            None, self._remote(revision="r2", state="closed"))
+        self.assertFalse(is_c)
+        self.assertIsNone(info)
+
+    def test_remote_only_change_is_not_a_conflict(self):
+        # local head synced at revision r1 with state DONE; remote moved to r2 but
+        # still maps to DONE (closed) -> only the remote metadata changed -> benign.
+        snap = {"entity": "project/web/issue/parser", "state": currency.STATE_DONE,
+                "fields": {"origin": {"provider": "gitea", "object-id": "43",
+                                      "revision": "r1"}}}
+        is_c, info = forge.detect_sync_conflict(
+            snap, self._remote(revision="r2", state="closed"))
+        self.assertFalse(is_c)
+
+    def test_both_diverged_is_a_conflict(self):
+        # local head synced at r1, local state is now IN_PROGRESS (a local promote
+        # changed it); remote moved to r2 AND now says closed -> DONE. The two
+        # disagree on state AND both moved -> CONFLICT.
+        snap = {"entity": "project/web/issue/parser",
+                "state": currency.STATE_IN_PROGRESS,
+                "fields": {"origin": {"provider": "gitea", "object-id": "43",
+                                      "revision": "r1"}}}
+        is_c, info = forge.detect_sync_conflict(
+            snap, self._remote(revision="r2", state="closed"))
+        self.assertTrue(is_c)
+        self.assertEqual(info["local_revision"], "r1")
+        self.assertEqual(info["remote_revision"], "r2")
+
+    def test_different_object_id_is_not_a_conflict(self):
+        # the local head's origin points at a DIFFERENT remote object -> not the
+        # same synced pair -> never a conflict (a fresh candidate instead).
+        snap = {"entity": "project/web/issue/parser",
+                "state": currency.STATE_IN_PROGRESS,
+                "fields": {"origin": {"provider": "gitea", "object-id": "999",
+                                      "revision": "r1"}}}
+        is_c, info = forge.detect_sync_conflict(
+            snap, self._remote(object_id="43", revision="r2", state="closed"))
+        self.assertFalse(is_c)
+
+    def test_provider_mismatch_with_matching_object_id_is_not_a_conflict(self):
+        # the local head was synced from GITHUB#43; the same id is pulled from a
+        # GITEA binding. Same object-id, DIFFERENT provider -> not the same synced
+        # pair -> no conflict (object-id-only collision must not mis-pair forges).
+        snap = {"entity": "project/web/issue/parser",
+                "state": currency.STATE_IN_PROGRESS,
+                "fields": {"origin": {"provider": "github", "object-id": "43",
+                                      "revision": "r1"}}}
+        is_c, info = forge.detect_sync_conflict(
+            snap, self._remote(object_id="43", revision="r2", state="closed"),
+            remote_provider="gitea")
+        self.assertFalse(is_c)
+        self.assertIsNone(info)
+        # without the provider hint, the legacy object-id-only path still flags it
+        # (over-flag -> triage, the safe direction) -- the hint is the tightening.
+        is_c2, _ = forge.detect_sync_conflict(
+            snap, self._remote(object_id="43", revision="r2", state="closed"))
+        self.assertTrue(is_c2)
+
+    def test_conflict_candidate_is_flagged_and_lands_in_triage_conflicts(self):
+        # a reviewed head at r1 (in-progress) + a sync-pulled conflict candidate
+        # (remote r2 closed) -> classify_triage routes it to Conflicts, still draft.
+        _write_reviewed_head(
+            self.vault, "Projects/parser.reviewed.md",
+            entity="project/web/issue/parser", state="in-progress",
+            provider="gitea", object_id="43", revision="r1")
+        local_snap = forge._reviewed_head_snapshot(
+            str(self.vault), "project/web/issue/parser")
+        item = self._remote(revision="r2", state="closed")
+        is_c, info = forge.detect_sync_conflict(local_snap, item)
+        self.assertTrue(is_c)
+        cand = forge.remote_item_to_candidate(
+            item, str(self.vault), "gitea",
+            base_head_resolver=lambda e: "Projects/parser.reviewed.md",
+            today=TODAY, conflict=info)
+        fm = parse_frontmatter(cand["text"])
+        self.assertEqual(fm["conflict"], "true")
+        self.assertEqual(fm["status"], "draft")  # still a proposal, never overwrite.
+        inbox = self.vault / "00-Inbox" / "AI-Output" / "sync-gitea"
+        inbox.mkdir(parents=True)
+        (inbox / f"{TODAY}-43.md").write_bytes(cand["text"].encode("utf-8"))
+
+        items = work_protocol.classify_triage(str(self.vault), today=TODAY)
+        match = [it for it in items
+                 if it.entity == "project/web/issue/parser"]
+        self.assertTrue(match)
+        self.assertEqual(match[0].section, work_protocol.TRIAGE_CONFLICTS)
+        self.assertIn("sync conflict", match[0].reason)
+
+    def test_remote_only_change_is_pending_review_not_conflict(self):
+        # local head at r1 DONE, remote moved to r2 but still DONE -> a NORMAL
+        # Pending-Review candidate (no conflict flag, not in Conflicts).
+        _write_reviewed_head(
+            self.vault, "Projects/parser.reviewed.md",
+            entity="project/web/issue/parser", state="done",
+            provider="gitea", object_id="43", revision="r1")
+        local_snap = forge._reviewed_head_snapshot(
+            str(self.vault), "project/web/issue/parser")
+        item = self._remote(revision="r2", state="closed")
+        is_c, info = forge.detect_sync_conflict(local_snap, item)
+        self.assertFalse(is_c)
+        cand = forge.remote_item_to_candidate(
+            item, str(self.vault), "gitea",
+            base_head_resolver=lambda e: "Projects/parser.reviewed.md",
+            today=TODAY, conflict=info if is_c else None)
+        fm = parse_frontmatter(cand["text"])
+        self.assertNotIn("conflict", fm)
+
+
+class SyncApplyExecuteTest(unittest.TestCase):
+    """sync_apply EXECUTES the push: PATCH for an origin-bearing reviewed head (no
+    duplicate POST), POST for a new one, GraphQL issueUpdate for Linear; a
+    conflicted entity is skipped; an anti-loop project is excluded; the token never
+    appears in any recorded call."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="vault-9f-apply-"))
+        self.vault = self.tmp / "vault"
+        self.vault.mkdir()
+        self._saved = {k: os.environ.pop(k, None)
+                       for k in ("GITEA_TOKEN", "GITHUB_TOKEN", "LINEAR_TOKEN")}
+
+    def tearDown(self):
+        for k, v in self._saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_origin_bearing_head_executes_patch_no_duplicate_post(self):
+        # a reviewed head with a github origin -> sync_apply executes a PATCH (an
+        # UPDATE of the same issue), never a POST (no duplicate).
+        _write_forge_config(self.vault, {"projects": {
+            "project/web/issue/parser": {
+                "forge": {"provider": "github", "repo": "org/web"}}}})
+        _write_reviewed_head(
+            self.vault, "Projects/parser.reviewed.md",
+            entity="project/web/issue/parser", state="done",
+            provider="github", object_id="43", revision="r1")
+        transport = FakeTransport({
+            ("PATCH", "https://api.github.com/repos/org/web/issues/43"):
+                {"status": 200, "headers": {}, "body": b'{"number":43}'},
+        })
+        os.environ["GITHUB_TOKEN"] = "ghp_SECRET"
+        out = forge.sync_apply(self.vault, transport,
+                               providers={"github": forge.GitHubAdapter()},
+                               apply=True, today=TODAY)
+        proj = {p["entity"]: p for p in out["projects"]}[
+            "project/web/issue/parser"]
+        push = proj["pushed"][0]
+        self.assertTrue(push["pushed"])
+        self.assertEqual(push["executed"]["method"], "PATCH")
+        self.assertEqual(push["executed"]["object_id"], "43")
+        # exactly ONE write call, a PATCH (no duplicate POST create).
+        methods = [c[0] for c in transport.calls]
+        self.assertEqual(methods, ["PATCH"])
+        # the token rode in the header only, never the URL / recorded url.
+        for method, url, headers, body in transport.calls:
+            self.assertNotIn("ghp_SECRET", url)
+        self.assertNotIn("ghp_SECRET", json.dumps(out, default=str))
+
+    def test_new_head_executes_post_create(self):
+        # a reviewed head with NO origin -> sync_apply executes a POST (create).
+        _write_forge_config(self.vault, {"projects": {
+            "project/web/issue/new": {
+                "forge": {"provider": "github", "repo": "org/web"}}}})
+        p = self.vault / "Projects" / "new.reviewed.md"
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_bytes((
+            "---\n"
+            "type: issue\n"
+            "entity: project/web/issue/new\n"
+            "state: in-progress\n"
+            "status: reviewed\n"
+            "title: Brand new\n"
+            "last-verified: 2026-06-20\n"
+            "---\n\nNew work.\n"
+        ).encode("utf-8"))
+        transport = FakeTransport({
+            ("POST", "https://api.github.com/repos/org/web/issues"):
+                {"status": 201, "headers": {}, "body": b'{"number":99}'},
+        })
+        os.environ["GITHUB_TOKEN"] = "ghp_T"
+        out = forge.sync_apply(self.vault, transport,
+                               providers={"github": forge.GitHubAdapter()},
+                               apply=True, today=TODAY)
+        proj = {p2["entity"]: p2 for p2 in out["projects"]}[
+            "project/web/issue/new"]
+        push = proj["pushed"][0]
+        self.assertTrue(push["pushed"])
+        self.assertEqual(push["executed"]["method"], "POST")
+        self.assertEqual([c[0] for c in transport.calls], ["POST"])
+
+    def test_linear_executes_graphql_issue_update(self):
+        # a reviewed head with a linear origin -> sync_apply POSTs a GraphQL
+        # issueUpdate mutation to the Linear endpoint (no duplicate create).
+        _write_forge_config(self.vault, {"projects": {
+            "project/web/issue/parser": {
+                "forge": {"provider": "linear", "team_id": "team-uuid",
+                          "state_type_ids": {"completed": "st-done"}}}}})
+        _write_reviewed_head(
+            self.vault, "Projects/parser.reviewed.md",
+            entity="project/web/issue/parser", state="done",
+            provider="linear", object_id="lin-uuid-43", revision="r1")
+        transport = FakeTransport({
+            ("POST", forge.LINEAR_API_URL):
+                {"status": 200, "headers": {},
+                 "body": json.dumps({"data": {"issueUpdate": {
+                     "success": True, "issue": {"id": "lin-uuid-43"}}}}
+                 ).encode("utf-8")},
+        })
+        os.environ["LINEAR_TOKEN"] = "lin_SECRET"
+        out = forge.sync_apply(self.vault, transport,
+                               providers={"linear": forge.LinearAdapter()},
+                               apply=True, today=TODAY)
+        proj = {p["entity"]: p for p in out["projects"]}[
+            "project/web/issue/parser"]
+        push = proj["pushed"][0]
+        self.assertTrue(push["pushed"])
+        self.assertEqual(push["executed"]["mutation"], "issueUpdate")
+        # the GraphQL POST body carried the issueUpdate mutation + the id.
+        post = [c for c in transport.calls if c[0] == "POST"][0]
+        body = post[3].decode("utf-8")
+        self.assertIn("issueUpdate", body)
+        self.assertIn("lin-uuid-43", body)
+        # Linear uses the RAW token in the header (no Bearer); never in any URL.
+        self.assertEqual(post[2].get("Authorization"), "lin_SECRET")
+        self.assertNotIn("lin_SECRET", post[1])
+        self.assertNotIn("lin_SECRET", json.dumps(out, default=str))
+
+    def test_conflicted_entity_is_skipped_not_pushed(self):
+        # a reviewed head + an unconsumed CONFLICT-flagged candidate for the same
+        # entity -> sync_apply SKIPS the push (a known conflict must be reconciled
+        # via triage/promote first, never blindly overwritten).
+        _write_forge_config(self.vault, {"projects": {
+            "project/web/issue/parser": {
+                "forge": {"provider": "github", "repo": "org/web"}}}})
+        _write_reviewed_head(
+            self.vault, "Projects/parser.reviewed.md",
+            entity="project/web/issue/parser", state="in-progress",
+            provider="github", object_id="43", revision="r1")
+        inbox = self.vault / "00-Inbox" / "AI-Output" / "sync-github"
+        inbox.mkdir(parents=True)
+        item = forge.RemoteItem(
+            kind="issue", object_id="43", revision="r2", actor="xue",
+            title="Bug in parser", state="closed",
+            entity_hint="project/web/issue/parser")
+        cand = forge.remote_item_to_candidate(
+            item, str(self.vault), "github",
+            base_head_resolver=lambda e: "Projects/parser.reviewed.md",
+            today=TODAY,
+            conflict={"local_revision": "r1", "remote_revision": "r2",
+                      "reason": "diverged"})
+        (inbox / f"{TODAY}-43.md").write_bytes(cand["text"].encode("utf-8"))
+
+        transport = FakeTransport()
+        os.environ["GITHUB_TOKEN"] = "ghp_T"
+        out = forge.sync_apply(self.vault, transport,
+                               providers={"github": forge.GitHubAdapter()},
+                               apply=True, today=TODAY)
+        proj = {p["entity"]: p for p in out["projects"]}[
+            "project/web/issue/parser"]
+        self.assertIn("skipped", proj)
+        self.assertEqual(proj["pushed"], [])
+        self.assertTrue(out["skipped"])
+        # CRITICAL: nothing was pushed for the conflicted entity.
+        self.assertEqual(transport.calls, [])
+
+    def test_project_level_config_key_is_gated_by_descendant_issue_conflict(self):
+        # forge.json is keyed at the PROJECT level (project/web), but the conflict
+        # candidate is per-ISSUE (project/web/issue/parser, a DESCENDANT). The
+        # conflict gate must still SKIP the push (prefix-aware) -- a known conflict
+        # under the project is never blindly overwritten outward (9F#3).
+        _write_forge_config(self.vault, {"projects": {
+            "project/web": {
+                "forge": {"provider": "github", "repo": "org/web"}}}})
+        # a reviewed head for the PROJECT-LEVEL entity (what sync_plan would push).
+        _write_reviewed_head(
+            self.vault, "Projects/web.reviewed.md",
+            entity="project/web", state="in-progress",
+            provider="github", object_id="7", revision="r1")
+        # a per-ISSUE conflict candidate UNDER that project.
+        inbox = self.vault / "00-Inbox" / "AI-Output" / "sync-github"
+        inbox.mkdir(parents=True)
+        # the issue's own reviewed head so the candidate is a genuine conflict.
+        _write_reviewed_head(
+            self.vault, "Projects/parser.reviewed.md",
+            entity="project/web/issue/parser", state="in-progress",
+            provider="github", object_id="43", revision="r1")
+        item = forge.RemoteItem(
+            kind="issue", object_id="43", revision="r2", actor="xue",
+            title="Bug in parser", state="closed",
+            entity_hint="project/web/issue/parser")
+        cand = forge.remote_item_to_candidate(
+            item, str(self.vault), "github",
+            base_head_resolver=lambda e: "Projects/parser.reviewed.md",
+            today=TODAY,
+            conflict={"local_revision": "r1", "remote_revision": "r2",
+                      "reason": "diverged"})
+        (inbox / f"{TODAY}-43.md").write_bytes(cand["text"].encode("utf-8"))
+
+        transport = FakeTransport()
+        os.environ["GITHUB_TOKEN"] = "ghp_T"
+        out = forge.sync_apply(self.vault, transport,
+                               providers={"github": forge.GitHubAdapter()},
+                               apply=True, today=TODAY)
+        proj = {p["entity"]: p for p in out["projects"]}["project/web"]
+        self.assertIn("skipped", proj)
+        self.assertEqual(proj["pushed"], [])
+        # CRITICAL: nothing pushed for the project whose descendant issue conflicts.
+        self.assertEqual(transport.calls, [])
+
+    def test_anti_loop_project_is_refused_not_pushed(self):
+        # a project with a writable mirror (2nd bidirectional path) -> refused.
+        _write_forge_config(self.vault, {"projects": {
+            "project/loopy": {
+                "forge": {"provider": "github", "repo": "org/loopy"},
+                "mirrors": [{"provider": "gitea"}],  # writable mirror -> loop
+            }}})
+        transport = FakeTransport()
+        os.environ["GITHUB_TOKEN"] = "ghp_T"
+        out = forge.sync_apply(self.vault, transport,
+                               providers={"github": forge.GitHubAdapter()},
+                               apply=True, today=TODAY)
+        self.assertTrue(out["conflicts"])
+        loopy = {p["entity"]: p for p in out["projects"]}["project/loopy"]
+        self.assertIn("refused", loopy)
+        self.assertEqual(loopy["pushed"], [])
+        self.assertEqual(transport.calls, [])  # never pushed a loop-risk project.
+
+    def test_dry_run_executes_no_push(self):
+        _write_forge_config(self.vault, {"projects": {
+            "project/web/issue/parser": {
+                "forge": {"provider": "github", "repo": "org/web"}}}})
+        _write_reviewed_head(
+            self.vault, "Projects/parser.reviewed.md",
+            entity="project/web/issue/parser", state="done",
+            provider="github", object_id="43", revision="r1")
+        transport = FakeTransport()
+        os.environ["GITHUB_TOKEN"] = "ghp_T"
+        out = forge.sync_apply(self.vault, transport,
+                               providers={"github": forge.GitHubAdapter()},
+                               apply=False, today=TODAY)
+        proj = {p["entity"]: p for p in out["projects"]}[
+            "project/web/issue/parser"]
+        for push in proj["pushed"]:
+            self.assertFalse(push["pushed"])  # dry-run -> planned, never executed.
+        self.assertEqual(transport.calls, [])
+
+
+class SyncPlanReviewedNotDraftTest(unittest.TestCase):
+    """sync_plan reads the REVIEWED current-truth head, never a competing draft."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="vault-9f-plan-"))
+        self.vault = self.tmp / "vault"
+        self.vault.mkdir()
+        _write_forge_config(self.vault, {"projects": {
+            "project/web/issue/login": {
+                "forge": {"provider": "github", "repo": "org/web"}}}})
+        _write_reviewed_head(
+            self.vault, "Projects/login.reviewed.md",
+            entity="project/web/issue/login", state="in-progress",
+            provider="github", object_id="7", revision="r1")
+        # a competing DRAFT (state done) that must NEVER be the pushed snapshot.
+        inbox = self.vault / "00-Inbox" / "AI-Output" / "sync-github"
+        inbox.mkdir(parents=True)
+        (inbox / f"{TODAY}-7.md").write_bytes((
+            "---\n"
+            "type: issue\n"
+            "entity: project/web/issue/login\n"
+            "state: done\n"
+            "status: draft\n"
+            "base-head: Projects/login.reviewed.md\n"
+            "last-verified: 2026-06-25\n"
+            "---\n\nDraft done.\n"
+        ).encode("utf-8"))
+        self.transport = FakeTransport()
+        self.providers = {"github": forge.GitHubAdapter()}
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_plan_uses_reviewed_head_not_draft(self):
+        plan = forge.sync_plan(self.vault, self.transport,
+                               providers=self.providers)
+        entry = {p["entity"]: p for p in plan["projects"]}[
+            "project/web/issue/login"]
+        self.assertEqual(entry["snapshot"]["state"], currency.STATE_IN_PROGRESS)
+        self.assertEqual(entry["snapshot"]["status"], "reviewed")
+        # the payload PATCHes the same issue (origin object-id 7), state open
+        # (in-progress is active), never the draft's done/closed.
+        payload = entry["payloads"][0]["payload"]
+        self.assertEqual(payload["method"], "PATCH")
+        self.assertEqual(payload["object_id"], "7")
+        self.assertEqual(payload["payload"]["state"], "open")
+
+
+class SyncCliInjectionTest(unittest.TestCase):
+    """The kb_meta sync-* CLI cmds accept an INJECTED transport + providers so a
+    test drives them with FakeTransport/FakeProvider and never hits a live API."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="vault-9f-cli-"))
+        self.vault = self.tmp / "vault"
+        self.vault.mkdir()
+        _write_forge_config(self.vault, {"projects": {
+            "project/vault-mind": {
+                "forge": {"provider": "github", "repo": "2233admin/vault-mind"}}}})
+        issues_url = ("https://api.github.com/repos/2233admin/vault-mind/"
+                      "issues?state=all&per_page=100&page=1")
+        pulls_url = ("https://api.github.com/repos/2233admin/vault-mind/"
+                     "pulls?state=all&per_page=100&page=1")
+        self.transport = FakeTransport({
+            ("GET", issues_url): {"status": 200, "headers": {},
+                "body": json.dumps(_GITHUB_ISSUES_JSON).encode("utf-8")},
+            ("GET", pulls_url): {"status": 200, "headers": {},
+                "body": json.dumps(_GITHUB_PULLS_JSON).encode("utf-8")},
+        })
+        self.providers = {"github": forge.GitHubAdapter()}
+        self._saved = os.environ.pop("GITHUB_TOKEN", None)
+        import kb_meta as _kb_meta
+        self.kb = _kb_meta
+
+    def tearDown(self):
+        if self._saved is None:
+            os.environ.pop("GITHUB_TOKEN", None)
+        else:
+            os.environ["GITHUB_TOKEN"] = self._saved
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_cmd_sync_pull_injected_transport(self):
+        os.environ["GITHUB_TOKEN"] = "ghp_T"
+        res = self.kb.cmd_sync_pull(str(self.vault), apply=False, today=TODAY,
+                                    transport=self.transport,
+                                    providers=self.providers)
+        self.assertEqual(len(res["candidates"]), 3)
+        self.assertEqual(len(res["evidence"]), 1)
+
+    def test_cmd_sync_pull_provider_filter(self):
+        # --provider linear filters to a provider with NO bound project -> nothing.
+        os.environ["GITHUB_TOKEN"] = "ghp_T"
+        res = self.kb.cmd_sync_pull(str(self.vault), provider="linear",
+                                    today=TODAY, transport=self.transport,
+                                    providers=self.providers)
+        self.assertEqual(res["candidates"], [])
+        self.assertEqual(self.transport.calls, [])
+
+    def test_parse_sync_args(self):
+        p = self.kb._parse_sync_pull_args(
+            ["sync-pull", "/v", "--provider", "github", "--apply",
+             "--today", "2026-06-25"])
+        self.assertEqual(p, {"vault": "/v", "provider": "github",
+                             "apply": True, "today": "2026-06-25"})
+        self.assertEqual(
+            self.kb._parse_sync_plan_args(["sync-plan", "/v"]),
+            {"vault": "/v", "today": None})
+        self.assertEqual(
+            self.kb._parse_sync_apply_args(["sync-apply", "/v", "--apply"]),
+            {"vault": "/v", "apply": True, "today": None})
 
 
 if __name__ == "__main__":

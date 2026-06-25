@@ -346,6 +346,18 @@ def map_remote_state(remote_state: Optional[str]) -> str:
 # under the existing 8D triage tree, so classify_triage already sees them.
 SYNC_INBOX_DIR = "00-Inbox/AI-Output"
 
+# The sync-conflict frontmatter marker (PR 9F). A candidate is FLAGGED with
+# `conflict: true` when BOTH the remote item AND the local reviewed head diverged
+# independently since the last sync (detect_sync_conflict). The flag is the SAME
+# spelling work_protocol.classify_triage looks for to route the candidate into the
+# 8D `_triage` Conflicts section instead of Pending Review -- it is NEVER silently
+# overwritten into current-truth; a human must reconcile via triage/promote.
+F_SYNC_CONFLICT = "conflict"
+# the two revisions a conflict candidate also records, so the human reviewer sees
+# exactly which local + remote versions diverged (neither is a secret).
+F_CONFLICT_LOCAL_REVISION = "conflict-local-revision"
+F_CONFLICT_REMOTE_REVISION = "conflict-remote-revision"
+
 
 def _sync_writer_dir(provider: str) -> str:
     """The append-only inbox subdir for a provider's pulled candidates, e.g.
@@ -370,7 +382,8 @@ def _safe_segment(s: Optional[str], fallback: str = "x") -> str:
 
 def remote_item_to_candidate(item: RemoteItem, vault, provider: str,
                              base_head_resolver: Optional[Callable] = None,
-                             today: Optional[str] = None) -> dict:
+                             today: Optional[str] = None,
+                             conflict: Optional[dict] = None) -> dict:
     """Build a `status: draft` candidate note dict from a pulled RemoteItem.
 
     A remote change is a PROPOSAL, never a direct edit of current-truth (§0 #11).
@@ -391,8 +404,16 @@ def remote_item_to_candidate(item: RemoteItem, vault, provider: str,
     scanned work index). When it returns falsy, base-head is omitted (a brand-new
     entity -> promote materializes a fresh head).
 
-    Returns {note_id_hint, text, entity, state, origin} -- text is the rendered
-    note (LF-only); note_id_hint is the append-only filename the writer will use.
+    `conflict` (PR 9F): when the caller (sync_pull, via detect_sync_conflict) has
+    determined BOTH sides diverged since the last sync, it passes
+    {"local_revision": R, "remote_revision": R, "reason": ...}. The candidate is
+    STILL a status:draft (never an overwrite) but is FLAGGED `conflict: true` +
+    both revisions, so classify_triage routes it to the `_triage` Conflicts
+    section. None / falsy -> a normal Pending-Review candidate.
+
+    Returns {note_id_hint, text, entity, state, origin, base_head, conflict} --
+    text is the rendered note (LF-only); note_id_hint is the append-only filename
+    the writer will use.
     """
     from datetime import date as _date
 
@@ -417,7 +438,7 @@ def remote_item_to_candidate(item: RemoteItem, vault, provider: str,
 
     text = _render_candidate(
         entity=entity, state=state, origin=origin, base_head=base_head,
-        provider=provider, today=today, title=item.title,
+        provider=provider, today=today, title=item.title, conflict=conflict,
     )
 
     note_id_hint = f"{_sync_writer_dir(provider)}/{today}-{_safe_segment(item.object_id, 'item')}.md"
@@ -428,16 +449,21 @@ def remote_item_to_candidate(item: RemoteItem, vault, provider: str,
         "state": state,
         "origin": origin,
         "base_head": base_head,
+        "conflict": dict(conflict) if conflict else None,
     }
 
 
 def _render_candidate(entity: str, state: str, origin: dict,
                       base_head: Optional[str], provider: str, today: str,
-                      title: str) -> str:
+                      title: str, conflict: Optional[dict] = None) -> str:
     """Serialize a draft candidate note (LF-only, deterministic field order). The
     `origin:` block is a nested YAML map (the Task 8 reserved provenance field);
     `generated-by: sync/<provider>` marks this as a sync-written capture, distinct
-    from an agent capture (`generated-by: <machine>-<agent>`)."""
+    from an agent capture (`generated-by: <machine>-<agent>`).
+
+    `conflict` (PR 9F): when present, the candidate is FLAGGED `conflict: true` +
+    both diverged revisions, so classify_triage routes it to Conflicts. It stays a
+    status:draft -- the flag NEVER converts it into a current-truth overwrite."""
     lines = ["---"]
     lines.append(f"{_work_protocol.F_TYPE}: {_work_protocol.TYPE_ISSUE}")
     if entity:
@@ -446,6 +472,17 @@ def _render_candidate(entity: str, state: str, origin: dict,
     # status:draft is the REVIEW axis and is ALWAYS draft on a capture -- a remote
     # pull is a proposal, never self-reviewed (8P / §0 #11).
     lines.append(f"{_work_protocol.F_STATUS}: {_work_protocol.STATUS_DRAFT}")
+    # conflict flag (PR 9F): a candidate whose remote AND local both diverged since
+    # the last sync. status stays draft -- the flag only ROUTES it to Conflicts; it
+    # is never silently merged into current-truth.
+    if conflict:
+        lines.append(f"{F_SYNC_CONFLICT}: true")
+        if conflict.get("local_revision") is not None:
+            lines.append(
+                f"{F_CONFLICT_LOCAL_REVISION}: {conflict['local_revision']}")
+        if conflict.get("remote_revision") is not None:
+            lines.append(
+                f"{F_CONFLICT_REMOTE_REVISION}: {conflict['remote_revision']}")
     # origin: the federation provenance (Task 8 §1 reserved field). Nested map;
     # None values are omitted so the block stays minimal + byte-stable.
     lines.append("origin:")
@@ -491,6 +528,133 @@ def _sanitize_remote_body(title: Optional[str]) -> str:
     return "\n".join(out)
 
 
+# === conflict detection (PR 9F -- mirrors 8P HEAD_MISMATCH philosophy) =======
+#
+# A reconciliation conflict is the federation analogue of 8P's HEAD_MISMATCH: an
+# incoming remote change collides with a LOCAL reviewed head that ALSO moved since
+# the two were last in sync. We never silently last-write-wins; the candidate is
+# written status:draft but FLAGGED so it lands in `_triage` Conflicts and a human
+# reconciles it through promote (§0 #11/#12).
+
+
+def detect_sync_conflict(local_head_snapshot: Optional[dict],
+                         remote_item: RemoteItem,
+                         remote_provider: str = ""):
+    """Decide whether an incoming `remote_item` CONFLICTS with the entity's local
+    reviewed head (`local_head_snapshot` from _reviewed_head_snapshot).
+
+    Returns (is_conflict: bool, info: dict|None). `info`, when a conflict, carries
+    {local_revision, remote_revision, reason} for the candidate flag + the triage
+    explanation. NO token / secret is ever read here -- only revision tokens and
+    the canonical work state.
+
+    `remote_provider`, when supplied by the caller (sync_pull knows the bound
+    provider name), is compared against the head's origin.provider so the
+    "same synced pair" identity is provider+object-id, not object-id alone --
+    defense-in-depth against two forges that happen to issue the same id string
+    (an over-flag at worst routes a benign change to triage, never an overwrite).
+
+    SCOPE NOTE (finding 9F#2): the conflict signal is the canonical 5-STATE only.
+    A divergence that touches title/body but lands on the SAME canonical state
+    (or where both sides independently converge on one final state) is NOT flagged
+    here -- title/body are last-writer-wins on the federated text fields. This is
+    a deliberate design limit (the §7 rule is "states DISAGREE"); the §0 #4
+    no-current-truth-overwrite guarantee holds for work STATE, not free text.
+
+    The conflict rule (§7 / mirrors 8P): a conflict requires BOTH sides to have
+    diverged independently since the last sync. Concretely, ALL of:
+      1. there IS a local reviewed head for the entity, and it carries an
+         `origin` from the SAME provider+object as the remote item (so the two are
+         the two ends of one synced pair -- a head with no origin, or an origin
+         pointing at a different provider/object, is not the same object and so is
+         NOT a conflict, just a fresh candidate);
+      2. the remote revision R_remote differs from the head's recorded
+         origin.revision R_local (the remote moved since the last sync);
+      3. the local head ALSO moved since that sync -- detected because the head's
+         CURRENT canonical work state no longer equals the state the last-synced
+         remote revision would have produced (map_remote_state(remote.state)). In
+         other words local truth and remote truth now DISAGREE on state, which can
+         only happen if a local edit (promote) changed the head after the sync.
+
+    The simple cases are NOT conflicts (return (False, None)):
+      * no local head, or the head is not the same synced object  -> fresh
+        candidate (Pending Review);
+      * remote moved but the local head state still matches the remote-mapped
+        state -> a benign remote-only change (Pending Review);
+      * (the reverse -- local moved, remote unchanged -- is not even seen here: a
+        remote_item with the SAME revision is a no-op pull; sync_apply pushes the
+        local change).
+    """
+    if not isinstance(local_head_snapshot, dict):
+        return (False, None)
+
+    origin = _snapshot_origin(local_head_snapshot)
+    if not isinstance(origin, dict):
+        return (False, None)
+
+    # (1) same synced object? provider + object-id must match the remote item.
+    local_provider = str(origin.get("provider") or "").strip().lower()
+    # the RemoteItem is provider-agnostic, but the caller (sync_pull) knows which
+    # provider it pulled from -- thread it in so the same-pair check is
+    # provider+object-id, not object-id alone.
+    remote_provider = str(remote_provider or "").strip().lower()
+    local_object_id = origin.get("object-id")
+    if local_object_id is None or str(local_object_id).strip() == "":
+        return (False, None)
+    if str(local_object_id).strip() != str(remote_item.object_id).strip():
+        return (False, None)
+    # provider, when both known, must agree (a head synced from gitea is not the
+    # same object as a github issue that happens to share a number).
+    if local_provider and remote_provider and local_provider != remote_provider:
+        return (False, None)
+
+    # (2) did the remote move since the last sync?
+    local_revision = origin.get("revision")
+    remote_revision = remote_item.revision
+    lr = (str(local_revision).strip() if local_revision is not None else "")
+    rr = (str(remote_revision).strip() if remote_revision is not None else "")
+    if not rr or rr == lr:
+        # remote unchanged since last sync -> nothing new from remote -> no
+        # conflict (sync_apply pushes any local change instead).
+        return (False, None)
+
+    # (3) did the local head ALSO move since the last sync? The head's current
+    # canonical state must DIFFER from the state the incoming remote maps to. If
+    # they still agree, only the remote moved (benign) -> Pending Review.
+    local_state = str(local_head_snapshot.get("state") or "").strip().lower()
+    remote_state = map_remote_state(remote_item.state)
+    if not local_state or local_state == remote_state:
+        return (False, None)
+
+    reason = (
+        f"sync conflict: remote {origin.get('provider')}#{remote_item.object_id} "
+        f"moved (revision {lr or '?'} -> {rr}) while the local reviewed head "
+        f"diverged (local state {local_state!r} != remote-proposed "
+        f"{remote_state!r}); reconcile via triage/promote, no overwrite."
+    )
+    return (True, {
+        "local_revision": lr or None,
+        "remote_revision": rr,
+        "local_state": local_state,
+        "remote_state": remote_state,
+        "reason": reason,
+    })
+
+
+def _snapshot_origin(snapshot: dict) -> Optional[dict]:
+    """The `origin` provenance map from a reviewed-head snapshot. It may sit
+    directly on the snapshot or under its `fields` map (the reviewed-head snapshot
+    carries raw frontmatter under `fields`). None when absent."""
+    if not isinstance(snapshot, dict):
+        return None
+    for container in (snapshot, snapshot.get("fields")):
+        if isinstance(container, dict):
+            origin = container.get("origin")
+            if isinstance(origin, dict):
+                return origin
+    return None
+
+
 # === pull -> candidates (dry-run default) ===================================
 
 
@@ -515,6 +679,47 @@ def _default_base_head_resolver(vault) -> Callable:
         return res.head.note_id if res.head is not None else None
 
     return _resolve
+
+
+def _reviewed_snapshot_resolver(vault) -> Callable:
+    """Build a reviewed-head SNAPSHOT resolver bound to ONE vault scan: entity ->
+    the {entity, note_id, state, status, fields} snapshot of the entity's
+    authoritative (reviewed/legacy) head, or None. Reused by sync_pull's conflict
+    detection so N remote items share a single scan (and never re-walk per item).
+    Mirrors _reviewed_head_snapshot but closes over the scanned notes."""
+    notes = _work_protocol.scan_work_notes(vault)
+
+    def _resolve(entity: str) -> Optional[dict]:
+        res = _work_protocol.resolve_head(notes, entity)
+        if res.head is None:
+            return None
+        head = res.head
+        return {
+            "entity": entity,
+            "note_id": head.note_id,
+            "state": _currency.work_state(head.cm),
+            "status": head.status,
+            "fields": dict(head.raw),
+        }
+
+    return _resolve
+
+
+# === provider registry (name -> default adapter instance) ===================
+#
+# The single place the three concrete adapters are wired by name, so sync_pull /
+# sync_plan / sync_apply (and the CLI) pick the right one without each caller
+# re-listing them. Tests INJECT their own {name: provider} map (FakeProvider) and
+# never touch this -- it is only the production default.
+
+def default_providers() -> dict:
+    """provider-name -> a default Provider instance (the concrete adapter). Used by
+    the CLI for the real run; tests pass their own injected map instead."""
+    return {
+        PROVIDER_GITEA: GiteaAdapter(),
+        PROVIDER_GITHUB: GitHubAdapter(),
+        PROVIDER_LINEAR: LinearAdapter(),
+    }
 
 
 def pull_to_candidates(vault, provider_name: str, transport: Transport,
@@ -734,6 +939,164 @@ def _reviewed_head_snapshot(vault, project_entity: str) -> Optional[dict]:
     }
 
 
+def sync_pull(vault, transport: Transport, providers: Optional[dict] = None,
+              apply: bool = False, today: Optional[str] = None) -> dict:
+    """Pull EVERY bound project's remote items into draft candidates -- the inward
+    half of reconciliation (PR 9F). For each project in forge.json with a `forge`
+    (and/or `primary_board`):
+
+      * call the bound provider's pull() -> RemoteItems -> status:draft candidates
+        (via remote_item_to_candidate), AND
+      * for a provider exposing pull_evidence() (GitHub), ALSO pull merged-PR
+        EVIDENCE and write those as `suggested-state` candidates (never `state`),
+        into the SAME sync inbox -- this wires the 9D deferred evidence path.
+
+    CONFLICT-AWARE (the heart of 9F): before stamping each remote ISSUE candidate,
+    detect_sync_conflict compares the incoming remote revision/state against the
+    entity's local REVIEWED head. When BOTH diverged since the last sync the
+    candidate is FLAGGED `conflict: true` (still status:draft) so classify_triage
+    routes it to `_triage` Conflicts -- current-truth is NEVER overwritten.
+
+    DRY-RUN by default (§0 #5): apply=False writes NOTHING and returns the plan
+    (which candidates WOULD be written); apply=True writes them append-only, LF.
+    PER-PROJECT errors are CAUGHT and reported (`errors: [...]`), never aborting the
+    whole run. The token (from the env via token_for) is NEVER placed into the
+    result -- only provider names, candidate texts, and redacted transport errors.
+
+    `providers` maps provider-name -> Provider (injected; tests pass FakeProvider).
+    Returns {apply, providers: [...], projects: [...], candidates: [...],
+    evidence: [...], written: [...], conflicts: [...], errors: [...]}.
+    """
+    from datetime import date as _date
+
+    today = today or _date.today().isoformat()
+    providers = providers if providers is not None else default_providers()
+
+    out = {
+        "apply": apply,
+        "providers": [],
+        "projects": [],
+        "candidates": [],
+        "evidence": [],
+        "written": [],
+        "conflicts": [],
+        "errors": [],
+    }
+
+    base_head_resolver = _default_base_head_resolver(vault)
+    snapshot_resolver = _reviewed_snapshot_resolver(vault)
+    seen_providers: set = set()
+
+    for entity, pc in sorted(project_configs(vault).items()):
+        if not isinstance(pc, dict):
+            continue
+        # the inward (read) side reads from EVERY declared path -- the forge and
+        # the primary-board (a mirror is read-only too, but mirrors are not pulled
+        # as work candidates here; only the forge + primary-board carry issues).
+        for target_key in ("forge", "primary_board"):
+            binding = pc.get(target_key)
+            if not isinstance(binding, dict):
+                continue
+            prov_name = binding.get("provider")
+            if not prov_name:
+                continue
+            seen_providers.add(prov_name)
+            out["projects"].append({"entity": entity, "target": target_key,
+                                    "provider": prov_name})
+
+            token = token_for(prov_name)
+            if token is None:
+                # graceful "not configured" -- record + skip, never crash (§7.3).
+                out["errors"].append({
+                    "project": entity, "provider": prov_name,
+                    "error": (f"no token for {prov_name} "
+                              f"(set {TOKEN_ENV.get(prov_name, 'its token env var')}); "
+                              "nothing pulled."),
+                })
+                continue
+
+            provider = providers.get(prov_name)
+            if provider is None:
+                out["errors"].append({
+                    "project": entity, "provider": prov_name,
+                    "error": f"no provider implementation for {prov_name}.",
+                })
+                continue
+
+            # --- inward issues -> candidates (conflict-aware) ----------------
+            try:
+                items = provider.pull(binding, transport, token)
+            except TransportError as e:
+                # a remote failure for one project must not abort the others; the
+                # redacted error carries method/url/status only (never the token).
+                out["errors"].append({"project": entity, "provider": prov_name,
+                                      "error": str(e)})
+                items = None
+            except Exception as e:  # any provider bug, isolated per project.
+                out["errors"].append({"project": entity, "provider": prov_name,
+                                      "error": f"pull failed: {e}"})
+                items = None
+
+            for item in items or []:
+                if not item.entity_hint:
+                    item.entity_hint = entity
+                local_snap = snapshot_resolver(item.entity_hint)
+                is_conflict, info = detect_sync_conflict(
+                    local_snap, item, remote_provider=prov_name)
+                cand = remote_item_to_candidate(
+                    item, vault, prov_name,
+                    base_head_resolver=base_head_resolver, today=today,
+                    conflict=info if is_conflict else None)
+                out["candidates"].append(cand)
+                if is_conflict:
+                    out["conflicts"].append({
+                        "entity": cand["entity"], "provider": prov_name,
+                        "object_id": item.object_id,
+                        "reason": info.get("reason") if info else "",
+                    })
+
+            # --- inward merged-PR EVIDENCE -> suggested-state candidates -----
+            # only providers exposing pull_evidence (GitHub) contribute here; this
+            # wires the 9D deferred evidence path through reconciliation.
+            if hasattr(provider, "pull_evidence") and hasattr(
+                    provider, "evidence_to_candidate"):
+                try:
+                    ev_items = provider.pull_evidence(binding, transport, token)
+                except TransportError as e:
+                    out["errors"].append({"project": entity,
+                                          "provider": prov_name,
+                                          "error": str(e)})
+                    ev_items = None
+                except Exception as e:
+                    out["errors"].append({"project": entity,
+                                          "provider": prov_name,
+                                          "error": f"pull_evidence failed: {e}"})
+                    ev_items = None
+                for ev in ev_items or []:
+                    if not ev.entity_hint:
+                        ev.entity_hint = entity
+                    ev_cand = provider.evidence_to_candidate(
+                        ev, vault, base_head_resolver=base_head_resolver,
+                        today=today)
+                    out["evidence"].append(ev_cand)
+
+    out["providers"] = sorted(seen_providers)
+
+    if not apply:
+        return out
+
+    # apply: append-only writes for BOTH issue candidates and evidence candidates,
+    # under the per-provider inbox dir, LF bytes (the same writer as 9C).
+    written: list[str] = []
+    for cand in out["candidates"] + out["evidence"]:
+        path = _write_candidate_append_only(
+            vault, cand["note_id_hint"], cand["text"])
+        if path is not None:
+            written.append(path.as_posix())
+    out["written"] = written
+    return out
+
+
 def sync_plan(vault, transport: Transport,
               providers: Optional[dict] = None) -> dict:
     """Plan the outward projection (push) for every bound project. DRY-RUN: it
@@ -788,29 +1151,76 @@ def sync_plan(vault, transport: Transport,
                 "target": target_key,
                 "provider": prov_name,
                 "configured": token_for(prov_name) is not None,
+                "binding": binding,
                 "payload": payload,
             })
         out["projects"].append(entry)
     return out
 
 
+def _conflicted_entities(vault, today: Optional[str] = None) -> set:
+    """The set of entities that currently have an UNRESOLVED conflict in `_triage`
+    Conflicts (PR 9F). sync_apply skips PUSHING these -- a known conflict must be
+    reconciled via triage/promote first, never blindly overwritten outward (§0 #12
+    / mirrors 8P). Reuses work_protocol.classify_triage so the conflict notion is
+    the single 8D one (multi-head / stale base-head / competing / sync-conflict),
+    never re-implemented here."""
+    out: set = set()
+    try:
+        items = _work_protocol.classify_triage(vault, today=today)
+    except Exception:
+        return out
+    for it in items:
+        if getattr(it, "section", None) == _work_protocol.TRIAGE_CONFLICTS \
+                and getattr(it, "entity", None):
+            out.add(it.entity)
+    return out
+
+
+def _entity_has_conflict(config_entity: str, conflicted: set) -> bool:
+    """Does a forge-config key `config_entity` have an unresolved conflict to gate
+    on (PR 9F#3)? True when the key is itself a conflicted entity OR is a PREFIX of
+    a conflicted entity (a per-issue conflict candidate -- entity_hint
+    `project/<slug>/issue/<n>` -- lives UNDER a project-level config key
+    `project/<slug>`). Prefix-aware so a project-level forge.json key still gates
+    the push when ANY descendant issue is conflicted. This only ever WIDENS the
+    skip (the conservative direction -- a known conflict is never overwritten)."""
+    if not config_entity:
+        return False
+    if config_entity in conflicted:
+        return True
+    prefix = config_entity.rstrip("/") + "/"
+    return any(c == config_entity or c.startswith(prefix) for c in conflicted)
+
+
 def sync_apply(vault, transport: Transport, providers: Optional[dict] = None,
-               apply: bool = False) -> dict:
-    """Apply the outward projection. DRY-RUN by default (§7 / §0 #5): apply=False
-    is exactly sync_plan with apply=False markers (no push). apply=True is GATED
-    and, CRITICALLY, runs the anti-loop guard (assert_single_bidirectional)
-    BEFORE any push -- a project with a second bidirectional path is REFUSED
-    (§0 #10), never pushed.
+               apply: bool = False, today: Optional[str] = None) -> dict:
+    """Apply the outward projection -- the push half of reconciliation (PR 9F).
 
-    For 9C the concrete network push is a PLANNED NO-OP stub: each rw target's
-    result is {pushed: False, payload: ...} -- the actual API call lands per
-    provider in 9D/9E. The seam (anti-loop -> reviewed snapshot -> push_plan ->
-    push) is exercised end-to-end here so the per-provider work only fills in the
-    final call.
+    DRY-RUN by default (§7 / §0 #5): apply=False is exactly sync_plan with
+    {pushed: False} markers (NO network write). apply=True is GATED and, in order:
+      1. the anti-loop guard (assert_single_bidirectional, via sync_plan) has
+         ALREADY refused any project with a second bidirectional write path
+         (§0 #10) -- such a project is `refused`, never pushed;
+      2. a project whose entity has an UNRESOLVED conflict in `_triage` Conflicts
+         is SKIPPED (a known conflict must be reconciled via triage/promote first,
+         never blindly overwritten -- §0 #12);
+      3. each remaining rw-target's push_plan is EXECUTED via the provider's
+         execute_push (the real POST/PATCH/GraphQL mutation) through the INJECTED
+         transport. A target with no token / no provider is recorded
+         not-configured, never crashing.
 
-    Returns {apply, projects: [...], conflicts: [...]}."""
+    The token is read from the env per provider (token_for) and passed ONLY into
+    execute_push (which places it in a header, never the URL/record). It is NEVER
+    written into this result.
+
+    Returns {apply, projects: [...], conflicts: [...], skipped: [...]} where each
+    project's `pushed` lists per-target {executed/pushed, method, ...} records."""
+    providers = providers if providers is not None else default_providers()
     plan = sync_plan(vault, transport, providers=providers)
-    out = {"apply": apply, "projects": [], "conflicts": plan["conflicts"]}
+    conflicted = _conflicted_entities(vault, today=today) if apply else set()
+    out = {"apply": apply, "projects": [], "conflicts": plan["conflicts"],
+           "skipped": []}
     for entry in plan["projects"]:
         proj = {
             "entity": entry["entity"],
@@ -827,18 +1237,51 @@ def sync_apply(vault, transport: Transport, providers: Optional[dict] = None,
             proj["reason"] = entry.get("reason", "")
             out["projects"].append(proj)
             continue
+        # CONFLICT GATE: a known unresolved conflict for this entity is NOT pushed.
+        if apply and _entity_has_conflict(entry["entity"], conflicted):
+            proj["skipped"] = "unresolved conflict in _triage; reconcile first."
+            out["skipped"].append({"entity": entry["entity"],
+                                   "reason": proj["skipped"]})
+            out["projects"].append(proj)
+            continue
         for p in entry["payloads"]:
-            # 9C: planned no-op. The anti-loop guard already passed in sync_plan
-            # (and is re-asserted implicitly by reusing its output); the actual
-            # network push is provider-specific and lands in 9D/9E.
-            proj["pushed"].append({
+            prov_name = p["provider"]
+            provider = providers.get(prov_name)
+            record = {
                 "target": p["target"],
-                "provider": p["provider"],
+                "provider": prov_name,
                 "configured": p["configured"],
-                # dry-run OR 9C-stub -> never actually pushed yet.
                 "pushed": False,
                 "payload": p["payload"],
-            })
+            }
+            if not apply:
+                # dry-run: the planned push, never executed.
+                proj["pushed"].append(record)
+                continue
+            token = token_for(prov_name)
+            if provider is None or token is None or not isinstance(
+                    p["payload"], dict) or p["payload"].get("error"):
+                # not configured / no provider / a failed push_plan -> do NOT push.
+                record["reason"] = ("not configured" if token is None
+                                    else "no provider / unbuildable payload")
+                proj["pushed"].append(record)
+                continue
+            try:
+                res = provider.execute_push(
+                    p["payload"], p.get("binding") or {}, transport, token)
+            except TransportError as e:
+                # a redacted, token-free error -- one target's failure must not
+                # abort the others.
+                record["error"] = str(e)
+                proj["pushed"].append(record)
+                continue
+            except Exception as e:
+                record["error"] = f"execute_push failed: {e}"
+                proj["pushed"].append(record)
+                continue
+            record["pushed"] = bool(res.get("executed"))
+            record["executed"] = res
+            proj["pushed"].append(record)
         out["projects"].append(proj)
     return out
 
@@ -1068,6 +1511,36 @@ class GiteaAdapter(Provider):
             "object_id": None,
             "entity": snapshot.get("entity"),
             "payload": payload,
+        }
+
+    def execute_push(self, plan: dict, repo_cfg: dict, transport: Transport,
+                     token: Optional[str]) -> dict:
+        """EXECUTE a push_plan against Gitea (PR 9F apply path). Issues the
+        plan's POST (create) or PATCH (update) to {base_url}/api/v1{endpoint} with
+        the JSON payload, through the INJECTED transport (so a test records it with
+        a FakeTransport and never hits a live API). The token rides ONLY in the
+        Authorization header -- never the URL, never the returned record.
+
+        Returns {executed, method, url, object_id, entity, status} -- the `url` is
+        REDACTED of any query/fragment, and the record carries NO header/token.
+        token=None -> {executed: False, reason: not configured} (never crash)."""
+        if not token:
+            return {"executed": False, "entity": plan.get("entity"),
+                    "method": plan.get("method"), "reason": "not configured"}
+        base = self._api_base(repo_cfg)
+        method = plan.get("method", "POST")
+        url = f"{base}{plan.get('endpoint', '')}"
+        body = json.dumps(plan.get("payload") or {}).encode("utf-8")
+        resp = transport.request(method, url, headers=self._auth_headers(token),
+                                 body=body)
+        self._raise_for_status(method, url, resp)
+        return {
+            "executed": True,
+            "method": method,
+            "url": _redact_url(url),
+            "object_id": plan.get("object_id"),
+            "entity": plan.get("entity"),
+            "status": resp.get("status") if isinstance(resp, dict) else None,
         }
 
     def create_repo_plan(self, project_cfg: dict) -> dict:
@@ -1330,7 +1803,9 @@ class GiteaAdapter(Provider):
 
     def _origin_object_id(self, snapshot: dict):
         """The remote issue number this snapshot already maps to, from its
-        `origin.object-id` (set when the work item was originally pulled). None ->
+        `origin.object-id` -- but ONLY when origin.provider is gitea (a snapshot
+        whose origin points at a DIFFERENT provider has no Gitea counterpart, so
+        a push to gitea CREATES rather than PATCHing a foreign id). None ->
         the snapshot has no remote counterpart yet -> push_plan emits a CREATE."""
         if not isinstance(snapshot, dict):
             return None
@@ -1341,6 +1816,10 @@ class GiteaAdapter(Provider):
                 continue
             origin = container.get("origin")
             if isinstance(origin, dict):
+                prov = str(origin.get("provider") or "").strip().lower()
+                if prov and prov != self.name:
+                    # origin is a different forge -> no Gitea issue yet -> CREATE.
+                    return None
                 oid = origin.get("object-id")
                 if oid is not None and str(oid).strip():
                     return str(oid).strip()
@@ -1744,6 +2223,33 @@ class GitHubAdapter(Provider):
             },
         }
 
+    def execute_push(self, plan: dict, repo_cfg: dict, transport: Transport,
+                     token: Optional[str]) -> dict:
+        """EXECUTE a push_plan against GitHub (PR 9F apply path). Issues the plan's
+        POST (create) or PATCH (update) to GITHUB_API_BASE{endpoint} with the JSON
+        payload, through the INJECTED transport. The token rides ONLY in the Bearer
+        Authorization header -- never the URL, never the returned record.
+
+        Returns {executed, method, url, object_id, entity, status}; the url is
+        redacted and carries NO header/token. token=None -> {executed: False}."""
+        if not token:
+            return {"executed": False, "entity": plan.get("entity"),
+                    "method": plan.get("method"), "reason": "not configured"}
+        method = plan.get("method", "POST")
+        url = f"{GITHUB_API_BASE}{plan.get('endpoint', '')}"
+        body = json.dumps(plan.get("payload") or {}).encode("utf-8")
+        resp = transport.request(method, url, headers=self._auth_headers(token),
+                                 body=body)
+        self._raise_for_status(method, url, resp)
+        return {
+            "executed": True,
+            "method": method,
+            "url": _redact_url(url),
+            "object_id": plan.get("object_id"),
+            "entity": plan.get("entity"),
+            "status": resp.get("status") if isinstance(resp, dict) else None,
+        }
+
     # --- small helpers (pure) ---------------------------------------------
 
     def _owner_repo(self, repo_cfg: dict):
@@ -1951,6 +2457,24 @@ query Issues($filter: IssueFilter, $first: Int!, $after: String) {
   }
 }"""
 
+# The OUTWARD GraphQL mutations executed by execute_push (PR 9F apply path). Each
+# returns the issue id + the success flag so the apply record can confirm it; the
+# `input` variable is the issueCreate/issueUpdate input the push_plan built.
+_LINEAR_ISSUE_CREATE_MUTATION = """\
+mutation IssueCreate($input: IssueCreateInput!) {
+  issueCreate(input: $input) { success issue { id identifier } }
+}"""
+_LINEAR_ISSUE_UPDATE_MUTATION = """\
+mutation IssueUpdate($id: String!, $input: IssueUpdateInput!) {
+  issueUpdate(id: $id, input: $input) { success issue { id identifier } }
+}"""
+
+# mutation-name -> the GraphQL document execute_push POSTs for it.
+_LINEAR_MUTATION_DOCS = {
+    "issueCreate": _LINEAR_ISSUE_CREATE_MUTATION,
+    "issueUpdate": _LINEAR_ISSUE_UPDATE_MUTATION,
+}
+
 
 class LinearAdapter(Provider):
     """The Linear Provider (§7 / PR 9E). Linear is a single GraphQL endpoint, so
@@ -2139,6 +2663,41 @@ class LinearAdapter(Provider):
             "entity": snapshot.get("entity"),
             "state_type": state_type,
             "notes": notes,
+        }
+
+    def execute_push(self, plan: dict, repo_cfg: dict, transport: Transport,
+                     token: Optional[str]) -> dict:
+        """EXECUTE a push_plan against Linear (PR 9F apply path). POSTs the plan's
+        issueCreate/issueUpdate GraphQL MUTATION (+ its variables) to LINEAR_API_URL
+        through the INJECTED transport. The RAW token rides ONLY in the
+        Authorization header (NO Bearer) -- never the URL, never the record.
+
+        Returns {executed, method, url, mutation, object_id, entity, status}; the
+        url is redacted and carries NO header/token. A GraphQL `errors` array (even
+        with HTTP 200) surfaces as a redacted, token-free TransportError via
+        _graphql_data. token=None -> {executed: False}."""
+        if not token:
+            return {"executed": False, "entity": plan.get("entity"),
+                    "mutation": plan.get("mutation"), "reason": "not configured"}
+        mutation = plan.get("mutation", "issueCreate")
+        doc = _LINEAR_MUTATION_DOCS.get(mutation)
+        if doc is None:
+            return {"executed": False, "entity": plan.get("entity"),
+                    "mutation": mutation, "reason": f"unknown mutation {mutation}"}
+        body = self._graphql_body(doc, plan.get("variables") or {})
+        resp = transport.request("POST", LINEAR_API_URL,
+                                 headers=self._auth_headers(token), body=body)
+        self._raise_for_status("POST", LINEAR_API_URL, resp)
+        # raises a token-free TransportError on a GraphQL `errors` array.
+        self._graphql_data("POST", LINEAR_API_URL, resp)
+        return {
+            "executed": True,
+            "method": "POST",
+            "url": _redact_url(LINEAR_API_URL),
+            "mutation": mutation,
+            "object_id": plan.get("object_id"),
+            "entity": plan.get("entity"),
+            "status": resp.get("status") if isinstance(resp, dict) else None,
         }
 
     # --- small helpers (pure) ---------------------------------------------
