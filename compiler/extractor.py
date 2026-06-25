@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any
 
-import orjson
+import json_compat as orjson  # zero-dep shim: orjson if installed, else stdlib json
 
 from models import Chunk
 

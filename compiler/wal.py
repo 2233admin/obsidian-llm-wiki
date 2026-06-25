@@ -18,8 +18,7 @@ Usage:
 
 from __future__ import annotations
 
-import json
-import orjson
+import json_compat as orjson  # zero-dep shim: orjson if installed, else stdlib json
 from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
 from pathlib import Path
