@@ -57,6 +57,12 @@ mcp-server/smoke.err
 capture-hook.seen.log
 **/capture-hook.seen.log
 
+# Task 9 / 9A local project registry (MACHINE-LOCAL): workspace roots AND
+# bindings are machine-specific paths, so the WHOLE dir is gitignored. A
+# machine path must NEVER appear in any shared/committed markdown note (§0 #9).
+# Holds workspace.json (workspace-roots) + local-bindings.json (entity -> path).
+.vault-mind/
+
 # Local planning / GSD artifacts (per-dev, not part of shipped product)
 .planning/
 .gitnexus

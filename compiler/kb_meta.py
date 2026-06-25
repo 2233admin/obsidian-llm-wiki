@@ -10,6 +10,8 @@ Usage:
     python kb_meta.py vitality <vault> <topic>
     python kb_meta.py log-access <vault> <topic> <article>
     python kb_meta.py currency <vault> <topic> [--today YYYY-MM-DD] [--apply]
+    python kb_meta.py project-scan <vault> [extra_root ...]
+    python kb_meta.py project-adopt <vault> <path> --entity project/<slug> [--apply] [--today YYYY-MM-DD]
 
 All commands output JSON to stdout for machine consumption.
 """
@@ -28,6 +30,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import currency as _currency  # noqa: E402
 import work_protocol as _work_protocol  # noqa: E402
+import workspace as _workspace  # noqa: E402
 from _md_parse import parse_frontmatter as robust_parse_frontmatter  # noqa: E402
 
 
@@ -1130,7 +1133,77 @@ def cmd_currency(vault: str, topic: str, today_str: str | None = None,
     }
 
 
+# --- Task 9 / PR 9A: local project registry CLI -----------------------------
+#
+# `project-scan` is READ-ONLY (one-shot, §0 #11 NO daemon): it walks the
+# configured workspace roots, detects projects by marker existence, and reports
+# detected / new / registered. It never writes.
+#
+# `project-adopt` is DRY-RUN by default: --apply writes the machine-local binding
+# (the ONLY place the path is recorded) and the SHARED Projects/<slug>.md note
+# (logical identity only, NO machine path -- §0 #9).
+
+def cmd_project_scan(vault: str, extra_roots: list[str] | None = None) -> dict:
+    """READ-ONLY scan: configured roots (+ optional extra roots) -> detected /
+    new / registered. Writes NOTHING."""
+    return _workspace.scan_report(vault, extra_roots=extra_roots or [])
+
+
+def cmd_project_adopt(vault: str, path: str, entity: str,
+                      apply: bool = False, today: str | None = None) -> dict:
+    """Adopt a local project. DRY-RUN by default; --apply writes the binding +
+    the shared project note. Path lives ONLY in the gitignored binding."""
+    return _workspace.adopt(vault, path, entity, apply=apply, today=today)
+
+
 # --- CLI ---
+#
+# The project-* argv parsers are module-level pure functions (not closures) so the
+# branchy flag logic -- --entity consuming the next token, missing positionals /
+# missing --entity raising IndexError, --apply/--today stripping -- is directly
+# unit-testable without driving sys.argv. `args` is sys.argv[1:] (args[0] is the
+# subcommand). Each returns the kwargs for the matching cmd_* call.
+
+def _parse_project_scan_args(args: list[str]) -> dict:
+    """Parse 'project-scan <vault> [extra_root ...]' (positionals only, READ-ONLY).
+    Returns {vault, extra_roots}. Missing <vault> -> IndexError."""
+    pos = [a for a in args[1:] if not a.startswith("--")]
+    if not pos:
+        raise IndexError("project-scan needs <vault>")
+    return {"vault": pos[0], "extra_roots": pos[1:]}
+
+
+def _parse_project_adopt_args(args: list[str]) -> dict:
+    """Parse 'project-adopt <vault> <path> --entity project/<slug> [--apply]
+    [--today YYYY-MM-DD]' (dry-run default). Returns {vault, path, entity, apply,
+    today}. Missing positionals -> IndexError; missing --entity -> IndexError.
+    --entity / --today consume the FOLLOWING token (so a value that itself starts
+    with '--', or the flag landing at end-of-args, is handled deterministically)."""
+    pos = [a for a in args[1:] if not a.startswith("--")]
+    if len(pos) < 2:
+        raise IndexError("project-adopt needs <vault> <path> --entity ...")
+    entity = None
+    apply = False
+    today_str = None
+    i = 1
+    while i < len(args):
+        a = args[i]
+        if a == "--entity" and i + 1 < len(args):
+            entity = args[i + 1]
+            i += 2
+            continue
+        if a == "--today" and i + 1 < len(args):
+            today_str = args[i + 1]
+            i += 2
+            continue
+        if a == "--apply":
+            apply = True
+        i += 1
+    if not entity:
+        raise IndexError("project-adopt requires --entity project/<slug>")
+    return {"vault": pos[0], "path": pos[1], "entity": entity,
+            "apply": apply, "today": today_str}
+
 
 def main():
     args = sys.argv[1:]
@@ -1156,6 +1229,15 @@ def main():
             i += 1
         return cmd_currency(pos[0], pos[1], today_str=today_str, apply=apply)
 
+    def _project_scan_cli():
+        p = _parse_project_scan_args(args)
+        return cmd_project_scan(p["vault"], extra_roots=p["extra_roots"])
+
+    def _project_adopt_cli():
+        p = _parse_project_adopt_args(args)
+        return cmd_project_adopt(p["vault"], p["path"], p["entity"],
+                                 apply=p["apply"], today=p["today"])
+
     dispatch = {
         "init": lambda: cmd_init(args[1], args[2]),
         "diff": lambda: cmd_diff(args[1], args[2]),
@@ -1165,6 +1247,8 @@ def main():
         "vitality": lambda: cmd_vitality(args[1], args[2]),
         "log-access": lambda: cmd_log_access(args[1], args[2], args[3]),
         "currency": _currency_cli,
+        "project-scan": _project_scan_cli,
+        "project-adopt": _project_adopt_cli,
     }
 
     if cmd not in dispatch:
