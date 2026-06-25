@@ -1068,5 +1068,760 @@ class PublishWalkCapTest(unittest.TestCase):
             shutil.rmtree(tmp, ignore_errors=True)
 
 
+# === GitHub adapter (PR 9D): RECORDED JSON, NEVER a live call ==============
+
+# A RECORDED GitHub /issues payload (the shape GitHub actually returns). A GitHub
+# issues payload ALSO includes pull requests (each PR object carries a
+# `pull_request` key) -- the adapter must DROP those. It is fed to the adapter
+# through a FakeTransport so no network is ever touched.
+_GITHUB_ISSUES_JSON = [
+    {"number": 42, "title": "Add OAuth", "state": "open", "state_reason": None,
+     "updated_at": "2026-06-24T10:00:00Z",
+     "user": {"login": "curry"}},
+    {"number": 43, "title": "Bug in parser", "state": "closed",
+     "state_reason": "completed",
+     "updated_at": "2026-06-25T08:00:00Z",
+     "user": {"login": "xue"}},
+    # a closed+not_planned issue -> the work was DROPPED -> canceled (not done).
+    {"number": 44, "title": "Wontfix idea", "state": "closed",
+     "state_reason": "not_planned",
+     "updated_at": "2026-06-25T09:00:00Z",
+     "user": {"login": "curry"}},
+    # a PULL REQUEST also comes back from the issues endpoint -- it carries a
+    # `pull_request` key and MUST be DROPPED (PRs are evidence, not work issues).
+    {"number": 45, "title": "PR: refactor", "state": "open",
+     "updated_at": "2026-06-25T11:00:00Z",
+     "user": {"login": "curry"},
+     "pull_request": {"merged_at": None, "url": "https://api.github.com/x/45"}},
+]
+
+# A RECORDED GitHub /pulls payload (the shape GitHub's pulls endpoint returns).
+_GITHUB_PULLS_JSON = [
+    # a MERGED PR -> evidence: a `suggested-state: done` candidate (NOT state:done).
+    {"number": 50, "title": "Implement OAuth", "state": "closed",
+     "merged_at": "2026-06-25T12:00:00Z",
+     "updated_at": "2026-06-25T12:00:00Z",
+     "user": {"login": "curry"}},
+    # an OPEN (unmerged) PR -> NO suggestion (it is not evidence of completion).
+    {"number": 51, "title": "WIP: parser fix", "state": "open",
+     "merged_at": None,
+     "updated_at": "2026-06-25T13:00:00Z",
+     "user": {"login": "xue"}},
+]
+
+
+class GitHubPullTest(unittest.TestCase):
+    """GitHubAdapter.pull maps recorded GitHub issues JSON to RemoteItems, drops
+    pull requests, and maps closed/not_planned -> canceled -- with ZERO network."""
+
+    def setUp(self):
+        self.adapter = forge.GitHubAdapter()
+        self.repo_cfg = {"provider": "github", "repo": "2233admin/vault-mind"}
+        self.issues_url = ("https://api.github.com/repos/2233admin/vault-mind/"
+                           "issues?state=all&per_page=100&page=1")
+        self.transport = FakeTransport({
+            ("GET", self.issues_url):
+                {"status": 200, "headers": {},
+                 "body": json.dumps(_GITHUB_ISSUES_JSON).encode("utf-8")},
+        })
+
+    def test_pull_drops_pull_requests(self):
+        items = self.adapter.pull(self.repo_cfg, self.transport, token="ghp_T")
+        # the PR (#45) is dropped -> only the three real issues map.
+        oids = {it.object_id for it in items}
+        self.assertEqual(oids, {"42", "43", "44"})
+        self.assertNotIn("45", oids)
+
+    def test_pull_maps_issue_fields(self):
+        items = self.adapter.pull(self.repo_cfg, self.transport, token="ghp_T")
+        by_oid = {it.object_id: it for it in items}
+        i42 = by_oid["42"]
+        self.assertEqual(i42.kind, "issue")
+        self.assertEqual(i42.revision, "2026-06-24T10:00:00Z")
+        self.assertEqual(i42.actor, "curry")
+        self.assertEqual(i42.title, "Add OAuth")
+        self.assertEqual(i42.state, "open")
+        self.assertEqual(i42.entity_hint, "project/vault-mind/issue/42")
+
+    def test_pull_state_mapping_open_closed_notplanned(self):
+        # open -> todo; closed(completed) -> done; closed(not_planned) -> canceled.
+        items = self.adapter.pull(self.repo_cfg, self.transport, token="ghp_T")
+        by_oid = {it.object_id: it for it in items}
+        cand_open = forge.remote_item_to_candidate(
+            by_oid["42"], "/x", "github", base_head_resolver=lambda e: None,
+            today=TODAY)
+        cand_closed = forge.remote_item_to_candidate(
+            by_oid["43"], "/x", "github", base_head_resolver=lambda e: None,
+            today=TODAY)
+        cand_cancel = forge.remote_item_to_candidate(
+            by_oid["44"], "/x", "github", base_head_resolver=lambda e: None,
+            today=TODAY)
+        self.assertEqual(cand_open["state"], currency.STATE_TODO)
+        self.assertEqual(cand_closed["state"], currency.STATE_DONE)
+        self.assertEqual(cand_cancel["state"], currency.STATE_CANCELED)
+
+    def test_pull_candidate_is_draft_with_origin(self):
+        items = self.adapter.pull(self.repo_cfg, self.transport, token="ghp_T")
+        by_oid = {it.object_id: it for it in items}
+        cand = forge.remote_item_to_candidate(
+            by_oid["43"], "/x", "github", base_head_resolver=lambda e: None,
+            today=TODAY)
+        self.assertEqual(cand["origin"]["provider"], "github")
+        self.assertEqual(cand["origin"]["object-id"], "43")
+        self.assertEqual(cand["origin"]["revision"], "2026-06-25T08:00:00Z")
+        self.assertEqual(cand["origin"]["actor"], "xue")
+        fm = parse_frontmatter(cand["text"])
+        self.assertEqual(fm["status"], "draft")  # a remote change is a PROPOSAL.
+
+    def test_pull_sends_bearer_token_header_not_in_url(self):
+        self.adapter.pull(self.repo_cfg, self.transport, token="ghp_T")
+        self.assertTrue(self.transport.calls)
+        method, url, headers, body = self.transport.calls[0]
+        self.assertEqual(headers.get("Authorization"), "Bearer ghp_T")
+        self.assertEqual(headers.get("Accept"), "application/vnd.github+json")
+        self.assertIn("X-GitHub-Api-Version", headers)
+        self.assertNotIn("ghp_T", url)  # token NEVER in the URL.
+
+    def test_pull_without_token_is_empty_no_call(self):
+        items = self.adapter.pull(self.repo_cfg, self.transport, token=None)
+        self.assertEqual(items, [])
+        self.assertEqual(self.transport.calls, [])  # no network attempted.
+
+    def test_pull_401_is_graceful_error_token_absent(self):
+        # ADVERSARIAL: the 401 body ECHOES the token back (a buggy/malicious
+        # endpoint can reflect the Authorization header into its error JSON). The
+        # raised error must carry status only -- never the response body / token.
+        t = FakeTransport({
+            ("GET", self.issues_url):
+                {"status": 401, "headers": {"X-Echo": "Bearer ghp_SECRET"},
+                 "body": b'{"message":"Bad creds for Bearer ghp_SECRET"}'},
+        })
+        with self.assertRaises(forge.TransportError) as cm:
+            self.adapter.pull(self.repo_cfg, t, token="ghp_SECRET")
+        msg = str(cm.exception)
+        self.assertIn("401", msg)
+        self.assertNotIn("ghp_SECRET", msg)
+        self.assertNotIn("Authorization", msg)
+        self.assertNotIn("Bearer", msg)
+
+    def test_pull_403_and_404_are_graceful(self):
+        for code in (403, 404):
+            t = FakeTransport({
+                ("GET", self.issues_url):
+                    {"status": code, "headers": {}, "body": b'{"message":"x"}'},
+            })
+            with self.assertRaises(forge.TransportError) as cm:
+                self.adapter.pull(self.repo_cfg, t, token="ghp_T")
+            self.assertIn(str(code), str(cm.exception))
+
+    def test_pull_pagination_stops_on_short_page(self):
+        # a single short page (< per_page) -> exactly one issues request.
+        self.adapter.pull(self.repo_cfg, self.transport, token="ghp_T")
+        get_calls = [c for c in self.transport.calls if c[0] == "GET"]
+        self.assertEqual(len(get_calls), 1)
+
+    def test_pull_bare_repo_without_owner_yields_nothing(self):
+        items = self.adapter.pull({"repo": "vault-mind"}, self.transport,
+                                  token="ghp_T")
+        self.assertEqual(items, [])
+
+
+class GitHubEvidenceTest(unittest.TestCase):
+    """A merged PR yields a `suggested-state` candidate (NOT a direct state:done),
+    so code activity never auto-closes a work item (§0 #12)."""
+
+    def setUp(self):
+        self.adapter = forge.GitHubAdapter()
+        self.repo_cfg = {"provider": "github", "repo": "2233admin/vault-mind"}
+        self.pulls_url = ("https://api.github.com/repos/2233admin/vault-mind/"
+                          "pulls?state=all&per_page=100&page=1")
+        self.transport = FakeTransport({
+            ("GET", self.pulls_url):
+                {"status": 200, "headers": {},
+                 "body": json.dumps(_GITHUB_PULLS_JSON).encode("utf-8")},
+        })
+
+    def test_only_merged_prs_become_evidence(self):
+        items = self.adapter.pull_evidence(self.repo_cfg, self.transport,
+                                           token="ghp_T")
+        # the merged PR (#50) is evidence; the open/unmerged PR (#51) is NOT.
+        oids = {it.object_id for it in items}
+        self.assertEqual(oids, {"50"})
+        ev = items[0]
+        self.assertEqual(ev.kind, "pull-request")
+        self.assertEqual(ev.actor, "curry")
+        # the evidence item carries NO work state (it only SUGGESTS one).
+        self.assertIsNone(ev.state)
+
+    def test_merged_pr_candidate_is_suggested_state_not_state(self):
+        items = self.adapter.pull_evidence(self.repo_cfg, self.transport,
+                                           token="ghp_T")
+        cand = self.adapter.evidence_to_candidate(
+            items[0], "/x", base_head_resolver=lambda e: None, today=TODAY)
+        # CRITICAL: a suggested-state, NOT a direct state:done.
+        self.assertEqual(cand["suggested_state"], currency.STATE_DONE)
+        self.assertEqual(cand["evidence"], "github:pr/50")
+        fm = parse_frontmatter(cand["text"])
+        self.assertEqual(fm["suggested-state"], currency.STATE_DONE)
+        self.assertEqual(fm["evidence"], "github:pr/50")
+        # there is NO top-level `state:` field -> it can NEVER auto-close.
+        self.assertNotIn("state", fm)
+        # still a draft -> it must go through triage/promote (the PR gate).
+        self.assertEqual(fm["status"], "draft")
+        self.assertEqual(fm["generated-by"], "sync/github")
+        self.assertNotIn(work_protocol.F_SUPERSEDES, fm)
+
+    def test_evidence_candidate_carries_origin_and_is_lf(self):
+        items = self.adapter.pull_evidence(self.repo_cfg, self.transport,
+                                           token="ghp_T")
+        cand = self.adapter.evidence_to_candidate(
+            items[0], "/x", base_head_resolver=lambda e: "Projects/x.md",
+            today=TODAY)
+        self.assertEqual(cand["origin"]["provider"], "github")
+        self.assertEqual(cand["origin"]["object-id"], "50")
+        self.assertNotIn("\r", cand["text"])
+        fm = parse_frontmatter(cand["text"])
+        self.assertEqual(fm["base-head"], "Projects/x.md")
+
+    def test_evidence_without_token_is_empty_no_call(self):
+        items = self.adapter.pull_evidence(self.repo_cfg, self.transport,
+                                           token=None)
+        self.assertEqual(items, [])
+        self.assertEqual(self.transport.calls, [])
+
+
+class GitHubPushPlanTest(unittest.TestCase):
+    def setUp(self):
+        self.adapter = forge.GitHubAdapter()
+        self.repo_cfg = {"provider": "github", "repo": "2233admin/vault-mind"}
+
+    def test_new_snapshot_is_a_post_create_payload(self):
+        # a snapshot with NO origin.object-id -> POST (create) at the collection.
+        snapshot = {"entity": "project/vm/issue/oauth",
+                    "state": currency.STATE_IN_PROGRESS,
+                    "title": "Add OAuth", "body": "Implement OAuth login."}
+        plan = self.adapter.push_plan(snapshot, self.repo_cfg)
+        self.assertEqual(plan["method"], "POST")
+        self.assertEqual(plan["endpoint"],
+                         "/repos/2233admin/vault-mind/issues")
+        self.assertIsNone(plan["object_id"])
+        self.assertEqual(plan["payload"]["title"], "Add OAuth")
+        self.assertEqual(plan["payload"]["body"], "Implement OAuth login.")
+        # a create payload does not force a state (GitHub creates issues open).
+        self.assertNotIn("state", plan["payload"])
+
+    def test_update_snapshot_is_a_patch_with_object_id(self):
+        # a snapshot carrying a github origin.object-id -> PATCH (no duplicate).
+        snapshot = {"entity": "project/vm/issue/parser",
+                    "state": currency.STATE_DONE,
+                    "title": "Bug in parser",
+                    "fields": {"origin": {"provider": "github",
+                                          "object-id": "43"}}}
+        plan = self.adapter.push_plan(snapshot, self.repo_cfg)
+        self.assertEqual(plan["method"], "PATCH")
+        self.assertEqual(plan["endpoint"],
+                         "/repos/2233admin/vault-mind/issues/43")
+        self.assertEqual(plan["object_id"], "43")
+        # done -> closed/completed.
+        self.assertEqual(plan["payload"]["state"], "closed")
+        self.assertEqual(plan["payload"]["state_reason"], "completed")
+
+    def test_canceled_maps_to_closed_not_planned(self):
+        snapshot = {"entity": "e", "state": currency.STATE_CANCELED, "title": "x",
+                    "fields": {"origin": {"provider": "github",
+                                          "object-id": "9"}}}
+        plan = self.adapter.push_plan(snapshot, self.repo_cfg)
+        self.assertEqual(plan["payload"]["state"], "closed")
+        self.assertEqual(plan["payload"]["state_reason"], "not_planned")
+
+    def test_active_maps_to_open(self):
+        snapshot = {"entity": "e", "state": currency.STATE_IN_PROGRESS, "title": "x",
+                    "fields": {"origin": {"provider": "github",
+                                          "object-id": "9"}}}
+        plan = self.adapter.push_plan(snapshot, self.repo_cfg)
+        self.assertEqual(plan["payload"]["state"], "open")
+        self.assertIsNone(plan["payload"]["state_reason"])
+
+    def test_origin_from_other_provider_is_a_create_not_patch(self):
+        # a snapshot whose origin points at gitea has NO github counterpart yet ->
+        # a push to github CREATES (it must not PATCH a foreign object-id).
+        snapshot = {"entity": "e", "state": currency.STATE_TODO, "title": "x",
+                    "fields": {"origin": {"provider": "gitea",
+                                          "object-id": "43"}}}
+        plan = self.adapter.push_plan(snapshot, self.repo_cfg)
+        self.assertEqual(plan["method"], "POST")
+        self.assertIsNone(plan["object_id"])
+
+    def test_push_plan_issues_no_network(self):
+        snapshot = {"entity": "e", "state": currency.STATE_TODO, "title": "x"}
+        plan = self.adapter.push_plan(snapshot, self.repo_cfg)
+        self.assertIsInstance(plan, dict)
+
+
+class GitHubPullToCandidatesIntegrationTest(unittest.TestCase):
+    """The GitHubAdapter wired through pull_to_candidates: missing token degrades,
+    a present token pulls recorded issues into draft candidates -- no network."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="vault-9d-gh-pull-"))
+        self.vault = self.tmp / "vault"
+        self.vault.mkdir()
+        _write_forge_config(self.vault, {"projects": {
+            "project/vault-mind": {
+                "forge": {"provider": "github",
+                          "repo": "2233admin/vault-mind"}}}})
+        url = ("https://api.github.com/repos/2233admin/vault-mind/"
+               "issues?state=all&per_page=100&page=1")
+        self.transport = FakeTransport({
+            ("GET", url): {"status": 200, "headers": {},
+                           "body": json.dumps(_GITHUB_ISSUES_JSON).encode("utf-8")},
+        })
+        self.adapter = forge.GitHubAdapter()
+        self._saved = os.environ.pop("GITHUB_TOKEN", None)
+
+    def tearDown(self):
+        if self._saved is None:
+            os.environ.pop("GITHUB_TOKEN", None)
+        else:
+            os.environ["GITHUB_TOKEN"] = self._saved
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_missing_token_degrades_gracefully(self):
+        res = forge.pull_to_candidates(str(self.vault), "github", self.transport,
+                                       provider=self.adapter, today=TODAY)
+        self.assertFalse(res["configured"])
+        self.assertEqual(res["candidates"], [])
+        self.assertEqual(self.transport.calls, [])  # no network.
+        # the token env var name is named in the reason; no token value present.
+        self.assertIn("GITHUB_TOKEN", res["reason"])
+
+    def test_configured_pull_makes_draft_candidates(self):
+        os.environ["GITHUB_TOKEN"] = "ghp_secret-T"
+        res = forge.pull_to_candidates(str(self.vault), "github", self.transport,
+                                       provider=self.adapter, today=TODAY)
+        self.assertTrue(res["configured"])
+        # 3 issues (the PR was dropped).
+        self.assertEqual(len(res["candidates"]), 3)
+        for cand in res["candidates"]:
+            fm = parse_frontmatter(cand["text"])
+            self.assertEqual(fm["status"], "draft")
+            self.assertEqual(fm["generated-by"], "sync/github")
+        self.assertEqual(res["written"], [])  # dry-run wrote nothing.
+        # the token never leaked into any candidate text.
+        for cand in res["candidates"]:
+            self.assertNotIn("ghp_secret-T", cand["text"])
+
+
+class GitHubOriginRoundTripTest(unittest.TestCase):
+    """A persisted reviewed head carrying a github origin block -> scan -> snapshot
+    -> push_plan PATCH (no duplicate), through the REAL pipeline."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="vault-9d-gh-origin-"))
+        self.vault = self.tmp / "vault"
+        (self.vault / "Projects").mkdir(parents=True)
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_reviewed_head_with_github_origin_pushes_patch(self):
+        (self.vault / "Projects" / "parser.reviewed.md").write_bytes((
+            "---\n"
+            "type: issue\n"
+            "entity: project/web/issue/parser\n"
+            "state: done\n"
+            "origin:\n"
+            "  provider: github\n"
+            "  object-id: 43\n"
+            "  revision: 2026-06-25T08:00:00Z\n"
+            "  actor: xue\n"
+            "status: reviewed\n"
+            "last-verified: 2026-06-25\n"
+            "---\n\nBug in parser\n"
+        ).encode("utf-8"))
+        snap = forge._reviewed_head_snapshot(str(self.vault),
+                                             "project/web/issue/parser")
+        self.assertIsNotNone(snap)
+        self.assertIsInstance(snap["fields"]["origin"], dict)
+        plan = forge.GitHubAdapter().push_plan(snap, {"repo": "org/web"})
+        self.assertEqual(plan["method"], "PATCH")
+        self.assertEqual(plan["object_id"], "43")
+        self.assertEqual(plan["endpoint"], "/repos/org/web/issues/43")
+        self.assertEqual(plan["payload"]["state"], "closed")
+        self.assertEqual(plan["payload"]["state_reason"], "completed")
+
+
+# === Linear adapter (PR 9E): RECORDED GraphQL JSON, NEVER a live call =======
+
+# A RECORDED Linear GraphQL `issues` response (the {data:{issues:{nodes,pageInfo}}}
+# shape Linear actually returns). state.type is the CANONICAL signal (state.name is
+# human-renamable and must NOT be trusted). It is fed to the adapter through a
+# FakeTransport so no network is ever touched.
+_LINEAR_ISSUES_JSON = {
+    "data": {
+        "issues": {
+            "pageInfo": {"hasNextPage": False, "endCursor": "cur-1"},
+            "nodes": [
+                # started -> in-progress.
+                {"id": "lin-uuid-42", "identifier": "VM-42", "title": "Add OAuth",
+                 "updatedAt": "2026-06-24T10:00:00Z",
+                 "state": {"name": "In Progress", "type": "started"},
+                 "assignee": {"displayName": "Curry"}},
+                # completed -> done.
+                {"id": "lin-uuid-43", "identifier": "VM-43",
+                 "title": "Bug in parser", "updatedAt": "2026-06-25T08:00:00Z",
+                 "state": {"name": "Done", "type": "completed"},
+                 "assignee": {"displayName": "Xue"}},
+                # canceled -> canceled.
+                {"id": "lin-uuid-44", "identifier": "VM-44",
+                 "title": "Wontfix idea", "updatedAt": "2026-06-25T09:00:00Z",
+                 "state": {"name": "Cancelled", "type": "canceled"},
+                 "assignee": None},
+                # backlog -> backlog. state.NAME is a custom rename ("Icebox") but
+                # state.TYPE is the canonical signal we trust.
+                {"id": "lin-uuid-45", "identifier": "VM-45", "title": "Future idea",
+                 "updatedAt": "2026-06-25T10:00:00Z",
+                 "state": {"name": "Icebox", "type": "backlog"},
+                 "assignee": {"displayName": "Curry"}},
+            ],
+        }
+    }
+}
+
+# A RECORDED Linear GraphQL ERROR response ({data:null, errors:[...]}). A GraphQL
+# endpoint signals failure with a top-level `errors` array, frequently WITH a 200
+# HTTP status -- the adapter must surface a structured, token-free error.
+#
+# ADVERSARIAL: the error `message` ECHOES the request token (a buggy/malicious/
+# MITM GraphQL endpoint can reflect the Authorization token into its own error
+# text). The adapter MUST NOT carry that message into the raised error -- it
+# surfaces only the count + the `code` extension (an enum), never the free-text
+# message. The literal token here is asserted-absent from any raised error.
+_LINEAR_ERROR_ECHOED_TOKEN = "lin_SECRET"
+_LINEAR_ERRORS_JSON = {
+    "data": None,
+    "errors": [
+        {"message": f"Authentication required for token {_LINEAR_ERROR_ECHOED_TOKEN}",
+         "extensions": {"code": "AUTHENTICATION_ERROR"}},
+    ],
+}
+
+
+class LinearPullTest(unittest.TestCase):
+    """LinearAdapter.pull maps a recorded Linear GraphQL issues response to
+    RemoteItems (trusting state.type, not state.name) -- with ZERO network."""
+
+    def setUp(self):
+        self.adapter = forge.LinearAdapter()
+        self.repo_cfg = {"provider": "linear", "team_id": "team-uuid",
+                         "project_id": "proj-uuid", "slug": "vault-mind"}
+        self.transport = FakeTransport({
+            ("POST", forge.LINEAR_API_URL):
+                {"status": 200, "headers": {},
+                 "body": json.dumps(_LINEAR_ISSUES_JSON).encode("utf-8")},
+        })
+
+    def test_pull_maps_nodes_to_remote_items(self):
+        items = self.adapter.pull(self.repo_cfg, self.transport, token="lin_T")
+        self.assertEqual(len(items), 4)
+        by_oid = {it.object_id: it for it in items}
+        # object_id is the STABLE linear id (used for issueUpdate), not VM-42.
+        self.assertEqual(set(by_oid), {"lin-uuid-42", "lin-uuid-43",
+                                       "lin-uuid-44", "lin-uuid-45"})
+        i42 = by_oid["lin-uuid-42"]
+        self.assertEqual(i42.kind, "issue")
+        self.assertEqual(i42.revision, "2026-06-24T10:00:00Z")
+        self.assertEqual(i42.actor, "Curry")
+        self.assertEqual(i42.title, "Add OAuth")
+        # entity_hint keys off the human identifier (ABC-123).
+        self.assertEqual(i42.entity_hint, "project/vault-mind/issue/VM-42")
+
+    def test_pull_uses_state_type_not_name(self):
+        # state.type is the canonical signal: started->in-progress, completed->done,
+        # canceled->canceled, backlog->backlog -- and state.NAME ("Icebox") is
+        # IGNORED in favor of the type.
+        items = self.adapter.pull(self.repo_cfg, self.transport, token="lin_T")
+        by_oid = {it.object_id: it for it in items}
+        cand_started = forge.remote_item_to_candidate(
+            by_oid["lin-uuid-42"], "/x", "linear",
+            base_head_resolver=lambda e: None, today=TODAY)
+        cand_completed = forge.remote_item_to_candidate(
+            by_oid["lin-uuid-43"], "/x", "linear",
+            base_head_resolver=lambda e: None, today=TODAY)
+        cand_canceled = forge.remote_item_to_candidate(
+            by_oid["lin-uuid-44"], "/x", "linear",
+            base_head_resolver=lambda e: None, today=TODAY)
+        cand_backlog = forge.remote_item_to_candidate(
+            by_oid["lin-uuid-45"], "/x", "linear",
+            base_head_resolver=lambda e: None, today=TODAY)
+        self.assertEqual(cand_started["state"], currency.STATE_IN_PROGRESS)
+        self.assertEqual(cand_completed["state"], currency.STATE_DONE)
+        self.assertEqual(cand_canceled["state"], currency.STATE_CANCELED)
+        self.assertEqual(cand_backlog["state"], currency.STATE_BACKLOG)
+
+    def test_pull_candidate_is_draft_with_origin(self):
+        items = self.adapter.pull(self.repo_cfg, self.transport, token="lin_T")
+        by_oid = {it.object_id: it for it in items}
+        cand = forge.remote_item_to_candidate(
+            by_oid["lin-uuid-43"], "/x", "linear",
+            base_head_resolver=lambda e: None, today=TODAY)
+        self.assertEqual(cand["origin"]["provider"], "linear")
+        self.assertEqual(cand["origin"]["object-id"], "lin-uuid-43")
+        self.assertEqual(cand["origin"]["revision"], "2026-06-25T08:00:00Z")
+        self.assertEqual(cand["origin"]["actor"], "Xue")
+        fm = parse_frontmatter(cand["text"])
+        # a completed Linear issue is a PROPOSAL (draft), never an auto-close.
+        self.assertEqual(fm["status"], "draft")
+        self.assertNotIn(work_protocol.F_SUPERSEDES, fm)
+
+    def test_pull_sends_raw_token_header_no_bearer_not_in_url(self):
+        self.adapter.pull(self.repo_cfg, self.transport, token="lin_SECRET")
+        self.assertTrue(self.transport.calls)
+        method, url, headers, body = self.transport.calls[0]
+        self.assertEqual(method, "POST")
+        # Linear uses the RAW token (NO 'Bearer ' prefix).
+        self.assertEqual(headers.get("Authorization"), "lin_SECRET")
+        self.assertNotIn("Bearer", headers.get("Authorization", ""))
+        self.assertEqual(headers.get("Content-Type"), "application/json")
+        # the token NEVER rides in the URL.
+        self.assertNotIn("lin_SECRET", url)
+
+    def test_pull_token_never_appears_in_request_url(self):
+        self.adapter.pull(self.repo_cfg, self.transport, token="lin_SECRET")
+        for method, url, headers, body in self.transport.calls:
+            self.assertNotIn("lin_SECRET", url)
+
+    def test_pull_without_token_is_empty_no_call(self):
+        items = self.adapter.pull(self.repo_cfg, self.transport, token=None)
+        self.assertEqual(items, [])
+        self.assertEqual(self.transport.calls, [])  # no network attempted.
+
+    def test_pull_graphql_errors_is_graceful_structured_error_token_absent(self):
+        # a {errors:[...]} GraphQL response (even with HTTP 200) -> a structured
+        # TransportError; the token NEVER appears in it -- EVEN when the API's own
+        # error `message` echoes the request token back (the message is server-
+        # controlled response data and is NOT trusted; only count + code surface).
+        t = FakeTransport({
+            ("POST", forge.LINEAR_API_URL):
+                {"status": 200, "headers": {},
+                 "body": json.dumps(_LINEAR_ERRORS_JSON).encode("utf-8")},
+        })
+        with self.assertRaises(forge.TransportError) as cm:
+            self.adapter.pull(self.repo_cfg, t, token="lin_SECRET")
+        msg = str(cm.exception)
+        self.assertIn("graphql errors", msg)
+        # the token MUST NOT survive, even though the error message echoed it.
+        self.assertNotIn("lin_SECRET", msg)
+        self.assertNotIn("Authorization", msg)
+        # the safe enum `code` extension may surface (it can never carry a secret).
+        self.assertIn("AUTHENTICATION_ERROR", msg)
+
+    def test_pull_graphql_error_message_is_never_embedded(self):
+        # defense-in-depth: an error message with NO code extension contributes
+        # NOTHING to the raised error text (the free-text message is never trusted).
+        leaky = {"data": None, "errors": [
+            {"message": "raw secret leaked: lin_SECRET-xyz no-code-here"}]}
+        t = FakeTransport({
+            ("POST", forge.LINEAR_API_URL):
+                {"status": 200, "headers": {},
+                 "body": json.dumps(leaky).encode("utf-8")},
+        })
+        with self.assertRaises(forge.TransportError) as cm:
+            self.adapter.pull(self.repo_cfg, t, token="lin_SECRET")
+        msg = str(cm.exception)
+        self.assertIn("graphql errors (1)", msg)
+        self.assertNotIn("lin_SECRET", msg)
+        self.assertNotIn("raw secret leaked", msg)
+
+    def test_pull_http_401_is_graceful_error(self):
+        t = FakeTransport({
+            ("POST", forge.LINEAR_API_URL):
+                {"status": 401, "headers": {}, "body": b'{"message":"unauth"}'},
+        })
+        with self.assertRaises(forge.TransportError) as cm:
+            self.adapter.pull(self.repo_cfg, t, token="lin_SECRET")
+        msg = str(cm.exception)
+        self.assertIn("401", msg)
+        self.assertNotIn("lin_SECRET", msg)
+
+    def test_pull_single_page_stops_when_has_next_false(self):
+        # hasNextPage:false -> exactly one POST (no cursor follow-up).
+        self.adapter.pull(self.repo_cfg, self.transport, token="lin_T")
+        post_calls = [c for c in self.transport.calls if c[0] == "POST"]
+        self.assertEqual(len(post_calls), 1)
+
+
+class LinearPushPlanTest(unittest.TestCase):
+    def setUp(self):
+        self.adapter = forge.LinearAdapter()
+        self.repo_cfg = {"provider": "linear", "team_id": "team-uuid"}
+
+    def test_new_snapshot_is_an_issue_create_mutation(self):
+        # a snapshot with NO origin.object-id -> issueCreate.
+        snapshot = {"entity": "project/vm/issue/oauth",
+                    "state": currency.STATE_IN_PROGRESS,
+                    "title": "Add OAuth", "body": "Implement OAuth login."}
+        plan = self.adapter.push_plan(snapshot, self.repo_cfg)
+        self.assertEqual(plan["mutation"], "issueCreate")
+        self.assertIsNone(plan["object_id"])
+        inp = plan["variables"]["input"]
+        self.assertEqual(inp["title"], "Add OAuth")
+        self.assertEqual(inp["description"], "Implement OAuth login.")
+        self.assertEqual(inp["teamId"], "team-uuid")
+        # in-progress -> the started TYPE is recorded.
+        self.assertEqual(plan["state_type"], "started")
+
+    def test_existing_origin_is_an_issue_update_mutation_no_duplicate(self):
+        # a snapshot carrying a linear origin.object-id -> issueUpdate (no create).
+        snapshot = {"entity": "project/vm/issue/parser",
+                    "state": currency.STATE_DONE,
+                    "title": "Bug in parser",
+                    "fields": {"origin": {"provider": "linear",
+                                          "object-id": "lin-uuid-43"}}}
+        plan = self.adapter.push_plan(snapshot, self.repo_cfg)
+        self.assertEqual(plan["mutation"], "issueUpdate")
+        self.assertEqual(plan["object_id"], "lin-uuid-43")
+        self.assertEqual(plan["variables"]["id"], "lin-uuid-43")
+        self.assertEqual(plan["variables"]["input"]["title"], "Bug in parser")
+        # done -> the completed TYPE is recorded.
+        self.assertEqual(plan["state_type"], "completed")
+
+    def test_origin_from_other_provider_is_a_create_not_update(self):
+        # a snapshot whose origin points at gitea has NO linear counterpart yet ->
+        # a push to linear CREATES (it must not issueUpdate a foreign id).
+        snapshot = {"entity": "e", "state": currency.STATE_TODO, "title": "x",
+                    "fields": {"origin": {"provider": "gitea",
+                                          "object-id": "43"}}}
+        plan = self.adapter.push_plan(snapshot, self.repo_cfg)
+        self.assertEqual(plan["mutation"], "issueCreate")
+        self.assertIsNone(plan["object_id"])
+
+    def test_state_id_seam_resolves_when_configured(self):
+        # repo_cfg carries a state-type -> stateId map -> the input gets a stateId
+        # and there is NO 'needs stateId mapping' note.
+        cfg = {"provider": "linear", "team_id": "team-uuid",
+               "state_type_ids": {"completed": "state-done-uuid"}}
+        snapshot = {"entity": "e", "state": currency.STATE_DONE, "title": "x",
+                    "fields": {"origin": {"provider": "linear",
+                                          "object-id": "lin-9"}}}
+        plan = self.adapter.push_plan(snapshot, cfg)
+        self.assertEqual(plan["variables"]["input"]["stateId"], "state-done-uuid")
+        self.assertFalse(any("needs stateId" in n for n in plan["notes"]))
+
+    def test_missing_state_id_mapping_records_a_note_never_guesses(self):
+        # no state_type_ids -> NO stateId in the input + a documented note (the
+        # plan never fabricates a workspace stateId).
+        snapshot = {"entity": "e", "state": currency.STATE_DONE, "title": "x",
+                    "fields": {"origin": {"provider": "linear",
+                                          "object-id": "lin-9"}}}
+        plan = self.adapter.push_plan(snapshot, self.repo_cfg)
+        self.assertNotIn("stateId", plan["variables"]["input"])
+        self.assertTrue(any("needs stateId" in n for n in plan["notes"]))
+
+    def test_create_without_team_id_records_a_note(self):
+        snapshot = {"entity": "e", "state": currency.STATE_TODO, "title": "x"}
+        plan = self.adapter.push_plan(snapshot, {"provider": "linear"})
+        self.assertEqual(plan["mutation"], "issueCreate")
+        self.assertNotIn("teamId", plan["variables"]["input"])
+        self.assertTrue(any("needs teamId" in n for n in plan["notes"]))
+
+    def test_push_plan_issues_no_network(self):
+        snapshot = {"entity": "e", "state": currency.STATE_TODO, "title": "x"}
+        plan = self.adapter.push_plan(snapshot, self.repo_cfg)
+        self.assertIsInstance(plan, dict)
+
+
+class LinearPullToCandidatesIntegrationTest(unittest.TestCase):
+    """The LinearAdapter wired through pull_to_candidates: missing token degrades,
+    a present token pulls recorded issues into draft candidates -- no network."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="vault-9e-lin-pull-"))
+        self.vault = self.tmp / "vault"
+        self.vault.mkdir()
+        _write_forge_config(self.vault, {"projects": {
+            "project/vault-mind": {
+                "forge": {"provider": "linear", "team_id": "team-uuid",
+                          "slug": "vault-mind"}}}})
+        self.transport = FakeTransport({
+            ("POST", forge.LINEAR_API_URL):
+                {"status": 200, "headers": {},
+                 "body": json.dumps(_LINEAR_ISSUES_JSON).encode("utf-8")},
+        })
+        self.adapter = forge.LinearAdapter()
+        self._saved = os.environ.pop("LINEAR_TOKEN", None)
+
+    def tearDown(self):
+        if self._saved is None:
+            os.environ.pop("LINEAR_TOKEN", None)
+        else:
+            os.environ["LINEAR_TOKEN"] = self._saved
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_missing_token_degrades_gracefully(self):
+        res = forge.pull_to_candidates(str(self.vault), "linear", self.transport,
+                                       provider=self.adapter, today=TODAY)
+        self.assertFalse(res["configured"])
+        self.assertEqual(res["candidates"], [])
+        self.assertEqual(self.transport.calls, [])  # no network.
+        # the token env var name is named in the reason; no token value present.
+        self.assertIn("LINEAR_TOKEN", res["reason"])
+
+    def test_configured_pull_makes_draft_candidates(self):
+        os.environ["LINEAR_TOKEN"] = "lin_secret-T"
+        res = forge.pull_to_candidates(str(self.vault), "linear", self.transport,
+                                       provider=self.adapter, today=TODAY)
+        self.assertTrue(res["configured"])
+        self.assertEqual(len(res["candidates"]), 4)
+        for cand in res["candidates"]:
+            fm = parse_frontmatter(cand["text"])
+            self.assertEqual(fm["status"], "draft")
+            self.assertEqual(fm["generated-by"], "sync/linear")
+            # the token never leaked into any candidate text.
+            self.assertNotIn("lin_secret-T", cand["text"])
+        self.assertEqual(res["written"], [])  # dry-run wrote nothing.
+
+
+class LinearOriginRoundTripTest(unittest.TestCase):
+    """A persisted reviewed head carrying a linear origin block -> scan -> snapshot
+    -> push_plan issueUpdate (no duplicate), through the REAL pipeline."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="vault-9e-lin-origin-"))
+        self.vault = self.tmp / "vault"
+        (self.vault / "Projects").mkdir(parents=True)
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_reviewed_head_with_linear_origin_pushes_issue_update(self):
+        (self.vault / "Projects" / "parser.reviewed.md").write_bytes((
+            "---\n"
+            "type: issue\n"
+            "entity: project/web/issue/parser\n"
+            "state: done\n"
+            "origin:\n"
+            "  provider: linear\n"
+            "  object-id: lin-uuid-43\n"
+            "  revision: 2026-06-25T08:00:00Z\n"
+            "  actor: Xue\n"
+            "status: reviewed\n"
+            "last-verified: 2026-06-25\n"
+            "---\n\nBug in parser\n"
+        ).encode("utf-8"))
+        snap = forge._reviewed_head_snapshot(str(self.vault),
+                                             "project/web/issue/parser")
+        self.assertIsNotNone(snap)
+        self.assertIsInstance(snap["fields"]["origin"], dict)
+        plan = forge.LinearAdapter().push_plan(
+            snap, {"team_id": "team-uuid",
+                   "state_type_ids": {"completed": "state-done-uuid"}})
+        # the origin maps to an EXISTING linear issue -> issueUpdate, not create.
+        self.assertEqual(plan["mutation"], "issueUpdate")
+        self.assertEqual(plan["object_id"], "lin-uuid-43")
+        self.assertEqual(plan["variables"]["id"], "lin-uuid-43")
+        self.assertEqual(plan["variables"]["input"]["stateId"], "state-done-uuid")
+
+
 if __name__ == "__main__":
     unittest.main()

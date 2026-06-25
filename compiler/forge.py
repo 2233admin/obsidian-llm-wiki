@@ -1375,3 +1375,960 @@ class GiteaAdapter(Provider):
         or None when the project is unbound -- used by publish_plan to name the
         remote it would create."""
         return _provider_repo_cfg(vault, entity)
+
+
+# ===========================================================================
+# Task 9 / PR 9D: the GITHUB ADAPTER
+# ===========================================================================
+#
+# The second concrete Provider on top of the 9C scaffolding. It speaks the GitHub
+# Issues REST API through the INJECTED Transport, so a test drives it with a
+# FakeTransport + recorded GitHub JSON and NEVER hits a live API (§7.2 / §7.7).
+#
+# Locked design (TASK9 §7 -- mirrors GiteaAdapter EXACTLY; do NOT deviate):
+#   * zero-dep stdlib only -- HTTP goes through the injected Transport
+#     (urllib.request under the hood); NO requests / NO httpx.
+#   * pull-only -- one-shot API client; NO webhook receiver, NO daemon (§0 #11).
+#     pull() reads issues; push_plan() returns a PAYLOAD only (never a write).
+#   * token from the ENVIRONMENT (GITHUB_TOKEN), passed in as `token`; it is sent
+#     in the `Authorization: Bearer <T>` header ONLY and is NEVER logged / never
+#     put in a URL / error / candidate (the structured error carries
+#     method/url/status only).
+#   * a remote issue -> a status:draft candidate stamped with
+#     origin:{provider,object-id,revision,actor} + base-head (via the shared
+#     remote_item_to_candidate); code activity is EVIDENCE ONLY (§0 #12) -- a
+#     pulled "closed" issue is a PROPOSAL, never an auto-close, and a MERGED PR
+#     becomes a `suggested-state` candidate (NOT a direct state:done), so it still
+#     flows through triage/promote.
+#   * a GitHub issues payload ALSO carries pull requests (each PR object has a
+#     `pull_request` key); those are DROPPED from pull() -- PRs are evidence, not
+#     work issues -- and surfaced only via the explicit pull_evidence() path.
+#   * dry-run is the DEFAULT for any write/push -- push_plan is a PLAN only.
+#
+# DEFERRED FOLLOW-UP (out of scope for 9D): GitHub Projects V2 (the GraphQL board
+# API). 9D is Issues REST + PR-evidence only; a Projects-V2 board adapter would
+# land as a separate primary-board provider on top of this same seam.
+
+GITHUB_API_BASE = "https://api.github.com"
+GITHUB_API_VERSION = "2022-11-28"
+
+# Defensive pagination cap: never loop unboundedly against a remote (a misbehaving
+# server, or a never-shrinking page, must not hang the pull). GitHub's max page
+# size is 100; this caps total pages, so at most GITHUB_PAGE_CAP * limit issues.
+GITHUB_PAGE_CAP = 20
+GITHUB_PAGE_LIMIT = 100
+
+# GitHub issue state words: open|closed. A closed issue carries a `state_reason`
+# of 'completed' or 'not_planned' (or null) -- 'not_planned' means the work was
+# DROPPED, so it maps to canceled (not done). The shared map_remote_state already
+# turns the raw word through currency.work_state (open->todo, closed->done,
+# canceled->canceled); the adapter pre-resolves the RAW word it feeds the stamper.
+GITHUB_STATE_NOT_PLANNED = "not_planned"
+
+# For the OUTWARD direction (push_plan) a canonical work state maps BACK to a
+# GitHub issue state + state_reason: GitHub issues are open|closed only.
+#   done     -> closed, state_reason: completed
+#   canceled -> closed, state_reason: not_planned
+#   active   -> open,   state_reason: null
+_GITHUB_CLOSED_STATES = frozenset({_currency.STATE_DONE, _currency.STATE_CANCELED})
+
+
+class GitHubAdapter(Provider):
+    """The GitHub Provider (§7 / PR 9D). Reads issues into RemoteItems via the
+    injected Transport, drops pull requests (PRs are evidence, surfaced only via
+    pull_evidence), and builds (but never executes) the push payload for the
+    outward direction. The actual network WRITE is apply-only and out of scope for
+    this PR -- the payload/plan is the deliverable (dry-run by default).
+    """
+
+    name = PROVIDER_GITHUB
+
+    # --- inward: pull issues -> RemoteItems --------------------------------
+
+    def pull(self, repo_cfg: dict, transport: Transport,
+             token: Optional[str]) -> list:
+        """GET /repos/{owner}/{repo}/issues?state=all&per_page=100 -> [RemoteItem].
+
+        A GitHub issues payload INCLUDES pull requests (each PR object carries a
+        `pull_request` key); those are DROPPED here -- PRs are 9D evidence, not
+        work candidates (§0 #12). Each real issue becomes a RemoteItem(kind=
+        'issue', object_id=number, revision=updated_at, actor=user.login, title,
+        state, entity_hint='project/<slug>/issue/<number>'). A closed issue whose
+        state_reason is 'not_planned' is mapped to the raw word 'canceled' (so the
+        shared stamper proposes canceled, not done). Paginated DEFENSIVELY (capped
+        pages; stops on a short / empty page).
+
+        Token=None -> [] (graceful; never crash). A 401/403/404/non-2xx is
+        surfaced as a structured TransportError WHOSE TEXT NEVER carries the token
+        (method/url/status only). The caller (pull_to_candidates) catches it
+        per-project; we let it propagate.
+        """
+        if not token:
+            return []
+        owner, repo = self._owner_repo(repo_cfg)
+        if not owner or not repo:
+            return []
+        slug = _safe_segment(repo, "repo")
+        headers = self._auth_headers(token)
+
+        items: list = []
+        seen_ids: set = set()
+        for page in range(1, GITHUB_PAGE_CAP + 1):
+            url = (f"{GITHUB_API_BASE}/repos/{owner}/{repo}/issues"
+                   f"?state=all&per_page={GITHUB_PAGE_LIMIT}&page={page}")
+            resp = transport.request("GET", url, headers=headers)
+            self._raise_for_status("GET", url, resp)
+            page_raw = self._json_array(resp.get("body"))
+            if not page_raw:
+                break  # empty page -> done.
+            new_this_page = 0
+            for raw in page_raw:
+                it = self._issue_to_item(raw, slug)
+                if it is None:
+                    continue  # a PR / malformed entry -> not a work issue here.
+                if it.object_id in seen_ids:
+                    continue  # defensive: a repeated page can't loop us.
+                seen_ids.add(it.object_id)
+                items.append(it)
+                new_this_page += 1
+            # a short page (fewer than the limit) means the last page is reached.
+            # new_this_page can be 0 on a page that is ALL PRs, so the short-page
+            # length check (not new_this_page) decides termination.
+            if len(page_raw) < GITHUB_PAGE_LIMIT:
+                break
+        return items
+
+    def _issue_to_item(self, raw, slug: str) -> Optional[RemoteItem]:
+        """Map ONE GitHub issue JSON object to a RemoteItem, or None when it is a
+        pull request (carries a `pull_request` key) or is malformed. A closed
+        issue with state_reason 'not_planned' is mapped to the raw word 'canceled'
+        so the shared stamper proposes canceled (the work was dropped), not done.
+        """
+        if not isinstance(raw, dict):
+            return None
+        if raw.get("pull_request") is not None:
+            # a PR, not an issue -> evidence (pull_evidence), not a work candidate.
+            return None
+        number = raw.get("number")
+        if number is None:
+            return None
+        object_id = str(number)
+        user = raw.get("user")
+        actor = user.get("login") if isinstance(user, dict) else None
+        state = raw.get("state")
+        # a closed+not_planned issue is a CANCEL, not a completion.
+        if (str(state or "").strip().lower() == "closed"
+                and str(raw.get("state_reason") or "").strip().lower()
+                == GITHUB_STATE_NOT_PLANNED):
+            state = _currency.STATE_CANCELED
+        return RemoteItem(
+            kind="issue",
+            object_id=object_id,
+            revision=raw.get("updated_at"),
+            actor=actor,
+            title=raw.get("title", "") or "",
+            state=state,
+            entity_hint=f"project/{slug}/issue/{object_id}",
+            raw=raw,
+        )
+
+    # --- inward: merged PRs -> EVIDENCE (suggested-state, never state) ------
+
+    def pull_evidence(self, repo_cfg: dict, transport: Transport,
+                      token: Optional[str]) -> list:
+        """GET /repos/{owner}/{repo}/pulls?state=all -> [RemoteItem] of MERGED PRs
+        as EVIDENCE only (§0 #12). A merged PR is code activity: it at most
+        SUGGESTS a 'done' state -- it NEVER auto-closes a work item. Each merged PR
+        becomes a RemoteItem with kind='pull-request' and state set to a special
+        'suggested-state' sentinel carried in `raw` so evidence_to_candidate emits
+        a `suggested-state: done` + an evidence ref (github:pr/<n>), NOT a direct
+        state:done. An UNMERGED / open PR yields NOTHING (no suggestion).
+
+        Token=None -> [] (graceful). Errors propagate as a redacted TransportError.
+        """
+        if not token:
+            return []
+        owner, repo = self._owner_repo(repo_cfg)
+        if not owner or not repo:
+            return []
+        slug = _safe_segment(repo, "repo")
+        headers = self._auth_headers(token)
+
+        items: list = []
+        seen_ids: set = set()
+        for page in range(1, GITHUB_PAGE_CAP + 1):
+            url = (f"{GITHUB_API_BASE}/repos/{owner}/{repo}/pulls"
+                   f"?state=all&per_page={GITHUB_PAGE_LIMIT}&page={page}")
+            resp = transport.request("GET", url, headers=headers)
+            self._raise_for_status("GET", url, resp)
+            page_raw = self._json_array(resp.get("body"))
+            if not page_raw:
+                break
+            for raw in page_raw:
+                it = self._pr_to_evidence(raw, slug)
+                if it is None:
+                    continue  # not merged -> no suggestion.
+                if it.object_id in seen_ids:
+                    continue
+                seen_ids.add(it.object_id)
+                items.append(it)
+            if len(page_raw) < GITHUB_PAGE_LIMIT:
+                break
+        return items
+
+    def _pr_to_evidence(self, raw, slug: str) -> Optional[RemoteItem]:
+        """Map ONE GitHub PR JSON to an EVIDENCE RemoteItem, or None when the PR is
+        not merged. A merged PR carries a truthy `merged_at` (or merged=True). The
+        item's `raw` is flagged so evidence_to_candidate renders a suggested-state
+        (NOT a state). entity_hint targets the PR's number under the repo slug."""
+        if not isinstance(raw, dict):
+            return None
+        merged = bool(raw.get("merged_at")) or bool(raw.get("merged"))
+        if not merged:
+            return None
+        number = raw.get("number")
+        if number is None:
+            return None
+        object_id = str(number)
+        user = raw.get("user")
+        actor = user.get("login") if isinstance(user, dict) else None
+        return RemoteItem(
+            kind="pull-request",
+            object_id=object_id,
+            revision=raw.get("updated_at") or raw.get("merged_at"),
+            actor=actor,
+            title=raw.get("title", "") or "",
+            # NOT a work state: the sentinel is carried so evidence_to_candidate
+            # emits suggested-state, never a direct state. state stays None so a
+            # naive consumer can't read it as a closing state.
+            state=None,
+            entity_hint=f"project/{slug}/pr/{object_id}",
+            raw={"_evidence": True, "pr_number": object_id, **(raw if isinstance(raw, dict) else {})},
+        )
+
+    def evidence_to_candidate(self, item: RemoteItem, vault, *,
+                              base_head_resolver: Optional[Callable] = None,
+                              today: Optional[str] = None) -> dict:
+        """Build a `status: draft` candidate from a merged-PR EVIDENCE RemoteItem.
+
+        CRITICAL (§0 #12): the candidate carries a `suggested-state: done` PLUS an
+        `evidence:` ref (github:pr/<n>) -- it does NOT carry a direct `state: done`.
+        A merged PR is code activity that SUGGESTS the work is done; the human 8D
+        triage / 8P promote (the PR gate) decides whether to actually close it.
+        This keeps the never-auto-close invariant: evidence flows through review.
+
+        Returns {note_id_hint, text, entity, suggested_state, evidence, origin}.
+        """
+        from datetime import date as _date
+
+        today = today or _date.today().isoformat()
+        entity = (item.entity_hint or "").strip()
+        base_head = None
+        if entity and base_head_resolver is not None:
+            try:
+                resolved = base_head_resolver(entity)
+            except Exception:
+                resolved = None
+            if isinstance(resolved, str) and resolved.strip():
+                base_head = resolved.strip()
+
+        pr_number = item.object_id
+        evidence_ref = f"{self.name}:pr/{pr_number}"
+        origin = {
+            "provider": self.name,
+            "object-id": pr_number,
+            "revision": item.revision,
+            "actor": item.actor,
+        }
+
+        text = self._render_evidence_candidate(
+            entity=entity, origin=origin, base_head=base_head,
+            evidence_ref=evidence_ref, today=today, title=item.title)
+
+        note_id_hint = (f"{_sync_writer_dir(self.name)}/"
+                        f"{today}-pr-{_safe_segment(pr_number, 'pr')}.md")
+        return {
+            "note_id_hint": note_id_hint,
+            "text": text,
+            "entity": entity or None,
+            "suggested_state": _currency.STATE_DONE,
+            "evidence": evidence_ref,
+            "origin": origin,
+            "base_head": base_head,
+        }
+
+    def _render_evidence_candidate(self, entity: str, origin: dict,
+                                   base_head: Optional[str], evidence_ref: str,
+                                   today: str, title: str) -> str:
+        """Serialize a merged-PR evidence candidate note (LF-only). It carries
+        `suggested-state: done` + `evidence: github:pr/<n>` instead of a direct
+        `state:` -- so it never auto-closes; it must go through triage/promote.
+        NO top-level `state:` field is emitted (a merged PR only SUGGESTS done)."""
+        lines = ["---"]
+        lines.append(f"{_work_protocol.F_TYPE}: {_work_protocol.TYPE_ISSUE}")
+        if entity:
+            lines.append(f"{_work_protocol.F_ENTITY}: {entity}")
+        # NO `state:` -- evidence only SUGGESTS a state (it never sets one).
+        lines.append(f"suggested-state: {_currency.STATE_DONE}")
+        lines.append(f"evidence: {evidence_ref}")
+        lines.append(f"{_work_protocol.F_STATUS}: {_work_protocol.STATUS_DRAFT}")
+        lines.append("origin:")
+        lines.append(f"  provider: {origin.get('provider')}")
+        if origin.get("object-id") is not None:
+            lines.append(f"  object-id: {origin['object-id']}")
+        if origin.get("revision") is not None:
+            lines.append(f"  revision: {origin['revision']}")
+        if origin.get("actor") is not None:
+            lines.append(f"  actor: {origin['actor']}")
+        if base_head:
+            lines.append(f"{_work_protocol.F_BASE_HEAD}: {base_head}")
+        lines.append(f"{_work_protocol.F_GENERATED_BY}: sync/{self.name}")
+        lines.append(f"{_currency.F_LAST_VERIFIED}: {today}")
+        lines.append("---")
+        text = "\n".join(lines) + "\n"
+        body = _sanitize_remote_body(title)
+        if body:
+            text += "\n" + body + "\n"
+        return text
+
+    # --- outward: reviewed snapshot -> push payload (PLAN only) ------------
+
+    def push_plan(self, snapshot: dict, repo_cfg: dict) -> dict:
+        """Build the GitHub issue payload that WOULD project a REVIEWED snapshot
+        outward (§7 / PR 9D). PURE -- NO network here (the actual POST/PATCH lands
+        in a later apply path; the payload is the seam).
+
+        Method:
+          * a NEW issue (no origin.object-id, OR an origin from a DIFFERENT
+            provider) -> POST /repos/{owner}/{repo}/issues, body {title, body}.
+          * an UPDATE (origin.object-id present AND origin.provider == 'github') ->
+            PATCH /repos/{owner}/{repo}/issues/{number}, body
+            {title, body, state, state_reason}.
+
+        State mapping (GitHub issues are open|closed):
+          done     -> state: closed, state_reason: completed
+          canceled -> state: closed, state_reason: not_planned
+          active   -> state: open,   state_reason: null
+        """
+        owner, repo = self._owner_repo(repo_cfg)
+        canonical = snapshot.get("state")
+        gh_state, gh_reason = self._to_github_state(canonical)
+        title = self._snapshot_title(snapshot)
+        body = self._snapshot_body(snapshot)
+
+        object_id = self._origin_object_id(snapshot)
+        if object_id is not None:
+            # UPDATE an existing GitHub issue -> PATCH at the numbered endpoint.
+            return {
+                "method": "PATCH",
+                "endpoint": f"/repos/{owner}/{repo}/issues/{object_id}",
+                "object_id": object_id,
+                "entity": snapshot.get("entity"),
+                "payload": {
+                    "title": title,
+                    "body": body,
+                    "state": gh_state,
+                    "state_reason": gh_reason,
+                },
+            }
+        # CREATE a new issue -> POST at the collection endpoint. GitHub creates an
+        # issue OPEN; a create payload does not carry state/state_reason.
+        return {
+            "method": "POST",
+            "endpoint": f"/repos/{owner}/{repo}/issues",
+            "object_id": None,
+            "entity": snapshot.get("entity"),
+            "payload": {
+                "title": title,
+                "body": body,
+            },
+        }
+
+    # --- small helpers (pure) ---------------------------------------------
+
+    def _owner_repo(self, repo_cfg: dict):
+        """Split `repo: owner/name` into (owner, name). Tolerates a bare name
+        (-> (None, name)) and a missing repo (-> (None, None)). GitHub always
+        needs an owner, so a bare name yields no pull (owner None)."""
+        if not isinstance(repo_cfg, dict):
+            return (None, None)
+        repo = str(repo_cfg.get("repo", "") or "").strip().strip("/")
+        if not repo:
+            return (None, None)
+        if "/" in repo:
+            owner, name = repo.split("/", 1)
+            return (owner.strip() or None, name.strip() or None)
+        return (None, repo)
+
+    def _auth_headers(self, token: str) -> dict:
+        """The request headers, including `Authorization: Bearer <T>` + the GitHub
+        Accept + API-version headers. The token is placed ONLY here (in the header
+        dict the Transport sends) -- it is never copied into a URL, an error, or a
+        log (§7.3). TransportError redacts the query string and never echoes
+        headers, so the token cannot leak."""
+        return {
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": GITHUB_API_VERSION,
+        }
+
+    def _raise_for_status(self, method: str, url: str, resp: dict) -> None:
+        """Turn a non-2xx response into a structured TransportError (token-free).
+        A 401/403/404 from GitHub thus surfaces as a graceful, redacted error
+        rather than a crash, and the token is never in the message."""
+        status = resp.get("status") if isinstance(resp, dict) else None
+        if status is None:
+            raise TransportError(method, url, None, detail="no status in response")
+        if 200 <= int(status) < 300:
+            return
+        raise TransportError(method, url, int(status), detail="github api error")
+
+    def _json_array(self, body) -> list:
+        """Decode a response body (bytes/str/None) to a JSON array; anything that
+        is not a list -> [] (never crash)."""
+        if body is None:
+            return []
+        if isinstance(body, (bytes, bytearray)):
+            try:
+                body = bytes(body).decode("utf-8")
+            except (UnicodeDecodeError, ValueError):
+                return []
+        if isinstance(body, str):
+            try:
+                body = json.loads(body) if body.strip() else []
+            except ValueError:
+                return []
+        return body if isinstance(body, list) else []
+
+    def _to_github_state(self, canonical_state: Optional[str]):
+        """Map a canonical work state -> (github_state, state_reason). GitHub
+        issues are open|closed only: done -> (closed, completed); canceled ->
+        (closed, not_planned); every active state -> (open, None)."""
+        w = (canonical_state or "").strip().lower()
+        if w == _currency.STATE_DONE:
+            return ("closed", "completed")
+        if w == _currency.STATE_CANCELED:
+            return ("closed", GITHUB_STATE_NOT_PLANNED)
+        return ("open", None)
+
+    def _origin_object_id(self, snapshot: dict):
+        """The remote issue number this snapshot already maps to, from its
+        `origin.object-id` -- but ONLY when origin.provider is github (a snapshot
+        whose origin points at a DIFFERENT provider has no GitHub counterpart, so
+        a push to github CREATES). None -> push_plan emits a CREATE."""
+        if not isinstance(snapshot, dict):
+            return None
+        # origin may live directly on the snapshot or under its `fields` map.
+        for container in (snapshot, snapshot.get("fields")):
+            if not isinstance(container, dict):
+                continue
+            origin = container.get("origin")
+            if isinstance(origin, dict):
+                prov = str(origin.get("provider") or "").strip().lower()
+                if prov and prov != self.name:
+                    # origin is a different forge -> no GitHub issue yet -> CREATE.
+                    return None
+                oid = origin.get("object-id")
+                if oid is not None and str(oid).strip():
+                    return str(oid).strip()
+        return None
+
+    def _snapshot_title(self, snapshot: dict) -> str:
+        """The issue title for an outward push: the snapshot's explicit `title`
+        field if present, else its entity (a stable, human-readable fallback)."""
+        if isinstance(snapshot, dict):
+            fields = snapshot.get("fields") if isinstance(snapshot.get("fields"), dict) else {}
+            for src in (snapshot, fields):
+                t = src.get("title") if isinstance(src, dict) else None
+                if isinstance(t, str) and t.strip():
+                    return t.strip()
+            ent = snapshot.get("entity")
+            if isinstance(ent, str) and ent.strip():
+                return ent.strip()
+        return ""
+
+    def _snapshot_body(self, snapshot: dict) -> str:
+        """The issue body for an outward push: the snapshot's `body` if present,
+        else empty."""
+        if isinstance(snapshot, dict):
+            v = snapshot.get("body")
+            if isinstance(v, str) and v.strip():
+                return v.strip()
+        return ""
+
+
+# ===========================================================================
+# Task 9 / PR 9E: the LINEAR ADAPTER
+# ===========================================================================
+#
+# The third concrete Provider on top of the 9C scaffolding. Unlike Gitea/GitHub
+# (REST), Linear is a SINGLE GraphQL endpoint: every read is a `query` and every
+# write is a `mutation`, both POSTed to https://api.linear.app/graphql through the
+# INJECTED Transport. A test drives it with a FakeTransport + recorded Linear
+# GraphQL JSON and NEVER hits a live API (§7.2 / §7.7).
+#
+# Locked design (TASK9 §7 -- mirrors the Gitea/GitHub adapters EXACTLY; do NOT
+# deviate):
+#   * zero-dep stdlib only -- HTTP goes through the injected Transport
+#     (urllib.request under the hood); NO requests / NO httpx. The GraphQL body is
+#     a stdlib `json.dumps({query, variables})`.
+#   * pull-only -- one-shot API client; NO webhook receiver, NO daemon (§0 #11).
+#     pull() runs a query; push_plan() returns a MUTATION payload only (it never
+#     issues a write).
+#   * token from the ENVIRONMENT (LINEAR_TOKEN), passed in as `token`; Linear uses
+#     the RAW token (NO 'Bearer ' prefix) in the `Authorization` header ONLY and
+#     it is NEVER logged / never put in a URL / error / candidate (the structured
+#     error carries method/url/status only).
+#   * a remote issue -> a status:draft candidate stamped with
+#     origin:{provider,object-id,revision,actor} + base-head (via the shared
+#     remote_item_to_candidate). Linear's `state.type` (backlog/unstarted/started/
+#     completed/canceled) is the CANONICAL signal -- NOT the human-renamable
+#     `state.name`; it maps to the 5-state work vocabulary, but a pulled
+#     "completed" issue is only a PROPOSAL (status:draft), never an auto-close
+#     (§0 #12).
+#   * dry-run is the DEFAULT for any write/push -- push_plan is a PLAN only.
+#
+# Linear state IDs are WORKFLOW-STATE objects that are workspace-specific (each
+# team defines its own `WorkflowState` rows with their own UUIDs). There is no
+# global "done" id, so push_plan emits the intended state TYPE (started/completed/
+# canceled) and leaves the concrete `stateId` resolution as a documented config
+# seam: repo_cfg may carry a `state_type_ids` map (state-type -> workspace stateId);
+# when it is absent, the plan records a 'needs stateId mapping' note rather than
+# guessing an id.
+
+LINEAR_API_URL = "https://api.linear.app/graphql"
+
+# Defensive pagination cap: never loop unboundedly against the cursor API (a
+# misbehaving server / a never-advancing cursor must not hang the pull). At most
+# LINEAR_PAGE_CAP * LINEAR_PAGE_LIMIT issues are read.
+LINEAR_PAGE_CAP = 20
+LINEAR_PAGE_LIMIT = 50
+
+# Linear's `state.type` -> the raw word the shared map_remote_state understands.
+# state.type is the CANONICAL, machine-stable signal (state.name is human-renamable
+# and must NOT be trusted). map_remote_state already maps these raw words through
+# currency.work_state + the forge-extra table (unstarted->todo, started->
+# in-progress, completed->done, canceled->canceled, backlog->backlog), so the
+# adapter feeds it the type verbatim.
+_LINEAR_STATE_TYPE_TO_RAW = {
+    "backlog": "backlog",
+    "unstarted": "unstarted",
+    "started": "started",
+    "completed": "completed",
+    "canceled": "canceled",
+    "cancelled": "canceled",
+    "triage": "triage",
+}
+
+# For the OUTWARD direction (push_plan) a canonical work state maps to the Linear
+# state TYPE we INTEND (the workspace-specific stateId is resolved via the
+# state_type_ids config seam, never guessed). Linear has all 5 native types, so
+# the mapping is 1:1 (no lossy open|closed collapse).
+_WORK_STATE_TO_LINEAR_TYPE = {
+    _currency.STATE_BACKLOG: "backlog",
+    _currency.STATE_TODO: "unstarted",
+    _currency.STATE_IN_PROGRESS: "started",
+    _currency.STATE_DONE: "completed",
+    _currency.STATE_CANCELED: "canceled",
+}
+
+# The GraphQL query that reads issues scoped to a team/project. Cursor-paginated
+# (pageInfo.hasNextPage/endCursor). `state { name type }` -> we trust `type`;
+# `assignee { displayName }` -> the actor. `identifier` is the human key (ABC-123)
+# for the entity_hint; `id` is the STABLE id used by issueUpdate.
+_LINEAR_ISSUES_QUERY = """\
+query Issues($filter: IssueFilter, $first: Int!, $after: String) {
+  issues(filter: $filter, first: $first, after: $after) {
+    pageInfo { hasNextPage endCursor }
+    nodes {
+      id
+      identifier
+      title
+      updatedAt
+      state { name type }
+      assignee { displayName }
+    }
+  }
+}"""
+
+
+class LinearAdapter(Provider):
+    """The Linear Provider (§7 / PR 9E). Linear is a single GraphQL endpoint, so
+    reads are queries and writes are mutations -- both POSTed to LINEAR_API_URL
+    through the injected Transport. pull() runs the issues query and maps each node
+    into a RemoteItem (trusting state.type, not state.name); push_plan() returns
+    the issueCreate / issueUpdate mutation payload for the outward direction. The
+    actual network WRITE is apply-only and out of scope for this PR -- the mutation
+    payload is the deliverable (dry-run by default).
+    """
+
+    name = PROVIDER_LINEAR
+
+    # --- inward: query issues -> RemoteItems -------------------------------
+
+    def pull(self, repo_cfg: dict, transport: Transport,
+             token: Optional[str]) -> list:
+        """POST a GraphQL `issues` query to LINEAR_API_URL -> [RemoteItem].
+
+        Scoped to the team/project from repo_cfg (`team_id` / `project_id`, or a
+        bare `team`/`project` key). Each node becomes a RemoteItem(kind='issue',
+        object_id=id (the STABLE Linear id used for issueUpdate), revision=
+        updatedAt, actor=assignee.displayName, title, state=state.type (the
+        canonical signal), entity_hint='project/<slug>/issue/<identifier>').
+        Cursor-paginated DEFENSIVELY (capped pages; stops when hasNextPage is
+        false / the cursor stops advancing / a page is empty).
+
+        Token=None -> [] (graceful; never crash). A GraphQL `errors` array, or a
+        non-2xx HTTP status, is surfaced as a structured error WHOSE TEXT NEVER
+        carries the token (method/url/status only). The caller (pull_to_candidates)
+        catches a TransportError per-project; we let it propagate.
+        """
+        if not token:
+            return []
+        headers = self._auth_headers(token)
+        slug = self._project_slug(repo_cfg)
+        issue_filter = self._issue_filter(repo_cfg)
+
+        items: list = []
+        seen_ids: set = set()
+        after: Optional[str] = None
+        for _page in range(1, LINEAR_PAGE_CAP + 1):
+            variables = {"first": LINEAR_PAGE_LIMIT, "after": after}
+            if issue_filter:
+                variables["filter"] = issue_filter
+            body = self._graphql_body(_LINEAR_ISSUES_QUERY, variables)
+            resp = transport.request("POST", LINEAR_API_URL,
+                                     headers=headers, body=body)
+            self._raise_for_status("POST", LINEAR_API_URL, resp)
+            data = self._graphql_data("POST", LINEAR_API_URL, resp)
+            conn = data.get("issues") if isinstance(data, dict) else None
+            if not isinstance(conn, dict):
+                break
+            nodes = conn.get("nodes")
+            if not isinstance(nodes, list) or not nodes:
+                break
+            new_this_page = 0
+            for node in nodes:
+                it = self._node_to_item(node, slug)
+                if it is None:
+                    continue
+                if it.object_id in seen_ids:
+                    continue  # defensive: a repeated page can't loop us.
+                seen_ids.add(it.object_id)
+                items.append(it)
+                new_this_page += 1
+            page_info = conn.get("pageInfo")
+            page_info = page_info if isinstance(page_info, dict) else {}
+            has_next = bool(page_info.get("hasNextPage"))
+            end_cursor = page_info.get("endCursor")
+            # stop when the server says there is no more, the cursor did not
+            # advance (would loop), or this page surfaced no new ids.
+            if (not has_next or not end_cursor or end_cursor == after
+                    or new_this_page == 0):
+                break
+            after = end_cursor
+        return items
+
+    def _node_to_item(self, node, slug: str) -> Optional[RemoteItem]:
+        """Map ONE Linear issue node to a RemoteItem, or None when malformed. The
+        canonical state signal is `state.type` (NOT the human-renamable
+        `state.name`); we feed the TYPE to the shared stamper. object_id is the
+        STABLE Linear `id` (used by issueUpdate); identifier (ABC-123) keys the
+        entity_hint."""
+        if not isinstance(node, dict):
+            return None
+        object_id = node.get("id")
+        if object_id is None or not str(object_id).strip():
+            return None
+        object_id = str(object_id)
+        identifier = node.get("identifier")
+        identifier = str(identifier).strip() if identifier is not None else ""
+        state = node.get("state")
+        # state.type is canonical; map it to a raw word the stamper understands.
+        state_type = None
+        if isinstance(state, dict):
+            st = state.get("type")
+            if st is not None:
+                state_type = self._state_type_to_raw(st)
+        assignee = node.get("assignee")
+        actor = (assignee.get("displayName")
+                 if isinstance(assignee, dict) else None)
+        hint_key = _safe_segment(identifier, object_id) if identifier else object_id
+        return RemoteItem(
+            kind="issue",
+            object_id=object_id,
+            revision=node.get("updatedAt"),
+            actor=actor,
+            title=node.get("title", "") or "",
+            state=state_type,
+            entity_hint=f"project/{slug}/issue/{identifier or object_id}",
+            raw=node,
+        )
+
+    def _state_type_to_raw(self, state_type) -> str:
+        """Map a Linear `state.type` to the raw word the shared map_remote_state
+        understands. An unknown type falls through as-is (map_remote_state then
+        defaults it to backlog) -- the type, never the renamable name, is trusted.
+        """
+        w = str(state_type or "").strip().lower()
+        return _LINEAR_STATE_TYPE_TO_RAW.get(w, w)
+
+    # --- outward: reviewed snapshot -> mutation payload (PLAN only) ---------
+
+    def push_plan(self, snapshot: dict, repo_cfg: dict) -> dict:
+        """Build the Linear GraphQL MUTATION that WOULD project a REVIEWED snapshot
+        outward (§7 / PR 9E). PURE -- NO network here (the actual POST lands in a
+        later apply path; the mutation payload is the seam).
+
+        Mutation:
+          * a NEW issue (no origin.object-id, OR an origin from a DIFFERENT
+            provider) -> `issueCreate` with input {title, description, teamId,
+            stateId?}.
+          * an UPDATE (origin.object-id present AND origin.provider == 'linear') ->
+            `issueUpdate(id, input{title, description, stateId?})`.
+
+        State: Linear workflow-state ids are WORKSPACE-SPECIFIC, so the plan emits
+        the intended state TYPE (started/completed/canceled/...) and resolves the
+        concrete `stateId` ONLY via repo_cfg['state_type_ids'][type]. When that map
+        lacks the type, NO stateId is put in the input and the plan records a
+        'needs stateId mapping' note -- it NEVER guesses an id. Returns
+        {mutation, variables, object_id, entity, state_type, notes}.
+        """
+        canonical = snapshot.get("state")
+        state_type = self._to_linear_type(canonical)
+        title = self._snapshot_title(snapshot)
+        description = self._snapshot_body(snapshot)
+        state_id, needs_mapping = self._resolve_state_id(state_type, repo_cfg)
+
+        notes: list = []
+        if needs_mapping:
+            notes.append(
+                f"needs stateId mapping: state-type '{state_type}' has no entry "
+                "in repo_cfg['state_type_ids']; the push will not set a state "
+                "until a workspace stateId is configured.")
+
+        object_id = self._origin_object_id(snapshot)
+        if object_id is not None:
+            # UPDATE an existing Linear issue -> issueUpdate(id, input{...}).
+            input_obj: dict = {"title": title, "description": description}
+            if state_id is not None:
+                input_obj["stateId"] = state_id
+            return {
+                "mutation": "issueUpdate",
+                "variables": {"id": object_id, "input": input_obj},
+                "object_id": object_id,
+                "entity": snapshot.get("entity"),
+                "state_type": state_type,
+                "notes": notes,
+            }
+        # CREATE a new issue -> issueCreate(input{title, description, teamId, ...}).
+        team_id = self._team_id(repo_cfg)
+        create_input: dict = {"title": title, "description": description}
+        if team_id is not None:
+            create_input["teamId"] = team_id
+        else:
+            notes.append(
+                "needs teamId: repo_cfg has no team_id/team; issueCreate requires "
+                "a teamId to place the new issue.")
+        if state_id is not None:
+            create_input["stateId"] = state_id
+        return {
+            "mutation": "issueCreate",
+            "variables": {"input": create_input},
+            "object_id": None,
+            "entity": snapshot.get("entity"),
+            "state_type": state_type,
+            "notes": notes,
+        }
+
+    # --- small helpers (pure) ---------------------------------------------
+
+    def _auth_headers(self, token: str) -> dict:
+        """The request headers. Linear uses the RAW token in `Authorization` (NO
+        'Bearer ' prefix), plus JSON content-type for the GraphQL POST body. The
+        token is placed ONLY here (in the header dict the Transport sends) -- never
+        in a URL, an error, or a log (§7.3). TransportError redacts the query
+        string and never echoes headers, so the token cannot leak."""
+        return {
+            "Authorization": token,
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        }
+
+    def _graphql_body(self, query: str, variables: dict) -> bytes:
+        """Serialize a GraphQL request body to UTF-8 JSON bytes ({query, variables}).
+        None values inside variables are kept (GraphQL treats them as null, e.g.
+        an absent cursor `after: null`)."""
+        return json.dumps({"query": query, "variables": variables}).encode("utf-8")
+
+    def _raise_for_status(self, method: str, url: str, resp: dict) -> None:
+        """Turn a non-2xx HTTP response into a structured TransportError (token-
+        free). A GraphQL endpoint can also 200 with an `errors` array -- that is
+        handled separately in _graphql_data; this only guards the HTTP layer."""
+        status = resp.get("status") if isinstance(resp, dict) else None
+        if status is None:
+            raise TransportError(method, url, None, detail="no status in response")
+        if 200 <= int(status) < 300:
+            return
+        raise TransportError(method, url, int(status), detail="linear api error")
+
+    def _graphql_data(self, method: str, url: str, resp: dict) -> dict:
+        """Decode a GraphQL response body to its `data` map. A GraphQL endpoint
+        signals failure with a top-level `errors` array (often WITH a 200 status),
+        so we surface that as a structured TransportError whose TEXT carries ONLY
+        a terse, token-free summary (the error MESSAGES from the API, never the
+        request headers/body/token). A malformed body -> {} (no crash)."""
+        body = resp.get("body") if isinstance(resp, dict) else None
+        if isinstance(body, (bytes, bytearray)):
+            try:
+                body = bytes(body).decode("utf-8")
+            except (UnicodeDecodeError, ValueError):
+                return {}
+        if isinstance(body, str):
+            try:
+                body = json.loads(body) if body.strip() else {}
+            except ValueError:
+                return {}
+        if not isinstance(body, dict):
+            return {}
+        errors = body.get("errors")
+        if errors:
+            # surface a terse, token-free summary. We deliberately do NOT embed the
+            # API's error `message` strings: a GraphQL endpoint's response is NOT
+            # trusted -- a buggy/malicious/MITM endpoint can echo the request's
+            # Authorization token back inside `errors[].message`, and that would
+            # then ride into the raised error -> logs -> pull_to_candidates'
+            # result["errors"] (a token leak). Only the COUNT (a number that can
+            # never carry a secret) plus the API's own GraphQL error `code`
+            # extensions (an enum like AUTHENTICATION_ERROR, never free text) are
+            # surfaced. The status + redacted url come from TransportError.
+            count = len(errors) if isinstance(errors, list) else 1
+            codes: list = []
+            if isinstance(errors, list):
+                for err in errors:
+                    if not isinstance(err, dict):
+                        continue
+                    ext = err.get("extensions")
+                    code = ext.get("code") if isinstance(ext, dict) else None
+                    # an error `code` is an enum (UPPER_SNAKE); accept ONLY that
+                    # shape so a free-text value masquerading as a code can never
+                    # smuggle a token in. Bound the set so a huge errors[] can't
+                    # bloat the message.
+                    if (isinstance(code, str) and code
+                            and code.replace("_", "").isalnum()
+                            and code == code.upper()
+                            and len(code) <= 64 and code not in codes):
+                        codes.append(code)
+                        if len(codes) >= 5:
+                            break
+            detail = f"graphql errors ({count})"
+            if codes:
+                detail += f": {', '.join(codes)}"
+            raise TransportError(method, url, int(resp.get("status") or 200),
+                                 detail=detail)
+        data = body.get("data")
+        return data if isinstance(data, dict) else {}
+
+    def _issue_filter(self, repo_cfg: dict) -> Optional[dict]:
+        """Build the GraphQL IssueFilter from the binding: scope to a team and/or
+        project when their ids are configured. Returns None when neither is set
+        (an unscoped query reads the whole workspace, which is still valid)."""
+        if not isinstance(repo_cfg, dict):
+            return None
+        f: dict = {}
+        team_id = self._team_id(repo_cfg)
+        if team_id is not None:
+            f["team"] = {"id": {"eq": team_id}}
+        project_id = self._project_id(repo_cfg)
+        if project_id is not None:
+            f["project"] = {"id": {"eq": project_id}}
+        return f or None
+
+    def _team_id(self, repo_cfg: dict) -> Optional[str]:
+        """The Linear team id from the binding (`team_id` or a bare `team`)."""
+        return self._cfg_str(repo_cfg, "team_id", "team")
+
+    def _project_id(self, repo_cfg: dict) -> Optional[str]:
+        """The Linear project id from the binding (`project_id`, `project-id`, or
+        a bare `project`)."""
+        return self._cfg_str(repo_cfg, "project_id", "project-id", "project")
+
+    def _cfg_str(self, repo_cfg: dict, *keys: str) -> Optional[str]:
+        """First non-empty string value among `keys` in repo_cfg, else None."""
+        if not isinstance(repo_cfg, dict):
+            return None
+        for k in keys:
+            v = repo_cfg.get(k)
+            if isinstance(v, str) and v.strip():
+                return v.strip()
+        return None
+
+    def _project_slug(self, repo_cfg: dict) -> str:
+        """A path-safe slug for the entity_hint: the binding's explicit `slug`/
+        `repo`, else its project id, else 'linear'. Always safe (no separators)."""
+        raw = self._cfg_str(repo_cfg, "slug", "repo") or self._project_id(repo_cfg)
+        return _safe_segment(raw, "linear")
+
+    def _to_linear_type(self, canonical_state: Optional[str]) -> str:
+        """Map a canonical work state -> the Linear state TYPE we intend. An
+        unknown/empty state -> Linear's 'backlog' type (matches currency's default
+        state). Linear has all 5 native types, so this is a 1:1 mapping."""
+        w = (canonical_state or "").strip().lower()
+        return _WORK_STATE_TO_LINEAR_TYPE.get(w, "backlog")
+
+    def _resolve_state_id(self, state_type: str, repo_cfg: dict):
+        """Resolve the WORKSPACE-SPECIFIC stateId for a state TYPE via the config
+        seam repo_cfg['state_type_ids'][type]. Returns (state_id, needs_mapping):
+        (id, False) when configured, (None, True) when the map is absent or lacks
+        the type. NEVER guesses an id -- an absent mapping is reported, not faked.
+        """
+        mapping = repo_cfg.get("state_type_ids") if isinstance(repo_cfg, dict) else None
+        if isinstance(mapping, dict):
+            sid = mapping.get(state_type)
+            if isinstance(sid, str) and sid.strip():
+                return (sid.strip(), False)
+        return (None, True)
+
+    def _origin_object_id(self, snapshot: dict):
+        """The Linear issue id this snapshot already maps to, from its
+        `origin.object-id` -- but ONLY when origin.provider is linear (a snapshot
+        whose origin points at a DIFFERENT provider has no Linear counterpart, so
+        a push to linear CREATES). None -> push_plan emits an issueCreate."""
+        if not isinstance(snapshot, dict):
+            return None
+        for container in (snapshot, snapshot.get("fields")):
+            if not isinstance(container, dict):
+                continue
+            origin = container.get("origin")
+            if isinstance(origin, dict):
+                prov = str(origin.get("provider") or "").strip().lower()
+                if prov and prov != self.name:
+                    # origin is a different forge -> no Linear issue yet -> CREATE.
+                    return None
+                oid = origin.get("object-id")
+                if oid is not None and str(oid).strip():
+                    return str(oid).strip()
+        return None
+
+    def _snapshot_title(self, snapshot: dict) -> str:
+        """The issue title for an outward push: the snapshot's explicit `title`
+        field if present, else its entity (a stable, human-readable fallback)."""
+        if isinstance(snapshot, dict):
+            fields = snapshot.get("fields") if isinstance(snapshot.get("fields"), dict) else {}
+            for src in (snapshot, fields):
+                t = src.get("title") if isinstance(src, dict) else None
+                if isinstance(t, str) and t.strip():
+                    return t.strip()
+            ent = snapshot.get("entity")
+            if isinstance(ent, str) and ent.strip():
+                return ent.strip()
+        return ""
+
+    def _snapshot_body(self, snapshot: dict) -> str:
+        """The issue description for an outward push: the snapshot's `body` if
+        present, else empty (Linear's issue prose field is `description`)."""
+        if isinstance(snapshot, dict):
+            v = snapshot.get("body")
+            if isinstance(v, str) and v.strip():
+                return v.strip()
+        return ""
