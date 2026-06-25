@@ -98,6 +98,11 @@ SNAPSHOT_FIELDS = (
     "initiative",
     "cycle",
     "squad",
+    # `origin` is the Task 9 federation provenance ({provider, object-id, revision,
+    # actor}). It MUST be carried candidate -> reviewed head so a later push_plan
+    # can PATCH the same remote object instead of POSTing a duplicate. Serialized
+    # as a nested single-level map by _fmt_field (round-trips through _md_parse).
+    "origin",
 )
 
 # new-entity defaults: applied only when neither the candidate nor a previous
@@ -1007,8 +1012,17 @@ def _render_snapshot(fields: dict, head_id: Optional[str], candidate_id: str,
 
 
 def _fmt_field(key: str, value) -> str:
-    """Serialize one frontmatter field. Lists render as `[a, b]` (round-trips
-    through _md_parse); scalars render verbatim."""
+    """Serialize one frontmatter field. Lists render as `[a, b]`; a dict renders
+    as a nested single-level map (`key:` then `  child: v`), the Task 9 `origin:`
+    provenance shape that round-trips through _md_parse.parse_frontmatter; scalars
+    render verbatim. Returns the (possibly multi-line) frontmatter fragment."""
+    if isinstance(value, dict):
+        lines = [f"{key}:"]
+        for ck, cv in value.items():
+            if cv is None:
+                continue  # omit empty children so the block stays byte-stable.
+            lines.append(f"  {ck}: {cv}")
+        return "\n".join(lines)
     if isinstance(value, list):
         inner = ", ".join(str(v) for v in value)
         return f"{key}: [{inner}]"
