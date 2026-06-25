@@ -49,7 +49,10 @@ TYPE_FACT = "fact"
 TYPE_DECISION = "decision"
 TYPE_NOTE = "note"
 TYPE_PROJECT = "project"  # Task 7A: a project's status is a high-drift entity
-VALID_TYPES = frozenset({TYPE_FACT, TYPE_DECISION, TYPE_NOTE, TYPE_PROJECT})
+TYPE_INITIATIVE = "initiative"  # Task 8E: a portfolio entity aggregating projects
+VALID_TYPES = frozenset({
+    TYPE_FACT, TYPE_DECISION, TYPE_NOTE, TYPE_PROJECT, TYPE_INITIATIVE,
+})
 TYPE_DEFAULT = TYPE_NOTE
 
 
@@ -68,6 +71,11 @@ STALE_THRESHOLD_DAYS = {
     TYPE_FACT: 90,
     TYPE_NOTE: 90,
     TYPE_PROJECT: 30,  # Task 7A: an active project untouched 30d -> "still real?"
+    # Task 8E: an initiative is a slower-moving portfolio rollup -- it ages out
+    # at the project threshold (its health is driven by member-project staleness,
+    # not its own clock), reused here so a long-running initiative is not flagged
+    # prematurely. Additive: existing thresholds above are untouched.
+    TYPE_INITIATIVE: 30,
 }
 DEFAULT_STALE_THRESHOLD_DAYS = 90
 
@@ -109,6 +117,15 @@ F_ASSIGNEE = "assignee"      # work identity (who is responsible) -- NOT generat
 F_PRIORITY = "priority"      # 0 none | 1 urgent | 2 high | 3 medium | 4 low
 F_ESTIMATE = "estimate"      # story points, optional
 F_GENERATED_BY = "generated-by"  # provenance identity (who wrote it) != assignee
+# Task 8E: the linkage field a project note carries to declare its parent
+# initiative -- value is the initiative ENTITY (initiative/<slug>), per the §1
+# hierarchy initiative/<slug> superset of project/<slug>. Additive field name.
+F_INITIATIVE = "initiative"
+# Task 8F: the cycle a work item belongs to (a Linear-style time-box, e.g.
+# `2026-W26`) on the work axis. The value is an opaque cycle id (NOT an entity),
+# used only to group issues for the per-cycle completion view. Additive field
+# name -- it does not participate in supersession / current-truth selection.
+F_CYCLE = "cycle"
 
 # The 5 canonical persisted work states. `blocked` is NOT persisted: it is a
 # derived effective_state computed later (8C) from real `blocked-by` relations,

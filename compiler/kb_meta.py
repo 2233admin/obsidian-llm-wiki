@@ -400,6 +400,19 @@ PROJECT_STATUS_FILE = "_project-status.md"
 # 00-Inbox/AI-Output/** in three sections (Unclassified / Pending Review /
 # Conflicts). A capture consumed by a promotes:/rejects: reference disappears.
 TRIAGE_FILE = "_triage.md"
+# Task 8E: initiative status view (DERIVED). Rolls each `type: initiative` entity
+# (and any project carrying `initiative: initiative/<slug>`) up over its member
+# projects: per-member status/marker/open/blocker counts + an initiative health
+# (at-risk iff any member is STALE / has blockers, else on-track).
+# Built on TOP of the _pass4 project_status (markers reused, not recomputed).
+INITIATIVE_STATUS_FILE = "_initiative-status.md"
+# Task 8F: per-cycle status view (DERIVED). Groups every authoritative work item
+# whose current-truth head carries a `cycle:` value by that cycle id, and reports
+# each cycle's completion rate (done / total). Mirrors the initiative pass: built
+# on the already-resolved current_truth heads (drafts quarantined in _pass1), so a
+# draft `state:done` never moves a cycle's completion. Additive, never alters the
+# _pass4 / _pass5 output above (which must stay byte-stable).
+CYCLE_STATUS_FILE = "_cycle-status.md"
 
 # A sentinel that sorts BEFORE every real ISO date, so a missing last-verified
 # is treated as "infinitely old" and loses every recency comparison.
@@ -967,6 +980,263 @@ def _render_project_status(project_status: dict, today_date: date) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
+# Task 8E: initiative health verdicts.
+INITIATIVE_ON_TRACK = "on-track"
+INITIATIVE_AT_RISK = "at-risk"
+
+
+def _pass5_initiative_status(current_truth: dict, project_status: dict,
+                             today_date: date) -> dict:
+    """Task 8E: roll member projects up under their initiative.
+
+    Two ways an initiative is discovered (UNION):
+      1. a `type: initiative` note whose entity is `initiative/<slug>` -- its own
+         record, used for the title/body/marker of the initiative section.
+      2. any project that carries `initiative: initiative/<slug>` in its
+         frontmatter -- it becomes a MEMBER of that initiative (even if no
+         explicit initiative note exists, so a dangling linkage is still visible).
+
+    For each initiative the rollup lists every member project's
+    {entity, status, marker, open_count, blocker_count} -- REUSING the
+    marker/open/blocker already computed by _pass4_project_status (this pass NEVER
+    recomputes a project marker, per §0). Membership is built by iterating
+    project_status, so every member is by construction backed by a project_status
+    entry (a project whose authoritative head is missing/superseded was already
+    pruned from current-truth in _pass1 and simply does not appear).
+
+    Initiative health: 'at-risk' if ANY member is STALE or has blockers; else
+    'on-track'. Totals (open/blocker/closed) are summed across the members.
+    Deterministic ordering (initiatives + members sorted by entity).
+
+    Returns initiative_entity -> {note_id, status, marker, reasons, health,
+    members:[...], total_open, total_blockers, total_closed, member_count}.
+    Empty dict when there are no initiatives at all (mirrors _pass4)."""
+    # 1. project entity -> its declared initiative entity (from frontmatter link).
+    #    Read off the authoritative current-truth project head, so a draft cannot
+    #    forge membership (drafts were already quarantined in _pass1).
+    member_of: dict = {}
+    for pe in sorted(project_status):
+        head = current_truth.get(pe)
+        if head is None:
+            continue
+        link = _currency._scalar(head.cm.raw, _currency.F_INITIATIVE)
+        if link:
+            member_of[pe] = link.strip()
+
+    # 2. initiative notes (type: initiative) keyed by their own entity.
+    initiative_notes: dict = {}
+    for ent in sorted(current_truth):
+        n = current_truth[ent]
+        if n.cm.type == _currency.TYPE_INITIATIVE:
+            initiative_notes[ent] = n
+
+    # 3. the UNION of initiative entities: those with a note + those merely linked.
+    all_initiatives = set(initiative_notes) | set(member_of.values())
+    if not all_initiatives:
+        return {}
+
+    out: dict = {}
+    for ie in sorted(all_initiatives):
+        # members = the project entities linking to this initiative.
+        member_entities = sorted(pe for pe, link in member_of.items() if link == ie)
+        members: list = []
+        total_open = total_blockers = total_closed = 0
+        at_risk = False
+        for pe in member_entities:
+            # membership keys come from project_status (see member_of build
+            # above), so ps is always present -- no missing-member case exists.
+            ps = project_status[pe]
+            marker = ps["marker"]
+            open_count = len(ps["open_actions"])
+            blocker_count = len(ps["blockers"])
+            closed_count = ps["closed_count"]
+            members.append({
+                "entity": pe, "status": ps["status"], "marker": marker,
+                "open_count": open_count, "blocker_count": blocker_count,
+                "closed_count": closed_count,
+            })
+            total_open += open_count
+            total_blockers += blocker_count
+            total_closed += closed_count
+            # at-risk iff any member is STALE or carries blockers.
+            if _currency.MARK_STALE in (marker or "") or blocker_count > 0:
+                at_risk = True
+
+        note = initiative_notes.get(ie)
+        if note is not None:
+            verdict = [m for m in note.markers if m != _currency.MARK_OK]
+            out[ie] = {
+                "note_id": note.note_id,
+                "status": note.cm.status,
+                "marker": " + ".join(verdict) if verdict else _currency.MARK_OK,
+                "reasons": list(note.reasons),
+            }
+        else:
+            # linkage-only initiative (no own note): still surfaced, no marker.
+            out[ie] = {"note_id": None, "status": None,
+                       "marker": _currency.MARK_OK, "reasons": []}
+        out[ie].update({
+            "health": INITIATIVE_AT_RISK if at_risk else INITIATIVE_ON_TRACK,
+            "members": members,
+            "total_open": total_open,
+            "total_blockers": total_blockers,
+            "total_closed": total_closed,
+            "member_count": len(members),
+        })
+    return out
+
+
+def _render_initiative_status(initiative_status: dict, today_date: date) -> str:
+    """Per-initiative rollup view (DERIVED). One section per initiative with its
+    health + member project rollup. LF-only, byte-stable (mirrors
+    _render_project_status)."""
+    lines = [
+        "# Initiative Status",
+        "",
+        "> DERIVED, recomputable, gitignored. Regenerated by `kb_meta currency`.",
+        "> Do not edit; do not commit. Rolled up from the project status graph",
+        "> (initiative/<slug> + the projects that carry initiative: <it>).",
+        f"> Compiled: {today_date.isoformat()}",
+        "",
+    ]
+    for ie in sorted(initiative_status):
+        it = initiative_status[ie]
+        lines.append(f"## {ie}")
+        health_line = f"- health: {it['health']}"
+        lines.append(health_line)
+        status_line = f"- status: {it['status'] or '(none)'}"
+        if it["marker"] and it["marker"] != _currency.MARK_OK:
+            r = "; ".join(it["reasons"])
+            status_line += f"  [{it['marker']}" + (f": {r}" if r else "") + "]"
+        lines.append(status_line)
+        lines.append(f"- note: {it['note_id'] or '(no initiative note -- linkage only)'}")
+        lines.append(
+            f"- rollup: {it['member_count']} projects, "
+            f"{it['total_open']} open, {it['total_blockers']} blockers, "
+            f"{it['total_closed']} closed"
+        )
+        lines.append("- members:")
+        for m in it["members"]:
+            mk = m["marker"] if m["marker"] and m["marker"] != _currency.MARK_OK else "OK"
+            lines.append(
+                f"  - {m['entity']} -- status {m['status'] or '(none)'} [{mk}] "
+                f"({m['open_count']} open, {m['blocker_count']} blockers, "
+                f"{m['closed_count']} closed)"
+            )
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _pass6_cycle_status(current_truth: dict, today_date: date) -> dict:
+    """Task 8F: group authoritative work items by their `cycle:` id + completion.
+
+    A work item declares its cycle via the `cycle:` field on the work axis (an
+    opaque time-box id such as `2026-W26`, NOT an entity). This pass reads that id
+    off each already-resolved current-truth head -- the heads were chosen in
+    _pass1_supersession with drafts quarantined, so a `status:draft state:done`
+    capture can NEVER move a cycle's completion (mirrors _pass4 / _pass5).
+
+    Only notes carrying a non-empty `cycle:` are grouped; a note with no cycle is
+    ignored entirely (so a cycle-less vault yields {} and writes no view).
+
+    Per cycle, every member contributes {entity, note_id, work_state, flags}; the
+    canonical work axis (currency.work_state) classifies it, so legacy status
+    words map consistently.
+
+    COMPLETION RULE (Linear-sensible, documented):
+      done = work_state == done. CANCELED issues are EXCLUDED from the denominator
+      entirely -- a canceled issue is neither a success nor outstanding work, so
+      counting it would understate a cycle that legitimately dropped scope (this
+      matches Linear, which excludes canceled issues from a cycle's progress).
+      Thus  completion = done_count / countable, where countable = total - canceled
+      (done + active states). When a cycle has only canceled issues, countable == 0
+      and completion is reported as 0.0 (no progress to measure, not a div-by-zero).
+
+    Deterministic ordering: cycles by id, members within a cycle by entity.
+
+    Returns cycle_id -> {issues:[...], total, done_count, canceled_count,
+    countable, active_count, completion}.
+    """
+    by_cycle: dict[str, list] = {}
+    for ent in sorted(current_truth):
+        n = current_truth[ent]
+        cyc = _currency._scalar(n.cm.raw, _currency.F_CYCLE)
+        if not cyc:
+            continue
+        wstate = _currency.work_state(n.cm)
+        flags = []
+        if _currency.is_urgent(n.cm):
+            flags.append("URGENT")
+        due_d = _currency.parse_due(n.cm)
+        if (due_d is not None and due_d < today_date
+                and wstate not in (_currency.STATE_DONE, _currency.STATE_CANCELED)):
+            flags.append("OVERDUE")
+        by_cycle.setdefault(cyc.strip(), []).append({
+            "entity": ent,
+            "note_id": n.note_id,
+            "body": n.body_first_line,
+            "work_state": wstate,
+            "flags": flags,
+        })
+
+    out: dict = {}
+    for cyc in sorted(by_cycle):
+        issues = sorted(by_cycle[cyc], key=lambda i: i["entity"])
+        total = len(issues)
+        done_count = sum(1 for i in issues
+                         if i["work_state"] == _currency.STATE_DONE)
+        canceled_count = sum(1 for i in issues
+                             if i["work_state"] == _currency.STATE_CANCELED)
+        # canceled excluded from the denominator (documented rule above).
+        countable = total - canceled_count
+        completion = (done_count / countable) if countable else 0.0
+        out[cyc] = {
+            "issues": issues,
+            "total": total,
+            "done_count": done_count,
+            "canceled_count": canceled_count,
+            "countable": countable,
+            "active_count": countable - done_count,
+            "completion": completion,
+        }
+    return out
+
+
+def _render_cycle_status(cycle_status: dict, today_date: date) -> str:
+    """Per-cycle status view (DERIVED). One section per cycle: completion rate
+    (done / countable, canceled excluded) + the issue list. LF-only, byte-stable
+    (mirrors _render_initiative_status)."""
+    lines = [
+        "# Cycle Status",
+        "",
+        "> DERIVED, recomputable, gitignored. Regenerated by `kb_meta currency`.",
+        "> Do not edit; do not commit. Grouped from authoritative work items that",
+        "> carry a cycle: id. Completion = done / (total - canceled); canceled",
+        "> issues are excluded from the denominator (Linear-sensible).",
+        f"> Compiled: {today_date.isoformat()}",
+        "",
+    ]
+    for cyc in sorted(cycle_status):
+        c = cycle_status[cyc]
+        pct = round(c["completion"] * 100)
+        lines.append(f"## {cyc}")
+        lines.append(
+            f"- completion: {pct}% ({c['done_count']}/{c['countable']} done"
+            + (f", {c['canceled_count']} canceled excluded" if c["canceled_count"] else "")
+            + ")"
+        )
+        lines.append(
+            f"- issues: {c['total']} "
+            f"({c['done_count']} done, {c['active_count']} active, "
+            f"{c['canceled_count']} canceled)"
+        )
+        for i in c["issues"]:
+            tag = ("  " + "".join(f"[{f}]" for f in i["flags"])) if i["flags"] else ""
+            lines.append(f"  - {i['entity']} -- {i['work_state']} -- {i['body']}{tag}")
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
 def _render_triage(triage_items: list, today_date: date) -> str:
     """Task 8D triage view (DERIVED): unconsumed candidate captures grouped into
     Unclassified / Pending Review / Conflicts. Mirrors the _project-status render
@@ -1024,6 +1294,19 @@ def cmd_currency(vault: str, topic: str, today_str: str | None = None,
     supersession_md = _render_supersession(topic, current_truth, superseded)
     project_status = _pass4_project_status(current_truth, today_date)
     project_status_md = _render_project_status(project_status, today_date)
+
+    # Task 8E: roll the projects up under their initiatives. Built strictly on TOP
+    # of project_status (markers reused, not recomputed) -- additive, never alters
+    # the _pass4 output above (which must stay byte-stable).
+    initiative_status = _pass5_initiative_status(
+        current_truth, project_status, today_date)
+    initiative_status_md = _render_initiative_status(initiative_status, today_date)
+
+    # Task 8F: group authoritative work items by their cycle: id + completion rate.
+    # Built on the already-resolved current_truth heads (drafts quarantined in
+    # _pass1) -- additive, never alters the _pass4 / _pass5 output above.
+    cycle_status = _pass6_cycle_status(current_truth, today_date)
+    cycle_status_md = _render_cycle_status(cycle_status, today_date)
 
     # Task 8D triage: scan 00-Inbox/AI-Output/** for UNCONSUMED candidate
     # captures (status:draft not referenced by any promotes:/rejects:) and
@@ -1090,6 +1373,14 @@ def cmd_currency(vault: str, topic: str, today_str: str | None = None,
         # so non-project vaults get no extra derived file.
         if project_status:
             artifacts.append((PROJECT_STATUS_FILE, project_status_md))
+        # Task 8E: only emit the initiative view when there are initiatives,
+        # mirroring _project-status -- a vault with no initiatives gets no file.
+        if initiative_status:
+            artifacts.append((INITIATIVE_STATUS_FILE, initiative_status_md))
+        # Task 8F: only emit the cycle view when some work item carries a cycle: id,
+        # mirroring _project-status -- a vault with no cycles gets no file.
+        if cycle_status:
+            artifacts.append((CYCLE_STATUS_FILE, cycle_status_md))
         # Task 8D: only emit the triage view when there are unconsumed captures,
         # mirroring _project-status -- a vault with nothing to triage gets no file.
         if triage_items:
@@ -1133,6 +1424,10 @@ def cmd_currency(vault: str, topic: str, today_str: str | None = None,
         "supersession_md": supersession_md,
         "project_status": project_status,
         "project_status_md": project_status_md,
+        "initiative_status": initiative_status,
+        "initiative_status_md": initiative_status_md,
+        "cycle_status": cycle_status,
+        "cycle_status_md": cycle_status_md,
         "triage": triage_out,
         "triage_md": triage_md,
     }
