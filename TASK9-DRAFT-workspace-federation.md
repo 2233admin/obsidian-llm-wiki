@@ -141,3 +141,15 @@ vault sync pull --all | sync plan | sync apply
 
 ## §6 边界(明确不做)
 不做 runtime / daemon;不替远端执行交易级动作;不让多条双向写路径共存;不把机器路径写进共享 markdown;不让代码活动绕过 PR 闸自动关工作项。
+
+## §7 Adapter 设计(9C–9F 锁定决策)
+
+> 锁定:9C 起的 adapter 全按这套。9C 同时铺**共享脚手架**(transport / provider 接口 / pull→candidate / plan-apply / 防环),9D/9E 复用。
+
+1. **pull-only,不做 webhook**(守 §0 #11):adapter = 一次性 API 客户端,由 `sync pull`(拉远端→生成 candidate)/`sync plan`(预演)/`sync apply`(把 reviewed current-truth 推远端)驱动。**不实现 webhook 接收端**(那要常驻监听=runtime,违反 #11)。若日后要事件驱动,改为「定时 pull」挂现有 scheduler,仍不引入 daemon。
+2. **zero-dep transport**:HTTP 走 stdlib `urllib.request`。定义 `Transport` 接口(`request(method,url,headers,body)->resp`),**可注入**——测试用 mock/录制 JSON,**绝不打真 API**。
+3. **凭证与端点**:token 从环境变量(`GITEA_TOKEN`/`GITHUB_TOKEN`/`LINEAR_TOKEN`);端点+repo/project 绑定从 gitignored `<vault>/.vault-mind/forge.json`(机器本地、永不提交;secrets 留环境/`~/`,不进库)。缺 token → adapter 优雅报「未配置」,不崩。
+4. **provider 接口**:每 adapter 实现 `pull()->[remote item]` 与 `push(snapshot)->payload`。远端变更 → **draft candidate**(`status:draft` + 盖 Task 8 预留的 `origin:{provider,object-id,revision,actor}` + `base-head`)→ `_triage` → promote(走 PR 闸,§0 #4)→ reviewed → 再 push。**代码活动只作 evidence**(§0 #12),PR merged 至多建议 `state:done`,不绕闸自动关。
+5. **单主看板防环(§0 #10)**:每项目 `integrations:` 声明一个 forge + 一个 primary-board(双向)+ 只读 mirrors;reconciliation **拒绝**第二条双向写路径。冲突检测靠 `origin.revision`(远端版本)+ `base-head`(本地基线)。
+6. **build 序**:9C = Gitea adapter + 脚手架(Transport/provider iface/pull→candidate/plan-apply/防环)→ 9D GitHub(Issues+Projects V2 GraphQL,evidence)→ 9E Linear(GraphQL issues/projects)→ 9F reconciliation(conflict 检测+冲突进 `_triage/Conflicts`)。
+7. **测试**:mock transport + 录制 fixtures;断言**双向映射**(remote→candidate、reviewed→payload)+ 防环 + dry-run 默认 + 缺凭证优雅降级。绝不打真 API、不在测试里建真远端 repo。

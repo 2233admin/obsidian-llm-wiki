@@ -633,5 +633,445 @@ class ScanSymlinkTest(unittest.TestCase):
         self.assertEqual(detected, [])
 
 
+# === Task 9 / PR 9B: WORKSPACE HEALTH tests =================================
+#
+# Real git repos are built programmatically with subprocess (`git init` etc.)
+# and a LOCAL user.email/name so commits succeed in CI with no global config.
+# Each repo-health state is covered: no-git / local-only / clean / dirty /
+# unpushed(ahead) / unpushed(no-upstream) / diverged / missing. The six
+# workspace_status buckets are checked (a dirty+unpushed repo in BOTH, a
+# clean-but-old repo as forgotten via a pinned today=, a missing path in Missing
+# Local Path). Determinism + LF-only bytes + the §0 #9 path boundary are asserted.
+
+import stat  # noqa: E402
+import subprocess  # noqa: E402
+
+_GIT = shutil.which("git")
+
+
+def _rmtree_force(path):
+    """shutil.rmtree that clears the read-only bit first -- git packs/objects are
+    marked read-only on Windows, so a plain rmtree raises WinError 5. The onexc
+    handler chmods the offending file +w and retries the unlink."""
+    def _onerror(func, p, exc):
+        try:
+            os.chmod(p, stat.S_IWRITE)
+            func(p)
+        except OSError:
+            pass
+    # Python 3.12+ uses onexc; earlier uses onerror. Pass both compatibly. A
+    # final failure is swallowed so a tearDown call site never raises.
+    try:
+        try:
+            shutil.rmtree(path, onexc=lambda f, p, e: _onerror(f, p, e))
+        except TypeError:
+            shutil.rmtree(path, onerror=lambda f, p, e: _onerror(f, p, e))
+    except OSError:
+        pass
+
+
+def _git(cwd, *args, check=True):
+    """Run git in `cwd` for test SETUP (commits/remotes). Distinct from the
+    READ-ONLY probes under test in workspace.py."""
+    return subprocess.run(
+        [_GIT, "-C", str(cwd), *args],
+        capture_output=True, text=True, check=check,
+    )
+
+
+def _git_init(path: Path) -> Path:
+    """git init a work repo with a LOCAL identity (so commits work in CI with no
+    global git config) and a deterministic default branch name."""
+    path.mkdir(parents=True, exist_ok=True)
+    _git(path, "init", "-b", "main")
+    _git(path, "config", "user.email", "ci@example.invalid")
+    _git(path, "config", "user.name", "CI Bot")
+    _git(path, "config", "commit.gpgsign", "false")
+    return path
+
+
+def _commit(path: Path, fname: str, content: str, msg: str,
+            when: str | None = None) -> None:
+    """Add a file and commit it. `when` (ISO) pins author+committer date so a
+    'forgotten' (old last-commit) repo is deterministic."""
+    (path / fname).write_bytes(content.encode("utf-8"))
+    _git(path, "add", fname)
+    env = None
+    if when:
+        env = dict(os.environ)
+        env["GIT_AUTHOR_DATE"] = when
+        env["GIT_COMMITTER_DATE"] = when
+    subprocess.run(
+        [_GIT, "-C", str(path), "commit", "-m", msg],
+        capture_output=True, text=True, check=True, env=env,
+    )
+
+
+def _bare(path: Path) -> Path:
+    """Create a bare repo to act as an upstream remote."""
+    path.mkdir(parents=True, exist_ok=True)
+    _git(path, "init", "--bare", "-b", "main")
+    return path
+
+
+@unittest.skipUnless(_GIT, "git not on PATH")
+class RepoHealthStatesTest(unittest.TestCase):
+    """repo_health() covers EACH state with real git repos."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="vault-9b-health-"))
+
+    def tearDown(self):
+        # Real git repos: rmtree must clear the read-only bit git sets on
+        # packs/objects, else Windows leaks the whole tree (ignore_errors hides
+        # the WinError 5). _rmtree_force handles that and never raises.
+        _rmtree_force(self.tmp)
+
+    def test_no_git_dir(self):
+        d = self.tmp / "plain"
+        d.mkdir()
+        (d / "package.json").write_bytes(b"{}\n")
+        h = workspace.repo_health(d)
+        self.assertEqual(h["label"], "no-git")
+        self.assertTrue(h["no_git"])
+        self.assertFalse(workspace.is_git_repo(d))
+
+    def test_git_no_remote_is_local_only(self):
+        d = _git_init(self.tmp / "solo")
+        _commit(d, "a.txt", "hi", "init")
+        h = workspace.repo_health(d)
+        self.assertEqual(h["label"], "local-only")
+        self.assertTrue(h["local_only"])
+        self.assertFalse(workspace.git_has_remote(d))
+        self.assertFalse(h["dirty"])
+        # a readable repo whose status probe succeeded ("" -> clean) is NOT a
+        # probe error -- probe_error distinguishes 'confirmed clean' from
+        # 'could not determine'.
+        self.assertFalse(h["probe_error"])
+
+    def test_clean_pushed_repo_is_clean(self):
+        bare = _bare(self.tmp / "origin.git")
+        d = _git_init(self.tmp / "work")
+        _commit(d, "a.txt", "hi", "init")
+        _git(d, "remote", "add", "origin", str(bare))
+        _git(d, "push", "-u", "origin", "main")
+        h = workspace.repo_health(d)
+        self.assertEqual(h["label"], "clean")
+        self.assertTrue(workspace.git_has_remote(d))
+        self.assertEqual((h["ahead"], h["behind"]), (0, 0))
+        self.assertFalse(h["no_upstream"])
+
+    def test_uncommitted_change_sets_dirty(self):
+        d = _git_init(self.tmp / "msgy")
+        _commit(d, "a.txt", "hi", "init")
+        (d / "a.txt").write_bytes(b"changed\n")  # uncommitted edit
+        self.assertTrue(workspace.git_is_dirty(d))
+        h = workspace.repo_health(d)
+        self.assertTrue(h["dirty"])
+        # no remote -> dirty label (dirty beats local-only in precedence).
+        self.assertEqual(h["label"], "dirty")
+
+    def test_commit_ahead_of_upstream_is_unpushed(self):
+        bare = _bare(self.tmp / "origin.git")
+        d = _git_init(self.tmp / "ahead")
+        _commit(d, "a.txt", "hi", "init")
+        _git(d, "remote", "add", "origin", str(bare))
+        _git(d, "push", "-u", "origin", "main")
+        _commit(d, "b.txt", "more", "second")  # 1 commit ahead, not pushed
+        ahead, behind = workspace.git_ahead_behind(d)
+        self.assertEqual((ahead, behind), (1, 0))
+        h = workspace.repo_health(d)
+        self.assertEqual(h["label"], "unpushed")
+
+    def test_branch_with_remote_but_no_upstream_is_unpushed(self):
+        bare = _bare(self.tmp / "origin.git")
+        d = _git_init(self.tmp / "nou")
+        _commit(d, "a.txt", "hi", "init")
+        _git(d, "remote", "add", "origin", str(bare))
+        # remote exists but the branch was never `push -u` -> no upstream.
+        ahead, behind = workspace.git_ahead_behind(d)
+        self.assertIsNone(ahead)  # the "no upstream" signal.
+        h = workspace.repo_health(d)
+        self.assertTrue(h["no_upstream"])
+        self.assertFalse(h["local_only"])  # a remote DOES exist.
+        self.assertEqual(h["label"], "unpushed")
+
+    def test_ahead_and_behind_is_diverged(self):
+        bare = _bare(self.tmp / "origin.git")
+        # first clone-equivalent: repo A pushes a base commit.
+        a = _git_init(self.tmp / "A")
+        _commit(a, "a.txt", "base", "init")
+        _git(a, "remote", "add", "origin", str(bare))
+        _git(a, "push", "-u", "origin", "main")
+        # repo B clones, both diverge from the shared base.
+        b = self.tmp / "B"
+        subprocess.run([_GIT, "clone", str(bare), str(b)],
+                       capture_output=True, text=True, check=True)
+        _git(b, "config", "user.email", "ci@example.invalid")
+        _git(b, "config", "user.name", "CI Bot")
+        # B commits + pushes -> origin advances.
+        _commit(b, "b.txt", "from B", "B commit")
+        _git(b, "push", "origin", "main")
+        # A commits locally (now behind origin's B commit AND ahead of its own).
+        _commit(a, "c.txt", "from A", "A commit")
+        _git(a, "fetch", "origin")
+        ahead, behind = workspace.git_ahead_behind(a)
+        self.assertGreater(ahead, 0)
+        self.assertGreater(behind, 0)
+        h = workspace.repo_health(a)
+        self.assertEqual(h["label"], "diverged")
+
+    def test_missing_path_is_missing(self):
+        gone = self.tmp / "does-not-exist"
+        h = workspace.repo_health(gone)
+        self.assertEqual(h["label"], "missing")
+        self.assertTrue(h["missing"])
+        self.assertEqual(workspace.local_presence(gone), "missing")
+
+    def test_last_commit_date_is_iso(self):
+        d = _git_init(self.tmp / "dated")
+        _commit(d, "a.txt", "hi", "init", when="2026-01-15T10:00:00")
+        iso = workspace.git_last_commit_date(d)
+        self.assertIsNotNone(iso)
+        self.assertTrue(iso.startswith("2026-01-15"))
+
+    def test_probes_tolerate_non_repo_without_raising(self):
+        # every probe must return a safe default on a non-repo, never raise.
+        plain = self.tmp / "nope"
+        plain.mkdir()
+        self.assertFalse(workspace.is_git_repo(plain))
+        self.assertFalse(workspace.git_has_remote(plain))
+        self.assertFalse(workspace.git_is_dirty(plain))
+        self.assertEqual(workspace.git_ahead_behind(plain), (None, None))
+        self.assertIsNone(workspace.git_last_commit_date(plain))
+
+
+@unittest.skipUnless(_GIT, "git not on PATH")
+class WorkspaceStatusBucketsTest(unittest.TestCase):
+    """workspace_status() places projects in the right §2 buckets, incl. a
+    project appearing in MULTIPLE buckets at once."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="vault-9b-buckets-"))
+        self.vault = self.tmp / "vault"
+        self.vault.mkdir()
+        self.ws = self.tmp / "workspace"
+        self.ws.mkdir()
+
+    def tearDown(self):
+        _rmtree_force(self.tmp)  # real git repos -> read-only-aware rmtree.
+
+    def _adopt(self, entity: str, path: Path) -> None:
+        workspace.adopt(str(self.vault), str(path), entity,
+                        apply=True, today=TODAY)
+
+    def test_dirty_unpushed_repo_in_both_buckets(self):
+        # a repo that is BOTH dirty AND ahead of upstream -> appears in
+        # Dirty/Forgotten AND Unpushed.
+        bare = _bare(self.tmp / "o1.git")
+        d = _git_init(self.ws / "both")
+        _commit(d, "a.txt", "hi", "init")
+        _git(d, "remote", "add", "origin", str(bare))
+        _git(d, "push", "-u", "origin", "main")
+        _commit(d, "b.txt", "more", "second")        # 1 ahead
+        (d / "a.txt").write_bytes(b"dirty now\n")     # uncommitted edit
+        self._adopt("project/both", d)
+        st = workspace.workspace_status(str(self.vault), today=TODAY)
+        unpushed = {r["entity"] for r in st["unpushed"]}
+        dirty = {r["entity"] for r in st["dirty_forgotten"]}
+        self.assertIn("project/both", unpushed)
+        self.assertIn("project/both", dirty)
+
+    def test_clean_but_old_repo_is_forgotten(self):
+        # clean + pushed, but the last commit is way older than forgotten_days.
+        bare = _bare(self.tmp / "o2.git")
+        d = _git_init(self.ws / "old")
+        _commit(d, "a.txt", "hi", "init", when="2026-01-01T09:00:00")
+        _git(d, "remote", "add", "origin", str(bare))
+        _git(d, "push", "-u", "origin", "main")
+        self._adopt("project/old", d)
+        # pin today far after the commit -> forgotten via age, not dirty.
+        st = workspace.workspace_status(str(self.vault), today="2026-06-25",
+                                        forgotten_days=30)
+        dirty = {r["entity"]: r for r in st["dirty_forgotten"]}
+        self.assertIn("project/old", dirty)
+        why = dirty["project/old"]["why"]
+        self.assertTrue(why["forgotten"])
+        self.assertFalse(why["dirty"])
+        self.assertGreater(why["age_days"], 30)
+
+    def test_local_only_bucket(self):
+        d = _git_init(self.ws / "solo")
+        _commit(d, "a.txt", "hi", "init")
+        self._adopt("project/solo", d)
+        st = workspace.workspace_status(str(self.vault), today=TODAY)
+        self.assertIn("project/solo", {r["entity"] for r in st["local_only"]})
+
+    def test_missing_path_bucket(self):
+        d = _git_init(self.ws / "ghost")
+        _commit(d, "a.txt", "hi", "init")
+        self._adopt("project/ghost", d)
+        _rmtree_force(d)  # disk path now gone, binding remains.
+        st = workspace.workspace_status(str(self.vault), today=TODAY)
+        miss = {r["entity"] for r in st["missing_path"]}
+        self.assertIn("project/ghost", miss)
+        # a missing project lands ONLY in Missing Local Path.
+        for bucket in ("local_only", "unpushed", "dirty_forgotten"):
+            self.assertNotIn("project/ghost",
+                             {r["entity"] for r in st[bucket]})
+
+    def test_diverged_repo_in_unpushed_and_remote_drift_buckets(self):
+        # a PURE diverged repo (ahead>0 AND behind>0, NOT dirty) must land in
+        # Unpushed (it is ahead) AND in Remote Drift (the behind side -> a push
+        # would be rejected). This pins the BUCKET contract -- not just the
+        # repo_health() helper label asserted in RepoHealthStatesTest.
+        bare = _bare(self.tmp / "od.git")
+        a = _git_init(self.ws / "diva")
+        _commit(a, "a.txt", "base", "init")
+        _git(a, "remote", "add", "origin", str(bare))
+        _git(a, "push", "-u", "origin", "main")
+        # a second clone advances origin so A ends up behind as well as ahead.
+        b = self.tmp / "divb"
+        subprocess.run([_GIT, "clone", str(bare), str(b)],
+                       capture_output=True, text=True, check=True)
+        _git(b, "config", "user.email", "ci@example.invalid")
+        _git(b, "config", "user.name", "CI Bot")
+        _commit(b, "b.txt", "from B", "B commit")
+        _git(b, "push", "origin", "main")
+        _commit(a, "c.txt", "from A", "A commit")  # A now ahead AND behind
+        _git(a, "fetch", "origin")
+        self._adopt("project/diva", a)
+        st = workspace.workspace_status(str(self.vault), today=TODAY)
+        self.assertIn("project/diva", {r["entity"] for r in st["unpushed"]})
+        self.assertIn("project/diva",
+                      {r["entity"] for r in st["remote_drift"]})
+        # NOT dirty -> it must not be force-fit into Dirty/Forgotten.
+        self.assertNotIn("project/diva",
+                         {r["entity"] for r in st["dirty_forgotten"]})
+        # the rendered Remote Drift row surfaces BOTH ahead and behind counts.
+        md = workspace.render_workspace_status(st)
+        drift_section = md.split("## Remote Drift", 1)[1].split("##", 1)[0]
+        self.assertIn("ahead", drift_section)
+        self.assertIn("behind", drift_section)
+
+    def test_board_unbound_always_lists_bound_projects(self):
+        d = _git_init(self.ws / "x")
+        _commit(d, "a.txt", "hi", "init")
+        self._adopt("project/x", d)
+        st = workspace.workspace_status(str(self.vault), today=TODAY)
+        self.assertIn("project/x", {r["entity"] for r in st["board_unbound"]})
+        # remote_drift carries only diverged repos now; a local-only repo is not
+        # diverged -> it stays empty here.
+        self.assertEqual(st["remote_drift"], [])
+
+    def test_determinism_today_param_drives_forgotten(self):
+        # the SAME repo is forgotten or not depending only on the pinned today.
+        d = _git_init(self.ws / "pin")
+        _commit(d, "a.txt", "hi", "init", when="2026-03-01T09:00:00")
+        self._adopt("project/pin", d)
+        near = workspace.workspace_status(str(self.vault), today="2026-03-10",
+                                          forgotten_days=30)
+        far = workspace.workspace_status(str(self.vault), today="2026-06-25",
+                                         forgotten_days=30)
+        self.assertNotIn("project/pin",
+                         {r["entity"] for r in near["dirty_forgotten"]})
+        self.assertIn("project/pin",
+                      {r["entity"] for r in far["dirty_forgotten"]})
+
+
+@unittest.skipUnless(_GIT, "git not on PATH")
+class WorkspaceStatusRenderAndWriteTest(unittest.TestCase):
+    """render + write: six sections, LF-only bytes, gitignored location, and the
+    §0 #9 boundary (paths allowed in the machine-local report, NOT in shared
+    Projects/*.md)."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="vault-9b-render-"))
+        self.vault = self.tmp / "vault"
+        self.vault.mkdir()
+        self.ws = self.tmp / "workspace"
+        self.ws.mkdir()
+        self.d = _git_init(self.ws / "renderme")
+        _commit(self.d, "a.txt", "hi", "init")
+        workspace.adopt(str(self.vault), str(self.d), "project/renderme",
+                        apply=True, today=TODAY)
+
+    def tearDown(self):
+        _rmtree_force(self.tmp)  # real git repos -> read-only-aware rmtree.
+
+    def test_render_has_all_six_sections(self):
+        st = workspace.workspace_status(str(self.vault), today=TODAY)
+        md = workspace.render_workspace_status(st)
+        for heading in ("# Workspace Status", "## Local Only", "## Unpushed",
+                        "## Dirty / Forgotten", "## Missing Local Path",
+                        "## Board Unbound", "## Remote Drift",
+                        "## Needs Recheck"):
+            self.assertIn(heading, md)
+
+    def test_dry_run_writes_nothing(self):
+        before = sorted(os.listdir(self.vault))
+        out = kb_meta.cmd_workspace_status(str(self.vault), apply=False,
+                                           as_of=TODAY)
+        self.assertFalse(out["apply"])
+        self.assertEqual(out["written"], [])
+        self.assertFalse((self.vault / ".vault-mind" /
+                          "_workspace-status.md").exists())
+        self.assertEqual(sorted(os.listdir(self.vault)), before)
+
+    def test_apply_writes_lf_only_bytes_under_vault_mind(self):
+        out = kb_meta.cmd_workspace_status(str(self.vault), apply=True,
+                                           as_of=TODAY)
+        self.assertTrue(out["apply"])
+        p = self.vault / ".vault-mind" / "_workspace-status.md"
+        self.assertTrue(p.exists())
+        self.assertEqual(out["written"], [str(p)])
+        raw = p.read_bytes()
+        self.assertNotIn(b"\r", raw)  # LF-only.
+
+    def test_machine_local_report_may_contain_path(self):
+        # the report IS allowed to carry the machine path (it is gitignored).
+        kb_meta.cmd_workspace_status(str(self.vault), apply=True, as_of=TODAY)
+        p = self.vault / ".vault-mind" / "_workspace-status.md"
+        text = p.read_text("utf-8")
+        bound = workspace.load_bindings(str(self.vault))[
+            "project/renderme"]["path"]
+        self.assertIn(bound, text)  # path present in the local report.
+
+    def test_path_does_not_leak_into_shared_projects_note(self):
+        # §0 #9: the committed Projects/<slug>.md must carry NO machine path.
+        kb_meta.cmd_workspace_status(str(self.vault), apply=True, as_of=TODAY)
+        note = (self.vault / "Projects" / "renderme.md").read_text("utf-8")
+        bound = workspace.load_bindings(str(self.vault))[
+            "project/renderme"]["path"]
+        for seg in bound.split("/"):
+            if seg and seg != "renderme":
+                self.assertNotIn(seg, note,
+                                 f"path segment {seg!r} leaked into shared note")
+
+
+class WorkspaceStatusParserTest(unittest.TestCase):
+    """_parse_workspace_status_args: dry-run default + --as-of token consume."""
+
+    def test_vault_only_dry_run_default(self):
+        p = kb_meta._parse_workspace_status_args(["workspace-status", "/v"])
+        self.assertEqual(p, {"vault": "/v", "apply": False, "as_of": None})
+
+    def test_apply_and_as_of(self):
+        p = kb_meta._parse_workspace_status_args(
+            ["workspace-status", "/v", "--apply", "--as-of", "2026-06-25"])
+        self.assertEqual(p, {"vault": "/v", "apply": True,
+                             "as_of": "2026-06-25"})
+
+    def test_missing_vault_raises(self):
+        with self.assertRaises(IndexError):
+            kb_meta._parse_workspace_status_args(["workspace-status"])
+
+    def test_as_of_at_end_is_ignored_not_consuming_phantom(self):
+        # '--as-of' with no following token must not crash; as_of stays None.
+        p = kb_meta._parse_workspace_status_args(
+            ["workspace-status", "/v", "--as-of"])
+        self.assertIsNone(p["as_of"])
+
+
 if __name__ == "__main__":
     unittest.main()

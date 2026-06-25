@@ -12,6 +12,7 @@ Usage:
     python kb_meta.py currency <vault> <topic> [--today YYYY-MM-DD] [--apply]
     python kb_meta.py project-scan <vault> [extra_root ...]
     python kb_meta.py project-adopt <vault> <path> --entity project/<slug> [--apply] [--today YYYY-MM-DD]
+    python kb_meta.py workspace-status <vault> [--apply] [--as-of YYYY-MM-DD]
 
 All commands output JSON to stdout for machine consumption.
 """
@@ -1156,6 +1157,36 @@ def cmd_project_adopt(vault: str, path: str, entity: str,
     return _workspace.adopt(vault, path, entity, apply=apply, today=today)
 
 
+# --- Task 9 / PR 9B: workspace health CLI -----------------------------------
+#
+# `workspace-status` inspects every bound project (READ-ONLY git probes) and
+# compiles the six-section health table. DRY-RUN by default: it returns the
+# structured verdict + the rendered markdown but writes NOTHING. --apply writes
+# the MACHINE-LOCAL <vault>/.vault-mind/_workspace-status.md (gitignored, so it
+# may contain machine paths -- the one human-readable path view §0 #9 allows).
+
+def cmd_workspace_status(vault: str, apply: bool = False,
+                         as_of: str | None = None) -> dict:
+    """Compile the workspace health table. DRY-RUN by default (writes nothing,
+    returns the structured status + rendered md); --apply writes the
+    machine-local _workspace-status.md under .vault-mind/. `as_of` (ISO date)
+    pins the forgotten/age math for deterministic output."""
+    status = _workspace.workspace_status(vault, today=as_of)
+    md = _workspace.render_workspace_status(status)
+    written = []
+    if apply:
+        p = _workspace.write_workspace_status(vault, md)
+        written.append(str(p))
+    return {
+        "ok": True,
+        "apply": apply,
+        "today": status["today"],
+        "status": status,
+        "workspace_status_md": md,
+        "written": written,
+    }
+
+
 # --- CLI ---
 #
 # The project-* argv parsers are module-level pure functions (not closures) so the
@@ -1205,6 +1236,29 @@ def _parse_project_adopt_args(args: list[str]) -> dict:
             "apply": apply, "today": today_str}
 
 
+def _parse_workspace_status_args(args: list[str]) -> dict:
+    """Parse 'workspace-status <vault> [--apply] [--as-of YYYY-MM-DD]' (dry-run
+    default). Returns {vault, apply, as_of}. Missing <vault> -> IndexError.
+    --as-of consumes the FOLLOWING token (so a value starting with '--', or the
+    flag landing at end-of-args, is handled deterministically)."""
+    pos = [a for a in args[1:] if not a.startswith("--")]
+    if not pos:
+        raise IndexError("workspace-status needs <vault>")
+    apply = False
+    as_of = None
+    i = 1
+    while i < len(args):
+        a = args[i]
+        if a == "--as-of" and i + 1 < len(args):
+            as_of = args[i + 1]
+            i += 2
+            continue
+        if a == "--apply":
+            apply = True
+        i += 1
+    return {"vault": pos[0], "apply": apply, "as_of": as_of}
+
+
 def main():
     args = sys.argv[1:]
     if len(args) < 1:
@@ -1238,6 +1292,11 @@ def main():
         return cmd_project_adopt(p["vault"], p["path"], p["entity"],
                                  apply=p["apply"], today=p["today"])
 
+    def _workspace_status_cli():
+        p = _parse_workspace_status_args(args)
+        return cmd_workspace_status(p["vault"], apply=p["apply"],
+                                    as_of=p["as_of"])
+
     dispatch = {
         "init": lambda: cmd_init(args[1], args[2]),
         "diff": lambda: cmd_diff(args[1], args[2]),
@@ -1249,6 +1308,7 @@ def main():
         "currency": _currency_cli,
         "project-scan": _project_scan_cli,
         "project-adopt": _project_adopt_cli,
+        "workspace-status": _workspace_status_cli,
     }
 
     if cmd not in dispatch:
