@@ -141,3 +141,15 @@ _Avoid_: raw thrown object, MCP-specific error in domain module
 
 **Operation Error Helper**: A named constructor for common operation failures, such as `badRequest`, `notFound`, `conflict`, `unsupported`, and `internal`. Helpers make Source Registry, Ingest, Memory, Project, and Query errors consistent.
 _Avoid_: ad hoc numeric code, string-only error, transport exception
+
+**Work Driver**: The component that closes LLMwiki's loop from "true and queryable" to "work done" by reading authoritative work-OS truth, selecting the next executable item, leasing it, running an agent, and routing the result back through capture. It never decides knowledge truth on its own; it only proposes and promotes within the Promotion Policy.
+_Avoid_: scheduler, daemon, orchestrator, runtime
+
+**Work Run**: A single execution attempt in which the Work Driver leases one executable item, hands it to an agent, and collects the result for capture. Distinct from an Ingest Run, which executes a Source ingest pipeline; a Work Run executes a unit of project work.
+_Avoid_: Ingest Run, job, task, build
+
+**Run Output Class**: The category of what a Work Run produces, which decides how its result may re-enter the vault. The classes are view (compiled/derived, never a promote), work-state transition (a mechanical change to an item's workflow state), knowledge claim (a fact, decision, or supersession about an entity), and external side-effect (an action that leaves the repo, such as a real push, forge PR, or thread reply).
+_Avoid_: result type, severity, risk score
+
+**Promotion Policy**: The fail-safe rule that decides, by Run Output Class, whether a Work Run's result is auto-promoted into current-truth or routed to triage for human review. Auto-promotion is an allowlist a result must affirmatively clear: work-state transitions may auto-promote, knowledge claims always go to human review, external side-effects require explicit per-run approval, and any unclassifiable result falls back to human review.
+_Avoid_: approval flow, risk gate, permission
