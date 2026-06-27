@@ -177,5 +177,64 @@ class CanvasIntegrationTest(unittest.TestCase):
             self.assertEqual((self.vault / rel).read_text(encoding="utf-8"), original)
 
 
+class TriageCanvasTest(unittest.TestCase):
+    """Task 10C-B: draft candidates render into _triage.canvas -- grouped by
+    digest-session (10B tag), draft-colored file nodes, blocked-by edges. The
+    candidate surface the 10C promote gesture acts on. Derived, byte-stable."""
+
+    def setUp(self):
+        self.vault = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.vault, ignore_errors=True)
+
+    def _draft(self, rel, **fm):
+        p = self.vault / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        lines = "\n".join(f"{k}: {v}" for k, v in fm.items())
+        p.write_text(f"---\n{lines}\n---\n\nbody\n", encoding="utf-8")
+
+    def _three(self):
+        self._draft("00-Inbox/AI-Output/t/a.md", entity="proj/x/issue/a",
+                    type="issue", status="draft", **{"digest-session": "sess-1"})
+        self._draft("00-Inbox/AI-Output/t/b.md", entity="proj/x/issue/b",
+                    type="issue", status="draft",
+                    **{"digest-session": "sess-1", "blocked-by": "proj/x/issue/a"})
+        self._draft("00-Inbox/AI-Output/t/c.md", entity="proj/x/decision/c",
+                    type="decision", status="draft", **{"digest-session": "sess-2"})
+
+    def test_renders_candidates_grouped_and_edged(self):
+        self._three()
+        out = kb_meta.cmd_triage_canvas(str(self.vault), today="2026-06-25")
+        self.assertEqual(out["candidates"], 3)
+        canvas = json.loads(out["canvas"])
+        files = {n["file"] for n in canvas["nodes"] if n["type"] == "file"}
+        self.assertEqual(len(files), 3)
+        labels = [n.get("label") for n in canvas["nodes"] if n["type"] == "group"]
+        self.assertIn("session: sess-1", labels)
+        self.assertIn("session: sess-2", labels)
+        # b blocked-by a -> a "blocks" edge between the two candidate nodes
+        self.assertTrue(any(e["label"] == "blocks" for e in canvas["edges"]))
+        self.assertNotIn("written", out)  # dry-run
+
+    def test_only_drafts_are_candidates(self):
+        self._draft("Projects/x/issues/r.md", entity="proj/x/issue/r",
+                    type="issue", status="reviewed")  # authoritative, not a candidate
+        out = kb_meta.cmd_triage_canvas(str(self.vault), today="2026-06-25")
+        self.assertEqual(out["candidates"], 0)
+
+    def test_write_creates_file(self):
+        self._draft("00-Inbox/AI-Output/t/a.md", entity="proj/x/issue/a", status="draft")
+        out = kb_meta.cmd_triage_canvas(str(self.vault), write=True, today="2026-06-25")
+        self.assertEqual(out["written"], "_triage.canvas")
+        self.assertTrue((self.vault / "_triage.canvas").exists())
+
+    def test_deterministic(self):
+        self._three()
+        a = kb_meta.cmd_triage_canvas(str(self.vault), today="2026-06-25")["canvas"]
+        b = kb_meta.cmd_triage_canvas(str(self.vault), today="2026-06-25")["canvas"]
+        self.assertEqual(a, b)
+
+
 if __name__ == "__main__":
     unittest.main()

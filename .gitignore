@@ -60,6 +60,7 @@ mcp-server/smoke.err
 **/wiki/_initiative-status.md
 **/wiki/_cycle-status.md
 **/wiki/_work-os.canvas
+**/_triage.canvas
 
 # capture-hook (Task 4) per-machine idempotency state (default lives in
 # ~/.vault-mind/; ignored here in case VAULT_CAPTURE_STATE points into the repo)

@@ -1430,6 +1430,75 @@ def _render_work_os_canvas(current_truth: dict, project_status: dict,
                       indent=2, ensure_ascii=False) + "\n"
 
 
+# Task 10C-B: candidate/draft color (distinct from the work-state palette).
+_CANVAS_COLOR_DRAFT = "6"  # purple -- a draft awaiting promote
+
+
+def _render_triage_canvas(candidates, today_date: date) -> str:
+    """Task 10C-B: render draft candidates as an Obsidian JSONCanvas, sibling to
+    `_work-os.canvas`. Candidates are grouped by their `digest-session` (the 10B
+    conversation tag), drawn as draft-colored file nodes, with `blocked-by`
+    relations as edges. Derived view -- gitignored, deterministic (sorted +
+    fixed geometry -> byte-stable), never edits the source. This is the surface
+    the 10C promote gesture acts on."""
+    GROUP_W, NODE_W, NODE_H = 380, 320, 90
+    GAP, PAD_TOP, PAD_BOT, PAD_X, BAND_GAP = 16, 56, 24, 24, 80
+
+    nodes: list[dict] = []
+    edges: list[dict] = []
+    node_for_entity: dict[str, str] = {}
+
+    buckets: dict[str, list] = {}
+    for c in candidates:
+        sess = str((c.cm.raw or {}).get("digest-session") or "")
+        buckets.setdefault(sess, []).append(c)
+    ordered = sorted(k for k in buckets if k) + ([""] if "" in buckets else [])
+
+    nodes.append({
+        "id": "title", "type": "text", "x": 0, "y": -160,
+        "width": 460, "height": 110, "color": _CANVAS_COLOR_DRAFT,
+        "text": (f"# triage candidates (DERIVED)\n\n{len(candidates)} drafts "
+                 f"awaiting promote\n\nCompiled: {today_date.isoformat()}"),
+    })
+
+    band_y = 0
+    for sess in ordered:
+        members = sorted(buckets[sess], key=lambda n: n.note_id)
+        h = PAD_TOP + max(1, len(members)) * (NODE_H + GAP) - GAP + PAD_BOT
+        nodes.append({
+            "id": f"sess-{_canvas_id(sess or 'none')}", "type": "group",
+            "x": 0, "y": band_y, "width": GROUP_W, "height": h,
+            "label": f"session: {sess}" if sess else "(no session)",
+            "color": _CANVAS_COLOR_DRAFT,
+        })
+        iy = band_y + PAD_TOP
+        for c in members:
+            nid = f"cand-{_canvas_id(c.entity)}"
+            nodes.append({
+                "id": nid, "type": "file", "x": PAD_X, "y": iy,
+                "width": NODE_W, "height": NODE_H, "file": c.note_id,
+                "color": _CANVAS_COLOR_DRAFT,
+            })
+            node_for_entity[c.entity] = nid
+            iy += NODE_H + GAP
+        band_y += h + BAND_GAP
+
+    for c in sorted(candidates, key=lambda n: n.entity or ""):
+        if c.entity not in node_for_entity:
+            continue
+        for target in _blocked_by_targets(c):
+            if target in node_for_entity:
+                edges.append({
+                    "id": f"edge-{_canvas_id(target)}-{_canvas_id(c.entity)}",
+                    "fromNode": node_for_entity[target], "fromSide": "right",
+                    "toNode": node_for_entity[c.entity], "toSide": "left",
+                    "label": "blocks", "color": "1",
+                })
+
+    return json.dumps({"nodes": nodes, "edges": edges},
+                      indent=2, ensure_ascii=False) + "\n"
+
+
 def cmd_currency(vault: str, topic: str, today_str: str | None = None,
                  apply: bool = False) -> dict:
     """Run the three currency passes and emit derived artifacts.
@@ -2114,6 +2183,25 @@ def cmd_promote(vault, *, note=None, entity=None, promoted_by=None,
     return out
 
 
+def cmd_triage_canvas(vault, *, write=False, today=None):
+    """Task 10C-B: render draft candidates into `_triage.canvas` at the vault root
+    (candidates live vault-wide under 00-Inbox/AI-Output). Dry-run returns the
+    canvas JSON; --write drops the file (derived, gitignored). Read-only on the
+    source. This is the candidate surface the 10C promote gesture acts on."""
+    from pathlib import Path
+    import work_protocol
+
+    cands = [n for n in work_protocol.scan_all_notes(vault)
+             if n.is_candidate and n.entity]
+    canvas = _render_triage_canvas(cands, _parse_iso(today) or date.today())
+    result = {"candidates": len(cands), "canvas": canvas}
+    if write:
+        out = Path(vault) / "_triage.canvas"
+        out.write_bytes(canvas.encode("utf-8"))
+        result["written"] = "_triage.canvas"
+    return result
+
+
 def main():
     args = sys.argv[1:]
     if len(args) < 1:
@@ -2177,7 +2265,8 @@ def main():
         # `work board  <vault> [--project <slug>] [--write] [--lang <code>]`
         # `work budget   <vault> [--project <slug>]`
         # `work debit    <vault> --project <slug> --cost <n> [--apply]`
-        # `work briefing <vault> [--note <id>] [--entity <e>]`
+        # `work briefing      <vault> [--note <id>] [--entity <e>]`
+        # `work triage-canvas <vault> [--write] [--today <iso>]`
         sub = args[1] if len(args) > 1 else None
         pos = [a for a in args[2:] if not a.startswith("--")]
 
@@ -2204,6 +2293,9 @@ def main():
         if sub == "briefing":
             return cmd_work_briefing(pos[0], note=_opt("--note"),
                                      entity=_opt("--entity"))
+        if sub == "triage-canvas":
+            return cmd_triage_canvas(pos[0], write=("--write" in args),
+                                     today=_opt("--today"))
         raise IndexError  # unknown work subcommand
 
     def _promote_cli():
