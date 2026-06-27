@@ -51,13 +51,14 @@
 - **MCP↔work-OS 单一真值(941112b)**:`mcp-server/src/project/workos.ts`(work-OS 脑的 TS 移植)+ `project.ts` 改薄 adapter,删 docket store。`project_board_get` 与 Python `work board` **字节相等**(`parity.test.ts` 守);`project_issue_*` 全落 work-OS note。**Linear 可弃**
 - **bundle 启动 bug 修(92e15d3)**:Windows 下 entrypoint guard 路径串比对失败 → bundle.js 静默不启服务;改 `file://` URL 比对修好
 - **Task 10A — work-OS map JSONCanvas(已落,commit `0d15551`)**:`kb_meta._render_work_os_canvas` 把 cmd_currency 已解出的 current_truth/project_status/initiative_status 编译成 `<topic>/wiki/_work-os.canvas`(Obsidian 原生读 .canvas,不装插件)。initiative 框 project、project 框 issue、`blocked-by`=edge、color=STALE 红/blocked 橙/in-progress 绿/todo 青、done 灰(不上色)。确定性嵌套网格(sorted+固定几何→字节稳定);派生不改源;`if project_status` 同闸写出 + gitignore `**/wiki/_work-os.canvas`。**≠ TS 的 per-project `project-map.canvas`**(那是单项目;这是全 work-OS 地图,两者并存)
+- **Task 10B — conversation digest(已落,commit `dd6c25a`)**:capture hook(`scripts/hooks/capture-hook.mjs`)保留 `blocked-by` 关系(进 ALLOWED_KEYS,`buildNote` emit 成 inline YAML list→编译器读成真关系→promote 后上 10A canvas 当 edge)+ 每条 capture 打 `digest-session: <sid>`(标识同一会话的 digest 组,triage 可聚类;专用 key 不撞联邦 `origin` 嵌套 map)。多块本就支持(一块一 draft),所以 digest=agent 回合末吐一组 vault-capture 块走现有 triage→promote。测试 `capture-hook.test.mjs` U 例(decision+2 issue+1 blocked-by→3 draft,blocked-by 存活成 list,全带 digest-session)。**seam**:triage 按 digest-session 聚类(绿条不要求)
 
 ## 4. 待办 / 方向
 
 ### Task 10 — structure-into-view(已起草:`TASK10-DRAFT-structure-into-view.md`)
 取 lumen-light 概念(AI 把对话结构化成视图),**丢其运行时**。两半:
 - **10A ✅ 已落(commit `0d15551`)**:`_render_work_os_canvas` 把 work-OS current-truth 编译成 `<topic>/wiki/_work-os.canvas`(**JSONCanvas,Obsidian 原生读,不装插件**)。节点=project/issue,edge=blocked-by,group=initiative,color=STALE/blocked/done。确定性网格布局。测试 `tests/test_work_os_canvas.py`(13 例,结构/边/配色/确定性/集成全绿)。
-- **10B**:conversation digest——agent 在回合末尾吐**一组** `vault-capture` 块(它本来就是 LLM),走现有 triage→promote。
+- **10B ✅ 已落(commit `dd6c25a`)**:capture hook 保留 `blocked-by`(emit inline YAML list→真关系→上 10A canvas)+ 每条打 `digest-session: <sid>`(同会话 digest 组溯源,专用 key 不撞联邦 origin)。多块本就支持。测试 `capture-hook.test.mjs` U 例全过。seam:triage 按 digest-session 聚类(绿条不要求)。
 - 10C(deferred):Obsidian Canvas 里「promote 节点」手势,薄插件。
 
 ### Task 11 — work driver / 执行闭环(**11A+11B 已落:select_next + lease + work next + 看板统一 + MCP 统一 + budget gate;余 loop trigger + budget-spent 自动回写 真接成端到端**)
@@ -75,7 +76,7 @@
 ## 6. 下一步建议
 
 1. **Task 11 余项**:~~budget ledger~~ ✅ 已落(11B,commit `30ee25e`:gate + 池化 + `work budget` 报表;**seam 未做:`budget-spent` 自动回写**——真跑后经 capture→promote `debit()` 增量,随执行闭环落)。剩 **loop trigger**(OS cron / ScheduleWakeup 拉一次性 `work next`)+ 真 spawn→capture→promote→debit 串成端到端。⚠️ loop trigger 要建调度任务=对外/持久动作,落前先跟用户确认。
-2. ~~**Task 10A canvas**~~ ✅ 已落(commit `0d15551`)。**未验**:在真实 `D:\knowledge` 跑 `kb_meta currency <vault> <topic> --apply` 生成 `_work-os.canvas` 双击打开看实际地图(本机未跑,需真 topic 名)。下一半=**10B conversation digest**(agent 回合末吐一组 vault-capture 块走 triage→promote)。
+2. ~~**Task 10A/10B**~~ ✅ 全落(10A canvas `0d15551` + 10B digest `dd6c25a`)。剩 **10C**(Obsidian Canvas 里「promote 节点」手势,薄插件,deferred)。**未验**(可选):真 `D:\knowledge` 跑 `kb_meta currency <vault> <topic> --apply` 看实际 `_work-os.canvas` 地图(需真 topic 名)。
 3. 原 brief Task 5 inject / 6 e2e(已被 Task 11 概念吸收,按需)。
 
 ---
