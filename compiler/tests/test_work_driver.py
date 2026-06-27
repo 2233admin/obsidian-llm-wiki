@@ -467,5 +467,76 @@ class WorkDebitCliTest(unittest.TestCase):
         self.assertIn("error", out)
 
 
+class WorkBriefingTest(unittest.TestCase):
+    """Task 11G bootstrap briefing: a read-only current-truth slice around a work
+    item -- state, unresolved blockers, open siblings, required reading."""
+
+    def _notes(self):
+        return [
+            _wn("p/x/_project.md", entity="project/x", type="project", status="reviewed"),
+            _wn("p/x/i/a.md", entity="project/x/issue/a", state="todo",
+                priority=1, status="reviewed"),
+            _wn("p/x/i/b.md", entity="project/x/issue/b", state="in-progress",
+                priority=2, status="reviewed", **{"blocked-by": ["project/x/issue/a"]}),
+            _wn("p/x/i/c.md", entity="project/x/issue/c", state="todo",
+                priority=3, status="reviewed"),
+        ]
+
+    def test_names_state_and_note(self):
+        md = work_driver.render_briefing(self._notes(), "project/x/issue/b")
+        self.assertIn("# Work briefing: project/x/issue/b", md)
+        self.assertIn("- note: p/x/i/b.md", md)
+
+    def test_lists_unresolved_blocker(self):
+        md = work_driver.render_briefing(self._notes(), "project/x/issue/b")
+        self.assertIn("## Blocked by (unresolved)", md)
+        self.assertIn("project/x/issue/a", md)
+
+    def test_lists_open_siblings(self):
+        md = work_driver.render_briefing(self._notes(), "project/x/issue/b")
+        self.assertIn("## Open siblings in project/x", md)
+        self.assertIn("project/x/issue/c", md)
+
+    def test_required_reading_has_container_and_blocker(self):
+        md = work_driver.render_briefing(self._notes(), "project/x/issue/b")
+        self.assertIn("## Required reading", md)
+        self.assertIn("p/x/_project.md", md)   # project container
+        self.assertIn("p/x/i/a.md", md)        # the blocker's note
+
+    def test_unknown_entity_is_graceful(self):
+        md = work_driver.render_briefing(self._notes(), "project/x/issue/zzz")
+        self.assertIn("not found", md)
+
+    def test_deterministic(self):
+        n = self._notes()
+        self.assertEqual(work_driver.render_briefing(n, "project/x/issue/b"),
+                         work_driver.render_briefing(n, "project/x/issue/b"))
+
+
+class WorkBriefingCliTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.vault = Path(tempfile.mkdtemp())
+        p = self.vault / "Projects/x/issues/a.md"
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text("---\nentity: project/x/issue/a\nstate: todo\nstatus: reviewed\n---\n\nb\n",
+                     encoding="utf-8")
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.vault, ignore_errors=True)
+
+    def test_by_note(self) -> None:
+        out = kb_meta.cmd_work_briefing(str(self.vault), note="Projects/x/issues/a.md")
+        self.assertEqual(out["entity"], "project/x/issue/a")
+        self.assertIn("# Work briefing", out["briefing"])
+
+    def test_by_entity(self) -> None:
+        out = kb_meta.cmd_work_briefing(str(self.vault), entity="project/x/issue/a")
+        self.assertEqual(out["note_id"], "Projects/x/issues/a.md")
+
+    def test_not_found_errors(self) -> None:
+        out = kb_meta.cmd_work_briefing(str(self.vault), note="nope.md")
+        self.assertIn("error", out)
+
+
 if __name__ == "__main__":
     unittest.main()

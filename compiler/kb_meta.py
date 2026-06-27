@@ -2056,6 +2056,28 @@ def cmd_work_debit(vault, *, project, cost, apply=False):
     return result
 
 
+def cmd_work_briefing(vault, *, note=None, entity=None):
+    """Task 11G bootstrap briefing: compile the read-only current-truth slice
+    around a work item (state, unresolved blockers, open siblings, required
+    reading) so a waking agent has team context without a cold start. Read-only
+    (§0 -- a derived view, never edits the source). One-shot; the loop injects it
+    once at bootstrap. Select the item by --note <id> or --entity <e>."""
+    import work_protocol
+    import work_driver
+
+    notes = work_protocol._walk_work_notes(vault, require_entity=True)
+    auth = [n for n in notes if n.is_authoritative]
+    target = None
+    if note:
+        target = next((n for n in auth if n.note_id == note), None)
+    elif entity:
+        target = next((n for n in auth if n.entity == entity), None)
+    if target is None:
+        return {"error": "work item not found (note/entity not in authoritative index)"}
+    return {"entity": target.entity, "note_id": target.note_id,
+            "briefing": work_driver.render_briefing(auth, target.entity)}
+
+
 def main():
     args = sys.argv[1:]
     if len(args) < 1:
@@ -2117,8 +2139,9 @@ def main():
     def _work_cli():
         # `work next   <vault> [--claim <agent>] [--ttl <sec>] [--projected <n>]`
         # `work board  <vault> [--project <slug>] [--write] [--lang <code>]`
-        # `work budget <vault> [--project <slug>]`
-        # `work debit  <vault> --project <slug> --cost <n> [--apply]`
+        # `work budget   <vault> [--project <slug>]`
+        # `work debit    <vault> --project <slug> --cost <n> [--apply]`
+        # `work briefing <vault> [--note <id>] [--entity <e>]`
         sub = args[1] if len(args) > 1 else None
         pos = [a for a in args[2:] if not a.startswith("--")]
 
@@ -2142,6 +2165,9 @@ def main():
             return cmd_work_debit(pos[0], project=_opt("--project"),
                                   cost=int(_opt("--cost") or 0),
                                   apply=("--apply" in args))
+        if sub == "briefing":
+            return cmd_work_briefing(pos[0], note=_opt("--note"),
+                                     entity=_opt("--entity"))
         raise IndexError  # unknown work subcommand
 
     dispatch = {

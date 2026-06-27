@@ -17,6 +17,7 @@ import json
 from pathlib import Path
 
 import currency
+import work_budget
 import work_protocol
 
 ACTIONABLE_STATES = frozenset({currency.STATE_TODO, currency.STATE_IN_PROGRESS})
@@ -252,3 +253,63 @@ def render_kanban_board(notes, *, project=None, lang="en") -> str:
         "",
     ]
     return "\n".join(out)
+
+
+# --- bootstrap briefing: cold-start context for a work run (Task 11G) ---------
+# A read-only current-truth slice around the picked item, so a waking agent has
+# team context without a cold start (the loop injects it ONCE at bootstrap, not
+# mid-run -- cache-friendly). Derived view: never edits the source, deterministic
+# (sorted entities), built on the same authoritative notes the driver selects
+# from + the real blocked-by graph (effective_state). No new machinery.
+
+def render_briefing(notes, entity) -> str:
+    """Render the bootstrap briefing for `entity` from the authoritative `notes`:
+    the item + its state, its unresolved blockers, open siblings in its project,
+    and the notes to read first. Markdown, read-only, deterministic."""
+    by_entity = {n.entity: n for n in notes if n.entity}
+    target = by_entity.get(entity)
+    if target is None:
+        return f"# Work briefing: {entity}\n\n(not found in the authoritative work index)\n"
+
+    eff = work_protocol.effective_state(notes, entity)
+    state = eff.get("state") or currency.work_state(target.cm)
+    lines = [f"# Work briefing: {entity}", "",
+             f"- state: {state}", f"- note: {target.note_id}", ""]
+    first = next((ln.strip() for ln in (target.body or "").splitlines() if ln.strip()), "")
+    if first:
+        lines += [first, ""]
+
+    blockers = eff.get("blockers") or []
+    if blockers:
+        lines.append("## Blocked by (unresolved)")
+        for b in blockers:
+            bt = b.get("target")
+            bn = by_entity.get(bt)
+            st = b.get("status") or (currency.work_state(bn.cm) if bn else "?")
+            lines.append(f"- {bt} ({st})" + (f" -- {bn.note_id}" if bn else ""))
+        lines.append("")
+
+    slug = work_budget.pool_slug(entity)
+    if slug:
+        prefix = f"project/{slug}/"
+        sibs = sorted(
+            n.entity for n in notes
+            if n.entity and n.entity.startswith(prefix) and n.entity != entity
+            and currency.work_state(n.cm) in ACTIONABLE_STATES
+        )
+        if sibs:
+            lines.append(f"## Open siblings in project/{slug}")
+            lines += [f"- {s}" for s in sibs]
+            lines.append("")
+
+    reading = []
+    if slug and f"project/{slug}" in by_entity:
+        reading.append(by_entity[f"project/{slug}"].note_id)
+    reading += [by_entity[b["target"]].note_id for b in blockers
+                if b.get("target") in by_entity]
+    if reading:
+        lines.append("## Required reading")
+        lines += [f"- {r}" for r in sorted(set(reading))]
+        lines.append("")
+
+    return "\n".join(lines).rstrip() + "\n"
