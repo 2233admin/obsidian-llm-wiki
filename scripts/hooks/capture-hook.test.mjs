@@ -162,6 +162,70 @@ test('A: session end files exactly ONE unreviewed note to its own writer dir, st
   }
 });
 
+// Task 10B: one conversation structured into a GROUP of vault-capture blocks --
+// a decision plus two issues, the second blocked-by the first.
+const DIGEST_BLOCKS = [
+  '把这次对话结构化成实体图:',
+  '',
+  '```vault-capture',
+  'entity: proj/db/decision/use-postgres',
+  'type: decision',
+  'state: done',
+  '---',
+  '定了用 Postgres 作为主库。',
+  '```',
+  '',
+  '```vault-capture',
+  'entity: proj/db/issue/schema',
+  'type: issue',
+  'state: todo',
+  '---',
+  '设计 schema。',
+  '```',
+  '',
+  '```vault-capture',
+  'entity: proj/db/issue/migrate',
+  'type: issue',
+  'state: todo',
+  'blocked-by: proj/db/issue/schema',
+  '---',
+  '迁移数据,被 schema 阻塞。',
+  '```',
+].join('\n');
+
+test('U: a conversation digest files a GROUP of drafts with blocked-by edges + shared session', () => {
+  const { vault, tdir, statePath } = freshVault();
+  const transcriptPath = writeTranscript(tdir, { assistantText: DIGEST_BLOCKS });
+  try {
+    const r = runHook({ vault, transcriptPath, statePath, apply: true, sid: 'sess-digest' });
+    assert.equal(r.status, 0, 'hook must exit 0');
+
+    const notes = listNotes(vault);
+    assert.equal(notes.length, 3, `expected 3 digest notes, got ${notes.length}: ${notes.map(n => n.rel)}`);
+
+    // every capture in the group is an unreviewed draft tagged with the session,
+    // so the digest is identifiable as one conversation (groupable in triage).
+    for (const n of notes) {
+      assert.match(n.text, /\nstatus: draft\n/, 'each digest note is a draft');
+      assert.match(n.text, /\ndigest-session: sess-digest\n/, 'each carries session provenance');
+    }
+
+    // the blocked-by edge survives as a real YAML list naming the blocker entity
+    // (-> the compiler reads a relation, -> a 10A canvas edge after promote).
+    const migrate = notes.find((n) => /\nentity: proj\/db\/issue\/migrate\n/.test(n.text));
+    assert.ok(migrate, 'migrate issue note exists');
+    assert.match(migrate.text, /\nblocked-by: \[proj\/db\/issue\/schema\]\n/, 'blocked-by emitted as a list');
+
+    // the shape the brief names: a decision + two issues.
+    assert.ok(notes.some((n) => /\ntype: decision\n/.test(n.text)), 'decision captured');
+    assert.equal(notes.filter((n) => /\ntype: issue\n/.test(n.text)).length, 2, 'two issues captured');
+  } finally {
+    rmSync(vault, { recursive: true, force: true });
+    rmSync(tdir, { recursive: true, force: true });
+    rmSync(dirname(statePath), { recursive: true, force: true });
+  }
+});
+
 test('B: re-running the same Stop is idempotent (append-only, no duplicate)', () => {
   const { vault, tdir, statePath } = freshVault();
   const transcriptPath = writeTranscript(tdir, { assistantText: CAPTURE_BLOCK });

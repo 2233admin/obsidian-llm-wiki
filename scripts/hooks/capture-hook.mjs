@@ -76,7 +76,7 @@ const META_KEY_RE = /^([A-Za-z][A-Za-z0-9_-]*):\s*(.*)$/;
 // and who owns it). `supersedes` is intentionally NOT honored from the block --
 // drafts never enter the supersession chain (8P: only `base-head`, an optimistic
 // lock, is stamped on a draft; `supersedes` is materialized at promote time).
-const ALLOWED_KEYS = new Set(['entity', 'type', 'source', 'title', 'status', 'state', 'assignee']);
+const ALLOWED_KEYS = new Set(['entity', 'type', 'source', 'title', 'status', 'state', 'assignee', 'blocked-by']);
 const VALID_TYPES = new Set(['fact', 'decision', 'note', 'issue', 'initiative']);
 const DEFAULT_TYPE = 'note';
 const CURRENCY_REPORT_REL = 'wiki/_currency.json';
@@ -111,6 +111,16 @@ function safeValue(s) {
 // silently de-indexed by the currency passes), so strip it back to a scalar.
 function unbracket(s) {
   return String(s == null ? '' : s).replace(/^\[\s*/, '').replace(/\s*\]$/, '').trim();
+}
+
+// blocked-by (Task 8C relation) is multi-valued -- the edges that make a
+// conversation digest an entity graph (Task 10B). Accept `a`, `[a, b]`, or
+// `a, b` and re-emit a clean inline YAML flow list the compiler parses as a real
+// list (compiler/_md_parse.py: `[..]` -> split + strip quotes). Empty -> []. */
+function listValue(s) {
+  const raw = String(s == null ? '' : s).replace(/[\r\n]+/g, ' ').trim();
+  const inner = raw.replace(/^\[\s*/, '').replace(/\s*\]$/, '');
+  return inner.split(',').map((x) => x.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
 }
 
 function slugify(s, fallback) {
@@ -360,7 +370,7 @@ function resolveBaseHead(vault, topic, entity) {
 
 // --- frontmatter assembly ---------------------------------------------------
 
-function buildNote({ block, writerId, agent, parentQuery, nowIso, today, source, baseHead }) {
+function buildNote({ block, writerId, agent, parentQuery, nowIso, today, source, baseHead, sessionId }) {
   const entity = unbracket(safeValue(block.meta.entity));
   let type = safeValue(block.meta.type).toLowerCase();
   if (!VALID_TYPES.has(type)) type = DEFAULT_TYPE;
@@ -371,6 +381,7 @@ function buildNote({ block, writerId, agent, parentQuery, nowIso, today, source,
   // previous head or maps writer identity -- it is NOT taken from generated-by.
   const state = safeValue(block.meta.state);
   const assignee = unbracket(safeValue(block.meta.assignee));
+  const blockedBy = listValue(block.meta['blocked-by']);
   const parentEsc = parentQuery.replace(/"/g, '”');
 
   // status: draft is the REVIEW axis and stays draft ALWAYS -- a capture is a
@@ -385,10 +396,17 @@ function buildNote({ block, writerId, agent, parentQuery, nowIso, today, source,
     'scope: project',
     'quarantine-state: new',
   ];
+  // Task 10B: stamp the conversation-digest provenance so a group of captures
+  // emitted from ONE session is identifiable (groupable in triage). A dedicated
+  // key -- NOT the federation `origin` (a nested map), which this must not shadow.
+  if (sessionId) yaml.push(`digest-session: ${safeValue(sessionId)}`);
   if (entity) yaml.push(`entity: ${entity}`);
   yaml.push(`type: ${type}`);
   if (state) yaml.push(`state: ${state}`);
   if (assignee) yaml.push(`assignee: ${assignee}`);
+  // Task 10B/8C: the digest's edges. A list so the compiler reads it as a real
+  // blocked-by relation (-> effective_state blocked, -> a canvas edge in 10A).
+  if (blockedBy.length) yaml.push(`blocked-by: [${blockedBy.join(', ')}]`);
   if (source) yaml.push(`source: ${source}`);
   yaml.push(`last-verified: ${today}`);
   // 8P optimistic lock: stamp the resolved authoritative head as `base-head`.
@@ -399,7 +417,7 @@ function buildNote({ block, writerId, agent, parentQuery, nowIso, today, source,
 
   const body = block.body || '(no body)';
   const content = `---\n${yaml.join('\n')}\n---\n\n${body}\n`;
-  return { content, entity, type, source: source || '', state, assignee, baseHead: baseHead || '' };
+  return { content, entity, type, source: source || '', state, assignee, blockedBy, baseHead: baseHead || '' };
 }
 
 // --- main -------------------------------------------------------------------
@@ -460,7 +478,7 @@ function run() {
     const note = buildNote({
       block, writerId, agent, parentQuery, nowIso, today,
       source: safeValue(block.meta.source) || defaultSource,
-      baseHead,
+      baseHead, sessionId: sid,
     });
 
     // Idempotency key: session + the AGENT-AUTHORED semantic payload. The
