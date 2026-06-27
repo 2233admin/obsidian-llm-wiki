@@ -61,7 +61,7 @@
 - **10B ✅ 已落(commit `dd6c25a`)**:capture hook 保留 `blocked-by`(emit inline YAML list→真关系→上 10A canvas)+ 每条打 `digest-session: <sid>`(同会话 digest 组溯源,专用 key 不撞联邦 origin)。多块本就支持。测试 `capture-hook.test.mjs` U 例全过。seam:triage 按 digest-session 聚类(绿条不要求)。
 - 10C(deferred):Obsidian Canvas 里「promote 节点」手势,薄插件。
 
-### Task 11 — work driver / 执行闭环(**11A+11B 全落:select_next + lease + work next + 看板统一 + MCP 统一 + budget gate + budget-spent 回写(`176da66`);唯一余 loop trigger(对外调度)真接成端到端**)
+### Task 11 — work driver / 执行闭环(**✅ 功能完整:select_next + lease + work next + 看板统一 + MCP 统一 + budget gate + budget-spent 回写 + 自pacing loop-trigger 心跳(`83be98d`);端到端可按需跑,recipe=`docs/WORK_LOOP.md`**)
 源自 paperclip(paperclipai/paperclip,agent 编排平台),**只取「执行闭环」概念,丢其 daemon/Postgres/org chart/多租户**。
 - **缺口**:vault-mind 到「真值正确且可查」就停了,是被动层;从不闭合到「所以 agent 去把活干了」。补一个**薄 driver**:读 work-OS authoritative 真值 → 挑下一个可执行项(priority + 未 blocked + 指给 agent)→ 锁定签出 → 拉起 agent → 结果 capture→promote → token 记账。
 - **硬骨头我们已有**(不是重写):原子签出 = 现成的 base-head 锁(HEAD_MISMATCH);持久记忆 = vault 本身 + Task 5 inject;结果写回 = capture→promote。**净新只有三样:loop trigger + budget ledger + lease(claimed-by)**。
@@ -75,7 +75,7 @@
 
 ## 6. 下一步建议
 
-1. **Task 11 余项**:~~budget ledger + budget-spent 回写~~ ✅ 全落(11B gate `30ee25e` + 池化 + `work budget` 报表;after-run debit `176da66`:`work_budget.record_spend` 字节级改 frontmatter + `work debit <vault> --project <slug> --cost <n> [--apply]` 一次性 CLI dry-run 默认,复用 capture→promote 写路径)。**唯一剩**=**loop trigger**:OS Task Scheduler / Claude Code `ScheduleWakeup` 拉一次性 `work next` → 串成 spawn→capture→promote→`work debit` 端到端。⚠️ 建真调度任务=对外/持久,机制+频率落前先跟用户确认(轮子=调度器本身,不造 daemon)。
+1. ~~**Task 11**~~ ✅ 功能完整。11A 选活+lease + 11B gate(`30ee25e`)+ budget-spent 回写(`176da66`:`work_budget.record_spend` 字节级改 frontmatter + `work debit` CLI)+ loop-trigger 自pacing 心跳(`83be98d`:`work next` 出 `status`[selected/idle/budget_exhausted]+`remaining`,recipe `docs/WORK_LOOP.md`)。端到端 = `work next`→do→capture→promote→`work debit`,**按需 ScheduleWakeup 重拉、自终止**(选 A 机制,看情况按需要)。**剩纯操作/可选**:① 真用 ScheduleWakeup 起一次 on-demand 跑(本机未起,无队列时不该常驻);② 11G bootstrap briefing(开工注入 current-truth 切片,draft 已规划)。
 2. ~~**Task 10A/10B**~~ ✅ 全落(10A canvas `0d15551` + 10B digest `dd6c25a`)。剩 **10C**(Obsidian Canvas 里「promote 节点」手势,薄插件,deferred)。**未验**(可选):真 `D:\knowledge` 跑 `kb_meta currency <vault> <topic> --apply` 看实际 `_work-os.canvas` 地图(需真 topic 名)。
 3. 原 brief Task 5 inject / 6 e2e(已被 Task 11 概念吸收,按需)。
 
