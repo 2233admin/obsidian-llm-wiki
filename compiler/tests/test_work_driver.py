@@ -13,7 +13,9 @@ Run from the compiler/ dir (Windows -- prefix PYTHONUTF8=1):
 
 from __future__ import annotations
 
+import shutil
 import sys
+import tempfile
 import unittest
 from datetime import date
 from pathlib import Path
@@ -23,6 +25,7 @@ if str(_COMPILER) not in sys.path:
     sys.path.insert(0, str(_COMPILER))
 
 import currency  # noqa: E402
+import kb_meta  # noqa: E402
 import work_driver  # noqa: E402
 import work_protocol  # noqa: E402
 
@@ -86,6 +89,128 @@ class SelectNextTest(unittest.TestCase):
         self.assertIsNone(
             work_driver.select_next([_wn("p/i/d.md", entity="e/d", state="done")])
         )
+
+
+class LeaseTest(unittest.TestCase):
+    """Task 11A-ii -- atomic claim via base-head lock + TTL (green bar 2).
+
+    Lease registry lives in gitignored .vault-mind/ (never shared markdown, §0
+    #6). `now` is an epoch-second int the caller supplies, so tests are
+    deterministic and the module stays free of wall-clock calls."""
+
+    NID = "Projects/iii/issues/a.md"
+
+    def setUp(self) -> None:
+        self.vault = Path(tempfile.mkdtemp())
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.vault, ignore_errors=True)
+
+    def _acquire(self, agent, *, current_head=None, base_head=None, now, ttl=600):
+        head = self.NID
+        return work_driver.acquire_lease(
+            self.vault, self.NID, agent,
+            current_head=current_head or head,
+            base_head=base_head or head,
+            ttl_seconds=ttl, now=now,
+        )
+
+    def test_acquire_free_item(self) -> None:
+        r = self._acquire("agent-1", now=1000)
+        self.assertEqual(r.outcome, work_driver.OUTCOME_ACQUIRED)
+        leases = work_driver.read_leases(self.vault)
+        self.assertEqual(leases[self.NID]["agent_id"], "agent-1")
+        self.assertEqual(leases[self.NID]["expires_at"], 1600)
+
+    def test_second_agent_blocked_while_unexpired(self) -> None:
+        self._acquire("agent-1", now=1000)
+        r = self._acquire("agent-2", now=1100)  # within the 600s TTL
+        self.assertEqual(r.outcome, work_driver.OUTCOME_ALREADY_LEASED)
+        # original holder unchanged
+        self.assertEqual(
+            work_driver.read_leases(self.vault)[self.NID]["agent_id"], "agent-1"
+        )
+
+    def test_stale_base_head_is_head_mismatch(self) -> None:
+        r = self._acquire(
+            "agent-1", current_head=self.NID + "@v2", base_head=self.NID + "@v1",
+            now=1000,
+        )
+        self.assertEqual(r.outcome, work_driver.OUTCOME_HEAD_MISMATCH)
+        self.assertNotIn(self.NID, work_driver.read_leases(self.vault))
+
+    def test_expired_lease_is_reclaimable(self) -> None:
+        self._acquire("agent-1", now=1000)        # expires at 1600
+        r = self._acquire("agent-2", now=2000)    # past expiry -> reclaim
+        self.assertEqual(r.outcome, work_driver.OUTCOME_ACQUIRED)
+        self.assertEqual(
+            work_driver.read_leases(self.vault)[self.NID]["agent_id"], "agent-2"
+        )
+
+    def test_same_agent_refreshes(self) -> None:
+        self._acquire("agent-1", now=1000)
+        r = self._acquire("agent-1", now=1200)
+        self.assertEqual(r.outcome, work_driver.OUTCOME_ACQUIRED)
+        self.assertEqual(
+            work_driver.read_leases(self.vault)[self.NID]["expires_at"], 1800
+        )
+
+    def test_release_by_holder(self) -> None:
+        self._acquire("agent-1", now=1000)
+        self.assertTrue(work_driver.release_lease(self.vault, self.NID, "agent-1"))
+        self.assertNotIn(self.NID, work_driver.read_leases(self.vault))
+
+    def test_release_by_non_holder_is_noop(self) -> None:
+        self._acquire("agent-1", now=1000)
+        self.assertFalse(work_driver.release_lease(self.vault, self.NID, "agent-2"))
+        self.assertIn(self.NID, work_driver.read_leases(self.vault))
+
+
+class WorkNextCliTest(unittest.TestCase):
+    """Task 11A-iii -- the `work next` heartbeat handler: select from the
+    authoritative work index and optionally lease it. One-shot, no daemon."""
+
+    def setUp(self) -> None:
+        self.vault = Path(tempfile.mkdtemp())
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.vault, ignore_errors=True)
+
+    def _write(self, rel: str, **fm) -> None:
+        p = self.vault / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        lines = "\n".join(f"{k}: {v}" for k, v in fm.items())
+        p.write_text(f"---\n{lines}\n---\n\nbody\n", encoding="utf-8")
+
+    def test_selects_highest_priority_authoritative(self) -> None:
+        self._write("Projects/x/issues/a.md",
+                    entity="project/x/issue/a", state="todo", priority=2, status="reviewed")
+        self._write("Projects/x/issues/b.md",
+                    entity="project/x/issue/b", state="todo", priority=1, status="reviewed")
+        out = kb_meta.cmd_work_next(str(self.vault))
+        self.assertEqual(out["selected"]["note_id"], "Projects/x/issues/b.md")
+
+    def test_skips_draft_captures(self) -> None:
+        # a draft (candidate) capture must not be picked even at top priority.
+        self._write("00-Inbox/AI-Output/cap.md",
+                    entity="project/x/issue/c", state="todo", priority=1, status="draft")
+        self._write("Projects/x/issues/d.md",
+                    entity="project/x/issue/d", state="todo", priority=3, status="reviewed")
+        out = kb_meta.cmd_work_next(str(self.vault))
+        self.assertEqual(out["selected"]["note_id"], "Projects/x/issues/d.md")
+
+    def test_claim_writes_lease(self) -> None:
+        self._write("Projects/x/issues/e.md",
+                    entity="project/x/issue/e", state="todo", priority=1, status="reviewed")
+        out = kb_meta.cmd_work_next(str(self.vault), claim_agent="agent-1", now=1000)
+        self.assertEqual(out["lease"]["outcome"], work_driver.OUTCOME_ACQUIRED)
+        self.assertIn("Projects/x/issues/e.md", work_driver.read_leases(self.vault))
+
+    def test_no_actionable_returns_none(self) -> None:
+        self._write("Projects/x/issues/f.md",
+                    entity="project/x/issue/f", state="done", priority=1, status="reviewed")
+        out = kb_meta.cmd_work_next(str(self.vault))
+        self.assertIsNone(out["selected"])
 
 
 if __name__ == "__main__":
