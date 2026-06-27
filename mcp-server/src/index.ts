@@ -9,7 +9,7 @@ import {
   writeFileSync, appendFileSync, rmSync, renameSync, mkdirSync,
 } from "node:fs";
 import { resolve, join, basename, extname, relative, dirname, posix, isAbsolute as pathIsAbsolute } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { FilesystemAdapter } from "./adapters/filesystem.js";
 import { MemUAdapter } from "./adapters/memu.js";
@@ -1943,9 +1943,11 @@ async function main(): Promise<void> {
 }
 
 // Only run main() when invoked as the entrypoint, not on import (e.g. test harness).
-const _entryPath = process.argv[1] ? resolve(process.argv[1]) : "";
-const _thisPath = fileURLToPath(import.meta.url);
-if (_entryPath && _entryPath === _thisPath) {
+// Compare as file:// URLs -- canonical and cross-platform. Path-string comparison
+// (fileURLToPath vs resolve) mismatched on Windows (slash/drive-case), so the bundled
+// entry (bundle.js) failed the check and silently never started the server.
+const _isEntry = !!process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (_isEntry) {
   main().catch((e) => {
     process.stderr.write("obsidian-llm-wiki: fatal: " + (e as Error).message + "\n");
     process.exit(1);

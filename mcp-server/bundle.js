@@ -39032,7 +39032,7 @@ function formatInternalError(operationName, error48) {
 // dist/index.js
 import { readFileSync as readFileSync13, existsSync as existsSync13, readdirSync as readdirSync9, statSync as statSync5, realpathSync, writeFileSync as writeFileSync8, appendFileSync as appendFileSync2, rmSync as rmSync4, renameSync, mkdirSync as mkdirSync9 } from "node:fs";
 import { resolve as resolve5, join as join16, basename as basename6, extname as extname2, relative as relative6, dirname as dirname10, posix, isAbsolute as pathIsAbsolute2 } from "node:path";
-import { fileURLToPath as fileURLToPath3 } from "node:url";
+import { fileURLToPath as fileURLToPath3, pathToFileURL } from "node:url";
 
 // dist/adapters/filesystem.js
 import { readFile, writeFile, mkdir } from "node:fs/promises";
@@ -45448,6 +45448,7 @@ var operations = [
       summary: { type: "string", required: false, description: "1-3 sentence project summary" },
       team: { type: "array", required: false, description: "Team member names (wikilinked in content)" },
       tags: { type: "array", required: false, description: "Extra tags" },
+      entity: { type: "string", required: false, description: "Currency entity key (default: project/<name-slug>); drives the status-drift guard" },
       dryRun: { type: "boolean", required: false, description: "Simulate without writing (default: true)", default: true }
     },
     handler: async (ctx, params) => ctx.vault.execute("vault.project", params)
@@ -45465,6 +45466,9 @@ var operations = [
       consequences: { type: "string", required: false, description: "Trade-offs and outcomes" },
       status: { type: "string", required: false, description: "Decision status", default: "accepted", enum: ["proposed", "accepted", "deprecated", "superseded"] },
       tags: { type: "array", required: false, description: "Extra tags" },
+      project: { type: "string", required: false, description: "Owning project (namespaces the currency entity as project/<slug>/decision/<title>)" },
+      entity: { type: "string", required: false, description: "Currency entity key override (default derived from project + title)" },
+      source: { type: "string", required: false, description: "Verifiable source (commit:/path:/test:/url:); without it the decision shows UNSUPPORTED in the currency view" },
       dryRun: { type: "boolean", required: false, description: "Simulate without writing (default: true)", default: true }
     },
     handler: async (ctx, params) => ctx.vault.execute("vault.decide", params)
@@ -47387,11 +47391,15 @@ ${notes}
         const tagLine = ["project", ...tags].map((t) => `  - ${t}`).join("\n");
         const teamLinks = team.map((m) => `- [[${m}]]`).join("\n");
         const preamble = summary || `Project: ${name}. Status: ${status}${team.length ? `. Team: ${team.join(", ")}` : ""}.`;
+        const slugE = (s) => s.trim().replace(/[:[\]\r\n]+/g, "").replace(/\s+/g, "-").toLowerCase();
+        const entity = p.entity || `project/${slugE(name)}`;
         const content = `---
 name: "${name}"
 type: project
 ai-first: true
 status: ${status}
+entity: ${entity}
+last-verified: ${today}
 created: ${today}
 updated: ${today}
 tags:
@@ -47442,11 +47450,18 @@ ${teamLinks || "- TBD"}
         const consequences = p.consequences || "";
         const tags = Array.isArray(p.tags) ? p.tags : [];
         const tagLine = ["decision", "adr", ...tags].map((t) => `  - ${t}`).join("\n");
+        const slugE = (s) => s.trim().replace(/[:[\]\r\n]+/g, "").replace(/\s+/g, "-").toLowerCase();
+        const proj = p.project || "";
+        const entity = p.entity || (proj ? `project/${slugE(proj)}/decision/${slug}` : `decision/${slug}`);
+        const srcLine = p.source ? `
+source: ${String(p.source).replace(/[\r\n]+/g, " ").trim()}` : "";
         const content = `---
 title: "${title}"
 type: decision
 ai-first: true
 status: ${status}
+entity: ${entity}
+last-verified: ${today}${srcLine}
 date: ${today}
 tags:
 ${tagLine}
@@ -48428,9 +48443,8 @@ async function main() {
   process.stderr.write(`obsidian-llm-wiki: try "what do I know about <topic>" to invoke vault-librarian
 `);
 }
-var _entryPath = process.argv[1] ? resolve5(process.argv[1]) : "";
-var _thisPath = fileURLToPath3(import.meta.url);
-if (_entryPath && _entryPath === _thisPath) {
+var _isEntry = !!process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (_isEntry) {
   main().catch((e) => {
     process.stderr.write("obsidian-llm-wiki: fatal: " + e.message + "\n");
     process.exit(1);
