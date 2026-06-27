@@ -91,6 +91,26 @@ class SelectNextTest(unittest.TestCase):
             work_driver.select_next([_wn("p/i/d.md", entity="e/d", state="done")])
         )
 
+    def test_excludes_project_container_note(self) -> None:
+        # A project container (type: project) is not a unit of work -- you don't
+        # "do" a container. Even with an actionable state and a winning priority
+        # it must never be picked over a real issue (mirrors board_columns, which
+        # skips it as not-a-card).
+        notes = [
+            _wn("p/_project.md", entity="project/x", type="project",
+                state="in-progress", priority=1),
+            _wn("p/i/a.md", entity="project/x/issue/a", state="todo", priority=3),
+        ]
+        self.assertEqual(work_driver.select_next(notes).note_id, "p/i/a.md")
+
+    def test_container_alone_yields_none(self) -> None:
+        # A container with no real work item under it -> nothing actionable.
+        notes = [
+            _wn("p/_project.md", entity="project/x", type="project",
+                state="in-progress", priority=1),
+        ]
+        self.assertIsNone(work_driver.select_next(notes))
+
 
 class LeaseTest(unittest.TestCase):
     """Task 11A-ii -- atomic claim via base-head lock + TTL (green bar 2).

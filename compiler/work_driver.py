@@ -25,6 +25,8 @@ ACTIONABLE_STATES = frozenset({currency.STATE_TODO, currency.STATE_IN_PROGRESS})
 def is_actionable(note, notes) -> bool:
     """True when `note` is an open, unblocked unit of work the driver may pick.
     `notes` is the full work index, needed to resolve blocked-by relations."""
+    if (note.raw or {}).get("type") == "project":
+        return False  # a project container is not a unit of work (mirrors board_columns)
     if currency.work_state(note.cm) not in ACTIONABLE_STATES:
         return False
     ent = note.entity
