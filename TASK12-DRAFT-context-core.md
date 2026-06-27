@@ -31,6 +31,7 @@ vault-mind **已有全部原料**(entity 图、currency 防漂移、ontology、p
 
 1. **Context Core 工件**:`_context-core.<topic>.json`(或 `.md` frontmatter+body),编译自 current-truth —— 打包 {ontology 切片 + holon(实体+关系+provenance)+ retrieval-policy + embeddings 句柄(可选)} + **版本戳(git HEAD/tag)**。确定性、字节稳定。这是 **11G briefing 注入的源**(briefing = 从 core 取的视图)。
 2. **Retrieval policy 一等物**:声明式(freshness=currency 阈值 / authority=reviewed>draft+recency / traversal=blocked-by|related 深度)。core 带它;query/briefing 读它。
+   - **per-agent 学习层(内化 caura-memclaw)**:policy 默认全局,但允许 **per-agent overlay**(top_k / min-sim / 遍历深度 / authority-vs-freshness 权重),**从 Task 11 的 outcome 反馈环(`recall-outcome`,见 11I)整定**——长期 helped 的检索形状增益、misled 的降。overlay 落 per-agent note 或机器层 `.vault-mind/`(§0 #1:无 tuner 服务,是编译期读 + 离线整定;§0 #4:机器层不进共享 core)。core 导出全局 policy;per-agent overlay **不进共享 core**。
 3. **Explainability receipt**:query 回 **trace**(哪些 entity/子图/provenance 进了答案)—— 扩 `query_trace`/`query_explain`。"给收据":fact 不在 core 里 agent 就不用,杜绝黑盒。
 4. **(关联,可选)Ontology 驱动 backfill**:用 ontology + agent 抽取给**存量语料**打 entity 锚(治"空转"根因),走 10B digest 路径。
 
@@ -68,6 +69,7 @@ TrustGraph = **完整 production agentic 后端**(多模 DB + RAG 管线 + agent
 - embeddings 段:必含还是可选(无 vector adapter 时)。
 - receipt 与现有 `query_trace`/`query_explain` MCP 工具的重叠/复用。
 - "run agents anywhere":core 怎么被外部 agent 消费(MCP `context_*` 工具已是雏形?需核)。
+- per-agent retrieval overlay 的整定数据(`recall-outcome`)来自 Task 11 11I —— 两任务**共用同一 outcome 反馈环**,别各造一套。
 
 ## 9. 关联
 [[vault-mind-currency-v1]] · Task 11G(briefing=core 视图)· `ontology.py`/`meta_ontology.py` · 10A `_work-os.canvas` · currency 层(provenance/freshness)· MCP `holon_*`/`context_*`/`query_trace` · TrustGraph(trustgraph-ai/trustgraph)。

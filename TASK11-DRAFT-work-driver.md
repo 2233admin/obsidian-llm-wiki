@@ -98,6 +98,20 @@ opentag dispatcher 的 **scope 校验 + lease + audit** → 分别落:选活(读
 - **NHA 教训(第四次趋同)**:First-Tree 把硬编码审查闸(Need-Human-Attention)**整删 —— 太僵硬**,改 git PR → 人审 → merge → re-pull。= §0 #3 + ADR 0006 的情境化/规则化,**别建僵硬审查闸**。
 - **审计分层(抄)**:`context_tree_io_events`(读写审计,**持久**)vs `session-events`(**可逐出**)。对 vault:真值审计持久、运行态可丢。
 
+## 7c. 内化(caura-memclaw):outcome-memory 反馈环(唯一真缺口)
+
+caura-memclaw(caura-ai/caura-memclaw,2026-06-28 抓取)杀手概念 = **自改进记忆**:agent 用完一条 recall 的记忆后**报 outcome(成功/失败)**→ 系统强化「真帮上忙」的、失败时**自动生成预防性 `rule` 记忆**。取概念丢运行时(它 Postgres + 多租户;我们 capture→promote)。
+
+**这是 Task 11 唯一真缺口**:§5 控制律量了 C2(work-state done-check)与 C3(声明**写入时**的 grounding),却**从不回灌「这条已 promote 的真值,被 agent 取用后到底有没有帮上活」**。Karpathy loop 把 §3 的负反馈从「写入闸」延伸到「**取用后效**」—— 记忆质量本身进入闭环。
+
+§0 兼容做法:
+- **outcome = 一条 capture**:work run 结束,driver 对本 run 经 11G **注入过的 current-truth 切片**逐条标 `recall-outcome: helped|misled|unused`(+ run id),走 capture→promote,§0 #7 全可审、无侧信道。
+- **强化 = grounding 信号增项**:§5 C3 的 `s` 加一维 `recall-track-record`(历史 helped/misled 比),长期 misled 的真值**降权 + 标复核候选**(不删,§0 #2)。
+- **失败自动生成 `rule`**:run 失败且归因到某条 misled 真值 → 生成一条 `type: rule` draft candidate(「下次别信 X / 先验 Y」)落 _triage,**经 promote 闸**才成真值(不自动写源)。
+- 喂 §5 drift 传感器:misled-rate = 新的可观测漂移信号。
+
+落点:**11I** 建造序;复用 11G 注入清单(知道这条 run 取了哪些)+ capture→promote + §5 控制律。**纯概念叠加,不引运行时,§8「只 3 样原语」不变。**
+
 ## 8. 净新原语(只 3 样,其余复用)
 
 1. **loop trigger**:cron/ScheduleWakeup 触发一次性 `vault-mind work next`,幂等,跑完退。
@@ -115,6 +129,7 @@ opentag dispatcher 的 **scope 校验 + lease + audit** → 分别落:选活(读
 7. 全程 §0:无常驻进程;派生物字节稳定;机器路径不进共享 md;无侧信道(全经 capture→promote)。
 7b. **团队上下文注入**:同一时刻不同 agent 拿到的注入 current-truth 切片**一致**(字节稳定);注入只读、不回改源。
 7c. **持久 work-stream**:第 N+1 run 读到前 N run 的 work-stream **续上**;work-stream append-only,promote 只经闸。
+7d. **outcome-memory 反馈环**(内化 caura-memclaw):run 末对注入切片标 `recall-outcome`(capture→promote);长期 `misled` 真值 grounding 降权 + 进复核候选;失败归因生成 `type:rule` draft 落 _triage(不自动写源);misled-rate 可从 drift 传感器读出。
 8. 回归闸:`test_currency_passes` + `test_project_currency` + 全量 discover 全绿(HANDOFF §5,不信子 agent 窄命令)。
 
 ## 10. 建造顺序(PR slices, TDD)
@@ -127,6 +142,7 @@ opentag dispatcher 的 **scope 校验 + lease + audit** → 分别落:选活(读
 - **11F** worktree handoff 生命周期 + 清理
 - **11G** 团队上下文注入(吸收 Task 5):每 run 开工注入 current-truth 切片(绿条 7b;只读不回改)
 - **11H** 持久 work-stream:work item append-only 运行历史,新 run 续接(绿条 7c;跨 agent 接力)
+- **11I** outcome-memory 反馈环(内化 caura-memclaw):recall-outcome 回灌 grounding + 失败生成 `type:rule`(绿条 7d;复用 11G 注入清单 + §5 控制律)
 - 全程守 §0 + 回归闸(绿条 7/8)。每 slice:TDD 红→绿→重构;多 agent Workflow build→3 棱镜对抗 verify→我跑回归闸→commit。
 
 ## 11. 收敛的同类工作 / 定位

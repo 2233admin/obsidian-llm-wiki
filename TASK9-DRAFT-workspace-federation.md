@@ -38,6 +38,7 @@ Local Project Registry  ──绑定 entity──▶  vault-mind 工作真值(Ta
 11. **远端变更不直接改 current-truth**:一律 `webhook → capture candidate(status:draft)→ _triage → promote PR → reviewed`。带 `origin.revision`(远端版本)+ `base-head`(本地基线)做冲突检测。
 12. **代码活动只作 evidence**:commit≠in-progress,PR merged≠done。远端事件至多生成 `suggested-state`,**不绕 PR 闸**直接关工作项。
 13. **沿用 Task 8 §0 #8**:不做 runtime / daemon。扫描挂在 compile 前 / capture 时 / 现有 scheduler / 手动 `vault project scan`,**不新增常驻进程**。
+14. **可见域 + 信任级(内化 caura-memclaw,取概念丢运行时)**:联邦同步是**作用域过滤 + promote-闸修饰**,不是 row-level DB / 多租户运行时。note 带 `scope`(`agent`/`team`/`org`)决定它同步给哪些联邦 peer;peer/agent 带**信任级**决定其 pull 来的 candidate 能否走 §0 #12 的 suggested-state 快路、还是一律落 _triage 人审。低信任 peer 的 candidate **永远升级**(喂 Task 11 §5 C3 控制律)。§0 #7 无侧信道仍成立 —— scope 只缩同步面,不开私聊通道。
 
 ## §1 schema(新增,均派生为主、少量手写)
 
@@ -47,6 +48,7 @@ type: project
 entity: project/opencli-admin
 state: in-progress        # Task 8 工作流轴
 status: reviewed          # 评审轴
+scope: team               # agent | team | org(内化 memclaw 可见域;决定同步给哪些 peer;默认 team)
 
 # 集成声明(进共享 markdown;声明意图,不含机器路径)
 integrations:
@@ -118,6 +120,11 @@ project/vault-mind:    { path: D:/projects/vault-mind }
 - 防循环(§0#10 单主看板)、remote `revision` 比对、`base-head` 乐观锁冲突检测。
 - 验收:制造一条 vault 与 Linear 并发改 → 检出 conflict 进 _triage 而非静默覆盖;单主看板约束下不产生写回环。
 
+### 9G — Scope + Trust 联邦过滤(内化 caura-memclaw,Python+config)
+- `scope` 字段在 `sync push` 时过滤:`agent`=不出本机、`team`=本联邦、`org`=跨联邦。`sync pull` 反向尊重远端声明的 scope。
+- peer/agent 信任级进 `.vault-mind/forge.json`(机器层,§0 #9;非共享):`trusted` peer 的 candidate 可走 §0 #12 的 suggested-state 快路;`untrusted` 一律 `status:draft` 落 _triage(§0 #11 本就如此,信任级只是把「永远人审」显式化 + 可分级)。
+- 验收:`scope:agent` note 不出现在任何 peer 的 pull;低信任 peer 的 done 事件 → candidate 落 _triage 而非走 suggested-state 快路。
+
 ## §4 命令形态(草案)
 
 ```bash
@@ -138,6 +145,7 @@ vault sync pull --all | sync plan | sync apply
 4. **9D GitHub evidence / Projects** — 开源协作
 5. **9E Linear project projection** — 跨项目人机看板
 6. **9F Reconciliation** — 串起双向 + 防环
+7. **9G Scope + Trust** — 可见域过滤 + 分级信任(内化 caura-memclaw;最后做,纯叠加在同步层)
 
 ## §6 边界(明确不做)
 不做 runtime / daemon;不替远端执行交易级动作;不让多条双向写路径共存;不把机器路径写进共享 markdown;不让代码活动绕过 PR 闸自动关工作项。

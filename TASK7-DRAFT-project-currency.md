@@ -67,6 +67,13 @@ due: 2026-07-01               # 可选 ISO date;compile 出"逾期"段
 - `vault.project`/`vault.decide`/`vault.meeting` 写出时自动盖 `entity`/`type`/`last-verified`(复用 Task 4 buildNote 思路)。
 - `vault.search` 命中 project/action 时内联 `_project-status` 的 STALE/blocker 标记(复用 Task 3 currency-aware 检索)。
 
+### Task 7D(内化 caura-memclaw)— crystallization:近重记忆检测 → supersession 合并
+caura-memclaw(caura-ai/caura-memclaw)的 crystallization = LLM 把近重记忆**自动合并**成 canonical atomic fact + provenance + 生命周期退役旧的。取概念丢运行时:
+- **检测 = 新 compile pass**(只读派生,不改源):按 entity 分组,标出**近重声明候选**(同 entity 下高相似的 fact/decision)。**默认词法/结构近似**(标题/关键短语重叠),**不引入 §0 #1 禁的 embedding/vector**;若 Task 12 已配 vector adapter 则可选增强。产出 `wiki/_merge-candidates.md`(gitignore、可重建)。
+- **合并 = 走 supersession + promote 闸**:候选**不自动合并**;由 agent/人写一条 canonical note `supersedes: [近重的那几条]`,经 promote(git PR 闸,§0 #4)才成真值。canonical 那条即「atomic fact」,provenance = 被 supersede 的来源链(currency 已有)。
+- 生命周期退役 = 复用 currency 的 supersession + STALE,**不另造它的 8 态机**。
+- **§0:检测只读派生、合并经闸、永不自动回改源。** 验收(fixture):同 entity 两条近重 fact → `_merge-candidates.md` 列为候选;写 canonical supersedes 两条 → promote 后 current-truth 只剩 canonical,旧两条 superseded 未删。
+
 ## §3 fixture + 验收(单一 bar)
 
 `fixtures/vault-project-iii/`(独立,非真 vault),seed:
