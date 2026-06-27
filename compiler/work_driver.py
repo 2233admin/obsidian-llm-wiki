@@ -188,10 +188,11 @@ def render_kanban_board(notes, *, project=None) -> str:
     """Render the work-OS notes as an Obsidian Kanban board (kanban-plugin)."""
     cols = board_columns(notes, project=project)
     by_id = {n.note_id: n for n in notes}
-    out = ["---", "kanban-plugin: board"]
-    if project:
-        out.append(f'project: "{project}"')
-    out += ["---", "", "# Board", ""]
+    # Match the EXACT on-disk format the obsidian-kanban plugin writes: blank-line
+    # padded frontmatter, NO H1 heading, `##` lanes, plain (non-json) settings
+    # fence. Deviating (an H1, a ```json fence, extra frontmatter keys) makes the
+    # plugin fail to render the board.
+    out = ["---", "", "kanban-plugin: board", "", "---", ""]
     for column in KANBAN_COLUMNS:
         out.append(f"## {column}")
         out.append("")
@@ -199,5 +200,12 @@ def render_kanban_board(notes, *, project=None) -> str:
         for nid in cols[column]:
             out.append(f"- [{mark}] {_card_label(by_id[nid])}")
         out.append("")
-    out += ["%% kanban:settings", "```json", '{"kanban-plugin":"board"}', "```", "%%", ""]
+    out += [
+        "%% kanban:settings",
+        "```",
+        '{"kanban-plugin":"board","show-checkboxes":true}',
+        "```",
+        "%%",
+        "",
+    ]
     return "\n".join(out)
