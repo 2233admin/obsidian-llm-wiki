@@ -2078,6 +2078,42 @@ def cmd_work_briefing(vault, *, note=None, entity=None):
             "briefing": work_driver.render_briefing(auth, target.entity)}
 
 
+def cmd_promote(vault, *, note=None, entity=None, promoted_by=None,
+                today=None, apply=False):
+    """Task 10C-A: promote a draft candidate into a materialized reviewed snapshot
+    -- the single CLI entry over work_protocol.promote (base-head optimistic lock
+    + complete-snapshot materialize). Dry-run by default: returns the planned
+    snapshot (the `plan`) and writes nothing; --apply appends the reviewed note
+    (append-only, never edits the head or the candidate). HEAD_MISMATCH is
+    reported, never a silent last-write-wins. This is the action an Obsidian
+    promote gesture (10C-C) shells out to, and the real promote step the Task 11
+    loop needs."""
+    import work_protocol
+
+    notes = work_protocol.scan_work_notes(vault)
+    cand = None
+    if note:
+        cand = next((n for n in notes if n.note_id == note), None)
+    elif entity:
+        cand = next((n for n in notes if n.entity == entity and n.is_candidate), None)
+    if cand is None:
+        return {"error": "candidate not found (give --note <id> or --entity <e>)"}
+
+    r = work_protocol.promote(vault, cand, apply=apply,
+                              promoted_by=promoted_by, today=today)
+    out = {
+        "outcome": r.outcome, "entity": r.entity, "head_note_id": r.head_note_id,
+        "snapshot_note_id": getattr(r, "snapshot_note_id", None),
+        "reason": r.reason, "apply": apply,
+    }
+    plan = getattr(r, "snapshot_text", None)
+    if plan:
+        out["plan"] = plan          # the dry-run promote plan (materialized snapshot)
+    if getattr(r, "written", None):
+        out["written"] = r.written
+    return out
+
+
 def main():
     args = sys.argv[1:]
     if len(args) < 1:
@@ -2170,6 +2206,19 @@ def main():
                                      entity=_opt("--entity"))
         raise IndexError  # unknown work subcommand
 
+    def _promote_cli():
+        # `promote <vault> (--note <id> | --entity <e>) [--apply] [--by <who>] [--today <iso>]`
+        def _o(name):
+            if name in args:
+                i = args.index(name)
+                if i + 1 < len(args):
+                    return args[i + 1]
+            return None
+        pos = [a for a in args[1:] if not a.startswith("--")]
+        return cmd_promote(pos[0], note=_o("--note"), entity=_o("--entity"),
+                           promoted_by=_o("--by"), today=_o("--today"),
+                           apply=("--apply" in args))
+
     dispatch = {
         "init": lambda: cmd_init(args[1], args[2]),
         "diff": lambda: cmd_diff(args[1], args[2]),
@@ -2187,6 +2236,7 @@ def main():
         "sync-apply": _sync_apply_cli,
         "ensure-plugin": _ensure_plugin_cli,
         "work": _work_cli,
+        "promote": _promote_cli,
     }
 
     if cmd not in dispatch:
