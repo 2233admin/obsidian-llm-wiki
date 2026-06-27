@@ -16,6 +16,7 @@ Usage:
     python kb_meta.py sync-pull <vault> [--provider X] [--apply] [--today YYYY-MM-DD]
     python kb_meta.py sync-plan <vault> [--today YYYY-MM-DD]
     python kb_meta.py sync-apply <vault> [--apply] [--today YYYY-MM-DD]
+    python kb_meta.py ensure-plugin <vault> [--plugin <id>] [--repo owner/name] [--apply] [--force]
 
 All commands output JSON to stdout for machine consumption.
 """
@@ -36,6 +37,7 @@ import currency as _currency  # noqa: E402
 import work_protocol as _work_protocol  # noqa: E402
 import workspace as _workspace  # noqa: E402
 import forge as _forge  # noqa: E402
+import plugins as _plugins  # noqa: E402
 from _md_parse import parse_frontmatter as robust_parse_frontmatter  # noqa: E402
 
 
@@ -1539,6 +1541,30 @@ def cmd_sync_apply(vault: str, apply: bool = False, today: str | None = None,
     return _forge.sync_apply(vault, t, providers=provs, apply=apply, today=today)
 
 
+# --- Task 9: ensure an Obsidian community plugin is installed + enabled ------
+#
+# `ensure-plugin` makes the vault's kanban board (work_driver.render_kanban_board)
+# actually render for users who lack the obsidian-kanban plugin. DRY-RUN by
+# default: it returns the plan and writes/downloads NOTHING. --apply performs the
+# atomic install (stage -> swap -> enable); --force re-downloads over an existing
+# dir. The download is injectable (transport=/downloader=) at the PYTHON API layer
+# only, so tests are hermetic; the CLI always uses the real UrllibTransport.
+
+def cmd_ensure_plugin(vault: str, plugin: str = _plugins.DEFAULT_PLUGIN_ID,
+                      repo: str = _plugins.DEFAULT_REPO, apply: bool = False,
+                      force: bool = False, transport=None, downloader=None,
+                      today: str | None = None) -> dict:
+    """Ensure a community plugin is installed + enabled. DRY-RUN by default;
+    --apply performs the atomic install + enable; --force re-downloads over an
+    existing plugin dir. An unsafe plugin id raises UnsafePluginId (a ValueError),
+    which main() surfaces as {"error": ...} with a non-zero exit. `transport` /
+    `downloader` are injectable at this API layer only (tests pass a fake); the CLI
+    always uses the real UrllibTransport."""
+    return _plugins.ensure_plugin(
+        vault, plugin, repo, apply=apply, force=force,
+        transport=transport, downloader=downloader, today=today)
+
+
 # --- CLI ---
 #
 # The project-* argv parsers are module-level pure functions (not closures) so the
@@ -1678,6 +1704,40 @@ def _parse_sync_apply_args(args: list[str]) -> dict:
     return {"vault": pos[0], "apply": apply, "today": today_str}
 
 
+def _parse_ensure_plugin_args(args: list[str]) -> dict:
+    """Parse 'ensure-plugin <vault> [--plugin <id>] [--repo owner/name] [--apply]
+    [--force]' (dry-run default). Returns {vault, plugin, repo, apply, force}.
+    Missing <vault> -> IndexError. --plugin / --repo consume the FOLLOWING token
+    (mirrors the --entity/--today consume-next pattern, so a value beginning with
+    '--' or a flag at end-of-args is handled deterministically). An absent flag
+    keeps its default (obsidian-kanban / mgmeyers/obsidian-kanban)."""
+    pos = [a for a in args[1:] if not a.startswith("--")]
+    if not pos:
+        raise IndexError("ensure-plugin needs <vault>")
+    plugin = _plugins.DEFAULT_PLUGIN_ID
+    repo = _plugins.DEFAULT_REPO
+    apply = False
+    force = False
+    i = 1
+    while i < len(args):
+        a = args[i]
+        if a == "--plugin" and i + 1 < len(args):
+            plugin = args[i + 1]
+            i += 2
+            continue
+        if a == "--repo" and i + 1 < len(args):
+            repo = args[i + 1]
+            i += 2
+            continue
+        if a == "--apply":
+            apply = True
+        elif a == "--force":
+            force = True
+        i += 1
+    return {"vault": pos[0], "plugin": plugin, "repo": repo, "apply": apply,
+            "force": force}
+
+
 def cmd_work_next(vault, *, claim_agent=None, ttl_seconds=3600, now=None):
     """Task 11A-iii heartbeat: select the next executable item from the
     AUTHORITATIVE work index and optionally lease it. One-shot, no daemon
@@ -1794,6 +1854,13 @@ def main():
         p = _parse_sync_apply_args(args)
         return cmd_sync_apply(p["vault"], apply=p["apply"], today=p["today"])
 
+    def _ensure_plugin_cli():
+        p = _parse_ensure_plugin_args(args)
+        # the CLI always uses the real UrllibTransport (download is injectable only
+        # at the Python API layer, for hermetic tests).
+        return cmd_ensure_plugin(p["vault"], plugin=p["plugin"], repo=p["repo"],
+                                 apply=p["apply"], force=p["force"])
+
     def _work_cli():
         # `work next  <vault> [--claim <agent>] [--ttl <sec>]`
         # `work board <vault> [--project <slug>] [--write]`
@@ -1830,6 +1897,7 @@ def main():
         "sync-pull": _sync_pull_cli,
         "sync-plan": _sync_plan_cli,
         "sync-apply": _sync_apply_cli,
+        "ensure-plugin": _ensure_plugin_cli,
         "work": _work_cli,
     }
 
