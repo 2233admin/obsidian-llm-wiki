@@ -41,7 +41,7 @@ Inside any Claude Code session:
 /plugin install llmwiki@obsidian-llm-wiki
 ```
 
-That's it. No clone, no build, no config file to edit. The plugin ships the MCP server (runs from the plugin directory, Node 20+), all `/llmwiki:vault-*` knowledge-work roles, and the thinking/research commands. Start Claude Code inside your vault and the server finds it automatically (cwd is the vault); otherwise set `VAULT_MIND_VAULT_PATH` or drop a `vault-mind.yaml`.
+That's it. No clone, no build, no config file to edit. The plugin ships the MCP server (runs from the plugin directory, Node 20+), all `/llmwiki:vault-*` knowledge-work roles, the thinking/research commands, and Obsidian-native Canvas diagram support. Start Claude Code inside your vault and the server finds it automatically (cwd is the vault); otherwise set `VAULT_MIND_VAULT_PATH` or drop a `vault-mind.yaml`.
 
 ### Other hosts (Codex / OpenCode / Gemini)
 
@@ -145,6 +145,8 @@ The default layout lives under `10-Projects/<project>/docket/`. Issues use docke
 
 Project management can now export native Obsidian views without requiring Obsidian to be running. Use `project.canvas.export` for `10-Projects/<project>/views/project-map.canvas`, and `project.base.export` for `10-Projects/<project>/views/issues.base`. Canvas gives a spatial project map; Bases gives a table dashboard over issue properties. Kanban remains the supported third-party read-side board adapter; Dataview and Tasks are documented as optional advanced alternatives, not required dependencies.
 
+`/vault-diagram` adds a more general Canvas workflow for architecture, workflow, sequence, dataflow, and lifecycle boards that are not tied to a single `project.*` export. It writes `.canvas` files into existing vault folders, keeps user-moved nodes stable when updating a board, and uses the bundled `archify/` vocabulary for layout planning. See [docs/adapters/archify.md](docs/adapters/archify.md).
+
 ## Local NotebookLM-style ingest with ChubbySkills
 
 LLMwiki can now treat [chubbyguan/chubbyskills](https://github.com/chubbyguan/chubbyskills) as an optional local ingest pack. ChubbySkills handles platform capture and transcription for Douyin, Bilibili, Xiaohongshu, WeChat, X/Twitter, podcasts, YouTube, and more; LLMwiki handles the local vault layer: search, citations, graph, Markdown memory, AI-Output review, and promotion.
@@ -217,6 +219,7 @@ Each `/vault-*` command is a knowledge-work role over the same MCP tool set. The
 | vault-teacher | explains a note in context of its neighbors | `vault.backlinks`, `vault.read`, `vault.graph` |
 | vault-historian | answers what you were thinking on date X | `vault.searchByFrontmatter`, `vault.stat`, `vault.search` |
 | vault-janitor | proposes cleanups, dry-run by default | `vault.lint`, `vault.delete` (dry), `vault.rename` (dry) |
+| vault-diagram | creates and maintains `.canvas` boards in existing vault folders | `vault.search`, `vault.read`, `vault.create` |
 
 ---
 
@@ -239,9 +242,9 @@ Every note gets `ai-first: true` in frontmatter and a two-sentence preamble so a
 
 ---
 
-## Thinking and research commands (v2.4.0)
+## Thinking, research, and diagram commands (v2.6.0)
 
-Thirteen slash commands in `commands/` for use in any Claude Code, Codex CLI, Gemini CLI, or OpenCode session. They run reasoning over the vault using the MCP tools above — no LLM logic lives in the server.
+Fourteen slash commands/skills for use in any Claude Code, Codex CLI, Gemini CLI, or OpenCode session. They run reasoning over the vault using the MCP tools above — no LLM logic lives in the server.
 
 | Command | What it does |
 |---|---|
@@ -258,6 +261,7 @@ Thirteen slash commands in `commands/` for use in any Claude Code, Codex CLI, Ge
 | `/vault-autoresearch` | Three-round autonomous research loop: question, investigate, refine, write up |
 | `/vault-think` | Apply a 10-principle thinking framework to a topic or note |
 | `/vault-expand` | Expand a single source into 8–15 interlinked wiki pages |
+| `/vault-diagram` | Create or update Obsidian Canvas architecture, workflow, sequence, dataflow, or lifecycle boards from vault context |
 
 Inspired by [obsidian-second-brain](https://github.com/eugeniughelbur/obsidian-second-brain) and [claude-obsidian](https://github.com/AgriciDaniel/claude-obsidian). vault-mind provides the infrastructure; these commands provide the workflow patterns that sit on top.
 
@@ -287,6 +291,7 @@ The wiki has the long-form answers. Read them in any order.
 | [**Adapter-Spec**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Adapter-Spec) | Adapter contract, capability matrix, fan-out and ranking, failure modes, recipe for a fifth adapter. |
 | [**Compile-Pipeline**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Compile-Pipeline) | What each stage produces, where the graph lives on disk, performance reference points. |
 | [**Research Compiler Loop**](docs/RESEARCH_COMPILER_LOOP.md) | The product loop: raw materials, compiled wiki, cited Q&A, AI-Output filing, review, promotion. |
+| [**Obsidian Canvas Diagrams**](docs/adapters/archify.md) | How `/vault-diagram` turns vault context into maintainable Obsidian Canvas boards. |
 | [**Persona-Design**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Persona-Design) | User-facing knowledge roles vs underlying skills. The design discipline that keeps them from collapsing into one generic agent. |
 | [**Security-Model**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Security-Model) | Dry-run default, protected paths, preflight gates, bearer-token transport, what this explicitly does not secure. |
 | [**Recipes**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Recipes) | Content collectors and local knowledge feeders (Feishu, Gmail, Linear, X, WeChat, Dreamtime, and more) that land external sources into the vault. |

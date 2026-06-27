@@ -703,6 +703,38 @@ test('server boots with vaultbrain enabled (pglite extension path regression gua
   }
 });
 
+test('server accepts legacy VAULT_PATH env alias', async () => {
+  const legacyRoot = join(tmpdir(), `obsidian-llm-wiki-smoke-legacy-${randomUUID()}`);
+  mkdirSync(legacyRoot, { recursive: true });
+  writeFileSync(join(legacyRoot, 'legacy.md'), '# legacy\n', 'utf-8');
+  const legacyTransport = new StdioClientTransport({
+    command: process.execPath,
+    args: [BUNDLE_PATH],
+    cwd: legacyRoot,
+    env: {
+      ...process.env,
+      VAULT_MIND_ADAPTERS: 'filesystem',
+      VAULT_PATH: legacyRoot,
+      VAULT_MIND_VAULT_PATH: '',
+      VAULT_BRIDGE_VAULT: '',
+    },
+    stderr: 'pipe',
+  });
+  const legacyClient = new Client(
+    { name: 'smoke-test-legacy-vault-path', version: '0.0.1' },
+    { capabilities: {} },
+  );
+  try {
+    await legacyClient.connect(legacyTransport);
+    const res = await legacyClient.listTools();
+    assert.ok(res.tools.some((tool) => tool.name === 'vault.search'), 'legacy VAULT_PATH boot should expose vault tools');
+  } finally {
+    try { await legacyClient.close(); } catch { /* best effort */ }
+    try { await legacyTransport.close(); } catch { /* best effort */ }
+    rmSync(legacyRoot, { recursive: true, force: true });
+  }
+});
+
 test('collaboration policy enforces actor write boundaries and audits writes', async () => {
   const policyRoot = join(tmpdir(), `obsidian-llm-wiki-policy-${randomUUID()}`);
   mkdirSync(join(policyRoot, '00-Inbox', 'AI-Output', 'codex'), { recursive: true });

@@ -2,7 +2,7 @@
 # Usage: .\setup.ps1 [-VaultHost <name>] [-DryRun]
 #
 # Copies a curated allowlist into the host's skills directory.
-# ~1.7 MB install (vs 64 MB of repo) -- ships a pre-bundled MCP server
+# ~2 MB install (vs 64 MB of repo) -- ships a pre-bundled MCP server
 # so the user doesn't need to npm install anything.
 
 param(
@@ -69,7 +69,7 @@ if ($DryRun) {
 }
 
 # Allowlist copy. Anything not listed here is excluded from the install.
-$AllowlistDirs  = @("skills", "examples", "docs", "terrariums", "viewer", "smoke")
+$AllowlistDirs  = @("skills", "examples", "docs", "terrariums", "viewer", "smoke", "archify")
 $AllowlistFiles = @("README.md", "CHANGELOG.md", "RELEASE_NOTES.md", "vercel.json")
 
 foreach ($d in $AllowlistDirs) {
@@ -128,6 +128,22 @@ if (Test-Path $SkillRoot) {
     $InstalledSkills++
   }
 }
+
+# Register bundled Archify as its own top-level skill too. vault-diagram uses
+# the copy under vault-wiki\archify as layout vocabulary, while users can invoke
+# archify directly when they want standalone HTML/SVG diagrams.
+$ArchifyRoot = Join-Path $ScriptDir "archify"
+if (Test-Path (Join-Path $ArchifyRoot "SKILL.md")) {
+  $ArchifyDest = Join-Path $ParentDir "archify"
+  if ($DryRun) {
+    Write-Host "[dry-run] mkdir $ArchifyDest"
+    Write-Host "[dry-run] copy $ArchifyRoot\* -> $ArchifyDest"
+  } else {
+    New-Item -ItemType Directory -Force -Path $ArchifyDest | Out-Null
+    Copy-Item -Path (Join-Path $ArchifyRoot "*") -Destination $ArchifyDest -Recurse -Force
+  }
+  $InstalledSkills++
+}
 $InstallPath = (Join-Path $SkillsDir "mcp-server\bundle.js") -replace '\\', '/'
 
 if (-not $DryRun) {
@@ -170,6 +186,7 @@ Your markdown vault is managed by host-neutral LLMwiki roles:
 | Teacher | `/vault-teacher` | Explain concepts in graph context |
 | Historian | `/vault-historian` | Time-window search by mtime |
 | Janitor | `/vault-janitor` | Propose cleanup fixes |
+| Diagram | `/vault-diagram` | Create or update Obsidian Canvas boards |
 | Chubby Ingest | `/chubbyskills` | Install and route multi-platform capture into LLMwiki |
 | X Capture | `/x-to-obsidian` | Save high-signal X posts through Obsidian Web Clipper |
 | Closeout | `/vault-agent-closeout` | File agent work into AI-Output draft quarantine |

@@ -92,7 +92,7 @@ See [RESEARCH_COMPILER_LOOP.md](RESEARCH_COMPILER_LOOP.md) for the full operatin
 
 ## First agent session
 
-After install, point `VAULT_PATH` at a real markdown vault and restart your agent host.
+After install, point `VAULT_MIND_VAULT_PATH` at a real markdown vault and restart your agent host.
 
 ### 1. Sanity check — list one role
 
@@ -151,6 +151,7 @@ That is the agent side of the loop: query with citations, file useful output, th
 | **vault-historian** | "What was I thinking on date X" | ✅ | — |
 | **vault-janitor** | Cleanup plan with dry-run review | ✅ | dry-run by default |
 | **vault-gardener** | Seed an empty vault + run health passes | ✅ | dry-run by default |
+| **vault-diagram** | Obsidian Canvas boards from vault context | ✅ | draft in an existing index/project folder |
 
 **All write operations default to dry-run.** You see the plan before anything touches disk.
 
@@ -390,7 +391,7 @@ your-vault/
         └── ...
 ```
 
-If you don't want AI-Output in your root, set `VAULT_PATH` in `.mcp.json` to a sub-folder of your actual vault. The MCP server treats `VAULT_PATH` as the root — it won't write outside it.
+If you don't want AI-Output in your root, set `VAULT_MIND_VAULT_PATH` in `.mcp.json` to a sub-folder of your actual vault. The MCP server treats `VAULT_MIND_VAULT_PATH` as the root — it won't write outside it.
 
 ---
 
@@ -405,6 +406,7 @@ If you don't want AI-Output in your root, set `VAULT_PATH` in `.mcp.json` to a s
 | A restructure idea | `/vault-architect suggest refactors` |
 | Safe cleanup execution | `/vault-janitor clean up orphans, dry run first` |
 | Seed a fresh vault | `/vault-gardener help me set up notes about <topic>` |
+| A visual map | `/vault-diagram create an architecture canvas for <topic>` |
 
 ---
 
@@ -416,15 +418,15 @@ Restart your agent host. MCP registration is picked up at startup. If it still d
 
 ### `vault.search` returns nothing but your vault has files
 
-`VAULT_PATH` in your `.mcp.json` is probably wrong or relative. Must be an absolute path to a directory that contains `.md` files.
+`VAULT_MIND_VAULT_PATH` in your `.mcp.json` is probably wrong or relative. Must be an absolute path to a directory that contains `.md` files.
 
 ### Agent writes to the wrong place
 
-Check `VAULT_PATH` again. The MCP server refuses to write outside that path — if writes are landing somewhere unexpected, your path is unexpected.
+Check `VAULT_MIND_VAULT_PATH` again. The MCP server refuses to write outside that path — if writes are landing somewhere unexpected, your path is unexpected.
 
 ### I don't want AI-Output in my vault
 
-Two options: (a) set `VAULT_PATH` to a dedicated scratch directory, or (b) after use, move useful AI-Output files into proper topic folders and delete the rest.
+Two options: (a) set `VAULT_MIND_VAULT_PATH` to a dedicated scratch directory, or (b) after use, move useful AI-Output files into proper topic folders and delete the rest.
 
 ### The `node` command errors with "stdin is not a tty"
 
@@ -460,7 +462,7 @@ The compile step builds an in-memory graph; at 10k notes expect ~30-60s on first
 
 ### Is it safe to run against my real vault?
 
-Yes. All mutating operations default to `dryRun: true`. The server refuses paths outside `VAULT_PATH` and rejects `.obsidian/`, `.trash/`, `.git/`, `node_modules/` by design. AI-Output writes go into one scoped directory you can delete wholesale.
+Yes. All mutating operations default to `dryRun: true`. The server refuses paths outside `VAULT_MIND_VAULT_PATH` and rejects `.obsidian/`, `.trash/`, `.git/`, `node_modules/` by design. AI-Output writes go into one scoped directory you can delete wholesale.
 
 ### Can I use my own models?
 

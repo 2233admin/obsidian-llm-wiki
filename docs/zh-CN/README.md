@@ -46,7 +46,7 @@ git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git
 cd obsidian-llm-wiki; .\setup.ps1
 ```
 
-`setup` 脚本把一份 1.6 MB 的 skill 包解压到 host 的 skills 目录，把 `.mcp.json` 片段打到屏幕让你贴进 agent 配置，然后退出。重启 agent host 之后就能看到 MCP 服务器和 `/vault-*` 知识工种。装完仓库本体可以删——skill 是独立的。一条命令跑不通，[INSTALL.md](../INSTALL.md) 里有各 host 的路径和手工安装流程。
+`setup` 脚本把一份约 2 MB 的 skill 包解压到 host 的 skills 目录，把 `.mcp.json` 片段打到屏幕让你贴进 agent 配置，然后退出。重启 agent host 之后就能看到 MCP 服务器、`/vault-*` 知识工种和 Obsidian Canvas 画图能力。装完仓库本体可以删——skill 是独立的。一条命令跑不通，[INSTALL.md](../INSTALL.md) 里有各 host 的路径和手工安装流程。
 
 ---
 
@@ -141,6 +141,7 @@ python scripts/llmwiki_doctor.py --vault examples/collab-vault --json
 | vault-teacher | 把一条笔记放到邻居网络里解释 | `vault.backlinks`、`vault.read`、`vault.graph` |
 | vault-historian | 回答"X 日期我当时在想什么" | `vault.searchByFrontmatter`、`vault.stat`、`vault.search` |
 | vault-janitor | 提清理方案，默认 dry-run | `vault.lint`、`vault.delete`（dry）、`vault.rename`（dry） |
+| vault-diagram | 把 vault 上下文画成可 review 的 Obsidian Canvas 画板 | `vault.search`、`vault.read`、`vault.create` |
 
 ---
 
@@ -167,6 +168,7 @@ Wiki 放长文答案，任意顺序读。
 | [**Adapter-Spec**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Adapter-Spec) | Adapter 契约、能力矩阵、fan-out 与排序、失败模式、写第五个 adapter 的 recipe。 |
 | [**Compile-Pipeline**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Compile-Pipeline) | 编译每阶段的产物、概念图存哪、性能参考点。 |
 | [**Research Compiler Loop**](../RESEARCH_COMPILER_LOOP.md) | 产品闭环：raw materials、compiled wiki、带引用 Q&A、AI-Output 归档、review、promotion。 |
+| [**Obsidian Canvas Diagrams**](../adapters/archify.md) | `/vault-diagram` 如何把 vault 上下文变成可维护的 Obsidian Canvas 画板。 |
 | [**Persona-Design**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Persona-Design) | 面向用户的知识工种 vs 底层 skill。不让它们退化成一个 generic agent 的设计纪律。 |
 | [**Security-Model**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Security-Model) | Dry-run 默认、受保护路径、preflight 门、bearer token 传输、明确不解决的安全问题。 |
 | [**Recipes**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Recipes) | 内容采集器和本地知识喂料器（Feishu、Gmail、Linear、X、WeChat、Dreamtime 等）把外部源落地进 vault。 |

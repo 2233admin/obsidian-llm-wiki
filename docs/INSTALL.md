@@ -16,7 +16,7 @@ git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git ~/obsidia
 cd ~/obsidian-llm-wiki-src && ./setup
 ```
 
-Setup copies a 1.6 MB curated allowlist (`skills/`, `examples/`, `docs/`, `terrariums/`, `viewer/`, `smoke/`, `mcp-server/{bundle.js, package.json}`, top-level docs, `vercel.json`) into your host's skills directory. After setup runs you can delete the source clone.
+Setup copies a roughly 2 MB curated allowlist (`skills/`, `examples/`, `docs/`, `viewer/`, `archify/`, `mcp-server/{bundle.js, package.json}`, and top-level docs that exist in the checkout) into your host's skills directory. After setup runs you can delete the source clone.
 
 ## Per-host install
 
@@ -42,7 +42,7 @@ Windows / PowerShell:
 
 Setup prints both snippets at the end. Copy them into the right place:
 
-**1. Add to your `.mcp.json`:** the printed JSON snippet registers `vault-mind` as an MCP server pointing at the installed `bundle.js`. The `VAULT_PATH` env var must be set to the absolute path of your Obsidian vault (or any markdown directory).
+**1. Add to your `.mcp.json`:** the printed JSON snippet registers `vault-mind` as an MCP server pointing at the installed `bundle.js`. The `VAULT_MIND_VAULT_PATH` env var must be set to the absolute path of your Obsidian vault (or any markdown directory). `VAULT_PATH` is accepted as a legacy alias.
 
 **2. Add to `CLAUDE.md` (or equivalent host instructions):** the printed `## Vault Roles` section tells your agent which `/vault-*` role command to invoke for each task.
 
@@ -60,8 +60,8 @@ cd obsidian-llm-wiki
 HOST_DIR="$HOME/.claude/skills/vault-wiki"
 mkdir -p "$HOST_DIR/mcp-server"
 
-cp -r skills examples docs terrariums viewer smoke "$HOST_DIR/"
-cp README.md CHANGELOG.md RELEASE_NOTES.md vercel.json "$HOST_DIR/"
+cp -r skills examples docs viewer archify "$HOST_DIR/"
+cp README.md "$HOST_DIR/"
 cp mcp-server/bundle.js mcp-server/package.json "$HOST_DIR/mcp-server/"
 ```
 
@@ -73,7 +73,7 @@ Then add the `.mcp.json` entry manually:
     "vault-mind": {
       "command": "node",
       "args": ["/absolute/path/to/host/skills/vault-wiki/mcp-server/bundle.js"],
-      "env": { "VAULT_PATH": "/absolute/path/to/your/vault" }
+      "env": { "VAULT_MIND_VAULT_PATH": "/absolute/path/to/your/vault" }
     }
   }
 }
@@ -145,7 +145,7 @@ After setup, boot the bundle directly with a probe:
 
 ```bash
 echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"smoke","version":"0"}}}' \
-  | VAULT_PATH=/path/to/your/vault node ~/.claude/skills/vault-wiki/mcp-server/bundle.js
+  | VAULT_MIND_VAULT_PATH=/path/to/your/vault node ~/.claude/skills/vault-wiki/mcp-server/bundle.js
 ```
 
 You should see a JSON-RPC response with `serverInfo.name = "obsidian-llm-wiki"` and `protocolVersion = "2024-11-05"`. Server stderr prints the resolved adapter list, including `kanban` when the default adapter list is used.
@@ -158,7 +158,7 @@ You should see a JSON-RPC response with `serverInfo.name = "obsidian-llm-wiki"` 
 
 **`Error: Dynamic require of "events" is not supported`** -- the bundle was built without the `createRequire` shim banner. Re-run `npm run bundle` -- the `package.json` `bundle` script includes the correct banner flag.
 
-**MCP server starts but `vault.search` returns nothing** -- check that `VAULT_PATH` in `.mcp.json` is absolute and points at a directory with `.md` files. The server logs the resolved vault path at startup (visible in your agent host's MCP log).
+**MCP server starts but `vault.search` returns nothing** -- check that `VAULT_MIND_VAULT_PATH` in `.mcp.json` is absolute and points at a directory with `.md` files. The server logs the resolved vault path at startup (visible in your agent host's MCP log).
 
 **`Node version error` / `SyntaxError: Unexpected token`** -- the bundle targets Node 20+. Run `node --version` to confirm; upgrade with `nvm` / `fnm` if older.
 

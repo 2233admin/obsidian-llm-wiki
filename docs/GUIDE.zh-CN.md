@@ -92,7 +92,7 @@ raw/ -> wiki/ -> query -> 00-Inbox/AI-Output/ -> reviewed/promoted
 
 ## 第一次 agent session
 
-安装后，把 `VAULT_PATH` 指向一个真实 markdown vault，然后重启 agent host。
+安装后，把 `VAULT_MIND_VAULT_PATH` 指向一个真实 markdown vault，然后重启 agent host。
 
 ### 1. 先确认通路——问个计数
 
@@ -151,6 +151,7 @@ agent 侧闭环就是这样：带引用查询、归档有价值输出，再 revi
 | **vault-historian** | "X 日期我在想什么" | ✅ | — |
 | **vault-janitor** | 带 dry-run 审阅的清理计划 | ✅ | 默认 dry-run |
 | **vault-gardener** | 空 vault 播种 + 定期健康巡检 | ✅ | 默认 dry-run |
+| **vault-diagram** | 根据 vault 上下文生成 Obsidian Canvas 画板 | ✅ | 现有索引/项目目录里的草稿 |
 
 **所有写操作默认 dry-run。** 你先看到计划，磁盘什么都不会动，直到你确认。
 
@@ -229,7 +230,7 @@ your-vault/
         └── ...
 ```
 
-不想让 AI-Output 出现在 vault 根目录？把 `.mcp.json` 里的 `VAULT_PATH` 指向真正 vault 下的一个子目录即可——MCP server 把 `VAULT_PATH` 当根，不会越界写出去。
+不想让 AI-Output 出现在 vault 根目录？把 `.mcp.json` 里的 `VAULT_MIND_VAULT_PATH` 指向真正 vault 下的一个子目录即可——MCP server 把 `VAULT_MIND_VAULT_PATH` 当根，不会越界写出去。
 
 ---
 
@@ -244,6 +245,7 @@ your-vault/
 | 结构重组想法 | `/vault-architect 建议一些重构` |
 | 安全清理执行 | `/vault-janitor 清理孤岛，先 dry-run` |
 | 新 vault 播种 | `/vault-gardener 帮我围绕 <主题> 建立笔记骨架` |
+| 可视化地图 | `/vault-diagram 给 <主题> 建一个架构 Canvas` |
 
 ---
 
@@ -255,15 +257,15 @@ your-vault/
 
 ### `vault.search` 啥都搜不到，但 vault 里明明有文件
 
-`.mcp.json` 里的 `VAULT_PATH` 基本是错的或者是相对路径。必须是**绝对路径**，且指向一个含 `.md` 的目录。
+`.mcp.json` 里的 `VAULT_MIND_VAULT_PATH` 基本是错的或者是相对路径。必须是**绝对路径**，且指向一个含 `.md` 的目录。
 
 ### agent 写到了错的地方
 
-再检查 `VAULT_PATH`。MCP server 拒绝写出这个路径之外——如果写到了奇怪位置，说明你的路径本身就是奇怪的。
+再检查 `VAULT_MIND_VAULT_PATH`。MCP server 拒绝写出这个路径之外——如果写到了奇怪位置，说明你的路径本身就是奇怪的。
 
 ### 我不想让 AI-Output 出现在 vault 根里
 
-两条路：(a) 把 `VAULT_PATH` 指向一个专用的草稿目录；(b) 用完之后把有价值的 AI-Output 手动挪到合适的主题目录，其余删掉。
+两条路：(a) 把 `VAULT_MIND_VAULT_PATH` 指向一个专用的草稿目录；(b) 用完之后把有价值的 AI-Output 手动挪到合适的主题目录，其余删掉。
 
 ### `node` 命令报 "stdin is not a tty"
 
@@ -299,7 +301,7 @@ server 用 UTC 统一时间。你的本地时钟可能差了一个时区。vault
 
 ### 对真实 vault 安全吗？
 
-安全。所有修改操作默认 `dryRun: true`。server 拒绝 `VAULT_PATH` 之外的路径，也默认屏蔽 `.obsidian/`、`.trash/`、`.git/`、`node_modules/`。AI-Output 写入只落在一个可整目录删除的子目录里。
+安全。所有修改操作默认 `dryRun: true`。server 拒绝 `VAULT_MIND_VAULT_PATH` 之外的路径，也默认屏蔽 `.obsidian/`、`.trash/`、`.git/`、`node_modules/`。AI-Output 写入只落在一个可整目录删除的子目录里。
 
 ### 能换我自己的模型吗？
 

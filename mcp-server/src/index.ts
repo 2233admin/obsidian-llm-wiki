@@ -85,7 +85,7 @@ function loadConfig(): VaultMindConfig {
   // env var is a declaration of intent and must not be silently shadowed by an
   // abandoned yaml in cwd or parent -- prior to this fix a stale dev-workspace
   // yaml could quietly redirect the server away from the user's chosen vault.
-  const envVault = process.env.VAULT_MIND_VAULT_PATH || process.env.VAULT_BRIDGE_VAULT;
+  const envVault = process.env.VAULT_MIND_VAULT_PATH || process.env.VAULT_BRIDGE_VAULT || process.env.VAULT_PATH;
   if (envVault) {
     const envWeights = process.env.VAULT_MIND_ADAPTER_WEIGHTS;
     const envAdapters = process.env.VAULT_MIND_ADAPTERS;

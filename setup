@@ -2,7 +2,7 @@
 # LLM Wiki Bridge setup -- install skill + configure MCP
 #
 # Copies a curated allowlist into the host's skills directory.
-# ~1.7 MB install (vs 64 MB of repo) -- ships a pre-bundled MCP server
+# ~2 MB install (vs 64 MB of repo) -- ships a pre-bundled MCP server
 # so the user doesn't need to npm install anything.
 set -e
 
@@ -78,7 +78,7 @@ maybe_mkdir "$SKILLS_DIR"
 
 # Allowlist copy. Anything not listed here is excluded from the install.
 # Adding a new top-level dir? Add it here.
-ALLOWLIST_DIRS="skills examples docs terrariums viewer smoke"
+ALLOWLIST_DIRS="skills examples docs terrariums viewer smoke archify"
 ALLOWLIST_FILES="README.md CHANGELOG.md RELEASE_NOTES.md vercel.json"
 
 for d in $ALLOWLIST_DIRS; do
@@ -120,6 +120,15 @@ if [ -d "$SCRIPT_DIR/skills" ]; then
   done
 fi
 
+# Register bundled Archify as its own top-level skill too. vault-diagram uses
+# the copy under vault-wiki/archify as layout vocabulary, while users can invoke
+# archify directly when they want standalone HTML/SVG diagrams.
+if [ -d "$SCRIPT_DIR/archify" ] && [ -f "$SCRIPT_DIR/archify/SKILL.md" ]; then
+  maybe_mkdir "$PARENT_DIR/archify"
+  run cp -R "$SCRIPT_DIR/archify/." "$PARENT_DIR/archify/"
+  INSTALLED_SKILLS=$((INSTALLED_SKILLS + 1))
+fi
+
 INSTALL_PATH="$SKILLS_DIR/mcp-server/bundle.js"
 
 echo ""
@@ -130,7 +139,7 @@ echo ""
 echo "Next steps:"
 echo ""
 echo "1. Set your vault path:"
-echo "   export VAULT_PATH=/path/to/your/vault"
+echo "   export VAULT_MIND_VAULT_PATH=/path/to/your/vault"
 echo ""
 echo "2. Add to your .mcp.json:"
 echo ""
@@ -139,7 +148,7 @@ echo '  "mcpServers": {'
 echo '    "vault-mind": {'
 echo '      "command": "node",'
 echo "      \"args\": [\"$INSTALL_PATH\"],"
-echo '      "env": { "VAULT_PATH": "YOUR_VAULT_PATH" }'
+echo '      "env": { "VAULT_MIND_VAULT_PATH": "YOUR_VAULT_PATH" }'
 echo '    }'
 echo '  }'
 echo '}'
@@ -158,6 +167,7 @@ echo "| Curator    | \`/vault-curator\`    | Detect orphans, stale notes, duplic
 echo "| Teacher    | \`/vault-teacher\`    | Explain how a concept relates to others |"
 echo "| Historian  | \`/vault-historian\`  | Time-window search by mtime |"
 echo "| Janitor    | \`/vault-janitor\`    | Propose orphan/duplicate/broken-link fixes |"
+echo "| Diagram    | \`/vault-diagram\`    | Create or update Obsidian Canvas boards |"
 echo "| Chubby Ingest | \`/chubbyskills\` | Install and route multi-platform capture into LLMwiki |"
 echo "| X Capture | \`/x-to-obsidian\` | Save high-signal X posts through Obsidian Web Clipper |"
 echo "| Closeout   | \`/vault-agent-closeout\` | File agent work into AI-Output draft quarantine |"
