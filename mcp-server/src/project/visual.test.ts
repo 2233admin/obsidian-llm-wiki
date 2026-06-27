@@ -15,7 +15,7 @@ const logger = {
   error: () => undefined,
 };
 
-test('project visual exports generate Canvas and Bases files without touching issues', async () => {
+test('project visual exports generate Canvas and Bases files against work-OS issues', async () => {
   const vault = tempVault();
   try {
     await op(vault, 'project.init').handler(ctx(vault), { project: 'visual' });
@@ -23,25 +23,24 @@ test('project visual exports generate Canvas and Bases files without touching is
       project: 'visual',
       title: 'Design visual layer',
       summary: 'canvas-source-token',
-      status: 'started',
+      state: 'in-progress',
       priority: 'High',
-      tags: ['visual'],
     });
-    await op(vault, 'project.issue.create').handler(ctx(vault), {
+    const second = (await op(vault, 'project.issue.create').handler(ctx(vault), {
       project: 'visual',
       title: 'Review Bases dashboard',
       summary: 'base-source-token',
-      status: 'backlog',
-      blocked_by: ['ISSUE-1'],
-    });
+      state: 'backlog',
+    })) as { slug: string };
+    // second blocked-by the first (entity ref).
     await op(vault, 'project.issue.link').handler(ctx(vault), {
       project: 'visual',
-      id: 'ISSUE-2',
-      relation: 'relates',
-      target: 'ISSUE-1',
+      slug: second.slug,
+      relation: 'blocked_by',
+      target: 'design-visual-layer',
     });
 
-    const canvasPath = '10-Projects/visual/views/project-map.canvas';
+    const canvasPath = '01-Projects/visual/views/project-map.canvas';
     const canvasDryRun = (await op(vault, 'project.canvas.export').handler(ctx(vault), {
       project: 'visual',
     })) as { path: string; dryRun: boolean; nodes: Array<Record<string, unknown>>; edges: Array<Record<string, unknown>> };
@@ -51,9 +50,10 @@ test('project visual exports generate Canvas and Bases files without touching is
     assert.equal(existsSync(vaultJoin(vault, canvasPath)), false);
     assert.ok(canvasDryRun.nodes.some((node) => node.type === 'text' && String(node.text).includes('LLMwiki project map')));
     assert.ok(canvasDryRun.nodes.some((node) => node.type === 'group' && node.label === 'In Progress'));
-    assert.ok(canvasDryRun.nodes.some((node) => node.type === 'file' && node.file === '10-Projects/visual/docket/issues/ISSUE-1.md'));
+    assert.ok(
+      canvasDryRun.nodes.some((node) => node.type === 'file' && node.file === '01-Projects/visual/issues/design-visual-layer.md'),
+    );
     assert.ok(canvasDryRun.edges.some((edge) => edge.label === 'blocks'));
-    assert.ok(canvasDryRun.edges.some((edge) => edge.label === 'relates'));
 
     await op(vault, 'project.canvas.export').handler(ctx(vault), { project: 'visual', dryRun: false });
     const canvas = JSON.parse(readFileSync(vaultJoin(vault, canvasPath), 'utf-8')) as {
@@ -63,19 +63,29 @@ test('project visual exports generate Canvas and Bases files without touching is
     assert.ok(canvas.nodes.some((node) => node.type === 'file'));
     assert.ok(canvas.edges.some((edge) => edge.label === 'blocks'));
 
-    const basePath = '10-Projects/visual/views/issues.base';
+    const basePath = '01-Projects/visual/views/issues.base';
     const baseDryRun = (await op(vault, 'project.base.export').handler(ctx(vault), {
       project: 'visual',
     })) as { path: string; sourceFolder: string; fields: string[]; dryRun: boolean };
 
     assert.equal(baseDryRun.path, basePath);
-    assert.equal(baseDryRun.sourceFolder, '10-Projects/visual/docket/issues');
-    assert.deepEqual(baseDryRun.fields, ['id', 'title', 'status', 'state_type', 'priority', 'assignee', 'blocked_by', 'updated_at', 'tags']);
+    assert.equal(baseDryRun.sourceFolder, '01-Projects/visual/issues');
+    assert.deepEqual(baseDryRun.fields, [
+      'entity',
+      'state',
+      'review',
+      'priority',
+      'assignee',
+      'blocked-by',
+      'last-verified',
+      'id',
+      'description',
+    ]);
     assert.equal(existsSync(vaultJoin(vault, basePath)), false);
 
     await op(vault, 'project.base.export').handler(ctx(vault), { project: 'visual', dryRun: false });
     const base = readFileSync(vaultJoin(vault, basePath), 'utf-8');
-    assert.match(base, /file\.inFolder\("10-Projects\/visual\/docket\/issues"\)/);
+    assert.match(base, /file\.inFolder\("01-Projects\/visual\/issues"\)/);
     assert.match(base, /type: table/);
 
     const registry = new AdapterRegistry();
@@ -92,7 +102,7 @@ test('project visual exports generate Canvas and Bases files without touching is
 test('project visual exports handle empty projects and overwrite=false', async () => {
   const vault = tempVault();
   try {
-    const canvasPath = '10-Projects/empty/views/project-map.canvas';
+    const canvasPath = '01-Projects/empty/views/project-map.canvas';
     const result = (await op(vault, 'project.canvas.export').handler(ctx(vault), {
       project: 'empty',
       dryRun: false,
@@ -104,11 +114,12 @@ test('project visual exports handle empty projects and overwrite=false', async (
     assert.ok(existsSync(vaultJoin(vault, canvasPath)));
 
     await assert.rejects(
-      () => op(vault, 'project.canvas.export').handler(ctx(vault), {
-        project: 'empty',
-        dryRun: false,
-        overwrite: false,
-      }),
+      () =>
+        op(vault, 'project.canvas.export').handler(ctx(vault), {
+          project: 'empty',
+          dryRun: false,
+          overwrite: false,
+        }),
       /Already exists/,
     );
   } finally {

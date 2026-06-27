@@ -979,7 +979,7 @@ Persist a named memory across MCP sessions. Use for inferences, user preferences
 
 ### `project.base.export`
 
-Export an Obsidian Bases issues dashboard under 10-Projects/<project>/views/issues.base.
+Export an Obsidian Bases issues dashboard under 01-Projects/<project>/views/issues.base (derived view).
 
 **Mutating:** yes
 
@@ -991,17 +991,19 @@ Export an Obsidian Bases issues dashboard under 10-Projects/<project>/views/issu
 
 ### `project.board.get`
 
-Return the generated Markdown Kanban board for a local project.
+Render the work-OS Kanban board (Obsidian kanban-plugin format) from the authoritative issue notes. Parity with `python kb_meta.py work board`.
 
 **Mutating:** no
 
 **Parameters:**
 
 - `project` (string, required) — Project key
+- `lang` (string, optional) — Lane-label language (en/zh/ja); default $VAULT_MIND_LANG then auto-detect
+- `write` (boolean, optional, default: `false`) — Also write board.md next to the project anchor (derived view)
 
 ### `project.canvas.export`
 
-Export an Obsidian Canvas project map under 10-Projects/<project>/views/project-map.canvas.
+Export an Obsidian Canvas project map under 01-Projects/<project>/views/project-map.canvas (derived view).
 
 **Mutating:** yes
 
@@ -1013,103 +1015,101 @@ Export an Obsidian Canvas project map under 10-Projects/<project>/views/project-
 
 ### `project.comment.add`
 
-Append a docket-style comment block under docket/comments/<issue-id>.md.
+Append a comment to a sibling 01-Projects/<project>/issues/<slug>.comments.md (does not affect the board/authoritative index).
 
 **Mutating:** yes
 
 **Parameters:**
 
 - `project` (string, required) — Project key
-- `id` (string, required) — Issue id
+- `slug` (string, required) — Issue slug
 - `body` (string, required) — Comment Markdown body
 - `actor` (string, optional) — Comment actor; defaults to collaboration actor
 - `session` (string, optional) — Optional session/thread id
 
 ### `project.init`
 
-Seed a local docket/rhizome/seed-inspired project workspace under 10-Projects/<project>.
+Create a work-OS project anchor note at 01-Projects/<project>/_project.md (single source of truth; no docket store).
 
 **Mutating:** yes
 
 **Parameters:**
 
 - `project` (string, required) — Project key, single safe path segment
+- `description` (string, optional) — One-line project description (<=200 chars)
 
 ### `project.issue.create`
 
-Create a docket-compatible Markdown issue. Default status is Todo/unstarted.
+Create a work-OS issue note under 01-Projects/<project>/issues/<slug>.md. Default state is todo; review reviewed (authoritative).
 
 **Mutating:** yes
 
 **Parameters:**
 
 - `project` (string, required) — Project key
-- `title` (string, required) — Issue title
-- `summary` (string, optional) — Short issue summary
-- `body` (string, optional) — Detailed issue body
-- `status` (string, optional) — Docket status or state_type
-- `priority` (string, optional, default: `"No priority"`, enum: `Urgent` | `High` | `Medium` | `Low` | `No priority`) — Docket priority
+- `title` (string, required) — Issue title (-> slug + default card label)
+- `slug` (string, optional) — Explicit slug (lowercase-kebab); default derived from title
+- `summary` (string, optional) — One-line description (<=200 chars); default from title
+- `body` (string, optional) — Detailed issue body (first non-blank line is the card label)
+- `state` (string, optional) — Work state: backlog|todo|in-progress|done|canceled (default todo)
+- `review` (string, optional, enum: `reviewed` | `draft`) — Review axis (default reviewed = authoritative)
+- `priority` (string, optional) — Priority as a string: int "0".."4" (1=urgent..4=low, 0=none) or word urgent/high/medium/low/none. Stored as the int.
 - `assignee` (string, optional) — Actor or human owner
-- `tags` (array, optional) — Issue tags
-- `blocked_by` (array, optional) — Blocking issue ids
-- `parent` (string, optional) — Parent issue id or ~
-- `milestone` (string, optional) — Milestone label
-- `batch` (number, optional) — Rolling batch ordinal
+- `blocked_by` (array, optional) — Blocking entity refs (project/<proj>/issue/<slug>)
 
 ### `project.issue.get`
 
-Read a local project issue by id.
+Read a work-OS issue by slug.
 
 **Mutating:** no
 
 **Parameters:**
 
 - `project` (string, required) — Project key
-- `id` (string, required) — Issue id, e.g. ISSUE-1
+- `slug` (string, required) — Issue slug
 
 ### `project.issue.link`
 
-Add a rhizome relationship. blocks/blocked_by also update docket blocked_by dependencies.
+Edit blocked-by dependencies between work-OS issues. blocks/blocked_by rewrite blocked-by (entity refs); relates is derive-only (soft notice).
 
 **Mutating:** yes
 
 **Parameters:**
 
 - `project` (string, required) — Project key
-- `id` (string, required) — Source issue id
-- `relation` (string, required, enum: `blocks` | `blocked_by` | `relates` | `duplicates` | `parent` | `child` | `depends_on`) — Relationship type
-- `target` (string, required) — Target issue id or note slug/path
+- `slug` (string, required) — Source issue slug
+- `relation` (string, required, enum: `blocks` | `blocked_by` | `relates`) — Relationship type
+- `target` (string, required) — Target issue slug (resolved to its entity)
 
 ### `project.issue.list`
 
-List local project issues, optionally filtered by docket status/state_type or assignee.
+List authoritative work-OS issues for a project (drafts excluded), optionally filtered by state or assignee.
 
 **Mutating:** no
 
 **Parameters:**
 
 - `project` (string, required) — Project key
-- `status` (string, optional) — Optional status or state_type filter
+- `state` (string, optional) — Optional work-state filter (backlog|todo|in-progress|done|canceled)
 - `assignee` (string, optional) — Optional assignee filter
 
 ### `project.issue.update`
 
-Update status/state_type, priority, assignee, dependency fields, summary, or body for a local project issue.
+Update a work-OS issue (state/priority/review/assignee/blocked_by/description/body); bumps last-verified.
 
 **Mutating:** yes
 
 **Parameters:**
 
 - `project` (string, required) — Project key
-- `id` (string, required) — Issue id
-- `status` (string, optional) — New status or state_type
-- `priority` (string, optional, enum: `Urgent` | `High` | `Medium` | `Low` | `No priority`) — New priority
+- `slug` (string, required) — Issue slug
+- `state` (string, optional) — New work state (backlog|todo|in-progress|done|canceled)
+- `review` (string, optional, enum: `reviewed` | `draft`) — New review axis value
+- `priority` (string, optional) — New priority as a string: int "0".."4" or word urgent/high/medium/low/none. Stored as the int.
 - `assignee` (string, optional) — New assignee
-- `tags` (array, optional) — Replacement tags
-- `blocked_by` (array, optional) — Replacement blocking issue ids
-- `parent` (string, optional) — Replacement parent issue id or ~
-- `summary` (string, optional) — Replacement summary
-- `body` (string, optional) — Replacement details body
+- `blocked_by` (array, optional) — Replacement blocking entity refs
+- `summary` (string, optional) — Replacement one-line description
+- `body` (string, optional) — Replacement body
 
 ## `ingest.*` (2)
 

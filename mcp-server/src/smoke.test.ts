@@ -183,32 +183,41 @@ test('tools/list includes OPENCLI and MEDIA_TRANSCRIBE ingest preflight operatio
   }
 });
 
-test('project tools create docket-compatible searchable local issues', async () => {
+test('project tools create work-OS searchable local issues', async () => {
   const init = await client.callTool({ name: 'project.init', arguments: { project: 'smokeproj' } });
   assert.ok(!init.isError, `project.init errored: ${JSON.stringify(init.content)}`);
 
+  // Work-OS create: title -> slug, summary -> description (searchable token).
   const created = await client.callTool({
     name: 'project.issue.create',
     arguments: {
       project: 'smokeproj',
       title: 'Local Linear smoke',
       summary: 'local-linear-smoke-token',
-      status: 'started',
-      priority: 'High',
-      tags: ['docket', 'rhizome'],
+      state: 'in-progress',
+      priority: 'high',
     },
   });
   assert.ok(!created.isError, `project.issue.create errored: ${JSON.stringify(created.content)}`);
+  const createdPayload = JSON.parse((created.content as Array<{ text: string }>)[0].text) as {
+    slug: string;
+    id: string;
+    path: string;
+  };
+  assert.equal(createdPayload.slug, 'local-linear-smoke');
+  assert.equal(createdPayload.id, 'smokeproj/local-linear-smoke');
 
+  // Work-OS update drives by slug + canonical state (NOT id:ISSUE-1 / status:Done).
   const updated = await client.callTool({
     name: 'project.issue.update',
-    arguments: { project: 'smokeproj', id: 'ISSUE-1', status: 'Done' },
+    arguments: { project: 'smokeproj', slug: createdPayload.slug, state: 'done' },
   });
   assert.ok(!updated.isError, `project.issue.update errored: ${JSON.stringify(updated.content)}`);
 
+  // Comment.add appends to a sibling comments file by slug.
   const commented = await client.callTool({
     name: 'project.comment.add',
-    arguments: { project: 'smokeproj', id: 'ISSUE-1', body: 'Comment from smoke test' },
+    arguments: { project: 'smokeproj', slug: createdPayload.slug, body: 'Comment from smoke test' },
   });
   assert.ok(!commented.isError, `project.comment.add errored: ${JSON.stringify(commented.content)}`);
 
@@ -220,8 +229,9 @@ test('project tools create docket-compatible searchable local issues', async () 
   const payload = JSON.parse((search.content as Array<{ text: string }>)[0].text) as {
     results: Array<{ path: string }>
   };
+  // Single source of truth: the work-OS note under 01-Projects/<proj>/issues/<slug>.md.
   assert.ok(
-    payload.results.some((result) => result.path.replaceAll('\\', '/') === '10-Projects/smokeproj/docket/issues/ISSUE-1.md'),
+    payload.results.some((result) => result.path.replaceAll('\\', '/') === '01-Projects/smokeproj/issues/local-linear-smoke.md'),
     `project issue not searchable: ${JSON.stringify(payload)}`,
   );
 });
@@ -236,7 +246,7 @@ arguments: {
 project: 'visualsmoke',
 title: 'Visual smoke issue',
 summary: 'visual-smoke-issue-token',
-status: 'started',
+state: 'in-progress',
 },
 });
 assert.ok(!created.isError, `project.issue.create errored: ${JSON.stringify(created.content)}`);
@@ -260,7 +270,7 @@ arguments: { query: 'LLMwiki project map', glob: '**/*.canvas', maxResults: 5 },
 assert.ok(!canvasSearch.isError, `vault.search canvas errored: ${JSON.stringify(canvasSearch.content)}`);
 const canvasPayload = JSON.parse((canvasSearch.content as Array<{ text: string }>)[0].text) as { results: Array<{ path: string }> };
 assert.ok(
-  canvasPayload.results.some((file) => file.path.replaceAll('\\', '/') === '10-Projects/visualsmoke/views/project-map.canvas'),
+  canvasPayload.results.some((file) => file.path.replaceAll('\\', '/') === '01-Projects/visualsmoke/views/project-map.canvas'),
   `visual canvas not searchable: ${JSON.stringify(canvasPayload)}`,
 );
 
@@ -271,7 +281,7 @@ arguments: { query: 'Obsidian Bases dashboard', glob: '**/*.base', maxResults: 5
 assert.ok(!baseSearch.isError, `vault.search base errored: ${JSON.stringify(baseSearch.content)}`);
 const basePayload = JSON.parse((baseSearch.content as Array<{ text: string }>)[0].text) as { results: Array<{ path: string }> };
 assert.ok(
-  basePayload.results.some((file) => file.path.replaceAll('\\', '/') === '10-Projects/visualsmoke/views/issues.base'),
+  basePayload.results.some((file) => file.path.replaceAll('\\', '/') === '01-Projects/visualsmoke/views/issues.base'),
   `visual base not searchable: ${JSON.stringify(basePayload)}`,
 );
 });

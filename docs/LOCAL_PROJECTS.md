@@ -1,134 +1,146 @@
 # Local project management
 
-LLMwiki now includes a local Linear-style project management surface under the `project.*` MCP namespace.
+LLMwiki includes a local Linear-style project management surface under the `project.*` MCP namespace.
 
-This layer is inspired by three Orrery tools:
+The `project.*` tools are a **thin adapter over the work-OS** (the Python compiler's `work_protocol` / `work_driver` / `currency` brain): the single source of truth is the work-OS issue notes, and the MCP layer simply maps tool params to those notes and renders the Kanban board from them. There is **no separate docket store** — the previous `10-Projects/<project>/docket/**` store has been removed.
 
-- `the-orrery/docket`: local-first Markdown issue tracking with Git history.
-- `the-orrery/rhizome`: Markdown + frontmatter knowledge contracts, domain trees, and link validation.
-- `the-orrery/seed`: repeatable repo/project scaffolding with docs and telemetry conventions.
-
-The public GitHub URLs may show `404` because these repositories are private. LLMwiki's implementation follows the authorized source contracts rather than the earlier public-link assumption.
+> **One source of truth.** Issue state lives in `01-Projects/<project>/issues/<slug>.md`. The board is a derived, regenerable view (never a source). The TS board renderer is proven byte-equal to `python kb_meta.py work board` by `mcp-server/src/project/parity.test.ts`.
 
 ## What it gives you
 
 ```text
-local Linear-style issue state
-  -> Markdown files under the vault
-  -> Kanban board readable by the kanban adapter
-  -> comments and dependency edges
+work-OS issue notes (state + review + blocked-by)
+  -> Markdown files under 01-Projects/<project>/issues/
+  -> Obsidian Kanban board rendered on demand (Backlog/Todo/In Progress/Blocked/Done/Canceled)
+  -> blocked-by dependency edges (Blocked lane derived, like has_unresolved_blocker)
   -> query.unified / vault.search visibility
-  -> review and promotion through normal LLMwiki workflows
+  -> review / promotion through the normal work-OS protocol (reviewed vs draft)
 ```
 
 ## Vault layout
 
-For project `alpha`, `project.init` creates:
+For project `alpha`, `project.init` creates only the work-OS anchor and an empty issues folder:
 
 ```text
-10-Projects/alpha/project.md
-10-Projects/alpha/docket/board.md
-10-Projects/alpha/docket/rhizome.md
-10-Projects/alpha/docket/issues/
-10-Projects/alpha/docket/comments/
-10-Projects/alpha/docket/projects/alpha.md
-10-Projects/alpha/docket/docs/INDEX.md
-10-Projects/alpha/docket/docs/architecture.md
+01-Projects/alpha/_project.md      # work-OS project anchor note
+01-Projects/alpha/issues/          # one <slug>.md per issue (created by issue.create)
 ```
 
-## Docket-compatible issue schema
+No docket folders, no seeded `board.md` — the board is derived on demand from the issue notes.
+
+## Work-OS issue schema
 
 Issue files live at:
 
 ```text
-10-Projects/<project>/docket/issues/ISSUE-1.md
+01-Projects/<project>/issues/<slug>.md
 ```
 
-They use docket-style frontmatter:
+with rhizome-compliant work-OS frontmatter (deterministic key order):
 
 ```yaml
 ---
-id: ISSUE-1
-title: "Build local Linear"
-status: Todo
-state_type: unstarted
-priority: High
-project: "alpha"
-assignee: "codex"
-parent: ~
-blocked_by: []
-tags: ["docket", "local-linear"]
-created_at: "2026-06-21T00:00:00.000Z"
-updated_at: "2026-06-21T00:00:00.000Z"
+type: issue
+entity: project/alpha/issue/build-local-linear
+state: todo            # workflow axis: backlog|todo|in-progress|done|canceled (NEVER 'blocked'; it is derived)
+review: reviewed       # review axis: authoritative iff != draft (reviewed or absent); draft = candidate
+kind: knowledge-task
+id: alpha/build-local-linear   # two lowercase-kebab segments: ^[a-z0-9][a-z0-9-]*/[a-z0-9][a-z0-9-]*$
+description: Build local Linear   # one line, <=200 chars
+status: active         # rhizome lifecycle: active|frozen|archived (SEPARATE from the review axis)
+priority: 2            # int 0..4 (1=urgent .. 4=low, 0/absent=none)
+blocked-by: [project/alpha/issue/other]   # ENTITY refs, never note-ids/ISSUE-N
+assignee: codex
+last-verified: 2026-06-27
 ---
+
+Build local Linear
 ```
 
-Status accepts either display names or state types:
+The **body's first non-blank line is the Kanban card label** (defaults to the issue title).
 
-| state_type | status |
+### Workflow axis (`state`)
+
+`state` is normalized through the work-OS `work_state` rules (canonical pass-through plus legacy mapping: `open->todo`, `in progress->in-progress`, `completed/done/closed->done`, `cancelled/canceled/archived->canceled`, `active->in-progress`, `paused->todo`, `planned->backlog`). `issue.create`/`issue.update` also accept these words but always **persist a canonical state**.
+
+| state | board lane |
 |---|---|
-| `backlog` | `Backlog` |
-| `unstarted` | `Todo` |
-| `started` | `In Progress` |
-| `completed` | `Done` |
-| `canceled` | `Canceled` |
+| `backlog` | Backlog |
+| `todo` | Todo |
+| `in-progress` | In Progress |
+| (derived) | Blocked — a `todo`/`in-progress` item whose `blocked-by` head is not `done` |
+| `done` | Done |
+| `canceled` | Canceled |
 
-Priority values:
+### Priority
 
-```text
-Urgent, High, Medium, Low, No priority
-```
+`priority` is stored as an int `0..4` (`PRIORITY_RANK = {1:0,2:1,3:2,4:3,0:4}`; missing/none sorts last). For back-compat, `issue.create`/`issue.update` also accept the words `urgent/high/medium/low/none` and map them to `1/2/3/4/0`, but the file always stores the int so board ordering matches the Python renderer.
 
-## Rhizome-compatible project note
+### Review axis (`review`)
 
-`docket/rhizome.md` uses a rhizome-style frontmatter contract:
+`review` is the authoritative gate, read first and falling back to legacy `status`: `reviewed` (or absent) → authoritative (listed + on the board); `draft` → candidate (excluded). This is separate from the rhizome `status: active|frozen|archived` lifecycle, which lives on the same note.
+
+## Project anchor note
+
+`01-Projects/<project>/_project.md`:
 
 ```yaml
 ---
-description: "Local project rhizome for alpha"
-keywords: ["alpha", "docket", "rhizome"]
-kind: index
-links: []
-code: []
+type: project
+entity: project/alpha
+kind: knowledge-task
+id: alpha/project
+description: Work-OS project alpha
+status: active
+last-verified: 2026-06-27
 ---
 ```
 
-`project.issue.link` appends relationship lines and updates `blocked_by` when the relation is `blocks` or `blocked_by`.
+The container note is **excluded from board cards** (`board_columns` skips `type: project`).
+
+## Dependencies
+
+`project.issue.link` edits the only persisted edge, `blocked-by` (a list of **entity** refs):
+
+- `blocks` → adds the source entity to the **target's** `blocked-by`.
+- `blocked_by` → adds the target entity to the **source's** `blocked-by`.
+- `relates` → derive-only in the work-OS (the `related` graph is the symmetric closure of `blocked-by`); nothing is persisted and the tool returns a soft notice.
 
 ## MCP tools
 
 | Tool | Purpose |
 |---|---|
-| `project.init` | Seed project docs, docket folders, board, rhizome, and project container. |
-| `project.issue.create` | Create `ISSUE-N.md` with docket-compatible frontmatter. |
-| `project.issue.list` | List issues filtered by status/state_type or assignee. |
-| `project.issue.get` | Read one issue and its Markdown content. |
-| `project.issue.update` | Update status, priority, assignee, dependencies, summary, or body. |
-| `project.issue.link` | Add issue/note relationships and dependency edges. |
-| `project.comment.add` | Append a docket-style comment block under `docket/comments/<id>.md`. |
-| `project.board.get` | Read the generated Kanban board. |
+| `project.init` | Create the work-OS project anchor (`_project.md`) and an empty `issues/` folder. |
+| `project.issue.create` | Create `issues/<slug>.md` with work-OS frontmatter (default `state: todo`, `review: reviewed`). |
+| `project.issue.list` | List **authoritative** issues (drafts excluded), filterable by `state`/`assignee`. |
+| `project.issue.get` | Read one issue (parsed view + raw content) by `slug`. |
+| `project.issue.update` | Update `state`/`review`/`priority`/`assignee`/`blocked_by`/`description`/`body`; bumps `last-verified`. |
+| `project.issue.link` | Edit `blocked-by` dependency edges (entity refs). |
+| `project.comment.add` | Append a comment to a sibling `issues/<slug>.comments.md` (does not affect the board/index). |
+| `project.board.get` | Render the work-OS Kanban board (parity with `python kb_meta.py work board`). |
 
 ## Example flow
 
 ```text
 project.init project=alpha
-project.issue.create project=alpha title="Build local Linear" priority=High status=started
-project.comment.add project=alpha id=ISSUE-1 body="Smoke test passed"
-project.issue.update project=alpha id=ISSUE-1 status=Done
+project.issue.create project=alpha title="Build local Linear" priority=2 state=todo
+project.comment.add project=alpha slug=build-local-linear body="Smoke test passed"
+project.issue.update project=alpha slug=build-local-linear state=done
 query.unified query="Build local Linear" adapters=["filesystem", "kanban"]
 ```
 
 ## Boundaries
 
 - This is not a cloud backend and does not run a scheduler.
-- The source of truth is Markdown in the vault.
-- The Kanban board is generated Markdown and remains readable by Obsidian Kanban.
+- The source of truth is the work-OS Markdown notes in the vault.
+- The Kanban board is a derived view (regenerable; safe to gitignore) and stays in the obsidian-kanban plugin format.
+- The board is rendered **TS-only** — no Python subprocess is invoked by the server.
 - Reviewed durable knowledge should still move through `20-Decisions/`, `30-Architecture/`, or `40-Runbooks/`.
 
 ## Obsidian visual exports
 
-Use `project.canvas.export` to create `10-Projects/<project>/views/project-map.canvas`. The Canvas contains a project text card, status groups, issue file cards, and edges for `blocked_by` plus issue links written through `project.issue.link`.
+Use `project.canvas.export` to create `01-Projects/<project>/views/project-map.canvas`. The Canvas contains a project text card, state groups, issue file cards, and `blocks` edges derived from `blocked-by`.
 
-Use `project.base.export` to create `10-Projects/<project>/views/issues.base`. The Base filters to `10-Projects/<project>/docket/issues/` and renders a table of issue frontmatter fields.
+Use `project.base.export` to create `01-Projects/<project>/views/issues.base`. The Base filters to `01-Projects/<project>/issues/` and renders a table of the work-OS frontmatter fields (`entity`, `state`, `review`, `priority`, `assignee`, `blocked-by`, `last-verified`, `id`, `description`).
 
-Both tools default to `dryRun=true`, support `overwrite=true`, and only generate view files. They do not rewrite issue notes or parse user-edited Canvas files. Obsidian Graph and Backlinks continue to come from normal Markdown wikilinks and properties.
+Both tools default to `dryRun=true`, support `overwrite=true`, and only generate view files. They do not rewrite issue notes or parse user-edited Canvas files.

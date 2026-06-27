@@ -1,456 +1,417 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
+// project_* MCP tools -- a THIN ADAPTER over the work-OS notes (the single source
+// of truth). Issue notes live under <vault>/01-Projects/<proj>/issues/<slug>.md as
+// rhizome-compliant work-OS frontmatter; the Kanban board is rendered on demand by
+// the TS port in workos.ts (byte-equal to the Python `work board`). The old docket
+// store (10-Projects/<proj>/docket/**) is gone -- no ISSUE-N ids, no board.md seed.
+//
+// TS-only, no python subprocess.
+
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import type { Operation, OperationContext } from '../core/types.js';
 import { makeErr } from '../core/types.js';
+import {
+  scanWorkNotes,
+  isAuthoritative,
+  workState,
+  workPriority,
+  blockedByRefs,
+  renderKanbanBoard,
+  detectVaultLang,
+  parseFm,
+  splitBody,
+  DEFAULT_STATE,
+  STATE_TODO,
+  type Frontmatter,
+  type FmValue,
+  type WorkNote,
+} from './workos.js';
 
-const STATE_TYPE_TO_STATUS = {
-  backlog: 'Backlog',
-  unstarted: 'Todo',
-  started: 'In Progress',
-  completed: 'Done',
-  canceled: 'Canceled',
-} as const;
-
-const VALID_STATE_TYPES = Object.keys(STATE_TYPE_TO_STATUS) as Array<keyof typeof STATE_TYPE_TO_STATUS>;
-const VALID_STATUSES = Object.values(STATE_TYPE_TO_STATUS);
-const VALID_PRIORITIES = ['Urgent', 'High', 'Medium', 'Low', 'No priority'] as const;
-const VALID_RHIZOME_KINDS = ['spec', 'reference', 'runbook', 'decision', 'research', 'note', 'index'] as const;
-const VALID_RELATIONS = ['blocks', 'blocked_by', 'relates', 'duplicates', 'parent', 'child', 'depends_on'] as const;
-
-type StateType = keyof typeof STATE_TYPE_TO_STATUS;
-type Status = (typeof VALID_STATUSES)[number];
-type Priority = (typeof VALID_PRIORITIES)[number];
-type Relation = (typeof VALID_RELATIONS)[number];
-
-interface IssueFrontmatter {
-  id: string;
-  title: string;
-  status: Status;
-  state_type: StateType;
-  priority: Priority;
-  project: string;
-  assignee: string;
-  parent: string;
-  blocked_by: string[];
-  tags: string[];
-  milestone: string;
-  batch: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface IssueRecord extends IssueFrontmatter {
-  path: string;
-  summary: string;
-  links: Array<{ relation: string; target: string }>;
-}
+// --- safe path segments ----------------------------------------------------
 
 function safeSegment(value: string, label: string): string {
   const trimmed = value.trim();
-  if (!trimmed || trimmed === '.' || trimmed === '..' || trimmed.includes('/') || trimmed.includes('\\') || /^[A-Za-z]:/.test(trimmed) || trimmed.startsWith('//')) {
+  if (
+    !trimmed ||
+    trimmed === '.' ||
+    trimmed === '..' ||
+    trimmed.includes('/') ||
+    trimmed.includes('\\') ||
+    /^[A-Za-z]:/.test(trimmed) ||
+    trimmed.startsWith('//')
+  ) {
     throw makeErr(-32602, `${label} must be single safe path segment`);
   }
   return trimmed;
 }
 
-function safeDocketId(value: string): string {
-  const trimmed = value.trim();
-  if (!/^[A-Za-z][A-Za-z0-9]*-\d+$/.test(trimmed)) throw makeErr(-32602, 'id must look like ISSUE-1');
-  return trimmed.toUpperCase();
+// slug = lowercase-kebab of an id leaf. Mirrors the rhizome id contract second
+// segment (^[a-z0-9][a-z0-9-]*$). Collapses runs of non-[a-z0-9] to '-'.
+function slugify(value: string): string {
+  const s = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return s;
+}
+
+// Project key used for BOTH the folder segment and the rhizome id/entity FIRST
+// segment. safeSegment only rejects path separators -- it does NOT lowercase or
+// restrict to [a-z0-9-], so a key like 'My_Proj' or 'Alpha' would yield an
+// id (`My_Proj/hello-world`) that fails rhizome/contract _ID_RE
+// (^[a-z0-9][a-z0-9-]*/[a-z0-9][a-z0-9-]*$). Slugify it to a valid first segment
+// so issue_create always writes a contract-valid id. Idempotent for keys that
+// are already lowercase-kebab (the existing-test case), so layout is unchanged.
+function projectKey(value: unknown): string {
+  const seg = safeSegment(String(value ?? ''), 'project');
+  const slug = slugify(seg);
+  if (!slug) throw makeErr(-32602, 'project must contain at least one [a-z0-9] character');
+  return slug;
 }
 
 function actorFromContext(ctx: OperationContext): string {
   return safeSegment(ctx.config.collaboration?.actor || process.env.VAULT_MIND_ACTOR || 'agent', 'actor');
 }
 
-function idPrefix(): string {
-  const raw = process.env.DOCKET_ID_PREFIX || 'ISSUE';
-  const cleaned = raw.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-  return cleaned || 'ISSUE';
-}
+// --- paths (work-OS layout) ------------------------------------------------
 
 function projectRoot(project: string): string {
-  return `10-Projects/${safeSegment(project, 'project')}`;
-}
-
-function docketRoot(project: string): string {
-  return `${projectRoot(project)}/docket`;
+  return `01-Projects/${safeSegment(project, 'project')}`;
 }
 
 function issuesRoot(project: string): string {
-  return `${docketRoot(project)}/issues`;
+  return `${projectRoot(project)}/issues`;
 }
 
-function commentsRoot(project: string): string {
-  return `${docketRoot(project)}/comments`;
+function projectNotePath(project: string): string {
+  return `${projectRoot(project)}/_project.md`;
 }
 
-function docketProjectsRoot(project: string): string {
-  return `${docketRoot(project)}/projects`;
+function issuePath(project: string, slug: string): string {
+  return `${issuesRoot(project)}/${slug}.md`;
 }
 
-function issuePath(project: string, id: string): string {
-  return `${issuesRoot(project)}/${safeDocketId(id)}.md`;
+function viewsRoot(project: string): string {
+  return `${projectRoot(project)}/views`;
 }
 
-function yamlString(value: string): string {
-  return JSON.stringify(value);
-}
-
-function yamlFlowList(values: string[]): string {
-  if (values.length === 0) return '[]';
-  return `[${values.map(yamlString).join(', ')}]`;
-}
-
-function normalizeList(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0).map((item) => item.trim());
-}
-
-function normalizeState(value: unknown, fallback: StateType = 'unstarted'): { status: Status; state_type: StateType } {
-  if (typeof value !== 'string' || !value.trim()) return { state_type: fallback, status: STATE_TYPE_TO_STATUS[fallback] };
-  const raw = value.trim();
-  if ((VALID_STATE_TYPES as string[]).includes(raw)) {
-    const state_type = raw as StateType;
-    return { state_type, status: STATE_TYPE_TO_STATUS[state_type] };
-  }
-  const status = VALID_STATUSES.find((candidate) => candidate.toLowerCase() === raw.toLowerCase());
-  if (status) {
-    const state_type = (Object.entries(STATE_TYPE_TO_STATUS).find(([, display]) => display === status)?.[0] ?? fallback) as StateType;
-    return { state_type, status };
-  }
-  throw makeErr(-32602, 'unknown status; use backlog/unstarted/started/completed/canceled or Backlog/Todo/In Progress/Done/Canceled');
-}
-
-function normalizePriority(value: unknown, fallback: Priority = 'No priority'): Priority {
-  if (typeof value !== 'string' || !value.trim()) return fallback;
-  const priority = VALID_PRIORITIES.find((candidate) => candidate.toLowerCase() === value.trim().toLowerCase());
-  if (!priority) throw makeErr(-32602, 'unknown priority; use Urgent/High/Medium/Low/No priority');
-  return priority;
-}
-
-function enumValue<T extends readonly string[]>(value: unknown, allowed: T, fallback: T[number]): T[number] {
-  return typeof value === 'string' && (allowed as readonly string[]).includes(value) ? (value as T[number]) : fallback;
-}
+// --- fs helpers ------------------------------------------------------------
 
 function readText(path: string): string | null {
   return existsSync(path) ? readFileSync(path, 'utf-8') : null;
 }
 
-function writeVaultText(vaultPath: string, relPath: string, content: string): void {
+function writeVaultBytes(vaultPath: string, relPath: string, content: string): void {
   const fullPath = join(vaultPath, relPath);
   mkdirSync(dirname(fullPath), { recursive: true });
-  writeFileSync(fullPath, content, 'utf-8');
+  // Write LF bytes (not text mode) so Windows CRLF translation never diverges
+  // the artifact from the Python renderer's bytes.
+  writeFileSync(fullPath, Buffer.from(content, 'utf-8'));
 }
 
-function nextIssueId(vaultPath: string, project: string): string {
-  const dir = join(vaultPath, issuesRoot(project));
-  let max = 0;
-  const prefix = idPrefix();
-  if (existsSync(dir)) {
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
-      const match = entry.name.match(new RegExp(`^${prefix}-(\\d+)`));
-      if (match) max = Math.max(max, Number(match[1]));
-    }
+function isoDate(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+// --- state / priority normalization (-> work-OS axes) ----------------------
+
+// Words that legitimately canonicalize to the DEFAULT_STATE (backlog), so we can
+// tell a real backlog token from an unknown word that workState merely bucketed
+// to the default. Mirrors currency: canonical 'backlog' + legacy 'planned'.
+const BACKLOG_WORDS = new Set(['backlog', 'planned']);
+
+// Map an incoming state token (canonical or legacy word) to a canonical state.
+// 'blocked' is NEVER persisted; it canonicalizes to in-progress like the Python
+// brain (a real blocker is expressed via blocked-by and derived onto the board).
+function normalizeStateParam(value: unknown, fallback = STATE_TODO): string {
+  if (typeof value !== 'string' || !value.trim()) return fallback;
+  const token = value.trim();
+  // workState reads the `state` field; reuse it by wrapping the token.
+  const st = workState({ state: token });
+  // workState silently buckets unknown words to backlog; reject those so a caller
+  // typo surfaces instead of landing an issue in the wrong lane.
+  if (st === DEFAULT_STATE && !BACKLOG_WORDS.has(token.toLowerCase())) {
+    throw makeErr(-32602, 'unknown state; use backlog/todo/in-progress/done/canceled');
   }
-  return `${prefix}-${max + 1}`;
+  return st;
 }
 
-function projectIndex(project: string, actor: string, now: string): string {
-  return [
-    '---',
-    'llmwiki-project: true',
-    `project: ${yamlString(project)}`,
-    `owner: ${yamlString(actor)}`,
-    `created_at: ${yamlString(now)}`,
-    `updated_at: ${yamlString(now)}`,
-    '---',
-    '',
-    `# ${project}`,
-    '',
-    '## Goal',
-    '',
-    'TBD',
-    '',
-    '## Local PM',
-    '',
-    '- [[docket/board|Board]]',
-    '- [[docket/rhizome|Rhizome]]',
-    '- `docket/issues/*.md` uses docket-compatible Markdown frontmatter.',
-    '- `docket/projects/*.md` mirrors docket project containers.',
-    '',
-  ].join('\n');
-}
+const PRIORITY_WORDS: Record<string, number> = {
+  urgent: 1,
+  high: 2,
+  medium: 3,
+  low: 4,
+  none: 0,
+  'no priority': 0,
+};
 
-function docketProjectMarkdown(project: string, actor: string, now: string): string {
-  return [
-    '---',
-    `key: ${project}`,
-    `title: ${yamlString(project)}`,
-    `prefix: ${project.toUpperCase().slice(0, 8)}`,
-    'status: active',
-    `owner: ${yamlString(actor)}`,
-    `created_at: ${yamlString(now)}`,
-    `updated_at: ${yamlString(now)}`,
-    '---',
-    '',
-    `# ${project}`,
-    '',
-  ].join('\n');
-}
-
-function boardMarkdown(project: string, now: string): string {
-  return [
-    '---',
-    'kanban-plugin: board',
-    `project: ${yamlString(project)}`,
-    `updated_at: ${yamlString(now)}`,
-    '---',
-    '',
-    '# Board',
-    '',
-    '## Backlog',
-    '',
-    '## Todo',
-    '',
-    '## In Progress',
-    '',
-    '## Done',
-    '',
-    '***',
-    '',
-    '## Canceled',
-    '',
-    '%% kanban:settings',
-    '```json',
-    '{"kanban-plugin":"board"}',
-    '```',
-    '%%',
-    '',
-  ].join('\n');
-}
-
-function rhizomeMarkdown(project: string, now: string): string {
-  return [
-    '---',
-    `description: ${yamlString(`Local project rhizome for ${project}`)}`,
-    `keywords: ${yamlFlowList([project, 'docket', 'rhizome'])}`,
-    'kind: index',
-    'links: []',
-    'code: []',
-    `updated_at: ${yamlString(now)}`,
-    '---',
-    '',
-    '# Rhizome',
-    '',
-    'Local issue, note, and asset relationships for this project.',
-    '',
-    '## Links',
-    '',
-  ].join('\n');
-}
-
-function issueMarkdown(issue: IssueFrontmatter, summary: string, body: string, links: Array<{ relation: string; target: string }>): string {
-  const fields = [
-    '---',
-    `id: ${issue.id}`,
-    `title: ${yamlString(issue.title)}`,
-    `status: ${issue.status}`,
-    `state_type: ${issue.state_type}`,
-    `priority: ${issue.priority}`,
-    `project: ${yamlString(issue.project)}`,
-    `assignee: ${yamlString(issue.assignee)}`,
-    `parent: ${issue.parent || '~'}`,
-    `blocked_by: ${yamlFlowList(issue.blocked_by)}`,
-    `tags: ${yamlFlowList(issue.tags)}`,
-  ];
-  if (issue.milestone) fields.push(`milestone: ${yamlString(issue.milestone)}`);
-  if (issue.batch) fields.push(`batch: ${issue.batch}`);
-  fields.push(`created_at: ${yamlString(issue.created_at)}`);
-  fields.push(`updated_at: ${yamlString(issue.updated_at)}`);
-  fields.push('---');
-  return [
-    ...fields,
-    '',
-    `# ${issue.id} ${issue.title}`,
-    '',
-    '## Summary',
-    '',
-    summary || 'TBD',
-    '',
-    '## Details',
-    '',
-    body || '',
-    '',
-    '## Links',
-    '',
-    ...(links.length ? links.map((link) => `- ${link.relation}: ${link.target}`) : ['- none']),
-    '',
-  ].join('\n');
-}
-
-function commentBlock(actor: string, session: string, body: string, now: string): string {
-  const sessionPart = session ? ` · session ${session}` : '';
-  return `## ${now} · ${actor}${sessionPart}\n\n${body.trim()}\n\n---\n\n`;
-}
-
-function parseFrontmatter(content: string): Record<string, unknown> {
-  const match = content.match(/^---\n([\s\S]*?)\n---/);
-  if (!match) return {};
-  const result: Record<string, unknown> = {};
-  for (const rawLine of match[1].split('\n')) {
-    const kv = rawLine.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
-    if (!kv) continue;
-    const [, key, rawValue] = kv;
-    const value = rawValue.trim();
-    if (value.startsWith('[') && value.endsWith(']')) {
-      const inner = value.slice(1, -1).trim();
-      result[key] = inner ? inner.split(',').map((item) => item.trim().replace(/^"|"$/g, '')) : [];
-    } else if (value === 'true') {
-      result[key] = true;
-    } else if (value === 'false') {
-      result[key] = false;
-    } else {
-      result[key] = value.replace(/^"|"$/g, '');
-    }
+// Accept either an int 0..4 or a back-compat word (urgent/high/medium/low/none);
+// PERSIST the int so priority_rank/board order match Python.
+function normalizePriorityParam(value: unknown, fallback = 0): number {
+  if (value === undefined || value === null || value === '') return fallback;
+  if (typeof value === 'number' && Number.isInteger(value)) {
+    if (value < 0 || value > 4) throw makeErr(-32602, 'priority must be an int 0..4');
+    return value;
   }
-  return result;
+  if (typeof value === 'string') {
+    const t = value.trim().toLowerCase();
+    if (/^\d+$/.test(t)) {
+      const n = Number.parseInt(t, 10);
+      if (n < 0 || n > 4) throw makeErr(-32602, 'priority must be an int 0..4');
+      return n;
+    }
+    if (t in PRIORITY_WORDS) return PRIORITY_WORDS[t];
+    throw makeErr(-32602, 'unknown priority; use 0..4 or urgent/high/medium/low/none');
+  }
+  throw makeErr(-32602, 'unknown priority; use 0..4 or urgent/high/medium/low/none');
 }
 
-function section(content: string, heading: string): string {
-  const lines = content.split(/\r?\n/);
-  const start = lines.findIndex((line) => line.trim() === `## ${heading}`);
-  if (start < 0) return '';
+function normalizeEntityList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
   const out: string[] = [];
-  for (let i = start + 1; i < lines.length; i += 1) {
-    if (lines[i].startsWith('## ')) break;
-    out.push(lines[i]);
+  const seen = new Set<string>();
+  for (const item of value) {
+    if (typeof item !== 'string') continue;
+    const t = item.trim();
+    if (!t || seen.has(t)) continue;
+    seen.add(t);
+    out.push(t);
   }
-  return out.join('\n').trim();
+  return out;
 }
 
-function parseLinks(content: string): Array<{ relation: string; target: string }> {
-  const linkSection = section(content, 'Links');
-  return linkSection
-    .split('\n')
-    .map((line) => line.trim().match(/^-\s+([^:]+):\s+(.+)$/))
-    .filter((match): match is RegExpMatchArray => Boolean(match))
-    .filter((match) => match[1] !== 'none')
-    .map((match) => ({ relation: match[1].trim(), target: match[2].trim() }));
+// --- frontmatter serialization (deterministic work-OS key order) -----------
+
+function fmList(values: string[]): string {
+  return `[${values.join(', ')}]`;
 }
 
-function parseIssue(relPath: string, content: string): IssueRecord {
-  const fm = parseFrontmatter(content);
-  const state = normalizeState(String(fm.state_type || fm.status || 'unstarted'));
+interface IssueFields {
+  slug: string;
+  project: string;
+  state: string; // canonical
+  review: string; // reviewed | draft
+  priority: number; // 0..4
+  description: string; // <=200 one-line
+  blockedBy: string[]; // entity refs
+  assignee: string;
+  lastVerified: string;
+  status: string; // rhizome lifecycle (default 'active'); preserved on round-trip
+  // Pass-through work-OS frontmatter NOT explicitly managed above (estimate, due,
+  // tags, initiative, cycle, squad, origin, ...). These are real work-OS fields
+  // (work_protocol.SNAPSHOT_FIELDS) that Python promote()/_materialize_fields
+  // preserves; the thin adapter must NOT destroy them on a read-modify-write.
+  extra: Frontmatter;
+}
+
+// Keys renderIssueNote serializes explicitly. Any OTHER frontmatter key on an
+// externally-authored work-OS note is carried verbatim via IssueFields.extra so a
+// round-trip through update/link never mutilates the note (parity with Python's
+// SNAPSHOT_FIELDS inheritance).
+const MANAGED_FM_KEYS = new Set([
+  'type',
+  'entity',
+  'state',
+  'review',
+  'kind',
+  'id',
+  'description',
+  'status',
+  'priority',
+  'blocked-by',
+  'assignee',
+  'last-verified',
+]);
+
+// Serialize one pass-through frontmatter field. Mirrors work_protocol._fmt_field:
+// dict -> nested single-level map (`key:` then `  child: v`); list -> `[a, b]`;
+// scalar -> verbatim. Keeps preserved fields byte-compatible with the Python brain.
+function fmtExtraField(key: string, value: FmValue): string {
+  if (Array.isArray(value)) return `${key}: [${value.join(', ')}]`;
+  if (value && typeof value === 'object') {
+    const lines = [`${key}:`];
+    for (const [ck, cv] of Object.entries(value)) {
+      if (cv === null || cv === undefined) continue;
+      lines.push(`  ${ck}: ${cv}`);
+    }
+    return lines.join('\n');
+  }
+  return `${key}: ${value}`;
+}
+
+// Capture every non-managed frontmatter key, preserving insertion order.
+function extraFields(raw: Frontmatter): Frontmatter {
+  const out: Frontmatter = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (MANAGED_FM_KEYS.has(k)) continue;
+    out[k] = v;
+  }
+  return out;
+}
+
+function renderIssueNote(f: IssueFields, body: string): string {
+  const entity = `project/${f.project}/issue/${f.slug}`;
+  const lines = [
+    '---',
+    'type: issue',
+    `entity: ${entity}`,
+    `state: ${f.state}`,
+    `review: ${f.review}`,
+    'kind: knowledge-task',
+    `id: ${f.project}/${f.slug}`,
+    `description: ${f.description}`,
+    `status: ${f.status || 'active'}`,
+    `priority: ${f.priority}`,
+    `blocked-by: ${fmList(f.blockedBy)}`,
+  ];
+  if (f.assignee) lines.push(`assignee: ${f.assignee}`);
+  lines.push(`last-verified: ${f.lastVerified}`);
+  // Preserve pass-through work-OS fields (estimate/due/tags/cycle/initiative/
+  // squad/origin/...) so update/link is non-lossy. Emitted after the managed
+  // block, in their original order, with Python-_fmt_field-compatible bytes.
+  for (const [k, v] of Object.entries(f.extra)) {
+    lines.push(fmtExtraField(k, v));
+  }
+  lines.push('---');
+  // Body: first non-blank line is the card label (the description by default).
+  const trimmedBody = body.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/^\n+/, '');
+  let text = lines.join('\n') + '\n\n';
+  text += trimmedBody ? trimmedBody : f.description;
+  if (!text.endsWith('\n')) text += '\n';
+  return text;
+}
+
+function projectNote(project: string, description: string): string {
+  return [
+    '---',
+    'type: project',
+    `entity: project/${project}`,
+    'kind: knowledge-task',
+    `id: ${project}/project`,
+    `description: ${description}`,
+    'status: active',
+    `last-verified: ${isoDate()}`,
+    '---',
+    '',
+    `# ${project}`,
+    '',
+    'Work-OS project anchor. Issues live under `issues/<slug>.md`; the Kanban',
+    'board is a derived view (rendered on demand, never a source).',
+    '',
+  ].join('\n');
+}
+
+function oneLine(value: string, max = 200): string {
+  const s = value.replace(/\r?\n/g, ' ').trim();
+  return s.length > max ? s.slice(0, max) : s;
+}
+
+// --- issue lookup ----------------------------------------------------------
+
+function issueEntity(project: string, slug: string): string {
+  return `project/${project}/issue/${slug}`;
+}
+
+function slugFromEntity(entity: string | null): string {
+  if (!entity) return '';
+  const parts = entity.split('/');
+  return parts[parts.length - 1];
+}
+
+function findIssueNote(vaultPath: string, project: string, slug: string): WorkNote | null {
+  const full = join(vaultPath, issuePath(project, slug));
+  if (!existsSync(full)) return null;
+  const text = readFileSync(full, 'utf-8');
+  const raw = parseFm(text);
   return {
-    path: relPath,
-    id: String(fm.id ?? relPath.split('/').pop()?.replace(/\.md$/, '') ?? ''),
-    title: String(fm.title ?? ''),
-    status: state.status,
-    state_type: state.state_type,
-    priority: normalizePriority(fm.priority),
-    project: String(fm.project ?? ''),
-    assignee: String(fm.assignee ?? ''),
-    parent: String(fm.parent ?? '~'),
-    blocked_by: Array.isArray(fm.blocked_by) ? fm.blocked_by.map(String) : [],
-    tags: Array.isArray(fm.tags) ? fm.tags.map(String) : [],
-    milestone: String(fm.milestone ?? ''),
-    batch: String(fm.batch ?? ''),
-    created_at: String(fm.created_at ?? ''),
-    updated_at: String(fm.updated_at ?? ''),
-    summary: section(content, 'Summary'),
-    links: parseLinks(content),
+    note_id: issuePath(project, slug).replace(/\\/g, '/'),
+    path: full,
+    raw,
+    body: splitBody(text),
+    entity: typeof raw.entity === 'string' ? raw.entity : null,
   };
 }
 
-function findIssue(vaultPath: string, project: string, id: string): { relPath: string; content: string } {
-  const fullPath = join(vaultPath, issuePath(project, id));
-  if (!existsSync(fullPath)) throw makeErr(-32001, `Issue not found: ${id}`);
-  return { relPath: relative(vaultPath, fullPath).replace(/\\/g, '/'), content: readFileSync(fullPath, 'utf-8') };
+function fieldsFromNote(note: WorkNote, project: string, slug: string): IssueFields {
+  const raw = note.raw;
+  const reviewRaw = typeof raw.review === 'string' ? raw.review.trim().toLowerCase() : '';
+  // READ priority via the tolerant workPriority (mirror currency.work_priority):
+  // an off-range/unparseable priority on a hand-edited or Python-authored note is
+  // null (ranks last), NOT a -32602 throw. Persist null as 0 ("none"), which has
+  // the same rank-last semantics as Python's None on the next write.
+  return {
+    slug,
+    project,
+    state: workState(raw),
+    review: reviewRaw === 'draft' ? 'draft' : 'reviewed',
+    priority: workPriority(raw) ?? 0,
+    description: typeof raw.description === 'string' ? raw.description : '',
+    blockedBy: blockedByRefs(raw),
+    assignee: typeof raw.assignee === 'string' ? raw.assignee : '',
+    lastVerified: typeof raw['last-verified'] === 'string' ? (raw['last-verified'] as string) : isoDate(),
+    // Preserve the rhizome lifecycle status (default active) and every other
+    // unmanaged work-OS field, so update/link round-trips are non-lossy.
+    status: typeof raw.status === 'string' && raw.status.trim() ? raw.status.trim() : 'active',
+    extra: extraFields(raw),
+  };
 }
 
-function issueToBoardCard(issue: IssueRecord): string {
-  return `- [${issue.state_type === 'completed' ? 'x' : ' '}] ${issue.id} ${issue.title}`;
+// Public shape of a work-OS issue returned to callers.
+function issueView(note: WorkNote, project: string): Record<string, unknown> {
+  const slug = slugFromEntity(note.entity);
+  const raw = note.raw;
+  const reviewRaw = typeof raw.review === 'string' ? raw.review.trim().toLowerCase() : statusReview(raw);
+  return {
+    entity: note.entity,
+    id: typeof raw.id === 'string' ? raw.id : `${project}/${slug}`,
+    slug,
+    state: workState(raw),
+    review: reviewRaw,
+    // Tolerant read (mirror currency.work_priority): out-of-range/unparseable ->
+    // null (ranked last), never a throw. A single bad note no longer breaks
+    // list/get for the whole project.
+    priority: workPriority(raw),
+    assignee: typeof raw.assignee === 'string' ? raw.assignee : '',
+    blocked_by: blockedByRefs(raw),
+    path: note.note_id,
+    label: cardLabelOf(note),
+  };
 }
 
-function listIssues(vaultPath: string, project: string, filters: Record<string, unknown>): IssueRecord[] {
-  const dir = join(vaultPath, issuesRoot(project));
-  if (!existsSync(dir)) return [];
-  const requestedState = typeof filters.status === 'string' ? normalizeState(filters.status).state_type : undefined;
-  const assignee = typeof filters.assignee === 'string' ? filters.assignee : undefined;
-  return readdirSync(dir, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.endsWith('.md'))
-    .map((entry) => {
-      const relPath = `${issuesRoot(project)}/${entry.name}`;
-      return parseIssue(relPath, readFileSync(join(dir, entry.name), 'utf-8'));
-    })
-    .filter((issue) => !requestedState || issue.state_type === requestedState)
-    .filter((issue) => !assignee || issue.assignee === assignee)
-    .sort((a, b) => Number(a.id.split('-')[1] ?? 0) - Number(b.id.split('-')[1] ?? 0));
+function statusReview(raw: Frontmatter): string {
+  if (typeof raw.review === 'string' && raw.review.trim()) return raw.review.trim().toLowerCase();
+  if (typeof raw.status === 'string' && raw.status.trim()) return raw.status.trim().toLowerCase();
+  return '';
 }
 
-function regenerateBoard(vaultPath: string, project: string): void {
-  const now = new Date().toISOString();
-  const issues = listIssues(vaultPath, project, {});
-  const lanes: Record<StateType, IssueRecord[]> = { backlog: [], unstarted: [], started: [], completed: [], canceled: [] };
-  for (const issue of issues) lanes[issue.state_type].push(issue);
-  const content = [
-    '---',
-    'kanban-plugin: board',
-    `project: ${yamlString(project)}`,
-    `updated_at: ${yamlString(now)}`,
-    '---',
-    '',
-    '# Board',
-    '',
-    '## Backlog',
-    '',
-    ...lanes.backlog.map(issueToBoardCard),
-    '',
-    '## Todo',
-    '',
-    ...lanes.unstarted.map(issueToBoardCard),
-    '',
-    '## In Progress',
-    '',
-    ...lanes.started.map(issueToBoardCard),
-    '',
-    '## Done',
-    '',
-    ...lanes.completed.map(issueToBoardCard),
-    '',
-    '***',
-    '',
-    '## Canceled',
-    '',
-    ...lanes.canceled.map(issueToBoardCard),
-    '',
-    '%% kanban:settings',
-    '```json',
-    '{"kanban-plugin":"board"}',
-    '```',
-    '%%',
-    '',
-  ].join('\n');
-  writeVaultText(vaultPath, `${docketRoot(project)}/board.md`, content);
+function cardLabelOf(note: WorkNote): string {
+  for (const line of (note.body || '').split('\n')) {
+    if (line.trim()) return line.trim();
+  }
+  return slugFromEntity(note.entity) || note.note_id;
 }
 
-function appendRhizome(vaultPath: string, project: string, line: string): void {
-  const rhizomePath = `${docketRoot(project)}/rhizome.md`;
-  const rhizome = readText(join(vaultPath, rhizomePath)) ?? rhizomeMarkdown(project, new Date().toISOString());
-  const next = rhizome.includes(line) ? rhizome : `${rhizome.trimEnd()}\n${line}\n`;
-  writeVaultText(vaultPath, rhizomePath, next);
-}
+// --- canvas / base derived views (work-OS fields) --------------------------
 
-const BASE_FIELDS = ['id', 'title', 'status', 'state_type', 'priority', 'assignee', 'blocked_by', 'updated_at', 'tags'] as const;
-const CANVAS_STATE_ORDER: StateType[] = ['backlog', 'unstarted', 'started', 'completed', 'canceled'];
-const CANVAS_COLORS: Record<StateType, string> = {
+const BASE_FIELDS = ['entity', 'state', 'review', 'priority', 'assignee', 'blocked-by', 'last-verified', 'id', 'description'] as const;
+
+// Column color by canonical state (for grouping in the Canvas view).
+const STATE_COLORS: Record<string, string> = {
   backlog: '6',
-  unstarted: '4',
-  started: '3',
-  completed: '5',
+  todo: '4',
+  'in-progress': '3',
+  blocked: '0',
+  done: '5',
   canceled: '1',
+};
+const CANVAS_STATE_ORDER = ['backlog', 'todo', 'in-progress', 'done', 'canceled'];
+const STATE_GROUP_LABEL: Record<string, string> = {
+  backlog: 'Backlog',
+  todo: 'Todo',
+  'in-progress': 'In Progress',
+  done: 'Done',
+  canceled: 'Canceled',
 };
 
 interface CanvasNode {
@@ -465,46 +426,26 @@ interface CanvasNode {
   label?: string;
   color?: string;
 }
-
 interface CanvasEdge {
   id: string;
   fromNode: string;
-  fromSide?: 'top' | 'right' | 'bottom' | 'left';
+  fromSide?: string;
   toNode: string;
-  toSide?: 'top' | 'right' | 'bottom' | 'left';
+  toSide?: string;
   label?: string;
   color?: string;
-}
-
-function viewsRoot(project: string): string {
-  return `${projectRoot(project)}/views`;
-}
-
-function projectCanvasPath(project: string): string {
-  return `${viewsRoot(project)}/project-map.canvas`;
-}
-
-function projectBasePath(project: string): string {
-  return `${viewsRoot(project)}/issues.base`;
 }
 
 function canvasId(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'node';
 }
 
-function issueNodeId(issue: IssueRecord): string {
-  return `issue-${canvasId(issue.id)}`;
+function projectIssues(vaultPath: string, project: string): WorkNote[] {
+  const prefix = `project/${project}/issue/`;
+  return scanWorkNotes(vaultPath).filter((n) => n.entity && n.entity.startsWith(prefix));
 }
 
-function groupNodeId(state: StateType): string {
-  return `group-${state}`;
-}
-
-function edgeId(from: string, to: string, label: string): string {
-  return `edge-${canvasId(from)}-${canvasId(to)}-${canvasId(label)}`;
-}
-
-function buildProjectCanvas(project: string, issues: IssueRecord[]): { nodes: CanvasNode[]; edges: CanvasEdge[] } {
+function buildProjectCanvas(project: string, issues: WorkNote[]): { nodes: CanvasNode[]; edges: CanvasEdge[] } {
   const nodes: CanvasNode[] = [
     {
       id: 'project',
@@ -518,63 +459,56 @@ function buildProjectCanvas(project: string, issues: IssueRecord[]): { nodes: Ca
     },
   ];
   const edges: CanvasEdge[] = [];
-  const issueById = new Map(issues.map((issue) => [issue.id, issue]));
-  const emittedEdges = new Set<string>();
+  const byEntity = new Map(issues.map((i) => [i.entity as string, i]));
+  const nodeId = (i: WorkNote): string => `issue-${canvasId(slugFromEntity(i.entity))}`;
+  const emitted = new Set<string>();
 
   for (const [columnIndex, state] of CANVAS_STATE_ORDER.entries()) {
-    const laneIssues = issues.filter((issue) => issue.state_type === state);
+    const lane = issues.filter((i) => workState(i.raw) === state);
     const x = columnIndex * 430;
-    const height = Math.max(260, 110 + laneIssues.length * 170);
+    const height = Math.max(260, 110 + lane.length * 170);
     nodes.push({
-      id: groupNodeId(state),
+      id: `group-${state}`,
       type: 'group',
       x,
       y: 0,
       width: 380,
       height,
-      label: STATE_TYPE_TO_STATUS[state],
-      color: CANVAS_COLORS[state],
+      label: STATE_GROUP_LABEL[state],
+      color: STATE_COLORS[state],
     });
-
-    for (const [rowIndex, issue] of laneIssues.entries()) {
+    for (const [rowIndex, issue] of lane.entries()) {
       nodes.push({
-        id: issueNodeId(issue),
+        id: nodeId(issue),
         type: 'file',
         x: x + 30,
         y: 70 + rowIndex * 165,
         width: 320,
         height: 120,
-        file: issue.path,
-        color: CANVAS_COLORS[state],
+        file: issue.note_id,
+        color: STATE_COLORS[state],
       });
     }
   }
 
-  const addEdge = (fromIssue: IssueRecord, toIssue: IssueRecord, label: string, color = '2'): void => {
-    const fromNode = issueNodeId(fromIssue);
-    const toNode = issueNodeId(toIssue);
-    const id = edgeId(fromNode, toNode, label);
-    if (emittedEdges.has(id)) return;
-    emittedEdges.add(id);
-    edges.push({ id, fromNode, fromSide: 'right', toNode, toSide: 'left', label, color });
+  const addEdge = (from: WorkNote, to: WorkNote, label: string, color: string): void => {
+    const id = `edge-${canvasId(nodeId(from))}-${canvasId(nodeId(to))}-${canvasId(label)}`;
+    if (emitted.has(id)) return;
+    emitted.add(id);
+    edges.push({ id, fromNode: nodeId(from), fromSide: 'right', toNode: nodeId(to), toSide: 'left', label, color });
   };
 
   for (const issue of issues) {
-    for (const blockerId of issue.blocked_by) {
-      const blocker = issueById.get(blockerId);
+    for (const blockerEntity of blockedByRefs(issue.raw)) {
+      const blocker = byEntity.get(blockerEntity);
       if (blocker) addEdge(blocker, issue, 'blocks', '1');
     }
-    for (const link of issue.links) {
-      const target = issueById.get(link.target);
-      if (target) addEdge(issue, target, link.relation, '4');
-    }
   }
-
   return { nodes, edges };
 }
 
 function buildProjectBase(project: string): { sourceFolder: string; fields: string[]; content: string } {
-  const sourceFolder = `${docketRoot(project)}/issues`;
+  const sourceFolder = issuesRoot(project);
   const fields = [...BASE_FIELDS];
   const content = [
     `# LLMwiki Obsidian Bases dashboard for ${project}`,
@@ -583,24 +517,24 @@ function buildProjectBase(project: string): { sourceFolder: string; fields: stri
     `    - 'file.inFolder("${sourceFolder}")'`,
     '    - \'file.ext == "md"\'',
     'properties:',
-    '  id:',
-    '    displayName: ID',
-    '  title:',
-    '    displayName: Title',
-    '  status:',
-    '    displayName: Status',
-    '  state_type:',
+    '  entity:',
+    '    displayName: Entity',
+    '  state:',
     '    displayName: State',
+    '  review:',
+    '    displayName: Review',
     '  priority:',
     '    displayName: Priority',
     '  assignee:',
     '    displayName: Assignee',
-    '  blocked_by:',
+    '  blocked-by:',
     '    displayName: Blocked by',
-    '  updated_at:',
-    '    displayName: Updated',
-    '  tags:',
-    '    displayName: Tags',
+    '  last-verified:',
+    '    displayName: Verified',
+    '  id:',
+    '    displayName: ID',
+    '  description:',
+    '    displayName: Description',
     'views:',
     '  - type: table',
     '    name: Issues',
@@ -608,29 +542,57 @@ function buildProjectBase(project: string): { sourceFolder: string; fields: stri
     '      - file.name',
     ...fields.map((field) => `      - ${field}`),
     '    groupBy:',
-    '      property: state_type',
+    '      property: state',
     '      direction: ASC',
     '',
   ].join('\n');
   return { sourceFolder, fields, content };
 }
 
+function projectCanvasPath(project: string): string {
+  return `${viewsRoot(project)}/project-map.canvas`;
+}
+function projectBasePath(project: string): string {
+  return `${viewsRoot(project)}/issues.base`;
+}
+
 function ensureCanWriteVisual(vaultPath: string, path: string, overwrite: boolean): void {
-  if (!overwrite && existsSync(join(vaultPath, path))) {
-    throw makeErr(-32002, `Already exists: ${path}`);
-  }
+  if (!overwrite && existsSync(join(vaultPath, path))) throw makeErr(-32002, `Already exists: ${path}`);
 }
 
 function boolParam(value: unknown, defaultValue: boolean): boolean {
   return typeof value === 'boolean' ? value : defaultValue;
 }
 
+// --- board language resolution ---------------------------------------------
+
+function resolveLang(param: unknown, notes: WorkNote[]): string {
+  if (typeof param === 'string' && param.trim()) return param.trim();
+  const env = process.env.VAULT_MIND_LANG;
+  if (env && env.trim()) return env.trim();
+  return detectVaultLang(notes);
+}
+
+// --- unique slug -----------------------------------------------------------
+
+function uniqueSlug(vaultPath: string, project: string, base: string): string {
+  let slug = base;
+  let n = 2;
+  while (existsSync(join(vaultPath, issuePath(project, slug)))) {
+    slug = `${base}-${n}`;
+    n += 1;
+  }
+  return slug;
+}
+
+// ===========================================================================
+
 export function makeProjectOps(vaultPath: string): Operation[] {
   return [
     {
       name: 'project.canvas.export',
       namespace: 'project' as Operation['namespace'],
-      description: 'Export an Obsidian Canvas project map under 10-Projects/<project>/views/project-map.canvas.',
+      description: 'Export an Obsidian Canvas project map under 01-Projects/<project>/views/project-map.canvas (derived view).',
       mutating: true,
       params: {
         project: { type: 'string', required: true, description: 'Project key' },
@@ -638,16 +600,16 @@ export function makeProjectOps(vaultPath: string): Operation[] {
         overwrite: { type: 'boolean', required: false, default: true, description: 'Overwrite existing Canvas file (default: true)' },
       },
       handler: async (_ctx, params) => {
-        const project = safeSegment(params.project as string, 'project');
+        const project = projectKey(params.project);
         const dryRun = boolParam(params.dryRun, true);
         const overwrite = boolParam(params.overwrite, true);
         const path = projectCanvasPath(project);
-        const issues = listIssues(vaultPath, project, {});
+        const issues = projectIssues(vaultPath, project);
         const canvas = buildProjectCanvas(project, issues);
         const content = JSON.stringify(canvas, null, 2) + '\n';
         if (!dryRun) {
           ensureCanWriteVisual(vaultPath, path, overwrite);
-          writeVaultText(vaultPath, path, content);
+          writeVaultBytes(vaultPath, path, content);
         }
         return { path, nodes: canvas.nodes, edges: canvas.edges, dryRun };
       },
@@ -655,7 +617,7 @@ export function makeProjectOps(vaultPath: string): Operation[] {
     {
       name: 'project.base.export',
       namespace: 'project' as Operation['namespace'],
-      description: 'Export an Obsidian Bases issues dashboard under 10-Projects/<project>/views/issues.base.',
+      description: 'Export an Obsidian Bases issues dashboard under 01-Projects/<project>/views/issues.base (derived view).',
       mutating: true,
       params: {
         project: { type: 'string', required: true, description: 'Project key' },
@@ -663,14 +625,14 @@ export function makeProjectOps(vaultPath: string): Operation[] {
         overwrite: { type: 'boolean', required: false, default: true, description: 'Overwrite existing Bases file (default: true)' },
       },
       handler: async (_ctx, params) => {
-        const project = safeSegment(params.project as string, 'project');
+        const project = projectKey(params.project);
         const dryRun = boolParam(params.dryRun, true);
         const overwrite = boolParam(params.overwrite, true);
         const path = projectBasePath(project);
         const base = buildProjectBase(project);
         if (!dryRun) {
           ensureCanWriteVisual(vaultPath, path, overwrite);
-          writeVaultText(vaultPath, path, base.content);
+          writeVaultBytes(vaultPath, path, base.content);
         }
         return { path, sourceFolder: base.sourceFolder, fields: base.fields, dryRun };
       },
@@ -678,220 +640,266 @@ export function makeProjectOps(vaultPath: string): Operation[] {
     {
       name: 'project.init',
       namespace: 'project' as Operation['namespace'],
-      description: 'Seed a local docket/rhizome/seed-inspired project workspace under 10-Projects/<project>.',
+      description: 'Create a work-OS project anchor note at 01-Projects/<project>/_project.md (single source of truth; no docket store).',
       mutating: true,
-      params: { project: { type: 'string', required: true, description: 'Project key, single safe path segment' } },
-      handler: async (ctx, params) => {
-        const project = safeSegment(params.project as string, 'project');
-        const actor = actorFromContext(ctx);
-        const now = new Date().toISOString();
-        const writes = [
-          { path: `${projectRoot(project)}/project.md`, content: projectIndex(project, actor, now) },
-          { path: `${docketRoot(project)}/board.md`, content: boardMarkdown(project, now) },
-          { path: `${docketRoot(project)}/rhizome.md`, content: rhizomeMarkdown(project, now) },
-          { path: `${docketProjectsRoot(project)}/${project}.md`, content: docketProjectMarkdown(project, actor, now) },
-          { path: `${docketRoot(project)}/docs/INDEX.md`, content: '# Project docs\n\nRhizome domain index for project documentation.\n' },
-          { path: `${docketRoot(project)}/docs/architecture.md`, content: '# Architecture\n\nLocal development map for this project.\n' },
-        ];
-        for (const write of writes) if (!existsSync(join(vaultPath, write.path))) writeVaultText(vaultPath, write.path, write.content);
+      params: {
+        project: { type: 'string', required: true, description: 'Project key, single safe path segment' },
+        description: { type: 'string', required: false, description: 'One-line project description (<=200 chars)' },
+      },
+      handler: async (_ctx, params) => {
+        const project = projectKey(params.project);
+        const description = oneLine(typeof params.description === 'string' && params.description.trim() ? params.description : `Work-OS project ${project}`);
+        const notePath = projectNotePath(project);
+        if (!existsSync(join(vaultPath, notePath))) {
+          writeVaultBytes(vaultPath, notePath, projectNote(project, description));
+        }
         mkdirSync(join(vaultPath, issuesRoot(project)), { recursive: true });
-        mkdirSync(join(vaultPath, commentsRoot(project)), { recursive: true });
-        return { ok: true, project, root: projectRoot(project), files: writes.map((write) => write.path) };
+        return { ok: true, project, root: projectRoot(project), projectNote: notePath };
       },
     },
     {
       name: 'project.issue.create',
       namespace: 'project' as Operation['namespace'],
-      description: 'Create a docket-compatible Markdown issue. Default status is Todo/unstarted.',
+      description: 'Create a work-OS issue note under 01-Projects/<project>/issues/<slug>.md. Default state is todo; review reviewed (authoritative).',
       mutating: true,
       params: {
         project: { type: 'string', required: true, description: 'Project key' },
-        title: { type: 'string', required: true, description: 'Issue title' },
-        summary: { type: 'string', required: false, description: 'Short issue summary' },
-        body: { type: 'string', required: false, description: 'Detailed issue body' },
-        status: { type: 'string', required: false, description: 'Docket status or state_type' },
-        priority: { type: 'string', required: false, enum: [...VALID_PRIORITIES], default: 'No priority', description: 'Docket priority' },
+        title: { type: 'string', required: true, description: 'Issue title (-> slug + default card label)' },
+        slug: { type: 'string', required: false, description: 'Explicit slug (lowercase-kebab); default derived from title' },
+        summary: { type: 'string', required: false, description: 'One-line description (<=200 chars); default from title' },
+        body: { type: 'string', required: false, description: 'Detailed issue body (first non-blank line is the card label)' },
+        state: { type: 'string', required: false, description: 'Work state: backlog|todo|in-progress|done|canceled (default todo)' },
+        review: { type: 'string', required: false, enum: ['reviewed', 'draft'], description: 'Review axis (default reviewed = authoritative)' },
+        priority: { type: 'string', required: false, description: 'Priority as a string: int "0".."4" (1=urgent..4=low, 0=none) or word urgent/high/medium/low/none. Stored as the int.' },
         assignee: { type: 'string', required: false, description: 'Actor or human owner' },
-        tags: { type: 'array', required: false, description: 'Issue tags' },
-        blocked_by: { type: 'array', required: false, description: 'Blocking issue ids' },
-        parent: { type: 'string', required: false, description: 'Parent issue id or ~' },
-        milestone: { type: 'string', required: false, description: 'Milestone label' },
-        batch: { type: 'number', required: false, description: 'Rolling batch ordinal' },
+        blocked_by: { type: 'array', required: false, description: 'Blocking entity refs (project/<proj>/issue/<slug>)' },
       },
       handler: async (ctx, params) => {
-        const project = safeSegment(params.project as string, 'project');
+        const project = projectKey(params.project);
         const title = String(params.title ?? '').trim();
         if (!title) throw makeErr(-32602, 'title required');
-        const now = new Date().toISOString();
-        const id = nextIssueId(vaultPath, project);
-        const state = normalizeState(params.status);
-        const issue: IssueFrontmatter = {
-          id,
-          title,
-          status: state.status,
-          state_type: state.state_type,
-          priority: normalizePriority(params.priority),
+        const baseSlug = slugify(typeof params.slug === 'string' && params.slug.trim() ? params.slug : title);
+        if (!baseSlug) throw makeErr(-32602, 'could not derive a valid slug from title/slug');
+        const slug = uniqueSlug(vaultPath, project, baseSlug);
+        const description = oneLine(typeof params.summary === 'string' && params.summary.trim() ? params.summary : title);
+        const review = params.review === 'draft' ? 'draft' : 'reviewed';
+        const fields: IssueFields = {
+          slug,
           project,
-          assignee: typeof params.assignee === 'string' && params.assignee.trim() ? params.assignee.trim() : actorFromContext(ctx),
-          parent: typeof params.parent === 'string' && params.parent.trim() ? params.parent.trim() : '~',
-          blocked_by: normalizeList(params.blocked_by).map(safeDocketId),
-          tags: normalizeList(params.tags),
-          milestone: typeof params.milestone === 'string' ? params.milestone.trim() : '',
-          batch: typeof params.batch === 'number' ? String(Math.trunc(params.batch)) : '',
-          created_at: now,
-          updated_at: now,
+          state: normalizeStateParam(params.state, STATE_TODO),
+          review,
+          priority: normalizePriorityParam(params.priority, 0),
+          description,
+          blockedBy: normalizeEntityList(params.blocked_by),
+          assignee:
+            typeof params.assignee === 'string' && params.assignee.trim() ? params.assignee.trim() : actorFromContext(ctx),
+          lastVerified: isoDate(),
+          status: 'active',
+          extra: {},
         };
-        const path = issuePath(project, id);
-        writeVaultText(vaultPath, path, issueMarkdown(issue, String(params.summary ?? ''), String(params.body ?? ''), []));
-        regenerateBoard(vaultPath, project);
-        return { ok: true, id, path, issue };
+        // The body's first non-blank line is the Kanban card label -> default it to
+        // the human title (NOT the metadata description), with the title as the
+        // headline and any explicit body appended.
+        const body =
+          typeof params.body === 'string' && params.body.trim() ? `${title}\n\n${params.body.trim()}` : title;
+        const path = issuePath(project, slug);
+        writeVaultBytes(vaultPath, path, renderIssueNote(fields, body));
+        return { ok: true, entity: issueEntity(project, slug), id: `${project}/${slug}`, slug, path };
       },
     },
     {
       name: 'project.issue.list',
       namespace: 'project' as Operation['namespace'],
-      description: 'List local project issues, optionally filtered by docket status/state_type or assignee.',
+      description: 'List authoritative work-OS issues for a project (drafts excluded), optionally filtered by state or assignee.',
       mutating: false,
       params: {
         project: { type: 'string', required: true, description: 'Project key' },
-        status: { type: 'string', required: false, description: 'Optional status or state_type filter' },
+        state: { type: 'string', required: false, description: 'Optional work-state filter (backlog|todo|in-progress|done|canceled)' },
         assignee: { type: 'string', required: false, description: 'Optional assignee filter' },
       },
       handler: async (_ctx, params) => {
-        const project = safeSegment(params.project as string, 'project');
-        const issues = listIssues(vaultPath, project, params);
+        const project = projectKey(params.project);
+        const prefix = `project/${project}/issue/`;
+        const stateFilter = typeof params.state === 'string' && params.state.trim() ? normalizeStateParam(params.state, DEFAULT_STATE) : undefined;
+        const assignee = typeof params.assignee === 'string' && params.assignee.trim() ? params.assignee.trim() : undefined;
+        const issues = scanWorkNotes(vaultPath)
+          .filter((n) => n.entity && n.entity.startsWith(prefix))
+          .filter((n) => isAuthoritative(n.raw))
+          .filter((n) => !stateFilter || workState(n.raw) === stateFilter)
+          .filter((n) => !assignee || (typeof n.raw.assignee === 'string' && n.raw.assignee === assignee))
+          .map((n) => issueView(n, project));
         return { count: issues.length, issues };
       },
     },
     {
       name: 'project.issue.get',
       namespace: 'project' as Operation['namespace'],
-      description: 'Read a local project issue by id.',
+      description: 'Read a work-OS issue by slug.',
       mutating: false,
       params: {
         project: { type: 'string', required: true, description: 'Project key' },
-        id: { type: 'string', required: true, description: 'Issue id, e.g. ISSUE-1' },
+        slug: { type: 'string', required: true, description: 'Issue slug' },
       },
       handler: async (_ctx, params) => {
-        const project = safeSegment(params.project as string, 'project');
-        const found = findIssue(vaultPath, project, params.id as string);
-        return { issue: parseIssue(found.relPath, found.content), content: found.content };
+        const project = projectKey(params.project);
+        const slug = slugify(String(params.slug ?? ''));
+        const note = findIssueNote(vaultPath, project, slug);
+        if (!note) throw makeErr(-32001, `Issue not found: ${slug}`);
+        return { issue: issueView(note, project), content: readFileSync(note.path, 'utf-8') };
       },
     },
     {
       name: 'project.issue.update',
       namespace: 'project' as Operation['namespace'],
-      description: 'Update status/state_type, priority, assignee, dependency fields, summary, or body for a local project issue.',
+      description: 'Update a work-OS issue (state/priority/review/assignee/blocked_by/description/body); bumps last-verified.',
       mutating: true,
       params: {
         project: { type: 'string', required: true, description: 'Project key' },
-        id: { type: 'string', required: true, description: 'Issue id' },
-        status: { type: 'string', required: false, description: 'New status or state_type' },
-        priority: { type: 'string', required: false, enum: [...VALID_PRIORITIES], description: 'New priority' },
+        slug: { type: 'string', required: true, description: 'Issue slug' },
+        state: { type: 'string', required: false, description: 'New work state (backlog|todo|in-progress|done|canceled)' },
+        review: { type: 'string', required: false, enum: ['reviewed', 'draft'], description: 'New review axis value' },
+        priority: { type: 'string', required: false, description: 'New priority as a string: int "0".."4" or word urgent/high/medium/low/none. Stored as the int.' },
         assignee: { type: 'string', required: false, description: 'New assignee' },
-        tags: { type: 'array', required: false, description: 'Replacement tags' },
-        blocked_by: { type: 'array', required: false, description: 'Replacement blocking issue ids' },
-        parent: { type: 'string', required: false, description: 'Replacement parent issue id or ~' },
-        summary: { type: 'string', required: false, description: 'Replacement summary' },
-        body: { type: 'string', required: false, description: 'Replacement details body' },
+        blocked_by: { type: 'array', required: false, description: 'Replacement blocking entity refs' },
+        summary: { type: 'string', required: false, description: 'Replacement one-line description' },
+        body: { type: 'string', required: false, description: 'Replacement body' },
       },
       handler: async (_ctx, params) => {
-        const project = safeSegment(params.project as string, 'project');
-        const found = findIssue(vaultPath, project, params.id as string);
-        const current = parseIssue(found.relPath, found.content);
-        const state = params.status === undefined ? current : normalizeState(params.status, current.state_type);
-        const now = new Date().toISOString();
-        const issue: IssueFrontmatter = {
+        const project = projectKey(params.project);
+        const slug = slugify(String(params.slug ?? ''));
+        const note = findIssueNote(vaultPath, project, slug);
+        if (!note) throw makeErr(-32001, `Issue not found: ${slug}`);
+        const current = fieldsFromNote(note, project, slug);
+        const fields: IssueFields = {
           ...current,
-          status: state.status,
-          state_type: state.state_type,
-          priority: params.priority === undefined ? current.priority : normalizePriority(params.priority, current.priority),
+          state: params.state === undefined ? current.state : normalizeStateParam(params.state, current.state),
+          review: params.review === undefined ? current.review : params.review === 'draft' ? 'draft' : 'reviewed',
+          priority: params.priority === undefined ? current.priority : normalizePriorityParam(params.priority, current.priority),
           assignee: typeof params.assignee === 'string' ? params.assignee.trim() : current.assignee,
-          tags: Array.isArray(params.tags) ? normalizeList(params.tags) : current.tags,
-          blocked_by: Array.isArray(params.blocked_by) ? normalizeList(params.blocked_by).map(safeDocketId) : current.blocked_by,
-          parent: typeof params.parent === 'string' ? params.parent.trim() || '~' : current.parent,
-          updated_at: now,
+          blockedBy: Array.isArray(params.blocked_by) ? normalizeEntityList(params.blocked_by) : current.blockedBy,
+          description: typeof params.summary === 'string' && params.summary.trim() ? oneLine(params.summary) : current.description,
+          lastVerified: isoDate(),
         };
-        const summary = typeof params.summary === 'string' ? params.summary : current.summary;
-        const body = typeof params.body === 'string' ? params.body : section(found.content, 'Details');
-        writeVaultText(vaultPath, found.relPath, issueMarkdown(issue, summary, body, current.links));
-        regenerateBoard(vaultPath, project);
-        return { ok: true, path: found.relPath, issue };
+        // Body: explicit body param, else preserve existing body, else description.
+        let body: string;
+        if (typeof params.body === 'string' && params.body.trim()) body = params.body;
+        else if (note.body.trim()) body = note.body.trim();
+        else body = fields.description;
+        writeVaultBytes(vaultPath, note.note_id, renderIssueNote(fields, body));
+        return { ok: true, path: note.note_id, issue: issueView(findIssueNote(vaultPath, project, slug)!, project) };
       },
     },
     {
       name: 'project.issue.link',
       namespace: 'project' as Operation['namespace'],
-      description: 'Add a rhizome relationship. blocks/blocked_by also update docket blocked_by dependencies.',
+      description: 'Edit blocked-by dependencies between work-OS issues. blocks/blocked_by rewrite blocked-by (entity refs); relates is derive-only (soft notice).',
       mutating: true,
       params: {
         project: { type: 'string', required: true, description: 'Project key' },
-        id: { type: 'string', required: true, description: 'Source issue id' },
-        relation: { type: 'string', required: true, enum: [...VALID_RELATIONS], description: 'Relationship type' },
-        target: { type: 'string', required: true, description: 'Target issue id or note slug/path' },
+        slug: { type: 'string', required: true, description: 'Source issue slug' },
+        relation: { type: 'string', required: true, enum: ['blocks', 'blocked_by', 'relates'], description: 'Relationship type' },
+        target: { type: 'string', required: true, description: 'Target issue slug (resolved to its entity)' },
       },
       handler: async (_ctx, params) => {
-        const project = safeSegment(params.project as string, 'project');
-        const relation = enumValue(params.relation, VALID_RELATIONS, 'relates') as Relation;
-        const target = String(params.target ?? '').trim();
-        if (!target) throw makeErr(-32602, 'target required');
-        const found = findIssue(vaultPath, project, params.id as string);
-        const issue = parseIssue(found.relPath, found.content);
-        const links = [...issue.links, { relation, target }];
-        writeVaultText(vaultPath, found.relPath, issueMarkdown(issue, issue.summary, section(found.content, 'Details'), links));
+        const project = projectKey(params.project);
+        const slug = slugify(String(params.slug ?? ''));
+        const relation = String(params.relation ?? '').trim();
+        const targetSlug = slugify(String(params.target ?? ''));
+        if (!targetSlug) throw makeErr(-32602, 'target required');
+
+        if (relation === 'relates') {
+          // work-OS derives `related` from the blocked-by closure; nothing persisted.
+          return {
+            ok: true,
+            relation,
+            note: 'related edges are derived from blocked-by in the work-OS; nothing persisted (use blocks/blocked_by to record a dependency).',
+          };
+        }
+
+        const source = findIssueNote(vaultPath, project, slug);
+        if (!source) throw makeErr(-32001, `Issue not found: ${slug}`);
+        const targetNote = findIssueNote(vaultPath, project, targetSlug);
+        if (!targetNote) throw makeErr(-32001, `Issue not found: ${targetSlug}`);
+        const targetEntity = issueEntity(project, targetSlug);
+        const sourceEntity = issueEntity(project, slug);
+
         if (relation === 'blocked_by') {
-          const nextBlockedBy = Array.from(new Set([...issue.blocked_by, safeDocketId(target)]));
-          writeVaultText(vaultPath, found.relPath, issueMarkdown({ ...issue, blocked_by: nextBlockedBy }, issue.summary, section(found.content, 'Details'), links));
+          // source blocked-by += target entity
+          const f = fieldsFromNote(source, project, slug);
+          f.blockedBy = Array.from(new Set([...f.blockedBy, targetEntity]));
+          f.lastVerified = isoDate();
+          writeVaultBytes(vaultPath, source.note_id, renderIssueNote(f, source.body.trim() || f.description));
+          return { ok: true, path: source.note_id, relation, target: targetEntity };
         }
-        if (relation === 'blocks') {
-          const targetFound = findIssue(vaultPath, project, target);
-          const targetIssue = parseIssue(targetFound.relPath, targetFound.content);
-          const nextBlockedBy = Array.from(new Set([...targetIssue.blocked_by, issue.id]));
-          writeVaultText(vaultPath, targetFound.relPath, issueMarkdown({ ...targetIssue, blocked_by: nextBlockedBy }, targetIssue.summary, section(targetFound.content, 'Details'), targetIssue.links));
-        }
-        appendRhizome(vaultPath, project, `- ${issue.id} ${relation} ${target}`);
-        regenerateBoard(vaultPath, project);
-        return { ok: true, path: found.relPath, relation, target, rhizomePath: `${docketRoot(project)}/rhizome.md` };
+        // relation === 'blocks' -> target blocked-by += source entity
+        const f = fieldsFromNote(targetNote, project, targetSlug);
+        f.blockedBy = Array.from(new Set([...f.blockedBy, sourceEntity]));
+        f.lastVerified = isoDate();
+        writeVaultBytes(vaultPath, targetNote.note_id, renderIssueNote(f, targetNote.body.trim() || f.description));
+        return { ok: true, path: targetNote.note_id, relation, target: sourceEntity };
       },
     },
     {
       name: 'project.comment.add',
       namespace: 'project' as Operation['namespace'],
-      description: 'Append a docket-style comment block under docket/comments/<issue-id>.md.',
+      description: 'Append a comment to a sibling 01-Projects/<project>/issues/<slug>.comments.md (does not affect the board/authoritative index).',
       mutating: true,
       params: {
         project: { type: 'string', required: true, description: 'Project key' },
-        id: { type: 'string', required: true, description: 'Issue id' },
+        slug: { type: 'string', required: true, description: 'Issue slug' },
         body: { type: 'string', required: true, description: 'Comment Markdown body' },
         actor: { type: 'string', required: false, description: 'Comment actor; defaults to collaboration actor' },
         session: { type: 'string', required: false, description: 'Optional session/thread id' },
       },
       handler: async (ctx, params) => {
-        const project = safeSegment(params.project as string, 'project');
-        const id = safeDocketId(params.id as string);
-        findIssue(vaultPath, project, id);
+        const project = projectKey(params.project);
+        const slug = slugify(String(params.slug ?? ''));
+        const note = findIssueNote(vaultPath, project, slug);
+        if (!note) throw makeErr(-32001, `Issue not found: ${slug}`);
         const body = String(params.body ?? '').trim();
         if (!body) throw makeErr(-32602, 'body required');
         const actor = typeof params.actor === 'string' && params.actor.trim() ? safeSegment(params.actor, 'actor') : actorFromContext(ctx);
         const session = typeof params.session === 'string' ? params.session.trim() : process.env.CODEX_THREAD_ID || '';
-        const path = `${commentsRoot(project)}/${id}.md`;
-        const existing = readText(join(vaultPath, path)) ?? `# Comments for ${id}\n\n`;
+        const path = `${issuesRoot(project)}/${slug}.comments.md`;
+        const existing = readText(join(vaultPath, path)) ?? `# Comments for ${slug}\n\n`;
         const now = new Date().toISOString();
-        writeVaultText(vaultPath, path, existing.trimEnd() + '\n\n' + commentBlock(actor, session, body, now));
+        const sessionPart = session ? ` · session ${session}` : '';
+        const block = `## ${now} · ${actor}${sessionPart}\n\n${body}\n\n---\n\n`;
+        writeVaultBytes(vaultPath, path, existing.replace(/\s+$/, '') + '\n\n' + block);
         return { ok: true, path, actor, session };
       },
     },
     {
       name: 'project.board.get',
       namespace: 'project' as Operation['namespace'],
-      description: 'Return the generated Markdown Kanban board for a local project.',
+      description: 'Render the work-OS Kanban board (Obsidian kanban-plugin format) from the authoritative issue notes. Parity with `python kb_meta.py work board`.',
       mutating: false,
-      params: { project: { type: 'string', required: true, description: 'Project key' } },
+      params: {
+        project: { type: 'string', required: true, description: 'Project key' },
+        lang: { type: 'string', required: false, description: 'Lane-label language (en/zh/ja); default $VAULT_MIND_LANG then auto-detect' },
+        write: { type: 'boolean', required: false, default: false, description: 'Also write board.md next to the project anchor (derived view)' },
+      },
       handler: async (_ctx, params) => {
-        const project = safeSegment(params.project as string, 'project');
-        const path = `${docketRoot(project)}/board.md`;
-        const content = readText(join(vaultPath, path)) ?? '';
-        return { exists: Boolean(content), path, content };
+        const project = projectKey(params.project);
+        const write = boolParam(params.write, false);
+        const notes = scanWorkNotes(vaultPath);
+        const authoritative = notes.filter((n) => isAuthoritative(n.raw));
+        const lang = resolveLang(params.lang, notes);
+        const content = renderKanbanBoard(authoritative, project, lang);
+        const result: Record<string, unknown> = { content, lang, project };
+        if (write) {
+          // Write board.md next to the project anchor (or the first issue's dir).
+          const anchor =
+            notes.find((n) => n.entity === `project/${project}`) ??
+            authoritative.find((n) => (n.entity || '').startsWith(`project/${project}/`));
+          if (anchor) {
+            const anchorDir = dirname(anchor.note_id);
+            const boardRel = anchorDir ? `${anchorDir}/board.md` : 'board.md';
+            writeVaultBytes(vaultPath, boardRel, content);
+            result.written = boardRel;
+          }
+        }
+        return result;
       },
     },
   ];
