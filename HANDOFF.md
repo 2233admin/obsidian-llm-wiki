@@ -46,7 +46,7 @@
 - **Task 8 — work-OS 协议(8P/8A–8G,含 Tier2 8E/8F)**:5 态状态契约、8P 事务协议(capture/promote/compile + base-head 锁)、blocker 图、triage 视图、issue 属性视图、initiative/cycle rollup、agent 自更新环。`compiler/currency.py`、`compiler/work_protocol.py`、`compiler/kb_meta.py`
 - **Task 9 — workspace 联邦(9A–9F)**:`workspace.py`(registry/scan/adopt/workspace-status,只读,无符号链接穿越)+ `forge.py`(Transport 可注入/FakeTransport;Gitea/GitHub/Linear 三 adapter;`detect_sync_conflict` anti-loop;sync-pull/plan/apply)
 - **真实全量勘察已落库**:`D:\knowledge\.vault-mind\` 里有 workspace.json + local-bindings.json(65 项目)+ _workspace-status.md。结果:**65 项目,3 个 local-only,9 个 unpushed(openalice +65 commits;code-intel-pipeline diverged;vault-mind no-upstream),61 dirty/forgotten**
-- **Task 11 — work driver 执行闭环(11A 已落)**:`compiler/work_driver.py` `select_next`(actionable+未 blocked,priority+note-id 确定性)+ lease 原子签出(base-head 锁,`.vault-mind/_leases.json`)+ `work next` CLI。**无 runtime**——一次性心跳跑完退(§0 #4)
+- **Task 11 — work driver 执行闭环(11A+11B 已落)**:`compiler/work_driver.py` `select_next`(actionable+未 blocked,priority+note-id 确定性)+ lease 原子签出(base-head 锁,`.vault-mind/_leases.json`)+ `work next` CLI。**11B budget gate**(`compiler/work_budget.py`,commit `30ee25e`):cap+spent 进 markdown frontmatter(`budget`/`budget-spent`,§0 #1/#7 可审,不进机器层),`work next` claim 前查池→满则停(不 lease 不 spawn,绿条 3);池化=项目容器预算(§7);`== cap` 放行/`> cap` 拦;`work budget` CLI 只读报表。**无 runtime**——一次性心跳跑完退(§0 #4)
 - **看板(kanban)统一**:`render_kanban_board` 把 work-OS 真值渲成 obsidian-kanban 插件**原生格式**(`work board` CLI 落盘 `board.md` 派生视图);lane 标题 i18n(zh/ja/en 自动探测);`ensure-plugin` CLI 自动装+启用 obsidian-kanban(用户没装也能用)
 - **MCP↔work-OS 单一真值(941112b)**:`mcp-server/src/project/workos.ts`(work-OS 脑的 TS 移植)+ `project.ts` 改薄 adapter,删 docket store。`project_board_get` 与 Python `work board` **字节相等**(`parity.test.ts` 守);`project_issue_*` 全落 work-OS note。**Linear 可弃**
 - **bundle 启动 bug 修(92e15d3)**:Windows 下 entrypoint guard 路径串比对失败 → bundle.js 静默不启服务;改 `file://` URL 比对修好
@@ -59,7 +59,7 @@
 - **10B**:conversation digest——agent 在回合末尾吐**一组** `vault-capture` 块(它本来就是 LLM),走现有 triage→promote。
 - 10C(deferred):Obsidian Canvas 里「promote 节点」手势,薄插件。
 
-### Task 11 — work driver / 执行闭环(**11A 已落:select_next + lease + work next + 看板统一 + MCP 统一;余 budget ledger + loop trigger 真接成端到端**)
+### Task 11 — work driver / 执行闭环(**11A+11B 已落:select_next + lease + work next + 看板统一 + MCP 统一 + budget gate;余 loop trigger + budget-spent 自动回写 真接成端到端**)
 源自 paperclip(paperclipai/paperclip,agent 编排平台),**只取「执行闭环」概念,丢其 daemon/Postgres/org chart/多租户**。
 - **缺口**:vault-mind 到「真值正确且可查」就停了,是被动层;从不闭合到「所以 agent 去把活干了」。补一个**薄 driver**:读 work-OS authoritative 真值 → 挑下一个可执行项(priority + 未 blocked + 指给 agent)→ 锁定签出 → 拉起 agent → 结果 capture→promote → token 记账。
 - **硬骨头我们已有**(不是重写):原子签出 = 现成的 base-head 锁(HEAD_MISMATCH);持久记忆 = vault 本身 + Task 5 inject;结果写回 = capture→promote。**净新只有三样:loop trigger + budget ledger + lease(claimed-by)**。
@@ -73,7 +73,7 @@
 
 ## 6. 下一步建议
 
-1. **Task 11 余项**:budget ledger(work note 一行 token 账本,spawn 前硬停)+ loop trigger(OS cron / ScheduleWakeup 拉一次性 `work next`)真接成端到端执行闭环。
+1. **Task 11 余项**:~~budget ledger~~ ✅ 已落(11B,commit `30ee25e`:gate + 池化 + `work budget` 报表;**seam 未做:`budget-spent` 自动回写**——真跑后经 capture→promote `debit()` 增量,随执行闭环落)。剩 **loop trigger**(OS cron / ScheduleWakeup 拉一次性 `work next`)+ 真 spawn→capture→promote→debit 串成端到端。⚠️ loop trigger 要建调度任务=对外/持久动作,落前先跟用户确认。
 2. **Task 10A canvas**(`_work-os.canvas`,JSONCanvas,Obsidian 原生看 work-OS 地图)——视觉 payoff 最快,仍未做。
 3. 原 brief Task 5 inject / 6 e2e(已被 Task 11 概念吸收,按需)。
 
