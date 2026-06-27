@@ -26,6 +26,7 @@ if str(_COMPILER) not in sys.path:
 
 import currency  # noqa: E402
 import kb_meta  # noqa: E402
+import work_budget  # noqa: E402
 import work_driver  # noqa: E402
 import work_protocol  # noqa: E402
 
@@ -300,6 +301,67 @@ class LocalizationTest(unittest.TestCase):
         self.assertEqual(work_driver.detect_vault_lang(zh), "zh")
         en = [_wn("b.md", entity="project/issue-b", state="todo", status="reviewed")]
         self.assertEqual(work_driver.detect_vault_lang(en), "en")
+
+
+class WorkNextBudgetGateTest(unittest.TestCase):
+    """Task 11B -- the heartbeat checks the budget pool *before* claiming (the
+    lease authorizes the spawn), so an exhausted pool stops with no lease and
+    nothing claimed: the ledger reaches the cap but never crosses it."""
+
+    def setUp(self) -> None:
+        self.vault = Path(tempfile.mkdtemp())
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.vault, ignore_errors=True)
+
+    def _write(self, rel: str, **fm) -> None:
+        p = self.vault / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        lines = "\n".join(f"{k}: {v}" for k, v in fm.items())
+        p.write_text(f"---\n{lines}\n---\n\nbody\n", encoding="utf-8")
+
+    def _pool(self, **budget) -> None:
+        # a project container (backlog so select_next never picks the container
+        # itself) carrying the shared pool the issue draws on.
+        self._write("Projects/x/_project.md", entity="project/x", type="project",
+                    state="backlog", status="reviewed", **budget)
+
+    def _issue(self, **fm) -> None:
+        self._write("Projects/x/issues/a.md", entity="project/x/issue/a",
+                    state="todo", priority=1, status="reviewed", **fm)
+
+    def test_exhausted_pool_blocks_lease(self) -> None:
+        self._pool(**{"budget": 1000, "budget-spent": 1000})
+        self._issue()
+        out = kb_meta.cmd_work_next(str(self.vault), claim_agent="agent-1", now=1000)
+        self.assertEqual(out["budget"]["outcome"], work_budget.OUTCOME_EXHAUSTED)
+        self.assertNotIn("lease", out)                         # no spawn authorization
+        self.assertEqual(work_driver.read_leases(self.vault), {})  # nothing claimed
+
+    def test_projected_over_cap_blocks_lease(self) -> None:
+        self._pool(**{"budget": 1000, "budget-spent": 800})
+        self._issue()
+        out = kb_meta.cmd_work_next(str(self.vault), claim_agent="agent-1",
+                                    now=1000, projected_cost=300)  # 800+300 > 1000
+        self.assertEqual(out["budget"]["outcome"], work_budget.OUTCOME_EXHAUSTED)
+        self.assertNotIn("lease", out)
+
+    def test_room_left_leases_normally(self) -> None:
+        self._pool(**{"budget": 1000, "budget-spent": 200})
+        self._issue()
+        out = kb_meta.cmd_work_next(str(self.vault), claim_agent="agent-1",
+                                    now=1000, projected_cost=300)
+        self.assertEqual(out["budget"]["outcome"], work_budget.OUTCOME_OK)
+        self.assertEqual(out["budget"]["remaining"], 800)
+        self.assertEqual(out["lease"]["outcome"], work_driver.OUTCOME_ACQUIRED)
+        self.assertIn("Projects/x/issues/a.md", work_driver.read_leases(self.vault))
+
+    def test_unbudgeted_is_unbounded(self) -> None:
+        # no budget declared anywhere -> the gate never fires.
+        self._issue()
+        out = kb_meta.cmd_work_next(str(self.vault), claim_agent="agent-1", now=1000)
+        self.assertEqual(out["budget"]["outcome"], work_budget.OUTCOME_OK)
+        self.assertEqual(out["lease"]["outcome"], work_driver.OUTCOME_ACQUIRED)
 
 
 if __name__ == "__main__":

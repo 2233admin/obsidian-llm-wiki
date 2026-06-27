@@ -1745,20 +1745,27 @@ def _parse_ensure_plugin_args(args: list[str]) -> dict:
             "force": force}
 
 
-def cmd_work_next(vault, *, claim_agent=None, ttl_seconds=3600, now=None):
+def cmd_work_next(vault, *, claim_agent=None, ttl_seconds=3600, now=None,
+                  projected_cost=0):
     """Task 11A-iii heartbeat: select the next executable item from the
     AUTHORITATIVE work index and optionally lease it. One-shot, no daemon
     (§0 #4): a cron / ScheduleWakeup tick invokes this once and exits.
 
-    Returns {"selected": {...} | None, ["lease": {...}]}. Selection reuses
-    work_driver.select_next over the authoritative work notes; the lease is the
-    base-head-locked claim. NOTE: multi-note-per-entity head resolution is a
-    forthcoming refinement -- distinct-entity work items select cleanly today.
+    Returns {"selected": {...} | None, "budget": {...}, ["lease": {...}]}.
+    Selection reuses work_driver.select_next over the authoritative work notes;
+    the lease is the base-head-locked claim. The 11B budget gate runs *before*
+    the claim (the lease is the spawn authorization): an exhausted pool stops the
+    heartbeat with no lease and no spawn, so the ledger reaches the cap but never
+    crosses it. `projected_cost` is the caller's estimate of the next run's spend
+    -- the gate refuses a run that would push the pool past the cap.
+    NOTE: multi-note-per-entity head resolution is a forthcoming refinement --
+    distinct-entity work items select cleanly today.
     """
     import time
     import currency
     import work_protocol
     import work_driver
+    import work_budget
 
     notes = work_protocol._walk_work_notes(vault, require_entity=True)
     authoritative = [n for n in notes if n.is_authoritative]
@@ -1772,6 +1779,14 @@ def cmd_work_next(vault, *, claim_agent=None, ttl_seconds=3600, now=None):
             "state": currency.work_state(pick.cm),
         }
     }
+    cap, spent = work_budget.resolve_pool(pick, authoritative)
+    b = work_budget.check(cap, spent, projected=projected_cost)
+    result["budget"] = {
+        "outcome": b.outcome, "cap": b.cap, "spent": b.spent,
+        "projected": b.projected, "remaining": b.remaining,
+    }
+    if b.outcome == work_budget.OUTCOME_EXHAUSTED:
+        return result  # hard stop before spawn -- never overspend (green bar 3)
     if claim_agent:
         if now is None:
             now = int(time.time())
@@ -1812,6 +1827,34 @@ def cmd_work_board(vault, *, project=None, write=False, lang=None):
             out.write_bytes(board.encode("utf-8"))
             result["written"] = str(out.relative_to(Path(vault))).replace("\\", "/")
     return result
+
+
+def cmd_work_budget(vault, *, project=None):
+    """Report budget pools (cap / spent / remaining / status) -- a read-only view
+    of the markdown ledger, so the quota stays auditable (§7, no side-channel).
+    A pool is a project container note that declares a `budget`; with --project
+    only that pool is reported, otherwise every declared pool."""
+    import work_protocol
+    import work_budget
+
+    notes = work_protocol._walk_work_notes(vault, require_entity=True)
+    pools = []
+    for n in notes:
+        if (n.raw or {}).get("type") != "project":
+            continue
+        slug = work_budget.pool_slug(n.entity)
+        if project and slug != project:
+            continue
+        cap, spent = work_budget.read_budget(n)
+        if cap is None:
+            continue
+        b = work_budget.check(cap, spent)
+        pools.append({
+            "project": slug, "entity": n.entity, "cap": cap, "spent": spent,
+            "remaining": b.remaining, "outcome": b.outcome,
+        })
+    pools.sort(key=lambda p: p["entity"])
+    return {"project": project, "pools": pools}
 
 
 def main():
@@ -1873,8 +1916,9 @@ def main():
                                  apply=p["apply"], force=p["force"])
 
     def _work_cli():
-        # `work next  <vault> [--claim <agent>] [--ttl <sec>]`
-        # `work board <vault> [--project <slug>] [--write] [--lang <code>]`
+        # `work next   <vault> [--claim <agent>] [--ttl <sec>] [--projected <n>]`
+        # `work board  <vault> [--project <slug>] [--write] [--lang <code>]`
+        # `work budget <vault> [--project <slug>]`
         sub = args[1] if len(args) > 1 else None
         pos = [a for a in args[2:] if not a.startswith("--")]
 
@@ -1887,10 +1931,13 @@ def main():
 
         if sub == "next":
             return cmd_work_next(pos[0], claim_agent=_opt("--claim"),
-                                 ttl_seconds=int(_opt("--ttl") or 3600))
+                                 ttl_seconds=int(_opt("--ttl") or 3600),
+                                 projected_cost=int(_opt("--projected") or 0))
         if sub == "board":
             return cmd_work_board(pos[0], project=_opt("--project"),
                                   write=("--write" in args), lang=_opt("--lang"))
+        if sub == "budget":
+            return cmd_work_budget(pos[0], project=_opt("--project"))
         raise IndexError  # unknown work subcommand
 
     dispatch = {
