@@ -995,7 +995,12 @@ const re = new RegExp(
         const tagLine = ["project", ...tags].map(t => `  - ${t}`).join("\n");
         const teamLinks = team.map(m => `- [[${m}]]`).join("\n");
         const preamble = summary || `Project: ${name}. Status: ${status}${team.length ? `. Team: ${team.join(", ")}` : ""}.`;
-        const content = `---\nname: "${name}"\ntype: project\nai-first: true\nstatus: ${status}\ncreated: ${today}\nupdated: ${today}\ntags:\n${tagLine}\n---\n\n## For future Claude\n${preamble}\n\n## Overview\n\n${summary}\n\n## Team\n\n${teamLinks || "- TBD"}\n\n## Milestones\n\n## Decisions\n\n## Metrics\n\n## Notes\n`;
+        // Task 7C: stamp currency fields so the project joins the status-drift
+        // guard + project-status view (compiler/kb_meta.py currency). A project
+        // is anchored by its own activity, so it needs no `source`.
+        const slugE = (s: string) => s.trim().replace(/[:[\]\r\n]+/g, "").replace(/\s+/g, "-").toLowerCase();
+        const entity = (p.entity as string) || `project/${slugE(name)}`;
+        const content = `---\nname: "${name}"\ntype: project\nai-first: true\nstatus: ${status}\nentity: ${entity}\nlast-verified: ${today}\ncreated: ${today}\nupdated: ${today}\ntags:\n${tagLine}\n---\n\n## For future Claude\n${preamble}\n\n## Overview\n\n${summary}\n\n## Team\n\n${teamLinks || "- TBD"}\n\n## Milestones\n\n## Decisions\n\n## Metrics\n\n## Notes\n`;
         if (p.dryRun !== false) return { dryRun: true, action: existsSync(full) ? "update" : "create", path, preview: content.slice(0, 200) };
         return withFileLock(full, () => {
           mkdirSync(dirname(full), { recursive: true });
@@ -1017,7 +1022,13 @@ const re = new RegExp(
         const consequences = (p.consequences as string) || "";
         const tags = Array.isArray(p.tags) ? (p.tags as string[]) : [];
         const tagLine = ["decision", "adr", ...tags].map(t => `  - ${t}`).join("\n");
-        const content = `---\ntitle: "${title}"\ntype: decision\nai-first: true\nstatus: ${status}\ndate: ${today}\ntags:\n${tagLine}\n---\n\n## For future Claude\nDecision: ${p.decision as string}. Status: ${status} (${today}).\n\n## Context\n\n${p.context as string}\n\n## Decision\n\n${p.decision as string}\n\n## Rationale\n\n${rationale}\n\n## Consequences\n\n${consequences}\n`;
+        // Task 7C: stamp currency fields. If a `project` is given, namespace the
+        // entity under it so the decision surfaces in that project's status view.
+        const slugE = (s: string) => s.trim().replace(/[:[\]\r\n]+/g, "").replace(/\s+/g, "-").toLowerCase();
+        const proj = (p.project as string) || "";
+        const entity = (p.entity as string) || (proj ? `project/${slugE(proj)}/decision/${slug}` : `decision/${slug}`);
+        const srcLine = p.source ? `\nsource: ${String(p.source).replace(/[\r\n]+/g, " ").trim()}` : "";
+        const content = `---\ntitle: "${title}"\ntype: decision\nai-first: true\nstatus: ${status}\nentity: ${entity}\nlast-verified: ${today}${srcLine}\ndate: ${today}\ntags:\n${tagLine}\n---\n\n## For future Claude\nDecision: ${p.decision as string}. Status: ${status} (${today}).\n\n## Context\n\n${p.context as string}\n\n## Decision\n\n${p.decision as string}\n\n## Rationale\n\n${rationale}\n\n## Consequences\n\n${consequences}\n`;
         if (p.dryRun !== false) return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
         return withFileLock(full, () => {
           mkdirSync(dirname(full), { recursive: true });

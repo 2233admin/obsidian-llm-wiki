@@ -50,6 +50,27 @@ mcp-server/smoke.err
 # link_discovery output (per-dev, regenerate with compiler/link_discovery.py)
 .compile/
 
+# Currency passes derived artifacts (Task 2): DERIVED, recomputable, NOT committed.
+# Regenerate with: python compiler/kb_meta.py currency <vault> <topic> --apply
+**/wiki/_current-truth.md
+**/wiki/_supersession.md
+**/wiki/_currency.json
+**/wiki/_project-status.md
+**/wiki/_triage.md
+**/wiki/_initiative-status.md
+**/wiki/_cycle-status.md
+
+# capture-hook (Task 4) per-machine idempotency state (default lives in
+# ~/.vault-mind/; ignored here in case VAULT_CAPTURE_STATE points into the repo)
+capture-hook.seen.log
+**/capture-hook.seen.log
+
+# Task 9 / 9A local project registry (MACHINE-LOCAL): workspace roots AND
+# bindings are machine-specific paths, so the WHOLE dir is gitignored. A
+# machine path must NEVER appear in any shared/committed markdown note (§0 #9).
+# Holds workspace.json (workspace-roots) + local-bindings.json (entity -> path).
+.vault-mind/
+
 # Local planning / GSD artifacts (per-dev, not part of shipped product)
 .planning/
 .gitnexus

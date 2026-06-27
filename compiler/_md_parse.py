@@ -85,6 +85,23 @@ def parse_frontmatter(text: str) -> dict:
             lst = out.get(current_key)
             if isinstance(lst, list):
                 lst.append(val)
+        elif current_key and (raw[:1] in (" ", "\t")) and re.match(
+                r"^[ \t]+[A-Za-z_][\w-]*\s*:", raw):
+            # An indented `child: value` under a bare `key:` -> a nested
+            # single-level YAML map (e.g. the Task 8/9 `origin:` provenance block:
+            # `origin:` then `  provider: gitea` / `  object-id: 43`). Without this
+            # the map's children were silently dropped and `origin` round-tripped
+            # as an empty list, breaking push_plan's PATCH-vs-POST anti-duplication
+            # branch. The first child converts the placeholder list to a dict.
+            ck, _, cv = raw.lstrip().partition(":")
+            ck = ck.strip()
+            cv = strip_bracket_list_comment(cv.strip()).strip("'\"")
+            existing = out.get(current_key)
+            if isinstance(existing, list) and not existing:
+                out[current_key] = {}
+                existing = out[current_key]
+            if isinstance(existing, dict):
+                existing[ck] = cv
     return out
 
 

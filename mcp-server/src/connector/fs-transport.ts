@@ -186,7 +186,11 @@ export class FsTransport {
       case 'vault.read': {
         const full = this.resolve(p['path'] as string);
         if (!fs.existsSync(full)) throw { code: -32001, message: `Not found: ${p['path']}` };
-        return { content: fs.readFileSync(full, 'utf-8') };
+        const out: { content: string; currency?: { marker: string; reasons: string[] } } =
+          { content: fs.readFileSync(full, 'utf-8') };
+        const c = this.currencyByNote().get(((p['path'] as string) || '').replace(/\\/g, '/'));
+        if (c) out.currency = c;
+        return out;
       }
       case 'vault.exists': {
         const existsPath = this.normalizeVaultPath((p['path'] as string) ?? '', { allowRoot: true });
@@ -259,7 +263,7 @@ export class FsTransport {
         return { ok: true, from: p['from'], to: p['to'] };
       }
       case 'vault.search': {
-        const results: Array<{ path: string; matches: Array<{ line: number; text: string }> }> = [];
+        const results: Array<{ path: string; matches: Array<{ line: number; text: string }>; currency?: { marker: string; reasons: string[] } }> = [];
         const max = (p['maxResults'] as number) || 50;
         let total = 0;
         if (typeof p['query'] !== 'string' || (p['query'] as string).length > 500)
@@ -275,6 +279,7 @@ export class FsTransport {
           const err = e as { code?: number; message?: string };
           throw { code: err.code || -32602, message: err.message || `Invalid regex: ${err.message}` };
         }
+        let rgUsed = false;
         if (!p['regex']) {
         const rgResult = this.searchVaultWithRipgrep(
           p['query'] as string,
@@ -282,10 +287,16 @@ export class FsTransport {
           Boolean(p['caseSensitive']),
           typeof p['glob'] === 'string' ? (p['glob'] as string) : undefined,
         );
-        if (rgResult) return rgResult;
+        if (rgResult) {
+          // ripgrep fast path: adopt its results, then fall through to currency
+          // annotation below instead of returning raw (Task 3 markers must apply).
+          for (const r of rgResult.results) results.push(r);
+          total = rgResult.totalMatches;
+          rgUsed = true;
+        }
       }
 
-      this.walkMd(this.vault, (relPath: string, content: string) => {
+      if (!rgUsed) this.walkMd(this.vault, (relPath: string, content: string) => {
           if (total >= max) return;
           if (p['glob'] && !this.matchGlob(relPath, p['glob'] as string)) return;
           const lines = content.split('\n');
@@ -299,6 +310,15 @@ export class FsTransport {
           }
           if (matches.length) results.push({ path: relPath, matches });
         });
+        // Task 3: inline currency markers from the compiled report. Ranking/order
+        // unchanged -- we only annotate. Node never recomputes.
+        const currency = this.currencyByNote();
+        if (currency.size) {
+          for (const r of results) {
+            const c = currency.get(r.path);
+            if (c) r.currency = c;
+          }
+        }
         return { results, totalMatches: total };
       }
       case 'vault.init': {
@@ -598,6 +618,33 @@ export class FsTransport {
       default:
         throw { code: -32601, message: `Unknown method: ${method}` };
     }
+  }
+
+  // Currency layer (Task 3): read the compiled report(s) the Python passes emit
+  // at <topic>/wiki/_currency.json and map note_id -> verdict. Pure read; the
+  // connector never recomputes. Missing/corrupt report -> no annotation, no throw.
+  currencyByNote(): Map<string, { marker: string; reasons: string[] }> {
+    const out = new Map<string, { marker: string; reasons: string[] }>();
+    try {
+      for (const ent of fs.readdirSync(this.vault, { withFileTypes: true })) {
+        if (!ent.isDirectory()) continue;
+        const reportPath = path.join(this.vault, ent.name, 'wiki', '_currency.json');
+        if (!fs.existsSync(reportPath)) continue;
+        let data: { byNote?: Record<string, { marker?: string; reasons?: string[] }> };
+        try { data = JSON.parse(fs.readFileSync(reportPath, 'utf-8')); }
+        catch { continue; }  // corrupt report -> skip, never break search
+        for (const [noteId, info] of Object.entries(data.byNote ?? {})) {
+          const marker = info?.marker;
+          if (!marker) continue;
+          const existing = out.get(noteId);
+          // across topics a non-OK verdict wins over OK so staleness is not masked
+          if (!existing || (existing.marker === 'OK' && marker !== 'OK')) {
+            out.set(noteId, { marker, reasons: info.reasons ?? [] });
+          }
+        }
+      }
+    } catch { /* vault root unreadable -> no annotation */ }
+    return out;
   }
 
   private searchVaultWithRipgrep(
