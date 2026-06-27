@@ -134,3 +134,70 @@ def release_lease(vault_dir, note_id, agent_id) -> bool:
         _write_leases(vault_dir, leases)
         return True
     return False
+
+
+# --- kanban view: render the work-OS truth into an Obsidian board (unify) -----
+# The board is a *derived view* (§0 #2): the source of truth stays the issue
+# notes (state / blocked-by); the board is recompiled from them, never edited as
+# source. This makes the scheduling brain (work_protocol) ALSO speak kanban, so
+# the separate docket store is unnecessary.
+
+KANBAN_COLUMNS = ("Backlog", "Todo", "In Progress", "Blocked", "Done", "Canceled")
+_STATE_COLUMN = {
+    currency.STATE_BACKLOG: "Backlog",
+    currency.STATE_TODO: "Todo",
+    currency.STATE_IN_PROGRESS: "In Progress",
+    currency.STATE_DONE: "Done",
+    currency.STATE_CANCELED: "Canceled",
+}
+_DONE_COLUMNS = frozenset({"Done", "Canceled"})
+
+
+def board_columns(notes, *, project=None) -> dict:
+    """Group work issues into kanban columns by canonical state, with an active
+    item that has an unresolved blocker moved to 'Blocked' (derived, like
+    effective_state). Deterministic order within a column (priority, note_id).
+    `project` filters to entities under `project/<project>/`."""
+    cols = {c: [] for c in KANBAN_COLUMNS}
+    prefix = f"project/{project}/" if project else None
+    for n in notes:
+        ent = n.entity
+        if not ent:
+            continue
+        if (n.raw or {}).get("type") == "project":
+            continue  # the container note is not a card
+        if prefix and not ent.startswith(prefix):
+            continue
+        state = currency.work_state(n.cm)
+        column = _STATE_COLUMN.get(state, "Backlog")
+        if state in (currency.STATE_TODO, currency.STATE_IN_PROGRESS) and \
+                work_protocol.has_unresolved_blocker(notes, ent):
+            column = "Blocked"
+        cols[column].append(n)
+    return {c: [n.note_id for n in sorted(ns, key=_sort_key)] for c, ns in cols.items()}
+
+
+def _card_label(note) -> str:
+    for line in (note.body or "").splitlines():
+        if line.strip():
+            return line.strip()
+    return note.entity.rsplit("/", 1)[-1] if note.entity else note.note_id
+
+
+def render_kanban_board(notes, *, project=None) -> str:
+    """Render the work-OS notes as an Obsidian Kanban board (kanban-plugin)."""
+    cols = board_columns(notes, project=project)
+    by_id = {n.note_id: n for n in notes}
+    out = ["---", "kanban-plugin: board"]
+    if project:
+        out.append(f'project: "{project}"')
+    out += ["---", "", "# Board", ""]
+    for column in KANBAN_COLUMNS:
+        out.append(f"## {column}")
+        out.append("")
+        mark = "x" if column in _DONE_COLUMNS else " "
+        for nid in cols[column]:
+            out.append(f"- [{mark}] {_card_label(by_id[nid])}")
+        out.append("")
+    out += ["%% kanban:settings", "```json", '{"kanban-plugin":"board"}', "```", "%%", ""]
+    return "\n".join(out)

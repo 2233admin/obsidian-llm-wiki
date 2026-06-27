@@ -213,5 +213,51 @@ class WorkNextCliTest(unittest.TestCase):
         self.assertIsNone(out["selected"])
 
 
+class KanbanRenderTest(unittest.TestCase):
+    """Task 11 unify -- the scheduling brain renders an Obsidian Kanban board as a
+    derived view from the work-OS notes (state / blocked-by), so the separate
+    docket store is unnecessary."""
+
+    def _notes(self):
+        return [
+            _wn("p/t/issues/a.md", entity="project/t/issue/a", state="done",
+                priority=2, status="reviewed"),
+            _wn("p/t/issues/b.md", entity="project/t/issue/b", state="todo",
+                priority=1, status="reviewed"),
+            _wn("p/t/issues/c.md", entity="project/t/issue/c", state="todo",
+                priority=2, status="reviewed", **{"blocked-by": ["project/t/issue/b"]}),
+            _wn("p/t/issues/d.md", entity="project/t/issue/d", state="in-progress",
+                priority=2, status="reviewed"),
+            _wn("p/t/issues/e.md", entity="project/t/issue/e", state="canceled",
+                priority=2, status="reviewed"),
+            _wn("p/t/issues/f.md", entity="project/t/issue/f", state="backlog",
+                priority=3, status="reviewed"),
+        ]
+
+    def test_columns_group_by_state(self):
+        cols = work_driver.board_columns(self._notes())
+        self.assertEqual(cols["Done"], ["p/t/issues/a.md"])
+        self.assertEqual(cols["Todo"], ["p/t/issues/b.md"])
+        # c is todo but blocked-by an unresolved (still-todo) b -> Blocked
+        self.assertEqual(cols["Blocked"], ["p/t/issues/c.md"])
+        self.assertEqual(cols["In Progress"], ["p/t/issues/d.md"])
+        self.assertEqual(cols["Canceled"], ["p/t/issues/e.md"])
+        self.assertEqual(cols["Backlog"], ["p/t/issues/f.md"])
+
+    def test_project_filter_excludes_other_projects(self):
+        notes = self._notes() + [
+            _wn("o/x.md", entity="project/other/issue/x", state="todo", status="reviewed")
+        ]
+        cols = work_driver.board_columns(notes, project="t")
+        self.assertNotIn("o/x.md", cols["Todo"])
+
+    def test_render_is_obsidian_kanban(self):
+        md = work_driver.render_kanban_board(self._notes(), project="t")
+        self.assertIn("kanban-plugin: board", md)
+        self.assertIn("## Blocked", md)
+        self.assertIn("- [x]", md)  # done/canceled cards are checked
+        self.assertIn("- [ ]", md)  # open cards are unchecked
+
+
 if __name__ == "__main__":
     unittest.main()

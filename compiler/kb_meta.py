@@ -1717,6 +1717,32 @@ def cmd_work_next(vault, *, claim_agent=None, ttl_seconds=3600, now=None):
     return result
 
 
+def cmd_work_board(vault, *, project=None, write=False):
+    """Render the work-OS authoritative notes into an Obsidian Kanban board (a
+    derived view -- the source stays the issue notes). With --write, the board is
+    written next to the project (regenerable, never a source). This is the
+    unification: the scheduling brain (work_protocol) now also speaks kanban, so
+    the separate docket store is unnecessary."""
+    from pathlib import Path
+    import work_protocol
+    import work_driver
+
+    notes = work_protocol._walk_work_notes(vault, require_entity=True)
+    authoritative = [n for n in notes if n.is_authoritative]
+    board = work_driver.render_kanban_board(authoritative, project=project)
+    result = {"project": project, "board": board}
+    if write and project:
+        anchor = next((n for n in notes if n.entity == f"project/{project}"), None) \
+            or next((n for n in authoritative
+                     if (n.entity or "").startswith(f"project/{project}/")), None)
+        if anchor:
+            out = Path(vault) / Path(anchor.note_id).parent / "board.md"
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_bytes(board.encode("utf-8"))
+            result["written"] = str(out.relative_to(Path(vault))).replace("\\", "/")
+    return result
+
+
 def main():
     args = sys.argv[1:]
     if len(args) < 1:
@@ -1769,24 +1795,25 @@ def main():
         return cmd_sync_apply(p["vault"], apply=p["apply"], today=p["today"])
 
     def _work_cli():
-        # `work next <vault> [--claim <agent>] [--ttl <sec>]`
-        if (args[1] if len(args) > 1 else None) != "next":
-            raise IndexError  # only the `next` subcommand exists today
+        # `work next  <vault> [--claim <agent>] [--ttl <sec>]`
+        # `work board <vault> [--project <slug>] [--write]`
+        sub = args[1] if len(args) > 1 else None
         pos = [a for a in args[2:] if not a.startswith("--")]
-        claim = None
-        ttl = 3600
-        i = 2
-        while i < len(args):
-            if args[i] == "--claim" and i + 1 < len(args):
-                claim = args[i + 1]
-                i += 2
-                continue
-            if args[i] == "--ttl" and i + 1 < len(args):
-                ttl = int(args[i + 1])
-                i += 2
-                continue
-            i += 1
-        return cmd_work_next(pos[0], claim_agent=claim, ttl_seconds=ttl)
+
+        def _opt(name):
+            if name in args:
+                idx = args.index(name)
+                if idx + 1 < len(args):
+                    return args[idx + 1]
+            return None
+
+        if sub == "next":
+            return cmd_work_next(pos[0], claim_agent=_opt("--claim"),
+                                 ttl_seconds=int(_opt("--ttl") or 3600))
+        if sub == "board":
+            return cmd_work_board(pos[0], project=_opt("--project"),
+                                  write=("--write" in args))
+        raise IndexError  # unknown work subcommand
 
     dispatch = {
         "init": lambda: cmd_init(args[1], args[2]),
