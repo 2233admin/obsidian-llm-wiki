@@ -1,0 +1,9 @@
+.vault-mind-promote-plan {
+  max-height: 320px;
+  overflow: auto;
+  font-size: 12px;
+  white-space: pre-wrap;
+  background: var(--background-secondary);
+  padding: 8px;
+  border-radius: 6px;
+}

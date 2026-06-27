@@ -1,0 +1,9 @@
+{
+  "id": "vault-mind-promote",
+  "name": "vault-mind Promote",
+  "version": "0.1.0",
+  "minAppVersion": "1.4.0",
+  "description": "Promote a vault-mind draft candidate through the work-OS base-head lock, from a command or the file menu. Dry-run plan first; never auto-commits.",
+  "author": "vault-mind",
+  "isDesktopOnly": true
+}
