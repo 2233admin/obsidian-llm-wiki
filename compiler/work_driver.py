@@ -152,6 +152,44 @@ _STATE_COLUMN = {
 }
 _DONE_COLUMNS = frozenset({"Done", "Canceled"})
 
+# Localized lane labels. The canonical column keys (KANBAN_COLUMNS) stay English
+# internally (source of truth never changes); only the *displayed* heading is
+# localized, so the board reads in the user's language without touching the
+# work-OS state model. Unknown lang falls back to English.
+COLUMN_LABELS = {
+    "en": {"Backlog": "Backlog", "Todo": "Todo", "In Progress": "In Progress",
+           "Blocked": "Blocked", "Done": "Done", "Canceled": "Canceled"},
+    "zh": {"Backlog": "储备", "Todo": "待办", "In Progress": "进行中",
+           "Blocked": "受阻", "Done": "已完成", "Canceled": "已取消"},
+    "ja": {"Backlog": "バックログ", "Todo": "未着手", "In Progress": "進行中",
+           "Blocked": "ブロック", "Done": "完了", "Canceled": "キャンセル"},
+}
+
+
+def detect_lang(text) -> str:
+    """Heuristic UI language from sample text. Japanese kana (hiragana/katakana)
+    is unique to Japanese -> 'ja'; otherwise any CJK Han -> 'zh'; else 'en'.
+    Kana is checked first because Japanese also uses Han, but Chinese has no
+    kana."""
+    s = text or ""
+    if any("぀" <= c <= "ヿ" for c in s):
+        return "ja"
+    if any("一" <= c <= "鿿" for c in s):
+        return "zh"
+    return "en"
+
+
+def detect_vault_lang(notes, *, sample=200) -> str:
+    """Detect the vault's dominant UI language from a sample of note titles/bodies
+    (so the board localizes to the library, not to one project's note text)."""
+    buf = []
+    for n in notes[:sample]:
+        if n.entity:
+            buf.append(n.entity)
+        if n.body:
+            buf.append(n.body)
+    return detect_lang("\n".join(buf))
+
 
 def board_columns(notes, *, project=None) -> dict:
     """Group work issues into kanban columns by canonical state, with an active
@@ -184,17 +222,20 @@ def _card_label(note) -> str:
     return note.entity.rsplit("/", 1)[-1] if note.entity else note.note_id
 
 
-def render_kanban_board(notes, *, project=None) -> str:
-    """Render the work-OS notes as an Obsidian Kanban board (kanban-plugin)."""
+def render_kanban_board(notes, *, project=None, lang="en") -> str:
+    """Render the work-OS notes as an Obsidian Kanban board (kanban-plugin). `lang`
+    localizes the lane headings (en/zh/ja, unknown -> en); the canonical column
+    keys and the note state model are unchanged."""
     cols = board_columns(notes, project=project)
     by_id = {n.note_id: n for n in notes}
+    labels = COLUMN_LABELS.get(lang, COLUMN_LABELS["en"])
     # Match the EXACT on-disk format the obsidian-kanban plugin writes: blank-line
     # padded frontmatter, NO H1 heading, `##` lanes, plain (non-json) settings
     # fence. Deviating (an H1, a ```json fence, extra frontmatter keys) makes the
     # plugin fail to render the board.
     out = ["---", "", "kanban-plugin: board", "", "---", ""]
     for column in KANBAN_COLUMNS:
-        out.append(f"## {column}")
+        out.append(f"## {labels.get(column, column)}")
         out.append("")
         mark = "x" if column in _DONE_COLUMNS else " "
         for nid in cols[column]:

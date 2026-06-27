@@ -259,5 +259,48 @@ class KanbanRenderTest(unittest.TestCase):
         self.assertIn("- [ ]", md)  # open cards are unchecked
 
 
+class LocalizationTest(unittest.TestCase):
+    """UX: localize the kanban lane headings to the user's language (view-only;
+    the canonical state model stays English)."""
+
+    def test_detect_lang(self):
+        self.assertEqual(work_driver.detect_lang("待办 储备 进行中"), "zh")
+        self.assertEqual(work_driver.detect_lang("プロジェクト 進行中"), "ja")
+        self.assertEqual(work_driver.detect_lang("project backlog"), "en")
+        # Japanese mixes kana + kanji; kana wins so it is not mis-detected as zh
+        self.assertEqual(work_driver.detect_lang("進行中です"), "ja")
+        self.assertEqual(work_driver.detect_lang(""), "en")
+
+    def test_render_localized_headings(self):
+        notes = [_wn("p/t/issues/a.md", entity="project/t/issue/a",
+                     state="todo", status="reviewed")]
+        zh = work_driver.render_kanban_board(notes, project="t", lang="zh")
+        self.assertIn("## 待办", zh)
+        self.assertNotIn("## Todo", zh)
+        ja = work_driver.render_kanban_board(notes, project="t", lang="ja")
+        self.assertIn("## 未着手", ja)
+        en = work_driver.render_kanban_board(notes, project="t", lang="en")
+        self.assertIn("## Todo", en)
+
+    def test_unknown_lang_falls_back_to_en(self):
+        notes = [_wn("p/t/issues/a.md", entity="project/t/issue/a",
+                     state="todo", status="reviewed")]
+        md = work_driver.render_kanban_board(notes, project="t", lang="fr")
+        self.assertIn("## Todo", md)
+
+    def test_localized_board_stays_valid_kanban(self):
+        notes = [_wn("p/t/issues/a.md", entity="project/t/issue/a",
+                     state="done", status="reviewed")]
+        md = work_driver.render_kanban_board(notes, project="t", lang="zh")
+        self.assertIn("kanban-plugin: board", md)  # still the plugin's format
+        self.assertIn("- [x]", md)
+
+    def test_detect_vault_lang_from_notes(self):
+        zh = [_wn("a.md", entity="项目/任务一", state="todo", status="reviewed")]
+        self.assertEqual(work_driver.detect_vault_lang(zh), "zh")
+        en = [_wn("b.md", entity="project/issue-b", state="todo", status="reviewed")]
+        self.assertEqual(work_driver.detect_vault_lang(en), "en")
+
+
 if __name__ == "__main__":
     unittest.main()

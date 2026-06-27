@@ -1777,20 +1777,24 @@ def cmd_work_next(vault, *, claim_agent=None, ttl_seconds=3600, now=None):
     return result
 
 
-def cmd_work_board(vault, *, project=None, write=False):
+def cmd_work_board(vault, *, project=None, write=False, lang=None):
     """Render the work-OS authoritative notes into an Obsidian Kanban board (a
     derived view -- the source stays the issue notes). With --write, the board is
     written next to the project (regenerable, never a source). This is the
     unification: the scheduling brain (work_protocol) now also speaks kanban, so
-    the separate docket store is unnecessary."""
+    the separate docket store is unnecessary. `lang` localizes the lane headings;
+    when unset it honors $VAULT_MIND_LANG then auto-detects from the vault."""
     from pathlib import Path
+    import os
     import work_protocol
     import work_driver
 
     notes = work_protocol._walk_work_notes(vault, require_entity=True)
     authoritative = [n for n in notes if n.is_authoritative]
-    board = work_driver.render_kanban_board(authoritative, project=project)
-    result = {"project": project, "board": board}
+    if lang is None:
+        lang = os.environ.get("VAULT_MIND_LANG") or work_driver.detect_vault_lang(notes)
+    board = work_driver.render_kanban_board(authoritative, project=project, lang=lang)
+    result = {"project": project, "lang": lang, "board": board}
     if write and project:
         anchor = next((n for n in notes if n.entity == f"project/{project}"), None) \
             or next((n for n in authoritative
@@ -1863,7 +1867,7 @@ def main():
 
     def _work_cli():
         # `work next  <vault> [--claim <agent>] [--ttl <sec>]`
-        # `work board <vault> [--project <slug>] [--write]`
+        # `work board <vault> [--project <slug>] [--write] [--lang <code>]`
         sub = args[1] if len(args) > 1 else None
         pos = [a for a in args[2:] if not a.startswith("--")]
 
@@ -1879,7 +1883,7 @@ def main():
                                  ttl_seconds=int(_opt("--ttl") or 3600))
         if sub == "board":
             return cmd_work_board(pos[0], project=_opt("--project"),
-                                  write=("--write" in args))
+                                  write=("--write" in args), lang=_opt("--lang"))
         raise IndexError  # unknown work subcommand
 
     dispatch = {
