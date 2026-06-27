@@ -2016,6 +2016,37 @@ def cmd_work_budget(vault, *, project=None):
     return {"project": project, "pools": pools}
 
 
+def cmd_work_debit(vault, *, project, cost, apply=False):
+    """Write a run's token `cost` back into a project pool's ledger -- the
+    after-run half of the 11B budget loop (the `work next` gate is the
+    before-spawn half). Dry-run by default; --apply bumps `budget-spent` in the
+    project container note (markdown truth, git-gated -- the change is a one-line
+    ledger diff). One-shot (§0 #4): the loop calls this once after a run, exits.
+    """
+    from pathlib import Path
+    import work_protocol
+    import work_budget
+
+    notes = work_protocol._walk_work_notes(vault, require_entity=True)
+    anchor = next((n for n in notes if n.entity == f"project/{project}"
+                   and (n.raw or {}).get("type") == "project"), None)
+    if anchor is None:
+        return {"error": f"no project container for '{project}'"}
+    cap, spent = work_budget.read_budget(anchor)
+    p = Path(vault) / anchor.note_id
+    try:
+        new_text = work_budget.record_spend(p.read_text(encoding="utf-8"), cost)
+    except (ValueError, OSError) as e:
+        return {"error": str(e)}
+    result = {"project": project, "note_id": anchor.note_id, "cap": cap,
+              "spent_before": spent, "spent_after": spent + cost, "cost": cost,
+              "apply": apply}
+    if apply:
+        p.write_bytes(new_text.encode("utf-8"))
+        result["written"] = anchor.note_id
+    return result
+
+
 def main():
     args = sys.argv[1:]
     if len(args) < 1:
@@ -2078,6 +2109,7 @@ def main():
         # `work next   <vault> [--claim <agent>] [--ttl <sec>] [--projected <n>]`
         # `work board  <vault> [--project <slug>] [--write] [--lang <code>]`
         # `work budget <vault> [--project <slug>]`
+        # `work debit  <vault> --project <slug> --cost <n> [--apply]`
         sub = args[1] if len(args) > 1 else None
         pos = [a for a in args[2:] if not a.startswith("--")]
 
@@ -2097,6 +2129,10 @@ def main():
                                   write=("--write" in args), lang=_opt("--lang"))
         if sub == "budget":
             return cmd_work_budget(pos[0], project=_opt("--project"))
+        if sub == "debit":
+            return cmd_work_debit(pos[0], project=_opt("--project"),
+                                  cost=int(_opt("--cost") or 0),
+                                  apply=("--apply" in args))
         raise IndexError  # unknown work subcommand
 
     dispatch = {

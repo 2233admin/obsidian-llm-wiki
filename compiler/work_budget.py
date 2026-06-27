@@ -28,6 +28,7 @@ module makes no token-meter or wall-clock call of its own.
 from __future__ import annotations
 
 import dataclasses
+import re
 
 OUTCOME_OK = "OK"
 OUTCOME_EXHAUSTED = "EXHAUSTED"
@@ -122,3 +123,33 @@ def debit(spent: int, cost: int) -> int:
     if cost < 0:
         raise ValueError(f"budget cost must be non-negative, got {cost}")
     return _as_int(spent, 0) + cost
+
+
+# `$` is matched per-line (re.MULTILINE); trailing run is horizontal whitespace
+# only ([^\S\r\n]) so it never swallows the newline into the next line.
+_SPENT_LINE_RE = re.compile(r"^(budget-spent:[^\S\r\n]*)(\d+)[^\S\r\n]*$", re.MULTILINE)
+_CAP_LINE_RE = re.compile(r"^(budget:[^\S\r\n]*)(\d+)[^\S\r\n]*$", re.MULTILINE)
+
+
+def record_spend(text: str, cost: int) -> str:
+    """Write a run's `cost` back into a pool note's ledger -- the after-run half
+    of the budget loop (the gate is the before-spawn half). Surgical + byte-
+    preserving: only the `budget-spent` value changes; everything else in the
+    note is left identical, so the derived/source contract holds and a promote
+    diff is a one-line ledger bump.
+
+    Increments an existing `budget-spent: N` line to N+cost; if the note declares
+    a `budget:` cap but no spent line yet, inserts `budget-spent: <cost>` right
+    after the cap. A note that declares no `budget:` is not a pool -> ValueError
+    (the driver must only debit pool notes). Negative cost -> ValueError.
+    """
+    if cost < 0:
+        raise ValueError(f"budget cost must be non-negative, got {cost}")
+    m = _SPENT_LINE_RE.search(text)
+    if m:
+        new = _as_int(m.group(2)) + cost
+        return text[:m.start()] + f"{m.group(1)}{new}" + text[m.end():]
+    cap = _CAP_LINE_RE.search(text)
+    if cap:
+        return text[:cap.end()] + f"\nbudget-spent: {cost}" + text[cap.end():]
+    raise ValueError("note declares no `budget:` -- not a pool, cannot debit")

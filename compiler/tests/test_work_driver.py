@@ -384,5 +384,42 @@ class WorkNextBudgetGateTest(unittest.TestCase):
         self.assertEqual(out["lease"]["outcome"], work_driver.OUTCOME_ACQUIRED)
 
 
+class WorkDebitCliTest(unittest.TestCase):
+    """Task 11B after-run half: `work debit` writes a run's cost back into the
+    pool ledger. Dry-run by default; --apply bumps budget-spent in the container
+    note (markdown truth)."""
+
+    def setUp(self) -> None:
+        self.vault = Path(tempfile.mkdtemp())
+        self.rel = "Projects/x/_project.md"
+        p = self.vault / self.rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(
+            "---\nentity: project/x\ntype: project\nstatus: reviewed\n"
+            "budget: 1000\nbudget-spent: 200\n---\n\nbody\n", encoding="utf-8")
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.vault, ignore_errors=True)
+
+    def _text(self) -> str:
+        return (self.vault / self.rel).read_text(encoding="utf-8")
+
+    def test_dry_run_reports_but_writes_nothing(self) -> None:
+        out = kb_meta.cmd_work_debit(str(self.vault), project="x", cost=50)
+        self.assertEqual(out["spent_before"], 200)
+        self.assertEqual(out["spent_after"], 250)
+        self.assertNotIn("written", out)
+        self.assertIn("budget-spent: 200", self._text())  # source untouched
+
+    def test_apply_bumps_the_ledger(self) -> None:
+        out = kb_meta.cmd_work_debit(str(self.vault), project="x", cost=50, apply=True)
+        self.assertEqual(out["written"], self.rel)
+        self.assertIn("budget-spent: 250", self._text())
+
+    def test_unknown_project_errors(self) -> None:
+        out = kb_meta.cmd_work_debit(str(self.vault), project="nope", cost=10)
+        self.assertIn("error", out)
+
+
 if __name__ == "__main__":
     unittest.main()

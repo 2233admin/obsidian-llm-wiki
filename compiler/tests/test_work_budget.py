@@ -125,5 +125,39 @@ class DebitTest(unittest.TestCase):
             work_budget.debit(100, -1)
 
 
+class RecordSpendTest(unittest.TestCase):
+    """The after-run half of the budget loop: bump `budget-spent` in the pool
+    note, surgically (only the value changes -- a one-line promote diff)."""
+
+    def test_increments_existing_spent(self):
+        text = ("---\nentity: project/x\ntype: project\n"
+                "budget: 1000\nbudget-spent: 200\n---\n\nbody\n")
+        out = work_budget.record_spend(text, 50)
+        self.assertEqual(out, text.replace("budget-spent: 200", "budget-spent: 250"))
+
+    def test_inserts_spent_after_cap_when_absent(self):
+        text = "---\nentity: project/x\ntype: project\nbudget: 1000\n---\n\nbody\n"
+        out = work_budget.record_spend(text, 75)
+        self.assertIn("budget: 1000\nbudget-spent: 75\n", out)
+
+    def test_byte_preserving_except_the_value(self):
+        text = ("---\nentity: project/x\ntype: project\nbudget: 1000\n"
+                "budget-spent: 10\nassignee: a\n---\n\nkeep me verbatim\n")
+        out = work_budget.record_spend(text, 5)
+        self.assertEqual(out, text.replace("budget-spent: 10", "budget-spent: 15"))
+
+    def test_zero_cost_is_noop(self):
+        text = "---\nbudget: 100\nbudget-spent: 40\n---\n"
+        self.assertEqual(work_budget.record_spend(text, 0), text)
+
+    def test_no_budget_is_not_a_pool(self):
+        with self.assertRaises(ValueError):
+            work_budget.record_spend("---\nentity: project/x\n---\n\nb\n", 10)
+
+    def test_negative_cost_raises(self):
+        with self.assertRaises(ValueError):
+            work_budget.record_spend("---\nbudget: 100\n---\n", -1)
+
+
 if __name__ == "__main__":
     unittest.main()
