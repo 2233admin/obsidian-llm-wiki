@@ -1678,6 +1678,45 @@ def _parse_sync_apply_args(args: list[str]) -> dict:
     return {"vault": pos[0], "apply": apply, "today": today_str}
 
 
+def cmd_work_next(vault, *, claim_agent=None, ttl_seconds=3600, now=None):
+    """Task 11A-iii heartbeat: select the next executable item from the
+    AUTHORITATIVE work index and optionally lease it. One-shot, no daemon
+    (§0 #4): a cron / ScheduleWakeup tick invokes this once and exits.
+
+    Returns {"selected": {...} | None, ["lease": {...}]}. Selection reuses
+    work_driver.select_next over the authoritative work notes; the lease is the
+    base-head-locked claim. NOTE: multi-note-per-entity head resolution is a
+    forthcoming refinement -- distinct-entity work items select cleanly today.
+    """
+    import time
+    import currency
+    import work_protocol
+    import work_driver
+
+    notes = work_protocol._walk_work_notes(vault, require_entity=True)
+    authoritative = [n for n in notes if n.is_authoritative]
+    pick = work_driver.select_next(authoritative)
+    if pick is None:
+        return {"selected": None}
+    result = {
+        "selected": {
+            "note_id": pick.note_id,
+            "entity": pick.entity,
+            "state": currency.work_state(pick.cm),
+        }
+    }
+    if claim_agent:
+        if now is None:
+            now = int(time.time())
+        r = work_driver.acquire_lease(
+            vault, pick.note_id, claim_agent,
+            current_head=pick.note_id, base_head=pick.note_id,
+            ttl_seconds=ttl_seconds, now=now,
+        )
+        result["lease"] = {"outcome": r.outcome, "agent_id": claim_agent}
+    return result
+
+
 def main():
     args = sys.argv[1:]
     if len(args) < 1:
@@ -1729,6 +1768,26 @@ def main():
         p = _parse_sync_apply_args(args)
         return cmd_sync_apply(p["vault"], apply=p["apply"], today=p["today"])
 
+    def _work_cli():
+        # `work next <vault> [--claim <agent>] [--ttl <sec>]`
+        if (args[1] if len(args) > 1 else None) != "next":
+            raise IndexError  # only the `next` subcommand exists today
+        pos = [a for a in args[2:] if not a.startswith("--")]
+        claim = None
+        ttl = 3600
+        i = 2
+        while i < len(args):
+            if args[i] == "--claim" and i + 1 < len(args):
+                claim = args[i + 1]
+                i += 2
+                continue
+            if args[i] == "--ttl" and i + 1 < len(args):
+                ttl = int(args[i + 1])
+                i += 2
+                continue
+            i += 1
+        return cmd_work_next(pos[0], claim_agent=claim, ttl_seconds=ttl)
+
     dispatch = {
         "init": lambda: cmd_init(args[1], args[2]),
         "diff": lambda: cmd_diff(args[1], args[2]),
@@ -1744,6 +1803,7 @@ def main():
         "sync-pull": _sync_pull_cli,
         "sync-plan": _sync_plan_cli,
         "sync-apply": _sync_apply_cli,
+        "work": _work_cli,
     }
 
     if cmd not in dispatch:
