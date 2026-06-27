@@ -416,6 +416,10 @@ INITIATIVE_STATUS_FILE = "_initiative-status.md"
 # _pass4 / _pass5 output above (which must stay byte-stable).
 CYCLE_STATUS_FILE = "_cycle-status.md"
 
+# Task 10A: the work-OS map as an Obsidian JSONCanvas (DERIVED, gitignored,
+# byte-stable). Obsidian reads .canvas natively -- no plugin needed.
+WORK_OS_CANVAS_FILE = "_work-os.canvas"
+
 # A sentinel that sorts BEFORE every real ISO date, so a missing last-verified
 # is treated as "infinitely old" and loses every recency comparison.
 _OLDEST_DATE = ""
@@ -1281,6 +1285,151 @@ def _render_triage(triage_items: list, today_date: date) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
+# Task 10A: JSONCanvas color presets (Obsidian 1-6). done/canceled/backlog are
+# left uncolored so Obsidian renders them neutral gray ("done 灰").
+_CANVAS_COLOR_STALE = "1"        # red
+_CANVAS_COLOR_BLOCKED = "2"      # orange
+_CANVAS_COLOR_IN_PROGRESS = "4"  # green
+_CANVAS_COLOR_TODO = "5"         # cyan
+
+
+def _canvas_id(value: str) -> str:
+    """Slug an entity into a canvas-safe node id (mirrors the TS canvasId)."""
+    s = re.sub(r"[^a-z0-9_-]+", "-", (value or "").lower()).strip("-")
+    return s or "node"
+
+
+def _blocked_by_targets(note) -> list[str]:
+    """The entities a note declares it is blocked by (frontmatter `blocked-by`,
+    scalar or list), for canvas edges -- sorted for deterministic output."""
+    if note is None:
+        return []
+    v = (note.cm.raw or {}).get("blocked-by")
+    if not v:
+        return []
+    items = [v] if isinstance(v, str) else (v if isinstance(v, list) else [])
+    return sorted(str(t).strip() for t in items if str(t).strip())
+
+
+def _canvas_node_color(note, index, entity):
+    """Issue-node color: STALE wins (red), then effective-blocked (orange), then
+    work-state (in-progress green / todo cyan); done/canceled/backlog stay
+    uncolored (Obsidian neutral gray)."""
+    if _currency.MARK_STALE in note.markers:
+        return _CANVAS_COLOR_STALE
+    if _work_protocol.effective_state(index, entity)["state"] == _currency.STATE_BLOCKED:
+        return _CANVAS_COLOR_BLOCKED
+    ws = _currency.work_state(note.cm)
+    if ws == _currency.STATE_IN_PROGRESS:
+        return _CANVAS_COLOR_IN_PROGRESS
+    if ws == _currency.STATE_TODO:
+        return _CANVAS_COLOR_TODO
+    return None
+
+
+def _render_work_os_canvas(current_truth: dict, project_status: dict,
+                           initiative_status: dict, today_date: date) -> str:
+    """Task 10A: compile the work-OS current-truth into an Obsidian JSONCanvas
+    map (DERIVED, gitignored, byte-stable). Initiatives frame their member
+    projects, projects frame their issues, `blocked-by` relations are edges, and
+    node color encodes STALE / effective-blocked / work-state. Layout is a
+    deterministic grid (sorted entities + fixed geometry, no random / wall-clock)
+    so two runs emit identical bytes. Returns the .canvas JSON text."""
+    index = _current_truth_index(current_truth)
+
+    # deterministic geometry
+    ISSUE_W, ISSUE_H, ISSUE_GAP = 320, 90, 16
+    P_PAD_X, P_PAD_TOP, P_PAD_BOT, P_GAP = 24, 56, 24, 48
+    I_PAD, I_HEADER, I_GAP = 40, 60, 96
+    PROJECT_W = ISSUE_W + 2 * P_PAD_X
+
+    nodes: list[dict] = []
+    edges: list[dict] = []
+    node_for_entity: dict[str, str] = {}
+
+    projects = [e for e in sorted(current_truth)
+                if current_truth[e].cm.type == _currency.TYPE_PROJECT]
+
+    # bucket projects by their initiative linkage (frontmatter `initiative:`);
+    # unaffiliated projects go in a trailing band with no outer frame.
+    buckets: dict[str, list] = {}
+    for pe in projects:
+        init = (current_truth[pe].cm.raw or {}).get("initiative") or ""
+        buckets.setdefault(init, []).append(pe)
+    ordered = sorted(k for k in buckets if k) + (["" ] if "" in buckets else [])
+
+    n_issue = sum(1 for e in current_truth
+                  if any(e.startswith(p + "/") for p in projects))
+    nodes.append({
+        "id": "title", "type": "text", "x": 0, "y": -160,
+        "width": 460, "height": 110, "color": "6",
+        "text": (f"# work-OS map (DERIVED)\n\n{len(projects)} projects · "
+                 f"{n_issue} issues\n\nCompiled: {today_date.isoformat()}"),
+    })
+
+    band_y = 0
+    for init in ordered:
+        members = sorted(buckets[init])
+        proj_x = I_PAD if init else 0
+        max_h = 0
+        for pe in members:
+            prefix = pe + "/"
+            children = [e for e in sorted(current_truth) if e.startswith(prefix)]
+            p_h = (P_PAD_TOP + max(1, len(children)) * (ISSUE_H + ISSUE_GAP)
+                   - ISSUE_GAP + P_PAD_BOT)
+            py = band_y + (I_HEADER if init else 0)
+            marker = project_status.get(pe, {}).get("marker", _currency.MARK_OK)
+            stale_proj = _currency.MARK_STALE in current_truth[pe].markers
+            nodes.append({
+                "id": f"project-{_canvas_id(pe)}", "type": "group",
+                "x": proj_x, "y": py, "width": PROJECT_W, "height": p_h,
+                "label": pe + (f"  [{marker}]" if marker and marker != _currency.MARK_OK else ""),
+                "color": _CANVAS_COLOR_STALE if stale_proj else "2",
+            })
+            iy = py + P_PAD_TOP
+            for eid in children:
+                inode = current_truth[eid]
+                color = _canvas_node_color(inode, index, eid)
+                node = {
+                    "id": f"issue-{_canvas_id(eid)}", "type": "file",
+                    "x": proj_x + P_PAD_X, "y": iy,
+                    "width": ISSUE_W, "height": ISSUE_H, "file": inode.note_id,
+                }
+                if color:
+                    node["color"] = color
+                nodes.append(node)
+                node_for_entity[eid] = node["id"]
+                iy += ISSUE_H + ISSUE_GAP
+            max_h = max(max_h, p_h)
+            proj_x += PROJECT_W + P_GAP
+
+        if init:
+            health = (initiative_status.get(init) or {}).get("health")
+            nodes.append({
+                "id": f"init-{_canvas_id(init)}", "type": "group",
+                "x": 0, "y": band_y,
+                "width": max(proj_x - P_GAP + I_PAD, PROJECT_W + 2 * I_PAD),
+                "height": I_HEADER + max_h + I_PAD,
+                "label": init + (f"  [{health}]" if health else ""), "color": "4",
+            })
+            band_y += I_HEADER + max_h + I_PAD + I_GAP
+        else:
+            band_y += max_h + I_GAP
+
+    for eid in sorted(node_for_entity):
+        for target in _blocked_by_targets(current_truth.get(eid)):
+            if target in node_for_entity:
+                edges.append({
+                    "id": f"edge-{_canvas_id(target)}-{_canvas_id(eid)}",
+                    "fromNode": node_for_entity[target], "fromSide": "right",
+                    "toNode": node_for_entity[eid], "toSide": "left",
+                    "label": "blocks", "color": "1",
+                })
+
+    return json.dumps({"nodes": nodes, "edges": edges},
+                      indent=2, ensure_ascii=False) + "\n"
+
+
 def cmd_currency(vault: str, topic: str, today_str: str | None = None,
                  apply: bool = False) -> dict:
     """Run the three currency passes and emit derived artifacts.
@@ -1316,6 +1465,12 @@ def cmd_currency(vault: str, topic: str, today_str: str | None = None,
     # _pass1) -- additive, never alters the _pass4 / _pass5 output above.
     cycle_status = _pass6_cycle_status(current_truth, today_date)
     cycle_status_md = _render_cycle_status(cycle_status, today_date)
+
+    # Task 10A: compile the SAME resolved structures into a JSONCanvas work-OS
+    # map. Derived view like _project-status (Obsidian reads .canvas natively);
+    # built on top, never alters the passes above.
+    work_os_canvas = _render_work_os_canvas(
+        current_truth, project_status, initiative_status, today_date)
 
     # Task 8D triage: scan 00-Inbox/AI-Output/** for UNCONSUMED candidate
     # captures (status:draft not referenced by any promotes:/rejects:) and
@@ -1382,6 +1537,9 @@ def cmd_currency(vault: str, topic: str, today_str: str | None = None,
         # so non-project vaults get no extra derived file.
         if project_status:
             artifacts.append((PROJECT_STATUS_FILE, project_status_md))
+            # Task 10A: the canvas map ships with the project view (same gate --
+            # a vault with no projects gets no map).
+            artifacts.append((WORK_OS_CANVAS_FILE, work_os_canvas))
         # Task 8E: only emit the initiative view when there are initiatives,
         # mirroring _project-status -- a vault with no initiatives gets no file.
         if initiative_status:
@@ -1433,6 +1591,7 @@ def cmd_currency(vault: str, topic: str, today_str: str | None = None,
         "supersession_md": supersession_md,
         "project_status": project_status,
         "project_status_md": project_status_md,
+        "work_os_canvas": work_os_canvas,
         "initiative_status": initiative_status,
         "initiative_status_md": initiative_status_md,
         "cycle_status": cycle_status,
