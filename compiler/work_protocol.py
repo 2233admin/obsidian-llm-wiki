@@ -63,6 +63,11 @@ STATUS_DRAFT = "draft"
 STATUS_REVIEWED = "reviewed"
 
 # Provenance / truth-chain frontmatter fields (note-id references, §1).
+# The REVIEW axis lives on `review` (reviewed|draft). It was migrated off
+# `status` so `status` is free to carry the rhizome lifecycle (active|frozen|
+# archived) on the same note (compiler/rhizome/contract.py). _status reads
+# `review` first and falls back to the legacy `status` field for back-compat.
+F_REVIEW = "review"
 F_STATUS = "status"
 F_BASE_HEAD = "base-head"
 F_SUPERSEDES = "supersedes"
@@ -198,8 +203,19 @@ def is_candidate_work_note(cm) -> bool:
 
 
 def _status(cm) -> Optional[str]:
+    """The single source of truth for the work-OS REVIEW axis.
+
+    Reads the new `review` field FIRST; if it is absent/empty/non-scalar, falls
+    back to the legacy `status` field. This back-compat fallback keeps every
+    legacy note and the existing fixture corpus (which carry status:reviewed|
+    draft and NO `review` field) returning the identical review value, while a
+    migrated note that carries `review` + a rhizome `status: active` lifecycle
+    word is read off `review` and never mistakes status:active for the review
+    axis."""
     raw = _currency._work_raw(cm)
-    v = raw.get(F_STATUS)
+    v = raw.get(F_REVIEW)            # NEW review axis first
+    if not isinstance(v, str) or not v.strip():
+        v = raw.get(F_STATUS)        # BACK-COMPAT: fall back to legacy `status`
     if isinstance(v, str):
         v = v.strip().lower()
         return v or None

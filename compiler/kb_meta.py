@@ -443,7 +443,14 @@ class CurrencyNote:
         # missing, then alphabetical note_id (stable). Negate via tuple order in
         # the caller; here we expose comparable parts.
         lv = self.cm.last_verified or _OLDEST_DATE
-        status_rank = {"reviewed": 2, "draft": 1}.get(self.cm.status or "", 0)
+        # REVIEW axis: read the new `review` field first, fall back to the legacy
+        # `status` field (mirrors work_protocol._status). This is a recency
+        # tiebreak only -- it never changes which notes are authoritative -- but
+        # keep the precedence consistent so ranking matches the work-OS.
+        _rev = (self.cm.raw.get("review") or "")
+        _rev = _rev.strip().lower() if isinstance(_rev, str) else ""
+        _rev = _rev or (self.cm.status or "")
+        status_rank = {"reviewed": 2, "draft": 1}.get(_rev, 0)
         return (lv, status_rank, self.note_id)
 
 
