@@ -76,7 +76,7 @@
 ## 6. 下一步建议
 
 1. ~~**Task 11**~~ ✅ 功能完整。11A 选活+lease + 11B gate(`30ee25e`)+ budget-spent 回写(`176da66`:`work_budget.record_spend` 字节级改 frontmatter + `work debit` CLI)+ loop-trigger 自pacing 心跳(`83be98d`:`work next` 出 `status`[selected/idle/budget_exhausted]+`remaining`,recipe `docs/WORK_LOOP.md`)+ 11G bootstrap briefing(`d2aefd3`:`work_driver.render_briefing` + `work briefing` CLI,开工注入 current-truth 切片=state/blockers/siblings/required-reading,只读派生)。端到端 = `work next`(选)→`work briefing`(冷启上下文)→do→capture→promote→`work debit`,**按需 ScheduleWakeup 重拉、自终止**(A 机制,看情况按需要)。**剩纯操作/可选**:真用 ScheduleWakeup 起一次 on-demand(本机未起,无队列不常驻);10C Obsidian promote-节点插件(deferred,Canvas API 不确定/headless 难验)。
-2. ~~**Task 10A/10B**~~ ✅ 全落(10A canvas `0d15551` + 10B digest `dd6c25a`)。剩 **10C**(Obsidian Canvas 里「promote 节点」手势,薄插件,deferred)。**未验**(可选):真 `D:\knowledge` 跑 `kb_meta currency <vault> <topic> --apply` 看实际 `_work-os.canvas` 地图(需真 topic 名)。
+2. ~~**Task 10A/10B**~~ ✅ 全落(10A `0d15551` + 10B `dd6c25a`)。**10C 设计定稿+首片落地**:design doc `TASK10C-DRAFT-promote-gesture.md`(office-hours approach C,approved `c1dd4c3`);**10C-A `kb_meta promote` CLI 已落 `ee940fc`**(包 work_protocol.promote,base-head 锁+materialize,dry-run 出 plan/`--apply` 写 reviewed,HEAD_MISMATCH 不静默,非 draft=NOT_DRAFT)——**顺手补上 Task 11 loop 缺的真 promote 步**。剩 10C:**10C-0 spike**(需用户 Obsidian dev console 核 Canvas API)→ 10C-B `_triage.canvas` 渲染(复用 10A 机器)→ 10C-C 插件(fork sample-plugin,command/右键触发,降级稳)。**未验**(可选):真 `D:\knowledge` 跑 currency 看 `_work-os.canvas`。
 3. 原 brief Task 5 inject / 6 e2e(已被 Task 11 概念吸收,按需)。
 
 ---
