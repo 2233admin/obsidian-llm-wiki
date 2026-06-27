@@ -1928,15 +1928,22 @@ def cmd_work_next(vault, *, claim_agent=None, ttl_seconds=3600, now=None,
 
     notes = work_protocol._walk_work_notes(vault, require_entity=True)
     authoritative = [n for n in notes if n.is_authoritative]
+    actionable = [n for n in authoritative
+                  if work_driver.is_actionable(n, authoritative)]
     pick = work_driver.select_next(authoritative)
     if pick is None:
-        return {"selected": None}
+        # idle: nothing actionable -> a self-pacing trigger stops re-arming here.
+        return {"selected": None, "status": "idle", "remaining": 0}
     result = {
         "selected": {
             "note_id": pick.note_id,
             "entity": pick.entity,
             "state": currency.work_state(pick.cm),
-        }
+        },
+        # `remaining` = open actionable items (incl. this one). A demand-driven
+        # ScheduleWakeup loop re-arms only while status == "selected" and stops on
+        # "idle" / "budget_exhausted" -- no fixed cadence, no daemon (§0 #4).
+        "remaining": len(actionable),
     }
     cap, spent = work_budget.resolve_pool(pick, authoritative)
     b = work_budget.check(cap, spent, projected=projected_cost)
@@ -1945,6 +1952,7 @@ def cmd_work_next(vault, *, claim_agent=None, ttl_seconds=3600, now=None,
         "projected": b.projected, "remaining": b.remaining,
     }
     if b.outcome == work_budget.OUTCOME_EXHAUSTED:
+        result["status"] = "budget_exhausted"
         return result  # hard stop before spawn -- never overspend (green bar 3)
     if claim_agent:
         if now is None:
@@ -1955,6 +1963,7 @@ def cmd_work_next(vault, *, claim_agent=None, ttl_seconds=3600, now=None,
             ttl_seconds=ttl_seconds, now=now,
         )
         result["lease"] = {"outcome": r.outcome, "agent_id": claim_agent}
+    result["status"] = "selected"
     return result
 
 

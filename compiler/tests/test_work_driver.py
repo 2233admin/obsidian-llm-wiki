@@ -384,6 +384,52 @@ class WorkNextBudgetGateTest(unittest.TestCase):
         self.assertEqual(out["lease"]["outcome"], work_driver.OUTCOME_ACQUIRED)
 
 
+class WorkNextHeartbeatTest(unittest.TestCase):
+    """Task 11 loop-trigger: `work next` is a self-pacing heartbeat -- it reports
+    `status` + `remaining` so a demand-driven ScheduleWakeup loop re-arms only
+    while status == 'selected' and stops on 'idle' / 'budget_exhausted' (no
+    fixed cadence, no daemon)."""
+
+    def setUp(self) -> None:
+        self.vault = Path(tempfile.mkdtemp())
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.vault, ignore_errors=True)
+
+    def _write(self, rel: str, **fm) -> None:
+        p = self.vault / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        lines = "\n".join(f"{k}: {v}" for k, v in fm.items())
+        p.write_text(f"---\n{lines}\n---\n\nbody\n", encoding="utf-8")
+
+    def test_selected_reports_status_and_remaining(self) -> None:
+        self._write("Projects/x/issues/a.md", entity="project/x/issue/a",
+                    state="todo", priority=1, status="reviewed")
+        self._write("Projects/x/issues/b.md", entity="project/x/issue/b",
+                    state="todo", priority=2, status="reviewed")
+        out = kb_meta.cmd_work_next(str(self.vault))
+        self.assertEqual(out["status"], "selected")
+        self.assertEqual(out["remaining"], 2)  # both open items counted
+
+    def test_idle_when_nothing_actionable(self) -> None:
+        self._write("Projects/x/issues/d.md", entity="project/x/issue/d",
+                    state="done", status="reviewed")
+        out = kb_meta.cmd_work_next(str(self.vault))
+        self.assertIsNone(out["selected"])
+        self.assertEqual(out["status"], "idle")
+        self.assertEqual(out["remaining"], 0)
+
+    def test_budget_exhausted_status_halts(self) -> None:
+        self._write("Projects/x/_project.md", entity="project/x", type="project",
+                    state="backlog", status="reviewed",
+                    **{"budget": 1000, "budget-spent": 1000})
+        self._write("Projects/x/issues/a.md", entity="project/x/issue/a",
+                    state="todo", priority=1, status="reviewed")
+        out = kb_meta.cmd_work_next(str(self.vault), claim_agent="agent-1", now=1000)
+        self.assertEqual(out["status"], "budget_exhausted")
+        self.assertNotIn("lease", out)
+
+
 class WorkDebitCliTest(unittest.TestCase):
     """Task 11B after-run half: `work debit` writes a run's cost back into the
     pool ledger. Dry-run by default; --apply bumps budget-spent in the container
