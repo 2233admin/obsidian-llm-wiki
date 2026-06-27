@@ -75,7 +75,7 @@
 
 ## 6. 下一步建议
 
-1. ~~**Task 11**~~ ✅ 功能完整。11A 选活+lease + 11B gate(`30ee25e`)+ budget-spent 回写(`176da66`:`work_budget.record_spend` 字节级改 frontmatter + `work debit` CLI)+ loop-trigger 自pacing 心跳(`83be98d`:`work next` 出 `status`[selected/idle/budget_exhausted]+`remaining`,recipe `docs/WORK_LOOP.md`)。端到端 = `work next`→do→capture→promote→`work debit`,**按需 ScheduleWakeup 重拉、自终止**(选 A 机制,看情况按需要)。**剩纯操作/可选**:① 真用 ScheduleWakeup 起一次 on-demand 跑(本机未起,无队列时不该常驻);② 11G bootstrap briefing(开工注入 current-truth 切片,draft 已规划)。
+1. ~~**Task 11**~~ ✅ 功能完整。11A 选活+lease + 11B gate(`30ee25e`)+ budget-spent 回写(`176da66`:`work_budget.record_spend` 字节级改 frontmatter + `work debit` CLI)+ loop-trigger 自pacing 心跳(`83be98d`:`work next` 出 `status`[selected/idle/budget_exhausted]+`remaining`,recipe `docs/WORK_LOOP.md`)+ 11G bootstrap briefing(`d2aefd3`:`work_driver.render_briefing` + `work briefing` CLI,开工注入 current-truth 切片=state/blockers/siblings/required-reading,只读派生)。端到端 = `work next`(选)→`work briefing`(冷启上下文)→do→capture→promote→`work debit`,**按需 ScheduleWakeup 重拉、自终止**(A 机制,看情况按需要)。**剩纯操作/可选**:真用 ScheduleWakeup 起一次 on-demand(本机未起,无队列不常驻);10C Obsidian promote-节点插件(deferred,Canvas API 不确定/headless 难验)。
 2. ~~**Task 10A/10B**~~ ✅ 全落(10A canvas `0d15551` + 10B digest `dd6c25a`)。剩 **10C**(Obsidian Canvas 里「promote 节点」手势,薄插件,deferred)。**未验**(可选):真 `D:\knowledge` 跑 `kb_meta currency <vault> <topic> --apply` 看实际 `_work-os.canvas` 地图(需真 topic 名)。
 3. 原 brief Task 5 inject / 6 e2e(已被 Task 11 概念吸收,按需)。
 
