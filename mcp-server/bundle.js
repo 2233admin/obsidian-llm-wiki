@@ -3598,49 +3598,49 @@ var require_fast_uri = __commonJS({
       schemelessOptions.skipEscape = true;
       return serialize(resolved, schemelessOptions);
     }
-    function resolveComponent(base, relative6, options, skipNormalization) {
+    function resolveComponent(base, relative7, options, skipNormalization) {
       const target = {};
       if (!skipNormalization) {
         base = parse3(serialize(base, options), options);
-        relative6 = parse3(serialize(relative6, options), options);
+        relative7 = parse3(serialize(relative7, options), options);
       }
       options = options || {};
-      if (!options.tolerant && relative6.scheme) {
-        target.scheme = relative6.scheme;
-        target.userinfo = relative6.userinfo;
-        target.host = relative6.host;
-        target.port = relative6.port;
-        target.path = removeDotSegments(relative6.path || "");
-        target.query = relative6.query;
+      if (!options.tolerant && relative7.scheme) {
+        target.scheme = relative7.scheme;
+        target.userinfo = relative7.userinfo;
+        target.host = relative7.host;
+        target.port = relative7.port;
+        target.path = removeDotSegments(relative7.path || "");
+        target.query = relative7.query;
       } else {
-        if (relative6.userinfo !== void 0 || relative6.host !== void 0 || relative6.port !== void 0) {
-          target.userinfo = relative6.userinfo;
-          target.host = relative6.host;
-          target.port = relative6.port;
-          target.path = removeDotSegments(relative6.path || "");
-          target.query = relative6.query;
+        if (relative7.userinfo !== void 0 || relative7.host !== void 0 || relative7.port !== void 0) {
+          target.userinfo = relative7.userinfo;
+          target.host = relative7.host;
+          target.port = relative7.port;
+          target.path = removeDotSegments(relative7.path || "");
+          target.query = relative7.query;
         } else {
-          if (!relative6.path) {
+          if (!relative7.path) {
             target.path = base.path;
-            if (relative6.query !== void 0) {
-              target.query = relative6.query;
+            if (relative7.query !== void 0) {
+              target.query = relative7.query;
             } else {
               target.query = base.query;
             }
           } else {
-            if (relative6.path[0] === "/") {
-              target.path = removeDotSegments(relative6.path);
+            if (relative7.path[0] === "/") {
+              target.path = removeDotSegments(relative7.path);
             } else {
               if ((base.userinfo !== void 0 || base.host !== void 0 || base.port !== void 0) && !base.path) {
-                target.path = "/" + relative6.path;
+                target.path = "/" + relative7.path;
               } else if (!base.path) {
-                target.path = relative6.path;
+                target.path = relative7.path;
               } else {
-                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative6.path;
+                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative7.path;
               }
               target.path = removeDotSegments(target.path);
             }
-            target.query = relative6.query;
+            target.query = relative7.query;
           }
           target.userinfo = base.userinfo;
           target.host = base.host;
@@ -3648,7 +3648,7 @@ var require_fast_uri = __commonJS({
         }
         target.scheme = base.scheme;
       }
-      target.fragment = relative6.fragment;
+      target.fragment = relative7.fragment;
       return target;
     }
     function equal(uriA, uriB, options) {
@@ -39030,8 +39030,8 @@ function formatInternalError(operationName, error48) {
 }
 
 // dist/index.js
-import { readFileSync as readFileSync14, existsSync as existsSync13, readdirSync as readdirSync9, statSync as statSync6, realpathSync, writeFileSync as writeFileSync8, appendFileSync as appendFileSync2, rmSync as rmSync4, renameSync, mkdirSync as mkdirSync9 } from "node:fs";
-import { resolve as resolve5, join as join17, basename as basename6, extname as extname2, relative as relative5, dirname as dirname10, posix, isAbsolute as pathIsAbsolute2 } from "node:path";
+import { readFileSync as readFileSync15, existsSync as existsSync13, readdirSync as readdirSync10, statSync as statSync6, realpathSync, writeFileSync as writeFileSync8, appendFileSync as appendFileSync2, rmSync as rmSync4, renameSync, mkdirSync as mkdirSync9 } from "node:fs";
+import { resolve as resolve5, join as join18, basename as basename6, extname as extname2, relative as relative6, dirname as dirname10, posix, isAbsolute as pathIsAbsolute2 } from "node:path";
 import { fileURLToPath as fileURLToPath3, pathToFileURL } from "node:url";
 
 // dist/adapters/filesystem.js
@@ -40565,6 +40565,17 @@ CREATE INDEX IF NOT EXISTS chunks_trgm_idx
 
 CREATE INDEX IF NOT EXISTS chunks_slug_idx
   ON chunks (slug);
+
+-- Full-text keyword search (bilingual floor, no embeddings required).
+-- A generated tsvector stays in sync with chunk_text; ts_rank_cd over it ranks
+-- English / multi-word NL phrases. CJK can't be word-segmented by 'simple', so
+-- the engine RRF-fuses this with pg_trgm (chunks_trgm_idx above). ADD COLUMN
+-- IF NOT EXISTS migrates stores created before this column existed.
+ALTER TABLE chunks ADD COLUMN IF NOT EXISTS chunk_tsv tsvector
+  GENERATED ALWAYS AS (to_tsvector('simple', chunk_text)) STORED;
+
+CREATE INDEX IF NOT EXISTS chunks_tsv_idx
+  ON chunks USING gin (chunk_tsv);
 `;
 
 // dist/adapters/vaultbrain/pglite-engine.js
@@ -40630,11 +40641,35 @@ var PGliteEngine = class {
     await this.requireDb().query(`DELETE FROM chunks WHERE slug = $1`, [slug]);
   }
   async searchKeyword(query, limit) {
-    const { rows } = await this.requireDb().query(`SELECT slug, chunk_index, chunk_text,
-              similarity(chunk_text, $1) AS score
-       FROM chunks
-       WHERE similarity(chunk_text, $1) >= 0.1
-       ORDER BY score DESC
+    const { rows } = await this.requireDb().query(`WITH q AS (
+         SELECT to_tsquery('simple',
+                  NULLIF(array_to_string(
+                    tsvector_to_array(to_tsvector('simple', $1)), ' | '), '')
+                ) AS tsq
+       ),
+       scored AS (
+         SELECT slug, chunk_index, chunk_text,
+                ts_rank_cd(chunk_tsv, (SELECT tsq FROM q)) AS ts_score,
+                similarity(chunk_text, $1) AS trgm_score,
+                (chunk_text ILIKE '%' || $1 || '%') AS substr_hit
+         FROM chunks
+         WHERE chunk_tsv @@ (SELECT tsq FROM q)
+            OR similarity(chunk_text, $1) >= 0.1
+            OR chunk_text ILIKE '%' || $1 || '%'
+       ),
+       ranked AS (
+         SELECT slug, chunk_index, chunk_text, ts_score, trgm_score, substr_hit,
+                rank() OVER (ORDER BY ts_score DESC)   AS ts_rank,
+                rank() OVER (ORDER BY trgm_score DESC) AS trgm_rank
+         FROM scored
+       )
+       SELECT slug, chunk_index, chunk_text,
+              ( CASE WHEN ts_score   > 0 THEN 1.0 / (60 + ts_rank)   ELSE 0 END
+              + CASE WHEN trgm_score > 0 THEN 1.0 / (60 + trgm_rank) ELSE 0 END
+              + CASE WHEN substr_hit     THEN 1.0 / 60               ELSE 0 END
+              ) AS score
+       FROM ranked
+       ORDER BY score DESC, slug, chunk_index
        LIMIT $2`, [query, limit]);
     return rows.map((r) => ({
       slug: r.slug,
@@ -40657,6 +40692,14 @@ var PGliteEngine = class {
       chunkText: r.chunk_text,
       score: Number(r.score)
     }));
+  }
+  async countChunks() {
+    const { rows } = await this.requireDb().query(`SELECT count(*)::int AS n FROM chunks`);
+    return Number(rows[0]?.n ?? 0);
+  }
+  async countEmbeddedChunks() {
+    const { rows } = await this.requireDb().query(`SELECT count(*)::int AS n FROM chunks WHERE embedding IS NOT NULL`);
+    return Number(rows[0]?.n ?? 0);
   }
   async upsertLink(fromSlug, toSlug) {
     await this.requireDb().query(`INSERT INTO page_links (from_slug, to_slug)
@@ -40809,6 +40852,14 @@ var VaultBrainAdapter = class {
       }
       this.engine = null;
     }
+  }
+  /** Chunk count -- lazy backfill uses this to detect an empty (never-indexed) store. */
+  async countChunks() {
+    return this.engine ? this.engine.countChunks() : 0;
+  }
+  /** Embedded chunk count -- 0 while chunks exist means Ollama never embedded (semantic off). */
+  async countEmbeddedChunks() {
+    return this.engine ? this.engine.countEmbeddedChunks() : 0;
   }
   async search(query, opts) {
     if (!this.engine)
@@ -41056,6 +41107,129 @@ var GraphifyAdapter = class {
   }
 };
 
+// dist/adapters/vaultbrain/lazy-index.js
+import { readdirSync as readdirSync2, readFileSync as readFileSync4 } from "node:fs";
+import { join as join6, relative as relative3 } from "node:path";
+var PROTECTED_DIRS2 = /* @__PURE__ */ new Set([
+  ".git",
+  ".obsidian",
+  ".vault-mind",
+  "node_modules",
+  "wiki",
+  ".trash"
+]);
+var DEFAULT_SYNC_CAP = 300;
+var _vba = null;
+var _vaultPath = "";
+var _inFlight = null;
+function configureLazyIndex(vba, vaultPath) {
+  _vba = vba;
+  _vaultPath = vaultPath;
+}
+function listVaultMarkdown(vaultPath) {
+  const files = [];
+  const walk = (dir) => {
+    let entries;
+    try {
+      entries = readdirSync2(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      if (e.isDirectory()) {
+        if (!PROTECTED_DIRS2.has(e.name))
+          walk(join6(dir, e.name));
+      } else if (e.isFile() && e.name.endsWith(".md")) {
+        files.push(join6(dir, e.name));
+      }
+    }
+  };
+  walk(vaultPath);
+  return files;
+}
+async function reindexVault(vba, vaultPath, opts) {
+  const files = listVaultMarkdown(vaultPath);
+  const concurrency = Math.max(1, Math.floor(opts?.concurrency ?? 4));
+  let indexed = 0;
+  let skipped = 0;
+  for (let i = 0; i < files.length; i += concurrency) {
+    const batch = files.slice(i, i + concurrency);
+    const results = await Promise.allSettled(batch.map(async (full) => {
+      const content = readFileSync4(full, "utf-8");
+      const rel = relative3(vaultPath, full).replace(/\\/g, "/");
+      await vba.ingest(rel, content);
+    }));
+    for (const r of results) {
+      if (r.status === "fulfilled")
+        indexed++;
+      else
+        skipped++;
+    }
+  }
+  return { indexed, total: files.length, skipped };
+}
+async function ensureBackfill(opts) {
+  const vba = _vba;
+  if (!vba || !vba.isAvailable)
+    return { status: "unavailable" };
+  if (_inFlight)
+    return { status: "in_progress" };
+  let release;
+  const lock = new Promise((r) => {
+    release = r;
+  });
+  _inFlight = lock;
+  void lock.then(() => {
+    if (_inFlight === lock)
+      _inFlight = null;
+  });
+  const done = (o) => {
+    release();
+    return o;
+  };
+  let count;
+  try {
+    count = await vba.countChunks();
+  } catch {
+    return done({ status: "unavailable" });
+  }
+  if (count > 0)
+    return done({ status: "populated" });
+  const fileCount = listVaultMarkdown(_vaultPath).length;
+  if (fileCount === 0)
+    return done({ status: "populated" });
+  const syncCap = opts?.syncCap ?? DEFAULT_SYNC_CAP;
+  if (fileCount <= syncCap) {
+    try {
+      await reindexVault(vba, _vaultPath);
+    } finally {
+      release();
+    }
+    return { status: "indexed_sync", fileCount };
+  }
+  void reindexVault(vba, _vaultPath).finally(() => release());
+  return { status: "indexing_background", fileCount };
+}
+async function recallGaps(backfill) {
+  const gaps = [];
+  if (backfill.status === "indexing_background") {
+    gaps.push({ type: "retrieval_limitation", message: `semantic index building in background (${backfill.fileCount} notes); recall sharpens once it finishes` });
+  } else if (backfill.status === "indexed_sync") {
+    gaps.push({ type: "retrieval_limitation", message: `indexed your vault (${backfill.fileCount} notes) just now for recall` });
+  }
+  const vba = _vba;
+  if (vba && vba.isAvailable) {
+    try {
+      const total = await vba.countChunks();
+      if (total > 0 && await vba.countEmbeddedChunks() === 0) {
+        gaps.push({ type: "retrieval_limitation", message: "semantic recall is off (no embeddings) -- start Ollama and run `ollama pull bge-m3` for vector recall; keyword recall is active" });
+      }
+    } catch {
+    }
+  }
+  return gaps;
+}
+
 // dist/adapters/registry.js
 var AdapterRegistry = class {
   adapters = /* @__PURE__ */ new Map();
@@ -41099,7 +41273,7 @@ var AdapterRegistry = class {
 
 // dist/compile-trigger.js
 import { execFile as execFile4 } from "node:child_process";
-import { readdirSync as readdirSync2, existsSync as existsSync2 } from "node:fs";
+import { readdirSync as readdirSync3, existsSync as existsSync2 } from "node:fs";
 import { promisify as promisify4 } from "node:util";
 import { resolve as resolve2 } from "node:path";
 var exec4 = promisify4(execFile4);
@@ -41191,7 +41365,7 @@ var CompileTrigger = class {
       return;
     let topics;
     try {
-      topics = readdirSync2(this.vaultPath, { withFileTypes: true }).filter((d) => d.isDirectory() && existsSync2(resolve2(this.vaultPath, d.name, "_meta.json"))).map((d) => d.name);
+      topics = readdirSync3(this.vaultPath, { withFileTypes: true }).filter((d) => d.isDirectory() && existsSync2(resolve2(this.vaultPath, d.name, "_meta.json"))).map((d) => d.name);
     } catch {
       return;
     }
@@ -41320,7 +41494,7 @@ var CompileTrigger = class {
       return [];
     const files = [];
     const walk = (d) => {
-      for (const ent of readdirSync2(d, { withFileTypes: true })) {
+      for (const ent of readdirSync3(d, { withFileTypes: true })) {
         const full = resolve2(d, ent.name);
         if (ent.isDirectory())
           walk(full);
@@ -41337,17 +41511,17 @@ var CompileTrigger = class {
 import { execFile as execFile5, spawnSync } from "node:child_process";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 import { promisify as promisify5 } from "node:util";
-import { existsSync as existsSync12, mkdirSync as mkdirSync8, readdirSync as readdirSync8, readFileSync as readFileSync13, writeFileSync as writeFileSync7 } from "node:fs";
-import { dirname as dirname9, join as join16, relative as relative4 } from "node:path";
+import { existsSync as existsSync12, mkdirSync as mkdirSync8, readdirSync as readdirSync9, readFileSync as readFileSync14, writeFileSync as writeFileSync7 } from "node:fs";
+import { dirname as dirname9, join as join17, relative as relative5 } from "node:path";
 
 // dist/recipes/_registry.js
-import { readdirSync as readdirSync3, existsSync as existsSync4 } from "node:fs";
-import { join as join7, dirname as dirname2 } from "node:path";
+import { readdirSync as readdirSync4, existsSync as existsSync4 } from "node:fs";
+import { join as join8, dirname as dirname2 } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // dist/recipes/_framework.js
-import { readFileSync as readFileSync4, existsSync as existsSync3, appendFileSync, mkdirSync } from "node:fs";
-import { join as join6 } from "node:path";
+import { readFileSync as readFileSync5, existsSync as existsSync3, appendFileSync, mkdirSync } from "node:fs";
+import { join as join7 } from "node:path";
 import { execFileSync } from "node:child_process";
 import { homedir as homedir3 } from "node:os";
 function parseScalar(raw) {
@@ -41451,7 +41625,7 @@ function parseYaml(text) {
   return result;
 }
 function parseRecipe(filePath) {
-  const content = readFileSync4(filePath, "utf8");
+  const content = readFileSync5(filePath, "utf8");
   const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)/);
   if (!fmMatch) {
     throw new Error(`Recipe file has no valid frontmatter: ${filePath}`);
@@ -41538,16 +41712,16 @@ function runHealthCheck(command) {
   }
 }
 function appendHeartbeat(recipeId, event) {
-  const dir = join6(homedir3(), ".vault-mind", "recipes", recipeId);
+  const dir = join7(homedir3(), ".vault-mind", "recipes", recipeId);
   if (!existsSync3(dir)) {
     mkdirSync(dir, { recursive: true });
   }
-  const filePath = join6(dir, "heartbeat.jsonl");
+  const filePath = join7(dir, "heartbeat.jsonl");
   appendFileSync(filePath, JSON.stringify(event) + "\n", "utf8");
 }
 
 // dist/recipes/_registry.js
-var DEFAULT_RECIPES_DIR = join7(dirname2(fileURLToPath(import.meta.url)), "..", "..", "..", "recipes");
+var DEFAULT_RECIPES_DIR = join8(dirname2(fileURLToPath(import.meta.url)), "..", "..", "..", "recipes");
 var _cache = null;
 function scanRecipes(recipesDir) {
   if (!recipesDir && _cache)
@@ -41555,7 +41729,7 @@ function scanRecipes(recipesDir) {
   const dir = recipesDir ?? DEFAULT_RECIPES_DIR;
   if (!existsSync4(dir))
     return [];
-  const entries = readdirSync3(dir, { withFileTypes: true });
+  const entries = readdirSync4(dir, { withFileTypes: true });
   const recipes = [];
   for (const entry of entries) {
     if (!entry.isFile())
@@ -41564,7 +41738,7 @@ function scanRecipes(recipesDir) {
       continue;
     if (entry.name.startsWith("_"))
       continue;
-    const filePath = join7(dir, entry.name);
+    const filePath = join8(dir, entry.name);
     try {
       recipes.push(parseRecipe(filePath));
     } catch (err2) {
@@ -41931,7 +42105,7 @@ async function unifiedQueryByVector(registry2, vector, opts) {
 init_embedding_client();
 
 // dist/holons/loader.js
-import { existsSync as existsSync5, readFileSync as readFileSync5 } from "node:fs";
+import { existsSync as existsSync5, readFileSync as readFileSync6 } from "node:fs";
 import { resolve as resolve3 } from "node:path";
 var ContextCoreLoader = class {
   _cache = null;
@@ -41944,7 +42118,7 @@ var ContextCoreLoader = class {
     return existsSync5(this.path);
   }
   _load() {
-    const raw = readFileSync5(this.path, "utf-8");
+    const raw = readFileSync6(this.path, "utf-8");
     const data = JSON.parse(raw);
     this._cache = data;
     this._byId = new Map(data.holons.map((h) => [h.id, h]));
@@ -42296,7 +42470,7 @@ function makeProvenanceOps(loader) {
 
 // dist/holons/graph.js
 import { writeFileSync, mkdirSync as mkdirSync2 } from "node:fs";
-import { join as join8, dirname as dirname3 } from "node:path";
+import { join as join9, dirname as dirname3 } from "node:path";
 function bfsGraph(loader, startId, maxDepth) {
   const start = loader.byId(startId);
   if (!start)
@@ -42462,7 +42636,7 @@ function makeGraphOps(loader, vaultPath) {
           if (!safe || safe.split("/").some((p) => p === "..")) {
             return { error: 'Invalid output_path \u2014 must be vault-relative with no ".."' };
           }
-          const full = join8(vaultPath, safe);
+          const full = join9(vaultPath, safe);
           mkdirSync2(dirname3(full), { recursive: true });
           writeFileSync(full, content, "utf-8");
           writtenTo = safe;
@@ -42480,13 +42654,13 @@ function makeGraphOps(loader, vaultPath) {
 }
 
 // dist/holons/write.js
-import { readFileSync as readFileSync6, writeFileSync as writeFileSync2, mkdirSync as mkdirSync3, existsSync as existsSync6 } from "node:fs";
-import { join as join9, dirname as dirname4 } from "node:path";
+import { readFileSync as readFileSync7, writeFileSync as writeFileSync2, mkdirSync as mkdirSync3, existsSync as existsSync6 } from "node:fs";
+import { join as join10, dirname as dirname4 } from "node:path";
 function safePath(vaultPath, relPath) {
   const clean = relPath.trim().replace(/\\/g, "/").replace(/^\/+/, "");
   if (!clean || clean.split("/").some((p) => p === ".." || p === "."))
     return null;
-  return join9(vaultPath, clean);
+  return join10(vaultPath, clean);
 }
 function makeVaultWriteOps(vaultPath, loader) {
   return [
@@ -42547,7 +42721,7 @@ function makeVaultWriteOps(vaultPath, loader) {
           return { error: `Invalid path: ${targetRel}` };
         if (!existsSync6(full))
           return { error: `File not found: ${targetRel}` };
-        const existing = readFileSync6(full, "utf-8");
+        const existing = readFileSync7(full, "utf-8");
         const date5 = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
         const block = `
 
@@ -42564,8 +42738,8 @@ ${content.split("\n").map((l) => `> ${l}`).join("\n")}
 }
 
 // dist/memory/memory.js
-import { existsSync as existsSync7, mkdirSync as mkdirSync4, readFileSync as readFileSync7, readdirSync as readdirSync4, rmSync, statSync, writeFileSync as writeFileSync3 } from "node:fs";
-import { basename as basename3, dirname as dirname5, join as join10 } from "node:path";
+import { existsSync as existsSync7, mkdirSync as mkdirSync4, readFileSync as readFileSync8, readdirSync as readdirSync5, rmSync, statSync, writeFileSync as writeFileSync3 } from "node:fs";
+import { basename as basename3, dirname as dirname5, join as join11 } from "node:path";
 var LOCK_TTL_MS = 6e4;
 var DEFAULT_ACTOR = "agent";
 function withFileLock(fullPath, fn) {
@@ -42630,7 +42804,7 @@ function memoryBasePath(project, actor) {
 function readText(fullPath) {
   if (!existsSync7(fullPath))
     return null;
-  return readFileSync7(fullPath, "utf-8");
+  return readFileSync8(fullPath, "utf-8");
 }
 function writeText(fullPath, content) {
   mkdirSync4(dirname5(fullPath), { recursive: true });
@@ -42724,13 +42898,13 @@ function sessionMarkdown(opts) {
 var PersistentMemory = class {
   filePath;
   constructor(vaultPath) {
-    this.filePath = join10(vaultPath, "_ai_memory.json");
+    this.filePath = join11(vaultPath, "_ai_memory.json");
   }
   read() {
     if (!existsSync7(this.filePath))
       return {};
     try {
-      return JSON.parse(readFileSync7(this.filePath, "utf-8"));
+      return JSON.parse(readFileSync8(this.filePath, "utf-8"));
     } catch {
       return {};
     }
@@ -42780,7 +42954,7 @@ var MarkdownMemory = class {
   passport(ctx, project) {
     const actor = actorFromContext(ctx);
     const relPath = `${memoryBasePath(project, actor)}/passport.md`;
-    const fullPath = join10(this.vaultPath, relPath);
+    const fullPath = join11(this.vaultPath, relPath);
     const now = (/* @__PURE__ */ new Date()).toISOString();
     const content = readText(fullPath) ?? passportMarkdown({ actor, project, now });
     return { exists: existsSync7(fullPath), path: relPath, content };
@@ -42800,13 +42974,13 @@ var MarkdownMemory = class {
       openQuestions: params.openQuestions,
       pointers: params.pointers
     });
-    writeText(join10(this.vaultPath, relPath), content);
+    writeText(join11(this.vaultPath, relPath), content);
     return { ok: true, path: relPath, bytes: Buffer.byteLength(content, "utf-8") };
   }
   handoff(ctx, project) {
     const actor = actorFromContext(ctx);
     const relPath = `${memoryBasePath(project, actor)}/handoff.md`;
-    const fullPath = join10(this.vaultPath, relPath);
+    const fullPath = join11(this.vaultPath, relPath);
     const now = (/* @__PURE__ */ new Date()).toISOString();
     const content = readText(fullPath) ?? handoffMarkdown({ actor, project, now });
     return { exists: existsSync7(fullPath), path: relPath, content };
@@ -42825,7 +42999,7 @@ var MarkdownMemory = class {
       risks: params.risks,
       files: params.files
     });
-    writeText(join10(this.vaultPath, relPath), content);
+    writeText(join11(this.vaultPath, relPath), content);
     return { ok: true, path: relPath, bytes: Buffer.byteLength(content, "utf-8") };
   }
   saveSession(ctx, params) {
@@ -42845,18 +43019,18 @@ var MarkdownMemory = class {
       actions: params.actions,
       references: params.references
     });
-    writeText(join10(this.vaultPath, relPath), content);
+    writeText(join11(this.vaultPath, relPath), content);
     return { ok: true, path: relPath, bytes: Buffer.byteLength(content, "utf-8") };
   }
   listSessions(ctx, project, limit = 20) {
     const actor = actorFromContext(ctx);
     const relDir = `${memoryBasePath(project, actor)}/sessions`;
-    const fullDir = join10(this.vaultPath, relDir);
+    const fullDir = join11(this.vaultPath, relDir);
     if (!existsSync7(fullDir))
       return { count: 0, sessions: [] };
-    const sessions = readdirSync4(fullDir, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".md")).map((entry) => {
-      const fullPath = join10(fullDir, entry.name);
-      const content = readFileSync7(fullPath, "utf-8");
+    const sessions = readdirSync5(fullDir, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".md")).map((entry) => {
+      const fullPath = join11(fullDir, entry.name);
+      const content = readFileSync8(fullPath, "utf-8");
       const heading = content.match(/^#\s+(.+)$/m)?.[1]?.trim() ?? entry.name.replace(/\.md$/, "");
       const preview3 = content.replace(/^---[\s\S]*?---\s*/m, "").replace(/\s+/g, " ").trim().slice(0, 180);
       return {
@@ -43020,12 +43194,12 @@ function makeMemoryOps(vaultPath) {
 }
 
 // dist/project/project.js
-import { existsSync as existsSync8, mkdirSync as mkdirSync5, readFileSync as readFileSync9, writeFileSync as writeFileSync4 } from "node:fs";
-import { dirname as dirname6, join as join12 } from "node:path";
+import { existsSync as existsSync8, mkdirSync as mkdirSync5, readFileSync as readFileSync10, writeFileSync as writeFileSync4 } from "node:fs";
+import { dirname as dirname6, join as join13 } from "node:path";
 
 // dist/project/workos.js
-import { readdirSync as readdirSync5, readFileSync as readFileSync8, statSync as statSync2 } from "node:fs";
-import { join as join11 } from "node:path";
+import { readdirSync as readdirSync6, readFileSync as readFileSync9, statSync as statSync2 } from "node:fs";
+import { join as join12 } from "node:path";
 var STATE_BACKLOG = "backlog";
 var STATE_TODO = "todo";
 var STATE_IN_PROGRESS = "in-progress";
@@ -43296,17 +43470,17 @@ function walkMd(vaultPath, requireEntity) {
   const walk = (dir) => {
     let entries;
     try {
-      entries = readdirSync5(dir, { withFileTypes: true });
+      entries = readdirSync6(dir, { withFileTypes: true });
     } catch {
       return;
     }
     const dirs = entries.filter((e) => e.isDirectory() && !SKIP_DIRS.has(e.name) && !e.name.startsWith("_")).map((e) => e.name).sort();
     const files = entries.filter((e) => e.isFile() && e.name.endsWith(".md")).map((e) => e.name).sort();
     for (const fn of files) {
-      const f = join11(dir, fn);
+      const f = join12(dir, fn);
       let text;
       try {
-        text = stripBom(readFileSync8(f, "utf-8"));
+        text = stripBom(readFileSync9(f, "utf-8"));
       } catch {
         continue;
       }
@@ -43318,7 +43492,7 @@ function walkMd(vaultPath, requireEntity) {
       notes.push({ note_id: noteId, path: f, raw, body: splitBody(text), entity });
     }
     for (const d of dirs)
-      walk(join11(dir, d));
+      walk(join12(dir, d));
   };
   walk(vaultPath);
   notes.sort((a, b) => a.note_id < b.note_id ? -1 : a.note_id > b.note_id ? 1 : 0);
@@ -43567,10 +43741,10 @@ function viewsRoot(project) {
   return `${projectRoot(project)}/views`;
 }
 function readText2(path) {
-  return existsSync8(path) ? readFileSync9(path, "utf-8") : null;
+  return existsSync8(path) ? readFileSync10(path, "utf-8") : null;
 }
 function writeVaultBytes(vaultPath, relPath, content) {
-  const fullPath = join12(vaultPath, relPath);
+  const fullPath = join13(vaultPath, relPath);
   mkdirSync5(dirname6(fullPath), { recursive: true });
   writeFileSync4(fullPath, Buffer.from(content, "utf-8"));
 }
@@ -43736,10 +43910,10 @@ function slugFromEntity(entity) {
   return parts[parts.length - 1];
 }
 function findIssueNote(vaultPath, project, slug) {
-  const full = join12(vaultPath, issuePath(project, slug));
+  const full = join13(vaultPath, issuePath(project, slug));
   if (!existsSync8(full))
     return null;
-  const text = readFileSync9(full, "utf-8");
+  const text = readFileSync10(full, "utf-8");
   const raw = parseFm(text);
   return {
     note_id: issuePath(project, slug).replace(/\\/g, "/"),
@@ -43934,7 +44108,7 @@ function projectBasePath(project) {
   return `${viewsRoot(project)}/issues.base`;
 }
 function ensureCanWriteVisual(vaultPath, path, overwrite) {
-  if (!overwrite && existsSync8(join12(vaultPath, path)))
+  if (!overwrite && existsSync8(join13(vaultPath, path)))
     throw makeErr(-32002, `Already exists: ${path}`);
 }
 function boolParam(value, defaultValue) {
@@ -43951,7 +44125,7 @@ function resolveLang(param, notes) {
 function uniqueSlug(vaultPath, project, base) {
   let slug = base;
   let n = 2;
-  while (existsSync8(join12(vaultPath, issuePath(project, slug)))) {
+  while (existsSync8(join13(vaultPath, issuePath(project, slug)))) {
     slug = `${base}-${n}`;
     n += 1;
   }
@@ -44020,10 +44194,10 @@ function makeProjectOps(vaultPath) {
         const project = projectKey(params.project);
         const description = oneLine(typeof params.description === "string" && params.description.trim() ? params.description : `Work-OS project ${project}`);
         const notePath = projectNotePath(project);
-        if (!existsSync8(join12(vaultPath, notePath))) {
+        if (!existsSync8(join13(vaultPath, notePath))) {
           writeVaultBytes(vaultPath, notePath, projectNote(project, description));
         }
-        mkdirSync5(join12(vaultPath, issuesRoot(project)), { recursive: true });
+        mkdirSync5(join13(vaultPath, issuesRoot(project)), { recursive: true });
         return { ok: true, project, root: projectRoot(project), projectNote: notePath };
       }
     },
@@ -44110,7 +44284,7 @@ ${params.body.trim()}` : title;
         const note = findIssueNote(vaultPath, project, slug);
         if (!note)
           throw makeErr(-32001, `Issue not found: ${slug}`);
-        return { issue: issueView(note, project), content: readFileSync9(note.path, "utf-8") };
+        return { issue: issueView(note, project), content: readFileSync10(note.path, "utf-8") };
       }
     },
     {
@@ -44228,7 +44402,7 @@ ${params.body.trim()}` : title;
         const actor = typeof params.actor === "string" && params.actor.trim() ? safeSegment2(params.actor, "actor") : actorFromContext2(ctx);
         const session = typeof params.session === "string" ? params.session.trim() : process.env.CODEX_THREAD_ID || "";
         const path = `${issuesRoot(project)}/${slug}.comments.md`;
-        const existing = readText2(join12(vaultPath, path)) ?? `# Comments for ${slug}
+        const existing = readText2(join13(vaultPath, path)) ?? `# Comments for ${slug}
 
 `;
         const now = (/* @__PURE__ */ new Date()).toISOString();
@@ -44598,12 +44772,12 @@ function makeIngestOps() {
 
 // dist/source/source.js
 import { createHash } from "node:crypto";
-import { existsSync as existsSync9, mkdirSync as mkdirSync6, readFileSync as readFileSync10, rmSync as rmSync2, statSync as statSync3, writeFileSync as writeFileSync5 } from "node:fs";
-import { basename as basename4, dirname as dirname7, extname, join as join13, relative as relative3, isAbsolute as pathIsAbsolute } from "node:path";
+import { existsSync as existsSync9, mkdirSync as mkdirSync6, readFileSync as readFileSync11, rmSync as rmSync2, statSync as statSync3, writeFileSync as writeFileSync5 } from "node:fs";
+import { basename as basename4, dirname as dirname7, extname, join as join14, relative as relative4, isAbsolute as pathIsAbsolute } from "node:path";
 var REGISTRY_REL_PATH = "_llmwiki/source-registry.json";
 var LOCK_TTL_MS2 = 6e4;
 var RESERVED_INPUT_TYPES = /* @__PURE__ */ new Set(["filePath", "directoryPath", "repoPath", "text"]);
-var PROTECTED_DIRS2 = /* @__PURE__ */ new Set([".obsidian", ".trash", ".git", "node_modules"]);
+var PROTECTED_DIRS3 = /* @__PURE__ */ new Set([".obsidian", ".trash", ".git", "node_modules"]);
 function makeSourceOps(vaultPath) {
   return [
     {
@@ -44810,10 +44984,10 @@ function normalizeVaultRelPath(vaultPath, input) {
     throw badRequest("vaultPath traversal blocked");
   }
   const top = normalized.split("/")[0];
-  if (PROTECTED_DIRS2.has(top))
+  if (PROTECTED_DIRS3.has(top))
     throw badRequest(`protected path: ${top}`);
-  const full = join13(vaultPath, normalized.replace(/\//g, "\\"));
-  const rel = relative3(vaultPath, full);
+  const full = join14(vaultPath, normalized.replace(/\//g, "\\"));
+  const rel = relative4(vaultPath, full);
   if (rel.startsWith("..") || pathIsAbsolute(rel))
     throw badRequest("vaultPath escapes vault");
   return normalized;
@@ -44822,7 +44996,7 @@ function readRegistry(fullPath) {
   if (!existsSync9(fullPath)) {
     return { version: 1, updated_at: (/* @__PURE__ */ new Date(0)).toISOString(), sources: {} };
   }
-  const parsed = JSON.parse(readFileSync10(fullPath, "utf-8"));
+  const parsed = JSON.parse(readFileSync11(fullPath, "utf-8"));
   return {
     version: 1,
     updated_at: typeof parsed.updated_at === "string" ? parsed.updated_at : (/* @__PURE__ */ new Date(0)).toISOString(),
@@ -44833,7 +45007,7 @@ function registryFullPath(vaultPath) {
   return vaultFullPath(vaultPath, REGISTRY_REL_PATH);
 }
 function vaultFullPath(vaultPath, relPath) {
-  return join13(vaultPath, ...relPath.split("/"));
+  return join14(vaultPath, ...relPath.split("/"));
 }
 function sourceNotePath(project, platform, slug) {
   return project ? `10-Projects/${project}/sources/${platform}/${slug}.md` : `00-Inbox/Sources/${platform}/${slug}.md`;
@@ -44987,8 +45161,8 @@ function fencedJson(value) {
 }
 
 // dist/conversation/conversation.js
-import { existsSync as existsSync10, mkdirSync as mkdirSync7, readdirSync as readdirSync6, readFileSync as readFileSync11, rmSync as rmSync3, statSync as statSync4, writeFileSync as writeFileSync6 } from "node:fs";
-import { basename as basename5, dirname as dirname8, join as join14, resolve as resolve4, sep as sep2 } from "node:path";
+import { existsSync as existsSync10, mkdirSync as mkdirSync7, readdirSync as readdirSync7, readFileSync as readFileSync12, rmSync as rmSync3, statSync as statSync4, writeFileSync as writeFileSync6 } from "node:fs";
+import { basename as basename5, dirname as dirname8, join as join15, resolve as resolve4, sep as sep2 } from "node:path";
 var DEFAULT_ACTOR2 = "agent";
 var LOCK_TTL_MS3 = 6e4;
 function withFileLock3(fullPath, fn) {
@@ -45202,12 +45376,12 @@ function preview(content) {
   return content.replace(/^---[\s\S]*?---\s*/m, "").replace(/\s+/g, " ").trim().slice(0, 180);
 }
 function listDecisionDir(vaultPath, relDir, tag) {
-  const fullDir = join14(vaultPath, relDir);
+  const fullDir = join15(vaultPath, relDir);
   if (!existsSync10(fullDir))
     return [];
-  return readdirSync6(fullDir, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".md")).map((entry) => {
-    const fullPath = join14(fullDir, entry.name);
-    const content = readFileSync11(fullPath, "utf-8");
+  return readdirSync7(fullDir, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".md")).map((entry) => {
+    const fullPath = join15(fullDir, entry.name);
+    const content = readFileSync12(fullPath, "utf-8");
     const fm = parseFrontmatter(content);
     const tags = parseTags(fm.tags);
     return {
@@ -45295,7 +45469,7 @@ function makeConversationOps(vaultPath) {
         const fullPath = ensureInsideVault(vaultPath, relPath);
         if (!existsSync10(fullPath))
           throw makeErr(-32001, `Decision not found: ${relPath}`);
-        const content = readFileSync11(fullPath, "utf-8");
+        const content = readFileSync12(fullPath, "utf-8");
         if (!/^conversation-decision:\s*true/m.test(content)) {
           throw makeErr(-32602, "path is not a conversation decision note");
         }
@@ -45306,8 +45480,8 @@ function makeConversationOps(vaultPath) {
 }
 
 // dist/context/context.js
-import { existsSync as existsSync11, readdirSync as readdirSync7, readFileSync as readFileSync12, statSync as statSync5 } from "node:fs";
-import { join as join15 } from "node:path";
+import { existsSync as existsSync11, readdirSync as readdirSync8, readFileSync as readFileSync13, statSync as statSync5 } from "node:fs";
+import { join as join16 } from "node:path";
 var DEFAULT_ACTOR3 = "agent";
 function safeSegment5(value, label) {
   const trimmed = value.trim();
@@ -45329,7 +45503,7 @@ function memoryBasePath2(project, actor) {
   return `00-Inbox/Agent-Memory/${actor}`;
 }
 function readText3(path) {
-  return existsSync11(path) ? readFileSync12(path, "utf-8") : null;
+  return existsSync11(path) ? readFileSync13(path, "utf-8") : null;
 }
 function defaultPassport(actor, project) {
   return [
@@ -45392,7 +45566,7 @@ function defaultHandoff(actor, project) {
   ].join("\n");
 }
 function readMemoryDoc(vaultPath, relPath, fallback) {
-  const fullPath = join15(vaultPath, relPath);
+  const fullPath = join16(vaultPath, relPath);
   const content = readText3(fullPath);
   return { path: relPath, exists: content !== null, content: content ?? fallback };
 }
@@ -45420,14 +45594,14 @@ function preview2(content, max = 220) {
   return content.replace(/^---[\s\S]*?---\s*/m, "").replace(/\s+/g, " ").trim().slice(0, max);
 }
 function listMarkdownFiles(vaultPath, relDir) {
-  const fullDir = join15(vaultPath, relDir);
+  const fullDir = join16(vaultPath, relDir);
   if (!existsSync11(fullDir))
     return [];
-  return readdirSync7(fullDir, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".md")).map((entry) => {
-    const fullPath = join15(fullDir, entry.name);
+  return readdirSync8(fullDir, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".md")).map((entry) => {
+    const fullPath = join16(fullDir, entry.name);
     return {
       path: `${relDir}/${entry.name}`,
-      content: readFileSync12(fullPath, "utf-8"),
+      content: readFileSync13(fullPath, "utf-8"),
       mtime: statSync5(fullPath).mtime.toISOString()
     };
   });
@@ -45467,12 +45641,16 @@ async function answerForScope(registry2, defaultWeights, query, project, params,
   if (!query.trim())
     throw makeErr(-32602, "query required");
   const scope = scopeFor(project);
-  return answerQuery(registry2, query, {
+  const backfill = await ensureBackfill();
+  const answer = await answerQuery(registry2, query, {
     maxResults: params.maxResults ?? fallbackMaxResults,
     adapters: params.adapters,
     weights: mergeWeights(defaultWeights, params),
     glob: scope.glob
   });
+  for (const g of await recallGaps(backfill))
+    answer.gaps.unshift(g);
+  return answer;
 }
 function summarizeTrace(answer) {
   return {
@@ -45655,9 +45833,9 @@ function makeContextOps(vaultPath, registry2, defaultWeights) {
 
 // dist/core/operations.js
 var execAsync = promisify5(execFile5);
-var PROTECTED_DIRS3 = /* @__PURE__ */ new Set([".obsidian", ".trash", ".git", "node_modules"]);
+var PROTECTED_DIRS4 = /* @__PURE__ */ new Set([".obsidian", ".trash", ".git", "node_modules"]);
 var _thisDir = dirname9(fileURLToPath2(import.meta.url));
-var _projectRoot = join16(_thisDir, "..", "..", "..");
+var _projectRoot = join17(_thisDir, "..", "..", "..");
 function makeErr2(code, message) {
   return { code, message };
 }
@@ -46121,7 +46299,7 @@ var operations = [
         };
       }
       const stem = id.replace(/-to-vault$/, "");
-      const collectorPath = join16(_projectRoot, "recipes", "collectors", `${stem}-collector.ts`);
+      const collectorPath = join17(_projectRoot, "recipes", "collectors", `${stem}-collector.ts`);
       if (!existsSync12(collectorPath)) {
         return {
           ok: false,
@@ -46156,7 +46334,7 @@ var operations = [
 ];
 function makeAllOperations(deps) {
   const { compileTrigger, registry: registry2, defaultWeights, python, compilerPath, vaultPath, configPath } = deps;
-  const ccPath = deps.contextCorePath ?? process.env["CONTEXT_CORE_PATH"] ?? join16(dirname9(compilerPath), "context-core.json");
+  const ccPath = deps.contextCorePath ?? process.env["CONTEXT_CORE_PATH"] ?? join17(dirname9(compilerPath), "context-core.json");
   const contextCoreLoader = new ContextCoreLoader(ccPath);
   const compileOps = [
     {
@@ -46212,12 +46390,12 @@ function makeAllOperations(deps) {
           throw makeErr2(-32001, "VaultBrain adapter not available or not initialized");
         const files = [];
         const walk = (dir) => {
-          for (const entry of readdirSync8(dir, { withFileTypes: true })) {
+          for (const entry of readdirSync9(dir, { withFileTypes: true })) {
             if (entry.isDirectory()) {
-              if (!PROTECTED_DIRS3.has(entry.name))
-                walk(join16(dir, entry.name));
+              if (!PROTECTED_DIRS4.has(entry.name))
+                walk(join17(dir, entry.name));
             } else if (entry.isFile() && entry.name.endsWith(".md")) {
-              files.push(join16(dir, entry.name));
+              files.push(join17(dir, entry.name));
             }
           }
         };
@@ -46231,15 +46409,15 @@ function makeAllOperations(deps) {
         for (let i = 0; i < files.length; i += concurrency) {
           const batch = files.slice(i, i + concurrency);
           const results = await Promise.allSettled(batch.map(async (fullPath) => {
-            const content = readFileSync13(fullPath, "utf-8");
-            const relPath = relative4(vaultPath, fullPath).replace(/\\/g, "/");
+            const content = readFileSync14(fullPath, "utf-8");
+            const relPath = relative5(vaultPath, fullPath).replace(/\\/g, "/");
             await vba.ingest(relPath, content);
           }));
           results.forEach((result, idx) => {
             if (result.status === "fulfilled")
               indexed++;
             else
-              errors.push(`${relative4(vaultPath, batch[idx]).replace(/\\/g, "/")}: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`);
+              errors.push(`${relative5(vaultPath, batch[idx]).replace(/\\/g, "/")}: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`);
           });
         }
         return { indexed, skipped: errors.length, errors, totalFiles: files.length };
@@ -46326,13 +46504,17 @@ function makeAllOperations(deps) {
           ...defaultWeights,
           ...params.weights
         };
-        return answerQuery(registry2, query, {
+        const backfill = await ensureBackfill();
+        const answer = await answerQuery(registry2, query, {
           maxResults: params.maxResults ?? 5,
           caseSensitive: params.caseSensitive ?? false,
           context: params.context,
           adapters: params.adapters,
           weights: Object.keys(weights).length > 0 ? weights : void 0
         });
+        for (const g of await recallGaps(backfill))
+          answer.gaps.unshift(g);
+        return answer;
       }
     },
     {
@@ -46469,7 +46651,7 @@ function makeAllOperations(deps) {
         if (!inputPath)
           throw makeErr2(-32602, "path required");
         const normalizedInput = normalizeVaultRelPath3(inputPath);
-        const fullInput = join16(vaultPath, normalizedInput);
+        const fullInput = join17(vaultPath, normalizedInput);
         if (!existsSync12(fullInput))
           throw makeErr2(-32001, `Source file not found: ${normalizedInput}`);
         const outputPath = normalizeVaultRelPath3(typeof params.outputPath === "string" && params.outputPath.length > 0 ? params.outputPath : defaultMultimodalOutputPath(normalizedInput));
@@ -46502,7 +46684,7 @@ function makeAllOperations(deps) {
             preview: content.slice(0, 2e3)
           };
         }
-        const fullOutput = join16(vaultPath, outputPath);
+        const fullOutput = join17(vaultPath, outputPath);
         mkdirSync8(dirname9(fullOutput), { recursive: true });
         writeFileSync7(fullOutput, content, "utf-8");
         const vba = registry2.get("vaultbrain");
@@ -46538,7 +46720,7 @@ function makeAllOperations(deps) {
         if (!inputPath)
           throw makeErr2(-32602, "path required");
         const normalizedInput = normalizeVaultRelPath3(inputPath);
-        const fullInput = join16(vaultPath, normalizedInput);
+        const fullInput = join17(vaultPath, normalizedInput);
         if (!existsSync12(fullInput))
           throw makeErr2(-32001, `Source file not found: ${normalizedInput}`);
         const mode = params.mode ?? "auto";
@@ -46553,7 +46735,7 @@ function makeAllOperations(deps) {
           };
         }
         if (effectiveMode === "text") {
-          const text = readFileSync13(fullInput, "utf-8");
+          const text = readFileSync14(fullInput, "utf-8");
           const result2 = await adapter.insertText({ text, fileSource: normalizedInput });
           return { dryRun: false, sourcePath: normalizedInput, mode: effectiveMode, result: result2 };
         }
@@ -46814,7 +46996,7 @@ function loadConfig() {
   ];
   for (const p of candidates) {
     if (existsSync13(p))
-      return { ...parseSimpleYaml(readFileSync14(p, "utf-8")), config_path: p };
+      return { ...parseSimpleYaml(readFileSync15(p, "utf-8")), config_path: p };
   }
   throw new Error("No vault-mind.yaml found and VAULT_MIND_VAULT_PATH not set");
 }
@@ -46865,7 +47047,7 @@ function loadEnvCollaboration(result = {}) {
     enforce: enforceRaw === void 0 ? void 0 : enforceRaw !== "false"
   };
 }
-var PROTECTED_DIRS4 = /* @__PURE__ */ new Set([".obsidian", ".trash", ".git", "node_modules"]);
+var PROTECTED_DIRS5 = /* @__PURE__ */ new Set([".obsidian", ".trash", ".git", "node_modules"]);
 var VERSION = "0.3.0";
 function err(code, message) {
   return { code, message };
@@ -46883,7 +47065,7 @@ function withFileLock4(fullPath, fn) {
     if (ageMs < LOCK_TTL_MS4) {
       let holder = "unknown";
       try {
-        holder = readFileSync14(lockPath, "utf-8").trim();
+        holder = readFileSync15(lockPath, "utf-8").trim();
       } catch {
       }
       throw err(-32010, `Lock conflict on ${basename6(fullPath)}: held by ${holder}, ttl remaining ${LOCK_TTL_MS4 - ageMs}ms`);
@@ -46907,7 +47089,7 @@ function readVaultCollabPolicy(vaultPath) {
   if (!existsSync13(policyPath))
     return {};
   try {
-    const parsed = JSON.parse(readFileSync14(policyPath, "utf-8"));
+    const parsed = JSON.parse(readFileSync15(policyPath, "utf-8"));
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
       throw new Error("expected a JSON object");
     }
@@ -47202,14 +47384,14 @@ var VaultFs = class {
     if (normalized.split("/").some((s) => s === ".." || s === "."))
       throw err(-32602, "path traversal blocked");
     const topSegment = normalized.split("/")[0];
-    if (PROTECTED_DIRS4.has(topSegment))
+    if (PROTECTED_DIRS5.has(topSegment))
       throw err(-32602, `protected path: ${topSegment}`);
     return normalized;
   }
   resolve(p, opts = {}) {
     const normalized = this.normalizeVaultPath(p, opts);
     const full = resolve5(this.vault, normalized);
-    const rel = relative5(this.vault, full);
+    const rel = relative6(this.vault, full);
     if (rel.startsWith("..") || pathIsAbsolute2(rel))
       throw err(-32602, "path escapes vault");
     this.assertRealPathInsideVault(full);
@@ -47217,7 +47399,7 @@ var VaultFs = class {
   }
   assertRealPathInsideVault(full) {
     const realTarget = existsSync13(full) ? realpathSync(full) : this.realpathExistingAncestor(dirname10(full));
-    const rel = relative5(this.realVault, realTarget);
+    const rel = relative6(this.realVault, realTarget);
     if (rel.startsWith("..") || pathIsAbsolute2(rel))
       throw err(-32602, "path traversal blocked");
   }
@@ -47312,13 +47494,13 @@ var VaultFs = class {
   }
   walkMd(fn) {
     const walk = (d) => {
-      for (const ent of readdirSync9(d, { withFileTypes: true })) {
-        const full = join17(d, ent.name);
-        if (ent.isDirectory() && !PROTECTED_DIRS4.has(ent.name))
+      for (const ent of readdirSync10(d, { withFileTypes: true })) {
+        const full = join18(d, ent.name);
+        if (ent.isDirectory() && !PROTECTED_DIRS5.has(ent.name))
           walk(full);
         else if (ent.isFile() && ent.name.endsWith(".md")) {
-          const rel = relative5(this.vault, full).replace(/\\/g, "/");
-          fn(rel, readFileSync14(full, "utf-8"));
+          const rel = relative6(this.vault, full).replace(/\\/g, "/");
+          fn(rel, readFileSync15(full, "utf-8"));
         }
       }
     };
@@ -47327,13 +47509,13 @@ var VaultFs = class {
   walkSearchableText(fn) {
     const searchableExts = /* @__PURE__ */ new Set([".md", ".canvas", ".base"]);
     const walk = (d) => {
-      for (const ent of readdirSync9(d, { withFileTypes: true })) {
-        const full = join17(d, ent.name);
-        if (ent.isDirectory() && !PROTECTED_DIRS4.has(ent.name))
+      for (const ent of readdirSync10(d, { withFileTypes: true })) {
+        const full = join18(d, ent.name);
+        if (ent.isDirectory() && !PROTECTED_DIRS5.has(ent.name))
           walk(full);
         if (ent.isFile() && searchableExts.has(extname2(ent.name))) {
-          const rel = relative5(this.vault, full).replace(/\\/g, "/");
-          fn(rel, readFileSync14(full, "utf-8"));
+          const rel = relative6(this.vault, full).replace(/\\/g, "/");
+          fn(rel, readFileSync15(full, "utf-8"));
         }
       }
     };
@@ -47349,7 +47531,7 @@ var VaultFs = class {
         const full = this.resolve(p.path);
         if (!existsSync13(full))
           throw err(-32001, `Not found: ${p.path}`);
-        return { content: readFileSync14(full, "utf-8") };
+        return { content: readFileSync15(full, "utf-8") };
       }
       case "vault.exists": {
         const existsPath = this.normalizeVaultPath(p.path ?? "", { allowRoot: true });
@@ -47361,7 +47543,7 @@ var VaultFs = class {
         if (!existsSync13(dir))
           throw err(-32001, `Not found: ${p.path}`);
         const hidden = /* @__PURE__ */ new Set([".obsidian", ".trash", "node_modules"]);
-        const entries = readdirSync9(dir, { withFileTypes: true }).filter((e) => !hidden.has(e.name));
+        const entries = readdirSync10(dir, { withFileTypes: true }).filter((e) => !hidden.has(e.name));
         return {
           files: entries.filter((e) => e.isFile()).map((e) => posix.join(listPath, e.name)).sort(),
           folders: entries.filter((e) => e.isDirectory()).map((e) => posix.join(listPath, e.name)).sort()
@@ -47375,7 +47557,7 @@ var VaultFs = class {
         const st = statSync6(full);
         const displayName = statPath === "" ? basename6(this.vault) : basename6(statPath);
         if (st.isDirectory())
-          return { type: "folder", path: statPath, name: displayName, children: readdirSync9(full).length };
+          return { type: "folder", path: statPath, name: displayName, children: readdirSync10(full).length };
         return {
           type: "file",
           path: statPath,
@@ -48228,7 +48410,7 @@ created: ${now}
             created: [],
             skipped: []
           };
-          const entries = readdirSync9(absDir, { withFileTypes: true });
+          const entries = readdirSync10(absDir, { withFileTypes: true });
           for (const ent of entries) {
             if (!ent.isFile())
               continue;
@@ -48239,7 +48421,7 @@ created: ${now}
               report.hasChronicle = ent.name;
           }
           const mdFiles = entries.filter((e) => e.isFile() && e.name.endsWith(".md")).map((e) => e.name).sort();
-          const subDirs = entries.filter((e) => e.isDirectory() && !PROTECTED_DIRS4.has(e.name) && !extraSkip.has(e.name)).map((e) => e.name).sort();
+          const subDirs = entries.filter((e) => e.isDirectory() && !PROTECTED_DIRS5.has(e.name) && !extraSkip.has(e.name)).map((e) => e.name).sort();
           const topicName = basename6(relDir || this.vault);
           if (!report.hasCatalog) {
             const catalogPath = relDir ? posix.join(relDir, "_index.md") : "_index.md";
@@ -48285,11 +48467,11 @@ updated: ${now}
         const allSkipped = [];
         const errors = [];
         try {
-          const topEntries = readdirSync9(this.vault, { withFileTypes: true });
+          const topEntries = readdirSync10(this.vault, { withFileTypes: true });
           for (const ent of topEntries) {
             if (!ent.isDirectory())
               continue;
-            if (PROTECTED_DIRS4.has(ent.name) || extraSkip.has(ent.name))
+            if (PROTECTED_DIRS5.has(ent.name) || extraSkip.has(ent.name))
               continue;
             if (ent.name.startsWith("."))
               continue;
@@ -48388,13 +48570,13 @@ updated: ${now}
         const baseName2 = `${datePrefix}-${slug}`;
         let chosenName = `${baseName2}.md`;
         let relPath = `${relDir}/${chosenName}`;
-        let fullPath = join17(this.vault, relDir, chosenName);
+        let fullPath = join18(this.vault, relDir, chosenName);
         if (existsSync13(fullPath)) {
           let found = false;
           for (let i = 2; i <= 99; i++) {
             chosenName = `${baseName2}-${i}.md`;
             relPath = `${relDir}/${chosenName}`;
-            fullPath = join17(this.vault, relDir, chosenName);
+            fullPath = join18(this.vault, relDir, chosenName);
             if (!existsSync13(fullPath)) {
               found = true;
               break;
@@ -48460,7 +48642,7 @@ ${bodyWithTag}
         const nowMs = typeof p.now === "string" ? Date.parse(p.now) : Date.now();
         const nowValid = !isNaN(nowMs) ? nowMs : Date.now();
         const aiRootRel = "00-Inbox/AI-Output";
-        const aiRootAbs = join17(this.vault, aiRootRel);
+        const aiRootAbs = join18(this.vault, aiRootRel);
         const emptyMetrics = {
           totalEntries: 0,
           byPersona: {},
@@ -48475,12 +48657,12 @@ ${bodyWithTag}
         const walkSubtree = (d) => {
           if (!existsSync13(d))
             return;
-          for (const ent of readdirSync9(d, { withFileTypes: true })) {
-            const full = join17(d, ent.name);
-            if (ent.isDirectory() && !PROTECTED_DIRS4.has(ent.name))
+          for (const ent of readdirSync10(d, { withFileTypes: true })) {
+            const full = join18(d, ent.name);
+            if (ent.isDirectory() && !PROTECTED_DIRS5.has(ent.name))
               walkSubtree(full);
             else if (ent.isFile() && ent.name.endsWith(".md")) {
-              const content = readFileSync14(full, "utf-8");
+              const content = readFileSync15(full, "utf-8");
               const fm = this.parseFrontmatter(content);
               if (!fm)
                 continue;
@@ -48488,7 +48670,7 @@ ${bodyWithTag}
               if (!persona)
                 continue;
               const status = typeof fm["status"] === "string" ? fm["status"] : "";
-              const relPath = relative5(this.vault, full).replace(/\\/g, "/");
+              const relPath = relative6(this.vault, full).replace(/\\/g, "/");
               const st = statSync6(full);
               const mtimeMs = st.mtimeMs;
               let entryMs = mtimeMs;
@@ -48574,10 +48756,10 @@ ${bodyWithTag}
         if (!dryRun) {
           const flipIso = new Date(nowValid).toISOString();
           for (const sc of staleCandidates) {
-            const absPath = join17(this.vault, sc.path);
+            const absPath = join18(this.vault, sc.path);
             const historyEntry = `{ts: "${flipIso}", axis: status, from: draft, to: stale, trigger: auto-stop-summary, evidence_level: low, human_in_loop: false, note: "gardener sweep"}`;
             const flipped = withFileLock4(absPath, () => {
-              const original = readFileSync14(absPath, "utf-8");
+              const original = readFileSync15(absPath, "utf-8");
               const withStatusFlipped = original.replace(/(^---[\s\S]*?\nstatus: )draft(\n[\s\S]*?^---$)/m, (_m, g1, g2) => g1 + "stale" + g2);
               if (withStatusFlipped === original)
                 return false;
@@ -48608,7 +48790,7 @@ ${bodyWithTag}
         metrics.realBacklinkHitRate = entries.length === 0 ? 0 : withRealBacklink / entries.length;
         if (!dryRun && entries.length > 0) {
           const sweepLogRel = "00-Inbox/AI-Output/sweep.log.md";
-          const sweepLogAbs = join17(this.vault, sweepLogRel);
+          const sweepLogAbs = join18(this.vault, sweepLogRel);
           const stamp = new Date(nowValid).toISOString();
           const logLine = `- {ts: "${stamp}", totalEntries: ${metrics.totalEntries}, staleHits: ${staleCandidates.length}, supersedeHits: ${supersedeCandidates.length}, realBacklinkHitRate: ${metrics.realBacklinkHitRate.toFixed(3)}}
 `;
@@ -48626,7 +48808,7 @@ ${bodyWithTag}
         const full = this.resolve(p.path);
         if (!existsSync13(full))
           throw err(-32001, `Not found: ${p.path}`);
-        const content = readFileSync14(full, "utf-8");
+        const content = readFileSync15(full, "utf-8");
         const out = {};
         const links = this.parseWikilinks(content);
         if (links.length)
@@ -48728,6 +48910,7 @@ async function main() {
       await vbAdapter.init();
       registry2.register(vbAdapter);
       vaultBrainAdapter = vbAdapter;
+      configureLazyIndex(vbAdapter, config2.vault_path);
       process.stderr.write("obsidian-llm-wiki: [vaultbrain] adapter ready\n");
     } catch (e) {
       process.stderr.write(`obsidian-llm-wiki: [vaultbrain] init failed (continuing without): ${e.message}
@@ -48754,8 +48937,8 @@ async function main() {
         return;
       for (const fullPath of wikiPaths) {
         try {
-          const relPath = relative5(config2.vault_path, fullPath).replace(/\\/g, "/");
-          const content = readFileSync14(fullPath, "utf-8");
+          const relPath = relative6(config2.vault_path, fullPath).replace(/\\/g, "/");
+          const content = readFileSync15(fullPath, "utf-8");
           vaultBrainAdapter.ingest(relPath, content).catch((err2) => process.stderr.write(`obsidian-llm-wiki: [vaultbrain] ingest error: ${err2.message}
 `));
         } catch {
@@ -48770,8 +48953,8 @@ async function main() {
         compileTrigger.onFileChange(e.path, e.type);
         if (vaultBrainAdapter && e.path.endsWith(".md")) {
           try {
-            const fullPath = join17(config2.vault_path, e.path.replace(/\\/g, "/"));
-            const content = readFileSync14(fullPath, "utf-8");
+            const fullPath = join18(config2.vault_path, e.path.replace(/\\/g, "/"));
+            const content = readFileSync15(fullPath, "utf-8");
             vaultBrainAdapter.ingest(e.path, content).catch((err2) => process.stderr.write(`obsidian-llm-wiki: [vaultbrain] ingest error: ${err2.message}
 `));
           } catch {
@@ -48810,10 +48993,10 @@ async function main() {
     if (!vaultBrainAdapter || !relPath.endsWith(".md"))
       return;
     try {
-      const fullPath = join17(config2.vault_path, relPath.replace(/\\/g, "/"));
+      const fullPath = join18(config2.vault_path, relPath.replace(/\\/g, "/"));
       if (!existsSync13(fullPath))
         return;
-      const content = readFileSync14(fullPath, "utf-8");
+      const content = readFileSync15(fullPath, "utf-8");
       vaultBrainAdapter.ingest(relPath, content).catch((err2) => process.stderr.write(`obsidian-llm-wiki: [vaultbrain] ingest error: ${err2.message}
 `));
     } catch {
