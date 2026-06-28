@@ -140,4 +140,64 @@ Overall DX         |  3/10  | 8/10  |
 | DX Review | `/plan-devex-review` | Developer experience gaps | 1 | DONE | DX 3/10→8/10；TTHW ∞→<2min（NL keyword 零设置）；3 fixes F1+F2+F3 批准 |
 
 - **UNRESOLVED:** 无（persona/mode/tier/magical/journey-fixes 全经 AUQ 决定）。
-- **VERDICT:** DX Review DONE（EXPANSION）。Eng Review 未跑（非阻塞本评审）；建造 F1/F2/F3 前可选 `/plan-eng-review` 验架构。13A（T1）待全量回归绿 + commit。
+- **VERDICT:** DX Review DONE（EXPANSION）。Eng Review 未跑（非阻塞本评审）；建造 F1/F2/F3 前可选 `/plan-eng-review` 验架构。13A（T1）**已 ship `d52934a`**（3/3 测试绿，孤立改动）。
+
+---
+
+## 6. 设计稿（office-hours Builder #2 — recall 剩余弧，2026-06-28）
+
+> Builder 模式。Status：**APPROVED**。前提 P1-P4 已对齐。方案 A（首查懒触发）入选。
+
+### 6.1 Problem Statement
+13A ship 了 keyword floor，但 vaultbrain 索引**空**（从没填过）→ NL recall 仍返 0，直到索引被填。要**零 setup** 把空索引填上，兑现 Champion <2min。
+
+### 6.2 What Makes This Cool（whoa）
+接上**问一句就出** —— 没有 reindex 命令、没有 Ollama 设置；集成者第一条 NL 问题**触发静默建索引 + 答出带 citation**。"它自己把我的库读进去了，我啥都没跑。"
+
+### 6.3 Constraints
+§0 无 daemon；keyword 懒索引不需 Ollama（13A chunk+tsvector 无 embedding 也建）；首查一次性成本可接受（notice + 后续快）。
+
+### 6.4 Premises（已对齐）
+- **P1** 剩余弧 = 13B 自动入索引 + 13C 回填 + 13D 顶层向量 + DX F1/F2/F3；13A keyword floor 已 ship。
+- **P2** Champion 零 setup 关键 = 索引免手动命令自动填；keyword 入索引不需 Ollama。
+- **P3** 首查懒触发 reindex 有一次性成本（走全库 chunk+index）；可接受 if notice + 后续快。
+- **P4** 13D 顶层向量 engage 低优（vaultbrain.search 已内部 hybrid，chunk 嵌入后 keyword fanout 即触发向量）；只为别的 embeddings adapter。
+
+### 6.5 Approaches Considered
+- **A（入选）首查懒触发**：recall 路径检测库空 → 自动跑一次 reindex（keyword 免 Ollama）+ 一次性 notice。零 setup。M/Low。
+- **B 编译触发为主**：靠 onCompileSuccess→ingest + SessionStart 探空提示。索引随 compile 新鲜，但首次要 compile、非零 setup。
+- **C 显式 quickstart 一行**：F1 文档把 `vault reindex` 写成 step 1 + F3 兜底。最简最诚实，放弃零 setup whoa。
+
+### 6.6 Recommended Approach
+**A 首查懒触发**：`context_recall`/`query` 检测 vaultbrain chunks 空 → 自动跑一次 `vault.reindex`（keyword 路径，embedding best-effort）→ notice「首次索引你的 vault（N 篇，一次性）」→ 后续快。唯一真兑现 6.2 whoa 的。
+
+### 6.7 Open Questions
+- **首查延迟**：大库（`D:\knowledge` 几百篇）懒索引可能 10s+。同步阻塞首查 vs 异步（先返 keyword-lite 再补）？建议同步 + 进度 notice + 软上限；大库异步留后续。
+- **再入性**：并发查询触发多次 reindex → 要 in-progress 锁（`.vault-mind/` flag）防重入。
+- **触发判据**：chunks 表全空才触发；增量（部分索引/新增笔记）如何刷？A 阶段先全空才触发，增量留后。
+
+### 6.8 Success Criteria
+新 vault + 零 setup → 首次 NL recall（一次性索引后）返带 citation 证据；第二次查快；keyword 不需 Ollama；F3 错误可执行；懒触发**幂等**（锁防重入）。
+
+### 6.9 Distribution Plan
+mcp-server 内，随 vault-mind 编译器走。无独立分发。
+
+### 6.10 Next Steps（建造序，接 §2）
+1. **13B-lazy（F2 核心）**：recall 路径加 空库检测 + 一次性 reindex 触发，in-progress 锁（`.vault-mind/.reindex-lock`），notice。复用 `vault.reindex`。Files：`unified-query.ts` / `adapters/vaultbrain/index.ts` / `core/operations.ts`。
+2. **13C 回填** = 懒路径调已有 `vault.reindex`（无新码，只接线）。
+3. **F3** gaps[] 可执行（空库→「已自动索引」/Ollama 不可达→「pull bge-m3 上语义」）。
+4. **F1** 文档（改 claim + getting-started）。
+5. **13D**（低优）顶层向量 engage 给别的 embeddings adapter。
+
+### 6.11 What I noticed
+- 你 P3 直接接受「懒索引一次性成本换零 setup」—— 全 session 一致选零摩擦（Champion）那条，不为完美主义卡首查。
+- 连续 3 个 gstack skill（devex→builder→builder）硬化同一条 recall 线 —— 把「先写好方案再建」做实，不急着写码。
+
+### 6.12 Reviewer note（inline 对抗，非 subagent）
+- **风险1 首查延迟**：大库懒索引同步会卡首次 recall 数秒~十几秒。缓解：notice 报「索引 N 篇中」+ 软上限（超阈值转后台 + 先返 keyword-lite）；`D:\knowledge` 这种几百篇要测真实耗时。
+- **风险2 重入**：并发首查触发多次 reindex。**13B 必须先上 in-progress 锁**（`.vault-mind/` flag，base-head 锁同款思路），否则重复建索引/竞态。
+
+### 6.13 The Assignment（必给）
+**先量真实首查成本**：在 `D:\knowledge` 跑一次 `vault_reindex`（MCP）计时 + 看 13A PG-FTS keyword recall 在真库上的 NL 召回质量。这决定 6.7 的同步-vs-异步 + 软上限阈值 —— 量完再定 13B 同步策略。
+
+**Status：APPROVED。**
