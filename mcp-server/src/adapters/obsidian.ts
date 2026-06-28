@@ -116,8 +116,8 @@ export class ObsidianAdapter implements VaultMindAdapter {
           process.stderr.write(
             `vault-mind: [warn] obsidian auth failed: ${(e as Error).message} -- adapter disabled\n`,
           );
-          ws.close();
           this.ws = null;
+          ws.terminate(); // force-close so no CLOSING-state limbo blocks callers
         }
         resolve();
       });
@@ -135,9 +135,15 @@ export class ObsidianAdapter implements VaultMindAdapter {
   async dispose(): Promise<void> {
     this.available = false;
     this.rejectAllPending("Adapter disposed");
-    this.ws?.close();
-    this.ws = null;
     this.changeListeners.length = 0;
+    if (this.ws) {
+      const ws = this.ws;
+      this.ws = null;
+      await new Promise<void>((resolve) => {
+        ws.once("close", resolve);
+        ws.close();
+      });
+    }
   }
 
   async search(query: string, opts?: SearchOpts): Promise<SearchResult[]> {

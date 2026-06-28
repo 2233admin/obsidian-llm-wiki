@@ -19,6 +19,7 @@ import { writeFileSync, unlinkSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import type { IncomingMessage } from "node:http";
+import type { AddressInfo } from "node:net";
 import { ObsidianAdapter } from "./obsidian.js";
 import type { FileEvent } from "./interface.js";
 
@@ -162,15 +163,22 @@ describe("ObsidianAdapter -- unavailable paths", () => {
 describe("ObsidianAdapter -- mock WS server", () => {
   let wss: WebSocketServer;
   let adapter: ObsidianAdapter;
-  const PORT = 60001;
+  let PORT = 0;
 
   before(async () => {
-    wss = createMockServer(PORT);
-    await new Promise<void>((res) => wss.once("listening", res));
+    wss = createMockServer(0);
+    await new Promise<void>((res, rej) => {
+      wss.once("listening", res);
+      wss.once("error", rej);
+    });
+    PORT = (wss.address() as AddressInfo).port;
   });
 
   after(async () => {
     cleanPortFile();
+    await Promise.all([...wss.clients].map((c) =>
+      new Promise<void>((res) => { c.once("close", res); c.terminate(); }),
+    ));
     await new Promise<void>((res) => wss.close(() => res()));
   });
 
@@ -285,15 +293,22 @@ describe("ObsidianAdapter -- mock WS server", () => {
 
 describe("ObsidianAdapter -- auth rejection", () => {
   let wss: WebSocketServer;
-  const PORT = 60002;
+  let PORT = 0;
 
   before(async () => {
-    wss = createMockServer(PORT, { rejectAuth: true });
-    await new Promise<void>((res) => wss.once("listening", res));
+    wss = createMockServer(0, { rejectAuth: true });
+    await new Promise<void>((res, rej) => {
+      wss.once("listening", res);
+      wss.once("error", rej);
+    });
+    PORT = (wss.address() as AddressInfo).port;
   });
 
   after(async () => {
     cleanPortFile();
+    await Promise.all([...wss.clients].map((c) =>
+      new Promise<void>((res) => { c.once("close", res); c.terminate(); }),
+    ));
     await new Promise<void>((res) => wss.close(() => res()));
   });
 
