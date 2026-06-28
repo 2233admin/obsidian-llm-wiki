@@ -48,4 +48,15 @@ CREATE INDEX IF NOT EXISTS chunks_trgm_idx
 
 CREATE INDEX IF NOT EXISTS chunks_slug_idx
   ON chunks (slug);
+
+-- Full-text keyword search (bilingual floor, no embeddings required).
+-- A generated tsvector stays in sync with chunk_text; ts_rank_cd over it ranks
+-- English / multi-word NL phrases. CJK can't be word-segmented by 'simple', so
+-- the engine RRF-fuses this with pg_trgm (chunks_trgm_idx above). ADD COLUMN
+-- IF NOT EXISTS migrates stores created before this column existed.
+ALTER TABLE chunks ADD COLUMN IF NOT EXISTS chunk_tsv tsvector
+  GENERATED ALWAYS AS (to_tsvector('simple', chunk_text)) STORED;
+
+CREATE INDEX IF NOT EXISTS chunks_tsv_idx
+  ON chunks USING gin (chunk_tsv);
 `;

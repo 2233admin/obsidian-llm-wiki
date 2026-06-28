@@ -100,21 +100,47 @@ export class PGliteEngine implements VaultBrainEngine {
   }
 
   async searchKeyword(query: string, limit: number): Promise<ChunkResult[]> {
-    // Use similarity() >= threshold directly instead of % operator.
-    // pg_trgm's % operator uses a hardcoded threshold that is too strict for CJK
-    // text (default 0.3 misses most CJK matches). similarity() >= 0.1 is
-    // equivalent to % with a lowered threshold, but works without GUC support.
+    // Bilingual keyword floor (no daemon, no embeddings). RRF-fuse two rankings:
+    //   - ts_rank_cd over a 'simple' tsvector -> English / multi-word NL phrases.
+    //     The tsquery ORs the query's lexemes (term1 | term2 | ...) so partial
+    //     overlap still ranks -- a natural-language phrase no longer returns 0
+    //     just because no chunk contains the whole literal string.
+    //   - pg_trgm similarity()                -> CJK, which 'simple' cannot
+    //     word-segment (a space-less Chinese run becomes one token).
+    // RRF (k=60) merges by RANK within each list, so the two incomparable score
+    // scales never fight; a chunk strong in either list surfaces.
     const { rows } = await this.requireDb().query<{
       slug: string;
       chunk_index: number;
       chunk_text: string;
       score: number;
     }>(
-      `SELECT slug, chunk_index, chunk_text,
-              similarity(chunk_text, $1) AS score
-       FROM chunks
-       WHERE similarity(chunk_text, $1) >= 0.1
-       ORDER BY score DESC
+      `WITH q AS (
+         SELECT to_tsquery('simple',
+                  NULLIF(array_to_string(
+                    tsvector_to_array(to_tsvector('simple', $1)), ' | '), '')
+                ) AS tsq
+       ),
+       scored AS (
+         SELECT slug, chunk_index, chunk_text,
+                ts_rank_cd(chunk_tsv, (SELECT tsq FROM q)) AS ts_score,
+                similarity(chunk_text, $1) AS trgm_score
+         FROM chunks
+         WHERE chunk_tsv @@ (SELECT tsq FROM q)
+            OR similarity(chunk_text, $1) >= 0.1
+       ),
+       ranked AS (
+         SELECT slug, chunk_index, chunk_text, ts_score, trgm_score,
+                rank() OVER (ORDER BY ts_score DESC)   AS ts_rank,
+                rank() OVER (ORDER BY trgm_score DESC) AS trgm_rank
+         FROM scored
+       )
+       SELECT slug, chunk_index, chunk_text,
+              ( CASE WHEN ts_score   > 0 THEN 1.0 / (60 + ts_rank)   ELSE 0 END
+              + CASE WHEN trgm_score > 0 THEN 1.0 / (60 + trgm_rank) ELSE 0 END
+              ) AS score
+       FROM ranked
+       ORDER BY score DESC, slug, chunk_index
        LIMIT $2`,
       [query, limit],
     );
