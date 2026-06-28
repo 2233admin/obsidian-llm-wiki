@@ -21,6 +21,7 @@ import { LightRAGAdapter } from "./adapters/lightrag.js";
 import { RAGAnythingAdapter } from "./adapters/raganything.js";
 import { VaultBrainAdapter } from "./adapters/vaultbrain/index.js";
 import { GraphifyAdapter } from "./adapters/graphify.js";
+import { configureLazyIndex } from "./adapters/vaultbrain/lazy-index.js";
 import { AdapterRegistry } from "./adapters/registry.js";
 import { CompileTrigger } from "./compile-trigger.js";
 import type { VaultMindAdapter } from "./adapters/interface.js";
@@ -1766,6 +1767,7 @@ async function main(): Promise<void> {
       await vbAdapter.init();
       registry.register(vbAdapter);
       vaultBrainAdapter = vbAdapter;
+      configureLazyIndex(vbAdapter, config.vault_path);
       process.stderr.write("obsidian-llm-wiki: [vaultbrain] adapter ready\n");
     } catch (e) {
       process.stderr.write(`obsidian-llm-wiki: [vaultbrain] init failed (continuing without): ${(e as Error).message}\n`);

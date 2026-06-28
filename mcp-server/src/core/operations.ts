@@ -10,6 +10,7 @@ import { answerQuery, traceUnifiedQuery, unifiedQuery, unifiedQueryByVector } fr
 import { embed } from '../embedding-client.js';
 import type { AdapterRegistry } from '../adapters/registry.js';
 import type { VaultBrainAdapter } from '../adapters/vaultbrain/index.js';
+import { ensureBackfill } from '../adapters/vaultbrain/lazy-index.js';
 import type { RAGAnythingAdapter } from '../adapters/raganything.js';
 import type { LightRAGAdapter } from '../adapters/lightrag.js';
 import type { CompileTrigger } from '../compile-trigger.js';
@@ -714,13 +715,20 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
         ...defaultWeights,
         ...(params.weights as Record<string, number> | undefined),
       };
-      return answerQuery(registry, query, {
+      // Lazy backfill (13B): first recall against an empty vaultbrain store
+      // triggers a one-time index so NL recall works without a manual reindex.
+      const backfill = await ensureBackfill();
+      const answer = await answerQuery(registry, query, {
         maxResults: (params.maxResults as number) ?? 5,
         caseSensitive: (params.caseSensitive as boolean) ?? false,
         context: params.context as number | undefined,
         adapters: params.adapters as string[] | undefined,
         weights: Object.keys(weights).length > 0 ? weights : undefined,
       });
+      if (backfill.status === 'indexing_background') {
+        answer.gaps.unshift({ type: 'retrieval_limitation', message: `semantic index building in background (${backfill.fileCount} notes); recall sharpens once it finishes` });
+      }
+      return answer;
     },
   },
   {

@@ -176,6 +176,13 @@ export class PGliteEngine implements VaultBrainEngine {
     }));
   }
 
+  async countChunks(): Promise<number> {
+    const { rows } = await this.requireDb().query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM chunks`,
+    );
+    return Number(rows[0]?.n ?? 0);
+  }
+
   async upsertLink(fromSlug: string, toSlug: string): Promise<void> {
     await this.requireDb().query(
       `INSERT INTO page_links (from_slug, to_slug)

@@ -54,6 +54,11 @@ export class VaultBrainAdapter implements VaultMindAdapter {
     }
   }
 
+  /** Chunk count -- lazy backfill uses this to detect an empty (never-indexed) store. */
+  async countChunks(): Promise<number> {
+    return this.engine ? this.engine.countChunks() : 0;
+  }
+
   async search(query: string, opts?: SearchOpts): Promise<SearchResult[]> {
     if (!this.engine) return [];
     const limit = opts?.maxResults ?? 20;

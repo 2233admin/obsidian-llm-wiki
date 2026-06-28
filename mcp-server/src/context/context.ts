@@ -4,6 +4,7 @@ import type { AdapterRegistry } from '../adapters/registry.js';
 import type { Operation, OperationContext } from '../core/types.js';
 import { makeErr } from '../core/types.js';
 import { answerQuery, type QueryAnswerResult } from '../unified-query.js';
+import { ensureBackfill } from '../adapters/vaultbrain/lazy-index.js';
 
 const DEFAULT_ACTOR = 'agent';
 
@@ -225,12 +226,19 @@ async function answerForScope(
 ): Promise<QueryAnswerResult> {
   if (!query.trim()) throw makeErr(-32602, 'query required');
   const scope = scopeFor(project);
-  return answerQuery(registry, query, {
+  // Lazy backfill (13B): empty vaultbrain store -> trigger a one-time index so
+  // context.recall works zero-setup; large vaults index in the background.
+  const backfill = await ensureBackfill();
+  const answer = await answerQuery(registry, query, {
     maxResults: (params.maxResults as number | undefined) ?? fallbackMaxResults,
     adapters: params.adapters as string[] | undefined,
     weights: mergeWeights(defaultWeights, params),
     glob: scope.glob,
   });
+  if (backfill.status === 'indexing_background') {
+    answer.gaps.unshift({ type: 'retrieval_limitation', message: `semantic index building in background (${backfill.fileCount} notes); recall sharpens once it finishes` });
+  }
+  return answer;
 }
 
 function summarizeTrace(answer: QueryAnswerResult): TraceSummary {
