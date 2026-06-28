@@ -52,6 +52,18 @@ cd obsidian-llm-wiki && ./setup                      # --host codex | opencode |
 
 Windows: `.\setup.ps1`. The script copies the skill bundle into your host's skills directory and prints the `.mcp.json` snippet to paste into your agent config. [docs/INSTALL.md](docs/INSTALL.md) has per-host paths and the manual recipe.
 
+### Recall: keyword out of the box, semantic optional
+
+Natural-language recall works with **zero setup**. The first `context.recall` /
+`query.answer` against a fresh vault lazily indexes your notes (keyword: Postgres
+full-text + trigram, no embeddings, no daemon), so an agent can ask questions
+immediately — large vaults index in the background and sharpen as they finish.
+
+**Semantic (vector) recall is an optional upgrade**: run [Ollama](https://ollama.com)
+with `ollama pull bge-m3` (or point `VAULT_MIND_EMBED_URL` at any OpenAI-compatible
+embedding endpoint). Recall answers tell you when semantic is off and how to turn
+it on; keyword recall keeps working regardless.
+
 ---
 
 ## See the loop (5 minutes)

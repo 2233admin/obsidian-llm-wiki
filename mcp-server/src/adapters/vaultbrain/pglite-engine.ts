@@ -124,13 +124,15 @@ export class PGliteEngine implements VaultBrainEngine {
        scored AS (
          SELECT slug, chunk_index, chunk_text,
                 ts_rank_cd(chunk_tsv, (SELECT tsq FROM q)) AS ts_score,
-                similarity(chunk_text, $1) AS trgm_score
+                similarity(chunk_text, $1) AS trgm_score,
+                (chunk_text ILIKE '%' || $1 || '%') AS substr_hit
          FROM chunks
          WHERE chunk_tsv @@ (SELECT tsq FROM q)
             OR similarity(chunk_text, $1) >= 0.1
+            OR chunk_text ILIKE '%' || $1 || '%'
        ),
        ranked AS (
-         SELECT slug, chunk_index, chunk_text, ts_score, trgm_score,
+         SELECT slug, chunk_index, chunk_text, ts_score, trgm_score, substr_hit,
                 rank() OVER (ORDER BY ts_score DESC)   AS ts_rank,
                 rank() OVER (ORDER BY trgm_score DESC) AS trgm_rank
          FROM scored
@@ -138,6 +140,7 @@ export class PGliteEngine implements VaultBrainEngine {
        SELECT slug, chunk_index, chunk_text,
               ( CASE WHEN ts_score   > 0 THEN 1.0 / (60 + ts_rank)   ELSE 0 END
               + CASE WHEN trgm_score > 0 THEN 1.0 / (60 + trgm_rank) ELSE 0 END
+              + CASE WHEN substr_hit     THEN 1.0 / 60               ELSE 0 END
               ) AS score
        FROM ranked
        ORDER BY score DESC, slug, chunk_index
@@ -179,6 +182,13 @@ export class PGliteEngine implements VaultBrainEngine {
   async countChunks(): Promise<number> {
     const { rows } = await this.requireDb().query<{ n: number }>(
       `SELECT count(*)::int AS n FROM chunks`,
+    );
+    return Number(rows[0]?.n ?? 0);
+  }
+
+  async countEmbeddedChunks(): Promise<number> {
+    const { rows } = await this.requireDb().query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM chunks WHERE embedding IS NOT NULL`,
     );
     return Number(rows[0]?.n ?? 0);
   }

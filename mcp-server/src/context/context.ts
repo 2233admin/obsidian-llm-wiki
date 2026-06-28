@@ -4,7 +4,7 @@ import type { AdapterRegistry } from '../adapters/registry.js';
 import type { Operation, OperationContext } from '../core/types.js';
 import { makeErr } from '../core/types.js';
 import { answerQuery, type QueryAnswerResult } from '../unified-query.js';
-import { ensureBackfill } from '../adapters/vaultbrain/lazy-index.js';
+import { ensureBackfill, recallGaps } from '../adapters/vaultbrain/lazy-index.js';
 
 const DEFAULT_ACTOR = 'agent';
 
@@ -235,9 +235,7 @@ async function answerForScope(
     weights: mergeWeights(defaultWeights, params),
     glob: scope.glob,
   });
-  if (backfill.status === 'indexing_background') {
-    answer.gaps.unshift({ type: 'retrieval_limitation', message: `semantic index building in background (${backfill.fileCount} notes); recall sharpens once it finishes` });
-  }
+  for (const g of await recallGaps(backfill)) answer.gaps.unshift(g);
   return answer;
 }
 

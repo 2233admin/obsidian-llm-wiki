@@ -10,7 +10,7 @@ import { answerQuery, traceUnifiedQuery, unifiedQuery, unifiedQueryByVector } fr
 import { embed } from '../embedding-client.js';
 import type { AdapterRegistry } from '../adapters/registry.js';
 import type { VaultBrainAdapter } from '../adapters/vaultbrain/index.js';
-import { ensureBackfill } from '../adapters/vaultbrain/lazy-index.js';
+import { ensureBackfill, recallGaps } from '../adapters/vaultbrain/lazy-index.js';
 import type { RAGAnythingAdapter } from '../adapters/raganything.js';
 import type { LightRAGAdapter } from '../adapters/lightrag.js';
 import type { CompileTrigger } from '../compile-trigger.js';
@@ -725,9 +725,7 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
         adapters: params.adapters as string[] | undefined,
         weights: Object.keys(weights).length > 0 ? weights : undefined,
       });
-      if (backfill.status === 'indexing_background') {
-        answer.gaps.unshift({ type: 'retrieval_limitation', message: `semantic index building in background (${backfill.fileCount} notes); recall sharpens once it finishes` });
-      }
+      for (const g of await recallGaps(backfill)) answer.gaps.unshift(g);
       return answer;
     },
   },

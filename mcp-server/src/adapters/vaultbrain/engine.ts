@@ -34,6 +34,7 @@ export interface VaultBrainEngine {
   searchKeyword(query: string, limit: number): Promise<ChunkResult[]>;
   searchVector(embedding: number[], limit: number): Promise<ChunkResult[]>;
   countChunks(): Promise<number>;
+  countEmbeddedChunks(): Promise<number>;
 
   // links
   upsertLink(fromSlug: string, toSlug: string): Promise<void>;

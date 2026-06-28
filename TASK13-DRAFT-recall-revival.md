@@ -201,3 +201,16 @@ mcp-server 内，随 vault-mind 编译器走。无独立分发。
 **先量真实首查成本**：在 `D:\knowledge` 跑一次 `vault_reindex`（MCP）计时 + 看 13A PG-FTS keyword recall 在真库上的 NL 召回质量。这决定 6.7 的同步-vs-异步 + 软上限阈值 —— 量完再定 13B 同步策略。
 
 **Status：APPROVED。**
+
+---
+
+## 7. 落地 + 真库验证（2026-06-28，BUILT）
+
+recall 弧已落地收口（全 commit 上 main）：
+- **13A** keyword floor（`d52934a`）· **13B** 懒回填 + 单飞锁（`0cc1b7d`）· **F3** 可执行 gaps（`recallGaps`：后台/已索引 notice + 「semantic off → 装 Ollama + `ollama pull bge-m3`」提示，接 query.answer + context.recall）· **F1** 诚实文档（package.json 改 claim；README 加「Recall: keyword out of the box, semantic optional」段）。
+- **CJK 修补**：真库验证发现 `'simple'` tsvector 不分词 + trgm 对长 CJK query 稀释 → CJK 查 0。给 `searchKeyword` RRF 加第三信号 **ILIKE 子串**（CJK 精确短语可靠命中；EN 整句 ILIKE 不误命中）。
+- **真库验证**（`D:\knowledge`，1244 文件 reindex 进临时 pglite，Ollama 关）：
+  - **16-17s / 1244 文件 → 4678 chunks** —— 实锤 sync 会卡死首查 → **background 决策对**（1244 ≫ syncCap 300）。
+  - **双语 NL recall 全部 3 命中**：EN「work-OS project status and blockers」「katana terminal」+ CJK「量化交易」「项目状态」全返排序证据。**0-evidence bug 修复，零 setup，无 Ollama。**
+- **13C** 回填 = `reindexVault` 已是共享实现（懒路径 + 手动 `vault.reindex` 共用）。**13D** 顶层向量 engage = **moot**（vaultbrain.search 已内部 hybrid，chunk 嵌入后 keyword fanout 即触发；无需顶层改）。
+- **剩余（文档化，非缺陷）**：语义/向量召回需 Ollama + bge-m3（F1 已写、F3 gap 已指）；上线需 `npm run rebuild` + 重启 MCP server（当前跑旧 bundle.js）。

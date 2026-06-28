@@ -59,6 +59,11 @@ export class VaultBrainAdapter implements VaultMindAdapter {
     return this.engine ? this.engine.countChunks() : 0;
   }
 
+  /** Embedded chunk count -- 0 while chunks exist means Ollama never embedded (semantic off). */
+  async countEmbeddedChunks(): Promise<number> {
+    return this.engine ? this.engine.countEmbeddedChunks() : 0;
+  }
+
   async search(query: string, opts?: SearchOpts): Promise<SearchResult[]> {
     if (!this.engine) return [];
     const limit = opts?.maxResults ?? 20;

@@ -156,6 +156,33 @@ export async function ensureBackfill(opts?: { syncCap?: number }): Promise<Backf
   return { status: "indexing_background", fileCount };
 }
 
+/**
+ * Actionable recall-status gaps (DX review F3): turn "limitations" into next steps.
+ * - background/sync backfill -> tell the agent the index is (re)building.
+ * - chunks exist but none embedded -> Ollama never ran; point at the fix while
+ *   keyword recall keeps working.
+ */
+export async function recallGaps(
+  backfill: BackfillOutcome,
+): Promise<Array<{ type: "retrieval_limitation"; message: string }>> {
+  const gaps: Array<{ type: "retrieval_limitation"; message: string }> = [];
+  if (backfill.status === "indexing_background") {
+    gaps.push({ type: "retrieval_limitation", message: `semantic index building in background (${backfill.fileCount} notes); recall sharpens once it finishes` });
+  } else if (backfill.status === "indexed_sync") {
+    gaps.push({ type: "retrieval_limitation", message: `indexed your vault (${backfill.fileCount} notes) just now for recall` });
+  }
+  const vba = _vba;
+  if (vba && vba.isAvailable) {
+    try {
+      const total = await vba.countChunks();
+      if (total > 0 && (await vba.countEmbeddedChunks()) === 0) {
+        gaps.push({ type: "retrieval_limitation", message: "semantic recall is off (no embeddings) -- start Ollama and run `ollama pull bge-m3` for vector recall; keyword recall is active" });
+      }
+    } catch { /* non-fatal: never let status-hints break a recall */ }
+  }
+  return gaps;
+}
+
 /** Test-only: clear coordinator state between cases. */
 export function _resetLazyIndex(): void {
   _vba = null;
