@@ -777,6 +777,44 @@ test('collaboration policy enforces actor write boundaries and audits writes', a
   }
 });
 
+test('workflow agent policy slugifies default actor namespace', async () => {
+  const policyRoot = join(tmpdir(), `obsidian-llm-wiki-workflow-policy-${randomUUID()}`);
+  mkdirSync(policyRoot, { recursive: true });
+  const policyTransport = new StdioClientTransport({
+    command: process.execPath,
+    args: [BUNDLE_PATH],
+    cwd: policyRoot,
+    env: {
+      ...process.env,
+      VAULT_MIND_VAULT_PATH: policyRoot,
+      VAULT_MIND_ADAPTERS: 'filesystem',
+      VAULT_MIND_ACTOR: 'Claude Code',
+      VAULT_MIND_ROLE: 'agent',
+    },
+    stderr: 'pipe',
+  });
+  const policyClient = new Client(
+    { name: 'smoke-test-workflow-policy', version: '0.0.1' },
+    { capabilities: {} },
+  );
+  try {
+    await policyClient.connect(policyTransport);
+    const result = await policyClient.callTool({
+      name: 'workflow.agent.join',
+      arguments: { project: 'Policy Project', objective: 'policy path regression' },
+    });
+    assert.ok(!result.isError, `slugified default actor path should be allowed: ${JSON.stringify(result.content)}`);
+    assert.ok(
+      existsSync(join(policyRoot, '01-Projects', 'policy-project', 'agents', 'claude-code', 'lifetime.md')),
+      'workflow lifetime should be written under the slugified actor namespace',
+    );
+  } finally {
+    try { await policyClient.close(); } catch { /* best effort */ }
+    try { await policyTransport.close(); } catch { /* best effort */ }
+    rmSync(policyRoot, { recursive: true, force: true });
+  }
+});
+
 test('collaboration policy rejects malformed policy JSON objects', async () => {
   const badPolicyRoot = join(tmpdir(), `obsidian-llm-wiki-bad-policy-${randomUUID()}`);
   mkdirSync(join(badPolicyRoot, '00-Inbox', 'AI-Output', 'codex'), { recursive: true });

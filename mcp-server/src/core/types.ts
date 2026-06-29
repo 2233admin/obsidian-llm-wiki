@@ -46,7 +46,8 @@ export type OperationNamespace =
   | 'source'
   | 'conversation'
   | 'context'
-  | 'skills';
+  | 'skills'
+  | 'workflow';
 
 export interface Operation {
   name: string;

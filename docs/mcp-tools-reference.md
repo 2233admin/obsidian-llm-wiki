@@ -3,7 +3,7 @@
 > Auto-generated from `mcp-server/src/core/operations.ts`.
 > Run `npm run generate-tools-doc` to regenerate. Do not edit by hand.
 
-Total: **94** operations across **17** namespaces.
+Total: **103** operations across **18** namespaces.
 
 ## `vault.*` (31)
 
@@ -1175,3 +1175,130 @@ Register a long-lived source in the lightweight Source Registry. URL inputs run 
 - `preferredProvider` (string, optional, enum: `opencli` | `media`) — Optional preflight provider preference. Preflight remains read-only.
 - `tags` (array, optional) — Optional tags for the Source Note and registry record
 - `notes` (string, optional) — Optional operator notes stored in the Source Note
+
+## `workflow.*` (9)
+
+### `workflow.agent.checkpoint`
+
+Append an event to a joined agent lifetime without changing the current stage.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, required) — Project key
+- `agent` (string, optional) — Agent id; defaults collaboration actor
+- `status` (string, optional, default: `"note"`, enum: `note` | `passed` | `failed` | `blocked`) — Checkpoint status: note|passed|failed|blocked
+- `summary` (string, required) — Checkpoint summary
+- `evidence` (array, optional) — Evidence refs for this checkpoint
+- `next` (string, optional) — Next action or stop condition
+
+### `workflow.agent.doctor`
+
+Check one agent lifetime file and event log for vault-first lifecycle consistency.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, required) — Project key
+- `agent` (string, optional) — Agent id; defaults collaboration actor
+
+### `workflow.agent.join`
+
+Start or replace a vault-first agent lifetime under 01-Projects/<project>/agents/<agent>/.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, required) — Project key
+- `agent` (string, optional) — Agent id; defaults collaboration actor
+- `role` (string, optional) — Agent role, e.g. manager|worker|reviewer|verifier
+- `host` (string, optional) — Agent host, e.g. codex or claude-code
+- `objective` (string, optional) — Lifetime objective
+- `issue` (string, optional) — Linked issue slug or entity
+- `stage` (string, optional, default: `"think"`, enum: `think` | `plan` | `build` | `review` | `test` | `ship` | `reflect`) — Initial lifetime stage: think|plan|build|review|test|ship|reflect
+- `evidence` (array, optional) — Initial evidence refs
+- `notes` (string, optional) — Join notes
+
+### `workflow.agent.leave`
+
+Archive a joined agent lifetime while preserving its lifetime and event log in the vault.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, required) — Project key
+- `agent` (string, optional) — Agent id; defaults collaboration actor
+- `summary` (string, optional) — Leave summary
+
+### `workflow.agent.step`
+
+Move a joined agent through think->plan->build->review->test->ship->reflect with review/test rework back to build.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, required) — Project key
+- `agent` (string, optional) — Agent id; defaults collaboration actor
+- `stage` (string, required, enum: `think` | `plan` | `build` | `review` | `test` | `ship` | `reflect`) — Next lifetime stage
+- `status` (string, optional, enum: `active` | `blocked` | `done` | `archived`) — Agent status: active|blocked|done|archived
+- `objective` (string, optional) — Replacement objective
+- `issue` (string, optional) — Replacement linked issue slug or entity
+- `evidence` (array, optional) — Evidence refs to merge into lifetime
+- `summary` (string, optional) — Transition summary
+- `next` (string, optional) — Next action or stop condition
+
+### `workflow.checkpoint.add`
+
+Append an agent workflow checkpoint under 01-Projects/<project>/workflow/checkpoints.md.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, required) — Project key
+- `stage` (string, required, enum: `intake` | `understand` | `plan` | `execute` | `review` | `verify` | `archive`) — Workflow stage for this checkpoint
+- `summary` (string, required) — Checkpoint summary
+- `status` (string, optional, default: `"note"`, enum: `note` | `passed` | `failed` | `blocked`) — Checkpoint status: note|passed|failed|blocked
+- `evidence` (array, optional) — Evidence refs for this checkpoint
+- `next` (string, optional) — Next action or stop condition
+
+### `workflow.doctor`
+
+Check whether a project has the vault-first workflow files needed by Codex, Claude Code, and MCP tools.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, required) — Project key
+
+### `workflow.state.get`
+
+Read the current vault-first agent workflow state for a project.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, required) — Project key
+
+### `workflow.state.set`
+
+Create or update the vault-first agent workflow state at 01-Projects/<project>/workflow/status.md.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, required) — Project key
+- `stage` (string, required, enum: `intake` | `understand` | `plan` | `execute` | `review` | `verify` | `archive`) — Workflow stage: intake|understand|plan|execute|review|verify|archive
+- `objective` (string, optional) — Current project objective
+- `branch` (string, optional) — Current execution branch or workstream
+- `host` (string, optional) — Agent host, e.g. codex or claude-code
+- `evidence` (array, optional) — Evidence refs such as test:, source:, commit:, or path:
+- `notes` (string, optional) — Short workflow notes

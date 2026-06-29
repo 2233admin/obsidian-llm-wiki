@@ -39030,8 +39030,8 @@ function formatInternalError(operationName, error48) {
 }
 
 // dist/index.js
-import { readFileSync as readFileSync15, existsSync as existsSync13, readdirSync as readdirSync10, statSync as statSync6, realpathSync, writeFileSync as writeFileSync8, appendFileSync as appendFileSync2, rmSync as rmSync4, renameSync, mkdirSync as mkdirSync9 } from "node:fs";
-import { resolve as resolve5, join as join18, basename as basename6, extname as extname2, relative as relative6, dirname as dirname10, posix, isAbsolute as pathIsAbsolute2 } from "node:path";
+import { readFileSync as readFileSync16, existsSync as existsSync14, readdirSync as readdirSync10, statSync as statSync6, realpathSync, writeFileSync as writeFileSync9, appendFileSync as appendFileSync2, rmSync as rmSync4, renameSync, mkdirSync as mkdirSync10 } from "node:fs";
+import { resolve as resolve5, join as join19, basename as basename6, extname as extname2, relative as relative6, dirname as dirname11, posix, isAbsolute as pathIsAbsolute2 } from "node:path";
 import { fileURLToPath as fileURLToPath3, pathToFileURL } from "node:url";
 
 // dist/adapters/filesystem.js
@@ -39726,8 +39726,8 @@ var ObsidianAdapter = class {
         } catch (e) {
           process.stderr.write(`vault-mind: [warn] obsidian auth failed: ${e.message} -- adapter disabled
 `);
-          ws.close();
           this.ws = null;
+          ws.terminate();
         }
         resolve6();
       });
@@ -39742,9 +39742,15 @@ var ObsidianAdapter = class {
   async dispose() {
     this.available = false;
     this.rejectAllPending("Adapter disposed");
-    this.ws?.close();
-    this.ws = null;
     this.changeListeners.length = 0;
+    if (this.ws) {
+      const ws = this.ws;
+      this.ws = null;
+      await new Promise((resolve6) => {
+        ws.once("close", resolve6);
+        ws.close();
+      });
+    }
   }
   async search(query, opts) {
     if (!this.available)
@@ -41511,8 +41517,8 @@ var CompileTrigger = class {
 import { execFile as execFile5, spawnSync } from "node:child_process";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 import { promisify as promisify5 } from "node:util";
-import { existsSync as existsSync12, mkdirSync as mkdirSync8, readdirSync as readdirSync9, readFileSync as readFileSync14, writeFileSync as writeFileSync7 } from "node:fs";
-import { dirname as dirname9, join as join17, relative as relative5 } from "node:path";
+import { existsSync as existsSync13, mkdirSync as mkdirSync9, readdirSync as readdirSync9, readFileSync as readFileSync15, writeFileSync as writeFileSync8 } from "node:fs";
+import { dirname as dirname10, join as join18, relative as relative5 } from "node:path";
 
 // dist/recipes/_registry.js
 import { readdirSync as readdirSync4, existsSync as existsSync4 } from "node:fs";
@@ -45831,11 +45837,748 @@ function makeContextOps(vaultPath, registry2, defaultWeights) {
   ];
 }
 
+// dist/workflow/workflow.js
+import { existsSync as existsSync12, mkdirSync as mkdirSync8, readFileSync as readFileSync14, writeFileSync as writeFileSync7 } from "node:fs";
+import { dirname as dirname9, join as join17 } from "node:path";
+var STAGES = ["intake", "understand", "plan", "execute", "review", "verify", "archive"];
+var CHECKPOINT_STATUSES = ["note", "passed", "failed", "blocked"];
+var AGENT_STAGES = ["think", "plan", "build", "review", "test", "ship", "reflect"];
+var AGENT_STATUSES = ["active", "blocked", "done", "archived"];
+function slugify6(value) {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+function projectKey2(value) {
+  const key = slugify6(String(value ?? ""));
+  if (!key)
+    throw makeErr(-32602, "project must contain at least one [a-z0-9] character");
+  return key;
+}
+function agentKey(value, fallback) {
+  const key = slugify6(String(value ?? fallback));
+  if (!key)
+    throw makeErr(-32602, "agent must contain at least one [a-z0-9] character");
+  return key;
+}
+function actorFromContext6(ctx) {
+  return agentKey(void 0, ctx.config.collaboration?.actor || process.env.VAULT_MIND_ACTOR || "agent");
+}
+function workflowRoot(project) {
+  return `01-Projects/${project}/workflow`;
+}
+function agentsRoot(project) {
+  return `01-Projects/${project}/agents`;
+}
+function agentRoot(project, agent) {
+  return `${agentsRoot(project)}/${agent}`;
+}
+function projectNotePath2(project) {
+  return `01-Projects/${project}/_project.md`;
+}
+function issuesRoot2(project) {
+  return `01-Projects/${project}/issues`;
+}
+function statePath(project) {
+  return `${workflowRoot(project)}/status.md`;
+}
+function checkpointsPath(project) {
+  return `${workflowRoot(project)}/checkpoints.md`;
+}
+function agentLifetimePath(project, agent) {
+  return `${agentRoot(project, agent)}/lifetime.md`;
+}
+function agentEventsPath(project, agent) {
+  return `${agentRoot(project, agent)}/events.md`;
+}
+function vaultJoin(vaultPath, relPath) {
+  return join17(vaultPath, ...relPath.split("/"));
+}
+function writeVaultBytes2(vaultPath, relPath, content) {
+  const fullPath = vaultJoin(vaultPath, relPath);
+  mkdirSync8(dirname9(fullPath), { recursive: true });
+  writeFileSync7(fullPath, Buffer.from(content, "utf-8"));
+}
+function appendVaultBytes(vaultPath, relPath, content) {
+  const fullPath = vaultJoin(vaultPath, relPath);
+  mkdirSync8(dirname9(fullPath), { recursive: true });
+  const existing = existsSync12(fullPath) ? readFileSync14(fullPath, "utf-8").replace(/\s+$/, "") + "\n\n" : "";
+  writeFileSync7(fullPath, Buffer.from(existing + content, "utf-8"));
+}
+function optionalString2(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+function oneLine2(value, max = 240) {
+  const text = optionalString2(value).replace(/\r?\n/g, " ");
+  return text.length > max ? text.slice(0, max) : text;
+}
+function stringList(value) {
+  if (!Array.isArray(value))
+    return [];
+  const out = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const item of value) {
+    if (typeof item !== "string")
+      continue;
+    const text = item.trim();
+    if (!text || seen.has(text))
+      continue;
+    seen.add(text);
+    out.push(text);
+  }
+  return out;
+}
+function mergeStringLists(...lists) {
+  const out = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const list of lists) {
+    for (const item of list) {
+      if (!item || seen.has(item))
+        continue;
+      seen.add(item);
+      out.push(item);
+    }
+  }
+  return out;
+}
+function parseStage(value) {
+  const stage = optionalString2(value);
+  if (!STAGES.includes(stage)) {
+    throw makeErr(-32602, `stage must be one of: ${STAGES.join(", ")}`);
+  }
+  return stage;
+}
+function parseCheckpointStatus(value) {
+  const status = optionalString2(value) || "note";
+  if (!CHECKPOINT_STATUSES.includes(status)) {
+    throw makeErr(-32602, `status must be one of: ${CHECKPOINT_STATUSES.join(", ")}`);
+  }
+  return status;
+}
+function parseAgentStage(value, fallback) {
+  const stage = optionalString2(value) || fallback || "think";
+  if (!AGENT_STAGES.includes(stage)) {
+    throw makeErr(-32602, `stage must be one of: ${AGENT_STAGES.join(", ")}`);
+  }
+  return stage;
+}
+function parseAgentStatus(value, fallback = "active") {
+  const status = optionalString2(value) || fallback;
+  if (!AGENT_STATUSES.includes(status)) {
+    throw makeErr(-32602, `status must be one of: ${AGENT_STATUSES.join(", ")}`);
+  }
+  return status;
+}
+function yamlString4(value) {
+  return JSON.stringify(value);
+}
+function isoNow() {
+  return (/* @__PURE__ */ new Date()).toISOString();
+}
+function renderState(state, notes) {
+  const evidenceLines = state.evidence.length ? state.evidence.map((item) => `- ${item}`).join("\n") : "- none";
+  return [
+    "---",
+    "type: workflow-state",
+    `entity: project/${state.project}/workflow/state`,
+    `project: ${state.project}`,
+    `stage: ${state.stage}`,
+    `objective: ${yamlString4(state.objective)}`,
+    `branch: ${yamlString4(state.branch)}`,
+    `host: ${yamlString4(state.host)}`,
+    `evidence: ${JSON.stringify(state.evidence)}`,
+    `updated-by: ${state.updatedBy}`,
+    `updated-at: ${yamlString4(state.updatedAt)}`,
+    "---",
+    "",
+    `# Workflow State: ${state.project}`,
+    "",
+    "## Objective",
+    "",
+    state.objective || "No objective recorded.",
+    "",
+    "## Current Branch",
+    "",
+    state.branch || "No branch recorded.",
+    "",
+    "## Evidence",
+    "",
+    evidenceLines,
+    "",
+    "## Notes",
+    "",
+    notes || "No notes recorded.",
+    ""
+  ].join("\n");
+}
+function parseState(project, path, content) {
+  const fm = parseFrontmatter3(content);
+  const rawEvidence = fm.evidence;
+  const evidence = Array.isArray(rawEvidence) ? rawEvidence.filter((item) => typeof item === "string") : [];
+  const stage = STAGES.includes(fm.stage) ? fm.stage : "intake";
+  return {
+    project,
+    stage,
+    objective: typeof fm.objective === "string" ? fm.objective : "",
+    branch: typeof fm.branch === "string" ? fm.branch : "",
+    host: typeof fm.host === "string" ? fm.host : "",
+    evidence,
+    updatedBy: typeof fm["updated-by"] === "string" ? fm["updated-by"] : "",
+    updatedAt: typeof fm["updated-at"] === "string" ? fm["updated-at"] : "",
+    path
+  };
+}
+function parseFrontmatter3(content) {
+  if (!content.startsWith("---\n"))
+    return {};
+  const end = content.indexOf("\n---", 4);
+  if (end === -1)
+    return {};
+  const fm = {};
+  for (const line of content.slice(4, end).split("\n")) {
+    const idx = line.indexOf(":");
+    if (idx === -1)
+      continue;
+    const key = line.slice(0, idx).trim();
+    const raw = line.slice(idx + 1).trim();
+    if (!key)
+      continue;
+    fm[key] = parseYamlScalar(raw);
+  }
+  return fm;
+}
+function parseYamlScalar(raw) {
+  if (!raw)
+    return "";
+  if (raw.startsWith('"') && raw.endsWith('"') || raw.startsWith("[")) {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return raw.replace(/^"|"$/g, "");
+    }
+  }
+  return raw;
+}
+function readState(vaultPath, project) {
+  const path = statePath(project);
+  const fullPath = vaultJoin(vaultPath, path);
+  if (!existsSync12(fullPath))
+    return null;
+  return parseState(project, path, readFileSync14(fullPath, "utf-8"));
+}
+function checkpointHeader(project) {
+  return [
+    "---",
+    "type: workflow-checkpoints",
+    `entity: project/${project}/workflow/checkpoints`,
+    `project: ${project}`,
+    "---",
+    "",
+    `# Workflow Checkpoints: ${project}`,
+    ""
+  ].join("\n");
+}
+function renderAgentLifetime(state, notes) {
+  const evidenceLines = state.evidence.length ? state.evidence.map((item) => `- ${item}`).join("\n") : "- none";
+  return [
+    "---",
+    "type: agent-lifetime",
+    `entity: project/${state.project}/agent/${state.agent}/lifetime`,
+    `project: ${state.project}`,
+    `agent: ${state.agent}`,
+    `role: ${yamlString4(state.role)}`,
+    `host: ${yamlString4(state.host)}`,
+    `stage: ${state.stage}`,
+    `status: ${state.status}`,
+    `objective: ${yamlString4(state.objective)}`,
+    `issue: ${yamlString4(state.issue)}`,
+    `evidence: ${JSON.stringify(state.evidence)}`,
+    `started-at: ${yamlString4(state.startedAt)}`,
+    `updated-at: ${yamlString4(state.updatedAt)}`,
+    "---",
+    "",
+    `# Agent Lifetime: ${state.agent}`,
+    "",
+    `- project: ${state.project}`,
+    `- role: ${state.role || "agent"}`,
+    `- host: ${state.host || "unknown"}`,
+    `- stage: ${state.stage}`,
+    `- status: ${state.status}`,
+    `- issue: ${state.issue || "none"}`,
+    "",
+    "## Objective",
+    "",
+    state.objective || "No objective recorded.",
+    "",
+    "## Evidence",
+    "",
+    evidenceLines,
+    "",
+    "## Notes",
+    "",
+    notes || "No notes recorded.",
+    ""
+  ].join("\n");
+}
+function parseAgentLifetime(project, agent, path, content) {
+  const fm = parseFrontmatter3(content);
+  const rawEvidence = fm.evidence;
+  const evidence = Array.isArray(rawEvidence) ? rawEvidence.filter((item) => typeof item === "string") : [];
+  const stage = AGENT_STAGES.includes(fm.stage) ? fm.stage : "think";
+  const status = AGENT_STATUSES.includes(fm.status) ? fm.status : "active";
+  const now = isoNow();
+  return {
+    project,
+    agent,
+    role: typeof fm.role === "string" ? fm.role : "agent",
+    host: typeof fm.host === "string" ? fm.host : "unknown",
+    stage,
+    status,
+    objective: typeof fm.objective === "string" ? fm.objective : "",
+    issue: typeof fm.issue === "string" ? fm.issue : "",
+    evidence,
+    startedAt: typeof fm["started-at"] === "string" ? fm["started-at"] : now,
+    updatedAt: typeof fm["updated-at"] === "string" ? fm["updated-at"] : now,
+    path
+  };
+}
+function readAgentLifetime(vaultPath, project, agent) {
+  const path = agentLifetimePath(project, agent);
+  const fullPath = vaultJoin(vaultPath, path);
+  if (!existsSync12(fullPath))
+    return null;
+  return parseAgentLifetime(project, agent, path, readFileSync14(fullPath, "utf-8"));
+}
+function agentEventsHeader(project, agent) {
+  return [
+    "---",
+    "type: agent-lifetime-events",
+    `entity: project/${project}/agent/${agent}/events`,
+    `project: ${project}`,
+    `agent: ${agent}`,
+    "---",
+    "",
+    `# Agent Lifetime Events: ${agent}`,
+    ""
+  ].join("\n");
+}
+function appendAgentEvent(vaultPath, state, event) {
+  const path = agentEventsPath(state.project, state.agent);
+  const fullPath = vaultJoin(vaultPath, path);
+  const evidence = event.evidence ?? [];
+  const evidenceLines = evidence.length ? evidence.map((item) => `  - ${item}`).join("\n") : "  - none";
+  const block = [
+    existsSync12(fullPath) ? "" : agentEventsHeader(state.project, state.agent),
+    `## ${isoNow()} - ${event.kind} - ${event.actor}`,
+    "",
+    `- stage: ${state.stage}`,
+    `- status: ${state.status}`,
+    `- summary: ${event.summary}`,
+    "- evidence:",
+    evidenceLines,
+    `- next: ${event.next || "none"}`,
+    ""
+  ].filter((part) => part !== "").join("\n");
+  appendVaultBytes(vaultPath, path, block);
+  return path;
+}
+function canTransitionAgentStage(from, to) {
+  if (from === to)
+    return true;
+  if ((from === "review" || from === "test") && to === "build")
+    return true;
+  return AGENT_STAGES.indexOf(to) === AGENT_STAGES.indexOf(from) + 1;
+}
+function assertAgentTransition(current, nextStage, nextEvidence) {
+  if (current.status === "archived") {
+    throw makeErr(-32602, `${current.agent} is archived; join again before changing stage`);
+  }
+  if (!canTransitionAgentStage(current.stage, nextStage)) {
+    throw makeErr(-32602, `invalid agent stage transition: ${current.stage} -> ${nextStage}`);
+  }
+  if (nextStage === "ship" && nextEvidence.length === 0) {
+    throw makeErr(-32602, "ship stage requires evidence");
+  }
+}
+function workflowDoctor(vaultPath, project) {
+  const checks = [
+    { name: "project-anchor", path: projectNotePath2(project), required: true },
+    { name: "issues-dir", path: issuesRoot2(project), required: true },
+    { name: "workflow-state", path: statePath(project), required: true },
+    { name: "workflow-checkpoints", path: checkpointsPath(project), required: false },
+    { name: "source-registry", path: "_llmwiki/source-registry.json", required: false }
+  ].map((check2) => ({ ...check2, ok: existsSync12(vaultJoin(vaultPath, check2.path)) }));
+  const missing = checks.filter((check2) => check2.required && !check2.ok).map((check2) => check2.path);
+  const warnings = checks.filter((check2) => !check2.required && !check2.ok).map((check2) => check2.path);
+  return {
+    ok: missing.length === 0,
+    project,
+    checks,
+    missing,
+    warnings
+  };
+}
+function agentDoctor(vaultPath, project, agent) {
+  const lifetime = readAgentLifetime(vaultPath, project, agent);
+  const lifetimePath = agentLifetimePath(project, agent);
+  const eventsPath = agentEventsPath(project, agent);
+  const checks = [
+    { name: "agent-lifetime", path: lifetimePath, required: true, ok: lifetime !== null },
+    { name: "agent-events", path: eventsPath, required: false, ok: existsSync12(vaultJoin(vaultPath, eventsPath)) }
+  ];
+  const errors = [];
+  const warnings = [];
+  if (lifetime) {
+    if (!AGENT_STAGES.includes(lifetime.stage))
+      errors.push(`invalid stage: ${lifetime.stage}`);
+    if (!AGENT_STATUSES.includes(lifetime.status))
+      errors.push(`invalid status: ${lifetime.status}`);
+    if (lifetime.stage === "ship" && lifetime.evidence.length === 0)
+      errors.push("ship stage requires evidence");
+    if (lifetime.status === "active" && lifetime.stage === "reflect")
+      warnings.push("reflect stage usually closes with status=done");
+  }
+  const missing = checks.filter((check2) => check2.required && !check2.ok).map((check2) => check2.path);
+  warnings.push(...checks.filter((check2) => !check2.required && !check2.ok).map((check2) => check2.path));
+  return {
+    ok: missing.length === 0 && errors.length === 0,
+    project,
+    agent,
+    checks,
+    missing,
+    errors,
+    warnings,
+    lifetime
+  };
+}
+function makeWorkflowOps(vaultPath) {
+  return [
+    {
+      name: "workflow.state.set",
+      namespace: "workflow",
+      description: "Create or update the vault-first agent workflow state at 01-Projects/<project>/workflow/status.md.",
+      mutating: true,
+      params: {
+        project: { type: "string", required: true, description: "Project key" },
+        stage: {
+          type: "string",
+          required: true,
+          enum: [...STAGES],
+          description: "Workflow stage: intake|understand|plan|execute|review|verify|archive"
+        },
+        objective: { type: "string", required: false, description: "Current project objective" },
+        branch: { type: "string", required: false, description: "Current execution branch or workstream" },
+        host: { type: "string", required: false, description: "Agent host, e.g. codex or claude-code" },
+        evidence: { type: "array", required: false, description: "Evidence refs such as test:, source:, commit:, or path:" },
+        notes: { type: "string", required: false, description: "Short workflow notes" }
+      },
+      handler: async (ctx, params) => {
+        const project = projectKey2(params.project);
+        const stage = parseStage(params.stage);
+        const actor = actorFromContext6(ctx);
+        const path = statePath(project);
+        const state = {
+          project,
+          stage,
+          objective: oneLine2(params.objective),
+          branch: oneLine2(params.branch),
+          host: oneLine2(params.host) || actor,
+          evidence: stringList(params.evidence),
+          updatedBy: actor,
+          updatedAt: isoNow(),
+          path
+        };
+        writeVaultBytes2(vaultPath, path, renderState(state, optionalString2(params.notes)));
+        return {
+          ok: true,
+          project,
+          path,
+          state,
+          projectInitialized: existsSync12(vaultJoin(vaultPath, projectNotePath2(project)))
+        };
+      }
+    },
+    {
+      name: "workflow.state.get",
+      namespace: "workflow",
+      description: "Read the current vault-first agent workflow state for a project.",
+      mutating: false,
+      params: {
+        project: { type: "string", required: true, description: "Project key" }
+      },
+      handler: async (_ctx, params) => {
+        const project = projectKey2(params.project);
+        const path = statePath(project);
+        const state = readState(vaultPath, project);
+        return { exists: state !== null, project, path, state };
+      }
+    },
+    {
+      name: "workflow.checkpoint.add",
+      namespace: "workflow",
+      description: "Append an agent workflow checkpoint under 01-Projects/<project>/workflow/checkpoints.md.",
+      mutating: true,
+      params: {
+        project: { type: "string", required: true, description: "Project key" },
+        stage: {
+          type: "string",
+          required: true,
+          enum: [...STAGES],
+          description: "Workflow stage for this checkpoint"
+        },
+        summary: { type: "string", required: true, description: "Checkpoint summary" },
+        status: {
+          type: "string",
+          required: false,
+          enum: [...CHECKPOINT_STATUSES],
+          default: "note",
+          description: "Checkpoint status: note|passed|failed|blocked"
+        },
+        evidence: { type: "array", required: false, description: "Evidence refs for this checkpoint" },
+        next: { type: "string", required: false, description: "Next action or stop condition" }
+      },
+      handler: async (ctx, params) => {
+        const project = projectKey2(params.project);
+        const stage = parseStage(params.stage);
+        const status = parseCheckpointStatus(params.status);
+        const summary = oneLine2(params.summary);
+        if (!summary)
+          throw makeErr(-32602, "summary required");
+        const actor = actorFromContext6(ctx);
+        const path = checkpointsPath(project);
+        const fullPath = vaultJoin(vaultPath, path);
+        const evidence = stringList(params.evidence);
+        const next = oneLine2(params.next);
+        const now = isoNow();
+        const evidenceLines = evidence.length ? evidence.map((item) => `  - ${item}`).join("\n") : "  - none";
+        const block = [
+          existsSync12(fullPath) ? "" : checkpointHeader(project),
+          `## ${now} - ${stage} - ${actor}`,
+          "",
+          `- status: ${status}`,
+          `- summary: ${summary}`,
+          "- evidence:",
+          evidenceLines,
+          `- next: ${next || "none"}`,
+          ""
+        ].filter((part) => part !== "").join("\n");
+        appendVaultBytes(vaultPath, path, block);
+        return { ok: true, project, path, stage, status, actor, evidence };
+      }
+    },
+    {
+      name: "workflow.agent.join",
+      namespace: "workflow",
+      description: "Start or replace a vault-first agent lifetime under 01-Projects/<project>/agents/<agent>/.",
+      mutating: true,
+      params: {
+        project: { type: "string", required: true, description: "Project key" },
+        agent: { type: "string", required: false, description: "Agent id; defaults collaboration actor" },
+        role: { type: "string", required: false, description: "Agent role, e.g. manager|worker|reviewer|verifier" },
+        host: { type: "string", required: false, description: "Agent host, e.g. codex or claude-code" },
+        objective: { type: "string", required: false, description: "Lifetime objective" },
+        issue: { type: "string", required: false, description: "Linked issue slug or entity" },
+        stage: {
+          type: "string",
+          required: false,
+          enum: [...AGENT_STAGES],
+          default: "think",
+          description: "Initial lifetime stage: think|plan|build|review|test|ship|reflect"
+        },
+        evidence: { type: "array", required: false, description: "Initial evidence refs" },
+        notes: { type: "string", required: false, description: "Join notes" }
+      },
+      handler: async (ctx, params) => {
+        const actor = actorFromContext6(ctx);
+        const project = projectKey2(params.project);
+        const agent = agentKey(params.agent, actor);
+        const now = isoNow();
+        const path = agentLifetimePath(project, agent);
+        const state = {
+          project,
+          agent,
+          role: oneLine2(params.role) || "agent",
+          host: oneLine2(params.host) || actor,
+          stage: parseAgentStage(params.stage, "think"),
+          status: "active",
+          objective: oneLine2(params.objective),
+          issue: oneLine2(params.issue),
+          evidence: stringList(params.evidence),
+          startedAt: now,
+          updatedAt: now,
+          path
+        };
+        writeVaultBytes2(vaultPath, path, renderAgentLifetime(state, optionalString2(params.notes)));
+        const eventsPath = appendAgentEvent(vaultPath, state, {
+          kind: "join",
+          summary: state.objective || `${agent} joined`,
+          evidence: state.evidence,
+          actor
+        });
+        return { ok: true, project, agent, path, eventsPath, lifetime: state };
+      }
+    },
+    {
+      name: "workflow.agent.step",
+      namespace: "workflow",
+      description: "Move a joined agent through think->plan->build->review->test->ship->reflect with review/test rework back to build.",
+      mutating: true,
+      params: {
+        project: { type: "string", required: true, description: "Project key" },
+        agent: { type: "string", required: false, description: "Agent id; defaults collaboration actor" },
+        stage: {
+          type: "string",
+          required: true,
+          enum: [...AGENT_STAGES],
+          description: "Next lifetime stage"
+        },
+        status: {
+          type: "string",
+          required: false,
+          enum: [...AGENT_STATUSES],
+          description: "Agent status: active|blocked|done|archived"
+        },
+        objective: { type: "string", required: false, description: "Replacement objective" },
+        issue: { type: "string", required: false, description: "Replacement linked issue slug or entity" },
+        evidence: { type: "array", required: false, description: "Evidence refs to merge into lifetime" },
+        summary: { type: "string", required: false, description: "Transition summary" },
+        next: { type: "string", required: false, description: "Next action or stop condition" }
+      },
+      handler: async (ctx, params) => {
+        const actor = actorFromContext6(ctx);
+        const project = projectKey2(params.project);
+        const agent = agentKey(params.agent, actor);
+        const current = readAgentLifetime(vaultPath, project, agent);
+        if (!current)
+          throw makeErr(-32001, `Agent lifetime not found: ${agent}`);
+        const stage = parseAgentStage(params.stage);
+        const incomingEvidence = stringList(params.evidence);
+        const evidence = mergeStringLists(current.evidence, incomingEvidence);
+        assertAgentTransition(current, stage, evidence);
+        const status = parseAgentStatus(params.status, stage === "reflect" ? "done" : current.status === "done" ? "active" : current.status);
+        const state = {
+          ...current,
+          stage,
+          status,
+          objective: params.objective === void 0 ? current.objective : oneLine2(params.objective),
+          issue: params.issue === void 0 ? current.issue : oneLine2(params.issue),
+          evidence,
+          updatedAt: isoNow()
+        };
+        writeVaultBytes2(vaultPath, state.path, renderAgentLifetime(state, oneLine2(params.summary)));
+        const eventsPath = appendAgentEvent(vaultPath, state, {
+          kind: "step",
+          summary: oneLine2(params.summary) || `${current.stage} -> ${stage}`,
+          evidence: incomingEvidence,
+          next: oneLine2(params.next),
+          actor
+        });
+        return { ok: true, project, agent, path: state.path, eventsPath, lifetime: state };
+      }
+    },
+    {
+      name: "workflow.agent.checkpoint",
+      namespace: "workflow",
+      description: "Append an event to a joined agent lifetime without changing the current stage.",
+      mutating: true,
+      params: {
+        project: { type: "string", required: true, description: "Project key" },
+        agent: { type: "string", required: false, description: "Agent id; defaults collaboration actor" },
+        status: {
+          type: "string",
+          required: false,
+          enum: [...CHECKPOINT_STATUSES],
+          default: "note",
+          description: "Checkpoint status: note|passed|failed|blocked"
+        },
+        summary: { type: "string", required: true, description: "Checkpoint summary" },
+        evidence: { type: "array", required: false, description: "Evidence refs for this checkpoint" },
+        next: { type: "string", required: false, description: "Next action or stop condition" }
+      },
+      handler: async (ctx, params) => {
+        const actor = actorFromContext6(ctx);
+        const project = projectKey2(params.project);
+        const agent = agentKey(params.agent, actor);
+        const current = readAgentLifetime(vaultPath, project, agent);
+        if (!current)
+          throw makeErr(-32001, `Agent lifetime not found: ${agent}`);
+        const status = parseCheckpointStatus(params.status);
+        const summary = oneLine2(params.summary);
+        if (!summary)
+          throw makeErr(-32602, "summary required");
+        const eventsPath = appendAgentEvent(vaultPath, current, {
+          kind: `checkpoint:${status}`,
+          summary,
+          evidence: stringList(params.evidence),
+          next: oneLine2(params.next),
+          actor
+        });
+        return { ok: true, project, agent, path: current.path, eventsPath, stage: current.stage, status };
+      }
+    },
+    {
+      name: "workflow.agent.leave",
+      namespace: "workflow",
+      description: "Archive a joined agent lifetime while preserving its lifetime and event log in the vault.",
+      mutating: true,
+      params: {
+        project: { type: "string", required: true, description: "Project key" },
+        agent: { type: "string", required: false, description: "Agent id; defaults collaboration actor" },
+        summary: { type: "string", required: false, description: "Leave summary" }
+      },
+      handler: async (ctx, params) => {
+        const actor = actorFromContext6(ctx);
+        const project = projectKey2(params.project);
+        const agent = agentKey(params.agent, actor);
+        const current = readAgentLifetime(vaultPath, project, agent);
+        if (!current)
+          throw makeErr(-32001, `Agent lifetime not found: ${agent}`);
+        const state = {
+          ...current,
+          status: "archived",
+          updatedAt: isoNow()
+        };
+        writeVaultBytes2(vaultPath, state.path, renderAgentLifetime(state, oneLine2(params.summary)));
+        const eventsPath = appendAgentEvent(vaultPath, state, {
+          kind: "leave",
+          summary: oneLine2(params.summary) || `${agent} archived`,
+          actor
+        });
+        return { ok: true, project, agent, path: state.path, eventsPath, lifetime: state };
+      }
+    },
+    {
+      name: "workflow.agent.doctor",
+      namespace: "workflow",
+      description: "Check one agent lifetime file and event log for vault-first lifecycle consistency.",
+      mutating: false,
+      params: {
+        project: { type: "string", required: true, description: "Project key" },
+        agent: { type: "string", required: false, description: "Agent id; defaults collaboration actor" }
+      },
+      handler: async (ctx, params) => {
+        const actor = actorFromContext6(ctx);
+        const project = projectKey2(params.project);
+        const agent = agentKey(params.agent, actor);
+        return agentDoctor(vaultPath, project, agent);
+      }
+    },
+    {
+      name: "workflow.doctor",
+      namespace: "workflow",
+      description: "Check whether a project has the vault-first workflow files needed by Codex, Claude Code, and MCP tools.",
+      mutating: false,
+      params: {
+        project: { type: "string", required: true, description: "Project key" }
+      },
+      handler: async (_ctx, params) => workflowDoctor(vaultPath, projectKey2(params.project))
+    }
+  ];
+}
+
 // dist/core/operations.js
 var execAsync = promisify5(execFile5);
 var PROTECTED_DIRS4 = /* @__PURE__ */ new Set([".obsidian", ".trash", ".git", "node_modules"]);
-var _thisDir = dirname9(fileURLToPath2(import.meta.url));
-var _projectRoot = join17(_thisDir, "..", "..", "..");
+var _thisDir = dirname10(fileURLToPath2(import.meta.url));
+var _projectRoot = join18(_thisDir, "..", "..", "..");
 function makeErr2(code, message) {
   return { code, message };
 }
@@ -46299,8 +47042,8 @@ var operations = [
         };
       }
       const stem = id.replace(/-to-vault$/, "");
-      const collectorPath = join17(_projectRoot, "recipes", "collectors", `${stem}-collector.ts`);
-      if (!existsSync12(collectorPath)) {
+      const collectorPath = join18(_projectRoot, "recipes", "collectors", `${stem}-collector.ts`);
+      if (!existsSync13(collectorPath)) {
         return {
           ok: false,
           exit_code: null,
@@ -46334,7 +47077,7 @@ var operations = [
 ];
 function makeAllOperations(deps) {
   const { compileTrigger, registry: registry2, defaultWeights, python, compilerPath, vaultPath, configPath } = deps;
-  const ccPath = deps.contextCorePath ?? process.env["CONTEXT_CORE_PATH"] ?? join17(dirname9(compilerPath), "context-core.json");
+  const ccPath = deps.contextCorePath ?? process.env["CONTEXT_CORE_PATH"] ?? join18(dirname10(compilerPath), "context-core.json");
   const contextCoreLoader = new ContextCoreLoader(ccPath);
   const compileOps = [
     {
@@ -46393,9 +47136,9 @@ function makeAllOperations(deps) {
           for (const entry of readdirSync9(dir, { withFileTypes: true })) {
             if (entry.isDirectory()) {
               if (!PROTECTED_DIRS4.has(entry.name))
-                walk(join17(dir, entry.name));
+                walk(join18(dir, entry.name));
             } else if (entry.isFile() && entry.name.endsWith(".md")) {
-              files.push(join17(dir, entry.name));
+              files.push(join18(dir, entry.name));
             }
           }
         };
@@ -46409,7 +47152,7 @@ function makeAllOperations(deps) {
         for (let i = 0; i < files.length; i += concurrency) {
           const batch = files.slice(i, i + concurrency);
           const results = await Promise.allSettled(batch.map(async (fullPath) => {
-            const content = readFileSync14(fullPath, "utf-8");
+            const content = readFileSync15(fullPath, "utf-8");
             const relPath = relative5(vaultPath, fullPath).replace(/\\/g, "/");
             await vba.ingest(relPath, content);
           }));
@@ -46651,8 +47394,8 @@ function makeAllOperations(deps) {
         if (!inputPath)
           throw makeErr2(-32602, "path required");
         const normalizedInput = normalizeVaultRelPath3(inputPath);
-        const fullInput = join17(vaultPath, normalizedInput);
-        if (!existsSync12(fullInput))
+        const fullInput = join18(vaultPath, normalizedInput);
+        if (!existsSync13(fullInput))
           throw makeErr2(-32001, `Source file not found: ${normalizedInput}`);
         const outputPath = normalizeVaultRelPath3(typeof params.outputPath === "string" && params.outputPath.length > 0 ? params.outputPath : defaultMultimodalOutputPath(normalizedInput));
         if (!outputPath.endsWith(".md"))
@@ -46684,9 +47427,9 @@ function makeAllOperations(deps) {
             preview: content.slice(0, 2e3)
           };
         }
-        const fullOutput = join17(vaultPath, outputPath);
-        mkdirSync8(dirname9(fullOutput), { recursive: true });
-        writeFileSync7(fullOutput, content, "utf-8");
+        const fullOutput = join18(vaultPath, outputPath);
+        mkdirSync9(dirname10(fullOutput), { recursive: true });
+        writeFileSync8(fullOutput, content, "utf-8");
         const vba = registry2.get("vaultbrain");
         if (vba)
           await vba.ingest(outputPath, content);
@@ -46720,8 +47463,8 @@ function makeAllOperations(deps) {
         if (!inputPath)
           throw makeErr2(-32602, "path required");
         const normalizedInput = normalizeVaultRelPath3(inputPath);
-        const fullInput = join17(vaultPath, normalizedInput);
-        if (!existsSync12(fullInput))
+        const fullInput = join18(vaultPath, normalizedInput);
+        if (!existsSync13(fullInput))
           throw makeErr2(-32001, `Source file not found: ${normalizedInput}`);
         const mode = params.mode ?? "auto";
         const effectiveMode = mode === "auto" ? /\.(md|markdown|txt)$/i.test(normalizedInput) ? "text" : "upload" : mode;
@@ -46735,7 +47478,7 @@ function makeAllOperations(deps) {
           };
         }
         if (effectiveMode === "text") {
-          const text = readFileSync14(fullInput, "utf-8");
+          const text = readFileSync15(fullInput, "utf-8");
           const result2 = await adapter.insertText({ text, fileSource: normalizedInput });
           return { dryRun: false, sourcePath: normalizedInput, mode: effectiveMode, result: result2 };
         }
@@ -46869,6 +47612,7 @@ function makeAllOperations(deps) {
     ...makeIngestOps(),
     ...makeSourceOps(vaultPath),
     ...makeConversationOps(vaultPath),
+    ...makeWorkflowOps(vaultPath),
     ...makeContextOps(vaultPath, registry2, defaultWeights)
   ];
   return [...operations, ...compileOps, ...queryOps, ...multimodalOps, ...lightRagOps, ...agentOps, ...holonOps];
@@ -46995,8 +47739,8 @@ function loadConfig() {
     resolve5(process.cwd(), "../vault-mind.yaml")
   ];
   for (const p of candidates) {
-    if (existsSync13(p))
-      return { ...parseSimpleYaml(readFileSync15(p, "utf-8")), config_path: p };
+    if (existsSync14(p))
+      return { ...parseSimpleYaml(readFileSync16(p, "utf-8")), config_path: p };
   }
   throw new Error("No vault-mind.yaml found and VAULT_MIND_VAULT_PATH not set");
 }
@@ -47055,7 +47799,7 @@ function err(code, message) {
 var LOCK_TTL_MS4 = 6e4;
 function withFileLock4(fullPath, fn) {
   const lockPath = fullPath + ".lock";
-  const acquire = () => writeFileSync8(lockPath, JSON.stringify({ pid: process.pid, timestamp: Date.now() }), { encoding: "utf-8", flag: "wx" });
+  const acquire = () => writeFileSync9(lockPath, JSON.stringify({ pid: process.pid, timestamp: Date.now() }), { encoding: "utf-8", flag: "wx" });
   try {
     acquire();
   } catch (e) {
@@ -47065,7 +47809,7 @@ function withFileLock4(fullPath, fn) {
     if (ageMs < LOCK_TTL_MS4) {
       let holder = "unknown";
       try {
-        holder = readFileSync15(lockPath, "utf-8").trim();
+        holder = readFileSync16(lockPath, "utf-8").trim();
       } catch {
       }
       throw err(-32010, `Lock conflict on ${basename6(fullPath)}: held by ${holder}, ttl remaining ${LOCK_TTL_MS4 - ageMs}ms`);
@@ -47086,10 +47830,10 @@ var DEFAULT_PROTECTED_PATHS = ["20-Decisions/**", "30-Architecture/**", "40-Runb
 var globCache = /* @__PURE__ */ new Map();
 function readVaultCollabPolicy(vaultPath) {
   const policyPath = resolve5(vaultPath, ".vault-collab.json");
-  if (!existsSync13(policyPath))
+  if (!existsSync14(policyPath))
     return {};
   try {
-    const parsed = JSON.parse(readFileSync15(policyPath, "utf-8"));
+    const parsed = JSON.parse(readFileSync16(policyPath, "utf-8"));
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
       throw new Error("expected a JSON object");
     }
@@ -47138,9 +47882,29 @@ function memoryPolicyBasePath(config2, args) {
   const project = typeof args.project === "string" && args.project.trim() ? safeMemorySegment(args.project, "project") : void 0;
   return project ? `10-Projects/${project}/agents/${actor}/memory` : `00-Inbox/Agent-Memory/${actor}`;
 }
+function slugPolicySegment(value, label) {
+  const segment = value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  if (!segment)
+    throw err(-32602, `${label} must contain at least one [a-z0-9] character`);
+  return segment;
+}
+function policyProjectSegment(args) {
+  if (typeof args.project !== "string" || !args.project.trim())
+    return "*";
+  return slugPolicySegment(args.project, "project");
+}
 function projectPolicyBasePath(args) {
-  const project = typeof args.project === "string" && args.project.trim() ? safeMemorySegment(args.project, "project") : "*";
-  return `10-Projects/${project}`;
+  return `01-Projects/${policyProjectSegment(args)}`;
+}
+function workflowPolicyBasePath(args) {
+  return `${projectPolicyBasePath(args)}/workflow`;
+}
+function workflowAgentPolicySegment(config2, args) {
+  const raw = typeof args.agent === "string" && args.agent.trim() ? args.agent : config2.collaboration?.actor || process.env.VAULT_MIND_ACTOR || "agent";
+  return slugPolicySegment(raw, "agent");
+}
+function workflowAgentPolicyBasePath(config2, args) {
+  return `${projectPolicyBasePath(args)}/agents/${workflowAgentPolicySegment(config2, args)}`;
 }
 function sourcePolicyTargetPaths(args) {
   const project = typeof args.project === "string" && args.project.trim() ? safeMemorySegment(args.project, "project") : void 0;
@@ -47151,6 +47915,7 @@ function sourcePolicyTargetPaths(args) {
 function defaultAllowedPaths(actor, role) {
   if (!actor)
     return [];
+  const workflowActor = slugPolicySegment(actor, "actor");
   if (role === "human")
     return [`00-Inbox/${actor}`, `00-Inbox/${actor}/**`];
   return [
@@ -47161,7 +47926,13 @@ function defaultAllowedPaths(actor, role) {
     `10-Projects/*/agents/${actor}`,
     `10-Projects/*/agents/${actor}/**`,
     `10-Projects/*/project.md`,
-    `10-Projects/*/docket/**`
+    `10-Projects/*/docket/**`,
+    `01-Projects/*/_project.md`,
+    `01-Projects/*/issues/**`,
+    `01-Projects/*/views/**`,
+    `01-Projects/*/workflow/**`,
+    `01-Projects/*/agents/${workflowActor}`,
+    `01-Projects/*/agents/${workflowActor}/**`
   ];
 }
 function writeTargetPaths(config2, toolName, args) {
@@ -47183,16 +47954,22 @@ function writeTargetPaths(config2, toolName, args) {
     return [`${memoryPolicyBasePath(config2, args)}/sessions/**`];
   if (toolName === "source.register")
     return sourcePolicyTargetPaths(args);
+  if (toolName === "workflow.state.set")
+    return [`${workflowPolicyBasePath(args)}/status.md`];
+  if (toolName === "workflow.checkpoint.add")
+    return [`${workflowPolicyBasePath(args)}/checkpoints.md`];
+  if (toolName === "workflow.agent.join" || toolName === "workflow.agent.step" || toolName === "workflow.agent.checkpoint" || toolName === "workflow.agent.leave")
+    return [`${workflowAgentPolicyBasePath(config2, args)}/**`];
   if (toolName === "project.init")
-    return [`${projectPolicyBasePath(args)}/project.md`, `${projectPolicyBasePath(args)}/docket/**`];
+    return [`${projectPolicyBasePath(args)}/_project.md`, `${projectPolicyBasePath(args)}/issues/**`];
   if (toolName === "project.issue.create")
-    return [`${projectPolicyBasePath(args)}/docket/**`];
+    return [`${projectPolicyBasePath(args)}/issues/**`];
   if (toolName === "project.issue.update")
-    return [`${projectPolicyBasePath(args)}/docket/**`];
+    return [`${projectPolicyBasePath(args)}/issues/**`];
   if (toolName === "project.issue.link")
-    return [`${projectPolicyBasePath(args)}/docket/**`];
+    return [`${projectPolicyBasePath(args)}/issues/**`];
   if (toolName === "project.comment.add")
-    return [`${projectPolicyBasePath(args)}/docket/comments/**`];
+    return [`${projectPolicyBasePath(args)}/issues/**`];
   if (toolName === "project.canvas.export" || toolName === "project.base.export")
     return [`${projectPolicyBasePath(args)}/views/**`];
   return typeof args.path === "string" ? [args.path] : [];
@@ -47232,7 +48009,13 @@ function enforceCollaborationPolicy(config2, toolName, args) {
     "source.register",
     "memory.passport.upsert",
     "memory.handoff.write",
-    "memory.session.save"
+    "memory.session.save",
+    "workflow.state.set",
+    "workflow.checkpoint.add",
+    "workflow.agent.join",
+    "workflow.agent.step",
+    "workflow.agent.checkpoint",
+    "workflow.agent.leave"
   ]);
   if (!mutatingTargets.has(toolName))
     return;
@@ -47240,7 +48023,13 @@ function enforceCollaborationPolicy(config2, toolName, args) {
     "source.register",
     "memory.passport.upsert",
     "memory.handoff.write",
-    "memory.session.save"
+    "memory.session.save",
+    "workflow.state.set",
+    "workflow.checkpoint.add",
+    "workflow.agent.join",
+    "workflow.agent.step",
+    "workflow.agent.checkpoint",
+    "workflow.agent.leave"
   ]);
   if (!alwaysRealWriteTargets.has(toolName) && args.dryRun !== false && args.dry_run !== false)
     return;
@@ -47278,7 +48067,13 @@ function shouldAuditWrite(toolName, args) {
   const alwaysRealWriteTargets = /* @__PURE__ */ new Set([
     "memory.passport.upsert",
     "memory.handoff.write",
-    "memory.session.save"
+    "memory.session.save",
+    "workflow.state.set",
+    "workflow.checkpoint.add",
+    "workflow.agent.join",
+    "workflow.agent.step",
+    "workflow.agent.checkpoint",
+    "workflow.agent.leave"
   ]);
   if (alwaysRealWriteTargets.has(toolName))
     return true;
@@ -47301,7 +48096,7 @@ function auditWrite(config2, toolName, args, result) {
   try {
     const day = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
     const auditDir = resolve5(config2.vault_path, ".wiki-audit");
-    mkdirSync9(auditDir, { recursive: true });
+    mkdirSync10(auditDir, { recursive: true });
     const entry = {
       ts: (/* @__PURE__ */ new Date()).toISOString(),
       actor,
@@ -47398,15 +48193,15 @@ var VaultFs = class {
     return full;
   }
   assertRealPathInsideVault(full) {
-    const realTarget = existsSync13(full) ? realpathSync(full) : this.realpathExistingAncestor(dirname10(full));
+    const realTarget = existsSync14(full) ? realpathSync(full) : this.realpathExistingAncestor(dirname11(full));
     const rel = relative6(this.realVault, realTarget);
     if (rel.startsWith("..") || pathIsAbsolute2(rel))
       throw err(-32602, "path traversal blocked");
   }
   realpathExistingAncestor(start) {
     let current = start;
-    while (!existsSync13(current)) {
-      const parent = dirname10(current);
+    while (!existsSync14(current)) {
+      const parent = dirname11(current);
       if (parent === current)
         throw err(-32602, "path traversal blocked");
       current = parent;
@@ -47495,12 +48290,12 @@ var VaultFs = class {
   walkMd(fn) {
     const walk = (d) => {
       for (const ent of readdirSync10(d, { withFileTypes: true })) {
-        const full = join18(d, ent.name);
+        const full = join19(d, ent.name);
         if (ent.isDirectory() && !PROTECTED_DIRS5.has(ent.name))
           walk(full);
         else if (ent.isFile() && ent.name.endsWith(".md")) {
           const rel = relative6(this.vault, full).replace(/\\/g, "/");
-          fn(rel, readFileSync15(full, "utf-8"));
+          fn(rel, readFileSync16(full, "utf-8"));
         }
       }
     };
@@ -47510,12 +48305,12 @@ var VaultFs = class {
     const searchableExts = /* @__PURE__ */ new Set([".md", ".canvas", ".base"]);
     const walk = (d) => {
       for (const ent of readdirSync10(d, { withFileTypes: true })) {
-        const full = join18(d, ent.name);
+        const full = join19(d, ent.name);
         if (ent.isDirectory() && !PROTECTED_DIRS5.has(ent.name))
           walk(full);
         if (ent.isFile() && searchableExts.has(extname2(ent.name))) {
           const rel = relative6(this.vault, full).replace(/\\/g, "/");
-          fn(rel, readFileSync15(full, "utf-8"));
+          fn(rel, readFileSync16(full, "utf-8"));
         }
       }
     };
@@ -47529,18 +48324,18 @@ var VaultFs = class {
     switch (method) {
       case "vault.read": {
         const full = this.resolve(p.path);
-        if (!existsSync13(full))
+        if (!existsSync14(full))
           throw err(-32001, `Not found: ${p.path}`);
-        return { content: readFileSync15(full, "utf-8") };
+        return { content: readFileSync16(full, "utf-8") };
       }
       case "vault.exists": {
         const existsPath = this.normalizeVaultPath(p.path ?? "", { allowRoot: true });
-        return { exists: existsSync13(this.resolve(existsPath, { allowRoot: true })) };
+        return { exists: existsSync14(this.resolve(existsPath, { allowRoot: true })) };
       }
       case "vault.list": {
         const listPath = this.normalizeVaultPath(p.path ?? "", { allowRoot: true });
         const dir = this.resolve(listPath, { allowRoot: true });
-        if (!existsSync13(dir))
+        if (!existsSync14(dir))
           throw err(-32001, `Not found: ${p.path}`);
         const hidden = /* @__PURE__ */ new Set([".obsidian", ".trash", "node_modules"]);
         const entries = readdirSync10(dir, { withFileTypes: true }).filter((e) => !hidden.has(e.name));
@@ -47552,7 +48347,7 @@ var VaultFs = class {
       case "vault.stat": {
         const statPath = this.normalizeVaultPath(p.path ?? "", { allowRoot: true });
         const full = this.resolve(statPath, { allowRoot: true });
-        if (!existsSync13(full))
+        if (!existsSync14(full))
           throw err(-32001, `Not found: ${p.path}`);
         const st = statSync6(full);
         const displayName = statPath === "" ? basename6(this.vault) : basename6(statPath);
@@ -47570,30 +48365,30 @@ var VaultFs = class {
       }
       case "vault.create": {
         const full = this.resolve(p.path);
-        if (existsSync13(full))
+        if (existsSync14(full))
           throw err(-32002, `Already exists: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "create", path: p.path };
         return withFileLock4(full, () => {
-          mkdirSync9(dirname10(full), { recursive: true });
-          writeFileSync8(full, p.content || "", "utf-8");
+          mkdirSync10(dirname11(full), { recursive: true });
+          writeFileSync9(full, p.content || "", "utf-8");
           return { ok: true, path: p.path };
         });
       }
       case "vault.modify": {
         const full = this.resolve(p.path);
-        if (!existsSync13(full))
+        if (!existsSync14(full))
           throw err(-32001, `Not found: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "modify", path: p.path };
         return withFileLock4(full, () => {
-          writeFileSync8(full, p.content, "utf-8");
+          writeFileSync9(full, p.content, "utf-8");
           return { ok: true, path: p.path };
         });
       }
       case "vault.append": {
         const full = this.resolve(p.path);
-        if (!existsSync13(full))
+        if (!existsSync14(full))
           throw err(-32001, `Not found: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "append", path: p.path };
@@ -47604,7 +48399,7 @@ var VaultFs = class {
       }
       case "vault.delete": {
         const full = this.resolve(p.path);
-        if (!existsSync13(full))
+        if (!existsSync14(full))
           throw err(-32001, `Not found: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "delete", path: p.path };
@@ -47616,14 +48411,14 @@ var VaultFs = class {
       case "vault.rename": {
         const from = this.resolve(p.from);
         const to = this.resolve(p.to);
-        if (!existsSync13(from))
+        if (!existsSync14(from))
           throw err(-32001, `Not found: ${p.from}`);
-        if (existsSync13(to))
+        if (existsSync14(to))
           throw err(-32002, `Already exists: ${p.to}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "rename", from: p.from, to: p.to };
         return withFileLock4(from, () => {
-          mkdirSync9(dirname10(to), { recursive: true });
+          mkdirSync10(dirname11(to), { recursive: true });
           return withFileLock4(to, () => {
             renameSync(from, to);
             return { ok: true, from: p.from, to: p.to };
@@ -47761,7 +48556,7 @@ var VaultFs = class {
             if (!target.includes("/")) {
               const withMd = target.endsWith(".md") ? target : target + ".md";
               try {
-                if (existsSync13(this.resolve(withMd)))
+                if (existsSync14(this.resolve(withMd)))
                   target = withMd;
               } catch {
               }
@@ -47782,7 +48577,7 @@ var VaultFs = class {
           path: np,
           exists: (() => {
             try {
-              return existsSync13(this.resolve(np));
+              return existsSync14(this.resolve(np));
             } catch {
               return false;
             }
@@ -47869,7 +48664,7 @@ var VaultFs = class {
         for (const [from, targets] of linkMap) {
           for (const [to] of targets) {
             try {
-              if (!existsSync13(this.resolve(to)))
+              if (!existsSync14(this.resolve(to)))
                 brokenLinks.push({ from, to });
             } catch {
               brokenLinks.push({ from, to });
@@ -47950,8 +48745,8 @@ ${summary ? `> ${summary}
         if (p.dryRun !== false)
           return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
         return withFileLock4(full, () => {
-          mkdirSync9(dirname10(full), { recursive: true });
-          writeFileSync8(full, content, "utf-8");
+          mkdirSync10(dirname11(full), { recursive: true });
+          writeFileSync9(full, content, "utf-8");
           return { ok: true, path };
         });
       }
@@ -47991,12 +48786,12 @@ ${notes}
 
 ## Notes
 `;
-        const alreadyExists = existsSync13(full);
+        const alreadyExists = existsSync14(full);
         if (p.dryRun !== false)
           return { dryRun: true, action: alreadyExists ? "update" : "create", path, preview: content.slice(0, 200) };
         return withFileLock4(full, () => {
-          mkdirSync9(dirname10(full), { recursive: true });
-          writeFileSync8(full, content, "utf-8");
+          mkdirSync10(dirname11(full), { recursive: true });
+          writeFileSync9(full, content, "utf-8");
           return { ok: true, path, action: alreadyExists ? "updated" : "created" };
         });
       }
@@ -48049,10 +48844,10 @@ ${teamLinks || "- TBD"}
 ## Notes
 `;
         if (p.dryRun !== false)
-          return { dryRun: true, action: existsSync13(full) ? "update" : "create", path, preview: content.slice(0, 200) };
+          return { dryRun: true, action: existsSync14(full) ? "update" : "create", path, preview: content.slice(0, 200) };
         return withFileLock4(full, () => {
-          mkdirSync9(dirname10(full), { recursive: true });
-          writeFileSync8(full, content, "utf-8");
+          mkdirSync10(dirname11(full), { recursive: true });
+          writeFileSync9(full, content, "utf-8");
           return { ok: true, path };
         });
       }
@@ -48112,8 +48907,8 @@ ${consequences}
         if (p.dryRun !== false)
           return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
         return withFileLock4(full, () => {
-          mkdirSync9(dirname10(full), { recursive: true });
-          writeFileSync8(full, content, "utf-8");
+          mkdirSync10(dirname11(full), { recursive: true });
+          writeFileSync9(full, content, "utf-8");
           return { ok: true, path };
         });
       }
@@ -48165,8 +48960,8 @@ ${actionLines || "- None assigned"}
         if (p.dryRun !== false)
           return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
         return withFileLock4(full, () => {
-          mkdirSync9(dirname10(full), { recursive: true });
-          writeFileSync8(full, content, "utf-8");
+          mkdirSync10(dirname11(full), { recursive: true });
+          writeFileSync9(full, content, "utf-8");
           return { ok: true, path };
         });
       }
@@ -48206,18 +49001,18 @@ ${p.content}
         if (p.dryRun !== false)
           return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
         return withFileLock4(full, () => {
-          mkdirSync9(dirname10(full), { recursive: true });
-          writeFileSync8(full, content, "utf-8");
+          mkdirSync10(dirname11(full), { recursive: true });
+          writeFileSync9(full, content, "utf-8");
           return { ok: true, path };
         });
       }
       case "vault.mkdir": {
         const full = this.resolve(p.path);
-        if (existsSync13(full))
+        if (existsSync14(full))
           throw err(-32002, `Already exists: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "mkdir", path: p.path };
-        mkdirSync9(full, { recursive: true });
+        mkdirSync10(full, { recursive: true });
         return { ok: true, path: p.path };
       }
       case "vault.init": {
@@ -48272,12 +49067,12 @@ ${p.content}
           const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
           for (const [dir] of scaffold) {
             const full = this.resolve(dir);
-            if (existsSync13(full)) {
+            if (existsSync14(full)) {
               skipped2.push(dir);
               continue;
             }
             if (!dryRun)
-              mkdirSync9(full, { recursive: true });
+              mkdirSync10(full, { recursive: true });
             created2.push(dir);
           }
           const folderLines = scaffold.map(([dir, purpose]) => `- [[${dir}/README|${dir}]] -- ${purpose}`).join("\n");
@@ -48298,11 +49093,11 @@ ${methodologyNotes[methodology]}
 ${folderLines}
 `;
           const homeFull = this.resolve("Home.md");
-          if (existsSync13(homeFull)) {
+          if (existsSync14(homeFull)) {
             skipped2.push("Home.md");
           } else {
             if (!dryRun)
-              writeFileSync8(homeFull, homeContent, "utf-8");
+              writeFileSync9(homeFull, homeContent, "utf-8");
             created2.push("Home.md");
           }
           return { ok: true, dryRun, methodology, created: created2, skipped: skipped2, summary: `Created ${created2.length}, skipped ${skipped2.length}` };
@@ -48317,22 +49112,22 @@ ${folderLines}
         const now = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
         const ensureDir = (rel) => {
           const full = this.resolve(rel);
-          if (existsSync13(full)) {
+          if (existsSync14(full)) {
             skipped.push(rel);
             return;
           }
-          mkdirSync9(full, { recursive: true });
+          mkdirSync10(full, { recursive: true });
           created.push(rel);
         };
         const ensureFile = (rel, content) => {
           const r = rel.endsWith(".md") ? rel : rel + ".md";
           const full = this.resolve(r);
-          if (existsSync13(full)) {
+          if (existsSync14(full)) {
             skipped.push(r);
             return;
           }
-          mkdirSync9(dirname10(full), { recursive: true });
-          writeFileSync8(full, content, "utf-8");
+          mkdirSync10(dirname11(full), { recursive: true });
+          writeFileSync9(full, content, "utf-8");
           created.push(r);
         };
         ensureDir(base);
@@ -48375,10 +49170,10 @@ Follows llm-wiki opinionated workflow.
 See root CLAUDE.md for full documentation.
 `);
         const yamlPath = `${base}/kb.yaml`;
-        if (existsSync13(this.resolve(yamlPath))) {
+        if (existsSync14(this.resolve(yamlPath))) {
           skipped.push(yamlPath);
         } else {
-          writeFileSync8(this.resolve(yamlPath), `topic: "${p.topic}"
+          writeFileSync9(this.resolve(yamlPath), `topic: "${p.topic}"
 vault_path: "${this.vault.replace(/\\\\/g, "/")}"
 created: ${now}
 `, "utf-8");
@@ -48435,7 +49230,7 @@ updated: ${now}
 
 ` + (mdFiles.length ? "## Notes in this topic\n\n" + mdFiles.map((f) => `- [[${f.replace(/\.md$/, "")}]]`).join("\n") + "\n\n" : "") + (subDirs.length ? "## Subtopics\n\n" + subDirs.map((d) => `- \`${d}/\``).join("\n") + "\n" : "");
             if (!dryRun) {
-              writeFileSync8(absCatalog, body, "utf-8");
+              writeFileSync9(absCatalog, body, "utf-8");
             }
             report.created.push(catalogPath);
           } else {
@@ -48454,7 +49249,7 @@ updated: ${now}
 - ${now}: Karpathy LLM Wiki discipline enforced (retroactive).
 `;
             if (!dryRun) {
-              writeFileSync8(absChronicle, body, "utf-8");
+              writeFileSync9(absChronicle, body, "utf-8");
             }
             report.created.push(chroniclePath);
           } else {
@@ -48570,14 +49365,14 @@ updated: ${now}
         const baseName2 = `${datePrefix}-${slug}`;
         let chosenName = `${baseName2}.md`;
         let relPath = `${relDir}/${chosenName}`;
-        let fullPath = join18(this.vault, relDir, chosenName);
-        if (existsSync13(fullPath)) {
+        let fullPath = join19(this.vault, relDir, chosenName);
+        if (existsSync14(fullPath)) {
           let found = false;
           for (let i = 2; i <= 99; i++) {
             chosenName = `${baseName2}-${i}.md`;
             relPath = `${relDir}/${chosenName}`;
-            fullPath = join18(this.vault, relDir, chosenName);
-            if (!existsSync13(fullPath)) {
+            fullPath = join19(this.vault, relDir, chosenName);
+            if (!existsSync14(fullPath)) {
               found = true;
               break;
             }
@@ -48624,9 +49419,9 @@ ${yamlLines.join("\n")}
 
 ${bodyWithTag}
 `;
-        mkdirSync9(dirname10(fullPath), { recursive: true });
+        mkdirSync10(dirname11(fullPath), { recursive: true });
         return withFileLock4(fullPath, () => {
-          writeFileSync8(fullPath, contentOut, "utf-8");
+          writeFileSync9(fullPath, contentOut, "utf-8");
           return { ok: true, path: relPath, frontmatter: frontmatterObj, warnings };
         });
       }
@@ -48642,7 +49437,7 @@ ${bodyWithTag}
         const nowMs = typeof p.now === "string" ? Date.parse(p.now) : Date.now();
         const nowValid = !isNaN(nowMs) ? nowMs : Date.now();
         const aiRootRel = "00-Inbox/AI-Output";
-        const aiRootAbs = join18(this.vault, aiRootRel);
+        const aiRootAbs = join19(this.vault, aiRootRel);
         const emptyMetrics = {
           totalEntries: 0,
           byPersona: {},
@@ -48650,19 +49445,19 @@ ${bodyWithTag}
           byQuarantineState: {},
           realBacklinkHitRate: 0
         };
-        if (!existsSync13(aiRootAbs)) {
+        if (!existsSync14(aiRootAbs)) {
           return { staleCandidates: [], supersedeCandidates: [], applied: [], metrics: emptyMetrics };
         }
         const entries = [];
         const walkSubtree = (d) => {
-          if (!existsSync13(d))
+          if (!existsSync14(d))
             return;
           for (const ent of readdirSync10(d, { withFileTypes: true })) {
-            const full = join18(d, ent.name);
+            const full = join19(d, ent.name);
             if (ent.isDirectory() && !PROTECTED_DIRS5.has(ent.name))
               walkSubtree(full);
             else if (ent.isFile() && ent.name.endsWith(".md")) {
-              const content = readFileSync15(full, "utf-8");
+              const content = readFileSync16(full, "utf-8");
               const fm = this.parseFrontmatter(content);
               if (!fm)
                 continue;
@@ -48756,15 +49551,15 @@ ${bodyWithTag}
         if (!dryRun) {
           const flipIso = new Date(nowValid).toISOString();
           for (const sc of staleCandidates) {
-            const absPath = join18(this.vault, sc.path);
+            const absPath = join19(this.vault, sc.path);
             const historyEntry = `{ts: "${flipIso}", axis: status, from: draft, to: stale, trigger: auto-stop-summary, evidence_level: low, human_in_loop: false, note: "gardener sweep"}`;
             const flipped = withFileLock4(absPath, () => {
-              const original = readFileSync15(absPath, "utf-8");
+              const original = readFileSync16(absPath, "utf-8");
               const withStatusFlipped = original.replace(/(^---[\s\S]*?\nstatus: )draft(\n[\s\S]*?^---$)/m, (_m, g1, g2) => g1 + "stale" + g2);
               if (withStatusFlipped === original)
                 return false;
               const replaced = appendHistoryInYaml(withStatusFlipped, historyEntry);
-              writeFileSync8(absPath, replaced, "utf-8");
+              writeFileSync9(absPath, replaced, "utf-8");
               return true;
             });
             if (flipped)
@@ -48790,14 +49585,14 @@ ${bodyWithTag}
         metrics.realBacklinkHitRate = entries.length === 0 ? 0 : withRealBacklink / entries.length;
         if (!dryRun && entries.length > 0) {
           const sweepLogRel = "00-Inbox/AI-Output/sweep.log.md";
-          const sweepLogAbs = join18(this.vault, sweepLogRel);
+          const sweepLogAbs = join19(this.vault, sweepLogRel);
           const stamp = new Date(nowValid).toISOString();
           const logLine = `- {ts: "${stamp}", totalEntries: ${metrics.totalEntries}, staleHits: ${staleCandidates.length}, supersedeHits: ${supersedeCandidates.length}, realBacklinkHitRate: ${metrics.realBacklinkHitRate.toFixed(3)}}
 `;
           withFileLock4(sweepLogAbs, () => {
-            if (!existsSync13(sweepLogAbs)) {
-              mkdirSync9(dirname10(sweepLogAbs), { recursive: true });
-              writeFileSync8(sweepLogAbs, "# Sweep trend log\n\n", "utf-8");
+            if (!existsSync14(sweepLogAbs)) {
+              mkdirSync10(dirname11(sweepLogAbs), { recursive: true });
+              writeFileSync9(sweepLogAbs, "# Sweep trend log\n\n", "utf-8");
             }
             appendFileSync2(sweepLogAbs, logLine, "utf-8");
           });
@@ -48806,9 +49601,9 @@ ${bodyWithTag}
       }
       case "vault.getMetadata": {
         const full = this.resolve(p.path);
-        if (!existsSync13(full))
+        if (!existsSync14(full))
           throw err(-32001, `Not found: ${p.path}`);
-        const content = readFileSync15(full, "utf-8");
+        const content = readFileSync16(full, "utf-8");
         const out = {};
         const links = this.parseWikilinks(content);
         if (links.length)
@@ -48925,7 +49720,7 @@ async function main() {
       process.stderr.write("obsidian-llm-wiki: [graphify] adapter ready\n");
     }
   }
-  const __dirname = dirname10(fileURLToPath3(import.meta.url));
+  const __dirname = dirname11(fileURLToPath3(import.meta.url));
   const compilerPath = resolve5(__dirname, "../../compiler");
   const python = process.env.VAULT_MIND_PYTHON ?? process.env.PYTHON ?? "python";
   const compileTrigger = new CompileTrigger({
@@ -48938,7 +49733,7 @@ async function main() {
       for (const fullPath of wikiPaths) {
         try {
           const relPath = relative6(config2.vault_path, fullPath).replace(/\\/g, "/");
-          const content = readFileSync15(fullPath, "utf-8");
+          const content = readFileSync16(fullPath, "utf-8");
           vaultBrainAdapter.ingest(relPath, content).catch((err2) => process.stderr.write(`obsidian-llm-wiki: [vaultbrain] ingest error: ${err2.message}
 `));
         } catch {
@@ -48953,8 +49748,8 @@ async function main() {
         compileTrigger.onFileChange(e.path, e.type);
         if (vaultBrainAdapter && e.path.endsWith(".md")) {
           try {
-            const fullPath = join18(config2.vault_path, e.path.replace(/\\/g, "/"));
-            const content = readFileSync15(fullPath, "utf-8");
+            const fullPath = join19(config2.vault_path, e.path.replace(/\\/g, "/"));
+            const content = readFileSync16(fullPath, "utf-8");
             vaultBrainAdapter.ingest(e.path, content).catch((err2) => process.stderr.write(`obsidian-llm-wiki: [vaultbrain] ingest error: ${err2.message}
 `));
           } catch {
@@ -48993,10 +49788,10 @@ async function main() {
     if (!vaultBrainAdapter || !relPath.endsWith(".md"))
       return;
     try {
-      const fullPath = join18(config2.vault_path, relPath.replace(/\\/g, "/"));
-      if (!existsSync13(fullPath))
+      const fullPath = join19(config2.vault_path, relPath.replace(/\\/g, "/"));
+      if (!existsSync14(fullPath))
         return;
-      const content = readFileSync15(fullPath, "utf-8");
+      const content = readFileSync16(fullPath, "utf-8");
       vaultBrainAdapter.ingest(relPath, content).catch((err2) => process.stderr.write(`obsidian-llm-wiki: [vaultbrain] ingest error: ${err2.message}
 `));
     } catch {
@@ -49022,6 +49817,14 @@ async function main() {
   const handleWriteSideEffects = (toolName, params, result) => {
     if (toolName === "source.register") {
       touchMarkdown(resultPath(result), "create");
+      return;
+    }
+    if (toolName === "workflow.state.set" || toolName === "workflow.checkpoint.add" || toolName === "workflow.agent.join" || toolName === "workflow.agent.step" || toolName === "workflow.agent.checkpoint" || toolName === "workflow.agent.leave") {
+      touchMarkdown(resultPath(result), "modify");
+      if (typeof result === "object" && result !== null) {
+        const eventsPath = result.eventsPath;
+        touchMarkdown(eventsPath, "modify");
+      }
       return;
     }
     if (toolName === "vault.rename" && isRealWrite(params)) {

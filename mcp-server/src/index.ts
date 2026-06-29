@@ -269,11 +269,37 @@ function memoryPolicyBasePath(config: VaultMindConfig, args: Record<string, unkn
     : `00-Inbox/Agent-Memory/${actor}`;
 }
 
+function slugPolicySegment(value: string, label: string): string {
+  const segment = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  if (!segment) throw err(-32602, `${label} must contain at least one [a-z0-9] character`);
+  return segment;
+}
+
+function policyProjectSegment(args: Record<string, unknown>): string {
+  if (typeof args.project !== "string" || !args.project.trim()) return "*";
+  return slugPolicySegment(args.project, "project");
+}
+
 function projectPolicyBasePath(args: Record<string, unknown>): string {
-  const project = typeof args.project === "string" && args.project.trim()
-    ? safeMemorySegment(args.project, "project")
-    : "*";
-  return `10-Projects/${project}`;
+  return `01-Projects/${policyProjectSegment(args)}`;
+}
+function workflowPolicyBasePath(args: Record<string, unknown>): string {
+  return `${projectPolicyBasePath(args)}/workflow`;
+}
+
+function workflowAgentPolicySegment(config: VaultMindConfig, args: Record<string, unknown>): string {
+  const raw = typeof args.agent === "string" && args.agent.trim()
+    ? args.agent
+    : config.collaboration?.actor || process.env.VAULT_MIND_ACTOR || "agent";
+  return slugPolicySegment(raw, "agent");
+}
+
+function workflowAgentPolicyBasePath(config: VaultMindConfig, args: Record<string, unknown>): string {
+  return `${projectPolicyBasePath(args)}/agents/${workflowAgentPolicySegment(config, args)}`;
 }
 
 function sourcePolicyTargetPaths(args: Record<string, unknown>): string[] {
@@ -290,6 +316,7 @@ function sourcePolicyTargetPaths(args: Record<string, unknown>): string[] {
 }
 function defaultAllowedPaths(actor: string, role: string | undefined): string[] {
   if (!actor) return [];
+  const workflowActor = slugPolicySegment(actor, "actor");
   if (role === "human") return [`00-Inbox/${actor}`, `00-Inbox/${actor}/**`];
   return [
     `00-Inbox/AI-Output/${actor}`,
@@ -300,6 +327,12 @@ function defaultAllowedPaths(actor: string, role: string | undefined): string[] 
     `10-Projects/*/agents/${actor}/**`,
     `10-Projects/*/project.md`,
     `10-Projects/*/docket/**`,
+    `01-Projects/*/_project.md`,
+    `01-Projects/*/issues/**`,
+    `01-Projects/*/views/**`,
+    `01-Projects/*/workflow/**`,
+    `01-Projects/*/agents/${workflowActor}`,
+    `01-Projects/*/agents/${workflowActor}/**`,
   ];
 }
 
@@ -320,11 +353,19 @@ function writeTargetPaths(config: VaultMindConfig, toolName: string, args: Recor
   if (toolName === "memory.handoff.write") return [`${memoryPolicyBasePath(config, args)}/handoff.md`];
   if (toolName === "memory.session.save") return [`${memoryPolicyBasePath(config, args)}/sessions/**`];
   if (toolName === "source.register") return sourcePolicyTargetPaths(args);
-  if (toolName === "project.init") return [`${projectPolicyBasePath(args)}/project.md`, `${projectPolicyBasePath(args)}/docket/**`];
-  if (toolName === "project.issue.create") return [`${projectPolicyBasePath(args)}/docket/**`];
-  if (toolName === "project.issue.update") return [`${projectPolicyBasePath(args)}/docket/**`];
-  if (toolName === "project.issue.link") return [`${projectPolicyBasePath(args)}/docket/**`];
-  if (toolName === "project.comment.add") return [`${projectPolicyBasePath(args)}/docket/comments/**`];
+  if (toolName === "workflow.state.set") return [`${workflowPolicyBasePath(args)}/status.md`];
+  if (toolName === "workflow.checkpoint.add") return [`${workflowPolicyBasePath(args)}/checkpoints.md`];
+  if (
+    toolName === "workflow.agent.join" ||
+    toolName === "workflow.agent.step" ||
+    toolName === "workflow.agent.checkpoint" ||
+    toolName === "workflow.agent.leave"
+  ) return [`${workflowAgentPolicyBasePath(config, args)}/**`];
+  if (toolName === "project.init") return [`${projectPolicyBasePath(args)}/_project.md`, `${projectPolicyBasePath(args)}/issues/**`];
+  if (toolName === "project.issue.create") return [`${projectPolicyBasePath(args)}/issues/**`];
+  if (toolName === "project.issue.update") return [`${projectPolicyBasePath(args)}/issues/**`];
+  if (toolName === "project.issue.link") return [`${projectPolicyBasePath(args)}/issues/**`];
+  if (toolName === "project.comment.add") return [`${projectPolicyBasePath(args)}/issues/**`];
   if (toolName === "project.canvas.export" || toolName === "project.base.export") return [`${projectPolicyBasePath(args)}/views/**`];
   return typeof args.path === "string" ? [args.path] : [];
 }
@@ -352,6 +393,7 @@ function enforceCollaborationPolicy(config: VaultMindConfig, toolName: string, a
     "multimodal.ingest",
     "source.register",
     "memory.passport.upsert", "memory.handoff.write", "memory.session.save",
+    "workflow.state.set", "workflow.checkpoint.add", "workflow.agent.join", "workflow.agent.step", "workflow.agent.checkpoint", "workflow.agent.leave",
   ]);
   if (!mutatingTargets.has(toolName)) return;
   const alwaysRealWriteTargets = new Set([
@@ -359,6 +401,7 @@ function enforceCollaborationPolicy(config: VaultMindConfig, toolName: string, a
     "memory.passport.upsert",
     "memory.handoff.write",
     "memory.session.save",
+    "workflow.state.set", "workflow.checkpoint.add", "workflow.agent.join", "workflow.agent.step", "workflow.agent.checkpoint", "workflow.agent.leave",
   ]);
   if (!alwaysRealWriteTargets.has(toolName) && args.dryRun !== false && args.dry_run !== false) return;
 
@@ -398,6 +441,7 @@ function shouldAuditWrite(toolName: string, args: Record<string, unknown>): bool
     "memory.passport.upsert",
     "memory.handoff.write",
     "memory.session.save",
+    "workflow.state.set", "workflow.checkpoint.add", "workflow.agent.join", "workflow.agent.step", "workflow.agent.checkpoint", "workflow.agent.leave",
   ]);
   if (alwaysRealWriteTargets.has(toolName)) return true;
   const mutatingTargets = new Set([
@@ -1889,6 +1933,21 @@ async function main(): Promise<void> {
       touchMarkdown(resultPath(result), "create");
       return;
     }
+  if (
+    toolName === "workflow.state.set" ||
+    toolName === "workflow.checkpoint.add" ||
+    toolName === "workflow.agent.join" ||
+    toolName === "workflow.agent.step" ||
+    toolName === "workflow.agent.checkpoint" ||
+    toolName === "workflow.agent.leave"
+  ) {
+    touchMarkdown(resultPath(result), "modify");
+    if (typeof result === "object" && result !== null) {
+      const eventsPath = (result as { eventsPath?: unknown }).eventsPath;
+      touchMarkdown(eventsPath, "modify");
+    }
+    return;
+  }
 
     if (toolName === "vault.rename" && isRealWrite(params)) {
       touchMarkdown(params.from, "delete");

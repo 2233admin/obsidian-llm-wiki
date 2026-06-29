@@ -26,6 +26,7 @@ import { makeIngestOps } from '../ingest/ingest.js';
 import { makeSourceOps } from '../source/source.js';
 import { makeConversationOps } from '../conversation/conversation.js';
 import { makeContextOps } from '../context/context.js';
+import { makeWorkflowOps } from '../workflow/workflow.js';
 
 const execAsync = promisify(execFile);
 const PROTECTED_DIRS = new Set(['.obsidian', '.trash', '.git', 'node_modules']);
@@ -1089,6 +1090,7 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     ...makeIngestOps(),
     ...makeSourceOps(vaultPath),
     ...makeConversationOps(vaultPath),
+    ...makeWorkflowOps(vaultPath),
     ...makeContextOps(vaultPath, registry, defaultWeights),
   ];
   return [...operations, ...compileOps, ...queryOps, ...multimodalOps, ...lightRagOps, ...agentOps, ...holonOps];
