@@ -10,6 +10,7 @@ import {
 import { basename, dirname, join, resolve, sep } from 'node:path';
 import type { Operation, OperationContext } from '../core/types.js';
 import { makeErr } from '../core/types.js';
+import { memoryPolicyBasePath, resultPath, touchMarkdown } from '../core/write-policy.js';
 
 const DEFAULT_ACTOR = 'agent';
 const LOCK_TTL_MS = 60_000;
@@ -298,12 +299,18 @@ function listDecisionDir(vaultPath: string, relDir: string, tag?: string): Decis
 export function makeConversationOps(vaultPath: string): Operation[] {
   return [
     {
-      name: 'conversation.decision.capture',
+  name: 'conversation.decision.capture',
       namespace: 'conversation',
       description:
         'Capture an AI conversation decision as append-only Markdown memory with summary, decision, why, rejected options, constraints, risks, actions, references, and excerpts.',
-      mutating: true,
-      params: {
+  mutating: true,
+  writePolicy: {
+    realWrite: 'dryRunFalse',
+    targets: (ctx, params) => [`${memoryPolicyBasePath(ctx.config, params)}/decisions/**`],
+    audit: 'required',
+    effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), 'create')],
+  },
+  params: {
         project: { type: 'string', required: false, description: 'Optional project key; stores under 10-Projects/<project>/agents/<actor>/memory/decisions' },
         title: { type: 'string', required: true, description: 'Decision title' },
         summary: { type: 'string', required: false, description: 'Short decision context summary' },

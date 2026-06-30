@@ -26,7 +26,13 @@ import { AdapterRegistry } from "./adapters/registry.js";
 import { CompileTrigger } from "./compile-trigger.js";
 import type { VaultMindAdapter } from "./adapters/interface.js";
 import { makeAllOperations } from "./core/operations.js";
-import type { OperationContext, Logger, VaultExecutor, VaultMindConfig } from "./core/types.js";
+import type { OperationContext, Logger, VaultExecutor, VaultMindConfig, WriteEffect } from "./core/types.js";
+import {
+  adjudicateOperationWrite,
+  auditOperationWrite,
+  writeEffectsForVerdict,
+  type OperationWriteVerdict,
+} from "./core/write-policy.js";
 import { validateParams, rejectDangerousRegex } from "./core/validate.js";
 
 // Precompiled regex patterns for performance (avoid recompilation on every call)
@@ -186,290 +192,6 @@ function withFileLock<T>(fullPath: string, fn: () => T): T {
     return fn();
   } finally {
     try { rmSync(lockPath, { force: true }); } catch {}
-  }
-}
-
-type CollabPolicy = {
-  team?: string[];
-  agents?: string[];
-  allowed_write_paths?: string[];
-  protected_paths?: string[];
-};
-
-const DEFAULT_PROTECTED_PATHS = ["20-Decisions/**", "30-Architecture/**", "40-Runbooks/**", "README.md"];
-const globCache = new Map<string, RegExp>();
-
-function readVaultCollabPolicy(vaultPath: string): CollabPolicy {
-  const policyPath = resolve(vaultPath, ".vault-collab.json");
-  if (!existsSync(policyPath)) return {};
-  try {
-    const parsed = JSON.parse(readFileSync(policyPath, "utf-8")) as unknown;
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      throw new Error("expected a JSON object");
-    }
-    return parsed as CollabPolicy;
-  } catch (e) {
-    throw err(-32602, `.vault-collab.json is invalid JSON: ${(e as Error).message}`);
-  }
-}
-
-function globToRegExp(glob: string): RegExp {
-  const cached = globCache.get(glob);
-  if (cached) return cached;
-  let pattern = "";
-  for (let i = 0; i < glob.length; i++) {
-    const ch = glob[i];
-    if (ch === "*" && glob[i + 1] === "*") {
-      pattern += ".*";
-      i++;
-    } else if (ch === "*") {
-      pattern += "[^/]*";
-    } else if (ch === "?") {
-      pattern += "[^/]";
-    } else {
-      pattern += ch.replace(/[.+^${}()|[\]\\]/g, "\\$&");
-    }
-  }
-  const re = new RegExp(`^${pattern}$`);
-  globCache.set(glob, re);
-  return re;
-}
-
-function matchAny(path: string, patterns: string[]): boolean {
-  return patterns.some((p) => globToRegExp(p).test(path));
-}
-
-function normalizePolicyPath(path: string): string {
-  return path.replace(/\\/g, "/").replace(/^\/+/, "");
-}
-
-function safeMemorySegment(value: string, label: string): string {
-  const trimmed = value.trim();
-  if (
-    !trimmed ||
-    trimmed === "." ||
-    trimmed === ".." ||
-    trimmed.includes("/") ||
-    trimmed.includes("\\") ||
-    /^[A-Za-z]:/.test(trimmed) ||
-    trimmed.startsWith("//")
-  ) {
-    throw err(-32602, `${label} must be a single safe path segment`);
-  }
-  return trimmed;
-}
-
-function memoryPolicyBasePath(config: VaultMindConfig, args: Record<string, unknown>): string {
-  const actor = safeMemorySegment(config.collaboration?.actor || process.env.VAULT_MIND_ACTOR || "agent", "actor");
-  const project = typeof args.project === "string" && args.project.trim()
-    ? safeMemorySegment(args.project, "project")
-    : undefined;
-  return project
-    ? `10-Projects/${project}/agents/${actor}/memory`
-    : `00-Inbox/Agent-Memory/${actor}`;
-}
-
-function slugPolicySegment(value: string, label: string): string {
-  const segment = value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  if (!segment) throw err(-32602, `${label} must contain at least one [a-z0-9] character`);
-  return segment;
-}
-
-function policyProjectSegment(args: Record<string, unknown>): string {
-  if (typeof args.project !== "string" || !args.project.trim()) return "*";
-  return slugPolicySegment(args.project, "project");
-}
-
-function projectPolicyBasePath(args: Record<string, unknown>): string {
-  return `01-Projects/${policyProjectSegment(args)}`;
-}
-function workflowPolicyBasePath(args: Record<string, unknown>): string {
-  return `${projectPolicyBasePath(args)}/workflow`;
-}
-
-function workflowAgentPolicySegment(config: VaultMindConfig, args: Record<string, unknown>): string {
-  const raw = typeof args.agent === "string" && args.agent.trim()
-    ? args.agent
-    : config.collaboration?.actor || process.env.VAULT_MIND_ACTOR || "agent";
-  return slugPolicySegment(raw, "agent");
-}
-
-function workflowAgentPolicyBasePath(config: VaultMindConfig, args: Record<string, unknown>): string {
-  return `${projectPolicyBasePath(args)}/agents/${workflowAgentPolicySegment(config, args)}`;
-}
-
-function sourcePolicyTargetPaths(args: Record<string, unknown>): string[] {
-  const project = typeof args.project === "string" && args.project.trim()
-    ? safeMemorySegment(args.project, "project")
-    : undefined;
-  const platform = typeof args.platform === "string" && args.platform.trim()
-    ? safeMemorySegment(args.platform, "platform")
-    : "*";
-  const sourceNotePath = project
-    ? `10-Projects/${project}/sources/${platform}/**`
-    : `00-Inbox/Sources/${platform}/**`;
-  return ["_llmwiki/source-registry.json", sourceNotePath];
-}
-function defaultAllowedPaths(actor: string, role: string | undefined): string[] {
-  if (!actor) return [];
-  const workflowActor = slugPolicySegment(actor, "actor");
-  if (role === "human") return [`00-Inbox/${actor}`, `00-Inbox/${actor}/**`];
-  return [
-    `00-Inbox/AI-Output/${actor}`,
-    `00-Inbox/AI-Output/${actor}/**`,
-    `00-Inbox/Agent-Memory/${actor}`,
-    `00-Inbox/Agent-Memory/${actor}/**`,
-    `10-Projects/*/agents/${actor}`,
-    `10-Projects/*/agents/${actor}/**`,
-    `10-Projects/*/project.md`,
-    `10-Projects/*/docket/**`,
-    `01-Projects/*/_project.md`,
-    `01-Projects/*/issues/**`,
-    `01-Projects/*/views/**`,
-    `01-Projects/*/workflow/**`,
-    `01-Projects/*/agents/${workflowActor}`,
-    `01-Projects/*/agents/${workflowActor}/**`,
-  ];
-}
-
-function writeTargetPaths(config: VaultMindConfig, toolName: string, args: Record<string, unknown>): string[] {
-  if (toolName === "vault.rename") {
-    return [args.from, args.to].filter((p): p is string => typeof p === "string");
-  }
-  if (toolName === "vault.writeAIOutput") {
-    const persona = typeof args.persona === "string" ? args.persona : "*";
-    return [`00-Inbox/AI-Output/${persona}/**`];
-  }
-  if (toolName === "multimodal.ingest") {
-    return typeof args.outputPath === "string"
-      ? [args.outputPath]
-      : ["00-Inbox/Multimodal/**"];
-  }
-  if (toolName === "memory.passport.upsert") return [`${memoryPolicyBasePath(config, args)}/passport.md`];
-  if (toolName === "memory.handoff.write") return [`${memoryPolicyBasePath(config, args)}/handoff.md`];
-  if (toolName === "memory.session.save") return [`${memoryPolicyBasePath(config, args)}/sessions/**`];
-  if (toolName === "source.register") return sourcePolicyTargetPaths(args);
-  if (toolName === "workflow.state.set") return [`${workflowPolicyBasePath(args)}/status.md`];
-  if (toolName === "workflow.checkpoint.add") return [`${workflowPolicyBasePath(args)}/checkpoints.md`];
-  if (
-    toolName === "workflow.agent.join" ||
-    toolName === "workflow.agent.step" ||
-    toolName === "workflow.agent.checkpoint" ||
-    toolName === "workflow.agent.leave"
-  ) return [`${workflowAgentPolicyBasePath(config, args)}/**`];
-  if (toolName === "project.init") return [`${projectPolicyBasePath(args)}/_project.md`, `${projectPolicyBasePath(args)}/issues/**`];
-  if (toolName === "project.issue.create") return [`${projectPolicyBasePath(args)}/issues/**`];
-  if (toolName === "project.issue.update") return [`${projectPolicyBasePath(args)}/issues/**`];
-  if (toolName === "project.issue.link") return [`${projectPolicyBasePath(args)}/issues/**`];
-  if (toolName === "project.comment.add") return [`${projectPolicyBasePath(args)}/issues/**`];
-  if (toolName === "project.canvas.export" || toolName === "project.base.export") return [`${projectPolicyBasePath(args)}/views/**`];
-  return typeof args.path === "string" ? [args.path] : [];
-}
-
-function enforceCollaborationPolicy(config: VaultMindConfig, toolName: string, args: Record<string, unknown>): void {
-  if (toolName === "vault.batch") {
-    if (!Array.isArray(args.operations)) return;
-    for (const op of args.operations) {
-      if (!op || typeof op !== "object") continue;
-      const batchOp = op as { method?: unknown; params?: unknown };
-      if (typeof batchOp.method !== "string") continue;
-      if (batchOp.method === "vault.batch") throw err(-32602, "Recursive batch not allowed");
-      const opArgs = {
-        ...((batchOp.params && typeof batchOp.params === "object" && !Array.isArray(batchOp.params)) ? batchOp.params as Record<string, unknown> : {}),
-      };
-      if (args.dryRun !== undefined && opArgs.dryRun === undefined) opArgs.dryRun = args.dryRun;
-      if (args.dry_run !== undefined && opArgs.dry_run === undefined) opArgs.dry_run = args.dry_run;
-      enforceCollaborationPolicy(config, batchOp.method, opArgs);
-    }
-    return;
-  }
-
-  const mutatingTargets = new Set([
-    "vault.create", "vault.modify", "vault.append", "vault.delete", "vault.rename", "vault.mkdir", "vault.writeAIOutput",
-    "multimodal.ingest",
-    "source.register",
-    "memory.passport.upsert", "memory.handoff.write", "memory.session.save",
-    "workflow.state.set", "workflow.checkpoint.add", "workflow.agent.join", "workflow.agent.step", "workflow.agent.checkpoint", "workflow.agent.leave",
-  ]);
-  if (!mutatingTargets.has(toolName)) return;
-  const alwaysRealWriteTargets = new Set([
-    "source.register",
-    "memory.passport.upsert",
-    "memory.handoff.write",
-    "memory.session.save",
-    "workflow.state.set", "workflow.checkpoint.add", "workflow.agent.join", "workflow.agent.step", "workflow.agent.checkpoint", "workflow.agent.leave",
-  ]);
-  if (!alwaysRealWriteTargets.has(toolName) && args.dryRun !== false && args.dry_run !== false) return;
-
-  const collab = config.collaboration;
-  const actor = collab?.actor;
-  if (!actor || collab?.enforce === false) return;
-
-  const policy = readVaultCollabPolicy(config.vault_path);
-  const role = collab?.role || (policy.agents?.includes(actor) ? "agent" : policy.team?.includes(actor) ? "human" : "agent");
-  const allowed = [
-    ...defaultAllowedPaths(actor, role),
-    ...(policy.allowed_write_paths ?? []),
-    ...(collab?.allowed_write_paths ?? []),
-  ];
-  const protectedPaths = [
-    ...DEFAULT_PROTECTED_PATHS,
-    ...(policy.protected_paths ?? []),
-    ...(collab?.protected_paths ?? []),
-  ];
-
-  for (const rawTarget of writeTargetPaths(config, toolName, args)) {
-    const target = normalizePolicyPath(rawTarget);
-    const protectedHit = matchAny(target, protectedPaths);
-    const allowedHit = allowed.length > 0 && matchAny(target, allowed);
-    if (protectedHit && !allowedHit) {
-      throw err(-32403, `Collaboration policy blocked ${toolName} by ${actor}: protected path ${target}`);
-    }
-    if (!allowedHit) {
-      throw err(-32403, `Collaboration policy blocked ${toolName} by ${actor}: ${target} is outside allowed write paths`);
-    }
-  }
-}
-
-function shouldAuditWrite(toolName: string, args: Record<string, unknown>): boolean {
-  if (toolName === "vault.batch") return args.dryRun === false || args.dry_run === false;
-  const alwaysRealWriteTargets = new Set([
-    "memory.passport.upsert",
-    "memory.handoff.write",
-    "memory.session.save",
-    "workflow.state.set", "workflow.checkpoint.add", "workflow.agent.join", "workflow.agent.step", "workflow.agent.checkpoint", "workflow.agent.leave",
-  ]);
-  if (alwaysRealWriteTargets.has(toolName)) return true;
-  const mutatingTargets = new Set([
-    "vault.create", "vault.modify", "vault.append", "vault.delete", "vault.rename", "vault.mkdir", "vault.writeAIOutput",
-    "multimodal.ingest",
-  ]);
-  return mutatingTargets.has(toolName) && (args.dryRun === false || args.dry_run === false);
-}
-
-function auditWrite(config: VaultMindConfig, toolName: string, args: Record<string, unknown>, result: unknown): void {
-  const actor = config.collaboration?.actor;
-  if (!actor || config.collaboration?.enforce === false || !shouldAuditWrite(toolName, args)) return;
-  try {
-    const day = new Date().toISOString().slice(0, 10);
-    const auditDir = resolve(config.vault_path, ".wiki-audit");
-    mkdirSync(auditDir, { recursive: true });
-    const entry = {
-      ts: new Date().toISOString(),
-      actor,
-      role: config.collaboration?.role,
-      tool: toolName,
-      targets: writeTargetPaths(config, toolName, args).map(normalizePolicyPath),
-      ok: true,
-      resultPath: typeof result === "object" && result !== null && "path" in result ? (result as { path?: unknown }).path : undefined,
-    };
-    appendFileSync(resolve(auditDir, `${day}.jsonl`), JSON.stringify(entry) + "\n", "utf-8");
-  } catch (e) {
-    process.stderr.write(`obsidian-llm-wiki: [warn] audit write failed: ${(e as Error).message}\n`);
   }
 }
 
@@ -1890,6 +1612,8 @@ async function main(): Promise<void> {
     vaultPath: config.vault_path,
     configPath: config.config_path,
   });
+  const operationsByName = new Map(allOps.map((operation) => [operation.name, operation]));
+  const writeVerdicts = new WeakMap<Record<string, unknown>, OperationWriteVerdict>();
 
   const ctx: OperationContext = {
     vault: vaultFs as VaultExecutor,
@@ -1911,71 +1635,19 @@ async function main(): Promise<void> {
     } catch { /* ignore */ }
   };
 
-  const resultPath = (result: unknown): string | undefined => {
-    if (typeof result !== "object" || result === null) return undefined;
-    const path = (result as { path?: unknown; outputPath?: unknown }).path;
-    if (typeof path === "string") return path;
-    const outputPath = (result as { outputPath?: unknown }).outputPath;
-    return typeof outputPath === "string" ? outputPath : undefined;
-  };
-
-  const isRealWrite = (params: Record<string, unknown>): boolean =>
-    params.dryRun === false || params.dry_run === false;
-
   const touchMarkdown = (relPath: unknown, event: "create" | "modify" | "delete"): void => {
     if (typeof relPath !== "string" || !relPath.endsWith(".md")) return;
     compileTrigger.onFileChange(relPath, event);
     if (event !== "delete") ingestMarkdownIntoVaultBrain(relPath);
   };
 
-  const handleWriteSideEffects = (toolName: string, params: Record<string, unknown>, result: unknown): void => {
-    if (toolName === "source.register") {
-      touchMarkdown(resultPath(result), "create");
+  const applyWriteEffect = (effect: WriteEffect): void => {
+    if (effect.type !== "touchMarkdown") return;
+    if ("paths" in effect) {
+      for (const path of effect.paths) touchMarkdown(path, effect.event);
       return;
     }
-  if (
-    toolName === "workflow.state.set" ||
-    toolName === "workflow.checkpoint.add" ||
-    toolName === "workflow.agent.join" ||
-    toolName === "workflow.agent.step" ||
-    toolName === "workflow.agent.checkpoint" ||
-    toolName === "workflow.agent.leave"
-  ) {
-    touchMarkdown(resultPath(result), "modify");
-    if (typeof result === "object" && result !== null) {
-      const eventsPath = (result as { eventsPath?: unknown }).eventsPath;
-      touchMarkdown(eventsPath, "modify");
-    }
-    return;
-  }
-
-    if (toolName === "vault.rename" && isRealWrite(params)) {
-      touchMarkdown(params.from, "delete");
-      touchMarkdown(params.to, "create");
-      return;
-    }
-
-    if (!isRealWrite(params)) return;
-
-    if (toolName === "vault.delete") {
-      touchMarkdown(params.path, "delete");
-      return;
-    }
-
-    if (
-      toolName === "vault.create" ||
-      toolName === "vault.modify" ||
-      toolName === "vault.write" ||
-      toolName === "vault.append" ||
-      toolName === "vault.writeAIOutput"
-    ) {
-      touchMarkdown(params.path ?? resultPath(result), toolName === "vault.create" ? "create" : "modify");
-      return;
-    }
-
-    if (toolName === "multimodal.ingest") {
-      touchMarkdown(params.outputPath ?? resultPath(result), "create");
-    }
+    touchMarkdown(effect.path, effect.event);
   };
 
   const server = createMcpServer({
@@ -1987,12 +1659,15 @@ async function main(): Promise<void> {
     prepareParams: (operation, toolArgs) => {
       checkAuth(config, toolArgs);
       const validatedArgs = validateParams(operation.params, toolArgs);
-      enforceCollaborationPolicy(config, operation.name, validatedArgs);
+      const verdict = adjudicateOperationWrite(ctx, operation, validatedArgs, operationsByName);
+      writeVerdicts.set(validatedArgs, verdict);
       return validatedArgs;
     },
     afterOperation: (operation, validatedArgs, result) => {
-      auditWrite(config, operation.name, validatedArgs, result);
-      handleWriteSideEffects(operation.name, validatedArgs, result);
+      const verdict = writeVerdicts.get(validatedArgs) ??
+        adjudicateOperationWrite(ctx, operation, validatedArgs, operationsByName);
+      auditOperationWrite(ctx, verdict, result);
+      for (const effect of writeEffectsForVerdict(ctx, verdict, result)) applyWriteEffect(effect);
     },
   });
 

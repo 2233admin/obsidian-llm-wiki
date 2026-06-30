@@ -10,6 +10,7 @@ import {
 import { basename, dirname, join } from 'node:path';
 import type { Operation, OperationContext } from '../core/types.js';
 import { makeErr } from '../core/types.js';
+import { memoryPolicyBasePath, resultPath, staticTargets, touchMarkdown } from '../core/write-policy.js';
 
 interface MemoryEntry {
   key: string;
@@ -393,14 +394,19 @@ export function makeMemoryOps(vaultPath: string): Operation[] {
   const markdown = new MarkdownMemory(vaultPath);
   return [
     {
-      name: 'memory.set',
+  name: 'memory.set',
       namespace: 'memory' as Operation['namespace'],
       description:
         'Persist a named memory across MCP sessions. Use for inferences, user preferences, ' +
         'project state, or any context that should survive server restarts. ' +
         'Storage: <vault>/_ai_memory.json (excluded from holon compilation).',
-      mutating: true,
-      params: {
+  mutating: true,
+  writePolicy: {
+    realWrite: 'always',
+    targets: staticTargets('_ai_memory.json'),
+    audit: 'required',
+  },
+  params: {
         key:   { type: 'string', required: true,  description: 'Unique memory key, e.g. "project/status" or "user_goal"' },
         value: { type: 'string', required: true,  description: 'Memory content (Markdown supported)' },
         tags:  { type: 'array',  required: false, description: 'Optional tags for grouping, e.g. ["project", "decision"]' },
@@ -452,11 +458,16 @@ export function makeMemoryOps(vaultPath: string): Operation[] {
     },
 
     {
-      name: 'memory.forget',
+  name: 'memory.forget',
       namespace: 'memory' as Operation['namespace'],
       description: 'Delete a persisted memory by key.',
-      mutating: true,
-      params: {
+    mutating: true,
+    writePolicy: {
+      realWrite: 'always',
+      targets: staticTargets('_ai_memory.json'),
+      audit: 'required',
+    },
+    params: {
         key: { type: 'string', required: true, description: 'Key to delete' },
       },
       handler: async (_ctx, params) => {
@@ -478,11 +489,17 @@ export function makeMemoryOps(vaultPath: string): Operation[] {
     },
 
     {
-      name: 'memory.passport.upsert',
+  name: 'memory.passport.upsert',
       namespace: 'memory' as Operation['namespace'],
       description: 'Create or replace the Markdown memory passport with Goal, Constraints, Decisions, Open Questions, and Pointers sections.',
-      mutating: true,
-      params: {
+    mutating: true,
+    writePolicy: {
+      realWrite: 'always',
+      targets: (ctx, params) => [`${memoryPolicyBasePath(ctx.config, params)}/passport.md`],
+      audit: 'required',
+      effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), 'modify')],
+    },
+    params: {
         project:       { type: 'string', required: false, description: 'Optional project key; stores under 10-Projects/<project>/agents/<actor>/memory' },
         goal:          { type: 'string', required: false, description: 'Project or agent goal' },
         constraints:   { type: 'array',  required: false, description: 'Constraints that future sessions should preserve' },
@@ -505,11 +522,17 @@ export function makeMemoryOps(vaultPath: string): Operation[] {
     },
 
     {
-      name: 'memory.handoff.write',
+  name: 'memory.handoff.write',
       namespace: 'memory' as Operation['namespace'],
       description: 'Create or replace the Markdown handoff with Current State, Next Steps, Risks, and Files sections.',
-      mutating: true,
-      params: {
+    mutating: true,
+    writePolicy: {
+      realWrite: 'always',
+      targets: (ctx, params) => [`${memoryPolicyBasePath(ctx.config, params)}/handoff.md`],
+      audit: 'required',
+      effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), 'modify')],
+    },
+    params: {
         project:      { type: 'string', required: false, description: 'Optional project key; stores under 10-Projects/<project>/agents/<actor>/memory' },
         currentState: { type: 'string', required: false, description: 'Where the work stands now' },
         nextSteps:    { type: 'array',  required: false, description: 'Concrete next actions' },
@@ -520,11 +543,17 @@ export function makeMemoryOps(vaultPath: string): Operation[] {
     },
 
     {
-      name: 'memory.session.save',
+  name: 'memory.session.save',
       namespace: 'memory' as Operation['namespace'],
       description: 'Save a timestamped Markdown session note with Summary, Decisions, Actions, and References sections.',
-      mutating: true,
-      params: {
+    mutating: true,
+    writePolicy: {
+      realWrite: 'always',
+      targets: (ctx, params) => [`${memoryPolicyBasePath(ctx.config, params)}/sessions/**`],
+      audit: 'required',
+      effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), 'create')],
+    },
+    params: {
         project:    { type: 'string', required: false, description: 'Optional project key; stores under 10-Projects/<project>/agents/<actor>/memory' },
         title:      { type: 'string', required: false, description: 'Optional session title used in the heading and filename slug' },
         summary:    { type: 'string', required: true,  description: 'Session summary' },

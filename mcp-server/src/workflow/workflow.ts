@@ -1,7 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import type { Operation, OperationContext } from '../core/types.js';
+import type { Operation, OperationContext, WriteEffect } from '../core/types.js';
 import { makeErr } from '../core/types.js';
+import { resultPath, touchMarkdown, workflowAgentPolicyBasePath, workflowPolicyBasePath } from '../core/write-policy.js';
 
 const STAGES = ['intake', 'understand', 'plan', 'execute', 'review', 'verify', 'archive'] as const;
 type WorkflowStage = (typeof STAGES)[number];
@@ -11,6 +12,13 @@ type CheckpointStatus = (typeof CHECKPOINT_STATUSES)[number];
 
 const AGENT_STAGES = ['think', 'plan', 'build', 'review', 'test', 'ship', 'reflect'] as const;
 type AgentStage = (typeof AGENT_STAGES)[number];
+
+const workflowAgentEffects = (_ctx: OperationContext, _params: Record<string, unknown>, result: unknown): WriteEffect[] => {
+  const eventsPath = typeof result === 'object' && result !== null
+    ? (result as { eventsPath?: unknown }).eventsPath
+    : undefined;
+  return [touchMarkdown(resultPath(result), 'modify'), touchMarkdown(eventsPath, 'modify')];
+};
 
 const AGENT_STATUSES = ['active', 'blocked', 'done', 'archived'] as const;
 type AgentStatus = (typeof AGENT_STATUSES)[number];
@@ -512,12 +520,18 @@ function agentDoctor(vaultPath: string, project: string, agent: string): Record<
 export function makeWorkflowOps(vaultPath: string): Operation[] {
   return [
     {
-      name: 'workflow.state.set',
+  name: 'workflow.state.set',
       namespace: 'workflow' as Operation['namespace'],
       description:
         'Create or update the vault-first agent workflow state at 01-Projects/<project>/workflow/status.md.',
-      mutating: true,
-      params: {
+  mutating: true,
+  writePolicy: {
+    realWrite: 'always',
+    targets: (_ctx, params) => [`${workflowPolicyBasePath(params)}/status.md`],
+    audit: 'required',
+    effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), 'modify')],
+  },
+  params: {
         project: { type: 'string', required: true, description: 'Project key' },
         stage: {
           type: 'string',
@@ -575,12 +589,18 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
       },
     },
     {
-      name: 'workflow.checkpoint.add',
+  name: 'workflow.checkpoint.add',
       namespace: 'workflow' as Operation['namespace'],
       description:
         'Append an agent workflow checkpoint under 01-Projects/<project>/workflow/checkpoints.md.',
-      mutating: true,
-      params: {
+    mutating: true,
+    writePolicy: {
+      realWrite: 'always',
+      targets: (_ctx, params) => [`${workflowPolicyBasePath(params)}/checkpoints.md`],
+      audit: 'required',
+      effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), 'modify')],
+    },
+    params: {
         project: { type: 'string', required: true, description: 'Project key' },
         stage: {
           type: 'string',
@@ -633,11 +653,17 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
       },
     },
     {
-      name: 'workflow.agent.join',
+  name: 'workflow.agent.join',
       namespace: 'workflow' as Operation['namespace'],
       description: 'Start or replace a vault-first agent lifetime under 01-Projects/<project>/agents/<agent>/.',
-      mutating: true,
-      params: {
+    mutating: true,
+    writePolicy: {
+      realWrite: 'always',
+      targets: (ctx, params) => [`${workflowAgentPolicyBasePath(ctx.config, params)}/**`],
+      audit: 'required',
+      effects: workflowAgentEffects,
+    },
+    params: {
         project: { type: 'string', required: true, description: 'Project key' },
         agent: { type: 'string', required: false, description: 'Agent id; defaults collaboration actor' },
         role: { type: 'string', required: false, description: 'Agent role, e.g. manager|worker|reviewer|verifier' },
@@ -687,12 +713,18 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
       },
     },
     {
-      name: 'workflow.agent.step',
+  name: 'workflow.agent.step',
       namespace: 'workflow' as Operation['namespace'],
       description:
         'Move a joined agent through think->plan->build->review->test->ship->reflect with review/test rework back to build.',
-      mutating: true,
-      params: {
+    mutating: true,
+    writePolicy: {
+      realWrite: 'always',
+      targets: (ctx, params) => [`${workflowAgentPolicyBasePath(ctx.config, params)}/**`],
+      audit: 'required',
+      effects: workflowAgentEffects,
+    },
+    params: {
         project: { type: 'string', required: true, description: 'Project key' },
         agent: { type: 'string', required: false, description: 'Agent id; defaults collaboration actor' },
         stage: {
@@ -749,11 +781,17 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
       },
     },
     {
-      name: 'workflow.agent.checkpoint',
+  name: 'workflow.agent.checkpoint',
       namespace: 'workflow' as Operation['namespace'],
       description: 'Append an event to a joined agent lifetime without changing the current stage.',
-      mutating: true,
-      params: {
+    mutating: true,
+    writePolicy: {
+      realWrite: 'always',
+      targets: (ctx, params) => [`${workflowAgentPolicyBasePath(ctx.config, params)}/**`],
+      audit: 'required',
+      effects: workflowAgentEffects,
+    },
+    params: {
         project: { type: 'string', required: true, description: 'Project key' },
         agent: { type: 'string', required: false, description: 'Agent id; defaults collaboration actor' },
         status: {
@@ -789,11 +827,17 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
       },
     },
     {
-      name: 'workflow.agent.leave',
+  name: 'workflow.agent.leave',
       namespace: 'workflow' as Operation['namespace'],
       description: 'Archive a joined agent lifetime while preserving its lifetime and event log in the vault.',
-      mutating: true,
-      params: {
+    mutating: true,
+    writePolicy: {
+      realWrite: 'always',
+      targets: (ctx, params) => [`${workflowAgentPolicyBasePath(ctx.config, params)}/**`],
+      audit: 'required',
+      effects: workflowAgentEffects,
+    },
+    params: {
         project: { type: 'string', required: true, description: 'Project key' },
         agent: { type: 'string', required: false, description: 'Agent id; defaults collaboration actor' },
         summary: { type: 'string', required: false, description: 'Leave summary' },

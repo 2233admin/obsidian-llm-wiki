@@ -1,6 +1,7 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import type { Operation } from '../core/types.js';
+import { resultPath, targetParams, touchMarkdown } from '../core/write-policy.js';
 import type { ContextCoreLoader, Holon } from './loader.js';
 
 interface GraphNode {
@@ -144,8 +145,15 @@ export function makeGraphOps(loader: ContextCoreLoader, vaultPath: string): Oper
       description:
         'Export a causal subgraph as Mermaid diagram, Obsidian Canvas JSON, or Graphviz DOT. ' +
         'When format=canvas and output_path is given, writes the .canvas file into the vault.',
-      mutating: false,
-      params: {
+ mutating: true,
+ writePolicy: {
+ realWrite: 'always',
+ shouldWrite: (_ctx, params) => params.format === 'canvas' && typeof params.output_path === 'string',
+ targets: targetParams('output_path'),
+ audit: 'required',
+ effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), 'modify')],
+ },
+ params: {
         id:          { type: 'string', required: true,  description: 'Starting holon ID' },
         depth:       { type: 'number', required: false, description: 'BFS depth (default: 3)', default: 3 },
         format:      { type: 'string', required: false, description: 'mermaid | canvas | dot (default: mermaid)', enum: ['mermaid', 'canvas', 'dot'], default: 'mermaid' },

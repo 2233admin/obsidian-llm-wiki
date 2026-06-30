@@ -2990,7 +2990,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve6.call(this, root, ref);
+      let _sch = resolve7.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a2 = root.localRefs) === null || _a2 === void 0 ? void 0 : _a2[ref];
         const { schemaId } = this.opts;
@@ -3017,7 +3017,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve6(root, ref) {
+    function resolve7(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -3592,7 +3592,7 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve6(baseURI, relativeURI, options) {
+    function resolve7(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const resolved = resolveComponent(parse3(baseURI, schemelessOptions), parse3(relativeURI, schemelessOptions), schemelessOptions, true);
       schemelessOptions.skipEscape = true;
@@ -3819,7 +3819,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve: resolve6,
+      resolve: resolve7,
       resolveComponent,
       equal,
       serialize,
@@ -9843,7 +9843,7 @@ var require_dist2 = __commonJS({
     function parse3(stream, callback) {
       const parser = new parser_1.Parser();
       stream.on("data", (buffer) => parser.parse(buffer, callback));
-      return new Promise((resolve6) => stream.on("end", () => resolve6()));
+      return new Promise((resolve7) => stream.on("end", () => resolve7()));
     }
     exports.parse = parse3;
   }
@@ -10574,12 +10574,12 @@ var require_client = __commonJS({
           this._connect(callback);
           return;
         }
-        return new this._Promise((resolve6, reject) => {
+        return new this._Promise((resolve7, reject) => {
           this._connect((error48) => {
             if (error48) {
               reject(error48);
             } else {
-              resolve6(this);
+              resolve7(this);
             }
           });
         });
@@ -10925,8 +10925,8 @@ var require_client = __commonJS({
           readTimeout = config2.query_timeout || this.connectionParameters.query_timeout;
           query = new Query2(config2, values, callback);
           if (!query.callback) {
-            result = new this._Promise((resolve6, reject) => {
-              query.callback = (err2, res) => err2 ? reject(err2) : resolve6(res);
+            result = new this._Promise((resolve7, reject) => {
+              query.callback = (err2, res) => err2 ? reject(err2) : resolve7(res);
             }).catch((err2) => {
               Error.captureStackTrace(err2);
               throw err2;
@@ -11003,8 +11003,8 @@ var require_client = __commonJS({
         if (cb) {
           this.connection.once("end", cb);
         } else {
-          return new this._Promise((resolve6) => {
-            this.connection.once("end", resolve6);
+          return new this._Promise((resolve7) => {
+            this.connection.once("end", resolve7);
           });
         }
       }
@@ -11053,8 +11053,8 @@ var require_pg_pool = __commonJS({
       const cb = function(err2, client) {
         err2 ? rej(err2) : res(client);
       };
-      const result = new Promise2(function(resolve6, reject) {
-        res = resolve6;
+      const result = new Promise2(function(resolve7, reject) {
+        res = resolve7;
         rej = reject;
       }).catch((err2) => {
         Error.captureStackTrace(err2);
@@ -11115,7 +11115,7 @@ var require_pg_pool = __commonJS({
         if (typeof Promise2.try === "function") {
           return Promise2.try(f);
         }
-        return new Promise2((resolve6) => resolve6(f()));
+        return new Promise2((resolve7) => resolve7(f()));
       }
       _isFull() {
         return this._clients.length >= this.options.max;
@@ -11508,8 +11508,8 @@ var require_query2 = __commonJS({
     NativeQuery.prototype._getPromise = function() {
       if (this._promise) return this._promise;
       this._promise = new Promise(
-        function(resolve6, reject) {
-          this._once("end", resolve6);
+        function(resolve7, reject) {
+          this._once("end", resolve7);
           this._once("error", reject);
         }.bind(this)
       );
@@ -11686,12 +11686,12 @@ var require_client2 = __commonJS({
         this._connect(callback);
         return;
       }
-      return new this._Promise((resolve6, reject) => {
+      return new this._Promise((resolve7, reject) => {
         this._connect((error48) => {
           if (error48) {
             reject(error48);
           } else {
-            resolve6(this);
+            resolve7(this);
           }
         });
       });
@@ -11715,8 +11715,8 @@ var require_client2 = __commonJS({
         query = new NativeQuery(config2, values, callback);
         if (!query.callback) {
           let resolveOut, rejectOut;
-          result = new this._Promise((resolve6, reject) => {
-            resolveOut = resolve6;
+          result = new this._Promise((resolve7, reject) => {
+            resolveOut = resolve7;
             rejectOut = reject;
           }).catch((err2) => {
             Error.captureStackTrace(err2);
@@ -11776,8 +11776,8 @@ var require_client2 = __commonJS({
       }
       let result;
       if (!cb) {
-        result = new this._Promise(function(resolve6, reject) {
-          cb = (err2) => err2 ? reject(err2) : resolve6();
+        result = new this._Promise(function(resolve7, reject) {
+          cb = (err2) => err2 ? reject(err2) : resolve7();
         });
       }
       this.native.end(function() {
@@ -36771,7 +36771,7 @@ var Protocol = class {
           return;
         }
         const pollInterval = task2.pollInterval ?? this._options?.defaultTaskPollInterval ?? 1e3;
-        await new Promise((resolve6) => setTimeout(resolve6, pollInterval));
+        await new Promise((resolve7) => setTimeout(resolve7, pollInterval));
         options?.signal?.throwIfAborted();
       }
     } catch (error48) {
@@ -36788,7 +36788,7 @@ var Protocol = class {
    */
   request(request, resultSchema, options) {
     const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options ?? {};
-    return new Promise((resolve6, reject) => {
+    return new Promise((resolve7, reject) => {
       const earlyReject = (error48) => {
         reject(error48);
       };
@@ -36866,7 +36866,7 @@ var Protocol = class {
           if (!parseResult.success) {
             reject(parseResult.error);
           } else {
-            resolve6(parseResult.data);
+            resolve7(parseResult.data);
           }
         } catch (error48) {
           reject(error48);
@@ -37127,12 +37127,12 @@ var Protocol = class {
       }
     } catch {
     }
-    return new Promise((resolve6, reject) => {
+    return new Promise((resolve7, reject) => {
       if (signal.aborted) {
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
         return;
       }
-      const timeoutId = setTimeout(resolve6, interval);
+      const timeoutId = setTimeout(resolve7, interval);
       signal.addEventListener("abort", () => {
         clearTimeout(timeoutId);
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
@@ -38232,7 +38232,7 @@ var McpServer = class {
     let task = createTaskResult.task;
     const pollInterval = task.pollInterval ?? 5e3;
     while (task.status !== "completed" && task.status !== "failed" && task.status !== "cancelled") {
-      await new Promise((resolve6) => setTimeout(resolve6, pollInterval));
+      await new Promise((resolve7) => setTimeout(resolve7, pollInterval));
       const updatedTask = await extra.taskStore.getTask(taskId);
       if (!updatedTask) {
         throw new McpError(ErrorCode.InternalError, `Task ${taskId} not found during polling`);
@@ -38881,12 +38881,12 @@ var StdioServerTransport = class {
     this.onclose?.();
   }
   send(message) {
-    return new Promise((resolve6) => {
+    return new Promise((resolve7) => {
       const json2 = serializeMessage(message);
       if (this._stdout.write(json2)) {
-        resolve6();
+        resolve7();
       } else {
-        this._stdout.once("drain", resolve6);
+        this._stdout.once("drain", resolve7);
       }
     });
   }
@@ -39030,8 +39030,8 @@ function formatInternalError(operationName, error48) {
 }
 
 // dist/index.js
-import { readFileSync as readFileSync16, existsSync as existsSync14, readdirSync as readdirSync10, statSync as statSync6, realpathSync, writeFileSync as writeFileSync9, appendFileSync as appendFileSync2, rmSync as rmSync4, renameSync, mkdirSync as mkdirSync10 } from "node:fs";
-import { resolve as resolve5, join as join19, basename as basename6, extname as extname2, relative as relative6, dirname as dirname11, posix, isAbsolute as pathIsAbsolute2 } from "node:path";
+import { readFileSync as readFileSync17, existsSync as existsSync15, readdirSync as readdirSync10, statSync as statSync6, realpathSync, writeFileSync as writeFileSync9, appendFileSync as appendFileSync3, rmSync as rmSync4, renameSync, mkdirSync as mkdirSync11 } from "node:fs";
+import { resolve as resolve6, join as join19, basename as basename6, extname as extname2, relative as relative6, dirname as dirname11, posix, isAbsolute as pathIsAbsolute2 } from "node:path";
 import { fileURLToPath as fileURLToPath3, pathToFileURL } from "node:url";
 
 // dist/adapters/filesystem.js
@@ -39399,7 +39399,7 @@ var MemUAdapter = class {
       query_vec: queryVec && queryVec.length === 1024 ? Array.from(queryVec) : null,
       max_nodes: maxNodes
     };
-    return new Promise((resolve6) => {
+    return new Promise((resolve7) => {
       let stdout = "";
       let stderr = "";
       let settled = false;
@@ -39415,7 +39415,7 @@ var MemUAdapter = class {
         proc.kill("SIGKILL");
         process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli timeout after ${this.graphRecallTimeoutMs}ms
 `);
-        resolve6(null);
+        resolve7(null);
       }, this.graphRecallTimeoutMs);
       proc.stdout.on("data", (d) => {
         stdout += d.toString("utf-8");
@@ -39430,7 +39430,7 @@ var MemUAdapter = class {
         clearTimeout(timer);
         process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli spawn failed: ${err2.message}
 `);
-        resolve6(null);
+        resolve7(null);
       });
       proc.on("close", (code) => {
         if (settled)
@@ -39440,17 +39440,17 @@ var MemUAdapter = class {
         if (code !== 0) {
           process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli exit ${code}: ${stderr.slice(0, 400)}
 `);
-          resolve6(null);
+          resolve7(null);
           return;
         }
         try {
           const parsed = JSON.parse(stdout);
-          resolve6(parsed);
+          resolve7(parsed);
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli stdout JSON parse failed: ${msg}
 `);
-          resolve6(null);
+          resolve7(null);
         }
       });
       try {
@@ -39463,7 +39463,7 @@ var MemUAdapter = class {
         const msg = e instanceof Error ? e.message : String(e);
         process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli stdin write failed: ${msg}
 `);
-        resolve6(null);
+        resolve7(null);
       }
     });
   }
@@ -39473,7 +39473,7 @@ var MemUAdapter = class {
    * unavailable or times out.
    */
   async runMemuSearchPy(query, vec, limit) {
-    return new Promise((resolve6) => {
+    return new Promise((resolve7) => {
       let stdout = "";
       let stderr = "";
       let settled = false;
@@ -39491,7 +39491,7 @@ var MemUAdapter = class {
       } else if (vec) {
         args.push("--embed", JSON.stringify(Array.from(vec)));
       } else {
-        resolve6([]);
+        resolve7([]);
         return;
       }
       const proc = spawn(this.memuSearchPythonExe, args, {
@@ -39505,7 +39505,7 @@ var MemUAdapter = class {
         proc.kill("SIGKILL");
         process.stderr.write(`obsidian-llm-wiki: [warn] memu_search.py timeout after ${this.memuSearchTimeoutMs}ms
 `);
-        resolve6([]);
+        resolve7([]);
       }, this.memuSearchTimeoutMs);
       proc.stdout.on("data", (d) => {
         stdout += d.toString("utf-8");
@@ -39520,7 +39520,7 @@ var MemUAdapter = class {
         clearTimeout(timer);
         process.stderr.write(`obsidian-llm-wiki: [warn] memu_search.py spawn failed: ${err2.message}
 `);
-        resolve6([]);
+        resolve7([]);
       });
       proc.on("close", (code) => {
         if (settled)
@@ -39530,17 +39530,17 @@ var MemUAdapter = class {
         if (code !== 0) {
           process.stderr.write(`obsidian-llm-wiki: [warn] memu_search.py exit ${code}: ${stderr.slice(0, 300)}
 `);
-          resolve6([]);
+          resolve7([]);
           return;
         }
         try {
           const parsed = JSON.parse(stdout);
-          resolve6(this.mapMemuSearchPyResult(parsed));
+          resolve7(this.mapMemuSearchPyResult(parsed));
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           process.stderr.write(`obsidian-llm-wiki: [warn] memu_search.py stdout JSON parse failed: ${msg}
 `);
-          resolve6([]);
+          resolve7([]);
         }
       });
     });
@@ -39704,12 +39704,12 @@ var ObsidianAdapter = class {
       process.stderr.write("vault-mind: [warn] ~/.obsidian-ws-port not found -- obsidian adapter disabled\n");
       return;
     }
-    await new Promise((resolve6) => {
+    await new Promise((resolve7) => {
       const ws = new wrapper_default(`ws://127.0.0.1:${info.port}`);
       const connectTimer = setTimeout(() => {
         ws.terminate();
         process.stderr.write("vault-mind: [warn] obsidian WS connect timeout -- adapter disabled\n");
-        resolve6();
+        resolve7();
       }, CONNECT_TIMEOUT_MS);
       ws.once("open", async () => {
         clearTimeout(connectTimer);
@@ -39729,13 +39729,13 @@ var ObsidianAdapter = class {
           this.ws = null;
           ws.terminate();
         }
-        resolve6();
+        resolve7();
       });
       ws.once("error", (e) => {
         clearTimeout(connectTimer);
         process.stderr.write(`vault-mind: [warn] obsidian WS error: ${e.message} -- adapter disabled
 `);
-        resolve6();
+        resolve7();
       });
     });
   }
@@ -39746,8 +39746,8 @@ var ObsidianAdapter = class {
     if (this.ws) {
       const ws = this.ws;
       this.ws = null;
-      await new Promise((resolve6) => {
-        ws.once("close", resolve6);
+      await new Promise((resolve7) => {
+        ws.once("close", resolve7);
         ws.close();
       });
     }
@@ -39864,7 +39864,7 @@ var ObsidianAdapter = class {
       cb(event);
   }
   call(method, params) {
-    return new Promise((resolve6, reject) => {
+    return new Promise((resolve7, reject) => {
       if (!this.ws || this.ws.readyState !== wrapper_default.OPEN) {
         reject(new Error("WebSocket not connected"));
         return;
@@ -39874,7 +39874,7 @@ var ObsidianAdapter = class {
         this.pending.delete(id);
         reject(new Error(`RPC timeout: ${method} (${this.timeout}ms)`));
       }, this.timeout);
-      this.pending.set(id, { resolve: resolve6, reject, timer });
+      this.pending.set(id, { resolve: resolve7, reject, timer });
       this.ws.send(JSON.stringify({ jsonrpc: "2.0", id, method, params }), (e) => {
         if (e) {
           clearTimeout(timer);
@@ -40114,12 +40114,12 @@ var QmdAdapter = class {
   async dispose() {
   }
   runQmd(args) {
-    return new Promise((resolve6) => {
+    return new Promise((resolve7) => {
       let proc;
       try {
         proc = spawn2(this.binary, [...this.binaryArgs, ...args], { stdio: ["ignore", "pipe", "pipe"] });
       } catch {
-        resolve6({ stdout: "", stderr: "spawn failed synchronously", code: -1 });
+        resolve7({ stdout: "", stderr: "spawn failed synchronously", code: -1 });
         return;
       }
       let stdout = "";
@@ -40131,10 +40131,10 @@ var QmdAdapter = class {
         stderr += d.toString("utf-8");
       });
       proc.on("error", () => {
-        resolve6({ stdout, stderr: stderr || "spawn error", code: -1 });
+        resolve7({ stdout, stderr: stderr || "spawn error", code: -1 });
       });
       proc.on("close", (code) => {
-        resolve6({ stdout, stderr, code: code ?? -1 });
+        resolve7({ stdout, stderr, code: code ?? -1 });
       });
     });
   }
@@ -41517,16 +41517,373 @@ var CompileTrigger = class {
 import { execFile as execFile5, spawnSync } from "node:child_process";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 import { promisify as promisify5 } from "node:util";
-import { existsSync as existsSync13, mkdirSync as mkdirSync9, readdirSync as readdirSync9, readFileSync as readFileSync15, writeFileSync as writeFileSync8 } from "node:fs";
+import { existsSync as existsSync14, mkdirSync as mkdirSync10, readdirSync as readdirSync9, readFileSync as readFileSync16, writeFileSync as writeFileSync8 } from "node:fs";
 import { dirname as dirname10, join as join18, relative as relative5 } from "node:path";
 
+// dist/core/write-policy.js
+import { appendFileSync, existsSync as existsSync3, mkdirSync, readFileSync as readFileSync5 } from "node:fs";
+import { resolve as resolve3 } from "node:path";
+
+// dist/core/validate.js
+function rejectDangerousRegex(pattern) {
+  if (/(\([^)]*[+*}]\s*\))[+*{]/.test(pattern))
+    throw new ValidationError("regex rejected: nested quantifiers (ReDoS risk)");
+  if (/\([^)]*\|[^)]*\)[+*{]/.test(pattern) && /(\w)\|.*\1/.test(pattern))
+    throw new ValidationError("regex rejected: overlapping alternation (ReDoS risk)");
+}
+var ValidationError = class extends Error {
+  code = -32602;
+  constructor(message) {
+    super(message);
+    this.name = "ValidationError";
+  }
+};
+function validateParams(schema, raw) {
+  const result = {};
+  for (const [key, def] of Object.entries(schema)) {
+    let val = raw[key];
+    if (val === void 0 || val === null) {
+      if (def.required) {
+        throw new ValidationError(`Missing required param: ${key}`);
+      }
+      if (def.default !== void 0) {
+        result[key] = def.default;
+      }
+      continue;
+    }
+    const actual = Array.isArray(val) ? "array" : typeof val;
+    if (def.type !== "object" && def.type !== "array") {
+      if (actual !== def.type) {
+        if (def.type === "number" && typeof val === "string" && !isNaN(Number(val))) {
+          val = Number(val);
+        } else if (def.type === "boolean" && typeof val === "string") {
+          val = val === "true";
+        } else {
+          throw new ValidationError(`Param ${key}: expected ${def.type}, got ${actual}`);
+        }
+      }
+    }
+    if (def.enum && def.enum.length > 0) {
+      if (!def.enum.includes(val)) {
+        throw new ValidationError(`Param ${key}: must be one of [${def.enum.join(", ")}], got ${val}`);
+      }
+    }
+    result[key] = val;
+  }
+  return result;
+}
+
+// dist/core/write-policy.js
+var DEFAULT_PROTECTED_PATHS = ["20-Decisions/**", "30-Architecture/**", "40-Runbooks/**", "README.md"];
+var globCache = /* @__PURE__ */ new Map();
+function adjudicateOperationWrite(ctx, operation, params, registry2) {
+  const verdict = operation.name === "vault.batch" ? adjudicateBatchWrite(ctx, operation, params, registry2) : adjudicateSingleWrite(ctx, operation, params);
+  if (verdict.realWrite && verdict.targets.length === 0) {
+    throw makeErr(-32602, `Operation Write Policy for ${operation.name} produced no write targets`);
+  }
+  if (verdict.realWrite) {
+    enforceCollaborationPolicy(ctx.config, operation.name, verdict.targets);
+  }
+  return verdict;
+}
+function auditOperationWrite(ctx, verdict, result) {
+  const actor = ctx.config.collaboration?.actor;
+  if (!verdict.realWrite || verdict.audit === "none" || !actor || ctx.config.collaboration?.enforce === false)
+    return;
+  try {
+    const day = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+    const auditDir = resolve3(ctx.config.vault_path, ".wiki-audit");
+    mkdirSync(auditDir, { recursive: true });
+    const auditResult = auditResultForVerdict(verdict, result);
+    const entry = {
+      ts: (/* @__PURE__ */ new Date()).toISOString(),
+      actor,
+      role: ctx.config.collaboration?.role,
+      tool: verdict.operation.name,
+      targets: verdict.targets.map(normalizePolicyPath),
+      ok: auditResult.ok,
+      resultPaths: resultPaths(result),
+      children: auditResult.children
+    };
+    appendFileSync(resolve3(auditDir, `${day}.jsonl`), JSON.stringify(entry) + "\n", "utf-8");
+  } catch (e) {
+    process.stderr.write(`obsidian-llm-wiki: [warn] audit write failed: ${e.message}
+`);
+  }
+}
+function writeEffectsForVerdict(ctx, verdict, result) {
+  if (!verdict.realWrite)
+    return [];
+  if (verdict.children) {
+    const batchResults = Array.isArray(result?.results) ? result.results : [];
+    return verdict.children.flatMap((child, index) => {
+      const childResult = batchResults[index];
+      if (childResult?.ok !== true)
+        return [];
+      return writeEffectsForVerdict(ctx, child, childResult?.result);
+    });
+  }
+  if (!verdict.operation.mutating)
+    return [];
+  return verdict.operation.writePolicy.effects?.(ctx, verdict.params, result) ?? [];
+}
+function dryRunFalse(params) {
+  return params.dryRun === false || params.dry_run === false;
+}
+function targetParams(...keys) {
+  return (_ctx, params) => keys.flatMap((key) => typeof params[key] === "string" ? [params[key]] : []);
+}
+function staticTargets(...targets) {
+  return () => targets;
+}
+function targetOrWildcard(param, fallback) {
+  return (_ctx, params) => typeof params[param] === "string" ? [params[param]] : [fallback];
+}
+function memoryPolicyBasePath(config2, args) {
+  const actor = safeMemorySegment(config2.collaboration?.actor || process.env.VAULT_MIND_ACTOR || "agent", "actor");
+  const project = typeof args.project === "string" && args.project.trim() ? safeMemorySegment(args.project, "project") : void 0;
+  return project ? `10-Projects/${project}/agents/${actor}/memory` : `00-Inbox/Agent-Memory/${actor}`;
+}
+function projectPolicyBasePath(args) {
+  return `01-Projects/${policyProjectSegment(args)}`;
+}
+function workflowPolicyBasePath(args) {
+  return `${projectPolicyBasePath(args)}/workflow`;
+}
+function workflowAgentPolicyBasePath(config2, args) {
+  return `${projectPolicyBasePath(args)}/agents/${workflowAgentPolicySegment(config2, args)}`;
+}
+function sourcePolicyTargetPaths(args) {
+  if (typeof args.project === "string" && args.project.trim() && typeof args.platform === "string" && args.platform.trim()) {
+    const project = safeMemorySegment(args.project, "project");
+    const platform = safeMemorySegment(args.platform, "platform");
+    return ["_llmwiki/source-registry.json", `10-Projects/${project}/sources/${platform}/**`];
+  }
+  if (typeof args.platform === "string" && args.platform.trim()) {
+    const platform = safeMemorySegment(args.platform, "platform");
+    return ["_llmwiki/source-registry.json", `00-Inbox/Sources/${platform}/**`];
+  }
+  return ["_llmwiki/source-registry.json", "00-Inbox/Sources/**", "10-Projects/*/sources/**"];
+}
+function touchMarkdown(path, event) {
+  return { type: "touchMarkdown", path, event };
+}
+function resultPath(result) {
+  if (typeof result !== "object" || result === null)
+    return void 0;
+  const path = result.path;
+  if (typeof path === "string")
+    return path;
+  const outputPath = result.outputPath;
+  if (typeof outputPath === "string")
+    return outputPath;
+  const writtenTo = result.written_to;
+  if (typeof writtenTo === "string")
+    return writtenTo;
+  const written = result.written;
+  return typeof written === "string" ? written : void 0;
+}
+function normalizePolicyPath(path) {
+  return path.replace(/\\/g, "/").replace(/^\/+/, "");
+}
+function adjudicateSingleWrite(ctx, operation, params) {
+  if (!operation.mutating) {
+    return { operation, params, realWrite: false, targets: [], audit: "none" };
+  }
+  const triggerAllowsWrite = operation.writePolicy.realWrite === "always" || dryRunFalse(params);
+  const realWrite = triggerAllowsWrite && (operation.writePolicy.shouldWrite?.(ctx, params) ?? true);
+  const targets = realWrite ? operation.writePolicy.targets(ctx, params).map(normalizePolicyPath) : [];
+  return { operation, params, realWrite, targets, audit: operation.writePolicy.audit };
+}
+function adjudicateBatchWrite(ctx, operation, params, registry2) {
+  if (!Array.isArray(params.operations)) {
+    return { operation, params, realWrite: false, targets: [], audit: "none" };
+  }
+  const children = params.operations.map((item) => {
+    if (!item || typeof item !== "object")
+      throw makeErr(-32602, "Invalid batch operation");
+    const method = item.method;
+    if (typeof method !== "string")
+      throw makeErr(-32602, "Batch operation method required");
+    if (method === "vault.batch")
+      throw makeErr(-32602, "Recursive batch not allowed");
+    const child = registry2.get(method);
+    if (!child)
+      throw makeErr(-32602, `Unknown batch operation: ${method}`);
+    const rawParams = item.params;
+    const childParams = {
+      ...rawParams && typeof rawParams === "object" && !Array.isArray(rawParams) ? rawParams : {}
+    };
+    if (params.dryRun !== void 0 && childParams.dryRun === void 0)
+      childParams.dryRun = params.dryRun;
+    if (params.dry_run !== void 0 && childParams.dry_run === void 0)
+      childParams.dry_run = params.dry_run;
+    const validated = validateParams(child.params, childParams);
+    return adjudicateOperationWrite(ctx, child, validated, registry2);
+  });
+  return {
+    operation,
+    params,
+    realWrite: children.some((child) => child.realWrite),
+    targets: children.flatMap((child) => child.targets),
+    audit: children.some((child) => child.realWrite && child.audit === "required") ? "required" : "none",
+    children
+  };
+}
+function enforceCollaborationPolicy(config2, toolName, targets) {
+  const collab = config2.collaboration;
+  const actor = collab?.actor;
+  if (!actor || collab?.enforce === false || targets.length === 0)
+    return;
+  const policy = readVaultCollabPolicy(config2.vault_path);
+  const role = collab?.role || (policy.agents?.includes(actor) ? "agent" : policy.team?.includes(actor) ? "human" : "agent");
+  const allowed = [
+    ...defaultAllowedPaths(actor, role),
+    ...policy.allowed_write_paths ?? [],
+    ...collab?.allowed_write_paths ?? []
+  ];
+  const protectedPaths = [
+    ...DEFAULT_PROTECTED_PATHS,
+    ...policy.protected_paths ?? [],
+    ...collab?.protected_paths ?? []
+  ];
+  for (const target of targets) {
+    const protectedHit = matchAny(target, protectedPaths);
+    const allowedHit = allowed.length > 0 && matchAny(target, allowed);
+    if (protectedHit && !allowedHit) {
+      throw makeErr(-32403, `Collaboration policy blocked ${toolName} by ${actor}: protected path ${target}`);
+    }
+    if (!allowedHit) {
+      throw makeErr(-32403, `Collaboration policy blocked ${toolName} by ${actor}: ${target} is outside allowed write paths`);
+    }
+  }
+}
+function readVaultCollabPolicy(vaultPath) {
+  const policyPath = resolve3(vaultPath, ".vault-collab.json");
+  if (!existsSync3(policyPath))
+    return {};
+  try {
+    const parsed = JSON.parse(readFileSync5(policyPath, "utf-8"));
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+      throw new Error("expected a JSON object");
+    return parsed;
+  } catch (e) {
+    throw makeErr(-32602, `.vault-collab.json invalid: ${e.message}`);
+  }
+}
+function globToRegExp(glob) {
+  const cached2 = globCache.get(glob);
+  if (cached2)
+    return cached2;
+  let pattern = "";
+  for (let i = 0; i < glob.length; i += 1) {
+    const ch = glob[i];
+    const next = glob[i + 1];
+    if (ch === "*" && next === "*") {
+      pattern += ".*";
+      i += 1;
+    } else if (ch === "*") {
+      pattern += "[^/]*";
+    } else if (ch === "?") {
+      pattern += "[^/]";
+    } else {
+      pattern += ch.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+    }
+  }
+  const re = new RegExp(`^${pattern}$`);
+  globCache.set(glob, re);
+  return re;
+}
+function matchAny(path, patterns) {
+  return patterns.some((pattern) => globToRegExp(normalizePolicyPath(pattern)).test(path));
+}
+function safeMemorySegment(value, label) {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "." || trimmed === ".." || trimmed.includes("/") || trimmed.includes("\\") || /^[A-Za-z]:/.test(trimmed) || trimmed.startsWith("//")) {
+    throw makeErr(-32602, `${label} must be single safe path segment`);
+  }
+  return trimmed;
+}
+function slugPolicySegment(value, label) {
+  const segment = value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  if (!segment)
+    throw makeErr(-32602, `${label} must contain one [a-z0-9] character`);
+  return segment;
+}
+function policyProjectSegment(args) {
+  if (typeof args.project !== "string" || !args.project.trim()) {
+    throw makeErr(-32602, "project required for write policy");
+  }
+  return slugPolicySegment(args.project, "project");
+}
+function workflowAgentPolicySegment(config2, args) {
+  const raw = typeof args.agent === "string" && args.agent.trim() ? args.agent : config2.collaboration?.actor || process.env.VAULT_MIND_ACTOR || "agent";
+  return slugPolicySegment(raw, "agent");
+}
+function defaultAllowedPaths(actor, role) {
+  const workflowActor = slugPolicySegment(actor, "actor");
+  if (role === "human")
+    return [`00-Inbox/${actor}`, `00-Inbox/${actor}/**`];
+  return [
+    `00-Inbox/AI-Output/${actor}`,
+    `00-Inbox/AI-Output/${actor}/**`,
+    `00-Inbox/Agent-Memory/${actor}`,
+    `00-Inbox/Agent-Memory/${actor}/**`,
+    `10-Projects/*/agents/${actor}`,
+    `10-Projects/*/agents/${actor}/**`,
+    `10-Projects/*/project.md`,
+    `10-Projects/*/docket/**`,
+    `01-Projects/*/_project.md`,
+    `01-Projects/*/issues/**`,
+    `01-Projects/*/views/**`,
+    `01-Projects/*/workflow/**`,
+    `01-Projects/*/agents/${workflowActor}`,
+    `01-Projects/*/agents/${workflowActor}/**`
+  ];
+}
+function auditResultForVerdict(verdict, result) {
+  if (!verdict.children)
+    return { ok: resultSucceeded(result) };
+  const batchResults = Array.isArray(result?.results) ? result.results : [];
+  const children = verdict.children.map((child, index) => {
+    const childResult = batchResults[index];
+    const ok = childResult?.ok === true;
+    return {
+      tool: child.operation.name,
+      ok,
+      realWrite: child.realWrite,
+      targets: child.targets.map(normalizePolicyPath),
+      resultPaths: ok ? resultPaths(childResult?.result) : [],
+      error: ok ? void 0 : childResult?.error
+    };
+  });
+  return { ok: children.every((child) => child.ok), children };
+}
+function resultSucceeded(result) {
+  if (typeof result !== "object" || result === null || !("ok" in result))
+    return true;
+  return result.ok !== false;
+}
+function resultPaths(result) {
+  if (typeof result !== "object" || result === null)
+    return [];
+  const paths = [
+    result.path,
+    result.outputPath,
+    result.written_to,
+    result.written,
+    result.eventsPath
+  ];
+  return paths.filter((path) => typeof path === "string").map(normalizePolicyPath);
+}
+
 // dist/recipes/_registry.js
-import { readdirSync as readdirSync4, existsSync as existsSync4 } from "node:fs";
+import { readdirSync as readdirSync4, existsSync as existsSync5 } from "node:fs";
 import { join as join8, dirname as dirname2 } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // dist/recipes/_framework.js
-import { readFileSync as readFileSync5, existsSync as existsSync3, appendFileSync, mkdirSync } from "node:fs";
+import { readFileSync as readFileSync6, existsSync as existsSync4, appendFileSync as appendFileSync2, mkdirSync as mkdirSync2 } from "node:fs";
 import { join as join7 } from "node:path";
 import { execFileSync } from "node:child_process";
 import { homedir as homedir3 } from "node:os";
@@ -41631,7 +41988,7 @@ function parseYaml(text) {
   return result;
 }
 function parseRecipe(filePath) {
-  const content = readFileSync5(filePath, "utf8");
+  const content = readFileSync6(filePath, "utf8");
   const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)/);
   if (!fmMatch) {
     throw new Error(`Recipe file has no valid frontmatter: ${filePath}`);
@@ -41719,11 +42076,11 @@ function runHealthCheck(command) {
 }
 function appendHeartbeat(recipeId, event) {
   const dir = join7(homedir3(), ".vault-mind", "recipes", recipeId);
-  if (!existsSync3(dir)) {
-    mkdirSync(dir, { recursive: true });
+  if (!existsSync4(dir)) {
+    mkdirSync2(dir, { recursive: true });
   }
   const filePath = join7(dir, "heartbeat.jsonl");
-  appendFileSync(filePath, JSON.stringify(event) + "\n", "utf8");
+  appendFileSync2(filePath, JSON.stringify(event) + "\n", "utf8");
 }
 
 // dist/recipes/_registry.js
@@ -41733,7 +42090,7 @@ function scanRecipes(recipesDir) {
   if (!recipesDir && _cache)
     return _cache;
   const dir = recipesDir ?? DEFAULT_RECIPES_DIR;
-  if (!existsSync4(dir))
+  if (!existsSync5(dir))
     return [];
   const entries = readdirSync4(dir, { withFileTypes: true });
   const recipes = [];
@@ -42111,20 +42468,20 @@ async function unifiedQueryByVector(registry2, vector, opts) {
 init_embedding_client();
 
 // dist/holons/loader.js
-import { existsSync as existsSync5, readFileSync as readFileSync6 } from "node:fs";
-import { resolve as resolve3 } from "node:path";
+import { existsSync as existsSync6, readFileSync as readFileSync7 } from "node:fs";
+import { resolve as resolve4 } from "node:path";
 var ContextCoreLoader = class {
   _cache = null;
   _byId = null;
   path;
   constructor(path) {
-    this.path = resolve3(path);
+    this.path = resolve4(path);
   }
   available() {
-    return existsSync5(this.path);
+    return existsSync6(this.path);
   }
   _load() {
-    const raw = readFileSync6(this.path, "utf-8");
+    const raw = readFileSync7(this.path, "utf-8");
     const data = JSON.parse(raw);
     this._cache = data;
     this._byId = new Map(data.holons.map((h) => [h.id, h]));
@@ -42475,7 +42832,7 @@ function makeProvenanceOps(loader) {
 }
 
 // dist/holons/graph.js
-import { writeFileSync, mkdirSync as mkdirSync2 } from "node:fs";
+import { writeFileSync, mkdirSync as mkdirSync3 } from "node:fs";
 import { join as join9, dirname as dirname3 } from "node:path";
 function bfsGraph(loader, startId, maxDepth) {
   const start = loader.byId(startId);
@@ -42610,7 +42967,14 @@ function makeGraphOps(loader, vaultPath) {
       name: "graph.export",
       namespace: "graph",
       description: "Export a causal subgraph as Mermaid diagram, Obsidian Canvas JSON, or Graphviz DOT. When format=canvas and output_path is given, writes the .canvas file into the vault.",
-      mutating: false,
+      mutating: true,
+      writePolicy: {
+        realWrite: "always",
+        shouldWrite: (_ctx, params) => params.format === "canvas" && typeof params.output_path === "string",
+        targets: targetParams("output_path"),
+        audit: "required",
+        effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), "modify")]
+      },
       params: {
         id: { type: "string", required: true, description: "Starting holon ID" },
         depth: { type: "number", required: false, description: "BFS depth (default: 3)", default: 3 },
@@ -42643,7 +43007,7 @@ function makeGraphOps(loader, vaultPath) {
             return { error: 'Invalid output_path \u2014 must be vault-relative with no ".."' };
           }
           const full = join9(vaultPath, safe);
-          mkdirSync2(dirname3(full), { recursive: true });
+          mkdirSync3(dirname3(full), { recursive: true });
           writeFileSync(full, content, "utf-8");
           writtenTo = safe;
         }
@@ -42660,7 +43024,7 @@ function makeGraphOps(loader, vaultPath) {
 }
 
 // dist/holons/write.js
-import { readFileSync as readFileSync7, writeFileSync as writeFileSync2, mkdirSync as mkdirSync3, existsSync as existsSync6 } from "node:fs";
+import { readFileSync as readFileSync8, writeFileSync as writeFileSync2, mkdirSync as mkdirSync4, existsSync as existsSync7 } from "node:fs";
 import { join as join10, dirname as dirname4 } from "node:path";
 function safePath(vaultPath, relPath) {
   const clean = relPath.trim().replace(/\\/g, "/").replace(/^\/+/, "");
@@ -42675,6 +43039,12 @@ function makeVaultWriteOps(vaultPath, loader) {
       namespace: "vault",
       description: "Create or overwrite a Markdown note in the vault. Use to write LLM-inferred conclusions, summaries, or AI-generated notes back into the knowledge base.",
       mutating: true,
+      writePolicy: {
+        realWrite: "always",
+        targets: targetParams("path"),
+        audit: "required",
+        effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), "modify")]
+      },
       params: {
         path: { type: "string", required: true, description: 'Vault-relative path, e.g. "notes/summary.md"' },
         content: { type: "string", required: true, description: "Full Markdown content of the note" },
@@ -42687,10 +43057,10 @@ function makeVaultWriteOps(vaultPath, loader) {
         const full = safePath(vaultPath, relPath);
         if (!full)
           return { error: 'Invalid path \u2014 must be vault-relative with no ".."' };
-        if (!overwrite && existsSync6(full)) {
+        if (!overwrite && existsSync7(full)) {
           return { error: `File already exists: ${relPath}. Pass overwrite:true to replace.` };
         }
-        mkdirSync3(dirname4(full), { recursive: true });
+        mkdirSync4(dirname4(full), { recursive: true });
         writeFileSync2(full, content, "utf-8");
         return { ok: true, path: relPath, bytes: Buffer.byteLength(content, "utf-8") };
       }
@@ -42700,6 +43070,16 @@ function makeVaultWriteOps(vaultPath, loader) {
       namespace: "vault",
       description: "Append an AI-generated section to an existing vault note. Accepts a holon ID (resolves source_path automatically) or a vault-relative path. Adds a timestamped callout block under the given heading.",
       mutating: true,
+      writePolicy: {
+        realWrite: "always",
+        targets: (_ctx, params) => {
+          if (typeof params.path === "string")
+            return [params.path];
+          return typeof params.id === "string" ? [`${params.id}.md`] : [];
+        },
+        audit: "required",
+        effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), "modify")]
+      },
       params: {
         id: { type: "string", required: false, description: "Holon ID \u2014 used to locate the source .md file automatically" },
         path: { type: "string", required: false, description: "Vault-relative path (alternative to id)" },
@@ -42725,9 +43105,9 @@ function makeVaultWriteOps(vaultPath, loader) {
         const full = safePath(vaultPath, targetRel);
         if (!full)
           return { error: `Invalid path: ${targetRel}` };
-        if (!existsSync6(full))
+        if (!existsSync7(full))
           return { error: `File not found: ${targetRel}` };
-        const existing = readFileSync7(full, "utf-8");
+        const existing = readFileSync8(full, "utf-8");
         const date5 = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
         const block = `
 
@@ -42744,7 +43124,7 @@ ${content.split("\n").map((l) => `> ${l}`).join("\n")}
 }
 
 // dist/memory/memory.js
-import { existsSync as existsSync7, mkdirSync as mkdirSync4, readFileSync as readFileSync8, readdirSync as readdirSync5, rmSync, statSync, writeFileSync as writeFileSync3 } from "node:fs";
+import { existsSync as existsSync8, mkdirSync as mkdirSync5, readFileSync as readFileSync9, readdirSync as readdirSync5, rmSync, statSync, writeFileSync as writeFileSync3 } from "node:fs";
 import { basename as basename3, dirname as dirname5, join as join11 } from "node:path";
 var LOCK_TTL_MS = 6e4;
 var DEFAULT_ACTOR = "agent";
@@ -42759,7 +43139,7 @@ function withFileLock(fullPath, fn) {
   } catch (e) {
     if (e.code !== "EEXIST")
       throw e;
-    const ageMs = existsSync7(lockPath) ? Date.now() - statSync(lockPath).mtimeMs : LOCK_TTL_MS + 1;
+    const ageMs = existsSync8(lockPath) ? Date.now() - statSync(lockPath).mtimeMs : LOCK_TTL_MS + 1;
     if (ageMs < LOCK_TTL_MS) {
       throw makeErr(-32010, `Lock conflict on ${basename3(fullPath)}`);
     }
@@ -42808,12 +43188,12 @@ function memoryBasePath(project, actor) {
   return `00-Inbox/Agent-Memory/${actor}`;
 }
 function readText(fullPath) {
-  if (!existsSync7(fullPath))
+  if (!existsSync8(fullPath))
     return null;
-  return readFileSync8(fullPath, "utf-8");
+  return readFileSync9(fullPath, "utf-8");
 }
 function writeText(fullPath, content) {
-  mkdirSync4(dirname5(fullPath), { recursive: true });
+  mkdirSync5(dirname5(fullPath), { recursive: true });
   withFileLock(fullPath, () => writeFileSync3(fullPath, content, "utf-8"));
 }
 function memoryDocFrontmatter(kind, actor, project, now) {
@@ -42907,16 +43287,16 @@ var PersistentMemory = class {
     this.filePath = join11(vaultPath, "_ai_memory.json");
   }
   read() {
-    if (!existsSync7(this.filePath))
+    if (!existsSync8(this.filePath))
       return {};
     try {
-      return JSON.parse(readFileSync8(this.filePath, "utf-8"));
+      return JSON.parse(readFileSync9(this.filePath, "utf-8"));
     } catch {
       return {};
     }
   }
   write(data) {
-    mkdirSync4(dirname5(this.filePath), { recursive: true });
+    mkdirSync5(dirname5(this.filePath), { recursive: true });
     withFileLock(this.filePath, () => {
       writeFileSync3(this.filePath, JSON.stringify(data, null, 2), "utf-8");
     });
@@ -42963,7 +43343,7 @@ var MarkdownMemory = class {
     const fullPath = join11(this.vaultPath, relPath);
     const now = (/* @__PURE__ */ new Date()).toISOString();
     const content = readText(fullPath) ?? passportMarkdown({ actor, project, now });
-    return { exists: existsSync7(fullPath), path: relPath, content };
+    return { exists: existsSync8(fullPath), path: relPath, content };
   }
   writePassport(ctx, params) {
     const actor = actorFromContext(ctx);
@@ -42989,7 +43369,7 @@ var MarkdownMemory = class {
     const fullPath = join11(this.vaultPath, relPath);
     const now = (/* @__PURE__ */ new Date()).toISOString();
     const content = readText(fullPath) ?? handoffMarkdown({ actor, project, now });
-    return { exists: existsSync7(fullPath), path: relPath, content };
+    return { exists: existsSync8(fullPath), path: relPath, content };
   }
   writeHandoff(ctx, params) {
     const actor = actorFromContext(ctx);
@@ -43032,11 +43412,11 @@ var MarkdownMemory = class {
     const actor = actorFromContext(ctx);
     const relDir = `${memoryBasePath(project, actor)}/sessions`;
     const fullDir = join11(this.vaultPath, relDir);
-    if (!existsSync7(fullDir))
+    if (!existsSync8(fullDir))
       return { count: 0, sessions: [] };
     const sessions = readdirSync5(fullDir, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".md")).map((entry) => {
       const fullPath = join11(fullDir, entry.name);
-      const content = readFileSync8(fullPath, "utf-8");
+      const content = readFileSync9(fullPath, "utf-8");
       const heading = content.match(/^#\s+(.+)$/m)?.[1]?.trim() ?? entry.name.replace(/\.md$/, "");
       const preview3 = content.replace(/^---[\s\S]*?---\s*/m, "").replace(/\s+/g, " ").trim().slice(0, 180);
       return {
@@ -43058,6 +43438,11 @@ function makeMemoryOps(vaultPath) {
       namespace: "memory",
       description: "Persist a named memory across MCP sessions. Use for inferences, user preferences, project state, or any context that should survive server restarts. Storage: <vault>/_ai_memory.json (excluded from holon compilation).",
       mutating: true,
+      writePolicy: {
+        realWrite: "always",
+        targets: staticTargets("_ai_memory.json"),
+        audit: "required"
+      },
       params: {
         key: { type: "string", required: true, description: 'Unique memory key, e.g. "project/status" or "user_goal"' },
         value: { type: "string", required: true, description: "Memory content (Markdown supported)" },
@@ -43112,6 +43497,11 @@ function makeMemoryOps(vaultPath) {
       namespace: "memory",
       description: "Delete a persisted memory by key.",
       mutating: true,
+      writePolicy: {
+        realWrite: "always",
+        targets: staticTargets("_ai_memory.json"),
+        audit: "required"
+      },
       params: {
         key: { type: "string", required: true, description: "Key to delete" }
       },
@@ -43136,6 +43526,12 @@ function makeMemoryOps(vaultPath) {
       namespace: "memory",
       description: "Create or replace the Markdown memory passport with Goal, Constraints, Decisions, Open Questions, and Pointers sections.",
       mutating: true,
+      writePolicy: {
+        realWrite: "always",
+        targets: (ctx, params) => [`${memoryPolicyBasePath(ctx.config, params)}/passport.md`],
+        audit: "required",
+        effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), "modify")]
+      },
       params: {
         project: { type: "string", required: false, description: "Optional project key; stores under 10-Projects/<project>/agents/<actor>/memory" },
         goal: { type: "string", required: false, description: "Project or agent goal" },
@@ -43161,6 +43557,12 @@ function makeMemoryOps(vaultPath) {
       namespace: "memory",
       description: "Create or replace the Markdown handoff with Current State, Next Steps, Risks, and Files sections.",
       mutating: true,
+      writePolicy: {
+        realWrite: "always",
+        targets: (ctx, params) => [`${memoryPolicyBasePath(ctx.config, params)}/handoff.md`],
+        audit: "required",
+        effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), "modify")]
+      },
       params: {
         project: { type: "string", required: false, description: "Optional project key; stores under 10-Projects/<project>/agents/<actor>/memory" },
         currentState: { type: "string", required: false, description: "Where the work stands now" },
@@ -43175,6 +43577,12 @@ function makeMemoryOps(vaultPath) {
       namespace: "memory",
       description: "Save a timestamped Markdown session note with Summary, Decisions, Actions, and References sections.",
       mutating: true,
+      writePolicy: {
+        realWrite: "always",
+        targets: (ctx, params) => [`${memoryPolicyBasePath(ctx.config, params)}/sessions/**`],
+        audit: "required",
+        effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), "create")]
+      },
       params: {
         project: { type: "string", required: false, description: "Optional project key; stores under 10-Projects/<project>/agents/<actor>/memory" },
         title: { type: "string", required: false, description: "Optional session title used in the heading and filename slug" },
@@ -43200,11 +43608,11 @@ function makeMemoryOps(vaultPath) {
 }
 
 // dist/project/project.js
-import { existsSync as existsSync8, mkdirSync as mkdirSync5, readFileSync as readFileSync10, writeFileSync as writeFileSync4 } from "node:fs";
+import { existsSync as existsSync9, mkdirSync as mkdirSync6, readFileSync as readFileSync11, writeFileSync as writeFileSync4 } from "node:fs";
 import { dirname as dirname6, join as join13 } from "node:path";
 
 // dist/project/workos.js
-import { readdirSync as readdirSync6, readFileSync as readFileSync9, statSync as statSync2 } from "node:fs";
+import { readdirSync as readdirSync6, readFileSync as readFileSync10, statSync as statSync2 } from "node:fs";
 import { join as join12 } from "node:path";
 var STATE_BACKLOG = "backlog";
 var STATE_TODO = "todo";
@@ -43486,7 +43894,7 @@ function walkMd(vaultPath, requireEntity) {
       const f = join12(dir, fn);
       let text;
       try {
-        text = stripBom(readFileSync9(f, "utf-8"));
+        text = stripBom(readFileSync10(f, "utf-8"));
       } catch {
         continue;
       }
@@ -43747,11 +44155,11 @@ function viewsRoot(project) {
   return `${projectRoot(project)}/views`;
 }
 function readText2(path) {
-  return existsSync8(path) ? readFileSync10(path, "utf-8") : null;
+  return existsSync9(path) ? readFileSync11(path, "utf-8") : null;
 }
 function writeVaultBytes(vaultPath, relPath, content) {
   const fullPath = join13(vaultPath, relPath);
-  mkdirSync5(dirname6(fullPath), { recursive: true });
+  mkdirSync6(dirname6(fullPath), { recursive: true });
   writeFileSync4(fullPath, Buffer.from(content, "utf-8"));
 }
 function isoDate() {
@@ -43917,9 +44325,9 @@ function slugFromEntity(entity) {
 }
 function findIssueNote(vaultPath, project, slug) {
   const full = join13(vaultPath, issuePath(project, slug));
-  if (!existsSync8(full))
+  if (!existsSync9(full))
     return null;
-  const text = readFileSync10(full, "utf-8");
+  const text = readFileSync11(full, "utf-8");
   const raw = parseFm(text);
   return {
     note_id: issuePath(project, slug).replace(/\\/g, "/"),
@@ -44114,7 +44522,7 @@ function projectBasePath(project) {
   return `${viewsRoot(project)}/issues.base`;
 }
 function ensureCanWriteVisual(vaultPath, path, overwrite) {
-  if (!overwrite && existsSync8(join13(vaultPath, path)))
+  if (!overwrite && existsSync9(join13(vaultPath, path)))
     throw makeErr(-32002, `Already exists: ${path}`);
 }
 function boolParam(value, defaultValue) {
@@ -44131,7 +44539,7 @@ function resolveLang(param, notes) {
 function uniqueSlug(vaultPath, project, base) {
   let slug = base;
   let n = 2;
-  while (existsSync8(join13(vaultPath, issuePath(project, slug)))) {
+  while (existsSync9(join13(vaultPath, issuePath(project, slug)))) {
     slug = `${base}-${n}`;
     n += 1;
   }
@@ -44144,6 +44552,12 @@ function makeProjectOps(vaultPath) {
       namespace: "project",
       description: "Export an Obsidian Canvas project map under 01-Projects/<project>/views/project-map.canvas (derived view).",
       mutating: true,
+      writePolicy: {
+        realWrite: "dryRunFalse",
+        targets: (_ctx, params) => [`${projectPolicyBasePath(params)}/views/**`],
+        audit: "required",
+        effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), "modify")]
+      },
       params: {
         project: { type: "string", required: true, description: "Project key" },
         dryRun: { type: "boolean", required: false, default: true, description: "Preview Canvas JSON without writing (default: true)" },
@@ -44169,6 +44583,12 @@ function makeProjectOps(vaultPath) {
       namespace: "project",
       description: "Export an Obsidian Bases issues dashboard under 01-Projects/<project>/views/issues.base (derived view).",
       mutating: true,
+      writePolicy: {
+        realWrite: "dryRunFalse",
+        targets: (_ctx, params) => [`${projectPolicyBasePath(params)}/views/**`],
+        audit: "required",
+        effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), "modify")]
+      },
       params: {
         project: { type: "string", required: true, description: "Project key" },
         dryRun: { type: "boolean", required: false, default: true, description: "Preview Bases YAML without writing (default: true)" },
@@ -44192,6 +44612,12 @@ function makeProjectOps(vaultPath) {
       namespace: "project",
       description: "Create a work-OS project anchor note at 01-Projects/<project>/_project.md (single source of truth; no docket store).",
       mutating: true,
+      writePolicy: {
+        realWrite: "always",
+        targets: (_ctx, params) => [`${projectPolicyBasePath(params)}/_project.md`, `${projectPolicyBasePath(params)}/issues/**`],
+        audit: "required",
+        effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), "modify")]
+      },
       params: {
         project: { type: "string", required: true, description: "Project key, single safe path segment" },
         description: { type: "string", required: false, description: "One-line project description (<=200 chars)" }
@@ -44200,10 +44626,10 @@ function makeProjectOps(vaultPath) {
         const project = projectKey(params.project);
         const description = oneLine(typeof params.description === "string" && params.description.trim() ? params.description : `Work-OS project ${project}`);
         const notePath = projectNotePath(project);
-        if (!existsSync8(join13(vaultPath, notePath))) {
+        if (!existsSync9(join13(vaultPath, notePath))) {
           writeVaultBytes(vaultPath, notePath, projectNote(project, description));
         }
-        mkdirSync5(join13(vaultPath, issuesRoot(project)), { recursive: true });
+        mkdirSync6(join13(vaultPath, issuesRoot(project)), { recursive: true });
         return { ok: true, project, root: projectRoot(project), projectNote: notePath };
       }
     },
@@ -44212,6 +44638,12 @@ function makeProjectOps(vaultPath) {
       namespace: "project",
       description: "Create a work-OS issue note under 01-Projects/<project>/issues/<slug>.md. Default state is todo; review reviewed (authoritative).",
       mutating: true,
+      writePolicy: {
+        realWrite: "always",
+        targets: (_ctx, params) => [`${projectPolicyBasePath(params)}/issues/**`],
+        audit: "required",
+        effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), "create")]
+      },
       params: {
         project: { type: "string", required: true, description: "Project key" },
         title: { type: "string", required: true, description: "Issue title (-> slug + default card label)" },
@@ -44290,7 +44722,7 @@ ${params.body.trim()}` : title;
         const note = findIssueNote(vaultPath, project, slug);
         if (!note)
           throw makeErr(-32001, `Issue not found: ${slug}`);
-        return { issue: issueView(note, project), content: readFileSync10(note.path, "utf-8") };
+        return { issue: issueView(note, project), content: readFileSync11(note.path, "utf-8") };
       }
     },
     {
@@ -44298,6 +44730,12 @@ ${params.body.trim()}` : title;
       namespace: "project",
       description: "Update a work-OS issue (state/priority/review/assignee/blocked_by/description/body); bumps last-verified.",
       mutating: true,
+      writePolicy: {
+        realWrite: "always",
+        targets: (_ctx, params) => [`${projectPolicyBasePath(params)}/issues/**`],
+        audit: "required",
+        effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), "modify")]
+      },
       params: {
         project: { type: "string", required: true, description: "Project key" },
         slug: { type: "string", required: true, description: "Issue slug" },
@@ -44342,6 +44780,13 @@ ${params.body.trim()}` : title;
       namespace: "project",
       description: "Edit blocked-by dependencies between work-OS issues. blocks/blocked_by rewrite blocked-by (entity refs); relates is derive-only (soft notice).",
       mutating: true,
+      writePolicy: {
+        realWrite: "always",
+        shouldWrite: (_ctx, params) => params.relation !== "relates",
+        targets: (_ctx, params) => [`${projectPolicyBasePath(params)}/issues/**`],
+        audit: "required",
+        effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), "modify")]
+      },
       params: {
         project: { type: "string", required: true, description: "Project key" },
         slug: { type: "string", required: true, description: "Source issue slug" },
@@ -44389,6 +44834,12 @@ ${params.body.trim()}` : title;
       namespace: "project",
       description: "Append a comment to a sibling 01-Projects/<project>/issues/<slug>.comments.md (does not affect the board/authoritative index).",
       mutating: true,
+      writePolicy: {
+        realWrite: "always",
+        targets: (_ctx, params) => [`${projectPolicyBasePath(params)}/issues/**`],
+        audit: "required",
+        effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), "modify")]
+      },
       params: {
         project: { type: "string", required: true, description: "Project key" },
         slug: { type: "string", required: true, description: "Issue slug" },
@@ -44428,7 +44879,14 @@ ${body}
       name: "project.board.get",
       namespace: "project",
       description: "Render the work-OS Kanban board (Obsidian kanban-plugin format) from the authoritative issue notes. Parity with `python kb_meta.py work board`.",
-      mutating: false,
+      mutating: true,
+      writePolicy: {
+        realWrite: "always",
+        shouldWrite: (_ctx, params) => params.write === true,
+        targets: (_ctx, params) => [`${projectPolicyBasePath(params)}/**/board.md`],
+        audit: "required",
+        effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), "modify")]
+      },
       params: {
         project: { type: "string", required: true, description: "Project key" },
         lang: { type: "string", required: false, description: "Lane-label language (en/zh/ja); default $VAULT_MIND_LANG then auto-detect" },
@@ -44778,7 +45236,7 @@ function makeIngestOps() {
 
 // dist/source/source.js
 import { createHash } from "node:crypto";
-import { existsSync as existsSync9, mkdirSync as mkdirSync6, readFileSync as readFileSync11, rmSync as rmSync2, statSync as statSync3, writeFileSync as writeFileSync5 } from "node:fs";
+import { existsSync as existsSync10, mkdirSync as mkdirSync7, readFileSync as readFileSync12, rmSync as rmSync2, statSync as statSync3, writeFileSync as writeFileSync5 } from "node:fs";
 import { basename as basename4, dirname as dirname7, extname, join as join14, relative as relative4, isAbsolute as pathIsAbsolute } from "node:path";
 var REGISTRY_REL_PATH = "_llmwiki/source-registry.json";
 var LOCK_TTL_MS2 = 6e4;
@@ -44791,6 +45249,12 @@ function makeSourceOps(vaultPath) {
       namespace: "source",
       description: "Register a long-lived source in the lightweight Source Registry. URL inputs run ingest preflight only; no download or transcription is executed.",
       mutating: true,
+      writePolicy: {
+        realWrite: "always",
+        targets: (_ctx, params) => sourcePolicyTargetPaths(params),
+        audit: "required",
+        effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), "create")]
+      },
       params: {
         input: { type: "string", required: true, description: "URL or vault-relative path to register" },
         inputType: {
@@ -44945,7 +45409,7 @@ function prepareUrlSource(input, params) {
 }
 function prepareVaultPathSource(vaultPath, input, params) {
   const normalized = normalizeVaultRelPath(vaultPath, input);
-  if (!existsSync9(vaultFullPath(vaultPath, normalized))) {
+  if (!existsSync10(vaultFullPath(vaultPath, normalized))) {
     throw notFound(`Vault path not found: ${normalized}`);
   }
   return {
@@ -44999,10 +45463,10 @@ function normalizeVaultRelPath(vaultPath, input) {
   return normalized;
 }
 function readRegistry(fullPath) {
-  if (!existsSync9(fullPath)) {
+  if (!existsSync10(fullPath)) {
     return { version: 1, updated_at: (/* @__PURE__ */ new Date(0)).toISOString(), sources: {} };
   }
-  const parsed = JSON.parse(readFileSync11(fullPath, "utf-8"));
+  const parsed = JSON.parse(readFileSync12(fullPath, "utf-8"));
   return {
     version: 1,
     updated_at: typeof parsed.updated_at === "string" ? parsed.updated_at : (/* @__PURE__ */ new Date(0)).toISOString(),
@@ -45066,7 +45530,7 @@ function sourceNoteMarkdown(source) {
   ].join("\n");
 }
 function withFileLock2(fullPath, fn) {
-  mkdirSync6(dirname7(fullPath), { recursive: true });
+  mkdirSync7(dirname7(fullPath), { recursive: true });
   const lockPath = `${fullPath}.lock`;
   const acquire = () => writeFileSync5(lockPath, JSON.stringify({ pid: process.pid, timestamp: Date.now() }), {
     encoding: "utf-8",
@@ -45077,7 +45541,7 @@ function withFileLock2(fullPath, fn) {
   } catch (e) {
     if (e.code !== "EEXIST")
       throw e;
-    const ageMs = existsSync9(lockPath) ? Date.now() - statSync3(lockPath).mtimeMs : LOCK_TTL_MS2 + 1;
+    const ageMs = existsSync10(lockPath) ? Date.now() - statSync3(lockPath).mtimeMs : LOCK_TTL_MS2 + 1;
     if (ageMs < LOCK_TTL_MS2)
       throw conflict(`Lock conflict on ${basename4(fullPath)}`);
     rmSync2(lockPath, { force: true });
@@ -45091,7 +45555,7 @@ function withFileLock2(fullPath, fn) {
 }
 function writeTextLocked(fullPath, content) {
   withFileLock2(fullPath, () => {
-    mkdirSync6(dirname7(fullPath), { recursive: true });
+    mkdirSync7(dirname7(fullPath), { recursive: true });
     writeFileSync5(fullPath, content, "utf-8");
   });
 }
@@ -45167,8 +45631,8 @@ function fencedJson(value) {
 }
 
 // dist/conversation/conversation.js
-import { existsSync as existsSync10, mkdirSync as mkdirSync7, readdirSync as readdirSync7, readFileSync as readFileSync12, rmSync as rmSync3, statSync as statSync4, writeFileSync as writeFileSync6 } from "node:fs";
-import { basename as basename5, dirname as dirname8, join as join15, resolve as resolve4, sep as sep2 } from "node:path";
+import { existsSync as existsSync11, mkdirSync as mkdirSync8, readdirSync as readdirSync7, readFileSync as readFileSync13, rmSync as rmSync3, statSync as statSync4, writeFileSync as writeFileSync6 } from "node:fs";
+import { basename as basename5, dirname as dirname8, join as join15, resolve as resolve5, sep as sep2 } from "node:path";
 var DEFAULT_ACTOR2 = "agent";
 var LOCK_TTL_MS3 = 6e4;
 function withFileLock3(fullPath, fn) {
@@ -45182,7 +45646,7 @@ function withFileLock3(fullPath, fn) {
   } catch (e) {
     if (e.code !== "EEXIST")
       throw e;
-    const ageMs = existsSync10(lockPath) ? Date.now() - statSync4(lockPath).mtimeMs : LOCK_TTL_MS3 + 1;
+    const ageMs = existsSync11(lockPath) ? Date.now() - statSync4(lockPath).mtimeMs : LOCK_TTL_MS3 + 1;
     if (ageMs < LOCK_TTL_MS3)
       throw makeErr(-32010, `Lock conflict on ${basename5(fullPath)}`);
     rmSync3(lockPath, { force: true });
@@ -45275,8 +45739,8 @@ function normalizeVaultRelPath2(path) {
   return normalized;
 }
 function ensureInsideVault(vaultPath, relPath) {
-  const root = resolve4(vaultPath);
-  const fullPath = resolve4(vaultPath, relPath);
+  const root = resolve5(vaultPath);
+  const fullPath = resolve5(vaultPath, relPath);
   const rootPrefix = root.endsWith(sep2) ? root : root + sep2;
   if (fullPath !== root && !fullPath.startsWith(rootPrefix))
     throw makeErr(-32602, "path traversal blocked");
@@ -45383,11 +45847,11 @@ function preview(content) {
 }
 function listDecisionDir(vaultPath, relDir, tag) {
   const fullDir = join15(vaultPath, relDir);
-  if (!existsSync10(fullDir))
+  if (!existsSync11(fullDir))
     return [];
   return readdirSync7(fullDir, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".md")).map((entry) => {
     const fullPath = join15(fullDir, entry.name);
-    const content = readFileSync12(fullPath, "utf-8");
+    const content = readFileSync13(fullPath, "utf-8");
     const fm = parseFrontmatter(content);
     const tags = parseTags(fm.tags);
     return {
@@ -45407,6 +45871,12 @@ function makeConversationOps(vaultPath) {
       namespace: "conversation",
       description: "Capture an AI conversation decision as append-only Markdown memory with summary, decision, why, rejected options, constraints, risks, actions, references, and excerpts.",
       mutating: true,
+      writePolicy: {
+        realWrite: "dryRunFalse",
+        targets: (ctx, params) => [`${memoryPolicyBasePath(ctx.config, params)}/decisions/**`],
+        audit: "required",
+        effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), "create")]
+      },
       params: {
         project: { type: "string", required: false, description: "Optional project key; stores under 10-Projects/<project>/agents/<actor>/memory/decisions" },
         title: { type: "string", required: true, description: "Decision title" },
@@ -45430,7 +45900,7 @@ function makeConversationOps(vaultPath) {
         const dryRun = params.dryRun ?? false;
         if (!dryRun) {
           const fullPath = ensureInsideVault(vaultPath, path);
-          mkdirSync7(dirname8(fullPath), { recursive: true });
+          mkdirSync8(dirname8(fullPath), { recursive: true });
           withFileLock3(fullPath, () => writeFileSync6(fullPath, content, { encoding: "utf-8", flag: "wx" }));
         }
         return {
@@ -45473,9 +45943,9 @@ function makeConversationOps(vaultPath) {
         const relPath = normalizeVaultRelPath2(String(params.path ?? ""));
         ensureDecisionPath(relPath);
         const fullPath = ensureInsideVault(vaultPath, relPath);
-        if (!existsSync10(fullPath))
+        if (!existsSync11(fullPath))
           throw makeErr(-32001, `Decision not found: ${relPath}`);
-        const content = readFileSync12(fullPath, "utf-8");
+        const content = readFileSync13(fullPath, "utf-8");
         if (!/^conversation-decision:\s*true/m.test(content)) {
           throw makeErr(-32602, "path is not a conversation decision note");
         }
@@ -45486,7 +45956,7 @@ function makeConversationOps(vaultPath) {
 }
 
 // dist/context/context.js
-import { existsSync as existsSync11, readdirSync as readdirSync8, readFileSync as readFileSync13, statSync as statSync5 } from "node:fs";
+import { existsSync as existsSync12, readdirSync as readdirSync8, readFileSync as readFileSync14, statSync as statSync5 } from "node:fs";
 import { join as join16 } from "node:path";
 var DEFAULT_ACTOR3 = "agent";
 function safeSegment5(value, label) {
@@ -45509,7 +45979,7 @@ function memoryBasePath2(project, actor) {
   return `00-Inbox/Agent-Memory/${actor}`;
 }
 function readText3(path) {
-  return existsSync11(path) ? readFileSync13(path, "utf-8") : null;
+  return existsSync12(path) ? readFileSync14(path, "utf-8") : null;
 }
 function defaultPassport(actor, project) {
   return [
@@ -45601,13 +46071,13 @@ function preview2(content, max = 220) {
 }
 function listMarkdownFiles(vaultPath, relDir) {
   const fullDir = join16(vaultPath, relDir);
-  if (!existsSync11(fullDir))
+  if (!existsSync12(fullDir))
     return [];
   return readdirSync8(fullDir, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".md")).map((entry) => {
     const fullPath = join16(fullDir, entry.name);
     return {
       path: `${relDir}/${entry.name}`,
-      content: readFileSync13(fullPath, "utf-8"),
+      content: readFileSync14(fullPath, "utf-8"),
       mtime: statSync5(fullPath).mtime.toISOString()
     };
   });
@@ -45838,11 +46308,15 @@ function makeContextOps(vaultPath, registry2, defaultWeights) {
 }
 
 // dist/workflow/workflow.js
-import { existsSync as existsSync12, mkdirSync as mkdirSync8, readFileSync as readFileSync14, writeFileSync as writeFileSync7 } from "node:fs";
+import { existsSync as existsSync13, mkdirSync as mkdirSync9, readFileSync as readFileSync15, writeFileSync as writeFileSync7 } from "node:fs";
 import { dirname as dirname9, join as join17 } from "node:path";
 var STAGES = ["intake", "understand", "plan", "execute", "review", "verify", "archive"];
 var CHECKPOINT_STATUSES = ["note", "passed", "failed", "blocked"];
 var AGENT_STAGES = ["think", "plan", "build", "review", "test", "ship", "reflect"];
+var workflowAgentEffects = (_ctx, _params, result) => {
+  const eventsPath = typeof result === "object" && result !== null ? result.eventsPath : void 0;
+  return [touchMarkdown(resultPath(result), "modify"), touchMarkdown(eventsPath, "modify")];
+};
 var AGENT_STATUSES = ["active", "blocked", "done", "archived"];
 function slugify6(value) {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
@@ -45894,13 +46368,13 @@ function vaultJoin(vaultPath, relPath) {
 }
 function writeVaultBytes2(vaultPath, relPath, content) {
   const fullPath = vaultJoin(vaultPath, relPath);
-  mkdirSync8(dirname9(fullPath), { recursive: true });
+  mkdirSync9(dirname9(fullPath), { recursive: true });
   writeFileSync7(fullPath, Buffer.from(content, "utf-8"));
 }
 function appendVaultBytes(vaultPath, relPath, content) {
   const fullPath = vaultJoin(vaultPath, relPath);
-  mkdirSync8(dirname9(fullPath), { recursive: true });
-  const existing = existsSync12(fullPath) ? readFileSync14(fullPath, "utf-8").replace(/\s+$/, "") + "\n\n" : "";
+  mkdirSync9(dirname9(fullPath), { recursive: true });
+  const existing = existsSync13(fullPath) ? readFileSync15(fullPath, "utf-8").replace(/\s+$/, "") + "\n\n" : "";
   writeFileSync7(fullPath, Buffer.from(existing + content, "utf-8"));
 }
 function optionalString2(value) {
@@ -46060,9 +46534,9 @@ function parseYamlScalar(raw) {
 function readState(vaultPath, project) {
   const path = statePath(project);
   const fullPath = vaultJoin(vaultPath, path);
-  if (!existsSync12(fullPath))
+  if (!existsSync13(fullPath))
     return null;
-  return parseState(project, path, readFileSync14(fullPath, "utf-8"));
+  return parseState(project, path, readFileSync15(fullPath, "utf-8"));
 }
 function checkpointHeader(project) {
   return [
@@ -46143,9 +46617,9 @@ function parseAgentLifetime(project, agent, path, content) {
 function readAgentLifetime(vaultPath, project, agent) {
   const path = agentLifetimePath(project, agent);
   const fullPath = vaultJoin(vaultPath, path);
-  if (!existsSync12(fullPath))
+  if (!existsSync13(fullPath))
     return null;
-  return parseAgentLifetime(project, agent, path, readFileSync14(fullPath, "utf-8"));
+  return parseAgentLifetime(project, agent, path, readFileSync15(fullPath, "utf-8"));
 }
 function agentEventsHeader(project, agent) {
   return [
@@ -46166,7 +46640,7 @@ function appendAgentEvent(vaultPath, state, event) {
   const evidence = event.evidence ?? [];
   const evidenceLines = evidence.length ? evidence.map((item) => `  - ${item}`).join("\n") : "  - none";
   const block = [
-    existsSync12(fullPath) ? "" : agentEventsHeader(state.project, state.agent),
+    existsSync13(fullPath) ? "" : agentEventsHeader(state.project, state.agent),
     `## ${isoNow()} - ${event.kind} - ${event.actor}`,
     "",
     `- stage: ${state.stage}`,
@@ -46205,7 +46679,7 @@ function workflowDoctor(vaultPath, project) {
     { name: "workflow-state", path: statePath(project), required: true },
     { name: "workflow-checkpoints", path: checkpointsPath(project), required: false },
     { name: "source-registry", path: "_llmwiki/source-registry.json", required: false }
-  ].map((check2) => ({ ...check2, ok: existsSync12(vaultJoin(vaultPath, check2.path)) }));
+  ].map((check2) => ({ ...check2, ok: existsSync13(vaultJoin(vaultPath, check2.path)) }));
   const missing = checks.filter((check2) => check2.required && !check2.ok).map((check2) => check2.path);
   const warnings = checks.filter((check2) => !check2.required && !check2.ok).map((check2) => check2.path);
   return {
@@ -46222,7 +46696,7 @@ function agentDoctor(vaultPath, project, agent) {
   const eventsPath = agentEventsPath(project, agent);
   const checks = [
     { name: "agent-lifetime", path: lifetimePath, required: true, ok: lifetime !== null },
-    { name: "agent-events", path: eventsPath, required: false, ok: existsSync12(vaultJoin(vaultPath, eventsPath)) }
+    { name: "agent-events", path: eventsPath, required: false, ok: existsSync13(vaultJoin(vaultPath, eventsPath)) }
   ];
   const errors = [];
   const warnings = [];
@@ -46256,6 +46730,12 @@ function makeWorkflowOps(vaultPath) {
       namespace: "workflow",
       description: "Create or update the vault-first agent workflow state at 01-Projects/<project>/workflow/status.md.",
       mutating: true,
+      writePolicy: {
+        realWrite: "always",
+        targets: (_ctx, params) => [`${workflowPolicyBasePath(params)}/status.md`],
+        audit: "required",
+        effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), "modify")]
+      },
       params: {
         project: { type: "string", required: true, description: "Project key" },
         stage: {
@@ -46292,7 +46772,7 @@ function makeWorkflowOps(vaultPath) {
           project,
           path,
           state,
-          projectInitialized: existsSync12(vaultJoin(vaultPath, projectNotePath2(project)))
+          projectInitialized: existsSync13(vaultJoin(vaultPath, projectNotePath2(project)))
         };
       }
     },
@@ -46316,6 +46796,12 @@ function makeWorkflowOps(vaultPath) {
       namespace: "workflow",
       description: "Append an agent workflow checkpoint under 01-Projects/<project>/workflow/checkpoints.md.",
       mutating: true,
+      writePolicy: {
+        realWrite: "always",
+        targets: (_ctx, params) => [`${workflowPolicyBasePath(params)}/checkpoints.md`],
+        audit: "required",
+        effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), "modify")]
+      },
       params: {
         project: { type: "string", required: true, description: "Project key" },
         stage: {
@@ -46350,7 +46836,7 @@ function makeWorkflowOps(vaultPath) {
         const now = isoNow();
         const evidenceLines = evidence.length ? evidence.map((item) => `  - ${item}`).join("\n") : "  - none";
         const block = [
-          existsSync12(fullPath) ? "" : checkpointHeader(project),
+          existsSync13(fullPath) ? "" : checkpointHeader(project),
           `## ${now} - ${stage} - ${actor}`,
           "",
           `- status: ${status}`,
@@ -46369,6 +46855,12 @@ function makeWorkflowOps(vaultPath) {
       namespace: "workflow",
       description: "Start or replace a vault-first agent lifetime under 01-Projects/<project>/agents/<agent>/.",
       mutating: true,
+      writePolicy: {
+        realWrite: "always",
+        targets: (ctx, params) => [`${workflowAgentPolicyBasePath(ctx.config, params)}/**`],
+        audit: "required",
+        effects: workflowAgentEffects
+      },
       params: {
         project: { type: "string", required: true, description: "Project key" },
         agent: { type: "string", required: false, description: "Agent id; defaults collaboration actor" },
@@ -46421,6 +46913,12 @@ function makeWorkflowOps(vaultPath) {
       namespace: "workflow",
       description: "Move a joined agent through think->plan->build->review->test->ship->reflect with review/test rework back to build.",
       mutating: true,
+      writePolicy: {
+        realWrite: "always",
+        targets: (ctx, params) => [`${workflowAgentPolicyBasePath(ctx.config, params)}/**`],
+        audit: "required",
+        effects: workflowAgentEffects
+      },
       params: {
         project: { type: "string", required: true, description: "Project key" },
         agent: { type: "string", required: false, description: "Agent id; defaults collaboration actor" },
@@ -46479,6 +46977,12 @@ function makeWorkflowOps(vaultPath) {
       namespace: "workflow",
       description: "Append an event to a joined agent lifetime without changing the current stage.",
       mutating: true,
+      writePolicy: {
+        realWrite: "always",
+        targets: (ctx, params) => [`${workflowAgentPolicyBasePath(ctx.config, params)}/**`],
+        audit: "required",
+        effects: workflowAgentEffects
+      },
       params: {
         project: { type: "string", required: true, description: "Project key" },
         agent: { type: "string", required: false, description: "Agent id; defaults collaboration actor" },
@@ -46519,6 +47023,12 @@ function makeWorkflowOps(vaultPath) {
       namespace: "workflow",
       description: "Archive a joined agent lifetime while preserving its lifetime and event log in the vault.",
       mutating: true,
+      writePolicy: {
+        realWrite: "always",
+        targets: (ctx, params) => [`${workflowAgentPolicyBasePath(ctx.config, params)}/**`],
+        audit: "required",
+        effects: workflowAgentEffects
+      },
       params: {
         project: { type: "string", required: true, description: "Project key" },
         agent: { type: "string", required: false, description: "Agent id; defaults collaboration actor" },
@@ -46579,6 +47089,28 @@ var execAsync = promisify5(execFile5);
 var PROTECTED_DIRS4 = /* @__PURE__ */ new Set([".obsidian", ".trash", ".git", "node_modules"]);
 var _thisDir = dirname10(fileURLToPath2(import.meta.url));
 var _projectRoot = join18(_thisDir, "..", "..", "..");
+var dryRunPathPolicy = (event = "modify") => ({
+  realWrite: "dryRunFalse",
+  targets: targetParams("path"),
+  audit: "required",
+  effects: (_ctx, params, result) => [touchMarkdown(params.path ?? resultPath(result), event)]
+});
+var dryRunStaticPolicy = (...targets) => ({
+  realWrite: "dryRunFalse",
+  targets: staticTargets(...targets),
+  audit: "required",
+  effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), "modify")]
+});
+var batchWritePolicy = () => ({
+  realWrite: "always",
+  targets: staticTargets(),
+  audit: "required"
+});
+var externalSideEffectPolicy = (target) => ({
+  realWrite: "always",
+  targets: staticTargets(`external/${target}`),
+  audit: "required"
+});
 function makeErr2(code, message) {
   return { code, message };
 }
@@ -46628,6 +47160,7 @@ var operations = [
     namespace: "vault",
     description: "Create a new note (dry-run by default)",
     mutating: true,
+    writePolicy: dryRunPathPolicy("create"),
     params: {
       path: { type: "string", required: true, description: "Vault-relative path for the new note" },
       content: { type: "string", required: false, description: "Initial content" },
@@ -46640,6 +47173,7 @@ var operations = [
     namespace: "vault",
     description: "Overwrite an existing note",
     mutating: true,
+    writePolicy: dryRunPathPolicy("modify"),
     params: {
       path: { type: "string", required: true, description: "Vault-relative path to the note" },
       content: { type: "string", required: true, description: "New content" },
@@ -46652,6 +47186,7 @@ var operations = [
     namespace: "vault",
     description: "Append content to a note",
     mutating: true,
+    writePolicy: dryRunPathPolicy("modify"),
     params: {
       path: { type: "string", required: true, description: "Vault-relative path to the note" },
       content: { type: "string", required: true, description: "Content to append" },
@@ -46664,6 +47199,7 @@ var operations = [
     namespace: "vault",
     description: "Delete a note or folder",
     mutating: true,
+    writePolicy: dryRunPathPolicy("delete"),
     params: {
       path: { type: "string", required: true, description: "Vault-relative path to delete" },
       dryRun: { type: "boolean", required: false, description: "Simulate without deleting (default: true)", default: true }
@@ -46675,6 +47211,12 @@ var operations = [
     namespace: "vault",
     description: "Rename/move a file",
     mutating: true,
+    writePolicy: {
+      realWrite: "dryRunFalse",
+      targets: targetParams("from", "to"),
+      audit: "required",
+      effects: (_ctx, params) => [touchMarkdown(params.from, "delete"), touchMarkdown(params.to, "create")]
+    },
     params: {
       from: { type: "string", required: true, description: "Source vault-relative path" },
       to: { type: "string", required: true, description: "Destination vault-relative path" },
@@ -46687,6 +47229,7 @@ var operations = [
     namespace: "vault",
     description: "Create a directory",
     mutating: true,
+    writePolicy: dryRunPathPolicy(),
     params: {
       path: { type: "string", required: true, description: "Vault-relative directory path to create" },
       dryRun: { type: "boolean", required: false, description: "Simulate without creating (default: true)", default: true }
@@ -46753,7 +47296,8 @@ var operations = [
     name: "vault.batch",
     namespace: "vault",
     description: "Execute multiple vault operations",
-    mutating: false,
+    mutating: true,
+    writePolicy: batchWritePolicy(),
     params: {
       operations: { type: "array", required: true, description: "Array of {method, params} objects to execute" },
       dryRun: { type: "boolean", required: false, description: "Apply dryRun to all mutating operations in the batch" }
@@ -46775,6 +47319,7 @@ var operations = [
     namespace: "vault",
     description: "Create or update today's daily note with AI-First frontmatter (date, mood, energy, summary). Path: Daily/YYYY-MM-DD.md",
     mutating: true,
+    writePolicy: dryRunStaticPolicy("Daily/**"),
     params: {
       summary: { type: "string", required: false, description: "1-3 sentence day summary" },
       mood: { type: "string", required: false, description: "Mood rating", enum: ["great", "good", "neutral", "low", "bad"] },
@@ -46789,6 +47334,7 @@ var operations = [
     namespace: "vault",
     description: "Create or update a person note with AI-First frontmatter. Path: People/{name}.md",
     mutating: true,
+    writePolicy: dryRunStaticPolicy("People/**"),
     params: {
       name: { type: "string", required: true, description: "Person's full name" },
       role: { type: "string", required: false, description: "Job title or role" },
@@ -46804,6 +47350,7 @@ var operations = [
     namespace: "vault",
     description: "Create or update a project note with AI-First frontmatter. Path: Projects/{name}.md",
     mutating: true,
+    writePolicy: dryRunStaticPolicy("Projects/**"),
     params: {
       name: { type: "string", required: true, description: "Project name" },
       status: { type: "string", required: false, description: "Project status", default: "active", enum: ["active", "paused", "completed", "archived", "planned"] },
@@ -46820,6 +47367,7 @@ var operations = [
     namespace: "vault",
     description: "Create a structured decision log (ADR). Path: Decisions/YYYY-MM-DD -- {title-slug}.md",
     mutating: true,
+    writePolicy: dryRunStaticPolicy("Decisions/**"),
     params: {
       title: { type: "string", required: true, description: "Decision title" },
       context: { type: "string", required: true, description: "Situation and constraints" },
@@ -46840,6 +47388,7 @@ var operations = [
     namespace: "vault",
     description: "Create a meeting note with attendees, decisions, and action items. Path: Meetings/YYYY-MM-DD -- {title-slug}.md",
     mutating: true,
+    writePolicy: dryRunStaticPolicy("Meetings/**"),
     params: {
       title: { type: "string", required: true, description: "Meeting title" },
       attendees: { type: "array", required: false, description: "Attendee names (wikilinked)" },
@@ -46855,6 +47404,7 @@ var operations = [
     namespace: "vault",
     description: "Ingest content into vault with AI-First frontmatter (ai-first: true, source, recency markers). Path: 00-Inbox/{title-slug}.md",
     mutating: true,
+    writePolicy: dryRunStaticPolicy("00-Inbox/**"),
     params: {
       content: { type: "string", required: true, description: "Content to ingest (text, URL, or pasted article)" },
       title: { type: "string", required: true, description: "Note title" },
@@ -46871,6 +47421,12 @@ var operations = [
     namespace: "vault",
     description: "Scaffold the vault. methodology mode creates the folder layout (generic|para|lyt|zettelkasten) plus a Home.md index with AI-First frontmatter, dry-run by default, existing folders are skipped; topic mode scaffolds a knowledge base topic directory (writes immediately).",
     mutating: true,
+    writePolicy: {
+      realWrite: "always",
+      shouldWrite: (_ctx, params) => typeof params.topic === "string" || params.dryRun === false,
+      targets: staticTargets("**"),
+      audit: "required"
+    },
     params: {
       topic: { type: "string", required: false, description: "Topic name (used as directory name and KB title); topic mode" },
       methodology: { type: "string", required: false, description: "Vault folder scaffold to create; methodology mode", enum: ["generic", "para", "lyt", "zettelkasten"] },
@@ -46883,6 +47439,11 @@ var operations = [
     namespace: "vault",
     description: "Retroactively enforce Karpathy LLM Wiki discipline: ensure each top-level topic folder has _index.md (catalog) and log.md (chronicle). Skips folders that already have a recognized catalog (Home.md/INDEX.md/README.md) or chronicle (Log.md). Dry-run by default.",
     mutating: true,
+    writePolicy: {
+      realWrite: "dryRunFalse",
+      targets: staticTargets("**"),
+      audit: "required"
+    },
     params: {
       dryRun: { type: "boolean", required: false, description: "Simulate without writing (default: true)", default: true },
       topLevelOnly: { type: "boolean", required: false, description: "Only process top-level directories (default: true)", default: true },
@@ -46895,6 +47456,15 @@ var operations = [
     namespace: "vault",
     description: "Write a persona-authored analysis into 00-Inbox/AI-Output/{persona}/YYYY-MM-DD-{slug}.md with the 8-field provenance frontmatter (generated-by, generated-at, agent, parent-query, source-nodes, status=draft, scope, quarantine-state). Human confirmation rides on an Obsidian body tag (#user-confirmed), not a frontmatter field. Dry-run by default.",
     mutating: true,
+    writePolicy: {
+      realWrite: "dryRunFalse",
+      targets: (_ctx, params) => {
+        const persona = typeof params.persona === "string" ? params.persona : "*";
+        return [`00-Inbox/AI-Output/${persona}/**`];
+      },
+      audit: "required",
+      effects: (_ctx, params, result) => [touchMarkdown(params.path ?? resultPath(result), "modify")]
+    },
     params: {
       persona: { type: "string", required: true, description: "Persona identifier, must match ^vault-[a-z]+$" },
       parentQuery: { type: "string", required: true, description: "User's original query (truncated to 200 chars)" },
@@ -46914,6 +47484,11 @@ var operations = [
     namespace: "vault",
     description: "Sweep 00-Inbox/AI-Output for stale drafts (age > persona threshold and no non-AI-Output backlinks) and supersede candidates (same-persona reviewed pairs with source-nodes Jaccard >= 0.6). Reports candidates; when dry_run=false flips draft\u2192stale in place. Never auto-applies supersede.",
     mutating: true,
+    writePolicy: {
+      realWrite: "dryRunFalse",
+      targets: staticTargets("00-Inbox/AI-Output/**"),
+      audit: "required"
+    },
     params: {
       dry_run: { type: "boolean", required: false, description: "Report only without writing (default: true)", default: true },
       now: { type: "string", required: false, description: "Inject ISO 8601 timestamp for deterministic tests" }
@@ -46991,6 +47566,7 @@ var operations = [
     description: "Full diagnostic: secrets + health checks for a recipe",
     mutating: true,
     // writes heartbeat state — side-effecting even though it's diagnostic
+    writePolicy: externalSideEffectPolicy("recipe/**"),
     params: {
       id: { type: "string", required: true, description: "Recipe id" }
     },
@@ -47020,6 +47596,7 @@ var operations = [
     namespace: "recipe",
     description: "Run a recipe collector. Secrets must be set in the MCP server environment.",
     mutating: true,
+    writePolicy: externalSideEffectPolicy("recipe/**"),
     params: {
       id: { type: "string", required: true, description: "Recipe id (e.g. napcat-to-vault)" },
       timeout_ms: { type: "number", required: false, description: "Timeout ms (default 120000)" }
@@ -47043,7 +47620,7 @@ var operations = [
       }
       const stem = id.replace(/-to-vault$/, "");
       const collectorPath = join18(_projectRoot, "recipes", "collectors", `${stem}-collector.ts`);
-      if (!existsSync13(collectorPath)) {
+      if (!existsSync14(collectorPath)) {
         return {
           ok: false,
           exit_code: null,
@@ -47093,6 +47670,7 @@ function makeAllOperations(deps) {
       namespace: "compile",
       description: "Run compilation",
       mutating: true,
+      writePolicy: externalSideEffectPolicy("compile/**"),
       params: {
         topic: { type: "string", required: false, description: "Topic to compile" }
       },
@@ -47113,6 +47691,7 @@ function makeAllOperations(deps) {
       namespace: "compile",
       description: "Abort running compilation",
       mutating: true,
+      writePolicy: externalSideEffectPolicy("compile/**"),
       params: {},
       handler: async (_ctx, _params) => compileTrigger.abort()
     }
@@ -47152,7 +47731,7 @@ function makeAllOperations(deps) {
         for (let i = 0; i < files.length; i += concurrency) {
           const batch = files.slice(i, i + concurrency);
           const results = await Promise.allSettled(batch.map(async (fullPath) => {
-            const content = readFileSync15(fullPath, "utf-8");
+            const content = readFileSync16(fullPath, "utf-8");
             const relPath = relative5(vaultPath, fullPath).replace(/\\/g, "/");
             await vba.ingest(relPath, content);
           }));
@@ -47378,6 +47957,12 @@ function makeAllOperations(deps) {
       namespace: "multimodal",
       description: "Parse a vault-relative multimodal document through the RAG-Anything HTTP bridge and write the extracted Markdown back into the vault. Dry-run by default. Requires RAGANYTHING_URL and a running wrapper service.",
       mutating: true,
+      writePolicy: {
+        realWrite: "dryRunFalse",
+        targets: targetOrWildcard("outputPath", "00-Inbox/Multimodal/**"),
+        audit: "required",
+        effects: (_ctx, params, result) => [touchMarkdown(params.outputPath ?? resultPath(result), "create")]
+      },
       params: {
         path: { type: "string", required: true, description: "Vault-relative source file path, e.g. attachments/report.pdf" },
         outputPath: { type: "string", required: false, description: "Vault-relative Markdown output path. Defaults to 00-Inbox/Multimodal/<source-name>.md" },
@@ -47395,7 +47980,7 @@ function makeAllOperations(deps) {
           throw makeErr2(-32602, "path required");
         const normalizedInput = normalizeVaultRelPath3(inputPath);
         const fullInput = join18(vaultPath, normalizedInput);
-        if (!existsSync13(fullInput))
+        if (!existsSync14(fullInput))
           throw makeErr2(-32001, `Source file not found: ${normalizedInput}`);
         const outputPath = normalizeVaultRelPath3(typeof params.outputPath === "string" && params.outputPath.length > 0 ? params.outputPath : defaultMultimodalOutputPath(normalizedInput));
         if (!outputPath.endsWith(".md"))
@@ -47428,7 +48013,7 @@ function makeAllOperations(deps) {
           };
         }
         const fullOutput = join18(vaultPath, outputPath);
-        mkdirSync9(dirname10(fullOutput), { recursive: true });
+        mkdirSync10(dirname10(fullOutput), { recursive: true });
         writeFileSync8(fullOutput, content, "utf-8");
         const vba = registry2.get("vaultbrain");
         if (vba)
@@ -47449,6 +48034,11 @@ function makeAllOperations(deps) {
       namespace: "lightrag",
       description: "Send a vault-relative file into an external LightRAG server. Markdown/text files use /documents/text; other files use /documents/upload. Dry-run by default. Requires LIGHTRAG_URL.",
       mutating: true,
+      writePolicy: {
+        realWrite: "dryRunFalse",
+        targets: staticTargets("external/lightrag/**"),
+        audit: "required"
+      },
       params: {
         path: { type: "string", required: true, description: "Vault-relative source file path" },
         mode: { type: "string", required: false, default: "auto", enum: ["auto", "text", "upload"], description: "Ingest mode. auto sends .md/.txt as text and other files as upload." },
@@ -47464,7 +48054,7 @@ function makeAllOperations(deps) {
           throw makeErr2(-32602, "path required");
         const normalizedInput = normalizeVaultRelPath3(inputPath);
         const fullInput = join18(vaultPath, normalizedInput);
-        if (!existsSync13(fullInput))
+        if (!existsSync14(fullInput))
           throw makeErr2(-32001, `Source file not found: ${normalizedInput}`);
         const mode = params.mode ?? "auto";
         const effectiveMode = mode === "auto" ? /\.(md|markdown|txt)$/i.test(normalizedInput) ? "text" : "upload" : mode;
@@ -47478,7 +48068,7 @@ function makeAllOperations(deps) {
           };
         }
         if (effectiveMode === "text") {
-          const text = readFileSync15(fullInput, "utf-8");
+          const text = readFileSync16(fullInput, "utf-8");
           const result2 = await adapter.insertText({ text, fileSource: normalizedInput });
           return { dryRun: false, sourcePath: normalizedInput, mode: effectiveMode, result: result2 };
         }
@@ -47497,8 +48087,8 @@ function makeAllOperations(deps) {
         mode: { type: "string", required: false, description: "Agent mode filter" }
       },
       handler: async (_ctx, params) => {
-        const { resolve: resolve6 } = await import("node:path");
-        const evaluatePy = resolve6(compilerPath, "evaluate.py");
+        const { resolve: resolve7 } = await import("node:path");
+        const evaluatePy = resolve7(compilerPath, "evaluate.py");
         const baseArgs = [evaluatePy];
         if (configPath)
           baseArgs.push("--config", configPath);
@@ -47524,13 +48114,14 @@ function makeAllOperations(deps) {
       namespace: "agent",
       description: "Trigger an agent action",
       mutating: true,
+      writePolicy: externalSideEffectPolicy("agent/**"),
       params: {
         action: { type: "string", required: true, description: "Action to trigger (compile, emerge, reconcile, prune, challenge)" },
         mode: { type: "string", required: false, description: "Agent mode" }
       },
       handler: async (_ctx, params) => {
-        const { resolve: resolve6 } = await import("node:path");
-        const evaluatePy = resolve6(compilerPath, "evaluate.py");
+        const { resolve: resolve7 } = await import("node:path");
+        const evaluatePy = resolve7(compilerPath, "evaluate.py");
         const baseArgs = [evaluatePy];
         if (configPath)
           baseArgs.push("--config", configPath);
@@ -47578,8 +48169,8 @@ function makeAllOperations(deps) {
         limit: { type: "number", required: false, description: "Maximum number of history entries (default: 20)", default: 20 }
       },
       handler: async (_ctx, params) => {
-        const { resolve: resolve6 } = await import("node:path");
-        const evaluatePy = resolve6(compilerPath, "evaluate.py");
+        const { resolve: resolve7 } = await import("node:path");
+        const evaluatePy = resolve7(compilerPath, "evaluate.py");
         const baseArgs = [evaluatePy];
         if (configPath)
           baseArgs.push("--config", configPath);
@@ -47648,55 +48239,6 @@ function multimodalMarkdown(opts) {
   ].join("\n");
 }
 
-// dist/core/validate.js
-function rejectDangerousRegex(pattern) {
-  if (/(\([^)]*[+*}]\s*\))[+*{]/.test(pattern))
-    throw new ValidationError("regex rejected: nested quantifiers (ReDoS risk)");
-  if (/\([^)]*\|[^)]*\)[+*{]/.test(pattern) && /(\w)\|.*\1/.test(pattern))
-    throw new ValidationError("regex rejected: overlapping alternation (ReDoS risk)");
-}
-var ValidationError = class extends Error {
-  code = -32602;
-  constructor(message) {
-    super(message);
-    this.name = "ValidationError";
-  }
-};
-function validateParams(schema, raw) {
-  const result = {};
-  for (const [key, def] of Object.entries(schema)) {
-    let val = raw[key];
-    if (val === void 0 || val === null) {
-      if (def.required) {
-        throw new ValidationError(`Missing required param: ${key}`);
-      }
-      if (def.default !== void 0) {
-        result[key] = def.default;
-      }
-      continue;
-    }
-    const actual = Array.isArray(val) ? "array" : typeof val;
-    if (def.type !== "object" && def.type !== "array") {
-      if (actual !== def.type) {
-        if (def.type === "number" && typeof val === "string" && !isNaN(Number(val))) {
-          val = Number(val);
-        } else if (def.type === "boolean" && typeof val === "string") {
-          val = val === "true";
-        } else {
-          throw new ValidationError(`Param ${key}: expected ${def.type}, got ${actual}`);
-        }
-      }
-    }
-    if (def.enum && def.enum.length > 0) {
-      if (!def.enum.includes(val)) {
-        throw new ValidationError(`Param ${key}: must be one of [${def.enum.join(", ")}], got ${val}`);
-      }
-    }
-    result[key] = val;
-  }
-  return result;
-}
-
 // dist/index.js
 var WIKILINK_RE = /\[\[([^\]|]+)(?:\|([^\]]*))?\]\]/g;
 var TAG_RE = /(?:^|\s)#([a-zA-Z_一-鿿][\w/一-鿿-]*)/gm;
@@ -47735,12 +48277,12 @@ function loadConfig() {
     };
   }
   const candidates = [
-    resolve5(process.cwd(), "vault-mind.yaml"),
-    resolve5(process.cwd(), "../vault-mind.yaml")
+    resolve6(process.cwd(), "vault-mind.yaml"),
+    resolve6(process.cwd(), "../vault-mind.yaml")
   ];
   for (const p of candidates) {
-    if (existsSync14(p))
-      return { ...parseSimpleYaml(readFileSync16(p, "utf-8")), config_path: p };
+    if (existsSync15(p))
+      return { ...parseSimpleYaml(readFileSync17(p, "utf-8")), config_path: p };
   }
   throw new Error("No vault-mind.yaml found and VAULT_MIND_VAULT_PATH not set");
 }
@@ -47809,7 +48351,7 @@ function withFileLock4(fullPath, fn) {
     if (ageMs < LOCK_TTL_MS4) {
       let holder = "unknown";
       try {
-        holder = readFileSync16(lockPath, "utf-8").trim();
+        holder = readFileSync17(lockPath, "utf-8").trim();
       } catch {
       }
       throw err(-32010, `Lock conflict on ${basename6(fullPath)}: held by ${holder}, ttl remaining ${LOCK_TTL_MS4 - ageMs}ms`);
@@ -47824,292 +48366,6 @@ function withFileLock4(fullPath, fn) {
       rmSync4(lockPath, { force: true });
     } catch {
     }
-  }
-}
-var DEFAULT_PROTECTED_PATHS = ["20-Decisions/**", "30-Architecture/**", "40-Runbooks/**", "README.md"];
-var globCache = /* @__PURE__ */ new Map();
-function readVaultCollabPolicy(vaultPath) {
-  const policyPath = resolve5(vaultPath, ".vault-collab.json");
-  if (!existsSync14(policyPath))
-    return {};
-  try {
-    const parsed = JSON.parse(readFileSync16(policyPath, "utf-8"));
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      throw new Error("expected a JSON object");
-    }
-    return parsed;
-  } catch (e) {
-    throw err(-32602, `.vault-collab.json is invalid JSON: ${e.message}`);
-  }
-}
-function globToRegExp(glob) {
-  const cached2 = globCache.get(glob);
-  if (cached2)
-    return cached2;
-  let pattern = "";
-  for (let i = 0; i < glob.length; i++) {
-    const ch = glob[i];
-    if (ch === "*" && glob[i + 1] === "*") {
-      pattern += ".*";
-      i++;
-    } else if (ch === "*") {
-      pattern += "[^/]*";
-    } else if (ch === "?") {
-      pattern += "[^/]";
-    } else {
-      pattern += ch.replace(/[.+^${}()|[\]\\]/g, "\\$&");
-    }
-  }
-  const re = new RegExp(`^${pattern}$`);
-  globCache.set(glob, re);
-  return re;
-}
-function matchAny(path, patterns) {
-  return patterns.some((p) => globToRegExp(p).test(path));
-}
-function normalizePolicyPath(path) {
-  return path.replace(/\\/g, "/").replace(/^\/+/, "");
-}
-function safeMemorySegment(value, label) {
-  const trimmed = value.trim();
-  if (!trimmed || trimmed === "." || trimmed === ".." || trimmed.includes("/") || trimmed.includes("\\") || /^[A-Za-z]:/.test(trimmed) || trimmed.startsWith("//")) {
-    throw err(-32602, `${label} must be a single safe path segment`);
-  }
-  return trimmed;
-}
-function memoryPolicyBasePath(config2, args) {
-  const actor = safeMemorySegment(config2.collaboration?.actor || process.env.VAULT_MIND_ACTOR || "agent", "actor");
-  const project = typeof args.project === "string" && args.project.trim() ? safeMemorySegment(args.project, "project") : void 0;
-  return project ? `10-Projects/${project}/agents/${actor}/memory` : `00-Inbox/Agent-Memory/${actor}`;
-}
-function slugPolicySegment(value, label) {
-  const segment = value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-  if (!segment)
-    throw err(-32602, `${label} must contain at least one [a-z0-9] character`);
-  return segment;
-}
-function policyProjectSegment(args) {
-  if (typeof args.project !== "string" || !args.project.trim())
-    return "*";
-  return slugPolicySegment(args.project, "project");
-}
-function projectPolicyBasePath(args) {
-  return `01-Projects/${policyProjectSegment(args)}`;
-}
-function workflowPolicyBasePath(args) {
-  return `${projectPolicyBasePath(args)}/workflow`;
-}
-function workflowAgentPolicySegment(config2, args) {
-  const raw = typeof args.agent === "string" && args.agent.trim() ? args.agent : config2.collaboration?.actor || process.env.VAULT_MIND_ACTOR || "agent";
-  return slugPolicySegment(raw, "agent");
-}
-function workflowAgentPolicyBasePath(config2, args) {
-  return `${projectPolicyBasePath(args)}/agents/${workflowAgentPolicySegment(config2, args)}`;
-}
-function sourcePolicyTargetPaths(args) {
-  const project = typeof args.project === "string" && args.project.trim() ? safeMemorySegment(args.project, "project") : void 0;
-  const platform = typeof args.platform === "string" && args.platform.trim() ? safeMemorySegment(args.platform, "platform") : "*";
-  const sourceNotePath2 = project ? `10-Projects/${project}/sources/${platform}/**` : `00-Inbox/Sources/${platform}/**`;
-  return ["_llmwiki/source-registry.json", sourceNotePath2];
-}
-function defaultAllowedPaths(actor, role) {
-  if (!actor)
-    return [];
-  const workflowActor = slugPolicySegment(actor, "actor");
-  if (role === "human")
-    return [`00-Inbox/${actor}`, `00-Inbox/${actor}/**`];
-  return [
-    `00-Inbox/AI-Output/${actor}`,
-    `00-Inbox/AI-Output/${actor}/**`,
-    `00-Inbox/Agent-Memory/${actor}`,
-    `00-Inbox/Agent-Memory/${actor}/**`,
-    `10-Projects/*/agents/${actor}`,
-    `10-Projects/*/agents/${actor}/**`,
-    `10-Projects/*/project.md`,
-    `10-Projects/*/docket/**`,
-    `01-Projects/*/_project.md`,
-    `01-Projects/*/issues/**`,
-    `01-Projects/*/views/**`,
-    `01-Projects/*/workflow/**`,
-    `01-Projects/*/agents/${workflowActor}`,
-    `01-Projects/*/agents/${workflowActor}/**`
-  ];
-}
-function writeTargetPaths(config2, toolName, args) {
-  if (toolName === "vault.rename") {
-    return [args.from, args.to].filter((p) => typeof p === "string");
-  }
-  if (toolName === "vault.writeAIOutput") {
-    const persona = typeof args.persona === "string" ? args.persona : "*";
-    return [`00-Inbox/AI-Output/${persona}/**`];
-  }
-  if (toolName === "multimodal.ingest") {
-    return typeof args.outputPath === "string" ? [args.outputPath] : ["00-Inbox/Multimodal/**"];
-  }
-  if (toolName === "memory.passport.upsert")
-    return [`${memoryPolicyBasePath(config2, args)}/passport.md`];
-  if (toolName === "memory.handoff.write")
-    return [`${memoryPolicyBasePath(config2, args)}/handoff.md`];
-  if (toolName === "memory.session.save")
-    return [`${memoryPolicyBasePath(config2, args)}/sessions/**`];
-  if (toolName === "source.register")
-    return sourcePolicyTargetPaths(args);
-  if (toolName === "workflow.state.set")
-    return [`${workflowPolicyBasePath(args)}/status.md`];
-  if (toolName === "workflow.checkpoint.add")
-    return [`${workflowPolicyBasePath(args)}/checkpoints.md`];
-  if (toolName === "workflow.agent.join" || toolName === "workflow.agent.step" || toolName === "workflow.agent.checkpoint" || toolName === "workflow.agent.leave")
-    return [`${workflowAgentPolicyBasePath(config2, args)}/**`];
-  if (toolName === "project.init")
-    return [`${projectPolicyBasePath(args)}/_project.md`, `${projectPolicyBasePath(args)}/issues/**`];
-  if (toolName === "project.issue.create")
-    return [`${projectPolicyBasePath(args)}/issues/**`];
-  if (toolName === "project.issue.update")
-    return [`${projectPolicyBasePath(args)}/issues/**`];
-  if (toolName === "project.issue.link")
-    return [`${projectPolicyBasePath(args)}/issues/**`];
-  if (toolName === "project.comment.add")
-    return [`${projectPolicyBasePath(args)}/issues/**`];
-  if (toolName === "project.canvas.export" || toolName === "project.base.export")
-    return [`${projectPolicyBasePath(args)}/views/**`];
-  return typeof args.path === "string" ? [args.path] : [];
-}
-function enforceCollaborationPolicy(config2, toolName, args) {
-  if (toolName === "vault.batch") {
-    if (!Array.isArray(args.operations))
-      return;
-    for (const op of args.operations) {
-      if (!op || typeof op !== "object")
-        continue;
-      const batchOp = op;
-      if (typeof batchOp.method !== "string")
-        continue;
-      if (batchOp.method === "vault.batch")
-        throw err(-32602, "Recursive batch not allowed");
-      const opArgs = {
-        ...batchOp.params && typeof batchOp.params === "object" && !Array.isArray(batchOp.params) ? batchOp.params : {}
-      };
-      if (args.dryRun !== void 0 && opArgs.dryRun === void 0)
-        opArgs.dryRun = args.dryRun;
-      if (args.dry_run !== void 0 && opArgs.dry_run === void 0)
-        opArgs.dry_run = args.dry_run;
-      enforceCollaborationPolicy(config2, batchOp.method, opArgs);
-    }
-    return;
-  }
-  const mutatingTargets = /* @__PURE__ */ new Set([
-    "vault.create",
-    "vault.modify",
-    "vault.append",
-    "vault.delete",
-    "vault.rename",
-    "vault.mkdir",
-    "vault.writeAIOutput",
-    "multimodal.ingest",
-    "source.register",
-    "memory.passport.upsert",
-    "memory.handoff.write",
-    "memory.session.save",
-    "workflow.state.set",
-    "workflow.checkpoint.add",
-    "workflow.agent.join",
-    "workflow.agent.step",
-    "workflow.agent.checkpoint",
-    "workflow.agent.leave"
-  ]);
-  if (!mutatingTargets.has(toolName))
-    return;
-  const alwaysRealWriteTargets = /* @__PURE__ */ new Set([
-    "source.register",
-    "memory.passport.upsert",
-    "memory.handoff.write",
-    "memory.session.save",
-    "workflow.state.set",
-    "workflow.checkpoint.add",
-    "workflow.agent.join",
-    "workflow.agent.step",
-    "workflow.agent.checkpoint",
-    "workflow.agent.leave"
-  ]);
-  if (!alwaysRealWriteTargets.has(toolName) && args.dryRun !== false && args.dry_run !== false)
-    return;
-  const collab = config2.collaboration;
-  const actor = collab?.actor;
-  if (!actor || collab?.enforce === false)
-    return;
-  const policy = readVaultCollabPolicy(config2.vault_path);
-  const role = collab?.role || (policy.agents?.includes(actor) ? "agent" : policy.team?.includes(actor) ? "human" : "agent");
-  const allowed = [
-    ...defaultAllowedPaths(actor, role),
-    ...policy.allowed_write_paths ?? [],
-    ...collab?.allowed_write_paths ?? []
-  ];
-  const protectedPaths = [
-    ...DEFAULT_PROTECTED_PATHS,
-    ...policy.protected_paths ?? [],
-    ...collab?.protected_paths ?? []
-  ];
-  for (const rawTarget of writeTargetPaths(config2, toolName, args)) {
-    const target = normalizePolicyPath(rawTarget);
-    const protectedHit = matchAny(target, protectedPaths);
-    const allowedHit = allowed.length > 0 && matchAny(target, allowed);
-    if (protectedHit && !allowedHit) {
-      throw err(-32403, `Collaboration policy blocked ${toolName} by ${actor}: protected path ${target}`);
-    }
-    if (!allowedHit) {
-      throw err(-32403, `Collaboration policy blocked ${toolName} by ${actor}: ${target} is outside allowed write paths`);
-    }
-  }
-}
-function shouldAuditWrite(toolName, args) {
-  if (toolName === "vault.batch")
-    return args.dryRun === false || args.dry_run === false;
-  const alwaysRealWriteTargets = /* @__PURE__ */ new Set([
-    "memory.passport.upsert",
-    "memory.handoff.write",
-    "memory.session.save",
-    "workflow.state.set",
-    "workflow.checkpoint.add",
-    "workflow.agent.join",
-    "workflow.agent.step",
-    "workflow.agent.checkpoint",
-    "workflow.agent.leave"
-  ]);
-  if (alwaysRealWriteTargets.has(toolName))
-    return true;
-  const mutatingTargets = /* @__PURE__ */ new Set([
-    "vault.create",
-    "vault.modify",
-    "vault.append",
-    "vault.delete",
-    "vault.rename",
-    "vault.mkdir",
-    "vault.writeAIOutput",
-    "multimodal.ingest"
-  ]);
-  return mutatingTargets.has(toolName) && (args.dryRun === false || args.dry_run === false);
-}
-function auditWrite(config2, toolName, args, result) {
-  const actor = config2.collaboration?.actor;
-  if (!actor || config2.collaboration?.enforce === false || !shouldAuditWrite(toolName, args))
-    return;
-  try {
-    const day = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-    const auditDir = resolve5(config2.vault_path, ".wiki-audit");
-    mkdirSync10(auditDir, { recursive: true });
-    const entry = {
-      ts: (/* @__PURE__ */ new Date()).toISOString(),
-      actor,
-      role: config2.collaboration?.role,
-      tool: toolName,
-      targets: writeTargetPaths(config2, toolName, args).map(normalizePolicyPath),
-      ok: true,
-      resultPath: typeof result === "object" && result !== null && "path" in result ? result.path : void 0
-    };
-    appendFileSync2(resolve5(auditDir, `${day}.jsonl`), JSON.stringify(entry) + "\n", "utf-8");
-  } catch (e) {
-    process.stderr.write(`obsidian-llm-wiki: [warn] audit write failed: ${e.message}
-`);
   }
 }
 function appendHistoryInYaml(content, flowItem) {
@@ -48161,7 +48417,7 @@ var VaultFs = class {
   vault;
   realVault;
   constructor(vaultPath) {
-    this.vault = resolve5(vaultPath);
+    this.vault = resolve6(vaultPath);
     this.realVault = realpathSync(this.vault);
   }
   normalizeVaultPath(p, opts = {}) {
@@ -48185,7 +48441,7 @@ var VaultFs = class {
   }
   resolve(p, opts = {}) {
     const normalized = this.normalizeVaultPath(p, opts);
-    const full = resolve5(this.vault, normalized);
+    const full = resolve6(this.vault, normalized);
     const rel = relative6(this.vault, full);
     if (rel.startsWith("..") || pathIsAbsolute2(rel))
       throw err(-32602, "path escapes vault");
@@ -48193,14 +48449,14 @@ var VaultFs = class {
     return full;
   }
   assertRealPathInsideVault(full) {
-    const realTarget = existsSync14(full) ? realpathSync(full) : this.realpathExistingAncestor(dirname11(full));
+    const realTarget = existsSync15(full) ? realpathSync(full) : this.realpathExistingAncestor(dirname11(full));
     const rel = relative6(this.realVault, realTarget);
     if (rel.startsWith("..") || pathIsAbsolute2(rel))
       throw err(-32602, "path traversal blocked");
   }
   realpathExistingAncestor(start) {
     let current = start;
-    while (!existsSync14(current)) {
+    while (!existsSync15(current)) {
       const parent = dirname11(current);
       if (parent === current)
         throw err(-32602, "path traversal blocked");
@@ -48295,7 +48551,7 @@ var VaultFs = class {
           walk(full);
         else if (ent.isFile() && ent.name.endsWith(".md")) {
           const rel = relative6(this.vault, full).replace(/\\/g, "/");
-          fn(rel, readFileSync16(full, "utf-8"));
+          fn(rel, readFileSync17(full, "utf-8"));
         }
       }
     };
@@ -48310,7 +48566,7 @@ var VaultFs = class {
           walk(full);
         if (ent.isFile() && searchableExts.has(extname2(ent.name))) {
           const rel = relative6(this.vault, full).replace(/\\/g, "/");
-          fn(rel, readFileSync16(full, "utf-8"));
+          fn(rel, readFileSync17(full, "utf-8"));
         }
       }
     };
@@ -48324,18 +48580,18 @@ var VaultFs = class {
     switch (method) {
       case "vault.read": {
         const full = this.resolve(p.path);
-        if (!existsSync14(full))
+        if (!existsSync15(full))
           throw err(-32001, `Not found: ${p.path}`);
-        return { content: readFileSync16(full, "utf-8") };
+        return { content: readFileSync17(full, "utf-8") };
       }
       case "vault.exists": {
         const existsPath = this.normalizeVaultPath(p.path ?? "", { allowRoot: true });
-        return { exists: existsSync14(this.resolve(existsPath, { allowRoot: true })) };
+        return { exists: existsSync15(this.resolve(existsPath, { allowRoot: true })) };
       }
       case "vault.list": {
         const listPath = this.normalizeVaultPath(p.path ?? "", { allowRoot: true });
         const dir = this.resolve(listPath, { allowRoot: true });
-        if (!existsSync14(dir))
+        if (!existsSync15(dir))
           throw err(-32001, `Not found: ${p.path}`);
         const hidden = /* @__PURE__ */ new Set([".obsidian", ".trash", "node_modules"]);
         const entries = readdirSync10(dir, { withFileTypes: true }).filter((e) => !hidden.has(e.name));
@@ -48347,7 +48603,7 @@ var VaultFs = class {
       case "vault.stat": {
         const statPath = this.normalizeVaultPath(p.path ?? "", { allowRoot: true });
         const full = this.resolve(statPath, { allowRoot: true });
-        if (!existsSync14(full))
+        if (!existsSync15(full))
           throw err(-32001, `Not found: ${p.path}`);
         const st = statSync6(full);
         const displayName = statPath === "" ? basename6(this.vault) : basename6(statPath);
@@ -48365,19 +48621,19 @@ var VaultFs = class {
       }
       case "vault.create": {
         const full = this.resolve(p.path);
-        if (existsSync14(full))
+        if (existsSync15(full))
           throw err(-32002, `Already exists: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "create", path: p.path };
         return withFileLock4(full, () => {
-          mkdirSync10(dirname11(full), { recursive: true });
+          mkdirSync11(dirname11(full), { recursive: true });
           writeFileSync9(full, p.content || "", "utf-8");
           return { ok: true, path: p.path };
         });
       }
       case "vault.modify": {
         const full = this.resolve(p.path);
-        if (!existsSync14(full))
+        if (!existsSync15(full))
           throw err(-32001, `Not found: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "modify", path: p.path };
@@ -48388,18 +48644,18 @@ var VaultFs = class {
       }
       case "vault.append": {
         const full = this.resolve(p.path);
-        if (!existsSync14(full))
+        if (!existsSync15(full))
           throw err(-32001, `Not found: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "append", path: p.path };
         return withFileLock4(full, () => {
-          appendFileSync2(full, p.content, "utf-8");
+          appendFileSync3(full, p.content, "utf-8");
           return { ok: true, path: p.path };
         });
       }
       case "vault.delete": {
         const full = this.resolve(p.path);
-        if (!existsSync14(full))
+        if (!existsSync15(full))
           throw err(-32001, `Not found: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "delete", path: p.path };
@@ -48411,14 +48667,14 @@ var VaultFs = class {
       case "vault.rename": {
         const from = this.resolve(p.from);
         const to = this.resolve(p.to);
-        if (!existsSync14(from))
+        if (!existsSync15(from))
           throw err(-32001, `Not found: ${p.from}`);
-        if (existsSync14(to))
+        if (existsSync15(to))
           throw err(-32002, `Already exists: ${p.to}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "rename", from: p.from, to: p.to };
         return withFileLock4(from, () => {
-          mkdirSync10(dirname11(to), { recursive: true });
+          mkdirSync11(dirname11(to), { recursive: true });
           return withFileLock4(to, () => {
             renameSync(from, to);
             return { ok: true, from: p.from, to: p.to };
@@ -48556,7 +48812,7 @@ var VaultFs = class {
             if (!target.includes("/")) {
               const withMd = target.endsWith(".md") ? target : target + ".md";
               try {
-                if (existsSync14(this.resolve(withMd)))
+                if (existsSync15(this.resolve(withMd)))
                   target = withMd;
               } catch {
               }
@@ -48577,7 +48833,7 @@ var VaultFs = class {
           path: np,
           exists: (() => {
             try {
-              return existsSync14(this.resolve(np));
+              return existsSync15(this.resolve(np));
             } catch {
               return false;
             }
@@ -48664,7 +48920,7 @@ var VaultFs = class {
         for (const [from, targets] of linkMap) {
           for (const [to] of targets) {
             try {
-              if (!existsSync14(this.resolve(to)))
+              if (!existsSync15(this.resolve(to)))
                 brokenLinks.push({ from, to });
             } catch {
               brokenLinks.push({ from, to });
@@ -48745,7 +49001,7 @@ ${summary ? `> ${summary}
         if (p.dryRun !== false)
           return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
         return withFileLock4(full, () => {
-          mkdirSync10(dirname11(full), { recursive: true });
+          mkdirSync11(dirname11(full), { recursive: true });
           writeFileSync9(full, content, "utf-8");
           return { ok: true, path };
         });
@@ -48786,11 +49042,11 @@ ${notes}
 
 ## Notes
 `;
-        const alreadyExists = existsSync14(full);
+        const alreadyExists = existsSync15(full);
         if (p.dryRun !== false)
           return { dryRun: true, action: alreadyExists ? "update" : "create", path, preview: content.slice(0, 200) };
         return withFileLock4(full, () => {
-          mkdirSync10(dirname11(full), { recursive: true });
+          mkdirSync11(dirname11(full), { recursive: true });
           writeFileSync9(full, content, "utf-8");
           return { ok: true, path, action: alreadyExists ? "updated" : "created" };
         });
@@ -48844,9 +49100,9 @@ ${teamLinks || "- TBD"}
 ## Notes
 `;
         if (p.dryRun !== false)
-          return { dryRun: true, action: existsSync14(full) ? "update" : "create", path, preview: content.slice(0, 200) };
+          return { dryRun: true, action: existsSync15(full) ? "update" : "create", path, preview: content.slice(0, 200) };
         return withFileLock4(full, () => {
-          mkdirSync10(dirname11(full), { recursive: true });
+          mkdirSync11(dirname11(full), { recursive: true });
           writeFileSync9(full, content, "utf-8");
           return { ok: true, path };
         });
@@ -48907,7 +49163,7 @@ ${consequences}
         if (p.dryRun !== false)
           return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
         return withFileLock4(full, () => {
-          mkdirSync10(dirname11(full), { recursive: true });
+          mkdirSync11(dirname11(full), { recursive: true });
           writeFileSync9(full, content, "utf-8");
           return { ok: true, path };
         });
@@ -48960,7 +49216,7 @@ ${actionLines || "- None assigned"}
         if (p.dryRun !== false)
           return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
         return withFileLock4(full, () => {
-          mkdirSync10(dirname11(full), { recursive: true });
+          mkdirSync11(dirname11(full), { recursive: true });
           writeFileSync9(full, content, "utf-8");
           return { ok: true, path };
         });
@@ -49001,18 +49257,18 @@ ${p.content}
         if (p.dryRun !== false)
           return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
         return withFileLock4(full, () => {
-          mkdirSync10(dirname11(full), { recursive: true });
+          mkdirSync11(dirname11(full), { recursive: true });
           writeFileSync9(full, content, "utf-8");
           return { ok: true, path };
         });
       }
       case "vault.mkdir": {
         const full = this.resolve(p.path);
-        if (existsSync14(full))
+        if (existsSync15(full))
           throw err(-32002, `Already exists: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "mkdir", path: p.path };
-        mkdirSync10(full, { recursive: true });
+        mkdirSync11(full, { recursive: true });
         return { ok: true, path: p.path };
       }
       case "vault.init": {
@@ -49067,12 +49323,12 @@ ${p.content}
           const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
           for (const [dir] of scaffold) {
             const full = this.resolve(dir);
-            if (existsSync14(full)) {
+            if (existsSync15(full)) {
               skipped2.push(dir);
               continue;
             }
             if (!dryRun)
-              mkdirSync10(full, { recursive: true });
+              mkdirSync11(full, { recursive: true });
             created2.push(dir);
           }
           const folderLines = scaffold.map(([dir, purpose]) => `- [[${dir}/README|${dir}]] -- ${purpose}`).join("\n");
@@ -49093,7 +49349,7 @@ ${methodologyNotes[methodology]}
 ${folderLines}
 `;
           const homeFull = this.resolve("Home.md");
-          if (existsSync14(homeFull)) {
+          if (existsSync15(homeFull)) {
             skipped2.push("Home.md");
           } else {
             if (!dryRun)
@@ -49112,21 +49368,21 @@ ${folderLines}
         const now = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
         const ensureDir = (rel) => {
           const full = this.resolve(rel);
-          if (existsSync14(full)) {
+          if (existsSync15(full)) {
             skipped.push(rel);
             return;
           }
-          mkdirSync10(full, { recursive: true });
+          mkdirSync11(full, { recursive: true });
           created.push(rel);
         };
         const ensureFile = (rel, content) => {
           const r = rel.endsWith(".md") ? rel : rel + ".md";
           const full = this.resolve(r);
-          if (existsSync14(full)) {
+          if (existsSync15(full)) {
             skipped.push(r);
             return;
           }
-          mkdirSync10(dirname11(full), { recursive: true });
+          mkdirSync11(dirname11(full), { recursive: true });
           writeFileSync9(full, content, "utf-8");
           created.push(r);
         };
@@ -49170,7 +49426,7 @@ Follows llm-wiki opinionated workflow.
 See root CLAUDE.md for full documentation.
 `);
         const yamlPath = `${base}/kb.yaml`;
-        if (existsSync14(this.resolve(yamlPath))) {
+        if (existsSync15(this.resolve(yamlPath))) {
           skipped.push(yamlPath);
         } else {
           writeFileSync9(this.resolve(yamlPath), `topic: "${p.topic}"
@@ -49366,13 +49622,13 @@ updated: ${now}
         let chosenName = `${baseName2}.md`;
         let relPath = `${relDir}/${chosenName}`;
         let fullPath = join19(this.vault, relDir, chosenName);
-        if (existsSync14(fullPath)) {
+        if (existsSync15(fullPath)) {
           let found = false;
           for (let i = 2; i <= 99; i++) {
             chosenName = `${baseName2}-${i}.md`;
             relPath = `${relDir}/${chosenName}`;
             fullPath = join19(this.vault, relDir, chosenName);
-            if (!existsSync14(fullPath)) {
+            if (!existsSync15(fullPath)) {
               found = true;
               break;
             }
@@ -49419,7 +49675,7 @@ ${yamlLines.join("\n")}
 
 ${bodyWithTag}
 `;
-        mkdirSync10(dirname11(fullPath), { recursive: true });
+        mkdirSync11(dirname11(fullPath), { recursive: true });
         return withFileLock4(fullPath, () => {
           writeFileSync9(fullPath, contentOut, "utf-8");
           return { ok: true, path: relPath, frontmatter: frontmatterObj, warnings };
@@ -49445,19 +49701,19 @@ ${bodyWithTag}
           byQuarantineState: {},
           realBacklinkHitRate: 0
         };
-        if (!existsSync14(aiRootAbs)) {
+        if (!existsSync15(aiRootAbs)) {
           return { staleCandidates: [], supersedeCandidates: [], applied: [], metrics: emptyMetrics };
         }
         const entries = [];
         const walkSubtree = (d) => {
-          if (!existsSync14(d))
+          if (!existsSync15(d))
             return;
           for (const ent of readdirSync10(d, { withFileTypes: true })) {
             const full = join19(d, ent.name);
             if (ent.isDirectory() && !PROTECTED_DIRS5.has(ent.name))
               walkSubtree(full);
             else if (ent.isFile() && ent.name.endsWith(".md")) {
-              const content = readFileSync16(full, "utf-8");
+              const content = readFileSync17(full, "utf-8");
               const fm = this.parseFrontmatter(content);
               if (!fm)
                 continue;
@@ -49554,7 +49810,7 @@ ${bodyWithTag}
             const absPath = join19(this.vault, sc.path);
             const historyEntry = `{ts: "${flipIso}", axis: status, from: draft, to: stale, trigger: auto-stop-summary, evidence_level: low, human_in_loop: false, note: "gardener sweep"}`;
             const flipped = withFileLock4(absPath, () => {
-              const original = readFileSync16(absPath, "utf-8");
+              const original = readFileSync17(absPath, "utf-8");
               const withStatusFlipped = original.replace(/(^---[\s\S]*?\nstatus: )draft(\n[\s\S]*?^---$)/m, (_m, g1, g2) => g1 + "stale" + g2);
               if (withStatusFlipped === original)
                 return false;
@@ -49590,20 +49846,20 @@ ${bodyWithTag}
           const logLine = `- {ts: "${stamp}", totalEntries: ${metrics.totalEntries}, staleHits: ${staleCandidates.length}, supersedeHits: ${supersedeCandidates.length}, realBacklinkHitRate: ${metrics.realBacklinkHitRate.toFixed(3)}}
 `;
           withFileLock4(sweepLogAbs, () => {
-            if (!existsSync14(sweepLogAbs)) {
-              mkdirSync10(dirname11(sweepLogAbs), { recursive: true });
+            if (!existsSync15(sweepLogAbs)) {
+              mkdirSync11(dirname11(sweepLogAbs), { recursive: true });
               writeFileSync9(sweepLogAbs, "# Sweep trend log\n\n", "utf-8");
             }
-            appendFileSync2(sweepLogAbs, logLine, "utf-8");
+            appendFileSync3(sweepLogAbs, logLine, "utf-8");
           });
         }
         return { staleCandidates, supersedeCandidates, applied, metrics };
       }
       case "vault.getMetadata": {
         const full = this.resolve(p.path);
-        if (!existsSync14(full))
+        if (!existsSync15(full))
           throw err(-32001, `Not found: ${p.path}`);
-        const content = readFileSync16(full, "utf-8");
+        const content = readFileSync17(full, "utf-8");
         const out = {};
         const links = this.parseWikilinks(content);
         if (links.length)
@@ -49721,7 +49977,7 @@ async function main() {
     }
   }
   const __dirname = dirname11(fileURLToPath3(import.meta.url));
-  const compilerPath = resolve5(__dirname, "../../compiler");
+  const compilerPath = resolve6(__dirname, "../../compiler");
   const python = process.env.VAULT_MIND_PYTHON ?? process.env.PYTHON ?? "python";
   const compileTrigger = new CompileTrigger({
     vaultPath: config2.vault_path,
@@ -49733,7 +49989,7 @@ async function main() {
       for (const fullPath of wikiPaths) {
         try {
           const relPath = relative6(config2.vault_path, fullPath).replace(/\\/g, "/");
-          const content = readFileSync16(fullPath, "utf-8");
+          const content = readFileSync17(fullPath, "utf-8");
           vaultBrainAdapter.ingest(relPath, content).catch((err2) => process.stderr.write(`obsidian-llm-wiki: [vaultbrain] ingest error: ${err2.message}
 `));
         } catch {
@@ -49749,7 +50005,7 @@ async function main() {
         if (vaultBrainAdapter && e.path.endsWith(".md")) {
           try {
             const fullPath = join19(config2.vault_path, e.path.replace(/\\/g, "/"));
-            const content = readFileSync16(fullPath, "utf-8");
+            const content = readFileSync17(fullPath, "utf-8");
             vaultBrainAdapter.ingest(e.path, content).catch((err2) => process.stderr.write(`obsidian-llm-wiki: [vaultbrain] ingest error: ${err2.message}
 `));
           } catch {
@@ -49777,6 +50033,8 @@ async function main() {
     vaultPath: config2.vault_path,
     configPath: config2.config_path
   });
+  const operationsByName = new Map(allOps.map((operation) => [operation.name, operation]));
+  const writeVerdicts = /* @__PURE__ */ new WeakMap();
   const ctx = {
     vault: vaultFs,
     adapters: registry2,
@@ -49789,62 +50047,30 @@ async function main() {
       return;
     try {
       const fullPath = join19(config2.vault_path, relPath.replace(/\\/g, "/"));
-      if (!existsSync14(fullPath))
+      if (!existsSync15(fullPath))
         return;
-      const content = readFileSync16(fullPath, "utf-8");
+      const content = readFileSync17(fullPath, "utf-8");
       vaultBrainAdapter.ingest(relPath, content).catch((err2) => process.stderr.write(`obsidian-llm-wiki: [vaultbrain] ingest error: ${err2.message}
 `));
     } catch {
     }
   };
-  const resultPath = (result) => {
-    if (typeof result !== "object" || result === null)
-      return void 0;
-    const path = result.path;
-    if (typeof path === "string")
-      return path;
-    const outputPath = result.outputPath;
-    return typeof outputPath === "string" ? outputPath : void 0;
-  };
-  const isRealWrite = (params) => params.dryRun === false || params.dry_run === false;
-  const touchMarkdown = (relPath, event) => {
+  const touchMarkdown2 = (relPath, event) => {
     if (typeof relPath !== "string" || !relPath.endsWith(".md"))
       return;
     compileTrigger.onFileChange(relPath, event);
     if (event !== "delete")
       ingestMarkdownIntoVaultBrain(relPath);
   };
-  const handleWriteSideEffects = (toolName, params, result) => {
-    if (toolName === "source.register") {
-      touchMarkdown(resultPath(result), "create");
+  const applyWriteEffect = (effect) => {
+    if (effect.type !== "touchMarkdown")
+      return;
+    if ("paths" in effect) {
+      for (const path of effect.paths)
+        touchMarkdown2(path, effect.event);
       return;
     }
-    if (toolName === "workflow.state.set" || toolName === "workflow.checkpoint.add" || toolName === "workflow.agent.join" || toolName === "workflow.agent.step" || toolName === "workflow.agent.checkpoint" || toolName === "workflow.agent.leave") {
-      touchMarkdown(resultPath(result), "modify");
-      if (typeof result === "object" && result !== null) {
-        const eventsPath = result.eventsPath;
-        touchMarkdown(eventsPath, "modify");
-      }
-      return;
-    }
-    if (toolName === "vault.rename" && isRealWrite(params)) {
-      touchMarkdown(params.from, "delete");
-      touchMarkdown(params.to, "create");
-      return;
-    }
-    if (!isRealWrite(params))
-      return;
-    if (toolName === "vault.delete") {
-      touchMarkdown(params.path, "delete");
-      return;
-    }
-    if (toolName === "vault.create" || toolName === "vault.modify" || toolName === "vault.write" || toolName === "vault.append" || toolName === "vault.writeAIOutput") {
-      touchMarkdown(params.path ?? resultPath(result), toolName === "vault.create" ? "create" : "modify");
-      return;
-    }
-    if (toolName === "multimodal.ingest") {
-      touchMarkdown(params.outputPath ?? resultPath(result), "create");
-    }
+    touchMarkdown2(effect.path, effect.event);
   };
   const server = createMcpServer({
     name: "obsidian-llm-wiki",
@@ -49855,12 +50081,15 @@ async function main() {
     prepareParams: (operation, toolArgs) => {
       checkAuth(config2, toolArgs);
       const validatedArgs = validateParams(operation.params, toolArgs);
-      enforceCollaborationPolicy(config2, operation.name, validatedArgs);
+      const verdict = adjudicateOperationWrite(ctx, operation, validatedArgs, operationsByName);
+      writeVerdicts.set(validatedArgs, verdict);
       return validatedArgs;
     },
     afterOperation: (operation, validatedArgs, result) => {
-      auditWrite(config2, operation.name, validatedArgs, result);
-      handleWriteSideEffects(operation.name, validatedArgs, result);
+      const verdict = writeVerdicts.get(validatedArgs) ?? adjudicateOperationWrite(ctx, operation, validatedArgs, operationsByName);
+      auditOperationWrite(ctx, verdict, result);
+      for (const effect of writeEffectsForVerdict(ctx, verdict, result))
+        applyWriteEffect(effect);
     }
   });
   await startStdioServer(server);

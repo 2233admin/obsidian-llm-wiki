@@ -3,7 +3,8 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
-import type { Operation } from './types.js';
+import type { Operation, OperationWritePolicy } from './types.js';
+import { resultPath, staticTargets, targetOrWildcard, targetParams, touchMarkdown } from './write-policy.js';
 import { scanRecipes, findRecipe } from '../recipes/_registry.js';
 import { getRecipeStatus, runHealthCheck, appendHeartbeat } from '../recipes/_framework.js';
 import { answerQuery, traceUnifiedQuery, unifiedQuery, unifiedQueryByVector } from '../unified-query.js';
@@ -33,6 +34,32 @@ const PROTECTED_DIRS = new Set(['.obsidian', '.trash', '.git', 'node_modules']);
 
 const _thisDir = dirname(fileURLToPath(import.meta.url));
 const _projectRoot = join(_thisDir, '..', '..', '..');
+
+const dryRunPathPolicy = (event: 'create' | 'modify' | 'delete' = 'modify'): OperationWritePolicy => ({
+  realWrite: 'dryRunFalse',
+  targets: targetParams('path'),
+  audit: 'required',
+  effects: (_ctx, params, result) => [touchMarkdown(params.path ?? resultPath(result), event)],
+});
+
+const dryRunStaticPolicy = (...targets: string[]): OperationWritePolicy => ({
+  realWrite: 'dryRunFalse',
+  targets: staticTargets(...targets),
+  audit: 'required',
+  effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), 'modify')],
+});
+
+const batchWritePolicy = (): OperationWritePolicy => ({
+  realWrite: 'always',
+  targets: staticTargets(),
+  audit: 'required',
+});
+
+const externalSideEffectPolicy = (target: string): OperationWritePolicy => ({
+  realWrite: 'always',
+  targets: staticTargets(`external/${target}`),
+  audit: 'required',
+});
 
 function makeErr(code: number, message: string): { code: number; message: string } {
   return { code, message };
@@ -83,8 +110,9 @@ export const operations: Operation[] = [
     name: 'vault.create',
     namespace: 'vault',
     description: 'Create a new note (dry-run by default)',
-    mutating: true,
-    params: {
+ mutating: true,
+ writePolicy: dryRunPathPolicy('create'),
+ params: {
       path: { type: 'string', required: true, description: 'Vault-relative path for the new note' },
       content: { type: 'string', required: false, description: 'Initial content' },
       dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: true)', default: true },
@@ -95,8 +123,9 @@ export const operations: Operation[] = [
     name: 'vault.modify',
     namespace: 'vault',
     description: 'Overwrite an existing note',
-    mutating: true,
-    params: {
+ mutating: true,
+ writePolicy: dryRunPathPolicy('modify'),
+ params: {
       path: { type: 'string', required: true, description: 'Vault-relative path to the note' },
       content: { type: 'string', required: true, description: 'New content' },
       dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: true)', default: true },
@@ -107,8 +136,9 @@ export const operations: Operation[] = [
     name: 'vault.append',
     namespace: 'vault',
     description: 'Append content to a note',
-    mutating: true,
-    params: {
+ mutating: true,
+ writePolicy: dryRunPathPolicy('modify'),
+ params: {
       path: { type: 'string', required: true, description: 'Vault-relative path to the note' },
       content: { type: 'string', required: true, description: 'Content to append' },
       dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: true)', default: true },
@@ -119,8 +149,9 @@ export const operations: Operation[] = [
     name: 'vault.delete',
     namespace: 'vault',
     description: 'Delete a note or folder',
-    mutating: true,
-    params: {
+ mutating: true,
+ writePolicy: dryRunPathPolicy('delete'),
+ params: {
       path: { type: 'string', required: true, description: 'Vault-relative path to delete' },
       dryRun: { type: 'boolean', required: false, description: 'Simulate without deleting (default: true)', default: true },
     },
@@ -130,8 +161,14 @@ export const operations: Operation[] = [
     name: 'vault.rename',
     namespace: 'vault',
     description: 'Rename/move a file',
-    mutating: true,
-    params: {
+ mutating: true,
+ writePolicy: {
+ realWrite: 'dryRunFalse',
+ targets: targetParams('from', 'to'),
+ audit: 'required',
+ effects: (_ctx, params) => [touchMarkdown(params.from, 'delete'), touchMarkdown(params.to, 'create')],
+ },
+ params: {
       from: { type: 'string', required: true, description: 'Source vault-relative path' },
       to: { type: 'string', required: true, description: 'Destination vault-relative path' },
       dryRun: { type: 'boolean', required: false, description: 'Simulate without moving (default: true)', default: true },
@@ -142,8 +179,9 @@ export const operations: Operation[] = [
     name: 'vault.mkdir',
     namespace: 'vault',
     description: 'Create a directory',
-    mutating: true,
-    params: {
+ mutating: true,
+ writePolicy: dryRunPathPolicy(),
+ params: {
       path: { type: 'string', required: true, description: 'Vault-relative directory path to create' },
       dryRun: { type: 'boolean', required: false, description: 'Simulate without creating (default: true)', default: true },
     },
@@ -209,7 +247,8 @@ export const operations: Operation[] = [
     name: 'vault.batch',
     namespace: 'vault',
     description: 'Execute multiple vault operations',
-    mutating: false,
+    mutating: true,
+    writePolicy: batchWritePolicy(),
     params: {
       operations: { type: 'array', required: true, description: 'Array of {method, params} objects to execute' },
       dryRun: { type: 'boolean', required: false, description: 'Apply dryRun to all mutating operations in the batch' },
@@ -227,11 +266,12 @@ export const operations: Operation[] = [
     handler: async (ctx, params) => ctx.vault.execute('vault.lint', params),
   },
   {
-    name: 'vault.daily',
+ name: 'vault.daily',
     namespace: 'vault',
     description: "Create or update today's daily note with AI-First frontmatter (date, mood, energy, summary). Path: Daily/YYYY-MM-DD.md",
-    mutating: true,
-    params: {
+ mutating: true,
+ writePolicy: dryRunStaticPolicy('Daily/**'),
+ params: {
       summary: { type: 'string', required: false, description: '1-3 sentence day summary' },
       mood: { type: 'string', required: false, description: 'Mood rating', enum: ['great', 'good', 'neutral', 'low', 'bad'] },
       energy: { type: 'string', required: false, description: 'Energy level', enum: ['high', 'medium', 'low'] },
@@ -241,11 +281,12 @@ export const operations: Operation[] = [
     handler: async (ctx, params) => ctx.vault.execute('vault.daily', params),
   },
   {
-    name: 'vault.person',
+ name: 'vault.person',
     namespace: 'vault',
     description: 'Create or update a person note with AI-First frontmatter. Path: People/{name}.md',
-    mutating: true,
-    params: {
+ mutating: true,
+ writePolicy: dryRunStaticPolicy('People/**'),
+ params: {
       name: { type: 'string', required: true, description: "Person's full name" },
       role: { type: 'string', required: false, description: 'Job title or role' },
       company: { type: 'string', required: false, description: 'Organization' },
@@ -256,11 +297,12 @@ export const operations: Operation[] = [
     handler: async (ctx, params) => ctx.vault.execute('vault.person', params),
   },
   {
-    name: 'vault.project',
+ name: 'vault.project',
     namespace: 'vault',
     description: 'Create or update a project note with AI-First frontmatter. Path: Projects/{name}.md',
-    mutating: true,
-    params: {
+ mutating: true,
+ writePolicy: dryRunStaticPolicy('Projects/**'),
+ params: {
       name: { type: 'string', required: true, description: 'Project name' },
       status: { type: 'string', required: false, description: 'Project status', default: 'active', enum: ['active', 'paused', 'completed', 'archived', 'planned'] },
       summary: { type: 'string', required: false, description: '1-3 sentence project summary' },
@@ -272,11 +314,12 @@ export const operations: Operation[] = [
     handler: async (ctx, params) => ctx.vault.execute('vault.project', params),
   },
   {
-    name: 'vault.decide',
+ name: 'vault.decide',
     namespace: 'vault',
     description: 'Create a structured decision log (ADR). Path: Decisions/YYYY-MM-DD -- {title-slug}.md',
-    mutating: true,
-    params: {
+ mutating: true,
+ writePolicy: dryRunStaticPolicy('Decisions/**'),
+ params: {
       title: { type: 'string', required: true, description: 'Decision title' },
       context: { type: 'string', required: true, description: 'Situation and constraints' },
       decision: { type: 'string', required: true, description: 'What was decided' },
@@ -292,11 +335,12 @@ export const operations: Operation[] = [
     handler: async (ctx, params) => ctx.vault.execute('vault.decide', params),
   },
   {
-    name: 'vault.meeting',
+ name: 'vault.meeting',
     namespace: 'vault',
     description: 'Create a meeting note with attendees, decisions, and action items. Path: Meetings/YYYY-MM-DD -- {title-slug}.md',
-    mutating: true,
-    params: {
+ mutating: true,
+ writePolicy: dryRunStaticPolicy('Meetings/**'),
+ params: {
       title: { type: 'string', required: true, description: 'Meeting title' },
       attendees: { type: 'array', required: false, description: 'Attendee names (wikilinked)' },
       decisions: { type: 'array', required: false, description: 'List of decisions made' },
@@ -307,11 +351,12 @@ export const operations: Operation[] = [
     handler: async (ctx, params) => ctx.vault.execute('vault.meeting', params),
   },
   {
-    name: 'vault.ingest',
+ name: 'vault.ingest',
     namespace: 'vault',
     description: 'Ingest content into vault with AI-First frontmatter (ai-first: true, source, recency markers). Path: 00-Inbox/{title-slug}.md',
-    mutating: true,
-    params: {
+ mutating: true,
+ writePolicy: dryRunStaticPolicy('00-Inbox/**'),
+ params: {
       content: { type: 'string', required: true, description: 'Content to ingest (text, URL, or pasted article)' },
       title: { type: 'string', required: true, description: 'Note title' },
       source: { type: 'string', required: false, description: 'Source URL if from web' },
@@ -323,11 +368,17 @@ export const operations: Operation[] = [
     handler: async (ctx, params) => ctx.vault.execute('vault.ingest', params),
   },
   {
-    name: 'vault.init',
+ name: 'vault.init',
     namespace: 'vault',
     description: 'Scaffold the vault. methodology mode creates the folder layout (generic|para|lyt|zettelkasten) plus a Home.md index with AI-First frontmatter, dry-run by default, existing folders are skipped; topic mode scaffolds a knowledge base topic directory (writes immediately).',
-    mutating: true,
-    params: {
+ mutating: true,
+ writePolicy: {
+ realWrite: 'always',
+ shouldWrite: (_ctx, params) => typeof params.topic === 'string' || params.dryRun === false,
+ targets: staticTargets('**'),
+ audit: 'required',
+ },
+ params: {
       topic: { type: 'string', required: false, description: 'Topic name (used as directory name and KB title); topic mode' },
       methodology: { type: 'string', required: false, description: 'Vault folder scaffold to create; methodology mode', enum: ['generic', 'para', 'lyt', 'zettelkasten'] },
       dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (methodology mode only, default: true)', default: true },
@@ -335,11 +386,16 @@ export const operations: Operation[] = [
     handler: async (ctx, params) => ctx.vault.execute('vault.init', params),
   },
   {
-    name: 'vault.enforceDiscipline',
+ name: 'vault.enforceDiscipline',
     namespace: 'vault',
     description: "Retroactively enforce Karpathy LLM Wiki discipline: ensure each top-level topic folder has _index.md (catalog) and log.md (chronicle). Skips folders that already have a recognized catalog (Home.md/INDEX.md/README.md) or chronicle (Log.md). Dry-run by default.",
-    mutating: true,
-    params: {
+ mutating: true,
+ writePolicy: {
+ realWrite: 'dryRunFalse',
+ targets: staticTargets('**'),
+ audit: 'required',
+ },
+ params: {
       dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: true)', default: true },
       topLevelOnly: { type: 'boolean', required: false, description: 'Only process top-level directories (default: true)', default: true },
       skipDirs: { type: 'array', required: false, description: 'Additional directory names to skip beyond the built-in protected list' },
@@ -347,11 +403,20 @@ export const operations: Operation[] = [
     handler: async (ctx, params) => ctx.vault.execute('vault.enforceDiscipline', params),
   },
   {
-    name: 'vault.writeAIOutput',
+ name: 'vault.writeAIOutput',
     namespace: 'vault',
     description: 'Write a persona-authored analysis into 00-Inbox/AI-Output/{persona}/YYYY-MM-DD-{slug}.md with the 8-field provenance frontmatter (generated-by, generated-at, agent, parent-query, source-nodes, status=draft, scope, quarantine-state). Human confirmation rides on an Obsidian body tag (#user-confirmed), not a frontmatter field. Dry-run by default.',
-    mutating: true,
-    params: {
+ mutating: true,
+ writePolicy: {
+ realWrite: 'dryRunFalse',
+ targets: (_ctx, params) => {
+ const persona = typeof params.persona === 'string' ? params.persona : '*';
+ return [`00-Inbox/AI-Output/${persona}/**`];
+ },
+ audit: 'required',
+ effects: (_ctx, params, result) => [touchMarkdown(params.path ?? resultPath(result), 'modify')],
+ },
+ params: {
       persona: { type: 'string', required: true, description: 'Persona identifier, must match ^vault-[a-z]+$' },
       parentQuery: { type: 'string', required: true, description: "User's original query (truncated to 200 chars)" },
       sourceNodes: { type: 'array', required: true, description: 'Wikilinks cited during analysis (empty array is valid)' },
@@ -366,11 +431,16 @@ export const operations: Operation[] = [
     handler: async (ctx, params) => ctx.vault.execute('vault.writeAIOutput', params),
   },
   {
-    name: 'vault.sweepAIOutput',
+ name: 'vault.sweepAIOutput',
     namespace: 'vault',
     description: 'Sweep 00-Inbox/AI-Output for stale drafts (age > persona threshold and no non-AI-Output backlinks) and supersede candidates (same-persona reviewed pairs with source-nodes Jaccard >= 0.6). Reports candidates; when dry_run=false flips draft→stale in place. Never auto-applies supersede.',
-    mutating: true,
-    params: {
+ mutating: true,
+ writePolicy: {
+ realWrite: 'dryRunFalse',
+ targets: staticTargets('00-Inbox/AI-Output/**'),
+ audit: 'required',
+ },
+ params: {
       dry_run: { type: 'boolean', required: false, description: 'Report only without writing (default: true)', default: true },
       now: { type: 'string', required: false, description: 'Inject ISO 8601 timestamp for deterministic tests' },
     },
@@ -438,11 +508,12 @@ export const operations: Operation[] = [
     },
   },
   {
-    name: 'recipe.doctor',
+ name: 'recipe.doctor',
     namespace: 'recipe',
     description: 'Full diagnostic: secrets + health checks for a recipe',
-    mutating: true, // writes heartbeat state — side-effecting even though it's diagnostic
-    params: {
+ mutating: true, // writes heartbeat state — side-effecting even though it's diagnostic
+    writePolicy: externalSideEffectPolicy('recipe/**'),
+ params: {
       id: { type: 'string', required: true, description: 'Recipe id' },
     },
     handler: async (_ctx, params) => {
@@ -465,11 +536,12 @@ export const operations: Operation[] = [
     },
   },
   {
-    name: 'recipe.run',
+ name: 'recipe.run',
     namespace: 'recipe',
     description: 'Run a recipe collector. Secrets must be set in the MCP server environment.',
-    mutating: true,
-    params: {
+ mutating: true,
+    writePolicy: externalSideEffectPolicy('recipe/**'),
+ params: {
       id: { type: 'string', required: true, description: 'Recipe id (e.g. napcat-to-vault)' },
       timeout_ms: { type: 'number', required: false, description: 'Timeout ms (default 120000)' },
     },
@@ -564,11 +636,12 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
       handler: async (_ctx, _params) => compileTrigger.status(),
     },
     {
-      name: 'compile.run',
+ name: 'compile.run',
       namespace: 'compile',
       description: 'Run compilation',
-      mutating: true,
-      params: {
+ mutating: true,
+      writePolicy: externalSideEffectPolicy('compile/**'),
+ params: {
         topic: { type: 'string', required: false, description: 'Topic to compile' },
       },
       handler: async (_ctx, params) => compileTrigger.run(params.topic as string | undefined),
@@ -584,11 +657,12 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
       handler: async (_ctx, _params) => ({ dirty: compileTrigger.status().dirty }),
     },
     {
-      name: 'compile.abort',
+ name: 'compile.abort',
       namespace: 'compile',
       description: 'Abort running compilation',
-      mutating: true,
-      params: {},
+ mutating: true,
+      writePolicy: externalSideEffectPolicy('compile/**'),
+ params: {},
       handler: async (_ctx, _params) => compileTrigger.abort(),
     },
   ];
@@ -843,11 +917,17 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
 
   const multimodalOps: Operation[] = [
     {
-      name: 'multimodal.ingest',
+ name: 'multimodal.ingest',
       namespace: 'multimodal',
       description: 'Parse a vault-relative multimodal document through the RAG-Anything HTTP bridge and write the extracted Markdown back into the vault. Dry-run by default. Requires RAGANYTHING_URL and a running wrapper service.',
-      mutating: true,
-      params: {
+ mutating: true,
+ writePolicy: {
+ realWrite: 'dryRunFalse',
+ targets: targetOrWildcard('outputPath', '00-Inbox/Multimodal/**'),
+ audit: 'required',
+ effects: (_ctx, params, result) => [touchMarkdown(params.outputPath ?? resultPath(result), 'create')],
+ },
+ params: {
         path: { type: 'string', required: true, description: 'Vault-relative source file path, e.g. attachments/report.pdf' },
         outputPath: { type: 'string', required: false, description: 'Vault-relative Markdown output path. Defaults to 00-Inbox/Multimodal/<source-name>.md' },
         parser: { type: 'string', required: false, description: 'Parser hint passed to RAG-Anything, e.g. mineru, docling, paddleocr' },
@@ -923,11 +1003,16 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
 
   const lightRagOps: Operation[] = [
     {
-      name: 'lightrag.ingest',
+ name: 'lightrag.ingest',
       namespace: 'lightrag',
       description: 'Send a vault-relative file into an external LightRAG server. Markdown/text files use /documents/text; other files use /documents/upload. Dry-run by default. Requires LIGHTRAG_URL.',
-      mutating: true,
-      params: {
+ mutating: true,
+ writePolicy: {
+ realWrite: 'dryRunFalse',
+        targets: staticTargets('external/lightrag/**'),
+        audit: 'required',
+ },
+ params: {
         path: { type: 'string', required: true, description: 'Vault-relative source file path' },
         mode: { type: 'string', required: false, default: 'auto', enum: ['auto', 'text', 'upload'], description: 'Ingest mode. auto sends .md/.txt as text and other files as upload.' },
         dryRun: { type: 'boolean', required: false, default: true, description: 'Return the planned LightRAG request without sending it (default: true)' },
@@ -1002,11 +1087,12 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
       },
     },
     {
-      name: 'agent.trigger',
+ name: 'agent.trigger',
       namespace: 'agent',
       description: 'Trigger an agent action',
-      mutating: true,
-      params: {
+ mutating: true,
+      writePolicy: externalSideEffectPolicy('agent/**'),
+ params: {
         action: { type: 'string', required: true, description: 'Action to trigger (compile, emerge, reconcile, prune, challenge)' },
         mode: { type: 'string', required: false, description: 'Agent mode' },
       },

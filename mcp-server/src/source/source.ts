@@ -10,6 +10,7 @@ import {
 import { basename, dirname, extname, join, relative, isAbsolute as pathIsAbsolute } from 'node:path';
 import type { Operation, OperationContext } from '../core/types.js';
 import { badRequest, conflict, notFound, unsupported } from '../core/types.js';
+import { resultPath, sourcePolicyTargetPaths, touchMarkdown } from '../core/write-policy.js';
 import { preflight } from '../ingest/ingest.js';
 
 type SourceInputType = 'url' | 'vaultPath' | 'filePath' | 'directoryPath' | 'repoPath' | 'text';
@@ -46,12 +47,18 @@ const PROTECTED_DIRS = new Set(['.obsidian', '.trash', '.git', 'node_modules']);
 export function makeSourceOps(vaultPath: string): Operation[] {
   return [
     {
-      name: 'source.register',
+  name: 'source.register',
       namespace: 'source',
       description:
         'Register a long-lived source in the lightweight Source Registry. URL inputs run ingest preflight only; no download or transcription is executed.',
-      mutating: true,
-      params: {
+  mutating: true,
+  writePolicy: {
+    realWrite: 'always',
+    targets: (_ctx, params) => sourcePolicyTargetPaths(params),
+    audit: 'required',
+    effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), 'create')],
+  },
+  params: {
         input: { type: 'string', required: true, description: 'URL or vault-relative path to register' },
         inputType: {
           type: 'string',

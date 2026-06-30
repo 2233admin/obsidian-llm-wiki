@@ -10,6 +10,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import type { Operation, OperationContext } from '../core/types.js';
 import { makeErr } from '../core/types.js';
+import { projectPolicyBasePath, resultPath, touchMarkdown } from '../core/write-policy.js';
 import {
   scanWorkNotes,
   isAuthoritative,
@@ -590,11 +591,17 @@ function uniqueSlug(vaultPath: string, project: string, base: string): string {
 export function makeProjectOps(vaultPath: string): Operation[] {
   return [
     {
-      name: 'project.canvas.export',
+  name: 'project.canvas.export',
       namespace: 'project' as Operation['namespace'],
       description: 'Export an Obsidian Canvas project map under 01-Projects/<project>/views/project-map.canvas (derived view).',
-      mutating: true,
-      params: {
+    mutating: true,
+    writePolicy: {
+      realWrite: 'dryRunFalse',
+      targets: (_ctx, params) => [`${projectPolicyBasePath(params)}/views/**`],
+      audit: 'required',
+      effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), 'modify')],
+    },
+    params: {
         project: { type: 'string', required: true, description: 'Project key' },
         dryRun: { type: 'boolean', required: false, default: true, description: 'Preview Canvas JSON without writing (default: true)' },
         overwrite: { type: 'boolean', required: false, default: true, description: 'Overwrite existing Canvas file (default: true)' },
@@ -615,11 +622,17 @@ export function makeProjectOps(vaultPath: string): Operation[] {
       },
     },
     {
-      name: 'project.base.export',
+  name: 'project.base.export',
       namespace: 'project' as Operation['namespace'],
       description: 'Export an Obsidian Bases issues dashboard under 01-Projects/<project>/views/issues.base (derived view).',
-      mutating: true,
-      params: {
+    mutating: true,
+    writePolicy: {
+      realWrite: 'dryRunFalse',
+      targets: (_ctx, params) => [`${projectPolicyBasePath(params)}/views/**`],
+      audit: 'required',
+      effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), 'modify')],
+    },
+    params: {
         project: { type: 'string', required: true, description: 'Project key' },
         dryRun: { type: 'boolean', required: false, default: true, description: 'Preview Bases YAML without writing (default: true)' },
         overwrite: { type: 'boolean', required: false, default: true, description: 'Overwrite existing Bases file (default: true)' },
@@ -638,11 +651,17 @@ export function makeProjectOps(vaultPath: string): Operation[] {
       },
     },
     {
-      name: 'project.init',
+  name: 'project.init',
       namespace: 'project' as Operation['namespace'],
       description: 'Create a work-OS project anchor note at 01-Projects/<project>/_project.md (single source of truth; no docket store).',
-      mutating: true,
-      params: {
+    mutating: true,
+    writePolicy: {
+      realWrite: 'always',
+      targets: (_ctx, params) => [`${projectPolicyBasePath(params)}/_project.md`, `${projectPolicyBasePath(params)}/issues/**`],
+      audit: 'required',
+      effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), 'modify')],
+    },
+    params: {
         project: { type: 'string', required: true, description: 'Project key, single safe path segment' },
         description: { type: 'string', required: false, description: 'One-line project description (<=200 chars)' },
       },
@@ -658,11 +677,17 @@ export function makeProjectOps(vaultPath: string): Operation[] {
       },
     },
     {
-      name: 'project.issue.create',
+  name: 'project.issue.create',
       namespace: 'project' as Operation['namespace'],
       description: 'Create a work-OS issue note under 01-Projects/<project>/issues/<slug>.md. Default state is todo; review reviewed (authoritative).',
-      mutating: true,
-      params: {
+    mutating: true,
+    writePolicy: {
+      realWrite: 'always',
+      targets: (_ctx, params) => [`${projectPolicyBasePath(params)}/issues/**`],
+      audit: 'required',
+      effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), 'create')],
+    },
+    params: {
         project: { type: 'string', required: true, description: 'Project key' },
         title: { type: 'string', required: true, description: 'Issue title (-> slug + default card label)' },
         slug: { type: 'string', required: false, description: 'Explicit slug (lowercase-kebab); default derived from title' },
@@ -749,11 +774,17 @@ export function makeProjectOps(vaultPath: string): Operation[] {
       },
     },
     {
-      name: 'project.issue.update',
+  name: 'project.issue.update',
       namespace: 'project' as Operation['namespace'],
       description: 'Update a work-OS issue (state/priority/review/assignee/blocked_by/description/body); bumps last-verified.',
-      mutating: true,
-      params: {
+    mutating: true,
+    writePolicy: {
+      realWrite: 'always',
+      targets: (_ctx, params) => [`${projectPolicyBasePath(params)}/issues/**`],
+      audit: 'required',
+      effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), 'modify')],
+    },
+    params: {
         project: { type: 'string', required: true, description: 'Project key' },
         slug: { type: 'string', required: true, description: 'Issue slug' },
         state: { type: 'string', required: false, description: 'New work state (backlog|todo|in-progress|done|canceled)' },
@@ -790,11 +821,18 @@ export function makeProjectOps(vaultPath: string): Operation[] {
       },
     },
     {
-      name: 'project.issue.link',
+  name: 'project.issue.link',
       namespace: 'project' as Operation['namespace'],
       description: 'Edit blocked-by dependencies between work-OS issues. blocks/blocked_by rewrite blocked-by (entity refs); relates is derive-only (soft notice).',
-      mutating: true,
-      params: {
+    mutating: true,
+    writePolicy: {
+      realWrite: 'always',
+      shouldWrite: (_ctx, params) => params.relation !== 'relates',
+      targets: (_ctx, params) => [`${projectPolicyBasePath(params)}/issues/**`],
+      audit: 'required',
+      effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), 'modify')],
+    },
+    params: {
         project: { type: 'string', required: true, description: 'Project key' },
         slug: { type: 'string', required: true, description: 'Source issue slug' },
         relation: { type: 'string', required: true, enum: ['blocks', 'blocked_by', 'relates'], description: 'Relationship type' },
@@ -840,11 +878,17 @@ export function makeProjectOps(vaultPath: string): Operation[] {
       },
     },
     {
-      name: 'project.comment.add',
+  name: 'project.comment.add',
       namespace: 'project' as Operation['namespace'],
       description: 'Append a comment to a sibling 01-Projects/<project>/issues/<slug>.comments.md (does not affect the board/authoritative index).',
-      mutating: true,
-      params: {
+    mutating: true,
+    writePolicy: {
+      realWrite: 'always',
+      targets: (_ctx, params) => [`${projectPolicyBasePath(params)}/issues/**`],
+      audit: 'required',
+      effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), 'modify')],
+    },
+    params: {
         project: { type: 'string', required: true, description: 'Project key' },
         slug: { type: 'string', required: true, description: 'Issue slug' },
         body: { type: 'string', required: true, description: 'Comment Markdown body' },
@@ -873,8 +917,15 @@ export function makeProjectOps(vaultPath: string): Operation[] {
       name: 'project.board.get',
       namespace: 'project' as Operation['namespace'],
       description: 'Render the work-OS Kanban board (Obsidian kanban-plugin format) from the authoritative issue notes. Parity with `python kb_meta.py work board`.',
-      mutating: false,
-      params: {
+    mutating: true,
+    writePolicy: {
+      realWrite: 'always',
+      shouldWrite: (_ctx, params) => params.write === true,
+      targets: (_ctx, params) => [`${projectPolicyBasePath(params)}/**/board.md`],
+      audit: 'required',
+      effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), 'modify')],
+    },
+    params: {
         project: { type: 'string', required: true, description: 'Project key' },
         lang: { type: 'string', required: false, description: 'Lane-label language (en/zh/ja); default $VAULT_MIND_LANG then auto-detect' },
         write: { type: 'boolean', required: false, default: false, description: 'Also write board.md next to the project anchor (derived view)' },

@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import type { Operation } from '../core/types.js';
+import { resultPath, targetParams, touchMarkdown } from '../core/write-policy.js';
 import type { ContextCoreLoader } from './loader.js';
 
 function safePath(vaultPath: string, relPath: string): string | null {
@@ -17,8 +18,14 @@ export function makeVaultWriteOps(vaultPath: string, loader: ContextCoreLoader):
       description:
         'Create or overwrite a Markdown note in the vault. ' +
         'Use to write LLM-inferred conclusions, summaries, or AI-generated notes back into the knowledge base.',
-      mutating: true,
-      params: {
+ mutating: true,
+ writePolicy: {
+ realWrite: 'always',
+ targets: targetParams('path'),
+ audit: 'required',
+ effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), 'modify')],
+ },
+ params: {
         path:      { type: 'string',  required: true,  description: 'Vault-relative path, e.g. "notes/summary.md"' },
         content:   { type: 'string',  required: true,  description: 'Full Markdown content of the note' },
         overwrite: { type: 'boolean', required: false, description: 'Allow overwriting an existing file (default: false)', default: false },
@@ -46,8 +53,17 @@ export function makeVaultWriteOps(vaultPath: string, loader: ContextCoreLoader):
         'Append an AI-generated section to an existing vault note. ' +
         'Accepts a holon ID (resolves source_path automatically) or a vault-relative path. ' +
         'Adds a timestamped callout block under the given heading.',
-      mutating: true,
-      params: {
+ mutating: true,
+ writePolicy: {
+ realWrite: 'always',
+ targets: (_ctx, params) => {
+ if (typeof params.path === 'string') return [params.path];
+ return typeof params.id === 'string' ? [`${params.id}.md`] : [];
+ },
+ audit: 'required',
+ effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), 'modify')],
+ },
+ params: {
         id:      { type: 'string', required: false, description: 'Holon ID — used to locate the source .md file automatically' },
         path:    { type: 'string', required: false, description: 'Vault-relative path (alternative to id)' },
         content: { type: 'string', required: true,  description: 'Markdown text to append' },

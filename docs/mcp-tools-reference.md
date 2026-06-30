@@ -46,7 +46,7 @@ Find notes linking to a note
 
 Execute multiple vault operations
 
-**Mutating:** no
+**Mutating:** yes
 
 **Parameters:**
 
@@ -848,7 +848,7 @@ Get provenance for a holon: content hash, wikilinks, and annotated causal edges
 
 Export a causal subgraph as Mermaid diagram, Obsidian Canvas JSON, or Graphviz DOT. When format=canvas and output_path is given, writes the .canvas file into the vault.
 
-**Mutating:** no
+**Mutating:** yes
 
 **Parameters:**
 
@@ -993,7 +993,7 @@ Export an Obsidian Bases issues dashboard under 01-Projects/<project>/views/issu
 
 Render the work-OS Kanban board (Obsidian kanban-plugin format) from the authoritative issue notes. Parity with `python kb_meta.py work board`.
 
-**Mutating:** no
+**Mutating:** yes
 
 **Parameters:**
 

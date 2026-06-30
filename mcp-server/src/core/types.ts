@@ -49,14 +49,39 @@ export type OperationNamespace =
   | 'skills'
   | 'workflow';
 
-export interface Operation {
+export type OperationWriteTrigger = 'dryRunFalse' | 'always';
+
+export type WriteEffect =
+  | { type: 'touchMarkdown'; path: unknown; event: 'create' | 'modify' | 'delete' }
+  | { type: 'touchMarkdown'; paths: unknown[]; event: 'create' | 'modify' | 'delete' };
+
+export interface OperationWritePolicy {
+  realWrite: OperationWriteTrigger;
+  targets: (ctx: OperationContext, params: Record<string, unknown>) => string[];
+  audit: 'required' | 'none';
+  shouldWrite?: (ctx: OperationContext, params: Record<string, unknown>) => boolean;
+  effects?: (ctx: OperationContext, params: Record<string, unknown>, result: unknown) => WriteEffect[];
+}
+
+interface OperationBase {
   name: string;
   namespace: OperationNamespace;
   description: string;
   params: Record<string, ParamDef>;
   handler: (ctx: OperationContext, params: Record<string, unknown>) => Promise<unknown>;
-  mutating?: boolean;
 }
+
+export interface MutatingOperation extends OperationBase {
+  mutating: true;
+  writePolicy: OperationWritePolicy;
+}
+
+export interface ReadonlyOperation extends OperationBase {
+  mutating?: false;
+  writePolicy?: never;
+}
+
+export type Operation = MutatingOperation | ReadonlyOperation;
 
 export interface OperationContext {
   vault: VaultExecutor;

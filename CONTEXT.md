@@ -136,6 +136,9 @@ _Avoid_: bootstrap, domain module, config loader
 **Operation Result**: The JSON-serializable value returned by an Operation handler before protocol formatting. MCP content arrays, text wrappers, and protocol-specific response shapes belong to the MCP Runtime Adapter, not domain modules.
 _Avoid_: MCP content as domain return value, transport-specific result
 
+**Operation Write Policy**: The deterministic adjudicator that decides whether an Operation's real write is allowed, which vault paths it may affect, what audit evidence must be recorded, and which post-write side effects must run. It consumes the Operation name, validated arguments, and collaboration context; it returns an allow or deny verdict plus write targets and side-effect intents. It does not execute domain behavior, write vault content, or format MCP responses.
+_Avoid_: advisory policy note, handler-side permission check, MCP Runtime Adapter, Promotion Policy
+
 **Operation Error**: The modern domain error shape for failed operations. Phase 1 keeps `makeErr` compatibility while introducing an `OperationError` class with `code`, `message`, optional `data`, and optional internal `cause`; the MCP Runtime Adapter formats it without leaking stack traces.
 _Avoid_: raw thrown object, MCP-specific error in domain module
 
