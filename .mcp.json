@@ -3,8 +3,20 @@
     "vault-mind": {
       "type": "stdio",
       "command": "node",
-      "args": ["mcp-server/dist/index.js"],
+      "args": [
+        "mcp-server/dist/index.js"
+      ],
       "env": {}
+    },
+    "repowise": {
+      "command": "repowise",
+      "args": [
+        "mcp",
+        "D:/projects/obsidian-llm-wiki",
+        "--transport",
+        "stdio"
+      ],
+      "description": "repowise: codebase intelligence \u2014 docs, graph, git signals, dead code, decisions"
     }
   }
 }
