@@ -23,6 +23,11 @@ const workflowAgentEffects = (_ctx: OperationContext, _params: Record<string, un
 const AGENT_STATUSES = ['active', 'blocked', 'done', 'archived'] as const;
 type AgentStatus = (typeof AGENT_STATUSES)[number];
 
+const AGENT_STAGE_EVIDENCE_REQUIREMENTS: Partial<Record<AgentStage, readonly string[]>> = {
+  test: ['review:'],
+  ship: ['review:', 'test:'],
+} as const;
+
 interface WorkflowState {
   project: string;
   stage: WorkflowStage;
@@ -451,6 +456,27 @@ function canTransitionAgentStage(from: AgentStage, to: AgentStage): boolean {
   return AGENT_STAGES.indexOf(to) === AGENT_STAGES.indexOf(from) + 1;
 }
 
+function evidenceMatchesRequirement(evidence: string[], requirement: string): boolean {
+  const normalizedRequirement = requirement.toLowerCase();
+  return evidence.some((item) => item.trim().toLowerCase().startsWith(normalizedRequirement));
+}
+
+function missingEvidenceForStage(stage: AgentStage, evidence: string[]): string[] {
+  const requirements = AGENT_STAGE_EVIDENCE_REQUIREMENTS[stage] ?? [];
+  return requirements.filter((requirement) => !evidenceMatchesRequirement(evidence, requirement));
+}
+
+function formatEvidenceRequirements(requirements: string[]): string {
+  return requirements.map((requirement) => `${requirement}*`).join(', ');
+}
+
+function assertAgentStageEvidence(stage: AgentStage, evidence: string[]): void {
+  const missing = missingEvidenceForStage(stage, evidence);
+  if (missing.length > 0) {
+    throw makeErr(-32602, `${stage} stage requires evidence matching: ${formatEvidenceRequirements(missing)}`);
+  }
+}
+
 function assertAgentTransition(current: AgentLifetimeState, nextStage: AgentStage, nextEvidence: string[]): void {
   if (current.status === 'archived') {
     throw makeErr(-32602, `${current.agent} is archived; join again before changing stage`);
@@ -458,9 +484,7 @@ function assertAgentTransition(current: AgentLifetimeState, nextStage: AgentStag
   if (!canTransitionAgentStage(current.stage, nextStage)) {
     throw makeErr(-32602, `invalid agent stage transition: ${current.stage} -> ${nextStage}`);
   }
-  if (nextStage === 'ship' && nextEvidence.length === 0) {
-    throw makeErr(-32602, 'ship stage requires evidence');
-  }
+  assertAgentStageEvidence(nextStage, nextEvidence);
 }
 
 function workflowDoctor(vaultPath: string, project: string): Record<string, unknown> {
@@ -498,7 +522,10 @@ function agentDoctor(vaultPath: string, project: string, agent: string): Record<
   if (lifetime) {
     if (!AGENT_STAGES.includes(lifetime.stage)) errors.push(`invalid stage: ${lifetime.stage}`);
     if (!AGENT_STATUSES.includes(lifetime.status)) errors.push(`invalid status: ${lifetime.status}`);
-    if (lifetime.stage === 'ship' && lifetime.evidence.length === 0) errors.push('ship stage requires evidence');
+    const missingEvidence = missingEvidenceForStage(lifetime.stage, lifetime.evidence);
+    if (missingEvidence.length > 0) {
+      errors.push(`${lifetime.stage} stage requires evidence matching: ${formatEvidenceRequirements(missingEvidence)}`);
+    }
     if (lifetime.status === 'active' && lifetime.stage === 'reflect') warnings.push('reflect stage usually closes with status=done');
   }
 
@@ -675,27 +702,35 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
           required: false,
           enum: [...AGENT_STAGES],
           default: 'think',
-          description: 'Initial lifetime stage: think|plan|build|review|test|ship|reflect',
+          description:
+            'Initial lifetime stage: think|plan|build|review|test|ship|reflect. test requires review:* evidence; ship requires review:* and test:* evidence.',
         },
-        evidence: { type: 'array', required: false, description: 'Initial evidence refs' },
+        evidence: {
+          type: 'array',
+          required: false,
+          description: 'Initial evidence refs. Use prefixes such as review:* and test:* for stage gates.',
+        },
         notes: { type: 'string', required: false, description: 'Join notes' },
       },
       handler: async (ctx, params) => {
         const actor = actorFromContext(ctx);
-        const project = projectKey(params.project);
-        const agent = agentKey(params.agent, actor);
-        const now = isoNow();
-        const path = agentLifetimePath(project, agent);
-        const state: AgentLifetimeState = {
-          project,
-          agent,
-          role: oneLine(params.role) || 'agent',
-          host: oneLine(params.host) || actor,
-          stage: parseAgentStage(params.stage, 'think'),
-          status: 'active',
-          objective: oneLine(params.objective),
-          issue: oneLine(params.issue),
-          evidence: stringList(params.evidence),
+      const project = projectKey(params.project);
+      const agent = agentKey(params.agent, actor);
+      const now = isoNow();
+      const path = agentLifetimePath(project, agent);
+      const stage = parseAgentStage(params.stage, 'think');
+      const evidence = stringList(params.evidence);
+      assertAgentStageEvidence(stage, evidence);
+      const state: AgentLifetimeState = {
+        project,
+        agent,
+        role: oneLine(params.role) || 'agent',
+        host: oneLine(params.host) || actor,
+        stage,
+        status: 'active',
+        objective: oneLine(params.objective),
+        issue: oneLine(params.issue),
+        evidence,
           startedAt: now,
           updatedAt: now,
           path,
@@ -716,7 +751,7 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
   name: 'workflow.agent.step',
       namespace: 'workflow' as Operation['namespace'],
       description:
-        'Move a joined agent through think->plan->build->review->test->ship->reflect with review/test rework back to build.',
+        'Move a joined agent through think->plan->build->review->test->ship->reflect with review/test rework back to build. test requires review:* evidence; ship requires review:* and test:* evidence.',
     mutating: true,
     writePolicy: {
       realWrite: 'always',
@@ -741,7 +776,11 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
         },
         objective: { type: 'string', required: false, description: 'Replacement objective' },
         issue: { type: 'string', required: false, description: 'Replacement linked issue slug or entity' },
-        evidence: { type: 'array', required: false, description: 'Evidence refs to merge into lifetime' },
+        evidence: {
+          type: 'array',
+          required: false,
+          description: 'Evidence refs to merge into lifetime. Use review:* before test and test:* before ship.',
+        },
         summary: { type: 'string', required: false, description: 'Transition summary' },
         next: { type: 'string', required: false, description: 'Next action or stop condition' },
       },

@@ -190,22 +190,33 @@ describe('agent project workflow operations', () => {
       await call('workflow.agent.join', { project: 'alpha', agent: 'worker', role: 'worker' });
       await call('workflow.agent.step', { project: 'alpha', agent: 'worker', stage: 'plan' });
       await call('workflow.agent.step', { project: 'alpha', agent: 'worker', stage: 'build' });
-      await call('workflow.agent.step', { project: 'alpha', agent: 'worker', stage: 'review' });
-      await call('workflow.agent.step', { project: 'alpha', agent: 'worker', stage: 'test' });
+    await call('workflow.agent.step', { project: 'alpha', agent: 'worker', stage: 'review' });
 
-      await assert.rejects(
-        () => call('workflow.agent.step', { project: 'alpha', agent: 'worker', stage: 'ship' }),
-        /ship stage requires evidence/,
-      );
+    await assert.rejects(
+      () => call('workflow.agent.step', { project: 'alpha', agent: 'worker', stage: 'test' }),
+      /test stage requires evidence matching: review:\*/,
+    );
 
-      const shipped = (await call('workflow.agent.step', {
-        project: 'alpha',
-        agent: 'worker',
-        stage: 'ship',
-        evidence: ['test:workflow', 'review:passed'],
-      })) as { lifetime: { stage: string; evidence: string[] } };
-      assert.equal(shipped.lifetime.stage, 'ship');
-      assert.deepEqual(shipped.lifetime.evidence, ['test:workflow', 'review:passed']);
+    await call('workflow.agent.step', {
+      project: 'alpha',
+      agent: 'worker',
+      stage: 'test',
+      evidence: ['review:passed'],
+    });
+
+    await assert.rejects(
+      () => call('workflow.agent.step', { project: 'alpha', agent: 'worker', stage: 'ship' }),
+      /ship stage requires evidence matching: test:\*/,
+    );
+
+    const shipped = (await call('workflow.agent.step', {
+      project: 'alpha',
+      agent: 'worker',
+      stage: 'ship',
+      evidence: ['test:workflow'],
+    })) as { lifetime: { stage: string; evidence: string[] } };
+    assert.equal(shipped.lifetime.stage, 'ship');
+    assert.deepEqual(shipped.lifetime.evidence, ['review:passed', 'test:workflow']);
 
       const reflected = (await call('workflow.agent.step', {
         project: 'alpha',
@@ -215,14 +226,64 @@ describe('agent project workflow operations', () => {
       })) as { lifetime: { stage: string; status: string } };
       assert.equal(reflected.lifetime.stage, 'reflect');
       assert.equal(reflected.lifetime.status, 'done');
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
-  });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
 
-  test('workflow.agent.checkpoint leave and doctor preserve lifetime evidence', async () => {
-    const { root, call } = makeHarness();
-    try {
+test('workflow.agent.join and doctor enforce stage evidence requirements', async () => {
+  const { root, call } = makeHarness();
+  try {
+    await assert.rejects(
+      () =>
+        call('workflow.agent.join', {
+          project: 'alpha',
+          agent: 'worker',
+          stage: 'ship',
+          evidence: ['review:passed'],
+        }),
+      /ship stage requires evidence matching: test:\*/,
+    );
+
+    const agentDir = vp(root, '01-Projects/alpha/agents/worker');
+    mkdirSync(agentDir, { recursive: true });
+    writeFileSync(
+      join(agentDir, 'lifetime.md'),
+      [
+        '---',
+        'type: agent-lifetime',
+        'entity: project/alpha/agent/worker/lifetime',
+        'project: alpha',
+        'agent: worker',
+        'role: "worker"',
+        'host: "codex"',
+        'stage: ship',
+        'status: active',
+        'objective: "ship without tests"',
+        'issue: ""',
+        'evidence: ["review:passed"]',
+        'started-at: "2026-06-30T00:00:00.000Z"',
+        'updated-at: "2026-06-30T00:00:00.000Z"',
+        '---',
+        '',
+      ].join('\n'),
+      'utf-8',
+    );
+
+    const doctor = (await call('workflow.agent.doctor', { project: 'alpha', agent: 'worker' })) as {
+      ok: boolean;
+      errors: string[];
+    };
+    assert.equal(doctor.ok, false);
+    assert.deepEqual(doctor.errors, ['ship stage requires evidence matching: test:*']);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('workflow.agent.checkpoint leave and doctor preserve lifetime evidence', async () => {
+  const { root, call } = makeHarness();
+  try {
       const missing = (await call('workflow.agent.doctor', { project: 'alpha', agent: 'worker' })) as {
         ok: boolean;
         missing: string[];

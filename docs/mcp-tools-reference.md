@@ -1218,8 +1218,8 @@ Start or replace a vault-first agent lifetime under 01-Projects/<project>/agents
 - `host` (string, optional) — Agent host, e.g. codex or claude-code
 - `objective` (string, optional) — Lifetime objective
 - `issue` (string, optional) — Linked issue slug or entity
-- `stage` (string, optional, default: `"think"`, enum: `think` | `plan` | `build` | `review` | `test` | `ship` | `reflect`) — Initial lifetime stage: think|plan|build|review|test|ship|reflect
-- `evidence` (array, optional) — Initial evidence refs
+- `stage` (string, optional, default: `"think"`, enum: `think` | `plan` | `build` | `review` | `test` | `ship` | `reflect`) — Initial lifetime stage: think|plan|build|review|test|ship|reflect. test requires review:* evidence; ship requires review:* and test:* evidence.
+- `evidence` (array, optional) — Initial evidence refs. Use prefixes such as review:* and test:* for stage gates.
 - `notes` (string, optional) — Join notes
 
 ### `workflow.agent.leave`
@@ -1236,7 +1236,7 @@ Archive a joined agent lifetime while preserving its lifetime and event log in t
 
 ### `workflow.agent.step`
 
-Move a joined agent through think->plan->build->review->test->ship->reflect with review/test rework back to build.
+Move a joined agent through think->plan->build->review->test->ship->reflect with review/test rework back to build. test requires review:* evidence; ship requires review:* and test:* evidence.
 
 **Mutating:** yes
 
@@ -1248,7 +1248,7 @@ Move a joined agent through think->plan->build->review->test->ship->reflect with
 - `status` (string, optional, enum: `active` | `blocked` | `done` | `archived`) — Agent status: active|blocked|done|archived
 - `objective` (string, optional) — Replacement objective
 - `issue` (string, optional) — Replacement linked issue slug or entity
-- `evidence` (array, optional) — Evidence refs to merge into lifetime
+- `evidence` (array, optional) — Evidence refs to merge into lifetime. Use review:* before test and test:* before ship.
 - `summary` (string, optional) — Transition summary
 - `next` (string, optional) — Next action or stop condition
 
