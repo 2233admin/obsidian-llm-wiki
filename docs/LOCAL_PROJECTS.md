@@ -144,3 +144,17 @@ Use `project.canvas.export` to create `01-Projects/<project>/views/project-map.c
 Use `project.base.export` to create `01-Projects/<project>/views/issues.base`. The Base filters to `01-Projects/<project>/issues/` and renders a table of the work-OS frontmatter fields (`entity`, `state`, `review`, `priority`, `assignee`, `blocked-by`, `last-verified`, `id`, `description`).
 
 Both tools default to `dryRun=true`, support `overwrite=true`, and only generate view files. They do not rewrite issue notes or parse user-edited Canvas files.
+
+## Agent Workflow Integration Issues
+
+When an external workflow project requires executable obsidian-llm-wiki work, create or update a work-OS issue under:
+
+```text
+01-Projects/<project>/issues/<slug>.md
+```
+
+Use this for implementation or validation work such as provider integration, source-registration behavior, host instruction changes, workflow migration, or regression checks. Use Source Notes for durable external inputs, and use agent draft folders for unreviewed analysis.
+
+Claude Code and Codex must not create `10-Projects/<project>/docket/**` for new work. That path is retired even if older skill text still mentions docket. Current project state is the work-OS issue note plus derived board/canvas/base views.
+
+For the shared host workflow contract, see `docs/AGENT_WORKFLOW_INTEGRATION.md`.

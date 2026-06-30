@@ -103,3 +103,16 @@ Legacy env aliases VAULT_MIND_OPENTTPE_CMD and OPENTTPE_CMD are accepted for com
 `ingest.link.preflight` is read-only planning. `source.register` is the durable registration step. It stores the source in `_llmwiki/source-registry.json`, creates a Source Note in `00-Inbox/Sources/<platform>/` or `10-Projects/<project>/sources/<platform>/`, and embeds the preflight result for review.
 
 This keeps platform analysis honest: registering a Douyin, Bilibili, YouTube, X, Xiaohongshu, WeChat, podcast, or vault note source is not the same as claiming the capture/transcript exists. The ingest succeeds only after a provider writes Markdown back into the vault and search can find it.
+
+## External Repository and Workflow Sources
+
+External code repositories, toolchains, and skill-pack projects enter obsidian-llm-wiki through the same Source model as other long-lived inputs.
+
+- If the user provides a GitHub/Gitea/GitLab URL, classify it as `inputType=url` and usually `sourceKind=repo`. Use `source.register` when the Source should be durable.
+- If the user provides a local clone path, repo path, file path, directory path, or pasted text, do not call `source.register` with that local input in Phase 1. Register the canonical URL when available, then cite local inspection or code-intel artifacts from an agent draft or Evidence Note.
+- If the input is already a vault note, use `inputType=vaultPath`. Registration creates a Source Note that links the original; it must not rewrite the original note.
+- `ingest.link.preflight` is planning only. It can recommend providers and limitations, but success still requires provider output to land in the vault and become searchable.
+
+Example: `https://github.com/code-yeongyu/lazycodex` is a GitHub repo Source. Register the URL, record repo/sourceKind metadata, and keep any local clone or code-intel run as inspection evidence rather than Source Registry identity.
+
+Claude Code and Codex must follow `docs/AGENT_WORKFLOW_INTEGRATION.md` before adapting external workflow projects into obsidian-llm-wiki.
