@@ -76,3 +76,15 @@ python compiler/kb_meta.py diff <path-to-vault> KB/<topic>
 cd mcp-server && npm test    # adapter tests
 cd compiler && python -m pytest tests/
 ```
+
+## Agent Workflow Integration
+
+Before Claude Code adapts an external repository, toolchain, skill pack, or workflow runtime into obsidian-llm-wiki, read `docs/AGENT_WORKFLOW_INTEGRATION.md`.
+
+Key constraints:
+
+- register durable external inputs through `source.register` only when Phase 1 supports the Source Input (`url` or `vaultPath`);
+- keep local clone paths, repo paths, file paths, directory paths, and pasted text out of `source.register` until those input types are implemented;
+- write unreviewed analysis under `00-Inbox/AI-Output/<agent>/` or `10-Projects/<project>/agents/<agent>/`;
+- track executable obsidian-llm-wiki work under `01-Projects/<project>/issues/`, never `10-Projects/<project>/docket/**`;
+- promote durable team truth only through reviewed Decisions, Architecture, Runbooks, or Project Hub links.
