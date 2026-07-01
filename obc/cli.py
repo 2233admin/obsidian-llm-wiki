@@ -174,10 +174,11 @@ def cmd_apply(args: argparse.Namespace) -> int:
 
     # Apply fixes
     planner = FixPlanner()
-    modified, errors = planner.apply_fixes(
+    modified, errors, backups = planner.apply_fixes(
         plan,
         dry_run=(review_count > 0 and not args.apply_review),
-        apply_review=args.apply_review
+        apply_review=args.apply_review,
+        backup=args.backup
     )
 
     if modified:
@@ -186,6 +187,11 @@ def cmd_apply(args: argparse.Namespace) -> int:
             print(f"  - {f}")
     else:
         print("\nNo files modified (dry-run or no fixes to apply)")
+
+    if backups:
+        print(f"\nBackup files: {len(backups)}")
+        for b in backups:
+            print(f"  - {b}")
 
     if errors:
         print(f"\nErrors: {len(errors)}")
@@ -223,6 +229,8 @@ def main():
     apply_parser.add_argument("--plan", required=True, help="Fix plan path")
     apply_parser.add_argument("--apply-review", action="store_true",
                              help="Also apply S2 review fixes")
+    apply_parser.add_argument("--backup", action="store_true",
+                             help="Create .bak backup files before modifying")
 
     args = parser.parse_args()
 

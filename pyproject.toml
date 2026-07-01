@@ -1,0 +1,14 @@
+[project]
+name = "obc"
+version = "0.1.0"
+description = "Obsidian Broken Link Checker - Static analysis for Obsidian vaults"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]

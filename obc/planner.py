@@ -188,19 +188,19 @@ class FixPlanner:
         if not diag.candidates and not diag.suggested_fix:
             return None
 
-        # S1: Single candidate
-        if diag.safety_level == "S1" and diag.candidates:
-            target = diag.candidates[0]
-            new_text = self._build_safe_link(link, target.normalized_path)
+        # S1 fixable codes (FIXABLE_*) - suggested_fix already has complete format
+        s1_codes = (DiagnosticCode.FIXABLE_URL_ENCODING, DiagnosticCode.FIXABLE_CASE_NORMALIZE)
+        if diag.code in s1_codes:
+            # suggested_fix already contains the complete link format
             return FixCandidate(
                 diagnostic=diag,
                 safety_level="S1",
-                old_text=link.raw_text,
-                new_text=new_text,
-                source_file=link.source_file,
-                line=link.line,
-                reason="Unique deterministic candidate",
-                target_path=target.normalized_path,
+                old_text=diag.link.raw_text,
+                new_text=diag.suggested_fix,
+                source_file=diag.link.source_file,
+                line=diag.link.line,
+                reason=diag.message,
+                target_path=diag.candidates[0].normalized_path if diag.candidates else None,
             )
 
         # S2: Multiple candidates or suggestion
@@ -277,7 +277,8 @@ class FixPlanner:
         plan: FixPlan,
         dry_run: bool = True,
         apply_review: bool = False,
-    ) -> tuple[list[Path], list[str]]:
+        backup: bool = False,
+    ) -> tuple[list[Path], list[str], list[Path]]:
         """
         Apply fixes from a plan.
 
@@ -285,12 +286,14 @@ class FixPlanner:
             plan: The fix plan to apply
             dry_run: If True, don't write files
             apply_review: If True, also apply review fixes (S2)
+            backup: If True, create .bak files before modifying
 
         Returns:
-            (list of modified files, list of errors)
+            (list of modified files, list of errors, list of backup files)
         """
         modified = []
         errors = []
+        backups = []
 
         # Collect fixes to apply
         fixes_to_apply = list(plan.safe_fixes)
@@ -298,7 +301,7 @@ class FixPlanner:
             fixes_to_apply.extend(plan.review_fixes)
 
         if not fixes_to_apply:
-            return modified, errors
+            return modified, errors, backups
 
         # Group by file
         by_file: dict[Path, list[FixCandidate]] = {}
@@ -315,6 +318,12 @@ class FixPlanner:
                     # Read file
                     content = file_path.read_text(encoding='utf-8', errors='replace')
 
+                    # Create backup if requested
+                    if backup:
+                        backup_path = file_path.with_suffix(file_path.suffix + '.bak')
+                        backup_path.write_text(content, encoding='utf-8')
+                        backups.append(backup_path)
+
                     # Apply fixes (in reverse order to preserve line numbers)
                     applied = 0
                     for fix in sorted(fixes, key=lambda f: f.line, reverse=True):
@@ -330,7 +339,7 @@ class FixPlanner:
             except Exception as e:
                 errors.append(f"{file_path}: {e}")
 
-        return modified, errors
+        return modified, errors, backups
 
     def validate_fixes(
         self,

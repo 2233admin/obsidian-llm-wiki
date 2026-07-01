@@ -32,6 +32,10 @@ class DiagnosticCode(Enum):
     FUZZY_MATCH = "FUZZY_MATCH"  # Fuzzy match suggestion
     INTENTIONAL_DANGLING = "INTENTIONAL_DANGLING"
 
+    # Safe fixable codes (S1)
+    FIXABLE_URL_ENCODING = "FIXABLE_URL_ENCODING"  # Target exists, just encoding issue
+    FIXABLE_CASE_NORMALIZE = "FIXABLE_CASE_NORMALIZE"  # Case normalization needed
+
     # Special codes
     UNSUPPORTED_SYNTAX = "UNSUPPORTED_SYNTAX"
     IGNORED_EXTERNAL = "IGNORED_EXTERNAL"
@@ -64,7 +68,8 @@ class Diagnostic:
     def severity(self) -> str:
         """Get severity based on diagnostic code."""
         if self.code in (DiagnosticCode.OK_EXACT, DiagnosticCode.OK_UNIQUE_BY_BASENAME,
-                         DiagnosticCode.OK_WITH_FRAGMENT, DiagnosticCode.IGNORED_EXTERNAL):
+                         DiagnosticCode.OK_WITH_FRAGMENT, DiagnosticCode.IGNORED_EXTERNAL,
+                         DiagnosticCode.FIXABLE_URL_ENCODING, DiagnosticCode.FIXABLE_CASE_NORMALIZE):
             return "ok"
         elif self.code in (DiagnosticCode.BROKEN_CERTAIN,):
             return "error"
@@ -209,6 +214,16 @@ class Resolver:
         # 2. Try case-insensitive stem match (Obsidian is case-insensitive)
         candidates = self.index.get_by_stem_case_insensitive(target)
         if len(candidates) == 1:
+            # Check if it's just a case difference -> S1 fixable
+            if candidates[0].stem.lower() == target.lower() and candidates[0].stem != target:
+                return Diagnostic(
+                    code=DiagnosticCode.FIXABLE_CASE_NORMALIZE,
+                    link=link,
+                    target_file=candidates[0],
+                    message=f"Case normalization needed: {target} -> {candidates[0].stem}",
+                    suggested_fix=self._make_alias_suggestion(link, candidates[0]),
+                    safety_level="S1",
+                )
             return self._resolve_fragment(link, candidates[0])
         elif len(candidates) > 1:
             return self._resolve_fragment(link, candidates[0], candidates=candidates)
