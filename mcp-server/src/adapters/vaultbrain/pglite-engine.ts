@@ -1,12 +1,10 @@
 /**
  * PGliteEngine -- embedded Postgres (WASM) implementation of VaultBrainEngine.
- * Uses @electric-sql/pglite with pgvector + pg_trgm extensions.
+ * Uses @electric-sql/pglite with pg_trgm keyword search and optional pgvector.
  */
-
 import type { VaultBrainEngine, ChunkResult, ChunkInput } from "./engine.js";
-import { VAULTBRAIN_SCHEMA_SQL } from "./schema.js";
+import { VAULTBRAIN_SCHEMA_SQL, VAULTBRAIN_VECTOR_SCHEMA_SQL } from "./schema.js";
 
-// Dynamic type placeholder -- PGlite's exact type is resolved at runtime
 type PGliteDB = {
   exec(sql: string): Promise<unknown>;
   query<T = unknown>(sql: string, params?: unknown[]): Promise<{ rows: T[] }>;
@@ -19,19 +17,29 @@ const dynamicImport = new Function(
   "return import(specifier)",
 ) as (specifier: string) => Promise<Record<string, unknown>>;
 
+async function loadOptionalVectorExtension(): Promise<unknown | null> {
+  try {
+    const mod = await dynamicImport("@electric-sql/pglite/vector");
+    return mod.vector ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export class PGliteEngine implements VaultBrainEngine {
   private db: PGliteDB | null = null;
+  private vectorEnabled = false;
 
   constructor(private readonly dataDir: string) {}
 
   async connect(): Promise<void> {
-    // Dynamic import so loading failure (missing wasm, etc.) is catchable at call-site
     const { PGlite } = await import("@electric-sql/pglite");
-    const { vector } = await dynamicImport("@electric-sql/pglite/vector");
     const { pg_trgm } = await import("@electric-sql/pglite/contrib/pg_trgm");
-    const vectorExtension = vector as typeof pg_trgm;
+    const vector = await loadOptionalVectorExtension();
+    const extensions: Record<string, unknown> = { pg_trgm };
+    if (vector) extensions.vector = vector;
 
-    this.db = new PGlite(this.dataDir, { extensions: { vector: vectorExtension, pg_trgm } }) as unknown as PGliteDB;
+    this.db = new PGlite(this.dataDir, { extensions } as never) as unknown as PGliteDB;
     await this.db.waitReady;
   }
 
@@ -43,13 +51,21 @@ export class PGliteEngine implements VaultBrainEngine {
   }
 
   async initSchema(): Promise<void> {
-    await this.requireDb().exec(VAULTBRAIN_SCHEMA_SQL);
+    const db = this.requireDb();
+    await db.exec(VAULTBRAIN_SCHEMA_SQL);
+
+    try {
+      await db.exec(VAULTBRAIN_VECTOR_SCHEMA_SQL);
+      this.vectorEnabled = true;
+    } catch {
+      this.vectorEnabled = false;
+    }
   }
 
   async upsertPage(slug: string, title: string, content: string, hash: string): Promise<void> {
     await this.requireDb().query(
-      `INSERT INTO pages (slug, title, content, hash, updated_at)
-       VALUES ($1, $2, $3, $4, now())
+      `INSERT INTO pages (slug, title, content, hash)
+       VALUES ($1, $2, $3, $4)
        ON CONFLICT (slug) DO UPDATE SET
          title = EXCLUDED.title,
          content = EXCLUDED.content,
@@ -68,11 +84,8 @@ export class PGliteEngine implements VaultBrainEngine {
     const db = this.requireDb();
 
     for (const chunk of chunks) {
-      const embeddingStr = chunk.embedding && chunk.embedding.length > 0
-        ? JSON.stringify(chunk.embedding)
-        : null;
-
-      if (embeddingStr) {
+      const embeddingStr = chunk.embedding && chunk.embedding.length > 0 ? JSON.stringify(chunk.embedding) : null;
+      if (this.vectorEnabled && embeddingStr) {
         await db.query(
           `INSERT INTO chunks (slug, chunk_index, chunk_text, embedding, token_count)
            VALUES ($1, $2, $3, $4::vector, $5)
@@ -84,8 +97,8 @@ export class PGliteEngine implements VaultBrainEngine {
         );
       } else {
         await db.query(
-          `INSERT INTO chunks (slug, chunk_index, chunk_text, embedding, token_count)
-           VALUES ($1, $2, $3, NULL, $4)
+          `INSERT INTO chunks (slug, chunk_index, chunk_text, token_count)
+           VALUES ($1, $2, $3, $4)
            ON CONFLICT (slug, chunk_index) DO UPDATE SET
              chunk_text = EXCLUDED.chunk_text,
              token_count = EXCLUDED.token_count`,
@@ -100,15 +113,9 @@ export class PGliteEngine implements VaultBrainEngine {
   }
 
   async searchKeyword(query: string, limit: number): Promise<ChunkResult[]> {
-    // Bilingual keyword floor (no daemon, no embeddings). RRF-fuse two rankings:
-    //   - ts_rank_cd over a 'simple' tsvector -> English / multi-word NL phrases.
-    //     The tsquery ORs the query's lexemes (term1 | term2 | ...) so partial
-    //     overlap still ranks -- a natural-language phrase no longer returns 0
-    //     just because no chunk contains the whole literal string.
-    //   - pg_trgm similarity()                -> CJK, which 'simple' cannot
-    //     word-segment (a space-less Chinese run becomes one token).
-    // RRF (k=60) merges by RANK within each list, so the two incomparable score
-    // scales never fight; a chunk strong in either list surfaces.
+    const normalizedQuery = query.trim();
+    if (!normalizedQuery) return [];
+
     const { rows } = await this.requireDb().query<{
       slug: string;
       chunk_index: number;
@@ -116,37 +123,45 @@ export class PGliteEngine implements VaultBrainEngine {
       score: number;
     }>(
       `WITH q AS (
-         SELECT to_tsquery('simple',
-                  NULLIF(array_to_string(
-                    tsvector_to_array(to_tsvector('simple', $1)), ' | '), '')
-                ) AS tsq
-       ),
-       scored AS (
-         SELECT slug, chunk_index, chunk_text,
-                ts_rank_cd(chunk_tsv, (SELECT tsq FROM q)) AS ts_score,
-                similarity(chunk_text, $1) AS trgm_score,
-                (chunk_text ILIKE '%' || $1 || '%') AS substr_hit
+         SELECT websearch_to_tsquery('simple', $1) AS tsq
+       ), scored AS (
+         SELECT
+           slug,
+           chunk_index,
+           chunk_text,
+           ts_rank_cd(chunk_tsv, (SELECT tsq FROM q)) AS ts_score,
+           similarity(chunk_text, $1) AS trgm_score,
+           (chunk_text ILIKE '%' || $1 || '%') AS substr_hit
          FROM chunks
          WHERE chunk_tsv @@ (SELECT tsq FROM q)
-            OR similarity(chunk_text, $1) >= 0.1
+            OR similarity(chunk_text, $1) >= 0.2
             OR chunk_text ILIKE '%' || $1 || '%'
-       ),
-       ranked AS (
-         SELECT slug, chunk_index, chunk_text, ts_score, trgm_score, substr_hit,
-                rank() OVER (ORDER BY ts_score DESC)   AS ts_rank,
-                rank() OVER (ORDER BY trgm_score DESC) AS trgm_rank
+       ), ranked AS (
+         SELECT
+           slug,
+           chunk_index,
+           chunk_text,
+           ts_score,
+           trgm_score,
+           substr_hit,
+           rank() OVER (ORDER BY ts_score DESC, slug, chunk_index) AS ts_rank,
+           rank() OVER (ORDER BY trgm_score DESC, slug, chunk_index) AS trgm_rank
          FROM scored
        )
-       SELECT slug, chunk_index, chunk_text,
-              ( CASE WHEN ts_score   > 0 THEN 1.0 / (60 + ts_rank)   ELSE 0 END
-              + CASE WHEN trgm_score > 0 THEN 1.0 / (60 + trgm_rank) ELSE 0 END
-              + CASE WHEN substr_hit     THEN 1.0 / 60               ELSE 0 END
-              ) AS score
+       SELECT
+         slug,
+         chunk_index,
+         chunk_text,
+         CASE WHEN ts_score > 0 THEN 1.0 / (60 + ts_rank) ELSE 0 END +
+         CASE WHEN trgm_score >= 0.2 THEN 1.0 / (60 + trgm_rank) ELSE 0 END +
+         CASE WHEN substr_hit THEN 1.0 / 60 ELSE 0 END AS score
        FROM ranked
+       WHERE ts_score > 0 OR trgm_score >= 0.2 OR substr_hit
        ORDER BY score DESC, slug, chunk_index
        LIMIT $2`,
-      [query, limit],
+      [normalizedQuery, limit],
     );
+
     return rows.map((r) => ({
       slug: r.slug,
       chunkIndex: r.chunk_index,
@@ -156,6 +171,7 @@ export class PGliteEngine implements VaultBrainEngine {
   }
 
   async searchVector(embedding: number[], limit: number): Promise<ChunkResult[]> {
+    if (!this.vectorEnabled) return [];
     const vecStr = JSON.stringify(embedding);
     const { rows } = await this.requireDb().query<{
       slug: string;
@@ -171,6 +187,7 @@ export class PGliteEngine implements VaultBrainEngine {
        LIMIT $2`,
       [vecStr, limit],
     );
+
     return rows.map((r) => ({
       slug: r.slug,
       chunkIndex: r.chunk_index,
@@ -187,6 +204,7 @@ export class PGliteEngine implements VaultBrainEngine {
   }
 
   async countEmbeddedChunks(): Promise<number> {
+    if (!this.vectorEnabled) return 0;
     const { rows } = await this.requireDb().query<{ n: number }>(
       `SELECT count(*)::int AS n FROM chunks WHERE embedding IS NOT NULL`,
     );
@@ -216,3 +234,4 @@ export class PGliteEngine implements VaultBrainEngine {
     return this.db;
   }
 }
+

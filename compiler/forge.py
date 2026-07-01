@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import json
 import os
+import re as _re
 import sys as _sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -52,7 +53,6 @@ if str(_HERE) not in _sys.path:
 
 import currency as _currency  # noqa: E402
 import work_protocol as _work_protocol  # noqa: E402
-
 
 # === machine-local config: <vault>/.vault-mind/forge.json ===================
 #
@@ -223,13 +223,9 @@ class UrllibTransport(Transport):
             # An HTTP error still has a body (the API's error JSON). Surface the
             # status; do NOT include request headers/body (token-bearing) in the
             # raised error text.
-            try:
-                err_body = e.read()
-            except Exception:
-                err_body = b""
             raise TransportError(method, url, e.code,
                                  detail="http error") from None
-        except urllib.error.URLError as e:
+        except urllib.error.URLError:
             # DNS / connection / timeout: no status. The reason is a network
             # condition (never the token), but keep it terse + url-redacted.
             raise TransportError(method, url, None,
@@ -1349,7 +1345,6 @@ PUBLISH_SKIP_DIRS = frozenset({
 # plan's `secret_offenders` so the user can scrub before a push. These are
 # deliberately conservative, high-signal patterns (the plan WARNS; it never
 # silently uploads).
-import re as _re  # local alias; stdlib only
 
 _SECRET_PATTERNS = [
     ("aws-access-key-id", _re.compile(r"AKIA[0-9A-Z]{16}")),
@@ -2577,7 +2572,6 @@ class LinearAdapter(Provider):
         assignee = node.get("assignee")
         actor = (assignee.get("displayName")
                  if isinstance(assignee, dict) else None)
-        hint_key = _safe_segment(identifier, object_id) if identifier else object_id
         return RemoteItem(
             kind="issue",
             object_id=object_id,

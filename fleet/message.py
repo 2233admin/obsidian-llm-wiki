@@ -157,6 +157,12 @@ class VerifyResult:
     contradictions: list[dict] = field(default_factory=list)
     summary: str = ""
 
+    def __getitem__(self, key: str) -> Any:
+        return self.to_payload()[key]
+
+    def __contains__(self, key: str) -> bool:
+        return key in self.to_payload()
+
     def to_payload(self) -> dict:
         return {
             "session_id": self.session_id,

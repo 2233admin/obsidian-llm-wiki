@@ -10,7 +10,6 @@ from dataclasses import dataclass
 from typing import Any
 
 import json_compat as orjson  # zero-dep shim: orjson if installed, else stdlib json
-
 from models import Chunk
 
 # Thread pool for concurrent API calls (max 10 concurrent)

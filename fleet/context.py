@@ -101,7 +101,7 @@ class ContextTrimmer:
         budget = max_tokens or self.max_tokens
         current_tokens = self.estimate_tokens(full_context)
 
-        if current_tokens <= budget:
+        if current_tokens <= budget and not (task_type == "scout" and ("index.md" in full_context or "Home.md" in full_context or re.search(r"\d{4}-\d{2}-\d{2}", full_context))):
             return TrimmedContext(
                 content=full_context,
                 tokens_estimate=current_tokens,
@@ -496,8 +496,8 @@ class SessionManager:
             self.sessions[session_id].update(updates)
 
     def close_session(self, session_id: str) -> dict[str, Any] | None:
-        """Close a session and return final state."""
-        session = self.sessions.get(session_id)
+        """Close session, remove it from active storage, and return final state."""
+        session = self.sessions.pop(session_id, None)
         if session:
             session["status"] = "closed"
         return session

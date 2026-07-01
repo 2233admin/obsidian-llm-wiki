@@ -34,10 +34,10 @@ from pathlib import Path
 # script (cwd-relative) or imported as a module from compiler/.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import currency as _currency  # noqa: E402
-import work_protocol as _work_protocol  # noqa: E402
-import workspace as _workspace  # noqa: E402
 import forge as _forge  # noqa: E402
 import plugins as _plugins  # noqa: E402
+import work_protocol as _work_protocol  # noqa: E402
+import workspace as _workspace  # noqa: E402
 from _md_parse import parse_frontmatter as robust_parse_frontmatter  # noqa: E402
 
 
@@ -1990,10 +1990,11 @@ def cmd_work_next(vault, *, claim_agent=None, ttl_seconds=3600, now=None,
     distinct-entity work items select cleanly today.
     """
     import time
+
     import currency
-    import work_protocol
-    import work_driver
     import work_budget
+    import work_driver
+    import work_protocol
 
     notes = work_protocol._walk_work_notes(vault, require_entity=True)
     authoritative = [n for n in notes if n.is_authoritative]
@@ -2043,10 +2044,11 @@ def cmd_work_board(vault, *, project=None, write=False, lang=None):
     unification: the scheduling brain (work_protocol) now also speaks kanban, so
     the separate docket store is unnecessary. `lang` localizes the lane headings;
     when unset it honors $VAULT_MIND_LANG then auto-detects from the vault."""
-    from pathlib import Path
     import os
-    import work_protocol
+    from pathlib import Path
+
     import work_driver
+    import work_protocol
 
     notes = work_protocol._walk_work_notes(vault, require_entity=True)
     authoritative = [n for n in notes if n.is_authoritative]
@@ -2071,8 +2073,8 @@ def cmd_work_budget(vault, *, project=None):
     of the markdown ledger, so the quota stays auditable (§7, no side-channel).
     A pool is a project container note that declares a `budget`; with --project
     only that pool is reported, otherwise every declared pool."""
-    import work_protocol
     import work_budget
+    import work_protocol
 
     notes = work_protocol._walk_work_notes(vault, require_entity=True)
     pools = []
@@ -2102,8 +2104,9 @@ def cmd_work_debit(vault, *, project, cost, apply=False):
     ledger diff). One-shot (§0 #4): the loop calls this once after a run, exits.
     """
     from pathlib import Path
-    import work_protocol
+
     import work_budget
+    import work_protocol
 
     notes = work_protocol._walk_work_notes(vault, require_entity=True)
     anchor = next((n for n in notes if n.entity == f"project/{project}"
@@ -2131,8 +2134,8 @@ def cmd_work_briefing(vault, *, note=None, entity=None):
     reading) so a waking agent has team context without a cold start. Read-only
     (§0 -- a derived view, never edits the source). One-shot; the loop injects it
     once at bootstrap. Select the item by --note <id> or --entity <e>."""
-    import work_protocol
     import work_driver
+    import work_protocol
 
     notes = work_protocol._walk_work_notes(vault, require_entity=True)
     auth = [n for n in notes if n.is_authoritative]
@@ -2189,6 +2192,7 @@ def cmd_triage_canvas(vault, *, write=False, today=None):
     canvas JSON; --write drops the file (derived, gitignored). Read-only on the
     source. This is the candidate surface the 10C promote gesture acts on."""
     from pathlib import Path
+
     import work_protocol
 
     cands = [n for n in work_protocol.scan_all_notes(vault)

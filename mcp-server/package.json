@@ -21,7 +21,7 @@
     "start": "node bundle.js",
     "start:dev": "node dist/index.js",
     "typecheck": "tsc --noEmit",
-    "test": "node --test \"dist/**/*.test.js\"",
+    "test": "node scripts/run-node-tests.mjs",
     "memu-query": "node dist/scripts/memu-query.js",
     "sync-vault-to-memu": "node dist/scripts/sync-vault-to-memu.js",
     "generate-tools-doc": "node dist/scripts/generate-tools-doc.js",

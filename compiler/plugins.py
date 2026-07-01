@@ -50,7 +50,6 @@ if str(_HERE) not in _sys.path:
 
 import forge as _forge  # noqa: E402
 
-
 # === filesystem layout ======================================================
 
 OBSIDIAN_DIR = ".obsidian"
@@ -417,7 +416,6 @@ def plan_install(vault, plugin_id: str, repo: str, *, force: bool = False) -> di
     actions: list = []
     will_download: list = []
     will_enable = False
-    blocked = False
     reason = ""
 
     if installed and enabled and not force:
@@ -466,7 +464,6 @@ def plan_install(vault, plugin_id: str, repo: str, *, force: bool = False) -> di
         # the module forbids (lines 26-27, 597-598). Obsidian would then show an
         # enabled-but-broken plugin. Leave the list untouched; the user must --force
         # (to download the missing assets) before the id can be enabled.
-        blocked = True
         reason = (f"main.js already present in {d.as_posix()} but the plugin is not "
                   "installable (manifest.json missing); re-download requires --force "
                   "(refusing to clobber an existing file or to enable a broken "
