@@ -6,7 +6,7 @@ This file has links that should generate fix candidates.
 
 A file that exists with a different name:
 
-- [[Realink]] -> should fix to [[RealLink]]
+- [[RealLink]] -> should fix to [[RealLink]]
 
 With heading that exists:
 
@@ -14,7 +14,7 @@ With heading that exists:
 
 With alias:
 
-- [[Realink|alias text]] -> should fix to [[RealLink|alias text]]
+- [[RealLink|alias text]] -> should fix to [[RealLink|alias text]]
 
 ## Broken Markdown Links
 

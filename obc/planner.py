@@ -276,6 +276,7 @@ class FixPlanner:
         self,
         plan: FixPlan,
         dry_run: bool = True,
+        apply_review: bool = False,
     ) -> tuple[list[Path], list[str]]:
         """
         Apply fixes from a plan.
@@ -283,6 +284,7 @@ class FixPlanner:
         Args:
             plan: The fix plan to apply
             dry_run: If True, don't write files
+            apply_review: If True, also apply review fixes (S2)
 
         Returns:
             (list of modified files, list of errors)
@@ -290,9 +292,17 @@ class FixPlanner:
         modified = []
         errors = []
 
+        # Collect fixes to apply
+        fixes_to_apply = list(plan.safe_fixes)
+        if apply_review:
+            fixes_to_apply.extend(plan.review_fixes)
+
+        if not fixes_to_apply:
+            return modified, errors
+
         # Group by file
         by_file: dict[Path, list[FixCandidate]] = {}
-        for fix in plan.safe_fixes:
+        for fix in fixes_to_apply:
             if fix.source_file not in by_file:
                 by_file[fix.source_file] = []
             by_file[fix.source_file].append(fix)
@@ -306,13 +316,16 @@ class FixPlanner:
                     content = file_path.read_text(encoding='utf-8', errors='replace')
 
                     # Apply fixes (in reverse order to preserve line numbers)
+                    applied = 0
                     for fix in sorted(fixes, key=lambda f: f.line, reverse=True):
                         if fix.old_text in content:
                             content = content.replace(fix.old_text, fix.new_text, 1)
+                            applied += 1
 
-                    # Write back
-                    file_path.write_text(content, encoding='utf-8')
-                    modified.append(file_path)
+                    if applied > 0:
+                        # Write back
+                        file_path.write_text(content, encoding='utf-8')
+                        modified.append(file_path)
 
             except Exception as e:
                 errors.append(f"{file_path}: {e}")

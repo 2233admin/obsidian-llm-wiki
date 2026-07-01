@@ -18,4 +18,4 @@ And inline code: `[[InlineCodeLink]]` and `[inline](link.md)`
 These SHOULD be extracted:
 
 - Real wikilink: [[RealLink]]
-- Real markdown: [Real](real-link.md)
+- Real markdown: [Real](RealLink.md)

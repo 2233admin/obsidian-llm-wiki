@@ -128,7 +128,7 @@ def cmd_plan(vault: Path, args: argparse.Namespace) -> int:
 
 def cmd_apply(args: argparse.Namespace) -> int:
     """Apply fixes from a plan."""
-    from obc.planner import FixPlanner
+    from obc.planner import FixPlanner, FixPlan, FixCandidate
 
     plan_path = Path(args.plan)
     if not plan_path.exists():
@@ -137,20 +137,60 @@ def cmd_apply(args: argparse.Namespace) -> int:
 
     # Load plan
     plan_data = json.loads(plan_path.read_text())
-    # Reconstruct plan object
-    from obc.planner import FixPlan, FixCandidate
-    from obc.resolver import Diagnostic
 
-    # For now, just show what would be applied
+    # Reconstruct FixPlan object
+    plan = FixPlan()
+    plan.version = plan_data.get("version", "1.0")
+    plan.created_at = plan_data.get("created_at", "")
+    plan.vault = plan_data.get("vault", "")
+
+    # Reconstruct FixCandidates from plan data
+    for fix_data in plan_data.get("review_fixes", []):
+        fix = FixCandidate(
+            diagnostic=None,  # type: ignore
+            safety_level=fix_data["safety_level"],
+            old_text=fix_data["old_text"],
+            new_text=fix_data["new_text"],
+            source_file=Path(fix_data["source_file"]),
+            line=fix_data["line"],
+            reason=fix_data.get("reason", ""),
+            target_path=fix_data.get("target_path"),
+        )
+        plan.review_fixes.append(fix)
+
+    plan.total_candidates = len(plan.safe_fixes) + len(plan.review_fixes)
+
+    # Check what we're applying
+    safe_count = len(plan.safe_fixes)
+    review_count = len(plan.review_fixes)
+
+    print(f"Plan: {plan_path}")
+    print(f"  Safe fixes: {safe_count}")
+    print(f"  Review fixes: {review_count}")
+
+    if review_count > 0 and not args.apply_review:
+        print("\nNote: Use --apply-review to apply S2 fixes")
+        print("Dry-run only. Files will not be modified.")
+
+    # Apply fixes
     planner = FixPlanner()
+    modified, errors = planner.apply_fixes(
+        plan,
+        dry_run=(review_count > 0 and not args.apply_review),
+        apply_review=args.apply_review
+    )
 
-    safe_count = plan_data["summary"]["safe_fixes"]
-    review_count = plan_data["summary"]["review_fixes"]
-
-    if args.safe_only:
-        print(f"Would apply {safe_count} safe fixes (dry-run)")
+    if modified:
+        print(f"\nModified files: {len(modified)}")
+        for f in modified:
+            print(f"  - {f}")
     else:
-        print(f"Would apply {safe_count} safe + {review_count} review fixes (dry-run)")
+        print("\nNo files modified (dry-run or no fixes to apply)")
+
+    if errors:
+        print(f"\nErrors: {len(errors)}")
+        for e in errors:
+            print(f"  - {e}")
 
     return 0
 
@@ -181,7 +221,8 @@ def main():
     # apply
     apply_parser = subparsers.add_parser("apply", help="Apply fixes")
     apply_parser.add_argument("--plan", required=True, help="Fix plan path")
-    apply_parser.add_argument("--safe-only", action="store_true", help="Only apply safe fixes")
+    apply_parser.add_argument("--apply-review", action="store_true",
+                             help="Also apply S2 review fixes")
 
     args = parser.parse_args()
 
