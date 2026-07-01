@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "llmwiki-vault"
+version = "0.1.0"
+description = "Markdown-first LLMwiki vault scaffold, ingest contract, and integrity lint."
+requires-python = ">=3.10"
+
+[project.scripts]
+llmwiki = "llmwiki_vault.cli:main"
+
+[tool.pytest.ini_options]
+addopts = ["-p", "no:cacheprovider"]
+pythonpath = [".", "src"]
+testpaths = ["tests"]
+

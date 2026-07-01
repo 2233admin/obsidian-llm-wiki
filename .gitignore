@@ -86,3 +86,6 @@ capture-hook.seen.log
 agent_logs/
 TASKS.md
 workspaces/
+
+# Local test/cache scratch
+_tmp/

@@ -38,14 +38,14 @@ NO DB, NO embeddings, NO network, NO LLM. Markdown is the only truth.
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Optional
 
 # currency.py is the Task 8A state contract + frontmatter normalizer; _md_parse
 # is the robust frontmatter parser kb_meta also uses. Import works whether this
 # module is imported from compiler/ or run as a script (cwd-relative path added).
 import sys as _sys
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Optional
 
 _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in _sys.path:
@@ -53,7 +53,6 @@ if str(_HERE) not in _sys.path:
 
 import currency as _currency  # noqa: E402
 from _md_parse import parse_frontmatter as _parse_frontmatter  # noqa: E402
-
 
 # --- review-axis status vocabulary -----------------------------------------
 # `status` is the REVIEW axis (§1), distinct from the `state` WORKFLOW axis.
@@ -381,7 +380,6 @@ def resolve_head(notes: list[WorkNote], entity: str) -> HeadResolution:
     if not group:
         return HeadResolution(head=None)
 
-    by_id = {n.note_id: n for n in group}
     superseded_ids: set[str] = set()
     for n in group:
         tgt = _scalar_field(n.raw, F_SUPERSEDES)

@@ -28,21 +28,19 @@ import json
 import os
 import re
 import subprocess
-from pathlib import Path
-from typing import Optional
 
 # currency.py is the Task 8A state contract (TYPE_PROJECT etc.) + frontmatter
 # normalizer; _md_parse is the robust frontmatter parser kb_meta also uses.
 # Import works whether this module is imported from compiler/ or run as a script.
 import sys as _sys
+from pathlib import Path
+from typing import Optional
 
 _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in _sys.path:
     _sys.path.insert(0, str(_HERE))
 
 import currency as _currency  # noqa: E402
-from _md_parse import parse_frontmatter as _parse_frontmatter  # noqa: E402
-
 
 # --- project markers --------------------------------------------------------
 # A directory is a PROJECT if it DIRECTLY contains any of these markers. '*.sln'
