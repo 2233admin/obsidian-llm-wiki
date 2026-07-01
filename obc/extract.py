@@ -324,12 +324,15 @@ def _parse_markdown_link(
     if target_raw.startswith(('http://', 'https://', 'mailto:', 'obsidian://')):
         return None
 
-    # URL decode for markdown links (Obsidian requires URL-encoded paths)
-    import urllib.parse
-    target_raw = urllib.parse.unquote(target_raw)
+    # NOTE: Do NOT URL decode markdown links here.
+    # URL encode is part of the target format.
+    # We'll decode for matching purposes, but preserve original for patching.
 
     # Parse target for path/fragment
-    target_path_part, fragment = _parse_fragment(target_raw)
+    # URL decode only for fragment parsing (to find # anchor)
+    import urllib.parse
+    decoded_for_parsing = urllib.parse.unquote(target_raw)
+    target_path_part, fragment = _parse_fragment(decoded_for_parsing)
 
     return LinkRef(
         id=f"link_{next(link_counter)}",
@@ -340,7 +343,7 @@ def _parse_markdown_link(
         byte_end=match.end(),
         line=line_num,
         column=match.start() + 1,
-        target_raw=target_raw,
+        target_raw=target_raw,  # Preserve original URL-encoded form
         target_path_part=target_path_part,
         fragment=fragment,
         alias=alias,

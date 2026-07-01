@@ -102,6 +102,59 @@ def cmd_check(vault: Path, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_plan(vault: Path, args: argparse.Namespace) -> int:
+    """Generate fix plan from vault diagnostics."""
+    from obc.index import build_index
+    from obc.resolver import Resolver
+    from obc.planner import FixPlanner
+
+    # Build index and extract links
+    index = build_index(vault)
+    links = extract_vault_links(vault)
+    resolver = Resolver(index)
+    diagnostics = resolver.resolve_all(links)
+    planner = FixPlanner()
+    plan = planner.plan(diagnostics, vault=str(vault))
+
+    if args.out:
+        output_path = Path(args.out)
+        output_path.write_text(json.dumps(plan.to_dict(), indent=2, ensure_ascii=False))
+        print(f"Plan written to {output_path}")
+    else:
+        print(json.dumps(plan.to_dict(), indent=2, ensure_ascii=False))
+
+    return 0
+
+
+def cmd_apply(args: argparse.Namespace) -> int:
+    """Apply fixes from a plan."""
+    from obc.planner import FixPlanner
+
+    plan_path = Path(args.plan)
+    if not plan_path.exists():
+        print(f"Plan file not found: {plan_path}", file=sys.stderr)
+        return 1
+
+    # Load plan
+    plan_data = json.loads(plan_path.read_text())
+    # Reconstruct plan object
+    from obc.planner import FixPlan, FixCandidate
+    from obc.resolver import Diagnostic
+
+    # For now, just show what would be applied
+    planner = FixPlanner()
+
+    safe_count = plan_data["summary"]["safe_fixes"]
+    review_count = plan_data["summary"]["review_fixes"]
+
+    if args.safe_only:
+        print(f"Would apply {safe_count} safe fixes (dry-run)")
+    else:
+        print(f"Would apply {safe_count} safe + {review_count} review fixes (dry-run)")
+
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="OBC - Obsidian Broken Link Checker",
@@ -140,6 +193,10 @@ def main():
         return cmd_extract(Path(args.vault), args)
     elif args.command == "check":
         return cmd_check(Path(args.vault), args)
+    elif args.command == "plan":
+        return cmd_plan(Path(args.vault), args)
+    elif args.command == "apply":
+        return cmd_apply(args)
     else:
         print(f"Command '{args.command}' not yet implemented", file=sys.stderr)
         return 1

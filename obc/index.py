@@ -82,15 +82,21 @@ class VaultIndex:
         self.files.append(entry)
         self.files_by_path[entry.normalized_path] = entry
 
-        # Index by stem
+        # Index by stem (filename without extension)
         if entry.stem not in self.files_by_stem:
             self.files_by_stem[entry.stem] = []
         self.files_by_stem[entry.stem].append(entry)
 
-        # Index by basename (without extension consideration)
+        # Index by basename (full filename with extension)
         if entry.basename not in self.files_by_basename:
             self.files_by_basename[entry.basename] = []
         self.files_by_basename[entry.basename].append(entry)
+
+        # Also index stem in basename index for consistent lookups
+        if entry.stem not in self.files_by_basename:
+            self.files_by_basename[entry.stem] = []
+        if entry not in self.files_by_basename[entry.stem]:
+            self.files_by_basename[entry.stem].append(entry)
 
         # Index by aliases
         for alias in entry.aliases:
@@ -107,9 +113,27 @@ class VaultIndex:
         """Get files by stem (filename without extension)."""
         return self.files_by_stem.get(stem, [])
 
+    def get_by_stem_case_insensitive(self, stem: str) -> list[FileEntry]:
+        """Get files by stem (case-insensitive)."""
+        stem_lower = stem.lower()
+        results = []
+        for key, entries in self.files_by_stem.items():
+            if key.lower() == stem_lower:
+                results.extend(entries)
+        return results
+
     def get_by_basename(self, basename: str) -> list[FileEntry]:
         """Get files by basename (ignoring path)."""
         return self.files_by_basename.get(basename, [])
+
+    def get_by_basename_case_insensitive(self, basename: str) -> list[FileEntry]:
+        """Get files by basename (case-insensitive)."""
+        basename_lower = basename.lower()
+        results = []
+        for key, entries in self.files_by_basename.items():
+            if key.lower() == basename_lower:
+                results.extend(entries)
+        return results
 
     def get_by_alias(self, alias: str) -> list[FileEntry]:
         """Get files by alias (case-insensitive)."""
