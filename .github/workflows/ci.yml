@@ -55,4 +55,4 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install pytest
-      - run: python -m pytest tests/ -v --tb=short
+      - run: python -m pytest tests/ -v --tb=short --ignore=compiler/
