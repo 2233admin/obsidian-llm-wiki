@@ -52,13 +52,52 @@ def cmd_extract(vault: Path, args: argparse.Namespace) -> int:
 
 
 def cmd_check(vault: Path, args: argparse.Namespace) -> int:
-    """Check vault links (PR2 will add resolution)."""
-    links = extract_vault_links(vault)
+    """Check vault links with resolution."""
+    from obc.index import build_index
+    from obc.resolver import Resolver
 
-    print(f"Found {len(links)} links in {vault}")
-    print()
-    print("PR2 pending: Link resolution and diagnostic classification")
-    print("Currently only extraction is implemented.")
+    # Build index and extract links
+    index = build_index(vault)
+    links = extract_vault_links(vault)
+    resolver = Resolver(index)
+    diagnostics = resolver.resolve_all(links)
+
+    # Group by severity
+    from collections import Counter
+    by_severity = Counter(d.severity for d in diagnostics)
+
+    if args.format == "json":
+        output = {
+            "version": "1.0",
+            "vault": str(vault),
+            "summary": {
+                "total_links": len(links),
+                "total_files": index.summary()["total_files"],
+                "ok": by_severity.get("ok", 0),
+                "error": by_severity.get("error", 0),
+                "warning": by_severity.get("warning", 0),
+                "info": by_severity.get("info", 0),
+            },
+            "diagnostics": [d.to_dict() for d in diagnostics],
+        }
+        print(json.dumps(output, indent=2, ensure_ascii=False))
+    else:
+        print(f"Found {len(links)} links in {vault}")
+        print(f"Index: {index.summary()['total_files']} files\n")
+
+        print("Summary:")
+        print(f"  OK:       {by_severity.get('ok', 0)}")
+        print(f"  Error:    {by_severity.get('error', 0)}")
+        print(f"  Warning:  {by_severity.get('warning', 0)}")
+        print(f"  Info:     {by_severity.get('info', 0)}")
+
+        print("\nDiagnostics:")
+        for d in diagnostics:
+            icon = {"ok": "✓", "warning": "⚠", "error": "✗", "info": "ℹ"}.get(d.severity, "?")
+            print(f"  {icon} [{d.code.value}] {d.link.raw_text}")
+            print(f"      at {d.link.source_file.name}:{d.link.line}")
+            if d.message:
+                print(f"      {d.message}")
 
     return 0
 

@@ -324,6 +324,10 @@ def _parse_markdown_link(
     if target_raw.startswith(('http://', 'https://', 'mailto:', 'obsidian://')):
         return None
 
+    # URL decode for markdown links (Obsidian requires URL-encoded paths)
+    import urllib.parse
+    target_raw = urllib.parse.unquote(target_raw)
+
     # Parse target for path/fragment
     target_path_part, fragment = _parse_fragment(target_raw)
 
@@ -348,14 +352,30 @@ def _parse_markdown_link(
 
 
 def _parse_fragment(target: str) -> tuple[str | None, str | None]:
-    """Split target into path and fragment (heading/block)."""
-    if '#' in target:
-        path_part, fragment = target.split('#', 1)
-        # Remove leading / from path if present
-        if path_part.startswith('/'):
-            path_part = path_part[1:]
-        return path_part if path_part else None, fragment
-    return target, None
+    """
+    Split target into path and fragment (heading/block).
+
+    Obsidian fragment formats:
+    - #heading -> heading (text)
+    - #^blockid -> ^blockid (block reference)
+    - heading#^blockid -> heading, ^blockid (both)
+    """
+    if '#' not in target:
+        return target, None
+
+    # Handle block reference: #^blockid
+    if target.startswith('#^'):
+        # Pure block reference, no path
+        return None, target[1:]  # Keep the ^
+
+    # Normal case: path#fragment
+    path_part, fragment = target.split('#', 1)
+
+    # Remove leading / from path if present
+    if path_part.startswith('/'):
+        path_part = path_part[1:]
+
+    return path_part if path_part else None, fragment
 
 
 def extract_vault_links(
