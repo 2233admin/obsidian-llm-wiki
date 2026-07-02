@@ -5,6 +5,7 @@ OBC CLI - Obsidian Broken Link Checker
 Usage:
     obc extract <vault> [--json]
     obc check <vault> [--format json|md]
+    obc orphan <vault> [--json] [--min-age days]
     obc plan <vault> [--out <path>]
     obc apply [--plan <path>] [--safe-only]
 """
@@ -59,7 +60,7 @@ def cmd_check(vault: Path, args: argparse.Namespace) -> int:
     # Build index and extract links
     index = build_index(vault)
     links = extract_vault_links(vault)
-    resolver = Resolver(index)
+    resolver = Resolver(index, vault_path=vault)
     diagnostics = resolver.resolve_all(links)
 
     # Group by severity
@@ -102,6 +103,28 @@ def cmd_check(vault: Path, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_orphan(vault: Path, args: argparse.Namespace) -> int:
+    """Find orphan notes in vault."""
+    from obc.orphan import find_orphans, OrphanReport
+
+    orphans = find_orphans(vault)
+    report = OrphanReport(vault=str(vault), orphans=orphans)
+
+    if args.json:
+        print(json.dumps(report.to_dict(), indent=2, ensure_ascii=False))
+    else:
+        print(f"Found {len(orphans)} orphan notes in {vault}")
+        print()
+        for orphan in orphans[:20]:
+            from datetime import datetime
+            age_days = (datetime.now().timestamp() - orphan.last_modified) / 86400
+            print(f"  [{age_days:5.0f}d] {orphan.path}")
+        if len(orphans) > 20:
+            print(f"  ... and {len(orphans) - 20} more")
+
+    return 0
+
+
 def cmd_plan(vault: Path, args: argparse.Namespace) -> int:
     """Generate fix plan from vault diagnostics."""
     from obc.index import build_index
@@ -111,7 +134,7 @@ def cmd_plan(vault: Path, args: argparse.Namespace) -> int:
     # Build index and extract links
     index = build_index(vault)
     links = extract_vault_links(vault)
-    resolver = Resolver(index)
+    resolver = Resolver(index, vault_path=vault)
     diagnostics = resolver.resolve_all(links)
     planner = FixPlanner()
     plan = planner.plan(diagnostics, vault=str(vault))
@@ -219,6 +242,11 @@ def main():
     check_parser.add_argument("vault", help="Path to vault")
     check_parser.add_argument("--format", choices=["json", "md"], default="md")
 
+    # orphan
+    orphan_parser = subparsers.add_parser("orphan", help="Find orphan notes")
+    orphan_parser.add_argument("vault", help="Path to vault")
+    orphan_parser.add_argument("--json", action="store_true", help="Output JSON")
+
     # plan
     plan_parser = subparsers.add_parser("plan", help="Generate fix plan")
     plan_parser.add_argument("vault", help="Path to vault")
@@ -242,6 +270,8 @@ def main():
         return cmd_extract(Path(args.vault), args)
     elif args.command == "check":
         return cmd_check(Path(args.vault), args)
+    elif args.command == "orphan":
+        return cmd_orphan(Path(args.vault), args)
     elif args.command == "plan":
         return cmd_plan(Path(args.vault), args)
     elif args.command == "apply":
