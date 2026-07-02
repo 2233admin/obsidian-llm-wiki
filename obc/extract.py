@@ -137,9 +137,19 @@ def extract_links(
 
         # Extract wikilinks (not embeds)
         for match in WIKILINK_PATTERN.finditer(line):
+            # Skip if this is actually an embed (![[...]])
+            if match.start() > 0 and line[match.start() - 1] == '!':
+                continue
+            # Skip links in code blocks or inline code (check match range with line offset)
+            match_start = line_start + match.start()
+            match_end = line_start + match.end()
+            if _is_in_range(match_start, match_end, code_block_ranges):
+                continue
+            if _is_in_range(match_start, match_end, inline_code_ranges):
+                continue
             link = _parse_wikilink(
                 match, source_file, line_num, link_counter,
-                in_code=in_code_block, in_inline=in_inline,
+                in_code=False, in_inline=False,
                 in_frontmatter=is_in_frontmatter
             )
             if link:
@@ -147,9 +157,16 @@ def extract_links(
 
         # Extract embeds
         for match in EMBED_PATTERN.finditer(line):
+            # Skip embeds in code blocks or inline code
+            match_start = line_start + match.start()
+            match_end = line_start + match.end()
+            if _is_in_range(match_start, match_end, code_block_ranges):
+                continue
+            if _is_in_range(match_start, match_end, inline_code_ranges):
+                continue
             link = _parse_embed(
                 match, source_file, line_num, link_counter,
-                in_code=in_code_block, in_inline=in_inline,
+                in_code=False, in_inline=False,
                 in_frontmatter=is_in_frontmatter
             )
             if link:
@@ -159,6 +176,13 @@ def extract_links(
         for match in MARKDOWN_LINK_PATTERN.finditer(line):
             # Skip markdown links inside wikilink aliases
             if _is_inside_wikilink_alias(line, match.start()):
+                continue
+            # Skip markdown links in code blocks or inline code
+            match_start = line_start + match.start()
+            match_end = line_start + match.end()
+            if _is_in_range(match_start, match_end, code_block_ranges):
+                continue
+            if _is_in_range(match_start, match_end, inline_code_ranges):
                 continue
 
             link = _parse_markdown_link(
@@ -178,11 +202,15 @@ def _find_code_blocks(content: str) -> list[tuple[int, int]]:
     """Find all fenced code block ranges (start, end) positions."""
     ranges: list[tuple[int, int]] = []
 
-    # Match triple backticks or tildes
-    pattern = re.compile(r'(```|~~~)\s*(\S*)\n(.*?)(\1)', re.DOTALL)
+    # Match triple backticks or tildes (supports indented code blocks)
+    pattern = re.compile(r'^(\s*)(```|~~~)\s*(\S*)\n(.*?)(\n\1\2)', re.DOTALL | re.MULTILINE)
 
     for match in pattern.finditer(content):
-        ranges.append((match.start(), match.end()))
+        # Capture group 1 is leading whitespace, we want the start of the opening fence
+        start = match.start() + len(match.group(1))
+        # Find end: content ends at the closing fence
+        end = match.end()
+        ranges.append((start, end))
 
     return ranges
 

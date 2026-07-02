@@ -230,7 +230,7 @@ class TestApplyFixes:
 
         # Apply with dry run
         planner = FixPlanner()
-        modified, errors = planner.apply_fixes(plan, dry_run=True)
+        modified, errors, backups = planner.apply_fixes(plan, dry_run=True)
 
         # File should not be modified
         assert test_file.read_text() == "[[Targer]] is broken"

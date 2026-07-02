@@ -40,6 +40,15 @@ def make_index():
 
 def make_link(target_raw: str, kind=LinkKind.WIKILINK, fragment=None, alias=None):
     """Create a test link."""
+    # Properly split fragment from target
+    if '#' in target_raw and fragment is None:
+        parts = target_raw.split('#', 1)
+        actual_target = parts[0]
+        actual_fragment = parts[1]
+    else:
+        actual_target = target_raw.split('#')[0] if fragment else target_raw
+        actual_fragment = fragment
+
     return LinkRef(
         id="test_0",
         source_file=Path("test.md"),
@@ -50,8 +59,8 @@ def make_link(target_raw: str, kind=LinkKind.WIKILINK, fragment=None, alias=None
         line=1,
         column=1,
         target_raw=target_raw,
-        target_path_part=target_raw.split("#")[0] if fragment else target_raw,
-        fragment=fragment,
+        target_path_part=actual_target,
+        fragment=actual_fragment,
         alias=alias,
     )
 

@@ -125,6 +125,35 @@ def cmd_orphan(vault: Path, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_stale(vault: Path, args: argparse.Namespace) -> int:
+    """Find stale notes in vault."""
+    from obc.stale import find_stale_notes, StaleReport
+
+    min_days = args.days or 30
+    stale = find_stale_notes(vault, min_age_days=min_days)
+    report = StaleReport(vault=str(vault), notes=stale)
+
+    if args.json:
+        print(json.dumps(report.to_dict(), indent=2, ensure_ascii=False))
+    else:
+        print(f"Found {len(stale)} stale notes (>{min_days} days) in {vault}")
+
+        # Show folder stats if any
+        if report.folder_stats:
+            print("\nBy folder:")
+            for folder, count in sorted(report.folder_stats.items(), key=lambda x: -x[1])[:5]:
+                print(f"  {folder}: {count}")
+
+        print()
+        for note in stale[:20]:
+            links = f" ({note.links_to} links)" if note.links_to > 0 else ""
+            print(f"  [{note.age_days:5.0f}d]{links} {note.path}")
+        if len(stale) > 20:
+            print(f"  ... and {len(stale) - 20} more")
+
+    return 0
+
+
 def cmd_plan(vault: Path, args: argparse.Namespace) -> int:
     """Generate fix plan from vault diagnostics."""
     from obc.index import build_index
@@ -247,6 +276,12 @@ def main():
     orphan_parser.add_argument("vault", help="Path to vault")
     orphan_parser.add_argument("--json", action="store_true", help="Output JSON")
 
+    # stale
+    stale_parser = subparsers.add_parser("stale", help="Find stale notes")
+    stale_parser.add_argument("vault", help="Path to vault")
+    stale_parser.add_argument("--json", action="store_true", help="Output JSON")
+    stale_parser.add_argument("--days", type=int, help="Minimum age in days (default: 30)")
+
     # plan
     plan_parser = subparsers.add_parser("plan", help="Generate fix plan")
     plan_parser.add_argument("vault", help="Path to vault")
@@ -272,6 +307,8 @@ def main():
         return cmd_check(Path(args.vault), args)
     elif args.command == "orphan":
         return cmd_orphan(Path(args.vault), args)
+    elif args.command == "stale":
+        return cmd_stale(Path(args.vault), args)
     elif args.command == "plan":
         return cmd_plan(Path(args.vault), args)
     elif args.command == "apply":

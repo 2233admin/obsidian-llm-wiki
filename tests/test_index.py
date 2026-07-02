@@ -106,7 +106,7 @@ class TestVaultIndex:
         index.add_file(entry2)
 
         assert len(index.get_by_stem("test")) == 2
-        assert len(index.get_by_path("folder1/test.md")) == 1
+        assert index.get_by_path("folder1/test.md") is not None
 
 
 class TestBuildIndex:

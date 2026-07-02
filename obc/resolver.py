@@ -291,34 +291,34 @@ class Resolver:
                 safety_level="S2",
             )
 
-        # 6. Try semantic similarity (content-based)
-        try:
-            from obc.semantic import suggest_similar
-            vault_path = self.vault_path or (self.index.files[0].path.parent if self.index.files else Path("."))
-            semantic_results = suggest_similar(fuzzy_target, vault_path, top_k=3)
-            if semantic_results:
-                # Convert to FileEntry candidates using stem lookup
-                semantic_entries = []
-                for result in semantic_results[:3]:
-                    # Try stem lookup first (case-insensitive)
-                    entries = self.index.get_by_stem_case_insensitive(result.stem)
-                    # Also check exact stem
-                    if not entries:
-                        entries = self.index.get_by_stem(result.stem)
-                    if entries:
-                        # Use first match
-                        semantic_entries.append(entries[0])
-                if semantic_entries:
-                    return Diagnostic(
-                        code=DiagnosticCode.SEMANTIC_MATCH,
-                        link=link,
-                        candidates=semantic_entries,
-                        message=f"Semantic match: {[e.stem for e in semantic_entries]}",
-                        suggested_fix=self._make_alias_suggestion(link, semantic_entries[0]),
-                        safety_level="S2",
-                    )
-        except Exception as e:
-            pass  # Semantic matching is optional
+        # 6. Try semantic similarity (content-based) - only if vault_path is configured
+        if self.vault_path:
+            try:
+                from obc.semantic import suggest_similar
+                semantic_results = suggest_similar(fuzzy_target, self.vault_path, top_k=3)
+                if semantic_results:
+                    # Convert to FileEntry candidates using stem lookup
+                    semantic_entries = []
+                    for result in semantic_results[:3]:
+                        # Try stem lookup first (case-insensitive)
+                        entries = self.index.get_by_stem_case_insensitive(result.stem)
+                        # Also check exact stem
+                        if not entries:
+                            entries = self.index.get_by_stem(result.stem)
+                        if entries:
+                            # Use first match
+                            semantic_entries.append(entries[0])
+                    if semantic_entries:
+                        return Diagnostic(
+                            code=DiagnosticCode.SEMANTIC_MATCH,
+                            link=link,
+                            candidates=semantic_entries,
+                            message=f"Semantic match: {[e.stem for e in semantic_entries]}",
+                            suggested_fix=self._make_alias_suggestion(link, semantic_entries[0]),
+                            safety_level="S2",
+                        )
+            except Exception:
+                pass  # Semantic matching is optional
 
         # 7. Broken
         return Diagnostic(
