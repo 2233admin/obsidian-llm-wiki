@@ -87,7 +87,7 @@ jobs:
           ls -la dist-mcp/
           ls -la dist-compiler/
       - name: Create Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             dist-mcp/*.tar.gz
