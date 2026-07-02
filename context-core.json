@@ -1,0 +1,221 @@
+{
+  "schema_version": "1",
+  "version": "",
+  "vault_path": "/home/runner/work/obsidian-llm-wiki/obsidian-llm-wiki/tests/fixtures/sample-vault",
+  "holon_count": 7,
+  "hyper_edge_count": 1,
+  "exported_at": "2026-07-02T10:27:34.309849+00:00",
+  "holons": [
+    {
+      "id": "concepts/attention",
+      "kind": "research",
+      "entity_type": "Finding",
+      "title": "Attention",
+      "summary": "Scaled dot-product attention mechanism",
+      "content_hash": "279705e2ebf2980e5cf62f0704ad5fcd8fd076a82a885787c088f573b33c8588",
+      "status": "active",
+      "source_path": "01-Concepts/attention.md",
+      "compiled_at": "2026-07-02T10:27:34Z",
+      "wikilinks": [
+        "transformer",
+        "embeddings"
+      ],
+      "keywords": [],
+      "causal_edges": [
+        {
+          "source_id": "concepts/attention",
+          "target_id": "concepts/embeddings",
+          "relation": "related_to",
+          "confidence": 1.0,
+          "llm_confidence": 1.0,
+          "cooccur_weight": 1.0,
+          "provenance": "concepts/attention"
+        },
+        {
+          "source_id": "concepts/attention",
+          "target_id": "concepts/transformer",
+          "relation": "related_to",
+          "confidence": 1.0,
+          "llm_confidence": 1.0,
+          "cooccur_weight": 1.0,
+          "provenance": "concepts/attention"
+        }
+      ]
+    },
+    {
+      "id": "concepts/embeddings",
+      "kind": "note",
+      "entity_type": "Concept",
+      "title": "Embeddings",
+      "summary": "Dense vector representations of tokens",
+      "content_hash": "a9f47dbed1239b9746921784860634234c0171ccc0632b1c5c2764fc06d1838d",
+      "status": "active",
+      "source_path": "01-Concepts/embeddings.md",
+      "compiled_at": "2026-07-02T10:27:34Z",
+      "wikilinks": [
+        "transformer"
+      ],
+      "keywords": [],
+      "causal_edges": [
+        {
+          "source_id": "concepts/embeddings",
+          "target_id": "concepts/transformer",
+          "relation": "related_to",
+          "confidence": 1.0,
+          "llm_confidence": 1.0,
+          "cooccur_weight": 1.0,
+          "provenance": "concepts/embeddings"
+        }
+      ]
+    },
+    {
+      "id": "concepts/transformer",
+      "kind": "research",
+      "entity_type": "Finding",
+      "title": "Transformer",
+      "summary": "Transformer architecture for sequence modeling",
+      "content_hash": "1a63d1ea828fb2483f145022a4ef6d42881a1b3c6f771e0590503876c38185bb",
+      "status": "active",
+      "source_path": "01-Concepts/transformer.md",
+      "compiled_at": "2026-07-02T10:27:34Z",
+      "wikilinks": [
+        "attention",
+        "embeddings"
+      ],
+      "keywords": [],
+      "causal_edges": [
+        {
+          "source_id": "concepts/transformer",
+          "target_id": "concepts/embeddings",
+          "relation": "related_to",
+          "confidence": 1.0,
+          "llm_confidence": 1.0,
+          "cooccur_weight": 1.0,
+          "provenance": "concepts/transformer"
+        },
+        {
+          "source_id": "concepts/transformer",
+          "target_id": "concepts/attention",
+          "relation": "related_to",
+          "confidence": 1.0,
+          "llm_confidence": 1.0,
+          "cooccur_weight": 1.0,
+          "provenance": "concepts/transformer"
+        }
+      ]
+    },
+    {
+      "id": "decisions/use-rope",
+      "kind": "decision",
+      "entity_type": "Decision",
+      "title": "Decision: Use RoPE",
+      "summary": "Adopt RoPE positional encoding over learned absolute positions",
+      "content_hash": "88090c0cf60a533662ba985fa04cbdeb4898ba1f3c5c2ddc30098b74e83c81ab",
+      "status": "frozen",
+      "source_path": "01-Concepts/use-rope.md",
+      "compiled_at": "2026-07-02T10:27:34Z",
+      "wikilinks": [],
+      "keywords": [],
+      "causal_edges": []
+    },
+    {
+      "id": "tasks/implement-kv-cache",
+      "kind": "knowledge-task",
+      "entity_type": "Process",
+      "title": "Task: Implement KV-cache",
+      "summary": "Implement KV-cache to avoid recomputing attention for past tokens",
+      "content_hash": "49b64967b6d9b2694a59afe281b6a7a06d9fa877d10bfc5377afc6fa432f41ad",
+      "status": "active",
+      "source_path": "02-Tasks/implement-kv-cache.md",
+      "compiled_at": "2026-07-02T10:27:34Z",
+      "wikilinks": [
+        "attention"
+      ],
+      "keywords": [],
+      "causal_edges": [
+        {
+          "source_id": "tasks/implement-kv-cache",
+          "target_id": "concepts/attention",
+          "relation": "related_to",
+          "confidence": 1.0,
+          "llm_confidence": 1.0,
+          "cooccur_weight": 1.0,
+          "provenance": "tasks/implement-kv-cache"
+        }
+      ]
+    },
+    {
+      "id": "tasks/write-rope-docs",
+      "kind": "knowledge-task",
+      "entity_type": "Process",
+      "title": "Task: Write RoPE docs",
+      "summary": "Document the RoPE decision rationale for new team members",
+      "content_hash": "e5eb259decdd0cac34252e06ae29248d34e2173e4fa13a9bf1d0d64cc228222d",
+      "status": "frozen",
+      "source_path": "02-Tasks/write-rope-docs.md",
+      "compiled_at": "2026-07-02T10:27:34Z",
+      "wikilinks": [
+        "use-rope"
+      ],
+      "keywords": [],
+      "causal_edges": [
+        {
+          "source_id": "tasks/write-rope-docs",
+          "target_id": "decisions/use-rope",
+          "relation": "related_to",
+          "confidence": 1.0,
+          "llm_confidence": 1.0,
+          "cooccur_weight": 1.0,
+          "provenance": "tasks/write-rope-docs"
+        }
+      ]
+    },
+    {
+      "id": "events/attention-kickoff",
+      "kind": "meeting",
+      "entity_type": "Concept",
+      "title": "Attention Kickoff Meeting",
+      "summary": "Kickoff discussion on attention and transformer architecture",
+      "content_hash": "d5ed54bcaba0b70c958b0a68b7e919526e290c9bfd82c7eefa55a7fd9eed4b48",
+      "status": "active",
+      "source_path": "03-Events/attention-kickoff.md",
+      "compiled_at": "2026-07-02T10:27:34Z",
+      "wikilinks": [
+        "attention",
+        "transformer"
+      ],
+      "keywords": [],
+      "causal_edges": [
+        {
+          "source_id": "events/attention-kickoff",
+          "target_id": "concepts/transformer",
+          "relation": "related_to",
+          "confidence": 1.0,
+          "llm_confidence": 1.0,
+          "cooccur_weight": 1.0,
+          "provenance": "events/attention-kickoff"
+        },
+        {
+          "source_id": "events/attention-kickoff",
+          "target_id": "concepts/attention",
+          "relation": "related_to",
+          "confidence": 1.0,
+          "llm_confidence": 1.0,
+          "cooccur_weight": 1.0,
+          "provenance": "events/attention-kickoff"
+        }
+      ]
+    }
+  ],
+  "hyper_edges": [
+    {
+      "participants": [
+        "concepts/attention",
+        "concepts/transformer"
+      ],
+      "relation": "co-discussed",
+      "confidence": 1.0,
+      "provenance_id": "events/attention-kickoff"
+    }
+  ]
+}
