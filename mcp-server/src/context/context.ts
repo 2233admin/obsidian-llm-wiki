@@ -5,6 +5,8 @@ import type { Operation, OperationContext } from '../core/types.js';
 import { makeErr } from '../core/types.js';
 import { answerQuery, type QueryAnswerResult } from '../unified-query.js';
 import { ensureBackfill, recallGaps } from '../adapters/vaultbrain/lazy-index.js';
+import { gatherVaultStatus } from '../adapters/vaultbrain/vault-status.js';
+import type { VaultBrainAdapter } from '../adapters/vaultbrain/index.js';
 
 const DEFAULT_ACTOR = 'agent';
 
@@ -364,6 +366,18 @@ export function makeContextOps(
           truncated: false,
         };
         return boundedWakeup(result, maxChars);
+      },
+    },
+    {
+      name: 'context.vault_status',
+      namespace: 'context',
+      description:
+        'Read-only vault readiness check: classifies current state into vault_missing/empty_vault/unindexed/stale_or_backgrounding/ready. Never triggers indexing -- passive peek only.',
+      mutating: false,
+      params: {},
+      handler: async (_ctx, _params) => {
+        const vba = registry.get('vaultbrain') as VaultBrainAdapter | undefined;
+        return gatherVaultStatus(vaultPath, vba);
       },
     },
     {

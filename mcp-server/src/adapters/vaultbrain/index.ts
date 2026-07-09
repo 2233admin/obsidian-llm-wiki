@@ -64,6 +64,11 @@ export class VaultBrainAdapter implements VaultMindAdapter {
     return this.engine ? this.engine.countEmbeddedChunks() : 0;
   }
 
+  /** Index-wide last-write watermark (epoch ms) -- vault-status uses this for staleness detection. */
+  async getLastIndexedAtMs(): Promise<number | null> {
+    return this.engine ? this.engine.getLastIndexedAtMs() : null;
+  }
+
   async search(query: string, opts?: SearchOpts): Promise<SearchResult[]> {
     if (!this.engine) return [];
     const limit = opts?.maxResults ?? 20;

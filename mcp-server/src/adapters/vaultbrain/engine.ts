@@ -36,6 +36,9 @@ export interface VaultBrainEngine {
   countChunks(): Promise<number>;
   countEmbeddedChunks(): Promise<number>;
 
+  /** MAX(pages.updated_at) in epoch ms -- the index-wide "last write" watermark, null if no pages. */
+  getLastIndexedAtMs(): Promise<number | null>;
+
   // links
   upsertLink(fromSlug: string, toSlug: string): Promise<void>;
 

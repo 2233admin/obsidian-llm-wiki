@@ -64,6 +64,31 @@ test("searchKeyword: CJK query matches via trigram (no segmentation needed)", as
   }
 });
 
+test("getLastIndexedAtMs: null with no pages, MAX(updated_at) after upsertPage", async () => {
+  const { engine, dir } = await freshEngine();
+  try {
+    assert.equal(await engine.getLastIndexedAtMs(), null, "empty store has no watermark");
+
+    const before = Date.now();
+    await engine.upsertPage("a", "A", "content a", "hash-a");
+    const after = Date.now();
+
+    const watermark = await engine.getLastIndexedAtMs();
+    assert.ok(watermark !== null, "watermark set after a page is upserted");
+    // allow slack for clock/precision differences between test host and PGlite's now()
+    assert.ok(watermark! >= before - 1000 && watermark! <= after + 1000, `watermark ${watermark} should be near upsert time`);
+
+    const firstWatermark = watermark!;
+    await new Promise((r) => setTimeout(r, 10));
+    await engine.upsertPage("b", "B", "content b", "hash-b");
+    const secondWatermark = await engine.getLastIndexedAtMs();
+    assert.ok(secondWatermark! >= firstWatermark, "watermark advances (MAX) after a later upsert");
+  } finally {
+    await engine.disconnect();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("searchKeyword: no match -> [] ; identical queries are deterministic", async () => {
   const { engine, dir } = await freshEngine();
   try {

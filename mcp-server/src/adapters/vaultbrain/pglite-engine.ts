@@ -193,6 +193,14 @@ export class PGliteEngine implements VaultBrainEngine {
     return Number(rows[0]?.n ?? 0);
   }
 
+  async getLastIndexedAtMs(): Promise<number | null> {
+    const { rows } = await this.requireDb().query<{ last: string | null }>(
+      `SELECT MAX(updated_at) AS last FROM pages`,
+    );
+    const last = rows[0]?.last;
+    return last ? new Date(last).getTime() : null;
+  }
+
   async upsertLink(fromSlug: string, toSlug: string): Promise<void> {
     await this.requireDb().query(
       `INSERT INTO page_links (from_slug, to_slug)

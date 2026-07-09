@@ -58,6 +58,16 @@ export function configureLazyIndex(vba: VaultBrainAdapter, vaultPath: string): v
   _vaultPath = vaultPath;
 }
 
+/**
+ * True while a backfill launched by an earlier ensureBackfill() call is still
+ * running. Read-only peek at the single-flight lock -- never triggers a
+ * backfill itself. Lets passive status checks (vault-status.ts) observe
+ * "indexing_background" without calling ensureBackfill().
+ */
+export function isBackfillInFlight(): boolean {
+  return _inFlight !== null;
+}
+
 /** Walk the vault for indexable markdown, skipping machine/derived dirs. */
 export function listVaultMarkdown(vaultPath: string): string[] {
   const files: string[] = [];

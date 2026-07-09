@@ -492,7 +492,7 @@ Weighted multi-adapter semantic search via pre-computed query vector. Fans out t
 - `adapters` (array, optional) — Limit to specific embedding-capable adapters by name
 - `weights` (object, optional) — Per-adapter score weight multipliers
 
-## `context.*` (3)
+## `context.*` (4)
 
 ### `context.deep_search`
 
@@ -521,6 +521,14 @@ Topic-scoped citation-backed recall using query.answer. Project argument restric
 - `maxResults` (number, optional, default: `8`) — Maximum evidence items (default: 8)
 - `adapters` (array, optional) — Limit specific adapters by name
 - `weights` (object, optional) — Per-adapter score weight multipliers
+
+### `context.vault_status`
+
+Read-only vault readiness check: classifies current state into vault_missing/empty_vault/unindexed/stale_or_backgrounding/ready. Never triggers indexing -- passive peek only.
+
+**Mutating:** no
+
+**Parameters:** none
 
 ### `context.wakeup`
 
