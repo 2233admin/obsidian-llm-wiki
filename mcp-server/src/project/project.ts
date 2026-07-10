@@ -103,7 +103,7 @@ function readText(path: string): string | null {
   return existsSync(path) ? readFileSync(path, 'utf-8') : null;
 }
 
-function writeVaultBytes(vaultPath: string, relPath: string, content: string): void {
+export function writeVaultBytes(vaultPath: string, relPath: string, content: string): void {
   const fullPath = join(vaultPath, relPath);
   mkdirSync(dirname(fullPath), { recursive: true });
   // Write LF bytes (not text mode) so Windows CRLF translation never diverges
@@ -188,7 +188,7 @@ function fmList(values: string[]): string {
   return `[${values.join(', ')}]`;
 }
 
-interface IssueFields {
+export interface IssueFields {
   slug: string;
   project: string;
   state: string; // canonical
@@ -251,7 +251,7 @@ function extraFields(raw: Frontmatter): Frontmatter {
   return out;
 }
 
-function renderIssueNote(f: IssueFields, body: string): string {
+export function renderIssueNote(f: IssueFields, body: string): string {
   const entity = `project/${f.project}/issue/${f.slug}`;
   const lines = [
     '---',
@@ -283,7 +283,7 @@ function renderIssueNote(f: IssueFields, body: string): string {
   return text;
 }
 
-function projectNote(project: string, description: string): string {
+export function projectNote(project: string, description: string): string {
   return [
     '---',
     'type: project',
