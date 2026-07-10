@@ -1,0 +1,135 @@
+name: Publish Wiki Pages
+
+# Compiles a wiki/ directory that is already checked into this repo into
+# static HTML (via compiler/html_export) and force-pushes the result to a
+# `pages` branch, for a Gitea Pages-compatible static site server (Gitea
+# core has no built-in Pages feature -- see docs/PAGES_PUBLISHING.md) to
+# serve as a read-only web wiki.
+#
+# SAFETY: this workflow only ever exports paths that live inside this git
+# repository (an example/demo vault shipped with the project). It must
+# NEVER be pointed at a real user vault (e.g. a local D:\knowledge style
+# path) -- there is no mechanism here to reach outside the checked-out
+# repo, and the guard step below rejects absolute paths and path
+# traversal as an extra safety net. See docs/PAGES_PUBLISHING.md.
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+env:
+  # Repo-relative path to an already-compiled wiki/ directory (must contain
+  # concepts/ and/or summaries/ subdirs -- compiler output, not raw notes).
+  # Default is the demo vault shipped in examples/, which the repo's own
+  # README documents as "an example, not a user vault". Change this line to
+  # point at a different in-repo example/fixture if needed; never point it
+  # outside this repo.
+  PUBLIC_WIKI_SOURCE_PATH: "examples/collab-vault/research-compiler/wiki"
+  EXPORT_OUTPUT_DIR: "public-wiki-html"
+  PAGES_BRANCH: "pages"
+
+jobs:
+  publish:
+    name: Export wiki -> pages branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Pandoc
+        run: |
+          set -euo pipefail
+          sudo apt-get update -y
+          sudo apt-get install -y pandoc
+          pandoc --version
+
+      - name: Guard against non-repo source paths
+        run: |
+          set -euo pipefail
+          case "$PUBLIC_WIKI_SOURCE_PATH" in
+            /*|[A-Za-z]:*)
+              echo "::error::PUBLIC_WIKI_SOURCE_PATH must be a path inside this repo (e.g. examples/... or fixtures/...), not an absolute filesystem path. Got: $PUBLIC_WIKI_SOURCE_PATH"
+              exit 1
+              ;;
+          esac
+          case "$PUBLIC_WIKI_SOURCE_PATH" in
+            *..*)
+              echo "::error::PUBLIC_WIKI_SOURCE_PATH must not contain '..' (no escaping the checked-out repo). Got: $PUBLIC_WIKI_SOURCE_PATH"
+              exit 1
+              ;;
+          esac
+          if [ ! -d "$PUBLIC_WIKI_SOURCE_PATH" ]; then
+            echo "::error::PUBLIC_WIKI_SOURCE_PATH does not exist in the checked-out repo: $PUBLIC_WIKI_SOURCE_PATH"
+            exit 1
+          fi
+          echo "Exporting demo wiki from repo path: $PUBLIC_WIKI_SOURCE_PATH (this is checked-in example data, not a real user vault)"
+
+      - name: Export wiki to static HTML
+        run: |
+          set -euo pipefail
+          rm -rf "$EXPORT_OUTPUT_DIR"
+          mkdir -p "$EXPORT_OUTPUT_DIR"
+          ( cd compiler && python -m html_export.exporter "../$PUBLIC_WIKI_SOURCE_PATH" --output "../$EXPORT_OUTPUT_DIR" --theme reading )
+
+      - name: Ensure a landing page exists
+        run: |
+          set -euo pipefail
+          OUT="$EXPORT_OUTPUT_DIR"
+          if [ -f "$OUT/index.html" ]; then
+            echo "index.html was produced from _index.md, keeping it as the landing page."
+            exit 0
+          fi
+          echo "No _index.md in the source wiki (compiler/html_export has no fallback index generator wired up yet) -- writing a minimal landing page that links to every exported page instead of publishing a site with a 404 root."
+          {
+            echo '<!doctype html>'
+            echo '<html lang="en"><head><meta charset="utf-8">'
+            echo '<title>LLMwiki demo wiki</title>'
+            echo '<link rel="stylesheet" href="static/wiki.css">'
+            echo '</head><body>'
+            echo '<h1>LLMwiki published demo wiki</h1>'
+            echo "<p>Auto-generated landing page. This publishes <strong>demo data</strong> from <code>${PUBLIC_WIKI_SOURCE_PATH}</code>, not a real user vault. See docs/PAGES_PUBLISHING.md in the source repo.</p>"
+            echo '<h2>Concepts</h2><ul>'
+            for f in "$OUT"/concepts/*.html; do
+              [ -e "$f" ] || continue
+              b=$(basename "$f")
+              echo "<li><a href=\"concepts/$b\">$b</a></li>"
+            done
+            echo '</ul><h2>Summaries</h2><ul>'
+            for f in "$OUT"/summaries/*.html; do
+              [ -e "$f" ] || continue
+              b=$(basename "$f")
+              echo "<li><a href=\"summaries/$b\">$b</a></li>"
+            done
+            echo '</ul></body></html>'
+          } > "$OUT/index.html"
+
+      - name: Publish to pages branch
+        env:
+          GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
+          SERVER_URL: ${{ gitea.server_url }}
+          REPO_SLUG: ${{ gitea.repository }}
+          COMMIT_SHA: ${{ gitea.sha }}
+        run: |
+          set -euo pipefail
+          cd "$EXPORT_OUTPUT_DIR"
+          git init -q -b "$PAGES_BRANCH"
+          git config user.name "gitea-actions"
+          git config user.email "actions@noreply"
+          git add -A
+          git commit -q -m "Publish wiki HTML from ${COMMIT_SHA}"
+
+          HOST="${SERVER_URL#https://}"
+          HOST="${HOST#http://}"
+          REMOTE_URL="https://x-access-token:${GITEA_TOKEN}@${HOST}/${REPO_SLUG}.git"
+
+          git push -f "$REMOTE_URL" "HEAD:${PAGES_BRANCH}"

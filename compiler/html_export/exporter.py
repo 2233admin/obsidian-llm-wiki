@@ -97,9 +97,18 @@ CDN_LINKS = {
 }
 
 
-def _inject_assets(html_content: str, has_interactive: bool = False) -> str:
-    """Inject wiki.js, wiki.css, and CDN libraries into HTML content."""
-    static_url = "static/"
+def _inject_assets(
+    html_content: str, has_interactive: bool = False, asset_prefix: str = ""
+) -> str:
+    """Inject wiki.js, wiki.css, and CDN libraries into HTML content.
+
+    Args:
+        asset_prefix: Relative path prefix to the output root, e.g. ``"../"``
+            when the document lives one directory below the output root
+            (as concepts/*.html and summaries/*.html do). Empty string for
+            documents at the output root (e.g. index.html).
+    """
+    static_url = f"{asset_prefix}static/"
 
     # Build CDN links based on needs
     cdn_links: list[str] = []
@@ -154,6 +163,7 @@ def _run_pandoc(
     output_file: Path,
     css_file: Path | None,
     title: str = "",
+    asset_prefix: str = "",
 ) -> bool:
     """Run Pandoc to convert markdown to HTML.
 
@@ -162,6 +172,11 @@ def _run_pandoc(
         output_file: Output HTML file
         css_file: Optional CSS file to include
         title: Document title (for <title> tag)
+        asset_prefix: Relative path prefix to the output root (see
+            ``_inject_assets``). Applied to both the Pandoc ``--css`` link
+            and the injected static assets so pages nested under
+            concepts/summaries resolve css/js correctly instead of looking
+            for them under their own subdirectory.
 
     Returns:
         True if conversion succeeded
@@ -177,7 +192,7 @@ def _run_pandoc(
     ]
 
     if css_file and css_file.exists():
-        cmd.append("--css=css/style.css")
+        cmd.append(f"--css={asset_prefix}css/style.css")
 
     if title:
         cmd.extend(["--metadata", f"title={title}"])
@@ -190,7 +205,7 @@ def _run_pandoc(
     # Post-process: inject wiki.js and wiki.css
     if output_file.exists():
         html_content = output_file.read_text("utf-8")
-        html_content = _inject_assets(html_content)
+        html_content = _inject_assets(html_content, asset_prefix=asset_prefix)
         output_file.write_text(html_content, "utf-8")
 
     return True
@@ -508,9 +523,12 @@ def export_to_html(
             temp_md = output_file.with_suffix(".md")
             temp_md.write_text(processed, "utf-8")
 
-            # Run Pandoc
+            # Run Pandoc. Files under a subdir (concepts/, summaries/) are
+            # one level below the output root, so their css/static asset
+            # links need a "../" prefix to resolve correctly.
             title = _extract_title(source_file) or source_file.stem
-            if _run_pandoc(temp_md, output_file, css_dest, title):
+            asset_prefix = "../" if subdir else ""
+            if _run_pandoc(temp_md, output_file, css_dest, title, asset_prefix=asset_prefix):
                 report.files_exported += 1
             else:
                 report.files_failed += 1
