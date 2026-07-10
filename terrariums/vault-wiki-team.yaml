@@ -1,0 +1,158 @@
+terrarium:
+  name: vault-wiki-team
+  version: "1.0"
+
+root:
+  name: vault-root
+  controller:
+    model: MiniMax-M2.7-highspeed
+    auth_mode: anthropic-key
+    auth_token_env: ANTHROPIC_AUTH_TOKEN
+    base_url_env: ANTHROPIC_BASE_URL
+    reasoning_effort: "${REASONING:medium}"
+    tool_format: native
+  routes:
+    "what do I know about":
+      target: librarian
+      channel: tasks
+    "search":
+      target: librarian
+      channel: tasks
+    "clean up":
+      target: curator
+      channel: tasks
+    "explain":
+      target: teacher
+      channel: tasks
+    "what was I thinking":
+      target: historian
+      channel: tasks
+    "compile graph":
+      target: architect
+      channel: tasks
+    "prune orphans":
+      target: janitor
+      channel: tasks
+
+creatures:
+  - name: vault-librarian
+    controller:
+      model: MiniMax-M2.7-highspeed
+      auth_mode: anthropic-key
+      auth_token_env: ANTHROPIC_AUTH_TOKEN
+      base_url_env: ANTHROPIC_BASE_URL
+      reasoning_effort: "${REASONING:medium}"
+      tool_format: native
+    system_prompt_file: "@vault-wiki/skills/vault-librarian.md"
+    subscriptions:
+      - channel: tasks
+        filter: "librarian"
+      - channel: team_chat
+    outputs:
+      - channel: results
+      - channel: team_chat
+
+  - name: vault-architect
+    controller:
+      model: MiniMax-M2.7-highspeed
+      auth_mode: anthropic-key
+      auth_token_env: ANTHROPIC_AUTH_TOKEN
+      base_url_env: ANTHROPIC_BASE_URL
+      reasoning_effort: "${REASONING:medium}"
+      tool_format: native
+    system_prompt_file: "@vault-wiki/skills/vault-architect.md"
+    subscriptions:
+      - channel: tasks
+        filter: "architect"
+      - channel: compile_request
+      - channel: team_chat
+    outputs:
+      - channel: results
+      - channel: graph_update
+      - channel: team_chat
+
+  - name: vault-curator
+    controller:
+      model: MiniMax-M2.7-highspeed
+      auth_mode: anthropic-key
+      auth_token_env: ANTHROPIC_AUTH_TOKEN
+      base_url_env: ANTHROPIC_BASE_URL
+      reasoning_effort: "${REASONING:medium}"
+      tool_format: native
+    system_prompt_file: "@vault-wiki/skills/vault-curator.md"
+    subscriptions:
+      - channel: tasks
+        filter: "curator"
+      - channel: team_chat
+    outputs:
+      - channel: results
+      - channel: team_chat
+
+  - name: vault-teacher
+    controller:
+      model: MiniMax-M2.7-highspeed
+      auth_mode: anthropic-key
+      auth_token_env: ANTHROPIC_AUTH_TOKEN
+      base_url_env: ANTHROPIC_BASE_URL
+      reasoning_effort: "${REASONING:medium}"
+      tool_format: native
+    system_prompt_file: "@vault-wiki/skills/vault-teacher.md"
+    subscriptions:
+      - channel: tasks
+        filter: "teacher"
+      - channel: team_chat
+    outputs:
+      - channel: results
+      - channel: team_chat
+
+  - name: vault-historian
+    controller:
+      model: MiniMax-M2.7-highspeed
+      auth_mode: anthropic-key
+      auth_token_env: ANTHROPIC_AUTH_TOKEN
+      base_url_env: ANTHROPIC_BASE_URL
+      reasoning_effort: "${REASONING:medium}"
+      tool_format: native
+    system_prompt_file: "@vault-wiki/skills/vault-historian.md"
+    subscriptions:
+      - channel: tasks
+        filter: "historian"
+      - channel: team_chat
+    outputs:
+      - channel: results
+      - channel: team_chat
+
+  - name: vault-janitor
+    controller:
+      model: MiniMax-M2.7-highspeed
+      auth_mode: anthropic-key
+      auth_token_env: ANTHROPIC_AUTH_TOKEN
+      base_url_env: ANTHROPIC_BASE_URL
+      reasoning_effort: "${REASONING:medium}"
+      tool_format: native
+    system_prompt_file: "@vault-wiki/skills/vault-janitor.md"
+    subscriptions:
+      - channel: tasks
+        filter: "janitor"
+      - channel: graph_update
+      - channel: team_chat
+    outputs:
+      - channel: results
+      - channel: team_chat
+
+channels:
+  tasks:
+    type: queue
+    description: "User requests routed to appropriate creature"
+  results:
+    type: queue
+    description: "Creature responses flow back to user"
+  team_chat:
+    type: broadcast
+    description: "Coordination between creatures"
+  compile_request:
+    type: queue
+    description: "Architect triggered to compile graph"
+  graph_update:
+    type: broadcast
+    description: "New graph edges published for janitor review"

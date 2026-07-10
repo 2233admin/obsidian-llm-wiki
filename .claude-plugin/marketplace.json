@@ -1,0 +1,13 @@
+{
+  "name": "obsidian-llm-wiki",
+  "owner": { "name": "2233admin" },
+  "description": "LLMwiki — reviewed team memory compiler for Obsidian vaults",
+  "plugins": [
+    {
+      "name": "llmwiki",
+      "source": "./",
+      "description": "MCP server (50 vault ops) + vault-* knowledge roles + thinking/research commands",
+      "version": "2.5.1"
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki ~/.claude/skills/vault-wiki && cd ~/.claude/skills/vault-wiki && ./setup
