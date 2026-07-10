@@ -3,7 +3,7 @@
 > Auto-generated from `mcp-server/src/core/operations.ts`.
 > Run `npm run generate-tools-doc` to regenerate. Do not edit by hand.
 
-Total: **103** operations across **18** namespaces.
+Total: **104** operations across **18** namespaces.
 
 ## `vault.*` (31)
 
