@@ -206,6 +206,128 @@ def test_export_no_index_when_disabled(tmp_path):
     assert not (output_dir / "index.html").exists()
 
 
+def test_inject_footer_stamps_before_body_close():
+    """_inject_footer inserts a build-timestamp footer before </body>."""
+    from html_export.exporter import _inject_footer
+
+    html = "<html><body><p>hi</p></body></html>"
+    result = _inject_footer(html, "2026-07-12T08:15:00Z")
+    assert 'class="wiki-build-footer"' in result
+    assert "Compiled: 2026-07-12T08:15:00Z" in result
+    assert result.index('class="wiki-build-footer"') < result.index("</body>")
+
+
+def test_inject_footer_noop_when_timestamp_empty():
+    """Empty build_timestamp leaves the HTML unchanged (opt-in behavior)."""
+    from html_export.exporter import _inject_footer
+
+    html = "<html><body><p>hi</p></body></html>"
+    assert _inject_footer(html, "") == html
+
+
+def test_export_stamps_explicit_build_timestamp_in_every_page(tmp_path):
+    """export_to_html threads options.build_timestamp into every rendered page."""
+    import pytest
+
+    if not _pandoc_available():
+        pytest.skip("pandoc not installed")
+
+    from html_export.exporter import ExportOptions, export_to_html
+
+    wiki_dir = _make_wiki(tmp_path, with_index=False)
+    output_dir = tmp_path / "html"
+    fixed_ts = "2026-07-12T03:00:00Z"
+    export_to_html(wiki_dir, output_dir, ExportOptions(build_timestamp=fixed_ts))
+
+    for rel in ("index.html", "concepts/attention-heads.html", "summaries/overview.html"):
+        content = (output_dir / rel).read_text("utf-8")
+        assert f"Compiled: {fixed_ts}" in content, f"missing footer stamp in {rel}"
+
+
+def test_export_defaults_footer_timestamp_to_now(tmp_path):
+    """Without an explicit build_timestamp, export_to_html stamps UTC 'now'."""
+    import re
+
+    import pytest
+
+    if not _pandoc_available():
+        pytest.skip("pandoc not installed")
+
+    from html_export.exporter import ExportOptions, export_to_html
+
+    wiki_dir = _make_wiki(tmp_path, with_index=False)
+    output_dir = tmp_path / "html"
+    export_to_html(wiki_dir, output_dir, ExportOptions())
+
+    content = (output_dir / "index.html").read_text("utf-8")
+    match = re.search(r"Compiled: (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)", content)
+    assert match is not None, "no footer timestamp found in exported index.html"
+
+
+def _make_organic_vault(tmp_path: Path) -> Path:
+    """Build a PARA-style vault with no raw/wiki topic convention at all --
+    mirrors D:\\knowledge's real shape (LMVK L2 export_vault_direct target)."""
+    vault = tmp_path / "vault"
+    (vault / "01-Projects").mkdir(parents=True)
+    (vault / "01-Projects" / "note-a.md").write_text("# Note A\n\nHello.\n", "utf-8")
+    (vault / "06-Daily" / "2026-07-12").mkdir(parents=True)
+    (vault / "06-Daily" / "2026-07-12" / "log.md").write_text("# Log\n\nDaily.\n", "utf-8")
+    (vault / "00-Inbox").mkdir(parents=True)
+    (vault / "00-Inbox" / "unsorted.md").write_text("# Unsorted\n\nSecret draft.\n", "utf-8")
+    (vault / ".obsidian").mkdir(parents=True)
+    (vault / ".obsidian" / "workspace.json").write_text("{}", "utf-8")
+    return vault
+
+
+def test_iter_vault_markdown_files_recurses_and_prunes(tmp_path):
+    """_iter_vault_markdown_files walks nested dirs and skips excluded/dot dirs."""
+    from html_export.exporter import _iter_vault_markdown_files
+
+    vault = _make_organic_vault(tmp_path)
+    found = sorted(
+        (str(p.relative_to(vault).as_posix()), rel_dir)
+        for p, rel_dir in _iter_vault_markdown_files(vault, {"00-Inbox"})
+    )
+    assert found == [
+        ("01-Projects/note-a.md", "01-Projects"),
+        ("06-Daily/2026-07-12/log.md", "06-Daily/2026-07-12"),
+    ]
+
+
+def test_export_vault_direct_excludes_00_inbox_and_stamps_footer(tmp_path):
+    """export_vault_direct (LMVK L2 whole-vault baseline): zero LLM, mirrors
+    directory tree, 00-Inbox absent from output entirely, footer stamped."""
+    import pytest
+
+    if not _pandoc_available():
+        pytest.skip("pandoc not installed")
+
+    from html_export.exporter import ExportOptions, export_vault_direct
+
+    vault = _make_organic_vault(tmp_path)
+    output_dir = tmp_path / "html"
+    fixed_ts = "2026-07-12T09:00:00Z"
+    report = export_vault_direct(
+        vault, output_dir, ExportOptions(build_timestamp=fixed_ts)
+    )
+
+    assert (output_dir / "01-Projects" / "note-a.html").exists()
+    assert (output_dir / "06-Daily" / "2026-07-12" / "log.html").exists()
+    assert not (output_dir / "00-Inbox").exists()
+
+    # 2 real pages + generated index, no failures
+    assert report.files_exported == 3
+    assert report.files_failed == 0
+
+    note_content = (output_dir / "01-Projects" / "note-a.html").read_text("utf-8")
+    assert f"Compiled: {fixed_ts}" in note_content
+
+    index_content = (output_dir / "index.html").read_text("utf-8")
+    assert "01-Projects" in index_content
+    assert "06-Daily" in index_content
+    assert "00-Inbox" not in index_content
+
+
 if __name__ == "__main__":
     import pytest
 

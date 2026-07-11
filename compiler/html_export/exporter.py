@@ -8,6 +8,7 @@ from __future__ import annotations
 import subprocess
 import sys
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator
 
@@ -24,6 +25,12 @@ class ExportOptions:
     include_index: bool = True
     output_dir: Path | None = None
     base_url: str = ""
+    # Footer build timestamp stamped into every exported page (LMVK L2 --
+    # lets a viewer eyeball freshness, spec SLA is "footer timestamp <=30min
+    # old"). None -> export_to_html() stamps "now" (UTC) once, shared by
+    # every page in the run. Pass an explicit value for reproducible tests
+    # or to align the footer with e.g. the compiling commit's timestamp.
+    build_timestamp: str | None = None
 
 
 @dataclass
@@ -142,6 +149,31 @@ def _inject_assets(
     return html_content
 
 
+def build_timestamp_now() -> str:
+    """Current UTC time formatted for the footer (and reusable by any
+    caller, e.g. compile.py, that wants to stamp a build without importing
+    ``datetime`` itself). Matches the ``%Y-%m-%dT%H:%M:%SZ`` convention used
+    elsewhere in this repo (compiler/scheduler.py, compiler/evaluate.py)."""
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _inject_footer(html_content: str, build_timestamp: str) -> str:
+    """Insert a build-timestamp footer before ``</body>``.
+
+    LMVK L2 (spec: docs/specs/lmvk-execution-and-release.md, verification
+    "页脚时间戳 ≤30min") -- lets a viewer on the served static site eyeball
+    how fresh the page is without checking git log. Applied to every
+    exported page (index, concepts/*, summaries/*) via ``_run_pandoc`` so
+    the same build carries one consistent timestamp.
+    """
+    if not build_timestamp:
+        return html_content
+    footer = f'  <footer class="wiki-build-footer">Compiled: {build_timestamp}</footer>\n'
+    if "</body>" in html_content:
+        return html_content.replace("</body>", footer + "</body>")
+    return html_content + "\n" + footer
+
+
 def _check_pandoc() -> tuple[bool, str]:
     """Check if Pandoc is installed and return version."""
     try:
@@ -164,6 +196,7 @@ def _run_pandoc(
     css_file: Path | None,
     title: str = "",
     asset_prefix: str = "",
+    build_timestamp: str = "",
 ) -> bool:
     """Run Pandoc to convert markdown to HTML.
 
@@ -177,6 +210,9 @@ def _run_pandoc(
             and the injected static assets so pages nested under
             concepts/summaries resolve css/js correctly instead of looking
             for them under their own subdirectory.
+        build_timestamp: When non-empty, stamped into a footer via
+            ``_inject_footer`` (LMVK L2 freshness indicator). Empty ->
+            no footer, unchanged behavior.
 
     Returns:
         True if conversion succeeded
@@ -202,10 +238,11 @@ def _run_pandoc(
         print(f"  [warn] Pandoc error: {result.stderr}", file=sys.stderr)
         return False
 
-    # Post-process: inject wiki.js and wiki.css
+    # Post-process: inject wiki.js and wiki.css, then the build footer
     if output_file.exists():
         html_content = output_file.read_text("utf-8")
         html_content = _inject_assets(html_content, asset_prefix=asset_prefix)
+        html_content = _inject_footer(html_content, build_timestamp)
         output_file.write_text(html_content, "utf-8")
 
     return True
@@ -400,6 +437,7 @@ def _write_fallback_index(
     wiki_dir: Path,
     output_dir: Path,
     css_dest: Path,
+    build_timestamp: str = "",
 ) -> bool:
     """Write index.html from a generated listing when _index.md is missing.
 
@@ -417,7 +455,9 @@ def _write_fallback_index(
     temp_md = output_dir / "index.md"
     temp_md.write_text(body + "\n", "utf-8")
     try:
-        return _run_pandoc(temp_md, output_dir / "index.html", css_dest, title)
+        return _run_pandoc(
+            temp_md, output_dir / "index.html", css_dest, title, build_timestamp=build_timestamp
+        )
     finally:
         temp_md.unlink(missing_ok=True)
 
@@ -521,6 +561,12 @@ def export_to_html(
         output_dir=output_dir,
     )
 
+    # Build footer timestamp -- computed once so every page in this export
+    # run (index, concepts/*, summaries/*, fallback index) carries the same
+    # stamp (LMVK L2). Caller can pin it via options.build_timestamp for
+    # reproducible tests or to align with e.g. the compiling commit's time.
+    build_timestamp = options.build_timestamp or build_timestamp_now()
+
     # Process files
     index_exported = False
     for source_file, subdir in _iter_wiki_files(wiki_dir, options):
@@ -551,7 +597,10 @@ def export_to_html(
             # links need a "../" prefix to resolve correctly.
             title = _extract_title(source_file) or source_file.stem
             asset_prefix = "../" if subdir else ""
-            if _run_pandoc(temp_md, output_file, css_dest, title, asset_prefix=asset_prefix):
+            if _run_pandoc(
+                temp_md, output_file, css_dest, title,
+                asset_prefix=asset_prefix, build_timestamp=build_timestamp,
+            ):
                 report.files_exported += 1
                 if not subdir:
                     index_exported = True
@@ -568,7 +617,199 @@ def export_to_html(
     # Fallback: no _index.md (or it failed to render) — generate a listing
     # of concepts/summaries so the export always has a root index.html.
     if options.include_index and not index_exported:
-        if _write_fallback_index(wiki_dir, output_dir, css_dest):
+        if _write_fallback_index(wiki_dir, output_dir, css_dest, build_timestamp=build_timestamp):
+            report.files_exported += 1
+        else:
+            report.files_failed += 1
+
+    return report
+
+
+# Directory *names* always pruned from a direct vault walk, regardless of
+# --exclude: version-control/app-state dirs that are never wiki content.
+_ALWAYS_EXCLUDED_DIR_NAMES = {".git", ".obsidian", ".space", ".makemd", ".vault-mind", ".trash"}
+
+# LMVK L2 default exclusion (wayfinder #20: review gate = directory boundary,
+# "00-Inbox 不编不发" -- not compiled, not published). Callers of
+# export_vault_direct can extend this via the exclude_dirs argument.
+DEFAULT_VAULT_EXCLUDE_DIRS = {"00-Inbox"}
+
+
+def _iter_vault_markdown_files(
+    vault_root: Path, exclude_dirs: set[str]
+) -> Iterator[tuple[Path, str]]:
+    """Recursively walk an organic (non-topic) vault for ``*.md`` files.
+
+    Unlike ``_iter_wiki_files`` (flat, hard-coded to the compiler's
+    ``concepts/summaries/_index.md`` topic convention), this walks an
+    arbitrary directory tree -- e.g. a real PARA-method Obsidian vault that
+    has no ``raw/``/``wiki/`` structure at all.
+
+    Yields (source_file, rel_dir) where ``rel_dir`` is the POSIX-style path
+    of the file's parent directory relative to ``vault_root`` (``""`` for
+    files at the root). Directories are pruned *during* the walk (not
+    filtered after), so an excluded directory's descendants are never even
+    stat'd -- this matters at ~20k-file vault scale. Pruning applies at
+    every depth, not just the top level (PARA vaults nest), and dotdirs are
+    always pruned on top of whatever ``exclude_dirs`` names.
+    """
+    import os
+
+    exclude_lower = {d.lower() for d in exclude_dirs} | {
+        d.lower() for d in _ALWAYS_EXCLUDED_DIR_NAMES
+    }
+    root = Path(vault_root)
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = sorted(
+            d for d in dirnames if d.lower() not in exclude_lower and not d.startswith(".")
+        )
+        rel_dir = Path(dirpath).relative_to(root).as_posix()
+        if rel_dir == ".":
+            rel_dir = ""
+        for fname in sorted(filenames):
+            if fname.lower().endswith(".md"):
+                yield Path(dirpath) / fname, rel_dir
+
+
+def _generate_vault_index(pages: list[tuple[str, str]]) -> str:
+    """Group exported pages by top-level directory for the whole-vault index
+    (``export_vault_direct`` has no concepts/summaries convention to key
+    off of, so it groups by the vault's own top-level folders instead)."""
+    groups: dict[str, list[tuple[str, str]]] = {}
+    for title, href in pages:
+        top = href.split("/")[0] if "/" in href else "(root)"
+        groups.setdefault(top, []).append((title, href))
+
+    html_items: list[str] = []
+    for top in sorted(groups):
+        html_items.append(f'<h2>{top}</h2><ul class="index-list">')
+        for title, href in sorted(groups[top], key=lambda pair: pair[1]):
+            html_items.append(f'  <li><a href="{href}">{title}</a></li>')
+        html_items.append("</ul>")
+    return "\n".join(html_items)
+
+
+def _write_vault_index(
+    pages: list[tuple[str, str]],
+    output_dir: Path,
+    css_dest: Path,
+    build_timestamp: str = "",
+) -> bool:
+    """Write the whole-vault ``index.html`` for ``export_vault_direct``,
+    through the same Pandoc/asset/footer pipeline as every other page."""
+    body = _generate_vault_index(pages)
+    temp_md = output_dir / "index.md"
+    temp_md.write_text(body + "\n", "utf-8")
+    try:
+        return _run_pandoc(
+            temp_md, output_dir / "index.html", css_dest, "Vault Index",
+            build_timestamp=build_timestamp,
+        )
+    finally:
+        temp_md.unlink(missing_ok=True)
+
+
+def export_vault_direct(
+    vault_root: Path,
+    output_dir: Path,
+    options: ExportOptions,
+    exclude_dirs: set[str] | None = None,
+) -> ExportReport:
+    """Render every markdown file under an organic (non-topic) vault straight
+    to HTML -- LMVK L2's whole-vault baseline (spec: docs/specs/lmvk-execution-
+    and-release.md).
+
+    ``export_to_html`` assumes the compiler's topic convention (``wiki_dir``
+    contains ``concepts/``, ``summaries/``, ``_index.md`` -- produced by
+    ``compile.py``'s LLM extraction pipeline). A real, organically-structured
+    vault (e.g. ``D:\\knowledge``, PARA folders, no ``raw/``/``wiki/``
+    anywhere) has none of that. This function walks the vault directly and
+    mirrors its directory tree 1:1 into ``output_dir``, one ``.html`` per
+    ``.md``, reusing the exact same Pandoc/theme/wikilink/footer pipeline as
+    the topic exporter. Zero LLM calls -- pure rendering, same as
+    ``export_to_html``.
+
+    exclude_dirs: directory *names* (matched case-insensitively at any
+    depth) to prune entirely. Defaults to ``DEFAULT_VAULT_EXCLUDE_DIRS``
+    (``{"00-Inbox"}`` -- wayfinder #20: review gate = directory boundary,
+    "00-Inbox 不编不发"). Version-control/app-state dirs (``.git``,
+    ``.obsidian``, ``.space``, ``.makemd``, ``.vault-mind``, ``.trash``) are
+    always pruned regardless of this argument.
+    """
+    exclude = set(exclude_dirs) if exclude_dirs is not None else set(DEFAULT_VAULT_EXCLUDE_DIRS)
+
+    pandoc_ok, _pandoc_version = _check_pandoc()
+    if not pandoc_ok:
+        raise RuntimeError(
+            "Pandoc not found. HTML export requires Pandoc.\n"
+            "Install from: https://pandoc.org/installing.html\n"
+            "Or via package manager:\n"
+            "  macOS: brew install pandoc\n"
+            "  Ubuntu/Debian: sudo apt install pandoc\n"
+            "  Windows: winget install pandoc"
+        )
+
+    theme_css = _get_theme_path(options.theme)
+    if not theme_css:
+        raise ValueError(
+            f"Theme '{options.theme}' not found. Available: {AVAILABLE_THEMES}"
+        )
+
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    css_dir = output_dir / "css"
+    css_dir.mkdir(exist_ok=True)
+
+    import shutil
+
+    css_dest = css_dir / "style.css"
+    shutil.copy2(theme_css, css_dest)
+    _copy_static_assets(output_dir)
+
+    report = ExportReport(theme=options.theme, output_dir=output_dir)
+    build_timestamp = options.build_timestamp or build_timestamp_now()
+    pages: list[tuple[str, str]] = []
+
+    for source_file, rel_dir in _iter_vault_markdown_files(Path(vault_root), exclude):
+        depth = len(rel_dir.split("/")) if rel_dir else 0
+        asset_prefix = "../" * depth
+        out_subdir = output_dir / rel_dir if rel_dir else output_dir
+        out_subdir.mkdir(parents=True, exist_ok=True)
+        output_file = out_subdir / f"{source_file.stem}.html"
+
+        try:
+            content = source_file.read_text("utf-8-sig", errors="replace")
+            processed = _process_markdown(content, source_file)
+
+            import re
+
+            report.links_converted += len(re.findall(r"\[\[([^\]]+)\]\]", content))
+
+            temp_md = output_file.with_suffix(".md")
+            temp_md.write_text(processed, "utf-8")
+
+            title = _extract_title(source_file) or source_file.stem
+            try:
+                ok = _run_pandoc(
+                    temp_md, output_file, css_dest, title,
+                    asset_prefix=asset_prefix, build_timestamp=build_timestamp,
+                )
+            finally:
+                temp_md.unlink(missing_ok=True)
+
+            if ok:
+                report.files_exported += 1
+                href = f"{rel_dir}/{output_file.name}" if rel_dir else output_file.name
+                pages.append((title, href))
+            else:
+                report.files_failed += 1
+
+        except Exception as e:
+            print(f"  [warn] Failed to export {source_file}: {e}", file=sys.stderr)
+            report.files_failed += 1
+
+    if options.include_index:
+        if _write_vault_index(pages, output_dir, css_dest, build_timestamp=build_timestamp):
             report.files_exported += 1
         else:
             report.files_failed += 1
@@ -581,7 +822,7 @@ def main() -> None:
     import argparse
 
     parser = argparse.ArgumentParser(description="Export llm-wiki to HTML")
-    parser.add_argument("wiki_dir", type=Path, help="Path to wiki/ directory")
+    parser.add_argument("wiki_dir", type=Path, help="Path to wiki/ directory (or a vault root, with --direct)")
     parser.add_argument(
         "--output",
         "-o",
@@ -609,6 +850,25 @@ def main() -> None:
         action="store_true",
         help="Skip index generation",
     )
+    parser.add_argument(
+        "--direct",
+        action="store_true",
+        help=(
+            "LMVK L2 whole-vault mode: treat wiki_dir as an organic vault root "
+            "(no raw/wiki topic convention) and recursively render every .md "
+            "file, mirroring the directory tree into --output."
+        ),
+    )
+    parser.add_argument(
+        "--exclude",
+        action="append",
+        default=[],
+        metavar="DIR_NAME",
+        help=(
+            "--direct only: directory name to prune from the walk (repeatable). "
+            "'00-Inbox' is always excluded in addition to whatever is passed here."
+        ),
+    )
 
     args = parser.parse_args()
 
@@ -630,7 +890,12 @@ def main() -> None:
     print(f"Theme: {args.theme}")
 
     try:
-        report = export_to_html(args.wiki_dir, output_dir, options)
+        if args.direct:
+            exclude = set(DEFAULT_VAULT_EXCLUDE_DIRS) | set(args.exclude)
+            print(f"Mode: direct vault walk (excluding: {sorted(exclude)})")
+            report = export_vault_direct(args.wiki_dir, output_dir, options, exclude_dirs=exclude)
+        else:
+            report = export_to_html(args.wiki_dir, output_dir, options)
         print("\nExport complete:")
         print(f"  Files exported: {report.files_exported}")
         print(f"  Files failed:   {report.files_failed}")
