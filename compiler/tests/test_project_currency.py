@@ -4,7 +4,6 @@ Run from the compiler/ dir:
     python -m unittest tests.test_project_currency -v
 """
 
-import os
 import shutil
 import sys
 import tempfile

@@ -25,8 +25,8 @@ if str(_COMPILER) not in sys.path:
     sys.path.insert(0, str(_COMPILER))
 
 import forge  # noqa: E402
-import plugins  # noqa: E402
 import kb_meta  # noqa: E402
+import plugins  # noqa: E402
 
 TODAY = "2026-06-27"
 DEFAULT_PLUGIN = "obsidian-kanban"
@@ -603,8 +603,8 @@ class EnsureApplyTest(_VaultCase):
     def test_install_only_when_listed_but_missing(self):
         self._write_cp(b'["obsidian-kanban"]')
         dl = FakeDownloader(_full_assets())
-        res = plugins.ensure_plugin(str(self.vault), apply=True, downloader=dl,
-                                    today=TODAY)
+        plugins.ensure_plugin(str(self.vault), apply=True, downloader=dl,
+                              today=TODAY)
         d = self._plugins_root() / DEFAULT_PLUGIN
         self.assertTrue((d / "main.js").exists())
         # NOT duplicated in the list.
@@ -742,7 +742,6 @@ def _raise_on_swap_into(plugin_id):
 
 class EnsureSwapFailureTest(_VaultCase):
     def _patch_replace(self, fn):
-        import os as _os
         orig = plugins.os.replace
         plugins.os.replace = fn
         self.addCleanup(lambda: setattr(plugins.os, "replace", orig))
