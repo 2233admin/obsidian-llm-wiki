@@ -371,38 +371,55 @@ def _clean_obsidian_syntax(text: str) -> str:
 
 
 def _generate_index(wiki_dir: Path, output_dir: Path) -> str:
-    """Generate index.html with links to all concepts and summaries."""
-    index_items: list[tuple[str, str, str]] = []  # (type, name, slug)
+    """Generate index.html body with links to all concepts and summaries."""
+    sections = [
+        ("Concepts", wiki_dir / "concepts"),
+        ("Summaries", wiki_dir / "summaries"),
+    ]
 
-    concepts_dir = wiki_dir / "concepts"
-    summaries_dir = wiki_dir / "summaries"
-
-    if concepts_dir.exists():
-        for f in sorted(concepts_dir.iterdir()):
-            if f.suffix == ".md" and not f.name.startswith("_"):
-                name = _extract_title(f) or f.stem
-                index_items.append(("concept", name, f.stem))
-
-    if summaries_dir.exists():
-        for f in sorted(summaries_dir.iterdir()):
-            if f.suffix == ".md" and not f.name.startswith("_"):
-                name = _extract_title(f) or f.stem
-                index_items.append(("summary", name, f.stem))
-
-    html_items = []
-    current_type = None
-    for item_type, name, slug in index_items:
-        if item_type != current_type:
-            if current_type is not None:
-                html_items.append("</ul>")
-            current_type = item_type
-            html_items.append(f'<h2>{item_type.title()}s</h2><ul class="index-list">')
-        html_items.append(f'  <li><a href="{item_type}s/{slug}.html">{name}</a></li>')
-
-    if current_type is not None:
+    html_items: list[str] = []
+    for heading, section_dir in sections:
+        if not section_dir.exists():
+            continue
+        links = [
+            (_extract_title(f) or f.stem, f"{section_dir.name}/{f.stem}.html")
+            for f in sorted(section_dir.iterdir())
+            if f.suffix == ".md" and not f.name.startswith("_")
+        ]
+        if not links:
+            continue
+        html_items.append(f'<h2>{heading}</h2><ul class="index-list">')
+        for name, href in links:
+            html_items.append(f'  <li><a href="{href}">{name}</a></li>')
         html_items.append("</ul>")
 
     return "\n".join(html_items)
+
+
+def _write_fallback_index(
+    wiki_dir: Path,
+    output_dir: Path,
+    css_dest: Path,
+) -> bool:
+    """Write index.html from a generated listing when _index.md is missing.
+
+    Builds the body with ``_generate_index`` and renders it through the same
+    ``_run_pandoc``/``_inject_assets`` path as regular pages (raw HTML passes
+    through Pandoc markdown untouched), so the fallback page gets the theme
+    CSS and static assets like every other page.
+
+    Returns:
+        True if the index was written successfully
+    """
+    body = _generate_index(wiki_dir, output_dir)
+    title = wiki_dir.resolve().name or "Wiki Index"
+
+    temp_md = output_dir / "index.md"
+    temp_md.write_text(body + "\n", "utf-8")
+    try:
+        return _run_pandoc(temp_md, output_dir / "index.html", css_dest, title)
+    finally:
+        temp_md.unlink(missing_ok=True)
 
 
 def _extract_title(file_path: Path) -> str | None:
@@ -418,9 +435,14 @@ def _iter_wiki_files(wiki_dir: Path, options: ExportOptions) -> Iterator[tuple[P
     """Iterate over wiki files to export.
 
     Yields (source_file, output_subdir) tuples.
+
+    ``_index.md`` is only yielded when it exists; ``export_to_html`` falls
+    back to a generated index page otherwise.
     """
     if options.include_index:
-        yield wiki_dir / "_index.md", ""
+        index_md = wiki_dir / "_index.md"
+        if index_md.exists():
+            yield index_md, ""
 
     if options.include_concepts:
         concepts_dir = wiki_dir / "concepts"
@@ -500,6 +522,7 @@ def export_to_html(
     )
 
     # Process files
+    index_exported = False
     for source_file, subdir in _iter_wiki_files(wiki_dir, options):
         # Determine output path
         if subdir:
@@ -530,6 +553,8 @@ def export_to_html(
             asset_prefix = "../" if subdir else ""
             if _run_pandoc(temp_md, output_file, css_dest, title, asset_prefix=asset_prefix):
                 report.files_exported += 1
+                if not subdir:
+                    index_exported = True
             else:
                 report.files_failed += 1
 
@@ -538,6 +563,14 @@ def export_to_html(
 
         except Exception as e:
             print(f"  [warn] Failed to export {source_file.name}: {e}", file=sys.stderr)
+            report.files_failed += 1
+
+    # Fallback: no _index.md (or it failed to render) — generate a listing
+    # of concepts/summaries so the export always has a root index.html.
+    if options.include_index and not index_exported:
+        if _write_fallback_index(wiki_dir, output_dir, css_dest):
+            report.files_exported += 1
+        else:
             report.files_failed += 1
 
     return report
