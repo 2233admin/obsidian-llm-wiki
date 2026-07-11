@@ -4,7 +4,7 @@
  */
 
 import type { VaultBrainEngine, ChunkResult, ChunkInput } from "./engine.js";
-import { VAULTBRAIN_SCHEMA_SQL } from "./schema.js";
+import { VAULTBRAIN_CORE_SCHEMA_SQL, VAULTBRAIN_VECTOR_SCHEMA_SQL } from "./schema.js";
 
 // Dynamic type placeholder -- PGlite's exact type is resolved at runtime
 type PGliteDB = {
@@ -14,6 +14,10 @@ type PGliteDB = {
   waitReady: Promise<void>;
 };
 
+// Wrapped in a Function so tsc never statically resolves the specifier -- newer
+// @electric-sql/pglite releases (>=0.5.0) dropped the "./vector" subpath export
+// entirely, which would otherwise be a compile-time TS2307 even though the
+// import is already guarded by try/catch below for the runtime case.
 const dynamicImport = new Function(
   "specifier",
   "return import(specifier)",
@@ -21,17 +25,31 @@ const dynamicImport = new Function(
 
 export class PGliteEngine implements VaultBrainEngine {
   private db: PGliteDB | null = null;
+  // True only if the pgvector extension module loaded successfully. When false,
+  // the schema/queries fall back to a keyword-only floor (see schema.ts) --
+  // vector search is an optional upgrade, not a hard dependency.
+  private hasVector = false;
 
   constructor(private readonly dataDir: string) {}
 
   async connect(): Promise<void> {
     // Dynamic import so loading failure (missing wasm, etc.) is catchable at call-site
     const { PGlite } = await import("@electric-sql/pglite");
-    const { vector } = await dynamicImport("@electric-sql/pglite/vector");
     const { pg_trgm } = await import("@electric-sql/pglite/contrib/pg_trgm");
-    const vectorExtension = vector as typeof pg_trgm;
 
-    this.db = new PGlite(this.dataDir, { extensions: { vector: vectorExtension, pg_trgm } }) as unknown as PGliteDB;
+    let extensions: Record<string, typeof pg_trgm> = { pg_trgm };
+    try {
+      const { vector } = await dynamicImport("@electric-sql/pglite/vector");
+      extensions = { vector: vector as typeof pg_trgm, pg_trgm };
+      this.hasVector = true;
+    } catch (err) {
+      console.warn(
+        `[vaultbrain] pgvector extension unavailable, falling back to keyword-only search: ${(err as Error).message}`,
+      );
+      this.hasVector = false;
+    }
+
+    this.db = new PGlite(this.dataDir, { extensions }) as unknown as PGliteDB;
     await this.db.waitReady;
   }
 
@@ -43,7 +61,11 @@ export class PGliteEngine implements VaultBrainEngine {
   }
 
   async initSchema(): Promise<void> {
-    await this.requireDb().exec(VAULTBRAIN_SCHEMA_SQL);
+    const db = this.requireDb();
+    await db.exec(VAULTBRAIN_CORE_SCHEMA_SQL);
+    if (this.hasVector) {
+      await db.exec(VAULTBRAIN_VECTOR_SCHEMA_SQL);
+    }
   }
 
   async upsertPage(slug: string, title: string, content: string, hash: string): Promise<void> {
@@ -68,6 +90,21 @@ export class PGliteEngine implements VaultBrainEngine {
     const db = this.requireDb();
 
     for (const chunk of chunks) {
+      // The `embedding` column doesn't exist at all when the vector extension
+      // failed to load (see schema.ts's VAULTBRAIN_VECTOR_SCHEMA_SQL) -- never
+      // reference it in that case, even for a NULL value.
+      if (!this.hasVector) {
+        await db.query(
+          `INSERT INTO chunks (slug, chunk_index, chunk_text, token_count)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (slug, chunk_index) DO UPDATE SET
+             chunk_text = EXCLUDED.chunk_text,
+             token_count = EXCLUDED.token_count`,
+          [slug, chunk.chunkIndex, chunk.chunkText, chunk.tokenCount],
+        );
+        continue;
+      }
+
       const embeddingStr = chunk.embedding && chunk.embedding.length > 0
         ? JSON.stringify(chunk.embedding)
         : null;
@@ -156,6 +193,8 @@ export class PGliteEngine implements VaultBrainEngine {
   }
 
   async searchVector(embedding: number[], limit: number): Promise<ChunkResult[]> {
+    // `embedding` column/`vector` type don't exist without the extension.
+    if (!this.hasVector) return [];
     const vecStr = JSON.stringify(embedding);
     const { rows } = await this.requireDb().query<{
       slug: string;
@@ -187,6 +226,7 @@ export class PGliteEngine implements VaultBrainEngine {
   }
 
   async countEmbeddedChunks(): Promise<number> {
+    if (!this.hasVector) return 0;
     const { rows } = await this.requireDb().query<{ n: number }>(
       `SELECT count(*)::int AS n FROM chunks WHERE embedding IS NOT NULL`,
     );
