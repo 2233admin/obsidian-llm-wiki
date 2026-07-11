@@ -1,6 +1,6 @@
 # TASK 14（草案）— 多平台真值编译 + 漂移守卫：vault-mind 真值编译进任何 harness/IDE
 
-> 状态：**DRAFT，待审**。来源蒸馏自 **Trellis**（mindfold-ai/Trellis，"the best agent harness"，11.3k★，docs.trytrellis.app 已读，2026-06-28）。**取概念丢运行时**：取「① 一份真值源 → N 个平台原生 agent-context 文件 ② template-hash 漂移守卫」，丢其 npm CLI（`@mindfoldhq/trellis`）、per-platform 生成器、16 平台 hook 运行时。
+> 状态：**DESIGNED（设计已评审通过，0 行代码，未建造）**。§5 的设计稿（office-hours Builder）已经过评审并 APPROVED，但那是**设计评审**的批准，不是"已建造"——14A/14B/14C 三片 PR 一行代码都还没写。来源蒸馏自 **Trellis**（mindfold-ai/Trellis，"the best agent harness"，11.3k★，docs.trytrellis.app 已读，2026-06-28）。**取概念丢运行时**：取「① 一份真值源 → N 个平台原生 agent-context 文件 ② template-hash 漂移守卫」，丢其 npm CLI（`@mindfoldhq/trellis`）、per-platform 生成器、16 平台 hook 运行时。
 > 一句话：vault-mind 已是 Trellis 级 harness（spec 注入 / 任务工作流 / workspace 记忆 / verify 环 / 学到的回灌全有），**只差把真值 push 进各平台原生文件** —— MCP 是 pull，本任务补 push：current-truth/briefing 编译成 CLAUDE.md / AGENTS.md / .cursorrules / .codex / .opencode / .agents/skills，让任何 agent/IDE 不装 MCP 也吃到 vault-mind 真值。
 
 ## 0. 收敛验证（先讲清楚：Trellis 大部分 vault-mind 已有）
@@ -121,4 +121,4 @@ vault-mind 的真值现在只经 MCP 暴露（pull）—— 不接 MCP 的 agent
 - **风险1**：CLAUDE.md 已存在（vault-mind 自己的 CLAUDE.md 是手写的）—— 编译生成会撞名。**缓解**：生成到带标记的区块（`<!-- vault-mind:auto -->...<!-- /vault-mind:auto -->`）只刷该区块，或生成 `CLAUDE.local.md`；hash 守卫只盖自己的区块。**14A 必须先解决这个撞名**，否则踩用户手写 CLAUDE.md。
 - **风险2**：载荷新鲜度 —— 静态文件在 compile 时刷，agent 若不重编译就读到旧真值。A 阶段可接受（observe），但要在文件头戳 `generated-at` + current-truth HEAD,让 agent 看得到新鲜度。
 
-**Status：APPROVED**（用户批准见下一步 AUQ）。
+**Status：APPROVED**（用户批准见下一步 AUQ）—— 此处 APPROVED 指**设计评审通过**，非"已建造"；14A 尚无一行代码，整份文档的顶层状态见 §开头 DESIGNED。
