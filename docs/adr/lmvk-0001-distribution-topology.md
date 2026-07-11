@@ -13,7 +13,7 @@
 ## Decision — 拓扑五条腿
 
 ```
-[编辑设备] --Obsidian git插件/Synology--> [gitea: claudeQWQ/obsidian-knowledge]  (真相源汇聚)
+[编辑设备] --Obsidian git插件(唯一通道)--> [gitea: claudeQWQ/obsidian-knowledge]  (真相源汇聚)
                                               │
                        cron 15min pull（5090主/5080备，不双跑；HEAD无变更早退）
                                               │
@@ -30,7 +30,7 @@
                   [离线腿: 每日离线包 ≤24h]（方案待 #16）
 ```
 
-1. **编辑腿**：Obsidian 编辑设备 → git 插件推 `claudeQWQ/obsidian-knowledge`；设备间文件同步现状 Synology Drive（验收中，#18）。编辑与只读分发是两条腿，互不阻塞。
+1. **编辑腿**：Obsidian 编辑设备 → git 插件推 `claudeQWQ/obsidian-knowledge` — **vault 唯一同步通道**（#18/#21/#22 定稿：Synology 不做 vault 通道，其份额治理另开 effort）。编辑与只读分发是两条腿，互不阻塞。
 2. **编译腿**：cron 15min（schtasks/scheduler.py），5090 主、5080 备（备侧任务默认禁用，不双跑）。机器无关：输入一律 `git pull` gitea vault 仓，不直读本地盘。HEAD 无变更即早退，零 LLM 消耗。产物（html_export 静态站）push 回 gitea pages 分支。
 3. **浏览器腿**：caddy 容器常驻 **gitea 同宿主**（分发面可用性=gitea 可用性，本就是链路硬依赖；与两台开发机开关机解耦），从 pages 分支拉产物。绑 NetBird 接口 100.x（禁 0.0.0.0），`basic_auth` 每设备一账号（bcrypt，可单独吊销）。SLA：入库起 ≤30min。
 4. **agent 腿**：舰队各机 agent 直接 `git pull`（gitea token，复用现有认证），读 vault 原文，不经 compile 链路；SLA=pull 频率（按需）。增强路线：现有 mcp-server（stdio）经 SDK 自带 HTTP 传输远程化 + bearer header，验证后铺开（#14）。
