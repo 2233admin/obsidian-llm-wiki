@@ -110,24 +110,14 @@ if (-not $Full -and $beforeHead -and ($beforeHead -eq $afterHead)) {
 Write-Log "vault HEAD: $beforeHead -> $afterHead"
 
 # ---------------------------------------------------------------------------
-# 2. $/day cost guardrail -- refuse to compile past the daily cap. Only the
-#    topic/LLM branch below ever debits this; the whole-vault direct-export
-#    fallback is zero-cost and runs regardless (checked here anyway so a
-#    stuck/over-cap state is visible in the log even on organic-vault runs).
-# ---------------------------------------------------------------------------
-python $CostGuard check --state $CostState --cap $Cap | Write-Output
-if ($LASTEXITCODE -eq 2) {
-    Write-Log "cost guardrail: at/over `$$Cap/day cap, early exit -- skipping compile this run."
-    exit 0
-} elseif ($LASTEXITCODE -ne 0) {
-    Write-Error "cost_guard.py check failed unexpectedly (exit $LASTEXITCODE)"
-    exit 1
-}
-
-# ---------------------------------------------------------------------------
-# 3. topic discovery -- re-implements compiler/evaluate.py::_iter_topics()'s
+# 2. topic discovery -- re-implements compiler/evaluate.py::_iter_topics()'s
 #    rule directly (non-hidden immediate subdir of vault root containing a
-#    raw/ or wiki/ subdir), instead of importing evaluate.py.
+#    raw/ or wiki/ subdir), instead of importing evaluate.py. The $/day cost
+#    guardrail is checked further below, INSIDE the topic branch only -- it
+#    guards compile.py's real LLM spend and must never block the whole-vault
+#    direct-export fallback, which is zero-cost by construction and (against
+#    the real production vault) is the freshness path the spec's "footer
+#    timestamp <=30min" SLA actually depends on.
 # ---------------------------------------------------------------------------
 $topics = Get-ChildItem -LiteralPath $VaultPath -Directory |
     Where-Object { -not $_.Name.StartsWith('.') } |
@@ -154,7 +144,18 @@ try {
         $passLabel = if ($Full) { "FULL" } else { "incremental" }
         Write-Log "found $($topics.Count) topic(s): $($topics.Name -join ', ') -- tier=$Tier pass=$passLabel"
 
+        # $/day cost guardrail -- gates ONLY this LLM branch (compile.py's real
+        # spend). Checked here, not before topic discovery, so a tripped cap
+        # never blocks the zero-cost organic-vault fallback in 3b.
+        python $CostGuard check --state $CostState --cap $Cap | Write-Output
+        $guardExit = $LASTEXITCODE
         $compiledTopics = @()
+        if ($guardExit -eq 2) {
+            Write-Log "cost guardrail: at/over `$$Cap/day cap -- skipping topic compile this run."
+        } elseif ($guardExit -ne 0) {
+            Write-Error "cost_guard.py check failed unexpectedly (exit $guardExit)"
+            exit 1
+        } else {
         foreach ($topic in $topics) {
             Write-Log "compiling topic: $($topic.Name)"
             $htmlOut = Join-Path $PagesStage $topic.Name
@@ -199,6 +200,7 @@ $links
 "@
             Set-Content -LiteralPath (Join-Path $PagesStage 'index.html') -Value $indexHtml -Encoding UTF8
             $pushReady = $true
+        }
         }
     } else {
         # -------------------------------------------------------------------
