@@ -6,6 +6,11 @@ Also enforces the frozen decision invariant: edits to frozen notes are blocked.
 CLI usage (called by pre-commit hook):
     python -m compiler.rhizome.check <vault_path> [--staged-files file1 file2 ...]
     python -m compiler.rhizome.check <vault_path> --file path/to/note.md
+    python -m compiler.rhizome.check <vault_path> --staged-files-from manifest.txt
+
+--staged-files-from reads one relative path per line from a manifest file.
+Equivalent to --staged-files but avoids OS argv-length limits for large
+staged-file counts (e.g. big batch commits on Windows).
 
 Exit codes:
     0  all clean (or only warnings)
@@ -160,7 +165,12 @@ def main(argv: list[str] | None = None) -> int:
     vault_path = Path(args[0])
     staged: list[Path] | None = None
 
-    if "--staged-files" in args:
+    if "--staged-files-from" in args:
+        idx = args.index("--staged-files-from")
+        manifest = Path(args[idx + 1])
+        lines = manifest.read_text("utf-8-sig").splitlines()
+        staged = [Path(p.strip()) for p in lines if p.strip()]
+    elif "--staged-files" in args:
         idx = args.index("--staged-files")
         staged = [Path(p) for p in args[idx + 1:]]
     elif "--file" in args:
