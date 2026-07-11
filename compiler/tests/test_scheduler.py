@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -12,7 +13,14 @@ import scheduler
 
 class SchedulerDayModeTest(unittest.TestCase):
     def test_day_mode_does_not_execute_compile(self) -> None:
-        settings = evaluate.AgentSettings(vault_path="/fake/vault")
+        # AgentScheduler.__init__ persists state to
+        # <vault_path>/.vault-mind-scheduler.json (see evaluate.write_scheduler_state),
+        # so vault_path must be a real writable directory -- a literal "/fake/vault"
+        # tries to mkdir at the filesystem root and fails with PermissionError on
+        # CI (root-owned "/" on Linux runners).
+        tmp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp_dir.cleanup)
+        settings = evaluate.AgentSettings(vault_path=tmp_dir.name)
         state = evaluate.VaultState(
             vault_path=settings.vault_path,
             dirty_count=1,
