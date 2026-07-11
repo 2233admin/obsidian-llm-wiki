@@ -131,7 +131,7 @@ class FleetHub:
         """Load or create fleet state."""
         if self.state_file.exists():
             try:
-                data = json.loads(self.state_file.read_text())
+                data = json.loads(self.state_file.read_text(encoding="utf-8"))
                 sessions = {
                     k: SessionState(
                         id=v["id"],
@@ -175,7 +175,7 @@ class FleetHub:
 
     def _save_state(self) -> None:
         """Persist fleet state."""
-        self.state_file.write_text(json.dumps(self.state.to_dict(), indent=2, ensure_ascii=False))
+        self.state_file.write_text(json.dumps(self.state.to_dict(), indent=2, ensure_ascii=False), encoding="utf-8")
 
     def init(self) -> FleetState:
         """Initialize fleet."""
