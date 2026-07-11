@@ -6,13 +6,15 @@ top-level package, matching how compile.py etc. are invoked):
     python -m connectors hackernews
     python -m connectors hackernews --limit 5
     python -m connectors hackernews --output-dir ../examples/collab-vault/research-compiler/raw/hackernews
+    python -m connectors chubby       # chubbyskills radar channel (HN+V2EX+Chinese RSS)
     python -m connectors gmail        # scaffold -- logs "skipping", writes nothing
     python -m connectors x            # scaffold -- logs "skipping", writes nothing
     python -m connectors web_search   # scaffold -- logs "skipping", writes nothing
 
 This is a standalone runner for developing/verifying one connector at a
-time. It does not go through scheduler.py's tick/state-machine dispatch --
-that integration is a separate step.
+time. Scheduled operation goes through `python scheduler.py --connectors`,
+which reads per-source intervals from the `connectors:` block of
+vault-mind.yaml.
 """
 
 from __future__ import annotations
@@ -21,10 +23,11 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import gmail, hackernews, web_search, x
+from . import chubby, gmail, hackernews, web_search, x
 
 CONNECTORS = {
     "hackernews": hackernews,
+    "chubby": chubby,
     "gmail": gmail,
     "x": x,
     "web_search": web_search,

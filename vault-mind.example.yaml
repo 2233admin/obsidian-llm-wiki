@@ -39,3 +39,53 @@ compiler:
 
 agent:
   enabled: false
+
+# Connector sweep (LMVK L1): `python scheduler.py --connectors` runs every
+# enabled source whose interval has elapsed, records last-run state, exits.
+# One schtasks/cron entry pulls the sweep; per-source cadence lives here.
+# interval: 90s / 60m / 6h / 1d (bare number = minutes).
+# Extra keys per source are passed to the connector's fetch() as kwargs.
+connectors:
+  output_root: "raw"                            # relative to vault_path (or absolute)
+  state_file: ".vault-mind-connectors.json"     # last-run ledger, relative to vault_path
+  sources:
+    hackernews:
+      enabled: true
+      interval: 60m
+      limit: 15
+    chubby-radar:                               # chubbyskills industry radar: HN + V2EX + Chinese RSS
+      connector: chubby
+      channel: radar
+      enabled: true
+      interval: 6h
+      hours: 24
+      rss: "https://www.ithome.com/rss/,https://sspai.com/feed"
+    chubby-wechat:                              # HITL: needs bs4 upstream + article URL queue
+      connector: chubby
+      channel: wechat
+      enabled: false
+      interval: 12h
+    chubby-bilibili:                            # HITL: needs yt-dlp upstream + video URL queue
+      connector: chubby
+      channel: bilibili
+      enabled: false
+      interval: 12h
+    chubby-xiaohongshu:                         # HITL: needs XHS_COOKIE credential + note URL queue
+      connector: chubby
+      channel: xiaohongshu
+      enabled: false
+      interval: 12h
+    chubby-x:                                   # HITL: needs tweet URL queue (no login required)
+      connector: chubby
+      channel: x
+      enabled: false
+      interval: 12h
+    gmail:                                      # scaffold: needs GMAIL_OAUTH_TOKEN + real API impl
+      enabled: false
+      interval: 12h
+    x:                                          # scaffold: needs X_API_BEARER_TOKEN + real API impl
+      enabled: false
+      interval: 12h
+    web_search:                                 # scaffold: needs TAVILY_API_KEY + real API impl
+      enabled: false
+      interval: 12h
