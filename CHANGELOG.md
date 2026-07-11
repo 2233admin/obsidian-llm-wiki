@@ -1,5 +1,132 @@
 # Changelog
 
+**Version-track unification (2026-07).** This project ran two parallel tag
+tracks for a while: the `v2.x` feature track (this changelog) and an
+internal `v0.x` "Phase" track used for the mcp-server/compiler build-out
+(`v0.1.0` .. `v0.8.0`). `v0.8.0` (2026-06-20) is chronologically the most
+recent tag of *either* track -- it landed after `v2.5.1`, so it is placed
+below in its real chronological position, not by version-number sort order.
+It is a real, already-shipped milestone, not a rollback. **Going forward,
+`v2.x` is the sole external release track; no further `v0.x` tags will be
+cut.** Internal `package.json`/`pyproject.toml` version fields are not
+force-aligned to this changelog's numbering -- treat this file as the
+source of truth for what shipped when.
+
+## Unreleased -- targeting v2.6.0
+
+### Highlights
+
+- **Fleet Mode MVP** (`fleet/`) -- Scout/Worker/Verify ships + Hub
+  orchestration + review gates + context trimming/session management for
+  multi-agent llmwiki work. Code-complete; the `tests/fleet_tests/` CI
+  collision that kept it red on `main` is fixed this release. Its design
+  docs (`TASK*-DRAFT*.md`) remain draft-stage by contrast -- see Docs below.
+- **OBC -- Obsidian Broken Link Checker.** Link extraction, CLI,
+  VaultIndex + Resolver, Fix Planner, apply-safe writer, orphan-page
+  detection, stale-note detection, unit tests.
+- **Work-OS Task 8-11.** Budget gate + spend tracking (11B), canvas view
+  (10A), digest (10B), promote plugin/canvas/CLI (10C), MCP `project_*`
+  tool unification, 11G briefing loop-trigger.
+- **HackerNews connector** ingest; **Gitea Actions** pages-branch
+  publishing.
+- `docs/adr/lmvk-0001-distribution-topology.md` (editing leg + distribution
+  topology decisions) and this release's execution/close-out spec.
+
+### CI / quality
+
+- Fixed the `tests/fleet/` vs top-level `fleet/` package name collision
+  (pytest rootdir shadowing broke `import fleet` on every run) --
+  renamed to `tests/fleet_tests/`, plus fixed three latent test bugs that
+  had never actually executed before collection started succeeding.
+- `ruff check compiler/` reached zero violations (was previously red).
+- `compiler/tests/` (662 tests) now actually run in CI -- both `ci.yml`
+  and `release.yml`'s quality gate -- after being wired up but never
+  invoked.
+
+### Docs honesty pass
+
+- `TASK14-DRAFT-multi-platform-compile.md` had drifted into an
+  internally-inconsistent DRAFT/APPROVED status framing; corrected to
+  state plainly: design-approved, 0 lines of code, not built.
+- `HANDOFF.md`'s Task 12 entry is clarified against the `v0.8.0` tag: the
+  shipped `8ab11e5` "Context Core Phase 1-3" (rhizome contracts, 3-tier
+  ontology, holons graph) is a different, already-completed body of work
+  from the still-unbuilt TASK12-DRAFT "Context Core" retrieval-policy
+  proposal that happens to share the same name.
+
+## v0.8.0 -- 2026-06-20
+
+Internal Phase-track release (see version-track unification note above).
+Chronologically the newest tag at time of writing, landing after v2.5.1.
+
+- **feat(phase8):** graph export, vault write-back, persistent memory,
+  BM25 search. 7 new MCP tools (58 -> 65 total, 10 -> 12 namespaces):
+  `graph.export` (BFS causal subgraph -> Mermaid/Canvas/DOT), `vault.write`,
+  `vault.annotate`, `memory.set`/`get`/`list`/`forget`; `holon.search`
+  gains a `mode` param (substring/bm25/hybrid).
+- **feat(holons):** Phase 7 -- HyperEdge support.
+- **feat(mcp):** Phase 6 -- holon/causal/provenance MCP tools.
+- **feat:** Phase 4+5 -- compile CLI, JSON serializer, task tracking,
+  orphan-branch CI.
+- **feat(compiler):** Context Core Phase 1-3 -- rhizome frontmatter
+  contracts, 3-tier ontology, holons concept graph (71/71 tests). This is
+  the compiler-side "Context Core" work, distinct from the still-unbuilt
+  TASK12-DRAFT "Context Core" retrieval-policy proposal (see HANDOFF.md).
+- **feat:** NotebookLM recipe; Claude Code plugin + self-hosted
+  marketplace.
+- **fix:** resolved several pre-existing CI failures + a ruff-broken
+  re-export; robust `find|xargs` in place of a glob that didn't expand
+  reliably in CI.
+
+## v2.5.1 -- 2026-06-10
+
+- **fix:** replace literal NUL bytes in `vault.graph` edgeMap keys with
+  their backslash-u0000 escape sequence -- ripgrep was treating `index.ts` as a
+  binary file because of the raw NUL bytes.
+- **fix:** close v2.5.0 P3 gaps -- lock coverage + fs-transport parity +
+  lock tests.
+
+## v2.5.0 -- 2026-06-10
+
+feat: claude-obsidian port. Inspired by
+github.com/AgriciDaniel/claude-obsidian.
+
+- `vault.init` methodology scaffold, dual-mode (generic/PARA/LYT/
+  zettelkasten, `dryRun` default) plus a legacy topic mode.
+- Per-file advisory locking (`O_EXCL`, 60s TTL) wrapping 11 mutating
+  write paths.
+- 3 new commands: `/vault-autoresearch` (3-round loop), `/vault-think`
+  (10-principle framework), `/vault-expand` (source -> 8-15 wiki pages).
+- Regenerated `docs/mcp-tools-reference.md` (50 ops).
+
+## v2.4.0 -- 2026-06-10
+
+feat: second-brain integration. Inspired by
+github.com/eugeniughelbur/obsidian-second-brain (2350 stars).
+
+- 6 structured note tools: `vault.daily`/`person`/`project`/`decide`/
+  `meeting`/`ingest`.
+- 10 thinking-mode slash commands: `/vault-synthesize`, `/reconcile`,
+  `/emerge`, `/research`, `/challenge`, `/connect`, `/panel`, `/recap`,
+  `/graduate`, `/learn`.
+- `GraphifyAdapter` wired into the MCP server.
+
+## v2.3.0 -- 2026-05-31
+
+feat: Supermemory + PageIndex integration.
+
+- Temporal fact tracking via a frontmatter convention; fact-extraction
+  pipeline from memU; user-context injection (~50ms).
+- PageIndex-style Tree Index for section-aware retrieval; section boost
+  in RRF fusion. 100% hit rate on eval tests (vaultbrain-smoke).
+- `feat(compiler)`: HTML export with CDN interactivity (WIP, #13).
+- VaultBrain fixes: PGLite hybrid search, `pg_trgm`, CJK support;
+  `vault.externalSearch` fix.
+- Perf: regex/LRU cache, RRF heap merge, WAL append-only log, git-diff
+  incremental compile, CI parallelization, asyncio concurrent LLM
+  extraction, orjson (10x speedup).
+- chore: ship compiled `bundle.js` for distribution; image optimization.
+
 ## v2.2.0 -- 2026-05-17
 
 LLMwiki is now positioned around one product loop: scattered research and
