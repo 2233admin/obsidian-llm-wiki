@@ -236,6 +236,19 @@ body.dark-mode .dark-mode-toggle {
    Print Styles
    ============================================================ */
 
+/* ============================================================
+   Build Footer (LMVK L2 -- freshness stamp)
+   ============================================================ */
+
+.wiki-build-footer {
+  margin-top: 3rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e0e0e0;
+  font-size: 0.8rem;
+  color: #888;
+  text-align: right;
+}
+
 @media print {
   .copy-btn,
   .tab-nav,

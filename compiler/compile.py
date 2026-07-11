@@ -132,12 +132,36 @@ def _git_diff_dirty(vault: str, topic: str) -> list[str]:
     return dirty
 
 
-def step_diff(vault: str, topic: str, wal: WAL | None = None) -> list[str]:
-    """Return relative paths of new/changed raw files.
+def _all_raw_files(vault: str, topic: str) -> list[str]:
+    """Return every raw/*.md file's path relative to <vault>/<topic> (LMVK L2
+    weekly full pass -- deliberately bypasses git-diff and kb_meta's hash
+    diff so a periodic full recompile can't silently miss a file whose hash
+    was never recorded, without touching kb_meta's _meta.json format at
+    all: step_update_hashes still runs update-hash per file afterward,
+    exactly as it does for a normal incremental run)."""
+    raw_dir = Path(vault) / topic / "raw"
+    if not raw_dir.exists():
+        return []
+    base = Path(vault) / topic
+    return sorted(f.relative_to(base).as_posix() for f in raw_dir.rglob("*.md"))
 
-    Uses git diff --name-only when available (incremental mode) and falls back
-    to kb_meta diff for non-git vaults.
+
+def step_diff(vault: str, topic: str, wal: WAL | None = None, full: bool = False) -> list[str]:
+    """Return relative paths of raw files to (re)compile.
+
+    full=True (LMVK L2 weekly full pass): every raw/*.md file, ignoring
+    incremental dirty-detection entirely.
+
+    Otherwise (default, 15-min incremental): uses git diff --name-only when
+    available and falls back to kb_meta diff for non-git vaults.
     """
+    if full:
+        dirty = _all_raw_files(vault, topic)
+        if wal is not None:
+            for rel in dirty:
+                wal.append("discover", rel)
+        return dirty
+
     git_dirty = _git_diff_dirty(vault, topic)
     if git_dirty:
         if wal is not None:
@@ -524,6 +548,11 @@ def main() -> None:
     )
     parser.add_argument("--dry-run", action="store_true", help="Print actions without executing")
     parser.add_argument(
+        "--full",
+        action="store_true",
+        help="Recompile every raw file, bypassing incremental dirty-detection (LMVK L2 weekly full pass)",
+    )
+    parser.add_argument(
         "--chunk-size",
         type=int,
         default=1000,
@@ -601,7 +630,7 @@ def main() -> None:
 
     # 1. diff
     print("\n[1/7] diff -- finding dirty files...")
-    dirty = step_diff(vault, topic, wal)
+    dirty = step_diff(vault, topic, wal, full=args.full)
     if not dirty:
         print("  Nothing to compile. All sources up to date.")
         # Still allow HTML export if requested

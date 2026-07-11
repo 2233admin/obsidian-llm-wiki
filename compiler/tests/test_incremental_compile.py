@@ -112,5 +112,48 @@ class StepDiffFallbackTest(unittest.TestCase):
         pass  # covered by integration tests in CI
 
 
+class FullRecompileTest(unittest.TestCase):
+    """LMVK L2 weekly full pass: --full bypasses incremental dirty-detection."""
+
+    def _make_topic(self, vault: Path, already_compiled: bool = False) -> None:
+        topic = vault / "my-topic"
+        raw = topic / "raw"
+        raw.mkdir(parents=True)
+        (raw / "a.md").write_text("a", encoding="utf-8")
+        (raw / "sub").mkdir()
+        (raw / "sub" / "b.md").write_text("b", encoding="utf-8")
+        if already_compiled:
+            # kb_meta rel keys are relative to <vault>/<topic> (i.e. include the
+            # raw/ prefix) -- see kb_meta.cmd_diff/cmd_update_hash.
+            for rel in ("raw/a.md", "raw/sub/b.md"):
+                compile_mod._run_kb_meta_cmd(["update-hash", str(vault), "my-topic", rel])
+
+    def test_all_raw_files_lists_every_md_recursively(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            vault = Path(tmp)
+            self._make_topic(vault)
+            result = compile_mod._all_raw_files(str(vault), "my-topic")
+            self.assertEqual(result, ["raw/a.md", "raw/sub/b.md"])
+
+    def test_all_raw_files_empty_when_no_raw_dir(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(compile_mod._all_raw_files(tmp, "no-such-topic"), [])
+
+    def test_step_diff_full_true_ignores_recorded_hashes(self) -> None:
+        """Even files already marked compiled (up-to-date hash) come back
+        dirty under full=True -- the whole point of a full pass."""
+        with tempfile.TemporaryDirectory() as tmp:
+            vault = Path(tmp)
+            self._make_topic(vault, already_compiled=True)
+
+            # Sanity: incremental mode sees nothing dirty (git absent -> kb_meta
+            # fallback -> hashes match -> empty).
+            incremental = compile_mod.step_diff(str(vault), "my-topic", full=False)
+            self.assertEqual(incremental, [])
+
+            full = compile_mod.step_diff(str(vault), "my-topic", full=True)
+            self.assertEqual(sorted(full), ["raw/a.md", "raw/sub/b.md"])
+
+
 if __name__ == "__main__":
     unittest.main()

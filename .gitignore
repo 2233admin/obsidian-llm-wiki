@@ -43,6 +43,10 @@ fm_work/
 .vault-save.log
 .vault-save.failed.log
 
+# LMVK L2 cost-guardrail state (per-machine daily $ spend counter, see
+# compiler/cost_guard.py + scripts/lmvk-incremental-compile.ps1)
+.vault-mind-cost-guard.json
+
 # Bundle smoke-test artifacts (per-dev)
 mcp-server/smoke.in
 mcp-server/smoke.out
