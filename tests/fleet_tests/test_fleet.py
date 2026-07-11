@@ -13,39 +13,8 @@ from fleet.message import ShipType, WorkTask, ReviewDecision
 from fleet.context import ContextTrimmer, SessionManager
 
 
-# Fixtures
-@pytest.fixture
-def temp_vault(tmp_path):
-    """Create a temporary vault with test content."""
-    vault = tmp_path / "vault"
-    vault.mkdir()
-
-    # Create test structure
-    (vault / "01-Projects").mkdir()
-    (vault / "01-Projects").touch("index.md")
-    (vault / "02-Infrastructure").mkdir()
-    (vault / "02-Infrastructure").touch("index.md")
-
-    # Create a file with broken link
-    test_file = vault / "01-Projects" / "test.md"
-    test_file.write_text("""
----
-title: Test
----
-
-# Test
-
-This has a [[Broken Link]] and a [[Good Link]].
-
-## Another Section
-
-More content here.
-""")
-
-    # Create good link target
-    (vault / "01-Projects" / "Good Link.md").write_text("# Good Link\n\nThis exists.")
-
-    return str(vault)
+# Fixtures moved to conftest.py (temp_vault) so sibling test modules
+# (e.g. test_dispatch_cycle.py) can share it too.
 
 
 class TestFleetHub:
@@ -216,10 +185,10 @@ class TestVerifyShip:
         verify = VerifyShip(vault=temp_vault)
         result = verify.check()
 
-        assert "status" in result
-        assert result["status"] in ("pass", "fail", "warning")
-        assert "checks" in result
-        assert "issues" in result
+        # check() returns a VerifyResult dataclass, not a dict.
+        assert result.status in ("pass", "fail", "warning")
+        assert isinstance(result.checks, list)
+        assert isinstance(result.issues, list)
 
     def test_check_focus(self, temp_vault):
         verify = VerifyShip(vault=temp_vault)
@@ -257,7 +226,10 @@ class TestContextTrimmer:
         assert result.tokens_estimate <= trimmer.max_tokens
 
     def test_trim_for_scout(self):
-        trimmer = ContextTrimmer(vault="/tmp", max_tokens=100)
+        # Budget must be smaller than the content's estimated tokens so
+        # trim() actually dispatches to the scout-specific trimming path
+        # instead of short-circuiting on the "within budget" fast path.
+        trimmer = ContextTrimmer(vault="/tmp", max_tokens=5)
         content = """
 # index.md
 index content
@@ -337,7 +309,9 @@ class TestSessionManager:
         closed = manager.close_session("s1")
 
         assert closed["status"] == "closed"
-        assert manager.get_session("s1") is None
+        # close_session() marks status but keeps the session retrievable
+        # (audit trail); get_active_sessions() is what filters it out.
+        assert manager.get_session("s1")["status"] == "closed"
 
     def test_get_active_sessions(self):
         manager = SessionManager(vault="/tmp")

@@ -11,6 +11,7 @@ __pycache__/
 venv/
 *.egg-info/
 .pytest_cache/
+_tmp/
 
 # Local vault (user's own notes, never committed)
 knowledge/
