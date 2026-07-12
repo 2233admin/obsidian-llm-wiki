@@ -156,3 +156,24 @@ _Avoid_: result type, severity, risk score
 
 **Promotion Policy**: The fail-safe rule that decides, by Run Output Class, whether a Work Run's result is auto-promoted into current-truth or routed to triage for human review. Auto-promotion is an allowlist a result must affirmatively clear: work-state transitions may auto-promote, knowledge claims always go to human review, external side-effects require explicit per-run approval, and any unclassifiable result falls back to human review.
 _Avoid_: approval flow, risk gate, permission
+
+**Settings Platform**: The LLMwiki domain that owns the definitions, scoped values, effective snapshots, validation, migration, and health of operational configuration shared by every host and capability. OBC, Dream Time, MCP, CLI, compiler, and Obsidian consume it but do not own it.
+_Avoid_: OBC settings, Obsidian settings, config file, environment variables
+
+**Setting Definition**: The registered meaning and constraints of one LLMwiki setting, identified by a stable namespaced key. It includes ownership and sensitivity semantics independently of any current value.
+_Avoid_: form field, config entry, environment variable
+
+**Settings Scope**: The boundary at which a setting value applies. Canonical scopes are product, user-device, vault, workspace-project, and session.
+_Avoid_: config file, profile, environment
+
+**Settings Snapshot**: An immutable, versioned view of effective settings and their provenance for a specific runtime context. It is the configuration input consumed by LLMwiki capabilities.
+_Avoid_: live config object, Obsidian data.json, settings file
+
+**Secret Reference**: An opaque reference that identifies where a sensitive value can be resolved without storing or returning that value through the Settings Platform.
+_Avoid_: secret value, API key field, plaintext credential
+
+**Capability Health**: The explained operational state of an LLMwiki capability after evaluating its settings, dependencies, and runtime availability. Canonical states are `available`, `degraded`, `unavailable`, and `disabled`.
+_Avoid_: configured boolean, process health, diagnostic finding
+
+**Obsidian Control Plane**: The primary human-facing LLMwiki client for inspecting and changing settings, capability health, and operations from Obsidian. It is not the settings source of truth and must use the same domain operations as other hosts.
+_Avoid_: settings backend, source of truth, standalone plugin logic
