@@ -7,3 +7,87 @@
   padding: 8px;
   border-radius: 6px;
 }
+
+.llmwiki-settings {
+  --llmwiki-ok: var(--color-green);
+  --llmwiki-warn: var(--color-yellow);
+  --llmwiki-bad: var(--color-red);
+}
+
+.llmwiki-settings > h1 {
+  margin-bottom: 4px;
+}
+
+.llmwiki-settings-intro {
+  color: var(--text-muted);
+  margin: 0 0 18px;
+  max-width: 720px;
+}
+
+.llmwiki-settings-overview {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 10px;
+  background: var(--background-secondary);
+  padding: 14px;
+  margin-bottom: 18px;
+}
+
+.llmwiki-settings-overview-heading,
+.llmwiki-settings-actions {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.llmwiki-settings-overview-heading span,
+.llmwiki-settings-overview p {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+
+.llmwiki-settings-actions {
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.llmwiki-health-list {
+  display: grid;
+  gap: 1px;
+  margin-top: 12px;
+  background: var(--background-modifier-border);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.llmwiki-health {
+  display: grid;
+  grid-template-columns: 10px 1fr;
+  gap: 9px;
+  align-items: start;
+  background: var(--background-primary);
+  padding: 9px 10px;
+}
+
+.llmwiki-health-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--llmwiki-ok);
+  margin-top: 4px;
+}
+
+.llmwiki-health-degraded .llmwiki-health-dot { background: var(--llmwiki-warn); }
+.llmwiki-health-unavailable .llmwiki-health-dot { background: var(--llmwiki-bad); }
+.llmwiki-health-disabled .llmwiki-health-dot { background: var(--text-faint); }
+
+.llmwiki-health strong,
+.llmwiki-health small {
+  display: block;
+}
+
+.llmwiki-health small {
+  color: var(--text-muted);
+  margin-top: 2px;
+}

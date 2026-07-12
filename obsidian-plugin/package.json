@@ -1,12 +1,13 @@
 {
-  "name": "vault-mind-promote",
-  "version": "0.1.0",
-  "description": "Obsidian plugin: promote a vault-mind draft candidate through the work-OS base-head lock (Task 10C-C).",
+  "name": "obsidian-llm-wiki",
+  "version": "0.2.0",
+  "description": "Obsidian control surface for LLM Wiki settings, health, and governed knowledge operations.",
   "main": "main.js",
   "type": "module",
   "scripts": {
     "build": "tsc --noEmit --skipLibCheck && node esbuild.config.mjs production",
-    "dev": "node esbuild.config.mjs"
+    "dev": "node esbuild.config.mjs",
+    "test": "node test-settings.mjs"
   },
   "license": "MIT",
   "devDependencies": {
