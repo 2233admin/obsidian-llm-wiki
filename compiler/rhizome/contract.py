@@ -44,7 +44,11 @@ class ContractViolation:
     severity: str  # "error" | "warning"
 
 
-def validate_note(frontmatter: dict, path: Path | None = None) -> list[ContractViolation]:
+def validate_note(
+    frontmatter: dict,
+    path: Path | None = None,
+    known_entity_types: set[str] | None = None,
+) -> list[ContractViolation]:
     """Return list of contract violations for a parsed frontmatter dict.
 
     path is used only to suggest an auto-derived id in warnings.
@@ -106,6 +110,15 @@ def validate_note(frontmatter: dict, path: Path | None = None) -> list[ContractV
             severity="error",
         ))
 
+    for field_name in ("keywords", "links", "supersedes"):
+        value = frontmatter.get(field_name)
+        if value is not None and not isinstance(value, list):
+            violations.append(ContractViolation(
+                field=field_name,
+                message=f"must be a list when present, got {type(value).__name__}",
+                severity="warning",
+            ))
+
     # --- supersedes: only for kind:decision ---
     supersedes = frontmatter.get("supersedes")
     if supersedes and kind and kind != "decision":
@@ -114,6 +127,21 @@ def validate_note(frontmatter: dict, path: Path | None = None) -> list[ContractV
             message=f"'supersedes' is only valid for kind:decision, got kind:{kind}",
             severity="warning",
         ))
+
+    entity_type = frontmatter.get("entity_type")
+    if entity_type is not None:
+        if not isinstance(entity_type, str) or not entity_type.strip():
+            violations.append(ContractViolation(
+                field="entity_type",
+                message="must be a non-empty string when present",
+                severity="warning",
+            ))
+        elif known_entity_types is not None and entity_type not in known_entity_types:
+            violations.append(ContractViolation(
+                field="entity_type",
+                message=f"'{entity_type}' is not declared in ontology",
+                severity="warning",
+            ))
 
     return violations
 

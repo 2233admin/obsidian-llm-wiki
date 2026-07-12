@@ -3,7 +3,6 @@ Fleet Tests — Unit tests for llmwiki fleet mode.
 """
 
 import json
-import tempfile
 from pathlib import Path
 
 import pytest

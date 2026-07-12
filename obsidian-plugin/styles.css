@@ -1,9 +1,400 @@
-.vault-mind-promote-plan {
-  max-height: 320px;
-  overflow: auto;
+.vault-mind-flow {
+  --vm-ink: var(--text-normal);
+  --vm-muted: var(--text-muted);
+  --vm-line: color-mix(in srgb, var(--background-modifier-border) 74%, transparent);
+  --vm-panel: color-mix(in srgb, var(--background-secondary) 84%, var(--background-primary));
+  --vm-panel-strong: color-mix(in srgb, var(--background-secondary-alt) 88%, var(--background-primary));
+  --vm-moss: #6fa56d;
+  --vm-copper: #c9874a;
+  --vm-cyan: #5aa6b8;
+  --vm-danger: #c95f5f;
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+  min-width: min(720px, calc(100vw - 48px));
+  color: var(--vm-ink);
+}
+
+.vm-flow-hero {
+  display: grid;
+  grid-template-columns: 54px 1fr;
+  gap: 14px;
+  align-items: center;
+  padding: 4px 0 18px;
+}
+
+.vm-flow-mark {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--vm-moss) 52%, var(--vm-line));
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--vm-moss) 18%, transparent), transparent 62%),
+    var(--vm-panel);
+  color: color-mix(in srgb, var(--vm-moss) 78%, var(--text-normal));
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.vm-flow-title h2,
+.vm-settings-hero h2 {
+  margin: 0;
+  font-size: 26px;
+  line-height: 1.05;
+  letter-spacing: 0;
+}
+
+.vm-flow-note,
+.vm-settings-subtitle {
+  margin-top: 6px;
+  color: var(--vm-muted);
+  font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
   font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.vm-stage-rail {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 14px;
+}
+
+.vm-stage {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 8px;
+  padding: 8px 9px;
+  border: 1px solid var(--vm-line);
+  border-radius: 7px;
+  color: var(--vm-muted);
+  background: color-mix(in srgb, var(--background-primary) 72%, transparent);
+}
+
+.vm-stage.is-lit {
+  border-color: color-mix(in srgb, var(--vm-moss) 46%, var(--vm-line));
+  color: var(--vm-ink);
+}
+
+.vm-stage.is-current {
+  background: color-mix(in srgb, var(--vm-moss) 13%, var(--vm-panel));
+}
+
+.vm-stage-dot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--vm-line);
+}
+
+.vm-stage.is-lit .vm-stage-dot {
+  background: var(--vm-moss);
+}
+
+.vm-stage-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.vm-flow-panel {
+  border: 1px solid var(--vm-line);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--vm-cyan) 8%, transparent), transparent 110px),
+    var(--vm-panel);
+  padding: 18px;
+}
+
+.vm-flow-panel.is-blocked {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--vm-danger) 10%, transparent), transparent 120px),
+    var(--vm-panel);
+}
+
+.vm-flow-panel.is-complete {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--vm-moss) 14%, transparent), transparent 120px),
+    var(--vm-panel);
+}
+
+.vm-kicker {
+  width: fit-content;
+  max-width: 100%;
+  padding: 4px 8px;
+  border: 1px solid color-mix(in srgb, var(--vm-copper) 52%, var(--vm-line));
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--vm-copper) 76%, var(--text-normal));
+  font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.vm-flow-panel h3 {
+  margin: 12px 0 8px;
+  font-size: 20px;
+  line-height: 1.2;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+.vm-flow-copy {
+  color: var(--vm-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.vm-plan-preview {
+  max-height: 340px;
+  overflow: auto;
+  margin: 14px 0 0;
+  padding: 13px;
+  border: 1px solid var(--vm-line);
+  border-radius: 7px;
+  background: var(--vm-panel-strong);
+  color: var(--text-normal);
+  font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+  font-size: 12px;
+  line-height: 1.5;
   white-space: pre-wrap;
-  background: var(--background-secondary);
-  padding: 8px;
-  border-radius: 6px;
+  overflow-wrap: anywhere;
+}
+
+.vm-progress-bar {
+  height: 9px;
+  overflow: hidden;
+  margin: 18px 0 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--background-primary) 78%, var(--vm-line));
+}
+
+.vm-progress-fill {
+  width: 46%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--vm-moss), var(--vm-cyan), var(--vm-copper));
+  animation: vm-flow-stripe 1.2s ease-in-out infinite alternate;
+}
+
+.vm-flow-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+.vm-action {
+  min-height: 34px;
+  padding: 7px 12px;
+  border-radius: 7px;
+  font-weight: 700;
+}
+
+.vm-action-primary {
+  border-color: color-mix(in srgb, var(--vm-moss) 72%, black);
+  background: color-mix(in srgb, var(--vm-moss) 78%, var(--background-primary));
+  color: #0f1b13;
+}
+
+.vm-action-secondary {
+  border-color: color-mix(in srgb, var(--vm-cyan) 50%, var(--vm-line));
+}
+
+.vm-action-quiet {
+  color: var(--vm-muted);
+}
+
+.vault-mind-settings {
+  --vm-line: color-mix(in srgb, var(--background-modifier-border) 74%, transparent);
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+}
+
+.vm-settings-hero {
+  margin: 0 0 18px;
+  padding: 16px;
+  border: 1px solid var(--vm-line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--background-secondary) 82%, var(--background-primary));
+}
+
+@keyframes vm-flow-stripe {
+  from {
+    transform: translateX(-18%);
+  }
+  to {
+    transform: translateX(132%);
+  }
+}
+
+@media (max-width: 640px) {
+  .vault-mind-flow {
+    min-width: 0;
+  }
+
+  .vm-flow-hero {
+    grid-template-columns: 44px 1fr;
+  }
+
+  .vm-flow-mark {
+    width: 44px;
+    height: 44px;
+  }
+
+  .vm-stage-rail {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .vm-flow-panel {
+    padding: 14px;
+  }
+
+  .vm-flow-actions {
+    justify-content: stretch;
+  }
+
+  .vm-action {
+    flex: 1 1 100%;
+  }
+}
+
+.vault-mind-settings {
+  --vm-ink: var(--text-normal);
+  --vm-muted: var(--text-muted);
+  --vm-panel: color-mix(in srgb, var(--background-secondary) 84%, var(--background-primary));
+  --vm-panel-strong: color-mix(in srgb, var(--background-secondary-alt) 88%, var(--background-primary));
+  --vm-moss: #6fa56d;
+  --vm-copper: #c9874a;
+  --vm-cyan: #5aa6b8;
+  --vm-danger: #c95f5f;
+}
+
+.vm-health-card {
+  margin: 0 0 18px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--vm-cyan) 34%, var(--vm-line));
+  border-radius: 10px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--vm-cyan) 10%, transparent), transparent 46%),
+    var(--vm-panel);
+  color: var(--vm-ink);
+}
+
+.vm-health-header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 14px;
+  align-items: start;
+}
+
+.vm-health-title h3 {
+  margin: 10px 0 6px;
+  font-size: 19px;
+  line-height: 1.18;
+}
+
+.vm-health-copy {
+  color: var(--vm-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.vm-health-refresh {
+  min-height: 34px;
+  padding: 7px 12px;
+  border-radius: 7px;
+  border-color: color-mix(in srgb, var(--vm-cyan) 50%, var(--vm-line));
+  font-weight: 700;
+}
+
+.vm-health-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.vm-health-row {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 11px;
+  border: 1px solid var(--vm-line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--background-primary) 72%, transparent);
+}
+
+.vm-health-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--vm-copper);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--vm-copper) 18%, transparent);
+}
+
+.vm-health-row.is-good .vm-health-dot {
+  background: var(--vm-moss);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--vm-moss) 18%, transparent);
+}
+
+.vm-health-row.is-bad .vm-health-dot {
+  background: var(--vm-danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--vm-danger) 18%, transparent);
+}
+
+.vm-health-label {
+  font-weight: 800;
+}
+
+.vm-health-detail {
+  margin-top: 2px;
+  color: var(--vm-muted);
+  font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+  font-size: 11px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.vm-health-status {
+  justify-self: end;
+  padding: 3px 8px;
+  border: 1px solid color-mix(in srgb, currentColor 28%, var(--vm-line));
+  border-radius: 999px;
+  color: var(--vm-copper);
+  font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.vm-health-row.is-good .vm-health-status {
+  color: color-mix(in srgb, var(--vm-moss) 80%, var(--vm-ink));
+}
+
+.vm-health-row.is-bad .vm-health-status {
+  color: color-mix(in srgb, var(--vm-danger) 86%, var(--vm-ink));
+}
+
+@media (max-width: 640px) {
+  .vm-health-header,
+  .vm-health-row {
+    grid-template-columns: 1fr;
+  }
+
+  .vm-health-dot {
+    display: none;
+  }
+
+  .vm-health-refresh,
+  .vm-health-status {
+    justify-self: stretch;
+  }
 }

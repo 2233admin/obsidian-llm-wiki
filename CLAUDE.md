@@ -88,3 +88,18 @@ Key constraints:
 - write unreviewed analysis under `00-Inbox/AI-Output/<agent>/` or `10-Projects/<project>/agents/<agent>/`;
 - track executable obsidian-llm-wiki work under `01-Projects/<project>/issues/`, never `10-Projects/<project>/docket/**`;
 - promote durable team truth only through reviewed Decisions, Architecture, Runbooks, or Project Hub links.
+
+<!-- GBRAIN-CONFIG:START -->
+## GBrain Configuration (configured by /setup-gbrain)
+- Mode: local-stdio
+- Engine: pglite
+- Config: ~/.gbrain/config.json (local machine, do not commit secrets)
+- MCP registered: yes (Claude Code user scope, command: gbrain serve)
+- Repo policy: read-write
+- Brain trust policy: personal
+- Artifacts sync: off
+- Setup date: 2026-07-03
+- Smoke test: passed (put -> search -> delete cleanup)
+
+Restart any open Claude Code sessions to load `mcp__gbrain__*` tools; MCP tools are discovered at session start.
+<!-- GBRAIN-CONFIG:END -->

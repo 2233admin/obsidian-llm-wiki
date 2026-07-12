@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 permissions:
   contents: write
@@ -19,15 +19,36 @@ jobs:
           node-version: "20"
           cache: npm
           cache-dependency-path: mcp-server/package-lock.json
-      - run: cd mcp-server && npm install
-      - run: cd mcp-server && npm run build
+      - run: cd mcp-server && npm ci
+      - run: cd mcp-server && npm run rebuild
       - run: cd mcp-server && npm run typecheck
-      - run: cd mcp-server && npm run test
+      - run: cd mcp-server && npm test
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: archify/package-lock.json
+      - run: cd archify && npm ci
+      - run: cd archify && node test/smoke.mjs
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install ruff
+      - run: pip install ruff pytest
       - run: cd compiler && ruff check .
+      - run: python -m pytest tests/ -v --tb=short --ignore=compiler/
+      - name: Check plugin setup manifests
+        run: |
+          node scripts/check-distribution.mjs
+          node --test tests/distribution/*.test.mjs
+          bash -n setup
+          bash ./setup --host claude --dry-run
+      - name: Check PowerShell setup
+        shell: pwsh
+        run: |
+          $errors = $null
+          [System.Management.Automation.PSParser]::Tokenize((Get-Content -Raw setup.ps1), [ref]$errors) | Out-Null
+          if ($errors.Count) { $errors | Format-List *; exit 1 }
+          ./setup.ps1 -VaultHost claude -DryRun
 
   build-mcp:
     name: Build MCP Server
@@ -40,7 +61,7 @@ jobs:
           node-version: "20"
           cache: npm
           cache-dependency-path: mcp-server/package-lock.json
-      - run: cd mcp-server && npm install
+      - run: cd mcp-server && npm ci
       - run: cd mcp-server && npm run rebuild
       - name: Package MCP Server
         run: tar czf obsidian-llm-wiki-mcp.tar.gz -C mcp-server bundle.js package.json dist
@@ -55,43 +76,64 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
       - name: Package compiler
-        run: |
-          tar czf obsidian-llm-wiki-compiler.tar.gz compiler/
+        run: tar czf obsidian-llm-wiki-compiler.tar.gz compiler/
       - uses: actions/upload-artifact@v4
         with:
           name: compiler
           path: obsidian-llm-wiki-compiler.tar.gz
 
-  release:
-    name: Create Release
-    needs: [build-mcp, build-compiler]
+  build-onboarding:
+    name: Build Plugin Onboarding Bundle
+    needs: quality
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Download MCP Server
-        uses: actions/download-artifact@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: mcp-server/package-lock.json
+      - run: cd mcp-server && npm ci && npm run rebuild
+      - name: Verify onboarding contents
+        run: node scripts/check-distribution.mjs
+      - name: Package onboarding bundle
+        run: |
+          node -e "const m=require('./packaging/llmwiki-distribution.json'); console.log(m.release.onboardingFiles.join('\n'))" > onboarding-files.txt
+          tar czf obsidian-llm-wiki-onboarding.tar.gz -T onboarding-files.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: onboarding
+          path: obsidian-llm-wiki-onboarding.tar.gz
+
+  release:
+    name: Create Release
+    needs: [build-mcp, build-compiler, build-onboarding]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
         with:
           name: mcp-server
           path: dist-mcp
-      - name: Download Compiler
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: compiler
           path: dist-compiler
-      - name: List files
-        run: |
+      - uses: actions/download-artifact@v4
+        with:
+          name: onboarding
+          path: dist-onboarding
+      - run: |
           ls -la dist-mcp/
           ls -la dist-compiler/
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
+          ls -la dist-onboarding/
+      - uses: softprops/action-gh-release@v2
         with:
           files: |
             dist-mcp/*.tar.gz
             dist-compiler/*.tar.gz
+            dist-onboarding/*.tar.gz
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

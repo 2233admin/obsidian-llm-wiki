@@ -1,4 +1,4 @@
-"""Validation engine — Pass 0 (pre-commit sync).
+"""Validation engine - Pass 0 (pre-commit sync).
 
 Scans a vault or single file for frontmatter contract violations.
 Also enforces the frozen decision invariant: edits to frozen notes are blocked.
@@ -39,7 +39,12 @@ class CheckResult:
         return any(v.severity == "warning" for v in self.violations)
 
 
-def check_file(path: Path, vault_root: Path | None = None) -> CheckResult:
+def check_file(
+    path: Path,
+    vault_root: Path | None = None,
+    known_ids: set[str] | None = None,
+    known_entity_types: set[str] | None = None,
+) -> CheckResult:
     """Parse and validate a single markdown file."""
     try:
         text = path.read_text("utf-8-sig", errors="replace")
@@ -51,8 +56,17 @@ def check_file(path: Path, vault_root: Path | None = None) -> CheckResult:
 
     fm = _parse_frontmatter(text)
     rel = path.relative_to(vault_root) if vault_root else path
-    violations = validate_note(fm, rel)
+    violations = validate_note(fm, rel, known_entity_types=known_entity_types)
     derived_id = fm.get("id") or None
+    links = fm.get("links", [])
+    if known_ids is not None and isinstance(links, list):
+        for link in links:
+            if str(link) not in known_ids:
+                violations.append(ContractViolation(
+                    field="links",
+                    message=f"reference does not exist: {link}",
+                    severity="warning",
+                ))
 
     return CheckResult(
         path=path,
@@ -72,12 +86,24 @@ def check_vault(
     frozen decision is flagged as frozen_modified=True and gets an error.
     """
     results: list[CheckResult] = []
-    targets = staged_files if staged_files is not None else _walk_md(vault_path)
+    all_files = _walk_md(vault_path)
+    known_ids = _collect_known_ids(all_files)
+    known_entity_types = _collect_ontology_entity_types(vault_path)
+    targets = _normalize_targets(vault_path, staged_files) if staged_files is not None else all_files
 
     for path in targets:
         if not path.exists():
+            results.append(CheckResult(
+                path=path,
+                violations=[ContractViolation("file", "missing staged file", "error")],
+            ))
             continue
-        result = check_file(path, vault_path)
+        result = check_file(
+            path,
+            vault_path,
+            known_ids=known_ids,
+            known_entity_types=known_entity_types,
+        )
         if staged_files is not None:
             fm = _parse_frontmatter(path.read_text("utf-8-sig", errors="replace"))
             if is_frozen(fm):
@@ -95,6 +121,15 @@ def check_vault(
     return results
 
 
+def _normalize_targets(vault_path: Path, staged_files: list[Path]) -> list[Path]:
+    targets = []
+    for file_path in staged_files:
+        target = file_path if file_path.is_absolute() else vault_path / file_path
+        if target.suffix == ".md":
+            targets.append(target)
+    return targets
+
+
 def _walk_md(base: Path) -> list[Path]:
     results = []
     skip = {".obsidian", "node_modules", ".git", ".trash", "venv"}
@@ -106,6 +141,42 @@ def _walk_md(base: Path) -> list[Path]:
     return results
 
 
+def _collect_known_ids(paths: list[Path]) -> set[str]:
+    ids: set[str] = set()
+    for path in paths:
+        try:
+            fm = _parse_frontmatter(path.read_text("utf-8-sig", errors="replace"))
+        except OSError:
+            continue
+        note_id = fm.get("id")
+        if isinstance(note_id, str) and note_id:
+            ids.add(note_id)
+    return ids
+
+
+def _collect_ontology_entity_types(vault_path: Path) -> set[str] | None:
+    ontology_path = vault_path / "KB" / "ontology.yaml"
+    if not ontology_path.exists():
+        return None
+    try:
+        text = ontology_path.read_text("utf-8-sig", errors="replace")
+    except OSError:
+        return None
+
+    entity_types: set[str] = set()
+    in_entity_types = False
+    for raw_line in text.splitlines():
+        stripped = raw_line.strip()
+        if stripped == "entity_types:":
+            in_entity_types = True
+            continue
+        if in_entity_types and stripped and not raw_line.startswith((" ", "\t")):
+            break
+        if in_entity_types and raw_line.startswith((" ", "\t")) and stripped.endswith(":"):
+            entity_types.add(stripped[:-1])
+    return entity_types
+
+
 def _parse_frontmatter(text: str) -> dict:
     text = text.replace("\r\n", "\n").replace("\r", "\n")
     if not text.startswith("---"):
@@ -114,21 +185,45 @@ def _parse_frontmatter(text: str) -> dict:
     if end == -1:
         return {}
     fm: dict = {}
+    current_list_key: str | None = None
     for line in text[4:end].split("\n"):
-        line = line.strip()
-        if not line or line.startswith("#"):
+        raw = line.rstrip()
+        stripped = raw.strip()
+        if not stripped or stripped.startswith("#"):
             continue
-        colon = line.find(":")
+        if current_list_key and raw.startswith((" ", "\t")) and stripped.startswith("- "):
+            fm[current_list_key].append(_clean_scalar(stripped[2:].strip()))
+            continue
+        current_list_key = None
+
+        colon = stripped.find(":")
         if colon == -1:
             continue
-        key = line[:colon].strip()
-        val = line[colon + 1:].strip()
-        if val.startswith('"') and val.endswith('"'):
-            val = val[1:-1]
-        elif val.startswith("'") and val.endswith("'"):
-            val = val[1:-1]
-        fm[key] = val
+        key = stripped[:colon].strip()
+        val = stripped[colon + 1:].strip()
+        if val == "":
+            fm[key] = []
+            current_list_key = key
+        else:
+            fm[key] = _parse_value(val)
     return fm
+
+
+def _parse_value(value: str):
+    if value.startswith("[") and value.endswith("]"):
+        inner = value[1:-1].strip()
+        if not inner:
+            return []
+        return [_clean_scalar(item.strip()) for item in inner.split(",") if item.strip()]
+    return _clean_scalar(value)
+
+
+def _clean_scalar(value: str):
+    if value.startswith('"') and value.endswith('"'):
+        return value[1:-1]
+    if value.startswith("'") and value.endswith("'"):
+        return value[1:-1]
+    return value
 
 
 def _format_results(results: list[CheckResult]) -> tuple[str, int]:

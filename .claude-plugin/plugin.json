@@ -1,0 +1,8 @@
+{
+  "name": "llmwiki",
+  "description": "Reviewed team memory compiler for Obsidian vaults — MCP server with 100+ operations across vault, query, memory, project, source, context, and diagram workflows",
+  "version": "2.5.1",
+  "author": { "name": "2233admin" },
+  "commands": ["./skills/"],
+  "mcpServers": "./.claude-plugin/mcp.json"
+}

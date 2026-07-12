@@ -1,0 +1,5 @@
+pre-commit:
+  commands:
+    rhizome-pass0:
+      glob: "*.md"
+      run: python -m compiler.rhizome.check . --staged-files {staged_files}

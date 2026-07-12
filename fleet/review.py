@@ -235,26 +235,26 @@ class ReviewManager:
 
         lines = [
             f"# Review Point: {rp.name}",
-            f"",
+            "",
             f"**ID**: {rp.id}",
             f"**After**: {rp.after_ship.value}",
             f"**Created**: {rp.created_at.strftime('%Y-%m-%d %H:%M:%S')}",
-            f"",
-            f"---",
-            f"",
+            "",
+            "---",
+            "",
         ]
 
         # Format data based on type
         if rp.after_ship == ShipType.SCOUT:
             lines.extend([
-                f"## Scout Report Summary",
-                f"",
-                f"**Stats**:",
+                "## Scout Report Summary",
+                "",
+                "**Stats**:",
             ])
             if "stats" in data:
                 for key, value in data.get("stats", {}).items():
                     lines.append(f"- {key}: {value}")
-            lines.append(f"")
+            lines.append("")
 
             if "issues" in data and data["issues"]:
                 lines.append(f"## Issues ({len(data['issues'])})")
@@ -267,48 +267,48 @@ class ReviewManager:
 
         elif rp.after_ship == ShipType.WORKER:
             lines.extend([
-                f"## Worker Output",
-                f"",
+                "## Worker Output",
+                "",
                 f"**Success**: {'Yes' if data.get('success') else 'No'}",
                 f"**Files Created**: {len(data.get('files_created', []))}",
                 f"**Files Modified**: {len(data.get('files_modified', []))}",
-                f"",
+                "",
             ])
             if data.get("errors"):
-                lines.append(f"## Errors")
+                lines.append("## Errors")
                 for error in data["errors"]:
                     lines.append(f"- {error}")
                 lines.append("")
 
         elif rp.after_ship == ShipType.VERIFY:
             lines.extend([
-                f"## Verification Result",
-                f"",
+                "## Verification Result",
+                "",
                 f"**Status**: {data.get('status', 'unknown').upper()}",
-                f"",
+                "",
             ])
             if "checks" in data:
-                lines.append(f"## Checks")
+                lines.append("## Checks")
                 for check in data.get("checks", []):
                     icon = {"pass": "✓", "fail": "✗", "warning": "⚠"}.get(check.get("status", "?"), "?")
                     lines.append(f"- {icon} {check.get('check_type', '?')}: {check.get('message', '')}")
                 lines.append("")
 
         lines.extend([
-            f"---",
-            f"",
-            f"## Decision",
-            f"",
-            f"Please review the above and decide:",
-            f"",
-            f"| Decision | Action |",
-            f"|----------|--------|",
-            f"| **APPROVE** | Continue to next step |",
-            f"| **REJECT** | Stop and fix issues |",
-            f"| **MODIFY** | Continue with modifications |",
-            f"| **SKIP** | Skip this review point |",
-            f"",
-            f"Reply with your decision and optional notes.",
+            "---",
+            "",
+            "## Decision",
+            "",
+            "Please review the above and decide:",
+            "",
+            "| Decision | Action |",
+            "|----------|--------|",
+            "| **APPROVE** | Continue to next step |",
+            "| **REJECT** | Stop and fix issues |",
+            "| **MODIFY** | Continue with modifications |",
+            "| **SKIP** | Skip this review point |",
+            "",
+            "Reply with your decision and optional notes.",
         ])
 
         return "\n".join(lines)

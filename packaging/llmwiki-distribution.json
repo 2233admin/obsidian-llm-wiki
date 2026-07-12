@@ -1,0 +1,56 @@
+{
+  "publicName": "llmwiki",
+  "displayName": "LLMwiki",
+  "repository": "2233admin/obsidian-llm-wiki",
+  "pluginInstall": {
+    "marketplace": "/plugin marketplace add 2233admin/obsidian-llm-wiki",
+    "install": "/plugin install llmwiki@obsidian-llm-wiki"
+  },
+  "legacySkillBundle": "vault-wiki",
+  "mcpServerName": "vault-mind",
+  "vaultPathEnv": "VAULT_MIND_VAULT_PATH",
+  "hosts": {
+    "claude": {
+      "skillsDir": "{home}/.claude/skills/{legacySkillBundle}"
+    },
+    "codex": {
+      "skillsDir": "{home}/.codex/skills/{legacySkillBundle}"
+    },
+    "opencode": {
+      "skillsDir": "{home}/.config/opencode/skills/{legacySkillBundle}"
+    },
+    "gemini": {
+      "skillsDir": "{home}/.gemini/skills/{legacySkillBundle}"
+    }
+  },
+  "install": {
+    "copyDirs": ["skills", "examples", "docs", "viewer", "smoke", "archify"],
+    "copyFiles": ["README.md", "LICENSE"],
+    "mcpFiles": ["mcp-server/bundle.js", "mcp-server/package.json"],
+    "topLevelSkills": ["chubbyskills", "vault-diagram", "x-to-obsidian"]
+  },
+  "plugin": {
+    "requiredFiles": [
+      ".claude-plugin/plugin.json",
+      ".claude-plugin/marketplace.json",
+      ".claude-plugin/mcp.json"
+    ],
+    "mcpBundleArg": "${CLAUDE_PLUGIN_ROOT}/mcp-server/bundle.js"
+  },
+  "release": {
+    "onboardingFiles": [
+      ".claude-plugin",
+      "skills",
+      "archify",
+      "docs",
+      "README.md",
+      "LICENSE",
+      "setup",
+      "setup.ps1",
+      "mcp-server/bundle.js",
+      "mcp-server/package.json",
+      "packaging/llmwiki-distribution.json",
+      "scripts/check-distribution.mjs"
+    ]
+  }
+}

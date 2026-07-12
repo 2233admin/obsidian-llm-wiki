@@ -482,7 +482,7 @@ def main():
         print(json.dumps(result.to_payload(), indent=2, ensure_ascii=False))
     else:
         print(result.summary)
-        print(f"\nChecks:")
+        print("\nChecks:")
         for check in result.checks:
             status_icon = {"pass": "✓", "fail": "✗", "warning": "⚠"}.get(check.status, "?")
             print(f"  {status_icon} {check.check_type}: {check.message}")

@@ -169,6 +169,12 @@ class VerifyResult:
             "summary": self.summary,
         }
 
+    def __contains__(self, key: object) -> bool:
+        return key in self.to_payload()
+
+    def __getitem__(self, key: str) -> Any:
+        return self.to_payload()[key]
+
 
 @dataclass
 class Issue:

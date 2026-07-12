@@ -7,7 +7,6 @@ Red Phase: Write failing tests for the dispatch cycle:
 3. State propagation between ships
 """
 
-import json
 import pytest
 
 from fleet import FleetHub, ScoutShip, WorkerShip, VerifyShip
@@ -187,9 +186,8 @@ class TestFleetDispatchCycle:
         assert decision["decision"] == "reject"
         assert decision["status"] == "rejected"
 
-        # No new dispatches should be auto-created
-        state = hub.sync()
-        # After rejection, the cycle should stop
+        # No new dispatches should be auto-created; rejection stops the cycle.
+        assert len(hub.sync()["dispatch_log"]) == 1
 
     def test_should_run_full_scout_worker_verify_cycle(self, hub_and_vault):
         """
@@ -308,8 +306,6 @@ class TestFleetDispatchSequencing:
         """
         hub, vault = hub_and_vault
 
-        task = WorkTask(id="unknown", entity="t/p", type="test")
-
         # This should raise or return an error
         # For now, just verify the enum check works
         from fleet.message import ShipType
@@ -337,7 +333,7 @@ class TestFleetReviewBlocking:
 
         # Create some reviews
         r1 = hub.request_review(after_ship=ShipType.SCOUT, name="R1", data={})
-        r2 = hub.request_review(after_ship=ShipType.WORKER, name="R2", data={})
+        hub.request_review(after_ship=ShipType.WORKER, name="R2", data={})
 
         pending = hub.get_pending_reviews()
 

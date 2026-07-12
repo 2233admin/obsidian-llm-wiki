@@ -114,6 +114,16 @@ class TestValidateNote:
         violations = validate_note(fm)
         assert not any(v.field == "supersedes" for v in violations)
 
+    def test_links_must_be_list_when_present(self):
+        fm = {"id": "a/b", "description": "x", "kind": "note", "links": "a/other"}
+        violations = validate_note(fm)
+        assert any(v.field == "links" and v.severity == "warning" for v in violations)
+
+    def test_entity_type_warns_when_not_declared(self):
+        fm = {"id": "a/b", "description": "x", "kind": "note", "entity_type": "UnknownType"}
+        violations = validate_note(fm, known_entity_types={"Concept"})
+        assert any(v.field == "entity_type" and v.severity == "warning" for v in violations)
+
     def test_id_suggestion_includes_path_hint(self):
         path = Path("05-Engineering/rust-ownership.md")
         fm = {"description": "x", "kind": "note"}
@@ -239,6 +249,28 @@ class TestFrozenInvariant:
         results = check_vault(tmp_path)
         assert len(results) == 2
         assert not any(r.has_errors for r in results)
+
+    def test_missing_link_is_warning(self, tmp_path):
+        (tmp_path / "a.md").write_text(
+            "---\nid: a/note\ndescription: x\nkind: note\nlinks: [b/missing]\n---\n", encoding="utf-8"
+        )
+        results = check_vault(tmp_path)
+        assert any(v.field == "links" and v.severity == "warning" for v in results[0].violations)
+
+    def test_entity_type_not_in_ontology_is_warning(self, tmp_path):
+        kb = tmp_path / "KB"
+        kb.mkdir()
+        (kb / "ontology.yaml").write_text(
+            "domain: test\nentity_types:\n  Concept:\n    parent: Concept\n",
+            encoding="utf-8",
+        )
+        note = tmp_path / "a.md"
+        note.write_text(
+            "---\nid: a/note\ndescription: x\nkind: note\nentity_type: UnknownType\n---\n",
+            encoding="utf-8",
+        )
+        results = check_vault(tmp_path, staged_files=[note])
+        assert any(v.field == "entity_type" and v.severity == "warning" for v in results[0].violations)
 
 
 # ---------------------------------------------------------------------------

@@ -1,67 +1,88 @@
-# LLMwiki — User Guide
+# LLMwiki User Guide
 
 > 🌐 **Languages**: English (this page) · [简体中文](GUIDE.zh-CN.md)
 
-A practical walk-through: install, compile raw research, ask cited questions, and file useful AI output for review.
+This guide walks through install, first query, demo compiler loop, AI-output filing, projects, sources, and Canvas diagrams.
 
-If you hit a wall, jump to [Troubleshooting](#troubleshooting) or open [an issue](https://github.com/2233admin/obsidian-llm-wiki/issues).
+## Install
 
----
+Claude Code plugin path:
 
-## What this gives you
-
-You are here because your team already lost knowledge once.
-
-Not because nobody wrote it down. They did. The problem is that notes, repo findings, and agent answers have no state: no source, no reviewer, no promotion path.
-
-**LLMwiki** turns that into a simple loop:
-
-```
-capture -> compile -> ask -> file -> review -> promote
+```text
+/plugin marketplace add 2233admin/obsidian-llm-wiki
+/plugin install llmwiki@obsidian-llm-wiki
 ```
 
-Raw notes become compiled summaries and concepts. Useful agent answers become quarantined drafts. Only reviewed conclusions become durable team memory.
+The plugin includes the MCP server, bundled skills, and Canvas diagram support. Start Claude Code inside your vault, or set `VAULT_MIND_VAULT_PATH` to an absolute path.
 
-It is not an AI companion. It is a knowledge compiler for team vaults: `raw/` becomes `wiki/`, cited answers land in `00-Inbox/AI-Output/`, and durable memory is promoted through review.
-
-It works with **Claude Code, Codex, OpenCode, and Gemini CLI**. Obsidian is optional — the filesystem adapter handles everything without it.
-
----
-
-## 30-second install
+Other hosts use setup:
 
 ```bash
 git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git ~/obsidian-llm-wiki-src
-cd ~/obsidian-llm-wiki-src && ./setup
+cd ~/obsidian-llm-wiki-src
+bash ./setup --host codex
 ```
 
-**Windows PowerShell:**
+Windows PowerShell:
 
 ```powershell
 git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git "$HOME\obsidian-llm-wiki-src"
-cd "$HOME\obsidian-llm-wiki-src"; .\setup.ps1
+cd "$HOME\obsidian-llm-wiki-src"
+.\setup.ps1 -VaultHost codex
 ```
 
-**Pick a host explicitly:**
+Supported setup hosts:
 
 ```bash
-./setup --host claude     # default
-./setup --host codex
-./setup --host opencode
-./setup --host gemini
+bash ./setup --host claude
+bash ./setup --host codex
+bash ./setup --host opencode
+bash ./setup --host gemini
 ```
 
-After setup prints two paste-in snippets (a `.mcp.json` entry + a `CLAUDE.md` role block), restart your agent host.
+Setup installs into the legacy-compatible `vault-wiki` directory and prints a `vault-mind` MCP config snippet. Full details are in [INSTALL.md](INSTALL.md).
 
-Full install details, per-host paths, manual install, and uninstall are in [INSTALL.md](INSTALL.md).
+## First Agent Session
 
----
+Point `VAULT_MIND_VAULT_PATH` at a real Markdown vault and restart the agent host.
 
-## First success path
+Ask:
 
-Run this before touching your real vault. It proves the product loop with the bundled demo vault.
+```text
+List a few recent notes in my vault using LLMwiki MCP tools.
+```
 
-The current compiler runs per topic directory. In this demo, `examples/collab-vault/research-compiler/` has its own `raw/` and `wiki/`:
+If this returns note paths, the filesystem adapter can read the vault.
+
+Then ask a cited question:
+
+```text
+What have I written about <topic I actually know>? Search the vault, read the top matches, and cite file paths.
+```
+
+For graph context:
+
+```text
+Explain [[name-of-one-of-your-notes]] in graph context. Use backlinks and outbound links.
+```
+
+For cleanup planning:
+
+```text
+Find notes nothing else links to and broken wikilinks. Return a dry-run cleanup plan.
+```
+
+For diagrams:
+
+```text
+Create an Obsidian Canvas map for this project architecture. Keep the source of truth as a .canvas file.
+```
+
+The `vault-diagram` skill keeps diagrams editable as JSON Canvas files.
+
+## Demo Compiler Loop
+
+Run this before touching a production vault:
 
 ```bash
 python compiler/compile.py examples/collab-vault/research-compiler --tier haiku --dry-run
@@ -69,110 +90,36 @@ python scripts/knowledge_health.py --vault examples/collab-vault --json
 python scripts/llmwiki_doctor.py --vault examples/collab-vault --json
 ```
 
-The dry-run compiler uses stub extraction, so this does not need an API key. `knowledge_health.py` checks whether raw sources, compiled wiki artifacts, AI-Output, and promoted memory still line up. `llmwiki_doctor.py` checks runtime, policy, lint, and governance.
+The compiler dry-run uses stub extraction, so it does not require an API key. Inspect:
 
-Open these files side by side:
-
-| What to inspect | Path |
-|---|---|
+| What | Path |
+| --- | --- |
 | Source material | `examples/collab-vault/research-compiler/raw/team-memory-os.md` |
 | Compiled summary | `examples/collab-vault/research-compiler/wiki/summaries/team-memory-os.md` |
 | Filed AI draft | `examples/collab-vault/00-Inbox/AI-Output/codex/project-setup-proposal.md` |
 | Reviewed memory | `examples/collab-vault/20-Decisions/2026-05-16-gitea-reviewed-vault.md` |
 
-That is the loop:
+The operating loop is:
 
-```
+```text
 raw/ -> wiki/ -> query -> 00-Inbox/AI-Output/ -> reviewed/promoted
 ```
 
-See [RESEARCH_COMPILER_LOOP.md](RESEARCH_COMPILER_LOOP.md) for the full operating procedure and technical model.
+## AI-Output Filing
 
----
+Useful agent analysis should be saved under:
 
-## First agent session
-
-After install, point `VAULT_PATH` at a real markdown vault and restart your agent host.
-
-### 1. Sanity check — list one role
-
-In Claude Code (or your agent host), type:
-
-```
-/vault-librarian how many notes are in my vault
-```
-
-You should see a count and a handful of recent note paths. If this works, MCP is wired and your vault is indexed.
-
-### 2. Ask a real question
-
-```
-/vault-librarian what have I written about <topic you actually know>
-```
-
-The librarian searches, reads top matches, and gives you an answer with citations. If it says "no results found", try a broader topic — the librarian cites only, never fabricates.
-
-### 3. See what's orphaned
-
-```
-/vault-curator find notes that nothing else links to
-```
-
-Curator runs `vault.lint` and shows orphans + broken links. Great first cleanup pass.
-
-### 4. Understand a concept in context
-
-```
-/vault-teacher explain [[name-of-one-of-your-notes]]
-```
-
-Teacher pulls the note, finds its backlinks and outbound links, and explains where it fits in your graph.
-
-### 5. Check what you wrote last month
-
-```
-/vault-historian what was I thinking about in March
-```
-
-Historian searches by frontmatter dates + mtime, groups by theme.
-
-That is the agent side of the loop: query with citations, file useful output, then review what deserves to become team memory.
-
----
-
-## Knowledge roles
-
-| Role | Best for | Reads | Writes |
-|---|---|---|---|
-| **vault-librarian** | "What do I know about X?" — source-cited answers | ✅ | — |
-| **vault-architect** | Concept graph compile + refactor suggestions | ✅ | proposes only |
-| **vault-curator** | Health report: orphans, broken links, duplicates | ✅ | — |
-| **vault-teacher** | Explain a note in graph context | ✅ | — |
-| **vault-historian** | "What was I thinking on date X" | ✅ | — |
-| **vault-janitor** | Cleanup plan with dry-run review | ✅ | dry-run by default |
-| **vault-gardener** | Seed an empty vault + run health passes | ✅ | dry-run by default |
-
-**All write operations default to dry-run.** You see the plan before anything touches disk.
-
-Detailed role constraints live in `skills/vault-*.md` once installed.
-
----
-
-## AI-Output filing
-
-Every meaningful role analysis can be saved under:
-
-```
+```text
 {vault}/00-Inbox/AI-Output/{role}/YYYY-MM-DD-{slug}.md
 ```
 
-Each saved analysis has provenance frontmatter:
+Each saved draft has provenance frontmatter:
 
 ```yaml
 ---
 generated-by: vault-architect
 generated-at: 2026-04-21T14:32:00.000Z
-agent: claude-opus-4-7
+agent: claude
 parent-query: "refactor authentication module"
 source-nodes:
   - "[[auth-architecture]]"
@@ -183,91 +130,32 @@ quarantine-state: new
 ---
 ```
 
-### Why this matters
+Keep drafts in quarantine until reviewed. Promote durable conclusions into reviewed team paths such as `20-Decisions/`, `30-Architecture/`, and `40-Runbooks/`.
 
-Without this, useful agent work evaporates when your session ends. With it, the vault keeps candidate outputs with citations and review state. Next time you ask `/vault-librarian what did the architect role say about auth`, it can find the filed draft.
+## Local Projects
 
-### Lifecycle markers
+Use `project.*` tools when you want Linear-style task state inside the vault. Issues, comments, dependencies, and views live under:
 
-- `draft` (auto, on write) — fresh output, not reviewed
-- `reviewed` — you manually flipped it after confirming it's useful
-- `stale` — gardener auto-flipped after N days with no backlinks from your own notes
-- `superseded` — newer analysis covers the same source notes (gardener proposes, you confirm)
-- `quarantine-state: promoted` — durable knowledge was moved or rewritten into a reviewed team path
-
-### How to review
-
-Open `00-Inbox/AI-Output/{role}/` in your editor. Flip `status: draft` → `reviewed` in the frontmatter of anything you want to keep. Promote durable conclusions by moving or rewriting them into `20-Decisions/`, `30-Architecture/`, or `40-Runbooks/` through review. Do nothing for the rest — the gardener will report stale candidates after the role-specific timeout.
-
-Full details: [ai-output-convention.md](ai-output-convention.md).
-
----
-
----
-
-## Local project management
-
-Use `project.*` tools when you want local Linear-style task state inside the vault. The workflow is file-backed: issues, comments, project containers, rhizome links, and Kanban board state all live under `10-Projects/<project>/docket/`.
+```text
+10-Projects/<project>/docket/
+```
 
 Good first flow:
 
 ```text
-project.init project=alpha
-project.issue.create project=alpha title="Build local Linear" priority=High status=started
-project.comment.add project=alpha id=ISSUE-1 body="Validated through smoke test"
-project.issue.update project=alpha id=ISSUE-1 status=Done
+Initialize a project named alpha, create an issue, add a comment, and export a project board. Keep all writes dry-run first.
 ```
 
-After that, `query.unified` and the `kanban` adapter can find the issue and board cards. Details: [LOCAL_PROJECTS.md](LOCAL_PROJECTS.md).
+Project visual exports can create:
 
-## Local NotebookLM-style ingest
-
-Use `/chubbyskills` when the goal is broader than one source: Bilibili videos, Douyin clips, podcasts, WeChat articles, Xiaohongshu notes, X/Twitter posts, YouTube videos, and content enrichment. ChubbySkills does the capture/transcription; LLMwiki does retrieval, citation, memory, and review.
-
-Good first prompt:
-
-```text
-/chubbyskills make this vault work like a local NotebookLM over my saved feeds
-```
-
-The key environment bridge is:
-
-```bash
-export VAULT_MIND_VAULT_PATH=/path/to/your/vault
-export VAULT_DIR="$VAULT_MIND_VAULT_PATH"
-```
-
-Details: [CHUBBYSKILLS.md](CHUBBYSKILLS.md).
-
-## Local security scan evidence
-
-Use `recipe.run id=avira-to-vault` when you want a local Avira / 小红伞 scan report saved as Markdown evidence. LLMwiki does not bundle antivirus software; configure your own trusted local scanner command:
-
-```bash
-export AVIRA_SCAN_CMD='avscan {target}'
-export AVIRA_SCAN_TARGET='/path/to/vault-or-project'
-```
-
-Reports land in `00-Inbox/Security/avira/` when `VAULT_MIND_VAULT_PATH` / `VAULT_PATH` / `VAULT_DIR` is set, then normal `vault.search`, `query.unified`, and `query.answer` can cite them. Treat non-zero scanner exits as `attention-required`, not as final remediation.
-
-## X/Twitter capture
-
-Use `/x-to-obsidian` when you want posts from X/Twitter saved into the vault through Obsidian Web Clipper. The skill is intentionally local-browser-first: it expects macOS, a logged-in browser session, Obsidian, and the official Web Clipper extension.
-
-Good first prompt:
-
-```text
-/x-to-obsidian collect the top 20 posts from this X search and save them to Obsidian
-```
-
-After clipping, use normal LLMwiki tools to find and govern the notes: `query.unified`, `vault.search`, `vault.writeAIOutput`, and `memory.handoff.write`. Details: [X_TO_OBSIDIAN.md](X_TO_OBSIDIAN.md).
-
+- `10-Projects/<project>/views/project-map.canvas`
+- `10-Projects/<project>/views/issues.base`
 
 ## Source Registry
 
-Use `source.register` before promising that an external link has been captured. It records the source and preflight plan without downloading media or scraping private data.
+Use `source.register` before promising an external link is captured. It records a source note and preflight plan without scraping private data or downloading media.
 
-Path rules are fixed:
+Durable source paths:
 
 ```text
 _llmwiki/source-registry.json
@@ -275,211 +163,24 @@ _llmwiki/source-registry.json
 10-Projects/<project>/sources/<platform>/<source>.md
 ```
 
-For URLs, `source.register` runs the same read-only `ingest.link.preflight` classifier so the record says whether the route is `OPENCLI`, `MEDIA_TRANSCRIBE`, or a chained local pipeline. For existing vault notes, use `inputType=vaultPath`; LLMwiki creates a Source Note and leaves the original note untouched.
+Use `source.list` and `source.get` to inspect registered sources.
 
-## Markdown agent memory
+## Optional Capture Skills
 
-AI-Output is for reviewable drafts. Markdown memory is for continuity between agent sessions.
+`chubbyskills` handles broader local capture and transcription flows such as Bilibili, Douyin, podcasts, WeChat, Xiaohongshu, X/Twitter, and YouTube. LLMwiki handles retrieval, citation, memory, and review.
 
-Use the new `memory.*` tools when an agent should leave visible state for the next run:
-
-| Tool | Writes or reads |
-|---|---|
-| `memory.passport.get` / `memory.passport.upsert` | `passport.md` with Goal, Constraints, Decisions, Open Questions, Pointers |
-| `memory.handoff.latest` / `memory.handoff.write` | `handoff.md` with Current State, Next Steps, Risks, Files |
-| `memory.session.save` / `memory.session.list` | timestamped `sessions/<timestamp>-<slug>.md` notes with Summary, Decisions, Actions, References |
-
-Path rules are fixed:
-
-```text
-10-Projects/<project>/agents/<actor>/memory/
-00-Inbox/Agent-Memory/<actor>/
-```
-
-`<actor>` comes from `VAULT_MIND_ACTOR`; if it is not set, LLMwiki uses `agent`. Existing `memory.set/get/list/forget` remains backed by `_ai_memory.json` and is not migrated automatically.
-
-Because Markdown memory lands in the vault, regular filesystem search and `query.unified` can find it. A useful handoff prompt is: "write a handoff for project X with current state, next steps, risks, and files".
-
-## Conversation decisions
-
-Use `conversation.decision.capture` when the useful part of a chat is a decision, not just a session summary: architecture choices, technical tradeoffs, rejected options, debug root causes, project-state changes, or constraints future agents must preserve.
-
-Decision notes are append-only Markdown under:
-
-```text
-10-Projects/<project>/agents/<actor>/memory/decisions/
-00-Inbox/Agent-Memory/<actor>/decisions/
-```
-
-Each note captures Summary, Decision, Why, Rejected Options, Constraints Snapshot, Assumptions, Risks, Actions, References, and selected Conversation Excerpts. Do not save full transcripts by default; pass only excerpts needed to justify the decision. Because these are normal vault notes, `vault.search`, `query.unified`, `query.trace`, and `query.answer` can cite them later.
-
-## MemPalace-style context stack
-
-Use `context.wakeup` at the start of a new agent session. It packages L0 passport identity, L1 handoff/sessions/conversation decisions, and optional L2 topic recall into a bounded startup context.
-
-Good defaults:
-
-```text
-context.wakeup project=<project> topic=<topic>
-context.recall project=<project> query=<specific topic>
-context.deep_search query=<complex question>
-```
-
-The stack is read-only in Phase 1. It does not save transcripts or mutate memory; it only repackages existing Markdown memory, conversation decisions, and cited search results.
-
-## Kanban board search
-
-The read-only `kanban` adapter indexes Obsidian Kanban plugin boards that are stored as Markdown:
-
-```yaml
----
-kanban-plugin: board
----
-```
-
-It parses lanes from `## Lane`, cards from `- [ ]` and `- [x]`, archive sections after `***`, and ignores the `%% kanban:settings` footer. Search results include board summaries and card entities with metadata such as `entityType`, `boardPath`, `lane`, `checked`, `archived`, and optional `blockId`.
-
-The default adapter list includes `kanban`. If you set adapters manually, include it:
-
-```bash
-VAULT_MIND_ADAPTERS=filesystem,kanban
-VAULT_MIND_KANBAN_GLOB='**/*.md'
-```
-
-## Obsidian visual project views
-
-LLMwiki writes native Obsidian visualization files from the same Markdown project data:
-
-```text
-project.canvas.export project=<project> dryRun=false
-project.base.export project=<project> dryRun=false
-```
-
-Files land in `10-Projects/<project>/views/`:
-
-```text
-project-map.canvas
-issues.base
-```
-
-Canvas shows the project, status groups, issue note cards, and dependency/relationship edges. Bases shows a table over issue properties: id, title, status, state_type, priority, assignee, blocked_by, updated_at, and tags. Dataview and Tasks can still be used by advanced Obsidian users, but Bases is the default no-extra-plugin dashboard.
-
-## Optional Obsidian graph check
-
-After you have real AI-Output notes, open one in Obsidian and turn on Local Graph at depth `2`. You should see the draft linked to its `source-nodes` and review tags. This is only a visual check; the product invariant is still the filesystem state:
-
-```
-source note -> cited AI-Output draft -> reviewed durable note
-```
-
----
-
-## Vault structure
-
-You do **not** need to restructure your vault. LLMwiki works with whatever you already have.
-
-It only creates one new directory when a role writes an analysis:
-
-```
-your-vault/
-├── (your existing notes, untouched)
-└── 00-Inbox/
-    └── AI-Output/
-        ├── vault-architect/
-        ├── vault-gardener/
-        └── ...
-```
-
-If you don't want AI-Output in your root, set `VAULT_PATH` in `.mcp.json` to a sub-folder of your actual vault. The MCP server treats `VAULT_PATH` as the root — it won't write outside it.
-
----
-
-## Common prompts cheat sheet
-
-| You want | Say |
-|---|---|
-| A fact-based answer | `/vault-librarian <question>` |
-| A cleanup pass | `/vault-curator what's broken` |
-| A note explained | `/vault-teacher explain [[note-name]]` |
-| A time window | `/vault-historian what was I thinking in <month>` |
-| A restructure idea | `/vault-architect suggest refactors` |
-| Safe cleanup execution | `/vault-janitor clean up orphans, dry run first` |
-| Seed a fresh vault | `/vault-gardener help me set up notes about <topic>` |
-
----
+`x-to-obsidian` supports X/Twitter capture through Obsidian Web Clipper workflows.
 
 ## Troubleshooting
 
-### Role command doesn't respond
+If the MCP server starts but search returns nothing, check that `VAULT_MIND_VAULT_PATH` is absolute and points to a directory with `.md` files.
 
-Restart your agent host. MCP registration is picked up at startup. If it still doesn't work, check the host's MCP logs for `obsidian-llm-wiki: server running (stdio ...)`.
+If `mcp-server/bundle.js` is missing in a source checkout, run:
 
-### `vault.search` returns nothing but your vault has files
+```bash
+cd mcp-server
+npm install
+npm run rebuild
+```
 
-`VAULT_PATH` in your `.mcp.json` is probably wrong or relative. Must be an absolute path to a directory that contains `.md` files.
-
-### Agent writes to the wrong place
-
-Check `VAULT_PATH` again. The MCP server refuses to write outside that path — if writes are landing somewhere unexpected, your path is unexpected.
-
-### I don't want AI-Output in my vault
-
-Two options: (a) set `VAULT_PATH` to a dedicated scratch directory, or (b) after use, move useful AI-Output files into proper topic folders and delete the rest.
-
-### The `node` command errors with "stdin is not a tty"
-
-On Git Bash (Windows), `node` is aliased to `winpty node.exe`. Use `node.exe` directly in non-interactive scripts. Not relevant for running the MCP server — your agent host invokes node correctly.
-
-### My `generated-at` timestamps are wrong
-
-The server uses UTC. Your local wall clock may differ by a timezone. Everything inside the vault stays in UTC for consistency.
-
-### Install-specific issues
-
-Detailed install/uninstall troubleshooting is in [INSTALL.md § Troubleshooting](INSTALL.md#troubleshooting).
-
----
-
-## FAQ
-
-### Do I need Obsidian?
-
-No. The filesystem adapter works without it. Obsidian adds live sync when combined with the `obsidian-vault-bridge` plugin, but that's optional.
-
-### Does this use embeddings / a vector DB?
-
-No. Search is keyword + wikilink graph based. You can optionally plug the `memU` adapter (pgvector) if you need semantic search at very large scale, but it's off by default.
-
-### What if my vault has 10,000+ notes?
-
-The compile step builds an in-memory graph; at 10k notes expect ~30-60s on first run. Subsequent queries are fast. For true scale (100k+), the optional pgvector adapter exists.
-
-### How do I update?
-
-`cd ~/obsidian-llm-wiki-src && git pull && ./setup` — setup re-copies the latest bundle.
-
-### Is it safe to run against my real vault?
-
-Yes. All mutating operations default to `dryRun: true`. The server refuses paths outside `VAULT_PATH` and rejects `.obsidian/`, `.trash/`, `.git/`, `node_modules/` by design. AI-Output writes go into one scoped directory you can delete wholesale.
-
-### Can I use my own models?
-
-The roles don't care about the model — they're prompts over MCP tools. Whatever agent host you use (Claude Code / Codex / etc.) decides the model.
-
-### Where do the MCP tools live?
-
-Generated reference: [mcp-tools-reference.md](mcp-tools-reference.md). the full MCP tool catalog. Drift-guarded by a CI test.
-
----
-
-## Related reading
-
-- [INSTALL.md](INSTALL.md) — per-host install, manual install, uninstall
-- [ai-output-convention.md](ai-output-convention.md) — sediment system schema & lifecycle
-- [WHY_NOT_JUST_GREP.md](WHY_NOT_JUST_GREP.md) — why this beats raw grep
-- [mcp-tools-reference.md](mcp-tools-reference.md) — full tool catalog
-- [philosophy.md](philosophy.md) — design principles
-
----
-
-GPL-3.0 licensed. See [LICENSE](../LICENSE).
+If semantic recall is off, that is expected unless you configured Ollama or `VAULT_MIND_EMBED_URL`; keyword recall still works.

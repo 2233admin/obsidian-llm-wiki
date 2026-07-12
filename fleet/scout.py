@@ -437,10 +437,10 @@ def main():
         print(json.dumps(result, indent=2, ensure_ascii=False))
     else:
         print(result["summary"])
-        print(f"\nIssues by type:")
+        print("\nIssues by type:")
         for issue_type, count in result["stats"]["by_type"].items():
             print(f"  {issue_type}: {count}")
-        print(f"\nIssues by severity:")
+        print("\nIssues by severity:")
         for severity, count in result["stats"]["by_severity"].items():
             print(f"  {severity}: {count}")
 

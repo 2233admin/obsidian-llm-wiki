@@ -173,6 +173,96 @@ def run(vault: Path, output: Path, skip_dirs: set[str], limit: int = 0) -> dict:
     return graph["stats"]
 
 
+def edge_confidence(llm_confidence: float, wikilink_cooccur: float) -> float:
+    return (0.7 * float(llm_confidence)) + (0.3 * float(wikilink_cooccur))
+
+
+def wikilink_cooccur(
+    source_id: str,
+    target_id: str,
+    wikilink_graph: dict[str, set[str]],
+) -> float:
+    if target_id in wikilink_graph.get(source_id, set()):
+        return 1.0
+    for intermediate in wikilink_graph.get(source_id, set()):
+        if target_id in wikilink_graph.get(intermediate, set()):
+            return 0.5
+    return 0.0
+
+
+def build_wikilink_adjacency(graph: dict) -> dict[str, set[str]]:
+    adjacency: dict[str, set[str]] = {}
+    for edge in graph.get("edges", []):
+        if edge.get("kind") != "wikilink" or not edge.get("resolved", True):
+            continue
+        adjacency.setdefault(edge["src"], set()).add(edge["dst"])
+    return adjacency
+
+
+def merge_causal_layer(graph: dict, holons: list[dict]) -> dict:
+    wikilinks = build_wikilink_adjacency(graph)
+    causal_edges: list[dict] = []
+
+    for holon in holons:
+        source_id = holon.get("id")
+        if not source_id:
+            continue
+        for fact in holon.get("facts", []):
+            relation = fact.get("relation")
+            target_id = fact.get("target_id") or fact.get("target")
+            if not relation or not target_id:
+                continue
+            cooccur = wikilink_cooccur(source_id, target_id, wikilinks)
+            llm_confidence = float(fact.get("confidence", 0.6))
+            causal_edges.append(
+                {
+                    "src": source_id,
+                    "dst": target_id,
+                    "kind": "causal",
+                    "relation": relation,
+                    "confidence": edge_confidence(llm_confidence, cooccur),
+                    "llm_confidence": llm_confidence,
+                    "wikilink_cooccur": cooccur,
+                    "claim": fact.get("claim", ""),
+                    "evidence": fact.get("evidence", ""),
+                    "trust_level": fact.get("trust_level", "extracted"),
+                }
+            )
+
+    merged = dict(graph)
+    merged["causal_edges"] = causal_edges
+    merged["contradictions"] = detect_causal_contradictions(causal_edges)
+    stats = dict(graph.get("stats", {}))
+    stats["causal_edges"] = len(causal_edges)
+    stats["contradiction_count"] = len(merged["contradictions"])
+    merged["stats"] = stats
+    return merged
+
+
+def detect_causal_contradictions(causal_edges: list[dict]) -> list[dict]:
+    by_pair: dict[tuple[str, str], list[dict]] = {}
+    for edge in causal_edges:
+        relation = edge.get("relation")
+        if relation not in {"causes", "prevents"}:
+            continue
+        key = (edge.get("src", ""), edge.get("dst", ""))
+        by_pair.setdefault(key, []).append(edge)
+
+    contradictions: list[dict] = []
+    for (source_id, target_id), edges in by_pair.items():
+        relations = {edge.get("relation") for edge in edges}
+        if {"causes", "prevents"}.issubset(relations):
+            contradictions.append(
+                {
+                    "source_id": source_id,
+                    "target_id": target_id,
+                    "relations": sorted(relations),
+                    "edges": edges,
+                }
+            )
+    return contradictions
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("vault", type=Path)

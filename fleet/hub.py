@@ -25,11 +25,7 @@ from .message import (
     ReviewPoint,
     ReviewStatus,
     ShipType,
-    SignificanceScore,
     WorkTask,
-    WorkOutput,
-    VerifyResult,
-    ScoutReport,
 )
 
 
@@ -246,109 +242,109 @@ class FleetHub:
         """
         lines = [
             f"# Fleet Briefing — {to.value.upper()}",
-            f"",
-            f"## Task",
+            "",
+            "## Task",
             f"- ID: {task.id}",
             f"- Entity: {task.entity}",
             f"- Type: {task.type}",
             f"- Priority: {task.priority}",
-            f"",
+            "",
         ]
 
         # Ship-specific context
         if to == ShipType.SCOUT:
             lines.extend([
-                f"## Scout Mission",
-                f"",
-                f"Your job: Discover issues in the vault and assess significance.",
-                f"",
-                f"### Scope",
+                "## Scout Mission",
+                "",
+                "Your job: Discover issues in the vault and assess significance.",
+                "",
+                "### Scope",
             ])
             if context and "scope" in context:
                 for scope in context["scope"]:
                     lines.append(f"- {scope}")
             else:
-                lines.append(f"- All directories")
+                lines.append("- All directories")
 
             lines.extend([
-                f"",
-                f"### Constraints",
-                f"- Do NOT modify files",
-                f"- Report findings in structured format",
-                f"- Assess significance for each issue",
-                f"",
-                f"### Output Format",
-                f"Return a JSON with:",
-                f'- issues: list of {{id, severity, type, location, description}}',
-                f'- significance_scores: list of {{item, severity, impact, effort}}',
-                f'- summary: one-line summary',
+                "",
+                "### Constraints",
+                "- Do NOT modify files",
+                "- Report findings in structured format",
+                "- Assess significance for each issue",
+                "",
+                "### Output Format",
+                "Return a JSON with:",
+                '- issues: list of {id, severity, type, location, description}',
+                '- significance_scores: list of {item, severity, impact, effort}',
+                '- summary: one-line summary',
             ])
 
         elif to == ShipType.WORKER:
             lines.extend([
-                f"## Worker Mission",
-                f"",
-                f"Your job: Execute the task and produce outputs.",
-                f"",
-                f"### Input",
+                "## Worker Mission",
+                "",
+                "Your job: Execute the task and produce outputs.",
+                "",
+                "### Input",
                 f"- Source: {task.input.get('source', 'N/A')}",
                 f"- Spec: {task.input.get('spec', 'N/A')}",
-                f"",
-                f"### Output Target",
+                "",
+                "### Output Target",
                 f"- Path: {task.output.get('path', 'N/A')}",
                 f"- Format: {task.output.get('format', 'markdown')}",
-                f"",
-                f"### Constraints",
+                "",
+                "### Constraints",
             ])
             for constraint in task.constraints:
                 lines.append(f"- {constraint}")
             if not task.constraints:
-                lines.append(f"- Do NOT modify files outside output path")
-                lines.append(f"- Follow existing code style")
+                lines.append("- Do NOT modify files outside output path")
+                lines.append("- Follow existing code style")
 
             lines.extend([
-                f"",
-                f"### Output Format",
-                f"Return a JSON with:",
-                f'- success: boolean',
-                f'- files_created/modified/deleted: lists',
-                f'- summary: description of what was done',
+                "",
+                "### Output Format",
+                "Return a JSON with:",
+                '- success: boolean',
+                '- files_created/modified/deleted: lists',
+                '- summary: description of what was done',
             ])
 
         elif to == ShipType.VERIFY:
             lines.extend([
-                f"## Verify Mission",
-                f"",
-                f"Your job: Check outputs and verify quality.",
-                f"",
-                f"### Focus Areas",
+                "## Verify Mission",
+                "",
+                "Your job: Check outputs and verify quality.",
+                "",
+                "### Focus Areas",
             ])
             if context and "focus" in context:
                 for focus in context["focus"]:
                     lines.append(f"- {focus}")
             else:
                 lines.extend([
-                    f"- Broken links",
-                    f"- Contradictions",
-                    f"- Orphan pages",
-                    f"- Stale content",
+                    "- Broken links",
+                    "- Contradictions",
+                    "- Orphan pages",
+                    "- Stale content",
                 ])
 
             lines.extend([
-                f"",
-                f"### Output Format",
-                f"Return a JSON with:",
-                f'- status: "pass" | "fail" | "warning"',
-                f'- checks: list of {{check_type, status, message}}',
-                f'- issues: list of issues found',
-                f'- summary: overall assessment',
+                "",
+                "### Output Format",
+                "Return a JSON with:",
+                '- status: "pass" | "fail" | "warning"',
+                '- checks: list of {check_type, status, message}',
+                '- issues: list of issues found',
+                '- summary: overall assessment',
             ])
 
         lines.extend([
-            f"",
-            f"---",
-            f"*This briefing is trimmed for context efficiency.*",
-            f"*Report results via fleet hub when complete.*",
+            "",
+            "---",
+            "*This briefing is trimmed for context efficiency.*",
+            "*Report results via fleet hub when complete.*",
         ])
 
         return "\n".join(lines)

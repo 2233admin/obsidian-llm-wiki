@@ -1,5 +1,17 @@
 # obsidian-llm-wiki — Context Core 开发文档
 
+## Spec workflow
+
+For non-trivial repository changes, use the repo-local OpenSpec workflow before implementation:
+
+```bash
+openspec new change <change-id>
+openspec status --change <change-id>
+openspec validate <change-id> --strict
+```
+
+See [OpenSpec Workflow](OPENSPEC_WORKFLOW.md). OpenSpec tracks change intent and requirements only; it does not replace GSD, work-OS issue notes, vault memory, or release CI.
+
 ## 目标
 
 把 obsidian-llm-wiki 从「文件夹+搜索」升级为**可版本化的上下文基础设施**。

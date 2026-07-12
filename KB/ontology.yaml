@@ -1,0 +1,24 @@
+domain: personal-knowledge
+version: "1.0"
+generated_by: llm
+reviewed: false
+entity_types:
+  ResearchFinding:
+    parent: Claim
+    description: "Research finding captured from notes"
+    properties:
+      - study_type
+      - confidence_interval
+  EngineeringDecision:
+    parent: Decision
+    description: "Engineering decision captured as an ADR or note"
+    properties:
+      - system
+      - reversibility
+relation_constraints:
+  - from: ResearchFinding
+    to: [Claim, EngineeringDecision]
+    allowed: [supports, contradicts, refines, implies]
+  - from: EngineeringDecision
+    to: [EngineeringDecision, Concept]
+    allowed: [requires, enables, prevents, refines]

@@ -6,11 +6,10 @@ import asyncio
 import sys
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import json_compat as orjson  # zero-dep shim: orjson if installed, else stdlib json
-
 from models import Chunk
 
 # Thread pool for concurrent API calls (max 10 concurrent)
@@ -84,6 +83,8 @@ class ExtractionResult:
     relationships: list[dict[str, str]]
     claims: list[dict[str, Any]]
     chunk: Chunk
+    entity_type: str = "Concept"
+    facts: list[dict[str, Any]] = field(default_factory=list)
 
 
 def _build_user_message(chunk: Chunk, existing_concepts: list[str]) -> str:
@@ -177,6 +178,8 @@ def extract_chunk(
         relationships=data.get("relationships", []),
         claims=data.get("claims", []),
         chunk=chunk,
+        entity_type=str(data.get("entity_type", "Concept")),
+        facts=data.get("facts", []),
     )
 
 
@@ -225,3 +228,143 @@ async def extract_batch(
             valid_results.append(result)
 
     return valid_results
+
+
+def _meta_relation_names() -> set[str]:
+    try:
+        from .meta_ontology import RELATION_TYPES
+    except ImportError:
+        from meta_ontology import RELATION_TYPES
+
+    return {relation for group in RELATION_TYPES.values() for relation in group}
+
+
+def _ontology_allowed_relations(
+    ontology: Any,
+    from_type: str,
+    to_type: str,
+) -> set[str]:
+    if hasattr(ontology, "get_allowed_relations"):
+        return set(ontology.get_allowed_relations(from_type, to_type))
+
+    constraints = getattr(ontology, "ontology", {}).get("relation_constraints", [])
+    allowed: set[str] = set()
+    for constraint in constraints:
+        if constraint.get("from") != from_type:
+            continue
+        if to_type in constraint.get("to", []):
+            allowed.update(constraint.get("allowed", []))
+    return allowed
+
+
+def normalize_holon_extraction(
+    extraction: dict[str, Any],
+    ontology: Any,
+    default_entity_type: str = "Concept",
+) -> dict[str, Any]:
+    entity_type = str(extraction.get("entity_type") or default_entity_type)
+    valid_relations = _meta_relation_names()
+    facts: list[dict[str, Any]] = []
+
+    for raw_fact in extraction.get("facts", []):
+        if not isinstance(raw_fact, dict):
+            continue
+        relation = str(raw_fact.get("relation", ""))
+        if relation not in valid_relations:
+            continue
+
+        target_type = str(raw_fact.get("target_type") or default_entity_type)
+        allowed = _ontology_allowed_relations(ontology, entity_type, target_type)
+        if not allowed or relation not in allowed:
+            continue
+
+        confidence = raw_fact.get("confidence", 0.6)
+        try:
+            confidence = float(confidence)
+        except (TypeError, ValueError):
+            confidence = 0.6
+
+        fact = dict(raw_fact)
+        fact["relation"] = relation
+        fact["target_type"] = target_type
+        fact["confidence"] = max(0.0, min(1.0, confidence))
+        fact.setdefault("trust_level", "extracted")
+        facts.append(fact)
+
+    return {"entity_type": entity_type, "facts": facts}
+
+
+def extract_causal_schema(
+    text: str,
+    ontology: Any,
+    entity_type: str = "Concept",
+    target_type: str | None = None,
+) -> dict[str, Any]:
+    relation_markers = [
+        ("prevents", ["prevents", "prevent", "blocks", "阻止", "防止", "避免"]),
+        ("causes", ["causes", "cause", "caused", "leads to", "导致", "造成", "引发"]),
+        ("enables", ["enables", "enable", "allows", "促进", "使得"]),
+        ("requires", ["requires", "require", "depends on", "需要", "依赖"]),
+    ]
+    lowered = text.lower()
+    relation = ""
+    marker = ""
+    for candidate, markers in relation_markers:
+        marker = next((m for m in markers if m in lowered or m in text), "")
+        if marker:
+            relation = candidate
+            break
+
+    facts: list[dict[str, Any]] = []
+    if relation:
+        target_text = _target_after_marker(text, marker)
+        facts.append(
+            {
+                "claim": text.strip(),
+                "relation": relation,
+                "target_id": _fact_target_id(target_text),
+                "target_type": target_type or entity_type,
+                "confidence": 0.8,
+                "evidence": text.strip(),
+                "trust_level": "extracted",
+            }
+        )
+
+    return normalize_holon_extraction(
+        {"entity_type": entity_type, "facts": facts},
+        ontology,
+        default_entity_type=entity_type,
+    )
+
+
+def _target_after_marker(text: str, marker: str) -> str:
+    if not marker:
+        return "unknown-target"
+    index = text.lower().find(marker.lower())
+    if index == -1:
+        index = text.find(marker)
+    target = text[index + len(marker) :].strip(" ，,。.;；:：\n\t")
+    for sep in ("，", "。", ",", ".", ";", "；", "\n"):
+        if sep in target:
+            target = target.split(sep, 1)[0]
+    return target.strip() or "unknown-target"
+
+
+def _fact_target_id(target_text: str) -> str:
+    normalized = target_text.lower()
+    replacements = {
+        "债券价格": "bond-prices",
+        "bond prices": "bond-prices",
+        "prices": "prices",
+    }
+    for needle, slug in replacements.items():
+        if needle in normalized:
+            return f"extracted/{slug}"
+    chars = [
+        char if char.isalnum() else "-"
+        for char in normalized
+        if char.isalnum() or char in {" ", "-", "_", "/"}
+    ]
+    slug = "".join(chars).replace("_", "-").replace("/", "-")
+    slug = "-".join(part for part in slug.split("-") if part)
+    return f"extracted/{slug or 'unknown-target'}"

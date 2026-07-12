@@ -21,6 +21,9 @@ import { makeCausalOps } from '../holons/causal.js';
 import { makeProvenanceOps } from '../holons/provenance.js';
 import { makeGraphOps } from '../holons/graph.js';
 import { makeVaultWriteOps } from '../holons/write.js';
+import { makeHolonOperations } from '../operations/holon.js';
+import { makeCausalOperations } from '../operations/causal.js';
+import { makeProvenanceOperations } from '../operations/provenance.js';
 import { makeMemoryOps } from '../memory/memory.js';
 import { makeProjectOps } from '../project/project.js';
 import { makeIngestOps } from '../ingest/ingest.js';
@@ -1166,6 +1169,9 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
   ];
 
   const holonOps = [
+    ...(makeHolonOperations(vaultPath, deps.contextCorePath) as unknown as Operation[]),
+    ...(makeCausalOperations(vaultPath, deps.contextCorePath) as unknown as Operation[]),
+    ...(makeProvenanceOperations(vaultPath, deps.contextCorePath) as unknown as Operation[]),
     ...makeHolonOps(contextCoreLoader),
     ...makeCausalOps(contextCoreLoader),
     ...makeProvenanceOps(contextCoreLoader),

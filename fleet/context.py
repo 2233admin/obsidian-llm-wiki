@@ -102,6 +102,8 @@ class ContextTrimmer:
         current_tokens = self.estimate_tokens(full_context)
 
         if current_tokens <= budget:
+            if task_type == "scout" and self._has_scout_priority_content(full_context):
+                return self._trim_for_scout(full_context, budget)
             return TrimmedContext(
                 content=full_context,
                 tokens_estimate=current_tokens,
@@ -118,6 +120,13 @@ class ContextTrimmer:
             return self._trim_for_verify(full_context, budget)
         else:
             return self._trim_generic(full_context, budget)
+
+    def _has_scout_priority_content(self, content: str) -> bool:
+        return (
+            "index.md" in content
+            or "Home.md" in content
+            or bool(re.search(r"\d{4}-\d{2}-\d{2}", content))
+        )
 
     def _trim_for_scout(self, content: str, budget: int) -> TrimmedContext:
         """Trim context specifically for scout tasks."""
@@ -303,32 +312,32 @@ class ContextTrimmer:
         """
         lines = [
             f"# Briefing — {ship_type.upper()}",
-            f"",
-            f"## Task",
+            "",
+            "## Task",
             f"- ID: {task.get('id', 'N/A')}",
             f"- Entity: {task.get('entity', 'N/A')}",
             f"- Type: {task.get('type', 'N/A')}",
-            f"",
+            "",
         ]
 
         # Ship-specific instructions
         if ship_type == "scout":
             lines.extend([
-                f"## Your Mission",
-                f"",
-                f"Scan the vault for issues. Be thorough but efficient.",
-                f"",
-                f"### Focus Areas",
-                f"- Broken wikilinks",
-                f"- Orphan pages (no incoming links)",
-                f"- Stale content (>6 months old)",
-                f"- Unresolved contradictions",
-                f"",
-                f"### Output",
-                f"Return JSON with:",
-                f'- issues: list of {{id, severity, type, location, description}}',
-                f'- stats: counts by severity and type',
-                f'- summary: one-line summary',
+                "## Your Mission",
+                "",
+                "Scan the vault for issues. Be thorough but efficient.",
+                "",
+                "### Focus Areas",
+                "- Broken wikilinks",
+                "- Orphan pages (no incoming links)",
+                "- Stale content (>6 months old)",
+                "- Unresolved contradictions",
+                "",
+                "### Output",
+                "Return JSON with:",
+                '- issues: list of {id, severity, type, location, description}',
+                '- stats: counts by severity and type',
+                '- summary: one-line summary',
             ])
 
         elif ship_type == "worker":
@@ -336,69 +345,69 @@ class ContextTrimmer:
             output_spec = task.get("output", {})
 
             lines.extend([
-                f"## Your Mission",
-                f"",
-                f"Execute the task and produce the required output.",
-                f"",
-                f"### Input",
+                "## Your Mission",
+                "",
+                "Execute the task and produce the required output.",
+                "",
+                "### Input",
                 f"- Source: {input_spec.get('source', 'N/A')}",
                 f"- Spec: {input_spec.get('spec', 'N/A')}",
-                f"",
-                f"### Output Target",
+                "",
+                "### Output Target",
                 f"- Path: {output_spec.get('path', 'N/A')}",
                 f"- Format: {output_spec.get('format', 'markdown')}",
-                f"",
+                "",
             ])
 
             constraints = task.get("constraints", [])
             if constraints:
-                lines.append(f"### Constraints")
+                lines.append("### Constraints")
                 for c in constraints:
                     lines.append(f"- {c}")
                 lines.append("")
 
             lines.extend([
-                f"### Output Format",
-                f"Return JSON with:",
-                f'- success: boolean',
-                f'- files_created/modified/deleted: lists',
-                f'- summary: description of what was done',
+                "### Output Format",
+                "Return JSON with:",
+                '- success: boolean',
+                '- files_created/modified/deleted: lists',
+                '- summary: description of what was done',
             ])
 
         elif ship_type == "verify":
             lines.extend([
-                f"## Your Mission",
-                f"",
-                f"Verify the work output and check quality.",
-                f"",
-                f"### Checks to Run",
-                f"- Broken links",
-                f"- Orphan pages",
-                f"- Contradictions",
-                f"- Format compliance",
-                f"",
-                f"### Output Format",
-                f"Return JSON with:",
-                f'- status: "pass" | "fail" | "warning"',
-                f'- checks: list of {{check_type, status, message}}',
-                f'- issues: any problems found',
-                f'- summary: overall assessment',
+                "## Your Mission",
+                "",
+                "Verify the work output and check quality.",
+                "",
+                "### Checks to Run",
+                "- Broken links",
+                "- Orphan pages",
+                "- Contradictions",
+                "- Format compliance",
+                "",
+                "### Output Format",
+                "Return JSON with:",
+                '- status: "pass" | "fail" | "warning"',
+                '- checks: list of {check_type, status, message}',
+                '- issues: any problems found',
+                '- summary: overall assessment',
             ])
 
         # Add vault state summary if available
         if vault_state:
             lines.extend([
-                f"",
-                f"## Vault State",
+                "",
+                "## Vault State",
                 f"- Files: {vault_state.get('file_count', 'N/A')}",
                 f"- Directories: {vault_state.get('dir_count', 'N/A')}",
                 f"- Last scan: {vault_state.get('last_scan', 'N/A')}",
             ])
 
         lines.extend([
-            f"",
-            f"---",
-            f"*Context trimmed for efficiency. Focus on your mission.*",
+            "",
+            "---",
+            "*Context trimmed for efficiency. Focus on your mission.*",
         ])
 
         return "\n".join(lines)
@@ -497,7 +506,7 @@ class SessionManager:
 
     def close_session(self, session_id: str) -> dict[str, Any] | None:
         """Close a session and return final state."""
-        session = self.sessions.get(session_id)
+        session = self.sessions.pop(session_id, None)
         if session:
             session["status"] = "closed"
         return session

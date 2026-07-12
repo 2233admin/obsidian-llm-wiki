@@ -11,10 +11,14 @@ __pycache__/
 venv/
 *.egg-info/
 .pytest_cache/
+.ruff_cache/
 
-# Local vault (user's own notes, never committed)
+# Local vaults and indexes
 knowledge/
 .cnxq/
+.repowise/
+.serena/
+.obc_semantic_cache.pkl
 
 # IDE
 .vscode/
@@ -33,9 +37,8 @@ compiler/fm_config.local.json
 compiler/fm_work/
 fm_work/
 
-# Dogfood usage log (per-dev, not shared)
+# Dogfood usage logs (per-dev, not shared)
 .dogfood.log
-
 .dogfood.weekly.md
 
 # vault-save session recap markers (per-dev)
@@ -50,7 +53,7 @@ mcp-server/smoke.err
 # link_discovery output (per-dev, regenerate with compiler/link_discovery.py)
 .compile/
 
-# Currency passes derived artifacts (Task 2): DERIVED, recomputable, NOT committed.
+# Currency passes derived artifacts: recomputable, not committed.
 # Regenerate with: python compiler/kb_meta.py currency <vault> <topic> --apply
 **/wiki/_current-truth.md
 **/wiki/_supersession.md
@@ -62,28 +65,22 @@ mcp-server/smoke.err
 **/wiki/_work-os.canvas
 **/_triage.canvas
 
-# capture-hook (Task 4) per-machine idempotency state (default lives in
-# ~/.vault-mind/; ignored here in case VAULT_CAPTURE_STATE points into the repo)
+# capture-hook per-machine idempotency state
+# Default lives in ~/.vault-mind/; ignored here when VAULT_CAPTURE_STATE points into repo.
 capture-hook.seen.log
 **/capture-hook.seen.log
 
-# Task 9 / 9A local project registry (MACHINE-LOCAL): workspace roots AND
-# bindings are machine-specific paths, so the WHOLE dir is gitignored. A
-# machine path must NEVER appear in any shared/committed markdown note (§0 #9).
-# Holds workspace.json (workspace-roots) + local-bindings.json (entity -> path).
+# Task 9 / 9A local project registry
+# Machine-specific workspace roots and bindings. Never commit shared/local paths.
+workspace.json
+local-bindings.json
 .vault-mind/
 
-# Local planning / GSD artifacts (per-dev, not part of shipped product)
+# GSD / planning runtime state (per-dev)
 .planning/
-.gitnexus
-.repowise/
 .repowise-workspace.yaml
-.sentrux/
-.cocoindex_code/
-.claude/
-.outreach/
-/package-lock.json
-agent_logs/
 TASKS.md
-workspaces/
+
+# Keep dependency lockfiles out of this source snapshot unless intentionally adopted.
+/package-lock.json
 uv.lock

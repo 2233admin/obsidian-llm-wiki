@@ -1,0 +1,52 @@
+schema: spec-driven
+
+context: |
+  Project: LLMwiki / obsidian-llm-wiki.
+  Purpose: headless-first Obsidian/Markdown knowledge layer for cited vault search, reviewed memory, local project work, source registration, MCP tools, and agent workflow integration.
+  Public naming: use LLMwiki / llmwiki. Keep vault-mind as MCP server and environment compatibility surface. Treat vault-wiki as legacy-compatible setup path wording only.
+  Core boundaries:
+    - LLMwiki is reviewed Markdown knowledge, not the owner of every external workflow runtime.
+    - Agent drafts start in 00-Inbox/AI-Output/<agent>/ or 10-Projects/<project>/agents/<agent>/ and are not durable team truth.
+    - Durable reviewed knowledge belongs in 20-Decisions/, 30-Architecture/, and 40-Runbooks/.
+    - Work-OS source truth lives in 01-Projects/<project>/issues/<slug>.md; do not create new 10-Projects/<project>/docket/** work.
+    - Source Registration Phase 1 supports only url and vaultPath inputs. Do not spec repoPath, filePath, directoryPath, or text as source.register inputs until implementation support exists.
+  Current implementation surfaces:
+    - Python compiler and fleet modules under compiler/ and fleet/.
+    - TypeScript MCP server under mcp-server/.
+    - Setup and release packaging under setup, setup.ps1, packaging/, scripts/, .claude-plugin/, and .github/workflows/.
+    - Canvas/diagram support under archify/ and skills/vault-diagram/.
+
+rules:
+  proposal:
+    - Include explicit Non-Goals when adopting or integrating external workflow systems.
+    - Name affected LLMwiki surfaces and authority boundaries in Impact.
+    - Do not claim runtime behavior changes unless tasks include matching tests or smoke checks.
+  specs:
+    - Use SHALL/MUST for normative behavior.
+    - Every requirement MUST include at least one WHEN/THEN scenario.
+    - Specs MUST preserve LLMwiki authority boundaries from CONTEXT.md, docs/AGENT_WORKFLOW_INTEGRATION.md, and docs/MEMORY_GOVERNANCE.md.
+  design:
+    - Explain why new workflow state does or does not belong to OpenSpec, GSD, work-OS, or vault memory.
+    - Prefer repo-local Markdown and CLI validation over new runtime dependencies.
+  tasks:
+    - Keep tasks small enough to verify in one session.
+    - Include at least one OpenSpec CLI validation task and one repo-local documentation check for workflow changes.
+
+# Project context (optional)
+# This is shown to AI when creating artifacts.
+# Add your tech stack, conventions, style guides, domain knowledge, etc.
+# Example:
+#   context: |
+#     Tech stack: TypeScript, React, Node.js
+#     We use conventional commits
+#     Domain: e-commerce platform
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours

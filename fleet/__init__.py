@@ -45,6 +45,15 @@ from .scout import ScoutShip
 from .worker import WorkerShip
 from .verify import VerifyShip
 from .review import ReviewManager, ReviewSession
+from .protocol import (
+    AddressingMode,
+    AgentCard,
+    AgentStatus,
+    CoordinationMessage,
+    FleetProtocolMessage,
+    MessagePart,
+)
+from .space import LocalAgentSpace
 
 __all__ = [
     # Message types
@@ -72,6 +81,16 @@ __all__ = [
     # Review
     "ReviewManager",
     "ReviewSession",
+]
+
+__all__ += [
+    "AddressingMode",
+    "AgentCard",
+    "AgentStatus",
+    "CoordinationMessage",
+    "FleetProtocolMessage",
+    "MessagePart",
+    "LocalAgentSpace",
 ]
 
 __version__ = "0.1.0"

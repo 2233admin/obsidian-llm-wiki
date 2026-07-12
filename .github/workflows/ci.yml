@@ -7,6 +7,35 @@ on:
     branches: [main]
 
 jobs:
+  onboarding:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Check distribution manifest
+        run: node scripts/check-distribution.mjs
+      - name: Test distribution manifest module
+        run: node --test tests/distribution/*.test.mjs
+      - name: Check setup scripts
+        run: |
+          bash -n setup
+          bash ./setup --host claude --dry-run
+          bash ./setup --host codex --dry-run
+          bash ./setup --host opencode --dry-run
+          bash ./setup --host gemini --dry-run
+      - name: Check PowerShell setup
+        shell: pwsh
+        run: |
+          $errors = $null
+          [System.Management.Automation.PSParser]::Tokenize((Get-Content -Raw setup.ps1), [ref]$errors) | Out-Null
+          if ($errors.Count) { $errors | Format-List *; exit 1 }
+          ./setup.ps1 -VaultHost claude -DryRun
+          ./setup.ps1 -VaultHost codex -DryRun
+          ./setup.ps1 -VaultHost opencode -DryRun
+          ./setup.ps1 -VaultHost gemini -DryRun
+
   build:
     runs-on: ubuntu-latest
     steps:
@@ -14,6 +43,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: npm
+          cache-dependency-path: mcp-server/package-lock.json
       - run: cd mcp-server && npm ci
       - run: cd mcp-server && npm run build
 
@@ -24,18 +55,34 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: npm
+          cache-dependency-path: mcp-server/package-lock.json
       - run: cd mcp-server && npm ci
       - run: cd mcp-server && npm run typecheck
 
-  test:
+  test-mcp:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: npm
+          cache-dependency-path: mcp-server/package-lock.json
       - run: cd mcp-server && npm ci
       - run: cd mcp-server && npm run build && npm test
+
+  archify-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: archify/package-lock.json
+      - run: cd archify && npm ci
+      - run: cd archify && node test/smoke.mjs
 
   lint-python:
     runs-on: ubuntu-latest

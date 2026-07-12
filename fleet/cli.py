@@ -21,8 +21,8 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from fleet import FleetHub, ScoutShip, WorkerShip, VerifyShip, ReviewManager
-from fleet.message import ShipType, WorkTask, ReviewDecision
+from fleet import FleetHub, ScoutShip, WorkerShip, VerifyShip
+from fleet.message import ShipType, WorkTask
 
 
 def cmd_init(vault: str, args: argparse.Namespace) -> int:
@@ -54,15 +54,15 @@ def cmd_scout(vault: str, args: argparse.Namespace) -> int:
         print(json.dumps(result, indent=2, ensure_ascii=False))
     else:
         print(f"\n{result['summary']}")
-        print(f"\nIssues by severity:")
+        print("\nIssues by severity:")
         for severity, count in result["stats"]["by_severity"].items():
             print(f"  {severity}: {count}")
-        print(f"\nIssues by type:")
+        print("\nIssues by type:")
         for issue_type, count in result["stats"]["by_type"].items():
             print(f"  {issue_type}: {count}")
 
         if result["issues"] and not args.quiet:
-            print(f"\nTop issues:")
+            print("\nTop issues:")
             for issue in result["issues"][:5]:
                 print(f"  [{issue['severity']}] {issue['location']}")
                 print(f"    {issue['description']}")
@@ -108,7 +108,7 @@ def cmd_worker(vault: str, args: argparse.Namespace) -> int:
         status = "✓" if result.success else "✗"
         print(f"{status} {result.task_type}: {result.summary}")
         if result.errors:
-            print(f"\nErrors:")
+            print("\nErrors:")
             for error in result.errors:
                 print(f"  - {error}")
 
@@ -134,13 +134,13 @@ def cmd_verify(vault: str, args: argparse.Namespace) -> int:
         print(json.dumps(result.to_payload(), indent=2, ensure_ascii=False))
     else:
         print(f"\n{result.summary}")
-        print(f"\nChecks:")
+        print("\nChecks:")
         for check in result.checks:
             icon = {"pass": "✓", "fail": "✗", "warning": "⚠"}.get(check.status, "?")
             print(f"  {icon} {check.check_type}: {check.message}")
 
         if result.issues and not args.quiet:
-            print(f"\nIssues:")
+            print("\nIssues:")
             for issue in result.issues[:10]:
                 print(f"  [{issue.severity}] {issue.location}")
                 print(f"    {issue.description}")
@@ -156,12 +156,12 @@ def cmd_status(vault: str, args: argparse.Namespace) -> int:
 
     print(f"Fleet: {state['fleet_id']}")
     print(f"Vault: {state['vault']}")
-    print(f"\nSessions:")
+    print("\nSessions:")
     for session_id, session in state["sessions"].items():
         ship_type = session.get('ship_type', session.get('ship', 'unknown'))
         print(f"  {ship_type}: {session.get('status', 'unknown')}")
 
-    print(f"\nContext:")
+    print("\nContext:")
     main = context.get("main", {})
     print(f"  Budget: {main.get('budget', 'N/A')} tokens")
     print(f"  Spent: {main.get('spent', 0)} tokens")
@@ -169,7 +169,7 @@ def cmd_status(vault: str, args: argparse.Namespace) -> int:
 
     recommendations = context.get("recommendations", [])
     if recommendations:
-        print(f"\nRecommendations:")
+        print("\nRecommendations:")
         for rec in recommendations:
             print(f"  - {rec}")
 
@@ -201,7 +201,7 @@ def cmd_review(vault: str, args: argparse.Namespace) -> int:
 
         if args.full:
             # Get full review data if available
-            print(f"Full data available via Hub API")
+            print("Full data available via Hub API")
 
     return 0
 
@@ -238,6 +238,9 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     subparsers = parser.add_subparsers(dest="command", help="Command")
+    from fleet.mesh_cli import register_space_commands
+
+    register_space_commands(subparsers)
 
     # init
     init_parser = subparsers.add_parser("init", help="Initialize fleet")
@@ -294,6 +297,8 @@ def main():
     dispatch_parser.add_argument("--constraints", nargs="*", help="Constraints")
 
     args = parser.parse_args()
+    if hasattr(args, "space_command"):
+        return args.space_command(args)
 
     if not args.command:
         parser.print_help()

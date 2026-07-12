@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "memorySpine": {
+    "owner": "llmwiki",
+    "canonicalStore": "vaultbrain",
+    "engine": "pglite",
+    "embedding": {
+      "provider": "ollama",
+      "model": "bge-m3",
+      "dimensions": 1024
+    },
+    "retrieval": {
+      "keywordFloor": true,
+      "semanticOptional": true,
+      "fusion": "rrf"
+    }
+  },
+  "externalReferences": {
+    "gbrain": {
+      "role": "reference-and-import-source",
+      "doNotInheritSchema": true,
+      "notes": "Use gbrain patterns for agent memory and hybrid retrieval, but keep LLMwiki's VaultBrain schema at 1024 dimensions for bge-m3."
+    }
+  }
+}

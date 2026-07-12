@@ -1,173 +1,157 @@
 #!/usr/bin/env bash
-# LLM Wiki Bridge setup -- install skill + configure MCP
+# LLMwiki setup -- legacy-compatible host skill install.
 #
-# Copies a curated allowlist into the host's skills directory.
-# ~1.7 MB install (vs 64 MB of repo) -- ships a pre-bundled MCP server
-# so the user doesn't need to npm install anything.
-set -e
+# Claude Code users should prefer the plugin path in README:
+# /plugin marketplace add 2233admin/obsidian-llm-wiki
+# /plugin install llmwiki@obsidian-llm-wiki
+#
+# This script remains the portable path for Codex, OpenCode, Gemini,
+# and existing users who installed the legacy vault-wiki skill bundle.
 
-IS_WINDOWS=0
-case "$(uname -s)" in
-  MINGW*|MSYS*|CYGWIN*|Windows_NT) IS_WINDOWS=1 ;;
-esac
+set -euo pipefail
 
-DRY_RUN=0
 HOST="claude"
-SKILL_NAME="vault-wiki"
+DRY_RUN=0
 
-while [ $# -gt 0 ]; do
+while [ "$#" -gt 0 ]; do
   case "$1" in
     --host)
-      [ -z "$2" ] && echo "Error: --host requires a value (claude, codex, opencode, gemini)" >&2 && exit 1
-      HOST="$2"; shift 2 ;;
-    --host=*) HOST="${1#--host=}"; shift ;;
-    --dry-run) DRY_RUN=1; shift ;;
-    *) shift ;;
+      [ "$#" -lt 2 ] && echo "Error: --host requires a value" >&2 && exit 1
+      HOST="$2"
+      shift 2
+      ;;
+    --host=*)
+      HOST="${1#--host=}"
+      shift
+      ;;
+    --dry-run)
+      DRY_RUN=1
+      shift
+      ;;
+    -h|--help)
+      echo "Usage: bash ./setup [--host claude|codex|opencode|gemini] [--dry-run]"
+      exit 0
+      ;;
+    *)
+      echo "Error: unknown argument '$1'" >&2
+      exit 1
+      ;;
   esac
 done
 
-case "$HOST" in
-  claude)   SKILLS_DIR="$HOME/.claude/skills/$SKILL_NAME" ;;
-  codex)    SKILLS_DIR="$HOME/.codex/skills/$SKILL_NAME" ;;
-  opencode) SKILLS_DIR="$HOME/.config/opencode/skills/$SKILL_NAME" ;;
-  gemini)   SKILLS_DIR="$HOME/.gemini/skills/$SKILL_NAME" ;;
-  *) echo "Error: Unknown --host '$HOST'. Expected: claude, codex, opencode, gemini" >&2; exit 1 ;;
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*) SCRIPT_DIR="$(cygpath -m "$SCRIPT_DIR")" ;;
 esac
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
-if [ "$IS_WINDOWS" = 1 ]; then
-  SCRIPT_DIR="$(cygpath -m "$SCRIPT_DIR")"
+MANIFEST_PATH="$SCRIPT_DIR/packaging/llmwiki-distribution.json"
+[ -f "$MANIFEST_PATH" ] || { echo "Error: missing distribution manifest: $MANIFEST_PATH" >&2; exit 1; }
+
+manifest_eval() {
+  local expr="$1"
+  node -e "const m=require(process.argv[1]); const v=($expr); if (Array.isArray(v)) console.log(v.join('\n')); else console.log(v);" "$MANIFEST_PATH"
+}
+
+PUBLIC_NAME="$(manifest_eval "m.publicName")"
+DISPLAY_NAME="$(manifest_eval "m.displayName")"
+LEGACY_SKILL_BUNDLE="$(manifest_eval "m.legacySkillBundle")"
+MCP_SERVER_NAME="$(manifest_eval "m.mcpServerName")"
+VAULT_PATH_ENV="$(manifest_eval "m.vaultPathEnv")"
+PLUGIN_MARKETPLACE="$(manifest_eval "m.pluginInstall.marketplace")"
+PLUGIN_INSTALL="$(manifest_eval "m.pluginInstall.install")"
+
+if ! manifest_eval "Object.keys(m.hosts)" | grep -qx "$HOST"; then
+  echo "Error: unknown host '$HOST'. Expected: $(manifest_eval "Object.keys(m.hosts)" | paste -sd ', ' -)" >&2
+  exit 1
 fi
 
-# Bundle must exist before install. Fail loud so paste-install users see
-# the real cause instead of a missing-file error at MCP boot.
+SKILLS_TEMPLATE="$(manifest_eval "m.hosts['$HOST'].skillsDir")"
+SKILLS_DIR="${SKILLS_TEMPLATE//\{home\}/$HOME}"
+SKILLS_DIR="${SKILLS_DIR//\{legacySkillBundle\}/$LEGACY_SKILL_BUNDLE}"
+PARENT_DIR="$(dirname "$SKILLS_DIR")"
+
 BUNDLE_PATH="$SCRIPT_DIR/mcp-server/bundle.js"
 if [ ! -f "$BUNDLE_PATH" ]; then
-  echo "Error: mcp-server/bundle.js not found at $BUNDLE_PATH" >&2
-  echo "" >&2
-  echo "Build it first:" >&2
-  echo "  cd mcp-server && npm install && npm run rebuild" >&2
-  echo "" >&2
-  echo "(Released tarballs ship bundle.js pre-built; this only happens" >&2
-  echo "when installing from a fresh source clone.)" >&2
+  cat >&2 <<EOF
+Error: mcp-server/bundle.js not found at $BUNDLE_PATH
+
+Build it first:
+  cd mcp-server && npm install && npm run rebuild
+
+Released tarballs ship bundle.js pre-built; this usually only happens when
+installing from an actively changing source checkout.
+EOF
   exit 1
 fi
 
 run() {
-  if [ "$DRY_RUN" = 1 ]; then
-    echo "[dry-run] $*"
+  if [ "$DRY_RUN" -eq 1 ]; then
+    printf '[dry-run]'
+    for arg in "$@"; do
+      printf ' %q' "$arg"
+    done
+    printf '\n'
   else
     "$@"
   fi
 }
 
-maybe_mkdir() {
-  if [ ! -d "$1" ]; then
-    run mkdir -p "$1"
-  fi
+copy_path() {
+  local src="$1"
+  local dest="$2"
+  [ -e "$src" ] || return 0
+  run cp -R "$src" "$dest"
 }
 
-PARENT_DIR="$(dirname "$SKILLS_DIR")"
-if [ ! -d "$PARENT_DIR" ]; then
-  echo "Error: Host directory not found: $PARENT_DIR" >&2
-  echo "Is $HOST installed? Expected $PARENT_DIR to exist." >&2
+if [ ! -d "$PARENT_DIR" ] && [ "$DRY_RUN" -eq 0 ]; then
+  echo "Error: host skills directory not found: $PARENT_DIR" >&2
+  echo "Install or launch $HOST once, then re-run setup." >&2
   exit 1
 fi
 
-maybe_mkdir "$SKILLS_DIR"
+run mkdir -p "$SKILLS_DIR"
 
-# Allowlist copy. Anything not listed here is excluded from the install.
-# Adding a new top-level dir? Add it here.
-ALLOWLIST_DIRS="skills examples docs terrariums viewer smoke"
-ALLOWLIST_FILES="README.md CHANGELOG.md RELEASE_NOTES.md vercel.json"
+while IFS= read -r dir; do
+  copy_path "$SCRIPT_DIR/$dir" "$SKILLS_DIR/"
+done < <(manifest_eval "m.install.copyDirs")
 
-for d in $ALLOWLIST_DIRS; do
-  if [ -d "$SCRIPT_DIR/$d" ]; then
-    run cp -r "$SCRIPT_DIR/$d" "$SKILLS_DIR/$d"
-  fi
-done
+while IFS= read -r file; do
+  copy_path "$SCRIPT_DIR/$file" "$SKILLS_DIR/"
+done < <(manifest_eval "m.install.copyFiles")
 
-for f in $ALLOWLIST_FILES; do
-  if [ -f "$SCRIPT_DIR/$f" ]; then
-    run cp "$SCRIPT_DIR/$f" "$SKILLS_DIR/$f"
-  fi
-done
+run mkdir -p "$SKILLS_DIR/mcp-server"
+while IFS= read -r file; do
+  copy_path "$SCRIPT_DIR/$file" "$SKILLS_DIR/mcp-server/"
+done < <(manifest_eval "m.install.mcpFiles")
 
-# mcp-server: ship only bundle.js + package.json (no src/, no node_modules)
-maybe_mkdir "$SKILLS_DIR/mcp-server"
-run cp "$SCRIPT_DIR/mcp-server/bundle.js" "$SKILLS_DIR/mcp-server/bundle.js"
-run cp "$SCRIPT_DIR/mcp-server/package.json" "$SKILLS_DIR/mcp-server/package.json"
-
-# Register every vault skill at the host skill root so hosts that expose
-# skill/slash-command discovery do not need to know about vault-wiki/skills.
 INSTALLED_SKILLS=0
-if [ -d "$SCRIPT_DIR/skills" ]; then
-  for skill_dir in "$SCRIPT_DIR"/skills/*; do
-    [ -d "$skill_dir" ] || continue
-    [ -f "$skill_dir/SKILL.md" ] || continue
-    skill="$(basename "$skill_dir")"
-    maybe_mkdir "$PARENT_DIR/$skill"
-    run cp -R "$skill_dir/." "$PARENT_DIR/$skill/"
-    INSTALLED_SKILLS=$((INSTALLED_SKILLS + 1))
-  done
-
-  for skill_file in "$SCRIPT_DIR"/skills/*.md; do
-    [ -f "$skill_file" ] || continue
-    skill="$(basename "$skill_file" .md)"
-    maybe_mkdir "$PARENT_DIR/$skill"
-    run cp "$skill_file" "$PARENT_DIR/$skill/SKILL.md"
-    INSTALLED_SKILLS=$((INSTALLED_SKILLS + 1))
-  done
-fi
+while IFS= read -r skill; do
+  skill_dir="$SCRIPT_DIR/skills/$skill"
+  [ -f "$skill_dir/SKILL.md" ] || continue
+  run mkdir -p "$PARENT_DIR/$skill"
+  run cp -R "$skill_dir/." "$PARENT_DIR/$skill/"
+  INSTALLED_SKILLS=$((INSTALLED_SKILLS + 1))
+done < <(manifest_eval "m.install.topLevelSkills")
 
 INSTALL_PATH="$SKILLS_DIR/mcp-server/bundle.js"
 
-echo ""
-echo "LLM Wiki Bridge installed to:"
-echo "  $SKILLS_DIR"
-echo "Top-level skills registered: $INSTALLED_SKILLS"
-echo ""
-echo "Next steps:"
-echo ""
-echo "1. Set your vault path:"
-echo "   export VAULT_PATH=/path/to/your/vault"
-echo ""
-echo "2. Add to your .mcp.json:"
-echo ""
-echo '{'
-echo '  "mcpServers": {'
-echo '    "vault-mind": {'
-echo '      "command": "node",'
-echo "      \"args\": [\"$INSTALL_PATH\"],"
-echo '      "env": { "VAULT_PATH": "YOUR_VAULT_PATH" }'
-echo '    }'
-echo '  }'
-echo '}'
-echo ""
-echo "3. Add to your host instructions (CLAUDE.md, AGENTS.md, or equivalent):"
-echo ""
-echo "## Vault Roles"
-echo ""
-echo "Your markdown vault is managed by host-neutral LLMwiki roles:"
-echo ""
-echo "| Role | Skill | What it does |"
-echo "|---------|-------|--------------|"
-echo "| Librarian  | \`/vault-librarian\`  | Search + read with citations |"
-echo "| Architect  | \`/vault-architect\`  | Run concept_graph, summarize changes |"
-echo "| Curator    | \`/vault-curator\`    | Detect orphans, stale notes, duplicates |"
-echo "| Teacher    | \`/vault-teacher\`    | Explain how a concept relates to others |"
-echo "| Historian  | \`/vault-historian\`  | Time-window search by mtime |"
-echo "| Janitor    | \`/vault-janitor\`    | Propose orphan/duplicate/broken-link fixes |"
-echo "| Chubby Ingest | \`/chubbyskills\` | Install and route multi-platform capture into LLMwiki |"
-echo "| X Capture | \`/x-to-obsidian\` | Save high-signal X posts through Obsidian Web Clipper |"
-echo "| Closeout   | \`/vault-agent-closeout\` | File agent work into AI-Output draft quarantine |"
-echo ""
-echo "4. Try it:"
-echo "   /vault-librarian what is attention heads"
-echo ""
-echo "5. View your vault graph:"
-echo "   open https://obsidian-llm-wiki.vercel.app"
-echo ""
-echo "Demo vault: https://obsidian-llm-wiki.vercel.app"
-echo "Source: https://github.com/2233admin/obsidian-llm-wiki"
-echo ""
+cat <<EOF
+
+$DISPLAY_NAME installed to legacy-compatible skill bundle:
+  $SKILLS_DIR
+Top-level skills registered: $INSTALLED_SKILLS
+
+Next steps for $HOST:
+1. Add this MCP entry to your host config:
+
+{"mcpServers":{"$MCP_SERVER_NAME":{"command":"node","args":["$INSTALL_PATH"],"env":{"$VAULT_PATH_ENV":"YOUR_VAULT_PATH"}}}}
+
+2. Restart $HOST and ask a cited vault question, for example:
+   What do I know about attention heads? Use vault/search tools and cite notes.
+
+Claude Code users can skip this script and use the plugin path instead:
+  $PLUGIN_MARKETPLACE
+  $PLUGIN_INSTALL
+
+Manifest source: packaging/llmwiki-distribution.json ($PUBLIC_NAME)
+EOF

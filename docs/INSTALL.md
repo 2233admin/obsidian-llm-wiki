@@ -1,174 +1,136 @@
-# Install guide
+# Install Guide
 
-For most people the [README quick-start](../README.md#quick-start-30-seconds) is the right path. This doc covers per-host variants, manual install, troubleshooting, and uninstall.
+## Claude Code Plugin
 
-## Prerequisites
+Most Claude Code users should install LLMwiki as a plugin:
 
-- **Node.js 20 or higher** -- the bundled MCP server is an ESM module targeting Node 20+
-- **An MCP-compatible agent host** -- Claude Code, Codex, OpenCode, or Gemini CLI
+```text
+/plugin marketplace add 2233admin/obsidian-llm-wiki
+/plugin install llmwiki@obsidian-llm-wiki
+```
 
-You do **not** need Python, npm, or a TypeScript toolchain. The repo ships a pre-built `mcp-server/bundle.js` (1.5 MB, no runtime dependencies).
+The plugin ships the MCP server, bundled skills, and Canvas diagram support. Start Claude Code inside your vault, or set `VAULT_MIND_VAULT_PATH` to an absolute vault path.
 
-## Quick install (recap)
+## Setup For Other Hosts
+
+Use `setup` for Codex, OpenCode, Gemini, or legacy-compatible local installs:
 
 ```bash
 git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git ~/obsidian-llm-wiki-src
-cd ~/obsidian-llm-wiki-src && ./setup
+cd ~/obsidian-llm-wiki-src
+bash ./setup --host codex
 ```
 
-Setup copies a 1.6 MB curated allowlist (`skills/`, `examples/`, `docs/`, `terrariums/`, `viewer/`, `smoke/`, `mcp-server/{bundle.js, package.json}`, top-level docs, `vercel.json`) into your host's skills directory. After setup runs you can delete the source clone.
-
-## Per-host install
-
-Pass `--host` to target a specific agent. Default is `claude`.
-
-```bash
-./setup --host claude     # ~/.claude/skills/vault-wiki
-./setup --host codex      # ~/.codex/skills/vault-wiki
-./setup --host opencode   # ~/.config/opencode/skills/vault-wiki
-./setup --host gemini     # ~/.gemini/skills/vault-wiki
-```
-
-Windows / PowerShell:
+Windows PowerShell:
 
 ```powershell
-.\setup.ps1 -VaultHost claude
-.\setup.ps1 -VaultHost claude -DryRun     # preview without writing
+git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git "$HOME\obsidian-llm-wiki-src"
+cd "$HOME\obsidian-llm-wiki-src"
+.\setup.ps1 -VaultHost codex
 ```
 
-`--dry-run` (bash) or `-DryRun` (PowerShell) prints every copy operation without touching disk -- use it to confirm the allowlist before committing to a real install.
-
-## After setup -- two paste-in steps
-
-Setup prints both snippets at the end. Copy them into the right place:
-
-**1. Add to your `.mcp.json`:** the printed JSON snippet registers `vault-mind` as an MCP server pointing at the installed `bundle.js`. The `VAULT_PATH` env var must be set to the absolute path of your Obsidian vault (or any markdown directory).
-
-**2. Add to `CLAUDE.md` (or equivalent host instructions):** the printed `## Vault Roles` section tells your agent which `/vault-*` role command to invoke for each task.
-
-Restart your agent host so the MCP registration is picked up.
-
-## Manual install (no setup script)
-
-If you prefer to copy files by hand:
+Supported hosts:
 
 ```bash
-git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git
-cd obsidian-llm-wiki
-
-# pick your host's skills dir
-HOST_DIR="$HOME/.claude/skills/vault-wiki"
-mkdir -p "$HOST_DIR/mcp-server"
-
-cp -r skills examples docs terrariums viewer smoke "$HOST_DIR/"
-cp README.md CHANGELOG.md RELEASE_NOTES.md vercel.json "$HOST_DIR/"
-cp mcp-server/bundle.js mcp-server/package.json "$HOST_DIR/mcp-server/"
+bash ./setup --host claude
+bash ./setup --host codex
+bash ./setup --host opencode
+bash ./setup --host gemini
 ```
 
-Then add the `.mcp.json` entry manually:
+Preview without writing:
+
+```bash
+bash ./setup --host codex --dry-run
+```
+
+```powershell
+.\setup.ps1 -VaultHost codex -DryRun
+```
+
+The setup path installs into the legacy-compatible `vault-wiki` skill directory, for example `~/.codex/skills/vault-wiki`. It copies `skills/`, `examples/`, `docs/`, `viewer/`, `archify/`, `README.md`, `LICENSE`, and `mcp-server/{bundle.js,package.json}`.
+
+## MCP Config
+
+The setup script prints an MCP config snippet using the compatibility server name `vault-mind`:
 
 ```json
 {
   "mcpServers": {
     "vault-mind": {
       "command": "node",
-      "args": ["/absolute/path/to/host/skills/vault-wiki/mcp-server/bundle.js"],
-      "env": { "VAULT_PATH": "/absolute/path/to/your/vault" }
+      "args": ["/absolute/path/to/vault-wiki/mcp-server/bundle.js"],
+      "env": {
+        "VAULT_MIND_VAULT_PATH": "/absolute/path/to/your/vault"
+      }
     }
   }
 }
 ```
 
-## Optional ChubbySkills ingest pack
+`VAULT_MIND_VAULT_PATH` can point to an Obsidian vault or any Markdown directory. Restart the agent host after changing MCP config.
 
-Setup registers `/chubbyskills` as a top-level skill. It does not install upstream media/transcription dependencies into LLMwiki. Instead, it bundles a helper that prints safe install commands for [chubbyguan/chubbyskills](https://github.com/chubbyguan/chubbyskills).
+## Manual Install
 
-Example after setup:
+Manual commands below mirror `packaging/llmwiki-distribution.json`. Run `node scripts/check-distribution.mjs` after changing install assets, plugin metadata, or release packaging.
 
 ```bash
-python3 ~/.codex/skills/chubbyskills/scripts/chubbyskills_bridge.py list
-python3 ~/.codex/skills/chubbyskills/scripts/chubbyskills_bridge.py plan \
-  --vault /path/to/your/vault \
-  --skills bilibili-transcribe podcast-transcribe wechat-article-ingest
+git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git
+cd obsidian-llm-wiki
+HOST_DIR="$HOME/.codex/skills/vault-wiki"
+mkdir -p "$HOST_DIR/mcp-server"
+cp -r skills examples docs viewer archify "$HOST_DIR/"
+cp README.md LICENSE "$HOST_DIR/"
+cp mcp-server/bundle.js mcp-server/package.json "$HOST_DIR/mcp-server/"
 ```
 
-See [CHUBBYSKILLS.md](CHUBBYSKILLS.md).
+Then add the MCP config shown above, replacing the bundle and vault paths.
 
-## Optional X/Twitter capture skill
+## Optional Skills
 
-Setup now also registers `x-to-obsidian` when the host supports installed skills. It bundles the upstream-style browser automation script under the installed skill directory.
+Setup registers top-level skills when the host supports installed skills:
 
-Use it only on machines that can run the workflow requirements: macOS, a supported logged-in browser, Obsidian, and the official Obsidian Web Clipper.
+- `chubbyskills`: plan safe local capture/transcription packs that feed LLMwiki.
+- `x-to-obsidian`: save high-signal X/Twitter posts through Obsidian Web Clipper workflows.
+- `vault-diagram`: create and maintain editable JSON Canvas boards from vault context.
 
-Installed paths usually look like:
+## Build From Source
 
-```text
-~/.claude/skills/x-to-obsidian/scripts/x_to_obsidian.py
-~/.codex/skills/x-to-obsidian/scripts/x_to_obsidian.py
-~/.config/opencode/skills/x-to-obsidian/scripts/x_to_obsidian.py
-~/.gemini/skills/x-to-obsidian/scripts/x_to_obsidian.py
-```
-
-See [X_TO_OBSIDIAN.md](X_TO_OBSIDIAN.md).
-
-## Optional memory and Kanban settings
-
-Released bundles now include Markdown memory tools and the read-only `kanban` adapter.
-
-| Env var | Default | Use |
-|---|---|---|
-| `VAULT_MIND_ACTOR` | `agent` | Actor namespace for Markdown memory and collaboration policy. |
-| `VAULT_MIND_ADAPTERS` | default adapter list, including `kanban` | If you override it, include `filesystem,kanban` to keep board search. |
-| `VAULT_MIND_KANBAN_GLOB` | `**/*.md` | Optional narrower glob for Markdown-backed Kanban boards. |
-
-Markdown memory files are written under `10-Projects/<project>/agents/<actor>/memory/` when `project` is provided, otherwise under `00-Inbox/Agent-Memory/<actor>/`. Existing `memory.set/get/list/forget` still uses `_ai_memory.json`.
-
-Visual exports use Obsidian core plugins when available: Canvas reads `.canvas` files, Bases reads `.base` dashboards, and Graph/Backlinks use normal Markdown links. No extra community plugin is required for Phase 1 visual exports. Kanban is still optional but recommended if you want Markdown board search.
-
-Source Registry Phase 1 adds `source.register`, `source.list`, and `source.get`. It writes `_llmwiki/source-registry.json` plus Source Notes under `00-Inbox/Sources/<platform>/`, or `10-Projects/<project>/sources/<platform>/` when `project` is provided. URL registration runs read-only ingest preflight; it does not download, transcribe, or scrape.
-
-## Building from source (rare)
-
-You only need this if you forked the repo and changed `mcp-server/src/`:
+Only needed when changing `mcp-server/src/`:
 
 ```bash
 cd mcp-server
-npm install            # installs ws, MCP SDK, pglite, esbuild devDep
-npm run rebuild        # tsc -> dist/, then esbuild --bundle -> bundle.js
+npm install
+npm run rebuild
 ```
 
-`npm run rebuild` produces a fresh `bundle.js` in ~2 seconds. Commit it alongside your source changes so paste-install users don't see a "build it first" error.
+Commit the rebuilt `mcp-server/bundle.js` with source changes so plugin and setup installs work without requiring users to build locally.
 
-## Verify the install
+## Verify Install
 
-After setup, boot the bundle directly with a probe:
+Probe the installed bundle:
 
 ```bash
-echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"smoke","version":"0"}}}' \
-  | VAULT_PATH=/path/to/your/vault node ~/.claude/skills/vault-wiki/mcp-server/bundle.js
+printf '%s
+' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"smoke","version":"0"}}}'   | VAULT_MIND_VAULT_PATH=/path/to/your/vault node ~/.codex/skills/vault-wiki/mcp-server/bundle.js
 ```
 
-You should see a JSON-RPC response with `serverInfo.name = "obsidian-llm-wiki"` and `protocolVersion = "2024-11-05"`. Server stderr prints the resolved adapter list, including `kanban` when the default adapter list is used.
+You should see a JSON-RPC response with `serverInfo.name` set to `obsidian-llm-wiki`.
 
 ## Troubleshooting
 
-**`Error: mcp-server/bundle.js not found`** -- you're installing from a fresh clone that hasn't been built. Run `cd mcp-server && npm install && npm run rebuild`, then re-run `./setup`. (The released tarballs ship `bundle.js` pre-built; you'd only hit this from a `--depth 1` clone of an actively-changing branch.)
+**`mcp-server/bundle.js not found`**: build it with `cd mcp-server && npm install && npm run rebuild`, or use a release bundle that already includes it.
 
-**`Error: Host directory not found: ~/.claude/skills`** -- the agent host you specified isn't installed (or hasn't been launched once). Install / launch it, then re-run setup.
+**Host skills directory not found**: install and launch the target host once, then rerun setup.
 
-**`Error: Dynamic require of "events" is not supported`** -- the bundle was built without the `createRequire` shim banner. Re-run `npm run bundle` -- the `package.json` `bundle` script includes the correct banner flag.
+**MCP server starts but `vault.search` returns nothing**: verify `VAULT_MIND_VAULT_PATH` is absolute and points to a directory with `.md` files.
 
-**MCP server starts but `vault.search` returns nothing** -- check that `VAULT_PATH` in `.mcp.json` is absolute and points at a directory with `.md` files. The server logs the resolved vault path at startup (visible in your agent host's MCP log).
-
-**`Node version error` / `SyntaxError: Unexpected token`** -- the bundle targets Node 20+. Run `node --version` to confirm; upgrade with `nvm` / `fnm` if older.
-
-**Obsidian adapter not connecting** -- the bundle includes the WebSocket adapter (`ws`), but it only activates when Obsidian is running with the `obsidian-vault-bridge` plugin. Without it, the filesystem adapter handles everything (read, search, lint, graph) -- you just lose live sync.
+**Node syntax error**: use Node.js 20 or newer.
 
 ## Uninstall
 
-```bash
-rm -rf ~/.claude/skills/vault-wiki
-# Then remove the "vault-mind" entry from your .mcp.json manually.
-```
+Remove the installed skill bundle and delete the `vault-mind` MCP entry from host config:
 
-For other hosts, replace `~/.claude/` with `~/.codex/`, `~/.config/opencode/`, or `~/.gemini/`.
+```bash
+rm -rf ~/.codex/skills/vault-wiki
+```
