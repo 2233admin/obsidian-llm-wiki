@@ -11,6 +11,7 @@ import { basename, dirname, join } from 'node:path';
 import type { Operation, OperationContext } from '../core/types.js';
 import { makeErr } from '../core/types.js';
 import { memoryPolicyBasePath, resultPath, staticTargets, touchMarkdown } from '../core/write-policy.js';
+import { resolveProjectContext } from '../project/project-context.js';
 
 interface MemoryEntry {
   key: string;
@@ -100,6 +101,11 @@ function memoryBasePath(project: string | undefined, actor: string): string {
     return `10-Projects/${safeSegment(project, 'project')}/agents/${actor}/memory`;
   }
   return `00-Inbox/Agent-Memory/${actor}`;
+}
+
+function resolvedProject(vaultPath: string, value: unknown, operation: string): string | undefined {
+  if (typeof value !== 'string' || !value.trim()) return undefined;
+  return resolveProjectContext(vaultPath, value, operation).slug;
 }
 
 function readText(fullPath: string): string | null {
@@ -283,6 +289,7 @@ class MarkdownMemory {
 
   passport(ctx: OperationContext, project?: string): { exists: boolean; path: string; content: string } {
     const actor = actorFromContext(ctx);
+    project = resolvedProject(this.vaultPath, project, 'memory.passport.get');
     const relPath = `${memoryBasePath(project, actor)}/passport.md`;
     const fullPath = join(this.vaultPath, relPath);
     const now = new Date().toISOString();
@@ -292,7 +299,7 @@ class MarkdownMemory {
 
   writePassport(ctx: OperationContext, params: Record<string, unknown>): { ok: true; path: string; bytes: number } {
     const actor = actorFromContext(ctx);
-    const project = params.project as string | undefined;
+    const project = resolvedProject(this.vaultPath, params.project, 'memory.passport.upsert');
     const relPath = `${memoryBasePath(project, actor)}/passport.md`;
     const now = new Date().toISOString();
     const content = passportMarkdown({
@@ -311,6 +318,7 @@ class MarkdownMemory {
 
   handoff(ctx: OperationContext, project?: string): { exists: boolean; path: string; content: string } {
     const actor = actorFromContext(ctx);
+    project = resolvedProject(this.vaultPath, project, 'memory.handoff.latest');
     const relPath = `${memoryBasePath(project, actor)}/handoff.md`;
     const fullPath = join(this.vaultPath, relPath);
     const now = new Date().toISOString();
@@ -320,7 +328,7 @@ class MarkdownMemory {
 
   writeHandoff(ctx: OperationContext, params: Record<string, unknown>): { ok: true; path: string; bytes: number } {
     const actor = actorFromContext(ctx);
-    const project = params.project as string | undefined;
+    const project = resolvedProject(this.vaultPath, params.project, 'memory.handoff.write');
     const relPath = `${memoryBasePath(project, actor)}/handoff.md`;
     const now = new Date().toISOString();
     const content = handoffMarkdown({
@@ -338,7 +346,7 @@ class MarkdownMemory {
 
   saveSession(ctx: OperationContext, params: Record<string, unknown>): { ok: true; path: string; bytes: number } {
     const actor = actorFromContext(ctx);
-    const project = params.project as string | undefined;
+    const project = resolvedProject(this.vaultPath, params.project, 'memory.session.save');
     const now = new Date().toISOString();
     const title = typeof params.title === 'string' && params.title.trim()
       ? params.title.trim()
@@ -364,6 +372,7 @@ class MarkdownMemory {
     sessions: Array<{ path: string; title: string; preview: string; updated_at: string }>;
   } {
     const actor = actorFromContext(ctx);
+    project = resolvedProject(this.vaultPath, project, 'memory.session.list');
     const relDir = `${memoryBasePath(project, actor)}/sessions`;
     const fullDir = join(this.vaultPath, relDir);
     if (!existsSync(fullDir)) return { count: 0, sessions: [] };
@@ -495,7 +504,7 @@ export function makeMemoryOps(vaultPath: string): Operation[] {
     mutating: true,
     writePolicy: {
       realWrite: 'always',
-      targets: (ctx, params) => [`${memoryPolicyBasePath(ctx.config, params)}/passport.md`],
+      targets: (ctx, params) => [`${memoryPolicyBasePath(ctx.config, params, 'memory.passport.upsert')}/passport.md`],
       audit: 'required',
       effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), 'modify')],
     },
@@ -528,7 +537,7 @@ export function makeMemoryOps(vaultPath: string): Operation[] {
     mutating: true,
     writePolicy: {
       realWrite: 'always',
-      targets: (ctx, params) => [`${memoryPolicyBasePath(ctx.config, params)}/handoff.md`],
+      targets: (ctx, params) => [`${memoryPolicyBasePath(ctx.config, params, 'memory.handoff.write')}/handoff.md`],
       audit: 'required',
       effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), 'modify')],
     },
@@ -549,7 +558,7 @@ export function makeMemoryOps(vaultPath: string): Operation[] {
     mutating: true,
     writePolicy: {
       realWrite: 'always',
-      targets: (ctx, params) => [`${memoryPolicyBasePath(ctx.config, params)}/sessions/**`],
+      targets: (ctx, params) => [`${memoryPolicyBasePath(ctx.config, params, 'memory.session.save')}/sessions/**`],
       audit: 'required',
       effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), 'create')],
     },

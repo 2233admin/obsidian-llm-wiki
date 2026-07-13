@@ -11,6 +11,7 @@ import { basename, dirname, join, resolve, sep } from 'node:path';
 import type { Operation, OperationContext } from '../core/types.js';
 import { makeErr } from '../core/types.js';
 import { memoryPolicyBasePath, resultPath, touchMarkdown } from '../core/write-policy.js';
+import { resolveProjectContext } from '../project/project-context.js';
 
 const DEFAULT_ACTOR = 'agent';
 const LOCK_TTL_MS = 60_000;
@@ -171,9 +172,16 @@ function ensureDecisionPath(relPath: string): void {
   }
 }
 
-function decisionMarkdown(ctx: OperationContext, params: Record<string, unknown>, now: string): { path: string; content: string } {
+function decisionMarkdown(
+  vaultPath: string,
+  ctx: OperationContext,
+  params: Record<string, unknown>,
+  now: string,
+): { path: string; content: string } {
   const actor = actorFromContext(ctx);
-  const project = typeof params.project === 'string' && params.project.trim() ? safeSegment(params.project, 'project') : undefined;
+  const project = typeof params.project === 'string' && params.project.trim()
+    ? resolveProjectContext(vaultPath, params.project, 'conversation.decision.capture').slug
+    : undefined;
   const title = String(params.title ?? '').trim();
   if (!title) throw makeErr(-32602, 'title required');
   const source = sourceObject(params.source);
@@ -306,7 +314,7 @@ export function makeConversationOps(vaultPath: string): Operation[] {
   mutating: true,
   writePolicy: {
     realWrite: 'dryRunFalse',
-    targets: (ctx, params) => [`${memoryPolicyBasePath(ctx.config, params)}/decisions/**`],
+    targets: (ctx, params) => [`${memoryPolicyBasePath(ctx.config, params, 'conversation.decision.capture')}/decisions/**`],
     audit: 'required',
     effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), 'create')],
   },
@@ -329,7 +337,7 @@ export function makeConversationOps(vaultPath: string): Operation[] {
       },
       handler: async (ctx, params) => {
         const now = new Date().toISOString();
-        const { path, content } = decisionMarkdown(ctx, params, now);
+        const { path, content } = decisionMarkdown(vaultPath, ctx, params, now);
         const dryRun = (params.dryRun as boolean | undefined) ?? false;
         if (!dryRun) {
           const fullPath = ensureInsideVault(vaultPath, path);
@@ -357,7 +365,9 @@ export function makeConversationOps(vaultPath: string): Operation[] {
       },
       handler: async (ctx, params) => {
         const actor = actorFromContext(ctx);
-        const project = typeof params.project === 'string' && params.project.trim() ? safeSegment(params.project, 'project') : undefined;
+        const project = typeof params.project === 'string' && params.project.trim()
+          ? resolveProjectContext(vaultPath, params.project, 'conversation.decision.list').slug
+          : undefined;
         const limit = Math.max(1, Math.min((params.limit as number | undefined) ?? 20, 100));
         const tag = typeof params.tag === 'string' && params.tag.trim() ? params.tag.trim() : undefined;
         const decisions = listDecisionDir(vaultPath, decisionBasePath(project, actor), tag).slice(0, limit);

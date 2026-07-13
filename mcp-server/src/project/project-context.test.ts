@@ -167,6 +167,7 @@ describe('Project identity and context resolution', () => {
       assert.throws(() => resolveProjectContext(root, 'unknown'), { code: -32004 });
       assert.equal(existsSync(join(root, '01-Projects', 'unknown')), false);
       assert.equal(existsSync(join(root, '10-Projects', 'unknown')), false);
+      assert.equal(existsSync(join(root, '_llmwiki', 'settings', 'projects', 'unknown.json')), false);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -243,6 +244,8 @@ describe('Project identity and context resolution', () => {
     try {
       process.env.LLMWIKI_PROJECT_COMPATIBILITY = 'disabled';
       assert.throws(() => resolveProjectContext(root, 'alpha'), { code: -32602 });
+      assert.equal(existsSync(join(root, '10-Projects', 'alpha')), false);
+      assert.equal(existsSync(join(root, '_llmwiki', 'settings', 'projects', 'alpha.json')), false);
       assert.equal(resolveProjectContext(root, 'project/alpha').projectId, 'project/alpha');
     } finally {
       if (previous === undefined) delete process.env.LLMWIKI_PROJECT_COMPATIBILITY;

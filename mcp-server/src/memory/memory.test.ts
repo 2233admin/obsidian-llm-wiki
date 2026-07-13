@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
@@ -9,6 +9,12 @@ import type { Operation, OperationContext } from "../core/types.js";
 
 function makeHarness() {
   const root = join(tmpdir(), `llmwiki-memory-${randomUUID()}`);
+  mkdirSync(join(root, "Projects"), { recursive: true });
+  writeFileSync(
+    join(root, "Projects", "alpha.md"),
+    "---\ntype: project\nentity: project/alpha\nlifecycle: active\naliases: [Alpha App]\n---\n",
+    "utf-8",
+  );
   const ops = makeMemoryOps(root);
   const byName = new Map(ops.map((op) => [op.name, op]));
   const ctx: OperationContext = {
@@ -99,6 +105,51 @@ describe("Markdown memory operations", () => {
       assert.ok(list.sessions.some((entry) => entry.title === "First pass"));
       assert.ok(list.sessions.some((entry) => entry.title === "Second pass"));
     } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("resolves project aliases before choosing a knowledge path", async () => {
+    const { root, call } = makeHarness();
+    try {
+      const result = await call("memory.handoff.write", {
+        project: "Alpha App",
+        currentState: "Canonical context resolved",
+      }) as { path: string };
+
+      assert.equal(result.path, "10-Projects/alpha/agents/codex/memory/handoff.md");
+      assert.equal(existsSync(join(root, "10-Projects", "Alpha App")), false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("unknown projects cannot create implicit knowledge roots", async () => {
+    const { root, call } = makeHarness();
+    try {
+      await assert.rejects(
+        () => call("memory.passport.upsert", { project: "missing", goal: "must not write" }),
+        /Project not found: missing/,
+      );
+      assert.equal(existsSync(join(root, "10-Projects")), false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("strict mode rejects bare project slugs before creating knowledge roots", async () => {
+    const { root, call } = makeHarness();
+    const previous = process.env.LLMWIKI_PROJECT_COMPATIBILITY;
+    process.env.LLMWIKI_PROJECT_COMPATIBILITY = "disabled";
+    try {
+      await assert.rejects(
+        () => call("memory.session.save", { project: "alpha", summary: "must not write" }),
+        /Legacy Project references are disabled/,
+      );
+      assert.equal(existsSync(join(root, "10-Projects")), false);
+    } finally {
+      if (previous === undefined) delete process.env.LLMWIKI_PROJECT_COMPATIBILITY;
+      else process.env.LLMWIKI_PROJECT_COMPATIBILITY = previous;
       rmSync(root, { recursive: true, force: true });
     }
   });

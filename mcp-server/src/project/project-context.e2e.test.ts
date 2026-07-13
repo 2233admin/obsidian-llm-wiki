@@ -63,6 +63,20 @@ test('Project Context end-to-end contract closes one work and migration loop', a
   assert.equal(selected.selected.entity, 'project/alpha/issue/build-index');
   assert.equal(selected.lease.outcome, 'ACQUIRED');
   const lease = selected.lease as Record<string, string>;
+  const localWorkspacePath = join(vault, '..', 'private-alpha-worktree').replaceAll('\\', '/');
+  const localLeaseToken = 'local-lease-token-must-not-cross';
+  mkdirSync(join(vault, '.vault-mind'), { recursive: true });
+  writeFileSync(
+    join(vault, '.vault-mind', 'local-bindings.json'),
+    JSON.stringify({ 'project/alpha': { path: localWorkspacePath } }),
+    'utf-8',
+  );
+  const leasesPath = join(vault, '.vault-mind', '_leases.json');
+  const leases = JSON.parse(readFileSync(leasesPath, 'utf-8')) as Record<string, Record<string, unknown>>;
+  const leasedItem = Object.values(leases).find((item) => item.work_run_id === lease.work_run_id)!;
+  leasedItem.lease_token = localLeaseToken;
+  leasedItem.workspace_path = localWorkspacePath;
+  writeFileSync(leasesPath, JSON.stringify(leases, null, 2), 'utf-8');
 
   await call('workflow.agent.join', {
     project: lease.project_id, agent: 'codex', work_run_id: lease.work_run_id,
@@ -84,6 +98,8 @@ test('Project Context end-to-end contract closes one work and migration loop', a
   const hub = await call('project.hub.get', { ref: 'project/alpha' }) as Record<string, any>;
   assert.equal(hub.sections.runtime.data.activeRuns[0].workRunId, lease.work_run_id);
   assert.doesNotMatch(JSON.stringify(hub), /never-return-me/);
+  assert.doesNotMatch(JSON.stringify(hub), new RegExp(localLeaseToken));
+  assert.doesNotMatch(JSON.stringify(hub), new RegExp(localWorkspacePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
 
   mkdirSync(join(vault, '10-Projects', 'alpha', 'docket'), { recursive: true });
   writeFileSync(join(vault, '10-Projects', 'alpha', 'docket', 'legacy-closeout.md'), '---\nstate: todo\n---\n# Legacy\n');

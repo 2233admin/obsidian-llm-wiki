@@ -241,6 +241,23 @@ class WorkRunContractTest(unittest.TestCase):
                 self.vault, lease["project_id"], lease["work_run_id"], "running",
                 transition_token="late-step", now=1004)
 
+    def test_shared_runtime_lock_rejects_concurrent_transition_without_mutation(self) -> None:
+        lease = self._lease().lease
+        before = work_driver.read_work_run(
+            self.vault, lease["project_id"], lease["work_run_id"])
+        lock_path = self.vault / ".vault-mind" / "_work-run.lock"
+        lock_path.write_text("typescript-owner", encoding="utf-8")
+
+        with self.assertRaisesRegex(work_driver.WorkRunBusy, "another runtime"):
+            work_driver.transition_work_run(
+                self.vault, lease["project_id"], lease["work_run_id"], "running",
+                transition_token="agent:join:contended", now=1001)
+        self.assertEqual(
+            work_driver.read_work_run(
+                self.vault, lease["project_id"], lease["work_run_id"]),
+            before,
+        )
+
     def test_output_policy_routes_claims_and_denies_unapproved_external_effects(self) -> None:
         lease = self._lease().lease
         work_driver.transition_work_run(

@@ -266,6 +266,26 @@ def _upsert_frontmatter(text: str, updates: dict[str, str]) -> str:
     return "\n".join(lines) + "\n" + normalized[match.end():]
 
 
+def _shared_record_from_anchor(anchor: Path, project_id: str) -> bytes:
+    """Render the minimal portable registry record for one valid Work-OS anchor."""
+    frontmatter = parse_frontmatter(
+        anchor.read_text("utf-8-sig", errors="replace"))
+    raw_lifecycle = frontmatter.get("lifecycle") or frontmatter.get("status")
+    lifecycle = str(raw_lifecycle).strip().lower() if raw_lifecycle else "active"
+    if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", lifecycle):
+        lifecycle = "active"
+    slug = project_id.split("/", 1)[1]
+    return (
+        "---\n"
+        "type: project\n"
+        f"entity: {project_id}\n"
+        f"lifecycle: {lifecycle}\n"
+        "aliases: []\n"
+        "---\n\n"
+        f"# {slug}\n"
+    ).encode("utf-8")
+
+
 def _action(vault: Path, path: Path, content: bytes, *, reason: str,
             source: Optional[Path] = None) -> dict[str, Any]:
     result = {
@@ -290,6 +310,23 @@ def plan_project_migration(vault: str | Path) -> dict[str, Any]:
     actions: list[dict[str, Any]] = []
     warnings: list[dict[str, Any]] = []
     redirects: list[dict[str, str]] = []
+    registered_ids: set[str] = set()
+    registry_alias_owners: dict[str, set[str]] = {}
+    for record in inventory["shared_records"]:
+        raw_entity = record.get("entity")
+        if not isinstance(raw_entity, str):
+            continue
+        try:
+            registered_id = project_context.normalize_project_id(
+                raw_entity, allow_bare=True)
+        except project_context.InvalidProjectId:
+            continue
+        registered_ids.add(registered_id)
+        registered_slug = registered_id.split("/", 1)[1]
+        for alias in {registered_slug, *_as_aliases(record.get("aliases"))}:
+            registry_alias_owners.setdefault(alias.casefold(), set()).add(
+                registered_id)
+    adopted_project_ids: dict[str, str] = {}
 
     for record in inventory["shared_records"]:
         path = vault_path / record["path"]
@@ -321,6 +358,40 @@ def plan_project_migration(vault: str | Path) -> dict[str, Any]:
                 "code": "unresolved_work_anchor_identity", "path": anchor["path"],
                 "path_basename_evidence": path.parent.name,
             })
+            continue
+        slug = candidate.split("/", 1)[1]
+        if path.parent.name != slug:
+            conflicts.append({
+                "code": "work_anchor_path_mismatch", "path": anchor["path"],
+                "project_id": candidate, "path_basename_evidence": path.parent.name,
+            })
+        elif candidate not in registered_ids:
+            alias_owners = sorted(
+                owner for owner in registry_alias_owners.get(slug.casefold(), set())
+                if owner != candidate
+            )
+            destination = vault_path / "Projects" / f"{slug}.md"
+            if alias_owners:
+                conflicts.append({
+                    "code": "anchor_identity_conflicts_with_registry_alias",
+                    "path": anchor["path"], "project_id": candidate,
+                    "alias": slug, "project_ids": alias_owners,
+                })
+            elif destination.exists():
+                conflicts.append({
+                    "code": "anchor_registry_destination_occupied",
+                    "path": anchor["path"], "project_id": candidate,
+                    "destination": _relative(vault_path, destination),
+                })
+            else:
+                actions.append(_action(
+                    vault_path,
+                    destination,
+                    _shared_record_from_anchor(path, candidate),
+                    reason="adopt_work_os_anchor_as_shared_project",
+                    source=path,
+                ))
+                adopted_project_ids[slug] = candidate
         if candidate and anchor.get("entity") != candidate:
             content = _upsert_frontmatter(
                 path.read_text("utf-8-sig", errors="replace"), {"entity": candidate}
@@ -368,6 +439,8 @@ def plan_project_migration(vault: str | Path) -> dict[str, Any]:
         keys = {project_id.split("/", 1)[1], *_as_aliases(record.get("aliases"))}
         for key in keys:
             identity_index.setdefault(key.casefold(), set()).add(project_id)
+    for slug, project_id in adopted_project_ids.items():
+        identity_index.setdefault(slug.casefold(), set()).add(project_id)
 
     for item in inventory["legacy_work"]:
         source = vault_path / item["path"]
@@ -491,6 +564,7 @@ def _validate_plan(vault: Path, plan: dict[str, Any], *,
     targets: list[Path] = []
     stale: list[dict[str, Any]] = []
     manifest_actions = manifest.get("actions", []) if manifest else []
+    prior_action_hashes: dict[str, set[Optional[str]]] = {}
     for index, action in enumerate(plan.get("actions", [])):
         target = _safe_target(vault, action["path"])
         targets.append(target)
@@ -520,11 +594,17 @@ def _validate_plan(vault: Path, plan: dict[str, Any], *,
             except ValueError as exc:
                 raise PathEscape(f"Migration source escapes vault: {source}") from exc
             actual_source = file_hash(source_path)
-            if actual_source != action.get("source_hash"):
+            acceptable_source_hashes = {
+                action.get("source_hash"),
+                *prior_action_hashes.get(source, set()),
+            }
+            if actual_source not in acceptable_source_hashes:
                 stale.append({
                     "path": source, "expected": action.get("source_hash"),
                     "actual": actual_source,
                 })
+        prior_action_hashes.setdefault(action["path"], set()).add(
+            action["content_hash"])
     if stale:
         raise StalePrecondition("Migration hash preconditions are stale", details=stale)
     if _compute_plan_hash(plan) != plan.get("plan_hash"):

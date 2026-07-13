@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import type { Operation, OperationContext, VaultMindConfig, WriteEffect } from './types.js';
 import { makeErr } from './types.js';
 import { validateParams } from './validate.js';
+import { resolveProjectContext } from '../project/project-context.js';
 
 type CollabPolicy = {
   agents?: string[];
@@ -113,10 +114,35 @@ export function targetOrWildcard(param: string, fallback: string) {
     typeof params[param] === 'string' ? [params[param] as string] : [fallback];
 }
 
-export function memoryPolicyBasePath(config: VaultMindConfig, args: Record<string, unknown>): string {
+function resolvedPolicyProject(
+  config: VaultMindConfig,
+  args: Record<string, unknown>,
+  operation: string,
+): string {
+  if (typeof args.project !== 'string' || !args.project.trim()) {
+    throw makeErr(-32602, 'project required for write policy');
+  }
+  return resolveProjectContext(
+    config.vault_path,
+    args.project,
+    operation,
+    { recordCompatibility: false },
+  ).slug;
+}
+
+export function memoryPolicyBasePath(
+  config: VaultMindConfig,
+  args: Record<string, unknown>,
+  operation = 'memory.write',
+): string {
   const actor = safeMemorySegment(config.collaboration?.actor || process.env.VAULT_MIND_ACTOR || 'agent', 'actor');
   const project = typeof args.project === 'string' && args.project.trim()
-    ? safeMemorySegment(args.project, 'project')
+    ? resolveProjectContext(
+        config.vault_path,
+        args.project,
+        operation,
+        { recordCompatibility: false },
+      ).slug
     : undefined;
   return project ? `10-Projects/${project}/agents/${actor}/memory` : `00-Inbox/Agent-Memory/${actor}`;
 }
@@ -125,19 +151,35 @@ export function projectPolicyBasePath(args: Record<string, unknown>): string {
   return `01-Projects/${policyProjectSegment(args)}`;
 }
 
-export function workflowPolicyBasePath(args: Record<string, unknown>): string {
-  return `${projectPolicyBasePath(args)}/workflow`;
+export function workflowPolicyBasePath(
+  config: VaultMindConfig,
+  args: Record<string, unknown>,
+  operation: string,
+): string {
+  return `01-Projects/${resolvedPolicyProject(config, args, operation)}/workflow`;
 }
 
-export function workflowAgentPolicyBasePath(config: VaultMindConfig, args: Record<string, unknown>): string {
-  return `${projectPolicyBasePath(args)}/agents/${workflowAgentPolicySegment(config, args)}`;
+export function workflowAgentPolicyBasePath(
+  config: VaultMindConfig,
+  args: Record<string, unknown>,
+  operation: string,
+): string {
+  return `01-Projects/${resolvedPolicyProject(config, args, operation)}/agents/${workflowAgentPolicySegment(config, args)}`;
 }
 
-export function sourcePolicyTargetPaths(args: Record<string, unknown>): string[] {
+export function sourcePolicyTargetPaths(
+  config: VaultMindConfig,
+  args: Record<string, unknown>,
+  operation = 'source.register',
+): string[] {
   if (typeof args.project === 'string' && args.project.trim() && typeof args.platform === 'string' && args.platform.trim()) {
-    const project = policyProjectRefSegment(args.project);
+    const project = resolvedPolicyProject(config, args, operation);
     const platform = safeMemorySegment(args.platform, 'platform');
     return ['_llmwiki/source-registry.json', `10-Projects/${project}/sources/${platform}/**`];
+  }
+  if (typeof args.project === 'string' && args.project.trim()) {
+    const project = resolvedPolicyProject(config, args, operation);
+    return ['_llmwiki/source-registry.json', `10-Projects/${project}/sources/**`];
   }
   if (typeof args.platform === 'string' && args.platform.trim()) {
     const platform = safeMemorySegment(args.platform, 'platform');

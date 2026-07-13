@@ -192,7 +192,7 @@ function workspaceSection(context: ProjectContext): HubSection<Record<string, un
     freshness: null,
     health: context.workspace.available ? 'healthy' : 'unavailable',
     drift: context.workspace.available ? [] : ['workspace_unavailable'],
-    data: { binding: context.workspace },
+    data: { binding: { configured: true, available: context.workspace.available } },
   };
 }
 

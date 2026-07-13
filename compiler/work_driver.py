@@ -15,7 +15,10 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import json
+import os
 import re
+import time
+from contextlib import contextmanager
 from pathlib import Path
 
 import currency
@@ -64,6 +67,8 @@ OUTCOME_ALREADY_LEASED = "ALREADY_LEASED"
 OUTCOME_HEAD_MISMATCH = "HEAD_MISMATCH"
 
 _LEASES_FILE = "_leases.json"
+_WORK_RUN_LOCK_FILE = "_work-run.lock"
+_WORK_RUN_LOCK_STALE_SECONDS = 5 * 60
 
 WORK_RUN_STATES = (
     "planned", "leased", "running", "awaiting_review",
@@ -90,9 +95,45 @@ class LeaseResult:
     lease: dict | None = None
 
 
+class WorkRunBusy(RuntimeError):
+    """A second runtime owns the shared Work Run mutation lock."""
+
+
 def _leases_path(vault_dir) -> Path:
     # machine layer: gitignored .vault-mind/, never shared markdown (§0 #6).
     return Path(vault_dir) / ".vault-mind" / _LEASES_FILE
+
+
+@contextmanager
+def _work_run_lock(vault_dir):
+    """Serialize Python and TypeScript Work Run compare-and-write sections."""
+    path = Path(vault_dir) / ".vault-mind" / _WORK_RUN_LOCK_FILE
+    path.parent.mkdir(parents=True, exist_ok=True)
+    token = f"{os.getpid()}:{time.time_ns()}"
+    for attempt in range(2):
+        try:
+            descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            try:
+                os.write(descriptor, token.encode("utf-8"))
+            finally:
+                os.close(descriptor)
+            break
+        except FileExistsError as exc:
+            try:
+                stale = time.time() - path.stat().st_mtime > _WORK_RUN_LOCK_STALE_SECONDS
+            except FileNotFoundError:
+                stale = True
+            if not stale or attempt:
+                raise WorkRunBusy("Work Run is busy with another runtime") from exc
+            path.unlink(missing_ok=True)
+    try:
+        yield
+    finally:
+        try:
+            if path.read_text("utf-8") == token:
+                path.unlink(missing_ok=True)
+        except FileNotFoundError:
+            pass
 
 
 def read_leases(vault_dir) -> dict:
@@ -197,9 +238,9 @@ def _write_work_run(vault_dir, run):
     return path
 
 
-def transition_work_run(vault_dir, project_id, work_run_id, state, *,
-                        transition_token, now, output_class=None,
-                        approval_status=None, provenance=None, reason=None):
+def _transition_work_run_unlocked(vault_dir, project_id, work_run_id, state, *,
+                                  transition_token, now, output_class=None,
+                                  approval_status=None, provenance=None, reason=None):
     """Apply one shared, idempotent Work Run transition."""
     run = read_work_run(vault_dir, project_id, work_run_id)
     if run is None:
@@ -234,7 +275,20 @@ def transition_work_run(vault_dir, project_id, work_run_id, state, *,
     return run
 
 
-def acquire_lease(
+def transition_work_run(vault_dir, project_id, work_run_id, state, *,
+                        transition_token, now, output_class=None,
+                        approval_status=None, provenance=None, reason=None):
+    """Apply an idempotent transition under the cross-runtime mutation lock."""
+    with _work_run_lock(vault_dir):
+        return _transition_work_run_unlocked(
+            vault_dir, project_id, work_run_id, state,
+            transition_token=transition_token, now=now,
+            output_class=output_class, approval_status=approval_status,
+            provenance=provenance, reason=reason,
+        )
+
+
+def _acquire_lease_unlocked(
     vault_dir, note_id, agent_id, *, current_head, base_head, ttl_seconds, now,
     project_id=None, work_item_id=None, transition_token=None
 ) -> LeaseResult:
@@ -244,8 +298,9 @@ def acquire_lease(
     head is HEAD_MISMATCH (the item moved since the driver selected it). An
     unexpired lease held by a *different* agent is ALREADY_LEASED. The same
     agent may refresh; an expired lease (now >= expires_at) is reclaimable.
-    `now`/`ttl_seconds` are epoch-second ints supplied by the caller, so this
-    module makes no wall-clock call and stays deterministic.
+    `now`/`ttl_seconds` are epoch-second ints supplied by the caller, so lease
+    outcomes stay deterministic; wall time is used only to reclaim a stale
+    cross-runtime mutation lock.
     """
     if base_head != current_head:
         return LeaseResult(OUTCOME_HEAD_MISMATCH)
@@ -302,7 +357,21 @@ def acquire_lease(
     return LeaseResult(OUTCOME_ACQUIRED, lease)
 
 
-def release_lease(vault_dir, note_id, agent_id) -> bool:
+def acquire_lease(
+    vault_dir, note_id, agent_id, *, current_head, base_head, ttl_seconds, now,
+    project_id=None, work_item_id=None, transition_token=None
+) -> LeaseResult:
+    """Atomically claim an item under the cross-runtime Work Run lock."""
+    with _work_run_lock(vault_dir):
+        return _acquire_lease_unlocked(
+            vault_dir, note_id, agent_id,
+            current_head=current_head, base_head=base_head,
+            ttl_seconds=ttl_seconds, now=now, project_id=project_id,
+            work_item_id=work_item_id, transition_token=transition_token,
+        )
+
+
+def _release_lease_unlocked(vault_dir, note_id, agent_id) -> bool:
     """Drop a lease the given agent holds. Returns False (no-op) if the lease is
     missing or held by someone else."""
     leases = read_leases(vault_dir)
@@ -312,6 +381,12 @@ def release_lease(vault_dir, note_id, agent_id) -> bool:
         _write_leases(vault_dir, leases)
         return True
     return False
+
+
+def release_lease(vault_dir, note_id, agent_id) -> bool:
+    """Drop a held lease under the cross-runtime Work Run lock."""
+    with _work_run_lock(vault_dir):
+        return _release_lease_unlocked(vault_dir, note_id, agent_id)
 
 
 def route_work_run_output(vault_dir, project_id, work_run_id, output_class, *,
@@ -346,7 +421,7 @@ def route_work_run_output(vault_dir, project_id, work_run_id, output_class, *,
     }
 
 
-def recover_expired_work_runs(vault_dir, *, now):
+def _recover_expired_work_runs_unlocked(vault_dir, *, now):
     """Fail interrupted durable runs whose machine-local lease expired."""
     leases = read_leases(vault_dir)
     recovered = []
@@ -359,7 +434,7 @@ def recover_expired_work_runs(vault_dir, *, now):
         if project_id and work_run_id:
             run = read_work_run(vault_dir, project_id, work_run_id)
             if run and run.get("state") not in WORK_RUN_TERMINAL_STATES:
-                run = transition_work_run(
+                run = _transition_work_run_unlocked(
                     vault_dir, project_id, work_run_id, "failed",
                     transition_token=f"driver:lease-expired:{work_run_id}:{now}",
                     now=now, reason="machine-local lease expired",
@@ -370,6 +445,12 @@ def recover_expired_work_runs(vault_dir, *, now):
     if changed:
         _write_leases(vault_dir, leases)
     return recovered
+
+
+def recover_expired_work_runs(vault_dir, *, now):
+    """Recover expired runs and remove their leases as one locked mutation."""
+    with _work_run_lock(vault_dir):
+        return _recover_expired_work_runs_unlocked(vault_dir, now=now)
 
 
 # --- kanban view: render the work-OS truth into an Obsidian board (unify) -----

@@ -72,4 +72,22 @@ describe('Project migration operations', () => {
     assert.equal(operations.get('project.migration.apply')!.mutating, true);
     assert.equal(operations.get('project.migration.restore')!.mutating, true);
   });
+
+  test('anchor-only adoption applies and restore removes the shared registry record', async () => {
+    const { root, call } = fixture();
+    rmSync(join(root, 'Projects', 'alpha.md'));
+
+    const plan = await call('project.migration.plan') as Record<string, any>;
+    const adoption = plan.actions.find(
+      (action: Record<string, unknown>) => action.reason === 'adopt_work_os_anchor_as_shared_project',
+    );
+    assert.equal(adoption.path, 'Projects/alpha.md');
+    assert.equal(adoption.expected_hash, null);
+
+    const applied = await call('project.migration.apply', { apply: true, batch_id: 'anchor-only' }) as Record<string, any>;
+    assert.match(bytes(root, 'Projects/alpha.md'), /entity: project\/alpha/);
+    const manifest = relative(root, applied.manifest_path).replaceAll('\\', '/');
+    await call('project.migration.restore', { manifest, apply: true });
+    assert.throws(() => readFileSync(join(root, 'Projects', 'alpha.md')));
+  });
 });

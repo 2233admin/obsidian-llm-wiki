@@ -800,7 +800,7 @@ test('workflow agent policy slugifies default actor namespace', async () => {
   try {
     await policyClient.connect(policyTransport);
     const result = await policyClient.callTool({
-      name: 'workflow.agent.join',
+      name: 'workflow.agent.start',
       arguments: { project: 'Policy Project', objective: 'policy path regression' },
     });
     assert.ok(!result.isError, `slugified default actor path should be allowed: ${JSON.stringify(result.content)}`);

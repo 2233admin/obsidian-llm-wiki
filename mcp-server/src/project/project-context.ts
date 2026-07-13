@@ -464,6 +464,7 @@ export function resolveProjectContext(
   vaultPath: string,
   input: string | ProjectRef,
   operation = 'internal',
+  options: { recordCompatibility?: boolean } = {},
 ): ProjectContext {
   const reference = normalizeProjectRef(input);
   if (reference.kind !== 'id' && process.env.LLMWIKI_PROJECT_COMPATIBILITY === 'disabled') {
@@ -498,7 +499,7 @@ export function resolveProjectContext(
 
   const diagnostics = [...registry.diagnostics];
   if (reference.kind === 'name') {
-    recordCompatibilityRead(operation, entry.projectId);
+    if (options.recordCompatibility !== false) recordCompatibilityRead(operation, entry.projectId);
     diagnostics.push({
       code: 'compatibility_reference',
       severity: 'info',
@@ -506,7 +507,7 @@ export function resolveProjectContext(
       projectId: entry.projectId,
     });
   } else if (reference.kind === 'workspace') {
-    recordCompatibilityRead(operation, entry.projectId);
+    if (options.recordCompatibility !== false) recordCompatibilityRead(operation, entry.projectId);
     diagnostics.push({
       code: 'workspace_reference',
       severity: 'info',

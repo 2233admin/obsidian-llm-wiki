@@ -56,7 +56,7 @@ export function makeSourceOps(vaultPath: string): Operation[] {
   mutating: true,
   writePolicy: {
     realWrite: 'always',
-    targets: (_ctx, params) => sourcePolicyTargetPaths(params),
+    targets: (ctx, params) => sourcePolicyTargetPaths(ctx.config, params, 'source.register'),
     audit: 'required',
     effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), 'create')],
   },

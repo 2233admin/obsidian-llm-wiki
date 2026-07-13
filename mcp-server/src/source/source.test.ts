@@ -107,6 +107,29 @@ test('source.register rejects unknown project without creating a domain root', a
   }
 });
 
+test('source.register audit targets use the canonical Project Context before paths', () => {
+  const vault = tempVault();
+  try {
+    registerProject(vault, 'local-linear', 'Local Linear');
+    const register = op(vault, 'source.register');
+    const targets = register.writePolicy.targets(ctx(vault), {
+      project: 'Local Linear',
+      platform: 'github',
+    });
+    assert.deepEqual(targets, [
+      '_llmwiki/source-registry.json',
+      '10-Projects/local-linear/sources/github/**',
+    ]);
+    assert.throws(
+      () => register.writePolicy.targets(ctx(vault), { project: 'missing', platform: 'github' }),
+      /Project not found: missing/,
+    );
+    assert.equal(existsSync(vaultJoin(vault, '10-Projects')), false);
+  } finally {
+    rmSync(vault, { recursive: true, force: true });
+  }
+});
+
 test('source.register supports vaultPath without modifying the original note', async () => {
   const vault = tempVault();
   try {
@@ -146,11 +169,11 @@ function tempVault(): string {
   return mkdtempSync(join(tmpdir(), 'llmwiki-source-'));
 }
 
-function registerProject(vault: string, slug: string): void {
+function registerProject(vault: string, slug: string, alias?: string): void {
   mkdirSync(vaultJoin(vault, 'Projects'), { recursive: true });
   writeFileSync(
     vaultJoin(vault, `Projects/${slug}.md`),
-    `---\ntype: project\nentity: project/${slug}\nstatus: active\n---\n`,
+    `---\ntype: project\nentity: project/${slug}\nstatus: active\n${alias ? `aliases: [${alias}]\n` : ''}---\n`,
     'utf-8',
   );
 }

@@ -29,18 +29,18 @@
 
 ## 5. Project Context and migration hardening
 
-- [ ] 5.1 Route memory and conversation operations through the canonical Project Context resolver before path creation
-- [ ] 5.2 Audit and route all remaining project-scoped source, workflow, settings, and Hub operations through the resolver
+- [x] 5.1 Route memory and conversation operations through the canonical Project Context resolver before path creation
+- [x] 5.2 Audit and route all remaining project-scoped source, workflow, settings, and Hub operations through the resolver
 - [ ] 5.3 Compose Project Hub settings from Effective Settings Snapshot and propagate degraded/unavailable health accurately
-- [ ] 5.4 Add anchor-only Project inventory, registry migration plan/apply/restore, conflict, and current-repo regression tests
-- [ ] 5.5 Add strict-mode tests proving unknown or bare project inputs cannot create implicit knowledge or settings roots
+- [x] 5.4 Add anchor-only Project inventory, registry migration plan/apply/restore, conflict, and current-repo regression tests
+- [x] 5.5 Add strict-mode tests proving unknown or bare project inputs cannot create implicit knowledge or settings roots
 
 ## 6. Work Run and fleet identity
 
-- [ ] 6.1 Make `workflow.agent.join` validate Project, Work Item, Work Run, agent, and lease identity before state mutation
-- [ ] 6.2 Add idempotent join and mismatch conflict tests spanning Python lease state and TypeScript durable run state
+- [x] 6.1 Make `workflow.agent.join` validate Project, Work Item, Work Run, agent, and lease identity before state mutation
+- [x] 6.2 Add idempotent join and mismatch conflict tests spanning Python lease state and TypeScript durable run state
 - [ ] 6.3 Add a reproducible fleet workflow fixture/script covering local lease, 5090 join/checkpoint/leave, and local doctor/Hub verification
-- [ ] 6.4 Verify machine-local paths and lease tokens never cross device or enter durable Work Run/Project Hub records
+- [x] 6.4 Verify machine-local paths and lease tokens never cross device or enter durable Work Run/Project Hub records
 
 ## 7. Release runtime parity
 

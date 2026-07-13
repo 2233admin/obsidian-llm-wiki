@@ -1,8 +1,8 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { Operation, OperationContext, WriteEffect } from '../core/types.js';
-import { makeErr } from '../core/types.js';
+import { conflict, makeErr } from '../core/types.js';
 import { resultPath, touchMarkdown, workflowAgentPolicyBasePath, workflowPolicyBasePath } from '../core/write-policy.js';
 import { resolveProjectContext } from '../project/project-context.js';
 
@@ -26,9 +26,9 @@ const workflowAgentEffects = (_ctx: OperationContext, _params: Record<string, un
 };
 
 const workflowAgentTargets = (ctx: OperationContext, params: Record<string, unknown>): string[] => {
-  const workflow = workflowPolicyBasePath(params);
+  const workflow = workflowPolicyBasePath(ctx.config, params, 'workflow.agent');
   const projectRoot = workflow.slice(0, -'/workflow'.length);
-  return [`${workflowAgentPolicyBasePath(ctx.config, params)}/**`, `${projectRoot}/runs/**`];
+  return [`${workflowAgentPolicyBasePath(ctx.config, params, 'workflow.agent')}/**`, `${projectRoot}/runs/**`];
 };
 
 const AGENT_STATUSES = ['active', 'blocked', 'done', 'archived'] as const;
@@ -191,18 +191,205 @@ function durableRunPath(project: string, workRunId: string): string {
   return `01-Projects/${project}/runs/${workRunId.slice('work-run/'.length)}.json`;
 }
 
-function syncDurableWorkRun(vaultPath: string, state: AgentLifetimeState, transitionToken: string): string {
+const WORK_RUN_LOCK_PATH = '.vault-mind/_work-run.lock';
+const WORK_RUN_LOCK_STALE_MS = 5 * 60_000;
+
+function withWorkRunLock<T>(vaultPath: string, action: () => T): T {
+  const lockPath = vaultJoin(vaultPath, WORK_RUN_LOCK_PATH);
+  const token = `${process.pid}:${randomUUID()}`;
+  mkdirSync(dirname(lockPath), { recursive: true });
+  const claim = () => writeFileSync(lockPath, token, { encoding: 'utf-8', flag: 'wx' });
+  try {
+    claim();
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+    let stale = false;
+    try {
+      stale = Date.now() - statSync(lockPath).mtimeMs > WORK_RUN_LOCK_STALE_MS;
+    } catch {
+      // The owner released between the failed create and inspection; retry once.
+      stale = true;
+    }
+    if (!stale) throw conflict('Work Run is busy with another runtime');
+    rmSync(lockPath, { force: true });
+    try {
+      claim();
+    } catch {
+      throw conflict('Work Run is busy with another runtime');
+    }
+  }
+  try {
+    return action();
+  } finally {
+    try {
+      if (readFileSync(lockPath, 'utf-8') === token) rmSync(lockPath, { force: true });
+    } catch {
+      // A missing lock is already released; never remove a successor's token.
+    }
+  }
+}
+
+interface LeasedRunIdentity {
+  projectId: string;
+  workItemId: string;
+  workRunId: string;
+  agentId: string;
+  state: WorkRunState;
+}
+
+function jsonRecord(path: string, label: string): Record<string, unknown> | null {
+  if (!existsSync(path)) return null;
+  try {
+    const value = JSON.parse(readFileSync(path, 'utf-8')) as unknown;
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      throw new Error('expected an object');
+    }
+    return value as Record<string, unknown>;
+  } catch (error) {
+    throw conflict(`${label} identity conflict: ${(error as Error).message}`);
+  }
+}
+
+function leaseCandidates(vaultPath: string, workRunId: string): Array<Record<string, unknown>> {
+  const registry = jsonRecord(join(vaultPath, '.vault-mind', '_leases.json'), 'Lease registry');
+  if (!registry) return [];
+  return Object.values(registry).filter((value): value is Record<string, unknown> => (
+    Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+    && (value as Record<string, unknown>).work_run_id === workRunId
+  ));
+}
+
+function canonicalWorkItemId(value: unknown): string {
+  const id = optionalString(value);
+  if (!/^project\/[a-z0-9][a-z0-9-]*\/issue\/[a-z0-9][a-z0-9-]*$/.test(id)) {
+    throw conflict('Work Item identity conflict: work_item_id must be canonical');
+  }
+  return id;
+}
+
+function identityEquals(label: string, expected: unknown, actual: unknown): void {
+  if (typeof expected !== 'string' || expected !== actual) {
+    throw conflict(`${label} identity conflict`, { expected, actual });
+  }
+}
+
+function assertWorkItemOwnership(projectIdentity: string, workItemId: string): void {
+  if (!workItemId.startsWith(`${projectIdentity}/issue/`)) {
+    throw conflict('Work Item ownership identity conflict', {
+      projectId: projectIdentity,
+      workItemId,
+    });
+  }
+}
+
+function assertActiveLeaseIdentity(
+  vaultPath: string,
+  identity: Pick<LeasedRunIdentity, 'projectId' | 'workItemId' | 'workRunId' | 'agentId'>,
+): void {
+  const leases = leaseCandidates(vaultPath, identity.workRunId);
+  if (leases.length !== 1) {
+    throw conflict('Lease identity conflict: expected exactly one local lease for Work Run', {
+      workRunId: identity.workRunId,
+      matches: leases.length,
+    });
+  }
+  const lease = leases[0];
+  identityEquals('Project', identity.projectId, lease.project_id);
+  identityEquals('Work Item', identity.workItemId, lease.work_item_id);
+  identityEquals('Work Run', identity.workRunId, lease.work_run_id);
+  identityEquals('agent', identity.agentId, lease.agent_id);
+  const expiresAt = lease.expires_at;
+  if (typeof expiresAt !== 'number' || !Number.isFinite(expiresAt) || Date.now() / 1000 >= expiresAt) {
+    throw conflict('Lease expiry identity conflict: local lease is missing or expired', {
+      workRunId: identity.workRunId,
+      expiresAt,
+    });
+  }
+}
+
+function assertDurableRunIdentity(
+  vaultPath: string,
+  project: string,
+  identity: Pick<LeasedRunIdentity, 'projectId' | 'workItemId' | 'workRunId' | 'agentId'>,
+): WorkRunState {
+  const durablePath = vaultJoin(vaultPath, durableRunPath(project, identity.workRunId));
+  const durable = jsonRecord(durablePath, 'Durable Work Run');
+  if (!durable) throw conflict(`Work Run identity conflict: durable run not found for ${identity.workRunId}`);
+  identityEquals('Project', identity.projectId, durable.project_id);
+  identityEquals('Work Item', identity.workItemId, durable.work_item_id);
+  identityEquals('Work Run', identity.workRunId, durable.work_run_id);
+  identityEquals('agent', identity.agentId, durable.agent_id);
+  const state = durable.state as WorkRunState;
+  if (!WORK_RUN_STATES.includes(state)) {
+    throw conflict(`Work Run identity conflict: invalid durable state ${String(durable.state)}`);
+  }
+  return state;
+}
+
+function assertLeasedRunIdentity(
+  vaultPath: string,
+  project: string,
+  agent: string,
+  params: Record<string, unknown>,
+): LeasedRunIdentity {
+  const workRunId = parseWorkRunId(params.work_run_id);
+  const workItemId = canonicalWorkItemId(params.work_item_id);
+  const expectedProjectId = projectId(project);
+  assertWorkItemOwnership(expectedProjectId, workItemId);
+  const identity = { projectId: expectedProjectId, workItemId, workRunId, agentId: agent };
+  assertActiveLeaseIdentity(vaultPath, identity);
+  const state = assertDurableRunIdentity(vaultPath, project, identity);
+  if (state !== 'leased' && state !== 'running') {
+    throw conflict(`Work Run identity conflict: join requires leased or running state, found ${String(durable.state)}`);
+  }
+  return { ...identity, state };
+}
+
+function durableTransitions(value: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return [];
+    const raw = item as Record<string, unknown>;
+    if (typeof raw.transition_token !== 'string') return [];
+    return [{
+      transition_token: raw.transition_token,
+      from: typeof raw.from === 'string' ? raw.from : null,
+      to: typeof raw.to === 'string' ? raw.to : null,
+      recorded_at: raw.recorded_at ?? null,
+    }];
+  });
+}
+
+function syncDurableWorkRunUnlocked(
+  vaultPath: string,
+  state: AgentLifetimeState,
+  transitionToken: string,
+  leasedIdentity?: LeasedRunIdentity,
+): string {
   const path = durableRunPath(state.project, state.workRunId);
   const fullPath = vaultJoin(vaultPath, path);
   let run: Record<string, any> = {};
-  if (existsSync(fullPath)) {
+  const original = existsSync(fullPath) ? readFileSync(fullPath, 'utf-8') : null;
+  if (original !== null) {
     try {
-      run = JSON.parse(readFileSync(fullPath, 'utf-8')) as Record<string, any>;
+      run = JSON.parse(original) as Record<string, any>;
     } catch {
       throw makeErr(-32603, `Durable Work Run is malformed: ${path}`);
     }
+    identityEquals('Project', state.projectId, run.project_id);
+    identityEquals('Work Item', state.workItemId, run.work_item_id);
+    identityEquals('Work Run', state.workRunId, run.work_run_id);
+    identityEquals('agent', state.agent, run.agent_id);
+    const previousState = run.state as WorkRunState;
+    if (!WORK_RUN_STATES.includes(previousState)) {
+      throw conflict('Work Run state conflict: durable state is invalid', { actual: run.state });
+    }
+    if (previousState !== state.workRunState && !isWorkRunTransitionAllowed(previousState, state.workRunState)) {
+      throw conflict(`Invalid Work Run transition: ${previousState} -> ${state.workRunState}`);
+    }
   }
-  const transitions = Array.isArray(run.transitions) ? run.transitions as Array<Record<string, unknown>> : [];
+  if (leasedIdentity) assertActiveLeaseIdentity(vaultPath, leasedIdentity);
+  const transitions = durableTransitions(run.transitions);
   if (!transitions.some((item) => item.transition_token === transitionToken)) {
     const previous = typeof run.state === 'string' ? run.state : state.workRunState === 'running' ? 'leased' : 'planned';
     if (previous !== state.workRunState) {
@@ -210,7 +397,6 @@ function syncDurableWorkRun(vaultPath: string, state: AgentLifetimeState, transi
     }
   }
   const durable = {
-    ...run,
     schema_version: 1,
     project_id: state.projectId,
     work_item_id: state.workItemId,
@@ -225,10 +411,29 @@ function syncDurableWorkRun(vaultPath: string, state: AgentLifetimeState, transi
     transitions,
   };
   mkdirSync(dirname(fullPath), { recursive: true });
-  const temporary = `${fullPath}.tmp`;
+  const temporary = `${fullPath}.tmp-${randomUUID()}`;
   writeFileSync(temporary, JSON.stringify(durable, null, 2) + '\n', 'utf-8');
+  const unchanged = original === null
+    ? !existsSync(fullPath)
+    : existsSync(fullPath) && readFileSync(fullPath, 'utf-8') === original;
+  if (!unchanged) {
+    rmSync(temporary, { force: true });
+    throw conflict(`Work Run changed concurrently: ${state.workRunId}`);
+  }
   renameSync(temporary, fullPath);
   return path;
+}
+
+function syncDurableWorkRun(
+  vaultPath: string,
+  state: AgentLifetimeState,
+  transitionToken: string,
+  leasedIdentity?: LeasedRunIdentity,
+): string {
+  return withWorkRunLock(
+    vaultPath,
+    () => syncDurableWorkRunUnlocked(vaultPath, state, transitionToken, leasedIdentity),
+  );
 }
 
 function vaultJoin(vaultPath: string, relPath: string): string {
@@ -389,6 +594,28 @@ function parseTransitionToken(value: unknown): string {
   return token;
 }
 
+function durableProvenance(value: unknown): string[] {
+  const references = stringList(value);
+  for (const reference of references) {
+    const candidates = [reference.trim()];
+    const uriReference = /^[a-z][a-z0-9+.-]*:\/\/(.*)$/i.exec(candidates[0]);
+    const logicalReference = /^[a-z][a-z0-9+.-]*:(.*)$/i.exec(candidates[0]);
+    if (uriReference) candidates.push(uriReference[1]);
+    else if (logicalReference) candidates.push(logicalReference[1]);
+    const exposesPath = candidates.some((candidate) => {
+      if (/^file:/i.test(candidate)) return true;
+      if (/^https?:\/\//i.test(candidate)) return false;
+      return /^(?:[A-Za-z]:[\\/]|\\\\|\/|~[\\/]|\.{1,2}[\\/])/.test(candidate)
+        || /(?:^|[\/:=\s])(?:[A-Za-z]:[\\/]|\\\\|\/(?:[^/\s]+\/)|~[\\/]|\.{1,2}[\\/])/.test(candidate);
+    });
+    const exposesLeaseToken = /lease[-_ ]?token/i.test(reference);
+    if (exposesPath || exposesLeaseToken) {
+      throw makeErr(-32602, 'provenance must not contain machine-local paths or lease tokens');
+    }
+  }
+  return references;
+}
+
 function isTerminalWorkRunState(state: WorkRunState): boolean {
   return WORK_RUN_TERMINAL_STATES.includes(state as (typeof WORK_RUN_TERMINAL_STATES)[number]);
 }
@@ -483,6 +710,23 @@ function replayResult(state: AgentLifetimeState, receipt: WorkRunTransitionRecei
       updatedAt: receipt.recordedAt,
     },
     receipt,
+  };
+}
+
+function replayJoin(state: AgentLifetimeState, eventsPath: string) {
+  const receipt = [...state.transitions].reverse().find((item) => item.operation === 'join');
+  if (receipt) return replayResult(state, receipt, eventsPath);
+  return {
+    ok: true,
+    idempotent: true,
+    project: state.project,
+    projectId: state.projectId,
+    agent: state.agent,
+    workRunId: state.workRunId,
+    path: state.path,
+    eventsPath,
+    runPath: durableRunPath(state.project, state.workRunId),
+    lifetime: state,
   };
 }
 
@@ -903,6 +1147,153 @@ function agentDoctor(vaultPath: string, project: string, agent: string, expected
   };
 }
 
+function beginAgentLifetime(
+  vaultPath: string,
+  ctx: OperationContext,
+  params: Record<string, unknown>,
+  mode: 'leased' | 'manual',
+) {
+  const operation = mode === 'leased' ? 'workflow.agent.join' : 'workflow.agent.start';
+  const actor = actorFromContext(ctx);
+  const project = existingProjectKey(vaultPath, params.project, operation);
+  const agent = agentKey(params.agent, actor);
+  const transitionToken = parseTransitionToken(params.transition_token);
+
+  let leasedIdentity: LeasedRunIdentity | null = null;
+  let workRunId: string;
+  let workItemId: string;
+  if (mode === 'leased') {
+    if (!optionalString(params.work_run_id) || !optionalString(params.work_item_id)) {
+      throw makeErr(
+        -32602,
+        'workflow.agent.join requires a canonical Work Item, Work Run, and active lease identity',
+      );
+    }
+    const requestedWorkRunId = parseWorkRunId(params.work_run_id);
+    const requestedWorkItemId = canonicalWorkItemId(params.work_item_id);
+    const requestedIdentity = {
+      projectId: projectId(project),
+      workItemId: requestedWorkItemId,
+      workRunId: requestedWorkRunId,
+      agentId: agent,
+    };
+    assertWorkItemOwnership(requestedIdentity.projectId, requestedWorkItemId);
+    const priorLifetime = readAgentLifetime(vaultPath, project, agent);
+    const priorReceipt = priorLifetime
+      ? findTransitionReceipt(priorLifetime, transitionToken, 'join')
+      : undefined;
+    if (priorLifetime && priorReceipt) {
+      identityEquals('Project', requestedIdentity.projectId, priorLifetime.projectId);
+      identityEquals('Work Item', requestedWorkItemId, priorLifetime.workItemId);
+      identityEquals('Work Run', requestedWorkRunId, priorLifetime.workRunId);
+      identityEquals('agent', agent, priorLifetime.agent);
+      assertDurableRunIdentity(vaultPath, project, requestedIdentity);
+      return replayResult(priorLifetime, priorReceipt, agentEventsPath(project, agent));
+    }
+    leasedIdentity = assertLeasedRunIdentity(vaultPath, project, agent, params);
+    workRunId = leasedIdentity.workRunId;
+    workItemId = leasedIdentity.workItemId;
+  } else {
+    if (
+      optionalString(params.work_run_id)
+      || optionalString(params.work_item_id)
+      || optionalString(params.work_run_state)
+    ) {
+      throw makeErr(-32602, 'workflow.agent.start creates manual runs and does not accept leased identity fields');
+    }
+    workRunId = createWorkRunId();
+    workItemId = parseWorkItemId(undefined, project, params.issue);
+  }
+
+  const existing = readAgentLifetime(vaultPath, project, agent);
+  if (existing) {
+    const receipt = findTransitionReceipt(existing, transitionToken, 'join');
+    identityEquals('Project', projectId(project), existing.projectId);
+    identityEquals('agent', agent, existing.agent);
+    if (leasedIdentity) {
+      identityEquals('Work Run', workRunId, existing.workRunId);
+      identityEquals('Work Item', workItemId, existing.workItemId);
+      if (receipt) return replayResult(existing, receipt, agentEventsPath(project, agent));
+      return replayJoin(existing, agentEventsPath(project, agent));
+    }
+    if (receipt) return replayResult(existing, receipt, agentEventsPath(project, agent));
+    if (!isTerminalWorkRunState(existing.workRunState)) {
+      throw conflict(`${agent} already joined Work Run ${existing.workRunId}`);
+    }
+  }
+
+  const initialWorkRunState = leasedIdentity?.state ?? 'running';
+  const suppliedState = optionalString(params.work_run_state);
+  if (leasedIdentity && suppliedState && suppliedState !== initialWorkRunState) {
+    throw conflict('Work Run state conflict', { expected: initialWorkRunState, actual: suppliedState });
+  }
+  if (initialWorkRunState !== 'leased' && initialWorkRunState !== 'running') {
+    throw makeErr(-32602, 'workflow.agent.join can attach only a leased or already-running Work Run');
+  }
+
+  const now = isoNow();
+  const path = agentLifetimePath(project, agent);
+  const stage = parseAgentStage(params.stage, 'think');
+  const evidence = stringList(params.evidence);
+  assertAgentStageEvidence(stage, evidence);
+  const outputClass = parseOutputClass(params.output_class);
+  const approvalStatus = parseApprovalStatus(params.approval_status, outputClass);
+  let state: AgentLifetimeState = {
+    projectId: leasedIdentity?.projectId ?? projectId(project),
+    project,
+    workRunId,
+    workRunState: initialWorkRunState === 'leased' ? transitionWorkRun('leased', 'running') : 'running',
+    workItemId,
+    agent,
+    role: oneLine(params.role) || 'agent',
+    host: oneLine(params.host) || actor,
+    stage,
+    status: 'active',
+    objective: oneLine(params.objective),
+    issue: oneLine(params.issue),
+    evidence,
+    provenance: durableProvenance(params.provenance),
+    outputClass,
+    approvalStatus,
+    transitions: [],
+    startedAt: now,
+    updatedAt: now,
+    path,
+  };
+  state = withTransitionReceipt(state, transitionToken, 'join');
+
+  const { runPath, eventsPath } = withWorkRunLock(vaultPath, () => {
+    const persistedRunPath = syncDurableWorkRunUnlocked(
+      vaultPath,
+      state,
+      transitionToken,
+      leasedIdentity ?? undefined,
+    );
+    writeVaultBytes(vaultPath, path, renderAgentLifetime(state, optionalString(params.notes)));
+    const persistedEventsPath = appendAgentEvent(vaultPath, state, {
+      kind: 'join',
+      summary: state.objective || `${agent} joined`,
+      evidence: state.evidence,
+      actor,
+      transitionToken,
+    });
+    return { runPath: persistedRunPath, eventsPath: persistedEventsPath };
+  });
+
+  return {
+    ok: true,
+    idempotent: false,
+    project,
+    projectId: state.projectId,
+    agent,
+    workRunId,
+    path,
+    eventsPath,
+    runPath,
+    lifetime: state,
+  };
+}
+
 export function makeWorkflowOps(vaultPath: string): Operation[] {
   return [
     {
@@ -913,7 +1304,7 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
   mutating: true,
   writePolicy: {
     realWrite: 'always',
-    targets: (_ctx, params) => [`${workflowPolicyBasePath(params)}/status.md`],
+    targets: (ctx, params) => [`${workflowPolicyBasePath(ctx.config, params, 'workflow.state.set')}/status.md`],
     audit: 'required',
     effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), 'modify')],
   },
@@ -982,7 +1373,7 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
     mutating: true,
     writePolicy: {
       realWrite: 'always',
-      targets: (_ctx, params) => [`${workflowPolicyBasePath(params)}/checkpoints.md`],
+      targets: (ctx, params) => [`${workflowPolicyBasePath(ctx.config, params, 'workflow.checkpoint.add')}/checkpoints.md`],
       audit: 'required',
       effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), 'modify')],
     },
@@ -1039,9 +1430,48 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
       },
     },
     {
+      name: 'workflow.agent.start',
+      namespace: 'workflow' as Operation['namespace'],
+      description: 'Create a restricted manual Work Run without accepting or impersonating Work Driver lease identity fields.',
+      mutating: true,
+      writePolicy: {
+        realWrite: 'always',
+        targets: workflowAgentTargets,
+        audit: 'required',
+        effects: workflowAgentEffects,
+      },
+      params: {
+        project: { type: 'string', required: true, description: 'Project key' },
+        agent: { type: 'string', required: false, description: 'Agent id; defaults collaboration actor' },
+        role: { type: 'string', required: false, description: 'Agent role, e.g. manager|worker|reviewer|verifier' },
+        host: { type: 'string', required: false, description: 'Agent host, e.g. codex or claude-code' },
+        objective: { type: 'string', required: false, description: 'Lifetime objective' },
+        issue: { type: 'string', required: false, description: 'Linked issue slug or entity' },
+        transition_token: { type: 'string', required: false, description: 'Stable idempotency token for retrying manual creation' },
+        output_class: { type: 'string', required: false, enum: [...WORK_RUN_OUTPUT_CLASSES] },
+        approval_status: { type: 'string', required: false, enum: [...WORK_RUN_APPROVAL_STATUSES] },
+        provenance: { type: 'array', required: false, description: 'Logical provenance refs; never local paths or secrets' },
+        stage: {
+          type: 'string',
+          required: false,
+          enum: [...AGENT_STAGES],
+          default: 'think',
+          description:
+            'Initial lifetime stage: think|plan|build|review|test|ship|reflect. test requires review:* evidence; ship requires review:* and test:* evidence.',
+        },
+        evidence: {
+          type: 'array',
+          required: false,
+          description: 'Initial evidence refs. Use prefixes such as review:* and test:* for stage gates.',
+        },
+        notes: { type: 'string', required: false, description: 'Manual start notes' },
+      },
+      handler: async (ctx, params) => beginAgentLifetime(vaultPath, ctx, params, 'manual'),
+    },
+    {
   name: 'workflow.agent.join',
       namespace: 'workflow' as Operation['namespace'],
-      description: 'Join a leased Work Run (or create a legacy-compatible one) and persist its shared identity on the agent lifetime.',
+      description: 'Assert and join an existing Work Driver lease without overwriting its durable identities.',
     mutating: true,
     writePolicy: {
       realWrite: 'always',
@@ -1056,15 +1486,15 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
         host: { type: 'string', required: false, description: 'Agent host, e.g. codex or claude-code' },
         objective: { type: 'string', required: false, description: 'Lifetime objective' },
         issue: { type: 'string', required: false, description: 'Linked issue slug or entity' },
-        work_run_id: { type: 'string', required: false, description: 'Shared Work Run ID from the Work Driver lease' },
+        work_run_id: { type: 'string', required: true, description: 'Shared Work Run ID from the Work Driver lease' },
         work_run_state: {
           type: 'string',
           required: false,
           enum: [...WORK_RUN_STATES],
           description: 'Existing Work Run state; leased is expected when attaching a Work Driver lease',
         },
-        work_item_id: { type: 'string', required: false, description: 'Canonical project/<slug>/issue/<slug> identity' },
-        transition_token: { type: 'string', required: false, description: 'Idempotency token; generated for legacy calls' },
+        work_item_id: { type: 'string', required: true, description: 'Canonical project/<slug>/issue/<slug> identity' },
+        transition_token: { type: 'string', required: false, description: 'Stable idempotency token from the Work Driver transition' },
         output_class: { type: 'string', required: false, enum: [...WORK_RUN_OUTPUT_CLASSES] },
         approval_status: { type: 'string', required: false, enum: [...WORK_RUN_APPROVAL_STATUSES] },
         provenance: { type: 'array', required: false, description: 'Logical provenance refs; never local paths or secrets' },
@@ -1083,72 +1513,7 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
         },
         notes: { type: 'string', required: false, description: 'Join notes' },
       },
-      handler: async (ctx, params) => {
-        const actor = actorFromContext(ctx);
-        const project = existingProjectKey(vaultPath, params.project, 'workflow.agent.join');
-        const agent = agentKey(params.agent, actor);
-        const transitionToken = parseTransitionToken(params.transition_token);
-        const existing = readAgentLifetime(vaultPath, project, agent);
-        if (existing) {
-          const receipt = findTransitionReceipt(existing, transitionToken, 'join');
-          if (receipt) return replayResult(existing, receipt, agentEventsPath(project, agent));
-          if (!isTerminalWorkRunState(existing.workRunState)) {
-            throw makeErr(-32602, `${agent} already joined Work Run ${existing.workRunId}`);
-          }
-        }
-
-        const now = isoNow();
-        const path = agentLifetimePath(project, agent);
-        const stage = parseAgentStage(params.stage, 'think');
-        const evidence = stringList(params.evidence);
-        assertAgentStageEvidence(stage, evidence);
-        const workRunId = optionalString(params.work_run_id) ? parseWorkRunId(params.work_run_id) : createWorkRunId();
-        const initialWorkRunState = optionalString(params.work_run_state)
-          ? parseWorkRunState(params.work_run_state, 'leased')
-          : optionalString(params.work_run_id)
-            ? 'leased'
-            : 'running';
-        if (initialWorkRunState !== 'leased' && initialWorkRunState !== 'running') {
-          throw makeErr(-32602, 'workflow.agent.join can attach only a leased or already-running Work Run');
-        }
-        const outputClass = parseOutputClass(params.output_class);
-        const approvalStatus = parseApprovalStatus(params.approval_status, outputClass);
-        let state: AgentLifetimeState = {
-          projectId: projectId(project),
-          project,
-          workRunId,
-          workRunState: initialWorkRunState === 'leased' ? transitionWorkRun('leased', 'running') : 'running',
-          workItemId: parseWorkItemId(params.work_item_id, project, params.issue),
-          agent,
-          role: oneLine(params.role) || 'agent',
-          host: oneLine(params.host) || actor,
-          stage,
-          status: 'active',
-          objective: oneLine(params.objective),
-          issue: oneLine(params.issue),
-          evidence,
-          provenance: stringList(params.provenance),
-          outputClass,
-          approvalStatus,
-          transitions: [],
-          startedAt: now,
-          updatedAt: now,
-          path,
-        };
-        state = withTransitionReceipt(state, transitionToken, 'join');
-
-        writeVaultBytes(vaultPath, path, renderAgentLifetime(state, optionalString(params.notes)));
-        const runPath = syncDurableWorkRun(vaultPath, state, transitionToken);
-        const eventsPath = appendAgentEvent(vaultPath, state, {
-          kind: 'join',
-          summary: state.objective || `${agent} joined`,
-          evidence: state.evidence,
-          actor,
-          transitionToken,
-        });
-
-        return { ok: true, idempotent: false, project, projectId: state.projectId, agent, workRunId, path, eventsPath, runPath, lifetime: state };
-      },
+      handler: async (ctx, params) => beginAgentLifetime(vaultPath, ctx, params, 'leased'),
     },
     {
   name: 'workflow.agent.step',
@@ -1250,7 +1615,7 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
           objective: params.objective === undefined ? current.objective : oneLine(params.objective),
           issue: params.issue === undefined ? current.issue : oneLine(params.issue),
           evidence,
-          provenance: mergeStringLists(current.provenance, stringList(params.provenance)),
+          provenance: mergeStringLists(current.provenance, durableProvenance(params.provenance)),
           outputClass,
           approvalStatus,
           updatedAt: isoNow(),
@@ -1343,7 +1708,7 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
                 ? 'archived'
                 : current.status,
           evidence: mergeStringLists(current.evidence, incomingEvidence),
-          provenance: mergeStringLists(current.provenance, stringList(params.provenance)),
+          provenance: mergeStringLists(current.provenance, durableProvenance(params.provenance)),
           outputClass,
           approvalStatus,
           updatedAt: isoNow(),
@@ -1431,7 +1796,7 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
           ...current,
           status: 'archived',
           workRunState: nextWorkRunState,
-          provenance: mergeStringLists(current.provenance, stringList(params.provenance)),
+          provenance: mergeStringLists(current.provenance, durableProvenance(params.provenance)),
           outputClass,
           approvalStatus,
           updatedAt: isoNow(),

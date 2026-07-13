@@ -215,6 +215,114 @@ class ProjectMigrationFixture(unittest.TestCase):
             project_migration.restore_migration(
                 self.vault, applied["manifest_path"], apply=True)
 
+    def test_anchor_only_project_is_hash_guarded_adopted_and_restorable(self):
+        record = self.vault / "Projects" / "alpha.md"
+        record.unlink()
+        anchor = self.vault / "01-Projects" / "alpha" / "_project.md"
+        anchor.write_text(
+            "---\nentity: project/alpha\ntype: project\nstatus: active\n---\n\n# Alpha Work\n",
+            encoding="utf-8",
+        )
+        anchor_before = anchor.read_bytes()
+
+        inventory = project_migration.inventory_project_layout(self.vault)
+        self.assertEqual(inventory["counts"]["shared_records"], 0)
+        plan = project_migration.plan_project_migration(self.vault)
+        adoption = next(
+            action for action in plan["actions"]
+            if action["reason"] == "adopt_work_os_anchor_as_shared_project"
+        )
+        self.assertEqual(adoption["path"], "Projects/alpha.md")
+        self.assertIsNone(adoption["expected_hash"])
+        self.assertEqual(adoption["source"], "01-Projects/alpha/_project.md")
+        self.assertEqual(adoption["source_hash"], project_migration.file_hash(anchor))
+        self.assertEqual(plan["conflicts"], [])
+
+        applied = project_migration.apply_migration_plan(
+            plan, apply=True, batch_id="anchor-only")
+        self.assertIn("entity: project/alpha", record.read_text("utf-8"))
+        self.assertIn("type: project", record.read_text("utf-8"))
+        resolved = project_migration.project_context.resolve_project_context(
+            self.vault, "project/alpha")
+        self.assertEqual(resolved["project_id"], "project/alpha")
+        manifest = json.loads(Path(applied["manifest_path"]).read_text("utf-8"))
+        entry = next(item for item in manifest["actions"] if item["path"] == "Projects/alpha.md")
+        self.assertIsNone(entry["before_hash"])
+        self.assertIsNone(entry["backup"])
+
+        project_migration.restore_migration(
+            self.vault, applied["manifest_path"], apply=True)
+        self.assertFalse(record.exists())
+        self.assertEqual(anchor.read_bytes(), anchor_before)
+
+    def test_anchor_adoption_resumes_after_anchor_alignment_completed_first(self):
+        record = self.vault / "Projects" / "alpha.md"
+        record.unlink()
+        anchor = self.vault / "01-Projects" / "alpha" / "_project.md"
+        anchor.write_text(
+            "---\nentity: alpha\ntype: project\nstatus: active\n---\n\n# Alpha Work\n",
+            encoding="utf-8",
+        )
+        plan = project_migration.plan_project_migration(self.vault)
+        reasons = [action["reason"] for action in plan["actions"]]
+        self.assertIn("align_work_os_anchor_project_id", reasons)
+        self.assertIn("adopt_work_os_anchor_as_shared_project", reasons)
+
+        applied = project_migration.apply_migration_plan(
+            plan, apply=True, batch_id="anchor-resume")
+        manifest_path = Path(applied["manifest_path"])
+        manifest = json.loads(manifest_path.read_text("utf-8"))
+        adoption = next(
+            entry for entry in manifest["actions"]
+            if entry["reason"] == "adopt_work_os_anchor_as_shared_project"
+        )
+        adoption["status"] = "pending"
+        manifest["state"] = "applying"
+        record.unlink()
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+        resumed = project_migration.apply_migration_plan(
+            plan, apply=True, batch_id="anchor-resume")
+        self.assertEqual(resumed["state"], "completed")
+        self.assertTrue(record.is_file())
+        self.assertIn("entity: project/alpha", anchor.read_text("utf-8"))
+
+    def test_anchor_identity_conflicting_with_registry_alias_requires_review(self):
+        (self.vault / "Projects" / "alpha.md").unlink()
+        (self.vault / "01-Projects" / "alpha" / "_project.md").write_text(
+            "---\nentity: project/alpha\ntype: project\nstatus: active\n---\n",
+            encoding="utf-8",
+        )
+        (self.vault / "Projects" / "beta.md").write_text(
+            "---\nentity: project/beta\ntype: project\nlifecycle: active\n"
+            "aliases: [alpha]\n---\n",
+            encoding="utf-8",
+        )
+
+        plan = project_migration.plan_project_migration(self.vault)
+        conflicts = [item for item in plan["conflicts"]
+                     if item["code"] == "anchor_identity_conflicts_with_registry_alias"]
+        self.assertEqual(conflicts[0]["project_id"], "project/alpha")
+        self.assertNotIn(
+            "adopt_work_os_anchor_as_shared_project",
+            {action["reason"] for action in plan["actions"]},
+        )
+        before = _snapshot(self.vault)
+        with self.assertRaises(project_migration.MigrationConflict):
+            project_migration.apply_migration_plan(
+                plan, apply=True, batch_id="anchor-conflict")
+        self.assertEqual(_snapshot(self.vault), before)
+
+    def test_current_repository_anchor_is_planned_for_shared_registry_adoption(self):
+        repository = Path(__file__).resolve().parents[2]
+        plan = project_migration.plan_project_migration(repository)
+        adoption = next(
+            action for action in plan["actions"]
+            if action["path"] == "Projects/obsidian-llm-wiki.md"
+        )
+        self.assertEqual(adoption["reason"], "adopt_work_os_anchor_as_shared_project")
+        self.assertEqual(adoption["source"], "01-Projects/obsidian-llm-wiki/_project.md")
+
 
 if __name__ == "__main__":
     unittest.main()
