@@ -112,7 +112,7 @@ test('source.register audit targets use the canonical Project Context before pat
   try {
     registerProject(vault, 'local-linear', 'Local Linear');
     const register = op(vault, 'source.register');
-    const targets = register.writePolicy.targets(ctx(vault), {
+    const targets = register.writePolicy!.targets(ctx(vault), {
       project: 'Local Linear',
       platform: 'github',
     });
@@ -121,7 +121,7 @@ test('source.register audit targets use the canonical Project Context before pat
       '10-Projects/local-linear/sources/github/**',
     ]);
     assert.throws(
-      () => register.writePolicy.targets(ctx(vault), { project: 'missing', platform: 'github' }),
+      () => register.writePolicy!.targets(ctx(vault), { project: 'missing', platform: 'github' }),
       /Project not found: missing/,
     );
     assert.equal(existsSync(vaultJoin(vault, '10-Projects')), false);
