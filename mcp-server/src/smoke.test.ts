@@ -449,6 +449,11 @@ test('conversation decision capture is searchable and answer-citable', async () 
 test('context stack wakes up and recalls conversation decisions', async () => {
   const project = `contextsmoke-${randomUUID()}`;
   const token = `context-stack-${randomUUID()}`;
+  const initialized = await client.callTool({
+    name: 'project.init',
+    arguments: { project, description: 'Strict Project Context smoke fixture' },
+  });
+  assert.ok(!initialized.isError, `project.init errored: ${JSON.stringify(initialized.content)}`);
   const passport = await client.callTool({
     name: 'memory.passport.upsert',
     arguments: {
@@ -532,7 +537,7 @@ test('context stack wakes up and recalls conversation decisions', async () => {
     traceSummary: { selectedAdapters: string[] };
   };
   assert.equal(recallPayload.scope.project, project);
-  assert.equal(recallPayload.scope.glob, `10-Projects/${project}/**`);
+  assert.equal(recallPayload.scope.glob, `{01-Projects,10-Projects}/${project}/**`);
   assert.deepEqual(recallPayload.traceSummary.selectedAdapters, ['filesystem']);
   assert.ok(
     recallPayload.citations.some((citation) => citation.path.includes('/decisions/') && citation.snippet.includes(token)),
@@ -799,6 +804,11 @@ test('workflow agent policy slugifies default actor namespace', async () => {
   );
   try {
     await policyClient.connect(policyTransport);
+    const initialized = await policyClient.callTool({
+      name: 'project.init',
+      arguments: { project: 'Policy Project', description: 'Workflow policy smoke fixture' },
+    });
+    assert.ok(!initialized.isError, `project.init should create the explicit Project: ${JSON.stringify(initialized.content)}`);
     const result = await policyClient.callTool({
       name: 'workflow.agent.start',
       arguments: { project: 'Policy Project', objective: 'policy path regression' },
