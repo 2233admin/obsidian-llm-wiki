@@ -189,7 +189,7 @@ describe('agent project workflow operations', () => {
       const beforeCount = compatibilityReadReport().find(
         (item) => item.operation === 'workflow.state.set' && item.projectId === 'project/alpha-project',
       )?.count ?? 0;
-      assert.deepEqual(stateSet.writePolicy.targets(ctx, { project: 'Alpha Project' }), [
+      assert.deepEqual(stateSet.writePolicy!.targets(ctx, { project: 'Alpha Project' }), [
         '01-Projects/alpha-project/workflow/status.md',
       ]);
       const afterCount = compatibilityReadReport().find(
@@ -197,14 +197,14 @@ describe('agent project workflow operations', () => {
       )?.count ?? 0;
       assert.equal(afterCount, beforeCount, 'write-policy resolution must not count as a public compatibility read');
       assert.throws(
-        () => stateSet.writePolicy.targets(ctx, { project: 'missing' }),
+        () => stateSet.writePolicy!.targets(ctx, { project: 'missing' }),
         /Project not found: missing/,
       );
       assert.equal(existsSync(vp(root, '01-Projects')), false);
 
       process.env.LLMWIKI_PROJECT_COMPATIBILITY = 'disabled';
       assert.throws(
-        () => stateSet.writePolicy.targets(ctx, { project: 'alpha-project' }),
+        () => stateSet.writePolicy!.targets(ctx, { project: 'alpha-project' }),
         /Legacy Project references are disabled/,
       );
       assert.equal(existsSync(vp(root, '01-Projects')), false);
@@ -477,6 +477,191 @@ describe('agent project workflow operations', () => {
       assert.equal(readFileSync(seeded.runPath, 'utf-8'), before.run);
     } finally {
       rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('workflow.agent.join defaults to a local lease and rejects a missing durable run without mutation', async () => {
+    const fixture = readWorkRunFixture();
+
+    for (const portable of [false, true]) {
+      const { root, call } = makeHarness();
+      try {
+        const params = {
+          project: fixture.example.projectId,
+          agent: 'worker',
+          work_run_id: fixture.example.workRunId,
+          work_item_id: fixture.example.workItemId,
+          transition_token: `join:missing-durable:${portable}`,
+          ...(portable ? { lease_mode: 'portable-handoff' } : {}),
+        };
+        await assert.rejects(
+          () => call('workflow.agent.join', params),
+          /durable run not found/,
+        );
+        assert.equal(existsSync(vp(root, '01-Projects/alpha')), false);
+        assert.equal(existsSync(vp(root, '.vault-mind')), false);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    }
+  });
+
+  test('workflow.agent.join rejects a durable run without a local lease by default', async () => {
+    const { root, call } = makeHarness();
+    const fixture = readWorkRunFixture();
+    try {
+      const seeded = seedDriverLease(root);
+      rmSync(seeded.leasePath);
+      const runBefore = readFileSync(seeded.runPath, 'utf-8');
+      await assert.rejects(
+        () => call('workflow.agent.join', {
+          project: fixture.example.projectId,
+          agent: 'worker',
+          work_run_id: fixture.example.workRunId,
+          work_item_id: fixture.example.workItemId,
+          transition_token: 'join:local-required',
+        }),
+        /expected exactly one local lease/,
+      );
+      assert.equal(readFileSync(seeded.runPath, 'utf-8'), runBefore);
+      assert.equal(existsSync(vp(root, '01-Projects/alpha/agents')), false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('workflow.agent.join supports an explicit portable handoff and replays it idempotently', async () => {
+    const { root, call } = makeHarness();
+    const fixture = readWorkRunFixture();
+    try {
+      const seeded = seedDriverLease(root);
+      rmSync(seeded.leasePath);
+      const params = {
+        project: fixture.example.projectId,
+        agent: 'worker',
+        work_run_id: fixture.example.workRunId,
+        work_run_state: 'leased',
+        work_item_id: fixture.example.workItemId,
+        lease_mode: 'portable-handoff',
+        transition_token: 'join:portable-handoff',
+        provenance: ['work-driver:portable-handoff'],
+      };
+      const joined = (await call('workflow.agent.join', params)) as {
+        idempotent: boolean;
+        path: string;
+        eventsPath: string;
+        runPath: string;
+        lifetime: { projectId: string; workItemId: string; workRunId: string; agent: string; workRunState: string };
+      };
+      assert.equal(joined.idempotent, false);
+      assert.deepEqual(
+        {
+          projectId: joined.lifetime.projectId,
+          workItemId: joined.lifetime.workItemId,
+          workRunId: joined.lifetime.workRunId,
+          agent: joined.lifetime.agent,
+          state: joined.lifetime.workRunState,
+        },
+        {
+          projectId: fixture.example.projectId,
+          workItemId: fixture.example.workItemId,
+          workRunId: fixture.example.workRunId,
+          agent: 'worker',
+          state: 'running',
+        },
+      );
+      const before = {
+        lifetime: readFileSync(vp(root, joined.path), 'utf-8'),
+        events: readFileSync(vp(root, joined.eventsPath), 'utf-8'),
+        run: readFileSync(vp(root, joined.runPath), 'utf-8'),
+      };
+      const replay = (await call('workflow.agent.join', params)) as { idempotent: boolean; workRunId: string };
+      assert.equal(replay.idempotent, true);
+      assert.equal(replay.workRunId, fixture.example.workRunId);
+      assert.equal(readFileSync(vp(root, joined.path), 'utf-8'), before.lifetime);
+      assert.equal(readFileSync(vp(root, joined.eventsPath), 'utf-8'), before.events);
+      assert.equal(readFileSync(vp(root, joined.runPath), 'utf-8'), before.run);
+      assert.equal(existsSync(seeded.leasePath), false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('portable handoff rejects durable identity mismatches without mutation', async () => {
+    const fixture = readWorkRunFixture();
+    const cases: Array<{ name: string; params: Record<string, unknown> }> = [
+      {
+        name: 'Project',
+        params: { project: 'project/my-project', agent: 'worker', work_run_id: fixture.example.workRunId,
+          work_item_id: 'project/my-project/issue/build-index' },
+      },
+      {
+        name: 'Work Item',
+        params: { project: fixture.example.projectId, agent: 'worker', work_run_id: fixture.example.workRunId,
+          work_item_id: 'project/alpha/issue/other' },
+      },
+      {
+        name: 'Work Run',
+        params: { project: fixture.example.projectId, agent: 'worker', work_run_id: 'work-run/other-run',
+          work_item_id: fixture.example.workItemId },
+      },
+      {
+        name: 'agent',
+        params: { project: fixture.example.projectId, agent: 'other-agent', work_run_id: fixture.example.workRunId,
+          work_item_id: fixture.example.workItemId },
+      },
+    ];
+
+    for (const [index, mismatch] of cases.entries()) {
+      const { root, call } = makeHarness();
+      try {
+        const seeded = seedDriverLease(root);
+        rmSync(seeded.leasePath);
+        const runBefore = readFileSync(seeded.runPath, 'utf-8');
+        await assert.rejects(
+          () => call('workflow.agent.join', {
+            ...mismatch.params,
+            lease_mode: 'portable-handoff',
+            transition_token: `join:portable-mismatch:${index}`,
+          }),
+          /identity conflict|durable run not found/i,
+        );
+        assert.equal(readFileSync(seeded.runPath, 'utf-8'), runBefore);
+        assert.equal(existsSync(vp(root, '01-Projects/alpha/agents')), false);
+        assert.equal(existsSync(vp(root, '01-Projects/my-project/agents')), false);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    }
+  });
+
+  test('portable handoff cannot bypass a present mismatched or expired local lease', async () => {
+    const fixture = readWorkRunFixture();
+    for (const overrides of [{ leaseAgentId: 'other-agent' }, { expiresAt: 1 }]) {
+      const { root, call } = makeHarness();
+      try {
+        const seeded = seedDriverLease(root, overrides);
+        const before = {
+          lease: readFileSync(seeded.leasePath, 'utf-8'),
+          run: readFileSync(seeded.runPath, 'utf-8'),
+        };
+        await assert.rejects(
+          () => call('workflow.agent.join', {
+            project: fixture.example.projectId,
+            agent: 'worker',
+            work_run_id: fixture.example.workRunId,
+            work_item_id: fixture.example.workItemId,
+            lease_mode: 'portable-handoff',
+            transition_token: 'join:portable-local-conflict',
+          }),
+          /identity conflict/,
+        );
+        assert.equal(readFileSync(seeded.leasePath, 'utf-8'), before.lease);
+        assert.equal(readFileSync(seeded.runPath, 'utf-8'), before.run);
+        assert.equal(existsSync(vp(root, '01-Projects/alpha/agents')), false);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
     }
   });
 

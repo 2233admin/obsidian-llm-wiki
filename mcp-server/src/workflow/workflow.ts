@@ -235,7 +235,11 @@ interface LeasedRunIdentity {
   workRunId: string;
   agentId: string;
   state: WorkRunState;
+  leaseMode: LeaseMode;
 }
+
+const LEASE_MODES = ['local', 'portable-handoff'] as const;
+type LeaseMode = (typeof LEASE_MODES)[number];
 
 function jsonRecord(path: string, label: string): Record<string, unknown> | null {
   if (!existsSync(path)) return null;
@@ -307,6 +311,23 @@ function assertActiveLeaseIdentity(
   }
 }
 
+function parseLeaseMode(value: unknown): LeaseMode {
+  const mode = optionalString(value) || 'local';
+  if (!LEASE_MODES.includes(mode as LeaseMode)) {
+    throw makeErr(-32602, `lease_mode must be one of: ${LEASE_MODES.join(', ')}`);
+  }
+  return mode as LeaseMode;
+}
+
+function assertJoinLeaseAuthority(
+  vaultPath: string,
+  identity: Pick<LeasedRunIdentity, 'projectId' | 'workItemId' | 'workRunId' | 'agentId' | 'leaseMode'>,
+): void {
+  const registryPath = join(vaultPath, '.vault-mind', '_leases.json');
+  if (identity.leaseMode === 'portable-handoff' && !existsSync(registryPath)) return;
+  assertActiveLeaseIdentity(vaultPath, identity);
+}
+
 function assertDurableRunIdentity(
   vaultPath: string,
   project: string,
@@ -336,12 +357,13 @@ function assertLeasedRunIdentity(
   const workItemId = canonicalWorkItemId(params.work_item_id);
   const expectedProjectId = projectId(project);
   assertWorkItemOwnership(expectedProjectId, workItemId);
-  const identity = { projectId: expectedProjectId, workItemId, workRunId, agentId: agent };
-  assertActiveLeaseIdentity(vaultPath, identity);
+  const leaseMode = parseLeaseMode(params.lease_mode);
+  const identity = { projectId: expectedProjectId, workItemId, workRunId, agentId: agent, leaseMode };
   const state = assertDurableRunIdentity(vaultPath, project, identity);
   if (state !== 'leased' && state !== 'running') {
-    throw conflict(`Work Run identity conflict: join requires leased or running state, found ${String(durable.state)}`);
+    throw conflict(`Work Run identity conflict: join requires leased or running state, found ${String(state)}`);
   }
+  assertJoinLeaseAuthority(vaultPath, identity);
   return { ...identity, state };
 }
 
@@ -388,7 +410,7 @@ function syncDurableWorkRunUnlocked(
       throw conflict(`Invalid Work Run transition: ${previousState} -> ${state.workRunState}`);
     }
   }
-  if (leasedIdentity) assertActiveLeaseIdentity(vaultPath, leasedIdentity);
+  if (leasedIdentity) assertJoinLeaseAuthority(vaultPath, leasedIdentity);
   const transitions = durableTransitions(run.transitions);
   if (!transitions.some((item) => item.transition_token === transitionToken)) {
     const previous = typeof run.state === 'string' ? run.state : state.workRunState === 'running' ? 'leased' : 'planned';
@@ -1171,11 +1193,13 @@ function beginAgentLifetime(
     }
     const requestedWorkRunId = parseWorkRunId(params.work_run_id);
     const requestedWorkItemId = canonicalWorkItemId(params.work_item_id);
+    const leaseMode = parseLeaseMode(params.lease_mode);
     const requestedIdentity = {
       projectId: projectId(project),
       workItemId: requestedWorkItemId,
       workRunId: requestedWorkRunId,
       agentId: agent,
+      leaseMode,
     };
     assertWorkItemOwnership(requestedIdentity.projectId, requestedWorkItemId);
     const priorLifetime = readAgentLifetime(vaultPath, project, agent);
@@ -1188,6 +1212,7 @@ function beginAgentLifetime(
       identityEquals('Work Run', requestedWorkRunId, priorLifetime.workRunId);
       identityEquals('agent', agent, priorLifetime.agent);
       assertDurableRunIdentity(vaultPath, project, requestedIdentity);
+      if (leaseMode === 'portable-handoff') assertJoinLeaseAuthority(vaultPath, requestedIdentity);
       return replayResult(priorLifetime, priorReceipt, agentEventsPath(project, agent));
     }
     leasedIdentity = assertLeasedRunIdentity(vaultPath, project, agent, params);
@@ -1198,6 +1223,7 @@ function beginAgentLifetime(
       optionalString(params.work_run_id)
       || optionalString(params.work_item_id)
       || optionalString(params.work_run_state)
+      || optionalString(params.lease_mode)
     ) {
       throw makeErr(-32602, 'workflow.agent.start creates manual runs and does not accept leased identity fields');
     }
@@ -1494,6 +1520,14 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
           description: 'Existing Work Run state; leased is expected when attaching a Work Driver lease',
         },
         work_item_id: { type: 'string', required: true, description: 'Canonical project/<slug>/issue/<slug> identity' },
+        lease_mode: {
+          type: 'string',
+          required: false,
+          enum: [...LEASE_MODES],
+          default: 'local',
+          description:
+            'local requires this device active lease. portable-handoff permits a durable leased/running Work Run only when this device has no lease registry; any present local lease is still fully validated.',
+        },
         transition_token: { type: 'string', required: false, description: 'Stable idempotency token from the Work Driver transition' },
         output_class: { type: 'string', required: false, enum: [...WORK_RUN_OUTPUT_CLASSES] },
         approval_status: { type: 'string', required: false, enum: [...WORK_RUN_APPROVAL_STATUSES] },
