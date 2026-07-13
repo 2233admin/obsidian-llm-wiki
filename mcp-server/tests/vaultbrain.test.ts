@@ -8,6 +8,9 @@ import { chunkMarkdown, embedTexts } from "../src/adapters/vaultbrain/ingest.js"
 
 const originalApiKey = process.env.OPENAI_API_KEY;
 const originalFetch = globalThis.fetch;
+// PGlite cold starts can exceed Bun's 5-second default on Windows fleet hosts.
+// Keep the override scoped to real-adapter cases and finite to catch hangs.
+const PGLITE_TEST_TIMEOUT_MS = 30_000;
 
 beforeEach(() => {
   delete process.env.OPENAI_API_KEY;
@@ -74,6 +77,7 @@ describe("VaultBrainAdapter", () => {
     dataDir = mkdtempSync(join(tmpdir(), "vb-test-"));
     adapter = new VaultBrainAdapter(dataDir);
     await adapter.init();
+    expect(adapter.isAvailable).toBe(true);
   });
 
   afterEach(async () => {
@@ -83,29 +87,29 @@ describe("VaultBrainAdapter", () => {
 
   it("init succeeds and search returns [] without throwing", async () => {
     await expect(adapter.search("anything")).resolves.toEqual([]);
-  });
+  }, PGLITE_TEST_TIMEOUT_MS);
 
   it("search with no data returns []", async () => {
     expect(await adapter.search("empty")).toEqual([]);
-  });
+  }, PGLITE_TEST_TIMEOUT_MS);
 
   it("ingest then search returns keyword results", async () => {
     await adapter.ingest("notes/quantum.md", "# Quantum\n\nQuantum flux resonance notes.");
     const results = await adapter.search("Quantum flux resonance notes");
     expect(results.some((result) => result.path === "notes/quantum")).toBe(true);
-  });
+  }, PGLITE_TEST_TIMEOUT_MS);
 
   it("ingesting the same path twice does not duplicate chunks", async () => {
     await adapter.ingest("notes/repeat.md", "# Repeat\n\nRepeatable keyword content.");
     await adapter.ingest("notes/repeat.md", "# Repeat\n\nRepeatable keyword content updated.");
     const results = await adapter.search("Repeatable keyword content updated", { maxResults: 10 });
     expect(results.filter((result) => result.path === "notes/repeat")).toHaveLength(1);
-  });
+  }, PGLITE_TEST_TIMEOUT_MS);
 
   it("dispose makes search return []", async () => {
     await adapter.dispose();
     expect(await adapter.search("anything")).toEqual([]);
-  });
+  }, PGLITE_TEST_TIMEOUT_MS);
 });
 
 describe("VaultBrainAdapter RRF fusion", () => {
