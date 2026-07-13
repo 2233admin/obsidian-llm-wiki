@@ -1,42 +1,51 @@
 #!/usr/bin/env bun
 
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { createHash, randomUUID } from 'node:crypto';
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { AdapterRegistry } from '../mcp-server/src/adapters/registry.ts';
 import type { Operation, OperationContext } from '../mcp-server/src/core/types.ts';
 import { makeProjectHubOps } from '../mcp-server/src/project/project-hub.ts';
+import { makeProjectOps } from '../mcp-server/src/project/project.ts';
 import { makeWorkflowOps } from '../mcp-server/src/workflow/workflow.ts';
 
 type Phase = 'prepare' | 'remote' | 'verify' | 'all';
 
 interface ExternalRef {
-  kind: string;
+  kind: 'orca-task' | 'orca-terminal';
   target: string;
 }
 
 interface FleetRun {
   label: string;
-  leaseDevice: string;
-  executionDevice: string;
+  leaseDevice: 'local';
+  executionDevice: '5090';
   agentId: string;
   workItemId: string;
-  workRunId: string;
-  joinToken: string;
-  checkpointToken: string;
-  leaveToken: string;
 }
 
 interface FleetFixture {
-  schemaVersion: number;
+  schemaVersion: 1;
   project: { slug: string; projectId: string; lifecycle: string };
   externalRefs: ExternalRef[];
-  runs: FleetRun[];
-  deviceLocal: { workspacePath: string; leaseToken: string; leaseStore: string };
+  run: FleetRun;
+  deviceLocal: { leaseStore: '.vault-mind/_leases.json' };
   conflictProbe: {
     agentId: string;
+    projectId: string;
     workRunId: string;
     workItemId: string;
     transitionToken: string;
@@ -47,7 +56,9 @@ interface CliOptions {
   phase: Phase;
   fixturePath: string;
   vaultPath?: string;
+  remoteVaultPath?: string;
   deviceStatePath?: string;
+  testedCommit?: string;
   keep: boolean;
   json: boolean;
 }
@@ -64,25 +75,65 @@ interface AcceptanceReport {
   fixture: string;
   vault: string;
   deviceState: string;
+  commit: string;
+  fixtureDigest: string;
+  correlationId: string;
+  externalRefs: ExternalRef[];
   checks: Check[];
 }
 
+interface WorkDriverLease {
+  agent_id: string;
+  project_id: string;
+  work_item_id: string;
+  work_run_id: string;
+  base_head: string;
+  acquired_at: number;
+  expires_at: number;
+}
+
+interface AcceptanceMarker {
+  schemaVersion: 1;
+  correlationId: string;
+  commit: string;
+  fixtureDigest: string;
+  projectId: string;
+  workItemId: string;
+  workRunId: string;
+  agentId: string;
+  joinToken: string;
+  checkpointToken: string;
+  leaveToken: string;
+  externalRefs: ExternalRef[];
+}
+
+interface LocalProof {
+  schemaVersion: 1;
+  correlationId: string;
+  leaseBytesSha256: string;
+  lease: WorkDriverLease;
+}
+
+type ByteManifest = Record<string, string>;
+
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = resolve(SCRIPT_DIR, '..');
 const DEFAULT_FIXTURE = resolve(SCRIPT_DIR, '../tests/fixtures/fleet-workflow.v1.json');
+const KB_META = resolve(SCRIPT_DIR, '../compiler/kb_meta.py');
+const COMPILER_DIR = dirname(KB_META);
+const LOCAL_PROOF_FILE = 'fleet-local-proof.json';
+const MARKER_FILE = '.llmwiki-fleet-acceptance.json';
 
 function parseArgs(argv: string[]): CliOptions {
-  const options: CliOptions = {
-    phase: 'all',
-    fixturePath: DEFAULT_FIXTURE,
-    keep: false,
-    json: false,
-  };
+  const options: CliOptions = { phase: 'all', fixturePath: DEFAULT_FIXTURE, keep: false, json: false };
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index]!;
     if (value === '--phase') options.phase = argv[++index] as Phase;
     else if (value === '--fixture') options.fixturePath = resolve(argv[++index]!);
     else if (value === '--vault') options.vaultPath = resolve(argv[++index]!);
+    else if (value === '--remote-vault') options.remoteVaultPath = resolve(argv[++index]!);
     else if (value === '--device-state') options.deviceStatePath = resolve(argv[++index]!);
+    else if (value === '--tested-commit') options.testedCommit = argv[++index]!;
     else if (value === '--keep') options.keep = true;
     else if (value === '--json') options.json = true;
     else if (value === '--help' || value === '-h') {
@@ -90,18 +141,22 @@ function parseArgs(argv: string[]): CliOptions {
         'Usage: bun scripts/verify_fleet_workflow.ts [options]',
         '',
         '  --phase prepare|remote|verify|all',
-        '  --vault PATH          Shared acceptance vault (temporary by default)',
-        '  --device-state PATH   Machine-local state directory (outside the shared vault)',
+        '  --vault PATH          Local/shared acceptance vault (temporary by default)',
+        '  --remote-vault PATH   5090 copy used by --phase all (temporary by default)',
+        '  --device-state PATH   Machine-local proof directory (outside the shared vault)',
+        '  --tested-commit SHA   Explicit product commit when HEAD also carries vault artifacts',
         '  --fixture PATH        Fleet fixture JSON',
-        '  --keep                Keep an automatically-created temporary vault',
+        '  --keep                Keep automatically-created temporary directories',
         '  --json                Emit a JSON report',
         '',
       ].join('\n'));
       process.exit(0);
     } else throw new Error(`Unknown argument: ${value}`);
   }
-  if (!['prepare', 'remote', 'verify', 'all'].includes(options.phase)) {
-    throw new Error(`Invalid phase: ${options.phase}`);
+  if (!['prepare', 'remote', 'verify', 'all'].includes(options.phase)) throw new Error(`Invalid phase: ${options.phase}`);
+  if (options.phase !== 'all' && options.remoteVaultPath) throw new Error('--remote-vault is valid only with --phase all');
+  if (options.phase === 'verify' && !options.deviceStatePath) {
+    throw new Error('--phase verify requires the machine-local --device-state from prepare');
   }
   return options;
 }
@@ -109,22 +164,118 @@ function parseArgs(argv: string[]): CliOptions {
 function readFixture(path: string): FleetFixture {
   const fixture = JSON.parse(readFileSync(path, 'utf-8')) as FleetFixture;
   assert.equal(fixture.schemaVersion, 1, 'unsupported fixture schemaVersion');
-  assert.match(fixture.project.projectId, /^project\/[a-z0-9][a-z0-9-]*$/);
-  assert.equal(fixture.project.projectId, `project/${fixture.project.slug}`);
-  assert.equal(fixture.runs.length, 2, 'fleet fixture must contain exactly two acceptance runs');
-  assert.equal(new Set(fixture.runs.map((run) => run.agentId)).size, fixture.runs.length, 'agent identities must be unique');
-  assert.equal(new Set(fixture.runs.map((run) => run.workRunId)).size, fixture.runs.length, 'Work Run identities must be unique');
-  assert.ok(fixture.runs.some((run) => run.executionDevice === '5090'), 'fixture must contain a 5090 execution');
-  assert.ok(fixture.runs.every((run) => run.workItemId.startsWith(`${fixture.project.projectId}/issue/`)));
+  assert.match(fixture.project.slug, /^[a-z0-9][a-z0-9-]*$/, 'invalid project slug');
+  assert.equal(fixture.project.projectId, `project/${fixture.project.slug}`, 'Project identity mismatch');
+  assert.match(fixture.project.lifecycle, /^[a-z][a-z-]*$/, 'invalid Project lifecycle');
+  assert.equal(fixture.run.leaseDevice, 'local', 'the Work Driver lease must originate locally');
+  assert.equal(fixture.run.executionDevice, '5090', 'the leased Work Run must execute on 5090');
+  assert.match(fixture.run.agentId, /^[a-z0-9][a-z0-9-]*$/, 'invalid agent identity');
+  assert.equal(
+    fixture.run.workItemId,
+    `${fixture.project.projectId}/issue/${fixture.run.workItemId.split('/').at(-1)}`,
+    'Work Item must belong to the fixture Project',
+  );
+  assert.match(fixture.run.workItemId, /^project\/[a-z0-9][a-z0-9-]*\/issue\/[a-z0-9][a-z0-9-]*$/, 'invalid Work Item');
+  assert.equal(fixture.deviceLocal.leaseStore, '.vault-mind/_leases.json', 'unsupported lease store path');
+  assert.match(fixture.conflictProbe.agentId, /^[a-z0-9][a-z0-9-]*$/, 'invalid conflict agent');
+  assert.match(fixture.conflictProbe.projectId, /^project\/[a-z0-9][a-z0-9-]*$/, 'invalid conflict Project');
+  assert.match(fixture.conflictProbe.workRunId, /^work-run\/[a-z0-9][a-z0-9-]*$/, 'invalid conflict Work Run');
+  assert.match(fixture.conflictProbe.workItemId, /^project\/[a-z0-9][a-z0-9-]*\/issue\/[a-z0-9][a-z0-9-]*$/, 'invalid conflict Work Item');
+  assert.match(fixture.conflictProbe.transitionToken, /^[a-z0-9][a-z0-9:._-]*$/, 'invalid conflict token');
+  assert.notEqual(fixture.conflictProbe.agentId, fixture.run.agentId, 'conflict agent must differ');
+  assert.notEqual(fixture.conflictProbe.projectId, fixture.project.projectId, 'conflict Project must differ');
+  assert.notEqual(fixture.conflictProbe.workItemId, fixture.run.workItemId, 'conflict Work Item must differ');
+  assert.equal(fixture.externalRefs.length, 2, 'fixture must contain the real Orca task and terminal refs');
   for (const externalRef of fixture.externalRefs) {
     assert.match(externalRef.kind, /^orca-(task|terminal)$/);
-    assert.ok(externalRef.target.startsWith(externalRef.kind === 'orca-task' ? 'task_' : 'term_'));
+    assert.match(externalRef.target, externalRef.kind === 'orca-task' ? /^task_[a-z0-9-]+$/ : /^term_[a-z0-9-]+$/);
   }
+  assert.equal(new Set(fixture.externalRefs.map((ref) => ref.kind)).size, 2, 'Orca refs must include task and terminal');
   return fixture;
 }
 
-function vaultPath(root: string, relativePath: string): string {
-  return join(root, ...relativePath.split('/'));
+function sha256(value: string | Buffer): string {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+function currentCommit(): string {
+  return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: REPO_ROOT, encoding: 'utf-8' }).trim();
+}
+
+function resolvedCommit(value: string): string {
+  return execFileSync('git', ['rev-parse', '--verify', `${value}^{commit}`], {
+    cwd: REPO_ROOT,
+    encoding: 'utf-8',
+  }).trim();
+}
+
+function assertCommitCompatibility(markerCommit: string, vault: string, testedCommit?: string): void {
+  assert.match(markerCommit, /^[0-9a-f]{40}$/i, 'invalid marker commit');
+  const head = currentCommit();
+  if (testedCommit) assert.equal(resolvedCommit(testedCommit), markerCommit, '--tested-commit does not match the marker');
+  const ancestor = spawnSync('git', ['merge-base', '--is-ancestor', markerCommit, head], {
+    cwd: REPO_ROOT,
+    windowsHide: true,
+  });
+  assert.equal(ancestor.status, 0, 'marker commit is not an ancestor of the current HEAD');
+  if (head === markerCommit || testedCommit) return;
+
+  const relativeVault = relative(REPO_ROOT, resolve(vault)).replaceAll('\\', '/');
+  const vaultIsArtifact = relativeVault !== '' && relativeVault !== '..' && !relativeVault.startsWith('../');
+  assert.equal(vaultIsArtifact, true, 'descendant HEAD requires --tested-commit when the acceptance vault is outside the repo');
+  const changed = execFileSync('git', ['diff', '--name-only', `${markerCommit}..${head}`], {
+    cwd: REPO_ROOT,
+    encoding: 'utf-8',
+  }).split(/\r?\n/).filter(Boolean).map((path) => path.replaceAll('\\', '/'));
+  const unrelated = changed.filter((path) => path !== relativeVault && !path.startsWith(`${relativeVault}/`));
+  assert.deepEqual(unrelated, [], `artifact branch changed product files: ${unrelated.join(', ')}`);
+}
+
+function safePath(root: string, relativePath: string): string {
+  assert.equal(isAbsolute(relativePath), false, `vault-relative path required: ${relativePath}`);
+  const normalizedRoot = resolve(root);
+  const target = resolve(normalizedRoot, relativePath);
+  assert.ok(target === normalizedRoot || target.startsWith(`${normalizedRoot}${sep}`), `path escapes root: ${relativePath}`);
+  return target;
+}
+
+function isInside(parent: string, child: string): boolean {
+  const parentRoot = resolve(parent);
+  const childRoot = resolve(child);
+  return childRoot === parentRoot || childRoot.startsWith(`${parentRoot}${sep}`);
+}
+
+function assertIndependentRoots(localVault: string, remoteVault: string, deviceState: string, phase: Phase): void {
+  if (existsSync(localVault)) assert.equal(lstatSync(localVault).isSymbolicLink(), false, 'local vault root cannot be a symlink');
+  if (existsSync(deviceState)) assert.equal(lstatSync(deviceState).isSymbolicLink(), false, 'device-state root cannot be a symlink');
+  assert.equal(
+    isInside(localVault, deviceState) || isInside(deviceState, localVault),
+    false,
+    '--device-state and --vault must be independent roots',
+  );
+  if (phase === 'all') {
+    if (existsSync(remoteVault)) assert.equal(lstatSync(remoteVault).isSymbolicLink(), false, 'remote vault root cannot be a symlink');
+    assert.equal(
+      isInside(localVault, remoteVault) || isInside(remoteVault, localVault),
+      false,
+      '--remote-vault and --vault must be independent roots',
+    );
+    assert.equal(
+      isInside(remoteVault, deviceState) || isInside(deviceState, remoteVault),
+      false,
+      '--remote-vault and --device-state must be independent roots',
+    );
+  }
+}
+
+function assertNoSymlinkSegments(root: string, relativePath: string): void {
+  const parts = relativePath.replaceAll('\\', '/').split('/').filter(Boolean);
+  let cursor = resolve(root);
+  for (const part of parts.slice(0, -1)) {
+    cursor = join(cursor, part);
+    if (!existsSync(cursor)) break;
+    assert.equal(lstatSync(cursor).isSymbolicLink(), false, `refusing symlinked acceptance path: ${cursor}`);
+  }
 }
 
 function writeJson(path: string, value: unknown): void {
@@ -132,92 +283,59 @@ function writeJson(path: string, value: unknown): void {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`, 'utf-8');
 }
 
-function runFile(root: string, workRunId: string): string {
-  return vaultPath(root, `01-Projects/fleet-acceptance/runs/${workRunId.slice('work-run/'.length)}.json`);
+function acceptanceMarker(root: string): string {
+  return safePath(root, MARKER_FILE);
 }
 
-function durableLease(fixture: FleetFixture, run: FleetRun): Record<string, unknown> {
-  return {
-    schema_version: 1,
-    project_id: fixture.project.projectId,
-    work_item_id: run.workItemId,
-    work_run_id: run.workRunId,
-    agent_id: run.agentId,
-    state: 'leased',
-    output_class: 'view',
-    approval_status: 'not-required',
-    created_at: 1783987200,
-    updated_at: 1783987200,
-    provenance: [`work-item:${run.workItemId}`, `lease-device:${run.leaseDevice}`],
-    transitions: [{
-      transition_token: `driver:lease:${run.label}:1`,
-      from: 'planned',
-      to: 'leased',
-      recorded_at: 1783987200,
-    }],
-  };
+function localProof(deviceState: string): string {
+  return safePath(deviceState, LOCAL_PROOF_FILE);
 }
 
-function prepareFixture(vault: string, deviceState: string, fixture: FleetFixture): void {
-  mkdirSync(vaultPath(vault, 'Projects'), { recursive: true });
-  mkdirSync(vaultPath(vault, `01-Projects/${fixture.project.slug}/issues`), { recursive: true });
-  const projections = fixture.externalRefs.map((ref) => `${ref.kind}:${ref.target}`);
-  writeFileSync(vaultPath(vault, `Projects/${fixture.project.slug}.md`), [
-    '---',
-    'type: project',
-    `entity: ${fixture.project.projectId}`,
-    `lifecycle: ${fixture.project.lifecycle}`,
-    `external-projections: ${JSON.stringify(projections)}`,
-    '---',
-    '',
-    '# Fleet Acceptance',
-    '',
-  ].join('\n'), 'utf-8');
-  writeFileSync(vaultPath(vault, `01-Projects/${fixture.project.slug}/_project.md`), [
-    '---',
-    `entity: ${fixture.project.projectId}`,
-    '---',
-    '',
-  ].join('\n'), 'utf-8');
+function leasePath(vault: string, fixture: FleetFixture): string {
+  return safePath(vault, fixture.deviceLocal.leaseStore);
+}
 
-  const leases: Record<string, unknown> = {};
-  for (const run of fixture.runs) {
-    const issueSlug = run.workItemId.split('/').at(-1)!;
-    const issuePath = `01-Projects/${fixture.project.slug}/issues/${issueSlug}.md`;
-    writeFileSync(vaultPath(vault, issuePath), [
-      '---',
-      'type: issue',
-      `entity: ${run.workItemId}`,
-      'status: active',
-      '---',
-      '',
-    ].join('\n'), 'utf-8');
-    writeJson(runFile(vault, run.workRunId), durableLease(fixture, run));
-    leases[issuePath] = {
-      agent_id: run.agentId,
-      project_id: fixture.project.projectId,
-      work_item_id: run.workItemId,
-      work_run_id: run.workRunId,
-      base_head: 'fleet-fixture-head',
-      acquired_at: 1783987200,
-      expires_at: 1783990800,
-    };
+function issueSlug(fixture: FleetFixture): string {
+  return fixture.run.workItemId.split('/').at(-1)!;
+}
+
+function runPath(root: string, projectSlug: string, workRunId: string): string {
+  assert.match(workRunId, /^work-run\/[a-z0-9][a-z0-9-]*$/, 'invalid Work Run identity');
+  return safePath(root, `01-Projects/${projectSlug}/runs/${workRunId.slice('work-run/'.length)}.json`);
+}
+
+function readMarker(
+  vault: string,
+  fixture: FleetFixture,
+  digest: string,
+  testedCommit?: string,
+): AcceptanceMarker {
+  const path = acceptanceMarker(vault);
+  assert.ok(existsSync(path), `acceptance marker not found: ${path}`);
+  const marker = JSON.parse(readFileSync(path, 'utf-8')) as AcceptanceMarker;
+  assert.deepEqual(Object.keys(marker).sort(), [
+    'agentId', 'checkpointToken', 'commit', 'correlationId', 'externalRefs', 'fixtureDigest',
+    'joinToken', 'leaveToken', 'projectId', 'schemaVersion', 'workItemId', 'workRunId',
+  ].sort(), 'marker contains an unknown or machine-local field');
+  assert.equal(marker.schemaVersion, 1, 'unsupported acceptance marker');
+  assert.match(marker.correlationId, /^[0-9a-f-]{36}$/i, 'invalid fleet correlation');
+  assertCommitCompatibility(marker.commit, vault, testedCommit);
+  assert.equal(marker.fixtureDigest, digest, 'fixture changed between fleet phases');
+  assert.equal(marker.projectId, fixture.project.projectId, 'marker Project mismatch');
+  assert.equal(marker.workItemId, fixture.run.workItemId, 'marker Work Item mismatch');
+  assert.equal(marker.agentId, fixture.run.agentId, 'marker agent mismatch');
+  assert.match(marker.workRunId, /^work-run\/[a-z0-9][a-z0-9-]*$/, 'invalid marker Work Run');
+  assert.notEqual(marker.workRunId, fixture.conflictProbe.workRunId, 'conflict Work Run must differ');
+  assert.deepEqual(marker.externalRefs, fixture.externalRefs, 'external refs changed between phases');
+  for (const token of [marker.joinToken, marker.checkpointToken, marker.leaveToken]) {
+    assert.ok(token.startsWith(`fleet:${marker.correlationId}:`), 'transition token is not correlated');
   }
-  writeJson(join(deviceState, fixture.deviceLocal.leaseStore), {
-    workspace_path: fixture.deviceLocal.workspacePath,
-    lease_token: fixture.deviceLocal.leaseToken,
-    leases,
-  });
+  return marker;
 }
 
-function operationHarness(vault: string): {
-  call(name: string, params?: Record<string, unknown>): Promise<unknown>;
-} {
+function operationHarness(vault: string): { call(name: string, params?: Record<string, unknown>): Promise<unknown> } {
   const registry = new AdapterRegistry();
-  const operations = [
-    ...makeWorkflowOps(vault),
-    ...makeProjectHubOps(registry),
-  ];
+  const operations = [...makeProjectOps(vault), ...makeWorkflowOps(vault), ...makeProjectHubOps(registry)];
   const byName = new Map(operations.map((operation) => [operation.name, operation]));
   const context: OperationContext = {
     vault: { async execute() { return {}; } },
@@ -238,39 +356,260 @@ function operationHarness(vault: string): {
   };
 }
 
-async function executeRun(vault: string, fixture: FleetFixture, run: FleetRun): Promise<void> {
-  const { call } = operationHarness(vault);
-  await call('workflow.agent.join', {
-    project: fixture.project.projectId,
-    agent: run.agentId,
-    host: run.executionDevice === '5090' ? 'orca-5090' : 'codex-local',
-    work_run_id: run.workRunId,
-    work_run_state: 'leased',
-    work_item_id: run.workItemId,
-    transition_token: run.joinToken,
-    provenance: [`executor-device:${run.executionDevice}`],
-  });
-  await call('workflow.agent.checkpoint', {
-    project: fixture.project.projectId,
-    agent: run.agentId,
-    work_run_id: run.workRunId,
-    transition_token: run.checkpointToken,
-    status: 'passed',
-    summary: `${run.label} fleet checkpoint passed`,
-    evidence: [`fleet:${run.label}:checkpoint`],
-  });
-  await call('workflow.agent.leave', {
-    project: fixture.project.projectId,
-    agent: run.agentId,
-    work_run_id: run.workRunId,
-    work_run_state: 'completed',
-    transition_token: run.leaveToken,
-    summary: `${run.label} fleet execution completed`,
-  });
+function addExternalRefs(vault: string, fixture: FleetFixture): void {
+  const path = safePath(vault, `Projects/${fixture.project.slug}.md`);
+  const content = readFileSync(path, 'utf-8');
+  assert.equal(content.includes('external-projections:'), false, 'Project already owns external projections');
+  const projections = fixture.externalRefs.map((ref) => JSON.stringify(`${ref.kind}:${ref.target}`)).join(', ');
+  const updated = content.replace(/^last-verified:/m, `external-projections: [${projections}]\nlast-verified:`);
+  assert.notEqual(updated, content, 'canonical Project registry has no last-verified field');
+  writeFileSync(path, updated, 'utf-8');
 }
 
-function containsAny(serialized: string, values: string[]): string | undefined {
-  return values.find((value) => value && serialized.includes(value));
+function runPythonWorkNext(vault: string, fixture: FleetFixture): Record<string, any> {
+  const args = [KB_META, 'work', 'next', vault, '--claim', fixture.run.agentId, '--ttl', '86400', '--project', fixture.project.slug];
+  const candidates: Array<{ command: string; prefix: string[] }> = process.env.PYTHON
+    ? [{ command: process.env.PYTHON, prefix: [] }]
+    : process.platform === 'win32'
+      ? [{ command: 'py', prefix: ['-3'] }, { command: 'python', prefix: [] }]
+      : [{ command: 'python3', prefix: [] }, { command: 'python', prefix: [] }];
+  let lastError = '';
+  for (const candidate of candidates) {
+    const result = spawnSync(candidate.command, [...candidate.prefix, ...args], {
+      cwd: COMPILER_DIR,
+      encoding: 'utf-8',
+      windowsHide: true,
+    });
+    if (result.error && (result.error as NodeJS.ErrnoException).code === 'ENOENT') continue;
+    if (result.status !== 0) {
+      lastError = `${candidate.command} exited ${String(result.status)}: ${(result.stderr || result.stdout).trim()}`;
+      break;
+    }
+    return JSON.parse(result.stdout) as Record<string, any>;
+  }
+  throw new Error(lastError || 'Python 3 was not found');
+}
+
+function protectedPaths(vault: string, deviceState: string, fixture: FleetFixture): string[] {
+  return [
+    acceptanceMarker(vault),
+    localProof(deviceState),
+    safePath(vault, `Projects/${fixture.project.slug}.md`),
+    safePath(vault, `01-Projects/${fixture.project.slug}/_project.md`),
+    safePath(vault, `01-Projects/${fixture.project.slug}/issues/${issueSlug(fixture)}.md`),
+    leasePath(vault, fixture),
+  ];
+}
+
+async function prepareFixture(
+  vault: string,
+  deviceState: string,
+  fixture: FleetFixture,
+  digest: string,
+  testedCommit?: string,
+): Promise<AcceptanceMarker> {
+  mkdirSync(vault, { recursive: true });
+  mkdirSync(deviceState, { recursive: true });
+  for (const relativePath of [
+    MARKER_FILE,
+    `Projects/${fixture.project.slug}.md`,
+    `01-Projects/${fixture.project.slug}/_project.md`,
+    `01-Projects/${fixture.project.slug}/issues/${issueSlug(fixture)}.md`,
+    fixture.deviceLocal.leaseStore,
+  ]) assertNoSymlinkSegments(vault, relativePath);
+  assertNoSymlinkSegments(deviceState, LOCAL_PROOF_FILE);
+  const collision = protectedPaths(vault, deviceState, fixture).find((path) => existsSync(path));
+  assert.equal(collision, undefined, `refusing to overwrite existing acceptance data: ${collision}`);
+
+  const { call } = operationHarness(vault);
+  await call('project.init', {
+    project: fixture.project.slug,
+    description: 'Disposable LLM Wiki fleet workflow acceptance Project',
+  });
+  addExternalRefs(vault, fixture);
+  const issue = await call('project.issue.create', {
+    project: fixture.project.projectId,
+    title: 'Cloud workflow fleet acceptance',
+    slug: issueSlug(fixture),
+    summary: 'One locally leased Work Run executed through a portable 5090 handoff',
+    state: 'todo',
+    review: 'reviewed',
+    priority: '1',
+    assignee: fixture.run.agentId,
+  }) as { entity: string; path: string };
+  assert.equal(issue.entity, fixture.run.workItemId, 'project.issue.create returned another Work Item');
+
+  const driver = runPythonWorkNext(vault, fixture);
+  assert.equal(driver.status, 'selected', 'Work Driver did not select the acceptance Work Item');
+  assert.equal(driver.selected?.entity, fixture.run.workItemId, 'Work Driver selected another Work Item');
+  assert.equal(driver.lease?.outcome, 'ACQUIRED', 'Work Driver did not acquire the lease');
+  const lease = driver.lease as WorkDriverLease & { outcome: string };
+  assert.equal(lease.project_id, fixture.project.projectId);
+  assert.equal(lease.work_item_id, fixture.run.workItemId);
+  assert.equal(lease.agent_id, fixture.run.agentId);
+  assert.match(lease.work_run_id, /^work-run\/[a-z0-9][a-z0-9-]*$/);
+  assert.ok(existsSync(runPath(vault, fixture.project.slug, lease.work_run_id)), 'Work Driver did not persist the Work Run');
+
+  const leaseBytes = readFileSync(leasePath(vault, fixture));
+  const correlationId = randomUUID();
+  const marker: AcceptanceMarker = {
+    schemaVersion: 1,
+    correlationId,
+    commit: testedCommit ? resolvedCommit(testedCommit) : currentCommit(),
+    fixtureDigest: digest,
+    projectId: fixture.project.projectId,
+    workItemId: fixture.run.workItemId,
+    workRunId: lease.work_run_id,
+    agentId: fixture.run.agentId,
+    joinToken: `fleet:${correlationId}:join`,
+    checkpointToken: `fleet:${correlationId}:checkpoint`,
+    leaveToken: `fleet:${correlationId}:leave`,
+    externalRefs: fixture.externalRefs,
+  };
+  const proof: LocalProof = {
+    schemaVersion: 1,
+    correlationId,
+    leaseBytesSha256: sha256(leaseBytes),
+    lease: {
+      agent_id: lease.agent_id,
+      project_id: lease.project_id,
+      work_item_id: lease.work_item_id,
+      work_run_id: lease.work_run_id,
+      base_head: lease.base_head,
+      acquired_at: lease.acquired_at,
+      expires_at: lease.expires_at,
+    },
+  };
+  writeJson(localProof(deviceState), proof);
+  writeJson(acceptanceMarker(vault), marker);
+  return marker;
+}
+
+function walkEntries(root: string, directory = root): Array<{ path: string; directory: boolean }> {
+  if (!existsSync(directory)) return [];
+  const out: Array<{ path: string; directory: boolean }> = [];
+  for (const entry of readdirSync(directory, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+    const path = join(directory, entry.name);
+    const relativePath = relative(root, path).replaceAll('\\', '/');
+    if (entry.isDirectory()) {
+      out.push({ path: relativePath, directory: true }, ...walkEntries(root, path));
+    } else if (entry.isFile()) out.push({ path: relativePath, directory: false });
+  }
+  return out;
+}
+
+function mutationManifest(vault: string): ByteManifest {
+  const entries = walkEntries(vault).filter(({ path }) =>
+    path === '.vault-mind'
+    || path === '.vault-mind/_leases.json'
+    || path.split('/').includes('runs')
+    || path.split('/').includes('agents')
+    || path.endsWith('.events.jsonl'),
+  );
+  return Object.fromEntries(entries.map(({ path, directory }) => [
+    path,
+    directory ? '<directory>' : sha256(readFileSync(safePath(vault, path))),
+  ]));
+}
+
+async function assertRejectedWithoutMutation(
+  call: (name: string, params?: Record<string, unknown>) => Promise<unknown>,
+  vault: string,
+  params: Record<string, unknown>,
+  label: string,
+): Promise<void> {
+  const before = mutationManifest(vault);
+  await assert.rejects(
+    () => call('workflow.agent.join', params),
+    /conflict|mismatch|not found|unknown|Project/i,
+    `${label} join unexpectedly succeeded`,
+  );
+  assert.deepEqual(mutationManifest(vault), before, `${label} join mutated runs/agents/events/lease state`);
+}
+
+async function executeRemote(vault: string, fixture: FleetFixture, marker: AcceptanceMarker): Promise<void> {
+  assert.equal(existsSync(leasePath(vault, fixture)), false, 'remote vault received the machine-local lease registry');
+  const { call } = operationHarness(vault);
+  const base = {
+    project: marker.projectId,
+    agent: marker.agentId,
+    work_run_id: marker.workRunId,
+    work_run_state: 'leased',
+    work_item_id: marker.workItemId,
+    lease_mode: 'portable-handoff',
+    provenance: [`orca-task:${fixture.externalRefs.find((ref) => ref.kind === 'orca-task')!.target}`],
+  };
+  const conflict = fixture.conflictProbe;
+  const mismatches: Array<[string, Record<string, unknown>]> = [
+    ['wrong agent', { ...base, agent: conflict.agentId }],
+    ['wrong Work Item', { ...base, work_item_id: conflict.workItemId }],
+    ['wrong Work Run', { ...base, work_run_id: conflict.workRunId }],
+    ['wrong Project', { ...base, project: conflict.projectId }],
+  ];
+  for (const [label, params] of mismatches) {
+    await assertRejectedWithoutMutation(call, vault, {
+      ...params,
+      transition_token: `${conflict.transitionToken}:${label.toLowerCase().replaceAll(' ', '-')}`,
+    }, label);
+  }
+
+  const joinParams = { ...base, transition_token: marker.joinToken };
+  const joined = await call('workflow.agent.join', joinParams) as { idempotent: boolean };
+  assert.equal(joined.idempotent, false);
+  const afterJoin = mutationManifest(vault);
+  const joinReplay = await call('workflow.agent.join', joinParams) as { idempotent: boolean };
+  assert.equal(joinReplay.idempotent, true);
+  assert.deepEqual(mutationManifest(vault), afterJoin, 'join replay changed bytes');
+
+  const checkpointParams = {
+    project: marker.projectId,
+    agent: marker.agentId,
+    work_run_id: marker.workRunId,
+    transition_token: marker.checkpointToken,
+    status: 'passed',
+    summary: `${fixture.run.label} fleet checkpoint passed`,
+    evidence: [`orca-terminal:${fixture.externalRefs.find((ref) => ref.kind === 'orca-terminal')!.target}`],
+  };
+  await call('workflow.agent.checkpoint', checkpointParams);
+  const afterCheckpoint = mutationManifest(vault);
+  await call('workflow.agent.checkpoint', checkpointParams);
+  assert.deepEqual(mutationManifest(vault), afterCheckpoint, 'checkpoint replay changed bytes');
+
+  const leaveParams = {
+    project: marker.projectId,
+    agent: marker.agentId,
+    work_run_id: marker.workRunId,
+    work_run_state: 'completed',
+    transition_token: marker.leaveToken,
+    summary: `${fixture.run.label} fleet execution completed`,
+  };
+  await call('workflow.agent.leave', leaveParams);
+  const afterLeave = mutationManifest(vault);
+  await call('workflow.agent.leave', leaveParams);
+  assert.deepEqual(mutationManifest(vault), afterLeave, 'leave replay changed bytes');
+  assert.equal(existsSync(leasePath(vault, fixture)), false, 'remote workflow created a lease registry');
+}
+
+function copySharedVault(source: string, destination: string, requireEmpty: boolean): void {
+  mkdirSync(destination, { recursive: true });
+  const destinationEntries = readdirSync(destination).filter((entry) => entry !== '.vault-mind');
+  if (requireEmpty) assert.deepEqual(destinationEntries, [], `refusing to overwrite non-empty remote vault: ${destination}`);
+  const copy = (from: string, to: string): void => {
+    mkdirSync(to, { recursive: true });
+    for (const entry of readdirSync(from, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      if (entry.name === '.vault-mind') continue;
+      const sourcePath = join(from, entry.name);
+      const targetPath = join(to, entry.name);
+      if (entry.isDirectory()) copy(sourcePath, targetPath);
+      else if (entry.isFile()) {
+        mkdirSync(dirname(targetPath), { recursive: true });
+        writeFileSync(targetPath, readFileSync(sourcePath));
+      } else {
+        throw new Error(`refusing non-file fleet artifact: ${sourcePath}`);
+      }
+    }
+  };
+  copy(source, destination);
 }
 
 function addCheck(checks: Check[], name: string, run: () => void): void {
@@ -282,145 +621,129 @@ function addCheck(checks: Check[], name: string, run: () => void): void {
   }
 }
 
-async function verifyFixture(vault: string, fixture: FleetFixture): Promise<Check[]> {
+async function verifyFixture(
+  vault: string,
+  deviceState: string,
+  fixture: FleetFixture,
+  marker: AcceptanceMarker,
+): Promise<Check[]> {
   const checks: Check[] = [];
+  const proof = JSON.parse(readFileSync(localProof(deviceState), 'utf-8')) as LocalProof;
+  const currentLeaseBytes = readFileSync(leasePath(vault, fixture));
+  const leases = JSON.parse(currentLeaseBytes.toString('utf-8')) as Record<string, WorkDriverLease>;
+  const matchingLeases = Object.values(leases).filter((lease) => lease.work_run_id === marker.workRunId);
+  const durable = JSON.parse(readFileSync(runPath(vault, fixture.project.slug, marker.workRunId), 'utf-8')) as Record<string, unknown>;
   const { call } = operationHarness(vault);
-  const durable = new Map(fixture.runs.map((run) => [
-    run.label,
-    JSON.parse(readFileSync(runFile(vault, run.workRunId), 'utf-8')) as Record<string, unknown>,
-  ]));
 
-  addCheck(checks, 'two agents retain distinct Work Run identities', () => {
-    for (const run of fixture.runs) {
-      const value = durable.get(run.label)!;
-      assert.equal(value.project_id, fixture.project.projectId);
-      assert.equal(value.work_item_id, run.workItemId);
-      assert.equal(value.work_run_id, run.workRunId);
-      assert.equal(value.agent_id, run.agentId);
-      assert.equal(value.state, 'completed');
-    }
-    assert.notEqual(durable.get('local')!.work_run_id, durable.get('5090')!.work_run_id);
-    assert.notEqual(durable.get('local')!.agent_id, durable.get('5090')!.agent_id);
+  addCheck(checks, 'local Work Driver lease bytes and identity remain unchanged', () => {
+    assert.equal(proof.schemaVersion, 1);
+    assert.equal(proof.correlationId, marker.correlationId);
+    assert.equal(sha256(currentLeaseBytes), proof.leaseBytesSha256);
+    assert.equal(matchingLeases.length, 1);
+    assert.deepEqual(matchingLeases[0], proof.lease);
+    assert.equal(proof.lease.project_id, marker.projectId);
+    assert.equal(proof.lease.work_item_id, marker.workItemId);
+    assert.equal(proof.lease.work_run_id, marker.workRunId);
+    assert.equal(proof.lease.agent_id, marker.agentId);
   });
 
-  const doctorResults: unknown[] = [];
-  for (const run of fixture.runs) {
-    doctorResults.push(await call('workflow.agent.doctor', {
-      project: fixture.project.projectId,
-      agent: run.agentId,
-      work_run_id: run.workRunId,
-    }));
-  }
-  addCheck(checks, 'local doctor accepts both durable identities', () => {
-    for (const doctor of doctorResults as Array<{ ok: boolean; errors: string[] }>) {
-      assert.equal(doctor.ok, true, doctor.errors.join('; '));
-      assert.deepEqual(doctor.errors, []);
-    }
+  addCheck(checks, '5090 completed the exact locally leased Work Run', () => {
+    assert.equal(durable.project_id, marker.projectId);
+    assert.equal(durable.work_item_id, marker.workItemId);
+    assert.equal(durable.work_run_id, marker.workRunId);
+    assert.equal(durable.agent_id, marker.agentId);
+    assert.equal(durable.state, 'completed');
   });
 
-  const hub = await call('project.hub.get', { ref: fixture.project.projectId }) as Record<string, any>;
-  addCheck(checks, 'Project Hub observes both runs without owning their state', () => {
-    assert.equal(hub.projectId, fixture.project.projectId);
+  const doctor = await call('workflow.agent.doctor', {
+    project: marker.projectId,
+    agent: marker.agentId,
+    work_run_id: marker.workRunId,
+  }) as { ok: boolean; errors: string[] };
+  addCheck(checks, 'local doctor accepts the completed remote Work Run', () => {
+    assert.equal(doctor.ok, true, doctor.errors.join('; '));
+    assert.deepEqual(doctor.errors, []);
+  });
+
+  const hub = await call('project.hub.get', { ref: marker.projectId }) as Record<string, any>;
+  addCheck(checks, 'Project Hub observes one Work Run without owning provider state', () => {
+    assert.equal(hub.projectId, marker.projectId);
     assert.equal(hub.readOnly, true);
     assert.equal(hub.sections.runtime.owner, 'runtime');
-    assert.equal(hub.sections.runtime.data.runCount, 2);
-    const projections = hub.sections.integrations.data.projections as Array<Record<string, unknown>>;
+    assert.equal(hub.sections.runtime.data.runCount, 1);
     assert.deepEqual(
-      projections.map(({ kind, target, stateOwner, copiedState }) => ({ kind, target, stateOwner, copiedState })),
+      hub.sections.integrations.data.projections.map(
+        ({ kind, target, stateOwner, copiedState }: Record<string, unknown>) => ({ kind, target, stateOwner, copiedState }),
+      ),
       fixture.externalRefs.map(({ kind, target }) => ({ kind, target, stateOwner: 'provider', copiedState: false })),
     );
   });
 
-  addCheck(checks, 'Orca externalRef remains a projection, never an internal identity', () => {
-    const identities = new Set([
-      fixture.project.projectId,
-      ...fixture.runs.flatMap((run) => [run.workItemId, run.workRunId, run.agentId]),
-    ]);
-    for (const ref of fixture.externalRefs) {
-      assert.equal(identities.has(ref.target), false);
-      for (const run of fixture.runs) {
-        const value = durable.get(run.label)!;
-        assert.notEqual(value.project_id, ref.target);
-        assert.notEqual(value.work_item_id, ref.target);
-        assert.notEqual(value.work_run_id, ref.target);
-        assert.notEqual(value.agent_id, ref.target);
-      }
+  addCheck(checks, 'Orca refs remain projections rather than internal identities', () => {
+    const identities = new Set([marker.projectId, marker.workItemId, marker.workRunId, marker.agentId]);
+    for (const ref of fixture.externalRefs) assert.equal(identities.has(ref.target), false);
+  });
+
+  addCheck(checks, 'machine-local paths and lease fields never enter shared state', () => {
+    const shared = JSON.stringify({ marker, durable, hub });
+    for (const value of [vault, deviceState, resolve(leasePath(vault, fixture)), proof.lease.base_head]) {
+      assert.equal(shared.includes(value), false, `machine-local value leaked: ${value}`);
     }
+    assert.equal(Object.hasOwn(marker, 'lease'), false);
+    assert.equal(Object.hasOwn(marker, 'vault'), false);
+    assert.equal(Object.hasOwn(marker, 'deviceState'), false);
   });
-
-  addCheck(checks, 'machine-local lease and workspace values do not enter durable runs or Hub', () => {
-    const shared = JSON.stringify({ durable: [...durable.values()], hub });
-    const leaked = containsAny(shared, [
-      fixture.deviceLocal.workspacePath,
-      fixture.deviceLocal.leaseToken,
-      fixture.deviceLocal.leaseStore,
-    ]);
-    assert.equal(leaked, undefined, `machine-local value leaked: ${leaked}`);
-  });
-
-  const conflict = fixture.conflictProbe;
-  const conflictPath = runFile(vault, conflict.workRunId);
-  const before = readFileSync(conflictPath, 'utf-8');
-  let rejected = false;
-  let rejection = '';
-  try {
-    await call('workflow.agent.join', {
-      project: fixture.project.projectId,
-      agent: conflict.agentId,
-      work_run_id: conflict.workRunId,
-      work_run_state: 'leased',
-      work_item_id: conflict.workItemId,
-      transition_token: conflict.transitionToken,
-    });
-  } catch (error) {
-    rejected = true;
-    rejection = error instanceof Error ? error.message : String(error);
-  } finally {
-    if (!rejected) {
-      writeFileSync(conflictPath, before, 'utf-8');
-      rmSync(vaultPath(vault, `01-Projects/${fixture.project.slug}/agents/${conflict.agentId}`), {
-        recursive: true,
-        force: true,
-      });
-    }
-  }
-  addCheck(checks, 'mismatched join is rejected before identity overwrite', () => {
-    assert.equal(rejected, true, 'conflicting join unexpectedly succeeded');
-    assert.match(rejection, /conflict|mismatch|identity|agent|Work Run/i);
-    assert.equal(readFileSync(conflictPath, 'utf-8'), before);
-  });
-
   return checks;
 }
 
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
   const fixture = readFixture(options.fixturePath);
+  const digest = sha256(readFileSync(options.fixturePath));
   const automaticVault = !options.vaultPath;
-  const vault = options.vaultPath ?? mkdtempSync(join(tmpdir(), 'llmwiki-fleet-acceptance-'));
-  const deviceState = options.deviceStatePath ?? `${vault}.device-local`;
+  const automaticRemoteVault = options.phase === 'all' && !options.remoteVaultPath;
+  const automaticDeviceState = !options.deviceStatePath;
+  const vault = options.vaultPath ?? mkdtempSync(join(tmpdir(), 'llmwiki-fleet-local-'));
+  const remoteVault = options.phase === 'all'
+    ? options.remoteVaultPath ?? mkdtempSync(join(tmpdir(), 'llmwiki-fleet-5090-'))
+    : vault;
+  const deviceState = options.deviceStatePath ?? mkdtempSync(join(tmpdir(), 'llmwiki-fleet-device-'));
+  assertIndependentRoots(vault, remoteVault, deviceState, options.phase);
   const checks: Check[] = [];
+  let marker: AcceptanceMarker | undefined;
 
   try {
     if (options.phase === 'prepare' || options.phase === 'all') {
-      prepareFixture(vault, deviceState, fixture);
-      await executeRun(vault, fixture, fixture.runs.find((run) => run.executionDevice === 'local')!);
-      checks.push({ name: 'local lease and execution prepared', ok: true });
+      marker = await prepareFixture(vault, deviceState, fixture, digest, options.testedCommit);
+      checks.push({ name: 'makeProjectOps and Python Work Driver created one local lease', ok: true });
     }
-    if (options.phase === 'remote' || options.phase === 'all') {
-      await executeRun(vault, fixture, fixture.runs.find((run) => run.executionDevice === '5090')!);
-      checks.push({ name: '5090 join, checkpoint, and leave completed', ok: true });
+    if (options.phase === 'remote') marker = readMarker(vault, fixture, digest, options.testedCommit);
+    if (options.phase === 'all') {
+      copySharedVault(vault, remoteVault, true);
+      const remoteMarker = readMarker(remoteVault, fixture, digest, options.testedCommit);
+      await executeRemote(remoteVault, fixture, remoteMarker);
+      copySharedVault(remoteVault, vault, false);
+      marker = readMarker(vault, fixture, digest, options.testedCommit);
+      checks.push({ name: '5090 portable handoff rejected conflicts and replayed byte-identically', ok: true });
+    } else if (options.phase === 'remote') {
+      await executeRemote(vault, fixture, marker!);
+      checks.push({ name: '5090 portable handoff rejected conflicts and replayed byte-identically', ok: true });
     }
+    if (options.phase === 'verify') marker = readMarker(vault, fixture, digest, options.testedCommit);
     if (options.phase === 'verify' || options.phase === 'all') {
-      checks.push(...await verifyFixture(vault, fixture));
+      checks.push(...await verifyFixture(vault, deviceState, fixture, marker!));
     }
 
     const report: AcceptanceReport = {
       ok: checks.every((check) => check.ok),
       phase: options.phase,
       fixture: options.fixturePath === DEFAULT_FIXTURE ? 'tests/fixtures/fleet-workflow.v1.json' : '<provided-fixture>',
-      vault: automaticVault ? '<temporary-vault>' : '<provided-shared-vault>',
+      vault: automaticVault ? '<temporary-vault>' : '<provided-acceptance-vault>',
       deviceState: '<machine-local-state-redacted>',
+      commit: marker?.commit ?? currentCommit(),
+      fixtureDigest: digest,
+      correlationId: marker?.correlationId ?? '<not-created>',
+      externalRefs: fixture.externalRefs,
       checks,
     };
     if (options.json) process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
@@ -432,10 +755,9 @@ async function main(): Promise<void> {
     }
     if (!report.ok) process.exitCode = 1;
   } finally {
-    if (automaticVault && !options.keep) {
-      rmSync(vault, { recursive: true, force: true });
-      rmSync(deviceState, { recursive: true, force: true });
-    }
+    if (automaticVault && !options.keep) rmSync(vault, { recursive: true, force: true });
+    if (automaticRemoteVault && !options.keep) rmSync(remoteVault, { recursive: true, force: true });
+    if (automaticDeviceState && !options.keep) rmSync(deviceState, { recursive: true, force: true });
   }
 }
 
