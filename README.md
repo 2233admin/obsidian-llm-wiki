@@ -145,17 +145,33 @@ See [docs/RESEARCH_COMPILER_LOOP.md](docs/RESEARCH_COMPILER_LOOP.md) for the sta
 
 ---
 
+## One settings and project control plane
+
+LLM Wiki uses one host-neutral **Settings Platform** across MCP, the Python compiler/CLI, and the Obsidian control plane. Effective settings resolve in this order:
+
+```text
+session > workspace-project > vault > user-device > product default
+```
+
+Obsidian is a client of that platform, not a separate settings backend. Its plugin data keeps only presentation preferences, a machine-local device binding, and the reversible legacy-migration journal. Operational values belong to scoped Settings documents. Credentials are represented only by a **Secret Reference**; resolved secret values never enter snapshots, Project Hubs, plugin data, or durable vault knowledge.
+
+Projects use the stable identity `project/<slug>`. The repository checkout, vault path, Linear/GitHub item, and 5090/Orca task are bindings or projections of that Project, never replacements for its identity. The read-only `project.hub.get` operation assembles work, knowledge, Work Runs, effective settings, capability health, workspace health, and integration drift without becoming a new source of truth.
+
+See [Settings and Obsidian control plane](docs/SETTINGS.md), [Project and plugin migrations](docs/MIGRATIONS.md), and the [capability inventory](docs/CAPABILITY_INVENTORY.md).
+
 ---
 
 ## Local Linear-style project management
 
-LLM Wiki now includes a local-first project management layer under `project.*`, inspired by `the-orrery/docket`, `the-orrery/rhizome`, and `the-orrery/seed`. It stores issues, comments, dependencies, generated Kanban boards, and project docs as Markdown inside the vault. Agents can create and update work items through MCP, while humans can review the resulting files and Git diffs.
+LLM Wiki includes a local-first, Linear-style project management layer under `project.*`. It stores issues, comments, and dependencies as reviewable Markdown and derives Kanban, Canvas, and Bases views from them. Agents can create and update work items through MCP, while humans can inspect the same files and Git diffs.
 
-The default layout lives under `10-Projects/<project>/docket/`. Issues use docket-compatible `ISSUE-N.md` frontmatter with `status` + `state_type`, dependencies use `blocked_by`, and the generated board is readable by the `kanban` adapter. See [docs/LOCAL_PROJECTS.md](docs/LOCAL_PROJECTS.md).
+Current work lives only under `01-Projects/<project>/issues/<slug>.md`; `10-Projects/<project>/docket/**` is retired. Project knowledge remains under `10-Projects/<project>/`, and the shared Project Registry record is `Projects/<project>.md`. See [docs/LOCAL_PROJECTS.md](docs/LOCAL_PROJECTS.md).
 
 ## Obsidian visual layer
 
-Project management can now export native Obsidian views without requiring Obsidian to be running. Use `project.canvas.export` for `10-Projects/<project>/views/project-map.canvas`, and `project.base.export` for `10-Projects/<project>/views/issues.base`. Canvas gives a spatial project map; Bases gives a table dashboard over issue properties. Kanban remains the supported third-party read-side board adapter; Dataview and Tasks are documented as optional advanced alternatives, not required dependencies.
+Project management can export native Obsidian views without requiring Obsidian to be running. Use `project.canvas.export` for `01-Projects/<project>/views/project-map.canvas`, and `project.base.export` for `01-Projects/<project>/views/issues.base`. Canvas gives a spatial project map; Bases gives a table dashboard over issue properties. Kanban remains the supported third-party read-side board adapter; Dataview and Tasks are optional advanced alternatives, not required dependencies.
+
+The `obc` package remains the **Obsidian Broken Link Checker** compatibility and link-diagnostics capability. OBC is not the product name and does not own system settings; it consumes LLM Wiki Settings Platform snapshots like every other capability.
 
 ## Local NotebookLM-style ingest with ChubbySkills
 
@@ -299,6 +315,9 @@ The wiki has the long-form answers. Read them in any order.
 | [**Adapter-Spec**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Adapter-Spec) | Adapter contract, capability matrix, fan-out and ranking, failure modes, recipe for a fifth adapter. |
 | [**Compile-Pipeline**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Compile-Pipeline) | What each stage produces, where the graph lives on disk, performance reference points. |
 | [**Research Compiler Loop**](docs/RESEARCH_COMPILER_LOOP.md) | The product loop: raw materials, compiled wiki, cited Q&A, AI-Output filing, review, promotion. |
+| [**Settings Platform**](docs/SETTINGS.md) | Shared scopes, Obsidian control plane, compiler discovery, Secret References, and Doctor. |
+| [**Migrations**](docs/MIGRATIONS.md) | Reversible legacy plugin settings and Project layout migration procedures. |
+| [**Capability Inventory**](docs/CAPABILITY_INVENTORY.md) | Domain ownership, single-device/multi-device behavior, and release evidence status. |
 | [**Persona-Design**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Persona-Design) | User-facing knowledge roles vs underlying skills. The design discipline that keeps them from collapsing into one generic agent. |
 | [**Security-Model**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Security-Model) | Dry-run default, protected paths, preflight gates, bearer-token transport, what this explicitly does not secure. |
 | [**Recipes**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Recipes) | Content collectors and local knowledge feeders (Feishu, Gmail, Linear, X, WeChat, Dreamtime, and more) that land external sources into the vault. |

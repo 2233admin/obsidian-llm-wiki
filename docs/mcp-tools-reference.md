@@ -3,7 +3,7 @@
 > Auto-generated from `mcp-server/src/core/operations.ts`.
 > Run `npm run generate-tools-doc` to regenerate. Do not edit by hand.
 
-Total: **113** operations across **18** namespaces.
+Total: **124** operations across **19** namespaces.
 
 ## `vault.*` (31)
 
@@ -1271,7 +1271,7 @@ Register a long-lived source in the lightweight Source Registry. URL inputs run 
 - `tags` (array, optional) — Optional tags for the Source Note and registry record
 - `notes` (string, optional) — Optional operator notes stored in the Source Note
 
-## `workflow.*` (9)
+## `workflow.*` (10)
 
 ### `workflow.agent.checkpoint`
 
@@ -1308,7 +1308,7 @@ Check one agent lifetime, Work Run identity, transition receipts, output policy,
 
 ### `workflow.agent.join`
 
-Join a leased Work Run (or create a legacy-compatible one) and persist its shared identity on the agent lifetime.
+Assert and join an existing Work Driver lease without overwriting its durable identities.
 
 **Mutating:** yes
 
@@ -1320,10 +1320,12 @@ Join a leased Work Run (or create a legacy-compatible one) and persist its share
 - `host` (string, optional) — Agent host, e.g. codex or claude-code
 - `objective` (string, optional) — Lifetime objective
 - `issue` (string, optional) — Linked issue slug or entity
-- `work_run_id` (string, optional) — Shared Work Run ID from the Work Driver lease
+- `work_run_id` (string, required) — Shared Work Run ID from the Work Driver lease
 - `work_run_state` (string, optional, enum: `planned` | `leased` | `running` | `awaiting_review` | `completed` | `failed` | `cancelled`) — Existing Work Run state; leased is expected when attaching a Work Driver lease
-- `work_item_id` (string, optional) — Canonical project/<slug>/issue/<slug> identity
-- `transition_token` (string, optional) — Idempotency token; generated for legacy calls
+- `work_item_id` (string, required) — Canonical project/<slug>/issue/<slug> identity
+- `lease_mode` (string, optional, default: `"local"`, enum: `local` | `portable-handoff`) — local requires this device active lease. portable-handoff requires a valid expiring handoff token bound to the durable Work Run; any present local lease is still fully validated.
+- `handoff_token` (string, optional) — Sensitive secret required only for lease_mode=portable-handoff; never persisted or returned.
+- `transition_token` (string, optional) — Stable idempotency token from the Work Driver transition
 - `output_class` (string, optional, enum: `view` | `work-state-transition` | `knowledge-claim` | `external-side-effect`)
 - `approval_status` (string, optional, enum: `not-required` | `pending` | `approved` | `denied`)
 - `provenance` (array, optional) — Logical provenance refs; never local paths or secrets
@@ -1348,6 +1350,28 @@ Leave a Work Run through awaiting-review or terminal state while preserving its 
 - `output_class` (string, optional, enum: `view` | `work-state-transition` | `knowledge-claim` | `external-side-effect`)
 - `approval_status` (string, optional, enum: `not-required` | `pending` | `approved` | `denied`)
 - `provenance` (array, optional)
+
+### `workflow.agent.start`
+
+Create a restricted manual Work Run without accepting or impersonating Work Driver lease identity fields.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, required) — Project key
+- `agent` (string, optional) — Agent id; defaults collaboration actor
+- `role` (string, optional) — Agent role, e.g. manager|worker|reviewer|verifier
+- `host` (string, optional) — Agent host, e.g. codex or claude-code
+- `objective` (string, optional) — Lifetime objective
+- `issue` (string, optional) — Linked issue slug or entity
+- `transition_token` (string, optional) — Stable idempotency token for retrying manual creation
+- `output_class` (string, optional, enum: `view` | `work-state-transition` | `knowledge-claim` | `external-side-effect`)
+- `approval_status` (string, optional, enum: `not-required` | `pending` | `approved` | `denied`)
+- `provenance` (array, optional) — Logical provenance refs; never local paths or secrets
+- `stage` (string, optional, default: `"think"`, enum: `think` | `plan` | `build` | `review` | `test` | `ship` | `reflect`) — Initial lifetime stage: think|plan|build|review|test|ship|reflect. test requires review:* evidence; ship requires review:* and test:* evidence.
+- `evidence` (array, optional) — Initial evidence refs. Use prefixes such as review:* and test:* for stage gates.
+- `notes` (string, optional) — Manual start notes
 
 ### `workflow.agent.step`
 
@@ -1424,3 +1448,117 @@ Create or update the vault-first agent workflow state at 01-Projects/<project>/w
 - `host` (string, optional) — Agent host, e.g. codex or claude-code
 - `evidence` (array, optional) — Evidence refs such as test:, source:, commit:, or path:
 - `notes` (string, optional) — Short workflow notes
+
+## `settings.*` (10)
+
+### `settings.assignment.set`
+
+Set one assignment with complete-scope validation and optimistic expected-revision commit.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `scope` (string, required, enum: `user-device` | `vault` | `workspace-project` | `session`)
+- `targetId` (string, optional)
+- `key` (string, required)
+- `value` (unknown, required)
+- `expectedRevision` (number, required)
+- `updatedBy` (string, optional)
+- `reason` (string, optional)
+- `expiresAt` (string, optional)
+
+### `settings.assignment.unset`
+
+Unset one assignment with complete-scope validation and optimistic expected-revision commit.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `scope` (string, required, enum: `user-device` | `vault` | `workspace-project` | `session`)
+- `targetId` (string, optional)
+- `key` (string, required)
+- `expectedRevision` (number, required)
+- `updatedBy` (string, optional)
+- `reason` (string, optional)
+
+### `settings.definitions.get`
+
+Get one canonical setting definition by namespaced key.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `key` (string, required)
+
+### `settings.definitions.list`
+
+List the versioned canonical setting definitions and presentation metadata.
+
+**Mutating:** no
+
+**Parameters:** none
+
+### `settings.doctor`
+
+Report evidence-backed available, degraded, unavailable, and disabled capability health.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `context` (object, optional)
+
+### `settings.migrations.plan`
+
+Plan Settings document schema migrations without writing.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `context` (object, optional)
+
+### `settings.scopes.get`
+
+Read one redacted scoped settings document and its revision.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `scope` (string, required, enum: `product` | `user-device` | `vault` | `workspace-project` | `session`)
+- `targetId` (string, optional)
+
+### `settings.snapshot.explain`
+
+Explain one effective setting, including precedence, unset scopes, and overridden candidates.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `key` (string, required)
+- `context` (object, optional)
+
+### `settings.snapshot.resolve`
+
+Resolve the deterministic redacted Settings Snapshot for a runtime context.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `context` (object, optional)
+
+### `settings.validate`
+
+Validate definitions, complete scope documents, effective values, and cross-setting constraints.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `context` (object, optional)

@@ -1,4 +1,4 @@
-# Fleet Mode PRD — llmwiki Multi-Agent Orchestration
+# Fleet Mode PRD — LLM Wiki Multi-Agent Orchestration
 
 > **Status**: Draft
 > **Date**: 2026-07-01

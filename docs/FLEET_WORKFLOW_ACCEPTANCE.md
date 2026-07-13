@@ -1,5 +1,9 @@
 # Fleet workflow acceptance
 
+> **Release-candidate status:** the deterministic independent two-vault harness
+> is implemented. The real local ↔ 5090 sequence below is the remaining
+> commit-level release gate; this document does not claim that run has passed.
+
 This harness proves the LLM Wiki product contract across a real fleet handoff.
 An Orca task reporting success is useful execution evidence, but it is not the
 durable Project, Work Item, Work Run, or agent identity.
@@ -57,10 +61,13 @@ when Git ignores it; an outside-repository path is also valid.
 On the local host:
 
 ```powershell
+$acceptanceRoot = Join-Path $env:TEMP 'llmwiki-fleet-acceptance'
+$localVault = Join-Path $acceptanceRoot 'local-vault'
+$localDeviceState = Join-Path $acceptanceRoot 'local-device'
 bun scripts/verify_fleet_workflow.ts `
   --phase prepare `
-  --vault D:\fleet-acceptance\local-vault `
-  --device-state D:\fleet-acceptance\local-device `
+  --vault $localVault `
+  --device-state $localDeviceState `
   --json
 ```
 
@@ -84,10 +91,13 @@ after securely copying `fleet-local-proof.json` to a 5090-only ignored path:
 On 5090, at the exact commit printed by `prepare`:
 
 ```powershell
+$acceptanceRoot = Join-Path $env:TEMP 'llmwiki-fleet-acceptance'
+$remoteVault = Join-Path $acceptanceRoot 'remote-vault'
+$remoteDeviceState = Join-Path $env:LOCALAPPDATA 'llmwiki-fleet-5090'
 bun scripts/verify_fleet_workflow.ts `
   --phase remote `
-  --vault D:\fleet-acceptance\remote-vault `
-  --device-state D:\projects\obsidian-llm-wiki\.vault-mind\fleet-5090 `
+  --vault $remoteVault `
+  --device-state $remoteDeviceState `
   --tested-commit <prepare-report.commit> `
   --json
 ```
@@ -95,10 +105,11 @@ bun scripts/verify_fleet_workflow.ts `
 Environment injection is also supported without printing the value:
 
 ```powershell
-$proof = Get-Content D:\secure\fleet-local-proof.json | ConvertFrom-Json
+$proofPath = Join-Path $env:LOCALAPPDATA 'llmwiki-fleet-proof.json'
+$proof = Get-Content $proofPath | ConvertFrom-Json
 $env:LLMWIKI_FLEET_HANDOFF_TOKEN = $proof.handoffToken
 bun scripts/verify_fleet_workflow.ts --phase remote `
-  --vault D:\fleet-acceptance\remote-vault `
+  --vault $remoteVault `
   --tested-commit <prepare-report.commit> --json
 Remove-Item Env:LLMWIKI_FLEET_HANDOFF_TOKEN
 Remove-Variable proof
@@ -119,8 +130,8 @@ Copy the 5090 vault files back into `local-vault`, again excluding
 ```powershell
 bun scripts/verify_fleet_workflow.ts `
   --phase verify `
-  --vault D:\fleet-acceptance\local-vault `
-  --device-state D:\fleet-acceptance\local-device `
+  --vault $localVault `
+  --device-state $localDeviceState `
   --tested-commit <prepare-report.commit> `
   --json
 ```

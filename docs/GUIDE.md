@@ -207,15 +207,15 @@ Full details: [ai-output-convention.md](ai-output-convention.md).
 
 ## Local project management
 
-Use `project.*` tools when you want local Linear-style task state inside the vault. The workflow is file-backed: issues, comments, project containers, rhizome links, and Kanban board state all live under `10-Projects/<project>/docket/`.
+Use `project.*` tools when you want local Linear-style task state inside the vault. Every Project resolves to a stable `project/<slug>` identity. Authoritative issue state lives under `01-Projects/<project>/issues/`; Kanban, Canvas, and Bases are derived views, while reviewed project knowledge stays under `10-Projects/<project>/`.
 
 Good first flow:
 
 ```text
 project.init project=alpha
-project.issue.create project=alpha title="Build local Linear" priority=High status=started
-project.comment.add project=alpha id=ISSUE-1 body="Validated through smoke test"
-project.issue.update project=alpha id=ISSUE-1 status=Done
+project.issue.create project=project/alpha title="Build local Linear" priority=2 state=todo
+project.comment.add project=project/alpha slug=build-local-linear body="Validated through smoke test"
+project.issue.update project=project/alpha slug=build-local-linear state=done
 ```
 
 After that, `query.unified` and the `kanban` adapter can find the issue and board cards. Details: [LOCAL_PROJECTS.md](LOCAL_PROJECTS.md).
@@ -355,14 +355,14 @@ project.canvas.export project=<project> dryRun=false
 project.base.export project=<project> dryRun=false
 ```
 
-Files land in `10-Projects/<project>/views/`:
+Files land in `01-Projects/<project>/views/`:
 
 ```text
 project-map.canvas
 issues.base
 ```
 
-Canvas shows the project, status groups, issue note cards, and dependency/relationship edges. Bases shows a table over issue properties: id, title, status, state_type, priority, assignee, blocked_by, updated_at, and tags. Dataview and Tasks can still be used by advanced Obsidian users, but Bases is the default no-extra-plugin dashboard.
+Canvas shows the project, workflow-state groups, issue note cards, and `blocks` edges derived from `blocked-by`. Bases shows a table over the Work-OS issue fields: entity, state, review, priority, assignee, blocked-by, last-verified, id, and description. Dataview and Tasks can still be used by advanced Obsidian users, but Bases is the default no-extra-plugin dashboard.
 
 ## Optional Obsidian graph check
 

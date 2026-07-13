@@ -16,14 +16,33 @@ source of truth for what shipped when.
 
 ### Highlights
 
+- **Shared Settings Platform.** A host-neutral registry, five-scope effective
+  snapshot, expected-revision mutation, redaction, validation, migration plan,
+  and Doctor contract now serve MCP, Python, and Obsidian. Secret values stay
+  outside Settings; only Secret References and presence health cross the
+  boundary.
+- **Canonical Project Context.** Stable `project/<slug>` identity now joins
+  Work-OS, knowledge, Work Runs, settings, bindings, and external projections.
+  Project Hub is a read-only composition over those owners and reports real
+  Settings snapshot health.
+- **Reversible migrations.** Legacy Obsidian runtime fields migrate into the
+  user-device scope with preimage recovery, while Project layout migration is
+  preview-first, hash-guarded, backed up, and restorable.
+- **Single-device and multi-device Work Runs.** Local joins validate the active
+  lease; portable handoff uses a short-lived out-of-band capability whose raw
+  value never enters shared vault or Git state. The two-vault acceptance
+  harness is implemented; final local ↔ 5090 commit-level evidence remains a
+  release gate and is not claimed here.
 - **Fleet Mode MVP** (`fleet/`) -- Scout/Worker/Verify ships + Hub
   orchestration + review gates + context trimming/session management for
-  multi-agent llmwiki work. Code-complete; the `tests/fleet_tests/` CI
+  multi-agent LLM Wiki work. Code-complete; the `tests/fleet_tests/` CI
   collision that kept it red on `main` is fixed this release. Its design
   docs (`TASK*-DRAFT*.md`) remain draft-stage by contrast -- see Docs below.
-- **OBC -- Obsidian Broken Link Checker.** Link extraction, CLI,
+- **LLM Wiki link diagnostics (`obc` compatibility package).** OBC means only
+  Obsidian Broken Link Checker: link extraction, CLI,
   VaultIndex + Resolver, Fix Planner, apply-safe writer, orphan-page
-  detection, stale-note detection, unit tests.
+  detection, stale-note detection, and unit tests. It is not the product name
+  or settings owner.
 - **Work-OS Task 8-11.** Budget gate + spend tracking (11B), canvas view
   (10A), digest (10B), promote plugin/canvas/CLI (10C), MCP `project_*`
   tool unification, 11G briefing loop-trigger.
@@ -45,6 +64,10 @@ source of truth for what shipped when.
 
 ### Docs honesty pass
 
+- Added Settings/Obsidian guidance, legacy plugin and Project migration
+  procedures, the current capability inventory, and the reproducible fleet
+  acceptance sequence. The release notes explicitly leave real 5090
+  verification pending until commit-level evidence exists.
 - `TASK14-DRAFT-multi-platform-compile.md` had drifted into an
   internally-inconsistent DRAFT/APPROVED status framing; corrected to
   state plainly: design-approved, 0 lines of code, not built.
