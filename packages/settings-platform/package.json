@@ -1,6 +1,6 @@
 {
   "name": "@obsidian-llm-wiki/settings-platform",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Host-neutral settings registry, resolver, persistence, and operation service for LLM Wiki.",
   "type": "module",
   "main": "dist/src/index.js",
