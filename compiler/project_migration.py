@@ -9,7 +9,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
+import time
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Optional
 
@@ -39,6 +42,42 @@ class StalePrecondition(MigrationError):
 
 class PathEscape(MigrationError):
     code = "path_escape"
+
+
+class MigrationBusy(MigrationError):
+    code = "migration_busy"
+
+
+@contextmanager
+def _migration_lock(vault: Path):
+    """Serialize migration validate/backup/manifest/write transactions.
+
+    The lock never performs automatic stale takeover: age cannot prove
+    ownership ended, and unlinking an observed lock would introduce an ABA
+    race.  Recovery is an explicit operator action after owner verification.
+    """
+    path = vault / MIGRATION_ROOT / "_migration.lock"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    token = f"{os.getpid()}:{time.time_ns()}"
+    try:
+        descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        try:
+            os.write(descriptor, token.encode("utf-8"))
+        finally:
+            os.close(descriptor)
+    except FileExistsError as exc:
+        raise MigrationBusy(
+            "Project migration is busy; if the lock is abandoned, verify its "
+            f"recorded owner is no longer active before removing {path}"
+        ) from exc
+    try:
+        yield
+    finally:
+        try:
+            if path.read_text("utf-8") == token:
+                path.unlink(missing_ok=True)
+        except FileNotFoundError:
+            pass
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -624,6 +663,14 @@ def apply_migration_plan(plan: dict[str, Any], *, apply: bool = False,
     batch_id = batch_id or plan["plan_hash"][:16]
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}", batch_id):
         raise MigrationError("Invalid migration batch ID")
+    with _migration_lock(vault):
+        return _apply_migration_plan_locked(plan, vault=vault, batch_id=batch_id)
+
+
+def _apply_migration_plan_locked(
+    plan: dict[str, Any], *, vault: Path, batch_id: str
+) -> dict[str, Any]:
+    """Validate, back up, manifest, and write while the migration lock is held."""
     batch_root = vault / MIGRATION_ROOT / batch_id
     manifest_path = batch_root / "manifest.json"
     backup_root = batch_root / "backups"
@@ -658,26 +705,63 @@ def apply_migration_plan(plan: dict[str, Any], *, apply: bool = False,
             "state": "applying",
             "actions": manifest_actions,
         }
+        backup_contents: list[tuple[Path, bytes]] = []
+        observed_hashes: dict[str, Optional[str]] = {}
+        for entry, action, target in zip(
+            manifest_actions, plan.get("actions", []), targets
+        ):
+            observed = observed_hashes.setdefault(action["path"], file_hash(target))
+            if observed != action.get("expected_hash"):
+                raise StalePrecondition(
+                    f"Migration target drifted before backup: {action['path']}"
+                )
+            if entry["backup"]:
+                content = target.read_bytes()
+                if sha256_bytes(content) != entry["before_hash"]:
+                    raise StalePrecondition(
+                        f"Migration target drifted while backing up: {entry['path']}"
+                    )
+                backup_contents.append((batch_root / entry["backup"], content))
         batch_root.mkdir(parents=True, exist_ok=True)
         backup_root.mkdir(parents=True, exist_ok=True)
-        for entry, target in zip(manifest_actions, targets):
-            if entry["backup"]:
-                _atomic_write(batch_root / entry["backup"], target.read_bytes())
+        for backup_path, content in backup_contents:
+            _atomic_write(backup_path, content)
         _atomic_json(manifest_path, manifest)
 
     written: list[str] = []
+    prior_after_hashes: dict[str, str] = {}
     for entry, action, target in zip(manifest["actions"], plan.get("actions", []), targets):
         content = action["content"].encode("utf-8")
         if entry["status"] == "completed":
             if file_hash(target) != entry["after_hash"]:
                 raise StalePrecondition(
                     f"Completed migration action drifted: {entry['path']}")
+            prior_after_hashes[action["path"]] = entry["after_hash"]
             continue
+        expected_before = prior_after_hashes.get(
+            action["path"], entry.get("before_hash")
+        )
+        actual = file_hash(target)
         # Recover from a crash after the file replace but before manifest update.
-        if file_hash(target) != entry["after_hash"]:
+        if actual != entry["after_hash"]:
+            if actual != expected_before:
+                raise StalePrecondition(
+                    f"Migration target drifted before replace: {entry['path']}"
+                )
+            source = action.get("source")
+            if source:
+                source_path = (vault / source).resolve()
+                expected_source = prior_after_hashes.get(
+                    source, action.get("source_hash")
+                )
+                if file_hash(source_path) != expected_source:
+                    raise StalePrecondition(
+                        f"Migration source drifted before replace: {source}"
+                    )
             _atomic_write(target, content)
         entry["status"] = "completed"
         written.append(target.as_posix())
+        prior_after_hashes[action["path"]] = entry["after_hash"]
         _atomic_json(manifest_path, manifest)
 
     manifest["state"] = "completed"
@@ -695,6 +779,16 @@ def restore_migration(vault: str | Path, manifest: str | Path, *,
     """Plan or explicitly restore an applied migration batch in reverse order."""
     vault_path = Path(vault).resolve()
     manifest_path = Path(manifest).resolve()
+    if apply:
+        with _migration_lock(vault_path):
+            return _restore_migration_locked(vault_path, manifest_path, apply=True)
+    return _restore_migration_locked(vault_path, manifest_path, apply=False)
+
+
+def _restore_migration_locked(
+    vault_path: Path, manifest_path: Path, *, apply: bool
+) -> dict[str, Any]:
+    """Validate and restore a batch while the dedicated migration lock is held."""
     migration_root = (vault_path / MIGRATION_ROOT).resolve()
     try:
         manifest_path.relative_to(migration_root)
@@ -715,26 +809,63 @@ def restore_migration(vault: str | Path, manifest: str | Path, *,
     if not apply:
         return result
 
-    prepared: list[tuple[dict[str, Any], Path, Optional[bytes]]] = []
-    for entry in restore_actions:
-        target = _safe_target(vault_path, entry["path"])
-        if file_hash(target) != entry["current_hash"]:
-            raise StalePrecondition(
-                f"Migrated file changed after apply and cannot be restored safely: {entry['path']}")
+    prepared: list[
+        tuple[dict[str, Any], dict[str, Any], Path, Optional[bytes]]
+    ] = []
+    manifest_entries = [
+        entry for entry in reversed(data.get("actions", []))
+        if entry.get("status") == "completed"
+    ]
+    for entry, restore_entry in zip(manifest_entries, restore_actions):
+        target = _safe_target(vault_path, restore_entry["path"])
         content = None
-        if entry["backup"]:
-            backup = manifest_path.parent / entry["backup"]
+        if restore_entry["backup"]:
+            backup = manifest_path.parent / restore_entry["backup"]
             content = backup.read_bytes()
-            if sha256_bytes(content) != entry["restore_hash"]:
+            if sha256_bytes(content) != restore_entry["restore_hash"]:
                 raise StalePrecondition(f"Migration backup hash mismatch: {backup}")
-        prepared.append((entry, target, content))
+        actual = file_hash(target)
+        restore_hash = restore_entry["restore_hash"]
+        if entry.get("restore_status") == "completed":
+            if actual != restore_hash:
+                raise StalePrecondition(
+                    f"Restored file drifted: {restore_entry['path']}"
+                )
+        elif actual not in {restore_entry["current_hash"], restore_hash}:
+            raise StalePrecondition(
+                "Migrated file changed after apply and cannot be restored safely: "
+                f"{restore_entry['path']}"
+            )
+        prepared.append((entry, restore_entry, target, content))
 
-    for entry, target, content in prepared:
-        if content is not None:
-            _atomic_write(target, content)
-        else:
-            target.unlink(missing_ok=True)
+    data["state"] = "restoring"
+    for entry in manifest_entries:
+        entry.setdefault("restore_status", "pending")
+    _atomic_json(manifest_path, data)
+
+    for entry, restore_entry, target, content in prepared:
+        restore_hash = restore_entry["restore_hash"]
+        actual = file_hash(target)
+        if entry["restore_status"] == "completed":
+            if actual != restore_hash:
+                raise StalePrecondition(
+                    f"Restored file drifted: {restore_entry['path']}"
+                )
+            continue
+        # Exact restored bytes mean the process stopped after replace/delete
+        # and before its manifest receipt.  Any other change is human drift.
+        if actual != restore_hash:
+            if actual != restore_entry["current_hash"]:
+                raise StalePrecondition(
+                    f"Migration target drifted before restore: {restore_entry['path']}"
+                )
+            if content is not None:
+                _atomic_write(target, content)
+            else:
+                target.unlink(missing_ok=True)
+        entry["restore_status"] = "completed"
         result["restored"].append(target.as_posix())
+        _atomic_json(manifest_path, data)
     data["state"] = "restored"
     _atomic_json(manifest_path, data)
     return result

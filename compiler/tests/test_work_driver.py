@@ -14,6 +14,7 @@ Run from the compiler/ dir (Windows -- prefix PYTHONUTF8=1):
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import sys
 import tempfile
@@ -162,12 +163,16 @@ class LeaseTest(unittest.TestCase):
         self.assertNotIn(self.NID, work_driver.read_leases(self.vault))
 
     def test_expired_lease_is_reclaimable(self) -> None:
-        self._acquire("agent-1", now=1000)        # expires at 1600
+        first = self._acquire("agent-1", now=1000)  # expires at 1600
         r = self._acquire("agent-2", now=2000)    # past expiry -> reclaim
         self.assertEqual(r.outcome, work_driver.OUTCOME_ACQUIRED)
         self.assertEqual(
             work_driver.read_leases(self.vault)[self.NID]["agent_id"], "agent-2"
         )
+        self.assertNotEqual(r.lease["work_run_id"], first.lease["work_run_id"])
+        old_run = work_driver.read_work_run(
+            self.vault, first.lease["project_id"], first.lease["work_run_id"])
+        self.assertEqual(old_run["agent_id"], "agent-1")
 
     def test_same_agent_refreshes(self) -> None:
         self._acquire("agent-1", now=1000)
@@ -257,6 +262,73 @@ class WorkRunContractTest(unittest.TestCase):
                 self.vault, lease["project_id"], lease["work_run_id"]),
             before,
         )
+
+    def test_ancient_runtime_lock_is_fail_closed_and_not_reclaimed(self) -> None:
+        lease = self._lease().lease
+        lock_path = self.vault / ".vault-mind" / "_work-run.lock"
+        lock_path.write_text("old-runtime-owner", encoding="utf-8")
+        os.utime(lock_path, (1, 1))
+
+        with self.assertRaisesRegex(work_driver.WorkRunBusy, "verify its recorded owner"):
+            work_driver.transition_work_run(
+                self.vault, lease["project_id"], lease["work_run_id"], "running",
+                transition_token="agent:join:old-lock", now=1001)
+
+        self.assertEqual(lock_path.read_text("utf-8"), "old-runtime-owner")
+
+    def test_cross_project_refresh_is_rejected_without_lease_or_run_mutation(self) -> None:
+        lease = self._lease().lease
+        leases_before = (self.vault / ".vault-mind" / "_leases.json").read_bytes()
+        run_path = work_driver._work_run_path(
+            self.vault, lease["project_id"], lease["work_run_id"])
+        run_before = run_path.read_bytes()
+
+        with self.assertRaisesRegex(work_driver.WorkIdentityConflict, "Note .* identifies"):
+            work_driver.acquire_lease(
+                self.vault, self.NID, "agent-codex",
+                current_head=self.NID, base_head=self.NID,
+                ttl_seconds=600, now=1100,
+                project_id="project/beta",
+                work_item_id="project/beta/issue/build-index",
+            )
+
+        self.assertEqual(
+            (self.vault / ".vault-mind" / "_leases.json").read_bytes(),
+            leases_before,
+        )
+        self.assertEqual(run_path.read_bytes(), run_before)
+
+    def test_refresh_rejects_lease_run_agent_disagreement_without_mutation(self) -> None:
+        lease = self._lease().lease
+        run_path = work_driver._work_run_path(
+            self.vault, lease["project_id"], lease["work_run_id"])
+        run = json.loads(run_path.read_text("utf-8"))
+        run["agent_id"] = "other-agent"
+        run_path.write_text(json.dumps(run), encoding="utf-8")
+        leases_before = (self.vault / ".vault-mind" / "_leases.json").read_bytes()
+        run_before = run_path.read_bytes()
+
+        with self.assertRaisesRegex(
+            work_driver.WorkIdentityConflict, "disagree on agent_id"
+        ):
+            self._lease(now=1100)
+
+        self.assertEqual(
+            (self.vault / ".vault-mind" / "_leases.json").read_bytes(),
+            leases_before,
+        )
+        self.assertEqual(run_path.read_bytes(), run_before)
+
+    def test_project_must_own_explicit_work_item_before_any_mutation(self) -> None:
+        with self.assertRaisesRegex(work_driver.WorkIdentityConflict, "does not own"):
+            work_driver.acquire_lease(
+                self.vault, self.NID, "agent-codex",
+                current_head=self.NID, base_head=self.NID,
+                ttl_seconds=600, now=1000,
+                project_id="project/beta",
+                work_item_id="project/alpha/issue/build-index",
+            )
+        self.assertEqual(work_driver.read_leases(self.vault), {})
 
     def test_output_policy_routes_claims_and_denies_unapproved_external_effects(self) -> None:
         lease = self._lease().lease

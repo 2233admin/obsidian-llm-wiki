@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 COMPILER = Path(__file__).resolve().parents[1]
 FIXTURES = Path(__file__).parent / "fixtures" / "project-context"
@@ -143,6 +145,57 @@ class ProjectMigrationFixture(unittest.TestCase):
         self.assertFalse(
             (self.vault / ".vault-mind" / "project-migrations" / "stale-batch").exists())
 
+    def test_edit_injected_after_validation_is_not_overwritten(self):
+        plan = project_migration.plan_project_migration(self.vault)
+        anchor = self.vault / "01-Projects" / "alpha" / "_project.md"
+        shared = self.vault / "Projects" / "alpha.md"
+        shared_before = shared.read_bytes()
+        original_validate = project_migration._validate_plan
+
+        def validate_then_edit(*args, **kwargs):
+            targets = original_validate(*args, **kwargs)
+            anchor.write_text(
+                anchor.read_text("utf-8") + "human edit after validation\n",
+                encoding="utf-8",
+            )
+            return targets
+
+        with mock.patch.object(
+            project_migration, "_validate_plan", side_effect=validate_then_edit
+        ):
+            with self.assertRaisesRegex(
+                project_migration.StalePrecondition, "drifted before backup"
+            ):
+                project_migration.apply_migration_plan(
+                    plan, apply=True, batch_id="post-validation-drift"
+                )
+
+        self.assertIn("human edit after validation", anchor.read_text("utf-8"))
+        self.assertEqual(shared.read_bytes(), shared_before)
+        self.assertFalse(
+            (self.vault / ".vault-mind" / "project-migrations" /
+             "post-validation-drift" / "manifest.json").exists()
+        )
+
+    def test_old_migration_lock_is_fail_closed_and_not_reclaimed(self):
+        plan = project_migration.plan_project_migration(self.vault)
+        shared = self.vault / "Projects" / "alpha.md"
+        before = shared.read_bytes()
+        lock_path = (
+            self.vault / ".vault-mind" / "project-migrations" / "_migration.lock"
+        )
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        lock_path.write_text("old-runtime-owner", encoding="utf-8")
+        os.utime(lock_path, (1, 1))
+
+        with self.assertRaisesRegex(project_migration.MigrationBusy, "recorded owner"):
+            project_migration.apply_migration_plan(
+                plan, apply=True, batch_id="blocked-by-old-lock"
+            )
+
+        self.assertEqual(shared.read_bytes(), before)
+        self.assertEqual(lock_path.read_text("utf-8"), "old-runtime-owner")
+
     def test_path_escape_is_rejected(self):
         plan = project_migration.plan_project_migration(self.vault)
         plan["actions"][0]["path"] = "../escaped.md"
@@ -214,6 +267,109 @@ class ProjectMigrationFixture(unittest.TestCase):
         with self.assertRaises(project_migration.StalePrecondition):
             project_migration.restore_migration(
                 self.vault, applied["manifest_path"], apply=True)
+
+    def test_restore_edit_injected_after_validation_is_not_overwritten(self):
+        plan = project_migration.plan_project_migration(self.vault)
+        applied = project_migration.apply_migration_plan(
+            plan, apply=True, batch_id="restore-post-validation-drift"
+        )
+        manifest_path = Path(applied["manifest_path"])
+        manifest = json.loads(manifest_path.read_text("utf-8"))
+        first_entry = next(
+            entry for entry in reversed(manifest["actions"])
+            if entry["status"] == "completed"
+        )
+        target = self.vault / first_entry["path"]
+        original_atomic_json = project_migration._atomic_json
+        injected = False
+
+        def write_manifest_then_edit(path, value):
+            nonlocal injected
+            original_atomic_json(path, value)
+            if path == manifest_path and value.get("state") == "restoring" and not injected:
+                target.write_bytes(target.read_bytes() + b"human edit after restore validation\n")
+                injected = True
+
+        with mock.patch.object(
+            project_migration, "_atomic_json", side_effect=write_manifest_then_edit
+        ):
+            with self.assertRaisesRegex(
+                project_migration.StalePrecondition, "drifted before restore"
+            ):
+                project_migration.restore_migration(
+                    self.vault, manifest_path, apply=True
+                )
+
+        self.assertTrue(target.read_bytes().endswith(b"human edit after restore validation\n"))
+        persisted = json.loads(manifest_path.read_text("utf-8"))
+        self.assertEqual(persisted["state"], "restoring")
+
+    def test_restore_is_blocked_by_concurrent_migration_lock(self):
+        plan = project_migration.plan_project_migration(self.vault)
+        applied = project_migration.apply_migration_plan(
+            plan, apply=True, batch_id="restore-concurrent-lock"
+        )
+        lock_path = (
+            self.vault / ".vault-mind" / "project-migrations" / "_migration.lock"
+        )
+        lock_path.write_text("other-runtime", encoding="utf-8")
+
+        with self.assertRaises(project_migration.MigrationBusy):
+            project_migration.restore_migration(
+                self.vault, applied["manifest_path"], apply=True
+            )
+
+        self.assertEqual(lock_path.read_text("utf-8"), "other-runtime")
+
+    def test_restore_resumes_replace_completed_before_manifest_receipt(self):
+        before = _snapshot(self.vault)
+        plan = project_migration.plan_project_migration(self.vault)
+        applied = project_migration.apply_migration_plan(
+            plan, apply=True, batch_id="restore-resume-receipt"
+        )
+        manifest_path = Path(applied["manifest_path"])
+        original_atomic_json = project_migration._atomic_json
+        failed_once = False
+
+        def fail_first_completed_receipt(path, value):
+            nonlocal failed_once
+            if (
+                path == manifest_path
+                and value.get("state") == "restoring"
+                and any(
+                    entry.get("restore_status") == "completed"
+                    for entry in value.get("actions", [])
+                )
+                and not failed_once
+            ):
+                failed_once = True
+                raise OSError("simulated manifest receipt failure")
+            original_atomic_json(path, value)
+
+        with mock.patch.object(
+            project_migration, "_atomic_json", side_effect=fail_first_completed_receipt
+        ):
+            with self.assertRaisesRegex(OSError, "receipt failure"):
+                project_migration.restore_migration(
+                    self.vault, manifest_path, apply=True
+                )
+
+        resumed = project_migration.restore_migration(
+            self.vault, manifest_path, apply=True
+        )
+        self.assertTrue(resumed["apply"])
+        persisted = json.loads(manifest_path.read_text("utf-8"))
+        self.assertEqual(persisted["state"], "restored")
+        self.assertTrue(all(
+            entry.get("restore_status") == "completed"
+            for entry in persisted["actions"] if entry.get("status") == "completed"
+        ))
+        after = _snapshot(self.vault)
+        after_project_data = {
+            key: value for key, value in after.items()
+            if not key.startswith(".vault-mind/project-migrations/")
+        }
+        self.assertEqual(after_project_data, before)
 
     def test_anchor_only_project_is_hash_guarded_adopted_and_restorable(self):
         record = self.vault / "Projects" / "alpha.md"

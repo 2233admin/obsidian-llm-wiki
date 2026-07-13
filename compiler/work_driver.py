@@ -68,7 +68,11 @@ OUTCOME_HEAD_MISMATCH = "HEAD_MISMATCH"
 
 _LEASES_FILE = "_leases.json"
 _WORK_RUN_LOCK_FILE = "_work-run.lock"
-_WORK_RUN_LOCK_STALE_SECONDS = 5 * 60
+_PROJECT_ID_RE = re.compile(r"project/[a-z0-9][a-z0-9-]*")
+_WORK_ITEM_ID_RE = re.compile(
+    r"project/[a-z0-9][a-z0-9-]*/issue/[a-z0-9][a-z0-9-]*"
+)
+_WORK_RUN_ID_RE = re.compile(r"work-run/[a-z0-9][a-z0-9-]*")
 
 WORK_RUN_STATES = (
     "planned", "leased", "running", "awaiting_review",
@@ -99,6 +103,10 @@ class WorkRunBusy(RuntimeError):
     """A second runtime owns the shared Work Run mutation lock."""
 
 
+class WorkIdentityConflict(ValueError):
+    """A lease or Work Run identity does not match its requested owner."""
+
+
 def _leases_path(vault_dir) -> Path:
     # machine layer: gitignored .vault-mind/, never shared markdown (§0 #6).
     return Path(vault_dir) / ".vault-mind" / _LEASES_FILE
@@ -106,26 +114,28 @@ def _leases_path(vault_dir) -> Path:
 
 @contextmanager
 def _work_run_lock(vault_dir):
-    """Serialize Python and TypeScript Work Run compare-and-write sections."""
+    """Serialize Python and TypeScript Work Run compare-and-write sections.
+
+    Lock ownership is fail-closed.  An old mtime is not proof that the owner is
+    gone, and deleting a lock after observing it creates an ABA race with a new
+    owner.  Operators may remove an abandoned lock only after independently
+    verifying that its recorded owner/runtime is no longer active.
+    """
     path = Path(vault_dir) / ".vault-mind" / _WORK_RUN_LOCK_FILE
     path.parent.mkdir(parents=True, exist_ok=True)
     token = f"{os.getpid()}:{time.time_ns()}"
-    for attempt in range(2):
+    try:
+        descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
         try:
-            descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-            try:
-                os.write(descriptor, token.encode("utf-8"))
-            finally:
-                os.close(descriptor)
-            break
-        except FileExistsError as exc:
-            try:
-                stale = time.time() - path.stat().st_mtime > _WORK_RUN_LOCK_STALE_SECONDS
-            except FileNotFoundError:
-                stale = True
-            if not stale or attempt:
-                raise WorkRunBusy("Work Run is busy with another runtime") from exc
-            path.unlink(missing_ok=True)
+            os.write(descriptor, token.encode("utf-8"))
+        finally:
+            os.close(descriptor)
+    except FileExistsError as exc:
+        raise WorkRunBusy(
+            "Work Run is busy with another runtime; if the lock is abandoned, "
+            "verify its recorded owner is no longer active before removing "
+            f"{path}"
+        ) from exc
     try:
         yield
     finally:
@@ -170,23 +180,85 @@ def _work_identity(note_id, project_id=None, work_item_id=None):
     Legacy ``Projects/<slug>/issues`` note ids remain readable, but all newly
     durable Work Run state uses canonical ``project/<slug>`` identities.
     """
-    if work_item_id and re.fullmatch(
-        r"project/[a-z0-9][a-z0-9-]*/issue/[a-z0-9][a-z0-9-]*", work_item_id
-    ):
-        inferred_project = "/".join(work_item_id.split("/")[:2])
-        return project_id or inferred_project, work_item_id
-    if isinstance(note_id, str) and re.fullmatch(
-        r"project/[a-z0-9][a-z0-9-]*/issue/[a-z0-9][a-z0-9-]*", note_id
-    ):
-        return "/".join(note_id.split("/")[:2]), note_id
+    if project_id is not None and not _PROJECT_ID_RE.fullmatch(project_id):
+        raise WorkIdentityConflict(f"Invalid project identity: {project_id}")
+    if work_item_id is not None and not _WORK_ITEM_ID_RE.fullmatch(work_item_id):
+        raise WorkIdentityConflict(f"Invalid Work Item identity: {work_item_id}")
+
+    note_work_item = None
+    if isinstance(note_id, str) and _WORK_ITEM_ID_RE.fullmatch(note_id):
+        note_work_item = note_id
     match = re.search(
         r"(?:^|/)(?:01-Projects|Projects)/([a-z0-9][a-z0-9-]*)/issues/([a-z0-9][a-z0-9-]*)\.md$",
         str(note_id).replace("\\", "/"),
     )
-    if not match:
+    if match:
+        inferred_note_project = f"project/{match.group(1)}"
+        note_work_item = f"{inferred_note_project}/issue/{match.group(2)}"
+
+    resolved_work_item = work_item_id or note_work_item
+    if resolved_work_item is None:
+        if project_id is not None:
+            raise WorkIdentityConflict(
+                "A project identity requires an owning Work Item identity"
+            )
         return None, None
-    inferred_project = f"project/{match.group(1)}"
-    return project_id or inferred_project, f"{inferred_project}/issue/{match.group(2)}"
+    inferred_project = "/".join(resolved_work_item.split("/")[:2])
+    resolved_project = project_id or inferred_project
+    if resolved_project != inferred_project:
+        raise WorkIdentityConflict(
+            f"Project {resolved_project} does not own Work Item {resolved_work_item}"
+        )
+    if note_work_item is not None and note_work_item != resolved_work_item:
+        raise WorkIdentityConflict(
+            f"Note {note_id} identifies {note_work_item}, not {resolved_work_item}"
+        )
+    return resolved_project, resolved_work_item
+
+
+def _assert_existing_work_identity(
+    vault_dir, existing, *, project_id, work_item_id
+):
+    """Validate a durable lease and its Work Run before any refresh/takeover."""
+    identity_values = {
+        "project_id": existing.get("project_id"),
+        "work_item_id": existing.get("work_item_id"),
+        "work_run_id": existing.get("work_run_id"),
+        "agent_id": existing.get("agent_id"),
+    }
+    if not any(identity_values.values()) and project_id is None and work_item_id is None:
+        return None
+    if not all(isinstance(value, str) and value for value in identity_values.values()):
+        raise WorkIdentityConflict("Existing lease has an incomplete durable identity")
+    if not _PROJECT_ID_RE.fullmatch(identity_values["project_id"]):
+        raise WorkIdentityConflict("Existing lease has an invalid project identity")
+    if not _WORK_ITEM_ID_RE.fullmatch(identity_values["work_item_id"]):
+        raise WorkIdentityConflict("Existing lease has an invalid Work Item identity")
+    if not _WORK_RUN_ID_RE.fullmatch(identity_values["work_run_id"]):
+        raise WorkIdentityConflict("Existing lease has an invalid Work Run identity")
+    owning_project = "/".join(identity_values["work_item_id"].split("/")[:2])
+    if identity_values["project_id"] != owning_project:
+        raise WorkIdentityConflict(
+            "Existing lease project does not own its Work Item"
+        )
+    if (
+        project_id != identity_values["project_id"]
+        or work_item_id != identity_values["work_item_id"]
+    ):
+        raise WorkIdentityConflict(
+            "Requested project/Work Item identity conflicts with the existing lease"
+        )
+    run = read_work_run(
+        vault_dir, identity_values["project_id"], identity_values["work_run_id"]
+    )
+    if run is None:
+        raise WorkIdentityConflict("Existing lease Work Run is missing")
+    for key, expected in identity_values.items():
+        if run.get(key) != expected:
+            raise WorkIdentityConflict(
+                f"Existing lease and Work Run disagree on {key}"
+            )
+    return run
 
 
 def _work_run_path(vault_dir, project_id, work_run_id) -> Path:
@@ -299,22 +371,33 @@ def _acquire_lease_unlocked(
     unexpired lease held by a *different* agent is ALREADY_LEASED. The same
     agent may refresh; an expired lease (now >= expires_at) is reclaimable.
     `now`/`ttl_seconds` are epoch-second ints supplied by the caller, so lease
-    outcomes stay deterministic; wall time is used only to reclaim a stale
-    cross-runtime mutation lock.
+    outcomes stay deterministic. Cross-runtime locks are never reclaimed from
+    wall-clock age; abandoned-lock recovery requires explicit owner checks.
     """
     if base_head != current_head:
         return LeaseResult(OUTCOME_HEAD_MISMATCH)
-    leases = read_leases(vault_dir)
-    existing = leases.get(note_id)
-    if (
-        existing
-        and existing.get("expires_at", 0) > now
-        and existing.get("agent_id") != agent_id
-    ):
-        return LeaseResult(OUTCOME_ALREADY_LEASED, existing)
     resolved_project_id, resolved_work_item_id = _work_identity(
         note_id, project_id=project_id, work_item_id=work_item_id)
-    existing_run_id = existing.get("work_run_id") if isinstance(existing, dict) else None
+    leases = read_leases(vault_dir)
+    existing = leases.get(note_id)
+    if existing is not None and not isinstance(existing, dict):
+        raise WorkIdentityConflict("Existing lease record is malformed")
+    if isinstance(existing, dict):
+        _assert_existing_work_identity(
+            vault_dir, existing,
+            project_id=resolved_project_id,
+            work_item_id=resolved_work_item_id,
+        )
+        if (
+            existing.get("expires_at", 0) > now
+            and existing.get("agent_id") != agent_id
+        ):
+            return LeaseResult(OUTCOME_ALREADY_LEASED, existing)
+    existing_run_id = (
+        existing.get("work_run_id")
+        if isinstance(existing, dict) and existing.get("agent_id") == agent_id
+        else None
+    )
     work_run_id = existing_run_id or (
         _new_work_run_id(resolved_project_id, resolved_work_item_id, agent_id, now, base_head)
         if resolved_project_id and resolved_work_item_id else None
