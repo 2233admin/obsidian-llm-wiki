@@ -31,6 +31,7 @@ import { makeContextOps } from '../context/context.js';
 import { makeWorkflowOps } from '../workflow/workflow.js';
 import { resolveProjectContext } from '../project/project-context.js';
 import { makeProjectMigrationOps } from '../project/project-migration.js';
+import { makeSettingsOps } from '../settings/settings.js';
 
 const execAsync = promisify(execFile);
 const PROTECTED_DIRS = new Set(['.obsidian', '.trash', '.git', 'node_modules']);
@@ -1201,6 +1202,11 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     ...makeConversationOps(vaultPath),
     ...makeWorkflowOps(vaultPath),
     ...makeContextOps(vaultPath, registry, defaultWeights),
+    ...makeSettingsOps({
+      vaultPath,
+      pythonPath: python,
+      compilerPath,
+    }),
   ];
   return [...operations, ...compileOps, ...queryOps, ...multimodalOps, ...lightRagOps, ...agentOps, ...holonOps];
 }

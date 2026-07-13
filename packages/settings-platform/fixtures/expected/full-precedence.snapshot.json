@@ -1,0 +1,265 @@
+{
+  "snapshotId": "settings:1.0.0:device-a:vault-alpha:project-alpha:session-a:3:7:2:1",
+  "registryVersion": "1.0.0",
+  "context": {
+    "userDeviceId": "device-a",
+    "vaultId": "vault-alpha",
+    "workspaceProjectId": "project-alpha",
+    "sessionId": "session-a"
+  },
+  "effective": [
+    {
+      "key": "diagnostics.obc.semantic.enabled",
+      "value": false,
+      "winningScope": "session",
+      "assignmentProvenance": {
+        "actor": "fixture-session",
+        "source": "conformance"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "next-operation",
+      "overriddenCandidates": [
+        {
+          "scope": "vault",
+          "revision": 7,
+          "value": true,
+          "provenance": {
+            "actor": "fixture-vault",
+            "source": "conformance"
+          }
+        },
+        {
+          "scope": "product",
+          "revision": "1.0.0",
+          "value": false,
+          "provenance": {
+            "actor": "registry",
+            "source": "registry/v1.json"
+          }
+        }
+      ]
+    },
+    {
+      "key": "providers.web_search.enabled",
+      "value": true,
+      "winningScope": "workspace-project",
+      "assignmentProvenance": {
+        "actor": "fixture-project",
+        "source": "conformance"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "next-operation",
+      "overriddenCandidates": [
+        {
+          "scope": "product",
+          "revision": "1.0.0",
+          "value": false,
+          "provenance": {
+            "actor": "registry",
+            "source": "registry/v1.json"
+          }
+        }
+      ]
+    },
+    {
+      "key": "providers.web_search.secret_ref",
+      "value": {
+        "secretRef": {
+          "provider": "environment",
+          "locator": "TAVILY_API_KEY"
+        },
+        "status": "present"
+      },
+      "winningScope": "user-device",
+      "assignmentProvenance": {
+        "actor": "fixture-device",
+        "source": "conformance"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "next-operation",
+      "overriddenCandidates": [
+        {
+          "scope": "product",
+          "revision": "1.0.0",
+          "value": {
+            "secretRef": {
+              "provider": "environment",
+              "locator": "TAVILY_API_KEY"
+            },
+            "status": "present"
+          },
+          "provenance": {
+            "actor": "registry",
+            "source": "registry/v1.json"
+          }
+        }
+      ]
+    },
+    {
+      "key": "query.semantic.enabled",
+      "value": false,
+      "winningScope": "workspace-project",
+      "assignmentProvenance": {
+        "actor": "fixture-project",
+        "source": "conformance"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "next-operation",
+      "overriddenCandidates": [
+        {
+          "scope": "vault",
+          "revision": 7,
+          "value": true,
+          "provenance": {
+            "actor": "fixture-vault",
+            "source": "conformance"
+          }
+        },
+        {
+          "scope": "product",
+          "revision": "1.0.0",
+          "value": false,
+          "provenance": {
+            "actor": "registry",
+            "source": "registry/v1.json"
+          }
+        }
+      ]
+    },
+    {
+      "key": "runtime.kb_meta.path",
+      "value": "D:/repo/compiler/kb_meta.py",
+      "winningScope": "user-device",
+      "assignmentProvenance": {
+        "actor": "fixture-device",
+        "source": "conformance"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "next-operation",
+      "overriddenCandidates": [
+        {
+          "scope": "product",
+          "revision": "1.0.0",
+          "value": "",
+          "provenance": {
+            "actor": "registry",
+            "source": "registry/v1.json"
+          }
+        }
+      ]
+    },
+    {
+      "key": "runtime.python.path",
+      "value": "C:/Python313/python.exe",
+      "winningScope": "user-device",
+      "assignmentProvenance": {
+        "actor": "fixture-device",
+        "source": "conformance"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "next-operation",
+      "overriddenCandidates": [
+        {
+          "scope": "product",
+          "revision": "1.0.0",
+          "value": "python",
+          "provenance": {
+            "actor": "registry",
+            "source": "registry/v1.json"
+          }
+        }
+      ]
+    },
+    {
+      "key": "vault.id",
+      "value": "vault-alpha",
+      "winningScope": "vault",
+      "assignmentProvenance": {
+        "actor": "fixture-vault",
+        "source": "conformance"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": [
+        {
+          "scope": "product",
+          "revision": "1.0.0",
+          "value": "",
+          "provenance": {
+            "actor": "registry",
+            "source": "registry/v1.json"
+          }
+        }
+      ]
+    },
+    {
+      "key": "vault.path",
+      "value": "D:/Vaults/alpha",
+      "winningScope": "user-device",
+      "assignmentProvenance": {
+        "actor": "fixture-device",
+        "source": "conformance"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": [
+        {
+          "scope": "product",
+          "revision": "1.0.0",
+          "value": "",
+          "provenance": {
+            "actor": "registry",
+            "source": "registry/v1.json"
+          }
+        }
+      ]
+    }
+  ],
+  "sourceRevisions": {
+    "product": {
+      "targetId": "settings-platform",
+      "revision": "1.0.0"
+    },
+    "user-device": {
+      "targetId": "device-a",
+      "revision": 3
+    },
+    "vault": {
+      "targetId": "vault-alpha",
+      "revision": 7
+    },
+    "workspace-project": {
+      "targetId": "project-alpha",
+      "revision": 2
+    },
+    "session": {
+      "targetId": "session-a",
+      "revision": 1
+    }
+  },
+  "createdAt": "2026-07-14T00:00:00.000Z"
+}

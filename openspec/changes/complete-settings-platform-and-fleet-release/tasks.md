@@ -1,23 +1,23 @@
 ## 1. Shared baseline and conformance contract
 
 - [x] 1.1 Commit and verify the canonical LLM Wiki naming baseline independently from feature work
-- [ ] 1.2 Add the MIT `packages/settings-platform` boundary, versioned first-slice setting definition registry, and shared JSON conformance fixtures
-- [ ] 1.3 Define canonical settings document, runtime context, snapshot, validation, conflict, event, and health schemas
+- [x] 1.2 Add the MIT `packages/settings-platform` boundary, versioned first-slice setting definition registry, and shared JSON conformance fixtures
+- [x] 1.3 Define canonical settings document, runtime context, snapshot, validation, conflict, event, and health schemas
 
 ## 2. TypeScript Settings Platform
 
-- [ ] 2.1 Implement scope-aware settings stores for product, user-device, vault, workspace-project, and session boundaries
-- [ ] 2.2 Implement deterministic snapshot resolve/explain with provenance, source revisions, unset semantics, and redaction
-- [ ] 2.3 Implement expected-revision set/unset with complete validation, atomic replace, backup, and conflict results
-- [ ] 2.4 Implement settings definitions, scopes, snapshot, assignment, validate, migration-plan, and doctor operations
-- [ ] 2.5 Add TypeScript unit and boundary tests for precedence, validation, conflict, recovery, redaction, and Obsidian-closed operation
+- [x] 2.1 Implement scope-aware settings stores for product, user-device, vault, workspace-project, and session boundaries
+- [x] 2.2 Implement deterministic snapshot resolve/explain with provenance, source revisions, unset semantics, and redaction
+- [x] 2.3 Implement expected-revision set/unset with complete validation, atomic replace, backup, and conflict results
+- [x] 2.4 Implement settings definitions, scopes, snapshot, assignment, validate, migration-plan, and doctor operations
+- [x] 2.5 Add TypeScript unit and boundary tests for precedence, validation, conflict, recovery, redaction, and Obsidian-closed operation
 
 ## 3. Python conformance and CLI
 
-- [ ] 3.1 Implement the Python registry/schema loader and deterministic resolver over the shared fixtures
-- [ ] 3.2 Implement Python user-device/vault/project persistence adapters with matching revision and atomicity semantics
-- [ ] 3.3 Expose settings snapshot, validation, migration plan, and doctor through the existing Python CLI surface
-- [ ] 3.4 Add Python parity tests proving canonical equivalence with the TypeScript fixtures and secret redaction
+- [x] 3.1 Implement the Python registry/schema loader and deterministic resolver over the shared fixtures
+- [x] 3.2 Implement Python user-device/vault/project persistence adapters with matching revision and atomicity semantics
+- [x] 3.3 Expose settings snapshot, validation, migration plan, and doctor through the existing Python CLI surface
+- [x] 3.4 Add Python parity tests proving canonical equivalence with the TypeScript fixtures and secret redaction
 
 ## 4. Obsidian control plane
 

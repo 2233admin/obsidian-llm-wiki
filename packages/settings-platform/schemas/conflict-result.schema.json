@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.llmwiki.org/settings/v1/conflict-result.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["status", "document", "conflict"],
+  "properties": {
+    "status": { "const": "conflict" },
+    "document": { "$ref": "settings-document.schema.json" },
+    "conflict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scope", "targetId", "expectedRevision", "actualRevision", "changedKeys"],
+      "properties": {
+        "scope": { "$ref": "common.schema.json#/$defs/mutableScope" },
+        "targetId": { "type": "string", "minLength": 1 },
+        "expectedRevision": { "type": "integer", "minimum": 0 },
+        "actualRevision": { "type": "integer", "minimum": 0 },
+        "changedKeys": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+      }
+    }
+  }
+}

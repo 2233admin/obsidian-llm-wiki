@@ -280,7 +280,8 @@ function enforceCollaborationPolicy(config: VaultMindConfig, toolName: string, t
 
   for (const target of targets) {
     const protectedHit = matchAny(target, protectedPaths);
-    const allowedHit = allowed.length > 0 && matchAny(target, allowed);
+    const allowedHit = settingsOperationAllowsTarget(toolName, target)
+      || (allowed.length > 0 && matchAny(target, allowed));
     if (protectedHit && !allowedHit) {
       throw makeErr(-32403, `Collaboration policy blocked ${toolName} by ${actor}: protected path ${target}`);
     }
@@ -288,6 +289,13 @@ function enforceCollaborationPolicy(config: VaultMindConfig, toolName: string, t
       throw makeErr(-32403, `Collaboration policy blocked ${toolName} by ${actor}: ${target} is outside allowed write paths`);
     }
   }
+}
+
+function settingsOperationAllowsTarget(toolName: string, target: string): boolean {
+  if (toolName !== 'settings.assignment.set' && toolName !== 'settings.assignment.unset') return false;
+  return /^_llmwiki\/settings\/(?:vault\.json|projects\/[A-Za-z0-9._-]+\.json|(?:user-device|session)\/[A-Za-z0-9._-]+)$/.test(
+    normalizePolicyPath(target),
+  );
 }
 
 function readVaultCollabPolicy(vaultPath: string): CollabPolicy {

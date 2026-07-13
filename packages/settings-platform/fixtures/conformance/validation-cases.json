@@ -1,0 +1,104 @@
+{
+  "cases": [
+    {
+      "name": "string-too-short",
+      "definition": {
+        "key": "tests.string.value",
+        "owner": "tests",
+        "category": "tests",
+        "name": "Bounded string",
+        "description": "Shared validation fixture for bounded strings.",
+        "valueType": "string",
+        "defaultValue": "okay",
+        "allowedScopes": ["vault"],
+        "sensitivity": "public",
+        "validator": { "id": "bounded-string", "minLength": 3, "maxLength": 5 },
+        "requires": [],
+        "applyMode": "hot",
+        "visibility": "internal"
+      },
+      "value": "x",
+      "expectedCodes": ["string-too-short"]
+    },
+    {
+      "name": "string-too-long",
+      "definition": {
+        "key": "tests.string.value",
+        "owner": "tests",
+        "category": "tests",
+        "name": "Bounded string",
+        "description": "Shared validation fixture for bounded strings.",
+        "valueType": "string",
+        "defaultValue": "okay",
+        "allowedScopes": ["vault"],
+        "sensitivity": "public",
+        "validator": { "id": "bounded-string", "minLength": 3, "maxLength": 5 },
+        "requires": [],
+        "applyMode": "hot",
+        "visibility": "internal"
+      },
+      "value": "too-long",
+      "expectedCodes": ["string-too-long"]
+    },
+    {
+      "name": "number-too-small",
+      "definition": {
+        "key": "tests.number.value",
+        "owner": "tests",
+        "category": "tests",
+        "name": "Bounded number",
+        "description": "Shared validation fixture for bounded numbers.",
+        "valueType": "number",
+        "defaultValue": 5,
+        "allowedScopes": ["vault"],
+        "sensitivity": "public",
+        "validator": { "id": "bounded-number", "min": 1, "max": 10 },
+        "requires": [],
+        "applyMode": "hot",
+        "visibility": "internal"
+      },
+      "value": 0,
+      "expectedCodes": ["number-too-small"]
+    },
+    {
+      "name": "number-too-large",
+      "definition": {
+        "key": "tests.number.value",
+        "owner": "tests",
+        "category": "tests",
+        "name": "Bounded number",
+        "description": "Shared validation fixture for bounded numbers.",
+        "valueType": "number",
+        "defaultValue": 5,
+        "allowedScopes": ["vault"],
+        "sensitivity": "public",
+        "validator": { "id": "bounded-number", "min": 1, "max": 10 },
+        "requires": [],
+        "applyMode": "hot",
+        "visibility": "internal"
+      },
+      "value": 11,
+      "expectedCodes": ["number-too-large"]
+    },
+    {
+      "name": "unicode-code-point-length",
+      "definition": {
+        "key": "tests.unicode.value",
+        "owner": "tests",
+        "category": "tests",
+        "name": "Unicode string",
+        "description": "Shared validation fixture for JSON Schema code-point length.",
+        "valueType": "string",
+        "defaultValue": "x",
+        "allowedScopes": ["vault"],
+        "sensitivity": "public",
+        "validator": { "id": "one-code-point", "maxLength": 1 },
+        "requires": [],
+        "applyMode": "hot",
+        "visibility": "internal"
+      },
+      "value": "😀",
+      "expectedCodes": []
+    }
+  ]
+}

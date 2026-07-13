@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.llmwiki.org/settings/v1/runtime-context.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["userDeviceId"],
+  "properties": {
+    "userDeviceId": { "type": "string", "minLength": 1 },
+    "vaultId": { "type": "string", "minLength": 1 },
+    "workspaceProjectId": { "type": "string", "minLength": 1 },
+    "sessionId": { "type": "string", "minLength": 1 }
+  }
+}

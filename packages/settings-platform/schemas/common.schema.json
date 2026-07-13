@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.llmwiki.org/settings/v1/common.schema.json",
+  "$defs": {
+    "scope": {
+      "enum": ["product", "user-device", "vault", "workspace-project", "session"]
+    },
+    "mutableScope": {
+      "enum": ["user-device", "vault", "workspace-project", "session"]
+    },
+    "jsonValue": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "boolean" },
+        { "type": "number" },
+        { "type": "string" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValue" } },
+        {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/jsonValue" }
+        }
+      ]
+    },
+    "secretReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "locator"],
+      "properties": {
+        "provider": { "enum": ["os-keychain", "environment", "external-vault"] },
+        "locator": { "type": "string", "minLength": 1, "pattern": "^[^\\u0000\\r\\n]+$" },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["actor", "source"],
+      "properties": {
+        "actor": { "type": "string", "minLength": 1 },
+        "source": { "type": "string", "minLength": 1 },
+        "reason": { "type": "string" }
+      }
+    },
+    "validationIssue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "severity", "message"],
+      "properties": {
+        "code": { "type": "string", "minLength": 1 },
+        "severity": { "enum": ["error", "warning"] },
+        "message": { "type": "string", "minLength": 1 },
+        "key": { "type": "string" },
+        "scope": { "$ref": "#/$defs/scope" },
+        "targetId": { "type": "string" },
+        "remediation": { "type": "string" }
+      }
+    },
+    "validationResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["valid", "issues"],
+      "properties": {
+        "valid": { "type": "boolean" },
+        "issues": { "type": "array", "items": { "$ref": "#/$defs/validationIssue" } }
+      }
+    },
+    "assignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "provenance"],
+      "properties": {
+        "key": { "type": "string", "pattern": "^[a-z][a-z0-9_-]*(\\.[a-z][a-z0-9_-]*)+$" },
+        "value": { "$ref": "#/$defs/jsonValue" },
+        "secretRef": { "$ref": "#/$defs/secretReference" },
+        "provenance": { "$ref": "#/$defs/provenance" },
+        "expiresAt": { "type": "string", "format": "date-time" }
+      },
+      "oneOf": [
+        { "required": ["value"], "not": { "required": ["secretRef"] } },
+        { "required": ["secretRef"], "not": { "required": ["value"] } }
+      ]
+    },
+    "sourceRevision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["targetId", "revision"],
+      "properties": {
+        "targetId": { "type": "string", "minLength": 1 },
+        "revision": { "oneOf": [{ "type": "integer", "minimum": 0 }, { "type": "string", "minLength": 1 }] }
+      }
+    },
+    "redactedValue": {
+      "anyOf": [
+        { "$ref": "#/$defs/jsonValue" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["secretRef", "status"],
+          "properties": {
+            "secretRef": { "$ref": "#/$defs/secretReference" },
+            "status": { "enum": ["present", "missing", "unreachable"] }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -17,6 +17,7 @@ Usage:
     python kb_meta.py sync-plan <vault> [--today YYYY-MM-DD]
     python kb_meta.py sync-apply <vault> [--apply] [--today YYYY-MM-DD]
     python kb_meta.py ensure-plugin <vault> [--plugin <id>] [--repo owner/name] [--apply] [--force]
+    python kb_meta.py settings <snapshot|validate|migrations-plan|doctor> <vault> [settings options]
 
 All commands output JSON to stdout for machine consumption.
 """
@@ -2339,6 +2340,10 @@ def main():
                            promoted_by=_o("--by"), today=_o("--today"),
                            apply=("--apply" in args))
 
+    def _settings_cli():
+        from settings_cli import run_settings_cli
+        return run_settings_cli(args[1:])
+
     dispatch = {
         "init": lambda: cmd_init(args[1], args[2]),
         "diff": lambda: cmd_diff(args[1], args[2]),
@@ -2357,6 +2362,7 @@ def main():
         "ensure-plugin": _ensure_plugin_cli,
         "work": _work_cli,
         "promote": _promote_cli,
+        "settings": _settings_cli,
     }
 
     if cmd not in dispatch:

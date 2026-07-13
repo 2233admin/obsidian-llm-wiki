@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.llmwiki.org/settings/v1/settings-document.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "scope", "targetId", "revision", "assignments", "updatedAt", "updatedBy"],
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "scope": { "$ref": "common.schema.json#/$defs/mutableScope" },
+    "targetId": { "type": "string", "minLength": 1 },
+    "revision": { "type": "integer", "minimum": 0 },
+    "assignments": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/assignment" } },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "updatedBy": { "type": "string", "minLength": 1 },
+    "previousRevision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["revision", "digest"],
+      "properties": {
+        "revision": { "type": "integer", "minimum": 0 },
+        "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "backupPath": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

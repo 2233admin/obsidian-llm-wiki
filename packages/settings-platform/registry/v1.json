@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "registryVersion": "1.0.0",
+  "definitions": [
+    {
+      "key": "diagnostics.obc.semantic.enabled",
+      "owner": "diagnostics.obc",
+      "category": "diagnostics",
+      "name": "Link-diagnostics semantic suggestions",
+      "description": "Add optional semantic suggestions while deterministic link diagnostics remain available.",
+      "valueType": "boolean",
+      "defaultValue": false,
+      "allowedScopes": ["vault", "workspace-project", "session"],
+      "sensitivity": "public",
+      "validator": { "id": "boolean" },
+      "requires": ["query.semantic.enabled"],
+      "applyMode": "next-operation",
+      "visibility": "normal"
+    },
+    {
+      "key": "providers.web_search.enabled",
+      "owner": "providers.web-search",
+      "category": "providers",
+      "name": "Web search provider",
+      "description": "Allow unified query workflows to use the configured web search provider.",
+      "valueType": "boolean",
+      "defaultValue": false,
+      "allowedScopes": ["vault", "workspace-project", "session"],
+      "sensitivity": "public",
+      "validator": { "id": "boolean" },
+      "requires": ["providers.web_search.secret_ref"],
+      "applyMode": "next-operation",
+      "visibility": "normal"
+    },
+    {
+      "key": "providers.web_search.secret_ref",
+      "owner": "providers.web-search",
+      "category": "providers",
+      "name": "Web search secret reference",
+      "description": "Opaque reference to the web search credential; the resolved secret never enters Settings.",
+      "valueType": "secret-reference",
+      "defaultSecretRef": {
+        "provider": "environment",
+        "locator": "TAVILY_API_KEY"
+      },
+      "allowedScopes": ["user-device", "session"],
+      "sensitivity": "secret-reference",
+      "validator": { "id": "secret-reference" },
+      "requires": [],
+      "applyMode": "next-operation",
+      "visibility": "advanced",
+      "placeholder": "environment:TAVILY_API_KEY"
+    },
+    {
+      "key": "query.semantic.enabled",
+      "owner": "query.semantic",
+      "category": "query",
+      "name": "Semantic query",
+      "description": "Enable semantic retrieval when its configured provider is available.",
+      "valueType": "boolean",
+      "defaultValue": false,
+      "allowedScopes": ["vault", "workspace-project", "session"],
+      "sensitivity": "public",
+      "validator": { "id": "boolean" },
+      "requires": [],
+      "applyMode": "next-operation",
+      "visibility": "normal"
+    },
+    {
+      "key": "runtime.kb_meta.path",
+      "owner": "runtime.python",
+      "category": "runtime",
+      "name": "LLM Wiki runtime entry",
+      "description": "Machine-local path to compiler/kb_meta.py.",
+      "valueType": "path",
+      "defaultValue": "",
+      "allowedScopes": ["user-device", "session"],
+      "sensitivity": "local",
+      "validator": { "id": "non-empty-path", "required": true },
+      "requires": ["runtime.python.path"],
+      "applyMode": "next-operation",
+      "visibility": "advanced"
+    },
+    {
+      "key": "runtime.python.path",
+      "owner": "runtime.python",
+      "category": "runtime",
+      "name": "Python runtime",
+      "description": "Machine-local Python executable used by LLM Wiki capabilities.",
+      "valueType": "path",
+      "defaultValue": "python",
+      "allowedScopes": ["user-device", "session"],
+      "sensitivity": "local",
+      "validator": { "id": "non-empty-path", "required": true },
+      "requires": [],
+      "applyMode": "next-operation",
+      "visibility": "normal"
+    },
+    {
+      "key": "vault.id",
+      "owner": "vault.identity",
+      "category": "vault",
+      "name": "Vault identity",
+      "description": "Stable identity of the active vault, independent of its device-local path.",
+      "valueType": "string",
+      "defaultValue": "",
+      "allowedScopes": ["vault", "session"],
+      "sensitivity": "public",
+      "validator": { "id": "non-empty-string", "required": true, "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
+      "requires": [],
+      "applyMode": "restart-required",
+      "visibility": "normal"
+    },
+    {
+      "key": "vault.path",
+      "owner": "vault.identity",
+      "category": "vault",
+      "name": "Vault path",
+      "description": "Device-local filesystem path of the active vault.",
+      "valueType": "path",
+      "defaultValue": "",
+      "allowedScopes": ["user-device", "session"],
+      "sensitivity": "local",
+      "validator": { "id": "non-empty-path", "required": true },
+      "requires": ["vault.id"],
+      "applyMode": "restart-required",
+      "visibility": "normal"
+    }
+  ],
+  "migrations": [
+    {
+      "id": "settings-document-v0-to-v1",
+      "fromSchemaVersion": 0,
+      "toSchemaVersion": 1,
+      "description": "Normalize legacy host-local settings into scoped Settings documents."
+    }
+  ]
+}

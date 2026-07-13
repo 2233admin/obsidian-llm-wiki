@@ -144,6 +144,35 @@ describe('Operation Write Policy', () => {
     );
   });
 
+  test('settings paths are authorized only for settings assignment operations', () => {
+    const generic = createOp();
+    const context = makeCtx([]);
+    assert.throws(
+      () => adjudicateOperationWrite(
+        context,
+        generic,
+        { path: '_llmwiki/settings/vault.json', dryRun: false },
+        new Map([[generic.name, generic]]),
+      ),
+      /outside allowed write paths/,
+    );
+
+    const registry = makeOperationRegistry();
+    const assignment = requireOperation(registry, 'settings.assignment.set');
+    const verdict = adjudicateOperationWrite(
+      context,
+      assignment,
+      {
+        scope: 'vault',
+        key: 'query.semantic.enabled',
+        value: true,
+        expectedRevision: 0,
+      },
+      registry,
+    );
+    assert.deepEqual(verdict.targets, ['_llmwiki/settings/vault.json']);
+  });
+
   test('vault.batch inherits dryRun and aggregates child targets', () => {
     const child = createOp();
     const batch = createBatchOp();

@@ -42,7 +42,7 @@ export function validateParams(
 
     // Type check
     const actual = Array.isArray(val) ? 'array' : typeof val;
-    if (def.type !== 'object' && def.type !== 'array') {
+    if (def.type !== 'object' && def.type !== 'array' && def.type !== 'unknown') {
       if (actual !== def.type) {
         // Coerce number from string for convenience
         if (def.type === 'number' && typeof val === 'string' && !isNaN(Number(val))) {

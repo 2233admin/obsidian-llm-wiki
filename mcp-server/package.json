@@ -16,11 +16,15 @@
     "README.md"
   ],
   "scripts": {
+    "settings:build": "npm --prefix ../packages/settings-platform run build",
+    "prebuild": "npm run settings:build",
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "node bundle.js",
     "start:dev": "node dist/index.js",
+    "pretypecheck": "npm run settings:build",
     "typecheck": "tsc --noEmit",
+    "pretest": "npm run settings:build",
     "test": "bun test tests/ src/",
     "test:legacy": "bun test tests/",
     "test:source": "bun test src/",

@@ -1,0 +1,30 @@
+{
+  "cases": [
+    { "valueType": "boolean", "defaultValue": false, "lowerValue": true, "higherValue": false },
+    { "valueType": "integer", "defaultValue": 1, "lowerValue": 2, "higherValue": 3 },
+    { "valueType": "number", "defaultValue": 1.5, "lowerValue": 2.5, "higherValue": 3.5 },
+    { "valueType": "string", "defaultValue": "product", "lowerValue": "vault", "higherValue": "session" },
+    {
+      "valueType": "enum",
+      "defaultValue": "product",
+      "lowerValue": "vault",
+      "higherValue": "session",
+      "validator": { "id": "fixture-enum", "enum": ["product", "vault", "session"] }
+    },
+    { "valueType": "path", "defaultValue": "/product", "lowerValue": "/vault", "higherValue": "/session" },
+    { "valueType": "duration", "defaultValue": "1s", "lowerValue": "2s", "higherValue": "3s" },
+    { "valueType": "list", "defaultValue": ["product"], "lowerValue": ["vault"], "higherValue": ["session"] },
+    {
+      "valueType": "object",
+      "defaultValue": { "source": "product" },
+      "lowerValue": { "source": "vault" },
+      "higherValue": { "source": "session" }
+    },
+    {
+      "valueType": "secret-reference",
+      "defaultSecretRef": { "provider": "environment", "locator": "PRODUCT_SECRET" },
+      "lowerSecretRef": { "provider": "external-vault", "locator": "vault/lower" },
+      "higherSecretRef": { "provider": "environment", "locator": "SESSION_SECRET" }
+    }
+  ]
+}

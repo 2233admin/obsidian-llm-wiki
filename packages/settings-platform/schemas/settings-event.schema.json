@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.llmwiki.org/settings/v1/settings-event.schema.json",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "scope", "targetId", "previousRevision", "revision", "keys", "actor", "occurredAt"],
+      "properties": {
+        "type": { "const": "SettingsAssignmentsChanged" },
+        "scope": { "$ref": "common.schema.json#/$defs/mutableScope" },
+        "targetId": { "type": "string" },
+        "previousRevision": { "type": "integer", "minimum": 0 },
+        "revision": { "type": "integer", "minimum": 1 },
+        "keys": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "actor": { "type": "string", "minLength": 1 },
+        "occurredAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "registryVersion", "registryDigest", "occurredAt"],
+      "properties": {
+        "type": { "const": "SettingsRegistryChanged" },
+        "registryVersion": { "type": "string" },
+        "registryDigest": { "type": "string" },
+        "occurredAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "snapshotId", "keys", "occurredAt"],
+      "properties": {
+        "type": { "const": "SettingsSnapshotInvalidated" },
+        "snapshotId": { "type": "string" },
+        "keys": { "type": "array", "items": { "type": "string" } },
+        "occurredAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "capabilityId", "previousState", "state", "occurredAt"],
+      "properties": {
+        "type": { "const": "CapabilityHealthChanged" },
+        "capabilityId": { "type": "string" },
+        "previousState": { "enum": ["available", "degraded", "unavailable", "disabled"] },
+        "state": { "enum": ["available", "degraded", "unavailable", "disabled"] },
+        "occurredAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  ]
+}
