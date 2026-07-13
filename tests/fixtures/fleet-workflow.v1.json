@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "project": {
+    "slug": "fleet-acceptance",
+    "projectId": "project/fleet-acceptance",
+    "lifecycle": "active"
+  },
+  "externalRefs": [
+    {
+      "kind": "orca-task",
+      "target": "task_fleet_acceptance_5090"
+    },
+    {
+      "kind": "orca-terminal",
+      "target": "term_fleet_acceptance_5090"
+    }
+  ],
+  "runs": [
+    {
+      "label": "local",
+      "leaseDevice": "local",
+      "executionDevice": "local",
+      "agentId": "local-verifier",
+      "workItemId": "project/fleet-acceptance/issue/local-verification",
+      "workRunId": "work-run/fleet-local-0001",
+      "joinToken": "fleet:local:join:1",
+      "checkpointToken": "fleet:local:checkpoint:1",
+      "leaveToken": "fleet:local:leave:1"
+    },
+    {
+      "label": "5090",
+      "leaseDevice": "local",
+      "executionDevice": "5090",
+      "agentId": "cloud-worker-5090",
+      "workItemId": "project/fleet-acceptance/issue/cloud-workflow",
+      "workRunId": "work-run/fleet-cloud-5090-0001",
+      "joinToken": "fleet:5090:join:1",
+      "checkpointToken": "fleet:5090:checkpoint:1",
+      "leaveToken": "fleet:5090:leave:1"
+    }
+  ],
+  "deviceLocal": {
+    "workspacePath": "<FIXTURE_DEVICE_LOCAL_WORKSPACE>",
+    "leaseToken": "<FIXTURE_DEVICE_LOCAL_LEASE_TOKEN>",
+    "leaseStore": ".vault-mind/_leases.json"
+  },
+  "conflictProbe": {
+    "agentId": "identity-overwrite-probe",
+    "workRunId": "work-run/fleet-local-0001",
+    "workItemId": "project/fleet-acceptance/issue/cloud-workflow",
+    "transitionToken": "fleet:conflict:join:1"
+  }
+}
