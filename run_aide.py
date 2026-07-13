@@ -1,14 +1,25 @@
 import os
-import sys
+from pathlib import Path
 
-os.environ['ANTHROPIC_API_KEY'] = 'sk-cp-n1Oo8qb-mY4EV_hoPpTcK2boV3I4w4MUsswQM_UjaNsKeQNX1qe_M6eBC-Rl1afsAwnDqaH8TnbL_gKwyXtean2Ve9LoaUAWN3pFvAW3IxuTgAlAQsdFK6o'
-os.environ['ANTHROPIC_BASE_URL'] = 'https://api.minimaxi.com/anthropic'
+DEFAULT_ANTHROPIC_BASE_URL = 'https://api.minimaxi.com/anthropic'
+
+
+def require_runtime_credentials() -> None:
+    """Fail closed unless the API credential is supplied out of band."""
+    if not os.environ.get('ANTHROPIC_API_KEY'):
+        raise RuntimeError(
+            'ANTHROPIC_API_KEY is required; configure it through the environment '
+            'or an LLM Wiki Secret Reference before running AIDE.'
+        )
+    os.environ.setdefault('ANTHROPIC_BASE_URL', DEFAULT_ANTHROPIC_BASE_URL)
+
 
 if __name__ == '__main__':
     import aide
 
+    require_runtime_credentials()
     exp = aide.Experiment(
-        data_dir='D:/projects/obsidian-llm-wiki',
+        data_dir=str(Path(__file__).resolve().parent),
         goal='''Push obsidian-llm-wiki to SOTA. Focus on:
 1. MCP server: JSON serialization (use fast-json-stringify or simdjson), caching
 2. Python compiler: Concurrent async processing, batch LLM calls

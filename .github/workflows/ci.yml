@@ -94,7 +94,7 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install ruff
-      - run: cd compiler && ruff check .
+      - run: cd compiler && ruff check . ../run_aide.py
 
   test-python:
     runs-on: ubuntu-latest

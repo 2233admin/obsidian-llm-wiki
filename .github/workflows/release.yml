@@ -40,7 +40,7 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install ruff pytest orjson
-      - run: cd compiler && ruff check .
+      - run: cd compiler && ruff check . ../run_aide.py
       - run: python -m pytest tests/ -q --ignore=compiler/
       - run: python -m pytest compiler/tests/ -q
       - run: bun test scripts/verify_fleet_workflow.test.ts
