@@ -44,10 +44,10 @@
 
 ## 7. Release runtime parity
 
-- [ ] 7.1 Make default MCP tests discover both `tests/**` and `src/**/*.test.ts` suites in local and CI commands
-- [ ] 7.2 Add Obsidian plugin test, typecheck, and build gates to CI and release workflows
+- [x] 7.1 Make default MCP tests discover both `tests/**` and `src/**/*.test.ts` suites in local and CI commands
+- [x] 7.2 Add Obsidian plugin test, typecheck, and build gates to CI and release workflows
 - [ ] 7.3 Regenerate `mcp-server/bundle.js` and add a clean-diff generated-artifact gate
-- [ ] 7.4 Extend setup/install smoke to start the shipped bundle and assert settings, project context, Hub, migration, and workflow operations
+- [x] 7.4 Extend setup/install smoke to start the shipped bundle and assert settings, project context, Hub, migration, and workflow operations
 - [ ] 7.5 Update operation reference, setup guidance, migration notes, release notes, and capability inventory
 
 ## 8. Integration and release verification

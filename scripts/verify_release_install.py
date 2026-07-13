@@ -14,6 +14,49 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 
+REQUIRED_RELEASE_OPERATIONS: dict[str, tuple[str, ...]] = {
+    "settings": (
+        "settings.definitions.list",
+        "settings.snapshot.resolve",
+        "settings.doctor",
+    ),
+    "project-context": ("project.context.resolve",),
+    "project-hub": ("project.hub.get",),
+    "project-migration": (
+        "project.migration.plan",
+        "project.migration.apply",
+        "project.migration.restore",
+    ),
+    "workflow": (
+        "workflow.agent.join",
+        "workflow.agent.checkpoint",
+        "workflow.agent.leave",
+    ),
+}
+
+
+def required_operation_report(operation_names: list[str] | set[str]) -> dict[str, Any]:
+    """Return a stable capability report or fail when the shipped bundle is stale."""
+    available = set(operation_names)
+    missing = {
+        capability: [name for name in required if name not in available]
+        for capability, required in REQUIRED_RELEASE_OPERATIONS.items()
+    }
+    missing = {capability: names for capability, names in missing.items() if names}
+    if missing:
+        detail = "; ".join(
+            f"{capability}: {', '.join(names)}"
+            for capability, names in missing.items()
+        )
+        raise RuntimeError(f"shipped MCP bundle is missing required operations ({detail})")
+    return {
+        "operationCount": len(available),
+        "capabilities": {
+            capability: list(required)
+            for capability, required in REQUIRED_RELEASE_OPERATIONS.items()
+        },
+    }
+
 
 class McpClient:
     def __init__(self, repo: Path, vault: Path, actor: str = "codex", role: str = "agent") -> None:
@@ -68,6 +111,18 @@ class McpClient:
             pass
         return not bool(resp.get("result", {}).get("isError")), parsed
 
+    def list_tools(self) -> list[str]:
+        resp = self.rpc("tools/list", {})
+        if "error" in resp:
+            raise RuntimeError(f"tools/list failed: {resp['error']}")
+        tools = resp.get("result", {}).get("tools", [])
+        if not isinstance(tools, list):
+            raise RuntimeError("tools/list returned a non-list tools payload")
+        names = [tool.get("name") for tool in tools if isinstance(tool, dict)]
+        if any(not isinstance(name, str) or not name for name in names):
+            raise RuntimeError("tools/list returned a tool without a valid name")
+        return sorted(set(names))
+
     def close(self) -> str:
         stderr = ""
         if self.proc.stdin:
@@ -113,6 +168,12 @@ def verify(repo: Path) -> dict[str, Any]:
         vault = make_temp_vault(temp_root)
         client = McpClient(repo, vault)
         try:
+            run_step(
+                results,
+                "shipped-operation-inventory",
+                lambda: required_operation_report(client.list_tools()),
+            )
+
             def mcp_roundtrip() -> dict[str, Any]:
                 ok, created = client.call_tool("vault.create", {"path": "00-Inbox/AI-Output/codex/release-probe.md", "content": "release-probe-token\n", "dryRun": False})
                 if not ok:

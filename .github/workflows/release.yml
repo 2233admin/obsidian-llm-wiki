@@ -20,16 +20,28 @@ jobs:
           cache: npm
           cache-dependency-path: mcp-server/package-lock.json
       - uses: oven-sh/setup-bun@v2
-      - run: cd mcp-server && npm install
+      - run: cd mcp-server && npm ci
       - run: cd mcp-server && npm run build
       - run: cd mcp-server && npm run typecheck
       - run: cd mcp-server && npm run test
+      - name: Verify committed MCP bundle is current
+        run: cd mcp-server && npm run verify:bundle
+      - name: Install Obsidian plugin dependencies
+        run: cd obsidian-plugin && npm install --no-package-lock
+      - name: Test Obsidian plugin
+        run: cd obsidian-plugin && npm run test
+      - name: Typecheck Obsidian plugin
+        run: cd obsidian-plugin && npm run typecheck
+      - name: Build Obsidian plugin
+        run: cd obsidian-plugin && npm run build
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
       - run: pip install ruff pytest orjson
       - run: cd compiler && ruff check .
       - run: python -m pytest compiler/tests/ -q
+      - name: Smoke-test shipped MCP bundle operations
+        run: python scripts/verify_release_install.py --json
 
   build-mcp:
     name: Build MCP Server
@@ -42,8 +54,15 @@ jobs:
           node-version: "20"
           cache: npm
           cache-dependency-path: mcp-server/package-lock.json
-      - run: cd mcp-server && npm install
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: cd mcp-server && npm ci
       - run: cd mcp-server && npm run rebuild
+      - name: Verify generated MCP bundle is committed
+        run: git diff --exit-code -- mcp-server/bundle.js
+      - name: Smoke-test packaged MCP runtime
+        run: python scripts/verify_release_install.py --json
       - name: Package MCP Server
         run: tar czf obsidian-llm-wiki-mcp.tar.gz -C mcp-server bundle.js package.json dist
       - uses: actions/upload-artifact@v4
