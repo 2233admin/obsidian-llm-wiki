@@ -21,13 +21,15 @@ jobs:
           cache-dependency-path: mcp-server/package-lock.json
       - uses: oven-sh/setup-bun@v2
       - run: cd mcp-server && npm ci
+      - run: cd mcp-server && npm run settings:build
+      - run: cd packages/settings-platform && bun test tests/
       - run: cd mcp-server && npm run build
       - run: cd mcp-server && npm run typecheck
       - run: cd mcp-server && npm run test
       - name: Verify committed MCP bundle is current
         run: cd mcp-server && npm run verify:bundle
       - name: Install Obsidian plugin dependencies
-        run: cd obsidian-plugin && npm install --no-package-lock
+        run: cd obsidian-plugin && npm ci
       - name: Test Obsidian plugin
         run: cd obsidian-plugin && npm run test
       - name: Typecheck Obsidian plugin
@@ -39,7 +41,11 @@ jobs:
           python-version: "3.11"
       - run: pip install ruff pytest orjson
       - run: cd compiler && ruff check .
+      - run: python -m pytest tests/ -q --ignore=compiler/
       - run: python -m pytest compiler/tests/ -q
+      - run: bun test scripts/verify_fleet_workflow.test.ts
+      - run: bun scripts/verify_fleet_workflow.ts --phase all --json
+      - run: npx -y @fission-ai/openspec@1.6.0 validate complete-settings-platform-and-fleet-release --strict
       - name: Smoke-test shipped MCP bundle operations
         run: python scripts/verify_release_install.py --json
 
@@ -87,9 +93,26 @@ jobs:
           name: compiler
           path: obsidian-llm-wiki-compiler.tar.gz
 
+  build-plugin:
+    name: Build Obsidian Plugin
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: cd obsidian-plugin && npm ci && npm run build
+      - name: Package Obsidian plugin
+        run: tar czf obsidian-llm-wiki-plugin.tar.gz -C obsidian-plugin main.js manifest.json styles.css
+      - uses: actions/upload-artifact@v4
+        with:
+          name: obsidian-plugin
+          path: obsidian-llm-wiki-plugin.tar.gz
+
   release:
     name: Create Release
-    needs: [build-mcp, build-compiler]
+    needs: [build-mcp, build-compiler, build-plugin]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -103,6 +126,11 @@ jobs:
         with:
           name: compiler
           path: dist-compiler
+      - name: Download Obsidian Plugin
+        uses: actions/download-artifact@v4
+        with:
+          name: obsidian-plugin
+          path: dist-plugin
       - name: List files
         run: |
           ls -la dist-mcp/
@@ -113,6 +141,7 @@ jobs:
           files: |
             dist-mcp/*.tar.gz
             dist-compiler/*.tar.gz
+            dist-plugin/*.tar.gz
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

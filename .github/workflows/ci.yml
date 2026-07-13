@@ -7,6 +7,20 @@ on:
     branches: [main]
 
 jobs:
+  settings-platform:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: mcp-server/package-lock.json
+      - uses: oven-sh/setup-bun@v2
+      - run: cd mcp-server && npm ci
+      - run: cd mcp-server && npm run settings:build
+      - run: cd packages/settings-platform && bun test tests/
+
   build:
     runs-on: ubuntu-latest
     steps:
@@ -64,7 +78,7 @@ jobs:
         with:
           node-version: "20"
       - name: Install Obsidian plugin dependencies
-        run: cd obsidian-plugin && npm install --no-package-lock
+        run: cd obsidian-plugin && npm ci
       - name: Test Obsidian plugin
         run: cd obsidian-plugin && npm run test
       - name: Typecheck Obsidian plugin
@@ -101,3 +115,46 @@ jobs:
           python-version: "3.11"
       - run: pip install pytest orjson
       - run: python -m pytest compiler/tests/ -q
+
+  fleet-acceptance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: mcp-server/package-lock.json
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: cd mcp-server && npm ci
+      - run: cd mcp-server && npm run settings:build
+      - run: bun test scripts/verify_fleet_workflow.test.ts
+      - run: bun scripts/verify_fleet_workflow.ts --phase all --json
+
+  windows-filesystem:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: mcp-server/package-lock.json
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: cd mcp-server; npm ci; npm run settings:build; bun test src/settings/settings.test.ts src/project/project-hub.test.ts src/workflow/workflow.test.ts; npm run typecheck
+      - run: python -m pytest compiler/tests/test_settings_platform.py compiler/tests/test_work_driver.py compiler/tests/test_project_migration.py -q --basetemp .tmp/pytest-windows
+
+  openspec:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npx -y @fission-ai/openspec@1.6.0 validate complete-settings-platform-and-fleet-release --strict
