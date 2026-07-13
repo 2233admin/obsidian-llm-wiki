@@ -16,7 +16,7 @@
     "README.md"
   ],
   "scripts": {
-    "settings:build": "tsc -p ../packages/settings-platform/tsconfig.json --typeRoots ./node_modules/@types",
+    "settings:build": "node -e \"require('node:fs').rmSync('../packages/settings-platform/dist',{recursive:true,force:true})\" && tsc -p ../packages/settings-platform/tsconfig.build.json --typeRoots ./node_modules/@types",
     "prebuild": "npm run settings:build",
     "build": "tsc",
     "dev": "tsc --watch",
