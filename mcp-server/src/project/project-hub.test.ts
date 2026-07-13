@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { AdapterRegistry } from '../adapters/registry.js';
 import type { VaultMindAdapter } from '../adapters/interface.js';
 import type { OperationContext } from '../core/types.js';
+import { createSettingsService } from '../settings/settings.js';
 import { makeProjectHubOps } from './project-hub.js';
 
 const roots: string[] = [];
@@ -21,7 +22,6 @@ function fixture(): { root: string; ctx: OperationContext; registry: AdapterRegi
   mkdirSync(join(root, '01-Projects', 'alpha', 'runs'), { recursive: true });
   mkdirSync(join(root, '10-Projects', 'alpha'), { recursive: true });
   mkdirSync(join(root, '.vault-mind'), { recursive: true });
-  mkdirSync(join(root, '.obsidian', 'plugins', 'vault-mind-promote'), { recursive: true });
   writeFileSync(join(root, 'Projects', 'alpha.md'), [
     '---', 'type: project', 'entity: project/alpha', 'lifecycle: active',
     'external-projections:', '  github: Radiant303/alpha', '---', '# Alpha', '',
@@ -35,18 +35,6 @@ function fixture(): { root: string; ctx: OperationContext; registry: AdapterRegi
   writeFileSync(join(root, '.vault-mind', 'local-bindings.json'), JSON.stringify({
     'project/alpha': { path: join(root, 'missing-workspace') },
   }));
-  writeFileSync(join(root, '.obsidian', 'plugins', 'vault-mind-promote', 'data.json'), JSON.stringify({
-    schemaVersion: 1,
-    revision: 4,
-    assignments: {
-      'user-device': {
-        'runtime.python.path': 'C:/private/python.exe',
-        'providers.web_search.secret_ref': 'env:TAVILY_API_KEY',
-      },
-      vault: { 'query.semantic.enabled': true },
-    },
-  }));
-
   const registry = new AdapterRegistry();
   const adapter: VaultMindAdapter = {
     name: 'filesystem', capabilities: ['search', 'read'], isAvailable: true,
@@ -91,14 +79,40 @@ describe('project.hub.get', () => {
   });
 
   test('returns secret references and snapshot metadata but never secret values', async () => {
-    const { ctx, registry } = fixture();
-    const hub = await makeProjectHubOps(registry)[0]!.handler(ctx, { project: 'alpha' });
+    const { root, ctx, registry } = fixture();
+    const userDevicePath = join(root, '.device', 'settings.json');
+    const settings = createSettingsService({
+      vaultPath: root,
+      userDevicePath,
+      pythonPath: 'C:/private/python.exe',
+      environment: { TAVILY_API_KEY: 'must-never-leak-either' },
+    });
+    const session = await settings.scopesGet('session');
+    const secret = await settings.assignmentSet({
+      scope: 'session',
+      key: 'providers.web_search.secret_ref',
+      value: { provider: 'environment', locator: 'TAVILY_API_KEY' },
+      expectedRevision: session.document.revision,
+      updatedBy: 'test',
+    });
+    assert.equal(secret.status, 'committed');
+    const hub = await makeProjectHubOps(registry, settings)[0]!.handler(ctx, { project: 'alpha' });
     const serialized = JSON.stringify(hub);
     assert.doesNotMatch(serialized, /must-never-leak/);
     assert.doesNotMatch(serialized, /C:\/private\/python\.exe/);
-    assert.match(serialized, /secret:\/\/mcp\/auth-token/);
-    assert.match(serialized, /env:TAVILY_API_KEY/);
+    assert.match(serialized, /TAVILY_API_KEY/);
+    assert.match(serialized, /settings-platform/);
     assert.match(serialized, /snapshotHash/);
+  });
+
+  test('reports Settings as unavailable when the authoritative store cannot be resolved', async () => {
+    const { root, ctx, registry } = fixture();
+    const brokenPath = join(root, 'broken-device-settings');
+    mkdirSync(brokenPath, { recursive: true });
+    const settings = createSettingsService({ vaultPath: root, userDevicePath: brokenPath });
+    const hub = await makeProjectHubOps(registry, settings)[0]!.handler(ctx, { project: 'alpha' }) as Record<string, any>;
+    assert.equal(hub.sections.settings.health, 'unavailable');
+    assert.deepEqual(hub.sections.settings.drift, ['settings_unavailable']);
   });
 
   test('publishes no writable Project Hub state', () => {

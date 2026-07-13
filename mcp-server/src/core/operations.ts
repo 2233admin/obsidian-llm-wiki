@@ -31,7 +31,7 @@ import { makeContextOps } from '../context/context.js';
 import { makeWorkflowOps } from '../workflow/workflow.js';
 import { resolveProjectContext } from '../project/project-context.js';
 import { makeProjectMigrationOps } from '../project/project-migration.js';
-import { makeSettingsOps } from '../settings/settings.js';
+import { createSettingsService, makeSettingsOps } from '../settings/settings.js';
 
 const execAsync = promisify(execFile);
 const PROTECTED_DIRS = new Set(['.obsidian', '.trash', '.git', 'node_modules']);
@@ -1187,6 +1187,12 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     },
   ];
 
+  const settingsOptions = {
+    vaultPath,
+    pythonPath: python,
+    compilerPath,
+  };
+  const settingsService = createSettingsService(settingsOptions);
   const holonOps = [
     ...makeHolonOps(contextCoreLoader),
     ...makeCausalOps(contextCoreLoader),
@@ -1195,18 +1201,14 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     ...makeVaultWriteOps(vaultPath, contextCoreLoader),
     ...makeMemoryOps(vaultPath),
     ...makeProjectOps(vaultPath),
-    ...makeProjectHubOps(registry),
+    ...makeProjectHubOps(registry, settingsService),
     ...makeProjectMigrationOps({ python, compilerPath, vaultPath }),
     ...makeIngestOps(),
     ...makeSourceOps(vaultPath),
     ...makeConversationOps(vaultPath),
     ...makeWorkflowOps(vaultPath),
     ...makeContextOps(vaultPath, registry, defaultWeights),
-    ...makeSettingsOps({
-      vaultPath,
-      pythonPath: python,
-      compilerPath,
-    }),
+    ...makeSettingsOps(settingsOptions, settingsService),
   ];
   return [...operations, ...compileOps, ...queryOps, ...multimodalOps, ...lightRagOps, ...agentOps, ...holonOps];
 }

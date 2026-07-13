@@ -26,11 +26,8 @@ export interface SettingsOperationsOptions {
   clock?: () => string;
 }
 
-const MUTABLE_SCOPES = ['user-device', 'vault', 'workspace-project', 'session'] as const;
-const SETTINGS_SCOPES = ['product', ...MUTABLE_SCOPES] as const;
-
-export function makeSettingsOps(options: SettingsOperationsOptions): Operation[] {
-  const service = new SettingsService({
+export function createSettingsService(options: SettingsOperationsOptions): SettingsService {
+  return new SettingsService({
     registry: options.registryPath ? loadRegistry(options.registryPath) : bundledRegistry(),
     vaultPath: options.vaultPath,
     userDevicePath: options.userDevicePath,
@@ -43,6 +40,12 @@ export function makeSettingsOps(options: SettingsOperationsOptions): Operation[]
     environment: options.environment,
     clock: options.clock,
   });
+}
+
+const MUTABLE_SCOPES = ['user-device', 'vault', 'workspace-project', 'session'] as const;
+const SETTINGS_SCOPES = ['product', ...MUTABLE_SCOPES] as const;
+
+export function makeSettingsOps(options: SettingsOperationsOptions, service = createSettingsService(options)): Operation[] {
 
   return [
     {

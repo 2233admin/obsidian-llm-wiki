@@ -1,9 +1,14 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import {
+  type EffectiveSetting,
+  type SettingsService,
+} from '../../../packages/settings-platform/dist/src/index.js';
 import type { AdapterRegistry } from '../adapters/registry.js';
 import type { Operation, OperationContext } from '../core/types.js';
 import { badRequest } from '../core/types.js';
+import { createSettingsService } from '../settings/settings.js';
 import { resolveProjectContext, type ProjectContext } from './project-context.js';
 
 type Health = 'healthy' | 'degraded' | 'unavailable' | 'empty';
@@ -108,63 +113,63 @@ function runtimeSection(vaultPath: string, context: ProjectContext): HubSection<
   }, drift);
 }
 
-function pluginSettingsMetadata(vaultPath: string): { metadata: Record<string, unknown> | null; drift: string[] } {
-  const path = '.obsidian/plugins/vault-mind-promote/data.json';
-  const fullPath = join(vaultPath, path);
-  if (!existsSync(fullPath)) return { metadata: null, drift: ['obsidian_settings_unavailable'] };
-  try {
-    const raw = JSON.parse(readFileSync(fullPath, 'utf-8')) as Record<string, unknown>;
-    const assignments = raw.assignments && typeof raw.assignments === 'object' && !Array.isArray(raw.assignments)
-      ? raw.assignments as Record<string, unknown>
-      : {};
-    const scopes = Object.entries(assignments).map(([scope, values]) => ({
-      scope,
-      keys: values && typeof values === 'object' && !Array.isArray(values)
-        ? Object.keys(values as Record<string, unknown>).sort()
-        : [],
-    })).sort((a, b) => a.scope.localeCompare(b.scope));
-    const secretReferences: Array<{ key: string; scope: string; reference: string }> = [];
-    for (const [scope, values] of Object.entries(assignments)) {
-      if (!values || typeof values !== 'object' || Array.isArray(values)) continue;
-      for (const [key, value] of Object.entries(values as Record<string, unknown>)) {
-        if (!key.endsWith('.secret_ref') || typeof value !== 'string') continue;
-        secretReferences.push({ key, scope, reference: value.startsWith('env:') ? value : 'invalid-secret-reference' });
-      }
-    }
-    const redacted = { schemaVersion: raw.schemaVersion ?? null, revision: raw.revision ?? null, scopes, secretReferences };
-    return {
-      metadata: { path, ...redacted, snapshotHash: createHash('sha256').update(JSON.stringify(redacted)).digest('hex') },
-      drift: [],
-    };
-  } catch {
-    return { metadata: { path }, drift: ['obsidian_settings_malformed'] };
-  }
+function redactedEffectiveSetting(service: SettingsService, item: EffectiveSetting): Record<string, unknown> {
+  const sensitivity = service.registry.definitions.find((definition) => definition.key === item.key)?.sensitivity;
+  return {
+    ...item,
+    value: sensitivity === 'local'
+      ? { redacted: true, configured: item.value !== null && item.value !== '' }
+      : item.value,
+    overriddenCandidates: item.overriddenCandidates.map((candidate) => ({
+      ...candidate,
+      value: sensitivity === 'local'
+        ? { redacted: true, configured: candidate.value !== null && candidate.value !== '' }
+        : candidate.value,
+    })),
+  };
 }
 
-function settingsSection(ctx: OperationContext): HubSection<Record<string, unknown>> {
-  const adapters = [...(ctx.config.adapters ?? [])].sort();
-  const weights = Object.fromEntries(Object.entries(ctx.config.adapter_weights ?? {}).sort(([a], [b]) => a.localeCompare(b)));
-  const snapshot = {
-    version: 1,
-    adapters,
-    adapterWeights: weights,
-    collaboration: {
-      role: ctx.config.collaboration?.role ?? null,
-      enforce: ctx.config.collaboration?.enforce ?? false,
-      allowedWritePaths: [...(ctx.config.collaboration?.allowed_write_paths ?? [])].sort(),
-      protectedPaths: [...(ctx.config.collaboration?.protected_paths ?? [])].sort(),
-    },
-  };
-  const hash = createHash('sha256').update(JSON.stringify(snapshot)).digest('hex');
-  const secretReferences = ctx.config.auth_token ? [{ name: 'mcp-auth-token', reference: 'secret://mcp/auth-token', configured: true }] : [];
-  const pluginSettings = pluginSettingsMetadata(ctx.config.vault_path);
-  return {
-    owner: 'settings',
-    freshness: null,
-    health: pluginSettings.drift.includes('obsidian_settings_malformed') ? 'degraded' : 'healthy',
-    drift: pluginSettings.drift,
-    data: { snapshotVersion: 1, snapshotHash: hash, effective: snapshot, secretReferences, obsidianPlugin: pluginSettings.metadata },
-  };
+async function settingsSection(
+  service: SettingsService,
+  project: ProjectContext,
+): Promise<HubSection<Record<string, unknown>>> {
+  try {
+    const context = { ...service.defaultContext, workspaceProjectId: project.projectId };
+    const resolved = await service.snapshotResolve(context);
+    const effective = resolved.snapshot.effective.map((item) => redactedEffectiveSetting(service, item));
+    const data = {
+      schemaVersion: 1,
+      snapshotId: resolved.snapshot.snapshotId,
+      registryVersion: resolved.snapshot.registryVersion,
+      context: resolved.snapshot.context,
+      sourceRevisions: resolved.snapshot.sourceRevisions,
+      effective,
+      validation: resolved.validation,
+      recoveryDiagnostics: resolved.recoveryDiagnostics,
+    };
+    const drift = [
+      ...resolved.validation.issues.map((issue) => issue.code),
+      ...resolved.recoveryDiagnostics.map((issue) => issue.code),
+    ];
+    return {
+      owner: 'settings-platform',
+      freshness: resolved.snapshot.createdAt,
+      health: drift.length > 0 ? 'degraded' : 'healthy',
+      drift: [...new Set(drift)].sort(),
+      data: {
+        ...data,
+        snapshotHash: createHash('sha256').update(JSON.stringify(data)).digest('hex'),
+      },
+    };
+  } catch (error) {
+    return {
+      owner: 'settings-platform',
+      freshness: null,
+      health: 'unavailable',
+      drift: ['settings_unavailable'],
+      data: { error: (error as Error).message },
+    };
+  }
 }
 
 function capabilitySection(registry: AdapterRegistry): HubSection<Record<string, unknown>> {
@@ -207,11 +212,12 @@ function integrationSection(context: ProjectContext): HubSection<Record<string, 
   };
 }
 
-export function composeProjectHub(
+export async function composeProjectHub(
   ctx: OperationContext,
   registry: AdapterRegistry,
   reference: string,
-): Record<string, unknown> {
+  settingsService = createSettingsService({ vaultPath: ctx.config.vault_path }),
+): Promise<Record<string, unknown>> {
   const project = resolveProjectContext(ctx.config.vault_path, reference, 'project.hub.get');
   const registryFiles = filesBelow(ctx.config.vault_path, project.roots.registryRecord);
   return {
@@ -232,7 +238,7 @@ export function composeProjectHub(
       work: workSection(ctx.config.vault_path, project),
       knowledge: knowledgeSection(ctx.config.vault_path, project),
       runtime: runtimeSection(ctx.config.vault_path, project),
-      settings: settingsSection(ctx),
+      settings: await settingsSection(settingsService, project),
       capabilities: capabilitySection(registry),
       workspace: workspaceSection(project),
       integrations: integrationSection(project),
@@ -247,7 +253,7 @@ export function composeProjectHub(
   };
 }
 
-export function makeProjectHubOps(registry: AdapterRegistry): Operation[] {
+export function makeProjectHubOps(registry: AdapterRegistry, settingsService?: SettingsService): Operation[] {
   return [{
     name: 'project.hub.get',
     namespace: 'project',
@@ -260,7 +266,7 @@ export function makeProjectHubOps(registry: AdapterRegistry): Operation[] {
     handler: async (ctx, params) => {
       const reference = params.ref ?? params.project;
       if (typeof reference !== 'string' || !reference.trim()) throw badRequest('ref or project is required');
-      return composeProjectHub(ctx, registry, reference);
+      return composeProjectHub(ctx, registry, reference, settingsService);
     },
   }];
 }
