@@ -5,7 +5,7 @@ export interface ExecutableCommand {
 
 /**
  * Parses a user-configured executable plus fixed argv without invoking a shell.
- * Supports Windows quoted paths, escaped quote/backslash pairs, and `py -3`.
+ * Supports Windows quoted paths, escaped quotes, UNC/device paths, and `py -3`.
  */
 export function parseExecutableCommand(input: string): ExecutableCommand {
   const source = input.trim();
@@ -17,8 +17,8 @@ export function parseExecutableCommand(input: string): ExecutableCommand {
     const character = source[index];
     const next = source[index + 1];
     if (character === "\\" && quote !== "'") {
-      const escapesNext = next === "\\" || next === '"' || (!quote && next === "'");
-      if (escapesNext) {
+      const escapesNextQuote = next === '"';
+      if (escapesNextQuote) {
         token += next;
         index += 1;
       } else {

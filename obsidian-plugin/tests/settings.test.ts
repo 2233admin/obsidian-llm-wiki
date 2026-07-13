@@ -171,5 +171,13 @@ test("parses Python executable and fixed argv without shell composition", () => 
     buildPythonInvocation("py -3", ["D:\\repo with spaces\\kb_meta.py", "promote", "--note", "A B.md"]),
     { executable: "py", args: ["-3", "D:\\repo with spaces\\kb_meta.py", "promote", "--note", "A B.md"] },
   );
+  assert.deepEqual(
+    parseExecutableCommand('"\\\\server\\share\\Python\\python.exe" -X utf8'),
+    { executable: "\\\\server\\share\\Python\\python.exe", args: ["-X", "utf8"] },
+  );
+  assert.deepEqual(
+    parseExecutableCommand('"\\\\?\\C:\\Python\\python.exe"'),
+    { executable: "\\\\?\\C:\\Python\\python.exe", args: [] },
+  );
   assert.throws(() => parseExecutableCommand('"C:\\Python\\python.exe'), /unterminated quote/);
 });
