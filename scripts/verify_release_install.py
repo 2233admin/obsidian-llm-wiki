@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -15,6 +16,11 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+RELEASE_INSTALL_ALLOWLIST: tuple[Path, ...] = (
+    Path("mcp-server/bundle.js"),
+    Path("mcp-server/package.json"),
+)
 
 REQUIRED_RELEASE_OPERATIONS: dict[str, tuple[str, ...]] = {
     "settings": (
@@ -60,17 +66,38 @@ def required_operation_report(operation_names: list[str] | set[str]) -> dict[str
     }
 
 
+def stage_release_install(repo: Path, install_root: Path) -> Path:
+    """Copy only the shipped MCP payload into an isolated install root."""
+    for relative_path in RELEASE_INSTALL_ALLOWLIST:
+        source = repo / relative_path
+        if not source.is_file():
+            raise FileNotFoundError(source)
+        destination = install_root / relative_path
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
+    return install_root / "mcp-server"
+
+
 class McpClient:
-    def __init__(self, repo: Path, vault: Path, actor: str = "codex", role: str = "agent") -> None:
-        server = repo / "mcp-server" / "bundle.js"
+    def __init__(
+        self,
+        server_dir: Path,
+        vault: Path,
+        compiler_dir: Path,
+        actor: str = "codex",
+        role: str = "agent",
+    ) -> None:
+        server = server_dir / "bundle.js"
         env = os.environ.copy()
         env["VAULT_MIND_VAULT_PATH"] = str(vault)
         env["VAULT_MIND_ADAPTERS"] = "filesystem"
         env["VAULT_MIND_ACTOR"] = actor
         env["VAULT_MIND_ROLE"] = role
+        env["LLMWIKI_COMPILER_PATH"] = str(compiler_dir)
+        env["VAULT_MIND_PYTHON"] = sys.executable
         self.proc = subprocess.Popen(
             ["node", str(server)],
-            cwd=repo,
+            cwd=server_dir,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -240,14 +267,18 @@ def require_tool(client: McpClient, name: str, arguments: dict[str, Any]) -> Any
 def verify(repo: Path) -> dict[str, Any]:
     results: list[dict[str, Any]] = []
     bundle = repo / "mcp-server" / "bundle.js"
+    compiler_dir = repo / "compiler"
     sync_probe = repo / "scripts" / "mcp_sync_probe.py"
 
     run_step(results, "bundle-exists", lambda: str(bundle) if bundle.exists() else (_ for _ in ()).throw(FileNotFoundError(bundle)))
+    run_step(results, "compiler-exists", lambda: str(compiler_dir) if (compiler_dir / "kb_meta.py").exists() else (_ for _ in ()).throw(FileNotFoundError(compiler_dir / "kb_meta.py")))
     run_step(results, "node-available", lambda: subprocess.run(["node", "--version"], check=True, capture_output=True, text=True, encoding="utf-8").stdout.strip())
     with tempfile.TemporaryDirectory(prefix="llmwiki-release-") as td:
         temp_root = Path(td)
+        install_root = temp_root / "install"
         vault = make_temp_vault(temp_root)
-        client = McpClient(repo, vault)
+        server_dir = stage_release_install(repo, install_root)
+        client = McpClient(server_dir, vault, compiler_dir)
         try:
             run_step(
                 results,
