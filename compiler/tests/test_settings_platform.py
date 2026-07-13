@@ -212,7 +212,7 @@ def test_python_conflict_reports_only_keys_changed_since_previous_revision(tmp_p
     assert conflict["conflict"]["changedKeys"] == ["diagnostics.obc.semantic.enabled"]
 
 
-@pytest.mark.parametrize("scope,target_id", [("user-device", "device-a"), ("workspace-project", "project-alpha")])
+@pytest.mark.parametrize("scope,target_id", [("user-device", "device-a"), ("workspace-project", "project/alpha")])
 def test_python_file_scope_adapters_preserve_their_physical_boundary(
     tmp_path: Path, scope: str, target_id: str
 ):
@@ -228,6 +228,111 @@ def test_python_file_scope_adapters_preserve_their_physical_boundary(
     assert committed["status"] == "committed"
     assert path.exists()
     assert (path == user_path) is (scope == "user-device")
+    if scope == "workspace-project":
+        assert path == tmp_path / "vault" / "_llmwiki" / "settings" / "projects" / "alpha.json"
+
+
+@pytest.mark.parametrize(
+    "target_id",
+    ["project-alpha", "project/Alpha", "project/a/b", "project/../alpha", "project/trailing-", "project/"],
+)
+def test_python_workspace_project_ids_fail_closed_before_path_or_store_creation(
+    tmp_path: Path, target_id: str
+):
+    registry = load_registry(ROOT / "packages" / "settings-platform" / "registry" / "v1.json")
+
+    with pytest.raises(ValueError, match="project/<lowercase-kebab-slug>"):
+        settings_document_path("workspace-project", tmp_path, tmp_path / "device.json", target_id)
+    with pytest.raises(ValueError, match="project/<lowercase-kebab-slug>"):
+        FileSettingsStore("workspace-project", target_id, tmp_path / "project.json", registry)
+    with pytest.raises(ValueError, match="project/<lowercase-kebab-slug>"):
+        SettingsService(registry=registry, vault_path=tmp_path, workspace_project_id=target_id)
+
+
+def test_python_runtime_context_and_documents_require_canonical_workspace_project_ids():
+    registry = load_registry(ROOT / "packages" / "settings-platform" / "registry" / "v1.json")
+    context = {"userDeviceId": "device-a", "vaultId": "vault-a", "workspaceProjectId": "project-alpha"}
+
+    with pytest.raises(ValueError, match="project/<lowercase-kebab-slug>"):
+        resolve_settings(
+            registry=registry,
+            context=context,
+            documents=[],
+            createdAt="2026-07-14T00:00:00.000Z",
+        )
+
+    validation = validate_documents(
+        registry,
+        [
+            {
+                "schemaVersion": 1,
+                "scope": "workspace-project",
+                "targetId": "project-alpha",
+                "revision": 0,
+                "assignments": [],
+                "updatedAt": "2026-07-14T00:00:00.000Z",
+                "updatedBy": "pytest",
+            }
+        ],
+    )
+    assert validation["valid"] is False
+    assert any(issue["code"] == "invalid-target" for issue in validation["issues"])
+
+
+@pytest.mark.parametrize(
+    "secret_ref",
+    [
+        {"provider": "environment", "locator": "TAVILY_API_KEY"},
+        {"provider": "os-keychain", "locator": "llm-wiki/web-search"},
+        {"provider": "external-vault", "locator": "vault/lower"},
+        {"provider": "external-vault", "locator": "providers/web-search", "version": "current"},
+    ],
+)
+def test_python_secret_reference_locators_accept_provider_specific_opaque_forms(secret_ref: dict):
+    assert _validate_secret_reference_assignment(secret_ref)["valid"] is True
+
+
+@pytest.mark.parametrize(
+    "secret_ref",
+    [
+        {"provider": "environment", "locator": "1TAVILY_API_KEY"},
+        {"provider": "environment", "locator": "TAVILY-API-KEY"},
+        {"provider": "environment", "locator": " TAVILY_API_KEY"},
+        {"provider": "os-keychain", "locator": "Bearer opaque-token-value"},
+        {"provider": "os-keychain", "locator": "sk-live0123456789"},
+        {"provider": "external-vault", "locator": "api_key=opaque-token-value"},
+        {"provider": "external-vault", "locator": "single-segment"},
+        {"provider": "external-vault", "locator": "vault/../secret"},
+    ],
+)
+def test_python_secret_reference_locators_reject_invalid_or_secret_like_material(secret_ref: dict):
+    result = _validate_secret_reference_assignment(secret_ref)
+    assert result["valid"] is False
+    assert any(issue["code"] == "invalid-secret-reference" for issue in result["issues"])
+
+
+def _validate_secret_reference_assignment(secret_ref: dict) -> dict:
+    registry = load_registry(ROOT / "packages" / "settings-platform" / "registry" / "v1.json")
+    return validate_documents(
+        registry,
+        [
+            {
+                "schemaVersion": 1,
+                "scope": "user-device",
+                "targetId": "device-a",
+                "revision": 1,
+                "assignments": [
+                    {
+                        "key": "providers.web_search.secret_ref",
+                        "secretRef": secret_ref,
+                        "provenance": {"actor": "pytest", "source": "settings.assignment.set"},
+                    }
+                ],
+                "updatedAt": "2026-07-14T00:00:00.000Z",
+                "updatedBy": "pytest",
+            }
+        ],
+    )
 
 
 def test_python_persistence_recovers_when_active_document_is_missing(tmp_path: Path):

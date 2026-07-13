@@ -24,6 +24,15 @@ SCHEMA_VERSION = 1
 SCOPE_PRECEDENCE = ("session", "workspace-project", "vault", "user-device", "product")
 MUTABLE_SCOPES = ("user-device", "vault", "workspace-project", "session")
 SECRET_PROVIDERS = ("os-keychain", "environment", "external-vault")
+PROJECT_ID_PATTERN = re.compile(r"^project/(?P<slug>[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?)$")
+ENVIRONMENT_SECRET_LOCATOR_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+OPAQUE_SECRET_LOCATOR_PATTERN = re.compile(
+    r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}(?:/[A-Za-z0-9][A-Za-z0-9._-]{0,63})+$"
+)
+SECRET_MATERIAL_PATTERN = re.compile(
+    r"^(?:bearer\s+|sk[-_][A-Za-z0-9_-]{8,}|api[_-]?key\s*[:=])",
+    re.IGNORECASE,
+)
 
 
 def default_user_device_id(environment: dict[str, str] | None = None) -> str:
@@ -154,6 +163,7 @@ def resolve_settings(
     createdAt: str,
     secretStatus: dict[str, str] | None = None,
 ) -> dict[str, Any]:
+    _validate_runtime_context(context)
     participating = _participating_documents(documents, context)
     statuses = secretStatus or {}
     effective: list[dict[str, Any]] = []
@@ -210,6 +220,7 @@ def explain_setting(
     created_at: str,
     secret_status: dict[str, str] | None = None,
 ) -> dict[str, Any]:
+    _validate_runtime_context(context)
     definition = _definition(registry, key)
     if definition is None:
         raise ValueError(f"Unknown setting: {key}")
@@ -397,6 +408,8 @@ class FileSettingsStore:
     ):
         if scope not in ("user-device", "vault", "workspace-project"):
             raise ValueError(f"FileSettingsStore does not support scope {scope}")
+        if scope == "workspace-project":
+            _project_slug(target_id)
         self.scope = scope
         self.target_id = target_id
         self.path = Path(path)
@@ -766,6 +779,8 @@ class SettingsService:
         self.clock = clock or _utc_now
         resolved_vault_id = vault_id or _safe_identity(self.vault_path.name or "default-vault")
         resolved_session_id = session_id or f"process-{os.getpid()}"
+        if workspace_project_id is not None:
+            _project_slug(workspace_project_id)
         self.default_context = {
             "userDeviceId": user_device_id or default_user_device_id(self.environment),
             "vaultId": resolved_vault_id,
@@ -1173,7 +1188,8 @@ def settings_document_path(scope: str, vault_path: Path, user_device_path: Path,
     if scope == "vault":
         return vault_path / "_llmwiki" / "settings" / "vault.json"
     if scope == "workspace-project":
-        return vault_path / "_llmwiki" / "settings" / "projects" / f"{_safe_segment(target_id)}.json"
+        slug = _project_slug(target_id)
+        return vault_path / "_llmwiki" / "settings" / "projects" / f"{slug}.json"
     raise ValueError(f"Session scope is in memory, not a file: {target_id}")
 
 
@@ -1452,6 +1468,15 @@ def _validate_document_shape(document: dict[str, Any]) -> list[dict[str, Any]]:
         )
     if not isinstance(target_id, str) or not target_id:
         issues.append(_issue("invalid-target", "Settings targetId is required.", scope=scope, targetId=target_id))
+    elif scope == "workspace-project" and not _is_project_id(target_id):
+        issues.append(
+            _issue(
+                "invalid-target",
+                "Workspace Project settings targetId must use project/<lowercase-kebab-slug>.",
+                scope=scope,
+                targetId=target_id,
+            )
+        )
     if not isinstance(document.get("assignments"), list):
         issues.append(
             _issue("invalid-assignments", "Settings assignments must be an array.", scope=scope, targetId=target_id)
@@ -1669,14 +1694,37 @@ def _definition(registry: dict[str, Any], key: str) -> dict[str, Any] | None:
 
 
 def _is_secret_reference(value: Any) -> bool:
+    if not isinstance(value, dict) or value.get("provider") not in SECRET_PROVIDERS:
+        return False
+    locator = value.get("locator")
+    if not isinstance(locator, str) or not locator or locator != locator.strip():
+        return False
+    if "version" in value and not (isinstance(value.get("version"), str) and bool(value["version"])):
+        return False
+    if value["provider"] == "environment":
+        return ENVIRONMENT_SECRET_LOCATOR_PATTERN.fullmatch(locator) is not None
     return (
-        isinstance(value, dict)
-        and value.get("provider") in SECRET_PROVIDERS
-        and isinstance(value.get("locator"), str)
-        and bool(value["locator"].strip())
-        and not re.search(r"[\r\n\x00]", value["locator"])
-        and ("version" not in value or isinstance(value.get("version"), str) and bool(value["version"]))
+        len(locator) <= 255
+        and SECRET_MATERIAL_PATTERN.search(locator) is None
+        and OPAQUE_SECRET_LOCATOR_PATTERN.fullmatch(locator) is not None
+        and all(segment not in (".", "..") for segment in locator.split("/"))
     )
+
+
+def _is_project_id(value: Any) -> bool:
+    return isinstance(value, str) and PROJECT_ID_PATTERN.fullmatch(value) is not None
+
+
+def _project_slug(value: Any) -> str:
+    match = PROJECT_ID_PATTERN.fullmatch(value) if isinstance(value, str) else None
+    if match is None:
+        raise ValueError("Workspace Project ID must use project/<lowercase-kebab-slug>")
+    return match.group("slug")
+
+
+def _validate_runtime_context(context: dict[str, Any]) -> None:
+    if "workspaceProjectId" in context:
+        _project_slug(context["workspaceProjectId"])
 
 
 def _scope_matches_context(scope: str, target_id: str, context: dict[str, Any]) -> bool:
@@ -1684,12 +1732,15 @@ def _scope_matches_context(scope: str, target_id: str, context: dict[str, Any]) 
 
 
 def _target_for_scope(scope: str, context: dict[str, Any]) -> str | None:
-    return {
+    target = {
         "user-device": context.get("userDeviceId"),
         "vault": context.get("vaultId"),
         "workspace-project": context.get("workspaceProjectId"),
         "session": context.get("sessionId"),
     }.get(scope)
+    if scope == "workspace-project" and target is not None:
+        _project_slug(target)
+    return target
 
 
 def _assignment_expired(assignment: dict[str, Any], created_at: str) -> bool:
@@ -1760,13 +1811,6 @@ def _sync_directory(path: Path) -> None:
         pass
     finally:
         os.close(descriptor)
-
-
-def _safe_segment(value: str) -> str:
-    normalized = re.sub(r"[^a-z0-9._-]+", "-", value.strip().lower()).strip("-")
-    if normalized in ("", ".", ".."):
-        raise ValueError(f"Unsafe settings target: {value}")
-    return normalized
 
 
 def _safe_identity(value: str) -> str:

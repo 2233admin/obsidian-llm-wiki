@@ -3,7 +3,7 @@
   "context": {
     "userDeviceId": "device-a",
     "vaultId": "vault-alpha",
-    "workspaceProjectId": "project-alpha",
+    "workspaceProjectId": "project/alpha",
     "sessionId": "session-a"
   },
   "secretStatus": {
@@ -92,7 +92,7 @@
     {
       "schemaVersion": 1,
       "scope": "workspace-project",
-      "targetId": "project-alpha",
+      "targetId": "project/alpha",
       "revision": 2,
       "assignments": [
         {
