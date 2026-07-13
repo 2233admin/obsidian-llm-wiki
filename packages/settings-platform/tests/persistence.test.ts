@@ -160,4 +160,15 @@ describe("scope persistence", () => {
       SettingsLockTimeoutError,
     );
   });
+
+  test("an old cross-process lock fails closed instead of being reclaimed", async () => {
+    const { filePath, store } = makeStore(25);
+    writeFileSync(`${filePath}.lock`, JSON.stringify({ pid: 99999, acquiredAt: "2000-01-01T00:00:00.000Z" }));
+
+    await assert.rejects(
+      store.set("query.semantic.enabled", true, { expectedRevision: 0, updatedBy: "test-agent" }),
+      SettingsLockTimeoutError,
+    );
+    assert.equal(readFileSync(`${filePath}.lock`, "utf8").includes("99999"), true);
+  });
 });

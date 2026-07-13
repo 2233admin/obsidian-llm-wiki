@@ -41,7 +41,6 @@ export interface FileSettingsStoreOptions {
   clock?: () => string;
   lockTimeoutMs?: number;
   lockRetryMs?: number;
-  staleLockMs?: number;
 }
 
 export interface SettingsStoreRead {
@@ -126,7 +125,6 @@ export class FileSettingsStore implements MutableSettingsStore {
   private readonly clock: () => string;
   private readonly lockTimeoutMs: number;
   private readonly lockRetryMs: number;
-  private readonly staleLockMs: number;
 
   constructor(options: FileSettingsStoreOptions) {
     this.scope = options.scope;
@@ -136,7 +134,6 @@ export class FileSettingsStore implements MutableSettingsStore {
     this.clock = options.clock ?? (() => new Date().toISOString());
     this.lockTimeoutMs = options.lockTimeoutMs ?? 2_000;
     this.lockRetryMs = options.lockRetryMs ?? 20;
-    this.staleLockMs = options.staleLockMs ?? 60_000;
   }
 
   async read(): Promise<SettingsStoreRead> {
@@ -370,16 +367,6 @@ export class FileSettingsStore implements MutableSettingsStore {
         acquired = true;
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
-        try {
-          const info = await stat(lockPath);
-          if (Date.now() - info.mtimeMs > this.staleLockMs) {
-            await rm(lockPath, { force: true });
-            continue;
-          }
-        } catch (statError) {
-          if ((statError as NodeJS.ErrnoException).code === "ENOENT") continue;
-          throw statError;
-        }
         if (Date.now() >= deadline) throw new SettingsLockTimeoutError(lockPath, this.lockTimeoutMs);
         await delay(Math.min(this.lockRetryMs, Math.max(1, deadline - Date.now())));
       }
