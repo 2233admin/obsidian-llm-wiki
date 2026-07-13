@@ -16,7 +16,7 @@
     "README.md"
   ],
   "scripts": {
-    "settings:build": "npm --prefix ../packages/settings-platform run build",
+    "settings:build": "tsc -p ../packages/settings-platform/tsconfig.json --typeRoots ./node_modules/@types",
     "prebuild": "npm run settings:build",
     "build": "tsc",
     "dev": "tsc --watch",
