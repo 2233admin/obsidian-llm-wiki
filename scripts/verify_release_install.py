@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
 
@@ -148,12 +150,91 @@ def make_temp_vault(root: Path) -> Path:
     vault = root / "vault"
     (vault / "00-Inbox" / "AI-Output" / "codex").mkdir(parents=True)
     (vault / "30-Architecture").mkdir(parents=True)
+    (vault / ".vault-mind").mkdir(parents=True)
     (vault / ".vault-collab.json").write_text(
         json.dumps({"agents": ["codex"], "protected_paths": ["30-Architecture/**"]}, indent=2) + "\n",
         encoding="utf-8",
     )
     (vault / "README.md").write_text("# Release verify vault\n", encoding="utf-8")
+    (vault / "Projects").mkdir(parents=True)
+    (vault / "Projects" / "release-probe.md").write_text(
+        "---\n"
+        "type: project\n"
+        "entity: project/release-probe\n"
+        "lifecycle: active\n"
+        "aliases:\n"
+        "  - release-probe\n"
+        "---\n"
+        "# Release Probe\n",
+        encoding="utf-8",
+    )
+    project_root = vault / "01-Projects" / "release-probe"
+    (project_root / "issues").mkdir(parents=True)
+    (project_root / "runs").mkdir(parents=True)
+    (project_root / "_project.md").write_text(
+        "---\nentity: project/release-probe\ntype: project\n---\n# Release Probe\n",
+        encoding="utf-8",
+    )
+    work_item = "project/release-probe/issue/release-probe"
+    work_run = "work-run/release-probe"
+    note_id = "01-Projects/release-probe/issues/release-probe.md"
+    (vault / note_id).write_text(
+        "---\n"
+        f"entity: {work_item}\n"
+        "type: issue\n"
+        "status: active\n"
+        "---\n"
+        "# Release probe\n",
+        encoding="utf-8",
+    )
+    token = "release-install-local-lease"
+    now = int(time.time())
+    run = {
+        "schema_version": 1,
+        "project_id": "project/release-probe",
+        "work_item_id": work_item,
+        "work_run_id": work_run,
+        "agent_id": "codex",
+        "state": "leased",
+        "output_class": "view",
+        "approval_status": "not-required",
+        "created_at": now,
+        "updated_at": now,
+        "provenance": [f"work-item:{work_item}"],
+        "transitions": [{
+            "transition_token": "driver:lease:release-probe",
+            "from": "planned",
+            "to": "leased",
+            "recorded_at": now,
+        }],
+        "handoff_token_hash": hashlib.sha256(token.encode("utf-8")).hexdigest(),
+        "handoff_expires_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now + 600)),
+    }
+    (project_root / "runs" / "release-probe.json").write_text(
+        json.dumps(run, indent=2) + "\n", encoding="utf-8")
+    (vault / ".vault-mind" / "_leases.json").write_text(
+        json.dumps({
+            note_id: {
+                "agent_id": "codex",
+                "base_head": note_id,
+                "acquired_at": now,
+                "expires_at": now + 600,
+                "project_id": "project/release-probe",
+                "work_item_id": work_item,
+                "work_run_id": work_run,
+                "handoff_token": token,
+            },
+        }, indent=2) + "\n",
+        encoding="utf-8",
+    )
     return vault
+
+
+def require_tool(client: McpClient, name: str, arguments: dict[str, Any]) -> Any:
+    ok, result = client.call_tool(name, arguments)
+    if not ok:
+        raise RuntimeError(f"{name} failed: {result}")
+    return result
 
 
 def verify(repo: Path) -> dict[str, Any]:
@@ -190,6 +271,61 @@ def verify(repo: Path) -> dict[str, Any]:
                 return {"created": created, "searchMatches": len(search.get("results", []))}
 
             run_step(results, "mcp-read-write-search", mcp_roundtrip)
+
+            def platform_roundtrip() -> dict[str, Any]:
+                definitions = require_tool(client, "settings.definitions.list", {})
+                snapshot = require_tool(client, "settings.snapshot.resolve", {})
+                doctor = require_tool(client, "settings.doctor", {})
+                context = require_tool(client, "project.context.resolve", {"ref": "project/release-probe"})
+                hub = require_tool(client, "project.hub.get", {"ref": "project/release-probe"})
+                migration = require_tool(client, "project.migration.plan", {})
+                return {
+                    "definitions": len(definitions.get("definitions", [])),
+                    "snapshotId": snapshot.get("snapshot", {}).get("snapshotId"),
+                    "doctorCapabilities": len(doctor.get("capabilities", [])),
+                    "projectId": context.get("projectId"),
+                    "hubSections": sorted(hub.get("sections", {})),
+                    "migrationPlan": bool(migration),
+                }
+
+            run_step(results, "settings-project-migration-roundtrip", platform_roundtrip)
+
+            def workflow_roundtrip() -> dict[str, Any]:
+                identity = {
+                    "project": "project/release-probe",
+                    "agent": "codex",
+                    "work_run_id": "work-run/release-probe",
+                    "work_item_id": "project/release-probe/issue/release-probe",
+                    "dryRun": False,
+                }
+                joined = require_tool(client, "workflow.agent.join", {
+                    **identity,
+                    "transition_token": "release:join",
+                    "objective": "Verify the shipped workflow surface",
+                    "provenance": ["release-install-smoke"],
+                })
+                checkpoint = require_tool(client, "workflow.agent.checkpoint", {
+                    **identity,
+                    "transition_token": "release:checkpoint",
+                    "summary": "Shipped workflow checkpoint succeeded",
+                    "evidence": ["release-install-smoke"],
+                })
+                left = require_tool(client, "workflow.agent.leave", {
+                    **identity,
+                    "transition_token": "release:leave",
+                    "summary": "Shipped workflow leave succeeded",
+                    "work_run_state": "cancelled",
+                })
+                serialized = json.dumps([joined, checkpoint, left])
+                if "release-install-local-lease" in serialized:
+                    raise RuntimeError("workflow response leaked local lease capability")
+                return {
+                    "joined": joined.get("workRunId"),
+                    "checkpointState": checkpoint.get("workRunState"),
+                    "leaveState": left.get("lifetime", {}).get("workRunState"),
+                }
+
+            run_step(results, "workflow-roundtrip", workflow_roundtrip)
 
             def policy_blocks() -> str:
                 ok, result = client.call_tool("vault.create", {"path": "30-Architecture/blocked.md", "content": "no\n", "dryRun": False})
