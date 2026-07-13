@@ -1,9 +1,9 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { isWorkRunTransitionAllowed, makeWorkflowOps, WORK_RUN_STATES, type WorkRunState } from './workflow.js';
 import type { Operation, OperationContext } from '../core/types.js';
 import { compatibilityReadReport } from '../project/project-context.js';
@@ -57,6 +57,8 @@ interface WorkRunContractFixture {
   };
 }
 
+const PORTABLE_HANDOFF_TOKEN = 'portable-handoff-secret-32-bytes';
+
 function readWorkRunFixture(): WorkRunContractFixture {
   return JSON.parse(
     readFileSync(new URL('../../../tests/fixtures/work-run-contract.json', import.meta.url), 'utf-8'),
@@ -70,6 +72,8 @@ function seedDriverLease(root: string, overrides: Partial<{
   agentId: string;
   leaseAgentId: string;
   expiresAt: number;
+  handoffToken: string;
+  handoffExpiresAt: string;
 }> = {}) {
   const fixture = readWorkRunFixture();
   const projectId = overrides.projectId ?? fixture.example.projectId;
@@ -77,6 +81,7 @@ function seedDriverLease(root: string, overrides: Partial<{
   const workRunId = overrides.workRunId ?? fixture.example.workRunId;
   const agentId = overrides.agentId ?? 'worker';
   const leaseAgentId = overrides.leaseAgentId ?? agentId;
+  const handoffToken = overrides.handoffToken ?? PORTABLE_HANDOFF_TOKEN;
   const slug = projectId.slice('project/'.length);
   const runPath = vp(root, `01-Projects/${slug}/runs/${workRunId.slice('work-run/'.length)}.json`);
   const leasePath = vp(root, '.vault-mind/_leases.json');
@@ -113,10 +118,12 @@ function seedDriverLease(root: string, overrides: Partial<{
       to: 'leased',
       recorded_at: 1,
     }],
+    handoff_token_hash: createHash('sha256').update(handoffToken, 'utf-8').digest('hex'),
+    handoff_expires_at: overrides.handoffExpiresAt ?? '2999-01-01T00:00:00.000Z',
     lease_token: 'must-be-scrubbed',
     workspace_path: 'C:/must-not-cross-devices',
   }, null, 2), 'utf-8');
-  return { leasePath, runPath, projectId, workItemId, workRunId, agentId };
+  return { leasePath, runPath, projectId, workItemId, workRunId, agentId, handoffToken };
 }
 
 describe('agent project workflow operations', () => {
@@ -151,14 +158,14 @@ describe('agent project workflow operations', () => {
         objective: 'Decide whether to learn LazyCodex workflow logic',
         branch: 'workflow-module',
         host: 'codex',
-        evidence: ['repo:C:/tmp/lazycodex', 'test:workflow'],
+        evidence: ['repo:radiant303/lazycodex', 'test:workflow'],
         notes: 'Keep vault as source of truth.',
       })) as { path: string; state: { project: string; stage: string; evidence: string[] }; projectInitialized: boolean };
 
       assert.equal(result.path, '01-Projects/my-project/workflow/status.md');
       assert.equal(result.state.project, 'my-project');
       assert.equal(result.state.stage, 'plan');
-      assert.deepEqual(result.state.evidence, ['repo:C:/tmp/lazycodex', 'test:workflow']);
+      assert.deepEqual(result.state.evidence, ['repo:radiant303/lazycodex', 'test:workflow']);
       assert.equal(result.projectInitialized, false);
 
       const note = readFileSync(vp(root, result.path), 'utf-8');
@@ -445,7 +452,7 @@ describe('agent project workflow operations', () => {
     }
   });
 
-  test('workflow.agent.join replays a committed receipt after its local lease expires', async () => {
+  test('workflow.agent.join replay still requires a valid local lease', async () => {
     const { root, call } = makeHarness();
     const fixture = readWorkRunFixture();
     try {
@@ -469,9 +476,7 @@ describe('agent project workflow operations', () => {
       Object.values(leases)[0].expires_at = 1;
       writeFileSync(seeded.leasePath, JSON.stringify(leases, null, 2), 'utf-8');
 
-      const replay = (await call('workflow.agent.join', params)) as { idempotent: boolean; workRunId: string };
-      assert.equal(replay.idempotent, true);
-      assert.equal(replay.workRunId, fixture.example.workRunId);
+      await assert.rejects(() => call('workflow.agent.join', params), /local lease is missing or expired/);
       assert.equal(readFileSync(vp(root, joined.path), 'utf-8'), before.lifetime);
       assert.equal(readFileSync(vp(root, joined.eventsPath), 'utf-8'), before.events);
       assert.equal(readFileSync(seeded.runPath, 'utf-8'), before.run);
@@ -543,6 +548,7 @@ describe('agent project workflow operations', () => {
         work_run_state: 'leased',
         work_item_id: fixture.example.workItemId,
         lease_mode: 'portable-handoff',
+        handoff_token: seeded.handoffToken,
         transition_token: 'join:portable-handoff',
         provenance: ['work-driver:portable-handoff'],
       };
@@ -587,6 +593,89 @@ describe('agent project workflow operations', () => {
     }
   });
 
+  test('portable handoff requires the exact unexpired durable token and never persists or returns it', async () => {
+    const fixture = readWorkRunFixture();
+    const cases = [
+      { name: 'missing', token: undefined, expected: /handoff_token is required/ },
+      { name: 'wrong', token: 'wrong-portable-handoff-secret', expected: /handoff token mismatch/ },
+      { name: 'expired', token: PORTABLE_HANDOFF_TOKEN, expires: '2000-01-01T00:00:00.000Z', expected: /missing or expired/ },
+    ];
+    for (const item of cases) {
+      const { root, call } = makeHarness();
+      try {
+        const seeded = seedDriverLease(root, item.expires ? { handoffExpiresAt: item.expires } : {});
+        rmSync(seeded.leasePath);
+        const runBefore = readFileSync(seeded.runPath, 'utf-8');
+        await assert.rejects(
+          () => call('workflow.agent.join', {
+            project: fixture.example.projectId,
+            agent: 'worker',
+            work_run_id: fixture.example.workRunId,
+            work_item_id: fixture.example.workItemId,
+            lease_mode: 'portable-handoff',
+            ...(item.token ? { handoff_token: item.token } : {}),
+            transition_token: `join:portable-token:${item.name}`,
+          }),
+          item.expected,
+        );
+        assert.equal(readFileSync(seeded.runPath, 'utf-8'), runBefore);
+        assert.equal(existsSync(vp(root, '01-Projects/alpha/agents')), false);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    }
+
+    {
+      const { root, call } = makeHarness();
+      try {
+        const seeded = seedDriverLease(root);
+        rmSync(seeded.leasePath);
+        const runBefore = readFileSync(seeded.runPath, 'utf-8');
+        await assert.rejects(
+          () => call('workflow.agent.join', {
+            project: fixture.example.projectId,
+            agent: 'worker',
+            work_run_id: fixture.example.workRunId,
+            work_item_id: fixture.example.workItemId,
+            lease_mode: 'portable-handoff',
+            handoff_token: seeded.handoffToken,
+            objective: `never echo ${seeded.handoffToken}`,
+            transition_token: 'join:portable-echo',
+          }),
+          /objective must not contain the handoff token/,
+        );
+        assert.equal(readFileSync(seeded.runPath, 'utf-8'), runBefore);
+        assert.equal(existsSync(vp(root, '01-Projects/alpha/agents')), false);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    }
+
+    const { root, call } = makeHarness();
+    try {
+      const seeded = seedDriverLease(root);
+      rmSync(seeded.leasePath);
+      const result = await call('workflow.agent.join', {
+        project: fixture.example.projectId,
+        agent: 'worker',
+        work_run_id: fixture.example.workRunId,
+        work_item_id: fixture.example.workItemId,
+        lease_mode: 'portable-handoff',
+        handoff_token: seeded.handoffToken,
+        transition_token: 'join:portable-redaction',
+      });
+      const persisted = [
+        readFileSync(seeded.runPath, 'utf-8'),
+        readFileSync(vp(root, '01-Projects/alpha/agents/worker/lifetime.md'), 'utf-8'),
+        readFileSync(vp(root, '01-Projects/alpha/agents/worker/events.md'), 'utf-8'),
+        JSON.stringify(result),
+      ].join('\n');
+      assert.equal(persisted.includes(seeded.handoffToken), false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   test('portable handoff rejects durable identity mismatches without mutation', async () => {
     const fixture = readWorkRunFixture();
     const cases: Array<{ name: string; params: Record<string, unknown> }> = [
@@ -622,6 +711,7 @@ describe('agent project workflow operations', () => {
           () => call('workflow.agent.join', {
             ...mismatch.params,
             lease_mode: 'portable-handoff',
+            handoff_token: PORTABLE_HANDOFF_TOKEN,
             transition_token: `join:portable-mismatch:${index}`,
           }),
           /identity conflict|durable run not found/i,
@@ -652,6 +742,7 @@ describe('agent project workflow operations', () => {
             work_run_id: fixture.example.workRunId,
             work_item_id: fixture.example.workItemId,
             lease_mode: 'portable-handoff',
+            handoff_token: seeded.handoffToken,
             transition_token: 'join:portable-local-conflict',
           }),
           /identity conflict/,
@@ -818,6 +909,34 @@ describe('agent project workflow operations', () => {
     }
   });
 
+  test('workflow mutation lock fails closed even when its timestamp is stale', async () => {
+    const { root, call } = makeHarness();
+    const fixture = readWorkRunFixture();
+    try {
+      const seeded = seedDriverLease(root);
+      const lockPath = vp(root, '.vault-mind/_work-run.lock');
+      writeFileSync(lockPath, 'unknown-stale-owner', 'utf-8');
+      const old = new Date('2000-01-01T00:00:00.000Z');
+      utimesSync(lockPath, old, old);
+      const runBefore = readFileSync(seeded.runPath, 'utf-8');
+      await assert.rejects(
+        () => call('workflow.agent.join', {
+          project: fixture.example.projectId,
+          agent: 'worker',
+          work_run_id: fixture.example.workRunId,
+          work_item_id: fixture.example.workItemId,
+          transition_token: 'join:stale-lock',
+        }),
+        /busy.*remove .*_work-run\.lock manually only after confirming no writer is active/i,
+      );
+      assert.equal(readFileSync(lockPath, 'utf-8'), 'unknown-stale-owner');
+      assert.equal(readFileSync(seeded.runPath, 'utf-8'), runBefore);
+      assert.equal(existsSync(vp(root, '01-Projects/alpha/agents')), false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   test('workflow.agent.join rejects machine-local provenance before durable writes', async () => {
     const { root, call } = makeHarness();
     const fixture = readWorkRunFixture();
@@ -897,6 +1016,200 @@ describe('agent project workflow operations', () => {
             ...item.params,
           }),
           /must not contain machine-local paths or lease tokens/,
+        );
+        assert.equal(readFileSync(lifetimePath, 'utf-8'), before.lifetime);
+        assert.equal(readFileSync(eventsPath, 'utf-8'), before.events);
+        assert.equal(readFileSync(seeded.runPath, 'utf-8'), before.run);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    }
+  });
+
+  test('step rejects Work Item rewriting and durable identity or state drift byte-for-byte', async () => {
+    const fixture = readWorkRunFixture();
+    const cases = [
+      {
+        name: 'requested Work Item rewrite',
+        mutate: (_run: Record<string, unknown>) => {},
+        params: { work_item_id: 'project/alpha/issue/other' },
+        expected: /Work Item identity conflict/,
+      },
+      {
+        name: 'durable Work Item drift',
+        mutate: (run: Record<string, unknown>) => { run.work_item_id = 'project/alpha/issue/other'; },
+        params: {},
+        expected: /Work Item identity conflict/,
+      },
+      {
+        name: 'durable state drift',
+        mutate: (run: Record<string, unknown>) => { run.state = 'awaiting_review'; },
+        params: {},
+        expected: /lifetime and durable run differ/,
+      },
+    ];
+    for (const item of cases) {
+      const { root, call } = makeHarness();
+      try {
+        const seeded = seedDriverLease(root);
+        await call('workflow.agent.join', {
+          project: fixture.example.projectId,
+          agent: 'worker',
+          work_run_id: fixture.example.workRunId,
+          work_item_id: fixture.example.workItemId,
+          transition_token: `join:drift:${item.name.replaceAll(' ', '-')}`,
+        });
+        const lifetimePath = vp(root, '01-Projects/alpha/agents/worker/lifetime.md');
+        const eventsPath = vp(root, '01-Projects/alpha/agents/worker/events.md');
+        const run = JSON.parse(readFileSync(seeded.runPath, 'utf-8')) as Record<string, unknown>;
+        item.mutate(run);
+        writeFileSync(seeded.runPath, JSON.stringify(run, null, 2) + '\n', 'utf-8');
+        const before = {
+          lifetime: readFileSync(lifetimePath, 'utf-8'),
+          events: readFileSync(eventsPath, 'utf-8'),
+          run: readFileSync(seeded.runPath, 'utf-8'),
+        };
+        await assert.rejects(
+          () => call('workflow.agent.step', {
+            project: fixture.example.projectId,
+            agent: 'worker',
+            work_run_id: fixture.example.workRunId,
+            stage: 'plan',
+            transition_token: `step:drift:${item.name.replaceAll(' ', '-')}`,
+            ...item.params,
+          }),
+          item.expected,
+        );
+        assert.equal(readFileSync(lifetimePath, 'utf-8'), before.lifetime);
+        assert.equal(readFileSync(eventsPath, 'utf-8'), before.events);
+        assert.equal(readFileSync(seeded.runPath, 'utf-8'), before.run);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    }
+  });
+
+  test('checkpoint and leave reject durable drift byte-for-byte', async () => {
+    const fixture = readWorkRunFixture();
+    for (const operation of ['workflow.agent.checkpoint', 'workflow.agent.leave']) {
+      const { root, call } = makeHarness();
+      try {
+        const seeded = seedDriverLease(root);
+        await call('workflow.agent.join', {
+          project: fixture.example.projectId,
+          agent: 'worker',
+          work_run_id: fixture.example.workRunId,
+          work_item_id: fixture.example.workItemId,
+          transition_token: `join:drift:${operation}`,
+        });
+        const lifetimePath = vp(root, '01-Projects/alpha/agents/worker/lifetime.md');
+        const eventsPath = vp(root, '01-Projects/alpha/agents/worker/events.md');
+        const run = JSON.parse(readFileSync(seeded.runPath, 'utf-8')) as Record<string, unknown>;
+        run.agent_id = 'other-agent';
+        writeFileSync(seeded.runPath, JSON.stringify(run, null, 2) + '\n', 'utf-8');
+        const before = {
+          lifetime: readFileSync(lifetimePath, 'utf-8'),
+          events: readFileSync(eventsPath, 'utf-8'),
+          run: readFileSync(seeded.runPath, 'utf-8'),
+        };
+        await assert.rejects(
+          () => call(operation, {
+            project: fixture.example.projectId,
+            agent: 'worker',
+            work_run_id: fixture.example.workRunId,
+            transition_token: `drift:${operation}`,
+            ...(operation.endsWith('checkpoint') ? { summary: 'checkpoint' } : { summary: 'leave' }),
+          }),
+          /agent identity conflict/,
+        );
+        assert.equal(readFileSync(lifetimePath, 'utf-8'), before.lifetime);
+        assert.equal(readFileSync(eventsPath, 'utf-8'), before.events);
+        assert.equal(readFileSync(seeded.runPath, 'utf-8'), before.run);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    }
+  });
+
+  test('all persisted workflow free-text fields reject machine paths and lease or handoff token material', async () => {
+    const unsafe = 'workspace:C:/private/worktree';
+    const topLevelCases: Array<{ operation: string; params: Record<string, unknown>; field: string }> = [
+      { operation: 'workflow.state.set', params: { project: 'alpha', stage: 'plan' }, field: 'objective' },
+      { operation: 'workflow.state.set', params: { project: 'alpha', stage: 'plan' }, field: 'branch' },
+      { operation: 'workflow.state.set', params: { project: 'alpha', stage: 'plan' }, field: 'host' },
+      { operation: 'workflow.state.set', params: { project: 'alpha', stage: 'plan' }, field: 'evidence' },
+      { operation: 'workflow.state.set', params: { project: 'alpha', stage: 'plan' }, field: 'notes' },
+      { operation: 'workflow.checkpoint.add', params: { project: 'alpha', stage: 'plan', summary: 'safe' }, field: 'summary' },
+      { operation: 'workflow.checkpoint.add', params: { project: 'alpha', stage: 'plan', summary: 'safe' }, field: 'evidence' },
+      { operation: 'workflow.checkpoint.add', params: { project: 'alpha', stage: 'plan', summary: 'safe' }, field: 'next' },
+      { operation: 'workflow.agent.start', params: { project: 'alpha', agent: 'worker' }, field: 'role' },
+      { operation: 'workflow.agent.start', params: { project: 'alpha', agent: 'worker' }, field: 'host' },
+      { operation: 'workflow.agent.start', params: { project: 'alpha', agent: 'worker' }, field: 'objective' },
+      { operation: 'workflow.agent.start', params: { project: 'alpha', agent: 'worker' }, field: 'issue' },
+      { operation: 'workflow.agent.start', params: { project: 'alpha', agent: 'worker' }, field: 'evidence' },
+      { operation: 'workflow.agent.start', params: { project: 'alpha', agent: 'worker' }, field: 'provenance' },
+      { operation: 'workflow.agent.start', params: { project: 'alpha', agent: 'worker' }, field: 'notes' },
+    ];
+    for (const item of topLevelCases) {
+      const { root, call } = makeHarness();
+      try {
+        const value = item.field === 'evidence' || item.field === 'provenance' ? [unsafe] : unsafe;
+        await assert.rejects(
+          () => call(item.operation, { ...item.params, [item.field]: value }),
+          /machine-local paths or lease tokens\/handoff tokens/,
+          `${item.operation}.${item.field}`,
+        );
+        assert.equal(existsSync(vp(root, '01-Projects/alpha')), false, `${item.operation}.${item.field}`);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    }
+
+    const fixture = readWorkRunFixture();
+    const transitionCases: Array<{ operation: string; base: Record<string, unknown>; field: string; unsafe: string }> = [
+      { operation: 'workflow.agent.step', base: { stage: 'plan' }, field: 'objective', unsafe },
+      { operation: 'workflow.agent.step', base: { stage: 'plan' }, field: 'issue', unsafe },
+      { operation: 'workflow.agent.step', base: { stage: 'plan' }, field: 'evidence', unsafe },
+      { operation: 'workflow.agent.step', base: { stage: 'plan' }, field: 'provenance', unsafe },
+      { operation: 'workflow.agent.step', base: { stage: 'plan' }, field: 'summary', unsafe },
+      { operation: 'workflow.agent.step', base: { stage: 'plan' }, field: 'next', unsafe },
+      { operation: 'workflow.agent.checkpoint', base: { summary: 'safe' }, field: 'summary', unsafe: 'handoff_token=secret-value' },
+      { operation: 'workflow.agent.checkpoint', base: { summary: 'safe' }, field: 'evidence', unsafe },
+      { operation: 'workflow.agent.checkpoint', base: { summary: 'safe' }, field: 'provenance', unsafe },
+      { operation: 'workflow.agent.checkpoint', base: { summary: 'safe' }, field: 'next', unsafe },
+      { operation: 'workflow.agent.leave', base: {}, field: 'summary', unsafe },
+      { operation: 'workflow.agent.leave', base: {}, field: 'provenance', unsafe: 'lease_token=secret-value' },
+    ];
+    for (const item of transitionCases) {
+      const { root, call } = makeHarness();
+      try {
+        const seeded = seedDriverLease(root);
+        await call('workflow.agent.join', {
+          project: fixture.example.projectId,
+          agent: 'worker',
+          work_run_id: fixture.example.workRunId,
+          work_item_id: fixture.example.workItemId,
+          transition_token: `join:leak-matrix:${item.operation.split('.').at(-1)}:${item.field}`,
+        });
+        const lifetimePath = vp(root, '01-Projects/alpha/agents/worker/lifetime.md');
+        const eventsPath = vp(root, '01-Projects/alpha/agents/worker/events.md');
+        const before = {
+          lifetime: readFileSync(lifetimePath, 'utf-8'),
+          events: readFileSync(eventsPath, 'utf-8'),
+          run: readFileSync(seeded.runPath, 'utf-8'),
+        };
+        const value = item.field === 'evidence' || item.field === 'provenance' ? [item.unsafe] : item.unsafe;
+        await assert.rejects(
+          () => call(item.operation, {
+            project: fixture.example.projectId,
+            agent: 'worker',
+            work_run_id: fixture.example.workRunId,
+            transition_token: `leak-matrix:${item.operation.split('.').at(-1)}:${item.field}`,
+            ...item.base,
+            [item.field]: value,
+          }),
+          /machine-local paths or lease tokens\/handoff tokens/,
+          `${item.operation}.${item.field}`,
         );
         assert.equal(readFileSync(lifetimePath, 'utf-8'), before.lifetime);
         assert.equal(readFileSync(eventsPath, 'utf-8'), before.events);
