@@ -17,6 +17,7 @@ import hashlib
 import json
 import os
 import re
+import secrets
 import time
 from contextlib import contextmanager
 from pathlib import Path
@@ -402,11 +403,15 @@ def _acquire_lease_unlocked(
         _new_work_run_id(resolved_project_id, resolved_work_item_id, agent_id, now, base_head)
         if resolved_project_id and resolved_work_item_id else None
     )
+    handoff_token = secrets.token_urlsafe(32)
+    handoff_expires_at = time.strftime(
+        "%Y-%m-%dT%H:%M:%SZ", time.gmtime(now + ttl_seconds))
     lease = {
         "agent_id": agent_id,
         "base_head": base_head,
         "acquired_at": now,
         "expires_at": now + ttl_seconds,
+        "handoff_token": handoff_token,
     }
     if work_run_id:
         lease.update({
@@ -416,27 +421,35 @@ def _acquire_lease_unlocked(
         })
     leases[note_id] = lease
     _write_leases(vault_dir, leases)
-    if work_run_id and not read_work_run(vault_dir, resolved_project_id, work_run_id):
-        token = transition_token or f"driver:lease:{work_run_id.split('/', 1)[1]}"
-        _write_work_run(vault_dir, {
-            "schema_version": 1,
-            "project_id": resolved_project_id,
-            "work_item_id": resolved_work_item_id,
-            "work_run_id": work_run_id,
-            "agent_id": agent_id,
-            "state": "leased",
-            "output_class": "view",
-            "approval_status": "not-required",
-            "created_at": now,
-            "updated_at": now,
-            "provenance": [f"work-item:{resolved_work_item_id}"],
-            "transitions": [{
-                "transition_token": token,
-                "from": "planned",
-                "to": "leased",
-                "recorded_at": now,
-            }],
-        })
+    if work_run_id:
+        run = read_work_run(vault_dir, resolved_project_id, work_run_id)
+        if not run:
+            token = transition_token or f"driver:lease:{work_run_id.split('/', 1)[1]}"
+            run = {
+                "schema_version": 1,
+                "project_id": resolved_project_id,
+                "work_item_id": resolved_work_item_id,
+                "work_run_id": work_run_id,
+                "agent_id": agent_id,
+                "state": "leased",
+                "output_class": "view",
+                "approval_status": "not-required",
+                "created_at": now,
+                "updated_at": now,
+                "provenance": [f"work-item:{resolved_work_item_id}"],
+                "transitions": [{
+                    "transition_token": token,
+                    "from": "planned",
+                    "to": "leased",
+                    "recorded_at": now,
+                }],
+            }
+        else:
+            run["updated_at"] = now
+        run["handoff_token_hash"] = hashlib.sha256(
+            handoff_token.encode("utf-8")).hexdigest()
+        run["handoff_expires_at"] = handoff_expires_at
+        _write_work_run(vault_dir, run)
     return LeaseResult(OUTCOME_ACQUIRED, lease)
 
 

@@ -13,6 +13,7 @@ Run from the compiler/ dir (Windows -- prefix PYTHONUTF8=1):
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
@@ -144,6 +145,7 @@ class LeaseTest(unittest.TestCase):
         leases = work_driver.read_leases(self.vault)
         self.assertEqual(leases[self.NID]["agent_id"], "agent-1")
         self.assertEqual(leases[self.NID]["expires_at"], 1600)
+        self.assertGreaterEqual(len(leases[self.NID]["handoff_token"]), 32)
 
     def test_second_agent_blocked_while_unexpired(self) -> None:
         self._acquire("agent-1", now=1000)
@@ -175,12 +177,20 @@ class LeaseTest(unittest.TestCase):
         self.assertEqual(old_run["agent_id"], "agent-1")
 
     def test_same_agent_refreshes(self) -> None:
-        self._acquire("agent-1", now=1000)
+        first = self._acquire("agent-1", now=1000)
         r = self._acquire("agent-1", now=1200)
         self.assertEqual(r.outcome, work_driver.OUTCOME_ACQUIRED)
         self.assertEqual(
             work_driver.read_leases(self.vault)[self.NID]["expires_at"], 1800
         )
+        self.assertNotEqual(r.lease["handoff_token"], first.lease["handoff_token"])
+        run = work_driver.read_work_run(
+            self.vault, r.lease["project_id"], r.lease["work_run_id"])
+        self.assertEqual(
+            run["handoff_token_hash"],
+            hashlib.sha256(r.lease["handoff_token"].encode("utf-8")).hexdigest(),
+        )
+        self.assertEqual(run["handoff_expires_at"], "1970-01-01T00:30:00Z")
 
     def test_release_by_holder(self) -> None:
         self._acquire("agent-1", now=1000)
@@ -218,6 +228,13 @@ class WorkRunContractTest(unittest.TestCase):
         run = work_driver.read_work_run(
             self.vault, lease["project_id"], lease["work_run_id"])
         self.assertEqual(run["state"], "leased")
+        self.assertEqual(
+            run["handoff_token_hash"],
+            hashlib.sha256(lease["handoff_token"].encode("utf-8")).hexdigest(),
+        )
+        self.assertEqual(run["handoff_expires_at"], "1970-01-01T00:26:40Z")
+        self.assertNotIn("handoff_token", run)
+        self.assertNotIn(lease["handoff_token"], json.dumps(run))
         normalized = work_driver.normalized_work_run(run)
         fixture = json.loads(
             (Path(__file__).parents[2] / "tests" / "fixtures" /
