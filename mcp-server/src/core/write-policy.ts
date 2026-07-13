@@ -135,7 +135,7 @@ export function workflowAgentPolicyBasePath(config: VaultMindConfig, args: Recor
 
 export function sourcePolicyTargetPaths(args: Record<string, unknown>): string[] {
   if (typeof args.project === 'string' && args.project.trim() && typeof args.platform === 'string' && args.platform.trim()) {
-    const project = safeMemorySegment(args.project, 'project');
+    const project = policyProjectRefSegment(args.project);
     const platform = safeMemorySegment(args.platform, 'platform');
     return ['_llmwiki/source-registry.json', `10-Projects/${project}/sources/${platform}/**`];
   }
@@ -317,7 +317,19 @@ function policyProjectSegment(args: Record<string, unknown>): string {
   if (typeof args.project !== 'string' || !args.project.trim()) {
     throw makeErr(-32602, 'project required for write policy');
   }
-  return slugPolicySegment(args.project, 'project');
+  return policyProjectRefSegment(args.project);
+}
+
+function policyProjectRefSegment(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed.startsWith('project/')) {
+    const slug = trimmed.slice('project/'.length);
+    if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
+      throw makeErr(-32602, 'project ID must use project/<lowercase-kebab-slug>');
+    }
+    return slug;
+  }
+  return slugPolicySegment(trimmed, 'project');
 }
 
 function workflowAgentPolicySegment(config: VaultMindConfig, args: Record<string, unknown>): string {
@@ -338,11 +350,13 @@ function defaultAllowedPaths(actor: string, role: string | undefined): string[] 
     `10-Projects/*/agents/${actor}`,
     `10-Projects/*/agents/${actor}/**`,
     `10-Projects/*/project.md`,
-    `10-Projects/*/docket/**`,
+    `Projects/*.md`,
+    `.vault-mind/project-migrations/**`,
     `01-Projects/*/_project.md`,
     `01-Projects/*/issues/**`,
     `01-Projects/*/views/**`,
     `01-Projects/*/workflow/**`,
+    `01-Projects/*/runs/**`,
     `01-Projects/*/agents/${workflowActor}`,
     `01-Projects/*/agents/${workflowActor}/**`,
   ];

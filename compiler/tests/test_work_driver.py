@@ -13,6 +13,7 @@ Run from the compiler/ dir (Windows -- prefix PYTHONUTF8=1):
 
 from __future__ import annotations
 
+import json
 import shutil
 import sys
 import tempfile
@@ -187,6 +188,94 @@ class LeaseTest(unittest.TestCase):
         self.assertIn(self.NID, work_driver.read_leases(self.vault))
 
 
+class WorkRunContractTest(unittest.TestCase):
+    NID = "01-Projects/alpha/issues/build-index.md"
+
+    def setUp(self) -> None:
+        self.vault = Path(tempfile.mkdtemp())
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.vault, ignore_errors=True)
+
+    def _lease(self, now=1000, ttl=600):
+        return work_driver.acquire_lease(
+            self.vault, self.NID, "agent-codex",
+            current_head=self.NID, base_head=self.NID,
+            ttl_seconds=ttl, now=now,
+        )
+
+    def test_lease_creates_one_durable_work_run_identity(self) -> None:
+        result = self._lease()
+        lease = result.lease
+        self.assertEqual(lease["project_id"], "project/alpha")
+        self.assertEqual(lease["work_item_id"], "project/alpha/issue/build-index")
+        self.assertTrue(lease["work_run_id"].startswith("work-run/"))
+        run = work_driver.read_work_run(
+            self.vault, lease["project_id"], lease["work_run_id"])
+        self.assertEqual(run["state"], "leased")
+        normalized = work_driver.normalized_work_run(run)
+        fixture = json.loads(
+            (Path(__file__).parents[2] / "tests" / "fixtures" /
+             "work-run-contract.json").read_text("utf-8"))
+        self.assertEqual(set(normalized), set(fixture["required"]) | {"transitionToken"})
+        self.assertEqual(normalized["projectId"], lease["project_id"])
+        self.assertEqual(normalized["workRunId"], lease["work_run_id"])
+        self.assertEqual(run["work_item_id"], lease["work_item_id"])
+        self.assertNotIn(str(self.vault), str(run))
+
+    def test_transition_tokens_are_idempotent_and_terminal_is_closed(self) -> None:
+        lease = self._lease().lease
+        args = (self.vault, lease["project_id"], lease["work_run_id"], "running")
+        first = work_driver.transition_work_run(
+            *args, transition_token="agent:join:1", now=1001)
+        second = work_driver.transition_work_run(
+            *args, transition_token="agent:join:1", now=1002)
+        self.assertEqual(first, second)
+        self.assertEqual(len(second["transitions"]), 2)  # planned->leased + join
+        completed = work_driver.transition_work_run(
+            self.vault, lease["project_id"], lease["work_run_id"], "completed",
+            transition_token="agent:leave:1", now=1003)
+        self.assertEqual(completed["state"], "completed")
+        with self.assertRaisesRegex(ValueError, "completed -> running"):
+            work_driver.transition_work_run(
+                self.vault, lease["project_id"], lease["work_run_id"], "running",
+                transition_token="late-step", now=1004)
+
+    def test_output_policy_routes_claims_and_denies_unapproved_external_effects(self) -> None:
+        lease = self._lease().lease
+        work_driver.transition_work_run(
+            self.vault, lease["project_id"], lease["work_run_id"], "running",
+            transition_token="join", now=1001)
+        routed = work_driver.route_work_run_output(
+            self.vault, lease["project_id"], lease["work_run_id"],
+            "external-side-effect", transition_token="output", now=1002)
+        self.assertEqual(routed["promotion"], "human-review")
+        self.assertFalse(routed["external_side_effect_allowed"])
+        self.assertTrue(routed["operation_write_policy_required"])
+        self.assertEqual(routed["run"]["approval_status"], "denied")
+
+    def test_expired_lease_marks_run_failed_without_losing_history(self) -> None:
+        lease = self._lease(now=1000, ttl=5).lease
+        work_driver.transition_work_run(
+            self.vault, lease["project_id"], lease["work_run_id"], "running",
+            transition_token="join", now=1001)
+        recovered = work_driver.recover_expired_work_runs(self.vault, now=1006)
+        self.assertEqual(len(recovered), 1)
+        self.assertEqual(recovered[0]["state"], "failed")
+        self.assertGreaterEqual(len(recovered[0]["transitions"]), 3)
+        self.assertNotIn(self.NID, work_driver.read_leases(self.vault))
+
+    def test_python_lifecycle_matches_language_neutral_fixture(self) -> None:
+        fixture = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "work-run-contract.json"
+        import json
+        contract = json.loads(fixture.read_text("utf-8"))
+        self.assertEqual(list(work_driver.WORK_RUN_STATES), contract["lifecycle"])
+        self.assertEqual(
+            {key: sorted(value) for key, value in work_driver.WORK_RUN_TRANSITIONS.items()},
+            {key: sorted(value) for key, value in contract["transitions"].items()},
+        )
+
+
 class WorkNextCliTest(unittest.TestCase):
     """Task 11A-iii -- the `work next` heartbeat handler: select from the
     authoritative work index and optionally lease it. One-shot, no daemon."""
@@ -226,6 +315,17 @@ class WorkNextCliTest(unittest.TestCase):
         out = kb_meta.cmd_work_next(str(self.vault), claim_agent="agent-1", now=1000)
         self.assertEqual(out["lease"]["outcome"], work_driver.OUTCOME_ACQUIRED)
         self.assertIn("Projects/x/issues/e.md", work_driver.read_leases(self.vault))
+
+    def test_project_context_selects_only_canonical_work_os_root(self) -> None:
+        self._write("Projects/x.md", type="project", entity="project/x", status="active")
+        self._write("01-Projects/x/_project.md", type="project", entity="project/x", status="active")
+        self._write("01-Projects/x/issues/canonical.md",
+                    entity="project/x/issue/canonical", state="todo", priority=2, status="reviewed")
+        self._write("Projects/x/issues/legacy.md",
+                    entity="project/x/issue/legacy", state="todo", priority=1, status="reviewed")
+        out = kb_meta.cmd_work_next(str(self.vault), project="project/x")
+        self.assertEqual(out["selected"]["note_id"], "01-Projects/x/issues/canonical.md")
+        self.assertEqual(out["diagnostics"], [])
 
     def test_no_actionable_returns_none(self) -> None:
         self._write("Projects/x/issues/f.md",

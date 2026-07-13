@@ -3,7 +3,7 @@
 > Auto-generated from `mcp-server/src/core/operations.ts`.
 > Run `npm run generate-tools-doc` to regenerate. Do not edit by hand.
 
-Total: **104** operations across **18** namespaces.
+Total: **113** operations across **18** namespaces.
 
 ## `vault.*` (31)
 
@@ -255,7 +255,7 @@ Create or update a person note with AI-First frontmatter. Path: People/{name}.md
 
 ### `vault.project`
 
-Create or update a project note with AI-First frontmatter. Path: Projects/{name}.md
+Deprecated compatibility update for an already-registered Project. Unknown names are rejected; use project.init to create a Project ID and Work-OS anchor.
 
 **Mutating:** yes
 
@@ -510,7 +510,7 @@ Heavier citation-backed context search returning full query.answer trace for com
 
 ### `context.recall`
 
-Topic-scoped citation-backed recall using query.answer. Project argument restricts search to 10-Projects/<project>/**.
+Topic-scoped citation-backed recall using query.answer. Project argument joins Work-OS context under 01-Projects/<project>/** with project knowledge under 10-Projects/<project>/**.
 
 **Mutating:** no
 
@@ -983,7 +983,7 @@ Persist a named memory across MCP sessions. Use for inferences, user preferences
 - `value` (string, required) — Memory content (Markdown supported)
 - `tags` (array, optional) — Optional tags for grouping, e.g. ["project", "decision"]
 
-## `project.*` (10)
+## `project.*` (19)
 
 ### `project.base.export`
 
@@ -1034,6 +1034,36 @@ Append a comment to a sibling 01-Projects/<project>/issues/<slug>.comments.md (d
 - `body` (string, required) — Comment Markdown body
 - `actor` (string, optional) — Comment actor; defaults to collaboration actor
 - `session` (string, optional) — Optional session/thread id
+
+### `project.context.doctor`
+
+Diagnose Project anchors, aliases, bindings, domain roots, identity agreement, and release-gated compatibility reads.
+
+**Mutating:** no
+
+**Parameters:** none
+
+### `project.context.resolve`
+
+Resolve a Project reference to stable identity, canonical domain roots, bindings, projections, and diagnostics.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `ref` (string, optional) — Canonical Project ID, registered alias/slug, or bound workspace path
+- `project` (string, optional) — Compatibility alias for ref
+
+### `project.hub.get`
+
+Compose a read-only Project Hub from registry, Work-OS, knowledge, runtime, settings, capabilities, workspace, and provider-owned integrations.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `ref` (string, optional) — Canonical Project ID, registered alias/slug, or bound workspace path
+- `project` (string, optional) — Compatibility alias for ref
 
 ### `project.init`
 
@@ -1119,6 +1149,63 @@ Update a work-OS issue (state/priority/review/assignee/blocked_by/description/bo
 - `summary` (string, optional) — Replacement one-line description
 - `body` (string, optional) — Replacement body
 
+### `project.migration.apply`
+
+Plan by default; apply canonical Project writes atomically only when apply=true, with resumable audit manifests.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `apply` (boolean, optional, default: `false`) — Explicitly apply the current deterministic plan (default: false)
+- `batch_id` (string, optional) — Safe resumable batch identifier; defaults to the plan hash prefix
+
+### `project.migration.inventory`
+
+Inventory registry, Work-OS, knowledge, legacy work, bindings, leases, and workflow representations without writing.
+
+**Mutating:** no
+
+**Parameters:** none
+
+### `project.migration.plan`
+
+Build a deterministic, hash-guarded Project layout migration plan. This operation is always side-effect free.
+
+**Mutating:** no
+
+**Parameters:** none
+
+### `project.migration.restore`
+
+Preview by default; restore one applied migration manifest only when apply=true and hash preconditions still hold.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `manifest` (string, required) — Vault-relative manifest under .vault-mind/project-migrations/<batch>/manifest.json
+- `apply` (boolean, optional, default: `false`) — Explicitly restore the batch (default: false)
+
+### `project.registry.get`
+
+Resolve a Project reference and return its shared registry entry without mutation.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `ref` (string, optional) — Canonical Project ID, registered alias/slug, or bound workspace path
+- `project` (string, optional) — Compatibility alias for ref
+
+### `project.registry.list`
+
+List shared Project identities with local binding health and registry diagnostics.
+
+**Mutating:** no
+
+**Parameters:** none
+
 ## `ingest.*` (2)
 
 ### `ingest.link.preflight`
@@ -1188,7 +1275,7 @@ Register a long-lived source in the lightweight Source Registry. URL inputs run 
 
 ### `workflow.agent.checkpoint`
 
-Append an event to a joined agent lifetime without changing the current stage.
+Record an idempotent Work Run checkpoint, optionally routing output or moving to review/terminal state.
 
 **Mutating:** yes
 
@@ -1200,10 +1287,16 @@ Append an event to a joined agent lifetime without changing the current stage.
 - `summary` (string, required) — Checkpoint summary
 - `evidence` (array, optional) — Evidence refs for this checkpoint
 - `next` (string, optional) — Next action or stop condition
+- `work_run_id` (string, optional) — Joined Work Run ID; resolved from lifetime when omitted
+- `work_run_state` (string, optional, enum: `planned` | `leased` | `running` | `awaiting_review` | `completed` | `failed` | `cancelled`)
+- `transition_token` (string, optional) — Idempotency token; generated for legacy calls
+- `output_class` (string, optional, enum: `view` | `work-state-transition` | `knowledge-claim` | `external-side-effect`)
+- `approval_status` (string, optional, enum: `not-required` | `pending` | `approved` | `denied`)
+- `provenance` (array, optional)
 
 ### `workflow.agent.doctor`
 
-Check one agent lifetime file and event log for vault-first lifecycle consistency.
+Check one agent lifetime, Work Run identity, transition receipts, output policy, and event log for consistency.
 
 **Mutating:** no
 
@@ -1211,10 +1304,11 @@ Check one agent lifetime file and event log for vault-first lifecycle consistenc
 
 - `project` (string, required) — Project key
 - `agent` (string, optional) — Agent id; defaults collaboration actor
+- `work_run_id` (string, optional) — Expected Work Run ID for cross-runtime join diagnosis
 
 ### `workflow.agent.join`
 
-Start or replace a vault-first agent lifetime under 01-Projects/<project>/agents/<agent>/.
+Join a leased Work Run (or create a legacy-compatible one) and persist its shared identity on the agent lifetime.
 
 **Mutating:** yes
 
@@ -1226,13 +1320,20 @@ Start or replace a vault-first agent lifetime under 01-Projects/<project>/agents
 - `host` (string, optional) — Agent host, e.g. codex or claude-code
 - `objective` (string, optional) — Lifetime objective
 - `issue` (string, optional) — Linked issue slug or entity
+- `work_run_id` (string, optional) — Shared Work Run ID from the Work Driver lease
+- `work_run_state` (string, optional, enum: `planned` | `leased` | `running` | `awaiting_review` | `completed` | `failed` | `cancelled`) — Existing Work Run state; leased is expected when attaching a Work Driver lease
+- `work_item_id` (string, optional) — Canonical project/<slug>/issue/<slug> identity
+- `transition_token` (string, optional) — Idempotency token; generated for legacy calls
+- `output_class` (string, optional, enum: `view` | `work-state-transition` | `knowledge-claim` | `external-side-effect`)
+- `approval_status` (string, optional, enum: `not-required` | `pending` | `approved` | `denied`)
+- `provenance` (array, optional) — Logical provenance refs; never local paths or secrets
 - `stage` (string, optional, default: `"think"`, enum: `think` | `plan` | `build` | `review` | `test` | `ship` | `reflect`) — Initial lifetime stage: think|plan|build|review|test|ship|reflect. test requires review:* evidence; ship requires review:* and test:* evidence.
 - `evidence` (array, optional) — Initial evidence refs. Use prefixes such as review:* and test:* for stage gates.
 - `notes` (string, optional) — Join notes
 
 ### `workflow.agent.leave`
 
-Archive a joined agent lifetime while preserving its lifetime and event log in the vault.
+Leave a Work Run through awaiting-review or terminal state while preserving its durable lifetime and event log.
 
 **Mutating:** yes
 
@@ -1241,10 +1342,16 @@ Archive a joined agent lifetime while preserving its lifetime and event log in t
 - `project` (string, required) — Project key
 - `agent` (string, optional) — Agent id; defaults collaboration actor
 - `summary` (string, optional) — Leave summary
+- `work_run_id` (string, optional) — Joined Work Run ID; resolved from lifetime when omitted
+- `work_run_state` (string, optional, enum: `awaiting_review` | `completed` | `failed` | `cancelled`) — Final or review handoff state; defaults to cancelled for an unfinished run
+- `transition_token` (string, optional) — Idempotency token; generated for legacy calls
+- `output_class` (string, optional, enum: `view` | `work-state-transition` | `knowledge-claim` | `external-side-effect`)
+- `approval_status` (string, optional, enum: `not-required` | `pending` | `approved` | `denied`)
+- `provenance` (array, optional)
 
 ### `workflow.agent.step`
 
-Move a joined agent through think->plan->build->review->test->ship->reflect with review/test rework back to build. test requires review:* evidence; ship requires review:* and test:* evidence.
+Advance a joined agent and its shared Work Run with idempotent transitions, review/test evidence gates, and terminal-state enforcement.
 
 **Mutating:** yes
 
@@ -1256,6 +1363,13 @@ Move a joined agent through think->plan->build->review->test->ship->reflect with
 - `status` (string, optional, enum: `active` | `blocked` | `done` | `archived`) — Agent status: active|blocked|done|archived
 - `objective` (string, optional) — Replacement objective
 - `issue` (string, optional) — Replacement linked issue slug or entity
+- `work_run_id` (string, optional) — Joined Work Run ID; resolved from lifetime when omitted
+- `work_run_state` (string, optional, enum: `planned` | `leased` | `running` | `awaiting_review` | `completed` | `failed` | `cancelled`)
+- `work_item_id` (string, optional) — Replacement canonical Work Item identity
+- `transition_token` (string, optional) — Idempotency token; generated for legacy calls
+- `output_class` (string, optional, enum: `view` | `work-state-transition` | `knowledge-claim` | `external-side-effect`)
+- `approval_status` (string, optional, enum: `not-required` | `pending` | `approved` | `denied`)
+- `provenance` (array, optional)
 - `evidence` (array, optional) — Evidence refs to merge into lifetime. Use review:* before test and test:* before ship.
 - `summary` (string, optional) — Transition summary
 - `next` (string, optional) — Next action or stop condition

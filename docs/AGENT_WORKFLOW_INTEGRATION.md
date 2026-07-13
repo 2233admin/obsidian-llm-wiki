@@ -22,6 +22,8 @@ does not replace the external workflow runtime that produced the evidence.
 
 Before importing an external project or workflow, classify the user input:
 
+Resolve the target collaboration context to a canonical `project/<slug>` Project ID before Source Registration, Work-OS, workflow, or Work Run behavior. A repository path is a machine-local Workspace Binding and a GitHub/Gitea/Linear item is an External Projection; neither is the Project identity.
+
 | Input | obsidian-llm-wiki classification | Phase 1 action |
 |---|---|---|
 | GitHub/Gitea/GitLab URL | `Source Input` with `inputType=url`, usually `sourceKind=repo` | Register with `source.register`; record platform and recommended providers. |
@@ -78,6 +80,8 @@ Actionable workflow improvements use work-OS issue notes:
 Do not create or revive `10-Projects/<project>/docket/**`. Boards, Canvas, and
 Bases are derived views from `01-Projects/<project>/issues/*.md`, never source
 truth.
+
+Once the Work Driver acquires a lease it creates one durable Work Run ID. Pass that same Project ID, Work Item ID, Work Run ID, and stable transition token to `workflow.agent.join`, then reuse the Work Run ID for step, checkpoint, leave, and doctor calls. Lease tokens stay machine-local; durable Work Run history stays under the owning Work-OS Project. Knowledge claims require review and external side effects require explicit per-run approval plus Operation Write Policy.
 
 Use an issue when there is executable work, such as adding a provider,
 repairing a source-registration behavior, updating agent host instructions, or

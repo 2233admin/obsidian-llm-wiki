@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://llmwiki.local/schemas/work-run-contract.json",
+  "title": "LLMwiki Work Run Contract",
+  "type": "object",
+  "required": [
+    "projectId",
+    "workItemId",
+    "workRunId",
+    "state",
+    "outputClass",
+    "approvalStatus",
+    "provenance"
+  ],
+  "properties": {
+    "projectId": { "type": "string", "pattern": "^project/[a-z0-9][a-z0-9-]*$" },
+    "workItemId": {
+      "type": "string",
+      "pattern": "^project/[a-z0-9][a-z0-9-]*/issue/[a-z0-9][a-z0-9-]*$"
+    },
+    "workRunId": { "type": "string", "pattern": "^work-run/[a-z0-9][a-z0-9-]*$" },
+    "state": {
+      "enum": ["planned", "leased", "running", "awaiting_review", "completed", "failed", "cancelled"]
+    },
+    "transitionToken": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "outputClass": {
+      "enum": ["view", "work-state-transition", "knowledge-claim", "external-side-effect"]
+    },
+    "approvalStatus": { "enum": ["not-required", "pending", "approved", "denied"] },
+    "provenance": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+  },
+  "additionalProperties": false,
+  "schemaVersion": 1,
+  "identity": {
+    "projectIdPattern": "^project/[a-z0-9][a-z0-9-]*$",
+    "workItemIdPattern": "^project/[a-z0-9][a-z0-9-]*/issue/[a-z0-9][a-z0-9-]*$",
+    "workRunIdPattern": "^work-run/[a-z0-9][a-z0-9-]*$",
+    "transitionTokenPattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  },
+  "lifecycle": [
+    "planned",
+    "leased",
+    "running",
+    "awaiting_review",
+    "completed",
+    "failed",
+    "cancelled"
+  ],
+  "terminalStates": ["completed", "failed", "cancelled"],
+  "transitions": {
+    "planned": ["leased", "cancelled"],
+    "leased": ["running", "failed", "cancelled"],
+    "running": ["awaiting_review", "completed", "failed", "cancelled"],
+    "awaiting_review": ["running", "completed", "failed", "cancelled"],
+    "completed": [],
+    "failed": [],
+    "cancelled": []
+  },
+  "outputClasses": [
+    "view",
+    "work-state-transition",
+    "knowledge-claim",
+    "external-side-effect"
+  ],
+  "approvalStatuses": ["not-required", "pending", "approved", "denied"],
+  "approvalPolicy": {
+    "view": "not-required",
+    "work-state-transition": "not-required",
+    "knowledge-claim": "pending",
+    "external-side-effect": "pending"
+  },
+  "example": {
+    "projectId": "project/alpha",
+    "workItemId": "project/alpha/issue/build-index",
+    "workRunId": "work-run/018f4f79-87d2-7b5c-9b6f-a6fca0f4fd16",
+    "state": "running",
+    "transitionToken": "driver:lease:alpha-build-index:1",
+    "outputClass": "knowledge-claim",
+    "approvalStatus": "pending",
+    "provenance": ["work-item:project/alpha/issue/build-index", "work-driver:lease-acquired"]
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "accepted": [
+    {"input": "project/alpha", "project_id": "project/alpha", "slug": "alpha"},
+    {"input": "project/a1-b2", "project_id": "project/a1-b2", "slug": "a1-b2"},
+    {"input": " project/edge ", "project_id": "project/edge", "slug": "edge"}
+  ],
+  "bare_compatibility": [
+    {"input": "alpha", "project_id": "project/alpha"},
+    {"input": "a1-b2", "project_id": "project/a1-b2"}
+  ],
+  "rejected": [
+    "alpha",
+    "Project/alpha",
+    "project/Alpha",
+    "project/two words",
+    "project/-leading",
+    "project/trailing-",
+    "project/a/b",
+    "project/"
+  ]
+}

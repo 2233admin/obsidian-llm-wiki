@@ -102,6 +102,7 @@ test('project visual exports generate Canvas and Bases files against work-OS iss
 test('project visual exports handle empty projects and overwrite=false', async () => {
   const vault = tempVault();
   try {
+    await op(vault, 'project.init').handler(ctx(vault), { project: 'empty' });
     const canvasPath = '01-Projects/empty/views/project-map.canvas';
     const result = (await op(vault, 'project.canvas.export').handler(ctx(vault), {
       project: 'empty',

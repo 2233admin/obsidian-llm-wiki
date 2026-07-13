@@ -57,6 +57,26 @@ describe('work-OS project management operations', () => {
     }
   });
 
+  test('project.init validates an existing anchor before creating the registry record', async () => {
+    const { root, call } = makeHarness();
+    try {
+      mkdirSync(vp(root, '01-Projects/alpha'), { recursive: true });
+      writeFileSync(
+        vp(root, '01-Projects/alpha/_project.md'),
+        '---\ntype: project\nentity: project/different\n---\n',
+        'utf-8',
+      );
+
+      await assert.rejects(
+        () => call('project.init', { project: 'alpha' }),
+        /Existing Work-OS anchor disagrees/,
+      );
+      assert.equal(existsSync(vp(root, 'Projects/alpha.md')), false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   test('issue lifecycle: create, list, update, board (work-OS notes)', async () => {
     const { root, call } = makeHarness();
     try {

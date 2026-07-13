@@ -4,11 +4,19 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
-import { makeWorkflowOps } from './workflow.js';
+import { isWorkRunTransitionAllowed, makeWorkflowOps, WORK_RUN_STATES, type WorkRunState } from './workflow.js';
 import type { Operation, OperationContext } from '../core/types.js';
 
 function makeHarness() {
   const root = join(tmpdir(), `llmwiki-workflow-${randomUUID()}`);
+  mkdirSync(join(root, 'Projects'), { recursive: true });
+  for (const [slug, alias] of [['alpha', 'alpha'], ['alpha-project', 'Alpha Project'], ['my-project', 'My Project']]) {
+    writeFileSync(
+      join(root, 'Projects', `${slug}.md`),
+      ['---', 'type: project', `entity: project/${slug}`, 'lifecycle: active', `aliases: [${alias}]`, '---', ''].join('\n'),
+      'utf-8',
+    );
+  }
   const ops = makeWorkflowOps(root);
   const byName = new Map(ops.map((op) => [op.name, op]));
   const ctx: OperationContext = {
@@ -33,7 +41,50 @@ function vp(root: string, rel: string): string {
   return join(root, ...rel.split('/'));
 }
 
+interface WorkRunContractFixture {
+  lifecycle: WorkRunState[];
+  terminalStates: WorkRunState[];
+  transitions: Record<WorkRunState, WorkRunState[]>;
+  outputClasses: string[];
+  approvalStatuses: string[];
+  example: {
+    projectId: string;
+    workItemId: string;
+    workRunId: string;
+    transitionToken: string;
+    provenance: string[];
+  };
+}
+
+function readWorkRunFixture(): WorkRunContractFixture {
+  return JSON.parse(
+    readFileSync(new URL('../../../tests/fixtures/work-run-contract.json', import.meta.url), 'utf-8'),
+  ) as WorkRunContractFixture;
+}
+
 describe('agent project workflow operations', () => {
+  test('language-neutral Work Run fixture matches the TypeScript lifecycle table', () => {
+    const fixture = readWorkRunFixture();
+    assert.deepEqual(fixture.lifecycle, [...WORK_RUN_STATES]);
+    for (const from of fixture.lifecycle) {
+      for (const to of fixture.lifecycle) {
+        assert.equal(
+          isWorkRunTransitionAllowed(from, to),
+          fixture.transitions[from].includes(to),
+          `${from} -> ${to}`,
+        );
+      }
+    }
+    assert.deepEqual(fixture.terminalStates, ['completed', 'failed', 'cancelled']);
+    assert.deepEqual(fixture.outputClasses, [
+      'view',
+      'work-state-transition',
+      'knowledge-claim',
+      'external-side-effect',
+    ]);
+    assert.deepEqual(fixture.approvalStatuses, ['not-required', 'pending', 'approved', 'denied']);
+  });
+
   test('workflow.state.set writes vault-first status and workflow.state.get reads it', async () => {
     const { root, call } = makeHarness();
     try {
@@ -152,6 +203,92 @@ describe('agent project workflow operations', () => {
       const events = readFileSync(vp(root, result.eventsPath), 'utf-8');
       assert.match(events, /type: agent-lifetime-events/);
       assert.match(events, /- summary: Build agent lifetime contract/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('workflow.agent.join attaches the Work Driver identity and transition tokens are idempotent', async () => {
+    const { root, call } = makeHarness();
+    const fixture = readWorkRunFixture();
+    try {
+      const joined = (await call('workflow.agent.join', {
+        project: 'alpha',
+        agent: 'worker',
+        issue: 'build-index',
+        work_run_id: fixture.example.workRunId,
+        work_run_state: 'leased',
+        work_item_id: fixture.example.workItemId,
+        transition_token: fixture.example.transitionToken,
+        provenance: fixture.example.provenance,
+      })) as {
+        workRunId: string;
+        lifetime: {
+          projectId: string;
+          workRunId: string;
+          workRunState: string;
+          workItemId: string;
+          provenance: string[];
+        };
+      };
+      assert.equal(joined.workRunId, fixture.example.workRunId);
+      assert.equal(joined.lifetime.projectId, fixture.example.projectId);
+      assert.equal(joined.lifetime.workRunState, 'running');
+      assert.equal(joined.lifetime.workItemId, fixture.example.workItemId);
+      assert.deepEqual(joined.lifetime.provenance, fixture.example.provenance);
+      const runPath = vp(root, `01-Projects/alpha/runs/${fixture.example.workRunId.slice('work-run/'.length)}.json`);
+      const joinedRun = JSON.parse(readFileSync(runPath, 'utf-8')) as Record<string, unknown>;
+      assert.equal(joinedRun.project_id, fixture.example.projectId);
+      assert.equal(joinedRun.state, 'running');
+
+      const checkpointParams = {
+        project: 'alpha',
+        agent: 'worker',
+        work_run_id: fixture.example.workRunId,
+        transition_token: 'checkpoint:build-index:1',
+        status: 'passed',
+        summary: 'index fixture verified',
+        evidence: ['test:index'],
+      };
+      const first = (await call('workflow.agent.checkpoint', checkpointParams)) as {
+        idempotent: boolean;
+        workRunState: string;
+      };
+      const replay = (await call('workflow.agent.checkpoint', checkpointParams)) as {
+        idempotent: boolean;
+        lifetime: { workRunState: string };
+      };
+      assert.equal(first.idempotent, false);
+      assert.equal(first.workRunState, 'running');
+      assert.equal(replay.idempotent, true);
+      assert.equal(replay.lifetime.workRunState, 'running');
+      const checkpointedRun = JSON.parse(readFileSync(runPath, 'utf-8')) as { transitions: unknown[] };
+      assert.equal(checkpointedRun.transitions.length, 1);
+
+      const events = readFileSync(vp(root, '01-Projects/alpha/agents/worker/events.md'), 'utf-8');
+      assert.equal(events.match(/transition-token: checkpoint:build-index:1/g)?.length, 1);
+      const lifetime = readFileSync(vp(root, '01-Projects/alpha/agents/worker/lifetime.md'), 'utf-8');
+      assert.match(lifetime, /project-id: project\/alpha/);
+      assert.match(lifetime, /work-run-state: running/);
+      assert.match(lifetime, /output-class: view/);
+      assert.match(lifetime, /approval-status: not-required/);
+
+      const doctor = (await call('workflow.agent.doctor', {
+        project: 'alpha',
+        agent: 'worker',
+        work_run_id: fixture.example.workRunId,
+      })) as { ok: boolean; errors: string[] };
+      assert.equal(doctor.ok, true);
+      assert.deepEqual(doctor.errors, []);
+      const mismatch = (await call('workflow.agent.doctor', {
+        project: 'alpha',
+        agent: 'worker',
+        work_run_id: 'work-run/different-run',
+      })) as { ok: boolean; errors: string[] };
+      assert.equal(mismatch.ok, false);
+      assert.deepEqual(mismatch.errors, [
+        `work-run-id mismatch: expected work-run/different-run, found ${fixture.example.workRunId}`,
+      ]);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -321,6 +458,159 @@ test('workflow.agent.checkpoint leave and doctor preserve lifetime evidence', as
       const events = readFileSync(vp(root, checkpoint.eventsPath), 'utf-8');
       assert.match(events, /checkpoint:passed/);
       assert.match(events, /leave/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('Work Run terminal states reject steps and checkpoints', async () => {
+    const { root, call } = makeHarness();
+    try {
+      await call('workflow.agent.join', {
+        project: 'alpha',
+        agent: 'worker',
+        work_run_id: 'work-run/terminal-contract',
+        transition_token: 'join:terminal-contract',
+      });
+      await call('workflow.agent.step', { project: 'alpha', agent: 'worker', stage: 'plan', transition_token: 'step:plan' });
+      await call('workflow.agent.step', { project: 'alpha', agent: 'worker', stage: 'build', transition_token: 'step:build' });
+      await call('workflow.agent.step', { project: 'alpha', agent: 'worker', stage: 'review', transition_token: 'step:review' });
+      await call('workflow.agent.step', {
+        project: 'alpha',
+        agent: 'worker',
+        stage: 'test',
+        evidence: ['review:passed'],
+        transition_token: 'step:test',
+      });
+      await call('workflow.agent.step', {
+        project: 'alpha',
+        agent: 'worker',
+        stage: 'ship',
+        evidence: ['test:workflow'],
+        transition_token: 'step:ship',
+      });
+      const completed = (await call('workflow.agent.step', {
+        project: 'alpha',
+        agent: 'worker',
+        stage: 'reflect',
+        transition_token: 'step:reflect',
+      })) as { lifetime: { workRunState: string } };
+      assert.equal(completed.lifetime.workRunState, 'completed');
+
+      await assert.rejects(
+        () => call('workflow.agent.checkpoint', {
+          project: 'alpha',
+          agent: 'worker',
+          transition_token: 'checkpoint:after-completion',
+          summary: 'must not append',
+        }),
+        /is terminal \(completed\)/,
+      );
+      await assert.rejects(
+        () => call('workflow.agent.step', {
+          project: 'alpha',
+          agent: 'worker',
+          stage: 'reflect',
+          transition_token: 'step:after-completion',
+        }),
+        /is terminal \(completed\)/,
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('review-required outputs cannot complete without explicit approval', async () => {
+    const { root, call } = makeHarness();
+    try {
+      await call('workflow.agent.join', {
+        project: 'alpha',
+        agent: 'worker',
+        work_run_id: 'work-run/review-contract',
+        transition_token: 'join:review-contract',
+        output_class: 'knowledge-claim',
+      });
+      await call('workflow.agent.step', { project: 'alpha', agent: 'worker', stage: 'plan', transition_token: 'review:plan' });
+      await call('workflow.agent.step', { project: 'alpha', agent: 'worker', stage: 'build', transition_token: 'review:build' });
+      await call('workflow.agent.step', { project: 'alpha', agent: 'worker', stage: 'review', transition_token: 'review:review' });
+      await call('workflow.agent.step', {
+        project: 'alpha',
+        agent: 'worker',
+        stage: 'test',
+        evidence: ['review:passed'],
+        transition_token: 'review:test',
+      });
+      await call('workflow.agent.step', {
+        project: 'alpha',
+        agent: 'worker',
+        stage: 'ship',
+        evidence: ['test:workflow'],
+        transition_token: 'review:ship',
+      });
+      const pending = (await call('workflow.agent.step', {
+        project: 'alpha',
+        agent: 'worker',
+        stage: 'reflect',
+        transition_token: 'review:reflect',
+      })) as { lifetime: { workRunState: string; outputClass: string; approvalStatus: string } };
+      assert.deepEqual(
+        [pending.lifetime.workRunState, pending.lifetime.outputClass, pending.lifetime.approvalStatus],
+        ['awaiting_review', 'knowledge-claim', 'pending'],
+      );
+
+      await assert.rejects(
+        () => call('workflow.agent.leave', {
+          project: 'alpha',
+          agent: 'worker',
+          work_run_state: 'completed',
+          transition_token: 'review:complete-without-approval',
+        }),
+        /requires approval before completion/,
+      );
+      const approved = (await call('workflow.agent.leave', {
+        project: 'alpha',
+        agent: 'worker',
+        work_run_state: 'completed',
+        approval_status: 'approved',
+        transition_token: 'review:approved',
+      })) as { lifetime: { workRunState: string; approvalStatus: string } };
+      assert.deepEqual([approved.lifetime.workRunState, approved.lifetime.approvalStatus], ['completed', 'approved']);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('an unapproved external side effect is denied and remains reviewable', async () => {
+    const { root, call } = makeHarness();
+    try {
+      await call('workflow.agent.join', {
+        project: 'alpha',
+        agent: 'worker',
+        work_run_id: 'work-run/external-policy',
+        transition_token: 'external:join',
+      });
+      const denied = (await call('workflow.agent.checkpoint', {
+        project: 'alpha',
+        agent: 'worker',
+        transition_token: 'external:route',
+        summary: 'push requested without approval',
+        output_class: 'external-side-effect',
+        approval_status: 'denied',
+        work_run_state: 'awaiting_review',
+      })) as { lifetime: { workRunState: string; outputClass: string; approvalStatus: string } };
+      assert.deepEqual(
+        [denied.lifetime.workRunState, denied.lifetime.outputClass, denied.lifetime.approvalStatus],
+        ['awaiting_review', 'external-side-effect', 'denied'],
+      );
+      await assert.rejects(
+        () => call('workflow.agent.leave', {
+          project: 'alpha',
+          agent: 'worker',
+          transition_token: 'external:complete-denied',
+          work_run_state: 'completed',
+        }),
+        /requires approval before completion/,
+      );
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

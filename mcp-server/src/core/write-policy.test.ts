@@ -130,6 +130,20 @@ describe('Operation Write Policy', () => {
     );
   });
 
+  test('retired project docket is not in the default agent write allowlist', () => {
+    const op = createOp();
+    const ctx = makeCtx([]);
+    assert.throws(
+      () => adjudicateOperationWrite(
+        ctx,
+        op,
+        { path: '10-Projects/alpha/docket/legacy.md', dryRun: false },
+        new Map([[op.name, op]]),
+      ),
+      /outside allowed write paths/,
+    );
+  });
+
   test('vault.batch inherits dryRun and aggregates child targets', () => {
     const child = createOp();
     const batch = createBatchOp();
@@ -171,6 +185,20 @@ describe('Operation Write Policy', () => {
     const verdict = adjudicateOperationWrite(makeCtx(), op, { path: 'notes/board.md', write: false }, new Map([[op.name, op]]));
     assert.equal(verdict.realWrite, false);
     assert.deepEqual(verdict.targets, []);
+  });
+
+  test('Project migration apply and restore are write-policy guarded', () => {
+    const registry = makeOperationRegistry();
+    const operation = requireOperation(registry, 'project.migration.apply');
+    const preview = adjudicateOperationWrite(makeCtx(), operation, { apply: false }, registry);
+    assert.equal(preview.realWrite, false);
+    assert.deepEqual(preview.targets, []);
+
+    const allowed = ['Projects/**', '01-Projects/**', '.vault-mind/local-bindings.json', '.vault-mind/project-migrations/**'];
+    const apply = adjudicateOperationWrite(makeCtx(allowed), operation, { apply: true }, registry);
+    assert.equal(apply.realWrite, true);
+    assert.equal(apply.audit, 'required');
+    assert.deepEqual(apply.targets, allowed);
   });
 
   test('real writes must declare at least one target', () => {

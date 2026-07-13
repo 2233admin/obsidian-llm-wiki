@@ -25,7 +25,7 @@ Use explicit actor names whenever files are written or summarized:
 person:<name>       human author or reviewer
 agent:<name>        Codex, Claude, gstack lane, or other agent writer
 device:<name>       machine where local sync/write happened
-project:<slug>      repo or vault project namespace
+project/<slug>      stable logical Project ID (not a repo or path)
 skill-pack:<id>     workflow provider such as gstack/workflow
 ```
 
@@ -43,10 +43,10 @@ Recommended fields:
 ```yaml
 ---
 llmwiki_type: project_hub
-project: example-project
-repo: D:/projects/example-project
+project-id: project/example-project
 owner: person:curry
 status: active
+workspace-health: available
 gstack-state: "[[Handoffs/example-project/2026-06-28-current-focus]]"
 matt-engineering: "repo:docs/agents/"
 code-intel: "repo:.Codex/"
@@ -75,7 +75,9 @@ One current next step or a link to the owning workflow.
 
 Project Hubs should not copy complete gstack plans, issue queues, or agent
 drafts. They should link to the owning system and summarize only what a human
-needs to re-enter the work.
+needs to re-enter the work. They must not persist machine-local workspace paths;
+those belong only to `.vault-mind/local-bindings.json`. A Project Hub is a
+derived read model and must route mutations to the owning domain operation.
 
 ## Skill Pack Adapter Rules
 

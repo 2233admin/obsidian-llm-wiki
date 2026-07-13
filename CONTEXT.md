@@ -103,7 +103,7 @@ _Avoid_: display title, source note path, provider id
 **Source Note**: A human-readable Markdown representation of a registered Source inside the vault. A Source Note lets users review, annotate, and organize a Source while the Source Registry keeps the machine-readable identity and state.
 _Avoid_: Source Registry, Evidence Note, Capture
 
-**Source Note Template**: The required Markdown shape for Source Notes. Phase 1 Source Notes use frontmatter with `llmwiki_type: source_record`, source identity, URL, Platform, Source Kind, Access Context, status, provider, pipeline, timestamps, project, and tags, followed by `Source`, `Preflight`, `Selection Policy`, `Notes`, and `Related Knowledge Items` sections.
+**Source Note Template**: The required Markdown shape for Source Notes. Phase 1 Source Notes use frontmatter with `llmwiki_type: source_record`, source identity, URL, Platform, Source Kind, Access Context, status, provider, pipeline, timestamps, canonical Project ID when scoped, and tags, followed by `Source`, `Preflight`, `Selection Policy`, `Notes`, and `Related Knowledge Items` sections.
 _Avoid_: arbitrary bookmark, provider output, evidence template
 
 **Source Note Path**: The vault path where a Source Note is stored. By default non-project Sources live under `00-Inbox/Sources/<platform>/<source-slug>.md`, while project-scoped Sources live under `10-Projects/<project>/sources/<platform>/<source-slug>.md`.
@@ -175,5 +175,26 @@ _Avoid_: secret value, API key field, plaintext credential
 **Capability Health**: The explained operational state of an LLMwiki capability after evaluating its settings, dependencies, and runtime availability. Canonical states are `available`, `degraded`, `unavailable`, and `disabled`.
 _Avoid_: configured boolean, process health, diagnostic finding
 
+**Host Capability Connector**: A host-local integration that discovers and invokes operational capabilities supplied by an external tool or plugin through normalized LLMwiki contracts. It reports capability identity, health, permissions, and supported operations, but it does not become a Knowledge Adapter or own LLMwiki domain semantics.
+_Avoid_: Knowledge Adapter, Provider, arbitrary command bridge, bundled plugin code
+
+**Capability Descriptor**: The stable machine-readable declaration of one callable capability, including its identity, version, operations, input contract, side-effect class, required permissions, health probe, and provenance. Capability Descriptors let first-party and third-party implementations participate in the same registry without receiving equal trust by default.
+_Avoid_: settings form, plugin manifest, command palette entry, runtime instance
+
 **Obsidian Control Plane**: The primary human-facing LLMwiki client for inspecting and changing settings, capability health, and operations from Obsidian. It is not the settings source of truth and must use the same domain operations as other hosts.
 _Avoid_: settings backend, source of truth, standalone plugin logic
+
+**Project**: A durable, goal-driven collaboration context that coordinates work, knowledge, runtime, settings, and integrations under one stable identity. A Project does not become identical to any repository, directory, board, forge project, or vault subtree bound to it.
+_Avoid_: repository, directory, board, issue collection, path-derived identity
+
+**Project ID**: The stable logical identity used to join a Project's domain-owned records across work, knowledge, runtime, settings, and integrations. A Project ID survives path, machine, repository, and provider changes.
+_Avoid_: project name, folder name, repository URL, workspace path
+
+**Workspace Binding**: A machine-local association between a Project ID and an operational workspace such as a repository checkout, local directory, vault, or tool root. Workspace Bindings may differ by device and must not redefine Project identity.
+_Avoid_: Project, global absolute path, canonical repository
+
+**External Projection**: A mapping that publishes or reconciles selected Project or Work Item state with an external collaboration system such as GitHub Projects, GitHub Issues, Gitea, or Linear. External Projections are integration views unless an explicit authority rule says otherwise.
+_Avoid_: Project source of truth, Workspace Binding, provider-owned identity
+
+**Project Hub**: A derived, read-only view that assembles Project intent, current work, knowledge state, active Work Runs, workspace health, settings, and integration drift from their owning domains. It does not own or directly mutate any of those states.
+_Avoid_: project database, canonical project file, writable dashboard state

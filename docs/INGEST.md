@@ -100,7 +100,7 @@ Legacy env aliases VAULT_MIND_OPENTTPE_CMD and OPENTTPE_CMD are accepted for com
 
 ## Source Registry handoff
 
-`ingest.link.preflight` is read-only planning. `source.register` is the durable registration step. It stores the source in `_llmwiki/source-registry.json`, creates a Source Note in `00-Inbox/Sources/<platform>/` or `10-Projects/<project>/sources/<platform>/`, and embeds the preflight result for review.
+`ingest.link.preflight` is read-only planning. `source.register` is the durable registration step. It stores the source in `_llmwiki/source-registry.json`, creates a Source Note in `00-Inbox/Sources/<platform>/` or `10-Projects/<slug>/sources/<platform>/`, and embeds the preflight result for review. Project-scoped registration resolves the caller input through Project Context first and persists the canonical `project-id: project/<slug>`; an unknown Project never creates a knowledge root.
 
 This keeps platform analysis honest: registering a Douyin, Bilibili, YouTube, X, Xiaohongshu, WeChat, podcast, or vault note source is not the same as claiming the capture/transcript exists. The ingest succeeds only after a provider writes Markdown back into the vault and search can find it.
 

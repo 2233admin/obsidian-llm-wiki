@@ -1,0 +1,5 @@
+# Project Is a Logical Context, Not a Repository or Directory
+
+LLMwiki will model a Project as a durable, goal-driven collaboration context identified by a stable Project ID. Repositories, local directories, vault locations, boards, and forge projects attach through Workspace Bindings or External Projections; none of them defines Project identity. Work-OS, knowledge, runtime, settings, and integration domains retain authority over their own state, while a Project Hub composes a read-only view across those domains.
+
+This decision prevents path changes, multi-repository work, machine-local checkouts, and provider migrations from creating duplicate projects or silently changing scope. It also means existing `Projects/`, `01-Projects/`, and `10-Projects/` records require an explicit compatibility and migration layer rather than another path convention. The Project ID becomes the cross-domain join key, but it does not collapse domain state into one project record or make the Project Hub a new source of truth.

@@ -54,8 +54,10 @@ describe("chunkMarkdown", () => {
 });
 
 describe("embedTexts", () => {
-  it("returns [] when OPENAI_API_KEY is not set", async () => {
-    delete process.env.OPENAI_API_KEY;
+  it("returns [] when the configured embedding provider is unavailable", async () => {
+    globalThis.fetch = (async () => {
+      throw new Error("embedding provider unavailable");
+    }) as typeof fetch;
     expect(await embedTexts(["hello"])).toEqual([]);
   });
 
