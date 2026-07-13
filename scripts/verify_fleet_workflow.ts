@@ -58,6 +58,7 @@ interface CliOptions {
   vaultPath?: string;
   remoteVaultPath?: string;
   deviceStatePath?: string;
+  handoffTokenFile?: string;
   testedCommit?: string;
   keep: boolean;
   json: boolean;
@@ -92,6 +93,10 @@ interface WorkDriverLease {
   expires_at: number;
 }
 
+interface RawWorkDriverLease extends WorkDriverLease {
+  handoff_token: string;
+}
+
 interface AcceptanceMarker {
   schemaVersion: 1;
   correlationId: string;
@@ -112,6 +117,7 @@ interface LocalProof {
   correlationId: string;
   leaseBytesSha256: string;
   lease: WorkDriverLease;
+  handoffToken: string;
 }
 
 type ByteManifest = Record<string, string>;
@@ -123,6 +129,7 @@ const KB_META = resolve(SCRIPT_DIR, '../compiler/kb_meta.py');
 const COMPILER_DIR = dirname(KB_META);
 const LOCAL_PROOF_FILE = 'fleet-local-proof.json';
 const MARKER_FILE = '.llmwiki-fleet-acceptance.json';
+const HANDOFF_TOKEN_ENV = 'LLMWIKI_FLEET_HANDOFF_TOKEN';
 
 function parseArgs(argv: string[]): CliOptions {
   const options: CliOptions = { phase: 'all', fixturePath: DEFAULT_FIXTURE, keep: false, json: false };
@@ -133,6 +140,7 @@ function parseArgs(argv: string[]): CliOptions {
     else if (value === '--vault') options.vaultPath = resolve(argv[++index]!);
     else if (value === '--remote-vault') options.remoteVaultPath = resolve(argv[++index]!);
     else if (value === '--device-state') options.deviceStatePath = resolve(argv[++index]!);
+    else if (value === '--handoff-token-file') options.handoffTokenFile = resolve(argv[++index]!);
     else if (value === '--tested-commit') options.testedCommit = argv[++index]!;
     else if (value === '--keep') options.keep = true;
     else if (value === '--json') options.json = true;
@@ -144,6 +152,7 @@ function parseArgs(argv: string[]): CliOptions {
         '  --vault PATH          Local/shared acceptance vault (temporary by default)',
         '  --remote-vault PATH   5090 copy used by --phase all (temporary by default)',
         '  --device-state PATH   Machine-local proof directory (outside the shared vault)',
+        '  --handoff-token-file PATH  Gitignored/out-of-repo token file for remote phase',
         '  --tested-commit SHA   Explicit product commit when HEAD also carries vault artifacts',
         '  --fixture PATH        Fleet fixture JSON',
         '  --keep                Keep automatically-created temporary directories',
@@ -155,6 +164,9 @@ function parseArgs(argv: string[]): CliOptions {
   }
   if (!['prepare', 'remote', 'verify', 'all'].includes(options.phase)) throw new Error(`Invalid phase: ${options.phase}`);
   if (options.phase !== 'all' && options.remoteVaultPath) throw new Error('--remote-vault is valid only with --phase all');
+  if (options.phase !== 'remote' && options.handoffTokenFile) {
+    throw new Error('--handoff-token-file is valid only with --phase remote');
+  }
   if (options.phase === 'verify' && !options.deviceStatePath) {
     throw new Error('--phase verify requires the machine-local --device-state from prepare');
   }
@@ -245,6 +257,21 @@ function isInside(parent: string, child: string): boolean {
   return childRoot === parentRoot || childRoot.startsWith(`${parentRoot}${sep}`);
 }
 
+function assertLocalSecretPath(path: string, label: string): void {
+  if (!isInside(REPO_ROOT, path)) return;
+  const repoPath = relative(REPO_ROOT, resolve(path)).replaceAll('\\', '/');
+  const tracked = spawnSync('git', ['ls-files', '--error-unmatch', '--', repoPath], {
+    cwd: REPO_ROOT,
+    windowsHide: true,
+  });
+  assert.notEqual(tracked.status, 0, `${label} must not be tracked by Git`);
+  const ignored = spawnSync('git', ['check-ignore', '--quiet', '--', repoPath], {
+    cwd: REPO_ROOT,
+    windowsHide: true,
+  });
+  assert.equal(ignored.status, 0, `${label} must be outside the repo or covered by .gitignore`);
+}
+
 function assertIndependentRoots(localVault: string, remoteVault: string, deviceState: string, phase: Phase): void {
   if (existsSync(localVault)) assert.equal(lstatSync(localVault).isSymbolicLink(), false, 'local vault root cannot be a symlink');
   if (existsSync(deviceState)) assert.equal(lstatSync(deviceState).isSymbolicLink(), false, 'device-state root cannot be a symlink');
@@ -283,12 +310,58 @@ function writeJson(path: string, value: unknown): void {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`, 'utf-8');
 }
 
+function writeSecretJson(path: string, value: unknown): void {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`, { encoding: 'utf-8', mode: 0o600 });
+}
+
 function acceptanceMarker(root: string): string {
   return safePath(root, MARKER_FILE);
 }
 
 function localProof(deviceState: string): string {
   return safePath(deviceState, LOCAL_PROOF_FILE);
+}
+
+function readLocalProof(deviceState: string): LocalProof {
+  const path = localProof(deviceState);
+  assert.ok(existsSync(path), `machine-local fleet proof not found: ${path}`);
+  const proof = JSON.parse(readFileSync(path, 'utf-8')) as LocalProof;
+  assert.equal(proof.schemaVersion, 1, 'unsupported local proof');
+  assert.match(proof.correlationId, /^[0-9a-f-]{36}$/i, 'invalid local proof correlation');
+  assert.ok(typeof proof.handoffToken === 'string' && proof.handoffToken.length >= 16 && proof.handoffToken.length <= 4096,
+    'local proof contains no valid handoff token');
+  return proof;
+}
+
+function tokenFromFile(path: string): string {
+  assertLocalSecretPath(path, '--handoff-token-file');
+  const content = readFileSync(path, 'utf-8').trim();
+  if (content.startsWith('{')) {
+    const value = JSON.parse(content) as { handoffToken?: unknown };
+    return typeof value.handoffToken === 'string' ? value.handoffToken : '';
+  }
+  return content;
+}
+
+function resolveRemoteHandoffToken(options: CliOptions, deviceState: string): string {
+  const candidates: string[] = [];
+  if (options.handoffTokenFile) candidates.push(tokenFromFile(options.handoffTokenFile));
+  const environmentToken = process.env[HANDOFF_TOKEN_ENV];
+  if (environmentToken) candidates.push(environmentToken);
+  if (options.deviceStatePath && existsSync(localProof(deviceState))) {
+    candidates.push(readLocalProof(deviceState).handoffToken);
+  }
+  assert.ok(candidates.length > 0,
+    `portable handoff token required via --handoff-token-file, ${HANDOFF_TOKEN_ENV}, or remote --device-state`);
+  assert.ok(candidates.every((token) => token.length >= 16 && token.length <= 4096), 'invalid portable handoff token');
+  assert.ok(candidates.every((token) => token === candidates[0]), 'conflicting portable handoff token sources');
+  return candidates[0]!;
+}
+
+function sanitizedError(error: unknown, secret: string): Error {
+  const raw = error instanceof Error ? error.message : String(error);
+  return new Error(secret ? raw.replaceAll(secret, '<redacted-handoff-token>') : raw);
 }
 
 function leasePath(vault: string, fixture: FleetFixture): string {
@@ -382,7 +455,7 @@ function runPythonWorkNext(vault: string, fixture: FleetFixture): Record<string,
     });
     if (result.error && (result.error as NodeJS.ErrnoException).code === 'ENOENT') continue;
     if (result.status !== 0) {
-      lastError = `${candidate.command} exited ${String(result.status)}: ${(result.stderr || result.stdout).trim()}`;
+      lastError = `${candidate.command} exited ${String(result.status)} while acquiring the fleet lease`;
       break;
     }
     return JSON.parse(result.stdout) as Record<string, any>;
@@ -443,11 +516,13 @@ async function prepareFixture(
   assert.equal(driver.status, 'selected', 'Work Driver did not select the acceptance Work Item');
   assert.equal(driver.selected?.entity, fixture.run.workItemId, 'Work Driver selected another Work Item');
   assert.equal(driver.lease?.outcome, 'ACQUIRED', 'Work Driver did not acquire the lease');
-  const lease = driver.lease as WorkDriverLease & { outcome: string };
+  const lease = driver.lease as RawWorkDriverLease & { outcome: string };
   assert.equal(lease.project_id, fixture.project.projectId);
   assert.equal(lease.work_item_id, fixture.run.workItemId);
   assert.equal(lease.agent_id, fixture.run.agentId);
   assert.match(lease.work_run_id, /^work-run\/[a-z0-9][a-z0-9-]*$/);
+  assert.ok(typeof lease.handoff_token === 'string' && lease.handoff_token.length >= 16 && lease.handoff_token.length <= 4096,
+    'Work Driver did not issue a valid portable handoff token');
   assert.ok(existsSync(runPath(vault, fixture.project.slug, lease.work_run_id)), 'Work Driver did not persist the Work Run');
 
   const leaseBytes = readFileSync(leasePath(vault, fixture));
@@ -479,9 +554,11 @@ async function prepareFixture(
       acquired_at: lease.acquired_at,
       expires_at: lease.expires_at,
     },
+    handoffToken: lease.handoff_token,
   };
-  writeJson(localProof(deviceState), proof);
+  writeSecretJson(localProof(deviceState), proof);
   writeJson(acceptanceMarker(vault), marker);
+  assertSharedSecretFree(vault, lease.handoff_token);
   return marker;
 }
 
@@ -512,6 +589,21 @@ function mutationManifest(vault: string): ByteManifest {
   ]));
 }
 
+function assertSharedSecretFree(vault: string, handoffToken: string): void {
+  for (const entry of walkEntries(vault)) {
+    if (entry.directory || entry.path === '.vault-mind' || entry.path.startsWith('.vault-mind/')) continue;
+    assert.equal(
+      readFileSync(safePath(vault, entry.path)).includes(Buffer.from(handoffToken, 'utf-8')),
+      false,
+      `shared fleet artifact contains the raw handoff token: ${entry.path}`,
+    );
+  }
+}
+
+function assertResultSecretFree(value: unknown, handoffToken: string, label: string): void {
+  assert.equal(JSON.stringify(value).includes(handoffToken), false, `${label} exposed the raw handoff token`);
+}
+
 async function assertRejectedWithoutMutation(
   call: (name: string, params?: Record<string, unknown>) => Promise<unknown>,
   vault: string,
@@ -521,73 +613,100 @@ async function assertRejectedWithoutMutation(
   const before = mutationManifest(vault);
   await assert.rejects(
     () => call('workflow.agent.join', params),
-    /conflict|mismatch|not found|unknown|Project/i,
+    /conflict|mismatch|not found|unknown|Project|required|token/i,
     `${label} join unexpectedly succeeded`,
   );
   assert.deepEqual(mutationManifest(vault), before, `${label} join mutated runs/agents/events/lease state`);
 }
 
-async function executeRemote(vault: string, fixture: FleetFixture, marker: AcceptanceMarker): Promise<void> {
-  assert.equal(existsSync(leasePath(vault, fixture)), false, 'remote vault received the machine-local lease registry');
-  const { call } = operationHarness(vault);
-  const base = {
-    project: marker.projectId,
-    agent: marker.agentId,
-    work_run_id: marker.workRunId,
-    work_run_state: 'leased',
-    work_item_id: marker.workItemId,
-    lease_mode: 'portable-handoff',
-    provenance: [`orca-task:${fixture.externalRefs.find((ref) => ref.kind === 'orca-task')!.target}`],
-  };
-  const conflict = fixture.conflictProbe;
-  const mismatches: Array<[string, Record<string, unknown>]> = [
-    ['wrong agent', { ...base, agent: conflict.agentId }],
-    ['wrong Work Item', { ...base, work_item_id: conflict.workItemId }],
-    ['wrong Work Run', { ...base, work_run_id: conflict.workRunId }],
-    ['wrong Project', { ...base, project: conflict.projectId }],
-  ];
-  for (const [label, params] of mismatches) {
+async function executeRemote(
+  vault: string,
+  fixture: FleetFixture,
+  marker: AcceptanceMarker,
+  handoffToken: string,
+): Promise<void> {
+  try {
+    assert.equal(existsSync(leasePath(vault, fixture)), false, 'remote vault received the machine-local lease registry');
+    const { call } = operationHarness(vault);
+    const capabilityFreeBase = {
+      project: marker.projectId,
+      agent: marker.agentId,
+      work_run_id: marker.workRunId,
+      work_run_state: 'leased',
+      work_item_id: marker.workItemId,
+      lease_mode: 'portable-handoff',
+      provenance: [`orca-task:${fixture.externalRefs.find((ref) => ref.kind === 'orca-task')!.target}`],
+    };
     await assertRejectedWithoutMutation(call, vault, {
-      ...params,
-      transition_token: `${conflict.transitionToken}:${label.toLowerCase().replaceAll(' ', '-')}`,
-    }, label);
+      ...capabilityFreeBase,
+      transition_token: `${fixture.conflictProbe.transitionToken}:missing-token`,
+    }, 'missing handoff token');
+    await assertRejectedWithoutMutation(call, vault, {
+      ...capabilityFreeBase,
+      handoff_token: 'invalid-fleet-handoff-token-000000000000',
+      transition_token: `${fixture.conflictProbe.transitionToken}:wrong-token`,
+    }, 'wrong handoff token');
+
+    const base = { ...capabilityFreeBase, handoff_token: handoffToken };
+    const conflict = fixture.conflictProbe;
+    const mismatches: Array<[string, Record<string, unknown>]> = [
+      ['wrong agent', { ...base, agent: conflict.agentId }],
+      ['wrong Work Item', { ...base, work_item_id: conflict.workItemId }],
+      ['wrong Work Run', { ...base, work_run_id: conflict.workRunId }],
+      ['wrong Project', { ...base, project: conflict.projectId }],
+    ];
+    for (const [label, params] of mismatches) {
+      await assertRejectedWithoutMutation(call, vault, {
+        ...params,
+        transition_token: `${conflict.transitionToken}:${label.toLowerCase().replaceAll(' ', '-')}`,
+      }, label);
+    }
+
+    const joinParams = { ...base, transition_token: marker.joinToken };
+    const joined = await call('workflow.agent.join', joinParams) as { idempotent: boolean };
+    assert.equal(joined.idempotent, false);
+    assertResultSecretFree(joined, handoffToken, 'join result');
+    const afterJoin = mutationManifest(vault);
+    const joinReplay = await call('workflow.agent.join', joinParams) as { idempotent: boolean };
+    assert.equal(joinReplay.idempotent, true);
+    assertResultSecretFree(joinReplay, handoffToken, 'join replay result');
+    assert.deepEqual(mutationManifest(vault), afterJoin, 'join replay changed bytes');
+
+    const checkpointParams = {
+      project: marker.projectId,
+      agent: marker.agentId,
+      work_run_id: marker.workRunId,
+      transition_token: marker.checkpointToken,
+      status: 'passed',
+      summary: `${fixture.run.label} fleet checkpoint passed`,
+      evidence: [`orca-terminal:${fixture.externalRefs.find((ref) => ref.kind === 'orca-terminal')!.target}`],
+    };
+    const checkpoint = await call('workflow.agent.checkpoint', checkpointParams);
+    assertResultSecretFree(checkpoint, handoffToken, 'checkpoint result');
+    const afterCheckpoint = mutationManifest(vault);
+    const checkpointReplay = await call('workflow.agent.checkpoint', checkpointParams);
+    assertResultSecretFree(checkpointReplay, handoffToken, 'checkpoint replay result');
+    assert.deepEqual(mutationManifest(vault), afterCheckpoint, 'checkpoint replay changed bytes');
+
+    const leaveParams = {
+      project: marker.projectId,
+      agent: marker.agentId,
+      work_run_id: marker.workRunId,
+      work_run_state: 'completed',
+      transition_token: marker.leaveToken,
+      summary: `${fixture.run.label} fleet execution completed`,
+    };
+    const leave = await call('workflow.agent.leave', leaveParams);
+    assertResultSecretFree(leave, handoffToken, 'leave result');
+    const afterLeave = mutationManifest(vault);
+    const leaveReplay = await call('workflow.agent.leave', leaveParams);
+    assertResultSecretFree(leaveReplay, handoffToken, 'leave replay result');
+    assert.deepEqual(mutationManifest(vault), afterLeave, 'leave replay changed bytes');
+    assert.equal(existsSync(leasePath(vault, fixture)), false, 'remote workflow created a lease registry');
+    assertSharedSecretFree(vault, handoffToken);
+  } catch (error) {
+    throw sanitizedError(error, handoffToken);
   }
-
-  const joinParams = { ...base, transition_token: marker.joinToken };
-  const joined = await call('workflow.agent.join', joinParams) as { idempotent: boolean };
-  assert.equal(joined.idempotent, false);
-  const afterJoin = mutationManifest(vault);
-  const joinReplay = await call('workflow.agent.join', joinParams) as { idempotent: boolean };
-  assert.equal(joinReplay.idempotent, true);
-  assert.deepEqual(mutationManifest(vault), afterJoin, 'join replay changed bytes');
-
-  const checkpointParams = {
-    project: marker.projectId,
-    agent: marker.agentId,
-    work_run_id: marker.workRunId,
-    transition_token: marker.checkpointToken,
-    status: 'passed',
-    summary: `${fixture.run.label} fleet checkpoint passed`,
-    evidence: [`orca-terminal:${fixture.externalRefs.find((ref) => ref.kind === 'orca-terminal')!.target}`],
-  };
-  await call('workflow.agent.checkpoint', checkpointParams);
-  const afterCheckpoint = mutationManifest(vault);
-  await call('workflow.agent.checkpoint', checkpointParams);
-  assert.deepEqual(mutationManifest(vault), afterCheckpoint, 'checkpoint replay changed bytes');
-
-  const leaveParams = {
-    project: marker.projectId,
-    agent: marker.agentId,
-    work_run_id: marker.workRunId,
-    work_run_state: 'completed',
-    transition_token: marker.leaveToken,
-    summary: `${fixture.run.label} fleet execution completed`,
-  };
-  await call('workflow.agent.leave', leaveParams);
-  const afterLeave = mutationManifest(vault);
-  await call('workflow.agent.leave', leaveParams);
-  assert.deepEqual(mutationManifest(vault), afterLeave, 'leave replay changed bytes');
-  assert.equal(existsSync(leasePath(vault, fixture)), false, 'remote workflow created a lease registry');
 }
 
 function copySharedVault(source: string, destination: string, requireEmpty: boolean): void {
@@ -628,9 +747,9 @@ async function verifyFixture(
   marker: AcceptanceMarker,
 ): Promise<Check[]> {
   const checks: Check[] = [];
-  const proof = JSON.parse(readFileSync(localProof(deviceState), 'utf-8')) as LocalProof;
+  const proof = readLocalProof(deviceState);
   const currentLeaseBytes = readFileSync(leasePath(vault, fixture));
-  const leases = JSON.parse(currentLeaseBytes.toString('utf-8')) as Record<string, WorkDriverLease>;
+  const leases = JSON.parse(currentLeaseBytes.toString('utf-8')) as Record<string, RawWorkDriverLease>;
   const matchingLeases = Object.values(leases).filter((lease) => lease.work_run_id === marker.workRunId);
   const durable = JSON.parse(readFileSync(runPath(vault, fixture.project.slug, marker.workRunId), 'utf-8')) as Record<string, unknown>;
   const { call } = operationHarness(vault);
@@ -640,7 +759,20 @@ async function verifyFixture(
     assert.equal(proof.correlationId, marker.correlationId);
     assert.equal(sha256(currentLeaseBytes), proof.leaseBytesSha256);
     assert.equal(matchingLeases.length, 1);
-    assert.deepEqual(matchingLeases[0], proof.lease);
+    const localLease = matchingLeases[0]!;
+    if (localLease.handoff_token !== proof.handoffToken) {
+      throw new Error('local handoff token no longer matches the Work Driver lease');
+    }
+    const nonSecretLease: WorkDriverLease = {
+      agent_id: localLease.agent_id,
+      project_id: localLease.project_id,
+      work_item_id: localLease.work_item_id,
+      work_run_id: localLease.work_run_id,
+      base_head: localLease.base_head,
+      acquired_at: localLease.acquired_at,
+      expires_at: localLease.expires_at,
+    };
+    assert.deepEqual(nonSecretLease, proof.lease);
     assert.equal(proof.lease.project_id, marker.projectId);
     assert.equal(proof.lease.work_item_id, marker.workItemId);
     assert.equal(proof.lease.work_run_id, marker.workRunId);
@@ -692,6 +824,8 @@ async function verifyFixture(
     assert.equal(Object.hasOwn(marker, 'lease'), false);
     assert.equal(Object.hasOwn(marker, 'vault'), false);
     assert.equal(Object.hasOwn(marker, 'deviceState'), false);
+    assert.equal(shared.includes(proof.handoffToken), false, 'raw handoff token leaked into shared state');
+    assertSharedSecretFree(vault, proof.handoffToken);
   });
   return checks;
 }
@@ -709,27 +843,36 @@ async function main(): Promise<void> {
     : vault;
   const deviceState = options.deviceStatePath ?? mkdtempSync(join(tmpdir(), 'llmwiki-fleet-device-'));
   assertIndependentRoots(vault, remoteVault, deviceState, options.phase);
+  assertLocalSecretPath(deviceState, '--device-state');
   const checks: Check[] = [];
   let marker: AcceptanceMarker | undefined;
+  let handoffToken: string | undefined;
 
   try {
     if (options.phase === 'prepare' || options.phase === 'all') {
       marker = await prepareFixture(vault, deviceState, fixture, digest, options.testedCommit);
+      handoffToken = readLocalProof(deviceState).handoffToken;
       checks.push({ name: 'makeProjectOps and Python Work Driver created one local lease', ok: true });
     }
-    if (options.phase === 'remote') marker = readMarker(vault, fixture, digest, options.testedCommit);
+    if (options.phase === 'remote') {
+      marker = readMarker(vault, fixture, digest, options.testedCommit);
+      handoffToken = resolveRemoteHandoffToken(options, deviceState);
+    }
     if (options.phase === 'all') {
       copySharedVault(vault, remoteVault, true);
       const remoteMarker = readMarker(remoteVault, fixture, digest, options.testedCommit);
-      await executeRemote(remoteVault, fixture, remoteMarker);
+      await executeRemote(remoteVault, fixture, remoteMarker, handoffToken!);
       copySharedVault(remoteVault, vault, false);
       marker = readMarker(vault, fixture, digest, options.testedCommit);
-      checks.push({ name: '5090 portable handoff rejected conflicts and replayed byte-identically', ok: true });
+      checks.push({ name: '5090 handoff rejected missing/wrong capabilities and identities, then replayed byte-identically', ok: true });
     } else if (options.phase === 'remote') {
-      await executeRemote(vault, fixture, marker!);
-      checks.push({ name: '5090 portable handoff rejected conflicts and replayed byte-identically', ok: true });
+      await executeRemote(vault, fixture, marker!, handoffToken!);
+      checks.push({ name: '5090 handoff rejected missing/wrong capabilities and identities, then replayed byte-identically', ok: true });
     }
-    if (options.phase === 'verify') marker = readMarker(vault, fixture, digest, options.testedCommit);
+    if (options.phase === 'verify') {
+      marker = readMarker(vault, fixture, digest, options.testedCommit);
+      handoffToken = readLocalProof(deviceState).handoffToken;
+    }
     if (options.phase === 'verify' || options.phase === 'all') {
       checks.push(...await verifyFixture(vault, deviceState, fixture, marker!));
     }
@@ -746,6 +889,7 @@ async function main(): Promise<void> {
       externalRefs: fixture.externalRefs,
       checks,
     };
+    if (handoffToken) assertResultSecretFree(report, handoffToken, 'acceptance report');
     if (options.json) process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
     else {
       for (const check of report.checks) {
