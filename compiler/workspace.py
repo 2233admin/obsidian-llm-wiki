@@ -1,6 +1,6 @@
 """Task 9 / PR 9A: the LOCAL PROJECT REGISTRY (zero-dependency, stdlib only).
 
-> vault-mind recognises the LOCAL machine first. A project's LOGICAL identity
+> LLM Wiki recognises the LOCAL machine first. A project's LOGICAL identity
 > (`entity: project/<slug>`) lives in the shared, committed `Projects/<slug>.md`
 > note; the MACHINE PATH lives ONLY in the gitignored
 > `<vault>/.vault-mind/local-bindings.json`. A machine path is NEVER written into

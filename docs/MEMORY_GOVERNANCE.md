@@ -1,14 +1,14 @@
 # Memory Governance
 
-LLMwiki is the searchable memory surface for a team vault, not the owner of
+LLM Wiki is the searchable memory surface for a team vault, not the owner of
 every workflow state. In skill-aware environments, workflow packs such as
 gstack and Matt Pocock engineering skills already own parts of the development
-loop. LLMwiki must recognize those authority boundaries, then index and cite
+loop. LLM Wiki must recognize those authority boundaries, then index and cite
 their reviewed outputs without replacing them.
 
 ## Source of Truth
 
-| Memory layer | Source of truth | LLMwiki behavior |
+| Memory layer | Source of truth | LLM Wiki behavior |
 |---|---|---|
 | Execution plan, review, QA, ship, handoff | gstack | Link and summarize reviewed artifacts; do not rewrite gstack state. |
 | Issue tracker, triage labels, domain docs, TDD discipline | Matt Pocock engineering skills | Read `docs/agents/*.md`; prompt setup when missing; do not choose tracker or labels. |
@@ -85,9 +85,9 @@ derived read model and must route mutations to the owning domain operation.
 
 - Authority: execution plans, reviews, QA, ship/deploy flow, handoffs, context
   save/restore, and artifacts.
-- LLMwiki may index gstack plan, review, QA, ship, and handoff summaries after
+- LLM Wiki may index gstack plan, review, QA, ship, and handoff summaries after
   they are durable.
-- LLMwiki must not modify `~/.gstack`, gstack config, artifact sync state,
+- LLM Wiki must not modify `~/.gstack`, gstack config, artifact sync state,
   checkpointing, or skill routing decisions.
 - Project Hubs may expose current focus, last handoff, open risks, and next
   action.
@@ -96,11 +96,11 @@ derived read model and must route mutations to the owning domain operation.
 
 - Authority: issue tracker setup, triage label vocabulary, domain docs, TDD,
   and engineering discipline.
-- LLMwiki reads `docs/agents/issue-tracker.md`,
+- LLM Wiki reads `docs/agents/issue-tracker.md`,
   `docs/agents/triage-labels.md`, and `docs/agents/domain.md`.
-- If those files are missing, LLMwiki should tell the user to run
+- If those files are missing, LLM Wiki should tell the user to run
   `setup-matt-pocock-skills`.
-- LLMwiki must not decide the issue tracker, rewrite labels, or override domain
+- LLM Wiki must not decide the issue tracker, rewrite labels, or override domain
   doc layout.
 
 ### Generic Skill Pack Rule
@@ -142,7 +142,7 @@ installed_and_mirrored
 ```
 
 Missing gstack or Matt skills must not block normal vault search. It only means
-LLMwiki should avoid claiming those workflow surfaces are available.
+LLM Wiki should avoid claiming those workflow surfaces are available.
 
 ## External Workflow Memory Boundary
 

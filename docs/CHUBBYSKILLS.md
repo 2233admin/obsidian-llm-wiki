@@ -1,6 +1,6 @@
 # ChubbySkills integration
 
-LLMwiki supports `chubbyguan/chubbyskills` as an optional local ingest pack.
+LLM Wiki supports `chubbyguan/chubbyskills` as an optional local ingest pack.
 
 Together they form a local NotebookLM-style workflow:
 
@@ -8,14 +8,14 @@ Together they form a local NotebookLM-style workflow:
 feeds / links / videos / podcasts
   -> ChubbySkills capture and transcription
   -> local Obsidian / Markdown vault
-  -> LLMwiki search, memory, citations, review, promotion
+  -> LLM Wiki search, memory, citations, review, promotion
 ```
 
 ## Why this belongs in the skill layer
 
-ChubbySkills has platform-specific capture logic and optional heavy dependencies such as `ffmpeg`, `yt-dlp`, `funasr`, `torch`, `faster-whisper`, and article parsing packages. LLMwiki should not bundle that into the MCP server.
+ChubbySkills has platform-specific capture logic and optional heavy dependencies such as `ffmpeg`, `yt-dlp`, `funasr`, `torch`, `faster-whisper`, and article parsing packages. LLM Wiki should not bundle that into the MCP server.
 
-Instead, LLMwiki exposes a `/chubbyskills` skill that coordinates the upstream toolkit and keeps the vault contract consistent.
+Instead, LLM Wiki exposes a `/chubbyskills` skill that coordinates the upstream toolkit and keeps the vault contract consistent.
 
 ## Upstream capabilities
 
@@ -25,7 +25,7 @@ Source: `https://github.com/chubbyguan/chubbyskills`.
 
 ## Install pattern
 
-Install LLMwiki as usual:
+Install LLM Wiki as usual:
 
 ```bash
 ./setup --host codex
@@ -54,7 +54,7 @@ bash setup.sh bilibili-transcribe podcast-transcribe wechat-article-ingest
 
 ```text
 素材库/                       # raw captured material from ChubbySkills
-raw/                         # raw compiler source material for LLMwiki
+raw/                         # raw compiler source material for LLM Wiki
 wiki/                        # compiled / structured knowledge
 00-Inbox/AI-Output/<actor>/  # agent-authored synthesis candidates
 00-Inbox/Agent-Memory/<actor>/
@@ -70,7 +70,7 @@ You do not need to rename an existing vault. Treat this as a recommended convent
 1. Drop a platform link into the agent.
 2. `/chubbyskills` selects the relevant upstream skill.
 3. ChubbySkills captures Markdown and assets into the vault.
-4. LLMwiki confirms visibility with `vault.search` or `query.unified`.
+4. LLM Wiki confirms visibility with `vault.search` or `query.unified`.
 5. The agent writes source-backed synthesis into `00-Inbox/AI-Output/<actor>/`.
 6. Durable knowledge is reviewed and promoted into `wiki/`, `20-Decisions/`, `30-Architecture/`, or `40-Runbooks/`.
 
@@ -80,4 +80,4 @@ You do not need to rename an existing vault. Treat this as a recommended convent
 - Do not bypass private content, deleted content, paywalls, or login boundaries.
 - Do not store cookies or API keys in vault notes.
 - Keep heavyweight media/transcription dependencies outside `mcp-server/bundle.js`.
-- Keep raw source references so LLMwiki answers can cite local files.
+- Keep raw source references so LLM Wiki answers can cite local files.

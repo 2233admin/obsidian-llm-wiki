@@ -1,10 +1,16 @@
-﻿# LLMwiki Context
+﻿# LLM Wiki Context
 
-LLMwiki turns local vault content and captured external material into searchable, citable, agent-operable knowledge.
+LLM Wiki turns local vault content and captured external material into searchable, citable, agent-operable knowledge.
+
+## Product naming
+
+**LLM Wiki** is the canonical human-facing name for the complete system. Use `llmwiki` only for machine-facing identifiers such as namespaces, metadata keys, commands, paths, and package or repository names.
+
+**OBC** means the existing **Obsidian Broken Link Checker** package. It is an LLM Wiki link-diagnostics capability, never a product name, control plane, settings owner, or synonym for LLM Wiki. Keep `obc` only where compatibility with that package, its CLI, persisted keys, or historical specifications requires it.
 
 ## Language
 
-**Knowledge Item**: A first-class unit of knowledge that LLMwiki can search, cite, relate, or operate on inside a vault. A Knowledge Item may represent evidence, analysis, memory, project work, a kanban card, a source record, or an asset record.
+**Knowledge Item**: A first-class unit of knowledge that LLM Wiki can search, cite, relate, or operate on inside a vault. A Knowledge Item may represent evidence, analysis, memory, project work, a kanban card, a source record, or an asset record.
 _Avoid_: Evidence Note as the umbrella term, note, document
 
 **Knowledge Item Type**: The category of a Knowledge Item. Phase 1 types are `source_record`, `evidence`, `analysis`, `memory`, `issue`, `comment`, `kanban_card`, `asset`, and `transcript`.
@@ -49,7 +55,7 @@ _Avoid_: preflight, pipeline, task
 **Preflight**: A side-effect-free capability check and pipeline plan for a Source. Preflight may classify the Platform and Source Kind, recommend Providers, and report limitations, but it must not create an Ingest Run or write to the vault.
 _Avoid_: ingest run, import, capture
 
-**MCP Runtime Boundary**: The boundary between reusable MCP protocol/runtime plumbing and LLMwiki's domain operations. LLMwiki should prefer official SDKs or mature MCP frameworks for transport, tool registration, schema handling, and response formatting, while keeping Source, Ingest, Memory, Project, Query, and Vault behavior in its own domain layer.
+**MCP Runtime Boundary**: The boundary between reusable MCP protocol/runtime plumbing and LLM Wiki's domain operations. LLM Wiki should prefer official SDKs or mature MCP frameworks for transport, tool registration, schema handling, and response formatting, while keeping Source, Ingest, Memory, Project, Query, and Vault behavior in its own domain layer.
 _Avoid_: hand-rolled MCP server, protocol plumbing as product logic
 
 **Partial Ingest**: An Ingest Run that produced useful Captures, Derivatives, Source metadata, or errors but did not reach an indexed Knowledge Item. Partial Ingests should be resumable or explain why manual action is required.
@@ -58,10 +64,10 @@ _Avoid_: failure, success, skipped import
 **Derivative**: A reusable processing product derived from a Capture or another Derivative. Examples include transcript text, OCR text, extracted metadata, comment digest, speaker diarization, thumbnail description, or cleaned article text.
 _Avoid_: Capture, Knowledge Item, Analysis Note
 
-**Index Contract**: The minimum condition for an object to count as an indexed Knowledge Item in LLMwiki. It must have a vault path, type, indexed status, display title or label, searchable text, provenance, and at least file-level citation target.
+**Index Contract**: The minimum condition for an object to count as an indexed Knowledge Item in LLM Wiki. It must have a vault path, type, indexed status, display title or label, searchable text, provenance, and at least file-level citation target.
 _Avoid_: capture success, provider output, file exists
 
-**Citation Target**: A concrete reference location that lets LLMwiki point back to evidence or work. Citation Targets may refer to a file, heading, Obsidian block, media timestamp, comment ID, platform post ID, local issue ID, or Kanban card.
+**Citation Target**: A concrete reference location that lets LLM Wiki point back to evidence or work. Citation Targets may refer to a file, heading, Obsidian block, media timestamp, comment ID, platform post ID, local issue ID, or Kanban card.
 _Avoid_: source URL, provenance, vague reference
 
 **Provenance**: The traceable origin and processing history of a Knowledge Item, Capture, or Derivative. Provenance records original and canonical sources, Platform, Source Kind, Provider, Provider Capability, Ingest Run, timestamps, content hashes, and Access Context.
@@ -82,7 +88,7 @@ _Avoid_: filter, ranking, query
 **Registered Selection Policy**: The Selection Policy stored with a Source during Source Registration. Phase 1 records this intent for future Collection Expansion even when no expansion is executed yet.
 _Avoid_: executed selection, search query, provider filter
 
-**Source Registry**: A lightweight catalog of Sources that LLMwiki may revisit, expand, ingest, or analyze over time. The registry records source identity, Platform, Source Kind, Access Context, last expansion or ingest state, and related Knowledge Items.
+**Source Registry**: A lightweight catalog of Sources that LLM Wiki may revisit, expand, ingest, or analyze over time. The registry records source identity, Platform, Source Kind, Access Context, last expansion or ingest state, and related Knowledge Items.
 _Avoid_: bookmark list, ingest run, provider config
 
 **Source Registry Phase 1**: The initial Source Registry scope supports registering, listing, and reading Sources plus creating Source Notes. It does not execute capture, download, transcription, scheduling, or automatic monitoring.
@@ -112,10 +118,10 @@ _Avoid_: provider output path, capture path, note title
 **Source Registry Path**: The vault-internal machine index path for registered Sources. Phase 1 uses `_llmwiki/source-registry.json` as the primary Source Registry while Source Notes provide the human-readable Markdown view.
 _Avoid_: Source Note Path, provider config, capture storage
 
-**Agent Layer**: An optional orchestration layer that uses LLMwiki's MCP tools to perform multi-step knowledge workflows. Claude Code Agent SDK is a preferred Agent Layer candidate, but it should not be required by the MCP server core.
+**Agent Layer**: An optional orchestration layer that uses LLM Wiki's MCP tools to perform multi-step knowledge workflows. Claude Code Agent SDK is a preferred Agent Layer candidate, but it should not be required by the MCP server core.
 _Avoid_: MCP server core, provider, adapter
 
-**Skill Pack**: A named external or project-local collection of agent skills that LLMwiki can inventory, explain, and optionally mirror. Skill Packs describe workflow capability, not vault knowledge by themselves.
+**Skill Pack**: A named external or project-local collection of agent skills that LLM Wiki can inventory, explain, and optionally mirror. Skill Packs describe workflow capability, not vault knowledge by themselves.
 _Avoid_: Provider, MCP tool namespace, adapter
 
 **Skill Inventory**: A local scan of skill roots such as `.agents/skills`, `.codex/skills`, and project `skills/` that reports which Skill Pack entries are installed, missing, or project-mirrored.
@@ -124,10 +130,10 @@ _Avoid_: npm install result, runtime capability guarantee
 **Skill Mirror**: A project-local copy or vendor view of a Skill Pack entry. Mirroring makes a skill visible to a project or distributable with it, but user-level installed skills remain the preferred execution source.
 _Avoid_: source of truth, package install, automatic sync
 
-**Global Skill Invocation**: The default way LLMwiki and its Agent Layer use external Skill Packs. Skills installed in user-level roots such as `.agents/skills` or `.codex/skills` are invoked on demand; project mirroring is optional and should not be required for normal use.
+**Global Skill Invocation**: The default way LLM Wiki and its Agent Layer use external Skill Packs. Skills installed in user-level roots such as `.agents/skills` or `.codex/skills` are invoked on demand; project mirroring is optional and should not be required for normal use.
 _Avoid_: mandatory project mirror, bundled skill dependency, hidden install step
 
-**Operation Interface**: LLMwiki's internal domain interface for MCP-exposed behavior. Domain modules return `Operation[]`; a separate MCP runtime adapter turns those operations into SDK-registered tools and handles schema conversion, calls, errors, and content responses.
+**Operation Interface**: LLM Wiki's internal domain interface for MCP-exposed behavior. Domain modules return `Operation[]`; a separate MCP runtime adapter turns those operations into SDK-registered tools and handles schema conversion, calls, errors, and content responses.
 _Avoid_: SDK tool as domain model, direct protocol handler in domain module
 
 **MCP Runtime Adapter**: A protocol adapter that exposes Operation Interface entries as MCP SDK tools. It owns tool schema conversion, operation dispatch, result formatting, and error formatting, but does not own config loading, vault initialization, adapter registry initialization, or compile trigger setup.
@@ -145,7 +151,7 @@ _Avoid_: raw thrown object, MCP-specific error in domain module
 **Operation Error Helper**: A named constructor for common operation failures, such as `badRequest`, `notFound`, `conflict`, `unsupported`, and `internal`. Helpers make Source Registry, Ingest, Memory, Project, and Query errors consistent.
 _Avoid_: ad hoc numeric code, string-only error, transport exception
 
-**Work Driver**: The component that closes LLMwiki's loop from "true and queryable" to "work done" by reading authoritative work-OS truth, selecting the next executable item, leasing it, running an agent, and routing the result back through capture. It never decides knowledge truth on its own; it only proposes and promotes within the Promotion Policy.
+**Work Driver**: The component that closes LLM Wiki's loop from "true and queryable" to "work done" by reading authoritative work-OS truth, selecting the next executable item, leasing it, running an agent, and routing the result back through capture. It never decides knowledge truth on its own; it only proposes and promotes within the Promotion Policy.
 _Avoid_: scheduler, daemon, orchestrator, runtime
 
 **Work Run**: A single execution attempt in which the Work Driver leases one executable item, hands it to an agent, and collects the result for capture. Distinct from an Ingest Run, which executes a Source ingest pipeline; a Work Run executes a unit of project work.
@@ -157,31 +163,31 @@ _Avoid_: result type, severity, risk score
 **Promotion Policy**: The fail-safe rule that decides, by Run Output Class, whether a Work Run's result is auto-promoted into current-truth or routed to triage for human review. Auto-promotion is an allowlist a result must affirmatively clear: work-state transitions may auto-promote, knowledge claims always go to human review, external side-effects require explicit per-run approval, and any unclassifiable result falls back to human review.
 _Avoid_: approval flow, risk gate, permission
 
-**Settings Platform**: The LLMwiki domain that owns the definitions, scoped values, effective snapshots, validation, migration, and health of operational configuration shared by every host and capability. OBC, Dream Time, MCP, CLI, compiler, and Obsidian consume it but do not own it.
+**Settings Platform**: The LLM Wiki domain that owns the definitions, scoped values, effective snapshots, validation, migration, and health of operational configuration shared by every host and capability. LLM Wiki link diagnostics (the `obc` package), Dream Time, MCP, CLI, compiler, and Obsidian consume it but do not own it.
 _Avoid_: OBC settings, Obsidian settings, config file, environment variables
 
-**Setting Definition**: The registered meaning and constraints of one LLMwiki setting, identified by a stable namespaced key. It includes ownership and sensitivity semantics independently of any current value.
+**Setting Definition**: The registered meaning and constraints of one LLM Wiki setting, identified by a stable namespaced key. It includes ownership and sensitivity semantics independently of any current value.
 _Avoid_: form field, config entry, environment variable
 
 **Settings Scope**: The boundary at which a setting value applies. Canonical scopes are product, user-device, vault, workspace-project, and session.
 _Avoid_: config file, profile, environment
 
-**Settings Snapshot**: An immutable, versioned view of effective settings and their provenance for a specific runtime context. It is the configuration input consumed by LLMwiki capabilities.
+**Settings Snapshot**: An immutable, versioned view of effective settings and their provenance for a specific runtime context. It is the configuration input consumed by LLM Wiki capabilities.
 _Avoid_: live config object, Obsidian data.json, settings file
 
 **Secret Reference**: An opaque reference that identifies where a sensitive value can be resolved without storing or returning that value through the Settings Platform.
 _Avoid_: secret value, API key field, plaintext credential
 
-**Capability Health**: The explained operational state of an LLMwiki capability after evaluating its settings, dependencies, and runtime availability. Canonical states are `available`, `degraded`, `unavailable`, and `disabled`.
+**Capability Health**: The explained operational state of an LLM Wiki capability after evaluating its settings, dependencies, and runtime availability. Canonical states are `available`, `degraded`, `unavailable`, and `disabled`.
 _Avoid_: configured boolean, process health, diagnostic finding
 
-**Host Capability Connector**: A host-local integration that discovers and invokes operational capabilities supplied by an external tool or plugin through normalized LLMwiki contracts. It reports capability identity, health, permissions, and supported operations, but it does not become a Knowledge Adapter or own LLMwiki domain semantics.
+**Host Capability Connector**: A host-local integration that discovers and invokes operational capabilities supplied by an external tool or plugin through normalized LLM Wiki contracts. It reports capability identity, health, permissions, and supported operations, but it does not become a Knowledge Adapter or own LLM Wiki domain semantics.
 _Avoid_: Knowledge Adapter, Provider, arbitrary command bridge, bundled plugin code
 
 **Capability Descriptor**: The stable machine-readable declaration of one callable capability, including its identity, version, operations, input contract, side-effect class, required permissions, health probe, and provenance. Capability Descriptors let first-party and third-party implementations participate in the same registry without receiving equal trust by default.
 _Avoid_: settings form, plugin manifest, command palette entry, runtime instance
 
-**Obsidian Control Plane**: The primary human-facing LLMwiki client for inspecting and changing settings, capability health, and operations from Obsidian. It is not the settings source of truth and must use the same domain operations as other hosts.
+**Obsidian Control Plane**: The primary human-facing LLM Wiki client for inspecting and changing settings, capability health, and operations from Obsidian. It is not the settings source of truth and must use the same domain operations as other hosts.
 _Avoid_: settings backend, source of truth, standalone plugin logic
 
 **Project**: A durable, goal-driven collaboration context that coordinates work, knowledge, runtime, settings, and integrations under one stable identity. A Project does not become identical to any repository, directory, board, forge project, or vault subtree bound to it.

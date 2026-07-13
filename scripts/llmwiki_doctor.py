@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Doctor checks for a collaborative LLMwiki team vault."""
+"""Doctor checks for a collaborative LLM Wiki team vault."""
 from __future__ import annotations
 
 import argparse
@@ -298,7 +298,7 @@ def payload(vault: Path, checks: list[Check]) -> dict[str, Any]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Check a collaborative LLMwiki team vault.")
+    parser = argparse.ArgumentParser(description="Check a collaborative LLM Wiki team vault.")
     parser.add_argument("--vault", required=True, help="Path to the local markdown vault")
     parser.add_argument("--actor", default=None, help="Actor name for optional MCP write-policy verification")
     parser.add_argument("--role", default=None, choices=["agent", "human"], help="Actor role for optional MCP write-policy verification")
@@ -324,7 +324,7 @@ def main() -> int:
     if args.json:
         print(json.dumps(data, ensure_ascii=False, indent=2))
     else:
-        print(f"LLMwiki doctor: {data['summary']['ok']} ok, {data['summary']['warn']} warn, {data['summary']['error']} error")
+        print(f"LLM Wiki doctor: {data['summary']['ok']} ok, {data['summary']['warn']} warn, {data['summary']['error']} error")
         for c in checks:
             path = f" {c.path}" if c.path else ""
             detail = f" ({c.detail})" if c.detail else ""

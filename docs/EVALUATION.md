@@ -1,6 +1,6 @@
 # Evaluation
 
-LLMwiki evaluates the reviewed-memory pipeline in two layers:
+LLM Wiki evaluates the reviewed-memory pipeline in two layers:
 
 1. Local scorecard for deterministic retrieval and citation checks.
 2. Optional external judges for RAG answer quality.
@@ -16,7 +16,7 @@ source of truth.
 | DeepEval | CI-friendly LLM eval tests and faithfulness metrics | Optional judge/export target |
 | RAGChecker | Fine-grained RAG diagnosis | Optional diagnostic run |
 | Phoenix / TruLens | Tracing and production observability | Optional runtime telemetry |
-| LLMwiki scorecard | Retrieval hit rate, MRR, precision, citation coverage | Built in |
+| LLM Wiki scorecard | Retrieval hit rate, MRR, precision, citation coverage | Built in |
 
 ## Dataset
 

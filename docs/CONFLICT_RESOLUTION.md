@@ -12,7 +12,7 @@ The lint checks common conflict-copy names such as `sync-conflict` and
 `conflicted copy`.
 
 It also flags Obsidian/Git pollution such as `.obsidian/workspace*.json`,
-`.trash/`, OS metadata files, and local LLMwiki runtime state.
+`.trash/`, OS metadata files, and local LLM Wiki runtime state.
 
 ## Resolve
 

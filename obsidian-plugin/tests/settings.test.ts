@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  SETTING_DEFINITIONS,
   createDefaultSettings,
   getEffectiveValue,
   migrateSettings,
@@ -8,6 +9,12 @@ import {
   setAssignment,
   validateSettings,
 } from "../src/settings";
+
+test("uses LLM Wiki product wording while preserving the obc compatibility key", () => {
+  const diagnostics = SETTING_DEFINITIONS.find(definition => definition.key === "diagnostics.obc.semantic.enabled");
+  assert.equal(diagnostics?.name, "Link-diagnostics semantic suggestions");
+  assert.equal(diagnostics?.name.includes("OBC"), false);
+});
 
 test("migrates legacy runtime paths into the user-device scope", () => {
   const result = migrateSettings({ pythonPath: "  py -3  ", kbMetaPath: " D:\\repo\\compiler\\kb_meta.py " });

@@ -1,4 +1,4 @@
-# vault-mind 设计哲学
+# LLM Wiki 设计哲学
 
 > 知识不是被管理的，是自己运动的。
 
@@ -6,7 +6,7 @@
 
 ### 生产力与生产关系
 
-vault-mind 的根本矛盾：生产力 (adapter + compiler + agent) 与生产关系 (vault 的组织结构) 之间的矛盾。
+LLM Wiki 的根本矛盾：生产力 (adapter + compiler + agent) 与生产关系 (vault 的组织结构) 之间的矛盾。
 
 当生产力发展到 vault 结构容不下时 -- 不是加功能能解决的，是要改 vault 的组织方式。
 
@@ -23,7 +23,7 @@ vault-mind 的根本矛盾：生产力 (adapter + compiler + agent) 与生产关
 
 obsidian-second-brain 的 skill 不解决异化，只是更高效地操作异化物。
 
-vault-mind 的 compile = **去异化 (Aufhebung der Entfremdung)**：把散落笔记重新接回认识-实践循环，让"死知识"重新成为"活的认识"。
+LLM Wiki 的 compile = **去异化 (Aufhebung der Entfremdung)**：把散落笔记重新接回认识-实践循环，让"死知识"重新成为"活的认识"。
 
 ### 剩余价值
 

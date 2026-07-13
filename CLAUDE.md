@@ -1,8 +1,8 @@
-# CLAUDE.md — LLM Wiki Bridge
+# CLAUDE.md — LLM Wiki
 
 ## What This Is
 
-Knowledge OS for AI agents. 四层架构:
+LLM Wiki for AI agents. 四层架构:
 1. **MCP Server** (TypeScript, stdio) — 统一接口
 2. **Adapter Registry** — filesystem(default) / obsidian(WS) / memU(pgvector) / gitnexus(graph)
 3. **KB Compiler** (Python, zero-dep) — raw/ → wiki/ 单向编译

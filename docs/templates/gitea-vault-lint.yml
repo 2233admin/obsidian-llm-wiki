@@ -10,9 +10,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Checkout LLMwiki tools
+      - name: Checkout LLM Wiki tools
         run: git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git .llmwiki-tools
-      - name: Run LLMwiki doctor
+      - name: Run LLM Wiki doctor
         run: python3 .llmwiki-tools/scripts/llmwiki_doctor.py --vault . --json
       - name: Report knowledge health
         run: python3 .llmwiki-tools/scripts/knowledge_health.py --vault . --json

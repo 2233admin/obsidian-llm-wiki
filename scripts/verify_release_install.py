@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Verify that an LLMwiki release checkout can serve and enforce a temp vault."""
+"""Verify that an LLM Wiki release checkout can serve and enforce a temp vault."""
 from __future__ import annotations
 
 import argparse
@@ -166,7 +166,7 @@ def verify(repo: Path) -> dict[str, Any]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Verify a release/source checkout without touching a user vault.")
-    parser.add_argument("--repo", default=str(ROOT), help="LLMwiki repo or release checkout path")
+    parser.add_argument("--repo", default=str(ROOT), help="LLM Wiki repo or release checkout path")
     parser.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
     args = parser.parse_args()
 

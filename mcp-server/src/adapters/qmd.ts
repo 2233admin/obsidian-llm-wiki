@@ -77,7 +77,7 @@ export class QmdAdapter implements VaultMindAdapter {
     }
     if (!this._available) {
       process.stderr.write(
-        "vault-mind: [qmd] CLI not available on PATH -- adapter disabled\n",
+        "llmwiki: [qmd] CLI not available on PATH -- adapter disabled\n",
       );
     }
   }

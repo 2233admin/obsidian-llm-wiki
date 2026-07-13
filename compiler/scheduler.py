@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Agent scheduler state machine for vault-mind Phase 5.
+"""Agent scheduler state machine for LLM Wiki Phase 5.
 
 Also hosts the connector sweep (LMVK L1): per-source interval scheduling for
 compiler/connectors/, driven by the ``connectors:`` block in vault-mind.yaml.
@@ -295,7 +295,7 @@ def run_connector_sweep(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="vault-mind agent scheduler")
+    parser = argparse.ArgumentParser(description="LLM Wiki agent scheduler")
     parser.add_argument("--config", help="Path to vault-mind.yaml", default=None)
     parser.add_argument("--vault", help="Vault path override", default=None)
     parser.add_argument("--mode", choices=["day", "night", "auto"], default="auto")

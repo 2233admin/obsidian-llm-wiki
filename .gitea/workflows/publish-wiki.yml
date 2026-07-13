@@ -93,10 +93,10 @@ jobs:
           {
             echo '<!doctype html>'
             echo '<html lang="en"><head><meta charset="utf-8">'
-            echo '<title>LLMwiki demo wiki</title>'
+            echo '<title>LLM Wiki demo wiki</title>'
             echo '<link rel="stylesheet" href="static/wiki.css">'
             echo '</head><body>'
-            echo '<h1>LLMwiki published demo wiki</h1>'
+            echo '<h1>LLM Wiki published demo wiki</h1>'
             echo "<p>Auto-generated landing page. This publishes <strong>demo data</strong> from <code>${PUBLIC_WIKI_SOURCE_PATH}</code>, not a real user vault. See docs/PAGES_PUBLISHING.md in the source repo.</p>"
             echo '<h2>Concepts</h2><ul>'
             for f in "$OUT"/concepts/*.html; do

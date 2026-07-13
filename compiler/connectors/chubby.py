@@ -5,7 +5,7 @@ Integration model follows the chubbyskills SKILL.md
 separately -- default ``~/chubbyskills``, override with the
 ``CHUBBYSKILLS_HOME`` env var -- and this connector shells out to its
 scripts. Heavy dependencies (yt-dlp / ffmpeg / funasr / faster-whisper /
-bs4) stay upstream; nothing is vendored into vault-mind.
+bs4) stay upstream; nothing is vendored into LLM Wiki.
 
 Channels:
 

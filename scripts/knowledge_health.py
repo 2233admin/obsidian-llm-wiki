@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Report-only knowledge health checks for an LLMwiki vault."""
+"""Report-only knowledge health checks for an LLM Wiki vault."""
 from __future__ import annotations
 
 import argparse
@@ -262,7 +262,7 @@ def run(vault: Path) -> dict:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Report-only LLMwiki knowledge quality checks.")
+    parser = argparse.ArgumentParser(description="Report-only LLM Wiki knowledge quality checks.")
     parser.add_argument("--vault", required=True, help="Path to the markdown vault")
     parser.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
     parser.add_argument("--fail-on-error", action="store_true", help="Return non-zero if error findings are present")

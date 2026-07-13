@@ -1,6 +1,6 @@
 """Task 9: ENSURE AN OBSIDIAN COMMUNITY PLUGIN IS INSTALLED + ENABLED.
 
-> vault-mind renders a kanban board (work_driver.render_kanban_board) that only
+> LLM Wiki renders a kanban board (work_driver.render_kanban_board) that only
 > displays for users whose vault has the obsidian-kanban community plugin. This
 > module makes "ensure the plugin is present" a first-class, idempotent, atomic,
 > dry-run-by-default operation -- so a freshly-cloned vault can render the board.

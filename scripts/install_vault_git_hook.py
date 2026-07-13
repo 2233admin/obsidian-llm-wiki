@@ -20,7 +20,7 @@ python "$LLMWIKI_ROOT/scripts/llmwiki_doctor.py" --vault "$VAULT_ROOT"
 def main() -> int:
     parser = argparse.ArgumentParser(description="Install collaborative vault doctor pre-commit hook.")
     parser.add_argument("--vault", required=True, help="Path to the Git-managed Obsidian vault")
-    parser.add_argument("--llmwiki-root", default=None, help="Path to this LLMwiki checkout")
+    parser.add_argument("--llmwiki-root", default=None, help="Path to this LLM Wiki checkout")
     parser.add_argument("--force", action="store_true", help="Overwrite an existing pre-commit hook")
     args = parser.parse_args()
 

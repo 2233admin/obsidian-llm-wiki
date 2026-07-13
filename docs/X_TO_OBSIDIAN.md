@@ -1,8 +1,8 @@
 # X/Twitter to Obsidian capture
 
-LLMwiki supports the `X-to-Obsidian-SKill` workflow as an optional installed skill: `x-to-obsidian`.
+LLM Wiki supports the `X-to-Obsidian-SKill` workflow as an optional installed skill: `x-to-obsidian`.
 
-The workflow captures high-signal X/Twitter posts through the official Obsidian Web Clipper, then lets LLMwiki index and govern the saved Markdown like any other vault note.
+The workflow captures high-signal X/Twitter posts through the official Obsidian Web Clipper, then lets LLM Wiki index and govern the saved Markdown like any other vault note.
 
 ## Boundary
 
@@ -15,11 +15,11 @@ This is not an MCP-server scraper. Browser automation, logged-in X access, and W
 - The browser is logged into X/Twitter.
 - Obsidian is running.
 - The official Obsidian Web Clipper extension is installed and configured for the target vault.
-- LLMwiki is installed with `./setup` or `.\setup.ps1`, which registers `x-to-obsidian` alongside the vault skills.
+- LLM Wiki is installed with `./setup` or `.\setup.ps1`, which registers `x-to-obsidian` alongside the vault skills.
 
 ## Install
 
-Run the normal LLMwiki setup:
+Run the normal LLM Wiki setup:
 
 ```bash
 ./setup --host claude
@@ -69,5 +69,5 @@ python3 ~/.claude/skills/x-to-obsidian/scripts/x_to_obsidian.py --help
 
 - The skill should not handcraft tweet Markdown instead of using Web Clipper.
 - The skill should stop with a blocker if browser login, Obsidian, or Web Clipper is unavailable.
-- LLMwiki can search the captured notes immediately after they land in the vault.
+- LLM Wiki can search the captured notes immediately after they land in the vault.
 - Source inspiration: `https://github.com/hemoouren/X-to-Obsidian-SKill`.

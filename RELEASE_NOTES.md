@@ -1,8 +1,8 @@
-# LLMwiki v2.2.0
+# LLM Wiki v2.2.0
 
 **Reviewed team memory compiler.**
 
-LLMwiki now focuses on one clear loop: scattered research and agent output
+LLM Wiki now focuses on one clear loop: scattered research and agent output
 become compiled wiki, cited AI drafts, and reviewed team memory.
 
 ## What changed
@@ -14,7 +14,7 @@ become compiled wiki, cited AI drafts, and reviewed team memory.
 - Added collaborative vault governance docs, templates, and an example
   `examples/collab-vault`.
 - Added report-only health and doctor tools for team vaults.
-- Cleaned public branding to **LLMwiki**.
+- Cleaned public branding to **LLM Wiki**.
 
 ## Try it
 

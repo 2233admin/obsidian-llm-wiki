@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Agent evaluation and action execution for vault-mind Phase 5."""
+"""Agent evaluation and action execution for LLM Wiki Phase 5."""
 
 from __future__ import annotations
 
@@ -743,7 +743,7 @@ def trigger_payload(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="vault-mind agent evaluation and action runner")
+    parser = argparse.ArgumentParser(description="LLM Wiki agent evaluation and action runner")
     parser.add_argument("--config", help="Path to vault-mind.yaml", default=None)
     parser.add_argument("--vault", help="Vault path override", default=None)
     parser.add_argument("--mode", choices=["day", "night", "auto"], default="auto")

@@ -13,7 +13,7 @@ sources:
 
 Decision: durable shared knowledge moves through Gitea pull requests.
 
-LLMwiki enforces agent write boundaries. Gitea records human review.
+LLM Wiki enforces agent write boundaries. Gitea records human review.
 
 ## Promotion Evidence
 

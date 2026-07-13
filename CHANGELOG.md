@@ -129,7 +129,7 @@ feat: Supermemory + PageIndex integration.
 
 ## v2.2.0 -- 2026-05-17
 
-LLMwiki is now positioned around one product loop: scattered research and
+LLM Wiki is now positioned around one product loop: scattered research and
 agent output become cited, reviewable, promoted team memory.
 
 ### Highlights
@@ -148,7 +148,7 @@ agent output become cited, reviewable, promoted team memory.
 - **Health and release verification tools.** Added `llmwiki_doctor.py`,
   `knowledge_health.py`, `vault_collab_lint.py`, `mcp_sync_probe.py`, and
   `verify_release_install.py`.
-- **Brand cleanup.** Public docs now use **LLMwiki** and avoid the old
+- **Brand cleanup.** Public docs now use **LLM Wiki** and avoid the old
   "LLM Wiki Bridge" surface.
 
 ### Notes

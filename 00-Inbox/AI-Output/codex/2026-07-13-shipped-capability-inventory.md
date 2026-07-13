@@ -1,6 +1,6 @@
 ---
 llmwiki_type: analysis
-title: Shipped capability inventory against the LLM Wiki × OBC × Dream Time target
+title: Shipped capability inventory for LLM Wiki
 generated-by: agent:codex
 generated-at: 2026-07-13
 agent: codex
@@ -18,7 +18,7 @@ source-nodes:
 
 This inventory answers the Wayfinder question “which capabilities are shipped, partial, or absent?” against authoritative baseline `37b5e6e`. It is inspection evidence, not promoted architecture truth.
 
-The highest-priority lens is the user-identified **LLM Wiki system-wide settings gap**. The system has substantial domain behavior, but it does not yet have one settings domain, registry, schema, migration path, or control plane shared by its runtimes and user interfaces. OBC is only one settings consumer; it is not the center of this gap.
+The highest-priority lens is the user-identified **LLM Wiki system-wide settings gap**. The system has substantial domain behavior, but it does not yet have one settings domain, registry, schema, migration path, or control plane shared by its runtimes and user interfaces. The `obc` link-diagnostics package is only one settings consumer; it is not the center of this gap.
 
 ## Executive finding
 
@@ -27,10 +27,10 @@ The repository is not missing a knowledge backend. It already ships a broad MCP,
 - Runtime configuration is fragmented across environment variables, a partially parsed `vault-mind.yaml`, compiler-specific files, machine-local bindings, connector-specific variables, workflow files, and Obsidian plugin `data.json`.
 - There is no canonical versioned settings schema, registry, typed domain API, migration protocol, validation/doctor report, or secret-reference policy spanning LLM Wiki.
 - The Obsidian plugin is still a `0.1.0` single-purpose Promote gesture with only two path fields, so it cannot act as the main control plane for the existing system.
-- OBC, community-plugin lifecycle, vault readiness, adapters, providers, Work-OS, cycles, publishing, and Dream Time integration all need to consume the same settings platform rather than inventing local configuration.
+- Link diagnostics, community-plugin lifecycle, vault readiness, adapters, providers, Work-OS, cycles, publishing, and Dream Time integration all need to consume the same settings platform rather than inventing local configuration.
 - Daily notes and generic cycle rollups exist, but Daily/Weekly/Monthly are not yet one coherent knowledge-cycle product surface.
 
-The next architecture work should therefore reuse the shipped engines and specify the missing **LLM Wiki Settings Platform plus Obsidian control plane**, rather than redesigning OBC, plugin installation, query, or Work-OS from scratch.
+The next architecture work should therefore reuse the shipped engines and specify the missing **LLM Wiki Settings Platform plus Obsidian control plane**, rather than redesigning link diagnostics, plugin installation, query, or Work-OS from scratch.
 
 ## Capability matrix
 
@@ -43,9 +43,9 @@ The next architecture work should therefore reuse the shipped engines and specif
 | Compiler | Shipped, broad | Compile run/diff/status/abort; rhizome metadata; currency, initiatives, cycles, Work-OS, graph/holon/provenance output | Several advanced compiler capabilities remain CLI-only and are not visible in Obsidian settings |
 | Unified query | Shipped | Eight query operations: filesystem search, RRF unified search, semantic/vector search, trace, answer, explain, adapter inventory | Adapter/configuration health is not presented as a coherent user settings surface |
 | Work-OS | Shipped foundation | Project issue CRUD/linking/comments; derived Kanban, Canvas, and Base views; Python/TypeScript board parity; work driver and budget/lease mechanics | Plugin dependencies and execution controls are not integrated into the Obsidian UI |
-| Vault readiness | Shipped but fragmented | `context.vault_status` has five readiness buckets; `vault.lint` checks health; OBC provides deeper static diagnostics | Readiness, OBC findings, plugin status, and remediation are separate surfaces with no unified diagnosis page |
-| OBC diagnostics | Shipped CLI engine / one settings consumer | Link extraction/resolution, explicit diagnostic codes, orphan/stale detection, semantic suggestions, fix planning, guarded apply | No integration with the system settings domain, MCP operation, Obsidian command, run history, pack configuration, or result view |
-| Community plugin lifecycle | Shipped backend | Read-only status plus safe, dry-run-first, atomic install/enable; validates IDs; preserves user `data.json` on refresh | Only `kb_meta ensure-plugin`; defaults around Kanban; no inventory UI, update UX, health explanation, or OBC binding |
+| Vault readiness | Shipped but fragmented | `context.vault_status` has five readiness buckets; `vault.lint` checks health; LLM Wiki link diagnostics provides deeper static diagnostics | Readiness, link-diagnostics findings, plugin status, and remediation are separate surfaces with no unified diagnosis page |
+| Link diagnostics (`obc`) | Shipped CLI engine / one settings consumer | Link extraction/resolution, explicit diagnostic codes, orphan/stale detection, semantic suggestions, fix planning, guarded apply | No integration with the system settings domain, MCP operation, Obsidian command, run history, pack configuration, or result view |
+| Community plugin lifecycle | Shipped backend | Read-only status plus safe, dry-run-first, atomic install/enable; validates IDs; preserves user `data.json` on refresh | Only `kb_meta ensure-plugin`; defaults around Kanban; no inventory UI, update UX, health explanation, or link-diagnostics binding |
 | Obsidian plugin | Minimal / stale | Promote command, file-menu gesture, dry-run preview, base-head-safe apply | Version `0.1.0`; settings are only Python path and `kb_meta.py` path; no LLM Wiki system control plane |
 | Daily / cycle | Partial | `vault.daily`; `cycle:` aggregation and completion view; weekly dogfood rollup script | Daily/Weekly/Monthly are not first-class governed knowledge-cycle artifacts with shared configuration and views |
 | Connectors | Partial | Compiler connectors exist for Chubby, Gmail, Hacker News, web search, and X; MCP transport/connectors exist | Availability, credentials, provider health, and routing are not unified in plugin settings |
@@ -68,12 +68,12 @@ These are configuration fragments. They do not provide a canonical Settings enti
 
 ### What is already reusable
 
-1. **OBC diagnostic engine.** [`obc/README.md`](../../../obc/README.md) and [`obc/cli.py`](../../../obc/cli.py) expose `extract`, `check`, `orphan`, `stale`, `plan`, and `apply`. Diagnostics distinguish certainty and safety instead of returning a boolean.
+1. **LLM Wiki link-diagnostics engine (`obc`).** [`obc/README.md`](../../../obc/README.md) and [`obc/cli.py`](../../../obc/cli.py) expose `extract`, `check`, `orphan`, `stale`, `plan`, and `apply`. Diagnostics distinguish certainty and safety instead of returning a boolean.
 2. **Plugin lifecycle backend.** [`compiler/plugins.py`](../../../compiler/plugins.py) already models installed and enabled as separate axes, detects broken half-states, plans before writing, performs atomic replacement, and preserves non-asset files such as plugin `data.json`.
 3. **CLI integration.** [`compiler/kb_meta.py`](../../../compiler/kb_meta.py) exposes `ensure-plugin` with plugin ID, repository, dry-run/apply, and force controls.
 4. **Vault readiness.** [`mcp-server/src/adapters/vaultbrain/vault-status.ts`](../../../mcp-server/src/adapters/vaultbrain/vault-status.ts) already distinguishes missing, empty, unindexed, stale/backgrounding, and ready vaults.
 
-OBC is functionally implemented but not fully packaged as an installable product surface: the root [`pyproject.toml`](../../../pyproject.toml) declares no console-script entry point and an empty dependency list, while [`obc/semantic.py`](../../../obc/semantic.py) imports scikit-learn. This is one example of the system-wide requirement: every capability needs a settings/readiness contract that can honestly report whether it is configured and callable.
+The `obc` link-diagnostics package is functionally implemented but not fully packaged as an installable product surface: the root [`pyproject.toml`](../../../pyproject.toml) declares no console-script entry point and an empty dependency list, while [`obc/semantic.py`](../../../obc/semantic.py) imports scikit-learn. This is one example of the system-wide requirement: every capability needs a settings/readiness contract that can honestly report whether it is configured and callable.
 
 ### What the current Obsidian plugin actually provides
 
@@ -82,7 +82,7 @@ OBC is functionally implemented but not fully packaged as an installable product
 - `pythonPath`
 - `kbMetaPath`
 
-The plugin has no representation of the LLM Wiki runtime, configuration layers, OBC, diagnostic packs, community-plugin inventory, connector availability, query adapters, source providers, publishing, cycles, Dream Time, or generated views. Its package and manifest remain at `0.1.0`.
+The plugin has no representation of the LLM Wiki runtime, configuration layers, link diagnostics, diagnostic packs, community-plugin inventory, connector availability, query adapters, source providers, publishing, cycles, Dream Time, or generated views. Its package and manifest remain at `0.1.0`.
 
 ### Confirmed missing settings-platform and control-plane capabilities
 
@@ -96,16 +96,16 @@ The plugin has no representation of the LLM Wiki runtime, configuration layers, 
 - Automatic runtime/path discovery and a test/doctor action; users should not have to understand `kb_meta.py` as the product boundary.
 - Read-only plugin inventory and health: installed, enabled, version, update availability, missing assets, enabled-without-files, files-without-enabled-entry.
 - Explicit install/enable/update/disable actions with dry-run previews and preserved plugin data.
-- OBC run controls and profile/pack settings, with deterministic results, evidence, safety tier, and a route into reviewed Work-OS proposals.
-- OBC runtime/package readiness checks, including a callable entry point and declared optional semantic dependencies.
+- Link-diagnostics run controls and profile/pack settings, with deterministic results, evidence, safety tier, and a route into reviewed Work-OS proposals.
+- Link-diagnostics runtime/package readiness checks, including a callable entry point and declared optional semantic dependencies.
 - A durable, versioned settings schema with migrations and secret/reference boundaries.
-- Status and remediation UX joining vault readiness, indexing, OBC findings, provider health, and plugin health.
+- Status and remediation UX joining vault readiness, indexing, link-diagnostics findings, provider health, and plugin health.
 - Tests for settings migration, Obsidian UI behavior, and the plugin-to-domain boundary.
 
 ## Release-drift evidence
 
 - The Obsidian plugin feature was introduced on 2026-06-28 and remains version `0.1.0`.
-- OBC was implemented in a sequence of commits on 2026-07-02.
+- The `obc` link-diagnostics package was implemented in a sequence of commits on 2026-07-02.
 - The authoritative baseline is from 2026-07-12, yet there is still no system-wide settings operation namespace, registry, migration mechanism, or parity contract across the plugin, MCP, compiler, connectors, scripts, and workflows.
 
 This confirms the reported problem is system-wide: domain capabilities advanced independently while their configuration remained fragmented and the Obsidian control surface did not advance with them.
@@ -115,16 +115,16 @@ This confirms the reported problem is system-wide: domain capabilities advanced 
 1. Establish Settings as a first-class LLM Wiki domain before treating the Obsidian settings tab as the source of truth.
 2. Treat the Obsidian plugin as the primary human-facing settings client and operational control plane; MCP, CLI, Dream Time, diagnostics, and other hosts use the same settings operations.
 3. Keep durable knowledge and Work-OS authority separate from operational settings. Settings may reference vault/project identities but must not become a competing knowledge truth store.
-4. Reuse existing engines such as `compiler/plugins.py`, OBC, vault readiness, query adapters, providers, and Work-OS; do not duplicate their logic in UI code.
+4. Reuse existing engines such as `compiler/plugins.py`, link diagnostics, vault readiness, query adapters, providers, and Work-OS; do not duplicate their logic in UI code.
 5. Expose settings and capability operations through a stable bridge instead of shelling every feature directly from individual UI controls.
-6. Keep OBC one-shot and replayable. It consumes system settings; it does not own the settings backend or scheduler.
+6. Keep link diagnostics one-shot and replayable. It consumes system settings; it does not own the settings backend or scheduler.
 7. Make the system-wide settings platform a prerequisite to the integration protocol and the first usable vertical slice.
 
 ## Evidence index
 
 - MCP surface: [`docs/mcp-tools-reference.md`](../../../docs/mcp-tools-reference.md) — 104 operations across 18 namespaces.
 - Host/plugin UI: [`obsidian-plugin/src/main.ts`](../../../obsidian-plugin/src/main.ts), [`obsidian-plugin/manifest.json`](../../../obsidian-plugin/manifest.json), [`obsidian-plugin/package.json`](../../../obsidian-plugin/package.json).
-- OBC: [`obc/README.md`](../../../obc/README.md), [`obc/cli.py`](../../../obc/cli.py), [`docs/SPEC-OBC-MVP.md`](../../../docs/SPEC-OBC-MVP.md).
+- Link diagnostics (`obc`): [`obc/README.md`](../../../obc/README.md), [`obc/cli.py`](../../../obc/cli.py), [`docs/SPEC-OBC-MVP.md`](../../../docs/SPEC-OBC-MVP.md).
 - Plugin lifecycle: [`compiler/plugins.py`](../../../compiler/plugins.py), [`compiler/tests/test_plugins.py`](../../../compiler/tests/test_plugins.py), [`compiler/kb_meta.py`](../../../compiler/kb_meta.py).
 - Work-OS and views: [`docs/LOCAL_PROJECTS.md`](../../../docs/LOCAL_PROJECTS.md), [`HANDOFF.md`](../../../HANDOFF.md).
 - Source and ingest boundaries: [`CONTEXT.md`](../../../CONTEXT.md), [`docs/INGEST.md`](../../../docs/INGEST.md), [`docs/AGENT_WORKFLOW_INTEGRATION.md`](../../../docs/AGENT_WORKFLOW_INTEGRATION.md).
@@ -132,4 +132,4 @@ This confirms the reported problem is system-wide: domain capabilities advanced 
 
 ## Verification method
 
-The inventory was derived from tracked source, generated MCP reference, tests, release history, and negative repository searches for OBC/plugin integration. No runtime or external repository was treated as durable truth.
+The inventory was derived from tracked source, generated MCP reference, tests, release history, and negative repository searches for link-diagnostics/plugin integration. No runtime or external repository was treated as durable truth.

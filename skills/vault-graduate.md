@@ -2,12 +2,12 @@
 name: vault-graduate
 description: >
   Promote scattered vault mentions into dedicated notes.
-  Uses the vault-mind MCP server to analyze and structure data.
+  Uses the LLM Wiki MCP server to analyze and structure data.
 ---
 
 # /vault-graduate [concept]
 
-# Requires: vault-mind MCP server
+# Requires: LLM Wiki MCP server (legacy registration key: `vault-mind`)
 
 Promote a recurring concept from scattered mentions to a dedicated vault page.
 

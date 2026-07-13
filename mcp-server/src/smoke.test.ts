@@ -265,7 +265,7 @@ assert.ok(!base.isError, `project.base.export errored: ${JSON.stringify(base.con
 
 const canvasSearch = await client.callTool({
 name: 'vault.search',
-arguments: { query: 'LLMwiki project map', glob: '**/*.canvas', maxResults: 5 },
+arguments: { query: 'LLM Wiki project map', glob: '**/*.canvas', maxResults: 5 },
 });
 assert.ok(!canvasSearch.isError, `vault.search canvas errored: ${JSON.stringify(canvasSearch.content)}`);
 const canvasPayload = JSON.parse((canvasSearch.content as Array<{ text: string }>)[0].text) as { results: Array<{ path: string }> };

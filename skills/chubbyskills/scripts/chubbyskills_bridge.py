@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plan a safe ChubbySkills + LLMwiki local knowledge workflow.
+"""Plan a safe ChubbySkills + LLM Wiki local knowledge workflow.
 
 This helper intentionally does not clone repositories or install dependencies.
 It prints reproducible commands and keeps external actions explicit.
@@ -64,19 +64,19 @@ def print_plan(vault: str, install_dir: str, names: list[str]) -> None:
     vault_path = str(Path(vault).expanduser()).replace("\\", "/") if vault else "/path/to/your/vault"
 
     print(dedent(f"""\
-    # ChubbySkills + LLMwiki local knowledge plan
+    # ChubbySkills + LLM Wiki local knowledge plan
 
     # 1. Keep both systems pointed at the same vault.
     export VAULT_MIND_VAULT_PATH="{vault_path}"
     export VAULT_DIR="$VAULT_MIND_VAULT_PATH"
 
-    # 2. Install upstream ChubbySkills outside the LLMwiki MCP bundle.
+    # 2. Install upstream ChubbySkills outside the LLM Wiki MCP bundle.
     git clone {REPO_URL} "{install_path}"
     cd "{install_path}"
     bash setup.sh {skill_args}
 
-    # 3. Capture with the relevant upstream skill, then query with LLMwiki.
-    # Example LLMwiki follow-up:
+    # 3. Capture with the relevant upstream skill, then query with LLM Wiki.
+    # Example LLM Wiki follow-up:
     #   query.unified: search the generated Markdown
     #   vault.writeAIOutput: file a source-backed synthesis
     #   memory.handoff.write: leave continuation state
@@ -88,13 +88,13 @@ def print_plan(vault: str, install_dir: str, names: list[str]) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Plan ChubbySkills integration for a LLMwiki vault.")
+    parser = argparse.ArgumentParser(description="Plan ChubbySkills integration for a LLM Wiki vault.")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("list", help="List known upstream ChubbySkills integrations.")
 
     plan = sub.add_parser("plan", help="Print safe install/env commands.")
-    plan.add_argument("--vault", default="", help="Path to the LLMwiki/Obsidian vault.")
+    plan.add_argument("--vault", default="", help="Path to the LLM Wiki/Obsidian vault.")
     plan.add_argument("--install-dir", default="~/chubbyskills", help="Where to clone upstream ChubbySkills.")
     plan.add_argument("--skills", nargs="*", default=[], help="Subset of upstream skill names.")
 

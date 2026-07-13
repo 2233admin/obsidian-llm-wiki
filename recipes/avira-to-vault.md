@@ -19,7 +19,7 @@ requires: []
 
 Runs a local Avira-compatible antivirus scan command and writes a Markdown report into the vault so later agent sessions can cite security scan evidence.
 
-LLMwiki does not bundle an antivirus engine and does not upload files. This recipe only orchestrates a local command you configure.
+LLM Wiki does not bundle an antivirus engine and does not upload files. This recipe only orchestrates a local command you configure.
 
 ## What it does
 

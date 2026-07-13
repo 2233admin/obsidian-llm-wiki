@@ -1,6 +1,6 @@
 # Project Context Architecture
 
-LLMwiki treats a Project as a stable collaboration context identified by
+LLM Wiki treats a Project as a stable collaboration context identified by
 `project/<slug>`. Repositories, local directories, boards, Obsidian folders,
 and forge records are bindings or projections; none of them defines the
 Project.

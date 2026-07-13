@@ -99,7 +99,7 @@ export const SETTING_DEFINITIONS: SettingDefinition[] = [
   {
     key: "diagnostics.obc.semantic.enabled",
     category: "diagnostics",
-    name: "OBC semantic suggestions",
+    name: "Link-diagnostics semantic suggestions",
     description: "Add optional semantic suggestions while deterministic link diagnostics remain available.",
     valueType: "boolean",
     defaultValue: false,

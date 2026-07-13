@@ -1221,7 +1221,7 @@ Classify a source URL and route it to OPENCLI or MEDIA_TRANSCRIBE. Read-only cap
 
 ### `ingest.providers`
 
-List supported local ingest providers. LLMwiki routes to OPENCLI for text/web capture and MEDIA_TRANSCRIBE for audio/video parsing, download, and transcription; it does not bundle platform scrapers.
+List supported local ingest providers. LLM Wiki routes to OPENCLI for text/web capture and MEDIA_TRANSCRIBE for audio/video parsing, download, and transcription; it does not bundle platform scrapers.
 
 **Mutating:** no
 

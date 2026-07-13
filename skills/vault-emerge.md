@@ -2,12 +2,12 @@
 name: vault-emerge
 description: >
   Surface unnamed patterns from recent vault activity.
-  Uses the vault-mind MCP server to analyze and structure data.
+  Uses the LLM Wiki MCP server to analyze and structure data.
 ---
 
 # /vault-emerge [days=30]
 
-# Requires: vault-mind MCP server
+# Requires: LLM Wiki MCP server (legacy registration key: `vault-mind`)
 
 Find patterns hiding in your vault that you haven't named yet.
 

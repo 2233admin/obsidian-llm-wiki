@@ -39620,7 +39620,7 @@ var GitNexusAdapter = class {
       await exec2(this.binary, ["--version"], { timeout: 5e3 });
       this.available = true;
     } catch {
-      process.stderr.write("vault-mind: [warn] gitnexus CLI not found, adapter disabled\n");
+      process.stderr.write("llmwiki: [warn] gitnexus CLI not found, adapter disabled\n");
     }
   }
   async dispose() {
@@ -39701,14 +39701,14 @@ var ObsidianAdapter = class {
     try {
       info = JSON.parse(readFileSync(this.portFile, "utf-8"));
     } catch {
-      process.stderr.write("vault-mind: [warn] ~/.obsidian-ws-port not found -- obsidian adapter disabled\n");
+      process.stderr.write("llmwiki: [warn] ~/.obsidian-ws-port not found -- obsidian adapter disabled\n");
       return;
     }
     await new Promise((resolve7) => {
       const ws = new wrapper_default(`ws://127.0.0.1:${info.port}`);
       const connectTimer = setTimeout(() => {
         ws.terminate();
-        process.stderr.write("vault-mind: [warn] obsidian WS connect timeout -- adapter disabled\n");
+        process.stderr.write("llmwiki: [warn] obsidian WS connect timeout -- adapter disabled\n");
         resolve7();
       }, CONNECT_TIMEOUT_MS);
       ws.once("open", async () => {
@@ -39724,7 +39724,7 @@ var ObsidianAdapter = class {
           await this.call("vault.auth", { token: info.token });
           this.available = true;
         } catch (e) {
-          process.stderr.write(`vault-mind: [warn] obsidian auth failed: ${e.message} -- adapter disabled
+          process.stderr.write(`llmwiki: [warn] obsidian auth failed: ${e.message} -- adapter disabled
 `);
           this.ws = null;
           ws.terminate();
@@ -39733,7 +39733,7 @@ var ObsidianAdapter = class {
       });
       ws.once("error", (e) => {
         clearTimeout(connectTimer);
-        process.stderr.write(`vault-mind: [warn] obsidian WS error: ${e.message} -- adapter disabled
+        process.stderr.write(`llmwiki: [warn] obsidian WS error: ${e.message} -- adapter disabled
 `);
         resolve7();
       });
@@ -40075,7 +40075,7 @@ var QmdAdapter = class {
       this._available = false;
     }
     if (!this._available) {
-      process.stderr.write("vault-mind: [qmd] CLI not available on PATH -- adapter disabled\n");
+      process.stderr.write("llmwiki: [qmd] CLI not available on PATH -- adapter disabled\n");
     }
   }
   async search(query, opts) {
@@ -40171,7 +40171,7 @@ var LightRAGAdapter = class {
   async init() {
     if (!this.baseUrl) {
       this._available = false;
-      process.stderr.write("vault-mind: [lightrag] LIGHTRAG_URL not set -- adapter disabled\n");
+      process.stderr.write("llmwiki: [lightrag] LIGHTRAG_URL not set -- adapter disabled\n");
       return;
     }
     try {
@@ -40184,7 +40184,7 @@ var LightRAGAdapter = class {
       this._available = false;
     }
     if (!this._available) {
-      process.stderr.write(`vault-mind: [lightrag] unavailable at ${this.baseUrl} -- adapter disabled
+      process.stderr.write(`llmwiki: [lightrag] unavailable at ${this.baseUrl} -- adapter disabled
 `);
     }
   }
@@ -40371,7 +40371,7 @@ var RAGAnythingAdapter = class {
   async init() {
     if (!this.baseUrl) {
       this._available = false;
-      process.stderr.write("vault-mind: [raganything] RAGANYTHING_URL not set -- adapter disabled\n");
+      process.stderr.write("llmwiki: [raganything] RAGANYTHING_URL not set -- adapter disabled\n");
       return;
     }
     try {
@@ -40384,7 +40384,7 @@ var RAGAnythingAdapter = class {
       this._available = false;
     }
     if (!this._available) {
-      process.stderr.write(`vault-mind: [raganything] unavailable at ${this.baseUrl} -- adapter disabled
+      process.stderr.write(`llmwiki: [raganything] unavailable at ${this.baseUrl} -- adapter disabled
 `);
     }
   }
@@ -41010,7 +41010,7 @@ var GraphifyAdapter = class {
       await exec3(this.binary, ["--version"], { timeout: 5e3, ...shellOpt(this.binary) });
       this.available = true;
     } catch {
-      process.stderr.write("vault-mind: [warn] graphify CLI not found -- adapter disabled (install: uv tool install graphifyy)\n");
+      process.stderr.write("llmwiki: [warn] graphify CLI not found -- adapter disabled (install: uv tool install graphifyy)\n");
     }
   }
   async dispose() {
@@ -41314,7 +41314,7 @@ var CompileTrigger = class {
     if (!path.endsWith(".md"))
       return;
     this.dirty.add(path);
-    process.stderr.write(`vault-mind: [compile] dirty +1: ${path} (${this.dirty.size}/${this.threshold})
+    process.stderr.write(`llmwiki: [compile] dirty +1: ${path} (${this.dirty.size}/${this.threshold})
 `);
     if (this.autoCompile && this.dirty.size >= this.threshold && !this.running) {
       this.autoTrigger();
@@ -41390,7 +41390,7 @@ var CompileTrigger = class {
           }
         }
         if (dirty.length > 0) {
-          process.stderr.write(`vault-mind: [compile] startup: ${dirty.length} dirty in "${topic}"
+          process.stderr.write(`llmwiki: [compile] startup: ${dirty.length} dirty in "${topic}"
 `);
         }
       } catch {
@@ -41412,11 +41412,11 @@ var CompileTrigger = class {
     if (!topic)
       return;
     this.running = true;
-    process.stderr.write(`vault-mind: [compile] auto-trigger for topic "${topic}" (${this.dirty.size} dirty)
+    process.stderr.write(`llmwiki: [compile] auto-trigger for topic "${topic}" (${this.dirty.size} dirty)
 `);
     this.compile(topic).catch((e) => {
       this.running = false;
-      process.stderr.write(`vault-mind: [compile] auto-trigger error: ${e.message}
+      process.stderr.write(`llmwiki: [compile] auto-trigger error: ${e.message}
 `);
     });
   }
@@ -41444,7 +41444,7 @@ var CompileTrigger = class {
       });
       const result = this.parseCompileOutput(topic, stdout, timestamp);
       if (stderr) {
-        process.stderr.write(`vault-mind: [compile] stderr: ${stderr.slice(0, 500)}
+        process.stderr.write(`llmwiki: [compile] stderr: ${stderr.slice(0, 500)}
 `);
       }
       for (const path of [...this.dirty]) {
@@ -44424,7 +44424,7 @@ function buildProjectCanvas(project, issues) {
       width: 340,
       height: 150,
       color: "2",
-      text: [`# ${project}`, "", "LLMwiki project map", "", `${issues.length} issues`].join("\n")
+      text: [`# ${project}`, "", "LLM Wiki project map", "", `${issues.length} issues`].join("\n")
     }
   ];
   const edges = [];
@@ -44478,7 +44478,7 @@ function buildProjectBase(project) {
   const sourceFolder = issuesRoot(project);
   const fields = [...BASE_FIELDS];
   const content = [
-    `# LLMwiki Obsidian Bases dashboard for ${project}`,
+    `# LLM Wiki Obsidian Bases dashboard for ${project}`,
     "filters:",
     "  and:",
     `    - 'file.inFolder("${sourceFolder}")'`,
@@ -44935,7 +44935,7 @@ var PROVIDERS = {
   }
 };
 var LOGIN_LIMITATION = "Login-gated, private, deleted, paywalled, or region-blocked content may require browser/cookie-assisted capture.";
-var NO_BYPASS_LIMITATION = "LLMwiki must not bypass platform access controls; use only content available to the user and configured providers.";
+var NO_BYPASS_LIMITATION = "LLM Wiki must not bypass platform access controls; use only content available to the user and configured providers.";
 function hostMatches(host, candidates) {
   return candidates.some((candidate) => host === candidate || host.endsWith(`.${candidate}`));
 }
@@ -45129,7 +45129,7 @@ function nextAction(status, provider, config2) {
     return `Use ${provider.name} with browser/cookie-assisted access as needed; claim success only after Markdown lands in the vault and query.unified can find it.`;
   }
   if (status === "manual_required") {
-    return `Try ${provider.name}, but expect manual/Web Clipper fallback; LLMwiki should only claim success after a local Markdown note exists.`;
+    return `Try ${provider.name}, but expect manual/Web Clipper fallback; LLM Wiki should only claim success after a local Markdown note exists.`;
   }
   return `Run ${provider.name} via ${config2.command}; once Markdown lands in the vault, use query.unified for cited analysis.`;
 }
@@ -45195,7 +45195,7 @@ function makeIngestOps() {
     {
       name: "ingest.providers",
       namespace: "ingest",
-      description: "List supported local ingest providers. LLMwiki routes to OPENCLI for text/web capture and MEDIA_TRANSCRIBE for audio/video parsing, download, and transcription; it does not bundle platform scrapers.",
+      description: "List supported local ingest providers. LLM Wiki routes to OPENCLI for text/web capture and MEDIA_TRANSCRIBE for audio/video parsing, download, and transcription; it does not bundle platform scrapers.",
       mutating: false,
       params: {},
       handler: async () => ({

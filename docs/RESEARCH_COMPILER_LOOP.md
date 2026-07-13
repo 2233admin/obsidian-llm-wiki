@@ -1,6 +1,6 @@
 # Research Compiler Loop
 
-LLMwiki turns a team's raw research folder into a reviewed, queryable Obsidian wiki. The loop is intentionally small:
+LLM Wiki turns a team's raw research folder into a reviewed, queryable Obsidian wiki. The loop is intentionally small:
 
 ```
 raw/ -> wiki/ -> query -> 00-Inbox/AI-Output/ -> reviewed/promoted durable knowledge

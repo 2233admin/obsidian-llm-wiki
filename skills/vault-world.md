@@ -2,12 +2,12 @@
 name: vault-world
 description: >
   Load vault context progressively -- identity, navigation, and current state.
-  Uses the vault-mind MCP server to query unified knowledge.
+  Uses the LLM Wiki MCP server to query unified knowledge.
 ---
 
 # /vault-world
 
-# Requires: vault-mind MCP server
+# Requires: LLM Wiki MCP server (legacy registration key: `vault-mind`)
 
 Load relevant knowledge and current state from your vault to build a starting context.
 

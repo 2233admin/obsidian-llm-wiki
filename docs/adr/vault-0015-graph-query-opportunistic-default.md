@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-Temporal graph retrieval should improve LLMwiki search without making graph infrastructure mandatory for normal vault use. Some release profiles may still need graph-backed verification once graph indexing is enabled.
+Temporal graph retrieval should improve LLM Wiki search without making graph infrastructure mandatory for normal vault use. Some release profiles may still need graph-backed verification once graph indexing is enabled.
 
 ## Decision
 
@@ -14,4 +14,4 @@ Temporal graph retrieval should improve LLMwiki search without making graph infr
 
 ## Consequences
 
-LLMwiki remains usable without Graphiti, Neo4j, or FalkorDB. Projects that need stronger temporal retrieval can opt into required graph freshness during release-check without imposing that dependency on every vault.
+LLM Wiki remains usable without Graphiti, Neo4j, or FalkorDB. Projects that need stronger temporal retrieval can opt into required graph freshness during release-check without imposing that dependency on every vault.

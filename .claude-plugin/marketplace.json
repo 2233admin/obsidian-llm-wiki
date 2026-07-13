@@ -1,7 +1,7 @@
 {
   "name": "obsidian-llm-wiki",
   "owner": { "name": "2233admin" },
-  "description": "LLMwiki — reviewed team memory compiler for Obsidian vaults",
+  "description": "LLM Wiki — reviewed team memory compiler for Obsidian vaults",
   "plugins": [
     {
       "name": "llmwiki",

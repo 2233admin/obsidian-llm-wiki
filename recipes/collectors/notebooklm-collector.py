@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# notebooklm-collector.py -- NotebookLM bridge for vault-mind (experimental)
+# notebooklm-collector.py -- NotebookLM bridge for LLM Wiki (experimental)
 # Wraps notebooklm-py (https://github.com/teng-lin/notebooklm-py), an UNOFFICIAL
 # client for Google's undocumented NotebookLM RPC APIs. Expect breakage when
 # Google changes things. Requires: pip install notebooklm-py && notebooklm login

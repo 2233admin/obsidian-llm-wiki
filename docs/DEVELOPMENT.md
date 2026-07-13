@@ -29,7 +29,7 @@ obsidian-knowledge/          ← Markdown 笔记（人类写）
       tasks/                 ← Vault 维护任务（docket 模式）
         TASK-001.md
     ↓ compile
-MCP server (vault-mind)      ← 服务层，Agent 唯一入口
+LLM Wiki MCP server          ← 服务层，Agent 唯一入口
 ```
 
 ### 三个知识层

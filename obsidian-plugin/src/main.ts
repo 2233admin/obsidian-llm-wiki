@@ -195,16 +195,16 @@ export default class LLMWikiPlugin extends Plugin {
     });
 
     if (!obcSemantic) {
-      checks.push({ capability: "OBC", state: "available", summary: "Deterministic diagnostics enabled; semantic suggestions disabled." });
+      checks.push({ capability: "LLM Wiki link diagnostics", state: "available", summary: "Deterministic diagnostics enabled; semantic suggestions disabled." });
     } else if (!kbMetaPath) {
-      checks.push({ capability: "OBC", state: "degraded", summary: "Semantic suggestions enabled, but runtime entry is unavailable." });
+      checks.push({ capability: "LLM Wiki link diagnostics", state: "degraded", summary: "Semantic suggestions enabled, but runtime entry is unavailable." });
     } else {
       try {
         await access(resolve(dirname(dirname(kbMetaPath)), "obc"));
         await pexecFile(pythonPath, ["-c", "import sklearn"], { env: { ...process.env, PYTHONUTF8: "1" } });
-        checks.push({ capability: "OBC", state: "available", summary: "Deterministic diagnostics and semantic suggestions are available." });
+        checks.push({ capability: "LLM Wiki link diagnostics", state: "available", summary: "Deterministic diagnostics and semantic suggestions are available." });
       } catch {
-        checks.push({ capability: "OBC", state: "degraded", summary: "Deterministic diagnostics remain available; semantic runtime dependencies are incomplete." });
+        checks.push({ capability: "LLM Wiki link diagnostics", state: "degraded", summary: "Deterministic diagnostics remain available; semantic runtime dependencies are incomplete." });
       }
     }
 
@@ -348,7 +348,7 @@ class LLMWikiSettingTab extends PluginSettingTab {
         copy.createEl("small", { text: check.summary });
       }
     } else {
-      overview.createEl("p", { text: "Run Doctor to verify runtime paths, effective settings, OBC, and provider references." });
+      overview.createEl("p", { text: "Run Doctor to verify runtime paths, effective settings, link diagnostics, and provider references." });
     }
 
     const actions = overview.createDiv({ cls: "llmwiki-settings-actions" });

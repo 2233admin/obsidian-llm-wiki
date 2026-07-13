@@ -1,6 +1,6 @@
 ## Why
 
-LLMwiki currently overloads `project` to mean a folder name, repository, Work-OS root, knowledge scope, and runtime namespace. The resulting `Projects/`, `01-Projects/`, and `10-Projects/` split can make current work invisible to recall, gives the Python Work Driver and TypeScript workflow separate run models, and prevents settings and integrations from sharing one reliable project context.
+LLM Wiki currently overloads `project` to mean a folder name, repository, Work-OS root, knowledge scope, and runtime namespace. The resulting `Projects/`, `01-Projects/`, and `10-Projects/` split can make current work invisible to recall, gives the Python Work Driver and TypeScript workflow separate run models, and prevents settings and integrations from sharing one reliable project context.
 
 ## What Changes
 

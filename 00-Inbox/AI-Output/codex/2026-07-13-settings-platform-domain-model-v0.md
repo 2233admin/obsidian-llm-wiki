@@ -17,7 +17,7 @@ source-nodes:
 
 ## Outcome
 
-LLM Wiki needs one first-class **Settings Platform**, not an OBC settings page and not a larger Obsidian `data.json`. It owns a versioned definition registry, scoped assignments, deterministic resolution, immutable effective snapshots, validation, migration, secret references, and capability health. Every host uses the same operations; Obsidian is the primary human-facing control plane, not the source of truth.
+LLM Wiki needs one first-class **Settings Platform**, not a link-diagnostics settings page and not a larger Obsidian `data.json`. It owns a versioned definition registry, scoped assignments, deterministic resolution, immutable effective snapshots, validation, migration, secret references, and capability health. Every host uses the same operations; Obsidian is the primary human-facing control plane, not the source of truth.
 
 This draft is the domain contract for the first prototype. It deliberately does not choose a database, serialization library, UI framework, or RPC transport.
 
@@ -36,7 +36,7 @@ The Settings Platform owns:
 It does not own:
 
 - durable knowledge claims, project truth, issues, memories, or promotion decisions;
-- the behavior of OBC, compiler, query adapters, providers, plugin lifecycle, publishing, cycles, or Dream Time;
+- the behavior of the `obc` link-diagnostics package, compiler, query adapters, providers, plugin lifecycle, publishing, cycles, or Dream Time;
 - credential values or the backing secret store;
 - Obsidian forms, CLI flags, MCP response envelopes, or runtime-specific transport;
 - execution scheduling. A capability may read a snapshot and run, but Settings does not become a daemon.
@@ -160,7 +160,7 @@ CapabilityHealth
   snapshotId
 ```
 
-Health combines registry requirements, effective settings, secret presence, runtime discovery, and capability-owned probes. `disabled` is intentional user policy; `unavailable` means the requested capability cannot run; `degraded` means a useful reduced path remains. OBC findings, broken links, or stale notes are diagnostic results—not Capability Health.
+Health combines registry requirements, effective settings, secret presence, runtime discovery, and capability-owned probes. `disabled` is intentional user policy; `unavailable` means the requested capability cannot run; `degraded` means a useful reduced path remains. Link-diagnostics findings, broken links, or stale notes are diagnostic results—not Capability Health.
 
 ## Scope precedence
 
@@ -235,9 +235,9 @@ The MCP server and CLI resolve the same persisted scopes and registry without Ob
 
 Web search references an absent API credential, while local filesystem query is healthy. `settings.doctor` reports web search `unavailable` and unified query `degraded`, with remediation to bind the secret reference. No API key is returned to any host.
 
-### OBC semantic dependency is absent
+### Link-diagnostics semantic dependency is absent
 
-Deterministic link checks remain available; semantic suggestions are unavailable because their optional runtime dependency is missing. OBC health is `degraded`, while actual broken-link results remain a separate diagnostic run output.
+Deterministic link checks remain available; semantic suggestions are unavailable because their optional runtime dependency is missing. LLM Wiki link-diagnostics health is `degraded`, while actual broken-link results remain a separate diagnostic run output.
 
 ### Concurrent editors
 
@@ -257,7 +257,7 @@ The control plane is a projection over definitions and health, grouped by capabi
 4. Work-OS
 5. Query and Index
 6. Sources, Providers, and Connectors
-7. Diagnostics, including OBC
+7. Diagnostics, including link diagnostics
 8. Community Plugins
 9. Daily / Weekly / Monthly Cycles
 10. Publishing
@@ -265,13 +265,13 @@ The control plane is a projection over definitions and health, grouped by capabi
 12. Security and Secrets
 13. Advanced
 
-Every field can show effective value, winning scope, provenance, validation, apply mode, and health. Actions such as OBC run, plugin install, compile, or publish are capability operations linked from the control plane; they are not setting mutations.
+Every field can show effective value, winning scope, provenance, validation, apply mode, and health. Actions such as a link-diagnostics run, plugin install, compile, or publish are capability operations linked from the control plane; they are not setting mutations.
 
 ## First vertical slice
 
 The smallest slice that proves the architecture is not an isolated UI mock:
 
-1. Register a handful of real definitions: vault identity/path, Python runtime path, query semantic enablement, OBC semantic enablement, and one provider secret reference.
+1. Register a handful of real definitions: vault identity/path, Python runtime path, query semantic enablement, link-diagnostics semantic enablement, and one provider secret reference.
 2. Persist user-device and vault assignments with revision checks and atomic backup.
 3. Resolve/explain one canonical snapshot in both Python and TypeScript from shared fixtures.
 4. Expose definitions, snapshot, set/unset, validate, and doctor through the Operation Interface.
@@ -290,7 +290,7 @@ This slice establishes the settings spine; later capabilities register definitio
 - Failed validation or migration leaves both active state and backup state intact.
 - Secret values are absent from persisted settings, operation results, events, logs, exports, and Obsidian plugin storage.
 - Doctor distinguishes `available`, `degraded`, `unavailable`, and `disabled` with evidence and remediation.
-- Obsidian contains no duplicated OBC, plugin lifecycle, query, or compiler business logic.
+- Obsidian contains no duplicated link-diagnostics, plugin lifecycle, query, or compiler business logic.
 - MCP, CLI, and Obsidian use the same operation contracts and explain the same effective values.
 - Operational settings remain outside Knowledge Item and Promotion Policy authority.
 

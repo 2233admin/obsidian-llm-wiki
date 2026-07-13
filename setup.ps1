@@ -1,4 +1,4 @@
-# LLM Wiki Bridge setup (PowerShell)
+# LLM Wiki setup (PowerShell)
 # Usage: .\setup.ps1 [-VaultHost <name>] [-DryRun]
 #
 # Copies a curated allowlist into the host's skills directory.
@@ -160,7 +160,7 @@ Write-Host "Vault Roles block:"
 Write-Host @"
 ## Vault Roles
 
-Your markdown vault is managed by host-neutral LLMwiki roles:
+Your markdown vault is managed by host-neutral LLM Wiki roles:
 
 | Role | Skill | What it does |
 |---|---|---|
@@ -170,7 +170,7 @@ Your markdown vault is managed by host-neutral LLMwiki roles:
 | Teacher | `/vault-teacher` | Explain concepts in graph context |
 | Historian | `/vault-historian` | Time-window search by mtime |
 | Janitor | `/vault-janitor` | Propose cleanup fixes |
-| Chubby Ingest | `/chubbyskills` | Install and route multi-platform capture into LLMwiki |
+| Chubby Ingest | `/chubbyskills` | Install and route multi-platform capture into LLM Wiki |
 | X Capture | `/x-to-obsidian` | Save high-signal X posts through Obsidian Web Clipper |
 | Closeout | `/vault-agent-closeout` | File agent work into AI-Output draft quarantine |
 "@

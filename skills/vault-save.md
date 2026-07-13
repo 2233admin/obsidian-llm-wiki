@@ -2,12 +2,12 @@
 name: vault-save
 description: >
   Save everything worth keeping from the current conversation to the knowledge vault.
-  Uses the vault-mind MCP server to create or update notes.
+  Uses the LLM Wiki MCP server to create or update notes.
 ---
 
 # /vault-save
 
-# Requires: vault-mind MCP server
+# Requires: LLM Wiki MCP server (legacy registration key: `vault-mind`)
 
 Save conversation knowledge (decisions, insights, research) to your vault.
 

@@ -2,7 +2,7 @@
 
 This guide sets up a shared Obsidian markdown vault backed by Gitea review.
 
-LLMwiki owns write rules. Gitea owns review. Your sync tool owns file copying
+LLM Wiki owns write rules. Gitea owns review. Your sync tool owns file copying
 between devices. Keep those boundaries separate.
 
 ## 1. Create Or Clone The Vault
@@ -18,7 +18,7 @@ Open that folder as an Obsidian vault. The repository root is the vault root.
 
 ## 2. Initialize Collaboration Layout
 
-From the LLMwiki checkout:
+From the LLM Wiki checkout:
 
 ```bash
 python scripts/init_collab_vault.py --vault /path/to/team-vault --team alice,bob --agents codex,claude

@@ -487,7 +487,7 @@ function buildProjectCanvas(project: string, issues: WorkNote[]): { nodes: Canva
       width: 340,
       height: 150,
       color: '2',
-      text: [`# ${project}`, '', 'LLMwiki project map', '', `${issues.length} issues`].join('\n'),
+      text: [`# ${project}`, '', 'LLM Wiki project map', '', `${issues.length} issues`].join('\n'),
     },
   ];
   const edges: CanvasEdge[] = [];
@@ -543,7 +543,7 @@ function buildProjectBase(project: string): { sourceFolder: string; fields: stri
   const sourceFolder = issuesRoot(project);
   const fields = [...BASE_FIELDS];
   const content = [
-    `# LLMwiki Obsidian Bases dashboard for ${project}`,
+    `# LLM Wiki Obsidian Bases dashboard for ${project}`,
     'filters:',
     '  and:',
     `    - 'file.inFolder("${sourceFolder}")'`,

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Lint a collaborative LLMwiki vault for ownership and sync hazards."""
+"""Lint a collaborative LLM Wiki vault for ownership and sync hazards."""
 from __future__ import annotations
 
 import argparse

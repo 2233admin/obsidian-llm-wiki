@@ -1,4 +1,4 @@
-# LLMwiki — User Guide
+# LLM Wiki — User Guide
 
 > 🌐 **Languages**: English (this page) · [简体中文](GUIDE.zh-CN.md)
 
@@ -14,7 +14,7 @@ You are here because your team already lost knowledge once.
 
 Not because nobody wrote it down. They did. The problem is that notes, repo findings, and agent answers have no state: no source, no reviewer, no promotion path.
 
-**LLMwiki** turns that into a simple loop:
+**LLM Wiki** turns that into a simple loop:
 
 ```
 capture -> compile -> ask -> file -> review -> promote
@@ -222,7 +222,7 @@ After that, `query.unified` and the `kanban` adapter can find the issue and boar
 
 ## Local NotebookLM-style ingest
 
-Use `/chubbyskills` when the goal is broader than one source: Bilibili videos, Douyin clips, podcasts, WeChat articles, Xiaohongshu notes, X/Twitter posts, YouTube videos, and content enrichment. ChubbySkills does the capture/transcription; LLMwiki does retrieval, citation, memory, and review.
+Use `/chubbyskills` when the goal is broader than one source: Bilibili videos, Douyin clips, podcasts, WeChat articles, Xiaohongshu notes, X/Twitter posts, YouTube videos, and content enrichment. ChubbySkills does the capture/transcription; LLM Wiki does retrieval, citation, memory, and review.
 
 Good first prompt:
 
@@ -241,7 +241,7 @@ Details: [CHUBBYSKILLS.md](CHUBBYSKILLS.md).
 
 ## Local security scan evidence
 
-Use `recipe.run id=avira-to-vault` when you want a local Avira / 小红伞 scan report saved as Markdown evidence. LLMwiki does not bundle antivirus software; configure your own trusted local scanner command:
+Use `recipe.run id=avira-to-vault` when you want a local Avira / 小红伞 scan report saved as Markdown evidence. LLM Wiki does not bundle antivirus software; configure your own trusted local scanner command:
 
 ```bash
 export AVIRA_SCAN_CMD='avscan {target}'
@@ -260,7 +260,7 @@ Good first prompt:
 /x-to-obsidian collect the top 20 posts from this X search and save them to Obsidian
 ```
 
-After clipping, use normal LLMwiki tools to find and govern the notes: `query.unified`, `vault.search`, `vault.writeAIOutput`, and `memory.handoff.write`. Details: [X_TO_OBSIDIAN.md](X_TO_OBSIDIAN.md).
+After clipping, use normal LLM Wiki tools to find and govern the notes: `query.unified`, `vault.search`, `vault.writeAIOutput`, and `memory.handoff.write`. Details: [X_TO_OBSIDIAN.md](X_TO_OBSIDIAN.md).
 
 
 ## Source Registry
@@ -275,7 +275,7 @@ _llmwiki/source-registry.json
 10-Projects/<project>/sources/<platform>/<source>.md
 ```
 
-For URLs, `source.register` runs the same read-only `ingest.link.preflight` classifier so the record says whether the route is `OPENCLI`, `MEDIA_TRANSCRIBE`, or a chained local pipeline. For existing vault notes, use `inputType=vaultPath`; LLMwiki creates a Source Note and leaves the original note untouched.
+For URLs, `source.register` runs the same read-only `ingest.link.preflight` classifier so the record says whether the route is `OPENCLI`, `MEDIA_TRANSCRIBE`, or a chained local pipeline. For existing vault notes, use `inputType=vaultPath`; LLM Wiki creates a Source Note and leaves the original note untouched.
 
 ## Markdown agent memory
 
@@ -296,7 +296,7 @@ Path rules are fixed:
 00-Inbox/Agent-Memory/<actor>/
 ```
 
-`<actor>` comes from `VAULT_MIND_ACTOR`; if it is not set, LLMwiki uses `agent`. Existing `memory.set/get/list/forget` remains backed by `_ai_memory.json` and is not migrated automatically.
+`<actor>` comes from `VAULT_MIND_ACTOR`; if it is not set, LLM Wiki uses `agent`. Existing `memory.set/get/list/forget` remains backed by `_ai_memory.json` and is not migrated automatically.
 
 Because Markdown memory lands in the vault, regular filesystem search and `query.unified` can find it. A useful handoff prompt is: "write a handoff for project X with current state, next steps, risks, and files".
 
@@ -348,7 +348,7 @@ VAULT_MIND_KANBAN_GLOB='**/*.md'
 
 ## Obsidian visual project views
 
-LLMwiki writes native Obsidian visualization files from the same Markdown project data:
+LLM Wiki writes native Obsidian visualization files from the same Markdown project data:
 
 ```text
 project.canvas.export project=<project> dryRun=false
@@ -376,7 +376,7 @@ source note -> cited AI-Output draft -> reviewed durable note
 
 ## Vault structure
 
-You do **not** need to restructure your vault. LLMwiki works with whatever you already have.
+You do **not** need to restructure your vault. LLM Wiki works with whatever you already have.
 
 It only creates one new directory when a role writes an analysis:
 

@@ -81,7 +81,7 @@ Then add the `.mcp.json` entry manually:
 
 ## Optional ChubbySkills ingest pack
 
-Setup registers `/chubbyskills` as a top-level skill. It does not install upstream media/transcription dependencies into LLMwiki. Instead, it bundles a helper that prints safe install commands for [chubbyguan/chubbyskills](https://github.com/chubbyguan/chubbyskills).
+Setup registers `/chubbyskills` as a top-level skill. It does not install upstream media/transcription dependencies into LLM Wiki. Instead, it bundles a helper that prints safe install commands for [chubbyguan/chubbyskills](https://github.com/chubbyguan/chubbyskills).
 
 Example after setup:
 

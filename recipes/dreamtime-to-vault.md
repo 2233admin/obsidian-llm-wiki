@@ -12,14 +12,14 @@ requires: []
 # Dreamtime-to-Vault
 
 Routes [dreamtime-open](https://github.com/2233admin/dreamtime) session distillation output
-straight into your vault so LLM Wiki Bridge can index it, cite it, and connect it to the
+straight into your vault so LLM Wiki can index it, cite it, and connect it to the
 rest of your notes.
 
 This is the clean seam:
 
 - `dreamtime` writes markdown notes after each coding session
 - those notes land inside your Obsidian vault
-- LLM Wiki Bridge reads them through the normal filesystem adapter
+- LLM Wiki reads them through the normal filesystem adapter
 - the notes become searchable, linkable, and eligible for graph analysis
 
 No API keys. No extra transport. Just disciplined file placement.
@@ -34,7 +34,7 @@ No API keys. No extra transport. Just disciplined file placement.
 ## Prerequisites
 
 1. `dreamtime-open` installed and working
-2. An Obsidian vault already exposed to LLM Wiki Bridge via `VAULT_PATH`
+2. An Obsidian vault already exposed to LLM Wiki via `VAULT_PATH`
 3. `DREAMTIME_INBOX` pointed at a folder inside that vault
 
 ## Recommended output location
@@ -67,7 +67,7 @@ dreamtime install
 
 ### Step 2: Point Dreamtime at your vault
 
-Set `DREAMTIME_INBOX` to a folder inside the same vault used by LLM Wiki Bridge:
+Set `DREAMTIME_INBOX` to a folder inside the same vault used by LLM Wiki:
 
 ```bash
 export VAULT_PATH="$HOME/my-vault"
@@ -84,7 +84,7 @@ $env:DREAMTIME_INBOX="$env:VAULT_PATH\00-Inbox\Dreamtime"
 ### Step 3: Let Dreamtime keep writing
 
 Dreamtime already writes notes on session end. No separate collector is required.
-Once a note lands under `DREAMTIME_INBOX`, LLM Wiki Bridge can read it on the next query.
+Once a note lands under `DREAMTIME_INBOX`, LLM Wiki can read it on the next query.
 
 ### Step 4: Add light structure so graph tools get leverage
 
@@ -113,12 +113,12 @@ The last point matters. Raw logs are searchable; linked logs become part of the 
 ## Operational pattern
 
 Use Dreamtime for session-end distillation.
-Use LLM Wiki Bridge for retrieval, cross-linking, and downstream reasoning.
+Use LLM Wiki for retrieval, cross-linking, and downstream reasoning.
 
 That split is the point:
 
 - Dreamtime compresses ephemeral conversations into markdown
-- LLM Wiki Bridge turns markdown into a navigable knowledge surface
+- LLM Wiki turns markdown into a navigable knowledge surface
 
 ## Troubleshooting
 

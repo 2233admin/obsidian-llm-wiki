@@ -10,7 +10,7 @@ Open Obsidian → Settings → LLM Wiki to configure:
 
 - the Python runtime and `compiler/kb_meta.py` binding for this device;
 - semantic query behavior for the current vault;
-- optional OBC semantic suggestions;
+- optional link-diagnostics semantic suggestions;
 - secret references for providers without storing secret values;
 - effective-value provenance, inheritance, validation, and capability health.
 
@@ -29,7 +29,7 @@ fields into the versioned user-device scope. The plugin ID remains
 `vault-mind-promote` so existing installations and their data continue to load.
 
 Run **Doctor** from the settings page to check the Python runtime, LLM Wiki
-entry point, effective settings, OBC availability, and provider secret
+entry point, effective settings, LLM Wiki link-diagnostics availability, and provider secret
 references. Doctor reports health but does not expose secret values or run
 diagnostic mutations.
 

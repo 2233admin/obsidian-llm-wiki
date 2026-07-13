@@ -1,7 +1,7 @@
 /**
  * LightRAGAdapter -- optional retrieval adapter for HKUDS LightRAG servers.
  *
- * This adapter is intentionally thin: LLMwiki does not vendor or reimplement
+ * This adapter is intentionally thin: LLM Wiki does not vendor or reimplement
  * LightRAG. It calls an already-running LightRAG HTTP server and maps returned
  * context chunks into VaultMindAdapter SearchResult objects.
  *
@@ -97,7 +97,7 @@ export class LightRAGAdapter implements VaultMindAdapter {
   async init(): Promise<void> {
     if (!this.baseUrl) {
       this._available = false;
-      process.stderr.write("vault-mind: [lightrag] LIGHTRAG_URL not set -- adapter disabled\n");
+      process.stderr.write("llmwiki: [lightrag] LIGHTRAG_URL not set -- adapter disabled\n");
       return;
     }
 
@@ -112,7 +112,7 @@ export class LightRAGAdapter implements VaultMindAdapter {
     }
 
     if (!this._available) {
-      process.stderr.write(`vault-mind: [lightrag] unavailable at ${this.baseUrl} -- adapter disabled\n`);
+      process.stderr.write(`llmwiki: [lightrag] unavailable at ${this.baseUrl} -- adapter disabled\n`);
     }
   }
 

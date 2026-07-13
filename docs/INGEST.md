@@ -1,11 +1,11 @@
 # Ingest preflight: OPENCLI + media/transcribe toolchain
 
-LLMwiki is not a platform scraper. It is the local Markdown knowledge layer after capture.
+LLM Wiki is not a platform scraper. It is the local Markdown knowledge layer after capture.
 
 The core contract is intentionally small:
 
 ```text
-link -> ingest.link.preflight -> OPENCLI or the media/transcribe toolchain -> Markdown in vault -> LLMwiki search / summarize / cite / review
+link -> ingest.link.preflight -> OPENCLI or the media/transcribe toolchain -> Markdown in vault -> LLM Wiki search / summarize / cite / review
 ```
 
 ## Entrypoints
@@ -34,7 +34,7 @@ MEDIA_TRANSCRIBE_CMD=media-transcribe
 
 The default path is `OpenCLI + BBX/browser bridge`. OpenTabs is not required for normal users.
 
-OpenTabs can be useful for advanced MCP-native browser/plugin orchestration, but LLMwiki should not assume it is installed. If a workflow can be done through OpenCLI plus the user's logged-in browser bridge, prefer that route.
+OpenTabs can be useful for advanced MCP-native browser/plugin orchestration, but LLM Wiki should not assume it is installed. If a workflow can be done through OpenCLI plus the user's logged-in browser bridge, prefer that route.
 ## MCP tools
 
 ### `ingest.providers`
@@ -50,7 +50,7 @@ Classifies one absolute URL and returns:
 | `platform` | Detected source family, such as `youtube`, `bilibili`, `x`, `wechat-official-account`, or `generic-web`. |
 | `provider` | Primary routed local entrypoint: `OPENCLI` or `MEDIA_TRANSCRIBE`. |`r`n| `pipeline` | Ordered local steps when one source needs both browser/page resolving and media parse/download/transcription. Douyin and Xiaohongshu video notes commonly return `OPENCLI -> MEDIA_TRANSCRIBE`. |
 | `status` | `ready`, `needs_provider`, `needs_browser_or_login`, or `manual_required`. |
-| `can_auto_ingest` | True only when LLMwiki believes the local provider is configured and the platform does not obviously need manual/browser fallback. |
+| `can_auto_ingest` | True only when LLM Wiki believes the local provider is configured and the platform does not obviously need manual/browser fallback. |
 | `needs` | Concrete dependencies or access conditions. |
 | `limitations` | Access-control and reliability caveats. |
 | `next_action` | The next honest action for the agent. |
@@ -94,7 +94,7 @@ The success condition is:
 1. `OPENCLI` or `MEDIA_TRANSCRIBE` produced Markdown.
 2. The Markdown is inside the configured vault.
 3. `vault.search` or `query.unified` can find it.
-4. LLMwiki answers cite the local Markdown, not the remote platform.
+4. LLM Wiki answers cite the local Markdown, not the remote platform.
 
 Legacy env aliases VAULT_MIND_OPENTTPE_CMD and OPENTTPE_CMD are accepted for compatibility with earlier drafts, but new docs use the neutral media/transcribe name.
 

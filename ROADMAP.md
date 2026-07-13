@@ -1,9 +1,9 @@
-# vault-mind Roadmap
+# LLM Wiki Roadmap
 
 ## Phase: graphify adapter
 
 **Goal**: Add graphify as a 5th `VaultMindAdapter`, enabling multi-format content extraction
-(PDF, images, video, code) to feed into vault-mind's knowledge graph.
+(PDF, images, video, code) to feed into LLM Wiki's knowledge graph.
 
 **Trigger condition**: graphify probe (see `.planning/todos/pending/probe-graphify-api-contract.md`) complete
 
@@ -28,7 +28,7 @@
 
 ## Phase: second-brain integration (v2.4.0)
 
-**Goal**: Port obsidian-second-brain's workflow layer into vault-mind, adding structured note
+**Goal**: Port obsidian-second-brain's workflow layer into LLM Wiki, adding structured note
 creation tools and thinking/research slash commands on top of the existing MCP infrastructure.
 
 **Scope**:
@@ -47,7 +47,7 @@ creation tools and thinking/research slash commands on top of the existing MCP i
 
 ## Phase: claude-obsidian port (v2.5.0)
 
-**Goal**: Port claude-obsidian's vault bootstrapping and concurrency layer into vault-mind:
+**Goal**: Port claude-obsidian's vault bootstrapping and concurrency layer into LLM Wiki:
 methodology scaffolding, autonomous research/thinking commands, and multi-agent write safety.
 
 **Scope**:

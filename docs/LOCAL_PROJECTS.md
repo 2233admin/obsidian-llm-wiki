@@ -1,6 +1,6 @@
 # Local project management
 
-LLMwiki includes a local Linear-style project management surface under the `project.*` MCP namespace.
+LLM Wiki includes a local Linear-style project management surface under the `project.*` MCP namespace.
 
 Every Project has one canonical logical identity, `project/<lowercase-kebab-slug>`. The shared registry record is `Projects/<slug>.md`; the current Work-OS remains under `01-Projects/<slug>/`, project knowledge remains under `10-Projects/<slug>/`, and machine-local workspace bindings remain under `.vault-mind/local-bindings.json`. These roots are joined by Project ID, not by treating a repository or directory as the Project.
 

@@ -62,7 +62,7 @@ const KNOWN_PACKS = [
   },
   {
     id: 'llmwiki/ingest',
-    label: 'LLMwiki ingest bridges',
+    label: 'LLM Wiki ingest bridges',
     kind: 'ingest-bridge',
     authority: 'local capture and import workflows that feed markdown evidence into a vault',
     artifacts: 'skills/chubbyskills, skills/x-to-obsidian, source notes, and evidence notes',

@@ -82,7 +82,7 @@ export class ObsidianAdapter implements VaultMindAdapter {
       info = JSON.parse(readFileSync(this.portFile, "utf-8")) as PortFileData;
     } catch {
       process.stderr.write(
-        "vault-mind: [warn] ~/.obsidian-ws-port not found -- obsidian adapter disabled\n",
+        "llmwiki: [warn] ~/.obsidian-ws-port not found -- obsidian adapter disabled\n",
       );
       return;
     }
@@ -93,7 +93,7 @@ export class ObsidianAdapter implements VaultMindAdapter {
       const connectTimer = setTimeout(() => {
         ws.terminate();
         process.stderr.write(
-          "vault-mind: [warn] obsidian WS connect timeout -- adapter disabled\n",
+          "llmwiki: [warn] obsidian WS connect timeout -- adapter disabled\n",
         );
         resolve();
       }, CONNECT_TIMEOUT_MS);
@@ -114,7 +114,7 @@ export class ObsidianAdapter implements VaultMindAdapter {
           this.available = true;
         } catch (e) {
           process.stderr.write(
-            `vault-mind: [warn] obsidian auth failed: ${(e as Error).message} -- adapter disabled\n`,
+            `llmwiki: [warn] obsidian auth failed: ${(e as Error).message} -- adapter disabled\n`,
           );
           this.ws = null;
           ws.terminate(); // force-close so no CLOSING-state limbo blocks callers
@@ -125,7 +125,7 @@ export class ObsidianAdapter implements VaultMindAdapter {
       ws.once("error", (e) => {
         clearTimeout(connectTimer);
         process.stderr.write(
-          `vault-mind: [warn] obsidian WS error: ${e.message} -- adapter disabled\n`,
+          `llmwiki: [warn] obsidian WS error: ${e.message} -- adapter disabled\n`,
         );
         resolve();
       });

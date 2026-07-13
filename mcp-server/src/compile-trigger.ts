@@ -84,7 +84,7 @@ export class CompileTrigger {
     if (!path.endsWith(".md")) return;
 
     this.dirty.add(path);
-    process.stderr.write(`vault-mind: [compile] dirty +1: ${path} (${this.dirty.size}/${this.threshold})\n`);
+    process.stderr.write(`llmwiki: [compile] dirty +1: ${path} (${this.dirty.size}/${this.threshold})\n`);
 
     if (this.autoCompile && this.dirty.size >= this.threshold && !this.running) {
       this.autoTrigger();
@@ -168,7 +168,7 @@ export class CompileTrigger {
         }
         if (dirty.length > 0) {
           process.stderr.write(
-            `vault-mind: [compile] startup: ${dirty.length} dirty in "${topic}"\n`,
+            `llmwiki: [compile] startup: ${dirty.length} dirty in "${topic}"\n`,
           );
         }
       } catch {
@@ -191,10 +191,10 @@ export class CompileTrigger {
     const topic = this.detectTopic();
     if (!topic) return;
     this.running = true; // claim lock synchronously before async work
-    process.stderr.write(`vault-mind: [compile] auto-trigger for topic "${topic}" (${this.dirty.size} dirty)\n`);
+    process.stderr.write(`llmwiki: [compile] auto-trigger for topic "${topic}" (${this.dirty.size} dirty)\n`);
     this.compile(topic).catch((e) => {
       this.running = false;
-      process.stderr.write(`vault-mind: [compile] auto-trigger error: ${(e as Error).message}\n`);
+      process.stderr.write(`llmwiki: [compile] auto-trigger error: ${(e as Error).message}\n`);
     });
   }
 
@@ -226,7 +226,7 @@ export class CompileTrigger {
       const result = this.parseCompileOutput(topic, stdout, timestamp);
 
       if (stderr) {
-        process.stderr.write(`vault-mind: [compile] stderr: ${stderr.slice(0, 500)}\n`);
+        process.stderr.write(`llmwiki: [compile] stderr: ${stderr.slice(0, 500)}\n`);
       }
 
       // Clear dirty files for this topic

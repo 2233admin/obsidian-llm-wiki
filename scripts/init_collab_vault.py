@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Initialize a collaborative markdown vault layout for LLMwiki."""
+"""Initialize a collaborative markdown vault layout for LLM Wiki."""
 from __future__ import annotations
 
 import argparse
@@ -23,7 +23,7 @@ This vault is shared by humans and development agents.
 
 ## Boundaries
 
-- LLMwiki reads/writes markdown and enforces collaboration checks.
+- LLM Wiki reads/writes markdown and enforces collaboration checks.
 - Gitea or GitHub reviews durable shared knowledge.
 - The sync tool copies files between devices.
 
@@ -96,7 +96,7 @@ desktop.ini
 *conflicted copy*
 *conflict copy*
 
-# LLMwiki local/runtime state
+# LLM Wiki local/runtime state
 .vault-mind/
 .vaultbrain/
 .llmwiki-cache/
