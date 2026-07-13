@@ -15,31 +15,30 @@ import { buildPythonInvocation } from "./executable-command";
 import {
   applyPluginDataMigration,
   LLMWikiPluginData,
+  parseSettingInput,
   planPluginDataMigration,
   selectEditingScope,
 } from "./settings";
 import {
   EffectiveSetting,
+  effectiveSetting,
   HealthCheck,
+  isSecretReference,
   projectSettingForScope,
+  redactedSecretLabel,
   refreshSettingsProjection,
+  SecretReference,
   SettingDefinition,
   SettingScope,
   SettingsConflictError,
   SettingsControlPlaneProjection,
   SettingsOperationClient,
-  SettingsOperationTransport,
   SettingValue,
   UnavailableSettingsTransport,
 } from "./settings-client";
+import { InProcessSettingsTransport, obsidianUserDeviceId } from "./settings-host";
 
 const pexecFile = promisify(execFile);
-const SETTINGS_TRANSPORT_KEY = "__llmwikiSettingsOperationTransport";
-
-interface SettingsTransportHost {
-  [SETTINGS_TRANSPORT_KEY]?: SettingsOperationTransport;
-}
-
 // Shape of `kb_meta promote` JSON (compiler/kb_meta.cmd_promote).
 interface PromoteResult {
   outcome: string;
@@ -52,13 +51,6 @@ interface PromoteResult {
   error?: string;
 }
 
-function getInjectedTransport(): SettingsOperationTransport {
-  const transport = (globalThis as SettingsTransportHost)[SETTINGS_TRANSPORT_KEY];
-  return transport ?? new UnavailableSettingsTransport(
-    "Settings Platform service is not attached to the Obsidian host.",
-  );
-}
-
 function stdoutText(stdout: string | Buffer): string {
   return typeof stdout === "string" ? stdout : stdout.toString("utf8");
 }
@@ -68,10 +60,30 @@ export default class LLMWikiPlugin extends Plugin {
   projection: SettingsControlPlaneProjection | null = null;
   settingsError: string | null = null;
   private settingsClient!: SettingsOperationClient;
+  private migrationError: string | null = null;
 
   async onload(): Promise<void> {
-    this.settingsClient = new SettingsOperationClient(getInjectedTransport());
-    await this.loadPluginData();
+    const plan = planPluginDataMigration(await this.loadData());
+    this.data = plan.data;
+    let pluginDataChanged = plan.migrated;
+    if (!this.data.deviceBinding) {
+      this.data = { ...this.data, deviceBinding: { deviceId: obsidianUserDeviceId(process.env) } };
+      pluginDataChanged = true;
+    }
+    plan.data = this.data;
+    const deviceBinding = this.data.deviceBinding;
+    if (!deviceBinding) throw new Error("LLM Wiki device binding could not be initialized");
+    const vaultPath = this.vaultBasePath();
+    const transport = vaultPath
+      ? new InProcessSettingsTransport({
+          vaultPath,
+          userDeviceId: deviceBinding.deviceId,
+          workspaceProjectId: deviceBinding.workspaceProjectId,
+          environment: process.env,
+        })
+      : new UnavailableSettingsTransport("Settings Platform requires a desktop filesystem vault.");
+    this.settingsClient = new SettingsOperationClient(transport);
+    await this.applyPluginDataPlan(plan, pluginDataChanged);
     await this.refreshSettings(false);
 
     this.addCommand({
@@ -112,7 +124,7 @@ export default class LLMWikiPlugin extends Plugin {
   }
 
   private effectiveValue<T extends SettingValue>(key: string): T {
-    const effective = this.projection?.snapshot.effective[key];
+    const effective = this.projection && effectiveSetting(this.projection.snapshot, key);
     if (!effective) throw new Error(`Effective setting is unavailable: ${key}`);
     return effective.value as T;
   }
@@ -163,9 +175,10 @@ export default class LLMWikiPlugin extends Plugin {
     }).open();
   }
 
-  private async loadPluginData(): Promise<void> {
-    const plan = planPluginDataMigration(await this.loadData());
-    this.data = plan.data;
+  private async applyPluginDataPlan(
+    plan: ReturnType<typeof planPluginDataMigration>,
+    pluginDataChanged: boolean,
+  ): Promise<void> {
     if (plan.assignments.length) {
       try {
         const migrated = await applyPluginDataMigration(this.settingsClient, plan);
@@ -174,9 +187,10 @@ export default class LLMWikiPlugin extends Plugin {
       } catch (error) {
         // Do not save the stripped document until Settings Platform accepts all
         // assignments. The legacy source remains intact for a later retry.
-        this.settingsError = `Legacy settings migration pending: ${String((error as Error)?.message ?? error)}`;
+        this.migrationError = `Legacy settings migration pending: ${String((error as Error)?.message ?? error)}`;
+        this.settingsError = this.migrationError;
       }
-    } else if (plan.migrated) {
+    } else if (pluginDataChanged) {
       await this.savePluginData();
     }
   }
@@ -193,17 +207,19 @@ export default class LLMWikiPlugin extends Plugin {
   async refreshSettings(notify: boolean): Promise<void> {
     try {
       this.projection = await refreshSettingsProjection(this.settingsClient);
-      this.settingsError = null;
+      this.settingsError = this.migrationError;
       if (notify) new Notice("LLM Wiki: settings refreshed.");
     } catch (error) {
       this.projection = null;
-      this.settingsError = String((error as Error)?.message ?? error);
+      const refreshError = String((error as Error)?.message ?? error);
+      this.settingsError = this.migrationError ? `${this.migrationError} Settings refresh failed: ${refreshError}` : refreshError;
       if (notify) new Notice(`LLM Wiki: settings unavailable — ${this.settingsError}`);
     }
   }
 
-  async updateSetting(scope: SettingScope, key: string, value: SettingValue): Promise<void> {
-    const expectedRevision = this.projection?.snapshot.sourceRevisions[scope] ?? 0;
+  async updateSetting(scope: SettingScope, key: string, value: SettingValue | SecretReference): Promise<void> {
+    const revision = this.projection?.snapshot.sourceRevisions[scope]?.revision;
+    const expectedRevision = typeof revision === "number" ? revision : 0;
     try {
       await this.settingsClient.setAssignment(scope, key, value, expectedRevision);
       await this.refreshSettings(false);
@@ -217,7 +233,8 @@ export default class LLMWikiPlugin extends Plugin {
   }
 
   async unsetSetting(scope: SettingScope, key: string): Promise<void> {
-    const expectedRevision = this.projection?.snapshot.sourceRevisions[scope] ?? 0;
+    const revision = this.projection?.snapshot.sourceRevisions[scope]?.revision;
+    const expectedRevision = typeof revision === "number" ? revision : 0;
     try {
       await this.settingsClient.unsetAssignment(scope, key, expectedRevision);
       await this.refreshSettings(false);
@@ -262,12 +279,12 @@ const CATEGORY_LABELS: Record<string, string> = {
   providers: "Providers and connectors",
 };
 
-const SCOPE_LABELS: Record<SettingScope | "product-default", string> = {
+const SCOPE_LABELS: Record<SettingScope | "product", string> = {
   "user-device": "This device",
   vault: "This vault",
   "workspace-project": "Workspace / project",
   session: "Current session",
-  "product-default": "Product default",
+  product: "Product default",
 };
 
 class LLMWikiSettingTab extends PluginSettingTab {
@@ -293,7 +310,7 @@ class LLMWikiSettingTab extends PluginSettingTab {
       const definitions = this.llmWiki.projection.definitions.filter(definition =>
         definition.category === category
         && definition.allowedScopes.includes(scope)
-        && (this.llmWiki.data.presentation.showAdvanced || !definition.advanced),
+        && (this.llmWiki.data.presentation.showAdvanced || definition.visibility !== "advanced"),
       );
       if (!definitions.length) continue;
       containerEl.createEl("h2", { text: CATEGORY_LABELS[category] ?? category });
@@ -340,8 +357,9 @@ class LLMWikiSettingTab extends PluginSettingTab {
     const item = containerEl.createDiv({ cls: `llmwiki-health llmwiki-health-${check.state}` });
     item.createEl("span", { cls: "llmwiki-health-dot" });
     const copy = item.createDiv();
-    copy.createEl("strong", { text: check.capability });
-    copy.createEl("small", { text: check.remediation ? `${check.summary} ${check.remediation}` : check.summary });
+    copy.createEl("strong", { text: check.capabilityId });
+    const remediation = check.remediations[0]?.summary;
+    copy.createEl("small", { text: remediation ? `${check.summary} ${remediation}` : check.summary });
   }
 
   private renderScopeSelector(containerEl: HTMLElement): void {
@@ -375,16 +393,55 @@ class LLMWikiSettingTab extends PluginSettingTab {
     const assignedHere = row.assignedValue !== undefined;
 
     if (definition.valueType === "boolean") {
-      setting.addToggle(toggle => toggle
-        .setValue(Boolean(effective.value))
-        .onChange(async value => this.mutate(() => this.llmWiki.updateSetting(scope, definition.key, value))));
+      setting.addDropdown(dropdown => dropdown
+        .addOption("inherit", "Inherit")
+        .addOption("true", "Enabled")
+        .addOption("false", "Disabled")
+        .setValue(assignedHere ? String(row.assignedValue) : "inherit")
+        .onChange(async value => this.mutate(() => value === "inherit"
+          ? this.llmWiki.unsetSetting(scope, definition.key)
+          : this.llmWiki.updateSetting(scope, definition.key, value === "true"))));
+    } else if (definition.valueType === "secret-reference") {
+      const existing = this.secretReference(row.assignedValue);
+      let provider: SecretReference["provider"] = existing?.provider ?? "environment";
+      setting.addDropdown(dropdown => dropdown
+        .addOption("environment", "Environment")
+        .addOption("os-keychain", "OS keychain")
+        .addOption("external-vault", "External vault")
+        .setValue(provider)
+        .onChange(value => { provider = value as SecretReference["provider"]; }));
+      setting.addText(text => {
+        text.setPlaceholder(existing ? "Configured — enter a new locator to replace" : definition.placeholder ?? "Secret locator");
+        text.inputEl.type = "password";
+        text.inputEl.autocomplete = "off";
+        text.inputEl.addEventListener("change", () => void this.mutate(async () => {
+          const locator = text.getValue().trim();
+          if (!locator) return;
+          await this.llmWiki.updateSetting(scope, definition.key, { provider, locator });
+          text.setValue("");
+        }));
+      });
+    } else if (definition.valueType === "enum" && definition.validator.enum?.length) {
+      setting.addDropdown(dropdown => {
+        dropdown.addOption("", "Inherit");
+        for (const value of definition.validator.enum ?? []) dropdown.addOption(value, value);
+        dropdown.setValue(assignedHere ? String(row.assignedValue) : "");
+        dropdown.onChange(value => this.mutate(() => value
+          ? this.llmWiki.updateSetting(scope, definition.key, value)
+          : this.llmWiki.unsetSetting(scope, definition.key)));
+      });
     } else {
       setting.addText(text => {
-        text.setPlaceholder(definition.placeholder ?? "").setValue(assignedHere ? String(row.assignedValue) : "");
+        const assignedValue = row.assignedValue;
+        text.setPlaceholder(definition.placeholder ?? "").setValue(
+          assignedHere && (typeof assignedValue === "string" || typeof assignedValue === "number")
+            ? String(assignedValue)
+            : "",
+        );
         text.inputEl.addEventListener("change", () => void this.mutate(async () => {
           const value = text.getValue();
-          if (!value.trim() && !definition.required) await this.llmWiki.unsetSetting(scope, definition.key);
-          else await this.llmWiki.updateSetting(scope, definition.key, value);
+          if (!value.trim() && !definition.validator.required) await this.llmWiki.unsetSetting(scope, definition.key);
+          else await this.llmWiki.updateSetting(scope, definition.key, parseSettingInput(definition.valueType, value));
         }));
       });
     }
@@ -407,7 +464,16 @@ class LLMWikiSettingTab extends PluginSettingTab {
   }
 
   private displayValue(definition: SettingDefinition, effective: EffectiveSetting): string {
-    if (definition.valueType === "secret-reference") return effective.value ? String(effective.value) : "not configured";
+    if (definition.valueType === "secret-reference") return redactedSecretLabel(effective.value);
     return JSON.stringify(effective.value);
+  }
+
+  private secretReference(value: unknown): SecretReference | undefined {
+    if (isSecretReference(value)) return value;
+    if (value && typeof value === "object" && !Array.isArray(value) && "secretRef" in value) {
+      const secretRef = (value as { secretRef?: unknown }).secretRef;
+      return isSecretReference(secretRef) ? secretRef : undefined;
+    }
+    return undefined;
   }
 }

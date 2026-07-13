@@ -1,55 +1,51 @@
-export type SettingScope = "user-device" | "vault" | "workspace-project" | "session";
-export type SettingValue = string | boolean | number;
-export type HealthState = "available" | "degraded" | "unavailable" | "disabled";
+import type {
+  CapabilityHealth,
+  EffectiveSetting,
+  MutableSettingsScope,
+  SecretReference,
+  SettingDefinition,
+  SettingValue,
+  SettingsDocument,
+  SettingsMutationResult,
+  SettingsSnapshot,
+  ValidationIssue,
+  ValidationResult,
+} from "../../packages/settings-platform/src/types";
 
-export interface SettingDefinition {
-  key: string;
-  category: "runtime" | "vault" | "query" | "diagnostics" | "providers" | string;
-  name: string;
-  description: string;
-  valueType: "string" | "boolean" | "number" | "secret-reference";
-  allowedScopes: SettingScope[];
-  applyMode: "hot" | "next-operation" | "restart-required";
-  required?: boolean;
-  advanced?: boolean;
-  placeholder?: string;
+export type SettingScope = MutableSettingsScope;
+export type {
+  CapabilityHealth as HealthCheck,
+  EffectiveSetting,
+  SecretReference,
+  SettingDefinition,
+  SettingValue,
+  SettingsDocument,
+  SettingsSnapshot,
+  ValidationIssue as SettingValidationIssue,
+  ValidationResult,
+};
+
+export interface SettingsSnapshotResult {
+  snapshot: SettingsSnapshot;
+  validation: ValidationResult;
+  recoveryDiagnostics: ValidationIssue[];
 }
 
-export interface EffectiveSetting {
-  key: string;
-  value: SettingValue;
-  winningScope: SettingScope | "product-default";
-  overriddenScopes?: SettingScope[];
-  candidates?: Array<{ scope: SettingScope | "product-default"; value: SettingValue; redacted?: boolean }>;
-  redacted?: boolean;
+export interface SettingsDoctorResult {
+  snapshotId?: string;
+  validation: ValidationResult;
+  capabilities: CapabilityHealth[];
+  checkedAt: string;
 }
 
-export interface SettingValidationIssue {
-  key: string;
-  severity: "error" | "warning";
-  message: string;
+export interface SettingsDefinitionsResult {
+  definitions: SettingDefinition[];
 }
 
-export interface SettingsSnapshot {
-  snapshotRevision?: string;
-  sourceRevisions: Partial<Record<SettingScope, number>>;
-  effective: Record<string, EffectiveSetting>;
-  validation: SettingValidationIssue[];
-}
-
-export interface HealthCheck {
-  capability: string;
-  state: HealthState;
-  summary: string;
-  remediation?: string;
-}
-
-export interface SettingsMutationConflict {
-  status: "conflict";
-  scope: SettingScope;
-  expectedRevision: number;
-  actualRevision: number;
-  message: string;
+export interface SettingsScopeResult {
+  document: SettingsDocument;
+  recoveredFromBackup: boolean;
+  diagnostics: ValidationIssue[];
 }
 
 export interface SettingsOperationTransport {
@@ -57,73 +53,104 @@ export interface SettingsOperationTransport {
 }
 
 export class SettingsConflictError extends Error {
-  constructor(readonly conflict: SettingsMutationConflict) {
-    super(conflict.message);
+  constructor(readonly conflict: Extract<SettingsMutationResult, { status: "conflict" }>["conflict"]) {
+    super(`Settings revision conflict: expected ${conflict.expectedRevision}, found ${conflict.actualRevision}`);
     this.name = "SettingsConflictError";
   }
 }
 
-function isConflict(value: unknown): value is SettingsMutationConflict {
-  return typeof value === "object" && value !== null && (value as { status?: unknown }).status === "conflict";
+export class SettingsValidationError extends Error {
+  constructor(readonly validation: ValidationResult) {
+    super(validation.issues.map(issue => issue.message).join("; ") || "Settings validation failed");
+    this.name = "SettingsValidationError";
+  }
 }
 
 /** Thin host adapter over the shared Settings Platform Operation Interface. */
 export class SettingsOperationClient {
   constructor(private readonly transport: SettingsOperationTransport) {}
 
-  definitions(): Promise<SettingDefinition[]> {
-    return this.transport.invoke("settings.definitions.list", {});
+  async definitions(): Promise<SettingDefinition[]> {
+    return (await this.transport.invoke<SettingsDefinitionsResult>("settings.definitions.list", {})).definitions;
   }
 
-  snapshot(): Promise<SettingsSnapshot> {
+  snapshot(): Promise<SettingsSnapshotResult> {
     return this.transport.invoke("settings.snapshot.resolve", {});
   }
 
-  validate(): Promise<SettingValidationIssue[]> {
+  validate(): Promise<ValidationResult> {
     return this.transport.invoke("settings.validate", {});
   }
 
-  doctor(): Promise<HealthCheck[]> {
+  doctor(): Promise<SettingsDoctorResult> {
     return this.transport.invoke("settings.doctor", {});
+  }
+
+  scope(scope: SettingScope): Promise<SettingsScopeResult> {
+    return this.transport.invoke("settings.scopes.get", { scope });
   }
 
   async setAssignment(
     scope: SettingScope,
     key: string,
-    value: SettingValue,
+    value: SettingValue | SecretReference,
     expectedRevision: number,
-  ): Promise<SettingsSnapshot> {
-    const result = await this.transport.invoke<SettingsSnapshot | SettingsMutationConflict>(
-      "settings.assignment.set",
-      { scope, key, value, expectedRevision },
-    );
-    if (isConflict(result)) throw new SettingsConflictError(result);
-    return result;
+    options: { reason?: string; expiresAt?: string } = {},
+  ): Promise<SettingsSnapshotResult> {
+    const result = await this.transport.invoke<SettingsMutationResult>("settings.assignment.set", {
+      scope,
+      key,
+      value,
+      expectedRevision,
+      updatedBy: "obsidian-control-plane",
+      ...options,
+    });
+    this.assertCommitted(result);
+    return this.snapshot();
   }
 
-  async unsetAssignment(scope: SettingScope, key: string, expectedRevision: number): Promise<SettingsSnapshot> {
-    const result = await this.transport.invoke<SettingsSnapshot | SettingsMutationConflict>(
-      "settings.assignment.unset",
-      { scope, key, expectedRevision },
-    );
-    if (isConflict(result)) throw new SettingsConflictError(result);
-    return result;
+  async unsetAssignment(scope: SettingScope, key: string, expectedRevision: number): Promise<SettingsSnapshotResult> {
+    const result = await this.transport.invoke<SettingsMutationResult>("settings.assignment.unset", {
+      scope,
+      key,
+      expectedRevision,
+      updatedBy: "obsidian-control-plane",
+    });
+    this.assertCommitted(result);
+    return this.snapshot();
+  }
+
+  private assertCommitted(result: SettingsMutationResult): asserts result is Extract<SettingsMutationResult, { status: "committed" }> {
+    if (result.status === "conflict") throw new SettingsConflictError(result.conflict);
+    if (result.status === "validation-error") throw new SettingsValidationError(result.validation);
   }
 }
 
 export interface SettingsControlPlaneProjection {
   definitions: SettingDefinition[];
   snapshot: SettingsSnapshot;
-  health: HealthCheck[];
+  validation: ValidationResult;
+  recoveryDiagnostics: ValidationIssue[];
+  health: CapabilityHealth[];
+  doctorError?: string;
   refreshedAt: string;
 }
 
 export interface SettingPresentationRow {
   definition: SettingDefinition;
   effective: EffectiveSetting;
-  assignedValue?: SettingValue;
-  validation: SettingValidationIssue[];
+  assignedValue?: EffectiveSetting["value"];
+  validation: ValidationIssue[];
   applyMode: SettingDefinition["applyMode"];
+}
+
+export function effectiveSetting(snapshot: SettingsSnapshot, key: string): EffectiveSetting | undefined {
+  return snapshot.effective.find(item => item.key === key);
+}
+
+export function sourceRevision(snapshot: SettingsSnapshot, scope: SettingScope): number {
+  const revision = snapshot.sourceRevisions[scope]?.revision;
+  return typeof revision === "number" ? revision : 0;
 }
 
 export function projectSettingForScope(
@@ -131,28 +158,86 @@ export function projectSettingForScope(
   snapshot: SettingsSnapshot,
   scope: SettingScope,
 ): SettingPresentationRow | null {
-  const effective = snapshot.effective[definition.key];
+  const effective = effectiveSetting(snapshot, definition.key);
   if (!effective) return null;
-  const candidate = effective.candidates?.find(item => item.scope === scope);
+  const candidate = effective.winningScope === scope
+    ? effective
+    : effective.overriddenCandidates.find(item => item.scope === scope);
   return {
     definition,
     effective,
-    assignedValue: candidate?.value ?? (effective.winningScope === scope ? effective.value : undefined),
-    validation: snapshot.validation.filter(issue => issue.key === definition.key),
+    assignedValue: candidate?.value === null ? undefined : candidate?.value,
+    validation: effective.validation.issues,
     applyMode: definition.applyMode,
   };
 }
 
+/**
+ * Definitions and the snapshot form the usable control plane. Doctor is an
+ * independent probe: its failure is surfaced as degraded health without
+ * hiding otherwise editable settings.
+ */
 export async function refreshSettingsProjection(
   client: SettingsOperationClient,
   now = new Date(),
 ): Promise<SettingsControlPlaneProjection> {
-  const [definitions, snapshot, health] = await Promise.all([
+  const [definitionsResult, snapshotResult, doctorResult] = await Promise.allSettled([
     client.definitions(),
     client.snapshot(),
     client.doctor(),
   ]);
-  return { definitions, snapshot, health, refreshedAt: now.toISOString() };
+  if (definitionsResult.status === "rejected") throw definitionsResult.reason;
+  if (snapshotResult.status === "rejected") throw snapshotResult.reason;
+  const doctorError = doctorResult.status === "rejected"
+    ? String((doctorResult.reason as Error)?.message ?? doctorResult.reason)
+    : undefined;
+  const health: CapabilityHealth[] = doctorResult.status === "fulfilled"
+    ? doctorResult.value.capabilities
+    : [{
+        capabilityId: "settings.doctor",
+        state: "degraded",
+        summary: `Settings are available, but Doctor could not complete: ${doctorError}`,
+        evidence: [{
+          code: "doctor-unavailable",
+          summary: doctorError ?? "Doctor unavailable",
+          status: "warn",
+          observedAt: now.toISOString(),
+        }],
+        remediations: [{ code: "retry-doctor", summary: "Retry the health check." }],
+        checkedAt: now.toISOString(),
+        snapshotId: snapshotResult.value.snapshot.snapshotId,
+      }];
+  return {
+    definitions: definitionsResult.value,
+    snapshot: snapshotResult.value.snapshot,
+    validation: snapshotResult.value.validation,
+    recoveryDiagnostics: snapshotResult.value.recoveryDiagnostics,
+    health,
+    doctorError,
+    refreshedAt: now.toISOString(),
+  };
+}
+
+export function isSecretReference(value: unknown): value is SecretReference {
+  return Boolean(
+    value
+    && typeof value === "object"
+    && !Array.isArray(value)
+    && "provider" in value
+    && "locator" in value
+    && typeof (value as SecretReference).provider === "string"
+    && typeof (value as SecretReference).locator === "string",
+  );
+}
+
+export function redactedSecretLabel(value: unknown): string {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return "not configured";
+  if ("secretRef" in value && isSecretReference((value as { secretRef?: unknown }).secretRef)) {
+    const redacted = value as { secretRef: SecretReference; status?: string };
+    return `${redacted.secretRef.provider}:•••• (${redacted.status ?? "unknown"})`;
+  }
+  if (isSecretReference(value)) return `${value.provider}:••••`;
+  return "configured (redacted)";
 }
 
 export class UnavailableSettingsTransport implements SettingsOperationTransport {
