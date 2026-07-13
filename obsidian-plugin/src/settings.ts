@@ -1,276 +1,244 @@
-export const SETTINGS_SCHEMA_VERSION = 1;
+import type {
+  SettingScope,
+  SettingValue,
+  SettingsOperationClient,
+  SettingsSnapshot,
+} from "./settings-client";
 
-export type SettingScope = "user-device" | "vault" | "workspace-project" | "session";
-export type SettingValue = string | boolean | number;
-export type SettingsCategory = "runtime" | "vault" | "query" | "diagnostics" | "providers";
-export const EDITABLE_SCOPES: SettingScope[] = ["user-device", "vault"];
+export const PLUGIN_DATA_SCHEMA_VERSION = 2;
 
-export interface SettingDefinition {
+export interface PluginPresentation {
+  selectedScope: SettingScope;
+  showAdvanced: boolean;
+}
+
+export interface DeviceBindingReference {
+  deviceId: string;
+  userDeviceStoreId?: string;
+  workspaceProjectId?: string;
+}
+
+export interface LegacyMigrationAssignment {
+  scope: SettingScope;
   key: string;
-  category: SettingsCategory;
-  name: string;
-  description: string;
-  valueType: "string" | "boolean" | "secret-reference";
-  defaultValue: SettingValue;
-  allowedScopes: SettingScope[];
-  applyMode: "hot" | "next-operation" | "restart-required";
-  required?: boolean;
-  advanced?: boolean;
-  placeholder?: string;
-}
-
-export interface LLMWikiSettingsData {
-  schemaVersion: number;
-  revision: number;
-  assignments: Record<SettingScope, Record<string, SettingValue>>;
-  presentation: {
-    selectedScope: SettingScope;
-    showAdvanced: boolean;
-  };
-}
-
-export interface EffectiveSetting {
-  definition: SettingDefinition;
   value: SettingValue;
-  winningScope: SettingScope | "product-default";
-  overriddenScopes: SettingScope[];
 }
 
-export interface SettingValidationIssue {
-  key: string;
-  severity: "error" | "warning";
-  message: string;
+export interface LegacyMigrationMarker {
+  version: 1;
+  state: "pending" | "applied" | "rolled-back";
+  assignmentKeys: string[];
+  appliedRevisions?: Partial<Record<SettingScope, number>>;
+  appliedAt?: string;
+  rolledBackAt?: string;
 }
 
-export interface LegacyPluginData {
-  pythonPath?: unknown;
-  kbMetaPath?: unknown;
-  schemaVersion?: unknown;
-  revision?: unknown;
-  assignments?: unknown;
-  presentation?: unknown;
+/** Obsidian-owned state only. Settings assignments never belong in data.json. */
+export interface LLMWikiPluginData {
+  schemaVersion: typeof PLUGIN_DATA_SCHEMA_VERSION;
+  presentation: PluginPresentation;
+  deviceBinding?: DeviceBindingReference;
+  legacyMigration?: LegacyMigrationMarker;
 }
 
-export const SETTING_DEFINITIONS: SettingDefinition[] = [
-  {
-    key: "providers.web_search.enabled",
-    category: "providers",
-    name: "Web search provider",
-    description: "Allow unified query workflows to use the configured web search provider.",
-    valueType: "boolean",
-    defaultValue: false,
-    allowedScopes: ["vault", "workspace-project", "session"],
-    applyMode: "next-operation",
-  },
-  {
-    key: "runtime.python.path",
-    category: "runtime",
-    name: "Python runtime",
-    description: "Interpreter used by LLM Wiki's Python capabilities.",
-    valueType: "string",
-    defaultValue: "python",
-    allowedScopes: ["user-device", "session"],
-    applyMode: "next-operation",
-    required: true,
-    placeholder: "python or an absolute executable path",
-  },
-  {
-    key: "runtime.kb_meta.path",
-    category: "runtime",
-    name: "LLM Wiki runtime entry",
-    description: "Absolute path to compiler/kb_meta.py. This is a runtime binding, not vault knowledge.",
-    valueType: "string",
-    defaultValue: "",
-    allowedScopes: ["user-device", "session"],
-    applyMode: "next-operation",
-    required: true,
-    placeholder: "D:\\projects\\obsidian-llm-wiki\\compiler\\kb_meta.py",
-  },
-  {
-    key: "query.semantic.enabled",
-    category: "query",
-    name: "Semantic query",
-    description: "Enable semantic retrieval when its configured provider is available.",
-    valueType: "boolean",
-    defaultValue: false,
-    allowedScopes: ["vault", "workspace-project", "session"],
-    applyMode: "next-operation",
-  },
-  {
-    key: "diagnostics.obc.semantic.enabled",
-    category: "diagnostics",
-    name: "Link-diagnostics semantic suggestions",
-    description: "Add optional semantic suggestions while deterministic link diagnostics remain available.",
-    valueType: "boolean",
-    defaultValue: false,
-    allowedScopes: ["vault", "workspace-project", "session"],
-    applyMode: "next-operation",
-  },
-  {
-    key: "providers.web_search.secret_ref",
-    category: "providers",
-    name: "Web search secret reference",
-    description: "Opaque environment reference. The secret value is never stored by the plugin.",
-    valueType: "secret-reference",
-    defaultValue: "env:TAVILY_API_KEY",
-    allowedScopes: ["user-device", "session"],
-    applyMode: "next-operation",
-    advanced: true,
-    placeholder: "env:TAVILY_API_KEY",
-  },
-];
-
-const SCOPE_PRECEDENCE: SettingScope[] = ["session", "workspace-project", "vault", "user-device"];
-
-export function createDefaultSettings(): LLMWikiSettingsData {
-  return {
-    schemaVersion: SETTINGS_SCHEMA_VERSION,
-    revision: 0,
-    assignments: {
-      "user-device": {},
-      vault: {},
-      "workspace-project": {},
-      session: {},
-    },
-    presentation: {
-      selectedScope: "user-device",
-      showAdvanced: false,
-    },
-  };
+export interface PluginDataMigrationPlan {
+  data: LLMWikiPluginData;
+  assignments: LegacyMigrationAssignment[];
+  migrated: boolean;
 }
+
+const EDITABLE_SCOPES: SettingScope[] = ["user-device", "vault"];
+const LEGACY_SCOPES: SettingScope[] = ["user-device", "vault", "workspace-project", "session"];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function normalizeAssignments(value: unknown): LLMWikiSettingsData["assignments"] {
-  const empty = createDefaultSettings().assignments;
-  if (!isRecord(value)) return empty;
-  for (const scope of SCOPE_PRECEDENCE) {
-    const candidate = value[scope];
-    if (!isRecord(candidate)) continue;
-    for (const [key, settingValue] of Object.entries(candidate)) {
-      if (["string", "boolean", "number"].includes(typeof settingValue)) {
-        empty[scope][key] = settingValue as SettingValue;
-      }
-    }
-  }
-  return empty;
+function isSettingValue(value: unknown): value is SettingValue {
+  return typeof value === "string" || typeof value === "boolean" || typeof value === "number";
 }
 
-export function migrateSettings(raw: unknown): { data: LLMWikiSettingsData; migrated: boolean } {
-  const defaults = createDefaultSettings();
-  if (!isRecord(raw)) return { data: defaults, migrated: false };
-
-  if (raw.schemaVersion === SETTINGS_SCHEMA_VERSION) {
-    const presentation = isRecord(raw.presentation) ? raw.presentation : {};
-    const selected = presentation.selectedScope;
-    const selectedScope = EDITABLE_SCOPES.includes(selected as SettingScope)
-      ? selected as SettingScope
-      : defaults.presentation.selectedScope;
-    return {
-      data: {
-        schemaVersion: SETTINGS_SCHEMA_VERSION,
-        revision: typeof raw.revision === "number" ? Math.max(0, Math.floor(raw.revision)) : 0,
-        assignments: normalizeAssignments(raw.assignments),
-        presentation: {
-          selectedScope,
-          showAdvanced: presentation.showAdvanced === true,
-        },
-      },
-      migrated: false,
-    };
-  }
-
-  if (typeof raw.schemaVersion === "number") {
-    throw new Error(`Unsupported settings schema version: ${raw.schemaVersion}`);
-  }
-
-  const legacy = raw as LegacyPluginData;
-  if (typeof legacy.pythonPath === "string" && legacy.pythonPath.trim()) {
-    defaults.assignments["user-device"]["runtime.python.path"] = legacy.pythonPath.trim();
-  }
-  if (typeof legacy.kbMetaPath === "string" && legacy.kbMetaPath.trim()) {
-    defaults.assignments["user-device"]["runtime.kb_meta.path"] = legacy.kbMetaPath.trim();
-  }
-  const migrated = "pythonPath" in legacy || "kbMetaPath" in legacy;
-  return { data: defaults, migrated };
-}
-
-export function resolveSettings(data: LLMWikiSettingsData): Map<string, EffectiveSetting> {
-  const resolved = new Map<string, EffectiveSetting>();
-  for (const definition of SETTING_DEFINITIONS) {
-    let value = definition.defaultValue;
-    let winningScope: EffectiveSetting["winningScope"] = "product-default";
-    const overriddenScopes: SettingScope[] = [];
-    for (const scope of SCOPE_PRECEDENCE) {
-      const assigned = data.assignments[scope][definition.key];
-      if (assigned === undefined || !definition.allowedScopes.includes(scope)) continue;
-      if (winningScope === "product-default") {
-        value = assigned;
-        winningScope = scope;
-      } else {
-        overriddenScopes.push(scope);
-      }
-    }
-    resolved.set(definition.key, { definition, value, winningScope, overriddenScopes });
-  }
-  return resolved;
-}
-
-export function setAssignment(
-  data: LLMWikiSettingsData,
-  scope: SettingScope,
-  key: string,
-  value: SettingValue | undefined,
-): LLMWikiSettingsData {
-  const definition = SETTING_DEFINITIONS.find(item => item.key === key);
-  if (!definition) throw new Error(`Unknown setting: ${key}`);
-  if (!definition.allowedScopes.includes(scope)) throw new Error(`${key} cannot be set at ${scope} scope`);
-
-  const assignments = normalizeAssignments(data.assignments);
-  if (value === undefined || (typeof value === "string" && value.trim() === "" && !definition.required)) {
-    delete assignments[scope][key];
-  } else {
-    assignments[scope][key] = typeof value === "string" ? value.trim() : value;
-  }
+function defaultData(): LLMWikiPluginData {
   return {
-    ...data,
-    revision: data.revision + 1,
-    assignments,
+    schemaVersion: PLUGIN_DATA_SCHEMA_VERSION,
+    presentation: { selectedScope: "user-device", showAdvanced: false },
   };
 }
 
-export function validateSettings(data: LLMWikiSettingsData): SettingValidationIssue[] {
-  const resolved = resolveSettings(data);
-  const issues: SettingValidationIssue[] = [];
-  for (const effective of resolved.values()) {
-    const { definition, value } = effective;
-    const expectedType = definition.valueType === "boolean" ? "boolean" : "string";
-    if (typeof value !== expectedType) {
-      issues.push({ key: definition.key, severity: "error", message: `${definition.name} must be a ${expectedType}.` });
-      continue;
-    }
-    if (definition.required && typeof value === "string" && !value.trim()) {
-      issues.push({ key: definition.key, severity: "error", message: `${definition.name} is required.` });
-    }
-    if (definition.valueType === "secret-reference" && typeof value === "string" && value && !value.startsWith("env:")) {
-      issues.push({ key: definition.key, severity: "error", message: `${definition.name} must use an env: reference.` });
-    }
+function readPresentation(raw: Record<string, unknown>): PluginPresentation {
+  const source = isRecord(raw.presentation) ? raw.presentation : {};
+  const selected = source.selectedScope;
+  return {
+    selectedScope: EDITABLE_SCOPES.includes(selected as SettingScope)
+      ? selected as SettingScope
+      : "user-device",
+    showAdvanced: source.showAdvanced === true,
+  };
+}
+
+function readDeviceBinding(raw: Record<string, unknown>): DeviceBindingReference | undefined {
+  if (!isRecord(raw.deviceBinding) || typeof raw.deviceBinding.deviceId !== "string") return undefined;
+  const binding: DeviceBindingReference = { deviceId: raw.deviceBinding.deviceId };
+  if (typeof raw.deviceBinding.userDeviceStoreId === "string") {
+    binding.userDeviceStoreId = raw.deviceBinding.userDeviceStoreId;
   }
-  const knownKeys = new Set(SETTING_DEFINITIONS.map(definition => definition.key));
-  for (const scope of SCOPE_PRECEDENCE) {
-    for (const key of Object.keys(data.assignments[scope])) {
-      if (!knownKeys.has(key)) {
-        issues.push({ key, severity: "warning", message: `Unknown ${scope} setting is preserved but ignored.` });
+  if (typeof raw.deviceBinding.workspaceProjectId === "string") {
+    binding.workspaceProjectId = raw.deviceBinding.workspaceProjectId;
+  }
+  return binding;
+}
+
+function readMarker(raw: Record<string, unknown>): LegacyMigrationMarker | undefined {
+  if (!isRecord(raw.legacyMigration) || raw.legacyMigration.version !== 1) return undefined;
+  const state = raw.legacyMigration.state;
+  if (state !== "pending" && state !== "applied" && state !== "rolled-back") return undefined;
+  const appliedRevisions: Partial<Record<SettingScope, number>> = {};
+  if (isRecord(raw.legacyMigration.appliedRevisions)) {
+    for (const scope of LEGACY_SCOPES) {
+      const revision = raw.legacyMigration.appliedRevisions[scope];
+      if (typeof revision === "number" && Number.isInteger(revision) && revision >= 0) {
+        appliedRevisions[scope] = revision;
       }
     }
   }
-  return issues;
+  return {
+    version: 1,
+    state,
+    assignmentKeys: Array.isArray(raw.legacyMigration.assignmentKeys)
+      ? raw.legacyMigration.assignmentKeys.filter((item): item is string => typeof item === "string")
+      : [],
+    appliedRevisions: Object.keys(appliedRevisions).length ? appliedRevisions : undefined,
+    appliedAt: typeof raw.legacyMigration.appliedAt === "string" ? raw.legacyMigration.appliedAt : undefined,
+    rolledBackAt: typeof raw.legacyMigration.rolledBackAt === "string" ? raw.legacyMigration.rolledBackAt : undefined,
+  };
 }
 
-export function getEffectiveValue<T extends SettingValue>(data: LLMWikiSettingsData, key: string): T {
-  const effective = resolveSettings(data).get(key);
-  if (!effective) throw new Error(`Unknown setting: ${key}`);
-  return effective.value as T;
+function collectLegacyAssignments(raw: Record<string, unknown>): LegacyMigrationAssignment[] {
+  const byIdentity = new Map<string, LegacyMigrationAssignment>();
+  if (isRecord(raw.assignments)) {
+    for (const scope of LEGACY_SCOPES) {
+      const assignments = raw.assignments[scope];
+      if (!isRecord(assignments)) continue;
+      for (const [key, value] of Object.entries(assignments)) {
+        if (!isSettingValue(value)) continue;
+        byIdentity.set(`${scope}:${key}`, { scope, key, value });
+      }
+    }
+  }
+
+  const directBindings: Array<[string, string]> = [
+    ["pythonPath", "runtime.python.path"],
+    ["kbMetaPath", "runtime.kb_meta.path"],
+  ];
+  for (const [legacyKey, key] of directBindings) {
+    const value = raw[legacyKey];
+    if (typeof value === "string" && value.trim()) {
+      byIdentity.set(`user-device:${key}`, { scope: "user-device", key, value: value.trim() });
+    }
+  }
+  return [...byIdentity.values()];
+}
+
+/**
+ * Converts plugin-private settings into a migration plan. Values stay in memory
+ * until the Settings Platform accepts them; the returned plugin document never
+ * persists operational assignments.
+ */
+export function planPluginDataMigration(raw: unknown): PluginDataMigrationPlan {
+  const defaults = defaultData();
+  if (!isRecord(raw)) return { data: defaults, assignments: [], migrated: false };
+
+  if (typeof raw.schemaVersion === "number" && raw.schemaVersion > PLUGIN_DATA_SCHEMA_VERSION) {
+    throw new Error(`Unsupported plugin data schema version: ${raw.schemaVersion}`);
+  }
+
+  const assignments = collectLegacyAssignments(raw);
+  const existingMarker = readMarker(raw);
+  const data: LLMWikiPluginData = {
+    schemaVersion: PLUGIN_DATA_SCHEMA_VERSION,
+    presentation: readPresentation(raw),
+    deviceBinding: readDeviceBinding(raw),
+    legacyMigration: existingMarker,
+  };
+  if (assignments.length) {
+    data.legacyMigration = {
+      version: 1,
+      state: "pending",
+      assignmentKeys: assignments.map(item => `${item.scope}:${item.key}`).sort(),
+    };
+  }
+  return {
+    data,
+    assignments,
+    migrated: raw.schemaVersion !== PLUGIN_DATA_SCHEMA_VERSION || assignments.length > 0,
+  };
+}
+
+export function selectEditingScope(data: LLMWikiPluginData, scope: SettingScope): LLMWikiPluginData {
+  if (!EDITABLE_SCOPES.includes(scope)) throw new Error(`${scope} is not editable without a bound runtime context`);
+  return { ...data, presentation: { ...data.presentation, selectedScope: scope } };
+}
+
+export async function applyPluginDataMigration(
+  client: SettingsOperationClient,
+  plan: PluginDataMigrationPlan,
+  now = new Date(),
+): Promise<{ data: LLMWikiPluginData; snapshot: SettingsSnapshot }> {
+  let snapshot = await client.snapshot();
+  for (const assignment of plan.assignments) {
+    snapshot = await client.setAssignment(
+      assignment.scope,
+      assignment.key,
+      assignment.value,
+      snapshot.sourceRevisions[assignment.scope] ?? 0,
+    );
+  }
+  const appliedRevisions: Partial<Record<SettingScope, number>> = {};
+  for (const assignment of plan.assignments) {
+    appliedRevisions[assignment.scope] = snapshot.sourceRevisions[assignment.scope] ?? 0;
+  }
+  return {
+    snapshot,
+    data: {
+      ...plan.data,
+      legacyMigration: plan.assignments.length
+        ? {
+            version: 1,
+            state: "applied",
+            assignmentKeys: plan.assignments.map(item => `${item.scope}:${item.key}`).sort(),
+            appliedRevisions,
+            appliedAt: now.toISOString(),
+          }
+        : plan.data.legacyMigration,
+    },
+  };
+}
+
+export async function rollbackPluginDataMigration(
+  client: SettingsOperationClient,
+  data: LLMWikiPluginData,
+  now = new Date(),
+): Promise<{ data: LLMWikiPluginData; snapshot: SettingsSnapshot }> {
+  const marker = data.legacyMigration;
+  if (!marker || marker.state !== "applied") throw new Error("No applied legacy migration to roll back");
+  let snapshot = await client.snapshot();
+  for (const [scope, revision] of Object.entries(marker.appliedRevisions ?? {})) {
+    const current = snapshot.sourceRevisions[scope as SettingScope] ?? 0;
+    if (current !== revision) {
+      throw new Error(`Cannot roll back legacy migration: ${scope} changed at revision ${current}`);
+    }
+  }
+  for (const identity of marker.assignmentKeys) {
+    const separator = identity.indexOf(":");
+    const scope = identity.slice(0, separator) as SettingScope;
+    const key = identity.slice(separator + 1);
+    snapshot = await client.unsetAssignment(scope, key, snapshot.sourceRevisions[scope] ?? 0);
+  }
+  return {
+    snapshot,
+    data: {
+      ...data,
+      legacyMigration: { ...marker, state: "rolled-back", rolledBackAt: now.toISOString() },
+    },
+  };
 }
