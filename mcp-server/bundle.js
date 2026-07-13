@@ -45830,6 +45830,9 @@ var SENSITIVITIES = /* @__PURE__ */ new Set(["public", "local", "secret-referenc
 var APPLY_MODES = /* @__PURE__ */ new Set(["hot", "next-operation", "restart-required"]);
 var VISIBILITIES = /* @__PURE__ */ new Set(["normal", "advanced", "internal"]);
 var SECRET_PROVIDERS = /* @__PURE__ */ new Set(["os-keychain", "environment", "external-vault"]);
+var ENVIRONMENT_LOCATOR_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+var OPAQUE_SECRET_LOCATOR_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}(?:\/[A-Za-z0-9][A-Za-z0-9._-]{0,63})+$/;
+var SECRET_MATERIAL_RE = /^(?:bearer\s+|sk[-_][A-Za-z0-9_-]{8,}|api[_-]?key\s*[:=])/i;
 function validateValidator(definition) {
   const validator = definition.validator;
   if (validator.required !== void 0 && typeof validator.required !== "boolean") {
@@ -45862,7 +45865,17 @@ function isSecretReference(value) {
   if (!value || typeof value !== "object" || Array.isArray(value))
     return false;
   const ref = value;
-  return typeof ref.provider === "string" && SECRET_PROVIDERS.has(ref.provider) && typeof ref.locator === "string" && ref.locator.trim().length > 0 && !/[\r\n\0]/.test(ref.locator) && (ref.version === void 0 || typeof ref.version === "string" && ref.version.length > 0);
+  return typeof ref.provider === "string" && SECRET_PROVIDERS.has(ref.provider) && typeof ref.locator === "string" && validSecretLocator(ref.provider, ref.locator) && (ref.version === void 0 || typeof ref.version === "string" && ref.version.length > 0);
+}
+function validSecretLocator(provider, locator) {
+  const normalized = locator.trim();
+  if (!normalized || normalized !== locator || /[\r\n\0]/.test(normalized) || SECRET_MATERIAL_RE.test(normalized))
+    return false;
+  if (provider === "environment")
+    return ENVIRONMENT_LOCATOR_RE.test(normalized);
+  if (provider === "os-keychain" || provider === "external-vault")
+    return OPAQUE_SECRET_LOCATOR_RE.test(normalized);
+  return false;
 }
 function defaultMatchesType(definition) {
   const value = definition.defaultValue;
@@ -45895,6 +45908,10 @@ function bundledRegistry() {
 
 // ../packages/settings-platform/dist/src/validation.js
 var SECRET_PROVIDERS2 = /* @__PURE__ */ new Set(["os-keychain", "environment", "external-vault"]);
+var PROJECT_ID_RE2 = /^project\/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/;
+var ENVIRONMENT_LOCATOR_RE2 = /^[A-Za-z_][A-Za-z0-9_]*$/;
+var OPAQUE_SECRET_LOCATOR_RE2 = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}(?:\/[A-Za-z0-9][A-Za-z0-9._-]{0,63})+$/;
+var SECRET_MATERIAL_RE2 = /^(?:bearer\s+|sk[-_][A-Za-z0-9_-]{8,}|api[_-]?key\s*[:=])/i;
 function issue2(code, message, options = {}) {
   return { code, severity: "error", message, ...options };
 }
@@ -45902,6 +45919,9 @@ function validateSettingsDocuments(registry3, documents, context) {
   const issues = [];
   const definitions = definitionMap(registry3);
   const identities = /* @__PURE__ */ new Set();
+  if (context?.workspaceProjectId && !isCanonicalProjectId(context.workspaceProjectId)) {
+    issues.push(issue2("invalid-workspace-project-id", "workspaceProjectId must use the canonical project/<lowercase-kebab-slug> form.", { targetId: context.workspaceProjectId }));
+  }
   for (const candidate of documents) {
     if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
       issues.push(issue2("invalid-settings-document", "Settings document must be a JSON object."));
@@ -46025,6 +46045,8 @@ function validateDocumentShape(document) {
   }
   if (!document.targetId || typeof document.targetId !== "string") {
     issues.push(issue2("invalid-target", "Settings targetId is required.", options));
+  } else if (document.scope === "workspace-project" && !isCanonicalProjectId(document.targetId)) {
+    issues.push(issue2("invalid-workspace-project-id", "workspace-project targetId must use the canonical project/<lowercase-kebab-slug> form.", options));
   }
   if (!Array.isArray(document.assignments)) {
     issues.push(issue2("invalid-assignments", "Settings assignments must be an array.", options));
@@ -46093,7 +46115,20 @@ function isSecretReference2(value) {
   if (!value || typeof value !== "object" || Array.isArray(value))
     return false;
   const ref = value;
-  return typeof ref.provider === "string" && SECRET_PROVIDERS2.has(ref.provider) && typeof ref.locator === "string" && ref.locator.trim().length > 0 && !/[\r\n\0]/.test(ref.locator) && (ref.version === void 0 || typeof ref.version === "string" && ref.version.length > 0);
+  return typeof ref.provider === "string" && SECRET_PROVIDERS2.has(ref.provider) && typeof ref.locator === "string" && validSecretLocator2(ref.provider, ref.locator) && (ref.version === void 0 || typeof ref.version === "string" && ref.version.length > 0);
+}
+function isCanonicalProjectId(value) {
+  return typeof value === "string" && PROJECT_ID_RE2.test(value);
+}
+function validSecretLocator2(provider, locator) {
+  const normalized = locator.trim();
+  if (!normalized || normalized !== locator || /[\r\n\0]/.test(normalized) || SECRET_MATERIAL_RE2.test(normalized))
+    return false;
+  if (provider === "environment")
+    return ENVIRONMENT_LOCATOR_RE2.test(normalized);
+  if (provider === "os-keychain" || provider === "external-vault")
+    return OPAQUE_SECRET_LOCATOR_RE2.test(normalized);
+  return false;
 }
 function scopeMatchesContext(scope, targetId, context) {
   return targetId === targetForScope(scope, context);
@@ -46647,7 +46682,10 @@ function settingsDocumentPath(scope, options) {
     return options.userDevicePath;
   if (scope === "vault")
     return join15(options.vaultPath, "_llmwiki", "settings", "vault.json");
-  return join15(options.vaultPath, "_llmwiki", "settings", "projects", `${safeSegment3(options.targetId)}.json`);
+  const match = /^project\/([a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?)$/.exec(options.targetId);
+  if (!match)
+    throw new Error(`workspace-project targetId must use canonical project/<slug> form: ${options.targetId}`);
+  return join15(options.vaultPath, "_llmwiki", "settings", "projects", `${match[1]}.json`);
 }
 function defaultUserDeviceSettingsPath(environment = process.env) {
   if (environment.LLMWIKI_SETTINGS_USER_PATH)
@@ -46712,12 +46750,6 @@ async function exists(path) {
 }
 function isSecretRefShape(value) {
   return Boolean(value && typeof value === "object" && !Array.isArray(value) && typeof value.provider === "string" && typeof value.locator === "string");
-}
-function safeSegment3(value) {
-  const normalized = value.trim().toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
-  if (!normalized || normalized === "." || normalized === "..")
-    throw new Error(`Unsafe settings target: ${value}`);
-  return normalized;
 }
 function delay(ms) {
   return new Promise((resolve8) => setTimeout(resolve8, ms));
@@ -47138,7 +47170,10 @@ function makeSettingsOps(options, service = createSettingsService(options)) {
         scope: { type: "string", required: true, enum: [...SETTINGS_SCOPES] },
         targetId: { type: "string", required: false }
       },
-      handler: async (_ctx, params) => service.scopesGet(settingsScopeParam(params.scope), optionalString(params.targetId))
+      handler: async (_ctx, params) => {
+        const scope = settingsScopeParam(params.scope);
+        return service.scopesGet(scope, resolvedTargetId(options.vaultPath, scope, optionalString(params.targetId), service.defaultContext, "settings.scopes.get"));
+      }
     },
     {
       name: "settings.snapshot.resolve",
@@ -47146,7 +47181,7 @@ function makeSettingsOps(options, service = createSettingsService(options)) {
       description: "Resolve the deterministic redacted Settings Snapshot for a runtime context.",
       mutating: false,
       params: { context: { type: "object", required: false } },
-      handler: async (_ctx, params) => service.snapshotResolve(runtimeContext(params.context, service.defaultContext))
+      handler: async (_ctx, params) => service.snapshotResolve(runtimeContext(params.context, service.defaultContext, options.vaultPath, "settings.snapshot.resolve"))
     },
     {
       name: "settings.snapshot.explain",
@@ -47157,14 +47192,14 @@ function makeSettingsOps(options, service = createSettingsService(options)) {
         key: { type: "string", required: true },
         context: { type: "object", required: false }
       },
-      handler: async (_ctx, params) => service.snapshotExplain(requiredString(params.key, "key"), runtimeContext(params.context, service.defaultContext))
+      handler: async (_ctx, params) => service.snapshotExplain(requiredString(params.key, "key"), runtimeContext(params.context, service.defaultContext, options.vaultPath, "settings.snapshot.explain"))
     },
     {
       name: "settings.assignment.set",
       namespace: "settings",
       description: "Set one assignment with complete-scope validation and optimistic expected-revision commit.",
       mutating: true,
-      writePolicy: settingsWritePolicy(service.defaultContext),
+      writePolicy: settingsWritePolicy(options.vaultPath, service.defaultContext, "settings.assignment.set"),
       params: {
         scope: { type: "string", required: true, enum: [...MUTABLE_SCOPES2] },
         targetId: { type: "string", required: false },
@@ -47175,23 +47210,26 @@ function makeSettingsOps(options, service = createSettingsService(options)) {
         reason: { type: "string", required: false },
         expiresAt: { type: "string", required: false }
       },
-      handler: async (ctx, params) => service.assignmentSet({
-        scope: scopeParam(params.scope),
-        targetId: optionalString(params.targetId),
-        key: requiredString(params.key, "key"),
-        value: params.value,
-        expectedRevision: requiredRevision(params.expectedRevision),
-        updatedBy: optionalString(params.updatedBy) ?? ctx.config.collaboration?.actor ?? "mcp",
-        reason: optionalString(params.reason),
-        expiresAt: optionalString(params.expiresAt)
-      })
+      handler: async (ctx, params) => {
+        const scope = scopeParam(params.scope);
+        return service.assignmentSet({
+          scope,
+          targetId: resolvedTargetId(options.vaultPath, scope, optionalString(params.targetId), service.defaultContext, "settings.assignment.set"),
+          key: requiredString(params.key, "key"),
+          value: params.value,
+          expectedRevision: requiredRevision(params.expectedRevision),
+          updatedBy: optionalString(params.updatedBy) ?? ctx.config.collaboration?.actor ?? "mcp",
+          reason: optionalString(params.reason),
+          expiresAt: optionalString(params.expiresAt)
+        });
+      }
     },
     {
       name: "settings.assignment.unset",
       namespace: "settings",
       description: "Unset one assignment with complete-scope validation and optimistic expected-revision commit.",
       mutating: true,
-      writePolicy: settingsWritePolicy(service.defaultContext),
+      writePolicy: settingsWritePolicy(options.vaultPath, service.defaultContext, "settings.assignment.unset"),
       params: {
         scope: { type: "string", required: true, enum: [...MUTABLE_SCOPES2] },
         targetId: { type: "string", required: false },
@@ -47200,14 +47238,17 @@ function makeSettingsOps(options, service = createSettingsService(options)) {
         updatedBy: { type: "string", required: false },
         reason: { type: "string", required: false }
       },
-      handler: async (ctx, params) => service.assignmentUnset({
-        scope: scopeParam(params.scope),
-        targetId: optionalString(params.targetId),
-        key: requiredString(params.key, "key"),
-        expectedRevision: requiredRevision(params.expectedRevision),
-        updatedBy: optionalString(params.updatedBy) ?? ctx.config.collaboration?.actor ?? "mcp",
-        reason: optionalString(params.reason)
-      })
+      handler: async (ctx, params) => {
+        const scope = scopeParam(params.scope);
+        return service.assignmentUnset({
+          scope,
+          targetId: resolvedTargetId(options.vaultPath, scope, optionalString(params.targetId), service.defaultContext, "settings.assignment.unset"),
+          key: requiredString(params.key, "key"),
+          expectedRevision: requiredRevision(params.expectedRevision),
+          updatedBy: optionalString(params.updatedBy) ?? ctx.config.collaboration?.actor ?? "mcp",
+          reason: optionalString(params.reason)
+        });
+      }
     },
     {
       name: "settings.validate",
@@ -47215,7 +47256,7 @@ function makeSettingsOps(options, service = createSettingsService(options)) {
       description: "Validate definitions, complete scope documents, effective values, and cross-setting constraints.",
       mutating: false,
       params: { context: { type: "object", required: false } },
-      handler: async (_ctx, params) => service.validate(runtimeContext(params.context, service.defaultContext))
+      handler: async (_ctx, params) => service.validate(runtimeContext(params.context, service.defaultContext, options.vaultPath, "settings.validate"))
     },
     {
       name: "settings.migrations.plan",
@@ -47223,7 +47264,7 @@ function makeSettingsOps(options, service = createSettingsService(options)) {
       description: "Plan Settings document schema migrations without writing.",
       mutating: false,
       params: { context: { type: "object", required: false } },
-      handler: async (_ctx, params) => service.migrationsPlan(runtimeContext(params.context, service.defaultContext))
+      handler: async (_ctx, params) => service.migrationsPlan(runtimeContext(params.context, service.defaultContext, options.vaultPath, "settings.migrations.plan"))
     },
     {
       name: "settings.doctor",
@@ -47231,38 +47272,58 @@ function makeSettingsOps(options, service = createSettingsService(options)) {
       description: "Report evidence-backed available, degraded, unavailable, and disabled capability health.",
       mutating: false,
       params: { context: { type: "object", required: false } },
-      handler: async (_ctx, params) => service.doctor(runtimeContext(params.context, service.defaultContext))
+      handler: async (_ctx, params) => service.doctor(runtimeContext(params.context, service.defaultContext, options.vaultPath, "settings.doctor"))
     }
   ];
 }
-function settingsWritePolicy(defaultContext) {
+function settingsWritePolicy(vaultPath, defaultContext, operation) {
   return {
     realWrite: "always",
     targets: (_ctx, params) => {
       const scope = typeof params.scope === "string" ? params.scope : "unknown";
       const defaultTarget = MUTABLE_SCOPES2.includes(scope) ? targetForScope(scope, defaultContext) : void 0;
-      const targetId = safeTarget(typeof params.targetId === "string" ? params.targetId : defaultTarget ?? "current");
+      const suppliedTarget = typeof params.targetId === "string" ? params.targetId : void 0;
+      if (scope === "workspace-project") {
+        const targetId2 = suppliedTarget ?? defaultContext.workspaceProjectId;
+        if (!targetId2)
+          throw badRequest("workspace-project settings require targetId or workspaceProjectId context");
+        const project = resolveProjectContext(vaultPath, targetId2, operation);
+        return [`_llmwiki/settings/projects/${project.slug}.json`];
+      }
+      const targetId = safeTarget(suppliedTarget ?? defaultTarget ?? "current");
       if (scope === "vault")
         return ["_llmwiki/settings/vault.json"];
-      if (scope === "workspace-project")
-        return [`_llmwiki/settings/projects/${targetId}.json`];
       return [`_llmwiki/settings/${scope}/${targetId}`];
     },
     audit: "required"
   };
 }
-function runtimeContext(value, defaults2) {
+function runtimeContext(value, defaults2, vaultPath, operation) {
   if (value === void 0)
-    return { ...defaults2 };
+    return canonicalRuntimeContext(defaults2, vaultPath, operation);
   if (!value || typeof value !== "object" || Array.isArray(value))
     throw badRequest("context must be an object");
   const context = value;
-  return {
+  return canonicalRuntimeContext({
     userDeviceId: optionalString(context.userDeviceId) ?? defaults2.userDeviceId,
     ...optionalString(context.vaultId) ?? defaults2.vaultId ? { vaultId: optionalString(context.vaultId) ?? defaults2.vaultId } : {},
     ...optionalString(context.workspaceProjectId) ?? defaults2.workspaceProjectId ? { workspaceProjectId: optionalString(context.workspaceProjectId) ?? defaults2.workspaceProjectId } : {},
     ...optionalString(context.sessionId) ?? defaults2.sessionId ? { sessionId: optionalString(context.sessionId) ?? defaults2.sessionId } : {}
+  }, vaultPath, operation);
+}
+function canonicalRuntimeContext(context, vaultPath, operation) {
+  if (!context.workspaceProjectId)
+    return { ...context };
+  return {
+    ...context,
+    workspaceProjectId: resolveProjectContext(vaultPath, context.workspaceProjectId, operation).projectId
   };
+}
+function resolvedTargetId(vaultPath, scope, targetId, defaults2, operation) {
+  const resolved = targetId ?? (scope === "product" ? void 0 : targetForScope(scope, defaults2));
+  if (scope !== "workspace-project" || !resolved)
+    return resolved;
+  return resolveProjectContext(vaultPath, resolved, operation).projectId;
 }
 function scopeParam(value) {
   if (typeof value !== "string" || !MUTABLE_SCOPES2.includes(value)) {
@@ -48004,7 +48065,7 @@ function prepareUrlSource(input, params) {
   const canonical = canonicalUrl(input);
   const preferredProvider = optionalString2(params.preferredProvider);
   const plan = preflight({ url: canonical, preferredProvider });
-  const platform2 = safeSegment4(optionalString2(params.platform) ?? stringValue3(plan.platform) ?? detectPlatform2(canonical), "platform");
+  const platform2 = safeSegment3(optionalString2(params.platform) ?? stringValue3(plan.platform) ?? detectPlatform2(canonical), "platform");
   const sourceKind = optionalString2(params.sourceKind) ?? stringValue3(plan.sourceKind) ?? stringValue3(plan.source_kind) ?? "url";
   return {
     canonical,
@@ -48021,7 +48082,7 @@ function prepareVaultPathSource(vaultPath, input, params) {
   }
   return {
     canonical: `vault:${normalized}`,
-    platform: safeSegment4(optionalString2(params.platform) ?? "vault", "platform"),
+    platform: safeSegment3(optionalString2(params.platform) ?? "vault", "platform"),
     sourceKind: optionalString2(params.sourceKind) ?? "vaultPath",
     title: basename6(normalized, extname(normalized))
   };
@@ -48171,9 +48232,9 @@ function sourceId(canonical) {
   return `src_${createHash3("sha256").update(canonical).digest("hex").slice(0, 12)}`;
 }
 function actorFromContext3(ctx) {
-  return safeSegment4(ctx.config.collaboration?.actor || process.env.VAULT_MIND_ACTOR || "agent", "actor");
+  return safeSegment3(ctx.config.collaboration?.actor || process.env.VAULT_MIND_ACTOR || "agent", "actor");
 }
-function safeSegment4(value, label) {
+function safeSegment3(value, label) {
   const trimmed = value.trim();
   if (!trimmed || trimmed === "." || trimmed === ".." || trimmed.includes("/") || trimmed.includes("\\") || /^[A-Za-z]:/.test(trimmed) || trimmed.startsWith("//")) {
     throw badRequest(`${label} must be a single safe path segment`);
@@ -48265,7 +48326,7 @@ function withFileLock3(fullPath, fn) {
     }
   }
 }
-function safeSegment5(value, label) {
+function safeSegment4(value, label) {
   const trimmed = value.trim();
   if (!trimmed || trimmed === "." || trimmed === ".." || trimmed.includes("/") || trimmed.includes("\\") || /^[A-Za-z]:/.test(trimmed) || trimmed.startsWith("//")) {
     throw makeErr(-32602, `${label} must be single safe path segment`);
@@ -48274,7 +48335,7 @@ function safeSegment5(value, label) {
 }
 function actorFromContext4(ctx) {
   const actor = ctx.config.collaboration?.actor ?? process.env.VAULT_MIND_ACTOR ?? DEFAULT_ACTOR2;
-  return safeSegment5(actor, "actor");
+  return safeSegment4(actor, "actor");
 }
 function slugify5(value) {
   const slug = value.toLowerCase().normalize("NFKD").replace(/[^\w\s-]/g, "").trim().replace(/[\s_-]+/g, "-").replace(/^-+|-+$/g, "");
@@ -48326,7 +48387,7 @@ function sourceObject(value) {
 }
 function decisionBasePath(project, actor) {
   if (project)
-    return `10-Projects/${safeSegment5(project, "project")}/agents/${actor}/memory/decisions`;
+    return `10-Projects/${safeSegment4(project, "project")}/agents/${actor}/memory/decisions`;
   return `00-Inbox/Agent-Memory/${actor}/decisions`;
 }
 function filenameTimestamp(now) {
@@ -48655,7 +48716,7 @@ async function gatherVaultStatus(vaultPath, vba, opts) {
 
 // dist/context/context.js
 var DEFAULT_ACTOR3 = "agent";
-function safeSegment6(value, label) {
+function safeSegment5(value, label) {
   const trimmed = value.trim();
   if (!trimmed || trimmed === "." || trimmed === ".." || trimmed.includes("/") || trimmed.includes("\\") || /^[A-Za-z]:/.test(trimmed) || trimmed.startsWith("//")) {
     throw makeErr(-32602, `${label} must be single safe path segment`);
@@ -48664,7 +48725,7 @@ function safeSegment6(value, label) {
 }
 function actorFromContext5(ctx) {
   const actor = ctx.config.collaboration?.actor ?? process.env.VAULT_MIND_ACTOR ?? DEFAULT_ACTOR3;
-  return safeSegment6(actor, "actor");
+  return safeSegment5(actor, "actor");
 }
 function normalizeProject(vaultPath, value) {
   if (typeof value !== "string" || !value.trim())

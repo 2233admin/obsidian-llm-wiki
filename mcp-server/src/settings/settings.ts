@@ -11,6 +11,7 @@ import {
 } from '../../../packages/settings-platform/dist/src/index.js';
 import type { Operation, OperationWritePolicy } from '../core/types.js';
 import { badRequest } from '../core/types.js';
+import { resolveProjectContext } from '../project/project-context.js';
 
 export interface SettingsOperationsOptions {
   vaultPath: string;
@@ -79,7 +80,13 @@ export function makeSettingsOps(options: SettingsOperationsOptions, service = cr
         scope: { type: 'string', required: true, enum: [...SETTINGS_SCOPES] },
         targetId: { type: 'string', required: false },
       },
-      handler: async (_ctx, params) => service.scopesGet(settingsScopeParam(params.scope), optionalString(params.targetId)),
+      handler: async (_ctx, params) => {
+        const scope = settingsScopeParam(params.scope);
+        return service.scopesGet(
+          scope,
+          resolvedTargetId(options.vaultPath, scope, optionalString(params.targetId), service.defaultContext, 'settings.scopes.get'),
+        );
+      },
     },
     {
       name: 'settings.snapshot.resolve',
@@ -87,7 +94,9 @@ export function makeSettingsOps(options: SettingsOperationsOptions, service = cr
       description: 'Resolve the deterministic redacted Settings Snapshot for a runtime context.',
       mutating: false,
       params: { context: { type: 'object', required: false } },
-      handler: async (_ctx, params) => service.snapshotResolve(runtimeContext(params.context, service.defaultContext)),
+      handler: async (_ctx, params) => service.snapshotResolve(
+        runtimeContext(params.context, service.defaultContext, options.vaultPath, 'settings.snapshot.resolve'),
+      ),
     },
     {
       name: 'settings.snapshot.explain',
@@ -100,7 +109,7 @@ export function makeSettingsOps(options: SettingsOperationsOptions, service = cr
       },
       handler: async (_ctx, params) => service.snapshotExplain(
         requiredString(params.key, 'key'),
-        runtimeContext(params.context, service.defaultContext),
+        runtimeContext(params.context, service.defaultContext, options.vaultPath, 'settings.snapshot.explain'),
       ),
     },
     {
@@ -108,7 +117,7 @@ export function makeSettingsOps(options: SettingsOperationsOptions, service = cr
       namespace: 'settings',
       description: 'Set one assignment with complete-scope validation and optimistic expected-revision commit.',
       mutating: true,
-      writePolicy: settingsWritePolicy(service.defaultContext),
+      writePolicy: settingsWritePolicy(options.vaultPath, service.defaultContext, 'settings.assignment.set'),
       params: {
         scope: { type: 'string', required: true, enum: [...MUTABLE_SCOPES] },
         targetId: { type: 'string', required: false },
@@ -119,23 +128,32 @@ export function makeSettingsOps(options: SettingsOperationsOptions, service = cr
         reason: { type: 'string', required: false },
         expiresAt: { type: 'string', required: false },
       },
-      handler: async (ctx, params) => service.assignmentSet({
-        scope: scopeParam(params.scope),
-        targetId: optionalString(params.targetId),
-        key: requiredString(params.key, 'key'),
-        value: params.value as SettingValue | SecretReference,
-        expectedRevision: requiredRevision(params.expectedRevision),
-        updatedBy: optionalString(params.updatedBy) ?? ctx.config.collaboration?.actor ?? 'mcp',
-        reason: optionalString(params.reason),
-        expiresAt: optionalString(params.expiresAt),
-      }),
+      handler: async (ctx, params) => {
+        const scope = scopeParam(params.scope);
+        return service.assignmentSet({
+          scope,
+          targetId: resolvedTargetId(
+            options.vaultPath,
+            scope,
+            optionalString(params.targetId),
+            service.defaultContext,
+            'settings.assignment.set',
+          ),
+          key: requiredString(params.key, 'key'),
+          value: params.value as SettingValue | SecretReference,
+          expectedRevision: requiredRevision(params.expectedRevision),
+          updatedBy: optionalString(params.updatedBy) ?? ctx.config.collaboration?.actor ?? 'mcp',
+          reason: optionalString(params.reason),
+          expiresAt: optionalString(params.expiresAt),
+        });
+      },
     },
     {
       name: 'settings.assignment.unset',
       namespace: 'settings',
       description: 'Unset one assignment with complete-scope validation and optimistic expected-revision commit.',
       mutating: true,
-      writePolicy: settingsWritePolicy(service.defaultContext),
+      writePolicy: settingsWritePolicy(options.vaultPath, service.defaultContext, 'settings.assignment.unset'),
       params: {
         scope: { type: 'string', required: true, enum: [...MUTABLE_SCOPES] },
         targetId: { type: 'string', required: false },
@@ -144,14 +162,23 @@ export function makeSettingsOps(options: SettingsOperationsOptions, service = cr
         updatedBy: { type: 'string', required: false },
         reason: { type: 'string', required: false },
       },
-      handler: async (ctx, params) => service.assignmentUnset({
-        scope: scopeParam(params.scope),
-        targetId: optionalString(params.targetId),
-        key: requiredString(params.key, 'key'),
-        expectedRevision: requiredRevision(params.expectedRevision),
-        updatedBy: optionalString(params.updatedBy) ?? ctx.config.collaboration?.actor ?? 'mcp',
-        reason: optionalString(params.reason),
-      }),
+      handler: async (ctx, params) => {
+        const scope = scopeParam(params.scope);
+        return service.assignmentUnset({
+          scope,
+          targetId: resolvedTargetId(
+            options.vaultPath,
+            scope,
+            optionalString(params.targetId),
+            service.defaultContext,
+            'settings.assignment.unset',
+          ),
+          key: requiredString(params.key, 'key'),
+          expectedRevision: requiredRevision(params.expectedRevision),
+          updatedBy: optionalString(params.updatedBy) ?? ctx.config.collaboration?.actor ?? 'mcp',
+          reason: optionalString(params.reason),
+        });
+      },
     },
     {
       name: 'settings.validate',
@@ -159,7 +186,9 @@ export function makeSettingsOps(options: SettingsOperationsOptions, service = cr
       description: 'Validate definitions, complete scope documents, effective values, and cross-setting constraints.',
       mutating: false,
       params: { context: { type: 'object', required: false } },
-      handler: async (_ctx, params) => service.validate(runtimeContext(params.context, service.defaultContext)),
+      handler: async (_ctx, params) => service.validate(
+        runtimeContext(params.context, service.defaultContext, options.vaultPath, 'settings.validate'),
+      ),
     },
     {
       name: 'settings.migrations.plan',
@@ -167,7 +196,9 @@ export function makeSettingsOps(options: SettingsOperationsOptions, service = cr
       description: 'Plan Settings document schema migrations without writing.',
       mutating: false,
       params: { context: { type: 'object', required: false } },
-      handler: async (_ctx, params) => service.migrationsPlan(runtimeContext(params.context, service.defaultContext)),
+      handler: async (_ctx, params) => service.migrationsPlan(
+        runtimeContext(params.context, service.defaultContext, options.vaultPath, 'settings.migrations.plan'),
+      ),
     },
     {
       name: 'settings.doctor',
@@ -175,12 +206,18 @@ export function makeSettingsOps(options: SettingsOperationsOptions, service = cr
       description: 'Report evidence-backed available, degraded, unavailable, and disabled capability health.',
       mutating: false,
       params: { context: { type: 'object', required: false } },
-      handler: async (_ctx, params) => service.doctor(runtimeContext(params.context, service.defaultContext)),
+      handler: async (_ctx, params) => service.doctor(
+        runtimeContext(params.context, service.defaultContext, options.vaultPath, 'settings.doctor'),
+      ),
     },
   ];
 }
 
-function settingsWritePolicy(defaultContext: RuntimeContext): OperationWritePolicy {
+function settingsWritePolicy(
+  vaultPath: string,
+  defaultContext: RuntimeContext,
+  operation: string,
+): OperationWritePolicy {
   return {
     realWrite: 'always',
     targets: (_ctx, params) => {
@@ -188,27 +225,58 @@ function settingsWritePolicy(defaultContext: RuntimeContext): OperationWritePoli
       const defaultTarget = MUTABLE_SCOPES.includes(scope as MutableSettingsScope)
         ? targetForScope(scope as MutableSettingsScope, defaultContext)
         : undefined;
-      const targetId = safeTarget(typeof params.targetId === 'string' ? params.targetId : defaultTarget ?? 'current');
+      const suppliedTarget = typeof params.targetId === 'string' ? params.targetId : undefined;
+      if (scope === 'workspace-project') {
+        const targetId = suppliedTarget ?? defaultContext.workspaceProjectId;
+        if (!targetId) throw badRequest('workspace-project settings require targetId or workspaceProjectId context');
+        const project = resolveProjectContext(vaultPath, targetId, operation);
+        return [`_llmwiki/settings/projects/${project.slug}.json`];
+      }
+      const targetId = safeTarget(suppliedTarget ?? defaultTarget ?? 'current');
       if (scope === 'vault') return ['_llmwiki/settings/vault.json'];
-      if (scope === 'workspace-project') return [`_llmwiki/settings/projects/${targetId}.json`];
       return [`_llmwiki/settings/${scope}/${targetId}`];
     },
     audit: 'required',
   };
 }
 
-function runtimeContext(value: unknown, defaults: RuntimeContext): RuntimeContext {
-  if (value === undefined) return { ...defaults };
+function runtimeContext(
+  value: unknown,
+  defaults: RuntimeContext,
+  vaultPath: string,
+  operation: string,
+): RuntimeContext {
+  if (value === undefined) return canonicalRuntimeContext(defaults, vaultPath, operation);
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw badRequest('context must be an object');
   const context = value as Record<string, unknown>;
-  return {
+  return canonicalRuntimeContext({
     userDeviceId: optionalString(context.userDeviceId) ?? defaults.userDeviceId,
     ...(optionalString(context.vaultId) ?? defaults.vaultId ? { vaultId: optionalString(context.vaultId) ?? defaults.vaultId } : {}),
     ...(optionalString(context.workspaceProjectId) ?? defaults.workspaceProjectId
       ? { workspaceProjectId: optionalString(context.workspaceProjectId) ?? defaults.workspaceProjectId }
       : {}),
     ...(optionalString(context.sessionId) ?? defaults.sessionId ? { sessionId: optionalString(context.sessionId) ?? defaults.sessionId } : {}),
+  }, vaultPath, operation);
+}
+
+function canonicalRuntimeContext(context: RuntimeContext, vaultPath: string, operation: string): RuntimeContext {
+  if (!context.workspaceProjectId) return { ...context };
+  return {
+    ...context,
+    workspaceProjectId: resolveProjectContext(vaultPath, context.workspaceProjectId, operation).projectId,
   };
+}
+
+function resolvedTargetId(
+  vaultPath: string,
+  scope: SettingsScope,
+  targetId: string | undefined,
+  defaults: RuntimeContext,
+  operation: string,
+): string | undefined {
+  const resolved = targetId ?? (scope === 'product' ? undefined : targetForScope(scope, defaults));
+  if (scope !== 'workspace-project' || !resolved) return resolved;
+  return resolveProjectContext(vaultPath, resolved, operation).projectId;
 }
 
 function scopeParam(value: unknown): MutableSettingsScope {

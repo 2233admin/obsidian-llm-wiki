@@ -132,6 +132,9 @@ const SENSITIVITIES = new Set(["public", "local", "secret-reference"]);
 const APPLY_MODES = new Set(["hot", "next-operation", "restart-required"]);
 const VISIBILITIES = new Set(["normal", "advanced", "internal"]);
 const SECRET_PROVIDERS = new Set(["os-keychain", "environment", "external-vault"]);
+const ENVIRONMENT_LOCATOR_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const OPAQUE_SECRET_LOCATOR_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}(?:\/[A-Za-z0-9][A-Za-z0-9._-]{0,63})+$/;
+const SECRET_MATERIAL_RE = /^(?:bearer\s+|sk[-_][A-Za-z0-9_-]{8,}|api[_-]?key\s*[:=])/i;
 
 function validateValidator(definition: SettingDefinition): void {
   const validator = definition.validator;
@@ -169,9 +172,16 @@ function isSecretReference(value: unknown): boolean {
   return typeof ref.provider === "string"
     && SECRET_PROVIDERS.has(ref.provider)
     && typeof ref.locator === "string"
-    && ref.locator.trim().length > 0
-    && !/[\r\n\0]/.test(ref.locator)
+    && validSecretLocator(ref.provider, ref.locator)
     && (ref.version === undefined || (typeof ref.version === "string" && ref.version.length > 0));
+}
+
+function validSecretLocator(provider: string, locator: string): boolean {
+  const normalized = locator.trim();
+  if (!normalized || normalized !== locator || /[\r\n\0]/.test(normalized) || SECRET_MATERIAL_RE.test(normalized)) return false;
+  if (provider === "environment") return ENVIRONMENT_LOCATOR_RE.test(normalized);
+  if (provider === "os-keychain" || provider === "external-vault") return OPAQUE_SECRET_LOCATOR_RE.test(normalized);
+  return false;
 }
 
 function defaultMatchesType(definition: SettingDefinition): boolean {

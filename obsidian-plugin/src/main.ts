@@ -384,6 +384,9 @@ class LLMWikiSettingTab extends PluginSettingTab {
     const { effective, validation } = row;
     const description = [
       definition.description,
+      ...(definition.valueType === "secret-reference"
+        ? ["Reference locator only; never paste or store the secret value here."]
+        : []),
       `Effective: ${this.displayValue(definition, effective)}`,
       `source: ${SCOPE_LABELS[effective.winningScope]}`,
       `apply: ${definition.applyMode}`,
@@ -411,8 +414,10 @@ class LLMWikiSettingTab extends PluginSettingTab {
         .setValue(provider)
         .onChange(value => { provider = value as SecretReference["provider"]; }));
       setting.addText(text => {
-        text.setPlaceholder(existing ? "Configured — enter a new locator to replace" : definition.placeholder ?? "Secret locator");
-        text.inputEl.type = "password";
+        text.setPlaceholder(existing
+          ? "Configured — enter a new reference locator to replace"
+          : "Reference locator — never paste the secret value");
+        text.inputEl.type = "text";
         text.inputEl.autocomplete = "off";
         text.inputEl.addEventListener("change", () => void this.mutate(async () => {
           const locator = text.getValue().trim();

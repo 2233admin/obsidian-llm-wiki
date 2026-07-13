@@ -29,7 +29,21 @@
         "provider": { "enum": ["os-keychain", "environment", "external-vault"] },
         "locator": { "type": "string", "minLength": 1, "pattern": "^[^\\u0000\\r\\n]+$" },
         "version": { "type": "string", "minLength": 1 }
-      }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "provider": { "const": "environment" } }, "required": ["provider"] },
+          "then": { "properties": { "locator": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" } } }
+        },
+        {
+          "if": { "properties": { "provider": { "const": "os-keychain" } }, "required": ["provider"] },
+          "then": { "properties": { "locator": { "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}(?:/[A-Za-z0-9][A-Za-z0-9._-]{0,63})+$" } } }
+        },
+        {
+          "if": { "properties": { "provider": { "const": "external-vault" } }, "required": ["provider"] },
+          "then": { "properties": { "locator": { "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}(?:/[A-Za-z0-9][A-Za-z0-9._-]{0,63})+$" } } }
+        }
+      ]
     },
     "provenance": {
       "type": "object",

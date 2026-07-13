@@ -481,7 +481,9 @@ export function settingsDocumentPath(
 ): string {
   if (scope === "user-device") return options.userDevicePath;
   if (scope === "vault") return join(options.vaultPath, "_llmwiki", "settings", "vault.json");
-  return join(options.vaultPath, "_llmwiki", "settings", "projects", `${safeSegment(options.targetId)}.json`);
+  const match = /^project\/([a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?)$/.exec(options.targetId);
+  if (!match) throw new Error(`workspace-project targetId must use canonical project/<slug> form: ${options.targetId}`);
+  return join(options.vaultPath, "_llmwiki", "settings", "projects", `${match[1]}.json`);
 }
 
 export function defaultUserDeviceSettingsPath(environment: NodeJS.ProcessEnv = process.env): string {

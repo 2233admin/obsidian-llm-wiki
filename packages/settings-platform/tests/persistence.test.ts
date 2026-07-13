@@ -10,6 +10,7 @@ import {
   SessionSettingsStore,
   SettingsLockTimeoutError,
   loadRegistry,
+  settingsDocumentPath,
 } from "../src/index.js";
 
 const dirs: string[] = [];
@@ -35,6 +36,27 @@ function makeStore(lockTimeoutMs = 200) {
 }
 
 describe("scope persistence", () => {
+  test("uses the canonical project slug as the workspace-project filename", () => {
+    const dir = mkdtempSync(join(tmpdir(), "llmwiki-project-settings-"));
+    dirs.push(dir);
+    const userDevicePath = join(dir, "device.json");
+    assert.equal(
+      settingsDocumentPath("workspace-project", {
+        vaultPath: dir,
+        userDevicePath,
+        targetId: "project/alpha",
+      }),
+      join(dir, "_llmwiki", "settings", "projects", "alpha.json"),
+    );
+    for (const invalid of ["alpha", "project-alpha", "project/Alpha", "project/../alpha"]) {
+      assert.throws(() => settingsDocumentPath("workspace-project", {
+        vaultPath: dir,
+        userDevicePath,
+        targetId: invalid,
+      }), /canonical project/);
+    }
+  });
+
   test("uses expected revisions, preserves a recoverable backup, and recovers corrupt active state", async () => {
     const { filePath, store } = makeStore();
 

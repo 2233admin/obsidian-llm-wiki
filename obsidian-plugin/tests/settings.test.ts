@@ -188,7 +188,7 @@ test("plugin data migration keeps only presentation, binding, and migration stat
   ]);
 });
 
-test("legacy migration journals the preimage and restores an existing assignment exactly", async () => {
+test("legacy migration journals only hashes and restores an in-memory preimage exactly", async () => {
   const transport = new FakeTransport();
   transport.documents.set("user-device", document(3, [{
     key: "runtime.python.path",
@@ -200,9 +200,24 @@ test("legacy migration journals the preimage and restores an existing assignment
   const applied = await applyPluginDataMigration(client, plan, new Date("2026-07-14T00:00:00.000Z"));
   assert.equal(applied.data.legacyMigration?.state, "applied");
   assert.equal(applied.data.legacyMigration?.initialRevisions?.["user-device"], 3);
-  assert.equal(applied.data.legacyMigration?.preimage?.[0].assignment?.value, "old-python");
+  assert.equal(applied.data.legacyMigration?.preimageJournal?.[0].hadAssignment, true);
+  assert.match(applied.data.legacyMigration?.preimageJournal?.[0].assignmentDigest ?? "", /^sha256:[a-f0-9]{64}$/);
+  assert.equal(JSON.stringify(applied.data).includes("old-python"), false);
+  assert.equal(JSON.stringify(applied.data).includes("D:\\repo\\kb_meta.py"), false);
 
-  const rolledBack = await rollbackPluginDataMigration(client, applied.data, new Date("2026-07-14T01:00:00.000Z"));
+  const tampered = structuredClone(applied.preimage);
+  tampered[0].assignment!.value = "attacker-controlled";
+  await assert.rejects(
+    () => rollbackPluginDataMigration(client, applied.data, tampered),
+    /digest does not match/,
+  );
+
+  const rolledBack = await rollbackPluginDataMigration(
+    client,
+    applied.data,
+    applied.preimage,
+    new Date("2026-07-14T01:00:00.000Z"),
+  );
   assert.equal(rolledBack.data.legacyMigration?.state, "rolled-back");
   const restored = transport.documents.get("user-device")!;
   assert.equal(restored.assignments.find(item => item.key === "runtime.python.path")?.value, "old-python");
@@ -231,7 +246,32 @@ test("rollback refuses to overwrite a scope changed after migration", async () =
   const applied = await applyPluginDataMigration(client, planPluginDataMigration({ pythonPath: "py -3" }));
   const current = transport.documents.get("user-device")!;
   transport.documents.set("user-device", { ...current, revision: current.revision + 1 });
-  await assert.rejects(() => rollbackPluginDataMigration(client, applied.data), /changed at revision 2/);
+  await assert.rejects(() => rollbackPluginDataMigration(client, applied.data, applied.preimage), /changed at revision 2/);
+});
+
+test("legacy full preimages are sanitized before plugin data is saved again", () => {
+  const plan = planPluginDataMigration({
+    schemaVersion: 2,
+    presentation: {},
+    legacyMigration: {
+      version: 1,
+      state: "applied",
+      assignmentKeys: ["user-device:runtime.python.path"],
+      preimage: [{
+        scope: "user-device",
+        key: "runtime.python.path",
+        assignment: {
+          key: "runtime.python.path",
+          value: "C:\\private\\python.exe",
+          provenance: { actor: "legacy", source: "legacy" },
+        },
+      }],
+    },
+  });
+  assert.equal(plan.migrated, true);
+  assert.equal(plan.data.legacyMigration?.preimageJournal?.[0].hadAssignment, true);
+  assert.equal(JSON.stringify(plan.data).includes("C:\\private\\python.exe"), false);
+  assert.equal("preimage" in (plan.data.legacyMigration ?? {}), false);
 });
 
 test("editing scope changes presentation only", () => {

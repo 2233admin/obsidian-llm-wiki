@@ -7,7 +7,7 @@
   "properties": {
     "userDeviceId": { "type": "string", "minLength": 1 },
     "vaultId": { "type": "string", "minLength": 1 },
-    "workspaceProjectId": { "type": "string", "minLength": 1 },
+    "workspaceProjectId": { "type": "string", "pattern": "^project/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$" },
     "sessionId": { "type": "string", "minLength": 1 }
   }
 }

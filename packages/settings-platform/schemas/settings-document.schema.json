@@ -22,5 +22,11 @@
         "backupPath": { "type": "string", "minLength": 1 }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "scope": { "const": "workspace-project" } }, "required": ["scope"] },
+      "then": { "properties": { "targetId": { "pattern": "^project/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$" } } }
+    }
+  ]
 }

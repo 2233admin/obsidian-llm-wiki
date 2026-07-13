@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, describe, test } from 'node:test';
@@ -85,5 +85,72 @@ describe('thin settings operation adapter', () => {
     assert.deepEqual(set.mutating && set.writePolicy.targets(context, { scope: 'session' }), [
       `_llmwiki/settings/session/${runtime.sessionId}`,
     ]);
+  });
+
+  test('resolves every workspace-project operation through Project Context', async () => {
+    const vaultPath = mkdtempSync(join(tmpdir(), 'llmwiki-settings-project-'));
+    roots.push(vaultPath);
+    mkdirSync(join(vaultPath, 'Projects'), { recursive: true });
+    writeFileSync(
+      join(vaultPath, 'Projects', 'alpha.md'),
+      ['---', 'entity: project/alpha', 'type: project', 'status: active', '---', '', '# Alpha', ''].join('\n'),
+      'utf8',
+    );
+    const operations = makeSettingsOps({
+      vaultPath,
+      userDevicePath: join(vaultPath, 'device.json'),
+      userDeviceId: 'mcp-test-device',
+      pythonPath: 'python',
+      compilerPath: join(vaultPath, 'compiler', 'kb_meta.py'),
+      clock: () => '2026-07-14T00:00:00.000Z',
+    });
+    const byName = new Map(operations.map(operation => [operation.name, operation]));
+    const context = {
+      vault: { execute: async () => null },
+      adapters: null,
+      config: { vault_path: vaultPath },
+      logger: { info() {}, warn() {}, error() {} },
+      dryRun: false,
+    };
+    const set = byName.get('settings.assignment.set')!;
+    assert.deepEqual(set.mutating && set.writePolicy.targets(context, {
+      scope: 'workspace-project',
+      targetId: 'project/alpha',
+    }), ['_llmwiki/settings/projects/alpha.json']);
+    const committed = await set.handler(context, {
+      scope: 'workspace-project',
+      targetId: 'project/alpha',
+      key: 'query.semantic.enabled',
+      value: true,
+      expectedRevision: 0,
+    }) as { status: string; document: { targetId: string } };
+    assert.equal(committed.status, 'committed');
+    assert.equal(committed.document.targetId, 'project/alpha');
+    assert.equal(existsSync(join(vaultPath, '_llmwiki', 'settings', 'projects', 'alpha.json')), true);
+    assert.equal(existsSync(join(vaultPath, '_llmwiki', 'settings', 'projects', 'project-alpha.json')), false);
+
+    const unknown = 'project/not-registered';
+    const calls: Array<[string, Record<string, unknown>]> = [
+      ['settings.scopes.get', { scope: 'workspace-project', targetId: unknown }],
+      ['settings.snapshot.resolve', { context: { workspaceProjectId: unknown } }],
+      ['settings.snapshot.explain', { key: 'query.semantic.enabled', context: { workspaceProjectId: unknown } }],
+      ['settings.assignment.set', {
+        scope: 'workspace-project', targetId: unknown, key: 'query.semantic.enabled', value: true, expectedRevision: 0,
+      }],
+      ['settings.assignment.unset', {
+        scope: 'workspace-project', targetId: unknown, key: 'query.semantic.enabled', expectedRevision: 0,
+      }],
+      ['settings.validate', { context: { workspaceProjectId: unknown } }],
+      ['settings.migrations.plan', { context: { workspaceProjectId: unknown } }],
+      ['settings.doctor', { context: { workspaceProjectId: unknown } }],
+    ];
+    for (const [name, params] of calls) {
+      await assert.rejects(() => byName.get(name)!.handler(context, params), { code: -32004 }, name);
+    }
+    assert.throws(() => set.mutating && set.writePolicy.targets(context, {
+      scope: 'workspace-project',
+      targetId: unknown,
+    }), { code: -32004 });
+    assert.equal(existsSync(join(vaultPath, '_llmwiki', 'settings', 'projects', 'not-registered.json')), false);
   });
 });

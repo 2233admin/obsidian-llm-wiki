@@ -35,13 +35,20 @@ export interface LegacyMigrationPreimage {
   assignment?: SettingAssignment;
 }
 
+export interface LegacyMigrationJournalEntry {
+  scope: SettingScope;
+  key: string;
+  hadAssignment: boolean;
+  assignmentDigest?: string;
+}
+
 export interface LegacyMigrationMarker {
   version: 1;
   state: "pending" | "applied" | "rolled-back";
   assignmentKeys: string[];
   initialRevisions?: Partial<Record<SettingScope, number>>;
   appliedRevisions?: Partial<Record<SettingScope, number>>;
-  preimage?: LegacyMigrationPreimage[];
+  preimageJournal?: LegacyMigrationJournalEntry[];
   appliedAt?: string;
   rolledBackAt?: string;
 }
@@ -109,16 +116,36 @@ function readRevisions(value: unknown): Partial<Record<SettingScope, number>> | 
   return Object.keys(revisions).length ? revisions : undefined;
 }
 
-function readPreimage(value: unknown): LegacyMigrationPreimage[] | undefined {
+function readPreimageJournal(value: unknown): LegacyMigrationJournalEntry[] | undefined {
   if (!Array.isArray(value)) return undefined;
-  const result: LegacyMigrationPreimage[] = [];
+  const result: LegacyMigrationJournalEntry[] = [];
   for (const item of value) {
     if (!isRecord(item) || !LEGACY_SCOPES.includes(item.scope as SettingScope) || typeof item.key !== "string") continue;
-    const entry: LegacyMigrationPreimage = { scope: item.scope as SettingScope, key: item.key };
-    if (isRecord(item.assignment) && item.assignment.key === item.key) {
-      entry.assignment = item.assignment as unknown as SettingAssignment;
+    if (typeof item.hadAssignment !== "boolean") continue;
+    const entry: LegacyMigrationJournalEntry = {
+      scope: item.scope as SettingScope,
+      key: item.key,
+      hadAssignment: item.hadAssignment,
+    };
+    if (typeof item.assignmentDigest === "string" && /^sha256:[a-f0-9]{64}$/.test(item.assignmentDigest)) {
+      entry.assignmentDigest = item.assignmentDigest;
     }
     result.push(entry);
+  }
+  return result.length ? result : undefined;
+}
+
+/** Strip legacy full preimages without retaining their values in Obsidian-owned data. */
+function readLegacyPreimageJournal(value: unknown): LegacyMigrationJournalEntry[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const result: LegacyMigrationJournalEntry[] = [];
+  for (const item of value) {
+    if (!isRecord(item) || !LEGACY_SCOPES.includes(item.scope as SettingScope) || typeof item.key !== "string") continue;
+    result.push({
+      scope: item.scope as SettingScope,
+      key: item.key,
+      hadAssignment: isRecord(item.assignment) && item.assignment.key === item.key,
+    });
   }
   return result.length ? result : undefined;
 }
@@ -135,7 +162,8 @@ function readMarker(raw: Record<string, unknown>): LegacyMigrationMarker | undef
       : [],
     initialRevisions: readRevisions(raw.legacyMigration.initialRevisions),
     appliedRevisions: readRevisions(raw.legacyMigration.appliedRevisions),
-    preimage: readPreimage(raw.legacyMigration.preimage),
+    preimageJournal: readPreimageJournal(raw.legacyMigration.preimageJournal)
+      ?? readLegacyPreimageJournal(raw.legacyMigration.preimage),
     appliedAt: typeof raw.legacyMigration.appliedAt === "string" ? raw.legacyMigration.appliedAt : undefined,
     rolledBackAt: typeof raw.legacyMigration.rolledBackAt === "string" ? raw.legacyMigration.rolledBackAt : undefined,
   };
@@ -187,7 +215,12 @@ export function planPluginDataMigration(raw: unknown): PluginDataMigrationPlan {
       assignmentKeys: assignments.map(item => `${item.scope}:${item.key}`).sort(),
     };
   }
-  return { data, assignments, migrated: raw.schemaVersion !== PLUGIN_DATA_SCHEMA_VERSION || assignments.length > 0 };
+  const leakedLegacyPreimage = isRecord(raw.legacyMigration) && Array.isArray(raw.legacyMigration.preimage);
+  return {
+    data,
+    assignments,
+    migrated: raw.schemaVersion !== PLUGIN_DATA_SCHEMA_VERSION || assignments.length > 0 || leakedLegacyPreimage,
+  };
 }
 
 export function selectEditingScope(data: LLMWikiPluginData, scope: SettingScope): LLMWikiPluginData {
@@ -222,7 +255,7 @@ export async function applyPluginDataMigration(
   client: SettingsOperationClient,
   plan: PluginDataMigrationPlan,
   now = new Date(),
-): Promise<{ data: LLMWikiPluginData; snapshot: SettingsSnapshot }> {
+): Promise<{ data: LLMWikiPluginData; snapshot: SettingsSnapshot; preimage: LegacyMigrationPreimage[] }> {
   const scopes = [...new Set(plan.assignments.map(item => item.scope))];
   const reads = await Promise.all(scopes.map(async scope => [scope, await client.scope(scope)] as const));
   const documents = new Map(reads);
@@ -259,8 +292,15 @@ export async function applyPluginDataMigration(
 
   const appliedRevisions: Partial<Record<SettingScope, number>> = {};
   for (const scope of scopes) appliedRevisions[scope] = sourceRevision(current, scope);
+  const preimageJournal = await Promise.all(preimage.map(async entry => ({
+    scope: entry.scope,
+    key: entry.key,
+    hadAssignment: Boolean(entry.assignment),
+    ...(entry.assignment ? { assignmentDigest: await digestAssignment(entry.assignment) } : {}),
+  })));
   return {
     snapshot: current,
+    preimage,
     data: {
       ...plan.data,
       legacyMigration: plan.assignments.length ? {
@@ -269,7 +309,7 @@ export async function applyPluginDataMigration(
         assignmentKeys: plan.assignments.map(item => `${item.scope}:${item.key}`).sort(),
         initialRevisions,
         appliedRevisions,
-        preimage,
+        preimageJournal,
         appliedAt: now.toISOString(),
       } : plan.data.legacyMigration,
     },
@@ -279,18 +319,20 @@ export async function applyPluginDataMigration(
 export async function rollbackPluginDataMigration(
   client: SettingsOperationClient,
   data: LLMWikiPluginData,
+  preimage: LegacyMigrationPreimage[],
   now = new Date(),
 ): Promise<{ data: LLMWikiPluginData; snapshot: SettingsSnapshot }> {
   const marker = data.legacyMigration;
-  if (!marker || marker.state !== "applied" || !marker.preimage) {
-    throw new Error("No applied legacy migration with a restorable preimage");
+  if (!marker || marker.state !== "applied" || !marker.preimageJournal) {
+    throw new Error("No applied legacy migration with a restorable preimage journal");
   }
+  await verifyPreimage(marker.preimageJournal, preimage);
   let snapshot = (await client.snapshot()).snapshot;
   for (const [scope, revision] of Object.entries(marker.appliedRevisions ?? {})) {
     const current = sourceRevision(snapshot, scope as SettingScope);
     if (current !== revision) throw new Error(`Cannot roll back legacy migration: ${scope} changed at revision ${current}`);
   }
-  snapshot = await restorePreimage(client, marker.preimage, snapshot);
+  snapshot = await restorePreimage(client, preimage, snapshot);
   return {
     snapshot,
     data: {
@@ -298,6 +340,41 @@ export async function rollbackPluginDataMigration(
       legacyMigration: { ...marker, state: "rolled-back", rolledBackAt: now.toISOString() },
     },
   };
+}
+
+async function verifyPreimage(
+  journal: LegacyMigrationJournalEntry[],
+  preimage: LegacyMigrationPreimage[],
+): Promise<void> {
+  if (journal.length !== preimage.length) throw new Error("Migration preimage does not match its journal");
+  for (let index = 0; index < journal.length; index += 1) {
+    const expected = journal[index];
+    const actual = preimage[index];
+    if (expected.scope !== actual.scope || expected.key !== actual.key || expected.hadAssignment !== Boolean(actual.assignment)) {
+      throw new Error("Migration preimage does not match its journal");
+    }
+    if (expected.hadAssignment && !expected.assignmentDigest) {
+      throw new Error("Migration preimage journal has no restorable digest");
+    }
+    if (expected.assignmentDigest && (!actual.assignment || await digestAssignment(actual.assignment) !== expected.assignmentDigest)) {
+      throw new Error("Migration preimage digest does not match its journal");
+    }
+  }
+}
+
+async function digestAssignment(assignment: SettingAssignment): Promise<string> {
+  const bytes = new TextEncoder().encode(stableJson(assignment));
+  const hash = await crypto.subtle.digest("SHA-256", bytes);
+  return `sha256:${[...new Uint8Array(hash)].map(value => value.toString(16).padStart(2, "0")).join("")}`;
+}
+
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  if (isRecord(value)) {
+    return `{${Object.keys(value).sort().filter(key => value[key] !== undefined)
+      .map(key => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
 }
 
 export function parseSettingInput(valueType: string, raw: string): SettingValue {

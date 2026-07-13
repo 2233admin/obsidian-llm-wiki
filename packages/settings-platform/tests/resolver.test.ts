@@ -196,4 +196,33 @@ describe("shared settings conformance fixture", () => {
     assert.equal(result.valid, false);
     assert.ok(result.issues.some(issue => issue.code === "invalid-updated-at"));
   });
+
+  test("rejects non-canonical project identities and secret material disguised as locators", () => {
+    const registry = loadRegistry(fileURLToPath(new URL("../registry/v1.json", import.meta.url)));
+    const fixture = readJson<ConformanceFixture>("../fixtures/conformance/full-precedence.json");
+    const invalidProject = structuredClone(fixture.documents.find(item => item.scope === "workspace-project")!);
+    invalidProject.targetId = "project-alpha";
+    const projectResult = validateSettingsDocuments(registry, [invalidProject], {
+      ...fixture.context,
+      workspaceProjectId: "project-alpha",
+    });
+    assert.equal(projectResult.valid, false);
+    assert.ok(projectResult.issues.some(issue => issue.code === "invalid-workspace-project-id"));
+
+    const secretDocument = structuredClone(fixture.documents[0]!);
+    const secret = secretDocument.assignments.find(item => item.key === "providers.web_search.secret_ref")!;
+    for (const secretRef of [
+      { provider: "environment", locator: "not-an-environment-variable" },
+      { provider: "environment", locator: "sk-1234567890abcdef" },
+      { provider: "os-keychain", locator: "one-segment" },
+      { provider: "external-vault", locator: "../secret" },
+      { provider: "external-vault", locator: "Bearer abcdefghijk" },
+    ]) {
+      delete secret.value;
+      secret.secretRef = secretRef as never;
+      const result = validateSettingsDocuments(registry, [secretDocument]);
+      assert.equal(result.valid, false, JSON.stringify(secretRef));
+      assert.ok(result.issues.some(issue => issue.code === "invalid-secret-reference"));
+    }
+  });
 });

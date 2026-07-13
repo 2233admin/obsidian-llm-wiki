@@ -13,6 +13,10 @@ import type {
 } from "./types.js";
 
 const SECRET_PROVIDERS = new Set(["os-keychain", "environment", "external-vault"]);
+const PROJECT_ID_RE = /^project\/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/;
+const ENVIRONMENT_LOCATOR_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const OPAQUE_SECRET_LOCATOR_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}(?:\/[A-Za-z0-9][A-Za-z0-9._-]{0,63})+$/;
+const SECRET_MATERIAL_RE = /^(?:bearer\s+|sk[-_][A-Za-z0-9_-]{8,}|api[_-]?key\s*[:=])/i;
 
 function issue(
   code: string,
@@ -30,6 +34,14 @@ export function validateSettingsDocuments(
   const issues: ValidationIssue[] = [];
   const definitions = definitionMap(registry);
   const identities = new Set<string>();
+
+  if (context?.workspaceProjectId && !isCanonicalProjectId(context.workspaceProjectId)) {
+    issues.push(issue(
+      "invalid-workspace-project-id",
+      "workspaceProjectId must use the canonical project/<lowercase-kebab-slug> form.",
+      { targetId: context.workspaceProjectId },
+    ));
+  }
 
   for (const candidate of documents as unknown[]) {
     if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
@@ -179,6 +191,12 @@ function validateDocumentShape(document: SettingsDocument): ValidationIssue[] {
   }
   if (!document.targetId || typeof document.targetId !== "string") {
     issues.push(issue("invalid-target", "Settings targetId is required.", options));
+  } else if (document.scope === "workspace-project" && !isCanonicalProjectId(document.targetId)) {
+    issues.push(issue(
+      "invalid-workspace-project-id",
+      "workspace-project targetId must use the canonical project/<lowercase-kebab-slug> form.",
+      options,
+    ));
   }
   if (!Array.isArray(document.assignments)) {
     issues.push(issue("invalid-assignments", "Settings assignments must be an array.", options));
@@ -265,9 +283,20 @@ export function isSecretReference(value: unknown): value is SecretReference {
   return typeof ref.provider === "string"
     && SECRET_PROVIDERS.has(ref.provider)
     && typeof ref.locator === "string"
-    && ref.locator.trim().length > 0
-    && !/[\r\n\0]/.test(ref.locator)
+    && validSecretLocator(ref.provider, ref.locator)
     && (ref.version === undefined || (typeof ref.version === "string" && ref.version.length > 0));
+}
+
+export function isCanonicalProjectId(value: unknown): value is string {
+  return typeof value === "string" && PROJECT_ID_RE.test(value);
+}
+
+function validSecretLocator(provider: string, locator: string): boolean {
+  const normalized = locator.trim();
+  if (!normalized || normalized !== locator || /[\r\n\0]/.test(normalized) || SECRET_MATERIAL_RE.test(normalized)) return false;
+  if (provider === "environment") return ENVIRONMENT_LOCATOR_RE.test(normalized);
+  if (provider === "os-keychain" || provider === "external-vault") return OPAQUE_SECRET_LOCATOR_RE.test(normalized);
+  return false;
 }
 
 export function scopeMatchesContext(
