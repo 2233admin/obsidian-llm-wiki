@@ -12,7 +12,7 @@ cut.** Internal `package.json`/`pyproject.toml` version fields are not
 force-aligned to this changelog's numbering -- treat this file as the
 source of truth for what shipped when.
 
-## Unreleased -- targeting v2.6.0
+## v2.7.0-beta.1 -- 2026-07-14
 
 ### Highlights
 
@@ -36,8 +36,9 @@ source of truth for what shipped when.
   lease; portable handoff uses a short-lived out-of-band capability whose raw
   value never enters shared vault or Git state. The two-vault acceptance
   harness and the real local ↔ 5090 handoff passed for the pre-Agent-binding
-  baseline `89cf831ed4615270c56edd2784928a29e52e1789`. The beta candidate is not
-  accepted until the same gate is repeated at its new product commit.
+  baseline `89cf831ed4615270c56edd2784928a29e52e1789`. Product commit
+  `b0c447a5f228ddd2d4f3f1ba0b001817f89ea155` then repeated the full 5090 gate
+  and a fresh real handoff exactly once, with returned-state verification.
 - **Fleet Mode MVP** (`fleet/`) -- Scout/Worker/Verify ships + Hub
   orchestration + review gates + context trimming/session management for
   multi-agent LLM Wiki work. Code-complete; the `tests/fleet_tests/` CI
@@ -72,7 +73,8 @@ source of truth for what shipped when.
 - Added Settings/Obsidian guidance, legacy plugin and Project migration
   procedures, the current capability inventory, and the reproducible fleet
   acceptance sequence. The earlier accepted 5090 evidence remains a baseline;
-  beta release notes are updated only after the new product commit repeats it.
+  the beta records its own product commit, orchestration task, fixture digest,
+  correlation ID, exact-once remote phase, and returned-state verification.
 - `TASK14-DRAFT-multi-platform-compile.md` had drifted into an
   internally-inconsistent DRAFT/APPROVED status framing; corrected to
   state plainly: design-approved, 0 lines of code, not built.

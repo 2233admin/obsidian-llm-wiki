@@ -34,10 +34,12 @@ The release harness also proves that wrong Project, Work Item, Work Run, agent, 
 |---|---|
 | Reproducible local two-vault acceptance harness | Implemented; part of the local release gate |
 | 5090/Orca workflow recipe and artifact boundary | Documented in [FLEET_WORKFLOW_ACCEPTANCE.md](FLEET_WORKFLOW_ACCEPTANCE.md) |
-| Real local ↔ 5090 run at the beta product commit | Pending rerun; `89cf831ed4615270c56edd2784928a29e52e1789` remains the accepted pre-Agent-binding baseline |
-| Beta prerelease | Pending exact-commit 5090 rerun and release audit |
+| Real local ↔ 5090 run at the beta product commit | Accepted at `b0c447a5f228ddd2d4f3f1ba0b001817f89ea155`; remote phase ran exactly once and returned-state verification passed `6/6` |
+| Beta prerelease | Exact-commit gates passed; prerelease publication remains pending the tag workflow |
 | Final main-branch release | Pending beta acceptance, OpenSpec archive, merge, and main push |
 
 The baseline 5090 run used fixture digest `615b5359e836d8224f5b6ebaf92fcdb7c724cfc89e0e7e3d89a92f873bc580a7` and correlation ID `3c27a18c-b199-4f31-af19-5cfc586e8472`. It proves the workflow before Agent model binding, but it is not substituted for beta-candidate evidence.
 
 Baseline commit-level gate evidence: Settings `28/28`; MCP `401 passed, 18 skipped`; Obsidian `11/11`; root Python `197 passed`; compiler `789 passed, 15 subtests`; isolated shipped-install smoke `124` operations; Fleet safety `5/5`; local Fleet phase-all `8/8`; returned-state verification `6/6`; canonical Ruff, typecheck, build, bundle clean-diff, and strict OpenSpec all passed. The out-of-band proof contents were never printed or copied into the vault.
+
+Beta-candidate evidence: product commit `b0c447a5f228ddd2d4f3f1ba0b001817f89ea155`; Settings `33/33`; MCP `402 passed, 18 skipped`; Obsidian `11/11`; root Python `197 passed`; compiler `789 passed, 15 subtests`; isolated shipped-install smoke `124` operations; Fleet safety `5/5`; local Fleet phase-all `8/8`; returned-state verification `6/6`; canonical Ruff, typecheck, build, bundle clean-diff, and strict OpenSpec all passed. The real handoff used fixture digest `615b5359e836d8224f5b6ebaf92fcdb7c724cfc89e0e7e3d89a92f873bc580a7`, correlation ID `9f8bd015-6a5b-440b-bbe3-7cf33547eaae`, fixture External Projections `task_762926afd8e3` and `term_3345405f-64bb-407a-a6a9-7d0cdc8edfe2`, and a remote phase executed exactly once. Orca task `task_8b75633c128f` prepared and confirmed the clean exact-SHA 5090 worktree and dependency environment; it is not substituted for the accepted Work Run projection. Raw proof contents were never printed or copied into the vault.

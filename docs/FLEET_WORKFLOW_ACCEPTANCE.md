@@ -12,6 +12,29 @@ The baseline run used fixture digest
 and correlation ID `3c27a18c-b199-4f31-af19-5cfc586e8472`. The out-of-band
 proof contents were not printed or copied into the vault.
 
+> **Accepted beta candidate evidence:** product commit
+> `b0c447a5f228ddd2d4f3f1ba0b001817f89ea155` passed the complete clean-worktree
+> 5090 gate and a fresh real local ↔ 5090 round trip. The accepted Work Run's
+> fixture-declared External Projections are `task_762926afd8e3` and
+> `term_3345405f-64bb-407a-a6a9-7d0cdc8edfe2`; they are not Project or Work Run
+> identities. Orca task `task_8b75633c128f` and terminal
+> `term_a4da43a7-e97e-45f0-84f1-d1b218be3581` prepared and confirmed the clean
+> exact-SHA worktree and dependency environment; they are execution provenance,
+> not a replacement for the accepted Work Run projection. The later
+> evidence-only documentation commit does not replace the tested product SHA.
+
+The beta run used fixture digest
+`615b5359e836d8224f5b6ebaf92fcdb7c724cfc89e0e7e3d89a92f873bc580a7`
+and correlation ID `9f8bd015-6a5b-440b-bbe3-7cf33547eaae`. The remote phase
+executed exactly once. Prepare, remote, and verify reports agreed on product
+commit, fixture digest, and correlation ID. Returned-state verification proved
+the original local lease bytes and identity unchanged, the exact remotely
+completed Work Run, local Doctor acceptance, one Project Hub Work Run, external
+projection boundaries, and absence of machine-local paths or lease fields from
+shared state. Missing/wrong capability and identity attempts were rejected
+without mutation, and transition replays were byte-identical. The out-of-band
+proof contents were never printed or copied into the vault.
+
 This harness proves the LLM Wiki product contract across a real fleet handoff.
 An Orca task reporting success is useful execution evidence, but it is not the
 durable Project, Work Item, Work Run, or agent identity.
