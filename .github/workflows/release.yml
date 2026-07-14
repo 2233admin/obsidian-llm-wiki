@@ -138,6 +138,7 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
+          prerelease: ${{ contains(github.ref_name, '-') }}
           files: |
             dist-mcp/*.tar.gz
             dist-compiler/*.tar.gz
