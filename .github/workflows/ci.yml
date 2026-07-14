@@ -148,7 +148,7 @@ jobs:
         with:
           python-version: "3.11"
       - run: cd mcp-server; npm ci; npm run settings:build; bun test src/settings/settings.test.ts src/project/project-hub.test.ts src/workflow/workflow.test.ts; npm run typecheck
-      - run: python -m pytest compiler/tests/test_settings_platform.py compiler/tests/test_work_driver.py compiler/tests/test_project_migration.py -q --basetemp .tmp/pytest-windows
+      - run: python -m pytest compiler/tests/test_settings_platform.py compiler/tests/test_work_driver.py compiler/tests/test_project_migration.py -q --basetemp "$env:RUNNER_TEMP\pytest-windows"
 
   openspec:
     runs-on: ubuntu-latest
