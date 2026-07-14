@@ -46,6 +46,8 @@ TypeScript 的 registry、schema、resolution、validation、persistence 和 ser
 
 解析优先级固定为 `session > workspace-project > vault > user-device > product default`。消费者不得自行合并 env、CLI、插件状态。env/CLI 只在 bootstrap 时转成声明过的 session 或 user-device assignment。snapshot 包含 source revisions、winning scope、provenance、validation 和 overridden candidates；secret-reference 只返回 locator 元数据与 presence health，不解析 secret 值。
 
+Agent 模型连接使用 `inherit / local / cloud` 三种模式。`inherit` 保持既有 env/YAML 行为；`local` 将 provider、OpenAI-compatible base URL 与 model 注入 Agent/Compiler 子进程且不要求凭证；`cloud` 在最后调用边界解析设备本地 Secret Reference，并只把凭证放入该子进程的临时环境。Obsidian 控制面编辑的是模型配置和 Secret Reference，不保存明文 API Key。
+
 ### 4. Project Context 是所有 project-scoped 操作的入口
 
 memory、conversation、source、workflow、settings workspace-project scope 和 Project Hub 在执行业务逻辑前调用同一 resolver。兼容裸 slug 时记录诊断；严格发布门使用 `LLMWIKI_PROJECT_COMPATIBILITY=disabled`。未知项目一律 not-found，不创建 `01-Projects`、`10-Projects` 或 settings project 文件。

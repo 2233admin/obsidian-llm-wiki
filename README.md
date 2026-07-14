@@ -155,6 +155,8 @@ session > workspace-project > vault > user-device > product default
 
 Obsidian is a client of that platform, not a separate settings backend. Its plugin data keeps only presentation preferences, a machine-local device binding, and the reversible legacy-migration journal. Operational values belong to scoped Settings documents. Credentials are represented only by a **Secret Reference**; resolved secret values never enter snapshots, Project Hubs, plugin data, or durable vault knowledge.
 
+The same control plane owns the default Agent model connection. `inherit` preserves existing env/YAML setups, `local` supports Ollama or another OpenAI-compatible endpoint without forwarding cloud credentials, and `cloud` resolves a device-local Secret Reference only for the model child process.
+
 Projects use the stable identity `project/<slug>`. The repository checkout, vault path, Linear/GitHub item, and 5090/Orca task are bindings or projections of that Project, never replacements for its identity. The read-only `project.hub.get` operation assembles work, knowledge, Work Runs, effective settings, capability health, workspace health, and integration drift without becoming a new source of truth.
 
 See [Settings and Obsidian control plane](docs/SETTINGS.md), [Project and plugin migrations](docs/MIGRATIONS.md), and the [capability inventory](docs/CAPABILITY_INVENTORY.md).

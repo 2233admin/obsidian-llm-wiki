@@ -42,10 +42,20 @@ The system SHALL expose definitions, scope reads, snapshot resolve/explain, set/
 - **WHEN** MCP or CLI resolves settings and runs doctor without an Obsidian process
 - **THEN** the same persisted settings and capability health remain available
 
+### Requirement: Agent model connection binding
+The Settings Platform SHALL define one default Agent model connection with `inherit`, `local`, and `cloud` modes, and Agent/Compiler invocation SHALL consume its effective provider, OpenAI-compatible base URL, model identifier, and Secret Reference without persisting or returning resolved credential material.
+
+#### Scenario: Local model is selected in Obsidian
+- **WHEN** a user selects local mode, an OpenAI-compatible endpoint, and a model identifier in the Obsidian control plane
+- **THEN** the next Agent/Compiler invocation uses those effective values without requiring or forwarding a cloud credential
+
+#### Scenario: Cloud model credential is bound
+- **WHEN** a user selects cloud mode and binds an environment Secret Reference on the current device
+- **THEN** the credential is resolved only for the child-process invocation and snapshots, Doctor output, plugin data, vault files, and logs remain redacted
+
 ### Requirement: Cross-runtime conformance
 TypeScript and Python SHALL resolve the shared conformance fixtures to canonically equivalent redacted snapshots and validation results.
 
 #### Scenario: Shared fixture is evaluated
 - **WHEN** both runtimes evaluate the same registry, assignments, and runtime context fixture
 - **THEN** their canonical effective values, provenance, source revisions, redaction, and errors are equivalent
-

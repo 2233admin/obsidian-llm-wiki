@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, describe, test } from 'node:test';
 
-import { makeSettingsOps } from './settings.js';
+import { createSettingsService, makeSettingsOps, resolveAgentModelProcessEnvironment } from './settings.js';
 import { validateParams } from '../core/validate.js';
 
 const roots: string[] = [];
@@ -152,5 +152,56 @@ describe('thin settings operation adapter', () => {
       targetId: unknown,
     }), { code: -32004 });
     assert.equal(existsSync(join(vaultPath, '_llmwiki', 'settings', 'projects', 'not-registered.json')), false);
+  });
+
+  test('resolves Agent credentials only in the host child-process bridge', async () => {
+    const vaultPath = mkdtempSync(join(tmpdir(), 'llmwiki-agent-model-host-'));
+    roots.push(vaultPath);
+    const environment = { CLOUD_AGENT_KEY: 'host-only-secret', OPENAI_API_KEY: 'legacy-secret' };
+    const service = createSettingsService({
+      vaultPath,
+      userDevicePath: join(vaultPath, 'device.json'),
+      userDeviceId: 'mcp-test-device',
+      environment,
+    });
+    for (const [key, value] of [
+      ['models.agent.mode', 'cloud'],
+      ['models.agent.provider', 'openai-compatible'],
+      ['models.agent.base_url', 'https://models.example.test/v1'],
+      ['models.agent.model', 'cloud-model'],
+      ['models.agent.secret_ref', { provider: 'environment', locator: 'CLOUD_AGENT_KEY' }],
+    ] as const) {
+      const scope = await service.scopesGet('session');
+      const result = await service.assignmentSet({
+        scope: 'session',
+        key,
+        value,
+        expectedRevision: scope.document.revision,
+        updatedBy: 'mcp-test',
+      });
+      assert.equal(result.status, 'committed');
+    }
+
+    const child = await resolveAgentModelProcessEnvironment(service, environment);
+    const snapshot = await service.snapshotResolve();
+    assert.equal(child.OPENAI_API_KEY, 'host-only-secret');
+    assert.equal(child.CLOUD_AGENT_KEY, undefined);
+    assert.equal(child.OPENAI_BASE_URL, 'https://models.example.test/v1');
+    assert.equal(child.COMPILE_MODEL, 'cloud-model');
+    assert.equal(JSON.stringify(snapshot).includes('host-only-secret'), false);
+
+    const session = await service.scopesGet('session');
+    const local = await service.assignmentSet({
+      scope: 'session',
+      key: 'models.agent.mode',
+      value: 'local',
+      expectedRevision: session.document.revision,
+      updatedBy: 'mcp-test',
+    });
+    assert.equal(local.status, 'committed');
+    const localChild = await resolveAgentModelProcessEnvironment(service, environment);
+    assert.equal(localChild.OPENAI_API_KEY, undefined);
+    assert.equal(localChild.ANTHROPIC_API_KEY, undefined);
+    assert.equal(localChild.CLOUD_AGENT_KEY, undefined);
   });
 });

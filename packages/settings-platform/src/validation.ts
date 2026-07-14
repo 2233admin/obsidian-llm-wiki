@@ -265,6 +265,13 @@ function validateValue(
     if (validator.pattern && !new RegExp(validator.pattern).test(value)) {
       issues.push(issue("pattern-mismatch", `${definition.key} does not match its declared format.`, options));
     }
+    if (validator.id === "url" && hasUrlCredentials(value)) {
+      issues.push(issue(
+        "url-credentials-forbidden",
+        `${definition.key} must not embed credentials in a URL; use a Secret Reference.`,
+        { ...options, remediation: "Remove URL userinfo and bind the credential through a Secret Reference." },
+      ));
+    }
   }
   if (typeof value === "number") {
     if (validator.min !== undefined && value < validator.min) {
@@ -275,6 +282,15 @@ function validateValue(
     }
   }
   return issues;
+}
+
+function hasUrlCredentials(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return Boolean(parsed.username || parsed.password);
+  } catch {
+    return false;
+  }
 }
 
 export function isSecretReference(value: unknown): value is SecretReference {

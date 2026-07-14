@@ -43,6 +43,39 @@ export function createSettingsService(options: SettingsOperationsOptions): Setti
   });
 }
 
+/** Host-only last-mile resolver. Never return this environment through an Operation. */
+export async function resolveAgentModelProcessEnvironment(
+  service: SettingsService,
+  environment: NodeJS.ProcessEnv = process.env,
+): Promise<NodeJS.ProcessEnv> {
+  const profile = await service.agentModelInvocationProfile();
+  const childEnvironment = { ...environment };
+  if (profile.mode === 'inherit') return childEnvironment;
+  if (!profile.provider || !profile.baseUrl || !profile.model) {
+    throw new Error('Agent model mode requires provider, base URL, and model settings');
+  }
+  const credentialLocator = profile.credential?.secretRef.provider === 'environment'
+    ? profile.credential.secretRef.locator
+    : undefined;
+  childEnvironment.COMPILE_PROVIDER = profile.provider;
+  childEnvironment.OPENAI_BASE_URL = profile.baseUrl;
+  childEnvironment.COMPILE_MODEL = profile.model;
+  delete childEnvironment.OPENAI_API_KEY;
+  delete childEnvironment.ANTHROPIC_API_KEY;
+  if (credentialLocator) delete childEnvironment[credentialLocator];
+  if (profile.mode === 'local') return childEnvironment;
+
+  const credential = profile.credential;
+  const secret = credential?.secretRef.provider === 'environment'
+    ? environment[credential.secretRef.locator]
+    : undefined;
+  if (typeof secret !== 'string' || !secret.length) {
+    throw new Error('Cloud Agent model credential Secret Reference is not resolvable on this device');
+  }
+  childEnvironment.OPENAI_API_KEY = secret;
+  return childEnvironment;
+}
+
 const MUTABLE_SCOPES = ['user-device', 'vault', 'workspace-project', 'session'] as const;
 const SETTINGS_SCOPES = ['product', ...MUTABLE_SCOPES] as const;
 

@@ -76,6 +76,8 @@ Settings precedence is `session > workspace-project > vault > user-device > prod
 
 Provider credentials must be configured as a Secret Reference, for example `{ "provider": "environment", "locator": "TAVILY_API_KEY" }`. LLM Wiki resolves only presence health through the host. Do not put the credential value in Settings, plugin data, Project Hubs, or vault notes.
 
+Agent model setup lives in **Obsidian → Settings → LLM Wiki → Agent model**. Use `local` with an OpenAI-compatible/Ollama base URL and model identifier when no cloud key is needed. Use `cloud` with a device-local environment Secret Reference such as `{ "provider": "environment", "locator": "OPENAI_API_KEY" }`; enter the locator in Obsidian, never the key value itself. Agent model bindings currently support user-device, vault, and session scope; credential-bearing URLs are rejected.
+
 See [SETTINGS.md](SETTINGS.md) for the complete model and [MIGRATIONS.md](MIGRATIONS.md) before upgrading an existing Obsidian plugin or Project layout.
 
 ## Obsidian control plane

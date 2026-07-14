@@ -1,6 +1,6 @@
 {
-  "snapshotId": "settings:1.0.0:device-a:vault-alpha:project/alpha:session-a:3:7:2:1",
-  "registryVersion": "1.0.0",
+  "snapshotId": "settings:1.1.0:device-a:vault-alpha:project/alpha:session-a:3:7:2:1",
+  "registryVersion": "1.1.0",
   "context": {
     "userDeviceId": "device-a",
     "vaultId": "vault-alpha",
@@ -8,6 +8,87 @@
     "sessionId": "session-a"
   },
   "effective": [
+    {
+      "key": "models.agent.mode",
+      "value": "inherit",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "next-operation",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "models.agent.provider",
+      "value": "ollama",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "next-operation",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "models.agent.base_url",
+      "value": "http://127.0.0.1:11434/v1",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "next-operation",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "models.agent.model",
+      "value": "qwen3:8b",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "next-operation",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "models.agent.secret_ref",
+      "value": {
+        "secretRef": {
+          "provider": "environment",
+          "locator": "OPENAI_API_KEY"
+        },
+        "status": "missing"
+      },
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "next-operation",
+      "overriddenCandidates": []
+    },
     {
       "key": "diagnostics.obc.semantic.enabled",
       "value": false,
@@ -33,7 +114,7 @@
         },
         {
           "scope": "product",
-          "revision": "1.0.0",
+          "revision": "1.1.0",
           "value": false,
           "provenance": {
             "actor": "registry",
@@ -58,7 +139,7 @@
       "overriddenCandidates": [
         {
           "scope": "product",
-          "revision": "1.0.0",
+          "revision": "1.1.0",
           "value": false,
           "provenance": {
             "actor": "registry",
@@ -89,7 +170,7 @@
       "overriddenCandidates": [
         {
           "scope": "product",
-          "revision": "1.0.0",
+          "revision": "1.1.0",
           "value": {
             "secretRef": {
               "provider": "environment",
@@ -129,7 +210,7 @@
         },
         {
           "scope": "product",
-          "revision": "1.0.0",
+          "revision": "1.1.0",
           "value": false,
           "provenance": {
             "actor": "registry",
@@ -154,7 +235,7 @@
       "overriddenCandidates": [
         {
           "scope": "product",
-          "revision": "1.0.0",
+          "revision": "1.1.0",
           "value": "",
           "provenance": {
             "actor": "registry",
@@ -179,7 +260,7 @@
       "overriddenCandidates": [
         {
           "scope": "product",
-          "revision": "1.0.0",
+          "revision": "1.1.0",
           "value": "python",
           "provenance": {
             "actor": "registry",
@@ -204,7 +285,7 @@
       "overriddenCandidates": [
         {
           "scope": "product",
-          "revision": "1.0.0",
+          "revision": "1.1.0",
           "value": "",
           "provenance": {
             "actor": "registry",
@@ -229,7 +310,7 @@
       "overriddenCandidates": [
         {
           "scope": "product",
-          "revision": "1.0.0",
+          "revision": "1.1.0",
           "value": "",
           "provenance": {
             "actor": "registry",
@@ -242,7 +323,7 @@
   "sourceRevisions": {
     "product": {
       "targetId": "settings-platform",
-      "revision": "1.0.0"
+      "revision": "1.1.0"
     },
     "user-device": {
       "targetId": "device-a",

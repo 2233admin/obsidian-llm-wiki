@@ -322,6 +322,9 @@ test("in-process host adapter persists through the authoritative SettingsService
       environment: { ...process.env, LLMWIKI_SETTINGS_USER_PATH: join(vault, "device-settings.json") },
     }));
     const before = await client.snapshot();
+    const definitions = await client.definitions();
+    assert.ok(definitions.some(item => item.key === "models.agent.mode"));
+    assert.ok(definitions.some(item => item.key === "models.agent.secret_ref" && item.valueType === "secret-reference"));
     await client.setAssignment("vault", "query.semantic.enabled", true, 0);
     const after = await client.snapshot();
     assert.equal(effectiveSetting(after.snapshot, "query.semantic.enabled")?.value, true);

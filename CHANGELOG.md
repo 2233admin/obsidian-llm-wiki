@@ -21,6 +21,10 @@ source of truth for what shipped when.
   and Doctor contract now serve MCP, Python, and Obsidian. Secret values stay
   outside Settings; only Secret References and presence health cross the
   boundary.
+- **Agent model binding.** Obsidian now configures inherited, local
+  OpenAI-compatible/Ollama, or cloud Agent models through `models.agent.*`.
+  Local mode strips cloud credentials; cloud mode resolves a device-local
+  Secret Reference only for the Agent/Compiler child process.
 - **Canonical Project Context.** Stable `project/<slug>` identity now joins
   Work-OS, knowledge, Work Runs, settings, bindings, and external projections.
   Project Hub is a read-only composition over those owners and reports real
@@ -31,8 +35,9 @@ source of truth for what shipped when.
 - **Single-device and multi-device Work Runs.** Local joins validate the active
   lease; portable handoff uses a short-lived out-of-band capability whose raw
   value never enters shared vault or Git state. The two-vault acceptance
-  harness is implemented; final local ↔ 5090 commit-level evidence remains a
-  release gate and is not claimed here.
+  harness and the real local ↔ 5090 handoff passed for the pre-Agent-binding
+  baseline `89cf831ed4615270c56edd2784928a29e52e1789`. The beta candidate is not
+  accepted until the same gate is repeated at its new product commit.
 - **Fleet Mode MVP** (`fleet/`) -- Scout/Worker/Verify ships + Hub
   orchestration + review gates + context trimming/session management for
   multi-agent LLM Wiki work. Code-complete; the `tests/fleet_tests/` CI
@@ -58,7 +63,7 @@ source of truth for what shipped when.
   renamed to `tests/fleet_tests/`, plus fixed three latent test bugs that
   had never actually executed before collection started succeeding.
 - `ruff check compiler/` reached zero violations (was previously red).
-- `compiler/tests/` (662 tests) now actually run in CI -- both `ci.yml`
+- `compiler/tests/` (789 tests plus 15 subtests) now actually run in CI -- both `ci.yml`
   and `release.yml`'s quality gate -- after being wired up but never
   invoked.
 
@@ -66,8 +71,8 @@ source of truth for what shipped when.
 
 - Added Settings/Obsidian guidance, legacy plugin and Project migration
   procedures, the current capability inventory, and the reproducible fleet
-  acceptance sequence. The release notes explicitly leave real 5090
-  verification pending until commit-level evidence exists.
+  acceptance sequence. The earlier accepted 5090 evidence remains a baseline;
+  beta release notes are updated only after the new product commit repeats it.
 - `TASK14-DRAFT-multi-platform-compile.md` had drifted into an
   internally-inconsistent DRAFT/APPROVED status framing; corrected to
   state plainly: design-approved, 0 lines of code, not built.

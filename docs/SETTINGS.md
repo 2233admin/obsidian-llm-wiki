@@ -54,6 +54,24 @@ The desktop-only Obsidian plugin uses an in-process client over the same Setting
 
 The first UI slice edits `user-device` and `vault`. Workspace-project and session remain valid resolution scopes but require a bound project/session context.
 
+## Agent model connection
+
+The **Agent model** section binds the default model connection used by Agent/Compiler invocation:
+
+| Setting | Purpose |
+|---|---|
+| `models.agent.mode` | `inherit` keeps legacy env/YAML behavior; `local` and `cloud` opt into Settings-owned invocation. |
+| `models.agent.provider` | Provider identity such as `ollama`, `openai-compatible`, `qwen`, or `minimax`. |
+| `models.agent.base_url` | OpenAI-compatible API base URL. |
+| `models.agent.model` | Model identifier sent to the endpoint. |
+| `models.agent.secret_ref` | Device-local credential reference used only in cloud mode. |
+
+Agent model connection values intentionally support `user-device`, `vault`, and `session` scope. They are not project-scoped until Agent/Compiler invocations carry an explicit Project Context end to end. URLs containing `user:password@host` are rejected; credentials must use `models.agent.secret_ref`.
+
+Local mode removes inherited cloud credentials before launching the child process. Cloud mode resolves the Secret Reference only at the MCP host's child-process boundary. The credential value is never returned by `settings.*`, written into plugin data, or synchronized through the vault.
+
+For a local Ollama-compatible server, select `local`, set the base URL (for example `http://127.0.0.1:11434/v1`), and choose the installed model identifier. No API key is required. For a cloud endpoint, select `cloud`, configure its base URL/model, place the real key in a device-local secret provider such as an environment variable, and bind only its locator in Obsidian.
+
 Obsidian plugin data is intentionally limited to:
 
 - presentation preferences such as the selected scope and advanced-field visibility;
@@ -83,7 +101,7 @@ A Secret Reference is metadata describing where a credential can be resolved. It
 
 Snapshots and Doctor may report the reference plus `present`, `missing`, or `unreachable`. They never return the resolved value. Do not paste a credential into a normal string field, migration note, Project Hub, workflow evidence, or plugin data.
 
-The first registry includes an environment reference for web search. OS keychain and external-vault providers are part of the contract, but availability depends on the host connector.
+The registry includes environment references for web search and the Agent cloud model. OS keychain and external-vault providers are part of the contract, but availability depends on the host connector. The current built-in child-process resolver supports environment references; Doctor reports other providers as unreachable until a host connector is installed.
 
 ## Settings operations
 

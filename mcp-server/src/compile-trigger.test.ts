@@ -8,7 +8,7 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { CompileTrigger } from "./compile-trigger.js";
@@ -134,8 +134,10 @@ describe("CompileTrigger -- run", () => {
       writeFileSync(join(wikiDir, "skip.txt"), "not markdown\n", "utf-8");
 
       const compileScript = join(compilerPath, "compile.py");
+      const environmentCapture = join(root, "child-environment.txt");
       writeFileSync(
         compileScript,
+        "require('node:fs').writeFileSync(process.env.ENV_CAPTURE, process.env.COMPILE_MODEL || 'missing');\n" +
         "console.log('=== Compilation Report ===');\n" +
           "console.log('Sources compiled: 2');\n" +
           "console.log('Concepts created: 1');\n" +
@@ -149,6 +151,7 @@ describe("CompileTrigger -- run", () => {
         compilerPath,
         python: process.execPath,
         autoCompile: false,
+        environmentResolver: async () => ({ ...process.env, ENV_CAPTURE: environmentCapture, COMPILE_MODEL: "settings-model" }),
         onCompileSuccess: (wikiPaths) => {
           indexedPaths = wikiPaths.map((p) => resolve(p)).sort();
         },
@@ -157,6 +160,7 @@ describe("CompileTrigger -- run", () => {
       const result = await trigger.run("topic-a");
       assert.equal(result.ok, true);
       assert.equal(result.sourcesCompiled, 2);
+      assert.equal(readFileSync(environmentCapture, "utf8"), "settings-model");
       assert.deepEqual(indexedPaths, [
         resolve(join(wikiDir, "concepts", "memory.md")),
         resolve(join(wikiDir, "summary.md")),

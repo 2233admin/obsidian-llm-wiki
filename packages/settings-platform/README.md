@@ -20,8 +20,10 @@ Persistent scope paths are physically separated:
 - session: process memory only;
 - product: the read-only versioned registry in `registry/v1.json`.
 
-No runtime dependency is required. Secret values are never accepted: only
-`SecretReference` metadata and `present | missing | unreachable` health cross
-the package boundary. Python implements the same contract independently in
+No runtime dependency is required. Public Settings operations accept and return
+only `SecretReference` metadata and `present | missing | unreachable` health.
+Host adapters may resolve a reference only at the final invocation boundary;
+the resolved value never enters snapshots, events, exports, or durable stores.
+Python implements the same contract independently in
 `compiler/settings_platform.py` and both runtimes are pinned by the shared JSON
 fixtures under `fixtures/`.

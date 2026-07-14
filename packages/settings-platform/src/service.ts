@@ -56,6 +56,19 @@ export interface SettingsDoctorResult {
   checkedAt: string;
 }
 
+export type AgentModelMode = "inherit" | "local" | "cloud";
+
+export interface AgentModelInvocationProfile {
+  mode: AgentModelMode;
+  provider: string;
+  baseUrl: string;
+  model: string;
+  credential?: {
+    secretRef: SecretReference;
+    status: SecretStatus;
+  };
+}
+
 export class SettingsService {
   readonly registry: SettingsRegistry;
   readonly defaultContext: RuntimeContext;
@@ -149,6 +162,30 @@ export class SettingsService {
       createdAt: this.clock(),
       key,
     });
+  }
+
+  /** Return a redacted invocation profile; host adapters resolve secrets. */
+  async agentModelInvocationProfile(
+    context: RuntimeContext = this.defaultContext,
+  ): Promise<AgentModelInvocationProfile> {
+    const { snapshot } = await this.snapshotResolve(context);
+    const mode = effectiveString(snapshot, "models.agent.mode") as AgentModelMode;
+    const provider = effectiveString(snapshot, "models.agent.provider");
+    const baseUrl = effectiveString(snapshot, "models.agent.base_url");
+    const model = effectiveString(snapshot, "models.agent.model");
+    const credentialValue = snapshot.effective.find(item => item.key === "models.agent.secret_ref")?.value;
+    const secretRef = effectiveSecretReference(snapshot, "models.agent.secret_ref");
+    const status = credentialValue && typeof credentialValue === "object" && !Array.isArray(credentialValue)
+      && "status" in credentialValue && typeof (credentialValue as { status?: unknown }).status === "string"
+      ? (credentialValue as { status: SecretStatus }).status
+      : undefined;
+    return {
+      mode,
+      provider,
+      baseUrl,
+      model,
+      ...(secretRef && status ? { credential: { secretRef, status } } : {}),
+    };
   }
 
   async assignmentSet(input: {
@@ -322,6 +359,45 @@ export class SettingsService {
         ? [{ code: "configure-web-secret", summary: "Configure the referenced secret without storing its value in Settings.", operation: "settings.assignment.set" }]
         : [],
     ));
+    const agentMode = value("models.agent.mode") as AgentModelMode | undefined;
+    const agentProvider = value("models.agent.provider");
+    const agentBaseUrl = value("models.agent.base_url");
+    const agentModel = value("models.agent.model");
+    const agentSecret = value("models.agent.secret_ref") as { status?: SecretStatus } | undefined;
+    const agentConfigured = typeof agentProvider === "string" && Boolean(agentProvider)
+      && typeof agentBaseUrl === "string" && Boolean(agentBaseUrl)
+      && typeof agentModel === "string" && Boolean(agentModel);
+    const agentState: CapabilityHealth["state"] = agentMode === "inherit"
+      ? "available"
+      : !agentConfigured
+        ? "unavailable"
+        : agentMode === "cloud" && agentSecret?.status !== "present"
+          ? agentSecret?.status === "unreachable" ? "degraded" : "unavailable"
+          : "available";
+    const agentSummary = agentMode === "inherit"
+      ? "Agent model remains on the legacy environment/YAML compatibility path."
+      : !agentConfigured
+        ? "Agent model connection is missing a provider, base URL, or model identifier."
+        : agentMode === "local"
+          ? "Local Agent model connection is configured without a cloud credential."
+          : agentSecret?.status === "present"
+            ? "Cloud Agent model connection and credential reference are configured."
+            : "Cloud Agent model credential reference is not resolvable on this device.";
+    capabilities.push(this.health(
+      "models.agent",
+      agentState,
+      agentSummary,
+      checkedAt,
+      snapshot.snapshotId,
+      agentState === "available" ? "pass" : agentState === "degraded" ? "warn" : "fail",
+      agentState === "available" ? [] : [{
+        code: agentMode === "inherit" ? "select-agent-model-mode" : "configure-agent-model",
+        summary: agentMode === "inherit"
+          ? "Select local or cloud mode to bring Agent model configuration under Settings Platform."
+          : "Configure the Agent model connection and a device-local Secret Reference when cloud mode is selected.",
+        operation: "settings.assignment.set",
+      }],
+    ));
     return { snapshotId: snapshot.snapshotId, validation, capabilities, checkedAt };
   }
 
@@ -424,6 +500,17 @@ export class SettingsService {
         remediation: "Make the referenced secret available without storing it in Settings.",
       });
     }
+    const agentMode = effective.get("models.agent.mode");
+    const agentSecret = effective.get("models.agent.secret_ref") as { status?: SecretStatus } | undefined;
+    if (agentMode === "cloud" && agentSecret?.status !== "present") {
+      issues.push({
+        code: "agent-model-secret-missing",
+        severity: "warning",
+        message: "Cloud Agent model mode is selected but its Secret Reference is not present.",
+        key: "models.agent.secret_ref",
+        remediation: "Bind a device-local Secret Reference or select local/inherit mode.",
+      });
+    }
     return { valid: issues.every(item => item.severity !== "error"), issues };
   }
 
@@ -465,4 +552,20 @@ function probePython(executable: string): boolean {
 function safeIdentity(value: string): string {
   const normalized = value.trim().replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
   return normalized || "default-vault";
+}
+
+function effectiveString(snapshot: SettingsSnapshot, key: string): string {
+  const value = snapshot.effective.find(item => item.key === key)?.value;
+  return typeof value === "string" ? value : "";
+}
+
+function effectiveSecretReference(snapshot: SettingsSnapshot, key: string): SecretReference | undefined {
+  const value = snapshot.effective.find(item => item.key === key)?.value;
+  if (!value || typeof value !== "object" || Array.isArray(value) || !("secretRef" in value)) return undefined;
+  const secretRef = (value as { secretRef?: unknown }).secretRef;
+  if (!secretRef || typeof secretRef !== "object" || Array.isArray(secretRef)) return undefined;
+  const candidate = secretRef as Partial<SecretReference>;
+  return typeof candidate.provider === "string" && typeof candidate.locator === "string"
+    ? candidate as SecretReference
+    : undefined;
 }

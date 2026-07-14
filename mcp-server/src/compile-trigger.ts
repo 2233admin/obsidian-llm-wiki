@@ -28,6 +28,8 @@ export interface CompileTriggerConfig {
   autoCompile?: boolean;
   /** Called after successful compile with list of modified wiki paths for re-indexing */
   onCompileSuccess?: (wikiPaths: string[]) => void;
+  /** Resolve child-process environment immediately before model invocation. */
+  environmentResolver?: () => Promise<NodeJS.ProcessEnv>;
 }
 
 export interface CompileStatus {
@@ -63,6 +65,7 @@ export class CompileTrigger {
   private readonly tier: string;
   private readonly autoCompile: boolean;
   private readonly onCompileSuccess?: (wikiPaths: string[]) => void;
+  private environmentResolver?: () => Promise<NodeJS.ProcessEnv>;
 
   constructor(config: CompileTriggerConfig) {
     this.vaultPath = config.vaultPath;
@@ -72,6 +75,11 @@ export class CompileTrigger {
     this.tier = config.tier ?? "haiku";
     this.autoCompile = config.autoCompile ?? true;
     this.onCompileSuccess = config.onCompileSuccess;
+    this.environmentResolver = config.environmentResolver;
+  }
+
+  setEnvironmentResolver(resolver: () => Promise<NodeJS.ProcessEnv>): void {
+    this.environmentResolver = resolver;
   }
 
   /**
@@ -219,7 +227,7 @@ export class CompileTrigger {
       const { stdout, stderr } = await exec(this.python, args, {
         timeout: 120_000, // 2 min max
         maxBuffer: 10 * 1024 * 1024,
-        env: { ...process.env },
+        env: this.environmentResolver ? await this.environmentResolver() : { ...process.env },
       });
 
       // Parse compile report from stdout

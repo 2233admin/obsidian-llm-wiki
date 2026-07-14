@@ -272,6 +272,7 @@ class PromotePlanModal extends Modal {
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
+  models: "Agent model",
   runtime: "Runtime",
   vault: "Vault",
   query: "Query and index",

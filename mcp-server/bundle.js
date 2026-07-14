@@ -41456,6 +41456,7 @@ var CompileTrigger = class {
   tier;
   autoCompile;
   onCompileSuccess;
+  environmentResolver;
   constructor(config2) {
     this.vaultPath = config2.vaultPath;
     this.compilerPath = config2.compilerPath;
@@ -41464,6 +41465,10 @@ var CompileTrigger = class {
     this.tier = config2.tier ?? "haiku";
     this.autoCompile = config2.autoCompile ?? true;
     this.onCompileSuccess = config2.onCompileSuccess;
+    this.environmentResolver = config2.environmentResolver;
+  }
+  setEnvironmentResolver(resolver) {
+    this.environmentResolver = resolver;
   }
   /**
    * Called when a vault file is created or modified.
@@ -41601,7 +41606,7 @@ var CompileTrigger = class {
         timeout: 12e4,
         // 2 min max
         maxBuffer: 10 * 1024 * 1024,
-        env: { ...process.env }
+        env: this.environmentResolver ? await this.environmentResolver() : { ...process.env }
       });
       const result = this.parseCompileOutput(topic, stdout, timestamp);
       if (stderr) {
@@ -45700,8 +45705,89 @@ function deepClone(value) {
 // ../packages/settings-platform/dist/registry/v1.json
 var v1_default = {
   schemaVersion: 1,
-  registryVersion: "1.0.0",
+  registryVersion: "1.1.0",
   definitions: [
+    {
+      key: "models.agent.mode",
+      owner: "models.agent-runtime",
+      category: "models",
+      name: "Agent model mode",
+      description: "Choose legacy environment inheritance, a local OpenAI-compatible model, or a cloud model connection.",
+      valueType: "enum",
+      defaultValue: "inherit",
+      allowedScopes: ["user-device", "vault", "session"],
+      sensitivity: "public",
+      validator: { id: "enum", enum: ["inherit", "local", "cloud"] },
+      requires: [],
+      applyMode: "next-operation",
+      visibility: "normal"
+    },
+    {
+      key: "models.agent.provider",
+      owner: "models.agent-runtime",
+      category: "models",
+      name: "Agent model provider",
+      description: "Provider identity passed to the Agent/Compiler OpenAI-compatible runtime.",
+      valueType: "enum",
+      defaultValue: "ollama",
+      allowedScopes: ["user-device", "vault", "session"],
+      sensitivity: "public",
+      validator: { id: "enum", enum: ["ollama", "openai-compatible", "anthropic", "qwen", "doubao", "minimax"] },
+      requires: ["models.agent.mode"],
+      applyMode: "next-operation",
+      visibility: "normal"
+    },
+    {
+      key: "models.agent.base_url",
+      owner: "models.agent-runtime",
+      category: "models",
+      name: "Agent model base URL",
+      description: "OpenAI-compatible API base URL used by the Agent/Compiler runtime.",
+      valueType: "string",
+      defaultValue: "http://127.0.0.1:11434/v1",
+      allowedScopes: ["user-device", "vault", "session"],
+      sensitivity: "public",
+      validator: { id: "url", required: true, pattern: "^https?://[^\\s]+$" },
+      requires: ["models.agent.mode"],
+      applyMode: "next-operation",
+      visibility: "advanced",
+      placeholder: "http://127.0.0.1:11434/v1"
+    },
+    {
+      key: "models.agent.model",
+      owner: "models.agent-runtime",
+      category: "models",
+      name: "Agent model identifier",
+      description: "Model identifier sent to the configured Agent/Compiler endpoint.",
+      valueType: "string",
+      defaultValue: "qwen3:8b",
+      allowedScopes: ["user-device", "vault", "session"],
+      sensitivity: "public",
+      validator: { id: "non-empty-string", required: true, minLength: 1, maxLength: 200 },
+      requires: ["models.agent.mode"],
+      applyMode: "next-operation",
+      visibility: "normal",
+      placeholder: "qwen3:8b"
+    },
+    {
+      key: "models.agent.secret_ref",
+      owner: "models.agent-runtime",
+      category: "models",
+      name: "Agent cloud credential reference",
+      description: "Opaque reference to the cloud model credential; local mode never resolves or forwards it.",
+      valueType: "secret-reference",
+      defaultSecretRef: {
+        provider: "environment",
+        locator: "OPENAI_API_KEY"
+      },
+      allowedScopes: ["user-device", "session"],
+      sensitivity: "secret-reference",
+      validator: { id: "secret-reference" },
+      requires: ["models.agent.mode"],
+      applyMode: "next-operation",
+      visibility: "advanced",
+      placeholder: "environment:OPENAI_API_KEY"
+    },
     {
       key: "diagnostics.obc.semantic.enabled",
       owner: "diagnostics.obc",
@@ -46219,6 +46305,9 @@ function validateValue(definition, value, options) {
     if (validator.pattern && !new RegExp(validator.pattern).test(value)) {
       issues.push(issue2("pattern-mismatch", `${definition.key} does not match its declared format.`, options));
     }
+    if (validator.id === "url" && hasUrlCredentials(value)) {
+      issues.push(issue2("url-credentials-forbidden", `${definition.key} must not embed credentials in a URL; use a Secret Reference.`, { ...options, remediation: "Remove URL userinfo and bind the credential through a Secret Reference." }));
+    }
   }
   if (typeof value === "number") {
     if (validator.min !== void 0 && value < validator.min) {
@@ -46229,6 +46318,14 @@ function validateValue(definition, value, options) {
     }
   }
   return issues;
+}
+function hasUrlCredentials(value) {
+  try {
+    const parsed = new URL(value);
+    return Boolean(parsed.username || parsed.password);
+  } catch {
+    return false;
+  }
 }
 function isSecretReference2(value) {
   if (!value || typeof value !== "object" || Array.isArray(value))
@@ -47028,6 +47125,24 @@ var SettingsService = class _SettingsService {
       key
     });
   }
+  /** Return a redacted invocation profile; host adapters resolve secrets. */
+  async agentModelInvocationProfile(context = this.defaultContext) {
+    const { snapshot } = await this.snapshotResolve(context);
+    const mode = effectiveString(snapshot, "models.agent.mode");
+    const provider = effectiveString(snapshot, "models.agent.provider");
+    const baseUrl = effectiveString(snapshot, "models.agent.base_url");
+    const model = effectiveString(snapshot, "models.agent.model");
+    const credentialValue = snapshot.effective.find((item) => item.key === "models.agent.secret_ref")?.value;
+    const secretRef = effectiveSecretReference(snapshot, "models.agent.secret_ref");
+    const status = credentialValue && typeof credentialValue === "object" && !Array.isArray(credentialValue) && "status" in credentialValue && typeof credentialValue.status === "string" ? credentialValue.status : void 0;
+    return {
+      mode,
+      provider,
+      baseUrl,
+      model,
+      ...secretRef && status ? { credential: { secretRef, status } } : {}
+    };
+  }
   async assignmentSet(input) {
     const targetId = input.targetId ?? targetForScope(input.scope, this.defaultContext);
     if (!targetId)
@@ -47122,6 +47237,19 @@ var SettingsService = class _SettingsService {
     const secret = value("providers.web_search.secret_ref");
     const webState = !webEnabled ? "disabled" : secret?.status === "present" ? "available" : secret?.status === "unreachable" ? "degraded" : "unavailable";
     capabilities.push(this.health("providers.web-search", webState, !webEnabled ? "Web search is intentionally disabled." : secret?.status === "present" ? "Web search credential reference is present." : "Web search credential reference is not resolvable.", checkedAt, snapshot.snapshotId, webState === "available" || webState === "disabled" ? "pass" : webState === "degraded" ? "warn" : "fail", webState === "degraded" || webState === "unavailable" ? [{ code: "configure-web-secret", summary: "Configure the referenced secret without storing its value in Settings.", operation: "settings.assignment.set" }] : []));
+    const agentMode = value("models.agent.mode");
+    const agentProvider = value("models.agent.provider");
+    const agentBaseUrl = value("models.agent.base_url");
+    const agentModel = value("models.agent.model");
+    const agentSecret = value("models.agent.secret_ref");
+    const agentConfigured = typeof agentProvider === "string" && Boolean(agentProvider) && typeof agentBaseUrl === "string" && Boolean(agentBaseUrl) && typeof agentModel === "string" && Boolean(agentModel);
+    const agentState = agentMode === "inherit" ? "available" : !agentConfigured ? "unavailable" : agentMode === "cloud" && agentSecret?.status !== "present" ? agentSecret?.status === "unreachable" ? "degraded" : "unavailable" : "available";
+    const agentSummary = agentMode === "inherit" ? "Agent model remains on the legacy environment/YAML compatibility path." : !agentConfigured ? "Agent model connection is missing a provider, base URL, or model identifier." : agentMode === "local" ? "Local Agent model connection is configured without a cloud credential." : agentSecret?.status === "present" ? "Cloud Agent model connection and credential reference are configured." : "Cloud Agent model credential reference is not resolvable on this device.";
+    capabilities.push(this.health("models.agent", agentState, agentSummary, checkedAt, snapshot.snapshotId, agentState === "available" ? "pass" : agentState === "degraded" ? "warn" : "fail", agentState === "available" ? [] : [{
+      code: agentMode === "inherit" ? "select-agent-model-mode" : "configure-agent-model",
+      summary: agentMode === "inherit" ? "Select local or cloud mode to bring Agent model configuration under Settings Platform." : "Configure the Agent model connection and a device-local Secret Reference when cloud mode is selected.",
+      operation: "settings.assignment.set"
+    }]));
     return { snapshotId: snapshot.snapshotId, validation, capabilities, checkedAt };
   }
   async readDocuments(context) {
@@ -47207,6 +47335,17 @@ var SettingsService = class _SettingsService {
         remediation: "Make the referenced secret available without storing it in Settings."
       });
     }
+    const agentMode = effective.get("models.agent.mode");
+    const agentSecret = effective.get("models.agent.secret_ref");
+    if (agentMode === "cloud" && agentSecret?.status !== "present") {
+      issues.push({
+        code: "agent-model-secret-missing",
+        severity: "warning",
+        message: "Cloud Agent model mode is selected but its Secret Reference is not present.",
+        key: "models.agent.secret_ref",
+        remediation: "Bind a device-local Secret Reference or select local/inherit mode."
+      });
+    }
     return { valid: issues.every((item) => item.severity !== "error"), issues };
   }
   health(capabilityId, state, summary, checkedAt, snapshotId, evidenceStatus, remediations) {
@@ -47237,6 +47376,20 @@ function safeIdentity(value) {
   const normalized = value.trim().replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
   return normalized || "default-vault";
 }
+function effectiveString(snapshot, key) {
+  const value = snapshot.effective.find((item) => item.key === key)?.value;
+  return typeof value === "string" ? value : "";
+}
+function effectiveSecretReference(snapshot, key) {
+  const value = snapshot.effective.find((item) => item.key === key)?.value;
+  if (!value || typeof value !== "object" || Array.isArray(value) || !("secretRef" in value))
+    return void 0;
+  const secretRef = value.secretRef;
+  if (!secretRef || typeof secretRef !== "object" || Array.isArray(secretRef))
+    return void 0;
+  const candidate = secretRef;
+  return typeof candidate.provider === "string" && typeof candidate.locator === "string" ? candidate : void 0;
+}
 
 // dist/settings/settings.js
 function createSettingsService(options) {
@@ -47253,6 +47406,32 @@ function createSettingsService(options) {
     environment: options.environment,
     clock: options.clock
   });
+}
+async function resolveAgentModelProcessEnvironment(service, environment = process.env) {
+  const profile = await service.agentModelInvocationProfile();
+  const childEnvironment = { ...environment };
+  if (profile.mode === "inherit")
+    return childEnvironment;
+  if (!profile.provider || !profile.baseUrl || !profile.model) {
+    throw new Error("Agent model mode requires provider, base URL, and model settings");
+  }
+  const credentialLocator = profile.credential?.secretRef.provider === "environment" ? profile.credential.secretRef.locator : void 0;
+  childEnvironment.COMPILE_PROVIDER = profile.provider;
+  childEnvironment.OPENAI_BASE_URL = profile.baseUrl;
+  childEnvironment.COMPILE_MODEL = profile.model;
+  delete childEnvironment.OPENAI_API_KEY;
+  delete childEnvironment.ANTHROPIC_API_KEY;
+  if (credentialLocator)
+    delete childEnvironment[credentialLocator];
+  if (profile.mode === "local")
+    return childEnvironment;
+  const credential = profile.credential;
+  const secret = credential?.secretRef.provider === "environment" ? environment[credential.secretRef.locator] : void 0;
+  if (typeof secret !== "string" || !secret.length) {
+    throw new Error("Cloud Agent model credential Secret Reference is not resolvable on this device");
+  }
+  childEnvironment.OPENAI_API_KEY = secret;
+  return childEnvironment;
 }
 var MUTABLE_SCOPES2 = ["user-device", "vault", "workspace-project", "session"];
 var SETTINGS_SCOPES = ["product", ...MUTABLE_SCOPES2];
@@ -51596,6 +51775,13 @@ function makeAllOperations(deps) {
   const { compileTrigger, registry: registry3, defaultWeights, python, compilerPath, vaultPath, configPath } = deps;
   const ccPath = deps.contextCorePath ?? process.env["CONTEXT_CORE_PATH"] ?? join22(dirname11(compilerPath), "context-core.json");
   const contextCoreLoader = new ContextCoreLoader(ccPath);
+  const settingsOptions = {
+    vaultPath,
+    pythonPath: python,
+    compilerPath
+  };
+  const settingsService = createSettingsService(settingsOptions);
+  compileTrigger?.setEnvironmentResolver?.(() => resolveAgentModelProcessEnvironment(settingsService));
   const compileOps = [
     {
       name: "compile.status",
@@ -52078,10 +52264,11 @@ function makeAllOperations(deps) {
         if (mode)
           args.push("--mode", mode);
         try {
+          const childEnvironment = await resolveAgentModelProcessEnvironment(settingsService);
           const { stdout } = await execAsync2(python, args, {
             timeout: 3e5,
             maxBuffer: 10 * 1024 * 1024,
-            env: { ...process.env }
+            env: childEnvironment
           });
           return JSON.parse(stdout);
         } catch (e) {
@@ -52132,12 +52319,6 @@ function makeAllOperations(deps) {
       }
     }
   ];
-  const settingsOptions = {
-    vaultPath,
-    pythonPath: python,
-    compilerPath
-  };
-  const settingsService = createSettingsService(settingsOptions);
   const holonOps = [
     ...makeHolonOps(contextCoreLoader),
     ...makeCausalOps(contextCoreLoader),

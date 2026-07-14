@@ -1,8 +1,16 @@
 # Fleet workflow acceptance
 
-> **Release-candidate status:** the deterministic independent two-vault harness
-> is implemented. The real local ↔ 5090 sequence below is the remaining
-> commit-level release gate; this document does not claim that run has passed.
+> **Accepted baseline evidence:** product commit
+> `89cf831ed4615270c56edd2784928a29e52e1789` passed the deterministic
+> independent two-vault harness and the real local ↔ 5090 sequence below.
+> Orca task `task_085ffa2467a6` executed the remote phase exactly once; the
+> returned state passed local verification. The beta candidate must repeat this
+> sequence at its new product commit after Agent model binding lands.
+
+The baseline run used fixture digest
+`615b5359e836d8224f5b6ebaf92fcdb7c724cfc89e0e7e3d89a92f873bc580a7`
+and correlation ID `3c27a18c-b199-4f31-af19-5cfc586e8472`. The out-of-band
+proof contents were not printed or copied into the vault.
 
 This harness proves the LLM Wiki product contract across a real fleet handoff.
 An Orca task reporting success is useful execution evidence, but it is not the

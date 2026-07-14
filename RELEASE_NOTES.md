@@ -2,7 +2,7 @@
 
 This release candidate turns system settings, Project Context, and Work Run coordination into shared LLM Wiki domains instead of host-specific features. Obsidian is the primary visual control plane, while MCP and Python remain usable headlessly.
 
-It is not the final release record yet. The deterministic local fleet harness is part of the release gate; a real local ↔ 5090 run must still be recorded at the final product commit before main is released.
+The pre-Agent-binding baseline was verified at commit `89cf831ed4615270c56edd2784928a29e52e1789`. The current beta candidate must repeat the deterministic local harness and real local ↔ 5090 handoff at its new product commit before a prerelease is published.
 
 ## Shared Settings Platform
 
@@ -10,6 +10,7 @@ It is not the final release record yet. The deterministic local fleet harness is
 - Deterministic precedence: `session > workspace-project > vault > user-device > product default`.
 - Expected-revision mutations, validation, provenance, snapshot explanation, migration planning, and evidence-backed Doctor health.
 - Secret References replace plaintext credentials. Snapshots, events, plugin data, Project Hubs, exports, and logs never carry resolved secret values.
+- The default Agent model connection supports `inherit`, `local`, and `cloud` modes. MCP Agent/Compiler invocations consume the effective provider, base URL, and model; only cloud mode resolves a device-local Secret Reference at invocation time.
 - `LLMWIKI_COMPILER_PATH` is the canonical source-install override; `VAULT_MIND_COMPILER_PATH` remains compatible.
 
 ## Obsidian control plane
@@ -18,6 +19,7 @@ It is not the final release record yet. The deterministic local fleet harness is
 - Plugin data retains only presentation preferences, the local device binding reference, and the migration journal.
 - Legacy `pythonPath` and `kbMetaPath` values migrate to user-device assignments with exact-preimage compensation and revision-guarded rollback.
 - Effective value, winning scope, inheritance, validation, apply mode, Secret Reference status, and Doctor results are visible from Obsidian.
+- The Agent model section exposes model mode, provider, OpenAI-compatible base URL, model identifier, and credential reference without adding a plaintext API-key field.
 - The plugin ID remains `vault-mind-promote` so existing installations continue to load.
 
 ## Project Context and Work-OS
@@ -54,5 +56,5 @@ The current capability and authority map is in [docs/CAPABILITY_INVENTORY.md](do
 
 - Shared Settings, Project Context/Hub, migration, workflow, plugin, bundle, and install-smoke gates are defined for the release branch.
 - The local deterministic two-vault fleet harness is implemented.
-- The real 5090/Orca sequence is documented in [docs/FLEET_WORKFLOW_ACCEPTANCE.md](docs/FLEET_WORKFLOW_ACCEPTANCE.md) but is **not claimed complete in these notes**.
-- Final release requires the same tested commit, fixture digest, and correlation ID across local prepare, 5090 remote execution, and local verification, followed by a clean release audit.
+- The previous 5090/Orca sequence passed exactly once for baseline commit `89cf831ed4615270c56edd2784928a29e52e1789`; details are recorded in [docs/FLEET_WORKFLOW_ACCEPTANCE.md](docs/FLEET_WORKFLOW_ACCEPTANCE.md).
+- The beta candidate is publishable only after its exact product commit records matching fixture digest, correlation ID, remote completion, and returned-state verification.

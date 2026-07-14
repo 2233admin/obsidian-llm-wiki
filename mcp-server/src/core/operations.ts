@@ -31,7 +31,7 @@ import { makeContextOps } from '../context/context.js';
 import { makeWorkflowOps } from '../workflow/workflow.js';
 import { resolveProjectContext } from '../project/project-context.js';
 import { makeProjectMigrationOps } from '../project/project-migration.js';
-import { createSettingsService, makeSettingsOps } from '../settings/settings.js';
+import { createSettingsService, makeSettingsOps, resolveAgentModelProcessEnvironment } from '../settings/settings.js';
 
 const execAsync = promisify(execFile);
 const PROTECTED_DIRS = new Set(['.obsidian', '.trash', '.git', 'node_modules']);
@@ -647,6 +647,13 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     ?? process.env['CONTEXT_CORE_PATH']
     ?? join(dirname(compilerPath), 'context-core.json');
   const contextCoreLoader = new ContextCoreLoader(ccPath);
+  const settingsOptions = {
+    vaultPath,
+    pythonPath: python,
+    compilerPath,
+  };
+  const settingsService = createSettingsService(settingsOptions);
+  compileTrigger?.setEnvironmentResolver?.(() => resolveAgentModelProcessEnvironment(settingsService));
 
   const compileOps: Operation[] = [
     {
@@ -1134,10 +1141,11 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
         const mode = params.mode as string | undefined;
         if (mode) args.push('--mode', mode);
         try {
+          const childEnvironment = await resolveAgentModelProcessEnvironment(settingsService);
           const { stdout } = await execAsync(python, args, {
             timeout: 300_000,
             maxBuffer: 10 * 1024 * 1024,
-            env: { ...process.env },
+            env: childEnvironment,
           });
           return JSON.parse(stdout);
         } catch (e) {
@@ -1187,12 +1195,6 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     },
   ];
 
-  const settingsOptions = {
-    vaultPath,
-    pythonPath: python,
-    compilerPath,
-  };
-  const settingsService = createSettingsService(settingsOptions);
   const holonOps = [
     ...makeHolonOps(contextCoreLoader),
     ...makeCausalOps(contextCoreLoader),

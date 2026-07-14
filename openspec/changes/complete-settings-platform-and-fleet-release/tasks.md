@@ -26,6 +26,7 @@
 - [x] 4.3 Preserve only presentation preferences and device binding references in plugin data and add reversible legacy migration
 - [x] 4.4 Render effective value, winning scope, validation, apply mode, and Doctor health for the first-slice sections
 - [x] 4.5 Add Obsidian runtime tests for Doctor, migration, UI projection, and Windows executable/argv handling
+- [x] 4.6 Add Settings-owned Agent model binding for inherited, local, and cloud runtimes, with Secret Reference-only credential flow
 
 ## 5. Project Context and migration hardening
 
@@ -52,8 +53,8 @@
 
 ## 8. Integration and release verification
 
-- [ ] 8.1 Integrate isolated agent commits on the shared baseline and resolve overlaps without weakening domain boundaries
-- [ ] 8.2 Run targeted TypeScript, Python, Obsidian, migration, Work Run, bundle, and install smoke suites
-- [ ] 8.3 Run full Python, MCP, plugin, lint/typecheck/build, static checks, and OpenSpec validation with a clean worktree
+- [x] 8.1 Integrate isolated agent commits on the shared baseline and resolve overlaps without weakening domain boundaries
+- [x] 8.2 Run targeted TypeScript, Python, Obsidian, migration, Work Run, bundle, and install smoke suites
+- [x] 8.3 Run full Python, MCP, plugin, lint/typecheck/build, static checks, and OpenSpec validation with a clean worktree
 - [ ] 8.4 Repeat build/test and fleet Workflow verification on the 5090 environment and record commit-level evidence
 - [ ] 8.5 Complete release audit, archive the OpenSpec change, merge the verified branch, and push main only when every blocking gate passes

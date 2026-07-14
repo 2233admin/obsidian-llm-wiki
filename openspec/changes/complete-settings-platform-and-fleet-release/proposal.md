@@ -5,6 +5,7 @@ LLM Wiki 已具备 Project Registry、Work-OS、Project Hub 和跨运行时 Work
 ## What Changes
 
 - 新增主机无关的 Settings Platform 第一纵切面：定义注册表、分域持久化、确定性解析、解释、校验、Doctor、乐观 revision 和原子恢复。
+- 将 Agent 默认模型连接纳入 Settings Platform，支持兼容既有环境、本地 OpenAI-compatible/Ollama 与云端模型，并通过 Secret Reference 绑定凭证。
 - 将 `user-device` 设置存放在设备本地存储，将 vault 与 workspace-project 设置保存在各自域中；Obsidian `data.json` 只保留表现层偏好与设备绑定引用。
 - 为 TypeScript 与 Python 提供同源 fixture 和规范化快照，证明在 Obsidian 关闭时 MCP/CLI 仍能独立工作。
 - 将 Obsidian 设置页改为共享 `settings.*` 操作的控制面，并让 Project Hub 组合真实 Effective Settings Snapshot 与真实健康状态。
@@ -32,5 +33,6 @@ LLM Wiki 已具备 Project Registry、Work-OS、Project Hub 和跨运行时 Work
 - 影响 `mcp-server` 的 operation registry、project/memory/conversation/workflow 模块、bundle 生成与测试入口。
 - 影响 Python compiler/CLI 的设置解析、设备本地持久化、Work Driver 协作契约与 conformance tests。
 - 影响 Obsidian 插件的设置存储、Doctor、Project Hub 投影、子进程调用和构建测试。
+- 影响 Agent/Compiler 子进程的 provider、model、base URL 与临时凭证环境绑定，但不会把凭证值写入插件、vault、日志或快照。
 - 影响 CI、setup/install verification、发布文档和 5090 舰队验收脚本。
 - 不引入新的知识权威、RAG 后端或外部项目管理 source of truth；Linear、Git、Plan 等保持 External Projection/Host Capability Connector 边界。
