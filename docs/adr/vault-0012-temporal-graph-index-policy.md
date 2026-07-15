@@ -6,15 +6,15 @@ Accepted
 
 ## Context
 
-Graphiti provides a useful model for agent memory: episodes, entities, temporal relationships, provenance, and hybrid retrieval across semantic, keyword, and graph traversal signals. This fits LLMwiki's need for stronger question answering over changing research state.
+Graphiti provides a useful model for agent memory: episodes, entities, temporal relationships, provenance, and hybrid retrieval across semantic, keyword, and graph traversal signals. This fits LLM Wiki's need for stronger question answering over changing research state.
 
-LLMwiki already has an accepted boundary: Markdown source notes, evidence notes, and artifacts are canonical vault state. Query/search consumes normalized vault read APIs instead of parsing Markdown directly. Hot cache and generated views are read models, not source truth.
+LLM Wiki already has an accepted boundary: Markdown source notes, evidence notes, and artifacts are canonical vault state. Query/search consumes normalized vault read APIs instead of parsing Markdown directly. Hot cache and generated views are read models, not source truth.
 
-If Graphiti or any graph database becomes canonical state, LLMwiki would lose audit-grade portability and make release checks depend on an external service.
+If Graphiti or any graph database becomes canonical state, LLM Wiki would lose audit-grade portability and make release checks depend on an external service.
 
 ## Decision
 
-LLMwiki may internalize the temporal knowledge graph pattern as a derived graph index. The graph index is optional, rebuildable, and never canonical.
+LLM Wiki may internalize the temporal knowledge graph pattern as a derived graph index. The graph index is optional, rebuildable, and never canonical.
 
 Rules:
 
@@ -33,7 +33,7 @@ Rules:
 
 Suggested Graphiti-style mapping:
 
-| LLMwiki concept | Temporal graph concept |
+| LLM Wiki concept | Temporal graph concept |
 |---|---|
 | Evidence note | Episode |
 | Source note | Provenance source |
@@ -47,7 +47,7 @@ The first adapter should index a small fixture set from normalized vault records
 
 ## Consequences
 
-- LLMwiki gets a path to Graphiti-like temporal retrieval without weakening Markdown-first auditability.
+- LLM Wiki gets a path to Graphiti-like temporal retrieval without weakening Markdown-first auditability.
 - Graphiti can be evaluated behind an adapter before committing to its operational costs.
 - Query/search owns ranking and retrieval composition. Vault owns schema normalization. The graph adapter owns only graph materialization and graph-specific lookup.
 - Release-check can require graph freshness for profiles that enable graph indexing, while normal vault lint can treat missing graph backend as warning or info.

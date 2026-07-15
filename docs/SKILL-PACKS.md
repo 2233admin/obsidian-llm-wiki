@@ -1,11 +1,11 @@
 # Skill Packs
 
-LLMwiki treats external agent skills as Skill Packs: named workflow capability
+LLM Wiki treats external agent skills as Skill Packs: named workflow capability
 bundles that can be inventoried, explained, and optionally mirrored into a
 project.
 
 Skill Packs are not MCP providers and are not vault content. They are workflow
-surfaces that the Agent Layer can use alongside LLMwiki tools. LLMwiki may
+surfaces that the Agent Layer can use alongside LLM Wiki tools. LLM Wiki may
 index, link, and summarize their durable outputs, but it must not take
 ownership of the workflow state that those packs control.
 
@@ -15,8 +15,8 @@ Every known pack should document:
 |---|---|
 | `authority` | The workflow or decision surface owned by the pack. |
 | `artifacts` | Durable files, configs, or external systems the pack produces or reads. |
-| `llmwiki-mode` | What LLMwiki may do with the pack's outputs. |
-| `do-not-own` | State LLMwiki must not rewrite or treat as its source of truth. |
+| `llmwiki-mode` | What LLM Wiki may do with the pack's outputs. |
+| `do-not-own` | State LLM Wiki must not rewrite or treat as its source of truth. |
 
 ## Known Packs
 
@@ -63,7 +63,7 @@ Pack contract:
 | `llmwiki-mode` | Index, link, and summarize reviewed gstack outputs. Project Hubs may show current focus, last handoff, open risks, and next action. |
 | `do-not-own` | gstack config, execution state, artifact sync, checkpointing, or skill routing decisions. |
 
-LLMwiki must not replace gstack's execution loop. When a Project Hub references
+LLM Wiki must not replace gstack's execution loop. When a Project Hub references
 gstack state, it should link to a handoff or artifact summary instead of copying
 the full workflow state into the vault.
 
@@ -107,7 +107,7 @@ Pack contract:
 | `llmwiki-mode` | Read and cite engineering setup docs. If missing, tell the user to run `setup-matt-pocock-skills`. |
 | `do-not-own` | Issue tracker choice, triage vocabulary, domain document layout, or TDD workflow rules. |
 
-Global installation is enough for normal use. LLMwiki should invoke these
+Global installation is enough for normal use. LLM Wiki should invoke these
 user-level skills on demand through the agent environment. Project mirroring is
 optional and only needed when a project wants a portable vendor copy. If
 mirrored, use:
@@ -116,7 +116,7 @@ mirrored, use:
 skills/vendor/mattpocock/engineering/<skill>/SKILL.md
 ```
 
-### LLMwiki Ingest Bridges
+### LLM Wiki Ingest Bridges
 
 Current project-local ingest-oriented skills:
 
@@ -165,7 +165,7 @@ installed_and_mirrored
 
 ## Product Boundary
 
-LLMwiki should:
+LLM Wiki should:
 
 - inventory Skill Packs;
 - explain missing mirrored skills without blocking normal vault search;
@@ -175,7 +175,7 @@ LLMwiki should:
 - store only human-readable summaries, decisions, links, and reviewed
   promotions in the vault.
 
-LLMwiki should not:
+LLM Wiki should not:
 
 - require gstack or Matt engineering skills for normal vault search;
 - treat `npx skills@latest add ...` as the only install path;

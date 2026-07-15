@@ -79,7 +79,7 @@ interface RawGraph {
   links?: RawEdge[]; // NetworkX <= 3.1 alias
 }
 
-// Relations that represent intra-structural hierarchy -> vault-mind "tag"
+// Relations that represent intra-structural hierarchy -> LLM Wiki "tag"
 const TAG_RELATIONS = new Set(["contains", "method"]);
 
 export class GraphifyAdapter implements VaultMindAdapter {
@@ -112,7 +112,7 @@ export class GraphifyAdapter implements VaultMindAdapter {
       this.available = true;
     } catch {
       process.stderr.write(
-        "vault-mind: [warn] graphify CLI not found -- adapter disabled (install: uv tool install graphifyy)\n",
+        "llmwiki: [warn] graphify CLI not found -- adapter disabled (install: uv tool install graphifyy)\n",
       );
     }
   }

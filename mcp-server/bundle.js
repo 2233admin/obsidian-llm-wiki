@@ -12,11 +12,20 @@ var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require
   if (typeof require !== "undefined") return require.apply(this, arguments);
   throw Error('Dynamic require of "' + x + '" is not supported');
 });
-var __esm = (fn, res) => function __init() {
-  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+var __esm = (fn, res, err2) => function __init() {
+  if (err2) throw err2[0];
+  try {
+    return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+  } catch (e) {
+    throw err2 = [e], e;
+  }
 };
 var __commonJS = (cb, mod) => function __require2() {
-  return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+  try {
+    return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+  } catch (e) {
+    throw mod = 0, e;
+  }
 };
 var __export = (target, all) => {
   for (var name in all)
@@ -2990,7 +2999,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve7.call(this, root, ref);
+      let _sch = resolve8.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a2 = root.localRefs) === null || _a2 === void 0 ? void 0 : _a2[ref];
         const { schemaId } = this.opts;
@@ -3017,7 +3026,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve7(root, ref) {
+    function resolve8(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -3592,55 +3601,55 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve7(baseURI, relativeURI, options) {
+    function resolve8(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const resolved = resolveComponent(parse3(baseURI, schemelessOptions), parse3(relativeURI, schemelessOptions), schemelessOptions, true);
       schemelessOptions.skipEscape = true;
       return serialize(resolved, schemelessOptions);
     }
-    function resolveComponent(base, relative7, options, skipNormalization) {
+    function resolveComponent(base, relative8, options, skipNormalization) {
       const target = {};
       if (!skipNormalization) {
         base = parse3(serialize(base, options), options);
-        relative7 = parse3(serialize(relative7, options), options);
+        relative8 = parse3(serialize(relative8, options), options);
       }
       options = options || {};
-      if (!options.tolerant && relative7.scheme) {
-        target.scheme = relative7.scheme;
-        target.userinfo = relative7.userinfo;
-        target.host = relative7.host;
-        target.port = relative7.port;
-        target.path = removeDotSegments(relative7.path || "");
-        target.query = relative7.query;
+      if (!options.tolerant && relative8.scheme) {
+        target.scheme = relative8.scheme;
+        target.userinfo = relative8.userinfo;
+        target.host = relative8.host;
+        target.port = relative8.port;
+        target.path = removeDotSegments(relative8.path || "");
+        target.query = relative8.query;
       } else {
-        if (relative7.userinfo !== void 0 || relative7.host !== void 0 || relative7.port !== void 0) {
-          target.userinfo = relative7.userinfo;
-          target.host = relative7.host;
-          target.port = relative7.port;
-          target.path = removeDotSegments(relative7.path || "");
-          target.query = relative7.query;
+        if (relative8.userinfo !== void 0 || relative8.host !== void 0 || relative8.port !== void 0) {
+          target.userinfo = relative8.userinfo;
+          target.host = relative8.host;
+          target.port = relative8.port;
+          target.path = removeDotSegments(relative8.path || "");
+          target.query = relative8.query;
         } else {
-          if (!relative7.path) {
+          if (!relative8.path) {
             target.path = base.path;
-            if (relative7.query !== void 0) {
-              target.query = relative7.query;
+            if (relative8.query !== void 0) {
+              target.query = relative8.query;
             } else {
               target.query = base.query;
             }
           } else {
-            if (relative7.path[0] === "/") {
-              target.path = removeDotSegments(relative7.path);
+            if (relative8.path[0] === "/") {
+              target.path = removeDotSegments(relative8.path);
             } else {
               if ((base.userinfo !== void 0 || base.host !== void 0 || base.port !== void 0) && !base.path) {
-                target.path = "/" + relative7.path;
+                target.path = "/" + relative8.path;
               } else if (!base.path) {
-                target.path = relative7.path;
+                target.path = relative8.path;
               } else {
-                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative7.path;
+                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative8.path;
               }
               target.path = removeDotSegments(target.path);
             }
-            target.query = relative7.query;
+            target.query = relative8.query;
           }
           target.userinfo = base.userinfo;
           target.host = base.host;
@@ -3648,7 +3657,7 @@ var require_fast_uri = __commonJS({
         }
         target.scheme = base.scheme;
       }
-      target.fragment = relative7.fragment;
+      target.fragment = relative8.fragment;
       return target;
     }
     function equal(uriA, uriB, options) {
@@ -3819,7 +3828,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve: resolve7,
+      resolve: resolve8,
       resolveComponent,
       equal,
       serialize,
@@ -7778,6 +7787,8 @@ var require_defaults2 = __commonJS({
       idleTimeoutMillis: 3e4,
       client_encoding: "",
       ssl: false,
+      // SSL negotiation style: 'postgres' (traditional SSLRequest) or 'direct'
+      sslnegotiation: void 0,
       application_name: void 0,
       fallback_application_name: void 0,
       options: void 0,
@@ -7812,8 +7823,7 @@ var require_utils2 = __commonJS({
   "node_modules/pg/lib/utils.js"(exports, module) {
     "use strict";
     var defaults2 = require_defaults2();
-    var util2 = __require("util");
-    var { isDate } = util2.types || util2;
+    var { isDate } = __require("util/types");
     function escapeElement(elementRepresentation) {
       const escaped = elementRepresentation.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
       return '"' + escaped + '"';
@@ -7822,28 +7832,23 @@ var require_utils2 = __commonJS({
       let result = "{";
       for (let i = 0; i < val.length; i++) {
         if (i > 0) {
-          result = result + ",";
+          result += ",";
         }
-        if (val[i] === null || typeof val[i] === "undefined") {
-          result = result + "NULL";
-        } else if (Array.isArray(val[i])) {
-          result = result + arrayString(val[i]);
-        } else if (ArrayBuffer.isView(val[i])) {
-          let item = val[i];
+        let item = val[i];
+        if (item == null) {
+          result += "NULL";
+        } else if (Array.isArray(item)) {
+          result += arrayString(item);
+        } else if (ArrayBuffer.isView(item)) {
           if (!(item instanceof Buffer)) {
-            const buf = Buffer.from(item.buffer, item.byteOffset, item.byteLength);
-            if (buf.length === item.byteLength) {
-              item = buf;
-            } else {
-              item = buf.slice(item.byteOffset, item.byteOffset + item.byteLength);
-            }
+            item = Buffer.from(item.buffer, item.byteOffset, item.byteLength);
           }
           result += "\\\\x" + item.toString("hex");
         } else {
-          result += escapeElement(prepareValue(val[i]));
+          result += escapeElement(prepareValue(item));
         }
       }
-      result = result + "}";
+      result += "}";
       return result;
     }
     var prepareValue = function(val, seen) {
@@ -7855,11 +7860,7 @@ var require_utils2 = __commonJS({
           return val;
         }
         if (ArrayBuffer.isView(val)) {
-          const buf = Buffer.from(val.buffer, val.byteOffset, val.byteLength);
-          if (buf.length === val.byteLength) {
-            return buf;
-          }
-          return buf.slice(val.byteOffset, val.byteOffset + val.byteLength);
+          return Buffer.from(val.buffer, val.byteOffset, val.byteLength);
         }
         if (isDate(val)) {
           if (defaults2.parseInputDatesAsUTC) {
@@ -7965,47 +7966,9 @@ var require_utils2 = __commonJS({
   }
 });
 
-// node_modules/pg/lib/crypto/utils-legacy.js
-var require_utils_legacy = __commonJS({
-  "node_modules/pg/lib/crypto/utils-legacy.js"(exports, module) {
-    "use strict";
-    var nodeCrypto = __require("crypto");
-    function md5(string4) {
-      return nodeCrypto.createHash("md5").update(string4, "utf-8").digest("hex");
-    }
-    function postgresMd5PasswordHash(user, password, salt) {
-      const inner = md5(password + user);
-      const outer = md5(Buffer.concat([Buffer.from(inner), salt]));
-      return "md5" + outer;
-    }
-    function sha256(text) {
-      return nodeCrypto.createHash("sha256").update(text).digest();
-    }
-    function hashByName(hashName, text) {
-      hashName = hashName.replace(/(\D)-/, "$1");
-      return nodeCrypto.createHash(hashName).update(text).digest();
-    }
-    function hmacSha256(key, msg) {
-      return nodeCrypto.createHmac("sha256", key).update(msg).digest();
-    }
-    async function deriveKey(password, salt, iterations) {
-      return nodeCrypto.pbkdf2Sync(password, salt, iterations, 32, "sha256");
-    }
-    module.exports = {
-      postgresMd5PasswordHash,
-      randomBytes: nodeCrypto.randomBytes,
-      deriveKey,
-      sha256,
-      hashByName,
-      hmacSha256,
-      md5
-    };
-  }
-});
-
-// node_modules/pg/lib/crypto/utils-webcrypto.js
-var require_utils_webcrypto = __commonJS({
-  "node_modules/pg/lib/crypto/utils-webcrypto.js"(exports, module) {
+// node_modules/pg/lib/crypto/utils.js
+var require_utils3 = __commonJS({
+  "node_modules/pg/lib/crypto/utils.js"(exports, module) {
     var nodeCrypto = __require("crypto");
     module.exports = {
       postgresMd5PasswordHash,
@@ -8050,19 +8013,6 @@ var require_utils_webcrypto = __commonJS({
       const key = await subtleCrypto.importKey("raw", textEncoder.encode(password), "PBKDF2", false, ["deriveBits"]);
       const params = { name: "PBKDF2", hash: "SHA-256", salt, iterations };
       return await subtleCrypto.deriveBits(params, key, 32 * 8, ["deriveBits"]);
-    }
-  }
-});
-
-// node_modules/pg/lib/crypto/utils.js
-var require_utils3 = __commonJS({
-  "node_modules/pg/lib/crypto/utils.js"(exports, module) {
-    "use strict";
-    var useLegacyCrypto = parseInt(process.versions && process.versions.node && process.versions.node.split(".")[0]) < 15;
-    if (useLegacyCrypto) {
-      module.exports = require_utils_legacy();
-    } else {
-      module.exports = require_utils_webcrypto();
     }
   }
 });
@@ -8186,7 +8136,13 @@ var require_sasl = __commonJS({
     "use strict";
     var crypto = require_utils3();
     var { signatureAlgorithmHashFromCertificate } = require_cert_signatures();
-    function startSession(mechanisms, stream) {
+    function saslprep(password) {
+      const nonAsciiSpace = /[\u00A0\u1680\u2000-\u200B\u202F\u205F\u3000]/g;
+      const mappedToNothing = /[\u00AD\u034F\u1806\u180B\u180C\u180D\u200C\u200D\u2060\uFE00-\uFE0F\uFEFF]/g;
+      return password.replace(nonAsciiSpace, " ").replace(mappedToNothing, "").normalize("NFKC");
+    }
+    var DEFAULT_MAX_SCRAM_ITERATIONS = 1e5;
+    function startSession(mechanisms, stream, scramMaxIterations = DEFAULT_MAX_SCRAM_ITERATIONS) {
       const candidates = ["SCRAM-SHA-256"];
       if (stream) candidates.unshift("SCRAM-SHA-256-PLUS");
       const mechanism = candidates.find((candidate) => mechanisms.includes(candidate));
@@ -8202,7 +8158,8 @@ var require_sasl = __commonJS({
         mechanism,
         clientNonce,
         response: gs2Header + ",,n=*,r=" + clientNonce,
-        message: "SASLInitialResponse"
+        message: "SASLInitialResponse",
+        scramMaxIterations
       };
     }
     async function continueSession(session, password, serverData, stream) {
@@ -8224,6 +8181,12 @@ var require_sasl = __commonJS({
       } else if (sv.nonce.length === session.clientNonce.length) {
         throw new Error("SASL: SCRAM-SERVER-FIRST-MESSAGE: server nonce is too short");
       }
+      const scramMaxIterations = typeof session.scramMaxIterations === "number" ? session.scramMaxIterations : DEFAULT_MAX_SCRAM_ITERATIONS;
+      if (scramMaxIterations !== 0 && sv.iteration > scramMaxIterations) {
+        throw new Error(
+          "SASL: SCRAM-SERVER-FIRST-MESSAGE: iteration count " + sv.iteration + " exceeds scramMaxIterations of " + scramMaxIterations
+        );
+      }
       const clientFirstMessageBare = "n=*,r=" + session.clientNonce;
       const serverFirstMessage = "r=" + sv.nonce + ",s=" + sv.salt + ",i=" + sv.iteration;
       let channelBinding = stream ? "eSws" : "biws";
@@ -8238,7 +8201,7 @@ var require_sasl = __commonJS({
       const clientFinalMessageWithoutProof = "c=" + channelBinding + ",r=" + sv.nonce;
       const authMessage = clientFirstMessageBare + "," + serverFirstMessage + "," + clientFinalMessageWithoutProof;
       const saltBytes = Buffer.from(sv.salt, "base64");
-      const saltedPassword = await crypto.deriveKey(password, saltBytes, sv.iteration);
+      const saltedPassword = await crypto.deriveKey(saslprep(password), saltBytes, sv.iteration);
       const clientKey = await crypto.hmacSha256(saltedPassword, "Client Key");
       const storedKey = await crypto.sha256(clientKey);
       const clientSignature = await crypto.hmacSha256(storedKey, authMessage);
@@ -8314,7 +8277,11 @@ var require_sasl = __commonJS({
     }
     function parseServerFinalMessage(serverData) {
       const attrPairs = parseAttributePairs(serverData);
+      const error48 = attrPairs.get("e");
       const serverSignature = attrPairs.get("v");
+      if (error48) {
+        throw new Error(`SASL: SCRAM-SERVER-FINAL-MESSAGE: server returned error: "${error48}"`);
+      }
       if (!serverSignature) {
         throw new Error("SASL: SCRAM-SERVER-FINAL-MESSAGE: server signature is missing");
       } else if (!isBase64(serverSignature)) {
@@ -8342,7 +8309,8 @@ var require_sasl = __commonJS({
     module.exports = {
       startSession,
       continueSession,
-      finalizeSession
+      finalizeSession,
+      DEFAULT_MAX_SCRAM_ITERATIONS
     };
   }
 });
@@ -8391,7 +8359,7 @@ var require_pg_connection_string = __commonJS({
         const config3 = str.split(" ");
         return { host: config3[0], database: config3[1] };
       }
-      const config2 = {};
+      const config2 = /* @__PURE__ */ Object.create(null);
       let result;
       let dummyHost = false;
       if (/ |%[^a-f0-9]|%[a-f0-9][^a-f0-9]/i.test(str)) {
@@ -8419,11 +8387,11 @@ var require_pg_connection_string = __commonJS({
         config2.client_encoding = result.searchParams.get("encoding");
         return config2;
       }
-      const hostname3 = dummyHost ? "" : result.hostname;
+      const hostname4 = dummyHost ? "" : result.hostname;
       if (!config2.host) {
-        config2.host = decodeURIComponent(hostname3);
-      } else if (hostname3 && /^%2f/i.test(hostname3)) {
-        result.pathname = hostname3 + result.pathname;
+        config2.host = decodeURIComponent(hostname4);
+      } else if (hostname4 && /^%2f/i.test(hostname4)) {
+        result.pathname = hostname4 + result.pathname;
       }
       if (!config2.port) {
         config2.port = result.port;
@@ -8438,6 +8406,9 @@ var require_pg_connection_string = __commonJS({
       }
       if (config2.sslcert || config2.sslkey || config2.sslrootcert || config2.sslmode) {
         config2.ssl = {};
+      }
+      if (config2.sslnegotiation === "direct" && config2.ssl === void 0) {
+        config2.ssl = true;
       }
       const fs = config2.sslcert || config2.sslkey || config2.sslrootcert ? __require("fs") : null;
       if (config2.sslcert) {
@@ -8514,7 +8485,7 @@ var require_pg_connection_string = __commonJS({
           c[key] = value;
         }
         return c;
-      }, {});
+      }, /* @__PURE__ */ Object.create(null));
       return connectionOptions;
     }
     function toClientConfig(config2) {
@@ -8541,7 +8512,7 @@ var require_pg_connection_string = __commonJS({
           }
         }
         return c;
-      }, {});
+      }, /* @__PURE__ */ Object.create(null));
       return poolConfig;
     }
     function parseIntoClientConfig(str) {
@@ -8644,6 +8615,15 @@ var require_connection_parameters = __commonJS({
             enumerable: false
           });
         }
+        this.sslnegotiation = val("sslnegotiation", config2, "PGSSLNEGOTIATION");
+        if (this.sslnegotiation !== void 0 && this.sslnegotiation !== "postgres" && this.sslnegotiation !== "direct") {
+          throw new Error(
+            `Invalid sslnegotiation value: "${this.sslnegotiation}". Valid values are "postgres" and "direct".`
+          );
+        }
+        if (this.sslnegotiation === "direct" && !this.ssl) {
+          throw new Error("sslnegotiation=direct requires SSL to be enabled");
+        }
         this.client_encoding = val("client_encoding", config2);
         this.replication = val("replication", config2);
         this.isDomainSocket = !(this.host || "").indexOf("/");
@@ -8682,6 +8662,7 @@ var require_connection_parameters = __commonJS({
         add(params, ssl, "sslkey");
         add(params, ssl, "sslcert");
         add(params, ssl, "sslrootcert");
+        add(params, this, "sslnegotiation");
         if (this.database) {
           params.push("dbname=" + quoteParamValue(this.database));
         }
@@ -8782,7 +8763,7 @@ var require_result = __commonJS({
         if (this.fields.length) {
           this._parsers = new Array(fieldDescriptions.length);
         }
-        const row = {};
+        const row = /* @__PURE__ */ Object.create(null);
         for (let i = 0; i < fieldDescriptions.length; i++) {
           const desc = fieldDescriptions[i];
           row[desc.name] = null;
@@ -8977,6 +8958,8 @@ var require_query = __commonJS({
             valueMapper: utils.prepareValue
           });
         } catch (err2) {
+          connection.close({ type: "S", name: this.name });
+          connection.sync();
           this.handleError(err2, connection);
           return;
         }
@@ -9216,6 +9199,25 @@ var require_buffer_writer = __commonJS({
         this.offset += len;
         return this;
       }
+      // Write an Int32 byte-length prefix immediately followed by the string's UTF-8
+      // bytes. Postgres' Bind wire format prefixes every parameter with its length,
+      // and doing it in one method computes Buffer.byteLength ONCE — the previous
+      // `addInt32(Buffer.byteLength(s)).addString(s)` pairing scanned the string
+      // three times (byteLength for the prefix, byteLength again inside addString,
+      // then the encode), which is costly for large text parameters.
+      addInt32PrefixedString(string4) {
+        const len = Buffer.byteLength(string4);
+        this.ensure(4 + len);
+        const buffer = this.buffer;
+        let offset = this.offset;
+        buffer[offset++] = len >>> 24 & 255;
+        buffer[offset++] = len >>> 16 & 255;
+        buffer[offset++] = len >>> 8 & 255;
+        buffer[offset++] = len >>> 0 & 255;
+        buffer.write(string4, offset, "utf-8");
+        this.offset = offset + len;
+        return this;
+      }
       add(otherBuffer) {
         this.ensure(otherBuffer.length);
         otherBuffer.copy(this.buffer, this.offset);
@@ -9236,6 +9238,10 @@ var require_buffer_writer = __commonJS({
         this.headerPosition = 0;
         this.buffer = Buffer.allocUnsafe(this.size);
         return result;
+      }
+      clear() {
+        this.offset = 5;
+        this.headerPosition = 0;
       }
     };
     exports.Writer = Writer;
@@ -9273,7 +9279,7 @@ var require_serializer = __commonJS({
       );
     };
     var sendSASLInitialResponseMessage = function(mechanism, initialResponse) {
-      writer.addCString(mechanism).addInt32(Buffer.byteLength(initialResponse)).addString(initialResponse);
+      writer.addCString(mechanism).addInt32PrefixedString(initialResponse);
       return writer.flush(
         112
         /* code.startup */
@@ -9332,8 +9338,7 @@ var require_serializer = __commonJS({
             0
             /* ParamType.STRING */
           );
-          paramWriter.addInt32(Buffer.byteLength(mappedVal));
-          paramWriter.addString(mappedVal);
+          paramWriter.addInt32PrefixedString(mappedVal);
         }
       }
     };
@@ -9345,7 +9350,13 @@ var require_serializer = __commonJS({
       const len = values.length;
       writer.addCString(portal).addCString(statement);
       writer.addInt16(len);
-      writeValues(values, config2.valueMapper);
+      try {
+        writeValues(values, config2.valueMapper);
+      } catch (err2) {
+        writer.clear();
+        paramWriter.clear();
+        throw err2;
+      }
       writer.addInt16(len);
       writer.add(paramWriter.flush());
       writer.addInt16(1);
@@ -9503,7 +9514,7 @@ var require_buffer_reader = __commonJS({
       cstring() {
         const start = this.offset;
         let end = start;
-        while (this.buffer[end++] !== 0) {
+        while (this.buffer[end++]) {
         }
         this.offset = end;
         return this.buffer.toString(this.encoding, start, end - 1);
@@ -9830,7 +9841,8 @@ var require_dist2 = __commonJS({
   "node_modules/pg-protocol/dist/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    exports.DatabaseError = exports.serialize = exports.parse = void 0;
+    exports.DatabaseError = exports.serialize = void 0;
+    exports.parse = parse3;
     var messages_1 = require_messages();
     Object.defineProperty(exports, "DatabaseError", { enumerable: true, get: function() {
       return messages_1.DatabaseError;
@@ -9843,9 +9855,8 @@ var require_dist2 = __commonJS({
     function parse3(stream, callback) {
       const parser = new parser_1.Parser();
       stream.on("data", (buffer) => parser.parse(buffer, callback));
-      return new Promise((resolve7) => stream.on("end", () => resolve7()));
+      return new Promise((resolve8) => stream.on("end", () => resolve8()));
     }
-    exports.parse = parse3;
   }
 });
 
@@ -9930,7 +9941,8 @@ var require_connection = __commonJS({
     "use strict";
     var EventEmitter = __require("events").EventEmitter;
     var { parse: parse3, serialize } = require_dist2();
-    var { getStream, getSecureStream } = require_stream();
+    var stream = require_stream();
+    var { getStream } = stream;
     var flushBuffer = serialize.flush();
     var syncBuffer = serialize.sync();
     var endBuffer = serialize.end();
@@ -9946,6 +9958,7 @@ var require_connection = __commonJS({
         this._keepAliveInitialDelayMillis = config2.keepAliveInitialDelayMillis;
         this.parsedStatements = {};
         this.ssl = config2.ssl || false;
+        this.sslNegotiation = config2.sslNegotiation || "postgres";
         this._ending = false;
         this._emitMessage = false;
         const self = this;
@@ -9979,6 +9992,11 @@ var require_connection = __commonJS({
         if (!this.ssl) {
           return this.attachListeners(this.stream);
         }
+        if (this.sslNegotiation === "direct") {
+          return this.stream.once("connect", function() {
+            self.upgradeToSSL(host, reportStreamError);
+          });
+        }
         this.stream.once("data", function(buffer) {
           const responseCode = buffer.toString("utf8");
           switch (responseCode) {
@@ -9991,31 +10009,38 @@ var require_connection = __commonJS({
               self.stream.end();
               return self.emit("error", new Error("There was an error establishing an SSL connection"));
           }
-          const options = {
-            socket: self.stream
-          };
-          if (self.ssl !== true) {
-            Object.assign(options, self.ssl);
-            if ("key" in self.ssl) {
-              options.key = self.ssl.key;
-            }
-          }
-          const net = __require("net");
-          if (net.isIP && net.isIP(host) === 0) {
-            options.servername = host;
-          }
-          try {
-            self.stream = getSecureStream(options);
-          } catch (err2) {
-            return self.emit("error", err2);
-          }
-          self.attachListeners(self.stream);
-          self.stream.on("error", reportStreamError);
-          self.emit("sslconnect");
+          self.upgradeToSSL(host, reportStreamError);
         });
       }
-      attachListeners(stream) {
-        parse3(stream, (msg) => {
+      upgradeToSSL(host, reportStreamError) {
+        const self = this;
+        const options = {
+          socket: self.stream
+        };
+        if (self.ssl !== true) {
+          Object.assign(options, self.ssl);
+          if ("key" in self.ssl) {
+            options.key = self.ssl.key;
+          }
+        }
+        if (self.sslNegotiation === "direct") {
+          options.ALPNProtocols = ["postgresql"];
+        }
+        const net = __require("net");
+        if (net.isIP && net.isIP(host) === 0) {
+          options.servername = host;
+        }
+        try {
+          self.stream = stream.getSecureStream(options);
+        } catch (err2) {
+          return self.emit("error", err2);
+        }
+        self.attachListeners(self.stream);
+        self.stream.on("error", reportStreamError);
+        self.emit("sslconnect");
+      }
+      attachListeners(stream2) {
+        parse3(stream2, (msg) => {
           const eventName = msg.name === "error" ? "errorMessage" : msg.name;
           if (this._emitMessage) {
             this.emit("message", msg);
@@ -10113,8 +10138,8 @@ var require_split2 = __commonJS({
     "use strict";
     var { Transform } = __require("stream");
     var { StringDecoder } = __require("string_decoder");
-    var kLast = Symbol("last");
-    var kDecoder = Symbol("decoder");
+    var kLast = /* @__PURE__ */ Symbol("last");
+    var kDecoder = /* @__PURE__ */ Symbol("decoder");
     function transform2(chunk, enc, cb) {
       let list;
       if (this.overflow) {
@@ -10388,8 +10413,8 @@ var require_lib = __commonJS({
     var helper = require_helper();
     module.exports = function(connInfo, cb) {
       var file2 = helper.getFileName();
-      fs.stat(file2, function(err2, stat) {
-        if (err2 || !helper.usePgPass(stat, file2)) {
+      fs.stat(file2, function(err2, stat2) {
+        if (err2 || !helper.usePgPass(stat2, file2)) {
           return cb(void 0);
         }
         var st = fs.createReadStream(file2);
@@ -10438,6 +10463,16 @@ var require_client = __commonJS({
       },
       "Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead."
     );
+    function coerceNumberOrDefault(value, defaultValue) {
+      if (typeof value === "number") {
+        return Number.isFinite(value) ? value : defaultValue;
+      }
+      if (typeof value === "string" && value.trim() !== "") {
+        const n = Number(value);
+        return Number.isFinite(n) ? n : defaultValue;
+      }
+      return defaultValue;
+    }
     var Client2 = class extends EventEmitter {
       constructor(config2) {
         super();
@@ -10466,10 +10501,13 @@ var require_client = __commonJS({
         this._connectionError = false;
         this._queryable = true;
         this._activeQuery = null;
+        this._txStatus = null;
         this.enableChannelBinding = Boolean(c.enableChannelBinding);
+        this.scramMaxIterations = coerceNumberOrDefault(c.scramMaxIterations, sasl.DEFAULT_MAX_SCRAM_ITERATIONS);
         this.connection = c.connection || new Connection2({
           stream: c.stream,
           ssl: this.connectionParameters.ssl,
+          sslNegotiation: this.connectionParameters.sslnegotiation,
           keepAlive: c.keepAlive || false,
           keepAliveInitialDelayMillis: c.keepAliveInitialDelayMillis || 0,
           encoding: this.connectionParameters.client_encoding || "utf8"
@@ -10479,6 +10517,7 @@ var require_client = __commonJS({
         this.processID = null;
         this.secretKey = null;
         this.ssl = this.connectionParameters.ssl || false;
+        this.sslNegotiation = this.connectionParameters.sslnegotiation || "postgres";
         if (this.ssl && this.ssl.key) {
           Object.defineProperty(this.ssl, "key", {
             enumerable: false
@@ -10539,7 +10578,9 @@ var require_client = __commonJS({
         }
         con.on("connect", function() {
           if (self.ssl) {
-            con.requestSsl();
+            if (self.sslNegotiation !== "direct") {
+              con.requestSsl();
+            }
           } else {
             con.startup(self.getStartupConf());
           }
@@ -10574,12 +10615,12 @@ var require_client = __commonJS({
           this._connect(callback);
           return;
         }
-        return new this._Promise((resolve7, reject) => {
+        return new this._Promise((resolve8, reject) => {
           this._connect((error48) => {
             if (error48) {
               reject(error48);
             } else {
-              resolve7(this);
+              resolve8(this);
             }
           });
         });
@@ -10657,7 +10698,11 @@ var require_client = __commonJS({
       _handleAuthSASL(msg) {
         this._getPassword(() => {
           try {
-            this.saslSession = sasl.startSession(msg.mechanisms, this.enableChannelBinding && this.connection.stream);
+            this.saslSession = sasl.startSession(
+              msg.mechanisms,
+              this.enableChannelBinding && this.connection.stream,
+              this.scramMaxIterations
+            );
             this.connection.sendSASLInitialResponseMessage(this.saslSession.mechanism, this.saslSession.response);
           } catch (err2) {
             this.connection.emit("error", err2);
@@ -10702,6 +10747,7 @@ var require_client = __commonJS({
         }
         const activeQuery = this._getActiveQuery();
         this._activeQuery = null;
+        this._txStatus = msg?.status ?? null;
         this.readyForQuery = true;
         if (activeQuery) {
           activeQuery.handleReadyForQuery(this.connection);
@@ -10906,13 +10952,10 @@ var require_client = __commonJS({
       query(config2, values, callback) {
         let query;
         let result;
-        let readTimeout;
-        let readTimeoutTimer;
-        let queryCallback;
-        if (config2 === null || config2 === void 0) {
+        if (config2 == null) {
           throw new TypeError("Client was passed a null or undefined query");
-        } else if (typeof config2.submit === "function") {
-          readTimeout = config2.query_timeout || this.connectionParameters.query_timeout;
+        }
+        if (typeof config2.submit === "function") {
           result = query = config2;
           if (!query.callback) {
             if (typeof values === "function") {
@@ -10922,21 +10965,23 @@ var require_client = __commonJS({
             }
           }
         } else {
-          readTimeout = config2.query_timeout || this.connectionParameters.query_timeout;
           query = new Query2(config2, values, callback);
           if (!query.callback) {
-            result = new this._Promise((resolve7, reject) => {
-              query.callback = (err2, res) => err2 ? reject(err2) : resolve7(res);
+            result = new this._Promise((resolve8, reject) => {
+              query.callback = (err2, res) => err2 ? reject(err2) : resolve8(res);
             }).catch((err2) => {
               Error.captureStackTrace(err2);
               throw err2;
             });
+          } else if (typeof query.callback !== "function") {
+            throw new TypeError("callback is not a function");
           }
         }
+        const readTimeout = config2.query_timeout || this.connectionParameters.query_timeout;
         if (readTimeout) {
-          queryCallback = query.callback || (() => {
+          const queryCallback = query.callback || (() => {
           });
-          readTimeoutTimer = setTimeout(() => {
+          const readTimeoutTimer = setTimeout(() => {
             const error48 = new Error("Query read timeout");
             process.nextTick(() => {
               query.handleError(error48, this.connection);
@@ -10986,11 +11031,15 @@ var require_client = __commonJS({
       unref() {
         this.connection.unref();
       }
+      getTransactionStatus() {
+        return this._txStatus;
+      }
       end(cb) {
         this._ending = true;
         if (!this.connection._connecting || this._ended) {
           if (cb) {
             cb();
+            return;
           } else {
             return this._Promise.resolve();
           }
@@ -11003,8 +11052,8 @@ var require_client = __commonJS({
         if (cb) {
           this.connection.once("end", cb);
         } else {
-          return new this._Promise((resolve7) => {
-            this.connection.once("end", resolve7);
+          return new this._Promise((resolve8) => {
+            this.connection.once("end", resolve8);
           });
         }
       }
@@ -11044,7 +11093,7 @@ var require_pg_pool = __commonJS({
     function throwOnDoubleRelease() {
       throw new Error("Release called on client which has already been released to the pool.");
     }
-    function promisify6(Promise2, callback) {
+    function promisify7(Promise2, callback) {
       if (callback) {
         return { callback, result: void 0 };
       }
@@ -11053,8 +11102,8 @@ var require_pg_pool = __commonJS({
       const cb = function(err2, client) {
         err2 ? rej(err2) : res(client);
       };
-      const result = new Promise2(function(resolve7, reject) {
-        res = resolve7;
+      const result = new Promise2(function(resolve8, reject) {
+        res = resolve8;
         rej = reject;
       }).catch((err2) => {
         Error.captureStackTrace(err2);
@@ -11115,7 +11164,7 @@ var require_pg_pool = __commonJS({
         if (typeof Promise2.try === "function") {
           return Promise2.try(f);
         }
-        return new Promise2((resolve7) => resolve7(f()));
+        return new Promise2((resolve8) => resolve8(f()));
       }
       _isFull() {
         return this._clients.length >= this.options.max;
@@ -11182,7 +11231,7 @@ var require_pg_pool = __commonJS({
           const err2 = new Error("Cannot use a pool after calling end on the pool");
           return cb ? cb(err2) : this.Promise.reject(err2);
         }
-        const response = promisify6(this.Promise, cb);
+        const response = promisify7(this.Promise, cb);
         const result = response.result;
         if (this._isFull() || this._idle.length) {
           if (this._idle.length) {
@@ -11367,7 +11416,7 @@ var require_pg_pool = __commonJS({
       }
       query(text, values, cb) {
         if (typeof text === "function") {
-          const response2 = promisify6(this.Promise, text);
+          const response2 = promisify7(this.Promise, text);
           setImmediate(function() {
             return response2.callback(new Error("Passing a function as the first parameter to pool.query is not supported"));
           });
@@ -11377,7 +11426,7 @@ var require_pg_pool = __commonJS({
           cb = values;
           values = void 0;
         }
-        const response = promisify6(this.Promise, cb);
+        const response = promisify7(this.Promise, cb);
         cb = response.callback;
         this.connect((err2, client) => {
           if (err2) {
@@ -11422,7 +11471,7 @@ var require_pg_pool = __commonJS({
           return cb ? cb(err2) : this.Promise.reject(err2);
         }
         this.ending = true;
-        const promised = promisify6(this.Promise, cb);
+        const promised = promisify7(this.Promise, cb);
         this._endCallback = promised.callback;
         this._pulseQueue();
         return promised.result;
@@ -11508,8 +11557,8 @@ var require_query2 = __commonJS({
     NativeQuery.prototype._getPromise = function() {
       if (this._promise) return this._promise;
       this._promise = new Promise(
-        function(resolve7, reject) {
-          this._once("end", resolve7);
+        function(resolve8, reject) {
+          this._once("end", resolve8);
           this._once("error", reject);
         }.bind(this)
       );
@@ -11686,12 +11735,12 @@ var require_client2 = __commonJS({
         this._connect(callback);
         return;
       }
-      return new this._Promise((resolve7, reject) => {
+      return new this._Promise((resolve8, reject) => {
         this._connect((error48) => {
           if (error48) {
             reject(error48);
           } else {
-            resolve7(this);
+            resolve8(this);
           }
         });
       });
@@ -11715,8 +11764,8 @@ var require_client2 = __commonJS({
         query = new NativeQuery(config2, values, callback);
         if (!query.callback) {
           let resolveOut, rejectOut;
-          result = new this._Promise((resolve7, reject) => {
-            resolveOut = resolve7;
+          result = new this._Promise((resolve8, reject) => {
+            resolveOut = resolve8;
             rejectOut = reject;
           }).catch((err2) => {
             Error.captureStackTrace(err2);
@@ -11771,13 +11820,16 @@ var require_client2 = __commonJS({
     Client2.prototype.end = function(cb) {
       const self = this;
       this._ending = true;
-      if (!this._connected) {
-        this.once("connect", this.end.bind(this, cb));
+      if (this._connecting && !this._connected) {
+        this.once("connect", () => {
+          this.end(() => {
+          });
+        });
       }
       let result;
       if (!cb) {
-        result = new this._Promise(function(resolve7, reject) {
-          cb = (err2) => err2 ? reject(err2) : resolve7();
+        result = new this._Promise(function(resolve8, reject) {
+          cb = (err2) => err2 ? reject(err2) : resolve8();
         });
       }
       this.native.end(function() {
@@ -11834,6 +11886,9 @@ var require_client2 = __commonJS({
     };
     Client2.prototype.isConnected = function() {
       return this._connected;
+    };
+    Client2.prototype.getTransactionStatus = function() {
+      return this.native.getTransactionStatus();
     };
   }
 });
@@ -11925,10 +11980,10 @@ var require_constants = __commonJS({
       EMPTY_BUFFER: Buffer.alloc(0),
       GUID: "258EAFA5-E914-47DA-95CA-C5AB0DC85B11",
       hasBlob,
-      kForOnEventAttribute: Symbol("kIsForOnEventAttribute"),
-      kListener: Symbol("kListener"),
-      kStatusCode: Symbol("status-code"),
-      kWebSocket: Symbol("websocket"),
+      kForOnEventAttribute: /* @__PURE__ */ Symbol("kIsForOnEventAttribute"),
+      kListener: /* @__PURE__ */ Symbol("kListener"),
+      kStatusCode: /* @__PURE__ */ Symbol("status-code"),
+      kWebSocket: /* @__PURE__ */ Symbol("websocket"),
       NOOP: () => {
       }
     };
@@ -12014,8 +12069,8 @@ var require_buffer_util = __commonJS({
 var require_limiter = __commonJS({
   "node_modules/ws/lib/limiter.js"(exports, module) {
     "use strict";
-    var kDone = Symbol("kDone");
-    var kRun = Symbol("kRun");
+    var kDone = /* @__PURE__ */ Symbol("kDone");
+    var kRun = /* @__PURE__ */ Symbol("kRun");
     var Limiter = class {
       /**
        * Creates a new `Limiter`.
@@ -12070,11 +12125,11 @@ var require_permessage_deflate = __commonJS({
     var { kStatusCode } = require_constants();
     var FastBuffer = Buffer[Symbol.species];
     var TRAILER = Buffer.from([0, 0, 255, 255]);
-    var kPerMessageDeflate = Symbol("permessage-deflate");
-    var kTotalLength = Symbol("total-length");
-    var kCallback = Symbol("callback");
-    var kBuffers = Symbol("buffers");
-    var kError = Symbol("error");
+    var kPerMessageDeflate = /* @__PURE__ */ Symbol("permessage-deflate");
+    var kTotalLength = /* @__PURE__ */ Symbol("total-length");
+    var kCallback = /* @__PURE__ */ Symbol("callback");
+    var kBuffers = /* @__PURE__ */ Symbol("buffers");
+    var kError = /* @__PURE__ */ Symbol("error");
     var zlibLimiter;
     var PerMessageDeflate2 = class {
       /**
@@ -12679,6 +12734,10 @@ var require_receiver = __commonJS({
        *     extensions
        * @param {Boolean} [options.isServer=false] Specifies whether to operate in
        *     client or server mode
+       * @param {Number} [options.maxBufferedChunks=0] The maximum number of
+       *     buffered data chunks
+       * @param {Number} [options.maxFragments=0] The maximum number of message
+       *     fragments
        * @param {Number} [options.maxPayload=0] The maximum allowed message length
        * @param {Boolean} [options.skipUTF8Validation=false] Specifies whether or
        *     not to skip UTF-8 validation for text and close messages
@@ -12689,6 +12748,8 @@ var require_receiver = __commonJS({
         this._binaryType = options.binaryType || BINARY_TYPES[0];
         this._extensions = options.extensions || {};
         this._isServer = !!options.isServer;
+        this._maxBufferedChunks = options.maxBufferedChunks | 0;
+        this._maxFragments = options.maxFragments | 0;
         this._maxPayload = options.maxPayload | 0;
         this._skipUTF8Validation = !!options.skipUTF8Validation;
         this[kWebSocket] = void 0;
@@ -12718,6 +12779,18 @@ var require_receiver = __commonJS({
        */
       _write(chunk, encoding, cb) {
         if (this._opcode === 8 && this._state == GET_INFO) return cb();
+        if (this._maxBufferedChunks > 0 && this._buffers.length >= this._maxBufferedChunks) {
+          cb(
+            this.createError(
+              RangeError,
+              "Too many buffered chunks",
+              false,
+              1008,
+              "WS_ERR_TOO_MANY_BUFFERED_PARTS"
+            )
+          );
+          return;
+        }
         this._bufferedBytes += chunk.length;
         this._buffers.push(chunk);
         this.startLoop(cb);
@@ -13047,6 +13120,17 @@ var require_receiver = __commonJS({
           return;
         }
         if (data.length) {
+          if (this._maxFragments > 0 && this._fragments.length >= this._maxFragments) {
+            const error48 = this.createError(
+              RangeError,
+              "Too many message fragments",
+              false,
+              1008,
+              "WS_ERR_TOO_MANY_BUFFERED_PARTS"
+            );
+            cb(error48);
+            return;
+          }
           this._messageLength = this._totalPayloadLength;
           this._fragments.push(data);
         }
@@ -13072,6 +13156,17 @@ var require_receiver = __commonJS({
                 false,
                 1009,
                 "WS_ERR_UNSUPPORTED_MESSAGE_LENGTH"
+              );
+              cb(error48);
+              return;
+            }
+            if (this._maxFragments > 0 && this._fragments.length >= this._maxFragments) {
+              const error48 = this.createError(
+                RangeError,
+                "Too many message fragments",
+                false,
+                1008,
+                "WS_ERR_TOO_MANY_BUFFERED_PARTS"
               );
               cb(error48);
               return;
@@ -13242,11 +13337,14 @@ var require_sender = __commonJS({
     "use strict";
     var { Duplex } = __require("stream");
     var { randomFillSync } = __require("crypto");
+    var {
+      types: { isUint8Array }
+    } = __require("util");
     var PerMessageDeflate2 = require_permessage_deflate();
     var { EMPTY_BUFFER, kWebSocket, NOOP } = require_constants();
     var { isBlob, isValidStatusCode } = require_validation2();
     var { mask: applyMask, toBuffer } = require_buffer_util();
-    var kByteLength = Symbol("kByteLength");
+    var kByteLength = /* @__PURE__ */ Symbol("kByteLength");
     var maskBuffer = Buffer.alloc(4);
     var RANDOM_POOL_SIZE = 8 * 1024;
     var randomPool;
@@ -13395,8 +13493,10 @@ var require_sender = __commonJS({
           buf.writeUInt16BE(code, 0);
           if (typeof data === "string") {
             buf.write(data, 2);
-          } else {
+          } else if (isUint8Array(data)) {
             buf.set(data, 2);
+          } else {
+            throw new TypeError("Second argument must be a string or a Uint8Array");
           }
         }
         const options = {
@@ -13729,14 +13829,14 @@ var require_event_target = __commonJS({
   "node_modules/ws/lib/event-target.js"(exports, module) {
     "use strict";
     var { kForOnEventAttribute, kListener } = require_constants();
-    var kCode = Symbol("kCode");
-    var kData = Symbol("kData");
-    var kError = Symbol("kError");
-    var kMessage = Symbol("kMessage");
-    var kReason = Symbol("kReason");
-    var kTarget = Symbol("kTarget");
-    var kType = Symbol("kType");
-    var kWasClean = Symbol("kWasClean");
+    var kCode = /* @__PURE__ */ Symbol("kCode");
+    var kData = /* @__PURE__ */ Symbol("kData");
+    var kError = /* @__PURE__ */ Symbol("kError");
+    var kMessage = /* @__PURE__ */ Symbol("kMessage");
+    var kReason = /* @__PURE__ */ Symbol("kReason");
+    var kTarget = /* @__PURE__ */ Symbol("kTarget");
+    var kType = /* @__PURE__ */ Symbol("kType");
+    var kWasClean = /* @__PURE__ */ Symbol("kWasClean");
     var Event = class {
       /**
        * Create a new `Event`.
@@ -14115,7 +14215,7 @@ var require_websocket = __commonJS({
     var http = __require("http");
     var net = __require("net");
     var tls = __require("tls");
-    var { randomBytes, createHash: createHash2 } = __require("crypto");
+    var { randomBytes, createHash: createHash5 } = __require("crypto");
     var { Duplex, Readable } = __require("stream");
     var { URL: URL2 } = __require("url");
     var PerMessageDeflate2 = require_permessage_deflate();
@@ -14138,7 +14238,7 @@ var require_websocket = __commonJS({
     } = require_event_target();
     var { format, parse: parse3 } = require_extension();
     var { toBuffer } = require_buffer_util();
-    var kAborted = Symbol("kAborted");
+    var kAborted = /* @__PURE__ */ Symbol("kAborted");
     var protocolVersions = [8, 13];
     var readyStates = ["CONNECTING", "OPEN", "CLOSING", "CLOSED"];
     var subprotocolRegex = /^[!#$%&'*+\-.0-9A-Z^_`|a-z~]+$/;
@@ -14277,6 +14377,10 @@ var require_websocket = __commonJS({
        *     multiple times in the same tick
        * @param {Function} [options.generateMask] The function used to generate the
        *     masking key
+       * @param {Number} [options.maxBufferedChunks=0] The maximum number of
+       *     buffered data chunks
+       * @param {Number} [options.maxFragments=0] The maximum number of message
+       *     fragments
        * @param {Number} [options.maxPayload=0] The maximum allowed message size
        * @param {Boolean} [options.skipUTF8Validation=false] Specifies whether or
        *     not to skip UTF-8 validation for text and close messages
@@ -14288,6 +14392,8 @@ var require_websocket = __commonJS({
           binaryType: this.binaryType,
           extensions: this._extensions,
           isServer: this._isServer,
+          maxBufferedChunks: options.maxBufferedChunks,
+          maxFragments: options.maxFragments,
           maxPayload: options.maxPayload,
           skipUTF8Validation: options.skipUTF8Validation
         });
@@ -14587,6 +14693,8 @@ var require_websocket = __commonJS({
         autoPong: true,
         closeTimeout: CLOSE_TIMEOUT,
         protocolVersion: protocolVersions[1],
+        maxBufferedChunks: 1024 * 1024,
+        maxFragments: 128 * 1024,
         maxPayload: 100 * 1024 * 1024,
         skipUTF8Validation: false,
         perMessageDeflate: true,
@@ -14775,7 +14883,7 @@ var require_websocket = __commonJS({
           abortHandshake(websocket, socket, "Invalid Upgrade header");
           return;
         }
-        const digest = createHash2("sha1").update(key + GUID).digest("base64");
+        const digest = createHash5("sha1").update(key + GUID).digest("base64");
         if (res.headers["sec-websocket-accept"] !== digest) {
           abortHandshake(websocket, socket, "Invalid Sec-WebSocket-Accept header");
           return;
@@ -14829,6 +14937,8 @@ var require_websocket = __commonJS({
         websocket.setSocket(socket, head, {
           allowSynchronousEvents: opts.allowSynchronousEvents,
           generateMask: opts.generateMask,
+          maxBufferedChunks: opts.maxBufferedChunks,
+          maxFragments: opts.maxFragments,
           maxPayload: opts.maxPayload,
           skipUTF8Validation: opts.skipUTF8Validation
         });
@@ -15054,7 +15164,7 @@ var require_stream2 = __commonJS({
       };
       duplex._final = function(callback) {
         if (ws.readyState === ws.CONNECTING) {
-          ws.once("open", function open() {
+          ws.once("open", function open2() {
             duplex._final(callback);
           });
           return;
@@ -15075,7 +15185,7 @@ var require_stream2 = __commonJS({
       };
       duplex._write = function(chunk, encoding, callback) {
         if (ws.readyState === ws.CONNECTING) {
-          ws.once("open", function open() {
+          ws.once("open", function open2() {
             duplex._write(chunk, encoding, callback);
           });
           return;
@@ -15142,7 +15252,7 @@ var require_websocket_server = __commonJS({
     var EventEmitter = __require("events");
     var http = __require("http");
     var { Duplex } = __require("stream");
-    var { createHash: createHash2 } = __require("crypto");
+    var { createHash: createHash5 } = __require("crypto");
     var extension2 = require_extension();
     var PerMessageDeflate2 = require_permessage_deflate();
     var subprotocol2 = require_subprotocol();
@@ -15171,6 +15281,10 @@ var require_websocket_server = __commonJS({
        *     called
        * @param {Function} [options.handleProtocols] A hook to handle protocols
        * @param {String} [options.host] The hostname where to bind the server
+       * @param {Number} [options.maxBufferedChunks=1048576] The maximum number of
+       *     buffered data chunks
+       * @param {Number} [options.maxFragments=131072] The maximum number of message
+       *     fragments
        * @param {Number} [options.maxPayload=104857600] The maximum allowed message
        *     size
        * @param {Boolean} [options.noServer=false] Enable no server mode
@@ -15192,6 +15306,8 @@ var require_websocket_server = __commonJS({
         options = {
           allowSynchronousEvents: true,
           autoPong: true,
+          maxBufferedChunks: 1024 * 1024,
+          maxFragments: 128 * 1024,
           maxPayload: 100 * 1024 * 1024,
           skipUTF8Validation: false,
           perMessageDeflate: false,
@@ -15443,7 +15559,7 @@ var require_websocket_server = __commonJS({
           );
         }
         if (this._state > RUNNING) return abortHandshake(socket, 503);
-        const digest = createHash2("sha1").update(key + GUID).digest("base64");
+        const digest = createHash5("sha1").update(key + GUID).digest("base64");
         const headers = [
           "HTTP/1.1 101 Switching Protocols",
           "Upgrade: websocket",
@@ -15471,6 +15587,8 @@ var require_websocket_server = __commonJS({
         socket.removeListener("error", socketOnError);
         ws.setSocket(socket, head, {
           allowSynchronousEvents: this.options.allowSynchronousEvents,
+          maxBufferedChunks: this.options.maxBufferedChunks,
+          maxFragments: this.options.maxFragments,
           maxPayload: this.options.maxPayload,
           skipUTF8Validation: this.options.skipUTF8Validation
         });
@@ -15754,31 +15872,31 @@ var ZodError = class _ZodError extends Error {
     this.issues = issues;
   }
   format(_mapper) {
-    const mapper = _mapper || function(issue2) {
-      return issue2.message;
+    const mapper = _mapper || function(issue3) {
+      return issue3.message;
     };
     const fieldErrors = { _errors: [] };
     const processError = (error48) => {
-      for (const issue2 of error48.issues) {
-        if (issue2.code === "invalid_union") {
-          issue2.unionErrors.map(processError);
-        } else if (issue2.code === "invalid_return_type") {
-          processError(issue2.returnTypeError);
-        } else if (issue2.code === "invalid_arguments") {
-          processError(issue2.argumentsError);
-        } else if (issue2.path.length === 0) {
-          fieldErrors._errors.push(mapper(issue2));
+      for (const issue3 of error48.issues) {
+        if (issue3.code === "invalid_union") {
+          issue3.unionErrors.map(processError);
+        } else if (issue3.code === "invalid_return_type") {
+          processError(issue3.returnTypeError);
+        } else if (issue3.code === "invalid_arguments") {
+          processError(issue3.argumentsError);
+        } else if (issue3.path.length === 0) {
+          fieldErrors._errors.push(mapper(issue3));
         } else {
           let curr = fieldErrors;
           let i = 0;
-          while (i < issue2.path.length) {
-            const el = issue2.path[i];
-            const terminal = i === issue2.path.length - 1;
+          while (i < issue3.path.length) {
+            const el = issue3.path[i];
+            const terminal = i === issue3.path.length - 1;
             if (!terminal) {
               curr[el] = curr[el] || { _errors: [] };
             } else {
               curr[el] = curr[el] || { _errors: [] };
-              curr[el]._errors.push(mapper(issue2));
+              curr[el]._errors.push(mapper(issue3));
             }
             curr = curr[el];
             i++;
@@ -15803,7 +15921,7 @@ var ZodError = class _ZodError extends Error {
   get isEmpty() {
     return this.issues.length === 0;
   }
-  flatten(mapper = (issue2) => issue2.message) {
+  flatten(mapper = (issue3) => issue3.message) {
     const fieldErrors = /* @__PURE__ */ Object.create(null);
     const formErrors = [];
     for (const sub of this.issues) {
@@ -15827,30 +15945,30 @@ ZodError.create = (issues) => {
 };
 
 // node_modules/zod/v3/locales/en.js
-var errorMap = (issue2, _ctx) => {
+var errorMap = (issue3, _ctx) => {
   let message;
-  switch (issue2.code) {
+  switch (issue3.code) {
     case ZodIssueCode.invalid_type:
-      if (issue2.received === ZodParsedType.undefined) {
+      if (issue3.received === ZodParsedType.undefined) {
         message = "Required";
       } else {
-        message = `Expected ${issue2.expected}, received ${issue2.received}`;
+        message = `Expected ${issue3.expected}, received ${issue3.received}`;
       }
       break;
     case ZodIssueCode.invalid_literal:
-      message = `Invalid literal value, expected ${JSON.stringify(issue2.expected, util.jsonStringifyReplacer)}`;
+      message = `Invalid literal value, expected ${JSON.stringify(issue3.expected, util.jsonStringifyReplacer)}`;
       break;
     case ZodIssueCode.unrecognized_keys:
-      message = `Unrecognized key(s) in object: ${util.joinValues(issue2.keys, ", ")}`;
+      message = `Unrecognized key(s) in object: ${util.joinValues(issue3.keys, ", ")}`;
       break;
     case ZodIssueCode.invalid_union:
       message = `Invalid input`;
       break;
     case ZodIssueCode.invalid_union_discriminator:
-      message = `Invalid discriminator value. Expected ${util.joinValues(issue2.options)}`;
+      message = `Invalid discriminator value. Expected ${util.joinValues(issue3.options)}`;
       break;
     case ZodIssueCode.invalid_enum_value:
-      message = `Invalid enum value. Expected ${util.joinValues(issue2.options)}, received '${issue2.received}'`;
+      message = `Invalid enum value. Expected ${util.joinValues(issue3.options)}, received '${issue3.received}'`;
       break;
     case ZodIssueCode.invalid_arguments:
       message = `Invalid function arguments`;
@@ -15862,50 +15980,50 @@ var errorMap = (issue2, _ctx) => {
       message = `Invalid date`;
       break;
     case ZodIssueCode.invalid_string:
-      if (typeof issue2.validation === "object") {
-        if ("includes" in issue2.validation) {
-          message = `Invalid input: must include "${issue2.validation.includes}"`;
-          if (typeof issue2.validation.position === "number") {
-            message = `${message} at one or more positions greater than or equal to ${issue2.validation.position}`;
+      if (typeof issue3.validation === "object") {
+        if ("includes" in issue3.validation) {
+          message = `Invalid input: must include "${issue3.validation.includes}"`;
+          if (typeof issue3.validation.position === "number") {
+            message = `${message} at one or more positions greater than or equal to ${issue3.validation.position}`;
           }
-        } else if ("startsWith" in issue2.validation) {
-          message = `Invalid input: must start with "${issue2.validation.startsWith}"`;
-        } else if ("endsWith" in issue2.validation) {
-          message = `Invalid input: must end with "${issue2.validation.endsWith}"`;
+        } else if ("startsWith" in issue3.validation) {
+          message = `Invalid input: must start with "${issue3.validation.startsWith}"`;
+        } else if ("endsWith" in issue3.validation) {
+          message = `Invalid input: must end with "${issue3.validation.endsWith}"`;
         } else {
-          util.assertNever(issue2.validation);
+          util.assertNever(issue3.validation);
         }
-      } else if (issue2.validation !== "regex") {
-        message = `Invalid ${issue2.validation}`;
+      } else if (issue3.validation !== "regex") {
+        message = `Invalid ${issue3.validation}`;
       } else {
         message = "Invalid";
       }
       break;
     case ZodIssueCode.too_small:
-      if (issue2.type === "array")
-        message = `Array must contain ${issue2.exact ? "exactly" : issue2.inclusive ? `at least` : `more than`} ${issue2.minimum} element(s)`;
-      else if (issue2.type === "string")
-        message = `String must contain ${issue2.exact ? "exactly" : issue2.inclusive ? `at least` : `over`} ${issue2.minimum} character(s)`;
-      else if (issue2.type === "number")
-        message = `Number must be ${issue2.exact ? `exactly equal to ` : issue2.inclusive ? `greater than or equal to ` : `greater than `}${issue2.minimum}`;
-      else if (issue2.type === "bigint")
-        message = `Number must be ${issue2.exact ? `exactly equal to ` : issue2.inclusive ? `greater than or equal to ` : `greater than `}${issue2.minimum}`;
-      else if (issue2.type === "date")
-        message = `Date must be ${issue2.exact ? `exactly equal to ` : issue2.inclusive ? `greater than or equal to ` : `greater than `}${new Date(Number(issue2.minimum))}`;
+      if (issue3.type === "array")
+        message = `Array must contain ${issue3.exact ? "exactly" : issue3.inclusive ? `at least` : `more than`} ${issue3.minimum} element(s)`;
+      else if (issue3.type === "string")
+        message = `String must contain ${issue3.exact ? "exactly" : issue3.inclusive ? `at least` : `over`} ${issue3.minimum} character(s)`;
+      else if (issue3.type === "number")
+        message = `Number must be ${issue3.exact ? `exactly equal to ` : issue3.inclusive ? `greater than or equal to ` : `greater than `}${issue3.minimum}`;
+      else if (issue3.type === "bigint")
+        message = `Number must be ${issue3.exact ? `exactly equal to ` : issue3.inclusive ? `greater than or equal to ` : `greater than `}${issue3.minimum}`;
+      else if (issue3.type === "date")
+        message = `Date must be ${issue3.exact ? `exactly equal to ` : issue3.inclusive ? `greater than or equal to ` : `greater than `}${new Date(Number(issue3.minimum))}`;
       else
         message = "Invalid input";
       break;
     case ZodIssueCode.too_big:
-      if (issue2.type === "array")
-        message = `Array must contain ${issue2.exact ? `exactly` : issue2.inclusive ? `at most` : `less than`} ${issue2.maximum} element(s)`;
-      else if (issue2.type === "string")
-        message = `String must contain ${issue2.exact ? `exactly` : issue2.inclusive ? `at most` : `under`} ${issue2.maximum} character(s)`;
-      else if (issue2.type === "number")
-        message = `Number must be ${issue2.exact ? `exactly` : issue2.inclusive ? `less than or equal to` : `less than`} ${issue2.maximum}`;
-      else if (issue2.type === "bigint")
-        message = `BigInt must be ${issue2.exact ? `exactly` : issue2.inclusive ? `less than or equal to` : `less than`} ${issue2.maximum}`;
-      else if (issue2.type === "date")
-        message = `Date must be ${issue2.exact ? `exactly` : issue2.inclusive ? `smaller than or equal to` : `smaller than`} ${new Date(Number(issue2.maximum))}`;
+      if (issue3.type === "array")
+        message = `Array must contain ${issue3.exact ? `exactly` : issue3.inclusive ? `at most` : `less than`} ${issue3.maximum} element(s)`;
+      else if (issue3.type === "string")
+        message = `String must contain ${issue3.exact ? `exactly` : issue3.inclusive ? `at most` : `under`} ${issue3.maximum} character(s)`;
+      else if (issue3.type === "number")
+        message = `Number must be ${issue3.exact ? `exactly` : issue3.inclusive ? `less than or equal to` : `less than`} ${issue3.maximum}`;
+      else if (issue3.type === "bigint")
+        message = `BigInt must be ${issue3.exact ? `exactly` : issue3.inclusive ? `less than or equal to` : `less than`} ${issue3.maximum}`;
+      else if (issue3.type === "date")
+        message = `Date must be ${issue3.exact ? `exactly` : issue3.inclusive ? `smaller than or equal to` : `smaller than`} ${new Date(Number(issue3.maximum))}`;
       else
         message = "Invalid input";
       break;
@@ -15916,14 +16034,14 @@ var errorMap = (issue2, _ctx) => {
       message = `Intersection results could not be merged`;
       break;
     case ZodIssueCode.not_multiple_of:
-      message = `Number must be a multiple of ${issue2.multipleOf}`;
+      message = `Number must be a multiple of ${issue3.multipleOf}`;
       break;
     case ZodIssueCode.not_finite:
       message = "Number must be finite";
       break;
     default:
       message = _ctx.defaultError;
-      util.assertNever(issue2);
+      util.assertNever(issue3);
   }
   return { message };
 };
@@ -15963,7 +16081,7 @@ var makeIssue = (params) => {
 };
 function addIssueToContext(ctx, issueData) {
   const overrideMap = getErrorMap();
-  const issue2 = makeIssue({
+  const issue3 = makeIssue({
     issueData,
     data: ctx.data,
     path: ctx.path,
@@ -15978,7 +16096,7 @@ function addIssueToContext(ctx, issueData) {
       // then global default map
     ].filter((x) => !!x)
   });
-  ctx.common.issues.push(issue2);
+  ctx.common.issues.push(issue3);
 }
 var ParseStatus = class _ParseStatus {
   constructor() {
@@ -17936,9 +18054,9 @@ var ZodObject = class _ZodObject extends ZodType {
       ...this._def,
       unknownKeys: "strict",
       ...message !== void 0 ? {
-        errorMap: (issue2, ctx) => {
-          const defaultError = this._def.errorMap?.(issue2, ctx).message ?? ctx.defaultError;
-          if (issue2.code === "unrecognized_keys")
+        errorMap: (issue3, ctx) => {
+          const defaultError = this._def.errorMap?.(issue3, ctx).message ?? ctx.defaultError;
+          if (issue3.code === "unrecognized_keys")
             return {
               message: errorUtil.errToObj(message).message ?? defaultError
             };
@@ -19286,7 +19404,6 @@ ZodNaN.create = (params) => {
     ...processCreateParams(params)
   });
 };
-var BRAND = Symbol("zod_brand");
 var ZodBranded = class extends ZodType {
   _parse(input) {
     const { ctx } = this._processInputParams(input);
@@ -19789,7 +19906,7 @@ function $constructor(name, initializer3, params) {
   Object.defineProperty(_, "name", { value: name });
   return _;
 }
-var $brand = Symbol("zod_brand");
+var $brand = /* @__PURE__ */ Symbol("zod_brand");
 var $ZodAsyncError = class extends Error {
   constructor() {
     super(`Encountered Promise during synchronous parse. Use .parseAsync() instead.`);
@@ -19936,7 +20053,7 @@ function floatSafeRemainder2(val, step) {
   const stepInt = Number.parseInt(step.toFixed(decCount).replace(".", ""));
   return valInt % stepInt / 10 ** decCount;
 }
-var EVALUATING = Symbol("evaluating");
+var EVALUATING = /* @__PURE__ */ Symbol("evaluating");
 function defineLazy(object3, key, getter) {
   let value = void 0;
   Object.defineProperty(object3, key, {
@@ -20506,7 +20623,7 @@ var initializer = (inst, def) => {
 };
 var $ZodError = $constructor("$ZodError", initializer);
 var $ZodRealError = $constructor("$ZodError", initializer, { Parent: Error });
-function flattenError(error48, mapper = (issue2) => issue2.message) {
+function flattenError(error48, mapper = (issue3) => issue3.message) {
   const fieldErrors = {};
   const formErrors = [];
   for (const sub of error48.issues) {
@@ -20519,29 +20636,29 @@ function flattenError(error48, mapper = (issue2) => issue2.message) {
   }
   return { formErrors, fieldErrors };
 }
-function formatError(error48, mapper = (issue2) => issue2.message) {
+function formatError(error48, mapper = (issue3) => issue3.message) {
   const fieldErrors = { _errors: [] };
   const processError = (error49) => {
-    for (const issue2 of error49.issues) {
-      if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }));
-      } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues });
-      } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues });
-      } else if (issue2.path.length === 0) {
-        fieldErrors._errors.push(mapper(issue2));
+    for (const issue3 of error49.issues) {
+      if (issue3.code === "invalid_union" && issue3.errors.length) {
+        issue3.errors.map((issues) => processError({ issues }));
+      } else if (issue3.code === "invalid_key") {
+        processError({ issues: issue3.issues });
+      } else if (issue3.code === "invalid_element") {
+        processError({ issues: issue3.issues });
+      } else if (issue3.path.length === 0) {
+        fieldErrors._errors.push(mapper(issue3));
       } else {
         let curr = fieldErrors;
         let i = 0;
-        while (i < issue2.path.length) {
-          const el = issue2.path[i];
-          const terminal = i === issue2.path.length - 1;
+        while (i < issue3.path.length) {
+          const el = issue3.path[i];
+          const terminal = i === issue3.path.length - 1;
           if (!terminal) {
             curr[el] = curr[el] || { _errors: [] };
           } else {
             curr[el] = curr[el] || { _errors: [] };
-            curr[el]._errors.push(mapper(issue2));
+            curr[el]._errors.push(mapper(issue3));
           }
           curr = curr[el];
           i++;
@@ -20552,21 +20669,21 @@ function formatError(error48, mapper = (issue2) => issue2.message) {
   processError(error48);
   return fieldErrors;
 }
-function treeifyError(error48, mapper = (issue2) => issue2.message) {
+function treeifyError(error48, mapper = (issue3) => issue3.message) {
   const result = { errors: [] };
   const processError = (error49, path = []) => {
     var _a2, _b;
-    for (const issue2 of error49.issues) {
-      if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, issue2.path));
-      } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, issue2.path);
-      } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, issue2.path);
+    for (const issue3 of error49.issues) {
+      if (issue3.code === "invalid_union" && issue3.errors.length) {
+        issue3.errors.map((issues) => processError({ issues }, issue3.path));
+      } else if (issue3.code === "invalid_key") {
+        processError({ issues: issue3.issues }, issue3.path);
+      } else if (issue3.code === "invalid_element") {
+        processError({ issues: issue3.issues }, issue3.path);
       } else {
-        const fullpath = [...path, ...issue2.path];
+        const fullpath = [...path, ...issue3.path];
         if (fullpath.length === 0) {
-          result.errors.push(mapper(issue2));
+          result.errors.push(mapper(issue3));
           continue;
         }
         let curr = result;
@@ -20584,7 +20701,7 @@ function treeifyError(error48, mapper = (issue2) => issue2.message) {
             curr = curr.items[el];
           }
           if (terminal) {
-            curr.errors.push(mapper(issue2));
+            curr.errors.push(mapper(issue3));
           }
           i++;
         }
@@ -20615,10 +20732,10 @@ function toDotPath(_path) {
 function prettifyError(error48) {
   const lines = [];
   const issues = [...error48.issues].sort((a, b) => (a.path ?? []).length - (b.path ?? []).length);
-  for (const issue2 of issues) {
-    lines.push(`\u2716 ${issue2.message}`);
-    if (issue2.path?.length)
-      lines.push(`  \u2192 at ${toDotPath(issue2.path)}`);
+  for (const issue3 of issues) {
+    lines.push(`\u2716 ${issue3.message}`);
+    if (issue3.path?.length)
+      lines.push(`  \u2192 at ${toDotPath(issue3.path)}`);
   }
   return lines.join("\n");
 }
@@ -23528,58 +23645,58 @@ var error = () => {
   const TypeDictionary = {
     nan: "NaN"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u0645\u062F\u062E\u0644\u0627\u062A \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644\u0629: \u064A\u0641\u062A\u0631\u0636 \u0625\u062F\u062E\u0627\u0644 instanceof ${issue2.expected}\u060C \u0648\u0644\u0643\u0646 \u062A\u0645 \u0625\u062F\u062E\u0627\u0644 ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `\u0645\u062F\u062E\u0644\u0627\u062A \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644\u0629: \u064A\u0641\u062A\u0631\u0636 \u0625\u062F\u062E\u0627\u0644 instanceof ${issue3.expected}\u060C \u0648\u0644\u0643\u0646 \u062A\u0645 \u0625\u062F\u062E\u0627\u0644 ${received}`;
         }
         return `\u0645\u062F\u062E\u0644\u0627\u062A \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644\u0629: \u064A\u0641\u062A\u0631\u0636 \u0625\u062F\u062E\u0627\u0644 ${expected}\u060C \u0648\u0644\u0643\u0646 \u062A\u0645 \u0625\u062F\u062E\u0627\u0644 ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `\u0645\u062F\u062E\u0644\u0627\u062A \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644\u0629: \u064A\u0641\u062A\u0631\u0636 \u0625\u062F\u062E\u0627\u0644 ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u0627\u062E\u062A\u064A\u0627\u0631 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644: \u064A\u062A\u0648\u0642\u0639 \u0627\u0646\u062A\u0642\u0627\u0621 \u0623\u062D\u062F \u0647\u0630\u0647 \u0627\u0644\u062E\u064A\u0627\u0631\u0627\u062A: ${joinValues(issue2.values, "|")}`;
+        if (issue3.values.length === 1)
+          return `\u0645\u062F\u062E\u0644\u0627\u062A \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644\u0629: \u064A\u0641\u062A\u0631\u0636 \u0625\u062F\u062E\u0627\u0644 ${stringifyPrimitive(issue3.values[0])}`;
+        return `\u0627\u062E\u062A\u064A\u0627\u0631 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644: \u064A\u062A\u0648\u0642\u0639 \u0627\u0646\u062A\u0642\u0627\u0621 \u0623\u062D\u062F \u0647\u0630\u0647 \u0627\u0644\u062E\u064A\u0627\u0631\u0627\u062A: ${joinValues(issue3.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing)
-          return ` \u0623\u0643\u0628\u0631 \u0645\u0646 \u0627\u0644\u0644\u0627\u0632\u0645: \u064A\u0641\u062A\u0631\u0636 \u0623\u0646 \u062A\u0643\u0648\u0646 ${issue2.origin ?? "\u0627\u0644\u0642\u064A\u0645\u0629"} ${adj} ${issue2.maximum.toString()} ${sizing.unit ?? "\u0639\u0646\u0635\u0631"}`;
-        return `\u0623\u0643\u0628\u0631 \u0645\u0646 \u0627\u0644\u0644\u0627\u0632\u0645: \u064A\u0641\u062A\u0631\u0636 \u0623\u0646 \u062A\u0643\u0648\u0646 ${issue2.origin ?? "\u0627\u0644\u0642\u064A\u0645\u0629"} ${adj} ${issue2.maximum.toString()}`;
+          return ` \u0623\u0643\u0628\u0631 \u0645\u0646 \u0627\u0644\u0644\u0627\u0632\u0645: \u064A\u0641\u062A\u0631\u0636 \u0623\u0646 \u062A\u0643\u0648\u0646 ${issue3.origin ?? "\u0627\u0644\u0642\u064A\u0645\u0629"} ${adj} ${issue3.maximum.toString()} ${sizing.unit ?? "\u0639\u0646\u0635\u0631"}`;
+        return `\u0623\u0643\u0628\u0631 \u0645\u0646 \u0627\u0644\u0644\u0627\u0632\u0645: \u064A\u0641\u062A\u0631\u0636 \u0623\u0646 \u062A\u0643\u0648\u0646 ${issue3.origin ?? "\u0627\u0644\u0642\u064A\u0645\u0629"} ${adj} ${issue3.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `\u0623\u0635\u063A\u0631 \u0645\u0646 \u0627\u0644\u0644\u0627\u0632\u0645: \u064A\u0641\u062A\u0631\u0636 \u0644\u0640 ${issue2.origin} \u0623\u0646 \u064A\u0643\u0648\u0646 ${adj} ${issue2.minimum.toString()} ${sizing.unit}`;
+          return `\u0623\u0635\u063A\u0631 \u0645\u0646 \u0627\u0644\u0644\u0627\u0632\u0645: \u064A\u0641\u062A\u0631\u0636 \u0644\u0640 ${issue3.origin} \u0623\u0646 \u064A\u0643\u0648\u0646 ${adj} ${issue3.minimum.toString()} ${sizing.unit}`;
         }
-        return `\u0623\u0635\u063A\u0631 \u0645\u0646 \u0627\u0644\u0644\u0627\u0632\u0645: \u064A\u0641\u062A\u0631\u0636 \u0644\u0640 ${issue2.origin} \u0623\u0646 \u064A\u0643\u0648\u0646 ${adj} ${issue2.minimum.toString()}`;
+        return `\u0623\u0635\u063A\u0631 \u0645\u0646 \u0627\u0644\u0644\u0627\u0632\u0645: \u064A\u0641\u062A\u0631\u0636 \u0644\u0640 ${issue3.origin} \u0623\u0646 \u064A\u0643\u0648\u0646 ${adj} ${issue3.minimum.toString()}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with")
-          return `\u0646\u064E\u0635 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644: \u064A\u062C\u0628 \u0623\u0646 \u064A\u0628\u062F\u0623 \u0628\u0640 "${issue2.prefix}"`;
+          return `\u0646\u064E\u0635 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644: \u064A\u062C\u0628 \u0623\u0646 \u064A\u0628\u062F\u0623 \u0628\u0640 "${issue3.prefix}"`;
         if (_issue.format === "ends_with")
           return `\u0646\u064E\u0635 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644: \u064A\u062C\u0628 \u0623\u0646 \u064A\u0646\u062A\u0647\u064A \u0628\u0640 "${_issue.suffix}"`;
         if (_issue.format === "includes")
           return `\u0646\u064E\u0635 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644: \u064A\u062C\u0628 \u0623\u0646 \u064A\u062A\u0636\u0645\u0651\u064E\u0646 "${_issue.includes}"`;
         if (_issue.format === "regex")
           return `\u0646\u064E\u0635 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644: \u064A\u062C\u0628 \u0623\u0646 \u064A\u0637\u0627\u0628\u0642 \u0627\u0644\u0646\u0645\u0637 ${_issue.pattern}`;
-        return `${FormatDictionary[_issue.format] ?? issue2.format} \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644`;
+        return `${FormatDictionary[_issue.format] ?? issue3.format} \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644`;
       }
       case "not_multiple_of":
-        return `\u0631\u0642\u0645 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644: \u064A\u062C\u0628 \u0623\u0646 \u064A\u0643\u0648\u0646 \u0645\u0646 \u0645\u0636\u0627\u0639\u0641\u0627\u062A ${issue2.divisor}`;
+        return `\u0631\u0642\u0645 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644: \u064A\u062C\u0628 \u0623\u0646 \u064A\u0643\u0648\u0646 \u0645\u0646 \u0645\u0636\u0627\u0639\u0641\u0627\u062A ${issue3.divisor}`;
       case "unrecognized_keys":
-        return `\u0645\u0639\u0631\u0641${issue2.keys.length > 1 ? "\u0627\u062A" : ""} \u063A\u0631\u064A\u0628${issue2.keys.length > 1 ? "\u0629" : ""}: ${joinValues(issue2.keys, "\u060C ")}`;
+        return `\u0645\u0639\u0631\u0641${issue3.keys.length > 1 ? "\u0627\u062A" : ""} \u063A\u0631\u064A\u0628${issue3.keys.length > 1 ? "\u0629" : ""}: ${joinValues(issue3.keys, "\u060C ")}`;
       case "invalid_key":
-        return `\u0645\u0639\u0631\u0641 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644 \u0641\u064A ${issue2.origin}`;
+        return `\u0645\u0639\u0631\u0641 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644 \u0641\u064A ${issue3.origin}`;
       case "invalid_union":
         return "\u0645\u062F\u062E\u0644 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644";
       case "invalid_element":
-        return `\u0645\u062F\u062E\u0644 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644 \u0641\u064A ${issue2.origin}`;
+        return `\u0645\u062F\u062E\u0644 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644 \u0641\u064A ${issue3.origin}`;
       default:
         return "\u0645\u062F\u062E\u0644 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644";
     }
@@ -23635,37 +23752,37 @@ var error2 = () => {
   const TypeDictionary = {
     nan: "NaN"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `Yanl\u0131\u015F d\u0259y\u0259r: g\xF6zl\u0259nil\u0259n instanceof ${issue2.expected}, daxil olan ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `Yanl\u0131\u015F d\u0259y\u0259r: g\xF6zl\u0259nil\u0259n instanceof ${issue3.expected}, daxil olan ${received}`;
         }
         return `Yanl\u0131\u015F d\u0259y\u0259r: g\xF6zl\u0259nil\u0259n ${expected}, daxil olan ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `Yanl\u0131\u015F d\u0259y\u0259r: g\xF6zl\u0259nil\u0259n ${stringifyPrimitive(issue2.values[0])}`;
-        return `Yanl\u0131\u015F se\xE7im: a\u015Fa\u011F\u0131dak\u0131lardan biri olmal\u0131d\u0131r: ${joinValues(issue2.values, "|")}`;
+        if (issue3.values.length === 1)
+          return `Yanl\u0131\u015F d\u0259y\u0259r: g\xF6zl\u0259nil\u0259n ${stringifyPrimitive(issue3.values[0])}`;
+        return `Yanl\u0131\u015F se\xE7im: a\u015Fa\u011F\u0131dak\u0131lardan biri olmal\u0131d\u0131r: ${joinValues(issue3.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing)
-          return `\xC7ox b\xF6y\xFCk: g\xF6zl\u0259nil\u0259n ${issue2.origin ?? "d\u0259y\u0259r"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "element"}`;
-        return `\xC7ox b\xF6y\xFCk: g\xF6zl\u0259nil\u0259n ${issue2.origin ?? "d\u0259y\u0259r"} ${adj}${issue2.maximum.toString()}`;
+          return `\xC7ox b\xF6y\xFCk: g\xF6zl\u0259nil\u0259n ${issue3.origin ?? "d\u0259y\u0259r"} ${adj}${issue3.maximum.toString()} ${sizing.unit ?? "element"}`;
+        return `\xC7ox b\xF6y\xFCk: g\xF6zl\u0259nil\u0259n ${issue3.origin ?? "d\u0259y\u0259r"} ${adj}${issue3.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing)
-          return `\xC7ox ki\xE7ik: g\xF6zl\u0259nil\u0259n ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
-        return `\xC7ox ki\xE7ik: g\xF6zl\u0259nil\u0259n ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
+          return `\xC7ox ki\xE7ik: g\xF6zl\u0259nil\u0259n ${issue3.origin} ${adj}${issue3.minimum.toString()} ${sizing.unit}`;
+        return `\xC7ox ki\xE7ik: g\xF6zl\u0259nil\u0259n ${issue3.origin} ${adj}${issue3.minimum.toString()}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with")
           return `Yanl\u0131\u015F m\u0259tn: "${_issue.prefix}" il\u0259 ba\u015Flamal\u0131d\u0131r`;
         if (_issue.format === "ends_with")
@@ -23674,18 +23791,18 @@ var error2 = () => {
           return `Yanl\u0131\u015F m\u0259tn: "${_issue.includes}" daxil olmal\u0131d\u0131r`;
         if (_issue.format === "regex")
           return `Yanl\u0131\u015F m\u0259tn: ${_issue.pattern} \u015Fablonuna uy\u011Fun olmal\u0131d\u0131r`;
-        return `Yanl\u0131\u015F ${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `Yanl\u0131\u015F ${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `Yanl\u0131\u015F \u0259d\u0259d: ${issue2.divisor} il\u0259 b\xF6l\xFCn\u0259 bil\u0259n olmal\u0131d\u0131r`;
+        return `Yanl\u0131\u015F \u0259d\u0259d: ${issue3.divisor} il\u0259 b\xF6l\xFCn\u0259 bil\u0259n olmal\u0131d\u0131r`;
       case "unrecognized_keys":
-        return `Tan\u0131nmayan a\xE7ar${issue2.keys.length > 1 ? "lar" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `Tan\u0131nmayan a\xE7ar${issue3.keys.length > 1 ? "lar" : ""}: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `${issue2.origin} daxilind\u0259 yanl\u0131\u015F a\xE7ar`;
+        return `${issue3.origin} daxilind\u0259 yanl\u0131\u015F a\xE7ar`;
       case "invalid_union":
         return "Yanl\u0131\u015F d\u0259y\u0259r";
       case "invalid_element":
-        return `${issue2.origin} daxilind\u0259 yanl\u0131\u015F d\u0259y\u0259r`;
+        return `${issue3.origin} daxilind\u0259 yanl\u0131\u015F d\u0259y\u0259r`;
       default:
         return `Yanl\u0131\u015F d\u0259y\u0259r`;
     }
@@ -23786,43 +23903,43 @@ var error3 = () => {
     number: "\u043B\u0456\u043A",
     array: "\u043C\u0430\u0441\u0456\u045E"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u045E\u0432\u043E\u0434: \u0447\u0430\u043A\u0430\u045E\u0441\u044F instanceof ${issue2.expected}, \u0430\u0442\u0440\u044B\u043C\u0430\u043D\u0430 ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u045E\u0432\u043E\u0434: \u0447\u0430\u043A\u0430\u045E\u0441\u044F instanceof ${issue3.expected}, \u0430\u0442\u0440\u044B\u043C\u0430\u043D\u0430 ${received}`;
         }
         return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u045E\u0432\u043E\u0434: \u0447\u0430\u043A\u0430\u045E\u0441\u044F ${expected}, \u0430\u0442\u0440\u044B\u043C\u0430\u043D\u0430 ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u045E\u0432\u043E\u0434: \u0447\u0430\u043A\u0430\u043B\u0430\u0441\u044F ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u0432\u0430\u0440\u044B\u044F\u043D\u0442: \u0447\u0430\u043A\u0430\u045E\u0441\u044F \u0430\u0434\u0437\u0456\u043D \u0437 ${joinValues(issue2.values, "|")}`;
+        if (issue3.values.length === 1)
+          return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u045E\u0432\u043E\u0434: \u0447\u0430\u043A\u0430\u043B\u0430\u0441\u044F ${stringifyPrimitive(issue3.values[0])}`;
+        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u0432\u0430\u0440\u044B\u044F\u043D\u0442: \u0447\u0430\u043A\u0430\u045E\u0441\u044F \u0430\u0434\u0437\u0456\u043D \u0437 ${joinValues(issue3.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          const maxValue = Number(issue2.maximum);
+          const maxValue = Number(issue3.maximum);
           const unit = getBelarusianPlural(maxValue, sizing.unit.one, sizing.unit.few, sizing.unit.many);
-          return `\u0417\u0430\u043D\u0430\u0434\u0442\u0430 \u0432\u044F\u043B\u0456\u043A\u0456: \u0447\u0430\u043A\u0430\u043B\u0430\u0441\u044F, \u0448\u0442\u043E ${issue2.origin ?? "\u0437\u043D\u0430\u0447\u044D\u043D\u043D\u0435"} \u043F\u0430\u0432\u0456\u043D\u043D\u0430 ${sizing.verb} ${adj}${issue2.maximum.toString()} ${unit}`;
+          return `\u0417\u0430\u043D\u0430\u0434\u0442\u0430 \u0432\u044F\u043B\u0456\u043A\u0456: \u0447\u0430\u043A\u0430\u043B\u0430\u0441\u044F, \u0448\u0442\u043E ${issue3.origin ?? "\u0437\u043D\u0430\u0447\u044D\u043D\u043D\u0435"} \u043F\u0430\u0432\u0456\u043D\u043D\u0430 ${sizing.verb} ${adj}${issue3.maximum.toString()} ${unit}`;
         }
-        return `\u0417\u0430\u043D\u0430\u0434\u0442\u0430 \u0432\u044F\u043B\u0456\u043A\u0456: \u0447\u0430\u043A\u0430\u043B\u0430\u0441\u044F, \u0448\u0442\u043E ${issue2.origin ?? "\u0437\u043D\u0430\u0447\u044D\u043D\u043D\u0435"} \u043F\u0430\u0432\u0456\u043D\u043D\u0430 \u0431\u044B\u0446\u044C ${adj}${issue2.maximum.toString()}`;
+        return `\u0417\u0430\u043D\u0430\u0434\u0442\u0430 \u0432\u044F\u043B\u0456\u043A\u0456: \u0447\u0430\u043A\u0430\u043B\u0430\u0441\u044F, \u0448\u0442\u043E ${issue3.origin ?? "\u0437\u043D\u0430\u0447\u044D\u043D\u043D\u0435"} \u043F\u0430\u0432\u0456\u043D\u043D\u0430 \u0431\u044B\u0446\u044C ${adj}${issue3.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          const minValue = Number(issue2.minimum);
+          const minValue = Number(issue3.minimum);
           const unit = getBelarusianPlural(minValue, sizing.unit.one, sizing.unit.few, sizing.unit.many);
-          return `\u0417\u0430\u043D\u0430\u0434\u0442\u0430 \u043C\u0430\u043B\u044B: \u0447\u0430\u043A\u0430\u043B\u0430\u0441\u044F, \u0448\u0442\u043E ${issue2.origin} \u043F\u0430\u0432\u0456\u043D\u043D\u0430 ${sizing.verb} ${adj}${issue2.minimum.toString()} ${unit}`;
+          return `\u0417\u0430\u043D\u0430\u0434\u0442\u0430 \u043C\u0430\u043B\u044B: \u0447\u0430\u043A\u0430\u043B\u0430\u0441\u044F, \u0448\u0442\u043E ${issue3.origin} \u043F\u0430\u0432\u0456\u043D\u043D\u0430 ${sizing.verb} ${adj}${issue3.minimum.toString()} ${unit}`;
         }
-        return `\u0417\u0430\u043D\u0430\u0434\u0442\u0430 \u043C\u0430\u043B\u044B: \u0447\u0430\u043A\u0430\u043B\u0430\u0441\u044F, \u0448\u0442\u043E ${issue2.origin} \u043F\u0430\u0432\u0456\u043D\u043D\u0430 \u0431\u044B\u0446\u044C ${adj}${issue2.minimum.toString()}`;
+        return `\u0417\u0430\u043D\u0430\u0434\u0442\u0430 \u043C\u0430\u043B\u044B: \u0447\u0430\u043A\u0430\u043B\u0430\u0441\u044F, \u0448\u0442\u043E ${issue3.origin} \u043F\u0430\u0432\u0456\u043D\u043D\u0430 \u0431\u044B\u0446\u044C ${adj}${issue3.minimum.toString()}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with")
           return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u0440\u0430\u0434\u043E\u043A: \u043F\u0430\u0432\u0456\u043D\u0435\u043D \u043F\u0430\u0447\u044B\u043D\u0430\u0446\u0446\u0430 \u0437 "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
@@ -23831,18 +23948,18 @@ var error3 = () => {
           return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u0440\u0430\u0434\u043E\u043A: \u043F\u0430\u0432\u0456\u043D\u0435\u043D \u0437\u043C\u044F\u0448\u0447\u0430\u0446\u044C "${_issue.includes}"`;
         if (_issue.format === "regex")
           return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u0440\u0430\u0434\u043E\u043A: \u043F\u0430\u0432\u0456\u043D\u0435\u043D \u0430\u0434\u043F\u0430\u0432\u044F\u0434\u0430\u0446\u044C \u0448\u0430\u0431\u043B\u043E\u043D\u0443 ${_issue.pattern}`;
-        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B ${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B ${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u043B\u0456\u043A: \u043F\u0430\u0432\u0456\u043D\u0435\u043D \u0431\u044B\u0446\u044C \u043A\u0440\u0430\u0442\u043D\u044B\u043C ${issue2.divisor}`;
+        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u043B\u0456\u043A: \u043F\u0430\u0432\u0456\u043D\u0435\u043D \u0431\u044B\u0446\u044C \u043A\u0440\u0430\u0442\u043D\u044B\u043C ${issue3.divisor}`;
       case "unrecognized_keys":
-        return `\u041D\u0435\u0440\u0430\u0441\u043F\u0430\u0437\u043D\u0430\u043D\u044B ${issue2.keys.length > 1 ? "\u043A\u043B\u044E\u0447\u044B" : "\u043A\u043B\u044E\u0447"}: ${joinValues(issue2.keys, ", ")}`;
+        return `\u041D\u0435\u0440\u0430\u0441\u043F\u0430\u0437\u043D\u0430\u043D\u044B ${issue3.keys.length > 1 ? "\u043A\u043B\u044E\u0447\u044B" : "\u043A\u043B\u044E\u0447"}: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u043A\u043B\u044E\u0447 \u0443 ${issue2.origin}`;
+        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u043A\u043B\u044E\u0447 \u0443 ${issue3.origin}`;
       case "invalid_union":
         return "\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u045E\u0432\u043E\u0434";
       case "invalid_element":
-        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u0430\u0435 \u0437\u043D\u0430\u0447\u044D\u043D\u043D\u0435 \u045E ${issue2.origin}`;
+        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u0430\u0435 \u0437\u043D\u0430\u0447\u044D\u043D\u043D\u0435 \u045E ${issue3.origin}`;
       default:
         return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u045E\u0432\u043E\u0434`;
     }
@@ -23900,38 +24017,38 @@ var error4 = () => {
     number: "\u0447\u0438\u0441\u043B\u043E",
     array: "\u043C\u0430\u0441\u0438\u0432"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u0432\u0445\u043E\u0434: \u043E\u0447\u0430\u043A\u0432\u0430\u043D instanceof ${issue2.expected}, \u043F\u043E\u043B\u0443\u0447\u0435\u043D ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u0432\u0445\u043E\u0434: \u043E\u0447\u0430\u043A\u0432\u0430\u043D instanceof ${issue3.expected}, \u043F\u043E\u043B\u0443\u0447\u0435\u043D ${received}`;
         }
         return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u0432\u0445\u043E\u0434: \u043E\u0447\u0430\u043A\u0432\u0430\u043D ${expected}, \u043F\u043E\u043B\u0443\u0447\u0435\u043D ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u0432\u0445\u043E\u0434: \u043E\u0447\u0430\u043A\u0432\u0430\u043D ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u043D\u0430 \u043E\u043F\u0446\u0438\u044F: \u043E\u0447\u0430\u043A\u0432\u0430\u043D\u043E \u0435\u0434\u043D\u043E \u043E\u0442 ${joinValues(issue2.values, "|")}`;
+        if (issue3.values.length === 1)
+          return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u0432\u0445\u043E\u0434: \u043E\u0447\u0430\u043A\u0432\u0430\u043D ${stringifyPrimitive(issue3.values[0])}`;
+        return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u043D\u0430 \u043E\u043F\u0446\u0438\u044F: \u043E\u0447\u0430\u043A\u0432\u0430\u043D\u043E \u0435\u0434\u043D\u043E \u043E\u0442 ${joinValues(issue3.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing)
-          return `\u0422\u0432\u044A\u0440\u0434\u0435 \u0433\u043E\u043B\u044F\u043C\u043E: \u043E\u0447\u0430\u043A\u0432\u0430 \u0441\u0435 ${issue2.origin ?? "\u0441\u0442\u043E\u0439\u043D\u043E\u0441\u0442"} \u0434\u0430 \u0441\u044A\u0434\u044A\u0440\u0436\u0430 ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0430"}`;
-        return `\u0422\u0432\u044A\u0440\u0434\u0435 \u0433\u043E\u043B\u044F\u043C\u043E: \u043E\u0447\u0430\u043A\u0432\u0430 \u0441\u0435 ${issue2.origin ?? "\u0441\u0442\u043E\u0439\u043D\u043E\u0441\u0442"} \u0434\u0430 \u0431\u044A\u0434\u0435 ${adj}${issue2.maximum.toString()}`;
+          return `\u0422\u0432\u044A\u0440\u0434\u0435 \u0433\u043E\u043B\u044F\u043C\u043E: \u043E\u0447\u0430\u043A\u0432\u0430 \u0441\u0435 ${issue3.origin ?? "\u0441\u0442\u043E\u0439\u043D\u043E\u0441\u0442"} \u0434\u0430 \u0441\u044A\u0434\u044A\u0440\u0436\u0430 ${adj}${issue3.maximum.toString()} ${sizing.unit ?? "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0430"}`;
+        return `\u0422\u0432\u044A\u0440\u0434\u0435 \u0433\u043E\u043B\u044F\u043C\u043E: \u043E\u0447\u0430\u043A\u0432\u0430 \u0441\u0435 ${issue3.origin ?? "\u0441\u0442\u043E\u0439\u043D\u043E\u0441\u0442"} \u0434\u0430 \u0431\u044A\u0434\u0435 ${adj}${issue3.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `\u0422\u0432\u044A\u0440\u0434\u0435 \u043C\u0430\u043B\u043A\u043E: \u043E\u0447\u0430\u043A\u0432\u0430 \u0441\u0435 ${issue2.origin} \u0434\u0430 \u0441\u044A\u0434\u044A\u0440\u0436\u0430 ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `\u0422\u0432\u044A\u0440\u0434\u0435 \u043C\u0430\u043B\u043A\u043E: \u043E\u0447\u0430\u043A\u0432\u0430 \u0441\u0435 ${issue3.origin} \u0434\u0430 \u0441\u044A\u0434\u044A\u0440\u0436\u0430 ${adj}${issue3.minimum.toString()} ${sizing.unit}`;
         }
-        return `\u0422\u0432\u044A\u0440\u0434\u0435 \u043C\u0430\u043B\u043A\u043E: \u043E\u0447\u0430\u043A\u0432\u0430 \u0441\u0435 ${issue2.origin} \u0434\u0430 \u0431\u044A\u0434\u0435 ${adj}${issue2.minimum.toString()}`;
+        return `\u0422\u0432\u044A\u0440\u0434\u0435 \u043C\u0430\u043B\u043A\u043E: \u043E\u0447\u0430\u043A\u0432\u0430 \u0441\u0435 ${issue3.origin} \u0434\u0430 \u0431\u044A\u0434\u0435 ${adj}${issue3.minimum.toString()}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with") {
           return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u043D\u0438\u0437: \u0442\u0440\u044F\u0431\u0432\u0430 \u0434\u0430 \u0437\u0430\u043F\u043E\u0447\u0432\u0430 \u0441 "${_issue.prefix}"`;
         }
@@ -23952,18 +24069,18 @@ var error4 = () => {
           invalid_adj = "\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u043D\u043E";
         if (_issue.format === "duration")
           invalid_adj = "\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u043D\u0430";
-        return `${invalid_adj} ${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `${invalid_adj} ${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u043D\u043E \u0447\u0438\u0441\u043B\u043E: \u0442\u0440\u044F\u0431\u0432\u0430 \u0434\u0430 \u0431\u044A\u0434\u0435 \u043A\u0440\u0430\u0442\u043D\u043E \u043D\u0430 ${issue2.divisor}`;
+        return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u043D\u043E \u0447\u0438\u0441\u043B\u043E: \u0442\u0440\u044F\u0431\u0432\u0430 \u0434\u0430 \u0431\u044A\u0434\u0435 \u043A\u0440\u0430\u0442\u043D\u043E \u043D\u0430 ${issue3.divisor}`;
       case "unrecognized_keys":
-        return `\u041D\u0435\u0440\u0430\u0437\u043F\u043E\u0437\u043D\u0430\u0442${issue2.keys.length > 1 ? "\u0438" : ""} \u043A\u043B\u044E\u0447${issue2.keys.length > 1 ? "\u043E\u0432\u0435" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `\u041D\u0435\u0440\u0430\u0437\u043F\u043E\u0437\u043D\u0430\u0442${issue3.keys.length > 1 ? "\u0438" : ""} \u043A\u043B\u044E\u0447${issue3.keys.length > 1 ? "\u043E\u0432\u0435" : ""}: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u043A\u043B\u044E\u0447 \u0432 ${issue2.origin}`;
+        return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u043A\u043B\u044E\u0447 \u0432 ${issue3.origin}`;
       case "invalid_union":
         return "\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u0432\u0445\u043E\u0434";
       case "invalid_element":
-        return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u043D\u0430 \u0441\u0442\u043E\u0439\u043D\u043E\u0441\u0442 \u0432 ${issue2.origin}`;
+        return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u043D\u0430 \u0441\u0442\u043E\u0439\u043D\u043E\u0441\u0442 \u0432 ${issue3.origin}`;
       default:
         return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u0432\u0445\u043E\u0434`;
     }
@@ -24019,38 +24136,38 @@ var error5 = () => {
   const TypeDictionary = {
     nan: "NaN"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `Tipus inv\xE0lid: s'esperava instanceof ${issue2.expected}, s'ha rebut ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `Tipus inv\xE0lid: s'esperava instanceof ${issue3.expected}, s'ha rebut ${received}`;
         }
         return `Tipus inv\xE0lid: s'esperava ${expected}, s'ha rebut ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `Valor inv\xE0lid: s'esperava ${stringifyPrimitive(issue2.values[0])}`;
-        return `Opci\xF3 inv\xE0lida: s'esperava una de ${joinValues(issue2.values, " o ")}`;
+        if (issue3.values.length === 1)
+          return `Valor inv\xE0lid: s'esperava ${stringifyPrimitive(issue3.values[0])}`;
+        return `Opci\xF3 inv\xE0lida: s'esperava una de ${joinValues(issue3.values, " o ")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "com a m\xE0xim" : "menys de";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "com a m\xE0xim" : "menys de";
+        const sizing = getSizing(issue3.origin);
         if (sizing)
-          return `Massa gran: s'esperava que ${issue2.origin ?? "el valor"} contingu\xE9s ${adj} ${issue2.maximum.toString()} ${sizing.unit ?? "elements"}`;
-        return `Massa gran: s'esperava que ${issue2.origin ?? "el valor"} fos ${adj} ${issue2.maximum.toString()}`;
+          return `Massa gran: s'esperava que ${issue3.origin ?? "el valor"} contingu\xE9s ${adj} ${issue3.maximum.toString()} ${sizing.unit ?? "elements"}`;
+        return `Massa gran: s'esperava que ${issue3.origin ?? "el valor"} fos ${adj} ${issue3.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? "com a m\xEDnim" : "m\xE9s de";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "com a m\xEDnim" : "m\xE9s de";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `Massa petit: s'esperava que ${issue2.origin} contingu\xE9s ${adj} ${issue2.minimum.toString()} ${sizing.unit}`;
+          return `Massa petit: s'esperava que ${issue3.origin} contingu\xE9s ${adj} ${issue3.minimum.toString()} ${sizing.unit}`;
         }
-        return `Massa petit: s'esperava que ${issue2.origin} fos ${adj} ${issue2.minimum.toString()}`;
+        return `Massa petit: s'esperava que ${issue3.origin} fos ${adj} ${issue3.minimum.toString()}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with") {
           return `Format inv\xE0lid: ha de comen\xE7ar amb "${_issue.prefix}"`;
         }
@@ -24060,19 +24177,19 @@ var error5 = () => {
           return `Format inv\xE0lid: ha d'incloure "${_issue.includes}"`;
         if (_issue.format === "regex")
           return `Format inv\xE0lid: ha de coincidir amb el patr\xF3 ${_issue.pattern}`;
-        return `Format inv\xE0lid per a ${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `Format inv\xE0lid per a ${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `N\xFAmero inv\xE0lid: ha de ser m\xFAltiple de ${issue2.divisor}`;
+        return `N\xFAmero inv\xE0lid: ha de ser m\xFAltiple de ${issue3.divisor}`;
       case "unrecognized_keys":
-        return `Clau${issue2.keys.length > 1 ? "s" : ""} no reconeguda${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `Clau${issue3.keys.length > 1 ? "s" : ""} no reconeguda${issue3.keys.length > 1 ? "s" : ""}: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `Clau inv\xE0lida a ${issue2.origin}`;
+        return `Clau inv\xE0lida a ${issue3.origin}`;
       case "invalid_union":
         return "Entrada inv\xE0lida";
       // Could also be "Tipus d'unió invàlid" but "Entrada invàlida" is more general
       case "invalid_element":
-        return `Element inv\xE0lid a ${issue2.origin}`;
+        return `Element inv\xE0lid a ${issue3.origin}`;
       default:
         return `Entrada inv\xE0lida`;
     }
@@ -24132,39 +24249,39 @@ var error6 = () => {
     function: "funkce",
     array: "pole"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `Neplatn\xFD vstup: o\u010Dek\xE1v\xE1no instanceof ${issue2.expected}, obdr\u017Eeno ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `Neplatn\xFD vstup: o\u010Dek\xE1v\xE1no instanceof ${issue3.expected}, obdr\u017Eeno ${received}`;
         }
         return `Neplatn\xFD vstup: o\u010Dek\xE1v\xE1no ${expected}, obdr\u017Eeno ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `Neplatn\xFD vstup: o\u010Dek\xE1v\xE1no ${stringifyPrimitive(issue2.values[0])}`;
-        return `Neplatn\xE1 mo\u017Enost: o\u010Dek\xE1v\xE1na jedna z hodnot ${joinValues(issue2.values, "|")}`;
+        if (issue3.values.length === 1)
+          return `Neplatn\xFD vstup: o\u010Dek\xE1v\xE1no ${stringifyPrimitive(issue3.values[0])}`;
+        return `Neplatn\xE1 mo\u017Enost: o\u010Dek\xE1v\xE1na jedna z hodnot ${joinValues(issue3.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `Hodnota je p\u0159\xEDli\u0161 velk\xE1: ${issue2.origin ?? "hodnota"} mus\xED m\xEDt ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "prvk\u016F"}`;
+          return `Hodnota je p\u0159\xEDli\u0161 velk\xE1: ${issue3.origin ?? "hodnota"} mus\xED m\xEDt ${adj}${issue3.maximum.toString()} ${sizing.unit ?? "prvk\u016F"}`;
         }
-        return `Hodnota je p\u0159\xEDli\u0161 velk\xE1: ${issue2.origin ?? "hodnota"} mus\xED b\xFDt ${adj}${issue2.maximum.toString()}`;
+        return `Hodnota je p\u0159\xEDli\u0161 velk\xE1: ${issue3.origin ?? "hodnota"} mus\xED b\xFDt ${adj}${issue3.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `Hodnota je p\u0159\xEDli\u0161 mal\xE1: ${issue2.origin ?? "hodnota"} mus\xED m\xEDt ${adj}${issue2.minimum.toString()} ${sizing.unit ?? "prvk\u016F"}`;
+          return `Hodnota je p\u0159\xEDli\u0161 mal\xE1: ${issue3.origin ?? "hodnota"} mus\xED m\xEDt ${adj}${issue3.minimum.toString()} ${sizing.unit ?? "prvk\u016F"}`;
         }
-        return `Hodnota je p\u0159\xEDli\u0161 mal\xE1: ${issue2.origin ?? "hodnota"} mus\xED b\xFDt ${adj}${issue2.minimum.toString()}`;
+        return `Hodnota je p\u0159\xEDli\u0161 mal\xE1: ${issue3.origin ?? "hodnota"} mus\xED b\xFDt ${adj}${issue3.minimum.toString()}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with")
           return `Neplatn\xFD \u0159et\u011Bzec: mus\xED za\u010D\xEDnat na "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
@@ -24173,18 +24290,18 @@ var error6 = () => {
           return `Neplatn\xFD \u0159et\u011Bzec: mus\xED obsahovat "${_issue.includes}"`;
         if (_issue.format === "regex")
           return `Neplatn\xFD \u0159et\u011Bzec: mus\xED odpov\xEDdat vzoru ${_issue.pattern}`;
-        return `Neplatn\xFD form\xE1t ${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `Neplatn\xFD form\xE1t ${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `Neplatn\xE9 \u010D\xEDslo: mus\xED b\xFDt n\xE1sobkem ${issue2.divisor}`;
+        return `Neplatn\xE9 \u010D\xEDslo: mus\xED b\xFDt n\xE1sobkem ${issue3.divisor}`;
       case "unrecognized_keys":
-        return `Nezn\xE1m\xE9 kl\xED\u010De: ${joinValues(issue2.keys, ", ")}`;
+        return `Nezn\xE1m\xE9 kl\xED\u010De: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `Neplatn\xFD kl\xED\u010D v ${issue2.origin}`;
+        return `Neplatn\xFD kl\xED\u010D v ${issue3.origin}`;
       case "invalid_union":
         return "Neplatn\xFD vstup";
       case "invalid_element":
-        return `Neplatn\xE1 hodnota v ${issue2.origin}`;
+        return `Neplatn\xE1 hodnota v ${issue3.origin}`;
       default:
         return `Neplatn\xFD vstup`;
     }
@@ -24247,40 +24364,40 @@ var error7 = () => {
     set: "s\xE6t",
     file: "fil"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `Ugyldigt input: forventede instanceof ${issue2.expected}, fik ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `Ugyldigt input: forventede instanceof ${issue3.expected}, fik ${received}`;
         }
         return `Ugyldigt input: forventede ${expected}, fik ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `Ugyldig v\xE6rdi: forventede ${stringifyPrimitive(issue2.values[0])}`;
-        return `Ugyldigt valg: forventede en af f\xF8lgende ${joinValues(issue2.values, "|")}`;
+        if (issue3.values.length === 1)
+          return `Ugyldig v\xE6rdi: forventede ${stringifyPrimitive(issue3.values[0])}`;
+        return `Ugyldigt valg: forventede en af f\xF8lgende ${joinValues(issue3.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
-        const origin = TypeDictionary[issue2.origin] ?? issue2.origin;
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
+        const origin = TypeDictionary[issue3.origin] ?? issue3.origin;
         if (sizing)
-          return `For stor: forventede ${origin ?? "value"} ${sizing.verb} ${adj} ${issue2.maximum.toString()} ${sizing.unit ?? "elementer"}`;
-        return `For stor: forventede ${origin ?? "value"} havde ${adj} ${issue2.maximum.toString()}`;
+          return `For stor: forventede ${origin ?? "value"} ${sizing.verb} ${adj} ${issue3.maximum.toString()} ${sizing.unit ?? "elementer"}`;
+        return `For stor: forventede ${origin ?? "value"} havde ${adj} ${issue3.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
-        const origin = TypeDictionary[issue2.origin] ?? issue2.origin;
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
+        const origin = TypeDictionary[issue3.origin] ?? issue3.origin;
         if (sizing) {
-          return `For lille: forventede ${origin} ${sizing.verb} ${adj} ${issue2.minimum.toString()} ${sizing.unit}`;
+          return `For lille: forventede ${origin} ${sizing.verb} ${adj} ${issue3.minimum.toString()} ${sizing.unit}`;
         }
-        return `For lille: forventede ${origin} havde ${adj} ${issue2.minimum.toString()}`;
+        return `For lille: forventede ${origin} havde ${adj} ${issue3.minimum.toString()}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with")
           return `Ugyldig streng: skal starte med "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
@@ -24289,18 +24406,18 @@ var error7 = () => {
           return `Ugyldig streng: skal indeholde "${_issue.includes}"`;
         if (_issue.format === "regex")
           return `Ugyldig streng: skal matche m\xF8nsteret ${_issue.pattern}`;
-        return `Ugyldig ${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `Ugyldig ${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `Ugyldigt tal: skal v\xE6re deleligt med ${issue2.divisor}`;
+        return `Ugyldigt tal: skal v\xE6re deleligt med ${issue3.divisor}`;
       case "unrecognized_keys":
-        return `${issue2.keys.length > 1 ? "Ukendte n\xF8gler" : "Ukendt n\xF8gle"}: ${joinValues(issue2.keys, ", ")}`;
+        return `${issue3.keys.length > 1 ? "Ukendte n\xF8gler" : "Ukendt n\xF8gle"}: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `Ugyldig n\xF8gle i ${issue2.origin}`;
+        return `Ugyldig n\xF8gle i ${issue3.origin}`;
       case "invalid_union":
         return "Ugyldigt input: matcher ingen af de tilladte typer";
       case "invalid_element":
-        return `Ugyldig v\xE6rdi i ${issue2.origin}`;
+        return `Ugyldig v\xE6rdi i ${issue3.origin}`;
       default:
         return `Ugyldigt input`;
     }
@@ -24358,38 +24475,38 @@ var error8 = () => {
     number: "Zahl",
     array: "Array"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `Ung\xFCltige Eingabe: erwartet instanceof ${issue2.expected}, erhalten ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `Ung\xFCltige Eingabe: erwartet instanceof ${issue3.expected}, erhalten ${received}`;
         }
         return `Ung\xFCltige Eingabe: erwartet ${expected}, erhalten ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `Ung\xFCltige Eingabe: erwartet ${stringifyPrimitive(issue2.values[0])}`;
-        return `Ung\xFCltige Option: erwartet eine von ${joinValues(issue2.values, "|")}`;
+        if (issue3.values.length === 1)
+          return `Ung\xFCltige Eingabe: erwartet ${stringifyPrimitive(issue3.values[0])}`;
+        return `Ung\xFCltige Option: erwartet eine von ${joinValues(issue3.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing)
-          return `Zu gro\xDF: erwartet, dass ${issue2.origin ?? "Wert"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "Elemente"} hat`;
-        return `Zu gro\xDF: erwartet, dass ${issue2.origin ?? "Wert"} ${adj}${issue2.maximum.toString()} ist`;
+          return `Zu gro\xDF: erwartet, dass ${issue3.origin ?? "Wert"} ${adj}${issue3.maximum.toString()} ${sizing.unit ?? "Elemente"} hat`;
+        return `Zu gro\xDF: erwartet, dass ${issue3.origin ?? "Wert"} ${adj}${issue3.maximum.toString()} ist`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `Zu klein: erwartet, dass ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit} hat`;
+          return `Zu klein: erwartet, dass ${issue3.origin} ${adj}${issue3.minimum.toString()} ${sizing.unit} hat`;
         }
-        return `Zu klein: erwartet, dass ${issue2.origin} ${adj}${issue2.minimum.toString()} ist`;
+        return `Zu klein: erwartet, dass ${issue3.origin} ${adj}${issue3.minimum.toString()} ist`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with")
           return `Ung\xFCltiger String: muss mit "${_issue.prefix}" beginnen`;
         if (_issue.format === "ends_with")
@@ -24398,18 +24515,18 @@ var error8 = () => {
           return `Ung\xFCltiger String: muss "${_issue.includes}" enthalten`;
         if (_issue.format === "regex")
           return `Ung\xFCltiger String: muss dem Muster ${_issue.pattern} entsprechen`;
-        return `Ung\xFCltig: ${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `Ung\xFCltig: ${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `Ung\xFCltige Zahl: muss ein Vielfaches von ${issue2.divisor} sein`;
+        return `Ung\xFCltige Zahl: muss ein Vielfaches von ${issue3.divisor} sein`;
       case "unrecognized_keys":
-        return `${issue2.keys.length > 1 ? "Unbekannte Schl\xFCssel" : "Unbekannter Schl\xFCssel"}: ${joinValues(issue2.keys, ", ")}`;
+        return `${issue3.keys.length > 1 ? "Unbekannte Schl\xFCssel" : "Unbekannter Schl\xFCssel"}: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `Ung\xFCltiger Schl\xFCssel in ${issue2.origin}`;
+        return `Ung\xFCltiger Schl\xFCssel in ${issue3.origin}`;
       case "invalid_union":
         return "Ung\xFCltige Eingabe";
       case "invalid_element":
-        return `Ung\xFCltiger Wert in ${issue2.origin}`;
+        return `Ung\xFCltiger Wert in ${issue3.origin}`;
       default:
         return `Ung\xFCltige Eingabe`;
     }
@@ -24469,35 +24586,35 @@ var error9 = () => {
     nan: "NaN"
     // All other type names omitted - they fall back to raw values via ?? operator
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         return `Invalid input: expected ${expected}, received ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `Invalid input: expected ${stringifyPrimitive(issue2.values[0])}`;
-        return `Invalid option: expected one of ${joinValues(issue2.values, "|")}`;
+        if (issue3.values.length === 1)
+          return `Invalid input: expected ${stringifyPrimitive(issue3.values[0])}`;
+        return `Invalid option: expected one of ${joinValues(issue3.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing)
-          return `Too big: expected ${issue2.origin ?? "value"} to have ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elements"}`;
-        return `Too big: expected ${issue2.origin ?? "value"} to be ${adj}${issue2.maximum.toString()}`;
+          return `Too big: expected ${issue3.origin ?? "value"} to have ${adj}${issue3.maximum.toString()} ${sizing.unit ?? "elements"}`;
+        return `Too big: expected ${issue3.origin ?? "value"} to be ${adj}${issue3.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `Too small: expected ${issue2.origin} to have ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `Too small: expected ${issue3.origin} to have ${adj}${issue3.minimum.toString()} ${sizing.unit}`;
         }
-        return `Too small: expected ${issue2.origin} to be ${adj}${issue2.minimum.toString()}`;
+        return `Too small: expected ${issue3.origin} to be ${adj}${issue3.minimum.toString()}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with") {
           return `Invalid string: must start with "${_issue.prefix}"`;
         }
@@ -24507,18 +24624,18 @@ var error9 = () => {
           return `Invalid string: must include "${_issue.includes}"`;
         if (_issue.format === "regex")
           return `Invalid string: must match pattern ${_issue.pattern}`;
-        return `Invalid ${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `Invalid ${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `Invalid number: must be a multiple of ${issue2.divisor}`;
+        return `Invalid number: must be a multiple of ${issue3.divisor}`;
       case "unrecognized_keys":
-        return `Unrecognized key${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `Unrecognized key${issue3.keys.length > 1 ? "s" : ""}: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `Invalid key in ${issue2.origin}`;
+        return `Invalid key in ${issue3.origin}`;
       case "invalid_union":
         return "Invalid input";
       case "invalid_element":
-        return `Invalid value in ${issue2.origin}`;
+        return `Invalid value in ${issue3.origin}`;
       default:
         return `Invalid input`;
     }
@@ -24577,38 +24694,38 @@ var error10 = () => {
     array: "tabelo",
     null: "senvalora"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `Nevalida enigo: atendi\u011Dis instanceof ${issue2.expected}, ricevi\u011Dis ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `Nevalida enigo: atendi\u011Dis instanceof ${issue3.expected}, ricevi\u011Dis ${received}`;
         }
         return `Nevalida enigo: atendi\u011Dis ${expected}, ricevi\u011Dis ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `Nevalida enigo: atendi\u011Dis ${stringifyPrimitive(issue2.values[0])}`;
-        return `Nevalida opcio: atendi\u011Dis unu el ${joinValues(issue2.values, "|")}`;
+        if (issue3.values.length === 1)
+          return `Nevalida enigo: atendi\u011Dis ${stringifyPrimitive(issue3.values[0])}`;
+        return `Nevalida opcio: atendi\u011Dis unu el ${joinValues(issue3.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing)
-          return `Tro granda: atendi\u011Dis ke ${issue2.origin ?? "valoro"} havu ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementojn"}`;
-        return `Tro granda: atendi\u011Dis ke ${issue2.origin ?? "valoro"} havu ${adj}${issue2.maximum.toString()}`;
+          return `Tro granda: atendi\u011Dis ke ${issue3.origin ?? "valoro"} havu ${adj}${issue3.maximum.toString()} ${sizing.unit ?? "elementojn"}`;
+        return `Tro granda: atendi\u011Dis ke ${issue3.origin ?? "valoro"} havu ${adj}${issue3.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `Tro malgranda: atendi\u011Dis ke ${issue2.origin} havu ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `Tro malgranda: atendi\u011Dis ke ${issue3.origin} havu ${adj}${issue3.minimum.toString()} ${sizing.unit}`;
         }
-        return `Tro malgranda: atendi\u011Dis ke ${issue2.origin} estu ${adj}${issue2.minimum.toString()}`;
+        return `Tro malgranda: atendi\u011Dis ke ${issue3.origin} estu ${adj}${issue3.minimum.toString()}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with")
           return `Nevalida karaktraro: devas komenci\u011Di per "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
@@ -24617,18 +24734,18 @@ var error10 = () => {
           return `Nevalida karaktraro: devas inkluzivi "${_issue.includes}"`;
         if (_issue.format === "regex")
           return `Nevalida karaktraro: devas kongrui kun la modelo ${_issue.pattern}`;
-        return `Nevalida ${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `Nevalida ${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `Nevalida nombro: devas esti oblo de ${issue2.divisor}`;
+        return `Nevalida nombro: devas esti oblo de ${issue3.divisor}`;
       case "unrecognized_keys":
-        return `Nekonata${issue2.keys.length > 1 ? "j" : ""} \u015Dlosilo${issue2.keys.length > 1 ? "j" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `Nekonata${issue3.keys.length > 1 ? "j" : ""} \u015Dlosilo${issue3.keys.length > 1 ? "j" : ""}: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `Nevalida \u015Dlosilo en ${issue2.origin}`;
+        return `Nevalida \u015Dlosilo en ${issue3.origin}`;
       case "invalid_union":
         return "Nevalida enigo";
       case "invalid_element":
-        return `Nevalida valoro en ${issue2.origin}`;
+        return `Nevalida valoro en ${issue3.origin}`;
       default:
         return `Nevalida enigo`;
     }
@@ -24708,40 +24825,40 @@ var error11 = () => {
     unknown: "desconocido",
     any: "cualquiera"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `Entrada inv\xE1lida: se esperaba instanceof ${issue2.expected}, recibido ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `Entrada inv\xE1lida: se esperaba instanceof ${issue3.expected}, recibido ${received}`;
         }
         return `Entrada inv\xE1lida: se esperaba ${expected}, recibido ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `Entrada inv\xE1lida: se esperaba ${stringifyPrimitive(issue2.values[0])}`;
-        return `Opci\xF3n inv\xE1lida: se esperaba una de ${joinValues(issue2.values, "|")}`;
+        if (issue3.values.length === 1)
+          return `Entrada inv\xE1lida: se esperaba ${stringifyPrimitive(issue3.values[0])}`;
+        return `Opci\xF3n inv\xE1lida: se esperaba una de ${joinValues(issue3.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
-        const origin = TypeDictionary[issue2.origin] ?? issue2.origin;
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
+        const origin = TypeDictionary[issue3.origin] ?? issue3.origin;
         if (sizing)
-          return `Demasiado grande: se esperaba que ${origin ?? "valor"} tuviera ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementos"}`;
-        return `Demasiado grande: se esperaba que ${origin ?? "valor"} fuera ${adj}${issue2.maximum.toString()}`;
+          return `Demasiado grande: se esperaba que ${origin ?? "valor"} tuviera ${adj}${issue3.maximum.toString()} ${sizing.unit ?? "elementos"}`;
+        return `Demasiado grande: se esperaba que ${origin ?? "valor"} fuera ${adj}${issue3.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
-        const origin = TypeDictionary[issue2.origin] ?? issue2.origin;
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
+        const origin = TypeDictionary[issue3.origin] ?? issue3.origin;
         if (sizing) {
-          return `Demasiado peque\xF1o: se esperaba que ${origin} tuviera ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `Demasiado peque\xF1o: se esperaba que ${origin} tuviera ${adj}${issue3.minimum.toString()} ${sizing.unit}`;
         }
-        return `Demasiado peque\xF1o: se esperaba que ${origin} fuera ${adj}${issue2.minimum.toString()}`;
+        return `Demasiado peque\xF1o: se esperaba que ${origin} fuera ${adj}${issue3.minimum.toString()}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with")
           return `Cadena inv\xE1lida: debe comenzar con "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
@@ -24750,18 +24867,18 @@ var error11 = () => {
           return `Cadena inv\xE1lida: debe incluir "${_issue.includes}"`;
         if (_issue.format === "regex")
           return `Cadena inv\xE1lida: debe coincidir con el patr\xF3n ${_issue.pattern}`;
-        return `Inv\xE1lido ${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `Inv\xE1lido ${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `N\xFAmero inv\xE1lido: debe ser m\xFAltiplo de ${issue2.divisor}`;
+        return `N\xFAmero inv\xE1lido: debe ser m\xFAltiplo de ${issue3.divisor}`;
       case "unrecognized_keys":
-        return `Llave${issue2.keys.length > 1 ? "s" : ""} desconocida${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `Llave${issue3.keys.length > 1 ? "s" : ""} desconocida${issue3.keys.length > 1 ? "s" : ""}: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `Llave inv\xE1lida en ${TypeDictionary[issue2.origin] ?? issue2.origin}`;
+        return `Llave inv\xE1lida en ${TypeDictionary[issue3.origin] ?? issue3.origin}`;
       case "invalid_union":
         return "Entrada inv\xE1lida";
       case "invalid_element":
-        return `Valor inv\xE1lido en ${TypeDictionary[issue2.origin] ?? issue2.origin}`;
+        return `Valor inv\xE1lido en ${TypeDictionary[issue3.origin] ?? issue3.origin}`;
       default:
         return `Entrada inv\xE1lida`;
     }
@@ -24819,40 +24936,40 @@ var error12 = () => {
     number: "\u0639\u062F\u062F",
     array: "\u0622\u0631\u0627\u06CC\u0647"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u0648\u0631\u0648\u062F\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0645\u06CC\u200C\u0628\u0627\u06CC\u0633\u062A instanceof ${issue2.expected} \u0645\u06CC\u200C\u0628\u0648\u062F\u060C ${received} \u062F\u0631\u06CC\u0627\u0641\u062A \u0634\u062F`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `\u0648\u0631\u0648\u062F\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0645\u06CC\u200C\u0628\u0627\u06CC\u0633\u062A instanceof ${issue3.expected} \u0645\u06CC\u200C\u0628\u0648\u062F\u060C ${received} \u062F\u0631\u06CC\u0627\u0641\u062A \u0634\u062F`;
         }
         return `\u0648\u0631\u0648\u062F\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0645\u06CC\u200C\u0628\u0627\u06CC\u0633\u062A ${expected} \u0645\u06CC\u200C\u0628\u0648\u062F\u060C ${received} \u062F\u0631\u06CC\u0627\u0641\u062A \u0634\u062F`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1) {
-          return `\u0648\u0631\u0648\u062F\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0645\u06CC\u200C\u0628\u0627\u06CC\u0633\u062A ${stringifyPrimitive(issue2.values[0])} \u0645\u06CC\u200C\u0628\u0648\u062F`;
+        if (issue3.values.length === 1) {
+          return `\u0648\u0631\u0648\u062F\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0645\u06CC\u200C\u0628\u0627\u06CC\u0633\u062A ${stringifyPrimitive(issue3.values[0])} \u0645\u06CC\u200C\u0628\u0648\u062F`;
         }
-        return `\u06AF\u0632\u06CC\u0646\u0647 \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0645\u06CC\u200C\u0628\u0627\u06CC\u0633\u062A \u06CC\u06A9\u06CC \u0627\u0632 ${joinValues(issue2.values, "|")} \u0645\u06CC\u200C\u0628\u0648\u062F`;
+        return `\u06AF\u0632\u06CC\u0646\u0647 \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0645\u06CC\u200C\u0628\u0627\u06CC\u0633\u062A \u06CC\u06A9\u06CC \u0627\u0632 ${joinValues(issue3.values, "|")} \u0645\u06CC\u200C\u0628\u0648\u062F`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `\u062E\u06CC\u0644\u06CC \u0628\u0632\u0631\u06AF: ${issue2.origin ?? "\u0645\u0642\u062F\u0627\u0631"} \u0628\u0627\u06CC\u062F ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u0639\u0646\u0635\u0631"} \u0628\u0627\u0634\u062F`;
+          return `\u062E\u06CC\u0644\u06CC \u0628\u0632\u0631\u06AF: ${issue3.origin ?? "\u0645\u0642\u062F\u0627\u0631"} \u0628\u0627\u06CC\u062F ${adj}${issue3.maximum.toString()} ${sizing.unit ?? "\u0639\u0646\u0635\u0631"} \u0628\u0627\u0634\u062F`;
         }
-        return `\u062E\u06CC\u0644\u06CC \u0628\u0632\u0631\u06AF: ${issue2.origin ?? "\u0645\u0642\u062F\u0627\u0631"} \u0628\u0627\u06CC\u062F ${adj}${issue2.maximum.toString()} \u0628\u0627\u0634\u062F`;
+        return `\u062E\u06CC\u0644\u06CC \u0628\u0632\u0631\u06AF: ${issue3.origin ?? "\u0645\u0642\u062F\u0627\u0631"} \u0628\u0627\u06CC\u062F ${adj}${issue3.maximum.toString()} \u0628\u0627\u0634\u062F`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `\u062E\u06CC\u0644\u06CC \u06A9\u0648\u0686\u06A9: ${issue2.origin} \u0628\u0627\u06CC\u062F ${adj}${issue2.minimum.toString()} ${sizing.unit} \u0628\u0627\u0634\u062F`;
+          return `\u062E\u06CC\u0644\u06CC \u06A9\u0648\u0686\u06A9: ${issue3.origin} \u0628\u0627\u06CC\u062F ${adj}${issue3.minimum.toString()} ${sizing.unit} \u0628\u0627\u0634\u062F`;
         }
-        return `\u062E\u06CC\u0644\u06CC \u06A9\u0648\u0686\u06A9: ${issue2.origin} \u0628\u0627\u06CC\u062F ${adj}${issue2.minimum.toString()} \u0628\u0627\u0634\u062F`;
+        return `\u062E\u06CC\u0644\u06CC \u06A9\u0648\u0686\u06A9: ${issue3.origin} \u0628\u0627\u06CC\u062F ${adj}${issue3.minimum.toString()} \u0628\u0627\u0634\u062F`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with") {
           return `\u0631\u0634\u062A\u0647 \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0628\u0627\u06CC\u062F \u0628\u0627 "${_issue.prefix}" \u0634\u0631\u0648\u0639 \u0634\u0648\u062F`;
         }
@@ -24865,18 +24982,18 @@ var error12 = () => {
         if (_issue.format === "regex") {
           return `\u0631\u0634\u062A\u0647 \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0628\u0627\u06CC\u062F \u0628\u0627 \u0627\u0644\u06AF\u0648\u06CC ${_issue.pattern} \u0645\u0637\u0627\u0628\u0642\u062A \u062F\u0627\u0634\u062A\u0647 \u0628\u0627\u0634\u062F`;
         }
-        return `${FormatDictionary[_issue.format] ?? issue2.format} \u0646\u0627\u0645\u0639\u062A\u0628\u0631`;
+        return `${FormatDictionary[_issue.format] ?? issue3.format} \u0646\u0627\u0645\u0639\u062A\u0628\u0631`;
       }
       case "not_multiple_of":
-        return `\u0639\u062F\u062F \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0628\u0627\u06CC\u062F \u0645\u0636\u0631\u0628 ${issue2.divisor} \u0628\u0627\u0634\u062F`;
+        return `\u0639\u062F\u062F \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0628\u0627\u06CC\u062F \u0645\u0636\u0631\u0628 ${issue3.divisor} \u0628\u0627\u0634\u062F`;
       case "unrecognized_keys":
-        return `\u06A9\u0644\u06CC\u062F${issue2.keys.length > 1 ? "\u0647\u0627\u06CC" : ""} \u0646\u0627\u0634\u0646\u0627\u0633: ${joinValues(issue2.keys, ", ")}`;
+        return `\u06A9\u0644\u06CC\u062F${issue3.keys.length > 1 ? "\u0647\u0627\u06CC" : ""} \u0646\u0627\u0634\u0646\u0627\u0633: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `\u06A9\u0644\u06CC\u062F \u0646\u0627\u0634\u0646\u0627\u0633 \u062F\u0631 ${issue2.origin}`;
+        return `\u06A9\u0644\u06CC\u062F \u0646\u0627\u0634\u0646\u0627\u0633 \u062F\u0631 ${issue3.origin}`;
       case "invalid_union":
         return `\u0648\u0631\u0648\u062F\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631`;
       case "invalid_element":
-        return `\u0645\u0642\u062F\u0627\u0631 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u062F\u0631 ${issue2.origin}`;
+        return `\u0645\u0642\u062F\u0627\u0631 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u062F\u0631 ${issue3.origin}`;
       default:
         return `\u0648\u0631\u0648\u062F\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631`;
     }
@@ -24936,39 +25053,39 @@ var error13 = () => {
   const TypeDictionary = {
     nan: "NaN"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `Virheellinen tyyppi: odotettiin instanceof ${issue2.expected}, oli ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `Virheellinen tyyppi: odotettiin instanceof ${issue3.expected}, oli ${received}`;
         }
         return `Virheellinen tyyppi: odotettiin ${expected}, oli ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `Virheellinen sy\xF6te: t\xE4ytyy olla ${stringifyPrimitive(issue2.values[0])}`;
-        return `Virheellinen valinta: t\xE4ytyy olla yksi seuraavista: ${joinValues(issue2.values, "|")}`;
+        if (issue3.values.length === 1)
+          return `Virheellinen sy\xF6te: t\xE4ytyy olla ${stringifyPrimitive(issue3.values[0])}`;
+        return `Virheellinen valinta: t\xE4ytyy olla yksi seuraavista: ${joinValues(issue3.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `Liian suuri: ${sizing.subject} t\xE4ytyy olla ${adj}${issue2.maximum.toString()} ${sizing.unit}`.trim();
+          return `Liian suuri: ${sizing.subject} t\xE4ytyy olla ${adj}${issue3.maximum.toString()} ${sizing.unit}`.trim();
         }
-        return `Liian suuri: arvon t\xE4ytyy olla ${adj}${issue2.maximum.toString()}`;
+        return `Liian suuri: arvon t\xE4ytyy olla ${adj}${issue3.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `Liian pieni: ${sizing.subject} t\xE4ytyy olla ${adj}${issue2.minimum.toString()} ${sizing.unit}`.trim();
+          return `Liian pieni: ${sizing.subject} t\xE4ytyy olla ${adj}${issue3.minimum.toString()} ${sizing.unit}`.trim();
         }
-        return `Liian pieni: arvon t\xE4ytyy olla ${adj}${issue2.minimum.toString()}`;
+        return `Liian pieni: arvon t\xE4ytyy olla ${adj}${issue3.minimum.toString()}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with")
           return `Virheellinen sy\xF6te: t\xE4ytyy alkaa "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
@@ -24978,12 +25095,12 @@ var error13 = () => {
         if (_issue.format === "regex") {
           return `Virheellinen sy\xF6te: t\xE4ytyy vastata s\xE4\xE4nn\xF6llist\xE4 lauseketta ${_issue.pattern}`;
         }
-        return `Virheellinen ${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `Virheellinen ${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `Virheellinen luku: t\xE4ytyy olla luvun ${issue2.divisor} monikerta`;
+        return `Virheellinen luku: t\xE4ytyy olla luvun ${issue3.divisor} monikerta`;
       case "unrecognized_keys":
-        return `${issue2.keys.length > 1 ? "Tuntemattomat avaimet" : "Tuntematon avain"}: ${joinValues(issue2.keys, ", ")}`;
+        return `${issue3.keys.length > 1 ? "Tuntemattomat avaimet" : "Tuntematon avain"}: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
         return "Virheellinen avain tietueessa";
       case "invalid_union":
@@ -25047,38 +25164,38 @@ var error14 = () => {
     number: "nombre",
     array: "tableau"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `Entr\xE9e invalide : instanceof ${issue2.expected} attendu, ${received} re\xE7u`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `Entr\xE9e invalide : instanceof ${issue3.expected} attendu, ${received} re\xE7u`;
         }
         return `Entr\xE9e invalide : ${expected} attendu, ${received} re\xE7u`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `Entr\xE9e invalide : ${stringifyPrimitive(issue2.values[0])} attendu`;
-        return `Option invalide : une valeur parmi ${joinValues(issue2.values, "|")} attendue`;
+        if (issue3.values.length === 1)
+          return `Entr\xE9e invalide : ${stringifyPrimitive(issue3.values[0])} attendu`;
+        return `Option invalide : une valeur parmi ${joinValues(issue3.values, "|")} attendue`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing)
-          return `Trop grand : ${issue2.origin ?? "valeur"} doit ${sizing.verb} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\xE9l\xE9ment(s)"}`;
-        return `Trop grand : ${issue2.origin ?? "valeur"} doit \xEAtre ${adj}${issue2.maximum.toString()}`;
+          return `Trop grand : ${issue3.origin ?? "valeur"} doit ${sizing.verb} ${adj}${issue3.maximum.toString()} ${sizing.unit ?? "\xE9l\xE9ment(s)"}`;
+        return `Trop grand : ${issue3.origin ?? "valeur"} doit \xEAtre ${adj}${issue3.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `Trop petit : ${issue2.origin} doit ${sizing.verb} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `Trop petit : ${issue3.origin} doit ${sizing.verb} ${adj}${issue3.minimum.toString()} ${sizing.unit}`;
         }
-        return `Trop petit : ${issue2.origin} doit \xEAtre ${adj}${issue2.minimum.toString()}`;
+        return `Trop petit : ${issue3.origin} doit \xEAtre ${adj}${issue3.minimum.toString()}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with")
           return `Cha\xEEne invalide : doit commencer par "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
@@ -25087,18 +25204,18 @@ var error14 = () => {
           return `Cha\xEEne invalide : doit inclure "${_issue.includes}"`;
         if (_issue.format === "regex")
           return `Cha\xEEne invalide : doit correspondre au mod\xE8le ${_issue.pattern}`;
-        return `${FormatDictionary[_issue.format] ?? issue2.format} invalide`;
+        return `${FormatDictionary[_issue.format] ?? issue3.format} invalide`;
       }
       case "not_multiple_of":
-        return `Nombre invalide : doit \xEAtre un multiple de ${issue2.divisor}`;
+        return `Nombre invalide : doit \xEAtre un multiple de ${issue3.divisor}`;
       case "unrecognized_keys":
-        return `Cl\xE9${issue2.keys.length > 1 ? "s" : ""} non reconnue${issue2.keys.length > 1 ? "s" : ""} : ${joinValues(issue2.keys, ", ")}`;
+        return `Cl\xE9${issue3.keys.length > 1 ? "s" : ""} non reconnue${issue3.keys.length > 1 ? "s" : ""} : ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `Cl\xE9 invalide dans ${issue2.origin}`;
+        return `Cl\xE9 invalide dans ${issue3.origin}`;
       case "invalid_union":
         return "Entr\xE9e invalide";
       case "invalid_element":
-        return `Valeur invalide dans ${issue2.origin}`;
+        return `Valeur invalide dans ${issue3.origin}`;
       default:
         return `Entr\xE9e invalide`;
     }
@@ -25154,38 +25271,38 @@ var error15 = () => {
   const TypeDictionary = {
     nan: "NaN"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `Entr\xE9e invalide : attendu instanceof ${issue2.expected}, re\xE7u ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `Entr\xE9e invalide : attendu instanceof ${issue3.expected}, re\xE7u ${received}`;
         }
         return `Entr\xE9e invalide : attendu ${expected}, re\xE7u ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `Entr\xE9e invalide : attendu ${stringifyPrimitive(issue2.values[0])}`;
-        return `Option invalide : attendu l'une des valeurs suivantes ${joinValues(issue2.values, "|")}`;
+        if (issue3.values.length === 1)
+          return `Entr\xE9e invalide : attendu ${stringifyPrimitive(issue3.values[0])}`;
+        return `Option invalide : attendu l'une des valeurs suivantes ${joinValues(issue3.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "\u2264" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "\u2264" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing)
-          return `Trop grand : attendu que ${issue2.origin ?? "la valeur"} ait ${adj}${issue2.maximum.toString()} ${sizing.unit}`;
-        return `Trop grand : attendu que ${issue2.origin ?? "la valeur"} soit ${adj}${issue2.maximum.toString()}`;
+          return `Trop grand : attendu que ${issue3.origin ?? "la valeur"} ait ${adj}${issue3.maximum.toString()} ${sizing.unit}`;
+        return `Trop grand : attendu que ${issue3.origin ?? "la valeur"} soit ${adj}${issue3.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? "\u2265" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "\u2265" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `Trop petit : attendu que ${issue2.origin} ait ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `Trop petit : attendu que ${issue3.origin} ait ${adj}${issue3.minimum.toString()} ${sizing.unit}`;
         }
-        return `Trop petit : attendu que ${issue2.origin} soit ${adj}${issue2.minimum.toString()}`;
+        return `Trop petit : attendu que ${issue3.origin} soit ${adj}${issue3.minimum.toString()}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with") {
           return `Cha\xEEne invalide : doit commencer par "${_issue.prefix}"`;
         }
@@ -25195,18 +25312,18 @@ var error15 = () => {
           return `Cha\xEEne invalide : doit inclure "${_issue.includes}"`;
         if (_issue.format === "regex")
           return `Cha\xEEne invalide : doit correspondre au motif ${_issue.pattern}`;
-        return `${FormatDictionary[_issue.format] ?? issue2.format} invalide`;
+        return `${FormatDictionary[_issue.format] ?? issue3.format} invalide`;
       }
       case "not_multiple_of":
-        return `Nombre invalide : doit \xEAtre un multiple de ${issue2.divisor}`;
+        return `Nombre invalide : doit \xEAtre un multiple de ${issue3.divisor}`;
       case "unrecognized_keys":
-        return `Cl\xE9${issue2.keys.length > 1 ? "s" : ""} non reconnue${issue2.keys.length > 1 ? "s" : ""} : ${joinValues(issue2.keys, ", ")}`;
+        return `Cl\xE9${issue3.keys.length > 1 ? "s" : ""} non reconnue${issue3.keys.length > 1 ? "s" : ""} : ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `Cl\xE9 invalide dans ${issue2.origin}`;
+        return `Cl\xE9 invalide dans ${issue3.origin}`;
       case "invalid_union":
         return "Entr\xE9e invalide";
       case "invalid_element":
-        return `Valeur invalide dans ${issue2.origin}`;
+        return `Valeur invalide dans ${issue3.origin}`;
       default:
         return `Entr\xE9e invalide`;
     }
@@ -25301,24 +25418,24 @@ var error16 = () => {
   const TypeDictionary = {
     nan: "NaN"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expectedKey = issue2.expected;
+        const expectedKey = issue3.expected;
         const expected = TypeDictionary[expectedKey ?? ""] ?? typeLabel(expectedKey);
-        const receivedType = parsedType(issue2.input);
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? TypeNames[receivedType]?.label ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u05E7\u05DC\u05D8 \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF: \u05E6\u05E8\u05D9\u05DA \u05DC\u05D4\u05D9\u05D5\u05EA instanceof ${issue2.expected}, \u05D4\u05EA\u05E7\u05D1\u05DC ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `\u05E7\u05DC\u05D8 \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF: \u05E6\u05E8\u05D9\u05DA \u05DC\u05D4\u05D9\u05D5\u05EA instanceof ${issue3.expected}, \u05D4\u05EA\u05E7\u05D1\u05DC ${received}`;
         }
         return `\u05E7\u05DC\u05D8 \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF: \u05E6\u05E8\u05D9\u05DA \u05DC\u05D4\u05D9\u05D5\u05EA ${expected}, \u05D4\u05EA\u05E7\u05D1\u05DC ${received}`;
       }
       case "invalid_value": {
-        if (issue2.values.length === 1) {
-          return `\u05E2\u05E8\u05DA \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF: \u05D4\u05E2\u05E8\u05DA \u05D7\u05D9\u05D9\u05D1 \u05DC\u05D4\u05D9\u05D5\u05EA ${stringifyPrimitive(issue2.values[0])}`;
+        if (issue3.values.length === 1) {
+          return `\u05E2\u05E8\u05DA \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF: \u05D4\u05E2\u05E8\u05DA \u05D7\u05D9\u05D9\u05D1 \u05DC\u05D4\u05D9\u05D5\u05EA ${stringifyPrimitive(issue3.values[0])}`;
         }
-        const stringified = issue2.values.map((v) => stringifyPrimitive(v));
-        if (issue2.values.length === 2) {
+        const stringified = issue3.values.map((v) => stringifyPrimitive(v));
+        if (issue3.values.length === 2) {
           return `\u05E2\u05E8\u05DA \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF: \u05D4\u05D0\u05E4\u05E9\u05E8\u05D5\u05D9\u05D5\u05EA \u05D4\u05DE\u05EA\u05D0\u05D9\u05DE\u05D5\u05EA \u05D4\u05DF ${stringified[0]} \u05D0\u05D5 ${stringified[1]}`;
         }
         const lastValue = stringified[stringified.length - 1];
@@ -25326,55 +25443,55 @@ var error16 = () => {
         return `\u05E2\u05E8\u05DA \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF: \u05D4\u05D0\u05E4\u05E9\u05E8\u05D5\u05D9\u05D5\u05EA \u05D4\u05DE\u05EA\u05D0\u05D9\u05DE\u05D5\u05EA \u05D4\u05DF ${restValues} \u05D0\u05D5 ${lastValue}`;
       }
       case "too_big": {
-        const sizing = getSizing(issue2.origin);
-        const subject = withDefinite(issue2.origin ?? "value");
-        if (issue2.origin === "string") {
-          return `${sizing?.longLabel ?? "\u05D0\u05E8\u05D5\u05DA"} \u05DE\u05D3\u05D9: ${subject} \u05E6\u05E8\u05D9\u05DB\u05D4 \u05DC\u05D4\u05DB\u05D9\u05DC ${issue2.maximum.toString()} ${sizing?.unit ?? ""} ${issue2.inclusive ? "\u05D0\u05D5 \u05E4\u05D7\u05D5\u05EA" : "\u05DC\u05DB\u05DC \u05D4\u05D9\u05D5\u05EA\u05E8"}`.trim();
+        const sizing = getSizing(issue3.origin);
+        const subject = withDefinite(issue3.origin ?? "value");
+        if (issue3.origin === "string") {
+          return `${sizing?.longLabel ?? "\u05D0\u05E8\u05D5\u05DA"} \u05DE\u05D3\u05D9: ${subject} \u05E6\u05E8\u05D9\u05DB\u05D4 \u05DC\u05D4\u05DB\u05D9\u05DC ${issue3.maximum.toString()} ${sizing?.unit ?? ""} ${issue3.inclusive ? "\u05D0\u05D5 \u05E4\u05D7\u05D5\u05EA" : "\u05DC\u05DB\u05DC \u05D4\u05D9\u05D5\u05EA\u05E8"}`.trim();
         }
-        if (issue2.origin === "number") {
-          const comparison = issue2.inclusive ? `\u05E7\u05D8\u05DF \u05D0\u05D5 \u05E9\u05D5\u05D5\u05D4 \u05DC-${issue2.maximum}` : `\u05E7\u05D8\u05DF \u05DE-${issue2.maximum}`;
+        if (issue3.origin === "number") {
+          const comparison = issue3.inclusive ? `\u05E7\u05D8\u05DF \u05D0\u05D5 \u05E9\u05D5\u05D5\u05D4 \u05DC-${issue3.maximum}` : `\u05E7\u05D8\u05DF \u05DE-${issue3.maximum}`;
           return `\u05D2\u05D3\u05D5\u05DC \u05DE\u05D3\u05D9: ${subject} \u05E6\u05E8\u05D9\u05DA \u05DC\u05D4\u05D9\u05D5\u05EA ${comparison}`;
         }
-        if (issue2.origin === "array" || issue2.origin === "set") {
-          const verb = issue2.origin === "set" ? "\u05E6\u05E8\u05D9\u05DB\u05D4" : "\u05E6\u05E8\u05D9\u05DA";
-          const comparison = issue2.inclusive ? `${issue2.maximum} ${sizing?.unit ?? ""} \u05D0\u05D5 \u05E4\u05D7\u05D5\u05EA` : `\u05E4\u05D7\u05D5\u05EA \u05DE-${issue2.maximum} ${sizing?.unit ?? ""}`;
+        if (issue3.origin === "array" || issue3.origin === "set") {
+          const verb = issue3.origin === "set" ? "\u05E6\u05E8\u05D9\u05DB\u05D4" : "\u05E6\u05E8\u05D9\u05DA";
+          const comparison = issue3.inclusive ? `${issue3.maximum} ${sizing?.unit ?? ""} \u05D0\u05D5 \u05E4\u05D7\u05D5\u05EA` : `\u05E4\u05D7\u05D5\u05EA \u05DE-${issue3.maximum} ${sizing?.unit ?? ""}`;
           return `\u05D2\u05D3\u05D5\u05DC \u05DE\u05D3\u05D9: ${subject} ${verb} \u05DC\u05D4\u05DB\u05D9\u05DC ${comparison}`.trim();
         }
-        const adj = issue2.inclusive ? "<=" : "<";
-        const be = verbFor(issue2.origin ?? "value");
+        const adj = issue3.inclusive ? "<=" : "<";
+        const be = verbFor(issue3.origin ?? "value");
         if (sizing?.unit) {
-          return `${sizing.longLabel} \u05DE\u05D3\u05D9: ${subject} ${be} ${adj}${issue2.maximum.toString()} ${sizing.unit}`;
+          return `${sizing.longLabel} \u05DE\u05D3\u05D9: ${subject} ${be} ${adj}${issue3.maximum.toString()} ${sizing.unit}`;
         }
-        return `${sizing?.longLabel ?? "\u05D2\u05D3\u05D5\u05DC"} \u05DE\u05D3\u05D9: ${subject} ${be} ${adj}${issue2.maximum.toString()}`;
+        return `${sizing?.longLabel ?? "\u05D2\u05D3\u05D5\u05DC"} \u05DE\u05D3\u05D9: ${subject} ${be} ${adj}${issue3.maximum.toString()}`;
       }
       case "too_small": {
-        const sizing = getSizing(issue2.origin);
-        const subject = withDefinite(issue2.origin ?? "value");
-        if (issue2.origin === "string") {
-          return `${sizing?.shortLabel ?? "\u05E7\u05E6\u05E8"} \u05DE\u05D3\u05D9: ${subject} \u05E6\u05E8\u05D9\u05DB\u05D4 \u05DC\u05D4\u05DB\u05D9\u05DC ${issue2.minimum.toString()} ${sizing?.unit ?? ""} ${issue2.inclusive ? "\u05D0\u05D5 \u05D9\u05D5\u05EA\u05E8" : "\u05DC\u05E4\u05D7\u05D5\u05EA"}`.trim();
+        const sizing = getSizing(issue3.origin);
+        const subject = withDefinite(issue3.origin ?? "value");
+        if (issue3.origin === "string") {
+          return `${sizing?.shortLabel ?? "\u05E7\u05E6\u05E8"} \u05DE\u05D3\u05D9: ${subject} \u05E6\u05E8\u05D9\u05DB\u05D4 \u05DC\u05D4\u05DB\u05D9\u05DC ${issue3.minimum.toString()} ${sizing?.unit ?? ""} ${issue3.inclusive ? "\u05D0\u05D5 \u05D9\u05D5\u05EA\u05E8" : "\u05DC\u05E4\u05D7\u05D5\u05EA"}`.trim();
         }
-        if (issue2.origin === "number") {
-          const comparison = issue2.inclusive ? `\u05D2\u05D3\u05D5\u05DC \u05D0\u05D5 \u05E9\u05D5\u05D5\u05D4 \u05DC-${issue2.minimum}` : `\u05D2\u05D3\u05D5\u05DC \u05DE-${issue2.minimum}`;
+        if (issue3.origin === "number") {
+          const comparison = issue3.inclusive ? `\u05D2\u05D3\u05D5\u05DC \u05D0\u05D5 \u05E9\u05D5\u05D5\u05D4 \u05DC-${issue3.minimum}` : `\u05D2\u05D3\u05D5\u05DC \u05DE-${issue3.minimum}`;
           return `\u05E7\u05D8\u05DF \u05DE\u05D3\u05D9: ${subject} \u05E6\u05E8\u05D9\u05DA \u05DC\u05D4\u05D9\u05D5\u05EA ${comparison}`;
         }
-        if (issue2.origin === "array" || issue2.origin === "set") {
-          const verb = issue2.origin === "set" ? "\u05E6\u05E8\u05D9\u05DB\u05D4" : "\u05E6\u05E8\u05D9\u05DA";
-          if (issue2.minimum === 1 && issue2.inclusive) {
-            const singularPhrase = issue2.origin === "set" ? "\u05DC\u05E4\u05D7\u05D5\u05EA \u05E4\u05E8\u05D9\u05D8 \u05D0\u05D7\u05D3" : "\u05DC\u05E4\u05D7\u05D5\u05EA \u05E4\u05E8\u05D9\u05D8 \u05D0\u05D7\u05D3";
+        if (issue3.origin === "array" || issue3.origin === "set") {
+          const verb = issue3.origin === "set" ? "\u05E6\u05E8\u05D9\u05DB\u05D4" : "\u05E6\u05E8\u05D9\u05DA";
+          if (issue3.minimum === 1 && issue3.inclusive) {
+            const singularPhrase = issue3.origin === "set" ? "\u05DC\u05E4\u05D7\u05D5\u05EA \u05E4\u05E8\u05D9\u05D8 \u05D0\u05D7\u05D3" : "\u05DC\u05E4\u05D7\u05D5\u05EA \u05E4\u05E8\u05D9\u05D8 \u05D0\u05D7\u05D3";
             return `\u05E7\u05D8\u05DF \u05DE\u05D3\u05D9: ${subject} ${verb} \u05DC\u05D4\u05DB\u05D9\u05DC ${singularPhrase}`;
           }
-          const comparison = issue2.inclusive ? `${issue2.minimum} ${sizing?.unit ?? ""} \u05D0\u05D5 \u05D9\u05D5\u05EA\u05E8` : `\u05D9\u05D5\u05EA\u05E8 \u05DE-${issue2.minimum} ${sizing?.unit ?? ""}`;
+          const comparison = issue3.inclusive ? `${issue3.minimum} ${sizing?.unit ?? ""} \u05D0\u05D5 \u05D9\u05D5\u05EA\u05E8` : `\u05D9\u05D5\u05EA\u05E8 \u05DE-${issue3.minimum} ${sizing?.unit ?? ""}`;
           return `\u05E7\u05D8\u05DF \u05DE\u05D3\u05D9: ${subject} ${verb} \u05DC\u05D4\u05DB\u05D9\u05DC ${comparison}`.trim();
         }
-        const adj = issue2.inclusive ? ">=" : ">";
-        const be = verbFor(issue2.origin ?? "value");
+        const adj = issue3.inclusive ? ">=" : ">";
+        const be = verbFor(issue3.origin ?? "value");
         if (sizing?.unit) {
-          return `${sizing.shortLabel} \u05DE\u05D3\u05D9: ${subject} ${be} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `${sizing.shortLabel} \u05DE\u05D3\u05D9: ${subject} ${be} ${adj}${issue3.minimum.toString()} ${sizing.unit}`;
         }
-        return `${sizing?.shortLabel ?? "\u05E7\u05D8\u05DF"} \u05DE\u05D3\u05D9: ${subject} ${be} ${adj}${issue2.minimum.toString()}`;
+        return `${sizing?.shortLabel ?? "\u05E7\u05D8\u05DF"} \u05DE\u05D3\u05D9: ${subject} ${be} ${adj}${issue3.minimum.toString()}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with")
           return `\u05D4\u05DE\u05D7\u05E8\u05D5\u05D6\u05EA \u05D7\u05D9\u05D9\u05D1\u05EA \u05DC\u05D4\u05EA\u05D7\u05D9\u05DC \u05D1 "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
@@ -25390,16 +25507,16 @@ var error16 = () => {
         return `${noun} \u05DC\u05D0 ${adjective}`;
       }
       case "not_multiple_of":
-        return `\u05DE\u05E1\u05E4\u05E8 \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF: \u05D7\u05D9\u05D9\u05D1 \u05DC\u05D4\u05D9\u05D5\u05EA \u05DE\u05DB\u05E4\u05DC\u05D4 \u05E9\u05DC ${issue2.divisor}`;
+        return `\u05DE\u05E1\u05E4\u05E8 \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF: \u05D7\u05D9\u05D9\u05D1 \u05DC\u05D4\u05D9\u05D5\u05EA \u05DE\u05DB\u05E4\u05DC\u05D4 \u05E9\u05DC ${issue3.divisor}`;
       case "unrecognized_keys":
-        return `\u05DE\u05E4\u05EA\u05D7${issue2.keys.length > 1 ? "\u05D5\u05EA" : ""} \u05DC\u05D0 \u05DE\u05D6\u05D5\u05D4${issue2.keys.length > 1 ? "\u05D9\u05DD" : "\u05D4"}: ${joinValues(issue2.keys, ", ")}`;
+        return `\u05DE\u05E4\u05EA\u05D7${issue3.keys.length > 1 ? "\u05D5\u05EA" : ""} \u05DC\u05D0 \u05DE\u05D6\u05D5\u05D4${issue3.keys.length > 1 ? "\u05D9\u05DD" : "\u05D4"}: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key": {
         return `\u05E9\u05D3\u05D4 \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF \u05D1\u05D0\u05D5\u05D1\u05D9\u05D9\u05E7\u05D8`;
       }
       case "invalid_union":
         return "\u05E7\u05DC\u05D8 \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF";
       case "invalid_element": {
-        const place = withDefinite(issue2.origin ?? "array");
+        const place = withDefinite(issue3.origin ?? "array");
         return `\u05E2\u05E8\u05DA \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF \u05D1${place}`;
       }
       default:
@@ -25459,38 +25576,38 @@ var error17 = () => {
     number: "sz\xE1m",
     array: "t\xF6mb"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `\xC9rv\xE9nytelen bemenet: a v\xE1rt \xE9rt\xE9k instanceof ${issue2.expected}, a kapott \xE9rt\xE9k ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `\xC9rv\xE9nytelen bemenet: a v\xE1rt \xE9rt\xE9k instanceof ${issue3.expected}, a kapott \xE9rt\xE9k ${received}`;
         }
         return `\xC9rv\xE9nytelen bemenet: a v\xE1rt \xE9rt\xE9k ${expected}, a kapott \xE9rt\xE9k ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `\xC9rv\xE9nytelen bemenet: a v\xE1rt \xE9rt\xE9k ${stringifyPrimitive(issue2.values[0])}`;
-        return `\xC9rv\xE9nytelen opci\xF3: valamelyik \xE9rt\xE9k v\xE1rt ${joinValues(issue2.values, "|")}`;
+        if (issue3.values.length === 1)
+          return `\xC9rv\xE9nytelen bemenet: a v\xE1rt \xE9rt\xE9k ${stringifyPrimitive(issue3.values[0])}`;
+        return `\xC9rv\xE9nytelen opci\xF3: valamelyik \xE9rt\xE9k v\xE1rt ${joinValues(issue3.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing)
-          return `T\xFAl nagy: ${issue2.origin ?? "\xE9rt\xE9k"} m\xE9rete t\xFAl nagy ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elem"}`;
-        return `T\xFAl nagy: a bemeneti \xE9rt\xE9k ${issue2.origin ?? "\xE9rt\xE9k"} t\xFAl nagy: ${adj}${issue2.maximum.toString()}`;
+          return `T\xFAl nagy: ${issue3.origin ?? "\xE9rt\xE9k"} m\xE9rete t\xFAl nagy ${adj}${issue3.maximum.toString()} ${sizing.unit ?? "elem"}`;
+        return `T\xFAl nagy: a bemeneti \xE9rt\xE9k ${issue3.origin ?? "\xE9rt\xE9k"} t\xFAl nagy: ${adj}${issue3.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `T\xFAl kicsi: a bemeneti \xE9rt\xE9k ${issue2.origin} m\xE9rete t\xFAl kicsi ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `T\xFAl kicsi: a bemeneti \xE9rt\xE9k ${issue3.origin} m\xE9rete t\xFAl kicsi ${adj}${issue3.minimum.toString()} ${sizing.unit}`;
         }
-        return `T\xFAl kicsi: a bemeneti \xE9rt\xE9k ${issue2.origin} t\xFAl kicsi ${adj}${issue2.minimum.toString()}`;
+        return `T\xFAl kicsi: a bemeneti \xE9rt\xE9k ${issue3.origin} t\xFAl kicsi ${adj}${issue3.minimum.toString()}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with")
           return `\xC9rv\xE9nytelen string: "${_issue.prefix}" \xE9rt\xE9kkel kell kezd\u0151dnie`;
         if (_issue.format === "ends_with")
@@ -25499,18 +25616,18 @@ var error17 = () => {
           return `\xC9rv\xE9nytelen string: "${_issue.includes}" \xE9rt\xE9ket kell tartalmaznia`;
         if (_issue.format === "regex")
           return `\xC9rv\xE9nytelen string: ${_issue.pattern} mint\xE1nak kell megfelelnie`;
-        return `\xC9rv\xE9nytelen ${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `\xC9rv\xE9nytelen ${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `\xC9rv\xE9nytelen sz\xE1m: ${issue2.divisor} t\xF6bbsz\xF6r\xF6s\xE9nek kell lennie`;
+        return `\xC9rv\xE9nytelen sz\xE1m: ${issue3.divisor} t\xF6bbsz\xF6r\xF6s\xE9nek kell lennie`;
       case "unrecognized_keys":
-        return `Ismeretlen kulcs${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `Ismeretlen kulcs${issue3.keys.length > 1 ? "s" : ""}: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `\xC9rv\xE9nytelen kulcs ${issue2.origin}`;
+        return `\xC9rv\xE9nytelen kulcs ${issue3.origin}`;
       case "invalid_union":
         return "\xC9rv\xE9nytelen bemenet";
       case "invalid_element":
-        return `\xC9rv\xE9nytelen \xE9rt\xE9k: ${issue2.origin}`;
+        return `\xC9rv\xE9nytelen \xE9rt\xE9k: ${issue3.origin}`;
       default:
         return `\xC9rv\xE9nytelen bemenet`;
     }
@@ -25602,43 +25719,43 @@ var error18 = () => {
     number: "\u0569\u056B\u057E",
     array: "\u0566\u0561\u0576\u0563\u057E\u0561\u056E"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u054D\u056D\u0561\u056C \u0574\u0578\u0582\u057F\u0584\u0561\u0563\u0580\u0578\u0582\u0574\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567\u0580 instanceof ${issue2.expected}, \u057D\u057F\u0561\u0581\u057E\u0565\u056C \u0567 ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `\u054D\u056D\u0561\u056C \u0574\u0578\u0582\u057F\u0584\u0561\u0563\u0580\u0578\u0582\u0574\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567\u0580 instanceof ${issue3.expected}, \u057D\u057F\u0561\u0581\u057E\u0565\u056C \u0567 ${received}`;
         }
         return `\u054D\u056D\u0561\u056C \u0574\u0578\u0582\u057F\u0584\u0561\u0563\u0580\u0578\u0582\u0574\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567\u0580 ${expected}, \u057D\u057F\u0561\u0581\u057E\u0565\u056C \u0567 ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `\u054D\u056D\u0561\u056C \u0574\u0578\u0582\u057F\u0584\u0561\u0563\u0580\u0578\u0582\u0574\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567\u0580 ${stringifyPrimitive(issue2.values[1])}`;
-        return `\u054D\u056D\u0561\u056C \u057F\u0561\u0580\u0562\u0565\u0580\u0561\u056F\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567\u0580 \u0570\u0565\u057F\u0587\u0575\u0561\u056C\u0576\u0565\u0580\u056B\u0581 \u0574\u0565\u056F\u0568\u055D ${joinValues(issue2.values, "|")}`;
+        if (issue3.values.length === 1)
+          return `\u054D\u056D\u0561\u056C \u0574\u0578\u0582\u057F\u0584\u0561\u0563\u0580\u0578\u0582\u0574\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567\u0580 ${stringifyPrimitive(issue3.values[1])}`;
+        return `\u054D\u056D\u0561\u056C \u057F\u0561\u0580\u0562\u0565\u0580\u0561\u056F\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567\u0580 \u0570\u0565\u057F\u0587\u0575\u0561\u056C\u0576\u0565\u0580\u056B\u0581 \u0574\u0565\u056F\u0568\u055D ${joinValues(issue3.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          const maxValue = Number(issue2.maximum);
+          const maxValue = Number(issue3.maximum);
           const unit = getArmenianPlural(maxValue, sizing.unit.one, sizing.unit.many);
-          return `\u0549\u0561\u0583\u0561\u0566\u0561\u0576\u0581 \u0574\u0565\u056E \u0561\u0580\u056A\u0565\u0584\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567, \u0578\u0580 ${withDefiniteArticle(issue2.origin ?? "\u0561\u0580\u056A\u0565\u0584")} \u056F\u0578\u0582\u0576\u0565\u0576\u0561 ${adj}${issue2.maximum.toString()} ${unit}`;
+          return `\u0549\u0561\u0583\u0561\u0566\u0561\u0576\u0581 \u0574\u0565\u056E \u0561\u0580\u056A\u0565\u0584\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567, \u0578\u0580 ${withDefiniteArticle(issue3.origin ?? "\u0561\u0580\u056A\u0565\u0584")} \u056F\u0578\u0582\u0576\u0565\u0576\u0561 ${adj}${issue3.maximum.toString()} ${unit}`;
         }
-        return `\u0549\u0561\u0583\u0561\u0566\u0561\u0576\u0581 \u0574\u0565\u056E \u0561\u0580\u056A\u0565\u0584\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567, \u0578\u0580 ${withDefiniteArticle(issue2.origin ?? "\u0561\u0580\u056A\u0565\u0584")} \u056C\u056B\u0576\u056B ${adj}${issue2.maximum.toString()}`;
+        return `\u0549\u0561\u0583\u0561\u0566\u0561\u0576\u0581 \u0574\u0565\u056E \u0561\u0580\u056A\u0565\u0584\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567, \u0578\u0580 ${withDefiniteArticle(issue3.origin ?? "\u0561\u0580\u056A\u0565\u0584")} \u056C\u056B\u0576\u056B ${adj}${issue3.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          const minValue = Number(issue2.minimum);
+          const minValue = Number(issue3.minimum);
           const unit = getArmenianPlural(minValue, sizing.unit.one, sizing.unit.many);
-          return `\u0549\u0561\u0583\u0561\u0566\u0561\u0576\u0581 \u0583\u0578\u0584\u0580 \u0561\u0580\u056A\u0565\u0584\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567, \u0578\u0580 ${withDefiniteArticle(issue2.origin)} \u056F\u0578\u0582\u0576\u0565\u0576\u0561 ${adj}${issue2.minimum.toString()} ${unit}`;
+          return `\u0549\u0561\u0583\u0561\u0566\u0561\u0576\u0581 \u0583\u0578\u0584\u0580 \u0561\u0580\u056A\u0565\u0584\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567, \u0578\u0580 ${withDefiniteArticle(issue3.origin)} \u056F\u0578\u0582\u0576\u0565\u0576\u0561 ${adj}${issue3.minimum.toString()} ${unit}`;
         }
-        return `\u0549\u0561\u0583\u0561\u0566\u0561\u0576\u0581 \u0583\u0578\u0584\u0580 \u0561\u0580\u056A\u0565\u0584\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567, \u0578\u0580 ${withDefiniteArticle(issue2.origin)} \u056C\u056B\u0576\u056B ${adj}${issue2.minimum.toString()}`;
+        return `\u0549\u0561\u0583\u0561\u0566\u0561\u0576\u0581 \u0583\u0578\u0584\u0580 \u0561\u0580\u056A\u0565\u0584\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567, \u0578\u0580 ${withDefiniteArticle(issue3.origin)} \u056C\u056B\u0576\u056B ${adj}${issue3.minimum.toString()}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with")
           return `\u054D\u056D\u0561\u056C \u057F\u0578\u0572\u2024 \u057A\u0565\u057F\u0584 \u0567 \u057D\u056F\u057D\u057E\u056B "${_issue.prefix}"-\u0578\u057E`;
         if (_issue.format === "ends_with")
@@ -25647,18 +25764,18 @@ var error18 = () => {
           return `\u054D\u056D\u0561\u056C \u057F\u0578\u0572\u2024 \u057A\u0565\u057F\u0584 \u0567 \u057A\u0561\u0580\u0578\u0582\u0576\u0561\u056F\u056B "${_issue.includes}"`;
         if (_issue.format === "regex")
           return `\u054D\u056D\u0561\u056C \u057F\u0578\u0572\u2024 \u057A\u0565\u057F\u0584 \u0567 \u0570\u0561\u0574\u0561\u057A\u0561\u057F\u0561\u057D\u056D\u0561\u0576\u056B ${_issue.pattern} \u0571\u0587\u0561\u0579\u0561\u0583\u056B\u0576`;
-        return `\u054D\u056D\u0561\u056C ${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `\u054D\u056D\u0561\u056C ${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `\u054D\u056D\u0561\u056C \u0569\u056B\u057E\u2024 \u057A\u0565\u057F\u0584 \u0567 \u0562\u0561\u0566\u0574\u0561\u057A\u0561\u057F\u056B\u056F \u056C\u056B\u0576\u056B ${issue2.divisor}-\u056B`;
+        return `\u054D\u056D\u0561\u056C \u0569\u056B\u057E\u2024 \u057A\u0565\u057F\u0584 \u0567 \u0562\u0561\u0566\u0574\u0561\u057A\u0561\u057F\u056B\u056F \u056C\u056B\u0576\u056B ${issue3.divisor}-\u056B`;
       case "unrecognized_keys":
-        return `\u0549\u0573\u0561\u0576\u0561\u0579\u057E\u0561\u056E \u0562\u0561\u0576\u0561\u056C\u056B${issue2.keys.length > 1 ? "\u0576\u0565\u0580" : ""}. ${joinValues(issue2.keys, ", ")}`;
+        return `\u0549\u0573\u0561\u0576\u0561\u0579\u057E\u0561\u056E \u0562\u0561\u0576\u0561\u056C\u056B${issue3.keys.length > 1 ? "\u0576\u0565\u0580" : ""}. ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `\u054D\u056D\u0561\u056C \u0562\u0561\u0576\u0561\u056C\u056B ${withDefiniteArticle(issue2.origin)}-\u0578\u0582\u0574`;
+        return `\u054D\u056D\u0561\u056C \u0562\u0561\u0576\u0561\u056C\u056B ${withDefiniteArticle(issue3.origin)}-\u0578\u0582\u0574`;
       case "invalid_union":
         return "\u054D\u056D\u0561\u056C \u0574\u0578\u0582\u057F\u0584\u0561\u0563\u0580\u0578\u0582\u0574";
       case "invalid_element":
-        return `\u054D\u056D\u0561\u056C \u0561\u0580\u056A\u0565\u0584 ${withDefiniteArticle(issue2.origin)}-\u0578\u0582\u0574`;
+        return `\u054D\u056D\u0561\u056C \u0561\u0580\u056A\u0565\u0584 ${withDefiniteArticle(issue3.origin)}-\u0578\u0582\u0574`;
       default:
         return `\u054D\u056D\u0561\u056C \u0574\u0578\u0582\u057F\u0584\u0561\u0563\u0580\u0578\u0582\u0574`;
     }
@@ -25714,38 +25831,38 @@ var error19 = () => {
   const TypeDictionary = {
     nan: "NaN"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `Input tidak valid: diharapkan instanceof ${issue2.expected}, diterima ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `Input tidak valid: diharapkan instanceof ${issue3.expected}, diterima ${received}`;
         }
         return `Input tidak valid: diharapkan ${expected}, diterima ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `Input tidak valid: diharapkan ${stringifyPrimitive(issue2.values[0])}`;
-        return `Pilihan tidak valid: diharapkan salah satu dari ${joinValues(issue2.values, "|")}`;
+        if (issue3.values.length === 1)
+          return `Input tidak valid: diharapkan ${stringifyPrimitive(issue3.values[0])}`;
+        return `Pilihan tidak valid: diharapkan salah satu dari ${joinValues(issue3.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing)
-          return `Terlalu besar: diharapkan ${issue2.origin ?? "value"} memiliki ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elemen"}`;
-        return `Terlalu besar: diharapkan ${issue2.origin ?? "value"} menjadi ${adj}${issue2.maximum.toString()}`;
+          return `Terlalu besar: diharapkan ${issue3.origin ?? "value"} memiliki ${adj}${issue3.maximum.toString()} ${sizing.unit ?? "elemen"}`;
+        return `Terlalu besar: diharapkan ${issue3.origin ?? "value"} menjadi ${adj}${issue3.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `Terlalu kecil: diharapkan ${issue2.origin} memiliki ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `Terlalu kecil: diharapkan ${issue3.origin} memiliki ${adj}${issue3.minimum.toString()} ${sizing.unit}`;
         }
-        return `Terlalu kecil: diharapkan ${issue2.origin} menjadi ${adj}${issue2.minimum.toString()}`;
+        return `Terlalu kecil: diharapkan ${issue3.origin} menjadi ${adj}${issue3.minimum.toString()}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with")
           return `String tidak valid: harus dimulai dengan "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
@@ -25754,18 +25871,18 @@ var error19 = () => {
           return `String tidak valid: harus menyertakan "${_issue.includes}"`;
         if (_issue.format === "regex")
           return `String tidak valid: harus sesuai pola ${_issue.pattern}`;
-        return `${FormatDictionary[_issue.format] ?? issue2.format} tidak valid`;
+        return `${FormatDictionary[_issue.format] ?? issue3.format} tidak valid`;
       }
       case "not_multiple_of":
-        return `Angka tidak valid: harus kelipatan dari ${issue2.divisor}`;
+        return `Angka tidak valid: harus kelipatan dari ${issue3.divisor}`;
       case "unrecognized_keys":
-        return `Kunci tidak dikenali ${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `Kunci tidak dikenali ${issue3.keys.length > 1 ? "s" : ""}: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `Kunci tidak valid di ${issue2.origin}`;
+        return `Kunci tidak valid di ${issue3.origin}`;
       case "invalid_union":
         return "Input tidak valid";
       case "invalid_element":
-        return `Nilai tidak valid di ${issue2.origin}`;
+        return `Nilai tidak valid di ${issue3.origin}`;
       default:
         return `Input tidak valid`;
     }
@@ -25823,38 +25940,38 @@ var error20 = () => {
     number: "n\xFAmer",
     array: "fylki"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `Rangt gildi: \xDE\xFA sl\xF3st inn ${received} \xFEar sem \xE1 a\xF0 vera instanceof ${issue2.expected}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `Rangt gildi: \xDE\xFA sl\xF3st inn ${received} \xFEar sem \xE1 a\xF0 vera instanceof ${issue3.expected}`;
         }
         return `Rangt gildi: \xDE\xFA sl\xF3st inn ${received} \xFEar sem \xE1 a\xF0 vera ${expected}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `Rangt gildi: gert r\xE1\xF0 fyrir ${stringifyPrimitive(issue2.values[0])}`;
-        return `\xD3gilt val: m\xE1 vera eitt af eftirfarandi ${joinValues(issue2.values, "|")}`;
+        if (issue3.values.length === 1)
+          return `Rangt gildi: gert r\xE1\xF0 fyrir ${stringifyPrimitive(issue3.values[0])}`;
+        return `\xD3gilt val: m\xE1 vera eitt af eftirfarandi ${joinValues(issue3.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing)
-          return `Of st\xF3rt: gert er r\xE1\xF0 fyrir a\xF0 ${issue2.origin ?? "gildi"} hafi ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "hluti"}`;
-        return `Of st\xF3rt: gert er r\xE1\xF0 fyrir a\xF0 ${issue2.origin ?? "gildi"} s\xE9 ${adj}${issue2.maximum.toString()}`;
+          return `Of st\xF3rt: gert er r\xE1\xF0 fyrir a\xF0 ${issue3.origin ?? "gildi"} hafi ${adj}${issue3.maximum.toString()} ${sizing.unit ?? "hluti"}`;
+        return `Of st\xF3rt: gert er r\xE1\xF0 fyrir a\xF0 ${issue3.origin ?? "gildi"} s\xE9 ${adj}${issue3.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `Of l\xEDti\xF0: gert er r\xE1\xF0 fyrir a\xF0 ${issue2.origin} hafi ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `Of l\xEDti\xF0: gert er r\xE1\xF0 fyrir a\xF0 ${issue3.origin} hafi ${adj}${issue3.minimum.toString()} ${sizing.unit}`;
         }
-        return `Of l\xEDti\xF0: gert er r\xE1\xF0 fyrir a\xF0 ${issue2.origin} s\xE9 ${adj}${issue2.minimum.toString()}`;
+        return `Of l\xEDti\xF0: gert er r\xE1\xF0 fyrir a\xF0 ${issue3.origin} s\xE9 ${adj}${issue3.minimum.toString()}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with") {
           return `\xD3gildur strengur: ver\xF0ur a\xF0 byrja \xE1 "${_issue.prefix}"`;
         }
@@ -25864,18 +25981,18 @@ var error20 = () => {
           return `\xD3gildur strengur: ver\xF0ur a\xF0 innihalda "${_issue.includes}"`;
         if (_issue.format === "regex")
           return `\xD3gildur strengur: ver\xF0ur a\xF0 fylgja mynstri ${_issue.pattern}`;
-        return `Rangt ${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `Rangt ${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `R\xF6ng tala: ver\xF0ur a\xF0 vera margfeldi af ${issue2.divisor}`;
+        return `R\xF6ng tala: ver\xF0ur a\xF0 vera margfeldi af ${issue3.divisor}`;
       case "unrecognized_keys":
-        return `\xD3\xFEekkt ${issue2.keys.length > 1 ? "ir lyklar" : "ur lykill"}: ${joinValues(issue2.keys, ", ")}`;
+        return `\xD3\xFEekkt ${issue3.keys.length > 1 ? "ir lyklar" : "ur lykill"}: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `Rangur lykill \xED ${issue2.origin}`;
+        return `Rangur lykill \xED ${issue3.origin}`;
       case "invalid_union":
         return "Rangt gildi";
       case "invalid_element":
-        return `Rangt gildi \xED ${issue2.origin}`;
+        return `Rangt gildi \xED ${issue3.origin}`;
       default:
         return `Rangt gildi`;
     }
@@ -25933,38 +26050,38 @@ var error21 = () => {
     number: "numero",
     array: "vettore"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `Input non valido: atteso instanceof ${issue2.expected}, ricevuto ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `Input non valido: atteso instanceof ${issue3.expected}, ricevuto ${received}`;
         }
         return `Input non valido: atteso ${expected}, ricevuto ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `Input non valido: atteso ${stringifyPrimitive(issue2.values[0])}`;
-        return `Opzione non valida: atteso uno tra ${joinValues(issue2.values, "|")}`;
+        if (issue3.values.length === 1)
+          return `Input non valido: atteso ${stringifyPrimitive(issue3.values[0])}`;
+        return `Opzione non valida: atteso uno tra ${joinValues(issue3.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing)
-          return `Troppo grande: ${issue2.origin ?? "valore"} deve avere ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementi"}`;
-        return `Troppo grande: ${issue2.origin ?? "valore"} deve essere ${adj}${issue2.maximum.toString()}`;
+          return `Troppo grande: ${issue3.origin ?? "valore"} deve avere ${adj}${issue3.maximum.toString()} ${sizing.unit ?? "elementi"}`;
+        return `Troppo grande: ${issue3.origin ?? "valore"} deve essere ${adj}${issue3.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `Troppo piccolo: ${issue2.origin} deve avere ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `Troppo piccolo: ${issue3.origin} deve avere ${adj}${issue3.minimum.toString()} ${sizing.unit}`;
         }
-        return `Troppo piccolo: ${issue2.origin} deve essere ${adj}${issue2.minimum.toString()}`;
+        return `Troppo piccolo: ${issue3.origin} deve essere ${adj}${issue3.minimum.toString()}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with")
           return `Stringa non valida: deve iniziare con "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
@@ -25973,18 +26090,18 @@ var error21 = () => {
           return `Stringa non valida: deve includere "${_issue.includes}"`;
         if (_issue.format === "regex")
           return `Stringa non valida: deve corrispondere al pattern ${_issue.pattern}`;
-        return `Invalid ${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `Invalid ${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `Numero non valido: deve essere un multiplo di ${issue2.divisor}`;
+        return `Numero non valido: deve essere un multiplo di ${issue3.divisor}`;
       case "unrecognized_keys":
-        return `Chiav${issue2.keys.length > 1 ? "i" : "e"} non riconosciut${issue2.keys.length > 1 ? "e" : "a"}: ${joinValues(issue2.keys, ", ")}`;
+        return `Chiav${issue3.keys.length > 1 ? "i" : "e"} non riconosciut${issue3.keys.length > 1 ? "e" : "a"}: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `Chiave non valida in ${issue2.origin}`;
+        return `Chiave non valida in ${issue3.origin}`;
       case "invalid_union":
         return "Input non valido";
       case "invalid_element":
-        return `Valore non valido in ${issue2.origin}`;
+        return `Valore non valido in ${issue3.origin}`;
       default:
         return `Input non valido`;
     }
@@ -26042,37 +26159,37 @@ var error22 = () => {
     number: "\u6570\u5024",
     array: "\u914D\u5217"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u7121\u52B9\u306A\u5165\u529B: instanceof ${issue2.expected}\u304C\u671F\u5F85\u3055\u308C\u307E\u3057\u305F\u304C\u3001${received}\u304C\u5165\u529B\u3055\u308C\u307E\u3057\u305F`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `\u7121\u52B9\u306A\u5165\u529B: instanceof ${issue3.expected}\u304C\u671F\u5F85\u3055\u308C\u307E\u3057\u305F\u304C\u3001${received}\u304C\u5165\u529B\u3055\u308C\u307E\u3057\u305F`;
         }
         return `\u7121\u52B9\u306A\u5165\u529B: ${expected}\u304C\u671F\u5F85\u3055\u308C\u307E\u3057\u305F\u304C\u3001${received}\u304C\u5165\u529B\u3055\u308C\u307E\u3057\u305F`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `\u7121\u52B9\u306A\u5165\u529B: ${stringifyPrimitive(issue2.values[0])}\u304C\u671F\u5F85\u3055\u308C\u307E\u3057\u305F`;
-        return `\u7121\u52B9\u306A\u9078\u629E: ${joinValues(issue2.values, "\u3001")}\u306E\u3044\u305A\u308C\u304B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+        if (issue3.values.length === 1)
+          return `\u7121\u52B9\u306A\u5165\u529B: ${stringifyPrimitive(issue3.values[0])}\u304C\u671F\u5F85\u3055\u308C\u307E\u3057\u305F`;
+        return `\u7121\u52B9\u306A\u9078\u629E: ${joinValues(issue3.values, "\u3001")}\u306E\u3044\u305A\u308C\u304B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
       case "too_big": {
-        const adj = issue2.inclusive ? "\u4EE5\u4E0B\u3067\u3042\u308B" : "\u3088\u308A\u5C0F\u3055\u3044";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "\u4EE5\u4E0B\u3067\u3042\u308B" : "\u3088\u308A\u5C0F\u3055\u3044";
+        const sizing = getSizing(issue3.origin);
         if (sizing)
-          return `\u5927\u304D\u3059\u304E\u308B\u5024: ${issue2.origin ?? "\u5024"}\u306F${issue2.maximum.toString()}${sizing.unit ?? "\u8981\u7D20"}${adj}\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
-        return `\u5927\u304D\u3059\u304E\u308B\u5024: ${issue2.origin ?? "\u5024"}\u306F${issue2.maximum.toString()}${adj}\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+          return `\u5927\u304D\u3059\u304E\u308B\u5024: ${issue3.origin ?? "\u5024"}\u306F${issue3.maximum.toString()}${sizing.unit ?? "\u8981\u7D20"}${adj}\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+        return `\u5927\u304D\u3059\u304E\u308B\u5024: ${issue3.origin ?? "\u5024"}\u306F${issue3.maximum.toString()}${adj}\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? "\u4EE5\u4E0A\u3067\u3042\u308B" : "\u3088\u308A\u5927\u304D\u3044";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "\u4EE5\u4E0A\u3067\u3042\u308B" : "\u3088\u308A\u5927\u304D\u3044";
+        const sizing = getSizing(issue3.origin);
         if (sizing)
-          return `\u5C0F\u3055\u3059\u304E\u308B\u5024: ${issue2.origin}\u306F${issue2.minimum.toString()}${sizing.unit}${adj}\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
-        return `\u5C0F\u3055\u3059\u304E\u308B\u5024: ${issue2.origin}\u306F${issue2.minimum.toString()}${adj}\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+          return `\u5C0F\u3055\u3059\u304E\u308B\u5024: ${issue3.origin}\u306F${issue3.minimum.toString()}${sizing.unit}${adj}\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+        return `\u5C0F\u3055\u3059\u304E\u308B\u5024: ${issue3.origin}\u306F${issue3.minimum.toString()}${adj}\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with")
           return `\u7121\u52B9\u306A\u6587\u5B57\u5217: "${_issue.prefix}"\u3067\u59CB\u307E\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
         if (_issue.format === "ends_with")
@@ -26081,18 +26198,18 @@ var error22 = () => {
           return `\u7121\u52B9\u306A\u6587\u5B57\u5217: "${_issue.includes}"\u3092\u542B\u3080\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
         if (_issue.format === "regex")
           return `\u7121\u52B9\u306A\u6587\u5B57\u5217: \u30D1\u30BF\u30FC\u30F3${_issue.pattern}\u306B\u4E00\u81F4\u3059\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
-        return `\u7121\u52B9\u306A${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `\u7121\u52B9\u306A${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `\u7121\u52B9\u306A\u6570\u5024: ${issue2.divisor}\u306E\u500D\u6570\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+        return `\u7121\u52B9\u306A\u6570\u5024: ${issue3.divisor}\u306E\u500D\u6570\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
       case "unrecognized_keys":
-        return `\u8A8D\u8B58\u3055\u308C\u3066\u3044\u306A\u3044\u30AD\u30FC${issue2.keys.length > 1 ? "\u7FA4" : ""}: ${joinValues(issue2.keys, "\u3001")}`;
+        return `\u8A8D\u8B58\u3055\u308C\u3066\u3044\u306A\u3044\u30AD\u30FC${issue3.keys.length > 1 ? "\u7FA4" : ""}: ${joinValues(issue3.keys, "\u3001")}`;
       case "invalid_key":
-        return `${issue2.origin}\u5185\u306E\u7121\u52B9\u306A\u30AD\u30FC`;
+        return `${issue3.origin}\u5185\u306E\u7121\u52B9\u306A\u30AD\u30FC`;
       case "invalid_union":
         return "\u7121\u52B9\u306A\u5165\u529B";
       case "invalid_element":
-        return `${issue2.origin}\u5185\u306E\u7121\u52B9\u306A\u5024`;
+        return `${issue3.origin}\u5185\u306E\u7121\u52B9\u306A\u5024`;
       default:
         return `\u7121\u52B9\u306A\u5165\u529B`;
     }
@@ -26153,38 +26270,38 @@ var error23 = () => {
     function: "\u10E4\u10E3\u10DC\u10E5\u10EA\u10D8\u10D0",
     array: "\u10DB\u10D0\u10E1\u10D8\u10D5\u10D8"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E8\u10D4\u10E7\u10D5\u10D0\u10DC\u10D0: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 instanceof ${issue2.expected}, \u10DB\u10D8\u10E6\u10D4\u10D1\u10E3\u10DA\u10D8 ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E8\u10D4\u10E7\u10D5\u10D0\u10DC\u10D0: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 instanceof ${issue3.expected}, \u10DB\u10D8\u10E6\u10D4\u10D1\u10E3\u10DA\u10D8 ${received}`;
         }
         return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E8\u10D4\u10E7\u10D5\u10D0\u10DC\u10D0: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 ${expected}, \u10DB\u10D8\u10E6\u10D4\u10D1\u10E3\u10DA\u10D8 ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E8\u10D4\u10E7\u10D5\u10D0\u10DC\u10D0: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10D5\u10D0\u10E0\u10D8\u10D0\u10DC\u10E2\u10D8: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8\u10D0 \u10D4\u10E0\u10D7-\u10D4\u10E0\u10D7\u10D8 ${joinValues(issue2.values, "|")}-\u10D3\u10D0\u10DC`;
+        if (issue3.values.length === 1)
+          return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E8\u10D4\u10E7\u10D5\u10D0\u10DC\u10D0: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 ${stringifyPrimitive(issue3.values[0])}`;
+        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10D5\u10D0\u10E0\u10D8\u10D0\u10DC\u10E2\u10D8: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8\u10D0 \u10D4\u10E0\u10D7-\u10D4\u10E0\u10D7\u10D8 ${joinValues(issue3.values, "|")}-\u10D3\u10D0\u10DC`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing)
-          return `\u10D6\u10D4\u10D3\u10DB\u10D4\u10E2\u10D0\u10D3 \u10D3\u10D8\u10D3\u10D8: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 ${issue2.origin ?? "\u10DB\u10DC\u10D8\u10E8\u10D5\u10DC\u10D4\u10DA\u10DD\u10D1\u10D0"} ${sizing.verb} ${adj}${issue2.maximum.toString()} ${sizing.unit}`;
-        return `\u10D6\u10D4\u10D3\u10DB\u10D4\u10E2\u10D0\u10D3 \u10D3\u10D8\u10D3\u10D8: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 ${issue2.origin ?? "\u10DB\u10DC\u10D8\u10E8\u10D5\u10DC\u10D4\u10DA\u10DD\u10D1\u10D0"} \u10D8\u10E7\u10DD\u10E1 ${adj}${issue2.maximum.toString()}`;
+          return `\u10D6\u10D4\u10D3\u10DB\u10D4\u10E2\u10D0\u10D3 \u10D3\u10D8\u10D3\u10D8: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 ${issue3.origin ?? "\u10DB\u10DC\u10D8\u10E8\u10D5\u10DC\u10D4\u10DA\u10DD\u10D1\u10D0"} ${sizing.verb} ${adj}${issue3.maximum.toString()} ${sizing.unit}`;
+        return `\u10D6\u10D4\u10D3\u10DB\u10D4\u10E2\u10D0\u10D3 \u10D3\u10D8\u10D3\u10D8: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 ${issue3.origin ?? "\u10DB\u10DC\u10D8\u10E8\u10D5\u10DC\u10D4\u10DA\u10DD\u10D1\u10D0"} \u10D8\u10E7\u10DD\u10E1 ${adj}${issue3.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `\u10D6\u10D4\u10D3\u10DB\u10D4\u10E2\u10D0\u10D3 \u10DE\u10D0\u10E2\u10D0\u10E0\u10D0: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 ${issue2.origin} ${sizing.verb} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `\u10D6\u10D4\u10D3\u10DB\u10D4\u10E2\u10D0\u10D3 \u10DE\u10D0\u10E2\u10D0\u10E0\u10D0: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 ${issue3.origin} ${sizing.verb} ${adj}${issue3.minimum.toString()} ${sizing.unit}`;
         }
-        return `\u10D6\u10D4\u10D3\u10DB\u10D4\u10E2\u10D0\u10D3 \u10DE\u10D0\u10E2\u10D0\u10E0\u10D0: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 ${issue2.origin} \u10D8\u10E7\u10DD\u10E1 ${adj}${issue2.minimum.toString()}`;
+        return `\u10D6\u10D4\u10D3\u10DB\u10D4\u10E2\u10D0\u10D3 \u10DE\u10D0\u10E2\u10D0\u10E0\u10D0: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 ${issue3.origin} \u10D8\u10E7\u10DD\u10E1 ${adj}${issue3.minimum.toString()}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with") {
           return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E1\u10E2\u10E0\u10D8\u10DC\u10D2\u10D8: \u10E3\u10DC\u10D3\u10D0 \u10D8\u10EC\u10E7\u10D4\u10D1\u10DD\u10D3\u10D4\u10E1 "${_issue.prefix}"-\u10D8\u10D7`;
         }
@@ -26194,18 +26311,18 @@ var error23 = () => {
           return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E1\u10E2\u10E0\u10D8\u10DC\u10D2\u10D8: \u10E3\u10DC\u10D3\u10D0 \u10E8\u10D4\u10D8\u10EA\u10D0\u10D5\u10D3\u10D4\u10E1 "${_issue.includes}"-\u10E1`;
         if (_issue.format === "regex")
           return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E1\u10E2\u10E0\u10D8\u10DC\u10D2\u10D8: \u10E3\u10DC\u10D3\u10D0 \u10E8\u10D4\u10D4\u10E1\u10D0\u10D1\u10D0\u10DB\u10D4\u10D1\u10DD\u10D3\u10D4\u10E1 \u10E8\u10D0\u10D1\u10DA\u10DD\u10DC\u10E1 ${_issue.pattern}`;
-        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 ${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 ${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E0\u10D8\u10EA\u10EE\u10D5\u10D8: \u10E3\u10DC\u10D3\u10D0 \u10D8\u10E7\u10DD\u10E1 ${issue2.divisor}-\u10D8\u10E1 \u10EF\u10D4\u10E0\u10D0\u10D3\u10D8`;
+        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E0\u10D8\u10EA\u10EE\u10D5\u10D8: \u10E3\u10DC\u10D3\u10D0 \u10D8\u10E7\u10DD\u10E1 ${issue3.divisor}-\u10D8\u10E1 \u10EF\u10D4\u10E0\u10D0\u10D3\u10D8`;
       case "unrecognized_keys":
-        return `\u10E3\u10EA\u10DC\u10DD\u10D1\u10D8 \u10D2\u10D0\u10E1\u10D0\u10E6\u10D4\u10D1${issue2.keys.length > 1 ? "\u10D4\u10D1\u10D8" : "\u10D8"}: ${joinValues(issue2.keys, ", ")}`;
+        return `\u10E3\u10EA\u10DC\u10DD\u10D1\u10D8 \u10D2\u10D0\u10E1\u10D0\u10E6\u10D4\u10D1${issue3.keys.length > 1 ? "\u10D4\u10D1\u10D8" : "\u10D8"}: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10D2\u10D0\u10E1\u10D0\u10E6\u10D4\u10D1\u10D8 ${issue2.origin}-\u10E8\u10D8`;
+        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10D2\u10D0\u10E1\u10D0\u10E6\u10D4\u10D1\u10D8 ${issue3.origin}-\u10E8\u10D8`;
       case "invalid_union":
         return "\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E8\u10D4\u10E7\u10D5\u10D0\u10DC\u10D0";
       case "invalid_element":
-        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10DB\u10DC\u10D8\u10E8\u10D5\u10DC\u10D4\u10DA\u10DD\u10D1\u10D0 ${issue2.origin}-\u10E8\u10D8`;
+        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10DB\u10DC\u10D8\u10E8\u10D5\u10DC\u10D4\u10DA\u10DD\u10D1\u10D0 ${issue3.origin}-\u10E8\u10D8`;
       default:
         return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E8\u10D4\u10E7\u10D5\u10D0\u10DC\u10D0`;
     }
@@ -26264,38 +26381,38 @@ var error24 = () => {
     array: "\u17A2\u17B6\u179A\u17C1 (Array)",
     null: "\u1782\u17D2\u1798\u17B6\u1793\u178F\u1798\u17D2\u179B\u17C3 (null)"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1794\u1789\u17D2\u1785\u17BC\u179B\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A instanceof ${issue2.expected} \u1794\u17C9\u17BB\u1793\u17D2\u178F\u17C2\u1791\u1791\u17BD\u179B\u1794\u17B6\u1793 ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1794\u1789\u17D2\u1785\u17BC\u179B\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A instanceof ${issue3.expected} \u1794\u17C9\u17BB\u1793\u17D2\u178F\u17C2\u1791\u1791\u17BD\u179B\u1794\u17B6\u1793 ${received}`;
         }
         return `\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1794\u1789\u17D2\u1785\u17BC\u179B\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A ${expected} \u1794\u17C9\u17BB\u1793\u17D2\u178F\u17C2\u1791\u1791\u17BD\u179B\u1794\u17B6\u1793 ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1794\u1789\u17D2\u1785\u17BC\u179B\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u1787\u1798\u17D2\u179A\u17BE\u179F\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1787\u17B6\u1798\u17BD\u1799\u1780\u17D2\u1793\u17BB\u1784\u1785\u17C6\u178E\u17C4\u1798 ${joinValues(issue2.values, "|")}`;
+        if (issue3.values.length === 1)
+          return `\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1794\u1789\u17D2\u1785\u17BC\u179B\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A ${stringifyPrimitive(issue3.values[0])}`;
+        return `\u1787\u1798\u17D2\u179A\u17BE\u179F\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1787\u17B6\u1798\u17BD\u1799\u1780\u17D2\u1793\u17BB\u1784\u1785\u17C6\u178E\u17C4\u1798 ${joinValues(issue3.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing)
-          return `\u1792\u17C6\u1796\u17C1\u1780\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A ${issue2.origin ?? "\u178F\u1798\u17D2\u179B\u17C3"} ${adj} ${issue2.maximum.toString()} ${sizing.unit ?? "\u1792\u17B6\u178F\u17BB"}`;
-        return `\u1792\u17C6\u1796\u17C1\u1780\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A ${issue2.origin ?? "\u178F\u1798\u17D2\u179B\u17C3"} ${adj} ${issue2.maximum.toString()}`;
+          return `\u1792\u17C6\u1796\u17C1\u1780\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A ${issue3.origin ?? "\u178F\u1798\u17D2\u179B\u17C3"} ${adj} ${issue3.maximum.toString()} ${sizing.unit ?? "\u1792\u17B6\u178F\u17BB"}`;
+        return `\u1792\u17C6\u1796\u17C1\u1780\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A ${issue3.origin ?? "\u178F\u1798\u17D2\u179B\u17C3"} ${adj} ${issue3.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `\u178F\u17BC\u1785\u1796\u17C1\u1780\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A ${issue2.origin} ${adj} ${issue2.minimum.toString()} ${sizing.unit}`;
+          return `\u178F\u17BC\u1785\u1796\u17C1\u1780\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A ${issue3.origin} ${adj} ${issue3.minimum.toString()} ${sizing.unit}`;
         }
-        return `\u178F\u17BC\u1785\u1796\u17C1\u1780\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A ${issue2.origin} ${adj} ${issue2.minimum.toString()}`;
+        return `\u178F\u17BC\u1785\u1796\u17C1\u1780\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A ${issue3.origin} ${adj} ${issue3.minimum.toString()}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with") {
           return `\u1781\u17D2\u179F\u17C2\u17A2\u1780\u17D2\u179F\u179A\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1785\u17B6\u1794\u17CB\u1795\u17D2\u178F\u17BE\u1798\u178A\u17C4\u1799 "${_issue.prefix}"`;
         }
@@ -26305,18 +26422,18 @@ var error24 = () => {
           return `\u1781\u17D2\u179F\u17C2\u17A2\u1780\u17D2\u179F\u179A\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1798\u17B6\u1793 "${_issue.includes}"`;
         if (_issue.format === "regex")
           return `\u1781\u17D2\u179F\u17C2\u17A2\u1780\u17D2\u179F\u179A\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u178F\u17C2\u1795\u17D2\u1782\u17BC\u1795\u17D2\u1782\u1784\u1793\u17B9\u1784\u1791\u1798\u17D2\u179A\u1784\u17CB\u178A\u17C2\u179B\u1794\u17B6\u1793\u1780\u17C6\u178E\u178F\u17CB ${_issue.pattern}`;
-        return `\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 ${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 ${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `\u179B\u17C1\u1781\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u178F\u17C2\u1787\u17B6\u1796\u17A0\u17BB\u1782\u17BB\u178E\u1793\u17C3 ${issue2.divisor}`;
+        return `\u179B\u17C1\u1781\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u178F\u17C2\u1787\u17B6\u1796\u17A0\u17BB\u1782\u17BB\u178E\u1793\u17C3 ${issue3.divisor}`;
       case "unrecognized_keys":
-        return `\u179A\u1780\u1783\u17BE\u1789\u179F\u17C4\u1798\u17B7\u1793\u179F\u17D2\u1782\u17B6\u179B\u17CB\u17D6 ${joinValues(issue2.keys, ", ")}`;
+        return `\u179A\u1780\u1783\u17BE\u1789\u179F\u17C4\u1798\u17B7\u1793\u179F\u17D2\u1782\u17B6\u179B\u17CB\u17D6 ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `\u179F\u17C4\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u1793\u17C5\u1780\u17D2\u1793\u17BB\u1784 ${issue2.origin}`;
+        return `\u179F\u17C4\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u1793\u17C5\u1780\u17D2\u1793\u17BB\u1784 ${issue3.origin}`;
       case "invalid_union":
         return `\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C`;
       case "invalid_element":
-        return `\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u1793\u17C5\u1780\u17D2\u1793\u17BB\u1784 ${issue2.origin}`;
+        return `\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u1793\u17C5\u1780\u17D2\u1793\u17BB\u1784 ${issue3.origin}`;
       default:
         return `\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C`;
     }
@@ -26377,42 +26494,42 @@ var error25 = () => {
   const TypeDictionary = {
     nan: "NaN"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `\uC798\uBABB\uB41C \uC785\uB825: \uC608\uC0C1 \uD0C0\uC785\uC740 instanceof ${issue2.expected}, \uBC1B\uC740 \uD0C0\uC785\uC740 ${received}\uC785\uB2C8\uB2E4`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `\uC798\uBABB\uB41C \uC785\uB825: \uC608\uC0C1 \uD0C0\uC785\uC740 instanceof ${issue3.expected}, \uBC1B\uC740 \uD0C0\uC785\uC740 ${received}\uC785\uB2C8\uB2E4`;
         }
         return `\uC798\uBABB\uB41C \uC785\uB825: \uC608\uC0C1 \uD0C0\uC785\uC740 ${expected}, \uBC1B\uC740 \uD0C0\uC785\uC740 ${received}\uC785\uB2C8\uB2E4`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `\uC798\uBABB\uB41C \uC785\uB825: \uAC12\uC740 ${stringifyPrimitive(issue2.values[0])} \uC774\uC5B4\uC57C \uD569\uB2C8\uB2E4`;
-        return `\uC798\uBABB\uB41C \uC635\uC158: ${joinValues(issue2.values, "\uB610\uB294 ")} \uC911 \uD558\uB098\uC5EC\uC57C \uD569\uB2C8\uB2E4`;
+        if (issue3.values.length === 1)
+          return `\uC798\uBABB\uB41C \uC785\uB825: \uAC12\uC740 ${stringifyPrimitive(issue3.values[0])} \uC774\uC5B4\uC57C \uD569\uB2C8\uB2E4`;
+        return `\uC798\uBABB\uB41C \uC635\uC158: ${joinValues(issue3.values, "\uB610\uB294 ")} \uC911 \uD558\uB098\uC5EC\uC57C \uD569\uB2C8\uB2E4`;
       case "too_big": {
-        const adj = issue2.inclusive ? "\uC774\uD558" : "\uBBF8\uB9CC";
+        const adj = issue3.inclusive ? "\uC774\uD558" : "\uBBF8\uB9CC";
         const suffix = adj === "\uBBF8\uB9CC" ? "\uC774\uC5B4\uC57C \uD569\uB2C8\uB2E4" : "\uC5EC\uC57C \uD569\uB2C8\uB2E4";
-        const sizing = getSizing(issue2.origin);
+        const sizing = getSizing(issue3.origin);
         const unit = sizing?.unit ?? "\uC694\uC18C";
         if (sizing)
-          return `${issue2.origin ?? "\uAC12"}\uC774 \uB108\uBB34 \uD07D\uB2C8\uB2E4: ${issue2.maximum.toString()}${unit} ${adj}${suffix}`;
-        return `${issue2.origin ?? "\uAC12"}\uC774 \uB108\uBB34 \uD07D\uB2C8\uB2E4: ${issue2.maximum.toString()} ${adj}${suffix}`;
+          return `${issue3.origin ?? "\uAC12"}\uC774 \uB108\uBB34 \uD07D\uB2C8\uB2E4: ${issue3.maximum.toString()}${unit} ${adj}${suffix}`;
+        return `${issue3.origin ?? "\uAC12"}\uC774 \uB108\uBB34 \uD07D\uB2C8\uB2E4: ${issue3.maximum.toString()} ${adj}${suffix}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? "\uC774\uC0C1" : "\uCD08\uACFC";
+        const adj = issue3.inclusive ? "\uC774\uC0C1" : "\uCD08\uACFC";
         const suffix = adj === "\uC774\uC0C1" ? "\uC774\uC5B4\uC57C \uD569\uB2C8\uB2E4" : "\uC5EC\uC57C \uD569\uB2C8\uB2E4";
-        const sizing = getSizing(issue2.origin);
+        const sizing = getSizing(issue3.origin);
         const unit = sizing?.unit ?? "\uC694\uC18C";
         if (sizing) {
-          return `${issue2.origin ?? "\uAC12"}\uC774 \uB108\uBB34 \uC791\uC2B5\uB2C8\uB2E4: ${issue2.minimum.toString()}${unit} ${adj}${suffix}`;
+          return `${issue3.origin ?? "\uAC12"}\uC774 \uB108\uBB34 \uC791\uC2B5\uB2C8\uB2E4: ${issue3.minimum.toString()}${unit} ${adj}${suffix}`;
         }
-        return `${issue2.origin ?? "\uAC12"}\uC774 \uB108\uBB34 \uC791\uC2B5\uB2C8\uB2E4: ${issue2.minimum.toString()} ${adj}${suffix}`;
+        return `${issue3.origin ?? "\uAC12"}\uC774 \uB108\uBB34 \uC791\uC2B5\uB2C8\uB2E4: ${issue3.minimum.toString()} ${adj}${suffix}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with") {
           return `\uC798\uBABB\uB41C \uBB38\uC790\uC5F4: "${_issue.prefix}"(\uC73C)\uB85C \uC2DC\uC791\uD574\uC57C \uD569\uB2C8\uB2E4`;
         }
@@ -26422,18 +26539,18 @@ var error25 = () => {
           return `\uC798\uBABB\uB41C \uBB38\uC790\uC5F4: "${_issue.includes}"\uC744(\uB97C) \uD3EC\uD568\uD574\uC57C \uD569\uB2C8\uB2E4`;
         if (_issue.format === "regex")
           return `\uC798\uBABB\uB41C \uBB38\uC790\uC5F4: \uC815\uADDC\uC2DD ${_issue.pattern} \uD328\uD134\uACFC \uC77C\uCE58\uD574\uC57C \uD569\uB2C8\uB2E4`;
-        return `\uC798\uBABB\uB41C ${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `\uC798\uBABB\uB41C ${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `\uC798\uBABB\uB41C \uC22B\uC790: ${issue2.divisor}\uC758 \uBC30\uC218\uC5EC\uC57C \uD569\uB2C8\uB2E4`;
+        return `\uC798\uBABB\uB41C \uC22B\uC790: ${issue3.divisor}\uC758 \uBC30\uC218\uC5EC\uC57C \uD569\uB2C8\uB2E4`;
       case "unrecognized_keys":
-        return `\uC778\uC2DD\uD560 \uC218 \uC5C6\uB294 \uD0A4: ${joinValues(issue2.keys, ", ")}`;
+        return `\uC778\uC2DD\uD560 \uC218 \uC5C6\uB294 \uD0A4: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `\uC798\uBABB\uB41C \uD0A4: ${issue2.origin}`;
+        return `\uC798\uBABB\uB41C \uD0A4: ${issue3.origin}`;
       case "invalid_union":
         return `\uC798\uBABB\uB41C \uC785\uB825`;
       case "invalid_element":
-        return `\uC798\uBABB\uB41C \uAC12: ${issue2.origin}`;
+        return `\uC798\uBABB\uB41C \uAC12: ${issue3.origin}`;
       default:
         return `\uC798\uBABB\uB41C \uC785\uB825`;
     }
@@ -26582,39 +26699,39 @@ var error26 = () => {
     object: "objektas",
     null: "nulin\u0117 reik\u0161m\u0117"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `Gautas tipas ${received}, o tik\u0117tasi - instanceof ${issue2.expected}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `Gautas tipas ${received}, o tik\u0117tasi - instanceof ${issue3.expected}`;
         }
         return `Gautas tipas ${received}, o tik\u0117tasi - ${expected}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `Privalo b\u016Bti ${stringifyPrimitive(issue2.values[0])}`;
-        return `Privalo b\u016Bti vienas i\u0161 ${joinValues(issue2.values, "|")} pasirinkim\u0173`;
+        if (issue3.values.length === 1)
+          return `Privalo b\u016Bti ${stringifyPrimitive(issue3.values[0])}`;
+        return `Privalo b\u016Bti vienas i\u0161 ${joinValues(issue3.values, "|")} pasirinkim\u0173`;
       case "too_big": {
-        const origin = TypeDictionary[issue2.origin] ?? issue2.origin;
-        const sizing = getSizing(issue2.origin, getUnitTypeFromNumber(Number(issue2.maximum)), issue2.inclusive ?? false, "smaller");
+        const origin = TypeDictionary[issue3.origin] ?? issue3.origin;
+        const sizing = getSizing(issue3.origin, getUnitTypeFromNumber(Number(issue3.maximum)), issue3.inclusive ?? false, "smaller");
         if (sizing?.verb)
-          return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reik\u0161m\u0117")} ${sizing.verb} ${issue2.maximum.toString()} ${sizing.unit ?? "element\u0173"}`;
-        const adj = issue2.inclusive ? "ne didesnis kaip" : "ma\u017Eesnis kaip";
-        return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reik\u0161m\u0117")} turi b\u016Bti ${adj} ${issue2.maximum.toString()} ${sizing?.unit}`;
+          return `${capitalizeFirstCharacter(origin ?? issue3.origin ?? "reik\u0161m\u0117")} ${sizing.verb} ${issue3.maximum.toString()} ${sizing.unit ?? "element\u0173"}`;
+        const adj = issue3.inclusive ? "ne didesnis kaip" : "ma\u017Eesnis kaip";
+        return `${capitalizeFirstCharacter(origin ?? issue3.origin ?? "reik\u0161m\u0117")} turi b\u016Bti ${adj} ${issue3.maximum.toString()} ${sizing?.unit}`;
       }
       case "too_small": {
-        const origin = TypeDictionary[issue2.origin] ?? issue2.origin;
-        const sizing = getSizing(issue2.origin, getUnitTypeFromNumber(Number(issue2.minimum)), issue2.inclusive ?? false, "bigger");
+        const origin = TypeDictionary[issue3.origin] ?? issue3.origin;
+        const sizing = getSizing(issue3.origin, getUnitTypeFromNumber(Number(issue3.minimum)), issue3.inclusive ?? false, "bigger");
         if (sizing?.verb)
-          return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reik\u0161m\u0117")} ${sizing.verb} ${issue2.minimum.toString()} ${sizing.unit ?? "element\u0173"}`;
-        const adj = issue2.inclusive ? "ne ma\u017Eesnis kaip" : "didesnis kaip";
-        return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reik\u0161m\u0117")} turi b\u016Bti ${adj} ${issue2.minimum.toString()} ${sizing?.unit}`;
+          return `${capitalizeFirstCharacter(origin ?? issue3.origin ?? "reik\u0161m\u0117")} ${sizing.verb} ${issue3.minimum.toString()} ${sizing.unit ?? "element\u0173"}`;
+        const adj = issue3.inclusive ? "ne ma\u017Eesnis kaip" : "didesnis kaip";
+        return `${capitalizeFirstCharacter(origin ?? issue3.origin ?? "reik\u0161m\u0117")} turi b\u016Bti ${adj} ${issue3.minimum.toString()} ${sizing?.unit}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with") {
           return `Eilut\u0117 privalo prasid\u0117ti "${_issue.prefix}"`;
         }
@@ -26624,19 +26741,19 @@ var error26 = () => {
           return `Eilut\u0117 privalo \u012Ftraukti "${_issue.includes}"`;
         if (_issue.format === "regex")
           return `Eilut\u0117 privalo atitikti ${_issue.pattern}`;
-        return `Neteisingas ${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `Neteisingas ${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `Skai\u010Dius privalo b\u016Bti ${issue2.divisor} kartotinis.`;
+        return `Skai\u010Dius privalo b\u016Bti ${issue3.divisor} kartotinis.`;
       case "unrecognized_keys":
-        return `Neatpa\u017Eint${issue2.keys.length > 1 ? "i" : "as"} rakt${issue2.keys.length > 1 ? "ai" : "as"}: ${joinValues(issue2.keys, ", ")}`;
+        return `Neatpa\u017Eint${issue3.keys.length > 1 ? "i" : "as"} rakt${issue3.keys.length > 1 ? "ai" : "as"}: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
         return "Rastas klaidingas raktas";
       case "invalid_union":
         return "Klaidinga \u012Fvestis";
       case "invalid_element": {
-        const origin = TypeDictionary[issue2.origin] ?? issue2.origin;
-        return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reik\u0161m\u0117")} turi klaiding\u0105 \u012Fvest\u012F`;
+        const origin = TypeDictionary[issue3.origin] ?? issue3.origin;
+        return `${capitalizeFirstCharacter(origin ?? issue3.origin ?? "reik\u0161m\u0117")} turi klaiding\u0105 \u012Fvest\u012F`;
       }
       default:
         return "Klaidinga \u012Fvestis";
@@ -26695,38 +26812,38 @@ var error27 = () => {
     number: "\u0431\u0440\u043E\u0458",
     array: "\u043D\u0438\u0437\u0430"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u0413\u0440\u0435\u0448\u0435\u043D \u0432\u043D\u0435\u0441: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 instanceof ${issue2.expected}, \u043F\u0440\u0438\u043C\u0435\u043D\u043E ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `\u0413\u0440\u0435\u0448\u0435\u043D \u0432\u043D\u0435\u0441: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 instanceof ${issue3.expected}, \u043F\u0440\u0438\u043C\u0435\u043D\u043E ${received}`;
         }
         return `\u0413\u0440\u0435\u0448\u0435\u043D \u0432\u043D\u0435\u0441: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 ${expected}, \u043F\u0440\u0438\u043C\u0435\u043D\u043E ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `Invalid input: expected ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u0413\u0440\u0435\u0448\u0430\u043D\u0430 \u043E\u043F\u0446\u0438\u0458\u0430: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 \u0435\u0434\u043D\u0430 ${joinValues(issue2.values, "|")}`;
+        if (issue3.values.length === 1)
+          return `Invalid input: expected ${stringifyPrimitive(issue3.values[0])}`;
+        return `\u0413\u0440\u0435\u0448\u0430\u043D\u0430 \u043E\u043F\u0446\u0438\u0458\u0430: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 \u0435\u0434\u043D\u0430 ${joinValues(issue3.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing)
-          return `\u041F\u0440\u0435\u043C\u043D\u043E\u0433\u0443 \u0433\u043E\u043B\u0435\u043C: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 ${issue2.origin ?? "\u0432\u0440\u0435\u0434\u043D\u043E\u0441\u0442\u0430"} \u0434\u0430 \u0438\u043C\u0430 ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0438"}`;
-        return `\u041F\u0440\u0435\u043C\u043D\u043E\u0433\u0443 \u0433\u043E\u043B\u0435\u043C: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 ${issue2.origin ?? "\u0432\u0440\u0435\u0434\u043D\u043E\u0441\u0442\u0430"} \u0434\u0430 \u0431\u0438\u0434\u0435 ${adj}${issue2.maximum.toString()}`;
+          return `\u041F\u0440\u0435\u043C\u043D\u043E\u0433\u0443 \u0433\u043E\u043B\u0435\u043C: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 ${issue3.origin ?? "\u0432\u0440\u0435\u0434\u043D\u043E\u0441\u0442\u0430"} \u0434\u0430 \u0438\u043C\u0430 ${adj}${issue3.maximum.toString()} ${sizing.unit ?? "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0438"}`;
+        return `\u041F\u0440\u0435\u043C\u043D\u043E\u0433\u0443 \u0433\u043E\u043B\u0435\u043C: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 ${issue3.origin ?? "\u0432\u0440\u0435\u0434\u043D\u043E\u0441\u0442\u0430"} \u0434\u0430 \u0431\u0438\u0434\u0435 ${adj}${issue3.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `\u041F\u0440\u0435\u043C\u043D\u043E\u0433\u0443 \u043C\u0430\u043B: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 ${issue2.origin} \u0434\u0430 \u0438\u043C\u0430 ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `\u041F\u0440\u0435\u043C\u043D\u043E\u0433\u0443 \u043C\u0430\u043B: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 ${issue3.origin} \u0434\u0430 \u0438\u043C\u0430 ${adj}${issue3.minimum.toString()} ${sizing.unit}`;
         }
-        return `\u041F\u0440\u0435\u043C\u043D\u043E\u0433\u0443 \u043C\u0430\u043B: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 ${issue2.origin} \u0434\u0430 \u0431\u0438\u0434\u0435 ${adj}${issue2.minimum.toString()}`;
+        return `\u041F\u0440\u0435\u043C\u043D\u043E\u0433\u0443 \u043C\u0430\u043B: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 ${issue3.origin} \u0434\u0430 \u0431\u0438\u0434\u0435 ${adj}${issue3.minimum.toString()}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with") {
           return `\u041D\u0435\u0432\u0430\u0436\u0435\u0447\u043A\u0430 \u043D\u0438\u0437\u0430: \u043C\u043E\u0440\u0430 \u0434\u0430 \u0437\u0430\u043F\u043E\u0447\u043D\u0443\u0432\u0430 \u0441\u043E "${_issue.prefix}"`;
         }
@@ -26736,18 +26853,18 @@ var error27 = () => {
           return `\u041D\u0435\u0432\u0430\u0436\u0435\u0447\u043A\u0430 \u043D\u0438\u0437\u0430: \u043C\u043E\u0440\u0430 \u0434\u0430 \u0432\u043A\u043B\u0443\u0447\u0443\u0432\u0430 "${_issue.includes}"`;
         if (_issue.format === "regex")
           return `\u041D\u0435\u0432\u0430\u0436\u0435\u0447\u043A\u0430 \u043D\u0438\u0437\u0430: \u043C\u043E\u0440\u0430 \u0434\u0430 \u043E\u0434\u0433\u043E\u0430\u0440\u0430 \u043D\u0430 \u043F\u0430\u0442\u0435\u0440\u043D\u043E\u0442 ${_issue.pattern}`;
-        return `Invalid ${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `Invalid ${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `\u0413\u0440\u0435\u0448\u0435\u043D \u0431\u0440\u043E\u0458: \u043C\u043E\u0440\u0430 \u0434\u0430 \u0431\u0438\u0434\u0435 \u0434\u0435\u043B\u0438\u0432 \u0441\u043E ${issue2.divisor}`;
+        return `\u0413\u0440\u0435\u0448\u0435\u043D \u0431\u0440\u043E\u0458: \u043C\u043E\u0440\u0430 \u0434\u0430 \u0431\u0438\u0434\u0435 \u0434\u0435\u043B\u0438\u0432 \u0441\u043E ${issue3.divisor}`;
       case "unrecognized_keys":
-        return `${issue2.keys.length > 1 ? "\u041D\u0435\u043F\u0440\u0435\u043F\u043E\u0437\u043D\u0430\u0435\u043D\u0438 \u043A\u043B\u0443\u0447\u0435\u0432\u0438" : "\u041D\u0435\u043F\u0440\u0435\u043F\u043E\u0437\u043D\u0430\u0435\u043D \u043A\u043B\u0443\u0447"}: ${joinValues(issue2.keys, ", ")}`;
+        return `${issue3.keys.length > 1 ? "\u041D\u0435\u043F\u0440\u0435\u043F\u043E\u0437\u043D\u0430\u0435\u043D\u0438 \u043A\u043B\u0443\u0447\u0435\u0432\u0438" : "\u041D\u0435\u043F\u0440\u0435\u043F\u043E\u0437\u043D\u0430\u0435\u043D \u043A\u043B\u0443\u0447"}: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `\u0413\u0440\u0435\u0448\u0435\u043D \u043A\u043B\u0443\u0447 \u0432\u043E ${issue2.origin}`;
+        return `\u0413\u0440\u0435\u0448\u0435\u043D \u043A\u043B\u0443\u0447 \u0432\u043E ${issue3.origin}`;
       case "invalid_union":
         return "\u0413\u0440\u0435\u0448\u0435\u043D \u0432\u043D\u0435\u0441";
       case "invalid_element":
-        return `\u0413\u0440\u0435\u0448\u043D\u0430 \u0432\u0440\u0435\u0434\u043D\u043E\u0441\u0442 \u0432\u043E ${issue2.origin}`;
+        return `\u0413\u0440\u0435\u0448\u043D\u0430 \u0432\u0440\u0435\u0434\u043D\u043E\u0441\u0442 \u0432\u043E ${issue3.origin}`;
       default:
         return `\u0413\u0440\u0435\u0448\u0435\u043D \u0432\u043D\u0435\u0441`;
     }
@@ -26804,38 +26921,38 @@ var error28 = () => {
     nan: "NaN",
     number: "nombor"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `Input tidak sah: dijangka instanceof ${issue2.expected}, diterima ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `Input tidak sah: dijangka instanceof ${issue3.expected}, diterima ${received}`;
         }
         return `Input tidak sah: dijangka ${expected}, diterima ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `Input tidak sah: dijangka ${stringifyPrimitive(issue2.values[0])}`;
-        return `Pilihan tidak sah: dijangka salah satu daripada ${joinValues(issue2.values, "|")}`;
+        if (issue3.values.length === 1)
+          return `Input tidak sah: dijangka ${stringifyPrimitive(issue3.values[0])}`;
+        return `Pilihan tidak sah: dijangka salah satu daripada ${joinValues(issue3.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing)
-          return `Terlalu besar: dijangka ${issue2.origin ?? "nilai"} ${sizing.verb} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elemen"}`;
-        return `Terlalu besar: dijangka ${issue2.origin ?? "nilai"} adalah ${adj}${issue2.maximum.toString()}`;
+          return `Terlalu besar: dijangka ${issue3.origin ?? "nilai"} ${sizing.verb} ${adj}${issue3.maximum.toString()} ${sizing.unit ?? "elemen"}`;
+        return `Terlalu besar: dijangka ${issue3.origin ?? "nilai"} adalah ${adj}${issue3.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `Terlalu kecil: dijangka ${issue2.origin} ${sizing.verb} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `Terlalu kecil: dijangka ${issue3.origin} ${sizing.verb} ${adj}${issue3.minimum.toString()} ${sizing.unit}`;
         }
-        return `Terlalu kecil: dijangka ${issue2.origin} adalah ${adj}${issue2.minimum.toString()}`;
+        return `Terlalu kecil: dijangka ${issue3.origin} adalah ${adj}${issue3.minimum.toString()}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with")
           return `String tidak sah: mesti bermula dengan "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
@@ -26844,18 +26961,18 @@ var error28 = () => {
           return `String tidak sah: mesti mengandungi "${_issue.includes}"`;
         if (_issue.format === "regex")
           return `String tidak sah: mesti sepadan dengan corak ${_issue.pattern}`;
-        return `${FormatDictionary[_issue.format] ?? issue2.format} tidak sah`;
+        return `${FormatDictionary[_issue.format] ?? issue3.format} tidak sah`;
       }
       case "not_multiple_of":
-        return `Nombor tidak sah: perlu gandaan ${issue2.divisor}`;
+        return `Nombor tidak sah: perlu gandaan ${issue3.divisor}`;
       case "unrecognized_keys":
-        return `Kunci tidak dikenali: ${joinValues(issue2.keys, ", ")}`;
+        return `Kunci tidak dikenali: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `Kunci tidak sah dalam ${issue2.origin}`;
+        return `Kunci tidak sah dalam ${issue3.origin}`;
       case "invalid_union":
         return "Input tidak sah";
       case "invalid_element":
-        return `Nilai tidak sah dalam ${issue2.origin}`;
+        return `Nilai tidak sah dalam ${issue3.origin}`;
       default:
         return `Input tidak sah`;
     }
@@ -26912,40 +27029,40 @@ var error29 = () => {
     nan: "NaN",
     number: "getal"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `Ongeldige invoer: verwacht instanceof ${issue2.expected}, ontving ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `Ongeldige invoer: verwacht instanceof ${issue3.expected}, ontving ${received}`;
         }
         return `Ongeldige invoer: verwacht ${expected}, ontving ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `Ongeldige invoer: verwacht ${stringifyPrimitive(issue2.values[0])}`;
-        return `Ongeldige optie: verwacht \xE9\xE9n van ${joinValues(issue2.values, "|")}`;
+        if (issue3.values.length === 1)
+          return `Ongeldige invoer: verwacht ${stringifyPrimitive(issue3.values[0])}`;
+        return `Ongeldige optie: verwacht \xE9\xE9n van ${joinValues(issue3.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
-        const longName = issue2.origin === "date" ? "laat" : issue2.origin === "string" ? "lang" : "groot";
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
+        const longName = issue3.origin === "date" ? "laat" : issue3.origin === "string" ? "lang" : "groot";
         if (sizing)
-          return `Te ${longName}: verwacht dat ${issue2.origin ?? "waarde"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementen"} ${sizing.verb}`;
-        return `Te ${longName}: verwacht dat ${issue2.origin ?? "waarde"} ${adj}${issue2.maximum.toString()} is`;
+          return `Te ${longName}: verwacht dat ${issue3.origin ?? "waarde"} ${adj}${issue3.maximum.toString()} ${sizing.unit ?? "elementen"} ${sizing.verb}`;
+        return `Te ${longName}: verwacht dat ${issue3.origin ?? "waarde"} ${adj}${issue3.maximum.toString()} is`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
-        const shortName = issue2.origin === "date" ? "vroeg" : issue2.origin === "string" ? "kort" : "klein";
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
+        const shortName = issue3.origin === "date" ? "vroeg" : issue3.origin === "string" ? "kort" : "klein";
         if (sizing) {
-          return `Te ${shortName}: verwacht dat ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit} ${sizing.verb}`;
+          return `Te ${shortName}: verwacht dat ${issue3.origin} ${adj}${issue3.minimum.toString()} ${sizing.unit} ${sizing.verb}`;
         }
-        return `Te ${shortName}: verwacht dat ${issue2.origin} ${adj}${issue2.minimum.toString()} is`;
+        return `Te ${shortName}: verwacht dat ${issue3.origin} ${adj}${issue3.minimum.toString()} is`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with") {
           return `Ongeldige tekst: moet met "${_issue.prefix}" beginnen`;
         }
@@ -26955,18 +27072,18 @@ var error29 = () => {
           return `Ongeldige tekst: moet "${_issue.includes}" bevatten`;
         if (_issue.format === "regex")
           return `Ongeldige tekst: moet overeenkomen met patroon ${_issue.pattern}`;
-        return `Ongeldig: ${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `Ongeldig: ${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `Ongeldig getal: moet een veelvoud van ${issue2.divisor} zijn`;
+        return `Ongeldig getal: moet een veelvoud van ${issue3.divisor} zijn`;
       case "unrecognized_keys":
-        return `Onbekende key${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `Onbekende key${issue3.keys.length > 1 ? "s" : ""}: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `Ongeldige key in ${issue2.origin}`;
+        return `Ongeldige key in ${issue3.origin}`;
       case "invalid_union":
         return "Ongeldige invoer";
       case "invalid_element":
-        return `Ongeldige waarde in ${issue2.origin}`;
+        return `Ongeldige waarde in ${issue3.origin}`;
       default:
         return `Ongeldige invoer`;
     }
@@ -27024,38 +27141,38 @@ var error30 = () => {
     number: "tall",
     array: "liste"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `Ugyldig input: forventet instanceof ${issue2.expected}, fikk ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `Ugyldig input: forventet instanceof ${issue3.expected}, fikk ${received}`;
         }
         return `Ugyldig input: forventet ${expected}, fikk ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `Ugyldig verdi: forventet ${stringifyPrimitive(issue2.values[0])}`;
-        return `Ugyldig valg: forventet en av ${joinValues(issue2.values, "|")}`;
+        if (issue3.values.length === 1)
+          return `Ugyldig verdi: forventet ${stringifyPrimitive(issue3.values[0])}`;
+        return `Ugyldig valg: forventet en av ${joinValues(issue3.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing)
-          return `For stor(t): forventet ${issue2.origin ?? "value"} til \xE5 ha ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementer"}`;
-        return `For stor(t): forventet ${issue2.origin ?? "value"} til \xE5 ha ${adj}${issue2.maximum.toString()}`;
+          return `For stor(t): forventet ${issue3.origin ?? "value"} til \xE5 ha ${adj}${issue3.maximum.toString()} ${sizing.unit ?? "elementer"}`;
+        return `For stor(t): forventet ${issue3.origin ?? "value"} til \xE5 ha ${adj}${issue3.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `For lite(n): forventet ${issue2.origin} til \xE5 ha ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `For lite(n): forventet ${issue3.origin} til \xE5 ha ${adj}${issue3.minimum.toString()} ${sizing.unit}`;
         }
-        return `For lite(n): forventet ${issue2.origin} til \xE5 ha ${adj}${issue2.minimum.toString()}`;
+        return `For lite(n): forventet ${issue3.origin} til \xE5 ha ${adj}${issue3.minimum.toString()}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with")
           return `Ugyldig streng: m\xE5 starte med "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
@@ -27064,18 +27181,18 @@ var error30 = () => {
           return `Ugyldig streng: m\xE5 inneholde "${_issue.includes}"`;
         if (_issue.format === "regex")
           return `Ugyldig streng: m\xE5 matche m\xF8nsteret ${_issue.pattern}`;
-        return `Ugyldig ${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `Ugyldig ${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `Ugyldig tall: m\xE5 v\xE6re et multiplum av ${issue2.divisor}`;
+        return `Ugyldig tall: m\xE5 v\xE6re et multiplum av ${issue3.divisor}`;
       case "unrecognized_keys":
-        return `${issue2.keys.length > 1 ? "Ukjente n\xF8kler" : "Ukjent n\xF8kkel"}: ${joinValues(issue2.keys, ", ")}`;
+        return `${issue3.keys.length > 1 ? "Ukjente n\xF8kler" : "Ukjent n\xF8kkel"}: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `Ugyldig n\xF8kkel i ${issue2.origin}`;
+        return `Ugyldig n\xF8kkel i ${issue3.origin}`;
       case "invalid_union":
         return "Ugyldig input";
       case "invalid_element":
-        return `Ugyldig verdi i ${issue2.origin}`;
+        return `Ugyldig verdi i ${issue3.origin}`;
       default:
         return `Ugyldig input`;
     }
@@ -27134,38 +27251,38 @@ var error31 = () => {
     array: "saf",
     null: "gayb"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `F\xE2sit giren: umulan instanceof ${issue2.expected}, al\u0131nan ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `F\xE2sit giren: umulan instanceof ${issue3.expected}, al\u0131nan ${received}`;
         }
         return `F\xE2sit giren: umulan ${expected}, al\u0131nan ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `F\xE2sit giren: umulan ${stringifyPrimitive(issue2.values[0])}`;
-        return `F\xE2sit tercih: m\xFBteberler ${joinValues(issue2.values, "|")}`;
+        if (issue3.values.length === 1)
+          return `F\xE2sit giren: umulan ${stringifyPrimitive(issue3.values[0])}`;
+        return `F\xE2sit tercih: m\xFBteberler ${joinValues(issue3.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing)
-          return `Fazla b\xFCy\xFCk: ${issue2.origin ?? "value"}, ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elements"} sahip olmal\u0131yd\u0131.`;
-        return `Fazla b\xFCy\xFCk: ${issue2.origin ?? "value"}, ${adj}${issue2.maximum.toString()} olmal\u0131yd\u0131.`;
+          return `Fazla b\xFCy\xFCk: ${issue3.origin ?? "value"}, ${adj}${issue3.maximum.toString()} ${sizing.unit ?? "elements"} sahip olmal\u0131yd\u0131.`;
+        return `Fazla b\xFCy\xFCk: ${issue3.origin ?? "value"}, ${adj}${issue3.maximum.toString()} olmal\u0131yd\u0131.`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `Fazla k\xFC\xE7\xFCk: ${issue2.origin}, ${adj}${issue2.minimum.toString()} ${sizing.unit} sahip olmal\u0131yd\u0131.`;
+          return `Fazla k\xFC\xE7\xFCk: ${issue3.origin}, ${adj}${issue3.minimum.toString()} ${sizing.unit} sahip olmal\u0131yd\u0131.`;
         }
-        return `Fazla k\xFC\xE7\xFCk: ${issue2.origin}, ${adj}${issue2.minimum.toString()} olmal\u0131yd\u0131.`;
+        return `Fazla k\xFC\xE7\xFCk: ${issue3.origin}, ${adj}${issue3.minimum.toString()} olmal\u0131yd\u0131.`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with")
           return `F\xE2sit metin: "${_issue.prefix}" ile ba\u015Flamal\u0131.`;
         if (_issue.format === "ends_with")
@@ -27174,18 +27291,18 @@ var error31 = () => {
           return `F\xE2sit metin: "${_issue.includes}" ihtiv\xE2 etmeli.`;
         if (_issue.format === "regex")
           return `F\xE2sit metin: ${_issue.pattern} nak\u015F\u0131na uymal\u0131.`;
-        return `F\xE2sit ${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `F\xE2sit ${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `F\xE2sit say\u0131: ${issue2.divisor} kat\u0131 olmal\u0131yd\u0131.`;
+        return `F\xE2sit say\u0131: ${issue3.divisor} kat\u0131 olmal\u0131yd\u0131.`;
       case "unrecognized_keys":
-        return `Tan\u0131nmayan anahtar ${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `Tan\u0131nmayan anahtar ${issue3.keys.length > 1 ? "s" : ""}: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `${issue2.origin} i\xE7in tan\u0131nmayan anahtar var.`;
+        return `${issue3.origin} i\xE7in tan\u0131nmayan anahtar var.`;
       case "invalid_union":
         return "Giren tan\u0131namad\u0131.";
       case "invalid_element":
-        return `${issue2.origin} i\xE7in tan\u0131nmayan k\u0131ymet var.`;
+        return `${issue3.origin} i\xE7in tan\u0131nmayan k\u0131ymet var.`;
       default:
         return `K\u0131ymet tan\u0131namad\u0131.`;
     }
@@ -27243,40 +27360,40 @@ var error32 = () => {
     number: "\u0639\u062F\u062F",
     array: "\u0627\u0631\u06D0"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u0646\u0627\u0633\u0645 \u0648\u0631\u0648\u062F\u064A: \u0628\u0627\u06CC\u062F instanceof ${issue2.expected} \u0648\u0627\u06CC, \u0645\u06AB\u0631 ${received} \u062A\u0631\u0644\u0627\u0633\u0647 \u0634\u0648`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `\u0646\u0627\u0633\u0645 \u0648\u0631\u0648\u062F\u064A: \u0628\u0627\u06CC\u062F instanceof ${issue3.expected} \u0648\u0627\u06CC, \u0645\u06AB\u0631 ${received} \u062A\u0631\u0644\u0627\u0633\u0647 \u0634\u0648`;
         }
         return `\u0646\u0627\u0633\u0645 \u0648\u0631\u0648\u062F\u064A: \u0628\u0627\u06CC\u062F ${expected} \u0648\u0627\u06CC, \u0645\u06AB\u0631 ${received} \u062A\u0631\u0644\u0627\u0633\u0647 \u0634\u0648`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1) {
-          return `\u0646\u0627\u0633\u0645 \u0648\u0631\u0648\u062F\u064A: \u0628\u0627\u06CC\u062F ${stringifyPrimitive(issue2.values[0])} \u0648\u0627\u06CC`;
+        if (issue3.values.length === 1) {
+          return `\u0646\u0627\u0633\u0645 \u0648\u0631\u0648\u062F\u064A: \u0628\u0627\u06CC\u062F ${stringifyPrimitive(issue3.values[0])} \u0648\u0627\u06CC`;
         }
-        return `\u0646\u0627\u0633\u0645 \u0627\u0646\u062A\u062E\u0627\u0628: \u0628\u0627\u06CC\u062F \u06CC\u0648 \u0644\u0647 ${joinValues(issue2.values, "|")} \u0685\u062E\u0647 \u0648\u0627\u06CC`;
+        return `\u0646\u0627\u0633\u0645 \u0627\u0646\u062A\u062E\u0627\u0628: \u0628\u0627\u06CC\u062F \u06CC\u0648 \u0644\u0647 ${joinValues(issue3.values, "|")} \u0685\u062E\u0647 \u0648\u0627\u06CC`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `\u0689\u06CC\u0631 \u0644\u0648\u06CC: ${issue2.origin ?? "\u0627\u0631\u0632\u069A\u062A"} \u0628\u0627\u06CC\u062F ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u0639\u0646\u0635\u0631\u0648\u0646\u0647"} \u0648\u0644\u0631\u064A`;
+          return `\u0689\u06CC\u0631 \u0644\u0648\u06CC: ${issue3.origin ?? "\u0627\u0631\u0632\u069A\u062A"} \u0628\u0627\u06CC\u062F ${adj}${issue3.maximum.toString()} ${sizing.unit ?? "\u0639\u0646\u0635\u0631\u0648\u0646\u0647"} \u0648\u0644\u0631\u064A`;
         }
-        return `\u0689\u06CC\u0631 \u0644\u0648\u06CC: ${issue2.origin ?? "\u0627\u0631\u0632\u069A\u062A"} \u0628\u0627\u06CC\u062F ${adj}${issue2.maximum.toString()} \u0648\u064A`;
+        return `\u0689\u06CC\u0631 \u0644\u0648\u06CC: ${issue3.origin ?? "\u0627\u0631\u0632\u069A\u062A"} \u0628\u0627\u06CC\u062F ${adj}${issue3.maximum.toString()} \u0648\u064A`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `\u0689\u06CC\u0631 \u06A9\u0648\u0686\u0646\u06CC: ${issue2.origin} \u0628\u0627\u06CC\u062F ${adj}${issue2.minimum.toString()} ${sizing.unit} \u0648\u0644\u0631\u064A`;
+          return `\u0689\u06CC\u0631 \u06A9\u0648\u0686\u0646\u06CC: ${issue3.origin} \u0628\u0627\u06CC\u062F ${adj}${issue3.minimum.toString()} ${sizing.unit} \u0648\u0644\u0631\u064A`;
         }
-        return `\u0689\u06CC\u0631 \u06A9\u0648\u0686\u0646\u06CC: ${issue2.origin} \u0628\u0627\u06CC\u062F ${adj}${issue2.minimum.toString()} \u0648\u064A`;
+        return `\u0689\u06CC\u0631 \u06A9\u0648\u0686\u0646\u06CC: ${issue3.origin} \u0628\u0627\u06CC\u062F ${adj}${issue3.minimum.toString()} \u0648\u064A`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with") {
           return `\u0646\u0627\u0633\u0645 \u0645\u062A\u0646: \u0628\u0627\u06CC\u062F \u062F "${_issue.prefix}" \u0633\u0631\u0647 \u067E\u06CC\u0644 \u0634\u064A`;
         }
@@ -27289,18 +27406,18 @@ var error32 = () => {
         if (_issue.format === "regex") {
           return `\u0646\u0627\u0633\u0645 \u0645\u062A\u0646: \u0628\u0627\u06CC\u062F \u062F ${_issue.pattern} \u0633\u0631\u0647 \u0645\u0637\u0627\u0628\u0642\u062A \u0648\u0644\u0631\u064A`;
         }
-        return `${FormatDictionary[_issue.format] ?? issue2.format} \u0646\u0627\u0633\u0645 \u062F\u06CC`;
+        return `${FormatDictionary[_issue.format] ?? issue3.format} \u0646\u0627\u0633\u0645 \u062F\u06CC`;
       }
       case "not_multiple_of":
-        return `\u0646\u0627\u0633\u0645 \u0639\u062F\u062F: \u0628\u0627\u06CC\u062F \u062F ${issue2.divisor} \u0645\u0636\u0631\u0628 \u0648\u064A`;
+        return `\u0646\u0627\u0633\u0645 \u0639\u062F\u062F: \u0628\u0627\u06CC\u062F \u062F ${issue3.divisor} \u0645\u0636\u0631\u0628 \u0648\u064A`;
       case "unrecognized_keys":
-        return `\u0646\u0627\u0633\u0645 ${issue2.keys.length > 1 ? "\u06A9\u0644\u06CC\u0689\u0648\u0646\u0647" : "\u06A9\u0644\u06CC\u0689"}: ${joinValues(issue2.keys, ", ")}`;
+        return `\u0646\u0627\u0633\u0645 ${issue3.keys.length > 1 ? "\u06A9\u0644\u06CC\u0689\u0648\u0646\u0647" : "\u06A9\u0644\u06CC\u0689"}: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `\u0646\u0627\u0633\u0645 \u06A9\u0644\u06CC\u0689 \u067E\u0647 ${issue2.origin} \u06A9\u06D0`;
+        return `\u0646\u0627\u0633\u0645 \u06A9\u0644\u06CC\u0689 \u067E\u0647 ${issue3.origin} \u06A9\u06D0`;
       case "invalid_union":
         return `\u0646\u0627\u0633\u0645\u0647 \u0648\u0631\u0648\u062F\u064A`;
       case "invalid_element":
-        return `\u0646\u0627\u0633\u0645 \u0639\u0646\u0635\u0631 \u067E\u0647 ${issue2.origin} \u06A9\u06D0`;
+        return `\u0646\u0627\u0633\u0645 \u0639\u0646\u0635\u0631 \u067E\u0647 ${issue3.origin} \u06A9\u06D0`;
       default:
         return `\u0646\u0627\u0633\u0645\u0647 \u0648\u0631\u0648\u062F\u064A`;
     }
@@ -27358,39 +27475,39 @@ var error33 = () => {
     number: "liczba",
     array: "tablica"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `Nieprawid\u0142owe dane wej\u015Bciowe: oczekiwano instanceof ${issue2.expected}, otrzymano ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `Nieprawid\u0142owe dane wej\u015Bciowe: oczekiwano instanceof ${issue3.expected}, otrzymano ${received}`;
         }
         return `Nieprawid\u0142owe dane wej\u015Bciowe: oczekiwano ${expected}, otrzymano ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `Nieprawid\u0142owe dane wej\u015Bciowe: oczekiwano ${stringifyPrimitive(issue2.values[0])}`;
-        return `Nieprawid\u0142owa opcja: oczekiwano jednej z warto\u015Bci ${joinValues(issue2.values, "|")}`;
+        if (issue3.values.length === 1)
+          return `Nieprawid\u0142owe dane wej\u015Bciowe: oczekiwano ${stringifyPrimitive(issue3.values[0])}`;
+        return `Nieprawid\u0142owa opcja: oczekiwano jednej z warto\u015Bci ${joinValues(issue3.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `Za du\u017Ca warto\u015B\u0107: oczekiwano, \u017Ce ${issue2.origin ?? "warto\u015B\u0107"} b\u0119dzie mie\u0107 ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "element\xF3w"}`;
+          return `Za du\u017Ca warto\u015B\u0107: oczekiwano, \u017Ce ${issue3.origin ?? "warto\u015B\u0107"} b\u0119dzie mie\u0107 ${adj}${issue3.maximum.toString()} ${sizing.unit ?? "element\xF3w"}`;
         }
-        return `Zbyt du\u017C(y/a/e): oczekiwano, \u017Ce ${issue2.origin ?? "warto\u015B\u0107"} b\u0119dzie wynosi\u0107 ${adj}${issue2.maximum.toString()}`;
+        return `Zbyt du\u017C(y/a/e): oczekiwano, \u017Ce ${issue3.origin ?? "warto\u015B\u0107"} b\u0119dzie wynosi\u0107 ${adj}${issue3.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `Za ma\u0142a warto\u015B\u0107: oczekiwano, \u017Ce ${issue2.origin ?? "warto\u015B\u0107"} b\u0119dzie mie\u0107 ${adj}${issue2.minimum.toString()} ${sizing.unit ?? "element\xF3w"}`;
+          return `Za ma\u0142a warto\u015B\u0107: oczekiwano, \u017Ce ${issue3.origin ?? "warto\u015B\u0107"} b\u0119dzie mie\u0107 ${adj}${issue3.minimum.toString()} ${sizing.unit ?? "element\xF3w"}`;
         }
-        return `Zbyt ma\u0142(y/a/e): oczekiwano, \u017Ce ${issue2.origin ?? "warto\u015B\u0107"} b\u0119dzie wynosi\u0107 ${adj}${issue2.minimum.toString()}`;
+        return `Zbyt ma\u0142(y/a/e): oczekiwano, \u017Ce ${issue3.origin ?? "warto\u015B\u0107"} b\u0119dzie wynosi\u0107 ${adj}${issue3.minimum.toString()}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with")
           return `Nieprawid\u0142owy ci\u0105g znak\xF3w: musi zaczyna\u0107 si\u0119 od "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
@@ -27399,18 +27516,18 @@ var error33 = () => {
           return `Nieprawid\u0142owy ci\u0105g znak\xF3w: musi zawiera\u0107 "${_issue.includes}"`;
         if (_issue.format === "regex")
           return `Nieprawid\u0142owy ci\u0105g znak\xF3w: musi odpowiada\u0107 wzorcowi ${_issue.pattern}`;
-        return `Nieprawid\u0142ow(y/a/e) ${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `Nieprawid\u0142ow(y/a/e) ${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `Nieprawid\u0142owa liczba: musi by\u0107 wielokrotno\u015Bci\u0105 ${issue2.divisor}`;
+        return `Nieprawid\u0142owa liczba: musi by\u0107 wielokrotno\u015Bci\u0105 ${issue3.divisor}`;
       case "unrecognized_keys":
-        return `Nierozpoznane klucze${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `Nierozpoznane klucze${issue3.keys.length > 1 ? "s" : ""}: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `Nieprawid\u0142owy klucz w ${issue2.origin}`;
+        return `Nieprawid\u0142owy klucz w ${issue3.origin}`;
       case "invalid_union":
         return "Nieprawid\u0142owe dane wej\u015Bciowe";
       case "invalid_element":
-        return `Nieprawid\u0142owa warto\u015B\u0107 w ${issue2.origin}`;
+        return `Nieprawid\u0142owa warto\u015B\u0107 w ${issue3.origin}`;
       default:
         return `Nieprawid\u0142owe dane wej\u015Bciowe`;
     }
@@ -27468,38 +27585,38 @@ var error34 = () => {
     number: "n\xFAmero",
     null: "nulo"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `Tipo inv\xE1lido: esperado instanceof ${issue2.expected}, recebido ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `Tipo inv\xE1lido: esperado instanceof ${issue3.expected}, recebido ${received}`;
         }
         return `Tipo inv\xE1lido: esperado ${expected}, recebido ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `Entrada inv\xE1lida: esperado ${stringifyPrimitive(issue2.values[0])}`;
-        return `Op\xE7\xE3o inv\xE1lida: esperada uma das ${joinValues(issue2.values, "|")}`;
+        if (issue3.values.length === 1)
+          return `Entrada inv\xE1lida: esperado ${stringifyPrimitive(issue3.values[0])}`;
+        return `Op\xE7\xE3o inv\xE1lida: esperada uma das ${joinValues(issue3.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing)
-          return `Muito grande: esperado que ${issue2.origin ?? "valor"} tivesse ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementos"}`;
-        return `Muito grande: esperado que ${issue2.origin ?? "valor"} fosse ${adj}${issue2.maximum.toString()}`;
+          return `Muito grande: esperado que ${issue3.origin ?? "valor"} tivesse ${adj}${issue3.maximum.toString()} ${sizing.unit ?? "elementos"}`;
+        return `Muito grande: esperado que ${issue3.origin ?? "valor"} fosse ${adj}${issue3.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `Muito pequeno: esperado que ${issue2.origin} tivesse ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `Muito pequeno: esperado que ${issue3.origin} tivesse ${adj}${issue3.minimum.toString()} ${sizing.unit}`;
         }
-        return `Muito pequeno: esperado que ${issue2.origin} fosse ${adj}${issue2.minimum.toString()}`;
+        return `Muito pequeno: esperado que ${issue3.origin} fosse ${adj}${issue3.minimum.toString()}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with")
           return `Texto inv\xE1lido: deve come\xE7ar com "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
@@ -27508,18 +27625,18 @@ var error34 = () => {
           return `Texto inv\xE1lido: deve incluir "${_issue.includes}"`;
         if (_issue.format === "regex")
           return `Texto inv\xE1lido: deve corresponder ao padr\xE3o ${_issue.pattern}`;
-        return `${FormatDictionary[_issue.format] ?? issue2.format} inv\xE1lido`;
+        return `${FormatDictionary[_issue.format] ?? issue3.format} inv\xE1lido`;
       }
       case "not_multiple_of":
-        return `N\xFAmero inv\xE1lido: deve ser m\xFAltiplo de ${issue2.divisor}`;
+        return `N\xFAmero inv\xE1lido: deve ser m\xFAltiplo de ${issue3.divisor}`;
       case "unrecognized_keys":
-        return `Chave${issue2.keys.length > 1 ? "s" : ""} desconhecida${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `Chave${issue3.keys.length > 1 ? "s" : ""} desconhecida${issue3.keys.length > 1 ? "s" : ""}: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `Chave inv\xE1lida em ${issue2.origin}`;
+        return `Chave inv\xE1lida em ${issue3.origin}`;
       case "invalid_union":
         return "Entrada inv\xE1lida";
       case "invalid_element":
-        return `Valor inv\xE1lido em ${issue2.origin}`;
+        return `Valor inv\xE1lido em ${issue3.origin}`;
       default:
         return `Campo inv\xE1lido`;
     }
@@ -27620,43 +27737,43 @@ var error35 = () => {
     number: "\u0447\u0438\u0441\u043B\u043E",
     array: "\u043C\u0430\u0441\u0441\u0438\u0432"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 \u0432\u0432\u043E\u0434: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C instanceof ${issue2.expected}, \u043F\u043E\u043B\u0443\u0447\u0435\u043D\u043E ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 \u0432\u0432\u043E\u0434: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C instanceof ${issue3.expected}, \u043F\u043E\u043B\u0443\u0447\u0435\u043D\u043E ${received}`;
         }
         return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 \u0432\u0432\u043E\u0434: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C ${expected}, \u043F\u043E\u043B\u0443\u0447\u0435\u043D\u043E ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 \u0432\u0432\u043E\u0434: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 \u0432\u0430\u0440\u0438\u0430\u043D\u0442: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0434\u043D\u043E \u0438\u0437 ${joinValues(issue2.values, "|")}`;
+        if (issue3.values.length === 1)
+          return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 \u0432\u0432\u043E\u0434: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C ${stringifyPrimitive(issue3.values[0])}`;
+        return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 \u0432\u0430\u0440\u0438\u0430\u043D\u0442: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0434\u043D\u043E \u0438\u0437 ${joinValues(issue3.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          const maxValue = Number(issue2.maximum);
+          const maxValue = Number(issue3.maximum);
           const unit = getRussianPlural(maxValue, sizing.unit.one, sizing.unit.few, sizing.unit.many);
-          return `\u0421\u043B\u0438\u0448\u043A\u043E\u043C \u0431\u043E\u043B\u044C\u0448\u043E\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C, \u0447\u0442\u043E ${issue2.origin ?? "\u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435"} \u0431\u0443\u0434\u0435\u0442 \u0438\u043C\u0435\u0442\u044C ${adj}${issue2.maximum.toString()} ${unit}`;
+          return `\u0421\u043B\u0438\u0448\u043A\u043E\u043C \u0431\u043E\u043B\u044C\u0448\u043E\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C, \u0447\u0442\u043E ${issue3.origin ?? "\u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435"} \u0431\u0443\u0434\u0435\u0442 \u0438\u043C\u0435\u0442\u044C ${adj}${issue3.maximum.toString()} ${unit}`;
         }
-        return `\u0421\u043B\u0438\u0448\u043A\u043E\u043C \u0431\u043E\u043B\u044C\u0448\u043E\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C, \u0447\u0442\u043E ${issue2.origin ?? "\u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435"} \u0431\u0443\u0434\u0435\u0442 ${adj}${issue2.maximum.toString()}`;
+        return `\u0421\u043B\u0438\u0448\u043A\u043E\u043C \u0431\u043E\u043B\u044C\u0448\u043E\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C, \u0447\u0442\u043E ${issue3.origin ?? "\u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435"} \u0431\u0443\u0434\u0435\u0442 ${adj}${issue3.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          const minValue = Number(issue2.minimum);
+          const minValue = Number(issue3.minimum);
           const unit = getRussianPlural(minValue, sizing.unit.one, sizing.unit.few, sizing.unit.many);
-          return `\u0421\u043B\u0438\u0448\u043A\u043E\u043C \u043C\u0430\u043B\u0435\u043D\u044C\u043A\u043E\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C, \u0447\u0442\u043E ${issue2.origin} \u0431\u0443\u0434\u0435\u0442 \u0438\u043C\u0435\u0442\u044C ${adj}${issue2.minimum.toString()} ${unit}`;
+          return `\u0421\u043B\u0438\u0448\u043A\u043E\u043C \u043C\u0430\u043B\u0435\u043D\u044C\u043A\u043E\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C, \u0447\u0442\u043E ${issue3.origin} \u0431\u0443\u0434\u0435\u0442 \u0438\u043C\u0435\u0442\u044C ${adj}${issue3.minimum.toString()} ${unit}`;
         }
-        return `\u0421\u043B\u0438\u0448\u043A\u043E\u043C \u043C\u0430\u043B\u0435\u043D\u044C\u043A\u043E\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C, \u0447\u0442\u043E ${issue2.origin} \u0431\u0443\u0434\u0435\u0442 ${adj}${issue2.minimum.toString()}`;
+        return `\u0421\u043B\u0438\u0448\u043A\u043E\u043C \u043C\u0430\u043B\u0435\u043D\u044C\u043A\u043E\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C, \u0447\u0442\u043E ${issue3.origin} \u0431\u0443\u0434\u0435\u0442 ${adj}${issue3.minimum.toString()}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with")
           return `\u041D\u0435\u0432\u0435\u0440\u043D\u0430\u044F \u0441\u0442\u0440\u043E\u043A\u0430: \u0434\u043E\u043B\u0436\u043D\u0430 \u043D\u0430\u0447\u0438\u043D\u0430\u0442\u044C\u0441\u044F \u0441 "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
@@ -27665,18 +27782,18 @@ var error35 = () => {
           return `\u041D\u0435\u0432\u0435\u0440\u043D\u0430\u044F \u0441\u0442\u0440\u043E\u043A\u0430: \u0434\u043E\u043B\u0436\u043D\u0430 \u0441\u043E\u0434\u0435\u0440\u0436\u0430\u0442\u044C "${_issue.includes}"`;
         if (_issue.format === "regex")
           return `\u041D\u0435\u0432\u0435\u0440\u043D\u0430\u044F \u0441\u0442\u0440\u043E\u043A\u0430: \u0434\u043E\u043B\u0436\u043D\u0430 \u0441\u043E\u043E\u0442\u0432\u0435\u0442\u0441\u0442\u0432\u043E\u0432\u0430\u0442\u044C \u0448\u0430\u0431\u043B\u043E\u043D\u0443 ${_issue.pattern}`;
-        return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 ${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 ${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `\u041D\u0435\u0432\u0435\u0440\u043D\u043E\u0435 \u0447\u0438\u0441\u043B\u043E: \u0434\u043E\u043B\u0436\u043D\u043E \u0431\u044B\u0442\u044C \u043A\u0440\u0430\u0442\u043D\u044B\u043C ${issue2.divisor}`;
+        return `\u041D\u0435\u0432\u0435\u0440\u043D\u043E\u0435 \u0447\u0438\u0441\u043B\u043E: \u0434\u043E\u043B\u0436\u043D\u043E \u0431\u044B\u0442\u044C \u043A\u0440\u0430\u0442\u043D\u044B\u043C ${issue3.divisor}`;
       case "unrecognized_keys":
-        return `\u041D\u0435\u0440\u0430\u0441\u043F\u043E\u0437\u043D\u0430\u043D\u043D${issue2.keys.length > 1 ? "\u044B\u0435" : "\u044B\u0439"} \u043A\u043B\u044E\u0447${issue2.keys.length > 1 ? "\u0438" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `\u041D\u0435\u0440\u0430\u0441\u043F\u043E\u0437\u043D\u0430\u043D\u043D${issue3.keys.length > 1 ? "\u044B\u0435" : "\u044B\u0439"} \u043A\u043B\u044E\u0447${issue3.keys.length > 1 ? "\u0438" : ""}: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 \u043A\u043B\u044E\u0447 \u0432 ${issue2.origin}`;
+        return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 \u043A\u043B\u044E\u0447 \u0432 ${issue3.origin}`;
       case "invalid_union":
         return "\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0435 \u0432\u0445\u043E\u0434\u043D\u044B\u0435 \u0434\u0430\u043D\u043D\u044B\u0435";
       case "invalid_element":
-        return `\u041D\u0435\u0432\u0435\u0440\u043D\u043E\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435 \u0432 ${issue2.origin}`;
+        return `\u041D\u0435\u0432\u0435\u0440\u043D\u043E\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435 \u0432 ${issue3.origin}`;
       default:
         return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0435 \u0432\u0445\u043E\u0434\u043D\u044B\u0435 \u0434\u0430\u043D\u043D\u044B\u0435`;
     }
@@ -27734,38 +27851,38 @@ var error36 = () => {
     number: "\u0161tevilo",
     array: "tabela"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `Neveljaven vnos: pri\u010Dakovano instanceof ${issue2.expected}, prejeto ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `Neveljaven vnos: pri\u010Dakovano instanceof ${issue3.expected}, prejeto ${received}`;
         }
         return `Neveljaven vnos: pri\u010Dakovano ${expected}, prejeto ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `Neveljaven vnos: pri\u010Dakovano ${stringifyPrimitive(issue2.values[0])}`;
-        return `Neveljavna mo\u017Enost: pri\u010Dakovano eno izmed ${joinValues(issue2.values, "|")}`;
+        if (issue3.values.length === 1)
+          return `Neveljaven vnos: pri\u010Dakovano ${stringifyPrimitive(issue3.values[0])}`;
+        return `Neveljavna mo\u017Enost: pri\u010Dakovano eno izmed ${joinValues(issue3.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing)
-          return `Preveliko: pri\u010Dakovano, da bo ${issue2.origin ?? "vrednost"} imelo ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementov"}`;
-        return `Preveliko: pri\u010Dakovano, da bo ${issue2.origin ?? "vrednost"} ${adj}${issue2.maximum.toString()}`;
+          return `Preveliko: pri\u010Dakovano, da bo ${issue3.origin ?? "vrednost"} imelo ${adj}${issue3.maximum.toString()} ${sizing.unit ?? "elementov"}`;
+        return `Preveliko: pri\u010Dakovano, da bo ${issue3.origin ?? "vrednost"} ${adj}${issue3.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `Premajhno: pri\u010Dakovano, da bo ${issue2.origin} imelo ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `Premajhno: pri\u010Dakovano, da bo ${issue3.origin} imelo ${adj}${issue3.minimum.toString()} ${sizing.unit}`;
         }
-        return `Premajhno: pri\u010Dakovano, da bo ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
+        return `Premajhno: pri\u010Dakovano, da bo ${issue3.origin} ${adj}${issue3.minimum.toString()}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with") {
           return `Neveljaven niz: mora se za\u010Deti z "${_issue.prefix}"`;
         }
@@ -27775,18 +27892,18 @@ var error36 = () => {
           return `Neveljaven niz: mora vsebovati "${_issue.includes}"`;
         if (_issue.format === "regex")
           return `Neveljaven niz: mora ustrezati vzorcu ${_issue.pattern}`;
-        return `Neveljaven ${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `Neveljaven ${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `Neveljavno \u0161tevilo: mora biti ve\u010Dkratnik ${issue2.divisor}`;
+        return `Neveljavno \u0161tevilo: mora biti ve\u010Dkratnik ${issue3.divisor}`;
       case "unrecognized_keys":
-        return `Neprepoznan${issue2.keys.length > 1 ? "i klju\u010Di" : " klju\u010D"}: ${joinValues(issue2.keys, ", ")}`;
+        return `Neprepoznan${issue3.keys.length > 1 ? "i klju\u010Di" : " klju\u010D"}: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `Neveljaven klju\u010D v ${issue2.origin}`;
+        return `Neveljaven klju\u010D v ${issue3.origin}`;
       case "invalid_union":
         return "Neveljaven vnos";
       case "invalid_element":
-        return `Neveljavna vrednost v ${issue2.origin}`;
+        return `Neveljavna vrednost v ${issue3.origin}`;
       default:
         return "Neveljaven vnos";
     }
@@ -27844,39 +27961,39 @@ var error37 = () => {
     number: "antal",
     array: "lista"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `Ogiltig inmatning: f\xF6rv\xE4ntat instanceof ${issue2.expected}, fick ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `Ogiltig inmatning: f\xF6rv\xE4ntat instanceof ${issue3.expected}, fick ${received}`;
         }
         return `Ogiltig inmatning: f\xF6rv\xE4ntat ${expected}, fick ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `Ogiltig inmatning: f\xF6rv\xE4ntat ${stringifyPrimitive(issue2.values[0])}`;
-        return `Ogiltigt val: f\xF6rv\xE4ntade en av ${joinValues(issue2.values, "|")}`;
+        if (issue3.values.length === 1)
+          return `Ogiltig inmatning: f\xF6rv\xE4ntat ${stringifyPrimitive(issue3.values[0])}`;
+        return `Ogiltigt val: f\xF6rv\xE4ntade en av ${joinValues(issue3.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `F\xF6r stor(t): f\xF6rv\xE4ntade ${issue2.origin ?? "v\xE4rdet"} att ha ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "element"}`;
+          return `F\xF6r stor(t): f\xF6rv\xE4ntade ${issue3.origin ?? "v\xE4rdet"} att ha ${adj}${issue3.maximum.toString()} ${sizing.unit ?? "element"}`;
         }
-        return `F\xF6r stor(t): f\xF6rv\xE4ntat ${issue2.origin ?? "v\xE4rdet"} att ha ${adj}${issue2.maximum.toString()}`;
+        return `F\xF6r stor(t): f\xF6rv\xE4ntat ${issue3.origin ?? "v\xE4rdet"} att ha ${adj}${issue3.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `F\xF6r lite(t): f\xF6rv\xE4ntade ${issue2.origin ?? "v\xE4rdet"} att ha ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `F\xF6r lite(t): f\xF6rv\xE4ntade ${issue3.origin ?? "v\xE4rdet"} att ha ${adj}${issue3.minimum.toString()} ${sizing.unit}`;
         }
-        return `F\xF6r lite(t): f\xF6rv\xE4ntade ${issue2.origin ?? "v\xE4rdet"} att ha ${adj}${issue2.minimum.toString()}`;
+        return `F\xF6r lite(t): f\xF6rv\xE4ntade ${issue3.origin ?? "v\xE4rdet"} att ha ${adj}${issue3.minimum.toString()}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with") {
           return `Ogiltig str\xE4ng: m\xE5ste b\xF6rja med "${_issue.prefix}"`;
         }
@@ -27886,18 +28003,18 @@ var error37 = () => {
           return `Ogiltig str\xE4ng: m\xE5ste inneh\xE5lla "${_issue.includes}"`;
         if (_issue.format === "regex")
           return `Ogiltig str\xE4ng: m\xE5ste matcha m\xF6nstret "${_issue.pattern}"`;
-        return `Ogiltig(t) ${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `Ogiltig(t) ${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `Ogiltigt tal: m\xE5ste vara en multipel av ${issue2.divisor}`;
+        return `Ogiltigt tal: m\xE5ste vara en multipel av ${issue3.divisor}`;
       case "unrecognized_keys":
-        return `${issue2.keys.length > 1 ? "Ok\xE4nda nycklar" : "Ok\xE4nd nyckel"}: ${joinValues(issue2.keys, ", ")}`;
+        return `${issue3.keys.length > 1 ? "Ok\xE4nda nycklar" : "Ok\xE4nd nyckel"}: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `Ogiltig nyckel i ${issue2.origin ?? "v\xE4rdet"}`;
+        return `Ogiltig nyckel i ${issue3.origin ?? "v\xE4rdet"}`;
       case "invalid_union":
         return "Ogiltig input";
       case "invalid_element":
-        return `Ogiltigt v\xE4rde i ${issue2.origin ?? "v\xE4rdet"}`;
+        return `Ogiltigt v\xE4rde i ${issue3.origin ?? "v\xE4rdet"}`;
       default:
         return `Ogiltig input`;
     }
@@ -27956,39 +28073,39 @@ var error38 = () => {
     array: "\u0B85\u0BA3\u0BBF",
     null: "\u0BB5\u0BC6\u0BB1\u0BC1\u0BAE\u0BC8"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B89\u0BB3\u0BCD\u0BB3\u0BC0\u0B9F\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 instanceof ${issue2.expected}, \u0BAA\u0BC6\u0BB1\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B89\u0BB3\u0BCD\u0BB3\u0BC0\u0B9F\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 instanceof ${issue3.expected}, \u0BAA\u0BC6\u0BB1\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${received}`;
         }
         return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B89\u0BB3\u0BCD\u0BB3\u0BC0\u0B9F\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${expected}, \u0BAA\u0BC6\u0BB1\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B89\u0BB3\u0BCD\u0BB3\u0BC0\u0B9F\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0BB5\u0BBF\u0BB0\u0BC1\u0BAA\u0BCD\u0BAA\u0BAE\u0BCD: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${joinValues(issue2.values, "|")} \u0B87\u0BB2\u0BCD \u0B92\u0BA9\u0BCD\u0BB1\u0BC1`;
+        if (issue3.values.length === 1)
+          return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B89\u0BB3\u0BCD\u0BB3\u0BC0\u0B9F\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${stringifyPrimitive(issue3.values[0])}`;
+        return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0BB5\u0BBF\u0BB0\u0BC1\u0BAA\u0BCD\u0BAA\u0BAE\u0BCD: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${joinValues(issue3.values, "|")} \u0B87\u0BB2\u0BCD \u0B92\u0BA9\u0BCD\u0BB1\u0BC1`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `\u0BAE\u0BBF\u0B95 \u0BAA\u0BC6\u0BB0\u0BBF\u0BAF\u0BA4\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${issue2.origin ?? "\u0BAE\u0BA4\u0BBF\u0BAA\u0BCD\u0BAA\u0BC1"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u0B89\u0BB1\u0BC1\u0BAA\u0BCD\u0BAA\u0BC1\u0B95\u0BB3\u0BCD"} \u0B86\u0B95 \u0B87\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+          return `\u0BAE\u0BBF\u0B95 \u0BAA\u0BC6\u0BB0\u0BBF\u0BAF\u0BA4\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${issue3.origin ?? "\u0BAE\u0BA4\u0BBF\u0BAA\u0BCD\u0BAA\u0BC1"} ${adj}${issue3.maximum.toString()} ${sizing.unit ?? "\u0B89\u0BB1\u0BC1\u0BAA\u0BCD\u0BAA\u0BC1\u0B95\u0BB3\u0BCD"} \u0B86\u0B95 \u0B87\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
         }
-        return `\u0BAE\u0BBF\u0B95 \u0BAA\u0BC6\u0BB0\u0BBF\u0BAF\u0BA4\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${issue2.origin ?? "\u0BAE\u0BA4\u0BBF\u0BAA\u0BCD\u0BAA\u0BC1"} ${adj}${issue2.maximum.toString()} \u0B86\u0B95 \u0B87\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+        return `\u0BAE\u0BBF\u0B95 \u0BAA\u0BC6\u0BB0\u0BBF\u0BAF\u0BA4\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${issue3.origin ?? "\u0BAE\u0BA4\u0BBF\u0BAA\u0BCD\u0BAA\u0BC1"} ${adj}${issue3.maximum.toString()} \u0B86\u0B95 \u0B87\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `\u0BAE\u0BBF\u0B95\u0B9A\u0BCD \u0B9A\u0BBF\u0BB1\u0BBF\u0BAF\u0BA4\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit} \u0B86\u0B95 \u0B87\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+          return `\u0BAE\u0BBF\u0B95\u0B9A\u0BCD \u0B9A\u0BBF\u0BB1\u0BBF\u0BAF\u0BA4\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${issue3.origin} ${adj}${issue3.minimum.toString()} ${sizing.unit} \u0B86\u0B95 \u0B87\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
         }
-        return `\u0BAE\u0BBF\u0B95\u0B9A\u0BCD \u0B9A\u0BBF\u0BB1\u0BBF\u0BAF\u0BA4\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${issue2.origin} ${adj}${issue2.minimum.toString()} \u0B86\u0B95 \u0B87\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+        return `\u0BAE\u0BBF\u0B95\u0B9A\u0BCD \u0B9A\u0BBF\u0BB1\u0BBF\u0BAF\u0BA4\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${issue3.origin} ${adj}${issue3.minimum.toString()} \u0B86\u0B95 \u0B87\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with")
           return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B9A\u0BB0\u0BAE\u0BCD: "${_issue.prefix}" \u0B87\u0BB2\u0BCD \u0BA4\u0BCA\u0B9F\u0B99\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
         if (_issue.format === "ends_with")
@@ -27997,18 +28114,18 @@ var error38 = () => {
           return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B9A\u0BB0\u0BAE\u0BCD: "${_issue.includes}" \u0B90 \u0B89\u0BB3\u0BCD\u0BB3\u0B9F\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
         if (_issue.format === "regex")
           return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B9A\u0BB0\u0BAE\u0BCD: ${_issue.pattern} \u0BAE\u0BC1\u0BB1\u0BC8\u0BAA\u0BBE\u0B9F\u0BCD\u0B9F\u0BC1\u0B9F\u0BA9\u0BCD \u0BAA\u0BCA\u0BB0\u0BC1\u0BA8\u0BCD\u0BA4 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
-        return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 ${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 ${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B8E\u0BA3\u0BCD: ${issue2.divisor} \u0B87\u0BA9\u0BCD \u0BAA\u0BB2\u0BAE\u0BBE\u0B95 \u0B87\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+        return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B8E\u0BA3\u0BCD: ${issue3.divisor} \u0B87\u0BA9\u0BCD \u0BAA\u0BB2\u0BAE\u0BBE\u0B95 \u0B87\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
       case "unrecognized_keys":
-        return `\u0B85\u0B9F\u0BC8\u0BAF\u0BBE\u0BB3\u0BAE\u0BCD \u0BA4\u0BC6\u0BB0\u0BBF\u0BAF\u0BBE\u0BA4 \u0BB5\u0BBF\u0B9A\u0BC8${issue2.keys.length > 1 ? "\u0B95\u0BB3\u0BCD" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `\u0B85\u0B9F\u0BC8\u0BAF\u0BBE\u0BB3\u0BAE\u0BCD \u0BA4\u0BC6\u0BB0\u0BBF\u0BAF\u0BBE\u0BA4 \u0BB5\u0BBF\u0B9A\u0BC8${issue3.keys.length > 1 ? "\u0B95\u0BB3\u0BCD" : ""}: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `${issue2.origin} \u0B87\u0BB2\u0BCD \u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0BB5\u0BBF\u0B9A\u0BC8`;
+        return `${issue3.origin} \u0B87\u0BB2\u0BCD \u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0BB5\u0BBF\u0B9A\u0BC8`;
       case "invalid_union":
         return "\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B89\u0BB3\u0BCD\u0BB3\u0BC0\u0B9F\u0BC1";
       case "invalid_element":
-        return `${issue2.origin} \u0B87\u0BB2\u0BCD \u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0BAE\u0BA4\u0BBF\u0BAA\u0BCD\u0BAA\u0BC1`;
+        return `${issue3.origin} \u0B87\u0BB2\u0BCD \u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0BAE\u0BA4\u0BBF\u0BAA\u0BCD\u0BAA\u0BC1`;
       default:
         return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B89\u0BB3\u0BCD\u0BB3\u0BC0\u0B9F\u0BC1`;
     }
@@ -28067,38 +28184,38 @@ var error39 = () => {
     array: "\u0E2D\u0E32\u0E23\u0E4C\u0E40\u0E23\u0E22\u0E4C (Array)",
     null: "\u0E44\u0E21\u0E48\u0E21\u0E35\u0E04\u0E48\u0E32 (null)"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E04\u0E27\u0E23\u0E40\u0E1B\u0E47\u0E19 instanceof ${issue2.expected} \u0E41\u0E15\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E04\u0E27\u0E23\u0E40\u0E1B\u0E47\u0E19 instanceof ${issue3.expected} \u0E41\u0E15\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A ${received}`;
         }
         return `\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E04\u0E27\u0E23\u0E40\u0E1B\u0E47\u0E19 ${expected} \u0E41\u0E15\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `\u0E04\u0E48\u0E32\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E04\u0E27\u0E23\u0E40\u0E1B\u0E47\u0E19 ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u0E15\u0E31\u0E27\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E04\u0E27\u0E23\u0E40\u0E1B\u0E47\u0E19\u0E2B\u0E19\u0E36\u0E48\u0E07\u0E43\u0E19 ${joinValues(issue2.values, "|")}`;
+        if (issue3.values.length === 1)
+          return `\u0E04\u0E48\u0E32\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E04\u0E27\u0E23\u0E40\u0E1B\u0E47\u0E19 ${stringifyPrimitive(issue3.values[0])}`;
+        return `\u0E15\u0E31\u0E27\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E04\u0E27\u0E23\u0E40\u0E1B\u0E47\u0E19\u0E2B\u0E19\u0E36\u0E48\u0E07\u0E43\u0E19 ${joinValues(issue3.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "\u0E44\u0E21\u0E48\u0E40\u0E01\u0E34\u0E19" : "\u0E19\u0E49\u0E2D\u0E22\u0E01\u0E27\u0E48\u0E32";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "\u0E44\u0E21\u0E48\u0E40\u0E01\u0E34\u0E19" : "\u0E19\u0E49\u0E2D\u0E22\u0E01\u0E27\u0E48\u0E32";
+        const sizing = getSizing(issue3.origin);
         if (sizing)
-          return `\u0E40\u0E01\u0E34\u0E19\u0E01\u0E33\u0E2B\u0E19\u0E14: ${issue2.origin ?? "\u0E04\u0E48\u0E32"} \u0E04\u0E27\u0E23\u0E21\u0E35${adj} ${issue2.maximum.toString()} ${sizing.unit ?? "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23"}`;
-        return `\u0E40\u0E01\u0E34\u0E19\u0E01\u0E33\u0E2B\u0E19\u0E14: ${issue2.origin ?? "\u0E04\u0E48\u0E32"} \u0E04\u0E27\u0E23\u0E21\u0E35${adj} ${issue2.maximum.toString()}`;
+          return `\u0E40\u0E01\u0E34\u0E19\u0E01\u0E33\u0E2B\u0E19\u0E14: ${issue3.origin ?? "\u0E04\u0E48\u0E32"} \u0E04\u0E27\u0E23\u0E21\u0E35${adj} ${issue3.maximum.toString()} ${sizing.unit ?? "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23"}`;
+        return `\u0E40\u0E01\u0E34\u0E19\u0E01\u0E33\u0E2B\u0E19\u0E14: ${issue3.origin ?? "\u0E04\u0E48\u0E32"} \u0E04\u0E27\u0E23\u0E21\u0E35${adj} ${issue3.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? "\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E19\u0E49\u0E2D\u0E22" : "\u0E21\u0E32\u0E01\u0E01\u0E27\u0E48\u0E32";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E19\u0E49\u0E2D\u0E22" : "\u0E21\u0E32\u0E01\u0E01\u0E27\u0E48\u0E32";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `\u0E19\u0E49\u0E2D\u0E22\u0E01\u0E27\u0E48\u0E32\u0E01\u0E33\u0E2B\u0E19\u0E14: ${issue2.origin} \u0E04\u0E27\u0E23\u0E21\u0E35${adj} ${issue2.minimum.toString()} ${sizing.unit}`;
+          return `\u0E19\u0E49\u0E2D\u0E22\u0E01\u0E27\u0E48\u0E32\u0E01\u0E33\u0E2B\u0E19\u0E14: ${issue3.origin} \u0E04\u0E27\u0E23\u0E21\u0E35${adj} ${issue3.minimum.toString()} ${sizing.unit}`;
         }
-        return `\u0E19\u0E49\u0E2D\u0E22\u0E01\u0E27\u0E48\u0E32\u0E01\u0E33\u0E2B\u0E19\u0E14: ${issue2.origin} \u0E04\u0E27\u0E23\u0E21\u0E35${adj} ${issue2.minimum.toString()}`;
+        return `\u0E19\u0E49\u0E2D\u0E22\u0E01\u0E27\u0E48\u0E32\u0E01\u0E33\u0E2B\u0E19\u0E14: ${issue3.origin} \u0E04\u0E27\u0E23\u0E21\u0E35${adj} ${issue3.minimum.toString()}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with") {
           return `\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E15\u0E49\u0E2D\u0E07\u0E02\u0E36\u0E49\u0E19\u0E15\u0E49\u0E19\u0E14\u0E49\u0E27\u0E22 "${_issue.prefix}"`;
         }
@@ -28108,18 +28225,18 @@ var error39 = () => {
           return `\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E15\u0E49\u0E2D\u0E07\u0E21\u0E35 "${_issue.includes}" \u0E2D\u0E22\u0E39\u0E48\u0E43\u0E19\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21`;
         if (_issue.format === "regex")
           return `\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E15\u0E49\u0E2D\u0E07\u0E15\u0E23\u0E07\u0E01\u0E31\u0E1A\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E17\u0E35\u0E48\u0E01\u0E33\u0E2B\u0E19\u0E14 ${_issue.pattern}`;
-        return `\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: ${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: ${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `\u0E15\u0E31\u0E27\u0E40\u0E25\u0E02\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E15\u0E49\u0E2D\u0E07\u0E40\u0E1B\u0E47\u0E19\u0E08\u0E33\u0E19\u0E27\u0E19\u0E17\u0E35\u0E48\u0E2B\u0E32\u0E23\u0E14\u0E49\u0E27\u0E22 ${issue2.divisor} \u0E44\u0E14\u0E49\u0E25\u0E07\u0E15\u0E31\u0E27`;
+        return `\u0E15\u0E31\u0E27\u0E40\u0E25\u0E02\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E15\u0E49\u0E2D\u0E07\u0E40\u0E1B\u0E47\u0E19\u0E08\u0E33\u0E19\u0E27\u0E19\u0E17\u0E35\u0E48\u0E2B\u0E32\u0E23\u0E14\u0E49\u0E27\u0E22 ${issue3.divisor} \u0E44\u0E14\u0E49\u0E25\u0E07\u0E15\u0E31\u0E27`;
       case "unrecognized_keys":
-        return `\u0E1E\u0E1A\u0E04\u0E35\u0E22\u0E4C\u0E17\u0E35\u0E48\u0E44\u0E21\u0E48\u0E23\u0E39\u0E49\u0E08\u0E31\u0E01: ${joinValues(issue2.keys, ", ")}`;
+        return `\u0E1E\u0E1A\u0E04\u0E35\u0E22\u0E4C\u0E17\u0E35\u0E48\u0E44\u0E21\u0E48\u0E23\u0E39\u0E49\u0E08\u0E31\u0E01: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `\u0E04\u0E35\u0E22\u0E4C\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07\u0E43\u0E19 ${issue2.origin}`;
+        return `\u0E04\u0E35\u0E22\u0E4C\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07\u0E43\u0E19 ${issue3.origin}`;
       case "invalid_union":
         return "\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E44\u0E21\u0E48\u0E15\u0E23\u0E07\u0E01\u0E31\u0E1A\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E22\u0E39\u0E40\u0E19\u0E35\u0E22\u0E19\u0E17\u0E35\u0E48\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E44\u0E27\u0E49";
       case "invalid_element":
-        return `\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07\u0E43\u0E19 ${issue2.origin}`;
+        return `\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07\u0E43\u0E19 ${issue3.origin}`;
       default:
         return `\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07`;
     }
@@ -28175,37 +28292,37 @@ var error40 = () => {
   const TypeDictionary = {
     nan: "NaN"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `Ge\xE7ersiz de\u011Fer: beklenen instanceof ${issue2.expected}, al\u0131nan ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `Ge\xE7ersiz de\u011Fer: beklenen instanceof ${issue3.expected}, al\u0131nan ${received}`;
         }
         return `Ge\xE7ersiz de\u011Fer: beklenen ${expected}, al\u0131nan ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `Ge\xE7ersiz de\u011Fer: beklenen ${stringifyPrimitive(issue2.values[0])}`;
-        return `Ge\xE7ersiz se\xE7enek: a\u015Fa\u011F\u0131dakilerden biri olmal\u0131: ${joinValues(issue2.values, "|")}`;
+        if (issue3.values.length === 1)
+          return `Ge\xE7ersiz de\u011Fer: beklenen ${stringifyPrimitive(issue3.values[0])}`;
+        return `Ge\xE7ersiz se\xE7enek: a\u015Fa\u011F\u0131dakilerden biri olmal\u0131: ${joinValues(issue3.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing)
-          return `\xC7ok b\xFCy\xFCk: beklenen ${issue2.origin ?? "de\u011Fer"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\xF6\u011Fe"}`;
-        return `\xC7ok b\xFCy\xFCk: beklenen ${issue2.origin ?? "de\u011Fer"} ${adj}${issue2.maximum.toString()}`;
+          return `\xC7ok b\xFCy\xFCk: beklenen ${issue3.origin ?? "de\u011Fer"} ${adj}${issue3.maximum.toString()} ${sizing.unit ?? "\xF6\u011Fe"}`;
+        return `\xC7ok b\xFCy\xFCk: beklenen ${issue3.origin ?? "de\u011Fer"} ${adj}${issue3.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing)
-          return `\xC7ok k\xFC\xE7\xFCk: beklenen ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
-        return `\xC7ok k\xFC\xE7\xFCk: beklenen ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
+          return `\xC7ok k\xFC\xE7\xFCk: beklenen ${issue3.origin} ${adj}${issue3.minimum.toString()} ${sizing.unit}`;
+        return `\xC7ok k\xFC\xE7\xFCk: beklenen ${issue3.origin} ${adj}${issue3.minimum.toString()}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with")
           return `Ge\xE7ersiz metin: "${_issue.prefix}" ile ba\u015Flamal\u0131`;
         if (_issue.format === "ends_with")
@@ -28214,18 +28331,18 @@ var error40 = () => {
           return `Ge\xE7ersiz metin: "${_issue.includes}" i\xE7ermeli`;
         if (_issue.format === "regex")
           return `Ge\xE7ersiz metin: ${_issue.pattern} desenine uymal\u0131`;
-        return `Ge\xE7ersiz ${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `Ge\xE7ersiz ${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `Ge\xE7ersiz say\u0131: ${issue2.divisor} ile tam b\xF6l\xFCnebilmeli`;
+        return `Ge\xE7ersiz say\u0131: ${issue3.divisor} ile tam b\xF6l\xFCnebilmeli`;
       case "unrecognized_keys":
-        return `Tan\u0131nmayan anahtar${issue2.keys.length > 1 ? "lar" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `Tan\u0131nmayan anahtar${issue3.keys.length > 1 ? "lar" : ""}: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `${issue2.origin} i\xE7inde ge\xE7ersiz anahtar`;
+        return `${issue3.origin} i\xE7inde ge\xE7ersiz anahtar`;
       case "invalid_union":
         return "Ge\xE7ersiz de\u011Fer";
       case "invalid_element":
-        return `${issue2.origin} i\xE7inde ge\xE7ersiz de\u011Fer`;
+        return `${issue3.origin} i\xE7inde ge\xE7ersiz de\u011Fer`;
       default:
         return `Ge\xE7ersiz de\u011Fer`;
     }
@@ -28283,38 +28400,38 @@ var error41 = () => {
     number: "\u0447\u0438\u0441\u043B\u043E",
     array: "\u043C\u0430\u0441\u0438\u0432"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0456 \u0432\u0445\u0456\u0434\u043D\u0456 \u0434\u0430\u043D\u0456: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F instanceof ${issue2.expected}, \u043E\u0442\u0440\u0438\u043C\u0430\u043D\u043E ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0456 \u0432\u0445\u0456\u0434\u043D\u0456 \u0434\u0430\u043D\u0456: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F instanceof ${issue3.expected}, \u043E\u0442\u0440\u0438\u043C\u0430\u043D\u043E ${received}`;
         }
         return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0456 \u0432\u0445\u0456\u0434\u043D\u0456 \u0434\u0430\u043D\u0456: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F ${expected}, \u043E\u0442\u0440\u0438\u043C\u0430\u043D\u043E ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0456 \u0432\u0445\u0456\u0434\u043D\u0456 \u0434\u0430\u043D\u0456: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0430 \u043E\u043F\u0446\u0456\u044F: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F \u043E\u0434\u043D\u0435 \u0437 ${joinValues(issue2.values, "|")}`;
+        if (issue3.values.length === 1)
+          return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0456 \u0432\u0445\u0456\u0434\u043D\u0456 \u0434\u0430\u043D\u0456: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F ${stringifyPrimitive(issue3.values[0])}`;
+        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0430 \u043E\u043F\u0446\u0456\u044F: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F \u043E\u0434\u043D\u0435 \u0437 ${joinValues(issue3.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing)
-          return `\u0417\u0430\u043D\u0430\u0434\u0442\u043E \u0432\u0435\u043B\u0438\u043A\u0435: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F, \u0449\u043E ${issue2.origin ?? "\u0437\u043D\u0430\u0447\u0435\u043D\u043D\u044F"} ${sizing.verb} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0456\u0432"}`;
-        return `\u0417\u0430\u043D\u0430\u0434\u0442\u043E \u0432\u0435\u043B\u0438\u043A\u0435: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F, \u0449\u043E ${issue2.origin ?? "\u0437\u043D\u0430\u0447\u0435\u043D\u043D\u044F"} \u0431\u0443\u0434\u0435 ${adj}${issue2.maximum.toString()}`;
+          return `\u0417\u0430\u043D\u0430\u0434\u0442\u043E \u0432\u0435\u043B\u0438\u043A\u0435: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F, \u0449\u043E ${issue3.origin ?? "\u0437\u043D\u0430\u0447\u0435\u043D\u043D\u044F"} ${sizing.verb} ${adj}${issue3.maximum.toString()} ${sizing.unit ?? "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0456\u0432"}`;
+        return `\u0417\u0430\u043D\u0430\u0434\u0442\u043E \u0432\u0435\u043B\u0438\u043A\u0435: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F, \u0449\u043E ${issue3.origin ?? "\u0437\u043D\u0430\u0447\u0435\u043D\u043D\u044F"} \u0431\u0443\u0434\u0435 ${adj}${issue3.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `\u0417\u0430\u043D\u0430\u0434\u0442\u043E \u043C\u0430\u043B\u0435: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F, \u0449\u043E ${issue2.origin} ${sizing.verb} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `\u0417\u0430\u043D\u0430\u0434\u0442\u043E \u043C\u0430\u043B\u0435: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F, \u0449\u043E ${issue3.origin} ${sizing.verb} ${adj}${issue3.minimum.toString()} ${sizing.unit}`;
         }
-        return `\u0417\u0430\u043D\u0430\u0434\u0442\u043E \u043C\u0430\u043B\u0435: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F, \u0449\u043E ${issue2.origin} \u0431\u0443\u0434\u0435 ${adj}${issue2.minimum.toString()}`;
+        return `\u0417\u0430\u043D\u0430\u0434\u0442\u043E \u043C\u0430\u043B\u0435: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F, \u0449\u043E ${issue3.origin} \u0431\u0443\u0434\u0435 ${adj}${issue3.minimum.toString()}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with")
           return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0438\u0439 \u0440\u044F\u0434\u043E\u043A: \u043F\u043E\u0432\u0438\u043D\u0435\u043D \u043F\u043E\u0447\u0438\u043D\u0430\u0442\u0438\u0441\u044F \u0437 "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
@@ -28323,18 +28440,18 @@ var error41 = () => {
           return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0438\u0439 \u0440\u044F\u0434\u043E\u043A: \u043F\u043E\u0432\u0438\u043D\u0435\u043D \u043C\u0456\u0441\u0442\u0438\u0442\u0438 "${_issue.includes}"`;
         if (_issue.format === "regex")
           return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0438\u0439 \u0440\u044F\u0434\u043E\u043A: \u043F\u043E\u0432\u0438\u043D\u0435\u043D \u0432\u0456\u0434\u043F\u043E\u0432\u0456\u0434\u0430\u0442\u0438 \u0448\u0430\u0431\u043B\u043E\u043D\u0443 ${_issue.pattern}`;
-        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0438\u0439 ${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0438\u0439 ${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0435 \u0447\u0438\u0441\u043B\u043E: \u043F\u043E\u0432\u0438\u043D\u043D\u043E \u0431\u0443\u0442\u0438 \u043A\u0440\u0430\u0442\u043D\u0438\u043C ${issue2.divisor}`;
+        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0435 \u0447\u0438\u0441\u043B\u043E: \u043F\u043E\u0432\u0438\u043D\u043D\u043E \u0431\u0443\u0442\u0438 \u043A\u0440\u0430\u0442\u043D\u0438\u043C ${issue3.divisor}`;
       case "unrecognized_keys":
-        return `\u041D\u0435\u0440\u043E\u0437\u043F\u0456\u0437\u043D\u0430\u043D\u0438\u0439 \u043A\u043B\u044E\u0447${issue2.keys.length > 1 ? "\u0456" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `\u041D\u0435\u0440\u043E\u0437\u043F\u0456\u0437\u043D\u0430\u043D\u0438\u0439 \u043A\u043B\u044E\u0447${issue3.keys.length > 1 ? "\u0456" : ""}: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0438\u0439 \u043A\u043B\u044E\u0447 \u0443 ${issue2.origin}`;
+        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0438\u0439 \u043A\u043B\u044E\u0447 \u0443 ${issue3.origin}`;
       case "invalid_union":
         return "\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0456 \u0432\u0445\u0456\u0434\u043D\u0456 \u0434\u0430\u043D\u0456";
       case "invalid_element":
-        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u043D\u044F \u0443 ${issue2.origin}`;
+        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u043D\u044F \u0443 ${issue3.origin}`;
       default:
         return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0456 \u0432\u0445\u0456\u0434\u043D\u0456 \u0434\u0430\u043D\u0456`;
     }
@@ -28398,38 +28515,38 @@ var error42 = () => {
     array: "\u0622\u0631\u06D2",
     null: "\u0646\u0644"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u063A\u0644\u0637 \u0627\u0646 \u067E\u0679: instanceof ${issue2.expected} \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u0627\u060C ${received} \u0645\u0648\u0635\u0648\u0644 \u06C1\u0648\u0627`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `\u063A\u0644\u0637 \u0627\u0646 \u067E\u0679: instanceof ${issue3.expected} \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u0627\u060C ${received} \u0645\u0648\u0635\u0648\u0644 \u06C1\u0648\u0627`;
         }
         return `\u063A\u0644\u0637 \u0627\u0646 \u067E\u0679: ${expected} \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u0627\u060C ${received} \u0645\u0648\u0635\u0648\u0644 \u06C1\u0648\u0627`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `\u063A\u0644\u0637 \u0627\u0646 \u067E\u0679: ${stringifyPrimitive(issue2.values[0])} \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u0627`;
-        return `\u063A\u0644\u0637 \u0622\u067E\u0634\u0646: ${joinValues(issue2.values, "|")} \u0645\u06CC\u06BA \u0633\u06D2 \u0627\u06CC\u06A9 \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u0627`;
+        if (issue3.values.length === 1)
+          return `\u063A\u0644\u0637 \u0627\u0646 \u067E\u0679: ${stringifyPrimitive(issue3.values[0])} \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u0627`;
+        return `\u063A\u0644\u0637 \u0622\u067E\u0634\u0646: ${joinValues(issue3.values, "|")} \u0645\u06CC\u06BA \u0633\u06D2 \u0627\u06CC\u06A9 \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u0627`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing)
-          return `\u0628\u06C1\u062A \u0628\u0691\u0627: ${issue2.origin ?? "\u0648\u06CC\u0644\u06CC\u0648"} \u06A9\u06D2 ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u0639\u0646\u0627\u0635\u0631"} \u06C1\u0648\u0646\u06D2 \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u06D2`;
-        return `\u0628\u06C1\u062A \u0628\u0691\u0627: ${issue2.origin ?? "\u0648\u06CC\u0644\u06CC\u0648"} \u06A9\u0627 ${adj}${issue2.maximum.toString()} \u06C1\u0648\u0646\u0627 \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u0627`;
+          return `\u0628\u06C1\u062A \u0628\u0691\u0627: ${issue3.origin ?? "\u0648\u06CC\u0644\u06CC\u0648"} \u06A9\u06D2 ${adj}${issue3.maximum.toString()} ${sizing.unit ?? "\u0639\u0646\u0627\u0635\u0631"} \u06C1\u0648\u0646\u06D2 \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u06D2`;
+        return `\u0628\u06C1\u062A \u0628\u0691\u0627: ${issue3.origin ?? "\u0648\u06CC\u0644\u06CC\u0648"} \u06A9\u0627 ${adj}${issue3.maximum.toString()} \u06C1\u0648\u0646\u0627 \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u0627`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `\u0628\u06C1\u062A \u0686\u06BE\u0648\u0679\u0627: ${issue2.origin} \u06A9\u06D2 ${adj}${issue2.minimum.toString()} ${sizing.unit} \u06C1\u0648\u0646\u06D2 \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u06D2`;
+          return `\u0628\u06C1\u062A \u0686\u06BE\u0648\u0679\u0627: ${issue3.origin} \u06A9\u06D2 ${adj}${issue3.minimum.toString()} ${sizing.unit} \u06C1\u0648\u0646\u06D2 \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u06D2`;
         }
-        return `\u0628\u06C1\u062A \u0686\u06BE\u0648\u0679\u0627: ${issue2.origin} \u06A9\u0627 ${adj}${issue2.minimum.toString()} \u06C1\u0648\u0646\u0627 \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u0627`;
+        return `\u0628\u06C1\u062A \u0686\u06BE\u0648\u0679\u0627: ${issue3.origin} \u06A9\u0627 ${adj}${issue3.minimum.toString()} \u06C1\u0648\u0646\u0627 \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u0627`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with") {
           return `\u063A\u0644\u0637 \u0633\u0679\u0631\u0646\u06AF: "${_issue.prefix}" \u0633\u06D2 \u0634\u0631\u0648\u0639 \u06C1\u0648\u0646\u0627 \u0686\u0627\u06C1\u06CC\u06D2`;
         }
@@ -28439,18 +28556,18 @@ var error42 = () => {
           return `\u063A\u0644\u0637 \u0633\u0679\u0631\u0646\u06AF: "${_issue.includes}" \u0634\u0627\u0645\u0644 \u06C1\u0648\u0646\u0627 \u0686\u0627\u06C1\u06CC\u06D2`;
         if (_issue.format === "regex")
           return `\u063A\u0644\u0637 \u0633\u0679\u0631\u0646\u06AF: \u067E\u06CC\u0679\u0631\u0646 ${_issue.pattern} \u0633\u06D2 \u0645\u06CC\u0686 \u06C1\u0648\u0646\u0627 \u0686\u0627\u06C1\u06CC\u06D2`;
-        return `\u063A\u0644\u0637 ${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `\u063A\u0644\u0637 ${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `\u063A\u0644\u0637 \u0646\u0645\u0628\u0631: ${issue2.divisor} \u06A9\u0627 \u0645\u0636\u0627\u0639\u0641 \u06C1\u0648\u0646\u0627 \u0686\u0627\u06C1\u06CC\u06D2`;
+        return `\u063A\u0644\u0637 \u0646\u0645\u0628\u0631: ${issue3.divisor} \u06A9\u0627 \u0645\u0636\u0627\u0639\u0641 \u06C1\u0648\u0646\u0627 \u0686\u0627\u06C1\u06CC\u06D2`;
       case "unrecognized_keys":
-        return `\u063A\u06CC\u0631 \u062A\u0633\u0644\u06CC\u0645 \u0634\u062F\u06C1 \u06A9\u06CC${issue2.keys.length > 1 ? "\u0632" : ""}: ${joinValues(issue2.keys, "\u060C ")}`;
+        return `\u063A\u06CC\u0631 \u062A\u0633\u0644\u06CC\u0645 \u0634\u062F\u06C1 \u06A9\u06CC${issue3.keys.length > 1 ? "\u0632" : ""}: ${joinValues(issue3.keys, "\u060C ")}`;
       case "invalid_key":
-        return `${issue2.origin} \u0645\u06CC\u06BA \u063A\u0644\u0637 \u06A9\u06CC`;
+        return `${issue3.origin} \u0645\u06CC\u06BA \u063A\u0644\u0637 \u06A9\u06CC`;
       case "invalid_union":
         return "\u063A\u0644\u0637 \u0627\u0646 \u067E\u0679";
       case "invalid_element":
-        return `${issue2.origin} \u0645\u06CC\u06BA \u063A\u0644\u0637 \u0648\u06CC\u0644\u06CC\u0648`;
+        return `${issue3.origin} \u0645\u06CC\u06BA \u063A\u0644\u0637 \u0648\u06CC\u0644\u06CC\u0648`;
       default:
         return `\u063A\u0644\u0637 \u0627\u0646 \u067E\u0679`;
     }
@@ -28509,38 +28626,38 @@ var error43 = () => {
     number: "raqam",
     array: "massiv"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `Noto\u2018g\u2018ri kirish: kutilgan instanceof ${issue2.expected}, qabul qilingan ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `Noto\u2018g\u2018ri kirish: kutilgan instanceof ${issue3.expected}, qabul qilingan ${received}`;
         }
         return `Noto\u2018g\u2018ri kirish: kutilgan ${expected}, qabul qilingan ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `Noto\u2018g\u2018ri kirish: kutilgan ${stringifyPrimitive(issue2.values[0])}`;
-        return `Noto\u2018g\u2018ri variant: quyidagilardan biri kutilgan ${joinValues(issue2.values, "|")}`;
+        if (issue3.values.length === 1)
+          return `Noto\u2018g\u2018ri kirish: kutilgan ${stringifyPrimitive(issue3.values[0])}`;
+        return `Noto\u2018g\u2018ri variant: quyidagilardan biri kutilgan ${joinValues(issue3.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing)
-          return `Juda katta: kutilgan ${issue2.origin ?? "qiymat"} ${adj}${issue2.maximum.toString()} ${sizing.unit} ${sizing.verb}`;
-        return `Juda katta: kutilgan ${issue2.origin ?? "qiymat"} ${adj}${issue2.maximum.toString()}`;
+          return `Juda katta: kutilgan ${issue3.origin ?? "qiymat"} ${adj}${issue3.maximum.toString()} ${sizing.unit} ${sizing.verb}`;
+        return `Juda katta: kutilgan ${issue3.origin ?? "qiymat"} ${adj}${issue3.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `Juda kichik: kutilgan ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit} ${sizing.verb}`;
+          return `Juda kichik: kutilgan ${issue3.origin} ${adj}${issue3.minimum.toString()} ${sizing.unit} ${sizing.verb}`;
         }
-        return `Juda kichik: kutilgan ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
+        return `Juda kichik: kutilgan ${issue3.origin} ${adj}${issue3.minimum.toString()}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with")
           return `Noto\u2018g\u2018ri satr: "${_issue.prefix}" bilan boshlanishi kerak`;
         if (_issue.format === "ends_with")
@@ -28549,18 +28666,18 @@ var error43 = () => {
           return `Noto\u2018g\u2018ri satr: "${_issue.includes}" ni o\u2018z ichiga olishi kerak`;
         if (_issue.format === "regex")
           return `Noto\u2018g\u2018ri satr: ${_issue.pattern} shabloniga mos kelishi kerak`;
-        return `Noto\u2018g\u2018ri ${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `Noto\u2018g\u2018ri ${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `Noto\u2018g\u2018ri raqam: ${issue2.divisor} ning karralisi bo\u2018lishi kerak`;
+        return `Noto\u2018g\u2018ri raqam: ${issue3.divisor} ning karralisi bo\u2018lishi kerak`;
       case "unrecognized_keys":
-        return `Noma\u2019lum kalit${issue2.keys.length > 1 ? "lar" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `Noma\u2019lum kalit${issue3.keys.length > 1 ? "lar" : ""}: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `${issue2.origin} dagi kalit noto\u2018g\u2018ri`;
+        return `${issue3.origin} dagi kalit noto\u2018g\u2018ri`;
       case "invalid_union":
         return "Noto\u2018g\u2018ri kirish";
       case "invalid_element":
-        return `${issue2.origin} da noto\u2018g\u2018ri qiymat`;
+        return `${issue3.origin} da noto\u2018g\u2018ri qiymat`;
       default:
         return `Noto\u2018g\u2018ri kirish`;
     }
@@ -28618,38 +28735,38 @@ var error44 = () => {
     number: "s\u1ED1",
     array: "m\u1EA3ng"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u0110\u1EA7u v\xE0o kh\xF4ng h\u1EE3p l\u1EC7: mong \u0111\u1EE3i instanceof ${issue2.expected}, nh\u1EADn \u0111\u01B0\u1EE3c ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `\u0110\u1EA7u v\xE0o kh\xF4ng h\u1EE3p l\u1EC7: mong \u0111\u1EE3i instanceof ${issue3.expected}, nh\u1EADn \u0111\u01B0\u1EE3c ${received}`;
         }
         return `\u0110\u1EA7u v\xE0o kh\xF4ng h\u1EE3p l\u1EC7: mong \u0111\u1EE3i ${expected}, nh\u1EADn \u0111\u01B0\u1EE3c ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `\u0110\u1EA7u v\xE0o kh\xF4ng h\u1EE3p l\u1EC7: mong \u0111\u1EE3i ${stringifyPrimitive(issue2.values[0])}`;
-        return `T\xF9y ch\u1ECDn kh\xF4ng h\u1EE3p l\u1EC7: mong \u0111\u1EE3i m\u1ED9t trong c\xE1c gi\xE1 tr\u1ECB ${joinValues(issue2.values, "|")}`;
+        if (issue3.values.length === 1)
+          return `\u0110\u1EA7u v\xE0o kh\xF4ng h\u1EE3p l\u1EC7: mong \u0111\u1EE3i ${stringifyPrimitive(issue3.values[0])}`;
+        return `T\xF9y ch\u1ECDn kh\xF4ng h\u1EE3p l\u1EC7: mong \u0111\u1EE3i m\u1ED9t trong c\xE1c gi\xE1 tr\u1ECB ${joinValues(issue3.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing)
-          return `Qu\xE1 l\u1EDBn: mong \u0111\u1EE3i ${issue2.origin ?? "gi\xE1 tr\u1ECB"} ${sizing.verb} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "ph\u1EA7n t\u1EED"}`;
-        return `Qu\xE1 l\u1EDBn: mong \u0111\u1EE3i ${issue2.origin ?? "gi\xE1 tr\u1ECB"} ${adj}${issue2.maximum.toString()}`;
+          return `Qu\xE1 l\u1EDBn: mong \u0111\u1EE3i ${issue3.origin ?? "gi\xE1 tr\u1ECB"} ${sizing.verb} ${adj}${issue3.maximum.toString()} ${sizing.unit ?? "ph\u1EA7n t\u1EED"}`;
+        return `Qu\xE1 l\u1EDBn: mong \u0111\u1EE3i ${issue3.origin ?? "gi\xE1 tr\u1ECB"} ${adj}${issue3.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `Qu\xE1 nh\u1ECF: mong \u0111\u1EE3i ${issue2.origin} ${sizing.verb} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `Qu\xE1 nh\u1ECF: mong \u0111\u1EE3i ${issue3.origin} ${sizing.verb} ${adj}${issue3.minimum.toString()} ${sizing.unit}`;
         }
-        return `Qu\xE1 nh\u1ECF: mong \u0111\u1EE3i ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
+        return `Qu\xE1 nh\u1ECF: mong \u0111\u1EE3i ${issue3.origin} ${adj}${issue3.minimum.toString()}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with")
           return `Chu\u1ED7i kh\xF4ng h\u1EE3p l\u1EC7: ph\u1EA3i b\u1EAFt \u0111\u1EA7u b\u1EB1ng "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
@@ -28658,18 +28775,18 @@ var error44 = () => {
           return `Chu\u1ED7i kh\xF4ng h\u1EE3p l\u1EC7: ph\u1EA3i bao g\u1ED3m "${_issue.includes}"`;
         if (_issue.format === "regex")
           return `Chu\u1ED7i kh\xF4ng h\u1EE3p l\u1EC7: ph\u1EA3i kh\u1EDBp v\u1EDBi m\u1EABu ${_issue.pattern}`;
-        return `${FormatDictionary[_issue.format] ?? issue2.format} kh\xF4ng h\u1EE3p l\u1EC7`;
+        return `${FormatDictionary[_issue.format] ?? issue3.format} kh\xF4ng h\u1EE3p l\u1EC7`;
       }
       case "not_multiple_of":
-        return `S\u1ED1 kh\xF4ng h\u1EE3p l\u1EC7: ph\u1EA3i l\xE0 b\u1ED9i s\u1ED1 c\u1EE7a ${issue2.divisor}`;
+        return `S\u1ED1 kh\xF4ng h\u1EE3p l\u1EC7: ph\u1EA3i l\xE0 b\u1ED9i s\u1ED1 c\u1EE7a ${issue3.divisor}`;
       case "unrecognized_keys":
-        return `Kh\xF3a kh\xF4ng \u0111\u01B0\u1EE3c nh\u1EADn d\u1EA1ng: ${joinValues(issue2.keys, ", ")}`;
+        return `Kh\xF3a kh\xF4ng \u0111\u01B0\u1EE3c nh\u1EADn d\u1EA1ng: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `Kh\xF3a kh\xF4ng h\u1EE3p l\u1EC7 trong ${issue2.origin}`;
+        return `Kh\xF3a kh\xF4ng h\u1EE3p l\u1EC7 trong ${issue3.origin}`;
       case "invalid_union":
         return "\u0110\u1EA7u v\xE0o kh\xF4ng h\u1EE3p l\u1EC7";
       case "invalid_element":
-        return `Gi\xE1 tr\u1ECB kh\xF4ng h\u1EE3p l\u1EC7 trong ${issue2.origin}`;
+        return `Gi\xE1 tr\u1ECB kh\xF4ng h\u1EE3p l\u1EC7 trong ${issue3.origin}`;
       default:
         return `\u0110\u1EA7u v\xE0o kh\xF4ng h\u1EE3p l\u1EC7`;
     }
@@ -28728,38 +28845,38 @@ var error45 = () => {
     array: "\u6570\u7EC4",
     null: "\u7A7A\u503C(null)"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u65E0\u6548\u8F93\u5165\uFF1A\u671F\u671B instanceof ${issue2.expected}\uFF0C\u5B9E\u9645\u63A5\u6536 ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `\u65E0\u6548\u8F93\u5165\uFF1A\u671F\u671B instanceof ${issue3.expected}\uFF0C\u5B9E\u9645\u63A5\u6536 ${received}`;
         }
         return `\u65E0\u6548\u8F93\u5165\uFF1A\u671F\u671B ${expected}\uFF0C\u5B9E\u9645\u63A5\u6536 ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `\u65E0\u6548\u8F93\u5165\uFF1A\u671F\u671B ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u65E0\u6548\u9009\u9879\uFF1A\u671F\u671B\u4EE5\u4E0B\u4E4B\u4E00 ${joinValues(issue2.values, "|")}`;
+        if (issue3.values.length === 1)
+          return `\u65E0\u6548\u8F93\u5165\uFF1A\u671F\u671B ${stringifyPrimitive(issue3.values[0])}`;
+        return `\u65E0\u6548\u9009\u9879\uFF1A\u671F\u671B\u4EE5\u4E0B\u4E4B\u4E00 ${joinValues(issue3.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing)
-          return `\u6570\u503C\u8FC7\u5927\uFF1A\u671F\u671B ${issue2.origin ?? "\u503C"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u4E2A\u5143\u7D20"}`;
-        return `\u6570\u503C\u8FC7\u5927\uFF1A\u671F\u671B ${issue2.origin ?? "\u503C"} ${adj}${issue2.maximum.toString()}`;
+          return `\u6570\u503C\u8FC7\u5927\uFF1A\u671F\u671B ${issue3.origin ?? "\u503C"} ${adj}${issue3.maximum.toString()} ${sizing.unit ?? "\u4E2A\u5143\u7D20"}`;
+        return `\u6570\u503C\u8FC7\u5927\uFF1A\u671F\u671B ${issue3.origin ?? "\u503C"} ${adj}${issue3.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `\u6570\u503C\u8FC7\u5C0F\uFF1A\u671F\u671B ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `\u6570\u503C\u8FC7\u5C0F\uFF1A\u671F\u671B ${issue3.origin} ${adj}${issue3.minimum.toString()} ${sizing.unit}`;
         }
-        return `\u6570\u503C\u8FC7\u5C0F\uFF1A\u671F\u671B ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
+        return `\u6570\u503C\u8FC7\u5C0F\uFF1A\u671F\u671B ${issue3.origin} ${adj}${issue3.minimum.toString()}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with")
           return `\u65E0\u6548\u5B57\u7B26\u4E32\uFF1A\u5FC5\u987B\u4EE5 "${_issue.prefix}" \u5F00\u5934`;
         if (_issue.format === "ends_with")
@@ -28768,18 +28885,18 @@ var error45 = () => {
           return `\u65E0\u6548\u5B57\u7B26\u4E32\uFF1A\u5FC5\u987B\u5305\u542B "${_issue.includes}"`;
         if (_issue.format === "regex")
           return `\u65E0\u6548\u5B57\u7B26\u4E32\uFF1A\u5FC5\u987B\u6EE1\u8DB3\u6B63\u5219\u8868\u8FBE\u5F0F ${_issue.pattern}`;
-        return `\u65E0\u6548${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `\u65E0\u6548${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `\u65E0\u6548\u6570\u5B57\uFF1A\u5FC5\u987B\u662F ${issue2.divisor} \u7684\u500D\u6570`;
+        return `\u65E0\u6548\u6570\u5B57\uFF1A\u5FC5\u987B\u662F ${issue3.divisor} \u7684\u500D\u6570`;
       case "unrecognized_keys":
-        return `\u51FA\u73B0\u672A\u77E5\u7684\u952E(key): ${joinValues(issue2.keys, ", ")}`;
+        return `\u51FA\u73B0\u672A\u77E5\u7684\u952E(key): ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `${issue2.origin} \u4E2D\u7684\u952E(key)\u65E0\u6548`;
+        return `${issue3.origin} \u4E2D\u7684\u952E(key)\u65E0\u6548`;
       case "invalid_union":
         return "\u65E0\u6548\u8F93\u5165";
       case "invalid_element":
-        return `${issue2.origin} \u4E2D\u5305\u542B\u65E0\u6548\u503C(value)`;
+        return `${issue3.origin} \u4E2D\u5305\u542B\u65E0\u6548\u503C(value)`;
       default:
         return `\u65E0\u6548\u8F93\u5165`;
     }
@@ -28835,38 +28952,38 @@ var error46 = () => {
   const TypeDictionary = {
     nan: "NaN"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u7121\u6548\u7684\u8F38\u5165\u503C\uFF1A\u9810\u671F\u70BA instanceof ${issue2.expected}\uFF0C\u4F46\u6536\u5230 ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `\u7121\u6548\u7684\u8F38\u5165\u503C\uFF1A\u9810\u671F\u70BA instanceof ${issue3.expected}\uFF0C\u4F46\u6536\u5230 ${received}`;
         }
         return `\u7121\u6548\u7684\u8F38\u5165\u503C\uFF1A\u9810\u671F\u70BA ${expected}\uFF0C\u4F46\u6536\u5230 ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `\u7121\u6548\u7684\u8F38\u5165\u503C\uFF1A\u9810\u671F\u70BA ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u7121\u6548\u7684\u9078\u9805\uFF1A\u9810\u671F\u70BA\u4EE5\u4E0B\u5176\u4E2D\u4E4B\u4E00 ${joinValues(issue2.values, "|")}`;
+        if (issue3.values.length === 1)
+          return `\u7121\u6548\u7684\u8F38\u5165\u503C\uFF1A\u9810\u671F\u70BA ${stringifyPrimitive(issue3.values[0])}`;
+        return `\u7121\u6548\u7684\u9078\u9805\uFF1A\u9810\u671F\u70BA\u4EE5\u4E0B\u5176\u4E2D\u4E4B\u4E00 ${joinValues(issue3.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing)
-          return `\u6578\u503C\u904E\u5927\uFF1A\u9810\u671F ${issue2.origin ?? "\u503C"} \u61C9\u70BA ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u500B\u5143\u7D20"}`;
-        return `\u6578\u503C\u904E\u5927\uFF1A\u9810\u671F ${issue2.origin ?? "\u503C"} \u61C9\u70BA ${adj}${issue2.maximum.toString()}`;
+          return `\u6578\u503C\u904E\u5927\uFF1A\u9810\u671F ${issue3.origin ?? "\u503C"} \u61C9\u70BA ${adj}${issue3.maximum.toString()} ${sizing.unit ?? "\u500B\u5143\u7D20"}`;
+        return `\u6578\u503C\u904E\u5927\uFF1A\u9810\u671F ${issue3.origin ?? "\u503C"} \u61C9\u70BA ${adj}${issue3.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing) {
-          return `\u6578\u503C\u904E\u5C0F\uFF1A\u9810\u671F ${issue2.origin} \u61C9\u70BA ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `\u6578\u503C\u904E\u5C0F\uFF1A\u9810\u671F ${issue3.origin} \u61C9\u70BA ${adj}${issue3.minimum.toString()} ${sizing.unit}`;
         }
-        return `\u6578\u503C\u904E\u5C0F\uFF1A\u9810\u671F ${issue2.origin} \u61C9\u70BA ${adj}${issue2.minimum.toString()}`;
+        return `\u6578\u503C\u904E\u5C0F\uFF1A\u9810\u671F ${issue3.origin} \u61C9\u70BA ${adj}${issue3.minimum.toString()}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with") {
           return `\u7121\u6548\u7684\u5B57\u4E32\uFF1A\u5FC5\u9808\u4EE5 "${_issue.prefix}" \u958B\u982D`;
         }
@@ -28876,18 +28993,18 @@ var error46 = () => {
           return `\u7121\u6548\u7684\u5B57\u4E32\uFF1A\u5FC5\u9808\u5305\u542B "${_issue.includes}"`;
         if (_issue.format === "regex")
           return `\u7121\u6548\u7684\u5B57\u4E32\uFF1A\u5FC5\u9808\u7B26\u5408\u683C\u5F0F ${_issue.pattern}`;
-        return `\u7121\u6548\u7684 ${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `\u7121\u6548\u7684 ${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `\u7121\u6548\u7684\u6578\u5B57\uFF1A\u5FC5\u9808\u70BA ${issue2.divisor} \u7684\u500D\u6578`;
+        return `\u7121\u6548\u7684\u6578\u5B57\uFF1A\u5FC5\u9808\u70BA ${issue3.divisor} \u7684\u500D\u6578`;
       case "unrecognized_keys":
-        return `\u7121\u6CD5\u8B58\u5225\u7684\u9375\u503C${issue2.keys.length > 1 ? "\u5011" : ""}\uFF1A${joinValues(issue2.keys, "\u3001")}`;
+        return `\u7121\u6CD5\u8B58\u5225\u7684\u9375\u503C${issue3.keys.length > 1 ? "\u5011" : ""}\uFF1A${joinValues(issue3.keys, "\u3001")}`;
       case "invalid_key":
-        return `${issue2.origin} \u4E2D\u6709\u7121\u6548\u7684\u9375\u503C`;
+        return `${issue3.origin} \u4E2D\u6709\u7121\u6548\u7684\u9375\u503C`;
       case "invalid_union":
         return "\u7121\u6548\u7684\u8F38\u5165\u503C";
       case "invalid_element":
-        return `${issue2.origin} \u4E2D\u6709\u7121\u6548\u7684\u503C`;
+        return `${issue3.origin} \u4E2D\u6709\u7121\u6548\u7684\u503C`;
       default:
         return `\u7121\u6548\u7684\u8F38\u5165\u503C`;
     }
@@ -28945,37 +29062,37 @@ var error47 = () => {
     number: "n\u1ECD\u0301mb\xE0",
     array: "akop\u1ECD"
   };
-  return (issue2) => {
-    switch (issue2.code) {
+  return (issue3) => {
+    switch (issue3.code) {
       case "invalid_type": {
-        const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
-        const receivedType = parsedType(issue2.input);
+        const expected = TypeDictionary[issue3.expected] ?? issue3.expected;
+        const receivedType = parsedType(issue3.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        if (/^[A-Z]/.test(issue2.expected)) {
-          return `\xCCb\xE1w\u1ECDl\xE9 a\u1E63\xEC\u1E63e: a n\xED l\xE1ti fi instanceof ${issue2.expected}, \xE0m\u1ECD\u0300 a r\xED ${received}`;
+        if (/^[A-Z]/.test(issue3.expected)) {
+          return `\xCCb\xE1w\u1ECDl\xE9 a\u1E63\xEC\u1E63e: a n\xED l\xE1ti fi instanceof ${issue3.expected}, \xE0m\u1ECD\u0300 a r\xED ${received}`;
         }
         return `\xCCb\xE1w\u1ECDl\xE9 a\u1E63\xEC\u1E63e: a n\xED l\xE1ti fi ${expected}, \xE0m\u1ECD\u0300 a r\xED ${received}`;
       }
       case "invalid_value":
-        if (issue2.values.length === 1)
-          return `\xCCb\xE1w\u1ECDl\xE9 a\u1E63\xEC\u1E63e: a n\xED l\xE1ti fi ${stringifyPrimitive(issue2.values[0])}`;
-        return `\xC0\u1E63\xE0y\xE0n a\u1E63\xEC\u1E63e: yan \u1ECD\u0300kan l\xE1ra ${joinValues(issue2.values, "|")}`;
+        if (issue3.values.length === 1)
+          return `\xCCb\xE1w\u1ECDl\xE9 a\u1E63\xEC\u1E63e: a n\xED l\xE1ti fi ${stringifyPrimitive(issue3.values[0])}`;
+        return `\xC0\u1E63\xE0y\xE0n a\u1E63\xEC\u1E63e: yan \u1ECD\u0300kan l\xE1ra ${joinValues(issue3.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "<=" : "<";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue3.origin);
         if (sizing)
-          return `T\xF3 p\u1ECD\u0300 j\xF9: a n\xED l\xE1ti j\u1EB9\u0301 p\xE9 ${issue2.origin ?? "iye"} ${sizing.verb} ${adj}${issue2.maximum} ${sizing.unit}`;
-        return `T\xF3 p\u1ECD\u0300 j\xF9: a n\xED l\xE1ti j\u1EB9\u0301 ${adj}${issue2.maximum}`;
+          return `T\xF3 p\u1ECD\u0300 j\xF9: a n\xED l\xE1ti j\u1EB9\u0301 p\xE9 ${issue3.origin ?? "iye"} ${sizing.verb} ${adj}${issue3.maximum} ${sizing.unit}`;
+        return `T\xF3 p\u1ECD\u0300 j\xF9: a n\xED l\xE1ti j\u1EB9\u0301 ${adj}${issue3.maximum}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? ">=" : ">";
-        const sizing = getSizing(issue2.origin);
+        const adj = issue3.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue3.origin);
         if (sizing)
-          return `K\xE9r\xE9 ju: a n\xED l\xE1ti j\u1EB9\u0301 p\xE9 ${issue2.origin} ${sizing.verb} ${adj}${issue2.minimum} ${sizing.unit}`;
-        return `K\xE9r\xE9 ju: a n\xED l\xE1ti j\u1EB9\u0301 ${adj}${issue2.minimum}`;
+          return `K\xE9r\xE9 ju: a n\xED l\xE1ti j\u1EB9\u0301 p\xE9 ${issue3.origin} ${sizing.verb} ${adj}${issue3.minimum} ${sizing.unit}`;
+        return `K\xE9r\xE9 ju: a n\xED l\xE1ti j\u1EB9\u0301 ${adj}${issue3.minimum}`;
       }
       case "invalid_format": {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.format === "starts_with")
           return `\u1ECC\u0300r\u1ECD\u0300 a\u1E63\xEC\u1E63e: gb\u1ECD\u0301d\u1ECD\u0300 b\u1EB9\u0300r\u1EB9\u0300 p\u1EB9\u0300l\xFA "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
@@ -28984,18 +29101,18 @@ var error47 = () => {
           return `\u1ECC\u0300r\u1ECD\u0300 a\u1E63\xEC\u1E63e: gb\u1ECD\u0301d\u1ECD\u0300 n\xED "${_issue.includes}"`;
         if (_issue.format === "regex")
           return `\u1ECC\u0300r\u1ECD\u0300 a\u1E63\xEC\u1E63e: gb\u1ECD\u0301d\u1ECD\u0300 b\xE1 \xE0p\u1EB9\u1EB9r\u1EB9 mu ${_issue.pattern}`;
-        return `A\u1E63\xEC\u1E63e: ${FormatDictionary[_issue.format] ?? issue2.format}`;
+        return `A\u1E63\xEC\u1E63e: ${FormatDictionary[_issue.format] ?? issue3.format}`;
       }
       case "not_multiple_of":
-        return `N\u1ECD\u0301mb\xE0 a\u1E63\xEC\u1E63e: gb\u1ECD\u0301d\u1ECD\u0300 j\u1EB9\u0301 \xE8y\xE0 p\xEDp\xEDn ti ${issue2.divisor}`;
+        return `N\u1ECD\u0301mb\xE0 a\u1E63\xEC\u1E63e: gb\u1ECD\u0301d\u1ECD\u0300 j\u1EB9\u0301 \xE8y\xE0 p\xEDp\xEDn ti ${issue3.divisor}`;
       case "unrecognized_keys":
-        return `B\u1ECDt\xECn\xEC \xE0\xECm\u1ECD\u0300: ${joinValues(issue2.keys, ", ")}`;
+        return `B\u1ECDt\xECn\xEC \xE0\xECm\u1ECD\u0300: ${joinValues(issue3.keys, ", ")}`;
       case "invalid_key":
-        return `B\u1ECDt\xECn\xEC a\u1E63\xEC\u1E63e n\xEDn\xFA ${issue2.origin}`;
+        return `B\u1ECDt\xECn\xEC a\u1E63\xEC\u1E63e n\xEDn\xFA ${issue3.origin}`;
       case "invalid_union":
         return "\xCCb\xE1w\u1ECDl\xE9 a\u1E63\xEC\u1E63e";
       case "invalid_element":
-        return `Iye a\u1E63\xEC\u1E63e n\xEDn\xFA ${issue2.origin}`;
+        return `Iye a\u1E63\xEC\u1E63e n\xEDn\xFA ${issue3.origin}`;
       default:
         return "\xCCb\xE1w\u1ECDl\xE9 a\u1E63\xEC\u1E63e";
     }
@@ -29009,8 +29126,8 @@ function yo_default() {
 
 // node_modules/zod/v4/core/registries.js
 var _a;
-var $output = Symbol("ZodOutput");
-var $input = Symbol("ZodInput");
+var $output = /* @__PURE__ */ Symbol("ZodOutput");
+var $input = /* @__PURE__ */ Symbol("ZodInput");
 var $ZodRegistry = class {
   constructor() {
     this._map = /* @__PURE__ */ new WeakMap();
@@ -29974,11 +30091,11 @@ function _refine(Class2, fn, _params) {
 // @__NO_SIDE_EFFECTS__
 function _superRefine(fn) {
   const ch = /* @__PURE__ */ _check((payload) => {
-    payload.addIssue = (issue2) => {
-      if (typeof issue2 === "string") {
-        payload.issues.push(issue(issue2, payload.value, ch._zod.def));
+    payload.addIssue = (issue3) => {
+      if (typeof issue3 === "string") {
+        payload.issues.push(issue(issue3, payload.value, ch._zod.def));
       } else {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.fatal)
           _issue.continue = false;
         _issue.code ?? (_issue.code = "custom");
@@ -30047,7 +30164,7 @@ function _stringbool(Classes, _params) {
     type: "pipe",
     in: stringSchema,
     out: booleanSchema,
-    transform: (input, payload) => {
+    transform: ((input, payload) => {
       let data = input;
       if (params.case !== "sensitive")
         data = data.toLowerCase();
@@ -30066,14 +30183,14 @@ function _stringbool(Classes, _params) {
         });
         return {};
       }
-    },
-    reverseTransform: (input, _payload) => {
+    }),
+    reverseTransform: ((input, _payload) => {
       if (input === true) {
         return truthyArray[0] || "true";
       } else {
         return falsyArray[0] || "false";
       }
-    },
+    }),
     error: params.error
   });
   return codec2;
@@ -30966,21 +31083,21 @@ var allProcessors = {
 };
 function toJSONSchema(input, params) {
   if ("_idmap" in input) {
-    const registry2 = input;
+    const registry3 = input;
     const ctx2 = initializeContext({ ...params, processors: allProcessors });
     const defs = {};
-    for (const entry of registry2._idmap.entries()) {
+    for (const entry of registry3._idmap.entries()) {
       const [_, schema] = entry;
       process2(schema, ctx2);
     }
     const schemas = {};
     const external = {
-      registry: registry2,
+      registry: registry3,
       uri: params?.uri,
       defs
     };
     ctx2.external = external;
-    for (const entry of registry2._idmap.entries()) {
+    for (const entry of registry3._idmap.entries()) {
       const [key, schema] = entry;
       extractDefs(ctx2, schema);
       schemas[key] = finalize(ctx2, schema);
@@ -31100,10 +31217,10 @@ var ZodMiniType = /* @__PURE__ */ $constructor("ZodMiniType", (inst, def) => {
   inst.with = inst.check;
   inst.clone = (_def, params) => clone(inst, _def, params);
   inst.brand = () => inst;
-  inst.register = (reg, meta3) => {
+  inst.register = ((reg, meta3) => {
     reg.add(inst, meta3);
     return inst;
-  };
+  });
   inst.apply = (fn) => fn(inst);
 });
 var ZodMiniObject = /* @__PURE__ */ $constructor("ZodMiniObject", (inst, def) => {
@@ -31764,8 +31881,8 @@ var initializer2 = (inst, issues) => {
       // enumerable: false,
     },
     addIssue: {
-      value: (issue2) => {
-        inst.issues.push(issue2);
+      value: (issue3) => {
+        inst.issues.push(issue3);
         inst.message = JSON.stringify(inst.issues, jsonStringifyReplacer, 2);
       }
       // enumerable: false,
@@ -31830,10 +31947,10 @@ var ZodType2 = /* @__PURE__ */ $constructor("ZodType", (inst, def) => {
   inst.with = inst.check;
   inst.clone = (def2, params) => clone(inst, def2, params);
   inst.brand = () => inst;
-  inst.register = (reg, meta3) => {
+  inst.register = ((reg, meta3) => {
     reg.add(inst, meta3);
     return inst;
-  };
+  });
   inst.parse = (data, params) => parse2(inst, data, params, { callee: inst.parse });
   inst.safeParse = (data, params) => safeParse3(inst, data, params);
   inst.parseAsync = async (data, params) => parseAsync2(inst, data, params, { callee: inst.parseAsync });
@@ -32587,11 +32704,11 @@ var ZodTransform = /* @__PURE__ */ $constructor("ZodTransform", (inst, def) => {
     if (_ctx.direction === "backward") {
       throw new $ZodEncodeError(inst.constructor.name);
     }
-    payload.addIssue = (issue2) => {
-      if (typeof issue2 === "string") {
-        payload.issues.push(util_exports.issue(issue2, payload.value, def));
+    payload.addIssue = (issue3) => {
+      if (typeof issue3 === "string") {
+        payload.issues.push(util_exports.issue(issue3, payload.value, def));
       } else {
-        const _issue = issue2;
+        const _issue = issue3;
         if (_issue.fatal)
           _issue.continue = false;
         _issue.code ?? (_issue.code = "custom");
@@ -34789,11 +34906,13 @@ function assertCompleteRequestPrompt(request) {
   if (request.params.ref.type !== "ref/prompt") {
     throw new TypeError(`Expected CompleteRequestPrompt, but got ${request.params.ref.type}`);
   }
+  void request;
 }
 function assertCompleteRequestResourceTemplate(request) {
   if (request.params.ref.type !== "ref/resource") {
     throw new TypeError(`Expected CompleteRequestResourceTemplate, but got ${request.params.ref.type}`);
   }
+  void request;
 }
 var CompleteResultSchema = ResultSchema.extend({
   completion: looseObject({
@@ -34946,7 +35065,7 @@ function isTerminal(status) {
 }
 
 // node_modules/zod-to-json-schema/dist/esm/Options.js
-var ignoreOverride = Symbol("Let zodToJsonSchema decide on which parser to use");
+var ignoreOverride = /* @__PURE__ */ Symbol("Let zodToJsonSchema decide on which parser to use");
 var defaultOptions = {
   name: void 0,
   $refStrategy: "root",
@@ -36771,7 +36890,7 @@ var Protocol = class {
           return;
         }
         const pollInterval = task2.pollInterval ?? this._options?.defaultTaskPollInterval ?? 1e3;
-        await new Promise((resolve7) => setTimeout(resolve7, pollInterval));
+        await new Promise((resolve8) => setTimeout(resolve8, pollInterval));
         options?.signal?.throwIfAborted();
       }
     } catch (error48) {
@@ -36788,7 +36907,7 @@ var Protocol = class {
    */
   request(request, resultSchema, options) {
     const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options ?? {};
-    return new Promise((resolve7, reject) => {
+    return new Promise((resolve8, reject) => {
       const earlyReject = (error48) => {
         reject(error48);
       };
@@ -36866,7 +36985,7 @@ var Protocol = class {
           if (!parseResult.success) {
             reject(parseResult.error);
           } else {
-            resolve7(parseResult.data);
+            resolve8(parseResult.data);
           }
         } catch (error48) {
           reject(error48);
@@ -37127,12 +37246,12 @@ var Protocol = class {
       }
     } catch {
     }
-    return new Promise((resolve7, reject) => {
+    return new Promise((resolve8, reject) => {
       if (signal.aborted) {
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
         return;
       }
-      const timeoutId = setTimeout(resolve7, interval);
+      const timeoutId = setTimeout(resolve8, interval);
       signal.addEventListener("abort", () => {
         clearTimeout(timeoutId);
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
@@ -37922,7 +38041,7 @@ var Server = class extends Protocol {
 };
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/server/completable.js
-var COMPLETABLE_SYMBOL = Symbol.for("mcp.completable");
+var COMPLETABLE_SYMBOL = /* @__PURE__ */ Symbol.for("mcp.completable");
 function isCompletable(schema) {
   return !!schema && typeof schema === "object" && COMPLETABLE_SYMBOL in schema;
 }
@@ -38232,7 +38351,7 @@ var McpServer = class {
     let task = createTaskResult.task;
     const pollInterval = task.pollInterval ?? 5e3;
     while (task.status !== "completed" && task.status !== "failed" && task.status !== "cancelled") {
-      await new Promise((resolve7) => setTimeout(resolve7, pollInterval));
+      await new Promise((resolve8) => setTimeout(resolve8, pollInterval));
       const updatedTask = await extra.taskStore.getTask(taskId);
       if (!updatedTask) {
         throw new McpError(ErrorCode.InternalError, `Task ${taskId} not found during polling`);
@@ -38881,12 +39000,12 @@ var StdioServerTransport = class {
     this.onclose?.();
   }
   send(message) {
-    return new Promise((resolve7) => {
+    return new Promise((resolve8) => {
       const json2 = serializeMessage(message);
       if (this._stdout.write(json2)) {
-        resolve7();
+        resolve8();
       } else {
-        this._stdout.once("drain", resolve7);
+        this._stdout.once("drain", resolve8);
       }
     });
   }
@@ -39030,8 +39149,8 @@ function formatInternalError(operationName, error48) {
 }
 
 // dist/index.js
-import { readFileSync as readFileSync17, existsSync as existsSync15, readdirSync as readdirSync10, statSync as statSync6, realpathSync, writeFileSync as writeFileSync9, appendFileSync as appendFileSync3, rmSync as rmSync4, renameSync, mkdirSync as mkdirSync11 } from "node:fs";
-import { resolve as resolve6, join as join19, basename as basename6, extname as extname2, relative as relative6, dirname as dirname11, posix, isAbsolute as pathIsAbsolute2 } from "node:path";
+import { readFileSync as readFileSync20, existsSync as existsSync19, readdirSync as readdirSync12, statSync as statSync8, realpathSync, writeFileSync as writeFileSync9, appendFileSync as appendFileSync3, rmSync as rmSync5, renameSync as renameSync2, mkdirSync as mkdirSync11 } from "node:fs";
+import { resolve as resolve7, join as join23, basename as basename8, extname as extname2, relative as relative7, dirname as dirname12, posix, isAbsolute as pathIsAbsolute2 } from "node:path";
 import { fileURLToPath as fileURLToPath3, pathToFileURL } from "node:url";
 
 // dist/adapters/filesystem.js
@@ -39399,7 +39518,7 @@ var MemUAdapter = class {
       query_vec: queryVec && queryVec.length === 1024 ? Array.from(queryVec) : null,
       max_nodes: maxNodes
     };
-    return new Promise((resolve7) => {
+    return new Promise((resolve8) => {
       let stdout = "";
       let stderr = "";
       let settled = false;
@@ -39415,7 +39534,7 @@ var MemUAdapter = class {
         proc.kill("SIGKILL");
         process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli timeout after ${this.graphRecallTimeoutMs}ms
 `);
-        resolve7(null);
+        resolve8(null);
       }, this.graphRecallTimeoutMs);
       proc.stdout.on("data", (d) => {
         stdout += d.toString("utf-8");
@@ -39430,7 +39549,7 @@ var MemUAdapter = class {
         clearTimeout(timer);
         process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli spawn failed: ${err2.message}
 `);
-        resolve7(null);
+        resolve8(null);
       });
       proc.on("close", (code) => {
         if (settled)
@@ -39440,17 +39559,17 @@ var MemUAdapter = class {
         if (code !== 0) {
           process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli exit ${code}: ${stderr.slice(0, 400)}
 `);
-          resolve7(null);
+          resolve8(null);
           return;
         }
         try {
           const parsed = JSON.parse(stdout);
-          resolve7(parsed);
+          resolve8(parsed);
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli stdout JSON parse failed: ${msg}
 `);
-          resolve7(null);
+          resolve8(null);
         }
       });
       try {
@@ -39463,7 +39582,7 @@ var MemUAdapter = class {
         const msg = e instanceof Error ? e.message : String(e);
         process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli stdin write failed: ${msg}
 `);
-        resolve7(null);
+        resolve8(null);
       }
     });
   }
@@ -39473,7 +39592,7 @@ var MemUAdapter = class {
    * unavailable or times out.
    */
   async runMemuSearchPy(query, vec, limit) {
-    return new Promise((resolve7) => {
+    return new Promise((resolve8) => {
       let stdout = "";
       let stderr = "";
       let settled = false;
@@ -39491,7 +39610,7 @@ var MemUAdapter = class {
       } else if (vec) {
         args.push("--embed", JSON.stringify(Array.from(vec)));
       } else {
-        resolve7([]);
+        resolve8([]);
         return;
       }
       const proc = spawn(this.memuSearchPythonExe, args, {
@@ -39505,7 +39624,7 @@ var MemUAdapter = class {
         proc.kill("SIGKILL");
         process.stderr.write(`obsidian-llm-wiki: [warn] memu_search.py timeout after ${this.memuSearchTimeoutMs}ms
 `);
-        resolve7([]);
+        resolve8([]);
       }, this.memuSearchTimeoutMs);
       proc.stdout.on("data", (d) => {
         stdout += d.toString("utf-8");
@@ -39520,7 +39639,7 @@ var MemUAdapter = class {
         clearTimeout(timer);
         process.stderr.write(`obsidian-llm-wiki: [warn] memu_search.py spawn failed: ${err2.message}
 `);
-        resolve7([]);
+        resolve8([]);
       });
       proc.on("close", (code) => {
         if (settled)
@@ -39530,17 +39649,17 @@ var MemUAdapter = class {
         if (code !== 0) {
           process.stderr.write(`obsidian-llm-wiki: [warn] memu_search.py exit ${code}: ${stderr.slice(0, 300)}
 `);
-          resolve7([]);
+          resolve8([]);
           return;
         }
         try {
           const parsed = JSON.parse(stdout);
-          resolve7(this.mapMemuSearchPyResult(parsed));
+          resolve8(this.mapMemuSearchPyResult(parsed));
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           process.stderr.write(`obsidian-llm-wiki: [warn] memu_search.py stdout JSON parse failed: ${msg}
 `);
-          resolve7([]);
+          resolve8([]);
         }
       });
     });
@@ -39620,7 +39739,7 @@ var GitNexusAdapter = class {
       await exec2(this.binary, ["--version"], { timeout: 5e3 });
       this.available = true;
     } catch {
-      process.stderr.write("vault-mind: [warn] gitnexus CLI not found, adapter disabled\n");
+      process.stderr.write("llmwiki: [warn] gitnexus CLI not found, adapter disabled\n");
     }
   }
   async dispose() {
@@ -39701,15 +39820,15 @@ var ObsidianAdapter = class {
     try {
       info = JSON.parse(readFileSync(this.portFile, "utf-8"));
     } catch {
-      process.stderr.write("vault-mind: [warn] ~/.obsidian-ws-port not found -- obsidian adapter disabled\n");
+      process.stderr.write("llmwiki: [warn] ~/.obsidian-ws-port not found -- obsidian adapter disabled\n");
       return;
     }
-    await new Promise((resolve7) => {
+    await new Promise((resolve8) => {
       const ws = new wrapper_default(`ws://127.0.0.1:${info.port}`);
       const connectTimer = setTimeout(() => {
         ws.terminate();
-        process.stderr.write("vault-mind: [warn] obsidian WS connect timeout -- adapter disabled\n");
-        resolve7();
+        process.stderr.write("llmwiki: [warn] obsidian WS connect timeout -- adapter disabled\n");
+        resolve8();
       }, CONNECT_TIMEOUT_MS);
       ws.once("open", async () => {
         clearTimeout(connectTimer);
@@ -39724,18 +39843,18 @@ var ObsidianAdapter = class {
           await this.call("vault.auth", { token: info.token });
           this.available = true;
         } catch (e) {
-          process.stderr.write(`vault-mind: [warn] obsidian auth failed: ${e.message} -- adapter disabled
+          process.stderr.write(`llmwiki: [warn] obsidian auth failed: ${e.message} -- adapter disabled
 `);
           this.ws = null;
           ws.terminate();
         }
-        resolve7();
+        resolve8();
       });
       ws.once("error", (e) => {
         clearTimeout(connectTimer);
-        process.stderr.write(`vault-mind: [warn] obsidian WS error: ${e.message} -- adapter disabled
+        process.stderr.write(`llmwiki: [warn] obsidian WS error: ${e.message} -- adapter disabled
 `);
-        resolve7();
+        resolve8();
       });
     });
   }
@@ -39746,8 +39865,8 @@ var ObsidianAdapter = class {
     if (this.ws) {
       const ws = this.ws;
       this.ws = null;
-      await new Promise((resolve7) => {
-        ws.once("close", resolve7);
+      await new Promise((resolve8) => {
+        ws.once("close", resolve8);
         ws.close();
       });
     }
@@ -39864,7 +39983,7 @@ var ObsidianAdapter = class {
       cb(event);
   }
   call(method, params) {
-    return new Promise((resolve7, reject) => {
+    return new Promise((resolve8, reject) => {
       if (!this.ws || this.ws.readyState !== wrapper_default.OPEN) {
         reject(new Error("WebSocket not connected"));
         return;
@@ -39874,7 +39993,7 @@ var ObsidianAdapter = class {
         this.pending.delete(id);
         reject(new Error(`RPC timeout: ${method} (${this.timeout}ms)`));
       }, this.timeout);
-      this.pending.set(id, { resolve: resolve7, reject, timer });
+      this.pending.set(id, { resolve: resolve8, reject, timer });
       this.ws.send(JSON.stringify({ jsonrpc: "2.0", id, method, params }), (e) => {
         if (e) {
           clearTimeout(timer);
@@ -40075,7 +40194,7 @@ var QmdAdapter = class {
       this._available = false;
     }
     if (!this._available) {
-      process.stderr.write("vault-mind: [qmd] CLI not available on PATH -- adapter disabled\n");
+      process.stderr.write("llmwiki: [qmd] CLI not available on PATH -- adapter disabled\n");
     }
   }
   async search(query, opts) {
@@ -40114,12 +40233,12 @@ var QmdAdapter = class {
   async dispose() {
   }
   runQmd(args) {
-    return new Promise((resolve7) => {
+    return new Promise((resolve8) => {
       let proc;
       try {
         proc = spawn2(this.binary, [...this.binaryArgs, ...args], { stdio: ["ignore", "pipe", "pipe"] });
       } catch {
-        resolve7({ stdout: "", stderr: "spawn failed synchronously", code: -1 });
+        resolve8({ stdout: "", stderr: "spawn failed synchronously", code: -1 });
         return;
       }
       let stdout = "";
@@ -40131,10 +40250,10 @@ var QmdAdapter = class {
         stderr += d.toString("utf-8");
       });
       proc.on("error", () => {
-        resolve7({ stdout, stderr: stderr || "spawn error", code: -1 });
+        resolve8({ stdout, stderr: stderr || "spawn error", code: -1 });
       });
       proc.on("close", (code) => {
-        resolve7({ stdout, stderr, code: code ?? -1 });
+        resolve8({ stdout, stderr, code: code ?? -1 });
       });
     });
   }
@@ -40171,7 +40290,7 @@ var LightRAGAdapter = class {
   async init() {
     if (!this.baseUrl) {
       this._available = false;
-      process.stderr.write("vault-mind: [lightrag] LIGHTRAG_URL not set -- adapter disabled\n");
+      process.stderr.write("llmwiki: [lightrag] LIGHTRAG_URL not set -- adapter disabled\n");
       return;
     }
     try {
@@ -40184,7 +40303,7 @@ var LightRAGAdapter = class {
       this._available = false;
     }
     if (!this._available) {
-      process.stderr.write(`vault-mind: [lightrag] unavailable at ${this.baseUrl} -- adapter disabled
+      process.stderr.write(`llmwiki: [lightrag] unavailable at ${this.baseUrl} -- adapter disabled
 `);
     }
   }
@@ -40371,7 +40490,7 @@ var RAGAnythingAdapter = class {
   async init() {
     if (!this.baseUrl) {
       this._available = false;
-      process.stderr.write("vault-mind: [raganything] RAGANYTHING_URL not set -- adapter disabled\n");
+      process.stderr.write("llmwiki: [raganything] RAGANYTHING_URL not set -- adapter disabled\n");
       return;
     }
     try {
@@ -40384,7 +40503,7 @@ var RAGAnythingAdapter = class {
       this._available = false;
     }
     if (!this._available) {
-      process.stderr.write(`vault-mind: [raganything] unavailable at ${this.baseUrl} -- adapter disabled
+      process.stderr.write(`llmwiki: [raganything] unavailable at ${this.baseUrl} -- adapter disabled
 `);
     }
   }
@@ -40529,8 +40648,7 @@ import { join as join4 } from "node:path";
 
 // dist/adapters/vaultbrain/schema.js
 var EMBED_DIM = parseInt(process.env.VAULTBRAIN_EMBED_DIM ?? "1024", 10);
-var VAULTBRAIN_SCHEMA_SQL = `
-CREATE EXTENSION IF NOT EXISTS vector;
+var VAULTBRAIN_CORE_SCHEMA_SQL = `
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 CREATE TABLE IF NOT EXISTS pages (
@@ -40546,7 +40664,6 @@ CREATE TABLE IF NOT EXISTS chunks (
   slug TEXT NOT NULL,
   chunk_index INTEGER NOT NULL,
   chunk_text TEXT NOT NULL,
-  embedding vector(${EMBED_DIM}),
   token_count INTEGER,
   UNIQUE(slug, chunk_index)
 );
@@ -40562,9 +40679,6 @@ CREATE TABLE IF NOT EXISTS page_links (
   to_slug TEXT,
   PRIMARY KEY (from_slug, to_slug)
 );
-
-CREATE INDEX IF NOT EXISTS chunks_embedding_idx
-  ON chunks USING hnsw (embedding vector_cosine_ops);
 
 CREATE INDEX IF NOT EXISTS chunks_trgm_idx
   ON chunks USING gin (chunk_text gin_trgm_ops);
@@ -40583,21 +40697,40 @@ ALTER TABLE chunks ADD COLUMN IF NOT EXISTS chunk_tsv tsvector
 CREATE INDEX IF NOT EXISTS chunks_tsv_idx
   ON chunks USING gin (chunk_tsv);
 `;
+var VAULTBRAIN_VECTOR_SCHEMA_SQL = `
+CREATE EXTENSION IF NOT EXISTS vector;
+
+ALTER TABLE chunks ADD COLUMN IF NOT EXISTS embedding vector(${EMBED_DIM});
+
+CREATE INDEX IF NOT EXISTS chunks_embedding_idx
+  ON chunks USING hnsw (embedding vector_cosine_ops);
+`;
 
 // dist/adapters/vaultbrain/pglite-engine.js
 var dynamicImport = new Function("specifier", "return import(specifier)");
 var PGliteEngine = class {
   dataDir;
   db = null;
+  // True only if the pgvector extension module loaded successfully. When false,
+  // the schema/queries fall back to a keyword-only floor (see schema.ts) --
+  // vector search is an optional upgrade, not a hard dependency.
+  hasVector = false;
   constructor(dataDir) {
     this.dataDir = dataDir;
   }
   async connect() {
     const { PGlite } = await import("@electric-sql/pglite");
-    const { vector } = await dynamicImport("@electric-sql/pglite/vector");
     const { pg_trgm } = await import("@electric-sql/pglite/contrib/pg_trgm");
-    const vectorExtension = vector;
-    this.db = new PGlite(this.dataDir, { extensions: { vector: vectorExtension, pg_trgm } });
+    let extensions = { pg_trgm };
+    try {
+      const { vector } = await dynamicImport("@electric-sql/pglite/vector");
+      extensions = { vector, pg_trgm };
+      this.hasVector = true;
+    } catch (err2) {
+      console.warn(`[vaultbrain] pgvector extension unavailable, falling back to keyword-only search: ${err2.message}`);
+      this.hasVector = false;
+    }
+    this.db = new PGlite(this.dataDir, { extensions });
     await this.db.waitReady;
   }
   async disconnect() {
@@ -40607,7 +40740,11 @@ var PGliteEngine = class {
     }
   }
   async initSchema() {
-    await this.requireDb().exec(VAULTBRAIN_SCHEMA_SQL);
+    const db = this.requireDb();
+    await db.exec(VAULTBRAIN_CORE_SCHEMA_SQL);
+    if (this.hasVector) {
+      await db.exec(VAULTBRAIN_VECTOR_SCHEMA_SQL);
+    }
   }
   async upsertPage(slug, title, content, hash2) {
     await this.requireDb().query(`INSERT INTO pages (slug, title, content, hash, updated_at)
@@ -40626,6 +40763,14 @@ var PGliteEngine = class {
       return;
     const db = this.requireDb();
     for (const chunk of chunks) {
+      if (!this.hasVector) {
+        await db.query(`INSERT INTO chunks (slug, chunk_index, chunk_text, token_count)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (slug, chunk_index) DO UPDATE SET
+             chunk_text = EXCLUDED.chunk_text,
+             token_count = EXCLUDED.token_count`, [slug, chunk.chunkIndex, chunk.chunkText, chunk.tokenCount]);
+        continue;
+      }
       const embeddingStr = chunk.embedding && chunk.embedding.length > 0 ? JSON.stringify(chunk.embedding) : null;
       if (embeddingStr) {
         await db.query(`INSERT INTO chunks (slug, chunk_index, chunk_text, embedding, token_count)
@@ -40685,6 +40830,8 @@ var PGliteEngine = class {
     }));
   }
   async searchVector(embedding, limit) {
+    if (!this.hasVector)
+      return [];
     const vecStr = JSON.stringify(embedding);
     const { rows } = await this.requireDb().query(`SELECT slug, chunk_index, chunk_text,
               1 - (embedding <=> $1::vector) AS score
@@ -40704,8 +40851,15 @@ var PGliteEngine = class {
     return Number(rows[0]?.n ?? 0);
   }
   async countEmbeddedChunks() {
+    if (!this.hasVector)
+      return 0;
     const { rows } = await this.requireDb().query(`SELECT count(*)::int AS n FROM chunks WHERE embedding IS NOT NULL`);
     return Number(rows[0]?.n ?? 0);
+  }
+  async getLastIndexedAtMs() {
+    const { rows } = await this.requireDb().query(`SELECT MAX(updated_at) AS last FROM pages`);
+    const last = rows[0]?.last;
+    return last ? new Date(last).getTime() : null;
   }
   async upsertLink(fromSlug, toSlug) {
     await this.requireDb().query(`INSERT INTO page_links (from_slug, to_slug)
@@ -40867,6 +41021,10 @@ var VaultBrainAdapter = class {
   async countEmbeddedChunks() {
     return this.engine ? this.engine.countEmbeddedChunks() : 0;
   }
+  /** Index-wide last-write watermark (epoch ms) -- vault-status uses this for staleness detection. */
+  async getLastIndexedAtMs() {
+    return this.engine ? this.engine.getLastIndexedAtMs() : null;
+  }
   async search(query, opts) {
     if (!this.engine)
       return [];
@@ -41010,7 +41168,7 @@ var GraphifyAdapter = class {
       await exec3(this.binary, ["--version"], { timeout: 5e3, ...shellOpt(this.binary) });
       this.available = true;
     } catch {
-      process.stderr.write("vault-mind: [warn] graphify CLI not found -- adapter disabled (install: uv tool install graphifyy)\n");
+      process.stderr.write("llmwiki: [warn] graphify CLI not found -- adapter disabled (install: uv tool install graphifyy)\n");
     }
   }
   async dispose() {
@@ -41131,6 +41289,9 @@ var _inFlight = null;
 function configureLazyIndex(vba, vaultPath) {
   _vba = vba;
   _vaultPath = vaultPath;
+}
+function isBackfillInFlight() {
+  return _inFlight !== null;
 }
 function listVaultMarkdown(vaultPath) {
   const files = [];
@@ -41295,6 +41456,7 @@ var CompileTrigger = class {
   tier;
   autoCompile;
   onCompileSuccess;
+  environmentResolver;
   constructor(config2) {
     this.vaultPath = config2.vaultPath;
     this.compilerPath = config2.compilerPath;
@@ -41303,6 +41465,10 @@ var CompileTrigger = class {
     this.tier = config2.tier ?? "haiku";
     this.autoCompile = config2.autoCompile ?? true;
     this.onCompileSuccess = config2.onCompileSuccess;
+    this.environmentResolver = config2.environmentResolver;
+  }
+  setEnvironmentResolver(resolver) {
+    this.environmentResolver = resolver;
   }
   /**
    * Called when a vault file is created or modified.
@@ -41314,7 +41480,7 @@ var CompileTrigger = class {
     if (!path.endsWith(".md"))
       return;
     this.dirty.add(path);
-    process.stderr.write(`vault-mind: [compile] dirty +1: ${path} (${this.dirty.size}/${this.threshold})
+    process.stderr.write(`llmwiki: [compile] dirty +1: ${path} (${this.dirty.size}/${this.threshold})
 `);
     if (this.autoCompile && this.dirty.size >= this.threshold && !this.running) {
       this.autoTrigger();
@@ -41390,7 +41556,7 @@ var CompileTrigger = class {
           }
         }
         if (dirty.length > 0) {
-          process.stderr.write(`vault-mind: [compile] startup: ${dirty.length} dirty in "${topic}"
+          process.stderr.write(`llmwiki: [compile] startup: ${dirty.length} dirty in "${topic}"
 `);
         }
       } catch {
@@ -41412,11 +41578,11 @@ var CompileTrigger = class {
     if (!topic)
       return;
     this.running = true;
-    process.stderr.write(`vault-mind: [compile] auto-trigger for topic "${topic}" (${this.dirty.size} dirty)
+    process.stderr.write(`llmwiki: [compile] auto-trigger for topic "${topic}" (${this.dirty.size} dirty)
 `);
     this.compile(topic).catch((e) => {
       this.running = false;
-      process.stderr.write(`vault-mind: [compile] auto-trigger error: ${e.message}
+      process.stderr.write(`llmwiki: [compile] auto-trigger error: ${e.message}
 `);
     });
   }
@@ -41440,11 +41606,11 @@ var CompileTrigger = class {
         timeout: 12e4,
         // 2 min max
         maxBuffer: 10 * 1024 * 1024,
-        env: { ...process.env }
+        env: this.environmentResolver ? await this.environmentResolver() : { ...process.env }
       });
       const result = this.parseCompileOutput(topic, stdout, timestamp);
       if (stderr) {
-        process.stderr.write(`vault-mind: [compile] stderr: ${stderr.slice(0, 500)}
+        process.stderr.write(`llmwiki: [compile] stderr: ${stderr.slice(0, 500)}
 `);
       }
       for (const path of [...this.dirty]) {
@@ -41514,15 +41680,15 @@ var CompileTrigger = class {
 };
 
 // dist/core/operations.js
-import { execFile as execFile5, spawnSync } from "node:child_process";
+import { execFile as execFile6, spawnSync as spawnSync2 } from "node:child_process";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
-import { promisify as promisify5 } from "node:util";
-import { existsSync as existsSync14, mkdirSync as mkdirSync10, readdirSync as readdirSync9, readFileSync as readFileSync16, writeFileSync as writeFileSync8 } from "node:fs";
-import { dirname as dirname10, join as join18, relative as relative5 } from "node:path";
+import { promisify as promisify6 } from "node:util";
+import { existsSync as existsSync18, mkdirSync as mkdirSync10, readdirSync as readdirSync11, readFileSync as readFileSync19, writeFileSync as writeFileSync8 } from "node:fs";
+import { dirname as dirname11, join as join22, relative as relative6 } from "node:path";
 
 // dist/core/write-policy.js
-import { appendFileSync, existsSync as existsSync3, mkdirSync, readFileSync as readFileSync5 } from "node:fs";
-import { resolve as resolve3 } from "node:path";
+import { appendFileSync, existsSync as existsSync4, mkdirSync, readFileSync as readFileSync7 } from "node:fs";
+import { resolve as resolve4 } from "node:path";
 
 // dist/core/validate.js
 function rejectDangerousRegex(pattern) {
@@ -41552,7 +41718,7 @@ function validateParams(schema, raw) {
       continue;
     }
     const actual = Array.isArray(val) ? "array" : typeof val;
-    if (def.type !== "object" && def.type !== "array") {
+    if (def.type !== "object" && def.type !== "array" && def.type !== "unknown") {
       if (actual !== def.type) {
         if (def.type === "number" && typeof val === "string" && !isNaN(Number(val))) {
           val = Number(val);
@@ -41573,11 +41739,1017 @@ function validateParams(schema, raw) {
   return result;
 }
 
+// dist/project/project-context.js
+import { existsSync as existsSync3, readFileSync as readFileSync6, readdirSync as readdirSync5 } from "node:fs";
+import { isAbsolute as isAbsolute2, join as join8, resolve as resolve3 } from "node:path";
+
+// dist/project/workos.js
+import { readdirSync as readdirSync4, readFileSync as readFileSync5, statSync } from "node:fs";
+import { join as join7 } from "node:path";
+var STATE_BACKLOG = "backlog";
+var STATE_TODO = "todo";
+var STATE_IN_PROGRESS = "in-progress";
+var STATE_DONE = "done";
+var STATE_CANCELED = "canceled";
+var CANONICAL_STATES = /* @__PURE__ */ new Set([
+  STATE_BACKLOG,
+  STATE_TODO,
+  STATE_IN_PROGRESS,
+  STATE_DONE,
+  STATE_CANCELED
+]);
+var DEFAULT_STATE = STATE_BACKLOG;
+var LEGACY_STATE_MAP = {
+  open: STATE_TODO,
+  "in progress": STATE_IN_PROGRESS,
+  in_progress: STATE_IN_PROGRESS,
+  completed: STATE_DONE,
+  done: STATE_DONE,
+  cancelled: STATE_CANCELED,
+  canceled: STATE_CANCELED,
+  archived: STATE_CANCELED,
+  closed: STATE_DONE,
+  active: STATE_IN_PROGRESS,
+  paused: STATE_TODO,
+  planned: STATE_BACKLOG
+};
+var LEGACY_BLOCKED_WORD = "blocked";
+var PRIORITY_RANK = { 1: 0, 2: 1, 3: 2, 4: 3, 0: 4 };
+var PRIORITY_RANK_NONE = 4;
+var VALID_PRIORITIES = /* @__PURE__ */ new Set([0, 1, 2, 3, 4]);
+var KANBAN_COLUMNS = ["Backlog", "Todo", "In Progress", "Blocked", "Done", "Canceled"];
+var STATE_COLUMN = {
+  [STATE_BACKLOG]: "Backlog",
+  [STATE_TODO]: "Todo",
+  [STATE_IN_PROGRESS]: "In Progress",
+  [STATE_DONE]: "Done",
+  [STATE_CANCELED]: "Canceled"
+};
+var DONE_COLUMNS = /* @__PURE__ */ new Set(["Done", "Canceled"]);
+var COLUMN_LABELS = {
+  en: { Backlog: "Backlog", Todo: "Todo", "In Progress": "In Progress", Blocked: "Blocked", Done: "Done", Canceled: "Canceled" },
+  zh: { Backlog: "\u50A8\u5907", Todo: "\u5F85\u529E", "In Progress": "\u8FDB\u884C\u4E2D", Blocked: "\u53D7\u963B", Done: "\u5DF2\u5B8C\u6210", Canceled: "\u5DF2\u53D6\u6D88" },
+  ja: { Backlog: "\u30D0\u30C3\u30AF\u30ED\u30B0", Todo: "\u672A\u7740\u624B", "In Progress": "\u9032\u884C\u4E2D", Blocked: "\u30D6\u30ED\u30C3\u30AF", Done: "\u5B8C\u4E86", Canceled: "\u30AD\u30E3\u30F3\u30BB\u30EB" }
+};
+var BLOCKER_BROKEN_REF = "BROKEN_REF";
+var BLOCKER_TRUTH_CONFLICT = "TRUTH_CONFLICT";
+var BLOCKER_RESOLVED = "RESOLVED";
+var BLOCKER_CANCELED_DEPENDENCY = "CANCELED_DEPENDENCY";
+var BLOCKER_UNRESOLVED = "UNRESOLVED";
+var BLOCKER_UNSATISFIED = /* @__PURE__ */ new Set([
+  BLOCKER_UNRESOLVED,
+  BLOCKER_BROKEN_REF,
+  BLOCKER_TRUTH_CONFLICT,
+  BLOCKER_CANCELED_DEPENDENCY
+]);
+var F_REVIEW = "review";
+var F_STATUS = "status";
+var STATUS_DRAFT = "draft";
+var STATUS_REVIEWED = "reviewed";
+var FRONTMATTER_RE = /^---\r?\n[\s\S]*?\r?\n---\r?\n/;
+var KEY_RE = /^[A-Za-z_][\w-]*\s*:/;
+var INDENTED_CHILD_RE = /^[ \t]+[A-Za-z_][\w-]*\s*:/;
+function splitQuotedList(value) {
+  const items = [];
+  let current = "";
+  let quote = null;
+  let escaped = false;
+  for (const ch of value) {
+    if (escaped) {
+      current += ch;
+      escaped = false;
+      continue;
+    }
+    if (ch === "\\" && quote) {
+      current += ch;
+      escaped = true;
+      continue;
+    }
+    if (ch === "'" || ch === '"') {
+      if (quote === ch)
+        quote = null;
+      else if (quote === null)
+        quote = ch;
+      current += ch;
+      continue;
+    }
+    if (ch === "," && quote === null) {
+      const item = current.trim();
+      if (item)
+        items.push(item);
+      current = "";
+      continue;
+    }
+    current += ch;
+  }
+  const last = current.trim();
+  if (last)
+    items.push(last);
+  return items;
+}
+function stripBracketListComment(value) {
+  if (!value.startsWith("["))
+    return value;
+  const close = value.indexOf("]");
+  const hashPos = value.indexOf("#");
+  if (close !== -1 && hashPos !== -1 && close < hashPos) {
+    return value.slice(0, hashPos).replace(/\s+$/, "");
+  }
+  return value;
+}
+function stripQuotes(s) {
+  return s.replace(/^['"]+/, "").replace(/['"]+$/, "");
+}
+function parseFm(text) {
+  const m = FRONTMATTER_RE.exec(text);
+  if (!m)
+    return {};
+  const fm = m[0];
+  const out = {};
+  let currentKey = null;
+  for (const rawLine of fm.split("\n")) {
+    const raw = rawLine.replace(/\r$/, "");
+    const trimmed = raw.trim();
+    if (trimmed === "" || trimmed === "---")
+      continue;
+    if (KEY_RE.test(raw)) {
+      const idx = raw.indexOf(":");
+      const k = raw.slice(0, idx).trim();
+      let v = stripBracketListComment(raw.slice(idx + 1).trim());
+      if (v.startsWith("[") && v.endsWith("]")) {
+        out[k] = splitQuotedList(v.slice(1, -1)).filter((x) => x.trim()).map((x) => stripQuotes(x.trim()));
+        currentKey = null;
+      } else if (v) {
+        out[k] = stripQuotes(v.trim());
+        currentKey = null;
+      } else {
+        out[k] = [];
+        currentKey = k;
+      }
+    } else if (currentKey && raw.replace(/^\s+/, "").startsWith("- ")) {
+      const val = stripQuotes(raw.replace(/^\s+/, "").slice(2).trim());
+      const lst = out[currentKey];
+      if (Array.isArray(lst))
+        lst.push(val);
+    } else if (currentKey && (raw[0] === " " || raw[0] === "	") && INDENTED_CHILD_RE.test(raw)) {
+      const trimmedRaw = raw.replace(/^\s+/, "");
+      const cidx = trimmedRaw.indexOf(":");
+      const ck = trimmedRaw.slice(0, cidx).trim();
+      const cv = stripQuotes(stripBracketListComment(trimmedRaw.slice(cidx + 1).trim()).trim());
+      let existing = out[currentKey];
+      if (Array.isArray(existing) && existing.length === 0) {
+        out[currentKey] = {};
+        existing = out[currentKey];
+      }
+      if (existing && typeof existing === "object" && !Array.isArray(existing)) {
+        existing[ck] = cv;
+      }
+    }
+  }
+  return out;
+}
+function splitBody(text) {
+  const m = FRONTMATTER_RE.exec(text);
+  return m ? text.slice(m[0].length) : text;
+}
+function scalar(raw, key) {
+  const v = raw[key];
+  if (typeof v === "string") {
+    const t = v.trim();
+    return t || null;
+  }
+  if (Array.isArray(v))
+    return null;
+  if (v === void 0 || v === null)
+    return null;
+  return String(v);
+}
+function entityOf(raw) {
+  return scalar(raw, "entity");
+}
+function mapStateWord(word) {
+  if (!word)
+    return null;
+  const w = word.trim().toLowerCase();
+  if (!w)
+    return null;
+  if (CANONICAL_STATES.has(w))
+    return w;
+  if (w === LEGACY_BLOCKED_WORD)
+    return STATE_IN_PROGRESS;
+  return LEGACY_STATE_MAP[w] ?? null;
+}
+function workState(raw) {
+  const mapped = mapStateWord(scalar(raw, "state"));
+  if (mapped !== null)
+    return mapped;
+  const legacy = mapStateWord(scalar(raw, F_STATUS));
+  if (legacy !== null)
+    return legacy;
+  return DEFAULT_STATE;
+}
+function workPriority(raw) {
+  const v = raw["priority"];
+  if (typeof v === "boolean")
+    return null;
+  if (typeof v === "string") {
+    const t = v.trim();
+    if (!t)
+      return null;
+    if (!/^[+-]?\d+$/.test(t))
+      return null;
+    const n = Number.parseInt(t, 10);
+    return VALID_PRIORITIES.has(n) ? n : null;
+  }
+  if (typeof v === "number" && Number.isInteger(v)) {
+    return VALID_PRIORITIES.has(v) ? v : null;
+  }
+  return null;
+}
+function priorityRank(raw) {
+  const p = workPriority(raw);
+  if (p === null)
+    return PRIORITY_RANK_NONE;
+  return PRIORITY_RANK[p] ?? PRIORITY_RANK_NONE;
+}
+function sortNotes(notes) {
+  return [...notes].sort((a, b) => {
+    const ra = priorityRank(a.raw);
+    const rb = priorityRank(b.raw);
+    if (ra !== rb)
+      return ra - rb;
+    return a.note_id < b.note_id ? -1 : a.note_id > b.note_id ? 1 : 0;
+  });
+}
+function statusOf(raw) {
+  let v = raw[F_REVIEW];
+  if (typeof v !== "string" || !v.trim())
+    v = raw[F_STATUS];
+  if (typeof v === "string") {
+    const t = v.trim().toLowerCase();
+    return t || null;
+  }
+  return null;
+}
+function isAuthoritative(raw) {
+  const s = statusOf(raw);
+  if (s === STATUS_REVIEWED)
+    return true;
+  if (s === STATUS_DRAFT)
+    return false;
+  return true;
+}
+var SKIP_DIRS = /* @__PURE__ */ new Set([".obsidian", "node_modules", ".git", "schema", ".trash"]);
+function stripBom(text) {
+  return text.charCodeAt(0) === 65279 ? text.slice(1) : text;
+}
+function walkMd(vaultPath, requireEntity) {
+  const notes = [];
+  let rootStat;
+  try {
+    rootStat = statSync(vaultPath);
+  } catch {
+    return notes;
+  }
+  if (!rootStat.isDirectory())
+    return notes;
+  const walk = (dir) => {
+    let entries;
+    try {
+      entries = readdirSync4(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    const dirs = entries.filter((e) => e.isDirectory() && !SKIP_DIRS.has(e.name) && !e.name.startsWith("_")).map((e) => e.name).sort();
+    const files = entries.filter((e) => e.isFile() && e.name.endsWith(".md")).map((e) => e.name).sort();
+    for (const fn of files) {
+      const f = join7(dir, fn);
+      let text;
+      try {
+        text = stripBom(readFileSync5(f, "utf-8"));
+      } catch {
+        continue;
+      }
+      const raw = parseFm(text);
+      const entity = entityOf(raw);
+      if (requireEntity && !entity)
+        continue;
+      const noteId = relPosix(vaultPath, f);
+      notes.push({ note_id: noteId, path: f, raw, body: splitBody(text), entity });
+    }
+    for (const d of dirs)
+      walk(join7(dir, d));
+  };
+  walk(vaultPath);
+  notes.sort((a, b) => a.note_id < b.note_id ? -1 : a.note_id > b.note_id ? 1 : 0);
+  return notes;
+}
+function relPosix(root, full) {
+  const r = root.replace(/\\/g, "/").replace(/\/+$/, "");
+  const f = full.replace(/\\/g, "/");
+  const rel = f.startsWith(r + "/") ? f.slice(r.length + 1) : f;
+  return rel;
+}
+function scanWorkNotes(vaultPath) {
+  return walkMd(vaultPath, true);
+}
+function recencyKey(n) {
+  const lv = scalar(n.raw, "last-verified") ?? "";
+  const s = statusOf(n.raw);
+  const rank = s === STATUS_REVIEWED ? 2 : s === STATUS_DRAFT ? 1 : 0;
+  return [lv, rank, n.note_id];
+}
+function recencyCmp(a, b) {
+  const ka = recencyKey(a);
+  const kb = recencyKey(b);
+  if (ka[0] !== kb[0])
+    return ka[0] < kb[0] ? -1 : 1;
+  if (ka[1] !== kb[1])
+    return ka[1] - kb[1];
+  return ka[2] < kb[2] ? -1 : ka[2] > kb[2] ? 1 : 0;
+}
+function maxBy(items, cmp) {
+  let best = items[0];
+  for (let i = 1; i < items.length; i += 1) {
+    if (cmp(items[i], best) > 0)
+      best = items[i];
+  }
+  return best;
+}
+function resolveNoteId(target, group) {
+  if (!target)
+    return null;
+  const t = target.trim().replace(/\\/g, "/");
+  for (const n of group)
+    if (n.note_id === t)
+      return n;
+  const lstripDotSlash = t.replace(/^[./]+/, "");
+  for (const n of group) {
+    if (n.note_id.endsWith("/" + t) || n.note_id === lstripDotSlash)
+      return n;
+  }
+  const stem = baseName(t);
+  const stemNoext = stem.endsWith(".md") ? stem.slice(0, -3) : stem;
+  for (const n of group) {
+    const pn = baseName(n.path.replace(/\\/g, "/"));
+    const pstem = pn.endsWith(".md") ? pn.slice(0, -3) : pn;
+    if (pn === stem || pstem === stemNoext)
+      return n;
+  }
+  return null;
+}
+function baseName(p) {
+  const parts = p.split("/");
+  return parts[parts.length - 1];
+}
+function resolveHead(notes, entity) {
+  const group = notes.filter((n) => n.entity === entity && isAuthoritative(n.raw));
+  if (group.length === 0)
+    return { head: null, terminalHeads: [], truthConflict: false, conflictNoteIds: [] };
+  const supersededIds = /* @__PURE__ */ new Set();
+  for (const n of group) {
+    const tgt = scalar(n.raw, "supersedes");
+    if (!tgt)
+      continue;
+    const victim = resolveNoteId(tgt, group);
+    if (victim && victim.note_id !== n.note_id)
+      supersededIds.add(victim.note_id);
+  }
+  let terminal = group.filter((n) => !supersededIds.has(n.note_id));
+  if (terminal.length === 0)
+    terminal = [...group];
+  const reviewedTerminal = terminal.filter((n) => statusOf(n.raw) === STATUS_REVIEWED);
+  const truthConflict = reviewedTerminal.length >= 2;
+  const head = maxBy(terminal, recencyCmp);
+  return {
+    head,
+    terminalHeads: [...terminal].sort((a, b) => a.note_id < b.note_id ? -1 : a.note_id > b.note_id ? 1 : 0),
+    truthConflict,
+    conflictNoteIds: reviewedTerminal.map((n) => n.note_id).sort()
+  };
+}
+function blockedByRefs(raw) {
+  const v = raw["blocked-by"];
+  if (v === void 0 || v === null)
+    return [];
+  const items = Array.isArray(v) ? v : [v];
+  const out = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const it of items) {
+    if (it === null || it === void 0)
+      continue;
+    const s = String(it).trim();
+    if (!s || seen.has(s))
+      continue;
+    seen.add(s);
+    out.push(s);
+  }
+  return out;
+}
+function blockerStatus(targetEntity, notes) {
+  const res = resolveHead(notes, targetEntity);
+  if (res.head === null)
+    return BLOCKER_BROKEN_REF;
+  if (res.truthConflict)
+    return BLOCKER_TRUTH_CONFLICT;
+  const state = workState(res.head.raw);
+  if (state === STATE_DONE)
+    return BLOCKER_RESOLVED;
+  if (state === STATE_CANCELED)
+    return BLOCKER_CANCELED_DEPENDENCY;
+  return BLOCKER_UNRESOLVED;
+}
+function hasUnresolvedBlocker(notes, entity) {
+  const res = resolveHead(notes, entity);
+  if (res.head === null)
+    return false;
+  for (const target of blockedByRefs(res.head.raw)) {
+    if (BLOCKER_UNSATISFIED.has(blockerStatus(target, notes)))
+      return true;
+  }
+  return false;
+}
+function boardColumns(notes, project) {
+  const cols = {};
+  for (const c of KANBAN_COLUMNS)
+    cols[c] = [];
+  const prefix = project ? `project/${project}/` : null;
+  for (const n of notes) {
+    const ent = n.entity;
+    if (!ent)
+      continue;
+    if (scalar(n.raw, "type") === "project")
+      continue;
+    if (prefix && !ent.startsWith(prefix))
+      continue;
+    const state = workState(n.raw);
+    let column = STATE_COLUMN[state] ?? "Backlog";
+    if ((state === STATE_TODO || state === STATE_IN_PROGRESS) && hasUnresolvedBlocker(notes, ent)) {
+      column = "Blocked";
+    }
+    cols[column].push(n);
+  }
+  const out = {};
+  for (const c of KANBAN_COLUMNS)
+    out[c] = sortNotes(cols[c]).map((n) => n.note_id);
+  return out;
+}
+function cardLabel(note) {
+  for (const line of (note.body || "").split("\n")) {
+    if (line.trim())
+      return line.trim();
+  }
+  if (note.entity) {
+    const parts = note.entity.split("/");
+    return parts[parts.length - 1];
+  }
+  return note.note_id;
+}
+function renderKanbanBoard(notes, project, lang = "en") {
+  const cols = boardColumns(notes, project);
+  const byId = new Map(notes.map((n) => [n.note_id, n]));
+  const labels = COLUMN_LABELS[lang] ?? COLUMN_LABELS.en;
+  const out = ["---", "", "kanban-plugin: board", "", "---", ""];
+  for (const column of KANBAN_COLUMNS) {
+    out.push(`## ${labels[column] ?? column}`);
+    out.push("");
+    const mark = DONE_COLUMNS.has(column) ? "x" : " ";
+    for (const nid of cols[column]) {
+      const note = byId.get(nid);
+      if (note)
+        out.push(`- [${mark}] ${cardLabel(note)}`);
+    }
+    out.push("");
+  }
+  out.push("%% kanban:settings", "```", '{"kanban-plugin":"board","show-checkboxes":true}', "```", "%%", "");
+  return out.join("\n");
+}
+function detectLang(text) {
+  const s = text || "";
+  for (const c of s) {
+    const cp = c.codePointAt(0);
+    if (cp >= 12352 && cp <= 12543)
+      return "ja";
+  }
+  for (const c of s) {
+    const cp = c.codePointAt(0);
+    if (cp >= 19968 && cp <= 40959)
+      return "zh";
+  }
+  return "en";
+}
+function detectVaultLang(notes, sample = 200) {
+  const buf = [];
+  for (const n of notes.slice(0, sample)) {
+    if (n.entity)
+      buf.push(n.entity);
+    if (n.body)
+      buf.push(n.body);
+  }
+  return detectLang(buf.join("\n"));
+}
+
+// dist/project/project-context.js
+var PROJECT_SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/;
+var PROJECT_ID_RE = /^project\/([a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?)$/;
+var FORBIDDEN_SHARED_FIELDS = /* @__PURE__ */ new Set([
+  "path",
+  "workspace-path",
+  "workspace_path",
+  "repo-path",
+  "repo_path",
+  "secret",
+  "token",
+  "api-key",
+  "api_key",
+  "credentials"
+]);
+var SENSITIVE_PROJECTION_KINDS = /* @__PURE__ */ new Set(["secret", "token", "api-key", "api_key", "credential", "credentials"]);
+var compatibilityReads = /* @__PURE__ */ new Map();
+var compatibilityWindowStartedAt = Date.now();
+function recordCompatibilityRead(operation, projectId2) {
+  const key = `${operation}\0${projectId2}`;
+  compatibilityReads.set(key, (compatibilityReads.get(key) ?? 0) + 1);
+}
+function compatibilityReadReport() {
+  return [...compatibilityReads.entries()].map(([key, count]) => {
+    const [operation, projectId2] = key.split("\0");
+    return { operation, projectId: projectId2, count };
+  }).sort((a, b) => a.operation.localeCompare(b.operation) || a.projectId.localeCompare(b.projectId));
+}
+function isProjectId(value) {
+  return typeof value === "string" && PROJECT_ID_RE.test(value);
+}
+function parseProjectId(value) {
+  if (typeof value !== "string")
+    throw badRequest("Project ID must be a string in the form project/<slug>");
+  const normalized = value.trim();
+  if (!PROJECT_ID_RE.test(normalized)) {
+    throw badRequest("Project ID must use the canonical form project/<lowercase-kebab-slug>");
+  }
+  return normalized;
+}
+function projectIdFromSlug(value) {
+  if (typeof value !== "string")
+    throw badRequest("Project slug must be a string");
+  const slug = value.trim();
+  if (!PROJECT_SLUG_RE.test(slug))
+    throw badRequest("Project slug must be lowercase kebab-case");
+  return `project/${slug}`;
+}
+function projectSlug(projectId2) {
+  return projectId2.slice("project/".length);
+}
+function normalizeProjectRef(value) {
+  if (typeof value === "object" && value !== null) {
+    const candidate = value;
+    if (candidate.kind !== "id" && candidate.kind !== "name" && candidate.kind !== "workspace") {
+      throw badRequest("Project reference kind must be id, name, or workspace");
+    }
+    if (typeof candidate.value !== "string" || !candidate.value.trim()) {
+      throw badRequest("Project reference value is required");
+    }
+    const normalizedValue2 = candidate.value.trim();
+    if (candidate.kind === "id")
+      parseProjectId(normalizedValue2);
+    if (candidate.kind === "workspace" && !isAbsolute2(normalizedValue2)) {
+      throw badRequest("Workspace Project references must be absolute paths");
+    }
+    return { kind: candidate.kind, value: normalizedValue2 };
+  }
+  if (typeof value !== "string" || !value.trim())
+    throw badRequest("Project reference is required");
+  const normalizedValue = value.trim();
+  if (normalizedValue.startsWith("project/")) {
+    parseProjectId(normalizedValue);
+    return { kind: "id", value: normalizedValue };
+  }
+  return { kind: isAbsolute2(normalizedValue) ? "workspace" : "name", value: normalizedValue };
+}
+function scalar2(frontmatter, key) {
+  const value = frontmatter[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+function stringList(value) {
+  const values = Array.isArray(value) ? value : typeof value === "string" ? [value] : [];
+  const seen = /* @__PURE__ */ new Set();
+  const result = [];
+  for (const item of values) {
+    const normalized = item.trim();
+    if (!normalized || seen.has(normalized))
+      continue;
+    seen.add(normalized);
+    result.push(normalized);
+  }
+  return result;
+}
+function projectionsOf(value) {
+  if (!value)
+    return [];
+  if (typeof value === "object" && !Array.isArray(value)) {
+    return Object.entries(value).filter(([kind, target]) => kind.trim() && target.trim() && !unsafeProjection(kind, target)).sort(([left], [right]) => left.localeCompare(right)).map(([kind, target]) => ({ kind, target }));
+  }
+  return stringList(value).filter((reference) => !looksAbsolutePath(reference)).map((reference) => {
+    const separator = reference.indexOf(":");
+    return separator === -1 ? { kind: "reference", target: reference } : { kind: reference.slice(0, separator), target: reference.slice(separator + 1) };
+  }).filter((descriptor) => descriptor.kind && descriptor.target && !unsafeProjection(descriptor.kind, descriptor.target)).sort((left, right) => left.kind.localeCompare(right.kind) || left.target.localeCompare(right.target));
+}
+function looksAbsolutePath(value) {
+  return isAbsolute2(value) || /^[A-Za-z]:[\\/]/.test(value) || value.startsWith("\\\\");
+}
+function unsafeProjection(kind, target) {
+  return SENSITIVE_PROJECTION_KINDS.has(kind.trim().toLowerCase()) || looksAbsolutePath(target.trim());
+}
+function normalizeWorkspacePath(value) {
+  const trimmed = value.trim();
+  if (/^[A-Za-z]:[\\/]/.test(trimmed) || trimmed.startsWith("\\\\")) {
+    return trimmed.replaceAll("\\", "/").replace(/\/$/, "");
+  }
+  return resolve3(trimmed).replaceAll("\\", "/").replace(/\/$/, "");
+}
+function workspacePathKey(value) {
+  const normalized = normalizeWorkspacePath(value);
+  return process.platform === "win32" || /^[A-Za-z]:\//.test(normalized) ? normalized.toLowerCase() : normalized;
+}
+function loadWorkspaceBindings(vaultPath) {
+  const bindings = /* @__PURE__ */ new Map();
+  const diagnostics = [];
+  const relativePath = ".vault-mind/local-bindings.json";
+  const fullPath = join8(vaultPath, ".vault-mind", "local-bindings.json");
+  if (!existsSync3(fullPath))
+    return { bindings, diagnostics };
+  let parsed;
+  try {
+    parsed = JSON.parse(readFileSync6(fullPath, "utf-8").replace(/^\uFEFF/, ""));
+  } catch {
+    diagnostics.push({
+      code: "malformed_local_bindings",
+      severity: "error",
+      message: "Local workspace bindings are unreadable or malformed JSON.",
+      path: relativePath
+    });
+    return { bindings, diagnostics };
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    diagnostics.push({
+      code: "malformed_local_bindings",
+      severity: "error",
+      message: "Local workspace bindings must be a Project ID keyed object.",
+      path: relativePath
+    });
+    return { bindings, diagnostics };
+  }
+  for (const [rawProjectRef, rawBinding] of Object.entries(parsed).sort(([left], [right]) => left.localeCompare(right))) {
+    let projectId2;
+    if (isProjectId(rawProjectRef)) {
+      projectId2 = rawProjectRef;
+    } else if (PROJECT_SLUG_RE.test(rawProjectRef)) {
+      projectId2 = projectIdFromSlug(rawProjectRef);
+      diagnostics.push({
+        code: "compatibility_binding_identity",
+        severity: "warning",
+        message: "A local binding uses a legacy bare slug; rewrite it with the canonical Project ID.",
+        path: relativePath,
+        projectId: projectId2
+      });
+    } else {
+      diagnostics.push({
+        code: "invalid_binding_project_id",
+        severity: "error",
+        message: "A local binding uses a non-canonical Project ID.",
+        path: relativePath
+      });
+      continue;
+    }
+    if (bindings.has(projectId2)) {
+      diagnostics.push({
+        code: "duplicate_binding_identity",
+        severity: "error",
+        message: "Multiple local bindings normalize to the same Project ID.",
+        path: relativePath,
+        projectId: projectId2
+      });
+      continue;
+    }
+    const rawPath = rawBinding && typeof rawBinding === "object" && !Array.isArray(rawBinding) ? rawBinding.path : void 0;
+    if (typeof rawPath !== "string" || !rawPath.trim() || !looksAbsolutePath(rawPath.trim())) {
+      diagnostics.push({
+        code: "invalid_workspace_binding",
+        severity: "error",
+        message: "A local binding must contain one absolute workspace path.",
+        path: relativePath,
+        projectId: projectId2
+      });
+      continue;
+    }
+    const normalizedPath = normalizeWorkspacePath(rawPath.trim());
+    bindings.set(projectId2, { path: normalizedPath, available: existsSync3(normalizedPath) });
+  }
+  return { bindings, diagnostics };
+}
+function scanProjectRegistry(vaultPath) {
+  const projects = [];
+  const diagnostics = [];
+  const bindingSnapshot = loadWorkspaceBindings(vaultPath);
+  diagnostics.push(...bindingSnapshot.diagnostics);
+  const registryRoot = join8(vaultPath, "Projects");
+  if (!existsSync3(registryRoot))
+    return { projects, diagnostics };
+  const files = readdirSync5(registryRoot, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".md")).sort((left, right) => left.name.localeCompare(right.name));
+  for (const file2 of files) {
+    const registryPath = `Projects/${file2.name}`;
+    let frontmatter;
+    try {
+      frontmatter = parseFm(readFileSync6(join8(registryRoot, file2.name), "utf-8"));
+    } catch {
+      diagnostics.push({
+        code: "unreadable_project_record",
+        severity: "error",
+        message: "A shared Project record could not be read.",
+        path: registryPath
+      });
+      continue;
+    }
+    const recordType2 = scalar2(frontmatter, "type");
+    const rawId = scalar2(frontmatter, "entity");
+    if (!isProjectId(rawId)) {
+      diagnostics.push({
+        code: "invalid_project_id",
+        severity: "error",
+        message: "A shared Project record does not contain a canonical project/<slug> entity.",
+        path: registryPath
+      });
+      continue;
+    }
+    const slug = projectSlug(rawId);
+    if (recordType2 !== "project") {
+      diagnostics.push({
+        code: "project_record_type_mismatch",
+        severity: "warning",
+        message: "A shared Project record is missing type: project or uses a different type.",
+        path: registryPath,
+        projectId: rawId
+      });
+    }
+    const expectedPath = `Projects/${slug}.md`;
+    if (registryPath !== expectedPath) {
+      diagnostics.push({
+        code: "registry_path_mismatch",
+        severity: "warning",
+        message: `The shared Project record path does not match its logical slug; expected ${expectedPath}.`,
+        path: registryPath,
+        projectId: rawId
+      });
+    }
+    for (const key of Object.keys(frontmatter)) {
+      if (!FORBIDDEN_SHARED_FIELDS.has(key.toLowerCase()))
+        continue;
+      diagnostics.push({
+        code: "forbidden_registry_field",
+        severity: "error",
+        message: `Shared Project records must not contain machine paths or secret fields (${key}).`,
+        path: registryPath,
+        projectId: rawId
+      });
+    }
+    const aliases = [
+      ...stringList(frontmatter.aliases),
+      ...stringList(frontmatter.alias)
+    ].filter((alias, index, all) => all.indexOf(alias) === index).sort();
+    const projections = [
+      ...projectionsOf(frontmatter["external-projections"]),
+      ...projectionsOf(frontmatter.projections)
+    ].filter((projection, index, all) => all.findIndex((candidate) => candidate.kind === projection.kind && candidate.target === projection.target) === index).sort((left, right) => left.kind.localeCompare(right.kind) || left.target.localeCompare(right.target));
+    projects.push({
+      projectId: rawId,
+      slug,
+      lifecycle: (scalar2(frontmatter, "lifecycle") ?? scalar2(frontmatter, "status") ?? "unknown").toLowerCase(),
+      aliases,
+      registryPath,
+      workspace: bindingSnapshot.bindings.get(rawId) ?? null,
+      projections
+    });
+  }
+  const registeredIds = new Set(projects.map((project) => project.projectId));
+  for (const projectId2 of bindingSnapshot.bindings.keys()) {
+    if (registeredIds.has(projectId2))
+      continue;
+    diagnostics.push({
+      code: "orphan_workspace_binding",
+      severity: "warning",
+      message: "A local workspace binding has no matching shared Project record.",
+      path: ".vault-mind/local-bindings.json",
+      projectId: projectId2
+    });
+  }
+  return { projects, diagnostics };
+}
+function ambiguity(reference, matches) {
+  const candidates = [...new Set(matches.map((match) => match.projectId))].sort();
+  throw conflict(`Ambiguous Project reference: ${reference.value}`, { candidates });
+}
+function contextFromEntry(entry, diagnostics, resolvedBy) {
+  const contextDiagnostics = diagnostics.filter((diagnostic) => !diagnostic.projectId || diagnostic.projectId === entry.projectId);
+  if (entry.workspace && !entry.workspace.available) {
+    contextDiagnostics.push({
+      code: "workspace_unavailable",
+      severity: "warning",
+      message: "The Project is registered, but its local workspace is unavailable on this device.",
+      path: ".vault-mind/local-bindings.json",
+      projectId: entry.projectId
+    });
+  }
+  return {
+    projectId: entry.projectId,
+    slug: entry.slug,
+    lifecycle: entry.lifecycle,
+    aliases: [...entry.aliases],
+    roots: {
+      registry: "Projects",
+      registryRecord: `Projects/${entry.slug}.md`,
+      workOs: `01-Projects/${entry.slug}`,
+      knowledge: `10-Projects/${entry.slug}`,
+      runtime: ".vault-mind"
+    },
+    workspace: entry.workspace ? { ...entry.workspace } : null,
+    projections: entry.projections.map((projection) => ({ ...projection })),
+    resolvedBy,
+    diagnostics: contextDiagnostics
+  };
+}
+function resolveProjectContext(vaultPath, input, operation = "internal", options = {}) {
+  const reference = normalizeProjectRef(input);
+  if (reference.kind !== "id" && process.env.LLMWIKI_PROJECT_COMPATIBILITY === "disabled") {
+    throw badRequest("Legacy Project references are disabled; use the canonical project/<slug> Project ID");
+  }
+  const registry3 = scanProjectRegistry(vaultPath);
+  let matches = [];
+  let resolvedBy;
+  if (reference.kind === "id") {
+    const projectId2 = parseProjectId(reference.value);
+    matches = registry3.projects.filter((project) => project.projectId === projectId2);
+    resolvedBy = "project_id";
+  } else if (reference.kind === "name") {
+    const folded = reference.value.toLowerCase();
+    matches = registry3.projects.filter((project) => project.slug.toLowerCase() === folded || project.aliases.some((alias) => alias.toLowerCase() === folded));
+    resolvedBy = matches.some((project) => project.slug.toLowerCase() === folded) ? "slug" : "alias";
+  } else {
+    const normalizedPath = workspacePathKey(reference.value);
+    matches = registry3.projects.filter((project) => project.workspace ? workspacePathKey(project.workspace.path) === normalizedPath : false);
+    resolvedBy = "workspace_binding";
+  }
+  if (matches.length > 1)
+    ambiguity(reference, matches);
+  const entry = matches[0];
+  if (!entry)
+    throw notFound(`Project not found: ${reference.value}`);
+  const diagnostics = [...registry3.diagnostics];
+  if (reference.kind === "name") {
+    if (options.recordCompatibility !== false)
+      recordCompatibilityRead(operation, entry.projectId);
+    diagnostics.push({
+      code: "compatibility_reference",
+      severity: "info",
+      message: "A legacy project name or alias was resolved; callers should persist the canonical Project ID.",
+      projectId: entry.projectId
+    });
+  } else if (reference.kind === "workspace") {
+    if (options.recordCompatibility !== false)
+      recordCompatibilityRead(operation, entry.projectId);
+    diagnostics.push({
+      code: "workspace_reference",
+      severity: "info",
+      message: "A machine-local workspace path was resolved to a canonical Project ID.",
+      projectId: entry.projectId
+    });
+  }
+  return contextFromEntry(entry, diagnostics, resolvedBy);
+}
+function doctorProjectContext(vaultPath) {
+  const snapshot = scanProjectRegistry(vaultPath);
+  const findings = [...snapshot.diagnostics];
+  const aliasOwners = /* @__PURE__ */ new Map();
+  for (const project of snapshot.projects) {
+    for (const alias of [project.slug, ...project.aliases]) {
+      const key = alias.toLowerCase();
+      const owners = aliasOwners.get(key) ?? /* @__PURE__ */ new Set();
+      owners.add(project.projectId);
+      aliasOwners.set(key, owners);
+    }
+    const anchorPath = `01-Projects/${project.slug}/_project.md`;
+    const fullAnchor = join8(vaultPath, anchorPath);
+    if (!existsSync3(fullAnchor)) {
+      findings.push({ code: "missing_work_os_anchor", severity: "error", message: "Registered Project has no Work-OS anchor.", path: anchorPath, projectId: project.projectId });
+    } else {
+      const anchorEntity = scalar2(parseFm(readFileSync6(fullAnchor, "utf-8")), "entity");
+      if (anchorEntity !== project.projectId) {
+        findings.push({ code: "cross_runtime_identity_disagreement", severity: "error", message: "Work-OS anchor Project ID disagrees with the shared registry.", path: anchorPath, projectId: project.projectId });
+      }
+    }
+    if (project.workspace && !project.workspace.available) {
+      findings.push({ code: "stale_workspace_binding", severity: "warning", message: "Workspace binding target is unavailable.", path: ".vault-mind/local-bindings.json", projectId: project.projectId });
+    }
+  }
+  for (const [alias, owners] of aliasOwners) {
+    if (owners.size < 2)
+      continue;
+    findings.push({ code: "duplicate_project_alias", severity: "error", message: `Alias ${alias} belongs to multiple Projects.`, candidates: [...owners].sort() });
+  }
+  const knownSlugs = new Set(snapshot.projects.map((project) => project.slug));
+  for (const root of ["01-Projects", "10-Projects"]) {
+    const fullRoot = join8(vaultPath, root);
+    if (!existsSync3(fullRoot))
+      continue;
+    for (const entry of readdirSync5(fullRoot, { withFileTypes: true })) {
+      if (!entry.isDirectory() || knownSlugs.has(entry.name))
+        continue;
+      findings.push({ code: "orphan_project_domain_root", severity: "warning", message: "Project domain root has no shared Project record.", path: `${root}/${entry.name}` });
+    }
+  }
+  const compatibility = compatibilityReadReport();
+  const configuredWindowSeconds = Math.max(0, Number.parseInt(process.env.LLMWIKI_PROJECT_COMPATIBILITY_WINDOW_SECONDS ?? "0", 10) || 0);
+  const elapsedWindowSeconds = Math.floor((Date.now() - compatibilityWindowStartedAt) / 1e3);
+  const mode = process.env.LLMWIKI_PROJECT_COMPATIBILITY === "disabled" ? "disabled" : "enabled";
+  return {
+    ok: findings.every((finding) => finding.severity !== "error"),
+    projects: snapshot.projects.length,
+    findings,
+    compatibility: {
+      mode,
+      reads: compatibility,
+      total: compatibility.reduce((sum, item) => sum + item.count, 0),
+      windowStartedAt: new Date(compatibilityWindowStartedAt).toISOString(),
+      configuredWindowSeconds,
+      elapsedWindowSeconds,
+      readyToDisable: mode === "enabled" && compatibility.length === 0 && elapsedWindowSeconds >= configuredWindowSeconds,
+      readersRemoved: mode === "disabled"
+    }
+  };
+}
+function operationReference(params) {
+  const value = params.ref ?? params.project;
+  if (typeof value !== "string" || !value.trim())
+    throw badRequest("ref or project is required");
+  return value;
+}
+function makeProjectContextOps(vaultPath) {
+  return [
+    {
+      name: "project.registry.list",
+      namespace: "project",
+      description: "List shared Project identities with local binding health and registry diagnostics.",
+      mutating: false,
+      params: {},
+      handler: async () => {
+        const snapshot = scanProjectRegistry(vaultPath);
+        return { count: snapshot.projects.length, ...snapshot };
+      }
+    },
+    {
+      name: "project.registry.get",
+      namespace: "project",
+      description: "Resolve a Project reference and return its shared registry entry without mutation.",
+      mutating: false,
+      params: {
+        ref: { type: "string", required: false, description: "Canonical Project ID, registered alias/slug, or bound workspace path" },
+        project: { type: "string", required: false, description: "Compatibility alias for ref" }
+      },
+      handler: async (_ctx, params) => {
+        const context = resolveProjectContext(vaultPath, operationReference(params), "project.registry.get");
+        const snapshot = scanProjectRegistry(vaultPath);
+        const project = snapshot.projects.find((entry) => entry.projectId === context.projectId);
+        if (!project)
+          throw notFound(`Project not found: ${context.projectId}`);
+        return { project, diagnostics: context.diagnostics };
+      }
+    },
+    {
+      name: "project.context.resolve",
+      namespace: "project",
+      description: "Resolve a Project reference to stable identity, canonical domain roots, bindings, projections, and diagnostics.",
+      mutating: false,
+      params: {
+        ref: { type: "string", required: false, description: "Canonical Project ID, registered alias/slug, or bound workspace path" },
+        project: { type: "string", required: false, description: "Compatibility alias for ref" }
+      },
+      handler: async (_ctx, params) => resolveProjectContext(vaultPath, operationReference(params), "project.context.resolve")
+    },
+    {
+      name: "project.context.doctor",
+      namespace: "project",
+      description: "Diagnose Project anchors, aliases, bindings, domain roots, identity agreement, and release-gated compatibility reads.",
+      mutating: false,
+      params: {},
+      handler: async () => doctorProjectContext(vaultPath)
+    }
+  ];
+}
+
 // dist/core/write-policy.js
 var DEFAULT_PROTECTED_PATHS = ["20-Decisions/**", "30-Architecture/**", "40-Runbooks/**", "README.md"];
 var globCache = /* @__PURE__ */ new Map();
-function adjudicateOperationWrite(ctx, operation, params, registry2) {
-  const verdict = operation.name === "vault.batch" ? adjudicateBatchWrite(ctx, operation, params, registry2) : adjudicateSingleWrite(ctx, operation, params);
+function adjudicateOperationWrite(ctx, operation, params, registry3) {
+  const verdict = operation.name === "vault.batch" ? adjudicateBatchWrite(ctx, operation, params, registry3) : adjudicateSingleWrite(ctx, operation, params);
   if (verdict.realWrite && verdict.targets.length === 0) {
     throw makeErr(-32602, `Operation Write Policy for ${operation.name} produced no write targets`);
   }
@@ -41592,7 +42764,7 @@ function auditOperationWrite(ctx, verdict, result) {
     return;
   try {
     const day = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-    const auditDir = resolve3(ctx.config.vault_path, ".wiki-audit");
+    const auditDir = resolve4(ctx.config.vault_path, ".wiki-audit");
     mkdirSync(auditDir, { recursive: true });
     const auditResult = auditResultForVerdict(verdict, result);
     const entry = {
@@ -41605,7 +42777,7 @@ function auditOperationWrite(ctx, verdict, result) {
       resultPaths: resultPaths(result),
       children: auditResult.children
     };
-    appendFileSync(resolve3(auditDir, `${day}.jsonl`), JSON.stringify(entry) + "\n", "utf-8");
+    appendFileSync(resolve4(auditDir, `${day}.jsonl`), JSON.stringify(entry) + "\n", "utf-8");
   } catch (e) {
     process.stderr.write(`obsidian-llm-wiki: [warn] audit write failed: ${e.message}
 `);
@@ -41639,29 +42811,39 @@ function staticTargets(...targets) {
 function targetOrWildcard(param, fallback) {
   return (_ctx, params) => typeof params[param] === "string" ? [params[param]] : [fallback];
 }
-function memoryPolicyBasePath(config2, args) {
+function resolvedPolicyProject(config2, args, operation) {
+  if (typeof args.project !== "string" || !args.project.trim()) {
+    throw makeErr(-32602, "project required for write policy");
+  }
+  return resolveProjectContext(config2.vault_path, args.project, operation, { recordCompatibility: false }).slug;
+}
+function memoryPolicyBasePath(config2, args, operation = "memory.write") {
   const actor = safeMemorySegment(config2.collaboration?.actor || process.env.VAULT_MIND_ACTOR || "agent", "actor");
-  const project = typeof args.project === "string" && args.project.trim() ? safeMemorySegment(args.project, "project") : void 0;
+  const project = typeof args.project === "string" && args.project.trim() ? resolveProjectContext(config2.vault_path, args.project, operation, { recordCompatibility: false }).slug : void 0;
   return project ? `10-Projects/${project}/agents/${actor}/memory` : `00-Inbox/Agent-Memory/${actor}`;
 }
 function projectPolicyBasePath(args) {
   return `01-Projects/${policyProjectSegment(args)}`;
 }
-function workflowPolicyBasePath(args) {
-  return `${projectPolicyBasePath(args)}/workflow`;
+function workflowPolicyBasePath(config2, args, operation) {
+  return `01-Projects/${resolvedPolicyProject(config2, args, operation)}/workflow`;
 }
-function workflowAgentPolicyBasePath(config2, args) {
-  return `${projectPolicyBasePath(args)}/agents/${workflowAgentPolicySegment(config2, args)}`;
+function workflowAgentPolicyBasePath(config2, args, operation) {
+  return `01-Projects/${resolvedPolicyProject(config2, args, operation)}/agents/${workflowAgentPolicySegment(config2, args)}`;
 }
-function sourcePolicyTargetPaths(args) {
+function sourcePolicyTargetPaths(config2, args, operation = "source.register") {
   if (typeof args.project === "string" && args.project.trim() && typeof args.platform === "string" && args.platform.trim()) {
-    const project = safeMemorySegment(args.project, "project");
-    const platform = safeMemorySegment(args.platform, "platform");
-    return ["_llmwiki/source-registry.json", `10-Projects/${project}/sources/${platform}/**`];
+    const project = resolvedPolicyProject(config2, args, operation);
+    const platform2 = safeMemorySegment(args.platform, "platform");
+    return ["_llmwiki/source-registry.json", `10-Projects/${project}/sources/${platform2}/**`];
+  }
+  if (typeof args.project === "string" && args.project.trim()) {
+    const project = resolvedPolicyProject(config2, args, operation);
+    return ["_llmwiki/source-registry.json", `10-Projects/${project}/sources/**`];
   }
   if (typeof args.platform === "string" && args.platform.trim()) {
-    const platform = safeMemorySegment(args.platform, "platform");
-    return ["_llmwiki/source-registry.json", `00-Inbox/Sources/${platform}/**`];
+    const platform2 = safeMemorySegment(args.platform, "platform");
+    return ["_llmwiki/source-registry.json", `00-Inbox/Sources/${platform2}/**`];
   }
   return ["_llmwiki/source-registry.json", "00-Inbox/Sources/**", "10-Projects/*/sources/**"];
 }
@@ -41695,7 +42877,7 @@ function adjudicateSingleWrite(ctx, operation, params) {
   const targets = realWrite ? operation.writePolicy.targets(ctx, params).map(normalizePolicyPath) : [];
   return { operation, params, realWrite, targets, audit: operation.writePolicy.audit };
 }
-function adjudicateBatchWrite(ctx, operation, params, registry2) {
+function adjudicateBatchWrite(ctx, operation, params, registry3) {
   if (!Array.isArray(params.operations)) {
     return { operation, params, realWrite: false, targets: [], audit: "none" };
   }
@@ -41707,7 +42889,7 @@ function adjudicateBatchWrite(ctx, operation, params, registry2) {
       throw makeErr(-32602, "Batch operation method required");
     if (method === "vault.batch")
       throw makeErr(-32602, "Recursive batch not allowed");
-    const child = registry2.get(method);
+    const child = registry3.get(method);
     if (!child)
       throw makeErr(-32602, `Unknown batch operation: ${method}`);
     const rawParams = item.params;
@@ -41719,7 +42901,7 @@ function adjudicateBatchWrite(ctx, operation, params, registry2) {
     if (params.dry_run !== void 0 && childParams.dry_run === void 0)
       childParams.dry_run = params.dry_run;
     const validated = validateParams(child.params, childParams);
-    return adjudicateOperationWrite(ctx, child, validated, registry2);
+    return adjudicateOperationWrite(ctx, child, validated, registry3);
   });
   return {
     operation,
@@ -41749,7 +42931,7 @@ function enforceCollaborationPolicy(config2, toolName, targets) {
   ];
   for (const target of targets) {
     const protectedHit = matchAny(target, protectedPaths);
-    const allowedHit = allowed.length > 0 && matchAny(target, allowed);
+    const allowedHit = settingsOperationAllowsTarget(toolName, target) || allowed.length > 0 && matchAny(target, allowed);
     if (protectedHit && !allowedHit) {
       throw makeErr(-32403, `Collaboration policy blocked ${toolName} by ${actor}: protected path ${target}`);
     }
@@ -41758,12 +42940,17 @@ function enforceCollaborationPolicy(config2, toolName, targets) {
     }
   }
 }
+function settingsOperationAllowsTarget(toolName, target) {
+  if (toolName !== "settings.assignment.set" && toolName !== "settings.assignment.unset")
+    return false;
+  return /^_llmwiki\/settings\/(?:vault\.json|projects\/[A-Za-z0-9._-]+\.json|(?:user-device|session)\/[A-Za-z0-9._-]+)$/.test(normalizePolicyPath(target));
+}
 function readVaultCollabPolicy(vaultPath) {
-  const policyPath = resolve3(vaultPath, ".vault-collab.json");
-  if (!existsSync3(policyPath))
+  const policyPath = resolve4(vaultPath, ".vault-collab.json");
+  if (!existsSync4(policyPath))
     return {};
   try {
-    const parsed = JSON.parse(readFileSync5(policyPath, "utf-8"));
+    const parsed = JSON.parse(readFileSync7(policyPath, "utf-8"));
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
       throw new Error("expected a JSON object");
     return parsed;
@@ -41814,7 +43001,18 @@ function policyProjectSegment(args) {
   if (typeof args.project !== "string" || !args.project.trim()) {
     throw makeErr(-32602, "project required for write policy");
   }
-  return slugPolicySegment(args.project, "project");
+  return policyProjectRefSegment(args.project);
+}
+function policyProjectRefSegment(value) {
+  const trimmed = value.trim();
+  if (trimmed.startsWith("project/")) {
+    const slug = trimmed.slice("project/".length);
+    if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
+      throw makeErr(-32602, "project ID must use project/<lowercase-kebab-slug>");
+    }
+    return slug;
+  }
+  return slugPolicySegment(trimmed, "project");
 }
 function workflowAgentPolicySegment(config2, args) {
   const raw = typeof args.agent === "string" && args.agent.trim() ? args.agent : config2.collaboration?.actor || process.env.VAULT_MIND_ACTOR || "agent";
@@ -41832,11 +43030,13 @@ function defaultAllowedPaths(actor, role) {
     `10-Projects/*/agents/${actor}`,
     `10-Projects/*/agents/${actor}/**`,
     `10-Projects/*/project.md`,
-    `10-Projects/*/docket/**`,
+    `Projects/*.md`,
+    `.vault-mind/project-migrations/**`,
     `01-Projects/*/_project.md`,
     `01-Projects/*/issues/**`,
     `01-Projects/*/views/**`,
     `01-Projects/*/workflow/**`,
+    `01-Projects/*/runs/**`,
     `01-Projects/*/agents/${workflowActor}`,
     `01-Projects/*/agents/${workflowActor}/**`
   ];
@@ -41878,13 +43078,13 @@ function resultPaths(result) {
 }
 
 // dist/recipes/_registry.js
-import { readdirSync as readdirSync4, existsSync as existsSync5 } from "node:fs";
-import { join as join8, dirname as dirname2 } from "node:path";
+import { readdirSync as readdirSync6, existsSync as existsSync6 } from "node:fs";
+import { join as join10, dirname as dirname2 } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // dist/recipes/_framework.js
-import { readFileSync as readFileSync6, existsSync as existsSync4, appendFileSync as appendFileSync2, mkdirSync as mkdirSync2 } from "node:fs";
-import { join as join7 } from "node:path";
+import { readFileSync as readFileSync8, existsSync as existsSync5, appendFileSync as appendFileSync2, mkdirSync as mkdirSync2 } from "node:fs";
+import { join as join9 } from "node:path";
 import { execFileSync } from "node:child_process";
 import { homedir as homedir3 } from "node:os";
 function parseScalar(raw) {
@@ -41988,7 +43188,7 @@ function parseYaml(text) {
   return result;
 }
 function parseRecipe(filePath) {
-  const content = readFileSync6(filePath, "utf8");
+  const content = readFileSync8(filePath, "utf8");
   const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)/);
   if (!fmMatch) {
     throw new Error(`Recipe file has no valid frontmatter: ${filePath}`);
@@ -42059,7 +43259,11 @@ function getRecipeStatus(recipe) {
   };
 }
 function runHealthCheck(command) {
-  const shell = process.platform === "win32" ? "bash" : "/bin/sh";
+  const windowsBashCandidates = [
+    process.env.ProgramFiles ? join9(process.env.ProgramFiles, "Git", "usr", "bin", "bash.exe") : "",
+    process.env.LOCALAPPDATA ? join9(process.env.LOCALAPPDATA, "Programs", "Git", "usr", "bin", "bash.exe") : ""
+  ].filter(Boolean);
+  const shell = process.platform === "win32" ? windowsBashCandidates.find((candidate) => existsSync5(candidate)) ?? "bash" : "/bin/sh";
   const shellFlag = "-c";
   try {
     const output = execFileSync(shell, [shellFlag, command], {
@@ -42075,24 +43279,24 @@ function runHealthCheck(command) {
   }
 }
 function appendHeartbeat(recipeId, event) {
-  const dir = join7(homedir3(), ".vault-mind", "recipes", recipeId);
-  if (!existsSync4(dir)) {
+  const dir = join9(homedir3(), ".vault-mind", "recipes", recipeId);
+  if (!existsSync5(dir)) {
     mkdirSync2(dir, { recursive: true });
   }
-  const filePath = join7(dir, "heartbeat.jsonl");
+  const filePath = join9(dir, "heartbeat.jsonl");
   appendFileSync2(filePath, JSON.stringify(event) + "\n", "utf8");
 }
 
 // dist/recipes/_registry.js
-var DEFAULT_RECIPES_DIR = join8(dirname2(fileURLToPath(import.meta.url)), "..", "..", "..", "recipes");
+var DEFAULT_RECIPES_DIR = join10(dirname2(fileURLToPath(import.meta.url)), "..", "..", "..", "recipes");
 var _cache = null;
 function scanRecipes(recipesDir) {
   if (!recipesDir && _cache)
     return _cache;
   const dir = recipesDir ?? DEFAULT_RECIPES_DIR;
-  if (!existsSync5(dir))
+  if (!existsSync6(dir))
     return [];
-  const entries = readdirSync4(dir, { withFileTypes: true });
+  const entries = readdirSync6(dir, { withFileTypes: true });
   const recipes = [];
   for (const entry of entries) {
     if (!entry.isFile())
@@ -42101,7 +43305,7 @@ function scanRecipes(recipesDir) {
       continue;
     if (entry.name.startsWith("_"))
       continue;
-    const filePath = join8(dir, entry.name);
+    const filePath = join10(dir, entry.name);
     try {
       recipes.push(parseRecipe(filePath));
     } catch (err2) {
@@ -42164,8 +43368,8 @@ function _sortCandidates(candidates) {
 }
 
 // dist/unified-query.js
-async function unifiedQuery(registry2, query, opts) {
-  const searchAdapters = registry2.getByCapability("search");
+async function unifiedQuery(registry3, query, opts) {
+  const searchAdapters = registry3.getByCapability("search");
   const filtered = opts?.adapters ? searchAdapters.filter((a) => opts.adapters.includes(a.name)) : searchAdapters;
   if (filtered.length === 0) {
     return { results: [], sources: {}, totalResults: 0 };
@@ -42207,11 +43411,11 @@ async function unifiedQuery(registry2, query, opts) {
     totalResults: merged.length
   };
 }
-async function traceUnifiedQuery(registry2, query, opts) {
-  const searchAdapters = registry2.getByCapability("search");
+async function traceUnifiedQuery(registry3, query, opts) {
+  const searchAdapters = registry3.getByCapability("search");
   const selected = opts?.adapters ? searchAdapters.filter((a) => opts.adapters.includes(a.name)) : searchAdapters;
   const requestedAdapters = opts?.adapters ?? "all-search-capable";
-  const result = await unifiedQuery(registry2, query, opts);
+  const result = await unifiedQuery(registry3, query, opts);
   const weights = opts?.weights ?? {};
   const branches = selected.map((adapter) => {
     const stats = result.sources[adapter.name];
@@ -42265,8 +43469,8 @@ async function traceUnifiedQuery(registry2, query, opts) {
     limitations: buildTraceLimitations(query, opts, searchAdapters.map((adapter) => adapter.name), selected.map((adapter) => adapter.name), result)
   };
 }
-async function answerQuery(registry2, query, opts) {
-  const trace = await traceUnifiedQuery(registry2, query, opts);
+async function answerQuery(registry3, query, opts) {
+  const trace = await traceUnifiedQuery(registry3, query, opts);
   const citations = trace.evidence.map((item, index) => ({
     id: `C${index + 1}`,
     rank: item.rank,
@@ -42416,11 +43620,11 @@ function renderAnswer(query, claims, gaps) {
   }
   return lines.join("\n");
 }
-async function unifiedQueryByVector(registry2, vector, opts) {
+async function unifiedQueryByVector(registry3, vector, opts) {
   if (vector.length === 0) {
     return { results: [], sources: {}, totalResults: 0 };
   }
-  const vectorAdapters = registry2.getByCapability("embeddings").filter((a) => typeof a.searchByVector === "function");
+  const vectorAdapters = registry3.getByCapability("embeddings").filter((a) => typeof a.searchByVector === "function");
   const filtered = opts?.adapters ? vectorAdapters.filter((a) => opts.adapters.includes(a.name)) : vectorAdapters;
   if (filtered.length === 0) {
     return { results: [], sources: {}, totalResults: 0 };
@@ -42468,20 +43672,20 @@ async function unifiedQueryByVector(registry2, vector, opts) {
 init_embedding_client();
 
 // dist/holons/loader.js
-import { existsSync as existsSync6, readFileSync as readFileSync7 } from "node:fs";
-import { resolve as resolve4 } from "node:path";
+import { existsSync as existsSync7, readFileSync as readFileSync9 } from "node:fs";
+import { resolve as resolve5 } from "node:path";
 var ContextCoreLoader = class {
   _cache = null;
   _byId = null;
   path;
   constructor(path) {
-    this.path = resolve4(path);
+    this.path = resolve5(path);
   }
   available() {
-    return existsSync6(this.path);
+    return existsSync7(this.path);
   }
   _load() {
-    const raw = readFileSync7(this.path, "utf-8");
+    const raw = readFileSync9(this.path, "utf-8");
     const data = JSON.parse(raw);
     this._cache = data;
     this._byId = new Map(data.holons.map((h) => [h.id, h]));
@@ -42833,7 +44037,7 @@ function makeProvenanceOps(loader) {
 
 // dist/holons/graph.js
 import { writeFileSync, mkdirSync as mkdirSync3 } from "node:fs";
-import { join as join9, dirname as dirname3 } from "node:path";
+import { join as join11, dirname as dirname3 } from "node:path";
 function bfsGraph(loader, startId, maxDepth) {
   const start = loader.byId(startId);
   if (!start)
@@ -43006,7 +44210,7 @@ function makeGraphOps(loader, vaultPath) {
           if (!safe || safe.split("/").some((p) => p === "..")) {
             return { error: 'Invalid output_path \u2014 must be vault-relative with no ".."' };
           }
-          const full = join9(vaultPath, safe);
+          const full = join11(vaultPath, safe);
           mkdirSync3(dirname3(full), { recursive: true });
           writeFileSync(full, content, "utf-8");
           writtenTo = safe;
@@ -43024,13 +44228,13 @@ function makeGraphOps(loader, vaultPath) {
 }
 
 // dist/holons/write.js
-import { readFileSync as readFileSync8, writeFileSync as writeFileSync2, mkdirSync as mkdirSync4, existsSync as existsSync7 } from "node:fs";
-import { join as join10, dirname as dirname4 } from "node:path";
+import { readFileSync as readFileSync10, writeFileSync as writeFileSync2, mkdirSync as mkdirSync4, existsSync as existsSync8 } from "node:fs";
+import { join as join12, dirname as dirname4 } from "node:path";
 function safePath(vaultPath, relPath) {
   const clean = relPath.trim().replace(/\\/g, "/").replace(/^\/+/, "");
   if (!clean || clean.split("/").some((p) => p === ".." || p === "."))
     return null;
-  return join10(vaultPath, clean);
+  return join12(vaultPath, clean);
 }
 function makeVaultWriteOps(vaultPath, loader) {
   return [
@@ -43057,7 +44261,7 @@ function makeVaultWriteOps(vaultPath, loader) {
         const full = safePath(vaultPath, relPath);
         if (!full)
           return { error: 'Invalid path \u2014 must be vault-relative with no ".."' };
-        if (!overwrite && existsSync7(full)) {
+        if (!overwrite && existsSync8(full)) {
           return { error: `File already exists: ${relPath}. Pass overwrite:true to replace.` };
         }
         mkdirSync4(dirname4(full), { recursive: true });
@@ -43105,9 +44309,9 @@ function makeVaultWriteOps(vaultPath, loader) {
         const full = safePath(vaultPath, targetRel);
         if (!full)
           return { error: `Invalid path: ${targetRel}` };
-        if (!existsSync7(full))
+        if (!existsSync8(full))
           return { error: `File not found: ${targetRel}` };
-        const existing = readFileSync8(full, "utf-8");
+        const existing = readFileSync10(full, "utf-8");
         const date5 = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
         const block = `
 
@@ -43124,8 +44328,8 @@ ${content.split("\n").map((l) => `> ${l}`).join("\n")}
 }
 
 // dist/memory/memory.js
-import { existsSync as existsSync8, mkdirSync as mkdirSync5, readFileSync as readFileSync9, readdirSync as readdirSync5, rmSync, statSync, writeFileSync as writeFileSync3 } from "node:fs";
-import { basename as basename3, dirname as dirname5, join as join11 } from "node:path";
+import { existsSync as existsSync9, mkdirSync as mkdirSync5, readFileSync as readFileSync11, readdirSync as readdirSync7, rmSync, statSync as statSync2, writeFileSync as writeFileSync3 } from "node:fs";
+import { basename as basename3, dirname as dirname5, join as join13 } from "node:path";
 var LOCK_TTL_MS = 6e4;
 var DEFAULT_ACTOR = "agent";
 function withFileLock(fullPath, fn) {
@@ -43139,7 +44343,7 @@ function withFileLock(fullPath, fn) {
   } catch (e) {
     if (e.code !== "EEXIST")
       throw e;
-    const ageMs = existsSync8(lockPath) ? Date.now() - statSync(lockPath).mtimeMs : LOCK_TTL_MS + 1;
+    const ageMs = existsSync9(lockPath) ? Date.now() - statSync2(lockPath).mtimeMs : LOCK_TTL_MS + 1;
     if (ageMs < LOCK_TTL_MS) {
       throw makeErr(-32010, `Lock conflict on ${basename3(fullPath)}`);
     }
@@ -43187,10 +44391,15 @@ function memoryBasePath(project, actor) {
   }
   return `00-Inbox/Agent-Memory/${actor}`;
 }
+function resolvedProject(vaultPath, value, operation) {
+  if (typeof value !== "string" || !value.trim())
+    return void 0;
+  return resolveProjectContext(vaultPath, value, operation).slug;
+}
 function readText(fullPath) {
-  if (!existsSync8(fullPath))
+  if (!existsSync9(fullPath))
     return null;
-  return readFileSync9(fullPath, "utf-8");
+  return readFileSync11(fullPath, "utf-8");
 }
 function writeText(fullPath, content) {
   mkdirSync5(dirname5(fullPath), { recursive: true });
@@ -43284,13 +44493,13 @@ function sessionMarkdown(opts) {
 var PersistentMemory = class {
   filePath;
   constructor(vaultPath) {
-    this.filePath = join11(vaultPath, "_ai_memory.json");
+    this.filePath = join13(vaultPath, "_ai_memory.json");
   }
   read() {
-    if (!existsSync8(this.filePath))
+    if (!existsSync9(this.filePath))
       return {};
     try {
-      return JSON.parse(readFileSync9(this.filePath, "utf-8"));
+      return JSON.parse(readFileSync11(this.filePath, "utf-8"));
     } catch {
       return {};
     }
@@ -43339,15 +44548,16 @@ var MarkdownMemory = class {
   }
   passport(ctx, project) {
     const actor = actorFromContext(ctx);
+    project = resolvedProject(this.vaultPath, project, "memory.passport.get");
     const relPath = `${memoryBasePath(project, actor)}/passport.md`;
-    const fullPath = join11(this.vaultPath, relPath);
+    const fullPath = join13(this.vaultPath, relPath);
     const now = (/* @__PURE__ */ new Date()).toISOString();
     const content = readText(fullPath) ?? passportMarkdown({ actor, project, now });
-    return { exists: existsSync8(fullPath), path: relPath, content };
+    return { exists: existsSync9(fullPath), path: relPath, content };
   }
   writePassport(ctx, params) {
     const actor = actorFromContext(ctx);
-    const project = params.project;
+    const project = resolvedProject(this.vaultPath, params.project, "memory.passport.upsert");
     const relPath = `${memoryBasePath(project, actor)}/passport.md`;
     const now = (/* @__PURE__ */ new Date()).toISOString();
     const content = passportMarkdown({
@@ -43360,20 +44570,21 @@ var MarkdownMemory = class {
       openQuestions: params.openQuestions,
       pointers: params.pointers
     });
-    writeText(join11(this.vaultPath, relPath), content);
+    writeText(join13(this.vaultPath, relPath), content);
     return { ok: true, path: relPath, bytes: Buffer.byteLength(content, "utf-8") };
   }
   handoff(ctx, project) {
     const actor = actorFromContext(ctx);
+    project = resolvedProject(this.vaultPath, project, "memory.handoff.latest");
     const relPath = `${memoryBasePath(project, actor)}/handoff.md`;
-    const fullPath = join11(this.vaultPath, relPath);
+    const fullPath = join13(this.vaultPath, relPath);
     const now = (/* @__PURE__ */ new Date()).toISOString();
     const content = readText(fullPath) ?? handoffMarkdown({ actor, project, now });
-    return { exists: existsSync8(fullPath), path: relPath, content };
+    return { exists: existsSync9(fullPath), path: relPath, content };
   }
   writeHandoff(ctx, params) {
     const actor = actorFromContext(ctx);
-    const project = params.project;
+    const project = resolvedProject(this.vaultPath, params.project, "memory.handoff.write");
     const relPath = `${memoryBasePath(project, actor)}/handoff.md`;
     const now = (/* @__PURE__ */ new Date()).toISOString();
     const content = handoffMarkdown({
@@ -43385,12 +44596,12 @@ var MarkdownMemory = class {
       risks: params.risks,
       files: params.files
     });
-    writeText(join11(this.vaultPath, relPath), content);
+    writeText(join13(this.vaultPath, relPath), content);
     return { ok: true, path: relPath, bytes: Buffer.byteLength(content, "utf-8") };
   }
   saveSession(ctx, params) {
     const actor = actorFromContext(ctx);
-    const project = params.project;
+    const project = resolvedProject(this.vaultPath, params.project, "memory.session.save");
     const now = (/* @__PURE__ */ new Date()).toISOString();
     const title = typeof params.title === "string" && params.title.trim() ? params.title.trim() : String(params.summary ?? "").slice(0, 60);
     const stamp = now.replace(/[:.]/g, "-");
@@ -43405,25 +44616,26 @@ var MarkdownMemory = class {
       actions: params.actions,
       references: params.references
     });
-    writeText(join11(this.vaultPath, relPath), content);
+    writeText(join13(this.vaultPath, relPath), content);
     return { ok: true, path: relPath, bytes: Buffer.byteLength(content, "utf-8") };
   }
   listSessions(ctx, project, limit = 20) {
     const actor = actorFromContext(ctx);
+    project = resolvedProject(this.vaultPath, project, "memory.session.list");
     const relDir = `${memoryBasePath(project, actor)}/sessions`;
-    const fullDir = join11(this.vaultPath, relDir);
-    if (!existsSync8(fullDir))
+    const fullDir = join13(this.vaultPath, relDir);
+    if (!existsSync9(fullDir))
       return { count: 0, sessions: [] };
-    const sessions = readdirSync5(fullDir, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".md")).map((entry) => {
-      const fullPath = join11(fullDir, entry.name);
-      const content = readFileSync9(fullPath, "utf-8");
+    const sessions = readdirSync7(fullDir, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".md")).map((entry) => {
+      const fullPath = join13(fullDir, entry.name);
+      const content = readFileSync11(fullPath, "utf-8");
       const heading = content.match(/^#\s+(.+)$/m)?.[1]?.trim() ?? entry.name.replace(/\.md$/, "");
       const preview3 = content.replace(/^---[\s\S]*?---\s*/m, "").replace(/\s+/g, " ").trim().slice(0, 180);
       return {
         path: `${relDir}/${entry.name}`,
         title: heading,
         preview: preview3,
-        updated_at: statSync(fullPath).mtime.toISOString()
+        updated_at: statSync2(fullPath).mtime.toISOString()
       };
     }).sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, Math.max(1, Math.min(limit, 100)));
     return { count: sessions.length, sessions };
@@ -43528,7 +44740,7 @@ function makeMemoryOps(vaultPath) {
       mutating: true,
       writePolicy: {
         realWrite: "always",
-        targets: (ctx, params) => [`${memoryPolicyBasePath(ctx.config, params)}/passport.md`],
+        targets: (ctx, params) => [`${memoryPolicyBasePath(ctx.config, params, "memory.passport.upsert")}/passport.md`],
         audit: "required",
         effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), "modify")]
       },
@@ -43559,7 +44771,7 @@ function makeMemoryOps(vaultPath) {
       mutating: true,
       writePolicy: {
         realWrite: "always",
-        targets: (ctx, params) => [`${memoryPolicyBasePath(ctx.config, params)}/handoff.md`],
+        targets: (ctx, params) => [`${memoryPolicyBasePath(ctx.config, params, "memory.handoff.write")}/handoff.md`],
         audit: "required",
         effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), "modify")]
       },
@@ -43579,7 +44791,7 @@ function makeMemoryOps(vaultPath) {
       mutating: true,
       writePolicy: {
         realWrite: "always",
-        targets: (ctx, params) => [`${memoryPolicyBasePath(ctx.config, params)}/sessions/**`],
+        targets: (ctx, params) => [`${memoryPolicyBasePath(ctx.config, params, "memory.session.save")}/sessions/**`],
         audit: "required",
         effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), "create")]
       },
@@ -43608,516 +44820,8 @@ function makeMemoryOps(vaultPath) {
 }
 
 // dist/project/project.js
-import { existsSync as existsSync9, mkdirSync as mkdirSync6, readFileSync as readFileSync11, writeFileSync as writeFileSync4 } from "node:fs";
-import { dirname as dirname6, join as join13 } from "node:path";
-
-// dist/project/workos.js
-import { readdirSync as readdirSync6, readFileSync as readFileSync10, statSync as statSync2 } from "node:fs";
-import { join as join12 } from "node:path";
-var STATE_BACKLOG = "backlog";
-var STATE_TODO = "todo";
-var STATE_IN_PROGRESS = "in-progress";
-var STATE_DONE = "done";
-var STATE_CANCELED = "canceled";
-var CANONICAL_STATES = /* @__PURE__ */ new Set([
-  STATE_BACKLOG,
-  STATE_TODO,
-  STATE_IN_PROGRESS,
-  STATE_DONE,
-  STATE_CANCELED
-]);
-var DEFAULT_STATE = STATE_BACKLOG;
-var LEGACY_STATE_MAP = {
-  open: STATE_TODO,
-  "in progress": STATE_IN_PROGRESS,
-  in_progress: STATE_IN_PROGRESS,
-  completed: STATE_DONE,
-  done: STATE_DONE,
-  cancelled: STATE_CANCELED,
-  canceled: STATE_CANCELED,
-  archived: STATE_CANCELED,
-  closed: STATE_DONE,
-  active: STATE_IN_PROGRESS,
-  paused: STATE_TODO,
-  planned: STATE_BACKLOG
-};
-var LEGACY_BLOCKED_WORD = "blocked";
-var PRIORITY_RANK = { 1: 0, 2: 1, 3: 2, 4: 3, 0: 4 };
-var PRIORITY_RANK_NONE = 4;
-var VALID_PRIORITIES = /* @__PURE__ */ new Set([0, 1, 2, 3, 4]);
-var KANBAN_COLUMNS = ["Backlog", "Todo", "In Progress", "Blocked", "Done", "Canceled"];
-var STATE_COLUMN = {
-  [STATE_BACKLOG]: "Backlog",
-  [STATE_TODO]: "Todo",
-  [STATE_IN_PROGRESS]: "In Progress",
-  [STATE_DONE]: "Done",
-  [STATE_CANCELED]: "Canceled"
-};
-var DONE_COLUMNS = /* @__PURE__ */ new Set(["Done", "Canceled"]);
-var COLUMN_LABELS = {
-  en: { Backlog: "Backlog", Todo: "Todo", "In Progress": "In Progress", Blocked: "Blocked", Done: "Done", Canceled: "Canceled" },
-  zh: { Backlog: "\u50A8\u5907", Todo: "\u5F85\u529E", "In Progress": "\u8FDB\u884C\u4E2D", Blocked: "\u53D7\u963B", Done: "\u5DF2\u5B8C\u6210", Canceled: "\u5DF2\u53D6\u6D88" },
-  ja: { Backlog: "\u30D0\u30C3\u30AF\u30ED\u30B0", Todo: "\u672A\u7740\u624B", "In Progress": "\u9032\u884C\u4E2D", Blocked: "\u30D6\u30ED\u30C3\u30AF", Done: "\u5B8C\u4E86", Canceled: "\u30AD\u30E3\u30F3\u30BB\u30EB" }
-};
-var BLOCKER_BROKEN_REF = "BROKEN_REF";
-var BLOCKER_TRUTH_CONFLICT = "TRUTH_CONFLICT";
-var BLOCKER_RESOLVED = "RESOLVED";
-var BLOCKER_CANCELED_DEPENDENCY = "CANCELED_DEPENDENCY";
-var BLOCKER_UNRESOLVED = "UNRESOLVED";
-var BLOCKER_UNSATISFIED = /* @__PURE__ */ new Set([
-  BLOCKER_UNRESOLVED,
-  BLOCKER_BROKEN_REF,
-  BLOCKER_TRUTH_CONFLICT,
-  BLOCKER_CANCELED_DEPENDENCY
-]);
-var F_REVIEW = "review";
-var F_STATUS = "status";
-var STATUS_DRAFT = "draft";
-var STATUS_REVIEWED = "reviewed";
-var FRONTMATTER_RE = /^---\r?\n[\s\S]*?\r?\n---\r?\n/;
-var KEY_RE = /^[A-Za-z_][\w-]*\s*:/;
-var INDENTED_CHILD_RE = /^[ \t]+[A-Za-z_][\w-]*\s*:/;
-function splitQuotedList(value) {
-  const items = [];
-  let current = "";
-  let quote = null;
-  let escaped = false;
-  for (const ch of value) {
-    if (escaped) {
-      current += ch;
-      escaped = false;
-      continue;
-    }
-    if (ch === "\\" && quote) {
-      current += ch;
-      escaped = true;
-      continue;
-    }
-    if (ch === "'" || ch === '"') {
-      if (quote === ch)
-        quote = null;
-      else if (quote === null)
-        quote = ch;
-      current += ch;
-      continue;
-    }
-    if (ch === "," && quote === null) {
-      const item = current.trim();
-      if (item)
-        items.push(item);
-      current = "";
-      continue;
-    }
-    current += ch;
-  }
-  const last = current.trim();
-  if (last)
-    items.push(last);
-  return items;
-}
-function stripBracketListComment(value) {
-  if (!value.startsWith("["))
-    return value;
-  const close = value.indexOf("]");
-  const hashPos = value.indexOf("#");
-  if (close !== -1 && hashPos !== -1 && close < hashPos) {
-    return value.slice(0, hashPos).replace(/\s+$/, "");
-  }
-  return value;
-}
-function stripQuotes(s) {
-  return s.replace(/^['"]+/, "").replace(/['"]+$/, "");
-}
-function parseFm(text) {
-  const m = FRONTMATTER_RE.exec(text);
-  if (!m)
-    return {};
-  const fm = m[0];
-  const out = {};
-  let currentKey = null;
-  for (const rawLine of fm.split("\n")) {
-    const raw = rawLine.replace(/\r$/, "");
-    const trimmed = raw.trim();
-    if (trimmed === "" || trimmed === "---")
-      continue;
-    if (KEY_RE.test(raw)) {
-      const idx = raw.indexOf(":");
-      const k = raw.slice(0, idx).trim();
-      let v = stripBracketListComment(raw.slice(idx + 1).trim());
-      if (v.startsWith("[") && v.endsWith("]")) {
-        out[k] = splitQuotedList(v.slice(1, -1)).filter((x) => x.trim()).map((x) => stripQuotes(x.trim()));
-        currentKey = null;
-      } else if (v) {
-        out[k] = stripQuotes(v.trim());
-        currentKey = null;
-      } else {
-        out[k] = [];
-        currentKey = k;
-      }
-    } else if (currentKey && raw.replace(/^\s+/, "").startsWith("- ")) {
-      const val = stripQuotes(raw.replace(/^\s+/, "").slice(2).trim());
-      const lst = out[currentKey];
-      if (Array.isArray(lst))
-        lst.push(val);
-    } else if (currentKey && (raw[0] === " " || raw[0] === "	") && INDENTED_CHILD_RE.test(raw)) {
-      const trimmedRaw = raw.replace(/^\s+/, "");
-      const cidx = trimmedRaw.indexOf(":");
-      const ck = trimmedRaw.slice(0, cidx).trim();
-      const cv = stripQuotes(stripBracketListComment(trimmedRaw.slice(cidx + 1).trim()).trim());
-      let existing = out[currentKey];
-      if (Array.isArray(existing) && existing.length === 0) {
-        out[currentKey] = {};
-        existing = out[currentKey];
-      }
-      if (existing && typeof existing === "object" && !Array.isArray(existing)) {
-        existing[ck] = cv;
-      }
-    }
-  }
-  return out;
-}
-function splitBody(text) {
-  const m = FRONTMATTER_RE.exec(text);
-  return m ? text.slice(m[0].length) : text;
-}
-function scalar(raw, key) {
-  const v = raw[key];
-  if (typeof v === "string") {
-    const t = v.trim();
-    return t || null;
-  }
-  if (Array.isArray(v))
-    return null;
-  if (v === void 0 || v === null)
-    return null;
-  return String(v);
-}
-function entityOf(raw) {
-  return scalar(raw, "entity");
-}
-function mapStateWord(word) {
-  if (!word)
-    return null;
-  const w = word.trim().toLowerCase();
-  if (!w)
-    return null;
-  if (CANONICAL_STATES.has(w))
-    return w;
-  if (w === LEGACY_BLOCKED_WORD)
-    return STATE_IN_PROGRESS;
-  return LEGACY_STATE_MAP[w] ?? null;
-}
-function workState(raw) {
-  const mapped = mapStateWord(scalar(raw, "state"));
-  if (mapped !== null)
-    return mapped;
-  const legacy = mapStateWord(scalar(raw, F_STATUS));
-  if (legacy !== null)
-    return legacy;
-  return DEFAULT_STATE;
-}
-function workPriority(raw) {
-  const v = raw["priority"];
-  if (typeof v === "boolean")
-    return null;
-  if (typeof v === "string") {
-    const t = v.trim();
-    if (!t)
-      return null;
-    if (!/^[+-]?\d+$/.test(t))
-      return null;
-    const n = Number.parseInt(t, 10);
-    return VALID_PRIORITIES.has(n) ? n : null;
-  }
-  if (typeof v === "number" && Number.isInteger(v)) {
-    return VALID_PRIORITIES.has(v) ? v : null;
-  }
-  return null;
-}
-function priorityRank(raw) {
-  const p = workPriority(raw);
-  if (p === null)
-    return PRIORITY_RANK_NONE;
-  return PRIORITY_RANK[p] ?? PRIORITY_RANK_NONE;
-}
-function sortNotes(notes) {
-  return [...notes].sort((a, b) => {
-    const ra = priorityRank(a.raw);
-    const rb = priorityRank(b.raw);
-    if (ra !== rb)
-      return ra - rb;
-    return a.note_id < b.note_id ? -1 : a.note_id > b.note_id ? 1 : 0;
-  });
-}
-function statusOf(raw) {
-  let v = raw[F_REVIEW];
-  if (typeof v !== "string" || !v.trim())
-    v = raw[F_STATUS];
-  if (typeof v === "string") {
-    const t = v.trim().toLowerCase();
-    return t || null;
-  }
-  return null;
-}
-function isAuthoritative(raw) {
-  const s = statusOf(raw);
-  if (s === STATUS_REVIEWED)
-    return true;
-  if (s === STATUS_DRAFT)
-    return false;
-  return true;
-}
-var SKIP_DIRS = /* @__PURE__ */ new Set([".obsidian", "node_modules", ".git", "schema", ".trash"]);
-function stripBom(text) {
-  return text.charCodeAt(0) === 65279 ? text.slice(1) : text;
-}
-function walkMd(vaultPath, requireEntity) {
-  const notes = [];
-  let rootStat;
-  try {
-    rootStat = statSync2(vaultPath);
-  } catch {
-    return notes;
-  }
-  if (!rootStat.isDirectory())
-    return notes;
-  const walk = (dir) => {
-    let entries;
-    try {
-      entries = readdirSync6(dir, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    const dirs = entries.filter((e) => e.isDirectory() && !SKIP_DIRS.has(e.name) && !e.name.startsWith("_")).map((e) => e.name).sort();
-    const files = entries.filter((e) => e.isFile() && e.name.endsWith(".md")).map((e) => e.name).sort();
-    for (const fn of files) {
-      const f = join12(dir, fn);
-      let text;
-      try {
-        text = stripBom(readFileSync10(f, "utf-8"));
-      } catch {
-        continue;
-      }
-      const raw = parseFm(text);
-      const entity = entityOf(raw);
-      if (requireEntity && !entity)
-        continue;
-      const noteId = relPosix(vaultPath, f);
-      notes.push({ note_id: noteId, path: f, raw, body: splitBody(text), entity });
-    }
-    for (const d of dirs)
-      walk(join12(dir, d));
-  };
-  walk(vaultPath);
-  notes.sort((a, b) => a.note_id < b.note_id ? -1 : a.note_id > b.note_id ? 1 : 0);
-  return notes;
-}
-function relPosix(root, full) {
-  const r = root.replace(/\\/g, "/").replace(/\/+$/, "");
-  const f = full.replace(/\\/g, "/");
-  const rel = f.startsWith(r + "/") ? f.slice(r.length + 1) : f;
-  return rel;
-}
-function scanWorkNotes(vaultPath) {
-  return walkMd(vaultPath, true);
-}
-function recencyKey(n) {
-  const lv = scalar(n.raw, "last-verified") ?? "";
-  const s = statusOf(n.raw);
-  const rank = s === STATUS_REVIEWED ? 2 : s === STATUS_DRAFT ? 1 : 0;
-  return [lv, rank, n.note_id];
-}
-function recencyCmp(a, b) {
-  const ka = recencyKey(a);
-  const kb = recencyKey(b);
-  if (ka[0] !== kb[0])
-    return ka[0] < kb[0] ? -1 : 1;
-  if (ka[1] !== kb[1])
-    return ka[1] - kb[1];
-  return ka[2] < kb[2] ? -1 : ka[2] > kb[2] ? 1 : 0;
-}
-function maxBy(items, cmp) {
-  let best = items[0];
-  for (let i = 1; i < items.length; i += 1) {
-    if (cmp(items[i], best) > 0)
-      best = items[i];
-  }
-  return best;
-}
-function resolveNoteId(target, group) {
-  if (!target)
-    return null;
-  const t = target.trim().replace(/\\/g, "/");
-  for (const n of group)
-    if (n.note_id === t)
-      return n;
-  const lstripDotSlash = t.replace(/^[./]+/, "");
-  for (const n of group) {
-    if (n.note_id.endsWith("/" + t) || n.note_id === lstripDotSlash)
-      return n;
-  }
-  const stem = baseName(t);
-  const stemNoext = stem.endsWith(".md") ? stem.slice(0, -3) : stem;
-  for (const n of group) {
-    const pn = baseName(n.path.replace(/\\/g, "/"));
-    const pstem = pn.endsWith(".md") ? pn.slice(0, -3) : pn;
-    if (pn === stem || pstem === stemNoext)
-      return n;
-  }
-  return null;
-}
-function baseName(p) {
-  const parts = p.split("/");
-  return parts[parts.length - 1];
-}
-function resolveHead(notes, entity) {
-  const group = notes.filter((n) => n.entity === entity && isAuthoritative(n.raw));
-  if (group.length === 0)
-    return { head: null, terminalHeads: [], truthConflict: false, conflictNoteIds: [] };
-  const supersededIds = /* @__PURE__ */ new Set();
-  for (const n of group) {
-    const tgt = scalar(n.raw, "supersedes");
-    if (!tgt)
-      continue;
-    const victim = resolveNoteId(tgt, group);
-    if (victim && victim.note_id !== n.note_id)
-      supersededIds.add(victim.note_id);
-  }
-  let terminal = group.filter((n) => !supersededIds.has(n.note_id));
-  if (terminal.length === 0)
-    terminal = [...group];
-  const reviewedTerminal = terminal.filter((n) => statusOf(n.raw) === STATUS_REVIEWED);
-  const truthConflict = reviewedTerminal.length >= 2;
-  const head = maxBy(terminal, recencyCmp);
-  return {
-    head,
-    terminalHeads: [...terminal].sort((a, b) => a.note_id < b.note_id ? -1 : a.note_id > b.note_id ? 1 : 0),
-    truthConflict,
-    conflictNoteIds: reviewedTerminal.map((n) => n.note_id).sort()
-  };
-}
-function blockedByRefs(raw) {
-  const v = raw["blocked-by"];
-  if (v === void 0 || v === null)
-    return [];
-  const items = Array.isArray(v) ? v : [v];
-  const out = [];
-  const seen = /* @__PURE__ */ new Set();
-  for (const it of items) {
-    if (it === null || it === void 0)
-      continue;
-    const s = String(it).trim();
-    if (!s || seen.has(s))
-      continue;
-    seen.add(s);
-    out.push(s);
-  }
-  return out;
-}
-function blockerStatus(targetEntity, notes) {
-  const res = resolveHead(notes, targetEntity);
-  if (res.head === null)
-    return BLOCKER_BROKEN_REF;
-  if (res.truthConflict)
-    return BLOCKER_TRUTH_CONFLICT;
-  const state = workState(res.head.raw);
-  if (state === STATE_DONE)
-    return BLOCKER_RESOLVED;
-  if (state === STATE_CANCELED)
-    return BLOCKER_CANCELED_DEPENDENCY;
-  return BLOCKER_UNRESOLVED;
-}
-function hasUnresolvedBlocker(notes, entity) {
-  const res = resolveHead(notes, entity);
-  if (res.head === null)
-    return false;
-  for (const target of blockedByRefs(res.head.raw)) {
-    if (BLOCKER_UNSATISFIED.has(blockerStatus(target, notes)))
-      return true;
-  }
-  return false;
-}
-function boardColumns(notes, project) {
-  const cols = {};
-  for (const c of KANBAN_COLUMNS)
-    cols[c] = [];
-  const prefix = project ? `project/${project}/` : null;
-  for (const n of notes) {
-    const ent = n.entity;
-    if (!ent)
-      continue;
-    if (scalar(n.raw, "type") === "project")
-      continue;
-    if (prefix && !ent.startsWith(prefix))
-      continue;
-    const state = workState(n.raw);
-    let column = STATE_COLUMN[state] ?? "Backlog";
-    if ((state === STATE_TODO || state === STATE_IN_PROGRESS) && hasUnresolvedBlocker(notes, ent)) {
-      column = "Blocked";
-    }
-    cols[column].push(n);
-  }
-  const out = {};
-  for (const c of KANBAN_COLUMNS)
-    out[c] = sortNotes(cols[c]).map((n) => n.note_id);
-  return out;
-}
-function cardLabel(note) {
-  for (const line of (note.body || "").split("\n")) {
-    if (line.trim())
-      return line.trim();
-  }
-  if (note.entity) {
-    const parts = note.entity.split("/");
-    return parts[parts.length - 1];
-  }
-  return note.note_id;
-}
-function renderKanbanBoard(notes, project, lang = "en") {
-  const cols = boardColumns(notes, project);
-  const byId = new Map(notes.map((n) => [n.note_id, n]));
-  const labels = COLUMN_LABELS[lang] ?? COLUMN_LABELS.en;
-  const out = ["---", "", "kanban-plugin: board", "", "---", ""];
-  for (const column of KANBAN_COLUMNS) {
-    out.push(`## ${labels[column] ?? column}`);
-    out.push("");
-    const mark = DONE_COLUMNS.has(column) ? "x" : " ";
-    for (const nid of cols[column]) {
-      const note = byId.get(nid);
-      if (note)
-        out.push(`- [${mark}] ${cardLabel(note)}`);
-    }
-    out.push("");
-  }
-  out.push("%% kanban:settings", "```", '{"kanban-plugin":"board","show-checkboxes":true}', "```", "%%", "");
-  return out.join("\n");
-}
-function detectLang(text) {
-  const s = text || "";
-  for (const c of s) {
-    const cp = c.codePointAt(0);
-    if (cp >= 12352 && cp <= 12543)
-      return "ja";
-  }
-  for (const c of s) {
-    const cp = c.codePointAt(0);
-    if (cp >= 19968 && cp <= 40959)
-      return "zh";
-  }
-  return "en";
-}
-function detectVaultLang(notes, sample = 200) {
-  const buf = [];
-  for (const n of notes.slice(0, sample)) {
-    if (n.entity)
-      buf.push(n.entity);
-    if (n.body)
-      buf.push(n.body);
-  }
-  return detectLang(buf.join("\n"));
-}
-
-// dist/project/project.js
+import { existsSync as existsSync10, mkdirSync as mkdirSync6, readFileSync as readFileSync12, writeFileSync as writeFileSync4 } from "node:fs";
+import { dirname as dirname6, join as join14 } from "node:path";
 function safeSegment2(value, label) {
   const trimmed = value.trim();
   if (!trimmed || trimmed === "." || trimmed === ".." || trimmed.includes("/") || trimmed.includes("\\") || /^[A-Za-z]:/.test(trimmed) || trimmed.startsWith("//")) {
@@ -44130,11 +44834,19 @@ function slugify3(value) {
   return s;
 }
 function projectKey(value) {
+  if (typeof value === "string" && value.trim().startsWith("project/")) {
+    return projectSlug(parseProjectId(value.trim()));
+  }
   const seg = safeSegment2(String(value ?? ""), "project");
   const slug = slugify3(seg);
   if (!slug)
     throw makeErr(-32602, "project must contain at least one [a-z0-9] character");
   return slug;
+}
+function existingProjectKey(vaultPath, value) {
+  if (typeof value !== "string" || !value.trim())
+    throw makeErr(-32602, "project reference required");
+  return resolveProjectContext(vaultPath, value.trim(), "project.operations").slug;
 }
 function actorFromContext2(ctx) {
   return safeSegment2(ctx.config.collaboration?.actor || process.env.VAULT_MIND_ACTOR || "agent", "actor");
@@ -44155,10 +44867,10 @@ function viewsRoot(project) {
   return `${projectRoot(project)}/views`;
 }
 function readText2(path) {
-  return existsSync9(path) ? readFileSync11(path, "utf-8") : null;
+  return existsSync10(path) ? readFileSync12(path, "utf-8") : null;
 }
 function writeVaultBytes(vaultPath, relPath, content) {
-  const fullPath = join13(vaultPath, relPath);
+  const fullPath = join14(vaultPath, relPath);
   mkdirSync6(dirname6(fullPath), { recursive: true });
   writeFileSync4(fullPath, Buffer.from(content, "utf-8"));
 }
@@ -44310,6 +45022,22 @@ function projectNote(project, description) {
     ""
   ].join("\n");
 }
+function registryProjectNote(project, description, aliases = []) {
+  return [
+    "---",
+    "type: project",
+    `entity: project/${project}`,
+    "status: active",
+    `aliases: [${aliases.map((alias) => JSON.stringify(alias)).join(", ")}]`,
+    `last-verified: ${isoDate()}`,
+    "---",
+    "",
+    `# ${project}`,
+    "",
+    description,
+    ""
+  ].join("\n");
+}
 function oneLine(value, max = 200) {
   const s = value.replace(/\r?\n/g, " ").trim();
   return s.length > max ? s.slice(0, max) : s;
@@ -44324,10 +45052,10 @@ function slugFromEntity(entity) {
   return parts[parts.length - 1];
 }
 function findIssueNote(vaultPath, project, slug) {
-  const full = join13(vaultPath, issuePath(project, slug));
-  if (!existsSync9(full))
+  const full = join14(vaultPath, issuePath(project, slug));
+  if (!existsSync10(full))
     return null;
-  const text = readFileSync11(full, "utf-8");
+  const text = readFileSync12(full, "utf-8");
   const raw = parseFm(text);
   return {
     note_id: issuePath(project, slug).replace(/\\/g, "/"),
@@ -44424,7 +45152,7 @@ function buildProjectCanvas(project, issues) {
       width: 340,
       height: 150,
       color: "2",
-      text: [`# ${project}`, "", "LLMwiki project map", "", `${issues.length} issues`].join("\n")
+      text: [`# ${project}`, "", "LLM Wiki project map", "", `${issues.length} issues`].join("\n")
     }
   ];
   const edges = [];
@@ -44445,15 +45173,15 @@ function buildProjectCanvas(project, issues) {
       label: STATE_GROUP_LABEL[state],
       color: STATE_COLORS[state]
     });
-    for (const [rowIndex, issue2] of lane.entries()) {
+    for (const [rowIndex, issue3] of lane.entries()) {
       nodes.push({
-        id: nodeId(issue2),
+        id: nodeId(issue3),
         type: "file",
         x: x + 30,
         y: 70 + rowIndex * 165,
         width: 320,
         height: 120,
-        file: issue2.note_id,
+        file: issue3.note_id,
         color: STATE_COLORS[state]
       });
     }
@@ -44465,11 +45193,11 @@ function buildProjectCanvas(project, issues) {
     emitted.add(id);
     edges.push({ id, fromNode: nodeId(from), fromSide: "right", toNode: nodeId(to), toSide: "left", label, color });
   };
-  for (const issue2 of issues) {
-    for (const blockerEntity of blockedByRefs(issue2.raw)) {
+  for (const issue3 of issues) {
+    for (const blockerEntity of blockedByRefs(issue3.raw)) {
       const blocker = byEntity.get(blockerEntity);
       if (blocker)
-        addEdge(blocker, issue2, "blocks", "1");
+        addEdge(blocker, issue3, "blocks", "1");
     }
   }
   return { nodes, edges };
@@ -44478,7 +45206,7 @@ function buildProjectBase(project) {
   const sourceFolder = issuesRoot(project);
   const fields = [...BASE_FIELDS];
   const content = [
-    `# LLMwiki Obsidian Bases dashboard for ${project}`,
+    `# LLM Wiki Obsidian Bases dashboard for ${project}`,
     "filters:",
     "  and:",
     `    - 'file.inFolder("${sourceFolder}")'`,
@@ -44522,7 +45250,7 @@ function projectBasePath(project) {
   return `${viewsRoot(project)}/issues.base`;
 }
 function ensureCanWriteVisual(vaultPath, path, overwrite) {
-  if (!overwrite && existsSync9(join13(vaultPath, path)))
+  if (!overwrite && existsSync10(join14(vaultPath, path)))
     throw makeErr(-32002, `Already exists: ${path}`);
 }
 function boolParam(value, defaultValue) {
@@ -44539,7 +45267,7 @@ function resolveLang(param, notes) {
 function uniqueSlug(vaultPath, project, base) {
   let slug = base;
   let n = 2;
-  while (existsSync9(join13(vaultPath, issuePath(project, slug)))) {
+  while (existsSync10(join14(vaultPath, issuePath(project, slug)))) {
     slug = `${base}-${n}`;
     n += 1;
   }
@@ -44547,6 +45275,7 @@ function uniqueSlug(vaultPath, project, base) {
 }
 function makeProjectOps(vaultPath) {
   return [
+    ...makeProjectContextOps(vaultPath),
     {
       name: "project.canvas.export",
       namespace: "project",
@@ -44564,7 +45293,7 @@ function makeProjectOps(vaultPath) {
         overwrite: { type: "boolean", required: false, default: true, description: "Overwrite existing Canvas file (default: true)" }
       },
       handler: async (_ctx, params) => {
-        const project = projectKey(params.project);
+        const project = existingProjectKey(vaultPath, params.project);
         const dryRun = boolParam(params.dryRun, true);
         const overwrite = boolParam(params.overwrite, true);
         const path = projectCanvasPath(project);
@@ -44595,7 +45324,7 @@ function makeProjectOps(vaultPath) {
         overwrite: { type: "boolean", required: false, default: true, description: "Overwrite existing Bases file (default: true)" }
       },
       handler: async (_ctx, params) => {
-        const project = projectKey(params.project);
+        const project = existingProjectKey(vaultPath, params.project);
         const dryRun = boolParam(params.dryRun, true);
         const overwrite = boolParam(params.overwrite, true);
         const path = projectBasePath(project);
@@ -44614,7 +45343,11 @@ function makeProjectOps(vaultPath) {
       mutating: true,
       writePolicy: {
         realWrite: "always",
-        targets: (_ctx, params) => [`${projectPolicyBasePath(params)}/_project.md`, `${projectPolicyBasePath(params)}/issues/**`],
+        targets: (_ctx, params) => [
+          `Projects/${projectPolicyBasePath(params).slice("01-Projects/".length)}.md`,
+          `${projectPolicyBasePath(params)}/_project.md`,
+          `${projectPolicyBasePath(params)}/issues/**`
+        ],
         audit: "required",
         effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), "modify")]
       },
@@ -44624,13 +45357,42 @@ function makeProjectOps(vaultPath) {
       },
       handler: async (_ctx, params) => {
         const project = projectKey(params.project);
+        const rawProjectRef = typeof params.project === "string" ? params.project.trim() : project;
+        const aliases = rawProjectRef !== project && !rawProjectRef.startsWith("project/") ? [rawProjectRef] : [];
         const description = oneLine(typeof params.description === "string" && params.description.trim() ? params.description : `Work-OS project ${project}`);
+        const registryPath = `Projects/${project}.md`;
+        const registryFullPath2 = join14(vaultPath, registryPath);
         const notePath = projectNotePath(project);
-        if (!existsSync9(join13(vaultPath, notePath))) {
+        const noteFullPath = join14(vaultPath, notePath);
+        const registryExists = existsSync10(registryFullPath2);
+        const anchorExists = existsSync10(noteFullPath);
+        if (registryExists) {
+          const existingRegistry = parseFm(readFileSync12(registryFullPath2, "utf-8"));
+          if (existingRegistry.entity !== `project/${project}`) {
+            throw makeErr(-32010, `Existing shared Project record is incompatible: ${registryPath}; run project.migration.plan`);
+          }
+        }
+        if (anchorExists) {
+          const existingAnchor = parseFm(readFileSync12(noteFullPath, "utf-8"));
+          if (existingAnchor.entity !== `project/${project}`) {
+            throw makeErr(-32010, `Existing Work-OS anchor disagrees with project/${project}; run project.context.doctor`);
+          }
+        }
+        if (!registryExists) {
+          writeVaultBytes(vaultPath, registryPath, registryProjectNote(project, description, aliases));
+        }
+        if (!anchorExists) {
           writeVaultBytes(vaultPath, notePath, projectNote(project, description));
         }
-        mkdirSync6(join13(vaultPath, issuesRoot(project)), { recursive: true });
-        return { ok: true, project, root: projectRoot(project), projectNote: notePath };
+        mkdirSync6(join14(vaultPath, issuesRoot(project)), { recursive: true });
+        return {
+          ok: true,
+          project,
+          projectId: `project/${project}`,
+          registryRecord: registryPath,
+          root: projectRoot(project),
+          projectNote: notePath
+        };
       }
     },
     {
@@ -44657,7 +45419,7 @@ function makeProjectOps(vaultPath) {
         blocked_by: { type: "array", required: false, description: "Blocking entity refs (project/<proj>/issue/<slug>)" }
       },
       handler: async (ctx, params) => {
-        const project = projectKey(params.project);
+        const project = existingProjectKey(vaultPath, params.project);
         const title = String(params.title ?? "").trim();
         if (!title)
           throw makeErr(-32602, "title required");
@@ -44699,7 +45461,7 @@ ${params.body.trim()}` : title;
         assignee: { type: "string", required: false, description: "Optional assignee filter" }
       },
       handler: async (_ctx, params) => {
-        const project = projectKey(params.project);
+        const project = existingProjectKey(vaultPath, params.project);
         const prefix = `project/${project}/issue/`;
         const stateFilter = typeof params.state === "string" && params.state.trim() ? normalizeStateParam(params.state, DEFAULT_STATE) : void 0;
         const assignee = typeof params.assignee === "string" && params.assignee.trim() ? params.assignee.trim() : void 0;
@@ -44717,12 +45479,12 @@ ${params.body.trim()}` : title;
         slug: { type: "string", required: true, description: "Issue slug" }
       },
       handler: async (_ctx, params) => {
-        const project = projectKey(params.project);
+        const project = existingProjectKey(vaultPath, params.project);
         const slug = slugify3(String(params.slug ?? ""));
         const note = findIssueNote(vaultPath, project, slug);
         if (!note)
           throw makeErr(-32001, `Issue not found: ${slug}`);
-        return { issue: issueView(note, project), content: readFileSync11(note.path, "utf-8") };
+        return { issue: issueView(note, project), content: readFileSync12(note.path, "utf-8") };
       }
     },
     {
@@ -44748,7 +45510,7 @@ ${params.body.trim()}` : title;
         body: { type: "string", required: false, description: "Replacement body" }
       },
       handler: async (_ctx, params) => {
-        const project = projectKey(params.project);
+        const project = existingProjectKey(vaultPath, params.project);
         const slug = slugify3(String(params.slug ?? ""));
         const note = findIssueNote(vaultPath, project, slug);
         if (!note)
@@ -44794,7 +45556,7 @@ ${params.body.trim()}` : title;
         target: { type: "string", required: true, description: "Target issue slug (resolved to its entity)" }
       },
       handler: async (_ctx, params) => {
-        const project = projectKey(params.project);
+        const project = existingProjectKey(vaultPath, params.project);
         const slug = slugify3(String(params.slug ?? ""));
         const relation = String(params.relation ?? "").trim();
         const targetSlug = slugify3(String(params.target ?? ""));
@@ -44848,7 +45610,7 @@ ${params.body.trim()}` : title;
         session: { type: "string", required: false, description: "Optional session/thread id" }
       },
       handler: async (ctx, params) => {
-        const project = projectKey(params.project);
+        const project = existingProjectKey(vaultPath, params.project);
         const slug = slugify3(String(params.slug ?? ""));
         const note = findIssueNote(vaultPath, project, slug);
         if (!note)
@@ -44859,7 +45621,7 @@ ${params.body.trim()}` : title;
         const actor = typeof params.actor === "string" && params.actor.trim() ? safeSegment2(params.actor, "actor") : actorFromContext2(ctx);
         const session = typeof params.session === "string" ? params.session.trim() : process.env.CODEX_THREAD_ID || "";
         const path = `${issuesRoot(project)}/${slug}.comments.md`;
-        const existing = readText2(join13(vaultPath, path)) ?? `# Comments for ${slug}
+        const existing = readText2(join14(vaultPath, path)) ?? `# Comments for ${slug}
 
 `;
         const now = (/* @__PURE__ */ new Date()).toISOString();
@@ -44893,7 +45655,7 @@ ${body}
         write: { type: "boolean", required: false, default: false, description: "Also write board.md next to the project anchor (derived view)" }
       },
       handler: async (_ctx, params) => {
-        const project = projectKey(params.project);
+        const project = existingProjectKey(vaultPath, params.project);
         const write = boolParam(params.write, false);
         const notes = scanWorkNotes(vaultPath);
         const authoritative = notes.filter((n) => isAuthoritative(n.raw));
@@ -44913,6 +45675,2205 @@ ${body}
       }
     }
   ];
+}
+
+// dist/project/project-hub.js
+import { createHash as createHash2 } from "node:crypto";
+import { existsSync as existsSync12, readdirSync as readdirSync8, readFileSync as readFileSync14, statSync as statSync3 } from "node:fs";
+import { join as join16, relative as relative4 } from "node:path";
+
+// ../packages/settings-platform/dist/src/canonical.js
+import { createHash } from "node:crypto";
+function canonicalize(value) {
+  if (Array.isArray(value))
+    return value.map(canonicalize);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).filter(([, child]) => child !== void 0).sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0).map(([key, child]) => [key, canonicalize(child)]));
+  }
+  return value;
+}
+function canonicalJson(value) {
+  return JSON.stringify(canonicalize(value));
+}
+function canonicalDigest(value) {
+  return `sha256:${createHash("sha256").update(canonicalJson(value)).digest("hex")}`;
+}
+function deepClone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+// ../packages/settings-platform/dist/registry/v1.json
+var v1_default = {
+  schemaVersion: 1,
+  registryVersion: "1.1.0",
+  definitions: [
+    {
+      key: "models.agent.mode",
+      owner: "models.agent-runtime",
+      category: "models",
+      name: "Agent model mode",
+      description: "Choose legacy environment inheritance, a local OpenAI-compatible model, or a cloud model connection.",
+      valueType: "enum",
+      defaultValue: "inherit",
+      allowedScopes: ["user-device", "vault", "session"],
+      sensitivity: "public",
+      validator: { id: "enum", enum: ["inherit", "local", "cloud"] },
+      requires: [],
+      applyMode: "next-operation",
+      visibility: "normal"
+    },
+    {
+      key: "models.agent.provider",
+      owner: "models.agent-runtime",
+      category: "models",
+      name: "Agent model provider",
+      description: "Provider identity passed to the Agent/Compiler OpenAI-compatible runtime.",
+      valueType: "enum",
+      defaultValue: "ollama",
+      allowedScopes: ["user-device", "vault", "session"],
+      sensitivity: "public",
+      validator: { id: "enum", enum: ["ollama", "openai-compatible", "anthropic", "qwen", "doubao", "minimax"] },
+      requires: ["models.agent.mode"],
+      applyMode: "next-operation",
+      visibility: "normal"
+    },
+    {
+      key: "models.agent.base_url",
+      owner: "models.agent-runtime",
+      category: "models",
+      name: "Agent model base URL",
+      description: "OpenAI-compatible API base URL used by the Agent/Compiler runtime.",
+      valueType: "string",
+      defaultValue: "http://127.0.0.1:11434/v1",
+      allowedScopes: ["user-device", "vault", "session"],
+      sensitivity: "public",
+      validator: { id: "url", required: true, pattern: "^https?://[^\\s]+$" },
+      requires: ["models.agent.mode"],
+      applyMode: "next-operation",
+      visibility: "advanced",
+      placeholder: "http://127.0.0.1:11434/v1"
+    },
+    {
+      key: "models.agent.model",
+      owner: "models.agent-runtime",
+      category: "models",
+      name: "Agent model identifier",
+      description: "Model identifier sent to the configured Agent/Compiler endpoint.",
+      valueType: "string",
+      defaultValue: "qwen3:8b",
+      allowedScopes: ["user-device", "vault", "session"],
+      sensitivity: "public",
+      validator: { id: "non-empty-string", required: true, minLength: 1, maxLength: 200 },
+      requires: ["models.agent.mode"],
+      applyMode: "next-operation",
+      visibility: "normal",
+      placeholder: "qwen3:8b"
+    },
+    {
+      key: "models.agent.secret_ref",
+      owner: "models.agent-runtime",
+      category: "models",
+      name: "Agent cloud credential reference",
+      description: "Opaque reference to the cloud model credential; local mode never resolves or forwards it.",
+      valueType: "secret-reference",
+      defaultSecretRef: {
+        provider: "environment",
+        locator: "OPENAI_API_KEY"
+      },
+      allowedScopes: ["user-device", "session"],
+      sensitivity: "secret-reference",
+      validator: { id: "secret-reference" },
+      requires: ["models.agent.mode"],
+      applyMode: "next-operation",
+      visibility: "advanced",
+      placeholder: "environment:OPENAI_API_KEY"
+    },
+    {
+      key: "diagnostics.obc.semantic.enabled",
+      owner: "diagnostics.obc",
+      category: "diagnostics",
+      name: "Link-diagnostics semantic suggestions",
+      description: "Add optional semantic suggestions while deterministic link diagnostics remain available.",
+      valueType: "boolean",
+      defaultValue: false,
+      allowedScopes: ["vault", "workspace-project", "session"],
+      sensitivity: "public",
+      validator: { id: "boolean" },
+      requires: ["query.semantic.enabled"],
+      applyMode: "next-operation",
+      visibility: "normal"
+    },
+    {
+      key: "providers.web_search.enabled",
+      owner: "providers.web-search",
+      category: "providers",
+      name: "Web search provider",
+      description: "Allow unified query workflows to use the configured web search provider.",
+      valueType: "boolean",
+      defaultValue: false,
+      allowedScopes: ["vault", "workspace-project", "session"],
+      sensitivity: "public",
+      validator: { id: "boolean" },
+      requires: ["providers.web_search.secret_ref"],
+      applyMode: "next-operation",
+      visibility: "normal"
+    },
+    {
+      key: "providers.web_search.secret_ref",
+      owner: "providers.web-search",
+      category: "providers",
+      name: "Web search secret reference",
+      description: "Opaque reference to the web search credential; the resolved secret never enters Settings.",
+      valueType: "secret-reference",
+      defaultSecretRef: {
+        provider: "environment",
+        locator: "TAVILY_API_KEY"
+      },
+      allowedScopes: ["user-device", "session"],
+      sensitivity: "secret-reference",
+      validator: { id: "secret-reference" },
+      requires: [],
+      applyMode: "next-operation",
+      visibility: "advanced",
+      placeholder: "environment:TAVILY_API_KEY"
+    },
+    {
+      key: "query.semantic.enabled",
+      owner: "query.semantic",
+      category: "query",
+      name: "Semantic query",
+      description: "Enable semantic retrieval when its configured provider is available.",
+      valueType: "boolean",
+      defaultValue: false,
+      allowedScopes: ["vault", "workspace-project", "session"],
+      sensitivity: "public",
+      validator: { id: "boolean" },
+      requires: [],
+      applyMode: "next-operation",
+      visibility: "normal"
+    },
+    {
+      key: "runtime.kb_meta.path",
+      owner: "runtime.python",
+      category: "runtime",
+      name: "LLM Wiki runtime entry",
+      description: "Machine-local path to compiler/kb_meta.py.",
+      valueType: "path",
+      defaultValue: "",
+      allowedScopes: ["user-device", "session"],
+      sensitivity: "local",
+      validator: { id: "non-empty-path", required: true },
+      requires: ["runtime.python.path"],
+      applyMode: "next-operation",
+      visibility: "advanced"
+    },
+    {
+      key: "runtime.python.path",
+      owner: "runtime.python",
+      category: "runtime",
+      name: "Python runtime",
+      description: "Machine-local Python executable used by LLM Wiki capabilities.",
+      valueType: "path",
+      defaultValue: "python",
+      allowedScopes: ["user-device", "session"],
+      sensitivity: "local",
+      validator: { id: "non-empty-path", required: true },
+      requires: [],
+      applyMode: "next-operation",
+      visibility: "normal"
+    },
+    {
+      key: "vault.id",
+      owner: "vault.identity",
+      category: "vault",
+      name: "Vault identity",
+      description: "Stable identity of the active vault, independent of its device-local path.",
+      valueType: "string",
+      defaultValue: "",
+      allowedScopes: ["vault", "session"],
+      sensitivity: "public",
+      validator: { id: "non-empty-string", required: true, pattern: "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
+      requires: [],
+      applyMode: "restart-required",
+      visibility: "normal"
+    },
+    {
+      key: "vault.path",
+      owner: "vault.identity",
+      category: "vault",
+      name: "Vault path",
+      description: "Device-local filesystem path of the active vault.",
+      valueType: "path",
+      defaultValue: "",
+      allowedScopes: ["user-device", "session"],
+      sensitivity: "local",
+      validator: { id: "non-empty-path", required: true },
+      requires: ["vault.id"],
+      applyMode: "restart-required",
+      visibility: "normal"
+    }
+  ],
+  migrations: [
+    {
+      id: "settings-document-v0-to-v1",
+      fromSchemaVersion: 0,
+      toSchemaVersion: 1,
+      description: "Normalize legacy host-local settings into scoped Settings documents."
+    }
+  ]
+};
+
+// ../packages/settings-platform/dist/src/registry.js
+import { readFileSync as readFileSync13 } from "node:fs";
+function loadRegistry(path) {
+  let parsed;
+  try {
+    parsed = JSON.parse(readFileSync13(path, "utf8"));
+  } catch (error48) {
+    throw new Error(`Settings registry could not be loaded: ${error48.message}`);
+  }
+  return parseRegistry(parsed);
+}
+function parseRegistry(parsed) {
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("Settings registry must be a JSON object");
+  }
+  const raw = parsed;
+  if (!Number.isInteger(raw.schemaVersion) || raw.schemaVersion < 1) {
+    throw new Error("Settings registry schemaVersion must be a positive integer");
+  }
+  if (typeof raw.registryVersion !== "string" || !raw.registryVersion.trim()) {
+    throw new Error("Settings registry registryVersion is required");
+  }
+  if (!Array.isArray(raw.definitions) || !Array.isArray(raw.migrations)) {
+    throw new Error("Settings registry definitions and migrations must be arrays");
+  }
+  const material = {
+    schemaVersion: raw.schemaVersion,
+    registryVersion: raw.registryVersion,
+    definitions: raw.definitions,
+    migrations: raw.migrations
+  };
+  const digest = canonicalDigest(material);
+  if (raw.registryDigest && raw.registryDigest !== digest) {
+    throw new Error(`Settings registry digest mismatch: expected ${raw.registryDigest}, calculated ${digest}`);
+  }
+  const registry3 = { ...deepClone(material), registryDigest: digest };
+  validateRegistry(registry3);
+  return registry3;
+}
+function definitionMap(registry3) {
+  return new Map(registry3.definitions.map((definition) => [definition.key, definition]));
+}
+function getDefinition(registry3, key) {
+  return registry3.definitions.find((definition) => definition.key === key);
+}
+function validateRegistry(registry3) {
+  const keys = /* @__PURE__ */ new Set();
+  for (const rawDefinition of registry3.definitions) {
+    if (!rawDefinition || typeof rawDefinition !== "object" || Array.isArray(rawDefinition)) {
+      throw new Error("Setting definition must be a JSON object");
+    }
+    const definition = rawDefinition;
+    if (!/^[a-z][a-z0-9_-]*(?:\.[a-z][a-z0-9_-]*)+$/.test(definition.key)) {
+      throw new Error(`Setting key must be namespaced: ${definition.key}`);
+    }
+    if (keys.has(definition.key))
+      throw new Error(`Duplicate setting definition: ${definition.key}`);
+    keys.add(definition.key);
+    if (![definition.owner, definition.category, definition.name, definition.description].every((value) => typeof value === "string" && value.trim())) {
+      throw new Error(`Setting definition metadata is incomplete: ${definition.key}`);
+    }
+    if (!SETTING_VALUE_TYPES.has(definition.valueType)) {
+      throw new Error(`Setting definition has an invalid valueType: ${definition.key}`);
+    }
+    if (!Array.isArray(definition.allowedScopes) || definition.allowedScopes.length === 0 || new Set(definition.allowedScopes).size !== definition.allowedScopes.length || definition.allowedScopes.some((scope) => !MUTABLE_SCOPES.has(scope))) {
+      throw new Error(`Setting definition has no allowed scopes: ${definition.key}`);
+    }
+    if (!SENSITIVITIES.has(definition.sensitivity)) {
+      throw new Error(`Setting definition has an invalid sensitivity: ${definition.key}`);
+    }
+    if (!APPLY_MODES.has(definition.applyMode) || !VISIBILITIES.has(definition.visibility)) {
+      throw new Error(`Setting definition presentation metadata is invalid: ${definition.key}`);
+    }
+    if (!definition.validator || typeof definition.validator !== "object" || Array.isArray(definition.validator) || typeof definition.validator.id !== "string" || !definition.validator.id.trim()) {
+      throw new Error(`Setting definition validator is incomplete: ${definition.key}`);
+    }
+    validateValidator(definition);
+    if (!Array.isArray(definition.requires) || definition.requires.some((key) => typeof key !== "string") || new Set(definition.requires).size !== definition.requires.length) {
+      throw new Error(`Setting definition requirements are invalid: ${definition.key}`);
+    }
+    if (definition.valueType === "secret-reference") {
+      if (!isSecretReference(definition.defaultSecretRef) || definition.defaultValue !== void 0) {
+        throw new Error(`Secret setting must define defaultSecretRef only: ${definition.key}`);
+      }
+      if (definition.sensitivity !== "secret-reference") {
+        throw new Error(`Secret setting must use secret-reference sensitivity: ${definition.key}`);
+      }
+    } else {
+      if (definition.defaultSecretRef !== void 0) {
+        throw new Error(`Non-secret setting cannot define defaultSecretRef: ${definition.key}`);
+      }
+      if (definition.defaultValue === void 0 || !defaultMatchesType(definition)) {
+        throw new Error(`Setting default does not match ${definition.valueType}: ${definition.key}`);
+      }
+    }
+  }
+  for (const migration of registry3.migrations) {
+    if (!migration || typeof migration !== "object" || Array.isArray(migration)) {
+      throw new Error("Settings migration must be a JSON object");
+    }
+    const item = migration;
+    if (typeof item.id !== "string" || !item.id.trim() || typeof item.description !== "string" || !item.description.trim() || !Number.isInteger(item.fromSchemaVersion) || item.fromSchemaVersion < 0 || !Number.isInteger(item.toSchemaVersion) || item.toSchemaVersion < 1) {
+      throw new Error(`Settings migration is invalid: ${item.id ?? "unknown"}`);
+    }
+  }
+}
+var SETTING_VALUE_TYPES = /* @__PURE__ */ new Set(["boolean", "integer", "number", "string", "enum", "path", "duration", "list", "object", "secret-reference"]);
+var MUTABLE_SCOPES = /* @__PURE__ */ new Set(["user-device", "vault", "workspace-project", "session"]);
+var SENSITIVITIES = /* @__PURE__ */ new Set(["public", "local", "secret-reference"]);
+var APPLY_MODES = /* @__PURE__ */ new Set(["hot", "next-operation", "restart-required"]);
+var VISIBILITIES = /* @__PURE__ */ new Set(["normal", "advanced", "internal"]);
+var SECRET_PROVIDERS = /* @__PURE__ */ new Set(["os-keychain", "environment", "external-vault"]);
+var ENVIRONMENT_LOCATOR_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+var OPAQUE_SECRET_LOCATOR_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}(?:\/[A-Za-z0-9][A-Za-z0-9._-]{0,63})+$/;
+var SECRET_MATERIAL_RE = /^(?:bearer\s+|sk[-_][A-Za-z0-9_-]{8,}|api[_-]?key\s*[:=])/i;
+function validateValidator(definition) {
+  const validator = definition.validator;
+  if (validator.required !== void 0 && typeof validator.required !== "boolean") {
+    throw new Error(`Setting validator required flag is invalid: ${definition.key}`);
+  }
+  if (validator.enum !== void 0 && (!Array.isArray(validator.enum) || validator.enum.some((value) => typeof value !== "string") || new Set(validator.enum).size !== validator.enum.length)) {
+    throw new Error(`Setting validator enum is invalid: ${definition.key}`);
+  }
+  for (const value of [validator.min, validator.max]) {
+    if (value !== void 0 && (typeof value !== "number" || !Number.isFinite(value))) {
+      throw new Error(`Setting validator numeric bound is invalid: ${definition.key}`);
+    }
+  }
+  for (const value of [validator.minLength, validator.maxLength]) {
+    if (value !== void 0 && (!Number.isInteger(value) || value < 0)) {
+      throw new Error(`Setting validator length bound is invalid: ${definition.key}`);
+    }
+  }
+  if (validator.pattern !== void 0) {
+    if (typeof validator.pattern !== "string")
+      throw new Error(`Setting validator pattern is invalid: ${definition.key}`);
+    try {
+      new RegExp(validator.pattern);
+    } catch {
+      throw new Error(`Setting validator pattern is invalid: ${definition.key}`);
+    }
+  }
+}
+function isSecretReference(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    return false;
+  const ref = value;
+  return typeof ref.provider === "string" && SECRET_PROVIDERS.has(ref.provider) && typeof ref.locator === "string" && validSecretLocator(ref.provider, ref.locator) && (ref.version === void 0 || typeof ref.version === "string" && ref.version.length > 0);
+}
+function validSecretLocator(provider, locator) {
+  const normalized = locator.trim();
+  if (!normalized || normalized !== locator || /[\r\n\0]/.test(normalized) || SECRET_MATERIAL_RE.test(normalized))
+    return false;
+  if (provider === "environment")
+    return ENVIRONMENT_LOCATOR_RE.test(normalized);
+  if (provider === "os-keychain" || provider === "external-vault")
+    return OPAQUE_SECRET_LOCATOR_RE.test(normalized);
+  return false;
+}
+function defaultMatchesType(definition) {
+  const value = definition.defaultValue;
+  switch (definition.valueType) {
+    case "boolean":
+      return typeof value === "boolean";
+    case "integer":
+      return Number.isInteger(value);
+    case "number":
+      return typeof value === "number" && Number.isFinite(value);
+    case "string":
+    case "enum":
+    case "path":
+    case "duration":
+      return typeof value === "string";
+    case "list":
+      return Array.isArray(value);
+    case "object":
+      return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+    default:
+      return false;
+  }
+}
+
+// ../packages/settings-platform/dist/src/bundled-registry.js
+var registry2 = parseRegistry(v1_default);
+function bundledRegistry() {
+  return deepClone(registry2);
+}
+
+// ../packages/settings-platform/dist/src/validation.js
+var SECRET_PROVIDERS2 = /* @__PURE__ */ new Set(["os-keychain", "environment", "external-vault"]);
+var PROJECT_ID_RE2 = /^project\/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/;
+var ENVIRONMENT_LOCATOR_RE2 = /^[A-Za-z_][A-Za-z0-9_]*$/;
+var OPAQUE_SECRET_LOCATOR_RE2 = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}(?:\/[A-Za-z0-9][A-Za-z0-9._-]{0,63})+$/;
+var SECRET_MATERIAL_RE2 = /^(?:bearer\s+|sk[-_][A-Za-z0-9_-]{8,}|api[_-]?key\s*[:=])/i;
+function issue2(code, message, options = {}) {
+  return { code, severity: "error", message, ...options };
+}
+function validateSettingsDocuments(registry3, documents, context) {
+  const issues = [];
+  const definitions = definitionMap(registry3);
+  const identities = /* @__PURE__ */ new Set();
+  if (context?.workspaceProjectId && !isCanonicalProjectId(context.workspaceProjectId)) {
+    issues.push(issue2("invalid-workspace-project-id", "workspaceProjectId must use the canonical project/<lowercase-kebab-slug> form.", { targetId: context.workspaceProjectId }));
+  }
+  for (const candidate of documents) {
+    if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+      issues.push(issue2("invalid-settings-document", "Settings document must be a JSON object."));
+      continue;
+    }
+    const document = candidate;
+    const identity = `${document.scope}:${document.targetId}`;
+    if (identities.has(identity)) {
+      issues.push(issue2("duplicate-scope-document", `Duplicate settings document for ${identity}.`, {
+        scope: document.scope,
+        targetId: document.targetId
+      }));
+      continue;
+    }
+    identities.add(identity);
+    issues.push(...validateDocumentShape(document));
+    if (context && isMutableSettingsScope(document.scope) && !scopeMatchesContext(document.scope, document.targetId, context)) {
+      issues.push({
+        code: "scope-out-of-context",
+        severity: "warning",
+        message: `${identity} is outside the supplied runtime context and will not participate in resolution.`,
+        scope: document.scope,
+        targetId: document.targetId
+      });
+    }
+    if (!Array.isArray(document.assignments) || !isMutableSettingsScope(document.scope))
+      continue;
+    const keys = /* @__PURE__ */ new Set();
+    for (const rawAssignment of document.assignments) {
+      if (!rawAssignment || typeof rawAssignment !== "object" || Array.isArray(rawAssignment)) {
+        issues.push(issue2("invalid-assignment", "Setting assignment must be a JSON object.", {
+          scope: document.scope,
+          targetId: document.targetId
+        }));
+        continue;
+      }
+      const assignment = rawAssignment;
+      if (typeof assignment.key !== "string" || !assignment.key) {
+        issues.push(issue2("invalid-assignment", "Setting assignment key is required.", {
+          scope: document.scope,
+          targetId: document.targetId
+        }));
+        continue;
+      }
+      if (keys.has(assignment.key)) {
+        issues.push(issue2("duplicate-assignment", `Duplicate assignment for ${assignment.key}.`, {
+          key: assignment.key,
+          scope: document.scope,
+          targetId: document.targetId
+        }));
+        continue;
+      }
+      keys.add(assignment.key);
+      const definition = definitions.get(assignment.key);
+      if (!definition) {
+        issues.push({
+          code: "unknown-setting",
+          severity: "warning",
+          message: `Unknown setting ${assignment.key} is preserved but ignored.`,
+          key: assignment.key,
+          scope: document.scope,
+          targetId: document.targetId,
+          remediation: "Remove the orphaned assignment or install a registry version that defines it."
+        });
+        continue;
+      }
+      issues.push(...validateAssignment(definition, document.scope, document.targetId, assignment));
+    }
+  }
+  return { valid: issues.every((item) => item.severity !== "error"), issues };
+}
+function validateAssignment(definition, scope, targetId, assignment) {
+  const options = { key: definition.key, scope, targetId };
+  const issues = [];
+  if (!definition.allowedScopes.includes(scope)) {
+    issues.push(issue2("scope-not-allowed", `${definition.key} cannot be assigned at ${scope} scope.`, options));
+  }
+  if (!assignment.provenance || typeof assignment.provenance.actor !== "string" || !assignment.provenance.actor.trim() || typeof assignment.provenance.source !== "string" || !assignment.provenance.source.trim()) {
+    issues.push(issue2("missing-provenance", `${definition.key} assignment provenance is required.`, options));
+  }
+  if (assignment.expiresAt !== void 0 && scope !== "session") {
+    issues.push(issue2("expiry-not-allowed", `${definition.key} expiry is only valid at session scope.`, options));
+  } else if (assignment.expiresAt !== void 0 && !isRfc3339Timestamp(assignment.expiresAt)) {
+    issues.push(issue2("invalid-expiry", `${definition.key} expiry must be an ISO timestamp.`, options));
+  }
+  if (definition.valueType === "secret-reference") {
+    if (assignment.value !== void 0 || !isSecretReference2(assignment.secretRef)) {
+      issues.push(issue2("invalid-secret-reference", `${definition.key} must contain a Secret Reference; plaintext secret material is never accepted.`, { ...options, remediation: "Store the secret in an approved provider and assign only its opaque reference." }));
+    }
+    return issues;
+  }
+  if (assignment.secretRef !== void 0 || assignment.value === void 0) {
+    issues.push(issue2("invalid-value", `${definition.key} must contain a typed value.`, options));
+    return issues;
+  }
+  issues.push(...validateValue(definition, assignment.value, options));
+  return issues;
+}
+function validateEffectiveValue(definition, value) {
+  if (definition.valueType === "secret-reference") {
+    const secretRef = value?.secretRef;
+    const issues2 = isSecretReference2(secretRef) ? [] : [issue2("invalid-secret-reference", `${definition.key} has no valid Secret Reference.`, { key: definition.key })];
+    return { valid: issues2.length === 0, issues: issues2 };
+  }
+  const issues = validateValue(definition, value, { key: definition.key });
+  return { valid: issues.length === 0, issues };
+}
+function validateDocumentShape(document) {
+  const scope = isMutableSettingsScope(document.scope) ? document.scope : void 0;
+  const targetId = typeof document.targetId === "string" ? document.targetId : void 0;
+  const options = { scope, targetId };
+  const issues = [];
+  if (document.schemaVersion !== 1) {
+    issues.push(issue2("unsupported-schema-version", `Unsupported settings schema version ${document.schemaVersion}.`, options));
+  }
+  if (!Number.isInteger(document.revision) || document.revision < 0) {
+    issues.push(issue2("invalid-revision", "Settings revision must be a non-negative integer.", options));
+  }
+  if (!isMutableSettingsScope(document.scope)) {
+    issues.push(issue2("invalid-scope", "Settings scope must be user-device, vault, workspace-project, or session.", options));
+  }
+  if (!document.targetId || typeof document.targetId !== "string") {
+    issues.push(issue2("invalid-target", "Settings targetId is required.", options));
+  } else if (document.scope === "workspace-project" && !isCanonicalProjectId(document.targetId)) {
+    issues.push(issue2("invalid-workspace-project-id", "workspace-project targetId must use the canonical project/<lowercase-kebab-slug> form.", options));
+  }
+  if (!Array.isArray(document.assignments)) {
+    issues.push(issue2("invalid-assignments", "Settings assignments must be an array.", options));
+  }
+  if (!isRfc3339Timestamp(document.updatedAt)) {
+    issues.push(issue2("invalid-updated-at", "Settings updatedAt must be an ISO timestamp.", options));
+  }
+  if (typeof document.updatedBy !== "string" || !document.updatedBy) {
+    issues.push(issue2("invalid-updated-by", "Settings updatedBy is required.", options));
+  }
+  return issues;
+}
+function isMutableSettingsScope(value) {
+  return value === "user-device" || value === "vault" || value === "workspace-project" || value === "session";
+}
+function isRfc3339Timestamp(value) {
+  if (typeof value !== "string")
+    return false;
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|([+-])(\d{2}):(\d{2}))$/.exec(value);
+  if (!match)
+    return false;
+  const [, yearRaw, monthRaw, dayRaw, hourRaw, minuteRaw, secondRaw, , offsetHourRaw, offsetMinuteRaw] = match;
+  const [year, month, day, hour, minute, second] = [yearRaw, monthRaw, dayRaw, hourRaw, minuteRaw, secondRaw].map(Number);
+  if (hour > 23 || minute > 59 || second > 59 || offsetHourRaw !== void 0 && Number(offsetHourRaw) > 23 || offsetMinuteRaw !== void 0 && Number(offsetMinuteRaw) > 59)
+    return false;
+  const calendar = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
+  return calendar.getUTCFullYear() === year && calendar.getUTCMonth() === month - 1 && calendar.getUTCDate() === day && !Number.isNaN(Date.parse(value));
+}
+function validateValue(definition, value, options) {
+  const issues = [];
+  const type = definition.valueType;
+  const validType = type === "boolean" && typeof value === "boolean" || type === "integer" && Number.isInteger(value) || type === "number" && typeof value === "number" && Number.isFinite(value) || ["string", "enum", "path", "duration"].includes(type) && typeof value === "string" || type === "list" && Array.isArray(value) || type === "object" && value !== null && typeof value === "object" && !Array.isArray(value);
+  if (!validType) {
+    return [issue2("type-mismatch", `${definition.key} must be a ${type}.`, options)];
+  }
+  const validator = definition.validator;
+  if (validator.required && typeof value === "string" && !value.trim()) {
+    issues.push(issue2("required-value-missing", `${definition.key} is required.`, options));
+  }
+  if (validator.enum && !validator.enum.includes(value)) {
+    issues.push(issue2("enum-mismatch", `${definition.key} must use an allowed value.`, options));
+  }
+  if (typeof value === "string") {
+    const length = [...value].length;
+    if (validator.minLength !== void 0 && length < validator.minLength) {
+      issues.push(issue2("string-too-short", `${definition.key} is shorter than allowed.`, options));
+    }
+    if (validator.maxLength !== void 0 && length > validator.maxLength) {
+      issues.push(issue2("string-too-long", `${definition.key} is longer than allowed.`, options));
+    }
+    if (validator.pattern && !new RegExp(validator.pattern).test(value)) {
+      issues.push(issue2("pattern-mismatch", `${definition.key} does not match its declared format.`, options));
+    }
+    if (validator.id === "url" && hasUrlCredentials(value)) {
+      issues.push(issue2("url-credentials-forbidden", `${definition.key} must not embed credentials in a URL; use a Secret Reference.`, { ...options, remediation: "Remove URL userinfo and bind the credential through a Secret Reference." }));
+    }
+  }
+  if (typeof value === "number") {
+    if (validator.min !== void 0 && value < validator.min) {
+      issues.push(issue2("number-too-small", `${definition.key} is below its minimum.`, options));
+    }
+    if (validator.max !== void 0 && value > validator.max) {
+      issues.push(issue2("number-too-large", `${definition.key} exceeds its maximum.`, options));
+    }
+  }
+  return issues;
+}
+function hasUrlCredentials(value) {
+  try {
+    const parsed = new URL(value);
+    return Boolean(parsed.username || parsed.password);
+  } catch {
+    return false;
+  }
+}
+function isSecretReference2(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    return false;
+  const ref = value;
+  return typeof ref.provider === "string" && SECRET_PROVIDERS2.has(ref.provider) && typeof ref.locator === "string" && validSecretLocator2(ref.provider, ref.locator) && (ref.version === void 0 || typeof ref.version === "string" && ref.version.length > 0);
+}
+function isCanonicalProjectId(value) {
+  return typeof value === "string" && PROJECT_ID_RE2.test(value);
+}
+function validSecretLocator2(provider, locator) {
+  const normalized = locator.trim();
+  if (!normalized || normalized !== locator || /[\r\n\0]/.test(normalized) || SECRET_MATERIAL_RE2.test(normalized))
+    return false;
+  if (provider === "environment")
+    return ENVIRONMENT_LOCATOR_RE2.test(normalized);
+  if (provider === "os-keychain" || provider === "external-vault")
+    return OPAQUE_SECRET_LOCATOR_RE2.test(normalized);
+  return false;
+}
+function scopeMatchesContext(scope, targetId, context) {
+  return targetId === targetForScope(scope, context);
+}
+function targetForScope(scope, context) {
+  const contextKey = {
+    "user-device": "userDeviceId",
+    vault: "vaultId",
+    "workspace-project": "workspaceProjectId",
+    session: "sessionId"
+  };
+  return context[contextKey[scope]];
+}
+
+// ../packages/settings-platform/dist/src/resolver.js
+var SCOPE_PRECEDENCE = [
+  "session",
+  "workspace-project",
+  "vault",
+  "user-device",
+  "product"
+];
+function resolveSettings(input) {
+  const documents = participatingDocuments(input.documents, input.context);
+  const sourceRevisions = buildSourceRevisions(input.registry, documents, input.context);
+  const effective = input.registry.definitions.map((definition) => {
+    const candidates = valueCandidates(definition, documents, input.secretStatus ?? {}, input.registry.registryVersion, input.createdAt);
+    const selected = candidates[0];
+    return {
+      key: definition.key,
+      value: deepClone(selected.value),
+      winningScope: selected.scope,
+      assignmentProvenance: deepClone(selected.provenance),
+      validation: validateEffectiveValue(definition, selected.value),
+      applyMode: definition.applyMode,
+      overriddenCandidates: candidates.slice(1).map(({ assignment: _assignment, ...candidate }) => deepClone(candidate))
+    };
+  });
+  const revisions = ["user-device", "vault", "workspace-project", "session"].map((scope) => String(sourceRevisions[scope]?.revision ?? 0));
+  const contextParts = [
+    input.context.userDeviceId,
+    input.context.vaultId ?? "-",
+    input.context.workspaceProjectId ?? "-",
+    input.context.sessionId ?? "-"
+  ];
+  return {
+    snapshotId: ["settings", input.registry.registryVersion, ...contextParts, ...revisions].join(":"),
+    registryVersion: input.registry.registryVersion,
+    context: deepClone(input.context),
+    effective,
+    sourceRevisions,
+    createdAt: input.createdAt
+  };
+}
+function explainSetting(input) {
+  const definition = getDefinition(input.registry, input.key);
+  if (!definition)
+    throw new Error(`Unknown setting: ${input.key}`);
+  const documents = participatingDocuments(input.documents, input.context);
+  const candidates = valueCandidates(definition, documents, input.secretStatus ?? {}, input.registry.registryVersion, input.createdAt);
+  const selected = candidates[0];
+  const explanationCandidates = [];
+  let selectedSeen = false;
+  for (const scope of SCOPE_PRECEDENCE) {
+    if (scope === "product") {
+      const product = candidates.find((candidate2) => candidate2.scope === "product");
+      explanationCandidates.push({
+        scope,
+        state: selected.scope === "product" ? "selected" : "overridden",
+        revision: product.revision,
+        value: deepClone(product.value),
+        provenance: deepClone(product.provenance)
+      });
+      continue;
+    }
+    if (!definition.allowedScopes.includes(scope)) {
+      explanationCandidates.push({ scope, state: "not-allowed" });
+      continue;
+    }
+    const contextTarget = targetForScope(scope, input.context);
+    if (!contextTarget) {
+      explanationCandidates.push({ scope, state: "out-of-context" });
+      continue;
+    }
+    const document = documents.get(scope);
+    const candidate = candidates.find((item) => item.scope === scope);
+    if (!candidate) {
+      explanationCandidates.push({ scope, state: "unset", revision: document?.revision ?? 0 });
+      continue;
+    }
+    const state = selectedSeen ? "overridden" : "selected";
+    if (state === "selected")
+      selectedSeen = true;
+    explanationCandidates.push({
+      scope,
+      state,
+      revision: candidate.revision,
+      value: deepClone(candidate.value),
+      provenance: deepClone(candidate.provenance)
+    });
+  }
+  return {
+    key: definition.key,
+    winningScope: selected.scope,
+    value: deepClone(selected.value),
+    candidates: explanationCandidates,
+    validation: validateEffectiveValue(definition, selected.value)
+  };
+}
+function participatingDocuments(documents, context) {
+  const result = /* @__PURE__ */ new Map();
+  for (const document of documents) {
+    if (!scopeMatchesContext(document.scope, document.targetId, context))
+      continue;
+    if (result.has(document.scope))
+      throw new Error(`Duplicate settings document for ${document.scope}`);
+    result.set(document.scope, document);
+  }
+  return result;
+}
+function buildSourceRevisions(registry3, documents, context) {
+  const result = {
+    product: { targetId: "settings-platform", revision: registry3.registryVersion }
+  };
+  for (const scope of ["user-device", "vault", "workspace-project", "session"]) {
+    const targetId = targetForScope(scope, context);
+    if (!targetId)
+      continue;
+    result[scope] = { targetId, revision: documents.get(scope)?.revision ?? 0 };
+  }
+  return result;
+}
+function valueCandidates(definition, documents, secretStatus, registryVersion, createdAt) {
+  const candidates = [];
+  for (const scope of SCOPE_PRECEDENCE) {
+    if (scope === "product") {
+      candidates.push({
+        scope,
+        revision: registryVersion,
+        value: productValue(definition, secretStatus),
+        provenance: { actor: "registry", source: "registry/v1.json" }
+      });
+      continue;
+    }
+    if (!definition.allowedScopes.includes(scope))
+      continue;
+    const document = documents.get(scope);
+    if (!document)
+      continue;
+    const assignment = document.assignments.find((item) => item.key === definition.key);
+    if (!assignment || assignmentExpired(assignment, createdAt))
+      continue;
+    candidates.push({
+      scope,
+      revision: document.revision,
+      value: assignmentValue(definition, assignment, secretStatus),
+      provenance: deepClone(assignment.provenance),
+      assignment
+    });
+  }
+  return candidates;
+}
+function productValue(definition, secretStatus) {
+  if (definition.valueType === "secret-reference") {
+    const secretRef = definition.defaultSecretRef;
+    return { secretRef: deepClone(secretRef), status: statusFor(secretRef.provider, secretRef.locator, secretStatus) };
+  }
+  return deepClone(definition.defaultValue ?? null);
+}
+function assignmentValue(definition, assignment, secretStatus) {
+  if (definition.valueType === "secret-reference") {
+    const secretRef = assignment.secretRef ?? definition.defaultSecretRef;
+    return { secretRef: deepClone(secretRef), status: statusFor(secretRef.provider, secretRef.locator, secretStatus) };
+  }
+  return deepClone(assignment.value ?? null);
+}
+function statusFor(provider, locator, secretStatus) {
+  return secretStatus[`${provider}:${locator}`] ?? "missing";
+}
+function assignmentExpired(assignment, createdAt) {
+  return assignment.expiresAt !== void 0 && Date.parse(assignment.expiresAt) <= Date.parse(createdAt);
+}
+
+// ../packages/settings-platform/dist/src/types.js
+var SETTINGS_DOCUMENT_SCHEMA_VERSION = 1;
+
+// ../packages/settings-platform/dist/src/persistence.js
+import { mkdir as mkdir2, open, readFile as readFile3, rename, rm, stat } from "node:fs/promises";
+import { homedir as homedir4, platform } from "node:os";
+import { basename as basename4, dirname as dirname7, join as join15 } from "node:path";
+import { randomUUID } from "node:crypto";
+var ProductSettingsStore = class {
+  registry;
+  scope = "product";
+  targetId = "settings-platform";
+  constructor(registry3) {
+    this.registry = registry3;
+  }
+  read() {
+    return {
+      scope: "product",
+      targetId: "settings-platform",
+      revision: this.registry.registryVersion,
+      registryDigest: this.registry.registryDigest,
+      defaults: this.registry.definitions.map((definition) => ({
+        key: definition.key,
+        ...definition.valueType === "secret-reference" ? { secretRef: deepClone(definition.defaultSecretRef) } : { value: deepClone(definition.defaultValue) },
+        provenance: { actor: "registry", source: "registry/v1.json" }
+      }))
+    };
+  }
+  set() {
+    throw new Error("Product settings are read-only and can change only with a registry release.");
+  }
+  unset() {
+    throw new Error("Product settings are read-only and can change only with a registry release.");
+  }
+};
+var SettingsLockTimeoutError = class extends Error {
+  lockPath;
+  code = "settings-lock-timeout";
+  constructor(lockPath, timeoutMs) {
+    super(`Timed out after ${timeoutMs}ms waiting for settings lock ${lockPath}`);
+    this.lockPath = lockPath;
+    this.name = "SettingsLockTimeoutError";
+  }
+};
+var SettingsPersistenceError = class extends Error {
+  diagnostics;
+  code = "settings-persistence-error";
+  constructor(message, diagnostics = []) {
+    super(message);
+    this.diagnostics = diagnostics;
+    this.name = "SettingsPersistenceError";
+  }
+};
+var FileSettingsStore = class {
+  scope;
+  targetId;
+  filePath;
+  registry;
+  clock;
+  lockTimeoutMs;
+  lockRetryMs;
+  constructor(options) {
+    this.scope = options.scope;
+    this.targetId = options.targetId;
+    this.filePath = options.filePath;
+    this.registry = options.registry;
+    this.clock = options.clock ?? (() => (/* @__PURE__ */ new Date()).toISOString());
+    this.lockTimeoutMs = options.lockTimeoutMs ?? 2e3;
+    this.lockRetryMs = options.lockRetryMs ?? 20;
+  }
+  async read() {
+    const active = await this.readPath(this.filePath);
+    if (active.status === "valid") {
+      return { document: active.document, recoveredFromBackup: false, diagnostics: active.diagnostics };
+    }
+    const backup = await this.readPath(`${this.filePath}.bak`);
+    if (backup.status === "valid") {
+      return {
+        document: backup.document,
+        recoveredFromBackup: true,
+        diagnostics: [
+          ...active.diagnostics,
+          {
+            code: "active-document-recovered",
+            severity: "warning",
+            message: `Recovered ${this.scope}:${this.targetId} from its previous-revision backup.`,
+            scope: this.scope,
+            targetId: this.targetId,
+            remediation: "Commit a valid mutation to replace the corrupt active document."
+          }
+        ]
+      };
+    }
+    if (active.status === "missing" && backup.status === "missing") {
+      return { document: this.emptyDocument(), recoveredFromBackup: false, diagnostics: [] };
+    }
+    throw new SettingsPersistenceError(`Neither active nor backup settings document is usable for ${this.scope}:${this.targetId}.`, [...active.diagnostics, ...backup.diagnostics]);
+  }
+  async set(key, value, options) {
+    return this.withLock(() => this.mutate("set", key, value, options));
+  }
+  async unset(key, options) {
+    return this.withLock(() => this.mutate("unset", key, void 0, options));
+  }
+  async mutate(kind, key, value, options) {
+    const currentRead = await this.read();
+    const current = currentRead.document;
+    if (current.revision !== options.expectedRevision) {
+      return {
+        status: "conflict",
+        document: deepClone(current),
+        conflict: {
+          scope: this.scope,
+          targetId: this.targetId,
+          expectedRevision: options.expectedRevision,
+          actualRevision: current.revision,
+          changedKeys: await this.changedKeysSince(current, options.expectedRevision)
+        }
+      };
+    }
+    const plan = planMutation({
+      registry: this.registry,
+      current,
+      scope: this.scope,
+      targetId: this.targetId,
+      kind,
+      key,
+      value,
+      options,
+      clock: this.clock
+    });
+    if ("status" in plan)
+      return plan;
+    const { proposed, event } = plan;
+    const backupPath = `${this.filePath}.bak`;
+    if (current.revision > 0 || await exists(this.filePath)) {
+      await atomicWrite(backupPath, `${canonicalJson(current)}
+`);
+    }
+    proposed.previousRevision = {
+      revision: current.revision,
+      digest: canonicalDigest(current),
+      ...current.revision > 0 || await exists(backupPath) ? { backupPath: basename4(backupPath) } : {}
+    };
+    await atomicWrite(this.filePath, `${canonicalJson(proposed)}
+`);
+    return {
+      status: "committed",
+      document: deepClone(proposed),
+      event
+    };
+  }
+  async migrationState() {
+    let raw;
+    try {
+      raw = await readFile3(this.filePath, "utf8");
+    } catch (error48) {
+      if (error48.code === "ENOENT") {
+        return { scope: this.scope, targetId: this.targetId, schemaVersion: SETTINGS_DOCUMENT_SCHEMA_VERSION };
+      }
+      throw new SettingsPersistenceError(`Settings document could not be inspected for migration: ${error48.message}`);
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      throw new SettingsPersistenceError("Settings document is not valid JSON and cannot be inspected for migration.");
+    }
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new SettingsPersistenceError("Settings document must be a JSON object to plan migrations.");
+    }
+    const document = parsed;
+    if (document.scope !== this.scope || document.targetId !== this.targetId) {
+      throw new SettingsPersistenceError("Settings document scope identity does not match its store.");
+    }
+    if (!Number.isInteger(document.schemaVersion) || document.schemaVersion < 0) {
+      throw new SettingsPersistenceError("Settings document schemaVersion must be a non-negative integer.");
+    }
+    return { scope: this.scope, targetId: this.targetId, schemaVersion: document.schemaVersion };
+  }
+  async changedKeysSince(current, expectedRevision) {
+    if (current.previousRevision?.revision === expectedRevision) {
+      const backup = await this.readPath(`${this.filePath}.bak`);
+      if (backup.status === "valid" && backup.document.revision === expectedRevision) {
+        return changedAssignmentKeys(backup.document, current);
+      }
+    }
+    return current.assignments.map((assignment) => assignment.key).sort();
+  }
+  emptyDocument() {
+    return {
+      schemaVersion: 1,
+      scope: this.scope,
+      targetId: this.targetId,
+      revision: 0,
+      assignments: [],
+      updatedAt: "1970-01-01T00:00:00.000Z",
+      updatedBy: "settings-platform"
+    };
+  }
+  async readPath(path) {
+    let raw;
+    try {
+      raw = await readFile3(path, "utf8");
+    } catch (error48) {
+      if (error48.code === "ENOENT")
+        return { status: "missing", diagnostics: [] };
+      return {
+        status: "invalid",
+        diagnostics: [{
+          code: "settings-read-failed",
+          severity: "error",
+          message: `Settings document could not be read: ${error48.message}`,
+          scope: this.scope,
+          targetId: this.targetId
+        }]
+      };
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return {
+        status: "invalid",
+        diagnostics: [{
+          code: "settings-json-invalid",
+          severity: "error",
+          message: "Settings document is not valid JSON.",
+          scope: this.scope,
+          targetId: this.targetId
+        }]
+      };
+    }
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {
+        status: "invalid",
+        diagnostics: [{
+          code: "settings-document-invalid",
+          severity: "error",
+          message: "Settings document must be a JSON object.",
+          scope: this.scope,
+          targetId: this.targetId
+        }]
+      };
+    }
+    const document = parsed;
+    if (document.scope !== this.scope || document.targetId !== this.targetId) {
+      return {
+        status: "invalid",
+        diagnostics: [{
+          code: "settings-identity-mismatch",
+          severity: "error",
+          message: "Settings document scope identity does not match its store.",
+          scope: this.scope,
+          targetId: this.targetId
+        }]
+      };
+    }
+    const validation = validateSettingsDocuments(this.registry, [document]);
+    if (!validation.valid)
+      return { status: "invalid", diagnostics: validation.issues };
+    return { status: "valid", document: deepClone(document), diagnostics: validation.issues };
+  }
+  async withLock(action) {
+    await mkdir2(dirname7(this.filePath), { recursive: true });
+    const lockPath = `${this.filePath}.lock`;
+    const deadline = Date.now() + this.lockTimeoutMs;
+    let acquired = false;
+    while (!acquired) {
+      try {
+        const handle = await open(lockPath, "wx", 384);
+        try {
+          await handle.writeFile(JSON.stringify({ pid: process.pid, acquiredAt: this.clock() }), "utf8");
+          await handle.sync();
+        } finally {
+          await handle.close();
+        }
+        acquired = true;
+      } catch (error48) {
+        if (error48.code !== "EEXIST")
+          throw error48;
+        if (Date.now() >= deadline)
+          throw new SettingsLockTimeoutError(lockPath, this.lockTimeoutMs);
+        await delay(Math.min(this.lockRetryMs, Math.max(1, deadline - Date.now())));
+      }
+    }
+    try {
+      return await action();
+    } finally {
+      await rm(lockPath, { force: true });
+    }
+  }
+};
+var SessionSettingsStore = class {
+  scope = "session";
+  targetId;
+  document;
+  previousDocument;
+  registry;
+  clock;
+  constructor(options) {
+    this.targetId = options.targetId;
+    this.registry = options.registry;
+    this.clock = options.clock ?? (() => (/* @__PURE__ */ new Date()).toISOString());
+    this.document = {
+      schemaVersion: 1,
+      scope: "session",
+      targetId: options.targetId,
+      revision: 0,
+      assignments: deepClone(options.assignments ?? []).sort((a, b) => a.key.localeCompare(b.key)),
+      updatedAt: options.assignments?.length ? this.clock() : "1970-01-01T00:00:00.000Z",
+      updatedBy: options.assignments?.length ? "settings-bootstrap" : "settings-platform"
+    };
+  }
+  async read() {
+    return { document: deepClone(this.document), recoveredFromBackup: false, diagnostics: [] };
+  }
+  async migrationState() {
+    return { scope: "session", targetId: this.targetId, schemaVersion: this.document.schemaVersion };
+  }
+  async set(key, value, options) {
+    return this.mutate("set", key, value, options);
+  }
+  async unset(key, options) {
+    return this.mutate("unset", key, void 0, options);
+  }
+  async mutate(kind, key, value, options) {
+    const current = deepClone(this.document);
+    if (current.revision !== options.expectedRevision) {
+      return {
+        status: "conflict",
+        document: current,
+        conflict: {
+          scope: "session",
+          targetId: this.targetId,
+          expectedRevision: options.expectedRevision,
+          actualRevision: current.revision,
+          changedKeys: this.previousDocument?.revision === options.expectedRevision ? changedAssignmentKeys(this.previousDocument, current) : current.assignments.map((item) => item.key).sort()
+        }
+      };
+    }
+    const plan = planMutation({
+      registry: this.registry,
+      current,
+      scope: "session",
+      targetId: this.targetId,
+      kind,
+      key,
+      value,
+      options,
+      clock: this.clock
+    });
+    if ("status" in plan)
+      return plan;
+    const { proposed, event } = plan;
+    proposed.previousRevision = { revision: current.revision, digest: canonicalDigest(current) };
+    this.previousDocument = current;
+    this.document = proposed;
+    return {
+      status: "committed",
+      document: deepClone(proposed),
+      event
+    };
+  }
+};
+function settingsDocumentPath(scope, options) {
+  if (scope === "user-device")
+    return options.userDevicePath;
+  if (scope === "vault")
+    return join15(options.vaultPath, "_llmwiki", "settings", "vault.json");
+  const match = /^project\/([a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?)$/.exec(options.targetId);
+  if (!match)
+    throw new Error(`workspace-project targetId must use canonical project/<slug> form: ${options.targetId}`);
+  return join15(options.vaultPath, "_llmwiki", "settings", "projects", `${match[1]}.json`);
+}
+function defaultUserDeviceSettingsPath(environment = process.env) {
+  if (environment.LLMWIKI_SETTINGS_USER_PATH)
+    return environment.LLMWIKI_SETTINGS_USER_PATH;
+  const base = platform() === "win32" ? environment.APPDATA || join15(homedir4(), "AppData", "Roaming") : environment.XDG_CONFIG_HOME || join15(homedir4(), ".config");
+  return join15(base, "llm-wiki", "settings", "user-device.json");
+}
+async function atomicWrite(path, content) {
+  await mkdir2(dirname7(path), { recursive: true });
+  const temporary = join15(dirname7(path), `.${basename4(path)}.${process.pid}.${randomUUID()}.tmp`);
+  const handle = await open(temporary, "wx", 384);
+  try {
+    await handle.writeFile(content, "utf8");
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
+  try {
+    await renameWithRetry(temporary, path);
+    await syncDirectory(dirname7(path));
+  } catch (error48) {
+    await rm(temporary, { force: true });
+    throw error48;
+  }
+}
+async function renameWithRetry(from, to) {
+  let lastError;
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    try {
+      await rename(from, to);
+      return;
+    } catch (error48) {
+      lastError = error48;
+      const code = error48.code;
+      if (!(/* @__PURE__ */ new Set(["EACCES", "EPERM", "EBUSY"])).has(code ?? ""))
+        throw error48;
+      await delay(10 * (attempt + 1));
+    }
+  }
+  throw lastError;
+}
+async function syncDirectory(path) {
+  try {
+    const directory = await open(path, "r");
+    try {
+      await directory.sync();
+    } finally {
+      await directory.close();
+    }
+  } catch {
+  }
+}
+async function exists(path) {
+  try {
+    await stat(path);
+    return true;
+  } catch (error48) {
+    if (error48.code === "ENOENT")
+      return false;
+    throw error48;
+  }
+}
+function isSecretRefShape(value) {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value) && typeof value.provider === "string" && typeof value.locator === "string");
+}
+function delay(ms) {
+  return new Promise((resolve8) => setTimeout(resolve8, ms));
+}
+function planMutation(input) {
+  const definition = getDefinition(input.registry, input.key);
+  if (!definition) {
+    return {
+      status: "validation-error",
+      document: deepClone(input.current),
+      validation: {
+        valid: false,
+        issues: [{
+          code: "unknown-setting",
+          severity: "error",
+          message: `Unknown setting ${input.key} cannot be mutated.`,
+          key: input.key,
+          scope: input.scope,
+          targetId: input.targetId
+        }]
+      }
+    };
+  }
+  const assignments = input.current.assignments.filter((assignment) => assignment.key !== input.key).map(deepClone);
+  if (input.kind === "set") {
+    const assignment = {
+      key: input.key,
+      provenance: {
+        actor: input.options.updatedBy,
+        source: input.options.source ?? "settings.assignment.set",
+        ...input.options.reason ? { reason: input.options.reason } : {}
+      },
+      ...input.options.expiresAt ? { expiresAt: input.options.expiresAt } : {}
+    };
+    if (definition.valueType === "secret-reference" && isSecretRefShape(input.value)) {
+      assignment.secretRef = deepClone(input.value);
+    } else {
+      assignment.value = deepClone(input.value);
+    }
+    assignments.push(assignment);
+  }
+  assignments.sort((left, right) => left.key.localeCompare(right.key));
+  const now = input.clock();
+  const proposed = {
+    ...deepClone(input.current),
+    revision: input.current.revision + 1,
+    assignments,
+    updatedAt: now,
+    updatedBy: input.options.updatedBy
+  };
+  delete proposed.previousRevision;
+  const validation = validateSettingsDocuments(input.registry, [proposed]);
+  if (!validation.valid) {
+    return { status: "validation-error", document: deepClone(input.current), validation };
+  }
+  return {
+    proposed,
+    event: {
+      type: "SettingsAssignmentsChanged",
+      scope: input.scope,
+      targetId: input.targetId,
+      previousRevision: input.current.revision,
+      revision: proposed.revision,
+      keys: [input.key],
+      actor: input.options.updatedBy,
+      occurredAt: now
+    }
+  };
+}
+function changedAssignmentKeys(before, after) {
+  const previous = new Map(before.assignments.map((assignment) => [assignment.key, canonicalJson(assignment)]));
+  const current = new Map(after.assignments.map((assignment) => [assignment.key, canonicalJson(assignment)]));
+  return [.../* @__PURE__ */ new Set([...previous.keys(), ...current.keys()])].filter((key) => previous.get(key) !== current.get(key)).sort();
+}
+
+// ../packages/settings-platform/dist/src/service.js
+import { existsSync as existsSync11 } from "node:fs";
+import { hostname as hostname3 } from "node:os";
+import { basename as basename5 } from "node:path";
+import { spawnSync } from "node:child_process";
+var SettingsService = class _SettingsService {
+  registry;
+  defaultContext;
+  vaultPath;
+  userDevicePath;
+  clock;
+  environment;
+  stores = /* @__PURE__ */ new Map();
+  constructor(options) {
+    this.registry = options.registry;
+    this.vaultPath = options.vaultPath;
+    this.environment = options.environment ?? process.env;
+    this.userDevicePath = options.userDevicePath ?? defaultUserDeviceSettingsPath(this.environment);
+    this.clock = options.clock ?? (() => (/* @__PURE__ */ new Date()).toISOString());
+    const vaultId = options.vaultId ?? safeIdentity(basename5(options.vaultPath) || "default-vault");
+    const sessionId = options.sessionId ?? `process-${process.pid}`;
+    this.defaultContext = {
+      userDeviceId: options.userDeviceId ?? defaultUserDeviceId(this.environment),
+      vaultId,
+      ...options.workspaceProjectId ? { workspaceProjectId: options.workspaceProjectId } : {},
+      sessionId
+    };
+    const bootstrap = this.bootstrapAssignments({
+      pythonPath: options.pythonPath,
+      compilerPath: options.compilerPath,
+      vaultPath: options.vaultPath,
+      vaultId
+    });
+    this.stores.set(this.storeKey("session", sessionId), new SessionSettingsStore({ targetId: sessionId, registry: this.registry, clock: this.clock, assignments: bootstrap }));
+  }
+  static fromRegistryPath(options) {
+    return new _SettingsService({ ...options, registry: loadRegistry(options.registryPath) });
+  }
+  definitionsList() {
+    return {
+      registryVersion: this.registry.registryVersion,
+      registryDigest: this.registry.registryDigest,
+      definitions: deepClone(this.registry.definitions)
+    };
+  }
+  definitionsGet(key) {
+    const definition = getDefinition(this.registry, key);
+    if (!definition)
+      throw new Error(`Unknown setting: ${key}`);
+    return deepClone(definition);
+  }
+  async scopesGet(scope, targetId) {
+    if (scope === "product")
+      return new ProductSettingsStore(this.registry).read();
+    const resolvedTarget = targetId ?? targetForScope(scope, this.defaultContext);
+    if (!resolvedTarget)
+      throw new Error(`${scope} scope requires a targetId in the runtime context`);
+    const read = await this.getStore(scope, resolvedTarget).read();
+    return { ...read, document: deepClone(read.document) };
+  }
+  async snapshotResolve(context = this.defaultContext) {
+    const { documents, diagnostics } = await this.readDocuments(context);
+    const secretStatus = this.secretStatuses(documents);
+    const snapshot = resolveSettings({
+      registry: this.registry,
+      context,
+      documents,
+      secretStatus,
+      createdAt: this.clock()
+    });
+    const validation = this.validateResolved(documents, context, snapshot);
+    return { snapshot, validation, recoveryDiagnostics: diagnostics };
+  }
+  async snapshotExplain(key, context = this.defaultContext) {
+    const { documents } = await this.readDocuments(context);
+    return explainSetting({
+      registry: this.registry,
+      context,
+      documents,
+      secretStatus: this.secretStatuses(documents),
+      createdAt: this.clock(),
+      key
+    });
+  }
+  /** Return a redacted invocation profile; host adapters resolve secrets. */
+  async agentModelInvocationProfile(context = this.defaultContext) {
+    const { snapshot } = await this.snapshotResolve(context);
+    const mode = effectiveString(snapshot, "models.agent.mode");
+    const provider = effectiveString(snapshot, "models.agent.provider");
+    const baseUrl = effectiveString(snapshot, "models.agent.base_url");
+    const model = effectiveString(snapshot, "models.agent.model");
+    const credentialValue = snapshot.effective.find((item) => item.key === "models.agent.secret_ref")?.value;
+    const secretRef = effectiveSecretReference(snapshot, "models.agent.secret_ref");
+    const status = credentialValue && typeof credentialValue === "object" && !Array.isArray(credentialValue) && "status" in credentialValue && typeof credentialValue.status === "string" ? credentialValue.status : void 0;
+    return {
+      mode,
+      provider,
+      baseUrl,
+      model,
+      ...secretRef && status ? { credential: { secretRef, status } } : {}
+    };
+  }
+  async assignmentSet(input) {
+    const targetId = input.targetId ?? targetForScope(input.scope, this.defaultContext);
+    if (!targetId)
+      throw new Error(`${input.scope} scope requires targetId`);
+    const options = {
+      expectedRevision: input.expectedRevision,
+      updatedBy: input.updatedBy,
+      source: "settings.assignment.set",
+      ...input.reason ? { reason: input.reason } : {},
+      ...input.expiresAt ? { expiresAt: input.expiresAt } : {}
+    };
+    return this.getStore(input.scope, targetId).set(input.key, input.value, options);
+  }
+  async assignmentUnset(input) {
+    const targetId = input.targetId ?? targetForScope(input.scope, this.defaultContext);
+    if (!targetId)
+      throw new Error(`${input.scope} scope requires targetId`);
+    return this.getStore(input.scope, targetId).unset(input.key, {
+      expectedRevision: input.expectedRevision,
+      updatedBy: input.updatedBy,
+      source: "settings.assignment.unset",
+      ...input.reason ? { reason: input.reason } : {}
+    });
+  }
+  async validate(context = this.defaultContext) {
+    const { documents } = await this.readDocuments(context);
+    const snapshot = resolveSettings({
+      registry: this.registry,
+      context,
+      documents,
+      secretStatus: this.secretStatuses(documents),
+      createdAt: this.clock()
+    });
+    return this.validateResolved(documents, context, snapshot);
+  }
+  async migrationsPlan(context = this.defaultContext) {
+    const entries = [
+      ["user-device", context.userDeviceId],
+      ["vault", context.vaultId],
+      ["workspace-project", context.workspaceProjectId],
+      ["session", context.sessionId]
+    ];
+    const states = await Promise.all(entries.filter((entry) => Boolean(entry[1])).map(([scope, targetId]) => this.getStore(scope, targetId).migrationState()));
+    const scopes = states.map((state) => {
+      const applicable = this.registry.migrations.filter((migration) => migration.fromSchemaVersion >= state.schemaVersion && migration.toSchemaVersion <= this.registry.schemaVersion).sort((a, b) => a.fromSchemaVersion - b.fromSchemaVersion);
+      return {
+        scope: state.scope,
+        targetId: state.targetId,
+        currentSchemaVersion: state.schemaVersion,
+        targetSchemaVersion: this.registry.schemaVersion,
+        migrations: applicable,
+        requiresMigration: state.schemaVersion !== this.registry.schemaVersion
+      };
+    });
+    return { registryVersion: this.registry.registryVersion, writeRequired: scopes.some((item) => item.requiresMigration), scopes };
+  }
+  async doctor(context = this.defaultContext) {
+    const checkedAt = this.clock();
+    let snapshot;
+    let validation;
+    try {
+      const resolved = await this.snapshotResolve(context);
+      snapshot = resolved.snapshot;
+      validation = resolved.validation;
+    } catch (error48) {
+      validation = {
+        valid: false,
+        issues: [{
+          code: "settings-unavailable",
+          severity: "error",
+          message: `Settings could not be resolved: ${error48.message}`,
+          remediation: "Repair the active settings document or restore its backup."
+        }]
+      };
+    }
+    if (!snapshot)
+      return { validation, capabilities: [], checkedAt };
+    const value = (key) => snapshot.effective.find((item) => item.key === key)?.value;
+    const capabilities = [];
+    const python = value("runtime.python.path");
+    const pythonAvailable = typeof python === "string" && probePython(python);
+    capabilities.push(this.health("runtime.python", pythonAvailable ? "available" : "unavailable", pythonAvailable ? "Python runtime responded to a version probe." : "Python runtime could not be executed.", checkedAt, snapshot.snapshotId, pythonAvailable ? "pass" : "fail", pythonAvailable ? [] : [{ code: "configure-python", summary: "Set runtime.python.path to an executable Python runtime.", operation: "settings.assignment.set" }]));
+    const vaultPath = value("vault.path");
+    const vaultAvailable = typeof vaultPath === "string" && existsSync11(vaultPath);
+    capabilities.push(this.health("vault.filesystem", vaultAvailable ? "available" : "unavailable", vaultAvailable ? "Configured vault path is accessible." : "Configured vault path is unavailable on this device.", checkedAt, snapshot.snapshotId, vaultAvailable ? "pass" : "fail", vaultAvailable ? [] : [{ code: "configure-vault-path", summary: "Set vault.path at user-device or session scope.", operation: "settings.assignment.set" }]));
+    const queryEnabled = value("query.semantic.enabled") === true;
+    capabilities.push(this.health("query.semantic", queryEnabled ? pythonAvailable ? "available" : "degraded" : "disabled", queryEnabled ? pythonAvailable ? "Semantic query is enabled and its runtime is available." : "Semantic query is enabled but its runtime is unavailable; keyword query remains available." : "Semantic query is intentionally disabled.", checkedAt, snapshot.snapshotId, queryEnabled ? pythonAvailable ? "pass" : "warn" : "pass", queryEnabled && !pythonAvailable ? [{ code: "repair-python", summary: "Repair runtime.python.path.", operation: "settings.assignment.set" }] : []));
+    const diagnosticsEnabled = value("diagnostics.obc.semantic.enabled") === true;
+    const diagnosticsAvailable = queryEnabled && pythonAvailable;
+    capabilities.push(this.health("diagnostics.obc.semantic", diagnosticsEnabled ? diagnosticsAvailable ? "available" : "degraded" : "disabled", diagnosticsEnabled ? diagnosticsAvailable ? "Semantic link suggestions are enabled." : queryEnabled ? "Semantic query is enabled but its Python runtime is unavailable; deterministic diagnostics remain available." : "Deterministic diagnostics remain available without semantic query." : "Semantic link suggestions are intentionally disabled; deterministic diagnostics remain available.", checkedAt, snapshot.snapshotId, diagnosticsEnabled && !diagnosticsAvailable ? "warn" : "pass", diagnosticsEnabled && !queryEnabled ? [{ code: "enable-semantic-query", summary: "Enable query.semantic.enabled or disable semantic diagnostics.", operation: "settings.assignment.set" }] : diagnosticsEnabled && !pythonAvailable ? [{ code: "repair-python", summary: "Repair runtime.python.path.", operation: "settings.assignment.set" }] : []));
+    const webEnabled = value("providers.web_search.enabled") === true;
+    const secret = value("providers.web_search.secret_ref");
+    const webState = !webEnabled ? "disabled" : secret?.status === "present" ? "available" : secret?.status === "unreachable" ? "degraded" : "unavailable";
+    capabilities.push(this.health("providers.web-search", webState, !webEnabled ? "Web search is intentionally disabled." : secret?.status === "present" ? "Web search credential reference is present." : "Web search credential reference is not resolvable.", checkedAt, snapshot.snapshotId, webState === "available" || webState === "disabled" ? "pass" : webState === "degraded" ? "warn" : "fail", webState === "degraded" || webState === "unavailable" ? [{ code: "configure-web-secret", summary: "Configure the referenced secret without storing its value in Settings.", operation: "settings.assignment.set" }] : []));
+    const agentMode = value("models.agent.mode");
+    const agentProvider = value("models.agent.provider");
+    const agentBaseUrl = value("models.agent.base_url");
+    const agentModel = value("models.agent.model");
+    const agentSecret = value("models.agent.secret_ref");
+    const agentConfigured = typeof agentProvider === "string" && Boolean(agentProvider) && typeof agentBaseUrl === "string" && Boolean(agentBaseUrl) && typeof agentModel === "string" && Boolean(agentModel);
+    const agentState = agentMode === "inherit" ? "available" : !agentConfigured ? "unavailable" : agentMode === "cloud" && agentSecret?.status !== "present" ? agentSecret?.status === "unreachable" ? "degraded" : "unavailable" : "available";
+    const agentSummary = agentMode === "inherit" ? "Agent model remains on the legacy environment/YAML compatibility path." : !agentConfigured ? "Agent model connection is missing a provider, base URL, or model identifier." : agentMode === "local" ? "Local Agent model connection is configured without a cloud credential." : agentSecret?.status === "present" ? "Cloud Agent model connection and credential reference are configured." : "Cloud Agent model credential reference is not resolvable on this device.";
+    capabilities.push(this.health("models.agent", agentState, agentSummary, checkedAt, snapshot.snapshotId, agentState === "available" ? "pass" : agentState === "degraded" ? "warn" : "fail", agentState === "available" ? [] : [{
+      code: agentMode === "inherit" ? "select-agent-model-mode" : "configure-agent-model",
+      summary: agentMode === "inherit" ? "Select local or cloud mode to bring Agent model configuration under Settings Platform." : "Configure the Agent model connection and a device-local Secret Reference when cloud mode is selected.",
+      operation: "settings.assignment.set"
+    }]));
+    return { snapshotId: snapshot.snapshotId, validation, capabilities, checkedAt };
+  }
+  async readDocuments(context) {
+    const entries = [
+      ["user-device", context.userDeviceId],
+      ["vault", context.vaultId],
+      ["workspace-project", context.workspaceProjectId],
+      ["session", context.sessionId]
+    ];
+    const reads = await Promise.all(entries.filter((entry) => Boolean(entry[1])).map(async ([scope, targetId]) => {
+      const read = await this.getStore(scope, targetId).read();
+      return read;
+    }));
+    return {
+      documents: reads.map((read) => read.document),
+      diagnostics: reads.flatMap((read) => read.diagnostics)
+    };
+  }
+  getStore(scope, targetId) {
+    const key = this.storeKey(scope, targetId);
+    const existing = this.stores.get(key);
+    if (existing)
+      return existing;
+    const store = scope === "session" ? new SessionSettingsStore({ targetId, registry: this.registry, clock: this.clock }) : new FileSettingsStore({
+      scope,
+      targetId,
+      registry: this.registry,
+      filePath: settingsDocumentPath(scope, {
+        vaultPath: this.vaultPath,
+        userDevicePath: this.userDevicePath,
+        targetId
+      }),
+      clock: this.clock
+    });
+    this.stores.set(key, store);
+    return store;
+  }
+  storeKey(scope, targetId) {
+    return `${scope}:${targetId}`;
+  }
+  bootstrapAssignments(input) {
+    const values = [
+      ["runtime.python.path", input.pythonPath],
+      ["runtime.kb_meta.path", input.compilerPath],
+      ["vault.path", input.vaultPath],
+      ["vault.id", input.vaultId]
+    ];
+    return values.filter((entry) => Boolean(entry[1])).map(([key, value]) => ({
+      key,
+      value,
+      provenance: { actor: "settings-bootstrap", source: "runtime-adapter" }
+    }));
+  }
+  secretStatuses(documents) {
+    const refs = this.registry.definitions.flatMap((definition) => definition.defaultSecretRef ? [definition.defaultSecretRef] : []).concat(documents.flatMap((document) => document.assignments.flatMap((assignment) => assignment.secretRef ? [assignment.secretRef] : [])));
+    return Object.fromEntries(refs.map((ref) => {
+      const key = `${ref.provider}:${ref.locator}`;
+      if (ref.provider === "environment")
+        return [key, this.environment[ref.locator] ? "present" : "missing"];
+      return [key, "unreachable"];
+    }));
+  }
+  validateResolved(documents, context, snapshot) {
+    const base = validateSettingsDocuments(this.registry, documents, context);
+    const issues = [...base.issues, ...snapshot.effective.flatMap((item) => item.validation.issues)];
+    const effective = new Map(snapshot.effective.map((item) => [item.key, item.value]));
+    if (effective.get("diagnostics.obc.semantic.enabled") === true && effective.get("query.semantic.enabled") !== true) {
+      issues.push({
+        code: "semantic-diagnostics-degraded",
+        severity: "warning",
+        message: "Semantic link suggestions are enabled while semantic query is disabled; deterministic diagnostics remain available.",
+        key: "diagnostics.obc.semantic.enabled",
+        remediation: "Enable query.semantic.enabled or unset the semantic diagnostics override."
+      });
+    }
+    const secret = effective.get("providers.web_search.secret_ref");
+    if (effective.get("providers.web_search.enabled") === true && secret?.status !== "present") {
+      issues.push({
+        code: "web-search-secret-missing",
+        severity: "warning",
+        message: "Web search is enabled but its Secret Reference is not present.",
+        key: "providers.web_search.secret_ref",
+        remediation: "Make the referenced secret available without storing it in Settings."
+      });
+    }
+    const agentMode = effective.get("models.agent.mode");
+    const agentSecret = effective.get("models.agent.secret_ref");
+    if (agentMode === "cloud" && agentSecret?.status !== "present") {
+      issues.push({
+        code: "agent-model-secret-missing",
+        severity: "warning",
+        message: "Cloud Agent model mode is selected but its Secret Reference is not present.",
+        key: "models.agent.secret_ref",
+        remediation: "Bind a device-local Secret Reference or select local/inherit mode."
+      });
+    }
+    return { valid: issues.every((item) => item.severity !== "error"), issues };
+  }
+  health(capabilityId, state, summary, checkedAt, snapshotId, evidenceStatus, remediations) {
+    return {
+      capabilityId,
+      state,
+      summary,
+      evidence: [{ code: `${capabilityId}-probe`, summary, status: evidenceStatus, observedAt: checkedAt }],
+      remediations,
+      checkedAt,
+      snapshotId
+    };
+  }
+};
+function defaultUserDeviceId(environment = process.env) {
+  const configured = environment.LLMWIKI_DEVICE_ID?.trim();
+  return safeIdentity(configured || `device-${hostname3()}`);
+}
+function probePython(executable) {
+  try {
+    const result = spawnSync(executable, ["--version"], { encoding: "utf8", timeout: 1500, windowsHide: true });
+    return result.status === 0;
+  } catch {
+    return false;
+  }
+}
+function safeIdentity(value) {
+  const normalized = value.trim().replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
+  return normalized || "default-vault";
+}
+function effectiveString(snapshot, key) {
+  const value = snapshot.effective.find((item) => item.key === key)?.value;
+  return typeof value === "string" ? value : "";
+}
+function effectiveSecretReference(snapshot, key) {
+  const value = snapshot.effective.find((item) => item.key === key)?.value;
+  if (!value || typeof value !== "object" || Array.isArray(value) || !("secretRef" in value))
+    return void 0;
+  const secretRef = value.secretRef;
+  if (!secretRef || typeof secretRef !== "object" || Array.isArray(secretRef))
+    return void 0;
+  const candidate = secretRef;
+  return typeof candidate.provider === "string" && typeof candidate.locator === "string" ? candidate : void 0;
+}
+
+// dist/settings/settings.js
+function createSettingsService(options) {
+  return new SettingsService({
+    registry: options.registryPath ? loadRegistry(options.registryPath) : bundledRegistry(),
+    vaultPath: options.vaultPath,
+    userDevicePath: options.userDevicePath,
+    userDeviceId: options.userDeviceId,
+    vaultId: options.vaultId,
+    workspaceProjectId: options.workspaceProjectId,
+    sessionId: options.sessionId,
+    pythonPath: options.pythonPath,
+    compilerPath: options.compilerPath,
+    environment: options.environment,
+    clock: options.clock
+  });
+}
+async function resolveAgentModelProcessEnvironment(service, environment = process.env) {
+  const profile = await service.agentModelInvocationProfile();
+  const childEnvironment = { ...environment };
+  if (profile.mode === "inherit")
+    return childEnvironment;
+  if (!profile.provider || !profile.baseUrl || !profile.model) {
+    throw new Error("Agent model mode requires provider, base URL, and model settings");
+  }
+  const credentialLocator = profile.credential?.secretRef.provider === "environment" ? profile.credential.secretRef.locator : void 0;
+  childEnvironment.COMPILE_PROVIDER = profile.provider;
+  childEnvironment.OPENAI_BASE_URL = profile.baseUrl;
+  childEnvironment.COMPILE_MODEL = profile.model;
+  delete childEnvironment.OPENAI_API_KEY;
+  delete childEnvironment.ANTHROPIC_API_KEY;
+  if (credentialLocator)
+    delete childEnvironment[credentialLocator];
+  if (profile.mode === "local")
+    return childEnvironment;
+  const credential = profile.credential;
+  const secret = credential?.secretRef.provider === "environment" ? environment[credential.secretRef.locator] : void 0;
+  if (typeof secret !== "string" || !secret.length) {
+    throw new Error("Cloud Agent model credential Secret Reference is not resolvable on this device");
+  }
+  childEnvironment.OPENAI_API_KEY = secret;
+  return childEnvironment;
+}
+var MUTABLE_SCOPES2 = ["user-device", "vault", "workspace-project", "session"];
+var SETTINGS_SCOPES = ["product", ...MUTABLE_SCOPES2];
+function makeSettingsOps(options, service = createSettingsService(options)) {
+  return [
+    {
+      name: "settings.definitions.list",
+      namespace: "settings",
+      description: "List the versioned canonical setting definitions and presentation metadata.",
+      mutating: false,
+      params: {},
+      handler: async () => service.definitionsList()
+    },
+    {
+      name: "settings.definitions.get",
+      namespace: "settings",
+      description: "Get one canonical setting definition by namespaced key.",
+      mutating: false,
+      params: { key: { type: "string", required: true } },
+      handler: async (_ctx, params) => {
+        try {
+          return service.definitionsGet(requiredString(params.key, "key"));
+        } catch (error48) {
+          throw badRequest(error48.message);
+        }
+      }
+    },
+    {
+      name: "settings.scopes.get",
+      namespace: "settings",
+      description: "Read one redacted scoped settings document and its revision.",
+      mutating: false,
+      params: {
+        scope: { type: "string", required: true, enum: [...SETTINGS_SCOPES] },
+        targetId: { type: "string", required: false }
+      },
+      handler: async (_ctx, params) => {
+        const scope = settingsScopeParam(params.scope);
+        return service.scopesGet(scope, resolvedTargetId(options.vaultPath, scope, optionalString(params.targetId), service.defaultContext, "settings.scopes.get"));
+      }
+    },
+    {
+      name: "settings.snapshot.resolve",
+      namespace: "settings",
+      description: "Resolve the deterministic redacted Settings Snapshot for a runtime context.",
+      mutating: false,
+      params: { context: { type: "object", required: false } },
+      handler: async (_ctx, params) => service.snapshotResolve(runtimeContext(params.context, service.defaultContext, options.vaultPath, "settings.snapshot.resolve"))
+    },
+    {
+      name: "settings.snapshot.explain",
+      namespace: "settings",
+      description: "Explain one effective setting, including precedence, unset scopes, and overridden candidates.",
+      mutating: false,
+      params: {
+        key: { type: "string", required: true },
+        context: { type: "object", required: false }
+      },
+      handler: async (_ctx, params) => service.snapshotExplain(requiredString(params.key, "key"), runtimeContext(params.context, service.defaultContext, options.vaultPath, "settings.snapshot.explain"))
+    },
+    {
+      name: "settings.assignment.set",
+      namespace: "settings",
+      description: "Set one assignment with complete-scope validation and optimistic expected-revision commit.",
+      mutating: true,
+      writePolicy: settingsWritePolicy(options.vaultPath, service.defaultContext, "settings.assignment.set"),
+      params: {
+        scope: { type: "string", required: true, enum: [...MUTABLE_SCOPES2] },
+        targetId: { type: "string", required: false },
+        key: { type: "string", required: true },
+        value: { type: "unknown", required: true },
+        expectedRevision: { type: "number", required: true },
+        updatedBy: { type: "string", required: false },
+        reason: { type: "string", required: false },
+        expiresAt: { type: "string", required: false }
+      },
+      handler: async (ctx, params) => {
+        const scope = scopeParam(params.scope);
+        return service.assignmentSet({
+          scope,
+          targetId: resolvedTargetId(options.vaultPath, scope, optionalString(params.targetId), service.defaultContext, "settings.assignment.set"),
+          key: requiredString(params.key, "key"),
+          value: params.value,
+          expectedRevision: requiredRevision(params.expectedRevision),
+          updatedBy: optionalString(params.updatedBy) ?? ctx.config.collaboration?.actor ?? "mcp",
+          reason: optionalString(params.reason),
+          expiresAt: optionalString(params.expiresAt)
+        });
+      }
+    },
+    {
+      name: "settings.assignment.unset",
+      namespace: "settings",
+      description: "Unset one assignment with complete-scope validation and optimistic expected-revision commit.",
+      mutating: true,
+      writePolicy: settingsWritePolicy(options.vaultPath, service.defaultContext, "settings.assignment.unset"),
+      params: {
+        scope: { type: "string", required: true, enum: [...MUTABLE_SCOPES2] },
+        targetId: { type: "string", required: false },
+        key: { type: "string", required: true },
+        expectedRevision: { type: "number", required: true },
+        updatedBy: { type: "string", required: false },
+        reason: { type: "string", required: false }
+      },
+      handler: async (ctx, params) => {
+        const scope = scopeParam(params.scope);
+        return service.assignmentUnset({
+          scope,
+          targetId: resolvedTargetId(options.vaultPath, scope, optionalString(params.targetId), service.defaultContext, "settings.assignment.unset"),
+          key: requiredString(params.key, "key"),
+          expectedRevision: requiredRevision(params.expectedRevision),
+          updatedBy: optionalString(params.updatedBy) ?? ctx.config.collaboration?.actor ?? "mcp",
+          reason: optionalString(params.reason)
+        });
+      }
+    },
+    {
+      name: "settings.validate",
+      namespace: "settings",
+      description: "Validate definitions, complete scope documents, effective values, and cross-setting constraints.",
+      mutating: false,
+      params: { context: { type: "object", required: false } },
+      handler: async (_ctx, params) => service.validate(runtimeContext(params.context, service.defaultContext, options.vaultPath, "settings.validate"))
+    },
+    {
+      name: "settings.migrations.plan",
+      namespace: "settings",
+      description: "Plan Settings document schema migrations without writing.",
+      mutating: false,
+      params: { context: { type: "object", required: false } },
+      handler: async (_ctx, params) => service.migrationsPlan(runtimeContext(params.context, service.defaultContext, options.vaultPath, "settings.migrations.plan"))
+    },
+    {
+      name: "settings.doctor",
+      namespace: "settings",
+      description: "Report evidence-backed available, degraded, unavailable, and disabled capability health.",
+      mutating: false,
+      params: { context: { type: "object", required: false } },
+      handler: async (_ctx, params) => service.doctor(runtimeContext(params.context, service.defaultContext, options.vaultPath, "settings.doctor"))
+    }
+  ];
+}
+function settingsWritePolicy(vaultPath, defaultContext, operation) {
+  return {
+    realWrite: "always",
+    targets: (_ctx, params) => {
+      const scope = typeof params.scope === "string" ? params.scope : "unknown";
+      const defaultTarget = MUTABLE_SCOPES2.includes(scope) ? targetForScope(scope, defaultContext) : void 0;
+      const suppliedTarget = typeof params.targetId === "string" ? params.targetId : void 0;
+      if (scope === "workspace-project") {
+        const targetId2 = suppliedTarget ?? defaultContext.workspaceProjectId;
+        if (!targetId2)
+          throw badRequest("workspace-project settings require targetId or workspaceProjectId context");
+        const project = resolveProjectContext(vaultPath, targetId2, operation);
+        return [`_llmwiki/settings/projects/${project.slug}.json`];
+      }
+      const targetId = safeTarget(suppliedTarget ?? defaultTarget ?? "current");
+      if (scope === "vault")
+        return ["_llmwiki/settings/vault.json"];
+      return [`_llmwiki/settings/${scope}/${targetId}`];
+    },
+    audit: "required"
+  };
+}
+function runtimeContext(value, defaults2, vaultPath, operation) {
+  if (value === void 0)
+    return canonicalRuntimeContext(defaults2, vaultPath, operation);
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw badRequest("context must be an object");
+  const context = value;
+  return canonicalRuntimeContext({
+    userDeviceId: optionalString(context.userDeviceId) ?? defaults2.userDeviceId,
+    ...optionalString(context.vaultId) ?? defaults2.vaultId ? { vaultId: optionalString(context.vaultId) ?? defaults2.vaultId } : {},
+    ...optionalString(context.workspaceProjectId) ?? defaults2.workspaceProjectId ? { workspaceProjectId: optionalString(context.workspaceProjectId) ?? defaults2.workspaceProjectId } : {},
+    ...optionalString(context.sessionId) ?? defaults2.sessionId ? { sessionId: optionalString(context.sessionId) ?? defaults2.sessionId } : {}
+  }, vaultPath, operation);
+}
+function canonicalRuntimeContext(context, vaultPath, operation) {
+  if (!context.workspaceProjectId)
+    return { ...context };
+  return {
+    ...context,
+    workspaceProjectId: resolveProjectContext(vaultPath, context.workspaceProjectId, operation).projectId
+  };
+}
+function resolvedTargetId(vaultPath, scope, targetId, defaults2, operation) {
+  const resolved = targetId ?? (scope === "product" ? void 0 : targetForScope(scope, defaults2));
+  if (scope !== "workspace-project" || !resolved)
+    return resolved;
+  return resolveProjectContext(vaultPath, resolved, operation).projectId;
+}
+function scopeParam(value) {
+  if (typeof value !== "string" || !MUTABLE_SCOPES2.includes(value)) {
+    throw badRequest(`scope must be one of ${MUTABLE_SCOPES2.join(", ")}`);
+  }
+  return value;
+}
+function settingsScopeParam(value) {
+  if (typeof value !== "string" || !SETTINGS_SCOPES.includes(value)) {
+    throw badRequest(`scope must be one of ${SETTINGS_SCOPES.join(", ")}`);
+  }
+  return value;
+}
+function requiredString(value, name) {
+  if (typeof value !== "string" || !value.trim())
+    throw badRequest(`${name} must be a non-empty string`);
+  return value.trim();
+}
+function optionalString(value) {
+  return typeof value === "string" && value.trim() ? value.trim() : void 0;
+}
+function requiredRevision(value) {
+  if (!Number.isInteger(value) || value < 0)
+    throw badRequest("expectedRevision must be a non-negative integer");
+  return value;
+}
+function safeTarget(value) {
+  const safe = value.trim().replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
+  return safe || "current";
+}
+
+// dist/project/project-hub.js
+function filesBelow(vaultPath, root) {
+  const fullRoot = join16(vaultPath, root);
+  if (!existsSync12(fullRoot))
+    return [];
+  const out = [];
+  if (statSync3(fullRoot).isFile()) {
+    return [{ path: root.replaceAll("\\", "/"), modifiedAt: statSync3(fullRoot).mtime.toISOString() }];
+  }
+  const visit = (directory) => {
+    for (const entry of readdirSync8(directory, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      const fullPath = join16(directory, entry.name);
+      if (entry.isDirectory())
+        visit(fullPath);
+      else if (entry.isFile()) {
+        out.push({
+          path: relative4(vaultPath, fullPath).replaceAll("\\", "/"),
+          modifiedAt: statSync3(fullPath).mtime.toISOString()
+        });
+      }
+    }
+  };
+  visit(fullRoot);
+  return out;
+}
+function newest(files) {
+  return files.reduce((latest, file2) => !latest || file2.modifiedAt > latest ? file2.modifiedAt : latest, null);
+}
+function section(owner, files, data, drift = []) {
+  return {
+    owner,
+    freshness: newest(files),
+    health: drift.length > 0 ? "degraded" : files.length > 0 ? "healthy" : "empty",
+    drift,
+    data
+  };
+}
+function frontmatterValue(content, key) {
+  const match = content.match(new RegExp(`^${key}:\\s*(.+)$`, "mi"));
+  return match?.[1]?.trim().replace(/^['"]|['"]$/g, "") ?? null;
+}
+function workSection(vaultPath, context) {
+  const files = filesBelow(vaultPath, context.roots.workOs);
+  const issues = files.filter((file2) => file2.path.includes("/issues/") && file2.path.endsWith(".md"));
+  const states = {};
+  for (const issue3 of issues) {
+    const status = frontmatterValue(readFileSync14(join16(vaultPath, issue3.path), "utf-8"), "status") ?? "unknown";
+    states[status] = (states[status] ?? 0) + 1;
+  }
+  const anchor = files.find((file2) => file2.path.endsWith("/_project.md"));
+  return section("work-os", files, { root: context.roots.workOs, anchor: anchor?.path ?? null, issueCount: issues.length, states }, anchor ? [] : ["missing_work_os_anchor"]);
+}
+function knowledgeSection(vaultPath, context) {
+  const files = filesBelow(vaultPath, context.roots.knowledge);
+  const markdown = files.filter((file2) => file2.path.endsWith(".md"));
+  return section("knowledge", files, { root: context.roots.knowledge, itemCount: markdown.length });
+}
+function runtimeSection(vaultPath, context) {
+  const runFiles = filesBelow(vaultPath, `${context.roots.workOs}/runs`).filter((file2) => file2.path.endsWith(".json"));
+  const agentFiles = filesBelow(vaultPath, `${context.roots.workOs}/agents`);
+  const runs = [];
+  const drift = [];
+  for (const file2 of runFiles) {
+    try {
+      const raw = JSON.parse(readFileSync14(join16(vaultPath, file2.path), "utf-8"));
+      runs.push({
+        workRunId: raw.workRunId ?? raw.work_run_id ?? null,
+        state: raw.state ?? null,
+        workItemId: raw.workItemId ?? raw.work_item_id ?? null,
+        path: file2.path
+      });
+    } catch {
+      drift.push(`malformed_run:${file2.path}`);
+    }
+  }
+  const activeStates = /* @__PURE__ */ new Set(["planned", "leased", "running", "awaiting_review"]);
+  return section("runtime", [...runFiles, ...agentFiles], {
+    activeRuns: runs.filter((run) => activeStates.has(String(run.state))),
+    runCount: runs.length,
+    agentStateFiles: agentFiles.map((file2) => file2.path)
+  }, drift);
+}
+function redactedEffectiveSetting(service, item) {
+  const sensitivity = service.registry.definitions.find((definition) => definition.key === item.key)?.sensitivity;
+  return {
+    ...item,
+    value: sensitivity === "local" ? { redacted: true, configured: item.value !== null && item.value !== "" } : item.value,
+    overriddenCandidates: item.overriddenCandidates.map((candidate) => ({
+      ...candidate,
+      value: sensitivity === "local" ? { redacted: true, configured: candidate.value !== null && candidate.value !== "" } : candidate.value
+    }))
+  };
+}
+async function settingsSection(service, project) {
+  try {
+    const context = { ...service.defaultContext, workspaceProjectId: project.projectId };
+    const resolved = await service.snapshotResolve(context);
+    const effective = resolved.snapshot.effective.map((item) => redactedEffectiveSetting(service, item));
+    const data = {
+      schemaVersion: 1,
+      snapshotId: resolved.snapshot.snapshotId,
+      registryVersion: resolved.snapshot.registryVersion,
+      context: resolved.snapshot.context,
+      sourceRevisions: resolved.snapshot.sourceRevisions,
+      effective,
+      validation: resolved.validation,
+      recoveryDiagnostics: resolved.recoveryDiagnostics
+    };
+    const drift = [
+      ...resolved.validation.issues.map((issue3) => issue3.code),
+      ...resolved.recoveryDiagnostics.map((issue3) => issue3.code)
+    ];
+    return {
+      owner: "settings-platform",
+      freshness: resolved.snapshot.createdAt,
+      health: drift.length > 0 ? "degraded" : "healthy",
+      drift: [...new Set(drift)].sort(),
+      data: {
+        ...data,
+        snapshotHash: createHash2("sha256").update(JSON.stringify(data)).digest("hex")
+      }
+    };
+  } catch (error48) {
+    return {
+      owner: "settings-platform",
+      freshness: null,
+      health: "unavailable",
+      drift: ["settings_unavailable"],
+      data: { error: error48.message }
+    };
+  }
+}
+function capabilitySection(registry3) {
+  const adapters = registry3.list().map((adapter) => ({
+    name: adapter.name,
+    capabilities: [...adapter.capabilities].sort(),
+    available: adapter.isAvailable !== false
+  })).sort((a, b) => a.name.localeCompare(b.name));
+  const unavailable = adapters.filter((adapter) => !adapter.available).map((adapter) => `adapter_unavailable:${adapter.name}`);
+  return {
+    owner: "capability-registry",
+    freshness: null,
+    health: unavailable.length ? "degraded" : adapters.length ? "healthy" : "empty",
+    drift: unavailable,
+    data: { adapters }
+  };
+}
+function workspaceSection(context) {
+  if (!context.workspace) {
+    return { owner: "workspace-binding", freshness: null, health: "empty", drift: ["workspace_not_bound"], data: { binding: null } };
+  }
+  return {
+    owner: "workspace-binding",
+    freshness: null,
+    health: context.workspace.available ? "healthy" : "unavailable",
+    drift: context.workspace.available ? [] : ["workspace_unavailable"],
+    data: { binding: { configured: true, available: context.workspace.available } }
+  };
+}
+function integrationSection(context) {
+  const projections = context.projections.map((projection) => ({ ...projection, stateOwner: "provider", copiedState: false }));
+  return {
+    owner: "external-provider",
+    freshness: null,
+    health: projections.length ? "degraded" : "empty",
+    drift: projections.map((projection) => `projection_unverified:${projection.kind}`),
+    data: { projections }
+  };
+}
+async function composeProjectHub(ctx, registry3, reference, settingsService = createSettingsService({ vaultPath: ctx.config.vault_path })) {
+  const project = resolveProjectContext(ctx.config.vault_path, reference, "project.hub.get");
+  const registryFiles = filesBelow(ctx.config.vault_path, project.roots.registryRecord);
+  return {
+    projectId: project.projectId,
+    slug: project.slug,
+    lifecycle: project.lifecycle,
+    generatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+    readOnly: true,
+    diagnostics: project.diagnostics,
+    sections: {
+      identity: section("project-registry", registryFiles, {
+        projectId: project.projectId,
+        slug: project.slug,
+        lifecycle: project.lifecycle,
+        aliases: project.aliases,
+        registryRecord: project.roots.registryRecord
+      }, project.diagnostics.filter((item) => item.severity !== "info").map((item) => item.code)),
+      work: workSection(ctx.config.vault_path, project),
+      knowledge: knowledgeSection(ctx.config.vault_path, project),
+      runtime: runtimeSection(ctx.config.vault_path, project),
+      settings: await settingsSection(settingsService, project),
+      capabilities: capabilitySection(registry3),
+      workspace: workspaceSection(project),
+      integrations: integrationSection(project)
+    },
+    mutationRoutes: {
+      identity: "project.init",
+      work: "project.issue.* / workflow.agent.*",
+      knowledge: "source.register / memory.*",
+      settings: "settings owner (backend configuration)",
+      integrations: "provider-owned operations"
+    }
+  };
+}
+function makeProjectHubOps(registry3, settingsService) {
+  return [{
+    name: "project.hub.get",
+    namespace: "project",
+    description: "Compose a read-only Project Hub from registry, Work-OS, knowledge, runtime, settings, capabilities, workspace, and provider-owned integrations.",
+    mutating: false,
+    params: {
+      ref: { type: "string", required: false, description: "Canonical Project ID, registered alias/slug, or bound workspace path" },
+      project: { type: "string", required: false, description: "Compatibility alias for ref" }
+    },
+    handler: async (ctx, params) => {
+      const reference = params.ref ?? params.project;
+      if (typeof reference !== "string" || !reference.trim())
+        throw badRequest("ref or project is required");
+      return composeProjectHub(ctx, registry3, reference, settingsService);
+    }
+  }];
 }
 
 // dist/ingest/ingest.js
@@ -44935,7 +47896,7 @@ var PROVIDERS = {
   }
 };
 var LOGIN_LIMITATION = "Login-gated, private, deleted, paywalled, or region-blocked content may require browser/cookie-assisted capture.";
-var NO_BYPASS_LIMITATION = "LLMwiki must not bypass platform access controls; use only content available to the user and configured providers.";
+var NO_BYPASS_LIMITATION = "LLM Wiki must not bypass platform access controls; use only content available to the user and configured providers.";
 function hostMatches(host, candidates) {
   return candidates.some((candidate) => host === candidate || host.endsWith(`.${candidate}`));
 }
@@ -45064,9 +48025,9 @@ function detectPlatform(url2) {
   }
   return webProfile("generic-web", "Generic web page", "web", "web-capture", "medium", "public", ["OPENCLI web capture"]);
 }
-function mediaProfile(platform, label, sourceKind, mode, confidence, accessContext, needs, extraLimitations = []) {
+function mediaProfile(platform2, label, sourceKind, mode, confidence, accessContext, needs, extraLimitations = []) {
   return {
-    platform,
+    platform: platform2,
     label,
     sourceType: "video",
     sourceKind,
@@ -45078,9 +48039,9 @@ function mediaProfile(platform, label, sourceKind, mode, confidence, accessConte
     limitations: [LOGIN_LIMITATION, ...extraLimitations, NO_BYPASS_LIMITATION]
   };
 }
-function webProfile(platform, label, sourceType, mode, confidence, accessContext, needs, extraLimitations = []) {
+function webProfile(platform2, label, sourceType, mode, confidence, accessContext, needs, extraLimitations = []) {
   return {
-    platform,
+    platform: platform2,
     label,
     sourceType,
     sourceKind: sourceType === "article" ? "article" : "post",
@@ -45112,7 +48073,7 @@ function chooseProvider(profile, preferred) {
     return "media";
   throw badRequest("preferredProvider must be auto, opencli, or media");
 }
-function statusFor(profile, configured) {
+function statusFor2(profile, configured) {
   if (!configured)
     return "needs_provider";
   if (profile.mode === "browser-capture")
@@ -45129,7 +48090,7 @@ function nextAction(status, provider, config2) {
     return `Use ${provider.name} with browser/cookie-assisted access as needed; claim success only after Markdown lands in the vault and query.unified can find it.`;
   }
   if (status === "manual_required") {
-    return `Try ${provider.name}, but expect manual/Web Clipper fallback; LLMwiki should only claim success after a local Markdown note exists.`;
+    return `Try ${provider.name}, but expect manual/Web Clipper fallback; LLM Wiki should only claim success after a local Markdown note exists.`;
   }
   return `Run ${provider.name} via ${config2.command}; once Markdown lands in the vault, use query.unified for cited analysis.`;
 }
@@ -45161,7 +48122,7 @@ function preflight(params) {
   const providerId = chooseProvider(profile, params.preferredProvider);
   const provider = PROVIDERS[providerId];
   const config2 = providerConfig(providerId);
-  const status = statusFor(profile, config2.configured);
+  const status = statusFor2(profile, config2.configured);
   return {
     url: url2.toString(),
     platform: profile.platform,
@@ -45195,7 +48156,7 @@ function makeIngestOps() {
     {
       name: "ingest.providers",
       namespace: "ingest",
-      description: "List supported local ingest providers. LLMwiki routes to OPENCLI for text/web capture and MEDIA_TRANSCRIBE for audio/video parsing, download, and transcription; it does not bundle platform scrapers.",
+      description: "List supported local ingest providers. LLM Wiki routes to OPENCLI for text/web capture and MEDIA_TRANSCRIBE for audio/video parsing, download, and transcription; it does not bundle platform scrapers.",
       mutating: false,
       params: {},
       handler: async () => ({
@@ -45235,9 +48196,9 @@ function makeIngestOps() {
 }
 
 // dist/source/source.js
-import { createHash } from "node:crypto";
-import { existsSync as existsSync10, mkdirSync as mkdirSync7, readFileSync as readFileSync12, rmSync as rmSync2, statSync as statSync3, writeFileSync as writeFileSync5 } from "node:fs";
-import { basename as basename4, dirname as dirname7, extname, join as join14, relative as relative4, isAbsolute as pathIsAbsolute } from "node:path";
+import { createHash as createHash3 } from "node:crypto";
+import { existsSync as existsSync13, mkdirSync as mkdirSync7, readFileSync as readFileSync15, rmSync as rmSync2, statSync as statSync4, writeFileSync as writeFileSync5 } from "node:fs";
+import { basename as basename6, dirname as dirname8, extname, join as join17, relative as relative5, isAbsolute as pathIsAbsolute } from "node:path";
 var REGISTRY_REL_PATH = "_llmwiki/source-registry.json";
 var LOCK_TTL_MS2 = 6e4;
 var RESERVED_INPUT_TYPES = /* @__PURE__ */ new Set(["filePath", "directoryPath", "repoPath", "text"]);
@@ -45251,7 +48212,7 @@ function makeSourceOps(vaultPath) {
       mutating: true,
       writePolicy: {
         realWrite: "always",
-        targets: (_ctx, params) => sourcePolicyTargetPaths(params),
+        targets: (ctx, params) => sourcePolicyTargetPaths(ctx.config, params, "source.register"),
         audit: "required",
         effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), "create")]
       },
@@ -45322,11 +48283,13 @@ function registerSource(ctx, vaultPath, params) {
   if (RESERVED_INPUT_TYPES.has(inputType)) {
     throw unsupported(`source.register does not support inputType=${inputType} in Phase 1`);
   }
-  const project = optionalSafeSegment(params.project, "project");
+  const projectContext = optionalString2(params.project) ? resolveProjectContext(vaultPath, optionalString2(params.project), "source.register") : void 0;
+  const project = projectContext?.slug;
+  const projectId2 = projectContext?.projectId;
   const actor = actorFromContext3(ctx);
-  const titleOverride = optionalString(params.title);
+  const titleOverride = optionalString2(params.title);
   const tags = stringArray(params.tags);
-  const notes = optionalString(params.notes);
+  const notes = optionalString2(params.notes);
   const now = (/* @__PURE__ */ new Date()).toISOString();
   const prepared = inputType === "url" ? prepareUrlSource(input, params) : prepareVaultPathSource(vaultPath, input, params);
   const title = titleOverride ?? prepared.title;
@@ -45334,8 +48297,8 @@ function registerSource(ctx, vaultPath, params) {
   const registryPath = registryFullPath(vaultPath);
   let saved;
   withFileLock2(registryPath, () => {
-    const registry2 = readRegistry(registryPath);
-    const existing = registry2.sources[id];
+    const registry3 = readRegistry(registryPath);
+    const existing = registry3.sources[id];
     const notePath = existing?.notePath ?? sourceNotePath(project, prepared.platform, `${slugify4(title)}-${id.slice(4)}`);
     const record2 = {
       id,
@@ -45346,6 +48309,7 @@ function registerSource(ctx, vaultPath, params) {
       sourceKind: prepared.sourceKind,
       title,
       project,
+      projectId: projectId2,
       actor,
       notePath,
       tags,
@@ -45355,9 +48319,9 @@ function registerSource(ctx, vaultPath, params) {
       updated_at: now
     };
     writeTextLocked(vaultFullPath(vaultPath, notePath), sourceNoteMarkdown(record2));
-    registry2.sources[id] = record2;
-    registry2.updated_at = now;
-    writeFileSync5(registryPath, JSON.stringify(registry2, null, 2) + "\n", "utf-8");
+    registry3.sources[id] = record2;
+    registry3.updated_at = now;
+    writeFileSync5(registryPath, JSON.stringify(registry3, null, 2) + "\n", "utf-8");
     saved = record2;
   });
   if (!saved)
@@ -45365,25 +48329,27 @@ function registerSource(ctx, vaultPath, params) {
   return { ...saved, ok: true, path: saved.notePath, registryPath: REGISTRY_REL_PATH };
 }
 function listSources(vaultPath, params) {
-  const registry2 = readRegistry(registryFullPath(vaultPath));
-  const project = optionalString(params.project);
-  const platform = optionalString(params.platform);
-  const inputType = optionalString(params.inputType);
-  const sources = Object.values(registry2.sources).filter((source) => project ? source.project === project : true).filter((source) => platform ? source.platform === platform : true).filter((source) => inputType ? source.inputType === inputType : true).sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+  const registry3 = readRegistry(registryFullPath(vaultPath));
+  const projectRef = optionalString2(params.project);
+  const projectContext = projectRef ? resolveProjectContext(vaultPath, projectRef, "source.list") : void 0;
+  const project = projectContext?.slug;
+  const platform2 = optionalString2(params.platform);
+  const inputType = optionalString2(params.inputType);
+  const sources = Object.values(registry3.sources).filter((source) => project ? source.project === project : true).filter((source) => platform2 ? source.platform === platform2 : true).filter((source) => inputType ? source.inputType === inputType : true).sort((a, b) => b.updated_at.localeCompare(a.updated_at));
   return { sources };
 }
 function getSource(vaultPath, params) {
-  const registry2 = readRegistry(registryFullPath(vaultPath));
-  const id = optionalString(params.id) ?? sourceIdForInput(vaultPath, params);
+  const registry3 = readRegistry(registryFullPath(vaultPath));
+  const id = optionalString2(params.id) ?? sourceIdForInput(vaultPath, params);
   if (!id)
     throw badRequest("source.get requires id or input");
-  const source = registry2.sources[id];
+  const source = registry3.sources[id];
   if (!source)
     throw notFound(`Source not found: ${id}`);
   return source;
 }
 function sourceIdForInput(vaultPath, params) {
-  const input = optionalString(params.input);
+  const input = optionalString2(params.input);
   if (!input)
     return void 0;
   const inputType = parseInputType(params.inputType);
@@ -45395,13 +48361,13 @@ function sourceIdForInput(vaultPath, params) {
 }
 function prepareUrlSource(input, params) {
   const canonical = canonicalUrl(input);
-  const preferredProvider = optionalString(params.preferredProvider);
+  const preferredProvider = optionalString2(params.preferredProvider);
   const plan = preflight({ url: canonical, preferredProvider });
-  const platform = safeSegment3(optionalString(params.platform) ?? stringValue3(plan.platform) ?? detectPlatform2(canonical), "platform");
-  const sourceKind = optionalString(params.sourceKind) ?? stringValue3(plan.sourceKind) ?? stringValue3(plan.source_kind) ?? "url";
+  const platform2 = safeSegment3(optionalString2(params.platform) ?? stringValue3(plan.platform) ?? detectPlatform2(canonical), "platform");
+  const sourceKind = optionalString2(params.sourceKind) ?? stringValue3(plan.sourceKind) ?? stringValue3(plan.source_kind) ?? "url";
   return {
     canonical,
-    platform,
+    platform: platform2,
     sourceKind,
     title: titleFromUrl(canonical),
     preflight: plan
@@ -45409,14 +48375,14 @@ function prepareUrlSource(input, params) {
 }
 function prepareVaultPathSource(vaultPath, input, params) {
   const normalized = normalizeVaultRelPath(vaultPath, input);
-  if (!existsSync10(vaultFullPath(vaultPath, normalized))) {
+  if (!existsSync13(vaultFullPath(vaultPath, normalized))) {
     throw notFound(`Vault path not found: ${normalized}`);
   }
   return {
     canonical: `vault:${normalized}`,
-    platform: safeSegment3(optionalString(params.platform) ?? "vault", "platform"),
-    sourceKind: optionalString(params.sourceKind) ?? "vaultPath",
-    title: basename4(normalized, extname(normalized))
+    platform: safeSegment3(optionalString2(params.platform) ?? "vault", "platform"),
+    sourceKind: optionalString2(params.sourceKind) ?? "vaultPath",
+    title: basename6(normalized, extname(normalized))
   };
 }
 function parseInputType(value) {
@@ -45456,17 +48422,17 @@ function normalizeVaultRelPath(vaultPath, input) {
   const top = normalized.split("/")[0];
   if (PROTECTED_DIRS3.has(top))
     throw badRequest(`protected path: ${top}`);
-  const full = join14(vaultPath, normalized.replace(/\//g, "\\"));
-  const rel = relative4(vaultPath, full);
+  const full = join17(vaultPath, normalized.replace(/\//g, "\\"));
+  const rel = relative5(vaultPath, full);
   if (rel.startsWith("..") || pathIsAbsolute(rel))
     throw badRequest("vaultPath escapes vault");
   return normalized;
 }
 function readRegistry(fullPath) {
-  if (!existsSync10(fullPath)) {
+  if (!existsSync13(fullPath)) {
     return { version: 1, updated_at: (/* @__PURE__ */ new Date(0)).toISOString(), sources: {} };
   }
-  const parsed = JSON.parse(readFileSync12(fullPath, "utf-8"));
+  const parsed = JSON.parse(readFileSync15(fullPath, "utf-8"));
   return {
     version: 1,
     updated_at: typeof parsed.updated_at === "string" ? parsed.updated_at : (/* @__PURE__ */ new Date(0)).toISOString(),
@@ -45477,10 +48443,10 @@ function registryFullPath(vaultPath) {
   return vaultFullPath(vaultPath, REGISTRY_REL_PATH);
 }
 function vaultFullPath(vaultPath, relPath) {
-  return join14(vaultPath, ...relPath.split("/"));
+  return join17(vaultPath, ...relPath.split("/"));
 }
-function sourceNotePath(project, platform, slug) {
-  return project ? `10-Projects/${project}/sources/${platform}/${slug}.md` : `00-Inbox/Sources/${platform}/${slug}.md`;
+function sourceNotePath(project, platform2, slug) {
+  return project ? `10-Projects/${project}/sources/${platform2}/${slug}.md` : `00-Inbox/Sources/${platform2}/${slug}.md`;
 }
 function sourceNoteMarkdown(source) {
   return [
@@ -45491,6 +48457,7 @@ function sourceNoteMarkdown(source) {
     `platform: ${yamlString2(source.platform)}`,
     `source-kind: ${yamlString2(source.sourceKind)}`,
     `actor: ${yamlString2(source.actor)}`,
+    source.projectId ? `project-id: ${yamlString2(source.projectId)}` : "project-id: null",
     source.project ? `project: ${yamlString2(source.project)}` : "project: null",
     `canonical: ${yamlString2(source.canonical)}`,
     `registered-at: ${yamlString2(source.created_at)}`,
@@ -45530,7 +48497,7 @@ function sourceNoteMarkdown(source) {
   ].join("\n");
 }
 function withFileLock2(fullPath, fn) {
-  mkdirSync7(dirname7(fullPath), { recursive: true });
+  mkdirSync7(dirname8(fullPath), { recursive: true });
   const lockPath = `${fullPath}.lock`;
   const acquire = () => writeFileSync5(lockPath, JSON.stringify({ pid: process.pid, timestamp: Date.now() }), {
     encoding: "utf-8",
@@ -45541,9 +48508,9 @@ function withFileLock2(fullPath, fn) {
   } catch (e) {
     if (e.code !== "EEXIST")
       throw e;
-    const ageMs = existsSync10(lockPath) ? Date.now() - statSync3(lockPath).mtimeMs : LOCK_TTL_MS2 + 1;
+    const ageMs = existsSync13(lockPath) ? Date.now() - statSync4(lockPath).mtimeMs : LOCK_TTL_MS2 + 1;
     if (ageMs < LOCK_TTL_MS2)
-      throw conflict(`Lock conflict on ${basename4(fullPath)}`);
+      throw conflict(`Lock conflict on ${basename6(fullPath)}`);
     rmSync2(lockPath, { force: true });
     acquire();
   }
@@ -45555,19 +48522,15 @@ function withFileLock2(fullPath, fn) {
 }
 function writeTextLocked(fullPath, content) {
   withFileLock2(fullPath, () => {
-    mkdirSync7(dirname7(fullPath), { recursive: true });
+    mkdirSync7(dirname8(fullPath), { recursive: true });
     writeFileSync5(fullPath, content, "utf-8");
   });
 }
 function sourceId(canonical) {
-  return `src_${createHash("sha256").update(canonical).digest("hex").slice(0, 12)}`;
+  return `src_${createHash3("sha256").update(canonical).digest("hex").slice(0, 12)}`;
 }
 function actorFromContext3(ctx) {
   return safeSegment3(ctx.config.collaboration?.actor || process.env.VAULT_MIND_ACTOR || "agent", "actor");
-}
-function optionalSafeSegment(value, label) {
-  const text = optionalString(value);
-  return text ? safeSegment3(text, label) : void 0;
 }
 function safeSegment3(value, label) {
   const trimmed = value.trim();
@@ -45581,7 +48544,7 @@ function requireString(value, label) {
     throw badRequest(`${label} required`);
   return value.trim();
 }
-function optionalString(value) {
+function optionalString2(value) {
   return typeof value === "string" && value.trim() ? value.trim() : void 0;
 }
 function stringValue3(value) {
@@ -45631,8 +48594,8 @@ function fencedJson(value) {
 }
 
 // dist/conversation/conversation.js
-import { existsSync as existsSync11, mkdirSync as mkdirSync8, readdirSync as readdirSync7, readFileSync as readFileSync13, rmSync as rmSync3, statSync as statSync4, writeFileSync as writeFileSync6 } from "node:fs";
-import { basename as basename5, dirname as dirname8, join as join15, resolve as resolve5, sep as sep2 } from "node:path";
+import { existsSync as existsSync14, mkdirSync as mkdirSync8, readdirSync as readdirSync9, readFileSync as readFileSync16, rmSync as rmSync3, statSync as statSync5, writeFileSync as writeFileSync6 } from "node:fs";
+import { basename as basename7, dirname as dirname9, join as join18, resolve as resolve6, sep as sep2 } from "node:path";
 var DEFAULT_ACTOR2 = "agent";
 var LOCK_TTL_MS3 = 6e4;
 function withFileLock3(fullPath, fn) {
@@ -45646,9 +48609,9 @@ function withFileLock3(fullPath, fn) {
   } catch (e) {
     if (e.code !== "EEXIST")
       throw e;
-    const ageMs = existsSync11(lockPath) ? Date.now() - statSync4(lockPath).mtimeMs : LOCK_TTL_MS3 + 1;
+    const ageMs = existsSync14(lockPath) ? Date.now() - statSync5(lockPath).mtimeMs : LOCK_TTL_MS3 + 1;
     if (ageMs < LOCK_TTL_MS3)
-      throw makeErr(-32010, `Lock conflict on ${basename5(fullPath)}`);
+      throw makeErr(-32010, `Lock conflict on ${basename7(fullPath)}`);
     rmSync3(lockPath, { force: true });
     acquire();
   }
@@ -45739,8 +48702,8 @@ function normalizeVaultRelPath2(path) {
   return normalized;
 }
 function ensureInsideVault(vaultPath, relPath) {
-  const root = resolve5(vaultPath);
-  const fullPath = resolve5(vaultPath, relPath);
+  const root = resolve6(vaultPath);
+  const fullPath = resolve6(vaultPath, relPath);
   const rootPrefix = root.endsWith(sep2) ? root : root + sep2;
   if (fullPath !== root && !fullPath.startsWith(rootPrefix))
     throw makeErr(-32602, "path traversal blocked");
@@ -45751,9 +48714,9 @@ function ensureDecisionPath(relPath) {
     throw makeErr(-32602, "path must point to a conversation decision markdown file");
   }
 }
-function decisionMarkdown(ctx, params, now) {
+function decisionMarkdown(vaultPath, ctx, params, now) {
   const actor = actorFromContext4(ctx);
-  const project = typeof params.project === "string" && params.project.trim() ? safeSegment4(params.project, "project") : void 0;
+  const project = typeof params.project === "string" && params.project.trim() ? resolveProjectContext(vaultPath, params.project, "conversation.decision.capture").slug : void 0;
   const title = String(params.title ?? "").trim();
   if (!title)
     throw makeErr(-32602, "title required");
@@ -45846,12 +48809,12 @@ function preview(content) {
   return content.replace(/^---[\s\S]*?---\s*/m, "").replace(/\s+/g, " ").trim().slice(0, 180);
 }
 function listDecisionDir(vaultPath, relDir, tag) {
-  const fullDir = join15(vaultPath, relDir);
-  if (!existsSync11(fullDir))
+  const fullDir = join18(vaultPath, relDir);
+  if (!existsSync14(fullDir))
     return [];
-  return readdirSync7(fullDir, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".md")).map((entry) => {
-    const fullPath = join15(fullDir, entry.name);
-    const content = readFileSync13(fullPath, "utf-8");
+  return readdirSync9(fullDir, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".md")).map((entry) => {
+    const fullPath = join18(fullDir, entry.name);
+    const content = readFileSync16(fullPath, "utf-8");
     const fm = parseFrontmatter(content);
     const tags = parseTags(fm.tags);
     return {
@@ -45859,7 +48822,7 @@ function listDecisionDir(vaultPath, relDir, tag) {
       title: fm.title || entry.name.replace(/\.md$/, ""),
       preview: preview(content),
       status: fm.status || "captured",
-      captured_at: fm["captured-at"] || statSync4(fullPath).mtime.toISOString(),
+      captured_at: fm["captured-at"] || statSync5(fullPath).mtime.toISOString(),
       tags
     };
   }).filter((item) => !tag || item.tags.includes(tag)).sort((a, b) => b.captured_at.localeCompare(a.captured_at));
@@ -45873,7 +48836,7 @@ function makeConversationOps(vaultPath) {
       mutating: true,
       writePolicy: {
         realWrite: "dryRunFalse",
-        targets: (ctx, params) => [`${memoryPolicyBasePath(ctx.config, params)}/decisions/**`],
+        targets: (ctx, params) => [`${memoryPolicyBasePath(ctx.config, params, "conversation.decision.capture")}/decisions/**`],
         audit: "required",
         effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), "create")]
       },
@@ -45896,11 +48859,11 @@ function makeConversationOps(vaultPath) {
       },
       handler: async (ctx, params) => {
         const now = (/* @__PURE__ */ new Date()).toISOString();
-        const { path, content } = decisionMarkdown(ctx, params, now);
+        const { path, content } = decisionMarkdown(vaultPath, ctx, params, now);
         const dryRun = params.dryRun ?? false;
         if (!dryRun) {
           const fullPath = ensureInsideVault(vaultPath, path);
-          mkdirSync8(dirname8(fullPath), { recursive: true });
+          mkdirSync8(dirname9(fullPath), { recursive: true });
           withFileLock3(fullPath, () => writeFileSync6(fullPath, content, { encoding: "utf-8", flag: "wx" }));
         }
         return {
@@ -45924,7 +48887,7 @@ function makeConversationOps(vaultPath) {
       },
       handler: async (ctx, params) => {
         const actor = actorFromContext4(ctx);
-        const project = typeof params.project === "string" && params.project.trim() ? safeSegment4(params.project, "project") : void 0;
+        const project = typeof params.project === "string" && params.project.trim() ? resolveProjectContext(vaultPath, params.project, "conversation.decision.list").slug : void 0;
         const limit = Math.max(1, Math.min(params.limit ?? 20, 100));
         const tag = typeof params.tag === "string" && params.tag.trim() ? params.tag.trim() : void 0;
         const decisions = listDecisionDir(vaultPath, decisionBasePath(project, actor), tag).slice(0, limit);
@@ -45943,9 +48906,9 @@ function makeConversationOps(vaultPath) {
         const relPath = normalizeVaultRelPath2(String(params.path ?? ""));
         ensureDecisionPath(relPath);
         const fullPath = ensureInsideVault(vaultPath, relPath);
-        if (!existsSync11(fullPath))
+        if (!existsSync14(fullPath))
           throw makeErr(-32001, `Decision not found: ${relPath}`);
-        const content = readFileSync13(fullPath, "utf-8");
+        const content = readFileSync16(fullPath, "utf-8");
         if (!/^conversation-decision:\s*true/m.test(content)) {
           throw makeErr(-32602, "path is not a conversation decision note");
         }
@@ -45956,8 +48919,100 @@ function makeConversationOps(vaultPath) {
 }
 
 // dist/context/context.js
-import { existsSync as existsSync12, readdirSync as readdirSync8, readFileSync as readFileSync14, statSync as statSync5 } from "node:fs";
-import { join as join16 } from "node:path";
+import { existsSync as existsSync16, readdirSync as readdirSync10, readFileSync as readFileSync17, statSync as statSync7 } from "node:fs";
+import { join as join19 } from "node:path";
+
+// dist/adapters/vaultbrain/vault-status.js
+import { existsSync as existsSync15, statSync as statSync6 } from "node:fs";
+var MIN_MARKDOWN_FILES = 5;
+var DEFAULT_QUERY_TIMEOUT_MS = 2e3;
+function classifyVaultReadiness(input) {
+  const { vaultExists, markdownCount, chunkCount, indexingInProgress, newestMarkdownMtimeMs, lastIndexedAtMs } = input;
+  const base = { markdownCount, chunkCount, indexingInProgress, newestMarkdownMtimeMs, lastIndexedAtMs };
+  let bucket;
+  if (!vaultExists) {
+    bucket = "vault_missing";
+  } else if (markdownCount < MIN_MARKDOWN_FILES) {
+    bucket = "empty_vault";
+  } else if (chunkCount === 0) {
+    bucket = "unindexed";
+  } else if (indexingInProgress || newestMarkdownMtimeMs !== null && lastIndexedAtMs !== null && newestMarkdownMtimeMs > lastIndexedAtMs) {
+    bucket = "stale_or_backgrounding";
+  } else {
+    bucket = "ready";
+  }
+  return { bucket, ...base };
+}
+function isActivelyIndexing(status) {
+  return status === "in_progress" || status === "indexing_background";
+}
+function withTimeout(promise2, ms, onTimeout) {
+  return new Promise((resolve8) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        resolve8(onTimeout);
+      }
+    }, ms);
+    promise2.then((value) => {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timer);
+        resolve8(value);
+      }
+    }, () => {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timer);
+        resolve8(onTimeout);
+      }
+    });
+  });
+}
+async function gatherVaultStatus(vaultPath, vba, opts) {
+  const timeoutMs = opts?.queryTimeoutMs ?? DEFAULT_QUERY_TIMEOUT_MS;
+  let vaultExists = false;
+  let markdownCount = 0;
+  let newestMarkdownMtimeMs = null;
+  try {
+    vaultExists = Boolean(vaultPath && vaultPath.trim() && existsSync15(vaultPath));
+    if (vaultExists && vaultPath) {
+      const files = listVaultMarkdown(vaultPath);
+      markdownCount = files.length;
+      for (const file2 of files) {
+        try {
+          const mtimeMs = statSync6(file2).mtimeMs;
+          if (newestMarkdownMtimeMs === null || mtimeMs > newestMarkdownMtimeMs) {
+            newestMarkdownMtimeMs = mtimeMs;
+          }
+        } catch {
+        }
+      }
+    }
+  } catch {
+    vaultExists = false;
+    markdownCount = 0;
+    newestMarkdownMtimeMs = null;
+  }
+  let chunkCount = 0;
+  let lastIndexedAtMs = null;
+  if (vba && vba.isAvailable) {
+    chunkCount = await withTimeout(vba.countChunks(), timeoutMs, 0);
+    lastIndexedAtMs = await withTimeout(vba.getLastIndexedAtMs(), timeoutMs, null);
+  }
+  const indexingInProgress = opts?.backfillStatus !== void 0 ? isActivelyIndexing(opts.backfillStatus) : isBackfillInFlight();
+  return classifyVaultReadiness({
+    vaultExists,
+    markdownCount,
+    chunkCount,
+    indexingInProgress,
+    newestMarkdownMtimeMs,
+    lastIndexedAtMs
+  });
+}
+
+// dist/context/context.js
 var DEFAULT_ACTOR3 = "agent";
 function safeSegment5(value, label) {
   const trimmed = value.trim();
@@ -45970,8 +49025,10 @@ function actorFromContext5(ctx) {
   const actor = ctx.config.collaboration?.actor ?? process.env.VAULT_MIND_ACTOR ?? DEFAULT_ACTOR3;
   return safeSegment5(actor, "actor");
 }
-function normalizeProject(value) {
-  return typeof value === "string" && value.trim() ? safeSegment5(value, "project") : void 0;
+function normalizeProject(vaultPath, value) {
+  if (typeof value !== "string" || !value.trim())
+    return void 0;
+  return resolveProjectContext(vaultPath, value.trim(), "context.operations");
 }
 function memoryBasePath2(project, actor) {
   if (project)
@@ -45979,7 +49036,7 @@ function memoryBasePath2(project, actor) {
   return `00-Inbox/Agent-Memory/${actor}`;
 }
 function readText3(path) {
-  return existsSync12(path) ? readFileSync14(path, "utf-8") : null;
+  return existsSync16(path) ? readFileSync17(path, "utf-8") : null;
 }
 function defaultPassport(actor, project) {
   return [
@@ -46042,7 +49099,7 @@ function defaultHandoff(actor, project) {
   ].join("\n");
 }
 function readMemoryDoc(vaultPath, relPath, fallback) {
-  const fullPath = join16(vaultPath, relPath);
+  const fullPath = join19(vaultPath, relPath);
   const content = readText3(fullPath);
   return { path: relPath, exists: content !== null, content: content ?? fallback };
 }
@@ -46070,15 +49127,15 @@ function preview2(content, max = 220) {
   return content.replace(/^---[\s\S]*?---\s*/m, "").replace(/\s+/g, " ").trim().slice(0, max);
 }
 function listMarkdownFiles(vaultPath, relDir) {
-  const fullDir = join16(vaultPath, relDir);
-  if (!existsSync12(fullDir))
+  const fullDir = join19(vaultPath, relDir);
+  if (!existsSync16(fullDir))
     return [];
-  return readdirSync8(fullDir, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".md")).map((entry) => {
-    const fullPath = join16(fullDir, entry.name);
+  return readdirSync10(fullDir, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".md")).map((entry) => {
+    const fullPath = join19(fullDir, entry.name);
     return {
       path: `${relDir}/${entry.name}`,
-      content: readFileSync14(fullPath, "utf-8"),
-      mtime: statSync5(fullPath).mtime.toISOString()
+      content: readFileSync17(fullPath, "utf-8"),
+      mtime: statSync7(fullPath).mtime.toISOString()
     };
   });
 }
@@ -46104,7 +49161,22 @@ function listDecisions(vaultPath, basePath, limit) {
   }).sort((a, b) => b.captured_at.localeCompare(a.captured_at)).slice(0, limit);
 }
 function scopeFor(project) {
-  return project ? { project, glob: `10-Projects/${project}/**` } : { project: null };
+  return project ? {
+    project,
+    glob: `{01-Projects,10-Projects}/${project}/**`,
+    roots: [
+      {
+        path: `01-Projects/${project}/**`,
+        owner: "work-os",
+        knowledgeItemTypes: ["issue", "comment", "kanban_card"]
+      },
+      {
+        path: `10-Projects/${project}/**`,
+        owner: "knowledge",
+        knowledgeItemTypes: ["source_record", "evidence", "analysis", "memory", "asset", "transcript"]
+      }
+    ]
+  } : { project: null };
 }
 function mergeWeights(defaultWeights, params) {
   const weights = {
@@ -46113,12 +49185,12 @@ function mergeWeights(defaultWeights, params) {
   };
   return Object.keys(weights).length > 0 ? weights : void 0;
 }
-async function answerForScope(registry2, defaultWeights, query, project, params, fallbackMaxResults) {
+async function answerForScope(registry3, defaultWeights, query, project, params, fallbackMaxResults) {
   if (!query.trim())
     throw makeErr(-32602, "query required");
   const scope = scopeFor(project);
   const backfill = await ensureBackfill();
-  const answer = await answerQuery(registry2, query, {
+  const answer = await answerQuery(registry3, query, {
     maxResults: params.maxResults ?? fallbackMaxResults,
     adapters: params.adapters,
     weights: mergeWeights(defaultWeights, params),
@@ -46189,7 +49261,7 @@ function suggestedQueries(project, topic) {
     out.push(`project:${project}:open-actions`);
   return out;
 }
-function makeContextOps(vaultPath, registry2, defaultWeights) {
+function makeContextOps(vaultPath, registry3, defaultWeights) {
   return [
     {
       name: "context.wakeup",
@@ -46206,7 +49278,8 @@ function makeContextOps(vaultPath, registry2, defaultWeights) {
       },
       handler: async (ctx, params) => {
         const actor = actorFromContext5(ctx);
-        const project = normalizeProject(params.project);
+        const projectContext = normalizeProject(vaultPath, params.project);
+        const project = projectContext?.slug;
         const topic = typeof params.topic === "string" && params.topic.trim() ? params.topic.trim() : void 0;
         const maxChars = Math.max(1e3, Math.floor(params.maxChars ?? 6e3));
         const maxDecisions = Math.max(0, Math.min(Math.floor(params.maxDecisions ?? 5), 20));
@@ -46217,7 +49290,7 @@ function makeContextOps(vaultPath, registry2, defaultWeights) {
         const handoff = readMemoryDoc(vaultPath, `${basePath}/handoff.md`, defaultHandoff(actor, project));
         const decisions = listDecisions(vaultPath, basePath, maxDecisions);
         const sessions = listSessions(vaultPath, basePath, maxSessions);
-        const l2RoomRecall = includeRecall && topic ? await answerForScope(registry2, defaultWeights, topic, project, { maxResults: 5 }, 5).then((answer) => ({
+        const l2RoomRecall = includeRecall && topic ? await answerForScope(registry3, defaultWeights, topic, project, { maxResults: 5 }, 5).then((answer) => ({
           query: topic,
           answer: answer.answer,
           claims: answer.claims,
@@ -46228,6 +49301,8 @@ function makeContextOps(vaultPath, registry2, defaultWeights) {
         const result = {
           actor,
           project: project ?? null,
+          projectId: projectContext?.projectId ?? null,
+          projectDiagnostics: projectContext?.diagnostics ?? [],
           topic: topic ?? null,
           generatedAt: (/* @__PURE__ */ new Date()).toISOString(),
           layers: {
@@ -46247,9 +49322,20 @@ function makeContextOps(vaultPath, registry2, defaultWeights) {
       }
     },
     {
+      name: "context.vault_status",
+      namespace: "context",
+      description: "Read-only vault readiness check: classifies current state into vault_missing/empty_vault/unindexed/stale_or_backgrounding/ready. Never triggers indexing -- passive peek only.",
+      mutating: false,
+      params: {},
+      handler: async (_ctx, _params) => {
+        const vba = registry3.get("vaultbrain");
+        return gatherVaultStatus(vaultPath, vba);
+      }
+    },
+    {
       name: "context.recall",
       namespace: "context",
-      description: "Topic-scoped citation-backed recall using query.answer. Project argument restricts search to 10-Projects/<project>/**.",
+      description: "Topic-scoped citation-backed recall using query.answer. Project argument joins Work-OS context under 01-Projects/<project>/** with project knowledge under 10-Projects/<project>/**.",
       mutating: false,
       params: {
         query: { type: "string", required: true, description: "Topic or question to recall" },
@@ -46260,12 +49346,15 @@ function makeContextOps(vaultPath, registry2, defaultWeights) {
       },
       handler: async (_ctx, params) => {
         const query = String(params.query ?? "");
-        const project = normalizeProject(params.project);
+        const projectContext = normalizeProject(vaultPath, params.project);
+        const project = projectContext?.slug;
         const scope = scopeFor(project);
-        const answer = await answerForScope(registry2, defaultWeights, query, project, params, 8);
+        const answer = await answerForScope(registry3, defaultWeights, query, project, params, 8);
         return {
           query,
           scope,
+          projectId: projectContext?.projectId ?? null,
+          diagnostics: projectContext?.diagnostics ?? [],
           answer: answer.answer,
           claims: answer.claims,
           citations: answer.citations,
@@ -46288,12 +49377,15 @@ function makeContextOps(vaultPath, registry2, defaultWeights) {
       },
       handler: async (_ctx, params) => {
         const query = String(params.query ?? "");
-        const project = normalizeProject(params.project);
+        const projectContext = normalizeProject(vaultPath, params.project);
+        const project = projectContext?.slug;
         const scope = scopeFor(project);
-        const answer = await answerForScope(registry2, defaultWeights, query, project, params, 20);
+        const answer = await answerForScope(registry3, defaultWeights, query, project, params, 20);
         return {
           query,
           scope,
+          projectId: projectContext?.projectId ?? null,
+          diagnostics: projectContext?.diagnostics ?? [],
           answer: answer.answer,
           claims: answer.claims,
           citations: answer.citations,
@@ -46308,16 +49400,44 @@ function makeContextOps(vaultPath, registry2, defaultWeights) {
 }
 
 // dist/workflow/workflow.js
-import { existsSync as existsSync13, mkdirSync as mkdirSync9, readFileSync as readFileSync15, writeFileSync as writeFileSync7 } from "node:fs";
-import { dirname as dirname9, join as join17 } from "node:path";
+import { existsSync as existsSync17, mkdirSync as mkdirSync9, readFileSync as readFileSync18, renameSync, rmSync as rmSync4, writeFileSync as writeFileSync7 } from "node:fs";
+import { dirname as dirname10, join as join20 } from "node:path";
+import { createHash as createHash4, randomUUID as randomUUID2, timingSafeEqual } from "node:crypto";
 var STAGES = ["intake", "understand", "plan", "execute", "review", "verify", "archive"];
 var CHECKPOINT_STATUSES = ["note", "passed", "failed", "blocked"];
 var AGENT_STAGES = ["think", "plan", "build", "review", "test", "ship", "reflect"];
 var workflowAgentEffects = (_ctx, _params, result) => {
   const eventsPath = typeof result === "object" && result !== null ? result.eventsPath : void 0;
-  return [touchMarkdown(resultPath(result), "modify"), touchMarkdown(eventsPath, "modify")];
+  const runPath = typeof result === "object" && result !== null ? result.runPath : void 0;
+  return [touchMarkdown(resultPath(result), "modify"), touchMarkdown(eventsPath, "modify"), touchMarkdown(runPath, "modify")];
+};
+var workflowAgentTargets = (ctx, params) => {
+  const workflow = workflowPolicyBasePath(ctx.config, params, "workflow.agent");
+  const projectRoot2 = workflow.slice(0, -"/workflow".length);
+  return [`${workflowAgentPolicyBasePath(ctx.config, params, "workflow.agent")}/**`, `${projectRoot2}/runs/**`];
 };
 var AGENT_STATUSES = ["active", "blocked", "done", "archived"];
+var WORK_RUN_STATES = [
+  "planned",
+  "leased",
+  "running",
+  "awaiting_review",
+  "completed",
+  "failed",
+  "cancelled"
+];
+var WORK_RUN_TERMINAL_STATES = ["completed", "failed", "cancelled"];
+var WORK_RUN_OUTPUT_CLASSES = ["view", "work-state-transition", "knowledge-claim", "external-side-effect"];
+var WORK_RUN_APPROVAL_STATUSES = ["not-required", "pending", "approved", "denied"];
+var WORK_RUN_TRANSITIONS = {
+  planned: ["leased", "cancelled"],
+  leased: ["running", "failed", "cancelled"],
+  running: ["awaiting_review", "completed", "failed", "cancelled"],
+  awaiting_review: ["running", "completed", "failed", "cancelled"],
+  completed: [],
+  failed: [],
+  cancelled: []
+};
 var AGENT_STAGE_EVIDENCE_REQUIREMENTS = {
   test: ["review:"],
   ship: ["review:", "test:"]
@@ -46325,11 +49445,10 @@ var AGENT_STAGE_EVIDENCE_REQUIREMENTS = {
 function slugify6(value) {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
-function projectKey2(value) {
-  const key = slugify6(String(value ?? ""));
-  if (!key)
-    throw makeErr(-32602, "project must contain at least one [a-z0-9] character");
-  return key;
+function existingProjectKey2(vaultPath, value, operation) {
+  if (typeof value !== "string" || !value.trim())
+    throw makeErr(-32602, "project is required");
+  return resolveProjectContext(vaultPath, value, operation).slug;
 }
 function agentKey(value, fallback) {
   const key = slugify6(String(value ?? fallback));
@@ -46367,28 +49486,290 @@ function agentLifetimePath(project, agent) {
 function agentEventsPath(project, agent) {
   return `${agentRoot(project, agent)}/events.md`;
 }
+function durableRunPath(project, workRunId) {
+  return `01-Projects/${project}/runs/${workRunId.slice("work-run/".length)}.json`;
+}
+var WORK_RUN_LOCK_PATH = ".vault-mind/_work-run.lock";
+function withWorkRunLock(vaultPath, action) {
+  const lockPath = vaultJoin(vaultPath, WORK_RUN_LOCK_PATH);
+  const token = `${process.pid}:${randomUUID2()}`;
+  mkdirSync9(dirname10(lockPath), { recursive: true });
+  const claim = () => writeFileSync7(lockPath, token, { encoding: "utf-8", flag: "wx" });
+  try {
+    claim();
+  } catch (error48) {
+    if (error48.code !== "EEXIST")
+      throw error48;
+    throw conflict(`Work Run is busy with another runtime; verify the owner and remove ${WORK_RUN_LOCK_PATH} manually only after confirming no writer is active`);
+  }
+  try {
+    return action();
+  } finally {
+    try {
+      if (readFileSync18(lockPath, "utf-8") === token)
+        rmSync4(lockPath, { force: true });
+    } catch {
+    }
+  }
+}
+var LEASE_MODES = ["local", "portable-handoff"];
+function jsonRecord(path, label) {
+  if (!existsSync17(path))
+    return null;
+  try {
+    const value = JSON.parse(readFileSync18(path, "utf-8"));
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      throw new Error("expected an object");
+    }
+    return value;
+  } catch (error48) {
+    throw conflict(`${label} identity conflict: ${error48.message}`);
+  }
+}
+function leaseCandidates(vaultPath, workRunId) {
+  const registry3 = jsonRecord(join20(vaultPath, ".vault-mind", "_leases.json"), "Lease registry");
+  if (!registry3)
+    return [];
+  return Object.values(registry3).filter((value) => Boolean(value) && typeof value === "object" && !Array.isArray(value) && value.work_run_id === workRunId);
+}
+function canonicalWorkItemId(value) {
+  const id = optionalString3(value);
+  if (!/^project\/[a-z0-9][a-z0-9-]*\/issue\/[a-z0-9][a-z0-9-]*$/.test(id)) {
+    throw conflict("Work Item identity conflict: work_item_id must be canonical");
+  }
+  return id;
+}
+function identityEquals(label, expected, actual) {
+  if (typeof expected !== "string" || expected !== actual) {
+    throw conflict(`${label} identity conflict`, { expected, actual });
+  }
+}
+function assertWorkItemOwnership(projectIdentity, workItemId) {
+  if (!workItemId.startsWith(`${projectIdentity}/issue/`)) {
+    throw conflict("Work Item ownership identity conflict", {
+      projectId: projectIdentity,
+      workItemId
+    });
+  }
+}
+function assertActiveLeaseIdentity(vaultPath, identity) {
+  const leases = leaseCandidates(vaultPath, identity.workRunId);
+  if (leases.length !== 1) {
+    throw conflict("Lease identity conflict: expected exactly one local lease for Work Run", {
+      workRunId: identity.workRunId,
+      matches: leases.length
+    });
+  }
+  const lease = leases[0];
+  identityEquals("Project", identity.projectId, lease.project_id);
+  identityEquals("Work Item", identity.workItemId, lease.work_item_id);
+  identityEquals("Work Run", identity.workRunId, lease.work_run_id);
+  identityEquals("agent", identity.agentId, lease.agent_id);
+  const expiresAt = lease.expires_at;
+  if (typeof expiresAt !== "number" || !Number.isFinite(expiresAt) || Date.now() / 1e3 >= expiresAt) {
+    throw conflict("Lease expiry identity conflict: local lease is missing or expired", {
+      workRunId: identity.workRunId,
+      expiresAt
+    });
+  }
+}
+function parseLeaseMode(value) {
+  const mode = optionalString3(value) || "local";
+  if (!LEASE_MODES.includes(mode)) {
+    throw makeErr(-32602, `lease_mode must be one of: ${LEASE_MODES.join(", ")}`);
+  }
+  return mode;
+}
+function assertPortableHandoffAuthority(durable, handoffToken) {
+  const token = typeof handoffToken === "string" ? handoffToken : "";
+  if (token.length < 16 || token.length > 4096) {
+    throw makeErr(-32602, "handoff_token is required for lease_mode=portable-handoff");
+  }
+  const expectedHash = durable.handoff_token_hash;
+  if (typeof expectedHash !== "string" || !/^[a-f0-9]{64}$/.test(expectedHash)) {
+    throw conflict("Portable handoff authority conflict: durable handoff_token_hash is missing or invalid");
+  }
+  const expiresAt = durable.handoff_expires_at;
+  if (typeof expiresAt !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(expiresAt) || !Number.isFinite(Date.parse(expiresAt)) || Date.now() >= Date.parse(expiresAt)) {
+    throw conflict("Portable handoff authority conflict: durable handoff is missing or expired");
+  }
+  const actual = createHash4("sha256").update(token, "utf-8").digest();
+  const expected = Buffer.from(expectedHash, "hex");
+  if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) {
+    throw conflict("Portable handoff authority conflict: handoff token mismatch");
+  }
+}
+function assertJoinLeaseAuthority(vaultPath, identity, durable) {
+  const registryPath = join20(vaultPath, ".vault-mind", "_leases.json");
+  if (identity.leaseMode === "portable-handoff") {
+    assertPortableHandoffAuthority(durable, identity.handoffToken);
+    if (!existsSync17(registryPath))
+      return;
+  }
+  assertActiveLeaseIdentity(vaultPath, identity);
+}
+function assertDurableRunIdentity(vaultPath, project, identity) {
+  const durablePath = vaultJoin(vaultPath, durableRunPath(project, identity.workRunId));
+  const durable = jsonRecord(durablePath, "Durable Work Run");
+  if (!durable)
+    throw conflict(`Work Run identity conflict: durable run not found for ${identity.workRunId}`);
+  identityEquals("Project", identity.projectId, durable.project_id);
+  identityEquals("Work Item", identity.workItemId, durable.work_item_id);
+  identityEquals("Work Run", identity.workRunId, durable.work_run_id);
+  identityEquals("agent", identity.agentId, durable.agent_id);
+  const state = durable.state;
+  if (!WORK_RUN_STATES.includes(state)) {
+    throw conflict(`Work Run identity conflict: invalid durable state ${String(durable.state)}`);
+  }
+  return { state, record: durable };
+}
+function assertLeasedRunIdentity(vaultPath, project, agent, params) {
+  const workRunId = parseWorkRunId(params.work_run_id);
+  const workItemId = canonicalWorkItemId(params.work_item_id);
+  const expectedProjectId = projectId(project);
+  assertWorkItemOwnership(expectedProjectId, workItemId);
+  const leaseMode = parseLeaseMode(params.lease_mode);
+  const handoffToken = leaseMode === "portable-handoff" && typeof params.handoff_token === "string" ? params.handoff_token : void 0;
+  const identity = { projectId: expectedProjectId, workItemId, workRunId, agentId: agent, leaseMode, handoffToken };
+  const durable = assertDurableRunIdentity(vaultPath, project, identity);
+  const state = durable.state;
+  if (state !== "leased" && state !== "running") {
+    throw conflict(`Work Run identity conflict: join requires leased or running state, found ${String(state)}`);
+  }
+  assertJoinLeaseAuthority(vaultPath, identity, durable.record);
+  return { ...identity, state };
+}
+function durableTransitions(value) {
+  if (!Array.isArray(value))
+    return [];
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item))
+      return [];
+    const raw = item;
+    if (typeof raw.transition_token !== "string")
+      return [];
+    return [{
+      transition_token: raw.transition_token,
+      from: typeof raw.from === "string" ? raw.from : null,
+      to: typeof raw.to === "string" ? raw.to : null,
+      recorded_at: raw.recorded_at ?? null
+    }];
+  });
+}
+function syncDurableWorkRunUnlocked(vaultPath, state, transitionToken, leasedIdentity) {
+  const path = durableRunPath(state.project, state.workRunId);
+  const fullPath = vaultJoin(vaultPath, path);
+  let run = {};
+  const original = existsSync17(fullPath) ? readFileSync18(fullPath, "utf-8") : null;
+  if (original !== null) {
+    try {
+      run = JSON.parse(original);
+    } catch {
+      throw makeErr(-32603, `Durable Work Run is malformed: ${path}`);
+    }
+    identityEquals("Project", state.projectId, run.project_id);
+    identityEquals("Work Item", state.workItemId, run.work_item_id);
+    identityEquals("Work Run", state.workRunId, run.work_run_id);
+    identityEquals("agent", state.agent, run.agent_id);
+    const previousState = run.state;
+    if (!WORK_RUN_STATES.includes(previousState)) {
+      throw conflict("Work Run state conflict: durable state is invalid", { actual: run.state });
+    }
+    if (previousState !== state.workRunState && !isWorkRunTransitionAllowed(previousState, state.workRunState)) {
+      throw conflict(`Invalid Work Run transition: ${previousState} -> ${state.workRunState}`);
+    }
+  }
+  if (leasedIdentity)
+    assertJoinLeaseAuthority(vaultPath, leasedIdentity, run);
+  const transitions = durableTransitions(run.transitions);
+  if (!transitions.some((item) => item.transition_token === transitionToken)) {
+    const previous = typeof run.state === "string" ? run.state : state.workRunState === "running" ? "leased" : "planned";
+    if (previous !== state.workRunState) {
+      transitions.push({ transition_token: transitionToken, from: previous, to: state.workRunState, recorded_at: state.updatedAt });
+    }
+  }
+  const durable = {
+    schema_version: 1,
+    project_id: state.projectId,
+    work_item_id: state.workItemId,
+    work_run_id: state.workRunId,
+    agent_id: state.agent,
+    state: state.workRunState,
+    output_class: state.outputClass,
+    approval_status: state.approvalStatus,
+    created_at: run.created_at ?? state.startedAt,
+    updated_at: state.updatedAt,
+    provenance: [...state.provenance].sort(),
+    transitions,
+    ...typeof run.handoff_token_hash === "string" ? { handoff_token_hash: run.handoff_token_hash } : {},
+    ...typeof run.handoff_expires_at === "string" ? { handoff_expires_at: run.handoff_expires_at } : {}
+  };
+  mkdirSync9(dirname10(fullPath), { recursive: true });
+  const temporary = `${fullPath}.tmp-${randomUUID2()}`;
+  writeFileSync7(temporary, JSON.stringify(durable, null, 2) + "\n", "utf-8");
+  const unchanged = original === null ? !existsSync17(fullPath) : existsSync17(fullPath) && readFileSync18(fullPath, "utf-8") === original;
+  if (!unchanged) {
+    rmSync4(temporary, { force: true });
+    throw conflict(`Work Run changed concurrently: ${state.workRunId}`);
+  }
+  renameSync(temporary, fullPath);
+  return path;
+}
+function assertDurableLifetimeIdentity(vaultPath, state) {
+  const durable = assertDurableRunIdentity(vaultPath, state.project, {
+    projectId: state.projectId,
+    workItemId: state.workItemId,
+    workRunId: state.workRunId,
+    agentId: state.agent
+  });
+  if (durable.state !== state.workRunState) {
+    throw conflict("Work Run state conflict: lifetime and durable run differ", {
+      lifetime: state.workRunState,
+      durable: durable.state
+    });
+  }
+}
+function withFileRollback(vaultPath, relPaths, action) {
+  const preimages = [...new Set(relPaths)].map((relPath) => {
+    const fullPath = vaultJoin(vaultPath, relPath);
+    return { fullPath, content: existsSync17(fullPath) ? readFileSync18(fullPath) : null };
+  });
+  try {
+    return action();
+  } catch (error48) {
+    for (const preimage of preimages.reverse()) {
+      if (preimage.content === null) {
+        rmSync4(preimage.fullPath, { force: true });
+      } else {
+        mkdirSync9(dirname10(preimage.fullPath), { recursive: true });
+        writeFileSync7(preimage.fullPath, preimage.content);
+      }
+    }
+    throw error48;
+  }
+}
 function vaultJoin(vaultPath, relPath) {
-  return join17(vaultPath, ...relPath.split("/"));
+  return join20(vaultPath, ...relPath.split("/"));
 }
 function writeVaultBytes2(vaultPath, relPath, content) {
   const fullPath = vaultJoin(vaultPath, relPath);
-  mkdirSync9(dirname9(fullPath), { recursive: true });
+  mkdirSync9(dirname10(fullPath), { recursive: true });
   writeFileSync7(fullPath, Buffer.from(content, "utf-8"));
 }
 function appendVaultBytes(vaultPath, relPath, content) {
   const fullPath = vaultJoin(vaultPath, relPath);
-  mkdirSync9(dirname9(fullPath), { recursive: true });
-  const existing = existsSync13(fullPath) ? readFileSync15(fullPath, "utf-8").replace(/\s+$/, "") + "\n\n" : "";
+  mkdirSync9(dirname10(fullPath), { recursive: true });
+  const existing = existsSync17(fullPath) ? readFileSync18(fullPath, "utf-8").replace(/\s+$/, "") + "\n\n" : "";
   writeFileSync7(fullPath, Buffer.from(existing + content, "utf-8"));
 }
-function optionalString2(value) {
+function optionalString3(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 function oneLine2(value, max = 240) {
-  const text = optionalString2(value).replace(/\r?\n/g, " ");
+  const text = optionalString3(value).replace(/\r?\n/g, " ");
   return text.length > max ? text.slice(0, max) : text;
 }
-function stringList(value) {
+function stringList2(value) {
   if (!Array.isArray(value))
     return [];
   const out = [];
@@ -46404,6 +49785,61 @@ function stringList(value) {
   }
   return out;
 }
+function assertPersistedTextSafe(label, value) {
+  if (!value)
+    return;
+  const candidates = [value.trim()];
+  const uriReference = /^[a-z][a-z0-9+.-]*:\/\/(.*)$/i.exec(candidates[0]);
+  const logicalReference = /^[a-z][a-z0-9+.-]*:(.*)$/i.exec(candidates[0]);
+  if (uriReference)
+    candidates.push(uriReference[1]);
+  else if (logicalReference)
+    candidates.push(logicalReference[1]);
+  const exposesPath = candidates.some((candidate) => {
+    if (/^file:/i.test(candidate))
+      return true;
+    if (/^https?:\/\//i.test(candidate))
+      return false;
+    return /^(?:[A-Za-z]:[\\/]|\\\\|\/|~[\\/]|\.{1,2}[\\/])/.test(candidate) || /(?:^|[\/:=\s])(?:[A-Za-z]:[\\/]|\\\\|\/(?:[^/\s]+\/)|~[\\/]|\.{1,2}[\\/])/.test(candidate);
+  });
+  const exposesSecret = /(?:lease|handoff)[-_ ]?token/i.test(value);
+  if (exposesPath || exposesSecret) {
+    throw makeErr(-32602, `${label} must not contain machine-local paths or lease tokens/handoff tokens`);
+  }
+}
+function persistedOneLine(label, value, max = 240) {
+  const text = oneLine2(value, max);
+  assertPersistedTextSafe(label, text);
+  return text;
+}
+function persistedStringList(label, value) {
+  const values = stringList2(value);
+  for (const item of values)
+    assertPersistedTextSafe(label, item);
+  return values;
+}
+function assertSecretNotEchoed(secret, fields) {
+  if (!secret)
+    return;
+  for (const [label, value] of fields) {
+    const values = Array.isArray(value) ? value : [value];
+    if (values.some((item) => item.includes(secret))) {
+      throw makeErr(-32602, `${label} must not contain the handoff token`);
+    }
+  }
+}
+function assertAgentLifetimeTextSafe(state) {
+  assertPersistedTextSafe("role", state.role);
+  assertPersistedTextSafe("host", state.host);
+  assertPersistedTextSafe("objective", state.objective);
+  assertPersistedTextSafe("issue", state.issue);
+  for (const item of state.evidence)
+    assertPersistedTextSafe("evidence", item);
+  for (const item of state.provenance)
+    assertPersistedTextSafe("provenance", item);
+  for (const receipt of state.transitions)
+    assertPersistedTextSafe("transition_token", receipt.token);
+}
 function mergeStringLists(...lists) {
   const out = [];
   const seen = /* @__PURE__ */ new Set();
@@ -46418,32 +49854,198 @@ function mergeStringLists(...lists) {
   return out;
 }
 function parseStage(value) {
-  const stage = optionalString2(value);
+  const stage = optionalString3(value);
   if (!STAGES.includes(stage)) {
     throw makeErr(-32602, `stage must be one of: ${STAGES.join(", ")}`);
   }
   return stage;
 }
 function parseCheckpointStatus(value) {
-  const status = optionalString2(value) || "note";
+  const status = optionalString3(value) || "note";
   if (!CHECKPOINT_STATUSES.includes(status)) {
     throw makeErr(-32602, `status must be one of: ${CHECKPOINT_STATUSES.join(", ")}`);
   }
   return status;
 }
 function parseAgentStage(value, fallback) {
-  const stage = optionalString2(value) || fallback || "think";
+  const stage = optionalString3(value) || fallback || "think";
   if (!AGENT_STAGES.includes(stage)) {
     throw makeErr(-32602, `stage must be one of: ${AGENT_STAGES.join(", ")}`);
   }
   return stage;
 }
 function parseAgentStatus(value, fallback = "active") {
-  const status = optionalString2(value) || fallback;
+  const status = optionalString3(value) || fallback;
   if (!AGENT_STATUSES.includes(status)) {
     throw makeErr(-32602, `status must be one of: ${AGENT_STATUSES.join(", ")}`);
   }
   return status;
+}
+function projectId(project) {
+  return `project/${project}`;
+}
+function parseWorkRunId(value, fallbackProject, fallbackAgent) {
+  const id = optionalString3(value);
+  if (!id && fallbackProject && fallbackAgent)
+    return `work-run/legacy-${fallbackProject}-${fallbackAgent}`;
+  if (!/^work-run\/[a-z0-9][a-z0-9-]*$/.test(id)) {
+    throw makeErr(-32602, "work_run_id must match work-run/<lowercase-kebab-id>");
+  }
+  return id;
+}
+function createWorkRunId() {
+  return `work-run/${randomUUID2()}`;
+}
+function parseWorkItemId(value, project, legacyIssue) {
+  const explicit = optionalString3(value);
+  if (explicit) {
+    const prefix = `${projectId(project)}/issue/`;
+    if (!explicit.startsWith(prefix) || !/^project\/[a-z0-9][a-z0-9-]*\/issue\/[a-z0-9][a-z0-9-]*$/.test(explicit)) {
+      throw makeErr(-32602, `work_item_id must match ${prefix}<lowercase-kebab-slug>`);
+    }
+    return explicit;
+  }
+  const issue3 = slugify6(optionalString3(legacyIssue));
+  return issue3 ? `${projectId(project)}/issue/${issue3}` : "";
+}
+function parseWorkRunState(value, fallback) {
+  const state = optionalString3(value) || fallback;
+  if (!WORK_RUN_STATES.includes(state)) {
+    throw makeErr(-32602, `work_run_state must be one of: ${WORK_RUN_STATES.join(", ")}`);
+  }
+  return state;
+}
+function parseOutputClass(value, fallback = "view") {
+  const outputClass = optionalString3(value) || fallback;
+  if (!WORK_RUN_OUTPUT_CLASSES.includes(outputClass)) {
+    throw makeErr(-32602, `output_class must be one of: ${WORK_RUN_OUTPUT_CLASSES.join(", ")}`);
+  }
+  return outputClass;
+}
+function defaultApprovalStatus(outputClass) {
+  return outputClass === "view" || outputClass === "work-state-transition" ? "not-required" : "pending";
+}
+function parseApprovalStatus(value, outputClass, fallback) {
+  const approval = optionalString3(value) || fallback || defaultApprovalStatus(outputClass);
+  if (!WORK_RUN_APPROVAL_STATUSES.includes(approval)) {
+    throw makeErr(-32602, `approval_status must be one of: ${WORK_RUN_APPROVAL_STATUSES.join(", ")}`);
+  }
+  if ((outputClass === "view" || outputClass === "work-state-transition") && approval !== "not-required") {
+    throw makeErr(-32602, `${outputClass} output must use approval_status=not-required`);
+  }
+  return approval;
+}
+function parseTransitionToken(value) {
+  const token = optionalString3(value) || `legacy:${randomUUID2()}`;
+  if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(token)) {
+    throw makeErr(-32602, "transition_token must be 1-128 safe identifier characters");
+  }
+  assertPersistedTextSafe("transition_token", token);
+  return token;
+}
+function durableProvenance(value) {
+  return persistedStringList("provenance", value);
+}
+function isTerminalWorkRunState(state) {
+  return WORK_RUN_TERMINAL_STATES.includes(state);
+}
+function isWorkRunTransitionAllowed(from, to) {
+  return WORK_RUN_TRANSITIONS[from].includes(to);
+}
+function assertWorkRunMutable(state) {
+  if (isTerminalWorkRunState(state.workRunState)) {
+    throw makeErr(-32602, `Work Run ${state.workRunId} is terminal (${state.workRunState})`);
+  }
+}
+function transitionWorkRun(current, next) {
+  if (current === next)
+    return current;
+  if (!isWorkRunTransitionAllowed(current, next)) {
+    throw makeErr(-32602, `invalid Work Run transition: ${current} -> ${next}`);
+  }
+  return next;
+}
+function completionState(outputClass, approval) {
+  if (outputClass === "external-side-effect" && approval !== "approved") {
+    return "awaiting_review";
+  }
+  if (outputClass === "knowledge-claim" && approval === "pending")
+    return "awaiting_review";
+  if (approval === "denied")
+    return "failed";
+  return "completed";
+}
+function assertWorkRunIdentity(current, supplied) {
+  const id = optionalString3(supplied);
+  if (id && parseWorkRunId(id) !== current.workRunId) {
+    throw makeErr(-32602, `work_run_id does not match joined Work Run ${current.workRunId}`);
+  }
+}
+function findTransitionReceipt(state, token, operation) {
+  const receipt = state.transitions.find((item) => item.token === token);
+  if (!receipt)
+    return null;
+  if (receipt.operation !== operation) {
+    throw makeErr(-32602, `transition_token already used by ${receipt.operation}`);
+  }
+  return receipt;
+}
+function withTransitionReceipt(state, token, operation) {
+  return {
+    ...state,
+    transitions: [
+      ...state.transitions,
+      {
+        token,
+        operation,
+        workRunState: state.workRunState,
+        agentStage: state.stage,
+        agentStatus: state.status,
+        outputClass: state.outputClass,
+        approvalStatus: state.approvalStatus,
+        recordedAt: state.updatedAt
+      }
+    ]
+  };
+}
+function replayResult(state, receipt, eventsPath) {
+  return {
+    ok: true,
+    idempotent: true,
+    project: state.project,
+    projectId: state.projectId,
+    agent: state.agent,
+    workRunId: state.workRunId,
+    path: state.path,
+    eventsPath,
+    lifetime: {
+      ...state,
+      stage: receipt.agentStage,
+      status: receipt.agentStatus,
+      workRunState: receipt.workRunState,
+      outputClass: receipt.outputClass,
+      approvalStatus: receipt.approvalStatus,
+      updatedAt: receipt.recordedAt
+    },
+    receipt
+  };
+}
+function replayJoin(state, eventsPath) {
+  const receipt = [...state.transitions].reverse().find((item) => item.operation === "join");
+  if (receipt)
+    return replayResult(state, receipt, eventsPath);
+  return {
+    ok: true,
+    idempotent: true,
+    project: state.project,
+    projectId: state.projectId,
+    agent: state.agent,
+    workRunId: state.workRunId,
+    path: state.path,
+    eventsPath,
+    runPath: durableRunPath(state.project, state.workRunId),
+    lifetime: state
+  };
 }
 function yamlString4(value) {
   return JSON.stringify(value);
@@ -46538,9 +50140,9 @@ function parseYamlScalar(raw) {
 function readState(vaultPath, project) {
   const path = statePath(project);
   const fullPath = vaultJoin(vaultPath, path);
-  if (!existsSync13(fullPath))
+  if (!existsSync17(fullPath))
     return null;
-  return parseState(project, path, readFileSync15(fullPath, "utf-8"));
+  return parseState(project, path, readFileSync18(fullPath, "utf-8"));
 }
 function checkpointHeader(project) {
   return [
@@ -46560,7 +50162,11 @@ function renderAgentLifetime(state, notes) {
     "---",
     "type: agent-lifetime",
     `entity: project/${state.project}/agent/${state.agent}/lifetime`,
+    `project-id: ${state.projectId}`,
     `project: ${state.project}`,
+    `work-run-id: ${state.workRunId}`,
+    `work-run-state: ${state.workRunState}`,
+    `work-item-id: ${yamlString4(state.workItemId)}`,
     `agent: ${state.agent}`,
     `role: ${yamlString4(state.role)}`,
     `host: ${yamlString4(state.host)}`,
@@ -46569,6 +50175,10 @@ function renderAgentLifetime(state, notes) {
     `objective: ${yamlString4(state.objective)}`,
     `issue: ${yamlString4(state.issue)}`,
     `evidence: ${JSON.stringify(state.evidence)}`,
+    `provenance: ${JSON.stringify(state.provenance)}`,
+    `output-class: ${state.outputClass}`,
+    `approval-status: ${state.approvalStatus}`,
+    `transitions: ${JSON.stringify(state.transitions)}`,
     `started-at: ${yamlString4(state.startedAt)}`,
     `updated-at: ${yamlString4(state.updatedAt)}`,
     "---",
@@ -46576,11 +50186,17 @@ function renderAgentLifetime(state, notes) {
     `# Agent Lifetime: ${state.agent}`,
     "",
     `- project: ${state.project}`,
+    `- project-id: ${state.projectId}`,
+    `- work-run-id: ${state.workRunId}`,
+    `- work-run-state: ${state.workRunState}`,
+    `- work-item-id: ${state.workItemId || "none"}`,
     `- role: ${state.role || "agent"}`,
     `- host: ${state.host || "unknown"}`,
     `- stage: ${state.stage}`,
     `- status: ${state.status}`,
     `- issue: ${state.issue || "none"}`,
+    `- output-class: ${state.outputClass}`,
+    `- approval-status: ${state.approvalStatus}`,
     "",
     "## Objective",
     "",
@@ -46602,9 +50218,25 @@ function parseAgentLifetime(project, agent, path, content) {
   const evidence = Array.isArray(rawEvidence) ? rawEvidence.filter((item) => typeof item === "string") : [];
   const stage = AGENT_STAGES.includes(fm.stage) ? fm.stage : "think";
   const status = AGENT_STATUSES.includes(fm.status) ? fm.status : "active";
+  const workRunState = WORK_RUN_STATES.includes(fm["work-run-state"]) ? fm["work-run-state"] : status === "done" ? "completed" : status === "archived" ? "cancelled" : "running";
+  const outputClass = WORK_RUN_OUTPUT_CLASSES.includes(fm["output-class"]) ? fm["output-class"] : "view";
+  const approvalStatus = WORK_RUN_APPROVAL_STATUSES.includes(fm["approval-status"]) ? fm["approval-status"] : defaultApprovalStatus(outputClass);
+  const rawProvenance = fm.provenance;
+  const provenance = Array.isArray(rawProvenance) ? rawProvenance.filter((item) => typeof item === "string") : [];
+  const rawTransitions = fm.transitions;
+  const transitions = Array.isArray(rawTransitions) ? rawTransitions.filter((item) => {
+    if (typeof item !== "object" || item === null)
+      return false;
+    const receipt = item;
+    return typeof receipt.token === "string" && ["join", "step", "checkpoint", "leave"].includes(String(receipt.operation)) && WORK_RUN_STATES.includes(receipt.workRunState);
+  }) : [];
   const now = isoNow();
   return {
+    projectId: typeof fm["project-id"] === "string" ? fm["project-id"] : projectId(project),
     project,
+    workRunId: typeof fm["work-run-id"] === "string" ? parseWorkRunId(fm["work-run-id"]) : parseWorkRunId(void 0, project, agent),
+    workRunState,
+    workItemId: typeof fm["work-item-id"] === "string" ? fm["work-item-id"] : parseWorkItemId(void 0, project, fm.issue),
     agent,
     role: typeof fm.role === "string" ? fm.role : "agent",
     host: typeof fm.host === "string" ? fm.host : "unknown",
@@ -46613,6 +50245,10 @@ function parseAgentLifetime(project, agent, path, content) {
     objective: typeof fm.objective === "string" ? fm.objective : "",
     issue: typeof fm.issue === "string" ? fm.issue : "",
     evidence,
+    provenance,
+    outputClass,
+    approvalStatus,
+    transitions,
     startedAt: typeof fm["started-at"] === "string" ? fm["started-at"] : now,
     updatedAt: typeof fm["updated-at"] === "string" ? fm["updated-at"] : now,
     path
@@ -46621,9 +50257,9 @@ function parseAgentLifetime(project, agent, path, content) {
 function readAgentLifetime(vaultPath, project, agent) {
   const path = agentLifetimePath(project, agent);
   const fullPath = vaultJoin(vaultPath, path);
-  if (!existsSync13(fullPath))
+  if (!existsSync17(fullPath))
     return null;
-  return parseAgentLifetime(project, agent, path, readFileSync15(fullPath, "utf-8"));
+  return parseAgentLifetime(project, agent, path, readFileSync18(fullPath, "utf-8"));
 }
 function agentEventsHeader(project, agent) {
   return [
@@ -46644,11 +50280,16 @@ function appendAgentEvent(vaultPath, state, event) {
   const evidence = event.evidence ?? [];
   const evidenceLines = evidence.length ? evidence.map((item) => `  - ${item}`).join("\n") : "  - none";
   const block = [
-    existsSync13(fullPath) ? "" : agentEventsHeader(state.project, state.agent),
+    existsSync17(fullPath) ? "" : agentEventsHeader(state.project, state.agent),
     `## ${isoNow()} - ${event.kind} - ${event.actor}`,
     "",
     `- stage: ${state.stage}`,
     `- status: ${state.status}`,
+    `- work-run-id: ${state.workRunId}`,
+    `- work-run-state: ${state.workRunState}`,
+    `- transition-token: ${event.transitionToken}`,
+    `- output-class: ${state.outputClass}`,
+    `- approval-status: ${state.approvalStatus}`,
     `- summary: ${event.summary}`,
     "- evidence:",
     evidenceLines,
@@ -46698,7 +50339,7 @@ function workflowDoctor(vaultPath, project) {
     { name: "workflow-state", path: statePath(project), required: true },
     { name: "workflow-checkpoints", path: checkpointsPath(project), required: false },
     { name: "source-registry", path: "_llmwiki/source-registry.json", required: false }
-  ].map((check2) => ({ ...check2, ok: existsSync13(vaultJoin(vaultPath, check2.path)) }));
+  ].map((check2) => ({ ...check2, ok: existsSync17(vaultJoin(vaultPath, check2.path)) }));
   const missing = checks.filter((check2) => check2.required && !check2.ok).map((check2) => check2.path);
   const warnings = checks.filter((check2) => !check2.required && !check2.ok).map((check2) => check2.path);
   return {
@@ -46709,13 +50350,13 @@ function workflowDoctor(vaultPath, project) {
     warnings
   };
 }
-function agentDoctor(vaultPath, project, agent) {
+function agentDoctor(vaultPath, project, agent, expectedWorkRunId) {
   const lifetime = readAgentLifetime(vaultPath, project, agent);
   const lifetimePath = agentLifetimePath(project, agent);
   const eventsPath = agentEventsPath(project, agent);
   const checks = [
     { name: "agent-lifetime", path: lifetimePath, required: true, ok: lifetime !== null },
-    { name: "agent-events", path: eventsPath, required: false, ok: existsSync13(vaultJoin(vaultPath, eventsPath)) }
+    { name: "agent-events", path: eventsPath, required: false, ok: existsSync17(vaultJoin(vaultPath, eventsPath)) }
   ];
   const errors = [];
   const warnings = [];
@@ -46724,6 +50365,25 @@ function agentDoctor(vaultPath, project, agent) {
       errors.push(`invalid stage: ${lifetime.stage}`);
     if (!AGENT_STATUSES.includes(lifetime.status))
       errors.push(`invalid status: ${lifetime.status}`);
+    if (lifetime.projectId !== projectId(project))
+      errors.push(`project-id mismatch: ${lifetime.projectId}`);
+    if (!WORK_RUN_STATES.includes(lifetime.workRunState))
+      errors.push(`invalid Work Run state: ${lifetime.workRunState}`);
+    if (expectedWorkRunId && lifetime.workRunId !== expectedWorkRunId) {
+      errors.push(`work-run-id mismatch: expected ${expectedWorkRunId}, found ${lifetime.workRunId}`);
+    }
+    if (isTerminalWorkRunState(lifetime.workRunState) && lifetime.status === "active") {
+      errors.push(`terminal Work Run ${lifetime.workRunState} cannot have active agent status`);
+    }
+    if (!isTerminalWorkRunState(lifetime.workRunState) && lifetime.status === "archived") {
+      errors.push(`non-terminal Work Run ${lifetime.workRunState} cannot have archived agent status`);
+    }
+    if ((lifetime.outputClass === "knowledge-claim" || lifetime.outputClass === "external-side-effect") && lifetime.workRunState === "completed" && lifetime.approvalStatus !== "approved") {
+      errors.push(`${lifetime.outputClass} output completed without explicit approval`);
+    }
+    const tokens = lifetime.transitions.map((item) => item.token);
+    if (new Set(tokens).size !== tokens.length)
+      errors.push("duplicate transition token receipts");
     const missingEvidence = missingEvidenceForStage(lifetime.stage, lifetime.evidence);
     if (missingEvidence.length > 0) {
       errors.push(`${lifetime.stage} stage requires evidence matching: ${formatEvidenceRequirements(missingEvidence)}`);
@@ -46744,6 +50404,153 @@ function agentDoctor(vaultPath, project, agent) {
     lifetime
   };
 }
+function beginAgentLifetime(vaultPath, ctx, params, mode) {
+  const operation = mode === "leased" ? "workflow.agent.join" : "workflow.agent.start";
+  const actor = actorFromContext6(ctx);
+  const project = existingProjectKey2(vaultPath, params.project, operation);
+  const agent = agentKey(params.agent, actor);
+  const transitionToken = parseTransitionToken(params.transition_token);
+  let leasedIdentity = null;
+  let workRunId;
+  let workItemId;
+  if (mode === "leased") {
+    if (!optionalString3(params.work_run_id) || !optionalString3(params.work_item_id)) {
+      throw makeErr(-32602, "workflow.agent.join requires a canonical Work Item, Work Run, and active lease identity");
+    }
+    const requestedWorkRunId = parseWorkRunId(params.work_run_id);
+    const requestedWorkItemId = canonicalWorkItemId(params.work_item_id);
+    const leaseMode = parseLeaseMode(params.lease_mode);
+    const requestedIdentity = {
+      projectId: projectId(project),
+      workItemId: requestedWorkItemId,
+      workRunId: requestedWorkRunId,
+      agentId: agent,
+      leaseMode,
+      handoffToken: leaseMode === "portable-handoff" && typeof params.handoff_token === "string" ? params.handoff_token : void 0
+    };
+    assertWorkItemOwnership(requestedIdentity.projectId, requestedWorkItemId);
+    const priorLifetime = readAgentLifetime(vaultPath, project, agent);
+    const priorReceipt = priorLifetime ? findTransitionReceipt(priorLifetime, transitionToken, "join") : void 0;
+    if (priorLifetime && priorReceipt) {
+      identityEquals("Project", requestedIdentity.projectId, priorLifetime.projectId);
+      identityEquals("Work Item", requestedWorkItemId, priorLifetime.workItemId);
+      identityEquals("Work Run", requestedWorkRunId, priorLifetime.workRunId);
+      identityEquals("agent", agent, priorLifetime.agent);
+      const durable = assertDurableRunIdentity(vaultPath, project, requestedIdentity);
+      assertJoinLeaseAuthority(vaultPath, requestedIdentity, durable.record);
+      return replayResult(priorLifetime, priorReceipt, agentEventsPath(project, agent));
+    }
+    leasedIdentity = assertLeasedRunIdentity(vaultPath, project, agent, params);
+    workRunId = leasedIdentity.workRunId;
+    workItemId = leasedIdentity.workItemId;
+  } else {
+    if (optionalString3(params.work_run_id) || optionalString3(params.work_item_id) || optionalString3(params.work_run_state) || optionalString3(params.lease_mode) || optionalString3(params.handoff_token)) {
+      throw makeErr(-32602, "workflow.agent.start creates manual runs and does not accept leased identity fields");
+    }
+    workRunId = createWorkRunId();
+    workItemId = parseWorkItemId(void 0, project, params.issue);
+  }
+  const existing = readAgentLifetime(vaultPath, project, agent);
+  if (existing) {
+    const receipt = findTransitionReceipt(existing, transitionToken, "join");
+    identityEquals("Project", projectId(project), existing.projectId);
+    identityEquals("agent", agent, existing.agent);
+    if (leasedIdentity) {
+      identityEquals("Work Run", workRunId, existing.workRunId);
+      identityEquals("Work Item", workItemId, existing.workItemId);
+      if (receipt)
+        return replayResult(existing, receipt, agentEventsPath(project, agent));
+      return replayJoin(existing, agentEventsPath(project, agent));
+    }
+    if (receipt)
+      return replayResult(existing, receipt, agentEventsPath(project, agent));
+    if (!isTerminalWorkRunState(existing.workRunState)) {
+      throw conflict(`${agent} already joined Work Run ${existing.workRunId}`);
+    }
+  }
+  const initialWorkRunState = leasedIdentity?.state ?? "running";
+  const suppliedState = optionalString3(params.work_run_state);
+  if (leasedIdentity && suppliedState && suppliedState !== initialWorkRunState) {
+    throw conflict("Work Run state conflict", { expected: initialWorkRunState, actual: suppliedState });
+  }
+  if (initialWorkRunState !== "leased" && initialWorkRunState !== "running") {
+    throw makeErr(-32602, "workflow.agent.join can attach only a leased or already-running Work Run");
+  }
+  const now = isoNow();
+  const path = agentLifetimePath(project, agent);
+  const stage = parseAgentStage(params.stage, "think");
+  const evidence = persistedStringList("evidence", params.evidence);
+  assertAgentStageEvidence(stage, evidence);
+  const outputClass = parseOutputClass(params.output_class);
+  const approvalStatus = parseApprovalStatus(params.approval_status, outputClass);
+  let state = {
+    projectId: leasedIdentity?.projectId ?? projectId(project),
+    project,
+    workRunId,
+    workRunState: initialWorkRunState === "leased" ? transitionWorkRun("leased", "running") : "running",
+    workItemId,
+    agent,
+    role: persistedOneLine("role", params.role) || "agent",
+    host: persistedOneLine("host", params.host) || actor,
+    stage,
+    status: "active",
+    objective: persistedOneLine("objective", params.objective),
+    issue: persistedOneLine("issue", params.issue),
+    evidence,
+    provenance: durableProvenance(params.provenance),
+    outputClass,
+    approvalStatus,
+    transitions: [],
+    startedAt: now,
+    updatedAt: now,
+    path
+  };
+  state = withTransitionReceipt(state, transitionToken, "join");
+  assertAgentLifetimeTextSafe(state);
+  const notes = persistedOneLine("notes", params.notes, 2e3);
+  assertSecretNotEchoed(leasedIdentity?.handoffToken, [
+    ["transition_token", transitionToken],
+    ["role", state.role],
+    ["host", state.host],
+    ["objective", state.objective],
+    ["issue", state.issue],
+    ["evidence", state.evidence],
+    ["provenance", state.provenance],
+    ["notes", notes]
+  ]);
+  const lifetimeFullPath = vaultJoin(vaultPath, path);
+  const expectedLifetimeBytes = existsSync17(lifetimeFullPath) ? readFileSync18(lifetimeFullPath, "utf-8") : null;
+  const { runPath, eventsPath } = withWorkRunLock(vaultPath, () => {
+    const lockedLifetimeBytes = existsSync17(lifetimeFullPath) ? readFileSync18(lifetimeFullPath, "utf-8") : null;
+    if (lockedLifetimeBytes !== expectedLifetimeBytes) {
+      throw conflict(`${agent} lifetime changed while joining Work Run ${workRunId}; retry the operation`);
+    }
+    return withFileRollback(vaultPath, [path, agentEventsPath(project, agent), durableRunPath(project, workRunId)], () => {
+      const persistedRunPath = syncDurableWorkRunUnlocked(vaultPath, state, transitionToken, leasedIdentity ?? void 0);
+      writeVaultBytes2(vaultPath, path, renderAgentLifetime(state, notes));
+      const persistedEventsPath = appendAgentEvent(vaultPath, state, {
+        kind: "join",
+        summary: state.objective || `${agent} joined`,
+        evidence: state.evidence,
+        actor,
+        transitionToken
+      });
+      return { runPath: persistedRunPath, eventsPath: persistedEventsPath };
+    });
+  });
+  return {
+    ok: true,
+    idempotent: false,
+    project,
+    projectId: state.projectId,
+    agent,
+    workRunId,
+    path,
+    eventsPath,
+    runPath,
+    lifetime: state
+  };
+}
 function makeWorkflowOps(vaultPath) {
   return [
     {
@@ -46753,7 +50560,7 @@ function makeWorkflowOps(vaultPath) {
       mutating: true,
       writePolicy: {
         realWrite: "always",
-        targets: (_ctx, params) => [`${workflowPolicyBasePath(params)}/status.md`],
+        targets: (ctx, params) => [`${workflowPolicyBasePath(ctx.config, params, "workflow.state.set")}/status.md`],
         audit: "required",
         effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), "modify")]
       },
@@ -46772,28 +50579,28 @@ function makeWorkflowOps(vaultPath) {
         notes: { type: "string", required: false, description: "Short workflow notes" }
       },
       handler: async (ctx, params) => {
-        const project = projectKey2(params.project);
+        const project = existingProjectKey2(vaultPath, params.project, "workflow.state.set");
         const stage = parseStage(params.stage);
         const actor = actorFromContext6(ctx);
         const path = statePath(project);
         const state = {
           project,
           stage,
-          objective: oneLine2(params.objective),
-          branch: oneLine2(params.branch),
-          host: oneLine2(params.host) || actor,
-          evidence: stringList(params.evidence),
+          objective: persistedOneLine("objective", params.objective),
+          branch: persistedOneLine("branch", params.branch),
+          host: persistedOneLine("host", params.host) || actor,
+          evidence: persistedStringList("evidence", params.evidence),
           updatedBy: actor,
           updatedAt: isoNow(),
           path
         };
-        writeVaultBytes2(vaultPath, path, renderState(state, optionalString2(params.notes)));
+        writeVaultBytes2(vaultPath, path, renderState(state, persistedOneLine("notes", params.notes, 2e3)));
         return {
           ok: true,
           project,
           path,
           state,
-          projectInitialized: existsSync13(vaultJoin(vaultPath, projectNotePath2(project)))
+          projectInitialized: existsSync17(vaultJoin(vaultPath, projectNotePath2(project)))
         };
       }
     },
@@ -46806,7 +50613,7 @@ function makeWorkflowOps(vaultPath) {
         project: { type: "string", required: true, description: "Project key" }
       },
       handler: async (_ctx, params) => {
-        const project = projectKey2(params.project);
+        const project = existingProjectKey2(vaultPath, params.project, "workflow.state.get");
         const path = statePath(project);
         const state = readState(vaultPath, project);
         return { exists: state !== null, project, path, state };
@@ -46819,7 +50626,7 @@ function makeWorkflowOps(vaultPath) {
       mutating: true,
       writePolicy: {
         realWrite: "always",
-        targets: (_ctx, params) => [`${workflowPolicyBasePath(params)}/checkpoints.md`],
+        targets: (ctx, params) => [`${workflowPolicyBasePath(ctx.config, params, "workflow.checkpoint.add")}/checkpoints.md`],
         audit: "required",
         effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), "modify")]
       },
@@ -46843,21 +50650,21 @@ function makeWorkflowOps(vaultPath) {
         next: { type: "string", required: false, description: "Next action or stop condition" }
       },
       handler: async (ctx, params) => {
-        const project = projectKey2(params.project);
+        const project = existingProjectKey2(vaultPath, params.project, "workflow.checkpoint.add");
         const stage = parseStage(params.stage);
         const status = parseCheckpointStatus(params.status);
-        const summary = oneLine2(params.summary);
+        const summary = persistedOneLine("summary", params.summary);
         if (!summary)
           throw makeErr(-32602, "summary required");
         const actor = actorFromContext6(ctx);
         const path = checkpointsPath(project);
         const fullPath = vaultJoin(vaultPath, path);
-        const evidence = stringList(params.evidence);
-        const next = oneLine2(params.next);
+        const evidence = persistedStringList("evidence", params.evidence);
+        const next = persistedOneLine("next", params.next);
         const now = isoNow();
         const evidenceLines = evidence.length ? evidence.map((item) => `  - ${item}`).join("\n") : "  - none";
         const block = [
-          existsSync13(fullPath) ? "" : checkpointHeader(project),
+          existsSync17(fullPath) ? "" : checkpointHeader(project),
           `## ${now} - ${stage} - ${actor}`,
           "",
           `- status: ${status}`,
@@ -46872,13 +50679,13 @@ function makeWorkflowOps(vaultPath) {
       }
     },
     {
-      name: "workflow.agent.join",
+      name: "workflow.agent.start",
       namespace: "workflow",
-      description: "Start or replace a vault-first agent lifetime under 01-Projects/<project>/agents/<agent>/.",
+      description: "Create a restricted manual Work Run without accepting or impersonating Work Driver lease identity fields.",
       mutating: true,
       writePolicy: {
         realWrite: "always",
-        targets: (ctx, params) => [`${workflowAgentPolicyBasePath(ctx.config, params)}/**`],
+        targets: workflowAgentTargets,
         audit: "required",
         effects: workflowAgentEffects
       },
@@ -46889,6 +50696,68 @@ function makeWorkflowOps(vaultPath) {
         host: { type: "string", required: false, description: "Agent host, e.g. codex or claude-code" },
         objective: { type: "string", required: false, description: "Lifetime objective" },
         issue: { type: "string", required: false, description: "Linked issue slug or entity" },
+        transition_token: { type: "string", required: false, description: "Stable idempotency token for retrying manual creation" },
+        output_class: { type: "string", required: false, enum: [...WORK_RUN_OUTPUT_CLASSES] },
+        approval_status: { type: "string", required: false, enum: [...WORK_RUN_APPROVAL_STATUSES] },
+        provenance: { type: "array", required: false, description: "Logical provenance refs; never local paths or secrets" },
+        stage: {
+          type: "string",
+          required: false,
+          enum: [...AGENT_STAGES],
+          default: "think",
+          description: "Initial lifetime stage: think|plan|build|review|test|ship|reflect. test requires review:* evidence; ship requires review:* and test:* evidence."
+        },
+        evidence: {
+          type: "array",
+          required: false,
+          description: "Initial evidence refs. Use prefixes such as review:* and test:* for stage gates."
+        },
+        notes: { type: "string", required: false, description: "Manual start notes" }
+      },
+      handler: async (ctx, params) => beginAgentLifetime(vaultPath, ctx, params, "manual")
+    },
+    {
+      name: "workflow.agent.join",
+      namespace: "workflow",
+      description: "Assert and join an existing Work Driver lease without overwriting its durable identities.",
+      mutating: true,
+      writePolicy: {
+        realWrite: "always",
+        targets: workflowAgentTargets,
+        audit: "required",
+        effects: workflowAgentEffects
+      },
+      params: {
+        project: { type: "string", required: true, description: "Project key" },
+        agent: { type: "string", required: false, description: "Agent id; defaults collaboration actor" },
+        role: { type: "string", required: false, description: "Agent role, e.g. manager|worker|reviewer|verifier" },
+        host: { type: "string", required: false, description: "Agent host, e.g. codex or claude-code" },
+        objective: { type: "string", required: false, description: "Lifetime objective" },
+        issue: { type: "string", required: false, description: "Linked issue slug or entity" },
+        work_run_id: { type: "string", required: true, description: "Shared Work Run ID from the Work Driver lease" },
+        work_run_state: {
+          type: "string",
+          required: false,
+          enum: [...WORK_RUN_STATES],
+          description: "Existing Work Run state; leased is expected when attaching a Work Driver lease"
+        },
+        work_item_id: { type: "string", required: true, description: "Canonical project/<slug>/issue/<slug> identity" },
+        lease_mode: {
+          type: "string",
+          required: false,
+          enum: [...LEASE_MODES],
+          default: "local",
+          description: "local requires this device active lease. portable-handoff requires a valid expiring handoff token bound to the durable Work Run; any present local lease is still fully validated."
+        },
+        handoff_token: {
+          type: "string",
+          required: false,
+          description: "Sensitive secret required only for lease_mode=portable-handoff; never persisted or returned."
+        },
+        transition_token: { type: "string", required: false, description: "Stable idempotency token from the Work Driver transition" },
+        output_class: { type: "string", required: false, enum: [...WORK_RUN_OUTPUT_CLASSES] },
+        approval_status: { type: "string", required: false, enum: [...WORK_RUN_APPROVAL_STATUSES] },
+        provenance: { type: "array", required: false, description: "Logical provenance refs; never local paths or secrets" },
         stage: {
           type: "string",
           required: false,
@@ -46903,47 +50772,16 @@ function makeWorkflowOps(vaultPath) {
         },
         notes: { type: "string", required: false, description: "Join notes" }
       },
-      handler: async (ctx, params) => {
-        const actor = actorFromContext6(ctx);
-        const project = projectKey2(params.project);
-        const agent = agentKey(params.agent, actor);
-        const now = isoNow();
-        const path = agentLifetimePath(project, agent);
-        const stage = parseAgentStage(params.stage, "think");
-        const evidence = stringList(params.evidence);
-        assertAgentStageEvidence(stage, evidence);
-        const state = {
-          project,
-          agent,
-          role: oneLine2(params.role) || "agent",
-          host: oneLine2(params.host) || actor,
-          stage,
-          status: "active",
-          objective: oneLine2(params.objective),
-          issue: oneLine2(params.issue),
-          evidence,
-          startedAt: now,
-          updatedAt: now,
-          path
-        };
-        writeVaultBytes2(vaultPath, path, renderAgentLifetime(state, optionalString2(params.notes)));
-        const eventsPath = appendAgentEvent(vaultPath, state, {
-          kind: "join",
-          summary: state.objective || `${agent} joined`,
-          evidence: state.evidence,
-          actor
-        });
-        return { ok: true, project, agent, path, eventsPath, lifetime: state };
-      }
+      handler: async (ctx, params) => beginAgentLifetime(vaultPath, ctx, params, "leased")
     },
     {
       name: "workflow.agent.step",
       namespace: "workflow",
-      description: "Move a joined agent through think->plan->build->review->test->ship->reflect with review/test rework back to build. test requires review:* evidence; ship requires review:* and test:* evidence.",
+      description: "Advance a joined agent and its shared Work Run with idempotent transitions, review/test evidence gates, and terminal-state enforcement.",
       mutating: true,
       writePolicy: {
         realWrite: "always",
-        targets: (ctx, params) => [`${workflowAgentPolicyBasePath(ctx.config, params)}/**`],
+        targets: workflowAgentTargets,
         audit: "required",
         effects: workflowAgentEffects
       },
@@ -46964,6 +50802,13 @@ function makeWorkflowOps(vaultPath) {
         },
         objective: { type: "string", required: false, description: "Replacement objective" },
         issue: { type: "string", required: false, description: "Replacement linked issue slug or entity" },
+        work_run_id: { type: "string", required: false, description: "Joined Work Run ID; resolved from lifetime when omitted" },
+        work_run_state: { type: "string", required: false, enum: [...WORK_RUN_STATES] },
+        work_item_id: { type: "string", required: false, description: "Replacement canonical Work Item identity" },
+        transition_token: { type: "string", required: false, description: "Idempotency token; generated for legacy calls" },
+        output_class: { type: "string", required: false, enum: [...WORK_RUN_OUTPUT_CLASSES] },
+        approval_status: { type: "string", required: false, enum: [...WORK_RUN_APPROVAL_STATUSES] },
+        provenance: { type: "array", required: false },
         evidence: {
           type: "array",
           required: false,
@@ -46974,44 +50819,84 @@ function makeWorkflowOps(vaultPath) {
       },
       handler: async (ctx, params) => {
         const actor = actorFromContext6(ctx);
-        const project = projectKey2(params.project);
+        const project = existingProjectKey2(vaultPath, params.project, "workflow.agent.step");
         const agent = agentKey(params.agent, actor);
-        const current = readAgentLifetime(vaultPath, project, agent);
-        if (!current)
-          throw makeErr(-32001, `Agent lifetime not found: ${agent}`);
-        const stage = parseAgentStage(params.stage);
-        const incomingEvidence = stringList(params.evidence);
-        const evidence = mergeStringLists(current.evidence, incomingEvidence);
-        assertAgentTransition(current, stage, evidence);
-        const status = parseAgentStatus(params.status, stage === "reflect" ? "done" : current.status === "done" ? "active" : current.status);
-        const state = {
-          ...current,
-          stage,
-          status,
-          objective: params.objective === void 0 ? current.objective : oneLine2(params.objective),
-          issue: params.issue === void 0 ? current.issue : oneLine2(params.issue),
-          evidence,
-          updatedAt: isoNow()
-        };
-        writeVaultBytes2(vaultPath, state.path, renderAgentLifetime(state, oneLine2(params.summary)));
-        const eventsPath = appendAgentEvent(vaultPath, state, {
-          kind: "step",
-          summary: oneLine2(params.summary) || `${current.stage} -> ${stage}`,
-          evidence: incomingEvidence,
-          next: oneLine2(params.next),
-          actor
+        return withWorkRunLock(vaultPath, () => {
+          const current = readAgentLifetime(vaultPath, project, agent);
+          if (!current)
+            throw makeErr(-32001, `Agent lifetime not found: ${agent}`);
+          assertWorkRunIdentity(current, params.work_run_id);
+          assertDurableLifetimeIdentity(vaultPath, current);
+          const transitionToken = parseTransitionToken(params.transition_token);
+          const receipt = findTransitionReceipt(current, transitionToken, "step");
+          if (receipt)
+            return replayResult(current, receipt, agentEventsPath(project, agent));
+          assertWorkRunMutable(current);
+          if (params.work_item_id !== void 0) {
+            identityEquals("Work Item", current.workItemId, canonicalWorkItemId(params.work_item_id));
+          }
+          const stage = parseAgentStage(params.stage);
+          const incomingEvidence = persistedStringList("evidence", params.evidence);
+          const evidence = mergeStringLists(current.evidence, incomingEvidence);
+          assertAgentTransition(current, stage, evidence);
+          const outputClass = parseOutputClass(params.output_class, current.outputClass);
+          const approvalStatus = parseApprovalStatus(params.approval_status, outputClass, outputClass === current.outputClass ? current.approvalStatus : void 0);
+          let nextWorkRunState = optionalString3(params.work_run_state) ? parseWorkRunState(params.work_run_state, current.workRunState) : stage === "reflect" ? completionState(outputClass, approvalStatus) : current.workRunState;
+          if (nextWorkRunState === "completed" && completionState(outputClass, approvalStatus) !== "completed") {
+            throw makeErr(-32602, `${outputClass} output requires approval before completion`);
+          }
+          nextWorkRunState = transitionWorkRun(current.workRunState, nextWorkRunState);
+          const defaultAgentStatus = nextWorkRunState === "completed" || stage === "reflect" ? "done" : nextWorkRunState === "failed" || nextWorkRunState === "cancelled" ? "archived" : current.status;
+          const status = parseAgentStatus(params.status, defaultAgentStatus);
+          if (isTerminalWorkRunState(nextWorkRunState) && (status === "active" || status === "blocked")) {
+            throw makeErr(-32602, `terminal Work Run ${nextWorkRunState} cannot use agent status ${status}`);
+          }
+          if (!isTerminalWorkRunState(nextWorkRunState) && status === "archived") {
+            throw makeErr(-32602, `non-terminal Work Run ${nextWorkRunState} cannot use agent status archived`);
+          }
+          const summary = persistedOneLine("summary", params.summary);
+          const next = persistedOneLine("next", params.next);
+          let state = {
+            ...current,
+            stage,
+            status,
+            workRunState: nextWorkRunState,
+            objective: params.objective === void 0 ? current.objective : persistedOneLine("objective", params.objective),
+            issue: params.issue === void 0 ? current.issue : persistedOneLine("issue", params.issue),
+            evidence,
+            provenance: mergeStringLists(current.provenance, durableProvenance(params.provenance)),
+            outputClass,
+            approvalStatus,
+            updatedAt: isoNow()
+          };
+          state = withTransitionReceipt(state, transitionToken, "step");
+          assertAgentLifetimeTextSafe(state);
+          const eventsPath = agentEventsPath(project, agent);
+          const runPath = durableRunPath(project, state.workRunId);
+          return withFileRollback(vaultPath, [state.path, eventsPath, runPath], () => {
+            writeVaultBytes2(vaultPath, state.path, renderAgentLifetime(state, summary));
+            syncDurableWorkRunUnlocked(vaultPath, state, transitionToken);
+            appendAgentEvent(vaultPath, state, {
+              kind: "step",
+              summary: summary || `${current.stage} -> ${stage}`,
+              evidence: incomingEvidence,
+              next,
+              actor,
+              transitionToken
+            });
+            return { ok: true, idempotent: false, project, projectId: state.projectId, agent, workRunId: state.workRunId, path: state.path, eventsPath, runPath, lifetime: state };
+          });
         });
-        return { ok: true, project, agent, path: state.path, eventsPath, lifetime: state };
       }
     },
     {
       name: "workflow.agent.checkpoint",
       namespace: "workflow",
-      description: "Append an event to a joined agent lifetime without changing the current stage.",
+      description: "Record an idempotent Work Run checkpoint, optionally routing output or moving to review/terminal state.",
       mutating: true,
       writePolicy: {
         realWrite: "always",
-        targets: (ctx, params) => [`${workflowAgentPolicyBasePath(ctx.config, params)}/**`],
+        targets: workflowAgentTargets,
         audit: "required",
         effects: workflowAgentEffects
       },
@@ -47027,80 +50912,179 @@ function makeWorkflowOps(vaultPath) {
         },
         summary: { type: "string", required: true, description: "Checkpoint summary" },
         evidence: { type: "array", required: false, description: "Evidence refs for this checkpoint" },
-        next: { type: "string", required: false, description: "Next action or stop condition" }
+        next: { type: "string", required: false, description: "Next action or stop condition" },
+        work_run_id: { type: "string", required: false, description: "Joined Work Run ID; resolved from lifetime when omitted" },
+        work_run_state: { type: "string", required: false, enum: [...WORK_RUN_STATES] },
+        transition_token: { type: "string", required: false, description: "Idempotency token; generated for legacy calls" },
+        output_class: { type: "string", required: false, enum: [...WORK_RUN_OUTPUT_CLASSES] },
+        approval_status: { type: "string", required: false, enum: [...WORK_RUN_APPROVAL_STATUSES] },
+        provenance: { type: "array", required: false }
       },
       handler: async (ctx, params) => {
         const actor = actorFromContext6(ctx);
-        const project = projectKey2(params.project);
+        const project = existingProjectKey2(vaultPath, params.project, "workflow.agent.checkpoint");
         const agent = agentKey(params.agent, actor);
-        const current = readAgentLifetime(vaultPath, project, agent);
-        if (!current)
-          throw makeErr(-32001, `Agent lifetime not found: ${agent}`);
-        const status = parseCheckpointStatus(params.status);
-        const summary = oneLine2(params.summary);
-        if (!summary)
-          throw makeErr(-32602, "summary required");
-        const eventsPath = appendAgentEvent(vaultPath, current, {
-          kind: `checkpoint:${status}`,
-          summary,
-          evidence: stringList(params.evidence),
-          next: oneLine2(params.next),
-          actor
+        return withWorkRunLock(vaultPath, () => {
+          const current = readAgentLifetime(vaultPath, project, agent);
+          if (!current)
+            throw makeErr(-32001, `Agent lifetime not found: ${agent}`);
+          assertWorkRunIdentity(current, params.work_run_id);
+          assertDurableLifetimeIdentity(vaultPath, current);
+          const transitionToken = parseTransitionToken(params.transition_token);
+          const receipt = findTransitionReceipt(current, transitionToken, "checkpoint");
+          if (receipt)
+            return replayResult(current, receipt, agentEventsPath(project, agent));
+          assertWorkRunMutable(current);
+          const status = parseCheckpointStatus(params.status);
+          const summary = persistedOneLine("summary", params.summary);
+          if (!summary)
+            throw makeErr(-32602, "summary required");
+          const outputClass = parseOutputClass(params.output_class, current.outputClass);
+          const approvalStatus = parseApprovalStatus(params.approval_status, outputClass, outputClass === current.outputClass ? current.approvalStatus : void 0);
+          let nextWorkRunState = optionalString3(params.work_run_state) ? parseWorkRunState(params.work_run_state, current.workRunState) : status === "failed" ? "failed" : current.workRunState;
+          if (nextWorkRunState === "completed" && completionState(outputClass, approvalStatus) !== "completed") {
+            throw makeErr(-32602, `${outputClass} output requires approval before completion`);
+          }
+          nextWorkRunState = transitionWorkRun(current.workRunState, nextWorkRunState);
+          const incomingEvidence = persistedStringList("evidence", params.evidence);
+          const next = persistedOneLine("next", params.next);
+          let state = {
+            ...current,
+            workRunState: nextWorkRunState,
+            status: nextWorkRunState === "completed" ? "done" : nextWorkRunState === "failed" || nextWorkRunState === "cancelled" ? "archived" : current.status,
+            evidence: mergeStringLists(current.evidence, incomingEvidence),
+            provenance: mergeStringLists(current.provenance, durableProvenance(params.provenance)),
+            outputClass,
+            approvalStatus,
+            updatedAt: isoNow()
+          };
+          state = withTransitionReceipt(state, transitionToken, "checkpoint");
+          assertAgentLifetimeTextSafe(state);
+          const eventsPath = agentEventsPath(project, agent);
+          const runPath = durableRunPath(project, state.workRunId);
+          return withFileRollback(vaultPath, [state.path, eventsPath, runPath], () => {
+            writeVaultBytes2(vaultPath, state.path, renderAgentLifetime(state, summary));
+            syncDurableWorkRunUnlocked(vaultPath, state, transitionToken);
+            appendAgentEvent(vaultPath, state, {
+              kind: `checkpoint:${status}`,
+              summary,
+              evidence: incomingEvidence,
+              next,
+              actor,
+              transitionToken
+            });
+            return {
+              ok: true,
+              idempotent: false,
+              project,
+              projectId: state.projectId,
+              agent,
+              workRunId: state.workRunId,
+              path: state.path,
+              eventsPath,
+              runPath,
+              stage: state.stage,
+              status,
+              workRunState: state.workRunState,
+              lifetime: state
+            };
+          });
         });
-        return { ok: true, project, agent, path: current.path, eventsPath, stage: current.stage, status };
       }
     },
     {
       name: "workflow.agent.leave",
       namespace: "workflow",
-      description: "Archive a joined agent lifetime while preserving its lifetime and event log in the vault.",
+      description: "Leave a Work Run through awaiting-review or terminal state while preserving its durable lifetime and event log.",
       mutating: true,
       writePolicy: {
         realWrite: "always",
-        targets: (ctx, params) => [`${workflowAgentPolicyBasePath(ctx.config, params)}/**`],
+        targets: workflowAgentTargets,
         audit: "required",
         effects: workflowAgentEffects
       },
       params: {
         project: { type: "string", required: true, description: "Project key" },
         agent: { type: "string", required: false, description: "Agent id; defaults collaboration actor" },
-        summary: { type: "string", required: false, description: "Leave summary" }
+        summary: { type: "string", required: false, description: "Leave summary" },
+        work_run_id: { type: "string", required: false, description: "Joined Work Run ID; resolved from lifetime when omitted" },
+        work_run_state: {
+          type: "string",
+          required: false,
+          enum: ["awaiting_review", "completed", "failed", "cancelled"],
+          description: "Final or review handoff state; defaults to cancelled for an unfinished run"
+        },
+        transition_token: { type: "string", required: false, description: "Idempotency token; generated for legacy calls" },
+        output_class: { type: "string", required: false, enum: [...WORK_RUN_OUTPUT_CLASSES] },
+        approval_status: { type: "string", required: false, enum: [...WORK_RUN_APPROVAL_STATUSES] },
+        provenance: { type: "array", required: false }
       },
       handler: async (ctx, params) => {
         const actor = actorFromContext6(ctx);
-        const project = projectKey2(params.project);
+        const project = existingProjectKey2(vaultPath, params.project, "workflow.agent.leave");
         const agent = agentKey(params.agent, actor);
-        const current = readAgentLifetime(vaultPath, project, agent);
-        if (!current)
-          throw makeErr(-32001, `Agent lifetime not found: ${agent}`);
-        const state = {
-          ...current,
-          status: "archived",
-          updatedAt: isoNow()
-        };
-        writeVaultBytes2(vaultPath, state.path, renderAgentLifetime(state, oneLine2(params.summary)));
-        const eventsPath = appendAgentEvent(vaultPath, state, {
-          kind: "leave",
-          summary: oneLine2(params.summary) || `${agent} archived`,
-          actor
+        return withWorkRunLock(vaultPath, () => {
+          const current = readAgentLifetime(vaultPath, project, agent);
+          if (!current)
+            throw makeErr(-32001, `Agent lifetime not found: ${agent}`);
+          assertWorkRunIdentity(current, params.work_run_id);
+          assertDurableLifetimeIdentity(vaultPath, current);
+          const transitionToken = parseTransitionToken(params.transition_token);
+          const receipt = findTransitionReceipt(current, transitionToken, "leave");
+          if (receipt)
+            return replayResult(current, receipt, agentEventsPath(project, agent));
+          assertWorkRunMutable(current);
+          const outputClass = parseOutputClass(params.output_class, current.outputClass);
+          const approvalStatus = parseApprovalStatus(params.approval_status, outputClass, outputClass === current.outputClass ? current.approvalStatus : void 0);
+          let nextWorkRunState = parseWorkRunState(params.work_run_state, "cancelled");
+          if (nextWorkRunState === "completed" && completionState(outputClass, approvalStatus) !== "completed") {
+            throw makeErr(-32602, `${outputClass} output requires approval before completion`);
+          }
+          nextWorkRunState = transitionWorkRun(current.workRunState, nextWorkRunState);
+          const summary = persistedOneLine("summary", params.summary);
+          let state = {
+            ...current,
+            status: "archived",
+            workRunState: nextWorkRunState,
+            provenance: mergeStringLists(current.provenance, durableProvenance(params.provenance)),
+            outputClass,
+            approvalStatus,
+            updatedAt: isoNow()
+          };
+          state = withTransitionReceipt(state, transitionToken, "leave");
+          assertAgentLifetimeTextSafe(state);
+          const eventsPath = agentEventsPath(project, agent);
+          const runPath = durableRunPath(project, state.workRunId);
+          return withFileRollback(vaultPath, [state.path, eventsPath, runPath], () => {
+            writeVaultBytes2(vaultPath, state.path, renderAgentLifetime(state, summary));
+            syncDurableWorkRunUnlocked(vaultPath, state, transitionToken);
+            appendAgentEvent(vaultPath, state, {
+              kind: "leave",
+              summary: summary || `${agent} archived`,
+              actor,
+              transitionToken
+            });
+            return { ok: true, idempotent: false, project, projectId: state.projectId, agent, workRunId: state.workRunId, path: state.path, eventsPath, runPath, lifetime: state };
+          });
         });
-        return { ok: true, project, agent, path: state.path, eventsPath, lifetime: state };
       }
     },
     {
       name: "workflow.agent.doctor",
       namespace: "workflow",
-      description: "Check one agent lifetime file and event log for vault-first lifecycle consistency.",
+      description: "Check one agent lifetime, Work Run identity, transition receipts, output policy, and event log for consistency.",
       mutating: false,
       params: {
         project: { type: "string", required: true, description: "Project key" },
-        agent: { type: "string", required: false, description: "Agent id; defaults collaboration actor" }
+        agent: { type: "string", required: false, description: "Agent id; defaults collaboration actor" },
+        work_run_id: { type: "string", required: false, description: "Expected Work Run ID for cross-runtime join diagnosis" }
       },
       handler: async (ctx, params) => {
         const actor = actorFromContext6(ctx);
-        const project = projectKey2(params.project);
+        const project = existingProjectKey2(vaultPath, params.project, "workflow.agent.doctor");
         const agent = agentKey(params.agent, actor);
-        return agentDoctor(vaultPath, project, agent);
+        const expectedWorkRunId = optionalString3(params.work_run_id) ? parseWorkRunId(params.work_run_id) : void 0;
+        return agentDoctor(vaultPath, project, agent, expectedWorkRunId);
       }
     },
     {
@@ -47111,16 +51095,100 @@ function makeWorkflowOps(vaultPath) {
       params: {
         project: { type: "string", required: true, description: "Project key" }
       },
-      handler: async (_ctx, params) => workflowDoctor(vaultPath, projectKey2(params.project))
+      handler: async (_ctx, params) => workflowDoctor(vaultPath, existingProjectKey2(vaultPath, params.project, "workflow.doctor"))
+    }
+  ];
+}
+
+// dist/project/project-migration.js
+import { execFile as execFile5 } from "node:child_process";
+import { join as join21 } from "node:path";
+import { promisify as promisify5 } from "node:util";
+var execAsync = promisify5(execFile5);
+var PYTHON_BRIDGE = 'import json,sys; import project_migration as m; action,vault,payload=sys.argv[1],sys.argv[2],json.loads(sys.argv[3]); result=(m.inventory_project_layout(vault) if action=="inventory" else m.plan_project_migration(vault) if action=="plan" else m.apply_migration_plan(m.plan_project_migration(vault), apply=bool(payload.get("apply")), batch_id=payload.get("batch_id")) if action=="apply" else m.restore_migration(vault, payload["manifest"], apply=bool(payload.get("apply")))); print(json.dumps(result, ensure_ascii=False))';
+async function invokeMigration(python, compilerPath, vaultPath, action, payload = {}) {
+  try {
+    const { stdout } = await execAsync(python, ["-c", PYTHON_BRIDGE, action, vaultPath, JSON.stringify(payload)], {
+      cwd: compilerPath,
+      timeout: 12e4,
+      maxBuffer: 20 * 1024 * 1024,
+      env: { ...process.env }
+    });
+    return JSON.parse(stdout);
+  } catch (error48) {
+    throw makeErr(-32e3, `Project migration ${action} failed: ${error48.message}`);
+  }
+}
+function makeProjectMigrationOps(options) {
+  const { python, compilerPath, vaultPath } = options;
+  const migrationTargets = staticTargets("Projects/**", "01-Projects/**", ".vault-mind/local-bindings.json", ".vault-mind/project-migrations/**");
+  return [
+    {
+      name: "project.migration.inventory",
+      namespace: "project",
+      description: "Inventory registry, Work-OS, knowledge, legacy work, bindings, leases, and workflow representations without writing.",
+      mutating: false,
+      params: {},
+      handler: async () => invokeMigration(python, compilerPath, vaultPath, "inventory")
+    },
+    {
+      name: "project.migration.plan",
+      namespace: "project",
+      description: "Build a deterministic, hash-guarded Project layout migration plan. This operation is always side-effect free.",
+      mutating: false,
+      params: {},
+      handler: async () => invokeMigration(python, compilerPath, vaultPath, "plan")
+    },
+    {
+      name: "project.migration.apply",
+      namespace: "project",
+      description: "Plan by default; apply canonical Project writes atomically only when apply=true, with resumable audit manifests.",
+      mutating: true,
+      writePolicy: {
+        realWrite: "always",
+        shouldWrite: (_ctx, params) => params.apply === true,
+        targets: migrationTargets,
+        audit: "required"
+      },
+      params: {
+        apply: { type: "boolean", required: false, default: false, description: "Explicitly apply the current deterministic plan (default: false)" },
+        batch_id: { type: "string", required: false, description: "Safe resumable batch identifier; defaults to the plan hash prefix" }
+      },
+      handler: async (_ctx, params) => invokeMigration(python, compilerPath, vaultPath, "apply", {
+        apply: params.apply === true,
+        batch_id: params.batch_id
+      })
+    },
+    {
+      name: "project.migration.restore",
+      namespace: "project",
+      description: "Preview by default; restore one applied migration manifest only when apply=true and hash preconditions still hold.",
+      mutating: true,
+      writePolicy: {
+        realWrite: "always",
+        shouldWrite: (_ctx, params) => params.apply === true,
+        targets: migrationTargets,
+        audit: "required"
+      },
+      params: {
+        manifest: { type: "string", required: true, description: "Vault-relative manifest under .vault-mind/project-migrations/<batch>/manifest.json" },
+        apply: { type: "boolean", required: false, default: false, description: "Explicitly restore the batch (default: false)" }
+      },
+      handler: async (_ctx, params) => {
+        if (typeof params.manifest !== "string" || !params.manifest.trim())
+          throw makeErr(-32602, "manifest required");
+        const manifest = join21(vaultPath, params.manifest);
+        return invokeMigration(python, compilerPath, vaultPath, "restore", { manifest, apply: params.apply === true });
+      }
     }
   ];
 }
 
 // dist/core/operations.js
-var execAsync = promisify5(execFile5);
+var execAsync2 = promisify6(execFile6);
 var PROTECTED_DIRS4 = /* @__PURE__ */ new Set([".obsidian", ".trash", ".git", "node_modules"]);
-var _thisDir = dirname10(fileURLToPath2(import.meta.url));
-var _projectRoot = join18(_thisDir, "..", "..", "..");
+var _thisDir = dirname11(fileURLToPath2(import.meta.url));
+var _projectRoot = join22(_thisDir, "..", "..", "..");
 var dryRunPathPolicy = (event = "modify") => ({
   realWrite: "dryRunFalse",
   targets: targetParams("path"),
@@ -47380,7 +51448,7 @@ var operations = [
   {
     name: "vault.project",
     namespace: "vault",
-    description: "Create or update a project note with AI-First frontmatter. Path: Projects/{name}.md",
+    description: "Deprecated compatibility update for an already-registered Project. Unknown names are rejected; use project.init to create a Project ID and Work-OS anchor.",
     mutating: true,
     writePolicy: dryRunStaticPolicy("Projects/**"),
     params: {
@@ -47392,7 +51460,26 @@ var operations = [
       entity: { type: "string", required: false, description: "Currency entity key (default: project/<name-slug>); drives the status-drift guard" },
       dryRun: { type: "boolean", required: false, description: "Simulate without writing (default: true)", default: true }
     },
-    handler: async (ctx, params) => ctx.vault.execute("vault.project", params)
+    handler: async (ctx, params) => {
+      const name = params.name;
+      if (typeof name !== "string" || !name.trim())
+        throw makeErr2(-32602, "name required");
+      const project = resolveProjectContext(ctx.config.vault_path, name, "vault.project");
+      const result = await ctx.vault.execute("vault.project", {
+        ...params,
+        name: project.slug,
+        entity: project.projectId
+      });
+      return {
+        result,
+        projectId: project.projectId,
+        diagnostics: [{
+          code: "vault_project_deprecated",
+          severity: "warning",
+          message: "vault.project is a compatibility operation; use project.init and Project domain operations."
+        }, ...project.diagnostics]
+      };
+    }
   },
   {
     name: "vault.decide",
@@ -47651,8 +51738,8 @@ var operations = [
         };
       }
       const stem = id.replace(/-to-vault$/, "");
-      const collectorPath = join18(_projectRoot, "recipes", "collectors", `${stem}-collector.ts`);
-      if (!existsSync14(collectorPath)) {
+      const collectorPath = join22(_projectRoot, "recipes", "collectors", `${stem}-collector.ts`);
+      if (!existsSync18(collectorPath)) {
         return {
           ok: false,
           exit_code: null,
@@ -47662,7 +51749,7 @@ var operations = [
         };
       }
       const timeoutMs = typeof params.timeout_ms === "number" ? params.timeout_ms : 12e4;
-      const result = spawnSync("bun", ["run", collectorPath], {
+      const result = spawnSync2("bun", ["run", collectorPath], {
         timeout: timeoutMs,
         encoding: "utf8",
         env: process.env,
@@ -47685,9 +51772,16 @@ var operations = [
   }
 ];
 function makeAllOperations(deps) {
-  const { compileTrigger, registry: registry2, defaultWeights, python, compilerPath, vaultPath, configPath } = deps;
-  const ccPath = deps.contextCorePath ?? process.env["CONTEXT_CORE_PATH"] ?? join18(dirname10(compilerPath), "context-core.json");
+  const { compileTrigger, registry: registry3, defaultWeights, python, compilerPath, vaultPath, configPath } = deps;
+  const ccPath = deps.contextCorePath ?? process.env["CONTEXT_CORE_PATH"] ?? join22(dirname11(compilerPath), "context-core.json");
   const contextCoreLoader = new ContextCoreLoader(ccPath);
+  const settingsOptions = {
+    vaultPath,
+    pythonPath: python,
+    compilerPath
+  };
+  const settingsService = createSettingsService(settingsOptions);
+  compileTrigger?.setEnvironmentResolver?.(() => resolveAgentModelProcessEnvironment(settingsService));
   const compileOps = [
     {
       name: "compile.status",
@@ -47739,17 +51833,17 @@ function makeAllOperations(deps) {
         concurrency: { type: "number", required: false, default: 4, description: "Max concurrent ingest calls (default: 4)" }
       },
       handler: async (_ctx, params) => {
-        const vba = registry2.get("vaultbrain");
+        const vba = registry3.get("vaultbrain");
         if (!vba)
           throw makeErr2(-32001, "VaultBrain adapter not available or not initialized");
         const files = [];
         const walk = (dir) => {
-          for (const entry of readdirSync9(dir, { withFileTypes: true })) {
+          for (const entry of readdirSync11(dir, { withFileTypes: true })) {
             if (entry.isDirectory()) {
               if (!PROTECTED_DIRS4.has(entry.name))
-                walk(join18(dir, entry.name));
+                walk(join22(dir, entry.name));
             } else if (entry.isFile() && entry.name.endsWith(".md")) {
-              files.push(join18(dir, entry.name));
+              files.push(join22(dir, entry.name));
             }
           }
         };
@@ -47763,15 +51857,15 @@ function makeAllOperations(deps) {
         for (let i = 0; i < files.length; i += concurrency) {
           const batch = files.slice(i, i + concurrency);
           const results = await Promise.allSettled(batch.map(async (fullPath) => {
-            const content = readFileSync16(fullPath, "utf-8");
-            const relPath = relative5(vaultPath, fullPath).replace(/\\/g, "/");
+            const content = readFileSync19(fullPath, "utf-8");
+            const relPath = relative6(vaultPath, fullPath).replace(/\\/g, "/");
             await vba.ingest(relPath, content);
           }));
           results.forEach((result, idx) => {
             if (result.status === "fulfilled")
               indexed++;
             else
-              errors.push(`${relative5(vaultPath, batch[idx]).replace(/\\/g, "/")}: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`);
+              errors.push(`${relative6(vaultPath, batch[idx]).replace(/\\/g, "/")}: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`);
           });
         }
         return { indexed, skipped: errors.length, errors, totalFiles: files.length };
@@ -47798,7 +51892,7 @@ function makeAllOperations(deps) {
           ...defaultWeights,
           ...params.weights
         };
-        return unifiedQuery(registry2, query, {
+        return unifiedQuery(registry3, query, {
           maxResults: params.maxResults ?? 50,
           caseSensitive: params.caseSensitive ?? false,
           context: params.context,
@@ -47828,7 +51922,7 @@ function makeAllOperations(deps) {
           ...defaultWeights,
           ...params.weights
         };
-        return traceUnifiedQuery(registry2, query, {
+        return traceUnifiedQuery(registry3, query, {
           maxResults: params.maxResults ?? 10,
           caseSensitive: params.caseSensitive ?? false,
           context: params.context,
@@ -47859,7 +51953,7 @@ function makeAllOperations(deps) {
           ...params.weights
         };
         const backfill = await ensureBackfill();
-        const answer = await answerQuery(registry2, query, {
+        const answer = await answerQuery(registry3, query, {
           maxResults: params.maxResults ?? 5,
           caseSensitive: params.caseSensitive ?? false,
           context: params.context,
@@ -47884,7 +51978,7 @@ function makeAllOperations(deps) {
         const query = params.query;
         if (!query)
           throw makeErr2(-32602, "query required");
-        return unifiedQuery(registry2, query, {
+        return unifiedQuery(registry3, query, {
           maxResults: params.maxResults ?? 50,
           adapters: ["filesystem"]
         });
@@ -47912,7 +52006,7 @@ function makeAllOperations(deps) {
         } catch (e) {
           throw makeErr2(-32603, `embedding failed: ${e.message}`);
         }
-        return unifiedQueryByVector(registry2, vector, {
+        return unifiedQueryByVector(registry3, vector, {
           maxResults: params.maxResults ?? 50,
           adapters: params.adapters,
           weights: params.weights
@@ -47941,7 +52035,7 @@ function makeAllOperations(deps) {
             throw makeErr2(-32602, "vector must contain finite numbers only");
           }
         }
-        return unifiedQueryByVector(registry2, nums, {
+        return unifiedQueryByVector(registry3, nums, {
           maxResults: params.maxResults ?? 50,
           adapters: params.adapters,
           weights: params.weights
@@ -47961,7 +52055,7 @@ function makeAllOperations(deps) {
         if (!concept)
           throw makeErr2(-32602, "concept required");
         const weights = { ...defaultWeights };
-        return unifiedQuery(registry2, concept, {
+        return unifiedQuery(registry3, concept, {
           maxResults: 10,
           context: 3,
           weights: Object.keys(weights).length > 0 ? weights : void 0
@@ -47975,7 +52069,7 @@ function makeAllOperations(deps) {
       mutating: false,
       params: {},
       handler: async (_ctx, _params) => ({
-        adapters: registry2.list().map((a) => ({
+        adapters: registry3.list().map((a) => ({
           name: a.name,
           capabilities: [...a.capabilities],
           isAvailable: a.isAvailable
@@ -48003,7 +52097,7 @@ function makeAllOperations(deps) {
         dryRun: { type: "boolean", required: false, default: true, description: "Return extracted Markdown without writing (default: true)" }
       },
       handler: async (_ctx, params) => {
-        const adapter = registry2.get("raganything");
+        const adapter = registry3.get("raganything");
         if (!adapter || !adapter.isAvailable || typeof adapter.processDocument !== "function") {
           throw makeErr2(-32001, "RAG-Anything adapter not available or not initialized");
         }
@@ -48011,8 +52105,8 @@ function makeAllOperations(deps) {
         if (!inputPath)
           throw makeErr2(-32602, "path required");
         const normalizedInput = normalizeVaultRelPath3(inputPath);
-        const fullInput = join18(vaultPath, normalizedInput);
-        if (!existsSync14(fullInput))
+        const fullInput = join22(vaultPath, normalizedInput);
+        if (!existsSync18(fullInput))
           throw makeErr2(-32001, `Source file not found: ${normalizedInput}`);
         const outputPath = normalizeVaultRelPath3(typeof params.outputPath === "string" && params.outputPath.length > 0 ? params.outputPath : defaultMultimodalOutputPath(normalizedInput));
         if (!outputPath.endsWith(".md"))
@@ -48044,10 +52138,10 @@ function makeAllOperations(deps) {
             preview: content.slice(0, 2e3)
           };
         }
-        const fullOutput = join18(vaultPath, outputPath);
-        mkdirSync10(dirname10(fullOutput), { recursive: true });
+        const fullOutput = join22(vaultPath, outputPath);
+        mkdirSync10(dirname11(fullOutput), { recursive: true });
         writeFileSync8(fullOutput, content, "utf-8");
-        const vba = registry2.get("vaultbrain");
+        const vba = registry3.get("vaultbrain");
         if (vba)
           await vba.ingest(outputPath, content);
         return {
@@ -48077,7 +52171,7 @@ function makeAllOperations(deps) {
         dryRun: { type: "boolean", required: false, default: true, description: "Return the planned LightRAG request without sending it (default: true)" }
       },
       handler: async (_ctx, params) => {
-        const adapter = registry2.get("lightrag");
+        const adapter = registry3.get("lightrag");
         if (!adapter || !adapter.isAvailable) {
           throw makeErr2(-32001, "LightRAG adapter not available or not initialized");
         }
@@ -48085,8 +52179,8 @@ function makeAllOperations(deps) {
         if (!inputPath)
           throw makeErr2(-32602, "path required");
         const normalizedInput = normalizeVaultRelPath3(inputPath);
-        const fullInput = join18(vaultPath, normalizedInput);
-        if (!existsSync14(fullInput))
+        const fullInput = join22(vaultPath, normalizedInput);
+        if (!existsSync18(fullInput))
           throw makeErr2(-32001, `Source file not found: ${normalizedInput}`);
         const mode = params.mode ?? "auto";
         const effectiveMode = mode === "auto" ? /\.(md|markdown|txt)$/i.test(normalizedInput) ? "text" : "upload" : mode;
@@ -48100,7 +52194,7 @@ function makeAllOperations(deps) {
           };
         }
         if (effectiveMode === "text") {
-          const text = readFileSync16(fullInput, "utf-8");
+          const text = readFileSync19(fullInput, "utf-8");
           const result2 = await adapter.insertText({ text, fileSource: normalizedInput });
           return { dryRun: false, sourcePath: normalizedInput, mode: effectiveMode, result: result2 };
         }
@@ -48119,8 +52213,8 @@ function makeAllOperations(deps) {
         mode: { type: "string", required: false, description: "Agent mode filter" }
       },
       handler: async (_ctx, params) => {
-        const { resolve: resolve7 } = await import("node:path");
-        const evaluatePy = resolve7(compilerPath, "evaluate.py");
+        const { resolve: resolve8 } = await import("node:path");
+        const evaluatePy = resolve8(compilerPath, "evaluate.py");
         const baseArgs = [evaluatePy];
         if (configPath)
           baseArgs.push("--config", configPath);
@@ -48130,7 +52224,7 @@ function makeAllOperations(deps) {
         if (mode)
           args.push("--mode", mode);
         try {
-          const { stdout } = await execAsync(python, args, {
+          const { stdout } = await execAsync2(python, args, {
             timeout: 3e4,
             maxBuffer: 2 * 1024 * 1024,
             env: { ...process.env }
@@ -48152,8 +52246,8 @@ function makeAllOperations(deps) {
         mode: { type: "string", required: false, description: "Agent mode" }
       },
       handler: async (_ctx, params) => {
-        const { resolve: resolve7 } = await import("node:path");
-        const evaluatePy = resolve7(compilerPath, "evaluate.py");
+        const { resolve: resolve8 } = await import("node:path");
+        const evaluatePy = resolve8(compilerPath, "evaluate.py");
         const baseArgs = [evaluatePy];
         if (configPath)
           baseArgs.push("--config", configPath);
@@ -48170,10 +52264,11 @@ function makeAllOperations(deps) {
         if (mode)
           args.push("--mode", mode);
         try {
-          const { stdout } = await execAsync(python, args, {
+          const childEnvironment = await resolveAgentModelProcessEnvironment(settingsService);
+          const { stdout } = await execAsync2(python, args, {
             timeout: 3e5,
             maxBuffer: 10 * 1024 * 1024,
-            env: { ...process.env }
+            env: childEnvironment
           });
           return JSON.parse(stdout);
         } catch (e) {
@@ -48201,8 +52296,8 @@ function makeAllOperations(deps) {
         limit: { type: "number", required: false, description: "Maximum number of history entries (default: 20)", default: 20 }
       },
       handler: async (_ctx, params) => {
-        const { resolve: resolve7 } = await import("node:path");
-        const evaluatePy = resolve7(compilerPath, "evaluate.py");
+        const { resolve: resolve8 } = await import("node:path");
+        const evaluatePy = resolve8(compilerPath, "evaluate.py");
         const baseArgs = [evaluatePy];
         if (configPath)
           baseArgs.push("--config", configPath);
@@ -48212,7 +52307,7 @@ function makeAllOperations(deps) {
         if (limit !== void 0)
           args.push("--limit", String(limit));
         try {
-          const { stdout } = await execAsync(python, args, {
+          const { stdout } = await execAsync2(python, args, {
             timeout: 1e4,
             maxBuffer: 2 * 1024 * 1024,
             env: { ...process.env }
@@ -48232,11 +52327,14 @@ function makeAllOperations(deps) {
     ...makeVaultWriteOps(vaultPath, contextCoreLoader),
     ...makeMemoryOps(vaultPath),
     ...makeProjectOps(vaultPath),
+    ...makeProjectHubOps(registry3, settingsService),
+    ...makeProjectMigrationOps({ python, compilerPath, vaultPath }),
     ...makeIngestOps(),
     ...makeSourceOps(vaultPath),
     ...makeConversationOps(vaultPath),
     ...makeWorkflowOps(vaultPath),
-    ...makeContextOps(vaultPath, registry2, defaultWeights)
+    ...makeContextOps(vaultPath, registry3, defaultWeights),
+    ...makeSettingsOps(settingsOptions, settingsService)
   ];
   return [...operations, ...compileOps, ...queryOps, ...multimodalOps, ...lightRagOps, ...agentOps, ...holonOps];
 }
@@ -48276,6 +52374,13 @@ var WIKILINK_RE = /\[\[([^\]|]+)(?:\|([^\]]*))?\]\]/g;
 var TAG_RE = /(?:^|\s)#([a-zA-Z_一-鿿][\w/一-鿿-]*)/gm;
 var CODE_FENCE_RE = /```[\s\S]*?```/g;
 var INLINE_CODE_RE = /`[^`]*`/g;
+function resolveCompilerPath(runtimeDirectory, environment = process.env) {
+  const configured = environment.LLMWIKI_COMPILER_PATH ?? environment.VAULT_MIND_COMPILER_PATH;
+  if (configured?.trim())
+    return resolve7(configured);
+  const candidates = [resolve7(runtimeDirectory, "../compiler"), resolve7(runtimeDirectory, "../../compiler")];
+  return candidates.find((candidate) => existsSync19(join23(candidate, "kb_meta.py"))) ?? candidates[1];
+}
 var HISTORY_KEY_RE = /^history:\s*$/m;
 var HISTORY_LINE_RE = /^history:\s*$/;
 var HISTORY_ITEM_RE = /^ {2}- /;
@@ -48309,12 +52414,12 @@ function loadConfig() {
     };
   }
   const candidates = [
-    resolve6(process.cwd(), "vault-mind.yaml"),
-    resolve6(process.cwd(), "../vault-mind.yaml")
+    resolve7(process.cwd(), "vault-mind.yaml"),
+    resolve7(process.cwd(), "../vault-mind.yaml")
   ];
   for (const p of candidates) {
-    if (existsSync15(p))
-      return { ...parseSimpleYaml(readFileSync17(p, "utf-8")), config_path: p };
+    if (existsSync19(p))
+      return { ...parseSimpleYaml(readFileSync20(p, "utf-8")), config_path: p };
   }
   throw new Error("No vault-mind.yaml found and VAULT_MIND_VAULT_PATH not set");
 }
@@ -48379,23 +52484,23 @@ function withFileLock4(fullPath, fn) {
   } catch (e) {
     if (e.code !== "EEXIST")
       throw e;
-    const ageMs = Date.now() - statSync6(lockPath).mtimeMs;
+    const ageMs = Date.now() - statSync8(lockPath).mtimeMs;
     if (ageMs < LOCK_TTL_MS4) {
       let holder = "unknown";
       try {
-        holder = readFileSync17(lockPath, "utf-8").trim();
+        holder = readFileSync20(lockPath, "utf-8").trim();
       } catch {
       }
-      throw err(-32010, `Lock conflict on ${basename6(fullPath)}: held by ${holder}, ttl remaining ${LOCK_TTL_MS4 - ageMs}ms`);
+      throw err(-32010, `Lock conflict on ${basename8(fullPath)}: held by ${holder}, ttl remaining ${LOCK_TTL_MS4 - ageMs}ms`);
     }
-    rmSync4(lockPath, { force: true });
+    rmSync5(lockPath, { force: true });
     acquire();
   }
   try {
     return fn();
   } finally {
     try {
-      rmSync4(lockPath, { force: true });
+      rmSync5(lockPath, { force: true });
     } catch {
     }
   }
@@ -48449,7 +52554,7 @@ var VaultFs = class {
   vault;
   realVault;
   constructor(vaultPath) {
-    this.vault = resolve6(vaultPath);
+    this.vault = resolve7(vaultPath);
     this.realVault = realpathSync(this.vault);
   }
   normalizeVaultPath(p, opts = {}) {
@@ -48473,23 +52578,23 @@ var VaultFs = class {
   }
   resolve(p, opts = {}) {
     const normalized = this.normalizeVaultPath(p, opts);
-    const full = resolve6(this.vault, normalized);
-    const rel = relative6(this.vault, full);
+    const full = resolve7(this.vault, normalized);
+    const rel = relative7(this.vault, full);
     if (rel.startsWith("..") || pathIsAbsolute2(rel))
       throw err(-32602, "path escapes vault");
     this.assertRealPathInsideVault(full);
     return full;
   }
   assertRealPathInsideVault(full) {
-    const realTarget = existsSync15(full) ? realpathSync(full) : this.realpathExistingAncestor(dirname11(full));
-    const rel = relative6(this.realVault, realTarget);
+    const realTarget = existsSync19(full) ? realpathSync(full) : this.realpathExistingAncestor(dirname12(full));
+    const rel = relative7(this.realVault, realTarget);
     if (rel.startsWith("..") || pathIsAbsolute2(rel))
       throw err(-32602, "path traversal blocked");
   }
   realpathExistingAncestor(start) {
     let current = start;
-    while (!existsSync15(current)) {
-      const parent = dirname11(current);
+    while (!existsSync19(current)) {
+      const parent = dirname12(current);
       if (parent === current)
         throw err(-32602, "path traversal blocked");
       current = parent;
@@ -48577,13 +52682,13 @@ var VaultFs = class {
   }
   walkMd(fn) {
     const walk = (d) => {
-      for (const ent of readdirSync10(d, { withFileTypes: true })) {
-        const full = join19(d, ent.name);
+      for (const ent of readdirSync12(d, { withFileTypes: true })) {
+        const full = join23(d, ent.name);
         if (ent.isDirectory() && !PROTECTED_DIRS5.has(ent.name))
           walk(full);
         else if (ent.isFile() && ent.name.endsWith(".md")) {
-          const rel = relative6(this.vault, full).replace(/\\/g, "/");
-          fn(rel, readFileSync17(full, "utf-8"));
+          const rel = relative7(this.vault, full).replace(/\\/g, "/");
+          fn(rel, readFileSync20(full, "utf-8"));
         }
       }
     };
@@ -48592,13 +52697,13 @@ var VaultFs = class {
   walkSearchableText(fn) {
     const searchableExts = /* @__PURE__ */ new Set([".md", ".canvas", ".base"]);
     const walk = (d) => {
-      for (const ent of readdirSync10(d, { withFileTypes: true })) {
-        const full = join19(d, ent.name);
+      for (const ent of readdirSync12(d, { withFileTypes: true })) {
+        const full = join23(d, ent.name);
         if (ent.isDirectory() && !PROTECTED_DIRS5.has(ent.name))
           walk(full);
         if (ent.isFile() && searchableExts.has(extname2(ent.name))) {
-          const rel = relative6(this.vault, full).replace(/\\/g, "/");
-          fn(rel, readFileSync17(full, "utf-8"));
+          const rel = relative7(this.vault, full).replace(/\\/g, "/");
+          fn(rel, readFileSync20(full, "utf-8"));
         }
       }
     };
@@ -48612,21 +52717,21 @@ var VaultFs = class {
     switch (method) {
       case "vault.read": {
         const full = this.resolve(p.path);
-        if (!existsSync15(full))
+        if (!existsSync19(full))
           throw err(-32001, `Not found: ${p.path}`);
-        return { content: readFileSync17(full, "utf-8") };
+        return { content: readFileSync20(full, "utf-8") };
       }
       case "vault.exists": {
         const existsPath = this.normalizeVaultPath(p.path ?? "", { allowRoot: true });
-        return { exists: existsSync15(this.resolve(existsPath, { allowRoot: true })) };
+        return { exists: existsSync19(this.resolve(existsPath, { allowRoot: true })) };
       }
       case "vault.list": {
         const listPath = this.normalizeVaultPath(p.path ?? "", { allowRoot: true });
         const dir = this.resolve(listPath, { allowRoot: true });
-        if (!existsSync15(dir))
+        if (!existsSync19(dir))
           throw err(-32001, `Not found: ${p.path}`);
         const hidden = /* @__PURE__ */ new Set([".obsidian", ".trash", "node_modules"]);
-        const entries = readdirSync10(dir, { withFileTypes: true }).filter((e) => !hidden.has(e.name));
+        const entries = readdirSync12(dir, { withFileTypes: true }).filter((e) => !hidden.has(e.name));
         return {
           files: entries.filter((e) => e.isFile()).map((e) => posix.join(listPath, e.name)).sort(),
           folders: entries.filter((e) => e.isDirectory()).map((e) => posix.join(listPath, e.name)).sort()
@@ -48635,12 +52740,12 @@ var VaultFs = class {
       case "vault.stat": {
         const statPath = this.normalizeVaultPath(p.path ?? "", { allowRoot: true });
         const full = this.resolve(statPath, { allowRoot: true });
-        if (!existsSync15(full))
+        if (!existsSync19(full))
           throw err(-32001, `Not found: ${p.path}`);
-        const st = statSync6(full);
-        const displayName = statPath === "" ? basename6(this.vault) : basename6(statPath);
+        const st = statSync8(full);
+        const displayName = statPath === "" ? basename8(this.vault) : basename8(statPath);
         if (st.isDirectory())
-          return { type: "folder", path: statPath, name: displayName, children: readdirSync10(full).length };
+          return { type: "folder", path: statPath, name: displayName, children: readdirSync12(full).length };
         return {
           type: "file",
           path: statPath,
@@ -48653,19 +52758,19 @@ var VaultFs = class {
       }
       case "vault.create": {
         const full = this.resolve(p.path);
-        if (existsSync15(full))
+        if (existsSync19(full))
           throw err(-32002, `Already exists: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "create", path: p.path };
         return withFileLock4(full, () => {
-          mkdirSync11(dirname11(full), { recursive: true });
+          mkdirSync11(dirname12(full), { recursive: true });
           writeFileSync9(full, p.content || "", "utf-8");
           return { ok: true, path: p.path };
         });
       }
       case "vault.modify": {
         const full = this.resolve(p.path);
-        if (!existsSync15(full))
+        if (!existsSync19(full))
           throw err(-32001, `Not found: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "modify", path: p.path };
@@ -48676,7 +52781,7 @@ var VaultFs = class {
       }
       case "vault.append": {
         const full = this.resolve(p.path);
-        if (!existsSync15(full))
+        if (!existsSync19(full))
           throw err(-32001, `Not found: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "append", path: p.path };
@@ -48687,28 +52792,28 @@ var VaultFs = class {
       }
       case "vault.delete": {
         const full = this.resolve(p.path);
-        if (!existsSync15(full))
+        if (!existsSync19(full))
           throw err(-32001, `Not found: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "delete", path: p.path };
         return withFileLock4(full, () => {
-          rmSync4(full, { recursive: true });
+          rmSync5(full, { recursive: true });
           return { ok: true, path: p.path };
         });
       }
       case "vault.rename": {
         const from = this.resolve(p.from);
         const to = this.resolve(p.to);
-        if (!existsSync15(from))
+        if (!existsSync19(from))
           throw err(-32001, `Not found: ${p.from}`);
-        if (existsSync15(to))
+        if (existsSync19(to))
           throw err(-32002, `Already exists: ${p.to}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "rename", from: p.from, to: p.to };
         return withFileLock4(from, () => {
-          mkdirSync11(dirname11(to), { recursive: true });
+          mkdirSync11(dirname12(to), { recursive: true });
           return withFileLock4(to, () => {
-            renameSync(from, to);
+            renameSync2(from, to);
             return { ok: true, from: p.from, to: p.to };
           });
         });
@@ -48773,7 +52878,7 @@ var VaultFs = class {
           throw err(-32602, `Unknown op: ${op}`);
         const results = [];
         const pushWithMtime = (relPath, v) => {
-          const st = statSync6(this.resolve(relPath));
+          const st = statSync8(this.resolve(relPath));
           results.push({ path: relPath, value: v, mtime: st.mtimeMs });
         };
         this.walkMd((relPath, content) => {
@@ -48844,7 +52949,7 @@ var VaultFs = class {
             if (!target.includes("/")) {
               const withMd = target.endsWith(".md") ? target : target + ".md";
               try {
-                if (existsSync15(this.resolve(withMd)))
+                if (existsSync19(this.resolve(withMd)))
                   target = withMd;
               } catch {
               }
@@ -48865,7 +52970,7 @@ var VaultFs = class {
           path: np,
           exists: (() => {
             try {
-              return existsSync15(this.resolve(np));
+              return existsSync19(this.resolve(np));
             } catch {
               return false;
             }
@@ -48884,7 +52989,7 @@ var VaultFs = class {
         if (!p.path)
           throw err(-32602, "path required");
         const target = p.path.endsWith(".md") ? p.path : p.path + ".md";
-        const targetBase = basename6(target, ".md");
+        const targetBase = basename8(target, ".md");
         const results = [];
         this.walkMd((relPath, content) => {
           if (relPath === target)
@@ -48936,7 +53041,7 @@ var VaultFs = class {
         const linkMap = /* @__PURE__ */ new Map();
         const inbound = /* @__PURE__ */ new Set();
         this.walkMd((relPath, content) => {
-          const st = statSync6(this.resolve(relPath));
+          const st = statSync8(this.resolve(relPath));
           allFiles.push({ path: relPath, size: st.size, content });
           const targets = /* @__PURE__ */ new Map();
           for (const l of this.parseWikilinks(content)) {
@@ -48952,7 +53057,7 @@ var VaultFs = class {
         for (const [from, targets] of linkMap) {
           for (const [to] of targets) {
             try {
-              if (!existsSync15(this.resolve(to)))
+              if (!existsSync19(this.resolve(to)))
                 brokenLinks.push({ from, to });
             } catch {
               brokenLinks.push({ from, to });
@@ -48971,7 +53076,7 @@ var VaultFs = class {
         }
         const titleMap = /* @__PURE__ */ new Map();
         for (const fi of allFiles) {
-          const t = basename6(fi.path, ".md").toLowerCase();
+          const t = basename8(fi.path, ".md").toLowerCase();
           const arr = titleMap.get(t) || [];
           arr.push(fi.path);
           titleMap.set(t, arr);
@@ -49033,7 +53138,7 @@ ${summary ? `> ${summary}
         if (p.dryRun !== false)
           return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
         return withFileLock4(full, () => {
-          mkdirSync11(dirname11(full), { recursive: true });
+          mkdirSync11(dirname12(full), { recursive: true });
           writeFileSync9(full, content, "utf-8");
           return { ok: true, path };
         });
@@ -49074,11 +53179,11 @@ ${notes}
 
 ## Notes
 `;
-        const alreadyExists = existsSync15(full);
+        const alreadyExists = existsSync19(full);
         if (p.dryRun !== false)
           return { dryRun: true, action: alreadyExists ? "update" : "create", path, preview: content.slice(0, 200) };
         return withFileLock4(full, () => {
-          mkdirSync11(dirname11(full), { recursive: true });
+          mkdirSync11(dirname12(full), { recursive: true });
           writeFileSync9(full, content, "utf-8");
           return { ok: true, path, action: alreadyExists ? "updated" : "created" };
         });
@@ -49132,9 +53237,9 @@ ${teamLinks || "- TBD"}
 ## Notes
 `;
         if (p.dryRun !== false)
-          return { dryRun: true, action: existsSync15(full) ? "update" : "create", path, preview: content.slice(0, 200) };
+          return { dryRun: true, action: existsSync19(full) ? "update" : "create", path, preview: content.slice(0, 200) };
         return withFileLock4(full, () => {
-          mkdirSync11(dirname11(full), { recursive: true });
+          mkdirSync11(dirname12(full), { recursive: true });
           writeFileSync9(full, content, "utf-8");
           return { ok: true, path };
         });
@@ -49195,7 +53300,7 @@ ${consequences}
         if (p.dryRun !== false)
           return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
         return withFileLock4(full, () => {
-          mkdirSync11(dirname11(full), { recursive: true });
+          mkdirSync11(dirname12(full), { recursive: true });
           writeFileSync9(full, content, "utf-8");
           return { ok: true, path };
         });
@@ -49248,7 +53353,7 @@ ${actionLines || "- None assigned"}
         if (p.dryRun !== false)
           return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
         return withFileLock4(full, () => {
-          mkdirSync11(dirname11(full), { recursive: true });
+          mkdirSync11(dirname12(full), { recursive: true });
           writeFileSync9(full, content, "utf-8");
           return { ok: true, path };
         });
@@ -49289,14 +53394,14 @@ ${p.content}
         if (p.dryRun !== false)
           return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
         return withFileLock4(full, () => {
-          mkdirSync11(dirname11(full), { recursive: true });
+          mkdirSync11(dirname12(full), { recursive: true });
           writeFileSync9(full, content, "utf-8");
           return { ok: true, path };
         });
       }
       case "vault.mkdir": {
         const full = this.resolve(p.path);
-        if (existsSync15(full))
+        if (existsSync19(full))
           throw err(-32002, `Already exists: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "mkdir", path: p.path };
@@ -49355,7 +53460,7 @@ ${p.content}
           const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
           for (const [dir] of scaffold) {
             const full = this.resolve(dir);
-            if (existsSync15(full)) {
+            if (existsSync19(full)) {
               skipped2.push(dir);
               continue;
             }
@@ -49381,7 +53486,7 @@ ${methodologyNotes[methodology]}
 ${folderLines}
 `;
           const homeFull = this.resolve("Home.md");
-          if (existsSync15(homeFull)) {
+          if (existsSync19(homeFull)) {
             skipped2.push("Home.md");
           } else {
             if (!dryRun)
@@ -49400,7 +53505,7 @@ ${folderLines}
         const now = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
         const ensureDir = (rel) => {
           const full = this.resolve(rel);
-          if (existsSync15(full)) {
+          if (existsSync19(full)) {
             skipped.push(rel);
             return;
           }
@@ -49410,11 +53515,11 @@ ${folderLines}
         const ensureFile = (rel, content) => {
           const r = rel.endsWith(".md") ? rel : rel + ".md";
           const full = this.resolve(r);
-          if (existsSync15(full)) {
+          if (existsSync19(full)) {
             skipped.push(r);
             return;
           }
-          mkdirSync11(dirname11(full), { recursive: true });
+          mkdirSync11(dirname12(full), { recursive: true });
           writeFileSync9(full, content, "utf-8");
           created.push(r);
         };
@@ -49458,7 +53563,7 @@ Follows llm-wiki opinionated workflow.
 See root CLAUDE.md for full documentation.
 `);
         const yamlPath = `${base}/kb.yaml`;
-        if (existsSync15(this.resolve(yamlPath))) {
+        if (existsSync19(this.resolve(yamlPath))) {
           skipped.push(yamlPath);
         } else {
           writeFileSync9(this.resolve(yamlPath), `topic: "${p.topic}"
@@ -49493,7 +53598,7 @@ created: ${now}
             created: [],
             skipped: []
           };
-          const entries = readdirSync10(absDir, { withFileTypes: true });
+          const entries = readdirSync12(absDir, { withFileTypes: true });
           for (const ent of entries) {
             if (!ent.isFile())
               continue;
@@ -49505,7 +53610,7 @@ created: ${now}
           }
           const mdFiles = entries.filter((e) => e.isFile() && e.name.endsWith(".md")).map((e) => e.name).sort();
           const subDirs = entries.filter((e) => e.isDirectory() && !PROTECTED_DIRS5.has(e.name) && !extraSkip.has(e.name)).map((e) => e.name).sort();
-          const topicName = basename6(relDir || this.vault);
+          const topicName = basename8(relDir || this.vault);
           if (!report.hasCatalog) {
             const catalogPath = relDir ? posix.join(relDir, "_index.md") : "_index.md";
             const absCatalog = this.resolve(catalogPath);
@@ -49550,7 +53655,7 @@ updated: ${now}
         const allSkipped = [];
         const errors = [];
         try {
-          const topEntries = readdirSync10(this.vault, { withFileTypes: true });
+          const topEntries = readdirSync12(this.vault, { withFileTypes: true });
           for (const ent of topEntries) {
             if (!ent.isDirectory())
               continue;
@@ -49653,14 +53758,14 @@ updated: ${now}
         const baseName2 = `${datePrefix}-${slug}`;
         let chosenName = `${baseName2}.md`;
         let relPath = `${relDir}/${chosenName}`;
-        let fullPath = join19(this.vault, relDir, chosenName);
-        if (existsSync15(fullPath)) {
+        let fullPath = join23(this.vault, relDir, chosenName);
+        if (existsSync19(fullPath)) {
           let found = false;
           for (let i = 2; i <= 99; i++) {
             chosenName = `${baseName2}-${i}.md`;
             relPath = `${relDir}/${chosenName}`;
-            fullPath = join19(this.vault, relDir, chosenName);
-            if (!existsSync15(fullPath)) {
+            fullPath = join23(this.vault, relDir, chosenName);
+            if (!existsSync19(fullPath)) {
               found = true;
               break;
             }
@@ -49707,7 +53812,7 @@ ${yamlLines.join("\n")}
 
 ${bodyWithTag}
 `;
-        mkdirSync11(dirname11(fullPath), { recursive: true });
+        mkdirSync11(dirname12(fullPath), { recursive: true });
         return withFileLock4(fullPath, () => {
           writeFileSync9(fullPath, contentOut, "utf-8");
           return { ok: true, path: relPath, frontmatter: frontmatterObj, warnings };
@@ -49725,7 +53830,7 @@ ${bodyWithTag}
         const nowMs = typeof p.now === "string" ? Date.parse(p.now) : Date.now();
         const nowValid = !isNaN(nowMs) ? nowMs : Date.now();
         const aiRootRel = "00-Inbox/AI-Output";
-        const aiRootAbs = join19(this.vault, aiRootRel);
+        const aiRootAbs = join23(this.vault, aiRootRel);
         const emptyMetrics = {
           totalEntries: 0,
           byPersona: {},
@@ -49733,19 +53838,19 @@ ${bodyWithTag}
           byQuarantineState: {},
           realBacklinkHitRate: 0
         };
-        if (!existsSync15(aiRootAbs)) {
+        if (!existsSync19(aiRootAbs)) {
           return { staleCandidates: [], supersedeCandidates: [], applied: [], metrics: emptyMetrics };
         }
         const entries = [];
         const walkSubtree = (d) => {
-          if (!existsSync15(d))
+          if (!existsSync19(d))
             return;
-          for (const ent of readdirSync10(d, { withFileTypes: true })) {
-            const full = join19(d, ent.name);
+          for (const ent of readdirSync12(d, { withFileTypes: true })) {
+            const full = join23(d, ent.name);
             if (ent.isDirectory() && !PROTECTED_DIRS5.has(ent.name))
               walkSubtree(full);
             else if (ent.isFile() && ent.name.endsWith(".md")) {
-              const content = readFileSync17(full, "utf-8");
+              const content = readFileSync20(full, "utf-8");
               const fm = this.parseFrontmatter(content);
               if (!fm)
                 continue;
@@ -49753,8 +53858,8 @@ ${bodyWithTag}
               if (!persona)
                 continue;
               const status = typeof fm["status"] === "string" ? fm["status"] : "";
-              const relPath = relative6(this.vault, full).replace(/\\/g, "/");
-              const st = statSync6(full);
+              const relPath = relative7(this.vault, full).replace(/\\/g, "/");
+              const st = statSync8(full);
               const mtimeMs = st.mtimeMs;
               let entryMs = mtimeMs;
               const ga = fm["generated-at"];
@@ -49772,7 +53877,7 @@ ${bodyWithTag}
         walkSubtree(aiRootAbs);
         const aiOutputPaths = new Set(entries.map((e) => e.relPath));
         const hasRealBacklink = (targetRel) => {
-          const targetBase = basename6(targetRel, ".md");
+          const targetBase = basename8(targetRel, ".md");
           let found = false;
           this.walkMd((relPath, content) => {
             if (found)
@@ -49839,10 +53944,10 @@ ${bodyWithTag}
         if (!dryRun) {
           const flipIso = new Date(nowValid).toISOString();
           for (const sc of staleCandidates) {
-            const absPath = join19(this.vault, sc.path);
+            const absPath = join23(this.vault, sc.path);
             const historyEntry = `{ts: "${flipIso}", axis: status, from: draft, to: stale, trigger: auto-stop-summary, evidence_level: low, human_in_loop: false, note: "gardener sweep"}`;
             const flipped = withFileLock4(absPath, () => {
-              const original = readFileSync17(absPath, "utf-8");
+              const original = readFileSync20(absPath, "utf-8");
               const withStatusFlipped = original.replace(/(^---[\s\S]*?\nstatus: )draft(\n[\s\S]*?^---$)/m, (_m, g1, g2) => g1 + "stale" + g2);
               if (withStatusFlipped === original)
                 return false;
@@ -49873,13 +53978,13 @@ ${bodyWithTag}
         metrics.realBacklinkHitRate = entries.length === 0 ? 0 : withRealBacklink / entries.length;
         if (!dryRun && entries.length > 0) {
           const sweepLogRel = "00-Inbox/AI-Output/sweep.log.md";
-          const sweepLogAbs = join19(this.vault, sweepLogRel);
+          const sweepLogAbs = join23(this.vault, sweepLogRel);
           const stamp = new Date(nowValid).toISOString();
           const logLine = `- {ts: "${stamp}", totalEntries: ${metrics.totalEntries}, staleHits: ${staleCandidates.length}, supersedeHits: ${supersedeCandidates.length}, realBacklinkHitRate: ${metrics.realBacklinkHitRate.toFixed(3)}}
 `;
           withFileLock4(sweepLogAbs, () => {
-            if (!existsSync15(sweepLogAbs)) {
-              mkdirSync11(dirname11(sweepLogAbs), { recursive: true });
+            if (!existsSync19(sweepLogAbs)) {
+              mkdirSync11(dirname12(sweepLogAbs), { recursive: true });
               writeFileSync9(sweepLogAbs, "# Sweep trend log\n\n", "utf-8");
             }
             appendFileSync3(sweepLogAbs, logLine, "utf-8");
@@ -49889,9 +53994,9 @@ ${bodyWithTag}
       }
       case "vault.getMetadata": {
         const full = this.resolve(p.path);
-        if (!existsSync15(full))
+        if (!existsSync19(full))
           throw err(-32001, `Not found: ${p.path}`);
-        const content = readFileSync17(full, "utf-8");
+        const content = readFileSync20(full, "utf-8");
         const out = {};
         const links = this.parseWikilinks(content);
         if (links.length)
@@ -49925,30 +54030,30 @@ function checkAuth(config2, args) {
 }
 async function main() {
   const config2 = loadConfig();
-  const registry2 = new AdapterRegistry();
+  const registry3 = new AdapterRegistry();
   if (config2.vault_path) {
     const fsAdapter = new FilesystemAdapter(config2.vault_path);
     await fsAdapter.init();
-    registry2.register(fsAdapter);
+    registry3.register(fsAdapter);
   }
   const enabledAdapters = new Set(config2.adapters ?? ["filesystem", "memu", "gitnexus", "obsidian", "kanban", "qmd", "lightrag", "raganything", "vaultbrain", "graphify"]);
   if (enabledAdapters.has("memu")) {
     const memuAdapter = new MemUAdapter();
     await memuAdapter.init();
     if (memuAdapter.isAvailable)
-      registry2.register(memuAdapter);
+      registry3.register(memuAdapter);
   }
   if (enabledAdapters.has("gitnexus")) {
     const gnAdapter = new GitNexusAdapter();
     await gnAdapter.init();
     if (gnAdapter.isAvailable)
-      registry2.register(gnAdapter);
+      registry3.register(gnAdapter);
   }
   if (enabledAdapters.has("obsidian")) {
     const obsAdapter = new ObsidianAdapter();
     await obsAdapter.init();
     if (obsAdapter.isAvailable)
-      registry2.register(obsAdapter);
+      registry3.register(obsAdapter);
   }
   if (enabledAdapters.has("kanban")) {
     const kanbanAdapter = new KanbanAdapter({
@@ -49957,7 +54062,7 @@ async function main() {
     });
     await kanbanAdapter.init();
     if (kanbanAdapter.isAvailable) {
-      registry2.register(kanbanAdapter);
+      registry3.register(kanbanAdapter);
       process.stderr.write("obsidian-llm-wiki: [kanban] adapter ready\n");
     }
   }
@@ -49966,7 +54071,7 @@ async function main() {
     const qmdAdapter = new QmdAdapter({ collection: qmdCollection });
     await qmdAdapter.init();
     if (qmdAdapter.isAvailable) {
-      registry2.register(qmdAdapter);
+      registry3.register(qmdAdapter);
       process.stderr.write("obsidian-llm-wiki: [qmd] adapter ready\n");
     }
   }
@@ -49974,7 +54079,7 @@ async function main() {
     const lightragAdapter = new LightRAGAdapter();
     await lightragAdapter.init();
     if (lightragAdapter.isAvailable) {
-      registry2.register(lightragAdapter);
+      registry3.register(lightragAdapter);
       process.stderr.write("obsidian-llm-wiki: [lightrag] adapter ready\n");
     }
   }
@@ -49982,7 +54087,7 @@ async function main() {
     const ragAnythingAdapter = new RAGAnythingAdapter();
     await ragAnythingAdapter.init();
     if (ragAnythingAdapter.isAvailable) {
-      registry2.register(ragAnythingAdapter);
+      registry3.register(ragAnythingAdapter);
       process.stderr.write("obsidian-llm-wiki: [raganything] adapter ready\n");
     }
   }
@@ -49991,7 +54096,7 @@ async function main() {
     const vbAdapter = new VaultBrainAdapter();
     try {
       await vbAdapter.init();
-      registry2.register(vbAdapter);
+      registry3.register(vbAdapter);
       vaultBrainAdapter = vbAdapter;
       configureLazyIndex(vbAdapter, config2.vault_path);
       process.stderr.write("obsidian-llm-wiki: [vaultbrain] adapter ready\n");
@@ -50004,12 +54109,12 @@ async function main() {
     const graphifyAdapter = new GraphifyAdapter({ vaultPath: config2.vault_path });
     await graphifyAdapter.init();
     if (graphifyAdapter.isAvailable) {
-      registry2.register(graphifyAdapter);
+      registry3.register(graphifyAdapter);
       process.stderr.write("obsidian-llm-wiki: [graphify] adapter ready\n");
     }
   }
-  const __dirname = dirname11(fileURLToPath3(import.meta.url));
-  const compilerPath = resolve6(__dirname, "../../compiler");
+  const __dirname = dirname12(fileURLToPath3(import.meta.url));
+  const compilerPath = resolveCompilerPath(__dirname);
   const python = process.env.VAULT_MIND_PYTHON ?? process.env.PYTHON ?? "python";
   const compileTrigger = new CompileTrigger({
     vaultPath: config2.vault_path,
@@ -50020,8 +54125,8 @@ async function main() {
         return;
       for (const fullPath of wikiPaths) {
         try {
-          const relPath = relative6(config2.vault_path, fullPath).replace(/\\/g, "/");
-          const content = readFileSync17(fullPath, "utf-8");
+          const relPath = relative7(config2.vault_path, fullPath).replace(/\\/g, "/");
+          const content = readFileSync20(fullPath, "utf-8");
           vaultBrainAdapter.ingest(relPath, content).catch((err2) => process.stderr.write(`obsidian-llm-wiki: [vaultbrain] ingest error: ${err2.message}
 `));
         } catch {
@@ -50029,15 +54134,15 @@ async function main() {
       }
     }
   });
-  const obsidianAdapter = registry2.get("obsidian");
+  const obsidianAdapter = registry3.get("obsidian");
   if (obsidianAdapter?.isAvailable && typeof obsidianAdapter.onFileChange === "function") {
     obsidianAdapter.onFileChange((e) => {
       if (e.type === "create" || e.type === "modify") {
         compileTrigger.onFileChange(e.path, e.type);
         if (vaultBrainAdapter && e.path.endsWith(".md")) {
           try {
-            const fullPath = join19(config2.vault_path, e.path.replace(/\\/g, "/"));
-            const content = readFileSync17(fullPath, "utf-8");
+            const fullPath = join23(config2.vault_path, e.path.replace(/\\/g, "/"));
+            const content = readFileSync20(fullPath, "utf-8");
             vaultBrainAdapter.ingest(e.path, content).catch((err2) => process.stderr.write(`obsidian-llm-wiki: [vaultbrain] ingest error: ${err2.message}
 `));
           } catch {
@@ -50058,7 +54163,7 @@ async function main() {
   };
   const allOps = makeAllOperations({
     compileTrigger,
-    registry: registry2,
+    registry: registry3,
     defaultWeights: config2.adapter_weights,
     python,
     compilerPath,
@@ -50069,7 +54174,7 @@ async function main() {
   const writeVerdicts = /* @__PURE__ */ new WeakMap();
   const ctx = {
     vault: vaultFs,
-    adapters: registry2,
+    adapters: registry3,
     config: config2,
     logger: stderrLogger,
     dryRun: false
@@ -50078,10 +54183,10 @@ async function main() {
     if (!vaultBrainAdapter || !relPath.endsWith(".md"))
       return;
     try {
-      const fullPath = join19(config2.vault_path, relPath.replace(/\\/g, "/"));
-      if (!existsSync15(fullPath))
+      const fullPath = join23(config2.vault_path, relPath.replace(/\\/g, "/"));
+      if (!existsSync19(fullPath))
         return;
-      const content = readFileSync17(fullPath, "utf-8");
+      const content = readFileSync20(fullPath, "utf-8");
       vaultBrainAdapter.ingest(relPath, content).catch((err2) => process.stderr.write(`obsidian-llm-wiki: [vaultbrain] ingest error: ${err2.message}
 `));
     } catch {
@@ -50125,7 +54230,7 @@ async function main() {
     }
   });
   await startStdioServer(server);
-  const adapterNames = registry2.list().map((a) => a.name).join(", ");
+  const adapterNames = registry3.list().map((a) => a.name).join(", ");
   process.stderr.write(`obsidian-llm-wiki: MCP server running (stdio, v${VERSION}, adapters: ${adapterNames})
 `);
   process.stderr.write(`obsidian-llm-wiki: try "what do I know about <topic>" to invoke vault-librarian
@@ -50139,5 +54244,6 @@ if (_isEntry) {
   });
 }
 export {
-  VaultFs
+  VaultFs,
+  resolveCompilerPath
 };

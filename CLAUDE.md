@@ -1,8 +1,8 @@
-# CLAUDE.md — LLM Wiki Bridge
+# CLAUDE.md — LLM Wiki
 
 ## What This Is
 
-Knowledge OS for AI agents. 四层架构:
+LLM Wiki for AI agents. 四层架构:
 1. **MCP Server** (TypeScript, stdio) — 统一接口
 2. **Adapter Registry** — filesystem(default) / obsidian(WS) / memU(pgvector) / gitnexus(graph)
 3. **KB Compiler** (Python, zero-dep) — raw/ → wiki/ 单向编译
@@ -88,3 +88,22 @@ Key constraints:
 - write unreviewed analysis under `00-Inbox/AI-Output/<agent>/` or `10-Projects/<project>/agents/<agent>/`;
 - track executable obsidian-llm-wiki work under `01-Projects/<project>/issues/`, never `10-Projects/<project>/docket/**`;
 - promote durable team truth only through reviewed Decisions, Architecture, Runbooks, or Project Hub links.
+
+## Skill routing
+
+When the user's request matches an available skill, invoke it via the Skill tool. When in doubt, invoke the skill.
+
+Key routing rules:
+- Product ideas/brainstorming → invoke /office-hours
+- Strategy/scope → invoke /plan-ceo-review
+- Architecture → invoke /plan-eng-review
+- Design system/plan review → invoke /design-consultation or /plan-design-review
+- Full review pipeline → invoke /autoplan
+- Bugs/errors → invoke /investigate
+- QA/testing site behavior → invoke /qa or /qa-only
+- Code review/diff check → invoke /review
+- Visual polish → invoke /design-review
+- Ship/deploy/PR → invoke /ship or /land-and-deploy
+- Save progress → invoke /context-save
+- Resume context → invoke /context-restore
+- Author a backlog-ready spec/issue → invoke /spec

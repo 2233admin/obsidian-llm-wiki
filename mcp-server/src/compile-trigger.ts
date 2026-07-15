@@ -28,6 +28,8 @@ export interface CompileTriggerConfig {
   autoCompile?: boolean;
   /** Called after successful compile with list of modified wiki paths for re-indexing */
   onCompileSuccess?: (wikiPaths: string[]) => void;
+  /** Resolve child-process environment immediately before model invocation. */
+  environmentResolver?: () => Promise<NodeJS.ProcessEnv>;
 }
 
 export interface CompileStatus {
@@ -63,6 +65,7 @@ export class CompileTrigger {
   private readonly tier: string;
   private readonly autoCompile: boolean;
   private readonly onCompileSuccess?: (wikiPaths: string[]) => void;
+  private environmentResolver?: () => Promise<NodeJS.ProcessEnv>;
 
   constructor(config: CompileTriggerConfig) {
     this.vaultPath = config.vaultPath;
@@ -72,6 +75,11 @@ export class CompileTrigger {
     this.tier = config.tier ?? "haiku";
     this.autoCompile = config.autoCompile ?? true;
     this.onCompileSuccess = config.onCompileSuccess;
+    this.environmentResolver = config.environmentResolver;
+  }
+
+  setEnvironmentResolver(resolver: () => Promise<NodeJS.ProcessEnv>): void {
+    this.environmentResolver = resolver;
   }
 
   /**
@@ -84,7 +92,7 @@ export class CompileTrigger {
     if (!path.endsWith(".md")) return;
 
     this.dirty.add(path);
-    process.stderr.write(`vault-mind: [compile] dirty +1: ${path} (${this.dirty.size}/${this.threshold})\n`);
+    process.stderr.write(`llmwiki: [compile] dirty +1: ${path} (${this.dirty.size}/${this.threshold})\n`);
 
     if (this.autoCompile && this.dirty.size >= this.threshold && !this.running) {
       this.autoTrigger();
@@ -168,7 +176,7 @@ export class CompileTrigger {
         }
         if (dirty.length > 0) {
           process.stderr.write(
-            `vault-mind: [compile] startup: ${dirty.length} dirty in "${topic}"\n`,
+            `llmwiki: [compile] startup: ${dirty.length} dirty in "${topic}"\n`,
           );
         }
       } catch {
@@ -191,10 +199,10 @@ export class CompileTrigger {
     const topic = this.detectTopic();
     if (!topic) return;
     this.running = true; // claim lock synchronously before async work
-    process.stderr.write(`vault-mind: [compile] auto-trigger for topic "${topic}" (${this.dirty.size} dirty)\n`);
+    process.stderr.write(`llmwiki: [compile] auto-trigger for topic "${topic}" (${this.dirty.size} dirty)\n`);
     this.compile(topic).catch((e) => {
       this.running = false;
-      process.stderr.write(`vault-mind: [compile] auto-trigger error: ${(e as Error).message}\n`);
+      process.stderr.write(`llmwiki: [compile] auto-trigger error: ${(e as Error).message}\n`);
     });
   }
 
@@ -219,14 +227,14 @@ export class CompileTrigger {
       const { stdout, stderr } = await exec(this.python, args, {
         timeout: 120_000, // 2 min max
         maxBuffer: 10 * 1024 * 1024,
-        env: { ...process.env },
+        env: this.environmentResolver ? await this.environmentResolver() : { ...process.env },
       });
 
       // Parse compile report from stdout
       const result = this.parseCompileOutput(topic, stdout, timestamp);
 
       if (stderr) {
-        process.stderr.write(`vault-mind: [compile] stderr: ${stderr.slice(0, 500)}\n`);
+        process.stderr.write(`llmwiki: [compile] stderr: ${stderr.slice(0, 500)}\n`);
       }
 
       // Clear dirty files for this topic

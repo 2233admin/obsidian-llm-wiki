@@ -12,18 +12,43 @@ cut.** Internal `package.json`/`pyproject.toml` version fields are not
 force-aligned to this changelog's numbering -- treat this file as the
 source of truth for what shipped when.
 
-## Unreleased -- targeting v2.6.0
+## v2.7.0-beta.1 -- 2026-07-14
 
 ### Highlights
 
+- **Shared Settings Platform.** A host-neutral registry, five-scope effective
+  snapshot, expected-revision mutation, redaction, validation, migration plan,
+  and Doctor contract now serve MCP, Python, and Obsidian. Secret values stay
+  outside Settings; only Secret References and presence health cross the
+  boundary.
+- **Agent model binding.** Obsidian now configures inherited, local
+  OpenAI-compatible/Ollama, or cloud Agent models through `models.agent.*`.
+  Local mode strips cloud credentials; cloud mode resolves a device-local
+  Secret Reference only for the Agent/Compiler child process.
+- **Canonical Project Context.** Stable `project/<slug>` identity now joins
+  Work-OS, knowledge, Work Runs, settings, bindings, and external projections.
+  Project Hub is a read-only composition over those owners and reports real
+  Settings snapshot health.
+- **Reversible migrations.** Legacy Obsidian runtime fields migrate into the
+  user-device scope with preimage recovery, while Project layout migration is
+  preview-first, hash-guarded, backed up, and restorable.
+- **Single-device and multi-device Work Runs.** Local joins validate the active
+  lease; portable handoff uses a short-lived out-of-band capability whose raw
+  value never enters shared vault or Git state. The two-vault acceptance
+  harness and the real local ↔ 5090 handoff passed for the pre-Agent-binding
+  baseline `89cf831ed4615270c56edd2784928a29e52e1789`. Product commit
+  `b0c447a5f228ddd2d4f3f1ba0b001817f89ea155` then repeated the full 5090 gate
+  and a fresh real handoff exactly once, with returned-state verification.
 - **Fleet Mode MVP** (`fleet/`) -- Scout/Worker/Verify ships + Hub
   orchestration + review gates + context trimming/session management for
-  multi-agent llmwiki work. Code-complete; the `tests/fleet_tests/` CI
+  multi-agent LLM Wiki work. Code-complete; the `tests/fleet_tests/` CI
   collision that kept it red on `main` is fixed this release. Its design
   docs (`TASK*-DRAFT*.md`) remain draft-stage by contrast -- see Docs below.
-- **OBC -- Obsidian Broken Link Checker.** Link extraction, CLI,
+- **LLM Wiki link diagnostics (`obc` compatibility package).** OBC means only
+  Obsidian Broken Link Checker: link extraction, CLI,
   VaultIndex + Resolver, Fix Planner, apply-safe writer, orphan-page
-  detection, stale-note detection, unit tests.
+  detection, stale-note detection, and unit tests. It is not the product name
+  or settings owner.
 - **Work-OS Task 8-11.** Budget gate + spend tracking (11B), canvas view
   (10A), digest (10B), promote plugin/canvas/CLI (10C), MCP `project_*`
   tool unification, 11G briefing loop-trigger.
@@ -39,12 +64,17 @@ source of truth for what shipped when.
   renamed to `tests/fleet_tests/`, plus fixed three latent test bugs that
   had never actually executed before collection started succeeding.
 - `ruff check compiler/` reached zero violations (was previously red).
-- `compiler/tests/` (662 tests) now actually run in CI -- both `ci.yml`
+- `compiler/tests/` (789 tests plus 15 subtests) now actually run in CI -- both `ci.yml`
   and `release.yml`'s quality gate -- after being wired up but never
   invoked.
 
 ### Docs honesty pass
 
+- Added Settings/Obsidian guidance, legacy plugin and Project migration
+  procedures, the current capability inventory, and the reproducible fleet
+  acceptance sequence. The earlier accepted 5090 evidence remains a baseline;
+  the beta records its own product commit, orchestration task, fixture digest,
+  correlation ID, exact-once remote phase, and returned-state verification.
 - `TASK14-DRAFT-multi-platform-compile.md` had drifted into an
   internally-inconsistent DRAFT/APPROVED status framing; corrected to
   state plainly: design-approved, 0 lines of code, not built.
@@ -129,7 +159,7 @@ feat: Supermemory + PageIndex integration.
 
 ## v2.2.0 -- 2026-05-17
 
-LLMwiki is now positioned around one product loop: scattered research and
+LLM Wiki is now positioned around one product loop: scattered research and
 agent output become cited, reviewable, promoted team memory.
 
 ### Highlights
@@ -148,7 +178,7 @@ agent output become cited, reviewable, promoted team memory.
 - **Health and release verification tools.** Added `llmwiki_doctor.py`,
   `knowledge_health.py`, `vault_collab_lint.py`, `mcp_sync_probe.py`, and
   `verify_release_install.py`.
-- **Brand cleanup.** Public docs now use **LLMwiki** and avoid the old
+- **Brand cleanup.** Public docs now use **LLM Wiki** and avoid the old
   "LLM Wiki Bridge" surface.
 
 ### Notes

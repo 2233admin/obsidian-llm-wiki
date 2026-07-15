@@ -1,10 +1,10 @@
 <p align="center">
-  <img src="docs/assets/banner.svg" alt="LLMwiki — raw research compiled into a reviewed team wiki" width="100%">
+  <img src="docs/assets/banner.svg" alt="LLM Wiki — raw research compiled into a reviewed team wiki" width="100%">
 </p>
 
-# LLMwiki
+# LLM Wiki
 
-**LLMwiki turns a team's raw research folder into a reviewed, queryable, self-improving Obsidian wiki. Headless-first. Cites, doesn't guess.**
+**LLM Wiki turns a team's raw research folder into a reviewed, queryable, self-improving Obsidian wiki. Headless-first. Cites, doesn't guess.**
 
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 [![MCP](https://img.shields.io/badge/MCP-stdio-orange.svg)](https://modelcontextprotocol.io)
@@ -18,7 +18,7 @@ You are reading this because your team has already lost knowledge.
 
 Not because nobody wrote it down. They did: papers, meeting notes, repo findings, screenshots, agent answers. The problem is worse: the knowledge has no state. No source. No reviewer. No promotion path. No way to tell a draft from team truth.
 
-LLMwiki gives that mess a compiler pass:
+LLM Wiki gives that mess a compiler pass:
 
 ```
 capture -> compile -> ask -> file -> review -> promote
@@ -145,31 +145,49 @@ See [docs/RESEARCH_COMPILER_LOOP.md](docs/RESEARCH_COMPILER_LOOP.md) for the sta
 
 ---
 
+## One settings and project control plane
+
+LLM Wiki uses one host-neutral **Settings Platform** across MCP, the Python compiler/CLI, and the Obsidian control plane. Effective settings resolve in this order:
+
+```text
+session > workspace-project > vault > user-device > product default
+```
+
+Obsidian is a client of that platform, not a separate settings backend. Its plugin data keeps only presentation preferences, a machine-local device binding, and the reversible legacy-migration journal. Operational values belong to scoped Settings documents. Credentials are represented only by a **Secret Reference**; resolved secret values never enter snapshots, Project Hubs, plugin data, or durable vault knowledge.
+
+The same control plane owns the default Agent model connection. `inherit` preserves existing env/YAML setups, `local` supports Ollama or another OpenAI-compatible endpoint without forwarding cloud credentials, and `cloud` resolves a device-local Secret Reference only for the model child process.
+
+Projects use the stable identity `project/<slug>`. The repository checkout, vault path, Linear/GitHub item, and 5090/Orca task are bindings or projections of that Project, never replacements for its identity. The read-only `project.hub.get` operation assembles work, knowledge, Work Runs, effective settings, capability health, workspace health, and integration drift without becoming a new source of truth.
+
+See [Settings and Obsidian control plane](docs/SETTINGS.md), [Project and plugin migrations](docs/MIGRATIONS.md), and the [capability inventory](docs/CAPABILITY_INVENTORY.md).
+
 ---
 
 ## Local Linear-style project management
 
-LLMwiki now includes a local-first project management layer under `project.*`, inspired by `the-orrery/docket`, `the-orrery/rhizome`, and `the-orrery/seed`. It stores issues, comments, dependencies, generated Kanban boards, and project docs as Markdown inside the vault. Agents can create and update work items through MCP, while humans can review the resulting files and Git diffs.
+LLM Wiki includes a local-first, Linear-style project management layer under `project.*`. It stores issues, comments, and dependencies as reviewable Markdown and derives Kanban, Canvas, and Bases views from them. Agents can create and update work items through MCP, while humans can inspect the same files and Git diffs.
 
-The default layout lives under `10-Projects/<project>/docket/`. Issues use docket-compatible `ISSUE-N.md` frontmatter with `status` + `state_type`, dependencies use `blocked_by`, and the generated board is readable by the `kanban` adapter. See [docs/LOCAL_PROJECTS.md](docs/LOCAL_PROJECTS.md).
+Current work lives only under `01-Projects/<project>/issues/<slug>.md`; `10-Projects/<project>/docket/**` is retired. Project knowledge remains under `10-Projects/<project>/`, and the shared Project Registry record is `Projects/<project>.md`. See [docs/LOCAL_PROJECTS.md](docs/LOCAL_PROJECTS.md).
 
 ## Obsidian visual layer
 
-Project management can now export native Obsidian views without requiring Obsidian to be running. Use `project.canvas.export` for `10-Projects/<project>/views/project-map.canvas`, and `project.base.export` for `10-Projects/<project>/views/issues.base`. Canvas gives a spatial project map; Bases gives a table dashboard over issue properties. Kanban remains the supported third-party read-side board adapter; Dataview and Tasks are documented as optional advanced alternatives, not required dependencies.
+Project management can export native Obsidian views without requiring Obsidian to be running. Use `project.canvas.export` for `01-Projects/<project>/views/project-map.canvas`, and `project.base.export` for `01-Projects/<project>/views/issues.base`. Canvas gives a spatial project map; Bases gives a table dashboard over issue properties. Kanban remains the supported third-party read-side board adapter; Dataview and Tasks are optional advanced alternatives, not required dependencies.
+
+The `obc` package remains the **Obsidian Broken Link Checker** compatibility and link-diagnostics capability. OBC is not the product name and does not own system settings; it consumes LLM Wiki Settings Platform snapshots like every other capability.
 
 ## Local NotebookLM-style ingest with ChubbySkills
 
-LLMwiki can now treat [chubbyguan/chubbyskills](https://github.com/chubbyguan/chubbyskills) as an optional local ingest pack. ChubbySkills handles platform capture and transcription for Douyin, Bilibili, Xiaohongshu, WeChat, X/Twitter, podcasts, YouTube, and more; LLMwiki handles the local vault layer: search, citations, graph, Markdown memory, AI-Output review, and promotion.
+LLM Wiki can now treat [chubbyguan/chubbyskills](https://github.com/chubbyguan/chubbyskills) as an optional local ingest pack. ChubbySkills handles platform capture and transcription for Douyin, Bilibili, Xiaohongshu, WeChat, X/Twitter, podcasts, YouTube, and more; LLM Wiki handles the local vault layer: search, citations, graph, Markdown memory, AI-Output review, and promotion.
 
-Install LLMwiki normally, then use `/chubbyskills` to plan which upstream capture skills to install and how to point them at the same vault. This makes the product shape closer to a local NotebookLM over your own saved feeds, without bundling heavy media dependencies into the MCP server. See [docs/CHUBBYSKILLS.md](docs/CHUBBYSKILLS.md).
-LLMwiki's MCP core deliberately supports two local ingest entrypoints instead of one scraper per platform:
+Install LLM Wiki normally, then use `/chubbyskills` to plan which upstream capture skills to install and how to point them at the same vault. This makes the product shape closer to a local NotebookLM over your own saved feeds, without bundling heavy media dependencies into the MCP server. See [docs/CHUBBYSKILLS.md](docs/CHUBBYSKILLS.md).
+LLM Wiki's MCP core deliberately supports two local ingest entrypoints instead of one scraper per platform:
 
 | Entrypoint | Handles | Contract |
 |---|---|---|
 | `OPENCLI` | Web pages, articles, OpenCLI + BBX/browser-assisted captures, X/Weibo/Zhihu/WeChat/Xiaohongshu-style text surfaces. | Produce Markdown in the vault with source URL and capture metadata. |
 | `MEDIA_TRANSCRIBE` | Audio/video parsing, download, subtitles, transcription, YouTube/Bilibili/Douyin/TikTok/Xiaohongshu/podcast-style media surfaces. | Produce transcript Markdown in the vault with media provenance. |
 
-Use `ingest.link.preflight` before promising capture. It classifies the URL, routes it to `OPENCLI` or the media/transcribe toolchain, reports whether the provider is configured, and returns the honest next action. LLMwiki only claims ingest success after Markdown lands in the vault and can be found by `vault.search` or `query.unified`. See [docs/INGEST.md](docs/INGEST.md). OpenTabs remains optional; the default install path should work with OpenCLI plus BBX/browser bridge.
+Use `ingest.link.preflight` before promising capture. It classifies the URL, routes it to `OPENCLI` or the media/transcribe toolchain, reports whether the provider is configured, and returns the honest next action. LLM Wiki only claims ingest success after Markdown lands in the vault and can be found by `vault.search` or `query.unified`. See [docs/INGEST.md](docs/INGEST.md). OpenTabs remains optional; the default install path should work with OpenCLI plus BBX/browser bridge.
 
 
 ## Source Registry Phase 1 {#source-registry-phase-1}
@@ -184,13 +202,13 @@ Phase 1 supports `inputType=url` and `inputType=vaultPath`. Reserved input types
 
 ## X/Twitter to Obsidian capture
 
-LLMwiki now ships an optional `/x-to-obsidian` skill adapted from [hemoouren/X-to-Obsidian-SKill](https://github.com/hemoouren/X-to-Obsidian-SKill/tree/main). It finds high-signal X/Twitter posts, saves them through the official Obsidian Web Clipper, and then lets LLMwiki search and govern the clipped Markdown notes.
+LLM Wiki now ships an optional `/x-to-obsidian` skill adapted from [hemoouren/X-to-Obsidian-SKill](https://github.com/hemoouren/X-to-Obsidian-SKill/tree/main). It finds high-signal X/Twitter posts, saves them through the official Obsidian Web Clipper, and then lets LLM Wiki search and govern the clipped Markdown notes.
 
 This lives in the skill layer, not the MCP server: browser automation and logged-in X access stay local, while `vault.search`, `query.unified`, `vault.writeAIOutput`, and `memory.handoff.write` handle the reviewable vault workflow after notes land. See [docs/X_TO_OBSIDIAN.md](docs/X_TO_OBSIDIAN.md).
 
 ## Markdown memory + Kanban boards (Phase 1)
 
-LLMwiki now has two memory layers:
+LLM Wiki now has two memory layers:
 
 | Layer | Path | Use |
 |---|---|---|
@@ -271,7 +289,7 @@ Thirteen slash commands in `commands/` for use in any Claude Code, Codex CLI, Ge
 | `/vault-think` | Apply a 10-principle thinking framework to a topic or note |
 | `/vault-expand` | Expand a single source into 8–15 interlinked wiki pages |
 
-Inspired by [obsidian-second-brain](https://github.com/eugeniughelbur/obsidian-second-brain) and [claude-obsidian](https://github.com/AgriciDaniel/claude-obsidian). vault-mind provides the infrastructure; these commands provide the workflow patterns that sit on top.
+Inspired by [obsidian-second-brain](https://github.com/eugeniughelbur/obsidian-second-brain) and [claude-obsidian](https://github.com/AgriciDaniel/claude-obsidian). LLM Wiki provides the infrastructure; these commands provide the workflow patterns that sit on top.
 
 ---
 
@@ -299,6 +317,9 @@ The wiki has the long-form answers. Read them in any order.
 | [**Adapter-Spec**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Adapter-Spec) | Adapter contract, capability matrix, fan-out and ranking, failure modes, recipe for a fifth adapter. |
 | [**Compile-Pipeline**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Compile-Pipeline) | What each stage produces, where the graph lives on disk, performance reference points. |
 | [**Research Compiler Loop**](docs/RESEARCH_COMPILER_LOOP.md) | The product loop: raw materials, compiled wiki, cited Q&A, AI-Output filing, review, promotion. |
+| [**Settings Platform**](docs/SETTINGS.md) | Shared scopes, Obsidian control plane, compiler discovery, Secret References, and Doctor. |
+| [**Migrations**](docs/MIGRATIONS.md) | Reversible legacy plugin settings and Project layout migration procedures. |
+| [**Capability Inventory**](docs/CAPABILITY_INVENTORY.md) | Domain ownership, single-device/multi-device behavior, and release evidence status. |
 | [**Persona-Design**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Persona-Design) | User-facing knowledge roles vs underlying skills. The design discipline that keeps them from collapsing into one generic agent. |
 | [**Security-Model**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Security-Model) | Dry-run default, protected paths, preflight gates, bearer-token transport, what this explicitly does not secure. |
 | [**Recipes**](https://github.com/2233admin/obsidian-llm-wiki/wiki/Recipes) | Content collectors and local knowledge feeders (Feishu, Gmail, Linear, X, WeChat, Dreamtime, and more) that land external sources into the vault. |

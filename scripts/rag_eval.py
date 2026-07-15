@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Local RAG scorecard and export bridge for LLMwiki.
+"""Local RAG scorecard and export bridge for LLM Wiki.
 
 The script intentionally has no third-party dependencies. It scores retrieval
 and citation plumbing locally, then exports simple JSONL for Ragas or DeepEval
@@ -151,7 +151,7 @@ def export_deepeval(cases: list[dict[str, Any]], path: Path) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Score LLMwiki RAG retrieval cases")
+    parser = argparse.ArgumentParser(description="Score LLM Wiki RAG retrieval cases")
     parser.add_argument("input", type=Path, help="JSONL evaluation cases")
     parser.add_argument("--k", type=int, default=5, help="precision@k cutoff")
     parser.add_argument("--json", action="store_true", help="print full JSON report")

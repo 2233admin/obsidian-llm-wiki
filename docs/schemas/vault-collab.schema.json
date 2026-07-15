@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/2233admin/obsidian-llm-wiki/schemas/vault-collab.schema.json",
-  "title": "LLMwiki Vault Collaboration Policy",
+  "title": "LLM Wiki Vault Collaboration Policy",
   "type": "object",
   "additionalProperties": false,
   "properties": {

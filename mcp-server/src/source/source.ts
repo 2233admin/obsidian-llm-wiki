@@ -12,6 +12,7 @@ import type { Operation, OperationContext } from '../core/types.js';
 import { badRequest, conflict, notFound, unsupported } from '../core/types.js';
 import { resultPath, sourcePolicyTargetPaths, touchMarkdown } from '../core/write-policy.js';
 import { preflight } from '../ingest/ingest.js';
+import { resolveProjectContext, type ProjectId } from '../project/project-context.js';
 
 type SourceInputType = 'url' | 'vaultPath' | 'filePath' | 'directoryPath' | 'repoPath' | 'text';
 
@@ -24,6 +25,7 @@ interface SourceRecord {
   sourceKind: string;
   title: string;
   project?: string;
+  projectId?: ProjectId;
   actor: string;
   notePath: string;
   tags: string[];
@@ -54,7 +56,7 @@ export function makeSourceOps(vaultPath: string): Operation[] {
   mutating: true,
   writePolicy: {
     realWrite: 'always',
-    targets: (_ctx, params) => sourcePolicyTargetPaths(params),
+    targets: (ctx, params) => sourcePolicyTargetPaths(ctx.config, params, 'source.register'),
     audit: 'required',
     effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), 'create')],
   },
@@ -131,7 +133,11 @@ function registerSource(
     throw unsupported(`source.register does not support inputType=${inputType} in Phase 1`);
   }
 
-  const project = optionalSafeSegment(params.project, 'project');
+  const projectContext = optionalString(params.project)
+    ? resolveProjectContext(vaultPath, optionalString(params.project) as string, 'source.register')
+    : undefined;
+  const project = projectContext?.slug;
+  const projectId = projectContext?.projectId;
   const actor = actorFromContext(ctx);
   const titleOverride = optionalString(params.title);
   const tags = stringArray(params.tags);
@@ -163,6 +169,7 @@ function registerSource(
       sourceKind: prepared.sourceKind,
       title,
       project,
+      projectId,
       actor,
       notePath,
       tags,
@@ -185,7 +192,9 @@ function registerSource(
 
 function listSources(vaultPath: string, params: Record<string, unknown>): { sources: SourceRecord[] } {
   const registry = readRegistry(registryFullPath(vaultPath));
-  const project = optionalString(params.project);
+  const projectRef = optionalString(params.project);
+  const projectContext = projectRef ? resolveProjectContext(vaultPath, projectRef, 'source.list') : undefined;
+  const project = projectContext?.slug;
   const platform = optionalString(params.platform);
   const inputType = optionalString(params.inputType);
   const sources = Object.values(registry.sources)
@@ -339,6 +348,7 @@ function sourceNoteMarkdown(source: SourceRecord): string {
     `platform: ${yamlString(source.platform)}`,
     `source-kind: ${yamlString(source.sourceKind)}`,
     `actor: ${yamlString(source.actor)}`,
+    source.projectId ? `project-id: ${yamlString(source.projectId)}` : 'project-id: null',
     source.project ? `project: ${yamlString(source.project)}` : 'project: null',
     `canonical: ${yamlString(source.canonical)}`,
     `registered-at: ${yamlString(source.created_at)}`,

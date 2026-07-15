@@ -2,12 +2,12 @@
 name: vault-connect
 description: >
   Bridge unrelated vault domains. Find structural analogues between different areas.
-  Uses the vault-mind MCP server to identify and create connections.
+  Uses the LLM Wiki MCP server to identify and create connections.
 ---
 
 # /vault-connect [topic A] [topic B]
 
-# Requires: vault-mind MCP server
+# Requires: LLM Wiki MCP server (legacy registration key: `vault-mind`)
 
 Find hidden connections between seemingly unrelated vault domains and bridge them.
 

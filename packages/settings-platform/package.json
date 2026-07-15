@@ -1,0 +1,36 @@
+{
+  "name": "@obsidian-llm-wiki/settings-platform",
+  "version": "0.3.0",
+  "description": "Host-neutral settings registry, resolver, persistence, and operation service for LLM Wiki.",
+  "type": "module",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    }
+  },
+  "files": [
+    "dist/src",
+    "dist/registry",
+    "registry",
+    "schemas",
+    "fixtures",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "bun test tests/resolver.test.ts tests/persistence.test.ts tests/service.test.ts tests/schemas.test.ts"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "typescript": "~6.0.3"
+  },
+  "license": "MIT"
+}

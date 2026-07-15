@@ -7,6 +7,7 @@ import { answerQuery, type QueryAnswerResult } from '../unified-query.js';
 import { ensureBackfill, recallGaps } from '../adapters/vaultbrain/lazy-index.js';
 import { gatherVaultStatus } from '../adapters/vaultbrain/vault-status.js';
 import type { VaultBrainAdapter } from '../adapters/vaultbrain/index.js';
+import { resolveProjectContext, type ProjectContext } from '../project/project-context.js';
 
 const DEFAULT_ACTOR = 'agent';
 
@@ -19,6 +20,11 @@ interface MemoryDoc {
 interface RecallScope {
   project: string | null;
   glob?: string;
+  roots?: Array<{
+    path: string;
+    owner: 'work-os' | 'knowledge';
+    knowledgeItemTypes: string[];
+  }>;
 }
 
 interface TraceSummary {
@@ -50,8 +56,9 @@ function actorFromContext(ctx: OperationContext): string {
   return safeSegment(actor, 'actor');
 }
 
-function normalizeProject(value: unknown): string | undefined {
-  return typeof value === 'string' && value.trim() ? safeSegment(value, 'project') : undefined;
+function normalizeProject(vaultPath: string, value: unknown): ProjectContext | undefined {
+  if (typeof value !== 'string' || !value.trim()) return undefined;
+  return resolveProjectContext(vaultPath, value.trim(), 'context.operations');
 }
 
 function memoryBasePath(project: string | undefined, actor: string): string {
@@ -207,7 +214,24 @@ function listDecisions(vaultPath: string, basePath: string, limit: number): Arra
 }
 
 function scopeFor(project: string | undefined): RecallScope {
-  return project ? { project, glob: `10-Projects/${project}/**` } : { project: null };
+  return project
+    ? {
+        project,
+        glob: `{01-Projects,10-Projects}/${project}/**`,
+        roots: [
+          {
+            path: `01-Projects/${project}/**`,
+            owner: 'work-os',
+            knowledgeItemTypes: ['issue', 'comment', 'kanban_card'],
+          },
+          {
+            path: `10-Projects/${project}/**`,
+            owner: 'knowledge',
+            knowledgeItemTypes: ['source_record', 'evidence', 'analysis', 'memory', 'asset', 'transcript'],
+          },
+        ],
+      }
+    : { project: null };
 }
 
 function mergeWeights(defaultWeights: Record<string, number> | undefined, params: Record<string, unknown>): Record<string, number> | undefined {
@@ -325,7 +349,8 @@ export function makeContextOps(
       },
       handler: async (ctx, params) => {
         const actor = actorFromContext(ctx);
-        const project = normalizeProject(params.project);
+        const projectContext = normalizeProject(vaultPath, params.project);
+        const project = projectContext?.slug;
         const topic = typeof params.topic === 'string' && params.topic.trim() ? params.topic.trim() : undefined;
         const maxChars = Math.max(1000, Math.floor((params.maxChars as number | undefined) ?? 6000));
         const maxDecisions = Math.max(0, Math.min(Math.floor((params.maxDecisions as number | undefined) ?? 5), 20));
@@ -350,6 +375,8 @@ export function makeContextOps(
         const result = {
           actor,
           project: project ?? null,
+          projectId: projectContext?.projectId ?? null,
+          projectDiagnostics: projectContext?.diagnostics ?? [],
           topic: topic ?? null,
           generatedAt: new Date().toISOString(),
           layers: {
@@ -383,7 +410,7 @@ export function makeContextOps(
     {
       name: 'context.recall',
       namespace: 'context',
-      description: 'Topic-scoped citation-backed recall using query.answer. Project argument restricts search to 10-Projects/<project>/**.',
+      description: 'Topic-scoped citation-backed recall using query.answer. Project argument joins Work-OS context under 01-Projects/<project>/** with project knowledge under 10-Projects/<project>/**.',
       mutating: false,
       params: {
         query: { type: 'string', required: true, description: 'Topic or question to recall' },
@@ -394,12 +421,15 @@ export function makeContextOps(
       },
       handler: async (_ctx, params) => {
         const query = String(params.query ?? '');
-        const project = normalizeProject(params.project);
+        const projectContext = normalizeProject(vaultPath, params.project);
+        const project = projectContext?.slug;
         const scope = scopeFor(project);
         const answer = await answerForScope(registry, defaultWeights, query, project, params, 8);
         return {
           query,
           scope,
+          projectId: projectContext?.projectId ?? null,
+          diagnostics: projectContext?.diagnostics ?? [],
           answer: answer.answer,
           claims: answer.claims,
           citations: answer.citations,
@@ -422,12 +452,15 @@ export function makeContextOps(
       },
       handler: async (_ctx, params) => {
         const query = String(params.query ?? '');
-        const project = normalizeProject(params.project);
+        const projectContext = normalizeProject(vaultPath, params.project);
+        const project = projectContext?.slug;
         const scope = scopeFor(project);
         const answer = await answerForScope(registry, defaultWeights, query, project, params, 20);
         return {
           query,
           scope,
+          projectId: projectContext?.projectId ?? null,
+          diagnostics: projectContext?.diagnostics ?? [],
           answer: answer.answer,
           claims: answer.claims,
           citations: answer.citations,

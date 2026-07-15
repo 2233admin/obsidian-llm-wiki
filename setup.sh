@@ -1,5 +1,5 @@
 #!/bin/bash
-# vault-mind setup.sh -- distribution and installation script
+# LLM Wiki setup.sh -- distribution and installation script
 # Compatible with Git Bash on Windows, macOS, and Linux.
 
 set -e
@@ -7,7 +7,7 @@ set -e
 if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
     echo "Usage: bash setup.sh [--help]"
     echo ""
-    echo "Installs vault-mind Knowledge OS:"
+    echo "Installs LLM Wiki:"
     echo "  1. Checks Node.js >= 20, Python >= 3.11, Claude Code"
     echo "  2. Builds MCP server (npm install + tsc)"
     echo "  3. Installs compiler Python deps"
@@ -19,7 +19,7 @@ if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
     exit 0
 fi
 
-echo "=== vault-mind Setup ==="
+echo "=== LLM Wiki Setup ==="
 
 # 1. Dependency Check
 echo "Checking dependencies..."

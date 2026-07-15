@@ -1,56 +1,94 @@
 /*
- * Task 10C-C -- vault-mind Promote: an Obsidian plugin that promotes a draft
- * candidate through the work-OS base-head lock, from a command or the file menu.
- *
- * Approach C (per TASK10C-DRAFT): the gesture lives on STABLE Obsidian APIs
- * (addCommand + the `file-menu` event), NOT the unstable Canvas node API. It
- * shells out to `kb_meta promote` (Node child_process; desktop-only): a dry-run
- * first shows the materialized snapshot PLAN in a modal, and only on confirm does
- * it `--apply` (which appends the reviewed snapshot). It never auto-commits --
- * the real promote stays the git review gate (the user commits the new snapshot).
+ * LLM Wiki's Obsidian-native control surface. Settings domain behavior lives in
+ * Settings Platform; this plugin owns presentation, host binding, and safe
+ * action invocation only.
  */
 
 import {
   App, Plugin, PluginSettingTab, Setting, Modal, Notice,
   TFile, TAbstractFile, Menu, FileSystemAdapter,
 } from "obsidian";
-import { exec } from "child_process";
+import { execFile } from "child_process";
 import { promisify } from "util";
+import { isAbsolute } from "path";
+import { buildPythonInvocation } from "./executable-command";
+import {
+  applyPluginDataMigration,
+  LLMWikiPluginData,
+  parseSettingInput,
+  planPluginDataMigration,
+  selectEditingScope,
+} from "./settings";
+import {
+  EffectiveSetting,
+  effectiveSetting,
+  HealthCheck,
+  isSecretReference,
+  projectSettingForScope,
+  redactedSecretLabel,
+  refreshSettingsProjection,
+  SecretReference,
+  SettingDefinition,
+  SettingScope,
+  SettingsConflictError,
+  SettingsControlPlaneProjection,
+  SettingsOperationClient,
+  SettingValue,
+  UnavailableSettingsTransport,
+} from "./settings-client";
+import { InProcessSettingsTransport, obsidianUserDeviceId } from "./settings-host";
 
-const pexec = promisify(exec);
-
-interface VaultMindPromoteSettings {
-  pythonPath: string;
-  kbMetaPath: string;
-}
-
-const DEFAULT_SETTINGS: VaultMindPromoteSettings = {
-  pythonPath: "python",
-  kbMetaPath: "",
-};
-
+const pexecFile = promisify(execFile);
 // Shape of `kb_meta promote` JSON (compiler/kb_meta.cmd_promote).
 interface PromoteResult {
-  outcome: string;            // MATERIALIZED | HEAD_MISMATCH | NOT_DRAFT | ERROR
+  outcome: string;
   entity?: string;
   head_note_id?: string | null;
   snapshot_note_id?: string | null;
   reason?: string;
-  plan?: string;              // dry-run: the materialized snapshot text
-  written?: string;           // apply: the written snapshot path
+  plan?: string;
+  written?: string;
   error?: string;
 }
 
-export default class VaultMindPromotePlugin extends Plugin {
-  settings!: VaultMindPromoteSettings;
+function stdoutText(stdout: string | Buffer): string {
+  return typeof stdout === "string" ? stdout : stdout.toString("utf8");
+}
+
+export default class LLMWikiPlugin extends Plugin {
+  data!: LLMWikiPluginData;
+  projection: SettingsControlPlaneProjection | null = null;
+  settingsError: string | null = null;
+  private settingsClient!: SettingsOperationClient;
+  private migrationError: string | null = null;
 
   async onload(): Promise<void> {
-    await this.loadSettings();
+    const plan = planPluginDataMigration(await this.loadData());
+    this.data = plan.data;
+    let pluginDataChanged = plan.migrated;
+    if (!this.data.deviceBinding) {
+      this.data = { ...this.data, deviceBinding: { deviceId: obsidianUserDeviceId(process.env) } };
+      pluginDataChanged = true;
+    }
+    plan.data = this.data;
+    const deviceBinding = this.data.deviceBinding;
+    if (!deviceBinding) throw new Error("LLM Wiki device binding could not be initialized");
+    const vaultPath = this.vaultBasePath();
+    const transport = vaultPath
+      ? new InProcessSettingsTransport({
+          vaultPath,
+          userDeviceId: deviceBinding.deviceId,
+          workspaceProjectId: deviceBinding.workspaceProjectId,
+          environment: process.env,
+        })
+      : new UnavailableSettingsTransport("Settings Platform requires a desktop filesystem vault.");
+    this.settingsClient = new SettingsOperationClient(transport);
+    await this.applyPluginDataPlan(plan, pluginDataChanged);
+    await this.refreshSettings(false);
 
-    // Command palette entry -- enabled only for the active markdown note.
     this.addCommand({
       id: "promote-candidate",
-      name: "Promote candidate (vault-mind)",
+      name: "Promote candidate (LLM Wiki)",
       checkCallback: (checking: boolean) => {
         const file = this.app.workspace.getActiveFile();
         const ok = !!file && file.extension === "md";
@@ -59,21 +97,23 @@ export default class VaultMindPromotePlugin extends Plugin {
       },
     });
 
-    // Right-click on any markdown note -> promote.
+    this.addCommand({
+      id: "refresh-settings-control-plane",
+      name: "Refresh settings control plane (LLM Wiki)",
+      callback: () => void this.refreshSettings(true),
+    });
+
     this.registerEvent(
       this.app.workspace.on("file-menu", (menu: Menu, file: TAbstractFile) => {
         if (file instanceof TFile && file.extension === "md") {
-          menu.addItem((item) =>
-            item
-              .setTitle("Promote candidate (vault-mind)")
-              .setIcon("check-circle")
-              .onClick(() => void this.promote(file)),
-          );
+          menu.addItem((item) => item
+            .setTitle("Promote candidate (LLM Wiki)")
+            .setIcon("check-circle")
+            .onClick(() => void this.promote(file)));
         }
       }),
     );
-
-    this.addSettingTab(new VaultMindPromoteSettingTab(this.app, this));
+    this.addSettingTab(new LLMWikiSettingTab(this.app, this));
   }
 
   onunload(): void {}
@@ -83,64 +123,131 @@ export default class VaultMindPromotePlugin extends Plugin {
     return adapter instanceof FileSystemAdapter ? adapter.getBasePath() : null;
   }
 
-  // Run `kb_meta promote --note <id> [--apply]` from the vault root, parse JSON.
+  private effectiveValue<T extends SettingValue>(key: string): T {
+    const effective = this.projection && effectiveSetting(this.projection.snapshot, key);
+    if (!effective) throw new Error(`Effective setting is unavailable: ${key}`);
+    return effective.value as T;
+  }
+
   private async runPromote(noteId: string, apply: boolean): Promise<PromoteResult> {
-    if (!this.settings.kbMetaPath) {
-      return { outcome: "ERROR", error: "Set the kb_meta.py path in plugin settings." };
-    }
-    const cwd = this.vaultBasePath();
-    if (!cwd) {
-      return { outcome: "ERROR", error: "Vault is not on the local filesystem (desktop only)." };
-    }
-    const q = (s: string) => `"${s.replace(/"/g, '\\"')}"`;
-    const parts = [q(this.settings.pythonPath), q(this.settings.kbMetaPath),
-      "promote", "--note", q(noteId)];
-    if (apply) parts.push("--apply");
     try {
-      const { stdout } = await pexec(parts.join(" "), {
-        cwd, env: { ...process.env, PYTHONUTF8: "1" },
-      });
-      return JSON.parse(stdout) as PromoteResult;
-    } catch (e) {
-      // kb_meta prints {"error": ...} and exits 1 on failure -- recover its stdout.
-      const out = (e as { stdout?: string })?.stdout;
-      if (typeof out === "string") {
-        try { return JSON.parse(out) as PromoteResult; } catch { /* fall through */ }
+      const pythonCommand = this.effectiveValue<string>("runtime.python.path");
+      const kbMetaPath = this.effectiveValue<string>("runtime.kb_meta.path");
+      if (!kbMetaPath || !isAbsolute(kbMetaPath)) {
+        return { outcome: "ERROR", error: "Set an absolute LLM Wiki runtime entry in Settings Platform." };
       }
-      return { outcome: "ERROR", error: String((e as Error)?.message ?? e) };
+      const cwd = this.vaultBasePath();
+      if (!cwd) return { outcome: "ERROR", error: "Vault is not on the local filesystem (desktop only)." };
+      const args = [kbMetaPath, "promote", "--note", noteId];
+      if (apply) args.push("--apply");
+      const invocation = buildPythonInvocation(pythonCommand, args);
+      const { stdout } = await pexecFile(invocation.executable, invocation.args, {
+        cwd,
+        env: { ...process.env, PYTHONUTF8: "1" },
+        windowsHide: true,
+      });
+      return JSON.parse(stdoutText(stdout)) as PromoteResult;
+    } catch (error) {
+      const output = (error as { stdout?: string | Buffer })?.stdout;
+      if (output !== undefined) {
+        try { return JSON.parse(stdoutText(output)) as PromoteResult; } catch { /* use safe message */ }
+      }
+      return { outcome: "ERROR", error: String((error as Error)?.message ?? error) };
     }
   }
 
   private async promote(file: TFile): Promise<void> {
-    const noteId = file.path; // vault-relative POSIX path == note_id
-    new Notice("vault-mind: computing promote plan…");
+    const noteId = file.path;
+    new Notice("LLM Wiki: computing promote plan…");
     const dry = await this.runPromote(noteId, false);
-    if (dry.error) { new Notice(`vault-mind: ${dry.error}`); return; }
+    if (dry.error) { new Notice(`LLM Wiki: ${dry.error}`); return; }
     if (dry.outcome !== "MATERIALIZED") {
-      new Notice(`vault-mind: cannot promote — ${dry.outcome}${dry.reason ? `: ${dry.reason}` : ""}`);
+      new Notice(`LLM Wiki: cannot promote — ${dry.outcome}${dry.reason ? `: ${dry.reason}` : ""}`);
       return;
     }
     new PromotePlanModal(this.app, noteId, dry, async () => {
-      const res = await this.runPromote(noteId, true);
-      if (res.error || res.outcome !== "MATERIALIZED") {
-        new Notice(`vault-mind: promote failed — ${res.error ?? res.outcome}`);
+      const result = await this.runPromote(noteId, true);
+      if (result.error || result.outcome !== "MATERIALIZED") {
+        new Notice(`LLM Wiki: promote failed — ${result.error ?? result.outcome}`);
         return;
       }
-      new Notice(`vault-mind: promoted → ${res.snapshot_note_id ?? "(written)"}. Review & commit via git.`);
+      new Notice(`LLM Wiki: promoted → ${result.snapshot_note_id ?? "(written)"}. Review & commit via git.`);
     }).open();
   }
 
-  async loadSettings(): Promise<void> {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+  private async applyPluginDataPlan(
+    plan: ReturnType<typeof planPluginDataMigration>,
+    pluginDataChanged: boolean,
+  ): Promise<void> {
+    if (plan.assignments.length) {
+      try {
+        const migrated = await applyPluginDataMigration(this.settingsClient, plan);
+        this.data = migrated.data;
+        await this.savePluginData();
+      } catch (error) {
+        // Do not save the stripped document until Settings Platform accepts all
+        // assignments. The legacy source remains intact for a later retry.
+        this.migrationError = `Legacy settings migration pending: ${String((error as Error)?.message ?? error)}`;
+        this.settingsError = this.migrationError;
+      }
+    } else if (pluginDataChanged) {
+      await this.savePluginData();
+    }
   }
 
-  async saveSettings(): Promise<void> {
-    await this.saveData(this.settings);
+  async savePluginData(): Promise<void> {
+    await this.saveData(this.data);
+  }
+
+  async setEditingScope(scope: SettingScope): Promise<void> {
+    this.data = selectEditingScope(this.data, scope);
+    await this.savePluginData();
+  }
+
+  async refreshSettings(notify: boolean): Promise<void> {
+    try {
+      this.projection = await refreshSettingsProjection(this.settingsClient);
+      this.settingsError = this.migrationError;
+      if (notify) new Notice("LLM Wiki: settings refreshed.");
+    } catch (error) {
+      this.projection = null;
+      const refreshError = String((error as Error)?.message ?? error);
+      this.settingsError = this.migrationError ? `${this.migrationError} Settings refresh failed: ${refreshError}` : refreshError;
+      if (notify) new Notice(`LLM Wiki: settings unavailable — ${this.settingsError}`);
+    }
+  }
+
+  async updateSetting(scope: SettingScope, key: string, value: SettingValue | SecretReference): Promise<void> {
+    const revision = this.projection?.snapshot.sourceRevisions[scope]?.revision;
+    const expectedRevision = typeof revision === "number" ? revision : 0;
+    try {
+      await this.settingsClient.setAssignment(scope, key, value, expectedRevision);
+      await this.refreshSettings(false);
+    } catch (error) {
+      if (error instanceof SettingsConflictError) {
+        await this.refreshSettings(false);
+        throw new Error(`Setting changed elsewhere (revision ${error.conflict.actualRevision}); refreshed latest value.`);
+      }
+      throw error;
+    }
+  }
+
+  async unsetSetting(scope: SettingScope, key: string): Promise<void> {
+    const revision = this.projection?.snapshot.sourceRevisions[scope]?.revision;
+    const expectedRevision = typeof revision === "number" ? revision : 0;
+    try {
+      await this.settingsClient.unsetAssignment(scope, key, expectedRevision);
+      await this.refreshSettings(false);
+    } catch (error) {
+      if (error instanceof SettingsConflictError) {
+        await this.refreshSettings(false);
+        throw new Error(`Setting changed elsewhere (revision ${error.conflict.actualRevision}); refreshed latest value.`);
+      }
+      throw error;
+    }
   }
 }
 
-// Shows the dry-run promote plan; promotes only on explicit confirm (dry-run
-// default -- §0 #3, the user sees the snapshot before anything is written).
 class PromotePlanModal extends Modal {
   constructor(
     app: App,
@@ -152,51 +259,227 @@ class PromotePlanModal extends Modal {
   onOpen(): void {
     const { contentEl } = this;
     contentEl.createEl("h3", { text: "Promote candidate" });
-    contentEl.createEl("p", {
-      text: `${this.noteId}  →  ${this.result.snapshot_note_id ?? "reviewed snapshot"}`,
-    });
-    if (this.result.head_note_id) {
-      contentEl.createEl("p", { text: `Supersedes current head: ${this.result.head_note_id}` });
-    }
-    const pre = contentEl.createEl("pre", { cls: "vault-mind-promote-plan" });
-    pre.setText(this.result.plan ?? "(no plan)");
-
-    const btns = contentEl.createDiv({ cls: "modal-button-container" });
-    const confirm = btns.createEl("button", {
-      text: "Promote (writes reviewed snapshot)", cls: "mod-cta",
-    });
+    contentEl.createEl("p", { text: `${this.noteId}  →  ${this.result.snapshot_note_id ?? "reviewed snapshot"}` });
+    if (this.result.head_note_id) contentEl.createEl("p", { text: `Supersedes current head: ${this.result.head_note_id}` });
+    contentEl.createEl("pre", { cls: "vault-mind-promote-plan" }).setText(this.result.plan ?? "(no plan)");
+    const buttons = contentEl.createDiv({ cls: "modal-button-container" });
+    const confirm = buttons.createEl("button", { text: "Promote (writes reviewed snapshot)", cls: "mod-cta" });
     confirm.onclick = async () => { this.close(); await this.onConfirm(); };
-    btns.createEl("button", { text: "Cancel" }).onclick = () => this.close();
+    buttons.createEl("button", { text: "Cancel" }).onclick = () => this.close();
   }
 
   onClose(): void { this.contentEl.empty(); }
 }
 
-class VaultMindPromoteSettingTab extends PluginSettingTab {
-  constructor(app: App, private readonly plugin: VaultMindPromotePlugin) {
-    super(app, plugin);
+const CATEGORY_LABELS: Record<string, string> = {
+  models: "Agent model",
+  runtime: "Runtime",
+  vault: "Vault",
+  query: "Query and index",
+  diagnostics: "Diagnostics",
+  providers: "Providers and connectors",
+};
+
+const SCOPE_LABELS: Record<SettingScope | "product", string> = {
+  "user-device": "This device",
+  vault: "This vault",
+  "workspace-project": "Workspace / project",
+  session: "Current session",
+  product: "Product default",
+};
+
+class LLMWikiSettingTab extends PluginSettingTab {
+  constructor(app: App, private readonly llmWiki: LLMWikiPlugin) {
+    super(app, llmWiki);
   }
 
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
+    containerEl.addClass("llmwiki-settings");
+    containerEl.createEl("h1", { text: "LLM Wiki" });
+    containerEl.createEl("p", {
+      cls: "llmwiki-settings-intro",
+      text: "This page is a control plane over Settings Platform. Obsidian stores presentation and device binding only.",
+    });
+    this.renderOverview(containerEl);
+    if (!this.llmWiki.projection) return;
+    this.renderScopeSelector(containerEl);
+
+    const scope = this.llmWiki.data.presentation.selectedScope;
+    for (const category of [...new Set(this.llmWiki.projection.definitions.map(item => item.category))]) {
+      const definitions = this.llmWiki.projection.definitions.filter(definition =>
+        definition.category === category
+        && definition.allowedScopes.includes(scope)
+        && (this.llmWiki.data.presentation.showAdvanced || definition.visibility !== "advanced"),
+      );
+      if (!definitions.length) continue;
+      containerEl.createEl("h2", { text: CATEGORY_LABELS[category] ?? category });
+      for (const definition of definitions) this.renderDefinition(containerEl, definition);
+    }
+
     new Setting(containerEl)
-      .setName("Python path")
-      .setDesc("Interpreter that runs kb_meta.py (e.g. python, python3, or an absolute path).")
-      .addText((t) => t
-        .setValue(this.plugin.settings.pythonPath)
-        .onChange(async (v) => {
-          this.plugin.settings.pythonPath = v.trim() || "python";
-          await this.plugin.saveSettings();
+      .setName("Show advanced settings")
+      .setDesc("Reveal operator-oriented provider bindings and settings.")
+      .addToggle(toggle => toggle
+        .setValue(this.llmWiki.data.presentation.showAdvanced)
+        .onChange(async value => {
+          this.llmWiki.data = {
+            ...this.llmWiki.data,
+            presentation: { ...this.llmWiki.data.presentation, showAdvanced: value },
+          };
+          await this.llmWiki.savePluginData();
+          this.display();
         }));
+  }
+
+  private renderOverview(containerEl: HTMLElement): void {
+    const overview = containerEl.createDiv({ cls: "llmwiki-settings-overview" });
+    const heading = overview.createDiv({ cls: "llmwiki-settings-overview-heading" });
+    heading.createEl("strong", { text: "System status" });
+    heading.createEl("span", {
+      text: this.llmWiki.projection
+        ? `Refreshed ${this.llmWiki.projection.refreshedAt}`
+        : "Settings Platform unavailable",
+    });
+    if (this.llmWiki.settingsError) overview.createEl("p", { text: this.llmWiki.settingsError });
+    for (const check of this.llmWiki.projection?.health ?? []) this.renderHealth(overview, check);
+    const actions = overview.createDiv({ cls: "llmwiki-settings-actions" });
+    const refresh = actions.createEl("button", { text: "Refresh / Run Doctor", cls: "mod-cta" });
+    refresh.onclick = async () => {
+      refresh.disabled = true;
+      refresh.setText("Checking…");
+      await this.llmWiki.refreshSettings(false);
+      this.display();
+    };
+  }
+
+  private renderHealth(containerEl: HTMLElement, check: HealthCheck): void {
+    const item = containerEl.createDiv({ cls: `llmwiki-health llmwiki-health-${check.state}` });
+    item.createEl("span", { cls: "llmwiki-health-dot" });
+    const copy = item.createDiv();
+    copy.createEl("strong", { text: check.capabilityId });
+    const remediation = check.remediations[0]?.summary;
+    copy.createEl("small", { text: remediation ? `${check.summary} ${remediation}` : check.summary });
+  }
+
+  private renderScopeSelector(containerEl: HTMLElement): void {
     new Setting(containerEl)
-      .setName("kb_meta.py path")
-      .setDesc("Absolute path to vault-mind's compiler/kb_meta.py.")
-      .addText((t) => t
-        .setValue(this.plugin.settings.kbMetaPath)
-        .onChange(async (v) => {
-          this.plugin.settings.kbMetaPath = v.trim();
-          await this.plugin.saveSettings();
+      .setName("Editing scope")
+      .setDesc("The shared registry determines which settings each scope may own.")
+      .addDropdown(dropdown => dropdown
+        .addOption("user-device", SCOPE_LABELS["user-device"])
+        .addOption("vault", SCOPE_LABELS.vault)
+        .setValue(this.llmWiki.data.presentation.selectedScope)
+        .onChange(async value => {
+          await this.llmWiki.setEditingScope(value as SettingScope);
+          this.display();
         }));
+  }
+
+  private renderDefinition(containerEl: HTMLElement, definition: SettingDefinition): void {
+    const projection = this.llmWiki.projection!;
+    const scope = this.llmWiki.data.presentation.selectedScope;
+    const row = projectSettingForScope(definition, projection.snapshot, scope);
+    if (!row) return;
+    const { effective, validation } = row;
+    const description = [
+      definition.description,
+      ...(definition.valueType === "secret-reference"
+        ? ["Reference locator only; never paste or store the secret value here."]
+        : []),
+      `Effective: ${this.displayValue(definition, effective)}`,
+      `source: ${SCOPE_LABELS[effective.winningScope]}`,
+      `apply: ${definition.applyMode}`,
+      ...validation.map(issue => `${issue.severity}: ${issue.message}`),
+    ].join(" · ");
+    const setting = new Setting(containerEl).setName(definition.name).setDesc(description);
+    const assignedHere = row.assignedValue !== undefined;
+
+    if (definition.valueType === "boolean") {
+      setting.addDropdown(dropdown => dropdown
+        .addOption("inherit", "Inherit")
+        .addOption("true", "Enabled")
+        .addOption("false", "Disabled")
+        .setValue(assignedHere ? String(row.assignedValue) : "inherit")
+        .onChange(async value => this.mutate(() => value === "inherit"
+          ? this.llmWiki.unsetSetting(scope, definition.key)
+          : this.llmWiki.updateSetting(scope, definition.key, value === "true"))));
+    } else if (definition.valueType === "secret-reference") {
+      const existing = this.secretReference(row.assignedValue);
+      let provider: SecretReference["provider"] = existing?.provider ?? "environment";
+      setting.addDropdown(dropdown => dropdown
+        .addOption("environment", "Environment")
+        .addOption("os-keychain", "OS keychain")
+        .addOption("external-vault", "External vault")
+        .setValue(provider)
+        .onChange(value => { provider = value as SecretReference["provider"]; }));
+      setting.addText(text => {
+        text.setPlaceholder(existing
+          ? "Configured — enter a new reference locator to replace"
+          : "Reference locator — never paste the secret value");
+        text.inputEl.type = "text";
+        text.inputEl.autocomplete = "off";
+        text.inputEl.addEventListener("change", () => void this.mutate(async () => {
+          const locator = text.getValue().trim();
+          if (!locator) return;
+          await this.llmWiki.updateSetting(scope, definition.key, { provider, locator });
+          text.setValue("");
+        }));
+      });
+    } else if (definition.valueType === "enum" && definition.validator.enum?.length) {
+      setting.addDropdown(dropdown => {
+        dropdown.addOption("", "Inherit");
+        for (const value of definition.validator.enum ?? []) dropdown.addOption(value, value);
+        dropdown.setValue(assignedHere ? String(row.assignedValue) : "");
+        dropdown.onChange(value => this.mutate(() => value
+          ? this.llmWiki.updateSetting(scope, definition.key, value)
+          : this.llmWiki.unsetSetting(scope, definition.key)));
+      });
+    } else {
+      setting.addText(text => {
+        const assignedValue = row.assignedValue;
+        text.setPlaceholder(definition.placeholder ?? "").setValue(
+          assignedHere && (typeof assignedValue === "string" || typeof assignedValue === "number")
+            ? String(assignedValue)
+            : "",
+        );
+        text.inputEl.addEventListener("change", () => void this.mutate(async () => {
+          const value = text.getValue();
+          if (!value.trim() && !definition.validator.required) await this.llmWiki.unsetSetting(scope, definition.key);
+          else await this.llmWiki.updateSetting(scope, definition.key, parseSettingInput(definition.valueType, value));
+        }));
+      });
+    }
+
+    if (assignedHere) {
+      setting.addExtraButton(button => button
+        .setIcon("reset")
+        .setTooltip("Remove this assignment and inherit the next effective value")
+        .onClick(async () => this.mutate(() => this.llmWiki.unsetSetting(scope, definition.key))));
+    }
+  }
+
+  private async mutate(action: () => Promise<void>): Promise<void> {
+    try {
+      await action();
+    } catch (error) {
+      new Notice(`LLM Wiki: ${String((error as Error)?.message ?? error)}`);
+    }
+    this.display();
+  }
+
+  private displayValue(definition: SettingDefinition, effective: EffectiveSetting): string {
+    if (definition.valueType === "secret-reference") return redactedSecretLabel(effective.value);
+    return JSON.stringify(effective.value);
+  }
+
+  private secretReference(value: unknown): SecretReference | undefined {
+    if (isSecretReference(value)) return value;
+    if (value && typeof value === "object" && !Array.isArray(value) && "secretRef" in value) {
+      const secretRef = (value as { secretRef?: unknown }).secretRef;
+      return isSecretReference(secretRef) ? secretRef : undefined;
+    }
+    return undefined;
   }
 }

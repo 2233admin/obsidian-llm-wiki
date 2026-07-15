@@ -1,10 +1,10 @@
 # Vault Collaboration Protocol
 
-LLMwiki coordinates shared markdown vaults by keeping ownership explicit.
+LLM Wiki coordinates shared markdown vaults by keeping ownership explicit.
 
 ## Responsibility Split
 
-- LLMwiki reads/writes markdown and checks collaboration rules.
+- LLM Wiki reads/writes markdown and checks collaboration rules.
 - Gitea or GitHub reviews shared source-of-truth changes.
 - The sync tool copies files between devices and may create conflict copies.
 

@@ -1,6 +1,6 @@
 # Collaboration Demo Vault
 
-Minimal reference vault for Gitea-backed Obsidian collaboration and the LLMwiki research compiler loop.
+Minimal reference vault for Gitea-backed Obsidian collaboration and the LLM Wiki research compiler loop.
 
 This directory is an example, not a user vault. Copy the shape, then initialize
 your real vault with `scripts/init_collab_vault.py`.

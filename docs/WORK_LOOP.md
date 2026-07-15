@@ -3,7 +3,7 @@
 The execution loop is **not a daemon** (§0 #4). It is a one-shot CLI heartbeat
 that the harness fires **as-needed** — Claude Code `ScheduleWakeup` (in-process,
 the chosen mechanism) or, equivalently, a Windows Task Scheduler entry running a
-standalone `kb_meta work next`. vault-mind owns no scheduler; the scheduler is
+standalone `kb_meta work next`. LLM Wiki owns no scheduler; the scheduler is
 the wheel.
 
 ## One tick
@@ -41,7 +41,7 @@ the wheel.
 ## Why this stays inside §0
 
 - **No runtime** — every tick is a process that runs once and exits; the cadence
-  lives in the external scheduler wheel, not in vault-mind.
+  lives in the external scheduler wheel, not in LLM Wiki.
 - **Atomic claim** — the lease is a base-head optimistic lock (`HEAD_MISMATCH`
   rejects a double-claim); a crashed run is reclaimed when its TTL expires.
 - **Never overspends** — the budget gate stops *before* a run that would cross

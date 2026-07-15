@@ -1,0 +1,5 @@
+# Separate Knowledge Adapters from Host Capability Connectors
+
+LLM Wiki will keep Knowledge Adapters limited to normalized knowledge access such as search, read, graph, embeddings, and file events. Operational abilities supplied by LLM Wiki link diagnostics (the `obc` package), Dream Time, Obsidian, or third-party plugins will register through a separate Host Capability Connector and Capability Descriptor contract, because invoking commands has different health, permission, provenance, side-effect, and compatibility requirements from querying knowledge.
+
+The `obc` link-diagnostics package will be the first-party reference implementation of this capability contract rather than a privileged special case. The Obsidian bridge may discover and invoke allowlisted third-party plugin operations, but arbitrary command execution is not a default capability; every mutating invocation remains subject to the Operation Write Policy and explicit trust level. This costs an additional registry and translation layer, but prevents third-party APIs and host lifecycle details from shaping LLM Wiki's core domain.

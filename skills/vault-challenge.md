@@ -2,12 +2,12 @@
 name: vault-challenge
 description: >
   The vault argues back. Uses your own history and recorded contradictions to challenge assumptions.
-  Uses the vault-mind MCP server to pull evidence.
+  Uses the LLM Wiki MCP server to pull evidence.
 ---
 
 # /vault-challenge [topic or decision]
 
-# Requires: vault-mind MCP server
+# Requires: LLM Wiki MCP server (legacy registration key: `vault-mind`)
 
 The vault challenges your current proposal by searching for counter-evidence in your own history and existing contradictions.
 

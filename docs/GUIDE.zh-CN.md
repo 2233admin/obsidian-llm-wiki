@@ -1,4 +1,4 @@
-# LLMwiki 使用指南
+# LLM Wiki 使用指南
 
 > 🌐 **语言**：[English](GUIDE.md) · 简体中文（本页）
 
@@ -14,7 +14,7 @@
 
 不是没人写。大家写了。问题是笔记、代码发现、agent 回答没有状态：没有出处，没人审核，没有晋升路径。
 
-**LLMwiki** 把它变成一条简单闭环：
+**LLM Wiki** 把它变成一条简单闭环：
 
 ```
 收集 -> 编译 -> 提问 -> 归档 -> 审核 -> 晋升
@@ -215,7 +215,7 @@ source note -> cited AI-Output draft -> reviewed durable note
 
 ## Vault 结构
 
-你**不需要**重新组织你的 vault。LLMwiki 直接在你现有结构上工作。
+你**不需要**重新组织你的 vault。LLM Wiki 直接在你现有结构上工作。
 
 它只会在知识工种写产出时新建一个目录：
 

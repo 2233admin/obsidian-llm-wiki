@@ -1,9 +1,9 @@
 {
   "id": "vault-mind-promote",
-  "name": "vault-mind Promote",
-  "version": "0.1.0",
+  "name": "LLM Wiki",
+  "version": "0.3.0",
   "minAppVersion": "1.4.0",
-  "description": "Promote a vault-mind draft candidate through the work-OS base-head lock, from a command or the file menu. Dry-run plan first; never auto-commits.",
-  "author": "vault-mind",
+  "description": "Operate and configure the LLM Wiki system from Obsidian, including governed knowledge promotion and capability health.",
+  "author": "LLM Wiki",
   "isDesktopOnly": true
 }

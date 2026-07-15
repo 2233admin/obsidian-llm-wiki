@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import type { Operation, OperationContext, VaultMindConfig, WriteEffect } from './types.js';
 import { makeErr } from './types.js';
 import { validateParams } from './validate.js';
+import { resolveProjectContext } from '../project/project-context.js';
 
 type CollabPolicy = {
   agents?: string[];
@@ -113,10 +114,35 @@ export function targetOrWildcard(param: string, fallback: string) {
     typeof params[param] === 'string' ? [params[param] as string] : [fallback];
 }
 
-export function memoryPolicyBasePath(config: VaultMindConfig, args: Record<string, unknown>): string {
+function resolvedPolicyProject(
+  config: VaultMindConfig,
+  args: Record<string, unknown>,
+  operation: string,
+): string {
+  if (typeof args.project !== 'string' || !args.project.trim()) {
+    throw makeErr(-32602, 'project required for write policy');
+  }
+  return resolveProjectContext(
+    config.vault_path,
+    args.project,
+    operation,
+    { recordCompatibility: false },
+  ).slug;
+}
+
+export function memoryPolicyBasePath(
+  config: VaultMindConfig,
+  args: Record<string, unknown>,
+  operation = 'memory.write',
+): string {
   const actor = safeMemorySegment(config.collaboration?.actor || process.env.VAULT_MIND_ACTOR || 'agent', 'actor');
   const project = typeof args.project === 'string' && args.project.trim()
-    ? safeMemorySegment(args.project, 'project')
+    ? resolveProjectContext(
+        config.vault_path,
+        args.project,
+        operation,
+        { recordCompatibility: false },
+      ).slug
     : undefined;
   return project ? `10-Projects/${project}/agents/${actor}/memory` : `00-Inbox/Agent-Memory/${actor}`;
 }
@@ -125,19 +151,35 @@ export function projectPolicyBasePath(args: Record<string, unknown>): string {
   return `01-Projects/${policyProjectSegment(args)}`;
 }
 
-export function workflowPolicyBasePath(args: Record<string, unknown>): string {
-  return `${projectPolicyBasePath(args)}/workflow`;
+export function workflowPolicyBasePath(
+  config: VaultMindConfig,
+  args: Record<string, unknown>,
+  operation: string,
+): string {
+  return `01-Projects/${resolvedPolicyProject(config, args, operation)}/workflow`;
 }
 
-export function workflowAgentPolicyBasePath(config: VaultMindConfig, args: Record<string, unknown>): string {
-  return `${projectPolicyBasePath(args)}/agents/${workflowAgentPolicySegment(config, args)}`;
+export function workflowAgentPolicyBasePath(
+  config: VaultMindConfig,
+  args: Record<string, unknown>,
+  operation: string,
+): string {
+  return `01-Projects/${resolvedPolicyProject(config, args, operation)}/agents/${workflowAgentPolicySegment(config, args)}`;
 }
 
-export function sourcePolicyTargetPaths(args: Record<string, unknown>): string[] {
+export function sourcePolicyTargetPaths(
+  config: VaultMindConfig,
+  args: Record<string, unknown>,
+  operation = 'source.register',
+): string[] {
   if (typeof args.project === 'string' && args.project.trim() && typeof args.platform === 'string' && args.platform.trim()) {
-    const project = safeMemorySegment(args.project, 'project');
+    const project = resolvedPolicyProject(config, args, operation);
     const platform = safeMemorySegment(args.platform, 'platform');
     return ['_llmwiki/source-registry.json', `10-Projects/${project}/sources/${platform}/**`];
+  }
+  if (typeof args.project === 'string' && args.project.trim()) {
+    const project = resolvedPolicyProject(config, args, operation);
+    return ['_llmwiki/source-registry.json', `10-Projects/${project}/sources/**`];
   }
   if (typeof args.platform === 'string' && args.platform.trim()) {
     const platform = safeMemorySegment(args.platform, 'platform');
@@ -238,7 +280,8 @@ function enforceCollaborationPolicy(config: VaultMindConfig, toolName: string, t
 
   for (const target of targets) {
     const protectedHit = matchAny(target, protectedPaths);
-    const allowedHit = allowed.length > 0 && matchAny(target, allowed);
+    const allowedHit = settingsOperationAllowsTarget(toolName, target)
+      || (allowed.length > 0 && matchAny(target, allowed));
     if (protectedHit && !allowedHit) {
       throw makeErr(-32403, `Collaboration policy blocked ${toolName} by ${actor}: protected path ${target}`);
     }
@@ -246,6 +289,13 @@ function enforceCollaborationPolicy(config: VaultMindConfig, toolName: string, t
       throw makeErr(-32403, `Collaboration policy blocked ${toolName} by ${actor}: ${target} is outside allowed write paths`);
     }
   }
+}
+
+function settingsOperationAllowsTarget(toolName: string, target: string): boolean {
+  if (toolName !== 'settings.assignment.set' && toolName !== 'settings.assignment.unset') return false;
+  return /^_llmwiki\/settings\/(?:vault\.json|projects\/[A-Za-z0-9._-]+\.json|(?:user-device|session)\/[A-Za-z0-9._-]+)$/.test(
+    normalizePolicyPath(target),
+  );
 }
 
 function readVaultCollabPolicy(vaultPath: string): CollabPolicy {
@@ -317,7 +367,19 @@ function policyProjectSegment(args: Record<string, unknown>): string {
   if (typeof args.project !== 'string' || !args.project.trim()) {
     throw makeErr(-32602, 'project required for write policy');
   }
-  return slugPolicySegment(args.project, 'project');
+  return policyProjectRefSegment(args.project);
+}
+
+function policyProjectRefSegment(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed.startsWith('project/')) {
+    const slug = trimmed.slice('project/'.length);
+    if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
+      throw makeErr(-32602, 'project ID must use project/<lowercase-kebab-slug>');
+    }
+    return slug;
+  }
+  return slugPolicySegment(trimmed, 'project');
 }
 
 function workflowAgentPolicySegment(config: VaultMindConfig, args: Record<string, unknown>): string {
@@ -338,11 +400,13 @@ function defaultAllowedPaths(actor: string, role: string | undefined): string[] 
     `10-Projects/*/agents/${actor}`,
     `10-Projects/*/agents/${actor}/**`,
     `10-Projects/*/project.md`,
-    `10-Projects/*/docket/**`,
+    `Projects/*.md`,
+    `.vault-mind/project-migrations/**`,
     `01-Projects/*/_project.md`,
     `01-Projects/*/issues/**`,
     `01-Projects/*/views/**`,
     `01-Projects/*/workflow/**`,
+    `01-Projects/*/runs/**`,
     `01-Projects/*/agents/${workflowActor}`,
     `01-Projects/*/agents/${workflowActor}/**`,
   ];

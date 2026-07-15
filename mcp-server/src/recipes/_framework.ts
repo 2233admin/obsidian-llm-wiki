@@ -223,7 +223,15 @@ export function getRecipeStatus(recipe: Recipe): RecipeStatus {
 export function runHealthCheck(command: string): { ok: boolean; output: string } {
   // Health check commands come from shipped recipe files (trusted authors).
   // We need an explicit POSIX shell because commands use $VAR expansion and &&.
-  const shell = process.platform === 'win32' ? 'bash' : '/bin/sh';
+  const windowsBashCandidates = [
+    process.env.ProgramFiles ? join(process.env.ProgramFiles, 'Git', 'usr', 'bin', 'bash.exe') : '',
+    process.env.LOCALAPPDATA ? join(process.env.LOCALAPPDATA, 'Programs', 'Git', 'usr', 'bin', 'bash.exe') : '',
+  ].filter(Boolean);
+  // WindowsApps/System32 bash.exe may be a WSL launcher even when no distro is
+  // installed. Prefer Git Bash explicitly so recipe health checks are portable.
+  const shell = process.platform === 'win32'
+    ? windowsBashCandidates.find((candidate) => existsSync(candidate)) ?? 'bash'
+    : '/bin/sh';
   const shellFlag = '-c';
   try {
     const output = execFileSync(shell, [shellFlag, command], {

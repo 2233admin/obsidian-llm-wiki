@@ -43,6 +43,16 @@ const INLINE_CODE_RE = /`[^`]*`/g;
 
 /** Markdown heading: # through ###### followed by space and text */
 const HEADING_RE = /^(#{1,6})\s+(.+)/;
+
+export function resolveCompilerPath(
+  runtimeDirectory: string,
+  environment: NodeJS.ProcessEnv = process.env,
+): string {
+  const configured = environment.LLMWIKI_COMPILER_PATH ?? environment.VAULT_MIND_COMPILER_PATH;
+  if (configured?.trim()) return resolve(configured);
+  const candidates = [resolve(runtimeDirectory, '../compiler'), resolve(runtimeDirectory, '../../compiler')];
+  return candidates.find((candidate) => existsSync(join(candidate, 'kb_meta.py'))) ?? candidates[1]!;
+}
 /** YAML history key (flow-style) */
 const HISTORY_KEY_RE = /^history:\s*$/m;
 /** YAML history key on a single line (used inline) */
@@ -1551,7 +1561,7 @@ async function main(): Promise<void> {
 
   // --- Compile trigger ---
   const __dirname = dirname(fileURLToPath(import.meta.url));
-  const compilerPath = resolve(__dirname, "../../compiler");
+  const compilerPath = resolveCompilerPath(__dirname);
   const python = process.env.VAULT_MIND_PYTHON ?? process.env.PYTHON ?? "python";
   const compileTrigger = new CompileTrigger({
     vaultPath: config.vault_path,

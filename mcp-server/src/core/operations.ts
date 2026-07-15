@@ -23,11 +23,15 @@ import { makeGraphOps } from '../holons/graph.js';
 import { makeVaultWriteOps } from '../holons/write.js';
 import { makeMemoryOps } from '../memory/memory.js';
 import { makeProjectOps } from '../project/project.js';
+import { makeProjectHubOps } from '../project/project-hub.js';
 import { makeIngestOps } from '../ingest/ingest.js';
 import { makeSourceOps } from '../source/source.js';
 import { makeConversationOps } from '../conversation/conversation.js';
 import { makeContextOps } from '../context/context.js';
 import { makeWorkflowOps } from '../workflow/workflow.js';
+import { resolveProjectContext } from '../project/project-context.js';
+import { makeProjectMigrationOps } from '../project/project-migration.js';
+import { createSettingsService, makeSettingsOps, resolveAgentModelProcessEnvironment } from '../settings/settings.js';
 
 const execAsync = promisify(execFile);
 const PROTECTED_DIRS = new Set(['.obsidian', '.trash', '.git', 'node_modules']);
@@ -299,7 +303,7 @@ export const operations: Operation[] = [
   {
  name: 'vault.project',
     namespace: 'vault',
-    description: 'Create or update a project note with AI-First frontmatter. Path: Projects/{name}.md',
+    description: 'Deprecated compatibility update for an already-registered Project. Unknown names are rejected; use project.init to create a Project ID and Work-OS anchor.',
  mutating: true,
  writePolicy: dryRunStaticPolicy('Projects/**'),
  params: {
@@ -311,7 +315,25 @@ export const operations: Operation[] = [
       entity: { type: 'string', required: false, description: 'Currency entity key (default: project/<name-slug>); drives the status-drift guard' },
       dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: true)', default: true },
     },
-    handler: async (ctx, params) => ctx.vault.execute('vault.project', params),
+    handler: async (ctx, params) => {
+      const name = params.name;
+      if (typeof name !== 'string' || !name.trim()) throw makeErr(-32602, 'name required');
+      const project = resolveProjectContext(ctx.config.vault_path, name, 'vault.project');
+      const result = await ctx.vault.execute('vault.project', {
+        ...params,
+        name: project.slug,
+        entity: project.projectId,
+      });
+      return {
+        result,
+        projectId: project.projectId,
+        diagnostics: [{
+          code: 'vault_project_deprecated',
+          severity: 'warning',
+          message: 'vault.project is a compatibility operation; use project.init and Project domain operations.',
+        }, ...project.diagnostics],
+      };
+    },
   },
   {
  name: 'vault.decide',
@@ -625,6 +647,13 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     ?? process.env['CONTEXT_CORE_PATH']
     ?? join(dirname(compilerPath), 'context-core.json');
   const contextCoreLoader = new ContextCoreLoader(ccPath);
+  const settingsOptions = {
+    vaultPath,
+    pythonPath: python,
+    compilerPath,
+  };
+  const settingsService = createSettingsService(settingsOptions);
+  compileTrigger?.setEnvironmentResolver?.(() => resolveAgentModelProcessEnvironment(settingsService));
 
   const compileOps: Operation[] = [
     {
@@ -1112,10 +1141,11 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
         const mode = params.mode as string | undefined;
         if (mode) args.push('--mode', mode);
         try {
+          const childEnvironment = await resolveAgentModelProcessEnvironment(settingsService);
           const { stdout } = await execAsync(python, args, {
             timeout: 300_000,
             maxBuffer: 10 * 1024 * 1024,
-            env: { ...process.env },
+            env: childEnvironment,
           });
           return JSON.parse(stdout);
         } catch (e) {
@@ -1173,11 +1203,14 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     ...makeVaultWriteOps(vaultPath, contextCoreLoader),
     ...makeMemoryOps(vaultPath),
     ...makeProjectOps(vaultPath),
+    ...makeProjectHubOps(registry, settingsService),
+    ...makeProjectMigrationOps({ python, compilerPath, vaultPath }),
     ...makeIngestOps(),
     ...makeSourceOps(vaultPath),
     ...makeConversationOps(vaultPath),
     ...makeWorkflowOps(vaultPath),
     ...makeContextOps(vaultPath, registry, defaultWeights),
+    ...makeSettingsOps(settingsOptions, settingsService),
   ];
   return [...operations, ...compileOps, ...queryOps, ...multimodalOps, ...lightRagOps, ...agentOps, ...holonOps];
 }

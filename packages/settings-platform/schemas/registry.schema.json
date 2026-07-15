@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.llmwiki.org/settings/v1/registry.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "registryVersion", "definitions", "migrations"],
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "registryVersion": { "type": "string", "minLength": 1 },
+    "registryDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "definitions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key", "owner", "category", "name", "description", "valueType", "allowedScopes", "sensitivity", "validator", "requires", "applyMode", "visibility"],
+        "properties": {
+          "key": { "type": "string", "pattern": "^[a-z][a-z0-9_-]*(\\.[a-z][a-z0-9_-]*)+$" },
+          "owner": { "type": "string", "minLength": 1 },
+          "category": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1 },
+          "description": { "type": "string", "minLength": 1 },
+          "valueType": { "enum": ["boolean", "integer", "number", "string", "enum", "path", "duration", "list", "object", "secret-reference"] },
+          "defaultValue": { "$ref": "common.schema.json#/$defs/jsonValue" },
+          "defaultSecretRef": { "$ref": "common.schema.json#/$defs/secretReference" },
+          "allowedScopes": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "$ref": "common.schema.json#/$defs/mutableScope" }
+          },
+          "sensitivity": { "enum": ["public", "local", "secret-reference"] },
+          "validator": {
+            "type": "object",
+            "required": ["id"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "required": { "type": "boolean" },
+              "enum": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+              "min": { "type": "number" },
+              "max": { "type": "number" },
+              "minLength": { "type": "integer", "minimum": 0 },
+              "maxLength": { "type": "integer", "minimum": 0 },
+              "pattern": { "type": "string" }
+            },
+            "additionalProperties": false
+          },
+          "requires": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+          "applyMode": { "enum": ["hot", "next-operation", "restart-required"] },
+          "visibility": { "enum": ["normal", "advanced", "internal"] },
+          "placeholder": { "type": "string" },
+          "deprecatedBy": { "type": "string" }
+        }
+      }
+    },
+    "migrations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "fromSchemaVersion", "toSchemaVersion", "description"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "fromSchemaVersion": { "type": "integer", "minimum": 0 },
+          "toSchemaVersion": { "type": "integer", "minimum": 1 },
+          "description": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

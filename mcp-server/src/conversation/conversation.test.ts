@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { makeConversationOps } from './conversation.js';
@@ -22,9 +22,19 @@ function op(ops: Operation[], name: string): Operation {
   return found;
 }
 
+function registerProject(root: string): void {
+  mkdirSync(join(root, 'Projects'), { recursive: true });
+  writeFileSync(
+    join(root, 'Projects', 'alpha.md'),
+    '---\ntype: project\nentity: project/alpha\nlifecycle: active\naliases: [Alpha App]\n---\n',
+    'utf-8',
+  );
+}
+
 test('conversation decision capture renders project-scoped template', async () => {
   const root = mkdtempSync(join(tmpdir(), 'llmwiki-conversation-'));
   try {
+    registerProject(root);
     const capture = op(makeConversationOps(root), 'conversation.decision.capture');
     const result = (await capture.handler(ctx('alice'), {
       project: 'alpha',
@@ -138,12 +148,35 @@ test('conversation decision rejects unsafe project and actor segments', async ()
     const capture = op(makeConversationOps(root), 'conversation.decision.capture');
     await assert.rejects(
       () => capture.handler(ctx('codex'), { project: '../alpha', title: 'Unsafe project' }),
-      /project must be single safe path segment/,
+      /Project not found: \.\.\/alpha/,
     );
     await assert.rejects(
       () => capture.handler(ctx('../agent'), { title: 'Unsafe actor' }),
       /actor must be single safe path segment/,
     );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('conversation decisions resolve aliases and reject unknown projects before path creation', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'llmwiki-conversation-'));
+  try {
+    registerProject(root);
+    const capture = op(makeConversationOps(root), 'conversation.decision.capture');
+    const resolved = (await capture.handler(ctx('codex'), {
+      project: 'Alpha App',
+      title: 'Canonical project path',
+      decision: 'Use the resolver output.',
+    })) as { path: string };
+    assert.match(resolved.path, /^10-Projects\/alpha\/agents\/codex\/memory\/decisions\//);
+    assert.equal(existsSync(join(root, '10-Projects', 'Alpha App')), false);
+
+    await assert.rejects(
+      () => capture.handler(ctx('codex'), { project: 'missing', title: 'Must not write' }),
+      /Project not found: missing/,
+    );
+    assert.equal(existsSync(join(root, '10-Projects', 'missing')), false);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

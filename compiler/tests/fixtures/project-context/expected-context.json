@@ -1,0 +1,17 @@
+{
+  "projectId": "project/alpha",
+  "slug": "alpha",
+  "lifecycle": "active",
+  "aliases": ["Alpha Product", "legacy-alpha"],
+  "roots": {
+    "registryRecord": "Projects/alpha.md",
+    "workOs": "01-Projects/alpha",
+    "knowledge": "10-Projects/alpha",
+    "runtime": ".vault-mind"
+  },
+  "projections": [
+    { "kind": "github", "target": "acme/alpha" },
+    { "kind": "linear", "target": "ALPHA" }
+  ],
+  "resolvedBy": "project_id"
+}

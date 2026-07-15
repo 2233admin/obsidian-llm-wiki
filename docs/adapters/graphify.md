@@ -1,6 +1,6 @@
 # graphify adapter
 
-Wraps the [graphify](https://pypi.org/project/graphifyy/) CLI as a vault-mind adapter, adding project-wide knowledge graph capabilities: code, docs, PDFs, images, and video — all extracted and queryable through the same `vault.search` / `vault.graph` / `vault.read` MCP surface.
+Wraps the [graphify](https://pypi.org/project/graphifyy/) CLI as an LLM Wiki adapter, adding project-wide knowledge graph capabilities: code, docs, PDFs, images, and video — all extracted and queryable through the same `vault.search` / `vault.graph` / `vault.read` MCP surface.
 
 ## Quick start
 
@@ -54,7 +54,7 @@ graphify:
 
 ## How graph() works
 
-graphify's `graph.json` contains symbol-level nodes (functions, classes, headings, PDF sections, etc.). vault-mind's `GraphData` is file-centric. The adapter:
+graphify's `graph.json` contains symbol-level nodes (functions, classes, headings, PDF sections, etc.). LLM Wiki's `GraphData` is file-centric. The adapter:
 
 1. Reads `graph.json` from `<output_dir>/graph.json`
 2. Collapses all nodes sharing the same `source_file` into one `GraphNode`
@@ -63,7 +63,7 @@ graphify's `graph.json` contains symbol-level nodes (functions, classes, heading
 
 ## Edge type mapping
 
-| graphify relation | vault-mind type |
+| graphify relation | LLM Wiki type |
 |---|---|
 | `contains`, `method` | `"tag"` (structural hierarchy) |
 | everything else | `"link"` |
@@ -82,7 +82,7 @@ graphify extract <path>     # build graph.json once (runs tree-sitter + Leiden c
 graphify update <path>      # incremental re-scan (changed files only)
 ```
 
-The adapter ships no bundled copy of graphify. License: MIT (compatible with vault-mind GPL-3.0 via subprocess invocation).
+The adapter ships no bundled copy of graphify. License: MIT (compatible with LLM Wiki's GPL-3.0 license via subprocess invocation).
 
 ## Windows
 

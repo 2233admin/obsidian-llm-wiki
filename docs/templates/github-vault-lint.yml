@@ -13,12 +13,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Checkout LLMwiki tools
+      - name: Checkout LLM Wiki tools
         uses: actions/checkout@v4
         with:
           repository: 2233admin/obsidian-llm-wiki
           path: .llmwiki-tools
-      - name: Run LLMwiki doctor
+      - name: Run LLM Wiki doctor
         run: python .llmwiki-tools/scripts/llmwiki_doctor.py --vault . --json
       - name: Report knowledge health
         run: python .llmwiki-tools/scripts/knowledge_health.py --vault . --json

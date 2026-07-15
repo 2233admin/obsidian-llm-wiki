@@ -101,7 +101,7 @@ export class RAGAnythingAdapter implements VaultMindAdapter {
   async init(): Promise<void> {
     if (!this.baseUrl) {
       this._available = false;
-      process.stderr.write("vault-mind: [raganything] RAGANYTHING_URL not set -- adapter disabled\n");
+      process.stderr.write("llmwiki: [raganything] RAGANYTHING_URL not set -- adapter disabled\n");
       return;
     }
 
@@ -116,7 +116,7 @@ export class RAGAnythingAdapter implements VaultMindAdapter {
     }
 
     if (!this._available) {
-      process.stderr.write(`vault-mind: [raganything] unavailable at ${this.baseUrl} -- adapter disabled\n`);
+      process.stderr.write(`llmwiki: [raganything] unavailable at ${this.baseUrl} -- adapter disabled\n`);
     }
   }
 

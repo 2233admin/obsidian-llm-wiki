@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * x-collector.ts — X API v2 collector for vault-mind
+ * x-collector.ts — X API v2 collector for LLM Wiki
  *
  * Fetches timeline tweets + mentions, writes raw JSON files,
  * generates a dated digest markdown, and tracks pagination state.

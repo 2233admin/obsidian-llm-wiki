@@ -177,8 +177,12 @@ describe("ObsidianAdapter -- mock WS server", () => {
   after(async () => {
     cleanPortFile();
     await Promise.all([...wss.clients].map((c) =>
-      new Promise<void>((res) => { c.once("close", res); c.terminate(); }),
+      new Promise<void>((res) => {
+        if (c.readyState === WebSocket.CLOSED) res();
+        else c.once("close", res);
+      }),
     ));
+    await new Promise<void>((res) => setImmediate(res));
     await new Promise<void>((res) => wss.close(() => res()));
   });
 
@@ -306,9 +310,16 @@ describe("ObsidianAdapter -- auth rejection", () => {
 
   after(async () => {
     cleanPortFile();
+    // The adapter owns this connection and terminates it after auth rejection.
+    // Wait for that close to propagate instead of racing it with a second
+    // server-side terminate, which can wedge Bun's HTTP server close callback.
     await Promise.all([...wss.clients].map((c) =>
-      new Promise<void>((res) => { c.once("close", res); c.terminate(); }),
+      new Promise<void>((res) => {
+        if (c.readyState === WebSocket.CLOSED) res();
+        else c.once("close", res);
+      }),
     ));
+    await new Promise<void>((res) => setImmediate(res));
     await new Promise<void>((res) => wss.close(() => res()));
   });
 

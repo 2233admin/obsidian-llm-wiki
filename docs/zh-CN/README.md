@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="../assets/banner.svg" alt="LLMwiki — 把 raw research 编译成经过 review 的团队 wiki" width="100%">
+  <img src="../assets/banner.svg" alt="LLM Wiki — 把 raw research 编译成经过 review 的团队 wiki" width="100%">
 </p>
 
-# LLMwiki
+# LLM Wiki
 
 **把团队 raw research 文件夹编译成经过 review、可追问、会沉淀的 Obsidian wiki。Headless-first。引用，不猜。**
 
@@ -18,7 +18,7 @@
 
 不是没人写。大家写了：论文、会议记录、代码发现、截图、agent 回答。问题更坏：这些东西没有状态。没有出处。没人审核。没有晋升路径。没人分得清草稿和团队事实。
 
-LLMwiki 给这堆东西补一个编译流程：
+LLM Wiki 给这堆东西补一个编译流程：
 
 ```
 收集 -> 编译 -> 提问 -> 归档 -> 审核 -> 晋升

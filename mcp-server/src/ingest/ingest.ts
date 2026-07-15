@@ -58,7 +58,7 @@ const PROVIDERS: Record<ProviderId, ProviderDescriptor> = {
 };
 
 const LOGIN_LIMITATION = 'Login-gated, private, deleted, paywalled, or region-blocked content may require browser/cookie-assisted capture.';
-const NO_BYPASS_LIMITATION = 'LLMwiki must not bypass platform access controls; use only content available to the user and configured providers.';
+const NO_BYPASS_LIMITATION = 'LLM Wiki must not bypass platform access controls; use only content available to the user and configured providers.';
 
 function hostMatches(host: string, candidates: string[]): boolean {
   return candidates.some((candidate) => host === candidate || host.endsWith(`.${candidate}`));
@@ -287,7 +287,7 @@ function nextAction(status: CapabilityStatus, provider: ProviderDescriptor, conf
     return `Use ${provider.name} with browser/cookie-assisted access as needed; claim success only after Markdown lands in the vault and query.unified can find it.`;
   }
   if (status === 'manual_required') {
-    return `Try ${provider.name}, but expect manual/Web Clipper fallback; LLMwiki should only claim success after a local Markdown note exists.`;
+    return `Try ${provider.name}, but expect manual/Web Clipper fallback; LLM Wiki should only claim success after a local Markdown note exists.`;
   }
   return `Run ${provider.name} via ${config.command}; once Markdown lands in the vault, use query.unified for cited analysis.`;
 }
@@ -361,7 +361,7 @@ export function makeIngestOps(): Operation[] {
     {
       name: 'ingest.providers',
       namespace: 'ingest',
-      description: 'List supported local ingest providers. LLMwiki routes to OPENCLI for text/web capture and MEDIA_TRANSCRIBE for audio/video parsing, download, and transcription; it does not bundle platform scrapers.',
+      description: 'List supported local ingest providers. LLM Wiki routes to OPENCLI for text/web capture and MEDIA_TRANSCRIBE for audio/video parsing, download, and transcription; it does not bundle platform scrapers.',
       mutating: false,
       params: {},
       handler: async () => ({

@@ -1,0 +1,4 @@
+[test]
+# PGlite lifecycle hooks can cold-start above Bun's default timeout on Windows
+# fleet hosts. Keep the ceiling finite so genuine hangs still fail the gate.
+timeout = 30000

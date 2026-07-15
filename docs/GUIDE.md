@@ -1,4 +1,4 @@
-# LLMwiki — User Guide
+# LLM Wiki — User Guide
 
 > 🌐 **Languages**: English (this page) · [简体中文](GUIDE.zh-CN.md)
 
@@ -14,7 +14,7 @@ You are here because your team already lost knowledge once.
 
 Not because nobody wrote it down. They did. The problem is that notes, repo findings, and agent answers have no state: no source, no reviewer, no promotion path.
 
-**LLMwiki** turns that into a simple loop:
+**LLM Wiki** turns that into a simple loop:
 
 ```
 capture -> compile -> ask -> file -> review -> promote
@@ -207,22 +207,22 @@ Full details: [ai-output-convention.md](ai-output-convention.md).
 
 ## Local project management
 
-Use `project.*` tools when you want local Linear-style task state inside the vault. The workflow is file-backed: issues, comments, project containers, rhizome links, and Kanban board state all live under `10-Projects/<project>/docket/`.
+Use `project.*` tools when you want local Linear-style task state inside the vault. Every Project resolves to a stable `project/<slug>` identity. Authoritative issue state lives under `01-Projects/<project>/issues/`; Kanban, Canvas, and Bases are derived views, while reviewed project knowledge stays under `10-Projects/<project>/`.
 
 Good first flow:
 
 ```text
 project.init project=alpha
-project.issue.create project=alpha title="Build local Linear" priority=High status=started
-project.comment.add project=alpha id=ISSUE-1 body="Validated through smoke test"
-project.issue.update project=alpha id=ISSUE-1 status=Done
+project.issue.create project=project/alpha title="Build local Linear" priority=2 state=todo
+project.comment.add project=project/alpha slug=build-local-linear body="Validated through smoke test"
+project.issue.update project=project/alpha slug=build-local-linear state=done
 ```
 
 After that, `query.unified` and the `kanban` adapter can find the issue and board cards. Details: [LOCAL_PROJECTS.md](LOCAL_PROJECTS.md).
 
 ## Local NotebookLM-style ingest
 
-Use `/chubbyskills` when the goal is broader than one source: Bilibili videos, Douyin clips, podcasts, WeChat articles, Xiaohongshu notes, X/Twitter posts, YouTube videos, and content enrichment. ChubbySkills does the capture/transcription; LLMwiki does retrieval, citation, memory, and review.
+Use `/chubbyskills` when the goal is broader than one source: Bilibili videos, Douyin clips, podcasts, WeChat articles, Xiaohongshu notes, X/Twitter posts, YouTube videos, and content enrichment. ChubbySkills does the capture/transcription; LLM Wiki does retrieval, citation, memory, and review.
 
 Good first prompt:
 
@@ -241,7 +241,7 @@ Details: [CHUBBYSKILLS.md](CHUBBYSKILLS.md).
 
 ## Local security scan evidence
 
-Use `recipe.run id=avira-to-vault` when you want a local Avira / 小红伞 scan report saved as Markdown evidence. LLMwiki does not bundle antivirus software; configure your own trusted local scanner command:
+Use `recipe.run id=avira-to-vault` when you want a local Avira / 小红伞 scan report saved as Markdown evidence. LLM Wiki does not bundle antivirus software; configure your own trusted local scanner command:
 
 ```bash
 export AVIRA_SCAN_CMD='avscan {target}'
@@ -260,7 +260,7 @@ Good first prompt:
 /x-to-obsidian collect the top 20 posts from this X search and save them to Obsidian
 ```
 
-After clipping, use normal LLMwiki tools to find and govern the notes: `query.unified`, `vault.search`, `vault.writeAIOutput`, and `memory.handoff.write`. Details: [X_TO_OBSIDIAN.md](X_TO_OBSIDIAN.md).
+After clipping, use normal LLM Wiki tools to find and govern the notes: `query.unified`, `vault.search`, `vault.writeAIOutput`, and `memory.handoff.write`. Details: [X_TO_OBSIDIAN.md](X_TO_OBSIDIAN.md).
 
 
 ## Source Registry
@@ -275,7 +275,7 @@ _llmwiki/source-registry.json
 10-Projects/<project>/sources/<platform>/<source>.md
 ```
 
-For URLs, `source.register` runs the same read-only `ingest.link.preflight` classifier so the record says whether the route is `OPENCLI`, `MEDIA_TRANSCRIBE`, or a chained local pipeline. For existing vault notes, use `inputType=vaultPath`; LLMwiki creates a Source Note and leaves the original note untouched.
+For URLs, `source.register` runs the same read-only `ingest.link.preflight` classifier so the record says whether the route is `OPENCLI`, `MEDIA_TRANSCRIBE`, or a chained local pipeline. For existing vault notes, use `inputType=vaultPath`; LLM Wiki creates a Source Note and leaves the original note untouched.
 
 ## Markdown agent memory
 
@@ -296,7 +296,7 @@ Path rules are fixed:
 00-Inbox/Agent-Memory/<actor>/
 ```
 
-`<actor>` comes from `VAULT_MIND_ACTOR`; if it is not set, LLMwiki uses `agent`. Existing `memory.set/get/list/forget` remains backed by `_ai_memory.json` and is not migrated automatically.
+`<actor>` comes from `VAULT_MIND_ACTOR`; if it is not set, LLM Wiki uses `agent`. Existing `memory.set/get/list/forget` remains backed by `_ai_memory.json` and is not migrated automatically.
 
 Because Markdown memory lands in the vault, regular filesystem search and `query.unified` can find it. A useful handoff prompt is: "write a handoff for project X with current state, next steps, risks, and files".
 
@@ -348,21 +348,21 @@ VAULT_MIND_KANBAN_GLOB='**/*.md'
 
 ## Obsidian visual project views
 
-LLMwiki writes native Obsidian visualization files from the same Markdown project data:
+LLM Wiki writes native Obsidian visualization files from the same Markdown project data:
 
 ```text
 project.canvas.export project=<project> dryRun=false
 project.base.export project=<project> dryRun=false
 ```
 
-Files land in `10-Projects/<project>/views/`:
+Files land in `01-Projects/<project>/views/`:
 
 ```text
 project-map.canvas
 issues.base
 ```
 
-Canvas shows the project, status groups, issue note cards, and dependency/relationship edges. Bases shows a table over issue properties: id, title, status, state_type, priority, assignee, blocked_by, updated_at, and tags. Dataview and Tasks can still be used by advanced Obsidian users, but Bases is the default no-extra-plugin dashboard.
+Canvas shows the project, workflow-state groups, issue note cards, and `blocks` edges derived from `blocked-by`. Bases shows a table over the Work-OS issue fields: entity, state, review, priority, assignee, blocked-by, last-verified, id, and description. Dataview and Tasks can still be used by advanced Obsidian users, but Bases is the default no-extra-plugin dashboard.
 
 ## Optional Obsidian graph check
 
@@ -376,7 +376,7 @@ source note -> cited AI-Output draft -> reviewed durable note
 
 ## Vault structure
 
-You do **not** need to restructure your vault. LLMwiki works with whatever you already have.
+You do **not** need to restructure your vault. LLM Wiki works with whatever you already have.
 
 It only creates one new directory when a role writes an analysis:
 

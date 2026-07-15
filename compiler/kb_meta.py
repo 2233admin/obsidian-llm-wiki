@@ -17,6 +17,7 @@ Usage:
     python kb_meta.py sync-plan <vault> [--today YYYY-MM-DD]
     python kb_meta.py sync-apply <vault> [--apply] [--today YYYY-MM-DD]
     python kb_meta.py ensure-plugin <vault> [--plugin <id>] [--repo owner/name] [--apply] [--force]
+    python kb_meta.py settings <snapshot|validate|migrations-plan|doctor> <vault> [settings options]
 
 All commands output JSON to stdout for machine consumption.
 """
@@ -1974,7 +1975,7 @@ def _parse_ensure_plugin_args(args: list[str]) -> dict:
 
 
 def cmd_work_next(vault, *, claim_agent=None, ttl_seconds=3600, now=None,
-                  projected_cost=0):
+                  projected_cost=0, project=None):
     """Task 11A-iii heartbeat: select the next executable item from the
     AUTHORITATIVE work index and optionally lease it. One-shot, no daemon
     (§0 #4): a cron / ScheduleWakeup tick invokes this once and exits.
@@ -1992,18 +1993,40 @@ def cmd_work_next(vault, *, claim_agent=None, ttl_seconds=3600, now=None,
     import time
 
     import currency
+    import project_context
     import work_budget
     import work_driver
     import work_protocol
 
     notes = work_protocol._walk_work_notes(vault, require_entity=True)
     authoritative = [n for n in notes if n.is_authoritative]
-    actionable = [n for n in authoritative
-                  if work_driver.is_actionable(n, authoritative)]
-    pick = work_driver.select_next(authoritative)
+    diagnostics = []
+    if project:
+        resolved = project_context.resolve_project_context(vault, project)
+        work_root = resolved["roots"]["work_os"].rstrip("/") + "/"
+        selection_notes = [n for n in authoritative
+                           if n.note_id.replace("\\", "/").startswith(work_root)]
+    else:
+        selection_notes = [n for n in authoritative
+                           if n.note_id.replace("\\", "/").startswith("01-Projects/")]
+        # Compatibility only when a vault has not adopted the canonical Work-OS
+        # root yet. New canonical records always win over legacy Projects/issues.
+        if not selection_notes:
+            selection_notes = [n for n in authoritative
+                               if "/issues/" in n.note_id.replace("\\", "/")]
+            if selection_notes:
+                diagnostics.append({
+                    "code": "legacy_work_root",
+                    "message": "Using legacy Projects/<slug>/issues input; migrate to 01-Projects",
+                    "count": len(selection_notes),
+                })
+    actionable = [n for n in selection_notes
+                  if work_driver.is_actionable(n, selection_notes)]
+    pick = work_driver.select_next(selection_notes)
     if pick is None:
         # idle: nothing actionable -> a self-pacing trigger stops re-arming here.
-        return {"selected": None, "status": "idle", "remaining": 0}
+        return {"selected": None, "status": "idle", "remaining": 0,
+                "diagnostics": diagnostics}
     result = {
         "selected": {
             "note_id": pick.note_id,
@@ -2014,6 +2037,7 @@ def cmd_work_next(vault, *, claim_agent=None, ttl_seconds=3600, now=None,
         # ScheduleWakeup loop re-arms only while status == "selected" and stops on
         # "idle" / "budget_exhausted" -- no fixed cadence, no daemon (§0 #4).
         "remaining": len(actionable),
+        "diagnostics": diagnostics,
     }
     cap, spent = work_budget.resolve_pool(pick, authoritative)
     b = work_budget.check(cap, spent, projected=projected_cost)
@@ -2032,7 +2056,7 @@ def cmd_work_next(vault, *, claim_agent=None, ttl_seconds=3600, now=None,
             current_head=pick.note_id, base_head=pick.note_id,
             ttl_seconds=ttl_seconds, now=now,
         )
-        result["lease"] = {"outcome": r.outcome, "agent_id": claim_agent}
+        result["lease"] = {"outcome": r.outcome, **(r.lease or {})}
     result["status"] = "selected"
     return result
 
@@ -2284,7 +2308,8 @@ def main():
         if sub == "next":
             return cmd_work_next(pos[0], claim_agent=_opt("--claim"),
                                  ttl_seconds=int(_opt("--ttl") or 3600),
-                                 projected_cost=int(_opt("--projected") or 0))
+                                 projected_cost=int(_opt("--projected") or 0),
+                                 project=_opt("--project"))
         if sub == "board":
             return cmd_work_board(pos[0], project=_opt("--project"),
                                   write=("--write" in args), lang=_opt("--lang"))
@@ -2315,6 +2340,10 @@ def main():
                            promoted_by=_o("--by"), today=_o("--today"),
                            apply=("--apply" in args))
 
+    def _settings_cli():
+        from settings_cli import run_settings_cli
+        return run_settings_cli(args[1:])
+
     dispatch = {
         "init": lambda: cmd_init(args[1], args[2]),
         "diff": lambda: cmd_diff(args[1], args[2]),
@@ -2333,6 +2362,7 @@ def main():
         "ensure-plugin": _ensure_plugin_cli,
         "work": _work_cli,
         "promote": _promote_cli,
+        "settings": _settings_cli,
     }
 
     if cmd not in dispatch:

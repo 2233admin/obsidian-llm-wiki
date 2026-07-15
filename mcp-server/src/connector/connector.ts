@@ -34,20 +34,20 @@ async function main(): Promise<void> {
       const ws = new WsTransport(info);
       await ws.connect();
       transport = ws;
-      process.stderr.write(`vault-mind connector: WS on port ${info.port}\n`);
+      process.stderr.write(`llmwiki connector: WS on port ${info.port}\n`);
     } catch (e: unknown) {
       const msg = (e as Error).message;
-      process.stderr.write(`vault-mind connector: WS failed (${msg}), filesystem fallback\n`);
+      process.stderr.write(`llmwiki connector: WS failed (${msg}), filesystem fallback\n`);
       transport = new FsTransport(info.vault);
     }
   } else {
     const vaultPath = process.argv[2] || process.env['VAULT_BRIDGE_VAULT'] || '';
     if (!vaultPath) {
-      process.stderr.write('vault-mind connector: no port file and no vault path\n');
+      process.stderr.write('llmwiki connector: no port file and no vault path\n');
       process.exit(1);
     }
     transport = new FsTransport(vaultPath);
-    process.stderr.write(`vault-mind connector: filesystem mode on ${vaultPath}\n`);
+    process.stderr.write(`llmwiki connector: filesystem mode on ${vaultPath}\n`);
   }
 
   const logger: Logger = {
@@ -155,7 +155,7 @@ async function main(): Promise<void> {
 
       write({ jsonrpc: '2.0', id, error: { code: -32601, message: `Unknown method: ${method}` } });
     } catch (e) {
-      process.stderr.write(`vault-mind connector: internal error: ${(e as Error).message}\n`);
+      process.stderr.write(`llmwiki connector: internal error: ${(e as Error).message}\n`);
     }
   });
 
@@ -163,6 +163,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((e: Error) => {
-  process.stderr.write(`vault-mind connector: fatal: ${e.message}\n`);
+  process.stderr.write(`llmwiki connector: fatal: ${e.message}\n`);
   process.exit(1);
 });

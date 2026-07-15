@@ -50,7 +50,7 @@ export class GitNexusAdapter implements VaultMindAdapter {
       await exec(this.binary, ["--version"], { timeout: 5000 });
       this.available = true;
     } catch {
-      process.stderr.write("vault-mind: [warn] gitnexus CLI not found, adapter disabled\n");
+      process.stderr.write("llmwiki: [warn] gitnexus CLI not found, adapter disabled\n");
     }
   }
 

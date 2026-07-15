@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "project": {
+    "slug": "fleet-acceptance",
+    "projectId": "project/fleet-acceptance",
+    "lifecycle": "active"
+  },
+  "externalRefs": [
+    {
+      "kind": "orca-task",
+      "target": "task_762926afd8e3"
+    },
+    {
+      "kind": "orca-terminal",
+      "target": "term_3345405f-64bb-407a-a6a9-7d0cdc8edfe2"
+    }
+  ],
+  "run": {
+    "label": "5090",
+    "leaseDevice": "local",
+    "executionDevice": "5090",
+    "agentId": "cloud-worker-5090",
+    "workItemId": "project/fleet-acceptance/issue/cloud-workflow"
+  },
+  "deviceLocal": {
+    "leaseStore": ".vault-mind/_leases.json"
+  },
+  "conflictProbe": {
+    "agentId": "identity-overwrite-probe",
+    "projectId": "project/fleet-conflict",
+    "workRunId": "work-run/unknown-fleet-run",
+    "workItemId": "project/fleet-acceptance/issue/identity-conflict",
+    "transitionToken": "fleet:conflict:join:1"
+  }
+}

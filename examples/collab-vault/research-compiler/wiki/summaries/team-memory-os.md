@@ -5,7 +5,7 @@
 
 ## Overview
 
-The source defines LLMwiki as a [[team-memory-os]] loop: raw material is captured cheaply, compiled into an inspectable wiki, queried with citations, and promoted only after human review.
+The source defines LLM Wiki as a [[team-memory-os]] loop: raw material is captured cheaply, compiled into an inspectable wiki, queried with citations, and promoted only after human review.
 
 ## Key Points
 

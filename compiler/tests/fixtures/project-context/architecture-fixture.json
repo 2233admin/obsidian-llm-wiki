@@ -1,0 +1,11 @@
+{
+  "projectId": "project/alpha",
+  "representations": [
+    { "path": "Projects/alpha.md", "owner": "registry", "fixture": "shared-project.md" },
+    { "path": "01-Projects/alpha/_project.md", "owner": "work_os", "fixture": "work-anchor.md" },
+    { "path": "10-Projects/alpha/knowledge.md", "owner": "knowledge", "content": "# Alpha knowledge\n" },
+    { "path": ".vault-mind/local-bindings.json", "owner": "local_runtime", "content": "{\"project/alpha\":{\"path\":\"D:/workspaces/alpha\"}}" },
+    { "path": "Projects/alpha/issues/legacy.md", "owner": "legacy", "content": "---\nentity: project/alpha/issue/legacy\nstatus: active\n---\n" },
+    { "path": "10-Projects/alpha/docket/retired.md", "owner": "retired", "content": "---\nstatus: active\n---\n" }
+  ]
+}

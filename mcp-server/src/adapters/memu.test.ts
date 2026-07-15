@@ -114,9 +114,12 @@ describe("MemUAdapter -- unavailable paths", () => {
   });
 });
 
-describe(
+// Bun's node:test compatibility layer does not currently honor the suite-level
+// `{ skip: ... }` option, so select the skipped suite function explicitly.
+const describeMemuIntegration = TEST_DSN ? describe : describe.skip;
+
+describeMemuIntegration(
   "MemUAdapter -- integration (requires MEMU_TEST_DSN)",
-  { skip: TEST_DSN ? false : "MEMU_TEST_DSN not set" },
   () => {
     let adapter: MemUAdapter;
 

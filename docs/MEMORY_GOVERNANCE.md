@@ -1,14 +1,14 @@
 # Memory Governance
 
-LLMwiki is the searchable memory surface for a team vault, not the owner of
+LLM Wiki is the searchable memory surface for a team vault, not the owner of
 every workflow state. In skill-aware environments, workflow packs such as
 gstack and Matt Pocock engineering skills already own parts of the development
-loop. LLMwiki must recognize those authority boundaries, then index and cite
+loop. LLM Wiki must recognize those authority boundaries, then index and cite
 their reviewed outputs without replacing them.
 
 ## Source of Truth
 
-| Memory layer | Source of truth | LLMwiki behavior |
+| Memory layer | Source of truth | LLM Wiki behavior |
 |---|---|---|
 | Execution plan, review, QA, ship, handoff | gstack | Link and summarize reviewed artifacts; do not rewrite gstack state. |
 | Issue tracker, triage labels, domain docs, TDD discipline | Matt Pocock engineering skills | Read `docs/agents/*.md`; prompt setup when missing; do not choose tracker or labels. |
@@ -25,7 +25,7 @@ Use explicit actor names whenever files are written or summarized:
 person:<name>       human author or reviewer
 agent:<name>        Codex, Claude, gstack lane, or other agent writer
 device:<name>       machine where local sync/write happened
-project:<slug>      repo or vault project namespace
+project/<slug>      stable logical Project ID (not a repo or path)
 skill-pack:<id>     workflow provider such as gstack/workflow
 ```
 
@@ -43,10 +43,10 @@ Recommended fields:
 ```yaml
 ---
 llmwiki_type: project_hub
-project: example-project
-repo: D:/projects/example-project
+project-id: project/example-project
 owner: person:curry
 status: active
+workspace-health: available
 gstack-state: "[[Handoffs/example-project/2026-06-28-current-focus]]"
 matt-engineering: "repo:docs/agents/"
 code-intel: "repo:.Codex/"
@@ -75,7 +75,9 @@ One current next step or a link to the owning workflow.
 
 Project Hubs should not copy complete gstack plans, issue queues, or agent
 drafts. They should link to the owning system and summarize only what a human
-needs to re-enter the work.
+needs to re-enter the work. They must not persist machine-local workspace paths;
+those belong only to `.vault-mind/local-bindings.json`. A Project Hub is a
+derived read model and must route mutations to the owning domain operation.
 
 ## Skill Pack Adapter Rules
 
@@ -83,9 +85,9 @@ needs to re-enter the work.
 
 - Authority: execution plans, reviews, QA, ship/deploy flow, handoffs, context
   save/restore, and artifacts.
-- LLMwiki may index gstack plan, review, QA, ship, and handoff summaries after
+- LLM Wiki may index gstack plan, review, QA, ship, and handoff summaries after
   they are durable.
-- LLMwiki must not modify `~/.gstack`, gstack config, artifact sync state,
+- LLM Wiki must not modify `~/.gstack`, gstack config, artifact sync state,
   checkpointing, or skill routing decisions.
 - Project Hubs may expose current focus, last handoff, open risks, and next
   action.
@@ -94,11 +96,11 @@ needs to re-enter the work.
 
 - Authority: issue tracker setup, triage label vocabulary, domain docs, TDD,
   and engineering discipline.
-- LLMwiki reads `docs/agents/issue-tracker.md`,
+- LLM Wiki reads `docs/agents/issue-tracker.md`,
   `docs/agents/triage-labels.md`, and `docs/agents/domain.md`.
-- If those files are missing, LLMwiki should tell the user to run
+- If those files are missing, LLM Wiki should tell the user to run
   `setup-matt-pocock-skills`.
-- LLMwiki must not decide the issue tracker, rewrite labels, or override domain
+- LLM Wiki must not decide the issue tracker, rewrite labels, or override domain
   doc layout.
 
 ### Generic Skill Pack Rule
@@ -140,7 +142,7 @@ installed_and_mirrored
 ```
 
 Missing gstack or Matt skills must not block normal vault search. It only means
-LLMwiki should avoid claiming those workflow surfaces are available.
+LLM Wiki should avoid claiming those workflow surfaces are available.
 
 ## External Workflow Memory Boundary
 

@@ -1,0 +1,138 @@
+{
+  "createdAt": "2026-07-14T00:00:00.000Z",
+  "context": {
+    "userDeviceId": "device-a",
+    "vaultId": "vault-alpha",
+    "workspaceProjectId": "project/alpha",
+    "sessionId": "session-a"
+  },
+  "secretStatus": {
+    "environment:TAVILY_API_KEY": "present"
+  },
+  "documents": [
+    {
+      "schemaVersion": 1,
+      "scope": "user-device",
+      "targetId": "device-a",
+      "revision": 3,
+      "assignments": [
+        {
+          "key": "providers.web_search.secret_ref",
+          "secretRef": {
+            "provider": "environment",
+            "locator": "TAVILY_API_KEY"
+          },
+          "provenance": {
+            "actor": "fixture-device",
+            "source": "conformance"
+          }
+        },
+        {
+          "key": "runtime.kb_meta.path",
+          "value": "D:/repo/compiler/kb_meta.py",
+          "provenance": {
+            "actor": "fixture-device",
+            "source": "conformance"
+          }
+        },
+        {
+          "key": "runtime.python.path",
+          "value": "C:/Python313/python.exe",
+          "provenance": {
+            "actor": "fixture-device",
+            "source": "conformance"
+          }
+        },
+        {
+          "key": "vault.path",
+          "value": "D:/Vaults/alpha",
+          "provenance": {
+            "actor": "fixture-device",
+            "source": "conformance"
+          }
+        }
+      ],
+      "updatedAt": "2026-07-13T03:00:00.000Z",
+      "updatedBy": "fixture-device"
+    },
+    {
+      "schemaVersion": 1,
+      "scope": "vault",
+      "targetId": "vault-alpha",
+      "revision": 7,
+      "assignments": [
+        {
+          "key": "diagnostics.obc.semantic.enabled",
+          "value": true,
+          "provenance": {
+            "actor": "fixture-vault",
+            "source": "conformance"
+          }
+        },
+        {
+          "key": "query.semantic.enabled",
+          "value": true,
+          "provenance": {
+            "actor": "fixture-vault",
+            "source": "conformance"
+          }
+        },
+        {
+          "key": "vault.id",
+          "value": "vault-alpha",
+          "provenance": {
+            "actor": "fixture-vault",
+            "source": "conformance"
+          }
+        }
+      ],
+      "updatedAt": "2026-07-13T07:00:00.000Z",
+      "updatedBy": "fixture-vault"
+    },
+    {
+      "schemaVersion": 1,
+      "scope": "workspace-project",
+      "targetId": "project/alpha",
+      "revision": 2,
+      "assignments": [
+        {
+          "key": "providers.web_search.enabled",
+          "value": true,
+          "provenance": {
+            "actor": "fixture-project",
+            "source": "conformance"
+          }
+        },
+        {
+          "key": "query.semantic.enabled",
+          "value": false,
+          "provenance": {
+            "actor": "fixture-project",
+            "source": "conformance"
+          }
+        }
+      ],
+      "updatedAt": "2026-07-13T08:00:00.000Z",
+      "updatedBy": "fixture-project"
+    },
+    {
+      "schemaVersion": 1,
+      "scope": "session",
+      "targetId": "session-a",
+      "revision": 1,
+      "assignments": [
+        {
+          "key": "diagnostics.obc.semantic.enabled",
+          "value": false,
+          "provenance": {
+            "actor": "fixture-session",
+            "source": "conformance"
+          },
+          "expiresAt": "2026-07-15T00:00:00.000Z"
+        }
+      ],
+      "updatedAt": "2026-07-14T00:00:00.000Z",
+      "updatedBy": "fixture-session"
+    }
+  ]
+}

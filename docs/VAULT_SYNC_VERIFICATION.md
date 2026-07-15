@@ -1,6 +1,6 @@
 # Cross-Device Vault Sync Verification
 
-LLMwiki does not synchronize files between devices. It reads and writes the
+LLM Wiki does not synchronize files between devices. It reads and writes the
 local markdown vault configured by `VAULT_MIND_VAULT_PATH` or `vault-mind.yaml`.
 Cross-device consistency is therefore verified at the markdown vault layer:
 write a probe on device A, let the external sync tool copy it, then confirm
@@ -8,9 +8,9 @@ device B can see it through MCP tools.
 
 ## Preconditions
 
-- Both devices run the same LLMwiki release, such as `v2.1.0`, or the same git
+- Both devices run the same LLM Wiki release, such as `v2.1.0`, or the same git
   commit.
-- Both devices point LLMwiki at their local copy of the same synced vault:
+- Both devices point LLM Wiki at their local copy of the same synced vault:
   - Windows example: `VAULT_MIND_VAULT_PATH=D:\SynologyDrive\Vault`
   - macOS/Linux example: `VAULT_MIND_VAULT_PATH=~/SynologyDrive/Vault`
 - The MCP server has been built or installed. In a source checkout, run the

@@ -12,6 +12,12 @@ import type { Operation, OperationContext } from '../core/types.js';
 import { makeErr } from '../core/types.js';
 import { projectPolicyBasePath, resultPath, touchMarkdown } from '../core/write-policy.js';
 import {
+  makeProjectContextOps,
+  parseProjectId,
+  projectSlug,
+  resolveProjectContext,
+} from './project-context.js';
+import {
   scanWorkNotes,
   isAuthoritative,
   workState,
@@ -65,10 +71,18 @@ function slugify(value: string): string {
 // so issue_create always writes a contract-valid id. Idempotent for keys that
 // are already lowercase-kebab (the existing-test case), so layout is unchanged.
 function projectKey(value: unknown): string {
+  if (typeof value === 'string' && value.trim().startsWith('project/')) {
+    return projectSlug(parseProjectId(value.trim()));
+  }
   const seg = safeSegment(String(value ?? ''), 'project');
   const slug = slugify(seg);
   if (!slug) throw makeErr(-32602, 'project must contain at least one [a-z0-9] character');
   return slug;
+}
+
+function existingProjectKey(vaultPath: string, value: unknown): string {
+  if (typeof value !== 'string' || !value.trim()) throw makeErr(-32602, 'project reference required');
+  return resolveProjectContext(vaultPath, value.trim(), 'project.operations').slug;
 }
 
 function actorFromContext(ctx: OperationContext): string {
@@ -303,6 +317,23 @@ export function projectNote(project: string, description: string): string {
   ].join('\n');
 }
 
+function registryProjectNote(project: string, description: string, aliases: string[] = []): string {
+  return [
+    '---',
+    'type: project',
+    `entity: project/${project}`,
+    'status: active',
+    `aliases: [${aliases.map((alias) => JSON.stringify(alias)).join(', ')}]`,
+    `last-verified: ${isoDate()}`,
+    '---',
+    '',
+    `# ${project}`,
+    '',
+    description,
+    '',
+  ].join('\n');
+}
+
 function oneLine(value: string, max = 200): string {
   const s = value.replace(/\r?\n/g, ' ').trim();
   return s.length > max ? s.slice(0, max) : s;
@@ -456,7 +487,7 @@ function buildProjectCanvas(project: string, issues: WorkNote[]): { nodes: Canva
       width: 340,
       height: 150,
       color: '2',
-      text: [`# ${project}`, '', 'LLMwiki project map', '', `${issues.length} issues`].join('\n'),
+      text: [`# ${project}`, '', 'LLM Wiki project map', '', `${issues.length} issues`].join('\n'),
     },
   ];
   const edges: CanvasEdge[] = [];
@@ -512,7 +543,7 @@ function buildProjectBase(project: string): { sourceFolder: string; fields: stri
   const sourceFolder = issuesRoot(project);
   const fields = [...BASE_FIELDS];
   const content = [
-    `# LLMwiki Obsidian Bases dashboard for ${project}`,
+    `# LLM Wiki Obsidian Bases dashboard for ${project}`,
     'filters:',
     '  and:',
     `    - 'file.inFolder("${sourceFolder}")'`,
@@ -590,6 +621,7 @@ function uniqueSlug(vaultPath: string, project: string, base: string): string {
 
 export function makeProjectOps(vaultPath: string): Operation[] {
   return [
+    ...makeProjectContextOps(vaultPath),
     {
   name: 'project.canvas.export',
       namespace: 'project' as Operation['namespace'],
@@ -607,7 +639,7 @@ export function makeProjectOps(vaultPath: string): Operation[] {
         overwrite: { type: 'boolean', required: false, default: true, description: 'Overwrite existing Canvas file (default: true)' },
       },
       handler: async (_ctx, params) => {
-        const project = projectKey(params.project);
+        const project = existingProjectKey(vaultPath, params.project);
         const dryRun = boolParam(params.dryRun, true);
         const overwrite = boolParam(params.overwrite, true);
         const path = projectCanvasPath(project);
@@ -638,7 +670,7 @@ export function makeProjectOps(vaultPath: string): Operation[] {
         overwrite: { type: 'boolean', required: false, default: true, description: 'Overwrite existing Bases file (default: true)' },
       },
       handler: async (_ctx, params) => {
-        const project = projectKey(params.project);
+        const project = existingProjectKey(vaultPath, params.project);
         const dryRun = boolParam(params.dryRun, true);
         const overwrite = boolParam(params.overwrite, true);
         const path = projectBasePath(project);
@@ -657,7 +689,11 @@ export function makeProjectOps(vaultPath: string): Operation[] {
     mutating: true,
     writePolicy: {
       realWrite: 'always',
-      targets: (_ctx, params) => [`${projectPolicyBasePath(params)}/_project.md`, `${projectPolicyBasePath(params)}/issues/**`],
+      targets: (_ctx, params) => [
+        `Projects/${projectPolicyBasePath(params).slice('01-Projects/'.length)}.md`,
+        `${projectPolicyBasePath(params)}/_project.md`,
+        `${projectPolicyBasePath(params)}/issues/**`,
+      ],
       audit: 'required',
       effects: (_ctx, _params, result) => [touchMarkdown(resultPath(result), 'modify')],
     },
@@ -667,13 +703,47 @@ export function makeProjectOps(vaultPath: string): Operation[] {
       },
       handler: async (_ctx, params) => {
         const project = projectKey(params.project);
+        const rawProjectRef = typeof params.project === 'string' ? params.project.trim() : project;
+        const aliases = rawProjectRef !== project && !rawProjectRef.startsWith('project/') ? [rawProjectRef] : [];
         const description = oneLine(typeof params.description === 'string' && params.description.trim() ? params.description : `Work-OS project ${project}`);
+        const registryPath = `Projects/${project}.md`;
+        const registryFullPath = join(vaultPath, registryPath);
         const notePath = projectNotePath(project);
-        if (!existsSync(join(vaultPath, notePath))) {
+        const noteFullPath = join(vaultPath, notePath);
+        const registryExists = existsSync(registryFullPath);
+        const anchorExists = existsSync(noteFullPath);
+
+        // Validate every pre-existing identity surface before writing either one.
+        // A conflicting anchor must never leave a newly-created registry record
+        // behind after project.init rejects the adoption.
+        if (registryExists) {
+          const existingRegistry = parseFm(readFileSync(registryFullPath, 'utf-8'));
+          if (existingRegistry.entity !== `project/${project}`) {
+            throw makeErr(-32010, `Existing shared Project record is incompatible: ${registryPath}; run project.migration.plan`);
+          }
+        }
+        if (anchorExists) {
+          const existingAnchor = parseFm(readFileSync(noteFullPath, 'utf-8'));
+          if (existingAnchor.entity !== `project/${project}`) {
+            throw makeErr(-32010, `Existing Work-OS anchor disagrees with project/${project}; run project.context.doctor`);
+          }
+        }
+
+        if (!registryExists) {
+          writeVaultBytes(vaultPath, registryPath, registryProjectNote(project, description, aliases));
+        }
+        if (!anchorExists) {
           writeVaultBytes(vaultPath, notePath, projectNote(project, description));
         }
         mkdirSync(join(vaultPath, issuesRoot(project)), { recursive: true });
-        return { ok: true, project, root: projectRoot(project), projectNote: notePath };
+        return {
+          ok: true,
+          project,
+          projectId: `project/${project}`,
+          registryRecord: registryPath,
+          root: projectRoot(project),
+          projectNote: notePath,
+        };
       },
     },
     {
@@ -700,7 +770,7 @@ export function makeProjectOps(vaultPath: string): Operation[] {
         blocked_by: { type: 'array', required: false, description: 'Blocking entity refs (project/<proj>/issue/<slug>)' },
       },
       handler: async (ctx, params) => {
-        const project = projectKey(params.project);
+        const project = existingProjectKey(vaultPath, params.project);
         const title = String(params.title ?? '').trim();
         if (!title) throw makeErr(-32602, 'title required');
         const baseSlug = slugify(typeof params.slug === 'string' && params.slug.trim() ? params.slug : title);
@@ -733,7 +803,7 @@ export function makeProjectOps(vaultPath: string): Operation[] {
       },
     },
     {
-      name: 'project.issue.list',
+  name: 'project.issue.list',
       namespace: 'project' as Operation['namespace'],
       description: 'List authoritative work-OS issues for a project (drafts excluded), optionally filtered by state or assignee.',
       mutating: false,
@@ -743,7 +813,7 @@ export function makeProjectOps(vaultPath: string): Operation[] {
         assignee: { type: 'string', required: false, description: 'Optional assignee filter' },
       },
       handler: async (_ctx, params) => {
-        const project = projectKey(params.project);
+        const project = existingProjectKey(vaultPath, params.project);
         const prefix = `project/${project}/issue/`;
         const stateFilter = typeof params.state === 'string' && params.state.trim() ? normalizeStateParam(params.state, DEFAULT_STATE) : undefined;
         const assignee = typeof params.assignee === 'string' && params.assignee.trim() ? params.assignee.trim() : undefined;
@@ -757,7 +827,7 @@ export function makeProjectOps(vaultPath: string): Operation[] {
       },
     },
     {
-      name: 'project.issue.get',
+  name: 'project.issue.get',
       namespace: 'project' as Operation['namespace'],
       description: 'Read a work-OS issue by slug.',
       mutating: false,
@@ -766,7 +836,7 @@ export function makeProjectOps(vaultPath: string): Operation[] {
         slug: { type: 'string', required: true, description: 'Issue slug' },
       },
       handler: async (_ctx, params) => {
-        const project = projectKey(params.project);
+        const project = existingProjectKey(vaultPath, params.project);
         const slug = slugify(String(params.slug ?? ''));
         const note = findIssueNote(vaultPath, project, slug);
         if (!note) throw makeErr(-32001, `Issue not found: ${slug}`);
@@ -796,7 +866,7 @@ export function makeProjectOps(vaultPath: string): Operation[] {
         body: { type: 'string', required: false, description: 'Replacement body' },
       },
       handler: async (_ctx, params) => {
-        const project = projectKey(params.project);
+        const project = existingProjectKey(vaultPath, params.project);
         const slug = slugify(String(params.slug ?? ''));
         const note = findIssueNote(vaultPath, project, slug);
         if (!note) throw makeErr(-32001, `Issue not found: ${slug}`);
@@ -839,7 +909,7 @@ export function makeProjectOps(vaultPath: string): Operation[] {
         target: { type: 'string', required: true, description: 'Target issue slug (resolved to its entity)' },
       },
       handler: async (_ctx, params) => {
-        const project = projectKey(params.project);
+        const project = existingProjectKey(vaultPath, params.project);
         const slug = slugify(String(params.slug ?? ''));
         const relation = String(params.relation ?? '').trim();
         const targetSlug = slugify(String(params.target ?? ''));
@@ -896,7 +966,7 @@ export function makeProjectOps(vaultPath: string): Operation[] {
         session: { type: 'string', required: false, description: 'Optional session/thread id' },
       },
       handler: async (ctx, params) => {
-        const project = projectKey(params.project);
+        const project = existingProjectKey(vaultPath, params.project);
         const slug = slugify(String(params.slug ?? ''));
         const note = findIssueNote(vaultPath, project, slug);
         if (!note) throw makeErr(-32001, `Issue not found: ${slug}`);
@@ -914,7 +984,7 @@ export function makeProjectOps(vaultPath: string): Operation[] {
       },
     },
     {
-      name: 'project.board.get',
+  name: 'project.board.get',
       namespace: 'project' as Operation['namespace'],
       description: 'Render the work-OS Kanban board (Obsidian kanban-plugin format) from the authoritative issue notes. Parity with `python kb_meta.py work board`.',
     mutating: true,
@@ -931,7 +1001,7 @@ export function makeProjectOps(vaultPath: string): Operation[] {
         write: { type: 'boolean', required: false, default: false, description: 'Also write board.md next to the project anchor (derived view)' },
       },
       handler: async (_ctx, params) => {
-        const project = projectKey(params.project);
+        const project = existingProjectKey(vaultPath, params.project);
         const write = boolParam(params.write, false);
         const notes = scanWorkNotes(vaultPath);
         const authoritative = notes.filter((n) => isAuthoritative(n.raw));

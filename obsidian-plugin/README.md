@@ -1,51 +1,59 @@
-# vault-mind Promote (Obsidian plugin) — Task 10C-C
+# LLM Wiki for Obsidian
 
-Promote a vault-mind **draft candidate** into a materialized reviewed snapshot
-from inside Obsidian — a command or a right-click on the note. The gesture is a
-thin UI shell over `kb_meta promote`; it never bypasses the work-OS base-head
-lock and never auto-commits (the real promote stays the git review gate).
+The Obsidian-native control surface for LLM Wiki. Version 0.2 introduces the
+first system-settings vertical slice while preserving the existing governed
+Promote workflow.
 
-## What it does
+## Settings surface
 
-1. On the active note (or a right-clicked `.md`), runs `kb_meta promote --note
-   <path>` **dry-run** and shows the materialized snapshot **plan** in a modal.
-2. On confirm, runs `--apply`, which appends the reviewed snapshot (append-only;
-   never edits the head or the candidate). HEAD_MISMATCH / non-draft are reported,
-   not forced.
-3. Shows a notice: review the new snapshot and **commit via git** yourself.
+Open Obsidian → Settings → LLM Wiki to configure:
 
-Approach C (per `TASK10C-DRAFT-promote-gesture.md`): stable Obsidian APIs only
-(`addCommand` + the `file-menu` event), **not** the unstable Canvas node API.
-Pair it with `kb_meta work triage-canvas` to see the candidates as a map, then
-open a node's note and promote it here.
+- the Python runtime and `compiler/kb_meta.py` binding for this device;
+- semantic query behavior for the current vault;
+- optional link-diagnostics semantic suggestions;
+- inherited, local, or cloud Agent model connections;
+- secret references for providers without storing secret values;
+- effective-value provenance, inheritance, validation, and capability health.
 
-## Build
+Settings use a versioned contract and deterministic scope order:
+
+```text
+session > workspace-project > vault > user-device > product default
+```
+
+The first UI slice edits user-device and vault scopes. Workspace-project and
+session remain part of the resolution contract but are not exposed until the
+plugin has a real project identity and session lifecycle to bind them to.
+
+The plugin automatically migrates the former `pythonPath` and `kbMetaPath`
+fields into the versioned user-device scope. The plugin ID remains
+`vault-mind-promote` so existing installations and their data continue to load.
+
+Run **Doctor** from the settings page to check the Python runtime, LLM Wiki
+entry point, Agent model mode, effective settings, LLM Wiki link-diagnostics availability, and provider secret
+references. Doctor reports health but does not expose secret values or run
+diagnostic mutations.
+
+## Knowledge promotion
+
+The existing **Promote candidate (LLM Wiki)** command and file-menu action are
+unchanged. They run `kb_meta promote` as a dry-run, show the materialized plan,
+and write only after explicit confirmation. The work-OS base-head lock remains
+authoritative and the plugin never auto-commits.
+
+## Build and test
 
 ```bash
 cd obsidian-plugin
 npm install
-npm run build      # tsc typecheck + esbuild -> main.js
+npm test
+npm run build
 ```
 
-## Install (desktop only — it shells out to Python)
+Copy `manifest.json`, `main.js`, and `styles.css` into:
 
-Copy `manifest.json`, `main.js`, `styles.css` into:
-
-```
+```text
 <your-vault>/.obsidian/plugins/vault-mind-promote/
 ```
 
-Then enable **vault-mind Promote** in Obsidian → Settings → Community plugins,
-and set:
-
-- **Python path** — the interpreter that runs kb_meta (e.g. `python`).
-- **kb_meta.py path** — absolute path to vault-mind's `compiler/kb_meta.py`.
-
-## Notes
-
-- `isDesktopOnly: true` — uses Node `child_process`; no mobile.
-- Promote runs with `cwd` = the vault root and `PYTHONUTF8=1`.
-- The note's vault-relative path is its `note_id`; the candidate must be a draft
-  (`status: draft` / `review: draft`) carrying an `entity`.
-- Future (deferred): an optional auto-commit-to-PR-branch setting; the current
-  version deliberately leaves git to you.
+The plugin is desktop-only because runtime operations use Node child processes.

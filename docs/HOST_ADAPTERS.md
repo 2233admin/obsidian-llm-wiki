@@ -1,6 +1,6 @@
 # Host adapter contract
 
-LLMwiki is host-neutral. Claude Code, Codex CLI, OpenCode, and Gemini CLI are
+LLM Wiki is host-neutral. Claude Code, Codex CLI, OpenCode, and Gemini CLI are
 adapter surfaces around the same vault contract:
 
 ```text

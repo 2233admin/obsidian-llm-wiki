@@ -7,6 +7,15 @@ import { makeContextOps } from './context.js';
 import type { AdapterRegistry } from '../adapters/registry.js';
 import type { Operation, OperationContext } from '../core/types.js';
 
+function registerProject(root: string, slug = 'alpha'): void {
+  mkdirSync(join(root, 'Projects'), { recursive: true });
+  writeFileSync(
+    join(root, 'Projects', `${slug}.md`),
+    `---\ntype: project\nentity: project/${slug}\nstatus: active\n---\n`,
+    'utf-8',
+  );
+}
+
 function ctx(actor = 'codex'): OperationContext {
   return {
     vault: null as never,
@@ -50,6 +59,7 @@ function op(ops: Operation[], name: string): Operation {
 test('context.wakeup returns L0 passport when no memory files exist', async () => {
   const root = mkdtempSync(join(tmpdir(), 'llmwiki-context-'));
   try {
+    registerProject(root);
     const wakeup = op(makeContextOps(root, fakeRegistry()), 'context.wakeup');
     const res = (await wakeup.handler(ctx('codex'), {})) as {
       actor: string;
@@ -69,6 +79,7 @@ test('context.wakeup returns L0 passport when no memory files exist', async () =
 test('context.wakeup reads project-scoped handoff sessions and decisions', async () => {
   const root = mkdtempSync(join(tmpdir(), 'llmwiki-context-'));
   try {
+    registerProject(root);
     const base = join(root, '10-Projects', 'alpha', 'agents', 'codex', 'memory');
     mkdirSync(join(base, 'sessions'), { recursive: true });
     mkdirSync(join(base, 'decisions'), { recursive: true });
@@ -134,11 +145,12 @@ test('context.wakeup reads fallback Agent-Memory path', async () => {
 test('context.wakeup rejects unsafe project and truncates deterministically', async () => {
   const root = mkdtempSync(join(tmpdir(), 'llmwiki-context-'));
   try {
+    registerProject(root);
     const base = join(root, '10-Projects', 'alpha', 'agents', 'codex', 'memory');
     mkdirSync(base, { recursive: true });
     writeFileSync(join(base, 'passport.md'), `# Passport\n\n${'large '.repeat(1000)}\n`, 'utf-8');
     const wakeup = op(makeContextOps(root, fakeRegistry()), 'context.wakeup');
-    await assert.rejects(() => wakeup.handler(ctx('codex'), { project: '../alpha' }), /project must be single safe path segment/);
+    await assert.rejects(() => wakeup.handler(ctx('codex'), { project: '../alpha' }), /Project not found/);
     const res = (await wakeup.handler(ctx('codex'), { project: 'alpha', maxChars: 1000 })) as {
       truncated: boolean;
       layers: { l0Identity: { content: string } };
@@ -153,6 +165,7 @@ test('context.wakeup rejects unsafe project and truncates deterministically', as
 test('context.recall rejects empty query', async () => {
   const root = mkdtempSync(join(tmpdir(), 'llmwiki-context-'));
   try {
+    registerProject(root);
     const recall = op(makeContextOps(root, fakeRegistry()), 'context.recall');
     await assert.rejects(() => recall.handler(ctx('codex'), { query: '' }), /query required/);
   } finally {
@@ -163,6 +176,7 @@ test('context.recall rejects empty query', async () => {
 test('context.deep_search includes answer and full trace contract', async () => {
   const root = mkdtempSync(join(tmpdir(), 'llmwiki-context-'));
   try {
+    registerProject(root);
     const deep = op(makeContextOps(root, fakeRegistry()), 'context.deep_search');
     const res = (await deep.handler(ctx('codex'), { query: 'context stack', project: 'alpha' })) as {
       scope: { project: string; glob: string };
@@ -171,11 +185,40 @@ test('context.deep_search includes answer and full trace contract', async () => 
       trace: { plan: { selectedAdapters: string[] }; evidence: unknown[] };
     };
     assert.equal(res.scope.project, 'alpha');
-    assert.equal(res.scope.glob, '10-Projects/alpha/**');
+    assert.equal(res.scope.glob, '{01-Projects,10-Projects}/alpha/**');
     assert.match(res.answer, /context stack/);
-    assert.equal(res.citations[0].path, '10-Projects/alpha/evidence.md');
+    assert.equal(res.citations[0].path, '{01-Projects,10-Projects}/alpha/evidence.md');
     assert.deepEqual(res.trace.plan.selectedAdapters, ['fake']);
     assert.ok(res.trace.evidence.length > 0);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('context.recall includes Work-OS issues and knowledge as separate project authorities', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'llmwiki-context-'));
+  try {
+    registerProject(root);
+    const recall = op(makeContextOps(root, fakeRegistry()), 'context.recall');
+    const res = (await recall.handler(ctx('codex'), { query: 'current issue', project: 'alpha' })) as {
+      scope: {
+        glob: string;
+        roots: Array<{ path: string; owner: string; knowledgeItemTypes: string[] }>;
+      };
+    };
+    assert.equal(res.scope.glob, '{01-Projects,10-Projects}/alpha/**');
+    assert.deepEqual(res.scope.roots, [
+      {
+        path: '01-Projects/alpha/**',
+        owner: 'work-os',
+        knowledgeItemTypes: ['issue', 'comment', 'kanban_card'],
+      },
+      {
+        path: '10-Projects/alpha/**',
+        owner: 'knowledge',
+        knowledgeItemTypes: ['source_record', 'evidence', 'analysis', 'memory', 'asset', 'transcript'],
+      },
+    ]);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

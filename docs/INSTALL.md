@@ -7,7 +7,7 @@ For most people the [README quick-start](../README.md#quick-start-30-seconds) is
 - **Node.js 20 or higher** -- the bundled MCP server is an ESM module targeting Node 20+
 - **An MCP-compatible agent host** -- Claude Code, Codex, OpenCode, or Gemini CLI
 
-You do **not** need Python, npm, or a TypeScript toolchain. The repo ships a pre-built `mcp-server/bundle.js` (1.5 MB, no runtime dependencies).
+You do **not** need npm or a TypeScript toolchain to run the shipped MCP bundle. Basic filesystem search and read operations do not require Python. Compiler operations, Project layout migration, and Obsidian's governed promotion/Doctor runtime checks do require a usable Python runtime plus the LLM Wiki `compiler/` directory.
 
 ## Quick install (recap)
 
@@ -48,6 +48,44 @@ Setup prints both snippets at the end. Copy them into the right place:
 
 Restart your agent host so the MCP registration is picked up.
 
+## Shared Settings Platform
+
+MCP, Python, and Obsidian consume the same Settings Platform. Obsidian is the primary visual control plane, but the system remains headless: closing Obsidian does not remove `settings.*`, Project Context, Project Hub, or workflow operations.
+
+For source installs, set the canonical compiler directory when automatic discovery cannot find it:
+
+```json
+{
+  "mcpServers": {
+    "vault-mind": {
+      "command": "node",
+      "args": ["/path/to/vault-wiki/mcp-server/bundle.js"],
+      "env": {
+        "VAULT_PATH": "/path/to/vault",
+        "LLMWIKI_COMPILER_PATH": "/path/to/obsidian-llm-wiki/compiler",
+        "VAULT_MIND_PYTHON": "python"
+      }
+    }
+  }
+}
+```
+
+`LLMWIKI_COMPILER_PATH` points to the directory containing `kb_meta.py`. `VAULT_MIND_COMPILER_PATH` remains a compatibility alias; new setup should use the canonical name. Machine-specific runtime and vault paths belong in process environment or `user-device` settings, never in shared Project records.
+
+Settings precedence is `session > workspace-project > vault > user-device > product default`. Use `settings.scopes.get` to read a revision before `settings.assignment.set` or `settings.assignment.unset`; stale revisions return a conflict instead of overwriting another host.
+
+Provider credentials must be configured as a Secret Reference, for example `{ "provider": "environment", "locator": "TAVILY_API_KEY" }`. LLM Wiki resolves only presence health through the host. Do not put the credential value in Settings, plugin data, Project Hubs, or vault notes.
+
+Agent model setup lives in **Obsidian → Settings → LLM Wiki → Agent model**. Use `local` with an OpenAI-compatible/Ollama base URL and model identifier when no cloud key is needed. Use `cloud` with a device-local environment Secret Reference such as `{ "provider": "environment", "locator": "OPENAI_API_KEY" }`; enter the locator in Obsidian, never the key value itself. Agent model bindings currently support user-device, vault, and session scope; credential-bearing URLs are rejected.
+
+See [SETTINGS.md](SETTINGS.md) for the complete model and [MIGRATIONS.md](MIGRATIONS.md) before upgrading an existing Obsidian plugin or Project layout.
+
+## Obsidian control plane
+
+The built desktop plugin consists of `obsidian-plugin/manifest.json`, `main.js`, and `styles.css`. Copy those files into `<vault>/.obsidian/plugins/vault-mind-promote/`, then reload Obsidian and enable **LLM Wiki**.
+
+The retained plugin ID preserves existing installations. The plugin stores only presentation preferences, a device binding reference, and migration recovery state. Operational assignments live in Settings Platform scope stores. On first load it migrates legacy `pythonPath` and `kbMetaPath` values to the `user-device` scope; Doctor shows the resulting effective value and health.
+
 ## Manual install (no setup script)
 
 If you prefer to copy files by hand:
@@ -81,7 +119,7 @@ Then add the `.mcp.json` entry manually:
 
 ## Optional ChubbySkills ingest pack
 
-Setup registers `/chubbyskills` as a top-level skill. It does not install upstream media/transcription dependencies into LLMwiki. Instead, it bundles a helper that prints safe install commands for [chubbyguan/chubbyskills](https://github.com/chubbyguan/chubbyskills).
+Setup registers `/chubbyskills` as a top-level skill. It does not install upstream media/transcription dependencies into LLM Wiki. Instead, it bundles a helper that prints safe install commands for [chubbyguan/chubbyskills](https://github.com/chubbyguan/chubbyskills).
 
 Example after setup:
 

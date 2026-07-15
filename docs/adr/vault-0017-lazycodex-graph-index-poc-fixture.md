@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-The Temporal Graph Index PoC needs a real LLMwiki memory workflow fixture, not a toy graph that only proves the adapter can store synthetic facts. `10-Projects/lazycodex` already contains source registry, evidence, and docket material tied to LLMwiki memory integration.
+The Temporal Graph Index PoC needs a real LLM Wiki memory workflow fixture, not a toy graph that only proves the adapter can store synthetic facts. `10-Projects/lazycodex` already contains source registry, evidence, and docket material tied to LLM Wiki memory integration.
 
 ## Decision
 
@@ -14,4 +14,4 @@ Use the existing LazyCodex source/evidence material as the first graph-index PoC
 
 ## Consequences
 
-The first graph-index test validates the actual LLMwiki workflow the user cares about. It also prevents a misleading toy success where graph retrieval works but source/evidence provenance and project-memory integration remain unproven.
+The first graph-index test validates the actual LLM Wiki workflow the user cares about. It also prevents a misleading toy success where graph retrieval works but source/evidence provenance and project-memory integration remain unproven.

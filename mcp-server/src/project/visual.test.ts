@@ -48,7 +48,7 @@ test('project visual exports generate Canvas and Bases files against work-OS iss
     assert.equal(canvasDryRun.path, canvasPath);
     assert.equal(canvasDryRun.dryRun, true);
     assert.equal(existsSync(vaultJoin(vault, canvasPath)), false);
-    assert.ok(canvasDryRun.nodes.some((node) => node.type === 'text' && String(node.text).includes('LLMwiki project map')));
+    assert.ok(canvasDryRun.nodes.some((node) => node.type === 'text' && String(node.text).includes('LLM Wiki project map')));
     assert.ok(canvasDryRun.nodes.some((node) => node.type === 'group' && node.label === 'In Progress'));
     assert.ok(
       canvasDryRun.nodes.some((node) => node.type === 'file' && node.file === '01-Projects/visual/issues/design-visual-layer.md'),
@@ -92,7 +92,7 @@ test('project visual exports generate Canvas and Bases files against work-OS iss
     const fsAdapter = new FilesystemAdapter(vault);
     await fsAdapter.init();
     registry.register(fsAdapter);
-    const query = await unifiedQuery(registry, 'LLMwiki project map', { maxResults: 10 });
+    const query = await unifiedQuery(registry, 'LLM Wiki project map', { maxResults: 10 });
     assert.ok(query.results.some((result) => result.path === canvasPath));
   } finally {
     rmSync(vault, { recursive: true, force: true });
@@ -102,6 +102,7 @@ test('project visual exports generate Canvas and Bases files against work-OS iss
 test('project visual exports handle empty projects and overwrite=false', async () => {
   const vault = tempVault();
   try {
+    await op(vault, 'project.init').handler(ctx(vault), { project: 'empty' });
     const canvasPath = '01-Projects/empty/views/project-map.canvas';
     const result = (await op(vault, 'project.canvas.export').handler(ctx(vault), {
       project: 'empty',

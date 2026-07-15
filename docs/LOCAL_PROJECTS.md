@@ -1,6 +1,8 @@
 # Local project management
 
-LLMwiki includes a local Linear-style project management surface under the `project.*` MCP namespace.
+LLM Wiki includes a local Linear-style project management surface under the `project.*` MCP namespace.
+
+Every Project has one canonical logical identity, `project/<lowercase-kebab-slug>`. The shared registry record is `Projects/<slug>.md`; the current Work-OS remains under `01-Projects/<slug>/`, project knowledge remains under `10-Projects/<slug>/`, and machine-local workspace bindings remain under `.vault-mind/local-bindings.json`. These roots are joined by Project ID, not by treating a repository or directory as the Project.
 
 The `project.*` tools are a **thin adapter over the work-OS** (the Python compiler's `work_protocol` / `work_driver` / `currency` brain): the single source of truth is the work-OS issue notes, and the MCP layer simply maps tool params to those notes and renders the Kanban board from them. There is **no separate docket store** — the previous `10-Projects/<project>/docket/**` store has been removed.
 
@@ -19,9 +21,10 @@ work-OS issue notes (state + review + blocked-by)
 
 ## Vault layout
 
-For project `alpha`, `project.init` creates only the work-OS anchor and an empty issues folder:
+For Project ID `project/alpha`, `project.init` creates the shared registry record, the Work-OS anchor, and an empty issues folder:
 
 ```text
+Projects/alpha.md                       # shared Project Registry record
 01-Projects/alpha/_project.md      # work-OS project anchor note
 01-Projects/alpha/issues/          # one <slug>.md per issue (created by issue.create)
 ```
@@ -111,6 +114,13 @@ The container note is **excluded from board cards** (`board_columns` skips `type
 | Tool | Purpose |
 |---|---|
 | `project.init` | Create the work-OS project anchor (`_project.md`) and an empty `issues/` folder. |
+| `project.registry.list` | List shared Project IDs and registry diagnostics. |
+| `project.registry.get` | Resolve a Project ID, registered alias/slug, or local binding and return the registry record. |
+| `project.context.resolve` | Return canonical domain roots, binding health, projections, and diagnostics. |
+| `project.context.doctor` | Diagnose anchors, aliases, stale bindings, orphan roots, cross-runtime identity drift, and compatibility usage. |
+| `project.hub.get` | Compose the read-only Project Hub across registry, work, knowledge, runtime, settings, capabilities, workspace, and integrations. |
+| `project.migration.inventory` / `project.migration.plan` | Inventory and plan without modifying bytes. |
+| `project.migration.apply` / `project.migration.restore` | Explicit, write-policy-guarded, hash-checked migration or restoration; both preview by default. |
 | `project.issue.create` | Create `issues/<slug>.md` with work-OS frontmatter (default `state: todo`, `review: reviewed`). |
 | `project.issue.list` | List **authoritative** issues (drafts excluded), filterable by `state`/`assignee`. |
 | `project.issue.get` | Read one issue (parsed view + raw content) by `slug`. |
@@ -123,7 +133,7 @@ The container note is **excluded from board cards** (`board_columns` skips `type
 
 ```text
 project.init project=alpha
-project.issue.create project=alpha title="Build local Linear" priority=2 state=todo
+project.issue.create project=project/alpha title="Build local Linear" priority=2 state=todo
 project.comment.add project=alpha slug=build-local-linear body="Smoke test passed"
 project.issue.update project=alpha slug=build-local-linear state=done
 query.unified query="Build local Linear" adapters=["filesystem", "kanban"]
@@ -156,5 +166,11 @@ When an external workflow project requires executable obsidian-llm-wiki work, cr
 Use this for implementation or validation work such as provider integration, source-registration behavior, host instruction changes, workflow migration, or regression checks. Use Source Notes for durable external inputs, and use agent draft folders for unreviewed analysis.
 
 Claude Code and Codex must not create `10-Projects/<project>/docket/**` for new work. That path is retired even if older skill text still mentions docket. Current project state is the work-OS issue note plus derived board/canvas/base views.
+
+## Compatibility and migration
+
+Bare names and aliases remain temporary public-boundary compatibility inputs. Every successful compatibility read is counted by operation and Project ID and appears in `project.context.doctor`. Set `LLMWIKI_PROJECT_COMPATIBILITY=disabled` in a release gate to reject them and require canonical Project IDs. The deprecated `vault.project` operation may update only an already-registered Project and cannot implicitly create a new Project; use `project.init` for creation.
+
+Layout migration is always planned first. `project.migration.apply apply=true` performs atomic canonical writes and records resumable backups and a manifest under `.vault-mind/project-migrations/`. `project.migration.restore` previews by default and requires `apply=true` to restore. Retired docket inputs may migrate only into `01-Projects/<slug>/issues/`.
 
 For the shared host workflow contract, see `docs/AGENT_WORKFLOW_INTEGRATION.md`.

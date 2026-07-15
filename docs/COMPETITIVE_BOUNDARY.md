@@ -1,6 +1,6 @@
 # Competitive Boundary
 
-LLMwiki is not a LightRAG clone, a RAG-Anything clone, or a desktop wiki app.
+LLM Wiki is not a LightRAG clone, a RAG-Anything clone, or a desktop wiki app.
 It is a Git-readable reviewed memory layer for agents and humans.
 
 ## Position
@@ -9,7 +9,7 @@ It is a Git-readable reviewed memory layer for agents and humans.
 multimodal import -> retrieval engine -> reviewed Markdown memory -> agent skills
 ```
 
-LLMwiki owns the reviewed Markdown memory layer. It should integrate good
+LLM Wiki owns the reviewed Markdown memory layer. It should integrate good
 retrieval and import engines instead of rebuilding them.
 
 ## Map

@@ -1,6 +1,6 @@
 # AI-Output Convention
 
-This document describes the filing layer for role-authored analyses. Sessions in LLMwiki are write-once-read-many by default: each role command (`vault-architect`, `vault-gardener`, ...) can produce a useful analysis and then lose it at session end. The AI-Output convention fixes that by persisting role outputs into a dedicated subtree of the vault with a typed frontmatter schema, status lifecycle, and automated staling policy.
+This document describes the filing layer for role-authored analyses. Sessions in LLM Wiki are write-once-read-many by default: each role command (`vault-architect`, `vault-gardener`, ...) can produce a useful analysis and then lose it at session end. The AI-Output convention fixes that by persisting role outputs into a dedicated subtree of the vault with a typed frontmatter schema, status lifecycle, and automated staling policy.
 
 The full design rationale (three-gap analysis, step-ordering, status-transition debate) lives in the corresponding planning notes; this page is the reference for humans working with the resulting files.
 

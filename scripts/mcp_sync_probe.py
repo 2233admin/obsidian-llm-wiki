@@ -2,7 +2,7 @@
 """mcp_sync_probe.py -- two-device vault sync verification over MCP.
 
 This script intentionally verifies the filesystem vault contract only:
-LLMwiki reads and writes VAULT_MIND_VAULT_PATH; an external sync layer moves
+LLM Wiki reads and writes VAULT_MIND_VAULT_PATH; an external sync layer moves
 the markdown files between machines.
 """
 from __future__ import annotations
@@ -128,7 +128,7 @@ def probe_content(token: str, rel_path: str) -> str:
         f"created-at: {now}\n"
         f"device: {platform.node() or 'unknown'}\n"
         "---\n\n"
-        "# LLMwiki sync probe\n\n"
+        "# LLM Wiki sync probe\n\n"
         f"- token: {token}\n"
         f"- path: {rel_path}\n"
         "- contract: markdown vault sync; no device-local absolute path is stored here.\n"
@@ -195,7 +195,7 @@ def wait_for_file(vault_path: Path, rel_path: str, timeout_seconds: int) -> None
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Verify cross-device markdown vault sync through LLMwiki MCP tools.")
+    parser = argparse.ArgumentParser(description="Verify cross-device markdown vault sync through LLM Wiki MCP tools.")
     parser.add_argument("mode", choices=["write", "verify"], help="write a probe on this device or verify a synced probe")
     parser.add_argument("--vault", default=os.environ.get("VAULT_MIND_VAULT_PATH"), help="local synced vault path")
     parser.add_argument("--path", default=DEFAULT_PATH, help="vault-relative markdown path for the probe")

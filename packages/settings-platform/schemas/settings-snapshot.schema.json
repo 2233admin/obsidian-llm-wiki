@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.llmwiki.org/settings/v1/settings-snapshot.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["snapshotId", "registryVersion", "context", "effective", "sourceRevisions", "createdAt"],
+  "properties": {
+    "snapshotId": { "type": "string", "minLength": 1 },
+    "registryVersion": { "type": "string", "minLength": 1 },
+    "context": { "$ref": "runtime-context.schema.json" },
+    "effective": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key", "value", "winningScope", "assignmentProvenance", "validation", "applyMode", "overriddenCandidates"],
+        "properties": {
+          "key": { "type": "string" },
+          "value": { "$ref": "common.schema.json#/$defs/redactedValue" },
+          "winningScope": { "$ref": "common.schema.json#/$defs/scope" },
+          "assignmentProvenance": { "$ref": "common.schema.json#/$defs/provenance" },
+          "validation": { "$ref": "common.schema.json#/$defs/validationResult" },
+          "applyMode": { "enum": ["hot", "next-operation", "restart-required"] },
+          "overriddenCandidates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["scope", "revision", "value", "provenance"],
+              "properties": {
+                "scope": { "$ref": "common.schema.json#/$defs/scope" },
+                "revision": { "oneOf": [{ "type": "integer", "minimum": 0 }, { "type": "string" }] },
+                "value": { "$ref": "common.schema.json#/$defs/redactedValue" },
+                "provenance": { "$ref": "common.schema.json#/$defs/provenance" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "sourceRevisions": {
+      "type": "object",
+      "propertyNames": { "$ref": "common.schema.json#/$defs/scope" },
+      "additionalProperties": { "$ref": "common.schema.json#/$defs/sourceRevision" }
+    },
+    "createdAt": { "type": "string", "format": "date-time" }
+  }
+}

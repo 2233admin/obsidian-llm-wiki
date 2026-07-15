@@ -18,7 +18,7 @@ export interface CollaborationConfig {
   enforce?: boolean;
 }
 
-export type ParamType = 'string' | 'number' | 'boolean' | 'object' | 'array';
+export type ParamType = 'string' | 'number' | 'boolean' | 'object' | 'array' | 'unknown';
 
 export interface ParamDef {
   type: ParamType;
@@ -47,7 +47,8 @@ export type OperationNamespace =
   | 'conversation'
   | 'context'
   | 'skills'
-  | 'workflow';
+  | 'workflow'
+  | 'settings';
 
 export type OperationWriteTrigger = 'dryRunFalse' | 'always';
 
