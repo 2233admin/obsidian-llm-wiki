@@ -45,7 +45,7 @@ jobs:
       - run: python -m pytest compiler/tests/ -q
       - run: bun test scripts/verify_fleet_workflow.test.ts
       - run: bun scripts/verify_fleet_workflow.ts --phase all --json
-      - run: npx -y @fission-ai/openspec@1.6.0 validate complete-settings-platform-and-fleet-release --strict
+      - run: npx -y @fission-ai/openspec@1.6.0 validate --all --strict
       - name: Smoke-test shipped MCP bundle operations
         run: python scripts/verify_release_install.py --json
 
