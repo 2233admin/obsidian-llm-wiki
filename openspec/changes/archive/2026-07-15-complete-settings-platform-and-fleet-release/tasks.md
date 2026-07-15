@@ -57,4 +57,4 @@
 - [x] 8.2 Run targeted TypeScript, Python, Obsidian, migration, Work Run, bundle, and install smoke suites
 - [x] 8.3 Run full Python, MCP, plugin, lint/typecheck/build, static checks, and OpenSpec validation with a clean worktree
 - [x] 8.4 Repeat build/test and fleet Workflow verification on the 5090 environment and record commit-level evidence
-- [ ] 8.5 Complete release audit, archive the OpenSpec change, merge the verified branch, and push main only when every blocking gate passes
+- [x] 8.5 Complete release audit, archive the OpenSpec change, merge the verified branch, and push main only when every blocking gate passes
