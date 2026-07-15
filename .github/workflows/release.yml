@@ -117,17 +117,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Download MCP Server
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: mcp-server
           path: dist-mcp
       - name: Download Compiler
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: compiler
           path: dist-compiler
       - name: Download Obsidian Plugin
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: obsidian-plugin
           path: dist-plugin
