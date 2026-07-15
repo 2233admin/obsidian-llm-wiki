@@ -4,9 +4,11 @@
 > `tests/fixtures/fleet-workflow.v2.json`. It creates one local parent Work Run
 > and uses `kb_meta work next --governed-assignment <json-file>` to create one
 > schema v2 child Work Run for 5090. The deterministic two-vault gate is
-> automated; a fresh real 5090 execution at the release commit is still required
-> before recording new accepted release evidence. The historical evidence below
-> remains evidence for the earlier v1 single-run contract only.
+> automated. Product commit `7433dde2df77f0b37aae8f63d46e74556f352f87`
+> completed the fresh real 5090 round trip for `v2.8.0-beta.1`; its signed
+> schema-v2 evidence is recorded in
+> [`docs/release-evidence/v2.8.0-beta.1.json`](release-evidence/v2.8.0-beta.1.json).
+> The historical evidence below remains evidence for earlier contracts only.
 
 > **Accepted baseline evidence:** product commit
 > `89cf831ed4615270c56edd2784928a29e52e1789` passed the deterministic
@@ -21,27 +23,28 @@ and correlation ID `3c27a18c-b199-4f31-af19-5cfc586e8472`. The out-of-band
 proof contents were not printed or copied into the vault.
 
 > **Accepted beta candidate evidence:** product commit
-> `b0c447a5f228ddd2d4f3f1ba0b001817f89ea155` passed the complete clean-worktree
+> `7433dde2df77f0b37aae8f63d46e74556f352f87` passed the complete clean-worktree
 > 5090 gate and a fresh real local ↔ 5090 round trip. The accepted Work Run's
-> fixture-declared External Projections are `task_192b70c714e0` and
-> `term_88dba0af-df72-4390-b427-9e916f8fb03c`; they are not Project or Work Run
-> identities. Orca task `task_8b75633c128f` and terminal
-> `term_a4da43a7-e97e-45f0-84f1-d1b218be3581` prepared and confirmed the clean
-> exact-SHA worktree and dependency environment; they are execution provenance,
-> not a replacement for the accepted Work Run projection. The later
-> evidence-only documentation commit does not replace the tested product SHA.
+> fixture-declared External Projections are Orca task `task_192b70c714e0` and
+> terminal `term_88dba0af-df72-4390-b427-9e916f8fb03c`; they are provider-owned
+> execution projections, not Project or Work Run identities. Runtime
+> `82a396cc-c9ed-4d64-a108-73a013b240f2` performed the remote phase and the
+> deliberate recovery replay. The later evidence-only documentation commit does
+> not replace the tested product SHA.
 
 The beta run used fixture digest
-`615b5359e836d8224f5b6ebaf92fcdb7c724cfc89e0e7e3d89a92f873bc580a7`
-and correlation ID `9f8bd015-6a5b-440b-bbe3-7cf33547eaae`. The remote phase
-executed exactly once. Prepare, remote, and verify reports agreed on product
+`3c449083070cf7e4bba1d389bf10d74688dd80df496f1cc7b65bf31b59b25613`
+and correlation ID `6697af1f-909b-4754-bb50-5b6fc195aa2d`. Prepare, remote,
+remote replay, and verify reports agreed on product
 commit, fixture digest, and correlation ID. Returned-state verification proved
 the original local lease bytes and identity unchanged, the exact remotely
 completed Work Run, local Doctor acceptance, one Project Hub Work Run, external
 projection boundaries, and absence of machine-local paths or lease fields from
 shared state. Missing/wrong capability and identity attempts were rejected
-without mutation, and transition replays were byte-identical. The out-of-band
-proof contents were never printed or copied into the vault.
+without mutation. The full remote recovery replay produced the same SHA-256
+bytes as the initial remote report and left the shared worktree clean. The
+out-of-band proof contents were encrypted to a one-time 5090 RSA public key,
+were never printed or copied into the vault, and were not committed in plaintext.
 
 This harness proves the LLM Wiki product contract across a real fleet handoff.
 An Orca task reporting success is useful execution evidence, but it is not the

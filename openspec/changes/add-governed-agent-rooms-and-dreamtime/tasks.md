@@ -85,7 +85,7 @@
 - [x] 9.3 Implement expiring device capability and health advertisements without shared paths, secrets, process handles, or lease tokens
 - [x] 9.4 Extend portable handoff with parent/child identities, locked assignment, context fingerprint, grant summary, artifact inputs, expected output, and transition tokens
 - [x] 9.5 Extend fleet verification for deterministic no-match, stale device, unauthorized capacity, remote replay, child artifact provenance, and local/remote evidence parity
-- [ ] 9.6 Run a 5090 workflow acceptance test for one delegated Child Work Run and prove shared durable identities plus isolated device-local execution state
+- [x] 9.6 Run a 5090 workflow acceptance test for one delegated Child Work Run and prove shared durable identities plus isolated device-local execution state
 
 ## 10. Usage ledger and policy projections
 
@@ -112,7 +112,7 @@
 - [x] 12.3 Run targeted unit and integration tests for every new operation plus existing memory, workflow, Project Hub, work driver, settings, plugin, and fleet regression suites
 - [x] 12.4 Run full lint, typecheck, build, bundle smoke, static analysis, dependency/license review, and generated-bundle verification
 - [x] 12.5 Run secret, credential, machine-path, lease-token, prompt-body, and EXXETA code/asset provenance leak scans across source, fixtures, bundles, and release artifacts
-- [ ] 12.6 Run strict OpenSpec validation, local and 5090 fleet acceptance, Beta packaging, clean install/upgrade smoke, rollback smoke, and record evidence before release
+- [x] 12.6 Run strict OpenSpec validation, local and 5090 fleet acceptance, Beta packaging, clean install/upgrade smoke, rollback smoke, and record evidence before release
 
 ## 13. Project Tracker projection separation and Plane
 

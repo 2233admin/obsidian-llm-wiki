@@ -1,0 +1,156 @@
+{
+  "schemaVersion": 2,
+  "releaseTag": "v2.8.0-beta.1",
+  "testedCommit": "7433dde2df77f0b37aae8f63d46e74556f352f87",
+  "fixtureDigest": "3c449083070cf7e4bba1d389bf10d74688dd80df496f1cc7b65bf31b59b25613",
+  "correlationId": "6697af1f-909b-4754-bb50-5b6fc195aa2d",
+  "executionProvenance": {
+    "environment": "5090",
+    "deviceId": "device/cloud-5090",
+    "orcaTask": "task_192b70c714e0",
+    "orcaTerminal": "term_88dba0af-df72-4390-b427-9e916f8fb03c",
+    "runtimeId": "82a396cc-c9ed-4d64-a108-73a013b240f2"
+  },
+  "reports": {
+    "prepare": {
+      "report": {
+        "harnessSchemaVersion": 2,
+        "ok": true,
+        "phase": "prepare",
+        "fixture": "tests/fixtures/fleet-workflow.v2.json",
+        "vault": "<provided-acceptance-vault>",
+        "deviceState": "<machine-local-state-redacted>",
+        "commit": "7433dde2df77f0b37aae8f63d46e74556f352f87",
+        "fixtureDigest": "3c449083070cf7e4bba1d389bf10d74688dd80df496f1cc7b65bf31b59b25613",
+        "correlationId": "6697af1f-909b-4754-bb50-5b6fc195aa2d",
+        "externalRefs": [
+          {
+            "kind": "orca-task",
+            "target": "task_192b70c714e0"
+          },
+          {
+            "kind": "orca-terminal",
+            "target": "term_88dba0af-df72-4390-b427-9e916f8fb03c"
+          }
+        ],
+        "checks": [
+          {
+            "id": "governed-child-created",
+            "name": "kb_meta work next --governed-assignment created one schema v2 Child Work Run",
+            "ok": true
+          }
+        ]
+      },
+      "sha256": "1ab892cd30096e12e8308333d0973019f0ce1cc4c214b1e300e8bc7a3e5598e2"
+    },
+    "remote": {
+      "report": {
+        "harnessSchemaVersion": 2,
+        "ok": true,
+        "phase": "remote",
+        "fixture": "tests/fixtures/fleet-workflow.v2.json",
+        "vault": "<provided-acceptance-vault>",
+        "deviceState": "<machine-local-state-redacted>",
+        "commit": "7433dde2df77f0b37aae8f63d46e74556f352f87",
+        "fixtureDigest": "3c449083070cf7e4bba1d389bf10d74688dd80df496f1cc7b65bf31b59b25613",
+        "correlationId": "6697af1f-909b-4754-bb50-5b6fc195aa2d",
+        "externalRefs": [
+          {
+            "kind": "orca-task",
+            "target": "task_192b70c714e0"
+          },
+          {
+            "kind": "orca-terminal",
+            "target": "term_88dba0af-df72-4390-b427-9e916f8fb03c"
+          }
+        ],
+        "checks": [
+          {
+            "id": "portable-handoff-guarded-replay",
+            "name": "5090 handoff rejected missing/wrong capabilities and identities, then replayed byte-identically",
+            "ok": true
+          }
+        ]
+      },
+      "sha256": "83f87d4bf2a3fb858ea3744c3cdac9b0176b741fa2fa9c37a1cc7de5209fe19e"
+    },
+    "verify": {
+      "report": {
+        "harnessSchemaVersion": 2,
+        "ok": true,
+        "phase": "verify",
+        "fixture": "tests/fixtures/fleet-workflow.v2.json",
+        "vault": "<provided-acceptance-vault>",
+        "deviceState": "<machine-local-state-redacted>",
+        "commit": "7433dde2df77f0b37aae8f63d46e74556f352f87",
+        "fixtureDigest": "3c449083070cf7e4bba1d389bf10d74688dd80df496f1cc7b65bf31b59b25613",
+        "correlationId": "6697af1f-909b-4754-bb50-5b6fc195aa2d",
+        "externalRefs": [
+          {
+            "kind": "orca-task",
+            "target": "task_192b70c714e0"
+          },
+          {
+            "kind": "orca-terminal",
+            "target": "term_88dba0af-df72-4390-b427-9e916f8fb03c"
+          }
+        ],
+        "checks": [
+          {
+            "id": "local-lease-identity",
+            "name": "local Work Driver lease bytes and identity remain unchanged",
+            "ok": true
+          },
+          {
+            "id": "remote-work-run-completed",
+            "name": "5090 completed the exact locally leased Work Run",
+            "ok": true
+          },
+          {
+            "id": "governed-parent-child-graph",
+            "name": "schema v2 preserves the governed parent/child Work Run graph and locked assignment",
+            "ok": true
+          },
+          {
+            "id": "child-artifact-projection",
+            "name": "child Artifact Projection returns to the non-terminal parent with complete provenance",
+            "ok": true
+          },
+          {
+            "id": "remote-shared-digest",
+            "name": "local verification reproduces the remote shared-byte evidence digest",
+            "ok": true
+          },
+          {
+            "id": "doctor-completed-run",
+            "name": "local doctor accepts the completed remote Work Run",
+            "ok": true
+          },
+          {
+            "id": "project-hub-graph",
+            "name": "Project Hub observes the parent/child Work Run graph without owning provider state",
+            "ok": true
+          },
+          {
+            "id": "external-ref-boundary",
+            "name": "Orca refs remain projections rather than internal identities",
+            "ok": true
+          },
+          {
+            "id": "shared-state-secret-free",
+            "name": "machine-local paths and lease fields never enter shared state",
+            "ok": true
+          }
+        ]
+      },
+      "sha256": "fa704a8fd390d520bd56f21523491a2a697c75bb16ea5885fe8b98621eff32e9"
+    }
+  },
+  "attestation": {
+    "algorithm": "ed25519",
+    "keyId": "0554ab8225edfaacd693ec4844fdae01b8e0ba59f61d520b1745a4dd43ff3645",
+    "trustAnchor": "docs/release-evidence/trust/device-cloud-5090.json",
+    "payloadSha256": "da9ee50b46e0157f8e31d7da1f34eb03c1500ce8d4449142f0e52cc7ee8db782",
+    "signature": "fNctwCe/q17jAmmTjcn6YKiSUQlX/B9QG3pr+UZFcw1frZX4B0yDLX3Y34QepTxuXbkxkYjmrW3IWTANrb1RDw=="
+  }
+}
