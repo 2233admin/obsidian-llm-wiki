@@ -19,7 +19,11 @@ ROOT = Path(__file__).resolve().parents[1]
 
 RELEASE_INSTALL_ALLOWLIST: tuple[Path, ...] = (
     Path("mcp-server/bundle.js"),
+    Path("mcp-server/agent-domain-cli.js"),
+    Path("mcp-server/memu-query.js"),
+    Path("mcp-server/usage-cli.js"),
     Path("mcp-server/package.json"),
+    Path("LICENSE"),
 )
 
 REQUIRED_RELEASE_OPERATIONS: dict[str, tuple[str, ...]] = {
@@ -39,6 +43,31 @@ REQUIRED_RELEASE_OPERATIONS: dict[str, tuple[str, ...]] = {
         "workflow.agent.join",
         "workflow.agent.checkpoint",
         "workflow.agent.leave",
+    ),
+    "agent-domain": (
+        "agent.profile.create",
+        "agent.binding.create",
+        "agent.thread.create",
+    ),
+    "agent-room-context": (
+        "agent.room.get",
+        "agent.context.compile",
+    ),
+    "dreamtime": (
+        "dreamtime.checkpoint.propose",
+        "dreamtime.approve",
+        "dreamtime.revision.current",
+    ),
+    "consult": ("consult.execute",),
+    "delegation": (
+        "delegation.plan",
+        "delegation.approve",
+        "delegation.artifact.project",
+    ),
+    "usage": (
+        "usage.append",
+        "usage.project",
+        "usage.policy.evaluate",
     ),
 }
 
@@ -66,6 +95,17 @@ def required_operation_report(operation_names: list[str] | set[str]) -> dict[str
     }
 
 
+def assert_runtime_version(stderr: str, expected_version: str) -> str:
+    """Fail when the shipped bundle reports a version other than package.json."""
+    marker = f"(stdio, v{expected_version},"
+    if marker not in stderr:
+        raise RuntimeError(
+            "shipped MCP runtime version does not match package.json "
+            f"(expected {expected_version})"
+        )
+    return expected_version
+
+
 def stage_release_install(repo: Path, install_root: Path) -> Path:
     """Copy only the shipped MCP payload into an isolated install root."""
     for relative_path in RELEASE_INSTALL_ALLOWLIST:
@@ -76,6 +116,99 @@ def stage_release_install(repo: Path, install_root: Path) -> Path:
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, destination)
     return install_root / "mcp-server"
+
+
+def assert_package_entrypoints(server_dir: Path) -> dict[str, str]:
+    """Require every declared runtime entrypoint to exist in the staged release."""
+    package = json.loads((server_dir / "package.json").read_text(encoding="utf-8"))
+    references: dict[str, str] = {"main": package["main"]}
+    references.update({f"bin:{name}": value for name, value in package.get("bin", {}).items()})
+    if "types" in package:
+        references["types"] = package["types"]
+    missing = {
+        name: target for name, target in references.items()
+        if not (server_dir / target).is_file()
+    }
+    if missing:
+        raise RuntimeError(f"package.json references missing release files: {missing}")
+    return references
+
+
+def smoke_agent_domain_cli(server_dir: Path, vault: Path) -> dict[str, Any]:
+    """Prove the isolated CLI bundle boots and enforces its command contract."""
+    cli = server_dir / "agent-domain-cli.js"
+    proc = subprocess.run(
+        ["node", str(cli), "room", "--vault", str(vault)],
+        cwd=server_dir,
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    if proc.returncode != 1:
+        raise RuntimeError(
+            f"Agent Domain CLI contract probe exited {proc.returncode}: "
+            f"{(proc.stderr or proc.stdout).strip()}"
+        )
+    try:
+        payload = json.loads(proc.stderr.strip())
+    except json.JSONDecodeError as error:
+        raise RuntimeError(
+            f"Agent Domain CLI did not emit structured stderr: {proc.stderr.strip()}"
+        ) from error
+    if payload.get("code") != -32602 or payload.get("message") != "--project is required":
+        raise RuntimeError(f"Agent Domain CLI returned an unexpected contract error: {payload}")
+    return {
+        "entrypoint": cli.name,
+        "contractError": payload,
+    }
+
+
+def smoke_memu_query_cli(server_dir: Path) -> dict[str, Any]:
+    """Prove the packaged query CLI can start without source-build files."""
+    cli = server_dir / "memu-query.js"
+    proc = subprocess.run(
+        ["node", str(cli), "--help"],
+        cwd=server_dir,
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    if proc.returncode != 0 or "Usage: memu-query" not in proc.stdout:
+        raise RuntimeError(
+            f"memu-query CLI help probe exited {proc.returncode}: "
+            f"{(proc.stderr or proc.stdout).strip()}"
+        )
+    return {"entrypoint": cli.name, "usage": proc.stdout.strip()}
+
+
+def smoke_usage_cli(server_dir: Path) -> dict[str, Any]:
+    """Prove the packaged usage CLI boots and preserves its error contract."""
+    cli = server_dir / "usage-cli.js"
+    proc = subprocess.run(
+        ["node", str(cli)],
+        cwd=server_dir,
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    if proc.returncode != 1:
+        raise RuntimeError(
+            f"usage CLI contract probe exited {proc.returncode}: "
+            f"{(proc.stderr or proc.stdout).strip()}"
+        )
+    try:
+        payload = json.loads(proc.stderr.strip())
+    except json.JSONDecodeError as error:
+        raise RuntimeError(
+            f"usage CLI did not emit structured stderr: {proc.stderr.strip()}"
+        ) from error
+    expected = "Usage command must be append, project, or policy"
+    if payload.get("code") != -32602 or payload.get("message") != expected:
+        raise RuntimeError(f"usage CLI returned an unexpected contract error: {payload}")
+    return {"entrypoint": cli.name, "contractError": payload}
 
 
 class McpClient:
@@ -267,6 +400,8 @@ def require_tool(client: McpClient, name: str, arguments: dict[str, Any]) -> Any
 def verify(repo: Path) -> dict[str, Any]:
     results: list[dict[str, Any]] = []
     bundle = repo / "mcp-server" / "bundle.js"
+    package_json = repo / "mcp-server" / "package.json"
+    expected_runtime_version = json.loads(package_json.read_text(encoding="utf-8"))["version"]
     compiler_dir = repo / "compiler"
     sync_probe = repo / "scripts" / "mcp_sync_probe.py"
 
@@ -278,6 +413,26 @@ def verify(repo: Path) -> dict[str, Any]:
         install_root = temp_root / "install"
         vault = make_temp_vault(temp_root)
         server_dir = stage_release_install(repo, install_root)
+        run_step(
+            results,
+            "package-entrypoint-closure",
+            lambda: assert_package_entrypoints(server_dir),
+        )
+        run_step(
+            results,
+            "agent-domain-cli-isolated-smoke",
+            lambda: smoke_agent_domain_cli(server_dir, vault),
+        )
+        run_step(
+            results,
+            "memu-query-cli-isolated-smoke",
+            lambda: smoke_memu_query_cli(server_dir),
+        )
+        run_step(
+            results,
+            "usage-cli-isolated-smoke",
+            lambda: smoke_usage_cli(server_dir),
+        )
         client = McpClient(server_dir, vault, compiler_dir)
         try:
             run_step(
@@ -367,6 +522,11 @@ def verify(repo: Path) -> dict[str, Any]:
             run_step(results, "collaboration-policy", policy_blocks)
         finally:
             stderr = client.close()
+            run_step(
+                results,
+                "mcp-runtime-version",
+                lambda: assert_runtime_version(stderr, expected_runtime_version),
+            )
             if stderr.strip():
                 results.append({"ok": True, "code": "mcp-stderr", "detail": stderr.strip()[:2000]})
 
@@ -374,7 +534,19 @@ def verify(repo: Path) -> dict[str, Any]:
             token = "release-probe-token"
             probe_path = "00-Inbox/AI-Output/codex/release-probe.md"
             proc = subprocess.run(
-                [sys.executable, str(sync_probe), "verify", "--vault", str(vault), "--path", probe_path, "--token", token],
+                [
+                    sys.executable,
+                    str(sync_probe),
+                    "verify",
+                    "--vault",
+                    str(vault),
+                    "--path",
+                    probe_path,
+                    "--token",
+                    token,
+                    "--server",
+                    str(bundle),
+                ],
                 check=False,
                 capture_output=True,
                 text=True,

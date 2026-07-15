@@ -1,6 +1,6 @@
 {
-  "snapshotId": "settings:1.1.0:device-a:vault-alpha:project/alpha:session-a:3:7:2:1",
-  "registryVersion": "1.1.0",
+  "snapshotId": "settings:1.6.0:device-a:vault-alpha:project/alpha:session-a:3:7:2:1",
+  "registryVersion": "1.6.0",
   "context": {
     "userDeviceId": "device-a",
     "vaultId": "vault-alpha",
@@ -90,6 +90,524 @@
       "overriddenCandidates": []
     },
     {
+      "key": "adapters.enabled",
+      "value": [
+        "filesystem",
+        "memu",
+        "gitnexus",
+        "obsidian",
+        "kanban",
+        "qmd",
+        "lightrag",
+        "raganything",
+        "hindsight",
+        "vaultbrain",
+        "graphify"
+      ],
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.memu.dsn",
+      "value": "postgresql://localhost:5432/memu",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.memu.secret_ref",
+      "value": {
+        "secretRef": {
+          "provider": "environment",
+          "locator": "MEMU_DSN"
+        },
+        "status": "missing"
+      },
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.memu.user_id",
+      "value": "default",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.memu.max_results",
+      "value": 20,
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.memu.query_timeout_ms",
+      "value": 5000,
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.memu.exclude_memory_types",
+      "value": [
+        "event"
+      ],
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.memu.graph_python",
+      "value": "python",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.memu.graph_cwd",
+      "value": ".",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.memu.graph_timeout_ms",
+      "value": 15000,
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.memu.search_script",
+      "value": "memu_search.py",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.memu.search_python",
+      "value": "python",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.memu.search_timeout_ms",
+      "value": 20000,
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.memu.embed_model",
+      "value": "bge-m3",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.lightrag.base_url",
+      "value": "",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.lightrag.secret_ref",
+      "value": {
+        "secretRef": {
+          "provider": "environment",
+          "locator": "LIGHTRAG_API_KEY"
+        },
+        "status": "missing"
+      },
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.lightrag.mode",
+      "value": "hybrid",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.lightrag.query_path",
+      "value": "/query",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.lightrag.query_data_path",
+      "value": "/query/data",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.lightrag.documents_text_path",
+      "value": "/documents/text",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.lightrag.documents_upload_path",
+      "value": "/documents/upload",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.raganything.base_url",
+      "value": "",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.raganything.secret_ref",
+      "value": {
+        "secretRef": {
+          "provider": "environment",
+          "locator": "RAGANYTHING_API_KEY"
+        },
+        "status": "missing"
+      },
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.raganything.query_path",
+      "value": "/query",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.raganything.process_path",
+      "value": "/process_document",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.hindsight.base_url",
+      "value": "",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.hindsight.bank_id",
+      "value": "",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.hindsight.timeout_ms",
+      "value": 10000,
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.hindsight.secret_ref",
+      "value": {
+        "secretRef": {
+          "provider": "environment",
+          "locator": "HINDSIGHT_API_KEY"
+        },
+        "status": "missing"
+      },
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.kanban.glob",
+      "value": "**/*.md",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.qmd.collection",
+      "value": "",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.qmd.binary",
+      "value": "qmd",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
       "key": "diagnostics.obc.semantic.enabled",
       "value": false,
       "winningScope": "session",
@@ -114,7 +632,7 @@
         },
         {
           "scope": "product",
-          "revision": "1.1.0",
+          "revision": "1.6.0",
           "value": false,
           "provenance": {
             "actor": "registry",
@@ -139,7 +657,7 @@
       "overriddenCandidates": [
         {
           "scope": "product",
-          "revision": "1.1.0",
+          "revision": "1.6.0",
           "value": false,
           "provenance": {
             "actor": "registry",
@@ -170,7 +688,7 @@
       "overriddenCandidates": [
         {
           "scope": "product",
-          "revision": "1.1.0",
+          "revision": "1.6.0",
           "value": {
             "secretRef": {
               "provider": "environment",
@@ -184,6 +702,258 @@
           }
         }
       ]
+    },
+    {
+      "key": "providers.host_capability.enabled",
+      "value": false,
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "next-operation",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "providers.host_capability.provider",
+      "value": "configured-host",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "next-operation",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "providers.host_capability.transport",
+      "value": "stdio",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "next-operation",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "providers.host_capability.endpoint",
+      "value": "stdio://configured-host",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "next-operation",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "providers.host_capability.secret_ref",
+      "value": {
+        "secretRef": {
+          "provider": "environment",
+          "locator": "LLMWIKI_HOST_CAPABILITY_KEY"
+        },
+        "status": "missing"
+      },
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "next-operation",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "providers.host_capability.timeout_ms",
+      "value": 30000,
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "next-operation",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "providers.project_tracker.enabled",
+      "value": false,
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "next-operation",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "providers.project_tracker.provider",
+      "value": "github",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "next-operation",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "providers.project_tracker.transport",
+      "value": "http",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "next-operation",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "providers.project_tracker.endpoint",
+      "value": "https://api.plane.so",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "next-operation",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "providers.project_tracker.secret_ref",
+      "value": {
+        "secretRef": {
+          "provider": "environment",
+          "locator": "LLMWIKI_PROJECT_TRACKER_KEY"
+        },
+        "status": "missing"
+      },
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "next-operation",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "providers.project_tracker.timeout_ms",
+      "value": 30000,
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "next-operation",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "agents.dream_time.warning_free_auto_approval",
+      "value": false,
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "next-operation",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "agents.dream_time.cadence.daily.enabled",
+      "value": false,
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "next-operation",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "agents.dream_time.cadence.weekly.enabled",
+      "value": false,
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "next-operation",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "agents.dream_time.cadence.monthly.enabled",
+      "value": false,
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "next-operation",
+      "overriddenCandidates": []
     },
     {
       "key": "query.semantic.enabled",
@@ -210,7 +980,7 @@
         },
         {
           "scope": "product",
-          "revision": "1.1.0",
+          "revision": "1.6.0",
           "value": false,
           "provenance": {
             "actor": "registry",
@@ -235,7 +1005,7 @@
       "overriddenCandidates": [
         {
           "scope": "product",
-          "revision": "1.1.0",
+          "revision": "1.6.0",
           "value": "",
           "provenance": {
             "actor": "registry",
@@ -260,7 +1030,7 @@
       "overriddenCandidates": [
         {
           "scope": "product",
-          "revision": "1.1.0",
+          "revision": "1.6.0",
           "value": "python",
           "provenance": {
             "actor": "registry",
@@ -285,7 +1055,7 @@
       "overriddenCandidates": [
         {
           "scope": "product",
-          "revision": "1.1.0",
+          "revision": "1.6.0",
           "value": "",
           "provenance": {
             "actor": "registry",
@@ -310,7 +1080,7 @@
       "overriddenCandidates": [
         {
           "scope": "product",
-          "revision": "1.1.0",
+          "revision": "1.6.0",
           "value": "",
           "provenance": {
             "actor": "registry",
@@ -323,7 +1093,7 @@
   "sourceRevisions": {
     "product": {
       "targetId": "settings-platform",
-      "revision": "1.1.0"
+      "revision": "1.6.0"
     },
     "user-device": {
       "targetId": "device-a",

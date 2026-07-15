@@ -74,6 +74,121 @@ _WORK_ITEM_ID_RE = re.compile(
     r"project/[a-z0-9][a-z0-9-]*/issue/[a-z0-9][a-z0-9-]*"
 )
 _WORK_RUN_ID_RE = re.compile(r"work-run/[a-z0-9][a-z0-9-]*")
+_AGENT_PROFILE_ID_RE = re.compile(
+    r"(?:agent/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?"
+    r"|agent-profile/[a-z0-9][a-z0-9-]*)"
+)
+_PROJECT_AGENT_BINDING_ID_RE = re.compile(
+    r"(?:binding/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?/"
+    r"[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?"
+    r"|project-agent-binding/[a-z0-9][a-z0-9-]*)"
+)
+_ASSIGNMENT_PLAN_ID_RE = re.compile(r"assignment-plan/[a-z0-9][a-z0-9-]*")
+_FINGERPRINT_RE = re.compile(r"(?:sha256:)?[a-f0-9]{64}")
+_DEVICE_SNAPSHOT_ID_RE = re.compile(
+    r"device-snapshot/[A-Za-z0-9][A-Za-z0-9._-]{0,127}"
+)
+_DEVICE_ID_RE = re.compile(r"device/[a-z0-9][a-z0-9-]*")
+
+_GOVERNED_ASSIGNMENT_REQUIRED_KEYS = frozenset({
+    "agent_profile_id",
+    "agent_profile_revision",
+    "project_agent_binding_id",
+    "project_agent_binding_revision",
+    "assignment_plan_id",
+    "assignment_plan_fingerprint",
+    "context_envelope_fingerprint",
+})
+_GOVERNED_ASSIGNMENT_OPTIONAL_KEYS = frozenset({
+    "assignment_plan_version",
+    "device_snapshot",
+    "parent_work_run_id",
+    "child_work_run_ids",
+    "capability_grant_summary",
+    "artifact_projections",
+    "expected_output",
+})
+_GOVERNED_ASSIGNMENT_KEYS = (
+    _GOVERNED_ASSIGNMENT_REQUIRED_KEYS | _GOVERNED_ASSIGNMENT_OPTIONAL_KEYS
+)
+_GOVERNED_ASSIGNMENT_LABELS = {
+    "agent_profile_id": "Agent Profile identity",
+    "agent_profile_revision": "Agent Profile revision",
+    "project_agent_binding_id": "Project Agent Binding identity",
+    "project_agent_binding_revision": "Project Agent Binding revision",
+    "assignment_plan_id": "Assignment Plan identity",
+    "assignment_plan_version": "Assignment Plan version",
+    "assignment_plan_fingerprint": "Assignment Plan fingerprint",
+    "context_envelope_fingerprint": "Context Envelope fingerprint",
+    "device_snapshot": "Device Snapshot",
+    "parent_work_run_id": "parent Work Run identity",
+    "child_work_run_ids": "child Work Run identities",
+    "capability_grant_summary": "Capability Grant summary",
+    "artifact_projections": "Artifact projections",
+    "expected_output": "expected output",
+}
+
+
+def _fingerprint_hex(value):
+    if not isinstance(value, str) or not _FINGERPRINT_RE.fullmatch(value):
+        return None
+    return value.removeprefix("sha256:")
+
+
+def _validate_device_snapshot(value):
+    if not isinstance(value, dict):
+        raise WorkIdentityConflict("Device Snapshot must be an object")
+    required = {
+        "snapshotId", "deviceId", "revision", "fingerprint",
+        "capturedAt", "expiresAt",
+    }
+    missing = required - set(value)
+    unknown = set(value) - required
+    if missing:
+        raise WorkIdentityConflict(
+            "Device Snapshot is missing required fields: "
+            + ", ".join(sorted(missing))
+        )
+    if unknown:
+        raise WorkIdentityConflict(
+            "Device Snapshot has unknown fields: " + ", ".join(sorted(unknown))
+        )
+    if not isinstance(value["snapshotId"], str) or not _DEVICE_SNAPSHOT_ID_RE.fullmatch(value["snapshotId"]):
+        raise WorkIdentityConflict("Invalid Device Snapshot identity")
+    if not isinstance(value["deviceId"], str) or not _DEVICE_ID_RE.fullmatch(value["deviceId"]):
+        raise WorkIdentityConflict("Invalid Device identity in Device Snapshot")
+    revision = value["revision"]
+    if isinstance(revision, bool) or not isinstance(revision, int) or revision < 1:
+        raise WorkIdentityConflict("Invalid Device Snapshot revision")
+    if _fingerprint_hex(value["fingerprint"]) is None:
+        raise WorkIdentityConflict("Invalid Device Snapshot fingerprint")
+    for key in ("capturedAt", "expiresAt"):
+        if not isinstance(value[key], str) or not value[key]:
+            raise WorkIdentityConflict(f"Invalid Device Snapshot {key}")
+    return _portable_assignment_value(value, path="device_snapshot")
+
+
+def _comparable_governed_value(key, value):
+    if key in {"assignment_plan_fingerprint", "context_envelope_fingerprint"}:
+        return _fingerprint_hex(value)
+    if key == "device_snapshot" and isinstance(value, dict):
+        comparable = dict(value)
+        comparable["fingerprint"] = _fingerprint_hex(comparable.get("fingerprint"))
+        return comparable
+    return value
+_PORTABLE_FORBIDDEN_FIELD_RE = re.compile(
+    r"(?:^|_)(?:secret|token|credential|api_?key|workspace|path|process|handle|"
+    r"header|environment|env)(?:_|$)",
+    re.IGNORECASE,
+)
+_MACHINE_PATH_RE = re.compile(
+    r"^(?:[a-zA-Z]:[\\/]|\\\\|/(?:Users|home|private|tmp|var/tmp)/|file://)",
+    re.IGNORECASE,
+)
+_SECRET_VALUE_RE = re.compile(
+    r"^(?:Bearer\s+|sk-[A-Za-z0-9_-]{16,}|(?:lease|handoff)[_-]?token[:=])",
+    re.IGNORECASE,
+)
 
 WORK_RUN_STATES = (
     "planned", "leased", "running", "awaiting_review",
@@ -106,6 +221,177 @@ class WorkRunBusy(RuntimeError):
 
 class WorkIdentityConflict(ValueError):
     """A lease or Work Run identity does not match its requested owner."""
+
+
+def _portable_assignment_value(value, *, path, depth=0):
+    """Return a JSON-safe copy that cannot carry machine-local authority."""
+    if depth > 6:
+        raise WorkIdentityConflict(
+            f"Governed assignment extension is too deeply nested at {path}"
+        )
+    if value is None or isinstance(value, bool):
+        return value
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        if value != value or value in (float("inf"), float("-inf")):
+            raise WorkIdentityConflict(
+                f"Governed assignment extension contains a non-finite number at {path}"
+            )
+        return value
+    if isinstance(value, str):
+        if len(value) > 4096:
+            raise WorkIdentityConflict(
+                f"Governed assignment extension text is too large at {path}"
+            )
+        if _MACHINE_PATH_RE.search(value):
+            raise WorkIdentityConflict(
+                f"Governed assignment extension contains a machine-local path at {path}"
+            )
+        if _SECRET_VALUE_RE.search(value):
+            raise WorkIdentityConflict(
+                f"Governed assignment extension contains secret or token material at {path}"
+            )
+        return value
+    if isinstance(value, list):
+        if len(value) > 256:
+            raise WorkIdentityConflict(
+                f"Governed assignment extension array is too large at {path}"
+            )
+        return [
+            _portable_assignment_value(item, path=f"{path}[{index}]", depth=depth + 1)
+            for index, item in enumerate(value)
+        ]
+    if isinstance(value, dict):
+        if len(value) > 128:
+            raise WorkIdentityConflict(
+                f"Governed assignment extension object is too large at {path}"
+            )
+        result = {}
+        for key in sorted(value):
+            if not isinstance(key, str) or not key:
+                raise WorkIdentityConflict(
+                    f"Governed assignment extension has an invalid field at {path}"
+                )
+            if _PORTABLE_FORBIDDEN_FIELD_RE.search(key):
+                raise WorkIdentityConflict(
+                    f"Governed assignment extension contains forbidden field {path}.{key}"
+                )
+            result[key] = _portable_assignment_value(
+                value[key], path=f"{path}.{key}", depth=depth + 1
+            )
+        return result
+    raise WorkIdentityConflict(
+        f"Governed assignment extension has a non-JSON value at {path}"
+    )
+
+
+def _validate_governed_assignment(value):
+    """Validate and canonicalize the portable Work Run assignment lock."""
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise WorkIdentityConflict("Governed assignment must be an object")
+    keys = frozenset(value)
+    missing = _GOVERNED_ASSIGNMENT_REQUIRED_KEYS - keys
+    unknown = keys - _GOVERNED_ASSIGNMENT_KEYS
+    if missing:
+        raise WorkIdentityConflict(
+            "Governed assignment is missing required fields: " + ", ".join(sorted(missing))
+        )
+    if unknown:
+        raise WorkIdentityConflict(
+            "Governed assignment has unknown fields: " + ", ".join(sorted(unknown))
+        )
+
+    string_contracts = {
+        "agent_profile_id": _AGENT_PROFILE_ID_RE,
+        "project_agent_binding_id": _PROJECT_AGENT_BINDING_ID_RE,
+        "assignment_plan_id": _ASSIGNMENT_PLAN_ID_RE,
+        "assignment_plan_fingerprint": _FINGERPRINT_RE,
+        "context_envelope_fingerprint": _FINGERPRINT_RE,
+    }
+    canonical = {}
+    for key, pattern in string_contracts.items():
+        candidate = value[key]
+        if not isinstance(candidate, str) or not pattern.fullmatch(candidate):
+            raise WorkIdentityConflict(
+                f"Invalid {_GOVERNED_ASSIGNMENT_LABELS[key]}: {candidate!r}"
+            )
+        canonical[key] = candidate
+    for key in ("agent_profile_revision", "project_agent_binding_revision"):
+        revision = value[key]
+        if isinstance(revision, bool) or not isinstance(revision, int) or revision < 1:
+            raise WorkIdentityConflict(
+                f"Invalid {_GOVERNED_ASSIGNMENT_LABELS[key]}: {revision!r}"
+            )
+        canonical[key] = revision
+    if "assignment_plan_version" in value:
+        version = value["assignment_plan_version"]
+        if isinstance(version, bool) or not isinstance(version, int) or version < 1:
+            raise WorkIdentityConflict(
+                f"Invalid {_GOVERNED_ASSIGNMENT_LABELS['assignment_plan_version']}: {version!r}"
+            )
+        canonical["assignment_plan_version"] = version
+    if "device_snapshot" in value:
+        canonical["device_snapshot"] = _validate_device_snapshot(value["device_snapshot"])
+
+    if "parent_work_run_id" in value:
+        parent = value["parent_work_run_id"]
+        if parent is not None and (
+            not isinstance(parent, str) or not _WORK_RUN_ID_RE.fullmatch(parent)
+        ):
+            raise WorkIdentityConflict(f"Invalid parent Work Run identity: {parent!r}")
+        canonical["parent_work_run_id"] = parent
+    if "child_work_run_ids" in value:
+        children = value["child_work_run_ids"]
+        if not isinstance(children, list) or len(children) > 256:
+            raise WorkIdentityConflict("Child Work Run identities must be a bounded array")
+        if any(
+            not isinstance(child, str) or not _WORK_RUN_ID_RE.fullmatch(child)
+            for child in children
+        ):
+            raise WorkIdentityConflict("Invalid child Work Run identity")
+        if len(set(children)) != len(children):
+            raise WorkIdentityConflict("Child Work Run identities must be unique")
+        canonical["child_work_run_ids"] = list(children)
+    for key in ("capability_grant_summary", "artifact_projections", "expected_output"):
+        if key in value:
+            canonical[key] = _portable_assignment_value(value[key], path=key)
+    return {key: canonical[key] for key in sorted(canonical)}
+
+
+def _assert_governed_assignment(existing_run, governed_assignment):
+    """Require an exact assertion of the immutable assignment on refresh."""
+    has_existing = (
+        existing_run.get("schema_version", 1) >= 2
+        or any(key in existing_run for key in _GOVERNED_ASSIGNMENT_KEYS)
+    )
+    if has_existing and governed_assignment is None:
+        raise WorkIdentityConflict(
+            "Existing Work Run has a governed assignment that must be asserted"
+        )
+    if not has_existing and governed_assignment is not None:
+        raise WorkIdentityConflict(
+            "An existing legacy Work Run cannot be upgraded with a governed assignment"
+        )
+    if not has_existing:
+        return
+    existing_assignment = {
+        key: existing_run[key]
+        for key in _GOVERNED_ASSIGNMENT_KEYS
+        if key in existing_run
+    }
+    existing_assignment = _validate_governed_assignment(existing_assignment)
+    for key in sorted(set(existing_assignment) | set(governed_assignment)):
+        if (
+            _comparable_governed_value(key, existing_assignment.get(key))
+            != _comparable_governed_value(key, governed_assignment.get(key))
+        ):
+            label = _GOVERNED_ASSIGNMENT_LABELS.get(key, key)
+            raise WorkIdentityConflict(
+                f"{label} conflicts with the existing governed assignment"
+            )
 
 
 def _leases_path(vault_dir) -> Path:
@@ -302,6 +588,25 @@ def normalized_work_run(run):
     }
     if latest.get("transition_token"):
         result["transitionToken"] = latest["transition_token"]
+    governed_keys = {
+        "agent_profile_id": "agentProfileId",
+        "agent_profile_revision": "agentProfileRevision",
+        "project_agent_binding_id": "projectAgentBindingId",
+        "project_agent_binding_revision": "projectAgentBindingRevision",
+        "assignment_plan_id": "assignmentPlanId",
+        "assignment_plan_version": "assignmentPlanVersion",
+        "assignment_plan_fingerprint": "assignmentPlanFingerprint",
+        "context_envelope_fingerprint": "contextEnvelopeFingerprint",
+        "device_snapshot": "deviceSnapshot",
+        "parent_work_run_id": "parentWorkRunId",
+        "child_work_run_ids": "childWorkRunIds",
+        "capability_grant_summary": "capabilityGrantSummary",
+        "artifact_projections": "artifactProjections",
+        "expected_output": "expectedOutput",
+    }
+    for private_key, public_key in governed_keys.items():
+        if private_key in run:
+            result[public_key] = run[private_key]
     return result
 
 
@@ -363,7 +668,8 @@ def transition_work_run(vault_dir, project_id, work_run_id, state, *,
 
 def _acquire_lease_unlocked(
     vault_dir, note_id, agent_id, *, current_head, base_head, ttl_seconds, now,
-    project_id=None, work_item_id=None, transition_token=None
+    project_id=None, work_item_id=None, transition_token=None,
+    governed_assignment=None,
 ) -> LeaseResult:
     """Atomically claim a work item.
 
@@ -375,16 +681,24 @@ def _acquire_lease_unlocked(
     outcomes stay deterministic. Cross-runtime locks are never reclaimed from
     wall-clock age; abandoned-lock recovery requires explicit owner checks.
     """
+    canonical_assignment = _validate_governed_assignment(governed_assignment)
     if base_head != current_head:
         return LeaseResult(OUTCOME_HEAD_MISMATCH)
     resolved_project_id, resolved_work_item_id = _work_identity(
         note_id, project_id=project_id, work_item_id=work_item_id)
+    if canonical_assignment is not None and not (
+        resolved_project_id and resolved_work_item_id
+    ):
+        raise WorkIdentityConflict(
+            "A governed assignment requires a durable project and Work Item identity"
+        )
     leases = read_leases(vault_dir)
     existing = leases.get(note_id)
     if existing is not None and not isinstance(existing, dict):
         raise WorkIdentityConflict("Existing lease record is malformed")
+    existing_run = None
     if isinstance(existing, dict):
-        _assert_existing_work_identity(
+        existing_run = _assert_existing_work_identity(
             vault_dir, existing,
             project_id=resolved_project_id,
             work_item_id=resolved_work_item_id,
@@ -394,6 +708,8 @@ def _acquire_lease_unlocked(
             and existing.get("agent_id") != agent_id
         ):
             return LeaseResult(OUTCOME_ALREADY_LEASED, existing)
+        if existing.get("agent_id") == agent_id and existing_run is not None:
+            _assert_governed_assignment(existing_run, canonical_assignment)
     existing_run_id = (
         existing.get("work_run_id")
         if isinstance(existing, dict) and existing.get("agent_id") == agent_id
@@ -426,7 +742,7 @@ def _acquire_lease_unlocked(
         if not run:
             token = transition_token or f"driver:lease:{work_run_id.split('/', 1)[1]}"
             run = {
-                "schema_version": 1,
+                "schema_version": 2 if canonical_assignment is not None else 1,
                 "project_id": resolved_project_id,
                 "work_item_id": resolved_work_item_id,
                 "work_run_id": work_run_id,
@@ -444,6 +760,8 @@ def _acquire_lease_unlocked(
                     "recorded_at": now,
                 }],
             }
+            if canonical_assignment is not None:
+                run.update(canonical_assignment)
         else:
             run["updated_at"] = now
         run["handoff_token_hash"] = hashlib.sha256(
@@ -455,7 +773,8 @@ def _acquire_lease_unlocked(
 
 def acquire_lease(
     vault_dir, note_id, agent_id, *, current_head, base_head, ttl_seconds, now,
-    project_id=None, work_item_id=None, transition_token=None
+    project_id=None, work_item_id=None, transition_token=None,
+    governed_assignment=None,
 ) -> LeaseResult:
     """Atomically claim an item under the cross-runtime Work Run lock."""
     with _work_run_lock(vault_dir):
@@ -464,6 +783,7 @@ def acquire_lease(
             current_head=current_head, base_head=base_head,
             ttl_seconds=ttl_seconds, now=now, project_id=project_id,
             work_item_id=work_item_id, transition_token=transition_token,
+            governed_assignment=governed_assignment,
         )
 
 

@@ -212,12 +212,58 @@ class WorkRunContractTest(unittest.TestCase):
     def tearDown(self) -> None:
         shutil.rmtree(self.vault, ignore_errors=True)
 
-    def _lease(self, now=1000, ttl=600):
+    def _lease(self, now=1000, ttl=600, governed_assignment=None):
         return work_driver.acquire_lease(
             self.vault, self.NID, "agent-codex",
             current_head=self.NID, base_head=self.NID,
             ttl_seconds=ttl, now=now,
+            governed_assignment=governed_assignment,
         )
+
+    @staticmethod
+    def _assignment(**overrides):
+        value = {
+            "agent_profile_id": "agent/codex",
+            "agent_profile_revision": 3,
+            "project_agent_binding_id": "binding/alpha/codex",
+            "project_agent_binding_revision": 5,
+            "assignment_plan_id": "assignment-plan/alpha-codex",
+            "assignment_plan_version": 4,
+            "assignment_plan_fingerprint": "sha256:" + "a" * 64,
+            "context_envelope_fingerprint": "sha256:" + "b" * 64,
+            "device_snapshot": {
+                "snapshotId": "device-snapshot/alpha-5090",
+                "deviceId": "device/test-5090",
+                "revision": 2,
+                "fingerprint": "sha256:" + "d" * 64,
+                "capturedAt": "2026-07-15T00:00:00.000Z",
+                "expiresAt": "2026-07-15T02:00:00.000Z",
+            },
+            "parent_work_run_id": "work-run/parent-alpha",
+            "child_work_run_ids": [],
+            "capability_grant_summary": {
+                "grant_id": "capability-grant/alpha-codex",
+                "connectors": ["connector/git"],
+                "operations": ["repository.read"],
+                "resources": ["project/alpha"],
+                "expires_at": "2999-01-01T00:00:00.000Z",
+                "side_effect_classes": ["view"],
+            },
+            "artifact_projections": [{
+                "artifact_id": "artifact/input-spec",
+                "kind": "work-input",
+                "output_class": "view",
+                "content_hash": "c" * 64,
+                "provenance": ["source:spec"],
+            }],
+            "expected_output": {
+                "kind": "implementation-evidence",
+                "output_class": "view",
+                "required_artifacts": ["test-report", "change-summary"],
+            },
+        }
+        value.update(overrides)
+        return value
 
     def test_lease_creates_one_durable_work_run_identity(self) -> None:
         result = self._lease()
@@ -244,6 +290,94 @@ class WorkRunContractTest(unittest.TestCase):
         self.assertEqual(normalized["workRunId"], lease["work_run_id"])
         self.assertEqual(run["work_item_id"], lease["work_item_id"])
         self.assertNotIn(str(self.vault), str(run))
+
+    def test_governed_assignment_is_locked_in_schema_v2_and_refresh_asserts_it(self) -> None:
+        assignment = self._assignment()
+        first = self._lease(governed_assignment=assignment)
+        lease = first.lease
+        run = work_driver.read_work_run(
+            self.vault, lease["project_id"], lease["work_run_id"])
+        self.assertEqual(run["schema_version"], 2)
+        for key, value in assignment.items():
+            self.assertEqual(run[key], value, key)
+        normalized = work_driver.normalized_work_run(run)
+        self.assertEqual(normalized["agentProfileId"], assignment["agent_profile_id"])
+        self.assertEqual(
+            normalized["contextEnvelopeFingerprint"],
+            assignment["context_envelope_fingerprint"],
+        )
+        self.assertEqual(normalized["parentWorkRunId"], assignment["parent_work_run_id"])
+
+        refreshed = self._lease(now=1100, governed_assignment=assignment)
+        self.assertEqual(refreshed.lease["work_run_id"], lease["work_run_id"])
+        refreshed_run = work_driver.read_work_run(
+            self.vault, lease["project_id"], lease["work_run_id"])
+        for key, value in assignment.items():
+            self.assertEqual(refreshed_run[key], value, key)
+
+    def test_governed_assignment_drift_or_omission_rejects_without_mutation(self) -> None:
+        assignment = self._assignment()
+        lease = self._lease(governed_assignment=assignment).lease
+        lease_path = self.vault / ".vault-mind" / "_leases.json"
+        run_path = work_driver._work_run_path(
+            self.vault, lease["project_id"], lease["work_run_id"])
+        before = (lease_path.read_bytes(), run_path.read_bytes())
+
+        with self.assertRaisesRegex(work_driver.WorkIdentityConflict, "Assignment Plan fingerprint"):
+            self._lease(now=1100, governed_assignment=self._assignment(
+                assignment_plan_fingerprint="sha256:" + "e" * 64))
+        self.assertEqual((lease_path.read_bytes(), run_path.read_bytes()), before)
+
+        with self.assertRaisesRegex(work_driver.WorkIdentityConflict, "Assignment Plan version"):
+            self._lease(now=1100, governed_assignment=self._assignment(
+                assignment_plan_version=6))
+        self.assertEqual((lease_path.read_bytes(), run_path.read_bytes()), before)
+
+        changed_snapshot = dict(assignment["device_snapshot"], revision=3)
+        with self.assertRaisesRegex(work_driver.WorkIdentityConflict, "Device Snapshot"):
+            self._lease(now=1100, governed_assignment=self._assignment(
+                device_snapshot=changed_snapshot))
+        self.assertEqual((lease_path.read_bytes(), run_path.read_bytes()), before)
+
+        with self.assertRaisesRegex(work_driver.WorkIdentityConflict, "governed assignment"):
+            self._lease(now=1100)
+        self.assertEqual((lease_path.read_bytes(), run_path.read_bytes()), before)
+
+    def test_governed_assignment_rejects_local_or_secret_material_before_writes(self) -> None:
+        unsafe = self._assignment(capability_grant_summary={
+            "grant_id": "capability-grant/alpha-codex",
+            "workspace_path": "C:/private/worktree",
+        })
+        with self.assertRaisesRegex(work_driver.WorkIdentityConflict, "forbidden field"):
+            self._lease(governed_assignment=unsafe)
+        self.assertFalse((self.vault / ".vault-mind" / "_leases.json").exists())
+        self.assertFalse((self.vault / "01-Projects" / "alpha" / "runs").exists())
+
+    def test_legacy_assignment_and_raw_digests_remain_readable_without_rewriting_identity(self) -> None:
+        legacy = self._assignment(
+            agent_profile_id="agent-profile/codex",
+            project_agent_binding_id="project-agent-binding/alpha-codex",
+            assignment_plan_fingerprint="a" * 64,
+            context_envelope_fingerprint="b" * 64,
+        )
+        legacy.pop("assignment_plan_version")
+        legacy.pop("device_snapshot")
+        lease = self._lease(governed_assignment=legacy).lease
+        equivalent = dict(
+            legacy,
+            assignment_plan_fingerprint="sha256:" + "a" * 64,
+            context_envelope_fingerprint="sha256:" + "b" * 64,
+        )
+        self._lease(now=1100, governed_assignment=equivalent)
+        run = work_driver.read_work_run(
+            self.vault, lease["project_id"], lease["work_run_id"])
+        self.assertEqual(run["agent_profile_id"], "agent-profile/codex")
+        self.assertEqual(
+            run["project_agent_binding_id"],
+            "project-agent-binding/alpha-codex",
+        )
+        self.assertEqual(run["assignment_plan_fingerprint"], "a" * 64)
+        self.assertEqual(run["context_envelope_fingerprint"], "b" * 64)
 
     def test_transition_tokens_are_idempotent_and_terminal_is_closed(self) -> None:
         lease = self._lease().lease
@@ -421,6 +555,22 @@ class WorkNextCliTest(unittest.TestCase):
         out = kb_meta.cmd_work_next(str(self.vault), claim_agent="agent-1", now=1000)
         self.assertEqual(out["lease"]["outcome"], work_driver.OUTCOME_ACQUIRED)
         self.assertIn("Projects/x/issues/e.md", work_driver.read_leases(self.vault))
+
+    def test_claim_locks_governed_assignment_for_cross_device_resume(self) -> None:
+        self._write("Projects/x/issues/e.md",
+                    entity="project/x/issue/e", state="todo", priority=1, status="reviewed")
+        assignment = WorkRunContractTest._assignment()
+        out = kb_meta.cmd_work_next(
+            str(self.vault), claim_agent="agent-1", now=1000,
+            governed_assignment=assignment,
+        )
+        lease = out["lease"]
+        run = work_driver.read_work_run(
+            self.vault, lease["project_id"], lease["work_run_id"])
+        self.assertEqual(run["schema_version"], 2)
+        self.assertEqual(run["assignment_plan_fingerprint"], "sha256:" + "a" * 64)
+        self.assertEqual(run["context_envelope_fingerprint"], "sha256:" + "b" * 64)
+        self.assertEqual(run["expected_output"]["kind"], "implementation-evidence")
 
     def test_project_context_selects_only_canonical_work_os_root(self) -> None:
         self._write("Projects/x.md", type="project", entity="project/x", status="active")

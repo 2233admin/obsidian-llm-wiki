@@ -66,7 +66,7 @@ describe("settings service operations", () => {
     const read = product.read();
 
     assert.equal(read.scope, "product");
-    assert.equal(read.revision, "1.1.0");
+    assert.equal(read.revision, registry.registryVersion);
     assert.equal(read.defaults.length, registry.definitions.length);
     assert.throws(() => product.set(), /read-only/i);
   });
@@ -209,6 +209,186 @@ describe("settings service operations", () => {
     const validation = await service.validate();
     assert.ok(validation.issues.some(item => item.code === "agent-model-secret-missing"));
     assert.equal((await service.doctor()).capabilities.find(item => item.capabilityId === "models.agent")?.state, "unavailable");
+  });
+
+  test("governs host connectors through Settings and keeps credentials reference-only", async () => {
+    const { service } = setup({ HOST_CONNECTOR_KEY: "never-return-this-secret" });
+    for (const [key, value] of [
+      ["providers.host_capability.enabled", true],
+      ["providers.host_capability.provider", "github"],
+      ["providers.host_capability.transport", "cloud-model"],
+      ["providers.host_capability.endpoint", "https://host.example.test/mcp"],
+      ["providers.host_capability.secret_ref", { provider: "environment", locator: "HOST_CONNECTOR_KEY" }],
+      ["providers.host_capability.timeout_ms", 15000],
+    ] as const) {
+      const current = await service.scopesGet("session");
+      const result = await service.assignmentSet({
+        scope: "session",
+        key,
+        value,
+        expectedRevision: current.document.revision,
+        updatedBy: "service-test",
+      });
+      assert.equal(result.status, "committed");
+    }
+
+    const snapshot = await service.snapshotResolve();
+    const connector = (await service.doctor()).capabilities
+      .find(item => item.capabilityId === "providers.host-capability");
+    assert.equal(connector?.state, "available");
+    assert.equal(JSON.stringify(snapshot).includes("never-return-this-secret"), false);
+    assert.equal(JSON.stringify(snapshot).includes("HOST_CONNECTOR_KEY"), true);
+    const profile = await service.hostCapabilityInvocationProfile();
+    assert.equal(profile.provider, "github");
+    assert.equal(profile.connectorId, "connector/github");
+    assert.equal(profile.secretRequired, true);
+    assert.equal(profile.credential?.secretRef.locator, "HOST_CONNECTOR_KEY");
+    assert.equal(profile.provenance.provider.source, "settings-assignment");
+    assert.equal(JSON.stringify(profile).includes("never-return-this-secret"), false);
+  });
+
+  test("normalizes generic and canonical Host connector selectors without granting registry authority", async () => {
+    for (const selector of ["reviewed-expert", "connector/reviewed-expert"] as const) {
+      const { service } = setup();
+      for (const [key, value] of [
+        ["providers.host_capability.enabled", true],
+        ["providers.host_capability.provider", selector],
+        ["providers.host_capability.transport", "stdio"],
+        ["providers.host_capability.endpoint", "stdio://reviewed-expert?arg=serve"],
+      ] as const) {
+        const current = await service.scopesGet("session");
+        const result = await service.assignmentSet({
+          scope: "session", key, value, expectedRevision: current.document.revision, updatedBy: "service-test",
+        });
+        assert.equal(result.status, "committed");
+      }
+      const profile = await service.hostCapabilityInvocationProfile();
+      assert.equal(profile.provider, selector);
+      assert.equal(profile.connectorId, "connector/reviewed-expert");
+      assert.equal(profile.secretRequired, false);
+      assert.equal((await service.doctor()).capabilities
+        .find(item => item.capabilityId === "providers.host-capability")?.state, "available");
+    }
+  });
+
+  test("resolves explicit Settings over generic Host environment compatibility with field provenance", async () => {
+    const { service } = setup({ GITHUB_TOKEN: "legacy-secret", LINEAR_TOKEN: "legacy-linear" });
+    for (const [key, value] of [
+      ["providers.host_capability.enabled", true],
+      ["providers.host_capability.provider", "gitea"],
+      ["providers.host_capability.endpoint", "https://gitea.example.test/api/v1"],
+      ["providers.host_capability.secret_ref", { provider: "environment", locator: "GITEA_TOKEN" }],
+    ] as const) {
+      const current = await service.scopesGet("session");
+      const result = await service.assignmentSet({
+        scope: "session", key, value, expectedRevision: current.document.revision, updatedBy: "service-test",
+      });
+      assert.equal(result.status, "committed");
+    }
+    const profile = await service.hostCapabilityInvocationProfile(service.defaultContext, [{
+      source: "legacy-environment",
+      priority: 100,
+      detail: "generic Host compatibility environment",
+      values: {
+        enabled: true,
+        provider: "legacy-host",
+        transport: "http",
+        endpoint: "https://legacy-host.example.test/mcp",
+        credential: { secretRef: { provider: "environment", locator: "LLMWIKI_HOST_CAPABILITY_KEY" }, status: "present" },
+      },
+    }]);
+    assert.equal(profile.provider, "gitea");
+    assert.equal(profile.endpoint, "https://gitea.example.test/api/v1");
+    assert.equal(profile.transport, "http");
+    assert.equal(profile.provenance.provider.priority, 300);
+    assert.equal(profile.provenance.transport.source, "legacy-environment");
+    assert.equal(profile.credential?.secretRef.locator, "GITEA_TOKEN");
+    assert.equal(profile.credential?.status, "missing");
+  });
+
+  test("uses legacy compatibility only when Settings has no explicit assignment", async () => {
+    const { service } = setup({ LINEAR_TOKEN: "legacy-linear-secret" });
+    const profile = await service.hostCapabilityInvocationProfile(service.defaultContext, [{
+      source: "legacy-environment",
+      priority: 100,
+      detail: "unique token environment",
+      values: {
+        enabled: true,
+        provider: "linear",
+        transport: "http",
+        endpoint: "https://api.linear.app/graphql",
+        credential: { secretRef: { provider: "environment", locator: "LINEAR_TOKEN" }, status: "present" },
+      },
+    }]);
+    assert.equal(profile.enabled, true);
+    assert.equal(profile.provider, "linear");
+    assert.equal(profile.provenance.enabled.source, "legacy-environment");
+    assert.equal(profile.provenance.timeoutMs.source, "product-default");
+    assert.equal(JSON.stringify(profile).includes("legacy-linear-secret"), false);
+  });
+
+  test("never attaches a legacy credential from a different provider", async () => {
+    const { service } = setup({ GITHUB_TOKEN: "legacy-github-secret" });
+    for (const [key, value] of [
+      ["providers.host_capability.enabled", true],
+      ["providers.host_capability.provider", "gitea"],
+      ["providers.host_capability.transport", "http"],
+      ["providers.host_capability.endpoint", "https://git.example.test/api/v1"],
+    ] as const) {
+      const current = await service.scopesGet("session");
+      const result = await service.assignmentSet({
+        scope: "session", key, value, expectedRevision: current.document.revision, updatedBy: "service-test",
+      });
+      assert.equal(result.status, "committed");
+    }
+
+    const profile = await service.hostCapabilityInvocationProfile(service.defaultContext, [{
+      source: "legacy-environment",
+      priority: 100,
+      detail: "unique legacy token locator GITHUB_TOKEN",
+      values: {
+        enabled: true,
+        provider: "github",
+        transport: "http",
+        endpoint: "https://api.github.com",
+        credential: { secretRef: { provider: "environment", locator: "GITHUB_TOKEN" }, status: "present" },
+      },
+    }]);
+
+    assert.equal(profile.provider, "gitea");
+    assert.notEqual(profile.credential?.secretRef.locator, "GITHUB_TOKEN");
+    assert.equal(profile.credential?.status, "missing");
+    assert.equal(profile.provenance.credential.source, "product-default");
+    assert.equal(JSON.stringify(profile).includes("legacy-github-secret"), false);
+  });
+
+  test("keeps the Dream Time auto-approval hook disabled and warns when pre-enabled", async () => {
+    const { service } = setup();
+    assert.equal((await service.doctor()).capabilities
+      .find(item => item.capabilityId === "agents.dream-time-approval")?.state, "disabled");
+
+    const result = await service.assignmentSet({
+      scope: "session",
+      key: "agents.dream_time.warning_free_auto_approval",
+      value: true,
+      expectedRevision: 0,
+      updatedBy: "service-test",
+    });
+    assert.equal(result.status, "committed");
+    assert.ok((await service.validate()).issues
+      .some(item => item.code === "dream-time-auto-approval-reserved"));
+    assert.equal((await service.doctor()).capabilities
+      .find(item => item.capabilityId === "agents.dream-time-approval")?.state, "degraded");
+  });
+
+  test("keeps daily, weekly, and monthly Dream Time cadence disabled by default", async () => {
+    const { service } = setup();
+    const { snapshot } = await service.snapshotResolve();
+    const values = new Map(snapshot.effective.map(item => [item.key, item.value]));
+
+    assert.equal(values.get("agents.dream_time.cadence.daily.enabled"), false);
+    assert.equal(values.get("agents.dream_time.cadence.weekly.enabled"), false);
+    assert.equal(values.get("agents.dream_time.cadence.monthly.enabled"), false);
   });
 
   test("inherit Agent model mode is a healthy compatibility path", async () => {

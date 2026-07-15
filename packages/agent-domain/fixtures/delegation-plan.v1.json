@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "planId": "delegation-plan/fixture",
+  "projectId": "project/demo",
+  "parentWorkRunId": "work-run/parent",
+  "objective": "Produce one provenance-preserving conclusion",
+  "assignment": {
+    "assignmentPlanId": "assignment-plan/fixture",
+    "assignmentPlanVersion": 4,
+    "assignmentPlanFingerprint": "sha256:1923a272ec8ac254d29f48c25920b58d1857124f095283e27736dce30de5715b",
+    "deviceSnapshot": {
+      "snapshotId": "device-snapshot/fixture",
+      "deviceId": "device/test-5090",
+      "revision": 2,
+      "fingerprint": "sha256:311a74356a5c90214bc9de269499db176343fe883e54ed163a4d49cb56436ced",
+      "capturedAt": "2026-07-15T00:00:00.000Z",
+      "expiresAt": "2026-07-15T02:00:00.000Z"
+    },
+    "profileId": "agent/researcher",
+    "profileRevision": 7,
+    "bindingId": "binding/demo/researcher",
+    "bindingRevision": 5,
+    "contextEnvelopeFingerprint": "sha256:e4147491f2327dac2e206305576188f730627019a2882fb07996a6eca3931d47"
+  },
+  "inputArtifactIds": ["artifact/project-brief"],
+  "requestedCapabilityScope": {
+    "connectors": ["github"],
+    "operations": ["issue.comment"],
+    "resources": ["repo/Radiant303/SpringNote"],
+    "sideEffectClasses": ["read-only", "external-write"]
+  },
+  "budget": {
+    "policyVersion": "budget-policy/v1",
+    "maxInputTokens": 20000,
+    "maxOutputTokens": 4000,
+    "maxDurationMs": 600000
+  },
+  "expiresAt": "2026-07-15T01:00:00.000Z",
+  "expectedOutput": {
+    "outputClass": "durable-knowledge-candidate",
+    "mediaType": "text/markdown",
+    "requiredArtifactCount": 1,
+    "acceptanceCriteria": ["Cites the locked input artifact"]
+  },
+  "sideEffectPolicy": {
+    "externalEffectsRequirePerRunApproval": true,
+    "requestedExternalClasses": ["external-write"]
+  },
+  "provenance": [{ "kind": "workRun", "id": "work-run/parent" }],
+  "createdAt": "2026-07-15T00:00:00.000Z",
+  "createdBy": "user/tester",
+  "fingerprint": "sha256:bcaf17c6462bc66fa0335ca1037b9c197144446c85ba1b522ef14f8165d9b35f"
+}

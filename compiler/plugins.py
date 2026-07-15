@@ -129,7 +129,7 @@ def validate_plugin_id(plugin_id: str) -> str:
             raise UnsafePluginId(plugin_id, "control-char")
     if "/" in plugin_id or "\\" in plugin_id:
         raise UnsafePluginId(plugin_id, "separator")
-    # a Windows drive prefix ('c:' / 'C:\\x') or any colon -> reject (colon is not
+    # a Windows drive prefix (drive-letter plus colon) or any colon -> reject (colon is not
     # in the allowlist anyway, but name the reason for the CLI).
     if ":" in plugin_id:
         raise UnsafePluginId(plugin_id, "drive-letter")

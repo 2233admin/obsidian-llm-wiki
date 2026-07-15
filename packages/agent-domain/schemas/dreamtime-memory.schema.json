@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.llmwiki.org/agent-domain/v1/dreamtime-memory.schema.json",
+  "title": "Dream Time governed memory v1",
+  "oneOf": [
+    { "$ref": "#/$defs/proposal" },
+    { "$ref": "#/$defs/revision" },
+    { "$ref": "#/$defs/event" },
+    { "$ref": "#/$defs/decision" }
+  ],
+  "$defs": {
+    "diff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operation", "section", "beforeHash", "after"],
+      "properties": {
+        "operation": { "enum": ["replace", "remove"] },
+        "section": { "enum": ["recentContext", "openItems", "stableMemory"] },
+        "beforeHash": { "oneOf": [{ "type": "null" }, { "$ref": "common.schema.json#/$defs/digest" }] },
+        "after": { "oneOf": [{ "type": "null" }, { "$ref": "common.schema.json#/$defs/memorySection" }] }
+      }
+    },
+    "directive": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["directiveId", "kind", "section", "reason"],
+      "properties": {
+        "directiveId": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["must-keep", "protected", "retain-until"] },
+        "section": { "enum": ["recentContext", "openItems", "stableMemory"] },
+        "contentHash": { "$ref": "common.schema.json#/$defs/digest" },
+        "retainUntil": { "$ref": "common.schema.json#/$defs/timestamp" },
+        "reason": { "type": "string", "minLength": 1 }
+      }
+    },
+    "conflict": {
+      "type": "object", "additionalProperties": false,
+      "required": ["conflictId", "section", "reason", "sourceRefs", "resolved"],
+      "properties": { "conflictId": { "type": "string", "minLength": 1 }, "section": { "enum": ["recentContext", "openItems", "stableMemory"] }, "reason": { "type": "string", "minLength": 1 }, "sourceRefs": { "type": "array", "items": { "type": "string", "minLength": 1 } }, "resolved": { "const": false } }
+    },
+    "sourceIdentities": {
+      "type": "object", "additionalProperties": false,
+      "required": ["revisionIds", "artifactIds", "cutoffAt"],
+      "properties": { "threadId": { "$ref": "common.schema.json#/$defs/threadId" }, "workRunId": { "type": "string", "pattern": "^work-run/" }, "revisionIds": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^memory-revision/" } }, "artifactIds": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^artifact/" } }, "cutoffAt": { "$ref": "common.schema.json#/$defs/timestamp" } }
+    },
+    "expectedRevision": {
+      "type": "object", "additionalProperties": false,
+      "required": ["revisionId", "revision", "fingerprint"],
+      "properties": { "revisionId": { "type": ["string", "null"] }, "revision": { "type": "integer", "minimum": 0 }, "fingerprint": { "oneOf": [{ "type": "null" }, { "$ref": "common.schema.json#/$defs/digest" }] } }
+    },
+    "warning": {
+      "type": "object", "additionalProperties": false,
+      "required": ["code", "severity", "message"],
+      "properties": { "code": { "type": "string", "minLength": 1 }, "severity": { "enum": ["info", "warning", "error"] }, "message": { "type": "string", "minLength": 1 }, "sourceRef": { "type": "string", "minLength": 1 } }
+    },
+    "approvalPolicy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["mode", "autoApprovalHook"],
+      "properties": { "mode": { "const": "manual" }, "autoApprovalHook": { "type": "object", "additionalProperties": false, "required": ["enabled", "warningFreeOnly", "workingMemoryOnly"], "properties": { "enabled": { "const": false }, "warningFreeOnly": { "const": true }, "workingMemoryOnly": { "const": true } } } }
+    },
+    "revisionApproval": {
+      "type": "object", "additionalProperties": false,
+      "required": ["proposalId", "transitionTokenHash", "actor", "policyVersion", "policyResult"],
+      "properties": { "proposalId": { "type": "string", "pattern": "^memory-proposal/" }, "transitionTokenHash": { "$ref": "common.schema.json#/$defs/digest" }, "actor": { "type": "string", "minLength": 1 }, "policyVersion": { "type": "string", "minLength": 1 }, "policyResult": { "const": "allowed" } }
+    },
+    "policyResult": {
+      "type": "object", "additionalProperties": false,
+      "required": ["allowed", "policyVersion", "reason"],
+      "properties": { "allowed": { "type": "boolean" }, "policyVersion": { "type": "string", "minLength": 1 }, "reason": { "type": "string", "minLength": 1 } }
+    },
+    "proposal": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schemaVersion", "proposalId", "lifecycle", "operation", "projectId", "profileId", "sourceIdentities", "expectedRevision", "sourceFingerprint", "candidateDiff", "protectedDirectives", "unresolvedConflicts", "provenance", "warnings", "modelLock", "approvalPolicy", "createdAt", "createdBy", "expiresAt", "fingerprint"],
+      "properties": {
+        "schemaVersion": { "const": 1 }, "proposalId": { "type": "string", "pattern": "^memory-proposal/" }, "lifecycle": { "const": "proposed" }, "operation": { "enum": ["checkpoint", "learn", "review"] },
+        "projectId": { "$ref": "common.schema.json#/$defs/projectId" }, "profileId": { "$ref": "common.schema.json#/$defs/agentProfileId" },
+        "sourceIdentities": { "$ref": "#/$defs/sourceIdentities" }, "expectedRevision": { "$ref": "#/$defs/expectedRevision" }, "sourceFingerprint": { "$ref": "common.schema.json#/$defs/digest" },
+        "candidateDiff": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/diff" } }, "protectedDirectives": { "type": "array", "items": { "$ref": "#/$defs/directive" } }, "unresolvedConflicts": { "type": "array", "items": { "$ref": "#/$defs/conflict" } },
+        "provenance": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/provenance" } }, "warnings": { "type": "array", "items": { "$ref": "#/$defs/warning" } }, "modelLock": { "$ref": "common.schema.json#/$defs/modelLock" }, "approvalPolicy": { "$ref": "#/$defs/approvalPolicy" },
+        "createdAt": { "$ref": "common.schema.json#/$defs/timestamp" }, "createdBy": { "type": "string", "minLength": 1 }, "expiresAt": { "$ref": "common.schema.json#/$defs/timestamp" }, "fingerprint": { "$ref": "common.schema.json#/$defs/digest" }
+      }
+    },
+    "revision": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schemaVersion", "revisionId", "revision", "previousRevisionId", "previousFingerprint", "projectId", "profileId", "lifecycle", "sections", "protectedDirectives", "unresolvedConflicts", "exactDiff", "provenance", "approval", "createdAt", "fingerprint"],
+      "properties": {
+        "schemaVersion": { "const": 1 }, "revisionId": { "type": "string", "pattern": "^memory-revision/" }, "revision": { "type": "integer", "minimum": 1 }, "previousRevisionId": { "type": ["string", "null"] }, "previousFingerprint": { "oneOf": [{ "type": "null" }, { "$ref": "common.schema.json#/$defs/digest" }] },
+        "projectId": { "$ref": "common.schema.json#/$defs/projectId" }, "profileId": { "$ref": "common.schema.json#/$defs/agentProfileId" }, "lifecycle": { "const": "approved" },
+        "sections": { "type": "object", "additionalProperties": false, "required": ["recentContext", "openItems", "stableMemory"], "properties": { "recentContext": { "$ref": "common.schema.json#/$defs/memorySection" }, "openItems": { "$ref": "common.schema.json#/$defs/memorySection" }, "stableMemory": { "$ref": "common.schema.json#/$defs/memorySection" } } },
+        "protectedDirectives": { "type": "array", "items": { "$ref": "#/$defs/directive" } }, "unresolvedConflicts": { "type": "array", "items": { "$ref": "#/$defs/conflict" } }, "exactDiff": { "type": "array", "items": { "$ref": "#/$defs/diff" } }, "provenance": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/provenance" } }, "approval": { "$ref": "#/$defs/revisionApproval" }, "createdAt": { "$ref": "common.schema.json#/$defs/timestamp" }, "fingerprint": { "$ref": "common.schema.json#/$defs/digest" }
+      }
+    },
+    "event": { "type": "object", "required": ["schemaVersion", "eventId", "ordinal", "transitionAction", "action", "proposalId", "revisionId", "transitionTokenHash", "actor", "occurredAt", "exactDiff", "provenance", "policyResult"], "properties": { "schemaVersion": { "const": 1 }, "eventId": { "type": "string", "pattern": "^memory-event/" }, "ordinal": { "type": "integer", "minimum": 1 }, "transitionAction": { "enum": ["approve", "reject"] }, "action": { "enum": ["approved", "rejected", "stale", "expired"] }, "proposalId": { "type": "string", "pattern": "^memory-proposal/" }, "revisionId": { "type": ["string", "null"] }, "transitionTokenHash": { "$ref": "common.schema.json#/$defs/digest" }, "actor": { "type": "string" }, "occurredAt": { "$ref": "common.schema.json#/$defs/timestamp" }, "exactDiff": { "type": "array", "items": { "$ref": "#/$defs/diff" } }, "provenance": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/provenance" } }, "policyResult": { "$ref": "#/$defs/policyResult" } }, "additionalProperties": false },
+    "decision": { "type": "object", "required": ["schemaVersion", "decisionId", "proposalId", "transitionAction", "state", "revisionId", "transitionTokenHash", "actor", "decidedAt", "proposalFingerprint", "policyVersion", "reason"], "properties": { "schemaVersion": { "const": 1 }, "decisionId": { "type": "string" }, "proposalId": { "type": "string", "pattern": "^memory-proposal/" }, "transitionAction": { "enum": ["approve", "reject"] }, "state": { "enum": ["approved", "rejected", "stale", "expired"] }, "revisionId": { "type": ["string", "null"] }, "transitionTokenHash": { "$ref": "common.schema.json#/$defs/digest" }, "actor": { "type": "string" }, "decidedAt": { "$ref": "common.schema.json#/$defs/timestamp" }, "proposalFingerprint": { "$ref": "common.schema.json#/$defs/digest" }, "policyVersion": { "type": "string" }, "reason": { "type": "string" } }, "additionalProperties": false }
+  }
+}

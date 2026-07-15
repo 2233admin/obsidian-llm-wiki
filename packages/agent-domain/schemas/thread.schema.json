@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.llmwiki.org/agent-domain/v1/thread.schema.json",
+  "title": "Durable Thread v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "threadId", "revision", "durability", "lifecycle", "projectId", "bindingId", "bindingRevision", "profileId", "profileRevision", "title", "references", "createdAt", "createdBy", "updatedAt", "updatedBy"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "threadId": { "$ref": "common.schema.json#/$defs/threadId" },
+    "revision": { "type": "integer", "minimum": 1 },
+    "durability": { "const": "durable" },
+    "lifecycle": { "enum": ["open", "closed", "archived"] },
+    "projectId": { "$ref": "common.schema.json#/$defs/projectId" },
+    "bindingId": { "$ref": "common.schema.json#/$defs/bindingId" },
+    "bindingRevision": { "type": "integer", "minimum": 1 },
+    "profileId": { "$ref": "common.schema.json#/$defs/agentProfileId" },
+    "profileRevision": { "type": "integer", "minimum": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "references": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ordinal", "kind", "referenceId", "recordedAt", "citations"],
+        "properties": {
+          "ordinal": { "type": "integer", "minimum": 1 },
+          "kind": { "enum": ["message", "artifact", "workRun"] },
+          "referenceId": { "type": "string", "minLength": 1 },
+          "recordedAt": { "$ref": "common.schema.json#/$defs/timestamp" },
+          "contentHash": { "$ref": "common.schema.json#/$defs/digest" },
+          "citations": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+        }
+      }
+    },
+    "createdAt": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "createdBy": { "type": "string", "minLength": 1 },
+    "updatedAt": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "updatedBy": { "type": "string", "minLength": 1 },
+    "previousRevision": { "type": "object", "additionalProperties": false, "required": ["revision", "digest"], "properties": { "revision": { "type": "integer", "minimum": 1 }, "digest": { "$ref": "common.schema.json#/$defs/digest" } } }
+  }
+}

@@ -19,7 +19,7 @@ Project.
 | `.vault-mind/local-bindings.json` | Workspace Registry | Project ID to machine-local workspace path | Device-local and rebuildable |
 | `.vault-mind/_leases.json` | Work Driver | Short-lived lease tokens and machine coordination | Device-local and expiring |
 | `_llmwiki/source-registry.json` | Source Registry | Source identity and ingest-registration state | Shared and durable |
-| GitHub, Gitea, Linear records | External provider | Provider-owned state exposed through External Projections | Provider-defined |
+| GitHub, Gitea, Linear, Plane records | External provider | Provider-owned state exposed through External Projections | Provider-defined |
 | `10-Projects/<slug>/docket/**` | Retired | No current authority | Migration input only; never a write target |
 
 ## Resolution contract
@@ -42,6 +42,12 @@ The Project Hub is a read-only composition. It reports each section's owner,
 freshness, health, and drift, then routes mutations to the owning operation.
 It never stores a machine path, secret value, copied provider workflow state,
 or independent Work Item state.
+
+Project Tracker providers are also separate from Host Capability Connectors.
+Tracker REST or GraphQL endpoints synchronize External Projections; Host
+Capability MCP or local endpoints execute explicitly granted descriptors. The
+two surfaces have independent Settings profiles, Secret References, health,
+and authorization. See ADR 0010.
 
 ## Migration contract
 

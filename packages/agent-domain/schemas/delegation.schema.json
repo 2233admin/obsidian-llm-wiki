@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://llmwiki.local/agent-domain/v1/delegation.schema.json",
+  "title": "LLM Wiki Delegation Contracts",
+  "oneOf": [
+    { "$ref": "#/$defs/delegationPlan" },
+    { "$ref": "#/$defs/capabilityGrant" },
+    { "$ref": "#/$defs/artifactProjection" },
+    { "$ref": "#/$defs/childWorkRun" }
+  ],
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "sideEffect": { "enum": ["read-only", "local-write", "external-write", "external-delete", "external-execute"] },
+    "capabilityScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["connectors", "operations", "resources", "sideEffectClasses"],
+      "properties": {
+        "connectors": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "operations": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "resources": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "sideEffectClasses": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/sideEffect" } }
+      }
+    },
+    "assignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["assignmentPlanId", "assignmentPlanVersion", "assignmentPlanFingerprint", "deviceSnapshot", "profileId", "profileRevision", "bindingId", "bindingRevision", "contextEnvelopeFingerprint"],
+      "properties": {
+        "assignmentPlanId": { "type": "string", "pattern": "^assignment-plan/" },
+        "assignmentPlanVersion": { "type": "integer", "minimum": 1 },
+        "assignmentPlanFingerprint": { "$ref": "#/$defs/digest" },
+        "deviceSnapshot": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["snapshotId", "deviceId", "revision", "fingerprint", "capturedAt", "expiresAt"],
+          "properties": {
+            "snapshotId": { "type": "string", "pattern": "^device-snapshot/" },
+            "deviceId": { "type": "string", "minLength": 1 },
+            "revision": { "type": "integer", "minimum": 1 },
+            "fingerprint": { "$ref": "#/$defs/digest" },
+            "capturedAt": { "$ref": "#/$defs/timestamp" },
+            "expiresAt": { "$ref": "#/$defs/timestamp" }
+          }
+        },
+        "profileId": { "type": "string", "pattern": "^agent/" },
+        "profileRevision": { "type": "integer", "minimum": 1 },
+        "bindingId": { "type": "string", "pattern": "^binding/" },
+        "bindingRevision": { "type": "integer", "minimum": 1 },
+        "contextEnvelopeFingerprint": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "expectedOutput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outputClass", "mediaType", "requiredArtifactCount", "acceptanceCriteria"],
+      "properties": {
+        "outputClass": { "enum": ["run-output", "durable-knowledge-candidate", "decision-candidate", "architecture-candidate", "runbook-candidate", "external-operation-result", "diagnostic"] },
+        "mediaType": { "type": "string", "minLength": 1 },
+        "requiredArtifactCount": { "type": "integer", "minimum": 1 },
+        "acceptanceCriteria": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "capabilityGrant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "grantId", "projectId", "profileId", "profileRevision", "workRunId", "scope", "issuedAt", "expiresAt", "issuedBy", "policyDecision", "externalSideEffectApproval", "fingerprint"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "grantId": { "type": "string", "pattern": "^grant/" },
+        "projectId": { "type": "string", "pattern": "^project/" },
+        "profileId": { "type": "string", "pattern": "^agent/" },
+        "profileRevision": { "type": "integer", "minimum": 1 },
+        "workRunId": { "type": "string", "pattern": "^work-run/" },
+        "delegationPlanId": { "type": "string", "pattern": "^delegation-plan/" },
+        "scope": { "$ref": "#/$defs/capabilityScope" },
+        "issuedAt": { "$ref": "#/$defs/timestamp" },
+        "expiresAt": { "$ref": "#/$defs/timestamp" },
+        "issuedBy": { "type": "string", "minLength": 1 },
+        "policyDecision": { "type": "object" },
+        "externalSideEffectApproval": { "type": "object" },
+        "fingerprint": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "operationTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["connector", "operation", "resource"],
+      "properties": {
+        "connector": { "type": "string", "minLength": 1 },
+        "operation": { "type": "string", "minLength": 1 },
+        "resource": { "type": "string", "minLength": 1 }
+      }
+    },
+    "operationWriteReview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "state", "policyVersion", "approvalScope"],
+      "properties": {
+        "required": { "type": "boolean" },
+        "state": { "enum": ["not-required", "approval-required", "approved", "denied"] },
+        "policyVersion": { "type": "string", "minLength": 1 },
+        "approvalScope": { "enum": ["none", "per-run"] },
+        "approvedWorkRunId": { "type": "string", "pattern": "^work-run/[a-z0-9][a-z0-9-]*$" },
+        "grantId": { "type": "string", "pattern": "^grant/" },
+        "decisionFingerprint": { "$ref": "#/$defs/digest" }
+      },
+      "allOf": [{
+        "if": { "properties": { "state": { "const": "approved" } } },
+        "then": { "required": ["grantId", "decisionFingerprint"] }
+      }]
+    },
+    "artifactProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "projectionId", "artifactId", "projectId", "producer", "sourceWorkRunId", "contextFingerprint", "inputArtifactIds", "contentHash", "mediaType", "outputClass", "sideEffectClass", "promotionReview", "operationWriteReview", "provenance", "warnings", "createdAt", "fingerprint"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "projectionId": { "type": "string", "pattern": "^artifact-projection/" },
+        "artifactId": { "type": "string", "pattern": "^artifact/" },
+        "projectId": { "type": "string", "pattern": "^project/" },
+        "producer": { "type": "object" },
+        "sourceWorkRunId": { "type": "string", "pattern": "^work-run/" },
+        "parentWorkRunId": { "type": "string", "pattern": "^work-run/" },
+        "contextFingerprint": { "$ref": "#/$defs/digest" },
+        "inputArtifactIds": { "type": "array", "uniqueItems": true },
+        "contentHash": { "$ref": "#/$defs/digest" },
+        "mediaType": { "type": "string" },
+        "outputClass": { "type": "string" },
+        "sideEffectClass": { "$ref": "#/$defs/sideEffect" },
+        "operationTarget": { "$ref": "#/$defs/operationTarget" },
+        "promotionReview": { "type": "object" },
+        "operationWriteReview": { "$ref": "#/$defs/operationWriteReview" },
+        "provenance": { "type": "array" },
+        "warnings": { "type": "array" },
+        "createdAt": { "$ref": "#/$defs/timestamp" },
+        "fingerprint": { "$ref": "#/$defs/digest" }
+      },
+      "allOf": [{
+        "if": { "properties": { "sideEffectClass": { "enum": ["external-write", "external-delete", "external-execute"] } } },
+        "then": { "required": ["operationTarget"] }
+      }]
+    },
+    "delegationPlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "planId", "projectId", "parentWorkRunId", "objective", "assignment", "inputArtifactIds", "requestedCapabilityScope", "budget", "expiresAt", "expectedOutput", "sideEffectPolicy", "provenance", "createdAt", "createdBy", "fingerprint"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "planId": { "type": "string", "pattern": "^delegation-plan/" },
+        "projectId": { "type": "string", "pattern": "^project/" },
+        "parentWorkRunId": { "type": "string", "pattern": "^work-run/" },
+        "objective": { "type": "string", "minLength": 1 },
+        "assignment": { "$ref": "#/$defs/assignment" },
+        "inputArtifactIds": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^artifact/" } },
+        "requestedCapabilityScope": { "$ref": "#/$defs/capabilityScope" },
+        "budget": { "type": "object" },
+        "expiresAt": { "$ref": "#/$defs/timestamp" },
+        "expectedOutput": { "$ref": "#/$defs/expectedOutput" },
+        "sideEffectPolicy": { "type": "object" },
+        "provenance": { "type": "array" },
+        "createdAt": { "$ref": "#/$defs/timestamp" },
+        "createdBy": { "type": "string", "minLength": 1 },
+        "fingerprint": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "childWorkRun": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "workRunId", "revision", "projectId", "parentWorkRunId", "delegationPlanId", "delegationPlanFingerprint", "lifecycle", "assignment", "expectedOutput", "inputArtifactIds", "grantSummary", "artifacts", "parentStateEffect", "createdAt", "createdBy", "updatedAt", "updatedBy", "fingerprint"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "workRunId": { "type": "string", "pattern": "^work-run/" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "previousRevision": { "type": "object" },
+        "projectId": { "type": "string", "pattern": "^project/" },
+        "parentWorkRunId": { "type": "string", "pattern": "^work-run/" },
+        "delegationPlanId": { "type": "string", "pattern": "^delegation-plan/" },
+        "delegationPlanFingerprint": { "$ref": "#/$defs/digest" },
+        "lifecycle": { "enum": ["ready", "running", "completed", "failed", "cancelled"] },
+        "assignment": { "$ref": "#/$defs/assignment" },
+        "expectedOutput": { "$ref": "#/$defs/expectedOutput" },
+        "inputArtifactIds": { "type": "array", "uniqueItems": true },
+        "grantSummary": { "$ref": "#/$defs/capabilityGrant" },
+        "artifacts": { "type": "array", "items": { "$ref": "#/$defs/artifactProjection" } },
+        "terminalDiagnosticArtifactId": { "type": "string", "pattern": "^artifact/" },
+        "parentStateEffect": { "const": "none" },
+        "createdAt": { "$ref": "#/$defs/timestamp" },
+        "createdBy": { "type": "string", "minLength": 1 },
+        "updatedAt": { "$ref": "#/$defs/timestamp" },
+        "updatedBy": { "type": "string", "minLength": 1 },
+        "fingerprint": { "$ref": "#/$defs/digest" }
+      }
+    }
+  }
+}

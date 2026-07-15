@@ -3,7 +3,7 @@
 > Auto-generated from `mcp-server/src/core/operations.ts`.
 > Run `npm run generate-tools-doc` to regenerate. Do not edit by hand.
 
-Total: **124** operations across **19** namespaces.
+Total: **176** operations across **24** namespaces.
 
 ## `vault.*` (31)
 
@@ -682,7 +682,89 @@ Check secret configuration status for a recipe
 
 - `id` (string, required) — Recipe id
 
-## `agent.*` (4)
+## `agent.*` (20)
+
+### `agent.binding.create`
+
+Bind an exact Agent Profile revision to one canonical Project Context.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `input` (object, required)
+
+### `agent.binding.list`
+
+List current Project Agent Bindings for a canonical Project.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, optional)
+- `profileId` (string, optional)
+- `enabled` (boolean, optional)
+
+### `agent.binding.read`
+
+Read the current immutable Project Agent Binding revision.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `bindingId` (string, required)
+
+### `agent.binding.update`
+
+Create the next Project Agent Binding revision under exact Project and optimistic locks.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `bindingId` (string, required)
+- `expectedRevision` (number, required)
+- `patch` (object, required)
+- `actor` (string, required)
+
+### `agent.context.compile`
+
+Compile a four-layer Context Envelope locked to current canonical Project, Profile, Binding, and approved Memory bytes.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, required)
+- `envelopeId` (string, required)
+- `compiledAt` (string, required)
+- `tokenBudget` (number, required)
+- `profileId` (string, required)
+- `expectedProfileRevision` (number, required)
+- `bindingId` (string, required)
+- `expectedBindingRevision` (number, required)
+- `memoryRevisionId` (string, required)
+- `expectedMemoryRevision` (number, required)
+- `expectedMemoryFingerprint` (string, required)
+- `threadId` (string, optional)
+- `expectedThreadRevision` (number, optional)
+- `deviceId` (string, optional)
+- `expectedDeviceRevision` (number, optional)
+- `expectedDeviceFingerprint` (string, optional)
+- `capabilityGrantIds` (array, optional)
+- `expectedFingerprint` (string, optional)
+- `explicitNewAttempt` (boolean, optional, default: `false`)
+- `input` (unknown, optional)
+- `platformKernel` (unknown, optional)
+- `runtime` (unknown, optional)
+- `deviceCapabilities` (unknown, optional)
+- `capabilityGrants` (unknown, optional)
+- `modelLock` (unknown, optional)
+- `profile` (unknown, optional)
+- `binding` (unknown, optional)
+- `memoryRevision` (unknown, optional)
 
 ### `agent.history`
 
@@ -693,6 +775,72 @@ Get agent action history
 **Parameters:**
 
 - `limit` (number, optional, default: `20`) — Maximum number of history entries (default: 20)
+
+### `agent.migration.plan`
+
+Create a deterministic, byte-preserving dry-run plan from legacy passport, handoff, session, and key/value memory into governed Agent domain proposals.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, required) — Canonical Project ID, slug, or registered alias
+- `actor` (string, required) — Legacy Agent actor directory to inventory
+
+### `agent.profile.create`
+
+Create revision 1 of a vault-scoped Agent Profile.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `input` (object, required)
+
+### `agent.profile.list`
+
+List current Agent Profile revisions deterministically.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `profileIds` (array, optional)
+
+### `agent.profile.read`
+
+Read the current immutable revision of one Agent Profile.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `profileId` (string, required)
+
+### `agent.profile.update`
+
+Create the next Agent Profile revision under an optimistic lock.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `profileId` (string, required)
+- `expectedRevision` (number, required)
+- `patch` (object, required)
+- `actor` (string, required)
+
+### `agent.room.get`
+
+Derive one read-only Room from Project Context, Agent Profile/Binding, and an active Thread.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, required)
+- `profileId` (string, required)
+- `threadId` (string, optional)
 
 ### `agent.schedule`
 
@@ -714,6 +862,65 @@ Get agent status
 **Parameters:**
 
 - `mode` (string, optional) — Agent mode filter
+
+### `agent.thread.append`
+
+Append one ordered message, artifact, or Work Run reference without promoting it to memory.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `threadId` (string, required)
+- `expectedRevision` (number, required)
+- `reference` (object, required)
+- `actor` (string, required)
+
+### `agent.thread.create`
+
+Open a durable Thread locked to exact Binding and Profile revisions.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `input` (object, required)
+
+### `agent.thread.list`
+
+List current durable Threads by canonical identity.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, optional)
+- `profileId` (string, optional)
+- `bindingId` (string, optional)
+- `lifecycle` (string, optional, enum: `open` | `closed` | `archived`)
+
+### `agent.thread.read`
+
+Read the current immutable Thread revision.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `threadId` (string, required)
+
+### `agent.thread.transition`
+
+Transition one Thread through its explicit lifecycle under an optimistic lock.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `threadId` (string, required)
+- `expectedRevision` (number, required)
+- `lifecycle` (string, required, enum: `open` | `closed` | `archived`)
+- `actor` (string, required)
 
 ### `agent.trigger`
 
@@ -1323,6 +1530,16 @@ Assert and join an existing Work Driver lease without overwriting its durable id
 - `work_run_id` (string, required) — Shared Work Run ID from the Work Driver lease
 - `work_run_state` (string, optional, enum: `planned` | `leased` | `running` | `awaiting_review` | `completed` | `failed` | `cancelled`) — Existing Work Run state; leased is expected when attaching a Work Driver lease
 - `work_item_id` (string, required) — Canonical project/<slug>/issue/<slug> identity
+- `agent_profile_id` (string, optional) — Locked Agent Profile identity asserted against the durable Work Run
+- `agent_profile_revision` (number, optional) — Locked positive Agent Profile revision
+- `project_agent_binding_id` (string, optional) — Locked Project Agent Binding identity
+- `project_agent_binding_revision` (number, optional) — Locked positive Project Agent Binding revision
+- `assignment_plan_id` (string, optional) — Approved deterministic Assignment Plan identity
+- `assignment_plan_version` (number, optional) — Locked positive Assignment Plan version
+- `assignment_plan_fingerprint` (string, optional) — Locked SHA-256 Assignment Plan fingerprint
+- `context_envelope_fingerprint` (string, optional) — Locked SHA-256 Context Envelope fingerprint
+- `device_snapshot` (object, optional) — Locked portable Device Snapshot used by the Assignment Plan
+- `parent_work_run_id` (string, optional) — Exactly one parent Work Run identity for a delegated child
 - `lease_mode` (string, optional, default: `"local"`, enum: `local` | `portable-handoff`) — local requires this device active lease. portable-handoff requires a valid expiring handoff token bound to the durable Work Run; any present local lease is still fully validated.
 - `handoff_token` (string, optional) — Sensitive secret required only for lease_mode=portable-handoff; never persisted or returned.
 - `transition_token` (string, optional) — Stable idempotency token from the Work Driver transition
@@ -1562,3 +1779,496 @@ Validate definitions, complete scope documents, effective values, and cross-sett
 **Parameters:**
 
 - `context` (object, optional)
+
+## `usage.*` (3)
+
+### `usage.append`
+
+Append one immutable Project-attributed Usage Event or replay its existing logical event.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, required) — Canonical Project ID or registered compatibility reference
+- `event` (object, required) — Versioned privacy-safe Usage Event
+
+### `usage.policy.evaluate`
+
+Evaluate one versioned Project-scoped Usage budget/admission policy over immutable Usage facts.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, required) — Canonical Project ID or registered compatibility reference
+- `policy` (object, required) — Versioned Usage Policy with an exact Project scope
+- `from` (string, optional) — Inclusive canonical UTC RFC3339 start
+- `to` (string, optional) — Exclusive canonical UTC RFC3339 end
+
+### `usage.project`
+
+Return a deterministic Project-owned Usage projection without mutating the Usage ledger.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, required) — Canonical Project ID or registered compatibility reference
+- `groupBy` (array, optional) — Usage dimensions used to form deterministic groups
+- `filters` (object, optional) — Additional Usage dimension filters; Project cannot drift
+- `from` (string, optional) — Inclusive canonical UTC RFC3339 start
+- `to` (string, optional) — Exclusive canonical UTC RFC3339 end
+
+## `host.*` (14)
+
+### `host.assignment.approve`
+
+Approve one exact pending AssignmentPlan fingerprint under its locked Project Binding and Capability Grant.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, required) — Canonical Project ID
+- `bindingId` (string, required) — Server-side current Project Agent Binding ID
+- `grantId` (string, required) — Server-issued active Child Work Run Capability Grant ID
+- `planId` (string, required)
+- `expectedFingerprint` (string, required)
+- `approvedBy` (string, required)
+
+### `host.assignment.plan`
+
+Create and persist a deterministic pending AssignmentPlan under Project Binding and Capability Grant gates.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, required) — Canonical Project ID
+- `bindingId` (string, required) — Server-side current Project Agent Binding ID
+- `grantId` (string, required) — Server-issued active Child Work Run Capability Grant ID
+- `requirement` (object, required)
+- `policy` (object, required)
+- `devices` (array, optional)
+- `plannedAt` (string, optional)
+
+### `host.assignment.read`
+
+Read an AssignmentPlan only through its current Project Binding and Capability Grant.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, required) — Canonical Project ID
+- `bindingId` (string, required) — Server-side current Project Agent Binding ID
+- `grantId` (string, required) — Server-issued active Child Work Run Capability Grant ID
+- `planId` (string, required)
+
+### `host.connector.list`
+
+List governed connector registrations without resolving credentials or connecting.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, optional)
+
+### `host.connector.read`
+
+Read one exact governed connector version with redaction-safe configuration.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `connectorId` (string, required)
+- `connectorVersion` (string, required)
+- `project` (string, optional)
+
+### `host.connector.register`
+
+Register a governed Host Capability Connector; credentials must remain Secret Reference locators.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, optional) — Canonical Project ID for workspace-project Settings
+- `registration` (object, required) — Connector, health, public configuration, and optional Secret Reference locator
+
+### `host.descriptor.list`
+
+List registered Expert Descriptors without connecting to external hosts.
+
+**Mutating:** no
+
+**Parameters:** none
+
+### `host.descriptor.read`
+
+Read one exact Expert Descriptor version.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `descriptorId` (string, required)
+- `descriptorVersion` (string, required)
+
+### `host.descriptor.register`
+
+Register an approved versioned Expert Descriptor with health and source observation.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `registration` (object, required) — Versioned Expert Descriptor registration
+
+### `host.doctor`
+
+Project read-only descriptor, connector, health, Secret Reference, and approved-plan diagnostics without external calls.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, optional)
+
+### `host.project`
+
+Project-scoped Host Capability, health, grant visibility, and AssignmentPlan projection without external calls.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, required) — Canonical Project ID
+- `bindingId` (string, required) — Server-side current Project Agent Binding ID
+- `grantId` (string, required) — Server-issued active Child Work Run Capability Grant ID
+
+### `host.proxy.describe`
+
+Describe the current granted descriptor and connector bytes without connecting.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, required) — Canonical Project ID
+- `bindingId` (string, required) — Server-side current Project Agent Binding ID
+- `grantId` (string, required) — Server-issued active Child Work Run Capability Grant ID
+- `descriptorId` (string, required)
+- `descriptorVersion` (string, required)
+
+### `host.proxy.invoke`
+
+Invoke one described operation through the persisted approved AssignmentPlan, Project Binding, and Capability Grant.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, required) — Canonical Project ID
+- `bindingId` (string, required) — Server-side current Project Agent Binding ID
+- `grantId` (string, required) — Server-issued active Child Work Run Capability Grant ID
+- `planId` (string, required)
+- `descriptorId` (string, required)
+- `descriptorVersion` (string, required)
+- `operation` (string, required)
+- `describedDescriptorFingerprint` (string, required)
+- `workItemId` (string, optional)
+- `input` (unknown, optional)
+- `timeoutMs` (number, optional)
+
+### `host.proxy.search`
+
+Search only Project-visible and granted Host Capability descriptors without opening transports.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, required) — Canonical Project ID
+- `bindingId` (string, required) — Server-side current Project Agent Binding ID
+- `grantId` (string, required) — Server-issued active Child Work Run Capability Grant ID
+- `query` (string, optional)
+- `capability` (string, optional)
+- `operation` (string, optional)
+
+## `dreamtime.*` (13)
+
+### `dreamtime.approve`
+
+Approve one exact immutable Memory Proposal fingerprint under a manual actor and revision lock.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, required)
+- `profileId` (string, required)
+- `proposalId` (string, required)
+- `presentedFingerprint` (string, required)
+- `expectedRevision` (number, required)
+- `transitionToken` (string, required)
+- `actor` (string, required)
+- `reason` (string, optional)
+
+### `dreamtime.cadence.run`
+
+Explicitly run one due Project-scoped cadence as a canonical Work Run and immutable proposal that remains pending manual approval.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, required)
+- `profileId` (string, required)
+- `cadence` (string, required, enum: `daily` | `weekly` | `monthly`)
+- `asOf` (string, required)
+- `tokenBudget` (number, required)
+- `sourceIdentities` (object, required)
+- `candidateDiff` (array, required)
+- `provenance` (array, required)
+- `warnings` (array, optional)
+- `expiresAt` (string, required)
+- `actor` (string, required)
+
+### `dreamtime.cadence.status`
+
+Compute one disabled-by-default Project-scoped UTC Dream Time cadence window without running a background scheduler.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, required)
+- `profileId` (string, required)
+- `cadence` (string, required, enum: `daily` | `weekly` | `monthly`)
+- `asOf` (string, required)
+
+### `dreamtime.checkpoint.propose`
+
+Create an immutable proposal-only checkpoint candidate without granting a worker any write, network, or connector authority.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, required)
+- `profileId` (string, required)
+- `workerInput` (object, required)
+- `candidate` (object, required)
+- `actor` (string, required)
+
+### `dreamtime.doctor`
+
+Read proposal, decision, warning, conflict, model-lock, provenance, and revision health without mutating memory.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, required)
+- `profileId` (string, optional)
+
+### `dreamtime.learn.propose`
+
+Create an immutable proposal-only learn candidate without granting a worker any write, network, or connector authority.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, required)
+- `profileId` (string, required)
+- `workerInput` (object, required)
+- `candidate` (object, required)
+- `actor` (string, required)
+
+### `dreamtime.promotion.handoff`
+
+Route a reviewed Dream Time durable-knowledge candidate into the existing quarantined AI-Output Promotion path.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, required)
+- `profileId` (string, required)
+- `proposalId` (string, required)
+- `proposalFingerprint` (string, required)
+- `candidateDiff` (array, required)
+- `provenance` (array, required)
+- `actor` (string, required)
+
+### `dreamtime.proposal.read`
+
+Read one immutable proposal with its terminal decision lifecycle projected separately.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, required)
+- `profileId` (string, required)
+- `proposalId` (string, required)
+
+### `dreamtime.reject`
+
+Reject one exact immutable Memory Proposal fingerprint under a manual actor and revision lock.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, required)
+- `profileId` (string, required)
+- `proposalId` (string, required)
+- `presentedFingerprint` (string, required)
+- `expectedRevision` (number, required)
+- `transitionToken` (string, required)
+- `actor` (string, required)
+- `reason` (string, optional)
+
+### `dreamtime.review.propose`
+
+Create an immutable proposal-only review candidate without granting a worker any write, network, or connector authority.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, required)
+- `profileId` (string, required)
+- `workerInput` (object, required)
+- `candidate` (object, required)
+- `actor` (string, required)
+
+### `dreamtime.revision.current`
+
+Read the current approved Memory Revision for one Project Agent.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, required)
+- `profileId` (string, required)
+
+### `dreamtime.revision.history`
+
+Project immutable Memory Revisions and append-only decision events.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, required)
+- `profileId` (string, required)
+
+### `dreamtime.revision.read`
+
+Read one exact approved Memory Revision identity.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, required)
+- `profileId` (string, required)
+- `revisionId` (string, required)
+
+## `consult.*` (1)
+
+### `consult.execute`
+
+Execute one authorized as-of Context Consult and persist only its read-only Artifact Projection.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, required)
+- `request` (object, required)
+- `invocationToken` (string, required)
+- `workerOutput` (object, required)
+- `inputArtifactIds` (array, optional)
+- `actor` (string, required)
+- `grant` (unknown, optional)
+
+## `delegation.*` (5)
+
+### `delegation.approve`
+
+Approve one exact Delegation Plan and idempotently create one same-Project Child Work Run with an expiring scoped grant.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, required)
+- `planId` (string, required)
+- `presentedFingerprint` (string, required)
+- `expectedRevision` (number, required)
+- `transitionToken` (string, required)
+- `approvedExternalClasses` (array, required)
+- `actor` (string, required)
+
+### `delegation.artifact.project`
+
+Project one provenance-preserving artifact from a Child Work Run back to its parent review surface.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, required)
+- `workRunId` (string, required)
+- `expectedRevision` (number, required)
+- `transitionToken` (string, required)
+- `actor` (string, required)
+- `artifact` (object, required)
+
+### `delegation.plan`
+
+Persist one explicit, reviewable Delegation Plan locked to canonical Project, parent Work Run, Agent, Binding, assignment, budget, and side-effect scope.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, required)
+- `input` (object, required)
+- `actor` (string, required)
+
+### `delegation.read`
+
+Read one immutable Delegation Plan and its deterministic Child Work Run projection when approved.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, required)
+- `planId` (string, required)
+
+### `delegation.transition`
+
+Transition one Child Work Run without inferring any parent terminal state.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, required)
+- `workRunId` (string, required)
+- `expectedRevision` (number, required)
+- `lifecycle` (string, required, enum: `running` | `completed` | `failed` | `cancelled`)
+- `transitionToken` (string, required)
+- `actor` (string, required)
+- `diagnosticArtifact` (object, optional)

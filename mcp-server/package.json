@@ -1,30 +1,34 @@
 {
   "name": "@obsidian-llm-wiki/mcp",
-  "version": "0.3.0",
+  "version": "0.4.0-beta.1",
   "description": "A faithful reference implementation of Karpathy's LLM Wiki pattern -- headless-first MCP server, plain markdown, keyword recall out of the box (semantic recall is an optional Ollama upgrade), Obsidian-native.",
   "type": "module",
   "main": "bundle.js",
-  "types": "dist/index.d.ts",
   "bin": {
     "obsidian-llm-wiki-mcp": "bundle.js",
-    "memu-query": "dist/scripts/memu-query.js"
+    "memu-query": "memu-query.js",
+    "llmwiki-usage": "usage-cli.js",
+    "llmwiki-agent": "agent-domain-cli.js"
   },
   "files": [
     "bundle.js",
-    "dist/scripts/memu-query.js",
-    "package.json",
-    "README.md"
+    "agent-domain-cli.js",
+    "memu-query.js",
+    "usage-cli.js",
+    "package.json"
   ],
   "scripts": {
     "settings:build": "node -e \"require('node:fs').rmSync('../packages/settings-platform/dist',{recursive:true,force:true})\" && tsc -p ../packages/settings-platform/tsconfig.build.json --typeRoots ./node_modules/@types",
-    "prebuild": "npm run settings:build",
+    "agent-domain:build": "node -e \"require('node:fs').rmSync('../packages/agent-domain/dist',{recursive:true,force:true})\" && tsc -p ../packages/agent-domain/tsconfig.build.json --typeRoots ./node_modules/@types",
+    "platforms:build": "npm run settings:build && npm run agent-domain:build",
+    "prebuild": "npm run platforms:build",
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "node bundle.js",
     "start:dev": "node dist/index.js",
-    "pretypecheck": "npm run settings:build",
+    "pretypecheck": "npm run platforms:build",
     "typecheck": "tsc --noEmit",
-    "pretest": "npm run settings:build",
+    "pretest": "npm run platforms:build",
     "test": "bun test tests/ src/",
     "test:legacy": "bun test tests/",
     "test:source": "bun test src/",
@@ -32,9 +36,13 @@
     "sync-vault-to-memu": "node dist/scripts/sync-vault-to-memu.js",
     "claude-mem-sync": "node dist/scripts/claude-mem-sync.js",
     "generate-tools-doc": "node dist/scripts/generate-tools-doc.js",
-    "bundle": "esbuild dist/index.js --bundle --platform=node --target=node20 --format=esm --outfile=bundle.js --external:@electric-sql/pglite --external:@electric-sql/pglite/* --banner:js=\"import{createRequire}from'module';const require=createRequire(import.meta.url);\" --log-level=warning",
+    "bundle:mcp": "esbuild dist/index.js --bundle --platform=node --target=node20 --format=esm --outfile=bundle.js --external:@electric-sql/pglite --external:@electric-sql/pglite/* --banner:js=\"import{createRequire}from'module';const require=createRequire(import.meta.url);\" --log-level=warning",
+    "bundle:agent-domain-cli": "esbuild dist/agent-domain/cli.js --bundle --platform=node --target=node20 --format=esm --outfile=agent-domain-cli.js --log-level=warning",
+    "bundle:memu-query": "esbuild dist/scripts/memu-query.js --bundle --platform=node --target=node20 --format=esm --outfile=memu-query.js --log-level=warning",
+    "bundle:usage-cli": "esbuild dist/usage/cli.js --bundle --platform=node --target=node20 --format=esm --outfile=usage-cli.js --log-level=warning",
+    "bundle": "npm run bundle:mcp && npm run bundle:agent-domain-cli && npm run bundle:memu-query && npm run bundle:usage-cli",
     "rebuild": "npm run build && npm run bundle",
-    "verify:bundle": "npm run rebuild && git diff --exit-code -- bundle.js"
+    "verify:bundle": "npm run rebuild && node scripts/verify-bundles.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.3",

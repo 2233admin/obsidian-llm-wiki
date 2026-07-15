@@ -1,5 +1,13 @@
 # Fleet workflow acceptance
 
+> **Current governed v2 gate:** the default fixture is now
+> `tests/fixtures/fleet-workflow.v2.json`. It creates one local parent Work Run
+> and uses `kb_meta work next --governed-assignment <json-file>` to create one
+> schema v2 child Work Run for 5090. The deterministic two-vault gate is
+> automated; a fresh real 5090 execution at the release commit is still required
+> before recording new accepted release evidence. The historical evidence below
+> remains evidence for the earlier v1 single-run contract only.
+
 > **Accepted baseline evidence:** product commit
 > `89cf831ed4615270c56edd2784928a29e52e1789` passed the deterministic
 > independent two-vault harness and the real local ↔ 5090 sequence below.
@@ -15,8 +23,8 @@ proof contents were not printed or copied into the vault.
 > **Accepted beta candidate evidence:** product commit
 > `b0c447a5f228ddd2d4f3f1ba0b001817f89ea155` passed the complete clean-worktree
 > 5090 gate and a fresh real local ↔ 5090 round trip. The accepted Work Run's
-> fixture-declared External Projections are `task_762926afd8e3` and
-> `term_3345405f-64bb-407a-a6a9-7d0cdc8edfe2`; they are not Project or Work Run
+> fixture-declared External Projections are `task_192b70c714e0` and
+> `term_88dba0af-df72-4390-b427-9e916f8fb03c`; they are not Project or Work Run
 > identities. Orca task `task_8b75633c128f` and terminal
 > `term_a4da43a7-e97e-45f0-84f1-d1b218be3581` prepared and confirmed the clean
 > exact-SHA worktree and dependency environment; they are execution provenance,
@@ -39,20 +47,55 @@ This harness proves the LLM Wiki product contract across a real fleet handoff.
 An Orca task reporting success is useful execution evidence, but it is not the
 durable Project, Work Item, Work Run, or agent identity.
 
-The fixture declares one Project, one Work Item, one remote agent, and the real
-Orca task/terminal projections used for the 5090 collaboration. It deliberately
-does **not** declare a Work Run ID. During `prepare`, the TypeScript Project
-operations create the canonical Project and issue, then Python
-`compiler/kb_meta.py work next --claim` selects that issue, acquires the local
-lease, and creates the unique durable Work Run.
+The v2 fixture declares one Project, a non-terminal local parent Work Run, one
+delegated Work Item, one remote agent, a locked governed assignment, input
+artifacts, expected output, and the real Orca task/terminal projections used for
+the 5090 collaboration. It deliberately does **not** declare the child Work Run
+ID. During `prepare`, the TypeScript Project operations create the canonical
+Project and issues, then Python `compiler/kb_meta.py work next --claim
+--governed-assignment <json-file>` selects the delegated issue, acquires the
+local lease, and creates the unique schema v2 child Work Run. The generated
+child identity is then attached to the parent and included in the portable
+handoff marker.
 
-The acceptance marker shared with 5090 contains only the commit SHA, fixture
-digest, correlation ID, canonical identities, correlated transition tokens, and
-Orca projections. The local lease registry, local proof, and absolute paths are
-never included. The Work Driver's raw `handoff_token` is a short-lived
+The v2 acceptance marker shared with 5090 contains only the commit SHA, fixture
+digest, correlation ID, canonical parent/child identities, locked Profile,
+Binding and Assignment Plan versions, Context Envelope fingerprint, non-secret
+grant summary, input Artifact Projections, expected output, correlated
+transition tokens, and Orca projections. The local lease registry, local proof,
+absolute paths, credentials, and usable grant/lease tokens are never included.
+The Work Driver's raw `handoff_token` is a short-lived
 capability, not an identity: it is written only to the gitignored/out-of-repo
 local device state and is never placed in the marker, shared vault, Git
 artifact, command arguments, log, or JSON report.
+
+## Cryptographic release-evidence gate
+
+Real-device reports are not self-authenticating. A release evidence document now
+uses schema v2 and must carry an Ed25519 attestation produced by 5090's
+device-local private key. The corresponding public trust anchor is frozen at
+[`docs/release-evidence/trust/device-cloud-5090.json`](release-evidence/trust/device-cloud-5090.json),
+and its enrollment and signing procedure is documented in
+[`docs/release-evidence/trust/README.md`](release-evidence/trust/README.md).
+
+The signature covers the exact tested commit, release tag, canonical fixture
+digest, correlation ID, recomputed canonical digests of all three raw reports,
+and the complete execution provenance including the Orca task, terminal, and
+runtime ID. The release verifier loads the public anchor from both the tested
+product commit and release commit and requires the two Git blobs to be
+byte-identical. It then recomputes the public-key DER fingerprint and payload
+digest before OpenSSL verifies the strict-base64 Ed25519 signature.
+The remote raw report must also contain exactly one `orca-task` and one
+`orca-terminal` External Projection whose targets equal the signed provenance;
+duplicate or detached projections are rejected.
+
+Unsigned evidence, self-authored replacement reports, recomputed report hashes
+without a new 5090 signature, wrong-key signatures, provenance changes, and
+evidence commits that introduce or rotate their own trust anchor all fail
+closed. Historical acceptance prose above remains useful context, but it is not
+a substitute for a signed per-release evidence document. This repository does
+not fabricate a final evidence document; it must be produced only after a fresh
+real 5090 run at the final tested product SHA.
 
 ## Deterministic two-vault check
 
@@ -62,25 +105,43 @@ Run the whole contract locally with two independent temporary vault copies:
 bun scripts/verify_fleet_workflow.ts --phase all --json
 ```
 
+This developer preflight may run against an uncommitted worktree, so its
+reported `commit` is not release evidence by itself. Final-SHA acceptance must
+run from a clean checkout and add `--require-clean`; that gate rejects both
+tracked and untracked changes before any acceptance state is created.
+
 `all` performs these steps:
 
-1. prepare the Project, Work Item, dynamic Work Run, and local lease in a local
-   vault;
+1. prepare the Project, delegated Work Item, non-terminal parent, dynamic child,
+   and local lease in a local vault;
 2. copy shared vault files to an independent 5090 vault while excluding the
    entire `.vault-mind` machine layer;
 3. reject missing and wrong capabilities plus wrong-agent, wrong-Work-Item,
    wrong-Work-Run, and wrong-Project joins with byte-identical
    runs/agents/events/lease manifests;
-4. pass the generated capability out-of-band, join the leased run using
-   `lease_mode: portable-handoff`, checkpoint, leave, and prove exact replays do
-   not change bytes;
-5. copy shared results back while again excluding `.vault-mind`; and
-6. prove the original local lease bytes are unchanged, then run the local doctor
+4. pass the generated capability out-of-band, assert the locked governed
+   assignment, join the leased child using `lease_mode: portable-handoff`,
+   checkpoint, leave, and prove exact transition replays do not change bytes;
+5. project a provenance-complete child output artifact to both child and parent,
+   while leaving the parent non-terminal;
+6. resubmit the complete portable handoff and prove it reports the existing
+   child without changing shared bytes;
+7. copy shared results back while again excluding `.vault-mind`, prove the local
+   and remote shared file manifests are byte-identical, and verify the remote
+   shared-byte digest; and
+8. prove the original local lease bytes are unchanged, then run the local doctor
    and read-only Project Hub verification.
 
 The command exits non-zero on any failed invariant. Automatically-created paths
 are deleted unless `--keep` is supplied. Paths supplied with `--vault`,
 `--remote-vault`, or `--device-state` are never deleted.
+
+The previous interface remains available for regression checks:
+
+```powershell
+bun scripts/verify_fleet_workflow.ts --phase all `
+  --fixture tests/fixtures/fleet-workflow.v1.json --json
+```
 
 ## Local plus real 5090 sequence
 
@@ -99,6 +160,7 @@ bun scripts/verify_fleet_workflow.ts `
   --phase prepare `
   --vault $localVault `
   --device-state $localDeviceState `
+  --require-clean `
   --json
 ```
 
@@ -130,8 +192,14 @@ bun scripts/verify_fleet_workflow.ts `
   --vault $remoteVault `
   --device-state $remoteDeviceState `
   --tested-commit <prepare-report.commit> `
+  --require-clean `
   --json
 ```
+
+If the remote response is lost, run the same remote command again with the same
+marker and out-of-band capability. For v2, the verifier must report the existing
+completed child and leave every shared byte unchanged. A duplicate child
+identity is a failure.
 
 Environment injection is also supported without printing the value:
 
@@ -151,9 +219,10 @@ the product commit, commit only the disposable acceptance vault on a temporary
 artifact branch, and check out that branch on 5090. The marker's product commit
 must remain an ancestor of the artifact commit. `--tested-commit` explicitly
 pins the product commit and must equal `marker.commit`; it allows `HEAD` to be
-the descendant artifact commit. Without that flag, descendant commits are
+the descendant artifact commit. Every descendant requires that flag and is
 accepted only when every changed path is inside the in-repository acceptance
-vault. Product-code changes on the artifact branch are rejected.
+vault. Product-code changes on the artifact branch are rejected even when the
+tested product commit was pinned explicitly.
 
 Copy the 5090 vault files back into `local-vault`, again excluding
 `.vault-mind`. Then verify on the local host:
@@ -164,25 +233,38 @@ bun scripts/verify_fleet_workflow.ts `
   --vault $localVault `
   --device-state $localDeviceState `
   --tested-commit <prepare-report.commit> `
+  --require-clean `
   --json
 ```
 
 The three JSON reports must carry the same `commit`, `fixtureDigest`, and
-`correlationId`. The final report must prove:
+`correlationId`. The final v2 report must prove:
 
-- exactly one Work Run keeps the local Work Driver's Project, Work Item, Work
-  Run, and agent identities;
+- one CLI-created schema v2 child keeps the local Work Driver's Project, Work
+  Item, Work Run, agent, parent, locked Profile/Binding/Assignment, Context
+  fingerprint, grant summary, artifact input, expected output, and transition
+  identities;
+- the parent and child share one Project, the parent names exactly that child,
+  and child completion does not infer a terminal parent state;
 - the local lease registry is byte-for-byte unchanged after the remote round
   trip;
+- the child output Artifact Projection appears on the parent with producer,
+  source child Work Run, approved context fingerprint, input refs, content hash,
+  output class, and review state; missing provenance keeps acceptance failed;
+- a full remote replay returns the existing child and changes no shared bytes;
+- the returned local shared manifest is byte-identical to the remote manifest,
+  and the local verifier reproduces the remote shared-byte digest;
 - the local workflow doctor accepts the completed run;
-- the read-only Project Hub observes exactly one run;
+- the read-only Project Hub observes the two-run parent/child graph;
 - every mismatched join is rejected without mutation;
 - missing and incorrect handoff capabilities are rejected without mutation;
 - exact join/checkpoint/leave replays are byte-identical;
 - Orca task/terminal references remain provider-owned projections; and
-- no raw handoff capability, absolute local path, or lease field appears in the
-  acceptance marker, shared artifacts, durable run, Project Hub response, or
-  CLI output.
+- no raw handoff/grant/lease capability, plaintext secret, credential, absolute
+  local path, workspace/process state, or machine-local lease field appears in
+  the acceptance marker, shared artifacts, durable graph, Project Hub response,
+  or CLI output. Correlated transition tokens are non-secret idempotency
+  receipts and are intentionally part of the portable handoff.
 
 The harness refuses pre-existing acceptance targets, unsafe fixture identities,
 path traversal, symlinked acceptance ancestors, and a non-empty user-supplied

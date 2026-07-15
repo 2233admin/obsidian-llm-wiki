@@ -91,3 +91,157 @@
   color: var(--text-muted);
   margin-top: 2px;
 }
+
+.llmwiki-agent-control-actions {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  margin: 8px 0 12px;
+}
+
+.llmwiki-control-plane-modal {
+  width: min(1120px, 94vw);
+}
+
+.llmwiki-control-plane-modal .modal-content {
+  max-height: 86vh;
+  overflow: auto;
+}
+
+.llmwiki-control-plane-intro,
+.llmwiki-control-plane-empty,
+.llmwiki-control-section > p {
+  color: var(--text-muted);
+}
+
+.llmwiki-control-plane-error {
+  border-left: 3px solid var(--color-red);
+  color: var(--color-red);
+  padding-left: 10px;
+}
+
+.llmwiki-control-query,
+.llmwiki-consult-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+  align-items: end;
+  margin: 16px 0;
+}
+
+.llmwiki-control-query label,
+.llmwiki-consult-controls label,
+.llmwiki-editor-field {
+  display: grid;
+  gap: 4px;
+}
+
+.llmwiki-control-query label span,
+.llmwiki-consult-controls label span,
+.llmwiki-editor-field span {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+
+.llmwiki-control-section {
+  border-top: 1px solid var(--background-modifier-border);
+  margin-top: 22px;
+  padding-top: 14px;
+}
+
+.llmwiki-control-section h3,
+.llmwiki-control-card h4 {
+  margin-bottom: 4px;
+}
+
+.llmwiki-control-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 10px;
+}
+
+.llmwiki-control-card {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  background: var(--background-secondary);
+  padding: 10px 12px;
+  margin: 8px 0;
+  min-width: 0;
+}
+
+.llmwiki-control-card pre {
+  max-height: 300px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.llmwiki-control-record {
+  border-top: 1px solid var(--background-modifier-border);
+  display: grid;
+  gap: 3px;
+  padding: 8px 0;
+}
+
+.llmwiki-control-record:first-of-type {
+  border-top: 0;
+}
+
+.llmwiki-control-record code,
+.llmwiki-control-record small {
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.llmwiki-control-fact {
+  display: grid;
+  grid-template-columns: minmax(100px, 0.32fr) 1fr;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.llmwiki-control-fact span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.llmwiki-control-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.llmwiki-diagnostic,
+.llmwiki-proposal-summary {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.4fr) 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 0;
+}
+
+.llmwiki-diagnostic-warning { color: var(--color-yellow); }
+.llmwiki-diagnostic-error { color: var(--color-red); }
+
+.llmwiki-stale {
+  border-color: var(--color-yellow);
+}
+
+.llmwiki-proposal-warnings,
+.llmwiki-proposal-diff {
+  margin-top: 12px;
+}
+
+.llmwiki-proposal-change {
+  border-left: 3px solid var(--interactive-accent);
+  padding-left: 10px;
+  margin: 8px 0;
+}
+
+.llmwiki-editor-field {
+  margin: 10px 0;
+}
+
+.llmwiki-editor-field textarea {
+  min-height: 96px;
+}

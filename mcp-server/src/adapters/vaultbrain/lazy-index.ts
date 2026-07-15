@@ -6,7 +6,7 @@
  * make the integrator run `vault reindex` by hand (DX review F2: zero-setup is the
  * Champion target), the first recall against an empty store triggers a backfill.
  *
- * Measured strategy: the real vault (D:\knowledge) is 1256 markdown files. A
+ * Measured strategy: a representative 1256-file vault is large enough that a
  * synchronous walk+chunk+insert of that many notes would block the first query
  * for tens of seconds, so large vaults index in the BACKGROUND (filesystem
  * fallback serves recall meanwhile, keyword sharpens once the pass finishes).

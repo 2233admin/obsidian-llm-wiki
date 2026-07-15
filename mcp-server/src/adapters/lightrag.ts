@@ -5,10 +5,8 @@
  * LightRAG. It calls an already-running LightRAG HTTP server and maps returned
  * context chunks into VaultMindAdapter SearchResult objects.
  *
- * Env:
- *   LIGHTRAG_URL=http://127.0.0.1:9621
- *   LIGHTRAG_API_KEY=...              optional X-API-Key
- *   LIGHTRAG_MODE=hybrid              optional query mode
+ * Runtime configuration is injected by the Settings-derived adapter profile.
+ * This class deliberately never reads process.env or resolves Secret References.
  */
 
 import { readFileSync } from "node:fs";
@@ -20,7 +18,7 @@ import type {
   VaultMindAdapter,
 } from "./interface.js";
 
-type LightRAGAdapterOpts = {
+export type LightRAGAdapterOpts = {
   baseUrl?: string;
   apiKey?: string;
   mode?: string;
@@ -79,15 +77,15 @@ export class LightRAGAdapter implements VaultMindAdapter {
   private readonly documentsUploadPath: string;
   private readonly fetchImpl: typeof fetch;
 
-  constructor(opts?: LightRAGAdapterOpts) {
-    this.baseUrl = normalizeBaseUrl(opts?.baseUrl ?? process.env.LIGHTRAG_URL);
-    this.apiKey = opts?.apiKey ?? process.env.LIGHTRAG_API_KEY;
-    this.mode = opts?.mode ?? process.env.LIGHTRAG_MODE ?? "hybrid";
-    this.queryPath = normalizePath(opts?.queryPath ?? process.env.LIGHTRAG_QUERY_PATH ?? "/query");
-    this.queryDataPath = normalizePath(opts?.queryDataPath ?? process.env.LIGHTRAG_QUERY_DATA_PATH ?? "/query/data");
-    this.documentsTextPath = normalizePath(opts?.documentsTextPath ?? process.env.LIGHTRAG_DOCUMENTS_TEXT_PATH ?? "/documents/text");
-    this.documentsUploadPath = normalizePath(opts?.documentsUploadPath ?? process.env.LIGHTRAG_DOCUMENTS_UPLOAD_PATH ?? "/documents/upload");
-    this.fetchImpl = opts?.fetchImpl ?? fetch;
+  constructor(opts: LightRAGAdapterOpts = {}) {
+    this.baseUrl = normalizeBaseUrl(opts.baseUrl);
+    this.apiKey = opts.apiKey;
+    this.mode = opts.mode ?? "hybrid";
+    this.queryPath = normalizePath(opts.queryPath ?? "/query");
+    this.queryDataPath = normalizePath(opts.queryDataPath ?? "/query/data");
+    this.documentsTextPath = normalizePath(opts.documentsTextPath ?? "/documents/text");
+    this.documentsUploadPath = normalizePath(opts.documentsUploadPath ?? "/documents/upload");
+    this.fetchImpl = opts.fetchImpl ?? fetch;
   }
 
   get isAvailable(): boolean {
@@ -97,7 +95,7 @@ export class LightRAGAdapter implements VaultMindAdapter {
   async init(): Promise<void> {
     if (!this.baseUrl) {
       this._available = false;
-      process.stderr.write("llmwiki: [lightrag] LIGHTRAG_URL not set -- adapter disabled\n");
+      process.stderr.write("llmwiki: [lightrag] base URL not configured -- adapter disabled\n");
       return;
     }
 

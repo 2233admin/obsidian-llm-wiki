@@ -30,6 +30,7 @@ type BatchChildResult = {
 };
 
 const DEFAULT_PROTECTED_PATHS = ['20-Decisions/**', '30-Architecture/**', '40-Runbooks/**', 'README.md'];
+const DREAMTIME_CADENCE_AUTHORIZED_ROLES = new Set(['human', 'approver', 'admin']);
 const globCache = new Map<string, RegExp>();
 
 export function adjudicateOperationWrite(
@@ -46,7 +47,7 @@ export function adjudicateOperationWrite(
     throw makeErr(-32602, `Operation Write Policy for ${operation.name} produced no write targets`);
   }
   if (verdict.realWrite) {
-    enforceCollaborationPolicy(ctx.config, operation.name, verdict.targets);
+    enforceCollaborationPolicy(ctx.config, operation.name, verdict.params, verdict.targets);
   }
   return verdict;
 }
@@ -260,9 +261,17 @@ function adjudicateBatchWrite(
   };
 }
 
-function enforceCollaborationPolicy(config: VaultMindConfig, toolName: string, targets: string[]): void {
+function enforceCollaborationPolicy(
+  config: VaultMindConfig,
+  toolName: string,
+  params: Record<string, unknown>,
+  targets: string[],
+): void {
   const collab = config.collaboration;
   const actor = collab?.actor;
+  const cadenceTargets = toolName === 'dreamtime.cadence.run'
+    ? authorizedDreamTimeCadenceTargets(config, params, targets)
+    : undefined;
   if (!actor || collab?.enforce === false || targets.length === 0) return;
 
   const policy = readVaultCollabPolicy(config.vault_path);
@@ -281,6 +290,8 @@ function enforceCollaborationPolicy(config: VaultMindConfig, toolName: string, t
   for (const target of targets) {
     const protectedHit = matchAny(target, protectedPaths);
     const allowedHit = settingsOperationAllowsTarget(toolName, target)
+      || cadenceTargets?.has(normalizePolicyPath(target)) === true
+      || governedBackendOperationAllowsTarget(toolName, target)
       || (allowed.length > 0 && matchAny(target, allowed));
     if (protectedHit && !allowedHit) {
       throw makeErr(-32403, `Collaboration policy blocked ${toolName} by ${actor}: protected path ${target}`);
@@ -291,11 +302,110 @@ function enforceCollaborationPolicy(config: VaultMindConfig, toolName: string, t
   }
 }
 
+function authorizedDreamTimeCadenceTargets(
+  config: VaultMindConfig,
+  params: Record<string, unknown>,
+  targets: string[],
+): Set<string> {
+  const actor = config.collaboration?.actor?.trim();
+  const role = config.collaboration?.role ?? '';
+  if (!actor || !DREAMTIME_CADENCE_AUTHORIZED_ROLES.has(role)) {
+    throw makeErr(
+      -32403,
+      'Collaboration policy blocked dreamtime.cadence.run: authenticated human, approver, or admin required',
+    );
+  }
+  if (typeof params.actor !== 'string' || params.actor.trim() !== actor) {
+    throw makeErr(
+      -32403,
+      'Collaboration policy blocked dreamtime.cadence.run: requested actor must match authenticated actor',
+    );
+  }
+  if (typeof params.project !== 'string' || !params.project.trim()) {
+    throw makeErr(-32602, 'project required for write policy');
+  }
+  const project = resolveProjectContext(
+    config.vault_path,
+    params.project,
+    'dreamtime.cadence.run',
+    { recordCompatibility: false },
+  );
+  if (params.project !== project.projectId) {
+    throw makeErr(
+      -32403,
+      `Collaboration policy blocked dreamtime.cadence.run: canonical Project ID ${project.projectId} required`,
+    );
+  }
+
+  const allowed = new Set([
+    '_llmwiki/agent-domain/v1/**',
+    '_llmwiki/usage/v1/**',
+    `01-Projects/${project.slug}/runs/**`,
+    `10-Projects/${project.slug}/agents/**`,
+  ]);
+  const normalizedTargets = targets.map(normalizePolicyPath);
+  if (normalizedTargets.length !== allowed.size
+    || new Set(normalizedTargets).size !== allowed.size
+    || normalizedTargets.some((target) => !allowed.has(target))) {
+    throw makeErr(
+      -32403,
+      `Collaboration policy blocked dreamtime.cadence.run by ${actor}: write targets exceed exact Project Context authority`,
+    );
+  }
+  return allowed;
+}
+
 function settingsOperationAllowsTarget(toolName: string, target: string): boolean {
   if (toolName !== 'settings.assignment.set' && toolName !== 'settings.assignment.unset') return false;
   return /^_llmwiki\/settings\/(?:vault\.json|projects\/[A-Za-z0-9._-]+\.json|(?:user-device|session)\/[A-Za-z0-9._-]+)$/.test(
     normalizePolicyPath(target),
   );
+}
+
+function governedBackendOperationAllowsTarget(toolName: string, target: string): boolean {
+  const normalized = normalizePolicyPath(target);
+  if (toolName === 'host.proxy.invoke') return normalized === 'external/host-capability/**';
+  if (toolName === 'dreamtime.promotion.handoff') {
+    return normalized === '00-Inbox/AI-Output/vault-dreamtime/**';
+  }
+  if (new Set([
+    'dreamtime.checkpoint.propose',
+    'dreamtime.learn.propose',
+    'dreamtime.review.propose',
+    'consult.execute',
+    'delegation.plan',
+    'delegation.approve',
+  ]).has(toolName) && normalized === '_llmwiki/usage/v1/**') {
+    return true;
+  }
+  if (new Set([
+    'agent.profile.create',
+    'agent.profile.update',
+    'agent.binding.create',
+    'agent.binding.update',
+    'agent.thread.create',
+    'agent.thread.append',
+    'agent.thread.transition',
+    'dreamtime.checkpoint.propose',
+    'dreamtime.learn.propose',
+    'dreamtime.review.propose',
+    'dreamtime.approve',
+    'dreamtime.reject',
+    'consult.execute',
+    'delegation.plan',
+    'delegation.approve',
+    'delegation.transition',
+    'delegation.artifact.project',
+  ]).has(toolName)) {
+    return normalized === '_llmwiki/agent-domain/v1/**';
+  }
+  if (!new Set([
+    'host.descriptor.register',
+    'host.connector.register',
+    'host.assignment.plan',
+    'host.assignment.approve',
+  ]).has(toolName)) return false;
+  return /^_llmwiki\/host-capabilities\/v1\/(?:descriptors|connectors|assignments)(?:\/[A-Za-z0-9._*-]+(?:\.json)?)?$/.test(normalized);
 }
 
 function readVaultCollabPolicy(vaultPath: string): CollabPolicy {

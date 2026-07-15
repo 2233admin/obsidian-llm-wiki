@@ -22,6 +22,7 @@
   ],
   "scripts": {
     "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.build.json",
+    "fixtures:update": "bun scripts/update-conformance-fixtures.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "bun test tests/resolver.test.ts tests/persistence.test.ts tests/service.test.ts tests/schemas.test.ts"
   },

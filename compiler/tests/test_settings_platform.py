@@ -374,6 +374,244 @@ def test_python_persistence_recovers_when_active_json_has_the_wrong_shape(tmp_pa
         assert recovered["document"]["revision"] == 1
 
 
+def test_host_capability_invocation_profile_is_redacted_and_resolves_secret_only_at_last_mile(tmp_path: Path):
+    registry = load_registry(ROOT / "packages" / "settings-platform" / "registry" / "v1.json")
+    secret = "settings-only-secret"
+    service = SettingsService(
+        registry=registry,
+        vault_path=tmp_path,
+        user_device_id="pytest-device",
+        user_device_path=tmp_path / "device.json",
+        vault_id="vault-test",
+        workspace_project_id="project/web",
+        environment={"FORGE_SETTINGS_TOKEN": secret},
+    )
+    user_values = (
+        ("providers.host_capability.transport", "oauth"),
+        ("providers.host_capability.endpoint", "https://api.github.example"),
+        ("providers.host_capability.secret_ref", {
+            "provider": "environment",
+            "locator": "FORGE_SETTINGS_TOKEN",
+        }),
+        ("providers.host_capability.timeout_ms", 4321),
+    )
+    for revision, (key, value) in enumerate(user_values):
+        assert service.assignment_set(
+            scope="user-device",
+            key=key,
+            value=value,
+            expected_revision=revision,
+            updated_by="pytest",
+        )["status"] == "committed"
+    assert service.assignment_set(
+        scope="workspace-project",
+        target_id="project/web",
+        key="providers.host_capability.provider",
+        value="github",
+        expected_revision=0,
+        updated_by="pytest",
+    )["status"] == "committed"
+    assert service.assignment_set(
+        scope="workspace-project",
+        target_id="project/web",
+        key="providers.host_capability.enabled",
+        value=True,
+        expected_revision=1,
+        updated_by="pytest",
+    )["status"] == "committed"
+
+    profile = service.host_capability_invocation_profile()
+
+    assert profile["configured"] is True
+    assert profile["enabled"] is True
+    assert profile["provider"] == "github"
+    assert profile["connectorId"] == "connector/github"
+    assert profile["transport"] == "oauth"
+    assert profile["endpoint"] == "https://api.github.example"
+    assert profile["timeoutMs"] == 4321
+    assert profile["secretStatus"] == "present"
+    assert profile["secretRequired"] is True
+    assert profile["secretReference"] == {
+        "provider": "environment",
+        "locator": "FORGE_SETTINGS_TOKEN",
+    }
+    assert secret not in json.dumps(profile, sort_keys=True)
+    assert service.resolve_secret_reference(profile["secretReference"]) == secret
+
+
+def test_host_capability_provider_assignment_alone_is_explicit_configuration(tmp_path: Path):
+    registry = load_registry(ROOT / "packages" / "settings-platform" / "registry" / "v1.json")
+    service = SettingsService(
+        registry=registry,
+        vault_path=tmp_path,
+        user_device_id="pytest-device",
+        user_device_path=tmp_path / "device.json",
+        workspace_project_id="project/web",
+    )
+    assert service.assignment_set(
+        scope="workspace-project",
+        target_id="project/web",
+        key="providers.host_capability.provider",
+        value="linear",
+        expected_revision=0,
+        updated_by="pytest",
+    )["status"] == "committed"
+
+    profile = service.host_capability_invocation_profile()
+
+    assert profile["configured"] is True
+    assert profile["provider"] == "linear"
+    assert profile["connectorId"] == "connector/linear"
+
+
+@pytest.mark.parametrize("selector", ["reviewed-expert", "connector/reviewed-expert"])
+def test_host_capability_connector_selector_accepts_generic_or_canonical_identity(
+    tmp_path: Path, selector: str
+):
+    registry = load_registry(ROOT / "packages" / "settings-platform" / "registry" / "v1.json")
+    service = SettingsService(
+        registry=registry,
+        vault_path=tmp_path,
+        user_device_id="pytest-device",
+        user_device_path=tmp_path / "device.json",
+        workspace_project_id="project/web",
+    )
+    for revision, (key, value) in enumerate((
+        ("providers.host_capability.provider", selector),
+        ("providers.host_capability.enabled", True),
+    )):
+        assert service.assignment_set(
+            scope="workspace-project",
+            target_id="project/web",
+            key=key,
+            value=value,
+            expected_revision=revision,
+            updated_by="pytest",
+        )["status"] == "committed"
+    for revision, (key, value) in enumerate((
+        ("providers.host_capability.transport", "stdio"),
+        ("providers.host_capability.endpoint", "stdio://reviewed-expert?arg=serve"),
+    )):
+        assert service.assignment_set(
+            scope="user-device",
+            key=key,
+            value=value,
+            expected_revision=revision,
+            updated_by="pytest",
+        )["status"] == "committed"
+
+    profile = service.host_capability_invocation_profile()
+
+    assert profile["provider"] == selector
+    assert profile["connectorId"] == "connector/reviewed-expert"
+    assert profile["secretRequired"] is False
+
+
+def test_project_tracker_profile_is_independent_redacted_and_complete(tmp_path: Path):
+    registry = load_registry(ROOT / "packages" / "settings-platform" / "registry" / "v1.json")
+    secret = "plane-project-tracker-secret"
+    service = SettingsService(
+        registry=registry,
+        vault_path=tmp_path,
+        user_device_id="pytest-device",
+        user_device_path=tmp_path / "device.json",
+        workspace_project_id="project/web",
+        environment={"PLANE_API_KEY": secret},
+    )
+    for revision, (key, value) in enumerate((
+        ("providers.project_tracker.transport", "http"),
+        ("providers.project_tracker.endpoint", "https://plane.example.test"),
+        ("providers.project_tracker.secret_ref", {
+            "provider": "environment",
+            "locator": "PLANE_API_KEY",
+        }),
+        ("providers.project_tracker.timeout_ms", 4321),
+    )):
+        assert service.assignment_set(
+            scope="user-device",
+            key=key,
+            value=value,
+            expected_revision=revision,
+            updated_by="pytest",
+        )["status"] == "committed"
+    for revision, (key, value) in enumerate((
+        ("providers.host_capability.provider", "gitea"),
+        ("providers.project_tracker.provider", "plane"),
+        ("providers.project_tracker.enabled", True),
+    )):
+        assert service.assignment_set(
+            scope="workspace-project",
+            target_id="project/web",
+            key=key,
+            value=value,
+            expected_revision=revision,
+            updated_by="pytest",
+        )["status"] == "committed"
+
+    tracker = service.project_tracker_invocation_profile()
+    host = service.host_capability_invocation_profile()
+
+    assert host["provider"] == "gitea"
+    assert tracker["configured"] is True
+    assert tracker["enabled"] is True
+    assert tracker["valid"] is True
+    assert tracker["provider"] == "plane"
+    assert tracker["endpoint"] == "https://plane.example.test"
+    assert tracker["timeoutMs"] == 4321
+    assert tracker["secretStatus"] == "present"
+    assert secret not in json.dumps(tracker, sort_keys=True)
+    assert service.resolve_secret_reference(tracker["secretReference"]) == secret
+
+
+def test_explicit_enabled_project_tracker_requires_explicit_endpoint_and_secret(tmp_path: Path):
+    registry = load_registry(ROOT / "packages" / "settings-platform" / "registry" / "v1.json")
+    service = SettingsService(
+        registry=registry,
+        vault_path=tmp_path,
+        user_device_id="pytest-device",
+        user_device_path=tmp_path / "device.json",
+        workspace_project_id="project/web",
+    )
+    for revision, (key, value) in enumerate((
+        ("providers.project_tracker.provider", "plane"),
+        ("providers.project_tracker.enabled", True),
+    )):
+        assert service.assignment_set(
+            scope="workspace-project",
+            target_id="project/web",
+            key=key,
+            value=value,
+            expected_revision=revision,
+            updated_by="pytest",
+        )["status"] == "committed"
+
+    profile = service.project_tracker_invocation_profile()
+
+    assert profile["configured"] is True
+    assert profile["enabled"] is True
+    assert profile["valid"] is False
+
+
+def test_host_capability_secret_reference_fails_closed_for_blank_or_device_external_values(tmp_path: Path):
+    registry = load_registry(ROOT / "packages" / "settings-platform" / "registry" / "v1.json")
+    service = SettingsService(
+        registry=registry,
+        vault_path=tmp_path,
+        user_device_id="pytest-device",
+        user_device_path=tmp_path / "device.json",
+        environment={"BLANK_FORGE_TOKEN": "   "},
+    )
+
+    assert service.resolve_secret_reference({
+        "provider": "environment",
+        "locator": "BLANK_FORGE_TOKEN",
+    }) is None
+    assert service.resolve_secret_reference({
+        "provider": "external-vault",
+        "locator": "team/forge/token",
+    }) is None
+
+
 def test_python_migration_planner_can_inspect_a_legacy_document(tmp_path: Path):
     registry = load_registry(ROOT / "packages" / "settings-platform" / "registry" / "v1.json")
     service = SettingsService(
@@ -452,6 +690,8 @@ def test_existing_kb_meta_cli_exposes_settings_queries_without_obsidian(tmp_path
             str(tmp_path),
             "--user-device-id",
             "pytest-device",
+            "--user-device-path",
+            str(tmp_path / "user-device.json"),
             "--at",
             "2026-07-14T00:00:00.000Z",
         ],
@@ -478,6 +718,8 @@ def test_python_cli_explain_uses_the_same_secret_presence_as_snapshot(tmp_path: 
             "providers.web_search.secret_ref",
             "--user-device-id",
             "pytest-device",
+            "--user-device-path",
+            str(tmp_path / "user-device.json"),
             "--at",
             "2026-07-14T00:00:00.000Z",
         ],

@@ -14,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
@@ -23,6 +25,7 @@ jobs:
       - run: cd mcp-server && npm ci
       - run: cd mcp-server && npm run settings:build
       - run: cd packages/settings-platform && bun test tests/
+      - run: cd packages/agent-domain && npm ci && bun test tests/ && npm run typecheck && npm run build
       - run: cd mcp-server && npm run build
       - run: cd mcp-server && npm run typecheck
       - run: cd mcp-server && npm run test
@@ -36,9 +39,21 @@ jobs:
         run: cd obsidian-plugin && npm run typecheck
       - name: Build Obsidian plugin
         run: cd obsidian-plugin && npm run build
+      - name: Verify Obsidian plugin production bundle boundary
+        run: cd obsidian-plugin && npm run verify:bundle-boundary
+      - name: Download previous Beta plugin for lifecycle verification
+        run: gh release download v2.7.0-beta.1 --pattern obsidian-llm-wiki-plugin.tar.gz --dir previous-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Verify clean install, upgrade, rollback, and reinstall lifecycle
+        run: python scripts/verify_plugin_upgrade_rollback.py --candidate obsidian-plugin --baseline previous-release/obsidian-llm-wiki-plugin.tar.gz --json
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Verify release secrets, provenance, and runtime licenses
+        run: python scripts/verify_release_security.py --json
+      - name: Verify exact-SHA real-5090 release evidence
+        run: python scripts/verify_fleet_release_evidence.py --evidence "docs/release-evidence/${GITHUB_REF_NAME}.json" --release-commit "$GITHUB_SHA" --tag "$GITHUB_REF_NAME" --json
       - run: pip install ruff pytest orjson
       - run: cd compiler && ruff check . ../run_aide.py
       - run: python -m pytest tests/ -q --ignore=compiler/
@@ -65,12 +80,12 @@ jobs:
           python-version: "3.11"
       - run: cd mcp-server && npm ci
       - run: cd mcp-server && npm run rebuild
-      - name: Verify generated MCP bundle is committed
-        run: git diff --exit-code -- mcp-server/bundle.js
+      - name: Verify generated MCP and CLI bundles are committed
+        run: cd mcp-server && node scripts/verify-bundles.mjs
       - name: Smoke-test packaged MCP runtime
         run: python scripts/verify_release_install.py --json
       - name: Package MCP Server
-        run: tar czf obsidian-llm-wiki-mcp.tar.gz -C mcp-server bundle.js package.json dist
+        run: tar czf obsidian-llm-wiki-mcp.tar.gz -C mcp-server bundle.js agent-domain-cli.js memu-query.js usage-cli.js package.json -C .. LICENSE
       - uses: actions/upload-artifact@v4
         with:
           name: mcp-server
@@ -87,7 +102,7 @@ jobs:
           python-version: "3.11"
       - name: Package compiler
         run: |
-          tar czf obsidian-llm-wiki-compiler.tar.gz compiler/
+          tar --exclude='compiler/tests' --exclude='compiler/**/__pycache__' --exclude='compiler/.pytest_cache' -czf obsidian-llm-wiki-compiler.tar.gz compiler/ LICENSE
       - uses: actions/upload-artifact@v4
         with:
           name: compiler
@@ -102,9 +117,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      - run: cd obsidian-plugin && npm ci && npm run build
+      - run: cd obsidian-plugin && npm ci && npm run build && npm run verify:bundle-boundary
       - name: Package Obsidian plugin
-        run: tar czf obsidian-llm-wiki-plugin.tar.gz -C obsidian-plugin main.js manifest.json styles.css
+        run: tar czf obsidian-llm-wiki-plugin.tar.gz -C obsidian-plugin main.js manifest.json styles.css -C .. LICENSE
       - uses: actions/upload-artifact@v4
         with:
           name: obsidian-plugin

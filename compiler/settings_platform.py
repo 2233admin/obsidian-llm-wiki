@@ -33,6 +33,25 @@ SECRET_MATERIAL_PATTERN = re.compile(
     r"^(?:bearer\s+|sk[-_][A-Za-z0-9_-]{8,}|api[_-]?key\s*[:=])",
     re.IGNORECASE,
 )
+HOST_CAPABILITY_SETTING_KEYS = (
+    "providers.host_capability.enabled",
+    "providers.host_capability.provider",
+    "providers.host_capability.transport",
+    "providers.host_capability.endpoint",
+    "providers.host_capability.secret_ref",
+    "providers.host_capability.timeout_ms",
+)
+HOST_CONNECTOR_SELECTOR_PATTERN = re.compile(
+    r"^(?:connector/)?[a-z0-9][a-z0-9._-]*(?:/[a-z0-9][a-z0-9._-]*)*$"
+)
+PROJECT_TRACKER_SETTING_KEYS = (
+    "providers.project_tracker.enabled",
+    "providers.project_tracker.provider",
+    "providers.project_tracker.transport",
+    "providers.project_tracker.endpoint",
+    "providers.project_tracker.secret_ref",
+    "providers.project_tracker.timeout_ms",
+)
 
 
 def default_user_device_id(environment: dict[str, str] | None = None) -> str:
@@ -836,6 +855,124 @@ class SettingsService:
             secret_status=self._secret_statuses(documents),
         )
 
+    def host_capability_invocation_profile(
+        self,
+        context: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Return the redacted Settings-owned profile for governed host calls.
+
+        The profile includes only public/local configuration, Secret Reference
+        metadata, and presence state. The referenced secret value is deliberately
+        excluded and may only be resolved at the last mile with
+        ``resolve_secret_reference``.
+        """
+        resolved = self.snapshot_resolve(context)
+        snapshot = resolved["snapshot"]
+        effective = {item["key"]: item for item in snapshot["effective"]}
+        selected = {key: effective[key] for key in HOST_CAPABILITY_SETTING_KEYS}
+        values = {key: item["value"] for key, item in selected.items()}
+        secret_value = values["providers.host_capability.secret_ref"]
+        secret_ref = (
+            copy.deepcopy(secret_value.get("secretRef"))
+            if isinstance(secret_value, dict)
+            else None
+        )
+        secret_status = (
+            secret_value.get("status")
+            if isinstance(secret_value, dict)
+            else "missing"
+        )
+        winning_scopes = {
+            key: item["winningScope"]
+            for key, item in selected.items()
+        }
+        connector_id = normalize_host_capability_connector_id(
+            values["providers.host_capability.provider"]
+        )
+        transport = values["providers.host_capability.transport"]
+        secret_required = (
+            transport not in ("stdio", "local-model")
+        )
+        return {
+            "configured": any(scope != "product" for scope in winning_scopes.values()),
+            "enabled": values["providers.host_capability.enabled"] is True,
+            "provider": values["providers.host_capability.provider"],
+            "connectorId": connector_id or "",
+            "transport": transport,
+            "endpoint": values["providers.host_capability.endpoint"],
+            "timeoutMs": values["providers.host_capability.timeout_ms"],
+            "secretReference": secret_ref,
+            "secretStatus": secret_status,
+            "secretRequired": secret_required,
+            "valid": all(item["validation"]["valid"] for item in selected.values()),
+            "winningScopes": winning_scopes,
+            "snapshotId": snapshot["snapshotId"],
+        }
+
+    def project_tracker_invocation_profile(
+        self,
+        context: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Return the redacted Settings profile for Project External Projections.
+
+        Tracker credentials are represented only by Secret Reference metadata.
+        Explicit configuration must supply its endpoint and credential reference;
+        product defaults keep an entirely unconfigured profile readable but cannot
+        silently become an enabled tracker connection.
+        """
+        resolved = self.snapshot_resolve(context)
+        snapshot = resolved["snapshot"]
+        effective = {item["key"]: item for item in snapshot["effective"]}
+        selected = {key: effective[key] for key in PROJECT_TRACKER_SETTING_KEYS}
+        values = {key: item["value"] for key, item in selected.items()}
+        prefix = "providers.project_tracker."
+        secret_value = values[f"{prefix}secret_ref"]
+        secret_ref = (
+            copy.deepcopy(secret_value.get("secretRef"))
+            if isinstance(secret_value, dict)
+            else None
+        )
+        secret_status = (
+            secret_value.get("status")
+            if isinstance(secret_value, dict)
+            else "missing"
+        )
+        winning_scopes = {
+            key: item["winningScope"]
+            for key, item in selected.items()
+        }
+        configured = any(
+            scope != "product" for scope in winning_scopes.values())
+        enabled = values[f"{prefix}enabled"] is True
+        explicit_connection = (
+            winning_scopes[f"{prefix}endpoint"] != "product"
+            and winning_scopes[f"{prefix}secret_ref"] != "product"
+        )
+        return {
+            "configured": configured,
+            "enabled": enabled,
+            "provider": values[f"{prefix}provider"],
+            "transport": values[f"{prefix}transport"],
+            "endpoint": values[f"{prefix}endpoint"],
+            "timeoutMs": values[f"{prefix}timeout_ms"],
+            "secretReference": secret_ref,
+            "secretStatus": secret_status,
+            "valid": (
+                all(item["validation"]["valid"] for item in selected.values())
+                and (not configured or not enabled or explicit_connection)
+            ),
+            "winningScopes": winning_scopes,
+            "snapshotId": snapshot["snapshotId"],
+        }
+
+    def resolve_secret_reference(self, reference: Any) -> str | None:
+        """Resolve one Secret Reference in process without exposing it in a snapshot."""
+        if not _is_secret_reference(reference):
+            return None
+        if reference["provider"] != "environment":
+            return None
+        return _environment_secret(self.environment, reference["locator"])
+
     def assignment_set(
         self,
         *,
@@ -1139,7 +1276,8 @@ class SettingsService:
             key = f"{ref['provider']}:{ref['locator']}"
             statuses[key] = (
                 "present"
-                if ref["provider"] == "environment" and self.environment.get(ref["locator"])
+                if ref["provider"] == "environment"
+                and _environment_secret(self.environment, ref["locator"])
                 else "missing"
                 if ref["provider"] == "environment"
                 else "unreachable"
@@ -1711,6 +1849,14 @@ def _is_secret_reference(value: Any) -> bool:
     )
 
 
+def _environment_secret(environment: dict[str, str], locator: str) -> str | None:
+    value = environment.get(locator)
+    if not isinstance(value, str):
+        return None
+    value = value.strip()
+    return value or None
+
+
 def _is_project_id(value: Any) -> bool:
     return isinstance(value, str) and PROJECT_ID_PATTERN.fullmatch(value) is not None
 
@@ -1816,6 +1962,15 @@ def _sync_directory(path: Path) -> None:
 def _safe_identity(value: str) -> str:
     normalized = re.sub(r"[^A-Za-z0-9._-]+", "-", value.strip()).strip("-")
     return normalized or "default-vault"
+
+
+def normalize_host_capability_connector_id(value: Any) -> str | None:
+    """Normalize a generic Host selector into the governed connector namespace."""
+    if not isinstance(value, str) or value != value.strip():
+        return None
+    if not HOST_CONNECTOR_SELECTOR_PATTERN.fullmatch(value):
+        return None
+    return value if value.startswith("connector/") else f"connector/{value}"
 
 
 def _probe_python(executable: str) -> bool:

@@ -273,3 +273,69 @@ export interface CapabilityHealth {
   checkedAt: string;
   snapshotId: string;
 }
+
+/**
+ * A Settings selector for a Host Capability Connector. Both a canonical
+ * `connector/...` identity and a generic provider identifier are accepted.
+ * The connector registry remains the authority for whether that identity is
+ * reviewed and assignable.
+ */
+export type HostCapabilityConnectorSelector = string;
+/** @deprecated Use HostCapabilityConnectorSelector. */
+export type HostCapabilityProvider = HostCapabilityConnectorSelector;
+export type HostCapabilityTransport = "stdio" | "http" | "oauth" | "local-model" | "cloud-model";
+export type HostCapabilityProfileSource =
+  | "settings-assignment"
+  | "legacy-environment"
+  | "product-default";
+
+export interface HostCapabilityFieldProvenance {
+  source: HostCapabilityProfileSource;
+  priority: number;
+  scope?: SettingsScope;
+  actor?: string;
+  detail?: string;
+}
+
+export interface HostCapabilityCredentialProfile {
+  secretRef: SecretReference;
+  status: SecretStatus;
+}
+
+export interface HostCapabilityCompatibilityCandidate {
+  source: "legacy-environment";
+  priority: number;
+  detail: string;
+  values: Partial<{
+    enabled: boolean;
+    provider: HostCapabilityConnectorSelector;
+    transport: HostCapabilityTransport;
+    endpoint: string;
+    credential: HostCapabilityCredentialProfile;
+    timeoutMs: number;
+  }>;
+}
+
+export interface HostCapabilityInvocationProfile {
+  enabled: boolean;
+  /** Raw Settings/compatibility selector retained for provenance. */
+  provider: HostCapabilityConnectorSelector;
+  /** Canonical connector identity used for registry matching. */
+  connectorId: string;
+  transport: HostCapabilityTransport;
+  endpoint: string;
+  credential?: HostCapabilityCredentialProfile;
+  secretRequired: boolean;
+  timeoutMs: number;
+  snapshotId: string;
+  valid: boolean;
+  issues: ValidationIssue[];
+  provenance: {
+    enabled: HostCapabilityFieldProvenance;
+    provider: HostCapabilityFieldProvenance;
+    transport: HostCapabilityFieldProvenance;
+    endpoint: HostCapabilityFieldProvenance;
+    credential: HostCapabilityFieldProvenance;
+    timeoutMs: HostCapabilityFieldProvenance;
+  };
+}

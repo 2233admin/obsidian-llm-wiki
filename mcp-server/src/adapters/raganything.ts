@@ -4,11 +4,8 @@
  * RAG-Anything is primarily a Python framework, so this adapter deliberately
  * targets a tiny HTTP wrapper contract instead of vendoring Python runtime code.
  *
- * Env:
- *   RAGANYTHING_URL=http://127.0.0.1:9622
- *   RAGANYTHING_API_KEY=...                 optional Bearer token
- *   RAGANYTHING_QUERY_PATH=/query           optional query endpoint
- *   RAGANYTHING_PROCESS_PATH=/process_document optional ingest endpoint
+ * Runtime configuration is injected by the Settings-derived adapter profile.
+ * This class deliberately never reads process.env or resolves Secret References.
  */
 
 import type {
@@ -18,7 +15,7 @@ import type {
   VaultMindAdapter,
 } from "./interface.js";
 
-type RAGAnythingAdapterOpts = {
+export type RAGAnythingAdapterOpts = {
   baseUrl?: string;
   apiKey?: string;
   queryPath?: string;
@@ -86,12 +83,12 @@ export class RAGAnythingAdapter implements VaultMindAdapter {
   private readonly processPath: string;
   private readonly fetchImpl: typeof fetch;
 
-  constructor(opts?: RAGAnythingAdapterOpts) {
-    this.baseUrl = normalizeBaseUrl(opts?.baseUrl ?? process.env.RAGANYTHING_URL);
-    this.apiKey = opts?.apiKey ?? process.env.RAGANYTHING_API_KEY;
-    this.queryPath = normalizePath(opts?.queryPath ?? process.env.RAGANYTHING_QUERY_PATH ?? "/query");
-    this.processPath = normalizePath(opts?.processPath ?? process.env.RAGANYTHING_PROCESS_PATH ?? "/process_document");
-    this.fetchImpl = opts?.fetchImpl ?? fetch;
+  constructor(opts: RAGAnythingAdapterOpts = {}) {
+    this.baseUrl = normalizeBaseUrl(opts.baseUrl);
+    this.apiKey = opts.apiKey;
+    this.queryPath = normalizePath(opts.queryPath ?? "/query");
+    this.processPath = normalizePath(opts.processPath ?? "/process_document");
+    this.fetchImpl = opts.fetchImpl ?? fetch;
   }
 
   get isAvailable(): boolean {
@@ -101,7 +98,7 @@ export class RAGAnythingAdapter implements VaultMindAdapter {
   async init(): Promise<void> {
     if (!this.baseUrl) {
       this._available = false;
-      process.stderr.write("llmwiki: [raganything] RAGANYTHING_URL not set -- adapter disabled\n");
+      process.stderr.write("llmwiki: [raganything] base URL not configured -- adapter disabled\n");
       return;
     }
 

@@ -1,4 +1,5 @@
 import esbuild from "esbuild";
+import { resolve } from "node:path";
 import process from "process";
 
 const production = process.argv[2] === "production";
@@ -13,6 +14,7 @@ const external = [
 const ctx = await esbuild.context({
   entryPoints: ["src/main.ts"],
   bundle: true,
+  nodePaths: [resolve("node_modules")],
   external,
   format: "cjs",
   target: "es2020",

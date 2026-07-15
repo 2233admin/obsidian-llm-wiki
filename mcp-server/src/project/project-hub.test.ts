@@ -6,8 +6,10 @@ import { tmpdir } from 'node:os';
 import { AdapterRegistry } from '../adapters/registry.js';
 import type { VaultMindAdapter } from '../adapters/interface.js';
 import type { OperationContext } from '../core/types.js';
+import { AgentDomainService, canonicalDigest } from '../../../packages/agent-domain/dist/src/index.js';
 import { createSettingsService } from '../settings/settings.js';
 import { makeProjectHubOps } from './project-hub.js';
+import { normalizedProjectContext, resolveProjectContext } from './project-context.js';
 
 const roots: string[] = [];
 afterEach(() => {
@@ -65,7 +67,7 @@ describe('project.hub.get', () => {
     assert.equal(hub.projectId, 'project/alpha');
     assert.equal(hub.readOnly, true);
     assert.deepEqual(Object.keys(hub.sections).sort(), [
-      'capabilities', 'identity', 'integrations', 'knowledge', 'runtime', 'settings', 'work', 'workspace',
+      'agents', 'capabilities', 'hostCapabilities', 'identity', 'integrations', 'knowledge', 'runtime', 'settings', 'usage', 'work', 'workspace',
     ]);
     for (const value of Object.values(hub.sections) as Array<Record<string, unknown>>) {
       assert.ok('owner' in value);
@@ -76,6 +78,13 @@ describe('project.hub.get', () => {
     assert.equal(hub.sections.workspace.health, 'unavailable');
     assert.equal(hub.sections.work.data.issueCount, 1);
     assert.equal(hub.sections.runtime.data.activeRuns[0].workRunId, 'work-run/one');
+    assert.equal(hub.sections.hostCapabilities.data.externalConnectionsOpened, 0);
+    assert.deepEqual(hub.sections.hostCapabilities.data.descriptors, []);
+    assert.equal(hub.sections.usage.data.projection.sourceEventCount, 0);
+    assert.equal(hub.sections.usage.data.chartReady, false);
+    assert.equal(hub.sections.agents.owner, 'agent-domain');
+    assert.equal(hub.sections.agents.health, 'empty');
+    assert.deepEqual(hub.sections.agents.data.bindings, []);
   });
 
   test('returns secret references and snapshot metadata but never secret values', async () => {
@@ -120,5 +129,48 @@ describe('project.hub.get', () => {
     const operations = makeProjectHubOps(registry);
     assert.deepEqual(operations.map((operation) => operation.name), ['project.hub.get']);
     assert.notEqual(operations[0]!.mutating, true);
+  });
+
+  test('projects canonical Agent, Binding, Thread, and Dream Time identities without copying memory content', async () => {
+    const { root, ctx, registry } = fixture();
+    const service = new AgentDomainService({ stateRoot: join(root, '_llmwiki', 'agent-domain', 'v1') });
+    await service.createProfile({
+      profileId: 'agent/reviewer',
+      displayName: 'Reviewer',
+      role: 'reviewer',
+      responsibilities: ['review'],
+      capabilityClaims: ['code-review'],
+      constitution: { principles: ['evidence first'], instructions: ['cite artifacts'] },
+      actor: 'test',
+    });
+    const project = resolveProjectContext(root, 'project/alpha', 'test.agent-hub');
+    const binding = await service.createBinding({
+      projectId: 'project/alpha',
+      projectContextFingerprint: canonicalDigest(normalizedProjectContext(project)),
+      profileId: 'agent/reviewer',
+      profileRevision: 1,
+      role: 'reviewer',
+      connectorGrantRefs: [],
+      actor: 'test',
+    });
+    assert.equal(binding.status, 'committed');
+    await service.createThread({
+      threadId: 'thread/review',
+      projectId: 'project/alpha',
+      bindingId: 'binding/alpha/reviewer',
+      bindingRevision: 1,
+      profileId: 'agent/reviewer',
+      profileRevision: 1,
+      title: 'Review',
+      actor: 'test',
+    });
+
+    const hub = await makeProjectHubOps(registry)[0]!.handler(ctx, { ref: 'project/alpha' }) as Record<string, any>;
+    assert.equal(hub.sections.agents.health, 'healthy');
+    assert.equal(hub.sections.agents.data.profiles[0].profileId, 'agent/reviewer');
+    assert.equal(hub.sections.agents.data.bindings[0].bindingId, 'binding/alpha/reviewer');
+    assert.equal(hub.sections.agents.data.threads[0].threadId, 'thread/review');
+    assert.equal(hub.sections.agents.data.dreamTime[0].approvedMemory, null);
+    assert.doesNotMatch(JSON.stringify(hub.sections.agents), /evidence first|cite artifacts/);
   });
 });

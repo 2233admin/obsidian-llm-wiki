@@ -469,15 +469,23 @@ class ProjectMigrationFixture(unittest.TestCase):
                 plan, apply=True, batch_id="anchor-conflict")
         self.assertEqual(_snapshot(self.vault), before)
 
-    def test_current_repository_anchor_is_planned_for_shared_registry_adoption(self):
+    def test_current_repository_anchor_is_already_adopted_by_shared_registry(self):
         repository = Path(__file__).resolve().parents[2]
         plan = project_migration.plan_project_migration(repository)
-        adoption = next(
-            action for action in plan["actions"]
-            if action["path"] == "Projects/obsidian-llm-wiki.md"
+        self.assertNotIn(
+            "adopt_work_os_anchor_as_shared_project",
+            {
+                action["reason"]
+                for action in plan["actions"]
+                if action["path"] == "Projects/obsidian-llm-wiki.md"
+            },
         )
-        self.assertEqual(adoption["reason"], "adopt_work_os_anchor_as_shared_project")
-        self.assertEqual(adoption["source"], "01-Projects/obsidian-llm-wiki/_project.md")
+        shared = (repository / "Projects" / "obsidian-llm-wiki.md").read_text("utf-8")
+        anchor = (
+            repository / "01-Projects" / "obsidian-llm-wiki" / "_project.md"
+        ).read_text("utf-8")
+        self.assertIn("entity: project/obsidian-llm-wiki", shared)
+        self.assertIn("entity: project/obsidian-llm-wiki", anchor)
 
 
 if __name__ == "__main__":

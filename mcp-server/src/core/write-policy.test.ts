@@ -173,6 +173,59 @@ describe('Operation Write Policy', () => {
     assert.deepEqual(verdict.targets, ['_llmwiki/settings/vault.json']);
   });
 
+  test('governed Host Capability state and proxy side effects are authorized only for Host operations', () => {
+    const registry = makeOperationRegistry();
+    const context = makeCtx([]);
+    const plan = requireOperation(registry, 'host.assignment.plan');
+    const planVerdict = adjudicateOperationWrite(context, plan, {}, registry);
+    assert.equal(planVerdict.realWrite, true);
+    assert.deepEqual(planVerdict.targets, ['_llmwiki/host-capabilities/v1/assignments']);
+
+    const invoke = requireOperation(registry, 'host.proxy.invoke');
+    const invokeVerdict = adjudicateOperationWrite(context, invoke, {}, registry);
+    assert.equal(invokeVerdict.realWrite, true);
+    assert.equal(invokeVerdict.audit, 'required');
+    assert.deepEqual(invokeVerdict.targets, ['external/host-capability/**']);
+
+    const generic = createOp();
+    assert.throws(
+      () => adjudicateOperationWrite(
+        context,
+        generic,
+        { path: '_llmwiki/host-capabilities/v1/assignments', dryRun: false },
+        new Map([[generic.name, generic]]),
+      ),
+      /outside allowed write paths/,
+    );
+  });
+
+  test('Agent Domain operations are narrowly authorized for governed state, usage, and Promotion handoff targets', () => {
+    const registry = makeOperationRegistry();
+    const context = makeCtx([]);
+
+    for (const name of ['dreamtime.checkpoint.propose', 'consult.execute', 'delegation.plan', 'delegation.approve']) {
+      const verdict = adjudicateOperationWrite(context, requireOperation(registry, name), {}, registry);
+      assert.deepEqual(verdict.targets, ['_llmwiki/agent-domain/v1/**', '_llmwiki/usage/v1/**']);
+    }
+
+    const profile = adjudicateOperationWrite(context, requireOperation(registry, 'agent.profile.create'), {}, registry);
+    assert.deepEqual(profile.targets, ['_llmwiki/agent-domain/v1/**']);
+
+    const promotion = adjudicateOperationWrite(context, requireOperation(registry, 'dreamtime.promotion.handoff'), {}, registry);
+    assert.deepEqual(promotion.targets, ['00-Inbox/AI-Output/vault-dreamtime/**']);
+
+    const generic = createOp();
+    assert.throws(
+      () => adjudicateOperationWrite(
+        context,
+        generic,
+        { path: '_llmwiki/usage/v1/**', dryRun: false },
+        new Map([[generic.name, generic]]),
+      ),
+      /outside allowed write paths/,
+    );
+  });
+
   test('vault.batch inherits dryRun and aggregates child targets', () => {
     const child = createOp();
     const batch = createBatchOp();

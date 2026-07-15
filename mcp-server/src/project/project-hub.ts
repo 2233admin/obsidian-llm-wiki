@@ -5,11 +5,26 @@ import {
   type EffectiveSetting,
   type SettingsService,
 } from '../../../packages/settings-platform/dist/src/index.js';
+import {
+  AgentDomainService,
+  DreamTimeStore,
+  canonicalDigest,
+  type MemoryProposalId,
+  type ProjectId as AgentProjectId,
+} from '../../../packages/agent-domain/dist/src/index.js';
 import type { AdapterRegistry } from '../adapters/registry.js';
 import type { Operation, OperationContext } from '../core/types.js';
 import { badRequest } from '../core/types.js';
 import { createSettingsService } from '../settings/settings.js';
-import { resolveProjectContext, type ProjectContext } from './project-context.js';
+import { UsageLedger } from '../usage/ledger.js';
+import { projectUsage } from '../usage/projections.js';
+import { HOST_CAPABILITY_RELATIVE_ROOT, HostCapabilityStore } from '../host-capabilities/store.js';
+import { fingerprintContract } from '../host-capabilities/contracts.js';
+import {
+  normalizedProjectContext,
+  resolveProjectContext,
+  type ProjectContext,
+} from './project-context.js';
 
 type Health = 'healthy' | 'degraded' | 'unavailable' | 'empty';
 
@@ -212,6 +227,218 @@ function integrationSection(context: ProjectContext): HubSection<Record<string, 
   };
 }
 
+function usageSection(vaultPath: string, context: ProjectContext): HubSection<Record<string, unknown>> {
+  const root = '_llmwiki/usage/v1';
+  const files = filesBelow(vaultPath, root).filter((file) => file.path.endsWith('.json'));
+  try {
+    const projection = projectUsage(new UsageLedger(join(vaultPath, ...root.split('/'))).list(), {
+      filters: { project: context.projectId },
+      groupBy: ['agent', 'provider', 'model', 'device', 'operation'],
+    });
+    return section('usage-ledger', files, {
+      root,
+      projection,
+      chartReady: false,
+      presentationOwner: 'obsidian-plugin',
+    });
+  } catch (error) {
+    return {
+      owner: 'usage-ledger',
+      freshness: newest(files),
+      health: 'unavailable',
+      drift: ['usage_ledger_invalid'],
+      data: { root, error: (error as Error).message },
+    };
+  }
+}
+
+function hostCapabilitySection(vaultPath: string, context: ProjectContext): HubSection<Record<string, unknown>> {
+  const files = filesBelow(vaultPath, HOST_CAPABILITY_RELATIVE_ROOT).filter((file) => file.path.endsWith('.json'));
+  try {
+    const store = new HostCapabilityStore(vaultPath);
+    const descriptors = store.listDescriptors();
+    const connectors = store.listConnectors();
+    const assignments = store.listAssignmentPlans().filter((plan) => plan.projectId === context.projectId);
+    const drift = [
+      ...descriptors.flatMap((item) => item.health.state === 'available'
+        ? []
+        : [`descriptor_${item.health.state}:${item.descriptor.descriptorId}`]),
+      ...connectors.flatMap((item) => item.health.state === 'available'
+        ? []
+        : [`connector_${item.health.state}:${item.connector.connectorId}`]),
+      ...connectors.flatMap((item) => item.configuration.secretRequired && !item.configuration.secretReference
+        ? [`secret_reference_missing:${item.connector.connectorId}`]
+        : []),
+    ].sort();
+    return section('host-capabilities', files, {
+      root: HOST_CAPABILITY_RELATIVE_ROOT,
+      descriptors: descriptors.map((item) => ({
+        descriptorId: item.descriptor.descriptorId,
+        descriptorVersion: item.descriptor.descriptorVersion,
+        displayName: item.descriptor.displayName,
+        capabilities: item.descriptor.capabilities,
+        health: item.health.state,
+        connectorRef: item.descriptor.connectorRef,
+      })),
+      connectors: connectors.map((item) => ({
+        connectorId: item.connector.connectorId,
+        connectorVersion: item.connector.connectorVersion,
+        displayName: item.connector.displayName,
+        kind: item.connector.kind,
+        transport: item.connector.transport,
+        health: item.health.state,
+        secretReferenceConfigured: Boolean(item.configuration.secretReference),
+      })),
+      assignments: assignments.map((plan) => ({
+        planId: plan.planId,
+        workRunId: plan.workRunId,
+        approval: plan.approval.status,
+        selection: plan.selected,
+        planFingerprint: fingerprintContract(plan),
+      })),
+      externalConnectionsOpened: 0,
+    }, drift);
+  } catch (error) {
+    return {
+      owner: 'host-capabilities',
+      freshness: newest(files),
+      health: 'unavailable',
+      drift: ['host_capability_state_invalid'],
+      data: {
+        root: HOST_CAPABILITY_RELATIVE_ROOT,
+        externalConnectionsOpened: 0,
+        error: (error as Error).message,
+      },
+    };
+  }
+}
+
+async function agentDomainSection(vaultPath: string, context: ProjectContext): Promise<HubSection<Record<string, unknown>>> {
+  const root = '_llmwiki/agent-domain/v1';
+  const files = filesBelow(vaultPath, root).filter((file) => file.path.endsWith('.json'));
+  try {
+    const stateRoot = join(vaultPath, ...root.split('/'));
+    const projectId = context.projectId as AgentProjectId;
+    const service = new AgentDomainService({ stateRoot });
+    const bindings = await service.bindings.list({ projectId });
+    const threads = await service.threads.list({ projectId });
+    const expectedProjectFingerprint = canonicalDigest(normalizedProjectContext(context));
+    const drift: string[] = [];
+    const profiles: Array<Record<string, unknown> & { profileId: string }> = [];
+    const dreamTime: Array<Record<string, unknown>> = [];
+
+    for (const binding of bindings) {
+      const profile = await service.profiles.readRevision(binding.profileId, binding.profileRevision);
+      if (!profile) drift.push(`profile_revision_missing:${binding.profileId}@${binding.profileRevision}`);
+      else profiles.push({
+        profileId: profile.profileId,
+        revision: profile.revision,
+        displayName: profile.displayName,
+        role: profile.role,
+        capabilityClaims: profile.capabilityClaims,
+        modelMode: profile.defaultModelPolicy.mode,
+      });
+      if (!binding.enabled) drift.push(`binding_disabled:${binding.bindingId}`);
+      if (binding.projectContextFingerprint !== expectedProjectFingerprint) {
+        drift.push(`binding_project_context_stale:${binding.bindingId}`);
+      }
+
+      const memory = new DreamTimeStore({
+        memoryRoot: join(stateRoot, 'dreamtime'),
+        projectId,
+        profileId: binding.profileId,
+      });
+      const revisions = await memory.listRevisions();
+      const events = await memory.listEvents();
+      const proposalDirectory = join(
+        stateRoot,
+        'dreamtime',
+        context.slug,
+        binding.profileId.slice('agent/'.length),
+        'proposals',
+      );
+      const proposals: Array<Record<string, unknown>> = [];
+      const proposalFiles = existsSync(proposalDirectory)
+        ? readdirSync(proposalDirectory).filter((file) => file.endsWith('.json')).sort()
+        : [];
+      for (const file of proposalFiles) {
+        const proposalId = `memory-proposal/${file.slice(0, -'.json'.length)}` as MemoryProposalId;
+        const proposal = await memory.readProposal(proposalId);
+        if (!proposal) continue;
+        const decision = await memory.readDecision(proposalId);
+        if (proposal.unresolvedConflicts.length > 0) drift.push(`memory_conflict:${proposalId}`);
+        proposals.push({
+          proposalId,
+          operation: proposal.operation,
+          lifecycle: decision?.state ?? proposal.lifecycle,
+          fingerprint: proposal.fingerprint,
+          warningCount: proposal.warnings.length,
+          conflictCount: proposal.unresolvedConflicts.length,
+          modelLock: proposal.modelLock,
+          provenance: proposal.provenance,
+          createdAt: proposal.createdAt,
+          expiresAt: proposal.expiresAt,
+        });
+      }
+      dreamTime.push({
+        profileId: binding.profileId,
+        approvedMemory: revisions.at(-1)
+          ? {
+              revisionId: revisions.at(-1)!.revisionId,
+              revision: revisions.at(-1)!.revision,
+              fingerprint: revisions.at(-1)!.fingerprint,
+            }
+          : null,
+        revisionCount: revisions.length,
+        eventCount: events.length,
+        proposals,
+      });
+    }
+
+    const collaborationFiles = files.filter((file) => file.path.includes('/collaboration/'));
+    const consultRecords = collaborationFiles.filter((file) => file.path.includes('/consults/'));
+    const delegationRecords = collaborationFiles.filter((file) => file.path.includes('/delegations/'));
+    return section('agent-domain', files, {
+      root,
+      projectId: context.projectId,
+      profiles: profiles.sort((left, right) => left.profileId.localeCompare(right.profileId)),
+      bindings: bindings.map((binding) => ({
+        bindingId: binding.bindingId,
+        revision: binding.revision,
+        profileId: binding.profileId,
+        profileRevision: binding.profileRevision,
+        role: binding.role,
+        enabled: binding.enabled,
+        projectContextFingerprint: binding.projectContextFingerprint,
+        connectorGrantRefs: binding.connectorGrantRefs,
+      })),
+      threads: threads.map((thread) => ({
+        threadId: thread.threadId,
+        revision: thread.revision,
+        lifecycle: thread.lifecycle,
+        profileId: thread.profileId,
+        bindingId: thread.bindingId,
+        relatedWorkRunIds: thread.references
+          .filter((reference) => reference.kind === 'workRun')
+          .map((reference) => reference.referenceId),
+      })),
+      dreamTime,
+      collaboration: {
+        consultRecordCount: consultRecords.length,
+        delegationRecordCount: delegationRecords.length,
+      },
+    }, [...new Set(drift)].sort());
+  } catch (error) {
+    return {
+      owner: 'agent-domain',
+      freshness: newest(files),
+      health: 'unavailable',
+      drift: ['agent_domain_state_invalid'],
+      data: { root, error: (error as Error).message },
+    };
+  }
+}
+
 export async function composeProjectHub(
   ctx: OperationContext,
   registry: AdapterRegistry,
@@ -242,6 +469,9 @@ export async function composeProjectHub(
       capabilities: capabilitySection(registry),
       workspace: workspaceSection(project),
       integrations: integrationSection(project),
+      hostCapabilities: hostCapabilitySection(ctx.config.vault_path, project),
+      usage: usageSection(ctx.config.vault_path, project),
+      agents: await agentDomainSection(ctx.config.vault_path, project),
     },
     mutationRoutes: {
       identity: 'project.init',
@@ -249,6 +479,9 @@ export async function composeProjectHub(
       knowledge: 'source.register / memory.*',
       settings: 'settings owner (backend configuration)',
       integrations: 'provider-owned operations',
+      hostCapabilities: 'host.descriptor.* / host.connector.* / host.assignment.*',
+      usage: 'usage.append / usage.policy.evaluate',
+      agents: 'agent.* / dreamtime.* / consult.* / delegation.*',
     },
   };
 }

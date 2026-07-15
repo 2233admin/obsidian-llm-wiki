@@ -19,10 +19,16 @@ import { KanbanAdapter } from "./adapters/kanban.js";
 import { QmdAdapter } from "./adapters/qmd.js";
 import { LightRAGAdapter } from "./adapters/lightrag.js";
 import { RAGAnythingAdapter } from "./adapters/raganything.js";
+import { HindsightAdapter } from "./adapters/hindsight.js";
 import { VaultBrainAdapter } from "./adapters/vaultbrain/index.js";
 import { GraphifyAdapter } from "./adapters/graphify.js";
 import { configureLazyIndex } from "./adapters/vaultbrain/lazy-index.js";
 import { AdapterRegistry } from "./adapters/registry.js";
+import {
+  resolveKnowledgeAdaptersRuntimeProfile,
+  resolveKnowledgeAdapterSecret,
+  resolveMemUConnectionString,
+} from "./adapters/settings-runtime.js";
 import { CompileTrigger } from "./compile-trigger.js";
 import type { VaultMindAdapter } from "./adapters/interface.js";
 import { makeAllOperations } from "./core/operations.js";
@@ -34,6 +40,7 @@ import {
   type OperationWriteVerdict,
 } from "./core/write-policy.js";
 import { validateParams, rejectDangerousRegex } from "./core/validate.js";
+import { createSettingsService } from "./settings/settings.js";
 
 // Precompiled regex patterns for performance (avoid recompilation on every call)
 const WIKILINK_RE = /\[\[([^\]|]+)(?:\|([^\]]*))?\]\]/g;
@@ -73,7 +80,7 @@ const STATUS_FLIP_RE = /(^---[\s\S]*?\nstatus: )draft(\n[\s\S]*?^---$)/m;
 const GLOB_ESCAPE_RE = /[.+^${}()|[\]\\]/g;
 /** Normalize Windows backslash to forward slash */
 const PATHSEP_RE = /\\/g;
-/** Detect Windows absolute-path prefix (e.g. C:\) */
+/** Detect a Windows drive-letter absolute-path prefix. */
 const WIN_ABS_RE = /^[A-Za-z]:[\\/]/;
 /** Remove fenced code blocks (alias for CODE_FENCE_RE for API compat) */
 const CODE_BLOCK_RE = CODE_FENCE_RE;
@@ -173,7 +180,7 @@ function loadEnvCollaboration(result: Record<string, string> = {}): VaultMindCon
 // Helpers
 
 const PROTECTED_DIRS = new Set([".obsidian", ".trash", ".git", "node_modules"]);
-const VERSION = "0.3.0";
+const VERSION = "0.4.0-beta.1";
 
 function err(code: number, message: string): { code: number; message: string } {
   return { code, message };
@@ -1465,6 +1472,14 @@ function checkAuth(config: VaultMindConfig, args: Record<string, unknown>): void
 
 async function main(): Promise<void> {
   const config = loadConfig();
+  const settingsService = createSettingsService({
+    vaultPath: config.vault_path,
+    environment: process.env,
+  });
+  const adapterProfile = await resolveKnowledgeAdaptersRuntimeProfile(settingsService, {
+    environment: process.env,
+    legacyEnabledAdapters: config.adapters,
+  });
 
   // --- Adapter registry ---
   const registry = new AdapterRegistry();
@@ -1475,13 +1490,39 @@ async function main(): Promise<void> {
     registry.register(fsAdapter);
   }
 
-  // Optional adapters -- init gracefully, don't block if unavailable
-  const enabledAdapters = new Set(config.adapters ?? ["filesystem", "memu", "gitnexus", "obsidian", "kanban", "qmd", "lightrag", "raganything", "vaultbrain", "graphify"]);
+  // Optional adapters -- Settings is authoritative; legacy env/YAML only
+  // participates in the redacted profile when the setting remains unassigned.
+  const enabledAdapters = new Set(adapterProfile.enabledAdapters);
+  if (!adapterProfile.enablement.valid) {
+    process.stderr.write(`obsidian-llm-wiki: adapter enablement invalid; optional adapters fail closed (${adapterProfile.enablement.issues.map(item => item.code).join(", ")})\n`);
+  }
 
   if (enabledAdapters.has("memu")) {
-    const memuAdapter = new MemUAdapter();
-    await memuAdapter.init();
-    if (memuAdapter.isAvailable) registry.register(memuAdapter);
+    if (!adapterProfile.memu.valid) {
+      process.stderr.write(`obsidian-llm-wiki: [memu] settings invalid; adapter disabled (${adapterProfile.memu.issues.map(item => item.code).join(", ")})\n`);
+    } else {
+      try {
+        const credentialDsn = await resolveKnowledgeAdapterSecret(adapterProfile.memu.credential, { environment: process.env });
+        const memuAdapter = new MemUAdapter({
+          dsn: resolveMemUConnectionString(adapterProfile.memu.dsn, credentialDsn),
+          userId: adapterProfile.memu.userId,
+          maxResults: adapterProfile.memu.maxResults,
+          timeout: adapterProfile.memu.timeout,
+          excludeMemoryTypes: adapterProfile.memu.excludeMemoryTypes,
+          pythonExe: adapterProfile.memu.pythonExe,
+          memuGraphCwd: adapterProfile.memu.memuGraphCwd,
+          graphRecallTimeoutMs: adapterProfile.memu.graphRecallTimeoutMs,
+          memuSearchPy: adapterProfile.memu.memuSearchPy,
+          memuSearchPythonExe: adapterProfile.memu.memuSearchPythonExe,
+          memuSearchTimeoutMs: adapterProfile.memu.memuSearchTimeoutMs,
+          embedModel: adapterProfile.memu.embedModel,
+        });
+        await memuAdapter.init();
+        if (memuAdapter.isAvailable) registry.register(memuAdapter);
+      } catch (error) {
+        process.stderr.write(`obsidian-llm-wiki: [memu] Secret Reference resolution failed; adapter disabled (${(error as Error).message})\n`);
+      }
+    }
   }
 
   if (enabledAdapters.has("gitnexus")) {
@@ -1497,42 +1538,106 @@ async function main(): Promise<void> {
   }
 
   if (enabledAdapters.has("kanban")) {
-    const kanbanAdapter = new KanbanAdapter({
-      vaultPath: config.vault_path,
-      glob: process.env.VAULT_MIND_KANBAN_GLOB,
-    });
-    await kanbanAdapter.init();
-    if (kanbanAdapter.isAvailable) {
-      registry.register(kanbanAdapter);
-      process.stderr.write("obsidian-llm-wiki: [kanban] adapter ready\n");
+    if (!adapterProfile.kanban.valid) {
+      process.stderr.write(`obsidian-llm-wiki: [kanban] settings invalid; adapter disabled (${adapterProfile.kanban.issues.map(item => item.code).join(", ")})\n`);
+    } else {
+      const kanbanAdapter = new KanbanAdapter({
+        vaultPath: config.vault_path,
+        glob: adapterProfile.kanban.glob,
+      });
+      await kanbanAdapter.init();
+      if (kanbanAdapter.isAvailable) {
+        registry.register(kanbanAdapter);
+        process.stderr.write("obsidian-llm-wiki: [kanban] adapter ready\n");
+      }
     }
   }
 
   if (enabledAdapters.has("qmd")) {
-    const qmdCollection = process.env.VAULT_MIND_QMD_COLLECTION || undefined;
-    const qmdAdapter = new QmdAdapter({ collection: qmdCollection });
-    await qmdAdapter.init();
-    if (qmdAdapter.isAvailable) {
-      registry.register(qmdAdapter);
-      process.stderr.write("obsidian-llm-wiki: [qmd] adapter ready\n");
+    if (!adapterProfile.qmd.valid) {
+      process.stderr.write(`obsidian-llm-wiki: [qmd] settings invalid; adapter disabled (${adapterProfile.qmd.issues.map(item => item.code).join(", ")})\n`);
+    } else {
+      const qmdAdapter = new QmdAdapter({
+        collection: adapterProfile.qmd.collection,
+        binary: adapterProfile.qmd.binary,
+      });
+      await qmdAdapter.init();
+      if (qmdAdapter.isAvailable) {
+        registry.register(qmdAdapter);
+        process.stderr.write("obsidian-llm-wiki: [qmd] adapter ready\n");
+      }
     }
   }
 
   if (enabledAdapters.has("lightrag")) {
-    const lightragAdapter = new LightRAGAdapter();
-    await lightragAdapter.init();
-    if (lightragAdapter.isAvailable) {
-      registry.register(lightragAdapter);
-      process.stderr.write("obsidian-llm-wiki: [lightrag] adapter ready\n");
+    if (!adapterProfile.lightrag.valid) {
+      process.stderr.write(`obsidian-llm-wiki: [lightrag] settings invalid; adapter disabled (${adapterProfile.lightrag.issues.map(item => item.code).join(", ")})\n`);
+    } else {
+      try {
+        const apiKey = await resolveKnowledgeAdapterSecret(adapterProfile.lightrag.credential, { environment: process.env });
+        const lightragAdapter = new LightRAGAdapter({
+          baseUrl: adapterProfile.lightrag.baseUrl,
+          apiKey,
+          mode: adapterProfile.lightrag.mode,
+          queryPath: adapterProfile.lightrag.queryPath,
+          queryDataPath: adapterProfile.lightrag.queryDataPath,
+          documentsTextPath: adapterProfile.lightrag.documentsTextPath,
+          documentsUploadPath: adapterProfile.lightrag.documentsUploadPath,
+        });
+        await lightragAdapter.init();
+        if (lightragAdapter.isAvailable) {
+          registry.register(lightragAdapter);
+          process.stderr.write("obsidian-llm-wiki: [lightrag] adapter ready\n");
+        }
+      } catch (error) {
+        process.stderr.write(`obsidian-llm-wiki: [lightrag] Secret Reference resolution failed; adapter disabled (${(error as Error).message})\n`);
+      }
     }
   }
 
   if (enabledAdapters.has("raganything")) {
-    const ragAnythingAdapter = new RAGAnythingAdapter();
-    await ragAnythingAdapter.init();
-    if (ragAnythingAdapter.isAvailable) {
-      registry.register(ragAnythingAdapter);
-      process.stderr.write("obsidian-llm-wiki: [raganything] adapter ready\n");
+    if (!adapterProfile.raganything.valid) {
+      process.stderr.write(`obsidian-llm-wiki: [raganything] settings invalid; adapter disabled (${adapterProfile.raganything.issues.map(item => item.code).join(", ")})\n`);
+    } else {
+      try {
+        const apiKey = await resolveKnowledgeAdapterSecret(adapterProfile.raganything.credential, { environment: process.env });
+        const ragAnythingAdapter = new RAGAnythingAdapter({
+          baseUrl: adapterProfile.raganything.baseUrl,
+          apiKey,
+          queryPath: adapterProfile.raganything.queryPath,
+          processPath: adapterProfile.raganything.processPath,
+        });
+        await ragAnythingAdapter.init();
+        if (ragAnythingAdapter.isAvailable) {
+          registry.register(ragAnythingAdapter);
+          process.stderr.write("obsidian-llm-wiki: [raganything] adapter ready\n");
+        }
+      } catch (error) {
+        process.stderr.write(`obsidian-llm-wiki: [raganything] Secret Reference resolution failed; adapter disabled (${(error as Error).message})\n`);
+      }
+    }
+  }
+
+  if (enabledAdapters.has("hindsight")) {
+    if (!adapterProfile.hindsight.valid) {
+      process.stderr.write(`obsidian-llm-wiki: [hindsight] settings invalid; adapter disabled (${adapterProfile.hindsight.issues.map(item => item.code).join(", ")})\n`);
+    } else {
+      try {
+        const apiKey = await resolveKnowledgeAdapterSecret(adapterProfile.hindsight.credential, { environment: process.env });
+        const hindsightAdapter = new HindsightAdapter({
+          baseUrl: adapterProfile.hindsight.baseUrl,
+          bankId: adapterProfile.hindsight.bankId,
+          timeoutMs: adapterProfile.hindsight.timeoutMs,
+          apiKey,
+        });
+        await hindsightAdapter.init();
+        if (hindsightAdapter.isAvailable) {
+          registry.register(hindsightAdapter);
+          process.stderr.write("obsidian-llm-wiki: [hindsight] read-only recall adapter ready\n");
+        }
+      } catch (error) {
+        process.stderr.write(`obsidian-llm-wiki: [hindsight] Secret Reference resolution failed; adapter disabled (${(error as Error).message})\n`);
+      }
     }
   }
 

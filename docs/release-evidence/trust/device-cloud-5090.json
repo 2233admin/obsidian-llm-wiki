@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "algorithm": "ed25519",
+  "keyId": "0554ab8225edfaacd693ec4844fdae01b8e0ba59f61d520b1745a4dd43ff3645",
+  "deviceId": "device/cloud-5090",
+  "namespace": "llmwiki-fleet-release-v1",
+  "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAunbeYvoWo4+E74HPBkB9CjgZjU5GlbpArtCH9YgEQww=\n-----END PUBLIC KEY-----\n"
+}

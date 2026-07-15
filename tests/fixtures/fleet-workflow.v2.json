@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 2,
+  "project": {
+    "slug": "fleet-acceptance",
+    "projectId": "project/fleet-acceptance",
+    "lifecycle": "active"
+  },
+  "externalRefs": [
+    {
+      "kind": "orca-task",
+      "target": "task_192b70c714e0"
+    },
+    {
+      "kind": "orca-terminal",
+      "target": "term_88dba0af-df72-4390-b427-9e916f8fb03c"
+    }
+  ],
+  "parent": {
+    "agentId": "local-parent",
+    "workItemId": "project/fleet-acceptance/issue/local-parent-workflow",
+    "workRunId": "work-run/fleet-parent-acceptance",
+    "transitionToken": "fleet:parent:running:1"
+  },
+  "run": {
+    "label": "5090",
+    "leaseDevice": "local",
+    "executionDevice": "5090",
+    "agentId": "cloud-worker-5090",
+    "workItemId": "project/fleet-acceptance/issue/cloud-workflow"
+  },
+  "governedAssignment": {
+    "agent_profile_id": "agent/cloud-worker-5090",
+    "agent_profile_revision": 3,
+    "project_agent_binding_id": "binding/fleet-acceptance/cloud-worker-5090",
+    "project_agent_binding_revision": 5,
+    "assignment_plan_id": "assignment-plan/fleet-5090",
+    "assignment_plan_version": 4,
+    "assignment_plan_fingerprint": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "context_envelope_fingerprint": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "device_snapshot": {
+      "snapshotId": "device-snapshot/fleet-5090",
+      "deviceId": "device/cloud-5090",
+      "revision": 2,
+      "fingerprint": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "capturedAt": "2026-07-15T00:00:00.000Z",
+      "expiresAt": "2999-01-01T00:00:00.000Z"
+    },
+    "parent_work_run_id": "work-run/fleet-parent-acceptance",
+    "child_work_run_ids": [],
+    "capability_grant_summary": {
+      "grant_id": "capability-grant/fleet-5090",
+      "project_id": "project/fleet-acceptance",
+      "agent_profile_id": "agent/cloud-worker-5090",
+      "connectors": [
+        "connector/git"
+      ],
+      "operations": [
+        "repository.read",
+        "test.execute"
+      ],
+      "resources": [
+        "project/fleet-acceptance"
+      ],
+      "expires_at": "2999-01-01T00:00:00.000Z",
+      "side_effect_classes": [
+        "view"
+      ]
+    },
+    "artifact_projections": [
+      {
+        "artifact_id": "artifact/fleet-input-spec",
+        "kind": "work-input",
+        "content_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "output_class": "view",
+        "provenance": [
+          "source:registered-fleet-spec"
+        ]
+      }
+    ],
+    "expected_output": {
+      "kind": "implementation-evidence",
+      "output_class": "view",
+      "required_artifacts": [
+        "test-report",
+        "change-summary"
+      ],
+      "review_state": "pending"
+    }
+  },
+  "childArtifact": {
+    "artifact_id": "artifact/fleet-child-result",
+    "kind": "child-output",
+    "content_hash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "output_class": "view",
+    "review_state": "pending"
+  },
+  "deviceLocal": {
+    "leaseStore": ".vault-mind/_leases.json"
+  },
+  "conflictProbe": {
+    "agentId": "identity-overwrite-probe",
+    "projectId": "project/fleet-conflict",
+    "workRunId": "work-run/unknown-fleet-run",
+    "workItemId": "project/fleet-acceptance/issue/identity-conflict",
+    "transitionToken": "fleet:conflict:join:1"
+  }
+}
