@@ -95,7 +95,7 @@ export class KanbanAdapter implements VaultMindAdapter {
 
   constructor(config: KanbanAdapterConfig) {
     this.vaultPath = config.vaultPath;
-    this.glob = config.glob ?? process.env.VAULT_MIND_KANBAN_GLOB ?? DEFAULT_GLOB;
+    this.glob = config.glob ?? DEFAULT_GLOB;
   }
 
   get isAvailable(): boolean {

@@ -49,7 +49,7 @@ Claude Code ─stdio→ MCP Server ─┬─ vault.* (CRUD + search + graph)
 
 ## Branches
 
-- `main` — vault-mind headless MCP (v1.0.0 shipped 2026-04-08)
+- `main` — LLM Wiki integrated product mainline (MCP, compiler, Obsidian control plane, Settings, Agent domain, and Fleet)
 - `legacy-v0.1.0-obsidian-plugin` — 归档
 
 ## Known Issues

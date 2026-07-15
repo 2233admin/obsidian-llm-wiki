@@ -37,8 +37,7 @@ interface FleetRun {
   workItemId: string;
 }
 
-interface FleetFixture {
-  schemaVersion: 1;
+interface FleetFixtureBase {
   project: { slug: string; projectId: string; lifecycle: string };
   externalRefs: ExternalRef[];
   run: FleetRun;
@@ -52,6 +51,185 @@ interface FleetFixture {
   };
 }
 
+interface FleetFixtureV1 extends FleetFixtureBase {
+  schemaVersion: 1;
+}
+
+interface ArtifactProjection {
+  artifact_id: string;
+  kind: string;
+  content_hash: string;
+  output_class: 'view' | 'work-state-transition' | 'knowledge-claim' | 'external-side-effect';
+  provenance?: string[];
+  producer_identity?: string;
+  source_work_run_id?: string;
+  context_envelope_fingerprint?: string;
+  input_references?: string[];
+  review_state?: string;
+}
+
+interface GovernedAssignment {
+  agent_profile_id: string;
+  agent_profile_revision: number;
+  project_agent_binding_id: string;
+  project_agent_binding_revision: number;
+  assignment_plan_id: string;
+  assignment_plan_version: number;
+  assignment_plan_fingerprint: string;
+  context_envelope_fingerprint: string;
+  device_snapshot: {
+    snapshotId: string;
+    deviceId: string;
+    revision: number;
+    fingerprint: string;
+    capturedAt: string;
+    expiresAt: string;
+  };
+  parent_work_run_id: string;
+  child_work_run_ids: string[];
+  capability_grant_summary: Record<string, unknown>;
+  artifact_projections: ArtifactProjection[];
+  expected_output: Record<string, unknown>;
+}
+
+interface FleetFixtureV2 extends FleetFixtureBase {
+  schemaVersion: 2;
+  parent: {
+    agentId: string;
+    workItemId: string;
+    workRunId: string;
+    transitionToken: string;
+  };
+  governedAssignment: GovernedAssignment;
+  childArtifact: Omit<ArtifactProjection,
+    'producer_identity' | 'source_work_run_id' | 'context_envelope_fingerprint' | 'input_references'>;
+}
+
+type FleetFixture = FleetFixtureV1 | FleetFixtureV2;
+
+interface AcceptanceMarker {
+  schemaVersion: 1 | 2;
+  correlationId: string;
+  commit: string;
+  fixtureDigest: string;
+  projectId: string;
+  workItemId: string;
+  workRunId: string;
+  agentId: string;
+  joinToken: string;
+  checkpointToken: string;
+  leaveToken: string;
+  externalRefs: ExternalRef[];
+  parentWorkRunId?: string;
+  childWorkRunId?: string;
+  governedAssignment?: GovernedAssignment;
+}
+
+interface RemoteEvidence {
+  schemaVersion: 2;
+  correlationId: string;
+  projectId: string;
+  parentWorkRunId: string;
+  childWorkRunId: string;
+  sharedBytesSha256: string;
+}
+
+interface LocalProof {
+  schemaVersion: 1 | 2;
+  correlationId: string;
+  leaseBytesSha256: string;
+  lease: WorkDriverLease;
+  handoffToken: string;
+}
+
+function isGovernedFixture(fixture: FleetFixture): fixture is FleetFixtureV2 {
+  return fixture.schemaVersion === 2;
+}
+
+function assertPortableFixture(value: unknown, label: string): void {
+  const permittedTokenFields = new Set([
+    'transition_token', 'joinToken', 'checkpointToken', 'leaveToken',
+    'handoff_token_hash', 'handoff_expires_at',
+  ]);
+  const visit = (current: unknown, path: string): void => {
+    if (typeof current === 'string') {
+      assert.equal(/(?:[a-zA-Z]:[\\/]|\\\\|file:\/\/|\/(?:Users|home|private|tmp|var\/tmp)\/)/.test(current), false,
+        `${label} contains a machine-local path at ${path}`);
+      assert.equal(/^(?:Bearer\s+|sk-[A-Za-z0-9_-]{16,}|(?:lease|handoff|grant)[_-]?token[:=])/i.test(current), false,
+        `${label} contains secret or authority material at ${path}`);
+      return;
+    }
+    if (Array.isArray(current)) {
+      current.forEach((item, index) => visit(item, `${path}[${index}]`));
+      return;
+    }
+    if (!current || typeof current !== 'object') return;
+    for (const [key, nested] of Object.entries(current as Record<string, unknown>)) {
+      const forbidden = /(?:^|_)(?:secret|credential|api_?key|workspace|path|process|handle|header|environment|env|token)(?:_|$)/i.test(key);
+      assert.equal(forbidden && !permittedTokenFields.has(key), false,
+        `${label} contains forbidden field ${path}.${key}`);
+      visit(nested, `${path}.${key}`);
+    }
+  };
+  visit(value, '$');
+}
+
+function assertArtifactProjection(value: ArtifactProjection, label: string): void {
+  assert.match(value.artifact_id, /^artifact\/[a-z0-9][a-z0-9-]*$/, `${label} has invalid artifact identity`);
+  assert.match(value.kind, /^[a-z][a-z0-9-]*$/, `${label} has invalid kind`);
+  assert.match(value.content_hash, /^[a-f0-9]{64}$/, `${label} has invalid content hash`);
+  assert.match(value.output_class, /^(view|work-state-transition|knowledge-claim|external-side-effect)$/,
+    `${label} has invalid output class`);
+}
+
+function assertGovernedFixture(fixture: FleetFixtureV2): void {
+  const assignment = fixture.governedAssignment;
+  assert.match(fixture.parent.agentId, /^[a-z0-9][a-z0-9-]*$/, 'invalid parent agent identity');
+  assert.match(fixture.parent.workRunId, /^work-run\/[a-z0-9][a-z0-9-]*$/, 'invalid parent Work Run identity');
+  assert.match(fixture.parent.workItemId, /^project\/[a-z0-9][a-z0-9-]*\/issue\/[a-z0-9][a-z0-9-]*$/,
+    'invalid parent Work Item identity');
+  assert.equal(fixture.parent.workItemId.startsWith(`${fixture.project.projectId}/issue/`), true,
+    'parent Work Item must belong to the fixture Project');
+  assert.notEqual(fixture.parent.workItemId, fixture.run.workItemId, 'parent and child Work Items must differ');
+  assert.match(fixture.parent.transitionToken, /^[a-z0-9][a-z0-9:._-]*$/, 'invalid parent transition token');
+  assert.match(assignment.agent_profile_id,
+    /^(?:agent\/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?|agent-profile\/[a-z0-9][a-z0-9-]*)$/,
+    'invalid Agent Profile identity');
+  assert.ok(Number.isSafeInteger(assignment.agent_profile_revision) && assignment.agent_profile_revision > 0,
+    'invalid Agent Profile revision');
+  assert.match(assignment.project_agent_binding_id,
+    /^(?:binding\/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?\/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?|project-agent-binding\/[a-z0-9][a-z0-9-]*)$/,
+    'invalid Project Agent Binding identity');
+  assert.ok(Number.isSafeInteger(assignment.project_agent_binding_revision)
+    && assignment.project_agent_binding_revision > 0, 'invalid Project Agent Binding revision');
+  assert.match(assignment.assignment_plan_id, /^assignment-plan\/[a-z0-9][a-z0-9-]*$/,
+    'invalid Assignment Plan identity');
+  assert.ok(Number.isSafeInteger(assignment.assignment_plan_version) && assignment.assignment_plan_version > 0,
+    'invalid Assignment Plan version');
+  assert.match(assignment.assignment_plan_fingerprint, /^(?:sha256:)?[a-f0-9]{64}$/, 'invalid Assignment Plan fingerprint');
+  assert.match(assignment.context_envelope_fingerprint, /^(?:sha256:)?[a-f0-9]{64}$/, 'invalid Context Envelope fingerprint');
+  assert.match(assignment.device_snapshot.snapshotId,
+    /^device-snapshot\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/, 'invalid Device Snapshot identity');
+  assert.match(assignment.device_snapshot.deviceId, /^device\/[a-z0-9][a-z0-9-]*$/, 'invalid Device identity');
+  assert.ok(Number.isSafeInteger(assignment.device_snapshot.revision) && assignment.device_snapshot.revision > 0,
+    'invalid Device Snapshot revision');
+  assert.match(assignment.device_snapshot.fingerprint, /^(?:sha256:)?[a-f0-9]{64}$/,
+    'invalid Device Snapshot fingerprint');
+  assert.equal(assignment.parent_work_run_id, fixture.parent.workRunId, 'governed parent Work Run mismatch');
+  assert.deepEqual(assignment.child_work_run_ids, [], 'delegated child must start with no nested children');
+  assert.ok(Array.isArray(assignment.artifact_projections) && assignment.artifact_projections.length > 0,
+    'governed assignment requires input Artifact Projections');
+  assignment.artifact_projections.forEach((artifact, index) => assertArtifactProjection(artifact, `input artifact ${index}`));
+  assertArtifactProjection(fixture.childArtifact, 'child output artifact');
+  assert.notEqual(
+    assignment.artifact_projections.some((artifact) => artifact.artifact_id === fixture.childArtifact.artifact_id),
+    true,
+    'child output artifact must be distinct from input artifacts',
+  );
+  assertPortableFixture(assignment, 'governed assignment');
+  assertPortableFixture(fixture.childArtifact, 'child output artifact');
+}
+
 interface CliOptions {
   phase: Phase;
   fixturePath: string;
@@ -60,17 +238,20 @@ interface CliOptions {
   deviceStatePath?: string;
   handoffTokenFile?: string;
   testedCommit?: string;
+  requireClean: boolean;
   keep: boolean;
   json: boolean;
 }
 
 interface Check {
+  id: string;
   name: string;
   ok: boolean;
   detail?: string;
 }
 
 interface AcceptanceReport {
+  harnessSchemaVersion: 2;
   ok: boolean;
   phase: Phase;
   fixture: string;
@@ -97,42 +278,28 @@ interface RawWorkDriverLease extends WorkDriverLease {
   handoff_token: string;
 }
 
-interface AcceptanceMarker {
-  schemaVersion: 1;
-  correlationId: string;
-  commit: string;
-  fixtureDigest: string;
-  projectId: string;
-  workItemId: string;
-  workRunId: string;
-  agentId: string;
-  joinToken: string;
-  checkpointToken: string;
-  leaveToken: string;
-  externalRefs: ExternalRef[];
-}
-
-interface LocalProof {
-  schemaVersion: 1;
-  correlationId: string;
-  leaseBytesSha256: string;
-  lease: WorkDriverLease;
-  handoffToken: string;
-}
-
 type ByteManifest = Record<string, string>;
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(SCRIPT_DIR, '..');
-const DEFAULT_FIXTURE = resolve(SCRIPT_DIR, '../tests/fixtures/fleet-workflow.v1.json');
+const DEFAULT_FIXTURE = resolve(SCRIPT_DIR, '../tests/fixtures/fleet-workflow.v2.json');
+const LEGACY_FIXTURE = resolve(SCRIPT_DIR, '../tests/fixtures/fleet-workflow.v1.json');
 const KB_META = resolve(SCRIPT_DIR, '../compiler/kb_meta.py');
 const COMPILER_DIR = dirname(KB_META);
 const LOCAL_PROOF_FILE = 'fleet-local-proof.json';
 const MARKER_FILE = '.llmwiki-fleet-acceptance.json';
+const REMOTE_EVIDENCE_FILE = '.llmwiki-fleet-remote-evidence.json';
+const GOVERNED_ASSIGNMENT_FILE = 'fleet-governed-assignment.json';
 const HANDOFF_TOKEN_ENV = 'LLMWIKI_FLEET_HANDOFF_TOKEN';
 
 function parseArgs(argv: string[]): CliOptions {
-  const options: CliOptions = { phase: 'all', fixturePath: DEFAULT_FIXTURE, keep: false, json: false };
+  const options: CliOptions = {
+    phase: 'all',
+    fixturePath: DEFAULT_FIXTURE,
+    requireClean: false,
+    keep: false,
+    json: false,
+  };
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index]!;
     if (value === '--phase') options.phase = argv[++index] as Phase;
@@ -142,6 +309,7 @@ function parseArgs(argv: string[]): CliOptions {
     else if (value === '--device-state') options.deviceStatePath = resolve(argv[++index]!);
     else if (value === '--handoff-token-file') options.handoffTokenFile = resolve(argv[++index]!);
     else if (value === '--tested-commit') options.testedCommit = argv[++index]!;
+    else if (value === '--require-clean') options.requireClean = true;
     else if (value === '--keep') options.keep = true;
     else if (value === '--json') options.json = true;
     else if (value === '--help' || value === '-h') {
@@ -154,6 +322,7 @@ function parseArgs(argv: string[]): CliOptions {
         '  --device-state PATH   Machine-local proof directory (outside the shared vault)',
         '  --handoff-token-file PATH  Gitignored/out-of-repo token file for remote phase',
         '  --tested-commit SHA   Explicit product commit when HEAD also carries vault artifacts',
+        '  --require-clean       Reject tracked or untracked worktree changes before acceptance',
         '  --fixture PATH        Fleet fixture JSON',
         '  --keep                Keep automatically-created temporary directories',
         '  --json                Emit a JSON report',
@@ -175,7 +344,7 @@ function parseArgs(argv: string[]): CliOptions {
 
 function readFixture(path: string): FleetFixture {
   const fixture = JSON.parse(readFileSync(path, 'utf-8')) as FleetFixture;
-  assert.equal(fixture.schemaVersion, 1, 'unsupported fixture schemaVersion');
+  assert.ok(fixture.schemaVersion === 1 || fixture.schemaVersion === 2, 'unsupported fixture schemaVersion');
   assert.match(fixture.project.slug, /^[a-z0-9][a-z0-9-]*$/, 'invalid project slug');
   assert.equal(fixture.project.projectId, `project/${fixture.project.slug}`, 'Project identity mismatch');
   assert.match(fixture.project.lifecycle, /^[a-z][a-z-]*$/, 'invalid Project lifecycle');
@@ -203,6 +372,7 @@ function readFixture(path: string): FleetFixture {
     assert.match(externalRef.target, externalRef.kind === 'orca-task' ? /^task_[a-z0-9-]+$/ : /^term_[a-z0-9-]+$/);
   }
   assert.equal(new Set(fixture.externalRefs.map((ref) => ref.kind)).size, 2, 'Orca refs must include task and terminal');
+  if (isGovernedFixture(fixture)) assertGovernedFixture(fixture);
   return fixture;
 }
 
@@ -214,6 +384,16 @@ function currentCommit(): string {
   return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: REPO_ROOT, encoding: 'utf-8' }).trim();
 }
 
+function assertCleanWorktree(): void {
+  const status = execFileSync('git', ['status', '--porcelain=v1', '--untracked-files=all'], {
+    cwd: REPO_ROOT,
+    encoding: 'utf-8',
+  });
+  if (status.trim()) {
+    throw new Error('--require-clean rejected a dirty worktree; exact-SHA acceptance must run from a clean checkout');
+  }
+}
+
 function resolvedCommit(value: string): string {
   return execFileSync('git', ['rev-parse', '--verify', `${value}^{commit}`], {
     cwd: REPO_ROOT,
@@ -221,26 +401,44 @@ function resolvedCommit(value: string): string {
   }).trim();
 }
 
+export function assertArtifactOnlyCommitRange(
+  markerCommit: string,
+  head: string,
+  testedCommit: string | undefined,
+  relativeVault: string,
+  changedPaths: string[],
+): void {
+  if (head === markerCommit) return;
+  assert.ok(testedCommit, 'descendant HEAD requires --tested-commit');
+  assert.equal(testedCommit, markerCommit, '--tested-commit does not match the marker');
+  const vaultIsArtifact = relativeVault !== '' && relativeVault !== '..' && !relativeVault.startsWith('../');
+  assert.equal(
+    vaultIsArtifact,
+    true,
+    'descendant HEAD requires an in-repository acceptance vault containing the only changed artifacts',
+  );
+  const unrelated = changedPaths.filter((path) => path !== relativeVault && !path.startsWith(`${relativeVault}/`));
+  assert.deepEqual(unrelated, [], `artifact branch changed product files: ${unrelated.join(', ')}`);
+}
+
 function assertCommitCompatibility(markerCommit: string, vault: string, testedCommit?: string): void {
   assert.match(markerCommit, /^[0-9a-f]{40}$/i, 'invalid marker commit');
   const head = currentCommit();
-  if (testedCommit) assert.equal(resolvedCommit(testedCommit), markerCommit, '--tested-commit does not match the marker');
+  const resolvedTestedCommit = testedCommit ? resolvedCommit(testedCommit) : undefined;
+  if (resolvedTestedCommit) {
+    assert.equal(resolvedTestedCommit, markerCommit, '--tested-commit does not match the marker');
+  }
   const ancestor = spawnSync('git', ['merge-base', '--is-ancestor', markerCommit, head], {
     cwd: REPO_ROOT,
     windowsHide: true,
   });
   assert.equal(ancestor.status, 0, 'marker commit is not an ancestor of the current HEAD');
-  if (head === markerCommit || testedCommit) return;
-
   const relativeVault = relative(REPO_ROOT, resolve(vault)).replaceAll('\\', '/');
-  const vaultIsArtifact = relativeVault !== '' && relativeVault !== '..' && !relativeVault.startsWith('../');
-  assert.equal(vaultIsArtifact, true, 'descendant HEAD requires --tested-commit when the acceptance vault is outside the repo');
   const changed = execFileSync('git', ['diff', '--name-only', `${markerCommit}..${head}`], {
     cwd: REPO_ROOT,
     encoding: 'utf-8',
   }).split(/\r?\n/).filter(Boolean).map((path) => path.replaceAll('\\', '/'));
-  const unrelated = changed.filter((path) => path !== relativeVault && !path.startsWith(`${relativeVault}/`));
-  assert.deepEqual(unrelated, [], `artifact branch changed product files: ${unrelated.join(', ')}`);
+  assertArtifactOnlyCommitRange(markerCommit, head, resolvedTestedCommit, relativeVault, changed);
 }
 
 function safePath(root: string, relativePath: string): string {
@@ -323,11 +521,19 @@ function localProof(deviceState: string): string {
   return safePath(deviceState, LOCAL_PROOF_FILE);
 }
 
+function governedAssignmentPath(deviceState: string): string {
+  return safePath(deviceState, GOVERNED_ASSIGNMENT_FILE);
+}
+
+function remoteEvidencePath(vault: string): string {
+  return safePath(vault, REMOTE_EVIDENCE_FILE);
+}
+
 function readLocalProof(deviceState: string): LocalProof {
   const path = localProof(deviceState);
   assert.ok(existsSync(path), `machine-local fleet proof not found: ${path}`);
   const proof = JSON.parse(readFileSync(path, 'utf-8')) as LocalProof;
-  assert.equal(proof.schemaVersion, 1, 'unsupported local proof');
+  assert.ok(proof.schemaVersion === 1 || proof.schemaVersion === 2, 'unsupported local proof');
   assert.match(proof.correlationId, /^[0-9a-f-]{36}$/i, 'invalid local proof correlation');
   assert.ok(typeof proof.handoffToken === 'string' && proof.handoffToken.length >= 16 && proof.handoffToken.length <= 4096,
     'local proof contains no valid handoff token');
@@ -377,6 +583,17 @@ function runPath(root: string, projectSlug: string, workRunId: string): string {
   return safePath(root, `01-Projects/${projectSlug}/runs/${workRunId.slice('work-run/'.length)}.json`);
 }
 
+function childArtifact(fixture: FleetFixtureV2, marker: AcceptanceMarker): ArtifactProjection {
+  assert.equal(marker.workRunId, marker.childWorkRunId, 'legacy Work Run alias must identify the governed child');
+  return {
+    ...fixture.childArtifact,
+    producer_identity: fixture.governedAssignment.agent_profile_id,
+    source_work_run_id: marker.workRunId,
+    context_envelope_fingerprint: fixture.governedAssignment.context_envelope_fingerprint,
+    input_references: fixture.governedAssignment.artifact_projections.map((artifact) => artifact.artifact_id),
+  };
+}
+
 function readMarker(
   vault: string,
   fixture: FleetFixture,
@@ -386,11 +603,13 @@ function readMarker(
   const path = acceptanceMarker(vault);
   assert.ok(existsSync(path), `acceptance marker not found: ${path}`);
   const marker = JSON.parse(readFileSync(path, 'utf-8')) as AcceptanceMarker;
-  assert.deepEqual(Object.keys(marker).sort(), [
+  const keys = [
     'agentId', 'checkpointToken', 'commit', 'correlationId', 'externalRefs', 'fixtureDigest',
     'joinToken', 'leaveToken', 'projectId', 'schemaVersion', 'workItemId', 'workRunId',
-  ].sort(), 'marker contains an unknown or machine-local field');
-  assert.equal(marker.schemaVersion, 1, 'unsupported acceptance marker');
+  ];
+  if (isGovernedFixture(fixture)) keys.push('parentWorkRunId', 'childWorkRunId', 'governedAssignment');
+  assert.deepEqual(Object.keys(marker).sort(), keys.sort(), 'marker contains an unknown or machine-local field');
+  assert.equal(marker.schemaVersion, fixture.schemaVersion, 'marker schema does not match fixture');
   assert.match(marker.correlationId, /^[0-9a-f-]{36}$/i, 'invalid fleet correlation');
   assertCommitCompatibility(marker.commit, vault, testedCommit);
   assert.equal(marker.fixtureDigest, digest, 'fixture changed between fleet phases');
@@ -400,6 +619,12 @@ function readMarker(
   assert.match(marker.workRunId, /^work-run\/[a-z0-9][a-z0-9-]*$/, 'invalid marker Work Run');
   assert.notEqual(marker.workRunId, fixture.conflictProbe.workRunId, 'conflict Work Run must differ');
   assert.deepEqual(marker.externalRefs, fixture.externalRefs, 'external refs changed between phases');
+  if (isGovernedFixture(fixture)) {
+    assert.equal(marker.parentWorkRunId, fixture.parent.workRunId, 'marker parent Work Run mismatch');
+    assert.equal(marker.childWorkRunId, marker.workRunId, 'marker child Work Run mismatch');
+    assert.deepEqual(marker.governedAssignment, fixture.governedAssignment, 'portable governed assignment changed');
+    assertPortableFixture(marker, 'portable handoff marker');
+  }
   for (const token of [marker.joinToken, marker.checkpointToken, marker.leaveToken]) {
     assert.ok(token.startsWith(`fleet:${marker.correlationId}:`), 'transition token is not correlated');
   }
@@ -439,8 +664,13 @@ function addExternalRefs(vault: string, fixture: FleetFixture): void {
   writeFileSync(path, updated, 'utf-8');
 }
 
-function runPythonWorkNext(vault: string, fixture: FleetFixture): Record<string, any> {
+function runPythonWorkNext(vault: string, deviceState: string, fixture: FleetFixture): Record<string, any> {
   const args = [KB_META, 'work', 'next', vault, '--claim', fixture.run.agentId, '--ttl', '86400', '--project', fixture.project.slug];
+  if (isGovernedFixture(fixture)) {
+    const assignmentPath = governedAssignmentPath(deviceState);
+    writeJson(assignmentPath, fixture.governedAssignment);
+    args.push('--governed-assignment', assignmentPath);
+  }
   const candidates: Array<{ command: string; prefix: string[] }> = process.env.PYTHON
     ? [{ command: process.env.PYTHON, prefix: [] }]
     : process.platform === 'win32'
@@ -464,7 +694,7 @@ function runPythonWorkNext(vault: string, fixture: FleetFixture): Record<string,
 }
 
 function protectedPaths(vault: string, deviceState: string, fixture: FleetFixture): string[] {
-  return [
+  const paths = [
     acceptanceMarker(vault),
     localProof(deviceState),
     safePath(vault, `Projects/${fixture.project.slug}.md`),
@@ -472,6 +702,45 @@ function protectedPaths(vault: string, deviceState: string, fixture: FleetFixtur
     safePath(vault, `01-Projects/${fixture.project.slug}/issues/${issueSlug(fixture)}.md`),
     leasePath(vault, fixture),
   ];
+  if (isGovernedFixture(fixture)) paths.push(
+    governedAssignmentPath(deviceState),
+    remoteEvidencePath(vault),
+    safePath(vault, `01-Projects/${fixture.project.slug}/issues/${fixture.parent.workItemId.split('/').at(-1)!}.md`),
+    runPath(vault, fixture.project.slug, fixture.parent.workRunId),
+  );
+  return paths;
+}
+
+function seedParentRun(vault: string, fixture: FleetFixtureV2): void {
+  writeJson(runPath(vault, fixture.project.slug, fixture.parent.workRunId), {
+    schema_version: 2,
+    project_id: fixture.project.projectId,
+    work_item_id: fixture.parent.workItemId,
+    work_run_id: fixture.parent.workRunId,
+    agent_id: fixture.parent.agentId,
+    state: 'running',
+    output_class: 'view',
+    approval_status: 'not-required',
+    created_at: 0,
+    updated_at: 0,
+    provenance: [`work-item:${fixture.parent.workItemId}`],
+    transitions: [{
+      transition_token: fixture.parent.transitionToken,
+      from: 'leased',
+      to: 'running',
+      recorded_at: 0,
+    }],
+    child_work_run_ids: [],
+    artifact_projections: [],
+  });
+}
+
+function attachChildToParent(vault: string, fixture: FleetFixtureV2, childWorkRunId: string): void {
+  const path = runPath(vault, fixture.project.slug, fixture.parent.workRunId);
+  const parent = JSON.parse(readFileSync(path, 'utf-8')) as Record<string, unknown>;
+  assert.deepEqual(parent.child_work_run_ids, [], 'parent already contains a child Work Run');
+  parent.child_work_run_ids = [childWorkRunId];
+  writeJson(path, parent);
 }
 
 async function prepareFixture(
@@ -491,6 +760,12 @@ async function prepareFixture(
     fixture.deviceLocal.leaseStore,
   ]) assertNoSymlinkSegments(vault, relativePath);
   assertNoSymlinkSegments(deviceState, LOCAL_PROOF_FILE);
+  if (isGovernedFixture(fixture)) {
+    assertNoSymlinkSegments(deviceState, GOVERNED_ASSIGNMENT_FILE);
+    assertNoSymlinkSegments(vault, REMOTE_EVIDENCE_FILE);
+    assertNoSymlinkSegments(vault, `01-Projects/${fixture.project.slug}/issues/${fixture.parent.workItemId.split('/').at(-1)!}.md`);
+    assertNoSymlinkSegments(vault, `01-Projects/${fixture.project.slug}/runs/${fixture.parent.workRunId.split('/').at(-1)!}.json`);
+  }
   const collision = protectedPaths(vault, deviceState, fixture).find((path) => existsSync(path));
   assert.equal(collision, undefined, `refusing to overwrite existing acceptance data: ${collision}`);
 
@@ -500,6 +775,20 @@ async function prepareFixture(
     description: 'Disposable LLM Wiki fleet workflow acceptance Project',
   });
   addExternalRefs(vault, fixture);
+  if (isGovernedFixture(fixture)) {
+    const parentIssue = await call('project.issue.create', {
+      project: fixture.project.projectId,
+      title: 'Local parent fleet acceptance',
+      slug: fixture.parent.workItemId.split('/').at(-1)!,
+      summary: 'Parent Work Run delegating one governed child to 5090',
+      state: 'in-progress',
+      review: 'reviewed',
+      priority: '2',
+      assignee: fixture.parent.agentId,
+    }) as { entity: string };
+    assert.equal(parentIssue.entity, fixture.parent.workItemId, 'project.issue.create returned another parent Work Item');
+    seedParentRun(vault, fixture);
+  }
   const issue = await call('project.issue.create', {
     project: fixture.project.projectId,
     title: 'Cloud workflow fleet acceptance',
@@ -512,7 +801,7 @@ async function prepareFixture(
   }) as { entity: string; path: string };
   assert.equal(issue.entity, fixture.run.workItemId, 'project.issue.create returned another Work Item');
 
-  const driver = runPythonWorkNext(vault, fixture);
+  const driver = runPythonWorkNext(vault, deviceState, fixture);
   assert.equal(driver.status, 'selected', 'Work Driver did not select the acceptance Work Item');
   assert.equal(driver.selected?.entity, fixture.run.workItemId, 'Work Driver selected another Work Item');
   assert.equal(driver.lease?.outcome, 'ACQUIRED', 'Work Driver did not acquire the lease');
@@ -524,11 +813,21 @@ async function prepareFixture(
   assert.ok(typeof lease.handoff_token === 'string' && lease.handoff_token.length >= 16 && lease.handoff_token.length <= 4096,
     'Work Driver did not issue a valid portable handoff token');
   assert.ok(existsSync(runPath(vault, fixture.project.slug, lease.work_run_id)), 'Work Driver did not persist the Work Run');
+  const durable = JSON.parse(readFileSync(runPath(vault, fixture.project.slug, lease.work_run_id), 'utf-8')) as Record<string, unknown>;
+  if (isGovernedFixture(fixture)) {
+    assert.equal(durable.schema_version, 2, 'governed Work Driver claim did not create schema v2');
+    for (const [key, value] of Object.entries(fixture.governedAssignment)) {
+      assert.deepEqual(durable[key], value, `governed assignment drifted at ${key}`);
+    }
+    attachChildToParent(vault, fixture, lease.work_run_id);
+  } else {
+    assert.equal(durable.schema_version, 1, 'legacy Fleet fixture must retain schema v1');
+  }
 
   const leaseBytes = readFileSync(leasePath(vault, fixture));
   const correlationId = randomUUID();
   const marker: AcceptanceMarker = {
-    schemaVersion: 1,
+    schemaVersion: fixture.schemaVersion,
     correlationId,
     commit: testedCommit ? resolvedCommit(testedCommit) : currentCommit(),
     fixtureDigest: digest,
@@ -540,9 +839,14 @@ async function prepareFixture(
     checkpointToken: `fleet:${correlationId}:checkpoint`,
     leaveToken: `fleet:${correlationId}:leave`,
     externalRefs: fixture.externalRefs,
+    ...(isGovernedFixture(fixture) ? {
+      parentWorkRunId: fixture.parent.workRunId,
+      childWorkRunId: lease.work_run_id,
+      governedAssignment: fixture.governedAssignment,
+    } : {}),
   };
   const proof: LocalProof = {
-    schemaVersion: 1,
+    schemaVersion: fixture.schemaVersion,
     correlationId,
     leaseBytesSha256: sha256(leaseBytes),
     lease: {
@@ -589,6 +893,146 @@ function mutationManifest(vault: string): ByteManifest {
   ]));
 }
 
+function sharedTransportManifest(vault: string): ByteManifest {
+  const entries = walkEntries(vault).filter(({ path, directory }) =>
+    !directory
+    && path !== '.vault-mind'
+    && !path.startsWith('.vault-mind/'),
+  );
+  return Object.fromEntries(entries.map(({ path }) => [path, sha256(readFileSync(safePath(vault, path)))]));
+}
+
+function sharedByteManifest(vault: string): ByteManifest {
+  const manifest = sharedTransportManifest(vault);
+  delete manifest[REMOTE_EVIDENCE_FILE];
+  return manifest;
+}
+
+function sharedBytesDigest(vault: string): string {
+  return sha256(JSON.stringify(sharedByteManifest(vault)));
+}
+
+function governedJoinLocks(marker: AcceptanceMarker): Record<string, unknown> {
+  const assignment = marker.governedAssignment;
+  assert.ok(assignment, 'governed portable handoff is missing its assignment');
+  return {
+    agent_profile_id: assignment.agent_profile_id,
+    agent_profile_revision: assignment.agent_profile_revision,
+    project_agent_binding_id: assignment.project_agent_binding_id,
+    project_agent_binding_revision: assignment.project_agent_binding_revision,
+    assignment_plan_id: assignment.assignment_plan_id,
+    assignment_plan_version: assignment.assignment_plan_version,
+    assignment_plan_fingerprint: assignment.assignment_plan_fingerprint,
+    context_envelope_fingerprint: assignment.context_envelope_fingerprint,
+    device_snapshot: assignment.device_snapshot,
+    parent_work_run_id: assignment.parent_work_run_id,
+  };
+}
+
+function readDurableRun(vault: string, projectSlug: string, workRunId: string): Record<string, any> {
+  return JSON.parse(readFileSync(runPath(vault, projectSlug, workRunId), 'utf-8')) as Record<string, any>;
+}
+
+function assertCompletedReplayAuthority(run: Record<string, unknown>, handoffToken: string): void {
+  assert.match(String(run.handoff_token_hash ?? ''), /^[a-f0-9]{64}$/,
+    'completed replay has no valid portable handoff authority hash');
+  assert.equal(sha256(handoffToken), run.handoff_token_hash, 'completed replay handoff authority mismatch');
+  const expiresAt = String(run.handoff_expires_at ?? '');
+  assert.ok(Number.isFinite(Date.parse(expiresAt)) && Date.now() < Date.parse(expiresAt),
+    'completed replay handoff authority is expired');
+}
+
+function projectChildArtifact(vault: string, fixture: FleetFixtureV2, marker: AcceptanceMarker): void {
+  const projection = childArtifact(fixture, marker);
+  const childPath = runPath(vault, fixture.project.slug, marker.workRunId);
+  const parentPath = runPath(vault, fixture.project.slug, fixture.parent.workRunId);
+  const child = readDurableRun(vault, fixture.project.slug, marker.workRunId);
+  const parent = readDurableRun(vault, fixture.project.slug, fixture.parent.workRunId);
+  const project = (run: Record<string, any>, label: string): void => {
+    const artifacts = Array.isArray(run.artifact_projections) ? run.artifact_projections : [];
+    const existing = artifacts.filter((artifact: Record<string, unknown>) => artifact.artifact_id === projection.artifact_id);
+    assert.ok(existing.length <= 1, `${label} duplicated the child Artifact Projection`);
+    if (existing.length === 1) assert.deepEqual(existing[0], projection, `${label} child Artifact Projection drifted`);
+    else run.artifact_projections = [...artifacts, projection];
+  };
+  project(child, 'child Work Run');
+  project(parent, 'parent Work Run');
+  writeJson(childPath, child);
+  writeJson(parentPath, parent);
+}
+
+function assertGovernedRunGraph(vault: string, fixture: FleetFixtureV2, marker: AcceptanceMarker): void {
+  const assignment = fixture.governedAssignment;
+  const projection = childArtifact(fixture, marker);
+  const child = readDurableRun(vault, fixture.project.slug, marker.workRunId);
+  const parent = readDurableRun(vault, fixture.project.slug, fixture.parent.workRunId);
+  assert.equal(child.schema_version, 2, 'delegated child is not schema v2');
+  assert.equal(child.project_id, fixture.project.projectId, 'child Project identity drifted');
+  assert.equal(parent.project_id, child.project_id, 'parent and child do not share a Project');
+  assert.equal(child.parent_work_run_id, fixture.parent.workRunId, 'child lost its parent Work Run identity');
+  assert.deepEqual(parent.child_work_run_ids, [marker.workRunId], 'parent lost or duplicated its child identity');
+  assert.equal(parent.state, 'running', 'child completion inferred a terminal parent state');
+  for (const key of [
+    'agent_profile_id', 'agent_profile_revision', 'project_agent_binding_id',
+    'project_agent_binding_revision', 'assignment_plan_id', 'assignment_plan_version',
+    'assignment_plan_fingerprint', 'context_envelope_fingerprint', 'device_snapshot',
+    'parent_work_run_id', 'child_work_run_ids',
+    'capability_grant_summary', 'expected_output',
+  ] as const) assert.deepEqual(child[key], assignment[key], `governed child drifted at ${key}`);
+  const childArtifacts = child.artifact_projections as ArtifactProjection[];
+  assert.deepEqual(childArtifacts.slice(0, assignment.artifact_projections.length), assignment.artifact_projections,
+    'child input Artifact Projections drifted');
+  assert.deepEqual(
+    childArtifacts.filter((artifact) => artifact.artifact_id === projection.artifact_id),
+    [projection],
+    'child output Artifact Projection is missing provenance or duplicated',
+  );
+  assert.deepEqual(
+    (parent.artifact_projections as ArtifactProjection[]).filter((artifact) => artifact.artifact_id === projection.artifact_id),
+    [projection],
+    'parent did not receive the provenance-preserving child Artifact Projection',
+  );
+  const receipts = new Set((child.transitions as Array<Record<string, unknown>>)
+    .map((transition) => transition.transition_token));
+  for (const token of [marker.joinToken, marker.leaveToken]) {
+    assert.equal(receipts.has(token), true, `child is missing transition receipt ${token}`);
+  }
+  const lifetime = readFileSync(safePath(
+    vault,
+    `01-Projects/${fixture.project.slug}/agents/${fixture.run.agentId}/lifetime.md`,
+  ), 'utf-8');
+  for (const token of [marker.joinToken, marker.checkpointToken, marker.leaveToken]) {
+    assert.equal(lifetime.includes(token), true, `child lifetime is missing transition receipt ${token}`);
+  }
+  assertPortableFixture({ child, parent }, 'governed Work Run graph');
+}
+
+function writeRemoteEvidence(vault: string, fixture: FleetFixtureV2, marker: AcceptanceMarker): void {
+  const evidence: RemoteEvidence = {
+    schemaVersion: 2,
+    correlationId: marker.correlationId,
+    projectId: fixture.project.projectId,
+    parentWorkRunId: fixture.parent.workRunId,
+    childWorkRunId: marker.workRunId,
+    sharedBytesSha256: sharedBytesDigest(vault),
+  };
+  writeJson(remoteEvidencePath(vault), evidence);
+}
+
+function assertRemoteEvidence(vault: string, fixture: FleetFixtureV2, marker: AcceptanceMarker): void {
+  const path = remoteEvidencePath(vault);
+  assert.ok(existsSync(path), 'remote shared-byte evidence is missing');
+  const evidence = JSON.parse(readFileSync(path, 'utf-8')) as RemoteEvidence;
+  assert.deepEqual(evidence, {
+    schemaVersion: 2,
+    correlationId: marker.correlationId,
+    projectId: fixture.project.projectId,
+    parentWorkRunId: fixture.parent.workRunId,
+    childWorkRunId: marker.workRunId,
+    sharedBytesSha256: sharedBytesDigest(vault),
+  }, 'local and remote shared durable bytes do not have the same evidence digest');
+}
+
 function assertSharedSecretFree(vault: string, handoffToken: string): void {
   for (const entry of walkEntries(vault)) {
     if (entry.directory || entry.path === '.vault-mind' || entry.path.startsWith('.vault-mind/')) continue;
@@ -624,9 +1068,18 @@ async function executeRemote(
   fixture: FleetFixture,
   marker: AcceptanceMarker,
   handoffToken: string,
-): Promise<void> {
+): Promise<'executed' | 'replayed'> {
   try {
     assert.equal(existsSync(leasePath(vault, fixture)), false, 'remote vault received the machine-local lease registry');
+    const existing = readDurableRun(vault, fixture.project.slug, marker.workRunId);
+    if (existing.state === 'completed') {
+      assert.ok(isGovernedFixture(fixture), 'legacy remote handoff cannot be replayed after completion');
+      assertCompletedReplayAuthority(existing, handoffToken);
+      assertGovernedRunGraph(vault, fixture, marker);
+      assertRemoteEvidence(vault, fixture, marker);
+      assertSharedSecretFree(vault, handoffToken);
+      return 'replayed';
+    }
     const { call } = operationHarness(vault);
     const capabilityFreeBase = {
       project: marker.projectId,
@@ -636,6 +1089,7 @@ async function executeRemote(
       work_item_id: marker.workItemId,
       lease_mode: 'portable-handoff',
       provenance: [`orca-task:${fixture.externalRefs.find((ref) => ref.kind === 'orca-task')!.target}`],
+      ...(isGovernedFixture(fixture) ? governedJoinLocks(marker) : {}),
     };
     await assertRejectedWithoutMutation(call, vault, {
       ...capabilityFreeBase,
@@ -688,6 +1142,8 @@ async function executeRemote(
     assertResultSecretFree(checkpointReplay, handoffToken, 'checkpoint replay result');
     assert.deepEqual(mutationManifest(vault), afterCheckpoint, 'checkpoint replay changed bytes');
 
+    if (isGovernedFixture(fixture)) projectChildArtifact(vault, fixture, marker);
+
     const leaveParams = {
       project: marker.projectId,
       agent: marker.agentId,
@@ -702,8 +1158,14 @@ async function executeRemote(
     const leaveReplay = await call('workflow.agent.leave', leaveParams);
     assertResultSecretFree(leaveReplay, handoffToken, 'leave replay result');
     assert.deepEqual(mutationManifest(vault), afterLeave, 'leave replay changed bytes');
+    if (isGovernedFixture(fixture)) {
+      assertGovernedRunGraph(vault, fixture, marker);
+      writeRemoteEvidence(vault, fixture, marker);
+      assertRemoteEvidence(vault, fixture, marker);
+    }
     assert.equal(existsSync(leasePath(vault, fixture)), false, 'remote workflow created a lease registry');
     assertSharedSecretFree(vault, handoffToken);
+    return 'executed';
   } catch (error) {
     throw sanitizedError(error, handoffToken);
   }
@@ -731,12 +1193,12 @@ function copySharedVault(source: string, destination: string, requireEmpty: bool
   copy(source, destination);
 }
 
-function addCheck(checks: Check[], name: string, run: () => void): void {
+function addCheck(checks: Check[], id: string, name: string, run: () => void): void {
   try {
     run();
-    checks.push({ name, ok: true });
+    checks.push({ id, name, ok: true });
   } catch (error) {
-    checks.push({ name, ok: false, detail: error instanceof Error ? error.message : String(error) });
+    checks.push({ id, name, ok: false, detail: error instanceof Error ? error.message : String(error) });
   }
 }
 
@@ -752,10 +1214,13 @@ async function verifyFixture(
   const leases = JSON.parse(currentLeaseBytes.toString('utf-8')) as Record<string, RawWorkDriverLease>;
   const matchingLeases = Object.values(leases).filter((lease) => lease.work_run_id === marker.workRunId);
   const durable = JSON.parse(readFileSync(runPath(vault, fixture.project.slug, marker.workRunId), 'utf-8')) as Record<string, unknown>;
+  const parentDurable = isGovernedFixture(fixture)
+    ? readDurableRun(vault, fixture.project.slug, fixture.parent.workRunId)
+    : undefined;
   const { call } = operationHarness(vault);
 
-  addCheck(checks, 'local Work Driver lease bytes and identity remain unchanged', () => {
-    assert.equal(proof.schemaVersion, 1);
+  addCheck(checks, 'local-lease-identity', 'local Work Driver lease bytes and identity remain unchanged', () => {
+    assert.equal(proof.schemaVersion, fixture.schemaVersion);
     assert.equal(proof.correlationId, marker.correlationId);
     assert.equal(sha256(currentLeaseBytes), proof.leaseBytesSha256);
     assert.equal(matchingLeases.length, 1);
@@ -779,7 +1244,7 @@ async function verifyFixture(
     assert.equal(proof.lease.agent_id, marker.agentId);
   });
 
-  addCheck(checks, '5090 completed the exact locally leased Work Run', () => {
+  addCheck(checks, 'remote-work-run-completed', '5090 completed the exact locally leased Work Run', () => {
     assert.equal(durable.project_id, marker.projectId);
     assert.equal(durable.work_item_id, marker.workItemId);
     assert.equal(durable.work_run_id, marker.workRunId);
@@ -787,22 +1252,42 @@ async function verifyFixture(
     assert.equal(durable.state, 'completed');
   });
 
+  if (isGovernedFixture(fixture)) {
+    addCheck(checks, 'governed-parent-child-graph', 'schema v2 preserves the governed parent/child Work Run graph and locked assignment', () => {
+      assertGovernedRunGraph(vault, fixture, marker);
+    });
+    addCheck(checks, 'child-artifact-projection', 'child Artifact Projection returns to the non-terminal parent with complete provenance', () => {
+      const projection = childArtifact(fixture, marker);
+      assert.deepEqual(
+        (parentDurable!.artifact_projections as ArtifactProjection[])
+          .filter((artifact) => artifact.artifact_id === projection.artifact_id),
+        [projection],
+      );
+      assert.equal(parentDurable!.state, 'running');
+    });
+    addCheck(checks, 'remote-shared-digest', 'local verification reproduces the remote shared-byte evidence digest', () => {
+      assertRemoteEvidence(vault, fixture, marker);
+    });
+  }
+
   const doctor = await call('workflow.agent.doctor', {
     project: marker.projectId,
     agent: marker.agentId,
     work_run_id: marker.workRunId,
   }) as { ok: boolean; errors: string[] };
-  addCheck(checks, 'local doctor accepts the completed remote Work Run', () => {
+  addCheck(checks, 'doctor-completed-run', 'local doctor accepts the completed remote Work Run', () => {
     assert.equal(doctor.ok, true, doctor.errors.join('; '));
     assert.deepEqual(doctor.errors, []);
   });
 
   const hub = await call('project.hub.get', { ref: marker.projectId }) as Record<string, any>;
-  addCheck(checks, 'Project Hub observes one Work Run without owning provider state', () => {
+  addCheck(checks, 'project-hub-graph', isGovernedFixture(fixture)
+    ? 'Project Hub observes the parent/child Work Run graph without owning provider state'
+    : 'Project Hub observes one Work Run without owning provider state', () => {
     assert.equal(hub.projectId, marker.projectId);
     assert.equal(hub.readOnly, true);
     assert.equal(hub.sections.runtime.owner, 'runtime');
-    assert.equal(hub.sections.runtime.data.runCount, 1);
+    assert.equal(hub.sections.runtime.data.runCount, isGovernedFixture(fixture) ? 2 : 1);
     assert.deepEqual(
       hub.sections.integrations.data.projections.map(
         ({ kind, target, stateOwner, copiedState }: Record<string, unknown>) => ({ kind, target, stateOwner, copiedState }),
@@ -811,13 +1296,13 @@ async function verifyFixture(
     );
   });
 
-  addCheck(checks, 'Orca refs remain projections rather than internal identities', () => {
+  addCheck(checks, 'external-ref-boundary', 'Orca refs remain projections rather than internal identities', () => {
     const identities = new Set([marker.projectId, marker.workItemId, marker.workRunId, marker.agentId]);
     for (const ref of fixture.externalRefs) assert.equal(identities.has(ref.target), false);
   });
 
-  addCheck(checks, 'machine-local paths and lease fields never enter shared state', () => {
-    const shared = JSON.stringify({ marker, durable, hub });
+  addCheck(checks, 'shared-state-secret-free', 'machine-local paths and lease fields never enter shared state', () => {
+    const shared = JSON.stringify({ marker, durable, parentDurable, hub });
     for (const value of [vault, deviceState, resolve(leasePath(vault, fixture)), proof.lease.base_head]) {
       assert.equal(shared.includes(value), false, `machine-local value leaked: ${value}`);
     }
@@ -832,6 +1317,7 @@ async function verifyFixture(
 
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
+  if (options.requireClean) assertCleanWorktree();
   const fixture = readFixture(options.fixturePath);
   const digest = sha256(readFileSync(options.fixturePath));
   const automaticVault = !options.vaultPath;
@@ -852,7 +1338,13 @@ async function main(): Promise<void> {
     if (options.phase === 'prepare' || options.phase === 'all') {
       marker = await prepareFixture(vault, deviceState, fixture, digest, options.testedCommit);
       handoffToken = readLocalProof(deviceState).handoffToken;
-      checks.push({ name: 'makeProjectOps and Python Work Driver created one local lease', ok: true });
+      checks.push({
+        id: isGovernedFixture(fixture) ? 'governed-child-created' : 'legacy-lease-created',
+        name: isGovernedFixture(fixture)
+          ? 'kb_meta work next --governed-assignment created one schema v2 Child Work Run'
+          : 'makeProjectOps and Python Work Driver created one legacy local lease',
+        ok: true,
+      });
     }
     if (options.phase === 'remote') {
       marker = readMarker(vault, fixture, digest, options.testedCommit);
@@ -862,12 +1354,23 @@ async function main(): Promise<void> {
       copySharedVault(vault, remoteVault, true);
       const remoteMarker = readMarker(remoteVault, fixture, digest, options.testedCommit);
       await executeRemote(remoteVault, fixture, remoteMarker, handoffToken!);
+      if (isGovernedFixture(fixture)) {
+        const beforeReplay = sharedTransportManifest(remoteVault);
+        assert.equal(await executeRemote(remoteVault, fixture, remoteMarker, handoffToken!), 'replayed');
+        assert.deepEqual(sharedTransportManifest(remoteVault), beforeReplay,
+          'replaying the complete governed portable handoff changed shared bytes');
+        checks.push({ id: 'remote-replay-byte-identical', name: 'remote replay reported the existing Child Work Run without changing shared bytes', ok: true });
+      }
+      const remoteSharedBytes = sharedTransportManifest(remoteVault);
       copySharedVault(remoteVault, vault, false);
+      assert.deepEqual(sharedTransportManifest(vault), remoteSharedBytes,
+        'local returned state is not byte-identical to remote shared state');
       marker = readMarker(vault, fixture, digest, options.testedCommit);
-      checks.push({ name: '5090 handoff rejected missing/wrong capabilities and identities, then replayed byte-identically', ok: true });
+      checks.push({ id: 'portable-handoff-guarded-replay', name: '5090 handoff rejected missing/wrong capabilities and identities, then replayed byte-identically', ok: true });
+      checks.push({ id: 'shared-manifest-byte-identical', name: 'local and remote shared durable files have byte-identical manifests', ok: true });
     } else if (options.phase === 'remote') {
       await executeRemote(vault, fixture, marker!, handoffToken!);
-      checks.push({ name: '5090 handoff rejected missing/wrong capabilities and identities, then replayed byte-identically', ok: true });
+      checks.push({ id: 'portable-handoff-guarded-replay', name: '5090 handoff rejected missing/wrong capabilities and identities, then replayed byte-identically', ok: true });
     }
     if (options.phase === 'verify') {
       marker = readMarker(vault, fixture, digest, options.testedCommit);
@@ -878,9 +1381,14 @@ async function main(): Promise<void> {
     }
 
     const report: AcceptanceReport = {
+      harnessSchemaVersion: 2,
       ok: checks.every((check) => check.ok),
       phase: options.phase,
-      fixture: options.fixturePath === DEFAULT_FIXTURE ? 'tests/fixtures/fleet-workflow.v1.json' : '<provided-fixture>',
+      fixture: options.fixturePath === DEFAULT_FIXTURE
+        ? 'tests/fixtures/fleet-workflow.v2.json'
+        : options.fixturePath === LEGACY_FIXTURE
+          ? 'tests/fixtures/fleet-workflow.v1.json'
+          : '<provided-fixture>',
       vault: automaticVault ? '<temporary-vault>' : '<provided-acceptance-vault>',
       deviceState: '<machine-local-state-redacted>',
       commit: marker?.commit ?? currentCommit(),
@@ -905,4 +1413,4 @@ async function main(): Promise<void> {
   }
 }
 
-await main();
+if (import.meta.main) await main();

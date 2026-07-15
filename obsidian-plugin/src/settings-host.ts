@@ -1,6 +1,8 @@
-import registryDocument from "../../packages/settings-platform/registry/v1.json";
-import { parseRegistry } from "../../packages/settings-platform/src/registry";
-import { defaultUserDeviceId, SettingsService } from "../../packages/settings-platform/src/service";
+import {
+  bundledRegistry,
+  defaultUserDeviceId,
+  SettingsService,
+} from "../../packages/settings-platform/dist/src/index.js";
 import type {
   MutableSettingsScope,
   SecretReference,
@@ -14,20 +16,23 @@ export function obsidianUserDeviceId(environment: NodeJS.ProcessEnv = process.en
 
 /** Real, in-process Obsidian host adapter over the authoritative service. */
 export class InProcessSettingsTransport implements SettingsOperationTransport {
-  private readonly service: SettingsService;
+  readonly service: SettingsService;
 
   constructor(options: {
     vaultPath: string;
     userDeviceId: string;
+    userDevicePath?: string;
     workspaceProjectId?: string;
     pythonPath?: string;
     compilerPath?: string;
     environment?: NodeJS.ProcessEnv;
+    service?: SettingsService;
   }) {
-    this.service = new SettingsService({
-      registry: parseRegistry(registryDocument),
+    this.service = options.service ?? new SettingsService({
+      registry: bundledRegistry(),
       vaultPath: options.vaultPath,
       userDeviceId: options.userDeviceId,
+      userDevicePath: options.userDevicePath,
       workspaceProjectId: options.workspaceProjectId,
       pythonPath: options.pythonPath,
       compilerPath: options.compilerPath,

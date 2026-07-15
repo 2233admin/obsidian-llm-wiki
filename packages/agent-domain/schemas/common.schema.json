@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.llmwiki.org/agent-domain/v1/common.schema.json",
+  "title": "LLM Wiki Agent Domain Common v1",
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "timestamp": { "type": "string", "format": "date-time", "pattern": "Z$" },
+    "agentProfileId": { "type": "string", "pattern": "^agent/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$" },
+    "projectId": { "type": "string", "pattern": "^project/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$" },
+    "bindingId": { "type": "string", "pattern": "^binding/[a-z0-9-]+/[a-z0-9-]+$" },
+    "threadId": { "type": "string", "pattern": "^thread/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+    "modelLock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "model", "contextWindow", "tokenizer", "policyFingerprint"],
+      "properties": {
+        "provider": { "type": "string", "minLength": 1 },
+        "model": { "type": "string", "minLength": 1 },
+        "contextWindow": { "type": "integer", "minimum": 1 },
+        "tokenizer": { "type": "string", "minLength": 1 },
+        "policyFingerprint": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": { "enum": ["governance", "profile", "binding", "memoryRevision", "project", "workItem", "workRun", "thread", "settings", "deviceCapability", "grant", "artifact", "source"] },
+        "id": { "type": "string", "minLength": 1 },
+        "revision": { "oneOf": [{ "type": "integer", "minimum": 0 }, { "type": "string", "minLength": 1 }] },
+        "fingerprint": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "memorySection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content", "citations", "contentHash"],
+      "properties": {
+        "content": { "type": "string" },
+        "citations": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "contentHash": { "$ref": "#/$defs/digest" }
+      }
+    }
+  }
+}

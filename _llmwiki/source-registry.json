@@ -1,0 +1,250 @@
+{
+  "version": 1,
+  "updated_at": "2026-07-15T15:43:10.175Z",
+  "sources": {
+    "src_cf6515f951be": {
+      "id": "src_cf6515f951be",
+      "inputType": "url",
+      "input": "https://github.com/EXXETA/exxperts",
+      "canonical": "https://github.com/EXXETA/exxperts",
+      "platform": "github",
+      "sourceKind": "repo",
+      "title": "EXXETA exxperts product research",
+      "actor": "codex",
+      "notePath": "00-Inbox/Sources/github/exxeta-exxperts-product-research-cf6515f951be.md",
+      "tags": [
+        "agent-room",
+        "dream-time",
+        "product-research",
+        "clean-room"
+      ],
+      "notes": "Product-mechanism research only. Inspected commit 035594aad68db78ef92899578b2e4839343f53d9 on 2026-07-15. PolyForm Noncommercial product layer: do not copy code, prompts, tests, UI text, styles, icons, or assets.",
+      "preflight": {
+        "url": "https://github.com/EXXETA/exxperts",
+        "platform": "generic-web",
+        "label": "Generic web page",
+        "sourceType": "web",
+        "sourceKind": "post",
+        "access_context": "public",
+        "mode": "web-capture",
+        "provider": {
+          "id": "opencli",
+          "name": "OPENCLI",
+          "configured": false,
+          "command": "opencli",
+          "env": "VAULT_MIND_OPENCLI_CMD",
+          "fallbackEnv": "OPENCLI_CMD",
+          "purpose": "OpenCLI plus BBX/browser bridge web capture, article extraction, browser-assisted clipping, and text-first source normalization."
+        },
+        "pipeline": [
+          {
+            "id": "opencli",
+            "name": "OPENCLI",
+            "configured": false,
+            "command": "opencli",
+            "capability": "resolve.capture",
+            "role": "resolve browser/page/source metadata and capture text-first material"
+          }
+        ],
+        "can_auto_ingest": false,
+        "status": "needs_provider",
+        "confidence": "medium",
+        "needs": [
+          "OPENCLI web capture"
+        ],
+        "limitations": [
+          "Login-gated, private, deleted, paywalled, or region-blocked content may require browser/cookie-assisted capture.",
+          "LLM Wiki must not bypass platform access controls; use only content available to the user and configured providers."
+        ],
+        "output_contract": "Save Markdown into the vault, preserving source URL and capture metadata.",
+        "recommended_vault_path": "素材库/web/<source-slug>.md",
+        "next_action": "Configure OPENCLI with VAULT_MIND_OPENCLI_CMD or OPENCLI_CMD; then run the provider to produce Markdown in the vault."
+      },
+      "created_at": "2026-07-15T08:12:11.984Z",
+      "updated_at": "2026-07-15T08:12:11.984Z"
+    },
+    "src_2af75360003e": {
+      "id": "src_2af75360003e",
+      "inputType": "url",
+      "input": "https://github.com/Radiant303/SpringNote",
+      "canonical": "https://github.com/Radiant303/SpringNote",
+      "platform": "generic-web",
+      "sourceKind": "post",
+      "title": "Radiant303 SpringNote product research",
+      "actor": "codex",
+      "notePath": "00-Inbox/Sources/generic-web/radiant303-springnote-product-research-2af75360003e.md",
+      "tags": [
+        "daily-weekly-monthly",
+        "memory-review",
+        "product-research",
+        "clean-room"
+      ],
+      "notes": "Product-mechanism research only. Inspected commit 9c062d91a8cf93bfb51406d9475417091437c625 on 2026-07-15. AGPL-3.0: do not copy product code, prompts, tests, UI text, styles, icons, screenshots, fixtures, or assets. Independent requirements: governed daily/weekly/monthly knowledge diagnosis, proposal-only reflection, memory conversation, usage observability.",
+      "preflight": {
+        "url": "https://github.com/Radiant303/SpringNote",
+        "platform": "generic-web",
+        "label": "Generic web page",
+        "sourceType": "web",
+        "sourceKind": "post",
+        "access_context": "public",
+        "mode": "web-capture",
+        "provider": {
+          "id": "opencli",
+          "name": "OPENCLI",
+          "configured": false,
+          "command": "opencli",
+          "env": "VAULT_MIND_OPENCLI_CMD",
+          "fallbackEnv": "OPENCLI_CMD",
+          "purpose": "OpenCLI plus BBX/browser bridge web capture, article extraction, browser-assisted clipping, and text-first source normalization."
+        },
+        "pipeline": [
+          {
+            "id": "opencli",
+            "name": "OPENCLI",
+            "configured": false,
+            "command": "opencli",
+            "capability": "resolve.capture",
+            "role": "resolve browser/page/source metadata and capture text-first material"
+          }
+        ],
+        "can_auto_ingest": false,
+        "status": "needs_provider",
+        "confidence": "medium",
+        "needs": [
+          "OPENCLI web capture"
+        ],
+        "limitations": [
+          "Login-gated, private, deleted, paywalled, or region-blocked content may require browser/cookie-assisted capture.",
+          "LLM Wiki must not bypass platform access controls; use only content available to the user and configured providers."
+        ],
+        "output_contract": "Save Markdown into the vault, preserving source URL and capture metadata.",
+        "recommended_vault_path": "素材库/web/<source-slug>.md",
+        "next_action": "Configure OPENCLI with VAULT_MIND_OPENCLI_CMD or OPENCLI_CMD; then run the provider to produce Markdown in the vault."
+      },
+      "created_at": "2026-07-15T15:25:05.946Z",
+      "updated_at": "2026-07-15T15:23:43.595Z"
+    },
+    "src_0387cb926d12": {
+      "id": "src_0387cb926d12",
+      "inputType": "url",
+      "input": "https://developers.plane.so/api-reference/introduction",
+      "canonical": "https://developers.plane.so/api-reference/introduction",
+      "platform": "plane",
+      "sourceKind": "documentation",
+      "title": "Plane REST API official documentation",
+      "actor": "codex",
+      "notePath": "00-Inbox/Sources/plane/plane-rest-api-official-documentation-0387cb926d12.md",
+      "tags": [
+        "project-management",
+        "external-projection",
+        "plane",
+        "official-docs"
+      ],
+      "notes": "Authoritative clean-room reference for the LLM Wiki Project external projection adapter. Use /api/v1/workspaces/{workspace_slug}/projects/{project_id}/work-items/, X-API-Key authentication, and configurable Plane Cloud or self-hosted base URL. Do not copy Plane source code.",
+      "preflight": {
+        "url": "https://developers.plane.so/api-reference/introduction",
+        "platform": "generic-web",
+        "label": "Generic web page",
+        "sourceType": "web",
+        "sourceKind": "post",
+        "access_context": "public",
+        "mode": "web-capture",
+        "provider": {
+          "id": "opencli",
+          "name": "OPENCLI",
+          "configured": false,
+          "command": "opencli",
+          "env": "VAULT_MIND_OPENCLI_CMD",
+          "fallbackEnv": "OPENCLI_CMD",
+          "purpose": "OpenCLI plus BBX/browser bridge web capture, article extraction, browser-assisted clipping, and text-first source normalization."
+        },
+        "pipeline": [
+          {
+            "id": "opencli",
+            "name": "OPENCLI",
+            "configured": false,
+            "command": "opencli",
+            "capability": "resolve.capture",
+            "role": "resolve browser/page/source metadata and capture text-first material"
+          }
+        ],
+        "can_auto_ingest": false,
+        "status": "needs_provider",
+        "confidence": "medium",
+        "needs": [
+          "OPENCLI web capture"
+        ],
+        "limitations": [
+          "Login-gated, private, deleted, paywalled, or region-blocked content may require browser/cookie-assisted capture.",
+          "LLM Wiki must not bypass platform access controls; use only content available to the user and configured providers."
+        ],
+        "output_contract": "Save Markdown into the vault, preserving source URL and capture metadata.",
+        "recommended_vault_path": "素材库/web/<source-slug>.md",
+        "next_action": "Configure OPENCLI with VAULT_MIND_OPENCLI_CMD or OPENCLI_CMD; then run the provider to produce Markdown in the vault."
+      },
+      "created_at": "2026-07-15T15:35:45.647Z",
+      "updated_at": "2026-07-15T15:35:45.647Z"
+    },
+    "src_ef1d62b18b98": {
+      "id": "src_ef1d62b18b98",
+      "inputType": "url",
+      "input": "https://github.com/vectorize-io/hindsight",
+      "canonical": "https://github.com/vectorize-io/hindsight",
+      "platform": "github",
+      "sourceKind": "repo",
+      "title": "Hindsight agent memory product research",
+      "actor": "codex",
+      "notePath": "00-Inbox/Sources/github/hindsight-agent-memory-product-research-ef1d62b18b98.md",
+      "tags": [
+        "agent-memory",
+        "retrieval-adapter",
+        "hindsight",
+        "clean-room"
+      ],
+      "notes": "Clean-room product/API reference inspected at main commit 5ab6bdc9b63b76ba644124bf65a0fb18c72db7d9, MIT license. Internalize only the provider-neutral recall adapter shape: optional HTTP recall against a configured bank, Settings/SecretRef ownership, read-only Knowledge Adapter semantics, and no copied source, prompts, tests, UI, or assets.",
+      "preflight": {
+        "url": "https://github.com/vectorize-io/hindsight",
+        "platform": "generic-web",
+        "label": "Generic web page",
+        "sourceType": "web",
+        "sourceKind": "post",
+        "access_context": "public",
+        "mode": "web-capture",
+        "provider": {
+          "id": "opencli",
+          "name": "OPENCLI",
+          "configured": false,
+          "command": "opencli",
+          "env": "VAULT_MIND_OPENCLI_CMD",
+          "fallbackEnv": "OPENCLI_CMD",
+          "purpose": "OpenCLI plus BBX/browser bridge web capture, article extraction, browser-assisted clipping, and text-first source normalization."
+        },
+        "pipeline": [
+          {
+            "id": "opencli",
+            "name": "OPENCLI",
+            "configured": false,
+            "command": "opencli",
+            "capability": "resolve.capture",
+            "role": "resolve browser/page/source metadata and capture text-first material"
+          }
+        ],
+        "can_auto_ingest": false,
+        "status": "needs_provider",
+        "confidence": "medium",
+        "needs": [
+          "OPENCLI web capture"
+        ],
+        "limitations": [
+          "Login-gated, private, deleted, paywalled, or region-blocked content may require browser/cookie-assisted capture.",
+          "LLM Wiki must not bypass platform access controls; use only content available to the user and configured providers."
+        ],
+        "output_contract": "Save Markdown into the vault, preserving source URL and capture metadata.",
+        "recommended_vault_path": "素材库/web/<source-slug>.md",
+        "next_action": "Configure OPENCLI with VAULT_MIND_OPENCLI_CMD or OPENCLI_CMD; then run the provider to produce Markdown in the vault."
+      },
+      "created_at": "2026-07-15T15:43:10.175Z",
+      "updated_at": "2026-07-15T15:43:10.175Z"
+    }
+  }
+}

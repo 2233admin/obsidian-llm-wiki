@@ -6,6 +6,10 @@ sidecar table (migration 003), embeds changed files via ollama, builds node +
 edge dicts, then spawns memu_graph.cli graph-write to upsert. After the write
 batch succeeds, optionally invokes graph-recall maintenance (PageRank + LPA).
 
+MemU configuration comes from the canonical Settings profile. A private DSN
+is resolved through its device-local Secret Reference only at the database or
+subprocess boundary; it is never added to a child process argument list.
+
 Zero new deps: hashlib, urllib, subprocess, json, argparse, pathlib are all
 stdlib. Re-uses compiler._md_parse and a slim re-walk of the vault rather
 than reaching into compiler.concept_graph (which has different output shape).
@@ -18,12 +22,13 @@ Usage:
                                  [--embed-model ...]
 
 Defaults:
-    --vault          E:/knowledge
-    --dsn            $MEMU_DSN or postgresql://postgres:postgres@localhost:5432/memu
-    --user-id        boris
+    --vault          $VAULT_MIND_VAULT_PATH or current directory
+    MemU values      canonical adapters.memu.* Settings profile
     --ollama-url     http://127.0.0.1:11434
-    --embed-model    qwen3-embedding:0.6b
-    --memu-graph-python  D:/projects/memu-graph/.venv/Scripts/python.exe
+
+Legacy MEMU_* inputs are consulted only while their corresponding Settings
+keys remain unassigned. --dsn is a credential-free compatibility override;
+credential-bearing values are rejected without reflection.
 
 Skip dirs (matches B Path 1 spec):
     .obsidian, .trash, .git, .omc, .smart-env, .stfolder, node_modules, .archive
@@ -41,30 +46,315 @@ import time
 import urllib.error
 import urllib.request
 import uuid
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qsl, unquote, urlsplit, urlunsplit
 
 try:
     from ._md_parse import extract_wikilinks, parse_frontmatter
+    from .settings_platform import (
+        SettingsService,
+        default_registry_path,
+        load_registry,
+    )
 except ImportError:
     from _md_parse import extract_wikilinks, parse_frontmatter
+    from settings_platform import SettingsService, default_registry_path, load_registry
 
-VAULT_DEFAULT = Path("E:/knowledge")
+VAULT_DEFAULT = Path(os.environ.get("VAULT_MIND_VAULT_PATH") or Path.cwd())
 SKIP_DIRS = {
     ".obsidian", ".trash", ".git", ".omc", ".smart-env",
     ".stfolder", "node_modules", ".archive",
 }
-DEFAULT_DSN = "postgresql://postgres:postgres@localhost:5432/memu"
-DEFAULT_USER_ID = "boris"
+DEFAULT_DSN = "postgresql://localhost:5432/memu"
+DEFAULT_USER_ID = "default"
 DEFAULT_OLLAMA_URL = "http://127.0.0.1:11434"
 DEFAULT_EMBED_MODEL = "qwen3-embedding:0.6b"
-DEFAULT_MEMU_GRAPH_PYTHON = "D:/projects/memu-graph/.venv/Scripts/python.exe"
+DEFAULT_MEMU_GRAPH_PYTHON = sys.executable
 EMBED_BATCH_SIZE = 8
 EMBED_DIM = 1024
 NODE_CONTENT_LIMIT = 4000
 EMBED_INPUT_BODY_LIMIT = 500
 H1_RE = re.compile(r"^#\s+(.+)$", re.MULTILINE)
 TITLE_TO_NODE_KEY_LIMIT = 256
+KNOWN_ADAPTERS = {
+    "filesystem", "memu", "gitnexus", "obsidian", "kanban", "qmd",
+    "lightrag", "raganything", "hindsight", "vaultbrain", "graphify",
+}
+
+
+class MemUSyncConfigurationError(RuntimeError):
+    """Fail-closed configuration error whose message contains no secret value."""
+
+
+@dataclass(frozen=True)
+class MemUSyncRuntimeProfile:
+    """Redacted Settings-derived profile for the MemU write/sync path."""
+
+    enabled: bool
+    valid: bool
+    public_dsn: str
+    user_id: str
+    graph_python: str
+    graph_cwd: str
+    graph_timeout_ms: int
+    embed_model: str
+    credential_reference: dict[str, str] | None
+    credential_status: str
+    credential_explicit: bool
+    issues: tuple[str, ...]
+    snapshot_id: str
+
+
+def _effective_setting(snapshot: dict[str, Any], key: str) -> dict[str, Any]:
+    for item in snapshot.get("effective", []):
+        if item.get("key") == key:
+            return item
+    raise MemUSyncConfigurationError("MemU Settings profile is incomplete")
+
+
+def _select_string(
+    snapshot: dict[str, Any],
+    key: str,
+    *,
+    cli_value: str | None = None,
+    legacy_value: str | None = None,
+) -> str:
+    item = _effective_setting(snapshot, key)
+    if item.get("winningScope") != "product":
+        return item.get("value") if isinstance(item.get("value"), str) else ""
+    if isinstance(cli_value, str) and cli_value.strip():
+        return cli_value.strip()
+    if isinstance(legacy_value, str) and legacy_value.strip():
+        return legacy_value.strip()
+    return item.get("value") if isinstance(item.get("value"), str) else ""
+
+
+def _select_int(
+    snapshot: dict[str, Any],
+    key: str,
+    *,
+    legacy_value: str | None = None,
+) -> int:
+    item = _effective_setting(snapshot, key)
+    value = item.get("value")
+    if item.get("winningScope") == "product" and legacy_value:
+        try:
+            value = int(legacy_value)
+        except ValueError:
+            return -1
+    return value if isinstance(value, int) and not isinstance(value, bool) else -1
+
+
+def _parse_postgres_dsn(value: str, *, public: bool) -> Any:
+    try:
+        parsed = urlsplit(value)
+        if parsed.scheme not in {"postgres", "postgresql"} or not parsed.hostname:
+            raise ValueError("unsupported endpoint")
+        _ = parsed.port
+        if public and (
+            parsed.username is not None
+            or parsed.password is not None
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError("credential-bearing endpoint")
+        if not public and parsed.fragment:
+            raise ValueError("fragment is not a connection option")
+        return parsed
+    except (TypeError, ValueError) as exc:
+        kind = "public" if public else "private"
+        raise MemUSyncConfigurationError(
+            f"MemU {kind} DSN is not a supported PostgreSQL URL"
+        ) from exc
+
+
+def _public_dsn_from_legacy(value: str) -> str:
+    parsed = _parse_postgres_dsn(value, public=False)
+    if parsed.query or parsed.fragment:
+        raise MemUSyncConfigurationError(
+            "Legacy MEMU_DSN connection options are unsafe; use adapters.memu.secret_ref"
+        )
+    host = parsed.hostname or ""
+    if ":" in host:
+        host = f"[{host}]"
+    netloc = f"{host}:{parsed.port}" if parsed.port else host
+    public_dsn = urlunsplit((parsed.scheme, netloc, parsed.path, "", ""))
+    _parse_postgres_dsn(public_dsn, public=True)
+    return public_dsn
+
+
+def _secret_reference(item: dict[str, Any]) -> tuple[dict[str, str] | None, str]:
+    value = item.get("value")
+    if not isinstance(value, dict):
+        return None, "missing"
+    reference = value.get("secretRef")
+    status = value.get("status")
+    if not isinstance(reference, dict):
+        return None, "missing"
+    provider = reference.get("provider")
+    locator = reference.get("locator")
+    if not isinstance(provider, str) or not isinstance(locator, str):
+        return None, "missing"
+    normalized_status = status if status in {"present", "missing", "unreachable"} else "missing"
+    return {"provider": provider, "locator": locator}, normalized_status
+
+
+def _resolve_memu_sync_profile(
+    vault: Path,
+    args: argparse.Namespace,
+    *,
+    environment: dict[str, str] | None = None,
+    service: SettingsService | None = None,
+) -> tuple[MemUSyncRuntimeProfile, SettingsService]:
+    """Resolve the redacted write profile without materializing a secret value."""
+    env = dict(os.environ) if environment is None else dict(environment)
+    settings = service or SettingsService(
+        registry=load_registry(default_registry_path()),
+        vault_path=vault,
+        environment=env,
+    )
+    snapshot = settings.snapshot_resolve()["snapshot"]
+    issues: list[str] = []
+
+    enabled_item = _effective_setting(snapshot, "adapters.enabled")
+    enabled_value = enabled_item.get("value")
+    if enabled_item.get("winningScope") == "product" and env.get("VAULT_MIND_ADAPTERS", "").strip():
+        enabled_value = [
+            value.strip()
+            for value in env["VAULT_MIND_ADAPTERS"].split(",")
+            if value.strip()
+        ]
+    if not isinstance(enabled_value, list) or any(not isinstance(value, str) for value in enabled_value):
+        issues.append("adapter-enablement-invalid")
+        enabled = False
+    else:
+        unknown = set(enabled_value) - KNOWN_ADAPTERS
+        if unknown:
+            issues.append("adapter-enablement-unknown")
+        enabled = "memu" in enabled_value and not unknown
+
+    dsn_item = _effective_setting(snapshot, "adapters.memu.dsn")
+    if dsn_item.get("winningScope") != "product":
+        public_dsn = dsn_item.get("value") if isinstance(dsn_item.get("value"), str) else ""
+    elif isinstance(args.dsn, str) and args.dsn.strip():
+        public_dsn = args.dsn.strip()
+    elif env.get("MEMU_DSN", "").strip():
+        try:
+            public_dsn = _public_dsn_from_legacy(env["MEMU_DSN"].strip())
+        except MemUSyncConfigurationError:
+            public_dsn = ""
+            issues.append("memu-dsn-invalid")
+    else:
+        public_dsn = dsn_item.get("value") if isinstance(dsn_item.get("value"), str) else ""
+    try:
+        _parse_postgres_dsn(public_dsn, public=True)
+    except MemUSyncConfigurationError:
+        public_dsn = ""
+        if "memu-dsn-invalid" not in issues:
+            issues.append("memu-dsn-invalid")
+
+    secret_item = _effective_setting(snapshot, "adapters.memu.secret_ref")
+    credential_explicit = secret_item.get("winningScope") != "product"
+    credential_reference, credential_status = _secret_reference(secret_item)
+    if not credential_explicit and env.get("MEMU_DSN", "").strip():
+        credential_reference = {"provider": "environment", "locator": "MEMU_DSN"}
+        credential_status = "present"
+    if credential_explicit and (credential_reference is None or credential_status != "present"):
+        issues.append("memu-secret-unavailable")
+
+    user_id = _select_string(
+        snapshot,
+        "adapters.memu.user_id",
+        cli_value=args.user_id,
+        legacy_value=env.get("MEMU_USER_ID"),
+    )
+    graph_python = _select_string(
+        snapshot,
+        "adapters.memu.graph_python",
+        cli_value=args.memu_graph_python,
+        legacy_value=env.get("MEMU_GRAPH_PYTHON"),
+    )
+    graph_cwd = _select_string(
+        snapshot,
+        "adapters.memu.graph_cwd",
+        legacy_value=env.get("MEMU_GRAPH_CWD"),
+    )
+    graph_timeout_ms = _select_int(
+        snapshot,
+        "adapters.memu.graph_timeout_ms",
+        legacy_value=env.get("MEMU_GRAPH_TIMEOUT_MS"),
+    )
+    embed_model = _select_string(
+        snapshot,
+        "adapters.memu.embed_model",
+        cli_value=args.embed_model,
+        legacy_value=env.get("OLLAMA_EMBED_MODEL"),
+    )
+    if not user_id:
+        issues.append("memu-user-missing")
+    if not graph_python:
+        issues.append("memu-graph-python-missing")
+    if not graph_cwd:
+        issues.append("memu-graph-cwd-missing")
+    if not 100 <= graph_timeout_ms <= 300_000:
+        issues.append("memu-graph-timeout-invalid")
+    if not embed_model:
+        issues.append("memu-embed-model-missing")
+
+    profile = MemUSyncRuntimeProfile(
+        enabled=enabled,
+        valid=not issues,
+        public_dsn=public_dsn,
+        user_id=user_id,
+        graph_python=graph_python,
+        graph_cwd=graph_cwd,
+        graph_timeout_ms=graph_timeout_ms,
+        embed_model=embed_model,
+        credential_reference=credential_reference,
+        credential_status=credential_status,
+        credential_explicit=credential_explicit,
+        issues=tuple(issues),
+        snapshot_id=snapshot["snapshotId"],
+    )
+    return profile, settings
+
+
+def _resolve_memu_connection_dsn(
+    profile: MemUSyncRuntimeProfile,
+    service: SettingsService,
+) -> str:
+    """Resolve the private DSN only at the final device-local boundary."""
+    if not profile.valid:
+        raise MemUSyncConfigurationError("MemU Settings profile is invalid")
+    private_dsn = (
+        service.resolve_secret_reference(profile.credential_reference)
+        if profile.credential_reference
+        else None
+    )
+    if profile.credential_explicit and not private_dsn:
+        raise MemUSyncConfigurationError("MemU Secret Reference is unavailable on this device")
+    if not private_dsn:
+        return profile.public_dsn
+
+    public = _parse_postgres_dsn(profile.public_dsn, public=True)
+    private = _parse_postgres_dsn(private_dsn, public=False)
+    public_endpoint = (
+        (public.hostname or "").lower(),
+        public.port or 5432,
+        public.path,
+    )
+    private_endpoint = (
+        (private.hostname or "").lower(),
+        private.port or 5432,
+        private.path,
+    )
+    if public_endpoint != private_endpoint:
+        raise MemUSyncConfigurationError(
+            "MemU Secret Reference resolves to a different database endpoint"
+        )
+    return private_dsn
 
 
 def _posix_relpath(vault: Path, md: Path) -> str:
@@ -149,7 +439,9 @@ def _load_existing_hashes(dsn: str) -> dict[str, str]:
     try:
         # Prefer the same SQLAlchemy path memu_graph uses, since psycopg2 is a
         # transitive dep there. Keeps zero-dep promise for compiler/* itself.
-        sys.path.insert(0, str(Path("D:/projects/memu-graph/src").resolve()))
+        memu_graph_src = os.environ.get("MEMU_GRAPH_SRC")
+        if memu_graph_src:
+            sys.path.insert(0, str(Path(memu_graph_src).expanduser().resolve()))
         from sqlalchemy import create_engine, text
 
         engine = create_engine(dsn, pool_pre_ping=True)
@@ -160,7 +452,8 @@ def _load_existing_hashes(dsn: str) -> dict[str, str]:
         return {row[0]: row[1] for row in rows}
     except Exception as exc:  # noqa: BLE001
         sys.stderr.write(
-            f"[memu_sync] warn: could not read vault_sync_state ({exc!r}); "
+            "[memu_sync] warn: could not read vault_sync_state "
+            f"({type(exc).__name__}); "
             "treating all files as new\n"
         )
         return {}
@@ -372,33 +665,82 @@ def _spawn_graph_cli(
     subcommand: str,
     dsn: str,
     stdin_payload: str | None,
+    *,
+    cwd: str,
+    timeout_ms: int,
 ) -> dict:
-    """Spawn memu_graph.cli <subcommand> --dsn ..., return parsed stdout JSON.
+    """Spawn memu_graph.cli with the private DSN only in child environment.
 
-    Raises RuntimeError on non-zero exit.
+    ``memu_graph.cli`` consumes ``MEMU_DSN`` as its device-local default. The
+    private value is deliberately absent from the operating-system argument
+    vector and every error/result is redacted before it crosses this boundary.
     """
-    cmd = [python_path, "-m", "memu_graph.cli", subcommand, "--dsn", dsn]
+    cmd = [python_path, "-m", "memu_graph.cli", subcommand]
+    child_environment = dict(os.environ)
+    child_environment["MEMU_DSN"] = dsn
     proc = subprocess.run(
         cmd,
         input=stdin_payload,
         capture_output=True,
         text=True,
         encoding="utf-8",
+        env=child_environment,
+        cwd=cwd,
+        timeout=timeout_ms / 1000,
     )
     if proc.returncode != 0:
         raise RuntimeError(
-            f"memu_graph.cli {subcommand} failed (exit {proc.returncode}): "
-            f"{proc.stderr.strip() or proc.stdout.strip()}"
+            f"memu_graph.cli {subcommand} failed (exit {proc.returncode})"
         )
     out = proc.stdout.strip()
     if not out:
         return {}
     try:
-        return json.loads(out)
+        parsed = json.loads(out)
     except json.JSONDecodeError as exc:
         raise RuntimeError(
-            f"memu_graph.cli {subcommand} returned non-JSON stdout: {out!r}"
+            f"memu_graph.cli {subcommand} returned invalid JSON"
         ) from exc
+    sanitized = _redact_private_dsn(parsed, dsn)
+    if not isinstance(sanitized, dict):
+        raise RuntimeError(f"memu_graph.cli {subcommand} returned an invalid result")
+    return sanitized
+
+
+def _private_dsn_tokens(dsn: str) -> set[str]:
+    tokens = {dsn}
+    try:
+        parsed = urlsplit(dsn)
+        for value in (parsed.username, parsed.password):
+            if value:
+                tokens.add(value)
+                tokens.add(unquote(value))
+        for _, value in parse_qsl(parsed.query, keep_blank_values=False):
+            if value:
+                tokens.add(value)
+                tokens.add(unquote(value))
+    except ValueError:
+        pass
+    return {token for token in tokens if token}
+
+
+def _redact_private_dsn(value: Any, dsn: str) -> Any:
+    """Recursively remove the private DSN and its credential material."""
+    tokens = _private_dsn_tokens(dsn)
+    if isinstance(value, str):
+        redacted = value
+        for token in sorted(tokens, key=len, reverse=True):
+            redacted = redacted.replace(token, "[REDACTED]")
+        return redacted
+    if isinstance(value, list):
+        return [_redact_private_dsn(item, dsn) for item in value]
+    if isinstance(value, dict):
+        return {
+            _redact_private_dsn(key, dsn) if isinstance(key, str) else key:
+            _redact_private_dsn(item, dsn)
+            for key, item in value.items()
+        }
+    return value
 
 
 # --------------------------------------------------------------------------
@@ -469,11 +811,26 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     p.add_argument("--limit", type=int, default=0)
     p.add_argument("--no-recompute", action="store_true",
                    help="Skip run-maintenance after the write batch")
-    p.add_argument("--memu-graph-python", default=DEFAULT_MEMU_GRAPH_PYTHON)
-    p.add_argument("--dsn", default=os.environ.get("MEMU_DSN") or DEFAULT_DSN)
-    p.add_argument("--user-id", default=DEFAULT_USER_ID)
+    p.add_argument(
+        "--memu-graph-python",
+        help="Credential-free compatibility override; explicit Settings wins",
+    )
+    p.add_argument(
+        "--dsn",
+        help=(
+            "Credential-free PostgreSQL compatibility endpoint. "
+            "Credentials must use adapters.memu.secret_ref"
+        ),
+    )
+    p.add_argument(
+        "--user-id",
+        help="Compatibility override used only while adapters.memu.user_id is unassigned",
+    )
     p.add_argument("--ollama-url", default=DEFAULT_OLLAMA_URL)
-    p.add_argument("--embed-model", default=DEFAULT_EMBED_MODEL)
+    p.add_argument(
+        "--embed-model",
+        help="Compatibility override used only while adapters.memu.embed_model is unassigned",
+    )
     p.add_argument("--node-id-prefix", default="vault",
                    help="Prefix for node_id (e.g. vault, claudemem)")
     p.add_argument("--node-type", default="VAULT_NOTE",
@@ -490,6 +847,23 @@ def main(argv: list[str] | None = None) -> int:
         sys.stderr.write(f"[memu_sync] vault {vault} not found\n")
         return 1
 
+    try:
+        profile, settings = _resolve_memu_sync_profile(vault, args)
+    except Exception as exc:  # noqa: BLE001
+        sys.stderr.write(
+            "[memu_sync] Settings profile resolution failed "
+            f"({type(exc).__name__})\n"
+        )
+        return 1
+    if not profile.enabled:
+        sys.stderr.write("[memu_sync] MemU is disabled by the effective Settings profile\n")
+        return 1
+    if not profile.valid:
+        sys.stderr.write(
+            "[memu_sync] MemU Settings profile is invalid: "
+            f"{','.join(profile.issues)}\n"
+        )
+        return 1
     vault_root = vault.as_posix()
     t_start = time.monotonic()
 
@@ -500,7 +874,13 @@ def main(argv: list[str] | None = None) -> int:
             sys.stdout.write(json.dumps({"scanned": 0, "changed": 0}) + "\n")
         return 0
 
-    existing = _load_existing_hashes(args.dsn)
+    try:
+        read_dsn = _resolve_memu_connection_dsn(profile, settings)
+        existing = _load_existing_hashes(read_dsn)
+        del read_dsn
+    except MemUSyncConfigurationError as exc:
+        sys.stderr.write(f"[memu_sync] {exc}\n")
+        return 1
 
     added: list[dict] = []
     modified: list[tuple[dict, str]] = []
@@ -581,14 +961,20 @@ def main(argv: list[str] | None = None) -> int:
 
     # 1. Embed only changed records
     try:
-        _embed_records(changed_records, args.ollama_url, args.embed_model)
+        _embed_records(changed_records, args.ollama_url, profile.embed_model)
     except Exception as exc:  # noqa: BLE001
         sys.stderr.write(f"[memu_sync] embedding failed: {exc!r}\n")
         return 1
 
     # 2. Build node payloads
     node_payloads = [
-        _build_node_payload(rec, vault_root, args.user_id, args.node_type, args.source_label)
+        _build_node_payload(
+            rec,
+            vault_root,
+            profile.user_id,
+            args.node_type,
+            args.source_label,
+        )
         for rec in changed_records
     ]
 
@@ -610,30 +996,36 @@ def main(argv: list[str] | None = None) -> int:
         "sync_state": sync_state,
     }
     try:
+        write_dsn = _resolve_memu_connection_dsn(profile, settings)
         write_result = _spawn_graph_cli(
-            args.memu_graph_python,
+            profile.graph_python,
             "graph-write",
-            args.dsn,
+            write_dsn,
             json.dumps(payload, ensure_ascii=False),
+            cwd=profile.graph_cwd,
+            timeout_ms=profile.graph_timeout_ms,
         )
-    except Exception as exc:  # noqa: BLE001
-        sys.stderr.write(f"[memu_sync] graph-write failed: {exc!r}\n")
+        del write_dsn
+    except Exception:  # noqa: BLE001
+        sys.stderr.write("[memu_sync] graph-write failed\n")
         return 1
 
     # 5. Optional maintenance
     maint_result: dict[str, Any] = {}
     if not args.no_recompute:
         try:
+            maintenance_dsn = _resolve_memu_connection_dsn(profile, settings)
             maint_result = _spawn_graph_cli(
-                args.memu_graph_python,
+                profile.graph_python,
                 "run-maintenance",
-                args.dsn,
+                maintenance_dsn,
                 None,
+                cwd=profile.graph_cwd,
+                timeout_ms=profile.graph_timeout_ms,
             )
-        except Exception as exc:  # noqa: BLE001
-            sys.stderr.write(
-                f"[memu_sync] run-maintenance failed (non-fatal): {exc!r}\n"
-            )
+            del maintenance_dsn
+        except Exception:  # noqa: BLE001
+            sys.stderr.write("[memu_sync] run-maintenance failed (non-fatal)\n")
 
     duration_ms = int((time.monotonic() - t_start) * 1000)
     summary = {

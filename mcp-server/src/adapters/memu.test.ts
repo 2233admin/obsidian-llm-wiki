@@ -24,7 +24,10 @@
 
 import { test, describe, before, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { MemUAdapter } from "./memu.js";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { MemUAdapter, resolveMemUAdapterConfig } from "./memu.js";
 
 const TEST_DSN = process.env.MEMU_TEST_DSN;
 const TEST_USER_ID = process.env.MEMU_TEST_USER_ID ?? "memu-adapter-test";
@@ -47,6 +50,230 @@ function basisVecLiteral(i: number): string {
 }
 
 describe("MemUAdapter -- unavailable paths", () => {
+  test("portable defaults use credential-free DSN, PATH Python, current cwd, and relative fallback", () => {
+    const cwd = join("portable", "memu");
+    const windows = resolveMemUAdapterConfig({}, {}, { cwd, platform: "win32" });
+    assert.equal(windows.dsn, "postgresql://localhost:5432/memu");
+    assert.equal(windows.userId, "default");
+    assert.equal(windows.pythonExe, "python");
+    assert.equal(windows.memuSearchPythonExe, "python");
+    assert.equal(windows.memuGraphCwd, cwd);
+    assert.equal(windows.memuSearchPy, "memu_search.py");
+    assert.equal(windows.graphRecallTimeoutMs, 15_000);
+    assert.equal(windows.memuSearchTimeoutMs, 20_000);
+
+    const posix = resolveMemUAdapterConfig({}, {}, { cwd, platform: "linux" });
+    assert.equal(posix.pythonExe, "python3");
+    assert.equal(posix.memuSearchPythonExe, "python3");
+  });
+
+  test("explicit configuration wins over environment, which wins over portable defaults", () => {
+    const environment = {
+      MEMU_DSN: "postgresql://environment/memu",
+      MEMU_USER_ID: "environment-user",
+      MEMU_GRAPH_PYTHON: "environment-graph-python",
+      MEMU_GRAPH_CWD: "environment-cwd",
+      MEMU_GRAPH_TIMEOUT_MS: "1234",
+      MEMU_SEARCH_PY: "environment-search.py",
+      MEMU_SEARCH_PYTHON: "environment-search-python",
+      MEMU_SEARCH_TIMEOUT_MS: "2345",
+      OLLAMA_EMBED_MODEL: "environment-model",
+    } satisfies NodeJS.ProcessEnv;
+    const fromEnvironment = resolveMemUAdapterConfig({}, environment, {
+      cwd: "default-cwd",
+      platform: "win32",
+    });
+    assert.equal(fromEnvironment.dsn, environment.MEMU_DSN);
+    assert.equal(fromEnvironment.userId, environment.MEMU_USER_ID);
+    assert.equal(fromEnvironment.pythonExe, environment.MEMU_GRAPH_PYTHON);
+    assert.equal(fromEnvironment.memuGraphCwd, environment.MEMU_GRAPH_CWD);
+    assert.equal(fromEnvironment.graphRecallTimeoutMs, 1234);
+    assert.equal(fromEnvironment.memuSearchPy, environment.MEMU_SEARCH_PY);
+    assert.equal(fromEnvironment.memuSearchPythonExe, environment.MEMU_SEARCH_PYTHON);
+    assert.equal(fromEnvironment.memuSearchTimeoutMs, 2345);
+    assert.equal(fromEnvironment.embedModel, environment.OLLAMA_EMBED_MODEL);
+
+    const explicit = resolveMemUAdapterConfig({
+      dsn: "postgresql://explicit/memu",
+      userId: "explicit-user",
+      pythonExe: "explicit-graph-python",
+      memuGraphCwd: "explicit-cwd",
+      graphRecallTimeoutMs: 3456,
+      memuSearchPy: "explicit-search.py",
+      memuSearchPythonExe: "explicit-search-python",
+      memuSearchTimeoutMs: 4567,
+      embedModel: "explicit-model",
+    }, environment, { cwd: "default-cwd", platform: "win32" });
+    assert.equal(explicit.dsn, "postgresql://explicit/memu");
+    assert.equal(explicit.userId, "explicit-user");
+    assert.equal(explicit.pythonExe, "explicit-graph-python");
+    assert.equal(explicit.memuGraphCwd, "explicit-cwd");
+    assert.equal(explicit.graphRecallTimeoutMs, 3456);
+    assert.equal(explicit.memuSearchPy, "explicit-search.py");
+    assert.equal(explicit.memuSearchPythonExe, "explicit-search-python");
+    assert.equal(explicit.memuSearchTimeoutMs, 4567);
+    assert.equal(explicit.embedModel, "explicit-model");
+  });
+
+  test("relative fallback script runs from configured cwd using Python from PATH", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "llmwiki-memu-search-"));
+    const privateDsn = "postgresql://memu-user:fallback-secret@localhost:5432/memu";
+    try {
+      writeFileSync(
+        join(cwd, "memu_search.py"),
+        [
+          "import json",
+          "import os",
+          "import sys",
+          `assert os.environ.get('MEMU_DSN') == ${JSON.stringify(privateDsn)}`,
+          "assert '--dsn' not in sys.argv",
+          "print(json.dumps([{'id':'portable','summary':'portable fallback','memory_type':'note','score':1}]))",
+          "",
+        ].join("\n"),
+        "utf-8",
+      );
+      const adapter = new MemUAdapter({ dsn: privateDsn, memuGraphCwd: cwd });
+      const runFallback = Reflect.get(adapter, "runMemuSearchPy") as (
+        query: string,
+        vector: readonly number[] | null,
+        limit: number,
+      ) => Promise<Array<{ path: string; content: string }>>;
+      const results = await runFallback.call(adapter, "portable", null, 1);
+      assert.equal(results.length, 1);
+      assert.equal(results[0].path, "memu/item/portable");
+      assert.equal(results[0].content, "portable fallback");
+      assert.doesNotMatch(JSON.stringify(results), /fallback-secret/);
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  test("graph recall spawn keeps the private DSN in child env and out of argv and results", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "llmwiki-memu-graph-"));
+    const privateDsn = "postgresql://memu-user:graph-secret@localhost:5432/memu";
+    const packageDir = join(cwd, "memu_graph");
+    const parentStdout: string[] = [];
+    const parentStderr: string[] = [];
+    const originalStdoutWrite = process.stdout.write;
+    const originalStderrWrite = process.stderr.write;
+    try {
+      mkdirSync(packageDir);
+      writeFileSync(join(packageDir, "__init__.py"), "", "utf-8");
+      writeFileSync(
+        join(packageDir, "cli.py"),
+        [
+          "import argparse",
+          "import json",
+          "import os",
+          "import sys",
+          "parser = argparse.ArgumentParser()",
+          "sub = parser.add_subparsers(dest='command', required=True)",
+          "recall = sub.add_parser('graph-recall')",
+          "recall.add_argument('--dsn', default=os.environ.get('MEMU_DSN'))",
+          "args = parser.parse_args()",
+          `assert args.dsn == ${JSON.stringify(privateDsn)}`,
+          "assert '--dsn' not in sys.argv",
+          "request = json.load(sys.stdin)",
+          "assert request['query'] == 'portable graph'",
+          "print(os.environ['MEMU_DSN'], file=sys.stderr)",
+          "print(json.dumps({'path':'precise','nodes':[{'id':'n1','name':'Portable','type':'note','description':'safe graph result','content':'','community_id':None,'pagerank':1,'ppr_score':1}],'edges':[]}))",
+          "",
+        ].join("\n"),
+        "utf-8",
+      );
+      process.stdout.write = ((chunk: string | Uint8Array) => {
+        parentStdout.push(String(chunk));
+        return true;
+      }) as typeof process.stdout.write;
+      process.stderr.write = ((chunk: string | Uint8Array) => {
+        parentStderr.push(String(chunk));
+        return true;
+      }) as typeof process.stderr.write;
+
+      const adapter = new MemUAdapter({
+        dsn: privateDsn,
+        memuGraphCwd: cwd,
+        graphRecallTimeoutMs: 5_000,
+      });
+      const runGraphRecall = Reflect.get(adapter, "runGraphRecall") as (
+        query: string,
+        vector: readonly number[] | null,
+        maxNodes: number,
+      ) => Promise<unknown>;
+      const result = await runGraphRecall.call(adapter, "portable graph", null, 1);
+
+      assert.equal((result as { path?: string } | null)?.path, "precise");
+      const publicSurface = JSON.stringify({ result, parentStdout, parentStderr });
+      assert.doesNotMatch(publicSurface, /graph-secret/);
+      assert.ok(!publicSurface.includes(privateDsn));
+    } finally {
+      process.stdout.write = originalStdoutWrite;
+      process.stderr.write = originalStderrWrite;
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  test("fallback rejects child output containing the resolved DSN without reflecting it", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "llmwiki-memu-secret-output-"));
+    const privateDsn = "postgresql://memu-user:output-secret@localhost:5432/memu";
+    const parentStdout: string[] = [];
+    const parentStderr: string[] = [];
+    const originalStdoutWrite = process.stdout.write;
+    const originalStderrWrite = process.stderr.write;
+    try {
+      writeFileSync(
+        join(cwd, "memu_search.py"),
+        [
+          "import json",
+          "import os",
+          "import sys",
+          "print(os.environ['MEMU_DSN'], file=sys.stderr)",
+          "print(json.dumps([{'id':'unsafe','summary':os.environ['MEMU_DSN'],'score':1}]))",
+          "",
+        ].join("\n"),
+        "utf-8",
+      );
+      process.stdout.write = ((chunk: string | Uint8Array) => {
+        parentStdout.push(String(chunk));
+        return true;
+      }) as typeof process.stdout.write;
+      process.stderr.write = ((chunk: string | Uint8Array) => {
+        parentStderr.push(String(chunk));
+        return true;
+      }) as typeof process.stderr.write;
+
+      const adapter = new MemUAdapter({ dsn: privateDsn, memuGraphCwd: cwd });
+      const runFallback = Reflect.get(adapter, "runMemuSearchPy") as (
+        query: string,
+        vector: readonly number[] | null,
+        limit: number,
+      ) => Promise<unknown[]>;
+      const result = await runFallback.call(adapter, "anything", null, 1);
+
+      assert.deepEqual(result, []);
+      const publicSurface = JSON.stringify({ result, parentStdout, parentStderr });
+      assert.doesNotMatch(publicSurface, /output-secret/);
+      assert.ok(!publicSurface.includes(privateDsn));
+    } finally {
+      process.stdout.write = originalStdoutWrite;
+      process.stderr.write = originalStderrWrite;
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  test("missing explicit fallback interpreter fails closed", async () => {
+    const adapter = new MemUAdapter({
+      memuSearchPythonExe: "llmwiki-python-that-does-not-exist",
+      memuSearchTimeoutMs: 500,
+    });
+    const runFallback = Reflect.get(adapter, "runMemuSearchPy") as (
+      query: string,
+      vector: readonly number[] | null,
+      limit: number,
+    ) => Promise<unknown[]>;
+    assert.deepEqual(await runFallback.call(adapter, "anything", null, 1), []);
+  });
+
   test("bad DSN: init() resolves, isAvailable=false", async () => {
     const adapter = new MemUAdapter({ dsn: BAD_DSN, userId: "nobody", timeout: 500 });
     await adapter.init();

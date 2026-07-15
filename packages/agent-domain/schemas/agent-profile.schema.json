@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.llmwiki.org/agent-domain/v1/agent-profile.schema.json",
+  "title": "AgentProfile v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "profileId", "revision", "displayName", "role", "responsibilities", "capabilityClaims", "constitution", "defaultModelPolicy", "createdAt", "createdBy", "updatedAt", "updatedBy"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "profileId": { "$ref": "common.schema.json#/$defs/agentProfileId" },
+    "revision": { "type": "integer", "minimum": 1 },
+    "displayName": { "type": "string", "minLength": 1 },
+    "role": { "type": "string", "minLength": 1 },
+    "responsibilities": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "capabilityClaims": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "constitution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["principles", "instructions"],
+      "properties": {
+        "principles": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "instructions": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "defaultModelPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": { "enum": ["inherit", "local", "cloud"] },
+        "provider": { "type": "string", "minLength": 1 },
+        "model": { "type": "string", "minLength": 1 },
+        "capabilityClass": { "type": "string", "minLength": 1 }
+      }
+    },
+    "createdAt": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "createdBy": { "type": "string", "minLength": 1 },
+    "updatedAt": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "updatedBy": { "type": "string", "minLength": 1 },
+    "previousRevision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["revision", "digest"],
+      "properties": {
+        "revision": { "type": "integer", "minimum": 1 },
+        "digest": { "$ref": "common.schema.json#/$defs/digest" }
+      }
+    }
+  }
+}

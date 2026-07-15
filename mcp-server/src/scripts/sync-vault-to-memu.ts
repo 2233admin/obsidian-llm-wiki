@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * sync-vault-to-memu -- spawn `python -m compiler.memu_sync` with passthrough.
+ * sync-vault-to-memu -- spawn the Settings-owned MemU sync path.
  *
  * Thin TypeScript wrapper. Forwards CLI flags to the Python sync script and
  * pipes stdout/stderr transparently. Exits with the subprocess exit code so
@@ -14,8 +14,9 @@
  *                                           [--dsn ...] [--user-id ...]
  *                                           [--ollama-url ...] [--embed-model ...]
  *
- * Defaults are owned by the Python script. This wrapper does no flag parsing
- * beyond what's needed to surface --help locally.
+ * Defaults are owned by the canonical Settings profile in the Python script.
+ * This wrapper validates the deprecated --dsn compatibility flag so a private
+ * DSN is never forwarded into the Python process argument vector.
  */
 
 import { spawn } from "node:child_process";
@@ -36,14 +37,14 @@ function printHelp(): void {
       "Python module directly to see the canonical flag list.",
       "",
       "Common flags:",
-      "  --vault PATH               default E:/knowledge",
+      "  --vault PATH               default current directory or $VAULT_MIND_VAULT_PATH",
       "  --dry-run                  show diff without writing",
       "  --json                     emit machine-readable JSON",
       "  --limit N                  scan first N MDs only",
       "  --no-recompute             skip PageRank+LPA after write",
       "  --memu-graph-python PATH   override memu-graph venv python",
-      "  --dsn DSN                  override $MEMU_DSN",
-      "  --user-id ID               default boris",
+      "  --dsn PUBLIC_DSN           credential-free compatibility endpoint only",
+      "  --user-id ID               compatibility input; explicit Settings wins",
       "  --ollama-url URL           default http://127.0.0.1:11434",
       "  --embed-model MODEL        default qwen3-embedding:0.6b",
       "",
@@ -51,17 +52,69 @@ function printHelp(): void {
   );
 }
 
-async function main(): Promise<number> {
-  const argv = process.argv.slice(2);
+function validatePublicDsn(value: string): void {
+  try {
+    const url = new URL(value);
+    if (
+      (url.protocol !== "postgres:" && url.protocol !== "postgresql:")
+      || !url.hostname
+      || url.username
+      || url.password
+      || url.search
+      || url.hash
+    ) {
+      throw new Error("unsafe");
+    }
+  } catch {
+    throw new Error(
+      "--dsn accepts only a credential-free PostgreSQL endpoint; configure credentials with adapters.memu.secret_ref",
+    );
+  }
+}
+
+/** Validate compatibility arguments without reflecting a rejected DSN. */
+export function sanitizeForwardedArguments(argv: readonly string[]): string[] {
+  const forwarded: string[] = [];
+  for (let index = 0; index < argv.length; index += 1) {
+    const argument = argv[index]!;
+    if (argument === "--dsn") {
+      const value = argv[index + 1];
+      if (!value || value.startsWith("--")) {
+        throw new Error("--dsn requires a credential-free PostgreSQL endpoint");
+      }
+      validatePublicDsn(value);
+      forwarded.push(argument, value);
+      index += 1;
+      continue;
+    }
+    if (argument.startsWith("--dsn=")) {
+      const value = argument.slice("--dsn=".length);
+      validatePublicDsn(value);
+      forwarded.push(argument);
+      continue;
+    }
+    forwarded.push(argument);
+  }
+  return forwarded;
+}
+
+export async function main(argv = process.argv.slice(2)): Promise<number> {
   if (argv.includes("-h") || argv.includes("--help")) {
     printHelp();
     return 0;
+  }
+  let forwarded: string[];
+  try {
+    forwarded = sanitizeForwardedArguments(argv);
+  } catch (error) {
+    process.stderr.write(`sync-vault-to-memu: ${(error as Error).message}\n`);
+    return 2;
   }
 
   const cwd = COMPILER_REPO;
   const child = spawn(
     "python",
-    ["-m", "compiler.memu_sync", ...argv],
+    ["-m", "compiler.memu_sync", ...forwarded],
     {
       cwd,
       stdio: ["inherit", "inherit", "inherit"],
@@ -91,10 +144,14 @@ async function main(): Promise<number> {
   });
 }
 
-main().then(
-  (code) => process.exit(code),
-  (err) => {
-    process.stderr.write(`sync-vault-to-memu: ${(err as Error).message}\n`);
-    process.exit(1);
-  },
-);
+const invokedDirectly = process.argv[1]
+  && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (invokedDirectly) {
+  main().then(
+    (code) => process.exit(code),
+    (err) => {
+      process.stderr.write(`sync-vault-to-memu: ${(err as Error).message}\n`);
+      process.exit(1);
+    },
+  );
+}

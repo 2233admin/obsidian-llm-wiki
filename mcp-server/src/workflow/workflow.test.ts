@@ -74,6 +74,7 @@ function seedDriverLease(root: string, overrides: Partial<{
   expiresAt: number;
   handoffToken: string;
   handoffExpiresAt: string;
+  durableExtensions: Record<string, unknown>;
 }> = {}) {
   const fixture = readWorkRunFixture();
   const projectId = overrides.projectId ?? fixture.example.projectId;
@@ -120,6 +121,7 @@ function seedDriverLease(root: string, overrides: Partial<{
     }],
     handoff_token_hash: createHash('sha256').update(handoffToken, 'utf-8').digest('hex'),
     handoff_expires_at: overrides.handoffExpiresAt ?? '2999-01-01T00:00:00.000Z',
+    ...(overrides.durableExtensions ?? {}),
     lease_token: 'must-be-scrubbed',
     workspace_path: 'C:/must-not-cross-devices',
   }, null, 2), 'utf-8');
@@ -447,6 +449,179 @@ describe('agent project workflow operations', () => {
       assert.deepEqual(mismatch.errors, [
         `work-run-id mismatch: expected work-run/different-run, found ${fixture.example.workRunId}`,
       ]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('workflow.agent.join locks and preserves governed assignment fields across transitions', async () => {
+    const { root, call } = makeHarness();
+    const fixture = readWorkRunFixture();
+    const assignment = {
+      schema_version: 2,
+      agent_profile_id: 'agent/worker',
+      agent_profile_revision: 3,
+      project_agent_binding_id: 'binding/alpha/worker',
+      project_agent_binding_revision: 5,
+      assignment_plan_id: 'assignment-plan/alpha-worker',
+      assignment_plan_version: 4,
+      assignment_plan_fingerprint: `sha256:${'a'.repeat(64)}`,
+      context_envelope_fingerprint: `sha256:${'b'.repeat(64)}`,
+      device_snapshot: {
+        snapshotId: 'device-snapshot/alpha-5090',
+        deviceId: 'device/test-5090',
+        revision: 2,
+        fingerprint: `sha256:${'d'.repeat(64)}`,
+        capturedAt: '2026-07-15T00:00:00.000Z',
+        expiresAt: '2026-07-15T02:00:00.000Z',
+      },
+      parent_work_run_id: 'work-run/parent-alpha',
+      child_work_run_ids: [],
+      capability_grant_summary: {
+        grant_id: 'capability-grant/alpha-worker',
+        connectors: ['connector/git'],
+        operations: ['repository.read'],
+        resources: ['project/alpha'],
+        expires_at: '2999-01-01T00:00:00.000Z',
+        side_effect_classes: ['view'],
+      },
+      artifact_projections: [{
+        artifact_id: 'artifact/input-spec',
+        kind: 'work-input',
+        output_class: 'view',
+        content_hash: 'c'.repeat(64),
+        provenance: ['source:spec'],
+      }],
+      expected_output: {
+        kind: 'implementation-evidence',
+        output_class: 'view',
+        required_artifacts: ['test-report', 'change-summary'],
+      },
+    };
+    try {
+      const seeded = seedDriverLease(root, { durableExtensions: assignment });
+      const lockedParams = {
+        project: fixture.example.projectId,
+        agent: 'worker',
+        work_run_id: fixture.example.workRunId,
+        work_item_id: fixture.example.workItemId,
+        transition_token: 'join:governed-assignment',
+        agent_profile_id: assignment.agent_profile_id,
+        agent_profile_revision: assignment.agent_profile_revision,
+        project_agent_binding_id: assignment.project_agent_binding_id,
+        project_agent_binding_revision: assignment.project_agent_binding_revision,
+        assignment_plan_id: assignment.assignment_plan_id,
+        assignment_plan_version: assignment.assignment_plan_version,
+        assignment_plan_fingerprint: assignment.assignment_plan_fingerprint,
+        context_envelope_fingerprint: assignment.context_envelope_fingerprint,
+        device_snapshot: assignment.device_snapshot,
+        parent_work_run_id: assignment.parent_work_run_id,
+      };
+      await call('workflow.agent.join', lockedParams);
+      await call('workflow.agent.checkpoint', {
+        project: fixture.example.projectId,
+        agent: 'worker',
+        work_run_id: fixture.example.workRunId,
+        transition_token: 'checkpoint:governed-assignment',
+        status: 'passed',
+        summary: 'locked context remains stable',
+      });
+      const durable = JSON.parse(readFileSync(seeded.runPath, 'utf-8')) as Record<string, unknown>;
+      for (const [key, value] of Object.entries(assignment)) assert.deepEqual(durable[key], value, key);
+      assert.equal('lease_token' in durable, false);
+      assert.equal('workspace_path' in durable, false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('workflow.agent.join rejects governed assignment drift byte-for-byte', async () => {
+    const fixture = readWorkRunFixture();
+    const locked = {
+      agent_profile_id: 'agent/worker',
+      agent_profile_revision: 3,
+      project_agent_binding_id: 'binding/alpha/worker',
+      project_agent_binding_revision: 5,
+      assignment_plan_id: 'assignment-plan/alpha-worker',
+      assignment_plan_version: 4,
+      assignment_plan_fingerprint: `sha256:${'a'.repeat(64)}`,
+      context_envelope_fingerprint: `sha256:${'b'.repeat(64)}`,
+      device_snapshot: {
+        snapshotId: 'device-snapshot/alpha-5090',
+        deviceId: 'device/test-5090',
+        revision: 2,
+        fingerprint: `sha256:${'d'.repeat(64)}`,
+        capturedAt: '2026-07-15T00:00:00.000Z',
+        expiresAt: '2026-07-15T02:00:00.000Z',
+      },
+      parent_work_run_id: 'work-run/parent-alpha',
+    };
+    const mismatches: Array<[string, unknown, RegExp]> = [
+      ['agent_profile_id', 'agent/other', /Agent Profile identity conflict/i],
+      ['agent_profile_revision', 4, /Agent Profile revision conflict/i],
+      ['project_agent_binding_id', 'binding/alpha/other', /Project Agent Binding identity conflict/i],
+      ['project_agent_binding_revision', 6, /Project Agent Binding revision conflict/i],
+      ['assignment_plan_id', 'assignment-plan/other', /Assignment Plan identity conflict/i],
+      ['assignment_plan_version', 5, /Assignment Plan version conflict/i],
+      ['assignment_plan_fingerprint', `sha256:${'e'.repeat(64)}`, /Assignment Plan fingerprint conflict/i],
+      ['context_envelope_fingerprint', `sha256:${'f'.repeat(64)}`, /Context Envelope fingerprint conflict/i],
+      ['device_snapshot', { ...locked.device_snapshot, revision: 3 }, /Device Snapshot conflict/i],
+      ['parent_work_run_id', 'work-run/other-parent', /Parent Work Run identity conflict/i],
+    ];
+    for (const [field, value, expected] of mismatches) {
+      const { root, call } = makeHarness();
+      try {
+        const seeded = seedDriverLease(root, { durableExtensions: { schema_version: 2, ...locked } });
+        const before = readFileSync(seeded.runPath, 'utf-8');
+        await assert.rejects(() => call('workflow.agent.join', {
+          project: fixture.example.projectId,
+          agent: 'worker',
+          work_run_id: fixture.example.workRunId,
+          work_item_id: fixture.example.workItemId,
+          transition_token: `join:governed-mismatch:${field}`,
+          ...locked,
+          [field]: value,
+        }), expected);
+        assert.equal(readFileSync(seeded.runPath, 'utf-8'), before);
+        assert.equal(existsSync(vp(root, '01-Projects/alpha/agents')), false);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    }
+  });
+
+  test('workflow.agent.join keeps legacy identity bytes while accepting equivalent prefixed digest assertions', async () => {
+    const { root, call } = makeHarness();
+    const fixture = readWorkRunFixture();
+    const locked = {
+      schema_version: 2,
+      agent_profile_id: 'agent-profile/worker',
+      agent_profile_revision: 3,
+      project_agent_binding_id: 'project-agent-binding/alpha-worker',
+      project_agent_binding_revision: 5,
+      assignment_plan_id: 'assignment-plan/alpha-worker',
+      assignment_plan_fingerprint: 'a'.repeat(64),
+      context_envelope_fingerprint: 'b'.repeat(64),
+      parent_work_run_id: 'work-run/parent-alpha',
+    };
+    try {
+      const seeded = seedDriverLease(root, { durableExtensions: locked });
+      const { schema_version: _schemaVersion, ...legacyLocks } = locked;
+      await call('workflow.agent.join', {
+        project: fixture.example.projectId,
+        agent: 'worker',
+        work_run_id: fixture.example.workRunId,
+        work_item_id: fixture.example.workItemId,
+        transition_token: 'join:legacy-assignment',
+        ...legacyLocks,
+        assignment_plan_fingerprint: `sha256:${'a'.repeat(64)}`,
+        context_envelope_fingerprint: `sha256:${'b'.repeat(64)}`,
+      });
+      const durable = JSON.parse(readFileSync(seeded.runPath, 'utf-8')) as Record<string, unknown>;
+      assert.equal(durable.agent_profile_id, 'agent-profile/worker');
+      assert.equal(durable.project_agent_binding_id, 'project-agent-binding/alpha-worker');
+      assert.equal(durable.assignment_plan_fingerprint, 'a'.repeat(64));
+      assert.equal(durable.context_envelope_fingerprint, 'b'.repeat(64));
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

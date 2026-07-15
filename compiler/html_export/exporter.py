@@ -722,7 +722,7 @@ def export_vault_direct(
     ``export_to_html`` assumes the compiler's topic convention (``wiki_dir``
     contains ``concepts/``, ``summaries/``, ``_index.md`` -- produced by
     ``compile.py``'s LLM extraction pipeline). A real, organically-structured
-    vault (e.g. ``D:\\knowledge``, PARA folders, no ``raw/``/``wiki/``
+    vault (e.g. a local knowledge directory, PARA folders, no ``raw/``/``wiki/``
     anywhere) has none of that. This function walks the vault directly and
     mirrors its directory tree 1:1 into ``output_dir``, one ``.html`` per
     ``.md``, reusing the exact same Pandoc/theme/wikilink/footer pipeline as

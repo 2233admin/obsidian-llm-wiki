@@ -188,6 +188,34 @@ test("plugin data migration keeps only presentation, binding, and migration stat
   ]);
 });
 
+test("plugin data does not become an Agent Room, Work Run, or memory authority", () => {
+  const plan = planPluginDataMigration({
+    schemaVersion: 2,
+    presentation: { selectedScope: "vault", showAdvanced: true },
+    deviceBinding: { deviceId: "device/local" },
+    agentRooms: [{ projectId: "project/alpha", agentId: "agent/codex" }],
+    workRuns: [{ workRunId: "work-run/forbidden-plugin-copy" }],
+    memoryApprovals: [{ proposalId: "proposal/forbidden-plugin-copy", approved: true }],
+    connectorSecrets: { cloud: "must-never-survive" },
+    leaseToken: "lease-token-must-never-survive",
+    grantToken: "grant-token-must-never-survive",
+  });
+
+  assert.deepEqual(plan.data, {
+    schemaVersion: 2,
+    presentation: { selectedScope: "vault", showAdvanced: true },
+    deviceBinding: { deviceId: "device/local" },
+    legacyMigration: undefined,
+  });
+  const serialized = JSON.stringify(plan.data);
+  assert.equal(serialized.includes("agentRooms"), false);
+  assert.equal(serialized.includes("work-run/forbidden-plugin-copy"), false);
+  assert.equal(serialized.includes("proposal/forbidden-plugin-copy"), false);
+  assert.equal(serialized.includes("must-never-survive"), false);
+  assert.equal(serialized.includes("lease-token"), false);
+  assert.equal(serialized.includes("grant-token"), false);
+});
+
 test("legacy migration journals only hashes and restores an in-memory preimage exactly", async () => {
   const transport = new FakeTransport();
   transport.documents.set("user-device", document(3, [{

@@ -1975,7 +1975,7 @@ def _parse_ensure_plugin_args(args: list[str]) -> dict:
 
 
 def cmd_work_next(vault, *, claim_agent=None, ttl_seconds=3600, now=None,
-                  projected_cost=0, project=None):
+                  projected_cost=0, project=None, governed_assignment=None):
     """Task 11A-iii heartbeat: select the next executable item from the
     AUTHORITATIVE work index and optionally lease it. One-shot, no daemon
     (§0 #4): a cron / ScheduleWakeup tick invokes this once and exits.
@@ -2055,6 +2055,7 @@ def cmd_work_next(vault, *, claim_agent=None, ttl_seconds=3600, now=None,
             vault, pick.note_id, claim_agent,
             current_head=pick.note_id, base_head=pick.note_id,
             ttl_seconds=ttl_seconds, now=now,
+            governed_assignment=governed_assignment,
         )
         result["lease"] = {"outcome": r.outcome, **(r.lease or {})}
     result["status"] = "selected"
@@ -2290,6 +2291,7 @@ def main():
 
     def _work_cli():
         # `work next   <vault> [--claim <agent>] [--ttl <sec>] [--projected <n>]`
+        #                         `[--governed-assignment <json-file>]`
         # `work board  <vault> [--project <slug>] [--write] [--lang <code>]`
         # `work budget   <vault> [--project <slug>]`
         # `work debit    <vault> --project <slug> --cost <n> [--apply]`
@@ -2306,10 +2308,16 @@ def main():
             return None
 
         if sub == "next":
+            assignment_path = _opt("--governed-assignment")
+            governed_assignment = None
+            if assignment_path:
+                with open(assignment_path, encoding="utf-8") as assignment_file:
+                    governed_assignment = json.load(assignment_file)
             return cmd_work_next(pos[0], claim_agent=_opt("--claim"),
                                  ttl_seconds=int(_opt("--ttl") or 3600),
                                  projected_cost=int(_opt("--projected") or 0),
-                                 project=_opt("--project"))
+                                 project=_opt("--project"),
+                                 governed_assignment=governed_assignment)
         if sub == "board":
             return cmd_work_board(pos[0], project=_opt("--project"),
                                   write=("--write" in args), lang=_opt("--lang"))

@@ -32,6 +32,14 @@ import { makeWorkflowOps } from '../workflow/workflow.js';
 import { resolveProjectContext } from '../project/project-context.js';
 import { makeProjectMigrationOps } from '../project/project-migration.js';
 import { createSettingsService, makeSettingsOps, resolveAgentModelProcessEnvironment } from '../settings/settings.js';
+import { makeUsageOps } from '../usage/operations.js';
+import {
+  makeHostCapabilityOps,
+  type HostCapabilityTransportFactory,
+} from '../host-capabilities/operations.js';
+import { createDefaultHostCapabilityTransportFactory } from '../host-capabilities/transport.js';
+import { makeLegacyAgentMigrationOps } from '../agent-domain/legacy-migration.js';
+import { makeAgentDomainOps } from '../agent-domain/operations.js';
 
 const execAsync = promisify(execFile);
 const PROTECTED_DIRS = new Set(['.obsidian', '.trash', '.git', 'node_modules']);
@@ -639,6 +647,7 @@ export interface AllOperationsDeps {
   vaultPath: string;
   configPath?: string;
   contextCorePath?: string;
+  hostCapabilityTransportFactory?: HostCapabilityTransportFactory;
 }
 
 export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
@@ -1211,6 +1220,13 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     ...makeWorkflowOps(vaultPath),
     ...makeContextOps(vaultPath, registry, defaultWeights),
     ...makeSettingsOps(settingsOptions, settingsService),
+    ...makeUsageOps(vaultPath),
+    ...makeHostCapabilityOps(vaultPath, {
+      transportFactory: deps.hostCapabilityTransportFactory ?? createDefaultHostCapabilityTransportFactory(),
+      settingsService,
+    }),
+    ...makeAgentDomainOps(vaultPath),
+    ...makeLegacyAgentMigrationOps(),
   ];
   return [...operations, ...compileOps, ...queryOps, ...multimodalOps, ...lightRagOps, ...agentOps, ...holonOps];
 }

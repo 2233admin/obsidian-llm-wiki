@@ -9,10 +9,11 @@
 //
 // Env:
 //   VAULT_MIND_VAULT_PATH  vault root (forwarded to bundle.js); required.
-//   MEMU_DSN               PG DSN; adapter default is postgres:postgres@localhost:5432/memu.
-//   MEMU_USER_ID           user_id scope; adapter default "boris".
+//   MEMU_DSN               PG DSN; adapter default has no embedded credentials.
+//   MEMU_USER_ID           user_id scope; adapter default "default".
 
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -45,8 +46,12 @@ function parseArgs(argv: string[]): Args {
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   const _thisDir = dirname(fileURLToPath(import.meta.url));
-  // dist/scripts/ -> dist/ -> mcp-server/
-  const bundlePath = join(_thisDir, '..', '..', 'bundle.js');
+  const releaseBundlePath = join(_thisDir, 'bundle.js');
+  // A release keeps both standalone CLIs beside bundle.js. Source builds keep
+  // this entry under dist/scripts/, two levels below the MCP package root.
+  const bundlePath = existsSync(releaseBundlePath)
+    ? releaseBundlePath
+    : join(_thisDir, '..', '..', 'bundle.js');
 
   const child = spawn('node', [bundlePath], {
     stdio: ['pipe', 'pipe', 'pipe'],

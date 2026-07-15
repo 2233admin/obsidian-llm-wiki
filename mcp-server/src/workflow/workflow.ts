@@ -313,6 +313,189 @@ interface DurableRunAssertion {
   record: Record<string, unknown>;
 }
 
+const GOVERNED_RUN_LOCKS = [
+  { key: 'agent_profile_id', label: 'Agent Profile identity', kind: 'id', pattern: /^(?:agent\/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?|agent-profile\/[a-z0-9][a-z0-9-]*)$/ },
+  { key: 'agent_profile_revision', label: 'Agent Profile revision', kind: 'revision' },
+  { key: 'project_agent_binding_id', label: 'Project Agent Binding identity', kind: 'id', pattern: /^(?:binding\/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?\/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?|project-agent-binding\/[a-z0-9][a-z0-9-]*)$/ },
+  { key: 'project_agent_binding_revision', label: 'Project Agent Binding revision', kind: 'revision' },
+  { key: 'assignment_plan_id', label: 'Assignment Plan identity', kind: 'id', pattern: /^assignment-plan\/[a-z0-9][a-z0-9-]*$/ },
+  { key: 'assignment_plan_version', label: 'Assignment Plan version', kind: 'revision' },
+  { key: 'assignment_plan_fingerprint', label: 'Assignment Plan fingerprint', kind: 'fingerprint' },
+  { key: 'context_envelope_fingerprint', label: 'Context Envelope fingerprint', kind: 'fingerprint' },
+  { key: 'device_snapshot', label: 'Device Snapshot', kind: 'device-snapshot' },
+  { key: 'parent_work_run_id', label: 'Parent Work Run identity', kind: 'work-run' },
+] as const;
+
+const GOVERNED_RUN_EXTENSION_KEYS = [
+  ...GOVERNED_RUN_LOCKS.map((item) => item.key),
+  'child_work_run_ids',
+  'capability_grant_summary',
+  'artifact_projections',
+  'expected_output',
+] as const;
+
+function assertGovernedLockValue(
+  spec: (typeof GOVERNED_RUN_LOCKS)[number],
+  value: unknown,
+): void {
+  if (spec.kind === 'device-snapshot') {
+    assertDeviceSnapshot(value);
+    return;
+  }
+  if (spec.kind === 'revision') {
+    if (!Number.isSafeInteger(value) || (value as number) < 1) {
+      throw conflict(`${spec.label} conflict`, { actual: value, expected: 'positive integer' });
+    }
+    return;
+  }
+  if (typeof value !== 'string') {
+    throw conflict(`${spec.label} conflict`, { actual: value, expected: 'string' });
+  }
+  if (spec.kind === 'fingerprint') {
+    if (!/^(?:sha256:)?[a-f0-9]{64}$/.test(value)) throw conflict(`${spec.label} conflict`, { actual: value });
+  } else if (spec.kind === 'work-run') {
+    if (!/^work-run\/[a-z0-9][a-z0-9-]*$/.test(value)) throw conflict(`${spec.label} conflict`, { actual: value });
+  } else if (spec.kind === 'id' && !spec.pattern.test(value)) {
+    throw conflict(`${spec.label} conflict`, { actual: value });
+  }
+  assertPersistedTextSafe(spec.key, value);
+}
+
+function fingerprintHex(value: unknown): string | null {
+  return typeof value === 'string' && /^(?:sha256:)?[a-f0-9]{64}$/.test(value)
+    ? value.replace(/^sha256:/, '')
+    : null;
+}
+
+function assertDeviceSnapshot(value: unknown): asserts value is Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw conflict('Device Snapshot conflict', { actual: value });
+  const snapshot = value as Record<string, unknown>;
+  const required = ['snapshotId', 'deviceId', 'revision', 'fingerprint', 'capturedAt', 'expiresAt'] as const;
+  const keys = Object.keys(snapshot);
+  if (keys.length !== required.length || required.some((key) => !(key in snapshot))) {
+    throw conflict('Device Snapshot conflict', { actual: value, expected: required });
+  }
+  if (typeof snapshot.snapshotId !== 'string' || !/^device-snapshot\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(snapshot.snapshotId)) {
+    throw conflict('Device Snapshot identity conflict', { actual: snapshot.snapshotId });
+  }
+  if (typeof snapshot.deviceId !== 'string' || !/^device\/[a-z0-9][a-z0-9-]*$/.test(snapshot.deviceId)) {
+    throw conflict('Device identity conflict', { actual: snapshot.deviceId });
+  }
+  if (!Number.isSafeInteger(snapshot.revision) || (snapshot.revision as number) < 1) {
+    throw conflict('Device Snapshot revision conflict', { actual: snapshot.revision });
+  }
+  if (fingerprintHex(snapshot.fingerprint) === null) {
+    throw conflict('Device Snapshot fingerprint conflict', { actual: snapshot.fingerprint });
+  }
+  for (const key of ['capturedAt', 'expiresAt'] as const) {
+    const timestamp = snapshot[key];
+    if (typeof timestamp !== 'string' || !timestamp) {
+      throw conflict(`Device Snapshot ${key} conflict`, { actual: timestamp });
+    }
+    assertPersistedTextSafe(`device_snapshot.${key}`, timestamp);
+  }
+}
+
+function comparableGovernedLock(
+  spec: (typeof GOVERNED_RUN_LOCKS)[number],
+  value: unknown,
+): unknown {
+  if (spec.kind === 'fingerprint') return fingerprintHex(value);
+  if (spec.kind === 'device-snapshot' && value && typeof value === 'object' && !Array.isArray(value)) {
+    const snapshot = value as Record<string, unknown>;
+    return JSON.stringify({
+      snapshotId: snapshot.snapshotId,
+      deviceId: snapshot.deviceId,
+      revision: snapshot.revision,
+      fingerprint: fingerprintHex(snapshot.fingerprint),
+      capturedAt: snapshot.capturedAt,
+      expiresAt: snapshot.expiresAt,
+    });
+  }
+  return value;
+}
+
+function assertGovernedRunLocks(params: Record<string, unknown>, durable: Record<string, unknown>): void {
+  for (const spec of GOVERNED_RUN_LOCKS) {
+    const expected = params[spec.key];
+    const actual = durable[spec.key];
+    if (expected === undefined && actual === undefined) continue;
+    if (expected === undefined || actual === undefined) {
+      throw conflict(`${spec.label} conflict`, { expected, actual });
+    }
+    assertGovernedLockValue(spec, expected);
+    assertGovernedLockValue(spec, actual);
+    if (comparableGovernedLock(spec, expected) !== comparableGovernedLock(spec, actual)) {
+      throw conflict(`${spec.label} conflict`, { expected, actual });
+    }
+  }
+}
+
+const FORBIDDEN_DURABLE_EXTENSION_KEY = /(?:^|_)(?:secret|token|credential|api[_-]?key|workspace|path|process|handle|header|environment|env)(?:_|$)/i;
+
+function assertPortableDurableValue(label: string, value: unknown, depth = 0): void {
+  if (depth > 6) throw conflict(`${label} exceeds the durable Work Run nesting limit`);
+  if (value === null || typeof value === 'boolean') return;
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) throw conflict(`${label} contains a non-finite number`);
+    return;
+  }
+  if (typeof value === 'string') {
+    if (value.length > 4_096) throw conflict(`${label} exceeds the durable Work Run text limit`);
+    if (/(?:api[_-]?key|credential|plaintext[_-]?secret)/i.test(value)) {
+      throw conflict(`${label} contains secret-bearing material`);
+    }
+    assertPersistedTextSafe(label, value);
+    return;
+  }
+  if (Array.isArray(value)) {
+    if (value.length > 256) throw conflict(`${label} exceeds the durable Work Run array limit`);
+    value.forEach((item, index) => assertPortableDurableValue(`${label}[${index}]`, item, depth + 1));
+    return;
+  }
+  if (!value || typeof value !== 'object') throw conflict(`${label} contains an unsupported value`);
+  const record = value as Record<string, unknown>;
+  const entries = Object.entries(record);
+  if (entries.length > 64) throw conflict(`${label} exceeds the durable Work Run object limit`);
+  for (const [key, nested] of entries) {
+    if (!/^[a-z][a-z0-9_]{0,63}$/.test(key) || FORBIDDEN_DURABLE_EXTENSION_KEY.test(key)) {
+      throw conflict(`${label} contains forbidden field ${key}`);
+    }
+    assertPortableDurableValue(`${label}.${key}`, nested, depth + 1);
+  }
+}
+
+function governedRunExtensions(run: Record<string, unknown>): Record<string, unknown> {
+  const extensions: Record<string, unknown> = {};
+  for (const spec of GOVERNED_RUN_LOCKS) {
+    const value = run[spec.key];
+    if (value === undefined) continue;
+    assertGovernedLockValue(spec, value);
+    extensions[spec.key] = value;
+  }
+  if (run.child_work_run_ids !== undefined) {
+    if (!Array.isArray(run.child_work_run_ids)) throw conflict('Child Work Run identities conflict');
+    const children = run.child_work_run_ids.map((value) => {
+      if (typeof value !== 'string' || !/^work-run\/[a-z0-9][a-z0-9-]*$/.test(value)) {
+        throw conflict('Child Work Run identities conflict', { actual: value });
+      }
+      return value;
+    });
+    if (new Set(children).size !== children.length) throw conflict('Child Work Run identities conflict: duplicates');
+    extensions.child_work_run_ids = children;
+  }
+  for (const key of ['capability_grant_summary', 'artifact_projections', 'expected_output'] as const) {
+    const value = run[key];
+    if (value === undefined) continue;
+    assertPortableDurableValue(key, value);
+    extensions[key] = structuredClone(value);
+  }
+  if (Object.keys(extensions).length > 0 && run.schema_version !== 2) {
+    throw conflict('Governed Work Run extensions require schema_version=2', { actual: run.schema_version });
+  }
+  return extensions;
+}
+
 function assertPortableHandoffAuthority(durable: Record<string, unknown>, handoffToken: unknown): void {
   const token = typeof handoffToken === 'string' ? handoffToken : '';
   if (token.length < 16 || token.length > 4096) {
@@ -386,6 +569,7 @@ function assertLeasedRunIdentity(
     : undefined;
   const identity = { projectId: expectedProjectId, workItemId, workRunId, agentId: agent, leaseMode, handoffToken };
   const durable = assertDurableRunIdentity(vaultPath, project, identity);
+  assertGovernedRunLocks(params, durable.record);
   const state = durable.state;
   if (state !== 'leased' && state !== 'running') {
     throw conflict(`Work Run identity conflict: join requires leased or running state, found ${String(state)}`);
@@ -445,8 +629,9 @@ function syncDurableWorkRunUnlocked(
       transitions.push({ transition_token: transitionToken, from: previous, to: state.workRunState, recorded_at: state.updatedAt });
     }
   }
+  const extensions = governedRunExtensions(run);
   const durable = {
-    schema_version: 1,
+    schema_version: Object.keys(extensions).length > 0 ? 2 : 1,
     project_id: state.projectId,
     work_item_id: state.workItemId,
     work_run_id: state.workRunId,
@@ -458,6 +643,7 @@ function syncDurableWorkRunUnlocked(
     updated_at: state.updatedAt,
     provenance: [...state.provenance].sort(),
     transitions,
+    ...extensions,
     ...(typeof run.handoff_token_hash === 'string' ? { handoff_token_hash: run.handoff_token_hash } : {}),
     ...(typeof run.handoff_expires_at === 'string' ? { handoff_expires_at: run.handoff_expires_at } : {}),
   };
@@ -1306,6 +1492,7 @@ function beginAgentLifetime(
       identityEquals('Work Run', requestedWorkRunId, priorLifetime.workRunId);
       identityEquals('agent', agent, priorLifetime.agent);
       const durable = assertDurableRunIdentity(vaultPath, project, requestedIdentity);
+      assertGovernedRunLocks(params, durable.record);
       assertJoinLeaseAuthority(vaultPath, requestedIdentity, durable.record);
       return replayResult(priorLifetime, priorReceipt, agentEventsPath(project, agent));
     }
@@ -1319,8 +1506,9 @@ function beginAgentLifetime(
       || optionalString(params.work_run_state)
       || optionalString(params.lease_mode)
       || optionalString(params.handoff_token)
+      || GOVERNED_RUN_EXTENSION_KEYS.some((key) => params[key] !== undefined)
     ) {
-      throw makeErr(-32602, 'workflow.agent.start creates manual runs and does not accept leased identity fields');
+      throw makeErr(-32602, 'workflow.agent.start creates manual runs and does not accept leased identity fields or governed assignment identity fields');
     }
     workRunId = createWorkRunId();
     workItemId = parseWorkItemId(undefined, project, params.issue);
@@ -1635,6 +1823,16 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
           description: 'Existing Work Run state; leased is expected when attaching a Work Driver lease',
         },
         work_item_id: { type: 'string', required: true, description: 'Canonical project/<slug>/issue/<slug> identity' },
+        agent_profile_id: { type: 'string', required: false, description: 'Locked Agent Profile identity asserted against the durable Work Run' },
+        agent_profile_revision: { type: 'number', required: false, description: 'Locked positive Agent Profile revision' },
+        project_agent_binding_id: { type: 'string', required: false, description: 'Locked Project Agent Binding identity' },
+        project_agent_binding_revision: { type: 'number', required: false, description: 'Locked positive Project Agent Binding revision' },
+        assignment_plan_id: { type: 'string', required: false, description: 'Approved deterministic Assignment Plan identity' },
+        assignment_plan_version: { type: 'number', required: false, description: 'Locked positive Assignment Plan version' },
+        assignment_plan_fingerprint: { type: 'string', required: false, description: 'Locked SHA-256 Assignment Plan fingerprint' },
+        context_envelope_fingerprint: { type: 'string', required: false, description: 'Locked SHA-256 Context Envelope fingerprint' },
+        device_snapshot: { type: 'object', required: false, description: 'Locked portable Device Snapshot used by the Assignment Plan' },
+        parent_work_run_id: { type: 'string', required: false, description: 'Exactly one parent Work Run identity for a delegated child' },
         lease_mode: {
           type: 'string',
           required: false,

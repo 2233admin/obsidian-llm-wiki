@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.llmwiki.org/agent-domain/v1/context-envelope.schema.json",
+  "title": "ContextEnvelope v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "envelopeId", "compiledAt", "modelLock", "tokenEstimator", "tokenBudget", "tokenCount", "layers", "omissions", "fingerprint"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "envelopeId": { "type": "string", "minLength": 1 },
+    "compiledAt": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "modelLock": { "$ref": "common.schema.json#/$defs/modelLock" },
+    "tokenEstimator": { "const": "utf8-bytes-div4/v1" },
+    "tokenBudget": { "type": "integer", "minimum": 1 },
+    "tokenCount": { "type": "integer", "minimum": 0 },
+    "layers": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "prefixItems": [
+        { "$ref": "#/$defs/layer", "properties": { "name": { "const": "platformKernel" } } },
+        { "$ref": "#/$defs/layer", "properties": { "name": { "const": "agentConstitution" } } },
+        { "$ref": "#/$defs/layer", "properties": { "name": { "const": "governedWorkingMemory" } } },
+        { "$ref": "#/$defs/layer", "properties": { "name": { "const": "runtimeEnvelope" } } }
+      ]
+    },
+    "omissions": { "type": "array", "items": { "$ref": "#/$defs/omission" } },
+    "fingerprint": { "$ref": "common.schema.json#/$defs/digest" }
+  },
+  "$defs": {
+    "chunk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["chunkId", "content", "provenance", "mandatory", "priority", "tokenCount", "contentHash"],
+      "properties": {
+        "chunkId": { "type": "string", "minLength": 1 },
+        "content": true,
+        "provenance": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/provenance" } },
+        "mandatory": { "type": "boolean" },
+        "priority": { "type": "integer", "minimum": 0 },
+        "tokenCount": { "type": "integer", "minimum": 1 },
+        "contentHash": { "$ref": "common.schema.json#/$defs/digest" }
+      }
+    },
+    "layer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "provenance", "chunks", "tokenCount", "contentHash"],
+      "properties": {
+        "name": { "enum": ["platformKernel", "agentConstitution", "governedWorkingMemory", "runtimeEnvelope"] },
+        "provenance": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/provenance" } },
+        "chunks": { "type": "array", "items": { "$ref": "#/$defs/chunk" } },
+        "tokenCount": { "type": "integer", "minimum": 0 },
+        "contentHash": { "$ref": "common.schema.json#/$defs/digest" }
+      }
+    },
+    "omission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["layer", "chunkId", "reason", "tokenCount", "mandatory"],
+      "properties": {
+        "layer": { "enum": ["platformKernel", "agentConstitution", "governedWorkingMemory", "runtimeEnvelope"] },
+        "chunkId": { "type": "string", "minLength": 1 },
+        "reason": { "const": "token-budget" },
+        "tokenCount": { "type": "integer", "minimum": 1 },
+        "mandatory": { "const": false }
+      }
+    }
+  }
+}

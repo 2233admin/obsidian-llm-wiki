@@ -139,6 +139,33 @@ project.issue.update project=alpha slug=build-local-linear state=done
 query.unified query="Build local Linear" adapters=["filesystem", "kanban"]
 ```
 
+## External Project Tracker projections
+
+GitHub, Gitea, Linear, and Plane are projections of reviewed local Work Items. The Markdown issue under `01-Projects/<project>/issues/` remains canonical: an inbound remote change becomes a draft candidate, while an outbound change is first produced as a pure plan and is mutated only by explicit apply after configuration, reviewed-head, deadline, redirect, and conflict checks pass.
+
+Tracker configuration lives under `providers.project_tracker.*`, independently from `providers.host_capability.*`. A Project binding remains credential-free and may contain provider-specific identity data. For Plane:
+
+```json
+{
+  "provider": "plane",
+  "workspace_slug": "xart",
+  "project_id": "9e7355e2-...",
+  "state_type_ids": {
+    "backlog": "workspace-state-uuid",
+    "unstarted": "workspace-state-uuid",
+    "started": "workspace-state-uuid",
+    "completed": "workspace-state-uuid",
+    "canceled": "workspace-state-uuid"
+  }
+}
+```
+
+`workspace_slug` and `project_id` are required for Plane create or update. Plane state IDs are workspace-specific, so LLM Wiki never infers them: when a state mapping is absent, the outgoing payload omits `state` and the plan reports `needs-mapping`. Plane uses `X-API-Key` and the current `/api/v1/workspaces/{workspace_slug}/projects/{project_id}/work-items/` resource on Cloud or a configured self-hosted endpoint. Multi-device installations share the canonical Project ID and reviewed projection provenance, but each device resolves its own Settings Secret Reference and machine-local binding.
+
+Create apply is replay-safe after a provider success has been recorded. Before the first GitHub, Gitea, Plane, or Linear create request, LLM Wiki writes a non-secret pending claim under `01-Projects/<project>/projection-receipts/`. A successful response must provide a bounded remote object ID and revision; the claim is then atomically replaced by canonical JSON binding the Project entity, target, provider, credential-free binding digests, Settings snapshot, reviewed-head digest, and create-plan digest to that remote identity. An exact replay returns the stored ID/revision with `idempotentReplay: true` and performs no network mutation. Binding, Settings, reviewed-head, provider, or plan-semantic drift fails closed, which also prevents a second device with divergent projection context from silently creating another remote item.
+
+This is not a claim of provider-side exactly-once delivery. If the provider accepted a create but the client lost the response or was interrupted before the success receipt became durable, LLM Wiki cannot prove the remote outcome. The pending receipt remains `outcome-unknown`, automatic replay is blocked, and the remote item must be reconciled and promoted into canonical origin metadata before retrying; LLM Wiki never guesses that an unknown response was safe to POST again.
+
 ## Boundaries
 
 - This is not a cloud backend and does not run a scheduler.

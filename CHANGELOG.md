@@ -12,6 +12,107 @@ cut.** Internal `package.json`/`pyproject.toml` version fields are not
 force-aligned to this changelog's numbering -- treat this file as the
 source of truth for what shipped when.
 
+## v2.8.0-beta.1 -- 2026-07-16
+
+### Highlights
+
+- **Settings becomes the shared LLM Wiki control plane.** The host-neutral
+  Settings Platform remains the authority for defaults, user-device and
+  Project scope, model binding, connector configuration, migration, and
+  Doctor health. Obsidian now consumes the same compiled Settings and Agent
+  Domain contracts as MCP instead of creating plugin-owned copies. Local,
+  inherited, and cloud Agent model modes remain selectable; credentials stay
+  device-local and cross boundaries only as Secret References.
+- **Governed Agent Rooms under Project Context.** Versioned Agent Profiles,
+  Project Bindings, durable and ephemeral Threads, and read-only Room
+  projections now share stable Project-rooted identities. Context compilation
+  locks the exact Profile, Binding, approved Memory revision, model, and
+  runtime Project Context fingerprint so another device can reproduce or
+  reject the same input deterministically. Legacy Agent state has a
+  byte-preserving, review-first migration inventory rather than an automatic
+  rewrite.
+- **Dream Time is the governed knowledge-diagnosis layer.** Dream Time creates
+  immutable Memory Proposals from cited Project evidence, protects locked
+  sections, exposes revision history and Doctor diagnostics, and requires an
+  explicit approve or reject decision before durable Memory changes. Proposal
+  replay, stale-revision races, interruption recovery, and protected-section
+  conflicts fail closed; automatic approval remains disabled. Disabled-by-
+  default daily, weekly, and monthly Project cadences map to checkpoint, learn,
+  and review, and run only when a host explicitly invokes them.
+- **Pluggable knowledge retrieval through the same Settings control plane.**
+  memU, LightRAG, RAG-Anything, Kanban, QMD, and Hindsight now resolve through
+  namespaced `adapters.*` settings with per-field provenance and device-local
+  Secret References. Hindsight is read-only recall; it does not become LLM
+  Wiki Memory authority. Invalid or explicitly disabled providers fail closed
+  instead of reviving an older environment configuration.
+- **Project Tracker projections stay separate from executable tools.** GitHub,
+  Gitea, Linear, and Plane use `providers.project_tracker.*`, while executable
+  expert/plugin tools remain under `providers.host_capability.*`. Plane uses
+  the current work-items API, explicit workspace/project identity, and
+  workspace-provided state UUIDs; LLM Wiki never guesses remote state IDs.
+- **Host Capability connectors.** LLM Wiki can register reviewed local or
+  cloud expert/tool descriptors, compute deterministic assignments, require a
+  separate approval, and invoke only the granted operation through lazy
+  stdio or HTTP transports. Import provenance, source revision and hash,
+  license review, connector health, descriptor drift, Project Context, and
+  Secret Reference resolution are checked before invocation. Diagnostics are
+  redacted and no third-party product source code is copied into the runtime.
+- **Fleet and governed Work Runs.** Portable device capability advertisements,
+  deterministic assignment locks, local leases, explicit handoff tokens,
+  child Work Runs, Usage Events, artifact projection, and ordered lifetime
+  stages now compose through the same Project Context. The acceptance harness
+  covers two-vault handoff, capability mismatch, identity drift, exact-once
+  replay, secret/path rejection, and returned artifact provenance.
+- **Obsidian Agent control plane.** The plugin adds a backend-owned view over
+  Profiles, Bindings, Rooms, Threads, Dream Time, Consult, Delegation, Project
+  Hub, Usage, experts, and connectors. Mutations use the same operation
+  dispatcher and write policy as MCP/CLI, with deterministic idempotency
+  tokens, revision conflicts, redacted diagnostics, and quarantined Promotion
+  handoff through `vault.writeAIOutput`.
+- **LLM Wiki naming is canonical.** **LLM Wiki** is the product and control
+  plane name. `obc` remains only the compatibility name for Obsidian Broken
+  Link Checker functionality; it is not an Agent, Settings, memory, or Project
+  authority.
+
+### Security, distribution, and upgrade safety
+
+- Added an immutable, content-addressed Usage ledger with Project/Agent/
+  Thread/Work Run/provider/device projections, explicit unknown values, and
+  versioned budget and admission policy. Prompt, response, secret, lease,
+  machine-path, and duplicate-source material is rejected or redacted before
+  persistence.
+- Added release gates for secret and machine-path leakage, external-source
+  provenance, reviewed runtime licenses, deterministic archive contents, and
+  the clean-room boundary around the EXXETA/exxperts product research. The
+  external project is treated as a reviewed Source; it is not a runtime
+  dependency and its implementation is not vendored.
+- The isolated MCP release payload now includes the server plus Agent Domain,
+  memU query, and Usage CLI bundles. Verification checks package entrypoint
+  closure, runtime-version agreement, required operation presence, and startup
+  without repository-only dependencies.
+- Added an Obsidian production-bundle boundary check and a clean install ->
+  upgrade -> rollback -> reinstall lifecycle verifier. The verifier preserves
+  mutable plugin data and cache files, rejects unsafe archives before touching
+  an installation, and confirms Settings plus Agent state can reopen after
+  each transition.
+
+### Beta validation status
+
+- The local candidate preflight covers Settings `40/40`, Agent Domain `53/53`,
+  MCP `521 passed` with `18` opt-in real-PostgreSQL memU cases skipped,
+  Compiler `845 passed` plus `33` subtests, root Python `258 passed`, and the
+  Obsidian control plane `27/27`. Ruff, typecheck, generated docs, release
+  security, isolated MCP install, plugin upgrade/rollback/reinstall, strict
+  OpenSpec, and the deterministic Agent-aware two-vault Fleet harness pass.
+- Real memU PostgreSQL, configured third-party HTTP/OAuth providers, and the
+  final exact-SHA 5090 execution remain environment-dependent acceptance
+  journeys; missing external services do not become simulated success.
+- The release workflow refuses the `v2.8.0-beta.1` tag unless
+  `docs/release-evidence/v2.8.0-beta.1.json` proves a fresh real 5090 delegated
+  Child Work Run at the tested product commit. Only the evidence document,
+  Fleet acceptance record, and OpenSpec task closure may follow that tested
+  SHA; any later product change invalidates the release gate.
+
 ## v2.7.0-beta.1 -- 2026-07-14
 
 ### Highlights

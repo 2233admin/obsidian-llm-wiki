@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "requestId": "context-consult/fixture",
+  "projectId": "project/demo",
+  "requestingAgent": { "profileId": "agent/planner", "profileRevision": 3, "workRunId": "work-run/parent" },
+  "targetAgent": { "profileId": "agent/researcher", "profileRevision": 1 },
+  "attachTo": { "kind": "workRun", "id": "work-run/parent" },
+  "objective": "Consult the approved stable memory",
+  "requestedSections": ["stableMemory"],
+  "asOf": {
+    "revisionId": "memory-revision/fixture-1",
+    "revision": 1,
+    "fingerprint": "sha256:22ecdc86236880dc5dda5c82aa5ce919bc8103e38356f244d6dccf109ef3bcdc"
+  },
+  "contextFingerprint": "sha256:fa93c1c96137cdd42a0b48859dc729ab9539baab09eb9a1ec849b17330381f8c",
+  "capabilityGrantId": "grant/consult-fixture",
+  "authorizationDecision": {
+    "allowed": true,
+    "policyVersion": "collaboration-policy/v1",
+    "reason": "Fixture approval",
+    "decidedAt": "2026-07-15T00:00:00.000Z",
+    "actor": "user/tester"
+  },
+  "provenance": [{ "kind": "workRun", "id": "work-run/parent" }],
+  "createdAt": "2026-07-15T00:00:00.000Z",
+  "expiresAt": "2026-07-15T01:00:00.000Z",
+  "invocationTokenHash": "sha256:d07f963c2bb7a3cc74a910e51ca0075b194da412a93737881f105a55156a988f",
+  "fingerprint": "sha256:d3a83f6fe39ed7e4fd94394a8ff11b406228340ca589268b62aaeb342b7ae0e2"
+}

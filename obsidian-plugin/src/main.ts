@@ -36,7 +36,17 @@ import {
   SettingValue,
   UnavailableSettingsTransport,
 } from "./settings-client";
-import { InProcessSettingsTransport, obsidianUserDeviceId } from "./settings-host";
+import { obsidianUserDeviceId } from "./settings-host";
+import { ProductionControlPlaneTransport } from "./production-control-plane-host";
+import {
+  AgentControlPlaneClient,
+  AgentControlPlaneTransport,
+} from "./control-plane-client";
+import {
+  AgentControlPlaneModal,
+  AgentProfileEditorModal,
+  ProjectBindingEditorModal,
+} from "./control-plane-ui";
 
 const pexecFile = promisify(execFile);
 // Shape of `kb_meta promote` JSON (compiler/kb_meta.cmd_promote).
@@ -60,6 +70,7 @@ export default class LLMWikiPlugin extends Plugin {
   projection: SettingsControlPlaneProjection | null = null;
   settingsError: string | null = null;
   private settingsClient!: SettingsOperationClient;
+  private agentControlPlaneClient!: AgentControlPlaneClient;
   private migrationError: string | null = null;
 
   async onload(): Promise<void> {
@@ -75,14 +86,15 @@ export default class LLMWikiPlugin extends Plugin {
     if (!deviceBinding) throw new Error("LLM Wiki device binding could not be initialized");
     const vaultPath = this.vaultBasePath();
     const transport = vaultPath
-      ? new InProcessSettingsTransport({
+      ? new ProductionControlPlaneTransport({
           vaultPath,
           userDeviceId: deviceBinding.deviceId,
           workspaceProjectId: deviceBinding.workspaceProjectId,
           environment: process.env,
         })
-      : new UnavailableSettingsTransport("Settings Platform requires a desktop filesystem vault.");
+      : new UnavailableSettingsTransport("LLM Wiki control plane requires a desktop filesystem vault; mobile and non-filesystem vaults are unavailable.");
     this.settingsClient = new SettingsOperationClient(transport);
+    this.agentControlPlaneClient = new AgentControlPlaneClient(transport);
     await this.applyPluginDataPlan(plan, pluginDataChanged);
     await this.refreshSettings(false);
 
@@ -103,6 +115,12 @@ export default class LLMWikiPlugin extends Plugin {
       callback: () => void this.refreshSettings(true),
     });
 
+    this.addCommand({
+      id: "open-agent-control-plane",
+      name: "Open Agent control plane (LLM Wiki)",
+      callback: () => this.openAgentControlPlane(),
+    });
+
     this.registerEvent(
       this.app.workspace.on("file-menu", (menu: Menu, file: TAbstractFile) => {
         if (file instanceof TFile && file.extension === "md") {
@@ -117,6 +135,32 @@ export default class LLMWikiPlugin extends Plugin {
   }
 
   onunload(): void {}
+
+  /** Injection seam for the shared backend operation host. */
+  setAgentControlPlaneTransport(transport: AgentControlPlaneTransport): void {
+    this.agentControlPlaneClient = new AgentControlPlaneClient(transport);
+  }
+
+  openAgentControlPlane(): void {
+    new AgentControlPlaneModal(this.app, {
+      client: this.agentControlPlaneClient,
+      defaultProjectId: this.data.deviceBinding?.workspaceProjectId,
+    }).open();
+  }
+
+  openAgentProfileEditor(): void {
+    new AgentProfileEditorModal(this.app, this.agentControlPlaneClient, async () => undefined).open();
+  }
+
+  openProjectBindingEditor(): void {
+    new ProjectBindingEditorModal(
+      this.app,
+      this.agentControlPlaneClient,
+      this.data.deviceBinding?.workspaceProjectId ?? "",
+      "",
+      async () => undefined,
+    ).open();
+  }
 
   private vaultBasePath(): string | null {
     const adapter = this.app.vault.adapter;
@@ -303,6 +347,7 @@ class LLMWikiSettingTab extends PluginSettingTab {
       text: "This page is a control plane over Settings Platform. Obsidian stores presentation and device binding only.",
     });
     this.renderOverview(containerEl);
+    this.renderAgentControlPlane(containerEl);
     if (!this.llmWiki.projection) return;
     this.renderScopeSelector(containerEl);
 
@@ -352,6 +397,22 @@ class LLMWikiSettingTab extends PluginSettingTab {
       await this.llmWiki.refreshSettings(false);
       this.display();
     };
+  }
+
+  private renderAgentControlPlane(containerEl: HTMLElement): void {
+    containerEl.createEl("h2", { text: "Agent control plane" });
+    containerEl.createEl("p", {
+      cls: "llmwiki-settings-intro",
+      text: "Inspect backend-owned Rooms, Threads, Dream Time proposals, collaboration, connector health, and Usage. Profile and Binding changes use the same operation interface as MCP and CLI.",
+    });
+    const actions = containerEl.createDiv({ cls: "llmwiki-settings-actions llmwiki-agent-control-actions" });
+    actions.createEl("button", { text: "Open control plane", cls: "mod-cta" }).onclick = () => this.llmWiki.openAgentControlPlane();
+    actions.createEl("button", { text: "Create Agent Profile" }).onclick = () => this.llmWiki.openAgentProfileEditor();
+    actions.createEl("button", { text: "Create Project Binding" }).onclick = () => this.llmWiki.openProjectBindingEditor();
+    containerEl.createEl("p", {
+      cls: "llmwiki-settings-intro",
+      text: "Provider credentials stay in the Secret Reference selectors below. Agent Profiles and Project Bindings never contain plaintext credentials, usable grants, or device-local execution material.",
+    });
   }
 
   private renderHealth(containerEl: HTMLElement, check: HealthCheck): void {

@@ -1,0 +1,43 @@
+## ADDED Requirements
+
+### Requirement: Expiring device capability advertisement
+Each fleet device SHALL advertise versioned execution capabilities, connector availability, model availability, resource class, health, and expiry without publishing machine-local paths, secret values, process handles, or lease tokens.
+
+#### Scenario: Device advertisement expires
+- **WHEN** a device capability advertisement passes its expiry without renewal
+- **THEN** assignment planning excludes the device and reports the stale health evidence
+
+### Requirement: Evidence-backed fleet assignment
+Fleet dispatch SHALL use a recorded Assignment Plan that references the selected device advertisement, Agent descriptor, Project policy, Work Run requirement, and Context Envelope fingerprint.
+
+#### Scenario: 5090 executes an assigned Child Work Run
+- **WHEN** a local parent delegates a model-heavy child run to the 5090 device
+- **THEN** both devices preserve the same Project, parent/child Work Run, Agent assignment, context fingerprint, and artifact identities while local workspace and credential state remain isolated
+
+### Requirement: Fail-closed fleet dispatch
+Fleet workflow SHALL NOT dispatch when no healthy permitted device and Agent combination satisfies the requested capability, model, grant, budget, and side-effect policy.
+
+#### Scenario: Only unauthorized remote capacity is available
+- **WHEN** a healthy remote device has capacity but lacks the Project or connector grant
+- **THEN** the system returns a diagnosable no-match result and does not widen authorization or create a remote lease
+
+### Requirement: Portable collaboration handoff
+Fleet handoff artifacts SHALL include parent/child Work Run identities, locked Agent and Binding versions, Context Envelope fingerprint, non-secret grant summary, input Artifact references, expected output, and transition tokens required for idempotent join and recovery.
+
+#### Scenario: Remote workflow is replayed
+- **WHEN** the same portable handoff is submitted after a remote response is lost
+- **THEN** the remote side joins or reports the existing Child Work Run instead of creating a duplicate execution identity
+
+### Requirement: Cross-device completion evidence
+Fleet completion SHALL include assignment, local and remote execution, Artifact Projection, policy, memory revision when applicable, and secret/path leak evidence for the same Work Run graph.
+
+#### Scenario: Remote task passes but artifact provenance is missing
+- **WHEN** a remote Agent reports success without an Artifact Projection tied to the approved context and child run
+- **THEN** fleet verification remains failed and the parent cannot treat the delegation as complete
+
+### Requirement: Device-signed release evidence
+Release evidence for a real 5090 fleet run SHALL be signed by the enrolled 5090 Ed25519 device key over the exact release identity, all canonical report digests, and complete execution provenance, SHALL bind exactly one remote Orca task and terminal External Projection to the corresponding signed provenance values, and SHALL be verified against a public trust anchor already frozen in the tested product commit.
+
+#### Scenario: Evidence is edited or self-signed after the real run
+- **WHEN** release evidence is unsigned, signed by another key, changes any raw report or execution-provenance field including `runtimeId`, or introduces or replaces its own public trust anchor after `testedCommit`
+- **THEN** the release gate fails closed and does not treat the evidence-only descendant as an accepted fleet run

@@ -17,11 +17,12 @@ Locked design (TASK9 §7 -- followed EXACTLY, do NOT deviate):
     `FakeTransport` with canned responses and NEVER hit a live API.
   * pull-only. NO webhook receiver, NO daemon (§0 #11): an adapter is a one-shot
     API client driven by `sync pull` / `sync plan` / `sync apply`.
-  * tokens come from the ENVIRONMENT (GITEA_TOKEN / GITHUB_TOKEN / LINEAR_TOKEN).
-    Endpoints + repo/project bindings come from gitignored
-    `<vault>/.vault-mind/forge.json` (machine-local, NEVER committed; the file
-    holds NO secrets). A missing token -> a graceful "not configured" result,
-    never a crash, and the token is NEVER leaked into any error text.
+  * governed sync resolves transport/endpoint/timeout/Secret Reference through
+    the shared LLM Wiki Settings registry first. The gitignored
+    `<vault>/.vault-mind/forge.json` project binding and provider token env vars
+    remain an explicitly-labelled compatibility fallback. A missing secret -> a
+    graceful "not configured" result, never a crash, and the secret is NEVER
+    persisted or leaked into any result/error text.
   * a remote change -> a `status: draft` candidate stamped with
     `origin:{provider,object-id,revision,actor}` + `base-head` (when a current
     head exists) -> 8D triage -> 8P promote -> push. NO `supersedes` on a draft.
@@ -31,15 +32,19 @@ Locked design (TASK9 §7 -- followed EXACTLY, do NOT deviate):
   * dry-run is the DEFAULT for any write/push.
   * Windows: any written file is LF-only bytes (mirrors save_meta / save_bindings).
 
-NO DB, NO embeddings, NO LLM. Markdown + machine-local JSON are the only state.
+NO DB, NO embeddings, NO LLM. Markdown + canonical/machine-local JSON are the
+only state.
 """
 
 from __future__ import annotations
 
+import copy
 import json
 import os
 import re as _re
 import sys as _sys
+import time as _time
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Optional
@@ -52,6 +57,7 @@ if str(_HERE) not in _sys.path:
     _sys.path.insert(0, str(_HERE))
 
 import currency as _currency  # noqa: E402
+import settings_platform as _settings_platform  # noqa: E402
 import work_protocol as _work_protocol  # noqa: E402
 
 # === machine-local config: <vault>/.vault-mind/forge.json ===================
@@ -62,6 +68,8 @@ import work_protocol as _work_protocol  # noqa: E402
 
 VAULT_MIND_DIR = ".vault-mind"
 FORGE_CONFIG_FILE = "forge.json"
+PROJECT_TRACKER_RECEIPTS_DIR = "projection-receipts"
+PROJECT_TRACKER_RECEIPT_SCHEMA_VERSION = 1
 
 # Provider names (the `provider:` key in a forge/board/mirror binding and in an
 # `origin:` stamp). Shared spelling so 9D/9E and the candidate stamper agree.
@@ -69,6 +77,7 @@ PROVIDER_LOCAL = "local"
 PROVIDER_GITEA = "gitea"
 PROVIDER_GITHUB = "github"
 PROVIDER_LINEAR = "linear"
+PROVIDER_PLANE = "plane"
 
 # provider -> the environment variable its token is read from. A provider with
 # no entry here (or a missing env var) -> token_for returns None -> the caller
@@ -77,6 +86,7 @@ TOKEN_ENV = {
     PROVIDER_GITEA: "GITEA_TOKEN",
     PROVIDER_GITHUB: "GITHUB_TOKEN",
     PROVIDER_LINEAR: "LINEAR_TOKEN",
+    PROVIDER_PLANE: "PLANE_API_KEY",
 }
 
 # A project's bindings are keyed under "project/<slug>" in forge.json, matching
@@ -123,23 +133,381 @@ def project_configs(vault) -> dict:
     return projects if isinstance(projects, dict) else {}
 
 
-def token_for(provider: Optional[str]) -> Optional[str]:
-    """Read a provider's API token from the ENVIRONMENT (§7.3). Returns the token
+def token_for(provider: Optional[str], environment: Optional[dict] = None) -> Optional[str]:
+    """Read a provider's legacy API token from the ENVIRONMENT (§7.3). Returns the token
     string, or None when the provider is unknown OR the env var is unset/blank --
     the caller MUST degrade gracefully (a "not configured" result), never crash.
 
-    Secrets live ONLY in the environment; they are never written to forge.json
-    and never returned anywhere they could be logged into an error message."""
+    Governed sync uses Settings Secret References before this compatibility path.
+    Secrets are never written to forge.json or returned in result metadata."""
     if not provider:
         return None
     env_name = TOKEN_ENV.get(provider.strip().lower())
     if not env_name:
         return None
-    tok = os.environ.get(env_name)
+    values = environment if environment is not None else os.environ
+    tok = values.get(env_name)
     if tok is None:
         return None
     tok = tok.strip()
     return tok or None
+
+
+@dataclass(frozen=True)
+class ForgeProviderRuntime:
+    """Ephemeral provider configuration. ``token`` must never be serialized."""
+
+    binding: dict
+    token: Optional[str] = field(default=None, repr=False)
+    secret_reference: Optional[dict] = field(default=None, repr=False)
+    credential_available: bool = False
+    configuration_source: str = "legacy-forge-json"
+    credential_source: str = "legacy-env-unconfigured"
+    compatibility_source: Optional[str] = "legacy"
+    settings_snapshot_id: Optional[str] = None
+    timeout_ms: Optional[int] = None
+    reason: Optional[str] = None
+
+    def public_source(self) -> dict:
+        return {
+            "configurationSource": self.configuration_source,
+            "credentialSource": self.credential_source,
+            "compatibilitySource": self.compatibility_source,
+            **({"settingsSnapshotId": self.settings_snapshot_id}
+               if self.settings_snapshot_id else {}),
+            **({"configurationReason": self.reason} if self.reason else {}),
+        }
+
+
+@dataclass(frozen=True)
+class ForgeSettingsUnavailable:
+    """Typed Settings bootstrap failure; governed calls must fail closed."""
+
+    reason: str = "settings-initialization-failed"
+
+
+@dataclass(frozen=True)
+class ForgePlannedTargetRuntime:
+    """Private, operation-local runtime pinned between plan and mutation."""
+
+    runtime: ForgeProviderRuntime = field(repr=False)
+    original_binding: dict = field(repr=False)
+    reviewed_snapshot_digest: str
+
+
+def _binding_copy(binding: object) -> dict:
+    return copy.deepcopy(binding) if isinstance(binding, dict) else {}
+
+
+def _project_settings_id(entity: str) -> Optional[str]:
+    match = _re.match(r"^(project/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?)(?:/|$)",
+                      str(entity or ""))
+    return match.group(1) if match else None
+
+
+def _default_forge_settings_service(vault):
+    """Build shared Settings; bootstrap failures remain typed and fail closed."""
+    try:
+        return _settings_platform.SettingsService(
+            registry=_settings_platform.load_registry(
+                _settings_platform.default_registry_path()),
+            vault_path=vault,
+            environment=dict(os.environ),
+        )
+    except Exception:
+        return ForgeSettingsUnavailable()
+
+
+def _validated_governed_endpoint(value: object) -> Optional[str]:
+    """Accept credential-free HTTPS, plus loopback HTTP, or fail closed."""
+    if not isinstance(value, str) or not value.strip() or value != value.strip():
+        return None
+    if "?" in value or "#" in value:
+        return None
+    from urllib.parse import urlsplit
+
+    try:
+        parsed = urlsplit(value)
+    except ValueError:
+        return None
+    if not parsed.netloc or not parsed.hostname:
+        return None
+    try:
+        parsed.port
+    except ValueError:
+        return None
+    if parsed.username or parsed.password or parsed.query or parsed.fragment:
+        return None
+    loopback = parsed.hostname in {"localhost", "127.0.0.1", "::1"}
+    if parsed.scheme != "https" and not (parsed.scheme == "http" and loopback):
+        return None
+    return value.rstrip("/")
+
+
+def _resolve_provider_runtime(
+        vault, project_entity: str, binding: dict, provider: Optional[str],
+        settings_service) -> ForgeProviderRuntime:
+    """Resolve Settings first; fall back to labelled forge.json + env compatibility."""
+    if isinstance(settings_service, ForgeSettingsUnavailable):
+        return ForgeProviderRuntime(
+            binding=_binding_copy(binding),
+            configuration_source="llmwiki-settings",
+            credential_source="settings-secret-reference-unavailable",
+            compatibility_source=None,
+            reason=settings_service.reason,
+        )
+    if settings_service is None:
+        return ForgeProviderRuntime(
+            binding=_binding_copy(binding),
+            configuration_source="llmwiki-settings",
+            credential_source="settings-secret-reference-unavailable",
+            compatibility_source=None,
+            reason="settings-initialization-failed",
+        )
+    project_id = _project_settings_id(project_entity)
+    if project_id is None:
+        return ForgeProviderRuntime(
+            binding=_binding_copy(binding),
+            configuration_source="llmwiki-settings",
+            credential_source="settings-secret-reference-unavailable",
+            compatibility_source=None,
+            reason="settings-project-context-invalid",
+        )
+    context = dict(settings_service.default_context)
+    context["workspaceProjectId"] = project_id
+    try:
+        profile = settings_service.project_tracker_invocation_profile(context)
+    except Exception:
+        return ForgeProviderRuntime(
+            binding=_binding_copy(binding),
+            configuration_source="llmwiki-settings",
+            credential_source="settings-secret-reference-unavailable",
+            compatibility_source=None,
+            reason="settings-resolution-failed",
+        )
+    if not isinstance(profile, dict):
+        return ForgeProviderRuntime(
+            binding=_binding_copy(binding),
+            configuration_source="llmwiki-settings",
+            credential_source="settings-secret-reference-unavailable",
+            compatibility_source=None,
+            reason="settings-resolution-failed",
+        )
+    if not profile.get("configured"):
+        legacy_binding = _binding_copy(binding)
+        explicit_endpoint = next((
+            legacy_binding.get(key)
+            for key in ("base_url", "url")
+            if legacy_binding.get(key) is not None
+        ), None)
+        if explicit_endpoint is not None:
+            endpoint = _validated_governed_endpoint(explicit_endpoint)
+            if endpoint is None:
+                return ForgeProviderRuntime(
+                    binding=legacy_binding,
+                    credential_source="legacy-env-unavailable",
+                    compatibility_source="legacy",
+                    timeout_ms=DEFAULT_HTTP_TIMEOUT_S * 1000,
+                    reason="legacy-endpoint-invalid",
+                )
+            legacy_binding["base_url"] = endpoint
+        legacy_token = token_for(provider, settings_service.environment)
+        return ForgeProviderRuntime(
+            binding=legacy_binding,
+            token=legacy_token,
+            credential_available=legacy_token is not None,
+            credential_source=("legacy-env" if legacy_token
+                               else "legacy-env-unconfigured"),
+            compatibility_source="legacy",
+            timeout_ms=DEFAULT_HTTP_TIMEOUT_S * 1000,
+            reason="settings-not-configured",
+        )
+
+    snapshot_id = profile.get("snapshotId")
+    profile_provider = str(profile.get("provider") or "").strip().lower()
+    binding_provider = str(provider or "").strip().lower()
+    if profile_provider != binding_provider:
+        return ForgeProviderRuntime(
+            binding=_binding_copy(binding),
+            configuration_source="llmwiki-settings",
+            credential_source="settings-secret-reference-unavailable",
+            compatibility_source=None,
+            settings_snapshot_id=snapshot_id,
+            reason="settings-provider-mismatch",
+        )
+    if profile.get("valid") is not True:
+        return ForgeProviderRuntime(
+            binding=_binding_copy(binding),
+            configuration_source="llmwiki-settings",
+            credential_source="settings-secret-reference-unavailable",
+            compatibility_source=None,
+            settings_snapshot_id=snapshot_id,
+            reason="settings-profile-invalid",
+        )
+    if profile.get("enabled") is not True:
+        return ForgeProviderRuntime(
+            binding=_binding_copy(binding),
+            configuration_source="llmwiki-settings",
+            credential_source="settings-secret-reference-disabled",
+            compatibility_source=None,
+            settings_snapshot_id=snapshot_id,
+            reason="settings-profile-disabled",
+        )
+    if profile.get("transport") not in ("http", "oauth"):
+        return ForgeProviderRuntime(
+            binding=_binding_copy(binding),
+            configuration_source="llmwiki-settings",
+            credential_source="settings-secret-reference-unavailable",
+            compatibility_source=None,
+            settings_snapshot_id=snapshot_id,
+            reason="settings-transport-not-http",
+        )
+    endpoint = _validated_governed_endpoint(profile.get("endpoint"))
+    if endpoint is None:
+        return ForgeProviderRuntime(
+            binding=_binding_copy(binding),
+            configuration_source="llmwiki-settings",
+            credential_source="settings-secret-reference-unavailable",
+            compatibility_source=None,
+            settings_snapshot_id=snapshot_id,
+            reason="settings-endpoint-invalid",
+        )
+    secret_reference = profile.get("secretReference")
+    if profile.get("secretStatus") != "present" or not isinstance(
+            secret_reference, dict):
+        return ForgeProviderRuntime(
+            binding={**_binding_copy(binding), "base_url": endpoint,
+                     "timeout_ms": profile.get("timeoutMs")},
+            configuration_source="llmwiki-settings",
+            credential_source="settings-secret-reference-unavailable",
+            compatibility_source=None,
+            settings_snapshot_id=snapshot_id,
+            timeout_ms=profile.get("timeoutMs"),
+            reason="settings-secret-unavailable",
+        )
+    return ForgeProviderRuntime(
+        binding={**_binding_copy(binding), "base_url": endpoint,
+                 "timeout_ms": profile.get("timeoutMs")},
+        secret_reference=_binding_copy(secret_reference),
+        credential_available=True,
+        configuration_source="llmwiki-settings",
+        credential_source="settings-secret-reference",
+        compatibility_source=None,
+        settings_snapshot_id=snapshot_id,
+        timeout_ms=profile.get("timeoutMs"),
+    )
+
+
+def _resolve_runtime_token(
+        runtime: ForgeProviderRuntime, settings_service) -> tuple[Optional[str], Optional[str]]:
+    """Resolve a Settings Secret Reference only at the network mutation boundary."""
+    if runtime.configuration_source != "llmwiki-settings":
+        return runtime.token, runtime.reason if runtime.token is None else None
+    if not runtime.credential_available or runtime.secret_reference is None:
+        return None, runtime.reason or "settings-secret-unavailable"
+    try:
+        secret = settings_service.resolve_secret_reference(runtime.secret_reference)
+    except Exception:
+        secret = None
+    if not isinstance(secret, str) or not secret.strip():
+        return None, "settings-secret-unavailable"
+    return secret.strip(), None
+
+
+@contextmanager
+def _runtime_timeout(transport, runtime: ForgeProviderRuntime):
+    """Apply one operation deadline or fail closed when the transport cannot."""
+    if not isinstance(runtime.timeout_ms, int) or runtime.timeout_ms <= 0:
+        raise TransportError(
+            "PROVIDER", "", None, detail="operation deadline unavailable")
+    deadline = getattr(transport, "operation_deadline", None)
+    if not callable(deadline):
+        raise TransportError(
+            "PROVIDER", "", None, detail="end-to-end deadline unsupported")
+    with deadline(runtime.timeout_ms) as bounded_transport:
+        yield bounded_transport
+
+
+def _public_transport_error(error: TransportError) -> str:
+    """Render only bounded structured fields, never provider-controlled detail."""
+    method = str(error.method or "").upper()
+    if method not in {"GET", "POST", "PATCH", "PUT", "DELETE"}:
+        method = "PROVIDER"
+    status = error.status if isinstance(error.status, int) else "no-response"
+    return f"{method} provider request failed ({status})"
+
+
+def _public_execute_result(result: object, plan: dict, secret: str) -> dict:
+    """Project a provider result onto bounded fields that cannot echo a secret."""
+    raw = result if isinstance(result, dict) else {}
+    public = {"executed": raw.get("executed") is True}
+    method = str(raw.get("method") or plan.get("method") or "").upper()
+    if method in {"GET", "POST", "PATCH", "PUT", "DELETE"}:
+        public["method"] = method
+    if isinstance(raw.get("status"), int):
+        public["status"] = raw["status"]
+    for key in ("object_id", "revision", "entity", "mutation"):
+        value = raw.get(key, plan.get(key))
+        if value is None:
+            public[key] = None
+            continue
+        if isinstance(value, bool) or not isinstance(value, (str, int)):
+            continue
+        text = str(value)
+        if len(text) <= 512 and not any(ord(char) < 32 for char in text) \
+                and (not secret or secret not in text):
+            public[key] = text
+    public["idempotentReplay"] = raw.get("idempotentReplay") is True
+    public["networkMutation"] = (
+        raw.get("networkMutation") is not False if public["executed"] else False)
+    url = raw.get("url")
+    if isinstance(url, str) and secret not in url:
+        safe_url = _validated_governed_endpoint(url)
+        if safe_url is not None:
+            public["url"] = safe_url
+    return public
+
+
+def _response_json_object(response: object) -> dict:
+    """Decode one provider response object without retaining the raw body."""
+    body = response.get("body") if isinstance(response, dict) else None
+    if isinstance(body, (bytes, bytearray)):
+        try:
+            body = bytes(body).decode("utf-8")
+        except UnicodeDecodeError:
+            return {}
+    if isinstance(body, str):
+        try:
+            body = json.loads(body) if body.strip() else {}
+        except ValueError:
+            return {}
+    return body if isinstance(body, dict) else {}
+
+
+def _created_remote_identity(
+        payload: object, *, identity_keys: tuple[str, ...],
+        revision_keys: tuple[str, ...], secret: str, method: str, url: str,
+        status: Optional[int]) -> tuple[str, str]:
+    """Extract bounded, non-secret create identity/revision or fail closed."""
+    body = payload if isinstance(payload, dict) else {}
+
+    def safe_value(keys: tuple[str, ...]) -> Optional[str]:
+        value = next((body.get(key) for key in keys if body.get(key) is not None), None)
+        if isinstance(value, bool) or not isinstance(value, (str, int)):
+            return None
+        text = str(value).strip()
+        if not text or len(text) > 512 or text != str(value):
+            return None
+        if any(ord(char) < 32 for char in text) or (secret and secret in text):
+            return None
+        return text
+
+    object_id = safe_value(identity_keys)
+    revision = safe_value(revision_keys)
+    if object_id is None or revision is None:
+        raise TransportError(
+            method, url, status, detail="create response identity unavailable")
+    return object_id, revision
 
 
 # === Transport (injectable; urllib default, FakeTransport in tests) =========
@@ -177,6 +545,64 @@ def _redact_url(url: str) -> str:
     return url.split("?", 1)[0].split("#", 1)[0]
 
 
+def _same_origin_https_redirect_handler(authentication):
+    """Allow redirects only within one HTTPS origin and keep auth non-forwardable."""
+    import urllib.error
+    import urllib.request
+    from urllib.parse import urljoin, urlsplit
+
+    def _origin(url: str) -> Optional[tuple[str, str, int]]:
+        try:
+            parsed = urlsplit(url)
+            port = parsed.port
+        except (TypeError, ValueError):
+            return None
+        if (
+            parsed.scheme.lower() != "https"
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+        ):
+            return None
+        return (
+            "https",
+            parsed.hostname.rstrip(".").lower(),
+            port if port is not None else 443,
+        )
+
+    if isinstance(authentication, str):
+        authentication_headers = {"Authorization": authentication}
+    elif isinstance(authentication, dict):
+        authentication_headers = {
+            ("Authorization" if key.lower() == "authorization" else "X-API-Key"): value
+            for key, value in authentication.items()
+            if key.lower() in {"authorization", "x-api-key"} and value
+        }
+    else:
+        authentication_headers = {}
+    sensitive_names = {name.lower() for name in authentication_headers}
+
+    class SameOriginHttpsRedirectHandler(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            target = urljoin(req.full_url, newurl)
+            if _origin(req.full_url) is None or _origin(req.full_url) != _origin(target):
+                raise urllib.error.HTTPError(
+                    target, code, "unsafe redirect rejected", headers, fp)
+            redirected = super().redirect_request(
+                req, fp, code, msg, headers, target)
+            if redirected is None:
+                return None
+            for name in tuple(redirected.headers):
+                if name.lower() in sensitive_names:
+                    del redirected.headers[name]
+            for name, value in authentication_headers.items():
+                redirected.add_unredirected_header(
+                    name, value)
+            return redirected
+
+    return SameOriginHttpsRedirectHandler()
+
+
 class Transport:
     """Injectable HTTP interface. Implementations expose ONE method:
 
@@ -190,6 +616,14 @@ class Transport:
                 body: Optional[bytes] = None) -> dict:
         raise NotImplementedError
 
+    @contextmanager
+    def operation_deadline(self, timeout_ms: int):
+        """Bound a complete operation; custom transports must implement this."""
+        del timeout_ms
+        raise TransportError(
+            "PROVIDER", "", None, detail="end-to-end deadline unsupported")
+        yield self  # pragma: no cover - keeps this a context-manager contract
+
 
 class UrllibTransport(Transport):
     """The default real transport: HTTP via stdlib `urllib.request` ONLY (§7.2 --
@@ -198,8 +632,74 @@ class UrllibTransport(Transport):
     (the headers dict, which may carry Authorization, is never put in the error).
     """
 
-    def __init__(self, timeout: float = DEFAULT_HTTP_TIMEOUT_S) -> None:
+    def __init__(self, timeout: float = DEFAULT_HTTP_TIMEOUT_S,
+                 monotonic: Callable[[], float] = _time.monotonic) -> None:
         self.timeout = timeout
+        self._monotonic = monotonic
+        self._operation_deadline: Optional[float] = None
+
+    @contextmanager
+    def operation_deadline(self, timeout_ms: int):
+        seconds = float(timeout_ms) / 1000.0
+        if seconds <= 0:
+            raise TransportError(
+                "PROVIDER", "", None, detail="operation deadline exceeded")
+        previous_timeout = self.timeout
+        previous_deadline = self._operation_deadline
+        candidate = self._monotonic() + seconds
+        self._operation_deadline = (
+            min(previous_deadline, candidate)
+            if previous_deadline is not None
+            else candidate
+        )
+        self.timeout = min(float(previous_timeout), seconds)
+        try:
+            yield self
+        finally:
+            self.timeout = previous_timeout
+            self._operation_deadline = previous_deadline
+
+    def _remaining_timeout(self, method: str, url: str) -> float:
+        timeout = float(self.timeout)
+        if self._operation_deadline is None:
+            return timeout
+        remaining = self._operation_deadline - self._monotonic()
+        if remaining <= 0:
+            raise TransportError(
+                method, url, None, detail="operation deadline exceeded")
+        return min(timeout, remaining)
+
+    @staticmethod
+    def _set_response_timeout(response, timeout: float) -> None:
+        """Best-effort socket deadline refresh for each response-body read."""
+        candidates = (
+            ("fp", "raw", "_sock"),
+            ("fp", "fp", "raw", "_sock"),
+            ("fp", "_sock"),
+            ("_sock",),
+        )
+        for path in candidates:
+            current = response
+            for attribute in path:
+                current = getattr(current, attribute, None)
+                if current is None:
+                    break
+            if current is not None and callable(getattr(current, "settimeout", None)):
+                current.settimeout(timeout)
+                return
+
+    def _read_response_body(self, response, method: str, url: str) -> bytes:
+        chunks = []
+        read = getattr(response, "read1", None)
+        if not callable(read):
+            read = response.read
+        while True:
+            remaining = self._remaining_timeout(method, url)
+            self._set_response_timeout(response, remaining)
+            chunk = read(64 * 1024)
+            if not chunk:
+                return b"".join(chunks)
+            chunks.append(chunk)
 
     def request(self, method: str, url: str, headers: Optional[dict] = None,
                 body: Optional[bytes] = None) -> dict:
@@ -208,27 +708,45 @@ class UrllibTransport(Transport):
         import urllib.error
         import urllib.request
 
+        request_headers = {k: v for k, v in (headers or {}).items()}
+        authentication_headers = {
+            key: value for key, value in request_headers.items()
+            if key.lower() in {"authorization", "x-api-key"}
+        }
         req = urllib.request.Request(
             url, data=body, method=method.upper(),
-            headers={k: v for k, v in (headers or {}).items()},
+            headers=request_headers,
         )
+        opener = urllib.request.build_opener(
+            _same_origin_https_redirect_handler(authentication_headers))
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+            with opener.open(
+                    req, timeout=self._remaining_timeout(method, url)) as resp:
+                status = getattr(resp, "status", None)
+                if status is None:
+                    status = resp.getcode()
                 return {
-                    "status": getattr(resp, "status", resp.getcode()),
+                    "status": status,
                     "headers": dict(resp.headers.items()),
-                    "body": resp.read(),
+                    "body": self._read_response_body(resp, method, url),
                 }
         except urllib.error.HTTPError as e:
             # An HTTP error still has a body (the API's error JSON). Surface the
             # status; do NOT include request headers/body (token-bearing) in the
             # raised error text.
             try:
-                e.read()  # drain the response body; content is discarded (may be token-bearing)
+                self._read_response_body(e, method, url)
             except Exception:
                 pass
             raise TransportError(method, url, e.code,
                                  detail="http error") from None
+        except TimeoutError:
+            detail = (
+                "operation deadline exceeded"
+                if self._operation_deadline is not None
+                else "connection error"
+            )
+            raise TransportError(method, url, None, detail=detail) from None
         except urllib.error.URLError:
             # DNS / connection / timeout: no status. The reason is a network
             # condition (never the token), but keep it terse + url-redacted.
@@ -719,6 +1237,7 @@ def default_providers() -> dict:
         PROVIDER_GITEA: GiteaAdapter(),
         PROVIDER_GITHUB: GitHubAdapter(),
         PROVIDER_LINEAR: LinearAdapter(),
+        PROVIDER_PLANE: PlaneAdapter(),
     }
 
 
@@ -939,8 +1458,14 @@ def _reviewed_head_snapshot(vault, project_entity: str) -> Optional[dict]:
     }
 
 
+def _reviewed_snapshot_digest(snapshot: Optional[dict]) -> str:
+    """Stable digest used to pin the exact reviewed head approved by planning."""
+    return _settings_platform.canonical_digest(snapshot)
+
+
 def sync_pull(vault, transport: Transport, providers: Optional[dict] = None,
-              apply: bool = False, today: Optional[str] = None) -> dict:
+              apply: bool = False, today: Optional[str] = None,
+              settings_service: Optional[_settings_platform.SettingsService] = None) -> dict:
     """Pull EVERY bound project's remote items into draft candidates -- the inward
     half of reconciliation (PR 9F). For each project in forge.json with a `forge`
     (and/or `primary_board`):
@@ -960,8 +1485,8 @@ def sync_pull(vault, transport: Transport, providers: Optional[dict] = None,
     DRY-RUN by default (§0 #5): apply=False writes NOTHING and returns the plan
     (which candidates WOULD be written); apply=True writes them append-only, LF.
     PER-PROJECT errors are CAUGHT and reported (`errors: [...]`), never aborting the
-    whole run. The token (from the env via token_for) is NEVER placed into the
-    result -- only provider names, candidate texts, and redacted transport errors.
+    whole run. Settings-owned secrets and legacy tokens are NEVER placed into the
+    result -- only redacted configuration-source metadata is returned.
 
     `providers` maps provider-name -> Provider (injected; tests pass FakeProvider).
     Returns {apply, providers: [...], projects: [...], candidates: [...],
@@ -971,6 +1496,8 @@ def sync_pull(vault, transport: Transport, providers: Optional[dict] = None,
 
     today = today or _date.today().isoformat()
     providers = providers if providers is not None else default_providers()
+    if settings_service is None:
+        settings_service = _default_forge_settings_service(vault)
 
     out = {
         "apply": apply,
@@ -1001,19 +1528,14 @@ def sync_pull(vault, transport: Transport, providers: Optional[dict] = None,
             if not prov_name:
                 continue
             seen_providers.add(prov_name)
-            out["projects"].append({"entity": entity, "target": target_key,
-                                    "provider": prov_name})
-
-            token = token_for(prov_name)
-            if token is None:
-                # graceful "not configured" -- record + skip, never crash (§7.3).
-                out["errors"].append({
-                    "project": entity, "provider": prov_name,
-                    "error": (f"no token for {prov_name} "
-                              f"(set {TOKEN_ENV.get(prov_name, 'its token env var')}); "
-                              "nothing pulled."),
-                })
-                continue
+            runtime = _resolve_provider_runtime(
+                vault, entity, binding, prov_name, settings_service)
+            out["projects"].append({
+                "entity": entity,
+                "target": target_key,
+                "provider": prov_name,
+                **runtime.public_source(),
+            })
 
             provider = providers.get(prov_name)
             if provider is None:
@@ -1023,18 +1545,38 @@ def sync_pull(vault, transport: Transport, providers: Optional[dict] = None,
                 })
                 continue
 
+            if not runtime.credential_available:
+                out["errors"].append({
+                    "project": entity, "provider": prov_name,
+                    "error": f"provider credential unavailable for {prov_name}; nothing pulled.",
+                    **runtime.public_source(),
+                })
+                continue
+            token, token_reason = _resolve_runtime_token(
+                runtime, settings_service)
+            if token is None:
+                out["errors"].append({
+                    "project": entity, "provider": prov_name,
+                    "error": f"provider credential unavailable for {prov_name}; nothing pulled.",
+                    **runtime.public_source(),
+                    "configurationReason": token_reason,
+                })
+                continue
+
             # --- inward issues -> candidates (conflict-aware) ----------------
             try:
-                items = provider.pull(binding, transport, token)
+                with _runtime_timeout(transport, runtime) as bounded_transport:
+                    items = list(provider.pull(
+                        _binding_copy(runtime.binding), bounded_transport, token) or [])
             except TransportError as e:
                 # a remote failure for one project must not abort the others; the
                 # redacted error carries method/url/status only (never the token).
                 out["errors"].append({"project": entity, "provider": prov_name,
-                                      "error": str(e)})
+                                      "error": _public_transport_error(e)})
                 items = None
-            except Exception as e:  # any provider bug, isolated per project.
+            except Exception:  # any provider bug, isolated per project.
                 out["errors"].append({"project": entity, "provider": prov_name,
-                                      "error": f"pull failed: {e}"})
+                                      "error": "pull failed"})
                 items = None
 
             for item in items or []:
@@ -1055,29 +1597,42 @@ def sync_pull(vault, transport: Transport, providers: Optional[dict] = None,
                         "reason": info.get("reason") if info else "",
                     })
 
+            if items is None:
+                continue
+
             # --- inward merged-PR EVIDENCE -> suggested-state candidates -----
             # only providers exposing pull_evidence (GitHub) contribute here; this
             # wires the 9D deferred evidence path through reconciliation.
             if hasattr(provider, "pull_evidence") and hasattr(
                     provider, "evidence_to_candidate"):
                 try:
-                    ev_items = provider.pull_evidence(binding, transport, token)
+                    with _runtime_timeout(transport, runtime) as bounded_transport:
+                        ev_items = list(provider.pull_evidence(
+                            _binding_copy(runtime.binding), bounded_transport, token) or [])
                 except TransportError as e:
                     out["errors"].append({"project": entity,
                                           "provider": prov_name,
-                                          "error": str(e)})
+                                          "error": _public_transport_error(e)})
                     ev_items = None
-                except Exception as e:
+                except Exception:
                     out["errors"].append({"project": entity,
                                           "provider": prov_name,
-                                          "error": f"pull_evidence failed: {e}"})
+                                          "error": "pull_evidence failed"})
                     ev_items = None
                 for ev in ev_items or []:
                     if not ev.entity_hint:
                         ev.entity_hint = entity
-                    ev_cand = provider.evidence_to_candidate(
-                        ev, vault, base_head_resolver=base_head_resolver,
-                        today=today)
+                    try:
+                        ev_cand = provider.evidence_to_candidate(
+                            ev, vault, base_head_resolver=base_head_resolver,
+                            today=today)
+                    except Exception:
+                        out["errors"].append({
+                            "project": entity,
+                            "provider": prov_name,
+                            "error": "evidence_to_candidate failed",
+                        })
+                        continue
                     out["evidence"].append(ev_cand)
 
     out["providers"] = sorted(seen_providers)
@@ -1097,21 +1652,10 @@ def sync_pull(vault, transport: Transport, providers: Optional[dict] = None,
     return out
 
 
-def sync_plan(vault, transport: Transport,
-              providers: Optional[dict] = None) -> dict:
-    """Plan the outward projection (push) for every bound project. DRY-RUN: it
-    computes, per project, the push payload from the project's REVIEWED current-
-    truth (never a draft) via the provider's push_plan, runs the anti-loop guard,
-    and writes NOTHING.
-
-    `providers` maps provider-name -> Provider implementation (injected; 9C ships
-    only the seam, so an absent provider yields a payload-less plan entry, not an
-    error). Returns {projects: [...], conflicts: [...]} where each project entry
-    carries its read-write paths, the reviewed snapshot it WOULD push, and the
-    per-target payloads.
-    """
-    providers = providers or {}
+def _build_sync_plan(vault, providers: dict, settings_service):
+    """Return a public plan plus private, secret-bearing runtimes for one operation."""
     out = {"projects": [], "conflicts": []}
+    planned_runtimes: dict[tuple[str, str], ForgePlannedTargetRuntime] = {}
     for entity, pc in sorted(project_configs(vault).items()):
         if not isinstance(pc, dict):
             continue
@@ -1133,6 +1677,7 @@ def sync_plan(vault, transport: Transport,
             entry["reason"] = "no reviewed current-truth head to project yet."
             out["projects"].append(entry)
             continue
+        reviewed_snapshot_digest = _reviewed_snapshot_digest(snapshot)
 
         # build a payload for each READ-WRITE target (forge + primary-board).
         for target_key in ("forge", "primary_board"):
@@ -1141,20 +1686,51 @@ def sync_plan(vault, transport: Transport,
                 continue
             prov_name = binding.get("provider")
             provider = providers.get(prov_name)
+            runtime = _resolve_provider_runtime(
+                vault, entity, binding, prov_name, settings_service)
+            planned_runtimes[(entity, target_key)] = ForgePlannedTargetRuntime(
+                runtime=runtime,
+                original_binding=_binding_copy(binding),
+                reviewed_snapshot_digest=reviewed_snapshot_digest,
+            )
             payload = None
             if provider is not None:
                 try:
-                    payload = provider.push_plan(snapshot, binding)
-                except Exception as e:  # a provider bug must not abort the plan.
-                    payload = {"error": f"push_plan failed: {e}"}
+                    payload = provider.push_plan(
+                        copy.deepcopy(snapshot), _binding_copy(runtime.binding))
+                except Exception:  # a provider bug must not abort the plan.
+                    payload = {"error": "push_plan failed"}
             entry["payloads"].append({
                 "target": target_key,
                 "provider": prov_name,
-                "configured": token_for(prov_name) is not None,
-                "binding": binding,
+                "configured": runtime.credential_available,
+                "binding": _binding_copy(runtime.binding),
                 "payload": payload,
+                **runtime.public_source(),
             })
         out["projects"].append(entry)
+    return out, planned_runtimes
+
+
+def sync_plan(vault, transport: Transport,
+              providers: Optional[dict] = None,
+              settings_service: Optional[_settings_platform.SettingsService] = None) -> dict:
+    """Plan the outward projection (push) for every bound project. DRY-RUN: it
+    computes, per project, the push payload from the project's REVIEWED current-
+    truth (never a draft) via the provider's push_plan, runs the anti-loop guard,
+    and writes NOTHING.
+
+    `providers` maps provider-name -> Provider implementation (injected; 9C ships
+    only the seam, so an absent provider yields a payload-less plan entry, not an
+    error). Returns {projects: [...], conflicts: [...]} where each project entry
+    carries its read-write paths, the reviewed snapshot it WOULD push, and the
+    per-target payloads. The supplied transport is intentionally untouched.
+    """
+    del transport
+    providers = providers or {}
+    if settings_service is None:
+        settings_service = _default_forge_settings_service(vault)
+    out, _ = _build_sync_plan(vault, providers, settings_service)
     return out
 
 
@@ -1193,8 +1769,277 @@ def _entity_has_conflict(config_entity: str, conflicted: set) -> bool:
     return any(c == config_entity or c.startswith(prefix) for c in conflicted)
 
 
+def _planned_runtime_drift_reason(
+        vault, project_entity: str, target_key: str,
+        planned: ForgePlannedTargetRuntime, settings_service) -> Optional[str]:
+    """Re-read only public configuration and reject mutation-boundary drift."""
+    current_project = project_configs(vault).get(project_entity)
+    current_binding = (
+        current_project.get(target_key)
+        if isinstance(current_project, dict)
+        else None
+    )
+    if not isinstance(current_binding, dict) or current_binding != planned.original_binding:
+        return "forge-binding-drift-detected"
+    if isinstance(settings_service, ForgeSettingsUnavailable) or settings_service is None:
+        return "settings-initialization-failed"
+    project_id = _project_settings_id(project_entity)
+    if project_id is None:
+        return "settings-project-context-invalid"
+    context = dict(settings_service.default_context)
+    context["workspaceProjectId"] = project_id
+    try:
+        profile = settings_service.project_tracker_invocation_profile(context)
+    except Exception:
+        return "settings-resolution-failed"
+    if not isinstance(profile, dict):
+        return "settings-resolution-failed"
+
+    runtime = planned.runtime
+    if runtime.configuration_source == "legacy-forge-json":
+        return "settings-drift-detected" if profile.get("configured") else None
+    if runtime.configuration_source != "llmwiki-settings":
+        return "settings-drift-detected"
+    expected_provider = str(planned.original_binding.get("provider") or "").strip().lower()
+    current_provider = str(profile.get("provider") or "").strip().lower()
+    current_endpoint = _validated_governed_endpoint(profile.get("endpoint"))
+    if (
+        profile.get("configured") is not True
+        or profile.get("valid") is not True
+        or profile.get("enabled") is not True
+        or current_provider != expected_provider
+        or profile.get("transport") not in ("http", "oauth")
+        or current_endpoint != runtime.binding.get("base_url")
+        or profile.get("timeoutMs") != runtime.timeout_ms
+        or profile.get("secretStatus") != "present"
+        or profile.get("snapshotId") != runtime.settings_snapshot_id
+    ):
+        return "settings-drift-detected"
+    return None
+
+
+def _planned_reviewed_head_drift_reason(
+        vault, project_entity: str,
+        planned: ForgePlannedTargetRuntime) -> Optional[str]:
+    """Reject a push whenever the reviewed head differs from the planned head."""
+    current = _reviewed_head_snapshot(vault, project_entity)
+    if _reviewed_snapshot_digest(current) != planned.reviewed_snapshot_digest:
+        return "reviewed-head-drift-detected"
+    return None
+
+
+def _create_plan_semantics(provider: object, plan: object) -> Optional[dict]:
+    """Return the provider-neutral create semantics covered by one receipt."""
+    if not isinstance(plan, dict) or plan.get("object_id") is not None:
+        return None
+    provider_name = str(provider or "").strip().lower()
+    if provider_name in {PROVIDER_GITHUB, PROVIDER_GITEA} \
+            and str(plan.get("method") or "").upper() == "POST":
+        return {
+            "method": "POST",
+            "endpoint": plan.get("endpoint"),
+            "payload": plan.get("payload"),
+        }
+    if provider_name == PROVIDER_PLANE \
+            and str(plan.get("method") or "").upper() == "POST":
+        return {
+            "method": "POST",
+            "url": plan.get("url"),
+            "body": plan.get("body"),
+        }
+    if provider_name == PROVIDER_LINEAR and plan.get("mutation") == "issueCreate":
+        return {
+            "method": "POST",
+            "mutation": "issueCreate",
+            "variables": plan.get("variables"),
+        }
+    return None
+
+
+def _create_receipt_path(vault, project_entity: str, target: str) -> Optional[Path]:
+    """Return the shared Project-scoped receipt slot for one target."""
+    project_id = _project_settings_id(project_entity)
+    if project_id is None:
+        return None
+    project_slug = project_id.split("/", 1)[1]
+    slot = _settings_platform.canonical_digest({
+        "projectEntity": project_entity,
+        "target": target,
+    }).split(":", 1)[1]
+    return (
+        Path(vault) / "01-Projects" / project_slug
+        / PROJECT_TRACKER_RECEIPTS_DIR / f"{slot}.json"
+    )
+
+
+def _create_receipt_material(
+        vault, project_entity: str, target: str, provider: object,
+        plan: dict, planned: ForgePlannedTargetRuntime) -> Optional[dict]:
+    semantics = _create_plan_semantics(provider, plan)
+    if semantics is None or _create_receipt_path(vault, project_entity, target) is None:
+        return None
+    return {
+        "schemaVersion": PROJECT_TRACKER_RECEIPT_SCHEMA_VERSION,
+        "kind": "project-tracker-create",
+        "projectEntity": project_entity,
+        "target": target,
+        "provider": str(provider or "").strip().lower(),
+        "bindingDigest": _settings_platform.canonical_digest(
+            planned.original_binding),
+        "effectiveBindingDigest": _settings_platform.canonical_digest(
+            planned.runtime.binding),
+        "configurationSource": planned.runtime.configuration_source,
+        "settingsSnapshotId": planned.runtime.settings_snapshot_id,
+        "reviewedSnapshotDigest": planned.reviewed_snapshot_digest,
+        "createPlanDigest": _settings_platform.canonical_digest(semantics),
+    }
+
+
+def _canonical_receipt_bytes(value: dict) -> bytes:
+    return (_settings_platform.canonical_json(value) + "\n").encode("utf-8")
+
+
+def _load_create_receipt(path: Path) -> dict:
+    raw = path.read_bytes()
+    try:
+        value = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError) as exc:
+        raise ValueError("mutation receipt is not JSON") from exc
+    if not isinstance(value, dict) or raw != _canonical_receipt_bytes(value):
+        raise ValueError("mutation receipt is not canonical")
+    return value
+
+
+def _create_receipt_drift_reason(receipt: dict, material: dict) -> Optional[str]:
+    if receipt.get("schemaVersion") != PROJECT_TRACKER_RECEIPT_SCHEMA_VERSION \
+            or receipt.get("kind") != "project-tracker-create":
+        return "mutation-receipt-corrupt"
+    if any(receipt.get(key) != material.get(key)
+           for key in ("projectEntity", "target")):
+        return "mutation-receipt-identity-drift-detected"
+    if receipt.get("provider") != material.get("provider"):
+        return "mutation-receipt-provider-drift-detected"
+    if receipt.get("bindingDigest") != material.get("bindingDigest"):
+        return "mutation-receipt-binding-drift-detected"
+    if any(receipt.get(key) != material.get(key) for key in (
+            "configurationSource", "settingsSnapshotId",
+            "effectiveBindingDigest")):
+        return "mutation-receipt-settings-drift-detected"
+    if receipt.get("reviewedSnapshotDigest") != material.get(
+            "reviewedSnapshotDigest"):
+        return "mutation-receipt-reviewed-head-drift-detected"
+    if receipt.get("createPlanDigest") != material.get("createPlanDigest"):
+        return "mutation-receipt-semantic-drift-detected"
+    return None
+
+
+def _write_new_create_receipt(path: Path, value: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("xb") as handle:
+        handle.write(_canonical_receipt_bytes(value))
+        handle.flush()
+        os.fsync(handle.fileno())
+
+
+def _replace_create_receipt(path: Path, value: dict) -> None:
+    temporary = path.with_name(
+        f".{path.name}.{os.getpid()}.{_time.time_ns()}.tmp")
+    try:
+        with temporary.open("xb") as handle:
+            handle.write(_canonical_receipt_bytes(value))
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    finally:
+        try:
+            temporary.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+def _create_receipt_decision(
+        vault, project_entity: str, target: str, provider: object,
+        plan: dict, planned: ForgePlannedTargetRuntime, *, claim: bool) -> dict:
+    """Inspect or exclusively claim the stable create slot before network I/O."""
+    path = _create_receipt_path(vault, project_entity, target)
+    material = _create_receipt_material(
+        vault, project_entity, target, provider, plan, planned)
+    if path is None or material is None:
+        return {"action": "not-create"}
+    for _ in range(2):
+        try:
+            receipt = _load_create_receipt(path)
+        except FileNotFoundError:
+            if not claim:
+                return {"action": "absent", "path": path, "material": material}
+            pending = {**material, "status": "pending"}
+            try:
+                _write_new_create_receipt(path, pending)
+            except FileExistsError:
+                continue
+            except OSError:
+                return {"action": "refuse",
+                        "reason": "mutation-receipt-write-failed"}
+            return {"action": "execute", "path": path, "material": material}
+        except (OSError, ValueError):
+            return {"action": "refuse", "reason": "mutation-receipt-corrupt"}
+
+        drift_reason = _create_receipt_drift_reason(receipt, material)
+        if drift_reason is not None:
+            return {"action": "refuse", "reason": drift_reason}
+        if receipt.get("status") != "succeeded":
+            return {"action": "refuse",
+                    "reason": "mutation-receipt-outcome-unknown"}
+        object_id = receipt.get("remoteObjectId")
+        revision = receipt.get("remoteRevision")
+        if not isinstance(object_id, str) or not object_id \
+                or not isinstance(revision, str) or not revision:
+            return {"action": "refuse", "reason": "mutation-receipt-corrupt"}
+        return {
+            "action": "replay",
+            "result": {
+                "executed": True,
+                "method": "POST",
+                "entity": project_entity,
+                "mutation": plan.get("mutation"),
+                "object_id": object_id,
+                "revision": revision,
+                "status": receipt.get("responseStatus"),
+                "idempotentReplay": True,
+                "networkMutation": False,
+            },
+        }
+    return {"action": "refuse", "reason": "mutation-receipt-race-detected"}
+
+
+def _finalize_create_receipt(context: dict, result: object) -> None:
+    """Atomically replace this operation's pending claim with its success receipt."""
+    path = context["path"]
+    material = context["material"]
+    pending = _load_create_receipt(path)
+    if _create_receipt_drift_reason(pending, material) is not None \
+            or pending.get("status") != "pending":
+        raise ValueError("mutation receipt changed while create was in flight")
+    raw = result if isinstance(result, dict) else {}
+    object_id = raw.get("object_id")
+    revision = raw.get("revision")
+    if not isinstance(object_id, str) or not object_id \
+            or not isinstance(revision, str) or not revision:
+        raise ValueError("create result lacks remote identity")
+    succeeded = {
+        **material,
+        "status": "succeeded",
+        "remoteObjectId": object_id,
+        "remoteRevision": revision,
+        "responseStatus": raw.get("status") if isinstance(
+            raw.get("status"), int) else None,
+    }
+    _replace_create_receipt(path, succeeded)
+
+
 def sync_apply(vault, transport: Transport, providers: Optional[dict] = None,
-               apply: bool = False, today: Optional[str] = None) -> dict:
+               apply: bool = False, today: Optional[str] = None,
+               settings_service: Optional[_settings_platform.SettingsService] = None) -> dict:
     """Apply the outward projection -- the push half of reconciliation (PR 9F).
 
     DRY-RUN by default (§7 / §0 #5): apply=False is exactly sync_plan with
@@ -1210,14 +2055,22 @@ def sync_apply(vault, transport: Transport, providers: Optional[dict] = None,
          transport. A target with no token / no provider is recorded
          not-configured, never crashing.
 
-    The token is read from the env per provider (token_for) and passed ONLY into
-    execute_push (which places it in a header, never the URL/record). It is NEVER
-    written into this result.
+    The credential is resolved Settings-first and passed ONLY into execute_push
+    (which places it in a header, never the URL/record). It is NEVER written into
+    this result; legacy env use is explicitly labelled in source metadata.
+
+    CREATE mutations additionally use a shared, non-secret canonical receipt
+    under the Project Work-OS root. A successful exact replay returns the stored
+    remote ID/revision without another POST; receipt or projection drift fails
+    closed. A pending unknown outcome is never retried automatically.
 
     Returns {apply, projects: [...], conflicts: [...], skipped: [...]} where each
     project's `pushed` lists per-target {executed/pushed, method, ...} records."""
     providers = providers if providers is not None else default_providers()
-    plan = sync_plan(vault, transport, providers=providers)
+    if settings_service is None:
+        settings_service = _default_forge_settings_service(vault)
+    plan, planned_runtimes = _build_sync_plan(
+        vault, providers, settings_service)
     conflicted = _conflicted_entities(vault, today=today) if apply else set()
     out = {"apply": apply, "projects": [], "conflicts": plan["conflicts"],
            "skipped": []}
@@ -1247,40 +2100,127 @@ def sync_apply(vault, transport: Transport, providers: Optional[dict] = None,
         for p in entry["payloads"]:
             prov_name = p["provider"]
             provider = providers.get(prov_name)
+            planned = planned_runtimes.get((entry["entity"], p["target"]))
+            runtime = planned.runtime if planned is not None else None
             record = {
                 "target": p["target"],
                 "provider": prov_name,
                 "configured": p["configured"],
                 "pushed": False,
                 "payload": p["payload"],
+                **{key: p[key] for key in (
+                    "configurationSource", "credentialSource",
+                    "compatibilitySource", "settingsSnapshotId",
+                    "configurationReason") if key in p},
             }
             if not apply:
                 # dry-run: the planned push, never executed.
                 proj["pushed"].append(record)
                 continue
-            token = token_for(prov_name)
-            if provider is None or token is None or not isinstance(
+            if runtime is None or planned is None:
+                record["reason"] = "not configured"
+                record["configurationReason"] = "runtime-plan-missing"
+                proj["pushed"].append(record)
+                continue
+            if provider is None or not runtime.credential_available or not isinstance(
                     p["payload"], dict) or p["payload"].get("error"):
                 # not configured / no provider / a failed push_plan -> do NOT push.
-                record["reason"] = ("not configured" if token is None
+                record["reason"] = ("not configured"
+                                    if not runtime.credential_available
                                     else "no provider / unbuildable payload")
+                if runtime.reason:
+                    record["configurationReason"] = runtime.reason
+                proj["pushed"].append(record)
+                continue
+            drift_reason = _planned_runtime_drift_reason(
+                vault, entry["entity"], p["target"], planned, settings_service)
+            if drift_reason is not None:
+                record["reason"] = "configuration drift"
+                record["configurationReason"] = drift_reason
+                proj["pushed"].append(record)
+                continue
+            reviewed_drift_reason = _planned_reviewed_head_drift_reason(
+                vault, entry["entity"], planned)
+            if reviewed_drift_reason is not None:
+                record["reason"] = "reviewed head drift"
+                record["configurationReason"] = reviewed_drift_reason
+                proj["pushed"].append(record)
+                continue
+            receipt_decision = _create_receipt_decision(
+                vault, entry["entity"], p["target"], prov_name,
+                p["payload"], planned, claim=False)
+            if receipt_decision["action"] == "refuse":
+                record["reason"] = "mutation receipt blocked"
+                record["configurationReason"] = receipt_decision["reason"]
+                proj["pushed"].append(record)
+                continue
+            if receipt_decision["action"] == "replay":
+                public_result = _public_execute_result(
+                    receipt_decision["result"], p["payload"], "")
+                record["pushed"] = True
+                record["executed"] = public_result
+                proj["pushed"].append(record)
+                continue
+            token, token_reason = _resolve_runtime_token(
+                runtime, settings_service)
+            if token is None:
+                record["reason"] = "not configured"
+                record["configurationReason"] = token_reason
                 proj["pushed"].append(record)
                 continue
             try:
-                res = provider.execute_push(
-                    p["payload"], p.get("binding") or {}, transport, token)
+                with _runtime_timeout(transport, runtime) as bounded_transport:
+                    reviewed_drift_reason = _planned_reviewed_head_drift_reason(
+                        vault, entry["entity"], planned)
+                    if reviewed_drift_reason is not None:
+                        record["reason"] = "reviewed head drift"
+                        record["configurationReason"] = reviewed_drift_reason
+                        proj["pushed"].append(record)
+                        continue
+                    receipt_context = None
+                    if receipt_decision["action"] == "absent":
+                        receipt_decision = _create_receipt_decision(
+                            vault, entry["entity"], p["target"], prov_name,
+                            p["payload"], planned, claim=True)
+                        if receipt_decision["action"] == "refuse":
+                            record["reason"] = "mutation receipt blocked"
+                            record["configurationReason"] = receipt_decision["reason"]
+                            proj["pushed"].append(record)
+                            continue
+                        if receipt_decision["action"] == "replay":
+                            public_result = _public_execute_result(
+                                receipt_decision["result"], p["payload"], token)
+                            record["pushed"] = True
+                            record["executed"] = public_result
+                            proj["pushed"].append(record)
+                            continue
+                        if receipt_decision["action"] == "execute":
+                            receipt_context = receipt_decision
+                    res = provider.execute_push(
+                        copy.deepcopy(p["payload"]),
+                        _binding_copy(runtime.binding), bounded_transport, token)
             except TransportError as e:
                 # a redacted, token-free error -- one target's failure must not
                 # abort the others.
-                record["error"] = str(e)
+                record["error"] = _public_transport_error(e)
                 proj["pushed"].append(record)
                 continue
-            except Exception as e:
-                record["error"] = f"execute_push failed: {e}"
+            except Exception:
+                record["error"] = "execute_push failed"
                 proj["pushed"].append(record)
                 continue
-            record["pushed"] = bool(res.get("executed"))
-            record["executed"] = res
+            if receipt_context is not None:
+                try:
+                    _finalize_create_receipt(receipt_context, res)
+                except (OSError, ValueError):
+                    record["reason"] = "mutation receipt blocked"
+                    record["configurationReason"] = (
+                        "mutation-receipt-finalization-failed")
+                    proj["pushed"].append(record)
+                    continue
+            public_result = _public_execute_result(res, p["payload"], token)
+            record["pushed"] = public_result["executed"]
+            record["executed"] = public_result
             proj["pushed"].append(record)
         out["projects"].append(proj)
     return out
@@ -1532,11 +2472,20 @@ class GiteaAdapter(Provider):
         resp = transport.request(method, url, headers=self._auth_headers(token),
                                  body=body)
         self._raise_for_status(method, url, resp)
+        object_id = plan.get("object_id")
+        revision = None
+        if method == "POST" and object_id is None:
+            object_id, revision = _created_remote_identity(
+                _response_json_object(resp), identity_keys=("number", "id"),
+                revision_keys=("updated_at", "created_at"), secret=token,
+                method=method, url=url,
+                status=resp.get("status") if isinstance(resp, dict) else None)
         return {
             "executed": True,
             "method": method,
             "url": _redact_url(url),
-            "object_id": plan.get("object_id"),
+            "object_id": object_id,
+            "revision": revision,
             "entity": plan.get("entity"),
             "status": resp.get("status") if isinstance(resp, dict) else None,
         }
@@ -1945,13 +2894,14 @@ class GitHubAdapter(Provider):
         owner, repo = self._owner_repo(repo_cfg)
         if not owner or not repo:
             return []
+        api_base = self._api_base(repo_cfg)
         slug = _safe_segment(repo, "repo")
         headers = self._auth_headers(token)
 
         items: list = []
         seen_ids: set = set()
         for page in range(1, GITHUB_PAGE_CAP + 1):
-            url = (f"{GITHUB_API_BASE}/repos/{owner}/{repo}/issues"
+            url = (f"{api_base}/repos/{owner}/{repo}/issues"
                    f"?state=all&per_page={GITHUB_PAGE_LIMIT}&page={page}")
             resp = transport.request("GET", url, headers=headers)
             self._raise_for_status("GET", url, resp)
@@ -2028,13 +2978,14 @@ class GitHubAdapter(Provider):
         owner, repo = self._owner_repo(repo_cfg)
         if not owner or not repo:
             return []
+        api_base = self._api_base(repo_cfg)
         slug = _safe_segment(repo, "repo")
         headers = self._auth_headers(token)
 
         items: list = []
         seen_ids: set = set()
         for page in range(1, GITHUB_PAGE_CAP + 1):
-            url = (f"{GITHUB_API_BASE}/repos/{owner}/{repo}/pulls"
+            url = (f"{api_base}/repos/{owner}/{repo}/pulls"
                    f"?state=all&per_page={GITHUB_PAGE_LIMIT}&page={page}")
             resp = transport.request("GET", url, headers=headers)
             self._raise_for_status("GET", url, resp)
@@ -2234,21 +3185,36 @@ class GitHubAdapter(Provider):
             return {"executed": False, "entity": plan.get("entity"),
                     "method": plan.get("method"), "reason": "not configured"}
         method = plan.get("method", "POST")
-        url = f"{GITHUB_API_BASE}{plan.get('endpoint', '')}"
+        url = f"{self._api_base(repo_cfg)}{plan.get('endpoint', '')}"
         body = json.dumps(plan.get("payload") or {}).encode("utf-8")
         resp = transport.request(method, url, headers=self._auth_headers(token),
                                  body=body)
         self._raise_for_status(method, url, resp)
+        object_id = plan.get("object_id")
+        revision = None
+        if method == "POST" and object_id is None:
+            object_id, revision = _created_remote_identity(
+                _response_json_object(resp), identity_keys=("number", "id"),
+                revision_keys=("updated_at", "created_at"), secret=token,
+                method=method, url=url,
+                status=resp.get("status") if isinstance(resp, dict) else None)
         return {
             "executed": True,
             "method": method,
             "url": _redact_url(url),
-            "object_id": plan.get("object_id"),
+            "object_id": object_id,
+            "revision": revision,
             "entity": plan.get("entity"),
             "status": resp.get("status") if isinstance(resp, dict) else None,
         }
 
     # --- small helpers (pure) ---------------------------------------------
+
+    def _api_base(self, repo_cfg: dict) -> str:
+        if not isinstance(repo_cfg, dict):
+            return GITHUB_API_BASE
+        configured = str(repo_cfg.get("base_url", "") or "").strip().rstrip("/")
+        return configured or GITHUB_API_BASE
 
     def _owner_repo(self, repo_cfg: dict):
         """Split `repo: owner/name` into (owner, name). Tolerates a bare name
@@ -2361,6 +3327,372 @@ class GitHubAdapter(Provider):
         return ""
 
 
+# === Plane adapter: current REST work-items contract =======================
+
+PLANE_CLOUD_BASE_URL = "https://api.plane.so"
+PLANE_API_PREFIX = "/api/v1"
+PLANE_PAGE_LIMIT = 100
+PLANE_PAGE_CAP = 20
+
+_WORK_STATE_TO_PLANE_GROUP = {
+    _currency.STATE_BACKLOG: "backlog",
+    _currency.STATE_TODO: "unstarted",
+    _currency.STATE_IN_PROGRESS: "started",
+    _currency.STATE_DONE: "completed",
+    _currency.STATE_CANCELED: "canceled",
+}
+_PLANE_GROUP_TO_RAW = {
+    "backlog": "backlog",
+    "unstarted": "todo",
+    "started": "started",
+    "completed": "done",
+    "canceled": "canceled",
+    "cancelled": "canceled",
+}
+
+
+class PlaneAdapter(Provider):
+    """Plane External Projection using the current REST ``work-items`` API."""
+
+    name = PROVIDER_PLANE
+
+    def pull(self, repo_cfg: dict, transport: Transport,
+             token: Optional[str]) -> list:
+        if not token:
+            return []
+        collection_url = self._collection_url(repo_cfg)
+        if collection_url is None:
+            raise TransportError(
+                "GET", self._base_url(repo_cfg), None,
+                detail="plane binding requires workspace_slug and project_id")
+        headers = self._auth_headers(token)
+        items: list[RemoteItem] = []
+        seen_ids: set[str] = set()
+        cursor: Optional[str] = None
+        for _page in range(PLANE_PAGE_CAP):
+            url = self._page_url(collection_url, cursor)
+            response = transport.request("GET", url, headers=headers)
+            self._raise_for_status("GET", url, response)
+            payload = self._decode_json(response)
+            if isinstance(payload, list):
+                results = payload
+                next_cursor = None
+                has_next = False
+            elif isinstance(payload, dict):
+                results = payload.get("results")
+                results = results if isinstance(results, list) else []
+                next_cursor = payload.get("next_cursor")
+                has_next = payload.get("next_page_results") is True
+            else:
+                break
+            new_this_page = 0
+            for raw in results:
+                item = self._work_item_to_remote(raw, repo_cfg)
+                if item is None or item.object_id in seen_ids:
+                    continue
+                seen_ids.add(item.object_id)
+                items.append(item)
+                new_this_page += 1
+            if (
+                not has_next
+                or not isinstance(next_cursor, str)
+                or not next_cursor
+                or next_cursor == cursor
+                or new_this_page == 0
+            ):
+                break
+            cursor = next_cursor
+        return items
+
+    def push_plan(self, snapshot: dict, repo_cfg: dict) -> dict:
+        """Pure create/update plan; concrete Plane state UUIDs are never guessed."""
+        collection_url = self._collection_url(repo_cfg)
+        object_id = self._origin_object_id(snapshot)
+        method = "PATCH" if object_id is not None else "POST"
+        canonical = snapshot.get("state") if isinstance(snapshot, dict) else None
+        state_type = _WORK_STATE_TO_PLANE_GROUP.get(
+            str(canonical or "").strip().lower(), "backlog")
+        state_id, needs_mapping = self._resolve_state_id(state_type, repo_cfg)
+        notes: list[str] = []
+        if needs_mapping:
+            notes.append(
+                f"needs-mapping: Plane state group '{state_type}' has no entry "
+                "in repo_cfg['state_type_ids']; the plan will not set state.")
+        body = {
+            "name": self._snapshot_title(snapshot),
+            "description_html": self._snapshot_body(snapshot),
+        }
+        if state_id is not None:
+            body["state"] = state_id
+        plan = {
+            "method": method,
+            "body": body,
+            "object_id": object_id,
+            "entity": snapshot.get("entity") if isinstance(snapshot, dict) else None,
+            "state_type": state_type,
+            "needs_mapping": needs_mapping,
+            "notes": notes,
+        }
+        if collection_url is None:
+            plan["error"] = (
+                "plane-binding-incomplete: workspace_slug and project_id are required")
+            return plan
+        plan["url"] = (
+            self._item_url(collection_url, object_id)
+            if object_id is not None
+            else collection_url
+        )
+        return plan
+
+    def execute_push(self, plan: dict, repo_cfg: dict, transport: Transport,
+                     token: Optional[str]) -> dict:
+        if not token:
+            return {
+                "executed": False,
+                "method": plan.get("method"),
+                "entity": plan.get("entity"),
+                "reason": "not configured",
+            }
+        if not isinstance(plan, dict) or plan.get("error"):
+            return {
+                "executed": False,
+                "method": plan.get("method") if isinstance(plan, dict) else None,
+                "reason": "unbuildable payload",
+            }
+        collection_url = self._collection_url(repo_cfg)
+        if collection_url is None:
+            return {
+                "executed": False,
+                "method": plan.get("method"),
+                "entity": plan.get("entity"),
+                "reason": "plane binding incomplete",
+            }
+        method = str(plan.get("method") or "").upper()
+        object_id = plan.get("object_id")
+        if method == "POST":
+            url = collection_url
+        elif method == "PATCH" and isinstance(object_id, str) and object_id.strip():
+            url = self._item_url(collection_url, object_id)
+        else:
+            return {
+                "executed": False,
+                "method": method,
+                "entity": plan.get("entity"),
+                "reason": "invalid Plane mutation plan",
+            }
+        body = plan.get("body")
+        if not isinstance(body, dict):
+            return {
+                "executed": False,
+                "method": method,
+                "entity": plan.get("entity"),
+                "reason": "invalid Plane mutation body",
+            }
+        response = transport.request(
+            method,
+            url,
+            headers=self._auth_headers(token),
+            body=json.dumps(body).encode("utf-8"),
+        )
+        self._raise_for_status(method, url, response)
+        revision = None
+        if method == "POST" and object_id is None:
+            object_id, revision = _created_remote_identity(
+                self._decode_json(response), identity_keys=("id",),
+                revision_keys=("updated_at", "created_at"), secret=token,
+                method=method, url=url,
+                status=(response.get("status")
+                        if isinstance(response, dict) else None))
+        return {
+            "executed": True,
+            "method": method,
+            "url": _redact_url(url),
+            "object_id": object_id,
+            "revision": revision,
+            "entity": plan.get("entity"),
+            "status": response.get("status") if isinstance(response, dict) else None,
+        }
+
+    def _work_item_to_remote(
+            self, raw: object, repo_cfg: dict) -> Optional[RemoteItem]:
+        if not isinstance(raw, dict):
+            return None
+        object_id = raw.get("id")
+        if object_id is None or not str(object_id).strip():
+            return None
+        state = raw.get("state")
+        state_group = state.get("group") if isinstance(state, dict) else None
+        state_raw = _PLANE_GROUP_TO_RAW.get(
+            str(state_group or "").strip().lower())
+        actor_value = raw.get("updated_by")
+        if isinstance(actor_value, dict):
+            actor = (
+                actor_value.get("display_name")
+                or actor_value.get("displayName")
+                or actor_value.get("name")
+                or actor_value.get("id")
+            )
+        else:
+            actor = actor_value
+        identifier = raw.get("identifier")
+        if identifier is None:
+            identifier = raw.get("sequence_id")
+        identity = str(identifier or object_id).strip()
+        return RemoteItem(
+            kind="work-item",
+            object_id=str(object_id).strip(),
+            revision=raw.get("updated_at") or raw.get("created_at"),
+            actor=str(actor).strip() if actor is not None else None,
+            title=str(raw.get("name") or ""),
+            state=state_raw,
+            entity_hint=(
+                f"project/{self._project_slug(repo_cfg)}/issue/{identity}"),
+            raw=raw,
+        )
+
+    @staticmethod
+    def _decode_json(response: dict):
+        body = response.get("body") if isinstance(response, dict) else None
+        if isinstance(body, (bytes, bytearray)):
+            try:
+                body = bytes(body).decode("utf-8")
+            except UnicodeDecodeError:
+                return None
+        if isinstance(body, str):
+            try:
+                return json.loads(body) if body.strip() else None
+            except ValueError:
+                return None
+        return body
+
+    @staticmethod
+    def _raise_for_status(method: str, url: str, response: dict) -> None:
+        status = response.get("status") if isinstance(response, dict) else None
+        if isinstance(status, int) and 200 <= status < 300:
+            return
+        raise TransportError(
+            method, url, status if isinstance(status, int) else None,
+            detail="plane api error")
+
+    @staticmethod
+    def _auth_headers(token: str) -> dict:
+        return {
+            "X-API-Key": token,
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        }
+
+    def _collection_url(self, repo_cfg: dict) -> Optional[str]:
+        from urllib.parse import quote
+
+        workspace_slug = self._cfg_str(repo_cfg, "workspace_slug")
+        project_id = self._cfg_str(repo_cfg, "project_id")
+        if workspace_slug is None or project_id is None:
+            return None
+        return (
+            f"{self._base_url(repo_cfg)}{PLANE_API_PREFIX}/workspaces/"
+            f"{quote(workspace_slug, safe='')}/projects/"
+            f"{quote(project_id, safe='')}/work-items/"
+        )
+
+    @staticmethod
+    def _item_url(collection_url: str, object_id: str) -> str:
+        from urllib.parse import quote
+
+        return f"{collection_url}{quote(str(object_id).strip(), safe='')}/"
+
+    @staticmethod
+    def _page_url(collection_url: str, cursor: Optional[str]) -> str:
+        from urllib.parse import urlencode
+
+        query = [("per_page", PLANE_PAGE_LIMIT), ("expand", "state")]
+        if cursor:
+            query.append(("cursor", cursor))
+        return f"{collection_url}?{urlencode(query)}"
+
+    def _base_url(self, repo_cfg: dict) -> str:
+        return (
+            self._cfg_str(repo_cfg, "base_url", "url")
+            or PLANE_CLOUD_BASE_URL
+        ).rstrip("/")
+
+    @staticmethod
+    def _cfg_str(repo_cfg: dict, *keys: str) -> Optional[str]:
+        if not isinstance(repo_cfg, dict):
+            return None
+        for key in keys:
+            value = repo_cfg.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        return None
+
+    def _project_slug(self, repo_cfg: dict) -> str:
+        raw = (
+            self._cfg_str(repo_cfg, "slug", "project_slug", "workspace_slug")
+            or "plane"
+        )
+        return _safe_segment(raw, "plane")
+
+    @staticmethod
+    def _resolve_state_id(state_type: str, repo_cfg: dict):
+        mapping = (
+            repo_cfg.get("state_type_ids") if isinstance(repo_cfg, dict) else None)
+        if isinstance(mapping, dict):
+            state_id = mapping.get(state_type)
+            if isinstance(state_id, str) and state_id.strip():
+                return state_id.strip(), False
+        return None, True
+
+    def _origin_object_id(self, snapshot: dict) -> Optional[str]:
+        if not isinstance(snapshot, dict):
+            return None
+        for container in (snapshot, snapshot.get("fields")):
+            if not isinstance(container, dict):
+                continue
+            origin = container.get("origin")
+            if not isinstance(origin, dict):
+                continue
+            provider = str(origin.get("provider") or "").strip().lower()
+            if provider and provider != self.name:
+                return None
+            object_id = origin.get("object-id")
+            if object_id is not None and str(object_id).strip():
+                return str(object_id).strip()
+        return None
+
+    @staticmethod
+    def _snapshot_title(snapshot: dict) -> str:
+        if isinstance(snapshot, dict):
+            fields = (
+                snapshot.get("fields")
+                if isinstance(snapshot.get("fields"), dict)
+                else {}
+            )
+            for source in (snapshot, fields):
+                title = source.get("title")
+                if isinstance(title, str) and title.strip():
+                    return title.strip()
+            entity = snapshot.get("entity")
+            if isinstance(entity, str) and entity.strip():
+                return entity.strip()
+        return ""
+
+    @staticmethod
+    def _snapshot_body(snapshot: dict) -> str:
+        if not isinstance(snapshot, dict):
+            return ""
+        for source in (
+            snapshot,
+            snapshot.get("fields")
+            if isinstance(snapshot.get("fields"), dict)
+            else {},
+        ):
+            body = source.get("body")
+            if isinstance(body, str) and body.strip():
+                return body.strip()
+        return ""
+
+
 # ===========================================================================
 # Task 9 / PR 9E: the LINEAR ADAPTER
 # ===========================================================================
@@ -2460,11 +3792,11 @@ query Issues($filter: IssueFilter, $first: Int!, $after: String) {
 # `input` variable is the issueCreate/issueUpdate input the push_plan built.
 _LINEAR_ISSUE_CREATE_MUTATION = """\
 mutation IssueCreate($input: IssueCreateInput!) {
-  issueCreate(input: $input) { success issue { id identifier } }
+  issueCreate(input: $input) { success issue { id identifier updatedAt } }
 }"""
 _LINEAR_ISSUE_UPDATE_MUTATION = """\
 mutation IssueUpdate($id: String!, $input: IssueUpdateInput!) {
-  issueUpdate(id: $id, input: $input) { success issue { id identifier } }
+  issueUpdate(id: $id, input: $input) { success issue { id identifier updatedAt } }
 }"""
 
 # mutation-name -> the GraphQL document execute_push POSTs for it.
@@ -2507,6 +3839,7 @@ class LinearAdapter(Provider):
         """
         if not token:
             return []
+        api_url = self._api_url(repo_cfg)
         headers = self._auth_headers(token)
         slug = self._project_slug(repo_cfg)
         issue_filter = self._issue_filter(repo_cfg)
@@ -2519,10 +3852,10 @@ class LinearAdapter(Provider):
             if issue_filter:
                 variables["filter"] = issue_filter
             body = self._graphql_body(_LINEAR_ISSUES_QUERY, variables)
-            resp = transport.request("POST", LINEAR_API_URL,
+            resp = transport.request("POST", api_url,
                                      headers=headers, body=body)
-            self._raise_for_status("POST", LINEAR_API_URL, resp)
-            data = self._graphql_data("POST", LINEAR_API_URL, resp)
+            self._raise_for_status("POST", api_url, resp)
+            data = self._graphql_data("POST", api_url, resp)
             conn = data.get("issues") if isinstance(data, dict) else None
             if not isinstance(conn, dict):
                 break
@@ -2685,17 +4018,31 @@ class LinearAdapter(Provider):
             return {"executed": False, "entity": plan.get("entity"),
                     "mutation": mutation, "reason": f"unknown mutation {mutation}"}
         body = self._graphql_body(doc, plan.get("variables") or {})
-        resp = transport.request("POST", LINEAR_API_URL,
+        api_url = self._api_url(repo_cfg)
+        resp = transport.request("POST", api_url,
                                  headers=self._auth_headers(token), body=body)
-        self._raise_for_status("POST", LINEAR_API_URL, resp)
+        self._raise_for_status("POST", api_url, resp)
         # raises a token-free TransportError on a GraphQL `errors` array.
-        self._graphql_data("POST", LINEAR_API_URL, resp)
+        data = self._graphql_data("POST", api_url, resp)
+        object_id = plan.get("object_id")
+        revision = None
+        if mutation == "issueCreate" and object_id is None:
+            mutation_result = data.get("issueCreate")
+            issue = (mutation_result.get("issue")
+                     if isinstance(mutation_result, dict)
+                     and mutation_result.get("success") is True else None)
+            object_id, revision = _created_remote_identity(
+                issue, identity_keys=("id",),
+                revision_keys=("updatedAt", "createdAt"), secret=token,
+                method="POST", url=api_url,
+                status=resp.get("status") if isinstance(resp, dict) else None)
         return {
             "executed": True,
             "method": "POST",
-            "url": _redact_url(LINEAR_API_URL),
+            "url": _redact_url(api_url),
             "mutation": mutation,
-            "object_id": plan.get("object_id"),
+            "object_id": object_id,
+            "revision": revision,
             "entity": plan.get("entity"),
             "status": resp.get("status") if isinstance(resp, dict) else None,
         }
@@ -2787,6 +4134,12 @@ class LinearAdapter(Provider):
                                  detail=detail)
         data = body.get("data")
         return data if isinstance(data, dict) else {}
+
+    def _api_url(self, repo_cfg: dict) -> str:
+        if not isinstance(repo_cfg, dict):
+            return LINEAR_API_URL
+        configured = str(repo_cfg.get("base_url", "") or "").strip().rstrip("/")
+        return configured or LINEAR_API_URL
 
     def _issue_filter(self, repo_cfg: dict) -> Optional[dict]:
         """Build the GraphQL IssueFilter from the binding: scope to a team and/or

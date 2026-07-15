@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.llmwiki.org/agent-domain/v1/project-agent-binding.schema.json",
+  "title": "ProjectAgentBinding v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "bindingId", "projectId", "projectContextFingerprint", "profileId", "profileRevision", "revision", "role", "enabled", "memoryScopes", "connectorGrantRefs", "createdAt", "createdBy", "updatedAt", "updatedBy"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "bindingId": { "$ref": "common.schema.json#/$defs/bindingId" },
+    "projectId": { "$ref": "common.schema.json#/$defs/projectId" },
+    "projectContextFingerprint": { "$ref": "common.schema.json#/$defs/digest" },
+    "profileId": { "$ref": "common.schema.json#/$defs/agentProfileId" },
+    "profileRevision": { "type": "integer", "minimum": 1 },
+    "revision": { "type": "integer", "minimum": 1 },
+    "role": { "type": "string", "minLength": 1 },
+    "enabled": { "type": "boolean" },
+    "memoryScopes": { "type": "array", "uniqueItems": true, "items": { "enum": ["recentContext", "openItems", "stableMemory"] } },
+    "connectorGrantRefs": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^grant/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" } },
+    "createdAt": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "createdBy": { "type": "string", "minLength": 1 },
+    "updatedAt": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "updatedBy": { "type": "string", "minLength": 1 },
+    "previousRevision": { "type": "object", "additionalProperties": false, "required": ["revision", "digest"], "properties": { "revision": { "type": "integer", "minimum": 1 }, "digest": { "$ref": "common.schema.json#/$defs/digest" } } }
+  }
+}

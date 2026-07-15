@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "bindingId": "binding/demo/researcher",
+  "projectId": "project/demo",
+  "projectContextFingerprint": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "profileId": "agent/researcher",
+  "profileRevision": 1,
+  "revision": 1,
+  "role": "Project researcher",
+  "enabled": true,
+  "memoryScopes": ["recentContext", "openItems", "stableMemory"],
+  "connectorGrantRefs": [],
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "createdBy": "fixture",
+  "updatedAt": "2026-01-01T00:00:00.000Z",
+  "updatedBy": "fixture"
+}

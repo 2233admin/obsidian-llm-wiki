@@ -48,7 +48,12 @@ export type OperationNamespace =
   | 'context'
   | 'skills'
   | 'workflow'
-  | 'settings';
+  | 'settings'
+  | 'usage'
+  | 'host'
+  | 'dreamtime'
+  | 'consult'
+  | 'delegation';
 
 export type OperationWriteTrigger = 'dryRunFalse' | 'always';
 

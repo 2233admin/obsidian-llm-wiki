@@ -18,8 +18,12 @@
  *   - searchByVector(vec) 1024-dim -> cosine via memu_search.py
  *   - searchByVector(vec) 4096-dim -> raw pgvector cosine on memory_items
  *
- * Requires: Postgres reachable via MEMU_DSN, Ollama serving bge-m3 at :11434.
+ * Requires: a Settings-derived Postgres connection, Ollama serving bge-m3 at :11434.
  * Gracefully degrades to [] if unavailable.
+ * The constructor never reads process.env or resolves Secret References directly.
+ * At each Python subprocess boundary it preserves the inherited environment and
+ * overrides MEMU_DSN with the Settings-resolved value so credentials never enter
+ * the operating-system argument vector.
  */
 
 import pg from "pg";
@@ -35,9 +39,9 @@ import type {
 const { Pool } = pg;
 
 export interface MemUAdapterConfig {
-  /** Postgres DSN (default: env MEMU_DSN or localhost:5432/memu) */
+  /** Postgres DSN injected by the Settings runtime (default: credential-free localhost). */
   dsn?: string;
-  /** user_id scope filter (default: env MEMU_USER_ID or "boris") */
+  /** user_id scope filter (default: "default") */
   userId?: string;
   /** Maximum results per query (default: 20) */
   maxResults?: number;
@@ -51,26 +55,93 @@ export interface MemUAdapterConfig {
    * filters out event noise structurally). Pass [] to include all types.
    */
   excludeMemoryTypes?: readonly string[];
-  /** Python interpreter to spawn for memu-graph CLI. Default: D:/projects/memu-graph/.venv/Scripts/python.exe */
+  /** Python interpreter to spawn for memu-graph CLI. Default: python/python3 from PATH. */
   pythonExe?: string;
-  /** Working directory for the subprocess (so it can import memu_graph). Default: D:/projects/memu-graph */
+  /** Working directory for the subprocess (so it can import memu_graph). Default: process cwd. */
   memuGraphCwd?: string;
   /** Subprocess timeout in ms. Default: 15_000 (cold-start ~630ms + worst-case slow PG) */
   graphRecallTimeoutMs?: number;
-  /** Path to memu_search.py fallback script. Default: D:/projects/memu/scripts/memu_search.py */
+  /** Path to memu_search.py fallback script. Default: memu_search.py in the configured cwd. */
   memuSearchPy?: string;
   /** Python interpreter for memu_search.py (may differ from memuGraph python). Default: python from PATH */
   memuSearchPythonExe?: string;
+  /** Subprocess timeout for memu_search.py in ms. Default: 20_000. */
+  memuSearchTimeoutMs?: number;
   /** Ollama embedding model. Default: bge-m3 (1024-dim, available on this machine) */
   embedModel?: string;
 }
 
-const DEFAULT_DSN = "postgresql://postgres:postgres@localhost:5432/memu";
-const DEFAULT_PYTHON = "D:/projects/_active/memu/.venv/Scripts/python.exe";
-const DEFAULT_MEMU_GRAPH_CWD = "D:/projects/_active/memu";
+const DEFAULT_DSN = "postgresql://localhost:5432/memu";
 const DEFAULT_GRAPH_RECALL_TIMEOUT_MS = 15_000;
-const DEFAULT_MEMU_SEARCH_PY = "D:/projects/_active/memu/scripts/memu_search.py";
+const DEFAULT_MEMU_SEARCH_PY = "memu_search.py";
 const DEFAULT_MEMU_SEARCH_TIMEOUT_MS = 20_000;
+
+function memuChildEnvironment(dsn: string): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    MEMU_DSN: dsn,
+  };
+}
+
+function redactResolvedDsn(value: string, dsn: string): string {
+  return dsn.length > 0 ? value.split(dsn).join("[redacted]") : value;
+}
+
+export interface ResolvedMemUAdapterConfig {
+  dsn: string;
+  userId: string;
+  maxResults: number;
+  timeout: number;
+  excludeMemoryTypes: readonly string[];
+  pythonExe: string;
+  memuGraphCwd: string;
+  graphRecallTimeoutMs: number;
+  memuSearchPy: string;
+  memuSearchPythonExe: string;
+  memuSearchTimeoutMs: number;
+  embedModel: string;
+}
+
+function pathPython(platform: NodeJS.Platform): string {
+  return platform === "win32" ? "python" : "python3";
+}
+
+function positiveEnvironmentNumber(
+  environment: NodeJS.ProcessEnv,
+  key: string,
+  fallback: number,
+): number {
+  const raw = environment[key];
+  const parsed = raw === undefined ? Number.NaN : Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+/** Resolve portable runtime configuration without probing Python or Postgres. */
+export function resolveMemUAdapterConfig(
+  config: MemUAdapterConfig = {},
+  environment: NodeJS.ProcessEnv = {},
+  runtime: { cwd?: string; platform?: NodeJS.Platform } = {},
+): ResolvedMemUAdapterConfig {
+  const python = pathPython(runtime.platform ?? process.platform);
+  return {
+    dsn: config.dsn ?? environment.MEMU_DSN ?? DEFAULT_DSN,
+    userId: config.userId ?? environment.MEMU_USER_ID ?? "default",
+    maxResults: config.maxResults ?? 20,
+    timeout: config.timeout ?? 5_000,
+    excludeMemoryTypes: config.excludeMemoryTypes ?? ["event"],
+    pythonExe: config.pythonExe ?? environment.MEMU_GRAPH_PYTHON ?? python,
+    memuGraphCwd: config.memuGraphCwd ?? environment.MEMU_GRAPH_CWD ?? runtime.cwd ?? process.cwd(),
+    graphRecallTimeoutMs:
+      config.graphRecallTimeoutMs
+      ?? positiveEnvironmentNumber(environment, "MEMU_GRAPH_TIMEOUT_MS", DEFAULT_GRAPH_RECALL_TIMEOUT_MS),
+    memuSearchPy: config.memuSearchPy ?? environment.MEMU_SEARCH_PY ?? DEFAULT_MEMU_SEARCH_PY,
+    memuSearchPythonExe: config.memuSearchPythonExe ?? environment.MEMU_SEARCH_PYTHON ?? python,
+    memuSearchTimeoutMs:
+      config.memuSearchTimeoutMs
+      ?? positiveEnvironmentNumber(environment, "MEMU_SEARCH_TIMEOUT_MS", DEFAULT_MEMU_SEARCH_TIMEOUT_MS),
+    embedModel: config.embedModel ?? environment.OLLAMA_EMBED_MODEL ?? "bge-m3",
+  };
+}
 
 interface RecallNode {
   id: string;
@@ -117,31 +188,20 @@ export class MemUAdapter implements VaultMindAdapter {
 
   get isAvailable(): boolean { return this.available; }
 
-  constructor(config?: MemUAdapterConfig) {
-    this.dsn = config?.dsn ?? process.env.MEMU_DSN ?? DEFAULT_DSN;
-    this.userId = config?.userId ?? process.env.MEMU_USER_ID ?? "boris";
-    this.defaultMax = config?.maxResults ?? 20;
-    this.timeout = config?.timeout ?? 5_000;
-    this.excludeMemoryTypes = config?.excludeMemoryTypes ?? ["event"];
-    this.pythonExe =
-      config?.pythonExe ?? process.env.MEMU_GRAPH_PYTHON ?? DEFAULT_PYTHON;
-    this.memuGraphCwd =
-      config?.memuGraphCwd ?? process.env.MEMU_GRAPH_CWD ?? DEFAULT_MEMU_GRAPH_CWD;
-    const envTimeout = process.env.MEMU_GRAPH_TIMEOUT_MS;
-    const envTimeoutNum = envTimeout ? Number(envTimeout) : NaN;
-    this.graphRecallTimeoutMs =
-      config?.graphRecallTimeoutMs ??
-      (Number.isFinite(envTimeoutNum) && envTimeoutNum > 0
-        ? envTimeoutNum
-        : DEFAULT_GRAPH_RECALL_TIMEOUT_MS);
-    this.memuSearchPy =
-      config?.memuSearchPy ?? process.env.MEMU_SEARCH_PY ?? DEFAULT_MEMU_SEARCH_PY;
-    this.memuSearchPythonExe =
-      config?.memuSearchPythonExe ?? process.env.MEMU_SEARCH_PYTHON
-      ?? "D:/projects/_active/memu/.venv/Scripts/python.exe";
-    this.memuSearchTimeoutMs = 20_000;
-    this.embedModel =
-      config?.embedModel ?? process.env.OLLAMA_EMBED_MODEL ?? "bge-m3";
+  constructor(config: MemUAdapterConfig = {}) {
+    const resolved = resolveMemUAdapterConfig(config, {});
+    this.dsn = resolved.dsn;
+    this.userId = resolved.userId;
+    this.defaultMax = resolved.maxResults;
+    this.timeout = resolved.timeout;
+    this.excludeMemoryTypes = resolved.excludeMemoryTypes;
+    this.pythonExe = resolved.pythonExe;
+    this.memuGraphCwd = resolved.memuGraphCwd;
+    this.graphRecallTimeoutMs = resolved.graphRecallTimeoutMs;
+    this.memuSearchPy = resolved.memuSearchPy;
+    this.memuSearchPythonExe = resolved.memuSearchPythonExe;
+    this.memuSearchTimeoutMs = resolved.memuSearchTimeoutMs;
+    this.embedModel = resolved.embedModel;
   }
 
   async init(): Promise<void> {
@@ -166,9 +226,9 @@ export class MemUAdapter implements VaultMindAdapter {
       }
       this.available = true;
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const kind = err instanceof Error ? err.name : "Error";
       process.stderr.write(
-        `obsidian-llm-wiki: [warn] memU PG unavailable (${msg}), adapter disabled\n`,
+        `obsidian-llm-wiki: [warn] memU PG unavailable (${kind}), adapter disabled\n`,
       );
       this.available = false;
       if (this.pool) {
@@ -264,18 +324,19 @@ export class MemUAdapter implements VaultMindAdapter {
         },
       }));
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const kind = err instanceof Error ? err.name : "Error";
       process.stderr.write(
-        `obsidian-llm-wiki: [error] memU PG vector query (memory_items) failed: ${msg}\n`,
+        `obsidian-llm-wiki: [error] memU PG vector query (memory_items) failed (${kind})\n`,
       );
       return [];
     }
   }
 
   /**
-   * Spawn `python -m memu_graph.cli graph-recall --dsn <DSN>`, write JSON
-   * request to stdin, parse JSON from stdout. Kill on timeout. Returns null
-   * on any error (silent fail + stderr warn, mirrors adapter pattern).
+   * Spawn `python -m memu_graph.cli graph-recall` with the resolved DSN only in
+   * the device-local child environment, write JSON request to stdin, and parse
+   * JSON from stdout. Kill on timeout. Returns null on any error (silent fail +
+   * stderr warn, mirrors adapter pattern).
    */
   private async runGraphRecall(
     query: string,
@@ -290,14 +351,14 @@ export class MemUAdapter implements VaultMindAdapter {
 
     return new Promise<RecallResult | null>((resolve) => {
       let stdout = "";
-      let stderr = "";
       let settled = false;
 
       const proc = spawn(
         this.pythonExe,
-        ["-m", "memu_graph.cli", "graph-recall", "--dsn", this.dsn],
+        ["-m", "memu_graph.cli", "graph-recall"],
         {
           cwd: this.memuGraphCwd,
+          env: memuChildEnvironment(this.dsn),
           windowsHide: true,
           stdio: ["pipe", "pipe", "pipe"],
         },
@@ -314,14 +375,14 @@ export class MemUAdapter implements VaultMindAdapter {
       }, this.graphRecallTimeoutMs);
 
       proc.stdout.on("data", (d) => { stdout += d.toString("utf-8"); });
-      proc.stderr.on("data", (d) => { stderr += d.toString("utf-8"); });
+      proc.stderr.on("data", () => { /* drain redacted subprocess diagnostics */ });
 
       proc.on("error", (err) => {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
         process.stderr.write(
-          `obsidian-llm-wiki: [warn] memu_graph.cli spawn failed: ${err.message}\n`,
+          `obsidian-llm-wiki: [warn] memu_graph.cli spawn failed: ${redactResolvedDsn(err.message, this.dsn)}\n`,
         );
         resolve(null);
       });
@@ -332,7 +393,14 @@ export class MemUAdapter implements VaultMindAdapter {
         clearTimeout(timer);
         if (code !== 0) {
           process.stderr.write(
-            `obsidian-llm-wiki: [warn] memu_graph.cli exit ${code}: ${stderr.slice(0, 400)}\n`,
+            `obsidian-llm-wiki: [warn] memu_graph.cli exit ${code}; stderr redacted\n`,
+          );
+          resolve(null);
+          return;
+        }
+        if (this.dsn.length > 0 && stdout.includes(this.dsn)) {
+          process.stderr.write(
+            "obsidian-llm-wiki: [warn] memu_graph.cli stdout contained resolved DSN; output rejected\n",
           );
           resolve(null);
           return;
@@ -357,7 +425,7 @@ export class MemUAdapter implements VaultMindAdapter {
         clearTimeout(timer);
         const msg = e instanceof Error ? e.message : String(e);
         process.stderr.write(
-          `obsidian-llm-wiki: [warn] memu_graph.cli stdin write failed: ${msg}\n`,
+          `obsidian-llm-wiki: [warn] memu_graph.cli stdin write failed: ${redactResolvedDsn(msg, this.dsn)}\n`,
         );
         resolve(null);
       }
@@ -376,12 +444,10 @@ export class MemUAdapter implements VaultMindAdapter {
   ): Promise<SearchResult[]> {
     return new Promise<SearchResult[]>((resolve) => {
       let stdout = "";
-      let stderr = "";
       let settled = false;
 
       const args = [
         this.memuSearchPy,
-        "--dsn", this.dsn,
         "--limit", String(limit),
       ];
       if (query) {
@@ -395,6 +461,8 @@ export class MemUAdapter implements VaultMindAdapter {
       }
 
       const proc = spawn(this.memuSearchPythonExe, args, {
+        cwd: this.memuGraphCwd,
+        env: memuChildEnvironment(this.dsn),
         windowsHide: true,
         stdio: ["pipe", "pipe", "pipe"],
       });
@@ -410,14 +478,14 @@ export class MemUAdapter implements VaultMindAdapter {
       }, this.memuSearchTimeoutMs);
 
       proc.stdout.on("data", (d) => { stdout += d.toString("utf-8"); });
-      proc.stderr.on("data", (d) => { stderr += d.toString("utf-8"); });
+      proc.stderr.on("data", () => { /* drain redacted subprocess diagnostics */ });
 
       proc.on("error", (err) => {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
         process.stderr.write(
-          `obsidian-llm-wiki: [warn] memu_search.py spawn failed: ${err.message}\n`,
+          `obsidian-llm-wiki: [warn] memu_search.py spawn failed: ${redactResolvedDsn(err.message, this.dsn)}\n`,
         );
         resolve([]);
       });
@@ -428,7 +496,14 @@ export class MemUAdapter implements VaultMindAdapter {
         clearTimeout(timer);
         if (code !== 0) {
           process.stderr.write(
-            `obsidian-llm-wiki: [warn] memu_search.py exit ${code}: ${stderr.slice(0, 300)}\n`,
+            `obsidian-llm-wiki: [warn] memu_search.py exit ${code}; stderr redacted\n`,
+          );
+          resolve([]);
+          return;
+        }
+        if (this.dsn.length > 0 && stdout.includes(this.dsn)) {
+          process.stderr.write(
+            "obsidian-llm-wiki: [warn] memu_search.py stdout contained resolved DSN; output rejected\n",
           );
           resolve([]);
           return;

@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  settings-platform:
+  shared-domains:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,6 +20,7 @@ jobs:
       - run: cd mcp-server && npm ci
       - run: cd mcp-server && npm run settings:build
       - run: cd packages/settings-platform && bun test tests/
+      - run: cd packages/agent-domain && npm ci && bun test tests/ && npm run typecheck && npm run build
 
   build:
     runs-on: ubuntu-latest
@@ -67,6 +68,10 @@ jobs:
       - run: cd mcp-server && npm ci
       - name: Verify committed MCP bundle is current
         run: cd mcp-server && npm run verify:bundle
+      - name: Build Obsidian plugin for release security scan
+        run: cd obsidian-plugin && npm ci && npm run build
+      - name: Verify release secrets, provenance, and runtime licenses
+        run: python scripts/verify_release_security.py --json
       - name: Smoke-test shipped MCP bundle operations
         run: python scripts/verify_release_install.py --json
 
@@ -85,6 +90,8 @@ jobs:
         run: cd obsidian-plugin && npm run typecheck
       - name: Build Obsidian plugin
         run: cd obsidian-plugin && npm run build
+      - name: Verify Obsidian plugin production bundle boundary
+        run: cd obsidian-plugin && npm run verify:bundle-boundary
 
   lint-python:
     runs-on: ubuntu-latest
@@ -100,9 +107,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: obsidian-plugin/package-lock.json
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Build Obsidian plugin release input
+        run: cd obsidian-plugin && npm ci && npm run build
       - run: pip install pytest
       - run: python -m pytest tests/ -v --tb=short --ignore=compiler/
 
@@ -130,7 +144,7 @@ jobs:
         with:
           python-version: "3.11"
       - run: cd mcp-server && npm ci
-      - run: cd mcp-server && npm run settings:build
+      - run: cd mcp-server && npm run platforms:build
       - run: bun test scripts/verify_fleet_workflow.test.ts
       - run: bun scripts/verify_fleet_workflow.ts --phase all --json
 
@@ -147,7 +161,22 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: cd mcp-server; npm ci; npm run settings:build; bun test src/settings/settings.test.ts src/project/project-hub.test.ts src/workflow/workflow.test.ts; npm run typecheck
+      - run: npm ci
+        working-directory: mcp-server
+      - run: npm run platforms:build
+        working-directory: mcp-server
+      - run: bun test src/settings/settings.test.ts src/project/project-hub.test.ts src/workflow/workflow.test.ts
+        working-directory: mcp-server
+      - run: npm run typecheck
+        working-directory: mcp-server
+      - run: npm ci
+        working-directory: packages/agent-domain
+      - run: bun test tests/
+        working-directory: packages/agent-domain
+      - run: npm run typecheck
+        working-directory: packages/agent-domain
+      - run: npm run build
+        working-directory: packages/agent-domain
       - run: python -m pip install pytest
       - run: python -m pytest compiler/tests/test_settings_platform.py compiler/tests/test_work_driver.py compiler/tests/test_project_migration.py -q --basetemp "$env:RUNNER_TEMP\pytest-windows"
 

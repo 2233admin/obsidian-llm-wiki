@@ -26,8 +26,13 @@ import os
 import shutil
 import sys
 import tempfile
+import threading
 import unittest
+import urllib.error
+import urllib.request
+from contextlib import contextmanager
 from pathlib import Path
+from unittest.mock import patch
 
 _COMPILER = Path(__file__).resolve().parents[1]
 if str(_COMPILER) not in sys.path:
@@ -35,6 +40,7 @@ if str(_COMPILER) not in sys.path:
 
 import currency  # noqa: E402
 import forge  # noqa: E402
+import settings_platform  # noqa: E402
 import work_protocol as work_protocol  # noqa: E402
 from _md_parse import parse_frontmatter  # noqa: E402
 
@@ -50,6 +56,12 @@ class FakeTransport(forge.Transport):
     def __init__(self, responses=None):
         self.responses = responses or {}
         self.calls = []  # [(method, url, headers, body), ...]
+        self.deadlines = []
+
+    @contextmanager
+    def operation_deadline(self, timeout_ms):
+        self.deadlines.append(timeout_ms)
+        yield self
 
     def request(self, method, url, headers=None, body=None):
         self.calls.append((method, url, dict(headers or {}), body))
@@ -99,6 +111,71 @@ def _write_forge_config(vault: Path, cfg: dict) -> Path:
     p = d / "forge.json"
     p.write_bytes(json.dumps(cfg, indent=2).encode("utf-8"))
     return p
+
+
+def _configured_forge_settings(vault: Path, environment: dict,
+                               endpoint: str = "https://settings.example",
+                               provider: str = "github"):
+    service = settings_platform.SettingsService(
+        registry=settings_platform.load_registry(
+            settings_platform.default_registry_path()),
+        vault_path=vault,
+        user_device_id="forge-test-device",
+        user_device_path=vault / ".test-settings" / "user-device.json",
+        vault_id="forge-test-vault",
+        workspace_project_id="project/web",
+        environment=environment,
+    )
+    user_values = (
+        ("providers.project_tracker.transport", "oauth"),
+        ("providers.project_tracker.endpoint", endpoint),
+        ("providers.project_tracker.secret_ref", {
+            "provider": "environment",
+            "locator": "FORGE_SETTINGS_TOKEN",
+        }),
+        ("providers.project_tracker.timeout_ms", 4321),
+    )
+    for revision, (key, value) in enumerate(user_values):
+        result = service.assignment_set(
+            scope="user-device",
+            key=key,
+            value=value,
+            expected_revision=revision,
+            updated_by="pytest",
+        )
+        assert result["status"] == "committed"
+    result = service.assignment_set(
+        scope="workspace-project",
+        target_id="project/web",
+        key="providers.project_tracker.provider",
+        value=provider,
+        expected_revision=0,
+        updated_by="pytest",
+    )
+    assert result["status"] == "committed"
+    result = service.assignment_set(
+        scope="workspace-project",
+        target_id="project/web",
+        key="providers.project_tracker.enabled",
+        value=True,
+        expected_revision=1,
+        updated_by="pytest",
+    )
+    assert result["status"] == "committed"
+    return service
+
+
+def _unconfigured_forge_settings(vault: Path, environment: dict):
+    return settings_platform.SettingsService(
+        registry=settings_platform.load_registry(
+            settings_platform.default_registry_path()),
+        vault_path=vault,
+        user_device_id="forge-unconfigured-device",
+        user_device_path=vault / ".test-settings" / "user-device.json",
+        vault_id="forge-unconfigured-vault",
+        workspace_project_id="project/web",
+        environment=environment,
+    )
 
 
 # === config load ============================================================
@@ -153,7 +230,8 @@ class TokenForTest(unittest.TestCase):
     def setUp(self):
         # snapshot + clear the token env vars so the test is hermetic.
         self._saved = {k: os.environ.pop(k, None)
-                       for k in ("GITEA_TOKEN", "GITHUB_TOKEN", "LINEAR_TOKEN")}
+                       for k in ("GITEA_TOKEN", "GITHUB_TOKEN", "LINEAR_TOKEN",
+                                 "PLANE_API_KEY")}
 
     def tearDown(self):
         for k, v in self._saved.items():
@@ -170,6 +248,7 @@ class TokenForTest(unittest.TestCase):
         self.assertIsNone(forge.token_for("gitea"))
         self.assertIsNone(forge.token_for("github"))
         self.assertIsNone(forge.token_for("linear"))
+        self.assertIsNone(forge.token_for("plane"))
 
     def test_blank_env_is_none(self):
         os.environ["LINEAR_TOKEN"] = "   "
@@ -178,6 +257,891 @@ class TokenForTest(unittest.TestCase):
     def test_unknown_provider_is_none(self):
         self.assertIsNone(forge.token_for("bitbucket"))
         self.assertIsNone(forge.token_for(None))
+
+
+class GovernedForgeSettingsTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="vault-forge-settings-"))
+        self.vault = self.tmp / "vault"
+        self.vault.mkdir()
+        _write_forge_config(self.vault, {"projects": {
+            "project/web": {
+                "forge": {
+                    "provider": "github",
+                    "base_url": "https://legacy.example",
+                    "repo": "org/web",
+                },
+            },
+        }})
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_settings_endpoint_and_secret_override_legacy_forge_and_env_without_leak(self):
+        settings_secret = "settings-secret-value"
+        legacy_secret = "legacy-secret-value"
+        service = _configured_forge_settings(self.vault, {
+            "FORGE_SETTINGS_TOKEN": settings_secret,
+            "GITHUB_TOKEN": legacy_secret,
+        })
+        transport = FakeTransport()
+
+        out = forge.sync_pull(
+            self.vault,
+            transport,
+            providers={"github": forge.GitHubAdapter()},
+            today=TODAY,
+            settings_service=service,
+        )
+
+        self.assertTrue(transport.calls)
+        self.assertTrue(all(call[1].startswith("https://settings.example/")
+                            for call in transport.calls))
+        self.assertTrue(all(call[2].get("Authorization") == f"Bearer {settings_secret}"
+                            for call in transport.calls))
+        project = out["projects"][0]
+        self.assertEqual(project["configurationSource"], "llmwiki-settings")
+        self.assertEqual(project["credentialSource"], "settings-secret-reference")
+        self.assertIsNone(project["compatibilitySource"])
+        serialized = json.dumps(out, sort_keys=True)
+        self.assertNotIn(settings_secret, serialized)
+        self.assertNotIn(legacy_secret, serialized)
+        self.assertNotIn("FORGE_SETTINGS_TOKEN", serialized)
+
+    def test_configured_settings_missing_secret_fails_closed_without_legacy_env_fallback(self):
+        legacy_secret = "legacy-must-not-run"
+        service = _configured_forge_settings(self.vault, {
+            "GITHUB_TOKEN": legacy_secret,
+        })
+        transport = FakeTransport()
+
+        out = forge.sync_pull(
+            self.vault,
+            transport,
+            providers={"github": forge.GitHubAdapter()},
+            today=TODAY,
+            settings_service=service,
+        )
+
+        self.assertEqual(transport.calls, [])
+        self.assertTrue(out["errors"])
+        error = out["errors"][0]
+        self.assertEqual(error["configurationSource"], "llmwiki-settings")
+        self.assertEqual(error["credentialSource"],
+                         "settings-secret-reference-unavailable")
+        self.assertEqual(error["configurationReason"], "settings-secret-unavailable")
+        self.assertNotIn(legacy_secret, json.dumps(out, sort_keys=True))
+
+    def test_unsetting_settings_rolls_back_to_labelled_legacy_binding_and_env(self):
+        settings_secret = "settings-before-rollback"
+        legacy_secret = "legacy-after-rollback"
+        service = _configured_forge_settings(self.vault, {
+            "FORGE_SETTINGS_TOKEN": settings_secret,
+            "GITHUB_TOKEN": legacy_secret,
+        })
+        for revision, key in enumerate((
+            "providers.project_tracker.transport",
+            "providers.project_tracker.endpoint",
+            "providers.project_tracker.secret_ref",
+            "providers.project_tracker.timeout_ms",
+        ), start=4):
+            result = service.assignment_unset(
+                scope="user-device",
+                key=key,
+                expected_revision=revision,
+                updated_by="pytest",
+                reason="rollback to legacy compatibility",
+            )
+            self.assertEqual(result["status"], "committed")
+        result = service.assignment_unset(
+            scope="workspace-project",
+            target_id="project/web",
+            key="providers.project_tracker.provider",
+            expected_revision=2,
+            updated_by="pytest",
+            reason="rollback to legacy compatibility",
+        )
+        self.assertEqual(result["status"], "committed")
+        result = service.assignment_unset(
+            scope="workspace-project",
+            target_id="project/web",
+            key="providers.project_tracker.enabled",
+            expected_revision=3,
+            updated_by="pytest",
+            reason="rollback to legacy compatibility",
+        )
+        self.assertEqual(result["status"], "committed")
+        transport = FakeTransport()
+
+        out = forge.sync_pull(
+            self.vault,
+            transport,
+            providers={"github": forge.GitHubAdapter()},
+            today=TODAY,
+            settings_service=service,
+        )
+
+        self.assertTrue(transport.calls)
+        self.assertTrue(all(call[1].startswith("https://legacy.example/")
+                            for call in transport.calls))
+        self.assertTrue(all(call[2].get("Authorization") == f"Bearer {legacy_secret}"
+                            for call in transport.calls))
+        project = out["projects"][0]
+        self.assertEqual(project["configurationSource"], "legacy-forge-json")
+        self.assertEqual(project["credentialSource"], "legacy-env")
+        self.assertEqual(project["compatibilitySource"], "legacy")
+        serialized = json.dumps(out, sort_keys=True)
+        self.assertNotIn(settings_secret, serialized)
+        self.assertNotIn(legacy_secret, serialized)
+
+    def test_sync_apply_uses_settings_runtime_for_the_actual_write(self):
+        settings_secret = "settings-apply-secret"
+        service = _configured_forge_settings(self.vault, {
+            "FORGE_SETTINGS_TOKEN": settings_secret,
+            "GITHUB_TOKEN": "legacy-apply-secret",
+        })
+        _write_reviewed_head(
+            self.vault,
+            "Projects/web.reviewed.md",
+            entity="project/web",
+            state="done",
+            provider="github",
+            object_id="43",
+            revision="r1",
+        )
+        url = "https://settings.example/repos/org/web/issues/43"
+        transport = FakeTransport({
+            ("PATCH", url): {
+                "status": 200,
+                "headers": {},
+                "body": b'{"number":43}',
+            },
+        })
+
+        out = forge.sync_apply(
+            self.vault,
+            transport,
+            providers={"github": forge.GitHubAdapter()},
+            apply=True,
+            today=TODAY,
+            settings_service=service,
+        )
+
+        push = out["projects"][0]["pushed"][0]
+        self.assertTrue(push["pushed"])
+        self.assertEqual(push["configurationSource"], "llmwiki-settings")
+        self.assertEqual(push["credentialSource"], "settings-secret-reference")
+        self.assertEqual([call[0] for call in transport.calls], ["PATCH"])
+        self.assertEqual(transport.calls[0][1], url)
+        self.assertEqual(transport.calls[0][2]["Authorization"],
+                         f"Bearer {settings_secret}")
+        self.assertNotIn(settings_secret, json.dumps(out, sort_keys=True))
+
+    def test_linear_apply_uses_settings_graphql_endpoint_and_secret(self):
+        _write_forge_config(self.vault, {"projects": {
+            "project/web": {
+                "forge": {
+                    "provider": "linear",
+                    "team_id": "team-uuid",
+                    "state_type_ids": {"completed": "state-done"},
+                },
+            },
+        }})
+        settings_secret = "settings-linear-secret"
+        endpoint = "https://linear.settings.example/graphql"
+        service = _configured_forge_settings(
+            self.vault,
+            {
+                "FORGE_SETTINGS_TOKEN": settings_secret,
+                "LINEAR_TOKEN": "legacy-linear-secret",
+            },
+            endpoint=endpoint,
+            provider="linear",
+        )
+        _write_reviewed_head(
+            self.vault,
+            "Projects/web-linear.reviewed.md",
+            entity="project/web",
+            state="done",
+            provider="linear",
+            object_id="linear-43",
+            revision="r1",
+        )
+        transport = FakeTransport({
+            ("POST", endpoint): {
+                "status": 200,
+                "headers": {},
+                "body": json.dumps({
+                    "data": {
+                        "issueUpdate": {
+                            "success": True,
+                            "issue": {"id": "linear-43"},
+                        },
+                    },
+                }).encode("utf-8"),
+            },
+        })
+
+        out = forge.sync_apply(
+            self.vault,
+            transport,
+            providers={"linear": forge.LinearAdapter()},
+            apply=True,
+            today=TODAY,
+            settings_service=service,
+        )
+
+        push = out["projects"][0]["pushed"][0]
+        self.assertTrue(push["pushed"])
+        self.assertEqual(push["configurationSource"], "llmwiki-settings")
+        self.assertEqual(transport.calls[0][1], endpoint)
+        self.assertEqual(transport.calls[0][2]["Authorization"], settings_secret)
+        serialized = json.dumps(out, sort_keys=True)
+        self.assertNotIn(settings_secret, serialized)
+        self.assertNotIn("legacy-linear-secret", serialized)
+
+    def test_settings_profile_for_another_provider_fails_closed_before_resolving_credential(self):
+        _write_forge_config(self.vault, {"projects": {
+            "project/web": {
+                "forge": {
+                    "provider": "linear",
+                    "team_id": "team-uuid",
+                },
+            },
+        }})
+        settings_secret = "github-settings-secret"
+        legacy_secret = "linear-legacy-secret"
+        service = _configured_forge_settings(
+            self.vault,
+            {
+                "FORGE_SETTINGS_TOKEN": settings_secret,
+                "LINEAR_TOKEN": legacy_secret,
+            },
+            provider="github",
+        )
+        transport = FakeTransport()
+
+        out = forge.sync_pull(
+            self.vault,
+            transport,
+            providers={"linear": forge.LinearAdapter()},
+            today=TODAY,
+            settings_service=service,
+        )
+
+        self.assertEqual(transport.calls, [])
+        self.assertEqual(out["errors"][0]["configurationReason"],
+                         "settings-provider-mismatch")
+        serialized = json.dumps(out, sort_keys=True)
+        self.assertNotIn(settings_secret, serialized)
+        self.assertNotIn(legacy_secret, serialized)
+        self.assertNotIn("FORGE_SETTINGS_TOKEN", serialized)
+
+    def test_invalid_governed_endpoints_fail_closed_before_network(self):
+        invalid_endpoints = (
+            "https:///missing-host",
+            "https://example.com?",
+            "https://example.com#",
+            "https://example.com:99999",
+        )
+        for index, endpoint in enumerate(invalid_endpoints):
+            with self.subTest(endpoint=endpoint):
+                case_vault = self.tmp / f"endpoint-{index}"
+                case_vault.mkdir()
+                _write_forge_config(case_vault, {"projects": {
+                    "project/web": {
+                        "forge": {"provider": "github", "repo": "org/web"},
+                    },
+                }})
+                secret = f"endpoint-secret-{index}"
+                service = _configured_forge_settings(
+                    case_vault,
+                    {"FORGE_SETTINGS_TOKEN": secret},
+                    endpoint=endpoint,
+                    provider="github",
+                )
+                transport = FakeTransport()
+
+                out = forge.sync_pull(
+                    case_vault,
+                    transport,
+                    providers={"github": forge.GitHubAdapter()},
+                    today=TODAY,
+                    settings_service=service,
+                )
+
+                self.assertEqual(transport.calls, [])
+                self.assertEqual(out["errors"][0]["configurationReason"],
+                                 "settings-endpoint-invalid")
+                self.assertNotIn(secret, json.dumps(out, sort_keys=True))
+
+    def test_authenticated_redirects_are_same_origin_https_only(self):
+        authorization = "Bearer redirect-secret"
+        handler = forge._same_origin_https_redirect_handler(authorization)
+        request = urllib.request.Request(
+            "https://settings.example/api/start",
+            headers={"Authorization": authorization},
+        )
+
+        redirected = handler.redirect_request(
+            request, None, 302, "Found", {}, "/api/next")
+
+        self.assertEqual(
+            redirected.full_url, "https://settings.example/api/next")
+        self.assertNotIn("Authorization", redirected.headers)
+        self.assertEqual(
+            redirected.get_header("Authorization"), authorization)
+        for target in (
+            "https://other.example/api/next",
+            "http://settings.example/api/next",
+            "https://settings.example:444/api/next",
+        ):
+            with self.subTest(target=target), self.assertRaises(
+                    urllib.error.HTTPError):
+                handler.redirect_request(
+                    request, None, 302, "Found", {}, target)
+
+    def test_plane_api_key_redirect_is_preserved_only_on_same_https_origin(self):
+        api_key = "plane-redirect-secret"
+        handler = forge._same_origin_https_redirect_handler(
+            {"X-API-Key": api_key})
+        request = urllib.request.Request(
+            "https://plane.example/api/v1/start",
+            headers={"X-API-Key": api_key},
+        )
+
+        redirected = handler.redirect_request(
+            request, None, 307, "Temporary Redirect", {}, "/api/v1/next")
+
+        self.assertEqual(
+            redirected.full_url, "https://plane.example/api/v1/next")
+        self.assertNotIn("X-api-key", redirected.headers)
+        self.assertEqual(redirected.get_header("X-api-key"), api_key)
+        with self.assertRaises(urllib.error.HTTPError):
+            handler.redirect_request(
+                request, None, 307, "Temporary Redirect", {},
+                "https://other.example/api/v1/next")
+
+    def test_sync_plan_never_resolves_settings_secret_reference(self):
+        secret = "last-mile-plan-secret"
+        service = _configured_forge_settings(
+            self.vault,
+            {"FORGE_SETTINGS_TOKEN": secret},
+            provider="github",
+        )
+        _write_reviewed_head(
+            self.vault,
+            "Projects/web-last-mile.reviewed.md",
+            entity="project/web",
+            state="done",
+            provider="github",
+            object_id="43",
+            revision="r1",
+        )
+        url = "https://settings.example/repos/org/web/issues/43"
+        transport = FakeTransport({
+            ("PATCH", url): {
+                "status": 200,
+                "headers": {},
+                "body": b'{"number":43}',
+            },
+        })
+
+        with patch.object(
+                service,
+                "resolve_secret_reference",
+                wraps=service.resolve_secret_reference) as resolver:
+            plan = forge.sync_plan(
+                self.vault,
+                transport,
+                providers={"github": forge.GitHubAdapter()},
+                settings_service=service,
+            )
+            self.assertTrue(plan["projects"][0]["payloads"][0]["configured"])
+            self.assertEqual(resolver.call_count, 0)
+            forge.sync_apply(
+                self.vault,
+                transport,
+                providers={"github": forge.GitHubAdapter()},
+                apply=False,
+                today=TODAY,
+                settings_service=service,
+            )
+            self.assertEqual(resolver.call_count, 0)
+            applied = forge.sync_apply(
+                self.vault,
+                transport,
+                providers={"github": forge.GitHubAdapter()},
+                apply=True,
+                today=TODAY,
+                settings_service=service,
+            )
+
+        self.assertEqual(resolver.call_count, 1)
+        self.assertTrue(applied["projects"][0]["pushed"][0]["pushed"])
+        self.assertNotIn(secret, json.dumps(applied, sort_keys=True))
+
+    def test_settings_bootstrap_failure_never_falls_back_to_legacy_env(self):
+        legacy_secret = "legacy-must-not-bypass-settings"
+        transport = FakeTransport()
+
+        with patch.dict(os.environ, {"GITHUB_TOKEN": legacy_secret}), patch.object(
+                forge._settings_platform,
+                "load_registry",
+                side_effect=OSError(f"registry failed {legacy_secret}")):
+            out = forge.sync_pull(
+                self.vault,
+                transport,
+                providers={"github": forge.GitHubAdapter()},
+                today=TODAY,
+            )
+
+        self.assertEqual(transport.calls, [])
+        self.assertEqual(out["errors"][0]["configurationReason"],
+                         "settings-initialization-failed")
+        self.assertNotIn(legacy_secret, json.dumps(out, sort_keys=True))
+
+    def test_settings_read_failure_is_typed_and_does_not_expose_exception_text(self):
+        marker = "settings-read-secret-marker"
+
+        class FailingSettings:
+            environment = {"GITHUB_TOKEN": marker}
+            default_context = {"workspaceProjectId": "project/web"}
+
+            @staticmethod
+            def project_tracker_invocation_profile(context):
+                raise RuntimeError(f"failed reading {marker}")
+
+        transport = FakeTransport()
+        out = forge.sync_pull(
+            self.vault,
+            transport,
+            providers={"github": forge.GitHubAdapter()},
+            today=TODAY,
+            settings_service=FailingSettings(),
+        )
+
+        self.assertEqual(transport.calls, [])
+        self.assertEqual(out["errors"][0]["configurationReason"],
+                         "settings-resolution-failed")
+        self.assertNotIn(marker, json.dumps(out, sort_keys=True))
+
+    def test_pull_provider_exception_text_never_enters_public_result(self):
+        secret = "pull-provider-secret-marker"
+        service = _configured_forge_settings(
+            self.vault,
+            {"FORGE_SETTINGS_TOKEN": secret},
+            provider="github",
+        )
+
+        class LeakyProvider:
+            @staticmethod
+            def pull(repo_cfg, transport, token):
+                raise forge.TransportError(
+                    "GET", "https://settings.example/repos/org/web", 401,
+                    detail=f"provider echoed {token}")
+
+        out = forge.sync_pull(
+            self.vault,
+            FakeTransport(),
+            providers={"github": LeakyProvider()},
+            today=TODAY,
+            settings_service=service,
+        )
+
+        serialized = json.dumps(out, sort_keys=True)
+        self.assertNotIn(secret, serialized)
+        self.assertNotIn("provider echoed", serialized)
+
+    def test_execute_provider_exception_text_never_enters_public_result(self):
+        secret = "execute-provider-secret-marker"
+        service = _configured_forge_settings(
+            self.vault,
+            {"FORGE_SETTINGS_TOKEN": secret},
+            provider="github",
+        )
+        _write_reviewed_head(
+            self.vault,
+            "Projects/web-provider-error.reviewed.md",
+            entity="project/web",
+            state="done",
+            provider="github",
+            object_id="43",
+            revision="r1",
+        )
+
+        class LeakyProvider:
+            @staticmethod
+            def push_plan(snapshot, repo_cfg):
+                return {"entity": snapshot["entity"], "payload": {}}
+
+            @staticmethod
+            def execute_push(plan, repo_cfg, transport, token):
+                raise RuntimeError(f"provider echoed {token}")
+
+        out = forge.sync_apply(
+            self.vault,
+            FakeTransport(),
+            providers={"github": LeakyProvider()},
+            apply=True,
+            today=TODAY,
+            settings_service=service,
+        )
+
+        serialized = json.dumps(out, sort_keys=True)
+        self.assertNotIn(secret, serialized)
+        self.assertNotIn("provider echoed", serialized)
+
+    def test_execute_provider_result_cannot_echo_secret_into_public_record(self):
+        secret = "execute-result-secret-marker"
+        service = _configured_forge_settings(
+            self.vault,
+            {"FORGE_SETTINGS_TOKEN": secret},
+            provider="github",
+        )
+        _write_reviewed_head(
+            self.vault,
+            "Projects/web-provider-result.reviewed.md",
+            entity="project/web",
+            state="done",
+            provider="github",
+            object_id="43",
+            revision="r1",
+        )
+
+        class EchoingProvider:
+            @staticmethod
+            def push_plan(snapshot, repo_cfg):
+                return {
+                    "method": "PATCH",
+                    "entity": snapshot["entity"],
+                    "object_id": "43",
+                    "payload": {},
+                }
+
+            @staticmethod
+            def execute_push(plan, repo_cfg, transport, token):
+                return {
+                    "executed": True,
+                    "method": "PATCH",
+                    "object_id": "43",
+                    "echo": token,
+                    "url": f"https://settings.example/{token}",
+                }
+
+        out = forge.sync_apply(
+            self.vault,
+            FakeTransport(),
+            providers={"github": EchoingProvider()},
+            apply=True,
+            today=TODAY,
+            settings_service=service,
+        )
+
+        push = out["projects"][0]["pushed"][0]
+        self.assertTrue(push["pushed"])
+        self.assertNotIn("echo", push["executed"])
+        self.assertNotIn("url", push["executed"])
+        self.assertNotIn(secret, json.dumps(out, sort_keys=True))
+
+    def test_governed_transport_without_deadline_support_fails_closed(self):
+        service = _configured_forge_settings(
+            self.vault,
+            {"FORGE_SETTINGS_TOKEN": "unsupported-deadline-secret"},
+            provider="github",
+        )
+
+        class UnsupportedTransport(forge.Transport):
+            def __init__(self):
+                self.calls = 0
+
+            def request(self, method, url, headers=None, body=None):
+                self.calls += 1
+                return {"status": 200, "headers": {}, "body": b"[]"}
+
+        transport = UnsupportedTransport()
+        out = forge.sync_pull(
+            self.vault,
+            transport,
+            providers={"github": forge.GitHubAdapter()},
+            today=TODAY,
+            settings_service=service,
+        )
+
+        self.assertEqual(transport.calls, 0)
+        self.assertEqual(len(out["errors"]), 1)
+        self.assertEqual(
+            out["errors"][0]["error"],
+            "PROVIDER provider request failed (no-response)",
+        )
+        self.assertNotIn(
+            "unsupported-deadline-secret", json.dumps(out, sort_keys=True))
+
+    def test_urllib_deadline_stops_a_slow_drip_response(self):
+        class Clock:
+            def __init__(self):
+                self.now = 100.0
+
+            def __call__(self):
+                return self.now
+
+        clock = Clock()
+
+        class SlowResponse:
+            status = 200
+            headers = {}
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def read1(self, size):
+                del size
+                clock.now += 0.06
+                return b"x"
+
+        class SlowOpener:
+            @staticmethod
+            def open(request, timeout):
+                del request, timeout
+                return SlowResponse()
+
+        transport = forge.UrllibTransport(timeout=9, monotonic=clock)
+        with patch(
+                "urllib.request.build_opener",
+                return_value=SlowOpener()), self.assertRaises(
+                    forge.TransportError) as raised:
+            with transport.operation_deadline(100):
+                transport.request(
+                    "GET",
+                    "https://settings.example/slow",
+                    headers={"Authorization": "Bearer deadline-secret"},
+                )
+
+        self.assertIn("operation deadline exceeded", str(raised.exception))
+        self.assertNotIn("deadline-secret", str(raised.exception))
+        self.assertEqual(transport.timeout, 9)
+
+    def test_runtime_timeout_is_target_local_restored_and_plan_is_side_effect_free(self):
+        class InspectingTransport(forge.UrllibTransport):
+            def __init__(self):
+                super().__init__(timeout=9)
+                self.seen_timeouts = []
+
+            def request(self, method, url, headers=None, body=None):
+                self.seen_timeouts.append(self.timeout)
+                return {"status": 200, "headers": {}, "body": b"[]"}
+
+        service = _configured_forge_settings(
+            self.vault,
+            {"FORGE_SETTINGS_TOKEN": "settings-timeout-secret"},
+            provider="github",
+        )
+        _write_reviewed_head(
+            self.vault,
+            "Projects/web-timeout.reviewed.md",
+            entity="project/web",
+            state="todo",
+            provider="github",
+            object_id="43",
+            revision="r1",
+        )
+        transport = InspectingTransport()
+
+        forge.sync_plan(
+            self.vault,
+            transport,
+            providers={"github": forge.GitHubAdapter()},
+            settings_service=service,
+        )
+        self.assertEqual(transport.timeout, 9)
+
+        forge.sync_pull(
+            self.vault,
+            transport,
+            providers={"github": forge.GitHubAdapter()},
+            today=TODAY,
+            settings_service=service,
+        )
+        self.assertTrue(transport.seen_timeouts)
+        self.assertTrue(all(timeout == 4.321
+                            for timeout in transport.seen_timeouts))
+        self.assertEqual(transport.timeout, 9)
+
+        legacy_vault = self.tmp / "legacy-timeout"
+        legacy_vault.mkdir()
+        _write_forge_config(legacy_vault, {"projects": {
+            "project/web": {
+                "forge": {
+                    "provider": "github",
+                    "base_url": "https://legacy.example",
+                    "repo": "org/web",
+                },
+            },
+        }})
+        legacy_service = _unconfigured_forge_settings(
+            legacy_vault,
+            {"GITHUB_TOKEN": "legacy-timeout-secret"},
+        )
+        previous_calls = len(transport.seen_timeouts)
+        forge.sync_pull(
+            legacy_vault,
+            transport,
+            providers={"github": forge.GitHubAdapter()},
+            today=TODAY,
+            settings_service=legacy_service,
+        )
+        self.assertGreater(len(transport.seen_timeouts), previous_calls)
+        self.assertTrue(all(timeout == 9
+                            for timeout in transport.seen_timeouts[previous_calls:]))
+        self.assertEqual(transport.timeout, 9)
+
+    def test_sync_apply_detects_reviewed_head_drift_immediately_before_mutation(self):
+        secret = "reviewed-head-drift-secret"
+        service = _configured_forge_settings(
+            self.vault,
+            {"FORGE_SETTINGS_TOKEN": secret},
+            provider="github",
+        )
+        _write_reviewed_head(
+            self.vault,
+            "Projects/web-reviewed-drift.reviewed.md",
+            entity="project/web",
+            state="done",
+            provider="github",
+            object_id="43",
+            revision="r1",
+        )
+        planned = forge._reviewed_head_snapshot(self.vault, "project/web")
+        changed = json.loads(json.dumps(planned))
+        changed["fields"]["title"] = "promoted after planning"
+        transport = FakeTransport()
+
+        with patch.object(
+                forge,
+                "_reviewed_head_snapshot",
+                side_effect=[planned, changed]), patch.object(
+                    service,
+                    "resolve_secret_reference",
+                    wraps=service.resolve_secret_reference) as resolver:
+            out = forge.sync_apply(
+                self.vault,
+                transport,
+                providers={"github": forge.GitHubAdapter()},
+                apply=True,
+                today=TODAY,
+                settings_service=service,
+            )
+
+        self.assertEqual(transport.calls, [])
+        self.assertEqual(resolver.call_count, 0)
+        push = out["projects"][0]["pushed"][0]
+        self.assertFalse(push["pushed"])
+        self.assertEqual(
+            push["configurationReason"], "reviewed-head-drift-detected")
+        self.assertNotIn(secret, json.dumps(out, sort_keys=True))
+
+    def test_sync_apply_rechecks_reviewed_head_after_secret_resolution(self):
+        secret = "reviewed-head-final-recheck-secret"
+        service = _configured_forge_settings(
+            self.vault,
+            {"FORGE_SETTINGS_TOKEN": secret},
+            provider="github",
+        )
+        _write_reviewed_head(
+            self.vault,
+            "Projects/web-reviewed-final-recheck.reviewed.md",
+            entity="project/web",
+            state="done",
+            provider="github",
+            object_id="43",
+            revision="r1",
+        )
+        planned = forge._reviewed_head_snapshot(self.vault, "project/web")
+        changed = json.loads(json.dumps(planned))
+        changed["fields"]["title"] = "promoted during secret resolution"
+        transport = FakeTransport()
+
+        with patch.object(
+                forge,
+                "_reviewed_head_snapshot",
+                side_effect=[planned, planned, changed]), patch.object(
+                    service,
+                    "resolve_secret_reference",
+                    wraps=service.resolve_secret_reference) as resolver:
+            out = forge.sync_apply(
+                self.vault,
+                transport,
+                providers={"github": forge.GitHubAdapter()},
+                apply=True,
+                today=TODAY,
+                settings_service=service,
+            )
+
+        self.assertEqual(resolver.call_count, 1)
+        self.assertEqual(transport.calls, [])
+        push = out["projects"][0]["pushed"][0]
+        self.assertFalse(push["pushed"])
+        self.assertEqual(
+            push["configurationReason"], "reviewed-head-drift-detected")
+        self.assertNotIn(secret, json.dumps(out, sort_keys=True))
+
+    def test_sync_apply_detects_settings_drift_and_does_not_mutate(self):
+        secret = "settings-drift-secret"
+        base_service = _configured_forge_settings(
+            self.vault,
+            {"FORGE_SETTINGS_TOKEN": secret},
+            provider="github",
+        )
+        _write_reviewed_head(
+            self.vault,
+            "Projects/web-drift.reviewed.md",
+            entity="project/web",
+            state="done",
+            provider="github",
+            object_id="43",
+            revision="r1",
+        )
+
+        class DriftingSettings:
+            environment = base_service.environment
+            default_context = base_service.default_context
+
+            def __init__(self):
+                self.profile_calls = 0
+
+            def project_tracker_invocation_profile(self, context):
+                profile = base_service.project_tracker_invocation_profile(context)
+                self.profile_calls += 1
+                if self.profile_calls > 1:
+                    profile["snapshotId"] = "changed-settings-snapshot"
+                    profile["endpoint"] = "https://changed.example"
+                return profile
+
+            @staticmethod
+            def resolve_secret_reference(reference):
+                return base_service.resolve_secret_reference(reference)
+
+        settings = DriftingSettings()
+        transport = FakeTransport()
+        out = forge.sync_apply(
+            self.vault,
+            transport,
+            providers={"github": forge.GitHubAdapter()},
+            apply=True,
+            today=TODAY,
+            settings_service=settings,
+        )
+
+        self.assertEqual(settings.profile_calls, 2)
+        self.assertEqual(transport.calls, [])
+        push = out["projects"][0]["pushed"][0]
+        self.assertFalse(push["pushed"])
+        self.assertEqual(push["configurationReason"],
+                         "settings-drift-detected")
+        self.assertNotIn(secret, json.dumps(out, sort_keys=True))
 
 
 # === remote_item_to_candidate ==============================================
@@ -1850,6 +2814,367 @@ class LinearOriginRoundTripTest(unittest.TestCase):
         self.assertEqual(plan["variables"]["input"]["stateId"], "state-done-uuid")
 
 
+# === Plane adapter: current /work-items/ REST contract ======================
+
+_PLANE_WORK_ITEMS_JSON = {
+    "results": [
+        {
+            "id": "work-item-43",
+            "sequence_id": 43,
+            "name": "Plane parser bug",
+            "updated_at": "2026-07-15T09:30:00Z",
+            "updated_by": {"display_name": "Xue"},
+            "state": {"id": "state-started", "group": "started"},
+        },
+    ],
+    "next_cursor": None,
+    "next_page_results": False,
+}
+
+
+class PlaneAdapterTest(unittest.TestCase):
+    def setUp(self):
+        self.adapter = forge.PlaneAdapter()
+        self.binding = {
+            "provider": "plane",
+            "base_url": "https://plane.example",
+            "workspace_slug": "xart",
+            "project_id": "project-uuid",
+            "state_type_ids": {
+                "started": "state-started",
+                "completed": "state-completed",
+            },
+        }
+        self.collection_url = (
+            "https://plane.example/api/v1/workspaces/xart/projects/"
+            "project-uuid/work-items/"
+        )
+        self.list_url = self.collection_url + "?per_page=100&expand=state"
+
+    def test_pull_uses_current_self_hosted_work_items_contract(self):
+        transport = FakeTransport({
+            ("GET", self.list_url): {
+                "status": 200,
+                "headers": {},
+                "body": json.dumps(_PLANE_WORK_ITEMS_JSON).encode("utf-8"),
+            },
+        })
+
+        items = self.adapter.pull(self.binding, transport, "plane-secret")
+
+        self.assertEqual(len(items), 1)
+        item = items[0]
+        self.assertEqual(item.kind, "work-item")
+        self.assertEqual(item.object_id, "work-item-43")
+        self.assertEqual(item.revision, "2026-07-15T09:30:00Z")
+        self.assertEqual(item.actor, "Xue")
+        self.assertEqual(item.state, "started")
+        self.assertEqual(item.entity_hint, "project/xart/issue/43")
+        method, url, headers, body = transport.calls[0]
+        self.assertEqual(method, "GET")
+        self.assertEqual(url, self.list_url)
+        self.assertEqual(headers["X-API-Key"], "plane-secret")
+        self.assertNotIn("plane-secret", url)
+        self.assertIsNone(body)
+
+    def test_create_plan_is_pure_and_uses_explicit_state_uuid(self):
+        snapshot = {
+            "entity": "project/web/issue/new-plane-item",
+            "state": currency.STATE_IN_PROGRESS,
+            "title": "Create from reviewed truth",
+            "body": "Reviewed description.",
+        }
+
+        plan = self.adapter.push_plan(snapshot, self.binding)
+
+        self.assertEqual(plan["method"], "POST")
+        self.assertEqual(plan["url"], self.collection_url)
+        self.assertEqual(plan["body"]["state"], "state-started")
+        self.assertFalse(plan["needs_mapping"])
+
+    def test_missing_state_mapping_omits_state_and_records_needs_mapping(self):
+        snapshot = {
+            "entity": "project/web/issue/unmapped",
+            "state": currency.STATE_TODO,
+            "title": "Needs workspace mapping",
+        }
+
+        plan = self.adapter.push_plan(snapshot, self.binding)
+
+        self.assertNotIn("state", plan["body"])
+        self.assertTrue(plan["needs_mapping"])
+        self.assertTrue(any("needs-mapping" in note for note in plan["notes"]))
+
+    def test_same_provider_origin_updates_and_foreign_origin_creates(self):
+        same = {
+            "entity": "project/web/issue/plane",
+            "state": currency.STATE_DONE,
+            "fields": {
+                "origin": {"provider": "plane", "object-id": "work-item-43"},
+            },
+        }
+        foreign = {
+            **same,
+            "fields": {
+                "origin": {"provider": "linear", "object-id": "work-item-43"},
+            },
+        }
+
+        update = self.adapter.push_plan(same, self.binding)
+        create = self.adapter.push_plan(foreign, self.binding)
+
+        self.assertEqual(update["method"], "PATCH")
+        self.assertEqual(update["url"], self.collection_url + "work-item-43/")
+        self.assertEqual(update["body"]["state"], "state-completed")
+        self.assertEqual(create["method"], "POST")
+        self.assertIsNone(create["object_id"])
+
+    def test_missing_workspace_or_project_fails_closed_without_network(self):
+        incomplete = {"provider": "plane", "workspace_slug": "xart"}
+        plan = self.adapter.push_plan(
+            {"entity": "project/web", "state": currency.STATE_TODO},
+            incomplete,
+        )
+        transport = FakeTransport()
+
+        result = self.adapter.execute_push(
+            plan, incomplete, transport, token="plane-secret")
+
+        self.assertIn("plane-binding-incomplete", plan["error"])
+        self.assertFalse(result["executed"])
+        self.assertEqual(transport.calls, [])
+
+    def test_execute_push_posts_and_patches_with_x_api_key(self):
+        create_plan = self.adapter.push_plan(
+            {
+                "entity": "project/web/issue/new",
+                "state": currency.STATE_IN_PROGRESS,
+                "title": "New item",
+            },
+            self.binding,
+        )
+        update_plan = self.adapter.push_plan(
+            {
+                "entity": "project/web/issue/existing",
+                "state": currency.STATE_DONE,
+                "title": "Existing item",
+                "fields": {
+                    "origin": {
+                        "provider": "plane",
+                        "object-id": "work-item-43",
+                    },
+                },
+            },
+            self.binding,
+        )
+        transport = FakeTransport({
+            ("POST", self.collection_url): {
+                "status": 201,
+                "headers": {},
+                "body": json.dumps({
+                    "id": "work-item-new",
+                    "updated_at": "2026-07-16T15:00:00Z",
+                }).encode("utf-8"),
+            },
+            ("PATCH", self.collection_url + "work-item-43/"): {
+                "status": 200, "headers": {}, "body": b"{}",
+            },
+        })
+
+        created = self.adapter.execute_push(
+            create_plan, self.binding, transport, "plane-secret")
+        updated = self.adapter.execute_push(
+            update_plan, self.binding, transport, "plane-secret")
+
+        self.assertTrue(created["executed"])
+        self.assertEqual(created["object_id"], "work-item-new")
+        self.assertEqual(created["revision"], "2026-07-16T15:00:00Z")
+        self.assertTrue(updated["executed"])
+        self.assertEqual([call[0] for call in transport.calls], ["POST", "PATCH"])
+        for _, url, headers, body in transport.calls:
+            self.assertEqual(headers["X-API-Key"], "plane-secret")
+            self.assertNotIn("plane-secret", url)
+            self.assertIsInstance(json.loads(body.decode("utf-8")), dict)
+
+
+class GovernedPlaneProjectionTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="vault-plane-settings-"))
+        self.vault = self.tmp / "vault"
+        self.vault.mkdir()
+        self.entity = "project/web/issue/plane"
+        self.binding = {
+            "provider": "plane",
+            "workspace_slug": "xart",
+            "project_id": "project-uuid",
+            "state_type_ids": {"completed": "state-completed"},
+        }
+        _write_forge_config(self.vault, {
+            "projects": {self.entity: {"forge": self.binding}},
+        })
+        _write_reviewed_head(
+            self.vault,
+            "Projects/plane.reviewed.md",
+            entity=self.entity,
+            state="done",
+            provider="plane",
+            object_id="work-item-43",
+            revision="r1",
+        )
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_settings_governed_apply_resolves_secret_only_for_patch(self):
+        secret = "plane-settings-secret"
+        service = _configured_forge_settings(
+            self.vault,
+            {"FORGE_SETTINGS_TOKEN": secret},
+            endpoint="https://plane.example",
+            provider="plane",
+        )
+        item_url = (
+            "https://plane.example/api/v1/workspaces/xart/projects/"
+            "project-uuid/work-items/work-item-43/"
+        )
+        transport = FakeTransport({
+            ("PATCH", item_url): {
+                "status": 200, "headers": {}, "body": b"{}",
+            },
+        })
+
+        dry_run = forge.sync_plan(
+            self.vault,
+            transport,
+            providers={"plane": forge.PlaneAdapter()},
+            settings_service=service,
+        )
+        applied = forge.sync_apply(
+            self.vault,
+            transport,
+            providers={"plane": forge.PlaneAdapter()},
+            apply=True,
+            today=TODAY,
+            settings_service=service,
+        )
+
+        self.assertEqual(transport.calls[0][0], "PATCH")
+        self.assertEqual(transport.calls[0][1], item_url)
+        self.assertEqual(transport.calls[0][2]["X-API-Key"], secret)
+        self.assertEqual(transport.deadlines, [4321])
+        push = applied["projects"][0]["pushed"][0]
+        self.assertTrue(push["pushed"])
+        self.assertEqual(push["configurationSource"], "llmwiki-settings")
+        serialized = json.dumps({"dryRun": dry_run, "applied": applied})
+        self.assertNotIn(secret, serialized)
+        self.assertNotIn("FORGE_SETTINGS_TOKEN", serialized)
+
+    def test_explicit_disabled_settings_do_not_fall_back_to_plane_env(self):
+        legacy_secret = "plane-legacy-must-not-run"
+        service = _configured_forge_settings(
+            self.vault,
+            {"FORGE_SETTINGS_TOKEN": "configured-secret",
+             "PLANE_API_KEY": legacy_secret},
+            endpoint="https://plane.example",
+            provider="plane",
+        )
+        result = service.assignment_set(
+            scope="workspace-project",
+            target_id="project/web",
+            key="providers.project_tracker.enabled",
+            value=False,
+            expected_revision=2,
+            updated_by="pytest",
+        )
+        self.assertEqual(result["status"], "committed")
+        transport = FakeTransport()
+
+        out = forge.sync_pull(
+            self.vault,
+            transport,
+            providers={"plane": forge.PlaneAdapter()},
+            today=TODAY,
+            settings_service=service,
+        )
+
+        self.assertEqual(transport.calls, [])
+        self.assertEqual(out["errors"][0]["configurationReason"],
+                         "settings-profile-disabled")
+        self.assertNotIn(legacy_secret, json.dumps(out))
+
+    def test_entirely_unconfigured_settings_use_labelled_legacy_plane_env(self):
+        service = _unconfigured_forge_settings(
+            self.vault, {"PLANE_API_KEY": "legacy-plane-secret"})
+        list_url = (
+            "https://api.plane.so/api/v1/workspaces/xart/projects/"
+            "project-uuid/work-items/?per_page=100&expand=state"
+        )
+        transport = FakeTransport({
+            ("GET", list_url): {
+                "status": 200,
+                "headers": {},
+                "body": json.dumps(_PLANE_WORK_ITEMS_JSON).encode("utf-8"),
+            },
+        })
+
+        out = forge.sync_pull(
+            self.vault,
+            transport,
+            providers={"plane": forge.PlaneAdapter()},
+            today=TODAY,
+            settings_service=service,
+        )
+
+        project = out["projects"][0]
+        self.assertEqual(project["configurationSource"], "legacy-forge-json")
+        self.assertEqual(project["credentialSource"], "legacy-env")
+        self.assertEqual(project["compatibilitySource"], "legacy")
+        self.assertEqual(len(out["candidates"]), 1)
+        self.assertEqual(
+            transport.deadlines, [forge.DEFAULT_HTTP_TIMEOUT_S * 1000])
+        self.assertNotIn("legacy-plane-secret", json.dumps(out))
+
+    def test_legacy_plane_endpoint_is_governed_before_api_key_can_be_sent(self):
+        invalid_endpoints = (
+            "http://plane.example",
+            "https://user:password@plane.example",
+            "https://plane.example?tenant=secret",
+        )
+        for endpoint in invalid_endpoints:
+            with self.subTest(endpoint=endpoint):
+                _write_forge_config(self.vault, {
+                    "projects": {
+                        self.entity: {
+                            "forge": {**self.binding, "base_url": endpoint},
+                        },
+                    },
+                })
+                secret = "legacy-plane-secret-must-not-leave-process"
+                service = _unconfigured_forge_settings(
+                    self.vault, {"PLANE_API_KEY": secret})
+                transport = FakeTransport()
+
+                out = forge.sync_pull(
+                    self.vault,
+                    transport,
+                    providers={"plane": forge.PlaneAdapter()},
+                    today=TODAY,
+                    settings_service=service,
+                )
+
+                self.assertEqual(transport.calls, [])
+                self.assertEqual(transport.deadlines, [])
+                self.assertEqual(
+                    out["projects"][0]["configurationReason"],
+                    "legacy-endpoint-invalid",
+                )
+                self.assertEqual(
+                    out["errors"][0]["configurationReason"],
+                    "legacy-endpoint-invalid",
+                )
+                self.assertNotIn(secret, json.dumps(out, sort_keys=True))
+
+
 # === PR 9F: RECONCILIATION (sync_pull / detect_sync_conflict / sync_apply) ===
 # All driven by FakeTransport + recorded JSON + injected providers -- NEVER a live
 # API. These are the capstone tests that wire the adapters end-to-end.
@@ -1876,6 +3201,165 @@ def _write_reviewed_head(vault: Path, rel: str, *, entity: str, state: str,
         "last-verified: 2026-06-20\n"
         "---\n\nReviewed work.\n"
     ).encode("utf-8"))
+
+
+def _write_new_reviewed_head(vault: Path, *, title: str = "Brand new") -> Path:
+    path = vault / "Projects" / "new.reviewed.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes((
+        "---\n"
+        "type: issue\n"
+        "entity: project/web/issue/new\n"
+        "state: in-progress\n"
+        "status: reviewed\n"
+        f"title: {title}\n"
+        "last-verified: 2026-06-20\n"
+        "---\n\nNew work.\n"
+    ).encode("utf-8"))
+    return path
+
+
+class CreateResponseIdentityTest(unittest.TestCase):
+    def test_all_project_tracker_providers_parse_create_identity_and_revision(self):
+        snapshot = {
+            "entity": "project/web/issue/new",
+            "state": currency.STATE_TODO,
+            "title": "Create once",
+            "body": "Reviewed body.",
+        }
+        cases = (
+            (
+                "github",
+                forge.GitHubAdapter(),
+                {"provider": "github", "repo": "org/web"},
+                "https://api.github.com/repos/org/web/issues",
+                {"number": 41, "updated_at": "2026-07-16T01:00:00Z"},
+                "41",
+            ),
+            (
+                "gitea",
+                forge.GiteaAdapter(),
+                {"provider": "gitea", "base_url": "https://git.example",
+                 "repo": "org/web"},
+                "https://git.example/api/v1/repos/org/web/issues",
+                {"number": 42, "updated_at": "2026-07-16T02:00:00Z"},
+                "42",
+            ),
+            (
+                "plane",
+                forge.PlaneAdapter(),
+                {"provider": "plane", "workspace_slug": "xart",
+                 "project_id": "project-uuid"},
+                ("https://api.plane.so/api/v1/workspaces/xart/projects/"
+                 "project-uuid/work-items/"),
+                {"id": "plane-43", "updated_at": "2026-07-16T03:00:00Z"},
+                "plane-43",
+            ),
+            (
+                "linear",
+                forge.LinearAdapter(),
+                {"provider": "linear", "team_id": "team-uuid"},
+                forge.LINEAR_API_URL,
+                {"data": {"issueCreate": {"success": True, "issue": {
+                    "id": "linear-44",
+                    "updatedAt": "2026-07-16T04:00:00Z",
+                }}}},
+                "linear-44",
+            ),
+        )
+
+        for name, adapter, binding, url, response_body, expected_id in cases:
+            with self.subTest(provider=name):
+                plan = adapter.push_plan(snapshot, binding)
+                transport = FakeTransport({
+                    ("POST", url): {
+                        "status": 201,
+                        "headers": {},
+                        "body": json.dumps(response_body).encode("utf-8"),
+                    },
+                })
+
+                result = adapter.execute_push(
+                    plan, binding, transport, token=f"{name}-secret")
+
+                self.assertTrue(result["executed"])
+                self.assertEqual(result["object_id"], expected_id)
+                expected_revision = {
+                    "github": "2026-07-16T01:00:00Z",
+                    "gitea": "2026-07-16T02:00:00Z",
+                    "plane": "2026-07-16T03:00:00Z",
+                    "linear": "2026-07-16T04:00:00Z",
+                }[name]
+                self.assertEqual(result["revision"], expected_revision)
+                self.assertEqual([call[0] for call in transport.calls], ["POST"])
+
+    def test_all_project_tracker_providers_share_zero_network_replay_semantics(self):
+        cases = (
+            (
+                "github", "GITHUB_TOKEN", forge.GitHubAdapter(),
+                {"provider": "github", "repo": "org/web"},
+                "https://api.github.com/repos/org/web/issues",
+                {"number": 51, "updated_at": "2026-07-16T11:00:00Z"},
+            ),
+            (
+                "gitea", "GITEA_TOKEN", forge.GiteaAdapter(),
+                {"provider": "gitea", "base_url": "https://git.example",
+                 "repo": "org/web"},
+                "https://git.example/api/v1/repos/org/web/issues",
+                {"number": 52, "updated_at": "2026-07-16T12:00:00Z"},
+            ),
+            (
+                "plane", "PLANE_API_KEY", forge.PlaneAdapter(),
+                {"provider": "plane", "workspace_slug": "xart",
+                 "project_id": "project-uuid"},
+                ("https://api.plane.so/api/v1/workspaces/xart/projects/"
+                 "project-uuid/work-items/"),
+                {"id": "plane-53", "updated_at": "2026-07-16T13:00:00Z"},
+            ),
+            (
+                "linear", "LINEAR_TOKEN", forge.LinearAdapter(),
+                {"provider": "linear", "team_id": "team-uuid"},
+                forge.LINEAR_API_URL,
+                {"data": {"issueCreate": {"success": True, "issue": {
+                    "id": "linear-54",
+                    "updatedAt": "2026-07-16T14:00:00Z",
+                }}}},
+            ),
+        )
+
+        for name, env_name, adapter, binding, url, response_body in cases:
+            with self.subTest(provider=name), tempfile.TemporaryDirectory(
+                    prefix=f"vault-replay-{name}-") as tmp:
+                vault = Path(tmp) / "vault"
+                vault.mkdir()
+                _write_forge_config(vault, {
+                    "projects": {
+                        "project/web/issue/new": {"forge": binding},
+                    },
+                })
+                _write_new_reviewed_head(vault)
+                transport = FakeTransport({
+                    ("POST", url): {
+                        "status": 201,
+                        "headers": {},
+                        "body": json.dumps(response_body).encode("utf-8"),
+                    },
+                })
+                with patch.dict(os.environ, {env_name: f"{name}-secret"}):
+                    first = forge.sync_apply(
+                        vault, transport, providers={name: adapter},
+                        apply=True, today=TODAY)
+                    replay = forge.sync_apply(
+                        vault, transport, providers={name: adapter},
+                        apply=True, today=TODAY)
+
+                first_push = first["projects"][0]["pushed"][0]
+                replay_push = replay["projects"][0]["pushed"][0]
+                self.assertTrue(first_push["pushed"])
+                self.assertTrue(replay_push["pushed"])
+                self.assertTrue(replay_push["executed"]["idempotentReplay"])
+                self.assertFalse(replay_push["executed"]["networkMutation"])
+                self.assertEqual([call[0] for call in transport.calls], ["POST"])
 
 
 class SyncPullTest(unittest.TestCase):
@@ -2112,6 +3596,203 @@ class DetectSyncConflictTest(unittest.TestCase):
         self.assertNotIn("conflict", fm)
 
 
+class CreateMutationReceiptDriftTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="vault-create-receipt-"))
+        self.vault = self.tmp / "vault"
+        self.vault.mkdir()
+        self.entity = "project/web/issue/new"
+        self.binding = {"provider": "github", "repo": "org/web"}
+        _write_forge_config(self.vault, {
+            "projects": {self.entity: {"forge": self.binding}},
+        })
+        self.note = _write_new_reviewed_head(self.vault)
+        self._saved = os.environ.pop("GITHUB_TOKEN", None)
+        os.environ["GITHUB_TOKEN"] = "receipt-secret"
+
+    def tearDown(self):
+        if self._saved is None:
+            os.environ.pop("GITHUB_TOKEN", None)
+        else:
+            os.environ["GITHUB_TOKEN"] = self._saved
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    @staticmethod
+    def _response():
+        return {
+            "status": 201,
+            "headers": {},
+            "body": json.dumps({
+                "number": 99,
+                "updated_at": "2026-07-16T05:00:00Z",
+            }).encode("utf-8"),
+        }
+
+    def _apply(self, transport, *, adapter=None, settings_service=None):
+        return forge.sync_apply(
+            self.vault,
+            transport,
+            providers={"github": adapter or forge.GitHubAdapter()},
+            apply=True,
+            today=TODAY,
+            settings_service=settings_service,
+        )
+
+    @staticmethod
+    def _push(result):
+        return result["projects"][0]["pushed"][0]
+
+    def test_reviewed_head_drift_after_success_fails_closed(self):
+        url = "https://api.github.com/repos/org/web/issues"
+        transport = FakeTransport({("POST", url): self._response()})
+        self.assertTrue(self._push(self._apply(transport))["pushed"])
+        _write_new_reviewed_head(self.vault, title="Changed after create")
+
+        replay = self._apply(transport)
+
+        self.assertEqual([call[0] for call in transport.calls], ["POST"])
+        self.assertEqual(
+            self._push(replay)["configurationReason"],
+            "mutation-receipt-reviewed-head-drift-detected",
+        )
+
+    def test_binding_drift_after_success_fails_closed(self):
+        url = "https://api.github.com/repos/org/web/issues"
+        transport = FakeTransport({("POST", url): self._response()})
+        self.assertTrue(self._push(self._apply(transport))["pushed"])
+        _write_forge_config(self.vault, {
+            "projects": {self.entity: {"forge": {
+                "provider": "github", "repo": "org/other",
+            }}},
+        })
+
+        replay = self._apply(transport)
+
+        self.assertEqual([call[0] for call in transport.calls], ["POST"])
+        self.assertEqual(
+            self._push(replay)["configurationReason"],
+            "mutation-receipt-binding-drift-detected",
+        )
+
+    def test_settings_drift_after_success_fails_closed(self):
+        service = _configured_forge_settings(
+            self.vault,
+            {"FORGE_SETTINGS_TOKEN": "receipt-settings-secret"},
+            endpoint="https://settings.example",
+            provider="github",
+        )
+        url = "https://settings.example/repos/org/web/issues"
+        transport = FakeTransport({("POST", url): self._response()})
+        self.assertTrue(self._push(self._apply(
+            transport, settings_service=service))["pushed"])
+        updated = service.assignment_set(
+            scope="user-device",
+            key="providers.project_tracker.timeout_ms",
+            value=5432,
+            expected_revision=4,
+            updated_by="pytest",
+        )
+        self.assertEqual(updated["status"], "committed")
+
+        replay = self._apply(transport, settings_service=service)
+
+        self.assertEqual([call[0] for call in transport.calls], ["POST"])
+        self.assertEqual(
+            self._push(replay)["configurationReason"],
+            "mutation-receipt-settings-drift-detected",
+        )
+
+    def test_create_plan_semantic_drift_after_success_fails_closed(self):
+        url = "https://api.github.com/repos/org/web/issues"
+        transport = FakeTransport({("POST", url): self._response()})
+        self.assertTrue(self._push(self._apply(transport))["pushed"])
+
+        class ChangedPlanAdapter(forge.GitHubAdapter):
+            def push_plan(self, snapshot, repo_cfg):
+                plan = super().push_plan(snapshot, repo_cfg)
+                plan["payload"]["body"] += "\nChanged provider semantics."
+                return plan
+
+        replay = self._apply(transport, adapter=ChangedPlanAdapter())
+
+        self.assertEqual([call[0] for call in transport.calls], ["POST"])
+        self.assertEqual(
+            self._push(replay)["configurationReason"],
+            "mutation-receipt-semantic-drift-detected",
+        )
+
+    def test_unknown_create_response_leaves_pending_receipt_and_never_reposts(self):
+        url = "https://api.github.com/repos/org/web/issues"
+        transport = FakeTransport({
+            ("POST", url): {"status": 201, "headers": {}, "body": b"{}"},
+        })
+
+        first = self._apply(transport)
+        replay = self._apply(transport)
+
+        self.assertEqual([call[0] for call in transport.calls], ["POST"])
+        self.assertIn("error", self._push(first))
+        self.assertEqual(
+            self._push(replay)["configurationReason"],
+            "mutation-receipt-outcome-unknown",
+        )
+
+    def test_receipt_slot_is_path_safe_and_atomic_claim_has_one_writer(self):
+        project_entity = "project/web/issue/../../cannot-escape"
+        snapshot = {
+            "entity": project_entity,
+            "state": currency.STATE_TODO,
+            "title": "Concurrent create",
+        }
+        plan = forge.GitHubAdapter().push_plan(snapshot, self.binding)
+        runtime = forge.ForgeProviderRuntime(
+            binding=dict(self.binding),
+            token="receipt-secret",
+            credential_available=True,
+            timeout_ms=10000,
+        )
+        planned = forge.ForgePlannedTargetRuntime(
+            runtime=runtime,
+            original_binding=dict(self.binding),
+            reviewed_snapshot_digest=settings_platform.canonical_digest(snapshot),
+        )
+        receipt_path = forge._create_receipt_path(
+            self.vault, project_entity, "forge")
+        receipt_root = (
+            self.vault / "01-Projects" / "web" / "projection-receipts"
+        ).resolve()
+        self.assertIsNotNone(receipt_path)
+        self.assertEqual(receipt_path.resolve().parent, receipt_root)
+
+        barrier = threading.Barrier(2)
+        decisions = []
+
+        def claim():
+            barrier.wait()
+            decisions.append(forge._create_receipt_decision(
+                self.vault,
+                project_entity,
+                "forge",
+                "github",
+                plan,
+                planned,
+                claim=True,
+            ))
+
+        threads = [threading.Thread(target=claim) for _ in range(2)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        self.assertEqual(
+            sum(item["action"] == "execute" for item in decisions), 1)
+        self.assertEqual(
+            sum(item["action"] == "refuse" for item in decisions), 1)
+        self.assertEqual(json.loads(receipt_path.read_text("utf-8"))["status"],
+                         "pending")
+
+
 class SyncApplyExecuteTest(unittest.TestCase):
     """sync_apply EXECUTES the push: PATCH for an origin-bearing reviewed head (no
     duplicate POST), POST for a new one, GraphQL issueUpdate for Linear; a
@@ -2184,18 +3865,48 @@ class SyncApplyExecuteTest(unittest.TestCase):
         ).encode("utf-8"))
         transport = FakeTransport({
             ("POST", "https://api.github.com/repos/org/web/issues"):
-                {"status": 201, "headers": {}, "body": b'{"number":99}'},
+                {"status": 201, "headers": {}, "body": json.dumps({
+                    "number": 99,
+                    "updated_at": "2026-06-25T12:00:00Z",
+                }).encode("utf-8")},
         })
         os.environ["GITHUB_TOKEN"] = "ghp_T"
         out = forge.sync_apply(self.vault, transport,
                                providers={"github": forge.GitHubAdapter()},
                                apply=True, today=TODAY)
+        replayed = forge.sync_apply(self.vault, transport,
+                                    providers={"github": forge.GitHubAdapter()},
+                                    apply=True, today=TODAY)
         proj = {p2["entity"]: p2 for p2 in out["projects"]}[
             "project/web/issue/new"]
         push = proj["pushed"][0]
         self.assertTrue(push["pushed"])
         self.assertEqual(push["executed"]["method"], "POST")
+        self.assertEqual(push["executed"]["object_id"], "99")
+        self.assertEqual(
+            push["executed"]["revision"], "2026-06-25T12:00:00Z")
         self.assertEqual([c[0] for c in transport.calls], ["POST"])
+        replay_push = {p2["entity"]: p2 for p2 in replayed["projects"]}[
+            "project/web/issue/new"]["pushed"][0]
+        self.assertTrue(replay_push["pushed"])
+        self.assertTrue(replay_push["executed"]["idempotentReplay"])
+        self.assertFalse(replay_push["executed"]["networkMutation"])
+        self.assertEqual(replay_push["executed"]["object_id"], "99")
+        receipts = list((
+            self.vault / "01-Projects" / "web" / "projection-receipts"
+        ).glob("*.json"))
+        self.assertEqual(len(receipts), 1)
+        receipt_bytes = receipts[0].read_bytes()
+        receipt = json.loads(receipt_bytes.decode("utf-8"))
+        self.assertEqual(
+            receipt_bytes,
+            (settings_platform.canonical_json(receipt) + "\n").encode("utf-8"),
+        )
+        self.assertEqual(receipt["status"], "succeeded")
+        self.assertEqual(receipt["remoteObjectId"], "99")
+        self.assertEqual(
+            receipt["remoteRevision"], "2026-06-25T12:00:00Z")
+        self.assertNotIn("ghp_T", receipt_bytes.decode("utf-8"))
 
     def test_linear_executes_graphql_issue_update(self):
         # a reviewed head with a linear origin -> sync_apply POSTs a GraphQL

@@ -15,39 +15,43 @@
  *
  * Usage:
  *   node dist/scripts/memu-perf.js [--iters N] [--query Q] [--json]
- *                                  [--dsn ...] [--user-id ...]
+ *                                  [--user-id ...]
  *
- * Env fallback (same as the adapter itself):
- *   MEMU_DSN, MEMU_USER_ID.
+ * The private connection string must be supplied out of band through the
+ * Settings/Secret Reference runtime or the process-local MEMU_DSN environment
+ * variable. It is never accepted in argv and never rendered in output.
  */
+
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { MemUAdapter } from "../adapters/memu.js";
 
-type Args = {
+export type Args = {
   iters: number;
   query: string;
-  dsn?: string;
   userId?: string;
   jsonOnly: boolean;
+  help: boolean;
 };
 
-function parseArgs(argv: string[]): Args {
-  const out: Args = { iters: 100, query: "note", jsonOnly: false };
+export function parseArgs(argv: string[]): Args {
+  const out: Args = { iters: 100, query: "note", jsonOnly: false, help: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--iters") out.iters = Math.max(1, parseInt(argv[++i], 10) || 100);
     else if (a === "--query") out.query = argv[++i];
-    else if (a === "--dsn") out.dsn = argv[++i];
+    else if (a === "--dsn" || a.startsWith("--dsn=")) {
+      throw new Error(
+        "--dsn is forbidden: resolve private DSNs through Settings/SecretRef or process-local MEMU_DSN",
+      );
+    }
     else if (a === "--user-id") out.userId = argv[++i];
     else if (a === "--json") out.jsonOnly = true;
     else if (a === "-h" || a === "--help") {
-      process.stdout.write(
-        "Usage: memu-perf [--iters N] [--query Q] [--dsn ...] [--user-id ...] [--json]\n",
-      );
-      process.exit(0);
+      out.help = true;
     } else {
-      process.stderr.write(`unknown flag: ${a}\n`);
-      process.exit(2);
+      throw new Error(`unknown flag: ${a}`);
     }
   }
   return out;
@@ -86,7 +90,7 @@ function fmt(ms: number): string {
 async function runCold(args: Args): Promise<number[]> {
   const samples: number[] = [];
   for (let i = 0; i < args.iters; i++) {
-    const adapter = new MemUAdapter({ dsn: args.dsn, userId: args.userId });
+    const adapter = new MemUAdapter({ userId: args.userId });
     await adapter.init();
     if (!adapter.isAvailable) {
       await adapter.dispose();
@@ -103,7 +107,7 @@ async function runCold(args: Args): Promise<number[]> {
 }
 
 async function runWarm(args: Args): Promise<number[]> {
-  const adapter = new MemUAdapter({ dsn: args.dsn, userId: args.userId });
+  const adapter = new MemUAdapter({ userId: args.userId });
   await adapter.init();
   if (!adapter.isAvailable) {
     await adapter.dispose();
@@ -124,12 +128,12 @@ async function runWarm(args: Args): Promise<number[]> {
   return samples;
 }
 
-function renderMd(cold: Stats, warm: Stats, args: Args): string {
+export function renderMd(cold: Stats, warm: Stats, args: Args): string {
   const header = [
     "# MemU adapter perf baseline",
     "",
-    `- DSN: \`${args.dsn ?? process.env.MEMU_DSN ?? "postgres default"}\``,
-    `- User: \`${args.userId ?? process.env.MEMU_USER_ID ?? "boris"}\``,
+    `- Connection: \`${process.env.MEMU_DSN ? "configured (redacted)" : "PostgreSQL default"}\``,
+    `- User: \`${args.userId ?? process.env.MEMU_USER_ID ?? "default"}\``,
     `- Iterations: ${args.iters}`,
     `- Query: \`${args.query}\``,
     "",
@@ -152,12 +156,31 @@ function renderMd(cold: Stats, warm: Stats, args: Args): string {
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
+  if (args.help) {
+    process.stdout.write(
+      "Usage: memu-perf [--iters N] [--query Q] [--user-id ...] [--json]\n",
+    );
+    return;
+  }
   const cold = stats(await runCold(args));
   const warm = stats(await runWarm(args));
 
   if (args.jsonOnly) {
     process.stdout.write(
-      JSON.stringify({ args: { ...args }, cold, warm }, null, 2) + "\n",
+      JSON.stringify(
+        {
+          config: {
+            iters: args.iters,
+            query: args.query,
+            userId: args.userId,
+            connection: process.env.MEMU_DSN ? "configured (redacted)" : "PostgreSQL default",
+          },
+          cold,
+          warm,
+        },
+        null,
+        2,
+      ) + "\n",
     );
     return;
   }
@@ -168,7 +191,9 @@ async function main(): Promise<void> {
   );
 }
 
-main().catch((e) => {
-  process.stderr.write(`memu-perf: ${(e as Error).message}\n`);
-  process.exit(1);
-});
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+  main().catch((e) => {
+    process.stderr.write(`memu-perf: ${(e as Error).message}\n`);
+    process.exit(1);
+  });
+}

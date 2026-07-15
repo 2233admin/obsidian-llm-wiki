@@ -2250,10 +2250,10 @@ var require_resolve = __commonJS({
       }
       return count;
     }
-    function getFullPath(resolver, id = "", normalize) {
+    function getFullPath(resolver, id2 = "", normalize) {
       if (normalize !== false)
-        id = normalizeId(id);
-      const p = resolver.parse(id);
+        id2 = normalizeId(id2);
+      const p = resolver.parse(id2);
       return _getFullPath(resolver, p);
     }
     exports.getFullPath = getFullPath;
@@ -2263,13 +2263,13 @@ var require_resolve = __commonJS({
     }
     exports._getFullPath = _getFullPath;
     var TRAILING_SLASH_HASH = /#\/?$/;
-    function normalizeId(id) {
-      return id ? id.replace(TRAILING_SLASH_HASH, "") : "";
+    function normalizeId(id2) {
+      return id2 ? id2.replace(TRAILING_SLASH_HASH, "") : "";
     }
     exports.normalizeId = normalizeId;
-    function resolveUrl(resolver, baseId, id) {
-      id = normalizeId(id);
-      return resolver.resolve(baseId, id);
+    function resolveUrl(resolver, baseId, id2) {
+      id2 = normalizeId(id2);
+      return resolver.resolve(baseId, id2);
     }
     exports.resolveUrl = resolveUrl;
     var ANCHOR = /^[a-z_][-a-z0-9._]*$/i;
@@ -2285,7 +2285,7 @@ var require_resolve = __commonJS({
       traverse(schema, { allKeys: true }, (sch, jsonPtr, _, parentJsonPtr) => {
         if (parentJsonPtr === void 0)
           return;
-        const fullPath = pathPrefix + jsonPtr;
+        const fullPath2 = pathPrefix + jsonPtr;
         let innerBaseId = baseIds[parentJsonPtr];
         if (typeof sch[schemaId] == "string")
           innerBaseId = addRef.call(this, sch[schemaId]);
@@ -2303,12 +2303,12 @@ var require_resolve = __commonJS({
             schOrRef = this.refs[schOrRef];
           if (typeof schOrRef == "object") {
             checkAmbiguosRef(sch, schOrRef.schema, ref);
-          } else if (ref !== normalizeId(fullPath)) {
+          } else if (ref !== normalizeId(fullPath2)) {
             if (ref[0] === "#") {
               checkAmbiguosRef(sch, localRefs[ref], ref);
               localRefs[ref] = sch;
             } else {
-              this.refs[ref] = fullPath;
+              this.refs[ref] = fullPath2;
             }
           }
           return ref;
@@ -2809,11 +2809,11 @@ var require_validate = __commonJS({
         jsonPointer = $data;
         data = names_1.default.rootData;
       } else {
-        const matches = RELATIVE_JSON_POINTER.exec($data);
-        if (!matches)
+        const matches2 = RELATIVE_JSON_POINTER.exec($data);
+        if (!matches2)
           throw new Error(`Invalid JSON-pointer: ${$data}`);
-        const up = +matches[1];
-        jsonPointer = matches[2];
+        const up = +matches2[1];
+        jsonPointer = matches2[2];
         if (jsonPointer === "#") {
           if (up >= dataLevel)
             throw new Error(errorMsg("property/index", up));
@@ -2999,7 +2999,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve8.call(this, root, ref);
+      let _sch = resolve9.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a2 = root.localRefs) === null || _a2 === void 0 ? void 0 : _a2[ref];
         const { schemaId } = this.opts;
@@ -3026,7 +3026,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve8(root, ref) {
+    function resolve9(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -3039,8 +3039,8 @@ var require_compile = __commonJS({
       if (Object.keys(root.schema).length > 0 && refPath === baseId) {
         return getJsonPointer.call(this, p, root);
       }
-      const id = (0, resolve_1.normalizeId)(refPath);
-      const schOrRef = this.refs[id] || this.schemas[id];
+      const id2 = (0, resolve_1.normalizeId)(refPath);
+      const schOrRef = this.refs[id2] || this.schemas[id2];
       if (typeof schOrRef == "string") {
         const sch = resolveSchema.call(this, root, schOrRef);
         if (typeof (sch === null || sch === void 0 ? void 0 : sch.schema) !== "object")
@@ -3051,7 +3051,7 @@ var require_compile = __commonJS({
         return;
       if (!schOrRef.validate)
         compileSchema.call(this, schOrRef);
-      if (id === (0, resolve_1.normalizeId)(ref)) {
+      if (id2 === (0, resolve_1.normalizeId)(ref)) {
         const { schema } = schOrRef;
         const { schemaId } = this.opts;
         const schId = schema[schemaId];
@@ -3454,11 +3454,11 @@ var require_schemes = __commonJS({
         urnComponent.error = "URN can not be parsed";
         return urnComponent;
       }
-      const matches = urnComponent.path.match(URN_REG);
-      if (matches) {
+      const matches2 = urnComponent.path.match(URN_REG);
+      if (matches2) {
         const scheme = options.scheme || urnComponent.scheme || "urn";
-        urnComponent.nid = matches[1].toLowerCase();
-        urnComponent.nss = matches[2];
+        urnComponent.nid = matches2[1].toLowerCase();
+        urnComponent.nss = matches2[2];
         const urnScheme = `${scheme}:${options.nid || urnComponent.nid}`;
         const schemeHandler = getSchemeHandler(urnScheme);
         urnComponent.path = void 0;
@@ -3594,62 +3594,62 @@ var require_fast_uri = __commonJS({
     function normalize(uri, options) {
       if (typeof uri === "string") {
         uri = /** @type {T} */
-        serialize(parse3(uri, options), options);
+        serialize2(parse3(uri, options), options);
       } else if (typeof uri === "object") {
         uri = /** @type {T} */
-        parse3(serialize(uri, options), options);
+        parse3(serialize2(uri, options), options);
       }
       return uri;
     }
-    function resolve8(baseURI, relativeURI, options) {
+    function resolve9(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const resolved = resolveComponent(parse3(baseURI, schemelessOptions), parse3(relativeURI, schemelessOptions), schemelessOptions, true);
       schemelessOptions.skipEscape = true;
-      return serialize(resolved, schemelessOptions);
+      return serialize2(resolved, schemelessOptions);
     }
-    function resolveComponent(base, relative8, options, skipNormalization) {
+    function resolveComponent(base, relative10, options, skipNormalization) {
       const target = {};
       if (!skipNormalization) {
-        base = parse3(serialize(base, options), options);
-        relative8 = parse3(serialize(relative8, options), options);
+        base = parse3(serialize2(base, options), options);
+        relative10 = parse3(serialize2(relative10, options), options);
       }
       options = options || {};
-      if (!options.tolerant && relative8.scheme) {
-        target.scheme = relative8.scheme;
-        target.userinfo = relative8.userinfo;
-        target.host = relative8.host;
-        target.port = relative8.port;
-        target.path = removeDotSegments(relative8.path || "");
-        target.query = relative8.query;
+      if (!options.tolerant && relative10.scheme) {
+        target.scheme = relative10.scheme;
+        target.userinfo = relative10.userinfo;
+        target.host = relative10.host;
+        target.port = relative10.port;
+        target.path = removeDotSegments(relative10.path || "");
+        target.query = relative10.query;
       } else {
-        if (relative8.userinfo !== void 0 || relative8.host !== void 0 || relative8.port !== void 0) {
-          target.userinfo = relative8.userinfo;
-          target.host = relative8.host;
-          target.port = relative8.port;
-          target.path = removeDotSegments(relative8.path || "");
-          target.query = relative8.query;
+        if (relative10.userinfo !== void 0 || relative10.host !== void 0 || relative10.port !== void 0) {
+          target.userinfo = relative10.userinfo;
+          target.host = relative10.host;
+          target.port = relative10.port;
+          target.path = removeDotSegments(relative10.path || "");
+          target.query = relative10.query;
         } else {
-          if (!relative8.path) {
+          if (!relative10.path) {
             target.path = base.path;
-            if (relative8.query !== void 0) {
-              target.query = relative8.query;
+            if (relative10.query !== void 0) {
+              target.query = relative10.query;
             } else {
               target.query = base.query;
             }
           } else {
-            if (relative8.path[0] === "/") {
-              target.path = removeDotSegments(relative8.path);
+            if (relative10.path[0] === "/") {
+              target.path = removeDotSegments(relative10.path);
             } else {
               if ((base.userinfo !== void 0 || base.host !== void 0 || base.port !== void 0) && !base.path) {
-                target.path = "/" + relative8.path;
+                target.path = "/" + relative10.path;
               } else if (!base.path) {
-                target.path = relative8.path;
+                target.path = relative10.path;
               } else {
-                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative8.path;
+                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative10.path;
               }
               target.path = removeDotSegments(target.path);
             }
-            target.query = relative8.query;
+            target.query = relative10.query;
           }
           target.userinfo = base.userinfo;
           target.host = base.host;
@@ -3657,25 +3657,25 @@ var require_fast_uri = __commonJS({
         }
         target.scheme = base.scheme;
       }
-      target.fragment = relative8.fragment;
+      target.fragment = relative10.fragment;
       return target;
     }
     function equal(uriA, uriB, options) {
       if (typeof uriA === "string") {
         uriA = unescape(uriA);
-        uriA = serialize(normalizeComponentEncoding(parse3(uriA, options), true), { ...options, skipEscape: true });
+        uriA = serialize2(normalizeComponentEncoding(parse3(uriA, options), true), { ...options, skipEscape: true });
       } else if (typeof uriA === "object") {
-        uriA = serialize(normalizeComponentEncoding(uriA, true), { ...options, skipEscape: true });
+        uriA = serialize2(normalizeComponentEncoding(uriA, true), { ...options, skipEscape: true });
       }
       if (typeof uriB === "string") {
         uriB = unescape(uriB);
-        uriB = serialize(normalizeComponentEncoding(parse3(uriB, options), true), { ...options, skipEscape: true });
+        uriB = serialize2(normalizeComponentEncoding(parse3(uriB, options), true), { ...options, skipEscape: true });
       } else if (typeof uriB === "object") {
-        uriB = serialize(normalizeComponentEncoding(uriB, true), { ...options, skipEscape: true });
+        uriB = serialize2(normalizeComponentEncoding(uriB, true), { ...options, skipEscape: true });
       }
       return uriA.toLowerCase() === uriB.toLowerCase();
     }
-    function serialize(cmpts, opts) {
+    function serialize2(cmpts, opts) {
       const component = {
         host: cmpts.host,
         scheme: cmpts.scheme,
@@ -3757,17 +3757,17 @@ var require_fast_uri = __commonJS({
           uri = "//" + uri;
         }
       }
-      const matches = uri.match(URI_PARSE);
-      if (matches) {
-        parsed.scheme = matches[1];
-        parsed.userinfo = matches[3];
-        parsed.host = matches[4];
-        parsed.port = parseInt(matches[5], 10);
-        parsed.path = matches[6] || "";
-        parsed.query = matches[7];
-        parsed.fragment = matches[8];
+      const matches2 = uri.match(URI_PARSE);
+      if (matches2) {
+        parsed.scheme = matches2[1];
+        parsed.userinfo = matches2[3];
+        parsed.host = matches2[4];
+        parsed.port = parseInt(matches2[5], 10);
+        parsed.path = matches2[6] || "";
+        parsed.query = matches2[7];
+        parsed.fragment = matches2[8];
         if (isNaN(parsed.port)) {
-          parsed.port = matches[5];
+          parsed.port = matches2[5];
         }
         if (parsed.host) {
           const ipv4result = isIPv4(parsed.host);
@@ -3828,10 +3828,10 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve: resolve8,
+      resolve: resolve9,
       resolveComponent,
       equal,
-      serialize,
+      serialize: serialize2,
       parse: parse3
     };
     module.exports = fastUri;
@@ -4081,15 +4081,15 @@ var require_core = __commonJS({
             this.addSchema(sch, void 0, _meta, _validateSchema);
           return this;
         }
-        let id;
+        let id2;
         if (typeof schema === "object") {
           const { schemaId } = this.opts;
-          id = schema[schemaId];
-          if (id !== void 0 && typeof id != "string") {
+          id2 = schema[schemaId];
+          if (id2 !== void 0 && typeof id2 != "string") {
             throw new Error(`schema ${schemaId} must be string`);
           }
         }
-        key = (0, resolve_1.normalizeId)(key || id);
+        key = (0, resolve_1.normalizeId)(key || id2);
         this._checkUnique(key);
         this.schemas[key] = this._addSchema(schema, _meta, key, _validateSchema, true);
         return this;
@@ -4168,11 +4168,11 @@ var require_core = __commonJS({
           case "object": {
             const cacheKey = schemaKeyRef;
             this._cache.delete(cacheKey);
-            let id = schemaKeyRef[this.opts.schemaId];
-            if (id) {
-              id = (0, resolve_1.normalizeId)(id);
-              delete this.schemas[id];
-              delete this.refs[id];
+            let id2 = schemaKeyRef[this.opts.schemaId];
+            if (id2) {
+              id2 = (0, resolve_1.normalizeId)(id2);
+              delete this.schemas[id2];
+              delete this.refs[id2];
             }
             return this;
           }
@@ -4243,7 +4243,7 @@ var require_core = __commonJS({
       errorsText(errors = this.errors, { separator = ", ", dataVar = "data" } = {}) {
         if (!errors || errors.length === 0)
           return "No errors";
-        return errors.map((e) => `${dataVar}${e.instancePath} ${e.message}`).reduce((text, msg) => text + separator + msg);
+        return errors.map((e) => `${dataVar}${e.instancePath} ${e.message}`).reduce((text2, msg) => text2 + separator + msg);
       }
       $dataMetaSchema(metaSchema, keywordsJsonPointers) {
         const rules = this.RULES.all;
@@ -4279,10 +4279,10 @@ var require_core = __commonJS({
         }
       }
       _addSchema(schema, meta3, baseId, validateSchema = this.opts.validateSchema, addSchema = this.opts.addUsedSchema) {
-        let id;
+        let id2;
         const { schemaId } = this.opts;
         if (typeof schema == "object") {
-          id = schema[schemaId];
+          id2 = schema[schemaId];
         } else {
           if (this.opts.jtd)
             throw new Error("schema must be object");
@@ -4292,7 +4292,7 @@ var require_core = __commonJS({
         let sch = this._cache.get(schema);
         if (sch !== void 0)
           return sch;
-        baseId = (0, resolve_1.normalizeId)(id || baseId);
+        baseId = (0, resolve_1.normalizeId)(id2 || baseId);
         const localRefs = resolve_1.getSchemaRefs.call(this, schema, baseId);
         sch = new compile_1.SchemaEnv({ schema, schemaId, meta: meta3, baseId, localRefs });
         this._cache.set(sch.schema, sch);
@@ -4305,9 +4305,9 @@ var require_core = __commonJS({
           this.validateSchema(schema, true);
         return sch;
       }
-      _checkUnique(id) {
-        if (this.schemas[id] || this.refs[id]) {
-          throw new Error(`schema with key or id "${id}" already exists`);
+      _checkUnique(id2) {
+        if (this.schemas[id2] || this.refs[id2]) {
+          throw new Error(`schema with key or id "${id2}" already exists`);
         }
       }
       _compileSchemaEnv(sch) {
@@ -6578,12 +6578,12 @@ var require_formats = __commonJS({
     var DATE = /^(\d\d\d\d)-(\d\d)-(\d\d)$/;
     var DAYS = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
     function date5(str) {
-      const matches = DATE.exec(str);
-      if (!matches)
+      const matches2 = DATE.exec(str);
+      if (!matches2)
         return false;
-      const year = +matches[1];
-      const month = +matches[2];
-      const day = +matches[3];
+      const year = +matches2[1];
+      const month = +matches2[2];
+      const day = +matches2[3];
       return month >= 1 && month <= 12 && day >= 1 && day <= (month === 2 && isLeapYear(year) ? 29 : DAYS[month]);
     }
     function compareDate(d1, d2) {
@@ -6598,16 +6598,16 @@ var require_formats = __commonJS({
     var TIME = /^(\d\d):(\d\d):(\d\d(?:\.\d+)?)(z|([+-])(\d\d)(?::?(\d\d))?)?$/i;
     function getTime(strictTimeZone) {
       return function time3(str) {
-        const matches = TIME.exec(str);
-        if (!matches)
+        const matches2 = TIME.exec(str);
+        if (!matches2)
           return false;
-        const hr = +matches[1];
-        const min = +matches[2];
-        const sec = +matches[3];
-        const tz = matches[4];
-        const tzSign = matches[5] === "-" ? -1 : 1;
-        const tzH = +(matches[6] || 0);
-        const tzM = +(matches[7] || 0);
+        const hr = +matches2[1];
+        const min = +matches2[2];
+        const sec = +matches2[3];
+        const tz = matches2[4];
+        const tzSign = matches2[5] === "-" ? -1 : 1;
+        const tzH = +(matches2[6] || 0);
+        const tzM = +(matches2[7] || 0);
         if (tzH > 23 || tzM > 59 || strictTimeZone && !tz)
           return false;
         if (hr <= 23 && min <= 59 && sec < 60)
@@ -6939,21 +6939,21 @@ var require_postgres_date = __commonJS({
       if (INFINITY.test(isoDate2)) {
         return Number(isoDate2.replace("i", "I"));
       }
-      var matches = DATE_TIME.exec(isoDate2);
-      if (!matches) {
+      var matches2 = DATE_TIME.exec(isoDate2);
+      if (!matches2) {
         return getDate(isoDate2) || null;
       }
-      var isBC = !!matches[8];
-      var year = parseInt(matches[1], 10);
+      var isBC = !!matches2[8];
+      var year = parseInt(matches2[1], 10);
       if (isBC) {
         year = bcYearToNegativeYear(year);
       }
-      var month = parseInt(matches[2], 10) - 1;
-      var day = matches[3];
-      var hour = parseInt(matches[4], 10);
-      var minute = parseInt(matches[5], 10);
-      var second = parseInt(matches[6], 10);
-      var ms = matches[7];
+      var month = parseInt(matches2[2], 10) - 1;
+      var day = matches2[3];
+      var hour = parseInt(matches2[4], 10);
+      var minute = parseInt(matches2[5], 10);
+      var second = parseInt(matches2[6], 10);
+      var ms = matches2[7];
       ms = ms ? 1e3 * parseFloat(ms) : 0;
       var date5;
       var offset = timeZoneOffset(isoDate2);
@@ -6974,17 +6974,17 @@ var require_postgres_date = __commonJS({
       return date5;
     };
     function getDate(isoDate2) {
-      var matches = DATE.exec(isoDate2);
-      if (!matches) {
+      var matches2 = DATE.exec(isoDate2);
+      if (!matches2) {
         return;
       }
-      var year = parseInt(matches[1], 10);
-      var isBC = !!matches[4];
+      var year = parseInt(matches2[1], 10);
+      var isBC = !!matches2[4];
       if (isBC) {
         year = bcYearToNegativeYear(year);
       }
-      var month = parseInt(matches[2], 10) - 1;
-      var day = matches[3];
+      var month = parseInt(matches2[2], 10) - 1;
+      var day = matches2[3];
       var date5 = new Date(year, month, day);
       if (is0To99(year)) {
         date5.setFullYear(year);
@@ -7106,11 +7106,11 @@ var require_postgres_interval = __commonJS({
     }
     function parse3(interval) {
       if (!interval) return {};
-      var matches = INTERVAL.exec(interval);
-      var isNegative = matches[8] === "-";
+      var matches2 = INTERVAL.exec(interval);
+      var isNegative = matches2[8] === "-";
       return Object.keys(positions).reduce(function(parsed, property) {
         var position = positions[property];
-        var value = matches[position];
+        var value = matches2[position];
         if (!value) return parsed;
         value = property === "milliseconds" ? parseMilliseconds(value) : parseInt(value, 10);
         if (!value) return parsed;
@@ -7182,8 +7182,8 @@ var require_textParsers = __commonJS({
       if (!value) return null;
       return array2.parse(value, parseBool);
     }
-    function parseBaseTenInt(string4) {
-      return parseInt(string4, 10);
+    function parseBaseTenInt(string6) {
+      return parseInt(string6, 10);
     }
     function parseIntegerArray(value) {
       if (!value) return null;
@@ -7974,7 +7974,7 @@ var require_utils3 = __commonJS({
       postgresMd5PasswordHash,
       randomBytes,
       deriveKey,
-      sha256,
+      sha256: sha2563,
       hashByName,
       hmacSha256,
       md5
@@ -7985,11 +7985,11 @@ var require_utils3 = __commonJS({
     function randomBytes(length) {
       return webCrypto.getRandomValues(Buffer.alloc(length));
     }
-    async function md5(string4) {
+    async function md5(string6) {
       try {
-        return nodeCrypto.createHash("md5").update(string4, "utf-8").digest("hex");
+        return nodeCrypto.createHash("md5").update(string6, "utf-8").digest("hex");
       } catch (e) {
-        const data = typeof string4 === "string" ? textEncoder.encode(string4) : string4;
+        const data = typeof string6 === "string" ? textEncoder.encode(string6) : string6;
         const hash2 = await subtleCrypto.digest("MD5", data);
         return Array.from(new Uint8Array(hash2)).map((b) => b.toString(16).padStart(2, "0")).join("");
       }
@@ -7999,11 +7999,11 @@ var require_utils3 = __commonJS({
       const outer = await md5(Buffer.concat([Buffer.from(inner), salt]));
       return "md5" + outer;
     }
-    async function sha256(text) {
-      return await subtleCrypto.digest("SHA-256", text);
+    async function sha2563(text2) {
+      return await subtleCrypto.digest("SHA-256", text2);
     }
-    async function hashByName(hashName, text) {
-      return await subtleCrypto.digest(hashName, text);
+    async function hashByName(hashName, text2) {
+      return await subtleCrypto.digest(hashName, text2);
     }
     async function hmacSha256(keyBuffer, msg) {
       const key = await subtleCrypto.importKey("raw", keyBuffer, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
@@ -8134,7 +8134,7 @@ var require_cert_signatures = __commonJS({
 var require_sasl = __commonJS({
   "node_modules/pg/lib/crypto/sasl.js"(exports, module) {
     "use strict";
-    var crypto = require_utils3();
+    var crypto2 = require_utils3();
     var { signatureAlgorithmHashFromCertificate } = require_cert_signatures();
     function saslprep(password) {
       const nonAsciiSpace = /[\u00A0\u1680\u2000-\u200B\u202F\u205F\u3000]/g;
@@ -8152,7 +8152,7 @@ var require_sasl = __commonJS({
       if (mechanism === "SCRAM-SHA-256-PLUS" && typeof stream.getPeerCertificate !== "function") {
         throw new Error("SASL: Mechanism SCRAM-SHA-256-PLUS requires a certificate");
       }
-      const clientNonce = crypto.randomBytes(18).toString("base64");
+      const clientNonce = crypto2.randomBytes(18).toString("base64");
       const gs2Header = mechanism === "SCRAM-SHA-256-PLUS" ? "p=tls-server-end-point" : stream ? "y" : "n";
       return {
         mechanism,
@@ -8194,20 +8194,20 @@ var require_sasl = __commonJS({
         const peerCert = stream.getPeerCertificate().raw;
         let hashName = signatureAlgorithmHashFromCertificate(peerCert);
         if (hashName === "MD5" || hashName === "SHA-1") hashName = "SHA-256";
-        const certHash = await crypto.hashByName(hashName, peerCert);
+        const certHash = await crypto2.hashByName(hashName, peerCert);
         const bindingData = Buffer.concat([Buffer.from("p=tls-server-end-point,,"), Buffer.from(certHash)]);
         channelBinding = bindingData.toString("base64");
       }
       const clientFinalMessageWithoutProof = "c=" + channelBinding + ",r=" + sv.nonce;
       const authMessage = clientFirstMessageBare + "," + serverFirstMessage + "," + clientFinalMessageWithoutProof;
       const saltBytes = Buffer.from(sv.salt, "base64");
-      const saltedPassword = await crypto.deriveKey(saslprep(password), saltBytes, sv.iteration);
-      const clientKey = await crypto.hmacSha256(saltedPassword, "Client Key");
-      const storedKey = await crypto.sha256(clientKey);
-      const clientSignature = await crypto.hmacSha256(storedKey, authMessage);
+      const saltedPassword = await crypto2.deriveKey(saslprep(password), saltBytes, sv.iteration);
+      const clientKey = await crypto2.hmacSha256(saltedPassword, "Client Key");
+      const storedKey = await crypto2.sha256(clientKey);
+      const clientSignature = await crypto2.hmacSha256(storedKey, authMessage);
       const clientProof = xorBuffers(Buffer.from(clientKey), Buffer.from(clientSignature)).toString("base64");
-      const serverKey = await crypto.hmacSha256(saltedPassword, "Server Key");
-      const serverSignatureBytes = await crypto.hmacSha256(serverKey, authMessage);
+      const serverKey = await crypto2.hmacSha256(saltedPassword, "Server Key");
+      const serverSignatureBytes = await crypto2.hmacSha256(serverKey, authMessage);
       session.message = "SASLResponse";
       session.serverSignature = Buffer.from(serverSignatureBytes).toString("base64");
       session.response = clientFinalMessageWithoutProof + ",p=" + clientProof;
@@ -8224,21 +8224,21 @@ var require_sasl = __commonJS({
         throw new Error("SASL: SCRAM-SERVER-FINAL-MESSAGE: server signature does not match");
       }
     }
-    function isPrintableChars(text) {
-      if (typeof text !== "string") {
+    function isPrintableChars(text2) {
+      if (typeof text2 !== "string") {
         throw new TypeError("SASL: text must be a string");
       }
-      return text.split("").map((_, i) => text.charCodeAt(i)).every((c) => c >= 33 && c <= 43 || c >= 45 && c <= 126);
+      return text2.split("").map((_, i) => text2.charCodeAt(i)).every((c) => c >= 33 && c <= 43 || c >= 45 && c <= 126);
     }
-    function isBase64(text) {
-      return /^(?:[a-zA-Z0-9+/]{4})*(?:[a-zA-Z0-9+/]{2}==|[a-zA-Z0-9+/]{3}=)?$/.test(text);
+    function isBase64(text2) {
+      return /^(?:[a-zA-Z0-9+/]{4})*(?:[a-zA-Z0-9+/]{2}==|[a-zA-Z0-9+/]{3}=)?$/.test(text2);
     }
-    function parseAttributePairs(text) {
-      if (typeof text !== "string") {
+    function parseAttributePairs(text2) {
+      if (typeof text2 !== "string") {
         throw new TypeError("SASL: attribute pairs text must be a string");
       }
       return new Map(
-        text.split(",").map((attrValue) => {
+        text2.split(",").map((attrValue) => {
           if (!/^.=/.test(attrValue)) {
             throw new Error("SASL: Invalid attribute pair entry");
           }
@@ -9117,9 +9117,9 @@ var require_messages = __commonJS({
     };
     exports.ReadyForQueryMessage = ReadyForQueryMessage;
     var CommandCompleteMessage = class {
-      constructor(length, text) {
+      constructor(length, text2) {
         this.length = length;
-        this.text = text;
+        this.text = text2;
         this.name = "commandComplete";
       }
     };
@@ -9180,22 +9180,22 @@ var require_buffer_writer = __commonJS({
         this.buffer[this.offset++] = num >>> 0 & 255;
         return this;
       }
-      addCString(string4) {
-        if (!string4) {
+      addCString(string6) {
+        if (!string6) {
           this.ensure(1);
         } else {
-          const len = Buffer.byteLength(string4);
+          const len = Buffer.byteLength(string6);
           this.ensure(len + 1);
-          this.buffer.write(string4, this.offset, "utf-8");
+          this.buffer.write(string6, this.offset, "utf-8");
           this.offset += len;
         }
         this.buffer[this.offset++] = 0;
         return this;
       }
-      addString(string4 = "") {
-        const len = Buffer.byteLength(string4);
+      addString(string6 = "") {
+        const len = Buffer.byteLength(string6);
         this.ensure(len);
-        this.buffer.write(string4, this.offset);
+        this.buffer.write(string6, this.offset);
         this.offset += len;
         return this;
       }
@@ -9205,8 +9205,8 @@ var require_buffer_writer = __commonJS({
       // `addInt32(Buffer.byteLength(s)).addString(s)` pairing scanned the string
       // three times (byteLength for the prefix, byteLength again inside addString,
       // then the encode), which is costly for large text parameters.
-      addInt32PrefixedString(string4) {
-        const len = Buffer.byteLength(string4);
+      addInt32PrefixedString(string6) {
+        const len = Buffer.byteLength(string6);
         this.ensure(4 + len);
         const buffer = this.buffer;
         let offset = this.offset;
@@ -9214,7 +9214,7 @@ var require_buffer_writer = __commonJS({
         buffer[offset++] = len >>> 16 & 255;
         buffer[offset++] = len >>> 8 & 255;
         buffer[offset++] = len >>> 0 & 255;
-        buffer.write(string4, offset, "utf-8");
+        buffer.write(string6, offset, "utf-8");
         this.offset = offset + len;
         return this;
       }
@@ -9291,8 +9291,8 @@ var require_serializer = __commonJS({
         /* code.startup */
       );
     };
-    var query = (text) => {
-      return writer.addCString(text).flush(
+    var query = (text2) => {
+      return writer.addCString(text2).flush(
         81
         /* code.query */
       );
@@ -9395,13 +9395,13 @@ var require_serializer = __commonJS({
       buffer.writeInt32BE(secretKey, 12);
       return buffer;
     };
-    var cstringMessage = (code, string4) => {
-      const stringLen = Buffer.byteLength(string4);
+    var cstringMessage = (code, string6) => {
+      const stringLen = Buffer.byteLength(string6);
       const len = 4 + stringLen + 1;
       const buffer = Buffer.allocUnsafe(1 + len);
       buffer[0] = code;
       buffer.writeInt32BE(len, 1);
-      buffer.write(string4, 5, "utf-8");
+      buffer.write(string6, 5, "utf-8");
       buffer[len] = 0;
       return buffer;
     };
@@ -9417,8 +9417,8 @@ var require_serializer = __commonJS({
       return msg.name ? cstringMessage(68, `${msg.type}${msg.name || ""}`) : msg.type === "P" ? emptyDescribePortal : emptyDescribeStatement;
     };
     var close = (msg) => {
-      const text = `${msg.type}${msg.name || ""}`;
-      return cstringMessage(67, text);
+      const text2 = `${msg.type}${msg.name || ""}`;
+      return cstringMessage(67, text2);
     };
     var copyData = (chunk) => {
       return writer.add(chunk).flush(
@@ -9446,7 +9446,7 @@ var require_serializer = __commonJS({
       99
       /* code.copyDone */
     );
-    var serialize = {
+    var serialize2 = {
       startup,
       password,
       requestSsl,
@@ -9466,7 +9466,7 @@ var require_serializer = __commonJS({
       copyFail,
       cancel
     };
-    exports.serialize = serialize;
+    exports.serialize = serialize2;
   }
 });
 
@@ -9690,8 +9690,8 @@ var require_parser = __commonJS({
       return new messages_1.ReadyForQueryMessage(LATEINIT_LENGTH, status);
     };
     var parseCommandCompleteMessage = (reader) => {
-      const text = reader.cstring();
-      return new messages_1.CommandCompleteMessage(LATEINIT_LENGTH, text);
+      const text2 = reader.cstring();
+      return new messages_1.CommandCompleteMessage(LATEINIT_LENGTH, text2);
     };
     var parseCopyData = (reader, length) => {
       const chunk = reader.bytes(length - 4);
@@ -9855,7 +9855,7 @@ var require_dist2 = __commonJS({
     function parse3(stream, callback) {
       const parser = new parser_1.Parser();
       stream.on("data", (buffer) => parser.parse(buffer, callback));
-      return new Promise((resolve8) => stream.on("end", () => resolve8()));
+      return new Promise((resolve9) => stream.on("end", () => resolve9()));
     }
   }
 });
@@ -9940,12 +9940,12 @@ var require_connection = __commonJS({
   "node_modules/pg/lib/connection.js"(exports, module) {
     "use strict";
     var EventEmitter = __require("events").EventEmitter;
-    var { parse: parse3, serialize } = require_dist2();
+    var { parse: parse3, serialize: serialize2 } = require_dist2();
     var stream = require_stream();
     var { getStream } = stream;
-    var flushBuffer = serialize.flush();
-    var syncBuffer = serialize.sync();
-    var endBuffer = serialize.end();
+    var flushBuffer = serialize2.flush();
+    var syncBuffer = serialize2.sync();
+    var endBuffer = serialize2.end();
     var Connection2 = class extends EventEmitter {
       constructor(config2) {
         super();
@@ -10049,22 +10049,22 @@ var require_connection = __commonJS({
         });
       }
       requestSsl() {
-        this.stream.write(serialize.requestSsl());
+        this.stream.write(serialize2.requestSsl());
       }
       startup(config2) {
-        this.stream.write(serialize.startup(config2));
+        this.stream.write(serialize2.startup(config2));
       }
       cancel(processID, secretKey) {
-        this._send(serialize.cancel(processID, secretKey));
+        this._send(serialize2.cancel(processID, secretKey));
       }
       password(password) {
-        this._send(serialize.password(password));
+        this._send(serialize2.password(password));
       }
       sendSASLInitialResponseMessage(mechanism, initialResponse) {
-        this._send(serialize.sendSASLInitialResponseMessage(mechanism, initialResponse));
+        this._send(serialize2.sendSASLInitialResponseMessage(mechanism, initialResponse));
       }
       sendSCRAMClientFinalMessage(additionalData) {
-        this._send(serialize.sendSCRAMClientFinalMessage(additionalData));
+        this._send(serialize2.sendSCRAMClientFinalMessage(additionalData));
       }
       _send(buffer) {
         if (!this.stream.writable) {
@@ -10072,20 +10072,20 @@ var require_connection = __commonJS({
         }
         return this.stream.write(buffer);
       }
-      query(text) {
-        this._send(serialize.query(text));
+      query(text2) {
+        this._send(serialize2.query(text2));
       }
       // send parse message
       parse(query) {
-        this._send(serialize.parse(query));
+        this._send(serialize2.parse(query));
       }
       // send bind message
       bind(config2) {
-        this._send(serialize.bind(config2));
+        this._send(serialize2.bind(config2));
       }
       // send execute message
       execute(config2) {
-        this._send(serialize.execute(config2));
+        this._send(serialize2.execute(config2));
       }
       flush() {
         if (this.stream.writable) {
@@ -10113,19 +10113,19 @@ var require_connection = __commonJS({
         });
       }
       close(msg) {
-        this._send(serialize.close(msg));
+        this._send(serialize2.close(msg));
       }
       describe(msg) {
-        this._send(serialize.describe(msg));
+        this._send(serialize2.describe(msg));
       }
       sendCopyFromChunk(chunk) {
-        this._send(serialize.copyData(chunk));
+        this._send(serialize2.copyData(chunk));
       }
       endCopyFrom() {
-        this._send(serialize.copyDone());
+        this._send(serialize2.copyDone());
       }
       sendCopyFail(msg) {
-        this._send(serialize.copyFail(msg));
+        this._send(serialize2.copyFail(msg));
       }
     };
     module.exports = Connection2;
@@ -10183,12 +10183,12 @@ var require_split2 = __commonJS({
         self.push(val);
       }
     }
-    function noop(incoming) {
+    function noop2(incoming) {
       return incoming;
     }
     function split(matcher, mapper, options) {
       matcher = matcher || /\r?\n/;
-      mapper = mapper || noop;
+      mapper = mapper || noop2;
       options = options || {};
       switch (arguments.length) {
         case 1:
@@ -10207,7 +10207,7 @@ var require_split2 = __commonJS({
             matcher = /\r?\n/;
           } else if (typeof mapper === "object") {
             options = mapper;
-            mapper = noop;
+            mapper = noop2;
           }
       }
       options = Object.assign({}, options);
@@ -10413,8 +10413,8 @@ var require_lib = __commonJS({
     var helper = require_helper();
     module.exports = function(connInfo, cb) {
       var file2 = helper.getFileName();
-      fs.stat(file2, function(err2, stat2) {
-        if (err2 || !helper.usePgPass(stat2, file2)) {
+      fs.stat(file2, function(err2, stat6) {
+        if (err2 || !helper.usePgPass(stat6, file2)) {
           return cb(void 0);
         }
         var st = fs.createReadStream(file2);
@@ -10437,7 +10437,7 @@ var require_client = __commonJS({
     var Query2 = require_query();
     var defaults2 = require_defaults2();
     var Connection2 = require_connection();
-    var crypto = require_utils3();
+    var crypto2 = require_utils3();
     var activeQueryDeprecationNotice = nodeUtils.deprecate(
       () => {
       },
@@ -10473,7 +10473,7 @@ var require_client = __commonJS({
       }
       return defaultValue;
     }
-    var Client2 = class extends EventEmitter {
+    var Client3 = class extends EventEmitter {
       constructor(config2) {
         super();
         this.connectionParameters = new ConnectionParameters(config2);
@@ -10615,12 +10615,12 @@ var require_client = __commonJS({
           this._connect(callback);
           return;
         }
-        return new this._Promise((resolve8, reject) => {
+        return new this._Promise((resolve9, reject) => {
           this._connect((error48) => {
             if (error48) {
               reject(error48);
             } else {
-              resolve8(this);
+              resolve9(this);
             }
           });
         });
@@ -10688,7 +10688,7 @@ var require_client = __commonJS({
       _handleAuthMD5Password(msg) {
         this._getPassword(async () => {
           try {
-            const hashedPassword = await crypto.postgresMd5PasswordHash(this.user, this.password, msg.salt);
+            const hashedPassword = await crypto2.postgresMd5PasswordHash(this.user, this.password, msg.salt);
             this.connection.password(hashedPassword);
           } catch (e) {
             this.emit("error", e);
@@ -10967,8 +10967,8 @@ var require_client = __commonJS({
         } else {
           query = new Query2(config2, values, callback);
           if (!query.callback) {
-            result = new this._Promise((resolve8, reject) => {
-              query.callback = (err2, res) => err2 ? reject(err2) : resolve8(res);
+            result = new this._Promise((resolve9, reject) => {
+              query.callback = (err2, res) => err2 ? reject(err2) : resolve9(res);
             }).catch((err2) => {
               Error.captureStackTrace(err2);
               throw err2;
@@ -11052,8 +11052,8 @@ var require_client = __commonJS({
         if (cb) {
           this.connection.once("end", cb);
         } else {
-          return new this._Promise((resolve8) => {
-            this.connection.once("end", resolve8);
+          return new this._Promise((resolve9) => {
+            this.connection.once("end", resolve9);
           });
         }
       }
@@ -11062,8 +11062,8 @@ var require_client = __commonJS({
         return this._queryQueue;
       }
     };
-    Client2.Query = Query2;
-    module.exports = Client2;
+    Client3.Query = Query2;
+    module.exports = Client3;
   }
 });
 
@@ -11102,8 +11102,8 @@ var require_pg_pool = __commonJS({
       const cb = function(err2, client) {
         err2 ? rej(err2) : res(client);
       };
-      const result = new Promise2(function(resolve8, reject) {
-        res = resolve8;
+      const result = new Promise2(function(resolve9, reject) {
+        res = resolve9;
         rej = reject;
       }).catch((err2) => {
         Error.captureStackTrace(err2);
@@ -11123,7 +11123,7 @@ var require_pg_pool = __commonJS({
       };
     }
     var Pool3 = class extends EventEmitter {
-      constructor(options, Client2) {
+      constructor(options, Client3) {
         super();
         this.options = Object.assign({}, options);
         if (options != null && "password" in options) {
@@ -11146,7 +11146,7 @@ var require_pg_pool = __commonJS({
         this.options.maxLifetimeSeconds = this.options.maxLifetimeSeconds || 0;
         this.log = this.options.log || function() {
         };
-        this.Client = this.options.Client || Client2 || require_lib2().Client;
+        this.Client = this.options.Client || Client3 || require_lib2().Client;
         this.Promise = this.options.Promise || global.Promise;
         if (typeof this.options.idleTimeoutMillis === "undefined") {
           this.options.idleTimeoutMillis = 1e4;
@@ -11164,7 +11164,7 @@ var require_pg_pool = __commonJS({
         if (typeof Promise2.try === "function") {
           return Promise2.try(f);
         }
-        return new Promise2((resolve8) => resolve8(f()));
+        return new Promise2((resolve9) => resolve9(f()));
       }
       _isFull() {
         return this._clients.length >= this.options.max;
@@ -11390,8 +11390,8 @@ var require_pg_pool = __commonJS({
           }
           return this._remove(client, this._pulseQueue.bind(this));
         }
-        const isExpired = this._expired.has(client);
-        if (isExpired) {
+        const isExpired2 = this._expired.has(client);
+        if (isExpired2) {
           this.log("remove expired client");
           this._expired.delete(client);
           return this._remove(client, this._pulseQueue.bind(this));
@@ -11414,9 +11414,9 @@ var require_pg_pool = __commonJS({
         this._idle.push(new IdleItem(client, idleListener, tid));
         this._pulseQueue();
       }
-      query(text, values, cb) {
-        if (typeof text === "function") {
-          const response2 = promisify7(this.Promise, text);
+      query(text2, values, cb) {
+        if (typeof text2 === "function") {
+          const response2 = promisify7(this.Promise, text2);
           setImmediate(function() {
             return response2.callback(new Error("Passing a function as the first parameter to pool.query is not supported"));
           });
@@ -11444,7 +11444,7 @@ var require_pg_pool = __commonJS({
           client.once("error", onError);
           this.log("dispatching query");
           try {
-            client.query(text, values, (err3, res) => {
+            client.query(text2, values, (err3, res) => {
               this.log("query dispatched");
               client.removeListener("error", onError);
               if (clientReleased) {
@@ -11557,8 +11557,8 @@ var require_query2 = __commonJS({
     NativeQuery.prototype._getPromise = function() {
       if (this._promise) return this._promise;
       this._promise = new Promise(
-        function(resolve8, reject) {
-          this._once("end", resolve8);
+        function(resolve9, reject) {
+          this._once("end", resolve9);
           this._once("error", reject);
         }.bind(this)
       );
@@ -11654,7 +11654,7 @@ var require_client2 = __commonJS({
       },
       "Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead."
     );
-    var Client2 = module.exports = function(config2) {
+    var Client3 = module.exports = function(config2) {
       EventEmitter.call(this);
       config2 = config2 || {};
       this._Promise = config2.Promise || global.Promise;
@@ -11681,9 +11681,9 @@ var require_client2 = __commonJS({
       this.port = cp.port;
       this.namedQueries = {};
     };
-    Client2.Query = NativeQuery;
-    util2.inherits(Client2, EventEmitter);
-    Client2.prototype._errorAllQueries = function(err2) {
+    Client3.Query = NativeQuery;
+    util2.inherits(Client3, EventEmitter);
+    Client3.prototype._errorAllQueries = function(err2) {
       const enqueueError = (query) => {
         process.nextTick(() => {
           query.native = this.native;
@@ -11697,7 +11697,7 @@ var require_client2 = __commonJS({
       this._queryQueue.forEach(enqueueError);
       this._queryQueue.length = 0;
     };
-    Client2.prototype._connect = function(cb) {
+    Client3.prototype._connect = function(cb) {
       const self = this;
       if (this._connecting) {
         process.nextTick(() => cb(new Error("Client has already been connected. You cannot reuse a client.")));
@@ -11730,22 +11730,22 @@ var require_client2 = __commonJS({
         });
       });
     };
-    Client2.prototype.connect = function(callback) {
+    Client3.prototype.connect = function(callback) {
       if (callback) {
         this._connect(callback);
         return;
       }
-      return new this._Promise((resolve8, reject) => {
+      return new this._Promise((resolve9, reject) => {
         this._connect((error48) => {
           if (error48) {
             reject(error48);
           } else {
-            resolve8(this);
+            resolve9(this);
           }
         });
       });
     };
-    Client2.prototype.query = function(config2, values, callback) {
+    Client3.prototype.query = function(config2, values, callback) {
       let query;
       let result;
       let readTimeout;
@@ -11764,8 +11764,8 @@ var require_client2 = __commonJS({
         query = new NativeQuery(config2, values, callback);
         if (!query.callback) {
           let resolveOut, rejectOut;
-          result = new this._Promise((resolve8, reject) => {
-            resolveOut = resolve8;
+          result = new this._Promise((resolve9, reject) => {
+            resolveOut = resolve9;
             rejectOut = reject;
           }).catch((err2) => {
             Error.captureStackTrace(err2);
@@ -11817,7 +11817,7 @@ var require_client2 = __commonJS({
       this._pulseQueryQueue();
       return result;
     };
-    Client2.prototype.end = function(cb) {
+    Client3.prototype.end = function(cb) {
       const self = this;
       this._ending = true;
       if (this._connecting && !this._connected) {
@@ -11828,8 +11828,8 @@ var require_client2 = __commonJS({
       }
       let result;
       if (!cb) {
-        result = new this._Promise(function(resolve8, reject) {
-          cb = (err2) => err2 ? reject(err2) : resolve8();
+        result = new this._Promise(function(resolve9, reject) {
+          cb = (err2) => err2 ? reject(err2) : resolve9();
         });
       }
       this.native.end(function() {
@@ -11842,10 +11842,10 @@ var require_client2 = __commonJS({
       });
       return result;
     };
-    Client2.prototype._hasActiveQuery = function() {
+    Client3.prototype._hasActiveQuery = function() {
       return this._activeQuery && this._activeQuery.state !== "error" && this._activeQuery.state !== "end";
     };
-    Client2.prototype._pulseQueryQueue = function(initialConnection) {
+    Client3.prototype._pulseQueryQueue = function(initialConnection) {
       if (!this._connected) {
         return;
       }
@@ -11866,7 +11866,7 @@ var require_client2 = __commonJS({
         self._pulseQueryQueue();
       });
     };
-    Client2.prototype.cancel = function(query) {
+    Client3.prototype.cancel = function(query) {
       if (this._activeQuery === query) {
         this.native.cancel(function() {
         });
@@ -11874,20 +11874,20 @@ var require_client2 = __commonJS({
         this._queryQueue.splice(this._queryQueue.indexOf(query), 1);
       }
     };
-    Client2.prototype.ref = function() {
+    Client3.prototype.ref = function() {
     };
-    Client2.prototype.unref = function() {
+    Client3.prototype.unref = function() {
     };
-    Client2.prototype.setTypeParser = function(oid, format, parseFn) {
+    Client3.prototype.setTypeParser = function(oid, format, parseFn) {
       return this._types.setTypeParser(oid, format, parseFn);
     };
-    Client2.prototype.getTypeParser = function(oid, format) {
+    Client3.prototype.getTypeParser = function(oid, format) {
       return this._types.getTypeParser(oid, format);
     };
-    Client2.prototype.isConnected = function() {
+    Client3.prototype.isConnected = function() {
       return this._connected;
     };
-    Client2.prototype.getTransactionStatus = function() {
+    Client3.prototype.getTransactionStatus = function() {
       return this.native.getTransactionStatus();
     };
   }
@@ -11905,7 +11905,7 @@ var require_native = __commonJS({
 var require_lib2 = __commonJS({
   "node_modules/pg/lib/index.js"(exports, module) {
     "use strict";
-    var Client2 = require_client();
+    var Client3 = require_client();
     var defaults2 = require_defaults2();
     var Connection2 = require_connection();
     var Result2 = require_result();
@@ -11914,10 +11914,10 @@ var require_lib2 = __commonJS({
     var TypeOverrides2 = require_type_overrides();
     var { DatabaseError: DatabaseError2 } = require_dist2();
     var { escapeIdentifier: escapeIdentifier2, escapeLiteral: escapeLiteral2 } = require_utils2();
-    var poolFactory = (Client3) => {
+    var poolFactory = (Client4) => {
       return class BoundPool extends Pool3 {
         constructor(options) {
-          super(options, Client3);
+          super(options, Client4);
         }
       };
     };
@@ -11936,7 +11936,7 @@ var require_lib2 = __commonJS({
       this.Result = Result2;
       this.utils = utils;
     };
-    var clientConstructor = Client2;
+    var clientConstructor = Client3;
     var forceNative = false;
     try {
       forceNative = !!process.env.NODE_PG_FORCE_NATIVE;
@@ -14215,7 +14215,7 @@ var require_websocket = __commonJS({
     var http = __require("http");
     var net = __require("net");
     var tls = __require("tls");
-    var { randomBytes, createHash: createHash5 } = __require("crypto");
+    var { randomBytes, createHash: createHash11 } = __require("crypto");
     var { Duplex, Readable } = __require("stream");
     var { URL: URL2 } = __require("url");
     var PerMessageDeflate2 = require_permessage_deflate();
@@ -14883,8 +14883,8 @@ var require_websocket = __commonJS({
           abortHandshake(websocket, socket, "Invalid Upgrade header");
           return;
         }
-        const digest = createHash5("sha1").update(key + GUID).digest("base64");
-        if (res.headers["sec-websocket-accept"] !== digest) {
+        const digest3 = createHash11("sha1").update(key + GUID).digest("base64");
+        if (res.headers["sec-websocket-accept"] !== digest3) {
           abortHandshake(websocket, socket, "Invalid Sec-WebSocket-Accept header");
           return;
         }
@@ -15164,7 +15164,7 @@ var require_stream2 = __commonJS({
       };
       duplex._final = function(callback) {
         if (ws.readyState === ws.CONNECTING) {
-          ws.once("open", function open2() {
+          ws.once("open", function open6() {
             duplex._final(callback);
           });
           return;
@@ -15185,7 +15185,7 @@ var require_stream2 = __commonJS({
       };
       duplex._write = function(chunk, encoding, callback) {
         if (ws.readyState === ws.CONNECTING) {
-          ws.once("open", function open2() {
+          ws.once("open", function open6() {
             duplex._write(chunk, encoding, callback);
           });
           return;
@@ -15252,7 +15252,7 @@ var require_websocket_server = __commonJS({
     var EventEmitter = __require("events");
     var http = __require("http");
     var { Duplex } = __require("stream");
-    var { createHash: createHash5 } = __require("crypto");
+    var { createHash: createHash11 } = __require("crypto");
     var extension2 = require_extension();
     var PerMessageDeflate2 = require_permessage_deflate();
     var subprotocol2 = require_subprotocol();
@@ -15559,12 +15559,12 @@ var require_websocket_server = __commonJS({
           );
         }
         if (this._state > RUNNING) return abortHandshake(socket, 503);
-        const digest = createHash5("sha1").update(key + GUID).digest("base64");
+        const digest3 = createHash11("sha1").update(key + GUID).digest("base64");
         const headers = [
           "HTTP/1.1 101 Switching Protocols",
           "Upgrade: websocket",
           "Connection: Upgrade",
-          `Sec-WebSocket-Accept: ${digest}`
+          `Sec-WebSocket-Accept: ${digest3}`
         ];
         const ws = new this.options.WebSocket(null, void 0, this.options);
         if (protocols.size) {
@@ -15651,8 +15651,8 @@ var embedding_client_exports = {};
 __export(embedding_client_exports, {
   embed: () => embed
 });
-async function embed(text, opts) {
-  if (typeof text !== "string" || text.length === 0) {
+async function embed(text2, opts) {
+  if (typeof text2 !== "string" || text2.length === 0) {
     throw new Error("embed: empty text");
   }
   const url2 = opts?.url ?? process.env.VAULT_MIND_EMBED_URL ?? DEFAULT_URL;
@@ -15664,7 +15664,7 @@ async function embed(text, opts) {
     const res = await fetch(url2, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ input: text, model }),
+      body: JSON.stringify({ input: text2, model }),
       signal: ctrl.signal
     });
     if (!res.ok) {
@@ -15693,6 +15693,503 @@ var init_embedding_client = __esm({
     DEFAULT_URL = "http://localhost:11434/v1/embeddings";
     DEFAULT_MODEL2 = "bge-m3";
     DEFAULT_TIMEOUT_MS = 15e3;
+  }
+});
+
+// node_modules/isexe/windows.js
+var require_windows = __commonJS({
+  "node_modules/isexe/windows.js"(exports, module) {
+    module.exports = isexe;
+    isexe.sync = sync;
+    var fs = __require("fs");
+    function checkPathExt(path, options) {
+      var pathext = options.pathExt !== void 0 ? options.pathExt : process.env.PATHEXT;
+      if (!pathext) {
+        return true;
+      }
+      pathext = pathext.split(";");
+      if (pathext.indexOf("") !== -1) {
+        return true;
+      }
+      for (var i = 0; i < pathext.length; i++) {
+        var p = pathext[i].toLowerCase();
+        if (p && path.substr(-p.length).toLowerCase() === p) {
+          return true;
+        }
+      }
+      return false;
+    }
+    function checkStat(stat6, path, options) {
+      if (!stat6.isSymbolicLink() && !stat6.isFile()) {
+        return false;
+      }
+      return checkPathExt(path, options);
+    }
+    function isexe(path, options, cb) {
+      fs.stat(path, function(er, stat6) {
+        cb(er, er ? false : checkStat(stat6, path, options));
+      });
+    }
+    function sync(path, options) {
+      return checkStat(fs.statSync(path), path, options);
+    }
+  }
+});
+
+// node_modules/isexe/mode.js
+var require_mode = __commonJS({
+  "node_modules/isexe/mode.js"(exports, module) {
+    module.exports = isexe;
+    isexe.sync = sync;
+    var fs = __require("fs");
+    function isexe(path, options, cb) {
+      fs.stat(path, function(er, stat6) {
+        cb(er, er ? false : checkStat(stat6, options));
+      });
+    }
+    function sync(path, options) {
+      return checkStat(fs.statSync(path), options);
+    }
+    function checkStat(stat6, options) {
+      return stat6.isFile() && checkMode(stat6, options);
+    }
+    function checkMode(stat6, options) {
+      var mod = stat6.mode;
+      var uid = stat6.uid;
+      var gid = stat6.gid;
+      var myUid = options.uid !== void 0 ? options.uid : process.getuid && process.getuid();
+      var myGid = options.gid !== void 0 ? options.gid : process.getgid && process.getgid();
+      var u = parseInt("100", 8);
+      var g = parseInt("010", 8);
+      var o = parseInt("001", 8);
+      var ug = u | g;
+      var ret = mod & o || mod & g && gid === myGid || mod & u && uid === myUid || mod & ug && myUid === 0;
+      return ret;
+    }
+  }
+});
+
+// node_modules/isexe/index.js
+var require_isexe = __commonJS({
+  "node_modules/isexe/index.js"(exports, module) {
+    var fs = __require("fs");
+    var core;
+    if (process.platform === "win32" || global.TESTING_WINDOWS) {
+      core = require_windows();
+    } else {
+      core = require_mode();
+    }
+    module.exports = isexe;
+    isexe.sync = sync;
+    function isexe(path, options, cb) {
+      if (typeof options === "function") {
+        cb = options;
+        options = {};
+      }
+      if (!cb) {
+        if (typeof Promise !== "function") {
+          throw new TypeError("callback not provided");
+        }
+        return new Promise(function(resolve9, reject) {
+          isexe(path, options || {}, function(er, is) {
+            if (er) {
+              reject(er);
+            } else {
+              resolve9(is);
+            }
+          });
+        });
+      }
+      core(path, options || {}, function(er, is) {
+        if (er) {
+          if (er.code === "EACCES" || options && options.ignoreErrors) {
+            er = null;
+            is = false;
+          }
+        }
+        cb(er, is);
+      });
+    }
+    function sync(path, options) {
+      try {
+        return core.sync(path, options || {});
+      } catch (er) {
+        if (options && options.ignoreErrors || er.code === "EACCES") {
+          return false;
+        } else {
+          throw er;
+        }
+      }
+    }
+  }
+});
+
+// node_modules/which/which.js
+var require_which = __commonJS({
+  "node_modules/which/which.js"(exports, module) {
+    var isWindows = process.platform === "win32" || process.env.OSTYPE === "cygwin" || process.env.OSTYPE === "msys";
+    var path = __require("path");
+    var COLON = isWindows ? ";" : ":";
+    var isexe = require_isexe();
+    var getNotFoundError = (cmd) => Object.assign(new Error(`not found: ${cmd}`), { code: "ENOENT" });
+    var getPathInfo = (cmd, opt) => {
+      const colon = opt.colon || COLON;
+      const pathEnv = cmd.match(/\//) || isWindows && cmd.match(/\\/) ? [""] : [
+        // windows always checks the cwd first
+        ...isWindows ? [process.cwd()] : [],
+        ...(opt.path || process.env.PATH || /* istanbul ignore next: very unusual */
+        "").split(colon)
+      ];
+      const pathExtExe = isWindows ? opt.pathExt || process.env.PATHEXT || ".EXE;.CMD;.BAT;.COM" : "";
+      const pathExt = isWindows ? pathExtExe.split(colon) : [""];
+      if (isWindows) {
+        if (cmd.indexOf(".") !== -1 && pathExt[0] !== "")
+          pathExt.unshift("");
+      }
+      return {
+        pathEnv,
+        pathExt,
+        pathExtExe
+      };
+    };
+    var which = (cmd, opt, cb) => {
+      if (typeof opt === "function") {
+        cb = opt;
+        opt = {};
+      }
+      if (!opt)
+        opt = {};
+      const { pathEnv, pathExt, pathExtExe } = getPathInfo(cmd, opt);
+      const found = [];
+      const step = (i) => new Promise((resolve9, reject) => {
+        if (i === pathEnv.length)
+          return opt.all && found.length ? resolve9(found) : reject(getNotFoundError(cmd));
+        const ppRaw = pathEnv[i];
+        const pathPart = /^".*"$/.test(ppRaw) ? ppRaw.slice(1, -1) : ppRaw;
+        const pCmd = path.join(pathPart, cmd);
+        const p = !pathPart && /^\.[\\\/]/.test(cmd) ? cmd.slice(0, 2) + pCmd : pCmd;
+        resolve9(subStep(p, i, 0));
+      });
+      const subStep = (p, i, ii) => new Promise((resolve9, reject) => {
+        if (ii === pathExt.length)
+          return resolve9(step(i + 1));
+        const ext = pathExt[ii];
+        isexe(p + ext, { pathExt: pathExtExe }, (er, is) => {
+          if (!er && is) {
+            if (opt.all)
+              found.push(p + ext);
+            else
+              return resolve9(p + ext);
+          }
+          return resolve9(subStep(p, i, ii + 1));
+        });
+      });
+      return cb ? step(0).then((res) => cb(null, res), cb) : step(0);
+    };
+    var whichSync = (cmd, opt) => {
+      opt = opt || {};
+      const { pathEnv, pathExt, pathExtExe } = getPathInfo(cmd, opt);
+      const found = [];
+      for (let i = 0; i < pathEnv.length; i++) {
+        const ppRaw = pathEnv[i];
+        const pathPart = /^".*"$/.test(ppRaw) ? ppRaw.slice(1, -1) : ppRaw;
+        const pCmd = path.join(pathPart, cmd);
+        const p = !pathPart && /^\.[\\\/]/.test(cmd) ? cmd.slice(0, 2) + pCmd : pCmd;
+        for (let j = 0; j < pathExt.length; j++) {
+          const cur = p + pathExt[j];
+          try {
+            const is = isexe.sync(cur, { pathExt: pathExtExe });
+            if (is) {
+              if (opt.all)
+                found.push(cur);
+              else
+                return cur;
+            }
+          } catch (ex) {
+          }
+        }
+      }
+      if (opt.all && found.length)
+        return found;
+      if (opt.nothrow)
+        return null;
+      throw getNotFoundError(cmd);
+    };
+    module.exports = which;
+    which.sync = whichSync;
+  }
+});
+
+// node_modules/path-key/index.js
+var require_path_key = __commonJS({
+  "node_modules/path-key/index.js"(exports, module) {
+    "use strict";
+    var pathKey = (options = {}) => {
+      const environment = options.env || process.env;
+      const platform2 = options.platform || process.platform;
+      if (platform2 !== "win32") {
+        return "PATH";
+      }
+      return Object.keys(environment).reverse().find((key) => key.toUpperCase() === "PATH") || "Path";
+    };
+    module.exports = pathKey;
+    module.exports.default = pathKey;
+  }
+});
+
+// node_modules/cross-spawn/lib/util/resolveCommand.js
+var require_resolveCommand = __commonJS({
+  "node_modules/cross-spawn/lib/util/resolveCommand.js"(exports, module) {
+    "use strict";
+    var path = __require("path");
+    var which = require_which();
+    var getPathKey = require_path_key();
+    function resolveCommandAttempt(parsed, withoutPathExt) {
+      const env = parsed.options.env || process.env;
+      const cwd = process.cwd();
+      const hasCustomCwd = parsed.options.cwd != null;
+      const shouldSwitchCwd = hasCustomCwd && process.chdir !== void 0 && !process.chdir.disabled;
+      if (shouldSwitchCwd) {
+        try {
+          process.chdir(parsed.options.cwd);
+        } catch (err2) {
+        }
+      }
+      let resolved;
+      try {
+        resolved = which.sync(parsed.command, {
+          path: env[getPathKey({ env })],
+          pathExt: withoutPathExt ? path.delimiter : void 0
+        });
+      } catch (e) {
+      } finally {
+        if (shouldSwitchCwd) {
+          process.chdir(cwd);
+        }
+      }
+      if (resolved) {
+        resolved = path.resolve(hasCustomCwd ? parsed.options.cwd : "", resolved);
+      }
+      return resolved;
+    }
+    function resolveCommand(parsed) {
+      return resolveCommandAttempt(parsed) || resolveCommandAttempt(parsed, true);
+    }
+    module.exports = resolveCommand;
+  }
+});
+
+// node_modules/cross-spawn/lib/util/escape.js
+var require_escape = __commonJS({
+  "node_modules/cross-spawn/lib/util/escape.js"(exports, module) {
+    "use strict";
+    var metaCharsRegExp = /([()\][%!^"`<>&|;, *?])/g;
+    function escapeCommand(arg) {
+      arg = arg.replace(metaCharsRegExp, "^$1");
+      return arg;
+    }
+    function escapeArgument(arg, doubleEscapeMetaChars) {
+      arg = `${arg}`;
+      arg = arg.replace(/(?=(\\+?)?)\1"/g, '$1$1\\"');
+      arg = arg.replace(/(?=(\\+?)?)\1$/, "$1$1");
+      arg = `"${arg}"`;
+      arg = arg.replace(metaCharsRegExp, "^$1");
+      if (doubleEscapeMetaChars) {
+        arg = arg.replace(metaCharsRegExp, "^$1");
+      }
+      return arg;
+    }
+    module.exports.command = escapeCommand;
+    module.exports.argument = escapeArgument;
+  }
+});
+
+// node_modules/shebang-regex/index.js
+var require_shebang_regex = __commonJS({
+  "node_modules/shebang-regex/index.js"(exports, module) {
+    "use strict";
+    module.exports = /^#!(.*)/;
+  }
+});
+
+// node_modules/shebang-command/index.js
+var require_shebang_command = __commonJS({
+  "node_modules/shebang-command/index.js"(exports, module) {
+    "use strict";
+    var shebangRegex = require_shebang_regex();
+    module.exports = (string6 = "") => {
+      const match = string6.match(shebangRegex);
+      if (!match) {
+        return null;
+      }
+      const [path, argument] = match[0].replace(/#! ?/, "").split(" ");
+      const binary = path.split("/").pop();
+      if (binary === "env") {
+        return argument;
+      }
+      return argument ? `${binary} ${argument}` : binary;
+    };
+  }
+});
+
+// node_modules/cross-spawn/lib/util/readShebang.js
+var require_readShebang = __commonJS({
+  "node_modules/cross-spawn/lib/util/readShebang.js"(exports, module) {
+    "use strict";
+    var fs = __require("fs");
+    var shebangCommand = require_shebang_command();
+    function readShebang(command) {
+      const size = 150;
+      const buffer = Buffer.alloc(size);
+      let fd;
+      try {
+        fd = fs.openSync(command, "r");
+        fs.readSync(fd, buffer, 0, size, 0);
+        fs.closeSync(fd);
+      } catch (e) {
+      }
+      return shebangCommand(buffer.toString());
+    }
+    module.exports = readShebang;
+  }
+});
+
+// node_modules/cross-spawn/lib/parse.js
+var require_parse = __commonJS({
+  "node_modules/cross-spawn/lib/parse.js"(exports, module) {
+    "use strict";
+    var path = __require("path");
+    var resolveCommand = require_resolveCommand();
+    var escape2 = require_escape();
+    var readShebang = require_readShebang();
+    var isWin = process.platform === "win32";
+    var isExecutableRegExp = /\.(?:com|exe)$/i;
+    var isCmdShimRegExp = /node_modules[\\/].bin[\\/][^\\/]+\.cmd$/i;
+    function detectShebang(parsed) {
+      parsed.file = resolveCommand(parsed);
+      const shebang = parsed.file && readShebang(parsed.file);
+      if (shebang) {
+        parsed.args.unshift(parsed.file);
+        parsed.command = shebang;
+        return resolveCommand(parsed);
+      }
+      return parsed.file;
+    }
+    function parseNonShell(parsed) {
+      if (!isWin) {
+        return parsed;
+      }
+      const commandFile = detectShebang(parsed);
+      const needsShell = !isExecutableRegExp.test(commandFile);
+      if (parsed.options.forceShell || needsShell) {
+        const needsDoubleEscapeMetaChars = isCmdShimRegExp.test(commandFile);
+        parsed.command = path.normalize(parsed.command);
+        parsed.command = escape2.command(parsed.command);
+        parsed.args = parsed.args.map((arg) => escape2.argument(arg, needsDoubleEscapeMetaChars));
+        const shellCommand = [parsed.command].concat(parsed.args).join(" ");
+        parsed.args = ["/d", "/s", "/c", `"${shellCommand}"`];
+        parsed.command = process.env.comspec || "cmd.exe";
+        parsed.options.windowsVerbatimArguments = true;
+      }
+      return parsed;
+    }
+    function parse3(command, args, options) {
+      if (args && !Array.isArray(args)) {
+        options = args;
+        args = null;
+      }
+      args = args ? args.slice(0) : [];
+      options = Object.assign({}, options);
+      const parsed = {
+        command,
+        args,
+        options,
+        file: void 0,
+        original: {
+          command,
+          args
+        }
+      };
+      return options.shell ? parsed : parseNonShell(parsed);
+    }
+    module.exports = parse3;
+  }
+});
+
+// node_modules/cross-spawn/lib/enoent.js
+var require_enoent = __commonJS({
+  "node_modules/cross-spawn/lib/enoent.js"(exports, module) {
+    "use strict";
+    var isWin = process.platform === "win32";
+    function notFoundError(original, syscall) {
+      return Object.assign(new Error(`${syscall} ${original.command} ENOENT`), {
+        code: "ENOENT",
+        errno: "ENOENT",
+        syscall: `${syscall} ${original.command}`,
+        path: original.command,
+        spawnargs: original.args
+      });
+    }
+    function hookChildProcess(cp, parsed) {
+      if (!isWin) {
+        return;
+      }
+      const originalEmit = cp.emit;
+      cp.emit = function(name, arg1) {
+        if (name === "exit") {
+          const err2 = verifyENOENT(arg1, parsed);
+          if (err2) {
+            return originalEmit.call(cp, "error", err2);
+          }
+        }
+        return originalEmit.apply(cp, arguments);
+      };
+    }
+    function verifyENOENT(status, parsed) {
+      if (isWin && status === 1 && !parsed.file) {
+        return notFoundError(parsed.original, "spawn");
+      }
+      return null;
+    }
+    function verifyENOENTSync(status, parsed) {
+      if (isWin && status === 1 && !parsed.file) {
+        return notFoundError(parsed.original, "spawnSync");
+      }
+      return null;
+    }
+    module.exports = {
+      hookChildProcess,
+      verifyENOENT,
+      verifyENOENTSync,
+      notFoundError
+    };
+  }
+});
+
+// node_modules/cross-spawn/index.js
+var require_cross_spawn = __commonJS({
+  "node_modules/cross-spawn/index.js"(exports, module) {
+    "use strict";
+    var cp = __require("child_process");
+    var parse3 = require_parse();
+    var enoent = require_enoent();
+    function spawn4(command, args, options) {
+      const parsed = parse3(command, args, options);
+      const spawned = cp.spawn(parsed.command, parsed.args, parsed.options);
+      enoent.hookChildProcess(spawned, parsed);
+      return spawned;
+    }
+    function spawnSync3(command, args, options) {
+      const parsed = parse3(command, args, options);
+      const result = cp.spawnSync(parsed.command, parsed.args, parsed.options);
+      result.error = result.error || enoent.verifyENOENTSync(result.status, parsed);
+      return result;
+    }
+    module.exports = spawn4;
+    module.exports.spawn = spawn4;
+    module.exports.sync = spawnSync3;
+    module.exports._parse = parse3;
+    module.exports._enoent = enoent;
   }
 });
 
@@ -16056,15 +16553,15 @@ function getErrorMap() {
 // node_modules/zod/v3/helpers/parseUtil.js
 var makeIssue = (params) => {
   const { data, path, errorMaps, issueData } = params;
-  const fullPath = [...path, ...issueData.path || []];
+  const fullPath2 = [...path, ...issueData.path || []];
   const fullIssue = {
     ...issueData,
-    path: fullPath
+    path: fullPath2
   };
   if (issueData.message !== void 0) {
     return {
       ...issueData,
-      path: fullPath,
+      path: fullPath2,
       message: issueData.message
     };
   }
@@ -16075,7 +16572,7 @@ var makeIssue = (params) => {
   }
   return {
     ...issueData,
-    path: fullPath,
+    path: fullPath2,
     message: errorMessage
   };
 };
@@ -22365,46 +22862,46 @@ var $ZodObjectJIT = /* @__PURE__ */ $constructor("$ZodObjectJIT", (inst, def) =>
     }
     doc.write(`const newResult = {};`);
     for (const key of normalized.keys) {
-      const id = ids[key];
+      const id2 = ids[key];
       const k = esc(key);
       const schema = shape[key];
       const isOptionalOut = schema?._zod?.optout === "optional";
-      doc.write(`const ${id} = ${parseStr(key)};`);
+      doc.write(`const ${id2} = ${parseStr(key)};`);
       if (isOptionalOut) {
         doc.write(`
-        if (${id}.issues.length) {
+        if (${id2}.issues.length) {
           if (${k} in input) {
-            payload.issues = payload.issues.concat(${id}.issues.map(iss => ({
+            payload.issues = payload.issues.concat(${id2}.issues.map(iss => ({
               ...iss,
               path: iss.path ? [${k}, ...iss.path] : [${k}]
             })));
           }
         }
         
-        if (${id}.value === undefined) {
+        if (${id2}.value === undefined) {
           if (${k} in input) {
             newResult[${k}] = undefined;
           }
         } else {
-          newResult[${k}] = ${id}.value;
+          newResult[${k}] = ${id2}.value;
         }
         
       `);
       } else {
         doc.write(`
-        if (${id}.issues.length) {
-          payload.issues = payload.issues.concat(${id}.issues.map(iss => ({
+        if (${id2}.issues.length) {
+          payload.issues = payload.issues.concat(${id2}.issues.map(iss => ({
             ...iss,
             path: iss.path ? [${k}, ...iss.path] : [${k}]
           })));
         }
         
-        if (${id}.value === undefined) {
+        if (${id2}.value === undefined) {
           if (${k} in input) {
             newResult[${k}] = undefined;
           }
         } else {
-          newResult[${k}] = ${id}.value;
+          newResult[${k}] = ${id2}.value;
         }
         
       `);
@@ -26563,8 +27060,8 @@ function ko_default() {
 }
 
 // node_modules/zod/v4/locales/lt.js
-var capitalizeFirstCharacter = (text) => {
-  return text.charAt(0).toUpperCase() + text.slice(1);
+var capitalizeFirstCharacter = (text2) => {
+  return text2.charAt(0).toUpperCase() + text2.slice(1);
 };
 function getUnitTypeFromNumber(number4) {
   const abs = Math.abs(number4);
@@ -30295,26 +30792,26 @@ function extractDefs(ctx, schema) {
     throw new Error("Unprocessed schema. This is a bug in Zod.");
   const idToSchema = /* @__PURE__ */ new Map();
   for (const entry of ctx.seen.entries()) {
-    const id = ctx.metadataRegistry.get(entry[0])?.id;
-    if (id) {
-      const existing = idToSchema.get(id);
+    const id2 = ctx.metadataRegistry.get(entry[0])?.id;
+    if (id2) {
+      const existing = idToSchema.get(id2);
       if (existing && existing !== entry[0]) {
-        throw new Error(`Duplicate schema id "${id}" detected during JSON Schema conversion. Two different schemas cannot share the same id when converted together.`);
+        throw new Error(`Duplicate schema id "${id2}" detected during JSON Schema conversion. Two different schemas cannot share the same id when converted together.`);
       }
-      idToSchema.set(id, entry[0]);
+      idToSchema.set(id2, entry[0]);
     }
   }
   const makeURI = (entry) => {
     const defsSegment = ctx.target === "draft-2020-12" ? "$defs" : "definitions";
     if (ctx.external) {
       const externalId = ctx.external.registry.get(entry[0])?.id;
-      const uriGenerator = ctx.external.uri ?? ((id2) => id2);
+      const uriGenerator = ctx.external.uri ?? ((id3) => id3);
       if (externalId) {
         return { ref: uriGenerator(externalId) };
       }
-      const id = entry[1].defId ?? entry[1].schema.id ?? `schema${ctx.counter++}`;
-      entry[1].defId = id;
-      return { defId: id, ref: `${uriGenerator("__shared")}#/${defsSegment}/${id}` };
+      const id2 = entry[1].defId ?? entry[1].schema.id ?? `schema${ctx.counter++}`;
+      entry[1].defId = id2;
+      return { defId: id2, ref: `${uriGenerator("__shared")}#/${defsSegment}/${id2}` };
     }
     if (entry[1] === root) {
       return { ref: "#" };
@@ -30362,8 +30859,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         continue;
       }
     }
-    const id = ctx.metadataRegistry.get(entry[0])?.id;
-    if (id) {
+    const id2 = ctx.metadataRegistry.get(entry[0])?.id;
+    if (id2) {
       extractToDef(entry);
       continue;
     }
@@ -30459,10 +30956,10 @@ function finalize(ctx, schema) {
   } else {
   }
   if (ctx.external?.uri) {
-    const id = ctx.external.registry.get(schema)?.id;
-    if (!id)
+    const id2 = ctx.external.registry.get(schema)?.id;
+    if (!id2)
       throw new Error("Schema is missing an `id` property");
-    result.$id = ctx.external.uri(id);
+    result.$id = ctx.external.uri(id2);
   }
   Object.assign(result, root.def ?? root.schema);
   const defs = ctx.external?.defs ?? {};
@@ -33929,6 +34426,7 @@ var InitializedNotificationSchema = NotificationSchema.extend({
   method: literal("notifications/initialized"),
   params: NotificationsParamsSchema.optional()
 });
+var isInitializedNotification = (value) => InitializedNotificationSchema.safeParse(value).success;
 var PingRequestSchema = RequestSchema.extend({
   method: literal("ping"),
   params: BaseRequestParamsSchema.optional()
@@ -36890,7 +37388,7 @@ var Protocol = class {
           return;
         }
         const pollInterval = task2.pollInterval ?? this._options?.defaultTaskPollInterval ?? 1e3;
-        await new Promise((resolve8) => setTimeout(resolve8, pollInterval));
+        await new Promise((resolve9) => setTimeout(resolve9, pollInterval));
         options?.signal?.throwIfAborted();
       }
     } catch (error48) {
@@ -36907,7 +37405,7 @@ var Protocol = class {
    */
   request(request, resultSchema, options) {
     const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options ?? {};
-    return new Promise((resolve8, reject) => {
+    return new Promise((resolve9, reject) => {
       const earlyReject = (error48) => {
         reject(error48);
       };
@@ -36985,7 +37483,7 @@ var Protocol = class {
           if (!parseResult.success) {
             reject(parseResult.error);
           } else {
-            resolve8(parseResult.data);
+            resolve9(parseResult.data);
           }
         } catch (error48) {
           reject(error48);
@@ -37246,12 +37744,12 @@ var Protocol = class {
       }
     } catch {
     }
-    return new Promise((resolve8, reject) => {
+    return new Promise((resolve9, reject) => {
       if (signal.aborted) {
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
         return;
       }
-      const timeoutId = setTimeout(resolve8, interval);
+      const timeoutId = setTimeout(resolve9, interval);
       signal.addEventListener("abort", () => {
         clearTimeout(timeoutId);
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
@@ -37500,7 +37998,7 @@ var ExperimentalServerTasks = class {
       if (hasPreviousToolUse) {
         const toolUseIds = new Set(previousContent.filter((c) => c.type === "tool_use").map((c) => c.id));
         const toolResultIds = new Set(lastContent.filter((c) => c.type === "tool_result").map((c) => c.toolUseId));
-        if (toolUseIds.size !== toolResultIds.size || ![...toolUseIds].every((id) => toolResultIds.has(id))) {
+        if (toolUseIds.size !== toolResultIds.size || ![...toolUseIds].every((id2) => toolResultIds.has(id2))) {
           throw new Error("ids of tool_result blocks and tool_use blocks from previous message do not match");
         }
       }
@@ -37934,7 +38432,7 @@ var Server = class extends Protocol {
       if (hasPreviousToolUse) {
         const toolUseIds = new Set(previousContent.filter((c) => c.type === "tool_use").map((c) => c.id));
         const toolResultIds = new Set(lastContent.filter((c) => c.type === "tool_result").map((c) => c.toolUseId));
-        if (toolUseIds.size !== toolResultIds.size || ![...toolUseIds].every((id) => toolResultIds.has(id))) {
+        if (toolUseIds.size !== toolResultIds.size || ![...toolUseIds].every((id2) => toolResultIds.has(id2))) {
           throw new Error("ids of tool_result blocks and tool_use blocks from previous message do not match");
         }
       }
@@ -38351,7 +38849,7 @@ var McpServer = class {
     let task = createTaskResult.task;
     const pollInterval = task.pollInterval ?? 5e3;
     while (task.status !== "completed" && task.status !== "failed" && task.status !== "cancelled") {
-      await new Promise((resolve8) => setTimeout(resolve8, pollInterval));
+      await new Promise((resolve9) => setTimeout(resolve9, pollInterval));
       const updatedTask = await extra.taskStore.getTask(taskId);
       if (!updatedTask) {
         throw new McpError(ErrorCode.InternalError, `Task ${taskId} not found during polling`);
@@ -39000,12 +39498,12 @@ var StdioServerTransport = class {
     this.onclose?.();
   }
   send(message) {
-    return new Promise((resolve8) => {
+    return new Promise((resolve9) => {
       const json2 = serializeMessage(message);
       if (this._stdout.write(json2)) {
-        resolve8();
+        resolve9();
       } else {
-        this._stdout.once("drain", resolve8);
+        this._stdout.once("drain", resolve9);
       }
     });
   }
@@ -39039,6 +39537,9 @@ function conflict(message, data) {
 }
 function unsupported(message, data) {
   return makeErr(-32040, message, data);
+}
+function internal(message, data) {
+  return makeErr(-32603, message, data);
 }
 
 // dist/runtime/mcp-runtime.js
@@ -39149,8 +39650,8 @@ function formatInternalError(operationName, error48) {
 }
 
 // dist/index.js
-import { readFileSync as readFileSync20, existsSync as existsSync19, readdirSync as readdirSync12, statSync as statSync8, realpathSync, writeFileSync as writeFileSync9, appendFileSync as appendFileSync3, rmSync as rmSync5, renameSync as renameSync2, mkdirSync as mkdirSync11 } from "node:fs";
-import { resolve as resolve7, join as join23, basename as basename8, extname as extname2, relative as relative7, dirname as dirname12, posix, isAbsolute as pathIsAbsolute2 } from "node:path";
+import { readFileSync as readFileSync25, existsSync as existsSync24, readdirSync as readdirSync17, statSync as statSync9, realpathSync, writeFileSync as writeFileSync12, appendFileSync as appendFileSync3, rmSync as rmSync7, renameSync as renameSync4, mkdirSync as mkdirSync14 } from "node:fs";
+import { resolve as resolve8, join as join34, basename as basename12, extname as extname2, relative as relative9, dirname as dirname19, posix, isAbsolute as pathIsAbsolute2 } from "node:path";
 import { fileURLToPath as fileURLToPath3, pathToFileURL } from "node:url";
 
 // dist/adapters/filesystem.js
@@ -39211,15 +39712,15 @@ var FilesystemAdapter = class {
     }
   }
   async read(path) {
-    const fullPath = this.resolvePath(path);
-    return readFile(fullPath, "utf-8");
+    const fullPath2 = this.resolvePath(path);
+    return readFile(fullPath2, "utf-8");
   }
   async write(path, content, dryRun = false) {
-    const fullPath = this.resolvePath(path);
+    const fullPath2 = this.resolvePath(path);
     if (dryRun)
       return;
-    await mkdir(dirname(fullPath), { recursive: true });
-    await writeFile(fullPath, content, "utf-8");
+    await mkdir(dirname(fullPath2), { recursive: true });
+    await writeFile(fullPath2, content, "utf-8");
   }
   // --- Internal ---
   resolvePath(p) {
@@ -39273,12 +39774,12 @@ var FilesystemAdapter = class {
       const files = stdout.split(/\r?\n/).filter(Boolean).slice(0, opts?.maxResults ?? 20);
       const results = [];
       for (const file2 of files) {
-        const fullPath = isAbsolute(file2) ? file2 : resolve(file2);
-        const relPath = relative(this.vaultPath, fullPath);
+        const fullPath2 = isAbsolute(file2) ? file2 : resolve(file2);
+        const relPath = relative(this.vaultPath, fullPath2);
         if (relPath.startsWith("..") || isAbsolute(relPath))
           continue;
         try {
-          const content = await readFile(fullPath, "utf-8");
+          const content = await readFile(fullPath2, "utf-8");
           results.push({
             source: this.name,
             path: relPath.replace(/\\/g, "/"),
@@ -39321,8 +39822,8 @@ import { spawn } from "node:child_process";
 // dist/embedding/ollama.js
 var DEFAULT_BASE = "http://localhost:11434/v1";
 var DEFAULT_MODEL = "qwen3-embedding:0.6b";
-async function embedTextOllama(text, opts) {
-  if (!text || text.length === 0)
+async function embedTextOllama(text2, opts) {
+  if (!text2 || text2.length === 0)
     return [];
   const baseUrl = opts?.baseUrl ?? process.env.OLLAMA_EMBED_BASE_URL ?? DEFAULT_BASE;
   const model = opts?.model ?? process.env.OLLAMA_EMBED_MODEL ?? DEFAULT_MODEL;
@@ -39333,7 +39834,7 @@ async function embedTextOllama(text, opts) {
     const resp = await fetch(`${baseUrl}/embeddings`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ model, input: [text] }),
+      body: JSON.stringify({ model, input: [text2] }),
       signal: controller.signal
     });
     clearTimeout(t);
@@ -39363,11 +39864,44 @@ async function embedTextOllama(text, opts) {
 
 // dist/adapters/memu.js
 var { Pool: Pool2 } = esm_default;
-var DEFAULT_DSN = "postgresql://postgres:postgres@localhost:5432/memu";
-var DEFAULT_PYTHON = "D:/projects/_active/memu/.venv/Scripts/python.exe";
-var DEFAULT_MEMU_GRAPH_CWD = "D:/projects/_active/memu";
+var DEFAULT_DSN = "postgresql://localhost:5432/memu";
 var DEFAULT_GRAPH_RECALL_TIMEOUT_MS = 15e3;
-var DEFAULT_MEMU_SEARCH_PY = "D:/projects/_active/memu/scripts/memu_search.py";
+var DEFAULT_MEMU_SEARCH_PY = "memu_search.py";
+var DEFAULT_MEMU_SEARCH_TIMEOUT_MS = 2e4;
+function memuChildEnvironment(dsn) {
+  return {
+    ...process.env,
+    MEMU_DSN: dsn
+  };
+}
+function redactResolvedDsn(value, dsn) {
+  return dsn.length > 0 ? value.split(dsn).join("[redacted]") : value;
+}
+function pathPython(platform2) {
+  return platform2 === "win32" ? "python" : "python3";
+}
+function positiveEnvironmentNumber(environment, key, fallback) {
+  const raw = environment[key];
+  const parsed = raw === void 0 ? Number.NaN : Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+function resolveMemUAdapterConfig(config2 = {}, environment = {}, runtime = {}) {
+  const python = pathPython(runtime.platform ?? process.platform);
+  return {
+    dsn: config2.dsn ?? environment.MEMU_DSN ?? DEFAULT_DSN,
+    userId: config2.userId ?? environment.MEMU_USER_ID ?? "default",
+    maxResults: config2.maxResults ?? 20,
+    timeout: config2.timeout ?? 5e3,
+    excludeMemoryTypes: config2.excludeMemoryTypes ?? ["event"],
+    pythonExe: config2.pythonExe ?? environment.MEMU_GRAPH_PYTHON ?? python,
+    memuGraphCwd: config2.memuGraphCwd ?? environment.MEMU_GRAPH_CWD ?? runtime.cwd ?? process.cwd(),
+    graphRecallTimeoutMs: config2.graphRecallTimeoutMs ?? positiveEnvironmentNumber(environment, "MEMU_GRAPH_TIMEOUT_MS", DEFAULT_GRAPH_RECALL_TIMEOUT_MS),
+    memuSearchPy: config2.memuSearchPy ?? environment.MEMU_SEARCH_PY ?? DEFAULT_MEMU_SEARCH_PY,
+    memuSearchPythonExe: config2.memuSearchPythonExe ?? environment.MEMU_SEARCH_PYTHON ?? python,
+    memuSearchTimeoutMs: config2.memuSearchTimeoutMs ?? positiveEnvironmentNumber(environment, "MEMU_SEARCH_TIMEOUT_MS", DEFAULT_MEMU_SEARCH_TIMEOUT_MS),
+    embedModel: config2.embedModel ?? environment.OLLAMA_EMBED_MODEL ?? "bge-m3"
+  };
+}
 var MemUAdapter = class {
   name = "memu";
   capabilities = ["search", "embeddings"];
@@ -39388,21 +39922,20 @@ var MemUAdapter = class {
   get isAvailable() {
     return this.available;
   }
-  constructor(config2) {
-    this.dsn = config2?.dsn ?? process.env.MEMU_DSN ?? DEFAULT_DSN;
-    this.userId = config2?.userId ?? process.env.MEMU_USER_ID ?? "boris";
-    this.defaultMax = config2?.maxResults ?? 20;
-    this.timeout = config2?.timeout ?? 5e3;
-    this.excludeMemoryTypes = config2?.excludeMemoryTypes ?? ["event"];
-    this.pythonExe = config2?.pythonExe ?? process.env.MEMU_GRAPH_PYTHON ?? DEFAULT_PYTHON;
-    this.memuGraphCwd = config2?.memuGraphCwd ?? process.env.MEMU_GRAPH_CWD ?? DEFAULT_MEMU_GRAPH_CWD;
-    const envTimeout = process.env.MEMU_GRAPH_TIMEOUT_MS;
-    const envTimeoutNum = envTimeout ? Number(envTimeout) : NaN;
-    this.graphRecallTimeoutMs = config2?.graphRecallTimeoutMs ?? (Number.isFinite(envTimeoutNum) && envTimeoutNum > 0 ? envTimeoutNum : DEFAULT_GRAPH_RECALL_TIMEOUT_MS);
-    this.memuSearchPy = config2?.memuSearchPy ?? process.env.MEMU_SEARCH_PY ?? DEFAULT_MEMU_SEARCH_PY;
-    this.memuSearchPythonExe = config2?.memuSearchPythonExe ?? process.env.MEMU_SEARCH_PYTHON ?? "D:/projects/_active/memu/.venv/Scripts/python.exe";
-    this.memuSearchTimeoutMs = 2e4;
-    this.embedModel = config2?.embedModel ?? process.env.OLLAMA_EMBED_MODEL ?? "bge-m3";
+  constructor(config2 = {}) {
+    const resolved = resolveMemUAdapterConfig(config2, {});
+    this.dsn = resolved.dsn;
+    this.userId = resolved.userId;
+    this.defaultMax = resolved.maxResults;
+    this.timeout = resolved.timeout;
+    this.excludeMemoryTypes = resolved.excludeMemoryTypes;
+    this.pythonExe = resolved.pythonExe;
+    this.memuGraphCwd = resolved.memuGraphCwd;
+    this.graphRecallTimeoutMs = resolved.graphRecallTimeoutMs;
+    this.memuSearchPy = resolved.memuSearchPy;
+    this.memuSearchPythonExe = resolved.memuSearchPythonExe;
+    this.memuSearchTimeoutMs = resolved.memuSearchTimeoutMs;
+    this.embedModel = resolved.embedModel;
   }
   async init() {
     try {
@@ -39420,8 +39953,8 @@ var MemUAdapter = class {
       }
       this.available = true;
     } catch (err2) {
-      const msg = err2 instanceof Error ? err2.message : String(err2);
-      process.stderr.write(`obsidian-llm-wiki: [warn] memU PG unavailable (${msg}), adapter disabled
+      const kind = err2 instanceof Error ? err2.name : "Error";
+      process.stderr.write(`obsidian-llm-wiki: [warn] memU PG unavailable (${kind}), adapter disabled
 `);
       this.available = false;
       if (this.pool) {
@@ -39501,16 +40034,17 @@ var MemUAdapter = class {
         }
       }));
     } catch (err2) {
-      const msg = err2 instanceof Error ? err2.message : String(err2);
-      process.stderr.write(`obsidian-llm-wiki: [error] memU PG vector query (memory_items) failed: ${msg}
+      const kind = err2 instanceof Error ? err2.name : "Error";
+      process.stderr.write(`obsidian-llm-wiki: [error] memU PG vector query (memory_items) failed (${kind})
 `);
       return [];
     }
   }
   /**
-   * Spawn `python -m memu_graph.cli graph-recall --dsn <DSN>`, write JSON
-   * request to stdin, parse JSON from stdout. Kill on timeout. Returns null
-   * on any error (silent fail + stderr warn, mirrors adapter pattern).
+   * Spawn `python -m memu_graph.cli graph-recall` with the resolved DSN only in
+   * the device-local child environment, write JSON request to stdin, and parse
+   * JSON from stdout. Kill on timeout. Returns null on any error (silent fail +
+   * stderr warn, mirrors adapter pattern).
    */
   async runGraphRecall(query, queryVec, maxNodes) {
     const request = {
@@ -39518,12 +40052,12 @@ var MemUAdapter = class {
       query_vec: queryVec && queryVec.length === 1024 ? Array.from(queryVec) : null,
       max_nodes: maxNodes
     };
-    return new Promise((resolve8) => {
+    return new Promise((resolve9) => {
       let stdout = "";
-      let stderr = "";
       let settled = false;
-      const proc = spawn(this.pythonExe, ["-m", "memu_graph.cli", "graph-recall", "--dsn", this.dsn], {
+      const proc = spawn(this.pythonExe, ["-m", "memu_graph.cli", "graph-recall"], {
         cwd: this.memuGraphCwd,
+        env: memuChildEnvironment(this.dsn),
         windowsHide: true,
         stdio: ["pipe", "pipe", "pipe"]
       });
@@ -39534,22 +40068,21 @@ var MemUAdapter = class {
         proc.kill("SIGKILL");
         process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli timeout after ${this.graphRecallTimeoutMs}ms
 `);
-        resolve8(null);
+        resolve9(null);
       }, this.graphRecallTimeoutMs);
       proc.stdout.on("data", (d) => {
         stdout += d.toString("utf-8");
       });
-      proc.stderr.on("data", (d) => {
-        stderr += d.toString("utf-8");
+      proc.stderr.on("data", () => {
       });
       proc.on("error", (err2) => {
         if (settled)
           return;
         settled = true;
         clearTimeout(timer);
-        process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli spawn failed: ${err2.message}
+        process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli spawn failed: ${redactResolvedDsn(err2.message, this.dsn)}
 `);
-        resolve8(null);
+        resolve9(null);
       });
       proc.on("close", (code) => {
         if (settled)
@@ -39557,19 +40090,24 @@ var MemUAdapter = class {
         settled = true;
         clearTimeout(timer);
         if (code !== 0) {
-          process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli exit ${code}: ${stderr.slice(0, 400)}
+          process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli exit ${code}; stderr redacted
 `);
-          resolve8(null);
+          resolve9(null);
+          return;
+        }
+        if (this.dsn.length > 0 && stdout.includes(this.dsn)) {
+          process.stderr.write("obsidian-llm-wiki: [warn] memu_graph.cli stdout contained resolved DSN; output rejected\n");
+          resolve9(null);
           return;
         }
         try {
           const parsed = JSON.parse(stdout);
-          resolve8(parsed);
+          resolve9(parsed);
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli stdout JSON parse failed: ${msg}
 `);
-          resolve8(null);
+          resolve9(null);
         }
       });
       try {
@@ -39580,9 +40118,9 @@ var MemUAdapter = class {
         settled = true;
         clearTimeout(timer);
         const msg = e instanceof Error ? e.message : String(e);
-        process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli stdin write failed: ${msg}
+        process.stderr.write(`obsidian-llm-wiki: [warn] memu_graph.cli stdin write failed: ${redactResolvedDsn(msg, this.dsn)}
 `);
-        resolve8(null);
+        resolve9(null);
       }
     });
   }
@@ -39592,14 +40130,11 @@ var MemUAdapter = class {
    * unavailable or times out.
    */
   async runMemuSearchPy(query, vec, limit) {
-    return new Promise((resolve8) => {
+    return new Promise((resolve9) => {
       let stdout = "";
-      let stderr = "";
       let settled = false;
       const args = [
         this.memuSearchPy,
-        "--dsn",
-        this.dsn,
         "--limit",
         String(limit)
       ];
@@ -39610,10 +40145,12 @@ var MemUAdapter = class {
       } else if (vec) {
         args.push("--embed", JSON.stringify(Array.from(vec)));
       } else {
-        resolve8([]);
+        resolve9([]);
         return;
       }
       const proc = spawn(this.memuSearchPythonExe, args, {
+        cwd: this.memuGraphCwd,
+        env: memuChildEnvironment(this.dsn),
         windowsHide: true,
         stdio: ["pipe", "pipe", "pipe"]
       });
@@ -39624,22 +40161,21 @@ var MemUAdapter = class {
         proc.kill("SIGKILL");
         process.stderr.write(`obsidian-llm-wiki: [warn] memu_search.py timeout after ${this.memuSearchTimeoutMs}ms
 `);
-        resolve8([]);
+        resolve9([]);
       }, this.memuSearchTimeoutMs);
       proc.stdout.on("data", (d) => {
         stdout += d.toString("utf-8");
       });
-      proc.stderr.on("data", (d) => {
-        stderr += d.toString("utf-8");
+      proc.stderr.on("data", () => {
       });
       proc.on("error", (err2) => {
         if (settled)
           return;
         settled = true;
         clearTimeout(timer);
-        process.stderr.write(`obsidian-llm-wiki: [warn] memu_search.py spawn failed: ${err2.message}
+        process.stderr.write(`obsidian-llm-wiki: [warn] memu_search.py spawn failed: ${redactResolvedDsn(err2.message, this.dsn)}
 `);
-        resolve8([]);
+        resolve9([]);
       });
       proc.on("close", (code) => {
         if (settled)
@@ -39647,19 +40183,24 @@ var MemUAdapter = class {
         settled = true;
         clearTimeout(timer);
         if (code !== 0) {
-          process.stderr.write(`obsidian-llm-wiki: [warn] memu_search.py exit ${code}: ${stderr.slice(0, 300)}
+          process.stderr.write(`obsidian-llm-wiki: [warn] memu_search.py exit ${code}; stderr redacted
 `);
-          resolve8([]);
+          resolve9([]);
+          return;
+        }
+        if (this.dsn.length > 0 && stdout.includes(this.dsn)) {
+          process.stderr.write("obsidian-llm-wiki: [warn] memu_search.py stdout contained resolved DSN; output rejected\n");
+          resolve9([]);
           return;
         }
         try {
           const parsed = JSON.parse(stdout);
-          resolve8(this.mapMemuSearchPyResult(parsed));
+          resolve9(this.mapMemuSearchPyResult(parsed));
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           process.stderr.write(`obsidian-llm-wiki: [warn] memu_search.py stdout JSON parse failed: ${msg}
 `);
-          resolve8([]);
+          resolve9([]);
         }
       });
     });
@@ -39823,12 +40364,12 @@ var ObsidianAdapter = class {
       process.stderr.write("llmwiki: [warn] ~/.obsidian-ws-port not found -- obsidian adapter disabled\n");
       return;
     }
-    await new Promise((resolve8) => {
+    await new Promise((resolve9) => {
       const ws = new wrapper_default(`ws://127.0.0.1:${info.port}`);
       const connectTimer = setTimeout(() => {
         ws.terminate();
         process.stderr.write("llmwiki: [warn] obsidian WS connect timeout -- adapter disabled\n");
-        resolve8();
+        resolve9();
       }, CONNECT_TIMEOUT_MS);
       ws.once("open", async () => {
         clearTimeout(connectTimer);
@@ -39848,13 +40389,13 @@ var ObsidianAdapter = class {
           this.ws = null;
           ws.terminate();
         }
-        resolve8();
+        resolve9();
       });
       ws.once("error", (e) => {
         clearTimeout(connectTimer);
         process.stderr.write(`llmwiki: [warn] obsidian WS error: ${e.message} -- adapter disabled
 `);
-        resolve8();
+        resolve9();
       });
     });
   }
@@ -39865,8 +40406,8 @@ var ObsidianAdapter = class {
     if (this.ws) {
       const ws = this.ws;
       this.ws = null;
-      await new Promise((resolve8) => {
-        ws.once("close", resolve8);
+      await new Promise((resolve9) => {
+        ws.once("close", resolve9);
         ws.close();
       });
     }
@@ -39944,12 +40485,12 @@ var ObsidianAdapter = class {
         return;
       }
       if (msg.id !== void 0 && msg.id !== null) {
-        const id = msg.id;
-        const p = this.pending.get(id);
+        const id2 = msg.id;
+        const p = this.pending.get(id2);
         if (!p)
           return;
         clearTimeout(p.timer);
-        this.pending.delete(id);
+        this.pending.delete(id2);
         if (msg.error) {
           const e = msg.error;
           p.reject(new Error(`RPC error ${e.code}: ${e.message}`));
@@ -39983,21 +40524,21 @@ var ObsidianAdapter = class {
       cb(event);
   }
   call(method, params) {
-    return new Promise((resolve8, reject) => {
+    return new Promise((resolve9, reject) => {
       if (!this.ws || this.ws.readyState !== wrapper_default.OPEN) {
         reject(new Error("WebSocket not connected"));
         return;
       }
-      const id = ++this.reqId;
+      const id2 = ++this.reqId;
       const timer = setTimeout(() => {
-        this.pending.delete(id);
+        this.pending.delete(id2);
         reject(new Error(`RPC timeout: ${method} (${this.timeout}ms)`));
       }, this.timeout);
-      this.pending.set(id, { resolve: resolve8, reject, timer });
-      this.ws.send(JSON.stringify({ jsonrpc: "2.0", id, method, params }), (e) => {
+      this.pending.set(id2, { resolve: resolve9, reject, timer });
+      this.ws.send(JSON.stringify({ jsonrpc: "2.0", id: id2, method, params }), (e) => {
         if (e) {
           clearTimeout(timer);
-          this.pending.delete(id);
+          this.pending.delete(id2);
           reject(e);
         }
       });
@@ -40067,7 +40608,7 @@ var KanbanAdapter = class {
   available = false;
   constructor(config2) {
     this.vaultPath = config2.vaultPath;
-    this.glob = config2.glob ?? process.env.VAULT_MIND_KANBAN_GLOB ?? DEFAULT_GLOB;
+    this.glob = config2.glob ?? DEFAULT_GLOB;
   }
   get isAvailable() {
     return this.available;
@@ -40135,10 +40676,10 @@ var KanbanAdapter = class {
     }
     return results.slice(0, maxResults);
   }
-  matches(text, query, caseSensitive) {
+  matches(text2, query, caseSensitive) {
     if (!query)
       return false;
-    return (caseSensitive ? text : text.toLowerCase()).includes(query);
+    return (caseSensitive ? text2 : text2.toLowerCase()).includes(query);
   }
   walkMarkdown() {
     const files = [];
@@ -40233,12 +40774,12 @@ var QmdAdapter = class {
   async dispose() {
   }
   runQmd(args) {
-    return new Promise((resolve8) => {
+    return new Promise((resolve9) => {
       let proc;
       try {
         proc = spawn2(this.binary, [...this.binaryArgs, ...args], { stdio: ["ignore", "pipe", "pipe"] });
       } catch {
-        resolve8({ stdout: "", stderr: "spawn failed synchronously", code: -1 });
+        resolve9({ stdout: "", stderr: "spawn failed synchronously", code: -1 });
         return;
       }
       let stdout = "";
@@ -40250,10 +40791,10 @@ var QmdAdapter = class {
         stderr += d.toString("utf-8");
       });
       proc.on("error", () => {
-        resolve8({ stdout, stderr: stderr || "spawn error", code: -1 });
+        resolve9({ stdout, stderr: stderr || "spawn error", code: -1 });
       });
       proc.on("close", (code) => {
-        resolve8({ stdout, stderr, code: code ?? -1 });
+        resolve9({ stdout, stderr, code: code ?? -1 });
       });
     });
   }
@@ -40274,15 +40815,15 @@ var LightRAGAdapter = class {
   documentsTextPath;
   documentsUploadPath;
   fetchImpl;
-  constructor(opts) {
-    this.baseUrl = normalizeBaseUrl(opts?.baseUrl ?? process.env.LIGHTRAG_URL);
-    this.apiKey = opts?.apiKey ?? process.env.LIGHTRAG_API_KEY;
-    this.mode = opts?.mode ?? process.env.LIGHTRAG_MODE ?? "hybrid";
-    this.queryPath = normalizePath(opts?.queryPath ?? process.env.LIGHTRAG_QUERY_PATH ?? "/query");
-    this.queryDataPath = normalizePath(opts?.queryDataPath ?? process.env.LIGHTRAG_QUERY_DATA_PATH ?? "/query/data");
-    this.documentsTextPath = normalizePath(opts?.documentsTextPath ?? process.env.LIGHTRAG_DOCUMENTS_TEXT_PATH ?? "/documents/text");
-    this.documentsUploadPath = normalizePath(opts?.documentsUploadPath ?? process.env.LIGHTRAG_DOCUMENTS_UPLOAD_PATH ?? "/documents/upload");
-    this.fetchImpl = opts?.fetchImpl ?? fetch;
+  constructor(opts = {}) {
+    this.baseUrl = normalizeBaseUrl(opts.baseUrl);
+    this.apiKey = opts.apiKey;
+    this.mode = opts.mode ?? "hybrid";
+    this.queryPath = normalizePath(opts.queryPath ?? "/query");
+    this.queryDataPath = normalizePath(opts.queryDataPath ?? "/query/data");
+    this.documentsTextPath = normalizePath(opts.documentsTextPath ?? "/documents/text");
+    this.documentsUploadPath = normalizePath(opts.documentsUploadPath ?? "/documents/upload");
+    this.fetchImpl = opts.fetchImpl ?? fetch;
   }
   get isAvailable() {
     return this._available;
@@ -40290,7 +40831,7 @@ var LightRAGAdapter = class {
   async init() {
     if (!this.baseUrl) {
       this._available = false;
-      process.stderr.write("llmwiki: [lightrag] LIGHTRAG_URL not set -- adapter disabled\n");
+      process.stderr.write("llmwiki: [lightrag] base URL not configured -- adapter disabled\n");
       return;
     }
     try {
@@ -40391,13 +40932,13 @@ var LightRAGAdapter = class {
       if (!res.ok)
         return [];
       const body = await res.json();
-      const text = typeof body.response === "string" ? body.response : typeof body.result === "string" ? body.result : "";
-      if (!text)
+      const text2 = typeof body.response === "string" ? body.response : typeof body.result === "string" ? body.result : "";
+      if (!text2)
         return [];
       return [{
         source: this.name,
         path: "lightrag:/query",
-        content: text,
+        content: text2,
         score: 1,
         metadata: { mode: this.mode }
       }];
@@ -40412,16 +40953,16 @@ var LightRAGAdapter = class {
       const c = raw;
       const filePath = typeof c.file_path === "string" ? c.file_path : void 0;
       const docId = typeof c.full_doc_id === "string" ? c.full_doc_id : void 0;
-      const id = typeof c.id === "string" ? c.id : void 0;
+      const id2 = typeof c.id === "string" ? c.id : void 0;
       const content = typeof c.content === "string" ? c.content : JSON.stringify(raw);
       const score = typeof c.score === "number" ? c.score : 1 / (index + 1);
       return {
         source: this.name,
-        path: filePath ?? docId ?? id ?? `lightrag:/chunk/${index}`,
+        path: filePath ?? docId ?? id2 ?? `lightrag:/chunk/${index}`,
         content,
         score,
         metadata: {
-          id,
+          id: id2,
           fullDocId: docId,
           filePath,
           chunkOrderIndex: c.chunk_order_index,
@@ -40477,12 +41018,12 @@ var RAGAnythingAdapter = class {
   queryPath;
   processPath;
   fetchImpl;
-  constructor(opts) {
-    this.baseUrl = normalizeBaseUrl2(opts?.baseUrl ?? process.env.RAGANYTHING_URL);
-    this.apiKey = opts?.apiKey ?? process.env.RAGANYTHING_API_KEY;
-    this.queryPath = normalizePath2(opts?.queryPath ?? process.env.RAGANYTHING_QUERY_PATH ?? "/query");
-    this.processPath = normalizePath2(opts?.processPath ?? process.env.RAGANYTHING_PROCESS_PATH ?? "/process_document");
-    this.fetchImpl = opts?.fetchImpl ?? fetch;
+  constructor(opts = {}) {
+    this.baseUrl = normalizeBaseUrl2(opts.baseUrl);
+    this.apiKey = opts.apiKey;
+    this.queryPath = normalizePath2(opts.queryPath ?? "/query");
+    this.processPath = normalizePath2(opts.processPath ?? "/process_document");
+    this.fetchImpl = opts.fetchImpl ?? fetch;
   }
   get isAvailable() {
     return this._available;
@@ -40490,7 +41031,7 @@ var RAGAnythingAdapter = class {
   async init() {
     if (!this.baseUrl) {
       this._available = false;
-      process.stderr.write("llmwiki: [raganything] RAGANYTHING_URL not set -- adapter disabled\n");
+      process.stderr.write("llmwiki: [raganything] base URL not configured -- adapter disabled\n");
       return;
     }
     try {
@@ -40566,16 +41107,16 @@ var RAGAnythingAdapter = class {
         const c = raw;
         const filePath = stringValue2(c.file_path) ?? stringValue2(c.filePath) ?? stringValue2(c.source);
         const docId = stringValue2(c.doc_id) ?? stringValue2(c.docId);
-        const id = stringValue2(c.id);
+        const id2 = stringValue2(c.id);
         const content = stringValue2(c.content) ?? stringValue2(c.text) ?? stringValue2(c.markdown) ?? JSON.stringify(raw);
         const score = numberValue(c.score) ?? 1 / (index + 1);
         return {
           source: this.name,
-          path: filePath ?? docId ?? id ?? `raganything:/chunk/${index}`,
+          path: filePath ?? docId ?? id2 ?? `raganything:/chunk/${index}`,
           content,
           score,
           metadata: {
-            id,
+            id: id2,
             docId,
             filePath,
             page: c.page_idx ?? c.page,
@@ -40633,13 +41174,115 @@ function contentListToMarkdown(contentList) {
     const type = stringValue2(item.type) ?? "block";
     const page = item.page_idx ?? item.page;
     const prefix = page === void 0 ? `<!-- ${type} -->` : `<!-- ${type} page=${page} -->`;
-    const text = stringValue2(item.text) ?? stringValue2(item.markdown) ?? stringValue2(item.table_body) ?? stringValue2(item.latex) ?? stringValue2(item.image_caption);
-    if (text)
+    const text2 = stringValue2(item.text) ?? stringValue2(item.markdown) ?? stringValue2(item.table_body) ?? stringValue2(item.latex) ?? stringValue2(item.image_caption);
+    if (text2)
       blocks.push(`${prefix}
 
-${text}`);
+${text2}`);
   }
   return blocks.join("\n\n");
+}
+
+// dist/adapters/hindsight.js
+var HindsightAdapter = class {
+  name = "hindsight";
+  capabilities = ["search"];
+  available = false;
+  baseUrl;
+  bankId;
+  timeoutMs;
+  apiKey;
+  fetchImpl;
+  constructor(options = {}) {
+    this.baseUrl = normalizeBaseUrl3(options.baseUrl);
+    this.bankId = options.bankId?.trim() || void 0;
+    this.timeoutMs = options.timeoutMs ?? 1e4;
+    this.apiKey = options.apiKey;
+    this.fetchImpl = options.fetchImpl ?? fetch;
+  }
+  get isAvailable() {
+    return this.available;
+  }
+  async init() {
+    this.available = Boolean(this.baseUrl && this.bankId && this.timeoutMs > 0);
+    if (!this.available) {
+      process.stderr.write("llmwiki: [hindsight] endpoint or bank is not configured -- adapter disabled\n");
+    }
+  }
+  async search(query, opts) {
+    if (!this.available || !this.baseUrl || !this.bankId)
+      return [];
+    const maxResults = Math.max(1, Math.min(opts?.maxResults ?? 20, 100));
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    try {
+      const response = await this.fetchImpl(`${this.baseUrl}/v1/default/banks/${encodeURIComponent(this.bankId)}/memories/recall`, {
+        method: "POST",
+        headers: this.headers(),
+        body: JSON.stringify({ query }),
+        signal: controller.signal
+      });
+      if (!response.ok)
+        return [];
+      const payload = await response.json();
+      return memoriesFrom(payload).slice(0, maxResults).map((memory, index) => mapMemory(this.bankId, memory, index));
+    } catch {
+      return [];
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  async dispose() {
+    this.available = false;
+  }
+  headers() {
+    const headers = { "Content-Type": "application/json" };
+    if (this.apiKey)
+      headers.Authorization = `Bearer ${this.apiKey}`;
+    return headers;
+  }
+};
+function normalizeBaseUrl3(value) {
+  return value?.trim().replace(/\/+$/, "") || void 0;
+}
+function memoriesFrom(payload) {
+  if (Array.isArray(payload))
+    return payload;
+  if (!payload || typeof payload !== "object")
+    return [];
+  const record6 = payload;
+  for (const key of ["results", "memories", "items"]) {
+    if (Array.isArray(record6[key]))
+      return record6[key];
+  }
+  const nested = record6.data;
+  if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+    return memoriesFrom(nested);
+  }
+  return [];
+}
+function mapMemory(bankId, memory, index) {
+  const id2 = stringValue3(memory.id) ?? stringValue3(memory.memory_id);
+  const content = stringValue3(memory.text) ?? stringValue3(memory.content) ?? stringValue3(memory.memory) ?? "";
+  const scores = memory.scores && typeof memory.scores === "object" && !Array.isArray(memory.scores) ? memory.scores : void 0;
+  const score = numberValue2(scores?.final) ?? numberValue2(memory.score) ?? numberValue2(memory.relevance) ?? 1 / (index + 1);
+  return {
+    source: "hindsight",
+    path: `hindsight/${encodeURIComponent(bankId)}/${encodeURIComponent(id2 ?? String(index))}`,
+    content,
+    score,
+    metadata: {
+      ...id2 ? { id: id2 } : {},
+      ...stringValue3(memory.created_at) ? { createdAt: stringValue3(memory.created_at) } : {},
+      authority: "external-read-only"
+    }
+  };
+}
+function stringValue3(value) {
+  return typeof value === "string" && value.length > 0 ? value : void 0;
+}
+function numberValue2(value) {
+  return typeof value === "number" && Number.isFinite(value) ? value : void 0;
 }
 
 // dist/adapters/vaultbrain/index.js
@@ -41118,8 +41761,8 @@ function simpleHash(content) {
   return (h >>> 0).toString(16);
 }
 function extractWikiLinks(content) {
-  const matches = content.matchAll(/\[\[([^\]|#]+)(?:\|[^\]]+)?\]\]/g);
-  return [...matches].map((m) => m[1].trim().toLowerCase().replace(/\s+/g, "-"));
+  const matches2 = content.matchAll(/\[\[([^\]|#]+)(?:\|[^\]]+)?\]\]/g);
+  return [...matches2].map((m) => m[1].trim().toLowerCase().replace(/\s+/g, "-"));
 }
 function extractTags(content) {
   const frontmatter = content.match(/^---\n([\s\S]*?)\n---/);
@@ -41185,14 +41828,14 @@ var GraphifyAdapter = class {
         cwd: this.vaultPath,
         ...shellOpt(this.binary)
       });
-      const text = stdout.trim();
-      if (!text)
+      const text2 = stdout.trim();
+      if (!text2)
         return [];
       return [
         {
           source: this.name,
           path: this.graphPath,
-          content: text.slice(0, 4e3),
+          content: text2.slice(0, 4e3),
           score: 1,
           metadata: { query }
         }
@@ -41438,6 +42081,402 @@ var AdapterRegistry = class {
   }
 };
 
+// dist/adapters/settings-runtime.js
+var DEFAULT_ENABLED_ADAPTERS = [
+  "filesystem",
+  "memu",
+  "gitnexus",
+  "obsidian",
+  "kanban",
+  "qmd",
+  "lightrag",
+  "raganything",
+  "hindsight",
+  "vaultbrain",
+  "graphify"
+];
+var KNOWN_ADAPTERS = new Set(DEFAULT_ENABLED_ADAPTERS);
+async function resolveKnowledgeAdaptersRuntimeProfile(service, options = {}) {
+  const environment = options.environment ?? {};
+  const { snapshot } = await service.snapshotResolve();
+  const legacyAdapters = legacyAdapterList(environment, options.legacyEnabledAdapters);
+  const enabledSelection = selectField(snapshot, "adapters.enabled", legacyAdapters?.value, [...DEFAULT_ENABLED_ADAPTERS], legacyAdapters?.provenance);
+  const enabledIssues = validateEnabledAdapters(enabledSelection.value);
+  const enabledAdapters = enabledIssues.length === 0 ? [...enabledSelection.value] : [];
+  const enabled = new Set(enabledAdapters);
+  const portablePython = process.platform === "win32" ? "python" : "python3";
+  const memuDsn = selectMemUDsn(snapshot, environment);
+  const memuUserId = selectString(snapshot, "adapters.memu.user_id", environment.MEMU_USER_ID, "MEMU_USER_ID", "default");
+  const memuMaxResults = selectNumber(snapshot, "adapters.memu.max_results", void 0, "", 20);
+  const memuTimeout = selectNumber(snapshot, "adapters.memu.query_timeout_ms", void 0, "", 5e3);
+  const memuExcludeTypes = selectField(snapshot, "adapters.memu.exclude_memory_types", void 0, ["event"]);
+  const memuPython = selectString(snapshot, "adapters.memu.graph_python", environment.MEMU_GRAPH_PYTHON, "MEMU_GRAPH_PYTHON", portablePython);
+  const memuGraphCwd = selectString(snapshot, "adapters.memu.graph_cwd", environment.MEMU_GRAPH_CWD, "MEMU_GRAPH_CWD", process.cwd());
+  const memuGraphTimeout = selectNumber(snapshot, "adapters.memu.graph_timeout_ms", environment.MEMU_GRAPH_TIMEOUT_MS, "MEMU_GRAPH_TIMEOUT_MS", 15e3);
+  const memuSearchPy = selectString(snapshot, "adapters.memu.search_script", environment.MEMU_SEARCH_PY, "MEMU_SEARCH_PY", "memu_search.py");
+  const memuSearchPython = selectString(snapshot, "adapters.memu.search_python", environment.MEMU_SEARCH_PYTHON, "MEMU_SEARCH_PYTHON", portablePython);
+  const memuSearchTimeout = selectNumber(snapshot, "adapters.memu.search_timeout_ms", environment.MEMU_SEARCH_TIMEOUT_MS, "MEMU_SEARCH_TIMEOUT_MS", 2e4);
+  const memuEmbedModel = selectString(snapshot, "adapters.memu.embed_model", environment.OLLAMA_EMBED_MODEL, "OLLAMA_EMBED_MODEL", "bge-m3");
+  const memuCredential = selectCredential(snapshot, "adapters.memu.secret_ref", environment, "MEMU_DSN");
+  const memuIssues = enabled.has("memu") ? [
+    ...validateMemUDsn(memuDsn.value),
+    ...memuUserId.value ? [] : [{ code: "memu-user-missing", message: "adapters.memu.user_id is required while MemU is enabled.", key: "adapters.memu.user_id" }],
+    ...validateRange("adapters.memu.max_results", memuMaxResults.value, 1, 100),
+    ...validateRange("adapters.memu.query_timeout_ms", memuTimeout.value, 100, 3e5),
+    ...validateRange("adapters.memu.graph_timeout_ms", memuGraphTimeout.value, 100, 3e5),
+    ...validateRange("adapters.memu.search_timeout_ms", memuSearchTimeout.value, 100, 3e5),
+    ...validateStringList("adapters.memu.exclude_memory_types", memuExcludeTypes.value),
+    ...validateExplicitCredential("adapters.memu.secret_ref", memuCredential)
+  ] : [];
+  const lightBaseUrl = selectString(snapshot, "adapters.lightrag.base_url", environment.LIGHTRAG_URL, "LIGHTRAG_URL", "");
+  const lightMode = selectString(snapshot, "adapters.lightrag.mode", environment.LIGHTRAG_MODE, "LIGHTRAG_MODE", "hybrid");
+  const lightQueryPath = selectString(snapshot, "adapters.lightrag.query_path", environment.LIGHTRAG_QUERY_PATH, "LIGHTRAG_QUERY_PATH", "/query");
+  const lightQueryDataPath = selectString(snapshot, "adapters.lightrag.query_data_path", environment.LIGHTRAG_QUERY_DATA_PATH, "LIGHTRAG_QUERY_DATA_PATH", "/query/data");
+  const lightDocumentsTextPath = selectString(snapshot, "adapters.lightrag.documents_text_path", environment.LIGHTRAG_DOCUMENTS_TEXT_PATH, "LIGHTRAG_DOCUMENTS_TEXT_PATH", "/documents/text");
+  const lightDocumentsUploadPath = selectString(snapshot, "adapters.lightrag.documents_upload_path", environment.LIGHTRAG_DOCUMENTS_UPLOAD_PATH, "LIGHTRAG_DOCUMENTS_UPLOAD_PATH", "/documents/upload");
+  const lightCredential = selectCredential(snapshot, "adapters.lightrag.secret_ref", environment, "LIGHTRAG_API_KEY");
+  const lightIssues = enabled.has("lightrag") ? [
+    ...validateEndpoint("adapters.lightrag.base_url", lightBaseUrl.value),
+    ...validateExplicitCredential("adapters.lightrag.secret_ref", lightCredential)
+  ] : [];
+  const ragBaseUrl = selectString(snapshot, "adapters.raganything.base_url", environment.RAGANYTHING_URL, "RAGANYTHING_URL", "");
+  const ragQueryPath = selectString(snapshot, "adapters.raganything.query_path", environment.RAGANYTHING_QUERY_PATH, "RAGANYTHING_QUERY_PATH", "/query");
+  const ragProcessPath = selectString(snapshot, "adapters.raganything.process_path", environment.RAGANYTHING_PROCESS_PATH, "RAGANYTHING_PROCESS_PATH", "/process_document");
+  const ragCredential = selectCredential(snapshot, "adapters.raganything.secret_ref", environment, "RAGANYTHING_API_KEY");
+  const ragIssues = enabled.has("raganything") ? [
+    ...validateEndpoint("adapters.raganything.base_url", ragBaseUrl.value),
+    ...validateExplicitCredential("adapters.raganything.secret_ref", ragCredential)
+  ] : [];
+  const hindsightUrl = selectString(snapshot, "adapters.hindsight.base_url", environment.HINDSIGHT_URL ?? environment.HINDSIGHT_BASE_URL, environment.HINDSIGHT_URL ? "HINDSIGHT_URL" : "HINDSIGHT_BASE_URL", "");
+  const hindsightBank = selectString(snapshot, "adapters.hindsight.bank_id", environment.HINDSIGHT_BANK_ID, "HINDSIGHT_BANK_ID", "");
+  const hindsightTimeout = selectNumber(snapshot, "adapters.hindsight.timeout_ms", environment.HINDSIGHT_TIMEOUT_MS, "HINDSIGHT_TIMEOUT_MS", 1e4);
+  const hindsightCredential = selectCredential(snapshot, "adapters.hindsight.secret_ref", environment, "HINDSIGHT_API_KEY");
+  const hindsightIssues = enabled.has("hindsight") ? [
+    ...validateEndpoint("adapters.hindsight.base_url", hindsightUrl.value),
+    ...hindsightBank.value ? [] : [{ code: "hindsight-bank-missing", message: "adapters.hindsight.bank_id is required while Hindsight is enabled.", key: "adapters.hindsight.bank_id" }],
+    ...hindsightTimeout.value >= 100 && hindsightTimeout.value <= 3e5 ? [] : [{ code: "hindsight-timeout-invalid", message: "adapters.hindsight.timeout_ms must be between 100 and 300000.", key: "adapters.hindsight.timeout_ms" }],
+    ...validateExplicitCredential("adapters.hindsight.secret_ref", hindsightCredential)
+  ] : [];
+  const kanbanGlob = selectString(snapshot, "adapters.kanban.glob", environment.VAULT_MIND_KANBAN_GLOB, "VAULT_MIND_KANBAN_GLOB", "**/*.md");
+  const qmdCollection = selectString(snapshot, "adapters.qmd.collection", environment.VAULT_MIND_QMD_COLLECTION, "VAULT_MIND_QMD_COLLECTION", "");
+  const qmdBinary = selectString(snapshot, "adapters.qmd.binary", void 0, "", "qmd");
+  return {
+    snapshotId: snapshot.snapshotId,
+    enabledAdapters,
+    enablement: {
+      valid: enabledIssues.length === 0,
+      issues: enabledIssues,
+      provenance: enabledSelection.provenance
+    },
+    memu: {
+      enabled: enabled.has("memu"),
+      valid: memuIssues.length === 0,
+      issues: memuIssues,
+      dsn: memuDsn.value,
+      userId: memuUserId.value,
+      maxResults: memuMaxResults.value,
+      timeout: memuTimeout.value,
+      excludeMemoryTypes: Array.isArray(memuExcludeTypes.value) ? memuExcludeTypes.value : [],
+      pythonExe: memuPython.value,
+      memuGraphCwd: memuGraphCwd.value,
+      graphRecallTimeoutMs: memuGraphTimeout.value,
+      memuSearchPy: memuSearchPy.value,
+      memuSearchPythonExe: memuSearchPython.value,
+      memuSearchTimeoutMs: memuSearchTimeout.value,
+      embedModel: memuEmbedModel.value,
+      ...memuCredential.profile ? { credential: memuCredential.profile } : {},
+      provenance: {
+        dsn: memuDsn.provenance,
+        userId: memuUserId.provenance,
+        maxResults: memuMaxResults.provenance,
+        timeout: memuTimeout.provenance,
+        excludeMemoryTypes: memuExcludeTypes.provenance,
+        pythonExe: memuPython.provenance,
+        memuGraphCwd: memuGraphCwd.provenance,
+        graphRecallTimeoutMs: memuGraphTimeout.provenance,
+        memuSearchPy: memuSearchPy.provenance,
+        memuSearchPythonExe: memuSearchPython.provenance,
+        memuSearchTimeoutMs: memuSearchTimeout.provenance,
+        embedModel: memuEmbedModel.provenance,
+        credential: memuCredential.provenance
+      }
+    },
+    lightrag: {
+      enabled: enabled.has("lightrag"),
+      valid: lightIssues.length === 0,
+      issues: lightIssues,
+      baseUrl: nonEmpty(lightBaseUrl.value),
+      mode: lightMode.value,
+      queryPath: normalizePath3(lightQueryPath.value),
+      queryDataPath: normalizePath3(lightQueryDataPath.value),
+      documentsTextPath: normalizePath3(lightDocumentsTextPath.value),
+      documentsUploadPath: normalizePath3(lightDocumentsUploadPath.value),
+      ...lightCredential.profile ? { credential: lightCredential.profile } : {},
+      provenance: {
+        baseUrl: lightBaseUrl.provenance,
+        mode: lightMode.provenance,
+        queryPath: lightQueryPath.provenance,
+        queryDataPath: lightQueryDataPath.provenance,
+        documentsTextPath: lightDocumentsTextPath.provenance,
+        documentsUploadPath: lightDocumentsUploadPath.provenance,
+        credential: lightCredential.provenance
+      }
+    },
+    raganything: {
+      enabled: enabled.has("raganything"),
+      valid: ragIssues.length === 0,
+      issues: ragIssues,
+      baseUrl: nonEmpty(ragBaseUrl.value),
+      queryPath: normalizePath3(ragQueryPath.value),
+      processPath: normalizePath3(ragProcessPath.value),
+      ...ragCredential.profile ? { credential: ragCredential.profile } : {},
+      provenance: {
+        baseUrl: ragBaseUrl.provenance,
+        queryPath: ragQueryPath.provenance,
+        processPath: ragProcessPath.provenance,
+        credential: ragCredential.provenance
+      }
+    },
+    hindsight: {
+      enabled: enabled.has("hindsight"),
+      valid: hindsightIssues.length === 0,
+      issues: hindsightIssues,
+      baseUrl: nonEmpty(hindsightUrl.value),
+      bankId: nonEmpty(hindsightBank.value),
+      timeoutMs: hindsightTimeout.value,
+      ...hindsightCredential.profile ? { credential: hindsightCredential.profile } : {},
+      provenance: {
+        baseUrl: hindsightUrl.provenance,
+        bankId: hindsightBank.provenance,
+        timeoutMs: hindsightTimeout.provenance,
+        credential: hindsightCredential.provenance
+      }
+    },
+    kanban: {
+      enabled: enabled.has("kanban"),
+      valid: Boolean(kanbanGlob.value),
+      issues: kanbanGlob.value ? [] : [{ code: "kanban-glob-missing", message: "Kanban glob is empty.", key: "adapters.kanban.glob" }],
+      glob: kanbanGlob.value,
+      provenance: { glob: kanbanGlob.provenance }
+    },
+    qmd: {
+      enabled: enabled.has("qmd"),
+      valid: Boolean(qmdBinary.value),
+      issues: qmdBinary.value ? [] : [{ code: "qmd-binary-missing", message: "QMD binary is empty.", key: "adapters.qmd.binary" }],
+      collection: nonEmpty(qmdCollection.value),
+      binary: qmdBinary.value,
+      provenance: { collection: qmdCollection.provenance, binary: qmdBinary.provenance }
+    }
+  };
+}
+async function resolveKnowledgeAdapterSecret(credential, options = {}) {
+  if (!credential)
+    return void 0;
+  const reference = credential.secretRef;
+  const secret = options.resolveSecret ? await options.resolveSecret(reference) : reference.provider === "environment" ? (options.environment ?? process.env)[reference.locator] : void 0;
+  if (typeof secret !== "string" || !secret.length) {
+    throw new Error("Knowledge adapter Secret Reference is not resolvable on this device");
+  }
+  return secret;
+}
+function resolveMemUConnectionString(publicDsn, secret) {
+  if (!secret)
+    return publicDsn;
+  const publicUrl = postgresUrl(publicDsn);
+  const secretUrl = postgresUrl(secret);
+  if (publicUrl.hostname !== secretUrl.hostname || normalizedPort(publicUrl) !== normalizedPort(secretUrl) || publicUrl.pathname !== secretUrl.pathname) {
+    throw new Error("MemU Secret Reference resolves to a different database endpoint");
+  }
+  return secret;
+}
+function legacyAdapterList(environment, configValue) {
+  const raw = environment.VAULT_MIND_ADAPTERS?.trim();
+  if (raw) {
+    return {
+      value: raw.split(",").map((item) => item.trim()).filter(Boolean),
+      provenance: { source: "legacy-env", detail: "VAULT_MIND_ADAPTERS" }
+    };
+  }
+  if (configValue) {
+    return {
+      value: [...configValue],
+      provenance: { source: "legacy-config", detail: "vault-mind.yaml:adapters" }
+    };
+  }
+  return void 0;
+}
+function selectString(snapshot, key, legacyValue, legacyName, fallback) {
+  const legacy = typeof legacyValue === "string" && legacyValue.trim() ? legacyValue.trim() : void 0;
+  return selectField(snapshot, key, legacy, fallback, legacy ? { source: "legacy-env", detail: legacyName } : void 0);
+}
+function selectMemUDsn(snapshot, environment) {
+  const raw = environment.MEMU_DSN?.trim();
+  const legacy = raw ? publicPostgresDsn(raw) : void 0;
+  return selectField(snapshot, "adapters.memu.dsn", legacy, "postgresql://localhost:5432/memu", raw ? { source: "legacy-env", detail: "MEMU_DSN (credential redacted)" } : void 0);
+}
+function selectNumber(snapshot, key, legacyValue, legacyName, fallback) {
+  const raw = legacyValue?.trim();
+  const legacy = raw ? Number(raw) : void 0;
+  return selectField(snapshot, key, legacy, fallback, raw ? { source: "legacy-env", detail: legacyName } : void 0);
+}
+function selectField(snapshot, key, legacyValue, fallback, legacyProvenance) {
+  const effective = effectiveSetting(snapshot, key);
+  if (effective.winningScope !== "product") {
+    return {
+      value: effective.value,
+      explicit: true,
+      provenance: {
+        source: "settings-assignment",
+        scope: effective.winningScope,
+        actor: effective.assignmentProvenance.actor,
+        detail: effective.assignmentProvenance.source
+      }
+    };
+  }
+  if (legacyValue !== void 0 && legacyProvenance) {
+    return { value: legacyValue, explicit: false, provenance: legacyProvenance };
+  }
+  return {
+    value: effective.value ?? fallback,
+    explicit: false,
+    provenance: {
+      source: "product-default",
+      scope: "product",
+      actor: effective.assignmentProvenance.actor,
+      detail: effective.assignmentProvenance.source
+    }
+  };
+}
+function selectCredential(snapshot, key, environment, legacyLocator) {
+  const effective = effectiveSetting(snapshot, key);
+  const redacted = redactedSecret(effective);
+  if (effective.winningScope !== "product") {
+    const provenance2 = {
+      source: "settings-assignment",
+      scope: effective.winningScope,
+      actor: effective.assignmentProvenance.actor,
+      detail: effective.assignmentProvenance.source
+    };
+    return {
+      ...redacted ? { profile: { ...redacted, provenance: provenance2 } } : {},
+      provenance: provenance2,
+      explicit: true
+    };
+  }
+  if (environment[legacyLocator]?.trim()) {
+    const provenance2 = { source: "legacy-env", detail: legacyLocator };
+    return {
+      profile: {
+        secretRef: { provider: "environment", locator: legacyLocator },
+        status: "present",
+        provenance: provenance2
+      },
+      provenance: provenance2,
+      explicit: false
+    };
+  }
+  const provenance = {
+    source: "product-default",
+    scope: "product",
+    actor: effective.assignmentProvenance.actor,
+    detail: effective.assignmentProvenance.source
+  };
+  return {
+    ...redacted?.status === "present" ? { profile: { ...redacted, provenance } } : {},
+    provenance,
+    explicit: false
+  };
+}
+function effectiveSetting(snapshot, key) {
+  const effective = snapshot.effective.find((item) => item.key === key);
+  if (!effective)
+    throw new Error(`Knowledge adapter setting is missing from the registry: ${key}`);
+  return effective;
+}
+function redactedSecret(effective) {
+  const value = effective.value;
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    return void 0;
+  const candidate = value;
+  if (!candidate.secretRef || typeof candidate.secretRef !== "object" || Array.isArray(candidate.secretRef))
+    return void 0;
+  if (candidate.status !== "present" && candidate.status !== "missing" && candidate.status !== "unreachable")
+    return void 0;
+  const ref = candidate.secretRef;
+  if (typeof ref.provider !== "string" || typeof ref.locator !== "string")
+    return void 0;
+  return { secretRef: ref, status: candidate.status };
+}
+function validateEnabledAdapters(value) {
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) {
+    return [{ code: "adapter-enablement-invalid", message: "Adapter enablement must be a list of adapter names.", key: "adapters.enabled" }];
+  }
+  const unknown3 = [...new Set(value.filter((item) => !KNOWN_ADAPTERS.has(item)))];
+  return unknown3.length === 0 ? [] : [{ code: "adapter-enablement-unknown", message: `Unknown adapters: ${unknown3.join(", ")}.`, key: "adapters.enabled" }];
+}
+function validateEndpoint(key, value) {
+  if (!value)
+    return [{ code: "adapter-endpoint-missing", message: `${key} is required while the adapter is enabled.`, key }];
+  try {
+    const url2 = new URL(value);
+    if (url2.protocol !== "http:" && url2.protocol !== "https:" || url2.username || url2.password)
+      throw new Error("unsafe");
+    return [];
+  } catch {
+    return [{ code: "adapter-endpoint-invalid", message: `${key} must be an HTTP(S) URL without embedded credentials.`, key }];
+  }
+}
+function validateMemUDsn(value) {
+  try {
+    const url2 = postgresUrl(value);
+    if (url2.username || url2.password || url2.search || url2.hash)
+      throw new Error("credential");
+    return [];
+  } catch {
+    return [{ code: "memu-dsn-invalid", message: "adapters.memu.dsn must be a PostgreSQL URL without userinfo, query parameters, or fragments.", key: "adapters.memu.dsn" }];
+  }
+}
+function validateRange(key, value, min, max) {
+  return Number.isFinite(value) && value >= min && value <= max ? [] : [{ code: "adapter-number-invalid", message: `${key} must be between ${min} and ${max}.`, key }];
+}
+function validateStringList(key, value) {
+  return Array.isArray(value) && value.every((item) => typeof item === "string") ? [] : [{ code: "adapter-list-invalid", message: `${key} must be a list of strings.`, key }];
+}
+function validateExplicitCredential(key, credential) {
+  if (!credential.explicit || credential.profile?.status === "present")
+    return [];
+  return [{ code: "adapter-secret-unavailable", message: `${key} is explicit but is not resolvable on this device.`, key }];
+}
+function nonEmpty(value) {
+  return value ? value : void 0;
+}
+function normalizePath3(value) {
+  if (!value)
+    return value;
+  return value.startsWith("/") ? value : `/${value}`;
+}
+function publicPostgresDsn(value) {
+  try {
+    const url2 = postgresUrl(value);
+    if (url2.search || url2.hash)
+      return "";
+    url2.username = "";
+    url2.password = "";
+    return url2.toString();
+  } catch {
+    return "";
+  }
+}
+function postgresUrl(value) {
+  const url2 = new URL(value);
+  if (url2.protocol !== "postgres:" && url2.protocol !== "postgresql:")
+    throw new Error("unsupported protocol");
+  return url2;
+}
+function normalizedPort(url2) {
+  return url2.port || "5432";
+}
+
 // dist/compile-trigger.js
 import { execFile as execFile4 } from "node:child_process";
 import { readdirSync as readdirSync3, existsSync as existsSync2 } from "node:fs";
@@ -41600,7 +42639,7 @@ var CompileTrigger = class {
     const topicPath = resolve2(this.vaultPath, topic);
     const compilePy = resolve2(this.compilerPath, "compile.py");
     const args = [compilePy, topicPath, "--tier", this.tier];
-    const timestamp = (/* @__PURE__ */ new Date()).toISOString();
+    const timestamp2 = (/* @__PURE__ */ new Date()).toISOString();
     try {
       const { stdout, stderr } = await exec4(this.python, args, {
         timeout: 12e4,
@@ -41608,7 +42647,7 @@ var CompileTrigger = class {
         maxBuffer: 10 * 1024 * 1024,
         env: this.environmentResolver ? await this.environmentResolver() : { ...process.env }
       });
-      const result = this.parseCompileOutput(topic, stdout, timestamp);
+      const result = this.parseCompileOutput(topic, stdout, timestamp2);
       if (stderr) {
         process.stderr.write(`llmwiki: [compile] stderr: ${stderr.slice(0, 500)}
 `);
@@ -41621,7 +42660,7 @@ var CompileTrigger = class {
       if (this.onCompileSuccess) {
         this.onCompileSuccess(this.findWikiFiles(topic));
       }
-      this.lastRun = timestamp;
+      this.lastRun = timestamp2;
       this.lastResult = result;
       this.running = false;
       return result;
@@ -41633,15 +42672,15 @@ var CompileTrigger = class {
         conceptsCreated: 0,
         contradictions: 0,
         error: e.message,
-        timestamp
+        timestamp: timestamp2
       };
-      this.lastRun = timestamp;
+      this.lastRun = timestamp2;
       this.lastResult = result;
       this.running = false;
       return result;
     }
   }
-  parseCompileOutput(topic, stdout, timestamp) {
+  parseCompileOutput(topic, stdout, timestamp2) {
     const sources = this.extractNumber(stdout, "Sources compiled");
     const concepts = this.extractNumber(stdout, "Concepts created");
     const contradictions = this.extractNumber(stdout, "Contradictions");
@@ -41651,12 +42690,12 @@ var CompileTrigger = class {
       sourcesCompiled: sources,
       conceptsCreated: concepts,
       contradictions,
-      timestamp
+      timestamp: timestamp2
     };
   }
-  extractNumber(text, label) {
+  extractNumber(text2, label) {
     const re = new RegExp(label + "\\s*:\\s*(\\d+)");
-    const m = text.match(re);
+    const m = text2.match(re);
     return m ? parseInt(m[1], 10) : 0;
   }
   /** Find all wiki/ output files for a topic after compilation */
@@ -41683,8 +42722,8 @@ var CompileTrigger = class {
 import { execFile as execFile6, spawnSync as spawnSync2 } from "node:child_process";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 import { promisify as promisify6 } from "node:util";
-import { existsSync as existsSync18, mkdirSync as mkdirSync10, readdirSync as readdirSync11, readFileSync as readFileSync19, writeFileSync as writeFileSync8 } from "node:fs";
-import { dirname as dirname11, join as join22, relative as relative6 } from "node:path";
+import { existsSync as existsSync23, mkdirSync as mkdirSync13, readdirSync as readdirSync16, readFileSync as readFileSync24, writeFileSync as writeFileSync11 } from "node:fs";
+import { dirname as dirname18, join as join33, relative as relative8 } from "node:path";
 
 // dist/core/write-policy.js
 import { appendFileSync, existsSync as existsSync4, mkdirSync, readFileSync as readFileSync7 } from "node:fs";
@@ -41860,8 +42899,8 @@ function stripBracketListComment(value) {
 function stripQuotes(s) {
   return s.replace(/^['"]+/, "").replace(/['"]+$/, "");
 }
-function parseFm(text) {
-  const m = FRONTMATTER_RE.exec(text);
+function parseFm(text2) {
+  const m = FRONTMATTER_RE.exec(text2);
   if (!m)
     return {};
   const fm = m[0];
@@ -41908,9 +42947,9 @@ function parseFm(text) {
   }
   return out;
 }
-function splitBody(text) {
-  const m = FRONTMATTER_RE.exec(text);
-  return m ? text.slice(m[0].length) : text;
+function splitBody(text2) {
+  const m = FRONTMATTER_RE.exec(text2);
+  return m ? text2.slice(m[0].length) : text2;
 }
 function scalar(raw, key) {
   const v = raw[key];
@@ -42000,8 +43039,8 @@ function isAuthoritative(raw) {
   return true;
 }
 var SKIP_DIRS = /* @__PURE__ */ new Set([".obsidian", "node_modules", ".git", "schema", ".trash"]);
-function stripBom(text) {
-  return text.charCodeAt(0) === 65279 ? text.slice(1) : text;
+function stripBom(text2) {
+  return text2.charCodeAt(0) === 65279 ? text2.slice(1) : text2;
 }
 function walkMd(vaultPath, requireEntity) {
   const notes = [];
@@ -42024,18 +43063,18 @@ function walkMd(vaultPath, requireEntity) {
     const files = entries.filter((e) => e.isFile() && e.name.endsWith(".md")).map((e) => e.name).sort();
     for (const fn of files) {
       const f = join7(dir, fn);
-      let text;
+      let text2;
       try {
-        text = stripBom(readFileSync5(f, "utf-8"));
+        text2 = stripBom(readFileSync5(f, "utf-8"));
       } catch {
         continue;
       }
-      const raw = parseFm(text);
+      const raw = parseFm(text2);
       const entity = entityOf(raw);
       if (requireEntity && !entity)
         continue;
       const noteId = relPosix(vaultPath, f);
-      notes.push({ note_id: noteId, path: f, raw, body: splitBody(text), entity });
+      notes.push({ note_id: noteId, path: f, raw, body: splitBody(text2), entity });
     }
     for (const d of dirs)
       walk(join7(dir, d));
@@ -42224,8 +43263,8 @@ function renderKanbanBoard(notes, project, lang = "en") {
   out.push("%% kanban:settings", "```", '{"kanban-plugin":"board","show-checkboxes":true}', "```", "%%", "");
   return out.join("\n");
 }
-function detectLang(text) {
-  const s = text || "";
+function detectLang(text2) {
+  const s = text2 || "";
   for (const c of s) {
     const cp = c.codePointAt(0);
     if (cp >= 12352 && cp <= 12543)
@@ -42250,6 +43289,22 @@ function detectVaultLang(notes, sample = 200) {
 }
 
 // dist/project/project-context.js
+function normalizedProjectContext(context) {
+  return {
+    projectId: context.projectId,
+    slug: context.slug,
+    lifecycle: context.lifecycle,
+    aliases: [...context.aliases].sort(),
+    roots: {
+      registryRecord: context.roots.registryRecord,
+      workOs: context.roots.workOs,
+      knowledge: context.roots.knowledge,
+      runtime: context.roots.runtime
+    },
+    projections: context.projections.map((projection) => ({ ...projection })),
+    resolvedBy: context.resolvedBy
+  };
+}
 var PROJECT_SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/;
 var PROJECT_ID_RE = /^project\/([a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?)$/;
 var FORBIDDEN_SHARED_FIELDS = /* @__PURE__ */ new Set([
@@ -42374,19 +43429,19 @@ function workspacePathKey(value) {
 function loadWorkspaceBindings(vaultPath) {
   const bindings = /* @__PURE__ */ new Map();
   const diagnostics = [];
-  const relativePath = ".vault-mind/local-bindings.json";
-  const fullPath = join8(vaultPath, ".vault-mind", "local-bindings.json");
-  if (!existsSync3(fullPath))
+  const relativePath2 = ".vault-mind/local-bindings.json";
+  const fullPath2 = join8(vaultPath, ".vault-mind", "local-bindings.json");
+  if (!existsSync3(fullPath2))
     return { bindings, diagnostics };
   let parsed;
   try {
-    parsed = JSON.parse(readFileSync6(fullPath, "utf-8").replace(/^\uFEFF/, ""));
+    parsed = JSON.parse(readFileSync6(fullPath2, "utf-8").replace(/^\uFEFF/, ""));
   } catch {
     diagnostics.push({
       code: "malformed_local_bindings",
       severity: "error",
       message: "Local workspace bindings are unreadable or malformed JSON.",
-      path: relativePath
+      path: relativePath2
     });
     return { bindings, diagnostics };
   }
@@ -42395,7 +43450,7 @@ function loadWorkspaceBindings(vaultPath) {
       code: "malformed_local_bindings",
       severity: "error",
       message: "Local workspace bindings must be a Project ID keyed object.",
-      path: relativePath
+      path: relativePath2
     });
     return { bindings, diagnostics };
   }
@@ -42409,7 +43464,7 @@ function loadWorkspaceBindings(vaultPath) {
         code: "compatibility_binding_identity",
         severity: "warning",
         message: "A local binding uses a legacy bare slug; rewrite it with the canonical Project ID.",
-        path: relativePath,
+        path: relativePath2,
         projectId: projectId2
       });
     } else {
@@ -42417,7 +43472,7 @@ function loadWorkspaceBindings(vaultPath) {
         code: "invalid_binding_project_id",
         severity: "error",
         message: "A local binding uses a non-canonical Project ID.",
-        path: relativePath
+        path: relativePath2
       });
       continue;
     }
@@ -42426,7 +43481,7 @@ function loadWorkspaceBindings(vaultPath) {
         code: "duplicate_binding_identity",
         severity: "error",
         message: "Multiple local bindings normalize to the same Project ID.",
-        path: relativePath,
+        path: relativePath2,
         projectId: projectId2
       });
       continue;
@@ -42437,7 +43492,7 @@ function loadWorkspaceBindings(vaultPath) {
         code: "invalid_workspace_binding",
         severity: "error",
         message: "A local binding must contain one absolute workspace path.",
-        path: relativePath,
+        path: relativePath2,
         projectId: projectId2
       });
       continue;
@@ -42544,12 +43599,12 @@ function scanProjectRegistry(vaultPath) {
   }
   return { projects, diagnostics };
 }
-function ambiguity(reference, matches) {
-  const candidates = [...new Set(matches.map((match) => match.projectId))].sort();
+function ambiguity(reference, matches2) {
+  const candidates = [...new Set(matches2.map((match) => match.projectId))].sort();
   throw conflict(`Ambiguous Project reference: ${reference.value}`, { candidates });
 }
 function contextFromEntry(entry, diagnostics, resolvedBy) {
-  const contextDiagnostics = diagnostics.filter((diagnostic) => !diagnostic.projectId || diagnostic.projectId === entry.projectId);
+  const contextDiagnostics = diagnostics.filter((diagnostic2) => !diagnostic2.projectId || diagnostic2.projectId === entry.projectId);
   if (entry.workspace && !entry.workspace.available) {
     contextDiagnostics.push({
       code: "workspace_unavailable",
@@ -42583,24 +43638,24 @@ function resolveProjectContext(vaultPath, input, operation = "internal", options
     throw badRequest("Legacy Project references are disabled; use the canonical project/<slug> Project ID");
   }
   const registry3 = scanProjectRegistry(vaultPath);
-  let matches = [];
+  let matches2 = [];
   let resolvedBy;
   if (reference.kind === "id") {
     const projectId2 = parseProjectId(reference.value);
-    matches = registry3.projects.filter((project) => project.projectId === projectId2);
+    matches2 = registry3.projects.filter((project) => project.projectId === projectId2);
     resolvedBy = "project_id";
   } else if (reference.kind === "name") {
     const folded = reference.value.toLowerCase();
-    matches = registry3.projects.filter((project) => project.slug.toLowerCase() === folded || project.aliases.some((alias) => alias.toLowerCase() === folded));
-    resolvedBy = matches.some((project) => project.slug.toLowerCase() === folded) ? "slug" : "alias";
+    matches2 = registry3.projects.filter((project) => project.slug.toLowerCase() === folded || project.aliases.some((alias) => alias.toLowerCase() === folded));
+    resolvedBy = matches2.some((project) => project.slug.toLowerCase() === folded) ? "slug" : "alias";
   } else {
     const normalizedPath = workspacePathKey(reference.value);
-    matches = registry3.projects.filter((project) => project.workspace ? workspacePathKey(project.workspace.path) === normalizedPath : false);
+    matches2 = registry3.projects.filter((project) => project.workspace ? workspacePathKey(project.workspace.path) === normalizedPath : false);
     resolvedBy = "workspace_binding";
   }
-  if (matches.length > 1)
-    ambiguity(reference, matches);
-  const entry = matches[0];
+  if (matches2.length > 1)
+    ambiguity(reference, matches2);
+  const entry = matches2[0];
   if (!entry)
     throw notFound(`Project not found: ${reference.value}`);
   const diagnostics = [...registry3.diagnostics];
@@ -42747,6 +43802,7 @@ function makeProjectContextOps(vaultPath) {
 
 // dist/core/write-policy.js
 var DEFAULT_PROTECTED_PATHS = ["20-Decisions/**", "30-Architecture/**", "40-Runbooks/**", "README.md"];
+var DREAMTIME_CADENCE_AUTHORIZED_ROLES = /* @__PURE__ */ new Set(["human", "approver", "admin"]);
 var globCache = /* @__PURE__ */ new Map();
 function adjudicateOperationWrite(ctx, operation, params, registry3) {
   const verdict = operation.name === "vault.batch" ? adjudicateBatchWrite(ctx, operation, params, registry3) : adjudicateSingleWrite(ctx, operation, params);
@@ -42754,13 +43810,13 @@ function adjudicateOperationWrite(ctx, operation, params, registry3) {
     throw makeErr(-32602, `Operation Write Policy for ${operation.name} produced no write targets`);
   }
   if (verdict.realWrite) {
-    enforceCollaborationPolicy(ctx.config, operation.name, verdict.targets);
+    enforceCollaborationPolicy(ctx.config, operation.name, verdict.params, verdict.targets);
   }
   return verdict;
 }
 function auditOperationWrite(ctx, verdict, result) {
-  const actor = ctx.config.collaboration?.actor;
-  if (!verdict.realWrite || verdict.audit === "none" || !actor || ctx.config.collaboration?.enforce === false)
+  const actor2 = ctx.config.collaboration?.actor;
+  if (!verdict.realWrite || verdict.audit === "none" || !actor2 || ctx.config.collaboration?.enforce === false)
     return;
   try {
     const day = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
@@ -42769,7 +43825,7 @@ function auditOperationWrite(ctx, verdict, result) {
     const auditResult = auditResultForVerdict(verdict, result);
     const entry = {
       ts: (/* @__PURE__ */ new Date()).toISOString(),
-      actor,
+      actor: actor2,
       role: ctx.config.collaboration?.role,
       tool: verdict.operation.name,
       targets: verdict.targets.map(normalizePolicyPath),
@@ -42818,9 +43874,9 @@ function resolvedPolicyProject(config2, args, operation) {
   return resolveProjectContext(config2.vault_path, args.project, operation, { recordCompatibility: false }).slug;
 }
 function memoryPolicyBasePath(config2, args, operation = "memory.write") {
-  const actor = safeMemorySegment(config2.collaboration?.actor || process.env.VAULT_MIND_ACTOR || "agent", "actor");
+  const actor2 = safeMemorySegment(config2.collaboration?.actor || process.env.VAULT_MIND_ACTOR || "agent", "actor");
   const project = typeof args.project === "string" && args.project.trim() ? resolveProjectContext(config2.vault_path, args.project, operation, { recordCompatibility: false }).slug : void 0;
-  return project ? `10-Projects/${project}/agents/${actor}/memory` : `00-Inbox/Agent-Memory/${actor}`;
+  return project ? `10-Projects/${project}/agents/${actor2}/memory` : `00-Inbox/Agent-Memory/${actor2}`;
 }
 function projectPolicyBasePath(args) {
   return `01-Projects/${policyProjectSegment(args)}`;
@@ -42912,15 +43968,16 @@ function adjudicateBatchWrite(ctx, operation, params, registry3) {
     children
   };
 }
-function enforceCollaborationPolicy(config2, toolName, targets) {
+function enforceCollaborationPolicy(config2, toolName, params, targets) {
   const collab = config2.collaboration;
-  const actor = collab?.actor;
-  if (!actor || collab?.enforce === false || targets.length === 0)
+  const actor2 = collab?.actor;
+  const cadenceTargets = toolName === "dreamtime.cadence.run" ? authorizedDreamTimeCadenceTargets(config2, params, targets) : void 0;
+  if (!actor2 || collab?.enforce === false || targets.length === 0)
     return;
   const policy = readVaultCollabPolicy(config2.vault_path);
-  const role = collab?.role || (policy.agents?.includes(actor) ? "agent" : policy.team?.includes(actor) ? "human" : "agent");
+  const role = collab?.role || (policy.agents?.includes(actor2) ? "agent" : policy.team?.includes(actor2) ? "human" : "agent");
   const allowed = [
-    ...defaultAllowedPaths(actor, role),
+    ...defaultAllowedPaths(actor2, role),
     ...policy.allowed_write_paths ?? [],
     ...collab?.allowed_write_paths ?? []
   ];
@@ -42931,19 +43988,94 @@ function enforceCollaborationPolicy(config2, toolName, targets) {
   ];
   for (const target of targets) {
     const protectedHit = matchAny(target, protectedPaths);
-    const allowedHit = settingsOperationAllowsTarget(toolName, target) || allowed.length > 0 && matchAny(target, allowed);
+    const allowedHit = settingsOperationAllowsTarget(toolName, target) || cadenceTargets?.has(normalizePolicyPath(target)) === true || governedBackendOperationAllowsTarget(toolName, target) || allowed.length > 0 && matchAny(target, allowed);
     if (protectedHit && !allowedHit) {
-      throw makeErr(-32403, `Collaboration policy blocked ${toolName} by ${actor}: protected path ${target}`);
+      throw makeErr(-32403, `Collaboration policy blocked ${toolName} by ${actor2}: protected path ${target}`);
     }
     if (!allowedHit) {
-      throw makeErr(-32403, `Collaboration policy blocked ${toolName} by ${actor}: ${target} is outside allowed write paths`);
+      throw makeErr(-32403, `Collaboration policy blocked ${toolName} by ${actor2}: ${target} is outside allowed write paths`);
     }
   }
+}
+function authorizedDreamTimeCadenceTargets(config2, params, targets) {
+  const actor2 = config2.collaboration?.actor?.trim();
+  const role = config2.collaboration?.role ?? "";
+  if (!actor2 || !DREAMTIME_CADENCE_AUTHORIZED_ROLES.has(role)) {
+    throw makeErr(-32403, "Collaboration policy blocked dreamtime.cadence.run: authenticated human, approver, or admin required");
+  }
+  if (typeof params.actor !== "string" || params.actor.trim() !== actor2) {
+    throw makeErr(-32403, "Collaboration policy blocked dreamtime.cadence.run: requested actor must match authenticated actor");
+  }
+  if (typeof params.project !== "string" || !params.project.trim()) {
+    throw makeErr(-32602, "project required for write policy");
+  }
+  const project = resolveProjectContext(config2.vault_path, params.project, "dreamtime.cadence.run", { recordCompatibility: false });
+  if (params.project !== project.projectId) {
+    throw makeErr(-32403, `Collaboration policy blocked dreamtime.cadence.run: canonical Project ID ${project.projectId} required`);
+  }
+  const allowed = /* @__PURE__ */ new Set([
+    "_llmwiki/agent-domain/v1/**",
+    "_llmwiki/usage/v1/**",
+    `01-Projects/${project.slug}/runs/**`,
+    `10-Projects/${project.slug}/agents/**`
+  ]);
+  const normalizedTargets = targets.map(normalizePolicyPath);
+  if (normalizedTargets.length !== allowed.size || new Set(normalizedTargets).size !== allowed.size || normalizedTargets.some((target) => !allowed.has(target))) {
+    throw makeErr(-32403, `Collaboration policy blocked dreamtime.cadence.run by ${actor2}: write targets exceed exact Project Context authority`);
+  }
+  return allowed;
 }
 function settingsOperationAllowsTarget(toolName, target) {
   if (toolName !== "settings.assignment.set" && toolName !== "settings.assignment.unset")
     return false;
   return /^_llmwiki\/settings\/(?:vault\.json|projects\/[A-Za-z0-9._-]+\.json|(?:user-device|session)\/[A-Za-z0-9._-]+)$/.test(normalizePolicyPath(target));
+}
+function governedBackendOperationAllowsTarget(toolName, target) {
+  const normalized = normalizePolicyPath(target);
+  if (toolName === "host.proxy.invoke")
+    return normalized === "external/host-capability/**";
+  if (toolName === "dreamtime.promotion.handoff") {
+    return normalized === "00-Inbox/AI-Output/vault-dreamtime/**";
+  }
+  if ((/* @__PURE__ */ new Set([
+    "dreamtime.checkpoint.propose",
+    "dreamtime.learn.propose",
+    "dreamtime.review.propose",
+    "consult.execute",
+    "delegation.plan",
+    "delegation.approve"
+  ])).has(toolName) && normalized === "_llmwiki/usage/v1/**") {
+    return true;
+  }
+  if ((/* @__PURE__ */ new Set([
+    "agent.profile.create",
+    "agent.profile.update",
+    "agent.binding.create",
+    "agent.binding.update",
+    "agent.thread.create",
+    "agent.thread.append",
+    "agent.thread.transition",
+    "dreamtime.checkpoint.propose",
+    "dreamtime.learn.propose",
+    "dreamtime.review.propose",
+    "dreamtime.approve",
+    "dreamtime.reject",
+    "consult.execute",
+    "delegation.plan",
+    "delegation.approve",
+    "delegation.transition",
+    "delegation.artifact.project"
+  ])).has(toolName)) {
+    return normalized === "_llmwiki/agent-domain/v1/**";
+  }
+  if (!(/* @__PURE__ */ new Set([
+    "host.descriptor.register",
+    "host.connector.register",
+    "host.assignment.plan",
+    "host.assignment.approve"
+  ])).has(toolName))
+    return false;
+  return /^_llmwiki\/host-capabilities\/v1\/(?:descriptors|connectors|assignments)(?:\/[A-Za-z0-9._*-]+(?:\.json)?)?$/.test(normalized);
 }
 function readVaultCollabPolicy(vaultPath) {
   const policyPath = resolve4(vaultPath, ".vault-collab.json");
@@ -43018,17 +44150,17 @@ function workflowAgentPolicySegment(config2, args) {
   const raw = typeof args.agent === "string" && args.agent.trim() ? args.agent : config2.collaboration?.actor || process.env.VAULT_MIND_ACTOR || "agent";
   return slugPolicySegment(raw, "agent");
 }
-function defaultAllowedPaths(actor, role) {
-  const workflowActor = slugPolicySegment(actor, "actor");
+function defaultAllowedPaths(actor2, role) {
+  const workflowActor = slugPolicySegment(actor2, "actor");
   if (role === "human")
-    return [`00-Inbox/${actor}`, `00-Inbox/${actor}/**`];
+    return [`00-Inbox/${actor2}`, `00-Inbox/${actor2}/**`];
   return [
-    `00-Inbox/AI-Output/${actor}`,
-    `00-Inbox/AI-Output/${actor}/**`,
-    `00-Inbox/Agent-Memory/${actor}`,
-    `00-Inbox/Agent-Memory/${actor}/**`,
-    `10-Projects/*/agents/${actor}`,
-    `10-Projects/*/agents/${actor}/**`,
+    `00-Inbox/AI-Output/${actor2}`,
+    `00-Inbox/AI-Output/${actor2}/**`,
+    `00-Inbox/Agent-Memory/${actor2}`,
+    `00-Inbox/Agent-Memory/${actor2}/**`,
+    `10-Projects/*/agents/${actor2}`,
+    `10-Projects/*/agents/${actor2}/**`,
     `10-Projects/*/project.md`,
     `Projects/*.md`,
     `.vault-mind/project-migrations/**`,
@@ -43103,9 +44235,9 @@ function parseScalar(raw) {
   }
   return s;
 }
-function parseYaml(text) {
+function parseYaml(text2) {
   const result = {};
-  const lines = text.split("\n");
+  const lines = text2.split("\n");
   let i = 0;
   while (i < lines.length) {
     const line = lines[i];
@@ -43318,8 +44450,8 @@ function scanRecipes(recipesDir) {
     _cache = recipes;
   return recipes;
 }
-function findRecipe(id, recipesDir) {
-  return scanRecipes(recipesDir).find((r) => r.frontmatter.id === id);
+function findRecipe(id2, recipesDir) {
+  return scanRecipes(recipesDir).find((r) => r.frontmatter.id === id2);
 }
 
 // dist/rrf.js
@@ -43542,8 +44674,8 @@ function claimFromCitation(citation) {
     return sentence;
   return `Retrieved evidence from ${citation.path}`;
 }
-function firstUsefulSentence(text) {
-  const normalized = text.replace(/\s+/g, " ").trim();
+function firstUsefulSentence(text2) {
+  const normalized = text2.replace(/\s+/g, " ").trim();
   if (!normalized)
     return "";
   const match = normalized.match(/^(.{24,240}?[.!?])(\s|$)/);
@@ -43698,13 +44830,13 @@ var ContextCoreLoader = class {
     this._load();
     return this._cache;
   }
-  byId(id) {
+  byId(id2) {
     if (!this._byId) {
       if (!this.available())
         return void 0;
       this._load();
     }
-    return this._byId.get(id);
+    return this._byId.get(id2);
   }
   hyperEdgesFor(holonId) {
     const core = this.get();
@@ -43789,7 +44921,7 @@ function makeHolonOps(loader) {
           const hits = cc.holons.filter((h) => h.title.toLowerCase().includes(q) || h.summary.toLowerCase().includes(q));
           return { holons: hits.slice(0, limit), total: hits.length, query, mode };
         }
-        const tokenize = (text) => text.toLowerCase().split(/\W+/).filter((t) => t.length > 1);
+        const tokenize = (text2) => text2.toLowerCase().split(/\W+/).filter((t) => t.length > 1);
         const terms = tokenize(query);
         if (terms.length === 0)
           return { holons: [], total: 0, query, mode };
@@ -43905,13 +45037,13 @@ function makeCausalOps(loader) {
       handler: async (_ctx, params) => {
         if (!loader.get())
           return notReady2(loader.path);
-        const id = params.id;
+        const id2 = params.id;
         const maxDepth = params.max_depth ?? 3;
         const minConf = params.min_confidence ?? 0;
-        if (!loader.byId(id))
-          return { error: `Holon not found: ${id}` };
-        const nodes = bfsChain(loader, id, maxDepth, minConf);
-        return { start_id: id, node_count: nodes.length, nodes };
+        if (!loader.byId(id2))
+          return { error: `Holon not found: ${id2}` };
+        const nodes = bfsChain(loader, id2, maxDepth, minConf);
+        return { start_id: id2, node_count: nodes.length, nodes };
       }
     },
     {
@@ -43933,24 +45065,24 @@ function makeCausalOps(loader) {
         const cc = loader.get();
         if (!cc)
           return notReady2(loader.path);
-        const id = params.id;
+        const id2 = params.id;
         const dir = params.direction ?? "outbound";
-        const h = loader.byId(id);
+        const h = loader.byId(id2);
         if (!h)
-          return { error: `Holon not found: ${id}` };
+          return { error: `Holon not found: ${id2}` };
         const outbound = dir === "outbound" || dir === "both" ? h.causal_edges.map((e) => ({
           target_id: e.target_id,
           target_title: loader.byId(e.target_id)?.title ?? e.target_id,
           relation: e.relation,
           confidence: e.confidence
         })) : [];
-        const inbound = dir === "inbound" || dir === "both" ? cc.holons.flatMap((src) => src.causal_edges.filter((e) => e.target_id === id).map((e) => ({
+        const inbound = dir === "inbound" || dir === "both" ? cc.holons.flatMap((src) => src.causal_edges.filter((e) => e.target_id === id2).map((e) => ({
           source_id: src.id,
           source_title: src.title,
           relation: e.relation,
           confidence: e.confidence
         }))) : [];
-        return { id, outbound, inbound };
+        return { id: id2, outbound, inbound };
       }
     },
     {
@@ -43966,13 +45098,13 @@ function makeCausalOps(loader) {
         const cc = loader.get();
         if (!cc)
           return notReady2(loader.path);
-        const id = params.id;
+        const id2 = params.id;
         const relation = params.relation;
         let edges = cc.hyper_edges ?? [];
-        if (id) {
-          if (!loader.byId(id))
-            return { error: `Holon not found: ${id}` };
-          edges = edges.filter((e) => e.participants.includes(id));
+        if (id2) {
+          if (!loader.byId(id2))
+            return { error: `Holon not found: ${id2}` };
+          edges = edges.filter((e) => e.participants.includes(id2));
         }
         if (relation) {
           edges = edges.filter((e) => e.relation === relation);
@@ -44011,10 +45143,10 @@ function makeProvenanceOps(loader) {
         const cc = loader.get();
         if (!cc)
           return notReady3(loader.path);
-        const id = params.id;
-        const h = loader.byId(id);
+        const id2 = params.id;
+        const h = loader.byId(id2);
         if (!h)
-          return { error: `Holon not found: ${id}` };
+          return { error: `Holon not found: ${id2}` };
         const causal_edges = h.causal_edges.map((e) => ({
           ...e,
           target_title: loader.byId(e.target_id)?.title ?? e.target_id
@@ -44072,8 +45204,8 @@ function bfsGraph(loader, startId, maxDepth) {
   }
   return nodes;
 }
-function mermaidId(id) {
-  return id.replace(/[^a-zA-Z0-9]/g, "_");
+function mermaidId(id2) {
+  return id2.replace(/[^a-zA-Z0-9]/g, "_");
 }
 function toMermaid(nodes) {
   const lines = ["graph LR"];
@@ -44188,12 +45320,12 @@ function makeGraphOps(loader, vaultPath) {
       handler: async (_ctx, params) => {
         if (!loader.get())
           return notReady4(loader.path);
-        const id = params.id;
+        const id2 = params.id;
         const depth = params.depth ?? 3;
         const format = params.format ?? "mermaid";
-        if (!loader.byId(id))
-          return { error: `Holon not found: ${id}` };
-        const nodes = bfsGraph(loader, id, depth);
+        if (!loader.byId(id2))
+          return { error: `Holon not found: ${id2}` };
+        const nodes = bfsGraph(loader, id2, depth);
         const edgeCount = nodes.reduce((s, n) => s + n.edges.length, 0);
         if (format === "mermaid") {
           return { format, content: toMermaid(nodes), nodes_count: nodes.length, edge_count: edgeCount };
@@ -44291,15 +45423,15 @@ function makeVaultWriteOps(vaultPath, loader) {
         heading: { type: "string", required: false, description: 'Section heading (default: "## AI Notes")', default: "## AI Notes" }
       },
       handler: async (_ctx, params) => {
-        const id = params.id;
+        const id2 = params.id;
         const relPath = params.path;
         const content = params.content;
         const heading = params.heading ?? "## AI Notes";
         let targetRel;
-        if (id) {
-          const holon = loader.byId(id);
+        if (id2) {
+          const holon = loader.byId(id2);
           if (!holon)
-            return { error: `Holon not found: ${id}` };
+            return { error: `Holon not found: ${id2}` };
           targetRel = `${holon.id}.md`;
         } else if (relPath) {
           targetRel = relPath;
@@ -44332,8 +45464,8 @@ import { existsSync as existsSync9, mkdirSync as mkdirSync5, readFileSync as rea
 import { basename as basename3, dirname as dirname5, join as join13 } from "node:path";
 var LOCK_TTL_MS = 6e4;
 var DEFAULT_ACTOR = "agent";
-function withFileLock(fullPath, fn) {
-  const lockPath = `${fullPath}.lock`;
+function withFileLock(fullPath2, fn) {
+  const lockPath = `${fullPath2}.lock`;
   const acquire = () => writeFileSync3(lockPath, JSON.stringify({ pid: process.pid, timestamp: Date.now() }), {
     encoding: "utf-8",
     flag: "wx"
@@ -44345,7 +45477,7 @@ function withFileLock(fullPath, fn) {
       throw e;
     const ageMs = existsSync9(lockPath) ? Date.now() - statSync2(lockPath).mtimeMs : LOCK_TTL_MS + 1;
     if (ageMs < LOCK_TTL_MS) {
-      throw makeErr(-32010, `Lock conflict on ${basename3(fullPath)}`);
+      throw makeErr(-32010, `Lock conflict on ${basename3(fullPath2)}`);
     }
     rmSync(lockPath, { force: true });
     acquire();
@@ -44382,34 +45514,34 @@ function textSection(value) {
   return typeof value === "string" && value.trim() ? value.trim() : "TBD";
 }
 function actorFromContext(ctx) {
-  const actor = ctx.config.collaboration?.actor ?? process.env.VAULT_MIND_ACTOR ?? DEFAULT_ACTOR;
-  return safeSegment(actor, "actor");
+  const actor2 = ctx.config.collaboration?.actor ?? process.env.VAULT_MIND_ACTOR ?? DEFAULT_ACTOR;
+  return safeSegment(actor2, "actor");
 }
-function memoryBasePath(project, actor) {
+function memoryBasePath(project, actor2) {
   if (project && project.trim()) {
-    return `10-Projects/${safeSegment(project, "project")}/agents/${actor}/memory`;
+    return `10-Projects/${safeSegment(project, "project")}/agents/${actor2}/memory`;
   }
-  return `00-Inbox/Agent-Memory/${actor}`;
+  return `00-Inbox/Agent-Memory/${actor2}`;
 }
 function resolvedProject(vaultPath, value, operation) {
   if (typeof value !== "string" || !value.trim())
     return void 0;
   return resolveProjectContext(vaultPath, value, operation).slug;
 }
-function readText(fullPath) {
-  if (!existsSync9(fullPath))
+function readText(fullPath2) {
+  if (!existsSync9(fullPath2))
     return null;
-  return readFileSync11(fullPath, "utf-8");
+  return readFileSync11(fullPath2, "utf-8");
 }
-function writeText(fullPath, content) {
-  mkdirSync5(dirname5(fullPath), { recursive: true });
-  withFileLock(fullPath, () => writeFileSync3(fullPath, content, "utf-8"));
+function writeText(fullPath2, content) {
+  mkdirSync5(dirname5(fullPath2), { recursive: true });
+  withFileLock(fullPath2, () => writeFileSync3(fullPath2, content, "utf-8"));
 }
-function memoryDocFrontmatter(kind, actor, project, now) {
+function memoryDocFrontmatter(kind, actor2, project, now) {
   return [
     "---",
     `llmwiki-memory: ${kind}`,
-    `actor: ${yamlString(actor)}`,
+    `actor: ${yamlString(actor2)}`,
     project ? `project: ${yamlString(project)}` : "project: null",
     `updated-at: ${yamlString(now)}`,
     "---",
@@ -44547,21 +45679,21 @@ var MarkdownMemory = class {
     this.vaultPath = vaultPath;
   }
   passport(ctx, project) {
-    const actor = actorFromContext(ctx);
+    const actor2 = actorFromContext(ctx);
     project = resolvedProject(this.vaultPath, project, "memory.passport.get");
-    const relPath = `${memoryBasePath(project, actor)}/passport.md`;
-    const fullPath = join13(this.vaultPath, relPath);
+    const relPath = `${memoryBasePath(project, actor2)}/passport.md`;
+    const fullPath2 = join13(this.vaultPath, relPath);
     const now = (/* @__PURE__ */ new Date()).toISOString();
-    const content = readText(fullPath) ?? passportMarkdown({ actor, project, now });
-    return { exists: existsSync9(fullPath), path: relPath, content };
+    const content = readText(fullPath2) ?? passportMarkdown({ actor: actor2, project, now });
+    return { exists: existsSync9(fullPath2), path: relPath, content };
   }
   writePassport(ctx, params) {
-    const actor = actorFromContext(ctx);
+    const actor2 = actorFromContext(ctx);
     const project = resolvedProject(this.vaultPath, params.project, "memory.passport.upsert");
-    const relPath = `${memoryBasePath(project, actor)}/passport.md`;
+    const relPath = `${memoryBasePath(project, actor2)}/passport.md`;
     const now = (/* @__PURE__ */ new Date()).toISOString();
     const content = passportMarkdown({
-      actor,
+      actor: actor2,
       project,
       now,
       goal: params.goal,
@@ -44574,21 +45706,21 @@ var MarkdownMemory = class {
     return { ok: true, path: relPath, bytes: Buffer.byteLength(content, "utf-8") };
   }
   handoff(ctx, project) {
-    const actor = actorFromContext(ctx);
+    const actor2 = actorFromContext(ctx);
     project = resolvedProject(this.vaultPath, project, "memory.handoff.latest");
-    const relPath = `${memoryBasePath(project, actor)}/handoff.md`;
-    const fullPath = join13(this.vaultPath, relPath);
+    const relPath = `${memoryBasePath(project, actor2)}/handoff.md`;
+    const fullPath2 = join13(this.vaultPath, relPath);
     const now = (/* @__PURE__ */ new Date()).toISOString();
-    const content = readText(fullPath) ?? handoffMarkdown({ actor, project, now });
-    return { exists: existsSync9(fullPath), path: relPath, content };
+    const content = readText(fullPath2) ?? handoffMarkdown({ actor: actor2, project, now });
+    return { exists: existsSync9(fullPath2), path: relPath, content };
   }
   writeHandoff(ctx, params) {
-    const actor = actorFromContext(ctx);
+    const actor2 = actorFromContext(ctx);
     const project = resolvedProject(this.vaultPath, params.project, "memory.handoff.write");
-    const relPath = `${memoryBasePath(project, actor)}/handoff.md`;
+    const relPath = `${memoryBasePath(project, actor2)}/handoff.md`;
     const now = (/* @__PURE__ */ new Date()).toISOString();
     const content = handoffMarkdown({
-      actor,
+      actor: actor2,
       project,
       now,
       currentState: params.currentState,
@@ -44600,14 +45732,14 @@ var MarkdownMemory = class {
     return { ok: true, path: relPath, bytes: Buffer.byteLength(content, "utf-8") };
   }
   saveSession(ctx, params) {
-    const actor = actorFromContext(ctx);
+    const actor2 = actorFromContext(ctx);
     const project = resolvedProject(this.vaultPath, params.project, "memory.session.save");
     const now = (/* @__PURE__ */ new Date()).toISOString();
     const title = typeof params.title === "string" && params.title.trim() ? params.title.trim() : String(params.summary ?? "").slice(0, 60);
     const stamp = now.replace(/[:.]/g, "-");
-    const relPath = `${memoryBasePath(project, actor)}/sessions/${stamp}-${slugify2(title)}.md`;
+    const relPath = `${memoryBasePath(project, actor2)}/sessions/${stamp}-${slugify2(title)}.md`;
     const content = sessionMarkdown({
-      actor,
+      actor: actor2,
       project,
       now,
       title: params.title,
@@ -44620,22 +45752,22 @@ var MarkdownMemory = class {
     return { ok: true, path: relPath, bytes: Buffer.byteLength(content, "utf-8") };
   }
   listSessions(ctx, project, limit = 20) {
-    const actor = actorFromContext(ctx);
+    const actor2 = actorFromContext(ctx);
     project = resolvedProject(this.vaultPath, project, "memory.session.list");
-    const relDir = `${memoryBasePath(project, actor)}/sessions`;
+    const relDir = `${memoryBasePath(project, actor2)}/sessions`;
     const fullDir = join13(this.vaultPath, relDir);
     if (!existsSync9(fullDir))
       return { count: 0, sessions: [] };
     const sessions = readdirSync7(fullDir, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".md")).map((entry) => {
-      const fullPath = join13(fullDir, entry.name);
-      const content = readFileSync11(fullPath, "utf-8");
+      const fullPath2 = join13(fullDir, entry.name);
+      const content = readFileSync11(fullPath2, "utf-8");
       const heading = content.match(/^#\s+(.+)$/m)?.[1]?.trim() ?? entry.name.replace(/\.md$/, "");
       const preview3 = content.replace(/^---[\s\S]*?---\s*/m, "").replace(/\s+/g, " ").trim().slice(0, 180);
       return {
         path: `${relDir}/${entry.name}`,
         title: heading,
         preview: preview3,
-        updated_at: statSync2(fullPath).mtime.toISOString()
+        updated_at: statSync2(fullPath2).mtime.toISOString()
       };
     }).sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, Math.max(1, Math.min(limit, 100)));
     return { count: sessions.length, sessions };
@@ -44870,9 +46002,9 @@ function readText2(path) {
   return existsSync10(path) ? readFileSync12(path, "utf-8") : null;
 }
 function writeVaultBytes(vaultPath, relPath, content) {
-  const fullPath = join14(vaultPath, relPath);
-  mkdirSync6(dirname6(fullPath), { recursive: true });
-  writeFileSync4(fullPath, Buffer.from(content, "utf-8"));
+  const fullPath2 = join14(vaultPath, relPath);
+  mkdirSync6(dirname6(fullPath2), { recursive: true });
+  writeFileSync4(fullPath2, Buffer.from(content, "utf-8"));
 }
 function isoDate() {
   return (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
@@ -44997,11 +46129,11 @@ function renderIssueNote(f, body) {
   }
   lines.push("---");
   const trimmedBody = body.replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/^\n+/, "");
-  let text = lines.join("\n") + "\n\n";
-  text += trimmedBody ? trimmedBody : f.description;
-  if (!text.endsWith("\n"))
-    text += "\n";
-  return text;
+  let text2 = lines.join("\n") + "\n\n";
+  text2 += trimmedBody ? trimmedBody : f.description;
+  if (!text2.endsWith("\n"))
+    text2 += "\n";
+  return text2;
 }
 function projectNote(project, description) {
   return [
@@ -45055,13 +46187,13 @@ function findIssueNote(vaultPath, project, slug) {
   const full = join14(vaultPath, issuePath(project, slug));
   if (!existsSync10(full))
     return null;
-  const text = readFileSync12(full, "utf-8");
-  const raw = parseFm(text);
+  const text2 = readFileSync12(full, "utf-8");
+  const raw = parseFm(text2);
   return {
     note_id: issuePath(project, slug).replace(/\\/g, "/"),
     path: full,
     raw,
-    body: splitBody(text),
+    body: splitBody(text2),
     entity: typeof raw.entity === "string" ? raw.entity : null
   };
 }
@@ -45187,11 +46319,11 @@ function buildProjectCanvas(project, issues) {
     }
   }
   const addEdge = (from, to, label, color) => {
-    const id = `edge-${canvasId(nodeId(from))}-${canvasId(nodeId(to))}-${canvasId(label)}`;
-    if (emitted.has(id))
+    const id2 = `edge-${canvasId(nodeId(from))}-${canvasId(nodeId(to))}-${canvasId(label)}`;
+    if (emitted.has(id2))
       return;
-    emitted.add(id);
-    edges.push({ id, fromNode: nodeId(from), fromSide: "right", toNode: nodeId(to), toSide: "left", label, color });
+    emitted.add(id2);
+    edges.push({ id: id2, fromNode: nodeId(from), fromSide: "right", toNode: nodeId(to), toSide: "left", label, color });
   };
   for (const issue3 of issues) {
     for (const blockerEntity of blockedByRefs(issue3.raw)) {
@@ -45618,7 +46750,7 @@ ${params.body.trim()}` : title;
         const body = String(params.body ?? "").trim();
         if (!body)
           throw makeErr(-32602, "body required");
-        const actor = typeof params.actor === "string" && params.actor.trim() ? safeSegment2(params.actor, "actor") : actorFromContext2(ctx);
+        const actor2 = typeof params.actor === "string" && params.actor.trim() ? safeSegment2(params.actor, "actor") : actorFromContext2(ctx);
         const session = typeof params.session === "string" ? params.session.trim() : process.env.CODEX_THREAD_ID || "";
         const path = `${issuesRoot(project)}/${slug}.comments.md`;
         const existing = readText2(join14(vaultPath, path)) ?? `# Comments for ${slug}
@@ -45626,7 +46758,7 @@ ${params.body.trim()}` : title;
 `;
         const now = (/* @__PURE__ */ new Date()).toISOString();
         const sessionPart = session ? ` \xB7 session ${session}` : "";
-        const block = `## ${now} \xB7 ${actor}${sessionPart}
+        const block = `## ${now} \xB7 ${actor2}${sessionPart}
 
 ${body}
 
@@ -45634,7 +46766,7 @@ ${body}
 
 `;
         writeVaultBytes(vaultPath, path, existing.replace(/\s+$/, "") + "\n\n" + block);
-        return { ok: true, path, actor, session };
+        return { ok: true, path, actor: actor2, session };
       }
     },
     {
@@ -45678,11 +46810,11 @@ ${body}
 }
 
 // dist/project/project-hub.js
-import { createHash as createHash2 } from "node:crypto";
-import { existsSync as existsSync12, readdirSync as readdirSync8, readFileSync as readFileSync14, statSync as statSync3 } from "node:fs";
-import { join as join16, relative as relative4 } from "node:path";
+import { createHash as createHash6 } from "node:crypto";
+import { existsSync as existsSync14, readdirSync as readdirSync10, readFileSync as readFileSync16, statSync as statSync3 } from "node:fs";
+import { join as join22, relative as relative5 } from "node:path";
 
-// ../packages/settings-platform/dist/src/canonical.js
+// ../packages/agent-domain/dist/src/canonical.js
 import { createHash } from "node:crypto";
 function canonicalize(value) {
   if (Array.isArray(value))
@@ -45701,11 +46833,3915 @@ function canonicalDigest(value) {
 function deepClone(value) {
   return JSON.parse(JSON.stringify(value));
 }
+function digestTransitionToken(value) {
+  return `sha256:${createHash("sha256").update(value, "utf8").digest("hex")}`;
+}
+
+// ../packages/agent-domain/dist/src/errors.js
+var DomainValidationError = class extends Error {
+  path;
+  code = "agent-domain-validation";
+  constructor(message, path) {
+    super(path ? `${message} at ${path}` : message);
+    this.path = path;
+    this.name = "DomainValidationError";
+  }
+};
+var DomainConflictError = class extends Error {
+  details;
+  code = "agent-domain-conflict";
+  constructor(message, details = {}) {
+    super(message);
+    this.details = details;
+    this.name = "DomainConflictError";
+  }
+};
+var DomainNotFoundError = class extends Error {
+  code = "agent-domain-not-found";
+  constructor(message) {
+    super(message);
+    this.name = "DomainNotFoundError";
+  }
+};
+var DomainLockTimeoutError = class extends Error {
+  code = "agent-domain-lock-timeout";
+  constructor(lockPath, timeoutMs) {
+    super(`Timed out after ${timeoutMs}ms waiting for an Agent Domain lock`);
+    void lockPath;
+    this.name = "DomainLockTimeoutError";
+  }
+};
+var ContextBudgetError = class extends Error {
+  mandatoryTokens;
+  tokenBudget;
+  code = "context-mandatory-budget-exceeded";
+  constructor(mandatoryTokens, tokenBudget) {
+    super(`Mandatory context requires ${mandatoryTokens} tokens but the budget is ${tokenBudget}`);
+    this.mandatoryTokens = mandatoryTokens;
+    this.tokenBudget = tokenBudget;
+    this.name = "ContextBudgetError";
+  }
+};
+var SimulatedInterruptionError = class extends Error {
+  point;
+  code = "dreamtime-simulated-interruption";
+  constructor(point) {
+    super(`Dream Time approval interrupted at ${point}`);
+    this.point = point;
+    this.name = "SimulatedInterruptionError";
+  }
+};
+
+// ../packages/agent-domain/dist/src/security.js
+var FORBIDDEN_KEYS = /* @__PURE__ */ new Set([
+  "secret",
+  "secretvalue",
+  "secretmaterial",
+  "apikey",
+  "authorization",
+  "authorizationheader",
+  "oauthtoken",
+  "refreshtoken",
+  "accesstoken",
+  "leasetoken",
+  "handofftoken",
+  "credential",
+  "credentials",
+  "password",
+  "privatekey",
+  "processid",
+  "pid",
+  "processhandle",
+  "runtimesession",
+  "workspacepath",
+  "repopath",
+  "filepath",
+  "directorypath",
+  "absolutepath",
+  "cwd",
+  "homedirectory",
+  "environment",
+  "headers"
+]);
+var ABSOLUTE_PATH_PATTERNS = [
+  /^(?:[A-Za-z]:[\\/]|\\\\|~[\\/]|file:\/\/|\/(?:[^/\s]+\/)+[^/\s]*)/,
+  /(?:^|\s)(?:[A-Za-z]:[\\/]|\\\\[^\\]|\/(?:home|Users|var|tmp|etc|opt)\/|~[\\/])/
+];
+var SECRET_VALUE_PATTERNS = [
+  /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/,
+  /\bBearer\s+[A-Za-z0-9._~+\/-]{12,}/i,
+  /\bsk-[A-Za-z0-9_-]{16,}\b/,
+  /\bgh[opusr]_[A-Za-z0-9]{20,}\b/
+];
+function normalizedKey(value) {
+  return value.replace(/[^a-z0-9]/gi, "").toLowerCase();
+}
+function assertSafeSharedState(value, label = "record") {
+  const visit = (current, path) => {
+    if (typeof current === "string") {
+      if (ABSOLUTE_PATH_PATTERNS.some((pattern) => pattern.test(current))) {
+        throw new DomainValidationError("Machine-local or absolute paths are forbidden in shared Agent Domain state", path);
+      }
+      if (SECRET_VALUE_PATTERNS.some((pattern) => pattern.test(current))) {
+        throw new DomainValidationError("Secret material is forbidden in shared Agent Domain state", path);
+      }
+      return;
+    }
+    if (Array.isArray(current)) {
+      current.forEach((child, index) => visit(child, `${path}[${index}]`));
+      return;
+    }
+    if (!current || typeof current !== "object")
+      return;
+    for (const [key, child] of Object.entries(current)) {
+      const childPath = `${path}.${key}`;
+      if (FORBIDDEN_KEYS.has(normalizedKey(key))) {
+        throw new DomainValidationError(`Forbidden sensitive or device-local field ${key}`, childPath);
+      }
+      visit(child, childPath);
+    }
+  };
+  visit(value, label);
+}
+function assertSafeSingleSegment(value, label) {
+  if (!value || value !== value.trim() || value === "." || value === ".." || /[\\/]/.test(value)) {
+    throw new DomainValidationError(`${label} must be one safe path segment`);
+  }
+}
+
+// ../packages/agent-domain/dist/src/validation.js
+var PROFILE_ID_RE = /^agent\/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/;
+var PROJECT_ID_RE2 = /^project\/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/;
+var BINDING_ID_RE = /^binding\/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?\/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/;
+var THREAD_ID_RE = /^thread\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+var WORK_RUN_ID_RE = /^work-run\/[a-z0-9][a-z0-9-]*$/;
+var ARTIFACT_ID_RE = /^artifact\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+var GRANT_REF_RE = /^grant\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+var PROPOSAL_ID_RE = /^memory-proposal\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+var REVISION_ID_RE = /^memory-revision\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+var EVENT_ID_RE = /^memory-event\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+var DIGEST_RE = /^sha256:[a-f0-9]{64}$/;
+var MEMORY_SCOPES = /* @__PURE__ */ new Set(["recentContext", "openItems", "stableMemory"]);
+function fail(message, path) {
+  throw new DomainValidationError(message, path);
+}
+function record2(value, path) {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    fail("Expected object", path);
+  return value;
+}
+function string4(value, path, allowEmpty = false) {
+  if (typeof value !== "string" || value !== value.trim() || !allowEmpty && !value)
+    fail("Expected non-empty trimmed string", path);
+  return value;
+}
+function exactString(value, path) {
+  if (typeof value !== "string")
+    fail("Expected string", path);
+  return value;
+}
+function integer2(value, path, minimum = 0) {
+  if (!Number.isInteger(value) || value < minimum)
+    fail(`Expected integer >= ${minimum}`, path);
+  return value;
+}
+function bool(value, path) {
+  if (typeof value !== "boolean")
+    fail("Expected boolean", path);
+  return value;
+}
+function iso(value, path) {
+  const parsed = string4(value, path);
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(parsed) || Number.isNaN(Date.parse(parsed))) {
+    fail("Expected UTC ISO-8601 timestamp", path);
+  }
+  return parsed;
+}
+function digest(value, path) {
+  const parsed = string4(value, path);
+  if (!DIGEST_RE.test(parsed))
+    fail("Expected sha256 digest", path);
+  return parsed;
+}
+function strings(value, path) {
+  if (!Array.isArray(value))
+    fail("Expected array", path);
+  const parsed = value.map((item, index) => string4(item, `${path}[${index}]`));
+  if (new Set(parsed).size !== parsed.length)
+    fail("Duplicate values are not allowed", path);
+  return parsed;
+}
+function allowedKeys(value, allowed, path) {
+  const allowedSet = new Set(allowed);
+  const extra = Object.keys(value).filter((key) => !allowedSet.has(key));
+  if (extra.length)
+    fail(`Unknown fields are not allowed: ${extra.join(", ")}`, path);
+}
+function versioned(value, path) {
+  if (value.schemaVersion !== 1)
+    fail("Unsupported schemaVersion", `${path}.schemaVersion`);
+  integer2(value.revision, `${path}.revision`, 1);
+  iso(value.createdAt, `${path}.createdAt`);
+  string4(value.createdBy, `${path}.createdBy`);
+  iso(value.updatedAt, `${path}.updatedAt`);
+  string4(value.updatedBy, `${path}.updatedBy`);
+  if (value.previousRevision !== void 0) {
+    const previous = record2(value.previousRevision, `${path}.previousRevision`);
+    allowedKeys(previous, ["revision", "digest"], `${path}.previousRevision`);
+    integer2(previous.revision, `${path}.previousRevision.revision`, 1);
+    digest(previous.digest, `${path}.previousRevision.digest`);
+    if (previous.revision >= value.revision)
+      fail("previous revision must be older", `${path}.previousRevision.revision`);
+  }
+}
+function parseAgentProfileId(value, path = "profileId") {
+  const parsed = string4(value, path);
+  if (!PROFILE_ID_RE.test(parsed))
+    fail("Agent Profile ID must use agent/<lowercase-kebab-slug>", path);
+  return parsed;
+}
+function parseProjectId2(value, path = "projectId") {
+  const parsed = string4(value, path);
+  if (!PROJECT_ID_RE2.test(parsed))
+    fail("Project ID must use project/<lowercase-kebab-slug>", path);
+  return parsed;
+}
+function parseBindingId(value, path = "bindingId") {
+  const parsed = string4(value, path);
+  if (!BINDING_ID_RE.test(parsed))
+    fail("Binding ID must use binding/<project-slug>/<agent-slug>", path);
+  return parsed;
+}
+function parseThreadId(value, path = "threadId") {
+  const parsed = string4(value, path);
+  if (!THREAD_ID_RE.test(parsed))
+    fail("Thread ID must use thread/<stable-id>", path);
+  return parsed;
+}
+function bindingIdFor(projectId2, profileId) {
+  parseProjectId2(projectId2);
+  parseAgentProfileId(profileId);
+  return `binding/${projectId2.slice("project/".length)}/${profileId.slice("agent/".length)}`;
+}
+function validateModelLock(value, path) {
+  const item = record2(value, path);
+  allowedKeys(item, ["provider", "model", "contextWindow", "tokenizer", "policyFingerprint"], path);
+  string4(item.provider, `${path}.provider`);
+  string4(item.model, `${path}.model`);
+  integer2(item.contextWindow, `${path}.contextWindow`, 1);
+  string4(item.tokenizer, `${path}.tokenizer`);
+  digest(item.policyFingerprint, `${path}.policyFingerprint`);
+  return item;
+}
+function validateProvenance(value, path) {
+  const item = record2(value, path);
+  allowedKeys(item, ["kind", "id", "revision", "fingerprint"], path);
+  const kind = string4(item.kind, `${path}.kind`);
+  if (!(/* @__PURE__ */ new Set(["governance", "profile", "binding", "memoryRevision", "project", "workItem", "workRun", "thread", "settings", "deviceCapability", "grant", "artifact", "source"])).has(kind)) {
+    fail("Invalid provenance kind", `${path}.kind`);
+  }
+  string4(item.id, `${path}.id`);
+  if (item.revision !== void 0) {
+    if (typeof item.revision === "number")
+      integer2(item.revision, `${path}.revision`, 0);
+    else
+      string4(item.revision, `${path}.revision`);
+  }
+  if (item.fingerprint !== void 0)
+    digest(item.fingerprint, `${path}.fingerprint`);
+  return item;
+}
+function validateWarning(value, path) {
+  const item = record2(value, path);
+  allowedKeys(item, ["code", "severity", "message", "sourceRef"], path);
+  string4(item.code, `${path}.code`);
+  if (!(/* @__PURE__ */ new Set(["info", "warning", "error"])).has(string4(item.severity, `${path}.severity`)))
+    fail("Invalid warning severity", `${path}.severity`);
+  string4(item.message, `${path}.message`);
+  if (item.sourceRef !== void 0)
+    string4(item.sourceRef, `${path}.sourceRef`);
+  return item;
+}
+function validateAgentProfile(value) {
+  const item = record2(value, "AgentProfile");
+  allowedKeys(item, [
+    "schemaVersion",
+    "profileId",
+    "revision",
+    "displayName",
+    "role",
+    "responsibilities",
+    "capabilityClaims",
+    "constitution",
+    "defaultModelPolicy",
+    "createdAt",
+    "createdBy",
+    "updatedAt",
+    "updatedBy",
+    "previousRevision"
+  ], "AgentProfile");
+  versioned(item, "AgentProfile");
+  parseAgentProfileId(item.profileId, "AgentProfile.profileId");
+  string4(item.displayName, "AgentProfile.displayName");
+  string4(item.role, "AgentProfile.role");
+  strings(item.responsibilities, "AgentProfile.responsibilities");
+  strings(item.capabilityClaims, "AgentProfile.capabilityClaims");
+  const constitution = record2(item.constitution, "AgentProfile.constitution");
+  allowedKeys(constitution, ["principles", "instructions"], "AgentProfile.constitution");
+  strings(constitution.principles, "AgentProfile.constitution.principles");
+  strings(constitution.instructions, "AgentProfile.constitution.instructions");
+  const model = record2(item.defaultModelPolicy, "AgentProfile.defaultModelPolicy");
+  allowedKeys(model, ["mode", "provider", "model", "capabilityClass"], "AgentProfile.defaultModelPolicy");
+  if (!(/* @__PURE__ */ new Set(["inherit", "local", "cloud"])).has(string4(model.mode, "AgentProfile.defaultModelPolicy.mode"))) {
+    fail("Invalid model policy mode", "AgentProfile.defaultModelPolicy.mode");
+  }
+  for (const key of ["provider", "model", "capabilityClass"]) {
+    if (model[key] !== void 0)
+      string4(model[key], `AgentProfile.defaultModelPolicy.${key}`);
+  }
+  assertSafeSharedState(item, "AgentProfile");
+  return item;
+}
+function validateProjectAgentBinding(value) {
+  const item = record2(value, "ProjectAgentBinding");
+  allowedKeys(item, [
+    "schemaVersion",
+    "bindingId",
+    "projectId",
+    "projectContextFingerprint",
+    "profileId",
+    "profileRevision",
+    "revision",
+    "role",
+    "enabled",
+    "memoryScopes",
+    "connectorGrantRefs",
+    "createdAt",
+    "createdBy",
+    "updatedAt",
+    "updatedBy",
+    "previousRevision"
+  ], "ProjectAgentBinding");
+  versioned(item, "ProjectAgentBinding");
+  const projectId2 = parseProjectId2(item.projectId, "ProjectAgentBinding.projectId");
+  const profileId = parseAgentProfileId(item.profileId, "ProjectAgentBinding.profileId");
+  const bindingId = parseBindingId(item.bindingId, "ProjectAgentBinding.bindingId");
+  if (bindingId !== bindingIdFor(projectId2, profileId))
+    fail("Binding ID does not match Project/Profile identity", "ProjectAgentBinding.bindingId");
+  digest(item.projectContextFingerprint, "ProjectAgentBinding.projectContextFingerprint");
+  integer2(item.profileRevision, "ProjectAgentBinding.profileRevision", 1);
+  string4(item.role, "ProjectAgentBinding.role");
+  bool(item.enabled, "ProjectAgentBinding.enabled");
+  const scopes = strings(item.memoryScopes, "ProjectAgentBinding.memoryScopes");
+  for (const scope of scopes)
+    if (!MEMORY_SCOPES.has(scope))
+      fail("Invalid memory scope", "ProjectAgentBinding.memoryScopes");
+  const grants = strings(item.connectorGrantRefs, "ProjectAgentBinding.connectorGrantRefs");
+  for (const grant of grants)
+    if (!GRANT_REF_RE.test(grant))
+      fail("Grant ref must use grant/<stable-id>", "ProjectAgentBinding.connectorGrantRefs");
+  assertSafeSharedState(item, "ProjectAgentBinding");
+  return item;
+}
+function validateThread(value) {
+  const item = record2(value, "Thread");
+  allowedKeys(item, [
+    "schemaVersion",
+    "threadId",
+    "revision",
+    "durability",
+    "lifecycle",
+    "projectId",
+    "bindingId",
+    "bindingRevision",
+    "profileId",
+    "profileRevision",
+    "title",
+    "references",
+    "createdAt",
+    "createdBy",
+    "updatedAt",
+    "updatedBy",
+    "previousRevision"
+  ], "Thread");
+  versioned(item, "Thread");
+  parseThreadId(item.threadId, "Thread.threadId");
+  if (item.durability !== "durable")
+    fail("Persisted Thread must be durable", "Thread.durability");
+  if (!(/* @__PURE__ */ new Set(["open", "closed", "archived"])).has(string4(item.lifecycle, "Thread.lifecycle")))
+    fail("Invalid Thread lifecycle", "Thread.lifecycle");
+  const projectId2 = parseProjectId2(item.projectId, "Thread.projectId");
+  const profileId = parseAgentProfileId(item.profileId, "Thread.profileId");
+  const bindingId = parseBindingId(item.bindingId, "Thread.bindingId");
+  if (bindingId !== bindingIdFor(projectId2, profileId))
+    fail("Thread binding does not match Project/Profile", "Thread.bindingId");
+  integer2(item.bindingRevision, "Thread.bindingRevision", 1);
+  integer2(item.profileRevision, "Thread.profileRevision", 1);
+  string4(item.title, "Thread.title");
+  if (!Array.isArray(item.references))
+    fail("Expected array", "Thread.references");
+  item.references.forEach((raw, index) => {
+    const ref = record2(raw, `Thread.references[${index}]`);
+    allowedKeys(ref, ["ordinal", "kind", "referenceId", "recordedAt", "contentHash", "citations"], `Thread.references[${index}]`);
+    if (integer2(ref.ordinal, `Thread.references[${index}].ordinal`, 1) !== index + 1)
+      fail("Thread reference ordinals must be contiguous", `Thread.references[${index}].ordinal`);
+    const kind = string4(ref.kind, `Thread.references[${index}].kind`);
+    if (!(/* @__PURE__ */ new Set(["message", "artifact", "workRun"])).has(kind))
+      fail("Invalid Thread reference kind", `Thread.references[${index}].kind`);
+    const referenceId = string4(ref.referenceId, `Thread.references[${index}].referenceId`);
+    if (kind === "artifact" && !ARTIFACT_ID_RE.test(referenceId))
+      fail("Artifact reference must use artifact/<stable-id>", `Thread.references[${index}].referenceId`);
+    if (kind === "workRun" && !WORK_RUN_ID_RE.test(referenceId))
+      fail("Work Run reference must use work-run/<stable-id>", `Thread.references[${index}].referenceId`);
+    iso(ref.recordedAt, `Thread.references[${index}].recordedAt`);
+    if (ref.contentHash !== void 0)
+      digest(ref.contentHash, `Thread.references[${index}].contentHash`);
+    strings(ref.citations, `Thread.references[${index}].citations`);
+  });
+  assertSafeSharedState(item, "Thread");
+  return item;
+}
+function memorySectionHash(section3) {
+  return canonicalDigest({ content: section3.content, citations: section3.citations });
+}
+function makeMemorySection(content = "", citations = []) {
+  const material = { content, citations: [...citations] };
+  return { ...material, contentHash: memorySectionHash(material) };
+}
+function validateMemorySection(value, path) {
+  const item = record2(value, path);
+  allowedKeys(item, ["content", "citations", "contentHash"], path);
+  const content = exactString(item.content, `${path}.content`);
+  const citations = strings(item.citations, `${path}.citations`);
+  const contentHash = digest(item.contentHash, `${path}.contentHash`);
+  if (contentHash !== memorySectionHash({ content, citations }))
+    fail("Memory section content hash mismatch", `${path}.contentHash`);
+  return item;
+}
+function validateDirective(value, path) {
+  const item = record2(value, path);
+  allowedKeys(item, ["directiveId", "kind", "section", "contentHash", "retainUntil", "reason"], path);
+  string4(item.directiveId, `${path}.directiveId`);
+  const kind = string4(item.kind, `${path}.kind`);
+  if (!(/* @__PURE__ */ new Set(["must-keep", "protected", "retain-until"])).has(kind))
+    fail("Invalid protected directive kind", `${path}.kind`);
+  const section3 = string4(item.section, `${path}.section`);
+  if (!MEMORY_SCOPES.has(section3))
+    fail("Invalid directive section", `${path}.section`);
+  if (item.contentHash !== void 0)
+    digest(item.contentHash, `${path}.contentHash`);
+  if (kind !== "retain-until" && item.retainUntil !== void 0)
+    fail("retainUntil is valid only for retain-until", `${path}.retainUntil`);
+  if (kind === "retain-until")
+    iso(item.retainUntil, `${path}.retainUntil`);
+  string4(item.reason, `${path}.reason`);
+  return item;
+}
+function validateConflict(value, path) {
+  const item = record2(value, path);
+  allowedKeys(item, ["conflictId", "section", "reason", "sourceRefs", "resolved"], path);
+  string4(item.conflictId, `${path}.conflictId`);
+  const section3 = string4(item.section, `${path}.section`);
+  if (!MEMORY_SCOPES.has(section3))
+    fail("Invalid conflict section", `${path}.section`);
+  string4(item.reason, `${path}.reason`);
+  strings(item.sourceRefs, `${path}.sourceRefs`);
+  if (item.resolved !== false)
+    fail("Only unresolved conflicts belong in governed memory", `${path}.resolved`);
+  return item;
+}
+function validateCandidateDiff(value, path) {
+  const item = record2(value, path);
+  allowedKeys(item, ["operation", "section", "beforeHash", "after"], path);
+  const operation = string4(item.operation, `${path}.operation`);
+  if (!(/* @__PURE__ */ new Set(["replace", "remove"])).has(operation))
+    fail("Invalid candidate diff operation", `${path}.operation`);
+  const section3 = string4(item.section, `${path}.section`);
+  if (!MEMORY_SCOPES.has(section3))
+    fail("Invalid candidate diff section", `${path}.section`);
+  if (item.beforeHash !== null)
+    digest(item.beforeHash, `${path}.beforeHash`);
+  if (operation === "remove" && item.after !== null)
+    fail("Remove diff must have null after", `${path}.after`);
+  if (operation === "replace" && item.after === null)
+    fail("Replace diff requires an after section", `${path}.after`);
+  if (item.after !== null)
+    validateMemorySection(item.after, `${path}.after`);
+  return item;
+}
+function proposalFingerprintMaterial(proposal) {
+  const { fingerprint: _fingerprint, ...material } = proposal;
+  return material;
+}
+function validateMemoryProposal(value) {
+  const item = record2(value, "MemoryProposal");
+  allowedKeys(item, [
+    "schemaVersion",
+    "proposalId",
+    "lifecycle",
+    "operation",
+    "projectId",
+    "profileId",
+    "sourceIdentities",
+    "expectedRevision",
+    "sourceFingerprint",
+    "candidateDiff",
+    "protectedDirectives",
+    "unresolvedConflicts",
+    "provenance",
+    "warnings",
+    "modelLock",
+    "approvalPolicy",
+    "createdAt",
+    "createdBy",
+    "expiresAt",
+    "fingerprint"
+  ], "MemoryProposal");
+  if (item.schemaVersion !== 1 || item.lifecycle !== "proposed")
+    fail("Memory Proposal must be schema v1 and proposed", "MemoryProposal");
+  if (!PROPOSAL_ID_RE.test(string4(item.proposalId, "MemoryProposal.proposalId")))
+    fail("Invalid proposal ID", "MemoryProposal.proposalId");
+  const operation = string4(item.operation, "MemoryProposal.operation");
+  if (!(/* @__PURE__ */ new Set(["checkpoint", "learn", "review"])).has(operation))
+    fail("Invalid Dream Time operation", "MemoryProposal.operation");
+  parseProjectId2(item.projectId, "MemoryProposal.projectId");
+  parseAgentProfileId(item.profileId, "MemoryProposal.profileId");
+  const source = record2(item.sourceIdentities, "MemoryProposal.sourceIdentities");
+  allowedKeys(source, ["threadId", "workRunId", "revisionIds", "artifactIds", "cutoffAt"], "MemoryProposal.sourceIdentities");
+  if (source.threadId !== void 0)
+    parseThreadId(source.threadId, "MemoryProposal.sourceIdentities.threadId");
+  if (source.workRunId !== void 0 && !WORK_RUN_ID_RE.test(string4(source.workRunId, "MemoryProposal.sourceIdentities.workRunId")))
+    fail("Invalid Work Run ID", "MemoryProposal.sourceIdentities.workRunId");
+  const revisionIds = strings(source.revisionIds, "MemoryProposal.sourceIdentities.revisionIds");
+  revisionIds.forEach((id2) => {
+    if (!REVISION_ID_RE.test(id2))
+      fail("Invalid Memory Revision ID", "MemoryProposal.sourceIdentities.revisionIds");
+  });
+  const artifactIds = strings(source.artifactIds, "MemoryProposal.sourceIdentities.artifactIds");
+  artifactIds.forEach((id2) => {
+    if (!ARTIFACT_ID_RE.test(id2))
+      fail("Invalid Artifact ID", "MemoryProposal.sourceIdentities.artifactIds");
+  });
+  if (!source.threadId && !source.workRunId && revisionIds.length === 0 && artifactIds.length === 0)
+    fail("Proposal requires at least one source identity", "MemoryProposal.sourceIdentities");
+  iso(source.cutoffAt, "MemoryProposal.sourceIdentities.cutoffAt");
+  const expected = record2(item.expectedRevision, "MemoryProposal.expectedRevision");
+  allowedKeys(expected, ["revisionId", "revision", "fingerprint"], "MemoryProposal.expectedRevision");
+  const expectedNumber = integer2(expected.revision, "MemoryProposal.expectedRevision.revision", 0);
+  if (expectedNumber === 0) {
+    if (expected.revisionId !== null || expected.fingerprint !== null)
+      fail("Revision zero must use null identity and fingerprint", "MemoryProposal.expectedRevision");
+  } else {
+    if (!REVISION_ID_RE.test(string4(expected.revisionId, "MemoryProposal.expectedRevision.revisionId")))
+      fail("Invalid expected revision ID", "MemoryProposal.expectedRevision.revisionId");
+    digest(expected.fingerprint, "MemoryProposal.expectedRevision.fingerprint");
+  }
+  digest(item.sourceFingerprint, "MemoryProposal.sourceFingerprint");
+  if (!Array.isArray(item.candidateDiff) || item.candidateDiff.length === 0)
+    fail("Candidate diff must be non-empty", "MemoryProposal.candidateDiff");
+  const diffs = item.candidateDiff.map((diff, index) => validateCandidateDiff(diff, `MemoryProposal.candidateDiff[${index}]`));
+  if (new Set(diffs.map((diff) => diff.section)).size !== diffs.length)
+    fail("A proposal may mutate each section at most once", "MemoryProposal.candidateDiff");
+  const allowedSections = operation === "checkpoint" ? /* @__PURE__ */ new Set(["recentContext", "openItems"]) : /* @__PURE__ */ new Set(["stableMemory"]);
+  for (const diff of diffs)
+    if (!allowedSections.has(diff.section))
+      fail(`${operation} cannot mutate ${diff.section}`, "MemoryProposal.candidateDiff");
+  if ((operation === "learn" || operation === "review") && diffs.some((diff) => diff.after && diff.after.citations.length === 0)) {
+    fail(`${operation} changes require citations`, "MemoryProposal.candidateDiff");
+  }
+  if (!Array.isArray(item.protectedDirectives) || !Array.isArray(item.unresolvedConflicts) || !Array.isArray(item.provenance) || !Array.isArray(item.warnings)) {
+    fail("Proposal governance collections must be arrays", "MemoryProposal");
+  }
+  const directives = item.protectedDirectives.map((directive, index) => validateDirective(directive, `MemoryProposal.protectedDirectives[${index}]`));
+  const conflicts = item.unresolvedConflicts.map((conflict2, index) => validateConflict(conflict2, `MemoryProposal.unresolvedConflicts[${index}]`));
+  if (new Set(directives.map((directive) => directive.directiveId)).size !== directives.length)
+    fail("Duplicate protected directive IDs", "MemoryProposal.protectedDirectives");
+  if (new Set(conflicts.map((conflict2) => conflict2.conflictId)).size !== conflicts.length)
+    fail("Duplicate conflict IDs", "MemoryProposal.unresolvedConflicts");
+  item.provenance.forEach((provenance, index) => validateProvenance(provenance, `MemoryProposal.provenance[${index}]`));
+  item.warnings.forEach((warning, index) => validateWarning(warning, `MemoryProposal.warnings[${index}]`));
+  validateModelLock(item.modelLock, "MemoryProposal.modelLock");
+  const policy = record2(item.approvalPolicy, "MemoryProposal.approvalPolicy");
+  allowedKeys(policy, ["mode", "autoApprovalHook"], "MemoryProposal.approvalPolicy");
+  const hook = record2(policy.autoApprovalHook, "MemoryProposal.approvalPolicy.autoApprovalHook");
+  allowedKeys(hook, ["enabled", "warningFreeOnly", "workingMemoryOnly"], "MemoryProposal.approvalPolicy.autoApprovalHook");
+  if (policy.mode !== "manual" || hook.enabled !== false || hook.warningFreeOnly !== true || hook.workingMemoryOnly !== true) {
+    fail("Dream Time approval policy must default to manual with disabled safe hook", "MemoryProposal.approvalPolicy");
+  }
+  const createdAt = iso(item.createdAt, "MemoryProposal.createdAt");
+  iso(item.expiresAt, "MemoryProposal.expiresAt");
+  if (Date.parse(item.expiresAt) <= Date.parse(createdAt))
+    fail("Proposal expiry must follow creation", "MemoryProposal.expiresAt");
+  string4(item.createdBy, "MemoryProposal.createdBy");
+  const fingerprint = digest(item.fingerprint, "MemoryProposal.fingerprint");
+  if (fingerprint !== canonicalDigest(proposalFingerprintMaterial(item)))
+    fail("Proposal fingerprint mismatch", "MemoryProposal.fingerprint");
+  assertSafeSharedState(item, "MemoryProposal");
+  return item;
+}
+function revisionFingerprintMaterial(revision) {
+  const { fingerprint: _fingerprint, ...material } = revision;
+  return material;
+}
+function validateMemoryRevision(value) {
+  const item = record2(value, "MemoryRevision");
+  allowedKeys(item, [
+    "schemaVersion",
+    "revisionId",
+    "revision",
+    "previousRevisionId",
+    "previousFingerprint",
+    "projectId",
+    "profileId",
+    "lifecycle",
+    "sections",
+    "protectedDirectives",
+    "unresolvedConflicts",
+    "exactDiff",
+    "provenance",
+    "approval",
+    "createdAt",
+    "fingerprint"
+  ], "MemoryRevision");
+  if (item.schemaVersion !== 1 || item.lifecycle !== "approved")
+    fail("Memory Revision must be approved schema v1", "MemoryRevision");
+  if (!REVISION_ID_RE.test(string4(item.revisionId, "MemoryRevision.revisionId")))
+    fail("Invalid revision ID", "MemoryRevision.revisionId");
+  const number4 = integer2(item.revision, "MemoryRevision.revision", 1);
+  if (number4 === 1) {
+    if (item.previousRevisionId !== null || item.previousFingerprint !== null)
+      fail("First revision must have null predecessor", "MemoryRevision");
+  } else {
+    if (!REVISION_ID_RE.test(string4(item.previousRevisionId, "MemoryRevision.previousRevisionId")))
+      fail("Invalid predecessor ID", "MemoryRevision.previousRevisionId");
+    digest(item.previousFingerprint, "MemoryRevision.previousFingerprint");
+  }
+  parseProjectId2(item.projectId, "MemoryRevision.projectId");
+  parseAgentProfileId(item.profileId, "MemoryRevision.profileId");
+  const sections = record2(item.sections, "MemoryRevision.sections");
+  allowedKeys(sections, ["recentContext", "openItems", "stableMemory"], "MemoryRevision.sections");
+  for (const name of MEMORY_SCOPES)
+    validateMemorySection(sections[name], `MemoryRevision.sections.${name}`);
+  if (!Array.isArray(item.protectedDirectives) || !Array.isArray(item.unresolvedConflicts) || !Array.isArray(item.exactDiff) || !Array.isArray(item.provenance))
+    fail("Revision governance collections must be arrays", "MemoryRevision");
+  const directives = item.protectedDirectives.map((directive, index) => validateDirective(directive, `MemoryRevision.protectedDirectives[${index}]`));
+  const conflicts = item.unresolvedConflicts.map((conflict2, index) => validateConflict(conflict2, `MemoryRevision.unresolvedConflicts[${index}]`));
+  if (new Set(directives.map((directive) => directive.directiveId)).size !== directives.length)
+    fail("Duplicate protected directive IDs", "MemoryRevision.protectedDirectives");
+  if (new Set(conflicts.map((conflict2) => conflict2.conflictId)).size !== conflicts.length)
+    fail("Duplicate conflict IDs", "MemoryRevision.unresolvedConflicts");
+  item.exactDiff.forEach((diff, index) => validateCandidateDiff(diff, `MemoryRevision.exactDiff[${index}]`));
+  item.provenance.forEach((provenance, index) => validateProvenance(provenance, `MemoryRevision.provenance[${index}]`));
+  const approval = record2(item.approval, "MemoryRevision.approval");
+  allowedKeys(approval, ["proposalId", "transitionTokenHash", "actor", "policyVersion", "policyResult"], "MemoryRevision.approval");
+  if (!PROPOSAL_ID_RE.test(string4(approval.proposalId, "MemoryRevision.approval.proposalId")))
+    fail("Invalid proposal ID", "MemoryRevision.approval.proposalId");
+  digest(approval.transitionTokenHash, "MemoryRevision.approval.transitionTokenHash");
+  string4(approval.actor, "MemoryRevision.approval.actor");
+  string4(approval.policyVersion, "MemoryRevision.approval.policyVersion");
+  if (approval.policyResult !== "allowed")
+    fail("Approved revision requires allowed policy", "MemoryRevision.approval.policyResult");
+  iso(item.createdAt, "MemoryRevision.createdAt");
+  const fingerprint = digest(item.fingerprint, "MemoryRevision.fingerprint");
+  if (fingerprint !== canonicalDigest(revisionFingerprintMaterial(item)))
+    fail("Revision fingerprint mismatch", "MemoryRevision.fingerprint");
+  assertSafeSharedState(item, "MemoryRevision");
+  return item;
+}
+function validateMemoryEvent(value) {
+  const item = record2(value, "MemoryEvent");
+  allowedKeys(item, ["schemaVersion", "eventId", "ordinal", "transitionAction", "action", "proposalId", "revisionId", "transitionTokenHash", "actor", "occurredAt", "exactDiff", "provenance", "policyResult"], "MemoryEvent");
+  if (item.schemaVersion !== 1 || !EVENT_ID_RE.test(string4(item.eventId, "MemoryEvent.eventId")))
+    fail("Invalid Memory Event identity", "MemoryEvent");
+  integer2(item.ordinal, "MemoryEvent.ordinal", 1);
+  if (!(/* @__PURE__ */ new Set(["approve", "reject"])).has(string4(item.transitionAction, "MemoryEvent.transitionAction")))
+    fail("Invalid Memory Event transition action", "MemoryEvent.transitionAction");
+  const action = string4(item.action, "MemoryEvent.action");
+  if (!(/* @__PURE__ */ new Set(["approved", "rejected", "stale", "expired"])).has(action))
+    fail("Invalid Memory Event action", "MemoryEvent.action");
+  if (action === "approved" && item.transitionAction !== "approve" || action === "rejected" && item.transitionAction !== "reject")
+    fail("Memory Event action conflicts with transition action", "MemoryEvent.action");
+  if (!PROPOSAL_ID_RE.test(string4(item.proposalId, "MemoryEvent.proposalId")))
+    fail("Invalid proposal ID", "MemoryEvent.proposalId");
+  if (item.revisionId !== null && !REVISION_ID_RE.test(string4(item.revisionId, "MemoryEvent.revisionId")))
+    fail("Invalid revision ID", "MemoryEvent.revisionId");
+  digest(item.transitionTokenHash, "MemoryEvent.transitionTokenHash");
+  string4(item.actor, "MemoryEvent.actor");
+  iso(item.occurredAt, "MemoryEvent.occurredAt");
+  if (!Array.isArray(item.exactDiff) || !Array.isArray(item.provenance))
+    fail("Event diff/provenance must be arrays", "MemoryEvent");
+  item.exactDiff.forEach((diff, index) => validateCandidateDiff(diff, `MemoryEvent.exactDiff[${index}]`));
+  item.provenance.forEach((provenance, index) => validateProvenance(provenance, `MemoryEvent.provenance[${index}]`));
+  const policy = record2(item.policyResult, "MemoryEvent.policyResult");
+  allowedKeys(policy, ["allowed", "policyVersion", "reason"], "MemoryEvent.policyResult");
+  bool(policy.allowed, "MemoryEvent.policyResult.allowed");
+  string4(policy.policyVersion, "MemoryEvent.policyResult.policyVersion");
+  string4(policy.reason, "MemoryEvent.policyResult.reason");
+  assertSafeSharedState(item, "MemoryEvent");
+  return item;
+}
+function validateApprovalDecision(value) {
+  const item = record2(value, "ApprovalDecision");
+  allowedKeys(item, ["schemaVersion", "decisionId", "proposalId", "transitionAction", "state", "revisionId", "transitionTokenHash", "actor", "decidedAt", "proposalFingerprint", "policyVersion", "reason"], "ApprovalDecision");
+  if (item.schemaVersion !== 1)
+    fail("Unsupported decision schema", "ApprovalDecision.schemaVersion");
+  string4(item.decisionId, "ApprovalDecision.decisionId");
+  if (!PROPOSAL_ID_RE.test(string4(item.proposalId, "ApprovalDecision.proposalId")))
+    fail("Invalid proposal ID", "ApprovalDecision.proposalId");
+  if (!(/* @__PURE__ */ new Set(["approve", "reject"])).has(string4(item.transitionAction, "ApprovalDecision.transitionAction")))
+    fail("Invalid decision transition action", "ApprovalDecision.transitionAction");
+  const state = string4(item.state, "ApprovalDecision.state");
+  if (!(/* @__PURE__ */ new Set(["approved", "rejected", "stale", "expired"])).has(state))
+    fail("Invalid decision state", "ApprovalDecision.state");
+  if (state === "approved" && item.transitionAction !== "approve" || state === "rejected" && item.transitionAction !== "reject")
+    fail("Decision state conflicts with transition action", "ApprovalDecision.state");
+  if (item.revisionId !== null && !REVISION_ID_RE.test(string4(item.revisionId, "ApprovalDecision.revisionId")))
+    fail("Invalid revision ID", "ApprovalDecision.revisionId");
+  digest(item.transitionTokenHash, "ApprovalDecision.transitionTokenHash");
+  string4(item.actor, "ApprovalDecision.actor");
+  iso(item.decidedAt, "ApprovalDecision.decidedAt");
+  digest(item.proposalFingerprint, "ApprovalDecision.proposalFingerprint");
+  string4(item.policyVersion, "ApprovalDecision.policyVersion");
+  string4(item.reason, "ApprovalDecision.reason");
+  assertSafeSharedState(item, "ApprovalDecision");
+  return item;
+}
+function validateContextChunk(value, path = "ContextChunk") {
+  const item = record2(value, path);
+  allowedKeys(item, ["chunkId", "content", "provenance", "mandatory", "priority", "tokenCount", "contentHash"], path);
+  string4(item.chunkId, `${path}.chunkId`);
+  if (!Array.isArray(item.provenance))
+    fail("Expected provenance array", `${path}.provenance`);
+  item.provenance.forEach((provenance, index) => validateProvenance(provenance, `${path}.provenance[${index}]`));
+  bool(item.mandatory, `${path}.mandatory`);
+  integer2(item.priority, `${path}.priority`, 0);
+  integer2(item.tokenCount, `${path}.tokenCount`, 1);
+  const hash2 = digest(item.contentHash, `${path}.contentHash`);
+  if (hash2 !== canonicalDigest(item.content))
+    fail("Context chunk content hash mismatch", `${path}.contentHash`);
+  assertSafeSharedState(item.content, `${path}.content`);
+  return item;
+}
+function validateContextLayer(value, path) {
+  const item = record2(value, path);
+  allowedKeys(item, ["name", "provenance", "chunks", "tokenCount", "contentHash"], path);
+  const name = string4(item.name, `${path}.name`);
+  if (!(/* @__PURE__ */ new Set(["platformKernel", "agentConstitution", "governedWorkingMemory", "runtimeEnvelope"])).has(name))
+    fail("Invalid context layer", `${path}.name`);
+  if (!Array.isArray(item.provenance) || !Array.isArray(item.chunks))
+    fail("Layer provenance/chunks must be arrays", path);
+  item.provenance.forEach((provenance, index) => validateProvenance(provenance, `${path}.provenance[${index}]`));
+  const chunks = item.chunks.map((chunk, index) => validateContextChunk(chunk, `${path}.chunks[${index}]`));
+  const tokenCount = integer2(item.tokenCount, `${path}.tokenCount`, 0);
+  if (tokenCount !== chunks.reduce((sum, chunk) => sum + chunk.tokenCount, 0))
+    fail("Layer token count mismatch", `${path}.tokenCount`);
+  const hash2 = digest(item.contentHash, `${path}.contentHash`);
+  if (hash2 !== canonicalDigest(chunks))
+    fail("Layer content hash mismatch", `${path}.contentHash`);
+  return item;
+}
+function envelopeFingerprintMaterial(envelope) {
+  const { fingerprint: _fingerprint, ...material } = envelope;
+  return material;
+}
+function validateContextEnvelope(value) {
+  const item = record2(value, "ContextEnvelope");
+  allowedKeys(item, ["schemaVersion", "envelopeId", "compiledAt", "modelLock", "tokenEstimator", "tokenBudget", "tokenCount", "layers", "omissions", "fingerprint"], "ContextEnvelope");
+  if (item.schemaVersion !== 1)
+    fail("Unsupported Context Envelope schema", "ContextEnvelope.schemaVersion");
+  string4(item.envelopeId, "ContextEnvelope.envelopeId");
+  iso(item.compiledAt, "ContextEnvelope.compiledAt");
+  const modelLock = validateModelLock(item.modelLock, "ContextEnvelope.modelLock");
+  if (item.tokenEstimator !== "utf8-bytes-div4/v1")
+    fail("Unsupported token estimator", "ContextEnvelope.tokenEstimator");
+  const budget = integer2(item.tokenBudget, "ContextEnvelope.tokenBudget", 1);
+  if (budget > modelLock.contextWindow)
+    fail("Context token budget exceeds locked model context window", "ContextEnvelope.tokenBudget");
+  const count = integer2(item.tokenCount, "ContextEnvelope.tokenCount", 0);
+  if (!Array.isArray(item.layers) || item.layers.length !== 4)
+    fail("Context Envelope requires exactly four layers", "ContextEnvelope.layers");
+  const layers = item.layers.map((layer, index) => validateContextLayer(layer, `ContextEnvelope.layers[${index}]`));
+  const names = layers.map((layer) => layer.name);
+  if (names.join(",") !== "platformKernel,agentConstitution,governedWorkingMemory,runtimeEnvelope")
+    fail("Context layers are out of canonical order", "ContextEnvelope.layers");
+  if (count !== layers.reduce((sum, layer) => sum + layer.tokenCount, 0) || count > budget)
+    fail("Envelope token accounting mismatch", "ContextEnvelope.tokenCount");
+  if (!Array.isArray(item.omissions))
+    fail("Context omissions must be an array", "ContextEnvelope.omissions");
+  const includedChunkIds = layers.flatMap((layer) => layer.chunks.map((chunk) => chunk.chunkId));
+  if (new Set(includedChunkIds).size !== includedChunkIds.length)
+    fail("Context chunk IDs must be globally unique", "ContextEnvelope.layers");
+  const omittedChunkIds = [];
+  item.omissions.forEach((raw, index) => {
+    const omission = record2(raw, `ContextEnvelope.omissions[${index}]`);
+    allowedKeys(omission, ["layer", "chunkId", "reason", "tokenCount", "mandatory"], `ContextEnvelope.omissions[${index}]`);
+    if (!(/* @__PURE__ */ new Set(["platformKernel", "agentConstitution", "governedWorkingMemory", "runtimeEnvelope"])).has(string4(omission.layer, `ContextEnvelope.omissions[${index}].layer`)))
+      fail("Invalid omission layer", `ContextEnvelope.omissions[${index}].layer`);
+    string4(omission.chunkId, `ContextEnvelope.omissions[${index}].chunkId`);
+    omittedChunkIds.push(omission.chunkId);
+    if (includedChunkIds.includes(omission.chunkId))
+      fail("Omitted context chunk is still present", `ContextEnvelope.omissions[${index}].chunkId`);
+    integer2(omission.tokenCount, `ContextEnvelope.omissions[${index}].tokenCount`, 1);
+    if (omission.reason !== "token-budget" || omission.mandatory !== false)
+      fail("Invalid context omission", `ContextEnvelope.omissions[${index}]`);
+  });
+  if (new Set(omittedChunkIds).size !== omittedChunkIds.length)
+    fail("Duplicate context omissions are not allowed", "ContextEnvelope.omissions");
+  const fingerprint = digest(item.fingerprint, "ContextEnvelope.fingerprint");
+  if (fingerprint !== canonicalDigest(envelopeFingerprintMaterial(item)))
+    fail("Context Envelope fingerprint mismatch", "ContextEnvelope.fingerprint");
+  assertSafeSharedState(item, "ContextEnvelope");
+  return item;
+}
+
+// ../packages/agent-domain/dist/src/cadence.js
+var DREAM_TIME_CADENCES = ["daily", "weekly", "monthly"];
+var OPERATION_BY_CADENCE = {
+  daily: "checkpoint",
+  weekly: "learn",
+  monthly: "review"
+};
+function resolveDreamTimeCadenceWindow(cadence, asOf) {
+  if (!DREAM_TIME_CADENCES.includes(cadence)) {
+    throw new DomainValidationError("Dream Time cadence must be daily, weekly, or monthly");
+  }
+  const instant = canonicalUtcInstant(asOf);
+  let startsAt;
+  let endsAt;
+  let periodKey;
+  if (cadence === "daily") {
+    startsAt = new Date(Date.UTC(instant.getUTCFullYear(), instant.getUTCMonth(), instant.getUTCDate()));
+    endsAt = new Date(Date.UTC(instant.getUTCFullYear(), instant.getUTCMonth(), instant.getUTCDate() + 1));
+    periodKey = startsAt.toISOString().slice(0, 10);
+  } else if (cadence === "weekly") {
+    const daysSinceMonday = (instant.getUTCDay() + 6) % 7;
+    startsAt = new Date(Date.UTC(instant.getUTCFullYear(), instant.getUTCMonth(), instant.getUTCDate() - daysSinceMonday));
+    endsAt = new Date(Date.UTC(startsAt.getUTCFullYear(), startsAt.getUTCMonth(), startsAt.getUTCDate() + 7));
+    periodKey = startsAt.toISOString().slice(0, 10);
+  } else {
+    startsAt = new Date(Date.UTC(instant.getUTCFullYear(), instant.getUTCMonth(), 1));
+    endsAt = new Date(Date.UTC(instant.getUTCFullYear(), instant.getUTCMonth() + 1, 1));
+    periodKey = startsAt.toISOString().slice(0, 7);
+  }
+  return {
+    cadence,
+    operation: OPERATION_BY_CADENCE[cadence],
+    periodKey,
+    startsAt: startsAt.toISOString(),
+    endsAt: endsAt.toISOString(),
+    dueAt: startsAt.toISOString()
+  };
+}
+function dreamTimeCadenceIdentity(projectId2, profileId, window) {
+  const project = parseProjectId2(projectId2);
+  const profile = parseAgentProfileId(profileId);
+  const checked = resolveDreamTimeCadenceWindow(window.cadence, window.startsAt);
+  if (checked.periodKey !== window.periodKey || checked.startsAt !== window.startsAt || checked.endsAt !== window.endsAt || checked.dueAt !== window.dueAt || checked.operation !== window.operation) {
+    throw new DomainValidationError("Dream Time cadence window does not match its deterministic UTC period");
+  }
+  const digest3 = canonicalDigest({
+    schemaVersion: 1,
+    projectId: project,
+    profileId: profile,
+    cadence: checked.cadence,
+    operation: checked.operation,
+    periodKey: checked.periodKey,
+    startsAt: checked.startsAt,
+    endsAt: checked.endsAt
+  }).slice("sha256:".length, "sha256:".length + 24);
+  const suffix = `${checked.cadence}-${checked.periodKey}-${digest3}`;
+  const invocationId = `dreamtime-cadence/${suffix}`;
+  return {
+    invocationId,
+    proposalId: `memory-proposal/cadence-${suffix}`,
+    agentId: `dreamtime-${checked.cadence}-${digest3}`,
+    transitionToken: `dreamtime-cadence-${suffix}`
+  };
+}
+function canonicalUtcInstant(value) {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new DomainValidationError("asOf must be a canonical UTC RFC3339 timestamp");
+  }
+  const timestamp2 = Date.parse(value);
+  if (!Number.isFinite(timestamp2) || new Date(timestamp2).toISOString() !== value) {
+    throw new DomainValidationError("asOf must be a canonical UTC RFC3339 timestamp");
+  }
+  return new Date(timestamp2);
+}
+
+// ../packages/agent-domain/dist/src/collaboration.js
+import { randomUUID as randomUUID2 } from "node:crypto";
+import { dirname as dirname8, join as join16 } from "node:path";
+import { mkdir as mkdir3, open as open2, readFile as readFile4, rename as rename2, rm as rm2, stat as stat2 } from "node:fs/promises";
+
+// ../packages/agent-domain/dist/src/locks.js
+import { randomUUID } from "node:crypto";
+import { mkdir as mkdir2, open, readFile as readFile3, rename, rm, stat, utimes } from "node:fs/promises";
+import { dirname as dirname7, join as join15 } from "node:path";
+var DEFAULT_STALE_LOCK_MS = 5 * 6e4;
+async function withRecoverableFileLock(options, action) {
+  const staleLockMs = options.staleLockMs ?? DEFAULT_STALE_LOCK_MS;
+  if (!Number.isFinite(staleLockMs) || staleLockMs < 1)
+    throw new DomainValidationError("staleLockMs must be a positive number");
+  const owner = {
+    schemaVersion: 1,
+    ownerId: randomUUID(),
+    pid: process.pid,
+    acquiredAt: options.now()
+  };
+  const serializedOwner = `${canonicalJson(owner)}
+`;
+  await mkdir2(dirname7(options.lockPath), { recursive: true });
+  const deadline = Date.now() + options.timeoutMs;
+  while (true) {
+    try {
+      const handle = await open(options.lockPath, "wx", 384);
+      try {
+        await handle.writeFile(serializedOwner, "utf8");
+        await handle.sync();
+      } finally {
+        await handle.close();
+      }
+      break;
+    } catch (error48) {
+      if (error48.code !== "EEXIST")
+        throw error48;
+      if (await quarantineStaleLock(options.lockPath, staleLockMs))
+        continue;
+      if (Date.now() >= deadline)
+        throw new DomainLockTimeoutError(options.lockPath, options.timeoutMs);
+      await delay(Math.min(options.retryMs, Math.max(1, deadline - Date.now())));
+    }
+  }
+  const heartbeatMs = Math.max(5, Math.floor(staleLockMs / 3));
+  const heartbeat = setInterval(() => {
+    void heartbeatOwnedLock(options.lockPath, owner.ownerId);
+  }, heartbeatMs);
+  heartbeat.unref?.();
+  try {
+    return await action();
+  } finally {
+    clearInterval(heartbeat);
+    await releaseOwnedLock(options.lockPath, owner.ownerId);
+  }
+}
+async function quarantineStaleLock(lockPath, staleLockMs) {
+  let lockStat;
+  let observed;
+  try {
+    lockStat = await stat(lockPath);
+    if (Date.now() - lockStat.mtimeMs < staleLockMs)
+      return false;
+    observed = await readFile3(lockPath, "utf8");
+    if (ownerProcessIsAlive(observed))
+      return false;
+  } catch (error48) {
+    if (error48.code === "ENOENT")
+      return true;
+    throw error48;
+  }
+  const quarantinePath = join15(dirname7(lockPath), `.stale-lock-${randomUUID()}`);
+  try {
+    await rename(lockPath, quarantinePath);
+  } catch (error48) {
+    if (error48.code === "ENOENT")
+      return true;
+    throw error48;
+  }
+  const claimed = await readFile3(quarantinePath, "utf8");
+  const claimedStat = await stat(quarantinePath);
+  if (claimed !== observed || Date.now() - claimedStat.mtimeMs < staleLockMs || ownerProcessIsAlive(claimed)) {
+    try {
+      await stat(lockPath);
+    } catch (error48) {
+      if (error48.code !== "ENOENT")
+        throw error48;
+      try {
+        await rename(quarantinePath, lockPath);
+      } catch {
+      }
+    }
+    return false;
+  }
+  await rm(quarantinePath, { force: true });
+  return true;
+}
+function ownerProcessIsAlive(serializedOwner) {
+  let owner;
+  try {
+    owner = JSON.parse(serializedOwner);
+  } catch {
+    return true;
+  }
+  if (!Number.isInteger(owner.pid) || owner.pid <= 0)
+    return true;
+  try {
+    process.kill(owner.pid, 0);
+    return true;
+  } catch (error48) {
+    const code = error48.code;
+    return code === "EPERM";
+  }
+}
+async function heartbeatOwnedLock(lockPath, ownerId) {
+  try {
+    if (await readOwnerId(lockPath) !== ownerId)
+      return;
+    const now = /* @__PURE__ */ new Date();
+    await utimes(lockPath, now, now);
+  } catch {
+  }
+}
+async function releaseOwnedLock(lockPath, ownerId) {
+  try {
+    if (await readOwnerId(lockPath) === ownerId)
+      await rm(lockPath, { force: true });
+  } catch (error48) {
+    if (error48.code !== "ENOENT")
+      throw error48;
+  }
+}
+async function readOwnerId(lockPath) {
+  const raw = JSON.parse(await readFile3(lockPath, "utf8"));
+  return typeof raw.ownerId === "string" ? raw.ownerId : null;
+}
+function delay(ms) {
+  return new Promise((resolve9) => setTimeout(resolve9, ms));
+}
+
+// ../packages/agent-domain/dist/src/collaboration-validation.js
+var DIGEST_RE2 = /^sha256:[a-f0-9]{64}$/;
+var PROFILE_ID_RE2 = /^agent\/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/;
+var PROJECT_ID_RE3 = /^project\/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/;
+var WORK_RUN_ID_RE2 = /^work-run\/[a-z0-9][a-z0-9-]*$/;
+var BINDING_ID_RE2 = /^binding\/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?\/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/;
+var GRANT_ID_RE = /^grant\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+var ARTIFACT_ID_RE2 = /^artifact\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+var PROJECTION_ID_RE = /^artifact-projection\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+var CONSULT_REQUEST_ID_RE = /^context-consult\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+var CONSULT_RESULT_ID_RE = /^context-consult-result\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+var PLAN_ID_RE = /^delegation-plan\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+var ASSIGNMENT_ID_RE = /^assignment-plan\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+var DEVICE_SNAPSHOT_ID_RE = /^device-snapshot\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+var SIDE_EFFECT_CLASSES = /* @__PURE__ */ new Set([
+  "read-only",
+  "local-write",
+  "external-write",
+  "external-delete",
+  "external-execute"
+]);
+var OUTPUT_CLASSES = /* @__PURE__ */ new Set([
+  "run-output",
+  "durable-knowledge-candidate",
+  "decision-candidate",
+  "architecture-candidate",
+  "runbook-candidate",
+  "external-operation-result",
+  "diagnostic"
+]);
+var DURABLE_OUTPUT_CLASSES = /* @__PURE__ */ new Set([
+  "durable-knowledge-candidate",
+  "decision-candidate",
+  "architecture-candidate",
+  "runbook-candidate"
+]);
+var EXTERNAL_SIDE_EFFECTS = /* @__PURE__ */ new Set([
+  "external-write",
+  "external-delete",
+  "external-execute"
+]);
+function fail2(message, path) {
+  throw new DomainValidationError(message, path);
+}
+function text(value, path) {
+  if (typeof value !== "string" || !value || value !== value.trim())
+    fail2("Expected non-empty trimmed string", path);
+  return value;
+}
+function integer3(value, path, minimum = 0) {
+  if (!Number.isInteger(value) || value < minimum)
+    fail2(`Expected integer >= ${minimum}`, path);
+  return value;
+}
+function iso2(value, path) {
+  const parsed = text(value, path);
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(parsed) || Number.isNaN(Date.parse(parsed))) {
+    fail2("Expected UTC ISO-8601 timestamp", path);
+  }
+  return parsed;
+}
+function digest2(value, path) {
+  const parsed = text(value, path);
+  if (!DIGEST_RE2.test(parsed))
+    fail2("Expected sha256 digest", path);
+  return parsed;
+}
+function id(value, pattern, path) {
+  const parsed = text(value, path);
+  if (!pattern.test(parsed))
+    fail2("Invalid stable identity", path);
+  return parsed;
+}
+function uniqueStrings(value, path, allowEmpty = true) {
+  if (!Array.isArray(value) || !allowEmpty && value.length === 0)
+    fail2("Expected array", path);
+  const parsed = value.map((item, index) => text(item, `${path}[${index}]`));
+  if (new Set(parsed).size !== parsed.length)
+    fail2("Duplicate values are not allowed", path);
+  return parsed;
+}
+function validateTimestampOrder(earlier, later, path) {
+  if (Date.parse(later) <= Date.parse(earlier))
+    fail2("Expiry must be later than creation", path);
+}
+function validateScope(scope, path) {
+  uniqueStrings(scope.connectors, `${path}.connectors`);
+  uniqueStrings(scope.operations, `${path}.operations`);
+  uniqueStrings(scope.resources, `${path}.resources`);
+  if (!Array.isArray(scope.sideEffectClasses))
+    fail2("Expected array", `${path}.sideEffectClasses`);
+  for (const [index, effect] of scope.sideEffectClasses.entries()) {
+    if (!SIDE_EFFECT_CLASSES.has(effect))
+      fail2("Unknown side-effect class", `${path}.sideEffectClasses[${index}]`);
+  }
+  if (new Set(scope.sideEffectClasses).size !== scope.sideEffectClasses.length)
+    fail2("Duplicate values are not allowed", `${path}.sideEffectClasses`);
+}
+function validateAssignment(assignment, path) {
+  id(assignment.assignmentPlanId, ASSIGNMENT_ID_RE, `${path}.assignmentPlanId`);
+  integer3(assignment.assignmentPlanVersion, `${path}.assignmentPlanVersion`, 1);
+  digest2(assignment.assignmentPlanFingerprint, `${path}.assignmentPlanFingerprint`);
+  id(assignment.deviceSnapshot.snapshotId, DEVICE_SNAPSHOT_ID_RE, `${path}.deviceSnapshot.snapshotId`);
+  text(assignment.deviceSnapshot.deviceId, `${path}.deviceSnapshot.deviceId`);
+  integer3(assignment.deviceSnapshot.revision, `${path}.deviceSnapshot.revision`, 1);
+  digest2(assignment.deviceSnapshot.fingerprint, `${path}.deviceSnapshot.fingerprint`);
+  const capturedAt = iso2(assignment.deviceSnapshot.capturedAt, `${path}.deviceSnapshot.capturedAt`);
+  const expiresAt = iso2(assignment.deviceSnapshot.expiresAt, `${path}.deviceSnapshot.expiresAt`);
+  validateTimestampOrder(capturedAt, expiresAt, `${path}.deviceSnapshot.expiresAt`);
+  id(assignment.profileId, PROFILE_ID_RE2, `${path}.profileId`);
+  integer3(assignment.profileRevision, `${path}.profileRevision`, 1);
+  id(assignment.bindingId, BINDING_ID_RE2, `${path}.bindingId`);
+  integer3(assignment.bindingRevision, `${path}.bindingRevision`, 1);
+  digest2(assignment.contextEnvelopeFingerprint, `${path}.contextEnvelopeFingerprint`);
+}
+function capabilityGrantFingerprintMaterial(grant) {
+  const { fingerprint: _fingerprint, ...material } = grant;
+  return material;
+}
+function artifactProjectionFingerprintMaterial(artifact) {
+  const { fingerprint: _fingerprint, ...material } = artifact;
+  return material;
+}
+function contextConsultRequestFingerprintMaterial(request) {
+  const { fingerprint: _fingerprint, ...material } = request;
+  return material;
+}
+function contextConsultResultFingerprintMaterial(result) {
+  const { fingerprint: _fingerprint, ...material } = result;
+  return material;
+}
+function delegationPlanFingerprintMaterial(plan) {
+  const { fingerprint: _fingerprint, ...material } = plan;
+  return material;
+}
+function childWorkRunFingerprintMaterial(child) {
+  const { fingerprint: _fingerprint, ...material } = child;
+  return material;
+}
+function validateCapabilityGrant(value) {
+  assertSafeSharedState(value, "CapabilityGrant");
+  if (value.schemaVersion !== 1)
+    fail2("Unsupported schemaVersion", "CapabilityGrant.schemaVersion");
+  id(value.grantId, GRANT_ID_RE, "CapabilityGrant.grantId");
+  id(value.projectId, PROJECT_ID_RE3, "CapabilityGrant.projectId");
+  id(value.profileId, PROFILE_ID_RE2, "CapabilityGrant.profileId");
+  integer3(value.profileRevision, "CapabilityGrant.profileRevision", 1);
+  id(value.workRunId, WORK_RUN_ID_RE2, "CapabilityGrant.workRunId");
+  if (value.delegationPlanId !== void 0)
+    id(value.delegationPlanId, PLAN_ID_RE, "CapabilityGrant.delegationPlanId");
+  validateScope(value.scope, "CapabilityGrant.scope");
+  const issuedAt = iso2(value.issuedAt, "CapabilityGrant.issuedAt");
+  const expiresAt = iso2(value.expiresAt, "CapabilityGrant.expiresAt");
+  validateTimestampOrder(issuedAt, expiresAt, "CapabilityGrant.expiresAt");
+  text(value.issuedBy, "CapabilityGrant.issuedBy");
+  if (value.policyDecision.allowed !== true)
+    fail2("Only an allowed policy decision can issue a grant", "CapabilityGrant.policyDecision.allowed");
+  text(value.policyDecision.policyVersion, "CapabilityGrant.policyDecision.policyVersion");
+  text(value.policyDecision.reason, "CapabilityGrant.policyDecision.reason");
+  iso2(value.policyDecision.decidedAt, "CapabilityGrant.policyDecision.decidedAt");
+  text(value.policyDecision.actor, "CapabilityGrant.policyDecision.actor");
+  const external = value.scope.sideEffectClasses.filter((effect) => EXTERNAL_SIDE_EFFECTS.has(effect));
+  if (external.length > 0) {
+    if (value.externalSideEffectApproval.mode !== "per-run" || value.externalSideEffectApproval.approvedWorkRunId !== value.workRunId || !value.externalSideEffectApproval.approvalFingerprint) {
+      fail2("External effects require an explicit per-run approval bound to this Work Run", "CapabilityGrant.externalSideEffectApproval");
+    }
+    digest2(value.externalSideEffectApproval.approvalFingerprint, "CapabilityGrant.externalSideEffectApproval.approvalFingerprint");
+    for (const effect of external) {
+      if (!value.externalSideEffectApproval.approvedClasses.includes(effect)) {
+        fail2("External effect is outside the explicit per-run approval", "CapabilityGrant.externalSideEffectApproval.approvedClasses");
+      }
+    }
+  } else if (value.externalSideEffectApproval.mode !== "none" || value.externalSideEffectApproval.approvedClasses.length !== 0) {
+    fail2("A non-external grant cannot claim external approval", "CapabilityGrant.externalSideEffectApproval");
+  }
+  digest2(value.fingerprint, "CapabilityGrant.fingerprint");
+  if (value.fingerprint !== canonicalDigest(capabilityGrantFingerprintMaterial(value)))
+    fail2("Capability Grant fingerprint mismatch", "CapabilityGrant.fingerprint");
+  return value;
+}
+function authorizeCapabilityUse(grant, request) {
+  validateCapabilityGrant(grant);
+  assertSafeSharedState(request, "CapabilityUseRequest");
+  const reasons = [];
+  if (request.projectId !== grant.projectId)
+    reasons.push("project");
+  if (request.profileId !== grant.profileId || request.profileRevision !== grant.profileRevision)
+    reasons.push("agent-profile-version");
+  if (request.workRunId !== grant.workRunId)
+    reasons.push("work-run");
+  if (!grant.scope.connectors.includes(request.connector))
+    reasons.push("connector");
+  if (!grant.scope.operations.includes(request.operation))
+    reasons.push("operation");
+  if (!grant.scope.resources.includes(request.resource))
+    reasons.push("resource");
+  if (!grant.scope.sideEffectClasses.includes(request.sideEffectClass))
+    reasons.push("side-effect-class");
+  if (Date.parse(request.attemptedAt) >= Date.parse(grant.expiresAt))
+    reasons.push("expired");
+  if (EXTERNAL_SIDE_EFFECTS.has(request.sideEffectClass) && (grant.externalSideEffectApproval.mode !== "per-run" || grant.externalSideEffectApproval.approvedWorkRunId !== request.workRunId || !grant.externalSideEffectApproval.approvedClasses.includes(request.sideEffectClass))) {
+    reasons.push("per-run-external-approval");
+  }
+  const allowed = reasons.length === 0;
+  return {
+    allowed,
+    policyVersion: grant.policyDecision.policyVersion,
+    reason: allowed ? "Capability use is inside the explicit expiring grant" : `Denied outside grant: ${reasons.join(", ")}`,
+    grantId: grant.grantId,
+    requestFingerprint: canonicalDigest(request),
+    decidedAt: request.attemptedAt
+  };
+}
+function validatePromotionReview(outputClass, review, path) {
+  text(review.policyVersion, `${path}.policyVersion`);
+  const durable = DURABLE_OUTPUT_CLASSES.has(outputClass);
+  if (durable && (!review.required || review.state === "not-required")) {
+    fail2("Durable output must enter Promotion Policy independently", path);
+  }
+  if (!durable && review.required && review.state === "not-required")
+    fail2("Required promotion cannot be not-required", path);
+  if (!review.required && review.state !== "not-required")
+    fail2("Non-required promotion must be not-required", path);
+  if (review.state === "candidate-created" && !review.candidateId)
+    fail2("Promotion candidate identity is required", `${path}.candidateId`);
+}
+function validateOperationWriteReview(artifact, review, path) {
+  text(review.policyVersion, `${path}.policyVersion`);
+  const external = EXTERNAL_SIDE_EFFECTS.has(artifact.sideEffectClass);
+  if (artifact.producer.kind === "context-consult" && artifact.sideEffectClass !== "read-only") {
+    fail2("Context Consult artifacts are read-only", "ArtifactProjection.sideEffectClass");
+  }
+  if (external) {
+    if (!artifact.operationTarget)
+      fail2("External artifact must carry its exact connector, operation, and resource", "ArtifactProjection.operationTarget");
+    if (!review.required || review.approvalScope !== "per-run" || review.approvedWorkRunId !== artifact.sourceWorkRunId) {
+      fail2("External artifact effects require per-run Operation Write approval", path);
+    }
+    if (review.state !== "approved" && review.state !== "denied" && review.state !== "approval-required") {
+      fail2("Invalid external Operation Write review state", `${path}.state`);
+    }
+    if (review.state === "approved") {
+      if (!review.grantId)
+        fail2("Approved external write must cite its per-run grant", `${path}.grantId`);
+      digest2(review.decisionFingerprint, `${path}.decisionFingerprint`);
+    } else if (review.decisionFingerprint !== void 0) {
+      fail2("Only an approved external write may carry a decision fingerprint", `${path}.decisionFingerprint`);
+    }
+  } else if (review.required || review.state !== "not-required" || review.approvalScope !== "none") {
+    fail2("Non-external artifacts must not claim Operation Write approval", path);
+  } else if (review.decisionFingerprint !== void 0) {
+    fail2("Non-external artifacts must not carry an Operation Write decision fingerprint", `${path}.decisionFingerprint`);
+  }
+}
+function validateOperationTarget(target, path) {
+  text(target.connector, `${path}.connector`);
+  text(target.operation, `${path}.operation`);
+  text(target.resource, `${path}.resource`);
+}
+function validateArtifactProjection(value) {
+  assertSafeSharedState(value, "ArtifactProjection");
+  if (value.schemaVersion !== 1)
+    fail2("Unsupported schemaVersion", "ArtifactProjection.schemaVersion");
+  id(value.projectionId, PROJECTION_ID_RE, "ArtifactProjection.projectionId");
+  id(value.artifactId, ARTIFACT_ID_RE2, "ArtifactProjection.artifactId");
+  id(value.projectId, PROJECT_ID_RE3, "ArtifactProjection.projectId");
+  id(value.producer.profileId, PROFILE_ID_RE2, "ArtifactProjection.producer.profileId");
+  integer3(value.producer.profileRevision, "ArtifactProjection.producer.profileRevision", 1);
+  id(value.sourceWorkRunId, WORK_RUN_ID_RE2, "ArtifactProjection.sourceWorkRunId");
+  if (value.parentWorkRunId !== void 0)
+    id(value.parentWorkRunId, WORK_RUN_ID_RE2, "ArtifactProjection.parentWorkRunId");
+  digest2(value.contextFingerprint, "ArtifactProjection.contextFingerprint");
+  for (const [index, artifactId] of value.inputArtifactIds.entries())
+    id(artifactId, ARTIFACT_ID_RE2, `ArtifactProjection.inputArtifactIds[${index}]`);
+  if (new Set(value.inputArtifactIds).size !== value.inputArtifactIds.length)
+    fail2("Duplicate values are not allowed", "ArtifactProjection.inputArtifactIds");
+  digest2(value.contentHash, "ArtifactProjection.contentHash");
+  text(value.mediaType, "ArtifactProjection.mediaType");
+  if (!OUTPUT_CLASSES.has(value.outputClass))
+    fail2("Unknown output class", "ArtifactProjection.outputClass");
+  if (!SIDE_EFFECT_CLASSES.has(value.sideEffectClass))
+    fail2("Unknown side-effect class", "ArtifactProjection.sideEffectClass");
+  if (value.operationTarget !== void 0)
+    validateOperationTarget(value.operationTarget, "ArtifactProjection.operationTarget");
+  validatePromotionReview(value.outputClass, value.promotionReview, "ArtifactProjection.promotionReview");
+  validateOperationWriteReview(value, value.operationWriteReview, "ArtifactProjection.operationWriteReview");
+  iso2(value.createdAt, "ArtifactProjection.createdAt");
+  digest2(value.fingerprint, "ArtifactProjection.fingerprint");
+  if (value.fingerprint !== canonicalDigest(artifactProjectionFingerprintMaterial(value)))
+    fail2("Artifact Projection fingerprint mismatch", "ArtifactProjection.fingerprint");
+  return value;
+}
+function validateContextConsultRequest(value) {
+  assertSafeSharedState(value, "ContextConsultRequest");
+  if (value.schemaVersion !== 1)
+    fail2("Unsupported schemaVersion", "ContextConsultRequest.schemaVersion");
+  id(value.requestId, CONSULT_REQUEST_ID_RE, "ContextConsultRequest.requestId");
+  id(value.projectId, PROJECT_ID_RE3, "ContextConsultRequest.projectId");
+  id(value.requestingAgent.profileId, PROFILE_ID_RE2, "ContextConsultRequest.requestingAgent.profileId");
+  integer3(value.requestingAgent.profileRevision, "ContextConsultRequest.requestingAgent.profileRevision", 1);
+  id(value.requestingAgent.workRunId, WORK_RUN_ID_RE2, "ContextConsultRequest.requestingAgent.workRunId");
+  id(value.targetAgent.profileId, PROFILE_ID_RE2, "ContextConsultRequest.targetAgent.profileId");
+  integer3(value.targetAgent.profileRevision, "ContextConsultRequest.targetAgent.profileRevision", 1);
+  text(value.objective, "ContextConsultRequest.objective");
+  if (!Array.isArray(value.requestedSections) || value.requestedSections.length === 0 || new Set(value.requestedSections).size !== value.requestedSections.length) {
+    fail2("Consult must request one or more unique memory sections", "ContextConsultRequest.requestedSections");
+  }
+  id(value.asOf.revisionId, /^memory-revision\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/, "ContextConsultRequest.asOf.revisionId");
+  integer3(value.asOf.revision, "ContextConsultRequest.asOf.revision", 1);
+  digest2(value.asOf.fingerprint, "ContextConsultRequest.asOf.fingerprint");
+  digest2(value.contextFingerprint, "ContextConsultRequest.contextFingerprint");
+  id(value.capabilityGrantId, GRANT_ID_RE, "ContextConsultRequest.capabilityGrantId");
+  if (value.authorizationDecision.allowed !== true)
+    fail2("Consult requires an allowed authorization decision", "ContextConsultRequest.authorizationDecision.allowed");
+  const createdAt = iso2(value.createdAt, "ContextConsultRequest.createdAt");
+  const expiresAt = iso2(value.expiresAt, "ContextConsultRequest.expiresAt");
+  validateTimestampOrder(createdAt, expiresAt, "ContextConsultRequest.expiresAt");
+  digest2(value.invocationTokenHash, "ContextConsultRequest.invocationTokenHash");
+  digest2(value.fingerprint, "ContextConsultRequest.fingerprint");
+  if (value.fingerprint !== canonicalDigest(contextConsultRequestFingerprintMaterial(value)))
+    fail2("Context Consult request fingerprint mismatch", "ContextConsultRequest.fingerprint");
+  return value;
+}
+function validateContextConsultResult(value) {
+  assertSafeSharedState(value, "ContextConsultResult");
+  if (value.schemaVersion !== 1)
+    fail2("Unsupported schemaVersion", "ContextConsultResult.schemaVersion");
+  id(value.resultId, CONSULT_RESULT_ID_RE, "ContextConsultResult.resultId");
+  id(value.requestId, CONSULT_REQUEST_ID_RE, "ContextConsultResult.requestId");
+  id(value.projectId, PROJECT_ID_RE3, "ContextConsultResult.projectId");
+  id(value.requestingWorkRunId, WORK_RUN_ID_RE2, "ContextConsultResult.requestingWorkRunId");
+  validateArtifactProjection(value.artifact);
+  if (value.artifact.projectId !== value.projectId || value.artifact.sourceWorkRunId !== value.requestingWorkRunId || value.artifact.producer.kind !== "context-consult") {
+    fail2("Consult artifact identity must remain attached to the requesting Work Run", "ContextConsultResult.artifact");
+  }
+  if (value.consultedRevision.fingerprint !== value.artifact.contextFingerprint)
+    fail2("Consult artifact must retain the as-of fingerprint", "ContextConsultResult.artifact.contextFingerprint");
+  const isStale = value.observedCurrentRevision.fingerprint !== value.consultedRevision.fingerprint;
+  if (value.freshness === "stale" !== isStale || value.staleForCurrentContextOperations !== isStale) {
+    fail2("Consult freshness must reflect the observed current revision", "ContextConsultResult.freshness");
+  }
+  iso2(value.completedAt, "ContextConsultResult.completedAt");
+  digest2(value.invocationTokenHash, "ContextConsultResult.invocationTokenHash");
+  digest2(value.fingerprint, "ContextConsultResult.fingerprint");
+  if (value.fingerprint !== canonicalDigest(contextConsultResultFingerprintMaterial(value)))
+    fail2("Context Consult result fingerprint mismatch", "ContextConsultResult.fingerprint");
+  return value;
+}
+function validateDelegationPlan(value) {
+  assertSafeSharedState(value, "DelegationPlan");
+  if (value.schemaVersion !== 1)
+    fail2("Unsupported schemaVersion", "DelegationPlan.schemaVersion");
+  id(value.planId, PLAN_ID_RE, "DelegationPlan.planId");
+  id(value.projectId, PROJECT_ID_RE3, "DelegationPlan.projectId");
+  id(value.parentWorkRunId, WORK_RUN_ID_RE2, "DelegationPlan.parentWorkRunId");
+  text(value.objective, "DelegationPlan.objective");
+  validateAssignment(value.assignment, "DelegationPlan.assignment");
+  for (const [index, artifactId] of value.inputArtifactIds.entries())
+    id(artifactId, ARTIFACT_ID_RE2, `DelegationPlan.inputArtifactIds[${index}]`);
+  if (new Set(value.inputArtifactIds).size !== value.inputArtifactIds.length)
+    fail2("Duplicate values are not allowed", "DelegationPlan.inputArtifactIds");
+  validateScope(value.requestedCapabilityScope, "DelegationPlan.requestedCapabilityScope");
+  integer3(value.budget.maxInputTokens, "DelegationPlan.budget.maxInputTokens", 1);
+  integer3(value.budget.maxOutputTokens, "DelegationPlan.budget.maxOutputTokens", 1);
+  integer3(value.budget.maxDurationMs, "DelegationPlan.budget.maxDurationMs", 1);
+  text(value.budget.policyVersion, "DelegationPlan.budget.policyVersion");
+  if (value.budget.maxCostMinorUnits !== void 0)
+    integer3(value.budget.maxCostMinorUnits, "DelegationPlan.budget.maxCostMinorUnits", 0);
+  if (value.budget.maxCostMinorUnits === void 0 !== (value.budget.currency === void 0))
+    fail2("Cost and currency must be supplied together", "DelegationPlan.budget");
+  if (value.budget.currency !== void 0)
+    text(value.budget.currency, "DelegationPlan.budget.currency");
+  const createdAt = iso2(value.createdAt, "DelegationPlan.createdAt");
+  const expiresAt = iso2(value.expiresAt, "DelegationPlan.expiresAt");
+  validateTimestampOrder(createdAt, expiresAt, "DelegationPlan.expiresAt");
+  if (Date.parse(value.assignment.deviceSnapshot.expiresAt) < Date.parse(value.expiresAt)) {
+    fail2("Delegation cannot outlive its locked device snapshot", "DelegationPlan.expiresAt");
+  }
+  if (!OUTPUT_CLASSES.has(value.expectedOutput.outputClass))
+    fail2("Unknown output class", "DelegationPlan.expectedOutput.outputClass");
+  text(value.expectedOutput.mediaType, "DelegationPlan.expectedOutput.mediaType");
+  integer3(value.expectedOutput.requiredArtifactCount, "DelegationPlan.expectedOutput.requiredArtifactCount", 1);
+  uniqueStrings(value.expectedOutput.acceptanceCriteria, "DelegationPlan.expectedOutput.acceptanceCriteria", false);
+  if (value.sideEffectPolicy.externalEffectsRequirePerRunApproval !== true)
+    fail2("External effects must always require per-run approval", "DelegationPlan.sideEffectPolicy.externalEffectsRequirePerRunApproval");
+  const requestedExternal = value.requestedCapabilityScope.sideEffectClasses.filter((effect) => EXTERNAL_SIDE_EFFECTS.has(effect));
+  if (canonicalDigest([...requestedExternal].sort()) !== canonicalDigest([...value.sideEffectPolicy.requestedExternalClasses].sort())) {
+    fail2("Side-effect policy must enumerate the exact requested external classes", "DelegationPlan.sideEffectPolicy.requestedExternalClasses");
+  }
+  digest2(value.fingerprint, "DelegationPlan.fingerprint");
+  if (value.fingerprint !== canonicalDigest(delegationPlanFingerprintMaterial(value)))
+    fail2("Delegation Plan fingerprint mismatch", "DelegationPlan.fingerprint");
+  return value;
+}
+function validateChildWorkRun(value) {
+  assertSafeSharedState(value, "ChildWorkRun");
+  if (value.schemaVersion !== 1)
+    fail2("Unsupported schemaVersion", "ChildWorkRun.schemaVersion");
+  id(value.workRunId, WORK_RUN_ID_RE2, "ChildWorkRun.workRunId");
+  integer3(value.revision, "ChildWorkRun.revision", 1);
+  if (value.previousRevision) {
+    if (value.previousRevision.revision !== value.revision - 1)
+      fail2("Child predecessor revision must be exact", "ChildWorkRun.previousRevision.revision");
+    digest2(value.previousRevision.fingerprint, "ChildWorkRun.previousRevision.fingerprint");
+  } else if (value.revision !== 1)
+    fail2("Only revision 1 may omit a predecessor", "ChildWorkRun.previousRevision");
+  id(value.projectId, PROJECT_ID_RE3, "ChildWorkRun.projectId");
+  id(value.parentWorkRunId, WORK_RUN_ID_RE2, "ChildWorkRun.parentWorkRunId");
+  id(value.delegationPlanId, PLAN_ID_RE, "ChildWorkRun.delegationPlanId");
+  digest2(value.delegationPlanFingerprint, "ChildWorkRun.delegationPlanFingerprint");
+  validateAssignment(value.assignment, "ChildWorkRun.assignment");
+  validateCapabilityGrant(value.grantSummary);
+  if (value.grantSummary.projectId !== value.projectId || value.grantSummary.workRunId !== value.workRunId || value.grantSummary.profileId !== value.assignment.profileId || value.grantSummary.profileRevision !== value.assignment.profileRevision) {
+    fail2("Child Work Run must lock the same Project, Agent version, and grant scope", "ChildWorkRun.grantSummary");
+  }
+  for (const artifact of value.artifacts) {
+    validateArtifactProjection(artifact);
+    if (artifact.projectId !== value.projectId || artifact.sourceWorkRunId !== value.workRunId || artifact.parentWorkRunId !== value.parentWorkRunId) {
+      fail2("Child artifacts must project from this child to its recorded parent", "ChildWorkRun.artifacts");
+    }
+  }
+  if ((value.lifecycle === "failed" || value.lifecycle === "cancelled") && !value.terminalDiagnosticArtifactId) {
+    fail2("Failed or cancelled child requires a diagnostic artifact", "ChildWorkRun.terminalDiagnosticArtifactId");
+  }
+  if (value.parentStateEffect !== "none")
+    fail2("Child state cannot infer a parent state transition", "ChildWorkRun.parentStateEffect");
+  iso2(value.createdAt, "ChildWorkRun.createdAt");
+  iso2(value.updatedAt, "ChildWorkRun.updatedAt");
+  digest2(value.fingerprint, "ChildWorkRun.fingerprint");
+  if (value.fingerprint !== canonicalDigest(childWorkRunFingerprintMaterial(value)))
+    fail2("Child Work Run fingerprint mismatch", "ChildWorkRun.fingerprint");
+  return value;
+}
+function promotionReviewFor(outputClass, policyVersion) {
+  return DURABLE_OUTPUT_CLASSES.has(outputClass) ? { required: true, state: "candidate-required", policyVersion } : { required: false, state: "not-required", policyVersion };
+}
+function operationWriteReviewFor(sideEffectClass, policyVersion, workRunId, grant, operationTarget, attemptedAt) {
+  if (!EXTERNAL_SIDE_EFFECTS.has(sideEffectClass)) {
+    return { required: false, state: "not-required", policyVersion, approvalScope: "none" };
+  }
+  const decision = grant && operationTarget && attemptedAt ? authorizeCapabilityUse(grant, {
+    projectId: grant.projectId,
+    profileId: grant.profileId,
+    profileRevision: grant.profileRevision,
+    workRunId,
+    connector: operationTarget.connector,
+    operation: operationTarget.operation,
+    resource: operationTarget.resource,
+    sideEffectClass,
+    attemptedAt
+  }) : void 0;
+  const approved = decision?.allowed === true;
+  return {
+    required: true,
+    state: approved ? "approved" : "approval-required",
+    policyVersion,
+    approvalScope: "per-run",
+    approvedWorkRunId: workRunId,
+    ...grant ? { grantId: grant.grantId } : {},
+    ...approved && decision ? { decisionFingerprint: canonicalDigest(decision) } : {}
+  };
+}
+function isExternalSideEffect(value) {
+  return EXTERNAL_SIDE_EFFECTS.has(value);
+}
+
+// ../packages/agent-domain/dist/src/collaboration.js
+function createCapabilityGrant(input) {
+  const material = { schemaVersion: 1, ...deepClone(input) };
+  return validateCapabilityGrant({
+    ...material,
+    fingerprint: canonicalDigest(capabilityGrantFingerprintMaterial(material))
+  });
+}
+function createArtifactProjection(input) {
+  const { promotionPolicyVersion, operationWritePolicyVersion, grant, projectionId = `artifact-projection/${randomUUID2()}`, artifactId = `artifact/${randomUUID2()}`, ...rest } = deepClone(input);
+  const material = {
+    schemaVersion: 1,
+    projectionId,
+    artifactId,
+    ...rest,
+    promotionReview: promotionReviewFor(rest.outputClass, promotionPolicyVersion),
+    operationWriteReview: operationWriteReviewFor(rest.sideEffectClass, operationWritePolicyVersion, rest.sourceWorkRunId, grant, rest.operationTarget, rest.createdAt)
+  };
+  return validateArtifactProjection({ ...material, fingerprint: canonicalDigest(artifactProjectionFingerprintMaterial(material)) });
+}
+function createContextConsultRequest(input) {
+  const { invocationToken, requestId = `context-consult/${randomUUID2()}`, ...rest } = deepClone(input);
+  if (!invocationToken)
+    throw new DomainValidationError("Context Consult invocation token is required");
+  const material = {
+    schemaVersion: 1,
+    requestId,
+    ...rest,
+    invocationTokenHash: digestTransitionToken(invocationToken)
+  };
+  return validateContextConsultRequest({ ...material, fingerprint: canonicalDigest(contextConsultRequestFingerprintMaterial(material)) });
+}
+function createDelegationPlan(input) {
+  const { planId = `delegation-plan/${randomUUID2()}`, ...rest } = deepClone(input);
+  const material = { schemaVersion: 1, planId, ...rest };
+  return validateDelegationPlan({ ...material, fingerprint: canonicalDigest(delegationPlanFingerprintMaterial(material)) });
+}
+var ContextConsultStore = class {
+  projectId;
+  scopeRoot;
+  now;
+  lockTimeoutMs;
+  lockRetryMs;
+  staleLockMs;
+  constructor(options) {
+    if (!options.collaborationRoot)
+      throw new DomainValidationError("collaborationRoot is required");
+    if (!/^project\/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/.test(options.projectId))
+      throw new DomainValidationError("Invalid Project ID");
+    this.projectId = options.projectId;
+    this.scopeRoot = join16(options.collaborationRoot, options.projectId.slice("project/".length), "consults");
+    this.now = options.clock ?? (() => (/* @__PURE__ */ new Date()).toISOString());
+    this.lockTimeoutMs = options.lockTimeoutMs ?? 5e3;
+    this.lockRetryMs = options.lockRetryMs ?? 15;
+    this.staleLockMs = options.staleLockMs;
+  }
+  async execute(input) {
+    const request = validateContextConsultRequest(deepClone(input.request));
+    const grant = validateCapabilityGrant(deepClone(input.grant));
+    if (request.projectId !== this.projectId)
+      throw new DomainConflictError("Context Consult is outside this Project scope");
+    if (request.invocationTokenHash !== digestTransitionToken(input.invocationToken))
+      throw new DomainConflictError("Context Consult invocation token does not match request");
+    if (request.capabilityGrantId !== grant.grantId)
+      throw new DomainConflictError("Context Consult grant identity mismatch");
+    const resource = consultResource(request);
+    const useDecision = authorizeCapabilityUse(grant, {
+      projectId: request.projectId,
+      profileId: request.requestingAgent.profileId,
+      profileRevision: request.requestingAgent.profileRevision,
+      workRunId: request.requestingAgent.workRunId,
+      connector: "agent-memory",
+      operation: "context.consult",
+      resource,
+      sideEffectClass: "read-only",
+      attemptedAt: this.now()
+    });
+    if (!useDecision.allowed)
+      throw new DomainConflictError("Context Consult denied by Capability Grant", { policyResult: useDecision });
+    if (Date.parse(this.now()) >= Date.parse(request.expiresAt))
+      throw new DomainConflictError("Context Consult request expired");
+    const existing = await this.readByInvocationToken(request.invocationTokenHash);
+    if (existing) {
+      await this.assertReplayMatches(request, existing);
+      return { idempotent: true, result: existing };
+    }
+    return this.withLock(async () => {
+      const replay = await this.readByInvocationToken(request.invocationTokenHash);
+      if (replay) {
+        await this.assertReplayMatches(request, replay);
+        return { idempotent: true, result: replay };
+      }
+      const asOfMemory = await input.targetMemory.readApprovedRevision(deepFreeze(deepClone(request.asOf)));
+      assertConsultRevision(request, asOfMemory);
+      const workerInput = {
+        requestId: request.requestId,
+        projectId: request.projectId,
+        objective: request.objective,
+        targetAgent: deepClone(request.targetAgent),
+        asOf: deepClone(request.asOf),
+        contextFingerprint: request.contextFingerprint,
+        sections: Object.fromEntries(request.requestedSections.map((section3) => [section3, deepClone(asOfMemory.sections[section3])])),
+        inputArtifactIds: [...input.inputArtifactIds ?? []]
+      };
+      const output = deepClone(await input.worker.generate(deepFreeze(deepClone(workerInput))));
+      assertSafeSharedState(output, "ContextConsultWorkerOutput");
+      const observed = await input.targetMemory.readCurrentApprovedRevision();
+      assertMemoryIdentity(observed, request.projectId, request.targetAgent.profileId);
+      const observedLock = memoryLock(observed);
+      const stale = observedLock.fingerprint !== request.asOf.fingerprint;
+      const completedAt = this.now();
+      const warnings = [
+        ...output.warnings ?? [],
+        ...stale ? [{
+          code: "consult-target-advanced",
+          severity: "warning",
+          message: "Target memory advanced during generation; current-context operations must re-consult."
+        }] : []
+      ];
+      const artifact = createArtifactProjection({
+        projectionId: `artifact-projection/consult-${stableSuffix(request.requestId)}`,
+        artifactId: `artifact/consult-${stableSuffix(request.requestId)}`,
+        projectId: request.projectId,
+        producer: { kind: "context-consult", ...request.targetAgent },
+        sourceWorkRunId: request.requestingAgent.workRunId,
+        contextFingerprint: request.asOf.fingerprint,
+        inputArtifactIds: [...workerInput.inputArtifactIds],
+        contentHash: canonicalDigest(output.content),
+        mediaType: output.mediaType,
+        outputClass: output.outputClass,
+        sideEffectClass: "read-only",
+        provenance: dedupeProvenance([
+          ...request.provenance,
+          { kind: "memoryRevision", id: request.asOf.revisionId, revision: request.asOf.revision, fingerprint: request.asOf.fingerprint },
+          ...output.provenance
+        ]),
+        warnings,
+        createdAt: completedAt,
+        promotionPolicyVersion: "promotion-policy/v1",
+        operationWritePolicyVersion: "operation-write-policy/v1"
+      });
+      const resultMaterial = {
+        schemaVersion: 1,
+        resultId: `context-consult-result/${stableSuffix(request.requestId)}`,
+        requestId: request.requestId,
+        projectId: request.projectId,
+        requestingWorkRunId: request.requestingAgent.workRunId,
+        targetAgent: deepClone(request.targetAgent),
+        consultedRevision: deepClone(request.asOf),
+        observedCurrentRevision: observedLock,
+        freshness: stale ? "stale" : "current",
+        staleForCurrentContextOperations: stale,
+        provenance: artifact.provenance,
+        warnings,
+        artifact,
+        completedAt,
+        invocationTokenHash: request.invocationTokenHash
+      };
+      const result = validateContextConsultResult({
+        ...resultMaterial,
+        fingerprint: canonicalDigest(contextConsultResultFingerprintMaterial(resultMaterial))
+      });
+      await writeIfAbsentOrSame(this.requestPath(request.requestId), request);
+      await writeIfAbsentOrSame(this.resultPath(request.invocationTokenHash), result);
+      return { idempotent: false, result: deepClone(result) };
+    });
+  }
+  async readByInvocationToken(invocationTokenHash) {
+    ensureDigest(invocationTokenHash, "invocationTokenHash");
+    return readValidated(this.resultPath(invocationTokenHash), validateContextConsultResult);
+  }
+  resultPath(tokenHash) {
+    return join16(this.scopeRoot, "results", digestSuffix(tokenHash), "result.json");
+  }
+  requestPath(requestId) {
+    return join16(this.scopeRoot, "requests", stableSuffix(requestId), "request.json");
+  }
+  async assertReplayMatches(request, result) {
+    if (result.requestId !== request.requestId) {
+      throw new DomainConflictError("Invocation token was already used for another Context Consult");
+    }
+    const committed = await readValidated(this.requestPath(result.requestId), validateContextConsultRequest);
+    if (!committed || committed.fingerprint !== request.fingerprint) {
+      throw new DomainConflictError("Invocation token replay changed Context Consult request semantics");
+    }
+  }
+  withLock(action) {
+    return withRecoverableFileLock({
+      lockPath: join16(this.scopeRoot, ".lock"),
+      now: this.now,
+      timeoutMs: this.lockTimeoutMs,
+      retryMs: this.lockRetryMs,
+      staleLockMs: this.staleLockMs
+    }, action);
+  }
+};
+var DelegationStore = class {
+  projectId;
+  scopeRoot;
+  now;
+  lockTimeoutMs;
+  lockRetryMs;
+  staleLockMs;
+  faultInjector;
+  constructor(options) {
+    if (!options.collaborationRoot)
+      throw new DomainValidationError("collaborationRoot is required");
+    if (!/^project\/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/.test(options.projectId))
+      throw new DomainValidationError("Invalid Project ID");
+    this.projectId = options.projectId;
+    this.scopeRoot = join16(options.collaborationRoot, options.projectId.slice("project/".length), "delegations");
+    this.now = options.clock ?? (() => (/* @__PURE__ */ new Date()).toISOString());
+    this.lockTimeoutMs = options.lockTimeoutMs ?? 5e3;
+    this.lockRetryMs = options.lockRetryMs ?? 15;
+    this.staleLockMs = options.staleLockMs;
+    this.faultInjector = options.faultInjector;
+  }
+  async createPlan(rawPlan) {
+    const plan = validateDelegationPlan(deepClone(rawPlan));
+    if (plan.projectId !== this.projectId)
+      throw new DomainConflictError("Delegation Plan is outside this Project scope");
+    await this.withLock(() => writeIfAbsentOrSame(this.planPath(plan.planId), plan));
+    return deepClone(plan);
+  }
+  async readPlan(planId) {
+    assertSafeSingleSegment(stableSuffix(planId), "Delegation Plan ID");
+    return readValidated(this.planPath(planId), validateDelegationPlan);
+  }
+  async approve(request) {
+    if (!request.transitionToken)
+      throw new DomainValidationError("Delegation approval transition token is required");
+    const tokenHash = digestTransitionToken(request.transitionToken);
+    return this.withLock(async () => {
+      const plan = await this.readPlan(request.planId);
+      if (!plan)
+        throw new DomainNotFoundError(`Delegation Plan ${request.planId} does not exist`);
+      const tokenReceipt = await this.readDelegationReceipt(tokenHash);
+      const planDecision = await this.readPlanDecision(plan.planId);
+      if (tokenReceipt)
+        return this.recoverDelegation(tokenReceipt, request, plan);
+      if (planDecision) {
+        if (planDecision.transitionTokenHash !== tokenHash) {
+          throw new DomainConflictError("Delegation Plan was already approved with another transition token", { childWorkRunId: planDecision.childWorkRunId });
+        }
+        return this.recoverDelegation(planDecision, request, plan);
+      }
+      if (plan.fingerprint !== request.presentedFingerprint)
+        throw new DomainConflictError("Delegation Plan fingerprint changed before approval");
+      if (Date.parse(this.now()) >= Date.parse(plan.expiresAt))
+        throw new DomainConflictError("Delegation Plan expired");
+      const policy = deepClone(await request.authorize(deepFreeze(deepClone(plan))));
+      if (!policy.allowed || policy.actor !== request.actor)
+        throw new DomainConflictError("Delegation approval authorization denied or actor mismatched");
+      const requestedExternal = plan.sideEffectPolicy.requestedExternalClasses;
+      const approvedExternal = [...new Set(request.approvedExternalClasses)].sort();
+      if (canonicalDigest([...requestedExternal].sort()) !== canonicalDigest(approvedExternal)) {
+        throw new DomainConflictError("External side effects require explicit approval of the exact per-run classes", {
+          requestedExternal,
+          approvedExternal
+        });
+      }
+      const suffix = digestSuffix(canonicalDigest({ planId: plan.planId, fingerprint: plan.fingerprint }));
+      const workRunId = `work-run/child-${suffix.slice(0, 24)}`;
+      const grantId = `grant/child-${suffix.slice(0, 24)}`;
+      const issuedAt = this.now();
+      const outcome = this.delegationOutcome(plan, {
+        actor: request.actor,
+        approvedExternal,
+        policy,
+        issuedAt,
+        workRunId,
+        grantId
+      });
+      const receipt = {
+        schemaVersion: 1,
+        kind: "delegation-approval",
+        planId: plan.planId,
+        planFingerprint: plan.fingerprint,
+        transitionTokenHash: tokenHash,
+        childWorkRunId: workRunId,
+        childRevision: 1,
+        grantId,
+        actor: request.actor,
+        requestFingerprint: delegationApprovalRequestFingerprint(request),
+        approvedExternalClasses: approvedExternal,
+        policyDecision: policy,
+        issuedAt,
+        grantFingerprint: outcome.grant.fingerprint,
+        childFingerprint: outcome.child.fingerprint
+      };
+      await writeIfAbsentOrSame(this.planDecisionPath(plan.planId), receipt);
+      await this.injectFault("after-delegation-intent");
+      await writeIfAbsentOrSame(this.delegationReceiptPath(tokenHash), receipt);
+      await this.injectFault("after-delegation-receipt");
+      await writeIfAbsentOrSame(this.grantPath(outcome.grant.grantId), outcome.grant);
+      await this.injectFault("after-delegation-grant");
+      await writeIfAbsentOrSame(this.childRevisionPath(workRunId, 1), outcome.child);
+      return { idempotent: false, child: deepClone(outcome.child), grant: deepClone(outcome.grant) };
+    });
+  }
+  delegationOutcome(plan, input) {
+    const { actor: actor2, approvedExternal, policy, issuedAt, workRunId, grantId } = input;
+    const requestedExternal = plan.sideEffectPolicy.requestedExternalClasses;
+    const approvalFingerprint = canonicalDigest({
+      planId: plan.planId,
+      planFingerprint: plan.fingerprint,
+      workRunId,
+      actor: actor2,
+      policyVersion: policy.policyVersion,
+      approvedExternal
+    });
+    const grant = createCapabilityGrant({
+      grantId,
+      projectId: plan.projectId,
+      profileId: plan.assignment.profileId,
+      profileRevision: plan.assignment.profileRevision,
+      workRunId,
+      delegationPlanId: plan.planId,
+      scope: deepClone(plan.requestedCapabilityScope),
+      issuedAt,
+      expiresAt: plan.expiresAt,
+      issuedBy: actor2,
+      policyDecision: policy,
+      externalSideEffectApproval: requestedExternal.length > 0 ? {
+        mode: "per-run",
+        approvedClasses: approvedExternal,
+        approvedWorkRunId: workRunId,
+        approvalFingerprint
+      } : { mode: "none", approvedClasses: [] }
+    });
+    const childMaterial = {
+      schemaVersion: 1,
+      workRunId,
+      revision: 1,
+      projectId: plan.projectId,
+      parentWorkRunId: plan.parentWorkRunId,
+      delegationPlanId: plan.planId,
+      delegationPlanFingerprint: plan.fingerprint,
+      lifecycle: "ready",
+      assignment: deepClone(plan.assignment),
+      expectedOutput: deepClone(plan.expectedOutput),
+      inputArtifactIds: [...plan.inputArtifactIds],
+      grantSummary: grant,
+      artifacts: [],
+      parentStateEffect: "none",
+      createdAt: issuedAt,
+      createdBy: actor2,
+      updatedAt: issuedAt,
+      updatedBy: actor2
+    };
+    const child = validateChildWorkRun({
+      ...childMaterial,
+      fingerprint: canonicalDigest(childWorkRunFingerprintMaterial(childMaterial))
+    });
+    return { child, grant };
+  }
+  async readChild(workRunId) {
+    const revisions = await this.readChildChain(workRunId);
+    return revisions.length === 0 ? null : deepClone(revisions.at(-1));
+  }
+  async readGrant(grantId) {
+    const grant = await readJson(this.grantPath(grantId));
+    return grant ? deepClone(validateCapabilityGrant(grant)) : null;
+  }
+  async readChildChain(workRunId) {
+    const revisions = await this.childRevisionNumbers(workRunId);
+    for (let index = 0; index < revisions.length; index += 1) {
+      if (revisions[index] !== index + 1) {
+        throw new DomainConflictError("Child Work Run revision history is not contiguous", { workRunId, revisions });
+      }
+    }
+    const chain = [];
+    for (const revision of revisions) {
+      const child = await readValidated(this.childRevisionPath(workRunId, revision), validateChildWorkRun);
+      if (!child)
+        throw new DomainConflictError("Child Work Run revision disappeared while reading its chain", { workRunId, revision });
+      if (child.workRunId !== workRunId || child.revision !== revision) {
+        throw new DomainConflictError("Child Work Run revision identity does not match its immutable path", { workRunId, revision });
+      }
+      const previous = chain.at(-1);
+      if (!previous) {
+        if (child.previousRevision !== void 0)
+          throw new DomainConflictError("Child Work Run revision 1 must not claim a predecessor");
+      } else {
+        if (child.previousRevision?.revision !== previous.revision || child.previousRevision.fingerprint !== previous.fingerprint) {
+          throw new DomainConflictError("Child Work Run predecessor fingerprint lock mismatch", {
+            workRunId,
+            revision,
+            expectedPreviousRevision: previous.revision,
+            expectedPreviousFingerprint: previous.fingerprint
+          });
+        }
+        if (childImmutableFingerprint(child) !== childImmutableFingerprint(previous)) {
+          throw new DomainConflictError("Child Work Run immutable identity changed across revisions", { workRunId, revision });
+        }
+      }
+      chain.push(child);
+    }
+    return chain;
+  }
+  async projectArtifact(workRunId, request) {
+    const tokenHash = digestTransitionToken(request.transitionToken);
+    return this.withLock(async () => {
+      const artifact = validateArtifactProjection(deepClone(request.artifact));
+      const semantics = {
+        kind: "artifact-projection",
+        childWorkRunId: workRunId,
+        expectedRevision: request.expectedRevision,
+        actor: request.actor,
+        artifact
+      };
+      const requestFingerprint = canonicalDigest(semantics);
+      const replay = await this.readChildReceipt(tokenHash);
+      if (replay)
+        return this.childReplay(replay, workRunId, tokenHash, requestFingerprint);
+      await this.recoverNextChildIntent(workRunId);
+      const recoveredReplay = await this.readChildReceipt(tokenHash);
+      if (recoveredReplay)
+        return this.childReplay(recoveredReplay, workRunId, tokenHash, requestFingerprint);
+      const current = await this.requireChild(workRunId);
+      if (current.revision !== request.expectedRevision)
+        throw revisionConflict(current, request.expectedRevision);
+      const committedAt = this.now();
+      const next = this.nextChildForArtifact(current, semantics, committedAt);
+      const receipt = {
+        schemaVersion: 1,
+        kind: "artifact-projection",
+        transitionTokenHash: tokenHash,
+        childWorkRunId: workRunId,
+        childRevision: next.revision,
+        expectedRevision: request.expectedRevision,
+        artifactProjectionId: artifact.projectionId,
+        actor: request.actor,
+        committedAt,
+        requestFingerprint,
+        resultFingerprint: next.fingerprint,
+        request: semantics
+      };
+      await writeIfAbsentOrSame(this.childIntentPath(workRunId, next.revision), receipt);
+      await this.injectFault("after-child-intent");
+      await writeIfAbsentOrSame(this.childReceiptPath(tokenHash), receipt);
+      await this.injectFault("after-child-receipt");
+      await writeIfAbsentOrSame(this.childRevisionPath(workRunId, next.revision), next);
+      return { idempotent: false, child: deepClone(next) };
+    });
+  }
+  async transition(workRunId, request) {
+    const tokenHash = digestTransitionToken(request.transitionToken);
+    return this.withLock(async () => {
+      const semantics = {
+        kind: "child-transition",
+        childWorkRunId: workRunId,
+        expectedRevision: request.expectedRevision,
+        actor: request.actor,
+        lifecycle: request.lifecycle,
+        ...request.diagnosticArtifact ? { diagnosticArtifact: validateArtifactProjection(deepClone(request.diagnosticArtifact)) } : {}
+      };
+      const requestFingerprint = canonicalDigest(semantics);
+      const replay = await this.readChildReceipt(tokenHash);
+      if (replay)
+        return this.childReplay(replay, workRunId, tokenHash, requestFingerprint);
+      await this.recoverNextChildIntent(workRunId);
+      const recoveredReplay = await this.readChildReceipt(tokenHash);
+      if (recoveredReplay)
+        return this.childReplay(recoveredReplay, workRunId, tokenHash, requestFingerprint);
+      const current = await this.requireChild(workRunId);
+      if (current.revision !== request.expectedRevision)
+        throw revisionConflict(current, request.expectedRevision);
+      const committedAt = this.now();
+      const next = this.nextChildForTransition(current, semantics, committedAt);
+      const receipt = {
+        schemaVersion: 1,
+        kind: "child-transition",
+        transitionTokenHash: tokenHash,
+        childWorkRunId: workRunId,
+        childRevision: next.revision,
+        expectedRevision: request.expectedRevision,
+        actor: request.actor,
+        committedAt,
+        requestFingerprint,
+        resultFingerprint: next.fingerprint,
+        request: semantics
+      };
+      await writeIfAbsentOrSame(this.childIntentPath(workRunId, next.revision), receipt);
+      await this.injectFault("after-child-intent");
+      await writeIfAbsentOrSame(this.childReceiptPath(tokenHash), receipt);
+      await this.injectFault("after-child-receipt");
+      await writeIfAbsentOrSame(this.childRevisionPath(workRunId, next.revision), next);
+      return { idempotent: false, child: deepClone(next) };
+    });
+  }
+  async recoverDelegation(receipt, request, plan) {
+    if (receipt.planId !== request.planId || receipt.planFingerprint !== request.presentedFingerprint || receipt.transitionTokenHash !== digestTransitionToken(request.transitionToken) || receipt.requestFingerprint !== delegationApprovalRequestFingerprint(request)) {
+      throw new DomainConflictError("Delegation transition token was already used for different approval semantics");
+    }
+    const outcome = this.delegationOutcome(plan, {
+      actor: receipt.actor,
+      approvedExternal: receipt.approvedExternalClasses,
+      policy: receipt.policyDecision,
+      issuedAt: receipt.issuedAt,
+      workRunId: receipt.childWorkRunId,
+      grantId: receipt.grantId
+    });
+    if (outcome.child.fingerprint !== receipt.childFingerprint || outcome.grant.fingerprint !== receipt.grantFingerprint) {
+      throw new DomainConflictError("Delegation recovery outcome no longer matches its durable approval intent");
+    }
+    await writeIfAbsentOrSame(this.planDecisionPath(plan.planId), receipt);
+    await writeIfAbsentOrSame(this.delegationReceiptPath(receipt.transitionTokenHash), receipt);
+    await writeIfAbsentOrSame(this.grantPath(receipt.grantId), outcome.grant);
+    await writeIfAbsentOrSame(this.childRevisionPath(receipt.childWorkRunId, receipt.childRevision), outcome.child);
+    return { idempotent: true, child: deepClone(outcome.child), grant: deepClone(outcome.grant) };
+  }
+  async childReplay(receipt, workRunId, tokenHash, requestFingerprint) {
+    if (receipt.childWorkRunId !== workRunId || receipt.transitionTokenHash !== tokenHash || receipt.requestFingerprint !== requestFingerprint) {
+      throw new DomainConflictError("Child transition token was already used for different child operation semantics");
+    }
+    return { idempotent: true, child: await this.recoverChildIntent(receipt) };
+  }
+  async recoverNextChildIntent(workRunId) {
+    const current = await this.requireChild(workRunId);
+    const pending = await this.readChildIntent(workRunId, current.revision + 1);
+    if (pending)
+      await this.recoverChildIntent(pending);
+  }
+  async recoverChildIntent(receipt) {
+    if (receipt.schemaVersion !== 1 || receipt.kind !== receipt.request.kind || receipt.childWorkRunId !== receipt.request.childWorkRunId || receipt.expectedRevision !== receipt.request.expectedRevision || receipt.childRevision !== receipt.expectedRevision + 1 || receipt.actor !== receipt.request.actor || receipt.requestFingerprint !== canonicalDigest(receipt.request)) {
+      throw new DomainConflictError("Child operation intent is internally inconsistent");
+    }
+    ensureDigest(receipt.transitionTokenHash, "ChildReceipt.transitionTokenHash");
+    ensureDigest(receipt.requestFingerprint, "ChildReceipt.requestFingerprint");
+    ensureDigest(receipt.resultFingerprint, "ChildReceipt.resultFingerprint");
+    const chain = await this.readChildChain(receipt.childWorkRunId);
+    const committed = chain.find((child) => child.revision === receipt.childRevision);
+    if (committed) {
+      if (committed.fingerprint !== receipt.resultFingerprint) {
+        throw new DomainConflictError("Child operation intent result fingerprint differs from its immutable revision");
+      }
+      await writeIfAbsentOrSame(this.childIntentPath(receipt.childWorkRunId, receipt.childRevision), receipt);
+      await writeIfAbsentOrSame(this.childReceiptPath(receipt.transitionTokenHash), receipt);
+      return deepClone(committed);
+    }
+    const base = chain.find((child) => child.revision === receipt.expectedRevision);
+    if (!base)
+      throw new DomainConflictError("Child operation intent references a missing base revision");
+    const next = receipt.request.kind === "artifact-projection" ? this.nextChildForArtifact(base, receipt.request, receipt.committedAt) : this.nextChildForTransition(base, receipt.request, receipt.committedAt);
+    if (next.fingerprint !== receipt.resultFingerprint) {
+      throw new DomainConflictError("Recovered Child Work Run differs from its durable operation intent");
+    }
+    await writeIfAbsentOrSame(this.childIntentPath(receipt.childWorkRunId, receipt.childRevision), receipt);
+    await writeIfAbsentOrSame(this.childReceiptPath(receipt.transitionTokenHash), receipt);
+    await writeIfAbsentOrSame(this.childRevisionPath(receipt.childWorkRunId, receipt.childRevision), next);
+    return deepClone(next);
+  }
+  nextChildForArtifact(current, request, committedAt) {
+    if (isTerminal2(current.lifecycle))
+      throw new DomainConflictError("Terminal Child Work Run does not accept artifacts");
+    const artifact = validateArtifactProjection(deepClone(request.artifact));
+    this.assertChildArtifact(current, artifact);
+    if (current.artifacts.some((item) => item.projectionId === artifact.projectionId || item.artifactId === artifact.artifactId)) {
+      throw new DomainConflictError("Artifact Projection identity already exists on Child Work Run");
+    }
+    this.assertArtifactOperationPolicy(current, artifact);
+    return this.nextChild(current, request.actor, { artifacts: [...current.artifacts, artifact] }, committedAt);
+  }
+  nextChildForTransition(current, request, committedAt) {
+    if (!childTransitionAllowed(current.lifecycle, request.lifecycle)) {
+      throw new DomainConflictError(`Invalid Child Work Run transition ${current.lifecycle} -> ${request.lifecycle}`);
+    }
+    let artifacts = [...current.artifacts];
+    let terminalDiagnosticArtifactId = current.terminalDiagnosticArtifactId;
+    if (request.lifecycle === "failed" || request.lifecycle === "cancelled") {
+      if (!request.diagnosticArtifact)
+        throw new DomainValidationError("Failed or cancelled child requires a diagnostic artifact");
+      const diagnostic2 = validateArtifactProjection(deepClone(request.diagnosticArtifact));
+      this.assertChildArtifact(current, diagnostic2);
+      if (diagnostic2.outputClass !== "diagnostic" || diagnostic2.sideEffectClass !== "read-only") {
+        throw new DomainValidationError("Terminal diagnostic artifact must be a read-only diagnostic");
+      }
+      artifacts = [...artifacts, diagnostic2];
+      terminalDiagnosticArtifactId = diagnostic2.artifactId;
+    } else if (request.diagnosticArtifact) {
+      throw new DomainValidationError("Diagnostic artifact is only accepted for failed or cancelled transitions");
+    }
+    if (request.lifecycle === "completed") {
+      const matching = artifacts.filter((artifact) => artifact.outputClass === current.expectedOutput.outputClass && artifact.mediaType === current.expectedOutput.mediaType);
+      if (matching.length < current.expectedOutput.requiredArtifactCount) {
+        throw new DomainConflictError("Child cannot complete before satisfying the locked expected-output contract");
+      }
+    }
+    return this.nextChild(current, request.actor, {
+      lifecycle: request.lifecycle,
+      artifacts,
+      ...terminalDiagnosticArtifactId ? { terminalDiagnosticArtifactId } : {}
+    }, committedAt);
+  }
+  nextChild(current, actor2, patch, updatedAt = this.now()) {
+    const material = {
+      ...current,
+      ...patch,
+      revision: current.revision + 1,
+      previousRevision: { revision: current.revision, fingerprint: current.fingerprint },
+      updatedAt,
+      updatedBy: actor2
+    };
+    delete material.fingerprint;
+    return validateChildWorkRun({ ...material, fingerprint: canonicalDigest(childWorkRunFingerprintMaterial(material)) });
+  }
+  assertChildArtifact(child, artifact) {
+    if (artifact.projectId !== child.projectId || artifact.sourceWorkRunId !== child.workRunId || artifact.parentWorkRunId !== child.parentWorkRunId) {
+      throw new DomainConflictError("Artifact Projection does not match Child/Project/Parent identities");
+    }
+    if (artifact.contextFingerprint !== child.assignment.contextEnvelopeFingerprint) {
+      throw new DomainConflictError("Artifact Projection context fingerprint differs from the locked assignment");
+    }
+    if (artifact.producer.profileId !== child.assignment.profileId || artifact.producer.profileRevision !== child.assignment.profileRevision) {
+      throw new DomainConflictError("Artifact Projection producer differs from the locked child assignment");
+    }
+  }
+  assertArtifactOperationPolicy(child, artifact) {
+    if (!isExternalSideEffect(artifact.sideEffectClass))
+      return;
+    if (!artifact.operationTarget) {
+      throw new DomainConflictError("External artifact lacks its exact external operation target");
+    }
+    const decision = authorizeCapabilityUse(child.grantSummary, {
+      projectId: child.projectId,
+      profileId: child.assignment.profileId,
+      profileRevision: child.assignment.profileRevision,
+      workRunId: child.workRunId,
+      connector: artifact.operationTarget.connector,
+      operation: artifact.operationTarget.operation,
+      resource: artifact.operationTarget.resource,
+      sideEffectClass: artifact.sideEffectClass,
+      attemptedAt: artifact.createdAt
+    });
+    if (!decision.allowed || artifact.operationWriteReview.state !== "approved" || artifact.operationWriteReview.approvedWorkRunId !== child.workRunId || artifact.operationWriteReview.grantId !== child.grantSummary.grantId || artifact.operationWriteReview.decisionFingerprint !== canonicalDigest(decision)) {
+      throw new DomainConflictError("External artifact lacks explicit per-run Operation Write approval for its exact external operation target", { policyResult: decision });
+    }
+  }
+  async requireChild(workRunId) {
+    const child = await this.readChild(workRunId);
+    if (!child)
+      throw new DomainNotFoundError(`Child Work Run ${workRunId} does not exist`);
+    return child;
+  }
+  planPath(planId) {
+    return join16(this.scopeRoot, "plans", stableSuffix(planId), "plan.json");
+  }
+  planDecisionPath(planId) {
+    return join16(this.scopeRoot, "plans", stableSuffix(planId), "approval.json");
+  }
+  childRevisionPath(workRunId, revision) {
+    return join16(this.scopeRoot, "children", stableSuffix(workRunId), "revisions", `${String(revision).padStart(12, "0")}.json`);
+  }
+  grantPath(grantId) {
+    return join16(this.scopeRoot, "grants", stableSuffix(grantId), "grant.json");
+  }
+  delegationReceiptPath(tokenHash) {
+    return join16(this.scopeRoot, "receipts", "delegations", digestSuffix(tokenHash), "receipt.json");
+  }
+  childReceiptPath(tokenHash) {
+    return join16(this.scopeRoot, "receipts", "children", digestSuffix(tokenHash), "receipt.json");
+  }
+  childIntentPath(workRunId, revision) {
+    return join16(this.scopeRoot, "children", stableSuffix(workRunId), "intents", `${String(revision).padStart(12, "0")}.json`);
+  }
+  readDelegationReceipt(tokenHash) {
+    return readJson(this.delegationReceiptPath(tokenHash));
+  }
+  readPlanDecision(planId) {
+    return readJson(this.planDecisionPath(planId));
+  }
+  readChildReceipt(tokenHash) {
+    return readJson(this.childReceiptPath(tokenHash));
+  }
+  readChildIntent(workRunId, revision) {
+    return readJson(this.childIntentPath(workRunId, revision));
+  }
+  async childRevisionNumbers(workRunId) {
+    assertSafeSingleSegment(stableSuffix(workRunId), "Child Work Run ID");
+    const directory = join16(this.scopeRoot, "children", stableSuffix(workRunId), "revisions");
+    try {
+      const { readdir: readdir3 } = await import("node:fs/promises");
+      const entries = await readdir3(directory, { withFileTypes: true });
+      return entries.filter((entry) => entry.isFile() && /^\d{12}\.json$/.test(entry.name)).map((entry) => Number.parseInt(entry.name.slice(0, 12), 10)).sort((left, right) => left - right);
+    } catch (error48) {
+      if (error48.code === "ENOENT")
+        return [];
+      throw error48;
+    }
+  }
+  withLock(action) {
+    return withRecoverableFileLock({
+      lockPath: join16(this.scopeRoot, ".lock"),
+      now: this.now,
+      timeoutMs: this.lockTimeoutMs,
+      retryMs: this.lockRetryMs,
+      staleLockMs: this.staleLockMs
+    }, action);
+  }
+  async injectFault(point) {
+    await this.faultInjector?.(point);
+  }
+};
+function childTransitionAllowed(from, to) {
+  if (from === "ready")
+    return to === "running" || to === "failed" || to === "cancelled";
+  if (from === "running")
+    return to === "completed" || to === "failed" || to === "cancelled";
+  return false;
+}
+function isTerminal2(lifecycle) {
+  return lifecycle === "completed" || lifecycle === "failed" || lifecycle === "cancelled";
+}
+function assertConsultRevision(request, memory) {
+  assertMemoryIdentity(memory, request.projectId, request.targetAgent.profileId);
+  const actual = memoryLock(memory);
+  if (canonicalDigest(actual) !== canonicalDigest(request.asOf)) {
+    throw new DomainConflictError("Context Consult reader did not return the exact approved as-of revision", { expected: request.asOf, actual });
+  }
+}
+function assertMemoryIdentity(memory, projectId2, profileId) {
+  if (memory.lifecycle !== "approved" || memory.projectId !== projectId2 || memory.profileId !== profileId) {
+    throw new DomainConflictError("Context Consult memory is not the approved target Project/Agent revision");
+  }
+}
+function memoryLock(memory) {
+  return { revisionId: memory.revisionId, revision: memory.revision, fingerprint: memory.fingerprint };
+}
+function consultResource(request) {
+  return `${request.targetAgent.profileId}@${request.asOf.revisionId}`;
+}
+function dedupeProvenance(values) {
+  const seen = /* @__PURE__ */ new Set();
+  return values.filter((value) => {
+    const key = canonicalJson(value);
+    if (seen.has(key))
+      return false;
+    seen.add(key);
+    return true;
+  });
+}
+function stableSuffix(value) {
+  const suffix = value.slice(value.indexOf("/") + 1);
+  assertSafeSingleSegment(suffix, "stable identity suffix");
+  return suffix;
+}
+function digestSuffix(value) {
+  ensureDigest(value, "digest");
+  return value.slice("sha256:".length);
+}
+function ensureDigest(value, path) {
+  if (!/^sha256:[a-f0-9]{64}$/.test(value))
+    throw new DomainValidationError("Expected sha256 digest", path);
+}
+function revisionConflict(current, expectedRevision) {
+  return new DomainConflictError("Child Work Run revision conflict", {
+    expectedRevision,
+    actualRevision: current.revision,
+    currentFingerprint: current.fingerprint
+  });
+}
+function delegationApprovalRequestFingerprint(request) {
+  return canonicalDigest({
+    kind: "delegation-approval",
+    planId: request.planId,
+    presentedFingerprint: request.presentedFingerprint,
+    actor: request.actor,
+    approvedExternalClasses: [...new Set(request.approvedExternalClasses)].sort()
+  });
+}
+function childImmutableFingerprint(child) {
+  return canonicalDigest({
+    schemaVersion: child.schemaVersion,
+    workRunId: child.workRunId,
+    projectId: child.projectId,
+    parentWorkRunId: child.parentWorkRunId,
+    delegationPlanId: child.delegationPlanId,
+    delegationPlanFingerprint: child.delegationPlanFingerprint,
+    assignment: child.assignment,
+    expectedOutput: child.expectedOutput,
+    inputArtifactIds: child.inputArtifactIds,
+    grantSummary: child.grantSummary,
+    parentStateEffect: child.parentStateEffect,
+    createdAt: child.createdAt,
+    createdBy: child.createdBy
+  });
+}
+function deepFreeze(value) {
+  if (value && typeof value === "object") {
+    Object.freeze(value);
+    for (const child of Object.values(value))
+      deepFreeze(child);
+  }
+  return value;
+}
+async function readValidated(path, validate) {
+  const value = await readJson(path);
+  return value === null ? null : deepClone(validate(value));
+}
+async function readJson(path) {
+  try {
+    return JSON.parse(await readFile4(path, "utf8"));
+  } catch (error48) {
+    if (error48.code === "ENOENT")
+      return null;
+    throw error48;
+  }
+}
+async function writeIfAbsentOrSame(path, value) {
+  assertSafeSharedState(value, "collaboration record");
+  if (await exists(path)) {
+    const existing = await readJson(path);
+    if (canonicalDigest(existing) !== canonicalDigest(value))
+      throw new DomainConflictError("Immutable collaboration record already exists with different content");
+    return;
+  }
+  await atomicCreate(path, `${canonicalJson(value)}
+`);
+}
+async function atomicCreate(path, content) {
+  await mkdir3(dirname8(path), { recursive: true });
+  const temporary = join16(dirname8(path), `.${randomUUID2()}.tmp`);
+  const handle = await open2(temporary, "wx", 384);
+  try {
+    await handle.writeFile(content, "utf8");
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
+  try {
+    if (await exists(path))
+      throw new DomainConflictError("Immutable collaboration target already exists");
+    await rename2(temporary, path);
+  } catch (error48) {
+    await rm2(temporary, { force: true });
+    throw error48;
+  }
+}
+async function exists(path) {
+  try {
+    await stat2(path);
+    return true;
+  } catch (error48) {
+    if (error48.code === "ENOENT")
+      return false;
+    throw error48;
+  }
+}
+
+// ../packages/agent-domain/dist/src/context-envelope.js
+import { Buffer as Buffer2 } from "node:buffer";
+var LAYER_ORDER = [
+  "platformKernel",
+  "agentConstitution",
+  "governedWorkingMemory",
+  "runtimeEnvelope"
+];
+var EVICTION_ORDER = {
+  runtimeEnvelope: 0,
+  governedWorkingMemory: 1,
+  agentConstitution: 2,
+  platformKernel: 3
+};
+var TOKEN_ESTIMATOR = "utf8-bytes-div4/v1";
+function estimateTokens(content) {
+  return Math.max(1, Math.ceil(Buffer2.byteLength(canonicalJson(content), "utf8") / 4));
+}
+function compileContextEnvelope(rawInput) {
+  const input = deepClone(rawInput);
+  assertSafeSharedState(input, "ContextEnvelopeCompileInput");
+  validateCompileInput(input);
+  const layers = /* @__PURE__ */ new Map();
+  layers.set("platformKernel", input.platformKernel.map((chunk) => buildChunk(chunk, true)));
+  layers.set("agentConstitution", buildConstitutionChunks(input));
+  layers.set("governedWorkingMemory", buildMemoryChunks(input));
+  layers.set("runtimeEnvelope", buildRuntimeChunks(input));
+  const allChunks = LAYER_ORDER.flatMap((name) => layers.get(name) ?? []);
+  const duplicate = firstDuplicate(allChunks.map((chunk) => chunk.chunkId));
+  if (duplicate)
+    throw new DomainValidationError(`Context chunk IDs must be globally unique: ${duplicate}`);
+  const mandatoryTokens = allChunks.filter((chunk) => chunk.mandatory).reduce((sum, chunk) => sum + chunk.tokenCount, 0);
+  if (mandatoryTokens > input.tokenBudget)
+    throw new ContextBudgetError(mandatoryTokens, input.tokenBudget);
+  let tokenCount = allChunks.reduce((sum, chunk) => sum + chunk.tokenCount, 0);
+  const omissions = [];
+  const candidates = LAYER_ORDER.flatMap((layer) => (layers.get(layer) ?? []).filter((chunk) => !chunk.mandatory).map((chunk) => ({ layer, chunk }))).sort((left, right) => EVICTION_ORDER[left.layer] - EVICTION_ORDER[right.layer] || left.chunk.priority - right.chunk.priority || left.chunk.chunkId.localeCompare(right.chunk.chunkId));
+  for (const candidate of candidates) {
+    if (tokenCount <= input.tokenBudget)
+      break;
+    layers.set(candidate.layer, (layers.get(candidate.layer) ?? []).filter((chunk) => chunk.chunkId !== candidate.chunk.chunkId));
+    tokenCount -= candidate.chunk.tokenCount;
+    omissions.push({
+      layer: candidate.layer,
+      chunkId: candidate.chunk.chunkId,
+      reason: "token-budget",
+      tokenCount: candidate.chunk.tokenCount,
+      mandatory: false
+    });
+  }
+  const compiledLayers = LAYER_ORDER.map((name) => buildLayer(name, layers.get(name) ?? []));
+  const material = {
+    schemaVersion: 1,
+    envelopeId: input.envelopeId,
+    compiledAt: input.compiledAt,
+    modelLock: input.modelLock,
+    tokenEstimator: TOKEN_ESTIMATOR,
+    tokenBudget: input.tokenBudget,
+    tokenCount,
+    layers: compiledLayers,
+    omissions
+  };
+  const envelope = {
+    ...material,
+    fingerprint: canonicalDigest(envelopeFingerprintMaterial(material))
+  };
+  return validateContextEnvelope(envelope);
+}
+function validateCompileInput(input) {
+  if (!input.envelopeId || input.envelopeId !== input.envelopeId.trim()) {
+    throw new DomainValidationError("Envelope ID must be a non-empty trimmed string", "ContextEnvelopeCompileInput.envelopeId");
+  }
+  if (!Number.isInteger(input.tokenBudget) || input.tokenBudget < 1) {
+    throw new DomainValidationError("Token budget must be a positive integer", "ContextEnvelopeCompileInput.tokenBudget");
+  }
+  const profile = validateAgentProfile(input.profile);
+  const binding = validateProjectAgentBinding(input.binding);
+  const memory = validateMemoryRevision(input.memoryRevision);
+  if (!binding.enabled)
+    throw new DomainConflictError("Disabled Project Agent Binding cannot compile context", { bindingId: binding.bindingId });
+  if (binding.profileId !== profile.profileId || binding.profileRevision !== profile.revision) {
+    throw new DomainConflictError("Context Profile does not match the exact revision locked by the Binding", {
+      bindingProfileId: binding.profileId,
+      bindingProfileRevision: binding.profileRevision,
+      profileId: profile.profileId,
+      profileRevision: profile.revision
+    });
+  }
+  if (memory.projectId !== binding.projectId || memory.profileId !== binding.profileId) {
+    throw new DomainConflictError("Approved memory does not belong to the bound Project and Profile", {
+      memoryProjectId: memory.projectId,
+      memoryProfileId: memory.profileId,
+      bindingProjectId: binding.projectId,
+      bindingProfileId: binding.profileId
+    });
+  }
+  const projectContextRefs = input.runtime?.projectContext?.provenance?.filter((reference) => reference.kind === "project") ?? [];
+  if (projectContextRefs.length !== 1 || projectContextRefs[0].id !== binding.projectId || projectContextRefs[0].fingerprint !== binding.projectContextFingerprint) {
+    throw new DomainConflictError("Runtime Project Context provenance does not match the exact Project Context fingerprint locked by the Binding", {
+      bindingProjectId: binding.projectId,
+      bindingProjectContextFingerprint: binding.projectContextFingerprint,
+      projectContextProvenance: projectContextRefs
+    });
+  }
+  if (!input.memoryRevisionLock || typeof input.memoryRevisionLock !== "object" || !Number.isInteger(input.memoryRevisionLock.revision) || input.memoryRevisionLock.revision < 1 || typeof input.memoryRevisionLock.revisionId !== "string" || typeof input.memoryRevisionLock.fingerprint !== "string") {
+    throw new DomainValidationError("A complete approved memory revision lock is required", "ContextEnvelopeCompileInput.memoryRevisionLock");
+  }
+  if (input.memoryRevisionLock.revisionId !== memory.revisionId || input.memoryRevisionLock.revision !== memory.revision || input.memoryRevisionLock.fingerprint !== memory.fingerprint) {
+    throw new DomainConflictError("Approved memory does not match the current revision lock", {
+      lockedRevisionId: input.memoryRevisionLock.revisionId,
+      lockedRevision: input.memoryRevisionLock.revision,
+      memoryRevisionId: memory.revisionId,
+      memoryRevision: memory.revision
+    });
+  }
+  if (!Array.isArray(input.platformKernel) || input.platformKernel.length === 0) {
+    throw new DomainValidationError("Platform kernel requires at least one governance chunk", "ContextEnvelopeCompileInput.platformKernel");
+  }
+}
+function buildConstitutionChunks(input) {
+  const profileProvenance = [{
+    kind: "profile",
+    id: input.profile.profileId,
+    revision: input.profile.revision,
+    fingerprint: canonicalDigest(input.profile)
+  }];
+  const bindingProvenance = [{
+    kind: "binding",
+    id: input.binding.bindingId,
+    revision: input.binding.revision,
+    fingerprint: canonicalDigest(input.binding)
+  }];
+  return [
+    buildChunk({
+      chunkId: "agent-constitution/profile",
+      content: asJsonValue({
+        profileId: input.profile.profileId,
+        profileRevision: input.profile.revision,
+        role: input.profile.role,
+        responsibilities: input.profile.responsibilities,
+        capabilityClaims: input.profile.capabilityClaims,
+        constitution: input.profile.constitution,
+        defaultModelPolicy: input.profile.defaultModelPolicy
+      }),
+      provenance: profileProvenance,
+      priority: 100
+    }, true),
+    buildChunk({
+      chunkId: "agent-constitution/project-binding",
+      content: asJsonValue({
+        bindingId: input.binding.bindingId,
+        bindingRevision: input.binding.revision,
+        projectId: input.binding.projectId,
+        projectContextFingerprint: input.binding.projectContextFingerprint,
+        profileId: input.binding.profileId,
+        profileRevision: input.binding.profileRevision,
+        role: input.binding.role,
+        memoryScopes: input.binding.memoryScopes,
+        connectorGrantRefs: input.binding.connectorGrantRefs
+      }),
+      provenance: bindingProvenance,
+      priority: 100
+    }, true)
+  ];
+}
+function buildMemoryChunks(input) {
+  const provenance = [{
+    kind: "memoryRevision",
+    id: input.memoryRevision.revisionId,
+    revision: input.memoryRevision.revision,
+    fingerprint: input.memoryRevision.fingerprint
+  }];
+  const chunks = [buildChunk({
+    chunkId: "governed-memory/governance",
+    content: asJsonValue({
+      revisionId: input.memoryRevision.revisionId,
+      revision: input.memoryRevision.revision,
+      protectedDirectives: input.memoryRevision.protectedDirectives,
+      unresolvedConflicts: input.memoryRevision.unresolvedConflicts,
+      approval: {
+        proposalId: input.memoryRevision.approval.proposalId,
+        policyVersion: input.memoryRevision.approval.policyVersion,
+        policyResult: input.memoryRevision.approval.policyResult
+      }
+    }),
+    provenance,
+    priority: 100
+  }, true)];
+  for (const scope of input.binding.memoryScopes) {
+    const section3 = input.memoryRevision.sections[scope];
+    chunks.push(buildChunk({
+      chunkId: `governed-memory/${scope}`,
+      content: asJsonValue({ scope, section: section3 }),
+      provenance,
+      mandatory: false,
+      priority: scope === "stableMemory" ? 70 : scope === "openItems" ? 60 : 50
+    }));
+  }
+  return chunks;
+}
+function buildRuntimeChunks(input) {
+  const runtime = input.runtime;
+  const chunks = [
+    buildChunk({ ...runtime.projectContext, chunkId: `runtime/project/${runtime.projectContext.chunkId}` }, true),
+    ...runtime.workItem ? [buildChunk({ ...runtime.workItem, chunkId: `runtime/work-item/${runtime.workItem.chunkId}` })] : [],
+    ...runtime.workRun ? [buildChunk({ ...runtime.workRun, chunkId: `runtime/work-run/${runtime.workRun.chunkId}` })] : [],
+    ...runtime.threadWindow.map((chunk) => buildChunk({ ...chunk, chunkId: `runtime/thread/${chunk.chunkId}` })),
+    buildChunk({ ...runtime.settingsSnapshot, chunkId: `runtime/settings/${runtime.settingsSnapshot.chunkId}` }, true),
+    ...runtime.deviceCapabilities.map((chunk) => buildChunk({ ...chunk, chunkId: `runtime/device/${chunk.chunkId}` })),
+    ...runtime.capabilityGrants.map((chunk) => buildChunk({ ...chunk, chunkId: `runtime/grant/${chunk.chunkId}` })),
+    ...(runtime.artifacts ?? []).map((chunk) => buildChunk({ ...chunk, chunkId: `runtime/artifact/${chunk.chunkId}` }))
+  ];
+  return chunks;
+}
+function buildChunk(input, forceMandatory = false) {
+  if (!input || typeof input !== "object" || Array.isArray(input))
+    throw new DomainValidationError("Context chunk input must be an object");
+  const extras = Object.keys(input).filter((key) => !(/* @__PURE__ */ new Set(["chunkId", "content", "provenance", "mandatory", "priority"])).has(key));
+  if (extras.length)
+    throw new DomainValidationError(`Unknown Context chunk input fields: ${extras.join(", ")}`);
+  if (!input.chunkId || input.chunkId !== input.chunkId.trim())
+    throw new DomainValidationError("Context chunk ID must be non-empty and trimmed");
+  if (!Array.isArray(input.provenance))
+    throw new DomainValidationError("Context chunk provenance must be an array");
+  if (input.mandatory !== void 0 && typeof input.mandatory !== "boolean")
+    throw new DomainValidationError("Context chunk mandatory must be boolean");
+  if (input.priority !== void 0 && (!Number.isInteger(input.priority) || input.priority < 0))
+    throw new DomainValidationError("Context chunk priority must be a non-negative integer");
+  assertJsonValue(input.content, `ContextChunkInput.${input.chunkId}.content`);
+  assertSafeSharedState(input.content, `ContextChunkInput.${input.chunkId}.content`);
+  const content = deepClone(input.content);
+  return validateContextChunk({
+    chunkId: input.chunkId,
+    content,
+    provenance: deepClone(input.provenance),
+    mandatory: forceMandatory || input.mandatory === true,
+    priority: input.priority ?? 50,
+    tokenCount: estimateTokens(content),
+    contentHash: canonicalDigest(content)
+  });
+}
+function buildLayer(name, chunks) {
+  const provenanceByKey = /* @__PURE__ */ new Map();
+  for (const provenance2 of chunks.flatMap((chunk) => chunk.provenance)) {
+    provenanceByKey.set(canonicalJson(provenance2), deepClone(provenance2));
+  }
+  const provenance = [...provenanceByKey.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([, value]) => value);
+  return {
+    name,
+    provenance,
+    chunks,
+    tokenCount: chunks.reduce((sum, chunk) => sum + chunk.tokenCount, 0),
+    contentHash: canonicalDigest(chunks)
+  };
+}
+function firstDuplicate(values) {
+  const seen = /* @__PURE__ */ new Set();
+  for (const value of values) {
+    if (seen.has(value))
+      return value;
+    seen.add(value);
+  }
+  return void 0;
+}
+function asJsonValue(value) {
+  return deepClone(value);
+}
+function assertJsonValue(value, path, seen = /* @__PURE__ */ new Set()) {
+  if (value === null || typeof value === "string" || typeof value === "boolean")
+    return;
+  if (typeof value === "number") {
+    if (!Number.isFinite(value))
+      throw new DomainValidationError("Context content numbers must be finite", path);
+    return;
+  }
+  if (Array.isArray(value)) {
+    if (seen.has(value))
+      throw new DomainValidationError("Context content must not contain cycles", path);
+    seen.add(value);
+    value.forEach((child, index) => assertJsonValue(child, `${path}[${index}]`, seen));
+    seen.delete(value);
+    return;
+  }
+  if (!value || typeof value !== "object" || Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null) {
+    throw new DomainValidationError("Context content must be JSON-compatible", path);
+  }
+  if (seen.has(value))
+    throw new DomainValidationError("Context content must not contain cycles", path);
+  seen.add(value);
+  for (const [key, child] of Object.entries(value)) {
+    if (child === void 0)
+      throw new DomainValidationError("Context content must not contain undefined", `${path}.${key}`);
+    assertJsonValue(child, `${path}.${key}`, seen);
+  }
+  seen.delete(value);
+}
+
+// ../packages/agent-domain/dist/src/dreamtime.js
+import { randomUUID as randomUUID3 } from "node:crypto";
+import { basename as basename4, dirname as dirname9, join as join17 } from "node:path";
+import { mkdir as mkdir4, open as open3, readdir, readFile as readFile5, rename as rename3, rm as rm3, stat as stat3 } from "node:fs/promises";
+function dreamTimeSourceFingerprint(input) {
+  return canonicalDigest({
+    operation: input.operation,
+    projectId: input.projectId,
+    profileId: input.profileId,
+    sourceIdentities: input.sourceIdentities,
+    expectedRevision: input.expectedRevision,
+    currentSections: input.currentSections,
+    protectedDirectives: input.protectedDirectives,
+    unresolvedConflicts: input.unresolvedConflicts,
+    modelLock: input.modelLock
+  });
+}
+async function runDreamTimeProposalWorker(store, worker, rawInput, actor2) {
+  const input = deepClone(rawInput);
+  if (input.sourceFingerprint !== dreamTimeSourceFingerprint(input)) {
+    throw new DomainValidationError("Dream Time worker input source fingerprint does not lock the exact input");
+  }
+  assertSafeSharedState(input, "DreamTimeWorkerInput");
+  const candidate = await worker.generate(deepFreeze2(input));
+  assertWorkerOutputLocked(input, candidate);
+  return store.createProposal(candidate, actor2);
+}
+var DreamTimeStore = class {
+  projectId;
+  profileId;
+  scopeRoot;
+  now;
+  lockTimeoutMs;
+  lockRetryMs;
+  staleLockMs;
+  faultInjector;
+  constructor(options) {
+    if (!options.memoryRoot)
+      throw new DomainValidationError("Dream Time memoryRoot is required");
+    this.projectId = parseProjectId2(options.projectId);
+    this.profileId = parseAgentProfileId(options.profileId);
+    this.scopeRoot = join17(options.memoryRoot, this.projectId.slice("project/".length), this.profileId.slice("agent/".length));
+    this.now = options.clock ?? (() => (/* @__PURE__ */ new Date()).toISOString());
+    this.lockTimeoutMs = options.lockTimeoutMs ?? 5e3;
+    this.lockRetryMs = options.lockRetryMs ?? 15;
+    this.staleLockMs = options.staleLockMs;
+    this.faultInjector = options.faultInjector;
+  }
+  async createProposal(rawCandidate, actor2) {
+    const candidate = deepClone(rawCandidate);
+    assertSafeSharedState({ candidate, actor: actor2 }, "MemoryProposalCandidate");
+    if (candidate.projectId !== this.projectId || candidate.profileId !== this.profileId) {
+      throw new DomainConflictError("Memory Proposal is outside this Project/Profile scope", {
+        expectedProjectId: this.projectId,
+        expectedProfileId: this.profileId,
+        proposalProjectId: candidate.projectId,
+        proposalProfileId: candidate.profileId
+      });
+    }
+    const createdAt = this.now();
+    const material = {
+      ...candidate,
+      schemaVersion: 1,
+      proposalId: candidate.proposalId ?? `memory-proposal/${randomUUID3()}`,
+      lifecycle: "proposed",
+      approvalPolicy: {
+        mode: "manual",
+        autoApprovalHook: {
+          enabled: false,
+          warningFreeOnly: true,
+          workingMemoryOnly: true
+        }
+      },
+      createdAt,
+      createdBy: actor2
+    };
+    const proposal = validateMemoryProposal({
+      ...material,
+      fingerprint: canonicalDigest(proposalFingerprintMaterial(material))
+    });
+    await this.withScopeLock(async () => {
+      await atomicCreate2(this.proposalPath(proposal.proposalId), `${canonicalJson(proposal)}
+`);
+    });
+    return deepClone(proposal);
+  }
+  async readProposal(proposalId) {
+    const proposal = await readValidated2(this.proposalPath(proposalId), validateMemoryProposal);
+    if (proposal && (proposal.proposalId !== proposalId || proposal.projectId !== this.projectId || proposal.profileId !== this.profileId)) {
+      throw new DomainConflictError("Memory Proposal file identity does not match its scoped path", { proposalId });
+    }
+    return proposal;
+  }
+  async readCurrentRevision() {
+    const revisions = await this.listRevisions();
+    return revisions.at(-1) ?? null;
+  }
+  async readRevision(revisionId) {
+    const revisions = await this.listRevisions();
+    return revisions.find((revision) => revision.revisionId === revisionId) ?? null;
+  }
+  async listRevisions() {
+    const files = await listFiles(join17(this.scopeRoot, "revisions"), /^\d{12}-[A-Za-z0-9._-]+\.json$/);
+    const revisions = await Promise.all(files.map((file2) => readValidated2(join17(this.scopeRoot, "revisions", file2), validateMemoryRevision)));
+    const result = revisions.filter((revision) => revision !== null).sort((left, right) => left.revision - right.revision);
+    for (let index = 0; index < result.length; index += 1) {
+      const revision = result[index];
+      if (revision.projectId !== this.projectId || revision.profileId !== this.profileId || revision.revision !== index + 1) {
+        throw new DomainConflictError("Dream Time revision chain is non-contiguous or outside its scope", {
+          revisionId: revision.revisionId,
+          revision: revision.revision
+        });
+      }
+      const previous = result[index - 1] ?? null;
+      if (revision.previousRevisionId !== (previous?.revisionId ?? null) || revision.previousFingerprint !== (previous?.fingerprint ?? null)) {
+        throw new DomainConflictError("Dream Time revision predecessor lock is broken", {
+          revisionId: revision.revisionId,
+          previousRevisionId: revision.previousRevisionId
+        });
+      }
+    }
+    return result;
+  }
+  async listEvents() {
+    const files = await listFiles(join17(this.scopeRoot, "events"), /^\d{12}-[A-Za-z0-9._-]+\.json$/);
+    const events = await Promise.all(files.map((file2) => readValidated2(join17(this.scopeRoot, "events", file2), validateMemoryEvent)));
+    const result = events.filter((event) => event !== null).sort((left, right) => left.ordinal - right.ordinal);
+    for (let index = 0; index < result.length; index += 1) {
+      if (result[index].ordinal !== index + 1) {
+        throw new DomainConflictError("Dream Time event log is not append-only and contiguous");
+      }
+    }
+    return result;
+  }
+  async readDecision(proposalId) {
+    const decision = await readValidated2(this.decisionPath(proposalId), validateApprovalDecision);
+    if (decision && decision.proposalId !== proposalId) {
+      throw new DomainConflictError("Approval Decision file identity does not match its proposal path", { proposalId });
+    }
+    return decision;
+  }
+  approve(proposalId, request) {
+    return this.transition("approve", proposalId, request);
+  }
+  reject(proposalId, request) {
+    return this.transition("reject", proposalId, request);
+  }
+  async transition(action, proposalId, request) {
+    if (!request.transitionToken || request.transitionToken !== request.transitionToken.trim()) {
+      throw new DomainValidationError("Transition token must be non-empty and trimmed");
+    }
+    if (!Number.isInteger(request.expectedRevision) || request.expectedRevision < 0) {
+      throw new DomainValidationError("Expected revision must be a non-negative integer");
+    }
+    const proposal = await this.readProposal(proposalId);
+    if (!proposal)
+      throw new DomainNotFoundError(`Memory Proposal ${proposalId} does not exist`);
+    if (proposal.fingerprint !== request.presentedFingerprint) {
+      throw new DomainConflictError("Presented Memory Proposal fingerprint does not match immutable proposal", {
+        proposalId,
+        presentedFingerprint: request.presentedFingerprint,
+        actualFingerprint: proposal.fingerprint
+      });
+    }
+    const transitionTokenHash = digestTransitionToken(request.transitionToken);
+    return this.withScopeLock(async () => {
+      const replay = await this.replayOrRecover(action, proposal, transitionTokenHash, request.actor);
+      if (replay)
+        return replay;
+      const existingDecision = await this.readDecision(proposalId);
+      if (existingDecision) {
+        throw new DomainConflictError("Memory Proposal already has a terminal decision under a different transition token", {
+          proposalId,
+          state: existingDecision.state
+        });
+      }
+      const authorization = await request.authorize({ actor: request.actor, action, proposal: deepFreeze2(deepClone(proposal)) });
+      validateAuthorization(authorization);
+      if (!authorization.allowed) {
+        throw new DomainConflictError("Actor is not authorized for this Dream Time transition", {
+          proposalId,
+          actor: request.actor,
+          action,
+          policyVersion: authorization.policyVersion,
+          reason: authorization.reason
+        });
+      }
+      const now = this.now();
+      if (Date.parse(now) >= Date.parse(proposal.expiresAt)) {
+        return this.finalizeWithoutRevision({
+          transitionAction: action,
+          action: "expired",
+          proposal,
+          transitionTokenHash,
+          actor: request.actor,
+          policy: authorization,
+          reason: "Proposal expiry elapsed before transition"
+        });
+      }
+      const current = await this.readCurrentRevision();
+      if (!expectedRevisionMatches(proposal, current) || request.expectedRevision !== proposal.expectedRevision.revision) {
+        return this.finalizeWithoutRevision({
+          transitionAction: action,
+          action: "stale",
+          proposal,
+          transitionTokenHash,
+          actor: request.actor,
+          policy: authorization,
+          reason: `Expected revision ${request.expectedRevision}; current revision is ${current?.revision ?? 0}`
+        });
+      }
+      if (action === "reject") {
+        return this.finalizeWithoutRevision({
+          transitionAction: action,
+          action: "rejected",
+          proposal,
+          transitionTokenHash,
+          actor: request.actor,
+          policy: authorization,
+          reason: request.reason?.trim() || "Proposal rejected by authorized actor"
+        });
+      }
+      const sections = applyCandidateDiff(proposal, current, now);
+      const revisionNumber = (current?.revision ?? 0) + 1;
+      const revisionMaterial = {
+        schemaVersion: 1,
+        revisionId: `memory-revision/${String(revisionNumber).padStart(12, "0")}-${randomUUID3()}`,
+        revision: revisionNumber,
+        previousRevisionId: current?.revisionId ?? null,
+        previousFingerprint: current?.fingerprint ?? null,
+        projectId: this.projectId,
+        profileId: this.profileId,
+        lifecycle: "approved",
+        sections,
+        protectedDirectives: deepClone(proposal.protectedDirectives),
+        unresolvedConflicts: deepClone(proposal.unresolvedConflicts),
+        exactDiff: deepClone(proposal.candidateDiff),
+        provenance: deepClone(proposal.provenance),
+        approval: {
+          proposalId: proposal.proposalId,
+          transitionTokenHash,
+          actor: request.actor,
+          policyVersion: authorization.policyVersion,
+          policyResult: "allowed"
+        },
+        createdAt: now
+      };
+      const revision = validateMemoryRevision({
+        ...revisionMaterial,
+        fingerprint: canonicalDigest(revisionFingerprintMaterial(revisionMaterial))
+      });
+      await atomicCreate2(this.revisionPath(revision), `${canonicalJson(revision)}
+`);
+      await this.faultInjector?.("after-revision-write");
+      return this.persistTerminalResult({
+        transitionAction: "approve",
+        action: "approved",
+        proposal,
+        revision,
+        transitionTokenHash,
+        actor: request.actor,
+        policy: authorization,
+        reason: "Proposal approved and committed as a new immutable revision"
+      });
+    });
+  }
+  async replayOrRecover(action, proposal, transitionTokenHash, actor2) {
+    const receipt = await this.readReceipt(transitionTokenHash);
+    if (receipt) {
+      assertReceiptMatches(receipt, action, proposal, transitionTokenHash, actor2);
+      return this.resultFromReceipt(receipt, true);
+    }
+    const decision = await this.readDecision(proposal.proposalId);
+    if (decision?.transitionTokenHash === transitionTokenHash) {
+      if (decision.actor !== actor2)
+        throw new DomainConflictError("Transition replay actor does not match the committed actor");
+      const event = (await this.listEvents()).find((candidate) => candidate.proposalId === proposal.proposalId && candidate.transitionTokenHash === transitionTokenHash);
+      if (!event)
+        throw new DomainConflictError("Terminal decision exists without its append-only event");
+      const revision = decision.revisionId ? await this.readRevision(decision.revisionId) : null;
+      const reconstructed = makeReceipt(actionForDecision(decision), proposal, decision, event, revision, actor2);
+      await atomicCreate2(this.receiptPath(transitionTokenHash), `${canonicalJson(reconstructed)}
+`);
+      return { status: decision.state, idempotent: true, decision, revision, event };
+    }
+    const orphanEvent = (await this.listEvents()).find((event) => event.transitionTokenHash === transitionTokenHash);
+    if (orphanEvent) {
+      if (orphanEvent.proposalId !== proposal.proposalId || orphanEvent.transitionAction !== action || orphanEvent.actor !== actor2) {
+        throw new DomainConflictError("Transition event is already bound to a different immutable transition");
+      }
+      const revision = orphanEvent.revisionId ? await this.readRevision(orphanEvent.revisionId) : null;
+      if (orphanEvent.revisionId && !revision)
+        throw new DomainConflictError("Orphan transition event refers to a missing revision");
+      const recoveredDecision = validateApprovalDecision({
+        schemaVersion: 1,
+        decisionId: `memory-decision/${randomUUID3()}`,
+        proposalId: proposal.proposalId,
+        transitionAction: orphanEvent.transitionAction,
+        state: orphanEvent.action,
+        revisionId: orphanEvent.revisionId,
+        transitionTokenHash,
+        actor: actor2,
+        decidedAt: orphanEvent.occurredAt,
+        proposalFingerprint: proposal.fingerprint,
+        policyVersion: orphanEvent.policyResult.policyVersion,
+        reason: "Recovered terminal decision from append-only event after interrupted commit"
+      });
+      const recoveredReceipt = makeReceipt(action, proposal, recoveredDecision, orphanEvent, revision, actor2);
+      await atomicCreate2(this.decisionPath(proposal.proposalId), `${canonicalJson(recoveredDecision)}
+`);
+      await atomicCreate2(this.receiptPath(transitionTokenHash), `${canonicalJson(recoveredReceipt)}
+`);
+      return {
+        status: recoveredDecision.state,
+        idempotent: true,
+        decision: recoveredDecision,
+        revision,
+        event: orphanEvent
+      };
+    }
+    const revisions = await this.listRevisions();
+    const committedRevision = revisions.find((revision) => revision.approval.transitionTokenHash === transitionTokenHash);
+    if (committedRevision) {
+      if (action !== "approve" || committedRevision.approval.proposalId !== proposal.proposalId) {
+        throw new DomainConflictError("Transition token hash is already committed to a different operation or proposal");
+      }
+      if (committedRevision.approval.actor !== actor2) {
+        throw new DomainConflictError("Transition recovery actor does not match the committed actor");
+      }
+      return this.persistTerminalResult({
+        transitionAction: "approve",
+        action: "approved",
+        proposal,
+        revision: committedRevision,
+        transitionTokenHash,
+        actor: actor2,
+        policy: {
+          allowed: true,
+          policyVersion: committedRevision.approval.policyVersion,
+          reason: "Recovered authorization recorded at the immutable revision commit point"
+        },
+        reason: "Recovered terminal records after interruption following revision commit",
+        idempotent: true
+      });
+    }
+    const committedForProposal = revisions.find((revision) => revision.approval.proposalId === proposal.proposalId);
+    if (committedForProposal) {
+      throw new DomainConflictError("Memory Proposal was already committed under a different transition token", {
+        proposalId: proposal.proposalId,
+        revisionId: committedForProposal.revisionId
+      });
+    }
+    return null;
+  }
+  async finalizeWithoutRevision(input) {
+    return this.persistTerminalResult({ ...input, revision: null });
+  }
+  async persistTerminalResult(input) {
+    const existingDecision = await this.readDecision(input.proposal.proposalId);
+    if (existingDecision) {
+      if (existingDecision.transitionTokenHash !== input.transitionTokenHash || existingDecision.state !== input.action) {
+        throw new DomainConflictError("Proposal has a conflicting terminal decision");
+      }
+      const existingEvent = (await this.listEvents()).find((event2) => event2.proposalId === input.proposal.proposalId && event2.transitionTokenHash === input.transitionTokenHash);
+      if (!existingEvent)
+        throw new DomainConflictError("Terminal decision exists without matching event");
+      const receipt2 = makeReceipt(existingDecision.transitionAction, input.proposal, existingDecision, existingEvent, input.revision, input.actor);
+      if (!await exists2(this.receiptPath(input.transitionTokenHash))) {
+        await atomicCreate2(this.receiptPath(input.transitionTokenHash), `${canonicalJson(receipt2)}
+`);
+      }
+      return {
+        status: existingDecision.state,
+        idempotent: true,
+        decision: existingDecision,
+        revision: input.revision,
+        event: existingEvent
+      };
+    }
+    const occurredAt = this.now();
+    const ordinal = (await this.listEvents()).length + 1;
+    const event = validateMemoryEvent({
+      schemaVersion: 1,
+      eventId: `memory-event/${String(ordinal).padStart(12, "0")}-${randomUUID3()}`,
+      ordinal,
+      transitionAction: input.transitionAction,
+      action: input.action,
+      proposalId: input.proposal.proposalId,
+      revisionId: input.revision?.revisionId ?? null,
+      transitionTokenHash: input.transitionTokenHash,
+      actor: input.actor,
+      occurredAt,
+      exactDiff: deepClone(input.proposal.candidateDiff),
+      provenance: deepClone(input.proposal.provenance),
+      policyResult: {
+        allowed: input.policy.allowed,
+        policyVersion: input.policy.policyVersion,
+        reason: input.policy.reason
+      }
+    });
+    const decision = validateApprovalDecision({
+      schemaVersion: 1,
+      decisionId: `memory-decision/${randomUUID3()}`,
+      proposalId: input.proposal.proposalId,
+      transitionAction: input.transitionAction,
+      state: input.action,
+      revisionId: input.revision?.revisionId ?? null,
+      transitionTokenHash: input.transitionTokenHash,
+      actor: input.actor,
+      decidedAt: occurredAt,
+      proposalFingerprint: input.proposal.fingerprint,
+      policyVersion: input.policy.policyVersion,
+      reason: input.reason
+    });
+    const receipt = makeReceipt(decision.transitionAction, input.proposal, decision, event, input.revision, input.actor);
+    await atomicCreate2(this.eventPath(event), `${canonicalJson(event)}
+`);
+    await this.faultInjector?.("after-event-write");
+    await atomicCreate2(this.decisionPath(input.proposal.proposalId), `${canonicalJson(decision)}
+`);
+    await this.faultInjector?.("after-decision-write");
+    await atomicCreate2(this.receiptPath(input.transitionTokenHash), `${canonicalJson(receipt)}
+`);
+    return {
+      status: decision.state,
+      idempotent: input.idempotent ?? false,
+      decision,
+      revision: input.revision,
+      event
+    };
+  }
+  async resultFromReceipt(receipt, idempotent) {
+    const decision = await this.readDecision(receipt.proposalId);
+    const event = (await this.listEvents()).find((candidate) => candidate.eventId === receipt.eventId);
+    const revision = receipt.revisionId ? await this.readRevision(receipt.revisionId) : null;
+    if (!decision || !event || receipt.revisionId !== null && !revision || decision.decisionId !== receipt.decisionId || decision.proposalId !== receipt.proposalId || decision.transitionAction !== receipt.action || decision.transitionTokenHash !== receipt.transitionTokenHash || decision.proposalFingerprint !== receipt.proposalFingerprint || event.proposalId !== receipt.proposalId || event.transitionAction !== receipt.action || event.transitionTokenHash !== receipt.transitionTokenHash || event.actor !== receipt.actor || (revision?.revisionId ?? null) !== receipt.revisionId) {
+      throw new DomainConflictError("Transition receipt refers to missing terminal records", { transitionTokenHash: receipt.transitionTokenHash });
+    }
+    return { status: decision.state, idempotent, decision, revision, event };
+  }
+  async readReceipt(transitionTokenHash) {
+    const path = this.receiptPath(transitionTokenHash);
+    try {
+      const receipt = JSON.parse(await readFile5(path, "utf8"));
+      assertSafeSharedState(receipt, "TransitionReceipt");
+      if (receipt.schemaVersion !== 1 || receipt.transitionTokenHash !== transitionTokenHash) {
+        throw new DomainConflictError("Invalid transition receipt", { transitionTokenHash });
+      }
+      return receipt;
+    } catch (error48) {
+      if (error48.code === "ENOENT")
+        return null;
+      throw error48;
+    }
+  }
+  proposalPath(proposalId) {
+    const slug = idSlug(proposalId, "memory-proposal/");
+    return join17(this.scopeRoot, "proposals", `${slug}.json`);
+  }
+  revisionPath(revision) {
+    const slug = idSlug(revision.revisionId, "memory-revision/");
+    return join17(this.scopeRoot, "revisions", `${String(revision.revision).padStart(12, "0")}-${slug}.json`);
+  }
+  eventPath(event) {
+    const slug = idSlug(event.eventId, "memory-event/");
+    return join17(this.scopeRoot, "events", `${String(event.ordinal).padStart(12, "0")}-${slug}.json`);
+  }
+  decisionPath(proposalId) {
+    const slug = idSlug(proposalId, "memory-proposal/");
+    return join17(this.scopeRoot, "decisions", `${slug}.json`);
+  }
+  receiptPath(transitionTokenHash) {
+    if (!/^sha256:[a-f0-9]{64}$/.test(transitionTokenHash))
+      throw new DomainValidationError("Invalid transition token hash");
+    return join17(this.scopeRoot, "receipts", `${transitionTokenHash.slice("sha256:".length)}.json`);
+  }
+  async withScopeLock(action) {
+    const lockPath = join17(this.scopeRoot, ".lock");
+    return withRecoverableFileLock({
+      lockPath,
+      now: this.now,
+      timeoutMs: this.lockTimeoutMs,
+      retryMs: this.lockRetryMs,
+      staleLockMs: this.staleLockMs
+    }, action);
+  }
+};
+function assertWorkerOutputLocked(input, candidate) {
+  const lockedFields = [
+    "operation",
+    "projectId",
+    "profileId",
+    "sourceIdentities",
+    "expectedRevision",
+    "sourceFingerprint",
+    "protectedDirectives",
+    "unresolvedConflicts",
+    "modelLock",
+    "expiresAt"
+  ];
+  for (const field of lockedFields) {
+    if (canonicalJson(candidate[field]) !== canonicalJson(input[field])) {
+      throw new DomainConflictError(`Dream Time proposal worker changed locked field ${field}`);
+    }
+  }
+}
+function validateAuthorization(value) {
+  if (!value || typeof value.allowed !== "boolean" || !value.policyVersion?.trim() || !value.reason?.trim()) {
+    throw new DomainValidationError("Authorization result must include allowed, policyVersion, and reason");
+  }
+  assertSafeSharedState(value, "ActorAuthorization");
+}
+function expectedRevisionMatches(proposal, current) {
+  if (!current) {
+    return proposal.expectedRevision.revision === 0 && proposal.expectedRevision.revisionId === null && proposal.expectedRevision.fingerprint === null;
+  }
+  return proposal.expectedRevision.revision === current.revision && proposal.expectedRevision.revisionId === current.revisionId && proposal.expectedRevision.fingerprint === current.fingerprint;
+}
+function applyCandidateDiff(proposal, current, now) {
+  const base = current ? deepClone(current.sections) : {
+    recentContext: makeMemorySection(),
+    openItems: makeMemorySection(),
+    stableMemory: makeMemorySection()
+  };
+  assertGovernanceRetained(current, proposal);
+  for (const diff of proposal.candidateDiff) {
+    const currentSection = base[diff.section];
+    const expectedBefore = current ? currentSection.contentHash : null;
+    if (diff.beforeHash !== expectedBefore) {
+      throw new DomainConflictError("Candidate diff beforeHash does not match the exact expected section", {
+        section: diff.section,
+        expectedBefore,
+        actualBefore: diff.beforeHash
+      });
+    }
+    assertSectionMutationAllowed(current, diff, currentSection.contentHash, now);
+    base[diff.section] = diff.operation === "remove" ? makeMemorySection() : deepClone(diff.after);
+  }
+  return base;
+}
+function assertGovernanceRetained(current, proposal) {
+  if (!current)
+    return;
+  for (const directive of current.protectedDirectives) {
+    if (!proposal.protectedDirectives.some((candidate) => canonicalJson(candidate) === canonicalJson(directive))) {
+      throw new DomainConflictError("Proposal silently removed or changed a protected directive", { directiveId: directive.directiveId });
+    }
+  }
+  for (const conflict2 of current.unresolvedConflicts) {
+    if (!proposal.unresolvedConflicts.some((candidate) => canonicalJson(candidate) === canonicalJson(conflict2))) {
+      throw new DomainConflictError("Proposal silently removed or changed an unresolved conflict", { conflictId: conflict2.conflictId });
+    }
+  }
+}
+function assertSectionMutationAllowed(current, diff, currentContentHash, now) {
+  if (!current)
+    return;
+  const unresolved = current.unresolvedConflicts.find((conflict2) => conflict2.section === diff.section);
+  if (unresolved) {
+    throw new DomainConflictError("Candidate diff attempts to change a section with an unresolved conflict", {
+      conflictId: unresolved.conflictId,
+      section: diff.section
+    });
+  }
+  for (const directive of current.protectedDirectives.filter((candidate) => candidate.section === diff.section)) {
+    if (directive.contentHash && directive.contentHash !== currentContentHash) {
+      throw new DomainConflictError("Protected directive no longer matches its locked section hash", { directiveId: directive.directiveId });
+    }
+    const active = directive.kind !== "retain-until" || Date.parse(now) < Date.parse(directive.retainUntil);
+    if (active) {
+      throw new DomainConflictError("Candidate diff attempts to change a protected memory section", {
+        directiveId: directive.directiveId,
+        section: diff.section
+      });
+    }
+  }
+}
+function makeReceipt(action, proposal, decision, event, revision, actor2) {
+  return {
+    schemaVersion: 1,
+    action,
+    proposalId: proposal.proposalId,
+    proposalFingerprint: proposal.fingerprint,
+    transitionTokenHash: decision.transitionTokenHash,
+    decisionId: decision.decisionId,
+    eventId: event.eventId,
+    revisionId: revision?.revisionId ?? null,
+    actor: actor2
+  };
+}
+function assertReceiptMatches(receipt, action, proposal, transitionTokenHash, actor2) {
+  if (receipt.action !== action || receipt.proposalId !== proposal.proposalId || receipt.proposalFingerprint !== proposal.fingerprint || receipt.transitionTokenHash !== transitionTokenHash || receipt.actor !== actor2) {
+    throw new DomainConflictError("Transition token is already bound to a different immutable transition");
+  }
+}
+function actionForDecision(decision) {
+  return decision.transitionAction;
+}
+function idSlug(value, prefix) {
+  if (!value.startsWith(prefix))
+    throw new DomainValidationError(`ID must start with ${prefix}`);
+  const slug = value.slice(prefix.length);
+  assertSafeSingleSegment(slug, `${prefix} ID`);
+  return slug;
+}
+function deepFreeze2(value) {
+  if (value && typeof value === "object" && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    for (const child of Object.values(value))
+      deepFreeze2(child);
+  }
+  return value;
+}
+async function readValidated2(path, validate) {
+  try {
+    return validate(JSON.parse(await readFile5(path, "utf8")));
+  } catch (error48) {
+    if (error48.code === "ENOENT")
+      return null;
+    throw error48;
+  }
+}
+async function listFiles(directory, pattern) {
+  try {
+    return (await readdir(directory, { withFileTypes: true })).filter((entry) => entry.isFile() && pattern.test(entry.name)).map((entry) => entry.name).sort();
+  } catch (error48) {
+    if (error48.code === "ENOENT")
+      return [];
+    throw error48;
+  }
+}
+async function atomicCreate2(path, content) {
+  await mkdir4(dirname9(path), { recursive: true });
+  const temporary = join17(dirname9(path), `.${basename4(path)}.${randomUUID3()}.tmp`);
+  const handle = await open3(temporary, "wx", 384);
+  try {
+    await handle.writeFile(content, "utf8");
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
+  try {
+    if (await exists2(path))
+      throw new DomainConflictError("Immutable Dream Time record already exists");
+    await rename3(temporary, path);
+    await syncDirectory(dirname9(path));
+  } catch (error48) {
+    await rm3(temporary, { force: true });
+    throw error48;
+  }
+}
+async function syncDirectory(path) {
+  try {
+    const directory = await open3(path, "r");
+    try {
+      await directory.sync();
+    } finally {
+      await directory.close();
+    }
+  } catch {
+  }
+}
+async function exists2(path) {
+  try {
+    await stat3(path);
+    return true;
+  } catch (error48) {
+    if (error48.code === "ENOENT")
+      return false;
+    throw error48;
+  }
+}
+
+// ../packages/agent-domain/dist/src/persistence.js
+import { randomUUID as randomUUID4 } from "node:crypto";
+import { mkdir as mkdir5, open as open4, readFile as readFile6, readdir as readdir2, rename as rename4, rm as rm4, stat as stat4 } from "node:fs/promises";
+import { basename as basename5, dirname as dirname10, join as join18 } from "node:path";
+var RevisionStore = class {
+  options;
+  clock;
+  lockTimeoutMs;
+  lockRetryMs;
+  staleLockMs;
+  constructor(options) {
+    this.options = options;
+    this.clock = options.clock ?? (() => (/* @__PURE__ */ new Date()).toISOString());
+    this.lockTimeoutMs = options.lockTimeoutMs ?? 2e3;
+    this.lockRetryMs = options.lockRetryMs ?? 20;
+    this.staleLockMs = options.staleLockMs;
+  }
+  now() {
+    return this.clock();
+  }
+  async read(id2) {
+    const revisions = await this.revisionNumbers(id2);
+    if (revisions.length === 0)
+      return null;
+    for (let index = 0; index < revisions.length; index += 1) {
+      if (revisions[index] !== index + 1) {
+        throw new DomainConflictError(`${this.options.kind} revision history is not contiguous`, { id: id2, revisions });
+      }
+    }
+    return this.readRevision(id2, revisions.at(-1));
+  }
+  async readRevision(id2, revision) {
+    if (!Number.isInteger(revision) || revision < 1)
+      throw new DomainValidationError("revision must be a positive integer");
+    const path = this.revisionPath(id2, revision);
+    try {
+      const parsed = JSON.parse(await readFile6(path, "utf8"));
+      const record6 = this.options.validate(parsed);
+      if (this.options.idOf(record6) !== id2 || record6.revision !== revision) {
+        throw new DomainConflictError(`${this.options.kind} revision identity mismatch`, { id: id2, revision });
+      }
+      let next = record6;
+      for (let previousNumber = revision - 1; previousNumber >= 1; previousNumber -= 1) {
+        const previous = await this.readRevisionFile(id2, previousNumber);
+        if (!previous || next.previousRevision?.revision !== previous.revision || next.previousRevision.digest !== canonicalDigest(previous)) {
+          throw new DomainConflictError(`${this.options.kind} revision predecessor lock mismatch`, { id: id2, revision: next.revision });
+        }
+        next = previous;
+      }
+      return deepClone(record6);
+    } catch (error48) {
+      if (error48.code === "ENOENT")
+        return null;
+      if (error48 instanceof SyntaxError)
+        throw new DomainConflictError(`${this.options.kind} revision is malformed`, { id: id2, revision });
+      throw error48;
+    }
+  }
+  async list() {
+    const revisionFiles = await latestRevisionFiles(join18(this.options.stateRoot, this.options.collectionDirectory));
+    const records = [];
+    for (const path of revisionFiles) {
+      const parsed = this.options.validate(JSON.parse(await readFile6(path, "utf8")));
+      const id2 = this.options.idOf(parsed);
+      if (this.revisionsDirectory(id2) !== dirname10(path)) {
+        throw new DomainConflictError(`${this.options.kind} list projection found an identity/path mismatch`, { id: id2 });
+      }
+      const current = await this.read(id2);
+      if (!current)
+        throw new DomainConflictError(`${this.options.kind} list projection references a missing record`, { id: id2 });
+      records.push(current);
+    }
+    return records.sort((left, right) => this.options.idOf(left).localeCompare(this.options.idOf(right)));
+  }
+  async readRevisionFile(id2, revision) {
+    const path = this.revisionPath(id2, revision);
+    try {
+      const record6 = this.options.validate(JSON.parse(await readFile6(path, "utf8")));
+      if (this.options.idOf(record6) !== id2 || record6.revision !== revision) {
+        throw new DomainConflictError(`${this.options.kind} revision identity mismatch`, { id: id2, revision });
+      }
+      return record6;
+    } catch (error48) {
+      if (error48.code === "ENOENT")
+        return null;
+      throw error48;
+    }
+  }
+  async create(record6) {
+    return this.withLock(this.options.idOf(record6), async () => {
+      const current = await this.read(this.options.idOf(record6));
+      if (current)
+        return { status: "conflict", expectedRevision: 0, actualRevision: current.revision, current };
+      if (record6.revision !== 1 || record6.previousRevision !== void 0) {
+        throw new DomainValidationError(`${this.options.kind} creation must start at revision 1 without previousRevision`);
+      }
+      await this.writeImmutableRevision(record6);
+      return { status: "committed", record: deepClone(record6) };
+    });
+  }
+  async update(id2, expectedRevision, build) {
+    return this.withLock(id2, async () => {
+      const current = await this.read(id2);
+      const actualRevision = current?.revision ?? 0;
+      if (!current || actualRevision !== expectedRevision) {
+        return { status: "conflict", expectedRevision, actualRevision, current };
+      }
+      const proposed = build(deepClone(current), this.now());
+      if (this.options.idOf(proposed) !== id2)
+        throw new DomainValidationError(`${this.options.kind} stable ID cannot change`);
+      if (proposed.revision !== current.revision + 1)
+        throw new DomainValidationError(`${this.options.kind} revision must increment by one`);
+      if (proposed.previousRevision?.revision !== current.revision || proposed.previousRevision.digest !== canonicalDigest(current)) {
+        throw new DomainValidationError(`${this.options.kind} previousRevision must lock the exact prior record`);
+      }
+      await this.writeImmutableRevision(proposed);
+      return { status: "committed", record: deepClone(proposed) };
+    });
+  }
+  async writeImmutableRevision(record6) {
+    assertSafeSharedState(record6, this.options.kind);
+    this.options.validate(record6);
+    const path = this.revisionPath(this.options.idOf(record6), record6.revision);
+    await mkdir5(dirname10(path), { recursive: true });
+    if (await exists3(path))
+      throw new DomainConflictError(`${this.options.kind} immutable revision already exists`, {
+        id: this.options.idOf(record6),
+        revision: record6.revision
+      });
+    await atomicCreate3(path, `${canonicalJson(record6)}
+`);
+  }
+  async revisionNumbers(id2) {
+    const directory = this.revisionsDirectory(id2);
+    let entries;
+    try {
+      entries = await readdir2(directory, { withFileTypes: true });
+    } catch (error48) {
+      if (error48.code === "ENOENT")
+        return [];
+      throw error48;
+    }
+    return entries.filter((entry) => entry.isFile() && /^\d{12}\.json$/.test(entry.name)).map((entry) => Number.parseInt(basename5(entry.name, ".json"), 10)).sort((left, right) => left - right);
+  }
+  recordDirectory(id2) {
+    return join18(this.options.stateRoot, this.options.directoryForId(id2));
+  }
+  revisionsDirectory(id2) {
+    return join18(this.recordDirectory(id2), "revisions");
+  }
+  revisionPath(id2, revision) {
+    return join18(this.revisionsDirectory(id2), `${String(revision).padStart(12, "0")}.json`);
+  }
+  async withLock(id2, action) {
+    const lockPath = join18(this.recordDirectory(id2), ".lock");
+    return withRecoverableFileLock({
+      lockPath,
+      now: () => this.now(),
+      timeoutMs: this.lockTimeoutMs,
+      retryMs: this.lockRetryMs,
+      staleLockMs: this.staleLockMs
+    }, action);
+  }
+};
+var AgentProfileStore = class {
+  store;
+  constructor(options) {
+    this.store = new RevisionStore({
+      ...options,
+      kind: "AgentProfile",
+      collectionDirectory: "profiles",
+      directoryForId: (id2) => join18("profiles", profileSlug(parseAgentProfileId(id2))),
+      idOf: (record6) => record6.profileId,
+      validate: validateAgentProfile
+    });
+  }
+  read(profileId) {
+    parseAgentProfileId(profileId);
+    return this.store.read(profileId);
+  }
+  readRevision(profileId, revision) {
+    parseAgentProfileId(profileId);
+    return this.store.readRevision(profileId, revision);
+  }
+  async list(filter = {}) {
+    const profileIds = filter.profileIds?.map((profileId) => parseAgentProfileId(profileId));
+    const records = await this.store.list();
+    return records.filter((record6) => !profileIds || profileIds.includes(record6.profileId));
+  }
+  async create(input) {
+    assertSafeSharedState(input, "AgentProfileCreate");
+    const profileId = parseAgentProfileId(input.profileId);
+    const now = this.store.now();
+    const record6 = {
+      schemaVersion: 1,
+      profileId,
+      revision: 1,
+      displayName: input.displayName,
+      role: input.role,
+      responsibilities: [...input.responsibilities ?? []],
+      capabilityClaims: [...input.capabilityClaims ?? []],
+      constitution: {
+        principles: [...input.constitution.principles],
+        instructions: [...input.constitution.instructions]
+      },
+      defaultModelPolicy: { ...input.defaultModelPolicy ?? { mode: "inherit" } },
+      createdAt: now,
+      createdBy: input.actor,
+      updatedAt: now,
+      updatedBy: input.actor
+    };
+    validateAgentProfile(record6);
+    return this.store.create(record6);
+  }
+  async update(profileId, expectedRevision, patch, actor2) {
+    assertSafeSharedState({ patch, actor: actor2 }, "AgentProfilePatch");
+    parseAgentProfileId(profileId);
+    return this.store.update(profileId, expectedRevision, (current, now) => {
+      const record6 = {
+        ...current,
+        ...patch,
+        responsibilities: [...patch.responsibilities ?? current.responsibilities],
+        capabilityClaims: [...patch.capabilityClaims ?? current.capabilityClaims],
+        constitution: patch.constitution ? {
+          principles: [...patch.constitution.principles],
+          instructions: [...patch.constitution.instructions]
+        } : current.constitution,
+        defaultModelPolicy: { ...patch.defaultModelPolicy ?? current.defaultModelPolicy },
+        revision: current.revision + 1,
+        previousRevision: { revision: current.revision, digest: canonicalDigest(current) },
+        updatedAt: now,
+        updatedBy: actor2
+      };
+      return validateAgentProfile(record6);
+    });
+  }
+};
+var ProjectAgentBindingStore = class {
+  store;
+  constructor(options) {
+    this.store = new RevisionStore({
+      ...options,
+      kind: "ProjectAgentBinding",
+      collectionDirectory: "bindings",
+      directoryForId: (id2) => {
+        const parsed = parseBindingId(id2).split("/");
+        return join18("bindings", parsed[1], parsed[2]);
+      },
+      idOf: (record6) => record6.bindingId,
+      validate: validateProjectAgentBinding
+    });
+  }
+  read(bindingId) {
+    parseBindingId(bindingId);
+    return this.store.read(bindingId);
+  }
+  readRevision(bindingId, revision) {
+    parseBindingId(bindingId);
+    return this.store.readRevision(bindingId, revision);
+  }
+  async list(filter = {}) {
+    const projectId2 = filter.projectId === void 0 ? void 0 : parseProjectId2(filter.projectId);
+    const profileId = filter.profileId === void 0 ? void 0 : parseAgentProfileId(filter.profileId);
+    const records = await this.store.list();
+    return records.filter((record6) => (projectId2 === void 0 || record6.projectId === projectId2) && (profileId === void 0 || record6.profileId === profileId) && (filter.enabled === void 0 || record6.enabled === filter.enabled));
+  }
+  async create(input) {
+    assertSafeSharedState(input, "ProjectAgentBindingCreate");
+    const projectId2 = parseProjectId2(input.projectId);
+    const profileId = parseAgentProfileId(input.profileId);
+    const now = this.store.now();
+    const record6 = {
+      schemaVersion: 1,
+      bindingId: bindingIdFor(projectId2, profileId),
+      projectId: projectId2,
+      projectContextFingerprint: input.projectContextFingerprint,
+      profileId,
+      profileRevision: input.profileRevision,
+      revision: 1,
+      role: input.role,
+      enabled: input.enabled ?? true,
+      memoryScopes: [...input.memoryScopes ?? ["recentContext", "openItems", "stableMemory"]],
+      connectorGrantRefs: [...input.connectorGrantRefs ?? []],
+      createdAt: now,
+      createdBy: input.actor,
+      updatedAt: now,
+      updatedBy: input.actor
+    };
+    validateProjectAgentBinding(record6);
+    return this.store.create(record6);
+  }
+  async update(bindingId, expectedRevision, patch, actor2) {
+    assertSafeSharedState({ patch, actor: actor2 }, "ProjectAgentBindingPatch");
+    parseBindingId(bindingId);
+    return this.store.update(bindingId, expectedRevision, (current, now) => validateProjectAgentBinding({
+      ...current,
+      ...patch,
+      memoryScopes: [...patch.memoryScopes ?? current.memoryScopes],
+      connectorGrantRefs: [...patch.connectorGrantRefs ?? current.connectorGrantRefs],
+      revision: current.revision + 1,
+      previousRevision: { revision: current.revision, digest: canonicalDigest(current) },
+      updatedAt: now,
+      updatedBy: actor2
+    }));
+  }
+};
+var ThreadStore = class {
+  store;
+  constructor(options) {
+    this.store = new RevisionStore({
+      ...options,
+      kind: "Thread",
+      collectionDirectory: "threads",
+      directoryForId: (id2) => join18("threads", threadSlug(parseThreadId(id2))),
+      idOf: (record6) => record6.threadId,
+      validate: validateThread
+    });
+  }
+  read(threadId) {
+    parseThreadId(threadId);
+    return this.store.read(threadId);
+  }
+  readRevision(threadId, revision) {
+    parseThreadId(threadId);
+    return this.store.readRevision(threadId, revision);
+  }
+  async list(filter = {}) {
+    const projectId2 = filter.projectId === void 0 ? void 0 : parseProjectId2(filter.projectId);
+    const profileId = filter.profileId === void 0 ? void 0 : parseAgentProfileId(filter.profileId);
+    const bindingId = filter.bindingId === void 0 ? void 0 : parseBindingId(filter.bindingId);
+    const records = await this.store.list();
+    return records.filter((record6) => (projectId2 === void 0 || record6.projectId === projectId2) && (profileId === void 0 || record6.profileId === profileId) && (bindingId === void 0 || record6.bindingId === bindingId) && (filter.lifecycle === void 0 || record6.lifecycle === filter.lifecycle));
+  }
+  async create(input) {
+    assertSafeSharedState(input, "ThreadCreate");
+    const now = this.store.now();
+    const record6 = {
+      schemaVersion: 1,
+      threadId: input.threadId ? parseThreadId(input.threadId) : `thread/${randomUUID4()}`,
+      revision: 1,
+      durability: "durable",
+      lifecycle: "open",
+      projectId: parseProjectId2(input.projectId),
+      bindingId: parseBindingId(input.bindingId),
+      bindingRevision: input.bindingRevision,
+      profileId: parseAgentProfileId(input.profileId),
+      profileRevision: input.profileRevision,
+      title: input.title,
+      references: [],
+      createdAt: now,
+      createdBy: input.actor,
+      updatedAt: now,
+      updatedBy: input.actor
+    };
+    validateThread(record6);
+    return this.store.create(record6);
+  }
+  appendReference(threadId, expectedRevision, input, actor2) {
+    assertSafeSharedState({ input, actor: actor2 }, "ThreadReferenceCreate");
+    parseThreadId(threadId);
+    return this.store.update(threadId, expectedRevision, (current, now) => {
+      if (current.lifecycle !== "open")
+        throw new DomainConflictError("Only an open Thread accepts new references", { threadId, lifecycle: current.lifecycle });
+      return validateThread({
+        ...current,
+        revision: current.revision + 1,
+        references: [...current.references, {
+          ordinal: current.references.length + 1,
+          kind: input.kind,
+          referenceId: input.referenceId,
+          recordedAt: input.recordedAt ?? now,
+          ...input.contentHash ? { contentHash: input.contentHash } : {},
+          citations: [...input.citations ?? []]
+        }],
+        previousRevision: { revision: current.revision, digest: canonicalDigest(current) },
+        updatedAt: now,
+        updatedBy: actor2
+      });
+    });
+  }
+  transition(threadId, expectedRevision, lifecycle, actor2) {
+    parseThreadId(threadId);
+    return this.store.update(threadId, expectedRevision, (current, now) => {
+      if (!threadTransitionAllowed(current.lifecycle, lifecycle)) {
+        throw new DomainConflictError(`Invalid Thread lifecycle transition ${current.lifecycle} -> ${lifecycle}`, { threadId });
+      }
+      return validateThread({
+        ...current,
+        lifecycle,
+        revision: current.revision + 1,
+        previousRevision: { revision: current.revision, digest: canonicalDigest(current) },
+        updatedAt: now,
+        updatedBy: actor2
+      });
+    });
+  }
+};
+function threadTransitionAllowed(from, to) {
+  if (from === to)
+    return false;
+  if (from === "open")
+    return to === "closed" || to === "archived";
+  if (from === "closed")
+    return to === "open" || to === "archived";
+  return false;
+}
+function profileSlug(profileId) {
+  return profileId.slice("agent/".length);
+}
+function threadSlug(threadId) {
+  return threadId.slice("thread/".length);
+}
+async function latestRevisionFiles(collectionRoot) {
+  const results = [];
+  const visit = async (directory) => {
+    let entries;
+    try {
+      entries = await readdir2(directory, { withFileTypes: true });
+    } catch (error48) {
+      if (error48.code === "ENOENT")
+        return;
+      throw error48;
+    }
+    if (basename5(directory) === "revisions") {
+      const revisions = entries.filter((entry) => entry.isFile() && /^\d{12}\.json$/.test(entry.name)).map((entry) => entry.name).sort();
+      const latest2 = revisions.at(-1);
+      if (latest2)
+        results.push(join18(directory, latest2));
+      return;
+    }
+    for (const entry of entries.filter((entry2) => entry2.isDirectory()).sort((left, right) => left.name.localeCompare(right.name))) {
+      await visit(join18(directory, entry.name));
+    }
+  };
+  await visit(collectionRoot);
+  return results.sort((left, right) => left.localeCompare(right));
+}
+async function atomicCreate3(path, content) {
+  await mkdir5(dirname10(path), { recursive: true });
+  const temporary = join18(dirname10(path), `.${basename5(path)}.${process.pid}.${randomUUID4()}.tmp`);
+  const handle = await open4(temporary, "wx", 384);
+  try {
+    await handle.writeFile(content, "utf8");
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
+  try {
+    if (await exists3(path))
+      throw new DomainConflictError("Immutable target already exists");
+    await rename4(temporary, path);
+    await syncDirectory2(dirname10(path));
+  } catch (error48) {
+    await rm4(temporary, { force: true });
+    throw error48;
+  }
+}
+async function syncDirectory2(path) {
+  try {
+    const directory = await open4(path, "r");
+    try {
+      await directory.sync();
+    } finally {
+      await directory.close();
+    }
+  } catch {
+  }
+}
+async function exists3(path) {
+  try {
+    await stat4(path);
+    return true;
+  } catch (error48) {
+    if (error48.code === "ENOENT")
+      return false;
+    throw error48;
+  }
+}
+
+// ../packages/agent-domain/dist/src/service.js
+import { randomUUID as randomUUID5 } from "node:crypto";
+var AgentDomainService = class {
+  profiles;
+  bindings;
+  threads;
+  constructor(options) {
+    this.profiles = new AgentProfileStore(options);
+    this.bindings = new ProjectAgentBindingStore(options);
+    this.threads = new ThreadStore(options);
+  }
+  createProfile(input) {
+    return this.profiles.create(input);
+  }
+  updateProfile(profileId, expectedRevision, patch, actor2) {
+    return this.profiles.update(profileId, expectedRevision, patch, actor2);
+  }
+  async createBinding(input) {
+    parseProjectId2(input.projectId);
+    const profile = await this.profiles.readRevision(parseAgentProfileId(input.profileId), input.profileRevision);
+    if (!profile)
+      throw new DomainNotFoundError(`Agent Profile ${input.profileId} revision ${input.profileRevision} does not exist`);
+    return this.bindings.create(input);
+  }
+  async updateBinding(bindingId, expectedRevision, patch, actor2) {
+    const current = await this.bindings.read(bindingId);
+    if (!current)
+      throw new DomainNotFoundError(`Project Agent Binding ${bindingId} does not exist`);
+    if (patch.profileRevision !== void 0) {
+      const profile = await this.profiles.readRevision(current.profileId, patch.profileRevision);
+      if (!profile)
+        throw new DomainNotFoundError(`Agent Profile ${current.profileId} revision ${patch.profileRevision} does not exist`);
+    }
+    return this.bindings.update(bindingId, expectedRevision, patch, actor2);
+  }
+  async createThread(input) {
+    const projectId2 = parseProjectId2(input.projectId);
+    const profileId = parseAgentProfileId(input.profileId);
+    const expectedBindingId = bindingIdFor(projectId2, profileId);
+    if (input.bindingId !== expectedBindingId)
+      throw new DomainValidationError("Thread binding ID does not match its Project and Profile");
+    const binding = await this.bindings.read(input.bindingId);
+    if (!binding)
+      throw new DomainNotFoundError(`Project Agent Binding ${input.bindingId} revision ${input.bindingRevision} does not exist`);
+    if (binding.revision !== input.bindingRevision)
+      throw new DomainConflictError("Thread must lock the latest Binding revision", {
+        requestedBindingRevision: input.bindingRevision,
+        currentBindingRevision: binding.revision
+      });
+    if (!binding.enabled)
+      throw new DomainConflictError("Disabled Project Agent Binding cannot open a durable Thread", { bindingId: binding.bindingId });
+    if (binding.profileRevision !== input.profileRevision)
+      throw new DomainConflictError("Thread Profile revision does not match locked Binding Profile revision", {
+        bindingProfileRevision: binding.profileRevision,
+        threadProfileRevision: input.profileRevision
+      });
+    const profile = await this.profiles.readRevision(profileId, input.profileRevision);
+    if (!profile)
+      throw new DomainNotFoundError(`Agent Profile ${profileId} revision ${input.profileRevision} does not exist`);
+    return this.threads.create(input);
+  }
+  appendThreadReference(threadId, expectedRevision, reference, actor2) {
+    return this.threads.appendReference(threadId, expectedRevision, reference, actor2);
+  }
+  transitionThread(threadId, expectedRevision, lifecycle, actor2) {
+    return this.threads.transition(threadId, expectedRevision, lifecycle, actor2);
+  }
+  createEphemeralThread(input) {
+    assertSafeSharedState(input, "EphemeralThread");
+    if (!Number.isInteger(input.profileRevision) || input.profileRevision < 1)
+      throw new DomainValidationError("profileRevision must be positive");
+    return {
+      schemaVersion: 1,
+      threadId: input.threadId ? parseThreadId(input.threadId) : `thread/ephemeral-${randomUUID5()}`,
+      durability: "ephemeral",
+      lifecycle: "open",
+      profileId: parseAgentProfileId(input.profileId),
+      profileRevision: input.profileRevision,
+      title: input.title,
+      references: []
+    };
+  }
+};
+
+// ../packages/settings-platform/dist/src/canonical.js
+import { createHash as createHash2 } from "node:crypto";
+function canonicalize2(value) {
+  if (Array.isArray(value))
+    return value.map(canonicalize2);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).filter(([, child]) => child !== void 0).sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0).map(([key, child]) => [key, canonicalize2(child)]));
+  }
+  return value;
+}
+function canonicalJson2(value) {
+  return JSON.stringify(canonicalize2(value));
+}
+function canonicalDigest2(value) {
+  return `sha256:${createHash2("sha256").update(canonicalJson2(value)).digest("hex")}`;
+}
+function deepClone2(value) {
+  return JSON.parse(JSON.stringify(value));
+}
 
 // ../packages/settings-platform/dist/registry/v1.json
 var v1_default = {
   schemaVersion: 1,
-  registryVersion: "1.1.0",
+  registryVersion: "1.6.0",
   definitions: [
     {
       key: "models.agent.mode",
@@ -45789,6 +50825,495 @@ var v1_default = {
       placeholder: "environment:OPENAI_API_KEY"
     },
     {
+      key: "adapters.enabled",
+      owner: "runtime.adapter-registry",
+      category: "adapters",
+      name: "Enabled runtime adapters",
+      description: "Select the adapters initialized by the MCP host. Legacy VAULT_MIND_ADAPTERS is consulted only while this key remains at product scope.",
+      valueType: "list",
+      defaultValue: ["filesystem", "memu", "gitnexus", "obsidian", "kanban", "qmd", "lightrag", "raganything", "hindsight", "vaultbrain", "graphify"],
+      allowedScopes: ["user-device", "vault", "workspace-project", "session"],
+      sensitivity: "public",
+      validator: { id: "adapter-list" },
+      requires: [],
+      applyMode: "restart-required",
+      visibility: "normal"
+    },
+    {
+      key: "adapters.memu.dsn",
+      owner: "runtime.adapter-memu",
+      category: "adapters",
+      name: "MemU PostgreSQL endpoint",
+      description: "Credential-free PostgreSQL DSN for MemU. A credential-bearing DSN must be stored behind the separate Secret Reference.",
+      valueType: "string",
+      defaultValue: "postgresql://localhost:5432/memu",
+      allowedScopes: ["user-device", "session"],
+      sensitivity: "local",
+      validator: { id: "url", required: true, pattern: "^postgres(?:ql)?://[^\\s?#]+$" },
+      requires: ["adapters.enabled"],
+      applyMode: "restart-required",
+      visibility: "advanced",
+      placeholder: "postgresql://localhost:5432/memu"
+    },
+    {
+      key: "adapters.memu.secret_ref",
+      owner: "runtime.adapter-memu",
+      category: "adapters",
+      name: "MemU database credential reference",
+      description: "Optional device-local reference to the complete credential-bearing DSN, resolved only immediately before MemU construction.",
+      valueType: "secret-reference",
+      defaultSecretRef: { provider: "environment", locator: "MEMU_DSN" },
+      allowedScopes: ["user-device", "session"],
+      sensitivity: "secret-reference",
+      validator: { id: "secret-reference" },
+      requires: ["adapters.memu.dsn"],
+      applyMode: "restart-required",
+      visibility: "advanced",
+      placeholder: "environment:MEMU_DSN"
+    },
+    {
+      key: "adapters.memu.user_id",
+      owner: "runtime.adapter-memu",
+      category: "adapters",
+      name: "MemU user scope",
+      description: "MemU user_id filter used for recall queries.",
+      valueType: "string",
+      defaultValue: "default",
+      allowedScopes: ["user-device", "vault", "workspace-project", "session"],
+      sensitivity: "public",
+      validator: { id: "non-empty-string", required: true, maxLength: 300 },
+      requires: ["adapters.memu.dsn"],
+      applyMode: "restart-required",
+      visibility: "advanced"
+    },
+    {
+      key: "adapters.memu.max_results",
+      owner: "runtime.adapter-memu",
+      category: "adapters",
+      name: "MemU default result limit",
+      description: "Default maximum MemU results before per-query overrides.",
+      valueType: "integer",
+      defaultValue: 20,
+      allowedScopes: ["vault", "workspace-project", "session"],
+      sensitivity: "public",
+      validator: { id: "integer", min: 1, max: 100 },
+      requires: ["adapters.memu.dsn"],
+      applyMode: "restart-required",
+      visibility: "advanced"
+    },
+    {
+      key: "adapters.memu.query_timeout_ms",
+      owner: "runtime.adapter-memu",
+      category: "adapters",
+      name: "MemU query timeout",
+      description: "PostgreSQL query timeout for MemU recall.",
+      valueType: "integer",
+      defaultValue: 5e3,
+      allowedScopes: ["user-device", "vault", "workspace-project", "session"],
+      sensitivity: "public",
+      validator: { id: "integer", min: 100, max: 3e5 },
+      requires: ["adapters.memu.dsn"],
+      applyMode: "restart-required",
+      visibility: "advanced"
+    },
+    {
+      key: "adapters.memu.exclude_memory_types",
+      owner: "runtime.adapter-memu",
+      category: "adapters",
+      name: "MemU excluded memory types",
+      description: "Memory types excluded from the high-dimensional fallback query.",
+      valueType: "list",
+      defaultValue: ["event"],
+      allowedScopes: ["vault", "workspace-project", "session"],
+      sensitivity: "public",
+      validator: { id: "string-list" },
+      requires: ["adapters.memu.dsn"],
+      applyMode: "restart-required",
+      visibility: "advanced"
+    },
+    {
+      key: "adapters.memu.graph_python",
+      owner: "runtime.adapter-memu",
+      category: "adapters",
+      name: "MemU graph Python",
+      description: "Device-local Python executable for memu_graph recall.",
+      valueType: "path",
+      defaultValue: "python",
+      allowedScopes: ["user-device", "session"],
+      sensitivity: "local",
+      validator: { id: "non-empty-path", required: true, maxLength: 1e3 },
+      requires: ["adapters.memu.dsn"],
+      applyMode: "restart-required",
+      visibility: "advanced"
+    },
+    {
+      key: "adapters.memu.graph_cwd",
+      owner: "runtime.adapter-memu",
+      category: "adapters",
+      name: "MemU graph working directory",
+      description: "Device-local working directory from which memu_graph can be imported.",
+      valueType: "path",
+      defaultValue: ".",
+      allowedScopes: ["user-device", "session"],
+      sensitivity: "local",
+      validator: { id: "non-empty-path", required: true, maxLength: 2e3 },
+      requires: ["adapters.memu.dsn"],
+      applyMode: "restart-required",
+      visibility: "advanced"
+    },
+    {
+      key: "adapters.memu.graph_timeout_ms",
+      owner: "runtime.adapter-memu",
+      category: "adapters",
+      name: "MemU graph timeout",
+      description: "Timeout for the memu_graph subprocess recall path.",
+      valueType: "integer",
+      defaultValue: 15e3,
+      allowedScopes: ["user-device", "vault", "session"],
+      sensitivity: "public",
+      validator: { id: "integer", min: 100, max: 3e5 },
+      requires: ["adapters.memu.dsn"],
+      applyMode: "restart-required",
+      visibility: "advanced"
+    },
+    {
+      key: "adapters.memu.search_script",
+      owner: "runtime.adapter-memu",
+      category: "adapters",
+      name: "MemU fallback search script",
+      description: "Device-local memu_search.py path used when graph recall is unavailable.",
+      valueType: "path",
+      defaultValue: "memu_search.py",
+      allowedScopes: ["user-device", "session"],
+      sensitivity: "local",
+      validator: { id: "non-empty-path", required: true, maxLength: 2e3 },
+      requires: ["adapters.memu.dsn"],
+      applyMode: "restart-required",
+      visibility: "advanced"
+    },
+    {
+      key: "adapters.memu.search_python",
+      owner: "runtime.adapter-memu",
+      category: "adapters",
+      name: "MemU fallback Python",
+      description: "Device-local Python executable for the MemU fallback search script.",
+      valueType: "path",
+      defaultValue: "python",
+      allowedScopes: ["user-device", "session"],
+      sensitivity: "local",
+      validator: { id: "non-empty-path", required: true, maxLength: 1e3 },
+      requires: ["adapters.memu.dsn"],
+      applyMode: "restart-required",
+      visibility: "advanced"
+    },
+    {
+      key: "adapters.memu.search_timeout_ms",
+      owner: "runtime.adapter-memu",
+      category: "adapters",
+      name: "MemU fallback timeout",
+      description: "Timeout for the MemU fallback search subprocess.",
+      valueType: "integer",
+      defaultValue: 2e4,
+      allowedScopes: ["user-device", "vault", "session"],
+      sensitivity: "public",
+      validator: { id: "integer", min: 100, max: 3e5 },
+      requires: ["adapters.memu.dsn"],
+      applyMode: "restart-required",
+      visibility: "advanced"
+    },
+    {
+      key: "adapters.memu.embed_model",
+      owner: "runtime.adapter-memu",
+      category: "adapters",
+      name: "MemU embedding model",
+      description: "Ollama embedding model used for MemU graph recall.",
+      valueType: "string",
+      defaultValue: "bge-m3",
+      allowedScopes: ["user-device", "vault", "session"],
+      sensitivity: "public",
+      validator: { id: "non-empty-string", required: true, maxLength: 300 },
+      requires: ["adapters.memu.dsn"],
+      applyMode: "restart-required",
+      visibility: "advanced"
+    },
+    {
+      key: "adapters.lightrag.base_url",
+      owner: "runtime.adapter-lightrag",
+      category: "adapters",
+      name: "LightRAG base URL",
+      description: "Device-local LightRAG HTTP endpoint. Credentials must use the separate Secret Reference.",
+      valueType: "string",
+      defaultValue: "",
+      allowedScopes: ["user-device", "session"],
+      sensitivity: "local",
+      validator: { id: "url" },
+      requires: ["adapters.enabled"],
+      applyMode: "restart-required",
+      visibility: "advanced",
+      placeholder: "http://127.0.0.1:9621"
+    },
+    {
+      key: "adapters.lightrag.secret_ref",
+      owner: "runtime.adapter-lightrag",
+      category: "adapters",
+      name: "LightRAG credential reference",
+      description: "Opaque device-local credential locator resolved only immediately before the LightRAG adapter is constructed.",
+      valueType: "secret-reference",
+      defaultSecretRef: { provider: "environment", locator: "LIGHTRAG_API_KEY" },
+      allowedScopes: ["user-device", "session"],
+      sensitivity: "secret-reference",
+      validator: { id: "secret-reference" },
+      requires: ["adapters.lightrag.base_url"],
+      applyMode: "restart-required",
+      visibility: "advanced",
+      placeholder: "environment:LIGHTRAG_API_KEY"
+    },
+    {
+      key: "adapters.lightrag.mode",
+      owner: "runtime.adapter-lightrag",
+      category: "adapters",
+      name: "LightRAG query mode",
+      description: "Query mode forwarded to the LightRAG HTTP API.",
+      valueType: "enum",
+      defaultValue: "hybrid",
+      allowedScopes: ["vault", "workspace-project", "session"],
+      sensitivity: "public",
+      validator: { id: "enum", enum: ["naive", "local", "global", "hybrid", "mix"] },
+      requires: ["adapters.lightrag.base_url"],
+      applyMode: "restart-required",
+      visibility: "advanced"
+    },
+    {
+      key: "adapters.lightrag.query_path",
+      owner: "runtime.adapter-lightrag",
+      category: "adapters",
+      name: "LightRAG query path",
+      description: "LightRAG text-query API path.",
+      valueType: "string",
+      defaultValue: "/query",
+      allowedScopes: ["user-device", "session"],
+      sensitivity: "local",
+      validator: { id: "http-path", required: true, pattern: "^/[^\\s]*$" },
+      requires: ["adapters.lightrag.base_url"],
+      applyMode: "restart-required",
+      visibility: "internal"
+    },
+    {
+      key: "adapters.lightrag.query_data_path",
+      owner: "runtime.adapter-lightrag",
+      category: "adapters",
+      name: "LightRAG structured-query path",
+      description: "LightRAG structured query API path used before text fallback.",
+      valueType: "string",
+      defaultValue: "/query/data",
+      allowedScopes: ["user-device", "session"],
+      sensitivity: "local",
+      validator: { id: "http-path", required: true, pattern: "^/[^\\s]*$" },
+      requires: ["adapters.lightrag.base_url"],
+      applyMode: "restart-required",
+      visibility: "internal"
+    },
+    {
+      key: "adapters.lightrag.documents_text_path",
+      owner: "runtime.adapter-lightrag",
+      category: "adapters",
+      name: "LightRAG text-ingest path",
+      description: "LightRAG plain-text document ingest API path.",
+      valueType: "string",
+      defaultValue: "/documents/text",
+      allowedScopes: ["user-device", "session"],
+      sensitivity: "local",
+      validator: { id: "http-path", required: true, pattern: "^/[^\\s]*$" },
+      requires: ["adapters.lightrag.base_url"],
+      applyMode: "restart-required",
+      visibility: "internal"
+    },
+    {
+      key: "adapters.lightrag.documents_upload_path",
+      owner: "runtime.adapter-lightrag",
+      category: "adapters",
+      name: "LightRAG upload path",
+      description: "LightRAG binary document upload API path.",
+      valueType: "string",
+      defaultValue: "/documents/upload",
+      allowedScopes: ["user-device", "session"],
+      sensitivity: "local",
+      validator: { id: "http-path", required: true, pattern: "^/[^\\s]*$" },
+      requires: ["adapters.lightrag.base_url"],
+      applyMode: "restart-required",
+      visibility: "internal"
+    },
+    {
+      key: "adapters.raganything.base_url",
+      owner: "runtime.adapter-raganything",
+      category: "adapters",
+      name: "RAG-Anything base URL",
+      description: "Device-local RAG-Anything wrapper endpoint. Credentials must use the separate Secret Reference.",
+      valueType: "string",
+      defaultValue: "",
+      allowedScopes: ["user-device", "session"],
+      sensitivity: "local",
+      validator: { id: "url" },
+      requires: ["adapters.enabled"],
+      applyMode: "restart-required",
+      visibility: "advanced",
+      placeholder: "http://127.0.0.1:9622"
+    },
+    {
+      key: "adapters.raganything.secret_ref",
+      owner: "runtime.adapter-raganything",
+      category: "adapters",
+      name: "RAG-Anything credential reference",
+      description: "Opaque device-local credential locator resolved only immediately before the RAG-Anything adapter is constructed.",
+      valueType: "secret-reference",
+      defaultSecretRef: { provider: "environment", locator: "RAGANYTHING_API_KEY" },
+      allowedScopes: ["user-device", "session"],
+      sensitivity: "secret-reference",
+      validator: { id: "secret-reference" },
+      requires: ["adapters.raganything.base_url"],
+      applyMode: "restart-required",
+      visibility: "advanced",
+      placeholder: "environment:RAGANYTHING_API_KEY"
+    },
+    {
+      key: "adapters.raganything.query_path",
+      owner: "runtime.adapter-raganything",
+      category: "adapters",
+      name: "RAG-Anything query path",
+      description: "RAG-Anything wrapper query API path.",
+      valueType: "string",
+      defaultValue: "/query",
+      allowedScopes: ["user-device", "session"],
+      sensitivity: "local",
+      validator: { id: "http-path", required: true, pattern: "^/[^\\s]*$" },
+      requires: ["adapters.raganything.base_url"],
+      applyMode: "restart-required",
+      visibility: "internal"
+    },
+    {
+      key: "adapters.raganything.process_path",
+      owner: "runtime.adapter-raganything",
+      category: "adapters",
+      name: "RAG-Anything process path",
+      description: "RAG-Anything wrapper document processing API path.",
+      valueType: "string",
+      defaultValue: "/process_document",
+      allowedScopes: ["user-device", "session"],
+      sensitivity: "local",
+      validator: { id: "http-path", required: true, pattern: "^/[^\\s]*$" },
+      requires: ["adapters.raganything.base_url"],
+      applyMode: "restart-required",
+      visibility: "internal"
+    },
+    {
+      key: "adapters.hindsight.base_url",
+      owner: "runtime.adapter-hindsight",
+      category: "adapters",
+      name: "Hindsight base URL",
+      description: "Device-local Hindsight HTTP endpoint used for provider-neutral read-only recall.",
+      valueType: "string",
+      defaultValue: "",
+      allowedScopes: ["user-device", "session"],
+      sensitivity: "local",
+      validator: { id: "url" },
+      requires: ["adapters.enabled", "adapters.hindsight.bank_id"],
+      applyMode: "restart-required",
+      visibility: "advanced",
+      placeholder: "http://127.0.0.1:8888"
+    },
+    {
+      key: "adapters.hindsight.bank_id",
+      owner: "runtime.adapter-hindsight",
+      category: "adapters",
+      name: "Hindsight bank ID",
+      description: "External Hindsight bank selected for read-only recall; it does not become LLM Wiki Memory authority.",
+      valueType: "string",
+      defaultValue: "",
+      allowedScopes: ["user-device", "vault", "workspace-project", "session"],
+      sensitivity: "public",
+      validator: { id: "string", maxLength: 300 },
+      requires: ["adapters.hindsight.base_url"],
+      applyMode: "restart-required",
+      visibility: "advanced"
+    },
+    {
+      key: "adapters.hindsight.timeout_ms",
+      owner: "runtime.adapter-hindsight",
+      category: "adapters",
+      name: "Hindsight recall timeout",
+      description: "Fail-closed timeout for the read-only Hindsight recall request.",
+      valueType: "integer",
+      defaultValue: 1e4,
+      allowedScopes: ["user-device", "vault", "workspace-project", "session"],
+      sensitivity: "public",
+      validator: { id: "integer", min: 100, max: 3e5 },
+      requires: ["adapters.hindsight.base_url"],
+      applyMode: "restart-required",
+      visibility: "advanced"
+    },
+    {
+      key: "adapters.hindsight.secret_ref",
+      owner: "runtime.adapter-hindsight",
+      category: "adapters",
+      name: "Hindsight credential reference",
+      description: "Optional opaque device-local credential locator resolved only immediately before the Hindsight adapter is constructed.",
+      valueType: "secret-reference",
+      defaultSecretRef: { provider: "environment", locator: "HINDSIGHT_API_KEY" },
+      allowedScopes: ["user-device", "session"],
+      sensitivity: "secret-reference",
+      validator: { id: "secret-reference" },
+      requires: ["adapters.hindsight.base_url"],
+      applyMode: "restart-required",
+      visibility: "advanced",
+      placeholder: "environment:HINDSIGHT_API_KEY"
+    },
+    {
+      key: "adapters.kanban.glob",
+      owner: "runtime.adapter-kanban",
+      category: "adapters",
+      name: "Kanban board glob",
+      description: "Vault-relative Markdown glob scanned by the read-only Kanban adapter.",
+      valueType: "string",
+      defaultValue: "**/*.md",
+      allowedScopes: ["vault", "workspace-project", "session"],
+      sensitivity: "public",
+      validator: { id: "non-empty-string", required: true, maxLength: 500 },
+      requires: ["adapters.enabled"],
+      applyMode: "restart-required",
+      visibility: "advanced",
+      placeholder: "Projects/**/*.md"
+    },
+    {
+      key: "adapters.qmd.collection",
+      owner: "runtime.adapter-qmd",
+      category: "adapters",
+      name: "QMD collection",
+      description: "Optional QMD collection name. Empty means query all local collections.",
+      valueType: "string",
+      defaultValue: "",
+      allowedScopes: ["user-device", "vault", "session"],
+      sensitivity: "local",
+      validator: { id: "string", maxLength: 200 },
+      requires: ["adapters.enabled"],
+      applyMode: "restart-required",
+      visibility: "advanced"
+    },
+    {
+      key: "adapters.qmd.binary",
+      owner: "runtime.adapter-qmd",
+      category: "adapters",
+      name: "QMD executable",
+      description: "Device-local QMD executable name or path.",
+      valueType: "path",
+      defaultValue: "qmd",
+      allowedScopes: ["user-device", "session"],
+      sensitivity: "local",
+      validator: { id: "non-empty-path", required: true, maxLength: 1e3 },
+      requires: ["adapters.enabled"],
+      applyMode: "restart-required",
+      visibility: "advanced"
+    },
+    {
       key: "diagnostics.obc.semantic.enabled",
       owner: "diagnostics.obc",
       category: "diagnostics",
@@ -45836,6 +51361,256 @@ var v1_default = {
       applyMode: "next-operation",
       visibility: "advanced",
       placeholder: "environment:TAVILY_API_KEY"
+    },
+    {
+      key: "providers.host_capability.enabled",
+      owner: "providers.host-capability",
+      category: "providers",
+      name: "Host capability connectors",
+      description: "Allow approved Expert and MCP capability descriptors to participate in governed assignment.",
+      valueType: "boolean",
+      defaultValue: false,
+      allowedScopes: ["vault", "workspace-project", "session"],
+      sensitivity: "public",
+      validator: { id: "boolean" },
+      requires: ["providers.host_capability.provider", "providers.host_capability.transport", "providers.host_capability.endpoint"],
+      applyMode: "next-operation",
+      visibility: "normal"
+    },
+    {
+      key: "providers.host_capability.provider",
+      owner: "providers.host-capability",
+      category: "providers",
+      name: "Host connector identity",
+      description: "Bind a reviewed canonical connector identity such as connector/reviewed-expert, or a generic provider identifier such as reviewed-expert that normalizes to connector/reviewed-expert. This selector grants no authority by itself.",
+      valueType: "string",
+      defaultValue: "configured-host",
+      allowedScopes: ["vault", "workspace-project", "session"],
+      sensitivity: "public",
+      validator: { id: "host-connector-selector", required: true, minLength: 1, maxLength: 200, pattern: "^(?:connector/)?[a-z0-9][a-z0-9._-]*(?:/[a-z0-9][a-z0-9._-]*)*$" },
+      requires: [],
+      applyMode: "next-operation",
+      visibility: "normal"
+    },
+    {
+      key: "providers.host_capability.transport",
+      owner: "providers.host-capability",
+      category: "providers",
+      name: "Host capability transport",
+      description: "Select a stdio, HTTP, OAuth, local-model, or cloud-model host adapter; the governed connector registry remains the source of capability facts.",
+      valueType: "enum",
+      defaultValue: "stdio",
+      allowedScopes: ["user-device", "vault", "workspace-project", "session"],
+      sensitivity: "public",
+      validator: { id: "enum", enum: ["stdio", "http", "oauth", "local-model", "cloud-model"] },
+      requires: [],
+      applyMode: "next-operation",
+      visibility: "normal"
+    },
+    {
+      key: "providers.host_capability.endpoint",
+      owner: "providers.host-capability",
+      category: "providers",
+      name: "Host capability endpoint",
+      description: "Device-local endpoint or approved command descriptor used by the selected host adapter.",
+      valueType: "string",
+      defaultValue: "stdio://configured-host",
+      allowedScopes: ["user-device", "session"],
+      sensitivity: "local",
+      validator: { id: "non-empty-string", required: true, minLength: 1, maxLength: 500 },
+      requires: ["providers.host_capability.transport"],
+      applyMode: "next-operation",
+      visibility: "advanced",
+      placeholder: "stdio://configured-host or https://host.example/mcp"
+    },
+    {
+      key: "providers.host_capability.secret_ref",
+      owner: "providers.host-capability",
+      category: "providers",
+      name: "Host capability credential reference",
+      description: "Opaque credential locator for OAuth, HTTP, or cloud-model hosts; plaintext credential values never enter Settings or connector records.",
+      valueType: "secret-reference",
+      defaultSecretRef: {
+        provider: "environment",
+        locator: "LLMWIKI_HOST_CAPABILITY_KEY"
+      },
+      allowedScopes: ["user-device", "session"],
+      sensitivity: "secret-reference",
+      validator: { id: "secret-reference" },
+      requires: ["providers.host_capability.transport"],
+      applyMode: "next-operation",
+      visibility: "advanced",
+      placeholder: "environment:LLMWIKI_HOST_CAPABILITY_KEY"
+    },
+    {
+      key: "providers.host_capability.timeout_ms",
+      owner: "providers.host-capability",
+      category: "providers",
+      name: "Host capability timeout",
+      description: "Fail-closed timeout for governed host search, describe, and invoke operations.",
+      valueType: "integer",
+      defaultValue: 3e4,
+      allowedScopes: ["user-device", "vault", "workspace-project", "session"],
+      sensitivity: "public",
+      validator: { id: "integer", min: 100, max: 3e5 },
+      requires: ["providers.host_capability.enabled"],
+      applyMode: "next-operation",
+      visibility: "advanced"
+    },
+    {
+      key: "providers.project_tracker.enabled",
+      owner: "providers.project-tracker",
+      category: "providers",
+      name: "Project Tracker projection",
+      description: "Enable the selected GitHub, Gitea, Linear, or Plane External Projection without granting Host Capability authority.",
+      valueType: "boolean",
+      defaultValue: false,
+      allowedScopes: ["vault", "workspace-project", "session"],
+      sensitivity: "public",
+      validator: { id: "boolean" },
+      requires: ["providers.project_tracker.provider", "providers.project_tracker.transport", "providers.project_tracker.endpoint", "providers.project_tracker.secret_ref"],
+      applyMode: "next-operation",
+      visibility: "normal"
+    },
+    {
+      key: "providers.project_tracker.provider",
+      owner: "providers.project-tracker",
+      category: "providers",
+      name: "Project Tracker provider",
+      description: "Select the External Projection provider independently from executable Host Capability Connectors.",
+      valueType: "enum",
+      defaultValue: "github",
+      allowedScopes: ["vault", "workspace-project", "session"],
+      sensitivity: "public",
+      validator: { id: "enum", enum: ["github", "gitea", "linear", "plane"] },
+      requires: [],
+      applyMode: "next-operation",
+      visibility: "normal"
+    },
+    {
+      key: "providers.project_tracker.transport",
+      owner: "providers.project-tracker",
+      category: "providers",
+      name: "Project Tracker transport",
+      description: "Select the governed HTTP or OAuth transport used for one tracker operation.",
+      valueType: "enum",
+      defaultValue: "http",
+      allowedScopes: ["user-device", "vault", "workspace-project", "session"],
+      sensitivity: "public",
+      validator: { id: "enum", enum: ["http", "oauth"] },
+      requires: [],
+      applyMode: "next-operation",
+      visibility: "normal"
+    },
+    {
+      key: "providers.project_tracker.endpoint",
+      owner: "providers.project-tracker",
+      category: "providers",
+      name: "Project Tracker endpoint",
+      description: "Public Plane Cloud, self-hosted, forge, or board API base URL; credentials in URLs are rejected by consumers.",
+      valueType: "string",
+      defaultValue: "https://api.plane.so",
+      allowedScopes: ["user-device", "vault", "workspace-project", "session"],
+      sensitivity: "public",
+      validator: { id: "non-empty-string", required: true, minLength: 1, maxLength: 500 },
+      requires: ["providers.project_tracker.transport"],
+      applyMode: "next-operation",
+      visibility: "advanced",
+      placeholder: "https://api.plane.so or https://plane.example"
+    },
+    {
+      key: "providers.project_tracker.secret_ref",
+      owner: "providers.project-tracker",
+      category: "providers",
+      name: "Project Tracker credential reference",
+      description: "Device-local opaque credential locator; the resolved GitHub, Gitea, Linear, or Plane secret never enters Settings.",
+      valueType: "secret-reference",
+      defaultSecretRef: {
+        provider: "environment",
+        locator: "LLMWIKI_PROJECT_TRACKER_KEY"
+      },
+      allowedScopes: ["user-device", "session"],
+      sensitivity: "secret-reference",
+      validator: { id: "secret-reference" },
+      requires: ["providers.project_tracker.transport"],
+      applyMode: "next-operation",
+      visibility: "advanced",
+      placeholder: "environment:PLANE_API_KEY"
+    },
+    {
+      key: "providers.project_tracker.timeout_ms",
+      owner: "providers.project-tracker",
+      category: "providers",
+      name: "Project Tracker timeout",
+      description: "End-to-end fail-closed deadline for the next Project Tracker pull or apply operation.",
+      valueType: "integer",
+      defaultValue: 3e4,
+      allowedScopes: ["user-device", "vault", "workspace-project", "session"],
+      sensitivity: "public",
+      validator: { id: "integer", min: 100, max: 3e5 },
+      requires: ["providers.project_tracker.enabled"],
+      applyMode: "next-operation",
+      visibility: "advanced"
+    },
+    {
+      key: "agents.dream_time.warning_free_auto_approval",
+      owner: "agents.dream-time",
+      category: "agents",
+      name: "Warning-free Dream Time auto-approval hook",
+      description: "Reserved schema hook for a future policy; it defaults off and current runtimes continue to require explicit human approval.",
+      valueType: "boolean",
+      defaultValue: false,
+      allowedScopes: ["vault", "workspace-project", "session"],
+      sensitivity: "public",
+      validator: { id: "boolean" },
+      requires: [],
+      applyMode: "next-operation",
+      visibility: "advanced"
+    },
+    {
+      key: "agents.dream_time.cadence.daily.enabled",
+      owner: "agents.dream-time",
+      category: "agents",
+      name: "Daily Dream Time cadence",
+      description: "Allow an explicit Project-scoped invocation to create one checkpoint Work Run and proposal per UTC day; no background process is started.",
+      valueType: "boolean",
+      defaultValue: false,
+      allowedScopes: ["vault", "workspace-project", "session"],
+      sensitivity: "public",
+      validator: { id: "boolean" },
+      requires: [],
+      applyMode: "next-operation",
+      visibility: "advanced"
+    },
+    {
+      key: "agents.dream_time.cadence.weekly.enabled",
+      owner: "agents.dream-time",
+      category: "agents",
+      name: "Weekly Dream Time cadence",
+      description: "Allow an explicit Project-scoped invocation to create one learn Work Run and proposal per Monday-based UTC week; no background process is started.",
+      valueType: "boolean",
+      defaultValue: false,
+      allowedScopes: ["vault", "workspace-project", "session"],
+      sensitivity: "public",
+      validator: { id: "boolean" },
+      requires: [],
+      applyMode: "next-operation",
+      visibility: "advanced"
+    },
+    {
+      key: "agents.dream_time.cadence.monthly.enabled",
+      owner: "agents.dream-time",
+      category: "agents",
+      name: "Monthly Dream Time cadence",
+      description: "Allow an explicit Project-scoped invocation to create one review Work Run and proposal per UTC month; no background process is started.",
+      valueType: "boolean",
+      defaultValue: false,
+      allowedScopes: ["vault", "workspace-project", "session"],
+      sensitivity: "public",
+      validator: { id: "boolean" },
+      requires: [],
+      applyMode: "next-operation",
+      visibility: "advanced"
     },
     {
       key: "query.semantic.enabled",
@@ -45954,11 +51729,11 @@ function parseRegistry(parsed) {
     definitions: raw.definitions,
     migrations: raw.migrations
   };
-  const digest = canonicalDigest(material);
-  if (raw.registryDigest && raw.registryDigest !== digest) {
-    throw new Error(`Settings registry digest mismatch: expected ${raw.registryDigest}, calculated ${digest}`);
+  const digest3 = canonicalDigest2(material);
+  if (raw.registryDigest && raw.registryDigest !== digest3) {
+    throw new Error(`Settings registry digest mismatch: expected ${raw.registryDigest}, calculated ${digest3}`);
   }
-  const registry3 = { ...deepClone(material), registryDigest: digest };
+  const registry3 = { ...deepClone2(material), registryDigest: digest3 };
   validateRegistry(registry3);
   return registry3;
 }
@@ -46108,12 +51883,12 @@ function defaultMatchesType(definition) {
 // ../packages/settings-platform/dist/src/bundled-registry.js
 var registry2 = parseRegistry(v1_default);
 function bundledRegistry() {
-  return deepClone(registry2);
+  return deepClone2(registry2);
 }
 
 // ../packages/settings-platform/dist/src/validation.js
 var SECRET_PROVIDERS2 = /* @__PURE__ */ new Set(["os-keychain", "environment", "external-vault"]);
-var PROJECT_ID_RE2 = /^project\/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/;
+var PROJECT_ID_RE4 = /^project\/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/;
 var ENVIRONMENT_LOCATOR_RE2 = /^[A-Za-z_][A-Za-z0-9_]*$/;
 var OPAQUE_SECRET_LOCATOR_RE2 = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}(?:\/[A-Za-z0-9][A-Za-z0-9._-]{0,63})+$/;
 var SECRET_MATERIAL_RE2 = /^(?:bearer\s+|sk[-_][A-Za-z0-9_-]{8,}|api[_-]?key\s*[:=])/i;
@@ -46193,12 +51968,12 @@ function validateSettingsDocuments(registry3, documents, context) {
         });
         continue;
       }
-      issues.push(...validateAssignment(definition, document.scope, document.targetId, assignment));
+      issues.push(...validateAssignment2(definition, document.scope, document.targetId, assignment));
     }
   }
   return { valid: issues.every((item) => item.severity !== "error"), issues };
 }
-function validateAssignment(definition, scope, targetId, assignment) {
+function validateAssignment2(definition, scope, targetId, assignment) {
   const options = { key: definition.key, scope, targetId };
   const issues = [];
   if (!definition.allowedScopes.includes(scope)) {
@@ -46334,7 +52109,7 @@ function isSecretReference2(value) {
   return typeof ref.provider === "string" && SECRET_PROVIDERS2.has(ref.provider) && typeof ref.locator === "string" && validSecretLocator2(ref.provider, ref.locator) && (ref.version === void 0 || typeof ref.version === "string" && ref.version.length > 0);
 }
 function isCanonicalProjectId(value) {
-  return typeof value === "string" && PROJECT_ID_RE2.test(value);
+  return typeof value === "string" && PROJECT_ID_RE4.test(value);
 }
 function validSecretLocator2(provider, locator) {
   const normalized = locator.trim();
@@ -46375,12 +52150,12 @@ function resolveSettings(input) {
     const selected = candidates[0];
     return {
       key: definition.key,
-      value: deepClone(selected.value),
+      value: deepClone2(selected.value),
       winningScope: selected.scope,
-      assignmentProvenance: deepClone(selected.provenance),
+      assignmentProvenance: deepClone2(selected.provenance),
       validation: validateEffectiveValue(definition, selected.value),
       applyMode: definition.applyMode,
-      overriddenCandidates: candidates.slice(1).map(({ assignment: _assignment, ...candidate }) => deepClone(candidate))
+      overriddenCandidates: candidates.slice(1).map(({ assignment: _assignment, ...candidate }) => deepClone2(candidate))
     };
   });
   const revisions = ["user-device", "vault", "workspace-project", "session"].map((scope) => String(sourceRevisions[scope]?.revision ?? 0));
@@ -46393,7 +52168,7 @@ function resolveSettings(input) {
   return {
     snapshotId: ["settings", input.registry.registryVersion, ...contextParts, ...revisions].join(":"),
     registryVersion: input.registry.registryVersion,
-    context: deepClone(input.context),
+    context: deepClone2(input.context),
     effective,
     sourceRevisions,
     createdAt: input.createdAt
@@ -46415,8 +52190,8 @@ function explainSetting(input) {
         scope,
         state: selected.scope === "product" ? "selected" : "overridden",
         revision: product.revision,
-        value: deepClone(product.value),
-        provenance: deepClone(product.provenance)
+        value: deepClone2(product.value),
+        provenance: deepClone2(product.provenance)
       });
       continue;
     }
@@ -46442,14 +52217,14 @@ function explainSetting(input) {
       scope,
       state,
       revision: candidate.revision,
-      value: deepClone(candidate.value),
-      provenance: deepClone(candidate.provenance)
+      value: deepClone2(candidate.value),
+      provenance: deepClone2(candidate.provenance)
     });
   }
   return {
     key: definition.key,
     winningScope: selected.scope,
-    value: deepClone(selected.value),
+    value: deepClone2(selected.value),
     candidates: explanationCandidates,
     validation: validateEffectiveValue(definition, selected.value)
   };
@@ -46501,7 +52276,7 @@ function valueCandidates(definition, documents, secretStatus, registryVersion, c
       scope,
       revision: document.revision,
       value: assignmentValue(definition, assignment, secretStatus),
-      provenance: deepClone(assignment.provenance),
+      provenance: deepClone2(assignment.provenance),
       assignment
     });
   }
@@ -46510,16 +52285,16 @@ function valueCandidates(definition, documents, secretStatus, registryVersion, c
 function productValue(definition, secretStatus) {
   if (definition.valueType === "secret-reference") {
     const secretRef = definition.defaultSecretRef;
-    return { secretRef: deepClone(secretRef), status: statusFor(secretRef.provider, secretRef.locator, secretStatus) };
+    return { secretRef: deepClone2(secretRef), status: statusFor(secretRef.provider, secretRef.locator, secretStatus) };
   }
-  return deepClone(definition.defaultValue ?? null);
+  return deepClone2(definition.defaultValue ?? null);
 }
 function assignmentValue(definition, assignment, secretStatus) {
   if (definition.valueType === "secret-reference") {
     const secretRef = assignment.secretRef ?? definition.defaultSecretRef;
-    return { secretRef: deepClone(secretRef), status: statusFor(secretRef.provider, secretRef.locator, secretStatus) };
+    return { secretRef: deepClone2(secretRef), status: statusFor(secretRef.provider, secretRef.locator, secretStatus) };
   }
-  return deepClone(assignment.value ?? null);
+  return deepClone2(assignment.value ?? null);
 }
 function statusFor(provider, locator, secretStatus) {
   return secretStatus[`${provider}:${locator}`] ?? "missing";
@@ -46532,10 +52307,10 @@ function assignmentExpired(assignment, createdAt) {
 var SETTINGS_DOCUMENT_SCHEMA_VERSION = 1;
 
 // ../packages/settings-platform/dist/src/persistence.js
-import { mkdir as mkdir2, open, readFile as readFile3, rename, rm, stat } from "node:fs/promises";
+import { mkdir as mkdir6, open as open5, readFile as readFile7, rename as rename5, rm as rm5, stat as stat5 } from "node:fs/promises";
 import { homedir as homedir4, platform } from "node:os";
-import { basename as basename4, dirname as dirname7, join as join15 } from "node:path";
-import { randomUUID } from "node:crypto";
+import { basename as basename6, dirname as dirname11, join as join19 } from "node:path";
+import { randomUUID as randomUUID6 } from "node:crypto";
 var ProductSettingsStore = class {
   registry;
   scope = "product";
@@ -46551,7 +52326,7 @@ var ProductSettingsStore = class {
       registryDigest: this.registry.registryDigest,
       defaults: this.registry.definitions.map((definition) => ({
         key: definition.key,
-        ...definition.valueType === "secret-reference" ? { secretRef: deepClone(definition.defaultSecretRef) } : { value: deepClone(definition.defaultValue) },
+        ...definition.valueType === "secret-reference" ? { secretRef: deepClone2(definition.defaultSecretRef) } : { value: deepClone2(definition.defaultValue) },
         provenance: { actor: "registry", source: "registry/v1.json" }
       }))
     };
@@ -46638,7 +52413,7 @@ var FileSettingsStore = class {
     if (current.revision !== options.expectedRevision) {
       return {
         status: "conflict",
-        document: deepClone(current),
+        document: deepClone2(current),
         conflict: {
           scope: this.scope,
           targetId: this.targetId,
@@ -46663,27 +52438,27 @@ var FileSettingsStore = class {
       return plan;
     const { proposed, event } = plan;
     const backupPath = `${this.filePath}.bak`;
-    if (current.revision > 0 || await exists(this.filePath)) {
-      await atomicWrite(backupPath, `${canonicalJson(current)}
+    if (current.revision > 0 || await exists4(this.filePath)) {
+      await atomicWrite(backupPath, `${canonicalJson2(current)}
 `);
     }
     proposed.previousRevision = {
       revision: current.revision,
-      digest: canonicalDigest(current),
-      ...current.revision > 0 || await exists(backupPath) ? { backupPath: basename4(backupPath) } : {}
+      digest: canonicalDigest2(current),
+      ...current.revision > 0 || await exists4(backupPath) ? { backupPath: basename6(backupPath) } : {}
     };
-    await atomicWrite(this.filePath, `${canonicalJson(proposed)}
+    await atomicWrite(this.filePath, `${canonicalJson2(proposed)}
 `);
     return {
       status: "committed",
-      document: deepClone(proposed),
+      document: deepClone2(proposed),
       event
     };
   }
   async migrationState() {
     let raw;
     try {
-      raw = await readFile3(this.filePath, "utf8");
+      raw = await readFile7(this.filePath, "utf8");
     } catch (error48) {
       if (error48.code === "ENOENT") {
         return { scope: this.scope, targetId: this.targetId, schemaVersion: SETTINGS_DOCUMENT_SCHEMA_VERSION };
@@ -46731,7 +52506,7 @@ var FileSettingsStore = class {
   async readPath(path) {
     let raw;
     try {
-      raw = await readFile3(path, "utf8");
+      raw = await readFile7(path, "utf8");
     } catch (error48) {
       if (error48.code === "ENOENT")
         return { status: "missing", diagnostics: [] };
@@ -46789,16 +52564,16 @@ var FileSettingsStore = class {
     const validation = validateSettingsDocuments(this.registry, [document]);
     if (!validation.valid)
       return { status: "invalid", diagnostics: validation.issues };
-    return { status: "valid", document: deepClone(document), diagnostics: validation.issues };
+    return { status: "valid", document: deepClone2(document), diagnostics: validation.issues };
   }
   async withLock(action) {
-    await mkdir2(dirname7(this.filePath), { recursive: true });
+    await mkdir6(dirname11(this.filePath), { recursive: true });
     const lockPath = `${this.filePath}.lock`;
     const deadline = Date.now() + this.lockTimeoutMs;
     let acquired = false;
     while (!acquired) {
       try {
-        const handle = await open(lockPath, "wx", 384);
+        const handle = await open5(lockPath, "wx", 384);
         try {
           await handle.writeFile(JSON.stringify({ pid: process.pid, acquiredAt: this.clock() }), "utf8");
           await handle.sync();
@@ -46811,13 +52586,13 @@ var FileSettingsStore = class {
           throw error48;
         if (Date.now() >= deadline)
           throw new SettingsLockTimeoutError(lockPath, this.lockTimeoutMs);
-        await delay(Math.min(this.lockRetryMs, Math.max(1, deadline - Date.now())));
+        await delay2(Math.min(this.lockRetryMs, Math.max(1, deadline - Date.now())));
       }
     }
     try {
       return await action();
     } finally {
-      await rm(lockPath, { force: true });
+      await rm5(lockPath, { force: true });
     }
   }
 };
@@ -46837,13 +52612,13 @@ var SessionSettingsStore = class {
       scope: "session",
       targetId: options.targetId,
       revision: 0,
-      assignments: deepClone(options.assignments ?? []).sort((a, b) => a.key.localeCompare(b.key)),
+      assignments: deepClone2(options.assignments ?? []).sort((a, b) => a.key.localeCompare(b.key)),
       updatedAt: options.assignments?.length ? this.clock() : "1970-01-01T00:00:00.000Z",
       updatedBy: options.assignments?.length ? "settings-bootstrap" : "settings-platform"
     };
   }
   async read() {
-    return { document: deepClone(this.document), recoveredFromBackup: false, diagnostics: [] };
+    return { document: deepClone2(this.document), recoveredFromBackup: false, diagnostics: [] };
   }
   async migrationState() {
     return { scope: "session", targetId: this.targetId, schemaVersion: this.document.schemaVersion };
@@ -46855,7 +52630,7 @@ var SessionSettingsStore = class {
     return this.mutate("unset", key, void 0, options);
   }
   async mutate(kind, key, value, options) {
-    const current = deepClone(this.document);
+    const current = deepClone2(this.document);
     if (current.revision !== options.expectedRevision) {
       return {
         status: "conflict",
@@ -46883,12 +52658,12 @@ var SessionSettingsStore = class {
     if ("status" in plan)
       return plan;
     const { proposed, event } = plan;
-    proposed.previousRevision = { revision: current.revision, digest: canonicalDigest(current) };
+    proposed.previousRevision = { revision: current.revision, digest: canonicalDigest2(current) };
     this.previousDocument = current;
     this.document = proposed;
     return {
       status: "committed",
-      document: deepClone(proposed),
+      document: deepClone2(proposed),
       event
     };
   }
@@ -46897,22 +52672,22 @@ function settingsDocumentPath(scope, options) {
   if (scope === "user-device")
     return options.userDevicePath;
   if (scope === "vault")
-    return join15(options.vaultPath, "_llmwiki", "settings", "vault.json");
+    return join19(options.vaultPath, "_llmwiki", "settings", "vault.json");
   const match = /^project\/([a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?)$/.exec(options.targetId);
   if (!match)
     throw new Error(`workspace-project targetId must use canonical project/<slug> form: ${options.targetId}`);
-  return join15(options.vaultPath, "_llmwiki", "settings", "projects", `${match[1]}.json`);
+  return join19(options.vaultPath, "_llmwiki", "settings", "projects", `${match[1]}.json`);
 }
 function defaultUserDeviceSettingsPath(environment = process.env) {
   if (environment.LLMWIKI_SETTINGS_USER_PATH)
     return environment.LLMWIKI_SETTINGS_USER_PATH;
-  const base = platform() === "win32" ? environment.APPDATA || join15(homedir4(), "AppData", "Roaming") : environment.XDG_CONFIG_HOME || join15(homedir4(), ".config");
-  return join15(base, "llm-wiki", "settings", "user-device.json");
+  const base = platform() === "win32" ? environment.APPDATA || join19(homedir4(), "AppData", "Roaming") : environment.XDG_CONFIG_HOME || join19(homedir4(), ".config");
+  return join19(base, "llm-wiki", "settings", "user-device.json");
 }
 async function atomicWrite(path, content) {
-  await mkdir2(dirname7(path), { recursive: true });
-  const temporary = join15(dirname7(path), `.${basename4(path)}.${process.pid}.${randomUUID()}.tmp`);
-  const handle = await open(temporary, "wx", 384);
+  await mkdir6(dirname11(path), { recursive: true });
+  const temporary = join19(dirname11(path), `.${basename6(path)}.${process.pid}.${randomUUID6()}.tmp`);
+  const handle = await open5(temporary, "wx", 384);
   try {
     await handle.writeFile(content, "utf8");
     await handle.sync();
@@ -46921,9 +52696,9 @@ async function atomicWrite(path, content) {
   }
   try {
     await renameWithRetry(temporary, path);
-    await syncDirectory(dirname7(path));
+    await syncDirectory3(dirname11(path));
   } catch (error48) {
-    await rm(temporary, { force: true });
+    await rm5(temporary, { force: true });
     throw error48;
   }
 }
@@ -46931,21 +52706,21 @@ async function renameWithRetry(from, to) {
   let lastError;
   for (let attempt = 0; attempt < 8; attempt += 1) {
     try {
-      await rename(from, to);
+      await rename5(from, to);
       return;
     } catch (error48) {
       lastError = error48;
       const code = error48.code;
       if (!(/* @__PURE__ */ new Set(["EACCES", "EPERM", "EBUSY"])).has(code ?? ""))
         throw error48;
-      await delay(10 * (attempt + 1));
+      await delay2(10 * (attempt + 1));
     }
   }
   throw lastError;
 }
-async function syncDirectory(path) {
+async function syncDirectory3(path) {
   try {
-    const directory = await open(path, "r");
+    const directory = await open5(path, "r");
     try {
       await directory.sync();
     } finally {
@@ -46954,9 +52729,9 @@ async function syncDirectory(path) {
   } catch {
   }
 }
-async function exists(path) {
+async function exists4(path) {
   try {
-    await stat(path);
+    await stat5(path);
     return true;
   } catch (error48) {
     if (error48.code === "ENOENT")
@@ -46967,15 +52742,15 @@ async function exists(path) {
 function isSecretRefShape(value) {
   return Boolean(value && typeof value === "object" && !Array.isArray(value) && typeof value.provider === "string" && typeof value.locator === "string");
 }
-function delay(ms) {
-  return new Promise((resolve8) => setTimeout(resolve8, ms));
+function delay2(ms) {
+  return new Promise((resolve9) => setTimeout(resolve9, ms));
 }
 function planMutation(input) {
   const definition = getDefinition(input.registry, input.key);
   if (!definition) {
     return {
       status: "validation-error",
-      document: deepClone(input.current),
+      document: deepClone2(input.current),
       validation: {
         valid: false,
         issues: [{
@@ -46989,7 +52764,7 @@ function planMutation(input) {
       }
     };
   }
-  const assignments = input.current.assignments.filter((assignment) => assignment.key !== input.key).map(deepClone);
+  const assignments = input.current.assignments.filter((assignment) => assignment.key !== input.key).map(deepClone2);
   if (input.kind === "set") {
     const assignment = {
       key: input.key,
@@ -47001,16 +52776,16 @@ function planMutation(input) {
       ...input.options.expiresAt ? { expiresAt: input.options.expiresAt } : {}
     };
     if (definition.valueType === "secret-reference" && isSecretRefShape(input.value)) {
-      assignment.secretRef = deepClone(input.value);
+      assignment.secretRef = deepClone2(input.value);
     } else {
-      assignment.value = deepClone(input.value);
+      assignment.value = deepClone2(input.value);
     }
     assignments.push(assignment);
   }
   assignments.sort((left, right) => left.key.localeCompare(right.key));
   const now = input.clock();
   const proposed = {
-    ...deepClone(input.current),
+    ...deepClone2(input.current),
     revision: input.current.revision + 1,
     assignments,
     updatedAt: now,
@@ -47019,7 +52794,7 @@ function planMutation(input) {
   delete proposed.previousRevision;
   const validation = validateSettingsDocuments(input.registry, [proposed]);
   if (!validation.valid) {
-    return { status: "validation-error", document: deepClone(input.current), validation };
+    return { status: "validation-error", document: deepClone2(input.current), validation };
   }
   return {
     proposed,
@@ -47036,15 +52811,15 @@ function planMutation(input) {
   };
 }
 function changedAssignmentKeys(before, after) {
-  const previous = new Map(before.assignments.map((assignment) => [assignment.key, canonicalJson(assignment)]));
-  const current = new Map(after.assignments.map((assignment) => [assignment.key, canonicalJson(assignment)]));
+  const previous = new Map(before.assignments.map((assignment) => [assignment.key, canonicalJson2(assignment)]));
+  const current = new Map(after.assignments.map((assignment) => [assignment.key, canonicalJson2(assignment)]));
   return [.../* @__PURE__ */ new Set([...previous.keys(), ...current.keys()])].filter((key) => previous.get(key) !== current.get(key)).sort();
 }
 
 // ../packages/settings-platform/dist/src/service.js
 import { existsSync as existsSync11 } from "node:fs";
 import { hostname as hostname3 } from "node:os";
-import { basename as basename5 } from "node:path";
+import { basename as basename7 } from "node:path";
 import { spawnSync } from "node:child_process";
 var SettingsService = class _SettingsService {
   registry;
@@ -47060,7 +52835,7 @@ var SettingsService = class _SettingsService {
     this.environment = options.environment ?? process.env;
     this.userDevicePath = options.userDevicePath ?? defaultUserDeviceSettingsPath(this.environment);
     this.clock = options.clock ?? (() => (/* @__PURE__ */ new Date()).toISOString());
-    const vaultId = options.vaultId ?? safeIdentity(basename5(options.vaultPath) || "default-vault");
+    const vaultId = options.vaultId ?? safeIdentity(basename7(options.vaultPath) || "default-vault");
     const sessionId = options.sessionId ?? `process-${process.pid}`;
     this.defaultContext = {
       userDeviceId: options.userDeviceId ?? defaultUserDeviceId(this.environment),
@@ -47083,14 +52858,14 @@ var SettingsService = class _SettingsService {
     return {
       registryVersion: this.registry.registryVersion,
       registryDigest: this.registry.registryDigest,
-      definitions: deepClone(this.registry.definitions)
+      definitions: deepClone2(this.registry.definitions)
     };
   }
   definitionsGet(key) {
     const definition = getDefinition(this.registry, key);
     if (!definition)
       throw new Error(`Unknown setting: ${key}`);
-    return deepClone(definition);
+    return deepClone2(definition);
   }
   async scopesGet(scope, targetId) {
     if (scope === "product")
@@ -47099,7 +52874,7 @@ var SettingsService = class _SettingsService {
     if (!resolvedTarget)
       throw new Error(`${scope} scope requires a targetId in the runtime context`);
     const read = await this.getStore(scope, resolvedTarget).read();
-    return { ...read, document: deepClone(read.document) };
+    return { ...read, document: deepClone2(read.document) };
   }
   async snapshotResolve(context = this.defaultContext) {
     const { documents, diagnostics } = await this.readDocuments(context);
@@ -47141,6 +52916,41 @@ var SettingsService = class _SettingsService {
       baseUrl,
       model,
       ...secretRef && status ? { credential: { secretRef, status } } : {}
+    };
+  }
+  /** Resolve the authoritative, redacted Host Capability runtime profile. */
+  async hostCapabilityInvocationProfile(context = this.defaultContext, compatibility = []) {
+    const { snapshot, validation, recoveryDiagnostics } = await this.snapshotResolve(context);
+    const candidates = [...compatibility].sort((left, right) => right.priority - left.priority);
+    const enabled = selectHostField(snapshot, "providers.host_capability.enabled", candidates, "enabled", false);
+    const provider = selectHostField(snapshot, "providers.host_capability.provider", candidates, "provider", "configured-host");
+    const transport = selectHostField(snapshot, "providers.host_capability.transport", candidates, "transport", "stdio");
+    const endpoint = selectHostField(snapshot, "providers.host_capability.endpoint", candidates, "endpoint", "");
+    const timeoutMs = selectHostField(snapshot, "providers.host_capability.timeout_ms", candidates, "timeoutMs", 3e4);
+    const credential = selectHostCredential(snapshot, candidates, provider.value);
+    const connectorId = normalizeHostCapabilityConnectorId(provider.value) ?? "";
+    const secretRequired = hostCapabilitySecretRequired(transport.value, connectorId, credential.provenance);
+    const issues = [...validation.issues, ...recoveryDiagnostics].filter((item) => !item.key || item.key.startsWith("providers.host_capability."));
+    return {
+      enabled: enabled.value,
+      provider: provider.value,
+      connectorId,
+      transport: transport.value,
+      endpoint: endpoint.value,
+      ...credential.value ? { credential: credential.value } : {},
+      secretRequired,
+      timeoutMs: timeoutMs.value,
+      snapshotId: snapshot.snapshotId,
+      valid: !issues.some((item) => item.severity === "error"),
+      issues: deepClone2(issues),
+      provenance: {
+        enabled: enabled.provenance,
+        provider: provider.provenance,
+        transport: transport.provenance,
+        endpoint: endpoint.provenance,
+        credential: credential.provenance,
+        timeoutMs: timeoutMs.provenance
+      }
     };
   }
   async assignmentSet(input) {
@@ -47237,6 +53047,55 @@ var SettingsService = class _SettingsService {
     const secret = value("providers.web_search.secret_ref");
     const webState = !webEnabled ? "disabled" : secret?.status === "present" ? "available" : secret?.status === "unreachable" ? "degraded" : "unavailable";
     capabilities.push(this.health("providers.web-search", webState, !webEnabled ? "Web search is intentionally disabled." : secret?.status === "present" ? "Web search credential reference is present." : "Web search credential reference is not resolvable.", checkedAt, snapshot.snapshotId, webState === "available" || webState === "disabled" ? "pass" : webState === "degraded" ? "warn" : "fail", webState === "degraded" || webState === "unavailable" ? [{ code: "configure-web-secret", summary: "Configure the referenced secret without storing its value in Settings.", operation: "settings.assignment.set" }] : []));
+    const enabledAdapters = value("adapters.enabled");
+    const memuEnabled = Array.isArray(enabledAdapters) && enabledAdapters.includes("memu");
+    const memuDsn = value("adapters.memu.dsn");
+    const memuUserId = value("adapters.memu.user_id");
+    const memuSecret = value("adapters.memu.secret_ref");
+    const memuSecretSetting = snapshot.effective.find((item) => item.key === "adapters.memu.secret_ref");
+    const memuSecretExplicit = memuSecretSetting?.winningScope !== "product";
+    const memuConfigured = typeof memuDsn === "string" && Boolean(memuDsn) && typeof memuUserId === "string" && Boolean(memuUserId);
+    const memuState = !memuEnabled ? "disabled" : !memuConfigured ? "unavailable" : memuSecretExplicit && memuSecret?.status !== "present" ? memuSecret?.status === "unreachable" ? "degraded" : "unavailable" : "available";
+    capabilities.push(this.health("adapters.memu", memuState, !memuEnabled ? "MemU retrieval is intentionally disabled." : !memuConfigured ? "MemU retrieval requires a credential-free PostgreSQL endpoint and user scope." : memuSecretExplicit && memuSecret?.status !== "present" ? "The explicit MemU Secret Reference is not resolvable on this device." : "MemU retrieval configuration is available; Doctor did not connect to PostgreSQL or launch a subprocess.", checkedAt, snapshot.snapshotId, memuState === "available" || memuState === "disabled" ? "pass" : memuState === "degraded" ? "warn" : "fail", memuState === "available" || memuState === "disabled" ? [] : [{
+      code: memuSecretExplicit ? "configure-memu-secret" : "configure-memu",
+      summary: memuSecretExplicit ? "Make the referenced MemU DSN available on this device or unset the explicit reference." : "Configure the MemU PostgreSQL endpoint and user scope through Settings.",
+      operation: "settings.assignment.set"
+    }]));
+    const hindsightEnabled = Array.isArray(enabledAdapters) && enabledAdapters.includes("hindsight");
+    const hindsightBaseUrl = value("adapters.hindsight.base_url");
+    const hindsightBankId = value("adapters.hindsight.bank_id");
+    const hindsightTimeout = value("adapters.hindsight.timeout_ms");
+    const hindsightSecret = value("adapters.hindsight.secret_ref");
+    const hindsightSecretSetting = snapshot.effective.find((item) => item.key === "adapters.hindsight.secret_ref");
+    const hindsightSecretExplicit = hindsightSecretSetting?.winningScope !== "product";
+    const hindsightConfigured = typeof hindsightBaseUrl === "string" && Boolean(hindsightBaseUrl) && typeof hindsightBankId === "string" && Boolean(hindsightBankId) && typeof hindsightTimeout === "number" && hindsightTimeout >= 100 && hindsightTimeout <= 3e5;
+    const hindsightState = !hindsightEnabled ? "disabled" : !hindsightConfigured ? "unavailable" : hindsightSecretExplicit && hindsightSecret?.status !== "present" ? hindsightSecret?.status === "unreachable" ? "degraded" : "unavailable" : "available";
+    capabilities.push(this.health("adapters.hindsight", hindsightState, !hindsightEnabled ? "Hindsight read-only recall is intentionally disabled." : !hindsightConfigured ? "Hindsight recall requires a base URL, bank ID, and valid timeout." : hindsightSecretExplicit && hindsightSecret?.status !== "present" ? "The explicit Hindsight Secret Reference is not resolvable on this device." : "Hindsight read-only recall configuration is available; Doctor did not call the external service.", checkedAt, snapshot.snapshotId, hindsightState === "available" || hindsightState === "disabled" ? "pass" : hindsightState === "degraded" ? "warn" : "fail", hindsightState === "available" || hindsightState === "disabled" ? [] : [{
+      code: hindsightSecretExplicit ? "configure-hindsight-secret" : "configure-hindsight",
+      summary: hindsightSecretExplicit ? "Make the referenced Hindsight credential available on this device or unset the explicit reference." : "Configure the Hindsight endpoint and bank through Settings.",
+      operation: "settings.assignment.set"
+    }]));
+    const hostCapabilityEnabled = value("providers.host_capability.enabled") === true;
+    const hostCapabilityProvider = value("providers.host_capability.provider");
+    const hostCapabilityTransport = value("providers.host_capability.transport");
+    const hostCapabilityEndpoint = value("providers.host_capability.endpoint");
+    const hostCapabilitySecret = value("providers.host_capability.secret_ref");
+    const hostCapabilityConnectorId = normalizeHostCapabilityConnectorId(hostCapabilityProvider);
+    const hostSecretEffective = snapshot.effective.find((item) => item.key === "providers.host_capability.secret_ref");
+    const hostCapabilityNeedsSecret = hostCapabilitySecretRequired(typeof hostCapabilityTransport === "string" ? hostCapabilityTransport : "stdio", hostCapabilityConnectorId ?? "", hostSecretEffective?.winningScope === "product" ? { source: "product-default", priority: 0, scope: "product" } : { source: "settings-assignment", priority: 300, scope: hostSecretEffective?.winningScope });
+    const hostCapabilityConfigured = Boolean(hostCapabilityConnectorId) && typeof hostCapabilityTransport === "string" && Boolean(hostCapabilityTransport) && typeof hostCapabilityEndpoint === "string" && Boolean(hostCapabilityEndpoint);
+    const hostCapabilityState = !hostCapabilityEnabled ? "disabled" : !hostCapabilityConfigured ? "unavailable" : hostCapabilityNeedsSecret && hostCapabilitySecret?.status !== "present" ? hostCapabilitySecret?.status === "unreachable" ? "degraded" : "unavailable" : "available";
+    capabilities.push(this.health("providers.host-capability", hostCapabilityState, !hostCapabilityEnabled ? "Host capability connectors are intentionally disabled." : !hostCapabilityConfigured ? "Host capability transport or endpoint is not configured." : hostCapabilityNeedsSecret && hostCapabilitySecret?.status !== "present" ? "The selected host capability transport requires a resolvable Secret Reference." : "Host capability configuration is available for governed descriptor matching; Doctor did not call the external host.", checkedAt, snapshot.snapshotId, hostCapabilityState === "available" || hostCapabilityState === "disabled" ? "pass" : hostCapabilityState === "degraded" ? "warn" : "fail", hostCapabilityState === "available" || hostCapabilityState === "disabled" ? [] : [{
+      code: hostCapabilityNeedsSecret ? "configure-host-capability-secret" : "configure-host-capability",
+      summary: hostCapabilityNeedsSecret ? "Bind a device-local Secret Reference for the selected host transport." : "Configure a supported host capability transport and device-local endpoint.",
+      operation: "settings.assignment.set"
+    }]));
+    const autoApprovalHook = value("agents.dream_time.warning_free_auto_approval") === true;
+    capabilities.push(this.health("agents.dream-time-approval", autoApprovalHook ? "degraded" : "disabled", autoApprovalHook ? "The future warning-free auto-approval hook is set, but current runtimes still require explicit human approval." : "Dream Time uses explicit human approval; the future warning-free auto-approval hook is disabled.", checkedAt, snapshot.snapshotId, autoApprovalHook ? "warn" : "pass", autoApprovalHook ? [{
+      code: "disable-unimplemented-auto-approval",
+      summary: "Unset this reserved hook; no current runtime may bypass explicit Dream Time approval.",
+      operation: "settings.assignment.unset"
+    }] : []));
     const agentMode = value("models.agent.mode");
     const agentProvider = value("models.agent.provider");
     const agentBaseUrl = value("models.agent.base_url");
@@ -47335,6 +53194,41 @@ var SettingsService = class _SettingsService {
         remediation: "Make the referenced secret available without storing it in Settings."
       });
     }
+    const hostEnabled = effective.get("providers.host_capability.enabled") === true;
+    const hostProvider = effective.get("providers.host_capability.provider");
+    const hostTransport = effective.get("providers.host_capability.transport");
+    const hostEndpoint = effective.get("providers.host_capability.endpoint");
+    const hostSecret = effective.get("providers.host_capability.secret_ref");
+    if (hostEnabled && (typeof hostEndpoint !== "string" || !hostEndpoint)) {
+      issues.push({
+        code: "host-capability-endpoint-missing",
+        severity: "warning",
+        message: "Host capability connectors are enabled without a device-local endpoint.",
+        key: "providers.host_capability.endpoint",
+        remediation: "Configure the selected host adapter endpoint or command descriptor."
+      });
+    }
+    const hostConnectorId = normalizeHostCapabilityConnectorId(hostProvider);
+    const hostSecretEffective = snapshot.effective.find((item) => item.key === "providers.host_capability.secret_ref");
+    const hostNeedsSecret = hostCapabilitySecretRequired(typeof hostTransport === "string" ? hostTransport : "stdio", hostConnectorId ?? "", hostSecretEffective?.winningScope === "product" ? { source: "product-default", priority: 0, scope: "product" } : { source: "settings-assignment", priority: 300, scope: hostSecretEffective?.winningScope });
+    if (hostEnabled && hostNeedsSecret && hostSecret?.status !== "present") {
+      issues.push({
+        code: "host-capability-secret-missing",
+        severity: "warning",
+        message: "The selected host capability transport requires a Secret Reference that is not present.",
+        key: "providers.host_capability.secret_ref",
+        remediation: "Make the referenced credential available without storing its value in Settings."
+      });
+    }
+    if (effective.get("agents.dream_time.warning_free_auto_approval") === true) {
+      issues.push({
+        code: "dream-time-auto-approval-reserved",
+        severity: "warning",
+        message: "Warning-free Dream Time auto-approval is a reserved future hook; explicit human approval remains mandatory.",
+        key: "agents.dream_time.warning_free_auto_approval",
+        remediation: "Unset the reserved hook until an approved runtime policy is implemented."
+      });
+    }
     const agentMode = effective.get("models.agent.mode");
     const agentSecret = effective.get("models.agent.secret_ref");
     if (agentMode === "cloud" && agentSecret?.status !== "present") {
@@ -47389,6 +53283,89 @@ function effectiveSecretReference(snapshot, key) {
     return void 0;
   const candidate = secretRef;
   return typeof candidate.provider === "string" && typeof candidate.locator === "string" ? candidate : void 0;
+}
+function selectHostField(snapshot, key, compatibility, compatibilityKey, fallback) {
+  const effective = snapshot.effective.find((item) => item.key === key);
+  if (effective && effective.winningScope !== "product") {
+    return {
+      value: effective.value,
+      provenance: {
+        source: "settings-assignment",
+        priority: 300,
+        scope: effective.winningScope,
+        actor: effective.assignmentProvenance.actor,
+        detail: effective.assignmentProvenance.source
+      }
+    };
+  }
+  for (const candidate of compatibility) {
+    const value = candidate.values[compatibilityKey];
+    if (value !== void 0) {
+      return {
+        value,
+        provenance: { source: candidate.source, priority: candidate.priority, detail: candidate.detail }
+      };
+    }
+  }
+  return {
+    value: effective?.value ?? fallback,
+    provenance: {
+      source: "product-default",
+      priority: 0,
+      scope: "product",
+      actor: effective?.assignmentProvenance.actor ?? "registry",
+      detail: effective?.assignmentProvenance.source ?? "registry/v1.json"
+    }
+  };
+}
+function selectHostCredential(snapshot, compatibility, selectedProvider) {
+  const effective = snapshot.effective.find((item) => item.key === "providers.host_capability.secret_ref");
+  const settingsCredential = effectiveSecretReference(snapshot, "providers.host_capability.secret_ref");
+  const status = effective?.value && typeof effective.value === "object" && !Array.isArray(effective.value) && "status" in effective.value && typeof effective.value.status === "string" ? effective.value.status : void 0;
+  if (effective && effective.winningScope !== "product" && settingsCredential && status) {
+    return {
+      value: { secretRef: settingsCredential, status },
+      provenance: {
+        source: "settings-assignment",
+        priority: 300,
+        scope: effective.winningScope,
+        actor: effective.assignmentProvenance.actor,
+        detail: effective.assignmentProvenance.source
+      }
+    };
+  }
+  for (const candidate of compatibility) {
+    if (normalizeHostCapabilityConnectorId(candidate.values.provider) === normalizeHostCapabilityConnectorId(selectedProvider) && candidate.values.credential) {
+      return {
+        value: deepClone2(candidate.values.credential),
+        provenance: { source: candidate.source, priority: candidate.priority, detail: candidate.detail }
+      };
+    }
+  }
+  return {
+    value: settingsCredential && status ? { secretRef: settingsCredential, status } : void 0,
+    provenance: {
+      source: "product-default",
+      priority: 0,
+      scope: "product",
+      actor: effective?.assignmentProvenance.actor ?? "registry",
+      detail: effective?.assignmentProvenance.source ?? "registry/v1.json"
+    }
+  };
+}
+var HOST_CONNECTOR_SELECTOR_PATTERN = /^(?:connector\/)?[a-z0-9][a-z0-9._-]*(?:\/[a-z0-9][a-z0-9._-]*)*$/;
+function normalizeHostCapabilityConnectorId(value) {
+  if (typeof value !== "string")
+    return void 0;
+  const selector = value.trim();
+  if (selector !== value || !HOST_CONNECTOR_SELECTOR_PATTERN.test(selector))
+    return void 0;
+  return selector.startsWith("connector/") ? selector : `connector/${selector}`;
+}
+function hostCapabilitySecretRequired(transport, _connectorId, _credentialProvenance) {
+  if (transport === "stdio" || transport === "local-model")
+    return false;
+  return true;
 }
 
 // dist/settings/settings.js
@@ -47653,24 +53630,1445 @@ function safeTarget(value) {
   return safe || "current";
 }
 
+// dist/usage/ledger.js
+import { existsSync as existsSync12, mkdirSync as mkdirSync7, readFileSync as readFileSync14, readdirSync as readdirSync8, writeFileSync as writeFileSync5 } from "node:fs";
+import { dirname as dirname12, join as join20, relative as relative4, resolve as resolve6, sep as sep2 } from "node:path";
+
+// dist/usage/canonical.js
+import { createHash as createHash3 } from "node:crypto";
+function serialize(value) {
+  if (value === null)
+    return "null";
+  if (typeof value === "string" || typeof value === "boolean")
+    return JSON.stringify(value);
+  if (typeof value === "number") {
+    if (!Number.isFinite(value))
+      throw new TypeError("Canonical JSON does not support non-finite numbers");
+    return Object.is(value, -0) ? "0" : JSON.stringify(value);
+  }
+  if (Array.isArray(value))
+    return `[${value.map(serialize).join(",")}]`;
+  if (typeof value === "object") {
+    const record6 = value;
+    const keys = Object.keys(record6).sort();
+    return `{${keys.map((key) => `${JSON.stringify(key)}:${serialize(record6[key])}`).join(",")}}`;
+  }
+  throw new TypeError(`Canonical JSON does not support ${typeof value}`);
+}
+function canonicalJson3(value) {
+  return serialize(value);
+}
+function sha256(value) {
+  return createHash3("sha256").update(value).digest("hex");
+}
+
+// dist/usage/contracts.js
+import { createHash as createHash4 } from "node:crypto";
+
+// dist/usage/redaction.js
+var SECRET_VALUE = /(?:\bbearer\s+[a-z0-9._~+/-]+=*|\b(?:sk|pk|ghp|github_pat|xox[baprs])-[-a-z0-9_]{8,}|\b(?:api[_-]?key|secret|password|authorization|access[_-]?token|refresh[_-]?token|lease[_-]?token|handoff[_-]?token)\s*[:=])/i;
+var ABSOLUTE_PATH = /(?:^|[\s"'=:])(?:[a-z]:[\\/]|\\\\[^\\/]+[\\/]|\/(?:users|home|var|tmp|private|opt|etc|mnt|srv|data)(?:\/|$)|~[\\/]|file:\/\/)/i;
+function containsSecretMaterial(value) {
+  return SECRET_VALUE.test(value);
+}
+function containsMachinePath(value) {
+  return ABSOLUTE_PATH.test(value);
+}
+function assertSafeUsageString(value, fieldPath) {
+  if (containsSecretMaterial(value)) {
+    throw new UsagePrivacyError("SECRET_MATERIAL", fieldPath);
+  }
+  if (containsMachinePath(value)) {
+    throw new UsagePrivacyError("MACHINE_PATH", fieldPath);
+  }
+}
+var UsagePrivacyError = class extends Error {
+  code;
+  fieldPath;
+  constructor(code, fieldPath) {
+    super(`Usage data rejected by privacy policy (${code}) at ${fieldPath}`);
+    this.name = "UsagePrivacyError";
+    this.code = code;
+    this.fieldPath = fieldPath;
+  }
+};
+
+// dist/usage/contracts.js
+var USAGE_EVENT_SCHEMA = "llmwiki.usage-event";
+var USAGE_EVENT_SCHEMA_VERSION = 1;
+var EVENT_KINDS = /* @__PURE__ */ new Set(["model", "dreamtime", "consult", "delegation", "connector"]);
+var UNKNOWN_REASONS = /* @__PURE__ */ new Set(["not-reported", "not-applicable", "unavailable", "unattributed"]);
+var USAGE_DIMENSION_NAMES = [
+  "project",
+  "agent",
+  "thread",
+  "workRun",
+  "provider",
+  "model",
+  "device",
+  "operation"
+];
+var IDENTIFIER = /^[A-Za-z][A-Za-z0-9._:/-]{0,159}$/;
+var IDEMPOTENCY_KEY = /^[a-z][a-z0-9.-]*:[A-Za-z0-9][A-Za-z0-9._:@/-]{0,190}$/;
+var PROVENANCE_REF = /^(?:provider-call|work-run|invocation|connector-call|dreamtime-run|agent-turn|source-event):[A-Za-z0-9][A-Za-z0-9._:@/-]{0,190}$/;
+var CURRENCY = /^[A-Z]{3}$/;
+var UsageValidationError = class extends Error {
+  code;
+  fieldPath;
+  constructor(code, fieldPath, message) {
+    super(`${message} at ${fieldPath}`);
+    this.name = "UsageValidationError";
+    this.code = code;
+    this.fieldPath = fieldPath;
+  }
+};
+function known(value) {
+  return { state: "known", value };
+}
+function unknown2(reason) {
+  return { state: "unknown", reason };
+}
+function usageEventId(idempotencyKey) {
+  return `usage/${createHash4("sha256").update(idempotencyKey).digest("hex")}`;
+}
+function assertRecord(value, fieldPath) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new UsageValidationError("INVALID_OBJECT", fieldPath, "Expected an object");
+  }
+}
+function assertClosed(record6, allowed, fieldPath) {
+  const expected = new Set(allowed);
+  for (const key of Object.keys(record6)) {
+    if (!expected.has(key)) {
+      throw new UsageValidationError("UNKNOWN_FIELD", `${fieldPath}.${key}`, "Usage contracts are closed");
+    }
+  }
+  for (const key of allowed) {
+    if (!(key in record6)) {
+      throw new UsageValidationError("MISSING_FIELD", `${fieldPath}.${key}`, "Required field is missing");
+    }
+  }
+}
+function assertIdentifier(value, fieldPath) {
+  if (typeof value !== "string" || !IDENTIFIER.test(value)) {
+    throw new UsageValidationError("INVALID_IDENTIFIER", fieldPath, "Expected a canonical identifier");
+  }
+  assertSafeUsageString(value, fieldPath);
+}
+function parseFact(value, fieldPath, parseKnown) {
+  assertRecord(value, fieldPath);
+  if (value.state === "known") {
+    assertClosed(value, ["state", "value"], fieldPath);
+    return { state: "known", value: parseKnown(value.value, `${fieldPath}.value`) };
+  }
+  if (value.state === "unknown") {
+    assertClosed(value, ["state", "reason"], fieldPath);
+    if (typeof value.reason !== "string" || !UNKNOWN_REASONS.has(value.reason)) {
+      throw new UsageValidationError("INVALID_UNKNOWN_REASON", `${fieldPath}.reason`, "Unknown facts require a supported reason");
+    }
+    return { state: "unknown", reason: value.reason };
+  }
+  throw new UsageValidationError("INVALID_FACT_STATE", `${fieldPath}.state`, "Fact state must be known or unknown");
+}
+function parseTokenCount(value, fieldPath) {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+    throw new UsageValidationError("INVALID_TOKEN_COUNT", fieldPath, "Token count must be a non-negative safe integer");
+  }
+  return value;
+}
+function parseCost(value, fieldPath) {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    throw new UsageValidationError("INVALID_PROVIDER_COST", fieldPath, "Provider-reported cost must be finite and non-negative");
+  }
+  return value;
+}
+function parseCurrency(value, fieldPath) {
+  if (typeof value !== "string" || !CURRENCY.test(value)) {
+    throw new UsageValidationError("INVALID_CURRENCY", fieldPath, "Currency must be a three-letter uppercase code");
+  }
+  return value;
+}
+function parseTimestamp(value, fieldPath) {
+  if (typeof value !== "string" || Number.isNaN(Date.parse(value)) || new Date(value).toISOString() !== value) {
+    throw new UsageValidationError("INVALID_TIMESTAMP", fieldPath, "Timestamp must be canonical UTC RFC3339");
+  }
+  return value;
+}
+function validateUsageEvent(value) {
+  assertRecord(value, "$");
+  assertClosed(value, [
+    "schema",
+    "schemaVersion",
+    "eventId",
+    "idempotencyKey",
+    "kind",
+    "occurredAt",
+    "dimensions",
+    "providerFacts",
+    "provenance"
+  ], "$");
+  if (value.schema !== USAGE_EVENT_SCHEMA) {
+    throw new UsageValidationError("UNSUPPORTED_SCHEMA", "$.schema", "Unsupported Usage Event schema");
+  }
+  if (value.schemaVersion !== USAGE_EVENT_SCHEMA_VERSION) {
+    throw new UsageValidationError("UNSUPPORTED_SCHEMA_VERSION", "$.schemaVersion", "Unsupported Usage Event schema version");
+  }
+  if (typeof value.idempotencyKey !== "string" || !IDEMPOTENCY_KEY.test(value.idempotencyKey)) {
+    throw new UsageValidationError("INVALID_IDEMPOTENCY_KEY", "$.idempotencyKey", "Idempotency key must be a stable logical reference");
+  }
+  assertSafeUsageString(value.idempotencyKey, "$.idempotencyKey");
+  const expectedEventId = usageEventId(value.idempotencyKey);
+  if (value.eventId !== expectedEventId) {
+    throw new UsageValidationError("EVENT_ID_MISMATCH", "$.eventId", "Event ID must be derived from the idempotency key");
+  }
+  if (typeof value.kind !== "string" || !EVENT_KINDS.has(value.kind)) {
+    throw new UsageValidationError("INVALID_EVENT_KIND", "$.kind", "Unsupported Usage Event kind");
+  }
+  assertRecord(value.dimensions, "$.dimensions");
+  const rawDimensions = value.dimensions;
+  assertClosed(rawDimensions, USAGE_DIMENSION_NAMES, "$.dimensions");
+  const dimensions = Object.fromEntries(USAGE_DIMENSION_NAMES.map((name) => [
+    name,
+    parseFact(rawDimensions[name], `$.dimensions.${name}`, (item, itemPath) => {
+      assertIdentifier(item, itemPath);
+      return item;
+    })
+  ]));
+  assertRecord(value.providerFacts, "$.providerFacts");
+  assertClosed(value.providerFacts, ["inputTokens", "outputTokens", "providerReportedCost", "currency"], "$.providerFacts");
+  const providerFacts = {
+    inputTokens: parseFact(value.providerFacts.inputTokens, "$.providerFacts.inputTokens", parseTokenCount),
+    outputTokens: parseFact(value.providerFacts.outputTokens, "$.providerFacts.outputTokens", parseTokenCount),
+    providerReportedCost: parseFact(value.providerFacts.providerReportedCost, "$.providerFacts.providerReportedCost", parseCost),
+    currency: parseFact(value.providerFacts.currency, "$.providerFacts.currency", parseCurrency)
+  };
+  if (providerFacts.providerReportedCost.state === "known" && providerFacts.currency.state !== "known") {
+    throw new UsageValidationError("COST_CURRENCY_REQUIRED", "$.providerFacts.currency", "Known provider cost requires known currency");
+  }
+  if (!Array.isArray(value.provenance) || value.provenance.length === 0) {
+    throw new UsageValidationError("INVALID_PROVENANCE", "$.provenance", "At least one provenance reference is required");
+  }
+  const provenance = value.provenance.map((item, index) => {
+    const fieldPath = `$.provenance[${index}]`;
+    if (typeof item !== "string" || !PROVENANCE_REF.test(item)) {
+      throw new UsageValidationError("INVALID_PROVENANCE", fieldPath, "Provenance must be a supported logical reference");
+    }
+    assertSafeUsageString(item, fieldPath);
+    return item;
+  });
+  return {
+    schema: USAGE_EVENT_SCHEMA,
+    schemaVersion: USAGE_EVENT_SCHEMA_VERSION,
+    eventId: expectedEventId,
+    idempotencyKey: value.idempotencyKey,
+    kind: value.kind,
+    occurredAt: parseTimestamp(value.occurredAt, "$.occurredAt"),
+    dimensions,
+    providerFacts,
+    provenance
+  };
+}
+function createUsageEvent(input) {
+  return validateUsageEvent({
+    schema: USAGE_EVENT_SCHEMA,
+    schemaVersion: USAGE_EVENT_SCHEMA_VERSION,
+    eventId: usageEventId(input.idempotencyKey),
+    ...input
+  });
+}
+
+// dist/usage/ledger.js
+var USAGE_LEDGER_STORAGE_VERSION = 1;
+var UsageEventConflictError = class extends Error {
+  code = "USAGE_EVENT_CONFLICT";
+  eventId;
+  storageKey;
+  constructor(eventId, storageKey) {
+    super(`Usage Event conflicts with immutable event ${eventId}`);
+    this.name = "UsageEventConflictError";
+    this.eventId = eventId;
+    this.storageKey = storageKey;
+  }
+};
+var UsageLedgerCorruptionError = class extends Error {
+  code = "USAGE_LEDGER_CORRUPTION";
+  storageKey;
+  constructor(storageKey, message) {
+    super(`Usage ledger corruption at ${storageKey}: ${message}`);
+    this.name = "UsageLedgerCorruptionError";
+    this.storageKey = storageKey;
+  }
+};
+function eventBytes(event) {
+  return `${canonicalJson3(event)}
+`;
+}
+function normalizeStorageKey(value) {
+  return value.split(sep2).join("/");
+}
+function usageEventStorageKey(idempotencyKey) {
+  const digest3 = usageEventId(idempotencyKey).slice("usage/".length);
+  return `events/${digest3.slice(0, 2)}/${digest3}.json`;
+}
+var UsageLedger = class {
+  storageVersion = USAGE_LEDGER_STORAGE_VERSION;
+  #root;
+  constructor(root) {
+    if (!root)
+      throw new TypeError("Usage ledger root is required");
+    this.#root = resolve6(root);
+  }
+  append(value) {
+    const event = validateUsageEvent(value);
+    const target = this.#targetForKey(event.idempotencyKey);
+    const storageKey = this.#storageKey(target);
+    const bytes = eventBytes(event);
+    mkdirSync7(dirname12(target), { recursive: true });
+    try {
+      writeFileSync5(target, bytes, { encoding: "utf8", flag: "wx", mode: 384 });
+      return {
+        status: "created",
+        event,
+        storageKey,
+        contentDigest: sha256(bytes)
+      };
+    } catch (error48) {
+      if (error48.code !== "EEXIST")
+        throw error48;
+    }
+    const persisted = readFileSync14(target, "utf8");
+    if (persisted !== bytes) {
+      throw new UsageEventConflictError(event.eventId, storageKey);
+    }
+    return {
+      status: "replayed",
+      event,
+      storageKey,
+      contentDigest: sha256(bytes)
+    };
+  }
+  get(idempotencyKey) {
+    const expectedId = usageEventId(idempotencyKey);
+    const target = this.#targetForKey(idempotencyKey);
+    if (!existsSync12(target))
+      return null;
+    return this.#readStoredEvent(target, expectedId);
+  }
+  list() {
+    const eventsRoot = join20(this.#root, "events");
+    if (!existsSync12(eventsRoot))
+      return [];
+    const targets = readdirSync8(eventsRoot, { recursive: true, withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".json")).map((entry) => join20(entry.parentPath, entry.name)).sort((left, right) => left.localeCompare(right));
+    return targets.map((target) => {
+      const digest3 = target.slice(target.lastIndexOf(sep2) + 1, -".json".length);
+      return this.#readStoredEvent(target, `usage/${digest3}`);
+    });
+  }
+  #targetForKey(idempotencyKey) {
+    return join20(this.#root, ...usageEventStorageKey(idempotencyKey).split("/"));
+  }
+  #storageKey(target) {
+    const key = normalizeStorageKey(relative4(this.#root, target));
+    if (!key || key.startsWith("../") || key === "..") {
+      throw new TypeError("Usage storage key escaped the ledger root");
+    }
+    return key;
+  }
+  #readStoredEvent(target, expectedEventId) {
+    const storageKey = this.#storageKey(target);
+    let raw;
+    let parsed;
+    try {
+      raw = readFileSync14(target, "utf8");
+      parsed = JSON.parse(raw);
+    } catch {
+      throw new UsageLedgerCorruptionError(storageKey, "event is not readable canonical JSON");
+    }
+    let event;
+    try {
+      event = validateUsageEvent(parsed);
+    } catch {
+      throw new UsageLedgerCorruptionError(storageKey, "event violates the versioned contract");
+    }
+    if (event.eventId !== expectedEventId) {
+      throw new UsageLedgerCorruptionError(storageKey, "content address does not match the event identity");
+    }
+    if (eventBytes(event) !== raw) {
+      throw new UsageLedgerCorruptionError(storageKey, "event bytes are not canonical");
+    }
+    return event;
+  }
+};
+
+// dist/usage/projections.js
+var USAGE_PROJECTION_SCHEMA = "llmwiki.usage-projection";
+var USAGE_PROJECTION_SCHEMA_VERSION = 1;
+function timestamp(value, fieldPath) {
+  if (value === void 0)
+    return null;
+  if (Number.isNaN(Date.parse(value)) || new Date(value).toISOString() !== value) {
+    throw new TypeError(`${fieldPath} must be canonical UTC RFC3339`);
+  }
+  return value;
+}
+function normalizeQuery(query) {
+  const requested = new Set(query.groupBy ?? []);
+  for (const dimension of requested) {
+    if (!USAGE_DIMENSION_NAMES.includes(dimension))
+      throw new TypeError(`Unknown usage dimension: ${dimension}`);
+  }
+  const groupBy = USAGE_DIMENSION_NAMES.filter((name) => requested.has(name));
+  const filters = {};
+  for (const name of USAGE_DIMENSION_NAMES) {
+    const value = query.filters?.[name];
+    if (value === void 0)
+      continue;
+    if (value !== null) {
+      if (typeof value !== "string" || value.length === 0)
+        throw new TypeError(`Usage filter ${name} must be an identifier or null`);
+      assertSafeUsageString(value, `$.filters.${name}`);
+    }
+    filters[name] = value;
+  }
+  const from = timestamp(query.from, "$.from");
+  const to = timestamp(query.to, "$.to");
+  if (from !== null && to !== null && from >= to)
+    throw new TypeError("Usage projection window must have from < to");
+  return { groupBy, filters, window: { from, to } };
+}
+function dimensionValue(fact) {
+  return fact.state === "known" ? fact.value : null;
+}
+function matches(event, query) {
+  if (query.window.from !== null && event.occurredAt < query.window.from)
+    return false;
+  if (query.window.to !== null && event.occurredAt >= query.window.to)
+    return false;
+  return USAGE_DIMENSION_NAMES.every((name) => {
+    const expected = query.filters[name];
+    return expected === void 0 || dimensionValue(event.dimensions[name]) === expected;
+  });
+}
+function emptyMetric() {
+  return { knownTotal: 0, knownEventCount: 0, unknownCount: 0 };
+}
+function aggregateMetric(events, select) {
+  const metric = emptyMetric();
+  for (const event of events) {
+    const fact = select(event);
+    if (fact.state === "known") {
+      metric.knownTotal += fact.value;
+      metric.knownEventCount += 1;
+    } else {
+      metric.unknownCount += 1;
+    }
+  }
+  return metric;
+}
+function aggregateTotalTokens(events) {
+  const metric = emptyMetric();
+  for (const event of events) {
+    const { inputTokens, outputTokens } = event.providerFacts;
+    if (inputTokens.state === "known" && outputTokens.state === "known") {
+      metric.knownTotal += inputTokens.value + outputTokens.value;
+      metric.knownEventCount += 1;
+    } else {
+      metric.unknownCount += 1;
+    }
+  }
+  return metric;
+}
+function aggregateCost(events) {
+  const totals = /* @__PURE__ */ new Map();
+  let unknownAmountCount = 0;
+  let unknownCurrencyCount = 0;
+  for (const event of events) {
+    const { providerReportedCost, currency } = event.providerFacts;
+    if (providerReportedCost.state === "unknown") {
+      unknownAmountCount += 1;
+      if (currency.state === "unknown")
+        unknownCurrencyCount += 1;
+      continue;
+    }
+    if (currency.state === "unknown") {
+      unknownCurrencyCount += 1;
+      continue;
+    }
+    const total = totals.get(currency.value) ?? { knownTotal: 0, knownEventCount: 0 };
+    total.knownTotal += providerReportedCost.value;
+    total.knownEventCount += 1;
+    totals.set(currency.value, total);
+  }
+  return {
+    totals: [...totals.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([currency, total]) => ({ currency, ...total })),
+    unknownAmountCount,
+    unknownCurrencyCount
+  };
+}
+function latest(events) {
+  return events.reduce((current, event) => current === null || event.occurredAt > current ? event.occurredAt : current, null);
+}
+function buildGroup(events, dimensions, query) {
+  const unknownDimensions = Object.fromEntries(USAGE_DIMENSION_NAMES.map((name) => [name, events.filter((event) => event.dimensions[name].state === "unknown").length]));
+  const groupKey = canonicalJson3(dimensions);
+  return {
+    groupKey,
+    dimensions,
+    sourceEventCount: events.length,
+    sourceEventIds: events.map((event) => event.eventId),
+    unknownDimensions,
+    metrics: {
+      inputTokens: aggregateMetric(events, (event) => event.providerFacts.inputTokens),
+      outputTokens: aggregateMetric(events, (event) => event.providerFacts.outputTokens),
+      totalTokens: aggregateTotalTokens(events),
+      providerReportedCost: aggregateCost(events)
+    },
+    revision: sha256(canonicalJson3({
+      schemaVersion: USAGE_PROJECTION_SCHEMA_VERSION,
+      query,
+      dimensions,
+      events
+    })),
+    lastUpdatedAt: latest(events)
+  };
+}
+function projectUsage(values, requestedQuery = {}) {
+  const query = normalizeQuery(requestedQuery);
+  const events = values.map(validateUsageEvent).sort((left, right) => left.occurredAt.localeCompare(right.occurredAt) || left.eventId.localeCompare(right.eventId));
+  const identities = /* @__PURE__ */ new Set();
+  for (const event of events) {
+    if (identities.has(event.eventId))
+      throw new TypeError(`Duplicate Usage Event identity: ${event.eventId}`);
+    identities.add(event.eventId);
+  }
+  const filtered = events.filter((event) => matches(event, query));
+  const buckets = /* @__PURE__ */ new Map();
+  for (const event of filtered) {
+    const dimensions = Object.fromEntries(query.groupBy.map((name) => [name, dimensionValue(event.dimensions[name])]));
+    const key = canonicalJson3(dimensions);
+    const bucket = buckets.get(key) ?? { dimensions, events: [] };
+    bucket.events.push(event);
+    buckets.set(key, bucket);
+  }
+  if (filtered.length === 0 && query.groupBy.length === 0) {
+    buckets.set("{}", { dimensions: {}, events: [] });
+  }
+  const groups = [...buckets.values()].map((bucket) => buildGroup(bucket.events, bucket.dimensions, query)).sort((left, right) => left.groupKey.localeCompare(right.groupKey));
+  return {
+    schema: USAGE_PROJECTION_SCHEMA,
+    schemaVersion: USAGE_PROJECTION_SCHEMA_VERSION,
+    query,
+    sourceEventCount: filtered.length,
+    revision: sha256(canonicalJson3({
+      schemaVersion: USAGE_PROJECTION_SCHEMA_VERSION,
+      query,
+      events: filtered
+    })),
+    lastUpdatedAt: latest(filtered),
+    groups
+  };
+}
+
+// dist/host-capabilities/store.js
+import { closeSync, existsSync as existsSync13, mkdirSync as mkdirSync8, openSync, readFileSync as readFileSync15, readdirSync as readdirSync9, renameSync, rmSync as rmSync2, writeFileSync as writeFileSync6 } from "node:fs";
+import { randomUUID as randomUUID7 } from "node:crypto";
+import { dirname as dirname13, join as join21 } from "node:path";
+
+// dist/host-capabilities/contracts.js
+import { createHash as createHash5 } from "node:crypto";
+var HOST_CAPABILITY_SCHEMA_VERSION = "1.0.0";
+var HostCapabilityContractError = class extends Error {
+  code = "invalid_host_capability_contract";
+  constructor(message) {
+    super(message);
+    this.name = "HostCapabilityContractError";
+  }
+};
+var ID_PATTERN = /^[a-z0-9][a-z0-9._/-]*$/;
+var VERSION_PATTERN = /^[0-9A-Za-z][0-9A-Za-z.+_-]*$/;
+var SHA256_PATTERN = /^sha256:[a-f0-9]{64}$/;
+var SENSITIVE_KEY_PATTERN = /(?:authorization|cookie|token|secret|password|passphrase|api[-_]?key|private[-_]?key|client[-_]?secret|headers?)/i;
+var WINDOWS_ABSOLUTE_PATH_PATTERN = /^[A-Za-z]:[\\/]/;
+var POSIX_HOME_PATH_PATTERN = /^\/(?:Users|home|root)\//;
+function fail3(path, message) {
+  throw new HostCapabilityContractError(`${path}: ${message}`);
+}
+function assertString(value, path) {
+  if (typeof value !== "string" || value.trim() === "") {
+    fail3(path, "must be a non-empty string");
+  }
+}
+function assertIdentifier2(value, path) {
+  assertString(value, path);
+  if (!ID_PATTERN.test(value)) {
+    fail3(path, "must be a stable lowercase identifier");
+  }
+}
+function assertVersion(value, path) {
+  assertString(value, path);
+  if (!VERSION_PATTERN.test(value)) {
+    fail3(path, "must be a stable version string");
+  }
+}
+function parseTimestamp2(value, path) {
+  assertString(value, path);
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) {
+    fail3(path, "must be an ISO-8601 timestamp");
+  }
+  return parsed;
+}
+function assertSchemaVersion(value, path) {
+  if (value !== HOST_CAPABILITY_SCHEMA_VERSION) {
+    fail3(path, `must equal ${HOST_CAPABILITY_SCHEMA_VERSION}`);
+  }
+}
+function assertStringList(value, path) {
+  if (!Array.isArray(value)) {
+    fail3(path, "must be an array");
+  }
+  const seen = /* @__PURE__ */ new Set();
+  value.forEach((item, index) => {
+    assertIdentifier2(item, `${path}[${index}]`);
+    if (seen.has(item)) {
+      fail3(`${path}[${index}]`, "must not contain duplicates");
+    }
+    seen.add(item);
+  });
+}
+function assertNoSensitiveMaterial(value, path) {
+  if (typeof value === "string") {
+    if (/\bBearer\s+[A-Za-z0-9._~+/=-]+/i.test(value)) {
+      fail3(path, "must not contain bearer credentials");
+    }
+    if (WINDOWS_ABSOLUTE_PATH_PATTERN.test(value) || POSIX_HOME_PATH_PATTERN.test(value)) {
+      fail3(path, "must not contain machine-local absolute paths");
+    }
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((entry, index) => assertNoSensitiveMaterial(entry, `${path}[${index}]`));
+    return;
+  }
+  if (value && typeof value === "object") {
+    for (const [key, entry] of Object.entries(value)) {
+      if (SENSITIVE_KEY_PATTERN.test(key)) {
+        fail3(`${path}.${key}`, "sensitive keys are forbidden");
+      }
+      assertNoSensitiveMaterial(entry, `${path}.${key}`);
+    }
+  }
+}
+function validateCapabilityImportProvenance(provenance) {
+  if (!provenance || typeof provenance !== "object") {
+    fail3("importProvenance", "must be an object");
+  }
+  assertSchemaVersion(provenance.schemaVersion, "importProvenance.schemaVersion");
+  try {
+    const sourceUrl = new URL(provenance.source.url);
+    if (sourceUrl.protocol !== "https:" && sourceUrl.protocol !== "http:") {
+      fail3("importProvenance.source.url", "must use http or https");
+    }
+  } catch (error48) {
+    if (error48 instanceof HostCapabilityContractError)
+      throw error48;
+    fail3("importProvenance.source.url", "must be a valid canonical URL");
+  }
+  if (!["commit", "version"].includes(provenance.source.revision.kind)) {
+    fail3("importProvenance.source.revision.kind", "must be commit or version");
+  }
+  assertString(provenance.source.revision.value, "importProvenance.source.revision.value");
+  if (!SHA256_PATTERN.test(provenance.source.contentHash)) {
+    fail3("importProvenance.source.contentHash", "must be a sha256 digest");
+  }
+  if (!["approved", "rejected", "needs-review"].includes(provenance.licenseReview.status)) {
+    fail3("importProvenance.licenseReview.status", "must be approved, rejected, or needs-review");
+  }
+  assertString(provenance.licenseReview.expression, "importProvenance.licenseReview.expression");
+  assertString(provenance.licenseReview.reviewedBy, "importProvenance.licenseReview.reviewedBy");
+  parseTimestamp2(provenance.licenseReview.reviewedAt, "importProvenance.licenseReview.reviewedAt");
+  assertIdentifier2(provenance.importer.name, "importProvenance.importer.name");
+  assertVersion(provenance.importer.version, "importProvenance.importer.version");
+  if (!["approved", "rejected", "pending", "stale"].includes(provenance.approval.status)) {
+    fail3("importProvenance.approval.status", "has an unsupported value");
+  }
+  if (provenance.approval.status === "approved") {
+    assertString(provenance.approval.reviewedBy, "importProvenance.approval.reviewedBy");
+    parseTimestamp2(provenance.approval.reviewedAt, "importProvenance.approval.reviewedAt");
+  }
+  assertNoSensitiveMaterial(provenance, "importProvenance");
+}
+function validateCapabilityHealth(health) {
+  if (!health || typeof health !== "object") {
+    fail3("health", "must be an object");
+  }
+  assertSchemaVersion(health.schemaVersion, "health.schemaVersion");
+  if (!["available", "degraded", "unavailable", "disabled"].includes(health.state)) {
+    fail3("health.state", "has an unsupported value");
+  }
+  const observedAt = parseTimestamp2(health.observedAt, "health.observedAt");
+  if (health.expiresAt) {
+    const expiresAt = parseTimestamp2(health.expiresAt, "health.expiresAt");
+    if (expiresAt <= observedAt) {
+      fail3("health.expiresAt", "must be later than observedAt");
+    }
+  }
+  assertStringList(health.reasonCodes, "health.reasonCodes");
+  assertStringList(health.remediationKeys, "health.remediationKeys");
+  assertNoSensitiveMaterial(health.diagnostics, "health.diagnostics");
+}
+function validateExpertDescriptor(descriptor) {
+  if (!descriptor || typeof descriptor !== "object") {
+    fail3("descriptor", "must be an object");
+  }
+  assertSchemaVersion(descriptor.schemaVersion, "descriptor.schemaVersion");
+  assertIdentifier2(descriptor.descriptorId, "descriptor.descriptorId");
+  assertVersion(descriptor.descriptorVersion, "descriptor.descriptorVersion");
+  assertString(descriptor.displayName, "descriptor.displayName");
+  assertStringList(descriptor.capabilities, "descriptor.capabilities");
+  if (!Array.isArray(descriptor.operations) || descriptor.operations.length === 0) {
+    fail3("descriptor.operations", "must contain at least one operation");
+  }
+  const operationIds = /* @__PURE__ */ new Set();
+  descriptor.operations.forEach((operation, index) => {
+    const path = `descriptor.operations[${index}]`;
+    assertIdentifier2(operation.operation, `${path}.operation`);
+    assertString(operation.description, `${path}.description`);
+    assertIdentifier2(operation.grantKey, `${path}.grantKey`);
+    if (![
+      "none",
+      "local-read",
+      "local-write",
+      "external-read",
+      "external-write"
+    ].includes(operation.sideEffectClass)) {
+      fail3(`${path}.sideEffectClass`, "has an unsupported value");
+    }
+    if (operationIds.has(operation.operation)) {
+      fail3(`${path}.operation`, "must be unique");
+    }
+    operationIds.add(operation.operation);
+    assertNoSensitiveMaterial(operation.inputSchema, `${path}.inputSchema`);
+  });
+  if (descriptor.models)
+    assertStringList(descriptor.models, "descriptor.models");
+  if (descriptor.deviceAffinities) {
+    assertStringList(descriptor.deviceAffinities, "descriptor.deviceAffinities");
+  }
+  if (descriptor.resourceClasses) {
+    assertStringList(descriptor.resourceClasses, "descriptor.resourceClasses");
+  }
+  if (descriptor.cost) {
+    if (!["free", "fixed", "estimated", "unknown"].includes(descriptor.cost.kind)) {
+      fail3("descriptor.cost.kind", "has an unsupported value");
+    }
+    if (descriptor.cost.kind === "fixed" || descriptor.cost.kind === "estimated") {
+      if (typeof descriptor.cost.amount !== "number" || !Number.isFinite(descriptor.cost.amount) || descriptor.cost.amount < 0) {
+        fail3("descriptor.cost.amount", "must be a non-negative finite number");
+      }
+      assertString(descriptor.cost.currency, "descriptor.cost.currency");
+    }
+  }
+  assertIdentifier2(descriptor.connectorRef.connectorId, "descriptor.connectorRef.connectorId");
+  assertVersion(descriptor.connectorRef.connectorVersion, "descriptor.connectorRef.connectorVersion");
+  validateCapabilityImportProvenance(descriptor.importProvenance);
+}
+function validateHostCapabilityConnector(connector) {
+  if (!connector || typeof connector !== "object") {
+    fail3("connector", "must be an object");
+  }
+  assertSchemaVersion(connector.schemaVersion, "connector.schemaVersion");
+  assertIdentifier2(connector.connectorId, "connector.connectorId");
+  assertVersion(connector.connectorVersion, "connector.connectorVersion");
+  assertString(connector.displayName, "connector.displayName");
+  if (![
+    "mcp",
+    "local-cli",
+    "cloud-agent",
+    "remote-workflow",
+    "local-model",
+    "cloud-model"
+  ].includes(connector.kind)) {
+    fail3("connector.kind", "has an unsupported value");
+  }
+  if (!["mock", "stdio", "http", "in-process"].includes(connector.transport)) {
+    fail3("connector.transport", "has an unsupported value");
+  }
+  assertStringList(connector.supportedOperations, "connector.supportedOperations");
+  validateCapabilityImportProvenance(connector.importProvenance);
+}
+function validateCapabilityOperationGrant(grant) {
+  if (!grant || typeof grant !== "object") {
+    fail3("capabilityGrant", "must be an object");
+  }
+  assertSchemaVersion(grant.schemaVersion, "capabilityGrant.schemaVersion");
+  assertIdentifier2(grant.grantId, "capabilityGrant.grantId");
+  if (!/^project\/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/.test(grant.projectId)) {
+    fail3("capabilityGrant.projectId", "must be a canonical project/<slug> ID");
+  }
+  assertIdentifier2(grant.workRunId, "capabilityGrant.workRunId");
+  if (!/^work-run\/[a-z0-9][a-z0-9._-]*$/.test(grant.workRunId)) {
+    fail3("capabilityGrant.workRunId", "must be a canonical Work Run ID");
+  }
+  assertStringList(grant.descriptorIds, "capabilityGrant.descriptorIds");
+  assertStringList(grant.connectorIds, "capabilityGrant.connectorIds");
+  assertStringList(grant.operations, "capabilityGrant.operations");
+  if (!Array.isArray(grant.sideEffectClasses)) {
+    fail3("capabilityGrant.sideEffectClasses", "must be an array");
+  }
+  const sideEffects = /* @__PURE__ */ new Set();
+  grant.sideEffectClasses.forEach((sideEffect, index) => {
+    if (![
+      "none",
+      "local-read",
+      "local-write",
+      "external-read",
+      "external-write"
+    ].includes(sideEffect)) {
+      fail3(`capabilityGrant.sideEffectClasses[${index}]`, "has an unsupported value");
+    }
+    if (sideEffects.has(sideEffect)) {
+      fail3(`capabilityGrant.sideEffectClasses[${index}]`, "must not contain duplicates");
+    }
+    sideEffects.add(sideEffect);
+  });
+  parseTimestamp2(grant.expiresAt, "capabilityGrant.expiresAt");
+  assertNoSensitiveMaterial(grant, "capabilityGrant");
+}
+function validateAssignmentPlan(plan) {
+  if (!plan || typeof plan !== "object") {
+    fail3("assignmentPlan", "must be an object");
+  }
+  assertSchemaVersion(plan.schemaVersion, "assignmentPlan.schemaVersion");
+  assertIdentifier2(plan.planId, "assignmentPlan.planId");
+  parseTimestamp2(plan.plannedAt, "assignmentPlan.plannedAt");
+  if (!/^project\/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/.test(plan.projectId)) {
+    fail3("assignmentPlan.projectId", "must be a canonical project/<slug> ID");
+  }
+  assertIdentifier2(plan.workRunId, "assignmentPlan.workRunId");
+  if (!/^work-run\/[a-z0-9][a-z0-9._-]*$/.test(plan.workRunId)) {
+    fail3("assignmentPlan.workRunId", "must be a canonical Work Run ID");
+  }
+  assertIdentifier2(plan.requirementId, "assignmentPlan.requirementId");
+  assertIdentifier2(plan.policyId, "assignmentPlan.policyId");
+  assertVersion(plan.policyVersion, "assignmentPlan.policyVersion");
+  assertIdentifier2(plan.grantId, "assignmentPlan.grantId");
+  if (plan.projectBinding) {
+    assertIdentifier2(plan.projectBinding.bindingId, "assignmentPlan.projectBinding.bindingId");
+    if (!Number.isInteger(plan.projectBinding.bindingRevision) || plan.projectBinding.bindingRevision < 1) {
+      fail3("assignmentPlan.projectBinding.bindingRevision", "must be a positive integer");
+    }
+    if (!SHA256_PATTERN.test(plan.projectBinding.projectContextFingerprint)) {
+      fail3("assignmentPlan.projectBinding.projectContextFingerprint", "must be a sha256 digest");
+    }
+  }
+  if (plan.status === "matched" && !plan.selected) {
+    fail3("assignmentPlan.selected", "is required for a matched plan");
+  }
+  if (plan.status === "no-match" && plan.selected) {
+    fail3("assignmentPlan.selected", "must be absent for a no-match plan");
+  }
+  if (!["pending", "approved", "rejected"].includes(plan.approval.status)) {
+    fail3("assignmentPlan.approval.status", "has an unsupported value");
+  }
+  if (plan.approval.status === "approved") {
+    assertString(plan.approval.reviewedBy, "assignmentPlan.approval.reviewedBy");
+    parseTimestamp2(plan.approval.reviewedAt, "assignmentPlan.approval.reviewedAt");
+  }
+  if (plan.selected) {
+    assertIdentifier2(plan.selected.descriptorId, "assignmentPlan.selected.descriptorId");
+    assertVersion(plan.selected.descriptorVersion, "assignmentPlan.selected.descriptorVersion");
+    if (!SHA256_PATTERN.test(plan.selected.descriptorFingerprint)) {
+      fail3("assignmentPlan.selected.descriptorFingerprint", "must be a sha256 digest");
+    }
+    assertIdentifier2(plan.selected.connectorId, "assignmentPlan.selected.connectorId");
+    assertVersion(plan.selected.connectorVersion, "assignmentPlan.selected.connectorVersion");
+    if (!SHA256_PATTERN.test(plan.selected.connectorFingerprint)) {
+      fail3("assignmentPlan.selected.connectorFingerprint", "must be a sha256 digest");
+    }
+  }
+  assertNoSensitiveMaterial(plan, "assignmentPlan");
+}
+function canonicalize3(value) {
+  if (Array.isArray(value)) {
+    return value.map(canonicalize3);
+  }
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== void 0).sort(([left], [right]) => left.localeCompare(right)).map(([key, entry]) => [key, canonicalize3(entry)]));
+  }
+  return value;
+}
+function canonicalJson4(value) {
+  return JSON.stringify(canonicalize3(value));
+}
+function fingerprintContract(value) {
+  return `sha256:${createHash5("sha256").update(canonicalJson4(value)).digest("hex")}`;
+}
+function normalizeExpertDescriptor(descriptor) {
+  validateExpertDescriptor(descriptor);
+  return {
+    ...descriptor,
+    capabilities: [...descriptor.capabilities].sort(),
+    operations: [...descriptor.operations].map((operation) => ({ ...operation })).sort((left, right) => left.operation.localeCompare(right.operation)),
+    models: descriptor.models ? [...descriptor.models].sort() : void 0,
+    deviceAffinities: descriptor.deviceAffinities ? [...descriptor.deviceAffinities].sort() : void 0,
+    resourceClasses: descriptor.resourceClasses ? [...descriptor.resourceClasses].sort() : void 0
+  };
+}
+function normalizeHostCapabilityConnector(connector) {
+  validateHostCapabilityConnector(connector);
+  return {
+    ...connector,
+    supportedOperations: [...connector.supportedOperations].sort()
+  };
+}
+function descriptorKey(descriptorId, descriptorVersion) {
+  return `${descriptorId}@${descriptorVersion}`;
+}
+function connectorKey(connectorId, connectorVersion) {
+  return `${connectorId}@${connectorVersion}`;
+}
+function isApprovedProvenance(provenance) {
+  return provenance.licenseReview.status === "approved" && provenance.approval.status === "approved";
+}
+function compareVersions(left, right) {
+  const leftParts = left.split(/[.+_-]/);
+  const rightParts = right.split(/[.+_-]/);
+  const length = Math.max(leftParts.length, rightParts.length);
+  for (let index = 0; index < length; index += 1) {
+    const leftPart = leftParts[index] ?? "";
+    const rightPart = rightParts[index] ?? "";
+    const leftNumber = /^\d+$/.test(leftPart) ? Number(leftPart) : void 0;
+    const rightNumber = /^\d+$/.test(rightPart) ? Number(rightPart) : void 0;
+    if (leftNumber !== void 0 && rightNumber !== void 0) {
+      if (leftNumber !== rightNumber)
+        return leftNumber - rightNumber;
+      continue;
+    }
+    const compared = leftPart.localeCompare(rightPart);
+    if (compared !== 0)
+      return compared;
+  }
+  return 0;
+}
+
+// dist/host-capabilities/operation-contracts.js
+var HOST_CAPABILITY_OPERATION_SCHEMA_VERSION = 1;
+var HostCapabilityOperationContractError = class extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "HostCapabilityOperationContractError";
+  }
+};
+var ID_PATTERN2 = /^[a-z0-9][a-z0-9._/-]*$/;
+var SHA256_PATTERN2 = /^sha256:[a-f0-9]{64}$/;
+var SENSITIVE_KEY_PATTERN2 = /(?:authorization|cookie|token|secret(?!Reference)|password|passphrase|api[-_]?key|private[-_]?key|client[-_]?secret|headers?|env)/i;
+var WINDOWS_PATH_PATTERN = /^[A-Za-z]:[\\/]/;
+var POSIX_HOME_PATTERN = /^\/(?:Users|home|root)\//;
+function fail4(path, message) {
+  throw new HostCapabilityOperationContractError(`${path}: ${message}`);
+}
+function record3(value, path) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    fail4(path, "must be an object");
+  }
+  return value;
+}
+function string5(value, path) {
+  if (typeof value !== "string" || !value.trim()) {
+    fail4(path, "must be a non-empty string");
+  }
+  return value.trim();
+}
+function identifier(value, path) {
+  const parsed = string5(value, path);
+  if (!ID_PATTERN2.test(parsed))
+    fail4(path, "must be a stable lowercase identifier");
+  return parsed;
+}
+function strings2(value, path) {
+  if (!Array.isArray(value))
+    fail4(path, "must be an array");
+  const result = value.map((item, index) => identifier(item, `${path}[${index}]`));
+  if (new Set(result).size !== result.length)
+    fail4(path, "must not contain duplicates");
+  return result;
+}
+function optionalStrings(value, path) {
+  return value === void 0 ? void 0 : strings2(value, path);
+}
+function safePublicValue(value, path) {
+  if (typeof value === "string") {
+    if (/\bBearer\s+\S+/i.test(value))
+      fail4(path, "must not contain bearer credentials");
+    if (/^https?:\/\/[^\s/@:]+:[^\s/@]+@/i.test(value)) {
+      fail4(path, "must not contain URL credentials");
+    }
+    if (WINDOWS_PATH_PATTERN.test(value) || POSIX_HOME_PATTERN.test(value)) {
+      fail4(path, "must not contain machine-local absolute paths");
+    }
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => safePublicValue(item, `${path}[${index}]`));
+    return;
+  }
+  if (value && typeof value === "object") {
+    for (const [key, item] of Object.entries(value)) {
+      if (SENSITIVE_KEY_PATTERN2.test(key)) {
+        fail4(`${path}.${key}`, "secret values are forbidden; use secretReference");
+      }
+      safePublicValue(item, `${path}.${key}`);
+    }
+  }
+}
+function sourceObservation(value, path) {
+  if (value === void 0)
+    return void 0;
+  const item = record3(value, path);
+  const revision = record3(item.revision, `${path}.revision`);
+  const kind = string5(revision.kind, `${path}.revision.kind`);
+  if (kind !== "commit" && kind !== "version") {
+    fail4(`${path}.revision.kind`, "must be commit or version");
+  }
+  const contentHash = string5(item.contentHash, `${path}.contentHash`);
+  if (!SHA256_PATTERN2.test(contentHash))
+    fail4(`${path}.contentHash`, "must be a sha256 digest");
+  const observedAt = string5(item.observedAt, `${path}.observedAt`);
+  if (!Number.isFinite(Date.parse(observedAt)))
+    fail4(`${path}.observedAt`, "must be a timestamp");
+  return {
+    revision: {
+      kind,
+      value: string5(revision.value, `${path}.revision.value`)
+    },
+    contentHash,
+    observedAt
+  };
+}
+function validateConnectorConfiguration(value) {
+  const item = record3(value ?? {}, "configuration");
+  const allowed = /* @__PURE__ */ new Set(["parameters", "secretRequired", "secretReference"]);
+  for (const key of Object.keys(item)) {
+    if (!allowed.has(key))
+      fail4(`configuration.${key}`, "is not supported");
+  }
+  const parameters = item.parameters === void 0 ? void 0 : record3(item.parameters, "configuration.parameters");
+  safePublicValue(parameters, "configuration.parameters");
+  if (item.secretRequired !== void 0 && typeof item.secretRequired !== "boolean") {
+    fail4("configuration.secretRequired", "must be boolean");
+  }
+  let secretReference;
+  if (item.secretReference !== void 0) {
+    const reference = record3(item.secretReference, "configuration.secretReference");
+    const provider = string5(reference.provider, "configuration.secretReference.provider");
+    if (!(/* @__PURE__ */ new Set(["os-keychain", "environment", "external-vault"])).has(provider)) {
+      fail4("configuration.secretReference.provider", "has an unsupported value");
+    }
+    const locator = string5(reference.locator, "configuration.secretReference.locator");
+    if (!/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$/.test(locator)) {
+      fail4("configuration.secretReference.locator", "must be a logical locator");
+    }
+    secretReference = {
+      provider,
+      locator,
+      ...reference.version === void 0 ? {} : { version: string5(reference.version, "configuration.secretReference.version") }
+    };
+  }
+  return {
+    ...parameters ? { parameters: structuredClone(parameters) } : {},
+    ...item.secretRequired === void 0 ? {} : { secretRequired: item.secretRequired },
+    ...secretReference ? { secretReference } : {}
+  };
+}
+function validateDescriptorRegistration(value) {
+  const item = record3(value, "registration");
+  if (item.schemaVersion !== HOST_CAPABILITY_OPERATION_SCHEMA_VERSION) {
+    fail4("registration.schemaVersion", "must equal 1");
+  }
+  validateExpertDescriptor(item.descriptor);
+  validateCapabilityHealth(item.health);
+  return {
+    schemaVersion: HOST_CAPABILITY_OPERATION_SCHEMA_VERSION,
+    descriptor: structuredClone(item.descriptor),
+    health: structuredClone(item.health),
+    sourceObservation: sourceObservation(item.sourceObservation, "registration.sourceObservation")
+  };
+}
+function validateConnectorRegistration(value) {
+  const item = record3(value, "registration");
+  if (item.schemaVersion !== HOST_CAPABILITY_OPERATION_SCHEMA_VERSION) {
+    fail4("registration.schemaVersion", "must equal 1");
+  }
+  validateHostCapabilityConnector(item.connector);
+  validateCapabilityHealth(item.health);
+  return {
+    schemaVersion: HOST_CAPABILITY_OPERATION_SCHEMA_VERSION,
+    connector: structuredClone(item.connector),
+    health: structuredClone(item.health),
+    configuration: validateConnectorConfiguration(item.configuration),
+    sourceObservation: sourceObservation(item.sourceObservation, "registration.sourceObservation")
+  };
+}
+function validateProjectCapabilityBinding(value) {
+  const item = record3(value, "binding");
+  if (item.schemaVersion !== 1)
+    fail4("binding.schemaVersion", "must equal 1");
+  const bindingId = identifier(item.bindingId, "binding.bindingId");
+  if (!/^binding\/[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9-]*$/.test(bindingId)) {
+    fail4("binding.bindingId", "must use binding/<project>/<agent>");
+  }
+  const projectId2 = identifier(item.projectId, "binding.projectId");
+  if (!/^project\/[a-z0-9][a-z0-9-]*$/.test(projectId2)) {
+    fail4("binding.projectId", "must be a canonical Project ID");
+  }
+  const bindingParts = bindingId.split("/");
+  if (projectId2 !== `project/${bindingParts[1]}`) {
+    fail4("binding.bindingId", "project segment must match binding.projectId");
+  }
+  const projectContextFingerprint = string5(item.projectContextFingerprint, "binding.projectContextFingerprint");
+  if (!SHA256_PATTERN2.test(projectContextFingerprint)) {
+    fail4("binding.projectContextFingerprint", "must be a sha256 digest");
+  }
+  if (!Number.isInteger(item.revision) || item.revision < 1) {
+    fail4("binding.revision", "must be a positive integer");
+  }
+  if (typeof item.enabled !== "boolean")
+    fail4("binding.enabled", "must be boolean");
+  const profileId = identifier(item.profileId, "binding.profileId");
+  if (profileId && profileId !== `agent/${bindingParts[2]}`) {
+    fail4("binding.bindingId", "agent segment must match binding.profileId");
+  }
+  return {
+    schemaVersion: 1,
+    bindingId,
+    projectId: projectId2,
+    projectContextFingerprint,
+    profileId,
+    revision: item.revision,
+    enabled: item.enabled,
+    connectorGrantRefs: strings2(item.connectorGrantRefs, "binding.connectorGrantRefs")
+  };
+}
+function validateAssignmentRequirement(value) {
+  const item = record3(value, "requirement");
+  if (item.schemaVersion !== HOST_CAPABILITY_SCHEMA_VERSION) {
+    fail4("requirement.schemaVersion", `must equal ${HOST_CAPABILITY_SCHEMA_VERSION}`);
+  }
+  const maxCost = item.maxCost === void 0 ? void 0 : record3(item.maxCost, "requirement.maxCost");
+  if (maxCost) {
+    if (typeof maxCost.amount !== "number" || !Number.isFinite(maxCost.amount) || maxCost.amount < 0) {
+      fail4("requirement.maxCost.amount", "must be a non-negative finite number");
+    }
+  }
+  return {
+    schemaVersion: HOST_CAPABILITY_SCHEMA_VERSION,
+    requirementId: identifier(item.requirementId, "requirement.requirementId"),
+    projectId: identifier(item.projectId, "requirement.projectId"),
+    workRunId: identifier(item.workRunId, "requirement.workRunId"),
+    capabilities: strings2(item.capabilities, "requirement.capabilities"),
+    operations: strings2(item.operations, "requirement.operations"),
+    model: item.model === void 0 ? void 0 : identifier(item.model, "requirement.model"),
+    deviceId: item.deviceId === void 0 ? void 0 : identifier(item.deviceId, "requirement.deviceId"),
+    resourceClass: item.resourceClass === void 0 ? void 0 : identifier(item.resourceClass, "requirement.resourceClass"),
+    maxCost: maxCost ? {
+      amount: maxCost.amount,
+      currency: string5(maxCost.currency, "requirement.maxCost.currency")
+    } : void 0
+  };
+}
+function validateProjectCapabilityPolicy(value) {
+  const item = record3(value, "policy");
+  if (item.schemaVersion !== HOST_CAPABILITY_SCHEMA_VERSION) {
+    fail4("policy.schemaVersion", `must equal ${HOST_CAPABILITY_SCHEMA_VERSION}`);
+  }
+  if (typeof item.allowDegradedHealth !== "boolean") {
+    fail4("policy.allowDegradedHealth", "must be boolean");
+  }
+  if (typeof item.allowUnknownCost !== "boolean") {
+    fail4("policy.allowUnknownCost", "must be boolean");
+  }
+  const allowedSideEffectClasses = strings2(item.allowedSideEffectClasses, "policy.allowedSideEffectClasses");
+  const supportedSideEffects = /* @__PURE__ */ new Set([
+    "none",
+    "local-read",
+    "local-write",
+    "external-read",
+    "external-write"
+  ]);
+  if (allowedSideEffectClasses.some((value2) => !supportedSideEffects.has(value2))) {
+    fail4("policy.allowedSideEffectClasses", "contains an unsupported value");
+  }
+  return {
+    schemaVersion: HOST_CAPABILITY_SCHEMA_VERSION,
+    policyId: identifier(item.policyId, "policy.policyId"),
+    policyVersion: string5(item.policyVersion, "policy.policyVersion"),
+    allowedDescriptorIds: optionalStrings(item.allowedDescriptorIds, "policy.allowedDescriptorIds"),
+    deniedDescriptorIds: optionalStrings(item.deniedDescriptorIds, "policy.deniedDescriptorIds"),
+    allowedConnectorIds: optionalStrings(item.allowedConnectorIds, "policy.allowedConnectorIds"),
+    allowedModels: optionalStrings(item.allowedModels, "policy.allowedModels"),
+    allowedDeviceIds: optionalStrings(item.allowedDeviceIds, "policy.allowedDeviceIds"),
+    allowedSideEffectClasses,
+    allowDegradedHealth: item.allowDegradedHealth,
+    allowUnknownCost: item.allowUnknownCost
+  };
+}
+function validateCapabilityGrant2(value) {
+  validateCapabilityOperationGrant(value);
+  return structuredClone(value);
+}
+function validateDeviceAdvertisements(value) {
+  if (value === void 0)
+    return [];
+  if (!Array.isArray(value))
+    fail4("devices", "must be an array");
+  return value.map((candidate, index) => {
+    const item = record3(candidate, `devices[${index}]`);
+    if (item.schemaVersion !== HOST_CAPABILITY_SCHEMA_VERSION) {
+      fail4(`devices[${index}].schemaVersion`, `must equal ${HOST_CAPABILITY_SCHEMA_VERSION}`);
+    }
+    const health = string5(item.health, `devices[${index}].health`);
+    if (!(/* @__PURE__ */ new Set(["available", "degraded", "unavailable", "disabled"])).has(health)) {
+      fail4(`devices[${index}].health`, "has an unsupported value");
+    }
+    const observedAt = string5(item.observedAt, `devices[${index}].observedAt`);
+    const expiresAt = string5(item.expiresAt, `devices[${index}].expiresAt`);
+    if (!Number.isFinite(Date.parse(observedAt)) || !Number.isFinite(Date.parse(expiresAt))) {
+      fail4(`devices[${index}]`, "timestamps must be valid");
+    }
+    return {
+      schemaVersion: HOST_CAPABILITY_SCHEMA_VERSION,
+      deviceId: identifier(item.deviceId, `devices[${index}].deviceId`),
+      health,
+      capabilities: strings2(item.capabilities, `devices[${index}].capabilities`),
+      models: strings2(item.models, `devices[${index}].models`),
+      resourceClasses: strings2(item.resourceClasses, `devices[${index}].resourceClasses`),
+      observedAt,
+      expiresAt
+    };
+  });
+}
+
+// dist/host-capabilities/store.js
+var HOST_CAPABILITY_RELATIVE_ROOT = "_llmwiki/host-capabilities/v1";
+var HostCapabilityStoreError = class extends Error {
+  code;
+  logicalId;
+  constructor(code, message, logicalId) {
+    super(message);
+    this.code = code;
+    this.logicalId = logicalId;
+    this.name = "HostCapabilityStoreError";
+  }
+};
+function storageName(logicalId) {
+  return fingerprintContract(logicalId).slice("sha256:".length);
+}
+function relativeFile(kind, logicalId) {
+  return `${HOST_CAPABILITY_RELATIVE_ROOT}/${kind}/${storageName(logicalId)}.json`;
+}
+function hostCapabilityStorageKey(kind, logicalId) {
+  return relativeFile(kind, logicalId);
+}
+function normalizedDescriptorRegistration(value) {
+  return {
+    ...value,
+    descriptor: normalizeExpertDescriptor(value.descriptor),
+    health: structuredClone(value.health),
+    sourceObservation: value.sourceObservation ? structuredClone(value.sourceObservation) : void 0
+  };
+}
+function normalizedConnectorRegistration(value) {
+  return {
+    ...value,
+    connector: normalizeHostCapabilityConnector(value.connector),
+    health: structuredClone(value.health),
+    configuration: structuredClone(value.configuration),
+    sourceObservation: value.sourceObservation ? structuredClone(value.sourceObservation) : void 0
+  };
+}
+var HostCapabilityStore = class {
+  vaultPath;
+  constructor(vaultPath) {
+    this.vaultPath = vaultPath;
+  }
+  registerDescriptor(value) {
+    const registration = normalizedDescriptorRegistration(validateDescriptorRegistration(value));
+    const logicalId = descriptorKey(registration.descriptor.descriptorId, registration.descriptor.descriptorVersion);
+    return this.#create("descriptors", logicalId, registration);
+  }
+  registerConnector(value) {
+    const registration = normalizedConnectorRegistration(validateConnectorRegistration(value));
+    const logicalId = connectorKey(registration.connector.connectorId, registration.connector.connectorVersion);
+    return this.#create("connectors", logicalId, registration);
+  }
+  readDescriptor(descriptorId, descriptorVersion) {
+    const logicalId = descriptorKey(descriptorId, descriptorVersion);
+    return validateDescriptorRegistration(this.#read("descriptors", logicalId));
+  }
+  readConnector(connectorId, connectorVersion) {
+    const logicalId = connectorKey(connectorId, connectorVersion);
+    return validateConnectorRegistration(this.#read("connectors", logicalId));
+  }
+  listDescriptors() {
+    return this.#list("descriptors").map(validateDescriptorRegistration).sort((left, right) => left.descriptor.descriptorId.localeCompare(right.descriptor.descriptorId) || left.descriptor.descriptorVersion.localeCompare(right.descriptor.descriptorVersion));
+  }
+  listConnectors() {
+    return this.#list("connectors").map(validateConnectorRegistration).sort((left, right) => left.connector.connectorId.localeCompare(right.connector.connectorId) || left.connector.connectorVersion.localeCompare(right.connector.connectorVersion));
+  }
+  saveAssignmentPlan(plan) {
+    validateAssignmentPlan(plan);
+    return this.#create("assignments", plan.planId, structuredClone(plan));
+  }
+  readAssignmentPlan(planId) {
+    const value = this.#read("assignments", planId);
+    validateAssignmentPlan(value);
+    return structuredClone(value);
+  }
+  listAssignmentPlans() {
+    return this.#list("assignments").map((value) => {
+      validateAssignmentPlan(value);
+      return structuredClone(value);
+    }).sort((left, right) => left.planId.localeCompare(right.planId));
+  }
+  approveAssignmentPlan(input) {
+    const relative10 = relativeFile("assignments", input.planId);
+    const absolute = join21(this.vaultPath, ...relative10.split("/"));
+    const lock = `${absolute}.lock`;
+    mkdirSync8(dirname13(absolute), { recursive: true });
+    let lockHandle;
+    try {
+      lockHandle = openSync(lock, "wx");
+    } catch {
+      throw new HostCapabilityStoreError("conflict", `AssignmentPlan ${input.planId} is being updated`, input.planId);
+    }
+    try {
+      const current = this.readAssignmentPlan(input.planId);
+      const currentFingerprint = fingerprintContract(current);
+      if (current.approval.status === "approved") {
+        if (current.approval.reviewedBy !== input.approvedBy) {
+          throw new HostCapabilityStoreError("conflict", `AssignmentPlan ${input.planId} is already approved by another actor`, input.planId);
+        }
+        return {
+          value: current,
+          fingerprint: currentFingerprint,
+          storageKey: relative10,
+          replayed: true
+        };
+      }
+      if (current.status !== "matched" || !current.selected) {
+        throw new HostCapabilityStoreError("conflict", `AssignmentPlan ${input.planId} has no eligible selection to approve`, input.planId);
+      }
+      if (current.approval.status !== "pending") {
+        throw new HostCapabilityStoreError("conflict", `AssignmentPlan ${input.planId} is not pending approval`, input.planId);
+      }
+      if (currentFingerprint !== input.expectedFingerprint) {
+        throw new HostCapabilityStoreError("conflict", `AssignmentPlan ${input.planId} changed before approval`, input.planId);
+      }
+      if (!input.approvedBy.trim()) {
+        throw new HostCapabilityStoreError("conflict", "AssignmentPlan approval requires an approver identity", input.planId);
+      }
+      if (!Number.isFinite(Date.parse(input.approvedAt))) {
+        throw new HostCapabilityStoreError("conflict", "AssignmentPlan approval requires a valid timestamp", input.planId);
+      }
+      const approved = {
+        ...current,
+        approval: {
+          status: "approved",
+          reviewedBy: input.approvedBy.trim(),
+          reviewedAt: input.approvedAt
+        }
+      };
+      validateAssignmentPlan(approved);
+      const temporary = `${absolute}.${randomUUID7()}.tmp`;
+      writeFileSync6(temporary, `${canonicalJson4(approved)}
+`, {
+        encoding: "utf8",
+        flag: "wx"
+      });
+      renameSync(temporary, absolute);
+      return {
+        value: structuredClone(approved),
+        fingerprint: fingerprintContract(approved),
+        storageKey: relative10,
+        replayed: false
+      };
+    } finally {
+      closeSync(lockHandle);
+      rmSync2(lock, { force: true });
+    }
+  }
+  #create(kind, logicalId, value) {
+    const relative10 = relativeFile(kind, logicalId);
+    const absolute = join21(this.vaultPath, ...relative10.split("/"));
+    const bytes = `${canonicalJson4(value)}
+`;
+    mkdirSync8(dirname13(absolute), { recursive: true });
+    try {
+      writeFileSync6(absolute, bytes, { encoding: "utf8", flag: "wx" });
+      return {
+        value: structuredClone(value),
+        fingerprint: fingerprintContract(value),
+        storageKey: relative10,
+        replayed: false
+      };
+    } catch (error48) {
+      if (error48.code !== "EEXIST")
+        throw error48;
+      const existing = this.#parseFile(absolute, logicalId);
+      if (canonicalJson4(existing) !== canonicalJson4(value)) {
+        throw new HostCapabilityStoreError("conflict", `${logicalId} already exists with different content`, logicalId);
+      }
+      return {
+        value: structuredClone(existing),
+        fingerprint: fingerprintContract(existing),
+        storageKey: relative10,
+        replayed: true
+      };
+    }
+  }
+  #read(kind, logicalId) {
+    const relative10 = relativeFile(kind, logicalId);
+    const absolute = join21(this.vaultPath, ...relative10.split("/"));
+    if (!existsSync13(absolute)) {
+      throw new HostCapabilityStoreError("not_found", `${logicalId} is not registered`, logicalId);
+    }
+    return this.#parseFile(absolute, logicalId);
+  }
+  #list(kind) {
+    const relative10 = `${HOST_CAPABILITY_RELATIVE_ROOT}/${kind}`;
+    const absolute = join21(this.vaultPath, ...relative10.split("/"));
+    if (!existsSync13(absolute))
+      return [];
+    return readdirSync9(absolute, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".json")).map((entry) => entry.name).sort().map((name) => this.#parseFile(join21(absolute, name), `${kind}/${name}`));
+  }
+  #parseFile(absolute, logicalId) {
+    try {
+      return JSON.parse(readFileSync15(absolute, "utf8"));
+    } catch {
+      throw new HostCapabilityStoreError("corrupt", `${logicalId} contains invalid persisted JSON`, logicalId);
+    }
+  }
+};
+
 // dist/project/project-hub.js
 function filesBelow(vaultPath, root) {
-  const fullRoot = join16(vaultPath, root);
-  if (!existsSync12(fullRoot))
+  const fullRoot = join22(vaultPath, root);
+  if (!existsSync14(fullRoot))
     return [];
   const out = [];
   if (statSync3(fullRoot).isFile()) {
     return [{ path: root.replaceAll("\\", "/"), modifiedAt: statSync3(fullRoot).mtime.toISOString() }];
   }
   const visit = (directory) => {
-    for (const entry of readdirSync8(directory, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
-      const fullPath = join16(directory, entry.name);
+    for (const entry of readdirSync10(directory, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      const fullPath2 = join22(directory, entry.name);
       if (entry.isDirectory())
-        visit(fullPath);
+        visit(fullPath2);
       else if (entry.isFile()) {
         out.push({
-          path: relative4(vaultPath, fullPath).replaceAll("\\", "/"),
-          modifiedAt: statSync3(fullPath).mtime.toISOString()
+          path: relative5(vaultPath, fullPath2).replaceAll("\\", "/"),
+          modifiedAt: statSync3(fullPath2).mtime.toISOString()
         });
       }
     }
@@ -47679,7 +55077,7 @@ function filesBelow(vaultPath, root) {
   return out;
 }
 function newest(files) {
-  return files.reduce((latest, file2) => !latest || file2.modifiedAt > latest ? file2.modifiedAt : latest, null);
+  return files.reduce((latest2, file2) => !latest2 || file2.modifiedAt > latest2 ? file2.modifiedAt : latest2, null);
 }
 function section(owner, files, data, drift = []) {
   return {
@@ -47699,7 +55097,7 @@ function workSection(vaultPath, context) {
   const issues = files.filter((file2) => file2.path.includes("/issues/") && file2.path.endsWith(".md"));
   const states = {};
   for (const issue3 of issues) {
-    const status = frontmatterValue(readFileSync14(join16(vaultPath, issue3.path), "utf-8"), "status") ?? "unknown";
+    const status = frontmatterValue(readFileSync16(join22(vaultPath, issue3.path), "utf-8"), "status") ?? "unknown";
     states[status] = (states[status] ?? 0) + 1;
   }
   const anchor = files.find((file2) => file2.path.endsWith("/_project.md"));
@@ -47717,7 +55115,7 @@ function runtimeSection(vaultPath, context) {
   const drift = [];
   for (const file2 of runFiles) {
     try {
-      const raw = JSON.parse(readFileSync14(join16(vaultPath, file2.path), "utf-8"));
+      const raw = JSON.parse(readFileSync16(join22(vaultPath, file2.path), "utf-8"));
       runs.push({
         workRunId: raw.workRunId ?? raw.work_run_id ?? null,
         state: raw.state ?? null,
@@ -47772,7 +55170,7 @@ async function settingsSection(service, project) {
       drift: [...new Set(drift)].sort(),
       data: {
         ...data,
-        snapshotHash: createHash2("sha256").update(JSON.stringify(data)).digest("hex")
+        snapshotHash: createHash6("sha256").update(JSON.stringify(data)).digest("hex")
       }
     };
   } catch (error48) {
@@ -47822,6 +55220,199 @@ function integrationSection(context) {
     data: { projections }
   };
 }
+function usageSection(vaultPath, context) {
+  const root = "_llmwiki/usage/v1";
+  const files = filesBelow(vaultPath, root).filter((file2) => file2.path.endsWith(".json"));
+  try {
+    const projection = projectUsage(new UsageLedger(join22(vaultPath, ...root.split("/"))).list(), {
+      filters: { project: context.projectId },
+      groupBy: ["agent", "provider", "model", "device", "operation"]
+    });
+    return section("usage-ledger", files, {
+      root,
+      projection,
+      chartReady: false,
+      presentationOwner: "obsidian-plugin"
+    });
+  } catch (error48) {
+    return {
+      owner: "usage-ledger",
+      freshness: newest(files),
+      health: "unavailable",
+      drift: ["usage_ledger_invalid"],
+      data: { root, error: error48.message }
+    };
+  }
+}
+function hostCapabilitySection(vaultPath, context) {
+  const files = filesBelow(vaultPath, HOST_CAPABILITY_RELATIVE_ROOT).filter((file2) => file2.path.endsWith(".json"));
+  try {
+    const store = new HostCapabilityStore(vaultPath);
+    const descriptors = store.listDescriptors();
+    const connectors = store.listConnectors();
+    const assignments = store.listAssignmentPlans().filter((plan) => plan.projectId === context.projectId);
+    const drift = [
+      ...descriptors.flatMap((item) => item.health.state === "available" ? [] : [`descriptor_${item.health.state}:${item.descriptor.descriptorId}`]),
+      ...connectors.flatMap((item) => item.health.state === "available" ? [] : [`connector_${item.health.state}:${item.connector.connectorId}`]),
+      ...connectors.flatMap((item) => item.configuration.secretRequired && !item.configuration.secretReference ? [`secret_reference_missing:${item.connector.connectorId}`] : [])
+    ].sort();
+    return section("host-capabilities", files, {
+      root: HOST_CAPABILITY_RELATIVE_ROOT,
+      descriptors: descriptors.map((item) => ({
+        descriptorId: item.descriptor.descriptorId,
+        descriptorVersion: item.descriptor.descriptorVersion,
+        displayName: item.descriptor.displayName,
+        capabilities: item.descriptor.capabilities,
+        health: item.health.state,
+        connectorRef: item.descriptor.connectorRef
+      })),
+      connectors: connectors.map((item) => ({
+        connectorId: item.connector.connectorId,
+        connectorVersion: item.connector.connectorVersion,
+        displayName: item.connector.displayName,
+        kind: item.connector.kind,
+        transport: item.connector.transport,
+        health: item.health.state,
+        secretReferenceConfigured: Boolean(item.configuration.secretReference)
+      })),
+      assignments: assignments.map((plan) => ({
+        planId: plan.planId,
+        workRunId: plan.workRunId,
+        approval: plan.approval.status,
+        selection: plan.selected,
+        planFingerprint: fingerprintContract(plan)
+      })),
+      externalConnectionsOpened: 0
+    }, drift);
+  } catch (error48) {
+    return {
+      owner: "host-capabilities",
+      freshness: newest(files),
+      health: "unavailable",
+      drift: ["host_capability_state_invalid"],
+      data: {
+        root: HOST_CAPABILITY_RELATIVE_ROOT,
+        externalConnectionsOpened: 0,
+        error: error48.message
+      }
+    };
+  }
+}
+async function agentDomainSection(vaultPath, context) {
+  const root = "_llmwiki/agent-domain/v1";
+  const files = filesBelow(vaultPath, root).filter((file2) => file2.path.endsWith(".json"));
+  try {
+    const stateRoot = join22(vaultPath, ...root.split("/"));
+    const projectId2 = context.projectId;
+    const service = new AgentDomainService({ stateRoot });
+    const bindings = await service.bindings.list({ projectId: projectId2 });
+    const threads = await service.threads.list({ projectId: projectId2 });
+    const expectedProjectFingerprint = canonicalDigest(normalizedProjectContext(context));
+    const drift = [];
+    const profiles = [];
+    const dreamTime = [];
+    for (const binding of bindings) {
+      const profile = await service.profiles.readRevision(binding.profileId, binding.profileRevision);
+      if (!profile)
+        drift.push(`profile_revision_missing:${binding.profileId}@${binding.profileRevision}`);
+      else
+        profiles.push({
+          profileId: profile.profileId,
+          revision: profile.revision,
+          displayName: profile.displayName,
+          role: profile.role,
+          capabilityClaims: profile.capabilityClaims,
+          modelMode: profile.defaultModelPolicy.mode
+        });
+      if (!binding.enabled)
+        drift.push(`binding_disabled:${binding.bindingId}`);
+      if (binding.projectContextFingerprint !== expectedProjectFingerprint) {
+        drift.push(`binding_project_context_stale:${binding.bindingId}`);
+      }
+      const memory = new DreamTimeStore({
+        memoryRoot: join22(stateRoot, "dreamtime"),
+        projectId: projectId2,
+        profileId: binding.profileId
+      });
+      const revisions = await memory.listRevisions();
+      const events = await memory.listEvents();
+      const proposalDirectory2 = join22(stateRoot, "dreamtime", context.slug, binding.profileId.slice("agent/".length), "proposals");
+      const proposals = [];
+      const proposalFiles = existsSync14(proposalDirectory2) ? readdirSync10(proposalDirectory2).filter((file2) => file2.endsWith(".json")).sort() : [];
+      for (const file2 of proposalFiles) {
+        const proposalId = `memory-proposal/${file2.slice(0, -".json".length)}`;
+        const proposal = await memory.readProposal(proposalId);
+        if (!proposal)
+          continue;
+        const decision = await memory.readDecision(proposalId);
+        if (proposal.unresolvedConflicts.length > 0)
+          drift.push(`memory_conflict:${proposalId}`);
+        proposals.push({
+          proposalId,
+          operation: proposal.operation,
+          lifecycle: decision?.state ?? proposal.lifecycle,
+          fingerprint: proposal.fingerprint,
+          warningCount: proposal.warnings.length,
+          conflictCount: proposal.unresolvedConflicts.length,
+          modelLock: proposal.modelLock,
+          provenance: proposal.provenance,
+          createdAt: proposal.createdAt,
+          expiresAt: proposal.expiresAt
+        });
+      }
+      dreamTime.push({
+        profileId: binding.profileId,
+        approvedMemory: revisions.at(-1) ? {
+          revisionId: revisions.at(-1).revisionId,
+          revision: revisions.at(-1).revision,
+          fingerprint: revisions.at(-1).fingerprint
+        } : null,
+        revisionCount: revisions.length,
+        eventCount: events.length,
+        proposals
+      });
+    }
+    const collaborationFiles = files.filter((file2) => file2.path.includes("/collaboration/"));
+    const consultRecords = collaborationFiles.filter((file2) => file2.path.includes("/consults/"));
+    const delegationRecords = collaborationFiles.filter((file2) => file2.path.includes("/delegations/"));
+    return section("agent-domain", files, {
+      root,
+      projectId: context.projectId,
+      profiles: profiles.sort((left, right) => left.profileId.localeCompare(right.profileId)),
+      bindings: bindings.map((binding) => ({
+        bindingId: binding.bindingId,
+        revision: binding.revision,
+        profileId: binding.profileId,
+        profileRevision: binding.profileRevision,
+        role: binding.role,
+        enabled: binding.enabled,
+        projectContextFingerprint: binding.projectContextFingerprint,
+        connectorGrantRefs: binding.connectorGrantRefs
+      })),
+      threads: threads.map((thread) => ({
+        threadId: thread.threadId,
+        revision: thread.revision,
+        lifecycle: thread.lifecycle,
+        profileId: thread.profileId,
+        bindingId: thread.bindingId,
+        relatedWorkRunIds: thread.references.filter((reference) => reference.kind === "workRun").map((reference) => reference.referenceId)
+      })),
+      dreamTime,
+      collaboration: {
+        consultRecordCount: consultRecords.length,
+        delegationRecordCount: delegationRecords.length
+      }
+    }, [...new Set(drift)].sort());
+  } catch (error48) {
+    return {
+      owner: "agent-domain",
+      freshness: newest(files),
+      health: "unavailable",
+      drift: ["agent_domain_state_invalid"],
+      data: { root, error: error48.message }
+    };
+  }
+}
 async function composeProjectHub(ctx, registry3, reference, settingsService = createSettingsService({ vaultPath: ctx.config.vault_path })) {
   const project = resolveProjectContext(ctx.config.vault_path, reference, "project.hub.get");
   const registryFiles = filesBelow(ctx.config.vault_path, project.roots.registryRecord);
@@ -47846,14 +55437,20 @@ async function composeProjectHub(ctx, registry3, reference, settingsService = cr
       settings: await settingsSection(settingsService, project),
       capabilities: capabilitySection(registry3),
       workspace: workspaceSection(project),
-      integrations: integrationSection(project)
+      integrations: integrationSection(project),
+      hostCapabilities: hostCapabilitySection(ctx.config.vault_path, project),
+      usage: usageSection(ctx.config.vault_path, project),
+      agents: await agentDomainSection(ctx.config.vault_path, project)
     },
     mutationRoutes: {
       identity: "project.init",
       work: "project.issue.* / workflow.agent.*",
       knowledge: "source.register / memory.*",
       settings: "settings owner (backend configuration)",
-      integrations: "provider-owned operations"
+      integrations: "provider-owned operations",
+      hostCapabilities: "host.descriptor.* / host.connector.* / host.assignment.*",
+      usage: "usage.append / usage.policy.evaluate",
+      agents: "agent.* / dreamtime.* / consult.* / delegation.*"
     }
   };
 }
@@ -48103,16 +55700,16 @@ function recommendedVaultPath(profile) {
 }
 function pipelineFor(profile, primary) {
   const ids = ["douyin", "xiaohongshu", "tiktok", "weibo"].includes(profile.platform) ? ["opencli", "media"] : [primary];
-  return ids.map((id) => {
-    const provider = PROVIDERS[id];
-    const config2 = providerConfig(id);
+  return ids.map((id2) => {
+    const provider = PROVIDERS[id2];
+    const config2 = providerConfig(id2);
     return {
       id: provider.id,
       name: provider.name,
       configured: config2.configured,
       command: config2.command,
-      capability: id === "opencli" ? "resolve.capture" : "media.transcribe",
-      role: id === "opencli" ? "resolve browser/page/source metadata and capture text-first material" : "parse/download media and produce transcript Markdown"
+      capability: id2 === "opencli" ? "resolve.capture" : "media.transcribe",
+      role: id2 === "opencli" ? "resolve browser/page/source metadata and capture text-first material" : "parse/download media and produce transcript Markdown"
     };
   });
 }
@@ -48196,9 +55793,9 @@ function makeIngestOps() {
 }
 
 // dist/source/source.js
-import { createHash as createHash3 } from "node:crypto";
-import { existsSync as existsSync13, mkdirSync as mkdirSync7, readFileSync as readFileSync15, rmSync as rmSync2, statSync as statSync4, writeFileSync as writeFileSync5 } from "node:fs";
-import { basename as basename6, dirname as dirname8, extname, join as join17, relative as relative5, isAbsolute as pathIsAbsolute } from "node:path";
+import { createHash as createHash7 } from "node:crypto";
+import { existsSync as existsSync15, mkdirSync as mkdirSync9, readFileSync as readFileSync17, rmSync as rmSync3, statSync as statSync4, writeFileSync as writeFileSync7 } from "node:fs";
+import { basename as basename8, dirname as dirname14, extname, join as join23, relative as relative6, isAbsolute as pathIsAbsolute } from "node:path";
 var REGISTRY_REL_PATH = "_llmwiki/source-registry.json";
 var LOCK_TTL_MS2 = 6e4;
 var RESERVED_INPUT_TYPES = /* @__PURE__ */ new Set(["filePath", "directoryPath", "repoPath", "text"]);
@@ -48283,25 +55880,25 @@ function registerSource(ctx, vaultPath, params) {
   if (RESERVED_INPUT_TYPES.has(inputType)) {
     throw unsupported(`source.register does not support inputType=${inputType} in Phase 1`);
   }
-  const projectContext = optionalString2(params.project) ? resolveProjectContext(vaultPath, optionalString2(params.project), "source.register") : void 0;
-  const project = projectContext?.slug;
-  const projectId2 = projectContext?.projectId;
-  const actor = actorFromContext3(ctx);
+  const projectContext2 = optionalString2(params.project) ? resolveProjectContext(vaultPath, optionalString2(params.project), "source.register") : void 0;
+  const project = projectContext2?.slug;
+  const projectId2 = projectContext2?.projectId;
+  const actor2 = actorFromContext3(ctx);
   const titleOverride = optionalString2(params.title);
   const tags = stringArray(params.tags);
   const notes = optionalString2(params.notes);
   const now = (/* @__PURE__ */ new Date()).toISOString();
   const prepared = inputType === "url" ? prepareUrlSource(input, params) : prepareVaultPathSource(vaultPath, input, params);
   const title = titleOverride ?? prepared.title;
-  const id = sourceId(prepared.canonical);
+  const id2 = sourceId(prepared.canonical);
   const registryPath = registryFullPath(vaultPath);
   let saved;
   withFileLock2(registryPath, () => {
     const registry3 = readRegistry(registryPath);
-    const existing = registry3.sources[id];
-    const notePath = existing?.notePath ?? sourceNotePath(project, prepared.platform, `${slugify4(title)}-${id.slice(4)}`);
-    const record2 = {
-      id,
+    const existing = registry3.sources[id2];
+    const notePath = existing?.notePath ?? sourceNotePath(project, prepared.platform, `${slugify4(title)}-${id2.slice(4)}`);
+    const record6 = {
+      id: id2,
       inputType,
       input,
       canonical: prepared.canonical,
@@ -48310,7 +55907,7 @@ function registerSource(ctx, vaultPath, params) {
       title,
       project,
       projectId: projectId2,
-      actor,
+      actor: actor2,
       notePath,
       tags,
       notes,
@@ -48318,11 +55915,11 @@ function registerSource(ctx, vaultPath, params) {
       created_at: existing?.created_at ?? now,
       updated_at: now
     };
-    writeTextLocked(vaultFullPath(vaultPath, notePath), sourceNoteMarkdown(record2));
-    registry3.sources[id] = record2;
+    writeTextLocked(vaultFullPath(vaultPath, notePath), sourceNoteMarkdown(record6));
+    registry3.sources[id2] = record6;
     registry3.updated_at = now;
-    writeFileSync5(registryPath, JSON.stringify(registry3, null, 2) + "\n", "utf-8");
-    saved = record2;
+    writeFileSync7(registryPath, JSON.stringify(registry3, null, 2) + "\n", "utf-8");
+    saved = record6;
   });
   if (!saved)
     throw conflict("source.register failed to persist registry record");
@@ -48331,8 +55928,8 @@ function registerSource(ctx, vaultPath, params) {
 function listSources(vaultPath, params) {
   const registry3 = readRegistry(registryFullPath(vaultPath));
   const projectRef = optionalString2(params.project);
-  const projectContext = projectRef ? resolveProjectContext(vaultPath, projectRef, "source.list") : void 0;
-  const project = projectContext?.slug;
+  const projectContext2 = projectRef ? resolveProjectContext(vaultPath, projectRef, "source.list") : void 0;
+  const project = projectContext2?.slug;
   const platform2 = optionalString2(params.platform);
   const inputType = optionalString2(params.inputType);
   const sources = Object.values(registry3.sources).filter((source) => project ? source.project === project : true).filter((source) => platform2 ? source.platform === platform2 : true).filter((source) => inputType ? source.inputType === inputType : true).sort((a, b) => b.updated_at.localeCompare(a.updated_at));
@@ -48340,12 +55937,12 @@ function listSources(vaultPath, params) {
 }
 function getSource(vaultPath, params) {
   const registry3 = readRegistry(registryFullPath(vaultPath));
-  const id = optionalString2(params.id) ?? sourceIdForInput(vaultPath, params);
-  if (!id)
+  const id2 = optionalString2(params.id) ?? sourceIdForInput(vaultPath, params);
+  if (!id2)
     throw badRequest("source.get requires id or input");
-  const source = registry3.sources[id];
+  const source = registry3.sources[id2];
   if (!source)
-    throw notFound(`Source not found: ${id}`);
+    throw notFound(`Source not found: ${id2}`);
   return source;
 }
 function sourceIdForInput(vaultPath, params) {
@@ -48363,8 +55960,8 @@ function prepareUrlSource(input, params) {
   const canonical = canonicalUrl(input);
   const preferredProvider = optionalString2(params.preferredProvider);
   const plan = preflight({ url: canonical, preferredProvider });
-  const platform2 = safeSegment3(optionalString2(params.platform) ?? stringValue3(plan.platform) ?? detectPlatform2(canonical), "platform");
-  const sourceKind = optionalString2(params.sourceKind) ?? stringValue3(plan.sourceKind) ?? stringValue3(plan.source_kind) ?? "url";
+  const platform2 = safeSegment3(optionalString2(params.platform) ?? stringValue4(plan.platform) ?? detectPlatform2(canonical), "platform");
+  const sourceKind = optionalString2(params.sourceKind) ?? stringValue4(plan.sourceKind) ?? stringValue4(plan.source_kind) ?? "url";
   return {
     canonical,
     platform: platform2,
@@ -48375,14 +55972,14 @@ function prepareUrlSource(input, params) {
 }
 function prepareVaultPathSource(vaultPath, input, params) {
   const normalized = normalizeVaultRelPath(vaultPath, input);
-  if (!existsSync13(vaultFullPath(vaultPath, normalized))) {
+  if (!existsSync15(vaultFullPath(vaultPath, normalized))) {
     throw notFound(`Vault path not found: ${normalized}`);
   }
   return {
     canonical: `vault:${normalized}`,
     platform: safeSegment3(optionalString2(params.platform) ?? "vault", "platform"),
     sourceKind: optionalString2(params.sourceKind) ?? "vaultPath",
-    title: basename6(normalized, extname(normalized))
+    title: basename8(normalized, extname(normalized))
   };
 }
 function parseInputType(value) {
@@ -48422,17 +56019,17 @@ function normalizeVaultRelPath(vaultPath, input) {
   const top = normalized.split("/")[0];
   if (PROTECTED_DIRS3.has(top))
     throw badRequest(`protected path: ${top}`);
-  const full = join17(vaultPath, normalized.replace(/\//g, "\\"));
-  const rel = relative5(vaultPath, full);
+  const full = join23(vaultPath, normalized.replace(/\//g, "\\"));
+  const rel = relative6(vaultPath, full);
   if (rel.startsWith("..") || pathIsAbsolute(rel))
     throw badRequest("vaultPath escapes vault");
   return normalized;
 }
-function readRegistry(fullPath) {
-  if (!existsSync13(fullPath)) {
+function readRegistry(fullPath2) {
+  if (!existsSync15(fullPath2)) {
     return { version: 1, updated_at: (/* @__PURE__ */ new Date(0)).toISOString(), sources: {} };
   }
-  const parsed = JSON.parse(readFileSync15(fullPath, "utf-8"));
+  const parsed = JSON.parse(readFileSync17(fullPath2, "utf-8"));
   return {
     version: 1,
     updated_at: typeof parsed.updated_at === "string" ? parsed.updated_at : (/* @__PURE__ */ new Date(0)).toISOString(),
@@ -48443,7 +56040,7 @@ function registryFullPath(vaultPath) {
   return vaultFullPath(vaultPath, REGISTRY_REL_PATH);
 }
 function vaultFullPath(vaultPath, relPath) {
-  return join17(vaultPath, ...relPath.split("/"));
+  return join23(vaultPath, ...relPath.split("/"));
 }
 function sourceNotePath(project, platform2, slug) {
   return project ? `10-Projects/${project}/sources/${platform2}/${slug}.md` : `00-Inbox/Sources/${platform2}/${slug}.md`;
@@ -48496,10 +56093,10 @@ function sourceNoteMarkdown(source) {
     ""
   ].join("\n");
 }
-function withFileLock2(fullPath, fn) {
-  mkdirSync7(dirname8(fullPath), { recursive: true });
-  const lockPath = `${fullPath}.lock`;
-  const acquire = () => writeFileSync5(lockPath, JSON.stringify({ pid: process.pid, timestamp: Date.now() }), {
+function withFileLock2(fullPath2, fn) {
+  mkdirSync9(dirname14(fullPath2), { recursive: true });
+  const lockPath = `${fullPath2}.lock`;
+  const acquire = () => writeFileSync7(lockPath, JSON.stringify({ pid: process.pid, timestamp: Date.now() }), {
     encoding: "utf-8",
     flag: "wx"
   });
@@ -48508,26 +56105,26 @@ function withFileLock2(fullPath, fn) {
   } catch (e) {
     if (e.code !== "EEXIST")
       throw e;
-    const ageMs = existsSync13(lockPath) ? Date.now() - statSync4(lockPath).mtimeMs : LOCK_TTL_MS2 + 1;
+    const ageMs = existsSync15(lockPath) ? Date.now() - statSync4(lockPath).mtimeMs : LOCK_TTL_MS2 + 1;
     if (ageMs < LOCK_TTL_MS2)
-      throw conflict(`Lock conflict on ${basename6(fullPath)}`);
-    rmSync2(lockPath, { force: true });
+      throw conflict(`Lock conflict on ${basename8(fullPath2)}`);
+    rmSync3(lockPath, { force: true });
     acquire();
   }
   try {
     return fn();
   } finally {
-    rmSync2(lockPath, { force: true });
+    rmSync3(lockPath, { force: true });
   }
 }
-function writeTextLocked(fullPath, content) {
-  withFileLock2(fullPath, () => {
-    mkdirSync7(dirname8(fullPath), { recursive: true });
-    writeFileSync5(fullPath, content, "utf-8");
+function writeTextLocked(fullPath2, content) {
+  withFileLock2(fullPath2, () => {
+    mkdirSync9(dirname14(fullPath2), { recursive: true });
+    writeFileSync7(fullPath2, content, "utf-8");
   });
 }
 function sourceId(canonical) {
-  return `src_${createHash3("sha256").update(canonical).digest("hex").slice(0, 12)}`;
+  return `src_${createHash7("sha256").update(canonical).digest("hex").slice(0, 12)}`;
 }
 function actorFromContext3(ctx) {
   return safeSegment3(ctx.config.collaboration?.actor || process.env.VAULT_MIND_ACTOR || "agent", "actor");
@@ -48547,7 +56144,7 @@ function requireString(value, label) {
 function optionalString2(value) {
   return typeof value === "string" && value.trim() ? value.trim() : void 0;
 }
-function stringValue3(value) {
+function stringValue4(value) {
   return typeof value === "string" && value.trim() ? value.trim() : void 0;
 }
 function stringArray(value) {
@@ -48594,13 +56191,13 @@ function fencedJson(value) {
 }
 
 // dist/conversation/conversation.js
-import { existsSync as existsSync14, mkdirSync as mkdirSync8, readdirSync as readdirSync9, readFileSync as readFileSync16, rmSync as rmSync3, statSync as statSync5, writeFileSync as writeFileSync6 } from "node:fs";
-import { basename as basename7, dirname as dirname9, join as join18, resolve as resolve6, sep as sep2 } from "node:path";
+import { existsSync as existsSync16, mkdirSync as mkdirSync10, readdirSync as readdirSync11, readFileSync as readFileSync18, rmSync as rmSync4, statSync as statSync5, writeFileSync as writeFileSync8 } from "node:fs";
+import { basename as basename9, dirname as dirname15, join as join24, resolve as resolve7, sep as sep3 } from "node:path";
 var DEFAULT_ACTOR2 = "agent";
 var LOCK_TTL_MS3 = 6e4;
-function withFileLock3(fullPath, fn) {
-  const lockPath = `${fullPath}.lock`;
-  const acquire = () => writeFileSync6(lockPath, JSON.stringify({ pid: process.pid, timestamp: Date.now() }), {
+function withFileLock3(fullPath2, fn) {
+  const lockPath = `${fullPath2}.lock`;
+  const acquire = () => writeFileSync8(lockPath, JSON.stringify({ pid: process.pid, timestamp: Date.now() }), {
     encoding: "utf-8",
     flag: "wx"
   });
@@ -48609,17 +56206,17 @@ function withFileLock3(fullPath, fn) {
   } catch (e) {
     if (e.code !== "EEXIST")
       throw e;
-    const ageMs = existsSync14(lockPath) ? Date.now() - statSync5(lockPath).mtimeMs : LOCK_TTL_MS3 + 1;
+    const ageMs = existsSync16(lockPath) ? Date.now() - statSync5(lockPath).mtimeMs : LOCK_TTL_MS3 + 1;
     if (ageMs < LOCK_TTL_MS3)
-      throw makeErr(-32010, `Lock conflict on ${basename7(fullPath)}`);
-    rmSync3(lockPath, { force: true });
+      throw makeErr(-32010, `Lock conflict on ${basename9(fullPath2)}`);
+    rmSync4(lockPath, { force: true });
     acquire();
   }
   try {
     return fn();
   } finally {
     try {
-      rmSync3(lockPath, { force: true });
+      rmSync4(lockPath, { force: true });
     } catch {
     }
   }
@@ -48632,8 +56229,8 @@ function safeSegment4(value, label) {
   return trimmed;
 }
 function actorFromContext4(ctx) {
-  const actor = ctx.config.collaboration?.actor ?? process.env.VAULT_MIND_ACTOR ?? DEFAULT_ACTOR2;
-  return safeSegment4(actor, "actor");
+  const actor2 = ctx.config.collaboration?.actor ?? process.env.VAULT_MIND_ACTOR ?? DEFAULT_ACTOR2;
+  return safeSegment4(actor2, "actor");
 }
 function slugify5(value) {
   const slug = value.toLowerCase().normalize("NFKD").replace(/[^\w\s-]/g, "").trim().replace(/[\s_-]+/g, "-").replace(/^-+|-+$/g, "");
@@ -48683,16 +56280,16 @@ function sourceObject(value) {
     url: typeof source.url === "string" ? source.url : void 0
   };
 }
-function decisionBasePath(project, actor) {
+function decisionBasePath(project, actor2) {
   if (project)
-    return `10-Projects/${safeSegment4(project, "project")}/agents/${actor}/memory/decisions`;
-  return `00-Inbox/Agent-Memory/${actor}/decisions`;
+    return `10-Projects/${safeSegment4(project, "project")}/agents/${actor2}/memory/decisions`;
+  return `00-Inbox/Agent-Memory/${actor2}/decisions`;
 }
 function filenameTimestamp(now) {
   return now.replace(/[:.]/g, "-");
 }
-function decisionPath(project, actor, title, now) {
-  return `${decisionBasePath(project, actor)}/${filenameTimestamp(now)}-${slugify5(title)}.md`;
+function decisionPath(project, actor2, title, now) {
+  return `${decisionBasePath(project, actor2)}/${filenameTimestamp(now)}-${slugify5(title)}.md`;
 }
 function normalizeVaultRelPath2(path) {
   const normalized = path.trim().replace(/\\/g, "/").replace(/^\/+/, "").replace(/\/+/g, "/");
@@ -48702,12 +56299,12 @@ function normalizeVaultRelPath2(path) {
   return normalized;
 }
 function ensureInsideVault(vaultPath, relPath) {
-  const root = resolve6(vaultPath);
-  const fullPath = resolve6(vaultPath, relPath);
-  const rootPrefix = root.endsWith(sep2) ? root : root + sep2;
-  if (fullPath !== root && !fullPath.startsWith(rootPrefix))
+  const root = resolve7(vaultPath);
+  const fullPath2 = resolve7(vaultPath, relPath);
+  const rootPrefix = root.endsWith(sep3) ? root : root + sep3;
+  if (fullPath2 !== root && !fullPath2.startsWith(rootPrefix))
     throw makeErr(-32602, "path traversal blocked");
-  return fullPath;
+  return fullPath2;
 }
 function ensureDecisionPath(relPath) {
   if (!relPath.endsWith(".md") || !relPath.includes("/decisions/")) {
@@ -48715,7 +56312,7 @@ function ensureDecisionPath(relPath) {
   }
 }
 function decisionMarkdown(vaultPath, ctx, params, now) {
-  const actor = actorFromContext4(ctx);
+  const actor2 = actorFromContext4(ctx);
   const project = typeof params.project === "string" && params.project.trim() ? resolveProjectContext(vaultPath, params.project, "conversation.decision.capture").slug : void 0;
   const title = String(params.title ?? "").trim();
   if (!title)
@@ -48724,12 +56321,12 @@ function decisionMarkdown(vaultPath, ctx, params, now) {
   const sourceClient = source.client ?? "unknown";
   const threadId = source.threadId ?? process.env.CODEX_THREAD_ID ?? "";
   const tags = normalizeList(params.tags);
-  const path = decisionPath(project, actor, title, now);
+  const path = decisionPath(project, actor2, title, now);
   const content = [
     "---",
     "llmwiki-memory: decision",
     "conversation-decision: true",
-    `actor: ${yamlString3(actor)}`,
+    `actor: ${yamlString3(actor2)}`,
     project ? `project: ${yamlString3(project)}` : "project: null",
     `title: ${yamlString3(title)}`,
     "status: captured",
@@ -48809,12 +56406,12 @@ function preview(content) {
   return content.replace(/^---[\s\S]*?---\s*/m, "").replace(/\s+/g, " ").trim().slice(0, 180);
 }
 function listDecisionDir(vaultPath, relDir, tag) {
-  const fullDir = join18(vaultPath, relDir);
-  if (!existsSync14(fullDir))
+  const fullDir = join24(vaultPath, relDir);
+  if (!existsSync16(fullDir))
     return [];
-  return readdirSync9(fullDir, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".md")).map((entry) => {
-    const fullPath = join18(fullDir, entry.name);
-    const content = readFileSync16(fullPath, "utf-8");
+  return readdirSync11(fullDir, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".md")).map((entry) => {
+    const fullPath2 = join24(fullDir, entry.name);
+    const content = readFileSync18(fullPath2, "utf-8");
     const fm = parseFrontmatter(content);
     const tags = parseTags(fm.tags);
     return {
@@ -48822,7 +56419,7 @@ function listDecisionDir(vaultPath, relDir, tag) {
       title: fm.title || entry.name.replace(/\.md$/, ""),
       preview: preview(content),
       status: fm.status || "captured",
-      captured_at: fm["captured-at"] || statSync5(fullPath).mtime.toISOString(),
+      captured_at: fm["captured-at"] || statSync5(fullPath2).mtime.toISOString(),
       tags
     };
   }).filter((item) => !tag || item.tags.includes(tag)).sort((a, b) => b.captured_at.localeCompare(a.captured_at));
@@ -48862,9 +56459,9 @@ function makeConversationOps(vaultPath) {
         const { path, content } = decisionMarkdown(vaultPath, ctx, params, now);
         const dryRun = params.dryRun ?? false;
         if (!dryRun) {
-          const fullPath = ensureInsideVault(vaultPath, path);
-          mkdirSync8(dirname9(fullPath), { recursive: true });
-          withFileLock3(fullPath, () => writeFileSync6(fullPath, content, { encoding: "utf-8", flag: "wx" }));
+          const fullPath2 = ensureInsideVault(vaultPath, path);
+          mkdirSync10(dirname15(fullPath2), { recursive: true });
+          withFileLock3(fullPath2, () => writeFileSync8(fullPath2, content, { encoding: "utf-8", flag: "wx" }));
         }
         return {
           ok: true,
@@ -48886,11 +56483,11 @@ function makeConversationOps(vaultPath) {
         tag: { type: "string", required: false, description: "Optional tag filter" }
       },
       handler: async (ctx, params) => {
-        const actor = actorFromContext4(ctx);
+        const actor2 = actorFromContext4(ctx);
         const project = typeof params.project === "string" && params.project.trim() ? resolveProjectContext(vaultPath, params.project, "conversation.decision.list").slug : void 0;
         const limit = Math.max(1, Math.min(params.limit ?? 20, 100));
         const tag = typeof params.tag === "string" && params.tag.trim() ? params.tag.trim() : void 0;
-        const decisions = listDecisionDir(vaultPath, decisionBasePath(project, actor), tag).slice(0, limit);
+        const decisions = listDecisionDir(vaultPath, decisionBasePath(project, actor2), tag).slice(0, limit);
         return { count: decisions.length, decisions };
       }
     },
@@ -48905,10 +56502,10 @@ function makeConversationOps(vaultPath) {
       handler: async (_ctx, params) => {
         const relPath = normalizeVaultRelPath2(String(params.path ?? ""));
         ensureDecisionPath(relPath);
-        const fullPath = ensureInsideVault(vaultPath, relPath);
-        if (!existsSync14(fullPath))
+        const fullPath2 = ensureInsideVault(vaultPath, relPath);
+        if (!existsSync16(fullPath2))
           throw makeErr(-32001, `Decision not found: ${relPath}`);
-        const content = readFileSync16(fullPath, "utf-8");
+        const content = readFileSync18(fullPath2, "utf-8");
         if (!/^conversation-decision:\s*true/m.test(content)) {
           throw makeErr(-32602, "path is not a conversation decision note");
         }
@@ -48919,11 +56516,11 @@ function makeConversationOps(vaultPath) {
 }
 
 // dist/context/context.js
-import { existsSync as existsSync16, readdirSync as readdirSync10, readFileSync as readFileSync17, statSync as statSync7 } from "node:fs";
-import { join as join19 } from "node:path";
+import { existsSync as existsSync18, readdirSync as readdirSync12, readFileSync as readFileSync19, statSync as statSync7 } from "node:fs";
+import { join as join25 } from "node:path";
 
 // dist/adapters/vaultbrain/vault-status.js
-import { existsSync as existsSync15, statSync as statSync6 } from "node:fs";
+import { existsSync as existsSync17, statSync as statSync6 } from "node:fs";
 var MIN_MARKDOWN_FILES = 5;
 var DEFAULT_QUERY_TIMEOUT_MS = 2e3;
 function classifyVaultReadiness(input) {
@@ -48947,25 +56544,25 @@ function isActivelyIndexing(status) {
   return status === "in_progress" || status === "indexing_background";
 }
 function withTimeout(promise2, ms, onTimeout) {
-  return new Promise((resolve8) => {
+  return new Promise((resolve9) => {
     let settled = false;
     const timer = setTimeout(() => {
       if (!settled) {
         settled = true;
-        resolve8(onTimeout);
+        resolve9(onTimeout);
       }
     }, ms);
     promise2.then((value) => {
       if (!settled) {
         settled = true;
         clearTimeout(timer);
-        resolve8(value);
+        resolve9(value);
       }
     }, () => {
       if (!settled) {
         settled = true;
         clearTimeout(timer);
-        resolve8(onTimeout);
+        resolve9(onTimeout);
       }
     });
   });
@@ -48976,7 +56573,7 @@ async function gatherVaultStatus(vaultPath, vba, opts) {
   let markdownCount = 0;
   let newestMarkdownMtimeMs = null;
   try {
-    vaultExists = Boolean(vaultPath && vaultPath.trim() && existsSync15(vaultPath));
+    vaultExists = Boolean(vaultPath && vaultPath.trim() && existsSync17(vaultPath));
     if (vaultExists && vaultPath) {
       const files = listVaultMarkdown(vaultPath);
       markdownCount = files.length;
@@ -49022,27 +56619,27 @@ function safeSegment5(value, label) {
   return trimmed;
 }
 function actorFromContext5(ctx) {
-  const actor = ctx.config.collaboration?.actor ?? process.env.VAULT_MIND_ACTOR ?? DEFAULT_ACTOR3;
-  return safeSegment5(actor, "actor");
+  const actor2 = ctx.config.collaboration?.actor ?? process.env.VAULT_MIND_ACTOR ?? DEFAULT_ACTOR3;
+  return safeSegment5(actor2, "actor");
 }
 function normalizeProject(vaultPath, value) {
   if (typeof value !== "string" || !value.trim())
     return void 0;
   return resolveProjectContext(vaultPath, value.trim(), "context.operations");
 }
-function memoryBasePath2(project, actor) {
+function memoryBasePath2(project, actor2) {
   if (project)
-    return `10-Projects/${project}/agents/${actor}/memory`;
-  return `00-Inbox/Agent-Memory/${actor}`;
+    return `10-Projects/${project}/agents/${actor2}/memory`;
+  return `00-Inbox/Agent-Memory/${actor2}`;
 }
 function readText3(path) {
-  return existsSync16(path) ? readFileSync17(path, "utf-8") : null;
+  return existsSync18(path) ? readFileSync19(path, "utf-8") : null;
 }
-function defaultPassport(actor, project) {
+function defaultPassport(actor2, project) {
   return [
     "---",
     "llmwiki-memory: passport",
-    `actor: ${JSON.stringify(actor)}`,
+    `actor: ${JSON.stringify(actor2)}`,
     project ? `project: ${JSON.stringify(project)}` : "project: null",
     "---",
     "",
@@ -49070,11 +56667,11 @@ function defaultPassport(actor, project) {
     ""
   ].join("\n");
 }
-function defaultHandoff(actor, project) {
+function defaultHandoff(actor2, project) {
   return [
     "---",
     "llmwiki-memory: handoff",
-    `actor: ${JSON.stringify(actor)}`,
+    `actor: ${JSON.stringify(actor2)}`,
     project ? `project: ${JSON.stringify(project)}` : "project: null",
     "---",
     "",
@@ -49099,8 +56696,8 @@ function defaultHandoff(actor, project) {
   ].join("\n");
 }
 function readMemoryDoc(vaultPath, relPath, fallback) {
-  const fullPath = join19(vaultPath, relPath);
-  const content = readText3(fullPath);
+  const fullPath2 = join25(vaultPath, relPath);
+  const content = readText3(fullPath2);
   return { path: relPath, exists: content !== null, content: content ?? fallback };
 }
 function parseFrontmatter2(content) {
@@ -49127,15 +56724,15 @@ function preview2(content, max = 220) {
   return content.replace(/^---[\s\S]*?---\s*/m, "").replace(/\s+/g, " ").trim().slice(0, max);
 }
 function listMarkdownFiles(vaultPath, relDir) {
-  const fullDir = join19(vaultPath, relDir);
-  if (!existsSync16(fullDir))
+  const fullDir = join25(vaultPath, relDir);
+  if (!existsSync18(fullDir))
     return [];
-  return readdirSync10(fullDir, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".md")).map((entry) => {
-    const fullPath = join19(fullDir, entry.name);
+  return readdirSync12(fullDir, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".md")).map((entry) => {
+    const fullPath2 = join25(fullDir, entry.name);
     return {
       path: `${relDir}/${entry.name}`,
-      content: readFileSync17(fullPath, "utf-8"),
-      mtime: statSync7(fullPath).mtime.toISOString()
+      content: readFileSync19(fullPath2, "utf-8"),
+      mtime: statSync7(fullPath2).mtime.toISOString()
     };
   });
 }
@@ -49277,17 +56874,17 @@ function makeContextOps(vaultPath, registry3, defaultWeights) {
         includeRecall: { type: "boolean", required: false, description: "Run topic recall when topic provided (default: true when topic provided)" }
       },
       handler: async (ctx, params) => {
-        const actor = actorFromContext5(ctx);
-        const projectContext = normalizeProject(vaultPath, params.project);
-        const project = projectContext?.slug;
+        const actor2 = actorFromContext5(ctx);
+        const projectContext2 = normalizeProject(vaultPath, params.project);
+        const project = projectContext2?.slug;
         const topic = typeof params.topic === "string" && params.topic.trim() ? params.topic.trim() : void 0;
         const maxChars = Math.max(1e3, Math.floor(params.maxChars ?? 6e3));
         const maxDecisions = Math.max(0, Math.min(Math.floor(params.maxDecisions ?? 5), 20));
         const maxSessions = Math.max(0, Math.min(Math.floor(params.maxSessions ?? 5), 20));
         const includeRecall = params.includeRecall ?? Boolean(topic);
-        const basePath = memoryBasePath2(project, actor);
-        const l0Identity = readMemoryDoc(vaultPath, `${basePath}/passport.md`, defaultPassport(actor, project));
-        const handoff = readMemoryDoc(vaultPath, `${basePath}/handoff.md`, defaultHandoff(actor, project));
+        const basePath = memoryBasePath2(project, actor2);
+        const l0Identity = readMemoryDoc(vaultPath, `${basePath}/passport.md`, defaultPassport(actor2, project));
+        const handoff = readMemoryDoc(vaultPath, `${basePath}/handoff.md`, defaultHandoff(actor2, project));
         const decisions = listDecisions(vaultPath, basePath, maxDecisions);
         const sessions = listSessions(vaultPath, basePath, maxSessions);
         const l2RoomRecall = includeRecall && topic ? await answerForScope(registry3, defaultWeights, topic, project, { maxResults: 5 }, 5).then((answer) => ({
@@ -49299,10 +56896,10 @@ function makeContextOps(vaultPath, registry3, defaultWeights) {
           traceSummary: summarizeTrace(answer)
         })) : void 0;
         const result = {
-          actor,
+          actor: actor2,
           project: project ?? null,
-          projectId: projectContext?.projectId ?? null,
-          projectDiagnostics: projectContext?.diagnostics ?? [],
+          projectId: projectContext2?.projectId ?? null,
+          projectDiagnostics: projectContext2?.diagnostics ?? [],
           topic: topic ?? null,
           generatedAt: (/* @__PURE__ */ new Date()).toISOString(),
           layers: {
@@ -49346,15 +56943,15 @@ function makeContextOps(vaultPath, registry3, defaultWeights) {
       },
       handler: async (_ctx, params) => {
         const query = String(params.query ?? "");
-        const projectContext = normalizeProject(vaultPath, params.project);
-        const project = projectContext?.slug;
+        const projectContext2 = normalizeProject(vaultPath, params.project);
+        const project = projectContext2?.slug;
         const scope = scopeFor(project);
         const answer = await answerForScope(registry3, defaultWeights, query, project, params, 8);
         return {
           query,
           scope,
-          projectId: projectContext?.projectId ?? null,
-          diagnostics: projectContext?.diagnostics ?? [],
+          projectId: projectContext2?.projectId ?? null,
+          diagnostics: projectContext2?.diagnostics ?? [],
           answer: answer.answer,
           claims: answer.claims,
           citations: answer.citations,
@@ -49377,15 +56974,15 @@ function makeContextOps(vaultPath, registry3, defaultWeights) {
       },
       handler: async (_ctx, params) => {
         const query = String(params.query ?? "");
-        const projectContext = normalizeProject(vaultPath, params.project);
-        const project = projectContext?.slug;
+        const projectContext2 = normalizeProject(vaultPath, params.project);
+        const project = projectContext2?.slug;
         const scope = scopeFor(project);
         const answer = await answerForScope(registry3, defaultWeights, query, project, params, 20);
         return {
           query,
           scope,
-          projectId: projectContext?.projectId ?? null,
-          diagnostics: projectContext?.diagnostics ?? [],
+          projectId: projectContext2?.projectId ?? null,
+          diagnostics: projectContext2?.diagnostics ?? [],
           answer: answer.answer,
           claims: answer.claims,
           citations: answer.citations,
@@ -49400,9 +56997,9 @@ function makeContextOps(vaultPath, registry3, defaultWeights) {
 }
 
 // dist/workflow/workflow.js
-import { existsSync as existsSync17, mkdirSync as mkdirSync9, readFileSync as readFileSync18, renameSync, rmSync as rmSync4, writeFileSync as writeFileSync7 } from "node:fs";
-import { dirname as dirname10, join as join20 } from "node:path";
-import { createHash as createHash4, randomUUID as randomUUID2, timingSafeEqual } from "node:crypto";
+import { existsSync as existsSync19, mkdirSync as mkdirSync11, readFileSync as readFileSync20, renameSync as renameSync2, rmSync as rmSync5, writeFileSync as writeFileSync9 } from "node:fs";
+import { dirname as dirname16, join as join26 } from "node:path";
+import { createHash as createHash8, randomUUID as randomUUID8, timingSafeEqual } from "node:crypto";
 var STAGES = ["intake", "understand", "plan", "execute", "review", "verify", "archive"];
 var CHECKPOINT_STATUSES = ["note", "passed", "failed", "blocked"];
 var AGENT_STAGES = ["think", "plan", "build", "review", "test", "ship", "reflect"];
@@ -49492,9 +57089,9 @@ function durableRunPath(project, workRunId) {
 var WORK_RUN_LOCK_PATH = ".vault-mind/_work-run.lock";
 function withWorkRunLock(vaultPath, action) {
   const lockPath = vaultJoin(vaultPath, WORK_RUN_LOCK_PATH);
-  const token = `${process.pid}:${randomUUID2()}`;
-  mkdirSync9(dirname10(lockPath), { recursive: true });
-  const claim = () => writeFileSync7(lockPath, token, { encoding: "utf-8", flag: "wx" });
+  const token = `${process.pid}:${randomUUID8()}`;
+  mkdirSync11(dirname16(lockPath), { recursive: true });
+  const claim = () => writeFileSync9(lockPath, token, { encoding: "utf-8", flag: "wx" });
   try {
     claim();
   } catch (error48) {
@@ -49506,18 +57103,18 @@ function withWorkRunLock(vaultPath, action) {
     return action();
   } finally {
     try {
-      if (readFileSync18(lockPath, "utf-8") === token)
-        rmSync4(lockPath, { force: true });
+      if (readFileSync20(lockPath, "utf-8") === token)
+        rmSync5(lockPath, { force: true });
     } catch {
     }
   }
 }
 var LEASE_MODES = ["local", "portable-handoff"];
 function jsonRecord(path, label) {
-  if (!existsSync17(path))
+  if (!existsSync19(path))
     return null;
   try {
-    const value = JSON.parse(readFileSync18(path, "utf-8"));
+    const value = JSON.parse(readFileSync20(path, "utf-8"));
     if (!value || typeof value !== "object" || Array.isArray(value)) {
       throw new Error("expected an object");
     }
@@ -49527,17 +57124,17 @@ function jsonRecord(path, label) {
   }
 }
 function leaseCandidates(vaultPath, workRunId) {
-  const registry3 = jsonRecord(join20(vaultPath, ".vault-mind", "_leases.json"), "Lease registry");
+  const registry3 = jsonRecord(join26(vaultPath, ".vault-mind", "_leases.json"), "Lease registry");
   if (!registry3)
     return [];
   return Object.values(registry3).filter((value) => Boolean(value) && typeof value === "object" && !Array.isArray(value) && value.work_run_id === workRunId);
 }
 function canonicalWorkItemId(value) {
-  const id = optionalString3(value);
-  if (!/^project\/[a-z0-9][a-z0-9-]*\/issue\/[a-z0-9][a-z0-9-]*$/.test(id)) {
+  const id2 = optionalString3(value);
+  if (!/^project\/[a-z0-9][a-z0-9-]*\/issue\/[a-z0-9][a-z0-9-]*$/.test(id2)) {
     throw conflict("Work Item identity conflict: work_item_id must be canonical");
   }
-  return id;
+  return id2;
 }
 function identityEquals(label, expected, actual) {
   if (typeof expected !== "string" || expected !== actual) {
@@ -49580,6 +57177,187 @@ function parseLeaseMode(value) {
   }
   return mode;
 }
+var GOVERNED_RUN_LOCKS = [
+  { key: "agent_profile_id", label: "Agent Profile identity", kind: "id", pattern: /^(?:agent\/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?|agent-profile\/[a-z0-9][a-z0-9-]*)$/ },
+  { key: "agent_profile_revision", label: "Agent Profile revision", kind: "revision" },
+  { key: "project_agent_binding_id", label: "Project Agent Binding identity", kind: "id", pattern: /^(?:binding\/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?\/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?|project-agent-binding\/[a-z0-9][a-z0-9-]*)$/ },
+  { key: "project_agent_binding_revision", label: "Project Agent Binding revision", kind: "revision" },
+  { key: "assignment_plan_id", label: "Assignment Plan identity", kind: "id", pattern: /^assignment-plan\/[a-z0-9][a-z0-9-]*$/ },
+  { key: "assignment_plan_version", label: "Assignment Plan version", kind: "revision" },
+  { key: "assignment_plan_fingerprint", label: "Assignment Plan fingerprint", kind: "fingerprint" },
+  { key: "context_envelope_fingerprint", label: "Context Envelope fingerprint", kind: "fingerprint" },
+  { key: "device_snapshot", label: "Device Snapshot", kind: "device-snapshot" },
+  { key: "parent_work_run_id", label: "Parent Work Run identity", kind: "work-run" }
+];
+var GOVERNED_RUN_EXTENSION_KEYS = [
+  ...GOVERNED_RUN_LOCKS.map((item) => item.key),
+  "child_work_run_ids",
+  "capability_grant_summary",
+  "artifact_projections",
+  "expected_output"
+];
+function assertGovernedLockValue(spec, value) {
+  if (spec.kind === "device-snapshot") {
+    assertDeviceSnapshot(value);
+    return;
+  }
+  if (spec.kind === "revision") {
+    if (!Number.isSafeInteger(value) || value < 1) {
+      throw conflict(`${spec.label} conflict`, { actual: value, expected: "positive integer" });
+    }
+    return;
+  }
+  if (typeof value !== "string") {
+    throw conflict(`${spec.label} conflict`, { actual: value, expected: "string" });
+  }
+  if (spec.kind === "fingerprint") {
+    if (!/^(?:sha256:)?[a-f0-9]{64}$/.test(value))
+      throw conflict(`${spec.label} conflict`, { actual: value });
+  } else if (spec.kind === "work-run") {
+    if (!/^work-run\/[a-z0-9][a-z0-9-]*$/.test(value))
+      throw conflict(`${spec.label} conflict`, { actual: value });
+  } else if (spec.kind === "id" && !spec.pattern.test(value)) {
+    throw conflict(`${spec.label} conflict`, { actual: value });
+  }
+  assertPersistedTextSafe(spec.key, value);
+}
+function fingerprintHex(value) {
+  return typeof value === "string" && /^(?:sha256:)?[a-f0-9]{64}$/.test(value) ? value.replace(/^sha256:/, "") : null;
+}
+function assertDeviceSnapshot(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw conflict("Device Snapshot conflict", { actual: value });
+  const snapshot = value;
+  const required2 = ["snapshotId", "deviceId", "revision", "fingerprint", "capturedAt", "expiresAt"];
+  const keys = Object.keys(snapshot);
+  if (keys.length !== required2.length || required2.some((key) => !(key in snapshot))) {
+    throw conflict("Device Snapshot conflict", { actual: value, expected: required2 });
+  }
+  if (typeof snapshot.snapshotId !== "string" || !/^device-snapshot\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(snapshot.snapshotId)) {
+    throw conflict("Device Snapshot identity conflict", { actual: snapshot.snapshotId });
+  }
+  if (typeof snapshot.deviceId !== "string" || !/^device\/[a-z0-9][a-z0-9-]*$/.test(snapshot.deviceId)) {
+    throw conflict("Device identity conflict", { actual: snapshot.deviceId });
+  }
+  if (!Number.isSafeInteger(snapshot.revision) || snapshot.revision < 1) {
+    throw conflict("Device Snapshot revision conflict", { actual: snapshot.revision });
+  }
+  if (fingerprintHex(snapshot.fingerprint) === null) {
+    throw conflict("Device Snapshot fingerprint conflict", { actual: snapshot.fingerprint });
+  }
+  for (const key of ["capturedAt", "expiresAt"]) {
+    const timestamp2 = snapshot[key];
+    if (typeof timestamp2 !== "string" || !timestamp2) {
+      throw conflict(`Device Snapshot ${key} conflict`, { actual: timestamp2 });
+    }
+    assertPersistedTextSafe(`device_snapshot.${key}`, timestamp2);
+  }
+}
+function comparableGovernedLock(spec, value) {
+  if (spec.kind === "fingerprint")
+    return fingerprintHex(value);
+  if (spec.kind === "device-snapshot" && value && typeof value === "object" && !Array.isArray(value)) {
+    const snapshot = value;
+    return JSON.stringify({
+      snapshotId: snapshot.snapshotId,
+      deviceId: snapshot.deviceId,
+      revision: snapshot.revision,
+      fingerprint: fingerprintHex(snapshot.fingerprint),
+      capturedAt: snapshot.capturedAt,
+      expiresAt: snapshot.expiresAt
+    });
+  }
+  return value;
+}
+function assertGovernedRunLocks(params, durable) {
+  for (const spec of GOVERNED_RUN_LOCKS) {
+    const expected = params[spec.key];
+    const actual = durable[spec.key];
+    if (expected === void 0 && actual === void 0)
+      continue;
+    if (expected === void 0 || actual === void 0) {
+      throw conflict(`${spec.label} conflict`, { expected, actual });
+    }
+    assertGovernedLockValue(spec, expected);
+    assertGovernedLockValue(spec, actual);
+    if (comparableGovernedLock(spec, expected) !== comparableGovernedLock(spec, actual)) {
+      throw conflict(`${spec.label} conflict`, { expected, actual });
+    }
+  }
+}
+var FORBIDDEN_DURABLE_EXTENSION_KEY = /(?:^|_)(?:secret|token|credential|api[_-]?key|workspace|path|process|handle|header|environment|env)(?:_|$)/i;
+function assertPortableDurableValue(label, value, depth = 0) {
+  if (depth > 6)
+    throw conflict(`${label} exceeds the durable Work Run nesting limit`);
+  if (value === null || typeof value === "boolean")
+    return;
+  if (typeof value === "number") {
+    if (!Number.isFinite(value))
+      throw conflict(`${label} contains a non-finite number`);
+    return;
+  }
+  if (typeof value === "string") {
+    if (value.length > 4096)
+      throw conflict(`${label} exceeds the durable Work Run text limit`);
+    if (/(?:api[_-]?key|credential|plaintext[_-]?secret)/i.test(value)) {
+      throw conflict(`${label} contains secret-bearing material`);
+    }
+    assertPersistedTextSafe(label, value);
+    return;
+  }
+  if (Array.isArray(value)) {
+    if (value.length > 256)
+      throw conflict(`${label} exceeds the durable Work Run array limit`);
+    value.forEach((item, index) => assertPortableDurableValue(`${label}[${index}]`, item, depth + 1));
+    return;
+  }
+  if (!value || typeof value !== "object")
+    throw conflict(`${label} contains an unsupported value`);
+  const record6 = value;
+  const entries = Object.entries(record6);
+  if (entries.length > 64)
+    throw conflict(`${label} exceeds the durable Work Run object limit`);
+  for (const [key, nested] of entries) {
+    if (!/^[a-z][a-z0-9_]{0,63}$/.test(key) || FORBIDDEN_DURABLE_EXTENSION_KEY.test(key)) {
+      throw conflict(`${label} contains forbidden field ${key}`);
+    }
+    assertPortableDurableValue(`${label}.${key}`, nested, depth + 1);
+  }
+}
+function governedRunExtensions(run) {
+  const extensions = {};
+  for (const spec of GOVERNED_RUN_LOCKS) {
+    const value = run[spec.key];
+    if (value === void 0)
+      continue;
+    assertGovernedLockValue(spec, value);
+    extensions[spec.key] = value;
+  }
+  if (run.child_work_run_ids !== void 0) {
+    if (!Array.isArray(run.child_work_run_ids))
+      throw conflict("Child Work Run identities conflict");
+    const children = run.child_work_run_ids.map((value) => {
+      if (typeof value !== "string" || !/^work-run\/[a-z0-9][a-z0-9-]*$/.test(value)) {
+        throw conflict("Child Work Run identities conflict", { actual: value });
+      }
+      return value;
+    });
+    if (new Set(children).size !== children.length)
+      throw conflict("Child Work Run identities conflict: duplicates");
+    extensions.child_work_run_ids = children;
+  }
+  for (const key of ["capability_grant_summary", "artifact_projections", "expected_output"]) {
+    const value = run[key];
+    if (value === void 0)
+      continue;
+    assertPortableDurableValue(key, value);
+    extensions[key] = structuredClone(value);
+  }
+  if (Object.keys(extensions).length > 0 && run.schema_version !== 2) {
+    throw conflict("Governed Work Run extensions require schema_version=2", { actual: run.schema_version });
+  }
+  return extensions;
+}
 function assertPortableHandoffAuthority(durable, handoffToken) {
   const token = typeof handoffToken === "string" ? handoffToken : "";
   if (token.length < 16 || token.length > 4096) {
@@ -49593,17 +57371,17 @@ function assertPortableHandoffAuthority(durable, handoffToken) {
   if (typeof expiresAt !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(expiresAt) || !Number.isFinite(Date.parse(expiresAt)) || Date.now() >= Date.parse(expiresAt)) {
     throw conflict("Portable handoff authority conflict: durable handoff is missing or expired");
   }
-  const actual = createHash4("sha256").update(token, "utf-8").digest();
+  const actual = createHash8("sha256").update(token, "utf-8").digest();
   const expected = Buffer.from(expectedHash, "hex");
   if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) {
     throw conflict("Portable handoff authority conflict: handoff token mismatch");
   }
 }
 function assertJoinLeaseAuthority(vaultPath, identity, durable) {
-  const registryPath = join20(vaultPath, ".vault-mind", "_leases.json");
+  const registryPath = join26(vaultPath, ".vault-mind", "_leases.json");
   if (identity.leaseMode === "portable-handoff") {
     assertPortableHandoffAuthority(durable, identity.handoffToken);
-    if (!existsSync17(registryPath))
+    if (!existsSync19(registryPath))
       return;
   }
   assertActiveLeaseIdentity(vaultPath, identity);
@@ -49632,6 +57410,7 @@ function assertLeasedRunIdentity(vaultPath, project, agent, params) {
   const handoffToken = leaseMode === "portable-handoff" && typeof params.handoff_token === "string" ? params.handoff_token : void 0;
   const identity = { projectId: expectedProjectId, workItemId, workRunId, agentId: agent, leaseMode, handoffToken };
   const durable = assertDurableRunIdentity(vaultPath, project, identity);
+  assertGovernedRunLocks(params, durable.record);
   const state = durable.state;
   if (state !== "leased" && state !== "running") {
     throw conflict(`Work Run identity conflict: join requires leased or running state, found ${String(state)}`);
@@ -49658,9 +57437,9 @@ function durableTransitions(value) {
 }
 function syncDurableWorkRunUnlocked(vaultPath, state, transitionToken, leasedIdentity) {
   const path = durableRunPath(state.project, state.workRunId);
-  const fullPath = vaultJoin(vaultPath, path);
+  const fullPath2 = vaultJoin(vaultPath, path);
   let run = {};
-  const original = existsSync17(fullPath) ? readFileSync18(fullPath, "utf-8") : null;
+  const original = existsSync19(fullPath2) ? readFileSync20(fullPath2, "utf-8") : null;
   if (original !== null) {
     try {
       run = JSON.parse(original);
@@ -49688,8 +57467,9 @@ function syncDurableWorkRunUnlocked(vaultPath, state, transitionToken, leasedIde
       transitions.push({ transition_token: transitionToken, from: previous, to: state.workRunState, recorded_at: state.updatedAt });
     }
   }
+  const extensions = governedRunExtensions(run);
   const durable = {
-    schema_version: 1,
+    schema_version: Object.keys(extensions).length > 0 ? 2 : 1,
     project_id: state.projectId,
     work_item_id: state.workItemId,
     work_run_id: state.workRunId,
@@ -49701,18 +57481,19 @@ function syncDurableWorkRunUnlocked(vaultPath, state, transitionToken, leasedIde
     updated_at: state.updatedAt,
     provenance: [...state.provenance].sort(),
     transitions,
+    ...extensions,
     ...typeof run.handoff_token_hash === "string" ? { handoff_token_hash: run.handoff_token_hash } : {},
     ...typeof run.handoff_expires_at === "string" ? { handoff_expires_at: run.handoff_expires_at } : {}
   };
-  mkdirSync9(dirname10(fullPath), { recursive: true });
-  const temporary = `${fullPath}.tmp-${randomUUID2()}`;
-  writeFileSync7(temporary, JSON.stringify(durable, null, 2) + "\n", "utf-8");
-  const unchanged = original === null ? !existsSync17(fullPath) : existsSync17(fullPath) && readFileSync18(fullPath, "utf-8") === original;
+  mkdirSync11(dirname16(fullPath2), { recursive: true });
+  const temporary = `${fullPath2}.tmp-${randomUUID8()}`;
+  writeFileSync9(temporary, JSON.stringify(durable, null, 2) + "\n", "utf-8");
+  const unchanged = original === null ? !existsSync19(fullPath2) : existsSync19(fullPath2) && readFileSync20(fullPath2, "utf-8") === original;
   if (!unchanged) {
-    rmSync4(temporary, { force: true });
+    rmSync5(temporary, { force: true });
     throw conflict(`Work Run changed concurrently: ${state.workRunId}`);
   }
-  renameSync(temporary, fullPath);
+  renameSync2(temporary, fullPath2);
   return path;
 }
 function assertDurableLifetimeIdentity(vaultPath, state) {
@@ -49731,43 +57512,43 @@ function assertDurableLifetimeIdentity(vaultPath, state) {
 }
 function withFileRollback(vaultPath, relPaths, action) {
   const preimages = [...new Set(relPaths)].map((relPath) => {
-    const fullPath = vaultJoin(vaultPath, relPath);
-    return { fullPath, content: existsSync17(fullPath) ? readFileSync18(fullPath) : null };
+    const fullPath2 = vaultJoin(vaultPath, relPath);
+    return { fullPath: fullPath2, content: existsSync19(fullPath2) ? readFileSync20(fullPath2) : null };
   });
   try {
     return action();
   } catch (error48) {
     for (const preimage of preimages.reverse()) {
       if (preimage.content === null) {
-        rmSync4(preimage.fullPath, { force: true });
+        rmSync5(preimage.fullPath, { force: true });
       } else {
-        mkdirSync9(dirname10(preimage.fullPath), { recursive: true });
-        writeFileSync7(preimage.fullPath, preimage.content);
+        mkdirSync11(dirname16(preimage.fullPath), { recursive: true });
+        writeFileSync9(preimage.fullPath, preimage.content);
       }
     }
     throw error48;
   }
 }
 function vaultJoin(vaultPath, relPath) {
-  return join20(vaultPath, ...relPath.split("/"));
+  return join26(vaultPath, ...relPath.split("/"));
 }
 function writeVaultBytes2(vaultPath, relPath, content) {
-  const fullPath = vaultJoin(vaultPath, relPath);
-  mkdirSync9(dirname10(fullPath), { recursive: true });
-  writeFileSync7(fullPath, Buffer.from(content, "utf-8"));
+  const fullPath2 = vaultJoin(vaultPath, relPath);
+  mkdirSync11(dirname16(fullPath2), { recursive: true });
+  writeFileSync9(fullPath2, Buffer.from(content, "utf-8"));
 }
 function appendVaultBytes(vaultPath, relPath, content) {
-  const fullPath = vaultJoin(vaultPath, relPath);
-  mkdirSync9(dirname10(fullPath), { recursive: true });
-  const existing = existsSync17(fullPath) ? readFileSync18(fullPath, "utf-8").replace(/\s+$/, "") + "\n\n" : "";
-  writeFileSync7(fullPath, Buffer.from(existing + content, "utf-8"));
+  const fullPath2 = vaultJoin(vaultPath, relPath);
+  mkdirSync11(dirname16(fullPath2), { recursive: true });
+  const existing = existsSync19(fullPath2) ? readFileSync20(fullPath2, "utf-8").replace(/\s+$/, "") + "\n\n" : "";
+  writeFileSync9(fullPath2, Buffer.from(existing + content, "utf-8"));
 }
 function optionalString3(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 function oneLine2(value, max = 240) {
-  const text = optionalString3(value).replace(/\r?\n/g, " ");
-  return text.length > max ? text.slice(0, max) : text;
+  const text2 = optionalString3(value).replace(/\r?\n/g, " ");
+  return text2.length > max ? text2.slice(0, max) : text2;
 }
 function stringList2(value) {
   if (!Array.isArray(value))
@@ -49777,11 +57558,11 @@ function stringList2(value) {
   for (const item of value) {
     if (typeof item !== "string")
       continue;
-    const text = item.trim();
-    if (!text || seen.has(text))
+    const text2 = item.trim();
+    if (!text2 || seen.has(text2))
       continue;
-    seen.add(text);
-    out.push(text);
+    seen.add(text2);
+    out.push(text2);
   }
   return out;
 }
@@ -49808,9 +57589,9 @@ function assertPersistedTextSafe(label, value) {
   }
 }
 function persistedOneLine(label, value, max = 240) {
-  const text = oneLine2(value, max);
-  assertPersistedTextSafe(label, text);
-  return text;
+  const text2 = oneLine2(value, max);
+  assertPersistedTextSafe(label, text2);
+  return text2;
 }
 function persistedStringList(label, value) {
   const values = stringList2(value);
@@ -49885,16 +57666,16 @@ function projectId(project) {
   return `project/${project}`;
 }
 function parseWorkRunId(value, fallbackProject, fallbackAgent) {
-  const id = optionalString3(value);
-  if (!id && fallbackProject && fallbackAgent)
+  const id2 = optionalString3(value);
+  if (!id2 && fallbackProject && fallbackAgent)
     return `work-run/legacy-${fallbackProject}-${fallbackAgent}`;
-  if (!/^work-run\/[a-z0-9][a-z0-9-]*$/.test(id)) {
+  if (!/^work-run\/[a-z0-9][a-z0-9-]*$/.test(id2)) {
     throw makeErr(-32602, "work_run_id must match work-run/<lowercase-kebab-id>");
   }
-  return id;
+  return id2;
 }
 function createWorkRunId() {
-  return `work-run/${randomUUID2()}`;
+  return `work-run/${randomUUID8()}`;
 }
 function parseWorkItemId(value, project, legacyIssue) {
   const explicit = optionalString3(value);
@@ -49936,7 +57717,7 @@ function parseApprovalStatus(value, outputClass, fallback) {
   return approval;
 }
 function parseTransitionToken(value) {
-  const token = optionalString3(value) || `legacy:${randomUUID2()}`;
+  const token = optionalString3(value) || `legacy:${randomUUID8()}`;
   if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(token)) {
     throw makeErr(-32602, "transition_token must be 1-128 safe identifier characters");
   }
@@ -49976,8 +57757,8 @@ function completionState(outputClass, approval) {
   return "completed";
 }
 function assertWorkRunIdentity(current, supplied) {
-  const id = optionalString3(supplied);
-  if (id && parseWorkRunId(id) !== current.workRunId) {
+  const id2 = optionalString3(supplied);
+  if (id2 && parseWorkRunId(id2) !== current.workRunId) {
     throw makeErr(-32602, `work_run_id does not match joined Work Run ${current.workRunId}`);
   }
 }
@@ -50139,10 +57920,10 @@ function parseYamlScalar(raw) {
 }
 function readState(vaultPath, project) {
   const path = statePath(project);
-  const fullPath = vaultJoin(vaultPath, path);
-  if (!existsSync17(fullPath))
+  const fullPath2 = vaultJoin(vaultPath, path);
+  if (!existsSync19(fullPath2))
     return null;
-  return parseState(project, path, readFileSync18(fullPath, "utf-8"));
+  return parseState(project, path, readFileSync20(fullPath2, "utf-8"));
 }
 function checkpointHeader(project) {
   return [
@@ -50256,10 +58037,10 @@ function parseAgentLifetime(project, agent, path, content) {
 }
 function readAgentLifetime(vaultPath, project, agent) {
   const path = agentLifetimePath(project, agent);
-  const fullPath = vaultJoin(vaultPath, path);
-  if (!existsSync17(fullPath))
+  const fullPath2 = vaultJoin(vaultPath, path);
+  if (!existsSync19(fullPath2))
     return null;
-  return parseAgentLifetime(project, agent, path, readFileSync18(fullPath, "utf-8"));
+  return parseAgentLifetime(project, agent, path, readFileSync20(fullPath2, "utf-8"));
 }
 function agentEventsHeader(project, agent) {
   return [
@@ -50276,11 +58057,11 @@ function agentEventsHeader(project, agent) {
 }
 function appendAgentEvent(vaultPath, state, event) {
   const path = agentEventsPath(state.project, state.agent);
-  const fullPath = vaultJoin(vaultPath, path);
+  const fullPath2 = vaultJoin(vaultPath, path);
   const evidence = event.evidence ?? [];
   const evidenceLines = evidence.length ? evidence.map((item) => `  - ${item}`).join("\n") : "  - none";
   const block = [
-    existsSync17(fullPath) ? "" : agentEventsHeader(state.project, state.agent),
+    existsSync19(fullPath2) ? "" : agentEventsHeader(state.project, state.agent),
     `## ${isoNow()} - ${event.kind} - ${event.actor}`,
     "",
     `- stage: ${state.stage}`,
@@ -50339,7 +58120,7 @@ function workflowDoctor(vaultPath, project) {
     { name: "workflow-state", path: statePath(project), required: true },
     { name: "workflow-checkpoints", path: checkpointsPath(project), required: false },
     { name: "source-registry", path: "_llmwiki/source-registry.json", required: false }
-  ].map((check2) => ({ ...check2, ok: existsSync17(vaultJoin(vaultPath, check2.path)) }));
+  ].map((check2) => ({ ...check2, ok: existsSync19(vaultJoin(vaultPath, check2.path)) }));
   const missing = checks.filter((check2) => check2.required && !check2.ok).map((check2) => check2.path);
   const warnings = checks.filter((check2) => !check2.required && !check2.ok).map((check2) => check2.path);
   return {
@@ -50356,7 +58137,7 @@ function agentDoctor(vaultPath, project, agent, expectedWorkRunId) {
   const eventsPath = agentEventsPath(project, agent);
   const checks = [
     { name: "agent-lifetime", path: lifetimePath, required: true, ok: lifetime !== null },
-    { name: "agent-events", path: eventsPath, required: false, ok: existsSync17(vaultJoin(vaultPath, eventsPath)) }
+    { name: "agent-events", path: eventsPath, required: false, ok: existsSync19(vaultJoin(vaultPath, eventsPath)) }
   ];
   const errors = [];
   const warnings = [];
@@ -50406,9 +58187,9 @@ function agentDoctor(vaultPath, project, agent, expectedWorkRunId) {
 }
 function beginAgentLifetime(vaultPath, ctx, params, mode) {
   const operation = mode === "leased" ? "workflow.agent.join" : "workflow.agent.start";
-  const actor = actorFromContext6(ctx);
+  const actor2 = actorFromContext6(ctx);
   const project = existingProjectKey2(vaultPath, params.project, operation);
-  const agent = agentKey(params.agent, actor);
+  const agent = agentKey(params.agent, actor2);
   const transitionToken = parseTransitionToken(params.transition_token);
   let leasedIdentity = null;
   let workRunId;
@@ -50437,6 +58218,7 @@ function beginAgentLifetime(vaultPath, ctx, params, mode) {
       identityEquals("Work Run", requestedWorkRunId, priorLifetime.workRunId);
       identityEquals("agent", agent, priorLifetime.agent);
       const durable = assertDurableRunIdentity(vaultPath, project, requestedIdentity);
+      assertGovernedRunLocks(params, durable.record);
       assertJoinLeaseAuthority(vaultPath, requestedIdentity, durable.record);
       return replayResult(priorLifetime, priorReceipt, agentEventsPath(project, agent));
     }
@@ -50444,8 +58226,8 @@ function beginAgentLifetime(vaultPath, ctx, params, mode) {
     workRunId = leasedIdentity.workRunId;
     workItemId = leasedIdentity.workItemId;
   } else {
-    if (optionalString3(params.work_run_id) || optionalString3(params.work_item_id) || optionalString3(params.work_run_state) || optionalString3(params.lease_mode) || optionalString3(params.handoff_token)) {
-      throw makeErr(-32602, "workflow.agent.start creates manual runs and does not accept leased identity fields");
+    if (optionalString3(params.work_run_id) || optionalString3(params.work_item_id) || optionalString3(params.work_run_state) || optionalString3(params.lease_mode) || optionalString3(params.handoff_token) || GOVERNED_RUN_EXTENSION_KEYS.some((key) => params[key] !== void 0)) {
+      throw makeErr(-32602, "workflow.agent.start creates manual runs and does not accept leased identity fields or governed assignment identity fields");
     }
     workRunId = createWorkRunId();
     workItemId = parseWorkItemId(void 0, project, params.issue);
@@ -50491,7 +58273,7 @@ function beginAgentLifetime(vaultPath, ctx, params, mode) {
     workItemId,
     agent,
     role: persistedOneLine("role", params.role) || "agent",
-    host: persistedOneLine("host", params.host) || actor,
+    host: persistedOneLine("host", params.host) || actor2,
     stage,
     status: "active",
     objective: persistedOneLine("objective", params.objective),
@@ -50519,9 +58301,9 @@ function beginAgentLifetime(vaultPath, ctx, params, mode) {
     ["notes", notes]
   ]);
   const lifetimeFullPath = vaultJoin(vaultPath, path);
-  const expectedLifetimeBytes = existsSync17(lifetimeFullPath) ? readFileSync18(lifetimeFullPath, "utf-8") : null;
+  const expectedLifetimeBytes = existsSync19(lifetimeFullPath) ? readFileSync20(lifetimeFullPath, "utf-8") : null;
   const { runPath, eventsPath } = withWorkRunLock(vaultPath, () => {
-    const lockedLifetimeBytes = existsSync17(lifetimeFullPath) ? readFileSync18(lifetimeFullPath, "utf-8") : null;
+    const lockedLifetimeBytes = existsSync19(lifetimeFullPath) ? readFileSync20(lifetimeFullPath, "utf-8") : null;
     if (lockedLifetimeBytes !== expectedLifetimeBytes) {
       throw conflict(`${agent} lifetime changed while joining Work Run ${workRunId}; retry the operation`);
     }
@@ -50532,7 +58314,7 @@ function beginAgentLifetime(vaultPath, ctx, params, mode) {
         kind: "join",
         summary: state.objective || `${agent} joined`,
         evidence: state.evidence,
-        actor,
+        actor: actor2,
         transitionToken
       });
       return { runPath: persistedRunPath, eventsPath: persistedEventsPath };
@@ -50581,16 +58363,16 @@ function makeWorkflowOps(vaultPath) {
       handler: async (ctx, params) => {
         const project = existingProjectKey2(vaultPath, params.project, "workflow.state.set");
         const stage = parseStage(params.stage);
-        const actor = actorFromContext6(ctx);
+        const actor2 = actorFromContext6(ctx);
         const path = statePath(project);
         const state = {
           project,
           stage,
           objective: persistedOneLine("objective", params.objective),
           branch: persistedOneLine("branch", params.branch),
-          host: persistedOneLine("host", params.host) || actor,
+          host: persistedOneLine("host", params.host) || actor2,
           evidence: persistedStringList("evidence", params.evidence),
-          updatedBy: actor,
+          updatedBy: actor2,
           updatedAt: isoNow(),
           path
         };
@@ -50600,7 +58382,7 @@ function makeWorkflowOps(vaultPath) {
           project,
           path,
           state,
-          projectInitialized: existsSync17(vaultJoin(vaultPath, projectNotePath2(project)))
+          projectInitialized: existsSync19(vaultJoin(vaultPath, projectNotePath2(project)))
         };
       }
     },
@@ -50656,16 +58438,16 @@ function makeWorkflowOps(vaultPath) {
         const summary = persistedOneLine("summary", params.summary);
         if (!summary)
           throw makeErr(-32602, "summary required");
-        const actor = actorFromContext6(ctx);
+        const actor2 = actorFromContext6(ctx);
         const path = checkpointsPath(project);
-        const fullPath = vaultJoin(vaultPath, path);
+        const fullPath2 = vaultJoin(vaultPath, path);
         const evidence = persistedStringList("evidence", params.evidence);
         const next = persistedOneLine("next", params.next);
         const now = isoNow();
         const evidenceLines = evidence.length ? evidence.map((item) => `  - ${item}`).join("\n") : "  - none";
         const block = [
-          existsSync17(fullPath) ? "" : checkpointHeader(project),
-          `## ${now} - ${stage} - ${actor}`,
+          existsSync19(fullPath2) ? "" : checkpointHeader(project),
+          `## ${now} - ${stage} - ${actor2}`,
           "",
           `- status: ${status}`,
           `- summary: ${summary}`,
@@ -50675,7 +58457,7 @@ function makeWorkflowOps(vaultPath) {
           ""
         ].filter((part) => part !== "").join("\n");
         appendVaultBytes(vaultPath, path, block);
-        return { ok: true, project, path, stage, status, actor, evidence };
+        return { ok: true, project, path, stage, status, actor: actor2, evidence };
       }
     },
     {
@@ -50742,6 +58524,16 @@ function makeWorkflowOps(vaultPath) {
           description: "Existing Work Run state; leased is expected when attaching a Work Driver lease"
         },
         work_item_id: { type: "string", required: true, description: "Canonical project/<slug>/issue/<slug> identity" },
+        agent_profile_id: { type: "string", required: false, description: "Locked Agent Profile identity asserted against the durable Work Run" },
+        agent_profile_revision: { type: "number", required: false, description: "Locked positive Agent Profile revision" },
+        project_agent_binding_id: { type: "string", required: false, description: "Locked Project Agent Binding identity" },
+        project_agent_binding_revision: { type: "number", required: false, description: "Locked positive Project Agent Binding revision" },
+        assignment_plan_id: { type: "string", required: false, description: "Approved deterministic Assignment Plan identity" },
+        assignment_plan_version: { type: "number", required: false, description: "Locked positive Assignment Plan version" },
+        assignment_plan_fingerprint: { type: "string", required: false, description: "Locked SHA-256 Assignment Plan fingerprint" },
+        context_envelope_fingerprint: { type: "string", required: false, description: "Locked SHA-256 Context Envelope fingerprint" },
+        device_snapshot: { type: "object", required: false, description: "Locked portable Device Snapshot used by the Assignment Plan" },
+        parent_work_run_id: { type: "string", required: false, description: "Exactly one parent Work Run identity for a delegated child" },
         lease_mode: {
           type: "string",
           required: false,
@@ -50818,9 +58610,9 @@ function makeWorkflowOps(vaultPath) {
         next: { type: "string", required: false, description: "Next action or stop condition" }
       },
       handler: async (ctx, params) => {
-        const actor = actorFromContext6(ctx);
+        const actor2 = actorFromContext6(ctx);
         const project = existingProjectKey2(vaultPath, params.project, "workflow.agent.step");
-        const agent = agentKey(params.agent, actor);
+        const agent = agentKey(params.agent, actor2);
         return withWorkRunLock(vaultPath, () => {
           const current = readAgentLifetime(vaultPath, project, agent);
           if (!current)
@@ -50881,7 +58673,7 @@ function makeWorkflowOps(vaultPath) {
               summary: summary || `${current.stage} -> ${stage}`,
               evidence: incomingEvidence,
               next,
-              actor,
+              actor: actor2,
               transitionToken
             });
             return { ok: true, idempotent: false, project, projectId: state.projectId, agent, workRunId: state.workRunId, path: state.path, eventsPath, runPath, lifetime: state };
@@ -50921,9 +58713,9 @@ function makeWorkflowOps(vaultPath) {
         provenance: { type: "array", required: false }
       },
       handler: async (ctx, params) => {
-        const actor = actorFromContext6(ctx);
+        const actor2 = actorFromContext6(ctx);
         const project = existingProjectKey2(vaultPath, params.project, "workflow.agent.checkpoint");
-        const agent = agentKey(params.agent, actor);
+        const agent = agentKey(params.agent, actor2);
         return withWorkRunLock(vaultPath, () => {
           const current = readAgentLifetime(vaultPath, project, agent);
           if (!current)
@@ -50970,7 +58762,7 @@ function makeWorkflowOps(vaultPath) {
               summary,
               evidence: incomingEvidence,
               next,
-              actor,
+              actor: actor2,
               transitionToken
             });
             return {
@@ -51020,9 +58812,9 @@ function makeWorkflowOps(vaultPath) {
         provenance: { type: "array", required: false }
       },
       handler: async (ctx, params) => {
-        const actor = actorFromContext6(ctx);
+        const actor2 = actorFromContext6(ctx);
         const project = existingProjectKey2(vaultPath, params.project, "workflow.agent.leave");
-        const agent = agentKey(params.agent, actor);
+        const agent = agentKey(params.agent, actor2);
         return withWorkRunLock(vaultPath, () => {
           const current = readAgentLifetime(vaultPath, project, agent);
           if (!current)
@@ -51061,7 +58853,7 @@ function makeWorkflowOps(vaultPath) {
             appendAgentEvent(vaultPath, state, {
               kind: "leave",
               summary: summary || `${agent} archived`,
-              actor,
+              actor: actor2,
               transitionToken
             });
             return { ok: true, idempotent: false, project, projectId: state.projectId, agent, workRunId: state.workRunId, path: state.path, eventsPath, runPath, lifetime: state };
@@ -51080,9 +58872,9 @@ function makeWorkflowOps(vaultPath) {
         work_run_id: { type: "string", required: false, description: "Expected Work Run ID for cross-runtime join diagnosis" }
       },
       handler: async (ctx, params) => {
-        const actor = actorFromContext6(ctx);
+        const actor2 = actorFromContext6(ctx);
         const project = existingProjectKey2(vaultPath, params.project, "workflow.agent.doctor");
-        const agent = agentKey(params.agent, actor);
+        const agent = agentKey(params.agent, actor2);
         const expectedWorkRunId = optionalString3(params.work_run_id) ? parseWorkRunId(params.work_run_id) : void 0;
         return agentDoctor(vaultPath, project, agent, expectedWorkRunId);
       }
@@ -51102,7 +58894,7 @@ function makeWorkflowOps(vaultPath) {
 
 // dist/project/project-migration.js
 import { execFile as execFile5 } from "node:child_process";
-import { join as join21 } from "node:path";
+import { join as join27 } from "node:path";
 import { promisify as promisify5 } from "node:util";
 var execAsync = promisify5(execFile5);
 var PYTHON_BRIDGE = 'import json,sys; import project_migration as m; action,vault,payload=sys.argv[1],sys.argv[2],json.loads(sys.argv[3]); result=(m.inventory_project_layout(vault) if action=="inventory" else m.plan_project_migration(vault) if action=="plan" else m.apply_migration_plan(m.plan_project_migration(vault), apply=bool(payload.get("apply")), batch_id=payload.get("batch_id")) if action=="apply" else m.restore_migration(vault, payload["manifest"], apply=bool(payload.get("apply")))); print(json.dumps(result, ensure_ascii=False))';
@@ -51177,18 +58969,7069 @@ function makeProjectMigrationOps(options) {
       handler: async (_ctx, params) => {
         if (typeof params.manifest !== "string" || !params.manifest.trim())
           throw makeErr(-32602, "manifest required");
-        const manifest = join21(vaultPath, params.manifest);
+        const manifest = join27(vaultPath, params.manifest);
         return invokeMigration(python, compilerPath, vaultPath, "restore", { manifest, apply: params.apply === true });
       }
     }
   ];
 }
 
+// dist/usage/operations.js
+import { join as join28 } from "node:path";
+
+// dist/usage/policy.js
+var USAGE_POLICY_SCHEMA = "llmwiki.usage-policy";
+var USAGE_POLICY_SCHEMA_VERSION = 1;
+var POLICY_METRICS = /* @__PURE__ */ new Set([
+  "eventCount",
+  "inputTokens",
+  "outputTokens",
+  "totalTokens",
+  "providerReportedCost"
+]);
+var DECISIONS = /* @__PURE__ */ new Set(["allow", "warn", "deny"]);
+var POLICY_ID = /^[A-Za-z][A-Za-z0-9._:/-]{0,159}$/;
+var CURRENCY2 = /^[A-Z]{3}$/;
+function record4(value, fieldPath) {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new TypeError(`${fieldPath} must be an object`);
+}
+function closed(value, allowed, required2, fieldPath) {
+  const keys = new Set(allowed);
+  for (const key of Object.keys(value)) {
+    if (!keys.has(key))
+      throw new TypeError(`${fieldPath}.${key} is not part of the versioned Usage Policy contract`);
+  }
+  for (const key of required2) {
+    if (!(key in value))
+      throw new TypeError(`${fieldPath}.${key} is required`);
+  }
+}
+function threshold(value, fieldPath) {
+  if (value === void 0)
+    return void 0;
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    throw new TypeError(`${fieldPath} must be finite and non-negative`);
+  }
+  return value;
+}
+function validateUsagePolicy(value) {
+  record4(value, "$");
+  closed(value, [
+    "schema",
+    "schemaVersion",
+    "policyId",
+    "policyVersion",
+    "scopeFilters",
+    "rules"
+  ], [
+    "schema",
+    "schemaVersion",
+    "policyId",
+    "policyVersion",
+    "scopeFilters",
+    "rules"
+  ], "$");
+  if (value.schema !== USAGE_POLICY_SCHEMA || value.schemaVersion !== USAGE_POLICY_SCHEMA_VERSION) {
+    throw new TypeError("Unsupported Usage Policy schema version");
+  }
+  if (typeof value.policyId !== "string" || !POLICY_ID.test(value.policyId))
+    throw new TypeError("$.policyId must be canonical");
+  assertSafeUsageString(value.policyId, "$.policyId");
+  if (!Number.isSafeInteger(value.policyVersion) || value.policyVersion < 1) {
+    throw new TypeError("$.policyVersion must be a positive safe integer");
+  }
+  record4(value.scopeFilters, "$.scopeFilters");
+  closed(value.scopeFilters, USAGE_DIMENSION_NAMES, [], "$.scopeFilters");
+  const scopeFilters = {};
+  for (const name of USAGE_DIMENSION_NAMES) {
+    const filter = value.scopeFilters[name];
+    if (filter === void 0)
+      continue;
+    if (filter !== null) {
+      if (typeof filter !== "string" || filter.length === 0)
+        throw new TypeError(`$.scopeFilters.${name} must be an identifier or null`);
+      assertSafeUsageString(filter, `$.scopeFilters.${name}`);
+    }
+    scopeFilters[name] = filter;
+  }
+  if (!Array.isArray(value.rules) || value.rules.length === 0)
+    throw new TypeError("$.rules must contain at least one rule");
+  const ruleIds = /* @__PURE__ */ new Set();
+  const rules = value.rules.map((item, index) => {
+    const fieldPath = `$.rules[${index}]`;
+    record4(item, fieldPath);
+    closed(item, ["ruleId", "metric", "currency", "warnAt", "denyAt", "unknownAction"], ["ruleId", "metric", "unknownAction"], fieldPath);
+    if (typeof item.ruleId !== "string" || !POLICY_ID.test(item.ruleId))
+      throw new TypeError(`${fieldPath}.ruleId must be canonical`);
+    assertSafeUsageString(item.ruleId, `${fieldPath}.ruleId`);
+    if (ruleIds.has(item.ruleId))
+      throw new TypeError(`Duplicate Usage Policy rule: ${item.ruleId}`);
+    ruleIds.add(item.ruleId);
+    if (typeof item.metric !== "string" || !POLICY_METRICS.has(item.metric)) {
+      throw new TypeError(`${fieldPath}.metric is unsupported`);
+    }
+    if (typeof item.unknownAction !== "string" || !DECISIONS.has(item.unknownAction)) {
+      throw new TypeError(`${fieldPath}.unknownAction must be allow, warn, or deny`);
+    }
+    const metric = item.metric;
+    let currency;
+    if (metric === "providerReportedCost") {
+      if (typeof item.currency !== "string" || !CURRENCY2.test(item.currency)) {
+        throw new TypeError(`${fieldPath}.currency is required for providerReportedCost`);
+      }
+      currency = item.currency;
+    } else if (item.currency !== void 0) {
+      throw new TypeError(`${fieldPath}.currency is only valid for providerReportedCost`);
+    }
+    const warnAt = threshold(item.warnAt, `${fieldPath}.warnAt`);
+    const denyAt = threshold(item.denyAt, `${fieldPath}.denyAt`);
+    if (warnAt === void 0 && denyAt === void 0 && item.unknownAction === "allow") {
+      throw new TypeError(`${fieldPath} has no enforceable limit`);
+    }
+    if (warnAt !== void 0 && denyAt !== void 0 && warnAt > denyAt) {
+      throw new TypeError(`${fieldPath}.warnAt must not exceed denyAt`);
+    }
+    return {
+      ruleId: item.ruleId,
+      metric,
+      ...currency === void 0 ? {} : { currency },
+      ...warnAt === void 0 ? {} : { warnAt },
+      ...denyAt === void 0 ? {} : { denyAt },
+      unknownAction: item.unknownAction
+    };
+  });
+  return {
+    schema: USAGE_POLICY_SCHEMA,
+    schemaVersion: USAGE_POLICY_SCHEMA_VERSION,
+    policyId: value.policyId,
+    policyVersion: value.policyVersion,
+    scopeFilters,
+    rules
+  };
+}
+function severity(value) {
+  return value === "deny" ? 2 : value === "warn" ? 1 : 0;
+}
+function metricValue(projection, rule) {
+  if (rule.metric === "eventCount")
+    return { knownValue: projection.sourceEventCount, unknownCount: 0 };
+  if (rule.metric === "providerReportedCost") {
+    let knownValue2 = 0;
+    let unknownCount2 = 0;
+    for (const group of projection.groups) {
+      knownValue2 += group.metrics.providerReportedCost.totals.filter((total) => total.currency === rule.currency).reduce((sum, total) => sum + total.knownTotal, 0);
+      unknownCount2 += group.metrics.providerReportedCost.unknownAmountCount;
+    }
+    return { knownValue: knownValue2, unknownCount: unknownCount2 };
+  }
+  let knownValue = 0;
+  let unknownCount = 0;
+  for (const group of projection.groups) {
+    const metric = group.metrics[rule.metric];
+    knownValue += metric.knownTotal;
+    unknownCount += metric.unknownCount;
+  }
+  return { knownValue, unknownCount };
+}
+function sameScope(expected, actual) {
+  return canonicalJson3(expected) === canonicalJson3(actual);
+}
+function evaluateUsagePolicy(policyValue, projection) {
+  const policy = validateUsagePolicy(policyValue);
+  if (projection.schema !== "llmwiki.usage-projection" || projection.schemaVersion !== 1) {
+    throw new TypeError("Unsupported Usage Projection schema version");
+  }
+  if (!sameScope(policy.scopeFilters, projection.query.filters)) {
+    throw new TypeError("Usage Policy scope must exactly match the projection filters");
+  }
+  const rules = policy.rules.map((rule) => {
+    const { knownValue, unknownCount } = metricValue(projection, rule);
+    let decision2 = "allow";
+    const reasons = [];
+    if (rule.denyAt !== void 0 && knownValue >= rule.denyAt) {
+      decision2 = "deny";
+      reasons.push("deny-limit-reached");
+    } else if (rule.warnAt !== void 0 && knownValue >= rule.warnAt) {
+      decision2 = "warn";
+      reasons.push("warning-limit-reached");
+    } else {
+      reasons.push("within-limit");
+    }
+    if (unknownCount > 0) {
+      reasons.push("unknown-facts");
+      if (severity(rule.unknownAction) > severity(decision2))
+        decision2 = rule.unknownAction;
+    }
+    return {
+      ruleId: rule.ruleId,
+      metric: rule.metric,
+      ...rule.currency === void 0 ? {} : { currency: rule.currency },
+      decision: decision2,
+      knownValue,
+      unknownCount,
+      reasons
+    };
+  });
+  const decision = rules.reduce((current, rule) => severity(rule.decision) > severity(current) ? rule.decision : current, "allow");
+  const decisionId = `usage-decision/${sha256(canonicalJson3({
+    policyId: policy.policyId,
+    policyVersion: policy.policyVersion,
+    projectionRevision: projection.revision,
+    rules
+  }))}`;
+  return {
+    schema: "llmwiki.usage-policy-decision",
+    schemaVersion: 1,
+    decisionId,
+    decision,
+    policyId: policy.policyId,
+    policyVersion: policy.policyVersion,
+    projectionRevision: projection.revision,
+    sourceEventCount: projection.sourceEventCount,
+    window: projection.query.window,
+    rules
+  };
+}
+
+// dist/usage/operations.js
+var USAGE_LEDGER_RELATIVE_ROOT = "_llmwiki/usage/v1";
+var USAGE_NAMESPACE = "usage";
+function ledgerRoot(vaultPath) {
+  return join28(vaultPath, ...USAGE_LEDGER_RELATIVE_ROOT.split("/"));
+}
+function requiredString2(value, field) {
+  if (typeof value !== "string" || !value.trim())
+    throw badRequest(`${field} is required`);
+  return value.trim();
+}
+function optionalString4(value, field) {
+  if (value === void 0)
+    return void 0;
+  if (typeof value !== "string" || !value.trim())
+    throw badRequest(`${field} must be a non-empty string`);
+  return value.trim();
+}
+function record5(value, field) {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw badRequest(`${field} must be an object`);
+  return value;
+}
+function closedParams(params, allowed) {
+  const names = new Set(allowed);
+  for (const key of Object.keys(params)) {
+    if (!names.has(key))
+      throw badRequest(`Unsupported Usage operation parameter: ${key}`);
+  }
+}
+function projectContext(vaultPath, params, operation) {
+  return resolveProjectContext(vaultPath, requiredString2(params.project, "project"), operation);
+}
+function assertEventProject(event, projectId2) {
+  const attributed = event.dimensions.project;
+  if (attributed.state !== "known") {
+    throw badRequest("Project-scoped Usage Events require an explicitly known Project attribution");
+  }
+  if (attributed.value !== projectId2) {
+    throw conflict("Usage Event Project attribution conflicts with Project Context", {
+      expectedProjectId: projectId2,
+      eventProjectId: attributed.value
+    });
+  }
+}
+function parseGroupBy(value) {
+  if (value === void 0)
+    return void 0;
+  if (!Array.isArray(value))
+    throw badRequest("groupBy must be an array");
+  return value.map((item, index) => {
+    if (typeof item !== "string" || !USAGE_DIMENSION_NAMES.includes(item)) {
+      throw badRequest(`groupBy[${index}] must be a supported Usage dimension`);
+    }
+    return item;
+  });
+}
+function parseFilters(value) {
+  if (value === void 0)
+    return {};
+  const input = record5(value, "filters");
+  const filters = {};
+  for (const [key, item] of Object.entries(input)) {
+    if (!USAGE_DIMENSION_NAMES.includes(key)) {
+      throw badRequest(`filters.${key} is not a supported Usage dimension`);
+    }
+    if (item !== null && (typeof item !== "string" || !item.length)) {
+      throw badRequest(`filters.${key} must be an identifier or null`);
+    }
+    filters[key] = item;
+  }
+  return filters;
+}
+function projectQuery(params, projectId2) {
+  const filters = parseFilters(params.filters);
+  if (filters.project !== void 0 && filters.project !== projectId2) {
+    throw conflict("Usage projection Project filter conflicts with Project Context", {
+      expectedProjectId: projectId2
+    });
+  }
+  return {
+    groupBy: parseGroupBy(params.groupBy),
+    filters: { ...filters, project: projectId2 },
+    from: optionalString4(params.from, "from"),
+    to: optionalString4(params.to, "to")
+  };
+}
+function operationError(error48) {
+  if (isOperationError(error48))
+    throw error48;
+  if (error48 instanceof UsageEventConflictError) {
+    throw conflict(error48.message, { eventId: error48.eventId, storageKey: error48.storageKey });
+  }
+  if (error48 instanceof UsageLedgerCorruptionError) {
+    throw internal("Usage ledger validation failed closed", { storageKey: error48.storageKey });
+  }
+  if (error48 instanceof UsageValidationError || error48 instanceof UsagePrivacyError || error48 instanceof TypeError) {
+    throw badRequest(error48.message);
+  }
+  throw internal("Usage operation failed closed");
+}
+function boundary(action) {
+  try {
+    return action();
+  } catch (error48) {
+    operationError(error48);
+  }
+}
+function appendInput(vaultPath, params, operation) {
+  closedParams(params, ["project", "event"]);
+  const project = projectContext(vaultPath, params, operation);
+  const event = validateUsageEvent(record5(params.event, "event"));
+  assertEventProject(event, project.projectId);
+  return { event, projectId: project.projectId };
+}
+function appendTarget(vaultPath, params) {
+  const { event } = appendInput(vaultPath, params, "usage.append");
+  return `${USAGE_LEDGER_RELATIVE_ROOT}/${usageEventStorageKey(event.idempotencyKey)}`;
+}
+function handleAppend(vaultPath, params) {
+  const { event, projectId: projectId2 } = appendInput(vaultPath, params, "usage.append");
+  const result = new UsageLedger(ledgerRoot(vaultPath)).append(event);
+  return { projectId: projectId2, ...result };
+}
+function handleProject(vaultPath, params) {
+  closedParams(params, ["project", "groupBy", "filters", "from", "to"]);
+  const project = projectContext(vaultPath, params, "usage.project");
+  const projection = projectUsage(new UsageLedger(ledgerRoot(vaultPath)).list(), projectQuery(params, project.projectId));
+  return { projectId: project.projectId, projection };
+}
+function handlePolicyEvaluation(vaultPath, params) {
+  closedParams(params, ["project", "policy", "from", "to"]);
+  const project = projectContext(vaultPath, params, "usage.policy.evaluate");
+  const policy = validateUsagePolicy(record5(params.policy, "policy"));
+  if (policy.scopeFilters.project !== project.projectId) {
+    throw conflict("Usage Policy Project scope conflicts with Project Context", {
+      expectedProjectId: project.projectId
+    });
+  }
+  const projection = projectUsage(new UsageLedger(ledgerRoot(vaultPath)).list(), {
+    filters: policy.scopeFilters,
+    from: optionalString4(params.from, "from"),
+    to: optionalString4(params.to, "to")
+  });
+  return {
+    projectId: project.projectId,
+    projection,
+    decision: evaluateUsagePolicy(policy, projection)
+  };
+}
+function makeUsageOps(vaultPath) {
+  const append = {
+    name: "usage.append",
+    namespace: USAGE_NAMESPACE,
+    description: "Append one immutable Project-attributed Usage Event or replay its existing logical event.",
+    mutating: true,
+    writePolicy: {
+      realWrite: "always",
+      targets: (ctx, params) => [
+        boundary(() => appendTarget(ctx.config.vault_path, params))
+      ],
+      audit: "required"
+    },
+    params: {
+      project: { type: "string", required: true, description: "Canonical Project ID or registered compatibility reference" },
+      event: { type: "object", required: true, description: "Versioned privacy-safe Usage Event" }
+    },
+    handler: async (_ctx, params) => boundary(() => handleAppend(vaultPath, params))
+  };
+  const project = {
+    name: "usage.project",
+    namespace: USAGE_NAMESPACE,
+    description: "Return a deterministic Project-owned Usage projection without mutating the Usage ledger.",
+    mutating: false,
+    params: {
+      project: { type: "string", required: true, description: "Canonical Project ID or registered compatibility reference" },
+      groupBy: { type: "array", required: false, description: "Usage dimensions used to form deterministic groups" },
+      filters: { type: "object", required: false, description: "Additional Usage dimension filters; Project cannot drift" },
+      from: { type: "string", required: false, description: "Inclusive canonical UTC RFC3339 start" },
+      to: { type: "string", required: false, description: "Exclusive canonical UTC RFC3339 end" }
+    },
+    handler: async (_ctx, params) => boundary(() => handleProject(vaultPath, params))
+  };
+  const evaluate2 = {
+    name: "usage.policy.evaluate",
+    namespace: USAGE_NAMESPACE,
+    description: "Evaluate one versioned Project-scoped Usage budget/admission policy over immutable Usage facts.",
+    mutating: false,
+    params: {
+      project: { type: "string", required: true, description: "Canonical Project ID or registered compatibility reference" },
+      policy: { type: "object", required: true, description: "Versioned Usage Policy with an exact Project scope" },
+      from: { type: "string", required: false, description: "Inclusive canonical UTC RFC3339 start" },
+      to: { type: "string", required: false, description: "Exclusive canonical UTC RFC3339 end" }
+    },
+    handler: async (_ctx, params) => boundary(() => handlePolicyEvaluation(vaultPath, params))
+  };
+  return [append, project, evaluate2];
+}
+
+// dist/host-capabilities/operations.js
+import { join as join29 } from "node:path";
+
+// dist/host-capabilities/assignment.js
+var ASSIGNMENT_TIE_BREAK_ORDER = [
+  "health: available before degraded",
+  "device: exact requested device before affinity before unspecified",
+  "model: explicit advertised model before unspecified",
+  "cost: free before known amount before unknown",
+  "stable identity: descriptorId ascending, descriptorVersion descending, connectorId ascending, deviceId ascending"
+];
+var REASON_ORDER = [
+  "descriptor_not_approved",
+  "descriptor_source_drift",
+  "connector_not_approved",
+  "connector_source_drift",
+  "connector_health_expired",
+  "connector_health_disabled",
+  "connector_health_unavailable",
+  "connector_health_degraded_by_policy",
+  "connector_reference_mismatch",
+  "grant_scope_mismatch",
+  "grant_expired",
+  "descriptor_not_granted",
+  "connector_not_granted",
+  "descriptor_denied_by_policy",
+  "descriptor_not_allowed_by_policy",
+  "connector_not_allowed_by_policy",
+  "health_missing",
+  "health_expired",
+  "health_disabled",
+  "health_unavailable",
+  "health_degraded_by_policy",
+  "capability_missing",
+  "operation_missing",
+  "connector_operation_missing",
+  "operation_not_granted",
+  "side_effect_not_granted",
+  "side_effect_not_allowed_by_policy",
+  "model_missing",
+  "model_not_allowed_by_policy",
+  "device_missing",
+  "device_expired",
+  "device_unavailable",
+  "device_id_mismatch",
+  "device_not_allowed_by_policy",
+  "device_capability_missing",
+  "device_model_missing",
+  "resource_class_missing",
+  "cost_currency_mismatch",
+  "cost_exceeds_limit",
+  "unknown_cost_not_allowed"
+];
+function uniqueInReasonOrder(reasons) {
+  const unique = new Set(reasons);
+  return [
+    ...REASON_ORDER.filter((reason) => unique.delete(reason)),
+    ...[...unique].sort()
+  ];
+}
+function includesAll(actual, required2) {
+  const values = new Set(actual);
+  return required2.every((entry) => values.has(entry));
+}
+function isExpired(timestamp2, plannedAt) {
+  return timestamp2 !== void 0 && Date.parse(timestamp2) <= plannedAt;
+}
+function validateInput(input) {
+  validateCapabilityOperationGrant(input.grant);
+  const plannedAt = Date.parse(input.plannedAt);
+  if (!Number.isFinite(plannedAt)) {
+    throw new TypeError("plannedAt must be an ISO-8601 timestamp");
+  }
+  if (input.requirement.projectId !== input.grant.projectId || input.requirement.workRunId !== input.grant.workRunId) {
+    throw new TypeError("Assignment requirement and capability grant must share Project Context and Work Run identity");
+  }
+  if (input.requirement.projectId !== `project/${input.requirement.projectId.slice(8)}`) {
+    throw new TypeError("Assignment requirement requires a canonical project/<slug> ID");
+  }
+  return plannedAt;
+}
+function evaluate(input, candidate, plannedAt) {
+  const descriptor = candidate.descriptor.descriptor;
+  const connector = candidate.connector.connector;
+  const device = candidate.device;
+  const reasons = [];
+  if (!candidate.descriptor.assignable) {
+    if (candidate.descriptor.reasonCodes.includes("source_revision_drift") || candidate.descriptor.reasonCodes.includes("source_content_drift")) {
+      reasons.push("descriptor_source_drift");
+    } else {
+      reasons.push("descriptor_not_approved");
+    }
+  }
+  if (!candidate.connector.assignable) {
+    if (candidate.connector.reasonCodes.includes("source_revision_drift") || candidate.connector.reasonCodes.includes("source_content_drift")) {
+      reasons.push("connector_source_drift");
+    } else {
+      reasons.push("connector_not_approved");
+    }
+  }
+  if (candidate.connectorHealth) {
+    if (isExpired(candidate.connectorHealth.expiresAt, plannedAt)) {
+      reasons.push("connector_health_expired");
+    }
+    if (candidate.connectorHealth.state === "disabled") {
+      reasons.push("connector_health_disabled");
+    }
+    if (candidate.connectorHealth.state === "unavailable") {
+      reasons.push("connector_health_unavailable");
+    }
+    if (candidate.connectorHealth.state === "degraded" && !input.policy.allowDegradedHealth) {
+      reasons.push("connector_health_degraded_by_policy");
+    }
+  }
+  if (descriptor.connectorRef.connectorId !== connector.connectorId || descriptor.connectorRef.connectorVersion !== connector.connectorVersion) {
+    reasons.push("connector_reference_mismatch");
+  }
+  if (input.grant.projectId !== input.requirement.projectId || input.grant.workRunId !== input.requirement.workRunId) {
+    reasons.push("grant_scope_mismatch");
+  }
+  if (isExpired(input.grant.expiresAt, plannedAt))
+    reasons.push("grant_expired");
+  if (!input.grant.descriptorIds.includes(descriptor.descriptorId)) {
+    reasons.push("descriptor_not_granted");
+  }
+  if (!input.grant.connectorIds.includes(connector.connectorId)) {
+    reasons.push("connector_not_granted");
+  }
+  if (input.policy.deniedDescriptorIds?.includes(descriptor.descriptorId)) {
+    reasons.push("descriptor_denied_by_policy");
+  }
+  if (input.policy.allowedDescriptorIds && !input.policy.allowedDescriptorIds.includes(descriptor.descriptorId)) {
+    reasons.push("descriptor_not_allowed_by_policy");
+  }
+  if (input.policy.allowedConnectorIds && !input.policy.allowedConnectorIds.includes(connector.connectorId)) {
+    reasons.push("connector_not_allowed_by_policy");
+  }
+  const health = candidate.descriptor.health;
+  if (!health) {
+    reasons.push("health_missing");
+  } else {
+    if (isExpired(health.expiresAt, plannedAt))
+      reasons.push("health_expired");
+    if (health.state === "disabled")
+      reasons.push("health_disabled");
+    if (health.state === "unavailable")
+      reasons.push("health_unavailable");
+    if (health.state === "degraded" && !input.policy.allowDegradedHealth) {
+      reasons.push("health_degraded_by_policy");
+    }
+  }
+  if (!includesAll(descriptor.capabilities, input.requirement.capabilities)) {
+    reasons.push("capability_missing");
+  }
+  if (!includesAll(descriptor.operations.map((operation) => operation.operation), input.requirement.operations)) {
+    reasons.push("operation_missing");
+  }
+  if (!includesAll(connector.supportedOperations, input.requirement.operations)) {
+    reasons.push("connector_operation_missing");
+  }
+  if (!includesAll(input.grant.operations, input.requirement.operations)) {
+    reasons.push("operation_not_granted");
+  }
+  const requiredOperations = descriptor.operations.filter((operation) => input.requirement.operations.includes(operation.operation));
+  if (requiredOperations.some((operation) => !input.grant.sideEffectClasses.includes(operation.sideEffectClass))) {
+    reasons.push("side_effect_not_granted");
+  }
+  if (requiredOperations.some((operation) => !input.policy.allowedSideEffectClasses.includes(operation.sideEffectClass))) {
+    reasons.push("side_effect_not_allowed_by_policy");
+  }
+  if (input.requirement.model && !descriptor.models?.includes(input.requirement.model)) {
+    reasons.push("model_missing");
+  }
+  if (input.requirement.model && input.policy.allowedModels && !input.policy.allowedModels.includes(input.requirement.model)) {
+    reasons.push("model_not_allowed_by_policy");
+  }
+  const needsDevice = Boolean(input.requirement.deviceId || input.requirement.resourceClass || descriptor.deviceAffinities?.length || descriptor.resourceClasses?.length);
+  if (needsDevice && !device) {
+    reasons.push("device_missing");
+  }
+  if (device) {
+    if (isExpired(device.expiresAt, plannedAt))
+      reasons.push("device_expired");
+    if (device.health === "disabled" || device.health === "unavailable") {
+      reasons.push("device_unavailable");
+    }
+    if (input.requirement.deviceId && device.deviceId !== input.requirement.deviceId) {
+      reasons.push("device_id_mismatch");
+    }
+    if (input.policy.allowedDeviceIds && !input.policy.allowedDeviceIds.includes(device.deviceId)) {
+      reasons.push("device_not_allowed_by_policy");
+    }
+    if (!includesAll(device.capabilities, input.requirement.capabilities)) {
+      reasons.push("device_capability_missing");
+    }
+    if (input.requirement.model && !device.models.includes(input.requirement.model)) {
+      reasons.push("device_model_missing");
+    }
+    if (input.requirement.resourceClass && !device.resourceClasses.includes(input.requirement.resourceClass)) {
+      reasons.push("resource_class_missing");
+    }
+  }
+  const cost = descriptor.cost ?? { kind: "unknown" };
+  if (input.requirement.maxCost) {
+    if (cost.kind === "fixed" || cost.kind === "estimated") {
+      if (cost.currency !== input.requirement.maxCost.currency) {
+        reasons.push("cost_currency_mismatch");
+      } else if ((cost.amount ?? Number.POSITIVE_INFINITY) > input.requirement.maxCost.amount) {
+        reasons.push("cost_exceeds_limit");
+      }
+    } else if (cost.kind === "unknown" && !input.policy.allowUnknownCost) {
+      reasons.push("unknown_cost_not_allowed");
+    }
+  } else if (cost.kind === "unknown" && !input.policy.allowUnknownCost) {
+    reasons.push("unknown_cost_not_allowed");
+  }
+  const healthRank = health?.state === "available" && (!candidate.connectorHealth || candidate.connectorHealth.state === "available") ? 0 : 1;
+  const deviceRank = input.requirement.deviceId ? device?.deviceId === input.requirement.deviceId ? 0 : 2 : device && descriptor.deviceAffinities?.includes(device.deviceId) ? 0 : device ? 1 : 2;
+  const modelRank = input.requirement.model ? descriptor.models?.includes(input.requirement.model) ? 0 : 1 : descriptor.models?.length ? 0 : 1;
+  const costKindRank = cost.kind === "free" ? 0 : cost.kind === "fixed" || cost.kind === "estimated" ? 1 : 2;
+  const costAmount = cost.kind === "free" ? 0 : cost.kind === "fixed" || cost.kind === "estimated" ? cost.amount ?? Number.MAX_SAFE_INTEGER : Number.MAX_SAFE_INTEGER;
+  return {
+    candidate,
+    evaluation: {
+      descriptorId: descriptor.descriptorId,
+      descriptorVersion: descriptor.descriptorVersion,
+      connectorId: connector.connectorId,
+      connectorVersion: connector.connectorVersion,
+      deviceId: device?.deviceId,
+      eligible: reasons.length === 0,
+      reasonCodes: uniqueInReasonOrder(reasons),
+      rank: [healthRank, deviceRank, modelRank, costKindRank, costAmount]
+    }
+  };
+}
+function compareEvaluated(left, right) {
+  if (left.evaluation.eligible !== right.evaluation.eligible) {
+    return left.evaluation.eligible ? -1 : 1;
+  }
+  const leftRank = left.evaluation.rank;
+  const rightRank = right.evaluation.rank;
+  for (let index = 0; index < leftRank.length; index += 1) {
+    if (leftRank[index] !== rightRank[index]) {
+      return leftRank[index] - rightRank[index];
+    }
+  }
+  const idCompared = left.evaluation.descriptorId.localeCompare(right.evaluation.descriptorId);
+  if (idCompared !== 0)
+    return idCompared;
+  const versionCompared = -compareVersions(left.evaluation.descriptorVersion, right.evaluation.descriptorVersion);
+  if (versionCompared !== 0)
+    return versionCompared;
+  const connectorCompared = left.evaluation.connectorId.localeCompare(right.evaluation.connectorId);
+  if (connectorCompared !== 0)
+    return connectorCompared;
+  return (left.evaluation.deviceId ?? "").localeCompare(right.evaluation.deviceId ?? "");
+}
+function planAssignment(input) {
+  const plannedAt = validateInput(input);
+  const evaluated = input.candidates.map((candidate) => evaluate(input, candidate, plannedAt)).sort(compareEvaluated);
+  const selected = evaluated.find((candidate) => candidate.evaluation.eligible);
+  const evaluations = evaluated.map(({ evaluation }) => evaluation);
+  const basePlan = {
+    schemaVersion: HOST_CAPABILITY_SCHEMA_VERSION,
+    plannedAt: input.plannedAt,
+    projectId: input.requirement.projectId,
+    workRunId: input.requirement.workRunId,
+    requirementId: input.requirement.requirementId,
+    policyId: input.policy.policyId,
+    policyVersion: input.policy.policyVersion,
+    grantId: input.grant.grantId,
+    status: selected ? "matched" : "no-match",
+    approval: {
+      status: "pending"
+    },
+    selected: selected ? {
+      descriptorId: selected.evaluation.descriptorId,
+      descriptorVersion: selected.evaluation.descriptorVersion,
+      descriptorFingerprint: selected.candidate.descriptor.fingerprint,
+      connectorId: selected.evaluation.connectorId,
+      connectorVersion: selected.evaluation.connectorVersion,
+      connectorFingerprint: selected.candidate.connector.fingerprint,
+      deviceId: selected.evaluation.deviceId
+    } : void 0,
+    evaluations,
+    diagnostics: {
+      code: selected ? "assignment_matched" : "assignment_no_match",
+      message: selected ? `Selected ${selected.evaluation.descriptorId}@${selected.evaluation.descriptorVersion}` : "No registered host capability satisfies the requirement, policy, health, device, cost, and grant constraints",
+      reasonCodes: selected ? [] : uniqueInReasonOrder(evaluations.flatMap((evaluation) => evaluation.reasonCodes)),
+      tieBreakOrder: [...ASSIGNMENT_TIE_BREAK_ORDER]
+    }
+  };
+  const digest3 = fingerprintContract(basePlan).slice("sha256:".length, "sha256:".length + 24);
+  return {
+    ...basePlan,
+    planId: `assignment-plan/${digest3}`
+  };
+}
+
+// dist/host-capabilities/redaction.js
+var SENSITIVE_KEY_PATTERN3 = /(?:authorization|cookie|token|secret|password|passphrase|api[-_]?key|private[-_]?key|client[-_]?secret|headers?|env)/i;
+var BEARER_PATTERN = /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi;
+var URL_CREDENTIAL_PATTERN = /(https?:\/\/)[^\s/@:]+:[^\s/@]+@/gi;
+var WINDOWS_ABSOLUTE_PATH_PATTERN2 = /\b[A-Za-z]:[\\/][^\s,;]*/g;
+var POSIX_HOME_PATH_PATTERN2 = /\/(?:Users|home|root)\/[^\s,;]*/g;
+var REDACTED = "[REDACTED]";
+var REDACTED_LOCAL_PATH = "[REDACTED_LOCAL_PATH]";
+function redactString(value) {
+  return value.replace(BEARER_PATTERN, `Bearer ${REDACTED}`).replace(URL_CREDENTIAL_PATTERN, `$1${REDACTED}@`).replace(WINDOWS_ABSOLUTE_PATH_PATTERN2, REDACTED_LOCAL_PATH).replace(POSIX_HOME_PATH_PATTERN2, REDACTED_LOCAL_PATH);
+}
+function redactDiagnosticValue(value) {
+  if (typeof value === "string")
+    return redactString(value);
+  if (Array.isArray(value))
+    return value.map(redactDiagnosticValue);
+  if (value instanceof Error) {
+    return {
+      name: value.name,
+      message: redactString(value.message)
+    };
+  }
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([key, entry]) => [
+      key,
+      SENSITIVE_KEY_PATTERN3.test(key) ? REDACTED : redactDiagnosticValue(entry)
+    ]));
+  }
+  return value;
+}
+
+// dist/host-capabilities/registry.js
+var HostCapabilityRegistryError = class extends Error {
+  code;
+  constructor(code, message) {
+    super(message);
+    this.code = code;
+    this.name = "HostCapabilityRegistryError";
+  }
+};
+function sortDescriptorEntries(left, right) {
+  const idCompared = left.descriptor.descriptorId.localeCompare(right.descriptor.descriptorId);
+  if (idCompared !== 0)
+    return idCompared;
+  return -compareVersions(left.descriptor.descriptorVersion, right.descriptor.descriptorVersion);
+}
+function sortConnectorEntries(left, right) {
+  const idCompared = left.connector.connectorId.localeCompare(right.connector.connectorId);
+  if (idCompared !== 0)
+    return idCompared;
+  return -compareVersions(left.connector.connectorVersion, right.connector.connectorVersion);
+}
+function evaluateProvenance(imported, observation) {
+  const reasons = [];
+  if (imported.licenseReview.status !== "approved") {
+    reasons.push("license_not_approved");
+  }
+  if (imported.approval.status !== "approved") {
+    reasons.push(`import_${imported.approval.status}`);
+  }
+  if (observation) {
+    if (observation.revision.kind !== imported.source.revision.kind || observation.revision.value !== imported.source.revision.value) {
+      reasons.push("source_revision_drift");
+    }
+    if (observation.contentHash !== imported.source.contentHash) {
+      reasons.push("source_content_drift");
+    }
+  }
+  return reasons;
+}
+function validateSourceObservation(observation) {
+  if (!["commit", "version"].includes(observation.revision.kind)) {
+    throw new HostCapabilityRegistryError("registry_conflict", "Source observation revision kind must be commit or version");
+  }
+  if (!observation.revision.value.trim()) {
+    throw new HostCapabilityRegistryError("registry_conflict", "Source observation revision requires a value");
+  }
+  if (!/^sha256:[a-f0-9]{64}$/.test(observation.contentHash)) {
+    throw new HostCapabilityRegistryError("registry_conflict", "Source observation requires a sha256 content hash");
+  }
+  if (!Number.isFinite(Date.parse(observation.observedAt))) {
+    throw new HostCapabilityRegistryError("registry_conflict", "Source observation requires a valid observedAt timestamp");
+  }
+}
+var ExpertDescriptorRegistry = class {
+  #descriptors = /* @__PURE__ */ new Map();
+  #fingerprints = /* @__PURE__ */ new Map();
+  #health = /* @__PURE__ */ new Map();
+  #observations = /* @__PURE__ */ new Map();
+  register(descriptor) {
+    const normalized = normalizeExpertDescriptor(descriptor);
+    const key = descriptorKey(normalized.descriptorId, normalized.descriptorVersion);
+    const fingerprint = fingerprintContract(normalized);
+    const previous = this.#fingerprints.get(key);
+    if (previous && previous !== fingerprint) {
+      throw new HostCapabilityRegistryError("registry_conflict", `Descriptor ${key} is already registered with different content`);
+    }
+    this.#descriptors.set(key, normalized);
+    this.#fingerprints.set(key, fingerprint);
+    return this.require(normalized.descriptorId, normalized.descriptorVersion);
+  }
+  replace(descriptor) {
+    const normalized = normalizeExpertDescriptor(descriptor);
+    const key = descriptorKey(normalized.descriptorId, normalized.descriptorVersion);
+    this.#descriptors.set(key, normalized);
+    this.#fingerprints.set(key, fingerprintContract(normalized));
+    return this.require(normalized.descriptorId, normalized.descriptorVersion);
+  }
+  setHealth(descriptorId, descriptorVersion, health) {
+    validateCapabilityHealth(health);
+    const key = descriptorKey(descriptorId, descriptorVersion);
+    if (!this.#descriptors.has(key)) {
+      throw new HostCapabilityRegistryError("descriptor_not_found", `Descriptor ${key} is not registered`);
+    }
+    this.#health.set(key, structuredClone(health));
+    return this.require(descriptorId, descriptorVersion);
+  }
+  observeSource(descriptorId, descriptorVersion, observation) {
+    const key = descriptorKey(descriptorId, descriptorVersion);
+    if (!this.#descriptors.has(key)) {
+      throw new HostCapabilityRegistryError("descriptor_not_found", `Descriptor ${key} is not registered`);
+    }
+    validateSourceObservation(observation);
+    this.#observations.set(key, structuredClone(observation));
+    return this.require(descriptorId, descriptorVersion);
+  }
+  get(descriptorId, descriptorVersion) {
+    if (descriptorVersion) {
+      const descriptor = this.#descriptors.get(descriptorKey(descriptorId, descriptorVersion));
+      return descriptor ? this.#entry(descriptor) : void 0;
+    }
+    return this.list().filter((entry) => entry.descriptor.descriptorId === descriptorId).at(0);
+  }
+  require(descriptorId, descriptorVersion) {
+    const entry = this.get(descriptorId, descriptorVersion);
+    if (!entry) {
+      throw new HostCapabilityRegistryError("descriptor_not_found", `Descriptor ${descriptorVersion ? descriptorKey(descriptorId, descriptorVersion) : descriptorId} is not registered`);
+    }
+    return entry;
+  }
+  list() {
+    return [...this.#descriptors.values()].map((descriptor) => this.#entry(descriptor)).sort(sortDescriptorEntries);
+  }
+  #entry(descriptor) {
+    const key = descriptorKey(descriptor.descriptorId, descriptor.descriptorVersion);
+    const observation = this.#observations.get(key);
+    const reasonCodes = evaluateProvenance(descriptor.importProvenance, observation);
+    return {
+      descriptor: structuredClone(descriptor),
+      fingerprint: this.#fingerprints.get(key),
+      health: this.#health.has(key) ? structuredClone(this.#health.get(key)) : void 0,
+      sourceObservation: observation ? structuredClone(observation) : void 0,
+      assignable: isApprovedProvenance(descriptor.importProvenance) && reasonCodes.length === 0,
+      reasonCodes
+    };
+  }
+};
+var HostCapabilityConnectorRegistry = class {
+  #connectors = /* @__PURE__ */ new Map();
+  #observations = /* @__PURE__ */ new Map();
+  register(connector, factory) {
+    const normalized = normalizeHostCapabilityConnector(connector);
+    const key = connectorKey(normalized.connectorId, normalized.connectorVersion);
+    const fingerprint = fingerprintContract(normalized);
+    const previous = this.#connectors.get(key);
+    if (previous && previous.fingerprint !== fingerprint) {
+      throw new HostCapabilityRegistryError("registry_conflict", `Connector ${key} is already registered with different content`);
+    }
+    if (!previous) {
+      this.#connectors.set(key, {
+        connector: normalized,
+        fingerprint,
+        factory
+      });
+    }
+    return this.require(normalized.connectorId, normalized.connectorVersion);
+  }
+  replace(connector, factory) {
+    const normalized = normalizeHostCapabilityConnector(connector);
+    const key = connectorKey(normalized.connectorId, normalized.connectorVersion);
+    this.#connectors.set(key, {
+      connector: normalized,
+      fingerprint: fingerprintContract(normalized),
+      factory
+    });
+    return this.require(normalized.connectorId, normalized.connectorVersion);
+  }
+  get(connectorId, connectorVersion) {
+    let record6;
+    if (connectorVersion) {
+      record6 = this.#connectors.get(connectorKey(connectorId, connectorVersion));
+    } else {
+      record6 = [...this.#connectors.values()].filter((candidate) => candidate.connector.connectorId === connectorId).sort((left, right) => -compareVersions(left.connector.connectorVersion, right.connector.connectorVersion)).at(0);
+    }
+    return record6 ? this.#entry(record6) : void 0;
+  }
+  require(connectorId, connectorVersion) {
+    const entry = this.get(connectorId, connectorVersion);
+    if (!entry) {
+      throw new HostCapabilityRegistryError("connector_not_found", `Connector ${connectorVersion ? connectorKey(connectorId, connectorVersion) : connectorId} is not registered`);
+    }
+    return entry;
+  }
+  list() {
+    return [...this.#connectors.values()].map((record6) => this.#entry(record6)).sort(sortConnectorEntries);
+  }
+  observeSource(connectorId, connectorVersion, observation) {
+    const key = connectorKey(connectorId, connectorVersion);
+    if (!this.#connectors.has(key)) {
+      throw new HostCapabilityRegistryError("connector_not_found", `Connector ${key} is not registered`);
+    }
+    validateSourceObservation(observation);
+    this.#observations.set(key, structuredClone(observation));
+    return this.require(connectorId, connectorVersion);
+  }
+  async connect(connectorId, connectorVersion, timeoutMs) {
+    const key = connectorKey(connectorId, connectorVersion);
+    const record6 = this.#connectors.get(key);
+    if (!record6) {
+      throw new HostCapabilityRegistryError("connector_not_found", `Connector ${key} is not registered`);
+    }
+    if (!record6.connection) {
+      record6.connection = record6.factory().catch((error48) => {
+        record6.connection = void 0;
+        throw error48;
+      });
+    }
+    let timeout;
+    try {
+      return await Promise.race([
+        record6.connection,
+        new Promise((_, reject) => {
+          timeout = setTimeout(() => reject(new HostCapabilityRegistryError("connector_timeout", `Connector ${key} did not connect within ${timeoutMs}ms`)), timeoutMs);
+        })
+      ]);
+    } finally {
+      if (timeout)
+        clearTimeout(timeout);
+    }
+  }
+  async closeAll() {
+    const connections = [...this.#connectors.values()].map((record6) => record6.connection).filter((connection) => Boolean(connection));
+    await Promise.all(connections.map(async (connection) => {
+      const runtime = await connection.catch(() => void 0);
+      await runtime?.close?.();
+    }));
+    for (const record6 of this.#connectors.values()) {
+      record6.connection = void 0;
+    }
+  }
+  #entry(record6) {
+    const key = connectorKey(record6.connector.connectorId, record6.connector.connectorVersion);
+    const observation = this.#observations.get(key);
+    const reasonCodes = evaluateProvenance(record6.connector.importProvenance, observation);
+    return {
+      connector: structuredClone(record6.connector),
+      fingerprint: record6.fingerprint,
+      sourceObservation: observation ? structuredClone(observation) : void 0,
+      assignable: isApprovedProvenance(record6.connector.importProvenance) && reasonCodes.length === 0,
+      reasonCodes
+    };
+  }
+};
+
+// dist/host-capabilities/proxy.js
+var HostCapabilityProxyError = class extends Error {
+  diagnostic;
+  constructor(diagnostic2) {
+    super(diagnostic2.message);
+    this.name = "HostCapabilityProxyError";
+    this.diagnostic = {
+      ...diagnostic2,
+      details: redactDiagnosticValue(diagnostic2.details)
+    };
+  }
+};
+function diagnostic(value) {
+  return {
+    schemaVersion: HOST_CAPABILITY_SCHEMA_VERSION,
+    ...value
+  };
+}
+function fail5(value) {
+  throw new HostCapabilityProxyError(diagnostic(value));
+}
+function assertScope(scope, now) {
+  try {
+    validateCapabilityOperationGrant(scope.grant);
+  } catch (error48) {
+    fail5({
+      code: "scope_mismatch",
+      stage: "authorization",
+      message: "Capability grant contract is invalid",
+      retryable: false,
+      details: error48
+    });
+  }
+  if (!/^project\/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/.test(scope.projectId)) {
+    fail5({
+      code: "scope_mismatch",
+      stage: "authorization",
+      message: "Host capability access requires a canonical project/<slug> ID",
+      retryable: false
+    });
+  }
+  if (!/^work-run\/[a-z0-9][a-z0-9._-]*$/.test(scope.workRunId)) {
+    fail5({
+      code: "scope_mismatch",
+      stage: "authorization",
+      message: "Host capability access requires a canonical Work Run ID",
+      retryable: false
+    });
+  }
+  if (scope.grant.projectId !== scope.projectId || scope.grant.workRunId !== scope.workRunId) {
+    fail5({
+      code: "scope_mismatch",
+      stage: "authorization",
+      message: "Capability grant does not match the canonical Project Context and Work Run",
+      retryable: false
+    });
+  }
+  if (Date.parse(scope.grant.expiresAt) <= now) {
+    fail5({
+      code: "grant_expired",
+      stage: "authorization",
+      message: "Capability grant has expired",
+      retryable: false,
+      details: { expiresAt: scope.grant.expiresAt }
+    });
+  }
+}
+function isDescriptorVisible(descriptor, scope) {
+  return scope.descriptorKeys.includes(descriptorKey(descriptor.descriptorId, descriptor.descriptorVersion)) && scope.grant.descriptorIds.includes(descriptor.descriptorId) && scope.grant.connectorIds.includes(descriptor.connectorRef.connectorId);
+}
+function visibleOperations(descriptor, grant) {
+  return descriptor.operations.filter((operation) => grant.operations.includes(operation.operation) && grant.sideEffectClasses.includes(operation.sideEffectClass));
+}
+async function withTimeout2(promise2, timeoutMs, timeoutDiagnostic) {
+  let timeout;
+  try {
+    return await Promise.race([
+      promise2,
+      new Promise((_, reject) => {
+        timeout = setTimeout(() => reject(new HostCapabilityProxyError(diagnostic(timeoutDiagnostic))), timeoutMs);
+      })
+    ]);
+  } finally {
+    if (timeout)
+      clearTimeout(timeout);
+  }
+}
+function identityConflict(result, expectedIdentity) {
+  if (!result || typeof result !== "object" || Array.isArray(result))
+    return void 0;
+  const record6 = result;
+  for (const field of ["projectId", "workItemId", "workRunId", "agentId"]) {
+    const expected = expectedIdentity[field];
+    if (record6[field] !== void 0 && record6[field] !== expected) {
+      return { field, received: record6[field], expected: expected ?? "absent" };
+    }
+  }
+  return void 0;
+}
+var GovernedMcpProxy = class {
+  descriptors;
+  connectors;
+  #connectionTimeoutMs;
+  #invocationTimeoutMs;
+  #now;
+  constructor(descriptors, connectors, options = {}) {
+    this.descriptors = descriptors;
+    this.connectors = connectors;
+    this.#connectionTimeoutMs = options.connectionTimeoutMs ?? 5e3;
+    this.#invocationTimeoutMs = options.invocationTimeoutMs ?? 3e4;
+    this.#now = options.now ?? Date.now;
+  }
+  search(request) {
+    assertScope(request.scope, this.#now());
+    const query = request.query?.trim().toLocaleLowerCase();
+    return this.descriptors.list().filter((entry) => entry.assignable).filter((entry) => isDescriptorVisible(entry.descriptor, request.scope)).filter((entry) => {
+      const connector = this.connectors.get(entry.descriptor.connectorRef.connectorId, entry.descriptor.connectorRef.connectorVersion);
+      return connector?.assignable === true;
+    }).filter((entry) => {
+      const operations2 = visibleOperations(entry.descriptor, request.scope.grant);
+      if (operations2.length === 0)
+        return false;
+      if (request.capability && !entry.descriptor.capabilities.includes(request.capability)) {
+        return false;
+      }
+      if (request.operation && !operations2.some((operation) => operation.operation === request.operation)) {
+        return false;
+      }
+      if (!query)
+        return true;
+      return [
+        entry.descriptor.descriptorId,
+        entry.descriptor.displayName,
+        ...entry.descriptor.capabilities,
+        ...operations2.map((operation) => operation.operation),
+        ...operations2.map((operation) => operation.description)
+      ].some((value) => value.toLocaleLowerCase().includes(query));
+    }).map((entry) => ({
+      descriptorId: entry.descriptor.descriptorId,
+      descriptorVersion: entry.descriptor.descriptorVersion,
+      displayName: entry.descriptor.displayName,
+      capabilities: [...entry.descriptor.capabilities],
+      operations: visibleOperations(entry.descriptor, request.scope.grant).map((operation) => operation.operation),
+      connectorId: entry.descriptor.connectorRef.connectorId,
+      connectorVersion: entry.descriptor.connectorRef.connectorVersion,
+      health: entry.health?.state ?? "unknown",
+      descriptorFingerprint: entry.fingerprint
+    }));
+  }
+  describe(request) {
+    assertScope(request.scope, this.#now());
+    const entry = this.descriptors.get(request.descriptorId, request.descriptorVersion);
+    if (!entry) {
+      fail5({
+        code: "descriptor_not_found",
+        stage: "describe",
+        message: "Host capability descriptor is not registered",
+        retryable: false,
+        descriptorId: request.descriptorId,
+        descriptorVersion: request.descriptorVersion
+      });
+    }
+    if (!isDescriptorVisible(entry.descriptor, request.scope)) {
+      fail5({
+        code: "descriptor_not_granted",
+        stage: "authorization",
+        message: "Host capability descriptor is not visible to this grant",
+        retryable: false,
+        descriptorId: request.descriptorId,
+        descriptorVersion: request.descriptorVersion
+      });
+    }
+    if (!entry.assignable) {
+      fail5({
+        code: "descriptor_unavailable",
+        stage: "describe",
+        message: "Host capability descriptor is not approved or its source has drifted",
+        retryable: false,
+        descriptorId: request.descriptorId,
+        descriptorVersion: request.descriptorVersion,
+        details: { reasonCodes: entry.reasonCodes }
+      });
+    }
+    const connector = this.connectors.get(entry.descriptor.connectorRef.connectorId, entry.descriptor.connectorRef.connectorVersion);
+    if (!connector) {
+      fail5({
+        code: "connector_not_found",
+        stage: "describe",
+        message: "Connector referenced by the descriptor is not registered",
+        retryable: false,
+        descriptorId: request.descriptorId,
+        connectorId: entry.descriptor.connectorRef.connectorId,
+        connectorVersion: entry.descriptor.connectorRef.connectorVersion
+      });
+    }
+    if (!connector.assignable) {
+      fail5({
+        code: "connector_unavailable",
+        stage: "describe",
+        message: "Connector is not approved for host capability use",
+        retryable: false,
+        connectorId: connector.connector.connectorId,
+        connectorVersion: connector.connector.connectorVersion,
+        details: { reasonCodes: connector.reasonCodes }
+      });
+    }
+    const grantedOperations = visibleOperations(entry.descriptor, request.scope.grant);
+    return {
+      descriptor: {
+        ...entry.descriptor,
+        operations: grantedOperations
+      },
+      connector: {
+        ...connector.connector,
+        supportedOperations: connector.connector.supportedOperations.filter((operation) => grantedOperations.some((grantedOperation) => grantedOperation.operation === operation))
+      },
+      visibleOperations: grantedOperations,
+      descriptorFingerprint: entry.fingerprint,
+      connectorFingerprint: connector.fingerprint
+    };
+  }
+  async invoke(request) {
+    assertScope(request.scope, this.#now());
+    try {
+      validateAssignmentPlan(request.assignmentPlan);
+    } catch (error48) {
+      fail5({
+        code: "assignment_not_approved",
+        stage: "authorization",
+        message: "AssignmentPlan contract is invalid",
+        retryable: false,
+        details: error48
+      });
+    }
+    const description = this.describe({
+      scope: request.scope,
+      descriptorId: request.descriptorId,
+      descriptorVersion: request.descriptorVersion
+    });
+    const descriptor = description.descriptor;
+    const connector = description.connector;
+    if (!request.scope.grant.descriptorIds.includes(request.descriptorId)) {
+      fail5({
+        code: "descriptor_not_granted",
+        stage: "authorization",
+        message: "Descriptor is not present in the capability grant",
+        retryable: false,
+        descriptorId: request.descriptorId
+      });
+    }
+    if (!request.scope.grant.connectorIds.includes(connector.connectorId)) {
+      fail5({
+        code: "connector_not_granted",
+        stage: "authorization",
+        message: "Connector is not present in the capability grant",
+        retryable: false,
+        connectorId: connector.connectorId
+      });
+    }
+    if (!request.scope.grant.operations.includes(request.operation)) {
+      fail5({
+        code: "operation_not_granted",
+        stage: "authorization",
+        message: "Operation is not present in the capability grant",
+        retryable: false,
+        operation: request.operation
+      });
+    }
+    const operation = descriptor.operations.find((candidate) => candidate.operation === request.operation);
+    if (!operation || !connector.supportedOperations.includes(request.operation)) {
+      fail5({
+        code: "operation_not_supported",
+        stage: "authorization",
+        message: "Operation is not declared by both descriptor and connector",
+        retryable: false,
+        descriptorId: request.descriptorId,
+        connectorId: connector.connectorId,
+        operation: request.operation
+      });
+    }
+    if (!request.scope.grant.sideEffectClasses.includes(operation.sideEffectClass)) {
+      fail5({
+        code: "side_effect_not_granted",
+        stage: "authorization",
+        message: "Operation side-effect class is not present in the capability grant",
+        retryable: false,
+        operation: request.operation,
+        details: { sideEffectClass: operation.sideEffectClass }
+      });
+    }
+    if (request.assignmentPlan.status !== "matched" || request.assignmentPlan.approval.status !== "approved" || !request.assignmentPlan.selected) {
+      fail5({
+        code: "assignment_not_approved",
+        stage: "authorization",
+        message: "Invoke requires an approved matched AssignmentPlan",
+        retryable: false,
+        operation: request.operation
+      });
+    }
+    const selected = request.assignmentPlan.selected;
+    if (request.assignmentPlan.projectId !== request.scope.projectId || request.assignmentPlan.workRunId !== request.scope.workRunId || request.assignmentPlan.grantId !== request.scope.grant.grantId || selected.descriptorId !== request.descriptorId || selected.descriptorVersion !== request.descriptorVersion || selected.connectorId !== connector.connectorId || selected.connectorVersion !== connector.connectorVersion) {
+      fail5({
+        code: "assignment_mismatch",
+        stage: "authorization",
+        message: "AssignmentPlan selection does not match the requested capability",
+        retryable: false,
+        descriptorId: request.descriptorId,
+        connectorId: connector.connectorId,
+        operation: request.operation
+      });
+    }
+    if (request.describedDescriptorFingerprint !== description.descriptorFingerprint || selected.descriptorFingerprint !== description.descriptorFingerprint) {
+      fail5({
+        code: "descriptor_drift",
+        stage: "authorization",
+        message: "Descriptor changed after describe or assignment; re-plan before invoking",
+        retryable: false,
+        descriptorId: request.descriptorId,
+        descriptorVersion: request.descriptorVersion
+      });
+    }
+    if (selected.connectorFingerprint !== description.connectorFingerprint) {
+      fail5({
+        code: "connector_drift",
+        stage: "authorization",
+        message: "Connector changed after assignment; re-plan before invoking",
+        retryable: false,
+        connectorId: connector.connectorId,
+        connectorVersion: connector.connectorVersion
+      });
+    }
+    let runtime;
+    try {
+      runtime = await this.connectors.connect(connector.connectorId, connector.connectorVersion, this.#connectionTimeoutMs);
+    } catch (error48) {
+      if (error48 instanceof HostCapabilityRegistryError && error48.code === "connector_timeout") {
+        fail5({
+          code: "connection_timeout",
+          stage: "timeout",
+          message: "Connector connection timed out",
+          retryable: true,
+          connectorId: connector.connectorId,
+          connectorVersion: connector.connectorVersion,
+          details: error48
+        });
+      }
+      fail5({
+        code: "connection_failed",
+        stage: "connection",
+        message: "Connector connection failed",
+        retryable: true,
+        connectorId: connector.connectorId,
+        connectorVersion: connector.connectorVersion,
+        details: error48
+      });
+    }
+    let result;
+    try {
+      result = await withTimeout2(runtime.invoke({
+        projectId: request.scope.projectId,
+        workItemId: request.scope.workItemId,
+        workRunId: request.scope.workRunId,
+        agentId: request.scope.agentId,
+        descriptorId: request.descriptorId,
+        descriptorVersion: request.descriptorVersion,
+        operation: request.operation,
+        input: request.input
+      }), request.timeoutMs ?? this.#invocationTimeoutMs, {
+        code: "invoke_timeout",
+        stage: "timeout",
+        message: "Host capability operation timed out",
+        retryable: true,
+        descriptorId: request.descriptorId,
+        connectorId: connector.connectorId,
+        operation: request.operation
+      });
+    } catch (error48) {
+      if (error48 instanceof HostCapabilityProxyError)
+        throw error48;
+      fail5({
+        code: "invoke_failed",
+        stage: "invoke",
+        message: "Host capability operation failed",
+        retryable: true,
+        descriptorId: request.descriptorId,
+        connectorId: connector.connectorId,
+        operation: request.operation,
+        details: error48
+      });
+    }
+    const conflict2 = identityConflict(result, {
+      projectId: request.scope.projectId,
+      workItemId: request.scope.workItemId,
+      workRunId: request.scope.workRunId,
+      agentId: request.scope.agentId
+    });
+    if (conflict2) {
+      fail5({
+        code: "identity_conflict",
+        stage: "invoke",
+        message: "Connector response attempted to replace canonical identity",
+        retryable: false,
+        descriptorId: request.descriptorId,
+        connectorId: connector.connectorId,
+        operation: request.operation,
+        details: conflict2
+      });
+    }
+    return {
+      descriptorId: request.descriptorId,
+      descriptorVersion: request.descriptorVersion,
+      connectorId: connector.connectorId,
+      connectorVersion: connector.connectorVersion,
+      operation: request.operation,
+      result
+    };
+  }
+};
+
+// dist/host-capabilities/settings-resolution.js
+var HOST_CONNECTOR_ID_ENV = "LLMWIKI_HOST_CAPABILITY_CONNECTOR_ID";
+var HOST_PROVIDER_ALIAS_ENV = "LLMWIKI_HOST_CAPABILITY_PROVIDER";
+var HOST_TRANSPORT_ENV = "LLMWIKI_HOST_CAPABILITY_TRANSPORT";
+var HOST_ENDPOINT_ENV = "LLMWIKI_HOST_CAPABILITY_ENDPOINT";
+var HOST_SECRET_ENV = "LLMWIKI_HOST_CAPABILITY_KEY";
+var TRANSPORTS = /* @__PURE__ */ new Set([
+  "stdio",
+  "http",
+  "oauth",
+  "local-model",
+  "cloud-model"
+]);
+function legacyHostCapabilityCandidates(_vaultPath2, _projectId, environment = process.env) {
+  const provider = firstString(environment[HOST_CONNECTOR_ID_ENV], environment[HOST_PROVIDER_ALIAS_ENV]);
+  const transport = supportedTransport(environment[HOST_TRANSPORT_ENV]);
+  const endpoint = firstString(environment[HOST_ENDPOINT_ENV]);
+  if (!provider || !transport || !endpoint)
+    return [];
+  const secretPresent = Boolean(environment[HOST_SECRET_ENV]?.trim());
+  return [{
+    source: "legacy-environment",
+    priority: 100,
+    detail: `generic Host compatibility environment ${HOST_CONNECTOR_ID_ENV}`,
+    values: {
+      enabled: true,
+      provider,
+      transport,
+      endpoint,
+      ...secretPresent || transport === "oauth" || transport === "cloud-model" ? {
+        credential: {
+          secretRef: { provider: "environment", locator: HOST_SECRET_ENV },
+          status: secretPresent ? "present" : "missing"
+        }
+      } : {}
+    }
+  }];
+}
+function supportedTransport(value) {
+  const normalized = firstString(value);
+  return normalized && TRANSPORTS.has(normalized) ? normalized : void 0;
+}
+function firstString(...values) {
+  return values.find((value) => typeof value === "string" && Boolean(value.trim()))?.trim();
+}
+
+// dist/host-capabilities/operations.js
+var HOST_NAMESPACE = "host";
+var DIGEST_PATTERN = /^sha256:[a-f0-9]{64}$/;
+var APPROVER_ROLES = /* @__PURE__ */ new Set(["human", "approver", "admin"]);
+var DESCRIPTOR_RESOURCE_PREFIX = "descriptor/";
+function requiredString3(value, field) {
+  if (typeof value !== "string" || !value.trim())
+    throw badRequest(`${field} is required`);
+  return value.trim();
+}
+function optionalString5(value, field) {
+  if (value === void 0)
+    return void 0;
+  return requiredString3(value, field);
+}
+function optionalCanonicalProject(vaultPath, value, operation) {
+  if (value === void 0)
+    return void 0;
+  const project = requiredString3(value, "project");
+  const context = resolveProjectContext(vaultPath, project, operation);
+  if (project !== context.projectId) {
+    throw conflict("Host Capability Settings context requires the canonical Project ID", {
+      projectId: context.projectId
+    });
+  }
+  return context.projectId;
+}
+function closedParams2(params, allowed) {
+  const names = new Set(allowed);
+  for (const key of Object.keys(params)) {
+    if (!names.has(key))
+      throw badRequest(`Unsupported Host Capability parameter: ${key}`);
+  }
+}
+function operationFailure(error48) {
+  if (isOperationError(error48))
+    throw error48;
+  if (error48 instanceof HostCapabilityStoreError) {
+    if (error48.code === "not_found")
+      throw notFound(error48.message, { logicalId: error48.logicalId });
+    if (error48.code === "conflict")
+      throw conflict(error48.message, { logicalId: error48.logicalId });
+    throw internal("Host Capability store validation failed closed", {
+      logicalId: error48.logicalId
+    });
+  }
+  if (error48 instanceof HostCapabilityRegistryError) {
+    if (error48.code === "descriptor_not_found" || error48.code === "connector_not_found") {
+      throw notFound(error48.message);
+    }
+    if (error48.code === "registry_conflict")
+      throw conflict(error48.message);
+    throw internal("Host Capability connector failed closed");
+  }
+  if (error48 instanceof HostCapabilityProxyError) {
+    throw conflict(error48.message, { diagnostic: error48.diagnostic });
+  }
+  if (error48 instanceof HostCapabilityOperationContractError || error48 instanceof HostCapabilityContractError || error48 instanceof TypeError) {
+    throw badRequest(error48.message);
+  }
+  throw internal("Host Capability operation failed closed");
+}
+function boundary2(action) {
+  try {
+    return action();
+  } catch (error48) {
+    operationFailure(error48);
+  }
+}
+async function asyncBoundary(action) {
+  try {
+    return await action();
+  } catch (error48) {
+    operationFailure(error48);
+  }
+}
+function descriptorTarget(params) {
+  const registration = validateDescriptorRegistration(params.registration);
+  return hostCapabilityStorageKey("descriptors", descriptorKey(registration.descriptor.descriptorId, registration.descriptor.descriptorVersion));
+}
+function connectorTarget(params) {
+  const registration = validateConnectorRegistration(params.registration);
+  return hostCapabilityStorageKey("connectors", connectorKey(registration.connector.connectorId, registration.connector.connectorVersion));
+}
+function assignmentTarget(params) {
+  return hostCapabilityStorageKey("assignments", requiredString3(params.planId, "planId"));
+}
+function authenticatedApprover(ctx, subject = "Capability registration") {
+  const actor2 = ctx.config.collaboration?.actor?.trim();
+  const role = ctx.config.collaboration?.role ?? "";
+  if (!actor2 || !APPROVER_ROLES.has(role)) {
+    throw conflict(`${subject} requires an authenticated human, approver, or admin actor`);
+  }
+  return actor2;
+}
+function serverApprovedConnectorRegistration(value, actor2, approvedAt) {
+  const registration = validateConnectorRegistration(value);
+  const provenance = registration.connector.importProvenance;
+  if (provenance.licenseReview.status !== "approved" || provenance.approval.status !== "approved") {
+    throw conflict("Host Capability Connector registration requires approved license and import review status");
+  }
+  return validateConnectorRegistration({
+    ...registration,
+    connector: {
+      ...registration.connector,
+      importProvenance: {
+        ...provenance,
+        licenseReview: {
+          ...provenance.licenseReview,
+          reviewedBy: actor2,
+          reviewedAt: approvedAt
+        },
+        approval: {
+          ...provenance.approval,
+          reviewedBy: actor2,
+          reviewedAt: approvedAt
+        }
+      }
+    }
+  });
+}
+function serverApprovedDescriptorRegistration(value, actor2, approvedAt) {
+  const registration = validateDescriptorRegistration(value);
+  const provenance = registration.descriptor.importProvenance;
+  if (provenance.licenseReview.status !== "approved" || provenance.approval.status !== "approved") {
+    throw conflict("Expert Descriptor registration requires approved license and import review status");
+  }
+  return validateDescriptorRegistration({
+    ...registration,
+    descriptor: {
+      ...registration.descriptor,
+      importProvenance: {
+        ...provenance,
+        licenseReview: {
+          ...provenance.licenseReview,
+          reviewedBy: actor2,
+          reviewedAt: approvedAt
+        },
+        approval: {
+          status: "approved",
+          reviewedBy: actor2,
+          reviewedAt: approvedAt
+        }
+      }
+    }
+  });
+}
+function grantedDescriptorKeys(grant) {
+  return [...new Set(grant.scope.resources.filter((resource) => resource.startsWith(DESCRIPTOR_RESOURCE_PREFIX)).map((resource) => resource.slice(DESCRIPTOR_RESOURCE_PREFIX.length)).filter(Boolean))].sort();
+}
+var HostCapabilityOperationService = class {
+  vaultPath;
+  store;
+  #transportFactory;
+  #now;
+  #settingsService;
+  #agentDomain;
+  #agentStateRoot;
+  #environment;
+  constructor(vaultPath, options) {
+    this.vaultPath = vaultPath;
+    this.store = new HostCapabilityStore(vaultPath);
+    this.#now = options.now ?? Date.now;
+    this.#environment = options.environment ?? process.env;
+    this.#settingsService = options.settingsService ?? createSettingsService({
+      vaultPath,
+      environment: this.#environment
+    });
+    this.#agentStateRoot = join29(vaultPath, "_llmwiki", "agent-domain", "v1");
+    this.#agentDomain = new AgentDomainService({ stateRoot: this.#agentStateRoot });
+    this.#transportFactory = options.transportFactory ?? (async () => {
+      throw new Error("No Host Capability transport factory is configured");
+    });
+  }
+  now() {
+    return this.#now();
+  }
+  async authorize(params, operation) {
+    const projectRef = requiredString3(params.project, "project");
+    const context = resolveProjectContext(this.vaultPath, projectRef, operation);
+    if (projectRef !== context.projectId) {
+      throw conflict("Host Capability operations require the canonical Project ID, not an alias or workspace path", { projectId: context.projectId });
+    }
+    const bindingId = requiredString3(params.bindingId, "bindingId");
+    const grantId = requiredString3(params.grantId, "grantId");
+    const binding = await this.#agentDomain.bindings.read(bindingId);
+    if (!binding)
+      throw notFound(`Server-side Project Agent Binding ${bindingId} does not exist`);
+    const grantRecord = await this.delegationStore(context.projectId).readGrant(grantId);
+    if (!grantRecord)
+      throw notFound(`Server-issued Capability Grant ${grantId} does not exist`);
+    const child = await this.delegationStore(context.projectId).readChild(grantRecord.workRunId);
+    if (!child || !(/* @__PURE__ */ new Set(["ready", "running"])).has(child.lifecycle)) {
+      throw conflict("Capability Grant Work Run is not an active server-issued Child Work Run");
+    }
+    const contextFingerprint2 = fingerprintContract(normalizedProjectContext(context));
+    if (binding.projectId !== context.projectId) {
+      throw conflict("Project Agent Binding belongs to another Project", {
+        expectedProjectId: context.projectId,
+        bindingProjectId: binding.projectId
+      });
+    }
+    if (binding.projectContextFingerprint !== contextFingerprint2) {
+      throw conflict("Project Agent Binding context fingerprint is stale");
+    }
+    if (!binding.enabled)
+      throw conflict("Project Agent Binding is disabled");
+    if (!binding.connectorGrantRefs.includes(grantRecord.grantId)) {
+      throw conflict("Project Agent Binding does not reference this Capability Grant");
+    }
+    if (grantRecord.projectId !== context.projectId) {
+      throw conflict("Capability Grant belongs to another Project");
+    }
+    if (Date.parse(grantRecord.expiresAt) <= this.now()) {
+      throw conflict("Capability Grant has expired");
+    }
+    await this.assertActiveAgentAssignment(binding, grantRecord, child);
+    const descriptorKeys = grantedDescriptorKeys(child.grantSummary);
+    const descriptorKeySet = new Set(descriptorKeys);
+    const grant = validateCapabilityGrant2({
+      schemaVersion: HOST_CAPABILITY_SCHEMA_VERSION,
+      grantId: grantRecord.grantId,
+      projectId: grantRecord.projectId,
+      workRunId: grantRecord.workRunId,
+      descriptorIds: [...new Set(this.store.listDescriptors().filter((item) => descriptorKeySet.has(descriptorKey(item.descriptor.descriptorId, item.descriptor.descriptorVersion))).map((item) => item.descriptor.descriptorId))],
+      connectorIds: connectorIds(grantRecord),
+      operations: grantRecord.scope.operations,
+      sideEffectClasses: hostSideEffectClasses(grantRecord),
+      expiresAt: grantRecord.expiresAt
+    });
+    const projectedBinding = validateProjectCapabilityBinding({
+      schemaVersion: 1,
+      bindingId: binding.bindingId,
+      projectId: binding.projectId,
+      projectContextFingerprint: binding.projectContextFingerprint,
+      profileId: binding.profileId,
+      revision: binding.revision,
+      enabled: binding.enabled,
+      connectorGrantRefs: binding.connectorGrantRefs
+    });
+    return {
+      projectId: context.projectId,
+      binding: projectedBinding,
+      grant,
+      scope: {
+        projectId: context.projectId,
+        workRunId: grant.workRunId,
+        agentId: binding.profileId,
+        descriptorKeys,
+        grant
+      }
+    };
+  }
+  delegationStore(projectId2) {
+    return new DelegationStore({
+      collaborationRoot: join29(this.#agentStateRoot, "collaboration"),
+      projectId: projectId2
+    });
+  }
+  async assertActiveAgentAssignment(binding, grant, child) {
+    const exactBinding = await this.#agentDomain.bindings.readRevision(binding.bindingId, child.assignment.bindingRevision);
+    const exactProfile = await this.#agentDomain.profiles.readRevision(grant.profileId, grant.profileRevision);
+    const currentProfile = await this.#agentDomain.profiles.read(grant.profileId);
+    if (!exactBinding || exactBinding.revision !== binding.revision || !exactProfile || !currentProfile || currentProfile.revision !== grant.profileRevision || child.projectId !== grant.projectId || child.workRunId !== grant.workRunId || child.assignment.bindingId !== binding.bindingId || child.assignment.bindingRevision !== binding.revision || child.assignment.profileId !== binding.profileId || child.assignment.profileId !== grant.profileId || child.assignment.profileRevision !== binding.profileRevision || child.assignment.profileRevision !== grant.profileRevision || canonicalJson(child.grantSummary) !== canonicalJson(grant)) {
+      throw conflict("Capability Grant is not locked to the active server-side Binding, Profile, and Child Work Run");
+    }
+  }
+  async settingsProfile(projectId2) {
+    const context = {
+      ...this.#settingsService.defaultContext,
+      ...projectId2 ? { workspaceProjectId: projectId2 } : {}
+    };
+    const profile = await this.#settingsService.hostCapabilityInvocationProfile(context, legacyHostCapabilityCandidates(this.vaultPath, projectId2, this.#environment));
+    if (!profile.valid) {
+      throw conflict("Host Capability Settings are invalid", {
+        issueCodes: profile.issues.map((item) => item.code)
+      });
+    }
+    return profile;
+  }
+  async governedRegistration(value, projectId2) {
+    assertClientConnectorConfigurationEmpty(value);
+    const registration = validateConnectorRegistration(value);
+    const profile = await this.settingsProfile(projectId2);
+    if (registration.connector.connectorId !== profile.connectorId) {
+      throw conflict(`Connector ID must match the authoritative Settings connector ${profile.connectorId}`);
+    }
+    return applySettingsProfile(registration, profile);
+  }
+  async listConnectors(projectId2) {
+    const profile = await this.settingsProfile(projectId2);
+    return this.store.listConnectors().map((item) => applySettingsProfile(item, profile));
+  }
+  async readConnector(connectorId, connectorVersion, projectId2) {
+    const profile = await this.settingsProfile(projectId2);
+    return applySettingsProfile(this.store.readConnector(connectorId, connectorVersion), profile);
+  }
+  async runtime(projectId2) {
+    const descriptors = new ExpertDescriptorRegistry();
+    const connectors = new HostCapabilityConnectorRegistry();
+    const connectorRegistrations = /* @__PURE__ */ new Map();
+    for (const registration of this.store.listDescriptors()) {
+      const descriptor = registration.descriptor;
+      descriptors.register(descriptor);
+      descriptors.setHealth(descriptor.descriptorId, descriptor.descriptorVersion, registration.health);
+      if (registration.sourceObservation) {
+        descriptors.observeSource(descriptor.descriptorId, descriptor.descriptorVersion, registration.sourceObservation);
+      }
+    }
+    for (const registration of await this.listConnectors(projectId2)) {
+      const connector = registration.connector;
+      const key = connectorKey(connector.connectorId, connector.connectorVersion);
+      connectorRegistrations.set(key, registration);
+      connectors.register(connector, async () => {
+        if (registration.health.state === "disabled") {
+          throw new Error("Host Capability connector is disabled by Settings");
+        }
+        if (registration.health.state === "unavailable") {
+          throw new Error("Host Capability connector is unavailable under current Settings");
+        }
+        if (registration.configuration.secretRequired && !registration.configuration.secretReference) {
+          throw new Error("Required Secret Reference locator is not configured for connector");
+        }
+        return this.#transportFactory(structuredClone(registration));
+      });
+      if (registration.sourceObservation) {
+        connectors.observeSource(connector.connectorId, connector.connectorVersion, registration.sourceObservation);
+      }
+    }
+    return {
+      descriptors,
+      connectors,
+      connectorRegistrations,
+      proxy: new GovernedMcpProxy(descriptors, connectors, {
+        now: this.#now
+      })
+    };
+  }
+  async plan(params) {
+    const authorized = await this.authorize(params, "host.assignment.plan");
+    const requirement = validateAssignmentRequirement(params.requirement);
+    const policy = validateProjectCapabilityPolicy(params.policy);
+    const devices = validateDeviceAdvertisements(params.devices);
+    if (requirement.projectId !== authorized.projectId || requirement.workRunId !== authorized.grant.workRunId) {
+      throw conflict("Assignment requirement conflicts with the authorized Project or Work Run");
+    }
+    const snapshot = await this.runtime(authorized.projectId);
+    const candidates = snapshot.descriptors.list().flatMap((descriptorEntry) => {
+      if (!authorized.scope.descriptorKeys.includes(descriptorKey(descriptorEntry.descriptor.descriptorId, descriptorEntry.descriptor.descriptorVersion)))
+        return [];
+      const reference = descriptorEntry.descriptor.connectorRef;
+      const connectorEntry = snapshot.connectors.get(reference.connectorId, reference.connectorVersion);
+      const connectorRegistration = snapshot.connectorRegistrations.get(connectorKey(reference.connectorId, reference.connectorVersion));
+      if (!connectorEntry || !connectorRegistration)
+        return [];
+      const needsDevice = Boolean(requirement.deviceId || requirement.resourceClass || descriptorEntry.descriptor.deviceAffinities?.length || descriptorEntry.descriptor.resourceClasses?.length);
+      const candidateDevices = needsDevice ? devices.length > 0 ? devices : [void 0] : [void 0];
+      return candidateDevices.map((device) => ({
+        descriptor: descriptorEntry,
+        connector: connectorEntry,
+        connectorHealth: connectorRegistration.health,
+        device
+      }));
+    });
+    const plannedAt = optionalString5(params.plannedAt, "plannedAt") ?? new Date(this.now()).toISOString();
+    const planned = planAssignment({
+      plannedAt,
+      requirement,
+      policy,
+      grant: authorized.grant,
+      candidates
+    });
+    const bindingLocked = {
+      ...planned,
+      projectBinding: {
+        bindingId: authorized.binding.bindingId,
+        bindingRevision: authorized.binding.revision,
+        projectContextFingerprint: authorized.binding.projectContextFingerprint
+      }
+    };
+    const plan = {
+      ...bindingLocked,
+      planId: `assignment-plan/${fingerprintContract({
+        ...bindingLocked,
+        planId: void 0
+      }).slice("sha256:".length, "sha256:".length + 24)}`
+    };
+    const write = this.store.saveAssignmentPlan(plan);
+    return {
+      projectId: authorized.projectId,
+      plan: write.value,
+      planFingerprint: write.fingerprint,
+      storageKey: write.storageKey,
+      replayed: write.replayed
+    };
+  }
+  async approve(params) {
+    const authorized = await this.authorize(params, "host.assignment.approve");
+    const planId = requiredString3(params.planId, "planId");
+    const plan = this.store.readAssignmentPlan(planId);
+    this.assertPlanScope(plan, authorized);
+    const expectedFingerprint = requiredString3(params.expectedFingerprint, "expectedFingerprint");
+    if (!DIGEST_PATTERN.test(expectedFingerprint)) {
+      throw badRequest("expectedFingerprint must be a sha256 digest");
+    }
+    const approvedBy = requiredString3(params.approvedBy, "approvedBy");
+    const write = this.store.approveAssignmentPlan({
+      planId,
+      expectedFingerprint,
+      approvedBy,
+      approvedAt: new Date(this.now()).toISOString()
+    });
+    return {
+      projectId: authorized.projectId,
+      plan: write.value,
+      planFingerprint: write.fingerprint,
+      storageKey: write.storageKey,
+      replayed: write.replayed
+    };
+  }
+  async readPlan(params) {
+    const authorized = await this.authorize(params, "host.assignment.read");
+    const plan = this.store.readAssignmentPlan(requiredString3(params.planId, "planId"));
+    this.assertPlanScope(plan, authorized);
+    return {
+      projectId: authorized.projectId,
+      plan,
+      planFingerprint: fingerprintContract(plan)
+    };
+  }
+  async project(params) {
+    const authorized = await this.authorize(params, "host.project");
+    const snapshot = await this.runtime(authorized.projectId);
+    const descriptors = snapshot.descriptors.list().filter((entry) => authorized.scope.descriptorKeys.includes(descriptorKey(entry.descriptor.descriptorId, entry.descriptor.descriptorVersion))).filter((entry) => authorized.grant.descriptorIds.includes(entry.descriptor.descriptorId)).filter((entry) => authorized.grant.connectorIds.includes(entry.descriptor.connectorRef.connectorId)).map((entry) => {
+      const connectorEntry = snapshot.connectors.get(entry.descriptor.connectorRef.connectorId, entry.descriptor.connectorRef.connectorVersion);
+      const connectorRegistration = snapshot.connectorRegistrations.get(connectorKey(entry.descriptor.connectorRef.connectorId, entry.descriptor.connectorRef.connectorVersion));
+      return {
+        descriptorId: entry.descriptor.descriptorId,
+        descriptorVersion: entry.descriptor.descriptorVersion,
+        descriptorFingerprint: entry.fingerprint,
+        capabilities: entry.descriptor.capabilities,
+        operations: entry.descriptor.operations.filter((operation) => authorized.grant.operations.includes(operation.operation) && authorized.grant.sideEffectClasses.includes(operation.sideEffectClass)).map((operation) => operation.operation),
+        connectorId: entry.descriptor.connectorRef.connectorId,
+        connectorVersion: entry.descriptor.connectorRef.connectorVersion,
+        descriptorHealth: entry.health?.state ?? "unknown",
+        connectorHealth: connectorRegistration?.health.state ?? "unknown",
+        deviceAffinities: entry.descriptor.deviceAffinities ?? [],
+        assignable: entry.assignable && connectorEntry?.assignable === true && !(/* @__PURE__ */ new Set(["disabled", "unavailable"])).has(connectorRegistration?.health.state ?? "unavailable"),
+        reasonCodes: [
+          ...entry.reasonCodes,
+          ...connectorEntry?.reasonCodes ?? ["connector_missing"]
+        ]
+      };
+    });
+    const assignments = this.store.listAssignmentPlans().filter((plan) => plan.projectId === authorized.projectId && plan.grantId === authorized.grant.grantId && plan.projectBinding?.bindingId === authorized.binding.bindingId && plan.projectBinding.bindingRevision === authorized.binding.revision).map((plan) => ({
+      planId: plan.planId,
+      status: plan.status,
+      approvalStatus: plan.approval.status,
+      selected: plan.selected,
+      plannedAt: plan.plannedAt
+    }));
+    return {
+      projectId: authorized.projectId,
+      bindingId: authorized.binding.bindingId,
+      grantId: authorized.grant.grantId,
+      descriptors,
+      assignments
+    };
+  }
+  async doctor(projectId2) {
+    const now = this.now();
+    const snapshot = await this.runtime(projectId2);
+    const findings = [];
+    for (const entry of snapshot.descriptors.list()) {
+      if (!entry.assignable) {
+        findings.push({
+          code: "descriptor_not_assignable",
+          severity: "error",
+          message: "Descriptor approval or source observation is not current.",
+          descriptorId: entry.descriptor.descriptorId,
+          remediation: "Review provenance and approve the current source hash."
+        });
+      }
+      if (!entry.health || entry.health.state === "unavailable" || entry.health.state === "disabled") {
+        findings.push({
+          code: "descriptor_unavailable",
+          severity: "error",
+          message: "Descriptor health is unavailable or disabled.",
+          descriptorId: entry.descriptor.descriptorId
+        });
+      } else if (entry.health.expiresAt && Date.parse(entry.health.expiresAt) <= now) {
+        findings.push({
+          code: "descriptor_health_expired",
+          severity: "warning",
+          message: "Descriptor health observation has expired.",
+          descriptorId: entry.descriptor.descriptorId
+        });
+      }
+      const connector = snapshot.connectors.get(entry.descriptor.connectorRef.connectorId, entry.descriptor.connectorRef.connectorVersion);
+      if (!connector) {
+        findings.push({
+          code: "connector_missing",
+          severity: "error",
+          message: "Descriptor references an unregistered connector.",
+          descriptorId: entry.descriptor.descriptorId,
+          connectorId: entry.descriptor.connectorRef.connectorId
+        });
+      }
+    }
+    for (const registration of snapshot.connectorRegistrations.values()) {
+      const connector = registration.connector;
+      const connectorEntry = snapshot.connectors.get(connector.connectorId, connector.connectorVersion);
+      if (!connectorEntry?.assignable) {
+        findings.push({
+          code: "connector_not_assignable",
+          severity: "error",
+          message: "Connector approval or source observation is not current.",
+          connectorId: connector.connectorId,
+          remediation: "Review provenance and approve the current source hash."
+        });
+      }
+      if (registration.configuration.secretRequired && !registration.configuration.secretReference) {
+        findings.push({
+          code: "secret_reference_missing",
+          severity: "error",
+          message: "Connector requires a Secret Reference locator but none is configured.",
+          connectorId: connector.connectorId,
+          remediation: "Bind a Secret Reference locator in connector configuration."
+        });
+      }
+      if (registration.health.state === "unavailable" || registration.health.state === "disabled") {
+        findings.push({
+          code: "connector_unavailable",
+          severity: "error",
+          message: "Connector health is unavailable or disabled.",
+          connectorId: connector.connectorId
+        });
+      } else if (registration.health.expiresAt && Date.parse(registration.health.expiresAt) <= now) {
+        findings.push({
+          code: "connector_health_expired",
+          severity: "warning",
+          message: "Connector health observation has expired.",
+          connectorId: connector.connectorId
+        });
+      }
+    }
+    for (const plan of this.store.listAssignmentPlans()) {
+      if (plan.approval.status !== "approved" || !plan.selected)
+        continue;
+      if (!plan.projectBinding) {
+        findings.push({
+          code: "approved_plan_binding_missing",
+          severity: "error",
+          message: "Approved AssignmentPlan has no locked Project Binding.",
+          planId: plan.planId,
+          remediation: "Create and approve a binding-locked AssignmentPlan."
+        });
+      }
+      const descriptor = snapshot.descriptors.get(plan.selected.descriptorId, plan.selected.descriptorVersion);
+      const connector = snapshot.connectors.get(plan.selected.connectorId, plan.selected.connectorVersion);
+      if (descriptor?.fingerprint !== plan.selected.descriptorFingerprint || connector?.fingerprint !== plan.selected.connectorFingerprint) {
+        findings.push({
+          code: "approved_plan_drift",
+          severity: "error",
+          message: "Approved AssignmentPlan no longer matches current descriptor or connector bytes.",
+          planId: plan.planId,
+          remediation: "Create and approve a new AssignmentPlan."
+        });
+      }
+    }
+    return {
+      ok: findings.every((finding) => finding.severity !== "error"),
+      schemaVersion: HOST_CAPABILITY_SCHEMA_VERSION,
+      counts: {
+        descriptors: snapshot.descriptors.list().length,
+        connectors: snapshot.connectors.list().length,
+        assignments: this.store.listAssignmentPlans().length
+      },
+      findings
+    };
+  }
+  assertPlanScope(plan, authorized) {
+    if (plan.projectId !== authorized.projectId || plan.workRunId !== authorized.grant.workRunId || plan.grantId !== authorized.grant.grantId || plan.projectBinding?.bindingId !== authorized.binding.bindingId || plan.projectBinding.bindingRevision !== authorized.binding.revision || plan.projectBinding.projectContextFingerprint !== authorized.binding.projectContextFingerprint) {
+      throw conflict("AssignmentPlan conflicts with the authorized Project, Work Run, or Capability Grant");
+    }
+  }
+};
+function connectorIds(grant) {
+  return [...new Set(grant.scope.connectors.map((item) => item.startsWith("connector/") ? item : `connector/${item}`))];
+}
+function hostSideEffectClasses(grant) {
+  const values = grant.scope.sideEffectClasses.flatMap((item) => {
+    if (item === "read-only")
+      return ["none", "local-read", "external-read"];
+    if (item === "local-write")
+      return ["local-write"];
+    if (item === "external-write")
+      return ["external-write"];
+    return [];
+  });
+  return [...new Set(values)];
+}
+function assertClientConnectorConfigurationEmpty(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    return;
+  const configuration = value.configuration;
+  if (configuration === void 0)
+    return;
+  if (!configuration || typeof configuration !== "object" || Array.isArray(configuration)) {
+    throw badRequest("Connector configuration is owned by Settings and must be omitted");
+  }
+  if (Object.keys(configuration).length > 0) {
+    throw badRequest("Connector provider, endpoint, enabled state, parameters, and Secret Reference are owned by Settings");
+  }
+}
+function applySettingsProfile(registration, profile) {
+  const selected = registration.connector.connectorId === profile.connectorId;
+  const credentialAvailable = !profile.secretRequired || profile.credential?.status === "present";
+  const state = !selected || !profile.enabled ? "disabled" : !credentialAvailable ? "unavailable" : registration.health.state;
+  const reasonCodes = [
+    ...registration.health.reasonCodes,
+    ...!selected ? ["settings_connector_not_selected"] : [],
+    ...selected && !profile.enabled ? ["settings_connector_disabled"] : [],
+    ...selected && profile.enabled && !credentialAvailable ? ["settings_secret_reference_unavailable"] : []
+  ];
+  const remediationKeys = [
+    ...registration.health.remediationKeys,
+    ...!selected ? ["select-host-connector-in-settings"] : [],
+    ...selected && !profile.enabled ? ["enable-host-capability-in-settings"] : [],
+    ...selected && profile.enabled && !credentialAvailable ? ["resolve-host-capability-secret-reference"] : []
+  ];
+  return validateConnectorRegistration({
+    ...registration,
+    connector: {
+      ...registration.connector,
+      transport: settingsTransport(profile.transport)
+    },
+    health: {
+      ...registration.health,
+      state,
+      reasonCodes: [...new Set(reasonCodes)],
+      remediationKeys: [...new Set(remediationKeys)]
+    },
+    configuration: {
+      parameters: selected ? settingsParameters(profile) : {
+        provider: registration.connector.connectorId.slice("connector/".length),
+        selectedConnectorId: profile.connectorId,
+        settingsSnapshotId: profile.snapshotId
+      },
+      secretRequired: selected && profile.secretRequired,
+      ...selected && profile.credential ? { secretReference: profile.credential.secretRef } : {}
+    }
+  });
+}
+function settingsParameters(profile) {
+  const provenance = {
+    connectorIdentity: profile.provenance.provider,
+    endpoint: profile.provenance.endpoint,
+    credential: profile.provenance.credential,
+    enabled: profile.provenance.enabled
+  };
+  if (settingsTransport(profile.transport) !== "stdio") {
+    return {
+      provider: profile.provider,
+      connectorId: profile.connectorId,
+      endpoint: profile.endpoint,
+      timeoutMs: profile.timeoutMs,
+      settingsSnapshotId: profile.snapshotId,
+      settingsProvenance: provenance
+    };
+  }
+  let url2;
+  try {
+    url2 = new URL(profile.endpoint);
+  } catch {
+    throw badRequest("Stdio Host Capability endpoint must use stdio://<command>?arg=<value>");
+  }
+  if (url2.protocol !== "stdio:" || !url2.hostname || !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(url2.hostname)) {
+    throw badRequest("Stdio Host Capability endpoint must use stdio://<safe-command>?arg=<value>");
+  }
+  return {
+    provider: profile.provider,
+    connectorId: profile.connectorId,
+    command: url2.hostname,
+    args: url2.searchParams.getAll("arg"),
+    timeoutMs: profile.timeoutMs,
+    settingsSnapshotId: profile.snapshotId,
+    settingsProvenance: provenance
+  };
+}
+function settingsTransport(transport) {
+  if (transport === "stdio")
+    return "stdio";
+  if (transport === "http" || transport === "oauth")
+    return "http";
+  return "in-process";
+}
+var projectAuthorizationParams = {
+  project: {
+    type: "string",
+    required: true,
+    description: "Canonical Project ID"
+  },
+  bindingId: {
+    type: "string",
+    required: true,
+    description: "Server-side current Project Agent Binding ID"
+  },
+  grantId: {
+    type: "string",
+    required: true,
+    description: "Server-issued active Child Work Run Capability Grant ID"
+  }
+};
+function makeHostCapabilityOps(vaultPath, options = {}) {
+  const service = new HostCapabilityOperationService(vaultPath, options);
+  const descriptorRegister = {
+    name: "host.descriptor.register",
+    namespace: HOST_NAMESPACE,
+    description: "Register an approved versioned Expert Descriptor with health and source observation.",
+    mutating: true,
+    writePolicy: {
+      realWrite: "always",
+      targets: (_ctx, params) => [
+        boundary2(() => descriptorTarget(params))
+      ],
+      audit: "required"
+    },
+    params: {
+      registration: {
+        type: "object",
+        required: true,
+        description: "Versioned Expert Descriptor registration"
+      }
+    },
+    handler: async (ctx, params) => boundary2(() => {
+      closedParams2(params, ["registration"]);
+      const actor2 = authenticatedApprover(ctx, "Expert Descriptor registration");
+      const registration = serverApprovedDescriptorRegistration(params.registration, actor2, new Date(service.now()).toISOString());
+      const write = service.store.registerDescriptor(registration);
+      return {
+        descriptorId: write.value.descriptor.descriptorId,
+        descriptorVersion: write.value.descriptor.descriptorVersion,
+        fingerprint: write.fingerprint,
+        storageKey: write.storageKey,
+        replayed: write.replayed
+      };
+    })
+  };
+  const descriptorList = {
+    name: "host.descriptor.list",
+    namespace: HOST_NAMESPACE,
+    description: "List registered Expert Descriptors without connecting to external hosts.",
+    mutating: false,
+    params: {},
+    handler: async (_ctx, params) => boundary2(() => {
+      closedParams2(params, []);
+      const registrations = service.store.listDescriptors();
+      return { count: registrations.length, registrations };
+    })
+  };
+  const descriptorRead = {
+    name: "host.descriptor.read",
+    namespace: HOST_NAMESPACE,
+    description: "Read one exact Expert Descriptor version.",
+    mutating: false,
+    params: {
+      descriptorId: { type: "string", required: true },
+      descriptorVersion: { type: "string", required: true }
+    },
+    handler: async (_ctx, params) => boundary2(() => {
+      closedParams2(params, ["descriptorId", "descriptorVersion"]);
+      return service.store.readDescriptor(requiredString3(params.descriptorId, "descriptorId"), requiredString3(params.descriptorVersion, "descriptorVersion"));
+    })
+  };
+  const connectorRegister = {
+    name: "host.connector.register",
+    namespace: HOST_NAMESPACE,
+    description: "Register a governed Host Capability Connector; credentials must remain Secret Reference locators.",
+    mutating: true,
+    writePolicy: {
+      realWrite: "always",
+      targets: (_ctx, params) => [
+        boundary2(() => connectorTarget(params))
+      ],
+      audit: "required"
+    },
+    params: {
+      project: { type: "string", required: false, description: "Canonical Project ID for workspace-project Settings" },
+      registration: {
+        type: "object",
+        required: true,
+        description: "Connector, health, public configuration, and optional Secret Reference locator"
+      }
+    },
+    handler: async (ctx, params) => asyncBoundary(async () => {
+      closedParams2(params, ["project", "registration"]);
+      const projectId2 = optionalCanonicalProject(vaultPath, params.project, "host.connector.register");
+      const actor2 = authenticatedApprover(ctx, "Host Capability Connector registration");
+      const approved = serverApprovedConnectorRegistration(params.registration, actor2, new Date(service.now()).toISOString());
+      const registration = await service.governedRegistration(approved, projectId2);
+      const write = service.store.registerConnector(registration);
+      return {
+        connectorId: write.value.connector.connectorId,
+        connectorVersion: write.value.connector.connectorVersion,
+        fingerprint: write.fingerprint,
+        storageKey: write.storageKey,
+        replayed: write.replayed
+      };
+    })
+  };
+  const connectorList = {
+    name: "host.connector.list",
+    namespace: HOST_NAMESPACE,
+    description: "List governed connector registrations without resolving credentials or connecting.",
+    mutating: false,
+    params: { project: { type: "string", required: false } },
+    handler: async (_ctx, params) => asyncBoundary(async () => {
+      closedParams2(params, ["project"]);
+      const projectId2 = optionalCanonicalProject(vaultPath, params.project, "host.connector.list");
+      const registrations = await service.listConnectors(projectId2);
+      return { count: registrations.length, registrations };
+    })
+  };
+  const connectorRead = {
+    name: "host.connector.read",
+    namespace: HOST_NAMESPACE,
+    description: "Read one exact governed connector version with redaction-safe configuration.",
+    mutating: false,
+    params: {
+      connectorId: { type: "string", required: true },
+      connectorVersion: { type: "string", required: true },
+      project: { type: "string", required: false }
+    },
+    handler: async (_ctx, params) => asyncBoundary(async () => {
+      closedParams2(params, ["connectorId", "connectorVersion", "project"]);
+      return service.readConnector(requiredString3(params.connectorId, "connectorId"), requiredString3(params.connectorVersion, "connectorVersion"), optionalCanonicalProject(vaultPath, params.project, "host.connector.read"));
+    })
+  };
+  const assignmentPlan = {
+    name: "host.assignment.plan",
+    namespace: HOST_NAMESPACE,
+    description: "Create and persist a deterministic pending AssignmentPlan under Project Binding and Capability Grant gates.",
+    mutating: true,
+    writePolicy: {
+      realWrite: "always",
+      targets: () => [`${HOST_CAPABILITY_RELATIVE_ROOT}/assignments`],
+      audit: "required"
+    },
+    params: {
+      ...projectAuthorizationParams,
+      requirement: { type: "object", required: true },
+      policy: { type: "object", required: true },
+      devices: { type: "array", required: false },
+      plannedAt: { type: "string", required: false }
+    },
+    handler: async (_ctx, params) => asyncBoundary(async () => {
+      closedParams2(params, [
+        "project",
+        "bindingId",
+        "grantId",
+        "requirement",
+        "policy",
+        "devices",
+        "plannedAt"
+      ]);
+      return service.plan(params);
+    })
+  };
+  const assignmentApprove = {
+    name: "host.assignment.approve",
+    namespace: HOST_NAMESPACE,
+    description: "Approve one exact pending AssignmentPlan fingerprint under its locked Project Binding and Capability Grant.",
+    mutating: true,
+    writePolicy: {
+      realWrite: "always",
+      targets: (_ctx, params) => [boundary2(() => assignmentTarget(params))],
+      audit: "required"
+    },
+    params: {
+      ...projectAuthorizationParams,
+      planId: { type: "string", required: true },
+      expectedFingerprint: { type: "string", required: true },
+      approvedBy: { type: "string", required: true }
+    },
+    handler: async (ctx, params) => asyncBoundary(async () => {
+      closedParams2(params, [
+        "project",
+        "bindingId",
+        "grantId",
+        "planId",
+        "expectedFingerprint",
+        "approvedBy"
+      ]);
+      const approvedBy = requiredString3(params.approvedBy, "approvedBy");
+      const authenticatedActor = ctx.config.collaboration?.actor;
+      const authenticatedRole = ctx.config.collaboration?.role;
+      if (!authenticatedActor || authenticatedActor !== approvedBy || !(/* @__PURE__ */ new Set(["human", "approver", "admin"])).has(authenticatedRole ?? "")) {
+        throw conflict("AssignmentPlan approval requires the authenticated human or approver actor");
+      }
+      return service.approve(params);
+    })
+  };
+  const assignmentRead = {
+    name: "host.assignment.read",
+    namespace: HOST_NAMESPACE,
+    description: "Read an AssignmentPlan only through its current Project Binding and Capability Grant.",
+    mutating: false,
+    params: {
+      ...projectAuthorizationParams,
+      planId: { type: "string", required: true }
+    },
+    handler: async (_ctx, params) => asyncBoundary(async () => {
+      closedParams2(params, ["project", "bindingId", "grantId", "planId"]);
+      return service.readPlan(params);
+    })
+  };
+  const proxySearch = {
+    name: "host.proxy.search",
+    namespace: HOST_NAMESPACE,
+    description: "Search only Project-visible and granted Host Capability descriptors without opening transports.",
+    mutating: false,
+    params: {
+      ...projectAuthorizationParams,
+      query: { type: "string", required: false },
+      capability: { type: "string", required: false },
+      operation: { type: "string", required: false }
+    },
+    handler: async (_ctx, params) => asyncBoundary(async () => {
+      closedParams2(params, [
+        "project",
+        "bindingId",
+        "grantId",
+        "query",
+        "capability",
+        "operation"
+      ]);
+      const authorized = await service.authorize(params, "host.proxy.search");
+      const results = (await service.runtime(authorized.projectId)).proxy.search({
+        scope: authorized.scope,
+        query: optionalString5(params.query, "query"),
+        capability: optionalString5(params.capability, "capability"),
+        operation: optionalString5(params.operation, "operation")
+      });
+      return { projectId: authorized.projectId, count: results.length, results };
+    })
+  };
+  const proxyDescribe = {
+    name: "host.proxy.describe",
+    namespace: HOST_NAMESPACE,
+    description: "Describe the current granted descriptor and connector bytes without connecting.",
+    mutating: false,
+    params: {
+      ...projectAuthorizationParams,
+      descriptorId: { type: "string", required: true },
+      descriptorVersion: { type: "string", required: true }
+    },
+    handler: async (_ctx, params) => asyncBoundary(async () => {
+      closedParams2(params, [
+        "project",
+        "bindingId",
+        "grantId",
+        "descriptorId",
+        "descriptorVersion"
+      ]);
+      const authorized = await service.authorize(params, "host.proxy.describe");
+      const description = (await service.runtime(authorized.projectId)).proxy.describe({
+        scope: authorized.scope,
+        descriptorId: requiredString3(params.descriptorId, "descriptorId"),
+        descriptorVersion: requiredString3(params.descriptorVersion, "descriptorVersion")
+      });
+      return { projectId: authorized.projectId, description };
+    })
+  };
+  const proxyInvoke = {
+    name: "host.proxy.invoke",
+    namespace: HOST_NAMESPACE,
+    description: "Invoke one described operation through the persisted approved AssignmentPlan, Project Binding, and Capability Grant.",
+    mutating: true,
+    writePolicy: {
+      realWrite: "always",
+      targets: () => ["external/host-capability/**"],
+      audit: "required"
+    },
+    params: {
+      ...projectAuthorizationParams,
+      planId: { type: "string", required: true },
+      descriptorId: { type: "string", required: true },
+      descriptorVersion: { type: "string", required: true },
+      operation: { type: "string", required: true },
+      describedDescriptorFingerprint: { type: "string", required: true },
+      workItemId: { type: "string", required: false },
+      input: { type: "unknown", required: false },
+      timeoutMs: { type: "number", required: false }
+    },
+    handler: async (_ctx, params) => asyncBoundary(async () => {
+      closedParams2(params, [
+        "project",
+        "bindingId",
+        "grantId",
+        "planId",
+        "descriptorId",
+        "descriptorVersion",
+        "operation",
+        "describedDescriptorFingerprint",
+        "workItemId",
+        "input",
+        "timeoutMs"
+      ]);
+      const authorized = await service.authorize(params, "host.proxy.invoke");
+      const plan = service.store.readAssignmentPlan(requiredString3(params.planId, "planId"));
+      service.assertPlanScope(plan, authorized);
+      if (plan.approval.status !== "approved") {
+        throw conflict("Proxy invoke requires the matching persisted approved AssignmentPlan");
+      }
+      const describedFingerprint = requiredString3(params.describedDescriptorFingerprint, "describedDescriptorFingerprint");
+      if (!DIGEST_PATTERN.test(describedFingerprint)) {
+        throw badRequest("describedDescriptorFingerprint must be a sha256 digest");
+      }
+      const timeoutMs = params.timeoutMs;
+      if (timeoutMs !== void 0 && (typeof timeoutMs !== "number" || !Number.isInteger(timeoutMs) || timeoutMs < 1)) {
+        throw badRequest("timeoutMs must be a positive integer");
+      }
+      const settingsProfile = await service.settingsProfile(authorized.projectId);
+      const runtime = await service.runtime(authorized.projectId);
+      const result = await runtime.proxy.invoke({
+        scope: {
+          ...authorized.scope,
+          workItemId: optionalString5(params.workItemId, "workItemId")
+        },
+        assignmentPlan: plan,
+        descriptorId: requiredString3(params.descriptorId, "descriptorId"),
+        descriptorVersion: requiredString3(params.descriptorVersion, "descriptorVersion"),
+        operation: requiredString3(params.operation, "operation"),
+        describedDescriptorFingerprint: describedFingerprint,
+        input: params.input,
+        timeoutMs: timeoutMs === void 0 ? settingsProfile.timeoutMs : Math.min(timeoutMs, settingsProfile.timeoutMs)
+      });
+      return { projectId: authorized.projectId, result };
+    })
+  };
+  const doctor = {
+    name: "host.doctor",
+    namespace: HOST_NAMESPACE,
+    description: "Project read-only descriptor, connector, health, Secret Reference, and approved-plan diagnostics without external calls.",
+    mutating: false,
+    params: { project: { type: "string", required: false } },
+    handler: async (_ctx, params) => asyncBoundary(async () => {
+      closedParams2(params, ["project"]);
+      return service.doctor(optionalCanonicalProject(vaultPath, params.project, "host.doctor"));
+    })
+  };
+  const project = {
+    name: "host.project",
+    namespace: HOST_NAMESPACE,
+    description: "Project-scoped Host Capability, health, grant visibility, and AssignmentPlan projection without external calls.",
+    mutating: false,
+    params: projectAuthorizationParams,
+    handler: async (_ctx, params) => asyncBoundary(async () => {
+      closedParams2(params, ["project", "bindingId", "grantId"]);
+      return service.project(params);
+    })
+  };
+  return [
+    descriptorRegister,
+    descriptorList,
+    descriptorRead,
+    connectorRegister,
+    connectorList,
+    connectorRead,
+    assignmentPlan,
+    assignmentApprove,
+    assignmentRead,
+    proxySearch,
+    proxyDescribe,
+    proxyInvoke,
+    doctor,
+    project
+  ];
+}
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/client.js
+var ExperimentalClientTasks = class {
+  constructor(_client) {
+    this._client = _client;
+  }
+  /**
+   * Calls a tool and returns an AsyncGenerator that yields response messages.
+   * The generator is guaranteed to end with either a 'result' or 'error' message.
+   *
+   * This method provides streaming access to tool execution, allowing you to
+   * observe intermediate task status updates for long-running tool calls.
+   * Automatically validates structured output if the tool has an outputSchema.
+   *
+   * @example
+   * ```typescript
+   * const stream = client.experimental.tasks.callToolStream({ name: 'myTool', arguments: {} });
+   * for await (const message of stream) {
+   *   switch (message.type) {
+   *     case 'taskCreated':
+   *       console.log('Tool execution started:', message.task.taskId);
+   *       break;
+   *     case 'taskStatus':
+   *       console.log('Tool status:', message.task.status);
+   *       break;
+   *     case 'result':
+   *       console.log('Tool result:', message.result);
+   *       break;
+   *     case 'error':
+   *       console.error('Tool error:', message.error);
+   *       break;
+   *   }
+   * }
+   * ```
+   *
+   * @param params - Tool call parameters (name and arguments)
+   * @param resultSchema - Zod schema for validating the result (defaults to CallToolResultSchema)
+   * @param options - Optional request options (timeout, signal, task creation params, etc.)
+   * @returns AsyncGenerator that yields ResponseMessage objects
+   *
+   * @experimental
+   */
+  async *callToolStream(params, resultSchema = CallToolResultSchema, options) {
+    const clientInternal = this._client;
+    const optionsWithTask = {
+      ...options,
+      // We check if the tool is known to be a task during auto-configuration, but assume
+      // the caller knows what they're doing if they pass this explicitly
+      task: options?.task ?? (clientInternal.isToolTask(params.name) ? {} : void 0)
+    };
+    const stream = clientInternal.requestStream({ method: "tools/call", params }, resultSchema, optionsWithTask);
+    const validator = clientInternal.getToolOutputValidator(params.name);
+    for await (const message of stream) {
+      if (message.type === "result" && validator) {
+        const result = message.result;
+        if (!result.structuredContent && !result.isError) {
+          yield {
+            type: "error",
+            error: new McpError(ErrorCode.InvalidRequest, `Tool ${params.name} has an output schema but did not return structured content`)
+          };
+          return;
+        }
+        if (result.structuredContent) {
+          try {
+            const validationResult = validator(result.structuredContent);
+            if (!validationResult.valid) {
+              yield {
+                type: "error",
+                error: new McpError(ErrorCode.InvalidParams, `Structured content does not match the tool's output schema: ${validationResult.errorMessage}`)
+              };
+              return;
+            }
+          } catch (error48) {
+            if (error48 instanceof McpError) {
+              yield { type: "error", error: error48 };
+              return;
+            }
+            yield {
+              type: "error",
+              error: new McpError(ErrorCode.InvalidParams, `Failed to validate structured content: ${error48 instanceof Error ? error48.message : String(error48)}`)
+            };
+            return;
+          }
+        }
+      }
+      yield message;
+    }
+  }
+  /**
+   * Gets the current status of a task.
+   *
+   * @param taskId - The task identifier
+   * @param options - Optional request options
+   * @returns The task status
+   *
+   * @experimental
+   */
+  async getTask(taskId, options) {
+    return this._client.getTask({ taskId }, options);
+  }
+  /**
+   * Retrieves the result of a completed task.
+   *
+   * @param taskId - The task identifier
+   * @param resultSchema - Zod schema for validating the result
+   * @param options - Optional request options
+   * @returns The task result
+   *
+   * @experimental
+   */
+  async getTaskResult(taskId, resultSchema, options) {
+    return this._client.getTaskResult({ taskId }, resultSchema, options);
+  }
+  /**
+   * Lists tasks with optional pagination.
+   *
+   * @param cursor - Optional pagination cursor
+   * @param options - Optional request options
+   * @returns List of tasks with optional next cursor
+   *
+   * @experimental
+   */
+  async listTasks(cursor, options) {
+    return this._client.listTasks(cursor ? { cursor } : void 0, options);
+  }
+  /**
+   * Cancels a running task.
+   *
+   * @param taskId - The task identifier
+   * @param options - Optional request options
+   *
+   * @experimental
+   */
+  async cancelTask(taskId, options) {
+    return this._client.cancelTask({ taskId }, options);
+  }
+  /**
+   * Sends a request and returns an AsyncGenerator that yields response messages.
+   * The generator is guaranteed to end with either a 'result' or 'error' message.
+   *
+   * This method provides streaming access to request processing, allowing you to
+   * observe intermediate task status updates for task-augmented requests.
+   *
+   * @param request - The request to send
+   * @param resultSchema - Zod schema for validating the result
+   * @param options - Optional request options (timeout, signal, task creation params, etc.)
+   * @returns AsyncGenerator that yields ResponseMessage objects
+   *
+   * @experimental
+   */
+  requestStream(request, resultSchema, options) {
+    return this._client.requestStream(request, resultSchema, options);
+  }
+};
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/client/index.js
+function applyElicitationDefaults(schema, data) {
+  if (!schema || data === null || typeof data !== "object")
+    return;
+  if (schema.type === "object" && schema.properties && typeof schema.properties === "object") {
+    const obj = data;
+    const props = schema.properties;
+    for (const key of Object.keys(props)) {
+      const propSchema = props[key];
+      if (obj[key] === void 0 && Object.prototype.hasOwnProperty.call(propSchema, "default")) {
+        obj[key] = propSchema.default;
+      }
+      if (obj[key] !== void 0) {
+        applyElicitationDefaults(propSchema, obj[key]);
+      }
+    }
+  }
+  if (Array.isArray(schema.anyOf)) {
+    for (const sub of schema.anyOf) {
+      if (typeof sub !== "boolean") {
+        applyElicitationDefaults(sub, data);
+      }
+    }
+  }
+  if (Array.isArray(schema.oneOf)) {
+    for (const sub of schema.oneOf) {
+      if (typeof sub !== "boolean") {
+        applyElicitationDefaults(sub, data);
+      }
+    }
+  }
+}
+function getSupportedElicitationModes(capabilities) {
+  if (!capabilities) {
+    return { supportsFormMode: false, supportsUrlMode: false };
+  }
+  const hasFormCapability = capabilities.form !== void 0;
+  const hasUrlCapability = capabilities.url !== void 0;
+  const supportsFormMode = hasFormCapability || !hasFormCapability && !hasUrlCapability;
+  const supportsUrlMode = hasUrlCapability;
+  return { supportsFormMode, supportsUrlMode };
+}
+var Client2 = class extends Protocol {
+  /**
+   * Initializes this client with the given name and version information.
+   */
+  constructor(_clientInfo, options) {
+    super(options);
+    this._clientInfo = _clientInfo;
+    this._cachedToolOutputValidators = /* @__PURE__ */ new Map();
+    this._cachedKnownTaskTools = /* @__PURE__ */ new Set();
+    this._cachedRequiredTaskTools = /* @__PURE__ */ new Set();
+    this._listChangedDebounceTimers = /* @__PURE__ */ new Map();
+    this._capabilities = options?.capabilities ?? {};
+    this._jsonSchemaValidator = options?.jsonSchemaValidator ?? new AjvJsonSchemaValidator();
+    if (options?.listChanged) {
+      this._pendingListChangedConfig = options.listChanged;
+    }
+  }
+  /**
+   * Set up handlers for list changed notifications based on config and server capabilities.
+   * This should only be called after initialization when server capabilities are known.
+   * Handlers are silently skipped if the server doesn't advertise the corresponding listChanged capability.
+   * @internal
+   */
+  _setupListChangedHandlers(config2) {
+    if (config2.tools && this._serverCapabilities?.tools?.listChanged) {
+      this._setupListChangedHandler("tools", ToolListChangedNotificationSchema, config2.tools, async () => {
+        const result = await this.listTools();
+        return result.tools;
+      });
+    }
+    if (config2.prompts && this._serverCapabilities?.prompts?.listChanged) {
+      this._setupListChangedHandler("prompts", PromptListChangedNotificationSchema, config2.prompts, async () => {
+        const result = await this.listPrompts();
+        return result.prompts;
+      });
+    }
+    if (config2.resources && this._serverCapabilities?.resources?.listChanged) {
+      this._setupListChangedHandler("resources", ResourceListChangedNotificationSchema, config2.resources, async () => {
+        const result = await this.listResources();
+        return result.resources;
+      });
+    }
+  }
+  /**
+   * Access experimental features.
+   *
+   * WARNING: These APIs are experimental and may change without notice.
+   *
+   * @experimental
+   */
+  get experimental() {
+    if (!this._experimental) {
+      this._experimental = {
+        tasks: new ExperimentalClientTasks(this)
+      };
+    }
+    return this._experimental;
+  }
+  /**
+   * Registers new capabilities. This can only be called before connecting to a transport.
+   *
+   * The new capabilities will be merged with any existing capabilities previously given (e.g., at initialization).
+   */
+  registerCapabilities(capabilities) {
+    if (this.transport) {
+      throw new Error("Cannot register capabilities after connecting to transport");
+    }
+    this._capabilities = mergeCapabilities(this._capabilities, capabilities);
+  }
+  /**
+   * Override request handler registration to enforce client-side validation for elicitation.
+   */
+  setRequestHandler(requestSchema, handler) {
+    const shape = getObjectShape(requestSchema);
+    const methodSchema = shape?.method;
+    if (!methodSchema) {
+      throw new Error("Schema is missing a method literal");
+    }
+    let methodValue;
+    if (isZ4Schema(methodSchema)) {
+      const v4Schema = methodSchema;
+      const v4Def = v4Schema._zod?.def;
+      methodValue = v4Def?.value ?? v4Schema.value;
+    } else {
+      const v3Schema = methodSchema;
+      const legacyDef = v3Schema._def;
+      methodValue = legacyDef?.value ?? v3Schema.value;
+    }
+    if (typeof methodValue !== "string") {
+      throw new Error("Schema method literal must be a string");
+    }
+    const method = methodValue;
+    if (method === "elicitation/create") {
+      const wrappedHandler = async (request, extra) => {
+        const validatedRequest = safeParse2(ElicitRequestSchema, request);
+        if (!validatedRequest.success) {
+          const errorMessage = validatedRequest.error instanceof Error ? validatedRequest.error.message : String(validatedRequest.error);
+          throw new McpError(ErrorCode.InvalidParams, `Invalid elicitation request: ${errorMessage}`);
+        }
+        const { params } = validatedRequest.data;
+        params.mode = params.mode ?? "form";
+        const { supportsFormMode, supportsUrlMode } = getSupportedElicitationModes(this._capabilities.elicitation);
+        if (params.mode === "form" && !supportsFormMode) {
+          throw new McpError(ErrorCode.InvalidParams, "Client does not support form-mode elicitation requests");
+        }
+        if (params.mode === "url" && !supportsUrlMode) {
+          throw new McpError(ErrorCode.InvalidParams, "Client does not support URL-mode elicitation requests");
+        }
+        const result = await Promise.resolve(handler(request, extra));
+        if (params.task) {
+          const taskValidationResult = safeParse2(CreateTaskResultSchema, result);
+          if (!taskValidationResult.success) {
+            const errorMessage = taskValidationResult.error instanceof Error ? taskValidationResult.error.message : String(taskValidationResult.error);
+            throw new McpError(ErrorCode.InvalidParams, `Invalid task creation result: ${errorMessage}`);
+          }
+          return taskValidationResult.data;
+        }
+        const validationResult = safeParse2(ElicitResultSchema, result);
+        if (!validationResult.success) {
+          const errorMessage = validationResult.error instanceof Error ? validationResult.error.message : String(validationResult.error);
+          throw new McpError(ErrorCode.InvalidParams, `Invalid elicitation result: ${errorMessage}`);
+        }
+        const validatedResult = validationResult.data;
+        const requestedSchema = params.mode === "form" ? params.requestedSchema : void 0;
+        if (params.mode === "form" && validatedResult.action === "accept" && validatedResult.content && requestedSchema) {
+          if (this._capabilities.elicitation?.form?.applyDefaults) {
+            try {
+              applyElicitationDefaults(requestedSchema, validatedResult.content);
+            } catch {
+            }
+          }
+        }
+        return validatedResult;
+      };
+      return super.setRequestHandler(requestSchema, wrappedHandler);
+    }
+    if (method === "sampling/createMessage") {
+      const wrappedHandler = async (request, extra) => {
+        const validatedRequest = safeParse2(CreateMessageRequestSchema, request);
+        if (!validatedRequest.success) {
+          const errorMessage = validatedRequest.error instanceof Error ? validatedRequest.error.message : String(validatedRequest.error);
+          throw new McpError(ErrorCode.InvalidParams, `Invalid sampling request: ${errorMessage}`);
+        }
+        const { params } = validatedRequest.data;
+        const result = await Promise.resolve(handler(request, extra));
+        if (params.task) {
+          const taskValidationResult = safeParse2(CreateTaskResultSchema, result);
+          if (!taskValidationResult.success) {
+            const errorMessage = taskValidationResult.error instanceof Error ? taskValidationResult.error.message : String(taskValidationResult.error);
+            throw new McpError(ErrorCode.InvalidParams, `Invalid task creation result: ${errorMessage}`);
+          }
+          return taskValidationResult.data;
+        }
+        const hasTools = params.tools || params.toolChoice;
+        const resultSchema = hasTools ? CreateMessageResultWithToolsSchema : CreateMessageResultSchema;
+        const validationResult = safeParse2(resultSchema, result);
+        if (!validationResult.success) {
+          const errorMessage = validationResult.error instanceof Error ? validationResult.error.message : String(validationResult.error);
+          throw new McpError(ErrorCode.InvalidParams, `Invalid sampling result: ${errorMessage}`);
+        }
+        return validationResult.data;
+      };
+      return super.setRequestHandler(requestSchema, wrappedHandler);
+    }
+    return super.setRequestHandler(requestSchema, handler);
+  }
+  assertCapability(capability, method) {
+    if (!this._serverCapabilities?.[capability]) {
+      throw new Error(`Server does not support ${capability} (required for ${method})`);
+    }
+  }
+  async connect(transport, options) {
+    await super.connect(transport);
+    if (transport.sessionId !== void 0) {
+      return;
+    }
+    try {
+      const result = await this.request({
+        method: "initialize",
+        params: {
+          protocolVersion: LATEST_PROTOCOL_VERSION,
+          capabilities: this._capabilities,
+          clientInfo: this._clientInfo
+        }
+      }, InitializeResultSchema, options);
+      if (result === void 0) {
+        throw new Error(`Server sent invalid initialize result: ${result}`);
+      }
+      if (!SUPPORTED_PROTOCOL_VERSIONS.includes(result.protocolVersion)) {
+        throw new Error(`Server's protocol version is not supported: ${result.protocolVersion}`);
+      }
+      this._serverCapabilities = result.capabilities;
+      this._serverVersion = result.serverInfo;
+      if (transport.setProtocolVersion) {
+        transport.setProtocolVersion(result.protocolVersion);
+      }
+      this._instructions = result.instructions;
+      await this.notification({
+        method: "notifications/initialized"
+      });
+      if (this._pendingListChangedConfig) {
+        this._setupListChangedHandlers(this._pendingListChangedConfig);
+        this._pendingListChangedConfig = void 0;
+      }
+    } catch (error48) {
+      void this.close();
+      throw error48;
+    }
+  }
+  /**
+   * After initialization has completed, this will be populated with the server's reported capabilities.
+   */
+  getServerCapabilities() {
+    return this._serverCapabilities;
+  }
+  /**
+   * After initialization has completed, this will be populated with information about the server's name and version.
+   */
+  getServerVersion() {
+    return this._serverVersion;
+  }
+  /**
+   * After initialization has completed, this may be populated with information about the server's instructions.
+   */
+  getInstructions() {
+    return this._instructions;
+  }
+  assertCapabilityForMethod(method) {
+    switch (method) {
+      case "logging/setLevel":
+        if (!this._serverCapabilities?.logging) {
+          throw new Error(`Server does not support logging (required for ${method})`);
+        }
+        break;
+      case "prompts/get":
+      case "prompts/list":
+        if (!this._serverCapabilities?.prompts) {
+          throw new Error(`Server does not support prompts (required for ${method})`);
+        }
+        break;
+      case "resources/list":
+      case "resources/templates/list":
+      case "resources/read":
+      case "resources/subscribe":
+      case "resources/unsubscribe":
+        if (!this._serverCapabilities?.resources) {
+          throw new Error(`Server does not support resources (required for ${method})`);
+        }
+        if (method === "resources/subscribe" && !this._serverCapabilities.resources.subscribe) {
+          throw new Error(`Server does not support resource subscriptions (required for ${method})`);
+        }
+        break;
+      case "tools/call":
+      case "tools/list":
+        if (!this._serverCapabilities?.tools) {
+          throw new Error(`Server does not support tools (required for ${method})`);
+        }
+        break;
+      case "completion/complete":
+        if (!this._serverCapabilities?.completions) {
+          throw new Error(`Server does not support completions (required for ${method})`);
+        }
+        break;
+      case "initialize":
+        break;
+      case "ping":
+        break;
+    }
+  }
+  assertNotificationCapability(method) {
+    switch (method) {
+      case "notifications/roots/list_changed":
+        if (!this._capabilities.roots?.listChanged) {
+          throw new Error(`Client does not support roots list changed notifications (required for ${method})`);
+        }
+        break;
+      case "notifications/initialized":
+        break;
+      case "notifications/cancelled":
+        break;
+      case "notifications/progress":
+        break;
+    }
+  }
+  assertRequestHandlerCapability(method) {
+    if (!this._capabilities) {
+      return;
+    }
+    switch (method) {
+      case "sampling/createMessage":
+        if (!this._capabilities.sampling) {
+          throw new Error(`Client does not support sampling capability (required for ${method})`);
+        }
+        break;
+      case "elicitation/create":
+        if (!this._capabilities.elicitation) {
+          throw new Error(`Client does not support elicitation capability (required for ${method})`);
+        }
+        break;
+      case "roots/list":
+        if (!this._capabilities.roots) {
+          throw new Error(`Client does not support roots capability (required for ${method})`);
+        }
+        break;
+      case "tasks/get":
+      case "tasks/list":
+      case "tasks/result":
+      case "tasks/cancel":
+        if (!this._capabilities.tasks) {
+          throw new Error(`Client does not support tasks capability (required for ${method})`);
+        }
+        break;
+      case "ping":
+        break;
+    }
+  }
+  assertTaskCapability(method) {
+    assertToolsCallTaskCapability(this._serverCapabilities?.tasks?.requests, method, "Server");
+  }
+  assertTaskHandlerCapability(method) {
+    if (!this._capabilities) {
+      return;
+    }
+    assertClientRequestTaskCapability(this._capabilities.tasks?.requests, method, "Client");
+  }
+  async ping(options) {
+    return this.request({ method: "ping" }, EmptyResultSchema, options);
+  }
+  async complete(params, options) {
+    return this.request({ method: "completion/complete", params }, CompleteResultSchema, options);
+  }
+  async setLoggingLevel(level, options) {
+    return this.request({ method: "logging/setLevel", params: { level } }, EmptyResultSchema, options);
+  }
+  async getPrompt(params, options) {
+    return this.request({ method: "prompts/get", params }, GetPromptResultSchema, options);
+  }
+  async listPrompts(params, options) {
+    return this.request({ method: "prompts/list", params }, ListPromptsResultSchema, options);
+  }
+  async listResources(params, options) {
+    return this.request({ method: "resources/list", params }, ListResourcesResultSchema, options);
+  }
+  async listResourceTemplates(params, options) {
+    return this.request({ method: "resources/templates/list", params }, ListResourceTemplatesResultSchema, options);
+  }
+  async readResource(params, options) {
+    return this.request({ method: "resources/read", params }, ReadResourceResultSchema, options);
+  }
+  async subscribeResource(params, options) {
+    return this.request({ method: "resources/subscribe", params }, EmptyResultSchema, options);
+  }
+  async unsubscribeResource(params, options) {
+    return this.request({ method: "resources/unsubscribe", params }, EmptyResultSchema, options);
+  }
+  /**
+   * Calls a tool and waits for the result. Automatically validates structured output if the tool has an outputSchema.
+   *
+   * For task-based execution with streaming behavior, use client.experimental.tasks.callToolStream() instead.
+   */
+  async callTool(params, resultSchema = CallToolResultSchema, options) {
+    if (this.isToolTaskRequired(params.name)) {
+      throw new McpError(ErrorCode.InvalidRequest, `Tool "${params.name}" requires task-based execution. Use client.experimental.tasks.callToolStream() instead.`);
+    }
+    const result = await this.request({ method: "tools/call", params }, resultSchema, options);
+    const validator = this.getToolOutputValidator(params.name);
+    if (validator) {
+      if (!result.structuredContent && !result.isError) {
+        throw new McpError(ErrorCode.InvalidRequest, `Tool ${params.name} has an output schema but did not return structured content`);
+      }
+      if (result.structuredContent) {
+        try {
+          const validationResult = validator(result.structuredContent);
+          if (!validationResult.valid) {
+            throw new McpError(ErrorCode.InvalidParams, `Structured content does not match the tool's output schema: ${validationResult.errorMessage}`);
+          }
+        } catch (error48) {
+          if (error48 instanceof McpError) {
+            throw error48;
+          }
+          throw new McpError(ErrorCode.InvalidParams, `Failed to validate structured content: ${error48 instanceof Error ? error48.message : String(error48)}`);
+        }
+      }
+    }
+    return result;
+  }
+  isToolTask(toolName) {
+    if (!this._serverCapabilities?.tasks?.requests?.tools?.call) {
+      return false;
+    }
+    return this._cachedKnownTaskTools.has(toolName);
+  }
+  /**
+   * Check if a tool requires task-based execution.
+   * Unlike isToolTask which includes 'optional' tools, this only checks for 'required'.
+   */
+  isToolTaskRequired(toolName) {
+    return this._cachedRequiredTaskTools.has(toolName);
+  }
+  /**
+   * Cache validators for tool output schemas.
+   * Called after listTools() to pre-compile validators for better performance.
+   */
+  cacheToolMetadata(tools) {
+    this._cachedToolOutputValidators.clear();
+    this._cachedKnownTaskTools.clear();
+    this._cachedRequiredTaskTools.clear();
+    for (const tool of tools) {
+      if (tool.outputSchema) {
+        const toolValidator = this._jsonSchemaValidator.getValidator(tool.outputSchema);
+        this._cachedToolOutputValidators.set(tool.name, toolValidator);
+      }
+      const taskSupport = tool.execution?.taskSupport;
+      if (taskSupport === "required" || taskSupport === "optional") {
+        this._cachedKnownTaskTools.add(tool.name);
+      }
+      if (taskSupport === "required") {
+        this._cachedRequiredTaskTools.add(tool.name);
+      }
+    }
+  }
+  /**
+   * Get cached validator for a tool
+   */
+  getToolOutputValidator(toolName) {
+    return this._cachedToolOutputValidators.get(toolName);
+  }
+  async listTools(params, options) {
+    const result = await this.request({ method: "tools/list", params }, ListToolsResultSchema, options);
+    this.cacheToolMetadata(result.tools);
+    return result;
+  }
+  /**
+   * Set up a single list changed handler.
+   * @internal
+   */
+  _setupListChangedHandler(listType, notificationSchema, options, fetcher) {
+    const parseResult = ListChangedOptionsBaseSchema.safeParse(options);
+    if (!parseResult.success) {
+      throw new Error(`Invalid ${listType} listChanged options: ${parseResult.error.message}`);
+    }
+    if (typeof options.onChanged !== "function") {
+      throw new Error(`Invalid ${listType} listChanged options: onChanged must be a function`);
+    }
+    const { autoRefresh, debounceMs } = parseResult.data;
+    const { onChanged } = options;
+    const refresh = async () => {
+      if (!autoRefresh) {
+        onChanged(null, null);
+        return;
+      }
+      try {
+        const items = await fetcher();
+        onChanged(null, items);
+      } catch (e) {
+        const error48 = e instanceof Error ? e : new Error(String(e));
+        onChanged(error48, null);
+      }
+    };
+    const handler = () => {
+      if (debounceMs) {
+        const existingTimer = this._listChangedDebounceTimers.get(listType);
+        if (existingTimer) {
+          clearTimeout(existingTimer);
+        }
+        const timer = setTimeout(refresh, debounceMs);
+        this._listChangedDebounceTimers.set(listType, timer);
+      } else {
+        refresh();
+      }
+    };
+    this.setNotificationHandler(notificationSchema, handler);
+  }
+  async sendRootsListChanged() {
+    return this.notification({ method: "notifications/roots/list_changed" });
+  }
+};
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/client/stdio.js
+var import_cross_spawn = __toESM(require_cross_spawn(), 1);
+import process4 from "node:process";
+import { PassThrough } from "node:stream";
+var DEFAULT_INHERITED_ENV_VARS = process4.platform === "win32" ? [
+  "APPDATA",
+  "HOMEDRIVE",
+  "HOMEPATH",
+  "LOCALAPPDATA",
+  "PATH",
+  "PROCESSOR_ARCHITECTURE",
+  "SYSTEMDRIVE",
+  "SYSTEMROOT",
+  "TEMP",
+  "USERNAME",
+  "USERPROFILE",
+  "PROGRAMFILES"
+] : (
+  /* list inspired by the default env inheritance of sudo */
+  ["HOME", "LOGNAME", "PATH", "SHELL", "TERM", "USER"]
+);
+function getDefaultEnvironment() {
+  const env = {};
+  for (const key of DEFAULT_INHERITED_ENV_VARS) {
+    const value = process4.env[key];
+    if (value === void 0) {
+      continue;
+    }
+    if (value.startsWith("()")) {
+      continue;
+    }
+    env[key] = value;
+  }
+  return env;
+}
+var StdioClientTransport = class {
+  constructor(server) {
+    this._readBuffer = new ReadBuffer();
+    this._stderrStream = null;
+    this._serverParams = server;
+    if (server.stderr === "pipe" || server.stderr === "overlapped") {
+      this._stderrStream = new PassThrough();
+    }
+  }
+  /**
+   * Starts the server process and prepares to communicate with it.
+   */
+  async start() {
+    if (this._process) {
+      throw new Error("StdioClientTransport already started! If using Client class, note that connect() calls start() automatically.");
+    }
+    return new Promise((resolve9, reject) => {
+      this._process = (0, import_cross_spawn.default)(this._serverParams.command, this._serverParams.args ?? [], {
+        // merge default env with server env because mcp server needs some env vars
+        env: {
+          ...getDefaultEnvironment(),
+          ...this._serverParams.env
+        },
+        stdio: ["pipe", "pipe", this._serverParams.stderr ?? "inherit"],
+        shell: false,
+        windowsHide: process4.platform === "win32",
+        cwd: this._serverParams.cwd
+      });
+      this._process.on("error", (error48) => {
+        reject(error48);
+        this.onerror?.(error48);
+      });
+      this._process.on("spawn", () => {
+        resolve9();
+      });
+      this._process.on("close", (_code) => {
+        this._process = void 0;
+        this.onclose?.();
+      });
+      this._process.stdin?.on("error", (error48) => {
+        this.onerror?.(error48);
+      });
+      this._process.stdout?.on("data", (chunk) => {
+        this._readBuffer.append(chunk);
+        this.processReadBuffer();
+      });
+      this._process.stdout?.on("error", (error48) => {
+        this.onerror?.(error48);
+      });
+      if (this._stderrStream && this._process.stderr) {
+        this._process.stderr.pipe(this._stderrStream);
+      }
+    });
+  }
+  /**
+   * The stderr stream of the child process, if `StdioServerParameters.stderr` was set to "pipe" or "overlapped".
+   *
+   * If stderr piping was requested, a PassThrough stream is returned _immediately_, allowing callers to
+   * attach listeners before the start method is invoked. This prevents loss of any early
+   * error output emitted by the child process.
+   */
+  get stderr() {
+    if (this._stderrStream) {
+      return this._stderrStream;
+    }
+    return this._process?.stderr ?? null;
+  }
+  /**
+   * The child process pid spawned by this transport.
+   *
+   * This is only available after the transport has been started.
+   */
+  get pid() {
+    return this._process?.pid ?? null;
+  }
+  processReadBuffer() {
+    while (true) {
+      try {
+        const message = this._readBuffer.readMessage();
+        if (message === null) {
+          break;
+        }
+        this.onmessage?.(message);
+      } catch (error48) {
+        this.onerror?.(error48);
+      }
+    }
+  }
+  async close() {
+    if (this._process) {
+      const processToClose = this._process;
+      this._process = void 0;
+      const closePromise = new Promise((resolve9) => {
+        processToClose.once("close", () => {
+          resolve9();
+        });
+      });
+      try {
+        processToClose.stdin?.end();
+      } catch {
+      }
+      await Promise.race([closePromise, new Promise((resolve9) => setTimeout(resolve9, 2e3).unref())]);
+      if (processToClose.exitCode === null) {
+        try {
+          processToClose.kill("SIGTERM");
+        } catch {
+        }
+        await Promise.race([closePromise, new Promise((resolve9) => setTimeout(resolve9, 2e3).unref())]);
+      }
+      if (processToClose.exitCode === null) {
+        try {
+          processToClose.kill("SIGKILL");
+        } catch {
+        }
+      }
+    }
+    this._readBuffer.clear();
+  }
+  send(message) {
+    return new Promise((resolve9) => {
+      if (!this._process?.stdin) {
+        throw new Error("Not connected");
+      }
+      const json2 = serializeMessage(message);
+      if (this._process.stdin.write(json2)) {
+        resolve9();
+      } else {
+        this._process.stdin.once("drain", resolve9);
+      }
+    });
+  }
+};
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/shared/transport.js
+function normalizeHeaders(headers) {
+  if (!headers)
+    return {};
+  if (headers instanceof Headers) {
+    return Object.fromEntries(headers.entries());
+  }
+  if (Array.isArray(headers)) {
+    return Object.fromEntries(headers);
+  }
+  return { ...headers };
+}
+function createFetchWithInit(baseFetch = fetch, baseInit) {
+  if (!baseInit) {
+    return baseFetch;
+  }
+  return async (url2, init) => {
+    const mergedInit = {
+      ...baseInit,
+      ...init,
+      // Headers need special handling - merge instead of replace
+      headers: init?.headers ? { ...normalizeHeaders(baseInit.headers), ...normalizeHeaders(init.headers) } : baseInit.headers
+    };
+    return baseFetch(url2, mergedInit);
+  };
+}
+
+// node_modules/pkce-challenge/dist/index.node.js
+var crypto;
+crypto = globalThis.crypto?.webcrypto ?? // Node.js [18-16] REPL
+globalThis.crypto ?? // Node.js >18
+import("node:crypto").then((m) => m.webcrypto);
+async function getRandomValues(size) {
+  return (await crypto).getRandomValues(new Uint8Array(size));
+}
+async function random(size) {
+  const mask = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~";
+  const evenDistCutoff = Math.pow(2, 8) - Math.pow(2, 8) % mask.length;
+  let result = "";
+  while (result.length < size) {
+    const randomBytes = await getRandomValues(size - result.length);
+    for (const randomByte of randomBytes) {
+      if (randomByte < evenDistCutoff) {
+        result += mask[randomByte % mask.length];
+      }
+    }
+  }
+  return result;
+}
+async function generateVerifier(length) {
+  return await random(length);
+}
+async function generateChallenge(code_verifier) {
+  const buffer = await (await crypto).subtle.digest("SHA-256", new TextEncoder().encode(code_verifier));
+  return btoa(String.fromCharCode(...new Uint8Array(buffer))).replace(/\//g, "_").replace(/\+/g, "-").replace(/=/g, "");
+}
+async function pkceChallenge(length) {
+  if (!length)
+    length = 43;
+  if (length < 43 || length > 128) {
+    throw `Expected a length between 43 and 128. Received ${length}.`;
+  }
+  const verifier = await generateVerifier(length);
+  const challenge = await generateChallenge(verifier);
+  return {
+    code_verifier: verifier,
+    code_challenge: challenge
+  };
+}
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/shared/auth.js
+var SafeUrlSchema = url().superRefine((val, ctx) => {
+  if (!URL.canParse(val)) {
+    ctx.addIssue({
+      code: ZodIssueCode2.custom,
+      message: "URL must be parseable",
+      fatal: true
+    });
+    return NEVER;
+  }
+}).refine((url2) => {
+  const u = new URL(url2);
+  return u.protocol !== "javascript:" && u.protocol !== "data:" && u.protocol !== "vbscript:";
+}, { message: "URL cannot use javascript:, data:, or vbscript: scheme" });
+var OAuthProtectedResourceMetadataSchema = looseObject({
+  resource: string2().url(),
+  authorization_servers: array(SafeUrlSchema).optional(),
+  jwks_uri: string2().url().optional(),
+  scopes_supported: array(string2()).optional(),
+  bearer_methods_supported: array(string2()).optional(),
+  resource_signing_alg_values_supported: array(string2()).optional(),
+  resource_name: string2().optional(),
+  resource_documentation: string2().optional(),
+  resource_policy_uri: string2().url().optional(),
+  resource_tos_uri: string2().url().optional(),
+  tls_client_certificate_bound_access_tokens: boolean2().optional(),
+  authorization_details_types_supported: array(string2()).optional(),
+  dpop_signing_alg_values_supported: array(string2()).optional(),
+  dpop_bound_access_tokens_required: boolean2().optional()
+});
+var OAuthMetadataSchema = looseObject({
+  issuer: string2(),
+  authorization_endpoint: SafeUrlSchema,
+  token_endpoint: SafeUrlSchema,
+  registration_endpoint: SafeUrlSchema.optional(),
+  scopes_supported: array(string2()).optional(),
+  response_types_supported: array(string2()),
+  response_modes_supported: array(string2()).optional(),
+  grant_types_supported: array(string2()).optional(),
+  token_endpoint_auth_methods_supported: array(string2()).optional(),
+  token_endpoint_auth_signing_alg_values_supported: array(string2()).optional(),
+  service_documentation: SafeUrlSchema.optional(),
+  revocation_endpoint: SafeUrlSchema.optional(),
+  revocation_endpoint_auth_methods_supported: array(string2()).optional(),
+  revocation_endpoint_auth_signing_alg_values_supported: array(string2()).optional(),
+  introspection_endpoint: string2().optional(),
+  introspection_endpoint_auth_methods_supported: array(string2()).optional(),
+  introspection_endpoint_auth_signing_alg_values_supported: array(string2()).optional(),
+  code_challenge_methods_supported: array(string2()).optional(),
+  client_id_metadata_document_supported: boolean2().optional()
+});
+var OpenIdProviderMetadataSchema = looseObject({
+  issuer: string2(),
+  authorization_endpoint: SafeUrlSchema,
+  token_endpoint: SafeUrlSchema,
+  userinfo_endpoint: SafeUrlSchema.optional(),
+  jwks_uri: SafeUrlSchema,
+  registration_endpoint: SafeUrlSchema.optional(),
+  scopes_supported: array(string2()).optional(),
+  response_types_supported: array(string2()),
+  response_modes_supported: array(string2()).optional(),
+  grant_types_supported: array(string2()).optional(),
+  acr_values_supported: array(string2()).optional(),
+  subject_types_supported: array(string2()),
+  id_token_signing_alg_values_supported: array(string2()),
+  id_token_encryption_alg_values_supported: array(string2()).optional(),
+  id_token_encryption_enc_values_supported: array(string2()).optional(),
+  userinfo_signing_alg_values_supported: array(string2()).optional(),
+  userinfo_encryption_alg_values_supported: array(string2()).optional(),
+  userinfo_encryption_enc_values_supported: array(string2()).optional(),
+  request_object_signing_alg_values_supported: array(string2()).optional(),
+  request_object_encryption_alg_values_supported: array(string2()).optional(),
+  request_object_encryption_enc_values_supported: array(string2()).optional(),
+  token_endpoint_auth_methods_supported: array(string2()).optional(),
+  token_endpoint_auth_signing_alg_values_supported: array(string2()).optional(),
+  display_values_supported: array(string2()).optional(),
+  claim_types_supported: array(string2()).optional(),
+  claims_supported: array(string2()).optional(),
+  service_documentation: string2().optional(),
+  claims_locales_supported: array(string2()).optional(),
+  ui_locales_supported: array(string2()).optional(),
+  claims_parameter_supported: boolean2().optional(),
+  request_parameter_supported: boolean2().optional(),
+  request_uri_parameter_supported: boolean2().optional(),
+  require_request_uri_registration: boolean2().optional(),
+  op_policy_uri: SafeUrlSchema.optional(),
+  op_tos_uri: SafeUrlSchema.optional(),
+  client_id_metadata_document_supported: boolean2().optional()
+});
+var OpenIdProviderDiscoveryMetadataSchema = object2({
+  ...OpenIdProviderMetadataSchema.shape,
+  ...OAuthMetadataSchema.pick({
+    code_challenge_methods_supported: true
+  }).shape
+});
+var OAuthTokensSchema = object2({
+  access_token: string2(),
+  id_token: string2().optional(),
+  // Optional for OAuth 2.1, but necessary in OpenID Connect
+  token_type: string2(),
+  expires_in: coerce_exports2.number().optional(),
+  scope: string2().optional(),
+  refresh_token: string2().optional()
+}).strip();
+var OAuthErrorResponseSchema = object2({
+  error: string2(),
+  error_description: string2().optional(),
+  error_uri: string2().optional()
+});
+var OptionalSafeUrlSchema = SafeUrlSchema.optional().or(literal("").transform(() => void 0));
+var OAuthClientMetadataSchema = object2({
+  redirect_uris: array(SafeUrlSchema),
+  token_endpoint_auth_method: string2().optional(),
+  grant_types: array(string2()).optional(),
+  response_types: array(string2()).optional(),
+  client_name: string2().optional(),
+  client_uri: SafeUrlSchema.optional(),
+  logo_uri: OptionalSafeUrlSchema,
+  scope: string2().optional(),
+  contacts: array(string2()).optional(),
+  tos_uri: OptionalSafeUrlSchema,
+  policy_uri: string2().optional(),
+  jwks_uri: SafeUrlSchema.optional(),
+  jwks: any().optional(),
+  software_id: string2().optional(),
+  software_version: string2().optional(),
+  software_statement: string2().optional()
+}).strip();
+var OAuthClientInformationSchema = object2({
+  client_id: string2(),
+  client_secret: string2().optional(),
+  client_id_issued_at: number2().optional(),
+  client_secret_expires_at: number2().optional()
+}).strip();
+var OAuthClientInformationFullSchema = OAuthClientMetadataSchema.merge(OAuthClientInformationSchema);
+var OAuthClientRegistrationErrorSchema = object2({
+  error: string2(),
+  error_description: string2().optional()
+}).strip();
+var OAuthTokenRevocationRequestSchema = object2({
+  token: string2(),
+  token_type_hint: string2().optional()
+}).strip();
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/shared/auth-utils.js
+function resourceUrlFromServerUrl(url2) {
+  const resourceURL = typeof url2 === "string" ? new URL(url2) : new URL(url2.href);
+  resourceURL.hash = "";
+  return resourceURL;
+}
+function checkResourceAllowed({ requestedResource, configuredResource }) {
+  const requested = typeof requestedResource === "string" ? new URL(requestedResource) : new URL(requestedResource.href);
+  const configured = typeof configuredResource === "string" ? new URL(configuredResource) : new URL(configuredResource.href);
+  if (requested.origin !== configured.origin) {
+    return false;
+  }
+  if (requested.pathname.length < configured.pathname.length) {
+    return false;
+  }
+  const requestedPath = requested.pathname.endsWith("/") ? requested.pathname : requested.pathname + "/";
+  const configuredPath = configured.pathname.endsWith("/") ? configured.pathname : configured.pathname + "/";
+  return requestedPath.startsWith(configuredPath);
+}
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/server/auth/errors.js
+var OAuthError = class extends Error {
+  constructor(message, errorUri) {
+    super(message);
+    this.errorUri = errorUri;
+    this.name = this.constructor.name;
+  }
+  /**
+   * Converts the error to a standard OAuth error response object
+   */
+  toResponseObject() {
+    const response = {
+      error: this.errorCode,
+      error_description: this.message
+    };
+    if (this.errorUri) {
+      response.error_uri = this.errorUri;
+    }
+    return response;
+  }
+  get errorCode() {
+    return this.constructor.errorCode;
+  }
+};
+var InvalidRequestError = class extends OAuthError {
+};
+InvalidRequestError.errorCode = "invalid_request";
+var InvalidClientError = class extends OAuthError {
+};
+InvalidClientError.errorCode = "invalid_client";
+var InvalidGrantError = class extends OAuthError {
+};
+InvalidGrantError.errorCode = "invalid_grant";
+var UnauthorizedClientError = class extends OAuthError {
+};
+UnauthorizedClientError.errorCode = "unauthorized_client";
+var UnsupportedGrantTypeError = class extends OAuthError {
+};
+UnsupportedGrantTypeError.errorCode = "unsupported_grant_type";
+var InvalidScopeError = class extends OAuthError {
+};
+InvalidScopeError.errorCode = "invalid_scope";
+var AccessDeniedError = class extends OAuthError {
+};
+AccessDeniedError.errorCode = "access_denied";
+var ServerError = class extends OAuthError {
+};
+ServerError.errorCode = "server_error";
+var TemporarilyUnavailableError = class extends OAuthError {
+};
+TemporarilyUnavailableError.errorCode = "temporarily_unavailable";
+var UnsupportedResponseTypeError = class extends OAuthError {
+};
+UnsupportedResponseTypeError.errorCode = "unsupported_response_type";
+var UnsupportedTokenTypeError = class extends OAuthError {
+};
+UnsupportedTokenTypeError.errorCode = "unsupported_token_type";
+var InvalidTokenError = class extends OAuthError {
+};
+InvalidTokenError.errorCode = "invalid_token";
+var MethodNotAllowedError = class extends OAuthError {
+};
+MethodNotAllowedError.errorCode = "method_not_allowed";
+var TooManyRequestsError = class extends OAuthError {
+};
+TooManyRequestsError.errorCode = "too_many_requests";
+var InvalidClientMetadataError = class extends OAuthError {
+};
+InvalidClientMetadataError.errorCode = "invalid_client_metadata";
+var InsufficientScopeError = class extends OAuthError {
+};
+InsufficientScopeError.errorCode = "insufficient_scope";
+var InvalidTargetError = class extends OAuthError {
+};
+InvalidTargetError.errorCode = "invalid_target";
+var OAUTH_ERRORS = {
+  [InvalidRequestError.errorCode]: InvalidRequestError,
+  [InvalidClientError.errorCode]: InvalidClientError,
+  [InvalidGrantError.errorCode]: InvalidGrantError,
+  [UnauthorizedClientError.errorCode]: UnauthorizedClientError,
+  [UnsupportedGrantTypeError.errorCode]: UnsupportedGrantTypeError,
+  [InvalidScopeError.errorCode]: InvalidScopeError,
+  [AccessDeniedError.errorCode]: AccessDeniedError,
+  [ServerError.errorCode]: ServerError,
+  [TemporarilyUnavailableError.errorCode]: TemporarilyUnavailableError,
+  [UnsupportedResponseTypeError.errorCode]: UnsupportedResponseTypeError,
+  [UnsupportedTokenTypeError.errorCode]: UnsupportedTokenTypeError,
+  [InvalidTokenError.errorCode]: InvalidTokenError,
+  [MethodNotAllowedError.errorCode]: MethodNotAllowedError,
+  [TooManyRequestsError.errorCode]: TooManyRequestsError,
+  [InvalidClientMetadataError.errorCode]: InvalidClientMetadataError,
+  [InsufficientScopeError.errorCode]: InsufficientScopeError,
+  [InvalidTargetError.errorCode]: InvalidTargetError
+};
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/client/auth.js
+var UnauthorizedError = class extends Error {
+  constructor(message) {
+    super(message ?? "Unauthorized");
+  }
+};
+function isClientAuthMethod(method) {
+  return ["client_secret_basic", "client_secret_post", "none"].includes(method);
+}
+var AUTHORIZATION_CODE_RESPONSE_TYPE = "code";
+var AUTHORIZATION_CODE_CHALLENGE_METHOD = "S256";
+function selectClientAuthMethod(clientInformation, supportedMethods) {
+  const hasClientSecret = clientInformation.client_secret !== void 0;
+  if ("token_endpoint_auth_method" in clientInformation && clientInformation.token_endpoint_auth_method && isClientAuthMethod(clientInformation.token_endpoint_auth_method) && (supportedMethods.length === 0 || supportedMethods.includes(clientInformation.token_endpoint_auth_method))) {
+    return clientInformation.token_endpoint_auth_method;
+  }
+  if (supportedMethods.length === 0) {
+    return hasClientSecret ? "client_secret_basic" : "none";
+  }
+  if (hasClientSecret && supportedMethods.includes("client_secret_basic")) {
+    return "client_secret_basic";
+  }
+  if (hasClientSecret && supportedMethods.includes("client_secret_post")) {
+    return "client_secret_post";
+  }
+  if (supportedMethods.includes("none")) {
+    return "none";
+  }
+  return hasClientSecret ? "client_secret_post" : "none";
+}
+function applyClientAuthentication(method, clientInformation, headers, params) {
+  const { client_id, client_secret } = clientInformation;
+  switch (method) {
+    case "client_secret_basic":
+      applyBasicAuth(client_id, client_secret, headers);
+      return;
+    case "client_secret_post":
+      applyPostAuth(client_id, client_secret, params);
+      return;
+    case "none":
+      applyPublicAuth(client_id, params);
+      return;
+    default:
+      throw new Error(`Unsupported client authentication method: ${method}`);
+  }
+}
+function applyBasicAuth(clientId, clientSecret, headers) {
+  if (!clientSecret) {
+    throw new Error("client_secret_basic authentication requires a client_secret");
+  }
+  const credentials = btoa(`${clientId}:${clientSecret}`);
+  headers.set("Authorization", `Basic ${credentials}`);
+}
+function applyPostAuth(clientId, clientSecret, params) {
+  params.set("client_id", clientId);
+  if (clientSecret) {
+    params.set("client_secret", clientSecret);
+  }
+}
+function applyPublicAuth(clientId, params) {
+  params.set("client_id", clientId);
+}
+async function parseErrorResponse(input) {
+  const statusCode = input instanceof Response ? input.status : void 0;
+  const body = input instanceof Response ? await input.text() : input;
+  try {
+    const result = OAuthErrorResponseSchema.parse(JSON.parse(body));
+    const { error: error48, error_description, error_uri } = result;
+    const errorClass = OAUTH_ERRORS[error48] || ServerError;
+    return new errorClass(error_description || "", error_uri);
+  } catch (error48) {
+    const errorMessage = `${statusCode ? `HTTP ${statusCode}: ` : ""}Invalid OAuth error response: ${error48}. Raw body: ${body}`;
+    return new ServerError(errorMessage);
+  }
+}
+async function auth(provider, options) {
+  try {
+    return await authInternal(provider, options);
+  } catch (error48) {
+    if (error48 instanceof InvalidClientError || error48 instanceof UnauthorizedClientError) {
+      await provider.invalidateCredentials?.("all");
+      return await authInternal(provider, options);
+    } else if (error48 instanceof InvalidGrantError) {
+      await provider.invalidateCredentials?.("tokens");
+      return await authInternal(provider, options);
+    }
+    throw error48;
+  }
+}
+async function authInternal(provider, { serverUrl, authorizationCode, scope, resourceMetadataUrl, fetchFn }) {
+  const cachedState = await provider.discoveryState?.();
+  let resourceMetadata;
+  let authorizationServerUrl;
+  let metadata;
+  let effectiveResourceMetadataUrl = resourceMetadataUrl;
+  if (!effectiveResourceMetadataUrl && cachedState?.resourceMetadataUrl) {
+    effectiveResourceMetadataUrl = new URL(cachedState.resourceMetadataUrl);
+  }
+  if (cachedState?.authorizationServerUrl) {
+    authorizationServerUrl = cachedState.authorizationServerUrl;
+    resourceMetadata = cachedState.resourceMetadata;
+    metadata = cachedState.authorizationServerMetadata ?? await discoverAuthorizationServerMetadata(authorizationServerUrl, { fetchFn });
+    if (!resourceMetadata) {
+      try {
+        resourceMetadata = await discoverOAuthProtectedResourceMetadata(serverUrl, { resourceMetadataUrl: effectiveResourceMetadataUrl }, fetchFn);
+      } catch {
+      }
+    }
+    if (metadata !== cachedState.authorizationServerMetadata || resourceMetadata !== cachedState.resourceMetadata) {
+      await provider.saveDiscoveryState?.({
+        authorizationServerUrl: String(authorizationServerUrl),
+        resourceMetadataUrl: effectiveResourceMetadataUrl?.toString(),
+        resourceMetadata,
+        authorizationServerMetadata: metadata
+      });
+    }
+  } else {
+    const serverInfo = await discoverOAuthServerInfo(serverUrl, { resourceMetadataUrl: effectiveResourceMetadataUrl, fetchFn });
+    authorizationServerUrl = serverInfo.authorizationServerUrl;
+    metadata = serverInfo.authorizationServerMetadata;
+    resourceMetadata = serverInfo.resourceMetadata;
+    await provider.saveDiscoveryState?.({
+      authorizationServerUrl: String(authorizationServerUrl),
+      resourceMetadataUrl: effectiveResourceMetadataUrl?.toString(),
+      resourceMetadata,
+      authorizationServerMetadata: metadata
+    });
+  }
+  const resource = await selectResourceURL(serverUrl, provider, resourceMetadata);
+  const resolvedScope = scope || resourceMetadata?.scopes_supported?.join(" ") || provider.clientMetadata.scope;
+  let clientInformation = await Promise.resolve(provider.clientInformation());
+  if (!clientInformation) {
+    if (authorizationCode !== void 0) {
+      throw new Error("Existing OAuth client information is required when exchanging an authorization code");
+    }
+    const supportsUrlBasedClientId = metadata?.client_id_metadata_document_supported === true;
+    const clientMetadataUrl = provider.clientMetadataUrl;
+    if (clientMetadataUrl && !isHttpsUrl(clientMetadataUrl)) {
+      throw new InvalidClientMetadataError(`clientMetadataUrl must be a valid HTTPS URL with a non-root pathname, got: ${clientMetadataUrl}`);
+    }
+    const shouldUseUrlBasedClientId = supportsUrlBasedClientId && clientMetadataUrl;
+    if (shouldUseUrlBasedClientId) {
+      clientInformation = {
+        client_id: clientMetadataUrl
+      };
+      await provider.saveClientInformation?.(clientInformation);
+    } else {
+      if (!provider.saveClientInformation) {
+        throw new Error("OAuth client information must be saveable for dynamic registration");
+      }
+      const fullInformation = await registerClient(authorizationServerUrl, {
+        metadata,
+        clientMetadata: provider.clientMetadata,
+        scope: resolvedScope,
+        fetchFn
+      });
+      await provider.saveClientInformation(fullInformation);
+      clientInformation = fullInformation;
+    }
+  }
+  const nonInteractiveFlow = !provider.redirectUrl;
+  if (authorizationCode !== void 0 || nonInteractiveFlow) {
+    const tokens2 = await fetchToken(provider, authorizationServerUrl, {
+      metadata,
+      resource,
+      authorizationCode,
+      fetchFn
+    });
+    await provider.saveTokens(tokens2);
+    return "AUTHORIZED";
+  }
+  const tokens = await provider.tokens();
+  if (tokens?.refresh_token) {
+    try {
+      const newTokens = await refreshAuthorization(authorizationServerUrl, {
+        metadata,
+        clientInformation,
+        refreshToken: tokens.refresh_token,
+        resource,
+        addClientAuthentication: provider.addClientAuthentication,
+        fetchFn
+      });
+      await provider.saveTokens(newTokens);
+      return "AUTHORIZED";
+    } catch (error48) {
+      if (!(error48 instanceof OAuthError) || error48 instanceof ServerError) {
+      } else {
+        throw error48;
+      }
+    }
+  }
+  const state = provider.state ? await provider.state() : void 0;
+  const { authorizationUrl, codeVerifier } = await startAuthorization(authorizationServerUrl, {
+    metadata,
+    clientInformation,
+    state,
+    redirectUrl: provider.redirectUrl,
+    scope: resolvedScope,
+    resource
+  });
+  await provider.saveCodeVerifier(codeVerifier);
+  await provider.redirectToAuthorization(authorizationUrl);
+  return "REDIRECT";
+}
+function isHttpsUrl(value) {
+  if (!value)
+    return false;
+  try {
+    const url2 = new URL(value);
+    return url2.protocol === "https:" && url2.pathname !== "/";
+  } catch {
+    return false;
+  }
+}
+async function selectResourceURL(serverUrl, provider, resourceMetadata) {
+  const defaultResource = resourceUrlFromServerUrl(serverUrl);
+  if (provider.validateResourceURL) {
+    return await provider.validateResourceURL(defaultResource, resourceMetadata?.resource);
+  }
+  if (!resourceMetadata) {
+    return void 0;
+  }
+  if (!checkResourceAllowed({ requestedResource: defaultResource, configuredResource: resourceMetadata.resource })) {
+    throw new Error(`Protected resource ${resourceMetadata.resource} does not match expected ${defaultResource} (or origin)`);
+  }
+  return new URL(resourceMetadata.resource);
+}
+function extractWWWAuthenticateParams(res) {
+  const authenticateHeader = res.headers.get("WWW-Authenticate");
+  if (!authenticateHeader) {
+    return {};
+  }
+  const [type, scheme] = authenticateHeader.split(" ");
+  if (type.toLowerCase() !== "bearer" || !scheme) {
+    return {};
+  }
+  const resourceMetadataMatch = extractFieldFromWwwAuth(res, "resource_metadata") || void 0;
+  let resourceMetadataUrl;
+  if (resourceMetadataMatch) {
+    try {
+      resourceMetadataUrl = new URL(resourceMetadataMatch);
+    } catch {
+    }
+  }
+  const scope = extractFieldFromWwwAuth(res, "scope") || void 0;
+  const error48 = extractFieldFromWwwAuth(res, "error") || void 0;
+  return {
+    resourceMetadataUrl,
+    scope,
+    error: error48
+  };
+}
+function extractFieldFromWwwAuth(response, fieldName) {
+  const wwwAuthHeader = response.headers.get("WWW-Authenticate");
+  if (!wwwAuthHeader) {
+    return null;
+  }
+  const pattern = new RegExp(`${fieldName}=(?:"([^"]+)"|([^\\s,]+))`);
+  const match = wwwAuthHeader.match(pattern);
+  if (match) {
+    return match[1] || match[2];
+  }
+  return null;
+}
+async function discoverOAuthProtectedResourceMetadata(serverUrl, opts, fetchFn = fetch) {
+  const response = await discoverMetadataWithFallback(serverUrl, "oauth-protected-resource", fetchFn, {
+    protocolVersion: opts?.protocolVersion,
+    metadataUrl: opts?.resourceMetadataUrl
+  });
+  if (!response || response.status === 404) {
+    await response?.body?.cancel();
+    throw new Error(`Resource server does not implement OAuth 2.0 Protected Resource Metadata.`);
+  }
+  if (!response.ok) {
+    await response.body?.cancel();
+    throw new Error(`HTTP ${response.status} trying to load well-known OAuth protected resource metadata.`);
+  }
+  return OAuthProtectedResourceMetadataSchema.parse(await response.json());
+}
+async function fetchWithCorsRetry(url2, headers, fetchFn = fetch) {
+  try {
+    return await fetchFn(url2, { headers });
+  } catch (error48) {
+    if (error48 instanceof TypeError) {
+      if (headers) {
+        return fetchWithCorsRetry(url2, void 0, fetchFn);
+      } else {
+        return void 0;
+      }
+    }
+    throw error48;
+  }
+}
+function buildWellKnownPath(wellKnownPrefix, pathname = "", options = {}) {
+  if (pathname.endsWith("/")) {
+    pathname = pathname.slice(0, -1);
+  }
+  return options.prependPathname ? `${pathname}/.well-known/${wellKnownPrefix}` : `/.well-known/${wellKnownPrefix}${pathname}`;
+}
+async function tryMetadataDiscovery(url2, protocolVersion, fetchFn = fetch) {
+  const headers = {
+    "MCP-Protocol-Version": protocolVersion
+  };
+  return await fetchWithCorsRetry(url2, headers, fetchFn);
+}
+function shouldAttemptFallback(response, pathname) {
+  return !response || response.status >= 400 && response.status < 500 && pathname !== "/";
+}
+async function discoverMetadataWithFallback(serverUrl, wellKnownType, fetchFn, opts) {
+  const issuer = new URL(serverUrl);
+  const protocolVersion = opts?.protocolVersion ?? LATEST_PROTOCOL_VERSION;
+  let url2;
+  if (opts?.metadataUrl) {
+    url2 = new URL(opts.metadataUrl);
+  } else {
+    const wellKnownPath = buildWellKnownPath(wellKnownType, issuer.pathname);
+    url2 = new URL(wellKnownPath, opts?.metadataServerUrl ?? issuer);
+    url2.search = issuer.search;
+  }
+  let response = await tryMetadataDiscovery(url2, protocolVersion, fetchFn);
+  if (!opts?.metadataUrl && shouldAttemptFallback(response, issuer.pathname)) {
+    const rootUrl = new URL(`/.well-known/${wellKnownType}`, issuer);
+    response = await tryMetadataDiscovery(rootUrl, protocolVersion, fetchFn);
+  }
+  return response;
+}
+function buildDiscoveryUrls(authorizationServerUrl) {
+  const url2 = typeof authorizationServerUrl === "string" ? new URL(authorizationServerUrl) : authorizationServerUrl;
+  const hasPath = url2.pathname !== "/";
+  const urlsToTry = [];
+  if (!hasPath) {
+    urlsToTry.push({
+      url: new URL("/.well-known/oauth-authorization-server", url2.origin),
+      type: "oauth"
+    });
+    urlsToTry.push({
+      url: new URL(`/.well-known/openid-configuration`, url2.origin),
+      type: "oidc"
+    });
+    return urlsToTry;
+  }
+  let pathname = url2.pathname;
+  if (pathname.endsWith("/")) {
+    pathname = pathname.slice(0, -1);
+  }
+  urlsToTry.push({
+    url: new URL(`/.well-known/oauth-authorization-server${pathname}`, url2.origin),
+    type: "oauth"
+  });
+  urlsToTry.push({
+    url: new URL(`/.well-known/openid-configuration${pathname}`, url2.origin),
+    type: "oidc"
+  });
+  urlsToTry.push({
+    url: new URL(`${pathname}/.well-known/openid-configuration`, url2.origin),
+    type: "oidc"
+  });
+  return urlsToTry;
+}
+async function discoverAuthorizationServerMetadata(authorizationServerUrl, { fetchFn = fetch, protocolVersion = LATEST_PROTOCOL_VERSION } = {}) {
+  const headers = {
+    "MCP-Protocol-Version": protocolVersion,
+    Accept: "application/json"
+  };
+  const urlsToTry = buildDiscoveryUrls(authorizationServerUrl);
+  for (const { url: endpointUrl, type } of urlsToTry) {
+    const response = await fetchWithCorsRetry(endpointUrl, headers, fetchFn);
+    if (!response) {
+      continue;
+    }
+    if (!response.ok) {
+      await response.body?.cancel();
+      if (response.status >= 400 && response.status < 500) {
+        continue;
+      }
+      throw new Error(`HTTP ${response.status} trying to load ${type === "oauth" ? "OAuth" : "OpenID provider"} metadata from ${endpointUrl}`);
+    }
+    if (type === "oauth") {
+      return OAuthMetadataSchema.parse(await response.json());
+    } else {
+      return OpenIdProviderDiscoveryMetadataSchema.parse(await response.json());
+    }
+  }
+  return void 0;
+}
+async function discoverOAuthServerInfo(serverUrl, opts) {
+  let resourceMetadata;
+  let authorizationServerUrl;
+  try {
+    resourceMetadata = await discoverOAuthProtectedResourceMetadata(serverUrl, { resourceMetadataUrl: opts?.resourceMetadataUrl }, opts?.fetchFn);
+    if (resourceMetadata.authorization_servers && resourceMetadata.authorization_servers.length > 0) {
+      authorizationServerUrl = resourceMetadata.authorization_servers[0];
+    }
+  } catch {
+  }
+  if (!authorizationServerUrl) {
+    authorizationServerUrl = String(new URL("/", serverUrl));
+  }
+  const authorizationServerMetadata = await discoverAuthorizationServerMetadata(authorizationServerUrl, { fetchFn: opts?.fetchFn });
+  return {
+    authorizationServerUrl,
+    authorizationServerMetadata,
+    resourceMetadata
+  };
+}
+async function startAuthorization(authorizationServerUrl, { metadata, clientInformation, redirectUrl, scope, state, resource }) {
+  let authorizationUrl;
+  if (metadata) {
+    authorizationUrl = new URL(metadata.authorization_endpoint);
+    if (!metadata.response_types_supported.includes(AUTHORIZATION_CODE_RESPONSE_TYPE)) {
+      throw new Error(`Incompatible auth server: does not support response type ${AUTHORIZATION_CODE_RESPONSE_TYPE}`);
+    }
+    if (metadata.code_challenge_methods_supported && !metadata.code_challenge_methods_supported.includes(AUTHORIZATION_CODE_CHALLENGE_METHOD)) {
+      throw new Error(`Incompatible auth server: does not support code challenge method ${AUTHORIZATION_CODE_CHALLENGE_METHOD}`);
+    }
+  } else {
+    authorizationUrl = new URL("/authorize", authorizationServerUrl);
+  }
+  const challenge = await pkceChallenge();
+  const codeVerifier = challenge.code_verifier;
+  const codeChallenge = challenge.code_challenge;
+  authorizationUrl.searchParams.set("response_type", AUTHORIZATION_CODE_RESPONSE_TYPE);
+  authorizationUrl.searchParams.set("client_id", clientInformation.client_id);
+  authorizationUrl.searchParams.set("code_challenge", codeChallenge);
+  authorizationUrl.searchParams.set("code_challenge_method", AUTHORIZATION_CODE_CHALLENGE_METHOD);
+  authorizationUrl.searchParams.set("redirect_uri", String(redirectUrl));
+  if (state) {
+    authorizationUrl.searchParams.set("state", state);
+  }
+  if (scope) {
+    authorizationUrl.searchParams.set("scope", scope);
+  }
+  if (scope?.includes("offline_access")) {
+    authorizationUrl.searchParams.append("prompt", "consent");
+  }
+  if (resource) {
+    authorizationUrl.searchParams.set("resource", resource.href);
+  }
+  return { authorizationUrl, codeVerifier };
+}
+function prepareAuthorizationCodeRequest(authorizationCode, codeVerifier, redirectUri) {
+  return new URLSearchParams({
+    grant_type: "authorization_code",
+    code: authorizationCode,
+    code_verifier: codeVerifier,
+    redirect_uri: String(redirectUri)
+  });
+}
+async function executeTokenRequest(authorizationServerUrl, { metadata, tokenRequestParams, clientInformation, addClientAuthentication, resource, fetchFn }) {
+  const tokenUrl = metadata?.token_endpoint ? new URL(metadata.token_endpoint) : new URL("/token", authorizationServerUrl);
+  const headers = new Headers({
+    "Content-Type": "application/x-www-form-urlencoded",
+    Accept: "application/json"
+  });
+  if (resource) {
+    tokenRequestParams.set("resource", resource.href);
+  }
+  if (addClientAuthentication) {
+    await addClientAuthentication(headers, tokenRequestParams, tokenUrl, metadata);
+  } else if (clientInformation) {
+    const supportedMethods = metadata?.token_endpoint_auth_methods_supported ?? [];
+    const authMethod = selectClientAuthMethod(clientInformation, supportedMethods);
+    applyClientAuthentication(authMethod, clientInformation, headers, tokenRequestParams);
+  }
+  const response = await (fetchFn ?? fetch)(tokenUrl, {
+    method: "POST",
+    headers,
+    body: tokenRequestParams
+  });
+  if (!response.ok) {
+    throw await parseErrorResponse(response);
+  }
+  return OAuthTokensSchema.parse(await response.json());
+}
+async function refreshAuthorization(authorizationServerUrl, { metadata, clientInformation, refreshToken, resource, addClientAuthentication, fetchFn }) {
+  const tokenRequestParams = new URLSearchParams({
+    grant_type: "refresh_token",
+    refresh_token: refreshToken
+  });
+  const tokens = await executeTokenRequest(authorizationServerUrl, {
+    metadata,
+    tokenRequestParams,
+    clientInformation,
+    addClientAuthentication,
+    resource,
+    fetchFn
+  });
+  return { refresh_token: refreshToken, ...tokens };
+}
+async function fetchToken(provider, authorizationServerUrl, { metadata, resource, authorizationCode, fetchFn } = {}) {
+  const scope = provider.clientMetadata.scope;
+  let tokenRequestParams;
+  if (provider.prepareTokenRequest) {
+    tokenRequestParams = await provider.prepareTokenRequest(scope);
+  }
+  if (!tokenRequestParams) {
+    if (!authorizationCode) {
+      throw new Error("Either provider.prepareTokenRequest() or authorizationCode is required");
+    }
+    if (!provider.redirectUrl) {
+      throw new Error("redirectUrl is required for authorization_code flow");
+    }
+    const codeVerifier = await provider.codeVerifier();
+    tokenRequestParams = prepareAuthorizationCodeRequest(authorizationCode, codeVerifier, provider.redirectUrl);
+  }
+  const clientInformation = await provider.clientInformation();
+  return executeTokenRequest(authorizationServerUrl, {
+    metadata,
+    tokenRequestParams,
+    clientInformation: clientInformation ?? void 0,
+    addClientAuthentication: provider.addClientAuthentication,
+    resource,
+    fetchFn
+  });
+}
+async function registerClient(authorizationServerUrl, { metadata, clientMetadata, scope, fetchFn }) {
+  let registrationUrl;
+  if (metadata) {
+    if (!metadata.registration_endpoint) {
+      throw new Error("Incompatible auth server: does not support dynamic client registration");
+    }
+    registrationUrl = new URL(metadata.registration_endpoint);
+  } else {
+    registrationUrl = new URL("/register", authorizationServerUrl);
+  }
+  const response = await (fetchFn ?? fetch)(registrationUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      ...clientMetadata,
+      ...scope !== void 0 ? { scope } : {}
+    })
+  });
+  if (!response.ok) {
+    throw await parseErrorResponse(response);
+  }
+  return OAuthClientInformationFullSchema.parse(await response.json());
+}
+
+// node_modules/eventsource-parser/dist/index.js
+var ParseError = class extends Error {
+  constructor(message, options) {
+    super(message), this.name = "ParseError", this.type = options.type, this.field = options.field, this.value = options.value, this.line = options.line;
+  }
+};
+function noop(_arg) {
+}
+function createParser(callbacks) {
+  if (typeof callbacks == "function")
+    throw new TypeError(
+      "`callbacks` must be an object, got a function instead. Did you mean `{onEvent: fn}`?"
+    );
+  const { onEvent = noop, onError = noop, onRetry = noop, onComment } = callbacks;
+  let incompleteLine = "", isFirstChunk = true, id2, data = "", eventType = "";
+  function feed(newChunk) {
+    const chunk = isFirstChunk ? newChunk.replace(/^\xEF\xBB\xBF/, "") : newChunk, [complete, incomplete] = splitLines(`${incompleteLine}${chunk}`);
+    for (const line of complete)
+      parseLine(line);
+    incompleteLine = incomplete, isFirstChunk = false;
+  }
+  function parseLine(line) {
+    if (line === "") {
+      dispatchEvent();
+      return;
+    }
+    if (line.startsWith(":")) {
+      onComment && onComment(line.slice(line.startsWith(": ") ? 2 : 1));
+      return;
+    }
+    const fieldSeparatorIndex = line.indexOf(":");
+    if (fieldSeparatorIndex !== -1) {
+      const field = line.slice(0, fieldSeparatorIndex), offset = line[fieldSeparatorIndex + 1] === " " ? 2 : 1, value = line.slice(fieldSeparatorIndex + offset);
+      processField(field, value, line);
+      return;
+    }
+    processField(line, "", line);
+  }
+  function processField(field, value, line) {
+    switch (field) {
+      case "event":
+        eventType = value;
+        break;
+      case "data":
+        data = `${data}${value}
+`;
+        break;
+      case "id":
+        id2 = value.includes("\0") ? void 0 : value;
+        break;
+      case "retry":
+        /^\d+$/.test(value) ? onRetry(parseInt(value, 10)) : onError(
+          new ParseError(`Invalid \`retry\` value: "${value}"`, {
+            type: "invalid-retry",
+            value,
+            line
+          })
+        );
+        break;
+      default:
+        onError(
+          new ParseError(
+            `Unknown field "${field.length > 20 ? `${field.slice(0, 20)}\u2026` : field}"`,
+            { type: "unknown-field", field, value, line }
+          )
+        );
+        break;
+    }
+  }
+  function dispatchEvent() {
+    data.length > 0 && onEvent({
+      id: id2,
+      event: eventType || void 0,
+      // If the data buffer's last character is a U+000A LINE FEED (LF) character,
+      // then remove the last character from the data buffer.
+      data: data.endsWith(`
+`) ? data.slice(0, -1) : data
+    }), id2 = void 0, data = "", eventType = "";
+  }
+  function reset(options = {}) {
+    incompleteLine && options.consume && parseLine(incompleteLine), isFirstChunk = true, id2 = void 0, data = "", eventType = "", incompleteLine = "";
+  }
+  return { feed, reset };
+}
+function splitLines(chunk) {
+  const lines = [];
+  let incompleteLine = "", searchIndex = 0;
+  for (; searchIndex < chunk.length; ) {
+    const crIndex = chunk.indexOf("\r", searchIndex), lfIndex = chunk.indexOf(`
+`, searchIndex);
+    let lineEnd = -1;
+    if (crIndex !== -1 && lfIndex !== -1 ? lineEnd = Math.min(crIndex, lfIndex) : crIndex !== -1 ? crIndex === chunk.length - 1 ? lineEnd = -1 : lineEnd = crIndex : lfIndex !== -1 && (lineEnd = lfIndex), lineEnd === -1) {
+      incompleteLine = chunk.slice(searchIndex);
+      break;
+    } else {
+      const line = chunk.slice(searchIndex, lineEnd);
+      lines.push(line), searchIndex = lineEnd + 1, chunk[searchIndex - 1] === "\r" && chunk[searchIndex] === `
+` && searchIndex++;
+    }
+  }
+  return [lines, incompleteLine];
+}
+
+// node_modules/eventsource-parser/dist/stream.js
+var EventSourceParserStream = class extends TransformStream {
+  constructor({ onError, onRetry, onComment } = {}) {
+    let parser;
+    super({
+      start(controller) {
+        parser = createParser({
+          onEvent: (event) => {
+            controller.enqueue(event);
+          },
+          onError(error48) {
+            onError === "terminate" ? controller.error(error48) : typeof onError == "function" && onError(error48);
+          },
+          onRetry,
+          onComment
+        });
+      },
+      transform(chunk) {
+        parser.feed(chunk);
+      }
+    });
+  }
+};
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/client/streamableHttp.js
+var DEFAULT_STREAMABLE_HTTP_RECONNECTION_OPTIONS = {
+  initialReconnectionDelay: 1e3,
+  maxReconnectionDelay: 3e4,
+  reconnectionDelayGrowFactor: 1.5,
+  maxRetries: 2
+};
+var StreamableHTTPError = class extends Error {
+  constructor(code, message) {
+    super(`Streamable HTTP error: ${message}`);
+    this.code = code;
+  }
+};
+var StreamableHTTPClientTransport = class {
+  constructor(url2, opts) {
+    this._hasCompletedAuthFlow = false;
+    this._url = url2;
+    this._resourceMetadataUrl = void 0;
+    this._scope = void 0;
+    this._requestInit = opts?.requestInit;
+    this._authProvider = opts?.authProvider;
+    this._fetch = opts?.fetch;
+    this._fetchWithInit = createFetchWithInit(opts?.fetch, opts?.requestInit);
+    this._sessionId = opts?.sessionId;
+    this._reconnectionOptions = opts?.reconnectionOptions ?? DEFAULT_STREAMABLE_HTTP_RECONNECTION_OPTIONS;
+  }
+  async _authThenStart() {
+    if (!this._authProvider) {
+      throw new UnauthorizedError("No auth provider");
+    }
+    let result;
+    try {
+      result = await auth(this._authProvider, {
+        serverUrl: this._url,
+        resourceMetadataUrl: this._resourceMetadataUrl,
+        scope: this._scope,
+        fetchFn: this._fetchWithInit
+      });
+    } catch (error48) {
+      this.onerror?.(error48);
+      throw error48;
+    }
+    if (result !== "AUTHORIZED") {
+      throw new UnauthorizedError();
+    }
+    return await this._startOrAuthSse({ resumptionToken: void 0 });
+  }
+  async _commonHeaders() {
+    const headers = {};
+    if (this._authProvider) {
+      const tokens = await this._authProvider.tokens();
+      if (tokens) {
+        headers["Authorization"] = `Bearer ${tokens.access_token}`;
+      }
+    }
+    if (this._sessionId) {
+      headers["mcp-session-id"] = this._sessionId;
+    }
+    if (this._protocolVersion) {
+      headers["mcp-protocol-version"] = this._protocolVersion;
+    }
+    const extraHeaders = normalizeHeaders(this._requestInit?.headers);
+    return new Headers({
+      ...headers,
+      ...extraHeaders
+    });
+  }
+  async _startOrAuthSse(options) {
+    const { resumptionToken } = options;
+    try {
+      const headers = await this._commonHeaders();
+      headers.set("Accept", "text/event-stream");
+      if (resumptionToken) {
+        headers.set("last-event-id", resumptionToken);
+      }
+      const response = await (this._fetch ?? fetch)(this._url, {
+        method: "GET",
+        headers,
+        signal: this._abortController?.signal
+      });
+      if (!response.ok) {
+        await response.body?.cancel();
+        if (response.status === 401 && this._authProvider) {
+          return await this._authThenStart();
+        }
+        if (response.status === 405) {
+          return;
+        }
+        throw new StreamableHTTPError(response.status, `Failed to open SSE stream: ${response.statusText}`);
+      }
+      this._handleSseStream(response.body, options, true);
+    } catch (error48) {
+      this.onerror?.(error48);
+      throw error48;
+    }
+  }
+  /**
+   * Calculates the next reconnection delay using  backoff algorithm
+   *
+   * @param attempt Current reconnection attempt count for the specific stream
+   * @returns Time to wait in milliseconds before next reconnection attempt
+   */
+  _getNextReconnectionDelay(attempt) {
+    if (this._serverRetryMs !== void 0) {
+      return this._serverRetryMs;
+    }
+    const initialDelay = this._reconnectionOptions.initialReconnectionDelay;
+    const growFactor = this._reconnectionOptions.reconnectionDelayGrowFactor;
+    const maxDelay = this._reconnectionOptions.maxReconnectionDelay;
+    return Math.min(initialDelay * Math.pow(growFactor, attempt), maxDelay);
+  }
+  /**
+   * Schedule a reconnection attempt using server-provided retry interval or backoff
+   *
+   * @param lastEventId The ID of the last received event for resumability
+   * @param attemptCount Current reconnection attempt count for this specific stream
+   */
+  _scheduleReconnection(options, attemptCount = 0) {
+    const maxRetries = this._reconnectionOptions.maxRetries;
+    if (attemptCount >= maxRetries) {
+      this.onerror?.(new Error(`Maximum reconnection attempts (${maxRetries}) exceeded.`));
+      return;
+    }
+    const delay3 = this._getNextReconnectionDelay(attemptCount);
+    this._reconnectionTimeout = setTimeout(() => {
+      this._startOrAuthSse(options).catch((error48) => {
+        this.onerror?.(new Error(`Failed to reconnect SSE stream: ${error48 instanceof Error ? error48.message : String(error48)}`));
+        this._scheduleReconnection(options, attemptCount + 1);
+      });
+    }, delay3);
+  }
+  _handleSseStream(stream, options, isReconnectable) {
+    if (!stream) {
+      return;
+    }
+    const { onresumptiontoken, replayMessageId } = options;
+    let lastEventId;
+    let hasPrimingEvent = false;
+    let receivedResponse = false;
+    const processStream = async () => {
+      try {
+        const reader = stream.pipeThrough(new TextDecoderStream()).pipeThrough(new EventSourceParserStream({
+          onRetry: (retryMs) => {
+            this._serverRetryMs = retryMs;
+          }
+        })).getReader();
+        while (true) {
+          const { value: event, done } = await reader.read();
+          if (done) {
+            break;
+          }
+          if (event.id) {
+            lastEventId = event.id;
+            hasPrimingEvent = true;
+            onresumptiontoken?.(event.id);
+          }
+          if (!event.data) {
+            continue;
+          }
+          if (!event.event || event.event === "message") {
+            try {
+              const message = JSONRPCMessageSchema.parse(JSON.parse(event.data));
+              if (isJSONRPCResultResponse(message)) {
+                receivedResponse = true;
+                if (replayMessageId !== void 0) {
+                  message.id = replayMessageId;
+                }
+              }
+              this.onmessage?.(message);
+            } catch (error48) {
+              this.onerror?.(error48);
+            }
+          }
+        }
+        const canResume = isReconnectable || hasPrimingEvent;
+        const needsReconnect = canResume && !receivedResponse;
+        if (needsReconnect && this._abortController && !this._abortController.signal.aborted) {
+          this._scheduleReconnection({
+            resumptionToken: lastEventId,
+            onresumptiontoken,
+            replayMessageId
+          }, 0);
+        }
+      } catch (error48) {
+        this.onerror?.(new Error(`SSE stream disconnected: ${error48}`));
+        const canResume = isReconnectable || hasPrimingEvent;
+        const needsReconnect = canResume && !receivedResponse;
+        if (needsReconnect && this._abortController && !this._abortController.signal.aborted) {
+          try {
+            this._scheduleReconnection({
+              resumptionToken: lastEventId,
+              onresumptiontoken,
+              replayMessageId
+            }, 0);
+          } catch (error49) {
+            this.onerror?.(new Error(`Failed to reconnect: ${error49 instanceof Error ? error49.message : String(error49)}`));
+          }
+        }
+      }
+    };
+    processStream();
+  }
+  async start() {
+    if (this._abortController) {
+      throw new Error("StreamableHTTPClientTransport already started! If using Client class, note that connect() calls start() automatically.");
+    }
+    this._abortController = new AbortController();
+  }
+  /**
+   * Call this method after the user has finished authorizing via their user agent and is redirected back to the MCP client application. This will exchange the authorization code for an access token, enabling the next connection attempt to successfully auth.
+   */
+  async finishAuth(authorizationCode) {
+    if (!this._authProvider) {
+      throw new UnauthorizedError("No auth provider");
+    }
+    const result = await auth(this._authProvider, {
+      serverUrl: this._url,
+      authorizationCode,
+      resourceMetadataUrl: this._resourceMetadataUrl,
+      scope: this._scope,
+      fetchFn: this._fetchWithInit
+    });
+    if (result !== "AUTHORIZED") {
+      throw new UnauthorizedError("Failed to authorize");
+    }
+  }
+  async close() {
+    if (this._reconnectionTimeout) {
+      clearTimeout(this._reconnectionTimeout);
+      this._reconnectionTimeout = void 0;
+    }
+    this._abortController?.abort();
+    this.onclose?.();
+  }
+  async send(message, options) {
+    try {
+      const { resumptionToken, onresumptiontoken } = options || {};
+      if (resumptionToken) {
+        this._startOrAuthSse({ resumptionToken, replayMessageId: isJSONRPCRequest(message) ? message.id : void 0 }).catch((err2) => this.onerror?.(err2));
+        return;
+      }
+      const headers = await this._commonHeaders();
+      headers.set("content-type", "application/json");
+      headers.set("accept", "application/json, text/event-stream");
+      const init = {
+        ...this._requestInit,
+        method: "POST",
+        headers,
+        body: JSON.stringify(message),
+        signal: this._abortController?.signal
+      };
+      const response = await (this._fetch ?? fetch)(this._url, init);
+      const sessionId = response.headers.get("mcp-session-id");
+      if (sessionId) {
+        this._sessionId = sessionId;
+      }
+      if (!response.ok) {
+        const text2 = await response.text().catch(() => null);
+        if (response.status === 401 && this._authProvider) {
+          if (this._hasCompletedAuthFlow) {
+            throw new StreamableHTTPError(401, "Server returned 401 after successful authentication");
+          }
+          const { resourceMetadataUrl, scope } = extractWWWAuthenticateParams(response);
+          this._resourceMetadataUrl = resourceMetadataUrl;
+          this._scope = scope;
+          const result = await auth(this._authProvider, {
+            serverUrl: this._url,
+            resourceMetadataUrl: this._resourceMetadataUrl,
+            scope: this._scope,
+            fetchFn: this._fetchWithInit
+          });
+          if (result !== "AUTHORIZED") {
+            throw new UnauthorizedError();
+          }
+          this._hasCompletedAuthFlow = true;
+          return this.send(message);
+        }
+        if (response.status === 403 && this._authProvider) {
+          const { resourceMetadataUrl, scope, error: error48 } = extractWWWAuthenticateParams(response);
+          if (error48 === "insufficient_scope") {
+            const wwwAuthHeader = response.headers.get("WWW-Authenticate");
+            if (this._lastUpscopingHeader === wwwAuthHeader) {
+              throw new StreamableHTTPError(403, "Server returned 403 after trying upscoping");
+            }
+            if (scope) {
+              this._scope = scope;
+            }
+            if (resourceMetadataUrl) {
+              this._resourceMetadataUrl = resourceMetadataUrl;
+            }
+            this._lastUpscopingHeader = wwwAuthHeader ?? void 0;
+            const result = await auth(this._authProvider, {
+              serverUrl: this._url,
+              resourceMetadataUrl: this._resourceMetadataUrl,
+              scope: this._scope,
+              fetchFn: this._fetch
+            });
+            if (result !== "AUTHORIZED") {
+              throw new UnauthorizedError();
+            }
+            return this.send(message);
+          }
+        }
+        throw new StreamableHTTPError(response.status, `Error POSTing to endpoint: ${text2}`);
+      }
+      this._hasCompletedAuthFlow = false;
+      this._lastUpscopingHeader = void 0;
+      if (response.status === 202) {
+        await response.body?.cancel();
+        if (isInitializedNotification(message)) {
+          this._startOrAuthSse({ resumptionToken: void 0 }).catch((err2) => this.onerror?.(err2));
+        }
+        return;
+      }
+      const messages = Array.isArray(message) ? message : [message];
+      const hasRequests = messages.filter((msg) => "method" in msg && "id" in msg && msg.id !== void 0).length > 0;
+      const contentType = response.headers.get("content-type");
+      if (hasRequests) {
+        if (contentType?.includes("text/event-stream")) {
+          this._handleSseStream(response.body, { onresumptiontoken }, false);
+        } else if (contentType?.includes("application/json")) {
+          const data = await response.json();
+          const responseMessages = Array.isArray(data) ? data.map((msg) => JSONRPCMessageSchema.parse(msg)) : [JSONRPCMessageSchema.parse(data)];
+          for (const msg of responseMessages) {
+            this.onmessage?.(msg);
+          }
+        } else {
+          await response.body?.cancel();
+          throw new StreamableHTTPError(-1, `Unexpected content type: ${contentType}`);
+        }
+      } else {
+        await response.body?.cancel();
+      }
+    } catch (error48) {
+      this.onerror?.(error48);
+      throw error48;
+    }
+  }
+  get sessionId() {
+    return this._sessionId;
+  }
+  /**
+   * Terminates the current session by sending a DELETE request to the server.
+   *
+   * Clients that no longer need a particular session
+   * (e.g., because the user is leaving the client application) SHOULD send an
+   * HTTP DELETE to the MCP endpoint with the Mcp-Session-Id header to explicitly
+   * terminate the session.
+   *
+   * The server MAY respond with HTTP 405 Method Not Allowed, indicating that
+   * the server does not allow clients to terminate sessions.
+   */
+  async terminateSession() {
+    if (!this._sessionId) {
+      return;
+    }
+    try {
+      const headers = await this._commonHeaders();
+      const init = {
+        ...this._requestInit,
+        method: "DELETE",
+        headers,
+        signal: this._abortController?.signal
+      };
+      const response = await (this._fetch ?? fetch)(this._url, init);
+      await response.body?.cancel();
+      if (!response.ok && response.status !== 405) {
+        throw new StreamableHTTPError(response.status, `Failed to terminate session: ${response.statusText}`);
+      }
+      this._sessionId = void 0;
+    } catch (error48) {
+      this.onerror?.(error48);
+      throw error48;
+    }
+  }
+  setProtocolVersion(version2) {
+    this._protocolVersion = version2;
+  }
+  get protocolVersion() {
+    return this._protocolVersion;
+  }
+  /**
+   * Resume an SSE stream from a previous event ID.
+   * Opens a GET SSE connection with Last-Event-ID header to replay missed events.
+   *
+   * @param lastEventId The event ID to resume from
+   * @param options Optional callback to receive new resumption tokens
+   */
+  async resumeStream(lastEventId, options) {
+    await this._startOrAuthSse({
+      resumptionToken: lastEventId,
+      onresumptiontoken: options?.onresumptiontoken
+    });
+  }
+};
+
+// dist/host-capabilities/transport.js
+function parametersOf(registration) {
+  return registration.configuration.parameters ?? {};
+}
+function stringParameter(parameters, key, required2 = false) {
+  const value = parameters[key];
+  if (value === void 0 && !required2)
+    return void 0;
+  if (typeof value !== "string" || !value.trim() || value !== value.trim() || /[\r\n\0]/.test(value)) {
+    throw new Error(`Host Capability transport parameter ${key} must be a non-empty safe string`);
+  }
+  return value;
+}
+function stringArrayParameter(parameters, key) {
+  const value = parameters[key];
+  if (value === void 0)
+    return [];
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string" || /[\r\n\0]/.test(item))) {
+    throw new Error(`Host Capability transport parameter ${key} must be an array of safe strings`);
+  }
+  return [...value];
+}
+function assertOnly(parameters, allowed) {
+  const names = new Set(allowed);
+  const unsupported2 = Object.keys(parameters).filter((key) => !names.has(key)).sort();
+  if (unsupported2.length > 0)
+    throw new Error(`Unsupported Host Capability transport parameters: ${unsupported2.join(", ")}`);
+}
+var SETTINGS_METADATA_PARAMETERS = ["provider", "connectorId", "timeoutMs", "settingsSnapshotId", "settingsProvenance"];
+function httpEndpoint(value) {
+  const url2 = new URL(value);
+  if (url2.username || url2.password)
+    throw new Error("Host Capability HTTP endpoint must not embed credentials");
+  const loopback = (/* @__PURE__ */ new Set(["localhost", "127.0.0.1", "[::1]", "::1"])).has(url2.hostname);
+  if (url2.protocol !== "https:" && !(url2.protocol === "http:" && loopback)) {
+    throw new Error("Host Capability HTTP endpoint must use HTTPS unless it is loopback");
+  }
+  return url2.toString();
+}
+function parseDefaultHostTransport(registration) {
+  const parameters = parametersOf(registration);
+  if (registration.connector.transport === "stdio") {
+    assertOnly(parameters, ["command", "args", "credentialVariable", ...SETTINGS_METADATA_PARAMETERS]);
+    const command = stringParameter(parameters, "command", true);
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(command)) {
+      throw new Error("Host Capability stdio command must be an executable name, not a path or shell expression");
+    }
+    const credentialVariable = stringParameter(parameters, "credentialVariable") ?? "LLMWIKI_HOST_SECRET";
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(credentialVariable)) {
+      throw new Error("Host Capability credentialVariable must be an environment variable name");
+    }
+    return {
+      transport: "stdio",
+      command,
+      args: stringArrayParameter(parameters, "args"),
+      credentialVariable
+    };
+  }
+  if (registration.connector.transport === "http") {
+    assertOnly(parameters, ["endpoint", ...SETTINGS_METADATA_PARAMETERS]);
+    return {
+      transport: "http",
+      endpoint: httpEndpoint(stringParameter(parameters, "endpoint", true))
+    };
+  }
+  throw new Error(`Connector transport ${registration.connector.transport} requires an explicitly injected in-process factory`);
+}
+async function resolveHostCapabilitySecret(registration, options = {}) {
+  const reference = registration.configuration.secretReference;
+  if (!reference) {
+    if (registration.configuration.secretRequired)
+      throw new Error("Required Host Capability Secret Reference is not configured");
+    return void 0;
+  }
+  let secret;
+  if (options.secretResolver)
+    secret = await options.secretResolver(reference);
+  else if (reference.provider === "environment")
+    secret = (options.environment ?? process.env)[reference.locator];
+  else
+    throw new Error(`Secret Reference provider ${reference.provider} requires a device-local resolver`);
+  if (typeof secret !== "string" || !secret.length)
+    throw new Error("Host Capability Secret Reference is not resolvable on this device");
+  return secret;
+}
+function invocationArguments(request) {
+  if (request.input === void 0)
+    return {};
+  if (request.input && typeof request.input === "object" && !Array.isArray(request.input)) {
+    return structuredClone(request.input);
+  }
+  return { input: structuredClone(request.input) };
+}
+async function connectRuntime(transport) {
+  const client = new Client2({ name: "llmwiki-host-capability-proxy", version: "1.0.0" });
+  await client.connect(transport);
+  return {
+    async invoke(request) {
+      return client.callTool({
+        name: request.operation,
+        arguments: invocationArguments(request)
+      });
+    },
+    async close() {
+      await client.close();
+    }
+  };
+}
+function createDefaultHostCapabilityTransportFactory(options = {}) {
+  return async (registration) => {
+    const configuration = parseDefaultHostTransport(registration);
+    const secret = await resolveHostCapabilitySecret(registration, options);
+    if (configuration.transport === "stdio") {
+      const environment = getDefaultEnvironment();
+      if (secret)
+        environment[configuration.credentialVariable] = secret;
+      return connectRuntime(new StdioClientTransport({
+        command: configuration.command,
+        args: configuration.args,
+        env: environment,
+        stderr: "pipe"
+      }));
+    }
+    return connectRuntime(new StreamableHTTPClientTransport(new URL(configuration.endpoint), {
+      requestInit: secret ? { headers: { Authorization: `Bearer ${secret}` } } : void 0
+    }));
+  };
+}
+
+// dist/agent-domain/legacy-migration.js
+import { createHash as createHash9 } from "node:crypto";
+import { existsSync as existsSync20, readFileSync as readFileSync21, readdirSync as readdirSync13, statSync as statSync8 } from "node:fs";
+import { basename as basename10, join as join30, relative as relative7 } from "node:path";
+var MIGRATION_SCHEMA_VERSION = 1;
+var UNSAFE_SHARED_TEXT = [
+  /(?:api|access|auth|lease|handoff|refresh)[-_ ]?(?:key|token|secret)\s*[:=]\s*\S+/i,
+  /\bsk-[A-Za-z0-9_-]{16,}\b/,
+  /\b[A-Za-z]:[\\/][^\s]+/,
+  /(?:^|\s)\/(?:Users|home|var|tmp|etc)\/[^\s]+/
+];
+function sha2562(value) {
+  return createHash9("sha256").update(value, "utf8").digest("hex");
+}
+function safeSegment6(value, label) {
+  if (typeof value !== "string")
+    throw badRequest(`${label} is required`);
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "." || trimmed === ".." || /[\\/]/.test(trimmed) || /^[A-Za-z]:/.test(trimmed)) {
+    throw badRequest(`${label} must be a single safe path segment`);
+  }
+  return trimmed;
+}
+function stableSlug(value) {
+  const slug = value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 72);
+  return slug || "agent";
+}
+function readSource(vaultPath, path, kind) {
+  const fullPath2 = join30(vaultPath, ...path.split("/"));
+  if (!existsSync20(fullPath2) || !statSync8(fullPath2).isFile())
+    return null;
+  const content = readFileSync21(fullPath2, "utf8");
+  return {
+    source: {
+      kind,
+      path,
+      contentHash: sha2562(content),
+      bytes: Buffer.byteLength(content, "utf8"),
+      modifiedAt: statSync8(fullPath2).mtime.toISOString()
+    },
+    content
+  };
+}
+function listSessions2(vaultPath, root) {
+  const fullRoot = join30(vaultPath, ...root.split("/"));
+  if (!existsSync20(fullRoot))
+    return [];
+  return readdirSync13(fullRoot, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".md")).sort((left, right) => left.name.localeCompare(right.name)).map((entry) => readSource(vaultPath, `${root}/${entry.name}`, "session")).filter((entry) => entry !== null);
+}
+function section2(entries, diagnostics) {
+  const unsafe = entries.filter((entry) => UNSAFE_SHARED_TEXT.some((pattern) => pattern.test(entry.content)));
+  for (const entry of unsafe)
+    diagnostics.push({ code: "unsafe_legacy_content_omitted", severity: "error", path: entry.source.path });
+  const safe = entries.filter((entry) => !unsafe.includes(entry));
+  const material = safe.map((entry) => `${entry.source.path}
+${entry.content}`).join("\n\n");
+  return {
+    sourcePaths: safe.map((entry) => entry.source.path),
+    contentHash: sha2562(material),
+    bytes: Buffer.byteLength(material, "utf8"),
+    omitted: entries.length > 0 && safe.length === 0
+  };
+}
+function contextFingerprint(project) {
+  return sha2562(JSON.stringify({
+    projectId: project.projectId,
+    slug: project.slug,
+    lifecycle: project.lifecycle,
+    roots: project.roots
+  }));
+}
+function planLegacyAgentMigration(options) {
+  const actor2 = safeSegment6(options.actor, "actor");
+  const project = resolveProjectContext(options.vaultPath, options.projectRef, "agent.migration.plan");
+  const roots = [
+    `10-Projects/${project.slug}/agents/${actor2}/memory`,
+    `00-Inbox/Agent-Memory/${actor2}`
+  ];
+  const entries = [];
+  for (const root of roots) {
+    const passport = readSource(options.vaultPath, `${root}/passport.md`, "passport");
+    const handoff = readSource(options.vaultPath, `${root}/handoff.md`, "handoff");
+    if (passport)
+      entries.push(passport);
+    if (handoff)
+      entries.push(handoff);
+    entries.push(...listSessions2(options.vaultPath, `${root}/sessions`));
+  }
+  const keyValue = readSource(options.vaultPath, "_ai_memory.json", "key-value-memory");
+  if (keyValue)
+    entries.push(keyValue);
+  const unique = [...new Map(entries.map((entry) => [entry.source.path, entry])).values()].sort((left, right) => left.source.path.localeCompare(right.source.path));
+  const diagnostics = [];
+  if (unique.length === 0)
+    diagnostics.push({ code: "no_legacy_agent_memory_found", severity: "info" });
+  const passports = unique.filter((entry) => entry.source.kind === "passport" || entry.source.kind === "key-value-memory");
+  const handoffs = unique.filter((entry) => entry.source.kind === "handoff");
+  const sessions = unique.filter((entry) => entry.source.kind === "session");
+  const slug = stableSlug(actor2);
+  const profileId = `agent/legacy-${slug}`;
+  const bindingId = `binding/${project.slug}/legacy-${slug}`;
+  const sourceFingerprint = sha2562(unique.map((entry) => `${entry.source.path}:${entry.source.contentHash}`).join("\n"));
+  const threadId = `thread/legacy-${slug}-${sourceFingerprint.slice(0, 12)}`;
+  const fingerprint = contextFingerprint(project);
+  return {
+    schemaVersion: MIGRATION_SCHEMA_VERSION,
+    mode: "dry-run",
+    generatedAt: options.now ?? (/* @__PURE__ */ new Date()).toISOString(),
+    project: { projectId: project.projectId, slug: project.slug, contextFingerprint: fingerprint },
+    actor: actor2,
+    sources: unique.map((entry) => entry.source),
+    proposals: {
+      profile: {
+        profileId,
+        displayName: actor2,
+        role: "legacy-agent",
+        sourcePaths: passports.map((entry) => entry.source.path)
+      },
+      binding: {
+        bindingId,
+        projectId: project.projectId,
+        profileId,
+        projectContextFingerprint: fingerprint,
+        enabled: false,
+        requiresReview: true
+      },
+      thread: {
+        threadId,
+        projectId: project.projectId,
+        bindingId,
+        referencePaths: unique.map((entry) => entry.source.path),
+        lifecycle: "open"
+      },
+      initialMemoryRevision: {
+        state: "proposal-only",
+        approvalRequired: true,
+        candidateSections: {
+          recentContext: section2([...handoffs, ...sessions], diagnostics),
+          openItems: section2(handoffs, diagnostics),
+          stableMemory: section2(passports, diagnostics)
+        }
+      }
+    },
+    diagnostics,
+    rollback: {
+      sourceBytesPreserved: true,
+      writesApplied: false,
+      sourceGuards: unique.map((entry) => ({ path: entry.source.path, contentHash: entry.source.contentHash })),
+      proposedWrites: [
+        `_llmwiki/agent-domain/v1/profiles/${profileId.slice("agent/".length)}`,
+        `_llmwiki/agent-domain/v1/bindings/${project.slug}/${slug}`,
+        `_llmwiki/agent-domain/v1/threads/${threadId.slice("thread/".length)}`,
+        `_llmwiki/agent-domain/v1/dreamtime/proposals`
+      ],
+      restoreActions: []
+    }
+  };
+}
+function makeLegacyAgentMigrationOps() {
+  return [{
+    name: "agent.migration.plan",
+    namespace: "agent",
+    description: "Create a deterministic, byte-preserving dry-run plan from legacy passport, handoff, session, and key/value memory into governed Agent domain proposals.",
+    mutating: false,
+    params: {
+      project: { type: "string", required: true, description: "Canonical Project ID, slug, or registered alias" },
+      actor: { type: "string", required: true, description: "Legacy Agent actor directory to inventory" }
+    },
+    handler: async (ctx, params) => planLegacyAgentMigration({
+      vaultPath: ctx.config.vault_path,
+      projectRef: String(params.project ?? ""),
+      actor: String(params.actor ?? "")
+    })
+  }];
+}
+
+// dist/agent-domain/operations.js
+import { existsSync as existsSync22, readFileSync as readFileSync23, readdirSync as readdirSync15 } from "node:fs";
+import { basename as basename11, join as join32 } from "node:path";
+
+// dist/fleet/device-capability.js
+import { createHash as createHash10, randomUUID as randomUUID9 } from "node:crypto";
+import { existsSync as existsSync21, mkdirSync as mkdirSync12, readFileSync as readFileSync22, readdirSync as readdirSync14, renameSync as renameSync3, rmSync as rmSync6, writeFileSync as writeFileSync10 } from "node:fs";
+import { dirname as dirname17, join as join31 } from "node:path";
+var DEVICE_CAPABILITY_SCHEMA_VERSION = 1;
+var DEVICE_HEALTH_STATUSES = ["available", "degraded", "unavailable"];
+var DeviceCapabilityValidationError = class extends Error {
+  code = "device_capability_validation";
+};
+var DeviceCapabilityConflictError = class extends Error {
+  code = "device_capability_conflict";
+};
+var ROOT = "_llmwiki/fleet/device-advertisements";
+var TOP_LEVEL_KEYS = /* @__PURE__ */ new Set([
+  "schemaVersion",
+  "deviceId",
+  "issuedAt",
+  "expiresAt",
+  "health",
+  "capabilities",
+  "models",
+  "connectors",
+  "resourceClasses",
+  "provenance"
+]);
+var HEALTH_KEYS = /* @__PURE__ */ new Set(["status", "observedAt", "reasons"]);
+var MODEL_KEYS = /* @__PURE__ */ new Set(["provider", "model", "mode"]);
+var ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
+function fail6(message) {
+  throw new DeviceCapabilityValidationError(message);
+}
+function assertExactKeys(label, value, allowed) {
+  for (const key of Object.keys(value)) {
+    if (!allowed.has(key))
+      fail6(`${label} contains unsupported field ${key}`);
+  }
+}
+function assertPortableString(label, value, max = 512) {
+  if (typeof value !== "string" || !value.trim() || value.length > max || value.includes("\n") || value.includes("\r")) {
+    fail6(`${label} must be a non-empty portable string`);
+  }
+  if (/(?:lease|handoff)[-_ ]?token|credential|plaintext[_-]?secret|api[_-]?key|process[_-]?handle/i.test(value) || /^(?:[A-Za-z]:[\\/]|\\\\|\/(?:home|opt|mnt|Users)\/|~[\\/]|\.{1,2}[\\/])/.test(value) || /(?:^|[\s:=])(?:[A-Za-z]:[\\/]|\\\\|\/(?:home|opt|mnt|Users)\/|~[\\/]|\.{1,2}[\\/])/.test(value)) {
+    fail6(`${label} contains machine-local or secret-bearing material`);
+  }
+}
+function assertTimestamp(label, value) {
+  assertPortableString(label, value, 40);
+  if (!ISO_TIMESTAMP.test(value) || !Number.isFinite(Date.parse(value)))
+    fail6(`${label} must be an ISO UTC timestamp`);
+}
+function portableList(label, value, pattern, max = 128) {
+  if (!Array.isArray(value) || value.length > max)
+    fail6(`${label} must be an array with at most ${max} entries`);
+  const output = value.map((item, index) => {
+    assertPortableString(`${label}[${index}]`, item);
+    if (!pattern.test(item))
+      fail6(`${label}[${index}] has an invalid identifier`);
+    return item;
+  });
+  if (new Set(output).size !== output.length)
+    fail6(`${label} must not contain duplicates`);
+  return [...output].sort();
+}
+function canonicalValue(value) {
+  if (Array.isArray(value))
+    return value.map(canonicalValue);
+  if (value && typeof value === "object") {
+    const record6 = value;
+    return Object.fromEntries(Object.keys(record6).sort().map((key) => [key, canonicalValue(record6[key])]));
+  }
+  return value;
+}
+function canonicalJson5(value) {
+  return JSON.stringify(canonicalValue(value));
+}
+function cloneInput(input) {
+  return structuredClone(input);
+}
+function validateDeviceCapabilityAdvertisement(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    fail6("advertisement must be an object");
+  const input = value;
+  assertExactKeys("advertisement", input, TOP_LEVEL_KEYS);
+  if (input.schemaVersion !== DEVICE_CAPABILITY_SCHEMA_VERSION)
+    fail6("schemaVersion must be 1");
+  assertPortableString("deviceId", input.deviceId);
+  if (!/^device\/[a-z0-9][a-z0-9-]*$/.test(input.deviceId))
+    fail6("deviceId must match device/<lowercase-kebab-id>");
+  assertTimestamp("issuedAt", input.issuedAt);
+  assertTimestamp("expiresAt", input.expiresAt);
+  if (Date.parse(input.expiresAt) <= Date.parse(input.issuedAt))
+    fail6("expiresAt must be later than issuedAt");
+  if (!input.health || typeof input.health !== "object" || Array.isArray(input.health))
+    fail6("health must be an object");
+  const health = input.health;
+  assertExactKeys("health", health, HEALTH_KEYS);
+  if (!DEVICE_HEALTH_STATUSES.includes(health.status))
+    fail6("health.status is invalid");
+  assertTimestamp("health.observedAt", health.observedAt);
+  const reasons = portableList("health.reasons", health.reasons, /^[a-z0-9][a-z0-9._:-]*$/);
+  const capabilities = portableList("capabilities", input.capabilities, /^[a-z0-9][a-z0-9._:-]*$/);
+  const connectors = portableList("connectors", input.connectors, /^connector\/[a-z0-9][a-z0-9-]*$/);
+  const resourceClasses = portableList("resourceClasses", input.resourceClasses, /^[a-z0-9][a-z0-9._:/-]*$/);
+  const provenance = portableList("provenance", input.provenance, /^[a-z][a-z0-9+.-]*:[A-Za-z0-9][A-Za-z0-9._:/-]*$/);
+  if (!Array.isArray(input.models) || input.models.length > 64)
+    fail6("models must be an array with at most 64 entries");
+  const models = input.models.map((item, index) => {
+    if (!item || typeof item !== "object" || Array.isArray(item))
+      fail6(`models[${index}] must be an object`);
+    const model = item;
+    assertExactKeys(`models[${index}]`, model, MODEL_KEYS);
+    assertPortableString(`models[${index}].provider`, model.provider);
+    assertPortableString(`models[${index}].model`, model.model);
+    if (!/^[a-z0-9][a-z0-9._-]*$/i.test(model.provider) || !/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/.test(model.model)) {
+      fail6(`models[${index}] contains an invalid provider or model identifier`);
+    }
+    if (model.mode !== "local" && model.mode !== "cloud")
+      fail6(`models[${index}].mode is invalid`);
+    return { provider: model.provider, model: model.model, mode: model.mode };
+  }).sort((left, right) => canonicalJson5(left).localeCompare(canonicalJson5(right)));
+  return {
+    schemaVersion: DEVICE_CAPABILITY_SCHEMA_VERSION,
+    deviceId: input.deviceId,
+    issuedAt: input.issuedAt,
+    expiresAt: input.expiresAt,
+    health: {
+      status: health.status,
+      observedAt: health.observedAt,
+      reasons
+    },
+    capabilities,
+    models,
+    connectors,
+    resourceClasses,
+    provenance
+  };
+}
+function deviceCapabilityFingerprint(input) {
+  const validated = validateDeviceCapabilityAdvertisement(input);
+  return createHash10("sha256").update(canonicalJson5(validated), "utf-8").digest("hex");
+}
+function relativePath(deviceId) {
+  return `${ROOT}/${deviceId.slice("device/".length)}.json`;
+}
+function fullPath(root, path) {
+  return join31(root, ...path.split("/"));
+}
+function parseStored(value, path) {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    fail6(`${path} must contain an object`);
+  const record6 = value;
+  const input = Object.fromEntries([...TOP_LEVEL_KEYS].map((key) => [key, record6[key]]));
+  const validated = validateDeviceCapabilityAdvertisement(input);
+  if (!Number.isSafeInteger(record6.revision) || record6.revision < 1)
+    fail6(`${path} revision is invalid`);
+  if (typeof record6.fingerprint !== "string" || !/^[a-f0-9]{64}$/.test(record6.fingerprint))
+    fail6(`${path} fingerprint is invalid`);
+  const actual = deviceCapabilityFingerprint(validated);
+  if (actual !== record6.fingerprint)
+    fail6(`${path} fingerprint does not match its content`);
+  return { ...validated, revision: record6.revision, fingerprint: actual };
+}
+function readStored(root, path) {
+  const target = fullPath(root, path);
+  if (!existsSync21(target))
+    return null;
+  try {
+    return parseStored(JSON.parse(readFileSync22(target, "utf-8")), path);
+  } catch (error48) {
+    if (error48 instanceof DeviceCapabilityValidationError)
+      throw error48;
+    fail6(`${path} is not valid JSON`);
+  }
+}
+function asRecord(stored, path) {
+  return { ...cloneInput(stored), revision: stored.revision, fingerprint: stored.fingerprint, path };
+}
+var DeviceCapabilityRegistry = class {
+  root;
+  constructor(root) {
+    this.root = root;
+  }
+  publish(value, expectedRevision) {
+    if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 0) {
+      throw new DeviceCapabilityConflictError("expected revision must be a non-negative integer");
+    }
+    const input = validateDeviceCapabilityAdvertisement(value);
+    const path = relativePath(input.deviceId);
+    const existing = readStored(this.root, path);
+    if ((existing?.revision ?? 0) !== expectedRevision) {
+      throw new DeviceCapabilityConflictError(`device advertisement revision conflict: expected ${expectedRevision}, actual ${existing?.revision ?? 0}`);
+    }
+    const fingerprint = deviceCapabilityFingerprint(input);
+    if (existing?.fingerprint === fingerprint)
+      return asRecord(existing, path);
+    const stored = {
+      ...cloneInput(input),
+      revision: expectedRevision + 1,
+      fingerprint
+    };
+    const target = fullPath(this.root, path);
+    mkdirSync12(dirname17(target), { recursive: true });
+    const temporary = `${target}.tmp-${randomUUID9()}`;
+    writeFileSync10(temporary, `${JSON.stringify(stored, null, 2)}
+`, "utf-8");
+    try {
+      renameSync3(temporary, target);
+    } catch (error48) {
+      rmSync6(temporary, { force: true });
+      throw error48;
+    }
+    return asRecord(stored, path);
+  }
+  get(deviceId) {
+    assertPortableString("deviceId", deviceId);
+    if (!/^device\/[a-z0-9][a-z0-9-]*$/.test(deviceId))
+      fail6("deviceId must match device/<lowercase-kebab-id>");
+    const path = relativePath(deviceId);
+    const stored = readStored(this.root, path);
+    return stored ? asRecord(stored, path) : null;
+  }
+  list() {
+    const directory = fullPath(this.root, ROOT);
+    if (!existsSync21(directory))
+      return [];
+    return readdirSync14(directory, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".json")).map((entry) => `${ROOT}/${entry.name}`).map((path) => readStored(this.root, path)).filter((item) => item !== null).map((item) => asRecord(item, relativePath(item.deviceId))).sort((left, right) => left.deviceId.localeCompare(right.deviceId));
+  }
+  listEligible(now = (/* @__PURE__ */ new Date()).toISOString()) {
+    assertTimestamp("now", now);
+    const timestamp2 = Date.parse(now);
+    return this.list().filter((item) => item.health.status !== "unavailable" && Date.parse(item.expiresAt) > timestamp2);
+  }
+  doctor(now = (/* @__PURE__ */ new Date()).toISOString()) {
+    assertTimestamp("now", now);
+    const timestamp2 = Date.parse(now);
+    const devices = this.list().map((item) => ({
+      deviceId: item.deviceId,
+      status: Date.parse(item.expiresAt) <= timestamp2 ? "stale" : item.health.status,
+      expiresAt: item.expiresAt,
+      reasons: [...item.health.reasons]
+    }));
+    return {
+      ok: devices.some((item) => item.status === "available" || item.status === "degraded"),
+      now,
+      devices
+    };
+  }
+};
+
+// dist/agent-domain/operations.js
+var AGENT_DOMAIN_RELATIVE_ROOT = "_llmwiki/agent-domain/v1";
+var USAGE_RELATIVE_ROOT = "_llmwiki/usage/v1";
+var AGENT_DOMAIN_WRITE_POLICY = {
+  realWrite: "always",
+  targets: () => [`${AGENT_DOMAIN_RELATIVE_ROOT}/**`],
+  audit: "required"
+};
+var AGENT_DOMAIN_USAGE_WRITE_POLICY = {
+  realWrite: "always",
+  targets: () => [`${AGENT_DOMAIN_RELATIVE_ROOT}/**`, `${USAGE_RELATIVE_ROOT}/**`],
+  audit: "required"
+};
+var APPROVER_ROLES2 = /* @__PURE__ */ new Set(["human", "approver", "admin"]);
+var TERMINAL_WORK_RUN_STATES = /* @__PURE__ */ new Set(["completed", "failed", "cancelled"]);
+var ACTIVE_CHILD_WORK_RUN_STATES = /* @__PURE__ */ new Set(["ready", "running"]);
+var CADENCE_GOVERNANCE_ID = "llmwiki/dreamtime-cadence/v1";
+var PLATFORM_KERNEL = [{
+  chunkId: "governance/llmwiki-agent-runtime-v1",
+  content: {
+    product: "llmwiki",
+    rules: [
+      "Use only server-loaded governed state.",
+      "Treat approved memory as read-only context.",
+      "Require explicit capability grants for side effects."
+    ]
+  },
+  provenance: [{ kind: "governance", id: "llmwiki/agent-runtime", revision: 1 }],
+  mandatory: true
+}];
+function requiredString4(value, field) {
+  if (typeof value !== "string" || !value.trim() || value !== value.trim()) {
+    throw badRequest(`${field} must be a non-empty trimmed string`);
+  }
+  return value;
+}
+function requiredInteger(value, field, minimum = 0) {
+  if (!Number.isInteger(value) || value < minimum) {
+    throw badRequest(`${field} must be an integer >= ${minimum}`);
+  }
+  return value;
+}
+function requiredRecord(value, field) {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw badRequest(`${field} must be an object`);
+  return value;
+}
+function requiredArray(value, field) {
+  if (!Array.isArray(value))
+    throw badRequest(`${field} must be an array`);
+  return value;
+}
+function optionalStringArray(value, field) {
+  if (value === void 0)
+    return [];
+  if (!Array.isArray(value))
+    throw badRequest(`${field} must be an array`);
+  const items = value.map((item, index) => requiredString4(item, `${field}[${index}]`));
+  if (new Set(items).size !== items.length)
+    throw badRequest(`${field} must not contain duplicates`);
+  return items;
+}
+function closedParams3(params, allowed) {
+  const names = new Set(allowed);
+  for (const key of Object.keys(params)) {
+    if (!names.has(key))
+      throw badRequest(`Unsupported Agent Domain parameter: ${key}`);
+  }
+}
+function operationFailure2(error48) {
+  if (isOperationError(error48))
+    throw error48;
+  if (error48 instanceof DomainValidationError || error48 instanceof TypeError)
+    throw badRequest(error48.message);
+  if (error48 instanceof DomainNotFoundError)
+    throw notFound(error48.message);
+  if (error48 instanceof DomainConflictError || error48 instanceof DomainLockTimeoutError) {
+    throw conflict(error48.message, error48 instanceof DomainConflictError ? error48.details : void 0);
+  }
+  if (error48 instanceof SimulatedInterruptionError)
+    throw conflict("Agent Domain commit was interrupted and must be replayed");
+  throw internal("Agent Domain operation failed closed");
+}
+async function boundary3(action) {
+  try {
+    return await action();
+  } catch (error48) {
+    operationFailure2(error48);
+  }
+}
+function exactProject(vaultPath, value, operation) {
+  const projectRef = requiredString4(value, "project");
+  const context = resolveProjectContext(vaultPath, projectRef, operation);
+  if (projectRef !== context.projectId) {
+    throw conflict("Agent Domain operations require the canonical Project ID", { projectId: context.projectId });
+  }
+  return context;
+}
+function projectFingerprint(context) {
+  return canonicalDigest(normalizedProjectContext(context));
+}
+function actor(ctx, requested, requireApprover = false) {
+  const authenticated = ctx.config.collaboration?.actor;
+  const candidate = requested === void 0 ? authenticated ?? process.env.VAULT_MIND_ACTOR ?? "agent" : requiredString4(requested, "actor");
+  if (authenticated && candidate !== authenticated) {
+    throw conflict("Actor must match the authenticated collaboration actor");
+  }
+  if (requireApprover && (!authenticated || !APPROVER_ROLES2.has(ctx.config.collaboration?.role ?? ""))) {
+    throw conflict("This transition requires an authenticated human, approver, or admin actor");
+  }
+  return candidate;
+}
+function appendGovernedUsage(vaultPath, input) {
+  const absent = unknown2("unattributed");
+  const notReported = unknown2("not-reported");
+  return new UsageLedger(join32(vaultPath, ...USAGE_RELATIVE_ROOT.split("/"))).append(createUsageEvent({
+    idempotencyKey: input.idempotencyKey,
+    kind: input.kind,
+    occurredAt: input.occurredAt,
+    dimensions: {
+      project: known(input.projectId),
+      agent: input.profileId ? known(input.profileId) : absent,
+      thread: input.threadId ? known(input.threadId) : absent,
+      workRun: input.workRunId ? known(input.workRunId) : absent,
+      provider: input.provider ? known(input.provider) : notReported,
+      model: input.model ? known(input.model) : notReported,
+      device: input.device ? known(input.device) : absent,
+      operation: known(input.operation)
+    },
+    providerFacts: {
+      inputTokens: notReported,
+      outputTokens: notReported,
+      providerReportedCost: notReported,
+      currency: notReported
+    },
+    provenance: input.provenance
+  }));
+}
+function workRunPath(vaultPath, project, workRunId) {
+  return join32(vaultPath, "01-Projects", project.slug, "runs", `${workRunId.slice("work-run/".length)}.json`);
+}
+function readCanonicalWorkRun(vaultPath, project, workRunId) {
+  const path = workRunPath(vaultPath, project, workRunId);
+  if (!existsSync22(path))
+    throw notFound(`Canonical Work Run ${workRunId} does not exist`);
+  let value;
+  try {
+    value = JSON.parse(readFileSync23(path, "utf8"));
+  } catch {
+    throw conflict(`Canonical Work Run ${workRunId} is malformed`);
+  }
+  const record6 = requiredRecord(value, "workRun");
+  if (record6.work_run_id !== workRunId || record6.project_id !== project.projectId) {
+    throw conflict("Canonical Work Run identity differs from the requested Project/Run");
+  }
+  return record6;
+}
+function cadenceSettingKey(cadence) {
+  return `agents.dream_time.cadence.${cadence}.enabled`;
+}
+function cadenceWorkRun(vaultPath, project, invocationId) {
+  const directory = join32(vaultPath, "01-Projects", project.slug, "runs");
+  if (!existsSync22(directory))
+    return null;
+  const marker = `dreamtime-cadence:${invocationId}`;
+  const matches2 = [];
+  for (const file2 of readdirSync15(directory).filter((candidate) => candidate.endsWith(".json")).sort()) {
+    let record6;
+    try {
+      record6 = requiredRecord(JSON.parse(readFileSync23(join32(directory, file2), "utf8")), "workRun");
+    } catch {
+      continue;
+    }
+    if (record6.project_id === project.projectId && Array.isArray(record6.provenance) && record6.provenance.includes(marker)) {
+      matches2.push(record6);
+    }
+  }
+  if (matches2.length > 1)
+    throw conflict("Dream Time cadence invocation is bound to multiple canonical Work Runs", { invocationId });
+  return matches2[0] ?? null;
+}
+function workflowOperation(vaultPath, name) {
+  const operation = makeWorkflowOps(vaultPath).find((candidate) => candidate.name === name);
+  if (!operation)
+    throw internal(`Required workflow operation ${name} is unavailable`);
+  return operation;
+}
+function normalizeProvenance(value, field = "provenance") {
+  const items = requiredArray(value, field).map((item, index) => requiredRecord(item, `${field}[${index}]`));
+  const unique = new Map(items.map((item) => [canonicalJson(item), item]));
+  return [...unique.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([, item]) => item);
+}
+function cadenceClientProvenance(proposal, workRunId) {
+  return proposal.provenance.filter((reference) => !(reference.kind === "workRun" && reference.id === workRunId || reference.kind === "settings" || reference.kind === "governance" && reference.id === CADENCE_GOVERNANCE_ID));
+}
+function assertCadenceReplayBytes(proposal, workRunId, sourceIdentities, candidateDiff, provenance, warnings, expiresAt, requestedActor, cadenceRequestFingerprint) {
+  const workRunReference = proposal.provenance.find((reference) => reference.kind === "workRun" && reference.id === workRunId);
+  const cadenceReference = proposal.provenance.find((reference) => reference.kind === "governance" && reference.id === CADENCE_GOVERNANCE_ID);
+  if (!workRunReference?.fingerprint)
+    throw conflict("Dream Time cadence proposal is missing its Context Envelope Work Run lock");
+  if (cadenceReference?.fingerprint !== cadenceRequestFingerprint || proposal.createdBy !== requestedActor || proposal.expiresAt !== expiresAt || canonicalJson(proposal.sourceIdentities) !== canonicalJson(sourceIdentities) || canonicalJson(proposal.candidateDiff) !== canonicalJson(candidateDiff) || canonicalJson(cadenceClientProvenance(proposal, workRunId)) !== canonicalJson(provenance) || canonicalJson(proposal.warnings) !== canonicalJson(warnings)) {
+    throw conflict("Dream Time cadence invocation was already used for different immutable proposal bytes");
+  }
+  return workRunReference.fingerprint;
+}
+async function moveCadenceWorkRunToReview(ctx, vaultPath, project, identity, workRunId, proposalId) {
+  await workflowOperation(vaultPath, "workflow.agent.step").handler(ctx, {
+    project: project.projectId,
+    agent: identity.agentId,
+    stage: "review",
+    work_run_id: workRunId,
+    work_run_state: "awaiting_review",
+    transition_token: `${identity.transitionToken}-proposal`,
+    output_class: "knowledge-claim",
+    approval_status: "pending",
+    provenance: [`dreamtime-proposal:${proposalId}`],
+    evidence: [`proposal:${proposalId}`],
+    summary: "Dream Time cadence produced an immutable proposal and is awaiting explicit review.",
+    next: "Approve or reject the exact Memory Proposal fingerprint."
+  });
+}
+function dreamTimeStore(stateRoot, projectId2, profileId) {
+  return new DreamTimeStore({ memoryRoot: join32(stateRoot, "dreamtime"), projectId: projectId2, profileId });
+}
+function proposalDirectory(stateRoot, projectId2, profileId) {
+  return join32(stateRoot, "dreamtime", projectId2.slice("project/".length), profileId.slice("agent/".length), "proposals");
+}
+function delegationStore(stateRoot, projectId2) {
+  return new DelegationStore({ collaborationRoot: collaborationRoot(stateRoot), projectId: projectId2 });
+}
+async function activeServerGrant(stateRoot, service, project, grantId) {
+  const store = delegationStore(stateRoot, project.projectId);
+  const grant = await store.readGrant(grantId);
+  if (!grant)
+    throw notFound(`Server-issued Capability Grant ${grantId} does not exist`);
+  const child = await store.readChild(grant.workRunId);
+  if (!child || !ACTIVE_CHILD_WORK_RUN_STATES.has(child.lifecycle)) {
+    throw conflict("Capability Grant Work Run is not an active server-issued Child Work Run");
+  }
+  if (grant.projectId !== project.projectId || child.projectId !== project.projectId || child.workRunId !== grant.workRunId || child.assignment.profileId !== grant.profileId || child.assignment.profileRevision !== grant.profileRevision || canonicalJson(child.grantSummary) !== canonicalJson(grant)) {
+    throw conflict("Capability Grant does not match its server-issued Work Run assignment");
+  }
+  const exactProfile = await service.profiles.readRevision(grant.profileId, grant.profileRevision);
+  const currentProfile = await service.profiles.read(grant.profileId);
+  const exactBinding = await service.bindings.readRevision(child.assignment.bindingId, child.assignment.bindingRevision);
+  const currentBinding = await service.bindings.read(child.assignment.bindingId);
+  if (!exactProfile || !currentProfile || currentProfile.revision !== grant.profileRevision || !exactBinding || !currentBinding || currentBinding.revision !== child.assignment.bindingRevision || !exactBinding.enabled || !currentBinding.enabled || exactBinding.projectId !== project.projectId || exactBinding.profileId !== grant.profileId || exactBinding.profileRevision !== grant.profileRevision) {
+    throw conflict("Capability Grant requesting assignment is not the active Binding/Profile revision");
+  }
+  if (Date.parse(grant.expiresAt) <= Date.now())
+    throw conflict("Capability Grant expired");
+  return { grant, child };
+}
+async function currentMemoryLock(store) {
+  const revision = await store.readCurrentRevision();
+  return {
+    revisionId: revision?.revisionId ?? null,
+    revision: revision?.revision ?? 0,
+    fingerprint: revision?.fingerprint ?? null,
+    revisionRecord: revision
+  };
+}
+function initialMemorySections() {
+  return {
+    recentContext: makeMemorySection(),
+    openItems: makeMemorySection(),
+    stableMemory: makeMemorySection()
+  };
+}
+function readProfileOperation(service) {
+  return {
+    name: "agent.profile.read",
+    namespace: "agent",
+    description: "Read the current immutable revision of one Agent Profile.",
+    mutating: false,
+    params: { profileId: { type: "string", required: true } },
+    handler: async (_ctx, params) => boundary3(async () => {
+      closedParams3(params, ["profileId"]);
+      const profile = await service.profiles.read(requiredString4(params.profileId, "profileId"));
+      if (!profile)
+        throw notFound(`Agent Profile ${String(params.profileId)} does not exist`);
+      return profile;
+    })
+  };
+}
+function profileOperations(service) {
+  return [{
+    name: "agent.profile.create",
+    namespace: "agent",
+    description: "Create revision 1 of a vault-scoped Agent Profile.",
+    mutating: true,
+    writePolicy: AGENT_DOMAIN_WRITE_POLICY,
+    params: { input: { type: "object", required: true } },
+    handler: async (ctx, params) => boundary3(async () => {
+      closedParams3(params, ["input"]);
+      const input = requiredRecord(params.input, "input");
+      const authenticatedActor = actor(ctx, input.actor);
+      return service.createProfile({ ...input, actor: authenticatedActor });
+    })
+  }, readProfileOperation(service), {
+    name: "agent.profile.list",
+    namespace: "agent",
+    description: "List current Agent Profile revisions deterministically.",
+    mutating: false,
+    params: { profileIds: { type: "array", required: false } },
+    handler: async (_ctx, params) => boundary3(async () => {
+      closedParams3(params, ["profileIds"]);
+      return { profiles: await service.profiles.list(params.profileIds === void 0 ? {} : { profileIds: params.profileIds }) };
+    })
+  }, {
+    name: "agent.profile.update",
+    namespace: "agent",
+    description: "Create the next Agent Profile revision under an optimistic lock.",
+    mutating: true,
+    writePolicy: AGENT_DOMAIN_WRITE_POLICY,
+    params: {
+      profileId: { type: "string", required: true },
+      expectedRevision: { type: "number", required: true },
+      patch: { type: "object", required: true },
+      actor: { type: "string", required: true }
+    },
+    handler: async (ctx, params) => boundary3(async () => {
+      closedParams3(params, ["profileId", "expectedRevision", "patch", "actor"]);
+      return service.updateProfile(requiredString4(params.profileId, "profileId"), requiredInteger(params.expectedRevision, "expectedRevision", 1), requiredRecord(params.patch, "patch"), actor(ctx, params.actor));
+    })
+  }];
+}
+function bindingOperations(vaultPath, service) {
+  return [{
+    name: "agent.binding.create",
+    namespace: "agent",
+    description: "Bind an exact Agent Profile revision to one canonical Project Context.",
+    mutating: true,
+    writePolicy: AGENT_DOMAIN_WRITE_POLICY,
+    params: { input: { type: "object", required: true } },
+    handler: async (ctx, params) => boundary3(async () => {
+      closedParams3(params, ["input"]);
+      const input = requiredRecord(params.input, "input");
+      const project = exactProject(vaultPath, input.projectId, "agent.binding.create");
+      if (input.projectContextFingerprint !== projectFingerprint(project))
+        throw conflict("Project Agent Binding context fingerprint is stale");
+      return service.createBinding({ ...input, projectId: project.projectId, actor: actor(ctx, input.actor) });
+    })
+  }, {
+    name: "agent.binding.read",
+    namespace: "agent",
+    description: "Read the current immutable Project Agent Binding revision.",
+    mutating: false,
+    params: { bindingId: { type: "string", required: true } },
+    handler: async (_ctx, params) => boundary3(async () => {
+      closedParams3(params, ["bindingId"]);
+      const binding = await service.bindings.read(requiredString4(params.bindingId, "bindingId"));
+      if (!binding)
+        throw notFound(`Project Agent Binding ${String(params.bindingId)} does not exist`);
+      return binding;
+    })
+  }, {
+    name: "agent.binding.list",
+    namespace: "agent",
+    description: "List current Project Agent Bindings for a canonical Project.",
+    mutating: false,
+    params: { project: { type: "string", required: false }, profileId: { type: "string", required: false }, enabled: { type: "boolean", required: false } },
+    handler: async (_ctx, params) => boundary3(async () => {
+      closedParams3(params, ["project", "profileId", "enabled"]);
+      const projectId2 = params.project === void 0 ? void 0 : exactProject(vaultPath, params.project, "agent.binding.list").projectId;
+      return { bindings: await service.bindings.list({ projectId: projectId2, profileId: params.profileId, enabled: params.enabled }) };
+    })
+  }, {
+    name: "agent.binding.update",
+    namespace: "agent",
+    description: "Create the next Project Agent Binding revision under exact Project and optimistic locks.",
+    mutating: true,
+    writePolicy: AGENT_DOMAIN_WRITE_POLICY,
+    params: { bindingId: { type: "string", required: true }, expectedRevision: { type: "number", required: true }, patch: { type: "object", required: true }, actor: { type: "string", required: true } },
+    handler: async (ctx, params) => boundary3(async () => {
+      closedParams3(params, ["bindingId", "expectedRevision", "patch", "actor"]);
+      const bindingId = requiredString4(params.bindingId, "bindingId");
+      const current = await service.bindings.read(bindingId);
+      if (!current)
+        throw notFound(`Project Agent Binding ${bindingId} does not exist`);
+      const project = exactProject(vaultPath, current.projectId, "agent.binding.update");
+      const patch = requiredRecord(params.patch, "patch");
+      if (patch.projectContextFingerprint !== void 0 && patch.projectContextFingerprint !== projectFingerprint(project)) {
+        throw conflict("Updated Project Agent Binding context fingerprint is stale");
+      }
+      return service.updateBinding(bindingId, requiredInteger(params.expectedRevision, "expectedRevision", 1), patch, actor(ctx, params.actor));
+    })
+  }];
+}
+function threadOperations(vaultPath, service) {
+  return [{
+    name: "agent.thread.create",
+    namespace: "agent",
+    description: "Open a durable Thread locked to exact Binding and Profile revisions.",
+    mutating: true,
+    writePolicy: AGENT_DOMAIN_WRITE_POLICY,
+    params: { input: { type: "object", required: true } },
+    handler: async (ctx, params) => boundary3(async () => {
+      closedParams3(params, ["input"]);
+      const input = requiredRecord(params.input, "input");
+      const project = exactProject(vaultPath, input.projectId, "agent.thread.create");
+      return service.createThread({ ...input, projectId: project.projectId, actor: actor(ctx, input.actor) });
+    })
+  }, {
+    name: "agent.thread.read",
+    namespace: "agent",
+    description: "Read the current immutable Thread revision.",
+    mutating: false,
+    params: { threadId: { type: "string", required: true } },
+    handler: async (_ctx, params) => boundary3(async () => {
+      closedParams3(params, ["threadId"]);
+      const thread = await service.threads.read(requiredString4(params.threadId, "threadId"));
+      if (!thread)
+        throw notFound(`Thread ${String(params.threadId)} does not exist`);
+      return thread;
+    })
+  }, {
+    name: "agent.thread.list",
+    namespace: "agent",
+    description: "List current durable Threads by canonical identity.",
+    mutating: false,
+    params: { project: { type: "string", required: false }, profileId: { type: "string", required: false }, bindingId: { type: "string", required: false }, lifecycle: { type: "string", required: false, enum: ["open", "closed", "archived"] } },
+    handler: async (_ctx, params) => boundary3(async () => {
+      closedParams3(params, ["project", "profileId", "bindingId", "lifecycle"]);
+      const projectId2 = params.project === void 0 ? void 0 : exactProject(vaultPath, params.project, "agent.thread.list").projectId;
+      return { threads: await service.threads.list({ projectId: projectId2, profileId: params.profileId, bindingId: params.bindingId, lifecycle: params.lifecycle }) };
+    })
+  }, {
+    name: "agent.thread.append",
+    namespace: "agent",
+    description: "Append one ordered message, artifact, or Work Run reference without promoting it to memory.",
+    mutating: true,
+    writePolicy: AGENT_DOMAIN_WRITE_POLICY,
+    params: { threadId: { type: "string", required: true }, expectedRevision: { type: "number", required: true }, reference: { type: "object", required: true }, actor: { type: "string", required: true } },
+    handler: async (ctx, params) => boundary3(() => {
+      closedParams3(params, ["threadId", "expectedRevision", "reference", "actor"]);
+      return service.appendThreadReference(requiredString4(params.threadId, "threadId"), requiredInteger(params.expectedRevision, "expectedRevision", 1), requiredRecord(params.reference, "reference"), actor(ctx, params.actor));
+    })
+  }, {
+    name: "agent.thread.transition",
+    namespace: "agent",
+    description: "Transition one Thread through its explicit lifecycle under an optimistic lock.",
+    mutating: true,
+    writePolicy: AGENT_DOMAIN_WRITE_POLICY,
+    params: { threadId: { type: "string", required: true }, expectedRevision: { type: "number", required: true }, lifecycle: { type: "string", required: true, enum: ["open", "closed", "archived"] }, actor: { type: "string", required: true } },
+    handler: async (ctx, params) => boundary3(() => {
+      closedParams3(params, ["threadId", "expectedRevision", "lifecycle", "actor"]);
+      return service.transitionThread(requiredString4(params.threadId, "threadId"), requiredInteger(params.expectedRevision, "expectedRevision", 1), requiredString4(params.lifecycle, "lifecycle"), actor(ctx, params.actor));
+    })
+  }];
+}
+async function roomProjection(vaultPath, stateRoot, service, params) {
+  const project = exactProject(vaultPath, params.project, "agent.room.get");
+  const profileId = requiredString4(params.profileId, "profileId");
+  const bindingId = `binding/${project.slug}/${profileId.slice("agent/".length)}`;
+  const currentBinding = await service.bindings.read(bindingId);
+  const openThreads = await service.threads.list({ projectId: project.projectId, profileId, bindingId, lifecycle: "open" });
+  const requestedThreadId = params.threadId === void 0 ? void 0 : requiredString4(params.threadId, "threadId");
+  const thread = requestedThreadId ? await service.threads.read(requestedThreadId) : [...openThreads].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt) || left.threadId.localeCompare(right.threadId))[0];
+  if (!thread)
+    throw notFound("No active Thread exists for this Project Agent Binding");
+  if (thread.projectId !== project.projectId || thread.profileId !== profileId || thread.bindingId !== bindingId || thread.lifecycle !== "open") {
+    throw conflict("Thread is not the active Thread for the requested Project Agent Binding");
+  }
+  const binding = await service.bindings.readRevision(bindingId, thread.bindingRevision);
+  const profile = await service.profiles.readRevision(profileId, thread.profileRevision);
+  if (binding && (binding.projectId !== project.projectId || binding.profileId !== profileId || binding.profileRevision !== thread.profileRevision)) {
+    throw conflict("Thread Binding revision lock does not match its Project/Profile assignment");
+  }
+  const diagnostics = [];
+  const expectedContextFingerprint = projectFingerprint(project);
+  if (!profile)
+    diagnostics.push({ code: "profile-revision-missing", severity: "error", remediationKey: "restore-or-rebind-agent-profile" });
+  if (!binding)
+    diagnostics.push({ code: "binding-revision-missing", severity: "error", remediationKey: "restore-or-recreate-thread-binding" });
+  if (binding && !binding.enabled)
+    diagnostics.push({ code: "binding-disabled", severity: "error", remediationKey: "enable-project-agent-binding" });
+  if (binding && binding.projectContextFingerprint !== expectedContextFingerprint) {
+    diagnostics.push({ code: "project-context-fingerprint-stale", severity: "error", remediationKey: "refresh-project-agent-binding" });
+  }
+  if (currentBinding && currentBinding.revision !== thread.bindingRevision) {
+    diagnostics.push({ code: "binding-revision-superseded", severity: "warning", remediationKey: "resume-or-rebind-thread-to-current-binding" });
+  }
+  if (openThreads.length > 1 && !requestedThreadId) {
+    diagnostics.push({ code: "multiple-active-threads", severity: "warning", remediationKey: "select-thread-id" });
+  }
+  const relatedWorkRunIds = [...new Set(thread.references.filter((reference) => reference.kind === "workRun").map((reference) => reference.referenceId))];
+  for (const workRunId of relatedWorkRunIds) {
+    try {
+      const run = readCanonicalWorkRun(vaultPath, project, workRunId);
+      if (!TERMINAL_WORK_RUN_STATES.has(String(run.state ?? run.work_run_state))) {
+        diagnostics.push({ code: "work-run-unresolved", severity: "warning", remediationKey: `inspect-work-run:${workRunId}` });
+      }
+    } catch (error48) {
+      if (isOperationError(error48) && error48.code === -32004) {
+        diagnostics.push({ code: "work-run-missing", severity: "error", remediationKey: `inspect-work-run:${workRunId}` });
+      } else
+        throw error48;
+    }
+  }
+  const memory = await dreamTimeStore(stateRoot, project.projectId, profileId).readCurrentRevision();
+  const connectorGrantRefs = binding?.connectorGrantRefs ?? [];
+  const connectorSummaries = new HostCapabilityStore(vaultPath).listConnectors().filter((registration) => connectorGrantRefs.some((grantRef) => grantRef.slice("grant/".length) === registration.connector.connectorId.slice("connector/".length))).map((registration) => ({
+    connectorId: registration.connector.connectorId,
+    status: registration.health.state,
+    grantRef: connectorGrantRefs.find((grantRef) => grantRef.slice("grant/".length) === registration.connector.connectorId.slice("connector/".length)),
+    remediationKey: registration.health.remediationKeys[0]
+  }));
+  if (connectorGrantRefs.length > 0 && connectorSummaries.length === 0) {
+    diagnostics.push({ code: "permitted-connectors-unavailable", severity: "warning", remediationKey: "inspect-host-capability-grants" });
+  }
+  return {
+    schemaVersion: 1,
+    identity: {
+      schemaVersion: 1,
+      projectId: project.projectId,
+      profileId,
+      profileRevision: thread.profileRevision,
+      bindingId,
+      bindingRevision: thread.bindingRevision,
+      threadId: thread.threadId,
+      threadRevision: thread.revision
+    },
+    readOnly: true,
+    state: diagnostics.some((diagnostic2) => diagnostic2.severity === "error") ? "degraded" : "healthy",
+    lifecycle: thread.lifecycle,
+    relatedWorkRunIds,
+    approvedMemory: memory ? { revisionId: memory.revisionId, revision: memory.revision, fingerprint: memory.fingerprint } : null,
+    connectorSummaries,
+    diagnostics
+  };
+}
+function roomAndContextOperations(vaultPath, stateRoot, service) {
+  return [{
+    name: "agent.room.get",
+    namespace: "agent",
+    description: "Derive one read-only Room from Project Context, Agent Profile/Binding, and an active Thread.",
+    mutating: false,
+    params: { project: { type: "string", required: true }, profileId: { type: "string", required: true }, threadId: { type: "string", required: false } },
+    handler: async (_ctx, params) => boundary3(async () => {
+      closedParams3(params, ["project", "profileId", "threadId"]);
+      return roomProjection(vaultPath, stateRoot, service, params);
+    })
+  }, {
+    name: "agent.context.compile",
+    namespace: "agent",
+    description: "Compile a four-layer Context Envelope locked to current canonical Project, Profile, Binding, and approved Memory bytes.",
+    mutating: false,
+    params: {
+      project: { type: "string", required: true },
+      envelopeId: { type: "string", required: true },
+      compiledAt: { type: "string", required: true },
+      tokenBudget: { type: "number", required: true },
+      profileId: { type: "string", required: true },
+      expectedProfileRevision: { type: "number", required: true },
+      bindingId: { type: "string", required: true },
+      expectedBindingRevision: { type: "number", required: true },
+      memoryRevisionId: { type: "string", required: true },
+      expectedMemoryRevision: { type: "number", required: true },
+      expectedMemoryFingerprint: { type: "string", required: true },
+      threadId: { type: "string", required: false },
+      expectedThreadRevision: { type: "number", required: false },
+      deviceId: { type: "string", required: false },
+      expectedDeviceRevision: { type: "number", required: false },
+      expectedDeviceFingerprint: { type: "string", required: false },
+      capabilityGrantIds: { type: "array", required: false },
+      expectedFingerprint: { type: "string", required: false },
+      explicitNewAttempt: { type: "boolean", required: false, default: false },
+      input: { type: "unknown", required: false },
+      platformKernel: { type: "unknown", required: false },
+      runtime: { type: "unknown", required: false },
+      deviceCapabilities: { type: "unknown", required: false },
+      capabilityGrants: { type: "unknown", required: false },
+      modelLock: { type: "unknown", required: false },
+      profile: { type: "unknown", required: false },
+      binding: { type: "unknown", required: false },
+      memoryRevision: { type: "unknown", required: false }
+    },
+    handler: async (_ctx, params) => boundary3(async () => {
+      closedParams3(params, [
+        "project",
+        "envelopeId",
+        "compiledAt",
+        "tokenBudget",
+        "profileId",
+        "expectedProfileRevision",
+        "bindingId",
+        "expectedBindingRevision",
+        "memoryRevisionId",
+        "expectedMemoryRevision",
+        "expectedMemoryFingerprint",
+        "threadId",
+        "expectedThreadRevision",
+        "deviceId",
+        "expectedDeviceRevision",
+        "expectedDeviceFingerprint",
+        "capabilityGrantIds",
+        "expectedFingerprint",
+        "explicitNewAttempt"
+      ]);
+      const project = exactProject(vaultPath, params.project, "agent.context.compile");
+      const profileId = requiredString4(params.profileId, "profileId");
+      const profileRevision = requiredInteger(params.expectedProfileRevision, "expectedProfileRevision", 1);
+      const bindingId = requiredString4(params.bindingId, "bindingId");
+      const bindingRevision = requiredInteger(params.expectedBindingRevision, "expectedBindingRevision", 1);
+      const storedProfile = await service.profiles.readRevision(profileId, profileRevision);
+      const storedBinding = await service.bindings.readRevision(bindingId, bindingRevision);
+      const currentProfile = await service.profiles.read(profileId);
+      const currentBinding = await service.bindings.read(bindingId);
+      if (!storedProfile || !currentProfile || currentProfile.revision !== profileRevision)
+        throw conflict("Context Envelope Profile reference is not the active stored revision");
+      if (!storedBinding || !currentBinding || currentBinding.revision !== bindingRevision)
+        throw conflict("Context Envelope Binding reference is not the active stored revision");
+      if (!storedBinding.enabled || storedBinding.projectId !== project.projectId || storedBinding.profileId !== profileId || storedBinding.profileRevision !== profileRevision) {
+        throw conflict("Context Envelope Binding does not lock the active Project/Profile revision");
+      }
+      const canonicalProjectContext = normalizedProjectContext(project);
+      const canonicalProjectFingerprint = canonicalDigest(canonicalProjectContext);
+      if (storedBinding.projectContextFingerprint !== canonicalProjectFingerprint)
+        throw conflict("Context Envelope Binding uses a stale Project Context fingerprint");
+      const memoryRevisionId = requiredString4(params.memoryRevisionId, "memoryRevisionId");
+      const memoryRevision = requiredInteger(params.expectedMemoryRevision, "expectedMemoryRevision", 1);
+      const memoryFingerprint = requiredString4(params.expectedMemoryFingerprint, "expectedMemoryFingerprint");
+      const memoryStore = dreamTimeStore(stateRoot, project.projectId, profileId);
+      const lockedMemory = await memoryStore.readRevision(memoryRevisionId);
+      const current = await memoryStore.readCurrentRevision();
+      if (!lockedMemory || !current || current.revisionId !== memoryRevisionId || current.revision !== memoryRevision || current.fingerprint !== memoryFingerprint || canonicalJson(current) !== canonicalJson(lockedMemory)) {
+        throw conflict("Context Envelope memory reference is not the current approved revision");
+      }
+      const threadWindow = [];
+      if (params.threadId !== void 0 || params.expectedThreadRevision !== void 0) {
+        if (params.threadId === void 0 || params.expectedThreadRevision === void 0)
+          throw badRequest("threadId and expectedThreadRevision must be provided together");
+        const threadId = requiredString4(params.threadId, "threadId");
+        const expectedThreadRevision = requiredInteger(params.expectedThreadRevision, "expectedThreadRevision", 1);
+        const thread = await service.threads.read(threadId);
+        if (!thread || thread.revision !== expectedThreadRevision || thread.lifecycle !== "open" || thread.projectId !== project.projectId || thread.profileId !== profileId || thread.profileRevision !== profileRevision || thread.bindingId !== bindingId || thread.bindingRevision !== bindingRevision) {
+          throw conflict("Context Envelope Thread reference is not the active exact Project/Profile/Binding revision");
+        }
+        threadWindow.push({
+          chunkId: thread.threadId,
+          content: {
+            threadId: thread.threadId,
+            lifecycle: thread.lifecycle,
+            title: thread.title,
+            references: thread.references
+          },
+          provenance: [{ kind: "thread", id: thread.threadId, revision: thread.revision }]
+        });
+      }
+      const deviceCapabilities = [];
+      if (params.deviceId !== void 0 || params.expectedDeviceRevision !== void 0 || params.expectedDeviceFingerprint !== void 0) {
+        if (params.deviceId === void 0 || params.expectedDeviceRevision === void 0 || params.expectedDeviceFingerprint === void 0) {
+          throw badRequest("deviceId, expectedDeviceRevision, and expectedDeviceFingerprint must be provided together");
+        }
+        const deviceId = requiredString4(params.deviceId, "deviceId");
+        const expectedDeviceRevision = requiredInteger(params.expectedDeviceRevision, "expectedDeviceRevision", 1);
+        const expectedDeviceFingerprint = requiredString4(params.expectedDeviceFingerprint, "expectedDeviceFingerprint");
+        const device = new DeviceCapabilityRegistry(vaultPath).get(deviceId);
+        if (!device || device.revision !== expectedDeviceRevision || device.fingerprint !== expectedDeviceFingerprint || device.health.status === "unavailable" || Date.parse(device.expiresAt) <= Date.now()) {
+          throw conflict("Context Envelope Device Capability reference is not an active stored revision");
+        }
+        deviceCapabilities.push({
+          chunkId: device.deviceId,
+          content: device,
+          provenance: [{ kind: "deviceCapability", id: device.deviceId, revision: device.revision, fingerprint: device.fingerprint }]
+        });
+      }
+      const capabilityGrants = [];
+      for (const grantId of optionalStringArray(params.capabilityGrantIds, "capabilityGrantIds")) {
+        const { grant } = await activeServerGrant(stateRoot, service, project, grantId);
+        if (grant.profileId !== profileId || grant.profileRevision !== profileRevision) {
+          throw conflict("Context Envelope Capability Grant belongs to another active Profile assignment");
+        }
+        capabilityGrants.push({
+          chunkId: grant.grantId,
+          content: grant,
+          provenance: [{ kind: "grant", id: grant.grantId, fingerprint: grant.fingerprint }]
+        });
+      }
+      const compiledAt = requiredString4(params.compiledAt, "compiledAt");
+      const settingsService = createSettingsService({
+        vaultPath,
+        workspaceProjectId: project.projectId,
+        sessionId: "agent-context-compile",
+        clock: () => compiledAt
+      });
+      const { snapshot: settingsSnapshot } = await settingsService.snapshotResolve();
+      const settingsFingerprint = canonicalDigest(settingsSnapshot);
+      const settingsModel = await settingsService.agentModelInvocationProfile();
+      const publicSettingKeys = new Set(settingsService.registry.definitions.filter((definition) => definition.sensitivity === "public").map((definition) => definition.key));
+      const settingsProjection = {
+        snapshotId: settingsSnapshot.snapshotId,
+        registryVersion: settingsSnapshot.registryVersion,
+        sourceRevisions: settingsSnapshot.sourceRevisions,
+        effective: settingsSnapshot.effective.filter((item) => publicSettingKeys.has(item.key)).map((item) => ({ key: item.key, value: item.value, winningScope: item.winningScope, applyMode: item.applyMode }))
+      };
+      const profileModel = storedProfile.defaultModelPolicy;
+      const modelLock = {
+        provider: profileModel.mode === "inherit" ? settingsModel.provider || "inherit" : profileModel.provider,
+        model: profileModel.mode === "inherit" ? settingsModel.model || "inherit" : profileModel.model,
+        contextWindow: 32768,
+        tokenizer: "utf8-bytes-div4/v1",
+        policyFingerprint: canonicalDigest({ profileModel, settingsFingerprint })
+      };
+      const envelope = compileContextEnvelope({
+        envelopeId: requiredString4(params.envelopeId, "envelopeId"),
+        compiledAt,
+        modelLock,
+        tokenBudget: requiredInteger(params.tokenBudget, "tokenBudget", 1),
+        platformKernel: PLATFORM_KERNEL,
+        profile: storedProfile,
+        binding: storedBinding,
+        memoryRevision: lockedMemory,
+        memoryRevisionLock: { revisionId: memoryRevisionId, revision: memoryRevision, fingerprint: memoryFingerprint },
+        runtime: {
+          projectContext: {
+            chunkId: `project-context/${project.slug}`,
+            content: canonicalProjectContext,
+            provenance: [{ kind: "project", id: project.projectId, fingerprint: canonicalProjectFingerprint }],
+            mandatory: true
+          },
+          threadWindow,
+          settingsSnapshot: {
+            chunkId: settingsSnapshot.snapshotId,
+            content: settingsProjection,
+            provenance: [{ kind: "settings", id: settingsSnapshot.snapshotId, fingerprint: settingsFingerprint }],
+            mandatory: true
+          },
+          deviceCapabilities,
+          capabilityGrants
+        }
+      });
+      if (params.expectedFingerprint !== void 0 && params.expectedFingerprint !== envelope.fingerprint && params.explicitNewAttempt !== true) {
+        throw conflict("Context Envelope fingerprint drift requires an explicit new execution attempt", { expectedFingerprint: params.expectedFingerprint, actualFingerprint: envelope.fingerprint });
+      }
+      return envelope;
+    })
+  }];
+}
+function validateProposalSource(vaultPath, project, service, store, operation, input, candidate) {
+  return boundary3(async () => {
+    if (input.operation !== operation || candidate.operation !== operation)
+      throw conflict("Dream Time operation changed across the proposal boundary");
+    if (input.projectId !== project.projectId || candidate.projectId !== project.projectId || input.profileId !== candidate.profileId) {
+      throw conflict("Dream Time proposal is outside the exact Project/Profile scope");
+    }
+    const cutoff = Date.parse(input.sourceIdentities.cutoffAt);
+    if (!Number.isFinite(cutoff) || new Date(cutoff).toISOString() !== input.sourceIdentities.cutoffAt) {
+      throw badRequest("sourceIdentities.cutoffAt must be a canonical UTC RFC3339 timestamp");
+    }
+    const sourceRevisions = [];
+    for (const revisionId of input.sourceIdentities.revisionIds) {
+      const revision = await store.readRevision(revisionId);
+      if (!revision || revision.lifecycle !== "approved" || revision.projectId !== project.projectId || revision.profileId !== input.profileId) {
+        throw conflict(`Source revision ${revisionId} is not an approved revision for the exact Project/Profile`);
+      }
+      sourceRevisions.push(revision);
+    }
+    if (operation === "checkpoint") {
+      const hasThread = input.sourceIdentities.threadId !== void 0;
+      const hasRun = input.sourceIdentities.workRunId !== void 0;
+      if (hasThread === hasRun)
+        throw badRequest("Checkpoint requires exactly one canonical Thread or Work Run source");
+      if (hasThread) {
+        const thread = await service.threads.read(input.sourceIdentities.threadId);
+        if (!thread || thread.projectId !== project.projectId || thread.profileId !== input.profileId)
+          throw conflict("Checkpoint Thread is not the exact Project/Profile source");
+        const eligibleArtifactIds = new Set(thread.references.filter((reference) => reference.kind === "artifact" && Date.parse(reference.recordedAt) <= cutoff).map((reference) => reference.referenceId));
+        for (const artifactId of input.sourceIdentities.artifactIds) {
+          if (!eligibleArtifactIds.has(artifactId)) {
+            throw conflict(`Checkpoint artifact ${artifactId} is not a canonical Thread reference at or before the source cutoff`);
+          }
+        }
+      } else {
+        const run = readCanonicalWorkRun(vaultPath, project, input.sourceIdentities.workRunId);
+        const eligibleArtifactIds = new Set((Array.isArray(run.artifact_projections) ? run.artifact_projections : []).flatMap((item) => item && typeof item === "object" && !Array.isArray(item) ? [String(item.artifact_id ?? "")] : []).filter(Boolean));
+        for (const artifactId of input.sourceIdentities.artifactIds) {
+          if (!eligibleArtifactIds.has(artifactId)) {
+            throw conflict(`Checkpoint artifact ${artifactId} is not a canonical Artifact Projection on the source Work Run`);
+          }
+        }
+      }
+    } else {
+      if (input.sourceIdentities.revisionIds.length === 0) {
+        throw badRequest(`${operation} requires one or more approved source revision identities`);
+      }
+      if (operation === "learn" && !sourceRevisions.some((revision) => revision.sections.recentContext.content.length > 0 && revision.sections.recentContext.citations.length > 0)) {
+        throw badRequest("learn requires at least one non-empty approved Recent Context revision with citations");
+      }
+    }
+    const citedSources = /* @__PURE__ */ new Set([
+      ...input.sourceIdentities.artifactIds,
+      ...input.sourceIdentities.revisionIds
+    ]);
+    const allowed = operation === "checkpoint" ? /* @__PURE__ */ new Set(["recentContext", "openItems"]) : /* @__PURE__ */ new Set(["stableMemory"]);
+    for (const diff of candidate.candidateDiff) {
+      if (!allowed.has(diff.section))
+        throw badRequest(`${operation} cannot mutate ${diff.section}`);
+      if (diff.operation === "replace" && diff.after?.content && diff.after.citations.length === 0) {
+        throw badRequest(`${operation} replacement content requires artifact or revision citations`);
+      }
+      for (const citation of diff.after?.citations ?? []) {
+        if (!citedSources.has(citation)) {
+          throw badRequest(`${operation} citation ${citation} is not locked by sourceIdentities.artifactIds/revisionIds`);
+        }
+      }
+      if (operation === "review" && canonicalJson(diff.after?.citations ?? []) !== canonicalJson(input.currentSections.stableMemory.citations)) {
+        throw badRequest("Review must preserve the exact stable-memory citation set and cannot add uncited claims");
+      }
+    }
+  }).then(() => void 0);
+}
+function assertDreamTimeProposalReplay(existing, candidate, proposalActor) {
+  const { schemaVersion: _schemaVersion, lifecycle: _lifecycle, approvalPolicy: _approvalPolicy, createdAt: _createdAt, createdBy, fingerprint: _fingerprint, ...persistedCandidate } = existing;
+  if (createdBy !== proposalActor || canonicalJson(persistedCandidate) !== canonicalJson(candidate)) {
+    throw conflict("Dream Time proposal identity was already used for different immutable proposal bytes");
+  }
+}
+async function proposeDreamTimeResult(ctx, vaultPath, stateRoot, service, operation, params) {
+  const project = exactProject(vaultPath, params.project, `dreamtime.${operation}.propose`);
+  const profileId = requiredString4(params.profileId, "profileId");
+  const input = requiredRecord(params.workerInput, "workerInput");
+  const candidate = requiredRecord(params.candidate, "candidate");
+  if (!candidate.proposalId)
+    throw badRequest("Dream Time proposal operations require a stable candidate.proposalId for replay");
+  const store = dreamTimeStore(stateRoot, project.projectId, profileId);
+  const current = await currentMemoryLock(store);
+  if (input.profileId !== profileId || canonicalJson(input.expectedRevision) !== canonicalJson({ revisionId: current.revisionId, revision: current.revision, fingerprint: current.fingerprint })) {
+    throw conflict("Dream Time proposal expected revision is stale");
+  }
+  const baselineSections = current.revisionRecord?.sections ?? initialMemorySections();
+  const baselineDirectives = current.revisionRecord?.protectedDirectives ?? [];
+  const baselineConflicts = current.revisionRecord?.unresolvedConflicts ?? [];
+  if (canonicalJson(input.currentSections) !== canonicalJson(baselineSections) || canonicalJson(input.protectedDirectives) !== canonicalJson(baselineDirectives) || canonicalJson(input.unresolvedConflicts) !== canonicalJson(baselineConflicts)) {
+    throw conflict("Dream Time worker input does not byte-lock the current approved Memory Revision baseline");
+  }
+  if (input.sourceFingerprint !== dreamTimeSourceFingerprint(input))
+    throw conflict("Dream Time source fingerprint does not lock exact input bytes");
+  await validateProposalSource(vaultPath, project, service, store, operation, input, candidate);
+  const proposalActor = actor(ctx, params.actor);
+  const existing = await store.readProposal(candidate.proposalId);
+  let proposal;
+  let idempotent;
+  if (existing) {
+    assertDreamTimeProposalReplay(existing, candidate, proposalActor);
+    proposal = existing;
+    idempotent = true;
+  } else {
+    try {
+      proposal = await runDreamTimeProposalWorker(store, { generate: async () => candidate }, input, proposalActor);
+      idempotent = false;
+    } catch (error48) {
+      if (!(error48 instanceof DomainConflictError))
+        throw error48;
+      const collided = await store.readProposal(candidate.proposalId);
+      if (!collided)
+        throw error48;
+      assertDreamTimeProposalReplay(collided, candidate, proposalActor);
+      proposal = collided;
+      idempotent = true;
+    }
+  }
+  appendGovernedUsage(vaultPath, {
+    kind: "dreamtime",
+    idempotencyKey: `dreamtime-proposal:${proposal.proposalId}`,
+    occurredAt: proposal.createdAt,
+    projectId: proposal.projectId,
+    profileId: proposal.profileId,
+    threadId: proposal.sourceIdentities.threadId,
+    workRunId: proposal.sourceIdentities.workRunId,
+    provider: proposal.modelLock.provider,
+    model: proposal.modelLock.model,
+    operation: `dreamtime.${operation}.propose`,
+    provenance: [`dreamtime-run:${proposal.proposalId}`]
+  });
+  return { proposal, idempotent };
+}
+async function proposeDreamTime(ctx, vaultPath, stateRoot, service, operation, params) {
+  return (await proposeDreamTimeResult(ctx, vaultPath, stateRoot, service, operation, params)).proposal;
+}
+function dreamTimeTransitionOperation(vaultPath, stateRoot, action) {
+  return {
+    name: `dreamtime.${action}`,
+    namespace: "dreamtime",
+    description: `${action === "approve" ? "Approve" : "Reject"} one exact immutable Memory Proposal fingerprint under a manual actor and revision lock.`,
+    mutating: true,
+    writePolicy: AGENT_DOMAIN_WRITE_POLICY,
+    params: {
+      project: { type: "string", required: true },
+      profileId: { type: "string", required: true },
+      proposalId: { type: "string", required: true },
+      presentedFingerprint: { type: "string", required: true },
+      expectedRevision: { type: "number", required: true },
+      transitionToken: { type: "string", required: true },
+      actor: { type: "string", required: true },
+      reason: { type: "string", required: false }
+    },
+    handler: async (ctx, params) => boundary3(async () => {
+      closedParams3(params, ["project", "profileId", "proposalId", "presentedFingerprint", "expectedRevision", "transitionToken", "actor", "reason"]);
+      const project = exactProject(vaultPath, params.project, `dreamtime.${action}`);
+      const authenticatedActor = actor(ctx, params.actor, true);
+      const store = dreamTimeStore(stateRoot, project.projectId, requiredString4(params.profileId, "profileId"));
+      return store[action](requiredString4(params.proposalId, "proposalId"), {
+        presentedFingerprint: requiredString4(params.presentedFingerprint, "presentedFingerprint"),
+        expectedRevision: requiredInteger(params.expectedRevision, "expectedRevision"),
+        transitionToken: requiredString4(params.transitionToken, "transitionToken"),
+        actor: authenticatedActor,
+        reason: params.reason === void 0 ? void 0 : requiredString4(params.reason, "reason"),
+        authorize: async () => ({ allowed: true, policyVersion: "dreamtime-manual-approval/v1", reason: "Authenticated manual approval" })
+      });
+    })
+  };
+}
+function dreamTimeOperations(vaultPath, stateRoot, service) {
+  const proposalParams = {
+    project: { type: "string", required: true },
+    profileId: { type: "string", required: true },
+    workerInput: { type: "object", required: true },
+    candidate: { type: "object", required: true },
+    actor: { type: "string", required: true }
+  };
+  const propose = (operation) => ({
+    name: `dreamtime.${operation}.propose`,
+    namespace: "dreamtime",
+    description: `Create an immutable proposal-only ${operation} candidate without granting a worker any write, network, or connector authority.`,
+    mutating: true,
+    writePolicy: AGENT_DOMAIN_USAGE_WRITE_POLICY,
+    params: proposalParams,
+    handler: async (ctx, params) => boundary3(async () => {
+      closedParams3(params, ["project", "profileId", "workerInput", "candidate", "actor"]);
+      return proposeDreamTime(ctx, vaultPath, stateRoot, service, operation, params);
+    })
+  });
+  const scopedParams = {
+    project: { type: "string", required: true },
+    profileId: { type: "string", required: true }
+  };
+  return [propose("checkpoint"), propose("learn"), propose("review"), {
+    name: "dreamtime.proposal.read",
+    namespace: "dreamtime",
+    description: "Read one immutable proposal with its terminal decision lifecycle projected separately.",
+    mutating: false,
+    params: { ...scopedParams, proposalId: { type: "string", required: true } },
+    handler: async (_ctx, params) => boundary3(async () => {
+      closedParams3(params, ["project", "profileId", "proposalId"]);
+      const project = exactProject(vaultPath, params.project, "dreamtime.proposal.read");
+      const store = dreamTimeStore(stateRoot, project.projectId, requiredString4(params.profileId, "profileId"));
+      const proposalId = requiredString4(params.proposalId, "proposalId");
+      const proposal = await store.readProposal(proposalId);
+      if (!proposal)
+        throw notFound(`Memory Proposal ${proposalId} does not exist`);
+      const decision = await store.readDecision(proposalId);
+      return { proposal: { ...proposal, lifecycle: decision?.state ?? proposal.lifecycle } };
+    })
+  }, dreamTimeTransitionOperation(vaultPath, stateRoot, "approve"), dreamTimeTransitionOperation(vaultPath, stateRoot, "reject"), {
+    name: "dreamtime.revision.current",
+    namespace: "dreamtime",
+    description: "Read the current approved Memory Revision for one Project Agent.",
+    mutating: false,
+    params: scopedParams,
+    handler: async (_ctx, params) => boundary3(async () => {
+      closedParams3(params, ["project", "profileId"]);
+      const project = exactProject(vaultPath, params.project, "dreamtime.revision.current");
+      return dreamTimeStore(stateRoot, project.projectId, requiredString4(params.profileId, "profileId")).readCurrentRevision();
+    })
+  }, {
+    name: "dreamtime.revision.read",
+    namespace: "dreamtime",
+    description: "Read one exact approved Memory Revision identity.",
+    mutating: false,
+    params: { ...scopedParams, revisionId: { type: "string", required: true } },
+    handler: async (_ctx, params) => boundary3(async () => {
+      closedParams3(params, ["project", "profileId", "revisionId"]);
+      const project = exactProject(vaultPath, params.project, "dreamtime.revision.read");
+      const revision = await dreamTimeStore(stateRoot, project.projectId, requiredString4(params.profileId, "profileId")).readRevision(requiredString4(params.revisionId, "revisionId"));
+      if (!revision)
+        throw notFound(`Memory Revision ${String(params.revisionId)} does not exist`);
+      return revision;
+    })
+  }, {
+    name: "dreamtime.revision.history",
+    namespace: "dreamtime",
+    description: "Project immutable Memory Revisions and append-only decision events.",
+    mutating: false,
+    params: scopedParams,
+    handler: async (_ctx, params) => boundary3(async () => {
+      closedParams3(params, ["project", "profileId"]);
+      const project = exactProject(vaultPath, params.project, "dreamtime.revision.history");
+      const store = dreamTimeStore(stateRoot, project.projectId, requiredString4(params.profileId, "profileId"));
+      return { revisions: await store.listRevisions(), events: await store.listEvents() };
+    })
+  }, {
+    name: "dreamtime.doctor",
+    namespace: "dreamtime",
+    description: "Read proposal, decision, warning, conflict, model-lock, provenance, and revision health without mutating memory.",
+    mutating: false,
+    params: { project: { type: "string", required: true }, profileId: { type: "string", required: false } },
+    handler: async (_ctx, params) => boundary3(async () => {
+      closedParams3(params, ["project", "profileId"]);
+      const project = exactProject(vaultPath, params.project, "dreamtime.doctor");
+      const profileIds = params.profileId === void 0 ? (await service.bindings.list({ projectId: project.projectId })).map((binding) => binding.profileId) : [requiredString4(params.profileId, "profileId")];
+      const proposalSummaries = [];
+      const diagnostics = [];
+      let revisionCount = 0;
+      for (const profileId of [...new Set(profileIds)].sort()) {
+        const store = dreamTimeStore(stateRoot, project.projectId, profileId);
+        revisionCount += (await store.listRevisions()).length;
+        const directory = proposalDirectory(stateRoot, project.projectId, profileId);
+        const files = existsSync22(directory) ? readdirSync15(directory).filter((file2) => file2.endsWith(".json")).sort() : [];
+        for (const file2 of files) {
+          const proposalId = `memory-proposal/${basename11(file2, ".json")}`;
+          const proposal = await store.readProposal(proposalId);
+          if (!proposal)
+            continue;
+          const decision = await store.readDecision(proposalId);
+          proposalSummaries.push({
+            proposalId,
+            profileId,
+            operation: proposal.operation,
+            lifecycle: decision?.state ?? proposal.lifecycle,
+            fingerprint: proposal.fingerprint,
+            createdAt: proposal.createdAt,
+            expiresAt: proposal.expiresAt,
+            warningCount: proposal.warnings.length,
+            conflictCount: proposal.unresolvedConflicts.length,
+            modelLock: proposal.modelLock,
+            provenance: proposal.provenance
+          });
+          if (!decision && Date.parse(proposal.expiresAt) <= Date.now())
+            diagnostics.push({ code: "proposal-expired-unfinalized", severity: "warning", remediationKey: "reject-or-refresh-proposal" });
+          if (proposal.unresolvedConflicts.length)
+            diagnostics.push({ code: "memory-conflicts-unresolved", severity: "error", remediationKey: "resolve-memory-conflicts" });
+        }
+      }
+      return {
+        projectId: project.projectId,
+        ...params.profileId === void 0 ? {} : { profileId: params.profileId },
+        state: diagnostics.some((item) => item.severity === "error") ? "degraded" : proposalSummaries.length || revisionCount ? "healthy" : "empty",
+        proposalSummaries,
+        revisionCount,
+        diagnostics
+      };
+    })
+  }, {
+    name: "dreamtime.promotion.handoff",
+    namespace: "dreamtime",
+    description: "Route a reviewed Dream Time durable-knowledge candidate into the existing quarantined AI-Output Promotion path.",
+    mutating: true,
+    writePolicy: { realWrite: "always", targets: () => ["00-Inbox/AI-Output/vault-dreamtime/**"], audit: "required" },
+    params: {
+      project: { type: "string", required: true },
+      profileId: { type: "string", required: true },
+      proposalId: { type: "string", required: true },
+      proposalFingerprint: { type: "string", required: true },
+      candidateDiff: { type: "array", required: true },
+      provenance: { type: "array", required: true },
+      actor: { type: "string", required: true }
+    },
+    handler: async (ctx, params) => boundary3(async () => {
+      closedParams3(params, ["project", "profileId", "proposalId", "proposalFingerprint", "candidateDiff", "provenance", "actor"]);
+      const project = exactProject(vaultPath, params.project, "dreamtime.promotion.handoff");
+      actor(ctx, params.actor, true);
+      const store = dreamTimeStore(stateRoot, project.projectId, requiredString4(params.profileId, "profileId"));
+      const proposal = await store.readProposal(requiredString4(params.proposalId, "proposalId"));
+      if (!proposal)
+        throw notFound(`Memory Proposal ${String(params.proposalId)} does not exist`);
+      if (proposal.fingerprint !== params.proposalFingerprint || canonicalJson(proposal.candidateDiff) !== canonicalJson(params.candidateDiff) || canonicalJson(proposal.provenance) !== canonicalJson(params.provenance)) {
+        throw conflict("Promotion handoff bytes differ from the immutable Memory Proposal");
+      }
+      const candidateId = `promotion-candidate/${proposal.fingerprint.slice("sha256:".length, "sha256:".length + 24)}`;
+      const body = [
+        "# Dream Time Promotion Candidate",
+        "",
+        `Candidate: ${candidateId}`,
+        `Project: ${project.projectId}`,
+        `Agent: ${proposal.profileId}`,
+        `Proposal: ${proposal.proposalId}`,
+        "",
+        "This is an unreviewed candidate. It does not modify protected durable knowledge.",
+        "",
+        "## Candidate Diff",
+        "```json",
+        JSON.stringify(proposal.candidateDiff, null, 2),
+        "```",
+        "",
+        "## Provenance",
+        "```json",
+        JSON.stringify(proposal.provenance, null, 2),
+        "```",
+        ""
+      ].join("\n");
+      const result = await ctx.vault.execute("vault.writeAIOutput", {
+        persona: "vault-dreamtime",
+        parentQuery: `Review ${candidateId} for ${project.projectId}`,
+        sourceNodes: [],
+        agent: "llmwiki-dreamtime",
+        body,
+        slug: candidateId.replace("/", "-"),
+        scope: "project",
+        quarantineState: "new",
+        dryRun: false
+      });
+      return { candidateId, reviewPath: result.path, status: "created" };
+    })
+  }];
+}
+function dreamTimeCadenceOperations(vaultPath, stateRoot, service) {
+  const cadenceParams = {
+    project: { type: "string", required: true },
+    profileId: { type: "string", required: true },
+    cadence: { type: "string", required: true, enum: ["daily", "weekly", "monthly"] },
+    asOf: { type: "string", required: true }
+  };
+  const resolveCadence = (params, operation) => {
+    const project = exactProject(vaultPath, params.project, operation);
+    const profileId = requiredString4(params.profileId, "profileId");
+    const cadence = requiredString4(params.cadence, "cadence");
+    const asOf = requiredString4(params.asOf, "asOf");
+    const window = resolveDreamTimeCadenceWindow(cadence, asOf);
+    const identity = dreamTimeCadenceIdentity(project.projectId, profileId, window);
+    return { project, profileId, cadence, asOf, window, identity };
+  };
+  const settingsFor = async (project, cadence, asOf) => {
+    const settingsService = createSettingsService({
+      vaultPath,
+      workspaceProjectId: project.projectId,
+      sessionId: "dreamtime-cadence",
+      clock: () => asOf
+    });
+    const { snapshot } = await settingsService.snapshotResolve();
+    const settingKey = cadenceSettingKey(cadence);
+    const setting = snapshot.effective.find((item) => item.key === settingKey);
+    if (!setting || typeof setting.value !== "boolean") {
+      throw conflict(`Dream Time cadence setting ${settingKey} is not a resolved boolean`);
+    }
+    return { settingsService, settingsSnapshot: snapshot, settingKey, enabled: setting.value };
+  };
+  const cadenceResult = async (store, project, profileId, cadence, asOf, window, identity) => {
+    const { enabled } = await settingsFor(project, cadence, asOf);
+    const proposal = await store.readProposal(identity.proposalId);
+    const decision = proposal ? await store.readDecision(identity.proposalId) : null;
+    const workRun = cadenceWorkRun(vaultPath, project, identity.invocationId);
+    const reason = proposal ? "proposal-exists" : !enabled ? "disabled" : workRun ? "resumable-work-run" : "due";
+    return {
+      projectId: project.projectId,
+      profileId,
+      ...window,
+      invocationId: identity.invocationId,
+      enabled,
+      due: enabled && !proposal && !workRun,
+      reason,
+      ...workRun ? { workRunId: workRun.work_run_id } : {},
+      proposal: proposal ? {
+        proposalId: proposal.proposalId,
+        fingerprint: proposal.fingerprint,
+        lifecycle: decision?.state ?? proposal.lifecycle,
+        createdAt: proposal.createdAt,
+        expiresAt: proposal.expiresAt
+      } : null
+    };
+  };
+  return [{
+    name: "dreamtime.cadence.status",
+    namespace: "dreamtime",
+    description: "Compute one disabled-by-default Project-scoped UTC Dream Time cadence window without running a background scheduler.",
+    mutating: false,
+    params: cadenceParams,
+    handler: async (_ctx, params) => boundary3(async () => {
+      closedParams3(params, ["project", "profileId", "cadence", "asOf"]);
+      const resolved = resolveCadence(params, "dreamtime.cadence.status");
+      const store = dreamTimeStore(stateRoot, resolved.project.projectId, resolved.profileId);
+      return cadenceResult(store, resolved.project, resolved.profileId, resolved.cadence, resolved.asOf, resolved.window, resolved.identity);
+    })
+  }, {
+    name: "dreamtime.cadence.run",
+    namespace: "dreamtime",
+    description: "Explicitly run one due Project-scoped cadence as a canonical Work Run and immutable proposal that remains pending manual approval.",
+    mutating: true,
+    writePolicy: {
+      realWrite: "always",
+      targets: (_ctx, params) => {
+        const project = exactProject(vaultPath, params.project, "dreamtime.cadence.run");
+        return [
+          `${AGENT_DOMAIN_RELATIVE_ROOT}/**`,
+          `${USAGE_RELATIVE_ROOT}/**`,
+          `01-Projects/${project.slug}/runs/**`,
+          `10-Projects/${project.slug}/agents/**`
+        ];
+      },
+      audit: "required"
+    },
+    params: {
+      ...cadenceParams,
+      tokenBudget: { type: "number", required: true },
+      sourceIdentities: { type: "object", required: true },
+      candidateDiff: { type: "array", required: true },
+      provenance: { type: "array", required: true },
+      warnings: { type: "array", required: false },
+      expiresAt: { type: "string", required: true },
+      actor: { type: "string", required: true }
+    },
+    handler: async (ctx, params) => boundary3(async () => {
+      closedParams3(params, [
+        "project",
+        "profileId",
+        "cadence",
+        "asOf",
+        "tokenBudget",
+        "sourceIdentities",
+        "candidateDiff",
+        "provenance",
+        "warnings",
+        "expiresAt",
+        "actor"
+      ]);
+      const { project, profileId, cadence, asOf, window, identity } = resolveCadence(params, "dreamtime.cadence.run");
+      const store = dreamTimeStore(stateRoot, project.projectId, profileId);
+      const requestedActor = actor(ctx, params.actor);
+      const sourceInput = requiredRecord(params.sourceIdentities, "sourceIdentities");
+      closedParams3(sourceInput, ["threadId", "workRunId", "revisionIds", "artifactIds", "cutoffAt"]);
+      const sourceIdentities = {
+        ...sourceInput.threadId === void 0 ? {} : { threadId: requiredString4(sourceInput.threadId, "sourceIdentities.threadId") },
+        ...sourceInput.workRunId === void 0 ? {} : { workRunId: requiredString4(sourceInput.workRunId, "sourceIdentities.workRunId") },
+        revisionIds: requiredArray(sourceInput.revisionIds, "sourceIdentities.revisionIds").map((item, index) => requiredString4(item, `sourceIdentities.revisionIds[${index}]`)),
+        artifactIds: requiredArray(sourceInput.artifactIds, "sourceIdentities.artifactIds").map((item, index) => requiredString4(item, `sourceIdentities.artifactIds[${index}]`)),
+        cutoffAt: requiredString4(sourceInput.cutoffAt, "sourceIdentities.cutoffAt")
+      };
+      const candidateDiff = requiredArray(params.candidateDiff, "candidateDiff");
+      const provenance = normalizeProvenance(params.provenance);
+      if (provenance.some((reference) => reference.kind === "settings" || reference.kind === "governance" && reference.id === CADENCE_GOVERNANCE_ID)) {
+        throw badRequest("Dream Time cadence reserves Settings and cadence-governance provenance for server-issued locks");
+      }
+      const warnings = params.warnings === void 0 ? [] : requiredArray(params.warnings, "warnings");
+      const expiresAt = requiredString4(params.expiresAt, "expiresAt");
+      const tokenBudget = requiredInteger(params.tokenBudget, "tokenBudget", 1);
+      const cadenceRequestFingerprint = canonicalDigest({
+        schemaVersion: 1,
+        invocationId: identity.invocationId,
+        asOf,
+        tokenBudget
+      });
+      assertSafeSharedState({ sourceIdentities, candidateDiff, provenance, warnings, requestedActor }, "DreamTimeCadenceRequest");
+      const existingProposal = await store.readProposal(identity.proposalId);
+      if (existingProposal) {
+        const existingRun = cadenceWorkRun(vaultPath, project, identity.invocationId);
+        if (!existingRun)
+          throw conflict("Dream Time cadence proposal is missing its canonical Work Run");
+        const workRunId2 = requiredString4(existingRun.work_run_id, "workRun.work_run_id");
+        const contextEnvelopeFingerprint = assertCadenceReplayBytes(existingProposal, workRunId2, sourceIdentities, candidateDiff, provenance, warnings, expiresAt, requestedActor, cadenceRequestFingerprint);
+        await moveCadenceWorkRunToReview(ctx, vaultPath, project, identity, workRunId2, existingProposal.proposalId);
+        appendGovernedUsage(vaultPath, {
+          kind: "dreamtime",
+          idempotencyKey: `dreamtime-cadence:${identity.invocationId}`,
+          occurredAt: asOf,
+          projectId: project.projectId,
+          profileId,
+          workRunId: workRunId2,
+          provider: existingProposal.modelLock.provider,
+          model: existingProposal.modelLock.model,
+          operation: "dreamtime.cadence.run",
+          provenance: [`dreamtime-run:${identity.invocationId}`]
+        });
+        return { ...window, invocationId: identity.invocationId, workRunId: workRunId2, contextEnvelopeFingerprint, proposal: existingProposal, idempotent: true };
+      }
+      const { settingsService, settingsSnapshot, settingKey, enabled } = await settingsFor(project, cadence, asOf);
+      if (!enabled)
+        throw conflict(`Dream Time cadence ${cadence} is disabled for ${project.projectId}`);
+      const bindingId = `binding/${project.slug}/${profileId.slice("agent/".length)}`;
+      const profile = await service.profiles.read(profileId);
+      const binding = await service.bindings.read(bindingId);
+      if (!profile || !binding || !binding.enabled || binding.projectId !== project.projectId || binding.profileId !== profileId || binding.profileRevision !== profile.revision) {
+        throw conflict("Dream Time cadence requires the active enabled Project Agent Binding and Profile revision");
+      }
+      const canonicalProjectContext = normalizedProjectContext(project);
+      const canonicalProjectFingerprint = canonicalDigest(canonicalProjectContext);
+      if (binding.projectContextFingerprint !== canonicalProjectFingerprint) {
+        throw conflict("Dream Time cadence Project Agent Binding uses a stale Project Context fingerprint");
+      }
+      const current = await store.readCurrentRevision();
+      if (!current)
+        throw conflict("Dream Time cadence requires an approved Memory Revision bootstrap");
+      const settingsFingerprint = canonicalDigest(settingsSnapshot);
+      const settingsModel = await settingsService.agentModelInvocationProfile();
+      const profileModel = profile.defaultModelPolicy;
+      const modelLock = {
+        provider: profileModel.mode === "inherit" ? settingsModel.provider || "inherit" : profileModel.provider,
+        model: profileModel.mode === "inherit" ? settingsModel.model || "inherit" : profileModel.model,
+        contextWindow: 32768,
+        tokenizer: "utf8-bytes-div4/v1",
+        policyFingerprint: canonicalDigest({ profileModel, settingsFingerprint })
+      };
+      const workerInput = {
+        operation: window.operation,
+        projectId: project.projectId,
+        profileId,
+        sourceIdentities,
+        expectedRevision: { revisionId: current.revisionId, revision: current.revision, fingerprint: current.fingerprint },
+        sourceFingerprint: "",
+        currentSections: current.sections,
+        protectedDirectives: current.protectedDirectives,
+        unresolvedConflicts: current.unresolvedConflicts,
+        modelLock,
+        expiresAt
+      };
+      workerInput.sourceFingerprint = dreamTimeSourceFingerprint(workerInput);
+      const preflightCandidate = {
+        proposalId: identity.proposalId,
+        operation: window.operation,
+        projectId: project.projectId,
+        profileId,
+        sourceIdentities,
+        expectedRevision: workerInput.expectedRevision,
+        sourceFingerprint: workerInput.sourceFingerprint,
+        candidateDiff,
+        protectedDirectives: current.protectedDirectives,
+        unresolvedConflicts: current.unresolvedConflicts,
+        provenance,
+        warnings,
+        modelLock,
+        expiresAt
+      };
+      assertSafeSharedState({ workerInput, candidate: preflightCandidate, actor: requestedActor }, "DreamTimeCadenceProposal");
+      const preflightCreatedAt = (/* @__PURE__ */ new Date()).toISOString();
+      const preflightMaterial = {
+        ...preflightCandidate,
+        schemaVersion: 1,
+        proposalId: identity.proposalId,
+        lifecycle: "proposed",
+        approvalPolicy: {
+          mode: "manual",
+          autoApprovalHook: { enabled: false, warningFreeOnly: true, workingMemoryOnly: true }
+        },
+        createdAt: preflightCreatedAt,
+        createdBy: requestedActor
+      };
+      validateMemoryProposal({ ...preflightMaterial, fingerprint: canonicalDigest(preflightMaterial) });
+      await validateProposalSource(vaultPath, project, service, store, window.operation, workerInput, preflightCandidate);
+      let workRunId;
+      try {
+        const started = await workflowOperation(vaultPath, "workflow.agent.start").handler(ctx, {
+          project: project.projectId,
+          agent: identity.agentId,
+          role: "memory-maintenance",
+          host: "llmwiki-dreamtime",
+          objective: `Dream Time ${window.operation} proposal for ${window.periodKey}`,
+          issue: `dreamtime-${cadence}`,
+          transition_token: identity.transitionToken,
+          output_class: "knowledge-claim",
+          approval_status: "pending",
+          provenance: [`dreamtime-cadence:${identity.invocationId}`],
+          stage: "build",
+          evidence: [`settings:${settingKey}`],
+          notes: "Explicit cadence invocation; no background scheduler or automatic approval."
+        });
+        workRunId = requiredString4(started.workRunId, "workflow.agent.start.workRunId");
+      } catch (error48) {
+        if (!isOperationError(error48) || error48.code !== -32010)
+          throw error48;
+        const racedRun = cadenceWorkRun(vaultPath, project, identity.invocationId);
+        if (!racedRun)
+          throw error48;
+        workRunId = requiredString4(racedRun.work_run_id, "workRun.work_run_id");
+      }
+      const durableRun = readCanonicalWorkRun(vaultPath, project, workRunId);
+      const threadWindow = [];
+      if (sourceIdentities.threadId) {
+        const thread = await service.threads.read(sourceIdentities.threadId);
+        if (!thread || thread.projectId !== project.projectId || thread.profileId !== profileId || thread.profileRevision !== profile.revision || thread.bindingId !== bindingId || thread.bindingRevision !== binding.revision) {
+          throw conflict("Dream Time cadence Context Envelope Thread is not the active exact Project/Profile/Binding revision");
+        }
+        threadWindow.push({
+          chunkId: thread.threadId,
+          content: {
+            threadId: thread.threadId,
+            lifecycle: thread.lifecycle,
+            title: thread.title,
+            references: thread.references
+          },
+          provenance: [{ kind: "thread", id: thread.threadId, revision: thread.revision }]
+        });
+      }
+      const publicSettingKeys = new Set(settingsService.registry.definitions.filter((definition) => definition.sensitivity === "public").map((definition) => definition.key));
+      const settingsProjection = {
+        snapshotId: settingsSnapshot.snapshotId,
+        registryVersion: settingsSnapshot.registryVersion,
+        sourceRevisions: settingsSnapshot.sourceRevisions,
+        effective: settingsSnapshot.effective.filter((item) => publicSettingKeys.has(item.key)).map((item) => ({ key: item.key, value: item.value, winningScope: item.winningScope, applyMode: item.applyMode }))
+      };
+      const envelope = compileContextEnvelope({
+        envelopeId: `context-envelope/${identity.invocationId.slice("dreamtime-cadence/".length)}`,
+        compiledAt: asOf,
+        modelLock,
+        tokenBudget,
+        platformKernel: PLATFORM_KERNEL,
+        profile,
+        binding,
+        memoryRevision: current,
+        memoryRevisionLock: { revisionId: current.revisionId, revision: current.revision, fingerprint: current.fingerprint },
+        runtime: {
+          projectContext: {
+            chunkId: `project-context/${project.slug}`,
+            content: canonicalProjectContext,
+            provenance: [{ kind: "project", id: project.projectId, fingerprint: canonicalProjectFingerprint }],
+            mandatory: true
+          },
+          workRun: {
+            chunkId: workRunId,
+            content: {
+              projectId: project.projectId,
+              workRunId,
+              workItemId: String(durableRun.work_item_id),
+              agentId: identity.agentId,
+              outputClass: "knowledge-claim",
+              cadence,
+              operation: window.operation,
+              invocationId: identity.invocationId
+            },
+            provenance: [{ kind: "workRun", id: workRunId }],
+            mandatory: true
+          },
+          threadWindow,
+          settingsSnapshot: {
+            chunkId: settingsSnapshot.snapshotId,
+            content: settingsProjection,
+            provenance: [{ kind: "settings", id: settingsSnapshot.snapshotId, fingerprint: settingsFingerprint }],
+            mandatory: true
+          },
+          deviceCapabilities: [],
+          capabilityGrants: []
+        }
+      });
+      const proposalProvenance = normalizeProvenance([
+        ...provenance,
+        { kind: "governance", id: CADENCE_GOVERNANCE_ID, fingerprint: cadenceRequestFingerprint },
+        { kind: "workRun", id: workRunId, fingerprint: envelope.fingerprint },
+        { kind: "settings", id: settingsSnapshot.snapshotId, fingerprint: settingsFingerprint }
+      ]);
+      const { proposal, idempotent: proposalIdempotent } = await proposeDreamTimeResult(ctx, vaultPath, stateRoot, service, window.operation, {
+        project: project.projectId,
+        profileId,
+        workerInput,
+        candidate: { ...preflightCandidate, provenance: proposalProvenance },
+        actor: requestedActor
+      });
+      await moveCadenceWorkRunToReview(ctx, vaultPath, project, identity, workRunId, proposal.proposalId);
+      appendGovernedUsage(vaultPath, {
+        kind: "dreamtime",
+        idempotencyKey: `dreamtime-cadence:${identity.invocationId}`,
+        occurredAt: asOf,
+        projectId: project.projectId,
+        profileId,
+        workRunId,
+        provider: proposal.modelLock.provider,
+        model: proposal.modelLock.model,
+        operation: "dreamtime.cadence.run",
+        provenance: [`dreamtime-run:${identity.invocationId}`]
+      });
+      return {
+        ...window,
+        invocationId: identity.invocationId,
+        workRunId,
+        contextEnvelopeFingerprint: envelope.fingerprint,
+        proposal,
+        idempotent: proposalIdempotent
+      };
+    })
+  }];
+}
+function collaborationRoot(stateRoot) {
+  return join32(stateRoot, "collaboration");
+}
+function childWorkRunIdFor(plan) {
+  const suffix = canonicalDigest({ planId: plan.planId, fingerprint: plan.fingerprint }).slice("sha256:".length);
+  return `work-run/child-${suffix.slice(0, 24)}`;
+}
+function consultOperations(vaultPath, stateRoot, service) {
+  return [{
+    name: "consult.execute",
+    namespace: "consult",
+    description: "Execute one authorized as-of Context Consult and persist only its read-only Artifact Projection.",
+    mutating: true,
+    writePolicy: AGENT_DOMAIN_USAGE_WRITE_POLICY,
+    params: {
+      project: { type: "string", required: true },
+      request: { type: "object", required: true },
+      invocationToken: { type: "string", required: true },
+      workerOutput: { type: "object", required: true },
+      inputArtifactIds: { type: "array", required: false },
+      actor: { type: "string", required: true },
+      grant: { type: "unknown", required: false }
+    },
+    handler: async (ctx, params) => boundary3(async () => {
+      closedParams3(params, ["project", "request", "invocationToken", "workerOutput", "inputArtifactIds", "actor"]);
+      const project = exactProject(vaultPath, params.project, "consult.execute");
+      const authenticatedActor = actor(ctx, params.actor);
+      const requestInput = requiredRecord(params.request, "request");
+      if (requestInput.requestId === void 0)
+        throw badRequest("consult.execute requires a stable request.requestId for replay");
+      const grantId = requiredString4(requestInput.capabilityGrantId, "request.capabilityGrantId");
+      const { grant, child: requestingWorkRun } = await activeServerGrant(stateRoot, service, project, grantId);
+      if (requestInput.authorizationDecision !== void 0 && canonicalJson(requestInput.authorizationDecision) !== canonicalJson(grant.policyDecision)) {
+        throw conflict("Context Consult client authorization does not match the server-issued Capability Grant decision");
+      }
+      const invocationToken = requiredString4(params.invocationToken, "invocationToken");
+      const request = createContextConsultRequest({ ...requestInput, authorizationDecision: grant.policyDecision, invocationToken });
+      if (request.projectId !== project.projectId)
+        throw conflict("Context Consult Project differs from the canonical Project Context");
+      if (!request.authorizationDecision.allowed || request.authorizationDecision.actor !== authenticatedActor) {
+        throw conflict("Context Consult authorization decision must allow the authenticated actor");
+      }
+      const requestingProfile = await service.profiles.readRevision(request.requestingAgent.profileId, request.requestingAgent.profileRevision);
+      const targetProfile = await service.profiles.readRevision(request.targetAgent.profileId, request.targetAgent.profileRevision);
+      if (!requestingProfile || !targetProfile)
+        throw conflict("Context Consult Agent Profile revision lock is not current vault state");
+      if (request.requestingAgent.workRunId !== requestingWorkRun.workRunId || request.requestingAgent.profileId !== requestingWorkRun.assignment.profileId || request.requestingAgent.profileRevision !== requestingWorkRun.assignment.profileRevision) {
+        throw conflict("Context Consult requester does not match the active server-issued Work Run assignment");
+      }
+      const targetBindingId = `binding/${project.slug}/${request.targetAgent.profileId.slice("agent/".length)}`;
+      const targetBinding = await service.bindings.read(targetBindingId);
+      if (!targetBinding || !targetBinding.enabled || targetBinding.projectId !== project.projectId || targetBinding.profileId !== request.targetAgent.profileId || targetBinding.profileRevision !== request.targetAgent.profileRevision) {
+        throw conflict("Context Consult target is not an enabled Project-bound Agent at the requested Profile revision");
+      }
+      if (request.attachTo.kind === "workRun") {
+        if (request.attachTo.id !== requestingWorkRun.workRunId && request.attachTo.id !== requestingWorkRun.parentWorkRunId) {
+          readCanonicalWorkRun(vaultPath, project, request.attachTo.id);
+        } else if (request.attachTo.id === requestingWorkRun.parentWorkRunId) {
+          readCanonicalWorkRun(vaultPath, project, request.attachTo.id);
+        }
+      } else {
+        const thread = await service.threads.read(request.attachTo.id);
+        if (!thread || thread.projectId !== project.projectId)
+          throw conflict("Context Consult attachment Thread is outside the exact Project");
+      }
+      const memory = dreamTimeStore(stateRoot, project.projectId, request.targetAgent.profileId);
+      const execution = await new ContextConsultStore({ collaborationRoot: collaborationRoot(stateRoot), projectId: project.projectId }).execute({
+        request,
+        invocationToken,
+        grant,
+        targetMemory: {
+          readApprovedRevision: async (lock) => {
+            const revision = await memory.readRevision(lock.revisionId);
+            if (!revision)
+              throw new DomainNotFoundError(`Context Consult Memory Revision ${lock.revisionId} does not exist`);
+            return revision;
+          },
+          readCurrentApprovedRevision: async () => {
+            const revision = await memory.readCurrentRevision();
+            if (!revision)
+              throw new DomainNotFoundError("Context Consult target has no approved current Memory Revision");
+            return revision;
+          }
+        },
+        worker: { generate: async () => requiredRecord(params.workerOutput, "workerOutput") },
+        inputArtifactIds: params.inputArtifactIds
+      });
+      appendGovernedUsage(vaultPath, {
+        kind: "consult",
+        idempotencyKey: `context-consult:${request.requestId}`,
+        occurredAt: execution.result.completedAt,
+        projectId: request.projectId,
+        profileId: request.targetAgent.profileId,
+        threadId: request.attachTo.kind === "thread" ? request.attachTo.id : void 0,
+        workRunId: request.requestingAgent.workRunId,
+        operation: "consult.execute",
+        provenance: [`invocation:${request.requestId}`]
+      });
+      return execution;
+    })
+  }];
+}
+function delegationOperations(vaultPath, stateRoot, service) {
+  const storeFor = (projectId2) => new DelegationStore({ collaborationRoot: collaborationRoot(stateRoot), projectId: projectId2 });
+  return [{
+    name: "delegation.plan",
+    namespace: "delegation",
+    description: "Persist one explicit, reviewable Delegation Plan locked to canonical Project, parent Work Run, Agent, Binding, assignment, budget, and side-effect scope.",
+    mutating: true,
+    writePolicy: AGENT_DOMAIN_USAGE_WRITE_POLICY,
+    params: { project: { type: "string", required: true }, input: { type: "object", required: true }, actor: { type: "string", required: true } },
+    handler: async (ctx, params) => boundary3(async () => {
+      closedParams3(params, ["project", "input", "actor"]);
+      const project = exactProject(vaultPath, params.project, "delegation.plan");
+      const input = requiredRecord(params.input, "input");
+      if (input.planId === void 0)
+        throw badRequest("delegation.plan requires a stable input.planId for replay");
+      const createdBy = actor(ctx, params.actor);
+      const plan = createDelegationPlan({ ...input, projectId: project.projectId, createdBy });
+      readCanonicalWorkRun(vaultPath, project, plan.parentWorkRunId);
+      const profile = await service.profiles.readRevision(plan.assignment.profileId, plan.assignment.profileRevision);
+      const binding = await service.bindings.readRevision(plan.assignment.bindingId, plan.assignment.bindingRevision);
+      if (!profile || !binding || binding.projectId !== project.projectId || binding.profileId !== profile.profileId || !binding.enabled) {
+        throw conflict("Delegation assignment does not lock an enabled Agent Profile/Project Binding revision in the exact Project");
+      }
+      const persisted = await storeFor(project.projectId).createPlan(plan);
+      appendGovernedUsage(vaultPath, {
+        kind: "delegation",
+        idempotencyKey: `delegation-plan:${persisted.planId}`,
+        occurredAt: persisted.createdAt,
+        projectId: persisted.projectId,
+        profileId: persisted.assignment.profileId,
+        workRunId: persisted.parentWorkRunId,
+        device: persisted.assignment.deviceSnapshot.deviceId,
+        operation: "delegation.plan",
+        provenance: [`invocation:${persisted.planId}`]
+      });
+      return persisted;
+    })
+  }, {
+    name: "delegation.approve",
+    namespace: "delegation",
+    description: "Approve one exact Delegation Plan and idempotently create one same-Project Child Work Run with an expiring scoped grant.",
+    mutating: true,
+    writePolicy: AGENT_DOMAIN_USAGE_WRITE_POLICY,
+    params: {
+      project: { type: "string", required: true },
+      planId: { type: "string", required: true },
+      presentedFingerprint: { type: "string", required: true },
+      expectedRevision: { type: "number", required: true },
+      transitionToken: { type: "string", required: true },
+      approvedExternalClasses: { type: "array", required: true },
+      actor: { type: "string", required: true }
+    },
+    handler: async (ctx, params) => boundary3(async () => {
+      closedParams3(params, ["project", "planId", "presentedFingerprint", "expectedRevision", "transitionToken", "approvedExternalClasses", "actor"]);
+      const project = exactProject(vaultPath, params.project, "delegation.approve");
+      if (requiredInteger(params.expectedRevision, "expectedRevision", 1) !== 1)
+        throw conflict("Delegation Plan revision lock must be 1");
+      const authenticatedActor = actor(ctx, params.actor, true);
+      const result = await storeFor(project.projectId).approve({
+        planId: requiredString4(params.planId, "planId"),
+        presentedFingerprint: requiredString4(params.presentedFingerprint, "presentedFingerprint"),
+        transitionToken: requiredString4(params.transitionToken, "transitionToken"),
+        actor: authenticatedActor,
+        approvedExternalClasses: params.approvedExternalClasses,
+        authorize: async () => ({ allowed: true, policyVersion: "delegation-manual-approval/v1", reason: "Authenticated explicit per-run approval", decidedAt: (/* @__PURE__ */ new Date()).toISOString(), actor: authenticatedActor })
+      });
+      appendGovernedUsage(vaultPath, {
+        kind: "delegation",
+        idempotencyKey: `delegation-approval:${result.child.workRunId}`,
+        occurredAt: result.child.createdAt,
+        projectId: result.child.projectId,
+        profileId: result.child.assignment.profileId,
+        workRunId: result.child.workRunId,
+        device: result.child.assignment.deviceSnapshot.deviceId,
+        operation: "delegation.approve",
+        provenance: [`work-run:${result.child.workRunId}`]
+      });
+      return result;
+    })
+  }, {
+    name: "delegation.read",
+    namespace: "delegation",
+    description: "Read one immutable Delegation Plan and its deterministic Child Work Run projection when approved.",
+    mutating: false,
+    params: { project: { type: "string", required: true }, planId: { type: "string", required: true } },
+    handler: async (_ctx, params) => boundary3(async () => {
+      closedParams3(params, ["project", "planId"]);
+      const project = exactProject(vaultPath, params.project, "delegation.read");
+      const store = storeFor(project.projectId);
+      const plan = await store.readPlan(requiredString4(params.planId, "planId"));
+      if (!plan)
+        throw notFound(`Delegation Plan ${String(params.planId)} does not exist`);
+      return { plan, child: await store.readChild(childWorkRunIdFor(plan)) };
+    })
+  }, {
+    name: "delegation.transition",
+    namespace: "delegation",
+    description: "Transition one Child Work Run without inferring any parent terminal state.",
+    mutating: true,
+    writePolicy: AGENT_DOMAIN_WRITE_POLICY,
+    params: {
+      project: { type: "string", required: true },
+      workRunId: { type: "string", required: true },
+      expectedRevision: { type: "number", required: true },
+      lifecycle: { type: "string", required: true, enum: ["running", "completed", "failed", "cancelled"] },
+      transitionToken: { type: "string", required: true },
+      actor: { type: "string", required: true },
+      diagnosticArtifact: { type: "object", required: false }
+    },
+    handler: async (ctx, params) => boundary3(async () => {
+      closedParams3(params, ["project", "workRunId", "expectedRevision", "lifecycle", "transitionToken", "actor", "diagnosticArtifact"]);
+      const project = exactProject(vaultPath, params.project, "delegation.transition");
+      return storeFor(project.projectId).transition(requiredString4(params.workRunId, "workRunId"), {
+        expectedRevision: requiredInteger(params.expectedRevision, "expectedRevision", 1),
+        lifecycle: requiredString4(params.lifecycle, "lifecycle"),
+        transitionToken: requiredString4(params.transitionToken, "transitionToken"),
+        actor: actor(ctx, params.actor),
+        diagnosticArtifact: params.diagnosticArtifact
+      });
+    })
+  }, {
+    name: "delegation.artifact.project",
+    namespace: "delegation",
+    description: "Project one provenance-preserving artifact from a Child Work Run back to its parent review surface.",
+    mutating: true,
+    writePolicy: AGENT_DOMAIN_WRITE_POLICY,
+    params: {
+      project: { type: "string", required: true },
+      workRunId: { type: "string", required: true },
+      expectedRevision: { type: "number", required: true },
+      transitionToken: { type: "string", required: true },
+      actor: { type: "string", required: true },
+      artifact: { type: "object", required: true }
+    },
+    handler: async (ctx, params) => boundary3(async () => {
+      closedParams3(params, ["project", "workRunId", "expectedRevision", "transitionToken", "actor", "artifact"]);
+      const project = exactProject(vaultPath, params.project, "delegation.artifact.project");
+      return storeFor(project.projectId).projectArtifact(requiredString4(params.workRunId, "workRunId"), {
+        expectedRevision: requiredInteger(params.expectedRevision, "expectedRevision", 1),
+        transitionToken: requiredString4(params.transitionToken, "transitionToken"),
+        actor: actor(ctx, params.actor),
+        artifact: requiredRecord(params.artifact, "artifact")
+      });
+    })
+  }];
+}
+function makeAgentDomainOps(vaultPath) {
+  const stateRoot = join32(vaultPath, ...AGENT_DOMAIN_RELATIVE_ROOT.split("/"));
+  const service = new AgentDomainService({ stateRoot });
+  return [
+    ...profileOperations(service),
+    ...bindingOperations(vaultPath, service),
+    ...threadOperations(vaultPath, service),
+    ...roomAndContextOperations(vaultPath, stateRoot, service),
+    ...dreamTimeOperations(vaultPath, stateRoot, service),
+    ...dreamTimeCadenceOperations(vaultPath, stateRoot, service),
+    ...consultOperations(vaultPath, stateRoot, service),
+    ...delegationOperations(vaultPath, stateRoot, service)
+  ];
+}
+
 // dist/core/operations.js
 var execAsync2 = promisify6(execFile6);
 var PROTECTED_DIRS4 = /* @__PURE__ */ new Set([".obsidian", ".trash", ".git", "node_modules"]);
-var _thisDir = dirname11(fileURLToPath2(import.meta.url));
-var _projectRoot = join22(_thisDir, "..", "..", "..");
+var _thisDir = dirname18(fileURLToPath2(import.meta.url));
+var _projectRoot = join33(_thisDir, "..", "..", "..");
 var dryRunPathPolicy = (event = "modify") => ({
   realWrite: "dryRunFalse",
   targets: targetParams("path"),
@@ -51652,12 +66495,12 @@ var operations = [
       id: { type: "string", required: true, description: "Recipe id (e.g. x-to-vault)" }
     },
     handler: async (_ctx, params) => {
-      const id = params.id;
-      if (typeof id !== "string" || id === "")
+      const id2 = params.id;
+      if (typeof id2 !== "string" || id2 === "")
         throw new Error("Missing required param: id");
-      const recipe = findRecipe(id);
+      const recipe = findRecipe(id2);
       if (!recipe)
-        throw new Error(`Recipe not found: ${id}`);
+        throw new Error(`Recipe not found: ${id2}`);
       return { frontmatter: recipe.frontmatter, body: recipe.body };
     }
   },
@@ -51670,12 +66513,12 @@ var operations = [
       id: { type: "string", required: true, description: "Recipe id" }
     },
     handler: async (_ctx, params) => {
-      const id = params.id;
-      if (typeof id !== "string" || id === "")
+      const id2 = params.id;
+      if (typeof id2 !== "string" || id2 === "")
         throw new Error("Missing required param: id");
-      const recipe = findRecipe(id);
+      const recipe = findRecipe(id2);
       if (!recipe)
-        throw new Error(`Recipe not found: ${id}`);
+        throw new Error(`Recipe not found: ${id2}`);
       return getRecipeStatus(recipe);
     }
   },
@@ -51690,12 +66533,12 @@ var operations = [
       id: { type: "string", required: true, description: "Recipe id" }
     },
     handler: async (_ctx, params) => {
-      const id = params.id;
-      if (typeof id !== "string" || id === "")
+      const id2 = params.id;
+      if (typeof id2 !== "string" || id2 === "")
         throw new Error("Missing required param: id");
-      const recipe = findRecipe(id);
+      const recipe = findRecipe(id2);
       if (!recipe)
-        throw new Error(`Recipe not found: ${id}`);
+        throw new Error(`Recipe not found: ${id2}`);
       const status = getRecipeStatus(recipe);
       const checks = [];
       for (const hc of recipe.frontmatter.health_checks ?? []) {
@@ -51721,12 +66564,12 @@ var operations = [
       timeout_ms: { type: "number", required: false, description: "Timeout ms (default 120000)" }
     },
     handler: async (_ctx, params) => {
-      const id = params.id;
-      if (typeof id !== "string" || id === "")
+      const id2 = params.id;
+      if (typeof id2 !== "string" || id2 === "")
         throw new Error("Missing required param: id");
-      const recipe = findRecipe(id);
+      const recipe = findRecipe(id2);
       if (!recipe)
-        throw new Error(`Recipe not found: ${id}`);
+        throw new Error(`Recipe not found: ${id2}`);
       const status = getRecipeStatus(recipe);
       if (status.secrets_missing.length > 0) {
         return {
@@ -51737,9 +66580,9 @@ var operations = [
           stderr: ""
         };
       }
-      const stem = id.replace(/-to-vault$/, "");
-      const collectorPath = join22(_projectRoot, "recipes", "collectors", `${stem}-collector.ts`);
-      if (!existsSync18(collectorPath)) {
+      const stem = id2.replace(/-to-vault$/, "");
+      const collectorPath = join33(_projectRoot, "recipes", "collectors", `${stem}-collector.ts`);
+      if (!existsSync23(collectorPath)) {
         return {
           ok: false,
           exit_code: null,
@@ -51756,7 +66599,7 @@ var operations = [
         stdio: ["ignore", "pipe", "pipe"]
       });
       const ok = result.status === 0;
-      appendHeartbeat(id, {
+      appendHeartbeat(id2, {
         ts: (/* @__PURE__ */ new Date()).toISOString(),
         event: "mcp_run",
         data: { ok, exit_code: result.status }
@@ -51773,7 +66616,7 @@ var operations = [
 ];
 function makeAllOperations(deps) {
   const { compileTrigger, registry: registry3, defaultWeights, python, compilerPath, vaultPath, configPath } = deps;
-  const ccPath = deps.contextCorePath ?? process.env["CONTEXT_CORE_PATH"] ?? join22(dirname11(compilerPath), "context-core.json");
+  const ccPath = deps.contextCorePath ?? process.env["CONTEXT_CORE_PATH"] ?? join33(dirname18(compilerPath), "context-core.json");
   const contextCoreLoader = new ContextCoreLoader(ccPath);
   const settingsOptions = {
     vaultPath,
@@ -51838,12 +66681,12 @@ function makeAllOperations(deps) {
           throw makeErr2(-32001, "VaultBrain adapter not available or not initialized");
         const files = [];
         const walk = (dir) => {
-          for (const entry of readdirSync11(dir, { withFileTypes: true })) {
+          for (const entry of readdirSync16(dir, { withFileTypes: true })) {
             if (entry.isDirectory()) {
               if (!PROTECTED_DIRS4.has(entry.name))
-                walk(join22(dir, entry.name));
+                walk(join33(dir, entry.name));
             } else if (entry.isFile() && entry.name.endsWith(".md")) {
-              files.push(join22(dir, entry.name));
+              files.push(join33(dir, entry.name));
             }
           }
         };
@@ -51856,16 +66699,16 @@ function makeAllOperations(deps) {
         const errors = [];
         for (let i = 0; i < files.length; i += concurrency) {
           const batch = files.slice(i, i + concurrency);
-          const results = await Promise.allSettled(batch.map(async (fullPath) => {
-            const content = readFileSync19(fullPath, "utf-8");
-            const relPath = relative6(vaultPath, fullPath).replace(/\\/g, "/");
+          const results = await Promise.allSettled(batch.map(async (fullPath2) => {
+            const content = readFileSync24(fullPath2, "utf-8");
+            const relPath = relative8(vaultPath, fullPath2).replace(/\\/g, "/");
             await vba.ingest(relPath, content);
           }));
           results.forEach((result, idx) => {
             if (result.status === "fulfilled")
               indexed++;
             else
-              errors.push(`${relative6(vaultPath, batch[idx]).replace(/\\/g, "/")}: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`);
+              errors.push(`${relative8(vaultPath, batch[idx]).replace(/\\/g, "/")}: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`);
           });
         }
         return { indexed, skipped: errors.length, errors, totalFiles: files.length };
@@ -52105,8 +66948,8 @@ function makeAllOperations(deps) {
         if (!inputPath)
           throw makeErr2(-32602, "path required");
         const normalizedInput = normalizeVaultRelPath3(inputPath);
-        const fullInput = join22(vaultPath, normalizedInput);
-        if (!existsSync18(fullInput))
+        const fullInput = join33(vaultPath, normalizedInput);
+        if (!existsSync23(fullInput))
           throw makeErr2(-32001, `Source file not found: ${normalizedInput}`);
         const outputPath = normalizeVaultRelPath3(typeof params.outputPath === "string" && params.outputPath.length > 0 ? params.outputPath : defaultMultimodalOutputPath(normalizedInput));
         if (!outputPath.endsWith(".md"))
@@ -52138,9 +66981,9 @@ function makeAllOperations(deps) {
             preview: content.slice(0, 2e3)
           };
         }
-        const fullOutput = join22(vaultPath, outputPath);
-        mkdirSync10(dirname11(fullOutput), { recursive: true });
-        writeFileSync8(fullOutput, content, "utf-8");
+        const fullOutput = join33(vaultPath, outputPath);
+        mkdirSync13(dirname18(fullOutput), { recursive: true });
+        writeFileSync11(fullOutput, content, "utf-8");
         const vba = registry3.get("vaultbrain");
         if (vba)
           await vba.ingest(outputPath, content);
@@ -52179,8 +67022,8 @@ function makeAllOperations(deps) {
         if (!inputPath)
           throw makeErr2(-32602, "path required");
         const normalizedInput = normalizeVaultRelPath3(inputPath);
-        const fullInput = join22(vaultPath, normalizedInput);
-        if (!existsSync18(fullInput))
+        const fullInput = join33(vaultPath, normalizedInput);
+        if (!existsSync23(fullInput))
           throw makeErr2(-32001, `Source file not found: ${normalizedInput}`);
         const mode = params.mode ?? "auto";
         const effectiveMode = mode === "auto" ? /\.(md|markdown|txt)$/i.test(normalizedInput) ? "text" : "upload" : mode;
@@ -52194,8 +67037,8 @@ function makeAllOperations(deps) {
           };
         }
         if (effectiveMode === "text") {
-          const text = readFileSync19(fullInput, "utf-8");
-          const result2 = await adapter.insertText({ text, fileSource: normalizedInput });
+          const text2 = readFileSync24(fullInput, "utf-8");
+          const result2 = await adapter.insertText({ text: text2, fileSource: normalizedInput });
           return { dryRun: false, sourcePath: normalizedInput, mode: effectiveMode, result: result2 };
         }
         const result = await adapter.uploadFile({ filePath: fullInput, fileName: normalizedInput.split("/").pop() });
@@ -52213,8 +67056,8 @@ function makeAllOperations(deps) {
         mode: { type: "string", required: false, description: "Agent mode filter" }
       },
       handler: async (_ctx, params) => {
-        const { resolve: resolve8 } = await import("node:path");
-        const evaluatePy = resolve8(compilerPath, "evaluate.py");
+        const { resolve: resolve9 } = await import("node:path");
+        const evaluatePy = resolve9(compilerPath, "evaluate.py");
         const baseArgs = [evaluatePy];
         if (configPath)
           baseArgs.push("--config", configPath);
@@ -52246,8 +67089,8 @@ function makeAllOperations(deps) {
         mode: { type: "string", required: false, description: "Agent mode" }
       },
       handler: async (_ctx, params) => {
-        const { resolve: resolve8 } = await import("node:path");
-        const evaluatePy = resolve8(compilerPath, "evaluate.py");
+        const { resolve: resolve9 } = await import("node:path");
+        const evaluatePy = resolve9(compilerPath, "evaluate.py");
         const baseArgs = [evaluatePy];
         if (configPath)
           baseArgs.push("--config", configPath);
@@ -52296,8 +67139,8 @@ function makeAllOperations(deps) {
         limit: { type: "number", required: false, description: "Maximum number of history entries (default: 20)", default: 20 }
       },
       handler: async (_ctx, params) => {
-        const { resolve: resolve8 } = await import("node:path");
-        const evaluatePy = resolve8(compilerPath, "evaluate.py");
+        const { resolve: resolve9 } = await import("node:path");
+        const evaluatePy = resolve9(compilerPath, "evaluate.py");
         const baseArgs = [evaluatePy];
         if (configPath)
           baseArgs.push("--config", configPath);
@@ -52334,7 +67177,14 @@ function makeAllOperations(deps) {
     ...makeConversationOps(vaultPath),
     ...makeWorkflowOps(vaultPath),
     ...makeContextOps(vaultPath, registry3, defaultWeights),
-    ...makeSettingsOps(settingsOptions, settingsService)
+    ...makeSettingsOps(settingsOptions, settingsService),
+    ...makeUsageOps(vaultPath),
+    ...makeHostCapabilityOps(vaultPath, {
+      transportFactory: deps.hostCapabilityTransportFactory ?? createDefaultHostCapabilityTransportFactory(),
+      settingsService
+    }),
+    ...makeAgentDomainOps(vaultPath),
+    ...makeLegacyAgentMigrationOps()
   ];
   return [...operations, ...compileOps, ...queryOps, ...multimodalOps, ...lightRagOps, ...agentOps, ...holonOps];
 }
@@ -52377,9 +67227,9 @@ var INLINE_CODE_RE = /`[^`]*`/g;
 function resolveCompilerPath(runtimeDirectory, environment = process.env) {
   const configured = environment.LLMWIKI_COMPILER_PATH ?? environment.VAULT_MIND_COMPILER_PATH;
   if (configured?.trim())
-    return resolve7(configured);
-  const candidates = [resolve7(runtimeDirectory, "../compiler"), resolve7(runtimeDirectory, "../../compiler")];
-  return candidates.find((candidate) => existsSync19(join23(candidate, "kb_meta.py"))) ?? candidates[1];
+    return resolve8(configured);
+  const candidates = [resolve8(runtimeDirectory, "../compiler"), resolve8(runtimeDirectory, "../../compiler")];
+  return candidates.find((candidate) => existsSync24(join34(candidate, "kb_meta.py"))) ?? candidates[1];
 }
 var HISTORY_KEY_RE = /^history:\s*$/m;
 var HISTORY_LINE_RE = /^history:\s*$/;
@@ -52414,12 +67264,12 @@ function loadConfig() {
     };
   }
   const candidates = [
-    resolve7(process.cwd(), "vault-mind.yaml"),
-    resolve7(process.cwd(), "../vault-mind.yaml")
+    resolve8(process.cwd(), "vault-mind.yaml"),
+    resolve8(process.cwd(), "../vault-mind.yaml")
   ];
   for (const p of candidates) {
-    if (existsSync19(p))
-      return { ...parseSimpleYaml(readFileSync20(p, "utf-8")), config_path: p };
+    if (existsSync24(p))
+      return { ...parseSimpleYaml(readFileSync25(p, "utf-8")), config_path: p };
   }
   throw new Error("No vault-mind.yaml found and VAULT_MIND_VAULT_PATH not set");
 }
@@ -52455,15 +67305,15 @@ function parseSimpleYaml(raw) {
   };
 }
 function loadEnvCollaboration(result = {}) {
-  const actor = process.env.VAULT_MIND_ACTOR || result["collaboration_actor"];
+  const actor2 = process.env.VAULT_MIND_ACTOR || result["collaboration_actor"];
   const role = process.env.VAULT_MIND_ROLE || result["collaboration_role"];
   const allowed = process.env.VAULT_MIND_ALLOWED_WRITE_PATHS || result["collaboration_allowed_write_paths"];
   const protectedPaths = process.env.VAULT_MIND_PROTECTED_PATHS || result["collaboration_protected_paths"];
   const enforceRaw = process.env.VAULT_MIND_COLLAB_ENFORCE || result["collaboration_enforce"];
-  if (!actor && !role && !allowed && !protectedPaths && !enforceRaw)
+  if (!actor2 && !role && !allowed && !protectedPaths && !enforceRaw)
     return void 0;
   return {
-    actor,
+    actor: actor2,
     role,
     allowed_write_paths: allowed?.split(",").map((s) => s.trim()).filter(Boolean),
     protected_paths: protectedPaths?.split(",").map((s) => s.trim()).filter(Boolean),
@@ -52471,36 +67321,36 @@ function loadEnvCollaboration(result = {}) {
   };
 }
 var PROTECTED_DIRS5 = /* @__PURE__ */ new Set([".obsidian", ".trash", ".git", "node_modules"]);
-var VERSION = "0.3.0";
+var VERSION = "0.4.0-beta.1";
 function err(code, message) {
   return { code, message };
 }
 var LOCK_TTL_MS4 = 6e4;
-function withFileLock4(fullPath, fn) {
-  const lockPath = fullPath + ".lock";
-  const acquire = () => writeFileSync9(lockPath, JSON.stringify({ pid: process.pid, timestamp: Date.now() }), { encoding: "utf-8", flag: "wx" });
+function withFileLock4(fullPath2, fn) {
+  const lockPath = fullPath2 + ".lock";
+  const acquire = () => writeFileSync12(lockPath, JSON.stringify({ pid: process.pid, timestamp: Date.now() }), { encoding: "utf-8", flag: "wx" });
   try {
     acquire();
   } catch (e) {
     if (e.code !== "EEXIST")
       throw e;
-    const ageMs = Date.now() - statSync8(lockPath).mtimeMs;
+    const ageMs = Date.now() - statSync9(lockPath).mtimeMs;
     if (ageMs < LOCK_TTL_MS4) {
       let holder = "unknown";
       try {
-        holder = readFileSync20(lockPath, "utf-8").trim();
+        holder = readFileSync25(lockPath, "utf-8").trim();
       } catch {
       }
-      throw err(-32010, `Lock conflict on ${basename8(fullPath)}: held by ${holder}, ttl remaining ${LOCK_TTL_MS4 - ageMs}ms`);
+      throw err(-32010, `Lock conflict on ${basename12(fullPath2)}: held by ${holder}, ttl remaining ${LOCK_TTL_MS4 - ageMs}ms`);
     }
-    rmSync5(lockPath, { force: true });
+    rmSync7(lockPath, { force: true });
     acquire();
   }
   try {
     return fn();
   } finally {
     try {
-      rmSync5(lockPath, { force: true });
+      rmSync7(lockPath, { force: true });
     } catch {
     }
   }
@@ -52554,7 +67404,7 @@ var VaultFs = class {
   vault;
   realVault;
   constructor(vaultPath) {
-    this.vault = resolve7(vaultPath);
+    this.vault = resolve8(vaultPath);
     this.realVault = realpathSync(this.vault);
   }
   normalizeVaultPath(p, opts = {}) {
@@ -52578,23 +67428,23 @@ var VaultFs = class {
   }
   resolve(p, opts = {}) {
     const normalized = this.normalizeVaultPath(p, opts);
-    const full = resolve7(this.vault, normalized);
-    const rel = relative7(this.vault, full);
+    const full = resolve8(this.vault, normalized);
+    const rel = relative9(this.vault, full);
     if (rel.startsWith("..") || pathIsAbsolute2(rel))
       throw err(-32602, "path escapes vault");
     this.assertRealPathInsideVault(full);
     return full;
   }
   assertRealPathInsideVault(full) {
-    const realTarget = existsSync19(full) ? realpathSync(full) : this.realpathExistingAncestor(dirname12(full));
-    const rel = relative7(this.realVault, realTarget);
+    const realTarget = existsSync24(full) ? realpathSync(full) : this.realpathExistingAncestor(dirname19(full));
+    const rel = relative9(this.realVault, realTarget);
     if (rel.startsWith("..") || pathIsAbsolute2(rel))
       throw err(-32602, "path traversal blocked");
   }
   realpathExistingAncestor(start) {
     let current = start;
-    while (!existsSync19(current)) {
-      const parent = dirname12(current);
+    while (!existsSync24(current)) {
+      const parent = dirname19(current);
       if (parent === current)
         throw err(-32602, "path traversal blocked");
       current = parent;
@@ -52682,13 +67532,13 @@ var VaultFs = class {
   }
   walkMd(fn) {
     const walk = (d) => {
-      for (const ent of readdirSync12(d, { withFileTypes: true })) {
-        const full = join23(d, ent.name);
+      for (const ent of readdirSync17(d, { withFileTypes: true })) {
+        const full = join34(d, ent.name);
         if (ent.isDirectory() && !PROTECTED_DIRS5.has(ent.name))
           walk(full);
         else if (ent.isFile() && ent.name.endsWith(".md")) {
-          const rel = relative7(this.vault, full).replace(/\\/g, "/");
-          fn(rel, readFileSync20(full, "utf-8"));
+          const rel = relative9(this.vault, full).replace(/\\/g, "/");
+          fn(rel, readFileSync25(full, "utf-8"));
         }
       }
     };
@@ -52697,13 +67547,13 @@ var VaultFs = class {
   walkSearchableText(fn) {
     const searchableExts = /* @__PURE__ */ new Set([".md", ".canvas", ".base"]);
     const walk = (d) => {
-      for (const ent of readdirSync12(d, { withFileTypes: true })) {
-        const full = join23(d, ent.name);
+      for (const ent of readdirSync17(d, { withFileTypes: true })) {
+        const full = join34(d, ent.name);
         if (ent.isDirectory() && !PROTECTED_DIRS5.has(ent.name))
           walk(full);
         if (ent.isFile() && searchableExts.has(extname2(ent.name))) {
-          const rel = relative7(this.vault, full).replace(/\\/g, "/");
-          fn(rel, readFileSync20(full, "utf-8"));
+          const rel = relative9(this.vault, full).replace(/\\/g, "/");
+          fn(rel, readFileSync25(full, "utf-8"));
         }
       }
     };
@@ -52717,21 +67567,21 @@ var VaultFs = class {
     switch (method) {
       case "vault.read": {
         const full = this.resolve(p.path);
-        if (!existsSync19(full))
+        if (!existsSync24(full))
           throw err(-32001, `Not found: ${p.path}`);
-        return { content: readFileSync20(full, "utf-8") };
+        return { content: readFileSync25(full, "utf-8") };
       }
       case "vault.exists": {
         const existsPath = this.normalizeVaultPath(p.path ?? "", { allowRoot: true });
-        return { exists: existsSync19(this.resolve(existsPath, { allowRoot: true })) };
+        return { exists: existsSync24(this.resolve(existsPath, { allowRoot: true })) };
       }
       case "vault.list": {
         const listPath = this.normalizeVaultPath(p.path ?? "", { allowRoot: true });
         const dir = this.resolve(listPath, { allowRoot: true });
-        if (!existsSync19(dir))
+        if (!existsSync24(dir))
           throw err(-32001, `Not found: ${p.path}`);
         const hidden = /* @__PURE__ */ new Set([".obsidian", ".trash", "node_modules"]);
-        const entries = readdirSync12(dir, { withFileTypes: true }).filter((e) => !hidden.has(e.name));
+        const entries = readdirSync17(dir, { withFileTypes: true }).filter((e) => !hidden.has(e.name));
         return {
           files: entries.filter((e) => e.isFile()).map((e) => posix.join(listPath, e.name)).sort(),
           folders: entries.filter((e) => e.isDirectory()).map((e) => posix.join(listPath, e.name)).sort()
@@ -52740,12 +67590,12 @@ var VaultFs = class {
       case "vault.stat": {
         const statPath = this.normalizeVaultPath(p.path ?? "", { allowRoot: true });
         const full = this.resolve(statPath, { allowRoot: true });
-        if (!existsSync19(full))
+        if (!existsSync24(full))
           throw err(-32001, `Not found: ${p.path}`);
-        const st = statSync8(full);
-        const displayName = statPath === "" ? basename8(this.vault) : basename8(statPath);
+        const st = statSync9(full);
+        const displayName = statPath === "" ? basename12(this.vault) : basename12(statPath);
         if (st.isDirectory())
-          return { type: "folder", path: statPath, name: displayName, children: readdirSync12(full).length };
+          return { type: "folder", path: statPath, name: displayName, children: readdirSync17(full).length };
         return {
           type: "file",
           path: statPath,
@@ -52758,30 +67608,30 @@ var VaultFs = class {
       }
       case "vault.create": {
         const full = this.resolve(p.path);
-        if (existsSync19(full))
+        if (existsSync24(full))
           throw err(-32002, `Already exists: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "create", path: p.path };
         return withFileLock4(full, () => {
-          mkdirSync11(dirname12(full), { recursive: true });
-          writeFileSync9(full, p.content || "", "utf-8");
+          mkdirSync14(dirname19(full), { recursive: true });
+          writeFileSync12(full, p.content || "", "utf-8");
           return { ok: true, path: p.path };
         });
       }
       case "vault.modify": {
         const full = this.resolve(p.path);
-        if (!existsSync19(full))
+        if (!existsSync24(full))
           throw err(-32001, `Not found: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "modify", path: p.path };
         return withFileLock4(full, () => {
-          writeFileSync9(full, p.content, "utf-8");
+          writeFileSync12(full, p.content, "utf-8");
           return { ok: true, path: p.path };
         });
       }
       case "vault.append": {
         const full = this.resolve(p.path);
-        if (!existsSync19(full))
+        if (!existsSync24(full))
           throw err(-32001, `Not found: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "append", path: p.path };
@@ -52792,28 +67642,28 @@ var VaultFs = class {
       }
       case "vault.delete": {
         const full = this.resolve(p.path);
-        if (!existsSync19(full))
+        if (!existsSync24(full))
           throw err(-32001, `Not found: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "delete", path: p.path };
         return withFileLock4(full, () => {
-          rmSync5(full, { recursive: true });
+          rmSync7(full, { recursive: true });
           return { ok: true, path: p.path };
         });
       }
       case "vault.rename": {
         const from = this.resolve(p.from);
         const to = this.resolve(p.to);
-        if (!existsSync19(from))
+        if (!existsSync24(from))
           throw err(-32001, `Not found: ${p.from}`);
-        if (existsSync19(to))
+        if (existsSync24(to))
           throw err(-32002, `Already exists: ${p.to}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "rename", from: p.from, to: p.to };
         return withFileLock4(from, () => {
-          mkdirSync11(dirname12(to), { recursive: true });
+          mkdirSync14(dirname19(to), { recursive: true });
           return withFileLock4(to, () => {
-            renameSync2(from, to);
+            renameSync4(from, to);
             return { ok: true, from: p.from, to: p.to };
           });
         });
@@ -52835,16 +67685,16 @@ var VaultFs = class {
           if (p.glob && !this.matchGlob(relPath, p.glob))
             return;
           const lines = content.split("\n");
-          const matches = [];
+          const matches2 = [];
           for (let i = 0; i < lines.length && total < max; i++) {
             pattern.lastIndex = 0;
             if (pattern.test(lines[i])) {
-              matches.push({ line: i + 1, text: lines[i] });
+              matches2.push({ line: i + 1, text: lines[i] });
               total++;
             }
           }
-          if (matches.length)
-            results.push({ path: relPath, matches });
+          if (matches2.length)
+            results.push({ path: relPath, matches: matches2 });
         });
         return { results, totalMatches: total };
       }
@@ -52878,7 +67728,7 @@ var VaultFs = class {
           throw err(-32602, `Unknown op: ${op}`);
         const results = [];
         const pushWithMtime = (relPath, v) => {
-          const st = statSync8(this.resolve(relPath));
+          const st = statSync9(this.resolve(relPath));
           results.push({ path: relPath, value: v, mtime: st.mtimeMs });
         };
         this.walkMd((relPath, content) => {
@@ -52949,7 +67799,7 @@ var VaultFs = class {
             if (!target.includes("/")) {
               const withMd = target.endsWith(".md") ? target : target + ".md";
               try {
-                if (existsSync19(this.resolve(withMd)))
+                if (existsSync24(this.resolve(withMd)))
                   target = withMd;
               } catch {
               }
@@ -52970,7 +67820,7 @@ var VaultFs = class {
           path: np,
           exists: (() => {
             try {
-              return existsSync19(this.resolve(np));
+              return existsSync24(this.resolve(np));
             } catch {
               return false;
             }
@@ -52989,7 +67839,7 @@ var VaultFs = class {
         if (!p.path)
           throw err(-32602, "path required");
         const target = p.path.endsWith(".md") ? p.path : p.path + ".md";
-        const targetBase = basename8(target, ".md");
+        const targetBase = basename12(target, ".md");
         const results = [];
         this.walkMd((relPath, content) => {
           if (relPath === target)
@@ -53041,7 +67891,7 @@ var VaultFs = class {
         const linkMap = /* @__PURE__ */ new Map();
         const inbound = /* @__PURE__ */ new Set();
         this.walkMd((relPath, content) => {
-          const st = statSync8(this.resolve(relPath));
+          const st = statSync9(this.resolve(relPath));
           allFiles.push({ path: relPath, size: st.size, content });
           const targets = /* @__PURE__ */ new Map();
           for (const l of this.parseWikilinks(content)) {
@@ -53057,7 +67907,7 @@ var VaultFs = class {
         for (const [from, targets] of linkMap) {
           for (const [to] of targets) {
             try {
-              if (!existsSync19(this.resolve(to)))
+              if (!existsSync24(this.resolve(to)))
                 brokenLinks.push({ from, to });
             } catch {
               brokenLinks.push({ from, to });
@@ -53076,7 +67926,7 @@ var VaultFs = class {
         }
         const titleMap = /* @__PURE__ */ new Map();
         for (const fi of allFiles) {
-          const t = basename8(fi.path, ".md").toLowerCase();
+          const t = basename12(fi.path, ".md").toLowerCase();
           const arr = titleMap.get(t) || [];
           arr.push(fi.path);
           titleMap.set(t, arr);
@@ -53138,8 +67988,8 @@ ${summary ? `> ${summary}
         if (p.dryRun !== false)
           return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
         return withFileLock4(full, () => {
-          mkdirSync11(dirname12(full), { recursive: true });
-          writeFileSync9(full, content, "utf-8");
+          mkdirSync14(dirname19(full), { recursive: true });
+          writeFileSync12(full, content, "utf-8");
           return { ok: true, path };
         });
       }
@@ -53179,12 +68029,12 @@ ${notes}
 
 ## Notes
 `;
-        const alreadyExists = existsSync19(full);
+        const alreadyExists = existsSync24(full);
         if (p.dryRun !== false)
           return { dryRun: true, action: alreadyExists ? "update" : "create", path, preview: content.slice(0, 200) };
         return withFileLock4(full, () => {
-          mkdirSync11(dirname12(full), { recursive: true });
-          writeFileSync9(full, content, "utf-8");
+          mkdirSync14(dirname19(full), { recursive: true });
+          writeFileSync12(full, content, "utf-8");
           return { ok: true, path, action: alreadyExists ? "updated" : "created" };
         });
       }
@@ -53237,10 +68087,10 @@ ${teamLinks || "- TBD"}
 ## Notes
 `;
         if (p.dryRun !== false)
-          return { dryRun: true, action: existsSync19(full) ? "update" : "create", path, preview: content.slice(0, 200) };
+          return { dryRun: true, action: existsSync24(full) ? "update" : "create", path, preview: content.slice(0, 200) };
         return withFileLock4(full, () => {
-          mkdirSync11(dirname12(full), { recursive: true });
-          writeFileSync9(full, content, "utf-8");
+          mkdirSync14(dirname19(full), { recursive: true });
+          writeFileSync12(full, content, "utf-8");
           return { ok: true, path };
         });
       }
@@ -53300,8 +68150,8 @@ ${consequences}
         if (p.dryRun !== false)
           return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
         return withFileLock4(full, () => {
-          mkdirSync11(dirname12(full), { recursive: true });
-          writeFileSync9(full, content, "utf-8");
+          mkdirSync14(dirname19(full), { recursive: true });
+          writeFileSync12(full, content, "utf-8");
           return { ok: true, path };
         });
       }
@@ -53353,8 +68203,8 @@ ${actionLines || "- None assigned"}
         if (p.dryRun !== false)
           return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
         return withFileLock4(full, () => {
-          mkdirSync11(dirname12(full), { recursive: true });
-          writeFileSync9(full, content, "utf-8");
+          mkdirSync14(dirname19(full), { recursive: true });
+          writeFileSync12(full, content, "utf-8");
           return { ok: true, path };
         });
       }
@@ -53394,18 +68244,18 @@ ${p.content}
         if (p.dryRun !== false)
           return { dryRun: true, action: "create", path, preview: content.slice(0, 200) };
         return withFileLock4(full, () => {
-          mkdirSync11(dirname12(full), { recursive: true });
-          writeFileSync9(full, content, "utf-8");
+          mkdirSync14(dirname19(full), { recursive: true });
+          writeFileSync12(full, content, "utf-8");
           return { ok: true, path };
         });
       }
       case "vault.mkdir": {
         const full = this.resolve(p.path);
-        if (existsSync19(full))
+        if (existsSync24(full))
           throw err(-32002, `Already exists: ${p.path}`);
         if (p.dryRun !== false)
           return { dryRun: true, action: "mkdir", path: p.path };
-        mkdirSync11(full, { recursive: true });
+        mkdirSync14(full, { recursive: true });
         return { ok: true, path: p.path };
       }
       case "vault.init": {
@@ -53460,12 +68310,12 @@ ${p.content}
           const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
           for (const [dir] of scaffold) {
             const full = this.resolve(dir);
-            if (existsSync19(full)) {
+            if (existsSync24(full)) {
               skipped2.push(dir);
               continue;
             }
             if (!dryRun)
-              mkdirSync11(full, { recursive: true });
+              mkdirSync14(full, { recursive: true });
             created2.push(dir);
           }
           const folderLines = scaffold.map(([dir, purpose]) => `- [[${dir}/README|${dir}]] -- ${purpose}`).join("\n");
@@ -53486,11 +68336,11 @@ ${methodologyNotes[methodology]}
 ${folderLines}
 `;
           const homeFull = this.resolve("Home.md");
-          if (existsSync19(homeFull)) {
+          if (existsSync24(homeFull)) {
             skipped2.push("Home.md");
           } else {
             if (!dryRun)
-              writeFileSync9(homeFull, homeContent, "utf-8");
+              writeFileSync12(homeFull, homeContent, "utf-8");
             created2.push("Home.md");
           }
           return { ok: true, dryRun, methodology, created: created2, skipped: skipped2, summary: `Created ${created2.length}, skipped ${skipped2.length}` };
@@ -53505,22 +68355,22 @@ ${folderLines}
         const now = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
         const ensureDir = (rel) => {
           const full = this.resolve(rel);
-          if (existsSync19(full)) {
+          if (existsSync24(full)) {
             skipped.push(rel);
             return;
           }
-          mkdirSync11(full, { recursive: true });
+          mkdirSync14(full, { recursive: true });
           created.push(rel);
         };
         const ensureFile = (rel, content) => {
           const r = rel.endsWith(".md") ? rel : rel + ".md";
           const full = this.resolve(r);
-          if (existsSync19(full)) {
+          if (existsSync24(full)) {
             skipped.push(r);
             return;
           }
-          mkdirSync11(dirname12(full), { recursive: true });
-          writeFileSync9(full, content, "utf-8");
+          mkdirSync14(dirname19(full), { recursive: true });
+          writeFileSync12(full, content, "utf-8");
           created.push(r);
         };
         ensureDir(base);
@@ -53563,10 +68413,10 @@ Follows llm-wiki opinionated workflow.
 See root CLAUDE.md for full documentation.
 `);
         const yamlPath = `${base}/kb.yaml`;
-        if (existsSync19(this.resolve(yamlPath))) {
+        if (existsSync24(this.resolve(yamlPath))) {
           skipped.push(yamlPath);
         } else {
-          writeFileSync9(this.resolve(yamlPath), `topic: "${p.topic}"
+          writeFileSync12(this.resolve(yamlPath), `topic: "${p.topic}"
 vault_path: "${this.vault.replace(/\\\\/g, "/")}"
 created: ${now}
 `, "utf-8");
@@ -53598,7 +68448,7 @@ created: ${now}
             created: [],
             skipped: []
           };
-          const entries = readdirSync12(absDir, { withFileTypes: true });
+          const entries = readdirSync17(absDir, { withFileTypes: true });
           for (const ent of entries) {
             if (!ent.isFile())
               continue;
@@ -53610,7 +68460,7 @@ created: ${now}
           }
           const mdFiles = entries.filter((e) => e.isFile() && e.name.endsWith(".md")).map((e) => e.name).sort();
           const subDirs = entries.filter((e) => e.isDirectory() && !PROTECTED_DIRS5.has(e.name) && !extraSkip.has(e.name)).map((e) => e.name).sort();
-          const topicName = basename8(relDir || this.vault);
+          const topicName = basename12(relDir || this.vault);
           if (!report.hasCatalog) {
             const catalogPath = relDir ? posix.join(relDir, "_index.md") : "_index.md";
             const absCatalog = this.resolve(catalogPath);
@@ -53623,7 +68473,7 @@ updated: ${now}
 
 ` + (mdFiles.length ? "## Notes in this topic\n\n" + mdFiles.map((f) => `- [[${f.replace(/\.md$/, "")}]]`).join("\n") + "\n\n" : "") + (subDirs.length ? "## Subtopics\n\n" + subDirs.map((d) => `- \`${d}/\``).join("\n") + "\n" : "");
             if (!dryRun) {
-              writeFileSync9(absCatalog, body, "utf-8");
+              writeFileSync12(absCatalog, body, "utf-8");
             }
             report.created.push(catalogPath);
           } else {
@@ -53642,7 +68492,7 @@ updated: ${now}
 - ${now}: Karpathy LLM Wiki discipline enforced (retroactive).
 `;
             if (!dryRun) {
-              writeFileSync9(absChronicle, body, "utf-8");
+              writeFileSync12(absChronicle, body, "utf-8");
             }
             report.created.push(chroniclePath);
           } else {
@@ -53655,7 +68505,7 @@ updated: ${now}
         const allSkipped = [];
         const errors = [];
         try {
-          const topEntries = readdirSync12(this.vault, { withFileTypes: true });
+          const topEntries = readdirSync17(this.vault, { withFileTypes: true });
           for (const ent of topEntries) {
             if (!ent.isDirectory())
               continue;
@@ -53758,14 +68608,14 @@ updated: ${now}
         const baseName2 = `${datePrefix}-${slug}`;
         let chosenName = `${baseName2}.md`;
         let relPath = `${relDir}/${chosenName}`;
-        let fullPath = join23(this.vault, relDir, chosenName);
-        if (existsSync19(fullPath)) {
+        let fullPath2 = join34(this.vault, relDir, chosenName);
+        if (existsSync24(fullPath2)) {
           let found = false;
           for (let i = 2; i <= 99; i++) {
             chosenName = `${baseName2}-${i}.md`;
             relPath = `${relDir}/${chosenName}`;
-            fullPath = join23(this.vault, relDir, chosenName);
-            if (!existsSync19(fullPath)) {
+            fullPath2 = join34(this.vault, relDir, chosenName);
+            if (!existsSync24(fullPath2)) {
               found = true;
               break;
             }
@@ -53812,9 +68662,9 @@ ${yamlLines.join("\n")}
 
 ${bodyWithTag}
 `;
-        mkdirSync11(dirname12(fullPath), { recursive: true });
-        return withFileLock4(fullPath, () => {
-          writeFileSync9(fullPath, contentOut, "utf-8");
+        mkdirSync14(dirname19(fullPath2), { recursive: true });
+        return withFileLock4(fullPath2, () => {
+          writeFileSync12(fullPath2, contentOut, "utf-8");
           return { ok: true, path: relPath, frontmatter: frontmatterObj, warnings };
         });
       }
@@ -53830,7 +68680,7 @@ ${bodyWithTag}
         const nowMs = typeof p.now === "string" ? Date.parse(p.now) : Date.now();
         const nowValid = !isNaN(nowMs) ? nowMs : Date.now();
         const aiRootRel = "00-Inbox/AI-Output";
-        const aiRootAbs = join23(this.vault, aiRootRel);
+        const aiRootAbs = join34(this.vault, aiRootRel);
         const emptyMetrics = {
           totalEntries: 0,
           byPersona: {},
@@ -53838,19 +68688,19 @@ ${bodyWithTag}
           byQuarantineState: {},
           realBacklinkHitRate: 0
         };
-        if (!existsSync19(aiRootAbs)) {
+        if (!existsSync24(aiRootAbs)) {
           return { staleCandidates: [], supersedeCandidates: [], applied: [], metrics: emptyMetrics };
         }
         const entries = [];
         const walkSubtree = (d) => {
-          if (!existsSync19(d))
+          if (!existsSync24(d))
             return;
-          for (const ent of readdirSync12(d, { withFileTypes: true })) {
-            const full = join23(d, ent.name);
+          for (const ent of readdirSync17(d, { withFileTypes: true })) {
+            const full = join34(d, ent.name);
             if (ent.isDirectory() && !PROTECTED_DIRS5.has(ent.name))
               walkSubtree(full);
             else if (ent.isFile() && ent.name.endsWith(".md")) {
-              const content = readFileSync20(full, "utf-8");
+              const content = readFileSync25(full, "utf-8");
               const fm = this.parseFrontmatter(content);
               if (!fm)
                 continue;
@@ -53858,8 +68708,8 @@ ${bodyWithTag}
               if (!persona)
                 continue;
               const status = typeof fm["status"] === "string" ? fm["status"] : "";
-              const relPath = relative7(this.vault, full).replace(/\\/g, "/");
-              const st = statSync8(full);
+              const relPath = relative9(this.vault, full).replace(/\\/g, "/");
+              const st = statSync9(full);
               const mtimeMs = st.mtimeMs;
               let entryMs = mtimeMs;
               const ga = fm["generated-at"];
@@ -53877,7 +68727,7 @@ ${bodyWithTag}
         walkSubtree(aiRootAbs);
         const aiOutputPaths = new Set(entries.map((e) => e.relPath));
         const hasRealBacklink = (targetRel) => {
-          const targetBase = basename8(targetRel, ".md");
+          const targetBase = basename12(targetRel, ".md");
           let found = false;
           this.walkMd((relPath, content) => {
             if (found)
@@ -53903,12 +68753,12 @@ ${bodyWithTag}
           if (e.status !== "draft")
             continue;
           const ageDays = (nowValid - e.entryMs) / 864e5;
-          const threshold = STALE_THRESHOLDS[e.persona] ?? DEFAULT_THRESHOLD;
-          if (ageDays < threshold)
+          const threshold2 = STALE_THRESHOLDS[e.persona] ?? DEFAULT_THRESHOLD;
+          if (ageDays < threshold2)
             continue;
           if (hasRealBacklink(e.relPath))
             continue;
-          staleCandidates.push({ path: e.relPath, persona: e.persona, ageDays, threshold });
+          staleCandidates.push({ path: e.relPath, persona: e.persona, ageDays, threshold: threshold2 });
         }
         const reviewed = entries.filter((e) => e.status === "reviewed");
         const supersedeCandidates = [];
@@ -53944,15 +68794,15 @@ ${bodyWithTag}
         if (!dryRun) {
           const flipIso = new Date(nowValid).toISOString();
           for (const sc of staleCandidates) {
-            const absPath = join23(this.vault, sc.path);
+            const absPath = join34(this.vault, sc.path);
             const historyEntry = `{ts: "${flipIso}", axis: status, from: draft, to: stale, trigger: auto-stop-summary, evidence_level: low, human_in_loop: false, note: "gardener sweep"}`;
             const flipped = withFileLock4(absPath, () => {
-              const original = readFileSync20(absPath, "utf-8");
+              const original = readFileSync25(absPath, "utf-8");
               const withStatusFlipped = original.replace(/(^---[\s\S]*?\nstatus: )draft(\n[\s\S]*?^---$)/m, (_m, g1, g2) => g1 + "stale" + g2);
               if (withStatusFlipped === original)
                 return false;
               const replaced = appendHistoryInYaml(withStatusFlipped, historyEntry);
-              writeFileSync9(absPath, replaced, "utf-8");
+              writeFileSync12(absPath, replaced, "utf-8");
               return true;
             });
             if (flipped)
@@ -53978,14 +68828,14 @@ ${bodyWithTag}
         metrics.realBacklinkHitRate = entries.length === 0 ? 0 : withRealBacklink / entries.length;
         if (!dryRun && entries.length > 0) {
           const sweepLogRel = "00-Inbox/AI-Output/sweep.log.md";
-          const sweepLogAbs = join23(this.vault, sweepLogRel);
+          const sweepLogAbs = join34(this.vault, sweepLogRel);
           const stamp = new Date(nowValid).toISOString();
           const logLine = `- {ts: "${stamp}", totalEntries: ${metrics.totalEntries}, staleHits: ${staleCandidates.length}, supersedeHits: ${supersedeCandidates.length}, realBacklinkHitRate: ${metrics.realBacklinkHitRate.toFixed(3)}}
 `;
           withFileLock4(sweepLogAbs, () => {
-            if (!existsSync19(sweepLogAbs)) {
-              mkdirSync11(dirname12(sweepLogAbs), { recursive: true });
-              writeFileSync9(sweepLogAbs, "# Sweep trend log\n\n", "utf-8");
+            if (!existsSync24(sweepLogAbs)) {
+              mkdirSync14(dirname19(sweepLogAbs), { recursive: true });
+              writeFileSync12(sweepLogAbs, "# Sweep trend log\n\n", "utf-8");
             }
             appendFileSync3(sweepLogAbs, logLine, "utf-8");
           });
@@ -53994,9 +68844,9 @@ ${bodyWithTag}
       }
       case "vault.getMetadata": {
         const full = this.resolve(p.path);
-        if (!existsSync19(full))
+        if (!existsSync24(full))
           throw err(-32001, `Not found: ${p.path}`);
-        const content = readFileSync20(full, "utf-8");
+        const content = readFileSync25(full, "utf-8");
         const out = {};
         const links = this.parseWikilinks(content);
         if (links.length)
@@ -54030,18 +68880,54 @@ function checkAuth(config2, args) {
 }
 async function main() {
   const config2 = loadConfig();
+  const settingsService = createSettingsService({
+    vaultPath: config2.vault_path,
+    environment: process.env
+  });
+  const adapterProfile = await resolveKnowledgeAdaptersRuntimeProfile(settingsService, {
+    environment: process.env,
+    legacyEnabledAdapters: config2.adapters
+  });
   const registry3 = new AdapterRegistry();
   if (config2.vault_path) {
     const fsAdapter = new FilesystemAdapter(config2.vault_path);
     await fsAdapter.init();
     registry3.register(fsAdapter);
   }
-  const enabledAdapters = new Set(config2.adapters ?? ["filesystem", "memu", "gitnexus", "obsidian", "kanban", "qmd", "lightrag", "raganything", "vaultbrain", "graphify"]);
+  const enabledAdapters = new Set(adapterProfile.enabledAdapters);
+  if (!adapterProfile.enablement.valid) {
+    process.stderr.write(`obsidian-llm-wiki: adapter enablement invalid; optional adapters fail closed (${adapterProfile.enablement.issues.map((item) => item.code).join(", ")})
+`);
+  }
   if (enabledAdapters.has("memu")) {
-    const memuAdapter = new MemUAdapter();
-    await memuAdapter.init();
-    if (memuAdapter.isAvailable)
-      registry3.register(memuAdapter);
+    if (!adapterProfile.memu.valid) {
+      process.stderr.write(`obsidian-llm-wiki: [memu] settings invalid; adapter disabled (${adapterProfile.memu.issues.map((item) => item.code).join(", ")})
+`);
+    } else {
+      try {
+        const credentialDsn = await resolveKnowledgeAdapterSecret(adapterProfile.memu.credential, { environment: process.env });
+        const memuAdapter = new MemUAdapter({
+          dsn: resolveMemUConnectionString(adapterProfile.memu.dsn, credentialDsn),
+          userId: adapterProfile.memu.userId,
+          maxResults: adapterProfile.memu.maxResults,
+          timeout: adapterProfile.memu.timeout,
+          excludeMemoryTypes: adapterProfile.memu.excludeMemoryTypes,
+          pythonExe: adapterProfile.memu.pythonExe,
+          memuGraphCwd: adapterProfile.memu.memuGraphCwd,
+          graphRecallTimeoutMs: adapterProfile.memu.graphRecallTimeoutMs,
+          memuSearchPy: adapterProfile.memu.memuSearchPy,
+          memuSearchPythonExe: adapterProfile.memu.memuSearchPythonExe,
+          memuSearchTimeoutMs: adapterProfile.memu.memuSearchTimeoutMs,
+          embedModel: adapterProfile.memu.embedModel
+        });
+        await memuAdapter.init();
+        if (memuAdapter.isAvailable)
+          registry3.register(memuAdapter);
+      } catch (error48) {
+        process.stderr.write(`obsidian-llm-wiki: [memu] Secret Reference resolution failed; adapter disabled (${error48.message})
+`);
+      }
+    }
   }
   if (enabledAdapters.has("gitnexus")) {
     const gnAdapter = new GitNexusAdapter();
@@ -54056,39 +68942,110 @@ async function main() {
       registry3.register(obsAdapter);
   }
   if (enabledAdapters.has("kanban")) {
-    const kanbanAdapter = new KanbanAdapter({
-      vaultPath: config2.vault_path,
-      glob: process.env.VAULT_MIND_KANBAN_GLOB
-    });
-    await kanbanAdapter.init();
-    if (kanbanAdapter.isAvailable) {
-      registry3.register(kanbanAdapter);
-      process.stderr.write("obsidian-llm-wiki: [kanban] adapter ready\n");
+    if (!adapterProfile.kanban.valid) {
+      process.stderr.write(`obsidian-llm-wiki: [kanban] settings invalid; adapter disabled (${adapterProfile.kanban.issues.map((item) => item.code).join(", ")})
+`);
+    } else {
+      const kanbanAdapter = new KanbanAdapter({
+        vaultPath: config2.vault_path,
+        glob: adapterProfile.kanban.glob
+      });
+      await kanbanAdapter.init();
+      if (kanbanAdapter.isAvailable) {
+        registry3.register(kanbanAdapter);
+        process.stderr.write("obsidian-llm-wiki: [kanban] adapter ready\n");
+      }
     }
   }
   if (enabledAdapters.has("qmd")) {
-    const qmdCollection = process.env.VAULT_MIND_QMD_COLLECTION || void 0;
-    const qmdAdapter = new QmdAdapter({ collection: qmdCollection });
-    await qmdAdapter.init();
-    if (qmdAdapter.isAvailable) {
-      registry3.register(qmdAdapter);
-      process.stderr.write("obsidian-llm-wiki: [qmd] adapter ready\n");
+    if (!adapterProfile.qmd.valid) {
+      process.stderr.write(`obsidian-llm-wiki: [qmd] settings invalid; adapter disabled (${adapterProfile.qmd.issues.map((item) => item.code).join(", ")})
+`);
+    } else {
+      const qmdAdapter = new QmdAdapter({
+        collection: adapterProfile.qmd.collection,
+        binary: adapterProfile.qmd.binary
+      });
+      await qmdAdapter.init();
+      if (qmdAdapter.isAvailable) {
+        registry3.register(qmdAdapter);
+        process.stderr.write("obsidian-llm-wiki: [qmd] adapter ready\n");
+      }
     }
   }
   if (enabledAdapters.has("lightrag")) {
-    const lightragAdapter = new LightRAGAdapter();
-    await lightragAdapter.init();
-    if (lightragAdapter.isAvailable) {
-      registry3.register(lightragAdapter);
-      process.stderr.write("obsidian-llm-wiki: [lightrag] adapter ready\n");
+    if (!adapterProfile.lightrag.valid) {
+      process.stderr.write(`obsidian-llm-wiki: [lightrag] settings invalid; adapter disabled (${adapterProfile.lightrag.issues.map((item) => item.code).join(", ")})
+`);
+    } else {
+      try {
+        const apiKey = await resolveKnowledgeAdapterSecret(adapterProfile.lightrag.credential, { environment: process.env });
+        const lightragAdapter = new LightRAGAdapter({
+          baseUrl: adapterProfile.lightrag.baseUrl,
+          apiKey,
+          mode: adapterProfile.lightrag.mode,
+          queryPath: adapterProfile.lightrag.queryPath,
+          queryDataPath: adapterProfile.lightrag.queryDataPath,
+          documentsTextPath: adapterProfile.lightrag.documentsTextPath,
+          documentsUploadPath: adapterProfile.lightrag.documentsUploadPath
+        });
+        await lightragAdapter.init();
+        if (lightragAdapter.isAvailable) {
+          registry3.register(lightragAdapter);
+          process.stderr.write("obsidian-llm-wiki: [lightrag] adapter ready\n");
+        }
+      } catch (error48) {
+        process.stderr.write(`obsidian-llm-wiki: [lightrag] Secret Reference resolution failed; adapter disabled (${error48.message})
+`);
+      }
     }
   }
   if (enabledAdapters.has("raganything")) {
-    const ragAnythingAdapter = new RAGAnythingAdapter();
-    await ragAnythingAdapter.init();
-    if (ragAnythingAdapter.isAvailable) {
-      registry3.register(ragAnythingAdapter);
-      process.stderr.write("obsidian-llm-wiki: [raganything] adapter ready\n");
+    if (!adapterProfile.raganything.valid) {
+      process.stderr.write(`obsidian-llm-wiki: [raganything] settings invalid; adapter disabled (${adapterProfile.raganything.issues.map((item) => item.code).join(", ")})
+`);
+    } else {
+      try {
+        const apiKey = await resolveKnowledgeAdapterSecret(adapterProfile.raganything.credential, { environment: process.env });
+        const ragAnythingAdapter = new RAGAnythingAdapter({
+          baseUrl: adapterProfile.raganything.baseUrl,
+          apiKey,
+          queryPath: adapterProfile.raganything.queryPath,
+          processPath: adapterProfile.raganything.processPath
+        });
+        await ragAnythingAdapter.init();
+        if (ragAnythingAdapter.isAvailable) {
+          registry3.register(ragAnythingAdapter);
+          process.stderr.write("obsidian-llm-wiki: [raganything] adapter ready\n");
+        }
+      } catch (error48) {
+        process.stderr.write(`obsidian-llm-wiki: [raganything] Secret Reference resolution failed; adapter disabled (${error48.message})
+`);
+      }
+    }
+  }
+  if (enabledAdapters.has("hindsight")) {
+    if (!adapterProfile.hindsight.valid) {
+      process.stderr.write(`obsidian-llm-wiki: [hindsight] settings invalid; adapter disabled (${adapterProfile.hindsight.issues.map((item) => item.code).join(", ")})
+`);
+    } else {
+      try {
+        const apiKey = await resolveKnowledgeAdapterSecret(adapterProfile.hindsight.credential, { environment: process.env });
+        const hindsightAdapter = new HindsightAdapter({
+          baseUrl: adapterProfile.hindsight.baseUrl,
+          bankId: adapterProfile.hindsight.bankId,
+          timeoutMs: adapterProfile.hindsight.timeoutMs,
+          apiKey
+        });
+        await hindsightAdapter.init();
+        if (hindsightAdapter.isAvailable) {
+          registry3.register(hindsightAdapter);
+          process.stderr.write("obsidian-llm-wiki: [hindsight] read-only recall adapter ready\n");
+        }
+      } catch (error48) {
+        process.stderr.write(`obsidian-llm-wiki: [hindsight] Secret Reference resolution failed; adapter disabled (${error48.message})
+`);
+      }
     }
   }
   let vaultBrainAdapter = null;
@@ -54113,7 +69070,7 @@ async function main() {
       process.stderr.write("obsidian-llm-wiki: [graphify] adapter ready\n");
     }
   }
-  const __dirname = dirname12(fileURLToPath3(import.meta.url));
+  const __dirname = dirname19(fileURLToPath3(import.meta.url));
   const compilerPath = resolveCompilerPath(__dirname);
   const python = process.env.VAULT_MIND_PYTHON ?? process.env.PYTHON ?? "python";
   const compileTrigger = new CompileTrigger({
@@ -54123,10 +69080,10 @@ async function main() {
     onCompileSuccess: (wikiPaths) => {
       if (!vaultBrainAdapter)
         return;
-      for (const fullPath of wikiPaths) {
+      for (const fullPath2 of wikiPaths) {
         try {
-          const relPath = relative7(config2.vault_path, fullPath).replace(/\\/g, "/");
-          const content = readFileSync20(fullPath, "utf-8");
+          const relPath = relative9(config2.vault_path, fullPath2).replace(/\\/g, "/");
+          const content = readFileSync25(fullPath2, "utf-8");
           vaultBrainAdapter.ingest(relPath, content).catch((err2) => process.stderr.write(`obsidian-llm-wiki: [vaultbrain] ingest error: ${err2.message}
 `));
         } catch {
@@ -54141,8 +69098,8 @@ async function main() {
         compileTrigger.onFileChange(e.path, e.type);
         if (vaultBrainAdapter && e.path.endsWith(".md")) {
           try {
-            const fullPath = join23(config2.vault_path, e.path.replace(/\\/g, "/"));
-            const content = readFileSync20(fullPath, "utf-8");
+            const fullPath2 = join34(config2.vault_path, e.path.replace(/\\/g, "/"));
+            const content = readFileSync25(fullPath2, "utf-8");
             vaultBrainAdapter.ingest(e.path, content).catch((err2) => process.stderr.write(`obsidian-llm-wiki: [vaultbrain] ingest error: ${err2.message}
 `));
           } catch {
@@ -54183,10 +69140,10 @@ async function main() {
     if (!vaultBrainAdapter || !relPath.endsWith(".md"))
       return;
     try {
-      const fullPath = join23(config2.vault_path, relPath.replace(/\\/g, "/"));
-      if (!existsSync19(fullPath))
+      const fullPath2 = join34(config2.vault_path, relPath.replace(/\\/g, "/"));
+      if (!existsSync24(fullPath2))
         return;
-      const content = readFileSync20(fullPath, "utf-8");
+      const content = readFileSync25(fullPath2, "utf-8");
       vaultBrainAdapter.ingest(relPath, content).catch((err2) => process.stderr.write(`obsidian-llm-wiki: [vaultbrain] ingest error: ${err2.message}
 `));
     } catch {
