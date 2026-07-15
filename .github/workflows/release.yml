@@ -86,7 +86,7 @@ jobs:
         run: python scripts/verify_release_install.py --json
       - name: Package MCP Server
         run: tar czf obsidian-llm-wiki-mcp.tar.gz -C mcp-server bundle.js agent-domain-cli.js memu-query.js usage-cli.js package.json -C .. LICENSE
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: mcp-server
           path: obsidian-llm-wiki-mcp.tar.gz
@@ -103,7 +103,7 @@ jobs:
       - name: Package compiler
         run: |
           tar --exclude='compiler/tests' --exclude='compiler/**/__pycache__' --exclude='compiler/.pytest_cache' -czf obsidian-llm-wiki-compiler.tar.gz compiler/ LICENSE
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: compiler
           path: obsidian-llm-wiki-compiler.tar.gz
@@ -120,7 +120,7 @@ jobs:
       - run: cd obsidian-plugin && npm ci && npm run build && npm run verify:bundle-boundary
       - name: Package Obsidian plugin
         run: tar czf obsidian-llm-wiki-plugin.tar.gz -C obsidian-plugin main.js manifest.json styles.css -C .. LICENSE
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: obsidian-plugin
           path: obsidian-llm-wiki-plugin.tar.gz
