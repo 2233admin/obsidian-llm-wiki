@@ -45,6 +45,25 @@ from .scout import ScoutShip
 from .worker import WorkerShip
 from .verify import VerifyShip
 from .review import ReviewManager, ReviewSession
+from .registry import (
+    FLEET_REGISTRY_SCHEMA_VERSION,
+    FleetRegistry,
+    FleetRegistryError,
+    PeerProbeReport,
+    PeerSpec,
+    TransportEndpoint,
+)
+from .transports import (
+    ExecResult,
+    GiteaTransport,
+    LocalFsTransport,
+    ProbeResult,
+    SshTransport,
+    Transport,
+    TransportCapabilityError,
+    build_transport,
+    known_transport_kinds,
+)
 
 __all__ = [
     # Message types
@@ -72,6 +91,22 @@ __all__ = [
     # Review
     "ReviewManager",
     "ReviewSession",
+    # Fleet registry + transports
+    "FLEET_REGISTRY_SCHEMA_VERSION",
+    "FleetRegistry",
+    "FleetRegistryError",
+    "PeerProbeReport",
+    "PeerSpec",
+    "TransportEndpoint",
+    "Transport",
+    "TransportCapabilityError",
+    "SshTransport",
+    "LocalFsTransport",
+    "GiteaTransport",
+    "ProbeResult",
+    "ExecResult",
+    "build_transport",
+    "known_transport_kinds",
 ]
 
 __version__ = "0.1.0"
