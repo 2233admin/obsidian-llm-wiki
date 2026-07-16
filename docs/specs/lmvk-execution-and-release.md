@@ -2,7 +2,7 @@
 
 - 状态：Active（2026-07-12）
 - 来源：wayfinder 地图 [LMVK内容分发网络](https://git.xart.top:8418/Curry/obsidian-llm-wiki/issues/1)（已收图，17 票全决）+ release 前承诺审计
-- 上游决议：拓扑 ADR `docs/adr/lmvk-0001-distribution-topology.md` + 地图 Decisions so far（15 条）
+- 上游决议：拓扑 ADR `docs/legacy/adr/lmvk-0001-distribution-topology.md` + 地图 Decisions so far（15 条）
 
 ## 目标
 
