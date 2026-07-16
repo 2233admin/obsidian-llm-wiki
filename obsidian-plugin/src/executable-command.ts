@@ -47,7 +47,21 @@ export function parseExecutableCommand(input: string): ExecutableCommand {
   if (quote) throw new Error("Executable command contains an unterminated quote");
   if (token) args.push(token);
   if (!args.length) throw new Error("Executable command is empty");
+  assertNotShellWrapper(args[0]);
   return { executable: args[0], args: args.slice(1) };
+}
+
+const SHELL_WRAPPER_EXTENSIONS = [".bat", ".cmd", ".ps1"];
+
+// The configured interpreter must be a real executable. Batch/PowerShell
+// wrappers re-enter cmd.exe/powershell parsing and would reintroduce the
+// shell-composition attack surface that shell-less execFile excludes.
+function assertNotShellWrapper(executable: string): void {
+  const basename = executable.split(/[\\/]/).pop() ?? executable;
+  const lower = basename.toLowerCase();
+  if (SHELL_WRAPPER_EXTENSIONS.some(extension => lower.endsWith(extension))) {
+    throw new Error(`Shell wrapper executables are not allowed as the runtime interpreter: ${basename}`);
+  }
 }
 
 export function buildPythonInvocation(command: string, args: string[]): ExecutableCommand {

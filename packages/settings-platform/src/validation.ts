@@ -272,6 +272,13 @@ function validateValue(
         { ...options, remediation: "Remove URL userinfo and bind the credential through a Secret Reference." },
       ));
     }
+    if (definition.key === "runtime.python.path" && hasShellWrapperExecutable(value)) {
+      issues.push(issue(
+        "shell-wrapper-rejected",
+        `${definition.key} must be a real interpreter executable; .bat/.cmd/.ps1 wrappers are not allowed.`,
+        { ...options, remediation: "Point at python.exe, py, or another interpreter binary directly." },
+      ));
+    }
   }
   if (typeof value === "number") {
     if (validator.min !== undefined && value < validator.min) {
@@ -282,6 +289,13 @@ function validateValue(
     }
   }
   return issues;
+}
+
+// Batch/PowerShell wrappers reintroduce the shell-composition attack surface
+// that shell-less execFile invocation is designed to exclude, so the runtime
+// interpreter setting rejects them at the validator boundary as well.
+function hasShellWrapperExecutable(value: string): boolean {
+  return /\.(bat|cmd|ps1)(["']|\s|$)/i.test(value.trim());
 }
 
 function hasUrlCredentials(value: string): boolean {

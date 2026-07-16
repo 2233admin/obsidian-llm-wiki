@@ -22,8 +22,10 @@ import {
   type SettingsOperationTransport,
   type SettingsSnapshot,
 } from "../src/settings-client";
+import { validateAssignment } from "../../packages/settings-platform/src/validation";
 import type {
   SettingAssignment,
+  SettingDefinition,
   SettingsDocument,
   SettingsMutationResult,
   ValidationResult,
@@ -421,4 +423,41 @@ test("pending migration source survives saves until Settings Platform accepts", 
   assert.equal(replanned.assignments.length, plan.assignments.length);
   // once accepted, nothing is preserved and the migrated document persists as-is
   assert.equal(preservePendingMigrationSource(null, plan.data), plan.data);
+});
+
+test("runtime.python.path rejects .bat/.cmd/.ps1 wrappers at both defense lines", () => {
+  // execution entry
+  for (const wrapper of ["C:\py\python.bat", "C:/py/python.CMD", '"C:/wrap dir/python.ps1" -x']) {
+    assert.throws(() => parseExecutableCommand(wrapper), /wrapper/i, wrapper);
+  }
+  assert.throws(() => buildPythonInvocation("C:\py\python.bat", ["kb_meta.py"]), /wrapper/i);
+  // real interpreters still pass
+  assert.equal(parseExecutableCommand("py -3").executable, "py");
+  assert.equal(parseExecutableCommand("C:/Python312/python.exe").executable, "C:/Python312/python.exe");
+
+  // settings validator boundary
+  const definition: SettingDefinition = {
+    key: "runtime.python.path",
+    owner: "runtime.python",
+    category: "runtime",
+    name: "Python runtime",
+    description: "Interpreter command",
+    valueType: "path",
+    defaultValue: "python",
+    allowedScopes: ["user-device", "session"],
+    sensitivity: "local",
+    validator: { id: "non-empty-path", required: true },
+    requires: [],
+    applyMode: "next-operation",
+    visibility: "normal",
+  } as SettingDefinition;
+  const assignment = (value: string): SettingAssignment => ({
+    key: "runtime.python.path",
+    value,
+    provenance: { actor: "test", source: "test" },
+  });
+  const bad = validateAssignment(definition, "user-device", "device/test", assignment("C:\wrap\python.bat"));
+  assert.ok(bad.some(item => item.code === "shell-wrapper-rejected"), "validator must reject wrappers");
+  const good = validateAssignment(definition, "user-device", "device/test", assignment("C:\Python312\python.exe"));
+  assert.equal(good.some(item => item.code === "shell-wrapper-rejected"), false);
 });

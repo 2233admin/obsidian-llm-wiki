@@ -9,13 +9,16 @@ try {
   await verifyProductionBundleBoundary();
   await esbuild.build({
     stdin: {
-      contents: 'import "./tests/settings.test.ts"; import "./tests/control-plane.test.ts"; import "./tests/production-control-plane.test.ts";',
+      contents: 'import "./tests/settings.test.ts"; import "./tests/control-plane.test.ts"; import "./tests/production-control-plane.test.ts"; import "./tests/main-lifecycle.test.ts";',
       resolveDir: process.cwd(),
       sourcefile: "tests/all.test.ts",
       loader: "ts",
     },
     outfile: output,
     bundle: true,
+    // The obsidian package is types-only; lifecycle tests run src/main.ts
+    // against this runtime stub.
+    alias: { obsidian: resolve("tests/obsidian-stub.ts") },
     nodePaths: [resolve("node_modules")],
     platform: "node",
     format: "cjs",
