@@ -1,0 +1,53 @@
+# =============================================================================
+# LMVK L3 — caddy 分发容器 (与 gitea 同宿主常驻)
+#
+# Spec: docs/specs/lmvk-execution-and-release.md — L3
+# ADR:  docs/legacy/adr/lmvk-0001-distribution-topology.md — 拓扑第 3 条腿
+#       "分发面可用性 = gitea 可用性, 本就是链路硬依赖"
+#
+# 网络姿态 (红线):
+#   network_mode: host + Caddyfile 内 `bind {$NETBIRD_ADDR}`
+#   —— caddy 直接绑宿主机的 NetBird 接口 (100.x), 全程没有任何端口映射。
+#   禁止改回 `ports: "8443:8443"` 这类写法: docker 端口发布默认绑 0.0.0.0,
+#   一行就违反 spec L3。host 网络 + Caddyfile bind 是唯一合规组合。
+#
+# 使用: cp .env.example .env && 填 NETBIRD_ADDR / LMVK_PORT / PAGES_DIR
+#       然后 docker compose up -d
+# =============================================================================
+
+services:
+  lmvk-caddy:
+    image: caddy:2.10-alpine        # 固定版本, 回滚 = 改回旧 tag
+    container_name: lmvk-caddy
+    restart: unless-stopped
+
+    # host 网络: 容器内可见宿主机 NetBird 接口, Caddyfile 的 bind 才能生效。
+    network_mode: host
+
+    environment:
+      # NetBird 舰队网地址 (100.x.y.z)。:? = 未设置则拒绝启动, 防呆。
+      NETBIRD_ADDR: ${NETBIRD_ADDR:?set NETBIRD_ADDR in .env — 100.x.y.z only, never 0.0.0.0}
+      LMVK_PORT: ${LMVK_PORT:-8443}
+
+    volumes:
+      # 站点配置
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # pages 分支 checkout (宿主机 sync-pages.sh 维护) —— 只读挂载,
+      # 分发面永远不可能反向污染产物 (呼应"编译单向"不变量)。
+      - ${PAGES_DIR:?set PAGES_DIR in .env (host path of pages checkout)}:/srv/pages:ro
+      # caddy 内部 CA / 证书 / 状态持久化:
+      # 换容器不换根证书, 各设备装过的 CA 不用重装。
+      - caddy-data:/data
+      - caddy-config:/config
+
+    healthcheck:
+      # busybox wget; 内部 CA 自签所以 --no-check-certificate (仅健康检查)。
+      test: ["CMD", "wget", "-q", "--no-check-certificate", "-O", "/dev/null", "https://${NETBIRD_ADDR}:${LMVK_PORT:-8443}/healthz"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  caddy-data:
+  caddy-config:

@@ -1,0 +1,110 @@
+# =============================================================================
+# LMVK L3 — 浏览器腿分发面 (caddy 容器 @ gitea 同宿主)
+#
+# Spec: docs/specs/lmvk-execution-and-release.md — L3
+# ADR:  docs/legacy/adr/lmvk-0001-distribution-topology.md — 拓扑第 3 条腿
+#
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# !!! 安全红线 / SECURITY INVARIANT (spec L3: "禁 0.0.0.0")               !!!
+# !!! 本站点只允许绑定 NetBird 舰队网接口地址 (100.64.0.0/10, 即 100.x)。   !!!
+# !!! 禁止 0.0.0.0 / [::] / 任何公网或 LAN 接口。                          !!!
+# !!! NETBIRD_ADDR 由 docker-compose 从 .env 注入, 无默认值 (防呆)。       !!!
+# !!! 上线后必须验证: ss -tlnp | grep <端口> 只出现 100.x, 见 README。     !!!
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# =============================================================================
+
+{
+	# 不自动起 :80 的 HTTP->HTTPS 跳转 listener —— 它会绑通配地址,
+	# 违反 NetBird-only 红线, 且可能与 gitea 宿主机上其他服务撞端口。
+	auto_https disable_redirects
+
+	# admin API 保持默认 (只绑 localhost:2019, 供 caddy reload 用)。
+	# 若宿主机上已有别的 caddy 占了 2019, 取消注释并换端口:
+	# admin localhost:2029
+}
+
+# 站点地址 + bind 指令双重钉死在 NetBird 接口。
+# {$NETBIRD_ADDR} / {$LMVK_PORT} 来自容器环境变量 (docker-compose.yml <- .env)。
+https://{$NETBIRD_ADDR}:{$LMVK_PORT:8443} {
+	# bind 决定实际 listener —— 这一行是红线本体, 绝对不要改成 0.0.0.0。
+	bind {$NETBIRD_ADDR}
+
+	# NetBird 内网 IP 签不了公网 CA 证书 -> 用 Caddy 内部 CA 自签。
+	# 必须是 HTTPS 而不是裸 HTTP: L4 的 service worker 要求 secure context,
+	# http://100.x 上 SW 注册会被浏览器直接拒绝。
+	# 代价: 每台设备一次性安装 Caddy 根证书 (见 README「设备信任内部 CA」)。
+	tls internal
+
+	# 静态产物根 = vault 仓 pages 分支的 checkout (宿主机 sync-pages.sh 维护,
+	# compose 里以只读 bind mount 挂进来)。
+	root * /srv/pages
+
+	encode zstd gzip
+
+	# 未认证探活端点 (cron / staleness 检查用, 不暴露任何内容数据)。
+	handle /healthz {
+		respond "ok" 200
+	}
+
+	handle {
+		# ---------------------------------------------------------------
+		# basic_auth: 每设备一账号 (bcrypt), 可单独吊销 (删行 + reload)。
+		# spec L3: 密码明文只进 *对应设备* 的 ~/.secrets, 宿主机只存 hash。
+		# 用 ./add-device-account.sh <device-name> 生成下面这样的行。
+		#
+		# 下面的占位 hash 是非法 bcrypt —— caddy 会拒绝启动。
+		# 这是故意的 fail-closed: 不换成真实账号, 分发面起不来,
+		# 绝不会出现"忘了配账号裸奔"的中间态。
+		# ---------------------------------------------------------------
+		basic_auth {
+			REPLACE-device-example $2b$14$REPLACE_WITH_REAL_BCRYPT_HASH_FROM_add-device-account.sh
+		}
+
+		# ---------------------------------------------------------------
+		# 缓存策略: 与 L4 service worker (stale-while-revalidate) 协作。
+		# 原则:
+		#   1. HTML / sw.js / manifest 永远 no-cache (协商缓存, 304 走 ETag)。
+		#      "陈旧但立即可用"由 SW 的 SWR 负责, HTTP 缓存层不抢戏。
+		#   2. 禁止对 HTML 发 immutable / 远期 max-age —— 产物 15min 一轮,
+		#      远期缓存会把页脚构建时间戳钉死, 直接打破 ≤30min 验收。
+		#   3. sw.js 本体必须 no-cache, 否则 SW 更新被 HTTP 缓存卡住,
+		#      设备会长期跑旧 precache 清单。
+		# ---------------------------------------------------------------
+
+		# sw.js: no-cache + Service-Worker-Allowed 允许 scope 覆盖全站
+		# (即使 html_export 把 sw.js 放在子目录也不掉 scope)。
+		@sw path /sw.js */sw.js
+		header @sw {
+			Cache-Control "no-cache"
+			Service-Worker-Allowed "/"
+		}
+
+		# HTML / 目录页 / manifest: 协商缓存。
+		# (precache 清单不存在独立文件 -- 构建时直接烤进 sw.js)
+		@revalidate {
+			path / */ *.html /manifest.webmanifest
+		}
+		header @revalidate Cache-Control "no-cache"
+
+		# 其余静态资源: 短 max-age + HTTP 层 SWR 兜底。
+		# 产物文件名没有 content-hash, 所以不能 immutable / 远期。
+		@assets {
+			path *.css *.js *.mjs *.json *.png *.jpg *.jpeg *.gif *.svg *.webp *.ico *.woff *.woff2
+			not path /sw.js */sw.js /manifest.webmanifest
+		}
+		header @assets Cache-Control "public, max-age=600, stale-while-revalidate=86400"
+
+		# 少暴露一点指纹
+		header -Server
+
+		# 干净 URL: /note -> /note.html -> /note/index.html
+		try_files {path} {path}.html {path}/index.html
+
+		file_server
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

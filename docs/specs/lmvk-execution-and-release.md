@@ -50,6 +50,16 @@ main 绿 → tag `v2.6.0` → release.yml 自动 quality→build→gh release（
 - R1→R2→R3→R4 串行（同 CI 面），R5/R6 可与 R1-R4 并行，R7 被 R1-R6 全部阻塞。
 - L2 依赖 L1（scheduler 承载 compile 编排时）弱依赖，可先 schtasks 直拉 compile.py；L3 依赖 L2 产物（pages 分支存在）；L4 依赖 L3；L5/L6 独立随时可做；L7 独立 HITL。
 
+## 执行台账（2026-07-16）
+
+- **R1-R7 全部完成**：main CI 绿（gh run list 验证）、ruff 干净、`tests/fleet_tests/` 已改名、compiler pytest 已入 ci.yml/release.yml、CHANGELOG 已并轨、TASK14 已标 DESIGNED、v2.6.0 已发（两个 tar.gz 产物齐全，后续已至 v2.8.0-beta.1）。
+- **L1/L2 完成**（见 6f5db7b / 2b75bc1 / f7bfc9a / d51f6db）。注意：生产编译脚本 `lmvk-compile-publish.ps1` 仅存于 5090 本地，未入库——待收编。
+- **L4 完成**：`compiler/html_export/service_worker.py` + `static/sw.template.js`，两种导出模式均出 sw.js（SWR + 构建时 precache，>100MB 降级索引+近30天，缓存版本随构建时间戳），`--no-sw` 可关，13 个新测试，全套 718 passed。
+- **L3 交付部署包**（HITL 待执行）：`deploy/lmvk-caddy/`——Caddyfile（NetBird bind、tls internal、每设备 bcrypt）、compose（host 网络，禁 ports 映射）、sync-pages.sh、开户脚本、双语 runbook。
+- **L5 交付安装脚本**（待 5080 执行）：`scripts/setup_vault_governance.py`，dry-run 默认，rhizome pre-commit / obsidian-git 驯化 / gitignore 机器状态三步。
+- **L6 交付同步腿**（待各机注册）：`scripts/lmvk-memory-sync.ps1` + `register-lmvk-memory-sync.ps1`，PS5.1/powershell.exe，frontmatter 注入实测过 rhizome 门禁。
+- **L7 未动**：纯 HITL（gitea admin 开 Actions + runner）。
+
 ## 验收
 
 - R 波：gh run list main 最新 = 全绿；gh release view v2.6.0 有两个 tar.gz；CHANGELOG 覆盖到 v2.6.0。

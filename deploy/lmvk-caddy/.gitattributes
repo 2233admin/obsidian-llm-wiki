@@ -1,0 +1,5 @@
+# 本目录产物在 Linux 宿主机上执行/解析 —— 强制 LF, 防 Windows checkout 带入 CRLF
+*.sh            text eol=lf
+Caddyfile       text eol=lf
+docker-compose.yml text eol=lf
+.env.example    text eol=lf

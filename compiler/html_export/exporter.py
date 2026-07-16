@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator
 
+from .service_worker import emit_service_worker
 from .wikilink_converter import wikilinks_to_html
 
 
@@ -31,6 +32,11 @@ class ExportOptions:
     # every page in the run. Pass an explicit value for reproducible tests
     # or to align the footer with e.g. the compiling commit's timestamp.
     build_timestamp: str | None = None
+    # LMVK L4 (PWA): emit sw.js at the export root (stale-while-revalidate
+    # + build-time precache manifest, cache version = build timestamp) and
+    # register it from every page. False -> no sw.js, no registration
+    # snippet (--no-sw on the CLI).
+    service_worker: bool = True
 
 
 @dataclass
@@ -42,6 +48,9 @@ class ExportReport:
     links_converted: int = 0
     theme: str = "reading"
     output_dir: Path | None = None
+    # LMVK L4: "full" | "degraded" when a service worker was emitted,
+    # "" when service_worker=False.
+    precache_mode: str = ""
 
 
 AVAILABLE_THEMES = ["article", "report", "reading", "interactive"]
@@ -105,7 +114,10 @@ CDN_LINKS = {
 
 
 def _inject_assets(
-    html_content: str, has_interactive: bool = False, asset_prefix: str = ""
+    html_content: str,
+    has_interactive: bool = False,
+    asset_prefix: str = "",
+    register_sw: bool = False,
 ) -> str:
     """Inject wiki.js, wiki.css, and CDN libraries into HTML content.
 
@@ -114,6 +126,8 @@ def _inject_assets(
             when the document lives one directory below the output root
             (as concepts/*.html and summaries/*.html do). Empty string for
             documents at the output root (e.g. index.html).
+        register_sw: When True, also inject the LMVK L4 service worker
+            registration snippet (see ``_sw_register_snippet``).
     """
     static_url = f"{asset_prefix}static/"
 
@@ -141,12 +155,35 @@ def _inject_assets(
 
     # Inject JS before </body>
     js_script = f'  <script src="{static_url}wiki.js" defer></script>\n'
+    if register_sw:
+        js_script += _sw_register_snippet(asset_prefix)
     if "</body>" in html_content:
         html_content = html_content.replace("</body>", js_script + "</body>")
     else:
         html_content = html_content + "\n" + js_script
 
     return html_content
+
+
+def _sw_register_snippet(asset_prefix: str) -> str:
+    """Inline service worker registration script (LMVK L4).
+
+    The URL is relative (``asset_prefix`` walks back up to the export root)
+    so every page, at any depth, registers the *same* sw.js; the default
+    scope is sw.js's own directory = the export root, i.e. ``/`` when the
+    site is served at the domain root (the L3 caddy deployment). Plain
+    same-origin registration keeps basic_auth working -- the browser
+    attaches credentials itself -- and no cache-busting query string is
+    appended (it would both split registrations per page and defeat the
+    browser's auth cache).
+    """
+    return (
+        "  <script>\n"
+        '  if ("serviceWorker" in navigator) {\n'
+        f'    navigator.serviceWorker.register("{asset_prefix}sw.js");\n'
+        "  }\n"
+        "  </script>\n"
+    )
 
 
 def build_timestamp_now() -> str:
@@ -197,6 +234,7 @@ def _run_pandoc(
     title: str = "",
     asset_prefix: str = "",
     build_timestamp: str = "",
+    register_sw: bool = False,
 ) -> bool:
     """Run Pandoc to convert markdown to HTML.
 
@@ -213,6 +251,8 @@ def _run_pandoc(
         build_timestamp: When non-empty, stamped into a footer via
             ``_inject_footer`` (LMVK L2 freshness indicator). Empty ->
             no footer, unchanged behavior.
+        register_sw: When True, the page gets the LMVK L4 service worker
+            registration snippet (see ``_sw_register_snippet``).
 
     Returns:
         True if conversion succeeded
@@ -241,7 +281,9 @@ def _run_pandoc(
     # Post-process: inject wiki.js and wiki.css, then the build footer
     if output_file.exists():
         html_content = output_file.read_text("utf-8")
-        html_content = _inject_assets(html_content, asset_prefix=asset_prefix)
+        html_content = _inject_assets(
+            html_content, asset_prefix=asset_prefix, register_sw=register_sw
+        )
         html_content = _inject_footer(html_content, build_timestamp)
         output_file.write_text(html_content, "utf-8")
 
@@ -438,6 +480,7 @@ def _write_fallback_index(
     output_dir: Path,
     css_dest: Path,
     build_timestamp: str = "",
+    register_sw: bool = False,
 ) -> bool:
     """Write index.html from a generated listing when _index.md is missing.
 
@@ -456,7 +499,8 @@ def _write_fallback_index(
     temp_md.write_text(body + "\n", "utf-8")
     try:
         return _run_pandoc(
-            temp_md, output_dir / "index.html", css_dest, title, build_timestamp=build_timestamp
+            temp_md, output_dir / "index.html", css_dest, title,
+            build_timestamp=build_timestamp, register_sw=register_sw,
         )
     finally:
         temp_md.unlink(missing_ok=True)
@@ -567,6 +611,11 @@ def export_to_html(
     # reproducible tests or to align with e.g. the compiling commit's time.
     build_timestamp = options.build_timestamp or build_timestamp_now()
 
+    # Source note mtimes keyed by output-relative URL (LMVK L4: the >100MB
+    # degraded precache keeps only pages whose *source* was touched in the
+    # last 30 days -- exported-HTML mtimes are useless, they're all "now").
+    source_mtimes: dict[str, float] = {}
+
     # Process files
     index_exported = False
     for source_file, subdir in _iter_wiki_files(wiki_dir, options):
@@ -600,8 +649,12 @@ def export_to_html(
             if _run_pandoc(
                 temp_md, output_file, css_dest, title,
                 asset_prefix=asset_prefix, build_timestamp=build_timestamp,
+                register_sw=options.service_worker,
             ):
                 report.files_exported += 1
+                source_mtimes[output_file.relative_to(output_dir).as_posix()] = (
+                    source_file.stat().st_mtime
+                )
                 if not subdir:
                     index_exported = True
             else:
@@ -617,10 +670,19 @@ def export_to_html(
     # Fallback: no _index.md (or it failed to render) — generate a listing
     # of concepts/summaries so the export always has a root index.html.
     if options.include_index and not index_exported:
-        if _write_fallback_index(wiki_dir, output_dir, css_dest, build_timestamp=build_timestamp):
+        if _write_fallback_index(
+            wiki_dir, output_dir, css_dest,
+            build_timestamp=build_timestamp, register_sw=options.service_worker,
+        ):
             report.files_exported += 1
         else:
             report.files_failed += 1
+
+    # LMVK L4: emit sw.js last so the precache manifest sees every file
+    # this run produced (pages, css/, static/).
+    if options.service_worker:
+        manifest = emit_service_worker(output_dir, build_timestamp, source_mtimes)
+        report.precache_mode = manifest.mode
 
     return report
 
@@ -694,6 +756,7 @@ def _write_vault_index(
     output_dir: Path,
     css_dest: Path,
     build_timestamp: str = "",
+    register_sw: bool = False,
 ) -> bool:
     """Write the whole-vault ``index.html`` for ``export_vault_direct``,
     through the same Pandoc/asset/footer pipeline as every other page."""
@@ -703,7 +766,7 @@ def _write_vault_index(
     try:
         return _run_pandoc(
             temp_md, output_dir / "index.html", css_dest, "Vault Index",
-            build_timestamp=build_timestamp,
+            build_timestamp=build_timestamp, register_sw=register_sw,
         )
     finally:
         temp_md.unlink(missing_ok=True)
@@ -769,6 +832,9 @@ def export_vault_direct(
     report = ExportReport(theme=options.theme, output_dir=output_dir)
     build_timestamp = options.build_timestamp or build_timestamp_now()
     pages: list[tuple[str, str]] = []
+    # Source note mtimes keyed by output-relative URL (LMVK L4 degraded
+    # precache -- see the matching comment in export_to_html).
+    source_mtimes: dict[str, float] = {}
 
     for source_file, rel_dir in _iter_vault_markdown_files(Path(vault_root), exclude):
         depth = len(rel_dir.split("/")) if rel_dir else 0
@@ -793,6 +859,7 @@ def export_vault_direct(
                 ok = _run_pandoc(
                     temp_md, output_file, css_dest, title,
                     asset_prefix=asset_prefix, build_timestamp=build_timestamp,
+                    register_sw=options.service_worker,
                 )
             finally:
                 temp_md.unlink(missing_ok=True)
@@ -801,6 +868,7 @@ def export_vault_direct(
                 report.files_exported += 1
                 href = f"{rel_dir}/{output_file.name}" if rel_dir else output_file.name
                 pages.append((title, href))
+                source_mtimes[href] = source_file.stat().st_mtime
             else:
                 report.files_failed += 1
 
@@ -809,10 +877,19 @@ def export_vault_direct(
             report.files_failed += 1
 
     if options.include_index:
-        if _write_vault_index(pages, output_dir, css_dest, build_timestamp=build_timestamp):
+        if _write_vault_index(
+            pages, output_dir, css_dest,
+            build_timestamp=build_timestamp, register_sw=options.service_worker,
+        ):
             report.files_exported += 1
         else:
             report.files_failed += 1
+
+    # LMVK L4: emit sw.js last so the precache manifest sees every file
+    # this run produced (pages, css/, static/).
+    if options.service_worker:
+        manifest = emit_service_worker(output_dir, build_timestamp, source_mtimes)
+        report.precache_mode = manifest.mode
 
     return report
 
@@ -851,6 +928,15 @@ def main() -> None:
         help="Skip index generation",
     )
     parser.add_argument(
+        "--no-sw",
+        action="store_true",
+        help=(
+            "Skip the service worker (LMVK L4). By default sw.js is emitted "
+            "at the output root with a build-time precache manifest and "
+            "every page registers it."
+        ),
+    )
+    parser.add_argument(
         "--direct",
         action="store_true",
         help=(
@@ -884,6 +970,7 @@ def main() -> None:
         include_concepts=not args.no_concepts,
         include_index=not args.no_index,
         output_dir=output_dir,
+        service_worker=not args.no_sw,
     )
 
     print(f"Exporting {args.wiki_dir} to {output_dir}")
@@ -900,6 +987,8 @@ def main() -> None:
         print(f"  Files exported: {report.files_exported}")
         print(f"  Files failed:   {report.files_failed}")
         print(f"  Links converted: {report.links_converted}")
+        if report.precache_mode:
+            print(f"  Precache mode:  {report.precache_mode}")
     except RuntimeError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
