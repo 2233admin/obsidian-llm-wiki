@@ -52083,6 +52083,9 @@ function validateValue(definition, value, options) {
     if (validator.id === "url" && hasUrlCredentials(value)) {
       issues.push(issue2("url-credentials-forbidden", `${definition.key} must not embed credentials in a URL; use a Secret Reference.`, { ...options, remediation: "Remove URL userinfo and bind the credential through a Secret Reference." }));
     }
+    if (definition.key === "runtime.python.path" && hasShellWrapperExecutable(value)) {
+      issues.push(issue2("shell-wrapper-rejected", `${definition.key} must be a real interpreter executable; .bat/.cmd/.ps1 wrappers are not allowed.`, { ...options, remediation: "Point at python.exe, py, or another interpreter binary directly." }));
+    }
   }
   if (typeof value === "number") {
     if (validator.min !== void 0 && value < validator.min) {
@@ -52093,6 +52096,9 @@ function validateValue(definition, value, options) {
     }
   }
   return issues;
+}
+function hasShellWrapperExecutable(value) {
+  return /\.(bat|cmd|ps1)(["']|\s|$)/i.test(value.trim());
 }
 function hasUrlCredentials(value) {
   try {
