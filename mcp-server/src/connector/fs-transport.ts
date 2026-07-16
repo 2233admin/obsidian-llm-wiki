@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 
 import type { JsonRpcResponse } from './ws-transport.js';
 
-const VERSION = '0.4.0-beta.1';
+const VERSION = '0.4.0-beta.2';
 
 const PROTECTED_DIRS = new Set(['.obsidian', '.trash', '.git', 'node_modules']);
 
