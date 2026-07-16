@@ -7144,6 +7144,9 @@ function validateValue(definition, value, options) {
     if (validator.id === "url" && hasUrlCredentials(value)) {
       issues.push(issue("url-credentials-forbidden", `${definition.key} must not embed credentials in a URL; use a Secret Reference.`, { ...options, remediation: "Remove URL userinfo and bind the credential through a Secret Reference." }));
     }
+    if (definition.key === "runtime.python.path" && hasShellWrapperExecutable(value)) {
+      issues.push(issue("shell-wrapper-rejected", `${definition.key} must be a real interpreter executable; .bat/.cmd/.ps1 wrappers are not allowed.`, { ...options, remediation: "Point at python.exe, py, or another interpreter binary directly." }));
+    }
   }
   if (typeof value === "number") {
     if (validator.min !== void 0 && value < validator.min) {
@@ -7154,6 +7157,9 @@ function validateValue(definition, value, options) {
     }
   }
   return issues;
+}
+function hasShellWrapperExecutable(value) {
+  return /\.(bat|cmd|ps1)(["']|\s|$)/i.test(value.trim());
 }
 function hasUrlCredentials(value) {
   try {
@@ -10935,8 +10941,8 @@ async function moveCadenceWorkRunToReview(ctx, vaultPath, project, identity, wor
     next: "Approve or reject the exact Memory Proposal fingerprint."
   });
 }
-function dreamTimeStore(stateRoot, projectId2, profileId) {
-  return new DreamTimeStore({ memoryRoot: join11(stateRoot, "dreamtime"), projectId: projectId2, profileId });
+function dreamTimeStore(stateRoot, projectId2, profileId, clock) {
+  return new DreamTimeStore({ memoryRoot: join11(stateRoot, "dreamtime"), projectId: projectId2, profileId, ...clock ? { clock } : {} });
 }
 function proposalDirectory(stateRoot, projectId2, profileId) {
   return join11(stateRoot, "dreamtime", projectId2.slice("project/".length), profileId.slice("agent/".length), "proposals");
@@ -11533,14 +11539,14 @@ function assertDreamTimeProposalReplay(existing, candidate, proposalActor) {
     throw conflict("Dream Time proposal identity was already used for different immutable proposal bytes");
   }
 }
-async function proposeDreamTimeResult(ctx, vaultPath, stateRoot, service, operation, params) {
+async function proposeDreamTimeResult(ctx, vaultPath, stateRoot, service, operation, params, clock) {
   const project = exactProject(vaultPath, params.project, `dreamtime.${operation}.propose`);
   const profileId = requiredString(params.profileId, "profileId");
   const input = requiredRecord(params.workerInput, "workerInput");
   const candidate = requiredRecord(params.candidate, "candidate");
   if (!candidate.proposalId)
     throw badRequest("Dream Time proposal operations require a stable candidate.proposalId for replay");
-  const store = dreamTimeStore(stateRoot, project.projectId, profileId);
+  const store = dreamTimeStore(stateRoot, project.projectId, profileId, clock);
   const current = await currentMemoryLock(store);
   if (input.profileId !== profileId || canonicalJson(input.expectedRevision) !== canonicalJson({ revisionId: current.revisionId, revision: current.revision, fingerprint: current.fingerprint })) {
     throw conflict("Dream Time proposal expected revision is stale");
@@ -11931,7 +11937,7 @@ function dreamTimeCadenceOperations(vaultPath, stateRoot, service) {
         "actor"
       ]);
       const { project, profileId, cadence, asOf, window, identity } = resolveCadence(params, "dreamtime.cadence.run");
-      const store = dreamTimeStore(stateRoot, project.projectId, profileId);
+      const store = dreamTimeStore(stateRoot, project.projectId, profileId, () => asOf);
       const requestedActor = actor(ctx, params.actor);
       const sourceInput = requiredRecord(params.sourceIdentities, "sourceIdentities");
       closedParams(sourceInput, ["threadId", "workRunId", "revisionIds", "artifactIds", "cutoffAt"]);
@@ -12037,7 +12043,7 @@ function dreamTimeCadenceOperations(vaultPath, stateRoot, service) {
         expiresAt
       };
       assertSafeSharedState({ workerInput, candidate: preflightCandidate, actor: requestedActor }, "DreamTimeCadenceProposal");
-      const preflightCreatedAt = (/* @__PURE__ */ new Date()).toISOString();
+      const preflightCreatedAt = asOf;
       const preflightMaterial = {
         ...preflightCandidate,
         schemaVersion: 1,
@@ -12158,7 +12164,7 @@ function dreamTimeCadenceOperations(vaultPath, stateRoot, service) {
         workerInput,
         candidate: { ...preflightCandidate, provenance: proposalProvenance },
         actor: requestedActor
-      });
+      }, () => asOf);
       await moveCadenceWorkRunToReview(ctx, vaultPath, project, identity, workRunId, proposal.proposalId);
       appendGovernedUsage(vaultPath, {
         kind: "dreamtime",

@@ -14,9 +14,13 @@ import { isAbsolute } from "path";
 import { buildPythonInvocation } from "./executable-command";
 import {
   applyPluginDataMigration,
+  DeviceBindingReference,
+  LegacyMigrationPreimage,
   LLMWikiPluginData,
   parseSettingInput,
   planPluginDataMigration,
+  preservePendingMigrationSource,
+  rollbackPluginDataMigration,
   selectEditingScope,
 } from "./settings";
 import {
@@ -33,6 +37,7 @@ import {
   SettingsConflictError,
   SettingsControlPlaneProjection,
   SettingsOperationClient,
+  SettingsOperationTransport,
   SettingValue,
   UnavailableSettingsTransport,
 } from "./settings-client";
@@ -72,9 +77,17 @@ export default class LLMWikiPlugin extends Plugin {
   private settingsClient!: SettingsOperationClient;
   private agentControlPlaneClient!: AgentControlPlaneClient;
   private migrationError: string | null = null;
+  // The original (unstripped) plugin data document, retained while a legacy
+  // migration is pending so saves cannot destroy the migration source.
+  private pendingMigrationSource: Record<string, unknown> | null = null;
 
   async onload(): Promise<void> {
-    const plan = planPluginDataMigration(await this.loadData());
+    const rawData = await this.loadData();
+    const plan = planPluginDataMigration(rawData);
+    this.pendingMigrationSource =
+      plan.assignments.length && rawData && typeof rawData === "object" && !Array.isArray(rawData)
+        ? (rawData as Record<string, unknown>)
+        : null;
     this.data = plan.data;
     let pluginDataChanged = plan.migrated;
     if (!this.data.deviceBinding) {
@@ -84,15 +97,7 @@ export default class LLMWikiPlugin extends Plugin {
     plan.data = this.data;
     const deviceBinding = this.data.deviceBinding;
     if (!deviceBinding) throw new Error("LLM Wiki device binding could not be initialized");
-    const vaultPath = this.vaultBasePath();
-    const transport = vaultPath
-      ? new ProductionControlPlaneTransport({
-          vaultPath,
-          userDeviceId: deviceBinding.deviceId,
-          workspaceProjectId: deviceBinding.workspaceProjectId,
-          environment: process.env,
-        })
-      : new UnavailableSettingsTransport("LLM Wiki control plane requires a desktop filesystem vault; mobile and non-filesystem vaults are unavailable.");
+    const transport = this.createControlPlaneTransport(deviceBinding);
     this.settingsClient = new SettingsOperationClient(transport);
     this.agentControlPlaneClient = new AgentControlPlaneClient(transport);
     await this.applyPluginDataPlan(plan, pluginDataChanged);
@@ -119,6 +124,17 @@ export default class LLMWikiPlugin extends Plugin {
       id: "open-agent-control-plane",
       name: "Open Agent control plane (LLM Wiki)",
       callback: () => this.openAgentControlPlane(),
+    });
+
+    this.addCommand({
+      id: "rollback-legacy-migration",
+      name: "Roll back legacy settings migration (LLM Wiki)",
+      checkCallback: (checking: boolean) => {
+        const marker = this.data.legacyMigration;
+        const ok = marker?.state === "applied" && !!marker.preimageJournal;
+        if (ok && !checking) void this.rollbackLegacyMigration();
+        return ok;
+      },
     });
 
     this.registerEvent(
@@ -165,6 +181,67 @@ export default class LLMWikiPlugin extends Plugin {
   private vaultBasePath(): string | null {
     const adapter = this.app.vault.adapter;
     return adapter instanceof FileSystemAdapter ? adapter.getBasePath() : null;
+  }
+
+  /** Injection seam: lifecycle tests run the plugin against an in-process host. */
+  protected createControlPlaneTransport(
+    deviceBinding: DeviceBindingReference,
+  ): SettingsOperationTransport & AgentControlPlaneTransport {
+    const vaultPath = this.vaultBasePath();
+    return (vaultPath
+      ? new ProductionControlPlaneTransport({
+          vaultPath,
+          userDeviceId: deviceBinding.deviceId,
+          workspaceProjectId: deviceBinding.workspaceProjectId,
+          environment: process.env,
+        })
+      : new UnavailableSettingsTransport("LLM Wiki control plane requires a desktop filesystem vault; mobile and non-filesystem vaults are unavailable.")
+    ) as SettingsOperationTransport & AgentControlPlaneTransport;
+  }
+
+  private migrationPreimagePath(): string {
+    return `${this.manifest.dir ?? ".obsidian/plugins/obsidian-llm-wiki"}/legacy-migration-preimage.json`;
+  }
+
+  private async writeMigrationPreimage(preimage: LegacyMigrationPreimage[]): Promise<void> {
+    await this.app.vault.adapter.write(
+      this.migrationPreimagePath(),
+      JSON.stringify({ version: 1, preimage }, null, 2),
+    );
+  }
+
+  private async readMigrationPreimage(): Promise<LegacyMigrationPreimage[] | null> {
+    try {
+      const text = await this.app.vault.adapter.read(this.migrationPreimagePath());
+      const parsed = JSON.parse(text) as { version?: unknown; preimage?: unknown };
+      return parsed.version === 1 && Array.isArray(parsed.preimage)
+        ? (parsed.preimage as LegacyMigrationPreimage[])
+        : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Product recovery entry for the migration preimage: restores the exact
+   * pre-migration assignments from the device-local backup written when the
+   * migration was applied, then marks the journal rolled-back.
+   */
+  async rollbackLegacyMigration(): Promise<void> {
+    try {
+      const preimage = await this.readMigrationPreimage();
+      if (!preimage) throw new Error("no migration preimage backup exists on this device");
+      const result = await rollbackPluginDataMigration(this.settingsClient, this.data, preimage);
+      this.data = result.data;
+      await this.savePluginData();
+      try {
+        await this.app.vault.adapter.remove(this.migrationPreimagePath());
+      } catch { /* a stale backup is harmless once the journal is rolled-back */ }
+      await this.refreshSettings(false);
+      new Notice("LLM Wiki: legacy settings migration rolled back.");
+    } catch (error) {
+      new Notice(`LLM Wiki: rollback failed — ${String((error as Error)?.message ?? error)}`);
+    }
   }
 
   private effectiveValue<T extends SettingValue>(key: string): T {
@@ -226,11 +303,22 @@ export default class LLMWikiPlugin extends Plugin {
     if (plan.assignments.length) {
       try {
         const migrated = await applyPluginDataMigration(this.settingsClient, plan);
+        try {
+          // Persist the full preimage device-locally BEFORE adopting the
+          // stripped document, so the applied journal always has a matching
+          // restorable backup for rollbackLegacyMigration.
+          await this.writeMigrationPreimage(migrated.preimage);
+        } catch (preimageError) {
+          new Notice(`LLM Wiki: migration applied, but the preimage backup could not be written — rollback is unavailable: ${String((preimageError as Error)?.message ?? preimageError)}`);
+        }
         this.data = migrated.data;
+        this.pendingMigrationSource = null;
         await this.savePluginData();
       } catch (error) {
-        // Do not save the stripped document until Settings Platform accepts all
-        // assignments. The legacy source remains intact for a later retry.
+        // Do not persist the stripped document until Settings Platform accepts
+        // all assignments. pendingMigrationSource stays set, so any save (scope
+        // change, presentation toggle) keeps the legacy source intact on disk
+        // for a retry after restart.
         this.migrationError = `Legacy settings migration pending: ${String((error as Error)?.message ?? error)}`;
         this.settingsError = this.migrationError;
       }
@@ -240,7 +328,7 @@ export default class LLMWikiPlugin extends Plugin {
   }
 
   async savePluginData(): Promise<void> {
-    await this.saveData(this.data);
+    await this.saveData(preservePendingMigrationSource(this.pendingMigrationSource, this.data));
   }
 
   async setEditingScope(scope: SettingScope): Promise<void> {

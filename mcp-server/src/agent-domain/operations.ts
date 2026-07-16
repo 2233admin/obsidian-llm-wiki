@@ -353,8 +353,12 @@ async function moveCadenceWorkRunToReview(
   });
 }
 
-function dreamTimeStore(stateRoot: string, projectId: ProjectId, profileId: AgentProfileId): DreamTimeStore {
-  return new DreamTimeStore({ memoryRoot: join(stateRoot, 'dreamtime'), projectId, profileId });
+function dreamTimeStore(stateRoot: string, projectId: ProjectId, profileId: AgentProfileId, clock?: () => string): DreamTimeStore {
+  // Mutating callers must pin the operation's effective time (e.g. the
+  // cadence asOf); otherwise proposal createdAt drifts to wall-clock time
+  // while expiresAt derives from the declared window, and the proposal
+  // fails "expiry must follow creation" as soon as the window lapses.
+  return new DreamTimeStore({ memoryRoot: join(stateRoot, 'dreamtime'), projectId, profileId, ...(clock ? { clock } : {}) });
 }
 
 function proposalDirectory(stateRoot: string, projectId: ProjectId, profileId: AgentProfileId): string {
@@ -967,13 +971,14 @@ async function proposeDreamTimeResult(
   service: AgentDomainService,
   operation: DreamTimeOperation,
   params: Record<string, unknown>,
+  clock?: () => string,
 ): Promise<{ proposal: MemoryProposal; idempotent: boolean }> {
   const project = exactProject(vaultPath, params.project, `dreamtime.${operation}.propose`);
   const profileId = requiredString(params.profileId, 'profileId') as AgentProfileId;
   const input = requiredRecord(params.workerInput, 'workerInput') as unknown as DreamTimeWorkerInput;
   const candidate = requiredRecord(params.candidate, 'candidate') as unknown as MemoryProposalCandidate;
   if (!candidate.proposalId) throw badRequest('Dream Time proposal operations require a stable candidate.proposalId for replay');
-  const store = dreamTimeStore(stateRoot, project.projectId as ProjectId, profileId);
+  const store = dreamTimeStore(stateRoot, project.projectId as ProjectId, profileId, clock);
   const current = await currentMemoryLock(store);
   if (input.profileId !== profileId || canonicalJson(input.expectedRevision) !== canonicalJson({ revisionId: current.revisionId, revision: current.revision, fingerprint: current.fingerprint })) {
     throw conflict('Dream Time proposal expected revision is stale');
@@ -1319,7 +1324,7 @@ function dreamTimeCadenceOperations(
         'candidateDiff', 'provenance', 'warnings', 'expiresAt', 'actor',
       ]);
       const { project, profileId, cadence, asOf, window, identity } = resolveCadence(params, 'dreamtime.cadence.run');
-      const store = dreamTimeStore(stateRoot, project.projectId as ProjectId, profileId);
+      const store = dreamTimeStore(stateRoot, project.projectId as ProjectId, profileId, () => asOf);
       const requestedActor = actor(ctx, params.actor);
       const sourceInput = requiredRecord(params.sourceIdentities, 'sourceIdentities');
       closedParams(sourceInput, ['threadId', 'workRunId', 'revisionIds', 'artifactIds', 'cutoffAt']);
@@ -1440,7 +1445,11 @@ function dreamTimeCadenceOperations(
         expiresAt,
       };
       assertSafeSharedState({ workerInput, candidate: preflightCandidate, actor: requestedActor }, 'DreamTimeCadenceProposal');
-      const preflightCreatedAt = new Date().toISOString();
+      // The preflight candidate must share the cadence's effective time
+      // basis: wall-clock here would fail "expiry must follow creation" as
+      // soon as the declared window lapses, and would break replay
+      // determinism for the same invocation.
+      const preflightCreatedAt = asOf;
       const preflightMaterial = {
         ...preflightCandidate,
         schemaVersion: 1,
@@ -1568,7 +1577,7 @@ function dreamTimeCadenceOperations(
         workerInput,
         candidate: { ...preflightCandidate, provenance: proposalProvenance },
         actor: requestedActor,
-      });
+      }, () => asOf);
       await moveCadenceWorkRunToReview(ctx, vaultPath, project, identity, workRunId, proposal.proposalId);
       appendGovernedUsage(vaultPath, {
         kind: 'dreamtime',

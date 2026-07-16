@@ -180,7 +180,7 @@ function loadEnvCollaboration(result: Record<string, string> = {}): VaultMindCon
 // Helpers
 
 const PROTECTED_DIRS = new Set([".obsidian", ".trash", ".git", "node_modules"]);
-const VERSION = "0.4.0-beta.1";
+const VERSION = "0.4.0-beta.2";
 
 function err(code: number, message: string): { code: number; message: string } {
   return { code, message };

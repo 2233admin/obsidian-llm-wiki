@@ -41,7 +41,9 @@
 #>
 
 param(
-    [switch]$Full
+    [switch]$Full,
+    # Dot-source the config + functions only (for tests); skips all side effects.
+    [switch]$LibraryOnly
 )
 
 # NOTE: intentionally "Continue", not "Stop". Native tools (python
@@ -64,7 +66,10 @@ $PagesWorkDir   = Join-Path $StateDir "lmvk-pages-workdir"
 $SpendState     = Join-Path $StateDir "lmvk-compile-spend.json"
 $LogFile        = Join-Path $LogDir "lmvk-compile.log"
 
-$PagesRepoUrl   = "https://Curry:$env:GITEA_TOKEN@git.xart.top:8418/claudeQWQ/obsidian-knowledge.git"
+# Credential-free URL: username only. The token is supplied at call time via
+# GIT_ASKPASS (Initialize-GitAuth below) so it never appears in argv, log
+# lines, or any persisted .git/config. (Issue #51 P1.)
+$PagesRepoUrl   = "https://Curry@git.xart.top:8418/claudeQWQ/obsidian-knowledge.git"
 $PagesBranch    = "pages"
 $DailyCapUsd    = 5.0
 # compile.py reports no actual $ cost -- this is a deliberately explicit,
@@ -74,15 +79,9 @@ $CostPerSourceEstimateUsd = 0.02
 
 $MaxLogBytes = 5MB
 
-New-Item -ItemType Directory -Force -Path $StateDir, $LogDir | Out-Null
-
 # ---------------------------------------------------------------------------
-# Logging (simple 1-generation rotation so this never grows unbounded)
+# Functions
 # ---------------------------------------------------------------------------
-if ((Test-Path $LogFile) -and ((Get-Item $LogFile).Length -gt $MaxLogBytes)) {
-    Move-Item -Force $LogFile "$LogFile.old"
-}
-
 function Write-Log {
     param([string]$Message, [string]$Level = "INFO")
     $line = "[{0}] [{1}] {2}" -f (Get-Date -Format "yyyy-MM-ddTHH:mm:ssK"), $Level, $Message
@@ -109,9 +108,47 @@ function Invoke-Checked {
     return @{ Output = $out; ExitCode = $code }
 }
 
+function Initialize-GitAuth {
+    # Auth for gitea over https without ever putting the token in a URL,
+    # process argv, a log line, or a persisted .git/config:
+    #   GITEA_TOKEN (env) -> askpass helper stdout -> git.
+    # The helper file itself contains no secret; it reads the env var at
+    # call time. $PagesRepoUrl embeds the username, so git only asks the
+    # helper for the password.
+    if (-not $env:GITEA_TOKEN) {
+        throw "GITEA_TOKEN is not set -- cannot authenticate to gitea."
+    }
+    $askPass = Join-Path $StateDir "lmvk-git-askpass.cmd"
+    Set-Content -Path $askPass -Value "@echo off`r`necho %GITEA_TOKEN%" -Encoding ascii
+    $env:GIT_ASKPASS = $askPass
+    $env:GIT_TERMINAL_PROMPT = "0"
+}
+
+function Invoke-GitNet {
+    # Network-touching git calls: disable credential helpers per invocation
+    # (nothing may cache, store, or GUI-prompt for the token) and rely
+    # solely on GIT_ASKPASS from Initialize-GitAuth.
+    param(
+        [string[]]$Arguments,
+        [switch]$AllowNonZero
+    )
+    Invoke-Checked -Exe "git" -Arguments (@("-c", "credential.helper=") + $Arguments) -AllowNonZero:$AllowNonZero
+}
+
+if ($LibraryOnly) { return }
+
+New-Item -ItemType Directory -Force -Path $StateDir, $LogDir | Out-Null
+
+# Log rotation (simple 1-generation so this never grows unbounded)
+if ((Test-Path $LogFile) -and ((Get-Item $LogFile).Length -gt $MaxLogBytes)) {
+    Move-Item -Force $LogFile "$LogFile.old"
+}
+
 Write-Log "===== lmvk-compile-publish start (Full=$Full) ====="
 
 try {
+    Initialize-GitAuth
+
     # -----------------------------------------------------------------
     # Step 1: pull vault, early-exit on no change (zero cost fast path)
     # -----------------------------------------------------------------
@@ -188,15 +225,15 @@ try {
     # -----------------------------------------------------------------
     if (-not (Test-Path (Join-Path $PagesWorkDir ".git"))) {
         Write-Log "No local pages workdir -- checking whether 'pages' branch already exists on gitea."
-        $remoteHeads = & git ls-remote --heads $PagesRepoUrl $PagesBranch 2>&1 | Out-String
+        $remoteHeads = (Invoke-GitNet @("ls-remote", "--heads", $PagesRepoUrl, $PagesBranch)).Output
         Remove-Item -Recurse -Force $PagesWorkDir -ErrorAction SilentlyContinue
 
         if ($remoteHeads.Trim()) {
             Write-Log "Remote 'pages' branch exists -> cloning it."
-            Invoke-Checked -Exe "git" -Arguments @("clone", "-b", $PagesBranch, $PagesRepoUrl, $PagesWorkDir) | Out-Null
+            Invoke-GitNet @("clone", "-b", $PagesBranch, $PagesRepoUrl, $PagesWorkDir) | Out-Null
         } else {
             Write-Log "Remote 'pages' branch absent -> bootstrapping as an orphan branch."
-            Invoke-Checked -Exe "git" -Arguments @("clone", $PagesRepoUrl, $PagesWorkDir) | Out-Null
+            Invoke-GitNet @("clone", $PagesRepoUrl, $PagesWorkDir) | Out-Null
             Push-Location $PagesWorkDir
             try {
                 Invoke-Checked -Exe "git" -Arguments @("checkout", "--orphan", $PagesBranch) | Out-Null
@@ -208,7 +245,10 @@ try {
     } else {
         Push-Location $PagesWorkDir
         try {
-            Invoke-Checked -Exe "git" -Arguments @("fetch", "origin", $PagesBranch) -AllowNonZero | Out-Null
+            # Self-heal: earlier revisions persisted a token-bearing URL into
+            # this workdir's .git/config; force the credential-free URL.
+            Invoke-Checked -Exe "git" -Arguments @("remote", "set-url", "origin", $PagesRepoUrl) | Out-Null
+            Invoke-GitNet @("fetch", "origin", $PagesBranch) -AllowNonZero | Out-Null
             Invoke-Checked -Exe "git" -Arguments @("checkout", $PagesBranch) -AllowNonZero | Out-Null
             & git reset --hard "origin/$PagesBranch" 2>&1 | Out-Null
         } finally {
@@ -229,7 +269,7 @@ try {
         } else {
             $commitMsg = "lmvk: publish $(Get-Date -Format 'yyyy-MM-ddTHH:mm:ssK') (vault HEAD $headAfter)"
             & git commit -m $commitMsg --quiet
-            Invoke-Checked -Exe "git" -Arguments @("push", "origin", $PagesBranch) | Out-Null
+            Invoke-GitNet @("push", "origin", $PagesBranch) | Out-Null
             Write-Log "Published to gitea pages branch: $commitMsg"
         }
     } finally {

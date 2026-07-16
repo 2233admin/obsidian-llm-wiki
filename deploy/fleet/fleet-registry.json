@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "peers": [
+    {
+      "deviceId": "device/xart-80",
+      "displayName": "5080 / XART-80 (vault host, backup compile leg)",
+      "capabilities": ["vault-host", "lmvk-l5-governance", "memory-sync", "compile-leg-backup"],
+      "transports": [
+        {
+          "kind": "ssh",
+          "priority": 1,
+          "config": { "host": "100.80.248.248", "user": "Administrator", "via": "netbird", "configFile": "none" }
+        },
+        {
+          "kind": "gitea",
+          "priority": 2,
+          "config": { "remote": "https://Curry@git.xart.top:8418/Curry/obsidian-llm-wiki.git", "ref": "main", "via": "store-and-forward" }
+        }
+      ]
+    },
+    {
+      "deviceId": "device/cloud-5090",
+      "displayName": "AU-5090 (primary compile leg, release signing)",
+      "capabilities": ["compile-leg", "release-signing", "fleet-acceptance"],
+      "transports": [
+        {
+          "kind": "ssh",
+          "priority": 1,
+          "config": { "host": "100.80.105.128", "user": "Administrator", "via": "netbird", "configFile": "none" }
+        },
+        {
+          "kind": "gitea",
+          "priority": 2,
+          "config": { "remote": "https://Curry@git.xart.top:8418/Curry/obsidian-llm-wiki.git", "ref": "main", "via": "store-and-forward" }
+        }
+      ]
+    }
+  ]
+}

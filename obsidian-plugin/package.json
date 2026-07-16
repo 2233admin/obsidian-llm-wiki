@@ -1,6 +1,6 @@
 {
   "name": "obsidian-llm-wiki",
-  "version": "0.4.0-beta.1",
+  "version": "0.4.0-beta.2",
   "description": "Obsidian control surface for LLM Wiki settings, health, and governed knowledge operations.",
   "main": "main.js",
   "type": "module",

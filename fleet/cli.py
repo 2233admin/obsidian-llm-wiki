@@ -232,6 +232,40 @@ def cmd_dispatch(vault: str, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_peers(vault: str, args: argparse.Namespace) -> int:
+    """Show fleet peers from the transport registry (optionally probed live)."""
+    hub = FleetHub(vault=vault)
+    report = hub.peers(probe=args.probe)
+
+    if args.json:
+        print(json.dumps(report, indent=2, ensure_ascii=False))
+        return 0 if report["exists"] else 1
+
+    if not report["exists"]:
+        print(f"No fleet registry at {report['registry']}")
+        print("Create one (peers + transports, never secrets) or set LLMWIKI_FLEET_REGISTRY.")
+        return 1
+
+    print(f"Fleet registry: {report['registry']}")
+    for peer in report["peers"]:
+        print(f"\n{peer['deviceId']}  {peer.get('displayName', '')}".rstrip())
+        capabilities = ", ".join(peer.get("capabilities", []))
+        if capabilities:
+            print(f"  capabilities: {capabilities}")
+        for transport in peer.get("transports", []):
+            config = transport.get("config", {})
+            where = config.get("host") or config.get("path") or config.get("remote") or ""
+            via = config.get("via", transport["kind"])
+            print(f"  [{transport['priority']}] {transport['kind']} via {via}  {where}")
+        probe = peer.get("probe")
+        if probe:
+            for result in probe["results"]:
+                mark = "OK  " if result["ok"] else "DOWN"
+                print(f"    {mark} {result['kind']}/{result['via']}  {result['latencyMs']}ms  {result['detail']}")
+            print(f"  reachable: {probe['reachable']}")
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="llmwiki Fleet CLI",
@@ -293,6 +327,12 @@ def main():
     dispatch_parser.add_argument("--output", help="Output spec")
     dispatch_parser.add_argument("--constraints", nargs="*", help="Constraints")
 
+    # peers
+    peers_parser = subparsers.add_parser("peers", help="Show fleet peers from the transport registry")
+    peers_parser.add_argument("vault", help="Vault path")
+    peers_parser.add_argument("--probe", action="store_true", help="Probe every transport live")
+    peers_parser.add_argument("--json", action="store_true", help="Output JSON")
+
     args = parser.parse_args()
 
     if not args.command:
@@ -312,6 +352,7 @@ def main():
         "status": cmd_status,
         "review": cmd_review,
         "dispatch": cmd_dispatch,
+        "peers": cmd_peers,
     }
 
     return commands[args.command](vault, args)

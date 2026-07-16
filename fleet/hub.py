@@ -121,6 +121,34 @@ class FleetHub:
         self.state_file = self.state_dir / "fleet_state.json"
         self._state: FleetState | None = None
 
+    # -- fleet peers (transport-pluggable registry) ---------------------------
+
+    @property
+    def registry_path(self) -> Path:
+        from .registry import FleetRegistry
+        return FleetRegistry.default_path(self.vault)
+
+    def peers(self, probe: bool = False, timeout: float = 8.0) -> dict[str, Any]:
+        """Peers from the transport registry — replaces hardcoded device IPs.
+
+        Probing happens at call time (scan/CLI time, no daemon); each peer's
+        transports are checked in priority order and any healthy one keeps
+        the peer reachable, so a dead primary never requires editing
+        memories, scripts, or the registry.
+        """
+        from .registry import FleetRegistry
+        path = self.registry_path
+        if not path.exists():
+            return {"registry": str(path), "exists": False, "peers": []}
+        registry = FleetRegistry.load(path)
+        peers: list[dict[str, Any]] = []
+        for peer in registry.peers:
+            entry = peer.to_dict()
+            if probe:
+                entry["probe"] = registry.probe(peer.device_id, timeout).to_dict()
+            peers.append(entry)
+        return {"registry": str(path), "exists": True, "peers": peers}
+
     @property
     def state(self) -> FleetState:
         if self._state is None:

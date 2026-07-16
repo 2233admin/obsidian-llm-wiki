@@ -9,6 +9,7 @@ import {
   applyPluginDataMigration,
   parseSettingInput,
   planPluginDataMigration,
+  preservePendingMigrationSource,
   rollbackPluginDataMigration,
   selectEditingScope,
 } from "../src/settings";
@@ -21,8 +22,10 @@ import {
   type SettingsOperationTransport,
   type SettingsSnapshot,
 } from "../src/settings-client";
+import { validateAssignment } from "../../packages/settings-platform/src/validation";
 import type {
   SettingAssignment,
+  SettingDefinition,
   SettingsDocument,
   SettingsMutationResult,
   ValidationResult,
@@ -381,4 +384,80 @@ test("parses Python executable and fixed argv without shell composition", () => 
     executable: "\\\\?\\C:\\Python\\python.exe", args: [],
   });
   assert.throws(() => parseExecutableCommand('"C:\\Python\\python.exe'), /unterminated quote/);
+});
+
+// Issue #51 P1 regressions -------------------------------------------------
+
+test("new-format assignments override legacy top-level runtime bindings", () => {
+  const plan = planPluginDataMigration({
+    schemaVersion: 1,
+    pythonPath: "C:/legacy/python.exe",
+    assignments: { "user-device": { "runtime.python.path": "C:/new/python.exe" } },
+  });
+  const binding = plan.assignments.find(
+    (a) => a.scope === "user-device" && a.key === "runtime.python.path",
+  );
+  assert.equal(binding?.value, "C:/new/python.exe");
+  // a legacy key nothing else binds still migrates
+  const kbPlan = planPluginDataMigration({ schemaVersion: 1, kbMetaPath: "C:/legacy/kb_meta.py" });
+  const kbBinding = kbPlan.assignments.find((a) => a.key === "runtime.kb_meta.path");
+  assert.equal(kbBinding?.value, "C:/legacy/kb_meta.py");
+});
+
+test("pending migration source survives saves until Settings Platform accepts", () => {
+  const raw = {
+    pythonPath: "C:/legacy/python.exe",
+    kbMetaPath: "C:/legacy/kb_meta.py",
+    presentation: { selectedScope: "user-device", showAdvanced: false },
+  };
+  const plan = planPluginDataMigration(raw);
+  assert.ok(plan.assignments.length >= 2);
+  // migration failed; the user changes scope and the plugin saves
+  const afterScopeChange = selectEditingScope(plan.data, "vault");
+  const persisted = preservePendingMigrationSource(raw, afterScopeChange) as Record<string, unknown>;
+  assert.equal(persisted.pythonPath, "C:/legacy/python.exe");
+  assert.equal(persisted.kbMetaPath, "C:/legacy/kb_meta.py");
+  assert.equal((persisted.presentation as { selectedScope: string }).selectedScope, "vault");
+  // restart: replanning from the persisted document still finds the legacy work
+  const replanned = planPluginDataMigration(persisted);
+  assert.equal(replanned.assignments.length, plan.assignments.length);
+  // once accepted, nothing is preserved and the migrated document persists as-is
+  assert.equal(preservePendingMigrationSource(null, plan.data), plan.data);
+});
+
+test("runtime.python.path rejects .bat/.cmd/.ps1 wrappers at both defense lines", () => {
+  // execution entry
+  for (const wrapper of ["C:\py\python.bat", "C:/py/python.CMD", '"C:/wrap dir/python.ps1" -x']) {
+    assert.throws(() => parseExecutableCommand(wrapper), /wrapper/i, wrapper);
+  }
+  assert.throws(() => buildPythonInvocation("C:\py\python.bat", ["kb_meta.py"]), /wrapper/i);
+  // real interpreters still pass
+  assert.equal(parseExecutableCommand("py -3").executable, "py");
+  assert.equal(parseExecutableCommand("C:/Python312/python.exe").executable, "C:/Python312/python.exe");
+
+  // settings validator boundary
+  const definition: SettingDefinition = {
+    key: "runtime.python.path",
+    owner: "runtime.python",
+    category: "runtime",
+    name: "Python runtime",
+    description: "Interpreter command",
+    valueType: "path",
+    defaultValue: "python",
+    allowedScopes: ["user-device", "session"],
+    sensitivity: "local",
+    validator: { id: "non-empty-path", required: true },
+    requires: [],
+    applyMode: "next-operation",
+    visibility: "normal",
+  } as SettingDefinition;
+  const assignment = (value: string): SettingAssignment => ({
+    key: "runtime.python.path",
+    value,
+    provenance: { actor: "test", source: "test" },
+  });
+  const bad = validateAssignment(definition, "user-device", "device/test", assignment("C:\wrap\python.bat"));
+  assert.ok(bad.some(item => item.code === "shell-wrapper-rejected"), "validator must reject wrappers");
+  const good = validateAssignment(definition, "user-device", "device/test", assignment("C:\Python312\python.exe"));
+  assert.equal(good.some(item => item.code === "shell-wrapper-rejected"), false);
 });
