@@ -9,6 +9,7 @@ import {
   applyPluginDataMigration,
   parseSettingInput,
   planPluginDataMigration,
+  preservePendingMigrationSource,
   rollbackPluginDataMigration,
   selectEditingScope,
 } from "../src/settings";
@@ -381,4 +382,43 @@ test("parses Python executable and fixed argv without shell composition", () => 
     executable: "\\\\?\\C:\\Python\\python.exe", args: [],
   });
   assert.throws(() => parseExecutableCommand('"C:\\Python\\python.exe'), /unterminated quote/);
+});
+
+// Issue #51 P1 regressions -------------------------------------------------
+
+test("new-format assignments override legacy top-level runtime bindings", () => {
+  const plan = planPluginDataMigration({
+    schemaVersion: 1,
+    pythonPath: "C:/legacy/python.exe",
+    assignments: { "user-device": { "runtime.python.path": "C:/new/python.exe" } },
+  });
+  const binding = plan.assignments.find(
+    (a) => a.scope === "user-device" && a.key === "runtime.python.path",
+  );
+  assert.equal(binding?.value, "C:/new/python.exe");
+  // a legacy key nothing else binds still migrates
+  const kbPlan = planPluginDataMigration({ schemaVersion: 1, kbMetaPath: "C:/legacy/kb_meta.py" });
+  const kbBinding = kbPlan.assignments.find((a) => a.key === "runtime.kb_meta.path");
+  assert.equal(kbBinding?.value, "C:/legacy/kb_meta.py");
+});
+
+test("pending migration source survives saves until Settings Platform accepts", () => {
+  const raw = {
+    pythonPath: "C:/legacy/python.exe",
+    kbMetaPath: "C:/legacy/kb_meta.py",
+    presentation: { selectedScope: "user-device", showAdvanced: false },
+  };
+  const plan = planPluginDataMigration(raw);
+  assert.ok(plan.assignments.length >= 2);
+  // migration failed; the user changes scope and the plugin saves
+  const afterScopeChange = selectEditingScope(plan.data, "vault");
+  const persisted = preservePendingMigrationSource(raw, afterScopeChange) as Record<string, unknown>;
+  assert.equal(persisted.pythonPath, "C:/legacy/python.exe");
+  assert.equal(persisted.kbMetaPath, "C:/legacy/kb_meta.py");
+  assert.equal((persisted.presentation as { selectedScope: string }).selectedScope, "vault");
+  // restart: replanning from the persisted document still finds the legacy work
+  const replanned = planPluginDataMigration(persisted);
+  assert.equal(replanned.assignments.length, plan.assignments.length);
+  // once accepted, nothing is preserved and the migrated document persists as-is
+  assert.equal(preservePendingMigrationSource(null, plan.data), plan.data);
 });

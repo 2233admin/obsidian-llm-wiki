@@ -17,6 +17,7 @@ import {
   LLMWikiPluginData,
   parseSettingInput,
   planPluginDataMigration,
+  preservePendingMigrationSource,
   selectEditingScope,
 } from "./settings";
 import {
@@ -72,9 +73,17 @@ export default class LLMWikiPlugin extends Plugin {
   private settingsClient!: SettingsOperationClient;
   private agentControlPlaneClient!: AgentControlPlaneClient;
   private migrationError: string | null = null;
+  // The original (unstripped) plugin data document, retained while a legacy
+  // migration is pending so saves cannot destroy the migration source.
+  private pendingMigrationSource: Record<string, unknown> | null = null;
 
   async onload(): Promise<void> {
-    const plan = planPluginDataMigration(await this.loadData());
+    const rawData = await this.loadData();
+    const plan = planPluginDataMigration(rawData);
+    this.pendingMigrationSource =
+      plan.assignments.length && rawData && typeof rawData === "object" && !Array.isArray(rawData)
+        ? (rawData as Record<string, unknown>)
+        : null;
     this.data = plan.data;
     let pluginDataChanged = plan.migrated;
     if (!this.data.deviceBinding) {
@@ -227,10 +236,13 @@ export default class LLMWikiPlugin extends Plugin {
       try {
         const migrated = await applyPluginDataMigration(this.settingsClient, plan);
         this.data = migrated.data;
+        this.pendingMigrationSource = null;
         await this.savePluginData();
       } catch (error) {
-        // Do not save the stripped document until Settings Platform accepts all
-        // assignments. The legacy source remains intact for a later retry.
+        // Do not persist the stripped document until Settings Platform accepts
+        // all assignments. pendingMigrationSource stays set, so any save (scope
+        // change, presentation toggle) keeps the legacy source intact on disk
+        // for a retry after restart.
         this.migrationError = `Legacy settings migration pending: ${String((error as Error)?.message ?? error)}`;
         this.settingsError = this.migrationError;
       }
@@ -240,7 +252,7 @@ export default class LLMWikiPlugin extends Plugin {
   }
 
   async savePluginData(): Promise<void> {
-    await this.saveData(this.data);
+    await this.saveData(preservePendingMigrationSource(this.pendingMigrationSource, this.data));
   }
 
   async setEditingScope(scope: SettingScope): Promise<void> {

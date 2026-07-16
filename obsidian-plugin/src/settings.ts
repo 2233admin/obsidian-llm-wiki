@@ -185,10 +185,13 @@ function collectLegacyAssignments(raw: Record<string, unknown>): LegacyMigration
     ["pythonPath", "runtime.python.path"],
     ["kbMetaPath", "runtime.kb_meta.path"],
   ];
+  // Top-level pythonPath/kbMetaPath are the oldest format; when the structured
+  // raw.assignments document also binds the same key, the newer format wins.
   for (const [legacyKey, key] of directBindings) {
     const value = raw[legacyKey];
-    if (typeof value === "string" && value.trim()) {
-      byIdentity.set(`user-device:${key}`, { scope: "user-device", key, value: value.trim() });
+    const identity = `user-device:${key}`;
+    if (typeof value === "string" && value.trim() && !byIdentity.has(identity)) {
+      byIdentity.set(identity, { scope: "user-device", key, value: value.trim() });
     }
   }
   return [...byIdentity.values()];
@@ -221,6 +224,20 @@ export function planPluginDataMigration(raw: unknown): PluginDataMigrationPlan {
     assignments,
     migrated: raw.schemaVersion !== PLUGIN_DATA_SCHEMA_VERSION || assignments.length > 0 || leakedLegacyPreimage,
   };
+}
+
+/**
+ * Choose what savePluginData persists while a legacy migration is pending.
+ * Until Settings Platform accepts every assignment, the original (unstripped)
+ * document must remain on disk so a retry after restart still sees the legacy
+ * fields; only presentation and device binding may be updated on top of it.
+ */
+export function preservePendingMigrationSource(
+  pendingSource: Record<string, unknown> | null,
+  data: LLMWikiPluginData,
+): unknown {
+  if (!pendingSource) return data;
+  return { ...pendingSource, presentation: data.presentation, deviceBinding: data.deviceBinding };
 }
 
 export function selectEditingScope(data: LLMWikiPluginData, scope: SettingScope): LLMWikiPluginData {
