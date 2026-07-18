@@ -1040,6 +1040,49 @@ class WorkNoteScanScopeTest(unittest.TestCase):
                 ["01-Projects/alpha/issues/one.md"],
             )
 
+    def test_duplicate_authoritative_heads_are_diagnostic_and_not_selected(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="work-os-conflict-") as tmp:
+            vault = Path(tmp)
+            for rel in (
+                "01-Projects/alpha/issues/one.md",
+                "00-Inbox/copied-one.md",
+            ):
+                path = vault / rel
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(
+                    (
+                        "---\n"
+                        "type: issue\n"
+                        "entity: project/alpha/issue/one\n"
+                        "state: todo\n"
+                        "review: reviewed\n"
+                        "status: active\n"
+                        "---\n\n"
+                        f"{rel}\n"
+                    ),
+                    "utf-8",
+                )
+
+            notes = work_protocol.scan_work_notes(str(vault))
+
+            self.assertEqual(work_protocol.current_authoritative_heads(notes), [])
+            self.assertEqual(
+                work_protocol.authoritative_head_diagnostics(notes),
+                [{
+                    "code": "current_truth_conflict",
+                    "entity": "project/alpha/issue/one",
+                    "note_ids": [
+                        "00-Inbox/copied-one.md",
+                        "01-Projects/alpha/issues/one.md",
+                    ],
+                    "message": (
+                        "Multiple authoritative terminal notes claim "
+                        "project/alpha/issue/one; resolve the conflict before "
+                        "rendering or leasing it"
+                    ),
+                }],
+            )
+
 
 # --- Task 8D: triage view (PR3) ----------------------------------------------
 

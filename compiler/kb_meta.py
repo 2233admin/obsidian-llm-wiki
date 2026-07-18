@@ -2020,6 +2020,8 @@ def cmd_work_next(vault, *, claim_agent=None, ttl_seconds=3600, now=None,
                     "message": "Using legacy Projects/<slug>/issues input; migrate to 01-Projects",
                     "count": len(selection_notes),
                 })
+    diagnostics.extend(work_protocol.authoritative_head_diagnostics(selection_notes))
+    selection_notes = work_protocol.current_authoritative_heads(selection_notes)
     actionable = [n for n in selection_notes
                   if work_driver.is_actionable(n, selection_notes)]
     pick = work_driver.select_next(selection_notes)
@@ -2077,10 +2079,23 @@ def cmd_work_board(vault, *, project=None, write=False, lang=None):
 
     notes = work_protocol._walk_work_notes(vault, require_entity=True)
     authoritative = [n for n in notes if n.is_authoritative]
+    scoped = authoritative
+    if project:
+        prefix = f"project/{project}/"
+        scoped = [n for n in authoritative
+                  if n.entity == f"project/{project}"
+                  or (n.entity or "").startswith(prefix)]
+    diagnostics = work_protocol.authoritative_head_diagnostics(scoped)
+    current = work_protocol.current_authoritative_heads(authoritative)
     if lang is None:
         lang = os.environ.get("VAULT_MIND_LANG") or work_driver.detect_vault_lang(notes)
-    board = work_driver.render_kanban_board(authoritative, project=project, lang=lang)
-    result = {"project": project, "lang": lang, "board": board}
+    board = work_driver.render_kanban_board(current, project=project, lang=lang)
+    result = {
+        "project": project,
+        "lang": lang,
+        "board": board,
+        "diagnostics": diagnostics,
+    }
     if write and project:
         anchor = next((n for n in notes if n.entity == f"project/{project}"), None) \
             or next((n for n in authoritative

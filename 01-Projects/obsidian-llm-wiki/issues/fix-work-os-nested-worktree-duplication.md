@@ -1,7 +1,7 @@
 ---
 type: issue
 entity: project/obsidian-llm-wiki/issue/fix-work-os-nested-worktree-duplication
-state: todo
+state: done
 review: reviewed
 kind: bug
 id: obsidian-llm-wiki/fix-work-os-nested-worktree-duplication
@@ -39,3 +39,11 @@ The same entity was observed once in the canonical `01-Projects/obsidian-llm-wik
 - Duplicate authoritative entities outside excluded roots produce deterministic diagnostics rather than repeated cards.
 - Python board and TypeScript project projections remain parity-tested.
 - Existing Work-OS, project, currency, and Work Driver tests pass.
+
+## Verification
+
+- Python and TypeScript scanners exclude all machine-local dot directories, including `.orca/worktrees/**`.
+- Ambiguous reviewed terminal heads return deterministic `current_truth_conflict` diagnostics and are excluded from current-head board and Work Driver inputs.
+- `python -m pytest compiler/tests/test_work_os.py compiler/tests/test_work_driver.py -q`: 195 passed.
+- MCP TypeScript build passed.
+- `node --test dist/project/parity.test.js dist/project/project.test.js`: 22 passed.

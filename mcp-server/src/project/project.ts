@@ -25,6 +25,8 @@ import {
   blockedByRefs,
   renderKanbanBoard,
   detectVaultLang,
+  authoritativeHeadDiagnostics,
+  currentAuthoritativeHeads,
   parseFm,
   splitBody,
   DEFAULT_STATE,
@@ -474,7 +476,8 @@ function canvasId(value: string): string {
 
 function projectIssues(vaultPath: string, project: string): WorkNote[] {
   const prefix = `project/${project}/issue/`;
-  return scanWorkNotes(vaultPath).filter((n) => n.entity && n.entity.startsWith(prefix));
+  return currentAuthoritativeHeads(scanWorkNotes(vaultPath))
+    .filter((n) => n.entity && n.entity.startsWith(prefix));
 }
 
 function buildProjectCanvas(project: string, issues: WorkNote[]): { nodes: CanvasNode[]; edges: CanvasEdge[] } {
@@ -817,13 +820,15 @@ export function makeProjectOps(vaultPath: string): Operation[] {
         const prefix = `project/${project}/issue/`;
         const stateFilter = typeof params.state === 'string' && params.state.trim() ? normalizeStateParam(params.state, DEFAULT_STATE) : undefined;
         const assignee = typeof params.assignee === 'string' && params.assignee.trim() ? params.assignee.trim() : undefined;
-        const issues = scanWorkNotes(vaultPath)
-          .filter((n) => n.entity && n.entity.startsWith(prefix))
+        const scanned = scanWorkNotes(vaultPath);
+        const scoped = scanned.filter((n) => n.entity && n.entity.startsWith(prefix));
+        const diagnostics = authoritativeHeadDiagnostics(scoped);
+        const issues = currentAuthoritativeHeads(scoped)
           .filter((n) => isAuthoritative(n.raw))
           .filter((n) => !stateFilter || workState(n.raw) === stateFilter)
           .filter((n) => !assignee || (typeof n.raw.assignee === 'string' && n.raw.assignee === assignee))
           .map((n) => issueView(n, project));
-        return { count: issues.length, issues };
+        return { count: issues.length, issues, diagnostics };
       },
     },
     {
@@ -1005,9 +1010,14 @@ export function makeProjectOps(vaultPath: string): Operation[] {
         const write = boolParam(params.write, false);
         const notes = scanWorkNotes(vaultPath);
         const authoritative = notes.filter((n) => isAuthoritative(n.raw));
+        const scoped = authoritative.filter(
+          (n) => n.entity === `project/${project}` || (n.entity || '').startsWith(`project/${project}/`),
+        );
+        const diagnostics = authoritativeHeadDiagnostics(scoped);
+        const current = currentAuthoritativeHeads(authoritative);
         const lang = resolveLang(params.lang, notes);
-        const content = renderKanbanBoard(authoritative, project, lang);
-        const result: Record<string, unknown> = { content, lang, project };
+        const content = renderKanbanBoard(current, project, lang);
+        const result: Record<string, unknown> = { content, lang, project, diagnostics };
         if (write) {
           // Write board.md next to the project anchor (or the first issue's dir).
           const anchor =
