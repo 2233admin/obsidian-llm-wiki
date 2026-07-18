@@ -181,6 +181,15 @@ _Avoid_: secret value, API key field, plaintext credential
 **Capability Health**: The explained operational state of an LLM Wiki capability after evaluating its settings, dependencies, and runtime availability. Canonical states are `available`, `degraded`, `unavailable`, and `disabled`.
 _Avoid_: configured boolean, process health, diagnostic finding
 
+**Knowledge Adapter**: A read-side connector that normalizes search, read, graph, embedding, or file-event access over a knowledge source. It cannot execute host operations or define durable knowledge, Project, or Work-OS truth.
+_Avoid_: Host Capability Connector, Provider, source of truth
+
+**Graphify**: The optional Knowledge Adapter that exposes provenance-bearing graph relations and queries across project material. It may supply relationship evidence to Visual Workspace, but it does not own Mind Map Documents or accepted map edges.
+_Avoid_: mind-map editor, Visual Workspace, canonical graph, Host Capability Connector
+
+**Graph Relation Evidence**: A source-attributed relationship whose provenance distinguishes explicit extraction, inference, ambiguity, or unknown confidence. It remains evidence or a suggestion until an approved Visual Edit Plan adopts it.
+_Avoid_: accepted map edge, Work-OS dependency, model guess without provenance
+
 **Host Capability Connector**: A host-local integration that discovers and invokes operational capabilities supplied by an external tool or plugin through normalized LLM Wiki contracts. It reports capability identity, health, permissions, and supported operations, but it does not become a Knowledge Adapter or own LLM Wiki domain semantics.
 _Avoid_: Knowledge Adapter, Provider, arbitrary command bridge, bundled plugin code
 
@@ -189,6 +198,30 @@ _Avoid_: settings form, plugin manifest, command palette entry, runtime instance
 
 **Obsidian Control Plane**: The primary human-facing LLM Wiki client for inspecting and changing settings, capability health, and operations from Obsidian. It is not the settings source of truth and must use the same domain operations as other hosts.
 _Avoid_: settings backend, source of truth, standalone plugin logic
+
+**Visual Workspace**: The LLM Wiki domain that owns normalized visual documents, reviewable visual edits, and deterministic projections over knowledge or project material. It is independent of any particular Obsidian view, renderer, or optional plugin.
+_Avoid_: mind-map plugin, Canvas, renderer, Ask Mate
+
+**Mind Map Document**: A versioned visual knowledge structure with one ordered rooted hierarchy, optional cross-links, stable identities, and source provenance. It is the normalized map state shared by Markdown, Canvas, text, and other projections.
+_Avoid_: Canvas file, Mermaid source, renderer state, arbitrary graph
+
+**Visual Edit Plan**: An immutable preview of proposed Mind Map Document or source changes, bound to current revisions, provenance, affected paths, and a deterministic fingerprint. It authorizes no write until explicitly confirmed through the matching apply operation.
+_Avoid_: autosave, renderer event, unreviewed model output
+
+**Problem Intake**: The LLM Wiki domain that receives diagnostic evidence, deduplicates and tracks problems, and prepares reviewable local or upstream contribution plans. It does not own Work-OS issues or execute remote mutations.
+_Avoid_: issue tracker, diagnostic plugin, automatic bug filing
+
+**Problem Observation**: A provenance-bearing record that a provider observed a specific problem against a canonical subject at a point in time. Its lifecycle and recurrence are independent of any linked Work-OS issue.
+_Avoid_: Work-OS issue, raw log, provider error string
+
+**Issue Change Plan**: An immutable proposal to create, update, or comment on authoritative Work-OS state from reviewed Problem Observations. Apply delegates to Project operations and never writes issue files directly.
+_Avoid_: issue, direct Markdown mutation, remote Issue
+
+**Problem Disposition**: The user's explicit choice to keep a reviewed problem local, submit an upstream Issue, or prepare a verified pull request. Diagnostic collection, credentials, or earlier approval never imply this choice.
+_Avoid_: inferred consent, automatic escalation, issue state
+
+**External Contribution Plan**: An immutable, secret-safe preview of one proposed upstream Issue or pull-request action, including exact target, content or diff, evidence, current remote facts, warnings, and fingerprint. Each external mutation still requires its own current approval and durable receipt.
+_Avoid_: remote mutation, Git command, pull request
 
 **Project**: A durable, goal-driven collaboration context that coordinates work, knowledge, runtime, settings, and integrations under one stable identity. A Project does not become identical to any repository, directory, board, forge project, or vault subtree bound to it.
 _Avoid_: repository, directory, board, issue collection, path-derived identity

@@ -33,6 +33,8 @@ import type {
   GraphData,
   GraphNode,
   GraphEdge,
+  GraphEdgeConfidence,
+  GraphEdgeEvidence,
 } from "./interface.js";
 
 const exec = promisify(execFile);
@@ -81,6 +83,30 @@ interface RawGraph {
 
 // Relations that represent intra-structural hierarchy -> LLM Wiki "tag"
 const TAG_RELATIONS = new Set(["contains", "method"]);
+
+function normalizeConfidence(confidence: string): GraphEdgeConfidence {
+  const normalized = confidence.trim().toLowerCase();
+  if (
+    normalized === "extracted" ||
+    normalized === "inferred" ||
+    normalized === "ambiguous"
+  ) {
+    return normalized;
+  }
+  return "unknown";
+}
+
+function sameEvidence(
+  left: GraphEdgeEvidence,
+  right: GraphEdgeEvidence,
+): boolean {
+  return (
+    left.adapter === right.adapter &&
+    left.relation === right.relation &&
+    left.confidence === right.confidence &&
+    left.sourcePath === right.sourcePath
+  );
+}
 
 export class GraphifyAdapter implements VaultMindAdapter {
   readonly name = "graphify";
@@ -187,9 +213,8 @@ export class GraphifyAdapter implements VaultMindAdapter {
       title: basename(path),
     }));
 
-    // Build file-level edges, skip same-file, dedup by (from, to, type)
-    const edgeSet = new Set<string>();
-    const edges: GraphEdge[] = [];
+    // Build file-level edges, skip same-file, and aggregate distinct evidence.
+    const edgeMap = new Map<string, GraphEdge>();
 
     for (const e of rawEdges) {
       const fromFile = idToFile.get(e.source);
@@ -198,13 +223,30 @@ export class GraphifyAdapter implements VaultMindAdapter {
 
       const type: GraphEdge["type"] = TAG_RELATIONS.has(e.relation) ? "tag" : "link";
       const key = `${fromFile}\0${toFile}\0${type}`;
-      if (!edgeSet.has(key)) {
-        edgeSet.add(key);
-        edges.push({ from: fromFile, to: toFile, type });
+      const evidence: GraphEdgeEvidence = {
+        adapter: this.name,
+        relation: e.relation,
+        confidence: normalizeConfidence(e.confidence),
+        ...(e.source_file ? { sourcePath: e.source_file } : {}),
+      };
+      const existing = edgeMap.get(key);
+      if (existing) {
+        const existingEvidence = existing.evidence ?? [];
+        if (!existingEvidence.some((item) => sameEvidence(item, evidence))) {
+          existingEvidence.push(evidence);
+          existing.evidence = existingEvidence;
+        }
+      } else {
+        edgeMap.set(key, {
+          from: fromFile,
+          to: toFile,
+          type,
+          evidence: [evidence],
+        });
       }
     }
 
-    return { nodes, edges };
+    return { nodes, edges: [...edgeMap.values()] };
   }
 
   async read(path: string): Promise<string> {

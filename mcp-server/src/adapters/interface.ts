@@ -43,10 +43,31 @@ export interface GraphNode {
   title?: string;
 }
 
+export type GraphEdgeConfidence =
+  | "extracted"
+  | "inferred"
+  | "ambiguous"
+  | "unknown";
+
+/**
+ * Adapter-supplied evidence for a normalized graph edge.
+ *
+ * The normalized `type` keeps graph consumers portable while evidence retains
+ * the source adapter's richer relation vocabulary and confidence signal.
+ */
+export interface GraphEdgeEvidence {
+  adapter: string;
+  relation: string;
+  confidence: GraphEdgeConfidence;
+  sourcePath?: string;
+}
+
 export interface GraphEdge {
   from: string;
   to: string;
   type: "link" | "backlink" | "tag";
+  /** Optional because first-party adapters may not expose richer provenance. */
+  evidence?: GraphEdgeEvidence[];
 }
 
 export interface GraphData {

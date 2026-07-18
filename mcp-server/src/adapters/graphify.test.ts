@@ -182,6 +182,48 @@ describe("GraphifyAdapter", () => {
     }
   });
 
+  it("graph() preserves Graphify relation, confidence, adapter, and source evidence", async () => {
+    const fake = makeFakeGraphify();
+    const tmpDir = mkdtempSync(join(tmpdir(), "graphify-out-"));
+    try {
+      writeGraphJson(tmpDir, SAMPLE_GRAPH);
+      const adapter = new GraphifyAdapter({ binary: fake.path, outputDir: tmpDir });
+      await adapter.init();
+      const data = await adapter.graph();
+
+      const callsEdge = data.edges.find(
+        (edge) => edge.from === "src/myclass.py" && edge.to === "src/helper.py",
+      );
+      assert.deepEqual(callsEdge?.evidence, [
+        {
+          adapter: "graphify",
+          relation: "calls",
+          confidence: "extracted",
+          sourcePath: "src/myclass.py",
+        },
+      ]);
+
+      const inferredEdge = data.edges.find(
+        (edge) => edge.from === "src/helper.py" && edge.to === "README.md",
+      );
+      assert.deepEqual(inferredEdge?.evidence, [
+        {
+          adapter: "graphify",
+          relation: "semantically_similar_to",
+          confidence: "inferred",
+          sourcePath: "src/helper.py",
+        },
+      ]);
+    } finally {
+      fake.cleanup();
+      try {
+        rmSync(tmpDir, { recursive: true, force: true });
+      } catch {
+        // ignore
+      }
+    }
+  });
+
   it("graph() maps 'contains' and 'method' cross-file relations to 'tag'", async () => {
     const fake = makeFakeGraphify();
     const tmpDir = mkdtempSync(join(tmpdir(), "graphify-out-"));
@@ -210,7 +252,7 @@ describe("GraphifyAdapter", () => {
     }
   });
 
-  it("graph() deduplicates edges collapsed to same (from, to, type)", async () => {
+  it("graph() deduplicates identical evidence collapsed to same (from, to, type)", async () => {
     const fake = makeFakeGraphify();
     const tmpDir = mkdtempSync(join(tmpdir(), "graphify-out-"));
     try {
@@ -232,6 +274,63 @@ describe("GraphifyAdapter", () => {
       assert.equal(data.edges.length, 1);
       assert.equal(data.edges[0].from, "a.py");
       assert.equal(data.edges[0].to, "b.py");
+      assert.equal(data.edges[0].evidence?.length, 1);
+    } finally {
+      fake.cleanup();
+      try {
+        rmSync(tmpDir, { recursive: true, force: true });
+      } catch {
+        // ignore
+      }
+    }
+  });
+
+  it("graph() aggregates distinct evidence and normalizes unsupported confidence", async () => {
+    const fake = makeFakeGraphify();
+    const tmpDir = mkdtempSync(join(tmpdir(), "graphify-out-"));
+    try {
+      writeGraphJson(tmpDir, {
+        nodes: [
+          { id: "a1", label: "A", file_type: "code", source_file: "a.py" },
+          { id: "a2", label: "A2", file_type: "code", source_file: "a.py" },
+          { id: "b1", label: "B", file_type: "code", source_file: "b.py" },
+        ],
+        edges: [
+          {
+            source: "a1",
+            target: "b1",
+            relation: "calls",
+            confidence: "AMBIGUOUS",
+            source_file: "a.py",
+          },
+          {
+            source: "a2",
+            target: "b1",
+            relation: "depends_on",
+            confidence: "CUSTOM",
+            source_file: "generated/inference.json",
+          },
+        ],
+      });
+      const adapter = new GraphifyAdapter({ binary: fake.path, outputDir: tmpDir });
+      await adapter.init();
+      const data = await adapter.graph();
+
+      assert.equal(data.edges.length, 1);
+      assert.deepEqual(data.edges[0].evidence, [
+        {
+          adapter: "graphify",
+          relation: "calls",
+          confidence: "ambiguous",
+          sourcePath: "a.py",
+        },
+        {
+          adapter: "graphify",
+          relation: "depends_on",
+          confidence: "unknown",
+          sourcePath: "generated/inference.json",
+        },
+      ]);
     } finally {
       fake.cleanup();
       try {

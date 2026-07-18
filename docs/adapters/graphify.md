@@ -58,8 +58,20 @@ graphify's `graph.json` contains symbol-level nodes (functions, classes, heading
 
 1. Reads `graph.json` from `<output_dir>/graph.json`
 2. Collapses all nodes sharing the same `source_file` into one `GraphNode`
-3. Resolves edges from node-id pairs to file pairs, drops same-file edges, deduplicates
+3. Resolves edges from node-id pairs to file pairs and drops same-file edges
 4. Maps `"contains"` and `"method"` edge relations to `GraphEdge.type = "tag"`; everything else becomes `"link"`
+5. Deduplicates each normalized file edge while aggregating distinct provenance records in `GraphEdge.evidence`
+
+Each evidence record retains:
+
+- `adapter`: `"graphify"`
+- `relation`: graphify's original relation, such as `"calls"` or `"semantically_similar_to"`
+- `confidence`: normalized to `"extracted"`, `"inferred"`, `"ambiguous"`, or `"unknown"`
+- `sourcePath`: graphify's source evidence path
+
+Consumers must treat inferred or ambiguous evidence as a suggestion. It does not
+authorize a vault write or visual-map edit until the user accepts the proposed
+change.
 
 ## Edge type mapping
 

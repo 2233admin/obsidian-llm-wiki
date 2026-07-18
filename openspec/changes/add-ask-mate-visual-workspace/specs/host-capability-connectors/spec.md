@@ -11,6 +11,13 @@ An approved Host Capability Connector MAY expose bounded, read-only diagnostic o
 - **WHEN** a plugin adapter returns fields, resources, or data classes outside its approved descriptor
 - **THEN** the proxy rejects the result, records a safe connector diagnostic, and performs no downstream persistence
 
+### Requirement: Knowledge graph adapters remain separate
+Graphify and other Knowledge Adapters SHALL provide read-side search or graph evidence through the Knowledge Adapter registry and SHALL NOT be registered as Host Capability Connectors merely because Ask Mate or Visual Workspace consumes their results.
+
+#### Scenario: Ask Mate requests Graphify relations
+- **WHEN** Ask Mate reads relationship evidence for a map preview
+- **THEN** it uses the read-side graph/query contract without acquiring plugin command authority, a Capability Grant for unrelated host operations, or permission to mutate Graphify state
+
 ### Requirement: No arbitrary Obsidian command bridge
 Host Capability Connectors for Obsidian plugins SHALL invoke only versioned allowlisted adapter operations and SHALL NOT expose arbitrary command identifiers, dynamic code evaluation, unrestricted vault access, or plugin installation as a capability.
 
