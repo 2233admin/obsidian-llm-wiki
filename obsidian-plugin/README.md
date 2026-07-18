@@ -64,6 +64,31 @@ plaintext credentials, usable grant/lease tokens, or governance composition.
 Provider credentials continue to use the Secret Reference selectors in the
 Settings section.
 
+## Ask Mate managed-map slice
+
+For a workspace bound to a canonical Project, open a Markdown map under
+`01-Projects/<project>/maps/` and run **Open Ask Mate for managed project map
+(LLM Wiki)**. The first slice can:
+
+- read the LLM Wiki managed nested-list section through the shared Visual
+  Workspace Operations;
+- revise the hierarchy in a keyboard-operable outline and show a deterministic
+  textual preview;
+- create an immutable, source-hash-bound change plan without writing;
+- apply only after the exact current plan is explicitly confirmed;
+- show optional Graphify relation, confidence, adapter, and source evidence
+  without silently accepting it into the hierarchy.
+
+Graphify is optional. When enabled through Settings, the desktop host initializes
+the shared adapter and can read an existing `graphify-out/graph.json` even when
+the Graphify CLI is unavailable. If Graphify is disabled, missing, or stale,
+managed-map outline, preview, and apply remain usable.
+
+This slice intentionally does not yet adopt ordinary Markdown or Canvas files,
+create new map notes, render Canvas/Mermaid projections, or provide direct node
+dragging. Those remain separate reviewed Visual Workspace changes; ecosystem
+mind-map plugins are optional enhancers rather than required state owners.
+
 ## Build and test
 
 ```bash

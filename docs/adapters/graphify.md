@@ -1,6 +1,6 @@
 # graphify adapter
 
-Wraps the [graphify](https://pypi.org/project/graphifyy/) CLI as an LLM Wiki adapter, adding project-wide knowledge graph capabilities: code, docs, PDFs, images, and video — all extracted and queryable through the same `vault.search` / `vault.graph` / `vault.read` MCP surface.
+Wraps the [graphify](https://pypi.org/project/graphifyy/) CLI as an optional LLM Wiki Knowledge Adapter, adding project-wide relationship evidence for code, docs, PDFs, images, and video. Graphify data stays isolated from the filesystem `vault.graph` contract and never becomes accepted mind-map structure without a confirmed Visual Edit Plan.
 
 ## Quick start
 
@@ -12,45 +12,52 @@ graphify extract /path/to/vault  # build the initial graph
 Then in `vault-mind.yaml`:
 
 ```yaml
-graphify:
-  enabled: true
-  vault_path: "/path/to/your/project"   # defaults to top-level vault_path
+adapters:
+  graphify:
+    enabled: true
+    binary: "graphify"
+    output_dir: ""
+    auto_rescan: false
+    timeout: 30000
 ```
 
-Restart the MCP server. If graphify is not on PATH or `--version` fails, the adapter disables itself and logs a warning -- everything else keeps working.
+Restart the MCP server. The same fields can be set through the Settings Platform keys `adapters.graphify.*`; explicit Settings assignments win over environment variables and `vault-mind.yaml`.
+
+If the CLI is unavailable but a valid cached `graph.json` exists, graph/read evidence remains available in read-only degraded mode while search and rescan are disabled. If neither the CLI nor a cached graph is available, the adapter disables itself and the rest of LLM Wiki keeps working.
 
 ## Capabilities
 
 | Capability | MCP tool | What it does |
 |---|---|---|
-| `search` | `vault.search` | Runs `graphify query <term>` and returns the BFS/DFS traversal text as a single ranked result |
-| `graph` | `vault.graph` | Reads `graphify-out/graph.json`, collapses symbol-level nodes to unique file-level `GraphNode`s |
-| `read` | `vault.read` | Returns all graph symbols belonging to a given source file |
+| `search` | `query.unified` with `adapters=["graphify"]` | Runs `graphify query <term>` and returns bounded traversal text |
+| `graph` | `graph.adapters.query` with `adapters=["graphify"]` | Reads `graph.json` and returns an isolated, provenance-bearing adapter snapshot |
+| `read` | Knowledge Adapter read path | Returns graph symbols belonging to a source file |
+
+`vault.graph` remains the filesystem wikilink graph. It is intentionally not merged with Graphify's adapter-owned graph shape.
 
 ## Config reference
 
 All fields are optional. Unset fields use the defaults shown.
 
 ```yaml
-graphify:
-  enabled: false
+adapters:
+  graphify:
+    enabled: false
 
-  # Path to project root to scan (default: top-level vault_path)
-  vault_path: ""
+    # Directory containing graph.json (default: <vault_path>/graphify-out)
+    output_dir: ""
 
-  # Directory containing graphify-out/graph.json (default: <vault_path>/graphify-out)
-  output_dir: ""
+    # Path/name of graphify binary (default: "graphify")
+    binary: "graphify"
 
-  # Path/name of graphify binary (default: "graphify")
-  binary: "graphify"
+    # Run 'graphify update <vault_path>' before graph reads.
+    auto_rescan: false
 
-  # Run 'graphify update <vault_path>' before returning graph() results.
-  # Keeps the graph fresh at the cost of an extra subprocess per call.
-  auto_rescan: false
-
-  # Subprocess timeout in milliseconds (default: 30000)
-  timeout: 30000
+    # Subprocess timeout in milliseconds (default: 30000)
+    timeout: 30000
 ```
+
+Compatibility top-level `graphify.*`, flat `graphify_*`, and `VAULT_MIND_GRAPHIFY_*` environment values are still accepted. Device-local binary/output paths are restricted to `user-device` or `session` Settings scopes and are never returned in graph/search results.
 
 ## How graph() works
 
@@ -83,6 +90,7 @@ change.
 ## Graceful degradation
 
 - graphify not installed -> adapter marks `isAvailable = false`, logs install hint, returns empty results
+- graphify not installed but cached `graph.json` exists -> graph/read remain available; search/rescan are disabled
 - `graph.json` absent (no `graphify extract` run) -> `graph()` and `read()` return empty, `search()` still works if binary is present
 - Subprocess timeout or crash -> returns empty, does not propagate the error
 

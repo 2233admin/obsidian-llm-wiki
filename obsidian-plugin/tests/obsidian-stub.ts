@@ -25,6 +25,11 @@ export class FileSystemAdapter {
 
 export class App {}
 
+export class WorkspaceLeaf {
+  view: unknown = null;
+  async setViewState(_state: unknown): Promise<void> {}
+}
+
 export class Modal {
   contentEl = {
     empty: () => undefined,
@@ -36,6 +41,30 @@ export class Modal {
   close(): void {}
 }
 
+export class ItemView {
+  containerEl = {
+    children: [
+      {},
+      {
+        empty: () => undefined,
+        addClass: () => undefined,
+        createEl: () => ({
+          createEl: () => ({}),
+          createSpan: () => ({}),
+          createDiv: () => ({}),
+        }),
+        createDiv: () => ({
+          style: { setProperty: () => undefined },
+          createEl: () => ({}),
+        }),
+      },
+    ],
+  };
+  constructor(public leaf: WorkspaceLeaf) {}
+  getViewType(): string { return ""; }
+  getDisplayText(): string { return ""; }
+}
+
 export interface StubCommand {
   id: string;
   name: string;
@@ -45,6 +74,7 @@ export interface StubCommand {
 
 export class Plugin {
   commands: StubCommand[] = [];
+  views = new Map<string, (leaf: WorkspaceLeaf) => unknown>();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   constructor(public app: any, public manifest: { id?: string; dir?: string }) {}
   addCommand(command: StubCommand): StubCommand {
@@ -52,6 +82,9 @@ export class Plugin {
     return command;
   }
   addSettingTab(_tab: unknown): void {}
+  registerView(type: string, creator: (leaf: WorkspaceLeaf) => unknown): void {
+    this.views.set(type, creator);
+  }
   registerEvent(_ref: unknown): void {}
   async loadData(): Promise<unknown> {
     throw new Error("override loadData in the test subclass");

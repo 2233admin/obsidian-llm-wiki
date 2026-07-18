@@ -6,6 +6,7 @@ import { afterEach, describe, it } from "node:test";
 
 import { createSettingsService } from "../settings/settings.js";
 import {
+  parseLegacyKnowledgeAdaptersYaml,
   resolveKnowledgeAdaptersRuntimeProfile,
   resolveKnowledgeAdapterSecret,
   resolveMemUConnectionString,
@@ -46,6 +47,68 @@ async function setSession(
 }
 
 describe("knowledge adapter Settings runtime profile", () => {
+  it("activates documented nested adapters.graphify YAML without treating the adapters key as an empty list", async () => {
+    const parsed = parseLegacyKnowledgeAdaptersYaml(`
+adapters:
+  filesystem:
+    enabled: true  # default, always works
+  obsidian:
+    enabled: false
+  graphify:
+    enabled: true
+    binary: "C:/Tools/graphify.cmd"
+    output_dir: "D:/Graph Cache"
+    auto_rescan: true
+    timeout: 45000
+`);
+
+    assert.deepEqual(parsed.enabledAdapters, ["filesystem", "graphify"]);
+    assert.deepEqual(parsed.graphify, {
+      binary: "C:/Tools/graphify.cmd",
+      outputDir: "D:/Graph Cache",
+      autoRescan: "true",
+      timeoutMs: "45000",
+    });
+
+    const profile = await resolveKnowledgeAdaptersRuntimeProfile(setup({}), {
+      environment: {},
+      legacyEnabledAdapters: parsed.enabledAdapters,
+      legacyGraphify: parsed.graphify,
+    });
+    assert.deepEqual(profile.enabledAdapters, ["filesystem", "graphify"]);
+    assert.equal(profile.graphify.enabled, true);
+    assert.equal(profile.graphify.valid, true);
+    assert.equal(profile.graphify.binary, "C:/Tools/graphify.cmd");
+    assert.equal(profile.graphify.outputDir, "D:/Graph Cache");
+    assert.equal(profile.graphify.autoRescan, true);
+    assert.equal(profile.graphify.timeoutMs, 45_000);
+  });
+
+  it("parses the documented top-level graphify block and fails invalid enablement closed", () => {
+    const documented = parseLegacyKnowledgeAdaptersYaml(`
+graphify:
+  enabled: true
+  output_dir: ""
+  binary: "graphify"
+  auto_rescan: false
+  timeout: 30000
+`);
+    assert.deepEqual(documented.enabledAdapters, ["graphify"]);
+    assert.deepEqual(documented.graphify, {
+      outputDir: "",
+      binary: "graphify",
+      autoRescan: "false",
+      timeoutMs: "30000",
+    });
+
+    const invalid = parseLegacyKnowledgeAdaptersYaml(`
+adapters:
+  graphify:
+    enabled: sometimes
+`);
+    assert.deepEqual(invalid.enabledAdapters, ["invalid-enable:graphify"]);
+  });
+
   it("uses legacy environment only for unassigned fields and never serializes secret values", async () => {
     const environment = {
       VAULT_MIND_ADAPTERS: "filesystem,lightrag,hindsight,kanban,qmd",
@@ -100,6 +163,98 @@ describe("knowledge adapter Settings runtime profile", () => {
     assert.equal(profile.enablement.provenance.source, "settings-assignment");
     assert.equal(profile.lightrag.enabled, false);
     assert.equal(profile.hindsight.enabled, false);
+  });
+
+  it("resolves Graphify Settings over legacy environment and config without retaining overridden values", async () => {
+    const environment = {
+      VAULT_MIND_ADAPTERS: "graphify",
+      VAULT_MIND_GRAPHIFY_BINARY: "legacy-secret-path/graphify",
+      VAULT_MIND_GRAPHIFY_OUTPUT_DIR: "legacy-secret-path/output",
+      VAULT_MIND_GRAPHIFY_AUTO_RESCAN: "false",
+      VAULT_MIND_GRAPHIFY_TIMEOUT_MS: "9000",
+    };
+    const service = setup(environment);
+    await setSession(service, "adapters.enabled", ["graphify"], 0);
+    await setSession(service, "adapters.graphify.binary", "device-graphify", 1);
+    await setSession(service, "adapters.graphify.output_dir", "device-output", 2);
+    await setSession(service, "adapters.graphify.auto_rescan", true, 3);
+    await setSession(service, "adapters.graphify.timeout_ms", 12_345, 4);
+
+    const profile = await resolveKnowledgeAdaptersRuntimeProfile(service, {
+      environment,
+      legacyGraphify: {
+        binary: "config-graphify",
+        outputDir: "config-output",
+        autoRescan: false,
+        timeoutMs: 8_000,
+      },
+    });
+
+    assert.equal(profile.graphify.enabled, true);
+    assert.equal(profile.graphify.valid, true);
+    assert.equal(profile.graphify.binary, "device-graphify");
+    assert.equal(profile.graphify.outputDir, "device-output");
+    assert.equal(profile.graphify.autoRescan, true);
+    assert.equal(profile.graphify.timeoutMs, 12_345);
+    assert.equal(profile.graphify.provenance.binary?.source, "settings-assignment");
+    assert.equal(profile.graphify.provenance.outputDir?.source, "settings-assignment");
+    assert.equal(JSON.stringify(profile).includes("legacy-secret-path"), false);
+  });
+
+  it("accepts legacy Graphify config with portable defaults and explicit provenance", async () => {
+    const environment = { VAULT_MIND_ADAPTERS: "graphify" };
+    const service = setup(environment);
+
+    const legacy = await resolveKnowledgeAdaptersRuntimeProfile(service, {
+      environment,
+      legacyGraphify: {
+        binary: "graphify-local",
+        outputDir: "graph-cache",
+        autoRescan: "true",
+        timeoutMs: "45000",
+      },
+    });
+
+    assert.equal(legacy.graphify.valid, true);
+    assert.equal(legacy.graphify.binary, "graphify-local");
+    assert.equal(legacy.graphify.outputDir, "graph-cache");
+    assert.equal(legacy.graphify.autoRescan, true);
+    assert.equal(legacy.graphify.timeoutMs, 45_000);
+    assert.equal(legacy.graphify.provenance.binary?.source, "legacy-config");
+    assert.equal(legacy.graphify.provenance.autoRescan?.detail, "vault-mind.yaml:graphify_auto_rescan");
+
+    const portable = await resolveKnowledgeAdaptersRuntimeProfile(setup(environment), { environment });
+    assert.equal(portable.graphify.binary, "graphify");
+    assert.equal(portable.graphify.outputDir, undefined);
+    assert.equal(portable.graphify.autoRescan, false);
+    assert.equal(portable.graphify.timeoutMs, 30_000);
+  });
+
+  it("fails Graphify closed for invalid legacy values and keeps device paths out of portable scopes", async () => {
+    const environment = {
+      VAULT_MIND_ADAPTERS: "graphify",
+      VAULT_MIND_GRAPHIFY_AUTO_RESCAN: "sometimes",
+      VAULT_MIND_GRAPHIFY_TIMEOUT_MS: "not-a-number-secret",
+    };
+    const service = setup(environment);
+    const profile = await resolveKnowledgeAdaptersRuntimeProfile(service, { environment });
+
+    assert.equal(profile.graphify.enabled, true);
+    assert.equal(profile.graphify.valid, false);
+    assert.ok(profile.graphify.issues.some(issue => issue.code === "graphify-auto-rescan-invalid"));
+    assert.ok(profile.graphify.issues.some(issue => issue.code === "adapter-number-invalid"));
+    assert.equal(JSON.stringify(profile).includes("not-a-number-secret"), false);
+    assert.equal(JSON.stringify(profile.graphify.issues).includes("sometimes"), false);
+
+    const rejected = await service.assignmentSet({
+      scope: "vault",
+      key: "adapters.graphify.binary",
+      value: "C:\\private-device\\graphify.exe",
+      expectedRevision: 0,
+      updatedBy: "adapter-settings-test",
+    });
+    assert.equal(rejected.status, "validation-error");
+    assert.equal(JSON.stringify(await service.snapshotResolve()).includes("private-device"), false);
   });
 
   it("fails closed for an unknown explicit adapter or unresolved explicit Secret Reference", async () => {

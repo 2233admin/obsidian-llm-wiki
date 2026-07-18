@@ -20,7 +20,8 @@
   "scripts": {
     "settings:build": "node -e \"require('node:fs').rmSync('../packages/settings-platform/dist',{recursive:true,force:true})\" && tsc -p ../packages/settings-platform/tsconfig.build.json --typeRoots ./node_modules/@types",
     "agent-domain:build": "node -e \"require('node:fs').rmSync('../packages/agent-domain/dist',{recursive:true,force:true})\" && tsc -p ../packages/agent-domain/tsconfig.build.json --typeRoots ./node_modules/@types",
-    "platforms:build": "npm run settings:build && npm run agent-domain:build",
+    "visual-workspace:build": "node -e \"require('node:fs').rmSync('../packages/visual-workspace/dist',{recursive:true,force:true})\" && tsc -p ../packages/visual-workspace/tsconfig.build.json --typeRoots ./node_modules/@types",
+    "platforms:build": "npm run settings:build && npm run agent-domain:build && npm run visual-workspace:build",
     "prebuild": "npm run platforms:build",
     "build": "tsc",
     "dev": "tsc --watch",

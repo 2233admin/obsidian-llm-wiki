@@ -84,6 +84,14 @@ export interface QmdRuntimeProfile extends AdapterRuntimeBase {
   provenance: Record<string, KnowledgeAdapterFieldProvenance>;
 }
 
+export interface GraphifyRuntimeProfile extends AdapterRuntimeBase {
+  binary: string;
+  outputDir?: string;
+  autoRescan: boolean;
+  timeoutMs: number;
+  provenance: Record<string, KnowledgeAdapterFieldProvenance>;
+}
+
 export interface HindsightRuntimeProfile extends AdapterRuntimeBase {
   baseUrl?: string;
   bankId?: string;
@@ -123,12 +131,27 @@ export interface KnowledgeAdaptersRuntimeProfile {
   hindsight: HindsightRuntimeProfile;
   kanban: KanbanRuntimeProfile;
   qmd: QmdRuntimeProfile;
+  graphify: GraphifyRuntimeProfile;
+}
+
+export interface LegacyGraphifyRuntimeConfig {
+  binary?: string;
+  outputDir?: string;
+  autoRescan?: string | boolean;
+  timeoutMs?: string | number;
+}
+
+export interface LegacyKnowledgeAdaptersYaml {
+  enabledAdapters?: string[];
+  graphify?: LegacyGraphifyRuntimeConfig;
 }
 
 export interface KnowledgeAdapterProfileOptions {
   environment?: NodeJS.ProcessEnv;
   /** Compatibility input from vault-mind.yaml. Settings assignments still win. */
   legacyEnabledAdapters?: string[];
+  /** Compatibility input from flat graphify_* keys in vault-mind.yaml. */
+  legacyGraphify?: LegacyGraphifyRuntimeConfig;
 }
 
 export interface KnowledgeAdapterSecretResolverOptions {
@@ -248,6 +271,52 @@ export async function resolveKnowledgeAdaptersRuntimeProfile(
   const kanbanGlob = selectString(snapshot, "adapters.kanban.glob", environment.VAULT_MIND_KANBAN_GLOB, "VAULT_MIND_KANBAN_GLOB", "**/*.md");
   const qmdCollection = selectString(snapshot, "adapters.qmd.collection", environment.VAULT_MIND_QMD_COLLECTION, "VAULT_MIND_QMD_COLLECTION", "");
   const qmdBinary = selectString(snapshot, "adapters.qmd.binary", undefined, "", "qmd");
+  const graphifyBinary = selectLegacyString(
+    snapshot,
+    "adapters.graphify.binary",
+    environment.VAULT_MIND_GRAPHIFY_BINARY,
+    "VAULT_MIND_GRAPHIFY_BINARY",
+    options.legacyGraphify?.binary,
+    "vault-mind.yaml:graphify_binary",
+    "graphify",
+  );
+  const graphifyOutputDir = selectLegacyString(
+    snapshot,
+    "adapters.graphify.output_dir",
+    environment.VAULT_MIND_GRAPHIFY_OUTPUT_DIR,
+    "VAULT_MIND_GRAPHIFY_OUTPUT_DIR",
+    options.legacyGraphify?.outputDir,
+    "vault-mind.yaml:graphify_output_dir",
+    "",
+  );
+  const graphifyAutoRescan = selectLegacyBoolean(
+    snapshot,
+    "adapters.graphify.auto_rescan",
+    environment.VAULT_MIND_GRAPHIFY_AUTO_RESCAN,
+    "VAULT_MIND_GRAPHIFY_AUTO_RESCAN",
+    options.legacyGraphify?.autoRescan,
+    "vault-mind.yaml:graphify_auto_rescan",
+    false,
+  );
+  const graphifyTimeout = selectLegacyNumber(
+    snapshot,
+    "adapters.graphify.timeout_ms",
+    environment.VAULT_MIND_GRAPHIFY_TIMEOUT_MS,
+    "VAULT_MIND_GRAPHIFY_TIMEOUT_MS",
+    options.legacyGraphify?.timeoutMs,
+    "vault-mind.yaml:graphify_timeout_ms",
+    30_000,
+  );
+  const graphifyIssues = enabled.has("graphify")
+    ? [
+        ...validateRequiredLocalPath("adapters.graphify.binary", graphifyBinary.value),
+        ...validateOptionalLocalPath("adapters.graphify.output_dir", graphifyOutputDir.value),
+        ...(typeof graphifyAutoRescan.value === "boolean"
+          ? []
+          : [{ code: "graphify-auto-rescan-invalid", message: "adapters.graphify.auto_rescan must be true or false.", key: "adapters.graphify.auto_rescan" }]),
+        ...validateRange("adapters.graphify.timeout_ms", graphifyTimeout.value, 100, 300_000),
+      ]
+    : [];
 
   return {
     snapshotId: snapshot.snapshotId,
@@ -356,6 +425,21 @@ export async function resolveKnowledgeAdaptersRuntimeProfile(
       binary: qmdBinary.value,
       provenance: { collection: qmdCollection.provenance, binary: qmdBinary.provenance },
     },
+    graphify: {
+      enabled: enabled.has("graphify"),
+      valid: graphifyIssues.length === 0,
+      issues: graphifyIssues,
+      binary: graphifyBinary.value,
+      outputDir: nonEmpty(graphifyOutputDir.value),
+      autoRescan: graphifyAutoRescan.value === true,
+      timeoutMs: graphifyTimeout.value,
+      provenance: {
+        binary: graphifyBinary.provenance,
+        outputDir: graphifyOutputDir.provenance,
+        autoRescan: graphifyAutoRescan.provenance,
+        timeoutMs: graphifyTimeout.provenance,
+      },
+    },
   };
 }
 
@@ -390,6 +474,150 @@ export function resolveMemUConnectionString(publicDsn: string, secret: string | 
     throw new Error("MemU Secret Reference resolves to a different database endpoint");
   }
   return secret;
+}
+
+/**
+ * Parse only the documented legacy adapter subset from vault-mind.yaml.
+ * This deliberately is not a general YAML parser: it recognizes adapter
+ * `enabled` flags plus Graphify's scalar runtime fields at either
+ * `adapters.graphify` or the older top-level `graphify` block.
+ */
+export function parseLegacyKnowledgeAdaptersYaml(raw: string): LegacyKnowledgeAdaptersYaml {
+  const enabled = new Map<string, boolean>();
+  const invalidEnablement = new Set<string>();
+  const graphify: LegacyGraphifyRuntimeConfig = {};
+  let section: "adapters" | "graphify" | undefined;
+  let currentAdapter: string | undefined;
+  let sawEnablement = false;
+  let sawGraphifyConfig = false;
+
+  for (const originalLine of raw.split(/\r?\n/)) {
+    if (!originalLine.trim() || originalLine.trimStart().startsWith("#")) continue;
+    const indentation = originalLine.match(/^ */)?.[0].length ?? 0;
+    const content = stripYamlComment(originalLine.slice(indentation)).trim();
+    if (!content) continue;
+
+    if (indentation === 0) {
+      currentAdapter = undefined;
+      if (content === "adapters:") {
+        section = "adapters";
+      } else if (content === "graphify:") {
+        section = "graphify";
+      } else {
+        section = undefined;
+      }
+      continue;
+    }
+
+    if (section === "adapters" && indentation === 2) {
+      const adapter = yamlMappingKey(content);
+      currentAdapter = adapter;
+      continue;
+    }
+
+    const scalar = yamlScalarEntry(content);
+    if (!scalar) continue;
+    if (section === "adapters" && currentAdapter && indentation >= 4) {
+      if (scalar.key === "enabled") {
+        sawEnablement = true;
+        const value = parseLegacyBoolean(scalar.value);
+        if (typeof value === "boolean") {
+          enabled.set(currentAdapter, value);
+          invalidEnablement.delete(currentAdapter);
+        } else {
+          enabled.delete(currentAdapter);
+          invalidEnablement.add(currentAdapter);
+        }
+      }
+      if (currentAdapter === "graphify") {
+        sawGraphifyConfig = applyLegacyGraphifyScalar(graphify, scalar) || sawGraphifyConfig;
+      }
+    } else if (section === "graphify" && indentation >= 2) {
+      if (scalar.key === "enabled") {
+        sawEnablement = true;
+        const value = parseLegacyBoolean(scalar.value);
+        if (typeof value === "boolean") {
+          enabled.set("graphify", value);
+          invalidEnablement.delete("graphify");
+        } else {
+          enabled.delete("graphify");
+          invalidEnablement.add("graphify");
+        }
+      }
+      sawGraphifyConfig = applyLegacyGraphifyScalar(graphify, scalar) || sawGraphifyConfig;
+    }
+  }
+
+  const enabledAdapters = sawEnablement
+    ? [
+        ...[...enabled.entries()].filter(([, isEnabled]) => isEnabled).map(([name]) => name),
+        ...[...invalidEnablement].map(name => `invalid-enable:${name}`),
+      ]
+    : undefined;
+  return {
+    ...(enabledAdapters ? { enabledAdapters } : {}),
+    ...(sawGraphifyConfig ? { graphify } : {}),
+  };
+}
+
+function applyLegacyGraphifyScalar(
+  graphify: LegacyGraphifyRuntimeConfig,
+  scalar: { key: string; value: string },
+): boolean {
+  switch (scalar.key) {
+    case "binary":
+      graphify.binary = scalar.value;
+      return true;
+    case "output_dir":
+      graphify.outputDir = scalar.value;
+      return true;
+    case "auto_rescan":
+      graphify.autoRescan = scalar.value;
+      return true;
+    case "timeout":
+    case "timeout_ms":
+      graphify.timeoutMs = scalar.value;
+      return true;
+    default:
+      return false;
+  }
+}
+
+function yamlMappingKey(content: string): string | undefined {
+  const match = /^([A-Za-z0-9_-]+):\s*$/.exec(content);
+  return match?.[1];
+}
+
+function yamlScalarEntry(content: string): { key: string; value: string } | undefined {
+  const match = /^([A-Za-z0-9_-]+):\s*(.*)$/.exec(content);
+  if (!match) return undefined;
+  return { key: match[1]!, value: unquoteYamlScalar(match[2]!.trim()) };
+}
+
+function unquoteYamlScalar(value: string): string {
+  if (value.length >= 2) {
+    const first = value[0];
+    const last = value[value.length - 1];
+    if ((first === `"` && last === `"`) || (first === `'` && last === `'`)) {
+      return value.slice(1, -1);
+    }
+  }
+  return value;
+}
+
+function stripYamlComment(value: string): string {
+  let quote: `"` | `'` | undefined;
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index];
+    if (quote) {
+      if (character === quote && value[index - 1] !== "\\") quote = undefined;
+    } else if (character === `"` || character === `'`) {
+      quote = character;
+    } else if (character === "#") {
+      return value.slice(0, index);
+    }
+  }
+  return value;
 }
 
 function legacyAdapterList(
@@ -459,6 +687,92 @@ function selectNumber(
     fallback,
     raw ? { source: "legacy-env", detail: legacyName } : undefined,
   );
+}
+
+function selectLegacyString(
+  snapshot: SettingsSnapshot,
+  key: string,
+  environmentValue: string | undefined,
+  environmentName: string,
+  configValue: string | undefined,
+  configName: string,
+  fallback: string,
+): SelectedField<string> {
+  const legacy = selectLegacyValue(
+    environmentValue === undefined ? undefined : environmentValue.trim(),
+    environmentName,
+    configValue === undefined ? undefined : configValue.trim(),
+    configName,
+  );
+  return selectField(snapshot, key, legacy?.value, fallback, legacy?.provenance);
+}
+
+function selectLegacyNumber(
+  snapshot: SettingsSnapshot,
+  key: string,
+  environmentValue: string | undefined,
+  environmentName: string,
+  configValue: string | number | undefined,
+  configName: string,
+  fallback: number,
+): SelectedField<number> {
+  const environmentNumber = environmentValue === undefined
+    ? undefined
+    : Number(environmentValue.trim());
+  const configNumber = configValue === undefined
+    ? undefined
+    : typeof configValue === "number"
+      ? configValue
+      : Number(configValue.trim());
+  const legacy = selectLegacyValue(environmentNumber, environmentName, configNumber, configName);
+  return selectField(snapshot, key, legacy?.value, fallback, legacy?.provenance);
+}
+
+function selectLegacyBoolean(
+  snapshot: SettingsSnapshot,
+  key: string,
+  environmentValue: string | undefined,
+  environmentName: string,
+  configValue: string | boolean | undefined,
+  configName: string,
+  fallback: boolean,
+): SelectedField<unknown> {
+  const legacy = selectLegacyValue(
+    parseLegacyBoolean(environmentValue),
+    environmentName,
+    parseLegacyBoolean(configValue),
+    configName,
+  );
+  return selectField<unknown>(snapshot, key, legacy?.value, fallback, legacy?.provenance);
+}
+
+function selectLegacyValue<T>(
+  environmentValue: T | undefined,
+  environmentName: string,
+  configValue: T | undefined,
+  configName: string,
+): { value: T; provenance: KnowledgeAdapterFieldProvenance } | undefined {
+  if (environmentValue !== undefined) {
+    return {
+      value: environmentValue,
+      provenance: { source: "legacy-env", detail: environmentName },
+    };
+  }
+  if (configValue !== undefined) {
+    return {
+      value: configValue,
+      provenance: { source: "legacy-config", detail: configName },
+    };
+  }
+  return undefined;
+}
+
+function parseLegacyBoolean(value: string | boolean | undefined): boolean | string | undefined {
+  if (typeof value === "boolean" || value === undefined) return value;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "true") return true;
+  if (normalized === "false") return false;
+  return normalized;
 }
 
 function selectField<T>(
@@ -598,6 +912,18 @@ function validateRange(key: string, value: number, min: number, max: number): Kn
   return Number.isFinite(value) && value >= min && value <= max
     ? []
     : [{ code: "adapter-number-invalid", message: `${key} must be between ${min} and ${max}.`, key }];
+}
+
+function validateOptionalLocalPath(key: string, value: string): KnowledgeAdapterProfileIssue[] {
+  return !value || (value.length <= 1_000 && !/[\0\r\n]/.test(value))
+    ? []
+    : [{ code: "adapter-path-invalid", message: `${key} must be an empty or valid device-local path.`, key }];
+}
+
+function validateRequiredLocalPath(key: string, value: string): KnowledgeAdapterProfileIssue[] {
+  return value && value.length <= 1_000 && !/[\0\r\n]/.test(value)
+    ? []
+    : [{ code: "adapter-path-invalid", message: `${key} must be a valid device-local path or executable name.`, key }];
 }
 
 function validateStringList(key: string, value: unknown): KnowledgeAdapterProfileIssue[] {

@@ -50,7 +50,10 @@ Implementation follows that change's proposal, design, capability specs, and eig
 - [x] First-release product boundary is locked: outline editing and live preview are core; direct node dragging and ecosystem mind-map plugins are optional.
 - [x] Domain vocabulary, OpenSpec proposal/design/capability deltas, eight tracer bullets, and primary-source prior-art review are landed in the working change.
 - [x] The shared graph edge contract and Graphify adapter retain aggregated relation, confidence, adapter identity, and source evidence, with graceful degradation and regression coverage.
-- [ ] The first user-visible vertical slice—managed Markdown map read, safe outline revision, deterministic preview, and hash-locked confirmed apply—remains to be implemented.
+- [x] The first managed-map vertical slice is implemented: shared Domain validation, byte-preserving Markdown round trip, immutable preview, source-hash conflict rejection, replay receipts, MCP parity, and an Obsidian Ask Mate outline/preview/confirm surface.
+- [x] Graphify runtime settings and the shared read-only adapter graph facade are activated; Obsidian treats Graphify evidence as optional, provenance-bearing review context and degrades without blocking outline editing.
+- [ ] Ordinary Markdown/Canvas adoption, portable Canvas/Mermaid projections, and first-party map creation remain before the complete Visual Workspace promise is met.
+- [ ] Problem Intake/OBC, approved plugin diagnostics, Project Hub traceability, upstream Issue submission, and verified draft-PR preparation remain unimplemented.
 
 ## Acceptance
 

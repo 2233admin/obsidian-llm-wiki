@@ -40,6 +40,10 @@ import {
 import { createDefaultHostCapabilityTransportFactory } from '../host-capabilities/transport.js';
 import { makeLegacyAgentMigrationOps } from '../agent-domain/legacy-migration.js';
 import { makeAgentDomainOps } from '../agent-domain/operations.js';
+import { makeVisualWorkspaceOps } from '../visual-workspace/operations.js';
+import { makeAdapterGraphOps } from '../adapters/graph-query.js';
+
+export { makeAdapterGraphOps };
 
 const execAsync = promisify(execFile);
 const PROTECTED_DIRS = new Set(['.obsidian', '.trash', '.git', 'node_modules']);
@@ -1227,6 +1231,8 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     }),
     ...makeAgentDomainOps(vaultPath),
     ...makeLegacyAgentMigrationOps(),
+    ...makeVisualWorkspaceOps(vaultPath),
+    ...makeAdapterGraphOps(registry),
   ];
   return [...operations, ...compileOps, ...queryOps, ...multimodalOps, ...lightRagOps, ...agentOps, ...holonOps];
 }

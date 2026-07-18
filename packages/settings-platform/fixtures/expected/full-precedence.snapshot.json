@@ -608,6 +608,66 @@
       "overriddenCandidates": []
     },
     {
+      "key": "adapters.graphify.binary",
+      "value": "graphify",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.graphify.output_dir",
+      "value": "",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.graphify.auto_rescan",
+      "value": false,
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.graphify.timeout_ms",
+      "value": 30000,
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
       "key": "diagnostics.obc.semantic.enabled",
       "value": false,
       "winningScope": "session",

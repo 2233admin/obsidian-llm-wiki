@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "map-release",
+  "title": "First release",
+  "rootId": "release-root",
+  "nodes": [
+    { "id": "release-root", "label": "First release" },
+    { "id": "ask-mate", "label": "Ask Mate" },
+    { "id": "outline", "label": "Outline editing" },
+    { "id": "graphify", "label": "Graphify suggestions" }
+  ],
+  "edges": [
+    { "from": "release-root", "to": "ask-mate" },
+    { "from": "ask-mate", "to": "outline" },
+    { "from": "release-root", "to": "graphify" }
+  ]
+}

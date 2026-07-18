@@ -25,6 +25,7 @@ import { GraphifyAdapter } from "./adapters/graphify.js";
 import { configureLazyIndex } from "./adapters/vaultbrain/lazy-index.js";
 import { AdapterRegistry } from "./adapters/registry.js";
 import {
+  parseLegacyKnowledgeAdaptersYaml,
   resolveKnowledgeAdaptersRuntimeProfile,
   resolveKnowledgeAdapterSecret,
   resolveMemUConnectionString,
@@ -104,7 +105,16 @@ function setCachedFrontmatter(key: string, value: Record<string, unknown> | null
 
 // Config
 
-function loadConfig(): VaultMindConfig {
+interface RuntimeVaultMindConfig extends VaultMindConfig {
+  graphify?: {
+    binary?: string;
+    outputDir?: string;
+    autoRescan?: string;
+    timeoutMs?: string;
+  };
+}
+
+function loadConfig(): RuntimeVaultMindConfig {
   // Precedence: env var > ./vault-mind.yaml > ../vault-mind.yaml. An explicit
   // env var is a declaration of intent and must not be silently shadowed by an
   // abandoned yaml in cwd or parent -- prior to this fix a stale dev-workspace
@@ -132,7 +142,7 @@ function loadConfig(): VaultMindConfig {
   throw new Error("No vault-mind.yaml found and VAULT_MIND_VAULT_PATH not set");
 }
 
-function parseSimpleYaml(raw: string): VaultMindConfig {
+function parseSimpleYaml(raw: string): RuntimeVaultMindConfig {
   const result: Record<string, string> = {};
   for (const line of raw.split("\n")) {
     const trimmed = line.trim();
@@ -152,10 +162,21 @@ function parseSimpleYaml(raw: string): VaultMindConfig {
       if (!isNaN(n)) adapterWeights[k.slice("adapter_weight_".length)] = n;
     }
   }
+  const legacyAdapters = parseLegacyKnowledgeAdaptersYaml(raw);
+  const flatAdapters = result["adapters"]
+    ?.split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
   return {
     vault_path: result["vault_path"] || "",
     auth_token: result["auth_token"],
-    adapters: result["adapters"]?.split(",").map((s) => s.trim()),
+    adapters: flatAdapters?.length ? flatAdapters : legacyAdapters.enabledAdapters,
+    graphify: {
+      binary: legacyAdapters.graphify?.binary ?? result["graphify_binary"],
+      outputDir: legacyAdapters.graphify?.outputDir ?? result["graphify_output_dir"],
+      autoRescan: legacyAdapters.graphify?.autoRescan?.toString() ?? result["graphify_auto_rescan"],
+      timeoutMs: legacyAdapters.graphify?.timeoutMs?.toString() ?? result["graphify_timeout_ms"] ?? result["graphify_timeout"],
+    },
     collaboration: loadEnvCollaboration(result),
     adapter_weights: Object.keys(adapterWeights).length > 0 ? adapterWeights : undefined,
   };
@@ -1479,6 +1500,7 @@ async function main(): Promise<void> {
   const adapterProfile = await resolveKnowledgeAdaptersRuntimeProfile(settingsService, {
     environment: process.env,
     legacyEnabledAdapters: config.adapters,
+    legacyGraphify: config.graphify,
   });
 
   // --- Adapter registry ---
@@ -1656,11 +1678,21 @@ async function main(): Promise<void> {
   }
 
   if (enabledAdapters.has("graphify")) {
-    const graphifyAdapter = new GraphifyAdapter({ vaultPath: config.vault_path });
-    await graphifyAdapter.init();
-    if (graphifyAdapter.isAvailable) {
-      registry.register(graphifyAdapter);
-      process.stderr.write("obsidian-llm-wiki: [graphify] adapter ready\n");
+    if (!adapterProfile.graphify.valid) {
+      process.stderr.write(`obsidian-llm-wiki: [graphify] settings invalid; adapter disabled (${adapterProfile.graphify.issues.map(item => item.code).join(", ")})\n`);
+    } else {
+      const graphifyAdapter = new GraphifyAdapter({
+        vaultPath: config.vault_path,
+        binary: adapterProfile.graphify.binary,
+        outputDir: adapterProfile.graphify.outputDir,
+        autoRescan: adapterProfile.graphify.autoRescan,
+        timeout: adapterProfile.graphify.timeoutMs,
+      });
+      await graphifyAdapter.init();
+      if (graphifyAdapter.isAvailable) {
+        registry.register(graphifyAdapter);
+        process.stderr.write("obsidian-llm-wiki: [graphify] adapter ready\n");
+      }
     }
   }
 

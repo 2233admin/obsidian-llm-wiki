@@ -1,5 +1,8 @@
 import { createOperationDispatcher, type OperationDispatcher } from "../../mcp-server/src/control-plane/dispatcher";
 import { AdapterRegistry } from "../../mcp-server/src/adapters/registry";
+import { makeAdapterGraphOps } from "../../mcp-server/src/adapters/graph-query";
+import { GraphifyAdapter } from "../../mcp-server/src/adapters/graphify";
+import { resolveKnowledgeAdaptersRuntimeProfile } from "../../mcp-server/src/adapters/settings-runtime";
 import { makeAgentDomainOps } from "../../mcp-server/src/agent-domain/operations";
 import { makeLegacyAgentMigrationOps } from "../../mcp-server/src/agent-domain/legacy-migration";
 import { badRequest, conflict, type Logger, type OperationContext, type VaultExecutor } from "../../mcp-server/src/core/types";
@@ -9,6 +12,7 @@ import { makeProjectHubOps } from "../../mcp-server/src/project/project-hub";
 import { makeProjectOps } from "../../mcp-server/src/project/project";
 import { createSettingsService, makeSettingsOps } from "../../mcp-server/src/settings/settings";
 import { makeUsageOps } from "../../mcp-server/src/usage/operations";
+import { makeVisualWorkspaceOps } from "../../mcp-server/src/visual-workspace/operations";
 import type { AgentControlPlaneTransport } from "./control-plane-client";
 import { InProcessSettingsTransport } from "./settings-host";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -36,6 +40,7 @@ export interface ProductionControlPlaneOptions {
  */
 export class ProductionControlPlaneTransport implements AgentControlPlaneTransport {
   private readonly dispatcher: OperationDispatcher;
+  private readonly ready: Promise<void>;
 
   constructor(options: ProductionControlPlaneOptions) {
     const settingsOptions = {
@@ -57,6 +62,12 @@ export class ProductionControlPlaneTransport implements AgentControlPlaneTranspo
       service: settingsService,
     });
     const adapters = new AdapterRegistry();
+    this.ready = initializeGraphifyAdapter(
+      adapters,
+      settingsHost.service,
+      options.vaultPath,
+      options.environment,
+    ).catch(() => undefined);
     const context: OperationContext = {
       vault: new PromotionVaultExecutor(options.vaultPath),
       adapters,
@@ -84,7 +95,9 @@ export class ProductionControlPlaneTransport implements AgentControlPlaneTranspo
     };
     this.dispatcher = createOperationDispatcher([
       ...makeSettingsOps(settingsOptions, settingsHost.service),
+      ...makeAdapterGraphOps(adapters),
       ...makeProjectOps(options.vaultPath),
+      ...makeVisualWorkspaceOps(options.vaultPath),
       ...makeAgentDomainOps(options.vaultPath),
       ...makeProjectHubOps(adapters, settingsHost.service),
       ...makeUsageOps(options.vaultPath),
@@ -98,9 +111,29 @@ export class ProductionControlPlaneTransport implements AgentControlPlaneTranspo
     ], context);
   }
 
-  invoke<T>(operation: string, args: Record<string, unknown> = {}): Promise<T> {
+  async invoke<T>(operation: string, args: Record<string, unknown> = {}): Promise<T> {
+    if (operation === "graph.adapters.query") await this.ready;
     return this.dispatcher.invoke(operation, args) as Promise<T>;
   }
+}
+
+async function initializeGraphifyAdapter(
+  registry: AdapterRegistry,
+  settingsService: ReturnType<typeof createSettingsService>,
+  vaultPath: string,
+  environment: NodeJS.ProcessEnv | undefined,
+): Promise<void> {
+  const profile = await resolveKnowledgeAdaptersRuntimeProfile(settingsService, { environment });
+  if (!profile.graphify.enabled || !profile.graphify.valid) return;
+  const adapter = new GraphifyAdapter({
+    vaultPath,
+    binary: profile.graphify.binary,
+    outputDir: profile.graphify.outputDir,
+    autoRescan: profile.graphify.autoRescan,
+    timeout: profile.graphify.timeoutMs,
+  });
+  await adapter.init();
+  if (adapter.isAvailable) registry.register(adapter);
 }
 
 const quietLogger: Logger = {

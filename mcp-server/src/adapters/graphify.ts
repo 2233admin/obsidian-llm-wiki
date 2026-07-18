@@ -24,7 +24,13 @@
 import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { promisify } from "node:util";
-import { join, basename } from "node:path";
+import {
+  basename,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+} from "node:path";
 import type {
   VaultMindAdapter,
   AdapterCapability,
@@ -118,6 +124,7 @@ export class GraphifyAdapter implements VaultMindAdapter {
   private readonly timeout: number;
   private readonly autoRescan: boolean;
   private available = false;
+  private cliAvailable = false;
 
   get isAvailable(): boolean {
     return this.available;
@@ -135,18 +142,27 @@ export class GraphifyAdapter implements VaultMindAdapter {
   async init(): Promise<void> {
     try {
       await exec(this.binary, ["--version"], { timeout: 5_000, ...shellOpt(this.binary) });
+      this.cliAvailable = true;
       this.available = true;
     } catch {
-      process.stderr.write(
-        "llmwiki: [warn] graphify CLI not found -- adapter disabled (install: uv tool install graphifyy)\n",
-      );
+      const cachedGraph = await this.readGraphJson();
+      if (cachedGraph) {
+        this.available = true;
+        process.stderr.write(
+          "llmwiki: [warn] graphify CLI not found -- cached graph remains read-only; search and rescan disabled\n",
+        );
+      } else {
+        process.stderr.write(
+          "llmwiki: [warn] graphify CLI not found -- adapter disabled (install: uv tool install graphifyy)\n",
+        );
+      }
     }
   }
 
   async dispose(): Promise<void> {}
 
   async search(query: string, opts?: SearchOpts): Promise<SearchResult[]> {
-    if (!this.available) return [];
+    if (!this.cliAvailable) return [];
     const budget = (opts?.maxResults ?? 20) * 100;
     const args = ["query", query, "--graph", this.graphPath, "--budget", String(budget)];
     try {
@@ -161,7 +177,7 @@ export class GraphifyAdapter implements VaultMindAdapter {
       return [
         {
           source: this.name,
-          path: this.graphPath,
+          path: "graphify-out/graph.json",
           content: text.slice(0, 4_000),
           score: 1.0,
           metadata: { query },
@@ -175,7 +191,7 @@ export class GraphifyAdapter implements VaultMindAdapter {
   async graph(): Promise<GraphData> {
     if (!this.available) return { nodes: [], edges: [] };
 
-    if (this.autoRescan) {
+    if (this.autoRescan && this.cliAvailable) {
       try {
         await exec(this.binary, ["update", this.vaultPath], {
           timeout: this.timeout * 3,
@@ -200,13 +216,15 @@ export class GraphifyAdapter implements VaultMindAdapter {
     // Build id -> source_file lookup for edge resolution
     const idToFile = new Map<string, string>();
     for (const n of rawNodes) {
-      if (n.id && n.source_file) idToFile.set(n.id, n.source_file);
+      const sourcePath = this.portableSourcePath(n.source_file);
+      if (n.id && sourcePath) idToFile.set(n.id, sourcePath);
     }
 
     // Collapse to file-level nodes (unique source_file values)
     const fileSet = new Set<string>();
     for (const n of rawNodes) {
-      if (n.source_file) fileSet.add(n.source_file);
+      const sourcePath = this.portableSourcePath(n.source_file);
+      if (sourcePath) fileSet.add(sourcePath);
     }
     const nodes: GraphNode[] = [...fileSet].map((path) => ({
       path,
@@ -223,11 +241,12 @@ export class GraphifyAdapter implements VaultMindAdapter {
 
       const type: GraphEdge["type"] = TAG_RELATIONS.has(e.relation) ? "tag" : "link";
       const key = `${fromFile}\0${toFile}\0${type}`;
+      const evidenceSourcePath = this.portableSourcePath(e.source_file);
       const evidence: GraphEdgeEvidence = {
         adapter: this.name,
         relation: e.relation,
         confidence: normalizeConfidence(e.confidence),
-        ...(e.source_file ? { sourcePath: e.source_file } : {}),
+        ...(evidenceSourcePath ? { sourcePath: evidenceSourcePath } : {}),
       };
       const existing = edgeMap.get(key);
       if (existing) {
@@ -247,6 +266,28 @@ export class GraphifyAdapter implements VaultMindAdapter {
     }
 
     return { nodes, edges: [...edgeMap.values()] };
+  }
+
+  private portableSourcePath(value: string): string | undefined {
+    if (typeof value !== "string") return undefined;
+    const trimmed = value.trim();
+    if (!trimmed || /[\0\r\n]/.test(trimmed)) return undefined;
+    if (isAbsolute(trimmed) || /^[A-Za-z]:[\\/]/.test(trimmed)) {
+      const candidate = relative(resolve(this.vaultPath), resolve(trimmed)).replace(/\\/g, "/");
+      if (!candidate || candidate.startsWith("../") || candidate === ".." || isAbsolute(candidate)) {
+        return undefined;
+      }
+      return candidate;
+    }
+    const normalized = trimmed.replace(/\\/g, "/").replace(/^\.\/+/, "");
+    if (
+      !normalized
+      || normalized.startsWith("/")
+      || normalized.split("/").some((part) => part === "" || part === "." || part === "..")
+    ) {
+      return undefined;
+    }
+    return normalized;
   }
 
   async read(path: string): Promise<string> {

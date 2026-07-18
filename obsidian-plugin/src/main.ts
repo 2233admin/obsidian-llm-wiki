@@ -6,7 +6,7 @@
 
 import {
   App, Plugin, PluginSettingTab, Setting, Modal, Notice,
-  TFile, TAbstractFile, Menu, FileSystemAdapter,
+  TFile, TAbstractFile, Menu, FileSystemAdapter, WorkspaceLeaf,
 } from "obsidian";
 import { execFile } from "child_process";
 import { promisify } from "util";
@@ -42,7 +42,10 @@ import {
   UnavailableSettingsTransport,
 } from "./settings-client";
 import { obsidianUserDeviceId } from "./settings-host";
-import { ProductionControlPlaneTransport } from "./production-control-plane-host";
+import {
+  OBSIDIAN_CONTROL_PLANE_ACTOR,
+  ProductionControlPlaneTransport,
+} from "./production-control-plane-host";
 import {
   AgentControlPlaneClient,
   AgentControlPlaneTransport,
@@ -52,6 +55,14 @@ import {
   AgentProfileEditorModal,
   ProjectBindingEditorModal,
 } from "./control-plane-ui";
+import {
+  AskMateOperationClient,
+  isManagedProjectMapPath,
+} from "./ask-mate/client";
+import {
+  ASK_MATE_VIEW_TYPE,
+  AskMateView,
+} from "./ask-mate/view";
 
 const pexecFile = promisify(execFile);
 // Shape of `kb_meta promote` JSON (compiler/kb_meta.cmd_promote).
@@ -76,6 +87,7 @@ export default class LLMWikiPlugin extends Plugin {
   settingsError: string | null = null;
   private settingsClient!: SettingsOperationClient;
   private agentControlPlaneClient!: AgentControlPlaneClient;
+  private askMateClient!: AskMateOperationClient;
   private migrationError: string | null = null;
   // The original (unstripped) plugin data document, retained while a legacy
   // migration is pending so saves cannot destroy the migration source.
@@ -100,8 +112,17 @@ export default class LLMWikiPlugin extends Plugin {
     const transport = this.createControlPlaneTransport(deviceBinding);
     this.settingsClient = new SettingsOperationClient(transport);
     this.agentControlPlaneClient = new AgentControlPlaneClient(transport);
+    this.askMateClient = new AskMateOperationClient(transport);
     await this.applyPluginDataPlan(plan, pluginDataChanged);
     await this.refreshSettings(false);
+
+    this.registerView(
+      ASK_MATE_VIEW_TYPE,
+      (leaf: WorkspaceLeaf) => new AskMateView(leaf, this.askMateClient, {
+        proposalActor: OBSIDIAN_CONTROL_PLANE_ACTOR,
+        confirmationActor: OBSIDIAN_CONTROL_PLANE_ACTOR,
+      }),
+    );
 
     this.addCommand({
       id: "promote-candidate",
@@ -124,6 +145,21 @@ export default class LLMWikiPlugin extends Plugin {
       id: "open-agent-control-plane",
       name: "Open Agent control plane (LLM Wiki)",
       callback: () => this.openAgentControlPlane(),
+    });
+
+    this.addCommand({
+      id: "open-ask-mate-active-note",
+      name: "Open Ask Mate for managed project map (LLM Wiki)",
+      checkCallback: (checking: boolean) => {
+        const file = this.app.workspace.getActiveFile();
+        const projectId = this.workspaceProjectId();
+        const ok = !!file
+          && file.extension === "md"
+          && projectId !== null
+          && this.isManagedProjectMap(file.path, projectId);
+        if (ok && !checking) void this.openAskMate(file.path, projectId);
+        return ok;
+      },
     });
 
     this.addCommand({
@@ -150,11 +186,14 @@ export default class LLMWikiPlugin extends Plugin {
     this.addSettingTab(new LLMWikiSettingTab(this.app, this));
   }
 
-  onunload(): void {}
+  onunload(): void {
+    this.app.workspace.detachLeavesOfType(ASK_MATE_VIEW_TYPE);
+  }
 
   /** Injection seam for the shared backend operation host. */
   setAgentControlPlaneTransport(transport: AgentControlPlaneTransport): void {
     this.agentControlPlaneClient = new AgentControlPlaneClient(transport);
+    this.askMateClient = new AskMateOperationClient(transport);
   }
 
   openAgentControlPlane(): void {
@@ -176,6 +215,38 @@ export default class LLMWikiPlugin extends Plugin {
       "",
       async () => undefined,
     ).open();
+  }
+
+  async openAskMate(path: string, projectId = this.workspaceProjectId()): Promise<void> {
+    if (!projectId) {
+      new Notice("LLM Wiki: bind this workspace to a canonical Project before opening Ask Mate.");
+      return;
+    }
+    let leaf: WorkspaceLeaf | null = this.app.workspace.getLeavesOfType(ASK_MATE_VIEW_TYPE)[0] ?? null;
+    if (!leaf) leaf = this.app.workspace.getRightLeaf(false);
+    if (!leaf) {
+      new Notice("LLM Wiki: no workspace leaf is available for Ask Mate.");
+      return;
+    }
+    await leaf.setViewState({ type: ASK_MATE_VIEW_TYPE, active: true });
+    const view = leaf.view;
+    if (!(view instanceof AskMateView)) {
+      new Notice("LLM Wiki: Ask Mate view could not be activated.");
+      return;
+    }
+    await view.openContext({ projectId, path });
+    await this.app.workspace.revealLeaf(leaf);
+  }
+
+  private workspaceProjectId(): `project/${string}` | null {
+    const value = this.data.deviceBinding?.workspaceProjectId;
+    return typeof value === "string" && /^project\/[a-z0-9][a-z0-9-]*$/.test(value)
+      ? value as `project/${string}`
+      : null;
+  }
+
+  private isManagedProjectMap(path: string, projectId: `project/${string}`): boolean {
+    return isManagedProjectMapPath(projectId, path);
   }
 
   private vaultBasePath(): string | null {

@@ -93,6 +93,58 @@ describe("GraphifyAdapter", () => {
     }
   });
 
+  it("keeps a cached graph readable when the CLI is unavailable", async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "graphify-cached-"));
+    try {
+      writeGraphJson(tmpDir, SAMPLE_GRAPH);
+      const adapter = new GraphifyAdapter({
+        binary: "no-such-graphify-xyz123",
+        outputDir: tmpDir,
+      });
+      await adapter.init();
+      assert.equal(adapter.isAvailable, true);
+      assert.equal((await adapter.graph()).nodes.length, 3);
+      assert.deepEqual(await adapter.search("anything"), []);
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("never exposes configured machine paths through search or graph results", async () => {
+    const fake = makeFakeGraphify();
+    const tmpDir = mkdtempSync(join(tmpdir(), "graphify-private-output-"));
+    const vaultDir = mkdtempSync(join(tmpdir(), "graphify-vault-"));
+    try {
+      const privatePath = join(vaultDir, "src", "inside.ts");
+      const outsidePath = join(tmpdir(), "private-user", "outside.ts");
+      writeGraphJson(tmpDir, {
+        nodes: [
+          { id: "inside", label: "Inside", file_type: "code", source_file: privatePath },
+          { id: "outside", label: "Outside", file_type: "code", source_file: outsidePath },
+        ],
+        edges: [],
+      });
+      const adapter = new GraphifyAdapter({
+        binary: fake.path,
+        vaultPath: vaultDir,
+        outputDir: tmpDir,
+      });
+      await adapter.init();
+
+      const search = await adapter.search("inside");
+      assert.equal(search[0]?.path, "graphify-out/graph.json");
+      const graph = await adapter.graph();
+      assert.deepEqual(graph.nodes.map((node) => node.path), ["src/inside.ts"]);
+      const serialized = JSON.stringify({ search, graph });
+      assert.equal(serialized.includes(tmpDir), false);
+      assert.equal(serialized.includes("private-user"), false);
+    } finally {
+      fake.cleanup();
+      rmSync(tmpDir, { recursive: true, force: true });
+      rmSync(vaultDir, { recursive: true, force: true });
+    }
+  });
+
   it("search() returns [] when unavailable", async () => {
     const adapter = new GraphifyAdapter({ binary: "no-such-graphify-xyz123" });
     await adapter.init();

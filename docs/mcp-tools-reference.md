@@ -3,7 +3,7 @@
 > Auto-generated from `mcp-server/src/core/operations.ts`.
 > Run `npm run generate-tools-doc` to regenerate. Do not edit by hand.
 
-Total: **176** operations across **24** namespaces.
+Total: **180** operations across **25** namespaces.
 
 ## `vault.*` (31)
 
@@ -1057,7 +1057,17 @@ Get provenance for a holon: content hash, wikilinks, and annotated causal edges
 
 - `id` (string, required) — Holon ID
 
-## `graph.*` (1)
+## `graph.*` (2)
+
+### `graph.adapters.query`
+
+Read isolated provenance-bearing graph snapshots from graph-capable Knowledge Adapters without merging them into vault.graph.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `adapters` (array, optional) — Optional Knowledge Adapter name allowlist. Empty selects none.
 
 ### `graph.export`
 
@@ -2272,3 +2282,45 @@ Transition one Child Work Run without inferring any parent terminal state.
 - `transitionToken` (string, required)
 - `actor` (string, required)
 - `diagnosticArtifact` (object, optional)
+
+## `visual.*` (3)
+
+### `visual.map.apply`
+
+Apply one complete verified VisualEditPlan with replay-safe local receipt semantics.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, required) — Canonical Project ID (project/<slug>)
+- `plan` (object, required) — Complete immutable VisualEditPlan
+- `presentedFingerprint` (string, required)
+- `actor` (string, required)
+- `transitionToken` (string, required)
+
+### `visual.map.plan`
+
+Create an immutable, hash-bound visual edit preview without writing.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, required) — Canonical Project ID (project/<slug>)
+- `path` (string, required) — 01-Projects/<slug>/maps/**.md path
+- `nextDocument` (object, required) — Complete next MindMapDocument
+- `actor` (string, required) — Actor recorded in immutable plan provenance
+- `origin` (string, required, enum: `user` | `assistant` | `import`)
+- `warnings` (array, optional) — Review warnings retained by the plan
+
+### `visual.map.read`
+
+Read one canonical managed mind-map Markdown section without writing.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, required) — Canonical Project ID (project/<slug>)
+- `path` (string, required) — 01-Projects/<slug>/maps/**.md path
