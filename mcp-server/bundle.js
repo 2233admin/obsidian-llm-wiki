@@ -43038,7 +43038,7 @@ function isAuthoritative(raw) {
     return false;
   return true;
 }
-var SKIP_DIRS = /* @__PURE__ */ new Set([".obsidian", "node_modules", ".git", "schema", ".trash"]);
+var SKIP_DIRS = /* @__PURE__ */ new Set(["node_modules", "schema"]);
 function stripBom(text2) {
   return text2.charCodeAt(0) === 65279 ? text2.slice(1) : text2;
 }
@@ -43059,7 +43059,7 @@ function walkMd(vaultPath, requireEntity) {
     } catch {
       return;
     }
-    const dirs = entries.filter((e) => e.isDirectory() && !SKIP_DIRS.has(e.name) && !e.name.startsWith("_")).map((e) => e.name).sort();
+    const dirs = entries.filter((e) => e.isDirectory() && !SKIP_DIRS.has(e.name) && !e.name.startsWith(".") && !e.name.startsWith("_")).map((e) => e.name).sort();
     const files = entries.filter((e) => e.isFile() && e.name.endsWith(".md")).map((e) => e.name).sort();
     for (const fn of files) {
       const f = join7(dir, fn);
@@ -43166,6 +43166,32 @@ function resolveHead(notes, entity) {
     truthConflict,
     conflictNoteIds: reviewedTerminal.map((n) => n.note_id).sort()
   };
+}
+function authoritativeHeadDiagnostics(notes) {
+  const entities = [...new Set(notes.filter((note) => note.entity && isAuthoritative(note.raw)).map((note) => note.entity))].sort();
+  const diagnostics = [];
+  for (const entity of entities) {
+    const resolution = resolveHead(notes, entity);
+    if (resolution.truthConflict) {
+      diagnostics.push({
+        code: "current_truth_conflict",
+        entity,
+        note_ids: [...resolution.conflictNoteIds],
+        message: `Multiple authoritative terminal notes claim ${entity}; resolve the conflict before rendering or leasing it`
+      });
+    }
+  }
+  return diagnostics;
+}
+function currentAuthoritativeHeads(notes) {
+  const entities = [...new Set(notes.filter((note) => note.entity && isAuthoritative(note.raw)).map((note) => note.entity))].sort();
+  const heads = [];
+  for (const entity of entities) {
+    const resolution = resolveHead(notes, entity);
+    if (resolution.head && !resolution.truthConflict)
+      heads.push(resolution.head);
+  }
+  return heads.sort((a, b) => a.note_id < b.note_id ? -1 : a.note_id > b.note_id ? 1 : 0);
 }
 function blockedByRefs(raw) {
   const v = raw["blocked-by"];
@@ -46272,7 +46298,7 @@ function canvasId(value) {
 }
 function projectIssues(vaultPath, project) {
   const prefix = `project/${project}/issue/`;
-  return scanWorkNotes(vaultPath).filter((n) => n.entity && n.entity.startsWith(prefix));
+  return currentAuthoritativeHeads(scanWorkNotes(vaultPath)).filter((n) => n.entity && n.entity.startsWith(prefix));
 }
 function buildProjectCanvas(project, issues) {
   const nodes = [
@@ -46597,8 +46623,11 @@ ${params.body.trim()}` : title;
         const prefix = `project/${project}/issue/`;
         const stateFilter = typeof params.state === "string" && params.state.trim() ? normalizeStateParam(params.state, DEFAULT_STATE) : void 0;
         const assignee = typeof params.assignee === "string" && params.assignee.trim() ? params.assignee.trim() : void 0;
-        const issues = scanWorkNotes(vaultPath).filter((n) => n.entity && n.entity.startsWith(prefix)).filter((n) => isAuthoritative(n.raw)).filter((n) => !stateFilter || workState(n.raw) === stateFilter).filter((n) => !assignee || typeof n.raw.assignee === "string" && n.raw.assignee === assignee).map((n) => issueView(n, project));
-        return { count: issues.length, issues };
+        const scanned = scanWorkNotes(vaultPath);
+        const scoped = scanned.filter((n) => n.entity && n.entity.startsWith(prefix));
+        const diagnostics = authoritativeHeadDiagnostics(scoped);
+        const issues = currentAuthoritativeHeads(scoped).filter((n) => isAuthoritative(n.raw)).filter((n) => !stateFilter || workState(n.raw) === stateFilter).filter((n) => !assignee || typeof n.raw.assignee === "string" && n.raw.assignee === assignee).map((n) => issueView(n, project));
+        return { count: issues.length, issues, diagnostics };
       }
     },
     {
@@ -46791,9 +46820,12 @@ ${body}
         const write = boolParam(params.write, false);
         const notes = scanWorkNotes(vaultPath);
         const authoritative = notes.filter((n) => isAuthoritative(n.raw));
+        const scoped = authoritative.filter((n) => n.entity === `project/${project}` || (n.entity || "").startsWith(`project/${project}/`));
+        const diagnostics = authoritativeHeadDiagnostics(scoped);
+        const current = currentAuthoritativeHeads(authoritative);
         const lang = resolveLang(params.lang, notes);
-        const content = renderKanbanBoard(authoritative, project, lang);
-        const result = { content, lang, project };
+        const content = renderKanbanBoard(current, project, lang);
+        const result = { content, lang, project, diagnostics };
         if (write) {
           const anchor = notes.find((n) => n.entity === `project/${project}`) ?? authoritative.find((n) => (n.entity || "").startsWith(`project/${project}/`));
           if (anchor) {
