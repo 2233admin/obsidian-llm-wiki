@@ -1003,6 +1003,44 @@ class LiveBlockersViewFromRealGraph(unittest.TestCase):
         self.assertNotIn("project/p/issue/a", self._ents(ps["open_actions"]))
 
 
+class WorkNoteScanScopeTest(unittest.TestCase):
+    def test_machine_local_dot_directories_are_excluded(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="work-os-scan-scope-") as tmp:
+            vault = Path(tmp)
+            canonical = vault / "01-Projects" / "alpha" / "issues" / "one.md"
+            nested_copy = (
+                vault
+                / ".orca"
+                / "worktrees"
+                / "run-1"
+                / "01-Projects"
+                / "alpha"
+                / "issues"
+                / "one.md"
+            )
+            note = (
+                "---\n"
+                "type: issue\n"
+                "entity: project/alpha/issue/one\n"
+                "state: todo\n"
+                "review: reviewed\n"
+                "status: active\n"
+                "---\n\n"
+                "One\n"
+            )
+            canonical.parent.mkdir(parents=True)
+            canonical.write_text(note, "utf-8")
+            nested_copy.parent.mkdir(parents=True)
+            nested_copy.write_text(note, "utf-8")
+
+            notes = work_protocol.scan_work_notes(str(vault))
+
+            self.assertEqual(
+                [item.note_id for item in notes if item.entity == "project/alpha/issue/one"],
+                ["01-Projects/alpha/issues/one.md"],
+            )
+
+
 # --- Task 8D: triage view (PR3) ----------------------------------------------
 
 

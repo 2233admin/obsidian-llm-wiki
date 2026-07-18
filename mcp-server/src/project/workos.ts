@@ -318,7 +318,7 @@ export function isAuthoritative(raw: Frontmatter): boolean {
 
 // === scan ==================================================================
 
-const SKIP_DIRS = new Set(['.obsidian', 'node_modules', '.git', 'schema', '.trash']);
+const SKIP_DIRS = new Set(['node_modules', 'schema']);
 
 function stripBom(text: string): string {
   return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
@@ -342,7 +342,13 @@ function walkMd(vaultPath: string, requireEntity: boolean): WorkNote[] {
       return;
     }
     const dirs = entries
-      .filter((e) => e.isDirectory() && !SKIP_DIRS.has(e.name) && !e.name.startsWith('_'))
+      .filter(
+        (e) =>
+          e.isDirectory() &&
+          !SKIP_DIRS.has(e.name) &&
+          !e.name.startsWith('.') &&
+          !e.name.startsWith('_'),
+      )
       .map((e) => e.name)
       .sort();
     const files = entries

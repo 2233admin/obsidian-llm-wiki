@@ -303,10 +303,11 @@ def _walk_work_notes(vault_dir, *, require_entity: bool) -> list[WorkNote]:
     notes: list[WorkNote] = []
     if not root.exists():
         return notes
-    skip = {".obsidian", "node_modules", ".git", "schema", ".trash"}
+    skip = {"node_modules", "schema"}
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = sorted(
-            d for d in dirnames if d not in skip and not d.startswith("_")
+            d for d in dirnames
+            if d not in skip and not d.startswith((".", "_"))
         )
         for fn in sorted(filenames):
             if not fn.endswith(".md"):

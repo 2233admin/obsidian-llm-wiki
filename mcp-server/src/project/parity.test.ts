@@ -102,6 +102,21 @@ function pythonBoard(vault: string, lang: string): string {
 }
 
 describe('work-OS board parity (TS vs Python)', () => {
+  test('machine-local dot directories are excluded from the authoritative scan', () => {
+    const vault = buildFixture([ISSUES[0]]);
+    try {
+      const nestedIssues = join(vault, '.orca', 'worktrees', 'run-1', '01-Projects', 't', 'issues');
+      mkdirSync(nestedIssues, { recursive: true });
+      writeFileSync(join(nestedIssues, 'a.md'), issueNote(ISSUES[0]), 'utf-8');
+
+      const matches = scanWorkNotes(vault).filter((note) => note.entity === 'project/t/issue/a');
+
+      assert.deepEqual(matches.map((note) => note.note_id), ['01-Projects/t/issues/a.md']);
+    } finally {
+      rmSync(vault, { recursive: true, force: true });
+    }
+  });
+
   test('layer 1 structural: lanes, cards, order (en)', () => {
     const vault = buildFixture(ISSUES);
     try {
