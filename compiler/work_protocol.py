@@ -303,10 +303,11 @@ def _walk_work_notes(vault_dir, *, require_entity: bool) -> list[WorkNote]:
     notes: list[WorkNote] = []
     if not root.exists():
         return notes
-    skip = {".obsidian", "node_modules", ".git", "schema", ".trash"}
+    skip = {"node_modules", "schema"}
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = sorted(
-            d for d in dirnames if d not in skip and not d.startswith("_")
+            d for d in dirnames
+            if d not in skip and not d.startswith((".", "_"))
         )
         for fn in sorted(filenames):
             if not fn.endswith(".md"):
@@ -403,6 +404,36 @@ def resolve_head(notes: list[WorkNote], entity: str) -> HeadResolution:
         truth_conflict=truth_conflict,
         conflict_note_ids=sorted(n.note_id for n in reviewed_terminal),
     )
+
+
+def authoritative_head_diagnostics(notes: list[WorkNote]) -> list[dict]:
+    """Return deterministic diagnostics for ambiguous authoritative entities."""
+    diagnostics = []
+    entities = sorted({n.entity for n in notes if n.entity and n.is_authoritative})
+    for entity in entities:
+        resolution = resolve_head(notes, entity)
+        if resolution.truth_conflict:
+            diagnostics.append({
+                "code": "current_truth_conflict",
+                "entity": entity,
+                "note_ids": list(resolution.conflict_note_ids),
+                "message": (
+                    f"Multiple authoritative terminal notes claim {entity}; "
+                    "resolve the conflict before rendering or leasing it"
+                ),
+            })
+    return diagnostics
+
+
+def current_authoritative_heads(notes: list[WorkNote]) -> list[WorkNote]:
+    """Collapse revision chains to one head and omit ambiguous entities."""
+    heads = []
+    entities = sorted({n.entity for n in notes if n.entity and n.is_authoritative})
+    for entity in entities:
+        resolution = resolve_head(notes, entity)
+        if resolution.head is not None and not resolution.truth_conflict:
+            heads.append(resolution.head)
+    return sorted(heads, key=lambda n: n.note_id)
 
 
 def _resolve_note_id(target: str, group: list[WorkNote]) -> Optional[WorkNote]:

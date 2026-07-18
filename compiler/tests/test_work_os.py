@@ -1003,6 +1003,87 @@ class LiveBlockersViewFromRealGraph(unittest.TestCase):
         self.assertNotIn("project/p/issue/a", self._ents(ps["open_actions"]))
 
 
+class WorkNoteScanScopeTest(unittest.TestCase):
+    def test_machine_local_dot_directories_are_excluded(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="work-os-scan-scope-") as tmp:
+            vault = Path(tmp)
+            canonical = vault / "01-Projects" / "alpha" / "issues" / "one.md"
+            nested_copy = (
+                vault
+                / ".orca"
+                / "worktrees"
+                / "run-1"
+                / "01-Projects"
+                / "alpha"
+                / "issues"
+                / "one.md"
+            )
+            note = (
+                "---\n"
+                "type: issue\n"
+                "entity: project/alpha/issue/one\n"
+                "state: todo\n"
+                "review: reviewed\n"
+                "status: active\n"
+                "---\n\n"
+                "One\n"
+            )
+            canonical.parent.mkdir(parents=True)
+            canonical.write_text(note, "utf-8")
+            nested_copy.parent.mkdir(parents=True)
+            nested_copy.write_text(note, "utf-8")
+
+            notes = work_protocol.scan_work_notes(str(vault))
+
+            self.assertEqual(
+                [item.note_id for item in notes if item.entity == "project/alpha/issue/one"],
+                ["01-Projects/alpha/issues/one.md"],
+            )
+
+    def test_duplicate_authoritative_heads_are_diagnostic_and_not_selected(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="work-os-conflict-") as tmp:
+            vault = Path(tmp)
+            for rel in (
+                "01-Projects/alpha/issues/one.md",
+                "00-Inbox/copied-one.md",
+            ):
+                path = vault / rel
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(
+                    (
+                        "---\n"
+                        "type: issue\n"
+                        "entity: project/alpha/issue/one\n"
+                        "state: todo\n"
+                        "review: reviewed\n"
+                        "status: active\n"
+                        "---\n\n"
+                        f"{rel}\n"
+                    ),
+                    "utf-8",
+                )
+
+            notes = work_protocol.scan_work_notes(str(vault))
+
+            self.assertEqual(work_protocol.current_authoritative_heads(notes), [])
+            self.assertEqual(
+                work_protocol.authoritative_head_diagnostics(notes),
+                [{
+                    "code": "current_truth_conflict",
+                    "entity": "project/alpha/issue/one",
+                    "note_ids": [
+                        "00-Inbox/copied-one.md",
+                        "01-Projects/alpha/issues/one.md",
+                    ],
+                    "message": (
+                        "Multiple authoritative terminal notes claim "
+                        "project/alpha/issue/one; resolve the conflict before "
+                        "rendering or leasing it"
+                    ),
+                }],
+            )
+
+
 # --- Task 8D: triage view (PR3) ----------------------------------------------
 
 

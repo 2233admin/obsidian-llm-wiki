@@ -318,7 +318,7 @@ export function isAuthoritative(raw: Frontmatter): boolean {
 
 // === scan ==================================================================
 
-const SKIP_DIRS = new Set(['.obsidian', 'node_modules', '.git', 'schema', '.trash']);
+const SKIP_DIRS = new Set(['node_modules', 'schema']);
 
 function stripBom(text: string): string {
   return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
@@ -342,7 +342,13 @@ function walkMd(vaultPath: string, requireEntity: boolean): WorkNote[] {
       return;
     }
     const dirs = entries
-      .filter((e) => e.isDirectory() && !SKIP_DIRS.has(e.name) && !e.name.startsWith('_'))
+      .filter(
+        (e) =>
+          e.isDirectory() &&
+          !SKIP_DIRS.has(e.name) &&
+          !e.name.startsWith('.') &&
+          !e.name.startsWith('_'),
+      )
       .map((e) => e.name)
       .sort();
     const files = entries
@@ -468,6 +474,44 @@ export function resolveHead(notes: WorkNote[], entity: string): HeadResolution {
     truthConflict,
     conflictNoteIds: reviewedTerminal.map((n) => n.note_id).sort(),
   };
+}
+
+export interface WorkNoteDiagnostic {
+  code: 'current_truth_conflict';
+  entity: string;
+  note_ids: string[];
+  message: string;
+}
+
+export function authoritativeHeadDiagnostics(notes: WorkNote[]): WorkNoteDiagnostic[] {
+  const entities = [...new Set(
+    notes.filter((note) => note.entity && isAuthoritative(note.raw)).map((note) => note.entity as string),
+  )].sort();
+  const diagnostics: WorkNoteDiagnostic[] = [];
+  for (const entity of entities) {
+    const resolution = resolveHead(notes, entity);
+    if (resolution.truthConflict) {
+      diagnostics.push({
+        code: 'current_truth_conflict',
+        entity,
+        note_ids: [...resolution.conflictNoteIds],
+        message: `Multiple authoritative terminal notes claim ${entity}; resolve the conflict before rendering or leasing it`,
+      });
+    }
+  }
+  return diagnostics;
+}
+
+export function currentAuthoritativeHeads(notes: WorkNote[]): WorkNote[] {
+  const entities = [...new Set(
+    notes.filter((note) => note.entity && isAuthoritative(note.raw)).map((note) => note.entity as string),
+  )].sort();
+  const heads: WorkNote[] = [];
+  for (const entity of entities) {
+    const resolution = resolveHead(notes, entity);
+    if (resolution.head && !resolution.truthConflict) heads.push(resolution.head);
+  }
+  return heads.sort((a, b) => (a.note_id < b.note_id ? -1 : a.note_id > b.note_id ? 1 : 0));
 }
 
 // === blocker graph (work_protocol.py) ======================================

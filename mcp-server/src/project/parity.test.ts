@@ -13,7 +13,15 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
-import { scanWorkNotes, isAuthoritative, renderKanbanBoard, detectVaultLang, detectLang } from './workos.js';
+import {
+  scanWorkNotes,
+  isAuthoritative,
+  renderKanbanBoard,
+  detectVaultLang,
+  detectLang,
+  authoritativeHeadDiagnostics,
+  currentAuthoritativeHeads,
+} from './workos.js';
 
 // The 6-issue fixture: byte-for-byte twin of compiler KanbanRenderTest._notes.
 // Each body's first non-blank line is the entity leaf (a..f) so cardLabel
@@ -102,6 +110,45 @@ function pythonBoard(vault: string, lang: string): string {
 }
 
 describe('work-OS board parity (TS vs Python)', () => {
+  test('machine-local dot directories are excluded from the authoritative scan', () => {
+    const vault = buildFixture([ISSUES[0]]);
+    try {
+      const nestedIssues = join(vault, '.orca', 'worktrees', 'run-1', '01-Projects', 't', 'issues');
+      mkdirSync(nestedIssues, { recursive: true });
+      writeFileSync(join(nestedIssues, 'a.md'), issueNote(ISSUES[0]), 'utf-8');
+
+      const matches = scanWorkNotes(vault).filter((note) => note.entity === 'project/t/issue/a');
+
+      assert.deepEqual(matches.map((note) => note.note_id), ['01-Projects/t/issues/a.md']);
+    } finally {
+      rmSync(vault, { recursive: true, force: true });
+    }
+  });
+
+  test('duplicate authoritative heads are diagnostic and never rendered twice', () => {
+    const vault = buildFixture([ISSUES[0]]);
+    try {
+      const copiedIssue = join(vault, '00-Inbox', 'copied-a.md');
+      mkdirSync(join(vault, '00-Inbox'), { recursive: true });
+      writeFileSync(copiedIssue, issueNote(ISSUES[0]), 'utf-8');
+
+      const notes = scanWorkNotes(vault);
+      const diagnostics = authoritativeHeadDiagnostics(notes);
+      const current = currentAuthoritativeHeads(notes);
+
+      assert.deepEqual(diagnostics, [{
+        code: 'current_truth_conflict',
+        entity: 'project/t/issue/a',
+        note_ids: ['00-Inbox/copied-a.md', '01-Projects/t/issues/a.md'],
+        message: 'Multiple authoritative terminal notes claim project/t/issue/a; resolve the conflict before rendering or leasing it',
+      }]);
+      assert.equal(current.some((note) => note.entity === 'project/t/issue/a'), false);
+      assert.equal(renderKanbanBoard(current, 't', 'en').includes('- [x] a'), false);
+    } finally {
+      rmSync(vault, { recursive: true, force: true });
+    }
+  });
+
   test('layer 1 structural: lanes, cards, order (en)', () => {
     const vault = buildFixture(ISSUES);
     try {
