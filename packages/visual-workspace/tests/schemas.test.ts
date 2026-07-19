@@ -8,6 +8,7 @@ describe("Visual Workspace JSON schemas", () => {
     const directory = fileURLToPath(new URL("../schemas", import.meta.url));
     const names = readdirSync(directory).filter((name) => name.endsWith(".schema.json")).sort();
     assert.deepEqual(names, [
+      "graph-relation-evidence.schema.json",
       "mind-map-document.schema.json",
       "visual-apply-request.schema.json",
       "visual-edit-plan.schema.json",

@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.llmwiki.org/problem-intake/v1/issue-change-plan.schema.json",
+  "title": "IssueChangePlan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "projectId", "observationId", "observationRevision", "existingIssueEntity", "action", "operation", "payload", "evidenceRefs", "warnings", "actor", "fingerprint"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "projectId": { "type": "string", "pattern": "^project\\/[a-z0-9][a-z0-9-]{0,127}$" },
+    "observationId": { "type": "string", "pattern": "^problem\\/[a-f0-9]{64}$" },
+    "observationRevision": { "type": "integer", "minimum": 1 },
+    "existingIssueEntity": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string", "pattern": "^project\\/[a-z0-9][a-z0-9-]{0,127}\\/issue\\/[a-z0-9][a-z0-9-]{0,127}$" }
+      ]
+    },
+    "action": { "enum": ["create", "update", "comment"] },
+    "operation": { "enum": ["project.issue.create", "project.issue.update", "project.comment.add"] },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "description", "body", "priority"],
+      "properties": {
+        "title": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "^[^\\r\\n]+$" },
+        "description": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "^[^\\r\\n]+$" },
+        "body": { "type": "string", "minLength": 1, "maxLength": 8000 },
+        "priority": { "type": "integer", "minimum": 0, "maximum": 4 }
+      }
+    },
+    "evidenceRefs": {
+      "type": "array",
+      "maxItems": 32,
+      "items": { "$ref": "#/$defs/evidence" }
+    },
+    "warnings": {
+      "type": "array",
+      "maxItems": 32,
+      "items": { "type": "string", "minLength": 1, "maxLength": 1000, "pattern": "^[^\\r\\n]+$" }
+    },
+    "actor": { "type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[^\\r\\n]+$" },
+    "fingerprint": { "$ref": "#/$defs/sha256" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "ref"],
+      "properties": {
+        "kind": { "enum": ["vault_path", "citation", "provider_finding", "operation_receipt", "test_result"] },
+        "ref": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "digest": { "$ref": "#/$defs/sha256" },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 500 }
+      }
+    }
+  }
+}

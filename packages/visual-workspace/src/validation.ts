@@ -1,13 +1,17 @@
 import { canonicalDigest, canonicalMindMapDocument, deepClone } from "./canonical.js";
 import { VisualWorkspaceError } from "./errors.js";
 import type {
+  GraphEvidenceReference,
+  GraphRelationEvidence,
   MindMapDocument,
+  MindMapCrossLink,
   MindMapEdge,
   MindMapNode,
   Sha256Digest,
 } from "./types.js";
 
 const BLOCK_ID = /^[A-Za-z0-9][A-Za-z0-9-]{0,127}$/;
+const STABLE_IDENTITY = /^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,255}$/;
 const SHA256 = /^sha256:[a-f0-9]{64}$/;
 const WINDOWS_DRIVE_PATH = /^[A-Za-z]:/;
 
@@ -40,9 +44,28 @@ function text(value: unknown, context: string, allowNewlines = false): string {
   return value;
 }
 
+function optionalFields(
+  value: Record<string, unknown>,
+  required: readonly string[],
+  optional: readonly string[],
+  context: string,
+): void {
+  const allowed = new Set([...required, ...optional]);
+  const unknown = Object.keys(value).filter((key) => !allowed.has(key));
+  const missing = required.filter((key) => !(key in value));
+  if (unknown.length > 0) fail(`${context} has unknown fields: ${unknown.join(", ")}`);
+  if (missing.length > 0) fail(`${context} is missing fields: ${missing.join(", ")}`);
+}
+
 function blockId(value: unknown, context: string): string {
   const candidate = text(value, context);
   if (!BLOCK_ID.test(candidate)) return fail(`${context} must be an Obsidian-compatible block ID`);
+  return candidate;
+}
+
+function stableIdentity(value: unknown, context: string): string {
+  const candidate = text(value, context);
+  if (!STABLE_IDENTITY.test(candidate)) return fail(`${context} must be a stable identity`);
   return candidate;
 }
 
@@ -83,9 +106,145 @@ export function parseMindMapEdge(value: unknown, context = "MindMapEdge"): MindM
   };
 }
 
+function parseGraphEvidenceReference(
+  value: unknown,
+  context = "GraphEvidenceReference",
+): GraphEvidenceReference {
+  const candidate = record(value, context);
+  assertExactFields(candidate, ["kind", "value"], context);
+  if (candidate.kind !== "vault" && candidate.kind !== "url" && candidate.kind !== "adapter") {
+    return fail(`${context}.kind must be vault, url, or adapter`);
+  }
+  const reference = text(candidate.value, `${context}.value`);
+  if (reference.length > 4096) fail(`${context}.value exceeds the 4096-character evidence bound`);
+  if (candidate.kind === "vault") parseVaultRelativePath(reference, `${context}.value`);
+  if (candidate.kind === "url") {
+    let url: URL;
+    try {
+      url = new URL(reference);
+    } catch {
+      return fail(`${context}.value must be an https URL`);
+    }
+    if (url.protocol !== "https:" || url.username || url.password) {
+      return fail(`${context}.value must be a credential-free https URL`);
+    }
+  }
+  if (
+    /(?:authorization|bearer|api[-_]?key|secret|token|password)\s*[:=]/i.test(reference)
+    || /^[A-Za-z]:[\\/]/.test(reference)
+    || reference.startsWith("\\\\")
+  ) {
+    return fail(`${context}.value contains secret-bearing or machine-local material`);
+  }
+  return { kind: candidate.kind, value: reference };
+}
+
+export function parseGraphRelationEvidence(value: unknown): GraphRelationEvidence {
+  const candidate = record(value, "GraphRelationEvidence");
+  assertExactFields(
+    candidate,
+    ["schemaVersion", "id", "adapter", "relation", "fromNodeId", "toNodeId", "confidence", "evidence"],
+    "GraphRelationEvidence",
+  );
+  if (candidate.schemaVersion !== 1) fail("GraphRelationEvidence.schemaVersion must be 1");
+  const adapter = record(candidate.adapter, "GraphRelationEvidence.adapter");
+  assertExactFields(adapter, ["id", "version"], "GraphRelationEvidence.adapter");
+  const confidence = candidate.confidence;
+  if (
+    confidence !== "extracted"
+    && confidence !== "inferred"
+    && confidence !== "ambiguous"
+    && confidence !== "unknown"
+  ) {
+    fail("GraphRelationEvidence.confidence is invalid");
+  }
+  if (!Array.isArray(candidate.evidence) || candidate.evidence.length === 0) {
+    fail("GraphRelationEvidence.evidence must be a non-empty array");
+  }
+  const adapterVersion = text(adapter.version, "GraphRelationEvidence.adapter.version");
+  const relation = text(candidate.relation, "GraphRelationEvidence.relation");
+  if (adapterVersion.length > 128) fail("GraphRelationEvidence.adapter.version exceeds 128 characters");
+  if (relation.length > 512) fail("GraphRelationEvidence.relation exceeds 512 characters");
+  return {
+    schemaVersion: 1,
+    id: stableIdentity(candidate.id, "GraphRelationEvidence.id"),
+    adapter: {
+      id: stableIdentity(adapter.id, "GraphRelationEvidence.adapter.id"),
+      version: adapterVersion,
+    },
+    relation,
+    fromNodeId: blockId(candidate.fromNodeId, "GraphRelationEvidence.fromNodeId"),
+    toNodeId: blockId(candidate.toNodeId, "GraphRelationEvidence.toNodeId"),
+    confidence,
+    evidence: candidate.evidence.map((reference, index) =>
+      parseGraphEvidenceReference(reference, `GraphRelationEvidence.evidence[${index}]`)),
+  };
+}
+
+export function parseMindMapCrossLink(value: unknown, context = "MindMapCrossLink"): MindMapCrossLink {
+  const candidate = record(value, context);
+  assertExactFields(candidate, ["id", "from", "to", "relation", "provenance"], context);
+  const provenance = record(candidate.provenance, `${context}.provenance`);
+  optionalFields(
+    provenance,
+    ["kind"],
+    ["evidenceId", "adapterId", "confidence"],
+    `${context}.provenance`,
+  );
+  if (
+    provenance.kind !== "explicit"
+    && provenance.kind !== "graph_relation_evidence"
+    && provenance.kind !== "model_suggestion"
+  ) {
+    fail(`${context}.provenance.kind is invalid`);
+  }
+  const parsed: MindMapCrossLink = {
+    id: blockId(candidate.id, `${context}.id`),
+    from: blockId(candidate.from, `${context}.from`),
+    to: blockId(candidate.to, `${context}.to`),
+    relation: text(candidate.relation, `${context}.relation`),
+    provenance: { kind: provenance.kind },
+  };
+  if (provenance.evidenceId !== undefined) {
+    parsed.provenance.evidenceId = stableIdentity(
+      provenance.evidenceId,
+      `${context}.provenance.evidenceId`,
+    );
+  }
+  if (provenance.adapterId !== undefined) {
+    parsed.provenance.adapterId = stableIdentity(
+      provenance.adapterId,
+      `${context}.provenance.adapterId`,
+    );
+  }
+  if (provenance.confidence !== undefined) {
+    if (
+      provenance.confidence !== "extracted"
+      && provenance.confidence !== "inferred"
+      && provenance.confidence !== "ambiguous"
+      && provenance.confidence !== "unknown"
+    ) {
+      fail(`${context}.provenance.confidence is invalid`);
+    }
+    parsed.provenance.confidence = provenance.confidence;
+  }
+  if (
+    parsed.provenance.kind === "graph_relation_evidence"
+    && (!parsed.provenance.evidenceId || !parsed.provenance.adapterId || !parsed.provenance.confidence)
+  ) {
+    fail(`${context}.provenance requires Graph Relation Evidence identity, adapter, and confidence`);
+  }
+  return parsed;
+}
+
 export function parseMindMapDocument(value: unknown): MindMapDocument {
   const candidate = record(value, "MindMapDocument");
-  assertExactFields(candidate, ["schemaVersion", "id", "title", "rootId", "nodes", "edges"], "MindMapDocument");
+  optionalFields(
+    candidate,
+    ["schemaVersion", "id", "title", "rootId", "nodes", "edges"],
+    ["crossLinks"],
+    "MindMapDocument",
+  );
   if (candidate.schemaVersion !== 1) fail("MindMapDocument.schemaVersion must be 1");
   if (!Array.isArray(candidate.nodes) || candidate.nodes.length === 0) fail("MindMapDocument.nodes must be non-empty");
   if (!Array.isArray(candidate.edges)) fail("MindMapDocument.edges must be an array");
@@ -98,6 +257,11 @@ export function parseMindMapDocument(value: unknown): MindMapDocument {
     nodes: candidate.nodes.map((node, index) => parseMindMapNode(node, `MindMapDocument.nodes[${index}]`)),
     edges: candidate.edges.map((edge, index) => parseMindMapEdge(edge, `MindMapDocument.edges[${index}]`)),
   };
+  if (candidate.crossLinks !== undefined) {
+    if (!Array.isArray(candidate.crossLinks)) fail("MindMapDocument.crossLinks must be an array");
+    document.crossLinks = candidate.crossLinks.map((edge, index) =>
+      parseMindMapCrossLink(edge, `MindMapDocument.crossLinks[${index}]`));
+  }
   assertValidMindMapGraph(document);
   return deepClone(document);
 }
@@ -133,6 +297,20 @@ export function assertValidMindMapGraph(document: MindMapDocument): void {
     const children = adjacency.get(edge.from) ?? [];
     children.push(edge.to);
     adjacency.set(edge.from, children);
+  }
+
+  const crossLinkIds = new Set<string>();
+  for (const edge of document.crossLinks ?? []) {
+    if (crossLinkIds.has(edge.id)) {
+      throw new VisualWorkspaceError("INVALID_GRAPH", `Duplicate cross-link ID: ${edge.id}`);
+    }
+    crossLinkIds.add(edge.id);
+    if (!ids.has(edge.from) || !ids.has(edge.to)) {
+      throw new VisualWorkspaceError("INVALID_GRAPH", `Dangling cross-link: ${edge.from} -> ${edge.to}`);
+    }
+    if (edge.from === edge.to) {
+      throw new VisualWorkspaceError("INVALID_GRAPH", `Self cross-link at node: ${edge.from}`);
+    }
   }
 
   const roots = document.nodes.filter((node) => indegree.get(node.id) === 0);

@@ -48,7 +48,30 @@ def _minimal_repo(root: Path) -> Path:
     _write(root / "mcp-server" / "agent-domain-cli.js", "#!/usr/bin/env node\nconsole.log('clean');\n")
     _write(root / "mcp-server" / "memu-query.js", "#!/usr/bin/env node\nconsole.log('clean');\n")
     _write(root / "mcp-server" / "usage-cli.js", "#!/usr/bin/env node\nconsole.log('clean');\n")
-    _write(root / "mcp-server" / "package.json", json.dumps({"license": "GPL-3.0-only"}))
+    package_metadata = {
+        "mcp-server": {
+            "name": "@llmwiki/mcp",
+            "version": "1.0.0",
+            "license": "GPL-3.0-only",
+        },
+        "obsidian-plugin": {
+            "name": "llmwiki-plugin",
+            "version": "1.0.0",
+            "license": "GPL-3.0-only",
+        },
+        "packages/agent-domain": {
+            "name": "@llmwiki/agent-domain",
+            "version": "1.0.0",
+            "license": "GPL-3.0-only",
+        },
+        "packages/settings-platform": {
+            "name": "@llmwiki/settings-platform",
+            "version": "1.0.0",
+            "license": "MIT",
+        },
+    }
+    for parent, metadata in package_metadata.items():
+        _write(root / parent / "package.json", json.dumps(metadata))
     _write(root / "obsidian-plugin" / "main.js", "console.log('clean');\n")
     _write(root / "obsidian-plugin" / "manifest.json", json.dumps({"id": "llmwiki"}))
     _write(root / "obsidian-plugin" / "styles.css", ".clean {}\n")
@@ -69,6 +92,53 @@ def _minimal_repo(root: Path) -> Path:
     return root
 
 
+def _activate_ask_mate_release(root: Path) -> Path:
+    components = {
+        "packages/visual-workspace": "@obsidian-llm-wiki/visual-workspace",
+        "packages/problem-intake": "@obsidian-llm-wiki/problem-intake",
+    }
+    for parent, name in components.items():
+        _write(
+            root / parent / "package.json",
+            json.dumps({"name": name, "version": "1.0.0", "license": "GPL-3.0-only"}),
+        )
+        _write(
+            root / parent / "package-lock.json",
+            json.dumps(_lock(name, "GPL-3.0-only")),
+        )
+
+    for relative_schema in verify_release_security.ASK_MATE_SCHEMAS:
+        family = "visual-workspace" if "visual-workspace" in relative_schema.parts else "problem-intake"
+        _write(
+            root / relative_schema,
+            json.dumps(
+                {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "$id": f"https://schemas.llmwiki.org/{family}/v1/{relative_schema.name}",
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {"schemaVersion": {"const": 1}},
+                }
+            ),
+        )
+
+    for path, tokens in verify_release_security.ASK_MATE_SOURCE_CONTRACTS.items():
+        _write(root / path, "\n".join(tokens) + "\n")
+    for path, tokens in verify_release_security.ASK_MATE_GENERATED_CONTRACTS.items():
+        _write(root / path, "\n".join(tokens) + "\n")
+    for path in verify_release_security.ASK_MATE_BUILD_OUTPUTS:
+        _write(root / path, "export {};\n")
+    for path in verify_release_security.ASK_MATE_TEST_EVIDENCE:
+        _write(root / path, "test('release evidence', () => {});\n")
+    for path in verify_release_security.ASK_MATE_RELEASE_SUPPORT:
+        _write(root / path, "offline release support\n")
+    _write(
+        root / "docs" / "ASK_MATE_VISUAL_WORKSPACE.md",
+        "\n".join(verify_release_security.ASK_MATE_DOC_TOKENS) + "\n",
+    )
+    return root
+
+
 @pytest.mark.parametrize(
     ("rule", "text"),
     [
@@ -81,6 +151,7 @@ def _minimal_repo(root: Path) -> Path:
         ("fleet-prompt-sentinel", "PROMPT_BODY_SENTINEL_DO_NOT_SHIP"),
         ("legacy-personal-default", "user_id = 'boris'"),
         ("machine-absolute-path", "C:/Users/operator/private/vault"),
+        ("machine-absolute-path", r"C:\Users\operator\private\vault"),
     ],
 )
 def test_each_release_leak_rule_fails_without_echoing_the_match(rule: str, text: str) -> None:
@@ -107,6 +178,16 @@ def test_explicit_test_fake_marker_is_fixture_only() -> None:
         logical_path="mcp-server/src/runtime.ts",
         scope="source",
     )
+
+
+def test_machine_path_rule_does_not_misread_minified_javascript_regex() -> None:
+    minified = r'o:/\s/.test(o)?r&&(e.push(r),r=""):r+=o'
+
+    assert verify_release_security.scan_text(
+        minified,
+        logical_path="obsidian-plugin/main.js",
+        scope="generated",
+    ) == []
 
 
 @pytest.mark.parametrize(
@@ -162,6 +243,74 @@ def test_runtime_license_review_is_offline_allowlist_and_fail_closed(tmp_path: P
     assert any(
         item["rule"] == "unknown-or-incompatible-runtime-license"
         for item in rejected["findings"]
+    )
+
+
+def test_ask_mate_packages_require_matching_package_and_lock_metadata(tmp_path: Path) -> None:
+    repo = _activate_ask_mate_release(_minimal_repo(tmp_path))
+    approved = verify_release_security.review_runtime_licenses(repo)
+    assert approved["ok"] is True
+    assert {
+        item["name"] for item in approved["components"]
+    } >= {
+        "@obsidian-llm-wiki/visual-workspace",
+        "@obsidian-llm-wiki/problem-intake",
+    }
+
+    lock_path = repo / "packages" / "problem-intake" / "package-lock.json"
+    lock_path.unlink()
+    missing = verify_release_security.review_runtime_licenses(repo)
+    assert any(
+        item["rule"] == "missing-lockfile"
+        and item["path"] == "packages/problem-intake/package-lock.json"
+        for item in missing["findings"]
+    )
+
+    _write(
+        lock_path,
+        json.dumps(_lock("@obsidian-llm-wiki/problem-intake", "GPL-3.0-only")),
+    )
+    package_path = repo / "packages" / "problem-intake" / "package.json"
+    package = json.loads(package_path.read_text(encoding="utf-8"))
+    package["version"] = "0.2.0"
+    package_path.write_text(json.dumps(package), encoding="utf-8")
+    mismatched = verify_release_security.review_runtime_licenses(repo)
+    assert any(
+        item["rule"] == "package-lock-metadata-mismatch"
+        and item["path"].endswith("#version")
+        for item in mismatched["findings"]
+    )
+
+
+def test_ask_mate_release_gate_is_offline_deterministic_and_bundle_closed(tmp_path: Path) -> None:
+    repo = _activate_ask_mate_release(_minimal_repo(tmp_path))
+    first = verify_release_security.review_ask_mate_release(repo)
+    second = verify_release_security.review_ask_mate_release(repo)
+
+    assert first == second
+    assert first["ok"] is True
+    assert first["counts"] == {
+        "schemas": 9,
+        "sourceContracts": 6,
+        "generatedContracts": 2,
+        "buildOutputs": 2,
+        "testEvidence": 10,
+        "releaseSupport": 3,
+        "documentation": 1,
+    }
+
+    bundle = repo / "mcp-server" / "bundle.js"
+    bundle.write_text(
+        bundle.read_text(encoding="utf-8").replace("problem.intake.contribution.apply", ""),
+        encoding="utf-8",
+    )
+    failed = verify_release_security.review_ask_mate_release(repo)
+    assert failed["ok"] is False
+    assert any(
+        item["rule"] == "missing-ask-mate-contract-token"
+        and item["scope"] == "ask-mate-generated-contract"
+        and item["path"] == "mcp-server/bundle.js"
+        for item in failed["findings"]
     )
 
 

@@ -84,6 +84,32 @@
         "to": { "$ref": "#/$defs/blockId" }
       }
     },
+    "crossLink": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "from", "to", "relation", "provenance"],
+      "properties": {
+        "id": { "$ref": "#/$defs/blockId" },
+        "from": { "$ref": "#/$defs/blockId" },
+        "to": { "$ref": "#/$defs/blockId" },
+        "relation": { "$ref": "#/$defs/singleLine" },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind"],
+          "properties": {
+            "kind": { "enum": ["explicit", "graph_relation_evidence", "model_suggestion"] },
+            "evidenceId": { "$ref": "#/$defs/stableIdentity" },
+            "adapterId": { "$ref": "#/$defs/stableIdentity" },
+            "confidence": { "enum": ["extracted", "inferred", "ambiguous", "unknown"] }
+          }
+        }
+      }
+    },
+    "stableIdentity": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,255}$"
+    },
     "document": {
       "type": "object",
       "additionalProperties": false,
@@ -101,6 +127,10 @@
         "edges": {
           "type": "array",
           "items": { "$ref": "#/$defs/edge" }
+        },
+        "crossLinks": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/crossLink" }
         }
       }
     },

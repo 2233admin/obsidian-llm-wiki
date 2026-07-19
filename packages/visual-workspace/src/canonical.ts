@@ -72,5 +72,11 @@ export function canonicalMindMapDocument(document: MindMapDocument): MindMapDocu
     rootId: document.rootId,
     nodes,
     edges,
+    ...(document.crossLinks === undefined
+      ? {}
+      : {
+          crossLinks: [...document.crossLinks].sort((left, right) =>
+            left.id === right.id ? 0 : left.id < right.id ? -1 : 1),
+        }),
   };
 }

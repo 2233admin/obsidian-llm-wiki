@@ -68,4 +68,46 @@ describe("MindMapDocument strict domain contract", () => {
       );
     }
   });
+
+  test("keeps secondary cross-links strict and outside hierarchy validation", () => {
+    const document = documentFixture();
+    const withCrossLink = parseMindMapDocument({
+      ...document,
+      crossLinks: [{
+        id: "outline-graphify",
+        from: "outline",
+        to: "graphify",
+        relation: "supports",
+        provenance: { kind: "explicit" },
+      }],
+    });
+    assert.equal(withCrossLink.edges.length, document.edges.length);
+    assert.equal(withCrossLink.crossLinks?.length, 1);
+    assert.throws(
+      () => parseMindMapDocument({
+        ...document,
+        crossLinks: [{
+          id: "outline-graphify",
+          from: "outline",
+          to: "missing",
+          relation: "supports",
+          provenance: { kind: "explicit" },
+        }],
+      }),
+      /Dangling cross-link/,
+    );
+    assert.throws(
+      () => parseMindMapDocument({
+        ...document,
+        crossLinks: [{
+          id: "outline-graphify",
+          from: "outline",
+          to: "graphify",
+          relation: "supports",
+          provenance: { kind: "explicit", acceptedByMagic: true },
+        }],
+      }),
+      /unknown fields: acceptedByMagic/,
+    );
+  });
 });

@@ -772,6 +772,9 @@ function settingsOperationAllowsTarget(toolName, target) {
 }
 function governedBackendOperationAllowsTarget(toolName, target) {
   const normalized = normalizePolicyPath(target);
+  if (toolName === "visual.map.apply") {
+    return /^01-Projects\/[a-z0-9][a-z0-9-]*\/maps\/(?:[^/]+\/)*[^/]+$/.test(normalized) && !normalized.split("/").some((segment) => segment === "." || segment === "..");
+  }
   if (toolName === "host.proxy.invoke")
     return normalized === "external/host-capability/**";
   if (toolName === "dreamtime.promotion.handoff") {
@@ -6370,6 +6373,66 @@ var v1_default = {
       allowedScopes: ["user-device", "session"],
       sensitivity: "local",
       validator: { id: "non-empty-path", required: true, maxLength: 1e3 },
+      requires: ["adapters.enabled"],
+      applyMode: "restart-required",
+      visibility: "advanced"
+    },
+    {
+      key: "adapters.graphify.binary",
+      owner: "runtime.adapter-graphify",
+      category: "adapters",
+      name: "Graphify executable",
+      description: "Device-local Graphify executable name or path. The portable default resolves through PATH.",
+      valueType: "path",
+      defaultValue: "graphify",
+      allowedScopes: ["user-device", "session"],
+      sensitivity: "local",
+      validator: { id: "non-empty-path", required: true, maxLength: 1e3 },
+      requires: ["adapters.enabled"],
+      applyMode: "restart-required",
+      visibility: "advanced"
+    },
+    {
+      key: "adapters.graphify.output_dir",
+      owner: "runtime.adapter-graphify",
+      category: "adapters",
+      name: "Graphify output directory",
+      description: "Optional device-local directory containing graph.json. Empty uses the portable vault-relative graphify-out directory.",
+      valueType: "path",
+      defaultValue: "",
+      allowedScopes: ["user-device", "session"],
+      sensitivity: "local",
+      validator: { id: "non-empty-path", required: false, maxLength: 1e3 },
+      requires: ["adapters.enabled"],
+      applyMode: "restart-required",
+      visibility: "advanced"
+    },
+    {
+      key: "adapters.graphify.auto_rescan",
+      owner: "runtime.adapter-graphify",
+      category: "adapters",
+      name: "Graphify automatic rescan",
+      description: "Run Graphify update before graph reads. Disabled by default so ordinary reads do not start an external scan.",
+      valueType: "boolean",
+      defaultValue: false,
+      allowedScopes: ["vault", "workspace-project", "session"],
+      sensitivity: "public",
+      validator: { id: "boolean" },
+      requires: ["adapters.enabled"],
+      applyMode: "restart-required",
+      visibility: "advanced"
+    },
+    {
+      key: "adapters.graphify.timeout_ms",
+      owner: "runtime.adapter-graphify",
+      category: "adapters",
+      name: "Graphify subprocess timeout",
+      description: "Fail-closed deadline for Graphify query and update subprocesses.",
+      valueType: "integer",
+      defaultValue: 3e4,
+      allowedScopes: ["user-device", "vault", "workspace-project", "session"],
+      sensitivity: "public",
+      validator: { id: "integer", min: 100, max: 3e5 },
       requires: ["adapters.enabled"],
       applyMode: "restart-required",
       visibility: "advanced"

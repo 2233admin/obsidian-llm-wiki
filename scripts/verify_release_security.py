@@ -16,7 +16,7 @@ from typing import Any, Iterable, Iterator
 
 
 ROOT = Path(__file__).resolve().parents[1]
-POLICY_VERSION = 1
+POLICY_VERSION = 2
 FIXTURE_ALLOW_MARKER = "release-security: allow-test-fixture"
 PROHIBITED_PROVENANCE = re.compile(r"(?:exxeta|exxperts)", re.IGNORECASE)
 PROVENANCE_POLICY_TEST_FILES = frozenset({"tests/test_verify_release_security.py"})
@@ -26,7 +26,7 @@ PROVENANCE_POLICY_TEST_FILES = frozenset({"tests/test_verify_release_security.py
 # value change invalidates the exception and requires an explicit review here.
 FIXTURE_FAKE_MATCH_ALLOWLIST: dict[str, frozenset[str]] = {
     "compiler/tests/fixtures/project-context/architecture-fixture.json": frozenset(
-        {"4dea962c5fce69b5"}
+        {"6c6b4d074728a61d"}
     ),
     "packages/settings-platform/fixtures/conformance/full-precedence.json": frozenset(
         {"28465484f273cedf", "7c6f94f88a19157f", "813c4294bc581775"}
@@ -156,7 +156,8 @@ LEAK_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
         "machine-absolute-path",
         re.compile(
             r"(?<![A-Za-z0-9])(?:"
-            r"[A-Za-z]:(?:(?:\\\\)|[\\/])[^\s\"'`<>|]+|"
+            r"[A-Za-z]:\\{1,2}[^\s\"'`<>|]+|"
+            r"[A-Za-z]:/(?!\\)[^\s\\\"'`<>|]+|"
             r"/(?:home|Users)/[A-Za-z0-9._-]+(?:/[^\s\"'`<>|]+)+|"
             r"(?:\\\\){2}[A-Za-z0-9._-]+(?:\\\\|\\)[A-Za-z0-9$._-]+"
             r"(?:\\\\|\\)[^\s\"'`<>|]+"
@@ -172,11 +173,15 @@ REQUIRED_GENERATED_FILES = (
     Path("mcp-server/usage-cli.js"),
     Path("obsidian-plugin/main.js"),
 )
-LOCKFILES = (
-    Path("mcp-server/package-lock.json"),
-    Path("obsidian-plugin/package-lock.json"),
-    Path("packages/agent-domain/package-lock.json"),
-    Path("packages/settings-platform/package-lock.json"),
+CORE_NODE_COMPONENTS = (
+    (Path("mcp-server/package.json"), Path("mcp-server/package-lock.json")),
+    (Path("obsidian-plugin/package.json"), Path("obsidian-plugin/package-lock.json")),
+    (Path("packages/agent-domain/package.json"), Path("packages/agent-domain/package-lock.json")),
+    (Path("packages/settings-platform/package.json"), Path("packages/settings-platform/package-lock.json")),
+)
+ASK_MATE_NODE_COMPONENTS = (
+    (Path("packages/visual-workspace/package.json"), Path("packages/visual-workspace/package-lock.json")),
+    (Path("packages/problem-intake/package.json"), Path("packages/problem-intake/package-lock.json")),
 )
 PYTHON_COMPONENTS = (Path("compiler/pyproject.toml"),)
 PYTHON_RUNTIME_LICENSES = {
@@ -185,6 +190,117 @@ PYTHON_RUNTIME_LICENSES = {
     # until their license is reviewed and recorded here.
     "orjson": "Apache-2.0 OR MIT",
 }
+
+ASK_MATE_SCHEMAS = (
+    Path("packages/visual-workspace/schemas/mind-map-document.schema.json"),
+    Path("packages/visual-workspace/schemas/visual-edit-plan.schema.json"),
+    Path("packages/visual-workspace/schemas/visual-apply-request.schema.json"),
+    Path("packages/visual-workspace/schemas/graph-relation-evidence.schema.json"),
+    Path("packages/problem-intake/schemas/problem-report.schema.json"),
+    Path("packages/problem-intake/schemas/problem-observation.schema.json"),
+    Path("packages/problem-intake/schemas/issue-change-plan.schema.json"),
+    Path("packages/problem-intake/schemas/problem-disposition.schema.json"),
+    Path("packages/problem-intake/schemas/external-contribution-plan.schema.json"),
+)
+VISUAL_WORKSPACE_OPERATIONS = (
+    "visual.context.read",
+    "visual.map.read",
+    "visual.map.plan",
+    "visual.map.apply",
+    "visual.map.project",
+)
+PROBLEM_INTAKE_OPERATIONS = (
+    "problem.intake.scan",
+    "problem.intake.observe",
+    "problem.intake.list",
+    "problem.intake.lifecycle.apply",
+    "problem.intake.verification.apply",
+    "problem.intake.issue.plan",
+    "problem.intake.issue.apply",
+    "problem.intake.contribution.plan",
+    "problem.intake.contribution.apply",
+)
+ASK_MATE_OPERATIONS = VISUAL_WORKSPACE_OPERATIONS + PROBLEM_INTAKE_OPERATIONS
+ASK_MATE_SOURCE_CONTRACTS: dict[Path, tuple[str, ...]] = {
+    Path("mcp-server/src/visual-workspace/operations.ts"): VISUAL_WORKSPACE_OPERATIONS,
+    Path("mcp-server/src/problem-intake/operations.ts"): PROBLEM_INTAKE_OPERATIONS,
+    Path("obsidian-plugin/src/ask-mate/client.ts"): (
+        "visual.context.read",
+        "visual.map.read",
+        "visual.map.plan",
+        "visual.map.apply",
+        "problem.intake.issue.plan",
+        "problem.intake.issue.apply",
+        "problem.intake.contribution.plan",
+        "problem.intake.contribution.apply",
+    ),
+    Path("obsidian-plugin/src/production-control-plane-host.ts"): (
+        "createVaultGovernedContributionPort",
+        "makeVisualWorkspaceOps",
+        "makeProblemIntakeOps",
+        "createProductionProjectHubIntegration",
+    ),
+    Path("mcp-server/src/contributions/contracts.ts"): (
+        "PendingContributionReceipt",
+        "OutcomeUnknownContributionReceipt",
+        "ContributionReceiptStore",
+    ),
+    Path("mcp-server/src/contributions/receipts.ts"): (
+        "CONTRIBUTION_RECEIPT_SCHEMA_VERSION",
+        "MemoryContributionReceiptStore",
+        "JsonFileContributionReceiptStore",
+    ),
+}
+ASK_MATE_GENERATED_CONTRACTS: dict[Path, tuple[str, ...]] = {
+    Path("mcp-server/bundle.js"): ASK_MATE_OPERATIONS,
+    Path("obsidian-plugin/main.js"): (
+        "llmwiki-ask-mate",
+        "visual.context.read",
+        "visual.map.read",
+        "visual.map.plan",
+        "visual.map.apply",
+        "visual.map.project",
+        "problem.intake.scan",
+        "problem.intake.observe",
+        "problem.intake.list",
+        "problem.intake.lifecycle.apply",
+        "problem.intake.verification.apply",
+        "problem.intake.issue.plan",
+        "problem.intake.issue.apply",
+        "problem.intake.contribution.plan",
+        "problem.intake.contribution.apply",
+    ),
+}
+ASK_MATE_BUILD_OUTPUTS = (
+    Path("packages/visual-workspace/dist/src/index.js"),
+    Path("packages/problem-intake/dist/src/index.js"),
+)
+ASK_MATE_TEST_EVIDENCE = (
+    Path("packages/visual-workspace/tests/schemas.test.ts"),
+    Path("packages/visual-workspace/tests/sources.test.ts"),
+    Path("packages/visual-workspace/tests/projections.test.ts"),
+    Path("packages/problem-intake/tests/schemas.test.ts"),
+    Path("packages/problem-intake/tests/plans.test.ts"),
+    Path("mcp-server/src/visual-workspace/operations.test.ts"),
+    Path("mcp-server/src/problem-intake/obc-runner.test.ts"),
+    Path("mcp-server/src/contributions/service.test.ts"),
+    Path("mcp-server/src/contributions/receipts.test.ts"),
+    Path("obsidian-plugin/tests/ask-mate-interaction.test.ts"),
+)
+ASK_MATE_RELEASE_SUPPORT = (
+    Path("scripts/verify_plugin_upgrade_rollback.py"),
+    Path("tests/test_verify_plugin_upgrade_rollback.py"),
+    Path(".github/workflows/release.yml"),
+)
+ASK_MATE_DOC_TOKENS = (
+    "Experimental enablement and rollback",
+    "Migration and Doctor",
+    "Canvas supported subset",
+    "Privacy, redaction, and remote approval",
+    "Accessibility and mobile acceptance",
+    "Clean-vault acceptance",
+    "GPL-3.0-only and transitive dependency audit",
+)
 
 
 def _logical(path: Path, repo: Path) -> str:
@@ -490,6 +606,99 @@ def _dependency_name(lock_path: str) -> str:
     return lock_path.rsplit("node_modules/", 1)[-1]
 
 
+def _ask_mate_release_applicable(repo: Path) -> bool:
+    return any((repo / package_path.parent).exists() for package_path, _ in ASK_MATE_NODE_COMPONENTS)
+
+
+def _node_components(repo: Path) -> tuple[tuple[Path, Path], ...]:
+    if _ask_mate_release_applicable(repo):
+        return CORE_NODE_COMPONENTS + ASK_MATE_NODE_COMPONENTS
+    return CORE_NODE_COMPONENTS
+
+
+def _load_json_object(path: Path) -> dict[str, Any]:
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
+        raise ValueError("expected a JSON object")
+    return value
+
+
+def _review_node_component_metadata(
+    repo: Path,
+    package_path: Path,
+    lock_path: Path,
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None, list[dict[str, Any]]]:
+    findings: list[dict[str, Any]] = []
+    package_file = repo / package_path
+    lock_file = repo / lock_path
+    if not package_file.is_file():
+        findings.append(
+            _finding("missing-package-metadata", "runtime-license", package_path.as_posix(), 0, package_path.as_posix())
+        )
+        return None, None, findings
+    if not lock_file.is_file():
+        findings.append(
+            _finding("missing-lockfile", "runtime-license", lock_path.as_posix(), 0, lock_path.as_posix())
+        )
+        return None, None, findings
+    try:
+        package = _load_json_object(package_file)
+    except (json.JSONDecodeError, ValueError) as error:
+        findings.append(
+            _finding("invalid-package-metadata", "runtime-license", package_path.as_posix(), 0, str(error))
+        )
+        return None, None, findings
+    try:
+        lock = _load_json_object(lock_file)
+    except (json.JSONDecodeError, ValueError) as error:
+        findings.append(
+            _finding("invalid-lockfile", "runtime-license", lock_path.as_posix(), 0, str(error))
+        )
+        return package, None, findings
+
+    packages = lock.get("packages")
+    root = packages.get("") if isinstance(packages, dict) else None
+    if lock.get("lockfileVersion") != 3 or not isinstance(root, dict):
+        findings.append(
+            _finding("invalid-lockfile", "runtime-license", lock_path.as_posix(), 0, "lockfileVersion/packages")
+        )
+        return package, lock, findings
+
+    for field in ("name", "version", "license"):
+        expected = package.get(field)
+        actual = root.get(field)
+        if not isinstance(expected, str) or not expected or actual != expected:
+            findings.append(
+                _finding(
+                    "package-lock-metadata-mismatch",
+                    "runtime-license",
+                    f"{lock_path.as_posix()}#{field}",
+                    0,
+                    f"{expected!r}!={actual!r}",
+                )
+            )
+    for field in ("dependencies", "optionalDependencies", "devDependencies"):
+        expected = package.get(field, {})
+        actual = root.get(field, {})
+        valid = (
+            isinstance(expected, dict)
+            and isinstance(actual, dict)
+            and all(isinstance(name, str) and isinstance(version, str) for name, version in expected.items())
+            and all(isinstance(name, str) and isinstance(version, str) for name, version in actual.items())
+        )
+        if not valid or actual != expected:
+            findings.append(
+                _finding(
+                    "package-lock-metadata-mismatch",
+                    "runtime-license",
+                    f"{lock_path.as_posix()}#{field}",
+                    0,
+                    field,
+                )
+            )
+    return package, lock, findings
+
+
 def _python_project_metadata(path: Path) -> tuple[str, str | None, list[str]]:
     """Read the small PEP 621 surface we need without environment dependencies."""
     text = path.read_text(encoding="utf-8")
@@ -524,23 +733,23 @@ def review_runtime_licenses(repo: Path) -> dict[str, Any]:
     dependencies: list[dict[str, Any]] = []
     findings: list[dict[str, Any]] = []
     components: list[dict[str, str]] = []
-    for relative_lock in LOCKFILES:
-        lock_file = repo / relative_lock
-        if not lock_file.is_file():
-            findings.append(
-                _finding("missing-lockfile", "runtime-license", relative_lock.as_posix(), 0, relative_lock.as_posix())
-            )
+    for relative_package, relative_lock in _node_components(repo):
+        package, lock, metadata_findings = _review_node_component_metadata(
+            repo,
+            relative_package,
+            relative_lock,
+        )
+        findings.extend(metadata_findings)
+        if package is None or lock is None:
             continue
-        lock = json.loads(lock_file.read_text(encoding="utf-8"))
         packages = lock.get("packages")
         if not isinstance(packages, dict):
             findings.append(
                 _finding("invalid-lockfile", "runtime-license", relative_lock.as_posix(), 0, "packages")
             )
             continue
-        root_metadata = packages.get("") if isinstance(packages.get(""), dict) else {}
-        component_license = root_metadata.get("license")
-        component_name = root_metadata.get("name") or relative_lock.parent.as_posix()
+        component_license = package.get("license")
+        component_name = package.get("name") or relative_lock.parent.as_posix()
         if not isinstance(component_license, str) or component_license not in GPL3_COMPATIBLE_LICENSES:
             findings.append(
                 _finding(
@@ -663,6 +872,174 @@ def review_runtime_licenses(repo: Path) -> dict[str, Any]:
     }
 
 
+def _require_static_tokens(
+    repo: Path,
+    path: Path,
+    tokens: Iterable[str],
+    *,
+    scope: str,
+) -> tuple[list[dict[str, Any]], int]:
+    file = repo / path
+    if not file.is_file():
+        return [
+            _finding("missing-ask-mate-release-input", scope, path.as_posix(), 0, path.as_posix())
+        ], 0
+    try:
+        text = file.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return [
+            _finding("non-utf8-release-text", scope, path.as_posix(), 0, path.name)
+        ], 1
+    findings = [
+        _finding("missing-ask-mate-contract-token", scope, path.as_posix(), 0, token)
+        for token in tokens
+        if token not in text
+    ]
+    return findings, 1
+
+
+def review_ask_mate_release(repo: Path) -> dict[str, Any]:
+    """Statically prove the experimental Ask Mate release surface is complete.
+
+    This gate is deliberately offline. It proves that reviewed schemas, source
+    operations, generated bundles, test sources, lifecycle support, and the
+    operator contract travel together. It does not publish or contact a forge.
+    """
+    applicable = _ask_mate_release_applicable(repo)
+    if not applicable:
+        return {
+            "applicable": False,
+            "ok": True,
+            "policy": "inactive until either first-party Ask Mate domain package is present",
+            "counts": {},
+            "findings": [],
+        }
+
+    findings: list[dict[str, Any]] = []
+    counts = {
+        "schemas": 0,
+        "sourceContracts": 0,
+        "generatedContracts": 0,
+        "buildOutputs": 0,
+        "testEvidence": 0,
+        "releaseSupport": 0,
+        "documentation": 0,
+    }
+
+    for relative_schema in ASK_MATE_SCHEMAS:
+        schema_path = repo / relative_schema
+        if not schema_path.is_file():
+            findings.append(
+                _finding(
+                    "missing-ask-mate-release-input",
+                    "ask-mate-schema",
+                    relative_schema.as_posix(),
+                    0,
+                    relative_schema.as_posix(),
+                )
+            )
+            continue
+        counts["schemas"] += 1
+        try:
+            schema = _load_json_object(schema_path)
+        except (json.JSONDecodeError, ValueError) as error:
+            findings.append(
+                _finding(
+                    "invalid-ask-mate-schema",
+                    "ask-mate-schema",
+                    relative_schema.as_posix(),
+                    0,
+                    str(error),
+                )
+            )
+            continue
+        expected_prefix = (
+            "https://schemas.llmwiki.org/visual-workspace/v1/"
+            if "visual-workspace" in relative_schema.parts
+            else "https://schemas.llmwiki.org/problem-intake/v1/"
+        )
+        schema_id = schema.get("$id")
+        properties = schema.get("properties")
+        schema_version = properties.get("schemaVersion") if isinstance(properties, dict) else None
+        version_contract_valid = (
+            schema_version is None
+            or (isinstance(schema_version, dict) and schema_version.get("const") == 1)
+        )
+        if (
+            schema.get("$schema") != "https://json-schema.org/draft/2020-12/schema"
+            or not isinstance(schema_id, str)
+            or not schema_id.startswith(expected_prefix)
+            or schema.get("additionalProperties") is not False
+            or not version_contract_valid
+        ):
+            findings.append(
+                _finding(
+                    "invalid-ask-mate-schema-contract",
+                    "ask-mate-schema",
+                    relative_schema.as_posix(),
+                    0,
+                    str(schema_id),
+                )
+            )
+
+    for path, tokens in ASK_MATE_SOURCE_CONTRACTS.items():
+        token_findings, present = _require_static_tokens(
+            repo, path, tokens, scope="ask-mate-source-contract",
+        )
+        findings.extend(token_findings)
+        counts["sourceContracts"] += present
+
+    for path, tokens in ASK_MATE_GENERATED_CONTRACTS.items():
+        token_findings, present = _require_static_tokens(
+            repo, path, tokens, scope="ask-mate-generated-contract",
+        )
+        findings.extend(token_findings)
+        counts["generatedContracts"] += present
+
+    for path in ASK_MATE_BUILD_OUTPUTS:
+        build_findings, present = _require_static_tokens(
+            repo, path, (), scope="ask-mate-build-output",
+        )
+        findings.extend(build_findings)
+        counts["buildOutputs"] += present
+
+    for path in ASK_MATE_TEST_EVIDENCE:
+        test_findings, present = _require_static_tokens(
+            repo, path, ("test(",), scope="ask-mate-test-evidence",
+        )
+        findings.extend(test_findings)
+        counts["testEvidence"] += present
+
+    for path in ASK_MATE_RELEASE_SUPPORT:
+        support_findings, present = _require_static_tokens(
+            repo, path, (), scope="ask-mate-release-support",
+        )
+        findings.extend(support_findings)
+        counts["releaseSupport"] += present
+
+    doc_path = Path("docs/ASK_MATE_VISUAL_WORKSPACE.md")
+    doc_findings, present = _require_static_tokens(
+        repo,
+        doc_path,
+        ASK_MATE_DOC_TOKENS,
+        scope="ask-mate-documentation",
+    )
+    findings.extend(doc_findings)
+    counts["documentation"] += present
+
+    findings = sorted_findings(findings)
+    return {
+        "applicable": True,
+        "ok": not findings,
+        "policy": (
+            "offline static release closure: strict v1 schemas, source and generated operation parity, "
+            "built domain outputs, test evidence, lifecycle support, and reviewed operator documentation"
+        ),
+        "counts": counts,
+        "findings": findings,
+    }
+
+
 def sorted_findings(findings: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
     return sorted(
         findings,
@@ -716,6 +1093,8 @@ def verify(repo: Path) -> dict[str, Any]:
 
     license_report = review_runtime_licenses(repo)
     findings.extend(license_report["findings"])
+    ask_mate_report = review_ask_mate_release(repo)
+    findings.extend(ask_mate_report["findings"])
     findings = sorted_findings(findings)
     return {
         "policyVersion": POLICY_VERSION,
@@ -724,6 +1103,9 @@ def verify(repo: Path) -> dict[str, Any]:
         "releaseArtifacts": archives,
         "runtimeLicenses": {
             key: value for key, value in license_report.items() if key != "findings"
+        },
+        "askMateVisualWorkspace": {
+            key: value for key, value in ask_mate_report.items() if key != "findings"
         },
         "findings": findings,
     }

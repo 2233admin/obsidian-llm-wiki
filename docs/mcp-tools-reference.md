@@ -3,7 +3,7 @@
 > Auto-generated from `mcp-server/src/core/operations.ts`.
 > Run `npm run generate-tools-doc` to regenerate. Do not edit by hand.
 
-Total: **180** operations across **25** namespaces.
+Total: **194** operations across **26** namespaces.
 
 ## `vault.*` (31)
 
@@ -182,7 +182,7 @@ Scaffold the vault. methodology mode creates the folder layout (generic|para|lyt
 
 ### `vault.lint`
 
-Vault health audit: finds orphans (no inbound wikilinks), broken wikilinks, empty files, duplicate titles, and optionally missing required frontmatter keys. Read-only; does not check modification time.
+Deprecated read-only OBC compatibility scan. Use problem.intake.scan with a canonical Project ID to persist governed observations.
 
 **Mutating:** no
 
@@ -1200,7 +1200,7 @@ Persist a named memory across MCP sessions. Use for inferences, user preferences
 - `value` (string, required) — Memory content (Markdown supported)
 - `tags` (array, optional) — Optional tags for grouping, e.g. ["project", "decision"]
 
-## `project.*` (19)
+## `project.*` (22)
 
 ### `project.base.export`
 
@@ -1271,6 +1271,28 @@ Resolve a Project reference to stable identity, canonical domain roots, bindings
 - `ref` (string, optional) — Canonical Project ID, registered alias/slug, or bound workspace path
 - `project` (string, optional) — Compatibility alias for ref
 
+### `project.hub.base`
+
+Render the read-only Project Hub problem triage as an Obsidian Base projection.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `ref` (string, optional)
+- `project` (string, optional)
+
+### `project.hub.canvas`
+
+Render the read-only Project Hub visual, issue, contribution, Work Run, and verification trace as Obsidian Canvas JSON.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `ref` (string, optional)
+- `project` (string, optional)
+
 ### `project.hub.get`
 
 Compose a read-only Project Hub from registry, Work-OS, knowledge, runtime, settings, capabilities, workspace, and provider-owned integrations.
@@ -1281,6 +1303,17 @@ Compose a read-only Project Hub from registry, Work-OS, knowledge, runtime, sett
 
 - `ref` (string, optional) — Canonical Project ID, registered alias/slug, or bound workspace path
 - `project` (string, optional) — Compatibility alias for ref
+
+### `project.hub.text`
+
+Render the read-only Project Hub visual and problem trace as Markdown.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `ref` (string, optional)
+- `project` (string, optional)
 
 ### `project.init`
 
@@ -2283,7 +2316,18 @@ Transition one Child Work Run without inferring any parent terminal state.
 - `actor` (string, required)
 - `diagnosticArtifact` (object, optional)
 
-## `visual.*` (3)
+## `visual.*` (5)
+
+### `visual.context.read`
+
+Read a managed map, ordinary Markdown, an ephemeral selection, core Canvas, or Project Context without writing.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, required) — Canonical Project ID (project/<slug>)
+- `context` (object, required) — Ask Mate visual context descriptor
 
 ### `visual.map.apply`
 
@@ -2313,6 +2357,21 @@ Create an immutable, hash-bound visual edit preview without writing.
 - `actor` (string, required) — Actor recorded in immutable plan provenance
 - `origin` (string, required, enum: `user` | `assistant` | `import`)
 - `warnings` (array, optional) — Review warnings retained by the plan
+- `acceptedGraphEvidence` (array, optional) — Explicitly selected Graphify relation evidence
+- `clarificationAnswers` (object, optional) — Required source-adoption answers
+
+### `visual.map.project`
+
+Render bounded Markdown, text, Mermaid, and core Canvas projections without writing.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, required)
+- `path` (string, required)
+- `maxNodes` (number, optional)
+- `maxDepth` (number, optional)
 
 ### `visual.map.read`
 
@@ -2324,3 +2383,133 @@ Read one canonical managed mind-map Markdown section without writing.
 
 - `project` (string, required) — Canonical Project ID (project/<slug>)
 - `path` (string, required) — 01-Projects/<slug>/maps/**.md path
+
+## `problem.*` (9)
+
+### `problem.intake.contribution.apply`
+
+Apply one current explicitly approved external contribution through a governed adapter; merge is unsupported.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `plan` (object, required)
+- `presentedFingerprint` (string, required)
+- `approved` (boolean, required)
+- `actor` (string, required)
+- `workRunId` (string, required)
+- `approvalToken` (string, required)
+- `transitionToken` (string, required)
+- `action` (string, optional, enum: `create_issue` | `push_branch` | `create_draft_pull_request` | `mark_ready_for_review`)
+- `pullRequestId` (string, optional)
+- `expectedPullRequestRevision` (string, optional)
+
+### `problem.intake.contribution.plan`
+
+Create an exact secret-safe local/Issue/verified-draft-PR contribution preview.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `projectId` (string, required)
+- `observationId` (string, required)
+- `choice` (string, required, enum: `local_only` | `submit_issue` | `prepare_pull_request`)
+- `actor` (string, required)
+- `reason` (string, optional)
+- `repository` (string, optional)
+- `title` (string, optional)
+- `body` (string, optional)
+- `labels` (array, optional)
+
+### `problem.intake.issue.apply`
+
+Apply a current Issue Change Plan only through canonical project.issue/project.comment operations.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `plan` (object, required)
+- `presentedFingerprint` (string, required)
+- `actor` (string, required)
+- `transitionToken` (string, required)
+
+### `problem.intake.issue.plan`
+
+Create a pure immutable Issue Change Plan from one reviewed Problem Observation.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `projectId` (string, required)
+- `observationId` (string, required)
+- `actor` (string, required)
+- `priority` (number, optional)
+- `existingIssue` (string, optional)
+- `action` (string, optional, enum: `update` | `comment`)
+- `warnings` (array, optional)
+
+### `problem.intake.lifecycle.apply`
+
+Apply one revision-locked observation lifecycle transition with a replay-safe token.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `projectId` (string, required)
+- `observationId` (string, required)
+- `action` (string, required, enum: `acknowledge` | `dismiss` | `reopen` | `resolve`)
+- `actor` (string, required)
+- `reason` (string, required)
+- `expectedRevision` (number, required)
+- `transitionToken` (string, required)
+
+### `problem.intake.list`
+
+List bounded Problem Observations for one canonical Project.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, required) — Canonical Project ID
+
+### `problem.intake.observe`
+
+Normalize and persist one provider-neutral finding without creating Work-OS or remote work.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `finding` (object, required) — Strict normalized Problem Finding
+
+### `problem.intake.scan`
+
+Run the first-party OBC read-only scan and persist bounded provider-neutral Problem Observations.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, required) — Canonical Project ID
+
+### `problem.intake.verification.apply`
+
+Record bounded reproduced, not-reproduced, or provider-failed verification evidence without changing Work-OS issue state.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `projectId` (string, required)
+- `observationId` (string, required)
+- `expectedRevision` (number, required)
+- `status` (string, required, enum: `reproduced` | `not_reproduced` | `provider_failed`)
+- `actor` (string, required)
+- `providerVersion` (string, required)
+- `evidenceRefs` (array, required)

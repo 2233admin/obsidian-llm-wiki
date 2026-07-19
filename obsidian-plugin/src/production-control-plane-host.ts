@@ -10,6 +10,14 @@ import { makeHostCapabilityOps, type HostCapabilityTransportFactory } from "../.
 import { createDefaultHostCapabilityTransportFactory } from "../../mcp-server/src/host-capabilities/transport";
 import { makeProjectHubOps } from "../../mcp-server/src/project/project-hub";
 import { makeProjectOps } from "../../mcp-server/src/project/project";
+import { makeProblemIntakeOps } from "../../mcp-server/src/problem-intake/operations";
+import { createExecFileObcRunner } from "../../mcp-server/src/problem-intake/obc-runner";
+import { createProductionProblemIntakeDependencies } from "../../mcp-server/src/problem-intake/production";
+import { createProductionProjectHubIntegration } from "../../mcp-server/src/project-hub/production";
+import {
+  createVaultGovernedContributionPort,
+  type UiWorkRunApprovalPairPort,
+} from "../../mcp-server/src/contributions";
 import { createSettingsService, makeSettingsOps } from "../../mcp-server/src/settings/settings";
 import { makeUsageOps } from "../../mcp-server/src/usage/operations";
 import { makeVisualWorkspaceOps } from "../../mcp-server/src/visual-workspace/operations";
@@ -29,6 +37,7 @@ export interface ProductionControlPlaneOptions {
   compilerPath?: string;
   environment?: NodeJS.ProcessEnv;
   hostCapabilityTransportFactory?: HostCapabilityTransportFactory;
+  contributionApprovalPairs?: UiWorkRunApprovalPairPort;
   logger?: Logger;
 }
 
@@ -41,6 +50,7 @@ export interface ProductionControlPlaneOptions {
 export class ProductionControlPlaneTransport implements AgentControlPlaneTransport {
   private readonly dispatcher: OperationDispatcher;
   private readonly ready: Promise<void>;
+  private readonly disposeContribution: () => Promise<void>;
 
   constructor(options: ProductionControlPlaneOptions) {
     const settingsOptions = {
@@ -93,19 +103,58 @@ export class ProductionControlPlaneTransport implements AgentControlPlaneTranspo
       logger: options.logger ?? quietLogger,
       dryRun: false,
     };
+    const projectOps = makeProjectOps(options.vaultPath);
+    const projectOpsByName = new Map(projectOps.map(operation => [operation.name, operation]));
+    const contribution = createVaultGovernedContributionPort({
+      vaultPath: options.vaultPath,
+      ...(options.contributionApprovalPairs
+        ? { approvalPairs: options.contributionApprovalPairs }
+        : {}),
+    });
+    this.disposeContribution = () => contribution.dispose();
+    const problemDependencies = createProductionProblemIntakeDependencies(
+      options.vaultPath,
+      {
+        async call(operationName, params, operationContext) {
+          const operation = projectOpsByName.get(operationName);
+          if (!operation) throw new Error(`Project operation unavailable: ${operationName}`);
+          const result = await operation.handler(
+            (operationContext ?? context) as OperationContext,
+            params,
+          );
+          if (!result || typeof result !== "object" || Array.isArray(result)) {
+            throw new Error(`Project operation returned an invalid result: ${operationName}`);
+          }
+          return result as Record<string, unknown>;
+        },
+      },
+      { contribution },
+    );
+    const projectHubIntegration = createProductionProjectHubIntegration({
+      vaultPath: options.vaultPath,
+      problemIntake: problemDependencies,
+    });
+    const obcRunner = createExecFileObcRunner({
+      ...(options.pythonPath ? { pythonCommand: options.pythonPath } : {}),
+      ...(options.compilerPath ? { cwd: dirname(options.compilerPath) } : {}),
+    });
     this.dispatcher = createOperationDispatcher([
       ...makeSettingsOps(settingsOptions, settingsHost.service),
       ...makeAdapterGraphOps(adapters),
-      ...makeProjectOps(options.vaultPath),
+      ...projectOps,
       ...makeVisualWorkspaceOps(options.vaultPath),
+      ...makeProblemIntakeOps(options.vaultPath, problemDependencies, { obcRunner }),
       ...makeAgentDomainOps(options.vaultPath),
-      ...makeProjectHubOps(adapters, settingsHost.service),
+      ...makeProjectHubOps(adapters, settingsHost.service, {
+        loadVisualTriage: projectHubIntegration.loadVisualTriage,
+      }),
       ...makeUsageOps(options.vaultPath),
       ...makeHostCapabilityOps(options.vaultPath, {
         settingsService,
         environment: options.environment,
         transportFactory: options.hostCapabilityTransportFactory
           ?? createDefaultHostCapabilityTransportFactory({ environment: options.environment }),
+        observePluginDiagnostic: projectHubIntegration.observePluginDiagnostic,
       }),
       ...makeLegacyAgentMigrationOps(),
     ], context);
@@ -114,6 +163,10 @@ export class ProductionControlPlaneTransport implements AgentControlPlaneTranspo
   async invoke<T>(operation: string, args: Record<string, unknown> = {}): Promise<T> {
     if (operation === "graph.adapters.query") await this.ready;
     return this.dispatcher.invoke(operation, args) as Promise<T>;
+  }
+
+  async dispose(): Promise<void> {
+    await this.disposeContribution();
   }
 }
 

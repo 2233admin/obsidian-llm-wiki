@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "projectId": "project/obsidian-llm-wiki",
+  "provider": {
+    "id": "obc",
+    "kind": "obc",
+    "version": "1.4.0"
+  },
+  "ruleId": "broken-wikilink",
+  "subject": {
+    "kind": "vault_path",
+    "canonicalRef": "01-Projects/obsidian-llm-wiki/issues/release.md"
+  },
+  "severity": "error",
+  "summary": "The release issue links to a missing verification note.",
+  "evidenceRefs": [
+    {
+      "kind": "provider_finding",
+      "ref": "obc:broken-wikilink:release:verification"
+    },
+    {
+      "kind": "vault_path",
+      "ref": "01-Projects/obsidian-llm-wiki/issues/release.md"
+    }
+  ],
+  "observedAt": "2026-07-19T08:00:00.000Z",
+  "suggestedAction": "Repair or remove the missing wikilink after review."
+}

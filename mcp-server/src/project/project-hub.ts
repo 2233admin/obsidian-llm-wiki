@@ -21,6 +21,15 @@ import { projectUsage } from '../usage/projections.js';
 import { HOST_CAPABILITY_RELATIVE_ROOT, HostCapabilityStore } from '../host-capabilities/store.js';
 import { fingerprintContract } from '../host-capabilities/contracts.js';
 import {
+  PROJECT_HUB_PROJECTION_SCHEMA_VERSION,
+  composeProjectHubVisualTriageProjection,
+  renderProjectHubVisualTriageBase,
+  renderProjectHubVisualTriageCanvas,
+  renderProjectHubVisualTriageText,
+  type ProjectHubProjectionInput,
+  type ProjectHubVisualTriageProjection,
+} from '../project-hub/index.js';
+import {
   normalizedProjectContext,
   resolveProjectContext,
   type ProjectContext,
@@ -34,6 +43,15 @@ interface HubSection<T> {
   health: Health;
   drift: string[];
   data: T;
+}
+
+export interface ProjectHubOperationsOptions {
+  now?: () => number;
+  loadVisualTriage?: (request: {
+    projectId: string;
+    generatedAt: string;
+    vaultPath: string;
+  }) => Promise<unknown> | unknown;
 }
 
 interface FileSummary {
@@ -439,19 +457,121 @@ async function agentDomainSection(vaultPath: string, context: ProjectContext): P
   }
 }
 
+async function visualTriageProjection(
+  ctx: OperationContext,
+  project: ProjectContext,
+  generatedAt: string,
+  options: ProjectHubOperationsOptions,
+): Promise<ProjectHubVisualTriageProjection> {
+  const empty: ProjectHubProjectionInput = {
+    schemaVersion: PROJECT_HUB_PROJECTION_SCHEMA_VERSION,
+    projectId: project.projectId,
+    generatedAt,
+    visualDocuments: [],
+    observations: [],
+    providerHealth: [],
+  };
+  const loaded = options.loadVisualTriage
+    ? await options.loadVisualTriage({
+        projectId: project.projectId,
+        generatedAt,
+        vaultPath: ctx.config.vault_path,
+      })
+    : empty;
+  return composeProjectHubVisualTriageProjection(loaded);
+}
+
+function visualHubSection(
+  projection: ProjectHubVisualTriageProjection,
+): HubSection<ProjectHubVisualTriageProjection['sections']['visual']> {
+  const data = projection.sections.visual;
+  const drift = data.documents.flatMap((document) => [
+    ...(document.sourceFreshness === 'current'
+      ? []
+      : [`map_source_${document.sourceFreshness}:${document.documentId}`]),
+    ...(document.projectionStatus === 'current'
+      ? []
+      : [`map_projection_${document.projectionStatus}:${document.documentId}`]),
+  ]).sort();
+  return {
+    owner: data.owner,
+    freshness: data.documents.reduce<string | null>(
+      (latest, document) =>
+        !latest || document.sourceObservedAt > latest
+          ? document.sourceObservedAt
+          : latest,
+      null,
+    ),
+    health: data.health,
+    drift,
+    data,
+  };
+}
+
+function triageHubSection(
+  projection: ProjectHubVisualTriageProjection,
+): HubSection<ProjectHubVisualTriageProjection['sections']['triage']> {
+  const data = projection.sections.triage;
+  const drift = [
+    ...data.providers.flatMap((provider) => [
+      ...(provider.freshness === 'current'
+        ? []
+        : [`provider_${provider.freshness}:${provider.providerId}`]),
+      ...(provider.health === 'available'
+        ? []
+        : [`provider_${provider.health}:${provider.providerId}`]),
+    ]),
+    ...data.observations.flatMap((observation) =>
+      observation.trace.verifications
+        .filter((verification) => verification.status === 'failed')
+        .map(() => `verification_failed:${observation.observationId}`)),
+  ].sort();
+  return {
+    owner: data.owner,
+    freshness: [
+      ...data.observations.map((observation) => observation.lastObservedAt),
+      ...data.providers.flatMap((provider) =>
+        provider.observedAt ? [provider.observedAt] : []),
+    ].reduce<string | null>(
+      (latest, observedAt) =>
+        !latest || observedAt > latest ? observedAt : latest,
+      null,
+    ),
+    health: data.health,
+    drift,
+    data,
+  };
+}
+
+function projectReference(params: Record<string, unknown>): string {
+  const reference = params.ref ?? params.project;
+  if (typeof reference !== 'string' || !reference.trim()) {
+    throw badRequest('ref or project is required');
+  }
+  return reference;
+}
+
 export async function composeProjectHub(
   ctx: OperationContext,
   registry: AdapterRegistry,
   reference: string,
   settingsService = createSettingsService({ vaultPath: ctx.config.vault_path }),
+  options: ProjectHubOperationsOptions = {},
 ): Promise<Record<string, unknown>> {
   const project = resolveProjectContext(ctx.config.vault_path, reference, 'project.hub.get');
+  const generatedAt = new Date(options.now?.() ?? Date.now()).toISOString();
   const registryFiles = filesBelow(ctx.config.vault_path, project.roots.registryRecord);
+  const visualTriage = await visualTriageProjection(
+    ctx,
+    project,
+    generatedAt,
+    options,
+  );
   return {
     projectId: project.projectId,
     slug: project.slug,
     lifecycle: project.lifecycle,
-    generatedAt: new Date().toISOString(),
+    generatedAt,
     readOnly: true,
     diagnostics: project.diagnostics,
     sections: {
@@ -472,6 +592,8 @@ export async function composeProjectHub(
       hostCapabilities: hostCapabilitySection(ctx.config.vault_path, project),
       usage: usageSection(ctx.config.vault_path, project),
       agents: await agentDomainSection(ctx.config.vault_path, project),
+      visual: visualHubSection(visualTriage),
+      triage: triageHubSection(visualTriage),
     },
     mutationRoutes: {
       identity: 'project.init',
@@ -482,12 +604,20 @@ export async function composeProjectHub(
       hostCapabilities: 'host.descriptor.* / host.connector.* / host.assignment.*',
       usage: 'usage.append / usage.policy.evaluate',
       agents: 'agent.* / dreamtime.* / consult.* / delegation.*',
+      visual: visualTriage.mutationRoutes.maps,
+      triage: `${visualTriage.mutationRoutes.observations} / ${visualTriage.mutationRoutes.issuePlans} / ${visualTriage.mutationRoutes.contributions}`,
+      localIssues: visualTriage.mutationRoutes.localIssues,
+      remoteContributions: visualTriage.mutationRoutes.remoteMutations,
     },
   };
 }
 
-export function makeProjectHubOps(registry: AdapterRegistry, settingsService?: SettingsService): Operation[] {
-  return [{
+export function makeProjectHubOps(
+  registry: AdapterRegistry,
+  settingsService?: SettingsService,
+  options: ProjectHubOperationsOptions = {},
+): Operation[] {
+  const get: Operation = {
     name: 'project.hub.get',
     namespace: 'project',
     description: 'Compose a read-only Project Hub from registry, Work-OS, knowledge, runtime, settings, capabilities, workspace, and provider-owned integrations.',
@@ -497,9 +627,71 @@ export function makeProjectHubOps(registry: AdapterRegistry, settingsService?: S
       project: { type: 'string', required: false, description: 'Compatibility alias for ref' },
     },
     handler: async (ctx, params) => {
-      const reference = params.ref ?? params.project;
-      if (typeof reference !== 'string' || !reference.trim()) throw badRequest('ref or project is required');
-      return composeProjectHub(ctx, registry, reference, settingsService);
+      return composeProjectHub(
+        ctx,
+        registry,
+        projectReference(params),
+        settingsService,
+        options,
+      );
     },
-  }];
+  };
+  const derived = (
+    name: string,
+    description: string,
+    render: (projection: ProjectHubVisualTriageProjection) => unknown,
+    format: string,
+  ): Operation => ({
+    name,
+    namespace: 'project',
+    description,
+    mutating: false,
+    params: {
+      ref: { type: 'string', required: false },
+      project: { type: 'string', required: false },
+    },
+    handler: async (ctx, params) => {
+      const reference = projectReference(params);
+      const project = resolveProjectContext(
+        ctx.config.vault_path,
+        reference,
+        name,
+      );
+      const generatedAt = new Date(options.now?.() ?? Date.now()).toISOString();
+      const projection = await visualTriageProjection(
+        ctx,
+        project,
+        generatedAt,
+        options,
+      );
+      return {
+        projectId: project.projectId,
+        generatedAt,
+        readOnly: true,
+        format,
+        projection: render(projection),
+      };
+    },
+  });
+  return [
+    get,
+    derived(
+      'project.hub.text',
+      'Render the read-only Project Hub visual and problem trace as Markdown.',
+      renderProjectHubVisualTriageText,
+      'markdown',
+    ),
+    derived(
+      'project.hub.base',
+      'Render the read-only Project Hub problem triage as an Obsidian Base projection.',
+      renderProjectHubVisualTriageBase,
+      'obsidian-base',
+    ),
+    derived(
+      'project.hub.canvas',
+      'Render the read-only Project Hub visual, issue, contribution, Work Run, and verification trace as Obsidian Canvas JSON.',
+      renderProjectHubVisualTriageCanvas,
+      'obsidian-canvas',
+    ),
+  ];
 }

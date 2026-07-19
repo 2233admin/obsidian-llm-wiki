@@ -1,11 +1,18 @@
 import { canonicalJson, canonicalMindMapDocument } from "./canonical.js";
 import { VisualWorkspaceError } from "./errors.js";
-import type { ManagedMindMapSection, MindMapDocument } from "./types.js";
-import { assertExactFields, isObsidianBlockId, parseMindMapDocument } from "./validation.js";
+import type { ManagedMindMapSection, MindMapCrossLink, MindMapDocument } from "./types.js";
+import {
+  assertExactFields,
+  isObsidianBlockId,
+  parseMindMapCrossLink,
+  parseMindMapDocument,
+} from "./validation.js";
 
 const START_PREFIX = "<!-- llmwiki:mind-map:v1 ";
 const START_SUFFIX = " -->";
 const END_MARKER = "<!-- /llmwiki:mind-map:v1 -->";
+const CROSS_LINK_PREFIX = "<!-- llmwiki:cross-link:v1 ";
+const CROSS_LINK_SUFFIX = " -->";
 const LIST_ITEM = /^( *)(- )("(?:[^"\\]|\\.)*") \^([A-Za-z0-9][A-Za-z0-9-]{0,127})$/;
 
 interface SourceLine {
@@ -65,6 +72,20 @@ function parseHeader(line: string): { id: string; title: string } | null {
   return { id: candidate.id, title: candidate.title };
 }
 
+function parseCrossLink(line: string, lineNumber: number): MindMapCrossLink | null {
+  if (!line.startsWith(CROSS_LINK_PREFIX) || !line.endsWith(CROSS_LINK_SUFFIX)) return null;
+  let value: unknown;
+  try {
+    value = JSON.parse(line.slice(CROSS_LINK_PREFIX.length, -CROSS_LINK_SUFFIX.length));
+    return parseMindMapCrossLink(value, `Cross-link on line ${lineNumber}`);
+  } catch (error) {
+    throw new VisualWorkspaceError(
+      "INVALID_MARKDOWN",
+      error instanceof Error ? error.message : `Invalid cross-link on line ${lineNumber}`,
+    );
+  }
+}
+
 export function parseManagedMindMapSection(source: string): ManagedMindMapSection {
   const lines = linesOf(source);
   const starts = lines
@@ -90,9 +111,15 @@ export function parseManagedMindMapSection(source: string): ManagedMindMapSectio
 
   const nodes: MindMapDocument["nodes"] = [];
   const edges: MindMapDocument["edges"] = [];
+  const crossLinks: MindMapCrossLink[] = [];
   const parents: string[] = [];
   for (let index = start.index + 1; index < endIndex; index += 1) {
     const line = lines[index]!;
+    const crossLink = parseCrossLink(line.content, index + 1);
+    if (crossLink) {
+      crossLinks.push(crossLink);
+      continue;
+    }
     const match = LIST_ITEM.exec(line.content);
     if (!match) {
       throw new VisualWorkspaceError("INVALID_MARKDOWN", `Invalid canonical mind-map list item on line ${index + 1}`);
@@ -140,6 +167,7 @@ export function parseManagedMindMapSection(source: string): ManagedMindMapSectio
       rootId: nodes[0]!.id,
       nodes,
       edges,
+      ...(crossLinks.length === 0 ? {} : { crossLinks }),
     });
   } catch (error) {
     throw new VisualWorkspaceError(
@@ -184,6 +212,9 @@ export function serializeManagedMindMapSection(
     for (const childId of children.get(id) ?? []) visit(childId, depth + 1);
   };
   visit(document.rootId, 0);
+  for (const crossLink of document.crossLinks ?? []) {
+    lines.push(`${CROSS_LINK_PREFIX}${canonicalJson(crossLink)}${CROSS_LINK_SUFFIX}`);
+  }
   lines.push(END_MARKER);
   return lines.join(eol);
 }

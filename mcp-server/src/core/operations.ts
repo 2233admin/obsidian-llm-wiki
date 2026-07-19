@@ -42,6 +42,20 @@ import { makeLegacyAgentMigrationOps } from '../agent-domain/legacy-migration.js
 import { makeAgentDomainOps } from '../agent-domain/operations.js';
 import { makeVisualWorkspaceOps } from '../visual-workspace/operations.js';
 import { makeAdapterGraphOps } from '../adapters/graph-query.js';
+import type {
+  GovernedContributionPort,
+} from '../problem-intake/contracts.js';
+import { makeProblemIntakeOps } from '../problem-intake/operations.js';
+import { createProductionProblemIntakeDependencies } from '../problem-intake/production.js';
+import {
+  createExecFileObcRunner,
+  runObcReadOnlyLint,
+} from '../problem-intake/obc-runner.js';
+import { createProductionProjectHubIntegration } from '../project-hub/production.js';
+import {
+  createVaultGovernedContributionPort,
+  type UiWorkRunApprovalPairPort,
+} from '../contributions/index.js';
 
 export { makeAdapterGraphOps };
 
@@ -652,6 +666,17 @@ export interface AllOperationsDeps {
   configPath?: string;
   contextCorePath?: string;
   hostCapabilityTransportFactory?: HostCapabilityTransportFactory;
+  /**
+   * Late-bound forge execution lane. The factory must resolve repository
+   * candidates from governed Project Context; user input is selection only.
+   */
+  problemContributionFactory?: (input: {
+    vaultPath: string;
+  }) => {
+    contribution: GovernedContributionPort;
+  };
+  /** Optional external issuer for exact, expiring UI/Work Run approval pairs. */
+  problemContributionApprovalPairs?: UiWorkRunApprovalPairPort;
 }
 
 export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
@@ -667,6 +692,54 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
   };
   const settingsService = createSettingsService(settingsOptions);
   compileTrigger?.setEnvironmentResolver?.(() => resolveAgentModelProcessEnvironment(settingsService));
+  const projectOps = makeProjectOps(vaultPath);
+  const projectOpsByName = new Map(projectOps.map((operation) => [operation.name, operation]));
+  const problemContribution = deps.problemContributionFactory?.({ vaultPath }) ?? {
+    contribution: createVaultGovernedContributionPort({
+      vaultPath,
+      ...(deps.problemContributionApprovalPairs
+        ? { approvalPairs: deps.problemContributionApprovalPairs }
+        : {}),
+    }),
+  };
+  const obcRunner = createExecFileObcRunner({
+    pythonCommand: python,
+    cwd: _projectRoot,
+  });
+  const problemDependencies = createProductionProblemIntakeDependencies(
+    vaultPath,
+    {
+      async call(operationName, params, context) {
+        const operation = projectOpsByName.get(operationName);
+        if (!operation) throw makeErr(-32601, `Project operation unavailable: ${operationName}`);
+        const result = await operation.handler(context as Parameters<typeof operation.handler>[0], params);
+        if (!result || typeof result !== 'object' || Array.isArray(result)) {
+          throw makeErr(-32000, `Project operation returned an invalid result: ${operationName}`);
+        }
+        return result as Record<string, unknown>;
+      },
+    },
+    {
+      contribution: problemContribution.contribution,
+    },
+  );
+  const projectHubIntegration = createProductionProjectHubIntegration({
+    vaultPath,
+    problemIntake: problemDependencies,
+  });
+  const problemOps = makeProblemIntakeOps(
+    vaultPath,
+    problemDependencies,
+    { obcRunner },
+  );
+  const catalogOperations = operations.map((operation) => {
+    if (operation.name !== 'vault.lint') return operation;
+    return {
+      ...operation,
+      description: 'Deprecated read-only OBC compatibility scan. Use problem.intake.scan with a canonical Project ID to persist governed observations.',
+      handler: async () => runObcReadOnlyLint({ vaultPath, runner: obcRunner }),
+    } satisfies Operation;
+  });
 
   const compileOps: Operation[] = [
     {
@@ -1215,8 +1288,10 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     ...makeGraphOps(contextCoreLoader, vaultPath),
     ...makeVaultWriteOps(vaultPath, contextCoreLoader),
     ...makeMemoryOps(vaultPath),
-    ...makeProjectOps(vaultPath),
-    ...makeProjectHubOps(registry, settingsService),
+    ...projectOps,
+    ...makeProjectHubOps(registry, settingsService, {
+      loadVisualTriage: projectHubIntegration.loadVisualTriage,
+    }),
     ...makeProjectMigrationOps({ python, compilerPath, vaultPath }),
     ...makeIngestOps(),
     ...makeSourceOps(vaultPath),
@@ -1228,13 +1303,23 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     ...makeHostCapabilityOps(vaultPath, {
       transportFactory: deps.hostCapabilityTransportFactory ?? createDefaultHostCapabilityTransportFactory(),
       settingsService,
+      observePluginDiagnostic: projectHubIntegration.observePluginDiagnostic,
     }),
     ...makeAgentDomainOps(vaultPath),
     ...makeLegacyAgentMigrationOps(),
     ...makeVisualWorkspaceOps(vaultPath),
     ...makeAdapterGraphOps(registry),
   ];
-  return [...operations, ...compileOps, ...queryOps, ...multimodalOps, ...lightRagOps, ...agentOps, ...holonOps];
+  return [
+    ...catalogOperations,
+    ...compileOps,
+    ...queryOps,
+    ...multimodalOps,
+    ...lightRagOps,
+    ...agentOps,
+    ...holonOps,
+    ...problemOps,
+  ];
 }
 
 function normalizeVaultRelPath(path: string): string {

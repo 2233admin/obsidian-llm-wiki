@@ -15,9 +15,28 @@ The authoritative source is a versioned managed section inside an ordinary Markd
 <!-- /llmwiki:mind-map:v1 -->
 ```
 
-The nested list is a single-root tree. Its Obsidian block IDs are the stable node identities. Labels use JSON string encoding so parsing and serialization are deterministic. Ordinary headings and lists are not silently adopted: a future adoption workflow can treat them as read-only candidates.
+The nested list is a single-root tree. Its Obsidian block IDs are the stable node identities. Labels use JSON string encoding so parsing and serialization are deterministic. Accepted secondary relationships are stored as deterministic `llmwiki:cross-link:v1` comments with their provenance; they never become duplicate hierarchy parents.
 
 The parser rejects unknown contract fields, duplicate IDs or edges, multiple roots, cycles, unreachable nodes, and dangling edges. Serialization canonicalizes edge order while preserving sibling order from the node sequence. Replacing a section preserves every byte before and after the managed range.
+
+## Read-only source adoption
+
+`readMarkdownMindMapSource` recognizes canonical managed sections. For an ordinary note it interprets headings and nested lists into a read-only adoption candidate, retaining source byte/line ranges, block IDs, and wikilinks. Missing block IDs are proposed deterministically, never written to the source.
+
+`readObsidianCanvasSource` reads the supported Obsidian core Canvas subset (`text`, `file`, `link`, and labeled `group` nodes plus bounded edges). Multiple roots, multiple parents, undirected edges, and unsupported fields remain explicit diagnostics. `adoptVisualSourceCandidate` requires a chosen root and an allowed parent for every other node; unselected eligible relations become secondary cross-links. Neither reader mutates its input.
+
+## Graph evidence and portable projections
+
+`GraphRelationEvidence` is a closed, versioned contract that preserves adapter identity/version, original relation, evidence references, and `extracted`, `inferred`, `ambiguous`, or `unknown` confidence. Vault evidence must be vault-relative, URLs must be credential-free HTTPS, and common secret-bearing or machine-local values are rejected. `acceptGraphRelationEvidence` is the explicit review boundary that turns evidence into a canonical cross-link while preserving provenance.
+
+`deriveBoundedMindMapProjection` traverses the canonical primary tree in stable sibling order, keeps cross-links secondary, and applies a dependency-free tidy-tree layout. Node and depth limits produce deterministic diagnostics listing omitted nodes and cross-links. `renderMindMapProjectionBundle` returns:
+
+- canonical managed Markdown;
+- an ordered textual tree with a source link for every node;
+- Mermaid mindmap text;
+- Obsidian core Canvas JSON with stable nodes, edges, and coordinates.
+
+The Canvas and Mermaid results are derived views. They do not own map state, and Graphify remains an optional read-side evidence provider.
 
 ## Preview and apply
 

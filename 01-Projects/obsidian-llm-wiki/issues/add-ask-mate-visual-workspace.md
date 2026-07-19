@@ -1,15 +1,14 @@
 ---
 type: issue
 entity: project/obsidian-llm-wiki/issue/add-ask-mate-visual-workspace
-state: todo
+state: done
 review: reviewed
 kind: knowledge-task
 id: obsidian-llm-wiki/add-ask-mate-visual-workspace
 description: Build Ask Mate, interactive mind maps, governed problem intake, and user-approved Issue or PR contribution.
 status: active
 priority: 1
-blocked-by:
-- project/obsidian-llm-wiki/issue/fix-work-os-nested-worktree-duplication
+blocked-by: []
 assignee: codex
 last-verified: 2026-07-19
 labels:
@@ -52,8 +51,18 @@ Implementation follows that change's proposal, design, capability specs, and eig
 - [x] The shared graph edge contract and Graphify adapter retain aggregated relation, confidence, adapter identity, and source evidence, with graceful degradation and regression coverage.
 - [x] The first managed-map vertical slice is implemented: shared Domain validation, byte-preserving Markdown round trip, immutable preview, source-hash conflict rejection, replay receipts, MCP parity, and an Obsidian Ask Mate outline/preview/confirm surface.
 - [x] Graphify runtime settings and the shared read-only adapter graph facade are activated; Obsidian treats Graphify evidence as optional, provenance-bearing review context and degrades without blocking outline editing.
-- [ ] Ordinary Markdown/Canvas adoption, portable Canvas/Mermaid projections, and first-party map creation remain before the complete Visual Workspace promise is met.
-- [ ] Problem Intake/OBC, approved plugin diagnostics, Project Hub traceability, upstream Issue submission, and verified draft-PR preparation remain unimplemented.
+- [x] Ordinary Markdown/Canvas adoption, deterministic text/Mermaid/Canvas projections, ambiguity review, and first-party map creation are implemented through Visual Edit Plans.
+- [x] Problem Intake/OBC, approved plugin diagnostics, Project Hub traceability, upstream Issue submission, and verified draft-PR preparation are implemented through production composition roots.
+
+## Verification
+
+- Visual Workspace package: 27 tests passed; typecheck and build passed.
+- Problem Intake package: 20 tests passed; typecheck and build passed.
+- Obsidian plugin: 63 tests passed; typecheck, production build, and bundle-boundary verification passed.
+- MCP focused integration: 108 tests passed, including Forge, Problem Intake, Project Hub, plugin diagnostics, Visual Workspace, tool-document parity, and isolated slow VaultBrain checks.
+- MCP production build passed and generated bundles were rebuilt.
+- Release security: 26 tests passed; offline release gate passed with all findings empty and GPL-3.0-compatible runtime licenses reviewed.
+- OpenSpec strict validation passed.
 
 ## Acceptance
 

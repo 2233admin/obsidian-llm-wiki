@@ -1,0 +1,7 @@
+- First release ([[Projects/release.md#^release-root]]) ^release-root
+  - Ask Mate ([[Projects/release.md#^ask-mate]]) ^ask-mate
+    - Outline editing ([[Projects/release.md#^outline]]) ^outline
+  - Graphify suggestions ([[Projects/release.md#^graphify]]) ^graphify
+
+Cross-links:
+- Outline editing --supports--> Graphify suggestions (graphify-outline-relation; graphify/extracted; evidence=graphify-outline-relation)

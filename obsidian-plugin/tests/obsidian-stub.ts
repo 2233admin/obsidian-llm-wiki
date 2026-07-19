@@ -5,17 +5,41 @@
  */
 
 export class Notice {
-  constructor(public message?: string) {}
+  static messages: string[] = [];
+  constructor(public message?: string) {
+    if (message) Notice.messages.push(message);
+  }
 }
 
 export class TFile {
   path = "";
   extension = "md";
+  constructor(path = "", extension = "md") {
+    this.path = path;
+    this.extension = extension;
+  }
 }
 
 export class TAbstractFile {}
 
-export class Menu {}
+export class MenuItem {
+  title = "";
+  icon = "";
+  click: (() => void) | null = null;
+  setTitle(value: string): this { this.title = value; return this; }
+  setIcon(value: string): this { this.icon = value; return this; }
+  onClick(callback: () => void): this { this.click = callback; return this; }
+}
+
+export class Menu {
+  items: MenuItem[] = [];
+  addItem(callback: (item: MenuItem) => unknown): this {
+    const item = new MenuItem();
+    callback(item);
+    this.items.push(item);
+    return this;
+  }
+}
 
 export class FileSystemAdapter {
   getBasePath(): string {
@@ -24,6 +48,30 @@ export class FileSystemAdapter {
 }
 
 export class App {}
+
+export const Platform = {
+  isDesktop: true,
+  isMobile: false,
+  isDesktopApp: true,
+  isMobileApp: false,
+  isIosApp: false,
+  isAndroidApp: false,
+  isPhone: false,
+  isTablet: false,
+  isMacOS: false,
+  isWin: true,
+  isLinux: false,
+  isSafari: false,
+};
+
+export class MarkdownView {
+  file: TFile | null = null;
+  editor: unknown;
+  constructor(editor: unknown = null, file: TFile | null = null) {
+    this.editor = editor;
+    this.file = file;
+  }
+}
 
 export class WorkspaceLeaf {
   view: unknown = null;

@@ -152,7 +152,9 @@ describe('Visual Workspace MCP operations', () => {
         harness.ops.map((operation) => [operation.name, operation.mutating ?? false]),
         [
           ['visual.map.read', false],
+          ['visual.context.read', false],
           ['visual.map.plan', false],
+          ['visual.map.project', false],
           ['visual.map.apply', true],
         ],
       );
@@ -171,6 +173,83 @@ describe('Visual Workspace MCP operations', () => {
       assert.deepEqual(editPlan.preview.after.document, NEXT_DOCUMENT);
       assert.equal(readFileSync(vp(harness.root, harness.mapPath), 'utf8'), before);
       assert.equal(existsSync(vp(harness.root, '01-Projects/alpha/maps/.llmwiki')), false);
+    } finally {
+      rmSync(harness.root, { recursive: true, force: true });
+    }
+  });
+
+  test('adopts ordinary Markdown only after an exact creation plan, accepts selected graph evidence, and renders projections', async () => {
+    const harness = makeHarness();
+    try {
+      const notePath = 'Notes/release-outline.md';
+      mkdirSync(vp(harness.root, 'Notes'), { recursive: true });
+      writeFileSync(vp(harness.root, notePath), [
+        '# Release',
+        '- Test',
+        '- Ship',
+        '',
+      ].join('\n'), 'utf8');
+      const beforePaths = readdirSync(vp(harness.root, '01-Projects/alpha/maps')).sort();
+      const context = await harness.call('visual.context.read', {
+        project: 'project/alpha',
+        context: { kind: 'markdown_note', path: notePath },
+      }) as {
+        document: MindMapDocument;
+        targetPath: string;
+        adoptionRequired: boolean;
+        warnings: string[];
+      };
+
+      assert.equal(context.adoptionRequired, true);
+      assert.match(context.targetPath, /^01-Projects\/alpha\/maps\/release-outline-[a-f0-9]{8}\.md$/);
+      assert.equal(existsSync(vp(harness.root, context.targetPath)), false);
+      assert.deepEqual(readdirSync(vp(harness.root, '01-Projects/alpha/maps')).sort(), beforePaths);
+
+      const [root, child] = context.document.nodes;
+      assert.ok(root && child);
+      const planned = await harness.call('visual.map.plan', {
+        project: 'project/alpha',
+        path: context.targetPath,
+        nextDocument: context.document,
+        actor: 'agent:codex',
+        origin: 'import',
+        acceptedGraphEvidence: [{
+          id: 'graphify:release:test',
+          adapter: 'graphify',
+          relation: 'relates-to',
+          from: root.id,
+          to: child.id,
+          confidence: 'extracted',
+          evidenceRefs: [notePath],
+        }],
+      }) as { plan: VisualEditPlan };
+      assert.equal(existsSync(vp(harness.root, context.targetPath)), false);
+      assert.equal(planned.plan.source.sha256, textDigest(''));
+      assert.equal(planned.plan.preview.after.document.crossLinks?.length, 1);
+
+      await harness.call('visual.map.apply', {
+        project: 'project/alpha',
+        plan: planned.plan,
+        presentedFingerprint: planned.plan.fingerprint,
+        actor: 'agent:codex',
+        transitionToken: 'adopt-release-outline',
+      });
+      const adopted = await harness.call('visual.map.read', {
+        project: 'project/alpha',
+        path: context.targetPath,
+      }) as VisualMapReadResult;
+      assert.equal(adopted.document.crossLinks?.[0]?.provenance.adapterId, 'graphify');
+
+      const projections = await harness.call('visual.map.project', {
+        project: 'project/alpha',
+        path: context.targetPath,
+        maxNodes: 20,
+        maxDepth: 5,
+      }) as { text: string; mermaid: string; canvas: string; markdown: string };
+      assert.match(projections.text, /Release/);
+      assert.match(projections.mermaid, /mindmap/);
+      assert.deepEqual(Object.keys(JSON.parse(projections.canvas)).sort(), ['edges', 'nodes']);
+      assert.match(projections.markdown, /llmwiki:mind-map:v1/);
     } finally {
       rmSync(harness.root, { recursive: true, force: true });
     }

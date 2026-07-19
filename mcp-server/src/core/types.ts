@@ -54,7 +54,8 @@ export type OperationNamespace =
   | 'dreamtime'
   | 'consult'
   | 'delegation'
-  | 'visual';
+  | 'visual'
+  | 'problem';
 
 export type OperationWriteTrigger = 'dryRunFalse' | 'always';
 

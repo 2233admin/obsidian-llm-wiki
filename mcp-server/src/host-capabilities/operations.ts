@@ -68,6 +68,13 @@ import {
 } from "./store.js";
 import { legacyHostCapabilityCandidates } from "./settings-resolution.js";
 import { createSettingsService } from "../settings/settings.js";
+import {
+  PluginDiagnosticContractError,
+  submitPluginDiagnosticReportToProblemIntake,
+  validatePluginDiagnosticReport,
+  type PluginDiagnosticObservationReceipt,
+  type ProblemIntakeDiagnosticCandidate,
+} from "./plugin-diagnostics/index.js";
 
 const HOST_NAMESPACE = "host" as Operation["namespace"];
 const DIGEST_PATTERN = /^sha256:[a-f0-9]{64}$/;
@@ -83,6 +90,9 @@ export interface HostCapabilityOperationsOptions {
   now?: () => number;
   settingsService?: SettingsService;
   environment?: NodeJS.ProcessEnv;
+  observePluginDiagnostic?: (
+    candidate: ProblemIntakeDiagnosticCandidate,
+  ) => Promise<PluginDiagnosticObservationReceipt>;
 }
 
 interface AuthorizedProject {
@@ -125,6 +135,29 @@ function optionalCanonicalProject(
   return context.projectId;
 }
 
+function proxyInvokeWriteTargets(
+  vaultPath: string,
+  params: Record<string, unknown>,
+): string[] {
+  const targets = ["external/host-capability/**"];
+  if (
+    typeof params.operation !== "string" ||
+    !params.operation.endsWith(".diagnostics.read")
+  ) {
+    return targets;
+  }
+  const projectId = optionalCanonicalProject(
+    vaultPath,
+    params.project,
+    "host.proxy.invoke",
+  );
+  if (!projectId) throw badRequest("project is required");
+  return [
+    ...targets,
+    `01-Projects/${projectId.slice("project/".length)}/problem-intake/**`,
+  ];
+}
+
 function closedParams(
   params: Record<string, unknown>,
   allowed: readonly string[],
@@ -157,6 +190,7 @@ function operationFailure(error: unknown): never {
   if (
     error instanceof HostCapabilityOperationContractError ||
     error instanceof HostCapabilityContractError ||
+    error instanceof PluginDiagnosticContractError ||
     error instanceof TypeError
   ) {
     throw badRequest(error.message);
@@ -1387,7 +1421,7 @@ export function makeHostCapabilityOps(
     mutating: true,
     writePolicy: {
       realWrite: "always",
-      targets: () => ["external/host-capability/**"],
+      targets: (_ctx, params) => proxyInvokeWriteTargets(vaultPath, params),
       audit: "required",
     },
     params: {
@@ -1444,6 +1478,7 @@ export function makeHostCapabilityOps(
         }
         const settingsProfile = await service.settingsProfile(authorized.projectId);
         const runtime = await service.runtime(authorized.projectId);
+        const operation = requiredString(params.operation, "operation");
         const result = await runtime.proxy.invoke({
           scope: {
             ...authorized.scope,
@@ -1455,14 +1490,33 @@ export function makeHostCapabilityOps(
             params.descriptorVersion,
             "descriptorVersion",
           ),
-          operation: requiredString(params.operation, "operation"),
+          operation,
           describedDescriptorFingerprint: describedFingerprint as Sha256Digest,
           input: params.input,
           timeoutMs: timeoutMs === undefined
             ? settingsProfile.timeoutMs
             : Math.min(timeoutMs as number, settingsProfile.timeoutMs),
         });
-        return { projectId: authorized.projectId, result };
+        if (!operation.endsWith(".diagnostics.read")) {
+          return { projectId: authorized.projectId, result };
+        }
+        const report = validatePluginDiagnosticReport(result.result);
+        if (report.projectId !== authorized.projectId) {
+          throw conflict(
+            "Plugin diagnostic report belongs to another Project Context",
+          );
+        }
+        if (!options.observePluginDiagnostic) {
+          throw internal(
+            "Problem Intake observer is not configured for plugin diagnostics",
+          );
+        }
+        const problemIntake =
+          await submitPluginDiagnosticReportToProblemIntake(
+            report,
+            options.observePluginDiagnostic,
+          );
+        return { projectId: authorized.projectId, result, problemIntake };
       }),
   };
 

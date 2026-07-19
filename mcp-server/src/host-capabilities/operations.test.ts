@@ -18,6 +18,10 @@ import type { Operation, OperationContext } from "../core/types.js";
 import { normalizedProjectContext, resolveProjectContext } from "../project/project-context.js";
 import { createSettingsService } from "../settings/settings.js";
 import { makeHostCapabilityOps } from "./operations.js";
+import {
+  PLUGIN_DIAGNOSTIC_SCHEMA_VERSION,
+  type PluginDiagnosticReport,
+} from "./plugin-diagnostics/index.js";
 import { parseDefaultHostTransport } from "./transport.js";
 import {
   TEST_NOW,
@@ -50,6 +54,7 @@ async function fixture(options: {
   provider?: HostCapabilityProvider;
   settingsCredential?: boolean;
   environment?: NodeJS.ProcessEnv;
+  grantOperation?: string;
 } = {}): Promise<Fixture> {
   const root = mkdtempSync(join(tmpdir(), "llmwiki-host-capability-"));
   mkdirSync(join(root, "Projects"), { recursive: true });
@@ -108,7 +113,7 @@ async function fixture(options: {
     inputArtifactIds: [],
     requestedCapabilityScope: {
       connectors: [provider],
-      operations: ["expert.search"],
+      operations: [options.grantOperation ?? "expert.search"],
       resources: ["repo/example/review", "descriptor/expert/code-review@1.0.0"],
       sideEffectClasses: ["read-only"],
     },
@@ -267,6 +272,132 @@ function connectorRegistration(provider: HostCapabilityProvider = "github", conf
     }),
     health: health(),
     configuration,
+  };
+}
+
+function pluginDiagnosticReport(
+  state: Fixture,
+  operation: string,
+): PluginDiagnosticReport {
+  return {
+    schemaVersion: PLUGIN_DIAGNOSTIC_SCHEMA_VERSION,
+    projectId: "project/llmwiki",
+    provider: {
+      id: "obsidian-plugin/dataview-diagnostics",
+      version: "1.0.0",
+      pluginId: "dataview",
+      pluginVersion: "0.5.68",
+    },
+    scan: {
+      traceId: "trace/host-plugin-scan",
+      operation,
+      observedAt: TEST_NOW,
+      health: "degraded",
+    },
+    findings: [{
+      schemaVersion: PLUGIN_DIAGNOSTIC_SCHEMA_VERSION,
+      findingId: "finding/dataview-index-stale",
+      providerId: "obsidian-plugin/dataview-diagnostics",
+      providerVersion: "1.0.0",
+      pluginId: "dataview",
+      pluginVersion: "0.5.68",
+      ruleId: "dataview.index-stale",
+      subject: {
+        kind: "vault-path",
+        ref: "10-Projects/llmwiki/index.md",
+      },
+      severity: "warning",
+      summary: "The declared index snapshot is stale.",
+      evidenceRefs: [{
+        kind: "connector-diagnostic",
+        ref: "diagnostic/dataview-index-stale",
+      }],
+      health: "degraded",
+      requiredPermissions: ["plugin.index.health"],
+      observedAt: TEST_NOW,
+      provenance: {
+        connectorId: "connector/github",
+        connectorVersion: "1.0.0",
+        descriptorId: "expert/code-review",
+        descriptorVersion: "1.0.0",
+        operation,
+        traceId: "trace/host-plugin-scan",
+        workRunId: state.workRunId,
+        assignmentPlanId: "assignment/plugin-scan",
+        capabilityGrantId: state.access.grantId,
+      },
+      retry: { retryable: true },
+      remediations: [{
+        code: "retry-index",
+        summary: "Retry after the plugin index becomes ready.",
+      }],
+    }],
+    diagnostics: [],
+  };
+}
+
+async function preparePluginDiagnosticInvocation(
+  state: Fixture,
+  operations: Map<string, Operation>,
+  operation: string,
+): Promise<{ planId: string; descriptorFingerprint: string }> {
+  const registration = descriptorRegistration("github", {
+    capabilities: ["plugin.diagnostics"],
+    operations: [{
+      operation,
+      description: "Read one bounded typed plugin diagnostic report",
+      sideEffectClass: "local-read",
+      grantKey: "host.plugin.diagnostics.read",
+    }],
+  });
+  const connectorValue = connectorRegistration("github");
+  connectorValue.connector.supportedOperations = [operation];
+  await call(operations, state.operationContext, "host.descriptor.register", {
+    registration,
+  });
+  await call(operations, state.operationContext, "host.connector.register", {
+    registration: connectorValue,
+  });
+  const planned = await call(
+    operations,
+    state.operationContext,
+    "host.assignment.plan",
+    {
+      ...state.access,
+      requirement: requirement({
+        workRunId: state.workRunId,
+        capabilities: ["plugin.diagnostics"],
+        operations: [operation],
+      }),
+      policy: policy({ allowedSideEffectClasses: ["local-read"] }),
+      plannedAt: TEST_NOW,
+    },
+  );
+  assert.equal(planned.plan.status, "matched");
+  const approved = await call(
+    operations,
+    state.operationContext,
+    "host.assignment.approve",
+    {
+      ...state.access,
+      planId: planned.plan.planId,
+      expectedFingerprint: planned.planFingerprint,
+      approvedBy: "human/reviewer",
+    },
+  );
+  const described = await call(
+    operations,
+    state.operationContext,
+    "host.proxy.describe",
+    {
+      ...state.access,
+      descriptorId: "expert/code-review",
+      descriptorVersion: "1.0.0",
+    },
+  );
+  return {
+    planId: approved.plan.planId,
+    descriptorFingerprint: described.description.descriptorFingerprint,
   };
 }
 
@@ -660,6 +791,121 @@ describe("Host Capability Operation[] factory", () => {
       } finally {
         rmSync(state.root, { recursive: true, force: true });
       }
+    }
+  });
+
+  it("routes authorized typed plugin diagnostic reports into Problem Intake without weakening proxy gates", async () => {
+    const diagnosticOperation =
+      "obsidian.plugin.dataview.diagnostics.read";
+    const state = await fixture({ grantOperation: diagnosticOperation });
+    const observed: Array<Record<string, unknown>> = [];
+    try {
+      const operations = operationsByName(makeHostCapabilityOps(state.root, {
+        now: () => TEST_NOW_MS,
+        settingsService: state.settingsService,
+        environment: state.environment,
+        transportFactory: async () => ({
+          invoke: async () => pluginDiagnosticReport(state, diagnosticOperation),
+        }),
+        observePluginDiagnostic: async (candidate) => {
+          observed.push(candidate as unknown as Record<string, unknown>);
+          return { observationId: "problem/dataview-index-stale" };
+        },
+      }));
+      const prepared = await preparePluginDiagnosticInvocation(
+        state,
+        operations,
+        diagnosticOperation,
+      );
+      const invoke = operations.get("host.proxy.invoke")!;
+      assert.deepEqual(
+        invoke.writePolicy?.targets?.(state.operationContext, {
+          operation: diagnosticOperation,
+          project: state.access.project,
+        }),
+        [
+          "external/host-capability/**",
+          "01-Projects/llmwiki/problem-intake/**",
+        ],
+      );
+      const result = await call(
+        operations,
+        state.operationContext,
+        "host.proxy.invoke",
+        {
+          ...state.access,
+          planId: prepared.planId,
+          descriptorId: "expert/code-review",
+          descriptorVersion: "1.0.0",
+          operation: diagnosticOperation,
+          describedDescriptorFingerprint: prepared.descriptorFingerprint,
+          input: {},
+        },
+      );
+      assert.equal(observed.length, 1);
+      assert.equal(observed[0]?.projectId, "project/llmwiki");
+      assert.match(
+        String(observed[0]?.sourceFingerprint),
+        /^sha256:[a-f0-9]{64}$/,
+      );
+      assert.deepEqual(result.problemIntake, {
+        traceId: "trace/host-plugin-scan",
+        providerId: "obsidian-plugin/dataview-diagnostics",
+        candidateCount: 1,
+        observationIds: ["problem/dataview-index-stale"],
+      });
+    } finally {
+      rmSync(state.root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects undeclared plugin diagnostic payloads before the Problem Intake observer", async () => {
+    const diagnosticOperation =
+      "obsidian.plugin.dataview.diagnostics.read";
+    const state = await fixture({ grantOperation: diagnosticOperation });
+    let observerCalls = 0;
+    try {
+      const invalidReport = {
+        ...pluginDiagnosticReport(state, diagnosticOperation),
+        pluginPrivatePayload: { opaque: true },
+      };
+      const operations = operationsByName(makeHostCapabilityOps(state.root, {
+        now: () => TEST_NOW_MS,
+        settingsService: state.settingsService,
+        environment: state.environment,
+        transportFactory: async () => ({
+          invoke: async () => invalidReport,
+        }),
+        observePluginDiagnostic: async () => {
+          observerCalls += 1;
+          return { observationId: "problem/unexpected" };
+        },
+      }));
+      const prepared = await preparePluginDiagnosticInvocation(
+        state,
+        operations,
+        diagnosticOperation,
+      );
+      await assert.rejects(
+        call(
+          operations,
+          state.operationContext,
+          "host.proxy.invoke",
+          {
+            ...state.access,
+            planId: prepared.planId,
+            descriptorId: "expert/code-review",
+            descriptorVersion: "1.0.0",
+            operation: diagnosticOperation,
+            describedDescriptorFingerprint: prepared.descriptorFingerprint,
+            input: {},
+          },
+        ),
+        (error: any) => error?.code === -32602,
+      );
+      assert.equal(observerCalls, 0);
+    } finally {
+      rmSync(state.root, { recursive: true, force: true });
     }
   });
 });

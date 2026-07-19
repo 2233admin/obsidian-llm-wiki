@@ -1,0 +1,74 @@
+{
+  "nodes": [
+    {
+      "id": "release-root",
+      "type": "text",
+      "text": "First release\n[[Projects/release.md#^release-root]]",
+      "x": 0,
+      "y": 48,
+      "width": 224,
+      "height": 96
+    },
+    {
+      "id": "ask-mate",
+      "type": "text",
+      "text": "Ask Mate\n[[Projects/release.md#^ask-mate]]",
+      "x": 260,
+      "y": 0,
+      "width": 220,
+      "height": 96
+    },
+    {
+      "id": "outline",
+      "type": "text",
+      "text": "Outline editing\n[[Projects/release.md#^outline]]",
+      "x": 520,
+      "y": 0,
+      "width": 240,
+      "height": 96
+    },
+    {
+      "id": "graphify",
+      "type": "text",
+      "text": "Graphify suggestions\n[[Projects/release.md#^graphify]]",
+      "x": 260,
+      "y": 96,
+      "width": 280,
+      "height": 96
+    }
+  ],
+  "edges": [
+    {
+      "id": "tree-0c6a7a28fcf622a96afb",
+      "fromNode": "release-root",
+      "fromSide": "right",
+      "toNode": "ask-mate",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "tree-011521532decff1d690d",
+      "fromNode": "ask-mate",
+      "fromSide": "right",
+      "toNode": "outline",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "tree-1840248cab6dfdfbf315",
+      "fromNode": "release-root",
+      "fromSide": "right",
+      "toNode": "graphify",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "graphify-outline-relation",
+      "fromNode": "outline",
+      "toNode": "graphify",
+      "toEnd": "arrow",
+      "color": "5",
+      "label": "supports"
+    }
+  ]
+}

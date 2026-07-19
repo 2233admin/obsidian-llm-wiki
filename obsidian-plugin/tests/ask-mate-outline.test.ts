@@ -1,7 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { MindMapDocument, VisualEditPlan } from "../../packages/visual-workspace/dist/src/index.js";
-import { AskMateOutlineModel, renderTextualTree } from "../src/ask-mate/outline-model";
+import {
+  AskMateOutlineModel,
+  diffMindMapDocuments,
+  renderTextualTree,
+} from "../src/ask-mate/outline-model";
 
 function document(): MindMapDocument {
   return {
@@ -98,4 +102,65 @@ test("Graphify evidence remains selectable review state and never changes hierar
   assert.deepEqual(model.snapshot.selectedSuggestionIds, ["graphify:1"]);
   assert.equal(renderTextualTree(model.document), before);
   assert.deepEqual(model.document.edges, document().edges);
+  assert.deepEqual(model.selectedSuggestions.map(suggestion => suggestion.id), ["graphify:1"]);
+});
+
+test("selectable structural diff produces a revised plan document without mutating the draft", () => {
+  const model = new AskMateOutlineModel();
+  model.load(document());
+  model.rename("child-a", "Renamed A");
+  model.add("child-b", "B1");
+  const changes = model.snapshot.structuralChanges;
+  assert.deepEqual(changes.map(change => change.id), [
+    "add_subtree:node-1",
+    "rename:child-a",
+  ]);
+  model.setChangeSelected("rename:child-a", false);
+
+  assert.equal(
+    model.document.nodes.find(node => node.id === "child-a")?.label,
+    "Renamed A",
+    "ephemeral draft stays intact",
+  );
+  assert.equal(
+    model.documentForPlan.nodes.find(node => node.id === "child-a")?.label,
+    "A",
+    "deselected rename is excluded from the plan document",
+  );
+  assert.equal(model.documentForPlan.nodes.some(node => node.id === "node-1"), true);
+});
+
+test("subtree removal is one selectable change and cannot create a dangling hierarchy", () => {
+  const baseline = document();
+  const model = new AskMateOutlineModel();
+  model.load(baseline);
+  model.remove("child-a");
+  assert.deepEqual(diffMindMapDocuments(baseline, model.document).map(change => change.id), [
+    "remove_subtree:child-a",
+  ]);
+  model.setChangeSelected("remove_subtree:child-a", false);
+  assert.deepEqual(model.documentForPlan, baseline);
+});
+
+test("textual view exposes cross-links and subtree removal cleans attached links", () => {
+  const withCrossLink: MindMapDocument = {
+    ...document(),
+    crossLinks: [{
+      id: "related",
+      from: "grandchild",
+      to: "child-b",
+      relation: "supports",
+      provenance: {
+        kind: "graph_relation_evidence",
+        evidenceId: "evidence-1",
+        adapterId: "graphify",
+        confidence: "inferred",
+      },
+    }],
+  };
+  const model = new AskMateOutlineModel();
+  model.load(withCrossLink);
+  assert.match(model.snapshot.textualPreview, /A1 —supports→ B \[graph_relation_evidence · graphify · inferred\]/);
+  model.remove("child-a");
+  assert.deepEqual(model.document.crossLinks, []);
 });

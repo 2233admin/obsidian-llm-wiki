@@ -22,6 +22,24 @@ test("production host activates visual map read/plan/apply and adapter graph que
     project: "alpha",
     description: "Ask Mate production activation",
   });
+  const observed = await transport.invoke<Record<string, any>>("problem.intake.observe", {
+    finding: {
+      schemaVersion: 1,
+      projectId: "project/alpha",
+      provider: { id: "manual", kind: "manual", version: "1.0.0" },
+      ruleId: "ask-mate-production",
+      subject: { kind: "other", canonicalRef: "ask-mate/production" },
+      severity: "warning",
+      summary: "Production Problem Intake wiring",
+      evidenceRefs: [{
+        kind: "provider_finding",
+        ref: "ask-mate/production",
+        summary: "Host integration acceptance",
+      }],
+      observedAt: "2026-07-19T00:00:00.000Z",
+    },
+  });
+  assert.match(observed.observation.id, /^problem\//);
 
   const path = "01-Projects/alpha/maps/alpha.md";
   const fullPath = join(vaultPath, ...path.split("/"));
@@ -68,6 +86,13 @@ test("production host activates visual map read/plan/apply and adapter graph que
   assert.equal(readFileSync(fullPath, "utf8").includes("After"), true);
   assert.equal(readFileSync(fullPath, "utf8").startsWith("Intro\n\n"), true);
   assert.equal(readFileSync(fullPath, "utf8").endsWith("\n\nOutro\n"), true);
+
+  const hub = await transport.invoke<Record<string, any>>("project.hub.get", {
+    project: "project/alpha",
+  });
+  assert.equal(hub.projectId, "project/alpha");
+  assert.equal(hub.sections.visual.data.documents.length, 1);
+  assert.equal(hub.sections.triage.data.observations[0].observationId, observed.observation.id);
 
   const graphOutput = join(vaultPath, "graphify-out");
   mkdirSync(graphOutput, { recursive: true });
