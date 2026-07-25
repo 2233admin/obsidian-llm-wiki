@@ -38,7 +38,7 @@
   },
   "child_work_run_ids": [],
   "context_envelope_fingerprint": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-  "created_at": 1784948411,
+  "created_at": 1784948679,
   "device_snapshot": {
     "capturedAt": "2026-07-15T00:00:00.000Z",
     "deviceId": "device/cloud-5090",
@@ -56,8 +56,8 @@
     ],
     "review_state": "pending"
   },
-  "handoff_expires_at": "2026-07-26T03:00:11Z",
-  "handoff_token_hash": "7a91f1d88369f74f7abbc2c1f541dd482004e436fe41c2df8cef7f2fdfd53ec7",
+  "handoff_expires_at": "2026-07-26T03:04:39Z",
+  "handoff_token_hash": "d69bc1b5ff13a1acaf25d03b67deb1fb7dacab812cdbc9e40f956e9b02c81276",
   "output_class": "view",
   "parent_work_run_id": "work-run/fleet-parent-acceptance",
   "project_agent_binding_id": "binding/fleet-acceptance/cloud-worker-5090",
@@ -71,12 +71,12 @@
   "transitions": [
     {
       "from": "planned",
-      "recorded_at": 1784948411,
+      "recorded_at": 1784948679,
       "to": "leased",
-      "transition_token": "driver:lease:613235c8b1f6530fe2835df7"
+      "transition_token": "driver:lease:61bb5c0d83a5c37e124911d2"
     }
   ],
-  "updated_at": 1784948411,
+  "updated_at": 1784948679,
   "work_item_id": "project/fleet-acceptance/issue/cloud-workflow",
-  "work_run_id": "work-run/613235c8b1f6530fe2835df7"
+  "work_run_id": "work-run/61bb5c0d83a5c37e124911d2"
 }
