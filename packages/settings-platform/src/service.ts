@@ -18,6 +18,10 @@ import {
 import { getDefinition, loadRegistry } from "./registry.js";
 import { explainSetting, resolveSettings } from "./resolver.js";
 import { targetForScope, validateSettingsDocuments } from "./validation.js";
+import {
+  buildToolchainCapabilityProfiles,
+  collectLegacyToolchainDiagnostics,
+} from "./toolchain.js";
 import type {
   CapabilityHealth,
   HostCapabilityCompatibilityCandidate,
@@ -37,6 +41,8 @@ import type {
   SettingsRegistry,
   SettingsScope,
   SettingsSnapshot,
+  ToolchainCapabilityProfileView,
+  ToolchainProbeReceiptInput,
   ValidationIssue,
   ValidationResult,
 } from "./types.js";
@@ -59,7 +65,28 @@ export interface SettingsDoctorResult {
   snapshotId?: string;
   validation: ValidationResult;
   capabilities: CapabilityHealth[];
+  /** Redacted Toolchain Capability Profiles with probe age and provenance. */
+  toolchainProfiles: ToolchainCapabilityProfileView[];
+  /** Legacy environment / configuration migration diagnostics (redacted). */
+  migrationDiagnostics: ValidationIssue[];
   checkedAt: string;
+}
+
+export interface SettingsMigrationsPlan {
+  registryVersion: string;
+  writeRequired: boolean;
+  scopes: Array<{
+    scope: MutableSettingsScope;
+    targetId: string;
+    currentSchemaVersion: number;
+    targetSchemaVersion: number;
+    migrations: SettingsRegistry["migrations"];
+    requiresMigration: boolean;
+  }>;
+  /** Additive migration guidance for legacy env and toolchain settings. */
+  legacyDiagnostics: ValidationIssue[];
+  /** Redacted capability-profile provenance for migration planning UIs. */
+  toolchainProfiles: ToolchainCapabilityProfileView[];
 }
 
 export type AgentModelMode = "inherit" | "local" | "cloud";
@@ -290,12 +317,16 @@ export class SettingsService {
     return this.validateResolved(documents, context, snapshot);
   }
 
-  async migrationsPlan(context: RuntimeContext = this.defaultContext) {
+  async migrationsPlan(
+    context: RuntimeContext = this.defaultContext,
+    options: { probes?: Partial<Record<string, ToolchainProbeReceiptInput>> } = {},
+  ): Promise<SettingsMigrationsPlan> {
+    const runtime = context ?? this.defaultContext;
     const entries: Array<[MutableSettingsScope, string | undefined]> = [
-      ["user-device", context.userDeviceId],
-      ["vault", context.vaultId],
-      ["workspace-project", context.workspaceProjectId],
-      ["session", context.sessionId],
+      ["user-device", runtime.userDeviceId],
+      ["vault", runtime.vaultId],
+      ["workspace-project", runtime.workspaceProjectId],
+      ["session", runtime.sessionId],
     ];
     const states = await Promise.all(entries
       .filter((entry): entry is [MutableSettingsScope, string] => Boolean(entry[1]))
@@ -314,15 +345,36 @@ export class SettingsService {
         requiresMigration: state.schemaVersion !== this.registry.schemaVersion,
       };
     });
-    return { registryVersion: this.registry.registryVersion, writeRequired: scopes.some(item => item.requiresMigration), scopes };
+    const checkedAt = this.clock();
+    let toolchainProfiles: ToolchainCapabilityProfileView[] = [];
+    try {
+      const { snapshot } = await this.snapshotResolve(runtime);
+      toolchainProfiles = buildToolchainCapabilityProfiles(snapshot, {
+        checkedAt,
+        probes: options.probes,
+      });
+    } catch {
+      toolchainProfiles = [];
+    }
+    return {
+      registryVersion: this.registry.registryVersion,
+      writeRequired: scopes.some(item => item.requiresMigration),
+      scopes,
+      legacyDiagnostics: collectLegacyToolchainDiagnostics(this.environment),
+      toolchainProfiles,
+    };
   }
 
-  async doctor(context: RuntimeContext = this.defaultContext): Promise<SettingsDoctorResult> {
+  async doctor(
+    context: RuntimeContext = this.defaultContext,
+    options: { probes?: Partial<Record<string, ToolchainProbeReceiptInput>> } = {},
+  ): Promise<SettingsDoctorResult> {
+    const runtime = context ?? this.defaultContext;
     const checkedAt = this.clock();
     let snapshot: SettingsSnapshot | undefined;
     let validation: ValidationResult;
     try {
-      const resolved = await this.snapshotResolve(context);
+      const resolved = await this.snapshotResolve(runtime);
       snapshot = resolved.snapshot;
       validation = resolved.validation;
     } catch (error) {
@@ -336,7 +388,15 @@ export class SettingsService {
         }],
       };
     }
-    if (!snapshot) return { validation, capabilities: [], checkedAt };
+    if (!snapshot) {
+      return {
+        validation,
+        capabilities: [],
+        toolchainProfiles: [],
+        migrationDiagnostics: collectLegacyToolchainDiagnostics(this.environment),
+        checkedAt,
+      };
+    }
 
     const value = (key: string) => snapshot!.effective.find(item => item.key === key)?.value;
     const capabilities: CapabilityHealth[] = [];
@@ -590,7 +650,44 @@ export class SettingsService {
         operation: "settings.assignment.set",
       }],
     ));
-    return { snapshotId: snapshot.snapshotId, validation, capabilities, checkedAt };
+
+    const toolchainProfiles = buildToolchainCapabilityProfiles(snapshot, {
+      checkedAt,
+      probes: options.probes,
+    });
+    for (const profile of toolchainProfiles) {
+      const evidenceStatus = profile.health === "available" || profile.health === "disabled"
+        ? "pass"
+        : profile.health === "degraded" ? "warn" : "fail";
+      capabilities.push(this.health(
+        `toolchain.${profile.providerId}`,
+        profile.health,
+        profile.health === "disabled"
+          ? `Toolchain provider ${profile.providerId} is not selected.`
+          : profile.health === "available"
+            ? `Toolchain provider ${profile.providerId} configuration and probe evidence are healthy.`
+            : profile.health === "degraded"
+              ? `Toolchain provider ${profile.providerId} is partially available (missing: ${profile.missingCapabilities.join(", ") || "probe evidence"}).`
+              : `Toolchain provider ${profile.providerId} is unavailable or incompatible.`,
+        checkedAt,
+        snapshot.snapshotId,
+        evidenceStatus,
+        profile.health === "available" || profile.health === "disabled" ? [] : [{
+          code: "configure-toolchain-profile",
+          summary: `Review toolchain.capability_profiles / toolchain.device_bindings for ${profile.providerId} and migrate legacy environment values if present.`,
+          operation: "settings.assignment.set",
+        }],
+      ));
+    }
+
+    return {
+      snapshotId: snapshot.snapshotId,
+      validation,
+      capabilities,
+      toolchainProfiles,
+      migrationDiagnostics: collectLegacyToolchainDiagnostics(this.environment),
+      checkedAt,
+    };
   }
 
   private async readDocuments(context: RuntimeContext): Promise<{ documents: SettingsDocument[]; diagnostics: ValidationIssue[] }> {

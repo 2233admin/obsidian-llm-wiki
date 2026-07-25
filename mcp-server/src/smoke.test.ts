@@ -320,7 +320,7 @@ test('query.trace exposes retrieval plan and ranked evidence', async () => {
     limitations: string[];
   };
   assert.equal(payload.query, token);
-  assert.equal(payload.mode, 'keyword');
+  assert.equal(payload.mode, 'tiered-keyword');
   assert.deepEqual(payload.plan.selectedAdapters, ['filesystem']);
   assert.equal(payload.plan.fusion.algorithm, 'reciprocal_rank_fusion');
   assert.equal(payload.plan.fusion.k, 60);

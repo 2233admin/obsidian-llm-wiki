@@ -8,22 +8,35 @@
 import type { AdapterRegistry } from "./adapters/registry.js";
 import type { SearchResult, SearchOpts } from "./adapters/interface.js";
 import { fuseRRF, RRF_K, type RankedBundle } from "./rrf.js";
+import {
+  boundedDiagnosticCode,
+  buildRetrievalPlan,
+  normalizeSearchResult,
+  redactTraceValue,
+  routeEvidence,
+  type EvidenceTier,
+  type FreshnessState,
+  type NormalizedSearchResult,
+} from "./retrieval/evidence.js";
 
 export interface UnifiedQueryOpts extends SearchOpts {
   /** Only query these adapter names (default: all search-capable) */
   adapters?: string[];
   /** Per-adapter score weight multiplier (default: 1.0) */
   weights?: Record<string, number>;
+  /** Reversible compatibility mode: false preserves the prior pure-RRF ordering. */
+  tierRouting?: boolean;
 }
 
 export interface AdapterStats {
   count: number;
   latencyMs: number;
   error?: string;
+  diagnosticCode?: string;
 }
 
 export interface UnifiedQueryResult {
-  results: SearchResult[];
+  results: NormalizedSearchResult[];
   sources: Record<string, AdapterStats>;
   totalResults: number;
 }
@@ -36,6 +49,7 @@ export interface QueryTraceBranch {
   count: number;
   latencyMs: number;
   error?: string;
+  diagnosticCode?: string;
 }
 
 export interface QueryTraceEvidence {
@@ -45,14 +59,24 @@ export interface QueryTraceEvidence {
   score: number;
   snippet: string;
   rrfSources: string[];
+  normalizedIdentifier: string;
+  evidenceTier: EvidenceTier;
+  freshness: FreshnessState;
+  provenance: NormalizedSearchResult["evidence"]["provenance"];
+  scoreSemantics: NormalizedSearchResult["evidence"]["scoreSemantics"];
+  explanation?: string;
+  partial: NormalizedSearchResult["evidence"]["partial"];
   metadata?: Record<string, unknown>;
 }
 
 export interface QueryTraceResult extends UnifiedQueryResult {
   query: string;
-  mode: "keyword";
+  mode: "tiered-keyword" | "legacy-rrf";
   plan: {
-    intent: "transparent_retrieval_trace";
+    intent: string;
+    detail: "low" | "medium" | "high";
+    tierOrder: EvidenceTier[];
+    fallbacks: Array<{ from: EvidenceTier; to: EvidenceTier; reason: string }>;
     requestedAdapters: string[] | "all-search-capable";
     selectedAdapters: string[];
     fusion: {
@@ -117,6 +141,7 @@ export async function unifiedQuery(
 
   const weights = opts?.weights ?? {};
   const sources: Record<string, AdapterStats> = {};
+  const retrievalPlan = buildRetrievalPlan(opts?.intent, opts?.detail);
 
   // Per-adapter limit: request ~1.5x share so fusion has headroom to merge
   const totalMax = opts?.maxResults ?? 50;
@@ -141,13 +166,15 @@ export async function unifiedQuery(
         return {
           source: adapter.name,
           weight: w,
-          results: results.map((r) => ({ ...r, source: adapter.name })),
+          results: results.map((r) => normalizeSearchResult({ ...r, source: adapter.name }, adapter.name)),
         };
       } catch (e) {
+        const diagnosticCode = boundedDiagnosticCode(e);
         sources[adapter.name] = {
           count: 0,
           latencyMs: Date.now() - start,
-          error: (e as Error).message,
+          error: diagnosticCode,
+          diagnosticCode,
         };
         return { source: adapter.name, weight: w, results: [] };
       }
@@ -160,7 +187,8 @@ export async function unifiedQuery(
   }
 
   // RRF fusion: rank-based not score-based, same doc across sources accumulates.
-  const merged = fuseRRF(bundles);
+  const fused = fuseRRF(bundles).map((result) => normalizeSearchResult(result));
+  const merged = opts?.tierRouting === false ? fused : routeEvidence(fused, retrievalPlan);
 
   const maxResults = opts?.maxResults ?? 50;
   return {
@@ -203,6 +231,7 @@ export async function traceUnifiedQuery(
       count: stats.count,
       latencyMs: stats.latencyMs,
       error: stats.error,
+      diagnosticCode: stats.diagnosticCode,
     };
   });
 
@@ -213,15 +242,25 @@ export async function traceUnifiedQuery(
     score: item.score,
     snippet: trimSnippet(item.content),
     rrfSources: readRrfSources(item),
-    metadata: item.metadata,
+    normalizedIdentifier: item.evidence.normalizedIdentifier,
+    evidenceTier: item.evidence.tier,
+    freshness: item.evidence.freshness.state,
+    provenance: item.evidence.provenance,
+    scoreSemantics: item.evidence.scoreSemantics,
+    explanation: item.evidence.explanation,
+    partial: item.evidence.partial,
+    metadata: redactTraceValue(item.metadata) as Record<string, unknown> | undefined,
   }));
 
   return {
     ...result,
     query,
-    mode: "keyword",
+    mode: opts?.tierRouting === false ? "legacy-rrf" : "tiered-keyword",
     plan: {
-      intent: "transparent_retrieval_trace",
+      intent: buildRetrievalPlan(opts?.intent, opts?.detail).intent,
+      detail: buildRetrievalPlan(opts?.intent, opts?.detail).detail,
+      tierOrder: buildRetrievalPlan(opts?.intent, opts?.detail).tierOrder,
+      fallbacks: buildRetrievalPlan(opts?.intent, opts?.detail).fallbacks,
       requestedAdapters,
       selectedAdapters: selected.map((adapter) => adapter.name),
       fusion: {
@@ -352,7 +391,7 @@ function answerGaps(trace: QueryTraceResult): QueryAnswerGap[] {
       gaps.push({
         type: "adapter_error",
         source: branch.adapter,
-        message: branch.error ?? `${branch.adapter} search failed.`,
+        message: branch.diagnosticCode ?? branch.error ?? `${branch.adapter} search failed.`,
       });
     }
   }
@@ -464,13 +503,15 @@ export async function unifiedQueryByVector(
         return {
           source: adapter.name,
           weight: w,
-          results: results.map((r) => ({ ...r, source: adapter.name })),
+          results: results.map((r) => normalizeSearchResult({ ...r, source: adapter.name }, adapter.name)),
         };
       } catch (e) {
+        const diagnosticCode = boundedDiagnosticCode(e);
         sources[adapter.name] = {
           count: 0,
           latencyMs: Date.now() - start,
-          error: (e as Error).message,
+          error: diagnosticCode,
+          diagnosticCode,
         };
         return { source: adapter.name, weight: w, results: [] };
       }
@@ -483,7 +524,7 @@ export async function unifiedQueryByVector(
   }
 
   // RRF fusion: see unifiedQuery for rationale.
-  const merged = fuseRRF(bundles);
+  const merged = routeEvidence(fuseRRF(bundles), buildRetrievalPlan("semantic", "medium"));
 
   return {
     results: merged.slice(0, totalMax),

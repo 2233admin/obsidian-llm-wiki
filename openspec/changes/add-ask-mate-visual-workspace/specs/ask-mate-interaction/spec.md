@@ -11,12 +11,30 @@ The Obsidian plugin SHALL provide an Ask Mate interaction surface that can opera
 - **WHEN** the active view cannot be interpreted safely
 - **THEN** Ask Mate explains the supported inputs and performs no implicit vault scan or write
 
+### Requirement: Outline-first live visual editing
+The first-release Ask Mate map experience SHALL use a keyboard-operable structured outline as the editing surface and SHALL keep a deterministic visual preview synchronized with the ephemeral draft. Direct node dragging and optional Obsidian ecosystem extensions MAY enhance later releases but SHALL NOT be required for core read, edit, preview, apply, or export behavior.
+
+#### Scenario: No mind-map extension is installed
+- **WHEN** the user edits a map in a vault with only LLM Wiki and Obsidian core capabilities
+- **THEN** the user can add, remove, rename, and reparent outline nodes, inspect the live visual preview, and produce a Visual Edit Plan without installing another plugin
+
+#### Scenario: Optional visual extension is available
+- **WHEN** an approved optional renderer or editor is present
+- **THEN** Ask Mate may expose the enhancement through a typed adapter while preserving the same Mind Map Document, plan/apply boundary, and deterministic textual fallback
+
 ### Requirement: Interactive clarification before structure changes
 Ask Mate SHALL surface ambiguous roots, parent-child relationships, labels, scope, and desired output as focused clarification choices before producing a Visual Edit Plan when those choices materially change the map.
 
 #### Scenario: Two plausible map roots exist
 - **WHEN** selected content yields two equally plausible roots
 - **THEN** Ask Mate presents both with source evidence and waits for the user's choice before planning a write
+
+### Requirement: Graphify-assisted understanding
+Ask Mate SHALL treat available Graphify results as important provenance-bearing context for understanding and map suggestions, SHALL distinguish extracted, inferred, ambiguous, and unknown relations, and SHALL remain fully usable when Graphify is unavailable.
+
+#### Scenario: Graphify finds a cross-file relationship
+- **WHEN** the selected note or project has a Graphify relation to another source
+- **THEN** Ask Mate shows the relation, confidence, adapter provenance, and source reference as an optional edge or context suggestion rather than silently adding it
 
 ### Requirement: Preview and explicit apply
 Ask Mate SHALL display structural changes, affected files, generated content provenance, warnings, issue mutations, and any remote Issue or pull-request target/content/diff/test evidence before apply, and SHALL invoke only the matching domain apply Operation after explicit user confirmation.

@@ -6,7 +6,8 @@
 
 import {
   App, Plugin, PluginSettingTab, Setting, Modal, Notice,
-  TFile, TAbstractFile, Menu, FileSystemAdapter,
+  TFile, TAbstractFile, Menu, FileSystemAdapter, WorkspaceLeaf,
+  MarkdownView, Platform,
 } from "obsidian";
 import { execFile } from "child_process";
 import { promisify } from "util";
@@ -42,7 +43,10 @@ import {
   UnavailableSettingsTransport,
 } from "./settings-client";
 import { obsidianUserDeviceId } from "./settings-host";
-import { ProductionControlPlaneTransport } from "./production-control-plane-host";
+import {
+  OBSIDIAN_CONTROL_PLANE_ACTOR,
+  ProductionControlPlaneTransport,
+} from "./production-control-plane-host";
 import {
   AgentControlPlaneClient,
   AgentControlPlaneTransport,
@@ -52,8 +56,19 @@ import {
   AgentProfileEditorModal,
   ProjectBindingEditorModal,
 } from "./control-plane-ui";
+import {
+  AskMateOperationClient,
+  isManagedProjectMapPath,
+} from "./ask-mate/client";
+import {
+  ASK_MATE_VIEW_TYPE,
+  AskMateView,
+} from "./ask-mate/view";
+import type { AskMateContext } from "./ask-mate/interaction-model";
 
 const pexecFile = promisify(execFile);
+const MAX_ASK_MATE_SELECTION_CHARS = 100_000;
+const MAX_ASK_MATE_CANVAS_NODE_IDS = 200;
 // Shape of `kb_meta promote` JSON (compiler/kb_meta.cmd_promote).
 interface PromoteResult {
   outcome: string;
@@ -70,12 +85,49 @@ function stdoutText(stdout: string | Buffer): string {
   return typeof stdout === "string" ? stdout : stdout.toString("utf8");
 }
 
+/**
+ * Obsidian does not currently publish a Canvas selection type. This adapter
+ * reads only stable node IDs from the active core Canvas and returns a detached
+ * ephemeral array. It never retains Canvas node objects or treats view state as
+ * canonical map state.
+ */
+export function selectedCoreCanvasNodeIds(view: unknown): string[] {
+  if (!view || typeof view !== "object" || Array.isArray(view)) return [];
+  const candidate = view as Record<string, unknown>;
+  if (typeof candidate.getViewType !== "function") return [];
+  try {
+    if ((candidate.getViewType as () => unknown).call(view) !== "canvas") return [];
+  } catch {
+    return [];
+  }
+  const canvas = candidate.canvas;
+  if (!canvas || typeof canvas !== "object" || Array.isArray(canvas)) return [];
+  const selection = (canvas as Record<string, unknown>).selection;
+  const values = selection instanceof Set
+    ? [...selection]
+    : Array.isArray(selection)
+      ? selection
+      : [];
+  return [...new Set(values.flatMap(value => {
+    if (typeof value === "string") return value.trim() ? [value.trim()] : [];
+    if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+    const id = (value as Record<string, unknown>).id;
+    return typeof id === "string" && id.trim() ? [id.trim()] : [];
+  }))].sort();
+}
+
 export default class LLMWikiPlugin extends Plugin {
   data!: LLMWikiPluginData;
   projection: SettingsControlPlaneProjection | null = null;
   settingsError: string | null = null;
   private settingsClient!: SettingsOperationClient;
   private agentControlPlaneClient!: AgentControlPlaneClient;
+  private askMateClient!: AskMateOperationClient;
+  private controlPlaneTransport: (
+    SettingsOperationTransport
+    & AgentControlPlaneTransport
+    & { dispose?: () => Promise<void> | void }
+  ) | null = null;
   private migrationError: string | null = null;
   // The original (unstripped) plugin data document, retained while a legacy
   // migration is pending so saves cannot destroy the migration source.
@@ -98,10 +150,21 @@ export default class LLMWikiPlugin extends Plugin {
     const deviceBinding = this.data.deviceBinding;
     if (!deviceBinding) throw new Error("LLM Wiki device binding could not be initialized");
     const transport = this.createControlPlaneTransport(deviceBinding);
+    this.controlPlaneTransport = transport;
     this.settingsClient = new SettingsOperationClient(transport);
     this.agentControlPlaneClient = new AgentControlPlaneClient(transport);
+    this.askMateClient = new AskMateOperationClient(transport);
     await this.applyPluginDataPlan(plan, pluginDataChanged);
     await this.refreshSettings(false);
+
+    this.registerView(
+      ASK_MATE_VIEW_TYPE,
+      (leaf: WorkspaceLeaf) => new AskMateView(leaf, this.askMateClient, {
+        proposalActor: OBSIDIAN_CONTROL_PLANE_ACTOR,
+        confirmationActor: OBSIDIAN_CONTROL_PLANE_ACTOR,
+      }),
+    );
+    this.addRibbonIcon("sparkles", "Open Ask Mate", () => this.openAskMateEntryPoint());
 
     this.addCommand({
       id: "promote-candidate",
@@ -127,6 +190,53 @@ export default class LLMWikiPlugin extends Plugin {
     });
 
     this.addCommand({
+      id: "open-ask-mate",
+      name: "Open Ask Mate (LLM Wiki)",
+      callback: () => this.openAskMateEntryPoint(),
+    });
+
+    this.addCommand({
+      id: "open-ask-mate-active-note",
+      name: "Open Ask Mate for active Markdown or selection (LLM Wiki)",
+      checkCallback: (checking: boolean) => {
+        const file = this.app.workspace.getActiveFile();
+        const projectId = this.workspaceProjectId();
+        const ok = !!file && file.extension === "md" && projectId !== null;
+        if (ok && !checking) {
+          this.activateAskMate(() => this.markdownAskMateContext(file, projectId));
+        }
+        return ok;
+      },
+    });
+
+    this.addCommand({
+      id: "open-ask-mate-active-canvas",
+      name: "Open Ask Mate for active core Canvas (LLM Wiki)",
+      checkCallback: (checking: boolean) => {
+        const file = this.app.workspace.getActiveFile();
+        const projectId = this.workspaceProjectId();
+        const ok = !!file && file.extension === "canvas" && projectId !== null;
+        if (ok && !checking) {
+          this.activateAskMate(() => this.canvasAskMateContext(file, projectId));
+        }
+        return ok;
+      },
+    });
+
+    this.addCommand({
+      id: "open-ask-mate-project-context",
+      name: "Open Ask Mate for current Project Context (LLM Wiki)",
+      checkCallback: (checking: boolean) => {
+        const projectId = this.workspaceProjectId();
+        const ok = projectId !== null;
+        if (ok && !checking) {
+          this.activateAskMate({ projectId, kind: "project" });
+        }
+        return ok;
+      },
+    });
+
+    this.addCommand({
       id: "rollback-legacy-migration",
       name: "Roll back legacy settings migration (LLM Wiki)",
       checkCallback: (checking: boolean) => {
@@ -145,16 +255,37 @@ export default class LLMWikiPlugin extends Plugin {
             .setIcon("check-circle")
             .onClick(() => void this.promote(file)));
         }
+        if (
+          file instanceof TFile
+          && (file.extension === "md" || file.extension === "canvas")
+          && this.workspaceProjectId()
+        ) {
+          menu.addItem((item) => item
+            .setTitle("Open in Ask Mate (LLM Wiki)")
+            .setIcon("git-fork")
+            .onClick(() => {
+              const projectId = this.workspaceProjectId();
+              if (!projectId) return;
+              this.activateAskMate(() => file.extension === "canvas"
+                ? this.canvasAskMateContext(file, projectId)
+                : this.markdownAskMateContext(file, projectId));
+            }));
+        }
       }),
     );
     this.addSettingTab(new LLMWikiSettingTab(this.app, this));
   }
 
-  onunload(): void {}
+  onunload(): void {
+    this.app.workspace.detachLeavesOfType(ASK_MATE_VIEW_TYPE);
+    void this.controlPlaneTransport?.dispose?.();
+    this.controlPlaneTransport = null;
+  }
 
   /** Injection seam for the shared backend operation host. */
   setAgentControlPlaneTransport(transport: AgentControlPlaneTransport): void {
     this.agentControlPlaneClient = new AgentControlPlaneClient(transport);
+    this.askMateClient = new AskMateOperationClient(transport);
   }
 
   openAgentControlPlane(): void {
@@ -178,6 +309,194 @@ export default class LLMWikiPlugin extends Plugin {
     ).open();
   }
 
+  openWorkspaceProjectBindingEditor(
+    afterBind?: (projectId: `project/${string}`) => void,
+  ): void {
+    new WorkspaceProjectBindingModal(
+      this.app,
+      this.workspaceProjectId() ?? "",
+      async projectId => {
+        const boundProjectId = await this.bindWorkspaceProject(projectId);
+        afterBind?.(boundProjectId);
+      },
+    ).open();
+  }
+
+  async bindWorkspaceProject(projectId: string): Promise<`project/${string}`> {
+    const normalized = projectId.trim();
+    if (!/^project\/[a-z0-9][a-z0-9-]*$/.test(normalized)) {
+      throw new Error("Project ID must match project/<lowercase-kebab-slug>.");
+    }
+    const boundProjectId = normalized as `project/${string}`;
+    const deviceBinding: DeviceBindingReference = {
+      ...this.data.deviceBinding!,
+      workspaceProjectId: boundProjectId,
+    };
+    this.data = { ...this.data, deviceBinding };
+    await this.savePluginData();
+
+    this.app.workspace.detachLeavesOfType(ASK_MATE_VIEW_TYPE);
+    await this.controlPlaneTransport?.dispose?.();
+    const transport = this.createControlPlaneTransport(deviceBinding);
+    this.controlPlaneTransport = transport;
+    this.settingsClient = new SettingsOperationClient(transport);
+    this.agentControlPlaneClient = new AgentControlPlaneClient(transport);
+    this.askMateClient = new AskMateOperationClient(transport);
+    await this.refreshSettings(false);
+    return boundProjectId;
+  }
+
+  openAskMateEntryPoint(): void {
+    const unavailable = this.askMateRuntimeUnavailableReason();
+    if (unavailable) {
+      new Notice(`LLM Wiki: ${unavailable} No note, selection, Canvas, or Project data was scanned or changed.`);
+      return;
+    }
+    const projectId = this.workspaceProjectId();
+    if (!projectId) {
+      new Notice("LLM Wiki: enter a Project ID to start Ask Mate (for example, project/my-project).");
+      this.openWorkspaceProjectBindingEditor(boundProjectId => {
+        this.activateBestAskMateContext(boundProjectId);
+      });
+      return;
+    }
+    this.activateBestAskMateContext(projectId);
+  }
+
+  async openAskMate(
+    contextOrPath: AskMateContext | string,
+    projectId = this.workspaceProjectId(),
+  ): Promise<void> {
+    if (!projectId && typeof contextOrPath === "string") {
+      new Notice("LLM Wiki: bind this workspace to a canonical Project before opening Ask Mate.");
+      return;
+    }
+    const context: AskMateContext = typeof contextOrPath === "string"
+      ? {
+        projectId: projectId!,
+        path: contextOrPath,
+        kind: contextOrPath.endsWith(".canvas")
+          ? "canvas"
+          : this.isManagedProjectMap(contextOrPath, projectId!)
+            ? "managed_map"
+            : "markdown_note",
+      }
+      : contextOrPath;
+    let leaf: WorkspaceLeaf | null = this.app.workspace.getLeavesOfType(ASK_MATE_VIEW_TYPE)[0] ?? null;
+    if (!leaf) leaf = this.app.workspace.getRightLeaf(false);
+    if (!leaf) {
+      new Notice("LLM Wiki: no workspace leaf is available for Ask Mate.");
+      return;
+    }
+    await leaf.setViewState({ type: ASK_MATE_VIEW_TYPE, active: true });
+    const view = leaf.view;
+    if (!(view instanceof AskMateView)) {
+      new Notice("LLM Wiki: Ask Mate view could not be activated.");
+      return;
+    }
+    await view.openContext(context);
+    await this.app.workspace.revealLeaf(leaf);
+  }
+
+  private activateAskMate(context: AskMateContext | (() => AskMateContext)): void {
+    const unavailable = this.askMateRuntimeUnavailableReason();
+    if (unavailable) {
+      new Notice(`LLM Wiki: ${unavailable} No note, selection, Canvas, or Project data was scanned or changed.`);
+      return;
+    }
+    void this.openAskMate(typeof context === "function" ? context() : context);
+  }
+
+  private activateBestAskMateContext(projectId: `project/${string}`): void {
+    const file = this.app.workspace.getActiveFile();
+    if (file?.extension === "md") {
+      this.activateAskMate(() => this.markdownAskMateContext(file, projectId));
+      return;
+    }
+    if (file?.extension === "canvas") {
+      this.activateAskMate(() => this.canvasAskMateContext(file, projectId));
+      return;
+    }
+    this.activateAskMate({ projectId, kind: "project" });
+  }
+
+  private askMateRuntimeUnavailableReason(): string | null {
+    if (Platform.isMobileApp) {
+      return "Ask Mate's local domain Operations are unavailable in the mobile app in this release.";
+    }
+    if (!this.vaultBasePath()) {
+      return "Ask Mate requires a desktop filesystem-backed vault in this release.";
+    }
+    return null;
+  }
+
+  private markdownAskMateContext(
+    file: TFile,
+    projectId: `project/${string}`,
+  ): AskMateContext {
+    const activeFile = this.app.workspace.getActiveFile();
+    const view = activeFile?.path === file.path
+      ? this.app.workspace.getActiveViewOfType(MarkdownView)
+      : null;
+    const selectionText = view?.editor.getSelection() ?? "";
+    if (selectionText.trim()) {
+      if (selectionText.length <= MAX_ASK_MATE_SELECTION_CHARS) {
+        return {
+          projectId,
+          kind: "selection",
+          path: file.path,
+          selection: {
+            text: selectionText,
+            from: view!.editor.posToOffset(view!.editor.getCursor("from")),
+            to: view!.editor.posToOffset(view!.editor.getCursor("to")),
+          },
+        };
+      }
+      new Notice(
+        `LLM Wiki: the selection exceeds ${MAX_ASK_MATE_SELECTION_CHARS.toLocaleString()} characters; Ask Mate opened the note without copying the selection.`,
+      );
+    }
+    return {
+      projectId,
+      kind: this.isManagedProjectMap(file.path, projectId) ? "managed_map" : "markdown_note",
+      path: file.path,
+    };
+  }
+
+  private canvasAskMateContext(
+    file: TFile,
+    projectId: `project/${string}`,
+  ): AskMateContext {
+    const activeFile = this.app.workspace.getActiveFile();
+    const selectedIds = activeFile?.path === file.path
+      ? selectedCoreCanvasNodeIds(this.app.workspace.activeLeaf?.view)
+      : [];
+    if (selectedIds.length > MAX_ASK_MATE_CANVAS_NODE_IDS) {
+      new Notice(
+        `LLM Wiki: only the first ${MAX_ASK_MATE_CANVAS_NODE_IDS} selected Canvas node IDs are included in this bounded preview.`,
+      );
+    }
+    return {
+      projectId,
+      kind: "canvas",
+      path: file.path,
+      ...(selectedIds.length
+        ? { canvasNodeIds: selectedIds.slice(0, MAX_ASK_MATE_CANVAS_NODE_IDS) }
+        : {}),
+    };
+  }
+
+  private workspaceProjectId(): `project/${string}` | null {
+    const value = this.data.deviceBinding?.workspaceProjectId;
+    return typeof value === "string" && /^project\/[a-z0-9][a-z0-9-]*$/.test(value)
+      ? value as `project/${string}`
+      : null;
+  }
+
+  private isManagedProjectMap(path: string, projectId: `project/${string}`): boolean {
+    return isManagedProjectMapPath(projectId, path);
+  }
+
   private vaultBasePath(): string | null {
     const adapter = this.app.vault.adapter;
     return adapter instanceof FileSystemAdapter ? adapter.getBasePath() : null;
@@ -186,7 +505,9 @@ export default class LLMWikiPlugin extends Plugin {
   /** Injection seam: lifecycle tests run the plugin against an in-process host. */
   protected createControlPlaneTransport(
     deviceBinding: DeviceBindingReference,
-  ): SettingsOperationTransport & AgentControlPlaneTransport {
+  ): SettingsOperationTransport
+    & AgentControlPlaneTransport
+    & { dispose?: () => Promise<void> | void } {
     const vaultPath = this.vaultBasePath();
     return (vaultPath
       ? new ProductionControlPlaneTransport({
@@ -403,6 +724,46 @@ class PromotePlanModal extends Modal {
   onClose(): void { this.contentEl.empty(); }
 }
 
+class WorkspaceProjectBindingModal extends Modal {
+  constructor(
+    app: App,
+    private readonly currentProjectId: string,
+    private readonly onConfirm: (projectId: string) => Promise<void>,
+  ) { super(app); }
+
+  onOpen(): void {
+    const { contentEl } = this;
+    contentEl.createEl("h2", { text: "Choose this workspace's Project" });
+    contentEl.createEl("p", {
+      text: "Enter a stable Project ID such as project/my-project. Ask Mate uses it to keep notes, maps, tasks, settings, and problem reports together.",
+    });
+    const input = contentEl.createEl("input", {
+      type: "text",
+      placeholder: "project/example",
+      value: this.currentProjectId || "project/",
+      cls: "llmwiki-project-binding-input",
+    });
+    const buttons = contentEl.createDiv({ cls: "modal-button-container" });
+    const confirm = buttons.createEl("button", { text: "Bind and open Ask Mate", cls: "mod-cta" });
+    confirm.onclick = async () => {
+      confirm.disabled = true;
+      try {
+        await this.onConfirm(input.value);
+        this.close();
+        new Notice(`LLM Wiki: workspace bound to ${input.value.trim()}.`);
+      } catch (error) {
+        confirm.disabled = false;
+        new Notice(`LLM Wiki: ${String((error as Error)?.message ?? error)}`);
+      }
+    };
+    buttons.createEl("button", { text: "Cancel" }).onclick = () => this.close();
+    input.focus();
+    input.select();
+  }
+
+  onClose(): void { this.contentEl.empty(); }
+}
+
 const CATEGORY_LABELS: Record<string, string> = {
   models: "Agent model",
   runtime: "Runtime",
@@ -488,15 +849,24 @@ class LLMWikiSettingTab extends PluginSettingTab {
   }
 
   private renderAgentControlPlane(containerEl: HTMLElement): void {
-    containerEl.createEl("h2", { text: "Agent control plane" });
+    containerEl.createEl("h2", { text: "Get started" });
     containerEl.createEl("p", {
       cls: "llmwiki-settings-intro",
-      text: "Inspect backend-owned Rooms, Threads, Dream Time proposals, collaboration, connector health, and Usage. Profile and Binding changes use the same operation interface as MCP and CLI.",
+      text: "Bind this vault to a Project, then open Ask Mate for the active note, Canvas, or Project.",
     });
     const actions = containerEl.createDiv({ cls: "llmwiki-settings-actions llmwiki-agent-control-actions" });
-    actions.createEl("button", { text: "Open control plane", cls: "mod-cta" }).onclick = () => this.llmWiki.openAgentControlPlane();
+    actions.createEl("button", { text: "Open Ask Mate", cls: "mod-cta" }).onclick = () => this.llmWiki.openAskMateEntryPoint();
+    actions.createEl("button", { text: "Open control plane" }).onclick = () => this.llmWiki.openAgentControlPlane();
     actions.createEl("button", { text: "Create Agent Profile" }).onclick = () => this.llmWiki.openAgentProfileEditor();
     actions.createEl("button", { text: "Create Project Binding" }).onclick = () => this.llmWiki.openProjectBindingEditor();
+    new Setting(containerEl)
+      .setName("Workspace Project")
+      .setDesc(this.llmWiki.data.deviceBinding?.workspaceProjectId
+        ? `Ask Mate is bound to ${this.llmWiki.data.deviceBinding.workspaceProjectId}.`
+        : "Required for Ask Mate. Stored only as this device's Workspace Binding; it does not redefine Project identity.")
+      .addButton(button => button
+        .setButtonText(this.llmWiki.data.deviceBinding?.workspaceProjectId ? "Change binding" : "Bind workspace")
+        .onClick(() => this.llmWiki.openWorkspaceProjectBindingEditor(() => this.display())));
     containerEl.createEl("p", {
       cls: "llmwiki-settings-intro",
       text: "Provider credentials stay in the Secret Reference selectors below. Agent Profiles and Project Bindings never contain plaintext credentials, usable grants, or device-local execution material.",

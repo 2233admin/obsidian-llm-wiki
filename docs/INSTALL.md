@@ -7,6 +7,8 @@ For most people the [README quick-start](../README.md#quick-start-30-seconds) is
 - **Node.js 20 or higher** -- the bundled MCP server is an ESM module targeting Node 20+
 - **An MCP-compatible agent host** -- Claude Code, Codex, OpenCode, or Gemini CLI
 
+Node.js 20 is sufficient for the bundled MCP server and every filesystem-only workflow. Optional qmd SDK mode follows qmd's package contract and requires Node.js 22+; qmd CLI mode does not raise the main server's Node requirement.
+
 You do **not** need npm or a TypeScript toolchain to run the shipped MCP bundle. Basic filesystem search and read operations do not require Python. Compiler operations, Project layout migration, and Obsidian's governed promotion/Doctor runtime checks do require a usable Python runtime plus the LLM Wiki `compiler/` directory.
 
 ## Quick install (recap)
@@ -79,6 +81,12 @@ Provider credentials must be configured as a Secret Reference, for example `{ "p
 Agent model setup lives in **Obsidian → Settings → LLM Wiki → Agent model**. Use `local` with an OpenAI-compatible/Ollama base URL and model identifier when no cloud key is needed. Use `cloud` with a device-local environment Secret Reference such as `{ "provider": "environment", "locator": "OPENAI_API_KEY" }`; enter the locator in Obsidian, never the key value itself. Agent model bindings currently support user-device, vault, and session scope; credential-bearing URLs are rejected.
 
 See [SETTINGS.md](SETTINGS.md) for the complete model and [MIGRATIONS.md](MIGRATIONS.md) before upgrading an existing Obsidian plugin or Project layout.
+
+### Optional Agent Wiki toolchain
+
+No optional provider is required. Start with only `VAULT_PATH`, register a `vaultPath` Source, and run the filesystem lifecycle. Add providers one at a time through Toolchain Settings and confirm each with `settings.doctor` before enabling workflows that depend on it.
+
+A copyable MCP example is in `examples/agent-wiki-toolchain.mcp.example.json`; the separate Settings example shows semantic profiles without machine paths or credentials. OpenCLI remains a capture-only Provider, qmd/Graphify/LightRAG/RAG-Anything are retrieval or processing adapters, and Ollama/OpenAI-compatible endpoints provide optional embeddings. See [AGENT_WIKI_TOOLCHAIN.md](AGENT_WIKI_TOOLCHAIN.md) for version policies, capability names, diagnostics, and rollback flags.
 
 ## Obsidian control plane
 
@@ -164,6 +172,8 @@ Markdown memory files are written under `10-Projects/<project>/agents/<actor>/me
 Visual exports use Obsidian core plugins when available: Canvas reads `.canvas` files, Bases reads `.base` dashboards, and Graph/Backlinks use normal Markdown links. No extra community plugin is required for Phase 1 visual exports. Kanban is still optional but recommended if you want Markdown board search.
 
 Source Registry Phase 1 adds `source.register`, `source.list`, and `source.get`. It writes `_llmwiki/source-registry.json` plus Source Notes under `00-Inbox/Sources/<platform>/`, or `10-Projects/<project>/sources/<platform>/` when `project` is provided. URL registration runs read-only ingest preflight; it does not download, transcribe, or scrape.
+
+After registration, use `source.ingest.plan`, then execute the returned exact `planId` with `source.ingest.run`. `source.ingest.inspect` and `source.ingest.verify` remain read-only. Successful changed content creates an Evidence Note and a durable maintenance entry; unchanged content is idempotent.
 
 ## Building from source (rare)
 

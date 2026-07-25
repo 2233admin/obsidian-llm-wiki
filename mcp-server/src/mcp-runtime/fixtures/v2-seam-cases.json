@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "line": "v2-seam-non-production",
+  "productionDependency": "@modelcontextprotocol/sdk",
+  "productionLine": "v1-production",
+  "cases": [
+    {
+      "name": "descriptor-marks-non-production",
+      "operations": [
+        {
+          "name": "ping.echo",
+          "namespace": "ping",
+          "description": "Echo a value",
+          "mutating": false,
+          "params": {
+            "message": { "type": "string", "required": true }
+          }
+        }
+      ],
+      "expected": {
+        "line": "v2-seam-non-production",
+        "toolCount": 1,
+        "toolNames": ["ping.echo"]
+      }
+    },
+    {
+      "name": "domain-invoke-success",
+      "invoke": {
+        "toolName": "ping.echo",
+        "arguments": { "message": "hello-v2-seam" }
+      },
+      "expected": {
+        "isError": false,
+        "textIncludes": ["hello-v2-seam"]
+      }
+    },
+    {
+      "name": "domain-invoke-unknown-tool",
+      "invoke": {
+        "toolName": "missing.tool",
+        "arguments": {}
+      },
+      "expected": {
+        "isError": true,
+        "textIncludes": ["Unknown tool"]
+      }
+    },
+    {
+      "name": "package-split-does-not-replace-production",
+      "expected": {
+        "productionRemains": "@modelcontextprotocol/sdk (v1)",
+        "seamServerPackage": "@modelcontextprotocol/server",
+        "seamClientPackage": "@modelcontextprotocol/client"
+      }
+    }
+  ]
+}

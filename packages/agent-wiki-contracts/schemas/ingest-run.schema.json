@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.llmwiki.org/agent-wiki/v1/ingest-run.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "runId", "idempotencyKey", "sourceId", "sourceRevision", "requestedOperation", "profileRevision", "state", "completedStages", "receiptIds", "createdAt", "updatedAt"],
+  "properties": {
+    "schemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+    "runId": { "$ref": "common.schema.json#/$defs/identifier" },
+    "idempotencyKey": { "$ref": "common.schema.json#/$defs/digest" },
+    "sourceId": { "$ref": "common.schema.json#/$defs/identifier" },
+    "sourceRevision": { "$ref": "common.schema.json#/$defs/identifier" },
+    "requestedOperation": { "$ref": "common.schema.json#/$defs/identifier" },
+    "profileRevision": { "$ref": "common.schema.json#/$defs/identifier" },
+    "state": { "enum": ["planned", "running", "paused", "succeeded", "partial", "failed"] },
+    "completedStages": { "type": "array", "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/identifier" } },
+    "receiptIds": { "type": "array", "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/identifier" } },
+    "createdAt": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "updatedAt": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "lease": {
+      "type": "object",
+      "required": ["owner", "acquiredAt", "expiresAt"],
+      "properties": {
+        "owner": { "$ref": "common.schema.json#/$defs/identifier" },
+        "acquiredAt": { "$ref": "common.schema.json#/$defs/timestamp" },
+        "expiresAt": { "$ref": "common.schema.json#/$defs/timestamp" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

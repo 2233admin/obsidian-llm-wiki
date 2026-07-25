@@ -78,12 +78,12 @@ describe("VaultBrainAdapter", () => {
     adapter = new VaultBrainAdapter(dataDir);
     await adapter.init();
     expect(adapter.isAvailable).toBe(true);
-  });
+  }, PGLITE_TEST_TIMEOUT_MS);
 
   afterEach(async () => {
     await adapter.dispose();
     rmSync(dataDir, { recursive: true, force: true });
-  });
+  }, PGLITE_TEST_TIMEOUT_MS);
 
   it("init succeeds and search returns [] without throwing", async () => {
     await expect(adapter.search("anything")).resolves.toEqual([]);
@@ -116,7 +116,7 @@ describe("VaultBrainAdapter RRF fusion", () => {
   it("combines keyword and vector scores, sorts descending, and respects limit", async () => {
     process.env.OPENAI_API_KEY = "test-key";
     globalThis.fetch = (async () => new Response(JSON.stringify({
-      data: [{ embedding: [0.1, 0.2, 0.3] }],
+      data: [{ embedding: new Array(1024).fill(0.1) }],
     }), { status: 200 })) as typeof fetch;
 
     const adapter = new VaultBrainAdapter(":memory:");
@@ -124,6 +124,7 @@ describe("VaultBrainAdapter RRF fusion", () => {
       connect: async () => {},
       disconnect: async () => {},
       initSchema: async () => {},
+      ensureEmbeddingFingerprint: async () => {},
       upsertPage: async () => {},
       deletePage: async () => {},
       upsertChunks: async () => {},
@@ -136,6 +137,9 @@ describe("VaultBrainAdapter RRF fusion", () => {
         { slug: "a", chunkIndex: 0, chunkText: "shared", score: 0.7 },
         { slug: "c", chunkIndex: 0, chunkText: "vector", score: 0.6 },
       ],
+      countChunks: async () => 0,
+      countEmbeddedChunks: async () => 0,
+      getLastIndexedAtMs: async () => null,
       upsertLink: async () => {},
       upsertTag: async () => {},
     };

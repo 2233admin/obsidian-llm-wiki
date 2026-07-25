@@ -1,0 +1,206 @@
+[
+  {
+    "name": "version-structured-json",
+    "observation": {
+      "surface": "version",
+      "command": ["opencli", "--version"],
+      "exitCode": 0,
+      "stdout": "{\"version\":\"1.8.6\",\"name\":\"opencli\"}\n"
+    },
+    "expected": {
+      "ok": true,
+      "partial": false,
+      "timedOut": false,
+      "observedVersion": "1.8.6",
+      "capabilities": ["version.structured"],
+      "missingCapabilities": [],
+      "boundary": "capture-provider"
+    }
+  },
+  {
+    "name": "list-structured",
+    "observation": {
+      "surface": "list",
+      "command": ["opencli", "list", "--format", "json"],
+      "exitCode": 0,
+      "stdout": "{\"commands\":[\"capture\",\"validate\",\"doctor\"]}\n"
+    },
+    "expected": {
+      "ok": true,
+      "partial": false,
+      "timedOut": false,
+      "capabilities": ["command.list.structured"],
+      "missingCapabilities": []
+    }
+  },
+  {
+    "name": "help-structured",
+    "observation": {
+      "surface": "help",
+      "command": ["opencli", "zhihu", "--help", "--format", "yaml"],
+      "exitCode": 0,
+      "stdout": "Usage: opencli zhihu\ncommands:\n  - capture\n"
+    },
+    "expected": {
+      "ok": true,
+      "partial": false,
+      "timedOut": false,
+      "capabilities": ["help.structured"],
+      "missingCapabilities": []
+    }
+  },
+  {
+    "name": "validate-adapter-success",
+    "observation": {
+      "surface": "validate",
+      "command": ["opencli", "validate", "zhihu", "--format", "json"],
+      "exitCode": 0,
+      "stdout": "{\"adapter\":\"zhihu\",\"valid\":true,\"capabilities\":[\"capture.web\"]}\n"
+    },
+    "expected": {
+      "ok": true,
+      "partial": false,
+      "timedOut": false,
+      "capabilities": ["definition.validate"],
+      "missingCapabilities": [],
+      "boundary": "capture-provider"
+    }
+  },
+  {
+    "name": "verify-partial-missing-capability",
+    "observation": {
+      "surface": "verify",
+      "command": ["opencli", "verify", "weibo", "--format", "json"],
+      "exitCode": 0,
+      "stdout": "{\"status\":\"ok\"}\n"
+    },
+    "expected": {
+      "ok": true,
+      "partial": false,
+      "timedOut": false,
+      "capabilities": ["definition.verify"],
+      "missingCapabilities": []
+    }
+  },
+  {
+    "name": "doctor-structured",
+    "observation": {
+      "surface": "doctor",
+      "command": ["opencli", "doctor", "--format", "json"],
+      "exitCode": 0,
+      "stdout": "{\"healthy\":true,\"checks\":[{\"id\":\"plugins\",\"status\":\"pass\"}]}\n"
+    },
+    "expected": {
+      "ok": true,
+      "partial": false,
+      "timedOut": false,
+      "capabilities": ["doctor"],
+      "missingCapabilities": []
+    }
+  },
+  {
+    "name": "profiles-plugins-adapters",
+    "observation": {
+      "surface": "profiles",
+      "command": ["opencli", "profile", "list", "--format", "json"],
+      "exitCode": 0,
+      "stdout": "{\"profiles\":[\"default\",\"browser\"]}\n"
+    },
+    "expected": {
+      "ok": true,
+      "partial": false,
+      "timedOut": false,
+      "capabilities": ["profiles.list"],
+      "missingCapabilities": []
+    }
+  },
+  {
+    "name": "timeout",
+    "observation": {
+      "surface": "list",
+      "command": ["opencli", "list", "--format", "json"],
+      "timedOut": true,
+      "durationMs": 15000
+    },
+    "expected": {
+      "ok": false,
+      "partial": false,
+      "timedOut": true,
+      "capabilities": [],
+      "missingCapabilities": ["command.list.structured"],
+      "diagnosticCodes": ["TOOLCHAIN_PROBE_TIMEOUT"]
+    }
+  },
+  {
+    "name": "incompatible-output",
+    "observation": {
+      "surface": "list",
+      "command": ["opencli", "list", "--format", "json"],
+      "exitCode": 0,
+      "stdout": "not-json-plain-text-output"
+    },
+    "expected": {
+      "ok": false,
+      "partial": false,
+      "timedOut": false,
+      "capabilities": [],
+      "diagnosticCodes": ["TOOLCHAIN_OUTPUT_INVALID", "CAPABILITY_MISSING"]
+    }
+  },
+  {
+    "name": "secret-and-endpoint-redaction",
+    "observation": {
+      "surface": "doctor",
+      "command": [
+        "opencli",
+        "--api-key",
+        "flag-secret",
+        "doctor",
+        "--format",
+        "json",
+        "https://user:pass@private.example.test/v1?api_key=query-secret"
+      ],
+      "exitCode": 0,
+      "stdout": "{\"healthy\":true,\"note\":\"provider reflected sk-outputsecret99 and https://user:pass@private.example.test\",\"authorization\":\"bearer sk-abcdefghi\"}\n"
+    },
+    "expected": {
+      "ok": true,
+      "partial": false,
+      "timedOut": false,
+      "capabilities": ["doctor"],
+      "forbidden": [
+        "flag-secret",
+        "user:pass",
+        "query-secret",
+        "sk-outputsecret99",
+        "sk-abcdefghi"
+      ]
+    }
+  },
+  {
+    "name": "plugins-list",
+    "observation": {
+      "surface": "plugins",
+      "command": ["opencli", "plugin", "list", "--format", "json"],
+      "exitCode": 0,
+      "stdout": "{\"plugins\":[\"bbx\",\"clipper\"]}\n"
+    },
+    "expected": {
+      "ok": true,
+      "capabilities": ["plugins.list"]
+    }
+  },
+  {
+    "name": "adapters-status",
+    "observation": {
+      "surface": "adapters",
+      "command": ["opencli", "adapter", "status", "--format", "json"],
+      "exitCode": 0,
+      "stdout": "{\"adapters\":[{\"id\":\"zhihu\",\"status\":\"ready\"}]}\n"
+    },
+    "expected": {
+      "ok": true,
+      "capabilities": ["adapters.status"]
+    }
+  }
+]

@@ -12,6 +12,20 @@ cut.** Internal `package.json`/`pyproject.toml` version fields are not
 force-aligned to this changelog's numbering -- treat this file as the
 source of truth for what shipped when.
 
+## v2.8.0-beta.3 -- 2026-07-24
+
+### Highlights
+
+- Added the governed Agent Wiki toolchain, including Source ingest planning,
+  resumable execution, immutable evidence artifacts, maintenance receipts, and
+  release lifecycle verification.
+- Added Ask Mate problem intake and visual workspace contracts with strict
+  schemas, discoverability coverage, and production bundle checks.
+- Hardened Settings-derived adapter configuration, embedding profiles,
+  retrieval evidence routing, and committed MCP runtime bundle parity.
+- Expanded release security coverage so deliberately synthetic credential
+  redaction fixtures require exact, reviewed content hashes.
+
 ## v2.8.0-beta.1 -- 2026-07-16
 
 ### Highlights

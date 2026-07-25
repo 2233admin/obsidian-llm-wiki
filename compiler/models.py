@@ -44,3 +44,5 @@ class CompileReport:
     concepts_updated: int
     contradictions_found: int
     broken_links: int
+    manifests_written: int = 0
+    concepts_retracted: int = 0

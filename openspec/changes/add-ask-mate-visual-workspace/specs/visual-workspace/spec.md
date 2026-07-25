@@ -23,7 +23,7 @@ The Visual Workspace SHALL read a selected Markdown note or supported Obsidian c
 - **THEN** the adapter returns candidate roots or parent choices for confirmation and does not silently discard or reinterpret edges
 
 ### Requirement: Markdown-backed editable maps
-The system SHALL support a human-readable Markdown mind-map format with stable Obsidian block identities and an LLM Wiki managed section, SHALL preserve content outside that managed section byte-for-byte, and SHALL keep the map searchable through normal vault query surfaces.
+The system SHALL serialize first-party editable maps as nested Markdown lists with stable Obsidian block identities inside an LLM Wiki managed section, SHALL preserve content outside that managed section byte-for-byte, and SHALL keep the map searchable through normal vault query surfaces. Headings and non-canonical list structures MAY be interpreted as read-only import candidates but SHALL be adopted only through a preview into the canonical nested-list form.
 
 #### Scenario: Existing prose surrounds a managed map
 - **WHEN** an approved edit updates nodes inside the managed section
@@ -54,6 +54,17 @@ The system SHALL derive a primary rooted tree before layout, SHALL render non-tr
 #### Scenario: Projection exceeds configured limits
 - **WHEN** the source has more nodes or depth than the selected projection policy permits
 - **THEN** the result is pruned or clustered deterministically and reports what was omitted
+
+### Requirement: Provenance-bearing knowledge graph evidence
+Visual Workspace SHALL consume Graphify and other available Knowledge Adapters only through the shared graph/query contract, SHALL preserve adapter identity, original relation, evidence references, and extracted, inferred, ambiguous, or unknown confidence, and SHALL present those relations as reviewable Graph Relation Evidence rather than accepted hierarchy.
+
+#### Scenario: Graphify provides extracted and inferred relations
+- **WHEN** Ask Mate requests related structure for a selected source and Graphify returns relations with different confidence classes
+- **THEN** the preview distinguishes extracted from inferred or ambiguous edges, links their evidence, and requires explicit selection before any relation becomes accepted map structure
+
+#### Scenario: Graphify is unavailable or stale
+- **WHEN** the Graphify adapter is disabled, its graph is missing, or its freshness cannot be established
+- **THEN** outline editing, deterministic preview, and apply remain available while Graphify suggestions are omitted or marked unavailable without changing the map
 
 ### Requirement: Suggestions remain reviewable
 Model-generated labels, summaries, groupings, and edges SHALL be marked with generation provenance and SHALL NOT become accepted map structure, durable knowledge, or project work until included in an approved edit or promotion flow.

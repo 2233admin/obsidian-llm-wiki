@@ -115,6 +115,24 @@ The vault-to-MemU write/sync command uses that same profile for adapter enableme
 
 Hindsight is integrated only as a provider-neutral, read-only `search` adapter over `POST /v1/default/banks/{bank_id}/memories/recall`. LLM Wiki does not call Hindsight retain/reflect operations, copy its implementation, or treat an external bank as governed Agent Memory or durable knowledge. Recall results remain external retrieval evidence subject to the existing Source, Memory, and Promotion boundaries. The clean-room evidence is registered as Source `src_ef1d62b18b98` at inspected upstream commit `5ab6bdc9b63b76ba644124bf65a0fb18c72db7d9` (MIT).
 
+## Agent Wiki toolchain profiles
+
+Optional engines use a typed Toolchain Capability Profile instead of ad-hoc environment selection. `toolchain.provider_selection` and `toolchain.capability_profiles` carry shareable semantic policy; `toolchain.device_bindings` carries machine-local executables and public endpoints. Doctor returns redacted provenance, observed version, probe age, missing capabilities, compatibility, and a bounded remediation code.
+
+| Setting | Purpose |
+|---|---|
+| `toolchain.provider_selection` | Selects optional `opencli`, `qmd`, `graphify`, `ollama`, `lightrag`, `raganything`, and `mcp-sdk` profiles. An empty selection is valid. |
+| `toolchain.capability_profiles` | Stores invocation mode (`filesystem`, `cli`, `http`, or `sdk`), version policy, required features, timeout, collection/index identity, and profile revision. |
+| `toolchain.device_bindings` | Stores device-local executable and endpoint references. Doctor redacts them and rejects credential-bearing URLs. |
+| `embeddings.default_profile` | Chooses `ollama/bge-m3` or `ollama/qwen3-embedding:0.6b` for an otherwise unbound index. |
+| `embeddings.index_profiles` | Binds each index to one embedding profile; the defaults intentionally keep VaultBrain and MemU explicit. |
+| `embeddings.index_fingerprints` | Records provider, redacted endpoint identity, model, dimensions, adapter schema, and digest. |
+| `embeddings.fingerprint_enforcement` | Requires a rebuild plan or rejects a mismatched index. |
+
+`settings.migrations.plan` reports legacy environment inputs such as `OPENCLI_BIN`, `QMD_BIN`, `VAULT_MIND_EMBED_URL`, `VAULT_MIND_EMBED_MODEL`, `OLLAMA_HOST`, and `OLLAMA_EMBED_MODEL`. Copy only non-secret values into the owning Settings key, verify Doctor, then remove the legacy variable. Provider credentials remain Secret References and are not part of a Toolchain Capability Profile.
+
+Use `settings.agent_wiki.features` to inspect the ingest, maintenance, tiered-retrieval, and live-probe rollout flags. Complete setup and remediation examples are in [AGENT_WIKI_TOOLCHAIN.md](AGENT_WIKI_TOOLCHAIN.md).
+
 ## Project Tracker projections
 
 GitHub, Gitea, Linear, and Plane are External Projections of the canonical local Project and Work Items. They use an independent Settings profile in MCP, the Python work-OS sync path, and the Obsidian production control plane; they are not Host Capability Connectors.
@@ -192,6 +210,7 @@ The registry includes environment references for web search and the Agent cloud 
 | `settings.validate` | Validate definitions, documents, effective values, and dependencies. |
 | `settings.migrations.plan` | Plan Settings document schema changes without writing. |
 | `settings.doctor` | Return evidence-backed `available`, `degraded`, `unavailable`, or `disabled` capability health. |
+| `settings.agent_wiki.features` | Report Agent Wiki rollout/rollback switches and retained-state policy without probing or writing. |
 
 Use `settings.scopes.get` immediately before a mutation and pass its revision as `expectedRevision`. After a conflict, refresh the scope and re-evaluate the intended change; do not retry with a guessed revision.
 

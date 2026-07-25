@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.llmwiki.org/agent-wiki/v1/contribution-manifest.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "manifestId", "sourceId", "sourceRevision", "compilerSchemaVersion", "active", "contributionIds", "affectedConceptKeys", "contentDigest", "createdAt"],
+  "properties": {
+    "schemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+    "manifestId": { "$ref": "common.schema.json#/$defs/identifier" },
+    "sourceId": { "$ref": "common.schema.json#/$defs/identifier" },
+    "sourceRevision": { "$ref": "common.schema.json#/$defs/identifier" },
+    "compilerSchemaVersion": { "$ref": "common.schema.json#/$defs/identifier" },
+    "active": { "type": "boolean" },
+    "contributionIds": { "type": "array", "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/identifier" } },
+    "affectedConceptKeys": { "type": "array", "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/identifier" } },
+    "contentDigest": { "$ref": "common.schema.json#/$defs/digest" },
+    "createdAt": { "$ref": "common.schema.json#/$defs/timestamp" }
+  },
+  "additionalProperties": false
+}

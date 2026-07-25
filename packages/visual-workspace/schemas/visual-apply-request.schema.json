@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.llmwiki.org/visual-workspace/v1/visual-apply-request.schema.json",
+  "title": "VisualApplyRequest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["plan", "presentedFingerprint", "actor", "transitionToken"],
+  "properties": {
+    "plan": {
+      "$ref": "visual-edit-plan.schema.json"
+    },
+    "presentedFingerprint": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[^\\r\\n]+$"
+    },
+    "transitionToken": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[^\\r\\n]+$"
+    }
+  }
+}

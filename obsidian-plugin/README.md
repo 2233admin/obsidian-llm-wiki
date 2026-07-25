@@ -1,8 +1,19 @@
 # LLM Wiki for Obsidian
 
-The Obsidian-native control surface for LLM Wiki. Version 0.2 introduces the
-first system-settings vertical slice while preserving the existing governed
-Promote workflow.
+The Obsidian-native control surface for LLM Wiki.
+
+## First run
+
+1. Click the **sparkles** icon in Obsidian's left ribbon, or run **Open Ask Mate
+   (LLM Wiki)** from the command palette.
+2. Enter a stable Project ID such as `project/my-project`. The binding stays on
+   this device.
+3. Ask Mate opens the active Markdown note, selected text, core Canvas, or the
+   current Project when no supported file is active.
+
+You can change the binding later in **Settings → LLM Wiki → Get started**.
+Ask Mate reads only the context shown in its panel and never scans the vault
+implicitly.
 
 ## Settings surface
 
@@ -63,6 +74,29 @@ Obsidian does not copy Room state, approval state, historical Usage facts,
 plaintext credentials, usable grant/lease tokens, or governance composition.
 Provider credentials continue to use the Secret Reference selectors in the
 Settings section.
+
+## Ask Mate
+
+For a workspace bound to a Project, Ask Mate can:
+
+- read the LLM Wiki managed nested-list section through the shared Visual
+  Workspace Operations;
+- revise the hierarchy in a keyboard-operable outline and show a deterministic
+  textual preview;
+- create an immutable, source-hash-bound change plan without writing;
+- apply only after the exact current plan is explicitly confirmed;
+- show optional Graphify relation, confidence, adapter, and source evidence
+  without silently accepting it into the hierarchy.
+
+Graphify is optional. When enabled through Settings, the desktop host initializes
+the shared adapter and can read an existing `graphify-out/graph.json` even when
+the Graphify CLI is unavailable. If Graphify is disabled, missing, or stale,
+managed-map outline, preview, and apply remain usable.
+
+Ordinary Markdown and core Canvas are bounded, read-only context until the user
+reviews a supported plan. Ask Mate does not provide direct node dragging;
+ecosystem mind-map plugins remain optional enhancers rather than required state
+owners.
 
 ## Build and test
 

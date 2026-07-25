@@ -53,7 +53,9 @@ export type OperationNamespace =
   | 'host'
   | 'dreamtime'
   | 'consult'
-  | 'delegation';
+  | 'delegation'
+  | 'visual'
+  | 'problem';
 
 export type OperationWriteTrigger = 'dryRunFalse' | 'always';
 

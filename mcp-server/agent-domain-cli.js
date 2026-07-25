@@ -772,6 +772,9 @@ function settingsOperationAllowsTarget(toolName, target) {
 }
 function governedBackendOperationAllowsTarget(toolName, target) {
   const normalized = normalizePolicyPath(target);
+  if (toolName === "visual.map.apply") {
+    return /^01-Projects\/[a-z0-9][a-z0-9-]*\/maps\/(?:[^/]+\/)*[^/]+$/.test(normalized) && !normalized.split("/").some((segment) => segment === "." || segment === "..");
+  }
   if (toolName === "host.proxy.invoke")
     return normalized === "external/host-capability/**";
   if (toolName === "dreamtime.promotion.handoff") {
@@ -962,7 +965,7 @@ function asOperationError(action) {
 
 // dist/agent-domain/operations.js
 import { existsSync as existsSync8, readFileSync as readFileSync8, readdirSync as readdirSync5 } from "node:fs";
-import { basename as basename5, join as join11 } from "node:path";
+import { basename as basename6, join as join11 } from "node:path";
 
 // ../packages/agent-domain/dist/src/canonical.js
 import { createHash } from "node:crypto";
@@ -5802,7 +5805,7 @@ function deepClone2(value) {
 // ../packages/settings-platform/dist/registry/v1.json
 var v1_default = {
   schemaVersion: 1,
-  registryVersion: "1.6.0",
+  registryVersion: "1.9.0",
   definitions: [
     {
       key: "models.agent.mode",
@@ -6083,6 +6086,200 @@ var v1_default = {
       visibility: "advanced"
     },
     {
+      key: "toolchain.provider_selection",
+      owner: "runtime.toolchain",
+      category: "toolchain",
+      name: "Toolchain provider selection",
+      description: "Ordered list of Toolchain Capability Profile providers that Settings Doctor and adapters may probe. Empty keeps optional providers unselected without failing the host.",
+      valueType: "list",
+      defaultValue: ["opencli", "qmd", "graphify", "ollama", "lightrag", "raganything", "mcp-sdk"],
+      allowedScopes: ["vault", "workspace-project", "session"],
+      sensitivity: "public",
+      validator: { id: "toolchain-provider-selection" },
+      requires: [],
+      applyMode: "next-operation",
+      visibility: "advanced"
+    },
+    {
+      key: "toolchain.capability_profiles",
+      owner: "runtime.toolchain",
+      category: "toolchain",
+      name: "Toolchain capability profiles",
+      description: "Vault-scoped semantic Toolchain Capability Profiles: invocation mode, compatible version policy, required features, timeouts, and collection or index identity. Device executables and endpoints are bound separately.",
+      valueType: "object",
+      defaultValue: {
+        opencli: {
+          invocationMode: "cli",
+          versionPolicy: ">=1.8 <2",
+          requiredFeatures: ["version.structured", "command.list.structured"],
+          timeoutMs: 15e3,
+          profileRevision: "opencli/1.8"
+        },
+        qmd: {
+          invocationMode: "cli",
+          versionPolicy: ">=2.5 <3",
+          requiredFeatures: ["query.hybrid", "query.intent", "uri.qmd", "index.health"],
+          timeoutMs: 3e4,
+          profileRevision: "qmd/2.5",
+          indexId: "",
+          collectionIds: []
+        },
+        graphify: {
+          invocationMode: "cli",
+          versionPolicy: ">=0.9 <1",
+          requiredFeatures: ["graph.query", "result.normalized"],
+          timeoutMs: 3e4,
+          profileRevision: "graphify/0.9"
+        },
+        ollama: {
+          invocationMode: "http",
+          versionPolicy: ">=0.3",
+          requiredFeatures: ["embeddings.openai-compatible", "model.fingerprint"],
+          timeoutMs: 3e4,
+          profileRevision: "ollama/openai-embeddings-v1"
+        },
+        lightrag: {
+          invocationMode: "http",
+          versionPolicy: "wrapper-defined",
+          requiredFeatures: ["query", "health"],
+          timeoutMs: 3e4,
+          profileRevision: "lightrag/wrapper-v1"
+        },
+        raganything: {
+          invocationMode: "http",
+          versionPolicy: "wrapper-defined",
+          requiredFeatures: ["query", "health"],
+          timeoutMs: 3e4,
+          profileRevision: "raganything/wrapper-v1"
+        },
+        "mcp-sdk": {
+          invocationMode: "sdk",
+          versionPolicy: ">=1 <2",
+          requiredFeatures: ["transport.stdio", "server.tools"],
+          timeoutMs: 3e4,
+          profileRevision: "mcp-typescript-sdk/v1"
+        }
+      },
+      allowedScopes: ["vault", "workspace-project", "session"],
+      sensitivity: "public",
+      validator: { id: "toolchain-capability-profiles" },
+      requires: ["toolchain.provider_selection"],
+      applyMode: "next-operation",
+      visibility: "advanced"
+    },
+    {
+      key: "toolchain.device_bindings",
+      owner: "runtime.toolchain",
+      category: "toolchain",
+      name: "Toolchain device bindings",
+      description: "Device-local executable and endpoint references for Toolchain Capability Profiles. Values are redacted in Doctor and never accept credential-bearing URLs.",
+      valueType: "object",
+      defaultValue: {
+        opencli: { executable: "opencli", endpoint: "" },
+        qmd: { executable: "qmd", endpoint: "" },
+        graphify: { executable: "graphify", endpoint: "" },
+        ollama: { executable: "", endpoint: "http://localhost:11434/v1/embeddings" },
+        lightrag: { executable: "", endpoint: "" },
+        raganything: { executable: "", endpoint: "" },
+        "mcp-sdk": { executable: "", endpoint: "" }
+      },
+      allowedScopes: ["user-device", "session"],
+      sensitivity: "local",
+      validator: { id: "toolchain-device-bindings" },
+      requires: ["toolchain.provider_selection"],
+      applyMode: "restart-required",
+      visibility: "advanced"
+    },
+    {
+      key: "embeddings.default_profile",
+      owner: "runtime.embedding",
+      category: "models",
+      name: "Default embedding profile",
+      description: "Default embedding profile for indexes without an explicit binding. Both built-in profiles remain supported.",
+      valueType: "enum",
+      defaultValue: "ollama/bge-m3",
+      allowedScopes: ["user-device", "vault", "workspace-project", "session"],
+      sensitivity: "public",
+      validator: {
+        id: "enum",
+        enum: ["ollama/bge-m3", "ollama/qwen3-embedding:0.6b"]
+      },
+      requires: [],
+      applyMode: "restart-required",
+      visibility: "advanced"
+    },
+    {
+      key: "embeddings.endpoint",
+      owner: "runtime.embedding",
+      category: "models",
+      name: "Embedding endpoint",
+      description: "Device-local OpenAI-compatible embedding endpoint shared by built-in profiles.",
+      valueType: "string",
+      defaultValue: "http://localhost:11434/v1/embeddings",
+      allowedScopes: ["user-device", "session"],
+      sensitivity: "local",
+      validator: {
+        id: "url",
+        required: true,
+        maxLength: 1e3,
+        pattern: "^https?://[^\\s]+$"
+      },
+      requires: ["embeddings.default_profile"],
+      applyMode: "restart-required",
+      visibility: "advanced"
+    },
+    {
+      key: "embeddings.index_profiles",
+      owner: "runtime.embedding",
+      category: "models",
+      name: "Embedding index profile bindings",
+      description: "Per-index profile bindings. Different indexes may use different supported models, while each index remains fingerprint-homogeneous.",
+      valueType: "object",
+      defaultValue: {
+        vaultbrain: "ollama/bge-m3",
+        memu: "ollama/qwen3-embedding:0.6b"
+      },
+      allowedScopes: ["vault", "workspace-project", "session"],
+      sensitivity: "public",
+      validator: { id: "embedding-index-profile-bindings" },
+      requires: ["embeddings.default_profile"],
+      applyMode: "restart-required",
+      visibility: "advanced"
+    },
+    {
+      key: "embeddings.fingerprint_enforcement",
+      owner: "runtime.embedding",
+      category: "models",
+      name: "Embedding fingerprint enforcement",
+      description: "How Settings and adapters treat an index whose fingerprint does not match the selected embedding profile.",
+      valueType: "enum",
+      defaultValue: "rebuild-required",
+      allowedScopes: ["vault", "workspace-project", "session"],
+      sensitivity: "public",
+      validator: {
+        id: "enum",
+        enum: ["rebuild-required", "reject-mismatch"]
+      },
+      requires: ["embeddings.index_profiles"],
+      applyMode: "next-operation",
+      visibility: "advanced"
+    },
+    {
+      key: "embeddings.index_fingerprints",
+      owner: "runtime.embedding",
+      category: "models",
+      name: "Recorded embedding index fingerprints",
+      description: "Observed embedding fingerprints per index identity (provider, endpoint identity, model, dimensions, adapter schema, digest). Used for Doctor mismatch diagnostics; never stores credentials.",
+      valueType: "object",
+      defaultValue: {},
+      allowedScopes: ["vault", "workspace-project", "session"],
+      sensitivity: "public",
+      validator: { id: "embedding-index-fingerprints" },
+      requires: ["embeddings.index_profiles"],
+      applyMode: "hot",
+      visibility: "internal"
+    },
+    {
       key: "adapters.memu.embed_model",
       owner: "runtime.adapter-memu",
       category: "adapters",
@@ -6095,7 +6292,8 @@ var v1_default = {
       validator: { id: "non-empty-string", required: true, maxLength: 300 },
       requires: ["adapters.memu.dsn"],
       applyMode: "restart-required",
-      visibility: "advanced"
+      visibility: "advanced",
+      deprecatedBy: "embeddings.index_profiles"
     },
     {
       key: "adapters.lightrag.base_url",
@@ -6357,6 +6555,52 @@ var v1_default = {
       validator: { id: "string", maxLength: 200 },
       requires: ["adapters.enabled"],
       applyMode: "restart-required",
+      visibility: "advanced",
+      deprecatedBy: "adapters.qmd.collections"
+    },
+    {
+      key: "adapters.qmd.collections",
+      owner: "runtime.adapter-qmd",
+      category: "adapters",
+      name: "QMD collections",
+      description: "Optional QMD collection names. Empty means query all collections in the selected index.",
+      valueType: "list",
+      defaultValue: [],
+      allowedScopes: ["vault", "workspace-project", "session"],
+      sensitivity: "public",
+      validator: { id: "string-list" },
+      requires: ["adapters.enabled"],
+      applyMode: "restart-required",
+      visibility: "advanced"
+    },
+    {
+      key: "adapters.qmd.index",
+      owner: "runtime.adapter-qmd",
+      category: "adapters",
+      name: "QMD named index",
+      description: "Optional device-local QMD named index. Empty uses QMD's default index.",
+      valueType: "string",
+      defaultValue: "",
+      allowedScopes: ["user-device", "session"],
+      sensitivity: "local",
+      validator: { id: "string", maxLength: 200 },
+      requires: ["adapters.enabled"],
+      applyMode: "restart-required",
+      visibility: "advanced"
+    },
+    {
+      key: "adapters.qmd.embedding_model",
+      owner: "runtime.adapter-qmd",
+      category: "models",
+      name: "QMD embedding model",
+      description: "QMD embedding-model identity used to fingerprint the selected index. Changing it requires qmd embed -f.",
+      valueType: "string",
+      defaultValue: "hf:ggml-org/embeddinggemma-300M-GGUF/embeddinggemma-300M-Q8_0.gguf",
+      allowedScopes: ["user-device", "session"],
+      sensitivity: "local",
+      validator: { id: "non-empty-string", required: true, maxLength: 1e3 },
+      requires: ["adapters.qmd.index"],
+      applyMode: "restart-required",
       visibility: "advanced"
     },
     {
@@ -6370,6 +6614,66 @@ var v1_default = {
       allowedScopes: ["user-device", "session"],
       sensitivity: "local",
       validator: { id: "non-empty-path", required: true, maxLength: 1e3 },
+      requires: ["adapters.enabled"],
+      applyMode: "restart-required",
+      visibility: "advanced"
+    },
+    {
+      key: "adapters.graphify.binary",
+      owner: "runtime.adapter-graphify",
+      category: "adapters",
+      name: "Graphify executable",
+      description: "Device-local Graphify executable name or path. The portable default resolves through PATH.",
+      valueType: "path",
+      defaultValue: "graphify",
+      allowedScopes: ["user-device", "session"],
+      sensitivity: "local",
+      validator: { id: "non-empty-path", required: true, maxLength: 1e3 },
+      requires: ["adapters.enabled"],
+      applyMode: "restart-required",
+      visibility: "advanced"
+    },
+    {
+      key: "adapters.graphify.output_dir",
+      owner: "runtime.adapter-graphify",
+      category: "adapters",
+      name: "Graphify output directory",
+      description: "Optional device-local directory containing graph.json. Empty uses the portable vault-relative graphify-out directory.",
+      valueType: "path",
+      defaultValue: "",
+      allowedScopes: ["user-device", "session"],
+      sensitivity: "local",
+      validator: { id: "non-empty-path", required: false, maxLength: 1e3 },
+      requires: ["adapters.enabled"],
+      applyMode: "restart-required",
+      visibility: "advanced"
+    },
+    {
+      key: "adapters.graphify.auto_rescan",
+      owner: "runtime.adapter-graphify",
+      category: "adapters",
+      name: "Graphify automatic rescan",
+      description: "Run Graphify update before graph reads. Disabled by default so ordinary reads do not start an external scan.",
+      valueType: "boolean",
+      defaultValue: false,
+      allowedScopes: ["vault", "workspace-project", "session"],
+      sensitivity: "public",
+      validator: { id: "boolean" },
+      requires: ["adapters.enabled"],
+      applyMode: "restart-required",
+      visibility: "advanced"
+    },
+    {
+      key: "adapters.graphify.timeout_ms",
+      owner: "runtime.adapter-graphify",
+      category: "adapters",
+      name: "Graphify subprocess timeout",
+      description: "Fail-closed deadline for Graphify query and update subprocesses.",
+      valueType: "integer",
+      defaultValue: 3e4,
+      allowedScopes: ["user-device", "vault", "workspace-project", "session"],
+      sensitivity: "public",
+      validator: { id: "integer", min: 100, max: 3e5 },
       requires: ["adapters.enabled"],
       applyMode: "restart-required",
       visibility: "advanced"
@@ -7116,6 +7420,111 @@ function isRfc3339Timestamp(value) {
   const calendar = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
   return calendar.getUTCFullYear() === year && calendar.getUTCMonth() === month - 1 && calendar.getUTCDate() === day && !Number.isNaN(Date.parse(value));
 }
+var TOOLCHAIN_PROVIDER_IDS = /* @__PURE__ */ new Set([
+  "opencli",
+  "qmd",
+  "graphify",
+  "ollama",
+  "lightrag",
+  "raganything",
+  "mcp-sdk"
+]);
+var INVOCATION_MODES = /* @__PURE__ */ new Set(["filesystem", "cli", "http", "sdk"]);
+function validateToolchainCapabilityProfiles(value, options) {
+  const issues = [];
+  for (const [providerId, raw] of Object.entries(value)) {
+    if (!TOOLCHAIN_PROVIDER_IDS.has(providerId)) {
+      issues.push(issue("toolchain-provider-id-invalid", `toolchain.capability_profiles contains unsupported provider ${providerId}.`, options));
+      continue;
+    }
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      issues.push(issue("toolchain-profile-shape-invalid", `toolchain.capability_profiles.${providerId} must be an object.`, options));
+      continue;
+    }
+    const profile = raw;
+    if (typeof profile.invocationMode !== "string" || !INVOCATION_MODES.has(profile.invocationMode)) {
+      issues.push(issue("toolchain-invocation-mode-invalid", `toolchain.capability_profiles.${providerId}.invocationMode is invalid.`, options));
+    }
+    if (typeof profile.versionPolicy !== "string" || !profile.versionPolicy.trim()) {
+      issues.push(issue("toolchain-version-policy-invalid", `toolchain.capability_profiles.${providerId}.versionPolicy is required.`, options));
+    }
+    if (typeof profile.profileRevision !== "string" || !profile.profileRevision.trim()) {
+      issues.push(issue("toolchain-profile-revision-invalid", `toolchain.capability_profiles.${providerId}.profileRevision is required.`, options));
+    }
+    if (!Array.isArray(profile.requiredFeatures) || profile.requiredFeatures.some((item) => typeof item !== "string" || !item.trim())) {
+      issues.push(issue("toolchain-required-features-invalid", `toolchain.capability_profiles.${providerId}.requiredFeatures must be a string list.`, options));
+    }
+    if (typeof profile.timeoutMs !== "number" || !Number.isInteger(profile.timeoutMs) || profile.timeoutMs < 100 || profile.timeoutMs > 3e5) {
+      issues.push(issue("toolchain-timeout-invalid", `toolchain.capability_profiles.${providerId}.timeoutMs must be an integer between 100 and 300000.`, options));
+    }
+    if (profile.indexId !== void 0 && typeof profile.indexId !== "string") {
+      issues.push(issue("toolchain-index-id-invalid", `toolchain.capability_profiles.${providerId}.indexId must be a string.`, options));
+    }
+    if (profile.collectionIds !== void 0 && (!Array.isArray(profile.collectionIds) || profile.collectionIds.some((item) => typeof item !== "string"))) {
+      issues.push(issue("toolchain-collection-ids-invalid", `toolchain.capability_profiles.${providerId}.collectionIds must be a string list.`, options));
+    }
+  }
+  return issues;
+}
+function validateToolchainDeviceBindings(value, options) {
+  const issues = [];
+  for (const [providerId, raw] of Object.entries(value)) {
+    if (!TOOLCHAIN_PROVIDER_IDS.has(providerId)) {
+      issues.push(issue("toolchain-provider-id-invalid", `toolchain.device_bindings contains unsupported provider ${providerId}.`, options));
+      continue;
+    }
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      issues.push(issue("toolchain-device-binding-shape-invalid", `toolchain.device_bindings.${providerId} must be an object.`, options));
+      continue;
+    }
+    const binding = raw;
+    if (binding.executable !== void 0 && typeof binding.executable !== "string") {
+      issues.push(issue("toolchain-executable-invalid", `toolchain.device_bindings.${providerId}.executable must be a string path.`, options));
+    }
+    if (binding.endpoint !== void 0) {
+      if (typeof binding.endpoint !== "string") {
+        issues.push(issue("toolchain-endpoint-invalid", `toolchain.device_bindings.${providerId}.endpoint must be a string URL.`, options));
+      } else if (binding.endpoint.trim() && hasUrlCredentials(binding.endpoint)) {
+        issues.push(issue("url-credentials-forbidden", `toolchain.device_bindings.${providerId}.endpoint must not embed credentials.`, {
+          ...options,
+          remediation: "Remove URL userinfo/query secrets and bind credentials through a Secret Reference."
+        }));
+      } else if (binding.endpoint.trim() && !/^https?:\/\//i.test(binding.endpoint)) {
+        issues.push(issue("pattern-mismatch", `toolchain.device_bindings.${providerId}.endpoint must be an HTTP(S) URL when set.`, options));
+      }
+    }
+  }
+  return issues;
+}
+function validateEmbeddingIndexFingerprints(value, options) {
+  const issues = [];
+  for (const [indexId, raw] of Object.entries(value)) {
+    if (!/^[a-z][a-z0-9._-]{0,127}$/.test(indexId)) {
+      issues.push(issue("embedding-index-id-invalid", "embeddings.index_fingerprints contains an invalid index identifier.", options));
+      continue;
+    }
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      issues.push(issue("embedding-fingerprint-shape-invalid", `embeddings.index_fingerprints.${indexId} must be an object.`, options));
+      continue;
+    }
+    const fp = raw;
+    for (const field of ["profileId", "providerId", "endpointIdentity", "modelId", "adapterSchemaVersion", "digest"]) {
+      if (typeof fp[field] !== "string" || !fp[field].trim()) {
+        issues.push(issue("embedding-fingerprint-field-invalid", `embeddings.index_fingerprints.${indexId}.${field} must be a non-empty string.`, options));
+      }
+    }
+    if (typeof fp.digest === "string" && !/^sha256:[a-f0-9]{64}$/.test(fp.digest)) {
+      issues.push(issue("embedding-fingerprint-digest-invalid", `embeddings.index_fingerprints.${indexId}.digest must be sha256:<hex>.`, options));
+    }
+    if (fp.dimensions !== void 0 && (!Number.isInteger(fp.dimensions) || fp.dimensions <= 0)) {
+      issues.push(issue("embedding-fingerprint-dimensions-invalid", `embeddings.index_fingerprints.${indexId}.dimensions must be a positive integer when set.`, options));
+    }
+    if (typeof fp.endpointIdentity === "string" && hasUrlCredentials(fp.endpointIdentity)) {
+      issues.push(issue("url-credentials-forbidden", `embeddings.index_fingerprints.${indexId}.endpointIdentity must not embed credentials.`, options));
+    }
+  }
+  return issues;
+}
 function validateValue(definition, value, options) {
   const issues = [];
   const type = definition.valueType;
@@ -7124,6 +7533,49 @@ function validateValue(definition, value, options) {
     return [issue("type-mismatch", `${definition.key} must be a ${type}.`, options)];
   }
   const validator = definition.validator;
+  if (validator.id === "embedding-index-profile-bindings") {
+    const bindings = value;
+    for (const [indexId, profileId] of Object.entries(bindings)) {
+      if (!/^[a-z][a-z0-9._-]{0,127}$/.test(indexId)) {
+        issues.push(issue("embedding-index-id-invalid", definition.key + " contains an invalid index identifier.", options));
+      }
+      if (typeof profileId !== "string" || profileId !== "ollama/bge-m3" && profileId !== "ollama/qwen3-embedding:0.6b") {
+        issues.push(issue("embedding-profile-id-invalid", definition.key + " contains an unsupported embedding profile binding.", options));
+      }
+    }
+  }
+  if (validator.id === "toolchain-provider-selection") {
+    const providers = value;
+    const allowed = /* @__PURE__ */ new Set([
+      "opencli",
+      "qmd",
+      "graphify",
+      "ollama",
+      "lightrag",
+      "raganything",
+      "mcp-sdk"
+    ]);
+    const seen = /* @__PURE__ */ new Set();
+    for (const item of providers) {
+      if (typeof item !== "string" || !allowed.has(item)) {
+        issues.push(issue("toolchain-provider-id-invalid", `${definition.key} contains an unsupported toolchain provider id.`, options));
+        continue;
+      }
+      if (seen.has(item)) {
+        issues.push(issue("toolchain-provider-duplicate", `${definition.key} must not list the same provider twice.`, options));
+      }
+      seen.add(item);
+    }
+  }
+  if (validator.id === "toolchain-capability-profiles") {
+    issues.push(...validateToolchainCapabilityProfiles(value, options));
+  }
+  if (validator.id === "toolchain-device-bindings") {
+    issues.push(...validateToolchainDeviceBindings(value, options));
+  }
+  if (validator.id === "embedding-index-fingerprints") {
+    issues.push(...validateEmbeddingIndexFingerprints(value, options));
+  }
   if (validator.required && typeof value === "string" && !value.trim()) {
     issues.push(issue("required-value-missing", `${definition.key} is required.`, options));
   }
@@ -7886,8 +8338,320 @@ function changedAssignmentKeys(before, after) {
 // ../packages/settings-platform/dist/src/service.js
 import { existsSync as existsSync5 } from "node:fs";
 import { hostname } from "node:os";
-import { basename as basename4 } from "node:path";
+import { basename as basename5 } from "node:path";
 import { spawnSync } from "node:child_process";
+
+// ../packages/settings-platform/dist/src/toolchain.js
+import { createHash as createHash5 } from "node:crypto";
+import { basename as basename4 } from "node:path";
+var TOOLCHAIN_PROVIDER_IDS2 = [
+  "opencli",
+  "qmd",
+  "graphify",
+  "ollama",
+  "lightrag",
+  "raganything",
+  "mcp-sdk"
+];
+var SENSITIVE_QUERY_RE = /(api[_-]?key|token|secret|password|auth|access[_-]?key)=([^&#]*)/gi;
+var USERINFO_RE = /\/\/([^/@]+)@/g;
+function isToolchainProviderId(value) {
+  return TOOLCHAIN_PROVIDER_IDS2.includes(value);
+}
+function redactExecutable(value) {
+  const trimmed = value.trim();
+  if (!trimmed)
+    return "";
+  const base = basename4(trimmed.replace(/\\/g, "/"));
+  return base || "[redacted-executable]";
+}
+function redactEndpoint(value) {
+  const trimmed = value.trim();
+  if (!trimmed)
+    return "";
+  try {
+    const url = new URL(trimmed);
+    if (url.username || url.password) {
+      url.username = "";
+      url.password = "";
+    }
+    if (url.search) {
+      url.search = url.search.replace(SENSITIVE_QUERY_RE, "$1=[redacted]");
+    }
+    url.hash = "";
+    const path = url.pathname === "/" ? "" : url.pathname;
+    return `${url.origin}${path}${url.search}`.replace(/\/$/, "") || url.origin;
+  } catch {
+    return trimmed.replace(USERINFO_RE, "//[redacted]@").replace(SENSITIVE_QUERY_RE, "$1=[redacted]");
+  }
+}
+function endpointHasCredentials(value) {
+  try {
+    const url = new URL(value);
+    return Boolean(url.username || url.password) || SENSITIVE_QUERY_RE.test(url.search);
+  } catch {
+    return /\/\/[^/@]+@/.test(value) || SENSITIVE_QUERY_RE.test(value);
+  }
+}
+function embeddingFingerprintDigest(input) {
+  const canonical = JSON.stringify({
+    schemaVersion: 1,
+    profileId: input.profileId,
+    providerId: input.providerId,
+    endpointIdentity: input.endpointIdentity,
+    modelId: input.modelId,
+    ...input.dimensions === void 0 ? {} : { dimensions: input.dimensions },
+    adapterSchemaVersion: input.adapterSchemaVersion
+  });
+  return "sha256:" + createHash5("sha256").update(canonical).digest("hex");
+}
+function effectiveValue(snapshot, key) {
+  return snapshot.effective.find((item) => item.key === key)?.value;
+}
+function effectiveSetting(snapshot, key) {
+  return snapshot.effective.find((item) => item.key === key);
+}
+function fieldProvenance(snapshot, key, path) {
+  const setting = effectiveSetting(snapshot, key);
+  if (!setting) {
+    return { source: "product-default", path };
+  }
+  if (setting.winningScope === "product") {
+    return { source: "product-default", path, scope: "product" };
+  }
+  const source = setting.assignmentProvenance.source === "legacy-environment" || setting.assignmentProvenance.source.startsWith("legacy") ? "legacy-environment" : "settings-assignment";
+  return {
+    source,
+    path,
+    scope: setting.winningScope,
+    actor: setting.assignmentProvenance.actor,
+    detail: setting.assignmentProvenance.source
+  };
+}
+function asRecord2(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+function asStringList(value) {
+  return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
+}
+function profileFor(profiles, providerId) {
+  const raw = asRecord2(profiles[providerId]);
+  return {
+    invocationMode: typeof raw.invocationMode === "string" ? raw.invocationMode : "cli",
+    versionPolicy: typeof raw.versionPolicy === "string" ? raw.versionPolicy : "",
+    requiredFeatures: asStringList(raw.requiredFeatures),
+    timeoutMs: typeof raw.timeoutMs === "number" && Number.isFinite(raw.timeoutMs) ? raw.timeoutMs : 3e4,
+    profileRevision: typeof raw.profileRevision === "string" ? raw.profileRevision : `${providerId}/unknown`,
+    ...typeof raw.indexId === "string" ? { indexId: raw.indexId } : {},
+    ...Array.isArray(raw.collectionIds) ? { collectionIds: raw.collectionIds.filter((item) => typeof item === "string") } : {}
+  };
+}
+function deviceFor(bindings, providerId) {
+  const raw = asRecord2(bindings[providerId]);
+  return {
+    executable: typeof raw.executable === "string" ? raw.executable : "",
+    endpoint: typeof raw.endpoint === "string" ? raw.endpoint : ""
+  };
+}
+function mapHealth(selected, profile, device, probe) {
+  if (!selected) {
+    return { health: "disabled", compatibility: "unknown", missing: [], codes: [] };
+  }
+  if (probe?.disabled) {
+    return { health: "disabled", compatibility: "unknown", missing: [], codes: probe.diagnosticCodes ?? [] };
+  }
+  if (probe?.timedOut) {
+    return {
+      health: "unavailable",
+      compatibility: "unknown",
+      missing: profile.requiredFeatures,
+      codes: [.../* @__PURE__ */ new Set([...probe.diagnosticCodes ?? [], "TOOLCHAIN_PROBE_TIMEOUT"])]
+    };
+  }
+  const needsExecutable = profile.invocationMode === "cli";
+  const needsEndpoint = profile.invocationMode === "http";
+  if (needsExecutable && !device.executable.trim()) {
+    return {
+      health: "unavailable",
+      compatibility: "unknown",
+      missing: profile.requiredFeatures,
+      codes: ["PROVIDER_UNAVAILABLE"]
+    };
+  }
+  if (needsEndpoint && !device.endpoint.trim()) {
+    return {
+      health: "unavailable",
+      compatibility: "unknown",
+      missing: profile.requiredFeatures,
+      codes: ["PROVIDER_UNAVAILABLE"]
+    };
+  }
+  if (device.endpoint && endpointHasCredentials(device.endpoint)) {
+    return {
+      health: "unavailable",
+      compatibility: "incompatible",
+      missing: profile.requiredFeatures,
+      codes: ["SENSITIVE_ERROR_REDACTED"]
+    };
+  }
+  if (!probe) {
+    return {
+      health: "degraded",
+      compatibility: "partial",
+      missing: profile.requiredFeatures,
+      codes: ["CAPABILITY_MISSING"]
+    };
+  }
+  const observed = new Set(probe.capabilities ?? []);
+  const missing = profile.requiredFeatures.filter((feature) => !observed.has(feature));
+  if (missing.length === 0) {
+    return {
+      health: "available",
+      compatibility: "compatible",
+      missing: [],
+      codes: probe.diagnosticCodes ?? []
+    };
+  }
+  return {
+    health: "degraded",
+    compatibility: "partial",
+    missing,
+    codes: [.../* @__PURE__ */ new Set([...probe.diagnosticCodes ?? [], "CAPABILITY_MISSING"])]
+  };
+}
+function buildToolchainCapabilityProfiles(snapshot, options) {
+  const selection = asStringList(effectiveValue(snapshot, "toolchain.provider_selection"));
+  const profiles = asRecord2(effectiveValue(snapshot, "toolchain.capability_profiles"));
+  const bindings = asRecord2(effectiveValue(snapshot, "toolchain.device_bindings"));
+  const indexProfiles = asRecord2(effectiveValue(snapshot, "embeddings.index_profiles"));
+  const defaultProfile = effectiveValue(snapshot, "embeddings.default_profile");
+  const embeddingEndpoint = typeof effectiveValue(snapshot, "embeddings.endpoint") === "string" ? String(effectiveValue(snapshot, "embeddings.endpoint")) : "";
+  const recordedFingerprints = asRecord2(effectiveValue(snapshot, "embeddings.index_fingerprints"));
+  const nowMs = options.nowMs ?? Date.parse(options.checkedAt);
+  const providerIds = [
+    .../* @__PURE__ */ new Set([
+      ...selection.filter(isToolchainProviderId),
+      ...Object.keys(profiles).filter(isToolchainProviderId),
+      ...Object.keys(bindings).filter(isToolchainProviderId)
+    ])
+  ].sort();
+  return providerIds.map((providerId) => {
+    const selected = selection.includes(providerId);
+    const semantic = profileFor(profiles, providerId);
+    const device = deviceFor(bindings, providerId);
+    const probe = options.probes?.[providerId];
+    const mapped = mapHealth(selected, semantic, device, probe);
+    const probedAt = probe?.probedAt;
+    const expiresAt = probe?.expiresAt;
+    const probeAgeMs = probedAt && Number.isFinite(Date.parse(probedAt)) ? Math.max(0, nowMs - Date.parse(probedAt)) : null;
+    const embedding = providerId === "ollama" ? buildEmbeddingFingerprintView(typeof defaultProfile === "string" ? defaultProfile : "ollama/bge-m3", embeddingEndpoint, indexProfiles, recordedFingerprints) : void 0;
+    const view = {
+      schemaVersion: 1,
+      providerId,
+      profileRevision: semantic.profileRevision,
+      invocationMode: semantic.invocationMode,
+      versionPolicy: semantic.versionPolicy,
+      selected,
+      compatibility: mapped.compatibility,
+      health: mapped.health,
+      requiredFeatures: [...semantic.requiredFeatures].sort(),
+      capabilities: [...new Set(probe?.capabilities ?? [])].sort(),
+      missingCapabilities: [...mapped.missing].sort(),
+      diagnosticCodes: [...mapped.codes].sort(),
+      timeoutMs: semantic.timeoutMs,
+      ...semantic.indexId !== void 0 ? { indexId: semantic.indexId } : {},
+      ...semantic.collectionIds ? { collectionIds: [...semantic.collectionIds] } : {},
+      redactedExecutable: redactExecutable(device.executable),
+      redactedEndpoint: redactEndpoint(device.endpoint || embeddingEndpoint),
+      ...probe?.observedVersion ? { observedVersion: probe.observedVersion } : {},
+      ...probedAt ? { probedAt } : {},
+      ...expiresAt ? { expiresAt } : {},
+      probeAgeMs,
+      configurationProvenance: {
+        selection: fieldProvenance(snapshot, "toolchain.provider_selection", "toolchain.provider_selection"),
+        profile: fieldProvenance(snapshot, "toolchain.capability_profiles", `toolchain.capability_profiles.${providerId}`),
+        device: fieldProvenance(snapshot, "toolchain.device_bindings", `toolchain.device_bindings.${providerId}`),
+        ...providerId === "ollama" ? {
+          embeddingProfile: fieldProvenance(snapshot, "embeddings.default_profile", "embeddings.default_profile"),
+          embeddingEndpoint: fieldProvenance(snapshot, "embeddings.endpoint", "embeddings.endpoint")
+        } : {}
+      },
+      ...embedding ? { embeddingFingerprint: embedding } : {},
+      checkedAt: options.checkedAt,
+      snapshotId: snapshot.snapshotId
+    };
+    return view;
+  });
+}
+function buildEmbeddingFingerprintView(profileId, endpoint, indexProfiles, recorded) {
+  const modelId = profileId.includes("/") ? profileId.slice(profileId.indexOf("/") + 1) : profileId;
+  const endpointIdentity = redactEndpoint(endpoint) || "endpoint/unconfigured";
+  const digest3 = embeddingFingerprintDigest({
+    profileId,
+    providerId: "ollama",
+    endpointIdentity,
+    modelId,
+    dimensions: 1024,
+    adapterSchemaVersion: "openai-compatible/v1"
+  });
+  const indexBindings = Object.entries(indexProfiles).filter((entry) => typeof entry[1] === "string").map(([indexId, boundProfile]) => ({ indexId, profileId: boundProfile }));
+  const mismatches = indexBindings.filter((binding) => {
+    const observed = asRecord2(recorded[binding.indexId]);
+    const observedDigest = typeof observed.digest === "string" ? observed.digest : "";
+    if (!observedDigest)
+      return false;
+    const expected = embeddingFingerprintDigest({
+      profileId: binding.profileId,
+      providerId: "ollama",
+      endpointIdentity,
+      modelId: binding.profileId.includes("/") ? binding.profileId.slice(binding.profileId.indexOf("/") + 1) : binding.profileId,
+      dimensions: 1024,
+      adapterSchemaVersion: "openai-compatible/v1"
+    });
+    return observedDigest !== expected;
+  }).map((binding) => binding.indexId);
+  return {
+    profileId,
+    providerId: "ollama",
+    endpointIdentity,
+    modelId,
+    dimensions: 1024,
+    adapterSchemaVersion: "openai-compatible/v1",
+    digest: digest3,
+    indexBindings,
+    mismatchedIndexIds: mismatches
+  };
+}
+var LEGACY_TOOLCHAIN_ENV_MAP = [
+  { env: "VAULT_MIND_ADAPTERS", targetKey: "adapters.enabled", summary: "Migrate enabled adapters into adapters.enabled." },
+  { env: "VAULT_MIND_QMD_BINARY", targetKey: "toolchain.device_bindings", summary: "Migrate QMD executable into toolchain.device_bindings.qmd.executable." },
+  { env: "VAULT_MIND_GRAPHIFY_BINARY", targetKey: "toolchain.device_bindings", summary: "Migrate Graphify executable into toolchain.device_bindings.graphify.executable." },
+  { env: "VAULT_MIND_EMBED_URL", targetKey: "embeddings.endpoint", summary: "Migrate embedding endpoint into embeddings.endpoint." },
+  { env: "VAULT_MIND_EMBED_MODEL", targetKey: "embeddings.default_profile", summary: "Migrate embedding model into embeddings.default_profile or embeddings.index_profiles." },
+  { env: "VAULT_MIND_EMBED_PROFILE", targetKey: "embeddings.default_profile", summary: "Migrate embedding profile id into embeddings.default_profile." },
+  { env: "OLLAMA_HOST", targetKey: "embeddings.endpoint", summary: "Migrate Ollama host into embeddings.endpoint / toolchain.device_bindings.ollama.endpoint." },
+  { env: "OLLAMA_EMBED_MODEL", targetKey: "embeddings.default_profile", summary: "Migrate Ollama embed model into embeddings.default_profile." },
+  { env: "OPENCLI_BIN", targetKey: "toolchain.device_bindings", summary: "Migrate OpenCLI executable into toolchain.device_bindings.opencli.executable." },
+  { env: "QMD_BIN", targetKey: "toolchain.device_bindings", summary: "Migrate QMD executable into toolchain.device_bindings.qmd.executable." }
+];
+function collectLegacyToolchainDiagnostics(environment) {
+  const issues = [];
+  for (const entry of LEGACY_TOOLCHAIN_ENV_MAP) {
+    const raw = environment[entry.env];
+    if (typeof raw !== "string" || !raw.trim())
+      continue;
+    issues.push({
+      code: "legacy-toolchain-env",
+      severity: "warning",
+      message: `Legacy environment ${entry.env} is set; ${entry.summary}`,
+      key: entry.targetKey,
+      remediation: `Copy the non-secret value into ${entry.targetKey} through Settings, then unset ${entry.env} after verification.`
+    });
+  }
+  return issues;
+}
+
+// ../packages/settings-platform/dist/src/service.js
 var SettingsService = class _SettingsService {
   registry;
   defaultContext;
@@ -7902,7 +8666,7 @@ var SettingsService = class _SettingsService {
     this.environment = options.environment ?? process.env;
     this.userDevicePath = options.userDevicePath ?? defaultUserDeviceSettingsPath(this.environment);
     this.clock = options.clock ?? (() => (/* @__PURE__ */ new Date()).toISOString());
-    const vaultId = options.vaultId ?? safeIdentity(basename4(options.vaultPath) || "default-vault");
+    const vaultId = options.vaultId ?? safeIdentity(basename5(options.vaultPath) || "default-vault");
     const sessionId = options.sessionId ?? `process-${process.pid}`;
     this.defaultContext = {
       userDeviceId: options.userDeviceId ?? defaultUserDeviceId(this.environment),
@@ -8055,12 +8819,13 @@ var SettingsService = class _SettingsService {
     });
     return this.validateResolved(documents, context, snapshot);
   }
-  async migrationsPlan(context = this.defaultContext) {
+  async migrationsPlan(context = this.defaultContext, options = {}) {
+    const runtime = context ?? this.defaultContext;
     const entries = [
-      ["user-device", context.userDeviceId],
-      ["vault", context.vaultId],
-      ["workspace-project", context.workspaceProjectId],
-      ["session", context.sessionId]
+      ["user-device", runtime.userDeviceId],
+      ["vault", runtime.vaultId],
+      ["workspace-project", runtime.workspaceProjectId],
+      ["session", runtime.sessionId]
     ];
     const states = await Promise.all(entries.filter((entry) => Boolean(entry[1])).map(([scope, targetId]) => this.getStore(scope, targetId).migrationState()));
     const scopes = states.map((state) => {
@@ -8074,14 +8839,32 @@ var SettingsService = class _SettingsService {
         requiresMigration: state.schemaVersion !== this.registry.schemaVersion
       };
     });
-    return { registryVersion: this.registry.registryVersion, writeRequired: scopes.some((item) => item.requiresMigration), scopes };
+    const checkedAt = this.clock();
+    let toolchainProfiles = [];
+    try {
+      const { snapshot } = await this.snapshotResolve(runtime);
+      toolchainProfiles = buildToolchainCapabilityProfiles(snapshot, {
+        checkedAt,
+        probes: options.probes
+      });
+    } catch {
+      toolchainProfiles = [];
+    }
+    return {
+      registryVersion: this.registry.registryVersion,
+      writeRequired: scopes.some((item) => item.requiresMigration),
+      scopes,
+      legacyDiagnostics: collectLegacyToolchainDiagnostics(this.environment),
+      toolchainProfiles
+    };
   }
-  async doctor(context = this.defaultContext) {
+  async doctor(context = this.defaultContext, options = {}) {
+    const runtime = context ?? this.defaultContext;
     const checkedAt = this.clock();
     let snapshot;
     let validation;
     try {
-      const resolved = await this.snapshotResolve(context);
+      const resolved = await this.snapshotResolve(runtime);
       snapshot = resolved.snapshot;
       validation = resolved.validation;
     } catch (error) {
@@ -8095,8 +8878,15 @@ var SettingsService = class _SettingsService {
         }]
       };
     }
-    if (!snapshot)
-      return { validation, capabilities: [], checkedAt };
+    if (!snapshot) {
+      return {
+        validation,
+        capabilities: [],
+        toolchainProfiles: [],
+        migrationDiagnostics: collectLegacyToolchainDiagnostics(this.environment),
+        checkedAt
+      };
+    }
     const value = (key) => snapshot.effective.find((item) => item.key === key)?.value;
     const capabilities = [];
     const python = value("runtime.python.path");
@@ -8176,7 +8966,26 @@ var SettingsService = class _SettingsService {
       summary: agentMode === "inherit" ? "Select local or cloud mode to bring Agent model configuration under Settings Platform." : "Configure the Agent model connection and a device-local Secret Reference when cloud mode is selected.",
       operation: "settings.assignment.set"
     }]));
-    return { snapshotId: snapshot.snapshotId, validation, capabilities, checkedAt };
+    const toolchainProfiles = buildToolchainCapabilityProfiles(snapshot, {
+      checkedAt,
+      probes: options.probes
+    });
+    for (const profile of toolchainProfiles) {
+      const evidenceStatus = profile.health === "available" || profile.health === "disabled" ? "pass" : profile.health === "degraded" ? "warn" : "fail";
+      capabilities.push(this.health(`toolchain.${profile.providerId}`, profile.health, profile.health === "disabled" ? `Toolchain provider ${profile.providerId} is not selected.` : profile.health === "available" ? `Toolchain provider ${profile.providerId} configuration and probe evidence are healthy.` : profile.health === "degraded" ? `Toolchain provider ${profile.providerId} is partially available (missing: ${profile.missingCapabilities.join(", ") || "probe evidence"}).` : `Toolchain provider ${profile.providerId} is unavailable or incompatible.`, checkedAt, snapshot.snapshotId, evidenceStatus, profile.health === "available" || profile.health === "disabled" ? [] : [{
+        code: "configure-toolchain-profile",
+        summary: `Review toolchain.capability_profiles / toolchain.device_bindings for ${profile.providerId} and migrate legacy environment values if present.`,
+        operation: "settings.assignment.set"
+      }]));
+    }
+    return {
+      snapshotId: snapshot.snapshotId,
+      validation,
+      capabilities,
+      toolchainProfiles,
+      migrationDiagnostics: collectLegacyToolchainDiagnostics(this.environment),
+      checkedAt
+    };
   }
   async readDocuments(context) {
     const entries = [
@@ -8455,7 +9264,7 @@ var MUTABLE_SCOPES2 = ["user-device", "vault", "workspace-project", "session"];
 var SETTINGS_SCOPES = ["product", ...MUTABLE_SCOPES2];
 
 // dist/usage/contracts.js
-import { createHash as createHash5 } from "node:crypto";
+import { createHash as createHash6 } from "node:crypto";
 
 // dist/usage/redaction.js
 var SECRET_VALUE = /(?:\bbearer\s+[a-z0-9._~+/-]+=*|\b(?:sk|pk|ghp|github_pat|xox[baprs])-[-a-z0-9_]{8,}|\b(?:api[_-]?key|secret|password|authorization|access[_-]?token|refresh[_-]?token|lease[_-]?token|handoff[_-]?token)\s*[:=])/i;
@@ -8521,7 +9330,7 @@ function unknown(reason) {
   return { state: "unknown", reason };
 }
 function usageEventId(idempotencyKey) {
-  return `usage/${createHash5("sha256").update(idempotencyKey).digest("hex")}`;
+  return `usage/${createHash6("sha256").update(idempotencyKey).digest("hex")}`;
 }
 function assertRecord(value, fieldPath) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -8674,7 +9483,7 @@ import { existsSync as existsSync6, mkdirSync as mkdirSync4, readFileSync as rea
 import { dirname as dirname8, join as join9, relative, resolve as resolve3, sep } from "node:path";
 
 // dist/usage/canonical.js
-import { createHash as createHash6 } from "node:crypto";
+import { createHash as createHash7 } from "node:crypto";
 function serialize(value) {
   if (value === null)
     return "null";
@@ -8698,7 +9507,7 @@ function canonicalJson5(value) {
   return serialize(value);
 }
 function sha256(value) {
-  return createHash6("sha256").update(value).digest("hex");
+  return createHash7("sha256").update(value).digest("hex");
 }
 
 // dist/usage/ledger.js
@@ -8827,7 +9636,7 @@ var UsageLedger = class {
 // dist/workflow/workflow.js
 import { existsSync as existsSync7, mkdirSync as mkdirSync5, readFileSync as readFileSync7, renameSync as renameSync3, rmSync as rmSync3, writeFileSync as writeFileSync4 } from "node:fs";
 import { dirname as dirname9, join as join10 } from "node:path";
-import { createHash as createHash7, randomUUID as randomUUID9, timingSafeEqual } from "node:crypto";
+import { createHash as createHash8, randomUUID as randomUUID9, timingSafeEqual } from "node:crypto";
 var STAGES = ["intake", "understand", "plan", "execute", "review", "verify", "archive"];
 var CHECKPOINT_STATUSES = ["note", "passed", "failed", "blocked"];
 var AGENT_STAGES = ["think", "plan", "build", "review", "test", "ship", "reflect"];
@@ -9199,7 +10008,7 @@ function assertPortableHandoffAuthority(durable, handoffToken) {
   if (typeof expiresAt !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(expiresAt) || !Number.isFinite(Date.parse(expiresAt)) || Date.now() >= Date.parse(expiresAt)) {
     throw conflict("Portable handoff authority conflict: durable handoff is missing or expired");
   }
-  const actual = createHash7("sha256").update(token, "utf-8").digest();
+  const actual = createHash8("sha256").update(token, "utf-8").digest();
   const expected = Buffer.from(expectedHash, "hex");
   if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) {
     throw conflict("Portable handoff authority conflict: handoff token mismatch");
@@ -11731,7 +12540,7 @@ function dreamTimeOperations(vaultPath, stateRoot, service) {
         const directory = proposalDirectory(stateRoot, project.projectId, profileId);
         const files = existsSync8(directory) ? readdirSync5(directory).filter((file) => file.endsWith(".json")).sort() : [];
         for (const file of files) {
-          const proposalId = `memory-proposal/${basename5(file, ".json")}`;
+          const proposalId = `memory-proposal/${basename6(file, ".json")}`;
           const proposal = await store.readProposal(proposalId);
           if (!proposal)
             continue;

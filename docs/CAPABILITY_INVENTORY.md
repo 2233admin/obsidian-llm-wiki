@@ -17,6 +17,10 @@ This inventory names the owner and authority boundary of the current release can
 | Source registration | Source Registry | `source.*`, `ingest.link.preflight` | `url` and `vaultPath` registration | Stable source identity; provider access remains device/host-specific |
 | Search and RAG adapters | Adapter registry | `query.*`, `vault.search` | Filesystem baseline plus optional adapters | Each device reports adapter availability independently |
 | Link diagnostics | `obc` compatibility package | OBC CLI and diagnostic integration | Deterministic Obsidian link diagnostics | Consumes shared settings; does not own the product or settings backend |
+| Mind maps and visual projections (experimental) | Visual Workspace | `visual.map.read`, `visual.map.plan`, `visual.map.apply` | Canonical managed Markdown plus deterministic text, Mermaid, and core Canvas projections | Shared Markdown truth; Graphify and render adapters report device-local availability |
+| Problem intake and triage (experimental) | Problem Intake | `problem.intake.*` | Fingerprinted observations, lifecycle, and reviewed Issue Change Plans | Shared reviewed observations; provider health and machine access remain device-local |
+| Ask Mate (experimental) | Obsidian control plane | Ask Mate ItemView and active-context command | Keyboard-operable outline, preview, explicit apply, and deterministic degraded mode | Stores presentation state only; canonical map, issue, and contribution state stays with owning domains |
+| Upstream Issue and draft-PR preparation (experimental) | Problem Intake + governed tracker/forge projections | `problem.intake.contribution.plan`, `problem.intake.contribution.apply` | Exact redacted preview, per-run approval, and replay-safe receipts | Credentials and repository worktrees remain device-local; remote state is a projection |
 | Obsidian control plane | Obsidian plugin | Settings page, Doctor, governed Promote | Presentation and device binding only | One binding per device; no copied runtime path or credential |
 | External project tools | Provider-owned connectors | Git/GitHub/Gitea/Linear/Orca projections | Optional | Provider IDs are provenance/projections, never Project or Work Run identity |
 
@@ -33,6 +37,8 @@ The release harness also proves that wrong Project, Work Item, Work Run, agent, 
 | Evidence | Status for this release candidate |
 |---|---|
 | Reproducible local two-vault acceptance harness | Implemented; part of the local release gate |
+| Ask Mate offline static release closure | Implemented in `scripts/verify_release_security.py`; checks schemas, source/generated operation parity, domain build outputs, tests, lifecycle support, docs, package metadata, lockfiles, and transitive runtime licenses |
+| Ask Mate clean-vault, accessibility, mobile, migration, privacy, and rollback contract | Documented in [ASK_MATE_VISUAL_WORKSPACE.md](ASK_MATE_VISUAL_WORKSPACE.md); experimental promotion remains closed until its acceptance run passes at the candidate commit |
 | 5090/Orca workflow recipe and artifact boundary | Documented in [FLEET_WORKFLOW_ACCEPTANCE.md](FLEET_WORKFLOW_ACCEPTANCE.md) |
 | Real local ↔ 5090 run at the beta product commit | Accepted at `b0c447a5f228ddd2d4f3f1ba0b001817f89ea155`; remote phase ran exactly once and returned-state verification passed `6/6` |
 | Beta prerelease | Exact-commit gates passed; prerelease publication remains pending the tag workflow |

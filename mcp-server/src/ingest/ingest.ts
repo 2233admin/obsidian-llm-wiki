@@ -1,5 +1,6 @@
 import type { Operation } from '../core/types.js';
 import { badRequest } from '../core/types.js';
+import { openCliDiscoveryCommand } from '../toolchain/provider-contracts.js';
 
 type ProviderId = 'opencli' | 'media';
 type IngestMode = 'web-capture' | 'browser-capture' | 'media-transcription' | 'manual';
@@ -312,11 +313,29 @@ function pipelineFor(profile: PlatformProfile, primary: ProviderId): Array<Recor
       configured: config.configured,
       command: config.command,
       capability: id === 'opencli' ? 'resolve.capture' : 'media.transcribe',
+      ...(id === 'opencli' ? { compatibility: openCliCompatibilitySurface() } : {}),
       role: id === 'opencli'
         ? 'resolve browser/page/source metadata and capture text-first material'
         : 'parse/download media and produce transcript Markdown',
     };
   });
+}
+
+function openCliCompatibilitySurface(): Record<string, unknown> {
+  return {
+    profileRevision: 'opencli/1.8',
+    boundary: 'capture-provider',
+    discovery: {
+      version: openCliDiscoveryCommand('version'),
+      list: openCliDiscoveryCommand('list'),
+      validate: openCliDiscoveryCommand('validate'),
+      verify: openCliDiscoveryCommand('verify'),
+      doctor: openCliDiscoveryCommand('doctor'),
+      profiles: openCliDiscoveryCommand('profiles'),
+      plugins: openCliDiscoveryCommand('plugins'),
+      adapters: openCliDiscoveryCommand('adapters'),
+    },
+  };
 }
 
 export function preflight(params: Record<string, unknown>): Record<string, unknown> {
@@ -343,6 +362,7 @@ export function preflight(params: Record<string, unknown>): Record<string, unkno
       env: config.env,
       fallbackEnv: config.fallbackEnv,
       purpose: provider.purpose,
+      ...(provider.id === 'opencli' ? { compatibility: openCliCompatibilitySurface() } : {}),
     },
     pipeline: pipelineFor(profile, providerId),
     can_auto_ingest: status === 'ready',
@@ -375,6 +395,7 @@ export function makeIngestOps(): Operation[] {
             env: config.env,
             fallbackEnv: config.fallbackEnv,
             purpose: provider.purpose,
+            ...(provider.id === 'opencli' ? { compatibility: openCliCompatibilitySurface() } : {}),
             output_contract: provider.outputContract,
           };
         }),

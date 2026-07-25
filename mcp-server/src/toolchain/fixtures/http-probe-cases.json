@@ -1,0 +1,23 @@
+{
+  "ollamaVersion": { "version": "0.12.4", "reflectedEndpoint": "https://user:pass@private.example.test" },
+  "ollamaModels": {
+    "object": "list",
+    "data": [
+      { "id": "bge-m3", "object": "model" },
+      { "id": "qwen3-embedding:0.6b", "object": "model" }
+    ]
+  },
+  "lightRagHealth": {
+    "status": "ok",
+    "version": "1.4.2",
+    "capabilities": ["query", "documents.text"],
+    "endpoints": ["/query", "/documents/text"]
+  },
+  "ragAnythingPartial": {
+    "status": "ok",
+    "version": "0.1.0",
+    "capabilities": ["documents.process"],
+    "endpoints": ["/process_document"],
+    "reflectedSecret": "sk-test-secret"
+  }
+}

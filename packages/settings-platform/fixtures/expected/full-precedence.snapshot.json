@@ -1,6 +1,6 @@
 {
-  "snapshotId": "settings:1.6.0:device-a:vault-alpha:project/alpha:session-a:3:7:2:1",
-  "registryVersion": "1.6.0",
+  "snapshotId": "settings:1.9.0:device-a:vault-alpha:project/alpha:session-a:3:7:2:1",
+  "registryVersion": "1.9.0",
   "context": {
     "userDeviceId": "device-a",
     "vaultId": "vault-alpha",
@@ -305,6 +305,241 @@
       "overriddenCandidates": []
     },
     {
+      "key": "toolchain.provider_selection",
+      "value": [
+        "opencli",
+        "qmd",
+        "graphify",
+        "ollama",
+        "lightrag",
+        "raganything",
+        "mcp-sdk"
+      ],
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "next-operation",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "toolchain.capability_profiles",
+      "value": {
+        "opencli": {
+          "invocationMode": "cli",
+          "versionPolicy": ">=1.8 <2",
+          "requiredFeatures": [
+            "version.structured",
+            "command.list.structured"
+          ],
+          "timeoutMs": 15000,
+          "profileRevision": "opencli/1.8"
+        },
+        "qmd": {
+          "invocationMode": "cli",
+          "versionPolicy": ">=2.5 <3",
+          "requiredFeatures": [
+            "query.hybrid",
+            "query.intent",
+            "uri.qmd",
+            "index.health"
+          ],
+          "timeoutMs": 30000,
+          "profileRevision": "qmd/2.5",
+          "indexId": "",
+          "collectionIds": []
+        },
+        "graphify": {
+          "invocationMode": "cli",
+          "versionPolicy": ">=0.9 <1",
+          "requiredFeatures": [
+            "graph.query",
+            "result.normalized"
+          ],
+          "timeoutMs": 30000,
+          "profileRevision": "graphify/0.9"
+        },
+        "ollama": {
+          "invocationMode": "http",
+          "versionPolicy": ">=0.3",
+          "requiredFeatures": [
+            "embeddings.openai-compatible",
+            "model.fingerprint"
+          ],
+          "timeoutMs": 30000,
+          "profileRevision": "ollama/openai-embeddings-v1"
+        },
+        "lightrag": {
+          "invocationMode": "http",
+          "versionPolicy": "wrapper-defined",
+          "requiredFeatures": [
+            "query",
+            "health"
+          ],
+          "timeoutMs": 30000,
+          "profileRevision": "lightrag/wrapper-v1"
+        },
+        "raganything": {
+          "invocationMode": "http",
+          "versionPolicy": "wrapper-defined",
+          "requiredFeatures": [
+            "query",
+            "health"
+          ],
+          "timeoutMs": 30000,
+          "profileRevision": "raganything/wrapper-v1"
+        },
+        "mcp-sdk": {
+          "invocationMode": "sdk",
+          "versionPolicy": ">=1 <2",
+          "requiredFeatures": [
+            "transport.stdio",
+            "server.tools"
+          ],
+          "timeoutMs": 30000,
+          "profileRevision": "mcp-typescript-sdk/v1"
+        }
+      },
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "next-operation",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "toolchain.device_bindings",
+      "value": {
+        "opencli": {
+          "executable": "opencli",
+          "endpoint": ""
+        },
+        "qmd": {
+          "executable": "qmd",
+          "endpoint": ""
+        },
+        "graphify": {
+          "executable": "graphify",
+          "endpoint": ""
+        },
+        "ollama": {
+          "executable": "",
+          "endpoint": "http://localhost:11434/v1/embeddings"
+        },
+        "lightrag": {
+          "executable": "",
+          "endpoint": ""
+        },
+        "raganything": {
+          "executable": "",
+          "endpoint": ""
+        },
+        "mcp-sdk": {
+          "executable": "",
+          "endpoint": ""
+        }
+      },
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "embeddings.default_profile",
+      "value": "ollama/bge-m3",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "embeddings.endpoint",
+      "value": "http://localhost:11434/v1/embeddings",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "embeddings.index_profiles",
+      "value": {
+        "vaultbrain": "ollama/bge-m3",
+        "memu": "ollama/qwen3-embedding:0.6b"
+      },
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "embeddings.fingerprint_enforcement",
+      "value": "rebuild-required",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "next-operation",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "embeddings.index_fingerprints",
+      "value": {},
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "hot",
+      "overriddenCandidates": []
+    },
+    {
       "key": "adapters.memu.embed_model",
       "value": "bge-m3",
       "winningScope": "product",
@@ -593,8 +828,113 @@
       "overriddenCandidates": []
     },
     {
+      "key": "adapters.qmd.collections",
+      "value": [],
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.qmd.index",
+      "value": "",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.qmd.embedding_model",
+      "value": "hf:ggml-org/embeddinggemma-300M-GGUF/embeddinggemma-300M-Q8_0.gguf",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
       "key": "adapters.qmd.binary",
       "value": "qmd",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.graphify.binary",
+      "value": "graphify",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.graphify.output_dir",
+      "value": "",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.graphify.auto_rescan",
+      "value": false,
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "adapters.graphify.timeout_ms",
+      "value": 30000,
       "winningScope": "product",
       "assignmentProvenance": {
         "actor": "registry",
@@ -632,7 +972,7 @@
         },
         {
           "scope": "product",
-          "revision": "1.6.0",
+          "revision": "1.9.0",
           "value": false,
           "provenance": {
             "actor": "registry",
@@ -657,7 +997,7 @@
       "overriddenCandidates": [
         {
           "scope": "product",
-          "revision": "1.6.0",
+          "revision": "1.9.0",
           "value": false,
           "provenance": {
             "actor": "registry",
@@ -688,7 +1028,7 @@
       "overriddenCandidates": [
         {
           "scope": "product",
-          "revision": "1.6.0",
+          "revision": "1.9.0",
           "value": {
             "secretRef": {
               "provider": "environment",
@@ -980,7 +1320,7 @@
         },
         {
           "scope": "product",
-          "revision": "1.6.0",
+          "revision": "1.9.0",
           "value": false,
           "provenance": {
             "actor": "registry",
@@ -1005,7 +1345,7 @@
       "overriddenCandidates": [
         {
           "scope": "product",
-          "revision": "1.6.0",
+          "revision": "1.9.0",
           "value": "",
           "provenance": {
             "actor": "registry",
@@ -1030,7 +1370,7 @@
       "overriddenCandidates": [
         {
           "scope": "product",
-          "revision": "1.6.0",
+          "revision": "1.9.0",
           "value": "python",
           "provenance": {
             "actor": "registry",
@@ -1055,7 +1395,7 @@
       "overriddenCandidates": [
         {
           "scope": "product",
-          "revision": "1.6.0",
+          "revision": "1.9.0",
           "value": "",
           "provenance": {
             "actor": "registry",
@@ -1080,7 +1420,7 @@
       "overriddenCandidates": [
         {
           "scope": "product",
-          "revision": "1.6.0",
+          "revision": "1.9.0",
           "value": "",
           "provenance": {
             "actor": "registry",
@@ -1093,7 +1433,7 @@
   "sourceRevisions": {
     "product": {
       "targetId": "settings-platform",
-      "revision": "1.6.0"
+      "revision": "1.9.0"
     },
     "user-device": {
       "targetId": "device-a",

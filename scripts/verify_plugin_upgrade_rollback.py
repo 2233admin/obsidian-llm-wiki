@@ -258,7 +258,9 @@ class Plugin {
     this.app = app;
     this.manifest = manifest;
     this.__commands = [];
+    this.__ribbonIcons = [];
     this.__settingTabs = [];
+    this.__views = [];
   }
   async loadData() {
     const file = path.join(process.env.LLMWIKI_SMOKE_VAULT, ".obsidian", "plugins", this.manifest.id, "data.json");
@@ -270,12 +272,18 @@ class Plugin {
     fs.writeFileSync(file, JSON.stringify(value, null, 2) + "\n", "utf8");
   }
   addCommand(command) { this.__commands.push(command); return command; }
+  addRibbonIcon(icon, title, callback) { this.__ribbonIcons.push({ icon, title, callback }); return {}; }
   addSettingTab(tab) { this.__settingTabs.push(tab); return tab; }
+  registerView(type, factory) { this.__views.push({ type, factory }); }
   registerEvent(event) { return event; }
 }
 
 class PluginSettingTab { constructor(app, plugin) { this.app = app; this.plugin = plugin; } }
 class Modal { constructor(app) { this.app = app; this.contentEl = element(); } open() {} close() {} }
+class ItemView {
+  constructor(leaf) { this.leaf = leaf; this.app = leaf?.app; this.containerEl = element(); }
+}
+class WorkspaceLeaf {}
 class Setting {
   constructor() {}
   setName() { return this; } setDesc() { return this; }
@@ -288,7 +296,19 @@ class TFile extends TAbstractFile {}
 class Menu {}
 function element() { return { createEl: element, createDiv: element, addClass() {}, empty() {}, setText() {} }; }
 
-module.exports = { FileSystemAdapter, Plugin, PluginSettingTab, Modal, Setting, Notice, TAbstractFile, TFile, Menu };
+module.exports = {
+  FileSystemAdapter,
+  Plugin,
+  PluginSettingTab,
+  Modal,
+  ItemView,
+  WorkspaceLeaf,
+  Setting,
+  Notice,
+  TAbstractFile,
+  TFile,
+  Menu,
+};
 '''
 
 
