@@ -1,0 +1,82 @@
+{
+  "agent_id": "cloud-worker-5090",
+  "agent_profile_id": "agent/cloud-worker-5090",
+  "agent_profile_revision": 3,
+  "approval_status": "not-required",
+  "artifact_projections": [
+    {
+      "artifact_id": "artifact/fleet-input-spec",
+      "content_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "kind": "work-input",
+      "output_class": "view",
+      "provenance": [
+        "source:registered-fleet-spec"
+      ]
+    }
+  ],
+  "assignment_plan_fingerprint": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "assignment_plan_id": "assignment-plan/fleet-5090",
+  "assignment_plan_version": 4,
+  "capability_grant_summary": {
+    "agent_profile_id": "agent/cloud-worker-5090",
+    "connectors": [
+      "connector/git"
+    ],
+    "expires_at": "2999-01-01T00:00:00.000Z",
+    "grant_id": "capability-grant/fleet-5090",
+    "operations": [
+      "repository.read",
+      "test.execute"
+    ],
+    "project_id": "project/fleet-acceptance",
+    "resources": [
+      "project/fleet-acceptance"
+    ],
+    "side_effect_classes": [
+      "view"
+    ]
+  },
+  "child_work_run_ids": [],
+  "context_envelope_fingerprint": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "created_at": 1784948411,
+  "device_snapshot": {
+    "capturedAt": "2026-07-15T00:00:00.000Z",
+    "deviceId": "device/cloud-5090",
+    "expiresAt": "2999-01-01T00:00:00.000Z",
+    "fingerprint": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "revision": 2,
+    "snapshotId": "device-snapshot/fleet-5090"
+  },
+  "expected_output": {
+    "kind": "implementation-evidence",
+    "output_class": "view",
+    "required_artifacts": [
+      "test-report",
+      "change-summary"
+    ],
+    "review_state": "pending"
+  },
+  "handoff_expires_at": "2026-07-26T03:00:11Z",
+  "handoff_token_hash": "7a91f1d88369f74f7abbc2c1f541dd482004e436fe41c2df8cef7f2fdfd53ec7",
+  "output_class": "view",
+  "parent_work_run_id": "work-run/fleet-parent-acceptance",
+  "project_agent_binding_id": "binding/fleet-acceptance/cloud-worker-5090",
+  "project_agent_binding_revision": 5,
+  "project_id": "project/fleet-acceptance",
+  "provenance": [
+    "work-item:project/fleet-acceptance/issue/cloud-workflow"
+  ],
+  "schema_version": 2,
+  "state": "leased",
+  "transitions": [
+    {
+      "from": "planned",
+      "recorded_at": 1784948411,
+      "to": "leased",
+      "transition_token": "driver:lease:613235c8b1f6530fe2835df7"
+    }
+  ],
+  "updated_at": 1784948411,
+  "work_item_id": "project/fleet-acceptance/issue/cloud-workflow",
+  "work_run_id": "work-run/613235c8b1f6530fe2835df7"
+}

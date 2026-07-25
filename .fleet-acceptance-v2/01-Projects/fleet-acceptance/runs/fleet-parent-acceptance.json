@@ -1,0 +1,27 @@
+{
+  "schema_version": 2,
+  "project_id": "project/fleet-acceptance",
+  "work_item_id": "project/fleet-acceptance/issue/local-parent-workflow",
+  "work_run_id": "work-run/fleet-parent-acceptance",
+  "agent_id": "local-parent",
+  "state": "running",
+  "output_class": "view",
+  "approval_status": "not-required",
+  "created_at": 0,
+  "updated_at": 0,
+  "provenance": [
+    "work-item:project/fleet-acceptance/issue/local-parent-workflow"
+  ],
+  "transitions": [
+    {
+      "transition_token": "fleet:parent:running:1",
+      "from": "leased",
+      "to": "running",
+      "recorded_at": 0
+    }
+  ],
+  "child_work_run_ids": [
+    "work-run/613235c8b1f6530fe2835df7"
+  ],
+  "artifact_projections": []
+}
