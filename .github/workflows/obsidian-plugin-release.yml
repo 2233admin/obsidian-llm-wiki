@@ -45,7 +45,8 @@ jobs:
           python scripts/verify_obsidian_distribution.py --tag "$GITHUB_REF_NAME" --assets dist-plugin
       - uses: softprops/action-gh-release@v2
         with:
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          prerelease: false
+          make_latest: true
           files: |
             dist-plugin/main.js
             dist-plugin/manifest.json
