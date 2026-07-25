@@ -11,9 +11,3 @@
 - 生成命令：`python -m orca_maint board --publish`
 
 勿提交本机 token / 绝对用户路径。看板已脱敏。
-
-## Grok digests (AU-5090)
-
-- [[PROJECT-HEALTH-GROK]] — local project health (dirty/behind)
-- [[SESSION-MEMORY-GROK]] — session/agent memory candidates by theme
-
