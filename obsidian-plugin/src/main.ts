@@ -164,6 +164,7 @@ export default class LLMWikiPlugin extends Plugin {
         confirmationActor: OBSIDIAN_CONTROL_PLANE_ACTOR,
       }),
     );
+    this.addRibbonIcon("sparkles", "Open Ask Mate", () => this.openAskMateEntryPoint());
 
     this.addCommand({
       id: "promote-candidate",
@@ -353,7 +354,7 @@ export default class LLMWikiPlugin extends Plugin {
     }
     const projectId = this.workspaceProjectId();
     if (!projectId) {
-      new Notice("LLM Wiki: bind this workspace to a canonical Project to start Ask Mate.");
+      new Notice("LLM Wiki: enter a Project ID to start Ask Mate (for example, project/my-project).");
       this.openWorkspaceProjectBindingEditor(boundProjectId => {
         this.activateBestAskMateContext(boundProjectId);
       });
@@ -732,9 +733,9 @@ class WorkspaceProjectBindingModal extends Modal {
 
   onOpen(): void {
     const { contentEl } = this;
-    contentEl.createEl("h2", { text: "Bind this workspace to an LLM Wiki Project" });
+    contentEl.createEl("h2", { text: "Choose this workspace's Project" });
     contentEl.createEl("p", {
-      text: "Ask Mate uses a canonical Project ID to join notes, maps, work items, settings, and problem reports without treating this vault path as Project identity.",
+      text: "Enter a stable Project ID such as project/my-project. Ask Mate uses it to keep notes, maps, tasks, settings, and problem reports together.",
     });
     const input = contentEl.createEl("input", {
       type: "text",
@@ -848,13 +849,14 @@ class LLMWikiSettingTab extends PluginSettingTab {
   }
 
   private renderAgentControlPlane(containerEl: HTMLElement): void {
-    containerEl.createEl("h2", { text: "Agent control plane" });
+    containerEl.createEl("h2", { text: "Get started" });
     containerEl.createEl("p", {
       cls: "llmwiki-settings-intro",
-      text: "Inspect backend-owned Rooms, Threads, Dream Time proposals, collaboration, connector health, and Usage. Profile and Binding changes use the same operation interface as MCP and CLI.",
+      text: "Bind this vault to a Project, then open Ask Mate for the active note, Canvas, or Project.",
     });
     const actions = containerEl.createDiv({ cls: "llmwiki-settings-actions llmwiki-agent-control-actions" });
-    actions.createEl("button", { text: "Open control plane", cls: "mod-cta" }).onclick = () => this.llmWiki.openAgentControlPlane();
+    actions.createEl("button", { text: "Open Ask Mate", cls: "mod-cta" }).onclick = () => this.llmWiki.openAskMateEntryPoint();
+    actions.createEl("button", { text: "Open control plane" }).onclick = () => this.llmWiki.openAgentControlPlane();
     actions.createEl("button", { text: "Create Agent Profile" }).onclick = () => this.llmWiki.openAgentProfileEditor();
     actions.createEl("button", { text: "Create Project Binding" }).onclick = () => this.llmWiki.openProjectBindingEditor();
     new Setting(containerEl)

@@ -17,6 +17,7 @@ import type {
   SearchResult,
   VaultMindAdapter,
 } from "./interface.js";
+import { normalizeSearchResult } from "../retrieval/evidence.js";
 
 export type LightRAGAdapterOpts = {
   baseUrl?: string;
@@ -205,13 +206,18 @@ export class LightRAGAdapter implements VaultMindAdapter {
           ? body.result
           : "";
       if (!text) return [];
-      return [{
+      return [normalizeSearchResult({
         source: this.name,
         path: "lightrag:/query",
         content: text,
         score: 1,
-        metadata: { mode: this.mode },
-      }];
+        metadata: {
+          mode: this.mode,
+          partial: true,
+          missingCapabilities: ["structured-chunks"],
+          diagnosticCodes: ["PARTIAL_RESULT"],
+        },
+      }, this.name)];
     } catch {
       return [];
     }
@@ -239,7 +245,7 @@ export class LightRAGAdapter implements VaultMindAdapter {
       const content = typeof c.content === "string" ? c.content : JSON.stringify(raw);
       const score = typeof c.score === "number" ? c.score : 1 / (index + 1);
 
-      return {
+      return normalizeSearchResult({
         source: this.name,
         path: filePath ?? docId ?? id ?? `lightrag:/chunk/${index}`,
         content,
@@ -251,7 +257,7 @@ export class LightRAGAdapter implements VaultMindAdapter {
           chunkOrderIndex: c.chunk_order_index,
           mode: this.mode,
         },
-      };
+      }, this.name);
     });
   }
 

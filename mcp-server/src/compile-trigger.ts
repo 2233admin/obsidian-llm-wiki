@@ -10,6 +10,7 @@ import { execFile } from "node:child_process";
 import { readdirSync, existsSync } from "node:fs";
 import { promisify } from "node:util";
 import { resolve } from "node:path";
+import { DurableMaintenanceQueue, type MaintenancePlan } from "./maintenance/queue.js";
 
 const exec = promisify(execFile);
 
@@ -30,6 +31,12 @@ export interface CompileTriggerConfig {
   onCompileSuccess?: (wikiPaths: string[]) => void;
   /** Resolve child-process environment immediately before model invocation. */
   environmentResolver?: () => Promise<NodeJS.ProcessEnv>;
+  /** Durable debounce/deadline scheduler, or the reversible legacy threshold trigger. */
+  schedulingMode?: "durable" | "legacy-threshold";
+  debounceMs?: number;
+  maximumLagMs?: number;
+  drainMaxTopics?: number;
+  drainTimeBudgetMs?: number;
 }
 
 export interface CompileStatus {
@@ -40,6 +47,13 @@ export interface CompileStatus {
   lastRun: string | null;
   lastResult: CompileResult | null;
   autoCompile: boolean;
+  schedulingMode: "durable" | "legacy-threshold";
+  maintenance?: {
+    eligible: number;
+    deferred: number;
+    quarantined: number;
+    nextWakeAt?: string;
+  };
 }
 
 export interface CompileResult {
@@ -66,6 +80,13 @@ export class CompileTrigger {
   private readonly autoCompile: boolean;
   private readonly onCompileSuccess?: (wikiPaths: string[]) => void;
   private environmentResolver?: () => Promise<NodeJS.ProcessEnv>;
+  private readonly schedulingMode: "durable" | "legacy-threshold";
+  private readonly debounceMs: number;
+  private readonly maximumLagMs: number;
+  private readonly drainMaxTopics: number;
+  private readonly drainTimeBudgetMs: number;
+  private readonly maintenanceQueue?: DurableMaintenanceQueue;
+  private maintenanceTimer?: NodeJS.Timeout;
 
   constructor(config: CompileTriggerConfig) {
     this.vaultPath = config.vaultPath;
@@ -76,6 +97,14 @@ export class CompileTrigger {
     this.autoCompile = config.autoCompile ?? true;
     this.onCompileSuccess = config.onCompileSuccess;
     this.environmentResolver = config.environmentResolver;
+    this.schedulingMode = config.schedulingMode ?? "legacy-threshold";
+    this.debounceMs = config.debounceMs ?? 30_000;
+    this.maximumLagMs = config.maximumLagMs ?? 5 * 60_000;
+    this.drainMaxTopics = config.drainMaxTopics ?? 16;
+    this.drainTimeBudgetMs = config.drainTimeBudgetMs ?? 120_000;
+    this.maintenanceQueue = this.schedulingMode === "durable"
+      ? new DurableMaintenanceQueue(this.vaultPath)
+      : undefined;
   }
 
   setEnvironmentResolver(resolver: () => Promise<NodeJS.ProcessEnv>): void {
@@ -94,7 +123,19 @@ export class CompileTrigger {
     this.dirty.add(path);
     process.stderr.write(`llmwiki: [compile] dirty +1: ${path} (${this.dirty.size}/${this.threshold})\n`);
 
-    if (this.autoCompile && this.dirty.size >= this.threshold && !this.running) {
+    if (this.maintenanceQueue) {
+      const topic = topicFromPath(path);
+      if (topic) {
+        this.maintenanceQueue.enqueue({
+          sourceIds: [path.replace(/\\/g, "/")],
+          topicKeys: [topic],
+          dirtyReasons: [`file-${type}`],
+          debounceMs: this.debounceMs,
+          maximumLagMs: this.maximumLagMs,
+        });
+        if (this.autoCompile) this.scheduleMaintenance();
+      }
+    } else if (this.autoCompile && this.dirty.size >= this.threshold && !this.running) {
       this.autoTrigger();
     }
   }
@@ -131,6 +172,11 @@ export class CompileTrigger {
 
   /** Get current status. */
   status(): CompileStatus {
+    const plan = this.maintenanceQueue?.plan({
+      reportOnly: true,
+      maxTopics: this.drainMaxTopics,
+      accept: (entry) => this.isCompileEntry(entry.topicKeys),
+    });
     return {
       dirty: [...this.dirty],
       dirtyCount: this.dirty.size,
@@ -139,7 +185,51 @@ export class CompileTrigger {
       lastRun: this.lastRun,
       lastResult: this.lastResult,
       autoCompile: this.autoCompile,
+      schedulingMode: this.schedulingMode,
+      ...(plan ? {
+        maintenance: {
+          eligible: plan.eligible.length,
+          deferred: plan.deferred.length,
+          quarantined: plan.quarantined.length,
+          ...(plan.nextWakeAt ? { nextWakeAt: plan.nextWakeAt } : {}),
+        },
+      } : {}),
     };
+  }
+
+  maintenancePlan(options: { now?: Date; reportOnly?: boolean; maxTopics?: number } = {}): MaintenancePlan | undefined {
+    return this.maintenanceQueue?.plan({
+      now: options.now,
+      reportOnly: options.reportOnly ?? true,
+      maxTopics: options.maxTopics ?? this.drainMaxTopics,
+      accept: (entry) => this.isCompileEntry(entry.topicKeys),
+    });
+  }
+
+  async drainMaintenance(options: {
+    owner?: string;
+    maxTopics?: number;
+    timeBudgetMs?: number;
+    /** Injectable clock for deterministic CI/report-to-execute verification. */
+    now?: () => Date;
+  } = {}): Promise<Record<string, unknown>> {
+    if (!this.maintenanceQueue) {
+      return { ok: false, schedulingMode: this.schedulingMode, error: "Durable maintenance queue disabled" };
+    }
+    const result = await this.maintenanceQueue.drain(async (entry) => {
+      const topic = entry.topicKeys[0];
+      if (!topic) throw Object.assign(new Error("topic missing"), { code: "MAINTENANCE_TOPIC_MISSING", transient: false });
+      const compiled = await this.compile(topic);
+      if (!compiled.ok) throw Object.assign(new Error("compile failed"), { code: "MAINTENANCE_COMPILE_FAILED", transient: true });
+    }, {
+      owner: options.owner ?? `compile-trigger/${process.pid}`,
+      maxTopics: options.maxTopics ?? this.drainMaxTopics,
+      timeBudgetMs: options.timeBudgetMs ?? this.drainTimeBudgetMs,
+      now: options.now,
+      accept: (entry) => this.isCompileEntry(entry.topicKeys),
+    });
+    if (this.autoCompile) this.scheduleMaintenance();
+    return { ok: true, schedulingMode: this.schedulingMode, ...result };
   }
 
   /**
@@ -171,7 +261,15 @@ export class CompileTrigger {
         const dirty = [...(result.new ?? []), ...(result.changed ?? [])];
         for (const f of dirty) {
           if (f.endsWith(".md") && !f.includes("/wiki/")) {
-            this.dirty.add(`${topic}/${f}`);
+            const path = `${topic}/${f}`;
+            this.dirty.add(path);
+            this.maintenanceQueue?.enqueue({
+              sourceIds: [path],
+              topicKeys: [topic],
+              dirtyReasons: ["startup-diff"],
+              debounceMs: this.debounceMs,
+              maximumLagMs: this.maximumLagMs,
+            });
           }
         }
         if (dirty.length > 0) {
@@ -183,10 +281,15 @@ export class CompileTrigger {
         // No meta or diff failed -- topic is clean, skip
       }
     }
+    if (this.autoCompile && this.maintenanceQueue) this.scheduleMaintenance();
   }
 
   /** Abort: just resets running flag (compile.py subprocess isn't killable cleanly). */
   abort(): { ok: boolean; message: string } {
+    if (this.maintenanceTimer) {
+      clearTimeout(this.maintenanceTimer);
+      this.maintenanceTimer = undefined;
+    }
     if (!this.running) return { ok: false, message: "No compilation running" };
     this.running = false;
     return { ok: true, message: "Compilation abort requested" };
@@ -204,6 +307,28 @@ export class CompileTrigger {
       this.running = false;
       process.stderr.write(`llmwiki: [compile] auto-trigger error: ${(e as Error).message}\n`);
     });
+  }
+
+  private scheduleMaintenance(): void {
+    if (!this.maintenanceQueue || this.maintenanceTimer || this.running) return;
+    const plan = this.maintenanceQueue.plan({
+      reportOnly: true,
+      maxTopics: this.drainMaxTopics,
+      accept: (entry) => this.isCompileEntry(entry.topicKeys),
+    });
+    const wakeAt = plan.eligible.length > 0
+      ? Date.now()
+      : plan.nextWakeAt ? Date.parse(plan.nextWakeAt) : undefined;
+    if (wakeAt === undefined) return;
+    const delay = Math.max(0, Math.min(2_147_000_000, wakeAt - Date.now()));
+    this.maintenanceTimer = setTimeout(() => {
+      this.maintenanceTimer = undefined;
+      this.drainMaintenance().catch((error) => {
+        process.stderr.write(`llmwiki: [maintenance] drain failed: ${(error as Error).message}\n`);
+        this.scheduleMaintenance();
+      });
+    }, delay);
+    this.maintenanceTimer.unref?.();
   }
 
   private detectTopic(): string | null {
@@ -307,4 +432,14 @@ export class CompileTrigger {
     walk(wikiDir);
     return files;
   }
+
+  private isCompileEntry(topicKeys: readonly string[]): boolean {
+    return topicKeys.some((topic) => existsSync(resolve(this.vaultPath, topic, "_meta.json")));
+  }
+}
+
+function topicFromPath(path: string): string | undefined {
+  const normalized = path.replace(/\\/g, "/").replace(/^\/+/, "");
+  const [topic, child] = normalized.split("/");
+  return topic && child ? topic : undefined;
 }

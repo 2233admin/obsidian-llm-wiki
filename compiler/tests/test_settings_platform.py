@@ -646,6 +646,79 @@ def test_python_migration_planner_can_inspect_a_legacy_document(tmp_path: Path):
     assert [item["id"] for item in vault["migrations"]] == ["settings-document-v0-to-v1"]
 
 
+def test_python_toolchain_profiles_and_legacy_diagnostics_are_redacted(tmp_path: Path):
+    registry = load_registry(ROOT / "packages" / "settings-platform" / "registry" / "v1.json")
+    service = SettingsService(
+        registry=registry,
+        vault_path=tmp_path,
+        user_device_id="device-test",
+        user_device_path=tmp_path / "user-device.json",
+        vault_id="vault-test",
+        session_id="session-test",
+        environment={
+            "VAULT_MIND_QMD_BINARY": "C:/secret-path/qmd.exe",
+            "OLLAMA_EMBED_MODEL": "bge-m3",
+        },
+        clock=lambda: "2026-07-23T00:05:00.000Z",
+    )
+    probes = {
+        "qmd": {
+            "observedVersion": "2.5.1",
+            "capabilities": ["query.hybrid", "query.intent", "uri.qmd", "index.health"],
+            "diagnosticCodes": [],
+            "probedAt": "2026-07-23T00:00:00.000Z",
+            "expiresAt": "2026-07-23T00:10:00.000Z",
+        },
+        "opencli": {
+            "observedVersion": "1.8.6",
+            "capabilities": ["version.structured"],
+            "diagnosticCodes": ["CAPABILITY_MISSING"],
+            "probedAt": "2026-07-23T00:04:00.000Z",
+            "expiresAt": "2026-07-23T00:09:00.000Z",
+        },
+    }
+    doctor = service.doctor(probes=probes)
+    assert len(doctor["toolchainProfiles"]) >= 5
+    qmd = next(item for item in doctor["toolchainProfiles"] if item["providerId"] == "qmd")
+    assert qmd["health"] == "available"
+    assert qmd["observedVersion"] == "2.5.1"
+    assert qmd["probeAgeMs"] == 5 * 60_000
+    assert qmd["redactedExecutable"] == "qmd"
+    payload = json.dumps(doctor)
+    assert "secret-path" not in payload
+    assert "sk-" not in payload
+    assert any(item["code"] == "legacy-toolchain-env" for item in doctor["migrationDiagnostics"])
+
+    plan = service.migrations_plan(probes=probes)
+    assert plan["registryVersion"] == service.registry["registryVersion"]
+    assert len(plan["legacyDiagnostics"]) >= 1
+    assert any(item["providerId"] == "qmd" for item in plan["toolchainProfiles"])
+    assert "C:/secret-path" not in json.dumps(plan)
+
+
+def test_python_accepts_builtin_embedding_index_bindings_and_rejects_credentials(tmp_path: Path):
+    registry = load_registry(ROOT / "packages" / "settings-platform" / "registry" / "v1.json")
+    profiles = next(item for item in registry["definitions"] if item["key"] == "embeddings.index_profiles")
+    result = validate_effective_value(
+        profiles,
+        {"vaultbrain": "ollama/bge-m3", "memu": "ollama/qwen3-embedding:0.6b"},
+    )
+    assert result["valid"] is True
+
+    bindings = next(item for item in registry["definitions"] if item["key"] == "toolchain.device_bindings")
+    bad = validate_effective_value(
+        bindings,
+        {
+            "qmd": {
+                "executable": "qmd",
+                "endpoint": "https://user:secret@example.test/v1?api_key=leak",
+            }
+        },
+    )
+    assert bad["valid"] is False
+    assert any(item["code"] == "url-credentials-forbidden" for item in bad["issues"])
+
+
 def test_python_doctor_gives_remediation_for_degraded_and_unavailable_capabilities(tmp_path: Path):
     registry = load_registry(ROOT / "packages" / "settings-platform" / "registry" / "v1.json")
     service = SettingsService(

@@ -11,6 +11,7 @@ import type {
   SearchResult,
   VaultMindAdapter,
 } from "./interface.js";
+import { normalizeSearchResult } from "../retrieval/evidence.js";
 
 export interface HindsightAdapterOptions {
   baseUrl?: string;
@@ -130,7 +131,7 @@ function mapMemory(bankId: string, memory: HindsightMemory, index: number): Sear
     ? memory.scores as Record<string, unknown>
     : undefined;
   const score = numberValue(scores?.final) ?? numberValue(memory.score) ?? numberValue(memory.relevance) ?? 1 / (index + 1);
-  return {
+  return normalizeSearchResult({
     source: "hindsight",
     path: `hindsight/${encodeURIComponent(bankId)}/${encodeURIComponent(id ?? String(index))}`,
     content,
@@ -140,7 +141,7 @@ function mapMemory(bankId: string, memory: HindsightMemory, index: number): Sear
       ...(stringValue(memory.created_at) ? { createdAt: stringValue(memory.created_at) } : {}),
       authority: "external-read-only",
     },
-  };
+  }, "hindsight");
 }
 
 function stringValue(value: unknown): string | undefined {

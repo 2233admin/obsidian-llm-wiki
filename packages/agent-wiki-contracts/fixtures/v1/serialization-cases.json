@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "cases": {
+    "toolchainCapabilityProfile": {
+      "schemaVersion": 1,
+      "providerId": "qmd",
+      "profileRevision": "qmd/2.5",
+      "invocationMode": "cli",
+      "compatibility": "partial",
+      "health": "degraded",
+      "capabilities": ["index.health", "query.hybrid"],
+      "missingCapabilities": ["query.explain"],
+      "diagnosticCodes": ["CAPABILITY_MISSING"],
+      "observedVersion": "2.5.1",
+      "probedAt": "2026-07-23T00:00:00.000Z",
+      "expiresAt": "2026-07-23T00:05:00.000Z"
+    },
+    "ingestRun": {
+      "schemaVersion": 1,
+      "runId": "ingest-run/run-01",
+      "idempotencyKey": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sourceId": "source/example",
+      "sourceRevision": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "requestedOperation": "capture-and-compile",
+      "profileRevision": "filesystem/1",
+      "state": "succeeded",
+      "completedStages": ["capture", "validate", "materialize"],
+      "receiptIds": ["receipt/capture-01"],
+      "createdAt": "2026-07-23T00:00:00.000Z",
+      "updatedAt": "2026-07-23T00:00:01.000Z"
+    },
+    "contributionManifest": {
+      "schemaVersion": 1,
+      "manifestId": "manifest/source-example/rev-01",
+      "sourceId": "source/example",
+      "sourceRevision": "rev-01",
+      "compilerSchemaVersion": "compiler/1",
+      "active": true,
+      "contributionIds": ["claim/alpha", "relationship/alpha-beta"],
+      "affectedConceptKeys": ["alpha", "beta"],
+      "contentDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "createdAt": "2026-07-23T00:00:02.000Z"
+    },
+    "maintenanceQueueEntry": {
+      "schemaVersion": 1,
+      "entryId": "maintenance/alpha",
+      "sourceIds": ["source/example"],
+      "topicKeys": ["alpha"],
+      "dirtyReasons": ["source-revised"],
+      "earliestRunAt": "2026-07-23T00:01:00.000Z",
+      "freshnessDeadline": "2026-07-23T00:10:00.000Z",
+      "attempts": 0,
+      "state": "pending",
+      "receiptIds": []
+    },
+    "executionReceipt": {
+      "schemaVersion": 1,
+      "receiptId": "receipt/capture-01",
+      "operation": "capture.filesystem",
+      "status": "succeeded",
+      "startedAt": "2026-07-23T00:00:00.000Z",
+      "completedAt": "2026-07-23T00:00:01.000Z",
+      "outputDigests": ["sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"],
+      "diagnosticCodes": [],
+      "providerId": "filesystem",
+      "profileRevision": "filesystem/1"
+    },
+    "embeddingFingerprint": {
+      "schemaVersion": 1,
+      "providerId": "ollama",
+      "endpointIdentity": "endpoint/local-default",
+      "modelId": "qwen3-embedding:0.6b",
+      "dimensions": 1024,
+      "adapterSchemaVersion": "ollama/openai-embeddings-v1",
+      "digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    },
+    "queryTrace": {
+      "schemaVersion": 1,
+      "traceId": "query-trace/01",
+      "intent": "factual-support",
+      "detail": "high",
+      "selectedTiers": ["raw-evidence", "adapter-evidence"],
+      "freshness": "stale",
+      "normalizedIdentifiers": ["source/example#capture-01"],
+      "providerIds": ["filesystem", "qmd"],
+      "diagnosticCodes": ["STALE_PROJECTION"],
+      "fallbacks": ["compiled-to-raw-evidence"],
+      "createdAt": "2026-07-23T00:00:03.000Z"
+    }
+  }
+}

@@ -1,12 +1,11 @@
 {
   "compilerOptions": {
-    "baseUrl": ".",
     "paths": {
-      "@modelcontextprotocol/sdk/*": ["node_modules/@modelcontextprotocol/sdk/dist/esm/*"]
+      "@modelcontextprotocol/sdk/*": ["./node_modules/@modelcontextprotocol/sdk/dist/esm/*"]
     },
     "module": "ESNext",
     "target": "ES2022",
-    "moduleResolution": "node",
+    "moduleResolution": "Bundler",
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,

@@ -180,6 +180,57 @@ def test_explicit_test_fake_marker_is_fixture_only() -> None:
     )
 
 
+def test_fixture_tree_is_not_scanned_as_production_source(tmp_path: Path) -> None:
+    production = tmp_path / "mcp-server" / "src" / "runtime.ts"
+    fixture = tmp_path / "mcp-server" / "src" / "feature" / "fixtures" / "case.json"
+    _write(production, "export const healthy = true;\n")
+    _write(fixture, '{"synthetic": true}\n')
+
+    assert production in verify_release_security.production_source_files(tmp_path)
+    assert fixture not in verify_release_security.production_source_files(tmp_path)
+    assert fixture in verify_release_security.fixture_files(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "logical_path",
+    sorted(verify_release_security.FIXTURE_FAKE_MATCH_ALLOWLIST),
+)
+def test_reviewed_json_fixture_fake_matches_remain_exact(
+    logical_path: str,
+) -> None:
+    fixture = verify_release_security.ROOT / logical_path
+    if not fixture.is_file():
+        pytest.skip(f"fixture belongs to a partial release-security test tree: {logical_path}")
+
+    assert verify_release_security.scan_text(
+        fixture.read_text(encoding="utf-8"),
+        logical_path=logical_path,
+        scope="fixture",
+    ) == []
+
+
+def test_reviewed_fixture_hash_exception_is_fixture_only() -> None:
+    logical_path = "mcp-server/src/toolchain/fixtures/http-probe-cases.json"
+    text = (verify_release_security.ROOT / logical_path).read_text(encoding="utf-8")
+
+    assert verify_release_security.scan_text(
+        text,
+        logical_path=logical_path,
+        scope="source",
+    )
+
+
+def test_reviewed_fixture_hash_exception_fails_after_value_drift() -> None:
+    logical_path = "mcp-server/src/toolchain/fixtures/http-probe-cases.json"
+    text = (verify_release_security.ROOT / logical_path).read_text(encoding="utf-8")
+
+    assert verify_release_security.scan_text(
+        text.replace("user:pass@", "user:changed@"),
+        logical_path=logical_path,
+        scope="fixture",
+    )
+
+
 def test_machine_path_rule_does_not_misread_minified_javascript_regex() -> None:
     minified = r'o:/\s/.test(o)?r&&(e.push(r),r=""):r+=o'
 

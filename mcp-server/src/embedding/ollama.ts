@@ -2,9 +2,9 @@
  * Minimal Ollama embedding client.
  *
  * Calls Ollama's OpenAI-compatible /v1/embeddings endpoint to embed a query
- * string into a vector. The default model qwen3-embedding:0.6b returns
- * 1024-dim vectors which match Curry's gm_nodes schema (populated by
- * .memu/scripts/embed_nodes.py against the same model + endpoint).
+ * string into a vector. Both built-in profiles are supported; this MemU-
+ * oriented compatibility wrapper keeps qwen3-embedding:0.6b as its local
+ * default so it matches existing gm_nodes data.
  *
  * Zero npm deps -- uses Node 18+ built-in fetch.
  *
@@ -14,16 +14,26 @@
  */
 
 export interface OllamaEmbedOpts {
+  /** Built-in or custom profile id. Default: ollama/qwen3-embedding:0.6b */
+  profileId?: string;
   /** Endpoint base URL. Default: env OLLAMA_EMBED_BASE_URL or http://localhost:11434/v1 */
   baseUrl?: string;
   /** Embedding model. Default: env OLLAMA_EMBED_MODEL or qwen3-embedding:0.6b */
   model?: string;
+  /** Expected vector dimension for a custom model. */
+  dimensions?: number;
   /** Timeout in ms. Default: 30_000 */
   timeoutMs?: number;
 }
 
-const DEFAULT_BASE = "http://localhost:11434/v1";
-const DEFAULT_MODEL = "qwen3-embedding:0.6b";
+import {
+  resolveEmbeddingProfile,
+  validateEmbeddingVector,
+  type BuiltInEmbeddingProfileId,
+} from "./profile.js";
+
+const DEFAULT_PROFILE: BuiltInEmbeddingProfileId =
+  "ollama/qwen3-embedding:0.6b";
 
 interface OpenAIEmbedResponse {
   data?: Array<{ embedding?: number[]; index?: number }>;
@@ -35,19 +45,26 @@ export async function embedTextOllama(
 ): Promise<number[]> {
   if (!text || text.length === 0) return [];
 
-  const baseUrl =
-    opts?.baseUrl ?? process.env.OLLAMA_EMBED_BASE_URL ?? DEFAULT_BASE;
-  const model = opts?.model ?? process.env.OLLAMA_EMBED_MODEL ?? DEFAULT_MODEL;
+  const profile = resolveEmbeddingProfile({
+    profileId:
+      opts?.profileId ??
+      process.env.OLLAMA_EMBED_PROFILE ??
+      DEFAULT_PROFILE,
+    endpoint: opts?.baseUrl ?? process.env.OLLAMA_EMBED_BASE_URL,
+    model: opts?.model ?? process.env.OLLAMA_EMBED_MODEL,
+    dimensions: opts?.dimensions,
+    defaultProfileId: DEFAULT_PROFILE,
+  });
   const timeoutMs = opts?.timeoutMs ?? 30_000;
 
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const resp = await fetch(`${baseUrl}/embeddings`, {
+    const resp = await fetch(profile.endpoint, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ model, input: [text] }),
+      body: JSON.stringify({ model: profile.model, input: [text] }),
       signal: controller.signal,
     });
     clearTimeout(t);
@@ -69,6 +86,7 @@ export async function embedTextOllama(
       );
       return [];
     }
+    validateEmbeddingVector(vec, profile);
     return vec;
   } catch (err) {
     clearTimeout(t);

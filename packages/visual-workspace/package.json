@@ -27,8 +27,8 @@
     "node": ">=20"
   },
   "devDependencies": {
-    "@types/node": "^26.0.0",
-    "typescript": "~6.0.3"
+    "@types/node": "^26.1.1",
+    "typescript": "~7.0.2"
   },
   "license": "GPL-3.0-only"
 }

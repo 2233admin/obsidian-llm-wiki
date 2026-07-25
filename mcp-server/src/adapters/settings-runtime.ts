@@ -6,6 +6,15 @@ import type {
   SettingsService,
   SettingsSnapshot,
 } from "../../../packages/settings-platform/dist/src/index.js";
+import {
+  embeddingFingerprint,
+  isBuiltInEmbeddingProfileId,
+  normalizeEmbeddingEndpoint,
+  resolveEmbeddingProfile,
+  type EmbeddingFingerprint,
+  type EmbeddingProfile,
+} from "../embedding/profile.js";
+import { qmdModelFingerprint } from "../toolchain/provider-contracts.js";
 
 export const DEFAULT_ENABLED_ADAPTERS = [
   "filesystem",
@@ -80,6 +89,10 @@ export interface KanbanRuntimeProfile extends AdapterRuntimeBase {
 
 export interface QmdRuntimeProfile extends AdapterRuntimeBase {
   collection?: string;
+  collections: readonly string[];
+  index?: string;
+  embeddingModel: string;
+  modelFingerprint: string;
   binary: string;
   provenance: Record<string, KnowledgeAdapterFieldProvenance>;
 }
@@ -112,8 +125,29 @@ export interface MemURuntimeProfile extends AdapterRuntimeBase {
   memuSearchPy: string;
   memuSearchPythonExe: string;
   memuSearchTimeoutMs: number;
+  embedProfileId: string;
+  embedEndpoint: string;
   embedModel: string;
+  embedDimensions?: number;
+  embedFingerprint: EmbeddingFingerprint;
   credential?: KnowledgeAdapterCredentialProfile;
+  provenance: Record<string, KnowledgeAdapterFieldProvenance>;
+}
+
+export interface EmbeddingIndexRuntimeBinding {
+  indexId: string;
+  profile: EmbeddingProfile;
+  fingerprint: EmbeddingFingerprint;
+  provenance: KnowledgeAdapterFieldProvenance;
+}
+
+export interface EmbeddingsRuntimeProfile {
+  valid: boolean;
+  issues: KnowledgeAdapterProfileIssue[];
+  defaultProfileId: string;
+  endpoint: string;
+  indexProfiles: Record<string, string>;
+  bindings: Record<string, EmbeddingIndexRuntimeBinding>;
   provenance: Record<string, KnowledgeAdapterFieldProvenance>;
 }
 
@@ -125,6 +159,7 @@ export interface KnowledgeAdaptersRuntimeProfile {
     issues: KnowledgeAdapterProfileIssue[];
     provenance: KnowledgeAdapterFieldProvenance;
   };
+  embeddings: EmbeddingsRuntimeProfile;
   memu: MemURuntimeProfile;
   lightrag: LightRAGRuntimeProfile;
   raganything: RAGAnythingRuntimeProfile;
@@ -189,6 +224,28 @@ export async function resolveKnowledgeAdaptersRuntimeProfile(
   const enabledAdapters = enabledIssues.length === 0 ? [...enabledSelection.value] : [];
   const enabled = new Set(enabledAdapters);
 
+  const embeddingDefaultProfile = selectString(
+    snapshot,
+    "embeddings.default_profile",
+    environment.VAULT_MIND_EMBED_PROFILE,
+    "VAULT_MIND_EMBED_PROFILE",
+    "ollama/bge-m3",
+  );
+  const legacyEmbeddingEndpoint = environment.VAULT_MIND_EMBED_URL ?? environment.OLLAMA_EMBED_BASE_URL;
+  const embeddingEndpoint = selectString(
+    snapshot,
+    "embeddings.endpoint",
+    legacyEmbeddingEndpoint,
+    environment.VAULT_MIND_EMBED_URL ? "VAULT_MIND_EMBED_URL" : "OLLAMA_EMBED_BASE_URL",
+    "http://localhost:11434/v1/embeddings",
+  );
+  const embeddingIndexProfiles = selectField<unknown>(
+    snapshot,
+    "embeddings.index_profiles",
+    undefined,
+    { vaultbrain: "ollama/bge-m3", memu: "ollama/qwen3-embedding:0.6b" },
+  );
+
   const portablePython = process.platform === "win32" ? "python" : "python3";
   const memuDsn = selectMemUDsn(snapshot, environment);
   const memuUserId = selectString(snapshot, "adapters.memu.user_id", environment.MEMU_USER_ID, "MEMU_USER_ID", "default");
@@ -202,9 +259,89 @@ export async function resolveKnowledgeAdaptersRuntimeProfile(
   const memuSearchPython = selectString(snapshot, "adapters.memu.search_python", environment.MEMU_SEARCH_PYTHON, "MEMU_SEARCH_PYTHON", portablePython);
   const memuSearchTimeout = selectNumber(snapshot, "adapters.memu.search_timeout_ms", environment.MEMU_SEARCH_TIMEOUT_MS, "MEMU_SEARCH_TIMEOUT_MS", 20_000);
   const memuEmbedModel = selectString(snapshot, "adapters.memu.embed_model", environment.OLLAMA_EMBED_MODEL, "OLLAMA_EMBED_MODEL", "bge-m3");
+  const embeddingIssues: KnowledgeAdapterProfileIssue[] = [];
+  let normalizedEmbeddingEndpoint = embeddingEndpoint.value;
+  try {
+    normalizedEmbeddingEndpoint = normalizeEmbeddingEndpoint(embeddingEndpoint.value);
+  } catch {
+    embeddingIssues.push({
+      code: "embedding-endpoint-invalid",
+      message: "embeddings.endpoint must be a credential-free HTTP(S) embedding endpoint.",
+      key: "embeddings.endpoint",
+    });
+  }
+  if (!isBuiltInEmbeddingProfileId(embeddingDefaultProfile.value)) {
+    embeddingIssues.push({
+      code: "embedding-default-profile-invalid",
+      message: "embeddings.default_profile must name a supported built-in profile.",
+      key: "embeddings.default_profile",
+    });
+  }
+  const configuredIndexProfiles = normalizeEmbeddingIndexProfiles(
+    embeddingIndexProfiles.value,
+    embeddingIssues,
+  );
+  const useLegacyMemuModel = !embeddingIndexProfiles.explicit && (
+    memuEmbedModel.explicit || memuEmbedModel.provenance.source === "legacy-env"
+  );
+  if (useLegacyMemuModel) {
+    configuredIndexProfiles.memu = profileIdForLegacyModel(memuEmbedModel.value);
+  }
+  const bindingProvenance = useLegacyMemuModel
+    ? { ...embeddingIndexProfiles.provenance, memu: memuEmbedModel.provenance }
+    : undefined;
+  const embeddingBindings: Record<string, EmbeddingIndexRuntimeBinding> = {};
+  for (const [indexId, configuredProfileId] of Object.entries(configuredIndexProfiles)) {
+    const profileId = configuredProfileId || embeddingDefaultProfile.value;
+    try {
+      const legacyModel = profileId.startsWith("custom/ollama/")
+        ? profileId.slice("custom/ollama/".length)
+        : undefined;
+      const profile = resolveEmbeddingProfile({
+        profileId,
+        endpoint: normalizedEmbeddingEndpoint,
+        ...(legacyModel ? { provider: "ollama", model: legacyModel, dimensions: 1024 } : {}),
+      });
+      embeddingBindings[indexId] = {
+        indexId,
+        profile,
+        fingerprint: embeddingFingerprint(profile),
+        provenance: indexId === "memu" && bindingProvenance
+          ? bindingProvenance.memu
+          : embeddingIndexProfiles.provenance,
+      };
+    } catch {
+      embeddingIssues.push({
+        code: "embedding-profile-invalid",
+        message: `Embedding profile binding for ${indexId} is invalid.`,
+        key: "embeddings.index_profiles",
+      });
+    }
+  }
+  for (const requiredIndex of ["vaultbrain", "memu"] as const) {
+    if (embeddingBindings[requiredIndex]) continue;
+    try {
+      const profile = resolveEmbeddingProfile({
+        profileId: embeddingDefaultProfile.value,
+        endpoint: normalizedEmbeddingEndpoint,
+      });
+      embeddingBindings[requiredIndex] = {
+        indexId: requiredIndex,
+        profile,
+        fingerprint: embeddingFingerprint(profile),
+        provenance: embeddingDefaultProfile.provenance,
+      };
+      configuredIndexProfiles[requiredIndex] = embeddingDefaultProfile.value;
+    } catch {
+      // The default-profile issue above is sufficient and contains no device-local value.
+    }
+  }
+  const memuEmbedding = embeddingBindings.memu;
   const memuCredential = selectCredential(snapshot, "adapters.memu.secret_ref", environment, "MEMU_DSN");
   const memuIssues = enabled.has("memu")
     ? [
+        ...embeddingIssues,
+        ...(memuEmbedding ? [] : [{ code: "memu-embedding-profile-missing", message: "MemU requires a valid embedding profile binding.", key: "embeddings.index_profiles" }]),
         ...validateMemUDsn(memuDsn.value),
         ...(memuUserId.value ? [] : [{ code: "memu-user-missing", message: "adapters.memu.user_id is required while MemU is enabled.", key: "adapters.memu.user_id" }]),
         ...validateRange("adapters.memu.max_results", memuMaxResults.value, 1, 100),
@@ -270,6 +407,20 @@ export async function resolveKnowledgeAdaptersRuntimeProfile(
 
   const kanbanGlob = selectString(snapshot, "adapters.kanban.glob", environment.VAULT_MIND_KANBAN_GLOB, "VAULT_MIND_KANBAN_GLOB", "**/*.md");
   const qmdCollection = selectString(snapshot, "adapters.qmd.collection", environment.VAULT_MIND_QMD_COLLECTION, "VAULT_MIND_QMD_COLLECTION", "");
+  const qmdCollections = selectField<unknown>(snapshot, "adapters.qmd.collections", undefined, []);
+  const normalizedQmdCollections = qmdCollections.explicit
+    ? normalizeStringList(qmdCollections.value)
+    : qmdCollection.value
+      ? [qmdCollection.value]
+      : normalizeStringList(qmdCollections.value);
+  const qmdIndex = selectString(snapshot, "adapters.qmd.index", environment.QMD_INDEX, "QMD_INDEX", "");
+  const qmdEmbeddingModel = selectString(
+    snapshot,
+    "adapters.qmd.embedding_model",
+    environment.QMD_EMBED_MODEL,
+    "QMD_EMBED_MODEL",
+    "hf:ggml-org/embeddinggemma-300M-GGUF/embeddinggemma-300M-Q8_0.gguf",
+  );
   const qmdBinary = selectString(snapshot, "adapters.qmd.binary", undefined, "", "qmd");
   const graphifyBinary = selectLegacyString(
     snapshot,
@@ -326,6 +477,19 @@ export async function resolveKnowledgeAdaptersRuntimeProfile(
       issues: enabledIssues,
       provenance: enabledSelection.provenance,
     },
+    embeddings: {
+      valid: embeddingIssues.length === 0,
+      issues: embeddingIssues,
+      defaultProfileId: embeddingDefaultProfile.value,
+      endpoint: normalizedEmbeddingEndpoint,
+      indexProfiles: configuredIndexProfiles,
+      bindings: embeddingBindings,
+      provenance: {
+        defaultProfileId: embeddingDefaultProfile.provenance,
+        endpoint: embeddingEndpoint.provenance,
+        indexProfiles: embeddingIndexProfiles.provenance,
+      },
+    },
     memu: {
       enabled: enabled.has("memu"),
       valid: memuIssues.length === 0,
@@ -341,7 +505,11 @@ export async function resolveKnowledgeAdaptersRuntimeProfile(
       memuSearchPy: memuSearchPy.value,
       memuSearchPythonExe: memuSearchPython.value,
       memuSearchTimeoutMs: memuSearchTimeout.value,
-      embedModel: memuEmbedModel.value,
+      embedProfileId: memuEmbedding?.profile.id ?? "ollama/qwen3-embedding:0.6b",
+      embedEndpoint: memuEmbedding?.profile.endpoint ?? normalizedEmbeddingEndpoint,
+      embedModel: memuEmbedding?.profile.model ?? memuEmbedModel.value,
+      ...(memuEmbedding?.profile.dimensions === undefined ? {} : { embedDimensions: memuEmbedding.profile.dimensions }),
+      embedFingerprint: memuEmbedding?.fingerprint ?? embeddingFingerprint(resolveEmbeddingProfile({ profileId: "ollama/qwen3-embedding:0.6b" })),
       ...(memuCredential.profile ? { credential: memuCredential.profile } : {}),
       provenance: {
         dsn: memuDsn.provenance,
@@ -355,7 +523,10 @@ export async function resolveKnowledgeAdaptersRuntimeProfile(
         memuSearchPy: memuSearchPy.provenance,
         memuSearchPythonExe: memuSearchPython.provenance,
         memuSearchTimeoutMs: memuSearchTimeout.provenance,
-        embedModel: memuEmbedModel.provenance,
+        embedProfileId: memuEmbedding?.provenance ?? embeddingIndexProfiles.provenance,
+        embedEndpoint: embeddingEndpoint.provenance,
+        embedModel: memuEmbedding?.provenance ?? memuEmbedModel.provenance,
+        embedFingerprint: memuEmbedding?.provenance ?? embeddingIndexProfiles.provenance,
         credential: memuCredential.provenance,
       },
     },
@@ -419,11 +590,25 @@ export async function resolveKnowledgeAdaptersRuntimeProfile(
     },
     qmd: {
       enabled: enabled.has("qmd"),
-      valid: Boolean(qmdBinary.value),
-      issues: qmdBinary.value ? [] : [{ code: "qmd-binary-missing", message: "QMD binary is empty.", key: "adapters.qmd.binary" }],
+      valid: Boolean(qmdBinary.value) && normalizedQmdCollections !== undefined,
+      issues: [
+        ...(qmdBinary.value ? [] : [{ code: "qmd-binary-missing", message: "QMD binary is empty.", key: "adapters.qmd.binary" }]),
+        ...(normalizedQmdCollections === undefined ? [{ code: "qmd-collections-invalid", message: "QMD collections must be a list of non-empty names.", key: "adapters.qmd.collections" }] : []),
+      ],
       collection: nonEmpty(qmdCollection.value),
+      collections: normalizedQmdCollections ?? [],
+      index: nonEmpty(qmdIndex.value),
+      embeddingModel: qmdEmbeddingModel.value,
+      modelFingerprint: qmdModelFingerprint(nonEmpty(qmdIndex.value), qmdEmbeddingModel.value),
       binary: qmdBinary.value,
-      provenance: { collection: qmdCollection.provenance, binary: qmdBinary.provenance },
+      provenance: {
+        collection: qmdCollection.provenance,
+        collections: qmdCollections.explicit ? qmdCollections.provenance : qmdCollection.provenance,
+        index: qmdIndex.provenance,
+        embeddingModel: qmdEmbeddingModel.provenance,
+        modelFingerprint: qmdEmbeddingModel.provenance,
+        binary: qmdBinary.provenance,
+      },
     },
     graphify: {
       enabled: enabled.has("graphify"),
@@ -638,6 +823,56 @@ function legacyAdapterList(
     };
   }
   return undefined;
+}
+
+function normalizeEmbeddingIndexProfiles(
+  value: unknown,
+  issues: KnowledgeAdapterProfileIssue[],
+): Record<string, string> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    issues.push({
+      code: "embedding-index-profiles-invalid",
+      message: "embeddings.index_profiles must be an object of index-to-profile bindings.",
+      key: "embeddings.index_profiles",
+    });
+    return {};
+  }
+  const bindings: Record<string, string> = {};
+  for (const [indexId, profileId] of Object.entries(value)) {
+    if (!/^[a-z0-9][a-z0-9._-]*$/.test(indexId) || typeof profileId !== "string") {
+      issues.push({
+        code: "embedding-index-profile-invalid",
+        message: "embeddings.index_profiles contains an invalid binding.",
+        key: "embeddings.index_profiles",
+      });
+      continue;
+    }
+    const normalized = profileId.trim();
+    if (!isBuiltInEmbeddingProfileId(normalized)) {
+      issues.push({
+        code: "embedding-index-profile-invalid",
+        message: `Embedding profile binding for ${indexId} is unsupported.`,
+        key: "embeddings.index_profiles",
+      });
+      continue;
+    }
+    bindings[indexId] = normalized;
+  }
+  return bindings;
+}
+
+function normalizeStringList(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const normalized = value.map(item => typeof item === "string" ? item.trim() : "");
+  if (normalized.some(item => !item)) return undefined;
+  return [...new Set(normalized)];
+}
+
+function profileIdForLegacyModel(model: string): string {
+  const normalized = model.trim();
+  if (normalized === "bge-m3") return "ollama/bge-m3";
+  if (normalized === "qwen3-embedding:0.6b") return "ollama/qwen3-embedding:0.6b";
+  return `custom/ollama/${normalized}`;
 }
 
 function selectString(

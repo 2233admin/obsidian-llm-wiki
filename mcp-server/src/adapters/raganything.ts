@@ -14,6 +14,7 @@ import type {
   SearchResult,
   VaultMindAdapter,
 } from "./interface.js";
+import { normalizeSearchResult } from "../retrieval/evidence.js";
 
 export type RAGAnythingAdapterOpts = {
   baseUrl?: string;
@@ -195,7 +196,7 @@ export class RAGAnythingAdapter implements VaultMindAdapter {
           ?? JSON.stringify(raw);
         const score = numberValue(c.score) ?? 1 / (index + 1);
 
-        return {
+        return normalizeSearchResult({
           source: this.name,
           path: filePath ?? docId ?? id ?? `raganything:/chunk/${index}`,
           content,
@@ -207,19 +208,23 @@ export class RAGAnythingAdapter implements VaultMindAdapter {
             page: c.page_idx ?? c.page,
             type: c.type,
           },
-        };
+        }, this.name);
       });
     }
 
     const answer = stringValue(body.response) ?? stringValue(body.answer);
     if (!answer) return [];
-    return [{
+    return [normalizeSearchResult({
       source: this.name,
       path: "raganything:/query",
       content: answer,
       score: 1,
-      metadata: {},
-    }];
+      metadata: {
+        partial: true,
+        missingCapabilities: ["structured-chunks"],
+        diagnosticCodes: ["PARTIAL_RESULT"],
+      },
+    }, this.name)];
   }
 
   private headers(): Record<string, string> {

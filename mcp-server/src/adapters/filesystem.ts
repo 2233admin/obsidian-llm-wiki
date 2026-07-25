@@ -13,6 +13,7 @@ import type {
   SearchResult,
   SearchOpts,
 } from "./interface.js";
+import { normalizeSearchResult } from "../retrieval/evidence.js";
 
 const exec = promisify(execFile);
 
@@ -56,12 +57,12 @@ export class FilesystemAdapter implements VaultMindAdapter {
       for (const file of files) {
         try {
           const content = await readFile(file, "utf-8");
-          results.push({
+          results.push(normalizeSearchResult({
             source: this.name,
             path: relative(this.vaultPath, file).replace(/\\/g, "/"),
             content: this.extractSnippet(content, query, opts),
             score: 1.0,
-          });
+          }, this.name));
         } catch {
           // File may have changed between rg and read; skip stale matches.
         }
@@ -121,12 +122,12 @@ export class FilesystemAdapter implements VaultMindAdapter {
         const msg = JSON.parse(line);
         if (msg.type === "match") {
           const path = relative(this.vaultPath, msg.data.path.text).replace(/\\/g, "/");
-          results.push({
+          results.push(normalizeSearchResult({
             source: this.name,
             path,
             content: msg.data.lines.text.trim(),
             score: 1.0, // ripgrep doesn't rank -- all matches equal
-          });
+          }, this.name));
         }
       } catch {
         // Skip malformed JSON lines
@@ -152,12 +153,12 @@ export class FilesystemAdapter implements VaultMindAdapter {
 
         try {
           const content = await readFile(fullPath, "utf-8");
-          results.push({
+          results.push(normalizeSearchResult({
             source: this.name,
             path: relPath.replace(/\\/g, "/"),
             content: this.extractSnippet(content, query, opts),
             score: 1.0,
-          });
+          }, this.name));
         } catch {
           // File may have changed between grep and read; skip stale matches.
         }

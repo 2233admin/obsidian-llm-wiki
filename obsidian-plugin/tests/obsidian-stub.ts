@@ -120,14 +120,25 @@ export interface StubCommand {
   checkCallback?: (checking: boolean) => boolean;
 }
 
+export interface StubRibbonIcon {
+  icon: string;
+  title: string;
+  callback: () => void;
+}
+
 export class Plugin {
   commands: StubCommand[] = [];
+  ribbonIcons: StubRibbonIcon[] = [];
   views = new Map<string, (leaf: WorkspaceLeaf) => unknown>();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   constructor(public app: any, public manifest: { id?: string; dir?: string }) {}
   addCommand(command: StubCommand): StubCommand {
     this.commands.push(command);
     return command;
+  }
+  addRibbonIcon(icon: string, title: string, callback: () => void): HTMLElement {
+    this.ribbonIcons.push({ icon, title, callback });
+    return {} as HTMLElement;
   }
   addSettingTab(_tab: unknown): void {}
   registerView(type: string, creator: (leaf: WorkspaceLeaf) => unknown): void {

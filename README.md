@@ -159,7 +159,7 @@ The same control plane owns the default Agent model connection. `inherit` preser
 
 Projects use the stable identity `project/<slug>`. The repository checkout, vault path, Linear/GitHub item, and 5090/Orca task are bindings or projections of that Project, never replacements for its identity. The read-only `project.hub.get` operation assembles work, knowledge, Work Runs, effective settings, capability health, workspace health, and integration drift without becoming a new source of truth.
 
-See [Settings and Obsidian control plane](docs/SETTINGS.md), [Project and plugin migrations](docs/MIGRATIONS.md), and the [capability inventory](docs/CAPABILITY_INVENTORY.md).
+See [Settings and Obsidian control plane](docs/SETTINGS.md), [Agent Wiki toolchain](docs/AGENT_WIKI_TOOLCHAIN.md), [Project and state migrations](docs/MIGRATIONS.md), and the [capability inventory](docs/CAPABILITY_INVENTORY.md).
 
 ---
 

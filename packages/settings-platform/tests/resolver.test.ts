@@ -225,4 +225,80 @@ describe("shared settings conformance fixture", () => {
       assert.ok(result.issues.some(issue => issue.code === "invalid-secret-reference"));
     }
   });
+
+  test("accepts both built-in embedding profiles in independent index bindings", () => {
+    const registry = loadRegistry(fileURLToPath(new URL("../registry/v1.json", import.meta.url)));
+    const fixture = readJson<ConformanceFixture>("../fixtures/conformance/full-precedence.json");
+    const vaultDocument = structuredClone(
+      fixture.documents.find(item => item.scope === "vault")!,
+    );
+    vaultDocument.assignments.push({
+      key: "embeddings.index_profiles",
+      value: {
+        vaultbrain: "ollama/bge-m3",
+        memu: "ollama/qwen3-embedding:0.6b",
+      },
+      provenance: { actor: "embedding-profile-test", source: "test" },
+    });
+
+    const result = validateSettingsDocuments(registry, [vaultDocument]);
+
+    assert.equal(result.valid, true, JSON.stringify(result.issues));
+  });
+
+  test("rejects malformed embedding index profile bindings", () => {
+    const registry = loadRegistry(fileURLToPath(new URL("../registry/v1.json", import.meta.url)));
+    const fixture = readJson<ConformanceFixture>("../fixtures/conformance/full-precedence.json");
+    const vaultDocument = structuredClone(
+      fixture.documents.find(item => item.scope === "vault")!,
+    );
+    vaultDocument.assignments.push({
+      key: "embeddings.index_profiles",
+      value: { "bad/index": "not-a-profile" },
+      provenance: { actor: "embedding-profile-test", source: "test" },
+    });
+
+    const result = validateSettingsDocuments(registry, [vaultDocument]);
+
+    assert.equal(result.valid, false);
+    assert.ok(result.issues.some(item => item.code === "embedding-index-id-invalid"));
+    assert.ok(result.issues.some(item => item.code === "embedding-profile-id-invalid"));
+  });
+
+  test("accepts product defaults for toolchain capability profiles and device bindings", () => {
+    const registry = loadRegistry(fileURLToPath(new URL("../registry/v1.json", import.meta.url)));
+    const fixture = readJson<ConformanceFixture>("../fixtures/conformance/full-precedence.json");
+    const snapshot = resolveSettings({ registry, ...fixture });
+    const profiles = snapshot.effective.find(item => item.key === "toolchain.capability_profiles");
+    const bindings = snapshot.effective.find(item => item.key === "toolchain.device_bindings");
+    const selection = snapshot.effective.find(item => item.key === "toolchain.provider_selection");
+    assert.equal(profiles?.winningScope, "product");
+    assert.equal(bindings?.winningScope, "product");
+    assert.equal(selection?.winningScope, "product");
+    assert.equal(profiles?.validation.valid, true, JSON.stringify(profiles?.validation));
+    assert.equal(bindings?.validation.valid, true, JSON.stringify(bindings?.validation));
+  });
+
+  test("rejects credential-bearing toolchain endpoints and unknown providers", () => {
+    const registry = loadRegistry(fileURLToPath(new URL("../registry/v1.json", import.meta.url)));
+    const fixture = readJson<ConformanceFixture>("../fixtures/conformance/full-precedence.json");
+    const deviceDocument = structuredClone(
+      fixture.documents.find(item => item.scope === "user-device")!,
+    );
+    deviceDocument.assignments.push({
+      key: "toolchain.device_bindings",
+      value: {
+        qmd: {
+          executable: "qmd",
+          endpoint: "https://user:secret@example.test/v1?api_key=leak",
+        },
+        "not-a-provider": { executable: "x", endpoint: "" },
+      },
+      provenance: { actor: "toolchain-test", source: "test" },
+    });
+    const result = validateSettingsDocuments(registry, [deviceDocument]);
+    assert.equal(result.valid, false);
+    assert.ok(result.issues.some(item => item.code === "url-credentials-forbidden"));
+    assert.ok(result.issues.some(item => item.code === "toolchain-provider-id-invalid"));
+  });
 });

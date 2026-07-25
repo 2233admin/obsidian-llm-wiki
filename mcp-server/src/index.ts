@@ -3,7 +3,7 @@
  * obsidian-llm-wiki MCP server -- stdio transport
  */
 
-import { createMcpServer, startStdioServer } from "./runtime/mcp-runtime.js";
+import { createMcpServer, startStdioServer } from "./mcp-runtime/index.js";
 import {
   readFileSync, existsSync, readdirSync, statSync, realpathSync,
   writeFileSync, appendFileSync, rmSync, renameSync, mkdirSync,
@@ -201,7 +201,7 @@ function loadEnvCollaboration(result: Record<string, string> = {}): VaultMindCon
 // Helpers
 
 const PROTECTED_DIRS = new Set([".obsidian", ".trash", ".git", "node_modules"]);
-const VERSION = "0.4.0-beta.2";
+const VERSION = "0.4.0-beta.3";
 
 function err(code: number, message: string): { code: number; message: string } {
   return { code, message };
@@ -1537,7 +1537,10 @@ async function main(): Promise<void> {
           memuSearchPy: adapterProfile.memu.memuSearchPy,
           memuSearchPythonExe: adapterProfile.memu.memuSearchPythonExe,
           memuSearchTimeoutMs: adapterProfile.memu.memuSearchTimeoutMs,
+          embedProfileId: adapterProfile.memu.embedProfileId,
+          embedEndpoint: adapterProfile.memu.embedEndpoint,
           embedModel: adapterProfile.memu.embedModel,
+          embedDimensions: adapterProfile.memu.embedDimensions,
         });
         await memuAdapter.init();
         if (memuAdapter.isAvailable) registry.register(memuAdapter);
@@ -1581,6 +1584,9 @@ async function main(): Promise<void> {
     } else {
       const qmdAdapter = new QmdAdapter({
         collection: adapterProfile.qmd.collection,
+        collections: adapterProfile.qmd.collections,
+        index: adapterProfile.qmd.index,
+        modelFingerprint: adapterProfile.qmd.modelFingerprint,
         binary: adapterProfile.qmd.binary,
       });
       await qmdAdapter.init();
@@ -1665,15 +1671,23 @@ async function main(): Promise<void> {
 
   let vaultBrainAdapter: VaultBrainAdapter | null = null;
   if (enabledAdapters.has("vaultbrain")) {
-    const vbAdapter = new VaultBrainAdapter();
-    try {
+    const vaultBrainEmbedding = adapterProfile.embeddings.bindings.vaultbrain;
+    if (!adapterProfile.embeddings.valid || !vaultBrainEmbedding) {
+      process.stderr.write(`obsidian-llm-wiki: [vaultbrain] embedding settings invalid; adapter disabled (${adapterProfile.embeddings.issues.map(item => item.code).join(", ")})\n`);
+    } else {
+      const vbAdapter = new VaultBrainAdapter(undefined, {
+        profileId: vaultBrainEmbedding.profile.id,
+        endpoint: vaultBrainEmbedding.profile.endpoint,
+        model: vaultBrainEmbedding.profile.model,
+        dimensions: vaultBrainEmbedding.profile.dimensions,
+      });
       await vbAdapter.init();
-      registry.register(vbAdapter);
-      vaultBrainAdapter = vbAdapter;
-      configureLazyIndex(vbAdapter, config.vault_path);
-      process.stderr.write("obsidian-llm-wiki: [vaultbrain] adapter ready\n");
-    } catch (e) {
-      process.stderr.write(`obsidian-llm-wiki: [vaultbrain] init failed (continuing without): ${(e as Error).message}\n`);
+      if (vbAdapter.isAvailable) {
+        registry.register(vbAdapter);
+        vaultBrainAdapter = vbAdapter;
+        configureLazyIndex(vbAdapter, config.vault_path);
+        process.stderr.write("obsidian-llm-wiki: [vaultbrain] adapter ready\n");
+      }
     }
   }
 
@@ -1704,6 +1718,9 @@ async function main(): Promise<void> {
     vaultPath: config.vault_path,
     compilerPath,
     python,
+    schedulingMode: process.env.VAULT_MIND_COMPILE_TRIGGER_MODE === "legacy-threshold"
+      ? "legacy-threshold"
+      : "durable",
     onCompileSuccess: (wikiPaths: string[]) => {
       if (!vaultBrainAdapter) return;
       for (const fullPath of wikiPaths) {

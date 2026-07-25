@@ -274,6 +274,91 @@ export interface CapabilityHealth {
   snapshotId: string;
 }
 
+export type ToolchainProfileSource =
+  | "settings-assignment"
+  | "legacy-environment"
+  | "product-default"
+  | "probe-receipt";
+
+export interface ToolchainFieldProvenance {
+  source: ToolchainProfileSource;
+  path: string;
+  scope?: SettingsScope;
+  actor?: string;
+  detail?: string;
+}
+
+export interface ToolchainSemanticProfile {
+  invocationMode: string;
+  versionPolicy: string;
+  requiredFeatures: string[];
+  timeoutMs: number;
+  profileRevision: string;
+  indexId?: string;
+  collectionIds?: string[];
+}
+
+export interface ToolchainDeviceBinding {
+  executable: string;
+  endpoint: string;
+}
+
+/** Optional side-effect-free probe receipt supplied by the host (never secrets). */
+export interface ToolchainProbeReceiptInput {
+  observedVersion?: string;
+  capabilities?: string[];
+  diagnosticCodes?: string[];
+  probedAt?: string;
+  expiresAt?: string;
+  timedOut?: boolean;
+  disabled?: boolean;
+}
+
+export interface ToolchainEmbeddingFingerprintView {
+  profileId: string;
+  providerId: string;
+  endpointIdentity: string;
+  modelId: string;
+  dimensions?: number;
+  adapterSchemaVersion: string;
+  digest: string;
+  indexBindings: Array<{ indexId: string; profileId: string }>;
+  mismatchedIndexIds: string[];
+}
+
+/**
+ * Redacted Toolchain Capability Profile view for Doctor / explain / migration.
+ * Matches the agent-wiki-contracts public surface plus Settings provenance.
+ */
+export interface ToolchainCapabilityProfileView {
+  schemaVersion: 1;
+  providerId: string;
+  profileRevision: string;
+  invocationMode: string;
+  versionPolicy: string;
+  selected: boolean;
+  compatibility: "compatible" | "partial" | "incompatible" | "unknown";
+  health: HealthState;
+  requiredFeatures: string[];
+  capabilities: string[];
+  missingCapabilities: string[];
+  diagnosticCodes: string[];
+  timeoutMs: number;
+  indexId?: string;
+  collectionIds?: string[];
+  redactedExecutable: string;
+  redactedEndpoint: string;
+  observedVersion?: string;
+  probedAt?: string;
+  expiresAt?: string;
+  /** Milliseconds since probedAt, or null when no probe receipt is available. */
+  probeAgeMs: number | null;
+  configurationProvenance: Record<string, ToolchainFieldProvenance>;
+  embeddingFingerprint?: ToolchainEmbeddingFingerprintView;
+  checkedAt: string;
+  snapshotId: string;
+}
+
 /**
  * A Settings selector for a Host Capability Connector. Both a canonical
  * `connector/...` identity and a generic provider identifier are accepted.

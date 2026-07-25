@@ -56,6 +56,7 @@ import {
   createVaultGovernedContributionPort,
   type UiWorkRunApprovalPairPort,
 } from '../contributions/index.js';
+import { makeAgentWikiFeatureOps, resolveAgentWikiFeatureFlags } from '../release/feature-flags.js';
 
 export { makeAdapterGraphOps };
 
@@ -691,6 +692,7 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     compilerPath,
   };
   const settingsService = createSettingsService(settingsOptions);
+  const agentWikiFeatures = resolveAgentWikiFeatureFlags();
   compileTrigger?.setEnvironmentResolver?.(() => resolveAgentModelProcessEnvironment(settingsService));
   const projectOps = makeProjectOps(vaultPath);
   const projectOpsByName = new Map(projectOps.map((operation) => [operation.name, operation]));
@@ -772,6 +774,36 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
       handler: async (_ctx, _params) => ({ dirty: compileTrigger.status().dirty }),
     },
     {
+      name: 'compile.maintenance.plan',
+      namespace: 'compile',
+      description: 'Plan eligible durable maintenance work using the same debounce and freshness deadlines as runtime execution; report-only and CI safe.',
+      mutating: false,
+      params: {
+        maxTopics: { type: 'number', required: false, default: 16, description: 'Maximum eligible topic entries to report' },
+      },
+      handler: async (_ctx, params) => compileTrigger.maintenancePlan({
+        reportOnly: true,
+        maxTopics: params.maxTopics as number | undefined,
+      }) ?? { reportOnly: true, schedulingMode: 'legacy-threshold', eligible: [], deferred: [], quarantined: [] },
+    },
+    {
+      name: 'compile.maintenance.drain',
+      namespace: 'compile',
+      description: 'Drain eligible durable topic maintenance with leases, bounded topic count, retries, and time budget.',
+      mutating: true,
+      writePolicy: externalSideEffectPolicy('compile/**'),
+      params: {
+        owner: { type: 'string', required: false, description: 'Stable maintenance worker identity' },
+        maxTopics: { type: 'number', required: false, default: 16 },
+        timeBudgetMs: { type: 'number', required: false, default: 120000 },
+      },
+      handler: async (_ctx, params) => compileTrigger.drainMaintenance({
+        owner: params.owner as string | undefined,
+        maxTopics: params.maxTopics as number | undefined,
+        timeBudgetMs: params.timeBudgetMs as number | undefined,
+      }),
+    },
+    {
  name: 'compile.abort',
       namespace: 'compile',
       description: 'Abort running compilation',
@@ -839,6 +871,8 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
         weights: { type: 'object', required: false, description: 'Per-adapter score weight multipliers, e.g. {"obsidian":1.2,"filesystem":0.8}' },
         caseSensitive: { type: 'boolean', required: false, description: 'Case-sensitive matching', default: false },
         context: { type: 'number', required: false, description: 'Lines of surrounding context per match' },
+        intent: { type: 'string', required: false, description: 'Retrieval intent such as navigation, factual support, or quotation' },
+        detail: { type: 'string', required: false, enum: ['low', 'medium', 'high'], default: 'medium' },
       },
       handler: async (_ctx, params) => {
         const query = params.query as string;
@@ -853,6 +887,9 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
           context: params.context as number | undefined,
           adapters: params.adapters as string[] | undefined,
           weights: Object.keys(weights).length > 0 ? weights : undefined,
+          intent: params.intent as string | undefined,
+          detail: params.detail as 'low' | 'medium' | 'high' | undefined,
+          tierRouting: agentWikiFeatures.tieredRetrieval,
         });
       },
     },
@@ -868,6 +905,8 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
       weights: { type: 'object', required: false, description: 'Per-adapter score weight multipliers, e.g. {"obsidian":1.2,"filesystem":0.8}' },
       caseSensitive: { type: 'boolean', required: false, description: 'Case-sensitive matching', default: false },
       context: { type: 'number', required: false, description: 'Lines surrounding context per match' },
+      intent: { type: 'string', required: false, description: 'Retrieval intent such as navigation, factual support, or quotation' },
+      detail: { type: 'string', required: false, enum: ['low', 'medium', 'high'], default: 'medium' },
     },
     handler: async (_ctx, params) => {
       const query = params.query as string;
@@ -882,6 +921,9 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
         context: params.context as number | undefined,
         adapters: params.adapters as string[] | undefined,
         weights: Object.keys(weights).length > 0 ? weights : undefined,
+        intent: params.intent as string | undefined,
+        detail: params.detail as 'low' | 'medium' | 'high' | undefined,
+        tierRouting: agentWikiFeatures.tieredRetrieval,
       });
     },
   },
@@ -897,6 +939,8 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
       weights: { type: 'object', required: false, description: 'Per-adapter score weight multipliers, e.g. {"obsidian":1.2,"filesystem":0.8}' },
       caseSensitive: { type: 'boolean', required: false, description: 'Case-sensitive matching', default: false },
       context: { type: 'number', required: false, description: 'Lines surrounding context per match' },
+      intent: { type: 'string', required: false, description: 'Retrieval intent such as navigation, factual support, or quotation' },
+      detail: { type: 'string', required: false, enum: ['low', 'medium', 'high'], default: 'medium' },
     },
     handler: async (_ctx, params) => {
       const query = params.query as string;
@@ -914,6 +958,9 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
         context: params.context as number | undefined,
         adapters: params.adapters as string[] | undefined,
         weights: Object.keys(weights).length > 0 ? weights : undefined,
+        intent: params.intent as string | undefined,
+        detail: params.detail as 'low' | 'medium' | 'high' | undefined,
+        tierRouting: agentWikiFeatures.tieredRetrieval,
       });
       for (const g of await recallGaps(backfill)) answer.gaps.unshift(g);
       return answer;
@@ -1294,11 +1341,12 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     }),
     ...makeProjectMigrationOps({ python, compilerPath, vaultPath }),
     ...makeIngestOps(),
-    ...makeSourceOps(vaultPath),
+    ...makeSourceOps(vaultPath, { ingestExecutionEnabled: agentWikiFeatures.sourceIngestExecution }),
     ...makeConversationOps(vaultPath),
     ...makeWorkflowOps(vaultPath),
     ...makeContextOps(vaultPath, registry, defaultWeights),
     ...makeSettingsOps(settingsOptions, settingsService),
+    ...makeAgentWikiFeatureOps(agentWikiFeatures),
     ...makeUsageOps(vaultPath),
     ...makeHostCapabilityOps(vaultPath, {
       transportFactory: deps.hostCapabilityTransportFactory ?? createDefaultHostCapabilityTransportFactory(),

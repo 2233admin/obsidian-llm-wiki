@@ -42,6 +42,12 @@ import type {
   GraphEdgeConfidence,
   GraphEdgeEvidence,
 } from "./interface.js";
+import {
+  graphifyCompatibilityRevision,
+  graphifyQueryCommand,
+  type GraphifyCompatibilityRevision,
+} from "../toolchain/provider-contracts.js";
+import { normalizeSearchResult } from "../retrieval/evidence.js";
 
 const exec = promisify(execFile);
 
@@ -125,6 +131,7 @@ export class GraphifyAdapter implements VaultMindAdapter {
   private readonly autoRescan: boolean;
   private available = false;
   private cliAvailable = false;
+  private compatibilityRevision: GraphifyCompatibilityRevision = "graphify/legacy";
 
   get isAvailable(): boolean {
     return this.available;
@@ -141,7 +148,8 @@ export class GraphifyAdapter implements VaultMindAdapter {
 
   async init(): Promise<void> {
     try {
-      await exec(this.binary, ["--version"], { timeout: 5_000, ...shellOpt(this.binary) });
+      const version = await exec(this.binary, ["--version"], { timeout: 5_000, ...shellOpt(this.binary) });
+      this.compatibilityRevision = graphifyCompatibilityRevision(`${version.stdout}\n${version.stderr}`);
       this.cliAvailable = true;
       this.available = true;
     } catch {
@@ -164,7 +172,12 @@ export class GraphifyAdapter implements VaultMindAdapter {
   async search(query: string, opts?: SearchOpts): Promise<SearchResult[]> {
     if (!this.cliAvailable) return [];
     const budget = (opts?.maxResults ?? 20) * 100;
-    const args = ["query", query, "--graph", this.graphPath, "--budget", String(budget)];
+    const args = graphifyQueryCommand(
+      this.compatibilityRevision,
+      query,
+      this.graphPath,
+      budget,
+    );
     try {
       const { stdout } = await exec(this.binary, args, {
         timeout: this.timeout,
@@ -175,13 +188,13 @@ export class GraphifyAdapter implements VaultMindAdapter {
       const text = stdout.trim();
       if (!text) return [];
       return [
-        {
+        normalizeSearchResult({
           source: this.name,
           path: "graphify-out/graph.json",
           content: text.slice(0, 4_000),
           score: 1.0,
-          metadata: { query },
-        },
+          metadata: { query, profileRevision: this.compatibilityRevision },
+        }, this.name),
       ];
     } catch {
       return [];

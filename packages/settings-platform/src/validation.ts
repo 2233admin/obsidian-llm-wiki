@@ -230,6 +230,209 @@ function isRfc3339Timestamp(value: unknown): value is string {
     && !Number.isNaN(Date.parse(value));
 }
 
+const TOOLCHAIN_PROVIDER_IDS = new Set([
+  "opencli", "qmd", "graphify", "ollama", "lightrag", "raganything", "mcp-sdk",
+]);
+const INVOCATION_MODES = new Set(["filesystem", "cli", "http", "sdk"]);
+
+function validateToolchainCapabilityProfiles(
+  value: Record<string, unknown>,
+  options: Partial<ValidationIssue>,
+): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  for (const [providerId, raw] of Object.entries(value)) {
+    if (!TOOLCHAIN_PROVIDER_IDS.has(providerId)) {
+      issues.push(issue(
+        "toolchain-provider-id-invalid",
+        `toolchain.capability_profiles contains unsupported provider ${providerId}.`,
+        options,
+      ));
+      continue;
+    }
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      issues.push(issue(
+        "toolchain-profile-shape-invalid",
+        `toolchain.capability_profiles.${providerId} must be an object.`,
+        options,
+      ));
+      continue;
+    }
+    const profile = raw as Record<string, unknown>;
+    if (typeof profile.invocationMode !== "string" || !INVOCATION_MODES.has(profile.invocationMode)) {
+      issues.push(issue(
+        "toolchain-invocation-mode-invalid",
+        `toolchain.capability_profiles.${providerId}.invocationMode is invalid.`,
+        options,
+      ));
+    }
+    if (typeof profile.versionPolicy !== "string" || !profile.versionPolicy.trim()) {
+      issues.push(issue(
+        "toolchain-version-policy-invalid",
+        `toolchain.capability_profiles.${providerId}.versionPolicy is required.`,
+        options,
+      ));
+    }
+    if (typeof profile.profileRevision !== "string" || !profile.profileRevision.trim()) {
+      issues.push(issue(
+        "toolchain-profile-revision-invalid",
+        `toolchain.capability_profiles.${providerId}.profileRevision is required.`,
+        options,
+      ));
+    }
+    if (!Array.isArray(profile.requiredFeatures)
+      || profile.requiredFeatures.some(item => typeof item !== "string" || !item.trim())) {
+      issues.push(issue(
+        "toolchain-required-features-invalid",
+        `toolchain.capability_profiles.${providerId}.requiredFeatures must be a string list.`,
+        options,
+      ));
+    }
+    if (typeof profile.timeoutMs !== "number"
+      || !Number.isInteger(profile.timeoutMs)
+      || profile.timeoutMs < 100
+      || profile.timeoutMs > 300_000) {
+      issues.push(issue(
+        "toolchain-timeout-invalid",
+        `toolchain.capability_profiles.${providerId}.timeoutMs must be an integer between 100 and 300000.`,
+        options,
+      ));
+    }
+    if (profile.indexId !== undefined && typeof profile.indexId !== "string") {
+      issues.push(issue(
+        "toolchain-index-id-invalid",
+        `toolchain.capability_profiles.${providerId}.indexId must be a string.`,
+        options,
+      ));
+    }
+    if (profile.collectionIds !== undefined
+      && (!Array.isArray(profile.collectionIds)
+        || profile.collectionIds.some(item => typeof item !== "string"))) {
+      issues.push(issue(
+        "toolchain-collection-ids-invalid",
+        `toolchain.capability_profiles.${providerId}.collectionIds must be a string list.`,
+        options,
+      ));
+    }
+  }
+  return issues;
+}
+
+function validateToolchainDeviceBindings(
+  value: Record<string, unknown>,
+  options: Partial<ValidationIssue>,
+): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  for (const [providerId, raw] of Object.entries(value)) {
+    if (!TOOLCHAIN_PROVIDER_IDS.has(providerId)) {
+      issues.push(issue(
+        "toolchain-provider-id-invalid",
+        `toolchain.device_bindings contains unsupported provider ${providerId}.`,
+        options,
+      ));
+      continue;
+    }
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      issues.push(issue(
+        "toolchain-device-binding-shape-invalid",
+        `toolchain.device_bindings.${providerId} must be an object.`,
+        options,
+      ));
+      continue;
+    }
+    const binding = raw as Record<string, unknown>;
+    if (binding.executable !== undefined && typeof binding.executable !== "string") {
+      issues.push(issue(
+        "toolchain-executable-invalid",
+        `toolchain.device_bindings.${providerId}.executable must be a string path.`,
+        options,
+      ));
+    }
+    if (binding.endpoint !== undefined) {
+      if (typeof binding.endpoint !== "string") {
+        issues.push(issue(
+          "toolchain-endpoint-invalid",
+          `toolchain.device_bindings.${providerId}.endpoint must be a string URL.`,
+          options,
+        ));
+      } else if (binding.endpoint.trim() && hasUrlCredentials(binding.endpoint)) {
+        issues.push(issue(
+          "url-credentials-forbidden",
+          `toolchain.device_bindings.${providerId}.endpoint must not embed credentials.`,
+          {
+            ...options,
+            remediation: "Remove URL userinfo/query secrets and bind credentials through a Secret Reference.",
+          },
+        ));
+      } else if (binding.endpoint.trim() && !/^https?:\/\//i.test(binding.endpoint)) {
+        issues.push(issue(
+          "pattern-mismatch",
+          `toolchain.device_bindings.${providerId}.endpoint must be an HTTP(S) URL when set.`,
+          options,
+        ));
+      }
+    }
+  }
+  return issues;
+}
+
+function validateEmbeddingIndexFingerprints(
+  value: Record<string, unknown>,
+  options: Partial<ValidationIssue>,
+): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  for (const [indexId, raw] of Object.entries(value)) {
+    if (!/^[a-z][a-z0-9._-]{0,127}$/.test(indexId)) {
+      issues.push(issue(
+        "embedding-index-id-invalid",
+        "embeddings.index_fingerprints contains an invalid index identifier.",
+        options,
+      ));
+      continue;
+    }
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      issues.push(issue(
+        "embedding-fingerprint-shape-invalid",
+        `embeddings.index_fingerprints.${indexId} must be an object.`,
+        options,
+      ));
+      continue;
+    }
+    const fp = raw as Record<string, unknown>;
+    for (const field of ["profileId", "providerId", "endpointIdentity", "modelId", "adapterSchemaVersion", "digest"] as const) {
+      if (typeof fp[field] !== "string" || !(fp[field] as string).trim()) {
+        issues.push(issue(
+          "embedding-fingerprint-field-invalid",
+          `embeddings.index_fingerprints.${indexId}.${field} must be a non-empty string.`,
+          options,
+        ));
+      }
+    }
+    if (typeof fp.digest === "string" && !/^sha256:[a-f0-9]{64}$/.test(fp.digest)) {
+      issues.push(issue(
+        "embedding-fingerprint-digest-invalid",
+        `embeddings.index_fingerprints.${indexId}.digest must be sha256:<hex>.`,
+        options,
+      ));
+    }
+    if (fp.dimensions !== undefined
+      && (!Number.isInteger(fp.dimensions) || (fp.dimensions as number) <= 0)) {
+      issues.push(issue(
+        "embedding-fingerprint-dimensions-invalid",
+        `embeddings.index_fingerprints.${indexId}.dimensions must be a positive integer when set.`,
+        options,
+      ));
+    }
+    if (typeof fp.endpointIdentity === "string" && hasUrlCredentials(fp.endpointIdentity)) {
+      issues.push(issue(
+        "url-credentials-forbidden",
+        `embeddings.index_fingerprints.${indexId}.endpointIdentity must not embed credentials.`,
+        options,
+      ));
+    }
+  }
+  return issues;
+}
+
 function validateValue(
   definition: SettingDefinition,
   value: unknown,
@@ -248,6 +451,65 @@ function validateValue(
     return [issue("type-mismatch", `${definition.key} must be a ${type}.`, options)];
   }
   const validator = definition.validator;
+  if (validator.id === "embedding-index-profile-bindings") {
+    const bindings = value as Record<string, unknown>;
+    for (const [indexId, profileId] of Object.entries(bindings)) {
+      if (!/^[a-z][a-z0-9._-]{0,127}$/.test(indexId)) {
+        issues.push(issue(
+          "embedding-index-id-invalid",
+          definition.key + " contains an invalid index identifier.",
+          options,
+        ));
+      }
+      if (
+        typeof profileId !== "string"
+        || (
+          profileId !== "ollama/bge-m3"
+          && profileId !== "ollama/qwen3-embedding:0.6b"
+        )
+      ) {
+        issues.push(issue(
+          "embedding-profile-id-invalid",
+          definition.key + " contains an unsupported embedding profile binding.",
+          options,
+        ));
+      }
+    }
+  }
+  if (validator.id === "toolchain-provider-selection") {
+    const providers = value as unknown[];
+    const allowed = new Set([
+      "opencli", "qmd", "graphify", "ollama", "lightrag", "raganything", "mcp-sdk",
+    ]);
+    const seen = new Set<string>();
+    for (const item of providers) {
+      if (typeof item !== "string" || !allowed.has(item)) {
+        issues.push(issue(
+          "toolchain-provider-id-invalid",
+          `${definition.key} contains an unsupported toolchain provider id.`,
+          options,
+        ));
+        continue;
+      }
+      if (seen.has(item)) {
+        issues.push(issue(
+          "toolchain-provider-duplicate",
+          `${definition.key} must not list the same provider twice.`,
+          options,
+        ));
+      }
+      seen.add(item);
+    }
+  }
+  if (validator.id === "toolchain-capability-profiles") {
+    issues.push(...validateToolchainCapabilityProfiles(value as Record<string, unknown>, options));
+  }
+  if (validator.id === "toolchain-device-bindings") {
+    issues.push(...validateToolchainDeviceBindings(value as Record<string, unknown>, options));
+  }
+  if (validator.id === "embedding-index-fingerprints") {
+    issues.push(...validateEmbeddingIndexFingerprints(value as Record<string, unknown>, options));
+  }
   if (validator.required && typeof value === "string" && !value.trim()) {
     issues.push(issue("required-value-missing", `${definition.key} is required.`, options));
   }

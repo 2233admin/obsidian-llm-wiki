@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.llmwiki.org/agent-wiki/v1/execution-receipt.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "receiptId", "operation", "status", "startedAt", "completedAt", "outputDigests", "diagnosticCodes"],
+  "properties": {
+    "schemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+    "receiptId": { "$ref": "common.schema.json#/$defs/identifier" },
+    "operation": { "$ref": "common.schema.json#/$defs/identifier" },
+    "status": { "enum": ["succeeded", "partial", "failed", "skipped"] },
+    "startedAt": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "completedAt": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "outputDigests": { "type": "array", "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/digest" } },
+    "diagnosticCodes": { "type": "array", "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/diagnosticCode" } },
+    "providerId": { "$ref": "common.schema.json#/$defs/providerId" },
+    "profileRevision": { "$ref": "common.schema.json#/$defs/identifier" }
+  },
+  "additionalProperties": false
+}

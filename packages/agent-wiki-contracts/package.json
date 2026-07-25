@@ -1,0 +1,33 @@
+{
+  "name": "@obsidian-llm-wiki/agent-wiki-contracts",
+  "version": "0.1.0",
+  "description": "Versioned cross-runtime contracts for the Agent Wiki lifecycle.",
+  "type": "module",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    }
+  },
+  "files": [
+    "dist/src",
+    "schemas",
+    "fixtures",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "bun test tests/contracts.test.ts"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "typescript": "~7.0.2"
+  },
+  "license": "MIT"
+}

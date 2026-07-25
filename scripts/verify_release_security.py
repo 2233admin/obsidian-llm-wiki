@@ -28,6 +28,23 @@ FIXTURE_FAKE_MATCH_ALLOWLIST: dict[str, frozenset[str]] = {
     "compiler/tests/fixtures/project-context/architecture-fixture.json": frozenset(
         {"6c6b4d074728a61d"}
     ),
+    "mcp-server/src/retrieval/fixtures/evaluation-cases.json": frozenset(
+        {"0d507a2578a191a6", "be3e8c07ff61fa56"}
+    ),
+    "mcp-server/src/toolchain/fixtures/http-probe-cases.json": frozenset(
+        {"102a4e084825d50f", "8f4d8c078dd21c14"}
+    ),
+    "mcp-server/src/toolchain/fixtures/opencli-discovery-cases.json": frozenset(
+        {
+            "45bc1d7a4cb8ca52",
+            "8f4d8c078dd21c14",
+            "e834d8fe8d5796c8",
+            "ea73dcab33f3ec1c",
+        }
+    ),
+    "mcp-server/src/toolchain/fixtures/probe-cases.json": frozenset(
+        {"3d8734b08a86aee5", "99829bbe372d9735"}
+    ),
     "packages/settings-platform/fixtures/conformance/full-precedence.json": frozenset(
         {"28465484f273cedf", "7c6f94f88a19157f", "813c4294bc581775"}
     ),
@@ -336,8 +353,8 @@ def production_source_files(repo: Path) -> list[Path]:
     files: list[Path] = []
     for root in roots:
         for path in _iter_text_files(root, repo):
-            lower_parts = tuple(part.lower() for part in path.parts)
-            if "tests" in lower_parts or "test" in lower_parts:
+            lower_parts = tuple(part.lower() for part in path.relative_to(repo).parts)
+            if "tests" in lower_parts or "test" in lower_parts or "fixtures" in lower_parts:
                 continue
             if ".test." in path.name.lower() or ".spec." in path.name.lower():
                 continue

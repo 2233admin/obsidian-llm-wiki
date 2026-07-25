@@ -1,118 +1,86 @@
-# Ingest preflight: OPENCLI + media/transcribe toolchain
+# Source registration and ingest execution
 
-LLM Wiki is not a platform scraper. It is the local Markdown knowledge layer after capture.
-
-The core contract is intentionally small:
+LLM Wiki is the governed Markdown layer after capture. It does not treat a URL registration, a successful provider probe, or a remote response as durable knowledge.
 
 ```text
-link -> ingest.link.preflight -> OPENCLI or the media/transcribe toolchain -> Markdown in vault -> LLM Wiki search / summarize / cite / review
+register -> plan -> run/resume -> inspect/verify -> Evidence Note -> maintenance queue
 ```
 
-## Entrypoints
+The filesystem-only path is always supported. Optional capture providers improve coverage but are never required to start the MCP server, register a Source, inspect an existing run, or search normal Markdown.
 
-| Entrypoint | Best for | Required output |
-|---|---|---|
-| `OPENCLI` | Web pages, articles, OpenCLI + BBX/browser-assisted captures, X, WeChat Official Account, Xiaohongshu, generic web pages. | Markdown note in the vault with source URL and capture metadata. |
-| `MEDIA_TRANSCRIBE` | Audio/video parsing, download, subtitles, transcription, YouTube, Bilibili, Douyin, Xiaohongshu video notes, podcasts, direct media files. | Transcript Markdown note in the vault with media URL, source URL, parser/download provenance, and transcription provenance. |
+## Supported Source inputs
 
-Configure commands with:
+Phase 1 Source Registration accepts only:
 
-```bash
-VAULT_MIND_OPENCLI_CMD=opencli
-VAULT_MIND_MEDIA_CMD=media-transcribe
-```
+- `url` — the canonical remote identity;
+- `vaultPath` — an existing vault-relative file.
 
-Fallback env names:
+`repoPath`, `filePath`, `directoryPath`, and `text` remain reserved and must not be passed to `source.register`. For a local repository, register its canonical URL and cite local inspection artifacts as Evidence.
 
-```bash
-OPENCLI_CMD=opencli
-MEDIA_TRANSCRIBE_CMD=media-transcribe
-```
+Registration writes `_llmwiki/source-registry.json` and a Source Note under `00-Inbox/Sources/<platform>/`, or under `10-Projects/<project>/sources/<platform>/` for a Project Source. It does not capture the URL or alter the registered vault note.
 
+## Operations
 
-## Default dependency boundary
-
-The default path is `OpenCLI + BBX/browser bridge`. OpenTabs is not required for normal users.
-
-OpenTabs can be useful for advanced MCP-native browser/plugin orchestration, but LLM Wiki should not assume it is installed. If a workflow can be done through OpenCLI plus the user's logged-in browser bridge, prefer that route.
-## MCP tools
-
-### `ingest.providers`
-
-Lists the two supported local ingest providers, their configured command, env vars, purpose, and Markdown output contract.
-
-### `ingest.link.preflight`
-
-Classifies one absolute URL and returns:
-
-| Field | Meaning |
+| Operation | Effect |
 |---|---|
-| `platform` | Detected source family, such as `youtube`, `bilibili`, `x`, `wechat-official-account`, or `generic-web`. |
-| `provider` | Primary routed local entrypoint: `OPENCLI` or `MEDIA_TRANSCRIBE`. |`r`n| `pipeline` | Ordered local steps when one source needs both browser/page resolving and media parse/download/transcription. Douyin and Xiaohongshu video notes commonly return `OPENCLI -> MEDIA_TRANSCRIBE`. |
-| `status` | `ready`, `needs_provider`, `needs_browser_or_login`, or `manual_required`. |
-| `can_auto_ingest` | True only when LLM Wiki believes the local provider is configured and the platform does not obviously need manual/browser fallback. |
-| `needs` | Concrete dependencies or access conditions. |
-| `limitations` | Access-control and reliability caveats. |
-| `next_action` | The next honest action for the agent. |
+| `ingest.providers` | Lists configured capture entrypoints and their Markdown contract. |
+| `ingest.link.preflight` | Classifies a URL and reports required access/providers without invoking them. |
+| `source.register` | Records the durable Source identity and creates a reviewable Source Note. |
+| `source.ingest.plan` | Returns a deterministic, report-only plan and content-bound `planId`. |
+| `source.ingest.run` | Executes that exact plan and persists a versioned Ingest Run, immutable artifacts, receipts, and an Evidence Note. |
+| `source.ingest.resume` | Continues the first incomplete stage after a failure or expired lease. |
+| `source.ingest.inspect` | Reads a run and its immutable receipts without executing providers. |
+| `source.ingest.verify` | Re-hashes artifacts and verifies completed stages without writing. |
 
-Example:
+Always call `source.ingest.plan` immediately before `source.ingest.run`. A stale `planId` is rejected if the Source revision, local file bytes, or capability plan changed.
 
-```json
-{
-  "url": "https://www.youtube.com/watch?v=abc123",
-  "platform": "youtube",
-  "provider": {
-    "id": "media",
-    "name": "MEDIA_TRANSCRIBE",
-    "configured": true
-  },
-  "status": "ready",
-  "can_auto_ingest": true,
-  "next_action": "Run MEDIA_TRANSCRIBE via the configured media command; once Markdown lands in the vault, use query.unified for cited analysis."
-}
+## Filesystem baseline
+
+For `inputType=vaultPath`, capture reads the registered file from inside the vault. The run normalizes line endings, writes immutable captures and derivatives, materializes a searchable Evidence Note, and enqueues maintenance only when the active normalized digest changed.
+
+State is stored under:
+
+```text
+_llmwiki/ingest-runs/v1/       run records and receipts
+_llmwiki/ingest-artifacts/v1/  immutable captures and derivatives
+_llmwiki/ingest-active/v1/     active digest per Source
+00-Inbox/Evidence/             searchable Evidence Notes
+_llmwiki/maintenance/          durable maintenance queue and receipts
 ```
 
-## Platform routing
+Replaying a successful idempotency key returns the existing run. Unchanged content creates no new maintenance work.
 
-| Source | Default route | Notes |
+## Optional capture providers
+
+| Entrypoint | Best for | Configuration |
 |---|---|---|
-| YouTube | `MEDIA_TRANSCRIBE` | Good target when subtitles or transcription are available. Login-gated videos may need cookies. |`r`n| Bilibili | `MEDIA_TRANSCRIBE` | Parser/download/transcription route; subtitles/cookies may matter. |`r`n| TikTok | `OPENCLI -> MEDIA_TRANSCRIBE` | Resolve short links/page state with browser bridge, then parse/download/transcribe media. |
-| Podcasts / direct audio | `MEDIA_TRANSCRIBE` | Best when provider can resolve episode audio or direct media URL. |
-| Bilibili | `MEDIA_TRANSCRIBE` | Often feasible, but cookies/subtitles may matter. |
-| Douyin | `MEDIA_TRANSCRIBE` | Needs video URL parsing/download before transcription; browser/login/manual fallback is normal. |
-| X / Twitter | `OPENCLI` | Public posts and browser-assisted capture work better than pretending API-free scraping is reliable. |`r`n| Weibo | `OPENCLI` + optional `MEDIA_TRANSCRIBE` | Text/social capture first; video posts may need parser/download/transcription. |`r`n| Zhihu | `OPENCLI` | Article/question/answer capture; browser fallback for folded or login-gated answers. |
-| WeChat Official Account | `OPENCLI` | Public articles are text-first; blocked/private pages need browser fallback. |
-| Xiaohongshu | `OPENCLI` + optional `MEDIA_TRANSCRIBE` | Browser-assisted capture is the honest default; video notes may need parser/download/transcription through the reference toolchain. |
-| Generic web | `OPENCLI` | Normal web/article capture route. |
+| OpenCLI | Pages, articles, browser-assisted capture, X, WeChat, Zhihu, and generic web content. | `VAULT_MIND_OPENCLI_CMD` (legacy `OPENCLI_CMD`). |
+| Media/transcribe | Audio/video, subtitles, transcription, podcasts, YouTube, Bilibili, Douyin, and direct media. | `VAULT_MIND_MEDIA_CMD` (legacy `MEDIA_TRANSCRIBE_CMD`). |
 
-## Success rule
+OpenCLI is a capture Provider only. It cannot register Sources, write arbitrary vault paths, promote memory, or make knowledge authoritative. Provider output must contain valid text/Markdown plus provider and profile provenance; invalid, empty, oversized, timed-out, or unavailable output produces bounded diagnostics rather than partial authority.
 
-Do not claim "the link was analyzed" just because preflight succeeded.
+The default browser path is OpenCLI plus a compatible logged-in browser bridge. OpenTabs and platform-specific scrapers are optional.
 
-The success condition is:
+## Platform preflight
 
-1. `OPENCLI` or `MEDIA_TRANSCRIBE` produced Markdown.
-2. The Markdown is inside the configured vault.
-3. `vault.search` or `query.unified` can find it.
-4. LLM Wiki answers cite the local Markdown, not the remote platform.
+`ingest.link.preflight` returns the detected platform, provider route, status, access needs, limitations, and honest next action. Typical routing is:
 
-Legacy env aliases VAULT_MIND_OPENTTPE_CMD and OPENTTPE_CMD are accepted for compatibility with earlier drafts, but new docs use the neutral media/transcribe name.
+| Source | Default route |
+|---|---|
+| YouTube, Bilibili, podcasts, direct audio/video | Media/transcribe |
+| X, WeChat, Zhihu, generic web | OpenCLI |
+| Douyin, TikTok, Xiaohongshu video | OpenCLI/browser resolution, then media/transcribe when needed |
 
-## Source Registry handoff
+Login, cookies, paywalls, deleted content, or anti-bot checks may make a run `needs_access` or `manual_required`. Preflight success is not ingest success.
 
-`ingest.link.preflight` is read-only planning. `source.register` is the durable registration step. It stores the source in `_llmwiki/source-registry.json`, creates a Source Note in `00-Inbox/Sources/<platform>/` or `10-Projects/<slug>/sources/<platform>/`, and embeds the preflight result for review. Project-scoped registration resolves the caller input through Project Context first and persists the canonical `project-id: project/<slug>`; an unknown Project never creates a knowledge root.
+## Completion rule
 
-This keeps platform analysis honest: registering a Douyin, Bilibili, YouTube, X, Xiaohongshu, WeChat, podcast, or vault note source is not the same as claiming the capture/transcript exists. The ingest succeeds only after a provider writes Markdown back into the vault and search can find it.
+An ingest is complete only when:
 
-## External Repository and Workflow Sources
+1. the exact reviewed plan ran successfully;
+2. immutable capture and derivative hashes verify;
+3. an accepted Evidence Note exists in the vault;
+4. maintenance was enqueued only if active content changed;
+5. retrieval can cite the local Evidence Note.
 
-External code repositories, toolchains, and skill-pack projects enter obsidian-llm-wiki through the same Source model as other long-lived inputs.
-
-- If the user provides a GitHub/Gitea/GitLab URL, classify it as `inputType=url` and usually `sourceKind=repo`. Use `source.register` when the Source should be durable.
-- If the user provides a local clone path, repo path, file path, directory path, or pasted text, do not call `source.register` with that local input in Phase 1. Register the canonical URL when available, then cite local inspection or code-intel artifacts from an agent draft or Evidence Note.
-- If the input is already a vault note, use `inputType=vaultPath`. Registration creates a Source Note that links the original; it must not rewrite the original note.
-- `ingest.link.preflight` is planning only. It can recommend providers and limitations, but success still requires provider output to land in the vault and become searchable.
-
-Example: `https://github.com/code-yeongyu/lazycodex` is a GitHub repo Source. Register the URL, record repo/sourceKind metadata, and keep any local clone or code-intel run as inspection evidence rather than Source Registry identity.
-
-Claude Code and Codex must follow `docs/AGENT_WORKFLOW_INTEGRATION.md` before adapting external workflow projects into obsidian-llm-wiki.
+Use `settings.agent_wiki.features` to inspect rollout state. `VAULT_MIND_AGENT_WIKI_INGEST=disabled` blocks `run` and `resume` for rollback while leaving `plan`, `inspect`, `verify`, and retained state readable. See [Agent Wiki toolchain](AGENT_WIKI_TOOLCHAIN.md) and [Migration and rollback](MIGRATIONS.md).

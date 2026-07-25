@@ -26,6 +26,19 @@ function makeTrigger(opts: { threshold?: number } = {}): CompileTrigger {
   });
 }
 
+function makeDurableTrigger(vaultPath: string, opts: { debounceMs?: number; maximumLagMs?: number } = {}): CompileTrigger {
+  return new CompileTrigger({
+    vaultPath,
+    compilerPath: FAKE_COMPILER,
+    python: "python",
+    threshold: 99,
+    autoCompile: false,
+    schedulingMode: "durable",
+    debounceMs: opts.debounceMs ?? 60_000,
+    maximumLagMs: opts.maximumLagMs ?? 300_000,
+  });
+}
+
 describe("CompileTrigger -- initial state", () => {
   test("status() starts empty", () => {
     const t = makeTrigger();
@@ -88,6 +101,54 @@ describe("CompileTrigger -- onFileChange", () => {
     const t = makeTrigger();
     t.onFileChange("topic\\wiki\\output.md", "modify");
     assert.equal(t.status().dirtyCount, 0);
+  });
+
+  test("durable mode persists a below-threshold topic and ages it into eligibility", () => {
+    const root = mkdtempSync(join(tmpdir(), "vault-compile-maintenance-"));
+    try {
+      mkdirSync(join(root, "topic-a"), { recursive: true });
+      writeFileSync(join(root, "topic-a", "_meta.json"), "{}\n", "utf-8");
+      const trigger = makeDurableTrigger(root, { debounceMs: 60_000, maximumLagMs: 300_000 });
+
+      trigger.onFileChange("topic-a/raw/one.md", "modify");
+
+      const initial = trigger.maintenancePlan();
+      assert.ok(initial);
+      assert.equal(initial.eligible.length, 0);
+      assert.equal(initial.deferred.length, 1);
+      assert.equal(trigger.status().schedulingMode, "durable");
+
+      const afterDebounce = trigger.maintenancePlan({
+        now: new Date(Date.parse(initial.deferred[0].earliestRunAt) + 1),
+      });
+      assert.equal(afterDebounce?.eligible.length, 1);
+      assert.equal(afterDebounce?.eligible[0].topicKeys[0], "topic-a");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("durable planning ignores non-topic Source ingest jobs in the shared queue", () => {
+    const root = mkdtempSync(join(tmpdir(), "vault-compile-maintenance-filter-"));
+    try {
+      const trigger = makeDurableTrigger(root, { debounceMs: 0, maximumLagMs: 1 });
+      trigger.onFileChange("unregistered-source/raw/one.md", "modify");
+      const plan = trigger.maintenancePlan({ now: new Date(Date.now() + 10) });
+      assert.equal(plan?.eligible.length, 0);
+      assert.equal(plan?.deferred.length, 0);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("legacy compatibility mode retains threshold-only scheduling metadata", () => {
+    const trigger = makeTrigger({ threshold: 7 });
+    trigger.onFileChange("topic-a/raw/one.md", "modify");
+    const status = trigger.status();
+    assert.equal(status.schedulingMode, "legacy-threshold");
+    assert.equal(status.threshold, 7);
+    assert.equal(status.maintenance, undefined);
+    assert.equal(trigger.maintenancePlan(), undefined);
   });
 });
 

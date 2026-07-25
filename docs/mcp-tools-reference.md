@@ -3,7 +3,7 @@
 > Auto-generated from `mcp-server/src/core/operations.ts`.
 > Run `npm run generate-tools-doc` to regenerate. Do not edit by hand.
 
-Total: **194** operations across **26** namespaces.
+Total: **202** operations across **26** namespaces.
 
 ## `vault.*` (31)
 
@@ -414,6 +414,8 @@ Citation-backed extractive answer built on query.trace. Returns answer, claims, 
 - `weights` (object, optional) — Per-adapter score weight multipliers, e.g. {"obsidian":1.2,"filesystem":0.8}
 - `caseSensitive` (boolean, optional, default: `false`) — Case-sensitive matching
 - `context` (number, optional) — Lines surrounding context per match
+- `intent` (string, optional) — Retrieval intent such as navigation, factual support, or quotation
+- `detail` (string, optional, default: `"medium"`, enum: `low` | `medium` | `high`)
 
 ### `query.explain`
 
@@ -463,6 +465,8 @@ Transparent retrieval trace for query.unified. Returns the query plan, selected 
 - `weights` (object, optional) — Per-adapter score weight multipliers, e.g. {"obsidian":1.2,"filesystem":0.8}
 - `caseSensitive` (boolean, optional, default: `false`) — Case-sensitive matching
 - `context` (number, optional) — Lines surrounding context per match
+- `intent` (string, optional) — Retrieval intent such as navigation, factual support, or quotation
+- `detail` (string, optional, default: `"medium"`, enum: `low` | `medium` | `high`)
 
 ### `query.unified`
 
@@ -478,6 +482,8 @@ Reciprocal Rank Fusion (RRF) search across all active adapters (filesystem, obsi
 - `weights` (object, optional) — Per-adapter score weight multipliers, e.g. {"obsidian":1.2,"filesystem":0.8}
 - `caseSensitive` (boolean, optional, default: `false`) — Case-sensitive matching
 - `context` (number, optional) — Lines of surrounding context per match
+- `intent` (string, optional) — Retrieval intent such as navigation, factual support, or quotation
+- `detail` (string, optional, default: `"medium"`, enum: `low` | `medium` | `high`)
 
 ### `query.vector`
 
@@ -593,7 +599,7 @@ List captured conversation decision Markdown notes newest first.
 - `limit` (number, optional, default: `20`) — Maximum decisions return (default: 20)
 - `tag` (string, optional) — Optional tag filter
 
-## `compile.*` (4)
+## `compile.*` (6)
 
 ### `compile.abort`
 
@@ -612,6 +618,28 @@ Show compilation diff
 **Parameters:**
 
 - `topic` (string, optional) — Topic filter
+
+### `compile.maintenance.drain`
+
+Drain eligible durable topic maintenance with leases, bounded topic count, retries, and time budget.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `owner` (string, optional) — Stable maintenance worker identity
+- `maxTopics` (number, optional, default: `16`)
+- `timeBudgetMs` (number, optional, default: `120000`)
+
+### `compile.maintenance.plan`
+
+Plan eligible durable maintenance work using the same debounce and freshness deadlines as runtime execution; report-only and CI safe.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `maxTopics` (number, optional, default: `16`) — Maximum eligible topic entries to report
 
 ### `compile.run`
 
@@ -1477,7 +1505,7 @@ List supported local ingest providers. LLM Wiki routes to OPENCLI for text/web c
 
 **Parameters:** none
 
-## `source.*` (3)
+## `source.*` (8)
 
 ### `source.get`
 
@@ -1490,6 +1518,66 @@ Get one Source Registry record by id, canonical URL/path, or original input.
 - `id` (string, optional) — Source id returned by source.register
 - `input` (string, optional) — Original URL or vault-relative path
 - `inputType` (string, optional, default: `"url"`, enum: `url` | `vaultPath`) — Input type used when resolving input to a source id
+
+### `source.ingest.inspect`
+
+Inspect one durable Ingest Run and its immutable execution receipts.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `runId` (string, required) — Durable Ingest Run id
+
+### `source.ingest.plan`
+
+Build a deterministic, report-only ingest plan for a registered URL or vaultPath Source. It creates no Ingest Run, capture, derivative, or vault write.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `id` (string, optional) — Registered Source id
+- `input` (string, optional) — Registered Source URL or vault-relative path
+- `inputType` (string, optional, default: `"url"`, enum: `url` | `vaultPath`) — Input type used when resolving input to a registered Source
+- `preferredProvider` (string, optional, default: `"auto"`, enum: `auto` | `opencli` | `media`) — Optional read-only provider routing override for URL planning
+
+### `source.ingest.resume`
+
+Resume a partial, failed, paused, or expired-lease Ingest Run at its first incomplete stage.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `runId` (string, required) — Durable Ingest Run id
+- `leaseOwner` (string, optional) — Stable worker identity
+- `timeoutMs` (number, optional, default: `30000`)
+
+### `source.ingest.run`
+
+Execute a previously reviewed deterministic Source ingest plan with durable receipts and resumable stages.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `id` (string, optional) — Registered Source id
+- `input` (string, optional) — Registered Source URL or vault-relative path
+- `inputType` (string, optional, default: `"url"`, enum: `url` | `vaultPath`)
+- `planId` (string, required) — Exact plan id returned by source.ingest.plan
+- `leaseOwner` (string, optional) — Stable worker identity for restart-safe execution
+- `timeoutMs` (number, optional, default: `30000`) — Bounded optional-provider timeout
+
+### `source.ingest.verify`
+
+Verify immutable hashes and stage receipts for a completed or partial Ingest Run without mutating it.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `runId` (string, required) — Durable Ingest Run id
 
 ### `source.list`
 
@@ -1709,7 +1797,15 @@ Create or update the vault-first agent workflow state at 01-Projects/<project>/w
 - `evidence` (array, optional) — Evidence refs such as test:, source:, commit:, or path:
 - `notes` (string, optional) — Short workflow notes
 
-## `settings.*` (10)
+## `settings.*` (11)
+
+### `settings.agent_wiki.features`
+
+Report Agent Wiki rollout flags and reversible compatibility modes without probing providers or mutating state.
+
+**Mutating:** no
+
+**Parameters:** none
 
 ### `settings.assignment.set`
 

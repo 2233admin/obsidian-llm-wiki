@@ -19,6 +19,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PGliteEngine } from "./pglite-engine.js";
 import type { ChunkInput } from "./engine.js";
+import { embeddingFingerprint, resolveEmbeddingProfile } from "../../embedding/profile.js";
+import { EmbeddingIndexRebuildRequiredError } from "./embedding-index.js";
+
+const PGLITE_TEST_TIMEOUT_MS = 20_000;
 
 function chunk(i: number, text: string): ChunkInput {
   return { chunkIndex: i, chunkText: text, embedding: null, tokenCount: Math.ceil(text.length / 4) };
@@ -32,7 +36,32 @@ async function freshEngine(): Promise<{ engine: PGliteEngine; dir: string }> {
   return { engine, dir };
 }
 
-test("searchKeyword: English NL phrase ranks (regression: was 0 under literal match)", async () => {
+test("embedding fingerprint binds once and returns a per-index rebuild plan on model drift", { timeout: PGLITE_TEST_TIMEOUT_MS }, async () => {
+  const { engine, dir } = await freshEngine();
+  try {
+    const bge = embeddingFingerprint(resolveEmbeddingProfile({ profileId: "ollama/bge-m3" }));
+    const qwen = embeddingFingerprint(resolveEmbeddingProfile({ profileId: "ollama/qwen3-embedding:0.6b" }));
+    await engine.ensureEmbeddingFingerprint(bge);
+    await engine.ensureEmbeddingFingerprint(bge);
+    await assert.rejects(
+      () => engine.ensureEmbeddingFingerprint(qwen),
+      (error: unknown) => {
+        assert.ok(error instanceof EmbeddingIndexRebuildRequiredError);
+        assert.equal(error.rebuildPlan.indexId, "vaultbrain");
+        assert.equal(error.rebuildPlan.reason, "fingerprint-mismatch");
+        assert.equal(error.rebuildPlan.actualFingerprint?.digest, bge.digest);
+        assert.equal(error.rebuildPlan.expectedFingerprint.digest, qwen.digest);
+        assert.ok(error.rebuildPlan.steps.every(step => step.includes("vaultbrain") || step.includes(qwen.digest)));
+        return true;
+      },
+    );
+  } finally {
+    await engine.disconnect();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("searchKeyword: English NL phrase ranks (regression: was 0 under literal match)", { timeout: PGLITE_TEST_TIMEOUT_MS }, async () => {
   const { engine, dir } = await freshEngine();
   try {
     await engine.upsertChunks("a", [
@@ -49,7 +78,7 @@ test("searchKeyword: English NL phrase ranks (regression: was 0 under literal ma
   }
 });
 
-test("searchKeyword: CJK query matches via trigram (no segmentation needed)", async () => {
+test("searchKeyword: CJK query matches via trigram (no segmentation needed)", { timeout: PGLITE_TEST_TIMEOUT_MS }, async () => {
   const { engine, dir } = await freshEngine();
   try {
     await engine.upsertChunks("zh", [chunk(0, "当前项目状态与阻塞项都记录在这里。")]);
@@ -64,7 +93,7 @@ test("searchKeyword: CJK query matches via trigram (no segmentation needed)", as
   }
 });
 
-test("getLastIndexedAtMs: null with no pages, MAX(updated_at) after upsertPage", async () => {
+test("getLastIndexedAtMs: null with no pages, MAX(updated_at) after upsertPage", { timeout: PGLITE_TEST_TIMEOUT_MS }, async () => {
   const { engine, dir } = await freshEngine();
   try {
     assert.equal(await engine.getLastIndexedAtMs(), null, "empty store has no watermark");
@@ -89,7 +118,7 @@ test("getLastIndexedAtMs: null with no pages, MAX(updated_at) after upsertPage",
   }
 });
 
-test("searchKeyword: no match -> [] ; identical queries are deterministic", async () => {
+test("searchKeyword: no match -> [] ; identical queries are deterministic", { timeout: PGLITE_TEST_TIMEOUT_MS }, async () => {
   const { engine, dir } = await freshEngine();
   try {
     await engine.upsertChunks("a", [chunk(0, "alpha beta gamma")]);

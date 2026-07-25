@@ -47,6 +47,46 @@ async function setSession(
 }
 
 describe("knowledge adapter Settings runtime profile", () => {
+  it("binds both built-in embedding models as first-class per-index profiles", async () => {
+    const service = setup({});
+    const defaults = await resolveKnowledgeAdaptersRuntimeProfile(service, { environment: {} });
+
+    assert.equal(defaults.embeddings.valid, true);
+    assert.equal(defaults.embeddings.bindings.vaultbrain?.profile.id, "ollama/bge-m3");
+    assert.equal(defaults.embeddings.bindings.memu?.profile.id, "ollama/qwen3-embedding:0.6b");
+    assert.notEqual(
+      defaults.embeddings.bindings.vaultbrain?.fingerprint.digest,
+      defaults.embeddings.bindings.memu?.fingerprint.digest,
+    );
+    assert.equal(defaults.memu.embedProfileId, "ollama/qwen3-embedding:0.6b");
+    assert.equal(defaults.memu.embedDimensions, 1024);
+
+    await setSession(service, "embeddings.index_profiles", {
+      vaultbrain: "ollama/qwen3-embedding:0.6b",
+      memu: "ollama/bge-m3",
+    }, 0);
+    const swapped = await resolveKnowledgeAdaptersRuntimeProfile(service, { environment: {} });
+    assert.equal(swapped.embeddings.bindings.vaultbrain?.profile.id, "ollama/qwen3-embedding:0.6b");
+    assert.equal(swapped.embeddings.bindings.memu?.profile.id, "ollama/bge-m3");
+    assert.equal(swapped.memu.embedModel, "bge-m3");
+  });
+
+  it("keeps legacy MemU model overrides until an explicit per-index binding replaces them", async () => {
+    const environment = { OLLAMA_EMBED_MODEL: "bge-m3" };
+    const service = setup(environment);
+    const legacy = await resolveKnowledgeAdaptersRuntimeProfile(service, { environment });
+    assert.equal(legacy.memu.embedProfileId, "ollama/bge-m3");
+    assert.equal(legacy.memu.provenance.embedModel?.source, "legacy-env");
+
+    await setSession(service, "embeddings.index_profiles", {
+      memu: "ollama/qwen3-embedding:0.6b",
+      vaultbrain: "ollama/bge-m3",
+    }, 0);
+    const explicit = await resolveKnowledgeAdaptersRuntimeProfile(service, { environment });
+    assert.equal(explicit.memu.embedProfileId, "ollama/qwen3-embedding:0.6b");
+    assert.equal(explicit.memu.provenance.embedModel?.source, "settings-assignment");
+  });
+
   it("activates documented nested adapters.graphify YAML without treating the adapters key as an empty list", async () => {
     const parsed = parseLegacyKnowledgeAdaptersYaml(`
 adapters:
@@ -138,6 +178,8 @@ adapters:
     assert.equal(profile.hindsight.credential?.provenance.source, "legacy-env");
     assert.equal(profile.kanban.glob, "Boards/**/*.md");
     assert.equal(profile.qmd.collection, "vault");
+    assert.deepEqual(profile.qmd.collections, ["vault"]);
+    assert.match(profile.qmd.modelFingerprint, /^sha256:[a-f0-9]{64}$/);
     assert.equal(JSON.stringify({ profile, snapshot, doctor }).includes("secret-material"), false);
     assert.equal(
       await resolveKnowledgeAdapterSecret(profile.hindsight.credential, { environment }),
