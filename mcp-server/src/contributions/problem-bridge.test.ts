@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
+import { tmpdir } from 'node:os';
+import { resolve } from 'node:path';
 
 import {
   InMemoryProblemIntake,
@@ -189,7 +191,7 @@ describe('Problem Intake governed contribution bridge', () => {
     ]);
     const confirmationCalls: ConfirmationRequest[] = [];
     const port = createProjectContextGovernedContributionPort({
-      vaultPath: 'D:\\vault',
+      vaultPath: resolve(tmpdir(), 'llmwiki-problem-bridge-test'),
       context: context(),
       runtime,
       receipts: new MemoryContributionReceiptStore(),

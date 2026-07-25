@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
+import { tmpdir } from 'node:os';
+import { resolve } from 'node:path';
 
 import type { ProjectContext } from '../project/project-context.js';
 import type { ProblemObservation } from '../problem-intake/contracts.js';
@@ -139,7 +141,7 @@ describe('vault governed contribution multiplexer', () => {
     let policyEnabled = false;
     const disposals = { count: 0 };
     const port = createVaultGovernedContributionPort({
-      vaultPath: 'D:\\vault',
+      vaultPath: resolve(tmpdir(), 'llmwiki-vault-production-test'),
       contextResolver() {
         contexts += 1;
         return context();

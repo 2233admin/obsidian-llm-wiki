@@ -239,7 +239,9 @@ function normalizedEvidenceIdentifier(providerId: string, value: string): string
 }
 
 function redactIdentifier(value: string): string {
-  if (isAbsolute(value) || /^[a-z]:[\\/]/i.test(value)) return `[redacted-local-path]/${basename(value)}`;
+  if (isAbsolute(value) || /^[a-z]:[\\/]/i.test(value)) {
+    return `[redacted-local-path]/${basename(value.replace(/\\/g, '/'))}`;
+  }
   try {
     const url = new URL(value);
     url.username = '';
