@@ -52,6 +52,18 @@ cd obsidian-llm-wiki && ./setup                      # --host codex | opencode |
 
 Windows: `.\setup.ps1`. The script copies the skill bundle into your host's skills directory and prints the `.mcp.json` snippet to paste into your agent config. [docs/INSTALL.md](docs/INSTALL.md) has per-host paths and the manual recipe.
 
+### Install the Obsidian plugin
+
+During beta, install [BRAT](https://github.com/TfTHacker/obsidian42-brat), choose
+**Add a beta plugin**, and enter
+`https://github.com/2233admin/obsidian-llm-wiki`. Enable **LLM Wiki** after BRAT
+installs it. Once the plugin is accepted into Obsidian's Community Plugins
+directory, install it there by searching for **LLM Wiki**.
+
+Manual fallback: download `main.js`, `manifest.json`, and `styles.css` from a
+plugin-version GitHub release and place them in
+`<vault>/.obsidian/plugins/vault-mind-promote/`.
+
 ### Recall: keyword out of the box, semantic optional
 
 Natural-language recall works with **zero setup**. The first `context.recall` /
