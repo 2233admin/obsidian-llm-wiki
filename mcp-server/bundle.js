@@ -39963,8 +39963,9 @@ function normalizedEvidenceIdentifier(providerId, value) {
   return `llmwiki://evidence/${providerId}/redacted-${digest4}`;
 }
 function redactIdentifier(value) {
-  if (isAbsolute(value) || /^[a-z]:[\\/]/i.test(value))
-    return `[redacted-local-path]/${basename(value)}`;
+  if (isAbsolute(value) || /^[a-z]:[\\/]/i.test(value)) {
+    return `[redacted-local-path]/${basename(value.replace(/\\/g, "/"))}`;
+  }
   try {
     const url2 = new URL(value);
     url2.username = "";
