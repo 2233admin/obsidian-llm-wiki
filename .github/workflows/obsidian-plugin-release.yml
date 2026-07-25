@@ -1,0 +1,56 @@
+name: Obsidian Plugin Release
+
+on:
+  push:
+    tags:
+      - '[0-9]*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: obsidian-plugin/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build and verify plugin
+        run: |
+          cd obsidian-plugin
+          npm ci
+          npm test
+          npm run typecheck
+          npm run build
+          npm run verify:bundle-boundary
+      - name: Verify clean install, upgrade, rollback, and reinstall lifecycle
+        run: |
+          gh release download v2.7.0-beta.1 --pattern obsidian-llm-wiki-plugin.tar.gz --dir previous-release
+          python scripts/verify_plugin_upgrade_rollback.py --candidate obsidian-plugin --baseline previous-release/obsidian-llm-wiki-plugin.tar.gz --json
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Stage official Obsidian assets
+        run: |
+          mkdir dist-plugin
+          cp obsidian-plugin/main.js obsidian-plugin/manifest.json obsidian-plugin/styles.css dist-plugin/
+          tar czf dist-plugin/obsidian-llm-wiki-plugin.tar.gz -C obsidian-plugin main.js manifest.json styles.css -C .. LICENSE
+          python scripts/verify_obsidian_distribution.py --tag "$GITHUB_REF_NAME" --assets dist-plugin
+      - uses: softprops/action-gh-release@v2
+        with:
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: |
+            dist-plugin/main.js
+            dist-plugin/manifest.json
+            dist-plugin/styles.css
+            dist-plugin/obsidian-llm-wiki-plugin.tar.gz
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

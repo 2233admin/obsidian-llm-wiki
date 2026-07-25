@@ -15,6 +15,18 @@ You can change the binding later in **Settings → LLM Wiki → Get started**.
 Ask Mate reads only the context shown in its panel and never scans the vault
 implicitly.
 
+## Install
+
+During beta, install [BRAT](https://github.com/TfTHacker/obsidian42-brat), choose
+**Add a beta plugin**, and enter
+`https://github.com/2233admin/obsidian-llm-wiki`. Then enable **LLM Wiki**.
+
+After acceptance into Obsidian's Community Plugins directory, install it from
+**Settings → Community plugins → Browse** by searching for **LLM Wiki**.
+For a manual install, download `main.js`, `manifest.json`, and `styles.css` from
+the matching plugin-version GitHub release and copy them to
+`<vault>/.obsidian/plugins/vault-mind-promote/`.
+
 ## Settings surface
 
 Open Obsidian → Settings → LLM Wiki to configure:
