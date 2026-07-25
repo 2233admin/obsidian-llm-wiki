@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.llmwiki.org/problem-intake/v1/problem-disposition.schema.json",
+  "title": "ProblemDisposition",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "observationId", "observationRevision", "choice", "actor", "selectedAt", "reason"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "observationId": { "type": "string", "pattern": "^problem\\/[a-f0-9]{64}$" },
+    "observationRevision": { "type": "integer", "minimum": 1 },
+    "choice": { "enum": ["local_only", "submit_issue", "prepare_pull_request"] },
+    "actor": { "type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[^\\r\\n]+$" },
+    "selectedAt": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?Z$" },
+    "reason": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string", "minLength": 1, "maxLength": 1000 }
+      ]
+    }
+  }
+}

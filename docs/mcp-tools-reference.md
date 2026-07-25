@@ -3,7 +3,7 @@
 > Auto-generated from `mcp-server/src/core/operations.ts`.
 > Run `npm run generate-tools-doc` to regenerate. Do not edit by hand.
 
-Total: **176** operations across **24** namespaces.
+Total: **202** operations across **26** namespaces.
 
 ## `vault.*` (31)
 
@@ -182,7 +182,7 @@ Scaffold the vault. methodology mode creates the folder layout (generic|para|lyt
 
 ### `vault.lint`
 
-Vault health audit: finds orphans (no inbound wikilinks), broken wikilinks, empty files, duplicate titles, and optionally missing required frontmatter keys. Read-only; does not check modification time.
+Deprecated read-only OBC compatibility scan. Use problem.intake.scan with a canonical Project ID to persist governed observations.
 
 **Mutating:** no
 
@@ -414,6 +414,8 @@ Citation-backed extractive answer built on query.trace. Returns answer, claims, 
 - `weights` (object, optional) — Per-adapter score weight multipliers, e.g. {"obsidian":1.2,"filesystem":0.8}
 - `caseSensitive` (boolean, optional, default: `false`) — Case-sensitive matching
 - `context` (number, optional) — Lines surrounding context per match
+- `intent` (string, optional) — Retrieval intent such as navigation, factual support, or quotation
+- `detail` (string, optional, default: `"medium"`, enum: `low` | `medium` | `high`)
 
 ### `query.explain`
 
@@ -463,6 +465,8 @@ Transparent retrieval trace for query.unified. Returns the query plan, selected 
 - `weights` (object, optional) — Per-adapter score weight multipliers, e.g. {"obsidian":1.2,"filesystem":0.8}
 - `caseSensitive` (boolean, optional, default: `false`) — Case-sensitive matching
 - `context` (number, optional) — Lines surrounding context per match
+- `intent` (string, optional) — Retrieval intent such as navigation, factual support, or quotation
+- `detail` (string, optional, default: `"medium"`, enum: `low` | `medium` | `high`)
 
 ### `query.unified`
 
@@ -478,6 +482,8 @@ Reciprocal Rank Fusion (RRF) search across all active adapters (filesystem, obsi
 - `weights` (object, optional) — Per-adapter score weight multipliers, e.g. {"obsidian":1.2,"filesystem":0.8}
 - `caseSensitive` (boolean, optional, default: `false`) — Case-sensitive matching
 - `context` (number, optional) — Lines of surrounding context per match
+- `intent` (string, optional) — Retrieval intent such as navigation, factual support, or quotation
+- `detail` (string, optional, default: `"medium"`, enum: `low` | `medium` | `high`)
 
 ### `query.vector`
 
@@ -593,7 +599,7 @@ List captured conversation decision Markdown notes newest first.
 - `limit` (number, optional, default: `20`) — Maximum decisions return (default: 20)
 - `tag` (string, optional) — Optional tag filter
 
-## `compile.*` (4)
+## `compile.*` (6)
 
 ### `compile.abort`
 
@@ -612,6 +618,28 @@ Show compilation diff
 **Parameters:**
 
 - `topic` (string, optional) — Topic filter
+
+### `compile.maintenance.drain`
+
+Drain eligible durable topic maintenance with leases, bounded topic count, retries, and time budget.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `owner` (string, optional) — Stable maintenance worker identity
+- `maxTopics` (number, optional, default: `16`)
+- `timeBudgetMs` (number, optional, default: `120000`)
+
+### `compile.maintenance.plan`
+
+Plan eligible durable maintenance work using the same debounce and freshness deadlines as runtime execution; report-only and CI safe.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `maxTopics` (number, optional, default: `16`) — Maximum eligible topic entries to report
 
 ### `compile.run`
 
@@ -1057,7 +1085,17 @@ Get provenance for a holon: content hash, wikilinks, and annotated causal edges
 
 - `id` (string, required) — Holon ID
 
-## `graph.*` (1)
+## `graph.*` (2)
+
+### `graph.adapters.query`
+
+Read isolated provenance-bearing graph snapshots from graph-capable Knowledge Adapters without merging them into vault.graph.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `adapters` (array, optional) — Optional Knowledge Adapter name allowlist. Empty selects none.
 
 ### `graph.export`
 
@@ -1190,7 +1228,7 @@ Persist a named memory across MCP sessions. Use for inferences, user preferences
 - `value` (string, required) — Memory content (Markdown supported)
 - `tags` (array, optional) — Optional tags for grouping, e.g. ["project", "decision"]
 
-## `project.*` (19)
+## `project.*` (22)
 
 ### `project.base.export`
 
@@ -1261,6 +1299,28 @@ Resolve a Project reference to stable identity, canonical domain roots, bindings
 - `ref` (string, optional) — Canonical Project ID, registered alias/slug, or bound workspace path
 - `project` (string, optional) — Compatibility alias for ref
 
+### `project.hub.base`
+
+Render the read-only Project Hub problem triage as an Obsidian Base projection.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `ref` (string, optional)
+- `project` (string, optional)
+
+### `project.hub.canvas`
+
+Render the read-only Project Hub visual, issue, contribution, Work Run, and verification trace as Obsidian Canvas JSON.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `ref` (string, optional)
+- `project` (string, optional)
+
 ### `project.hub.get`
 
 Compose a read-only Project Hub from registry, Work-OS, knowledge, runtime, settings, capabilities, workspace, and provider-owned integrations.
@@ -1271,6 +1331,17 @@ Compose a read-only Project Hub from registry, Work-OS, knowledge, runtime, sett
 
 - `ref` (string, optional) — Canonical Project ID, registered alias/slug, or bound workspace path
 - `project` (string, optional) — Compatibility alias for ref
+
+### `project.hub.text`
+
+Render the read-only Project Hub visual and problem trace as Markdown.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `ref` (string, optional)
+- `project` (string, optional)
 
 ### `project.init`
 
@@ -1434,7 +1505,7 @@ List supported local ingest providers. LLM Wiki routes to OPENCLI for text/web c
 
 **Parameters:** none
 
-## `source.*` (3)
+## `source.*` (8)
 
 ### `source.get`
 
@@ -1447,6 +1518,66 @@ Get one Source Registry record by id, canonical URL/path, or original input.
 - `id` (string, optional) — Source id returned by source.register
 - `input` (string, optional) — Original URL or vault-relative path
 - `inputType` (string, optional, default: `"url"`, enum: `url` | `vaultPath`) — Input type used when resolving input to a source id
+
+### `source.ingest.inspect`
+
+Inspect one durable Ingest Run and its immutable execution receipts.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `runId` (string, required) — Durable Ingest Run id
+
+### `source.ingest.plan`
+
+Build a deterministic, report-only ingest plan for a registered URL or vaultPath Source. It creates no Ingest Run, capture, derivative, or vault write.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `id` (string, optional) — Registered Source id
+- `input` (string, optional) — Registered Source URL or vault-relative path
+- `inputType` (string, optional, default: `"url"`, enum: `url` | `vaultPath`) — Input type used when resolving input to a registered Source
+- `preferredProvider` (string, optional, default: `"auto"`, enum: `auto` | `opencli` | `media`) — Optional read-only provider routing override for URL planning
+
+### `source.ingest.resume`
+
+Resume a partial, failed, paused, or expired-lease Ingest Run at its first incomplete stage.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `runId` (string, required) — Durable Ingest Run id
+- `leaseOwner` (string, optional) — Stable worker identity
+- `timeoutMs` (number, optional, default: `30000`)
+
+### `source.ingest.run`
+
+Execute a previously reviewed deterministic Source ingest plan with durable receipts and resumable stages.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `id` (string, optional) — Registered Source id
+- `input` (string, optional) — Registered Source URL or vault-relative path
+- `inputType` (string, optional, default: `"url"`, enum: `url` | `vaultPath`)
+- `planId` (string, required) — Exact plan id returned by source.ingest.plan
+- `leaseOwner` (string, optional) — Stable worker identity for restart-safe execution
+- `timeoutMs` (number, optional, default: `30000`) — Bounded optional-provider timeout
+
+### `source.ingest.verify`
+
+Verify immutable hashes and stage receipts for a completed or partial Ingest Run without mutating it.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `runId` (string, required) — Durable Ingest Run id
 
 ### `source.list`
 
@@ -1666,7 +1797,15 @@ Create or update the vault-first agent workflow state at 01-Projects/<project>/w
 - `evidence` (array, optional) — Evidence refs such as test:, source:, commit:, or path:
 - `notes` (string, optional) — Short workflow notes
 
-## `settings.*` (10)
+## `settings.*` (11)
+
+### `settings.agent_wiki.features`
+
+Report Agent Wiki rollout flags and reversible compatibility modes without probing providers or mutating state.
+
+**Mutating:** no
+
+**Parameters:** none
 
 ### `settings.assignment.set`
 
@@ -2272,3 +2411,201 @@ Transition one Child Work Run without inferring any parent terminal state.
 - `transitionToken` (string, required)
 - `actor` (string, required)
 - `diagnosticArtifact` (object, optional)
+
+## `visual.*` (5)
+
+### `visual.context.read`
+
+Read a managed map, ordinary Markdown, an ephemeral selection, core Canvas, or Project Context without writing.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, required) — Canonical Project ID (project/<slug>)
+- `context` (object, required) — Ask Mate visual context descriptor
+
+### `visual.map.apply`
+
+Apply one complete verified VisualEditPlan with replay-safe local receipt semantics.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, required) — Canonical Project ID (project/<slug>)
+- `plan` (object, required) — Complete immutable VisualEditPlan
+- `presentedFingerprint` (string, required)
+- `actor` (string, required)
+- `transitionToken` (string, required)
+
+### `visual.map.plan`
+
+Create an immutable, hash-bound visual edit preview without writing.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, required) — Canonical Project ID (project/<slug>)
+- `path` (string, required) — 01-Projects/<slug>/maps/**.md path
+- `nextDocument` (object, required) — Complete next MindMapDocument
+- `actor` (string, required) — Actor recorded in immutable plan provenance
+- `origin` (string, required, enum: `user` | `assistant` | `import`)
+- `warnings` (array, optional) — Review warnings retained by the plan
+- `acceptedGraphEvidence` (array, optional) — Explicitly selected Graphify relation evidence
+- `clarificationAnswers` (object, optional) — Required source-adoption answers
+
+### `visual.map.project`
+
+Render bounded Markdown, text, Mermaid, and core Canvas projections without writing.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, required)
+- `path` (string, required)
+- `maxNodes` (number, optional)
+- `maxDepth` (number, optional)
+
+### `visual.map.read`
+
+Read one canonical managed mind-map Markdown section without writing.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, required) — Canonical Project ID (project/<slug>)
+- `path` (string, required) — 01-Projects/<slug>/maps/**.md path
+
+## `problem.*` (9)
+
+### `problem.intake.contribution.apply`
+
+Apply one current explicitly approved external contribution through a governed adapter; merge is unsupported.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `plan` (object, required)
+- `presentedFingerprint` (string, required)
+- `approved` (boolean, required)
+- `actor` (string, required)
+- `workRunId` (string, required)
+- `approvalToken` (string, required)
+- `transitionToken` (string, required)
+- `action` (string, optional, enum: `create_issue` | `push_branch` | `create_draft_pull_request` | `mark_ready_for_review`)
+- `pullRequestId` (string, optional)
+- `expectedPullRequestRevision` (string, optional)
+
+### `problem.intake.contribution.plan`
+
+Create an exact secret-safe local/Issue/verified-draft-PR contribution preview.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `projectId` (string, required)
+- `observationId` (string, required)
+- `choice` (string, required, enum: `local_only` | `submit_issue` | `prepare_pull_request`)
+- `actor` (string, required)
+- `reason` (string, optional)
+- `repository` (string, optional)
+- `title` (string, optional)
+- `body` (string, optional)
+- `labels` (array, optional)
+
+### `problem.intake.issue.apply`
+
+Apply a current Issue Change Plan only through canonical project.issue/project.comment operations.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `plan` (object, required)
+- `presentedFingerprint` (string, required)
+- `actor` (string, required)
+- `transitionToken` (string, required)
+
+### `problem.intake.issue.plan`
+
+Create a pure immutable Issue Change Plan from one reviewed Problem Observation.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `projectId` (string, required)
+- `observationId` (string, required)
+- `actor` (string, required)
+- `priority` (number, optional)
+- `existingIssue` (string, optional)
+- `action` (string, optional, enum: `update` | `comment`)
+- `warnings` (array, optional)
+
+### `problem.intake.lifecycle.apply`
+
+Apply one revision-locked observation lifecycle transition with a replay-safe token.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `projectId` (string, required)
+- `observationId` (string, required)
+- `action` (string, required, enum: `acknowledge` | `dismiss` | `reopen` | `resolve`)
+- `actor` (string, required)
+- `reason` (string, required)
+- `expectedRevision` (number, required)
+- `transitionToken` (string, required)
+
+### `problem.intake.list`
+
+List bounded Problem Observations for one canonical Project.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `project` (string, required) — Canonical Project ID
+
+### `problem.intake.observe`
+
+Normalize and persist one provider-neutral finding without creating Work-OS or remote work.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `finding` (object, required) — Strict normalized Problem Finding
+
+### `problem.intake.scan`
+
+Run the first-party OBC read-only scan and persist bounded provider-neutral Problem Observations.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `project` (string, required) — Canonical Project ID
+
+### `problem.intake.verification.apply`
+
+Record bounded reproduced, not-reproduced, or provider-failed verification evidence without changing Work-OS issue state.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `projectId` (string, required)
+- `observationId` (string, required)
+- `expectedRevision` (number, required)
+- `status` (string, required, enum: `reproduced` | `not_reproduced` | `provider_failed`)
+- `actor` (string, required)
+- `providerVersion` (string, required)
+- `evidenceRefs` (array, required)

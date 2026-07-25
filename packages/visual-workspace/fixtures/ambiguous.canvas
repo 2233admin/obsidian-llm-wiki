@@ -1,0 +1,14 @@
+{
+  "nodes": [
+    { "id": "root", "type": "text", "text": "Release", "x": 0, "y": 0, "width": 240, "height": 100 },
+    { "id": "left", "type": "text", "text": "Visual workspace", "x": 300, "y": -100, "width": 240, "height": 100 },
+    { "id": "right", "type": "file", "file": "Projects/Ask Mate.md", "x": 300, "y": 100, "width": 240, "height": 100 },
+    { "id": "shared", "type": "text", "text": "Preview", "x": 600, "y": 0, "width": 240, "height": 100, "pluginPrivate": "ignored" }
+  ],
+  "edges": [
+    { "id": "root-left", "fromNode": "root", "toNode": "left", "toEnd": "arrow" },
+    { "id": "root-right", "fromNode": "root", "toNode": "right", "toEnd": "arrow" },
+    { "id": "left-shared", "fromNode": "left", "toNode": "shared", "toEnd": "arrow" },
+    { "id": "right-shared", "fromNode": "right", "toNode": "shared", "toEnd": "arrow", "label": "supports" }
+  ]
+}

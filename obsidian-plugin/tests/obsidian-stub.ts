@@ -5,17 +5,41 @@
  */
 
 export class Notice {
-  constructor(public message?: string) {}
+  static messages: string[] = [];
+  constructor(public message?: string) {
+    if (message) Notice.messages.push(message);
+  }
 }
 
 export class TFile {
   path = "";
   extension = "md";
+  constructor(path = "", extension = "md") {
+    this.path = path;
+    this.extension = extension;
+  }
 }
 
 export class TAbstractFile {}
 
-export class Menu {}
+export class MenuItem {
+  title = "";
+  icon = "";
+  click: (() => void) | null = null;
+  setTitle(value: string): this { this.title = value; return this; }
+  setIcon(value: string): this { this.icon = value; return this; }
+  onClick(callback: () => void): this { this.click = callback; return this; }
+}
+
+export class Menu {
+  items: MenuItem[] = [];
+  addItem(callback: (item: MenuItem) => unknown): this {
+    const item = new MenuItem();
+    callback(item);
+    this.items.push(item);
+    return this;
+  }
+}
 
 export class FileSystemAdapter {
   getBasePath(): string {
@@ -24,6 +48,35 @@ export class FileSystemAdapter {
 }
 
 export class App {}
+
+export const Platform = {
+  isDesktop: true,
+  isMobile: false,
+  isDesktopApp: true,
+  isMobileApp: false,
+  isIosApp: false,
+  isAndroidApp: false,
+  isPhone: false,
+  isTablet: false,
+  isMacOS: false,
+  isWin: true,
+  isLinux: false,
+  isSafari: false,
+};
+
+export class MarkdownView {
+  file: TFile | null = null;
+  editor: unknown;
+  constructor(editor: unknown = null, file: TFile | null = null) {
+    this.editor = editor;
+    this.file = file;
+  }
+}
+
+export class WorkspaceLeaf {
+  view: unknown = null;
+  async setViewState(_state: unknown): Promise<void> {}
+}
 
 export class Modal {
   contentEl = {
@@ -36,6 +89,30 @@ export class Modal {
   close(): void {}
 }
 
+export class ItemView {
+  containerEl = {
+    children: [
+      {},
+      {
+        empty: () => undefined,
+        addClass: () => undefined,
+        createEl: () => ({
+          createEl: () => ({}),
+          createSpan: () => ({}),
+          createDiv: () => ({}),
+        }),
+        createDiv: () => ({
+          style: { setProperty: () => undefined },
+          createEl: () => ({}),
+        }),
+      },
+    ],
+  };
+  constructor(public leaf: WorkspaceLeaf) {}
+  getViewType(): string { return ""; }
+  getDisplayText(): string { return ""; }
+}
+
 export interface StubCommand {
   id: string;
   name: string;
@@ -43,15 +120,30 @@ export interface StubCommand {
   checkCallback?: (checking: boolean) => boolean;
 }
 
+export interface StubRibbonIcon {
+  icon: string;
+  title: string;
+  callback: () => void;
+}
+
 export class Plugin {
   commands: StubCommand[] = [];
+  ribbonIcons: StubRibbonIcon[] = [];
+  views = new Map<string, (leaf: WorkspaceLeaf) => unknown>();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   constructor(public app: any, public manifest: { id?: string; dir?: string }) {}
   addCommand(command: StubCommand): StubCommand {
     this.commands.push(command);
     return command;
   }
+  addRibbonIcon(icon: string, title: string, callback: () => void): HTMLElement {
+    this.ribbonIcons.push({ icon, title, callback });
+    return {} as HTMLElement;
+  }
   addSettingTab(_tab: unknown): void {}
+  registerView(type: string, creator: (leaf: WorkspaceLeaf) => unknown): void {
+    this.views.set(type, creator);
+  }
   registerEvent(_ref: unknown): void {}
   async loadData(): Promise<unknown> {
     throw new Error("override loadData in the test subclass");

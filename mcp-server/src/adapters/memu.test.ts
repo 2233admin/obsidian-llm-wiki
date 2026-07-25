@@ -61,6 +61,10 @@ describe("MemUAdapter -- unavailable paths", () => {
     assert.equal(windows.memuSearchPy, "memu_search.py");
     assert.equal(windows.graphRecallTimeoutMs, 15_000);
     assert.equal(windows.memuSearchTimeoutMs, 20_000);
+    assert.equal(windows.embedProfileId, "ollama/qwen3-embedding:0.6b");
+    assert.equal(windows.embedModel, "qwen3-embedding:0.6b");
+    assert.equal(windows.embedDimensions, 1024);
+    assert.match(windows.embedFingerprint.digest, /^sha256:[a-f0-9]{64}$/);
 
     const posix = resolveMemUAdapterConfig({}, {}, { cwd, platform: "linux" });
     assert.equal(posix.pythonExe, "python3");
@@ -92,6 +96,7 @@ describe("MemUAdapter -- unavailable paths", () => {
     assert.equal(fromEnvironment.memuSearchPythonExe, environment.MEMU_SEARCH_PYTHON);
     assert.equal(fromEnvironment.memuSearchTimeoutMs, 2345);
     assert.equal(fromEnvironment.embedModel, environment.OLLAMA_EMBED_MODEL);
+    assert.equal(fromEnvironment.embedProfileId, "custom/ollama/environment-model");
 
     const explicit = resolveMemUAdapterConfig({
       dsn: "postgresql://explicit/memu",

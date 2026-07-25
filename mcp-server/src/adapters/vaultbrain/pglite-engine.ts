@@ -5,6 +5,11 @@
 
 import type { VaultBrainEngine, ChunkResult, ChunkInput } from "./engine.js";
 import { VAULTBRAIN_CORE_SCHEMA_SQL, VAULTBRAIN_VECTOR_SCHEMA_SQL } from "./schema.js";
+import {
+  embeddingFingerprintsMatch,
+  type EmbeddingFingerprint,
+} from "../../embedding/profile.js";
+import { EmbeddingIndexRebuildRequiredError } from "./embedding-index.js";
 
 // Dynamic type placeholder -- PGlite's exact type is resolved at runtime
 type PGliteDB = {
@@ -65,6 +70,41 @@ export class PGliteEngine implements VaultBrainEngine {
     await db.exec(VAULTBRAIN_CORE_SCHEMA_SQL);
     if (this.hasVector) {
       await db.exec(VAULTBRAIN_VECTOR_SCHEMA_SQL);
+    }
+  }
+
+  async ensureEmbeddingFingerprint(fingerprint: EmbeddingFingerprint): Promise<void> {
+    const db = this.requireDb();
+    const { rows } = await db.query<{ value_json: string }>(
+      `SELECT value_json FROM vaultbrain_metadata WHERE key = $1`,
+      ["embedding-fingerprint"],
+    );
+    const serialized = rows[0]?.value_json;
+    if (!serialized) {
+      if (await this.countEmbeddedChunks() > 0) {
+        throw new EmbeddingIndexRebuildRequiredError("vaultbrain", fingerprint);
+      }
+      await db.query(
+        `INSERT INTO vaultbrain_metadata (key, value_json, updated_at)
+         VALUES ($1, $2, now())
+         ON CONFLICT (key) DO UPDATE SET value_json = EXCLUDED.value_json, updated_at = now()`,
+        ["embedding-fingerprint", JSON.stringify(fingerprint)],
+      );
+      return;
+    }
+
+    let stored: EmbeddingFingerprint;
+    try {
+      stored = JSON.parse(serialized) as EmbeddingFingerprint;
+    } catch {
+      throw new EmbeddingIndexRebuildRequiredError("vaultbrain", fingerprint);
+    }
+    if (!stored.digest || !embeddingFingerprintsMatch(stored, fingerprint)) {
+      throw new EmbeddingIndexRebuildRequiredError(
+        "vaultbrain",
+        fingerprint,
+        stored.digest ? stored : undefined,
+      );
     }
   }
 

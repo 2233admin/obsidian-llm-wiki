@@ -1,4 +1,4 @@
-# LLM Wiki v2.8.0-beta.1
+# LLM Wiki v2.8.0-beta.3
 
 This release candidate turns Settings, Project Context, governed Agent Rooms,
 Dream Time, Work Runs, external projections, and multi-device execution into
@@ -82,7 +82,7 @@ The current capability and authority map is in [docs/CAPABILITY_INVENTORY.md](do
   security, isolated installation, upgrade/rollback/reinstall, strict OpenSpec,
   and the deterministic Agent-aware two-vault Fleet harness.
 - The tag workflow additionally requires
-  `docs/release-evidence/v2.8.0-beta.1.json` to prove a fresh exact-SHA real 5090
+  `docs/release-evidence/v2.8.0-beta.3.json` to prove a fresh exact-SHA real 5090
   delegated Child Work Run. The evidence verifier rejects forged checks,
   identity drift, noncanonical fixtures, or product changes after the tested
   commit.

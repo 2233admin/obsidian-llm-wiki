@@ -28,6 +28,8 @@ Thumbs.db
 # Harness runtime state
 .omc/
 mcp-server/.omc/
+.gstack/
+.orca/
 
 # frontmatter_generator local state
 compiler/fm_config.local.json

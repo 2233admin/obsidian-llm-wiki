@@ -34,6 +34,12 @@ CREATE TABLE IF NOT EXISTS chunks (
   UNIQUE(slug, chunk_index)
 );
 
+CREATE TABLE IF NOT EXISTS vaultbrain_metadata (
+  key TEXT PRIMARY KEY,
+  value_json TEXT NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS page_tags (
   slug TEXT,
   tag TEXT,

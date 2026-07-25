@@ -8,7 +8,7 @@ const repositoryRoot = resolve(pluginRoot, "..");
 const tsc = join(pluginRoot, "node_modules", "typescript", "bin", "tsc");
 const typeRoots = join(pluginRoot, "node_modules", "@types");
 
-for (const domain of ["settings-platform", "agent-domain"]) {
+for (const domain of ["settings-platform", "agent-domain", "visual-workspace"]) {
   const domainRoot = join(repositoryRoot, "packages", domain);
   rmSync(join(domainRoot, "dist"), { recursive: true, force: true });
   const result = spawnSync(process.execPath, [

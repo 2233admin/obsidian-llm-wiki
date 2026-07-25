@@ -1,0 +1,10 @@
+{
+  "version": "1.8.6",
+  "name": "opencli",
+  "capabilities": [
+    "version.structured",
+    "command.list.structured",
+    "definition.validate",
+    "doctor"
+  ]
+}

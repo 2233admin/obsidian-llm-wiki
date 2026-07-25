@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "vault-mind": {
+      "command": "node",
+      "args": ["/absolute/path/to/obsidian-llm-wiki/mcp-server/bundle.js"],
+      "env": {
+        "VAULT_PATH": "/absolute/path/to/vault",
+        "LLMWIKI_COMPILER_PATH": "/absolute/path/to/obsidian-llm-wiki/compiler",
+        "VAULT_MIND_PYTHON": "python",
+        "VAULT_MIND_OPENCLI_CMD": "opencli"
+      }
+    }
+  }
+}

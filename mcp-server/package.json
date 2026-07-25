@@ -1,6 +1,6 @@
 {
   "name": "@obsidian-llm-wiki/mcp",
-  "version": "0.4.0-beta.2",
+  "version": "0.4.0-beta.3",
   "description": "A faithful reference implementation of Karpathy's LLM Wiki pattern -- headless-first MCP server, plain markdown, keyword recall out of the box (semantic recall is an optional Ollama upgrade), Obsidian-native.",
   "type": "module",
   "main": "bundle.js",
@@ -20,7 +20,9 @@
   "scripts": {
     "settings:build": "node -e \"require('node:fs').rmSync('../packages/settings-platform/dist',{recursive:true,force:true})\" && tsc -p ../packages/settings-platform/tsconfig.build.json --typeRoots ./node_modules/@types",
     "agent-domain:build": "node -e \"require('node:fs').rmSync('../packages/agent-domain/dist',{recursive:true,force:true})\" && tsc -p ../packages/agent-domain/tsconfig.build.json --typeRoots ./node_modules/@types",
-    "platforms:build": "npm run settings:build && npm run agent-domain:build",
+    "visual-workspace:build": "node -e \"require('node:fs').rmSync('../packages/visual-workspace/dist',{recursive:true,force:true})\" && tsc -p ../packages/visual-workspace/tsconfig.build.json --typeRoots ./node_modules/@types",
+    "problem-intake:build": "node -e \"require('node:fs').rmSync('../packages/problem-intake/dist',{recursive:true,force:true})\" && tsc -p ../packages/problem-intake/tsconfig.build.json --typeRoots ./node_modules/@types",
+    "platforms:build": "npm run settings:build && npm run agent-domain:build && npm run visual-workspace:build && npm run problem-intake:build",
     "prebuild": "npm run platforms:build",
     "build": "tsc",
     "dev": "tsc --watch",
@@ -45,17 +47,17 @@
     "verify:bundle": "npm run rebuild && node scripts/verify-bundles.mjs"
   },
   "dependencies": {
-    "@electric-sql/pglite": "^0.5.3",
+    "@electric-sql/pglite": "^0.5.4",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@types/pg": "^8.20.0",
     "pg": "^8.22.0",
-    "ws": "^8.21.0"
+    "ws": "^8.21.1"
   },
   "devDependencies": {
-    "@types/node": "^26.0.0",
+    "@types/node": "^26.1.1",
     "@types/ws": "^8.18.1",
     "esbuild": "^0.28.1",
-    "typescript": "~6.0.3"
+    "typescript": "~7.0.2"
   },
   "engines": {
     "node": ">=20"

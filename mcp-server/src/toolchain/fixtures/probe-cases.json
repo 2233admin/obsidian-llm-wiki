@@ -1,0 +1,72 @@
+[
+  {
+    "name": "success",
+    "observation": {
+      "observedVersion": "1.8.6",
+      "capabilities": [
+        "version.structured",
+        "command.list.structured",
+        "definition.validate",
+        "definition.verify",
+        "doctor",
+        "profiles.list",
+        "plugins.list",
+        "adapters.status"
+      ],
+      "exitCode": 0
+    },
+    "expected": { "health": "available", "compatibility": "compatible" }
+  },
+  {
+    "name": "partial-capability",
+    "observation": {
+      "observedVersion": "1.8.6",
+      "capabilities": ["version.structured", "command.list.structured"],
+      "exitCode": 0
+    },
+    "expected": { "health": "degraded", "compatibility": "partial" }
+  },
+  {
+    "name": "incompatible-output",
+    "observation": {
+      "output": "not structured version output",
+      "diagnosticCodes": ["TOOLCHAIN_OUTPUT_INVALID"],
+      "exitCode": 0
+    },
+    "expected": { "health": "unavailable", "compatibility": "unknown" }
+  },
+  {
+    "name": "timeout",
+    "observation": {
+      "timedOut": true
+    },
+    "expected": { "health": "unavailable", "compatibility": "unknown" }
+  },
+  {
+    "name": "secret-and-endpoint-reflection",
+    "observation": {
+      "observedVersion": "1.8.6",
+      "capabilities": [
+        "version.structured",
+        "command.list.structured",
+        "definition.validate",
+        "definition.verify",
+        "doctor",
+        "profiles.list",
+        "plugins.list",
+        "adapters.status"
+      ],
+      "command": [
+        "opencli",
+        "--token=flag-secret",
+        "https://user:pass@localhost/api?api_key=query-secret",
+        "--authorization",
+        "bearer-secret"
+      ],
+      "output": "provider reflected output-secret and https://private.example.test",
+      "exitCode": 0
+    },
+    "expected": { "health": "available", "compatibility": "compatible" },
+    "forbidden": ["flag-secret", "user:pass", "query-secret", "bearer-secret", "output-secret", "private.example.test"]
+  }
+]

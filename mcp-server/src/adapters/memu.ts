@@ -29,6 +29,11 @@
 import pg from "pg";
 import { spawn } from "node:child_process";
 import { embedTextOllama } from "../embedding/ollama.js";
+import {
+  embeddingFingerprint,
+  resolveEmbeddingProfile,
+  type EmbeddingFingerprint,
+} from "../embedding/profile.js";
 import type {
   VaultMindAdapter,
   AdapterCapability,
@@ -67,8 +72,14 @@ export interface MemUAdapterConfig {
   memuSearchPythonExe?: string;
   /** Subprocess timeout for memu_search.py in ms. Default: 20_000. */
   memuSearchTimeoutMs?: number;
-  /** Ollama embedding model. Default: bge-m3 (1024-dim, available on this machine) */
+  /** Built-in or custom embedding profile id. */
+  embedProfileId?: string;
+  /** OpenAI-compatible embedding endpoint. */
+  embedEndpoint?: string;
+  /** Ollama embedding model. Retained for legacy configuration compatibility. */
   embedModel?: string;
+  /** Expected embedding dimension. */
+  embedDimensions?: number;
 }
 
 const DEFAULT_DSN = "postgresql://localhost:5432/memu";
@@ -99,7 +110,11 @@ export interface ResolvedMemUAdapterConfig {
   memuSearchPy: string;
   memuSearchPythonExe: string;
   memuSearchTimeoutMs: number;
+  embedProfileId: string;
+  embedEndpoint: string;
   embedModel: string;
+  embedDimensions?: number;
+  embedFingerprint: EmbeddingFingerprint;
 }
 
 function pathPython(platform: NodeJS.Platform): string {
@@ -123,6 +138,19 @@ export function resolveMemUAdapterConfig(
   runtime: { cwd?: string; platform?: NodeJS.Platform } = {},
 ): ResolvedMemUAdapterConfig {
   const python = pathPython(runtime.platform ?? process.platform);
+  const embeddingProfile = resolveEmbeddingProfile({
+    profileId:
+      config.embedProfileId
+      ?? environment.OLLAMA_EMBED_PROFILE
+      ?? "ollama/qwen3-embedding:0.6b",
+    endpoint:
+      config.embedEndpoint
+      ?? environment.OLLAMA_EMBED_BASE_URL
+      ?? environment.VAULT_MIND_EMBED_URL,
+    model: config.embedModel ?? environment.OLLAMA_EMBED_MODEL,
+    dimensions: config.embedDimensions,
+    defaultProfileId: "ollama/qwen3-embedding:0.6b",
+  });
   return {
     dsn: config.dsn ?? environment.MEMU_DSN ?? DEFAULT_DSN,
     userId: config.userId ?? environment.MEMU_USER_ID ?? "default",
@@ -139,7 +167,11 @@ export function resolveMemUAdapterConfig(
     memuSearchTimeoutMs:
       config.memuSearchTimeoutMs
       ?? positiveEnvironmentNumber(environment, "MEMU_SEARCH_TIMEOUT_MS", DEFAULT_MEMU_SEARCH_TIMEOUT_MS),
-    embedModel: config.embedModel ?? environment.OLLAMA_EMBED_MODEL ?? "bge-m3",
+    embedProfileId: embeddingProfile.id,
+    embedEndpoint: embeddingProfile.endpoint,
+    embedModel: embeddingProfile.model,
+    ...(embeddingProfile.dimensions === undefined ? {} : { embedDimensions: embeddingProfile.dimensions }),
+    embedFingerprint: embeddingFingerprint(embeddingProfile),
   };
 }
 
@@ -182,7 +214,10 @@ export class MemUAdapter implements VaultMindAdapter {
   private readonly memuSearchPy: string;
   private readonly memuSearchPythonExe: string;
   private readonly memuSearchTimeoutMs: number;
+  private readonly embedProfileId: string;
+  private readonly embedEndpoint: string;
   private readonly embedModel: string;
+  private readonly embedDimensions?: number;
   private pool: pg.Pool | null = null;
   private available = false;
 
@@ -201,7 +236,10 @@ export class MemUAdapter implements VaultMindAdapter {
     this.memuSearchPy = resolved.memuSearchPy;
     this.memuSearchPythonExe = resolved.memuSearchPythonExe;
     this.memuSearchTimeoutMs = resolved.memuSearchTimeoutMs;
+    this.embedProfileId = resolved.embedProfileId;
+    this.embedEndpoint = resolved.embedEndpoint;
     this.embedModel = resolved.embedModel;
+    this.embedDimensions = resolved.embedDimensions;
   }
 
   async init(): Promise<void> {
@@ -248,8 +286,13 @@ export class MemUAdapter implements VaultMindAdapter {
   async search(query: string, opts?: SearchOpts): Promise<SearchResult[]> {
     if (!this.available || !this.pool) return [];
     const limit = Math.max(1, Math.min(opts?.maxResults ?? this.defaultMax, 100));
-    const vec = await embedTextOllama(query, { model: this.embedModel });
-    const queryVec = vec.length === 1024 ? vec : null;
+    const vec = await embedTextOllama(query, {
+      profileId: this.embedProfileId,
+      baseUrl: this.embedEndpoint,
+      model: this.embedModel,
+      dimensions: this.embedDimensions,
+    });
+    const queryVec = vec.length === (this.embedDimensions ?? 1024) ? vec : null;
     const result = await this.runGraphRecall(query, queryVec, limit);
     if (result) return this.mapRecallResult(result);
     // Fallback: pure-PG cosine via memu_search.py (bypasses pgvector, pg_trgm fallback)

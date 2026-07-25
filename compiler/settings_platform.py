@@ -17,6 +17,7 @@ import re
 import subprocess
 import time
 import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
 
@@ -51,6 +52,61 @@ PROJECT_TRACKER_SETTING_KEYS = (
     "providers.project_tracker.endpoint",
     "providers.project_tracker.secret_ref",
     "providers.project_tracker.timeout_ms",
+)
+TOOLCHAIN_PROVIDER_IDS = (
+    "opencli",
+    "qmd",
+    "graphify",
+    "ollama",
+    "lightrag",
+    "raganything",
+    "mcp-sdk",
+)
+TOOLCHAIN_INVOCATION_MODES = ("filesystem", "cli", "http", "sdk")
+BUILT_IN_EMBEDDING_PROFILE_IDS = ("ollama/bge-m3", "ollama/qwen3-embedding:0.6b")
+LEGACY_TOOLCHAIN_ENV_MAP = (
+    ("VAULT_MIND_ADAPTERS", "adapters.enabled", "Migrate enabled adapters into adapters.enabled."),
+    (
+        "VAULT_MIND_QMD_BINARY",
+        "toolchain.device_bindings",
+        "Migrate QMD executable into toolchain.device_bindings.qmd.executable.",
+    ),
+    (
+        "VAULT_MIND_GRAPHIFY_BINARY",
+        "toolchain.device_bindings",
+        "Migrate Graphify executable into toolchain.device_bindings.graphify.executable.",
+    ),
+    ("VAULT_MIND_EMBED_URL", "embeddings.endpoint", "Migrate embedding endpoint into embeddings.endpoint."),
+    (
+        "VAULT_MIND_EMBED_MODEL",
+        "embeddings.default_profile",
+        "Migrate embedding model into embeddings.default_profile or embeddings.index_profiles.",
+    ),
+    (
+        "VAULT_MIND_EMBED_PROFILE",
+        "embeddings.default_profile",
+        "Migrate embedding profile id into embeddings.default_profile.",
+    ),
+    (
+        "OLLAMA_HOST",
+        "embeddings.endpoint",
+        "Migrate Ollama host into embeddings.endpoint / toolchain.device_bindings.ollama.endpoint.",
+    ),
+    (
+        "OLLAMA_EMBED_MODEL",
+        "embeddings.default_profile",
+        "Migrate Ollama embed model into embeddings.default_profile.",
+    ),
+    (
+        "OPENCLI_BIN",
+        "toolchain.device_bindings",
+        "Migrate OpenCLI executable into toolchain.device_bindings.opencli.executable.",
+    ),
+    (
+        "QMD_BIN",
+        "toolchain.device_bindings",
+        "Migrate QMD executable into toolchain.device_bindings.qmd.executable.",
+    ),
 )
 
 
@@ -1022,7 +1078,12 @@ class SettingsService:
     def validate(self, context: dict[str, Any] | None = None) -> dict[str, Any]:
         return self.snapshot_resolve(context)["validation"]
 
-    def migrations_plan(self, context: dict[str, Any] | None = None) -> dict[str, Any]:
+    def migrations_plan(
+        self,
+        context: dict[str, Any] | None = None,
+        *,
+        probes: dict[str, dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
         runtime = context or self.default_context
         entries = (
             ("user-device", runtime.get("userDeviceId")),
@@ -1052,13 +1113,28 @@ class SettingsService:
                     "requiresMigration": state["schemaVersion"] != self.registry["schemaVersion"],
                 }
             )
+        checked_at = self.clock()
+        try:
+            snapshot = self.snapshot_resolve(context)["snapshot"]
+            toolchain_profiles = build_toolchain_capability_profiles(
+                snapshot, checked_at=checked_at, probes=probes or {}
+            )
+        except Exception:
+            toolchain_profiles = []
         return {
             "registryVersion": self.registry["registryVersion"],
             "writeRequired": any(item["requiresMigration"] for item in scopes),
             "scopes": scopes,
+            "legacyDiagnostics": collect_legacy_toolchain_diagnostics(self.environment),
+            "toolchainProfiles": toolchain_profiles,
         }
 
-    def doctor(self, context: dict[str, Any] | None = None) -> dict[str, Any]:
+    def doctor(
+        self,
+        context: dict[str, Any] | None = None,
+        *,
+        probes: dict[str, dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
         checked_at = self.clock()
         try:
             resolved = self.snapshot_resolve(context)
@@ -1075,6 +1151,8 @@ class SettingsService:
                     ],
                 },
                 "capabilities": [],
+                "toolchainProfiles": [],
+                "migrationDiagnostics": collect_legacy_toolchain_diagnostics(self.environment),
                 "checkedAt": checked_at,
             }
         snapshot = resolved["snapshot"]
@@ -1219,10 +1297,58 @@ class SettingsService:
                 ),
             ),
         ]
+        toolchain_profiles = build_toolchain_capability_profiles(
+            snapshot, checked_at=checked_at, probes=probes or {}
+        )
+        for profile in toolchain_profiles:
+            evidence_status = (
+                "pass"
+                if profile["health"] in ("available", "disabled")
+                else "warn"
+                if profile["health"] == "degraded"
+                else "fail"
+            )
+            missing = ", ".join(profile["missingCapabilities"]) or "probe evidence"
+            if profile["health"] == "disabled":
+                summary = f"Toolchain provider {profile['providerId']} is not selected."
+            elif profile["health"] == "available":
+                summary = (
+                    f"Toolchain provider {profile['providerId']} configuration and probe evidence are healthy."
+                )
+            elif profile["health"] == "degraded":
+                summary = (
+                    f"Toolchain provider {profile['providerId']} is partially available (missing: {missing})."
+                )
+            else:
+                summary = f"Toolchain provider {profile['providerId']} is unavailable or incompatible."
+            capabilities.append(
+                _health(
+                    f"toolchain.{profile['providerId']}",
+                    profile["health"],
+                    summary,
+                    checked_at,
+                    snapshot["snapshotId"],
+                    evidence_status,
+                    []
+                    if profile["health"] in ("available", "disabled")
+                    else [
+                        {
+                            "code": "configure-toolchain-profile",
+                            "summary": (
+                                f"Review toolchain.capability_profiles / toolchain.device_bindings for "
+                                f"{profile['providerId']} and migrate legacy environment values if present."
+                            ),
+                            "operation": "settings.assignment.set",
+                        }
+                    ],
+                )
+            )
         return {
             "snapshotId": snapshot["snapshotId"],
             "validation": resolved["validation"],
             "capabilities": capabilities,
+            "toolchainProfiles": toolchain_profiles,
+            "migrationDiagnostics": collect_legacy_toolchain_diagnostics(self.environment),
             "checkedAt": checked_at,
         }
 
@@ -1719,6 +1845,16 @@ def _validate_value(definition: dict[str, Any], value: Any, **location: Any) -> 
         return [_issue("type-mismatch", f"{definition['key']} must be a {value_type}.", **location)]
     validator = definition["validator"]
     issues: list[dict[str, Any]] = []
+    if validator.get("id") == "embedding-index-profile-bindings" and isinstance(value, dict):
+        issues.extend(_validate_embedding_index_profile_bindings(value, **location))
+    if validator.get("id") == "toolchain-provider-selection" and isinstance(value, list):
+        issues.extend(_validate_toolchain_provider_selection(value, **location))
+    if validator.get("id") == "toolchain-capability-profiles" and isinstance(value, dict):
+        issues.extend(_validate_toolchain_capability_profiles(value, **location))
+    if validator.get("id") == "toolchain-device-bindings" and isinstance(value, dict):
+        issues.extend(_validate_toolchain_device_bindings(value, **location))
+    if validator.get("id") == "embedding-index-fingerprints" and isinstance(value, dict):
+        issues.extend(_validate_embedding_index_fingerprints(value, **location))
     if validator.get("required") and isinstance(value, str) and not value.strip():
         issues.append(_issue("required-value-missing", f"{definition['key']} is required.", **location))
     if validator.get("enum") and value not in validator["enum"]:
@@ -1731,6 +1867,15 @@ def _validate_value(definition: dict[str, Any], value: Any, **location: Any) -> 
         if validator.get("pattern") and not re.search(validator["pattern"], value):
             issues.append(
                 _issue("pattern-mismatch", f"{definition['key']} does not match its declared format.", **location)
+            )
+        if validator.get("id") == "url" and _has_url_credentials(value):
+            issues.append(
+                _issue(
+                    "url-credentials-forbidden",
+                    f"{definition['key']} must not embed credentials in a URL; use a Secret Reference.",
+                    remediation="Remove URL userinfo and bind the credential through a Secret Reference.",
+                    **location,
+                )
             )
     if isinstance(value, (int, float)) and not isinstance(value, bool):
         if validator.get("min") is not None and value < validator["min"]:
@@ -1971,6 +2116,548 @@ def normalize_host_capability_connector_id(value: Any) -> str | None:
     if not HOST_CONNECTOR_SELECTOR_PATTERN.fullmatch(value):
         return None
     return value if value.startswith("connector/") else f"connector/{value}"
+
+
+def redact_executable(value: str) -> str:
+    trimmed = value.strip()
+    if not trimmed:
+        return ""
+    return Path(trimmed.replace("\\", "/")).name or "[redacted-executable]"
+
+
+def redact_endpoint(value: str) -> str:
+    trimmed = value.strip()
+    if not trimmed:
+        return ""
+    try:
+        from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
+        parts = urlsplit(trimmed)
+        query = [
+            (key, "[redacted]" if re.search(r"(api[_-]?key|token|secret|password|auth)", key, re.I) else val)
+            for key, val in parse_qsl(parts.query, keep_blank_values=True)
+        ]
+        host = parts.hostname or ""
+        netloc = host
+        if parts.port:
+            netloc = f"{host}:{parts.port}"
+        path = parts.path if parts.path not in ("", "/") else ""
+        return urlunsplit((parts.scheme, netloc, path, urlencode(query), ""))
+    except Exception:
+        return re.sub(r"//[^/@]+@", "//[redacted]@", trimmed)
+
+
+def _has_url_credentials(value: str) -> bool:
+    try:
+        from urllib.parse import urlsplit
+
+        parts = urlsplit(value)
+        if parts.username or parts.password:
+            return True
+        return bool(re.search(r"(api[_-]?key|token|secret|password)=", parts.query, re.I))
+    except Exception:
+        return bool(re.search(r"//[^/@]+@|(api[_-]?key|token|secret)=", value, re.I))
+
+
+def collect_legacy_toolchain_diagnostics(environment: dict[str, str]) -> list[dict[str, Any]]:
+    issues: list[dict[str, Any]] = []
+    for env_name, target_key, summary in LEGACY_TOOLCHAIN_ENV_MAP:
+        raw = environment.get(env_name)
+        if not isinstance(raw, str) or not raw.strip():
+            continue
+        issues.append(
+            _issue(
+                "legacy-toolchain-env",
+                f"Legacy environment {env_name} is set; {summary}",
+                severity="warning",
+                key=target_key,
+                remediation=(
+                    f"Copy the non-secret value into {target_key} through Settings, "
+                    f"then unset {env_name} after verification."
+                ),
+            )
+        )
+    return issues
+
+
+def embedding_fingerprint_digest(
+    *,
+    profile_id: str,
+    provider_id: str,
+    endpoint_identity: str,
+    model_id: str,
+    adapter_schema_version: str,
+    dimensions: int | None = None,
+) -> str:
+    payload: dict[str, Any] = {
+        "schemaVersion": 1,
+        "profileId": profile_id,
+        "providerId": provider_id,
+        "endpointIdentity": endpoint_identity,
+        "modelId": model_id,
+        "adapterSchemaVersion": adapter_schema_version,
+    }
+    if dimensions is not None:
+        payload["dimensions"] = dimensions
+    return "sha256:" + hashlib.sha256(canonical_json(payload).encode("utf-8")).hexdigest()
+
+
+def build_toolchain_capability_profiles(
+    snapshot: dict[str, Any],
+    *,
+    checked_at: str,
+    probes: dict[str, dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    values = {item["key"]: item["value"] for item in snapshot["effective"]}
+    selection = [item for item in values.get("toolchain.provider_selection", []) if isinstance(item, str)]
+    profiles_value = values.get("toolchain.capability_profiles")
+    profiles = profiles_value if isinstance(profiles_value, dict) else {}
+    bindings_value = values.get("toolchain.device_bindings")
+    bindings = bindings_value if isinstance(bindings_value, dict) else {}
+    index_profiles_value = values.get("embeddings.index_profiles")
+    index_profiles = index_profiles_value if isinstance(index_profiles_value, dict) else {}
+    default_profile = values.get("embeddings.default_profile")
+    embedding_endpoint = values.get("embeddings.endpoint") if isinstance(values.get("embeddings.endpoint"), str) else ""
+    recorded_value = values.get("embeddings.index_fingerprints")
+    recorded = recorded_value if isinstance(recorded_value, dict) else {}
+    probes = probes or {}
+    now_ms = _parse_timestamp_ms(checked_at)
+
+    provider_ids = sorted(
+        {
+            *([item for item in selection if item in TOOLCHAIN_PROVIDER_IDS]),
+            *([key for key in profiles if key in TOOLCHAIN_PROVIDER_IDS]),
+            *([key for key in bindings if key in TOOLCHAIN_PROVIDER_IDS]),
+        }
+    )
+    views: list[dict[str, Any]] = []
+    for provider_id in provider_ids:
+        selected = provider_id in selection
+        semantic = profiles.get(provider_id) if isinstance(profiles.get(provider_id), dict) else {}
+        device = bindings.get(provider_id) if isinstance(bindings.get(provider_id), dict) else {}
+        invocation_mode = semantic.get("invocationMode") if isinstance(semantic.get("invocationMode"), str) else "cli"
+        version_policy = semantic.get("versionPolicy") if isinstance(semantic.get("versionPolicy"), str) else ""
+        required = [item for item in semantic.get("requiredFeatures", []) if isinstance(item, str)]
+        timeout_ms = semantic.get("timeoutMs") if isinstance(semantic.get("timeoutMs"), int) else 30_000
+        profile_revision = (
+            semantic.get("profileRevision")
+            if isinstance(semantic.get("profileRevision"), str)
+            else f"{provider_id}/unknown"
+        )
+        executable = device.get("executable") if isinstance(device.get("executable"), str) else ""
+        endpoint = device.get("endpoint") if isinstance(device.get("endpoint"), str) else ""
+        probe = probes.get(provider_id) if isinstance(probes.get(provider_id), dict) else None
+        health, compatibility, missing, codes = _map_toolchain_health(
+            selected=selected,
+            invocation_mode=invocation_mode,
+            required=required,
+            executable=executable,
+            endpoint=endpoint,
+            probe=probe,
+        )
+        probed_at = probe.get("probedAt") if probe else None
+        expires_at = probe.get("expiresAt") if probe else None
+        probe_age_ms = None
+        if isinstance(probed_at, str):
+            probed_ms = _parse_timestamp_ms(probed_at)
+            if probed_ms is not None and now_ms is not None:
+                probe_age_ms = max(0, now_ms - probed_ms)
+        view: dict[str, Any] = {
+            "schemaVersion": 1,
+            "providerId": provider_id,
+            "profileRevision": profile_revision,
+            "invocationMode": invocation_mode,
+            "versionPolicy": version_policy,
+            "selected": selected,
+            "compatibility": compatibility,
+            "health": health,
+            "requiredFeatures": sorted(required),
+            "capabilities": sorted({*(probe.get("capabilities") or [])}) if probe else [],
+            "missingCapabilities": sorted(missing),
+            "diagnosticCodes": sorted(set(codes)),
+            "timeoutMs": timeout_ms,
+            "redactedExecutable": redact_executable(executable),
+            "redactedEndpoint": redact_endpoint(endpoint or embedding_endpoint),
+            "probeAgeMs": probe_age_ms,
+            "configurationProvenance": {
+                "selection": _toolchain_field_provenance(snapshot, "toolchain.provider_selection"),
+                "profile": _toolchain_field_provenance(
+                    snapshot, "toolchain.capability_profiles", f"toolchain.capability_profiles.{provider_id}"
+                ),
+                "device": _toolchain_field_provenance(
+                    snapshot, "toolchain.device_bindings", f"toolchain.device_bindings.{provider_id}"
+                ),
+            },
+            "checkedAt": checked_at,
+            "snapshotId": snapshot["snapshotId"],
+        }
+        if isinstance(semantic.get("indexId"), str):
+            view["indexId"] = semantic["indexId"]
+        if isinstance(semantic.get("collectionIds"), list):
+            view["collectionIds"] = [item for item in semantic["collectionIds"] if isinstance(item, str)]
+        if probe and isinstance(probe.get("observedVersion"), str):
+            view["observedVersion"] = probe["observedVersion"]
+        if isinstance(probed_at, str):
+            view["probedAt"] = probed_at
+        if isinstance(expires_at, str):
+            view["expiresAt"] = expires_at
+        if provider_id == "ollama":
+            profile_id = default_profile if isinstance(default_profile, str) else "ollama/bge-m3"
+            model_id = profile_id.split("/", 1)[-1]
+            endpoint_identity = redact_endpoint(embedding_endpoint) or "endpoint/unconfigured"
+            digest = embedding_fingerprint_digest(
+                profile_id=profile_id,
+                provider_id="ollama",
+                endpoint_identity=endpoint_identity,
+                model_id=model_id,
+                adapter_schema_version="openai-compatible/v1",
+                dimensions=1024,
+            )
+            index_bindings = [
+                {"indexId": index_id, "profileId": bound}
+                for index_id, bound in index_profiles.items()
+                if isinstance(bound, str)
+            ]
+            mismatched = []
+            for binding in index_bindings:
+                observed = recorded.get(binding["indexId"])
+                if not isinstance(observed, dict):
+                    continue
+                observed_digest = observed.get("digest")
+                expected = embedding_fingerprint_digest(
+                    profile_id=binding["profileId"],
+                    provider_id="ollama",
+                    endpoint_identity=endpoint_identity,
+                    model_id=binding["profileId"].split("/", 1)[-1],
+                    adapter_schema_version="openai-compatible/v1",
+                    dimensions=1024,
+                )
+                if isinstance(observed_digest, str) and observed_digest and observed_digest != expected:
+                    mismatched.append(binding["indexId"])
+            view["embeddingFingerprint"] = {
+                "profileId": profile_id,
+                "providerId": "ollama",
+                "endpointIdentity": endpoint_identity,
+                "modelId": model_id,
+                "dimensions": 1024,
+                "adapterSchemaVersion": "openai-compatible/v1",
+                "digest": digest,
+                "indexBindings": index_bindings,
+                "mismatchedIndexIds": mismatched,
+            }
+            view["configurationProvenance"]["embeddingProfile"] = _toolchain_field_provenance(
+                snapshot, "embeddings.default_profile"
+            )
+            view["configurationProvenance"]["embeddingEndpoint"] = _toolchain_field_provenance(
+                snapshot, "embeddings.endpoint"
+            )
+        views.append(view)
+    return views
+
+
+def _parse_timestamp_ms(value: str) -> int | None:
+    try:
+        normalized = value.replace("Z", "+00:00")
+        return int(datetime.fromisoformat(normalized).timestamp() * 1000)
+    except Exception:
+        return None
+
+
+def _toolchain_field_provenance(
+    snapshot: dict[str, Any],
+    key: str,
+    path: str | None = None,
+) -> dict[str, Any]:
+    setting = next((item for item in snapshot["effective"] if item["key"] == key), None)
+    resolved_path = path or key
+    if setting is None:
+        return {"source": "product-default", "path": resolved_path}
+    if setting.get("winningScope") == "product":
+        return {"source": "product-default", "path": resolved_path, "scope": "product"}
+    provenance = setting.get("assignmentProvenance") or {}
+    source = provenance.get("source") or ""
+    mapped = (
+        "legacy-environment"
+        if source == "legacy-environment" or str(source).startswith("legacy")
+        else "settings-assignment"
+    )
+    result = {
+        "source": mapped,
+        "path": resolved_path,
+        "scope": setting.get("winningScope"),
+        "actor": provenance.get("actor"),
+        "detail": source,
+    }
+    return {key: value for key, value in result.items() if value is not None}
+
+
+def _map_toolchain_health(
+    *,
+    selected: bool,
+    invocation_mode: str,
+    required: list[str],
+    executable: str,
+    endpoint: str,
+    probe: dict[str, Any] | None,
+) -> tuple[str, str, list[str], list[str]]:
+    if not selected:
+        return "disabled", "unknown", [], []
+    if probe and probe.get("disabled"):
+        return "disabled", "unknown", [], list(probe.get("diagnosticCodes") or [])
+    if probe and probe.get("timedOut"):
+        codes = list(probe.get("diagnosticCodes") or [])
+        codes.append("TOOLCHAIN_PROBE_TIMEOUT")
+        return "unavailable", "unknown", required, codes
+    if invocation_mode == "cli" and not executable.strip():
+        return "unavailable", "unknown", required, ["PROVIDER_UNAVAILABLE"]
+    if invocation_mode == "http" and not endpoint.strip():
+        return "unavailable", "unknown", required, ["PROVIDER_UNAVAILABLE"]
+    if endpoint and _has_url_credentials(endpoint):
+        return "unavailable", "incompatible", required, ["SENSITIVE_ERROR_REDACTED"]
+    if not probe:
+        return "degraded", "partial", required, ["CAPABILITY_MISSING"]
+    observed = set(probe.get("capabilities") or [])
+    missing = [feature for feature in required if feature not in observed]
+    codes = list(probe.get("diagnosticCodes") or [])
+    if not missing:
+        return "available", "compatible", [], codes
+    codes.append("CAPABILITY_MISSING")
+    return "degraded", "partial", missing, codes
+
+
+def _validate_embedding_index_profile_bindings(value: dict[str, Any], **location: Any) -> list[dict[str, Any]]:
+    issues: list[dict[str, Any]] = []
+    for index_id, profile_id in value.items():
+        if not re.fullmatch(r"[a-z][a-z0-9._-]{0,127}", index_id or ""):
+            issues.append(
+                _issue(
+                    "embedding-index-id-invalid",
+                    "embeddings.index_profiles contains an invalid index identifier.",
+                    **location,
+                )
+            )
+        if profile_id not in BUILT_IN_EMBEDDING_PROFILE_IDS:
+            issues.append(
+                _issue(
+                    "embedding-profile-id-invalid",
+                    "embeddings.index_profiles contains an unsupported embedding profile binding.",
+                    **location,
+                )
+            )
+    return issues
+
+
+def _validate_toolchain_provider_selection(value: list[Any], **location: Any) -> list[dict[str, Any]]:
+    issues: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for item in value:
+        if not isinstance(item, str) or item not in TOOLCHAIN_PROVIDER_IDS:
+            issues.append(
+                _issue(
+                    "toolchain-provider-id-invalid",
+                    "toolchain.provider_selection contains an unsupported toolchain provider id.",
+                    **location,
+                )
+            )
+            continue
+        if item in seen:
+            issues.append(
+                _issue(
+                    "toolchain-provider-duplicate",
+                    "toolchain.provider_selection must not list the same provider twice.",
+                    **location,
+                )
+            )
+        seen.add(item)
+    return issues
+
+
+def _validate_toolchain_capability_profiles(value: dict[str, Any], **location: Any) -> list[dict[str, Any]]:
+    issues: list[dict[str, Any]] = []
+    for provider_id, raw in value.items():
+        if provider_id not in TOOLCHAIN_PROVIDER_IDS:
+            issues.append(
+                _issue(
+                    "toolchain-provider-id-invalid",
+                    f"toolchain.capability_profiles contains unsupported provider {provider_id}.",
+                    **location,
+                )
+            )
+            continue
+        if not isinstance(raw, dict):
+            issues.append(
+                _issue(
+                    "toolchain-profile-shape-invalid",
+                    f"toolchain.capability_profiles.{provider_id} must be an object.",
+                    **location,
+                )
+            )
+            continue
+        if raw.get("invocationMode") not in TOOLCHAIN_INVOCATION_MODES:
+            issues.append(
+                _issue(
+                    "toolchain-invocation-mode-invalid",
+                    f"toolchain.capability_profiles.{provider_id}.invocationMode is invalid.",
+                    **location,
+                )
+            )
+        if not isinstance(raw.get("versionPolicy"), str) or not raw["versionPolicy"].strip():
+            issues.append(
+                _issue(
+                    "toolchain-version-policy-invalid",
+                    f"toolchain.capability_profiles.{provider_id}.versionPolicy is required.",
+                    **location,
+                )
+            )
+        if not isinstance(raw.get("profileRevision"), str) or not raw["profileRevision"].strip():
+            issues.append(
+                _issue(
+                    "toolchain-profile-revision-invalid",
+                    f"toolchain.capability_profiles.{provider_id}.profileRevision is required.",
+                    **location,
+                )
+            )
+        features = raw.get("requiredFeatures")
+        if not isinstance(features, list) or any(not isinstance(item, str) or not item.strip() for item in features):
+            issues.append(
+                _issue(
+                    "toolchain-required-features-invalid",
+                    f"toolchain.capability_profiles.{provider_id}.requiredFeatures must be a string list.",
+                    **location,
+                )
+            )
+        timeout = raw.get("timeoutMs")
+        if not isinstance(timeout, int) or isinstance(timeout, bool) or timeout < 100 or timeout > 300_000:
+            issues.append(
+                _issue(
+                    "toolchain-timeout-invalid",
+                    f"toolchain.capability_profiles.{provider_id}.timeoutMs must be an integer between 100 and 300000.",
+                    **location,
+                )
+            )
+    return issues
+
+
+def _validate_toolchain_device_bindings(value: dict[str, Any], **location: Any) -> list[dict[str, Any]]:
+    issues: list[dict[str, Any]] = []
+    for provider_id, raw in value.items():
+        if provider_id not in TOOLCHAIN_PROVIDER_IDS:
+            issues.append(
+                _issue(
+                    "toolchain-provider-id-invalid",
+                    f"toolchain.device_bindings contains unsupported provider {provider_id}.",
+                    **location,
+                )
+            )
+            continue
+        if not isinstance(raw, dict):
+            issues.append(
+                _issue(
+                    "toolchain-device-binding-shape-invalid",
+                    f"toolchain.device_bindings.{provider_id} must be an object.",
+                    **location,
+                )
+            )
+            continue
+        if "executable" in raw and not isinstance(raw["executable"], str):
+            issues.append(
+                _issue(
+                    "toolchain-executable-invalid",
+                    f"toolchain.device_bindings.{provider_id}.executable must be a string path.",
+                    **location,
+                )
+            )
+        endpoint = raw.get("endpoint")
+        if endpoint is not None and not isinstance(endpoint, str):
+            issues.append(
+                _issue(
+                    "toolchain-endpoint-invalid",
+                    f"toolchain.device_bindings.{provider_id}.endpoint must be a string URL.",
+                    **location,
+                )
+            )
+        elif isinstance(endpoint, str) and endpoint.strip():
+            if _has_url_credentials(endpoint):
+                issues.append(
+                    _issue(
+                        "url-credentials-forbidden",
+                        f"toolchain.device_bindings.{provider_id}.endpoint must not embed credentials.",
+                        remediation=(
+                            "Remove URL userinfo/query secrets and bind credentials "
+                            "through a Secret Reference."
+                        ),
+                        **location,
+                    )
+                )
+            elif not re.match(r"^https?://", endpoint, re.I):
+                issues.append(
+                    _issue(
+                        "pattern-mismatch",
+                        f"toolchain.device_bindings.{provider_id}.endpoint must be an HTTP(S) URL when set.",
+                        **location,
+                    )
+                )
+    return issues
+
+
+def _validate_embedding_index_fingerprints(value: dict[str, Any], **location: Any) -> list[dict[str, Any]]:
+    issues: list[dict[str, Any]] = []
+    for index_id, raw in value.items():
+        if not re.fullmatch(r"[a-z][a-z0-9._-]{0,127}", index_id or ""):
+            issues.append(
+                _issue(
+                    "embedding-index-id-invalid",
+                    "embeddings.index_fingerprints contains an invalid index identifier.",
+                    **location,
+                )
+            )
+            continue
+        if not isinstance(raw, dict):
+            issues.append(
+                _issue(
+                    "embedding-fingerprint-shape-invalid",
+                    f"embeddings.index_fingerprints.{index_id} must be an object.",
+                    **location,
+                )
+            )
+            continue
+        for field in ("profileId", "providerId", "endpointIdentity", "modelId", "adapterSchemaVersion", "digest"):
+            if not isinstance(raw.get(field), str) or not raw[field].strip():
+                issues.append(
+                    _issue(
+                        "embedding-fingerprint-field-invalid",
+                        f"embeddings.index_fingerprints.{index_id}.{field} must be a non-empty string.",
+                        **location,
+                    )
+                )
+        digest = raw.get("digest")
+        if isinstance(digest, str) and not re.fullmatch(r"sha256:[a-f0-9]{64}", digest):
+            issues.append(
+                _issue(
+                    "embedding-fingerprint-digest-invalid",
+                    f"embeddings.index_fingerprints.{index_id}.digest must be sha256:<hex>.",
+                    **location,
+                )
+            )
+        if "dimensions" in raw and (
+            not isinstance(raw["dimensions"], int) or isinstance(raw["dimensions"], bool) or raw["dimensions"] <= 0
+        ):
+            issues.append(
+                _issue(
+                    "embedding-fingerprint-dimensions-invalid",
+                    f"embeddings.index_fingerprints.{index_id}.dimensions must be a positive integer when set.",
+                    **location,
+                )
+            )
+        if isinstance(raw.get("endpointIdentity"), str) and _has_url_credentials(raw["endpointIdentity"]):
+            issues.append(
+                _issue(
+                    "url-credentials-forbidden",
+                    f"embeddings.index_fingerprints.{index_id}.endpointIdentity must not embed credentials.",
+                    **location,
+                )
+            )
+    return issues
 
 
 def _probe_python(executable: str) -> bool:

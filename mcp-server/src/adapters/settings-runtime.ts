@@ -6,6 +6,15 @@ import type {
   SettingsService,
   SettingsSnapshot,
 } from "../../../packages/settings-platform/dist/src/index.js";
+import {
+  embeddingFingerprint,
+  isBuiltInEmbeddingProfileId,
+  normalizeEmbeddingEndpoint,
+  resolveEmbeddingProfile,
+  type EmbeddingFingerprint,
+  type EmbeddingProfile,
+} from "../embedding/profile.js";
+import { qmdModelFingerprint } from "../toolchain/provider-contracts.js";
 
 export const DEFAULT_ENABLED_ADAPTERS = [
   "filesystem",
@@ -80,7 +89,19 @@ export interface KanbanRuntimeProfile extends AdapterRuntimeBase {
 
 export interface QmdRuntimeProfile extends AdapterRuntimeBase {
   collection?: string;
+  collections: readonly string[];
+  index?: string;
+  embeddingModel: string;
+  modelFingerprint: string;
   binary: string;
+  provenance: Record<string, KnowledgeAdapterFieldProvenance>;
+}
+
+export interface GraphifyRuntimeProfile extends AdapterRuntimeBase {
+  binary: string;
+  outputDir?: string;
+  autoRescan: boolean;
+  timeoutMs: number;
   provenance: Record<string, KnowledgeAdapterFieldProvenance>;
 }
 
@@ -104,8 +125,29 @@ export interface MemURuntimeProfile extends AdapterRuntimeBase {
   memuSearchPy: string;
   memuSearchPythonExe: string;
   memuSearchTimeoutMs: number;
+  embedProfileId: string;
+  embedEndpoint: string;
   embedModel: string;
+  embedDimensions?: number;
+  embedFingerprint: EmbeddingFingerprint;
   credential?: KnowledgeAdapterCredentialProfile;
+  provenance: Record<string, KnowledgeAdapterFieldProvenance>;
+}
+
+export interface EmbeddingIndexRuntimeBinding {
+  indexId: string;
+  profile: EmbeddingProfile;
+  fingerprint: EmbeddingFingerprint;
+  provenance: KnowledgeAdapterFieldProvenance;
+}
+
+export interface EmbeddingsRuntimeProfile {
+  valid: boolean;
+  issues: KnowledgeAdapterProfileIssue[];
+  defaultProfileId: string;
+  endpoint: string;
+  indexProfiles: Record<string, string>;
+  bindings: Record<string, EmbeddingIndexRuntimeBinding>;
   provenance: Record<string, KnowledgeAdapterFieldProvenance>;
 }
 
@@ -117,18 +159,34 @@ export interface KnowledgeAdaptersRuntimeProfile {
     issues: KnowledgeAdapterProfileIssue[];
     provenance: KnowledgeAdapterFieldProvenance;
   };
+  embeddings: EmbeddingsRuntimeProfile;
   memu: MemURuntimeProfile;
   lightrag: LightRAGRuntimeProfile;
   raganything: RAGAnythingRuntimeProfile;
   hindsight: HindsightRuntimeProfile;
   kanban: KanbanRuntimeProfile;
   qmd: QmdRuntimeProfile;
+  graphify: GraphifyRuntimeProfile;
+}
+
+export interface LegacyGraphifyRuntimeConfig {
+  binary?: string;
+  outputDir?: string;
+  autoRescan?: string | boolean;
+  timeoutMs?: string | number;
+}
+
+export interface LegacyKnowledgeAdaptersYaml {
+  enabledAdapters?: string[];
+  graphify?: LegacyGraphifyRuntimeConfig;
 }
 
 export interface KnowledgeAdapterProfileOptions {
   environment?: NodeJS.ProcessEnv;
   /** Compatibility input from vault-mind.yaml. Settings assignments still win. */
   legacyEnabledAdapters?: string[];
+  /** Compatibility input from flat graphify_* keys in vault-mind.yaml. */
+  legacyGraphify?: LegacyGraphifyRuntimeConfig;
 }
 
 export interface KnowledgeAdapterSecretResolverOptions {
@@ -166,6 +224,28 @@ export async function resolveKnowledgeAdaptersRuntimeProfile(
   const enabledAdapters = enabledIssues.length === 0 ? [...enabledSelection.value] : [];
   const enabled = new Set(enabledAdapters);
 
+  const embeddingDefaultProfile = selectString(
+    snapshot,
+    "embeddings.default_profile",
+    environment.VAULT_MIND_EMBED_PROFILE,
+    "VAULT_MIND_EMBED_PROFILE",
+    "ollama/bge-m3",
+  );
+  const legacyEmbeddingEndpoint = environment.VAULT_MIND_EMBED_URL ?? environment.OLLAMA_EMBED_BASE_URL;
+  const embeddingEndpoint = selectString(
+    snapshot,
+    "embeddings.endpoint",
+    legacyEmbeddingEndpoint,
+    environment.VAULT_MIND_EMBED_URL ? "VAULT_MIND_EMBED_URL" : "OLLAMA_EMBED_BASE_URL",
+    "http://localhost:11434/v1/embeddings",
+  );
+  const embeddingIndexProfiles = selectField<unknown>(
+    snapshot,
+    "embeddings.index_profiles",
+    undefined,
+    { vaultbrain: "ollama/bge-m3", memu: "ollama/qwen3-embedding:0.6b" },
+  );
+
   const portablePython = process.platform === "win32" ? "python" : "python3";
   const memuDsn = selectMemUDsn(snapshot, environment);
   const memuUserId = selectString(snapshot, "adapters.memu.user_id", environment.MEMU_USER_ID, "MEMU_USER_ID", "default");
@@ -179,9 +259,89 @@ export async function resolveKnowledgeAdaptersRuntimeProfile(
   const memuSearchPython = selectString(snapshot, "adapters.memu.search_python", environment.MEMU_SEARCH_PYTHON, "MEMU_SEARCH_PYTHON", portablePython);
   const memuSearchTimeout = selectNumber(snapshot, "adapters.memu.search_timeout_ms", environment.MEMU_SEARCH_TIMEOUT_MS, "MEMU_SEARCH_TIMEOUT_MS", 20_000);
   const memuEmbedModel = selectString(snapshot, "adapters.memu.embed_model", environment.OLLAMA_EMBED_MODEL, "OLLAMA_EMBED_MODEL", "bge-m3");
+  const embeddingIssues: KnowledgeAdapterProfileIssue[] = [];
+  let normalizedEmbeddingEndpoint = embeddingEndpoint.value;
+  try {
+    normalizedEmbeddingEndpoint = normalizeEmbeddingEndpoint(embeddingEndpoint.value);
+  } catch {
+    embeddingIssues.push({
+      code: "embedding-endpoint-invalid",
+      message: "embeddings.endpoint must be a credential-free HTTP(S) embedding endpoint.",
+      key: "embeddings.endpoint",
+    });
+  }
+  if (!isBuiltInEmbeddingProfileId(embeddingDefaultProfile.value)) {
+    embeddingIssues.push({
+      code: "embedding-default-profile-invalid",
+      message: "embeddings.default_profile must name a supported built-in profile.",
+      key: "embeddings.default_profile",
+    });
+  }
+  const configuredIndexProfiles = normalizeEmbeddingIndexProfiles(
+    embeddingIndexProfiles.value,
+    embeddingIssues,
+  );
+  const useLegacyMemuModel = !embeddingIndexProfiles.explicit && (
+    memuEmbedModel.explicit || memuEmbedModel.provenance.source === "legacy-env"
+  );
+  if (useLegacyMemuModel) {
+    configuredIndexProfiles.memu = profileIdForLegacyModel(memuEmbedModel.value);
+  }
+  const bindingProvenance = useLegacyMemuModel
+    ? { ...embeddingIndexProfiles.provenance, memu: memuEmbedModel.provenance }
+    : undefined;
+  const embeddingBindings: Record<string, EmbeddingIndexRuntimeBinding> = {};
+  for (const [indexId, configuredProfileId] of Object.entries(configuredIndexProfiles)) {
+    const profileId = configuredProfileId || embeddingDefaultProfile.value;
+    try {
+      const legacyModel = profileId.startsWith("custom/ollama/")
+        ? profileId.slice("custom/ollama/".length)
+        : undefined;
+      const profile = resolveEmbeddingProfile({
+        profileId,
+        endpoint: normalizedEmbeddingEndpoint,
+        ...(legacyModel ? { provider: "ollama", model: legacyModel, dimensions: 1024 } : {}),
+      });
+      embeddingBindings[indexId] = {
+        indexId,
+        profile,
+        fingerprint: embeddingFingerprint(profile),
+        provenance: indexId === "memu" && bindingProvenance
+          ? bindingProvenance.memu
+          : embeddingIndexProfiles.provenance,
+      };
+    } catch {
+      embeddingIssues.push({
+        code: "embedding-profile-invalid",
+        message: `Embedding profile binding for ${indexId} is invalid.`,
+        key: "embeddings.index_profiles",
+      });
+    }
+  }
+  for (const requiredIndex of ["vaultbrain", "memu"] as const) {
+    if (embeddingBindings[requiredIndex]) continue;
+    try {
+      const profile = resolveEmbeddingProfile({
+        profileId: embeddingDefaultProfile.value,
+        endpoint: normalizedEmbeddingEndpoint,
+      });
+      embeddingBindings[requiredIndex] = {
+        indexId: requiredIndex,
+        profile,
+        fingerprint: embeddingFingerprint(profile),
+        provenance: embeddingDefaultProfile.provenance,
+      };
+      configuredIndexProfiles[requiredIndex] = embeddingDefaultProfile.value;
+    } catch {
+      // The default-profile issue above is sufficient and contains no device-local value.
+    }
+  }
+  const memuEmbedding = embeddingBindings.memu;
   const memuCredential = selectCredential(snapshot, "adapters.memu.secret_ref", environment, "MEMU_DSN");
   const memuIssues = enabled.has("memu")
     ? [
+        ...embeddingIssues,
+        ...(memuEmbedding ? [] : [{ code: "memu-embedding-profile-missing", message: "MemU requires a valid embedding profile binding.", key: "embeddings.index_profiles" }]),
         ...validateMemUDsn(memuDsn.value),
         ...(memuUserId.value ? [] : [{ code: "memu-user-missing", message: "adapters.memu.user_id is required while MemU is enabled.", key: "adapters.memu.user_id" }]),
         ...validateRange("adapters.memu.max_results", memuMaxResults.value, 1, 100),
@@ -247,7 +407,67 @@ export async function resolveKnowledgeAdaptersRuntimeProfile(
 
   const kanbanGlob = selectString(snapshot, "adapters.kanban.glob", environment.VAULT_MIND_KANBAN_GLOB, "VAULT_MIND_KANBAN_GLOB", "**/*.md");
   const qmdCollection = selectString(snapshot, "adapters.qmd.collection", environment.VAULT_MIND_QMD_COLLECTION, "VAULT_MIND_QMD_COLLECTION", "");
+  const qmdCollections = selectField<unknown>(snapshot, "adapters.qmd.collections", undefined, []);
+  const normalizedQmdCollections = qmdCollections.explicit
+    ? normalizeStringList(qmdCollections.value)
+    : qmdCollection.value
+      ? [qmdCollection.value]
+      : normalizeStringList(qmdCollections.value);
+  const qmdIndex = selectString(snapshot, "adapters.qmd.index", environment.QMD_INDEX, "QMD_INDEX", "");
+  const qmdEmbeddingModel = selectString(
+    snapshot,
+    "adapters.qmd.embedding_model",
+    environment.QMD_EMBED_MODEL,
+    "QMD_EMBED_MODEL",
+    "hf:ggml-org/embeddinggemma-300M-GGUF/embeddinggemma-300M-Q8_0.gguf",
+  );
   const qmdBinary = selectString(snapshot, "adapters.qmd.binary", undefined, "", "qmd");
+  const graphifyBinary = selectLegacyString(
+    snapshot,
+    "adapters.graphify.binary",
+    environment.VAULT_MIND_GRAPHIFY_BINARY,
+    "VAULT_MIND_GRAPHIFY_BINARY",
+    options.legacyGraphify?.binary,
+    "vault-mind.yaml:graphify_binary",
+    "graphify",
+  );
+  const graphifyOutputDir = selectLegacyString(
+    snapshot,
+    "adapters.graphify.output_dir",
+    environment.VAULT_MIND_GRAPHIFY_OUTPUT_DIR,
+    "VAULT_MIND_GRAPHIFY_OUTPUT_DIR",
+    options.legacyGraphify?.outputDir,
+    "vault-mind.yaml:graphify_output_dir",
+    "",
+  );
+  const graphifyAutoRescan = selectLegacyBoolean(
+    snapshot,
+    "adapters.graphify.auto_rescan",
+    environment.VAULT_MIND_GRAPHIFY_AUTO_RESCAN,
+    "VAULT_MIND_GRAPHIFY_AUTO_RESCAN",
+    options.legacyGraphify?.autoRescan,
+    "vault-mind.yaml:graphify_auto_rescan",
+    false,
+  );
+  const graphifyTimeout = selectLegacyNumber(
+    snapshot,
+    "adapters.graphify.timeout_ms",
+    environment.VAULT_MIND_GRAPHIFY_TIMEOUT_MS,
+    "VAULT_MIND_GRAPHIFY_TIMEOUT_MS",
+    options.legacyGraphify?.timeoutMs,
+    "vault-mind.yaml:graphify_timeout_ms",
+    30_000,
+  );
+  const graphifyIssues = enabled.has("graphify")
+    ? [
+        ...validateRequiredLocalPath("adapters.graphify.binary", graphifyBinary.value),
+        ...validateOptionalLocalPath("adapters.graphify.output_dir", graphifyOutputDir.value),
+        ...(typeof graphifyAutoRescan.value === "boolean"
+          ? []
+          : [{ code: "graphify-auto-rescan-invalid", message: "adapters.graphify.auto_rescan must be true or false.", key: "adapters.graphify.auto_rescan" }]),
+        ...validateRange("adapters.graphify.timeout_ms", graphifyTimeout.value, 100, 300_000),
+      ]
+    : [];
 
   return {
     snapshotId: snapshot.snapshotId,
@@ -256,6 +476,19 @@ export async function resolveKnowledgeAdaptersRuntimeProfile(
       valid: enabledIssues.length === 0,
       issues: enabledIssues,
       provenance: enabledSelection.provenance,
+    },
+    embeddings: {
+      valid: embeddingIssues.length === 0,
+      issues: embeddingIssues,
+      defaultProfileId: embeddingDefaultProfile.value,
+      endpoint: normalizedEmbeddingEndpoint,
+      indexProfiles: configuredIndexProfiles,
+      bindings: embeddingBindings,
+      provenance: {
+        defaultProfileId: embeddingDefaultProfile.provenance,
+        endpoint: embeddingEndpoint.provenance,
+        indexProfiles: embeddingIndexProfiles.provenance,
+      },
     },
     memu: {
       enabled: enabled.has("memu"),
@@ -272,7 +505,11 @@ export async function resolveKnowledgeAdaptersRuntimeProfile(
       memuSearchPy: memuSearchPy.value,
       memuSearchPythonExe: memuSearchPython.value,
       memuSearchTimeoutMs: memuSearchTimeout.value,
-      embedModel: memuEmbedModel.value,
+      embedProfileId: memuEmbedding?.profile.id ?? "ollama/qwen3-embedding:0.6b",
+      embedEndpoint: memuEmbedding?.profile.endpoint ?? normalizedEmbeddingEndpoint,
+      embedModel: memuEmbedding?.profile.model ?? memuEmbedModel.value,
+      ...(memuEmbedding?.profile.dimensions === undefined ? {} : { embedDimensions: memuEmbedding.profile.dimensions }),
+      embedFingerprint: memuEmbedding?.fingerprint ?? embeddingFingerprint(resolveEmbeddingProfile({ profileId: "ollama/qwen3-embedding:0.6b" })),
       ...(memuCredential.profile ? { credential: memuCredential.profile } : {}),
       provenance: {
         dsn: memuDsn.provenance,
@@ -286,7 +523,10 @@ export async function resolveKnowledgeAdaptersRuntimeProfile(
         memuSearchPy: memuSearchPy.provenance,
         memuSearchPythonExe: memuSearchPython.provenance,
         memuSearchTimeoutMs: memuSearchTimeout.provenance,
-        embedModel: memuEmbedModel.provenance,
+        embedProfileId: memuEmbedding?.provenance ?? embeddingIndexProfiles.provenance,
+        embedEndpoint: embeddingEndpoint.provenance,
+        embedModel: memuEmbedding?.provenance ?? memuEmbedModel.provenance,
+        embedFingerprint: memuEmbedding?.provenance ?? embeddingIndexProfiles.provenance,
         credential: memuCredential.provenance,
       },
     },
@@ -350,11 +590,40 @@ export async function resolveKnowledgeAdaptersRuntimeProfile(
     },
     qmd: {
       enabled: enabled.has("qmd"),
-      valid: Boolean(qmdBinary.value),
-      issues: qmdBinary.value ? [] : [{ code: "qmd-binary-missing", message: "QMD binary is empty.", key: "adapters.qmd.binary" }],
+      valid: Boolean(qmdBinary.value) && normalizedQmdCollections !== undefined,
+      issues: [
+        ...(qmdBinary.value ? [] : [{ code: "qmd-binary-missing", message: "QMD binary is empty.", key: "adapters.qmd.binary" }]),
+        ...(normalizedQmdCollections === undefined ? [{ code: "qmd-collections-invalid", message: "QMD collections must be a list of non-empty names.", key: "adapters.qmd.collections" }] : []),
+      ],
       collection: nonEmpty(qmdCollection.value),
+      collections: normalizedQmdCollections ?? [],
+      index: nonEmpty(qmdIndex.value),
+      embeddingModel: qmdEmbeddingModel.value,
+      modelFingerprint: qmdModelFingerprint(nonEmpty(qmdIndex.value), qmdEmbeddingModel.value),
       binary: qmdBinary.value,
-      provenance: { collection: qmdCollection.provenance, binary: qmdBinary.provenance },
+      provenance: {
+        collection: qmdCollection.provenance,
+        collections: qmdCollections.explicit ? qmdCollections.provenance : qmdCollection.provenance,
+        index: qmdIndex.provenance,
+        embeddingModel: qmdEmbeddingModel.provenance,
+        modelFingerprint: qmdEmbeddingModel.provenance,
+        binary: qmdBinary.provenance,
+      },
+    },
+    graphify: {
+      enabled: enabled.has("graphify"),
+      valid: graphifyIssues.length === 0,
+      issues: graphifyIssues,
+      binary: graphifyBinary.value,
+      outputDir: nonEmpty(graphifyOutputDir.value),
+      autoRescan: graphifyAutoRescan.value === true,
+      timeoutMs: graphifyTimeout.value,
+      provenance: {
+        binary: graphifyBinary.provenance,
+        outputDir: graphifyOutputDir.provenance,
+        autoRescan: graphifyAutoRescan.provenance,
+        timeoutMs: graphifyTimeout.provenance,
+      },
     },
   };
 }
@@ -392,6 +661,150 @@ export function resolveMemUConnectionString(publicDsn: string, secret: string | 
   return secret;
 }
 
+/**
+ * Parse only the documented legacy adapter subset from vault-mind.yaml.
+ * This deliberately is not a general YAML parser: it recognizes adapter
+ * `enabled` flags plus Graphify's scalar runtime fields at either
+ * `adapters.graphify` or the older top-level `graphify` block.
+ */
+export function parseLegacyKnowledgeAdaptersYaml(raw: string): LegacyKnowledgeAdaptersYaml {
+  const enabled = new Map<string, boolean>();
+  const invalidEnablement = new Set<string>();
+  const graphify: LegacyGraphifyRuntimeConfig = {};
+  let section: "adapters" | "graphify" | undefined;
+  let currentAdapter: string | undefined;
+  let sawEnablement = false;
+  let sawGraphifyConfig = false;
+
+  for (const originalLine of raw.split(/\r?\n/)) {
+    if (!originalLine.trim() || originalLine.trimStart().startsWith("#")) continue;
+    const indentation = originalLine.match(/^ */)?.[0].length ?? 0;
+    const content = stripYamlComment(originalLine.slice(indentation)).trim();
+    if (!content) continue;
+
+    if (indentation === 0) {
+      currentAdapter = undefined;
+      if (content === "adapters:") {
+        section = "adapters";
+      } else if (content === "graphify:") {
+        section = "graphify";
+      } else {
+        section = undefined;
+      }
+      continue;
+    }
+
+    if (section === "adapters" && indentation === 2) {
+      const adapter = yamlMappingKey(content);
+      currentAdapter = adapter;
+      continue;
+    }
+
+    const scalar = yamlScalarEntry(content);
+    if (!scalar) continue;
+    if (section === "adapters" && currentAdapter && indentation >= 4) {
+      if (scalar.key === "enabled") {
+        sawEnablement = true;
+        const value = parseLegacyBoolean(scalar.value);
+        if (typeof value === "boolean") {
+          enabled.set(currentAdapter, value);
+          invalidEnablement.delete(currentAdapter);
+        } else {
+          enabled.delete(currentAdapter);
+          invalidEnablement.add(currentAdapter);
+        }
+      }
+      if (currentAdapter === "graphify") {
+        sawGraphifyConfig = applyLegacyGraphifyScalar(graphify, scalar) || sawGraphifyConfig;
+      }
+    } else if (section === "graphify" && indentation >= 2) {
+      if (scalar.key === "enabled") {
+        sawEnablement = true;
+        const value = parseLegacyBoolean(scalar.value);
+        if (typeof value === "boolean") {
+          enabled.set("graphify", value);
+          invalidEnablement.delete("graphify");
+        } else {
+          enabled.delete("graphify");
+          invalidEnablement.add("graphify");
+        }
+      }
+      sawGraphifyConfig = applyLegacyGraphifyScalar(graphify, scalar) || sawGraphifyConfig;
+    }
+  }
+
+  const enabledAdapters = sawEnablement
+    ? [
+        ...[...enabled.entries()].filter(([, isEnabled]) => isEnabled).map(([name]) => name),
+        ...[...invalidEnablement].map(name => `invalid-enable:${name}`),
+      ]
+    : undefined;
+  return {
+    ...(enabledAdapters ? { enabledAdapters } : {}),
+    ...(sawGraphifyConfig ? { graphify } : {}),
+  };
+}
+
+function applyLegacyGraphifyScalar(
+  graphify: LegacyGraphifyRuntimeConfig,
+  scalar: { key: string; value: string },
+): boolean {
+  switch (scalar.key) {
+    case "binary":
+      graphify.binary = scalar.value;
+      return true;
+    case "output_dir":
+      graphify.outputDir = scalar.value;
+      return true;
+    case "auto_rescan":
+      graphify.autoRescan = scalar.value;
+      return true;
+    case "timeout":
+    case "timeout_ms":
+      graphify.timeoutMs = scalar.value;
+      return true;
+    default:
+      return false;
+  }
+}
+
+function yamlMappingKey(content: string): string | undefined {
+  const match = /^([A-Za-z0-9_-]+):\s*$/.exec(content);
+  return match?.[1];
+}
+
+function yamlScalarEntry(content: string): { key: string; value: string } | undefined {
+  const match = /^([A-Za-z0-9_-]+):\s*(.*)$/.exec(content);
+  if (!match) return undefined;
+  return { key: match[1]!, value: unquoteYamlScalar(match[2]!.trim()) };
+}
+
+function unquoteYamlScalar(value: string): string {
+  if (value.length >= 2) {
+    const first = value[0];
+    const last = value[value.length - 1];
+    if ((first === `"` && last === `"`) || (first === `'` && last === `'`)) {
+      return value.slice(1, -1);
+    }
+  }
+  return value;
+}
+
+function stripYamlComment(value: string): string {
+  let quote: `"` | `'` | undefined;
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index];
+    if (quote) {
+      if (character === quote && value[index - 1] !== "\\") quote = undefined;
+    } else if (character === `"` || character === `'`) {
+      quote = character;
+    } else if (character === "#") {
+      return value.slice(0, index);
+    }
+  }
+  return value;
+}
+
 function legacyAdapterList(
   environment: NodeJS.ProcessEnv,
   configValue: string[] | undefined,
@@ -410,6 +823,56 @@ function legacyAdapterList(
     };
   }
   return undefined;
+}
+
+function normalizeEmbeddingIndexProfiles(
+  value: unknown,
+  issues: KnowledgeAdapterProfileIssue[],
+): Record<string, string> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    issues.push({
+      code: "embedding-index-profiles-invalid",
+      message: "embeddings.index_profiles must be an object of index-to-profile bindings.",
+      key: "embeddings.index_profiles",
+    });
+    return {};
+  }
+  const bindings: Record<string, string> = {};
+  for (const [indexId, profileId] of Object.entries(value)) {
+    if (!/^[a-z0-9][a-z0-9._-]*$/.test(indexId) || typeof profileId !== "string") {
+      issues.push({
+        code: "embedding-index-profile-invalid",
+        message: "embeddings.index_profiles contains an invalid binding.",
+        key: "embeddings.index_profiles",
+      });
+      continue;
+    }
+    const normalized = profileId.trim();
+    if (!isBuiltInEmbeddingProfileId(normalized)) {
+      issues.push({
+        code: "embedding-index-profile-invalid",
+        message: `Embedding profile binding for ${indexId} is unsupported.`,
+        key: "embeddings.index_profiles",
+      });
+      continue;
+    }
+    bindings[indexId] = normalized;
+  }
+  return bindings;
+}
+
+function normalizeStringList(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const normalized = value.map(item => typeof item === "string" ? item.trim() : "");
+  if (normalized.some(item => !item)) return undefined;
+  return [...new Set(normalized)];
+}
+
+function profileIdForLegacyModel(model: string): string {
+  const normalized = model.trim();
+  if (normalized === "bge-m3") return "ollama/bge-m3";
+  if (normalized === "qwen3-embedding:0.6b") return "ollama/qwen3-embedding:0.6b";
+  return `custom/ollama/${normalized}`;
 }
 
 function selectString(
@@ -459,6 +922,92 @@ function selectNumber(
     fallback,
     raw ? { source: "legacy-env", detail: legacyName } : undefined,
   );
+}
+
+function selectLegacyString(
+  snapshot: SettingsSnapshot,
+  key: string,
+  environmentValue: string | undefined,
+  environmentName: string,
+  configValue: string | undefined,
+  configName: string,
+  fallback: string,
+): SelectedField<string> {
+  const legacy = selectLegacyValue(
+    environmentValue === undefined ? undefined : environmentValue.trim(),
+    environmentName,
+    configValue === undefined ? undefined : configValue.trim(),
+    configName,
+  );
+  return selectField(snapshot, key, legacy?.value, fallback, legacy?.provenance);
+}
+
+function selectLegacyNumber(
+  snapshot: SettingsSnapshot,
+  key: string,
+  environmentValue: string | undefined,
+  environmentName: string,
+  configValue: string | number | undefined,
+  configName: string,
+  fallback: number,
+): SelectedField<number> {
+  const environmentNumber = environmentValue === undefined
+    ? undefined
+    : Number(environmentValue.trim());
+  const configNumber = configValue === undefined
+    ? undefined
+    : typeof configValue === "number"
+      ? configValue
+      : Number(configValue.trim());
+  const legacy = selectLegacyValue(environmentNumber, environmentName, configNumber, configName);
+  return selectField(snapshot, key, legacy?.value, fallback, legacy?.provenance);
+}
+
+function selectLegacyBoolean(
+  snapshot: SettingsSnapshot,
+  key: string,
+  environmentValue: string | undefined,
+  environmentName: string,
+  configValue: string | boolean | undefined,
+  configName: string,
+  fallback: boolean,
+): SelectedField<unknown> {
+  const legacy = selectLegacyValue(
+    parseLegacyBoolean(environmentValue),
+    environmentName,
+    parseLegacyBoolean(configValue),
+    configName,
+  );
+  return selectField<unknown>(snapshot, key, legacy?.value, fallback, legacy?.provenance);
+}
+
+function selectLegacyValue<T>(
+  environmentValue: T | undefined,
+  environmentName: string,
+  configValue: T | undefined,
+  configName: string,
+): { value: T; provenance: KnowledgeAdapterFieldProvenance } | undefined {
+  if (environmentValue !== undefined) {
+    return {
+      value: environmentValue,
+      provenance: { source: "legacy-env", detail: environmentName },
+    };
+  }
+  if (configValue !== undefined) {
+    return {
+      value: configValue,
+      provenance: { source: "legacy-config", detail: configName },
+    };
+  }
+  return undefined;
+}
+
+function parseLegacyBoolean(value: string | boolean | undefined): boolean | string | undefined {
+  if (typeof value === "boolean" || value === undefined) return value;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "true") return true;
+  if (normalized === "false") return false;
+  return normalized;
 }
 
 function selectField<T>(
@@ -598,6 +1147,18 @@ function validateRange(key: string, value: number, min: number, max: number): Kn
   return Number.isFinite(value) && value >= min && value <= max
     ? []
     : [{ code: "adapter-number-invalid", message: `${key} must be between ${min} and ${max}.`, key }];
+}
+
+function validateOptionalLocalPath(key: string, value: string): KnowledgeAdapterProfileIssue[] {
+  return !value || (value.length <= 1_000 && !/[\0\r\n]/.test(value))
+    ? []
+    : [{ code: "adapter-path-invalid", message: `${key} must be an empty or valid device-local path.`, key }];
+}
+
+function validateRequiredLocalPath(key: string, value: string): KnowledgeAdapterProfileIssue[] {
+  return value && value.length <= 1_000 && !/[\0\r\n]/.test(value)
+    ? []
+    : [{ code: "adapter-path-invalid", message: `${key} must be a valid device-local path or executable name.`, key }];
 }
 
 function validateStringList(key: string, value: unknown): KnowledgeAdapterProfileIssue[] {

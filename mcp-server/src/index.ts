@@ -3,7 +3,7 @@
  * obsidian-llm-wiki MCP server -- stdio transport
  */
 
-import { createMcpServer, startStdioServer } from "./runtime/mcp-runtime.js";
+import { createMcpServer, startStdioServer } from "./mcp-runtime/index.js";
 import {
   readFileSync, existsSync, readdirSync, statSync, realpathSync,
   writeFileSync, appendFileSync, rmSync, renameSync, mkdirSync,
@@ -25,6 +25,7 @@ import { GraphifyAdapter } from "./adapters/graphify.js";
 import { configureLazyIndex } from "./adapters/vaultbrain/lazy-index.js";
 import { AdapterRegistry } from "./adapters/registry.js";
 import {
+  parseLegacyKnowledgeAdaptersYaml,
   resolveKnowledgeAdaptersRuntimeProfile,
   resolveKnowledgeAdapterSecret,
   resolveMemUConnectionString,
@@ -104,7 +105,16 @@ function setCachedFrontmatter(key: string, value: Record<string, unknown> | null
 
 // Config
 
-function loadConfig(): VaultMindConfig {
+interface RuntimeVaultMindConfig extends VaultMindConfig {
+  graphify?: {
+    binary?: string;
+    outputDir?: string;
+    autoRescan?: string;
+    timeoutMs?: string;
+  };
+}
+
+function loadConfig(): RuntimeVaultMindConfig {
   // Precedence: env var > ./vault-mind.yaml > ../vault-mind.yaml. An explicit
   // env var is a declaration of intent and must not be silently shadowed by an
   // abandoned yaml in cwd or parent -- prior to this fix a stale dev-workspace
@@ -132,7 +142,7 @@ function loadConfig(): VaultMindConfig {
   throw new Error("No vault-mind.yaml found and VAULT_MIND_VAULT_PATH not set");
 }
 
-function parseSimpleYaml(raw: string): VaultMindConfig {
+function parseSimpleYaml(raw: string): RuntimeVaultMindConfig {
   const result: Record<string, string> = {};
   for (const line of raw.split("\n")) {
     const trimmed = line.trim();
@@ -152,10 +162,21 @@ function parseSimpleYaml(raw: string): VaultMindConfig {
       if (!isNaN(n)) adapterWeights[k.slice("adapter_weight_".length)] = n;
     }
   }
+  const legacyAdapters = parseLegacyKnowledgeAdaptersYaml(raw);
+  const flatAdapters = result["adapters"]
+    ?.split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
   return {
     vault_path: result["vault_path"] || "",
     auth_token: result["auth_token"],
-    adapters: result["adapters"]?.split(",").map((s) => s.trim()),
+    adapters: flatAdapters?.length ? flatAdapters : legacyAdapters.enabledAdapters,
+    graphify: {
+      binary: legacyAdapters.graphify?.binary ?? result["graphify_binary"],
+      outputDir: legacyAdapters.graphify?.outputDir ?? result["graphify_output_dir"],
+      autoRescan: legacyAdapters.graphify?.autoRescan?.toString() ?? result["graphify_auto_rescan"],
+      timeoutMs: legacyAdapters.graphify?.timeoutMs?.toString() ?? result["graphify_timeout_ms"] ?? result["graphify_timeout"],
+    },
     collaboration: loadEnvCollaboration(result),
     adapter_weights: Object.keys(adapterWeights).length > 0 ? adapterWeights : undefined,
   };
@@ -180,7 +201,7 @@ function loadEnvCollaboration(result: Record<string, string> = {}): VaultMindCon
 // Helpers
 
 const PROTECTED_DIRS = new Set([".obsidian", ".trash", ".git", "node_modules"]);
-const VERSION = "0.4.0-beta.2";
+const VERSION = "0.4.0-beta.3";
 
 function err(code: number, message: string): { code: number; message: string } {
   return { code, message };
@@ -1479,6 +1500,7 @@ async function main(): Promise<void> {
   const adapterProfile = await resolveKnowledgeAdaptersRuntimeProfile(settingsService, {
     environment: process.env,
     legacyEnabledAdapters: config.adapters,
+    legacyGraphify: config.graphify,
   });
 
   // --- Adapter registry ---
@@ -1515,7 +1537,10 @@ async function main(): Promise<void> {
           memuSearchPy: adapterProfile.memu.memuSearchPy,
           memuSearchPythonExe: adapterProfile.memu.memuSearchPythonExe,
           memuSearchTimeoutMs: adapterProfile.memu.memuSearchTimeoutMs,
+          embedProfileId: adapterProfile.memu.embedProfileId,
+          embedEndpoint: adapterProfile.memu.embedEndpoint,
           embedModel: adapterProfile.memu.embedModel,
+          embedDimensions: adapterProfile.memu.embedDimensions,
         });
         await memuAdapter.init();
         if (memuAdapter.isAvailable) registry.register(memuAdapter);
@@ -1559,6 +1584,9 @@ async function main(): Promise<void> {
     } else {
       const qmdAdapter = new QmdAdapter({
         collection: adapterProfile.qmd.collection,
+        collections: adapterProfile.qmd.collections,
+        index: adapterProfile.qmd.index,
+        modelFingerprint: adapterProfile.qmd.modelFingerprint,
         binary: adapterProfile.qmd.binary,
       });
       await qmdAdapter.init();
@@ -1643,24 +1671,42 @@ async function main(): Promise<void> {
 
   let vaultBrainAdapter: VaultBrainAdapter | null = null;
   if (enabledAdapters.has("vaultbrain")) {
-    const vbAdapter = new VaultBrainAdapter();
-    try {
+    const vaultBrainEmbedding = adapterProfile.embeddings.bindings.vaultbrain;
+    if (!adapterProfile.embeddings.valid || !vaultBrainEmbedding) {
+      process.stderr.write(`obsidian-llm-wiki: [vaultbrain] embedding settings invalid; adapter disabled (${adapterProfile.embeddings.issues.map(item => item.code).join(", ")})\n`);
+    } else {
+      const vbAdapter = new VaultBrainAdapter(undefined, {
+        profileId: vaultBrainEmbedding.profile.id,
+        endpoint: vaultBrainEmbedding.profile.endpoint,
+        model: vaultBrainEmbedding.profile.model,
+        dimensions: vaultBrainEmbedding.profile.dimensions,
+      });
       await vbAdapter.init();
-      registry.register(vbAdapter);
-      vaultBrainAdapter = vbAdapter;
-      configureLazyIndex(vbAdapter, config.vault_path);
-      process.stderr.write("obsidian-llm-wiki: [vaultbrain] adapter ready\n");
-    } catch (e) {
-      process.stderr.write(`obsidian-llm-wiki: [vaultbrain] init failed (continuing without): ${(e as Error).message}\n`);
+      if (vbAdapter.isAvailable) {
+        registry.register(vbAdapter);
+        vaultBrainAdapter = vbAdapter;
+        configureLazyIndex(vbAdapter, config.vault_path);
+        process.stderr.write("obsidian-llm-wiki: [vaultbrain] adapter ready\n");
+      }
     }
   }
 
   if (enabledAdapters.has("graphify")) {
-    const graphifyAdapter = new GraphifyAdapter({ vaultPath: config.vault_path });
-    await graphifyAdapter.init();
-    if (graphifyAdapter.isAvailable) {
-      registry.register(graphifyAdapter);
-      process.stderr.write("obsidian-llm-wiki: [graphify] adapter ready\n");
+    if (!adapterProfile.graphify.valid) {
+      process.stderr.write(`obsidian-llm-wiki: [graphify] settings invalid; adapter disabled (${adapterProfile.graphify.issues.map(item => item.code).join(", ")})\n`);
+    } else {
+      const graphifyAdapter = new GraphifyAdapter({
+        vaultPath: config.vault_path,
+        binary: adapterProfile.graphify.binary,
+        outputDir: adapterProfile.graphify.outputDir,
+        autoRescan: adapterProfile.graphify.autoRescan,
+        timeout: adapterProfile.graphify.timeoutMs,
+      });
+      await graphifyAdapter.init();
+      if (graphifyAdapter.isAvailable) {
+        registry.register(graphifyAdapter);
+        process.stderr.write("obsidian-llm-wiki: [graphify] adapter ready\n");
+      }
     }
   }
 
@@ -1672,6 +1718,9 @@ async function main(): Promise<void> {
     vaultPath: config.vault_path,
     compilerPath,
     python,
+    schedulingMode: process.env.VAULT_MIND_COMPILE_TRIGGER_MODE === "legacy-threshold"
+      ? "legacy-threshold"
+      : "durable",
     onCompileSuccess: (wikiPaths: string[]) => {
       if (!vaultBrainAdapter) return;
       for (const fullPath of wikiPaths) {

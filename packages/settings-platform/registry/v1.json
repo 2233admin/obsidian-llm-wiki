@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "registryVersion": "1.6.0",
+  "registryVersion": "1.9.0",
   "definitions": [
     {
       "key": "models.agent.mode",
@@ -281,6 +281,200 @@
       "visibility": "advanced"
     },
     {
+      "key": "toolchain.provider_selection",
+      "owner": "runtime.toolchain",
+      "category": "toolchain",
+      "name": "Toolchain provider selection",
+      "description": "Ordered list of Toolchain Capability Profile providers that Settings Doctor and adapters may probe. Empty keeps optional providers unselected without failing the host.",
+      "valueType": "list",
+      "defaultValue": ["opencli", "qmd", "graphify", "ollama", "lightrag", "raganything", "mcp-sdk"],
+      "allowedScopes": ["vault", "workspace-project", "session"],
+      "sensitivity": "public",
+      "validator": { "id": "toolchain-provider-selection" },
+      "requires": [],
+      "applyMode": "next-operation",
+      "visibility": "advanced"
+    },
+    {
+      "key": "toolchain.capability_profiles",
+      "owner": "runtime.toolchain",
+      "category": "toolchain",
+      "name": "Toolchain capability profiles",
+      "description": "Vault-scoped semantic Toolchain Capability Profiles: invocation mode, compatible version policy, required features, timeouts, and collection or index identity. Device executables and endpoints are bound separately.",
+      "valueType": "object",
+      "defaultValue": {
+        "opencli": {
+          "invocationMode": "cli",
+          "versionPolicy": ">=1.8 <2",
+          "requiredFeatures": ["version.structured", "command.list.structured"],
+          "timeoutMs": 15000,
+          "profileRevision": "opencli/1.8"
+        },
+        "qmd": {
+          "invocationMode": "cli",
+          "versionPolicy": ">=2.5 <3",
+          "requiredFeatures": ["query.hybrid", "query.intent", "uri.qmd", "index.health"],
+          "timeoutMs": 30000,
+          "profileRevision": "qmd/2.5",
+          "indexId": "",
+          "collectionIds": []
+        },
+        "graphify": {
+          "invocationMode": "cli",
+          "versionPolicy": ">=0.9 <1",
+          "requiredFeatures": ["graph.query", "result.normalized"],
+          "timeoutMs": 30000,
+          "profileRevision": "graphify/0.9"
+        },
+        "ollama": {
+          "invocationMode": "http",
+          "versionPolicy": ">=0.3",
+          "requiredFeatures": ["embeddings.openai-compatible", "model.fingerprint"],
+          "timeoutMs": 30000,
+          "profileRevision": "ollama/openai-embeddings-v1"
+        },
+        "lightrag": {
+          "invocationMode": "http",
+          "versionPolicy": "wrapper-defined",
+          "requiredFeatures": ["query", "health"],
+          "timeoutMs": 30000,
+          "profileRevision": "lightrag/wrapper-v1"
+        },
+        "raganything": {
+          "invocationMode": "http",
+          "versionPolicy": "wrapper-defined",
+          "requiredFeatures": ["query", "health"],
+          "timeoutMs": 30000,
+          "profileRevision": "raganything/wrapper-v1"
+        },
+        "mcp-sdk": {
+          "invocationMode": "sdk",
+          "versionPolicy": ">=1 <2",
+          "requiredFeatures": ["transport.stdio", "server.tools"],
+          "timeoutMs": 30000,
+          "profileRevision": "mcp-typescript-sdk/v1"
+        }
+      },
+      "allowedScopes": ["vault", "workspace-project", "session"],
+      "sensitivity": "public",
+      "validator": { "id": "toolchain-capability-profiles" },
+      "requires": ["toolchain.provider_selection"],
+      "applyMode": "next-operation",
+      "visibility": "advanced"
+    },
+    {
+      "key": "toolchain.device_bindings",
+      "owner": "runtime.toolchain",
+      "category": "toolchain",
+      "name": "Toolchain device bindings",
+      "description": "Device-local executable and endpoint references for Toolchain Capability Profiles. Values are redacted in Doctor and never accept credential-bearing URLs.",
+      "valueType": "object",
+      "defaultValue": {
+        "opencli": { "executable": "opencli", "endpoint": "" },
+        "qmd": { "executable": "qmd", "endpoint": "" },
+        "graphify": { "executable": "graphify", "endpoint": "" },
+        "ollama": { "executable": "", "endpoint": "http://localhost:11434/v1/embeddings" },
+        "lightrag": { "executable": "", "endpoint": "" },
+        "raganything": { "executable": "", "endpoint": "" },
+        "mcp-sdk": { "executable": "", "endpoint": "" }
+      },
+      "allowedScopes": ["user-device", "session"],
+      "sensitivity": "local",
+      "validator": { "id": "toolchain-device-bindings" },
+      "requires": ["toolchain.provider_selection"],
+      "applyMode": "restart-required",
+      "visibility": "advanced"
+    },
+    {
+      "key": "embeddings.default_profile",
+      "owner": "runtime.embedding",
+      "category": "models",
+      "name": "Default embedding profile",
+      "description": "Default embedding profile for indexes without an explicit binding. Both built-in profiles remain supported.",
+      "valueType": "enum",
+      "defaultValue": "ollama/bge-m3",
+      "allowedScopes": ["user-device", "vault", "workspace-project", "session"],
+      "sensitivity": "public",
+      "validator": {
+        "id": "enum",
+        "enum": ["ollama/bge-m3", "ollama/qwen3-embedding:0.6b"]
+      },
+      "requires": [],
+      "applyMode": "restart-required",
+      "visibility": "advanced"
+    },
+    {
+      "key": "embeddings.endpoint",
+      "owner": "runtime.embedding",
+      "category": "models",
+      "name": "Embedding endpoint",
+      "description": "Device-local OpenAI-compatible embedding endpoint shared by built-in profiles.",
+      "valueType": "string",
+      "defaultValue": "http://localhost:11434/v1/embeddings",
+      "allowedScopes": ["user-device", "session"],
+      "sensitivity": "local",
+      "validator": {
+        "id": "url",
+        "required": true,
+        "maxLength": 1000,
+        "pattern": "^https?://[^\\s]+$"
+      },
+      "requires": ["embeddings.default_profile"],
+      "applyMode": "restart-required",
+      "visibility": "advanced"
+    },
+    {
+      "key": "embeddings.index_profiles",
+      "owner": "runtime.embedding",
+      "category": "models",
+      "name": "Embedding index profile bindings",
+      "description": "Per-index profile bindings. Different indexes may use different supported models, while each index remains fingerprint-homogeneous.",
+      "valueType": "object",
+      "defaultValue": {
+        "vaultbrain": "ollama/bge-m3",
+        "memu": "ollama/qwen3-embedding:0.6b"
+      },
+      "allowedScopes": ["vault", "workspace-project", "session"],
+      "sensitivity": "public",
+      "validator": { "id": "embedding-index-profile-bindings" },
+      "requires": ["embeddings.default_profile"],
+      "applyMode": "restart-required",
+      "visibility": "advanced"
+    },
+    {
+      "key": "embeddings.fingerprint_enforcement",
+      "owner": "runtime.embedding",
+      "category": "models",
+      "name": "Embedding fingerprint enforcement",
+      "description": "How Settings and adapters treat an index whose fingerprint does not match the selected embedding profile.",
+      "valueType": "enum",
+      "defaultValue": "rebuild-required",
+      "allowedScopes": ["vault", "workspace-project", "session"],
+      "sensitivity": "public",
+      "validator": {
+        "id": "enum",
+        "enum": ["rebuild-required", "reject-mismatch"]
+      },
+      "requires": ["embeddings.index_profiles"],
+      "applyMode": "next-operation",
+      "visibility": "advanced"
+    },
+    {
+      "key": "embeddings.index_fingerprints",
+      "owner": "runtime.embedding",
+      "category": "models",
+      "name": "Recorded embedding index fingerprints",
+      "description": "Observed embedding fingerprints per index identity (provider, endpoint identity, model, dimensions, adapter schema, digest). Used for Doctor mismatch diagnostics; never stores credentials.",
+      "valueType": "object",
+      "defaultValue": {},
+      "allowedScopes": ["vault", "workspace-project", "session"],
+      "sensitivity": "public",
+      "validator": { "id": "embedding-index-fingerprints" },
+      "requires": ["embeddings.index_profiles"],
+      "applyMode": "hot",
+      "visibility": "internal"
+    },
+    {
       "key": "adapters.memu.embed_model",
       "owner": "runtime.adapter-memu",
       "category": "adapters",
@@ -293,7 +487,8 @@
       "validator": { "id": "non-empty-string", "required": true, "maxLength": 300 },
       "requires": ["adapters.memu.dsn"],
       "applyMode": "restart-required",
-      "visibility": "advanced"
+      "visibility": "advanced",
+      "deprecatedBy": "embeddings.index_profiles"
     },
     {
       "key": "adapters.lightrag.base_url",
@@ -555,6 +750,52 @@
       "validator": { "id": "string", "maxLength": 200 },
       "requires": ["adapters.enabled"],
       "applyMode": "restart-required",
+      "visibility": "advanced",
+      "deprecatedBy": "adapters.qmd.collections"
+    },
+    {
+      "key": "adapters.qmd.collections",
+      "owner": "runtime.adapter-qmd",
+      "category": "adapters",
+      "name": "QMD collections",
+      "description": "Optional QMD collection names. Empty means query all collections in the selected index.",
+      "valueType": "list",
+      "defaultValue": [],
+      "allowedScopes": ["vault", "workspace-project", "session"],
+      "sensitivity": "public",
+      "validator": { "id": "string-list" },
+      "requires": ["adapters.enabled"],
+      "applyMode": "restart-required",
+      "visibility": "advanced"
+    },
+    {
+      "key": "adapters.qmd.index",
+      "owner": "runtime.adapter-qmd",
+      "category": "adapters",
+      "name": "QMD named index",
+      "description": "Optional device-local QMD named index. Empty uses QMD's default index.",
+      "valueType": "string",
+      "defaultValue": "",
+      "allowedScopes": ["user-device", "session"],
+      "sensitivity": "local",
+      "validator": { "id": "string", "maxLength": 200 },
+      "requires": ["adapters.enabled"],
+      "applyMode": "restart-required",
+      "visibility": "advanced"
+    },
+    {
+      "key": "adapters.qmd.embedding_model",
+      "owner": "runtime.adapter-qmd",
+      "category": "models",
+      "name": "QMD embedding model",
+      "description": "QMD embedding-model identity used to fingerprint the selected index. Changing it requires qmd embed -f.",
+      "valueType": "string",
+      "defaultValue": "hf:ggml-org/embeddinggemma-300M-GGUF/embeddinggemma-300M-Q8_0.gguf",
+      "allowedScopes": ["user-device", "session"],
+      "sensitivity": "local",
+      "validator": { "id": "non-empty-string", "required": true, "maxLength": 1000 },
+      "requires": ["adapters.qmd.index"],
+      "applyMode": "restart-required",
       "visibility": "advanced"
     },
     {
@@ -568,6 +809,66 @@
       "allowedScopes": ["user-device", "session"],
       "sensitivity": "local",
       "validator": { "id": "non-empty-path", "required": true, "maxLength": 1000 },
+      "requires": ["adapters.enabled"],
+      "applyMode": "restart-required",
+      "visibility": "advanced"
+    },
+    {
+      "key": "adapters.graphify.binary",
+      "owner": "runtime.adapter-graphify",
+      "category": "adapters",
+      "name": "Graphify executable",
+      "description": "Device-local Graphify executable name or path. The portable default resolves through PATH.",
+      "valueType": "path",
+      "defaultValue": "graphify",
+      "allowedScopes": ["user-device", "session"],
+      "sensitivity": "local",
+      "validator": { "id": "non-empty-path", "required": true, "maxLength": 1000 },
+      "requires": ["adapters.enabled"],
+      "applyMode": "restart-required",
+      "visibility": "advanced"
+    },
+    {
+      "key": "adapters.graphify.output_dir",
+      "owner": "runtime.adapter-graphify",
+      "category": "adapters",
+      "name": "Graphify output directory",
+      "description": "Optional device-local directory containing graph.json. Empty uses the portable vault-relative graphify-out directory.",
+      "valueType": "path",
+      "defaultValue": "",
+      "allowedScopes": ["user-device", "session"],
+      "sensitivity": "local",
+      "validator": { "id": "non-empty-path", "required": false, "maxLength": 1000 },
+      "requires": ["adapters.enabled"],
+      "applyMode": "restart-required",
+      "visibility": "advanced"
+    },
+    {
+      "key": "adapters.graphify.auto_rescan",
+      "owner": "runtime.adapter-graphify",
+      "category": "adapters",
+      "name": "Graphify automatic rescan",
+      "description": "Run Graphify update before graph reads. Disabled by default so ordinary reads do not start an external scan.",
+      "valueType": "boolean",
+      "defaultValue": false,
+      "allowedScopes": ["vault", "workspace-project", "session"],
+      "sensitivity": "public",
+      "validator": { "id": "boolean" },
+      "requires": ["adapters.enabled"],
+      "applyMode": "restart-required",
+      "visibility": "advanced"
+    },
+    {
+      "key": "adapters.graphify.timeout_ms",
+      "owner": "runtime.adapter-graphify",
+      "category": "adapters",
+      "name": "Graphify subprocess timeout",
+      "description": "Fail-closed deadline for Graphify query and update subprocesses.",
+      "valueType": "integer",
+      "defaultValue": 30000,
+      "allowedScopes": ["user-device", "vault", "workspace-project", "session"],
+      "sensitivity": "public",
+      "validator": { "id": "integer", "min": 100, "max": 300000 },
       "requires": ["adapters.enabled"],
       "applyMode": "restart-required",
       "visibility": "advanced"

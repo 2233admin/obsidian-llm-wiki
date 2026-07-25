@@ -40,6 +40,25 @@ import {
 import { createDefaultHostCapabilityTransportFactory } from '../host-capabilities/transport.js';
 import { makeLegacyAgentMigrationOps } from '../agent-domain/legacy-migration.js';
 import { makeAgentDomainOps } from '../agent-domain/operations.js';
+import { makeVisualWorkspaceOps } from '../visual-workspace/operations.js';
+import { makeAdapterGraphOps } from '../adapters/graph-query.js';
+import type {
+  GovernedContributionPort,
+} from '../problem-intake/contracts.js';
+import { makeProblemIntakeOps } from '../problem-intake/operations.js';
+import { createProductionProblemIntakeDependencies } from '../problem-intake/production.js';
+import {
+  createExecFileObcRunner,
+  runObcReadOnlyLint,
+} from '../problem-intake/obc-runner.js';
+import { createProductionProjectHubIntegration } from '../project-hub/production.js';
+import {
+  createVaultGovernedContributionPort,
+  type UiWorkRunApprovalPairPort,
+} from '../contributions/index.js';
+import { makeAgentWikiFeatureOps, resolveAgentWikiFeatureFlags } from '../release/feature-flags.js';
+
+export { makeAdapterGraphOps };
 
 const execAsync = promisify(execFile);
 const PROTECTED_DIRS = new Set(['.obsidian', '.trash', '.git', 'node_modules']);
@@ -648,6 +667,17 @@ export interface AllOperationsDeps {
   configPath?: string;
   contextCorePath?: string;
   hostCapabilityTransportFactory?: HostCapabilityTransportFactory;
+  /**
+   * Late-bound forge execution lane. The factory must resolve repository
+   * candidates from governed Project Context; user input is selection only.
+   */
+  problemContributionFactory?: (input: {
+    vaultPath: string;
+  }) => {
+    contribution: GovernedContributionPort;
+  };
+  /** Optional external issuer for exact, expiring UI/Work Run approval pairs. */
+  problemContributionApprovalPairs?: UiWorkRunApprovalPairPort;
 }
 
 export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
@@ -662,7 +692,56 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     compilerPath,
   };
   const settingsService = createSettingsService(settingsOptions);
+  const agentWikiFeatures = resolveAgentWikiFeatureFlags();
   compileTrigger?.setEnvironmentResolver?.(() => resolveAgentModelProcessEnvironment(settingsService));
+  const projectOps = makeProjectOps(vaultPath);
+  const projectOpsByName = new Map(projectOps.map((operation) => [operation.name, operation]));
+  const problemContribution = deps.problemContributionFactory?.({ vaultPath }) ?? {
+    contribution: createVaultGovernedContributionPort({
+      vaultPath,
+      ...(deps.problemContributionApprovalPairs
+        ? { approvalPairs: deps.problemContributionApprovalPairs }
+        : {}),
+    }),
+  };
+  const obcRunner = createExecFileObcRunner({
+    pythonCommand: python,
+    cwd: _projectRoot,
+  });
+  const problemDependencies = createProductionProblemIntakeDependencies(
+    vaultPath,
+    {
+      async call(operationName, params, context) {
+        const operation = projectOpsByName.get(operationName);
+        if (!operation) throw makeErr(-32601, `Project operation unavailable: ${operationName}`);
+        const result = await operation.handler(context as Parameters<typeof operation.handler>[0], params);
+        if (!result || typeof result !== 'object' || Array.isArray(result)) {
+          throw makeErr(-32000, `Project operation returned an invalid result: ${operationName}`);
+        }
+        return result as Record<string, unknown>;
+      },
+    },
+    {
+      contribution: problemContribution.contribution,
+    },
+  );
+  const projectHubIntegration = createProductionProjectHubIntegration({
+    vaultPath,
+    problemIntake: problemDependencies,
+  });
+  const problemOps = makeProblemIntakeOps(
+    vaultPath,
+    problemDependencies,
+    { obcRunner },
+  );
+  const catalogOperations = operations.map((operation) => {
+    if (operation.name !== 'vault.lint') return operation;
+    return {
+      ...operation,
+      description: 'Deprecated read-only OBC compatibility scan. Use problem.intake.scan with a canonical Project ID to persist governed observations.',
+      handler: async () => runObcReadOnlyLint({ vaultPath, runner: obcRunner }),
+    } satisfies Operation;
+  });
 
   const compileOps: Operation[] = [
     {
@@ -693,6 +772,36 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
         topic: { type: 'string', required: false, description: 'Topic filter' },
       },
       handler: async (_ctx, _params) => ({ dirty: compileTrigger.status().dirty }),
+    },
+    {
+      name: 'compile.maintenance.plan',
+      namespace: 'compile',
+      description: 'Plan eligible durable maintenance work using the same debounce and freshness deadlines as runtime execution; report-only and CI safe.',
+      mutating: false,
+      params: {
+        maxTopics: { type: 'number', required: false, default: 16, description: 'Maximum eligible topic entries to report' },
+      },
+      handler: async (_ctx, params) => compileTrigger.maintenancePlan({
+        reportOnly: true,
+        maxTopics: params.maxTopics as number | undefined,
+      }) ?? { reportOnly: true, schedulingMode: 'legacy-threshold', eligible: [], deferred: [], quarantined: [] },
+    },
+    {
+      name: 'compile.maintenance.drain',
+      namespace: 'compile',
+      description: 'Drain eligible durable topic maintenance with leases, bounded topic count, retries, and time budget.',
+      mutating: true,
+      writePolicy: externalSideEffectPolicy('compile/**'),
+      params: {
+        owner: { type: 'string', required: false, description: 'Stable maintenance worker identity' },
+        maxTopics: { type: 'number', required: false, default: 16 },
+        timeBudgetMs: { type: 'number', required: false, default: 120000 },
+      },
+      handler: async (_ctx, params) => compileTrigger.drainMaintenance({
+        owner: params.owner as string | undefined,
+        maxTopics: params.maxTopics as number | undefined,
+        timeBudgetMs: params.timeBudgetMs as number | undefined,
+      }),
     },
     {
  name: 'compile.abort',
@@ -762,6 +871,8 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
         weights: { type: 'object', required: false, description: 'Per-adapter score weight multipliers, e.g. {"obsidian":1.2,"filesystem":0.8}' },
         caseSensitive: { type: 'boolean', required: false, description: 'Case-sensitive matching', default: false },
         context: { type: 'number', required: false, description: 'Lines of surrounding context per match' },
+        intent: { type: 'string', required: false, description: 'Retrieval intent such as navigation, factual support, or quotation' },
+        detail: { type: 'string', required: false, enum: ['low', 'medium', 'high'], default: 'medium' },
       },
       handler: async (_ctx, params) => {
         const query = params.query as string;
@@ -776,6 +887,9 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
           context: params.context as number | undefined,
           adapters: params.adapters as string[] | undefined,
           weights: Object.keys(weights).length > 0 ? weights : undefined,
+          intent: params.intent as string | undefined,
+          detail: params.detail as 'low' | 'medium' | 'high' | undefined,
+          tierRouting: agentWikiFeatures.tieredRetrieval,
         });
       },
     },
@@ -791,6 +905,8 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
       weights: { type: 'object', required: false, description: 'Per-adapter score weight multipliers, e.g. {"obsidian":1.2,"filesystem":0.8}' },
       caseSensitive: { type: 'boolean', required: false, description: 'Case-sensitive matching', default: false },
       context: { type: 'number', required: false, description: 'Lines surrounding context per match' },
+      intent: { type: 'string', required: false, description: 'Retrieval intent such as navigation, factual support, or quotation' },
+      detail: { type: 'string', required: false, enum: ['low', 'medium', 'high'], default: 'medium' },
     },
     handler: async (_ctx, params) => {
       const query = params.query as string;
@@ -805,6 +921,9 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
         context: params.context as number | undefined,
         adapters: params.adapters as string[] | undefined,
         weights: Object.keys(weights).length > 0 ? weights : undefined,
+        intent: params.intent as string | undefined,
+        detail: params.detail as 'low' | 'medium' | 'high' | undefined,
+        tierRouting: agentWikiFeatures.tieredRetrieval,
       });
     },
   },
@@ -820,6 +939,8 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
       weights: { type: 'object', required: false, description: 'Per-adapter score weight multipliers, e.g. {"obsidian":1.2,"filesystem":0.8}' },
       caseSensitive: { type: 'boolean', required: false, description: 'Case-sensitive matching', default: false },
       context: { type: 'number', required: false, description: 'Lines surrounding context per match' },
+      intent: { type: 'string', required: false, description: 'Retrieval intent such as navigation, factual support, or quotation' },
+      detail: { type: 'string', required: false, enum: ['low', 'medium', 'high'], default: 'medium' },
     },
     handler: async (_ctx, params) => {
       const query = params.query as string;
@@ -837,6 +958,9 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
         context: params.context as number | undefined,
         adapters: params.adapters as string[] | undefined,
         weights: Object.keys(weights).length > 0 ? weights : undefined,
+        intent: params.intent as string | undefined,
+        detail: params.detail as 'low' | 'medium' | 'high' | undefined,
+        tierRouting: agentWikiFeatures.tieredRetrieval,
       });
       for (const g of await recallGaps(backfill)) answer.gaps.unshift(g);
       return answer;
@@ -1211,24 +1335,39 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     ...makeGraphOps(contextCoreLoader, vaultPath),
     ...makeVaultWriteOps(vaultPath, contextCoreLoader),
     ...makeMemoryOps(vaultPath),
-    ...makeProjectOps(vaultPath),
-    ...makeProjectHubOps(registry, settingsService),
+    ...projectOps,
+    ...makeProjectHubOps(registry, settingsService, {
+      loadVisualTriage: projectHubIntegration.loadVisualTriage,
+    }),
     ...makeProjectMigrationOps({ python, compilerPath, vaultPath }),
     ...makeIngestOps(),
-    ...makeSourceOps(vaultPath),
+    ...makeSourceOps(vaultPath, { ingestExecutionEnabled: agentWikiFeatures.sourceIngestExecution }),
     ...makeConversationOps(vaultPath),
     ...makeWorkflowOps(vaultPath),
     ...makeContextOps(vaultPath, registry, defaultWeights),
     ...makeSettingsOps(settingsOptions, settingsService),
+    ...makeAgentWikiFeatureOps(agentWikiFeatures),
     ...makeUsageOps(vaultPath),
     ...makeHostCapabilityOps(vaultPath, {
       transportFactory: deps.hostCapabilityTransportFactory ?? createDefaultHostCapabilityTransportFactory(),
       settingsService,
+      observePluginDiagnostic: projectHubIntegration.observePluginDiagnostic,
     }),
     ...makeAgentDomainOps(vaultPath),
     ...makeLegacyAgentMigrationOps(),
+    ...makeVisualWorkspaceOps(vaultPath),
+    ...makeAdapterGraphOps(registry),
   ];
-  return [...operations, ...compileOps, ...queryOps, ...multimodalOps, ...lightRagOps, ...agentOps, ...holonOps];
+  return [
+    ...catalogOperations,
+    ...compileOps,
+    ...queryOps,
+    ...multimodalOps,
+    ...lightRagOps,
+    ...agentOps,
+    ...holonOps,
+    ...problemOps,
+  ];
 }
 
 function normalizeVaultRelPath(path: string): string {

@@ -16,6 +16,8 @@ their reviewed outputs without replacing them.
 | Human project map, decisions, retrospectives | Obsidian vault | Keep Project Hubs, Decisions, Playbooks, and Handoffs readable and reviewable. |
 | Agent drafts and role outputs | `00-Inbox/AI-Output/<agent>/` | Quarantine until reviewed; never treat draft output as team truth. |
 | Durable team truth | `20-Decisions/`, `30-Architecture/`, `40-Runbooks/` | Require human review or hosted review flow before promotion. |
+| Raw accepted evidence | `00-Inbox/Evidence/` plus immutable ingest artifacts | Cite and retrieve it; do not treat it as a reviewed conclusion. |
+| Maintained compiled projection | generation-selected compiler outputs and `wiki/` compatibility views | Treat as derived knowledge whose authority depends on active source-versioned manifests and freshness. |
 
 ## Actor Model
 
@@ -123,6 +125,14 @@ agent draft -> reviewed summary -> promoted decision/runbook/project hub link
 - Promoted notes become team truth only in protected reviewed locations.
 - Conflict copies are merge work, not knowledge. Resolve them manually and
   delete the conflict file.
+
+## Evidence and compiled projections
+
+An Evidence Note is accepted, hashed Source material with capture and profile provenance. It can support a cited answer, but it is not automatically a Decision, Architecture record, Runbook, or approved Agent Memory.
+
+Compiled summaries, concepts, relationships, contradictions, and backlinks are maintained projections. The compiler rebuilds the affected topic closure from the complete active contribution set and publishes one atomic generation. Revising, disabling, or removing a Source retracts only that Source's obsolete contributions; support from other active Sources remains. Legacy output marked `unknown-provenance` must be reported/backfilled and fully rebuilt before destructive source-scoped retraction.
+
+Retrieval may supplement a stale or missing-provenance compiled result with raw Evidence, especially for quotations, factual support, or high-detail questions. That fallback improves grounding; it does not promote raw Evidence into durable team truth.
 
 ## Compatibility Checks
 

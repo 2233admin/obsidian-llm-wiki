@@ -70,3 +70,41 @@ Retired `10-Projects/<project>/docket/**` inputs may migrate only into authorita
 - `project.context.doctor` has no unexplained identity drift.
 - `project.hub.get` remains read-only and contains no machine-local path or resolved secret.
 - Git review shows only the intended shared records; machine-local bindings and capabilities remain outside shared knowledge.
+
+## Agent Wiki additive state migration
+
+Agent Wiki state is versioned and additive. Current readers accept supported legacy/v0 Ingest Run, receipt, and maintenance queue shapes in memory; the next successful mutation writes canonical v1. Contribution manifests use `unknown-provenance` for legacy compiler output until backfill or an operator-reviewed `python compiler/compile.py <topic> --full --force-full-rebuild` establishes source-versioned support. Ordinary compile and maintenance runs fail closed instead of bypassing this gate. Settings migration remains report-first through `settings.migrations.plan`.
+
+Retained state includes:
+
+```text
+_llmwiki/ingest-runs/v1/       runs and immutable receipts
+_llmwiki/ingest-artifacts/v1/  immutable captures and derivatives
+_llmwiki/ingest-active/v1/     active Source digests
+_llmwiki/maintenance/          queue state and execution receipts
+<topic>/.llmwiki/              contribution manifests and generation pointers
+```
+
+Query traces are versioned, redacted diagnostic output and are not a durable authority. If a host persists them externally, apply that host's diagnostic-log retention policy; do not promote them into Memory.
+
+### Rollback switches
+
+1. Inspect `settings.agent_wiki.features`.
+2. Set only the compatibility switch needed for the affected surface:
+   - `VAULT_MIND_AGENT_WIKI_INGEST=disabled` blocks new run/resume;
+   - `VAULT_MIND_COMPILE_TRIGGER_MODE=legacy-threshold` restores the old trigger;
+   - `VAULT_MIND_RETRIEVAL_MODE=legacy-rrf` restores pure RRF ordering;
+   - `VAULT_MIND_TOOLCHAIN_PROBES=disabled` prevents live provider probes.
+3. Restart the MCP process when its environment changes.
+4. Verify registration, read-only inspection, filesystem retrieval, and compiler output before removing any state.
+
+Rollback never deletes runs, receipts, manifests, generations, queues, fingerprints, or traces. Retain them until a backup is verified and any required full rebuild has completed. Delete immutable artifacts only under an explicit data-retention decision after proving that no active Source, receipt, or projection references their hashes.
+
+### Upgrade verification
+
+- Run `settings.migrations.plan`, `settings.validate`, and `settings.doctor`.
+- Confirm provider profiles show expected version/capabilities without endpoint or secret reflection.
+- Run `source.ingest.verify` for representative old and new runs.
+- Plan the maintenance queue in report-only mode before draining it.
+- Verify the current compiler generation pointer and unaffected projection byte stability.
+- Exercise both tiered retrieval and the `legacy-rrf` fallback before removing the rollback window.

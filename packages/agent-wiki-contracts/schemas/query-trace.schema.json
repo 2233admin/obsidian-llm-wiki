@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.llmwiki.org/agent-wiki/v1/query-trace.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "traceId", "selectedTiers", "freshness", "normalizedIdentifiers", "providerIds", "diagnosticCodes", "fallbacks", "createdAt"],
+  "properties": {
+    "schemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+    "traceId": { "$ref": "common.schema.json#/$defs/identifier" },
+    "intent": { "type": "string" },
+    "detail": { "type": "string" },
+    "selectedTiers": { "type": "array", "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/evidenceTier" } },
+    "freshness": { "$ref": "common.schema.json#/$defs/freshnessState" },
+    "normalizedIdentifiers": { "type": "array", "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/identifier" } },
+    "providerIds": { "type": "array", "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/providerId" } },
+    "diagnosticCodes": { "type": "array", "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/diagnosticCode" } },
+    "fallbacks": { "type": "array", "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/identifier" } },
+    "createdAt": { "$ref": "common.schema.json#/$defs/timestamp" }
+  },
+  "additionalProperties": false
+}

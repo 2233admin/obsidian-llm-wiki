@@ -364,6 +364,10 @@ function settingsOperationAllowsTarget(toolName: string, target: string): boolea
 
 function governedBackendOperationAllowsTarget(toolName: string, target: string): boolean {
   const normalized = normalizePolicyPath(target);
+  if (toolName === 'visual.map.apply') {
+    return /^01-Projects\/[a-z0-9][a-z0-9-]*\/maps\/(?:[^/]+\/)*[^/]+$/.test(normalized)
+      && !normalized.split('/').some((segment) => segment === '.' || segment === '..');
+  }
   if (toolName === 'host.proxy.invoke') return normalized === 'external/host-capability/**';
   if (toolName === 'dreamtime.promotion.handoff') {
     return normalized === '00-Inbox/AI-Output/vault-dreamtime/**';

@@ -25,6 +25,11 @@ export interface SearchResult {
   score: number;
   /** Optional metadata */
   metadata?: Record<string, unknown>;
+  /**
+   * Versioned normalized evidence contract. Legacy adapters may omit it;
+   * unified retrieval fills safe defaults before returning results.
+   */
+  evidence?: import('../retrieval/evidence.js').NormalizedEvidence;
 }
 
 export interface SearchOpts {
@@ -36,6 +41,12 @@ export interface SearchOpts {
   context?: number;
   /** Case sensitive search */
   caseSensitive?: boolean;
+  /** Optional retrieval intent for adapters that support structured queries. */
+  intent?: string;
+  /** Ask compatible adapters to include ranking explanations. */
+  explain?: boolean;
+  /** Desired retrieval detail, used by the tier planner. */
+  detail?: "low" | "medium" | "high";
 }
 
 export interface GraphNode {
@@ -43,10 +54,31 @@ export interface GraphNode {
   title?: string;
 }
 
+export type GraphEdgeConfidence =
+  | "extracted"
+  | "inferred"
+  | "ambiguous"
+  | "unknown";
+
+/**
+ * Adapter-supplied evidence for a normalized graph edge.
+ *
+ * The normalized `type` keeps graph consumers portable while evidence retains
+ * the source adapter's richer relation vocabulary and confidence signal.
+ */
+export interface GraphEdgeEvidence {
+  adapter: string;
+  relation: string;
+  confidence: GraphEdgeConfidence;
+  sourcePath?: string;
+}
+
 export interface GraphEdge {
   from: string;
   to: string;
   type: "link" | "backlink" | "tag";
+  /** Optional because first-party adapters may not expose richer provenance. */
+  evidence?: GraphEdgeEvidence[];
 }
 
 export interface GraphData {

@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "providerIds": ["filesystem", "opencli", "qmd", "graphify", "ollama", "openai-compatible", "lightrag", "raganything", "hindsight", "mcp-sdk"],
+  "diagnosticCodes": ["ARTIFACT_MISSING", "CAPABILITY_MISSING", "FINGERPRINT_MISMATCH", "INCOMPATIBLE_OUTPUT", "LEASE_EXPIRED", "LEGACY_UNKNOWN_PROVENANCE", "MAINTENANCE_FAILED", "MISSING_PROVENANCE", "PARTIAL_RESULT", "PROVIDER_TIMEOUT", "PROVIDER_UNAVAILABLE", "SENSITIVE_ERROR_REDACTED", "STALE_PROJECTION", "TOOLCHAIN_OUTPUT_INVALID", "TOOLCHAIN_PROBE_TIMEOUT", "UNCHANGED_CONTENT"],
+  "evidenceTiers": ["compiled", "raw-evidence", "adapter-evidence"],
+  "freshnessStates": ["fresh", "stale", "unknown", "incompatible"],
+  "capabilityNames": ["adapters.status", "browser.bridge", "capture.filesystem", "capture.remote.structured", "capture.web", "command.list.structured", "definition.validate", "definition.verify", "doctor", "embedding.generate", "embeddings.openai-compatible", "graph.query", "health", "help.structured", "index.health", "ingest.verify", "media.transcribe", "model.fingerprint", "plugins.list", "profiles.list", "query", "query.explain", "query.hybrid", "query.intent", "query.lexical", "query.semantic", "result.normalized", "server.tools", "toolchain.doctor", "transport.stdio", "uri.qmd", "version.structured"]
+}

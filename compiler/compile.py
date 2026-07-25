@@ -5,6 +5,7 @@ Usage:
     python compile.py <vault_topic_path> [--tier haiku|sonnet|opus] [--dry-run]
                       [--chunk-size N] [--chunk-overlap N]
                       [--base-url URL] [--api-key KEY]
+                      [--force-full-rebuild]
 
 Environment variables:
     OPENAI_API_KEY   (or ANTHROPIC_API_KEY) -- API key
@@ -27,6 +28,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from chunker import chunk_file
+from contribution_manifest import (
+    apply_compile_extractions,
+    load_store,
+    source_id_from_path,
+    source_revision_from_bytes,
+)
 from extractor import ExtractionResult, extract_chunk, resolve_model, resolve_provider_url
 from models import Claim, CompileReport, Contradiction
 from wal import WAL
@@ -248,6 +255,18 @@ def _load_existing_concepts(wiki_concepts: Path) -> dict[str, str]:
     return mapping
 
 
+def _resolve_source_file(topic_root: Path, source_rel: str) -> Path | None:
+    """Resolve a compile source path under the topic root (raw/ optional prefix)."""
+    candidates = [
+        topic_root / source_rel,
+        topic_root / "raw" / source_rel,
+    ]
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    return None
+
+
 def _read_concept_file(path: Path) -> str:
     if path.exists():
         return path.read_text("utf-8-sig", errors="replace")
@@ -271,11 +290,12 @@ def step_merge_write(
     topic: str,
     dry_run: bool,
     wal: WAL | None = None,
-) -> tuple[int, int, int, int, list[Contradiction]]:
-    """Merge extracted knowledge into wiki/.
+    force_full_rebuild: bool = False,
+) -> tuple[int, int, int, int, list[Contradiction], int, int]:
+    """Merge extracted knowledge into wiki/ via source-versioned contribution manifests.
 
     Returns (summaries_written, concepts_created, concepts_updated,
-    contradictions_found, contradictions).
+    contradictions_found, contradictions, manifests_written, concepts_retracted).
     """
     base = Path(vault) / topic
     wiki = base / "wiki"
@@ -291,82 +311,18 @@ def step_merge_write(
     for ex in extractions:
         by_source.setdefault(ex.chunk.source, []).append(ex)
 
-    summaries_written = 0
-    concepts_created = 0
-    concepts_updated = 0
-    contradictions: list[Contradiction] = []
-
     # collect all claims across extractions for contradiction detection
     all_claims: list[Claim] = []
+    source_revisions: dict[str, str] = {}
 
     for source_rel, source_extractions in by_source.items():
-        # --- write summary ---
-        source_slug = _slugify(Path(source_rel).stem)
-        summary_path = wiki_summaries / f"{source_slug}.md"
-
-        summary_sections: list[str] = []
-        summary_sections.append(f"# Summary: {Path(source_rel).stem}\n")
-        summary_sections.append(f"> Source: `{source_rel}`  \n> Compiled: {_today()}\n")
-
-        for ex in source_extractions:
-            heading = ex.chunk.heading or "Overview"
-            summary_sections.append(f"\n## {heading}\n\n{ex.summary}")
-            if ex.relationships:
-                rel_lines = "\n".join(
-                    f"- **{r.get('from', '?')}** {r.get('type', '->')} **{r.get('to', '?')}**"
-                    for r in ex.relationships
-                )
-                summary_sections.append(f"\n### Relationships\n{rel_lines}")
-
-        summary_content = "\n".join(summary_sections) + "\n"
-        if dry_run:
-            print(f"  [dry-run] would write {summary_path.relative_to(base)}")
+        source_file = _resolve_source_file(base, source_rel)
+        if source_file is not None:
+            source_revisions[source_rel] = source_revision_from_bytes(source_file.read_bytes())
         else:
-            _write_atomic(summary_path, summary_content)
-            if wal is not None:
-                wal.append("write", str(summary_path.relative_to(base)))
-        summaries_written += 1
+            source_revisions[source_rel] = source_revision_from_bytes(source_rel.encode("utf-8"))
 
-        # --- process concepts ---
         for ex in source_extractions:
-            for concept_dict in ex.concepts:
-                name = concept_dict.get("name", "").strip()
-                definition = concept_dict.get("definition", "").strip()
-                if not name or not definition:
-                    continue
-
-                slug = _slugify(name)
-                concept_path = wiki_concepts / f"{slug}.md"
-                existing_text = _read_concept_file(concept_path)
-
-                if slug not in existing_slugs:
-                    # new concept
-                    content = (
-                        f"# {name}\n\n"
-                        f"{definition}\n\n"
-                        f"## Sources\n- `{source_rel}` ({_today()})\n"
-                    )
-                    if dry_run:
-                        print(f"  [dry-run] would create concept: {slug}.md")
-                    else:
-                        _write_atomic(concept_path, content)
-                        if wal is not None:
-                            wal.append("write", str(concept_path.relative_to(base)))
-                    existing_slugs[slug] = name
-                    concepts_created += 1
-                else:
-                    # existing concept -- append if source not already listed
-                    if source_rel not in existing_text:
-                        appended = existing_text.rstrip() + f"\n- `{source_rel}` ({_today()})\n"
-                        if dry_run:
-                            print(f"  [dry-run] would update concept: {slug}.md")
-                        else:
-                            _write_atomic(concept_path, appended)
-                            if wal is not None:
-                                wal.append("write", str(concept_path.relative_to(base)))
-                        concepts_updated += 1
-
-            # --- collect claims for contradiction detection ---
             for claim_dict in ex.claims:
                 content = claim_dict.get("content", "").strip()
                 confidence = float(claim_dict.get("confidence", 0.5))
@@ -378,14 +334,85 @@ def step_merge_write(
                         confidence=confidence,
                     ))
 
-    # --- contradiction detection ---
     contradictions = _detect_contradictions(all_claims)
 
-    if contradictions:
-        _write_contradictions(wiki, contradictions, dry_run)
+    # Snapshot managed concept set before apply for created/updated accounting.
+    before_store = load_store(base)
+    before_concepts = {
+        key
+        for manifest in before_store.get("manifests", {}).values()
+        if manifest.get("active")
+        for key in manifest.get("affectedConceptKeys", [])
+    }
+
+    results = apply_compile_extractions(
+        base,
+        by_source,
+        source_revisions=source_revisions,
+        contradictions=contradictions,
+        dry_run=dry_run,
+        force_full_rebuild=force_full_rebuild,
+    )
+
+    after_store = load_store(base) if not dry_run else before_store
+    after_concepts = {
+        key
+        for manifest in after_store.get("manifests", {}).values()
+        if manifest.get("active")
+        for key in manifest.get("affectedConceptKeys", [])
+    }
+    concepts_created = len(after_concepts - before_concepts)
+    concepts_retracted = len(before_concepts - after_concepts)
+    # Updated = still present and touched by this apply.
+    touched: set[str] = set()
+    for result in results:
+        touched.update(result.affected_concepts)
+    concepts_updated = len((touched & before_concepts & after_concepts))
+
+    summaries_written = 0
+    manifests_written = 0
+    for result in results:
+        if result.activated_manifest_id:
+            manifests_written += 1
+        for rel in result.swap.written:
+            if rel.startswith("summaries/"):
+                summaries_written += 1
+            if wal is not None and not dry_run:
+                wal.append("write", f"wiki/{rel}")
+        for rel in result.swap.deleted:
+            if wal is not None and not dry_run:
+                wal.append("delete", f"wiki/{rel}")
+
+    if dry_run:
+        for source_rel in by_source:
+            print(
+                f"  [dry-run] would activate manifest for {source_rel} "
+                f"({source_id_from_path(source_rel)})"
+            )
+        # Fall back to counting sources when dry-run does not persist store diffs.
+        if summaries_written == 0:
+            summaries_written = len(by_source)
+        if concepts_created == 0 and concepts_updated == 0:
+            planned = set()
+            for source_extractions in by_source.values():
+                for ex in source_extractions:
+                    for concept_dict in ex.concepts:
+                        name = concept_dict.get("name", "").strip()
+                        if name:
+                            planned.add(_slugify(name))
+            concepts_created = len(planned - set(existing_slugs))
+            concepts_updated = len(planned & set(existing_slugs))
 
     n_contradictions = len(contradictions)
-    return summaries_written, concepts_created, concepts_updated, n_contradictions, contradictions
+    return (
+        summaries_written,
+        concepts_created,
+        concepts_updated,
+        n_contradictions,
+        contradictions,
+        manifests_written,
+        concepts_retracted,
+    )
 
 
 def _detect_contradictions(claims: list[Claim]) -> list[Contradiction]:
@@ -553,6 +580,14 @@ def main() -> None:
         help="Recompile every raw file, bypassing incremental dirty-detection (LMVK L2 weekly full pass)",
     )
     parser.add_argument(
+        "--force-full-rebuild",
+        action="store_true",
+        help=(
+            "Explicitly authorize replacing legacy wiki projections without complete "
+            "contribution provenance. Use only after reviewing the unknown-provenance report."
+        ),
+    )
+    parser.add_argument(
         "--chunk-size",
         type=int,
         default=1000,
@@ -671,8 +706,25 @@ def main() -> None:
 
     # 4+5. merge + write
     print("\n[4/7] merge + [5/7] write -- updating wiki...")
-    summaries_written, concepts_created, concepts_updated, contradictions_found, _ = (
-        step_merge_write(extractions, vault, topic, args.dry_run, wal)
+    (
+        summaries_written,
+        concepts_created,
+        concepts_updated,
+        contradictions_found,
+        _,
+        manifests_written,
+        concepts_retracted,
+    ) = step_merge_write(
+        extractions,
+        vault,
+        topic,
+        args.dry_run,
+        wal,
+        force_full_rebuild=args.force_full_rebuild,
+    )
+    print(
+        f"  manifests={manifests_written} created={concepts_created} "
+        f"updated={concepts_updated} retracted={concepts_retracted}"
     )
 
     # 6. update hashes
@@ -699,6 +751,8 @@ def main() -> None:
         concepts_updated=concepts_updated,
         contradictions_found=contradictions_found,
         broken_links=broken_links,
+        manifests_written=manifests_written,
+        concepts_retracted=concepts_retracted,
     )
     _print_report(report, html_report)
 
@@ -726,6 +780,8 @@ def _print_report(report: CompileReport, html_report: ExportReport | None = None
     print(f"  Summaries written : {report.summaries_written}")
     print(f"  Concepts created  : {report.concepts_created}")
     print(f"  Concepts updated  : {report.concepts_updated}")
+    print(f"  Concepts retracted: {report.concepts_retracted}")
+    print(f"  Manifests written : {report.manifests_written}")
     print(f"  Contradictions    : {report.contradictions_found}")
     print(f"  Broken links      : {report.broken_links}")
     if html_report:

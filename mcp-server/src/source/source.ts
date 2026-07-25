@@ -13,6 +13,7 @@ import { badRequest, conflict, notFound, unsupported } from '../core/types.js';
 import { resultPath, sourcePolicyTargetPaths, touchMarkdown } from '../core/write-policy.js';
 import { preflight } from '../ingest/ingest.js';
 import { resolveProjectContext, type ProjectId } from '../project/project-context.js';
+import { makeSourceIngestRunOps } from './ingest-run.js';
 
 type SourceInputType = 'url' | 'vaultPath' | 'filePath' | 'directoryPath' | 'repoPath' | 'text';
 
@@ -41,12 +42,42 @@ interface SourceRegistry {
   sources: Record<string, SourceRecord>;
 }
 
+type IngestPlanStatus = 'ready' | 'needs_capability' | 'needs_access' | 'manual_required';
+
+interface SourceIngestPlan {
+  schemaVersion: 1;
+  planId: string;
+  idempotencyKey: string;
+  sourceId: string;
+  sourceVersion: string;
+  inputType: 'url' | 'vaultPath';
+  canonical: string;
+  status: IngestPlanStatus;
+  reportOnly: true;
+  willCreateIngestRun: false;
+  writes: [];
+  externalEffects: [];
+  capabilityRequirements: Array<{
+    provider: string;
+    capability: string;
+    required: true;
+    status: 'available' | 'unavailable' | 'access_required' | 'manual_required';
+  }>;
+  stages: Array<{
+    ordinal: number;
+    id: string;
+    provider: string;
+    capability: string;
+    execution: 'deferred';
+  }>;
+}
+
 const REGISTRY_REL_PATH = '_llmwiki/source-registry.json';
 const LOCK_TTL_MS = 60_000;
 const RESERVED_INPUT_TYPES = new Set<SourceInputType>(['filePath', 'directoryPath', 'repoPath', 'text']);
 const PROTECTED_DIRS = new Set(['.obsidian', '.trash', '.git', 'node_modules']);
 
-export function makeSourceOps(vaultPath: string): Operation[] {
+export function makeSourceOps(vaultPath: string, options: { ingestExecutionEnabled?: boolean } = {}): Operation[] {
   return [
     {
   name: 'source.register',
@@ -119,6 +150,36 @@ export function makeSourceOps(vaultPath: string): Operation[] {
       },
       handler: async (_ctx, params) => getSource(vaultPath, params),
     },
+    {
+      name: 'source.ingest.plan',
+      namespace: 'source',
+      description: 'Build a deterministic, report-only ingest plan for a registered URL or vaultPath Source. It creates no Ingest Run, capture, derivative, or vault write.',
+      mutating: false,
+      params: {
+        id: { type: 'string', required: false, description: 'Registered Source id' },
+        input: { type: 'string', required: false, description: 'Registered Source URL or vault-relative path' },
+        inputType: {
+          type: 'string',
+          required: false,
+          default: 'url',
+          enum: ['url', 'vaultPath'],
+          description: 'Input type used when resolving input to a registered Source',
+        },
+        preferredProvider: {
+          type: 'string',
+          required: false,
+          enum: ['auto', 'opencli', 'media'],
+          default: 'auto',
+          description: 'Optional read-only provider routing override for URL planning',
+        },
+      },
+      handler: async (_ctx, params) => planSourceIngest(vaultPath, params),
+    },
+    ...makeSourceIngestRunOps(vaultPath, {
+      getSource: (params) => getSource(vaultPath, params),
+      plan: (params) => planSourceIngest(vaultPath, params),
+      executionEnabled: options.ingestExecutionEnabled,
+    }),
   ];
 }
 
@@ -212,6 +273,140 @@ function getSource(vaultPath: string, params: Record<string, unknown>): SourceRe
   const source = registry.sources[id];
   if (!source) throw notFound(`Source not found: ${id}`);
   return source;
+}
+
+function planSourceIngest(vaultPath: string, params: Record<string, unknown>): SourceIngestPlan {
+  const source = getSource(vaultPath, params);
+  if (source.inputType !== 'url' && source.inputType !== 'vaultPath') {
+    throw unsupported(`source.ingest.plan does not support inputType=${source.inputType}`);
+  }
+
+  const providerStages = source.inputType === 'url'
+    ? urlIngestStages(source, params)
+    : [{ provider: 'filesystem', capability: 'vault.read', configured: true }];
+  const capabilityRequirements: SourceIngestPlan['capabilityRequirements'] = providerStages.map((stage) => ({
+    provider: stage.provider,
+    capability: stage.capability,
+    required: true,
+    status: stage.configured ? 'available' : 'unavailable',
+  }));
+  const preflightStatus = source.inputType === 'url'
+    ? stringValue(freshUrlPreflight(source, params).status)
+    : 'ready';
+  if (preflightStatus === 'needs_browser_or_login') {
+    capabilityRequirements.push({
+      provider: providerStages[0]?.provider ?? 'opencli',
+      capability: 'access.browser_or_login',
+      required: true,
+      status: 'access_required',
+    });
+  } else if (preflightStatus === 'manual_required') {
+    capabilityRequirements.push({
+      provider: providerStages[0]?.provider ?? 'manual',
+      capability: 'access.manual_review',
+      required: true,
+      status: 'manual_required',
+    });
+  }
+
+  const stages = [
+    ...providerStages.map((stage, index) => ({
+      ordinal: index + 1,
+      id: `capture-${index + 1}`,
+      provider: stage.provider,
+      capability: stage.capability,
+      execution: 'deferred' as const,
+    })),
+    {
+      ordinal: providerStages.length + 1,
+      id: 'materialize-evidence',
+      provider: 'llmwiki',
+      capability: 'evidence.materialize',
+      execution: 'deferred' as const,
+    },
+    {
+      ordinal: providerStages.length + 2,
+      id: 'verify-index',
+      provider: 'llmwiki',
+      capability: 'knowledge.index.verify',
+      execution: 'deferred' as const,
+    },
+  ];
+  const sourceVersion = sourceVersionFingerprint(vaultPath, source);
+  const planFingerprintInput = {
+    schemaVersion: 1,
+    sourceId: source.id,
+    sourceVersion,
+    stages: stages.map(({ id, provider, capability }) => ({ id, provider, capability })),
+  };
+  const fingerprint = createHash('sha256').update(JSON.stringify(planFingerprintInput)).digest('hex');
+
+  return {
+    schemaVersion: 1,
+    planId: `ingest_plan_${fingerprint.slice(0, 16)}`,
+    idempotencyKey: `sha256:${fingerprint}`,
+    sourceId: source.id,
+    sourceVersion,
+    inputType: source.inputType,
+    canonical: source.canonical,
+    status: ingestPlanStatus(preflightStatus, capabilityRequirements),
+    reportOnly: true,
+    willCreateIngestRun: false,
+    writes: [],
+    externalEffects: [],
+    capabilityRequirements,
+    stages,
+  };
+}
+
+function freshUrlPreflight(source: SourceRecord, params: Record<string, unknown>): Record<string, unknown> {
+  return preflight({
+    url: source.canonical,
+    preferredProvider: optionalString(params.preferredProvider) ?? 'auto',
+  });
+}
+
+function urlIngestStages(
+  source: SourceRecord,
+  params: Record<string, unknown>,
+): Array<{ provider: string; capability: string; configured: boolean }> {
+  const plan = freshUrlPreflight(source, params);
+  const pipeline = Array.isArray(plan.pipeline) ? plan.pipeline : [];
+  return pipeline.map((entry) => {
+    const step = entry && typeof entry === 'object' ? entry as Record<string, unknown> : {};
+    return {
+      provider: stringValue(step.id) ?? 'unknown',
+      capability: stringValue(step.capability) ?? 'capture.unknown',
+      configured: step.configured === true,
+    };
+  });
+}
+
+function ingestPlanStatus(
+  preflightStatus: string | undefined,
+  requirements: SourceIngestPlan['capabilityRequirements'],
+): IngestPlanStatus {
+  if (requirements.some((requirement) => requirement.status === 'unavailable')) {
+    return 'needs_capability';
+  }
+  if (preflightStatus === 'needs_browser_or_login') return 'needs_access';
+  if (preflightStatus === 'manual_required') return 'manual_required';
+  return 'ready';
+}
+
+function sourceVersionFingerprint(vaultPath: string, source: SourceRecord): string {
+  let content: Buffer;
+  if (source.inputType === 'vaultPath') {
+    const normalized = normalizeVaultRelPath(vaultPath, source.canonical.slice('vault:'.length));
+    const fullPath = vaultFullPath(vaultPath, normalized);
+    if (!statSync(fullPath).isFile()) {
+      throw unsupported('source.ingest.plan requires vaultPath to reference a file; use directoryPath when that Source Input becomes supported');
+    }
+    content = readFileSync(fullPath);
+  } else {
+    content = Buffer.from(source.canonical, 'utf8');
+  }
+  return `sha256:${createHash('sha256').update(content).digest('hex')}`;
 }
 
 function sourceIdForInput(vaultPath: string, params: Record<string, unknown>): string | undefined {

@@ -1,0 +1,9 @@
+[
+  { "name": "navigation", "intent": "concept navigation", "detail": "low", "expectedFirstTier": "compiled" },
+  { "name": "factual-support", "intent": "factual support", "detail": "medium", "expectedFirstTier": "raw-evidence" },
+  { "name": "stale-compilation", "intent": "verify fact", "detail": "high", "compiledFreshness": "stale", "expectedFirstTier": "raw-evidence" },
+  { "name": "missing-provenance", "intent": "evidence", "detail": "high", "compiledFreshness": "unknown", "expectedFirstTier": "raw-evidence" },
+  { "name": "provider-explanation", "intent": "general", "detail": "medium", "explanation": "hybrid semantic and lexical match", "expectedExplanation": true },
+  { "name": "adapter-timeout", "error": "request timed out after 100ms", "expectedDiagnostic": "PROVIDER_TIMEOUT" },
+  { "name": "sensitive-error-reflection", "error": "https://user:secret@private.example/api?token=abc", "expectedDiagnostic": "SENSITIVE_ERROR_REDACTED" }
+]

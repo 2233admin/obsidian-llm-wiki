@@ -17,10 +17,13 @@ export interface ChunkInput {
   tokenCount: number;
 }
 
+import type { EmbeddingFingerprint } from "../../embedding/profile.js";
+
 export interface VaultBrainEngine {
   connect(): Promise<void>;
   disconnect(): Promise<void>;
   initSchema(): Promise<void>;
+  ensureEmbeddingFingerprint(fingerprint: EmbeddingFingerprint): Promise<void>;
 
   // pages
   upsertPage(slug: string, title: string, content: string, hash: string): Promise<void>;

@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "scope": "vault",
+  "targetId": "replace-with-vault-id",
+  "revision": 1,
+  "assignments": [
+    {
+      "key": "toolchain.provider_selection",
+      "value": ["opencli", "qmd", "ollama"],
+      "provenance": { "actor": "person:operator", "source": "example" }
+    },
+    {
+      "key": "toolchain.capability_profiles",
+      "value": {
+        "opencli": {
+          "invocationMode": "cli",
+          "versionPolicy": ">=1.8 <2",
+          "requiredFeatures": ["version.structured", "definition.validate", "doctor", "capture.web"],
+          "timeoutMs": 30000,
+          "profileRevision": "opencli/1.8"
+        },
+        "qmd": {
+          "invocationMode": "cli",
+          "versionPolicy": ">=2.5 <3",
+          "requiredFeatures": ["query.intent", "query.explain", "uri.qmd", "collections.multiple", "index.health", "model.fingerprint"],
+          "timeoutMs": 30000,
+          "collectionIds": ["vault"],
+          "profileRevision": "qmd/2.5"
+        },
+        "ollama": {
+          "invocationMode": "http",
+          "versionPolicy": ">=0.3",
+          "requiredFeatures": ["embeddings.openai-compatible", "model.fingerprint"],
+          "timeoutMs": 30000,
+          "profileRevision": "ollama/openai-embeddings-v1"
+        }
+      },
+      "provenance": { "actor": "person:operator", "source": "example" }
+    },
+    {
+      "key": "embeddings.default_profile",
+      "value": "ollama/bge-m3",
+      "provenance": { "actor": "person:operator", "source": "example" }
+    },
+    {
+      "key": "embeddings.index_profiles",
+      "value": {
+        "vaultbrain": "ollama/bge-m3",
+        "memu": "ollama/qwen3-embedding:0.6b"
+      },
+      "provenance": { "actor": "person:operator", "source": "example" }
+    },
+    {
+      "key": "embeddings.fingerprint_enforcement",
+      "value": "rebuild-required",
+      "provenance": { "actor": "person:operator", "source": "example" }
+    }
+  ],
+  "updatedAt": "2026-07-23T00:00:00.000Z",
+  "updatedBy": "person:operator"
+}

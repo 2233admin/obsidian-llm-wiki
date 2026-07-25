@@ -13,9 +13,17 @@ import type {
 } from "../interface.js";
 import type { VaultBrainEngine, ChunkResult } from "./engine.js";
 import { PGliteEngine } from "./pglite-engine.js";
-import { chunkMarkdown, embedTexts } from "./ingest.js";
+import { chunkMarkdown, embedTextsWithProfile } from "./ingest.js";
+import { EmbeddingIndexRebuildRequiredError } from "./embedding-index.js";
 
 const RRF_K = 60;
+
+export interface VaultBrainEmbeddingConfig {
+  profileId?: string;
+  endpoint?: string;
+  model?: string;
+  dimensions?: number;
+}
 
 export class VaultBrainAdapter implements VaultMindAdapter {
   readonly name = "vaultbrain";
@@ -26,7 +34,10 @@ export class VaultBrainAdapter implements VaultMindAdapter {
 
   get isAvailable(): boolean { return this._available; }
 
-  constructor(private readonly dataDir?: string) {}
+  constructor(
+    private readonly dataDir?: string,
+    private readonly embedding: VaultBrainEmbeddingConfig = {},
+  ) {}
 
   async init(): Promise<void> {
     const dir = this.dataDir ?? join(homedir(), ".vault-mind", "vaultbrain");
@@ -85,11 +96,14 @@ export class VaultBrainAdapter implements VaultMindAdapter {
     // Vector search (via Ollama BGE-M3 by default, falls back gracefully)
     let vecResults: ChunkResult[] = [];
     try {
-      const embeddings = await embedTexts([query]);
-      if (embeddings.length > 0 && embeddings[0].length > 0) {
-        vecResults = await this.engine.searchVector(embeddings[0], perListLimit);
+      const embeddings = await embedTextsWithProfile([query], this.embedOptions());
+      const result = embeddings[0];
+      if (result && result.vector.length > 0) {
+        await this.engine.ensureEmbeddingFingerprint(result.fingerprint);
+        vecResults = await this.engine.searchVector(result.vector, perListLimit);
       }
-    } catch {
+    } catch (error) {
+      if (error instanceof EmbeddingIndexRebuildRequiredError) throw error;
       // non-fatal, fall back to keyword-only
     }
 
@@ -140,14 +154,20 @@ export class VaultBrainAdapter implements VaultMindAdapter {
 
     await this.engine.deleteChunks(slug);
     const chunks = chunkMarkdown(content);
-    const embeddings = await embedTexts(chunks);
+    const embeddings = await embedTextsWithProfile(chunks, this.embedOptions());
+    if (embeddings[0]) {
+      await this.engine.ensureEmbeddingFingerprint(embeddings[0].fingerprint);
+      if (embeddings.some(result => result.fingerprint.digest !== embeddings[0]!.fingerprint.digest)) {
+        throw new Error("VaultBrain embedding batch returned mixed profile fingerprints");
+      }
+    }
 
     await this.engine.upsertChunks(
       slug,
       chunks.map((chunkText, i) => ({
         chunkIndex: i,
         chunkText,
-        embedding: embeddings[i] ?? null,
+        embedding: embeddings[i]?.vector ?? null,
         tokenCount: Math.ceil(chunkText.length / 4),
       })),
     );
@@ -159,6 +179,15 @@ export class VaultBrainAdapter implements VaultMindAdapter {
     for (const tag of extractTags(content)) {
       await this.engine.upsertTag(slug, tag);
     }
+  }
+
+  private embedOptions() {
+    return {
+      profileId: this.embedding.profileId,
+      url: this.embedding.endpoint,
+      model: this.embedding.model,
+      dimensions: this.embedding.dimensions,
+    };
   }
 }
 

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.llmwiki.org/agent-wiki/v1/toolchain-capability-profile.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "providerId", "profileRevision", "invocationMode", "compatibility", "health", "capabilities", "missingCapabilities", "diagnosticCodes", "probedAt", "expiresAt"],
+  "properties": {
+    "schemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+    "providerId": { "$ref": "common.schema.json#/$defs/providerId" },
+    "profileRevision": { "$ref": "common.schema.json#/$defs/identifier" },
+    "invocationMode": { "enum": ["filesystem", "cli", "http", "sdk"] },
+    "observedVersion": { "type": "string" },
+    "compatibility": { "enum": ["compatible", "partial", "incompatible", "unknown"] },
+    "health": { "enum": ["available", "degraded", "unavailable", "disabled"] },
+    "capabilities": { "type": "array", "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/capabilityName" } },
+    "missingCapabilities": { "type": "array", "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/capabilityName" } },
+    "diagnosticCodes": { "type": "array", "uniqueItems": true, "items": { "$ref": "common.schema.json#/$defs/diagnosticCode" } },
+    "probedAt": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "expiresAt": { "$ref": "common.schema.json#/$defs/timestamp" }
+  },
+  "additionalProperties": false
+}

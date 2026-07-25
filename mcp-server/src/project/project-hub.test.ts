@@ -67,7 +67,7 @@ describe('project.hub.get', () => {
     assert.equal(hub.projectId, 'project/alpha');
     assert.equal(hub.readOnly, true);
     assert.deepEqual(Object.keys(hub.sections).sort(), [
-      'agents', 'capabilities', 'hostCapabilities', 'identity', 'integrations', 'knowledge', 'runtime', 'settings', 'usage', 'work', 'workspace',
+      'agents', 'capabilities', 'hostCapabilities', 'identity', 'integrations', 'knowledge', 'runtime', 'settings', 'triage', 'usage', 'visual', 'work', 'workspace',
     ]);
     for (const value of Object.values(hub.sections) as Array<Record<string, unknown>>) {
       assert.ok('owner' in value);
@@ -127,8 +127,116 @@ describe('project.hub.get', () => {
   test('publishes no writable Project Hub state', () => {
     const { registry } = fixture();
     const operations = makeProjectHubOps(registry);
-    assert.deepEqual(operations.map((operation) => operation.name), ['project.hub.get']);
-    assert.notEqual(operations[0]!.mutating, true);
+    assert.deepEqual(operations.map((operation) => operation.name), [
+      'project.hub.get',
+      'project.hub.text',
+      'project.hub.base',
+      'project.hub.canvas',
+    ]);
+    assert.ok(operations.every((operation) => operation.mutating !== true));
+  });
+
+  test('merges visual and triage freshness and exposes deterministic read-only derived projections', async () => {
+    const { root, ctx, registry } = fixture();
+    const now = Date.parse('2026-07-19T12:00:00.000Z');
+    const operations = new Map(
+      makeProjectHubOps(registry, undefined, {
+        now: () => now,
+        loadVisualTriage: ({ projectId, generatedAt, vaultPath }) => {
+          assert.equal(projectId, 'project/alpha');
+          assert.equal(generatedAt, '2026-07-19T12:00:00.000Z');
+          assert.equal(vaultPath, root);
+          return {
+            schemaVersion: 1,
+            projectId,
+            generatedAt,
+            visualDocuments: [{
+              documentId: 'mind-map/alpha',
+              path: '10-Projects/alpha/maps/alpha.md',
+              revision: 2,
+              sourceObservedAt: '2026-07-19T10:00:00.000Z',
+              sourceHash: `sha256:${'a'.repeat(64)}`,
+              currentSourceHash: `sha256:${'a'.repeat(64)}`,
+              projectionStatus: 'current',
+              linkedWorkItems: [{
+                entity: 'project/alpha/issue/one',
+                state: 'in-progress',
+              }],
+            }],
+            observations: [{
+              observationId: 'problem/plugin-one',
+              lifecycle: 'untriaged',
+              providerId: 'obsidian-plugin/dataview-diagnostics',
+              severity: 'warning',
+              occurrenceCount: 2,
+              firstObservedAt: '2026-07-18T00:00:00.000Z',
+              lastObservedAt: '2026-07-19T09:00:00.000Z',
+              linkedIssue: {
+                entity: 'project/alpha/issue/one',
+                state: 'in-progress',
+              },
+              contributions: [{
+                kind: 'issue',
+                provider: 'github',
+                remoteRef: 'https://github.com/example/plugin/issues/1',
+                state: 'open',
+              }],
+              workRuns: [{
+                workRunId: 'work-run/plugin-one',
+                state: 'running',
+              }],
+              verifications: [{
+                verificationId: 'verification/plugin-one',
+                status: 'passed',
+                observedAt: '2026-07-19T09:30:00.000Z',
+                evidenceRefs: ['diagnostic/plugin-one'],
+              }],
+            }],
+            providerHealth: [{
+              providerId: 'obsidian-plugin/dataview-diagnostics',
+              health: 'unavailable',
+              observedAt: '2026-07-19T10:00:00.000Z',
+              diagnosticCode: 'runtime-failed',
+            }],
+          };
+        },
+      }).map((operation) => [operation.name, operation]),
+    );
+    const call = async (name: string) => {
+      const operation = operations.get(name);
+      assert.ok(operation);
+      return operation.handler(ctx, { ref: 'project/alpha' }) as Promise<Record<string, any>>;
+    };
+
+    const hub = await call('project.hub.get');
+    assert.equal(hub.sections.visual.owner, 'visual-workspace');
+    assert.equal(hub.sections.visual.data.documents[0].revision, 2);
+    assert.equal(hub.sections.triage.owner, 'problem-intake');
+    assert.equal(hub.sections.triage.data.freshness, 'stale');
+    assert.equal(hub.sections.triage.data.observations[0].newlyVerified, false);
+    assert.equal(
+      hub.sections.triage.data.observations[0].trace.workRuns[0].workRunId,
+      'work-run/plugin-one',
+    );
+    assert.match(hub.mutationRoutes.triage, /problem\.intake\.lifecycle\.apply/);
+
+    const text = await call('project.hub.text');
+    assert.equal(text.readOnly, true);
+    assert.equal(text.format, 'markdown');
+    assert.match(text.projection, /problem\/plugin-one/);
+
+    const base = await call('project.hub.base');
+    assert.equal(base.readOnly, true);
+    assert.equal(base.projection.rows[0].linkedIssue, 'project/alpha/issue/one');
+
+    const canvas = await call('project.hub.canvas');
+    assert.equal(canvas.readOnly, true);
+    assert.ok(canvas.projection.nodes.some(
+      (node: Record<string, unknown>) => node.llmwikiOwner === 'work-driver',
+    ));
+    assert.ok(canvas.projection.nodes.some(
+      (node: Record<string, unknown>) => node.llmwikiOwner === 'governed-tracker-or-forge',
+    ));
   });
 
   test('projects canonical Agent, Binding, Thread, and Dream Time identities without copying memory content', async () => {

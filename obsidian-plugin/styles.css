@@ -245,3 +245,58 @@
 .llmwiki-editor-field textarea {
   min-height: 96px;
 }
+
+.llmwiki-ask-mate {
+  padding: 16px;
+}
+
+.llmwiki-ask-mate-context,
+.llmwiki-ask-mate-empty,
+.llmwiki-ask-mate-panel > p {
+  color: var(--text-muted);
+}
+
+.llmwiki-ask-mate-panel {
+  border-top: 1px solid var(--background-modifier-border);
+  margin-top: 16px;
+  padding-top: 12px;
+}
+
+.llmwiki-ask-mate-node {
+  align-items: center;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: minmax(140px, 1fr) auto minmax(130px, 0.45fr) auto;
+  margin: 6px 0;
+  margin-inline-start: calc(var(--llmwiki-outline-depth) * 16px);
+}
+
+.llmwiki-ask-mate-panel pre {
+  background: var(--background-secondary);
+  border-radius: 6px;
+  max-height: 320px;
+  overflow: auto;
+  padding: 10px;
+  white-space: pre-wrap;
+}
+
+.llmwiki-ask-mate-confirm {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.llmwiki-ask-mate-evidence {
+  align-items: start;
+  display: flex;
+  gap: 8px;
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .llmwiki-ask-mate-node {
+    grid-template-columns: 1fr auto;
+  }
+}

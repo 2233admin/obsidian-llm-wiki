@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.llmwiki.org/agent-wiki/v1/embedding-fingerprint.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "providerId", "endpointIdentity", "modelId", "adapterSchemaVersion", "digest"],
+  "properties": {
+    "schemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+    "providerId": { "$ref": "common.schema.json#/$defs/providerId" },
+    "endpointIdentity": { "$ref": "common.schema.json#/$defs/identifier" },
+    "modelId": { "$ref": "common.schema.json#/$defs/identifier" },
+    "dimensions": { "type": "integer", "minimum": 1 },
+    "adapterSchemaVersion": { "$ref": "common.schema.json#/$defs/identifier" },
+    "digest": { "$ref": "common.schema.json#/$defs/digest" }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,15 @@
+[
+  {
+    "docid": "#fixture",
+    "score": 0.91,
+    "file": "qmd://vault/notes/agent-wiki.md",
+    "line": 12,
+    "title": "Agent Wiki",
+    "snippet": "Maintained evidence",
+    "explanation": {
+      "lexical": 0.7,
+      "vector": 0.86,
+      "rerank": 0.91
+    }
+  }
+]

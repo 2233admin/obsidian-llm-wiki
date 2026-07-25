@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.llmwiki.org/problem-intake/v1/problem-report.schema.json",
+  "title": "ProblemReport",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "projectId", "provider", "ruleId", "subject", "severity", "summary", "evidenceRefs", "observedAt"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "projectId": { "$ref": "#/$defs/projectId" },
+    "provider": { "$ref": "#/$defs/provider" },
+    "ruleId": { "$ref": "#/$defs/safeLine" },
+    "subject": { "$ref": "#/$defs/subject" },
+    "severity": { "enum": ["info", "warning", "error", "critical"] },
+    "summary": { "$ref": "#/$defs/safeText" },
+    "evidenceRefs": {
+      "type": "array",
+      "maxItems": 32,
+      "items": { "$ref": "#/$defs/evidence" }
+    },
+    "observedAt": { "$ref": "#/$defs/instant" },
+    "suggestedAction": { "$ref": "#/$defs/safeText" }
+  },
+  "$defs": {
+    "safeLine": { "type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[^\\r\\n]+$" },
+    "safeText": { "type": "string", "minLength": 1, "maxLength": 1000 },
+    "instant": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?Z$" },
+    "sha256": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "projectId": { "type": "string", "pattern": "^project\\/[a-z0-9][a-z0-9-]{0,127}$" },
+    "provider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "version"],
+      "properties": {
+        "id": { "$ref": "#/$defs/safeLine" },
+        "kind": { "enum": ["obc", "host_capability", "obsidian_plugin", "agent", "manual"] },
+        "version": { "$ref": "#/$defs/safeLine" }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "canonicalRef"],
+      "properties": {
+        "kind": { "enum": ["vault_path", "capability", "plugin", "repository", "other"] },
+        "canonicalRef": { "type": "string", "minLength": 1, "maxLength": 2048, "pattern": "^(?![A-Za-z]:)(?!/)(?!\\\\)[^\\r\\n]+$" }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "ref"],
+      "properties": {
+        "kind": { "enum": ["vault_path", "citation", "provider_finding", "operation_receipt", "test_result"] },
+        "ref": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "digest": { "$ref": "#/$defs/sha256" },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 500 }
+      }
+    }
+  }
+}

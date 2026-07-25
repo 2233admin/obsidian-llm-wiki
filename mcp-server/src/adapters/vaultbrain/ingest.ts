@@ -5,12 +5,13 @@
 
 const CHARS_PER_TOKEN = 4;
 const EMBED_BATCH_SIZE = 20;
+import type { EmbedOpts, EmbeddingResult } from "../../embedding-client.js";
 
 // Defer import so embedding-client can be absent without breaking other vaultbrain code
 async function getEmbedFn() {
   try {
-    const { embed } = await import("../../embedding-client.js");
-    return embed;
+    const { embedWithProfile } = await import("../../embedding-client.js");
+    return embedWithProfile;
   } catch {
     return null;
   }
@@ -100,6 +101,13 @@ export function chunkMarkdown(content: string, maxTokens = 512, overlap = 64): s
  * Returns [] if no embedding provider available (non-fatal).
  */
 export async function embedTexts(texts: string[]): Promise<number[][]> {
+  return (await embedTextsWithProfile(texts)).map(result => result.vector);
+}
+
+export async function embedTextsWithProfile(
+  texts: string[],
+  options?: EmbedOpts,
+): Promise<EmbeddingResult[]> {
   if (texts.length === 0) return [];
   const embed = await getEmbedFn();
   if (!embed) {
@@ -107,11 +115,11 @@ export async function embedTexts(texts: string[]): Promise<number[][]> {
     return [];
   }
 
-  const allEmbeddings: number[][] = [];
+  const allEmbeddings: EmbeddingResult[] = [];
   for (let i = 0; i < texts.length; i += EMBED_BATCH_SIZE) {
     const batch = texts.slice(i, i + EMBED_BATCH_SIZE);
     try {
-      const results = await Promise.all(batch.map((t) => embed(t)));
+      const results = await Promise.all(batch.map((t) => embed(t, options)));
       allEmbeddings.push(...results);
     } catch (err) {
       console.warn(`[vaultbrain] embedTexts batch error: ${(err as Error).message}`);

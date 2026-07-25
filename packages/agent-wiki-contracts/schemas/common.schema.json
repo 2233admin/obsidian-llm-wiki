@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.llmwiki.org/agent-wiki/v1/common.schema.json",
+  "$defs": {
+    "schemaVersion": { "const": 1 },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "identifier": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "providerId": { "enum": ["filesystem", "opencli", "qmd", "graphify", "ollama", "openai-compatible", "lightrag", "raganything", "hindsight", "mcp-sdk"] },
+    "diagnosticCode": { "enum": ["ARTIFACT_MISSING", "CAPABILITY_MISSING", "FINGERPRINT_MISMATCH", "INCOMPATIBLE_OUTPUT", "LEASE_EXPIRED", "LEGACY_UNKNOWN_PROVENANCE", "MAINTENANCE_FAILED", "MISSING_PROVENANCE", "PARTIAL_RESULT", "PROVIDER_TIMEOUT", "PROVIDER_UNAVAILABLE", "SENSITIVE_ERROR_REDACTED", "STALE_PROJECTION", "TOOLCHAIN_OUTPUT_INVALID", "TOOLCHAIN_PROBE_TIMEOUT", "UNCHANGED_CONTENT"] },
+    "evidenceTier": { "enum": ["compiled", "raw-evidence", "adapter-evidence"] },
+    "freshnessState": { "enum": ["fresh", "stale", "unknown", "incompatible"] },
+    "capabilityName": { "enum": ["adapters.status", "browser.bridge", "capture.filesystem", "capture.remote.structured", "capture.web", "command.list.structured", "definition.validate", "definition.verify", "doctor", "embedding.generate", "embeddings.openai-compatible", "graph.query", "health", "help.structured", "index.health", "ingest.verify", "media.transcribe", "model.fingerprint", "plugins.list", "profiles.list", "query", "query.explain", "query.hybrid", "query.intent", "query.lexical", "query.semantic", "result.normalized", "server.tools", "toolchain.doctor", "transport.stdio", "uri.qmd", "version.structured"] }
+  }
+}

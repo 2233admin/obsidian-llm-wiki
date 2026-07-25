@@ -1,0 +1,9 @@
+{
+  "documentCount": 10,
+  "embeddedDocumentCount": 8,
+  "lastUpdatedAt": "2026-07-23T00:00:00.000Z",
+  "collections": [
+    { "name": "vault", "documents": 6 },
+    { "name": "project", "documents": 4 }
+  ]
+}
