@@ -23,5 +23,19 @@
   "child_work_run_ids": [
     "work-run/61bb5c0d83a5c37e124911d2"
   ],
-  "artifact_projections": []
+  "artifact_projections": [
+    {
+      "artifact_id": "artifact/fleet-child-result",
+      "kind": "child-output",
+      "content_hash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "output_class": "view",
+      "review_state": "pending",
+      "producer_identity": "agent/cloud-worker-5090",
+      "source_work_run_id": "work-run/61bb5c0d83a5c37e124911d2",
+      "context_envelope_fingerprint": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "input_references": [
+        "artifact/fleet-input-spec"
+      ]
+    }
+  ]
 }

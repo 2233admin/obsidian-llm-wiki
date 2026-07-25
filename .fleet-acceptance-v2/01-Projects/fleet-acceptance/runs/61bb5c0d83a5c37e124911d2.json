@@ -1,22 +1,55 @@
 {
+  "schema_version": 2,
+  "project_id": "project/fleet-acceptance",
+  "work_item_id": "project/fleet-acceptance/issue/cloud-workflow",
+  "work_run_id": "work-run/61bb5c0d83a5c37e124911d2",
   "agent_id": "cloud-worker-5090",
-  "agent_profile_id": "agent/cloud-worker-5090",
-  "agent_profile_revision": 3,
+  "state": "completed",
+  "output_class": "view",
   "approval_status": "not-required",
-  "artifact_projections": [
+  "created_at": 1784948679,
+  "updated_at": "2026-07-25T03:11:31.702Z",
+  "provenance": [
+    "orca-task:task_192b70c714e0"
+  ],
+  "transitions": [
     {
-      "artifact_id": "artifact/fleet-input-spec",
-      "content_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-      "kind": "work-input",
-      "output_class": "view",
-      "provenance": [
-        "source:registered-fleet-spec"
-      ]
+      "transition_token": "driver:lease:61bb5c0d83a5c37e124911d2",
+      "from": "planned",
+      "to": "leased",
+      "recorded_at": 1784948679
+    },
+    {
+      "transition_token": "fleet:77c392f4-311d-4181-8d6e-b8429e5feb49:join",
+      "from": "leased",
+      "to": "running",
+      "recorded_at": "2026-07-25T03:11:31.685Z"
+    },
+    {
+      "transition_token": "fleet:77c392f4-311d-4181-8d6e-b8429e5feb49:leave",
+      "from": "running",
+      "to": "completed",
+      "recorded_at": "2026-07-25T03:11:31.702Z"
     }
   ],
-  "assignment_plan_fingerprint": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "agent_profile_id": "agent/cloud-worker-5090",
+  "agent_profile_revision": 3,
+  "project_agent_binding_id": "binding/fleet-acceptance/cloud-worker-5090",
+  "project_agent_binding_revision": 5,
   "assignment_plan_id": "assignment-plan/fleet-5090",
   "assignment_plan_version": 4,
+  "assignment_plan_fingerprint": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "context_envelope_fingerprint": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "device_snapshot": {
+    "capturedAt": "2026-07-15T00:00:00.000Z",
+    "deviceId": "device/cloud-5090",
+    "expiresAt": "2999-01-01T00:00:00.000Z",
+    "fingerprint": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "revision": 2,
+    "snapshotId": "device-snapshot/fleet-5090"
+  },
+  "parent_work_run_id": "work-run/fleet-parent-acceptance",
+  "child_work_run_ids": [],
   "capability_grant_summary": {
     "agent_profile_id": "agent/cloud-worker-5090",
     "connectors": [
@@ -36,17 +69,30 @@
       "view"
     ]
   },
-  "child_work_run_ids": [],
-  "context_envelope_fingerprint": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-  "created_at": 1784948679,
-  "device_snapshot": {
-    "capturedAt": "2026-07-15T00:00:00.000Z",
-    "deviceId": "device/cloud-5090",
-    "expiresAt": "2999-01-01T00:00:00.000Z",
-    "fingerprint": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
-    "revision": 2,
-    "snapshotId": "device-snapshot/fleet-5090"
-  },
+  "artifact_projections": [
+    {
+      "artifact_id": "artifact/fleet-input-spec",
+      "content_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "kind": "work-input",
+      "output_class": "view",
+      "provenance": [
+        "source:registered-fleet-spec"
+      ]
+    },
+    {
+      "artifact_id": "artifact/fleet-child-result",
+      "kind": "child-output",
+      "content_hash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "output_class": "view",
+      "review_state": "pending",
+      "producer_identity": "agent/cloud-worker-5090",
+      "source_work_run_id": "work-run/61bb5c0d83a5c37e124911d2",
+      "context_envelope_fingerprint": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "input_references": [
+        "artifact/fleet-input-spec"
+      ]
+    }
+  ],
   "expected_output": {
     "kind": "implementation-evidence",
     "output_class": "view",
@@ -56,27 +102,6 @@
     ],
     "review_state": "pending"
   },
-  "handoff_expires_at": "2026-07-26T03:04:39Z",
   "handoff_token_hash": "d69bc1b5ff13a1acaf25d03b67deb1fb7dacab812cdbc9e40f956e9b02c81276",
-  "output_class": "view",
-  "parent_work_run_id": "work-run/fleet-parent-acceptance",
-  "project_agent_binding_id": "binding/fleet-acceptance/cloud-worker-5090",
-  "project_agent_binding_revision": 5,
-  "project_id": "project/fleet-acceptance",
-  "provenance": [
-    "work-item:project/fleet-acceptance/issue/cloud-workflow"
-  ],
-  "schema_version": 2,
-  "state": "leased",
-  "transitions": [
-    {
-      "from": "planned",
-      "recorded_at": 1784948679,
-      "to": "leased",
-      "transition_token": "driver:lease:61bb5c0d83a5c37e124911d2"
-    }
-  ],
-  "updated_at": 1784948679,
-  "work_item_id": "project/fleet-acceptance/issue/cloud-workflow",
-  "work_run_id": "work-run/61bb5c0d83a5c37e124911d2"
+  "handoff_expires_at": "2026-07-26T03:04:39Z"
 }
