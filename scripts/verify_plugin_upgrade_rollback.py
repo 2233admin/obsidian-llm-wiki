@@ -258,6 +258,7 @@ class Plugin {
     this.app = app;
     this.manifest = manifest;
     this.__commands = [];
+    this.__ribbonIcons = [];
     this.__settingTabs = [];
     this.__views = [];
   }
@@ -271,6 +272,7 @@ class Plugin {
     fs.writeFileSync(file, JSON.stringify(value, null, 2) + "\n", "utf8");
   }
   addCommand(command) { this.__commands.push(command); return command; }
+  addRibbonIcon(icon, title, callback) { this.__ribbonIcons.push({ icon, title, callback }); return {}; }
   addSettingTab(tab) { this.__settingTabs.push(tab); return tab; }
   registerView(type, factory) { this.__views.push({ type, factory }); }
   registerEvent(event) { return event; }
