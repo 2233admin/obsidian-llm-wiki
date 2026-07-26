@@ -20,12 +20,6 @@ import type { SettingsOperationTransport } from "../src/settings-client";
 
 type ControlPlaneTransport = SettingsOperationTransport & AgentControlPlaneTransport;
 
-class UnavailableTransport implements ControlPlaneTransport {
-  async invoke<T>(): Promise<T> {
-    throw new Error("test backend unavailable");
-  }
-}
-
 class TestFilesystemAdapter extends FileSystemAdapter {
   override getBasePath(): string {
     return "D:\\vault";
@@ -35,6 +29,7 @@ class TestFilesystemAdapter extends FileSystemAdapter {
 class FirstRunPlugin extends LLMWikiPlugin {
   readonly contexts: AskMateContext[] = [];
   readonly transportBindings: DeviceBindingReference[] = [];
+  readonly projectInitializations: Record<string, unknown>[] = [];
   bindingRequests = 0;
   private persisted: unknown = {
     schemaVersion: 2,
@@ -68,7 +63,15 @@ class FirstRunPlugin extends LLMWikiPlugin {
     binding: DeviceBindingReference,
   ): ControlPlaneTransport {
     this.transportBindings.push(structuredClone(binding));
-    return new UnavailableTransport();
+    return {
+      invoke: async <T>(operation: string, args: Record<string, unknown> = {}) => {
+        if (operation === "project.init") {
+          this.projectInitializations.push(structuredClone(args));
+          return { ok: true, projectId: `project/${String(args.project)}` } as T;
+        }
+        throw new Error("test backend unavailable");
+      },
+    };
   }
 
   override async loadData(): Promise<unknown> {
@@ -147,6 +150,7 @@ test("Workspace Project binding is validated, persisted, and applied to a fresh 
   const projectId = await plugin.bindWorkspaceProject(" project/alpha ");
 
   assert.equal(projectId, "project/alpha");
+  assert.deepEqual(plugin.projectInitializations, [{ project: "alpha" }]);
   assert.deepEqual(plugin.savedData(), {
     schemaVersion: 2,
     presentation: { selectedScope: "user-device", showAdvanced: false },

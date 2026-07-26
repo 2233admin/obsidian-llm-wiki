@@ -332,6 +332,10 @@ export default class LLMWikiPlugin extends Plugin {
       ...this.data.deviceBinding!,
       workspaceProjectId: boundProjectId,
     };
+    if (!this.controlPlaneTransport) throw new Error("LLM Wiki control plane is unavailable.");
+    await this.controlPlaneTransport.invoke("project.init", {
+      project: boundProjectId.slice("project/".length),
+    });
     this.data = { ...this.data, deviceBinding };
     await this.savePluginData();
 
@@ -735,7 +739,7 @@ class WorkspaceProjectBindingModal extends Modal {
     const { contentEl } = this;
     contentEl.createEl("h2", { text: "Choose this workspace's Project" });
     contentEl.createEl("p", {
-      text: "Enter a stable Project ID such as project/my-project. Ask Mate uses it to keep notes, maps, tasks, settings, and problem reports together.",
+      text: "Enter a stable Project ID such as project/my-project. If it does not exist, LLM Wiki creates its Project record and work area before opening Ask Mate.",
     });
     const input = contentEl.createEl("input", {
       type: "text",
@@ -744,7 +748,7 @@ class WorkspaceProjectBindingModal extends Modal {
       cls: "llmwiki-project-binding-input",
     });
     const buttons = contentEl.createDiv({ cls: "modal-button-container" });
-    const confirm = buttons.createEl("button", { text: "Bind and open Ask Mate", cls: "mod-cta" });
+    const confirm = buttons.createEl("button", { text: "Create or bind and open Ask Mate", cls: "mod-cta" });
     confirm.onclick = async () => {
       confirm.disabled = true;
       try {
