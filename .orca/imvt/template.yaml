@@ -166,6 +166,76 @@ modules:
       archive_after_days: 60
 
   # =========================================================
+  # 记忆追踪模块 (I am waiting)
+  # =========================================================
+
+  session-resume:
+    name: "Session 待办提醒"
+    trigger: "0 9 * * 1-5"
+    description: "检查上次 session summaries，提醒继续未完成的工作"
+    checks:
+      - type: recent_sessions
+        hours: 24
+        db: "~/.claude-mem/claude-mem.db"
+      - type: unfinished_work
+        pattern: "next_steps|未完成"
+      - type: uncommitted_reminder
+    output:
+      format: structured
+      action: "提醒继续"
+      to_vault: "D:/Obsidian Vault"
+
+  inbox-to-issue:
+    name: "Inbox 转 Issue"
+    trigger: "0 10 * * 1-5"
+    description: "扫描 inbox，过滤待办，写入 project issue"
+    checks:
+      - type: inbox_scan
+        path: "D:/Obsidian Vault/00-Inbox"
+        age_hours: 6
+      - type: todo_filter
+        pattern: "[ ]|- \\[ \\]|TODO"
+      - type: project_link
+        projects: ["01-Projects"]
+    output:
+      format: issue_note
+      archive_original: true
+      vault: "D:/Obsidian Vault"
+
+  project-followup:
+    name: "项目效果回访"
+    trigger: "0 10 * * 1"
+    description: "检查已完成/部署的项目，追问效果"
+    checks:
+      - type: completed_projects
+        since_days: 7
+        path: "D:/Obsidian Vault/01-Projects"
+      - type: deployment_check
+        pattern: "deploy|发布|上线"
+      - type: effect_survey
+        template: "效果如何？有什么问题？"
+    output:
+      format: survey_note
+      to: "06-Daily/{DATE}-效果回访.md"
+      vault: "D:/Obsidian Vault"
+
+  commit-from-session:
+    name: "Session 改动汇总"
+    trigger: "0 22 * * 1-5"
+    description: "从今日 sessions 提取改动，提示 commit"
+    checks:
+      - type: today_sessions
+        db: "~/.claude-mem/claude-mem.db"
+      - type: files_changed
+        extract: true
+      - type: commit_suggestion
+        pattern: "files_read|files_edited"
+    output:
+      format: commit_template
+      save_to: "00-Inbox/AI-Output/commit-suggestions/{DATE}.md"
+      vault: "D:/Obsidian Vault"
+
+  # =========================================================
   # 报告模块
   # =========================================================
 

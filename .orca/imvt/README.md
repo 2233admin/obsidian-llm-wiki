@@ -18,16 +18,24 @@ node .orca/imvt/orca-imvt.js apply build-verify nightly-regression --all
 ## 模块列表
 
 | 模块 | 名称 | 触发 | 描述 |
-|------|------|------|------|
+|------|------|------|-------|
+| **开发运营** | | | |
 | `build-verify` | 构建验证 | 工作日 08:30 | 验证项目构建 |
 | `morning-summary` | 晨间开发摘要 | 工作日 09:00 | 汇总未完成事项 |
 | `incremental-check` | 开发增量巡检 | 每 4 小时 | 检查新改动 |
 | `nightly-regression` | 夜间回归验证 | 工作日 20:00 | 完整验证 |
 | `dep-audit` | 依赖与安全审计 | 每周一 10:00 | 检查依赖更新 |
 | `arch-drift` | 架构与文档漂移 | 每周五 10:00 | 检查文档准确性 |
+| **记忆追踪 (I am waiting)** | | | |
+| `session-resume` | Session 待办提醒 | 工作日 09:00 | 提醒继续未完成工作 |
+| `inbox-to-issue` | Inbox 转 Issue | 工作日 10:00 | inbox 待办转 project issue |
+| `project-followup` | 项目效果回访 | 每周一 10:00 | 追问已完成项目效果 |
+| `commit-from-session` | Session 改动汇总 | 工作日 22:00 | 提取改动提示 commit |
+| **同步工具** | | | |
 | `session-sync` | Session 同步到 Vault | 每 30 分钟 | 归档 Claude sessions |
 | `vault-sync-memu` | Vault 同步到 MemU | 每小时 | vault → 向量数据库 |
 | `vault-health` | Vault 健康检查 | 每周日 10:00 | 清理整理 vault |
+| **报告** | | | |
 | `daily-report` | 每日报告写入 Obsidian | 工作日 21:00 | 汇总到 vault |
 | `project-health` | 项目健康日报 | 工作日 18:00 | 项目状态汇总 |
 | `skills-update` | Skills 更新维护 | 工作日 10:00 | skills 包更新 |

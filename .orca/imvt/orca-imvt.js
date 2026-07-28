@@ -165,6 +165,111 @@ python -m compiler.memu_sync --vault "D:/Obsidian Vault"
 
 约束：只归档，不删除`,
 
+  'session-resume': `你是记忆追踪 agent。请检查未完成的 session 工作：
+
+1. 读取最近的 session summaries：
+   路径：~/.claude-mem/claude-mem.db
+
+2. 找出包含 "next_steps" 或 "未完成" 的 sessions
+
+3. 对每个未完成项：
+   - 提取项目名、session 日期、内容摘要
+   - 判断是否可以继续（环境是否还在）
+
+4. 输出提醒到 vault：
+   路径：D:/Obsidian Vault/00-Inbox/session-resume/[日期].md
+
+输出格式：
+## Session 待办提醒 [日期]
+
+### 未完成的工作
+- [项目]: [session 日期]
+  [摘要]
+  下一步： [next_steps]
+
+### 可以继续？
+- [项]: [是/否 + 原因]
+
+约束：不要问问题，直接输出提醒`,
+
+  'inbox-to-issue': `你是 issue 生成 agent。请扫描 inbox 并转成 issue：
+
+1. 扫描 vault inbox：
+   路径：D:/Obsidian Vault/00-Inbox
+
+2. 找出包含 TODO/- [ ] 的笔记
+
+3. 对每个待办：
+   - 提取内容、判断项目归属
+   - 写入对应项目的 issue 文件
+
+4. 归档原始 inbox 文件到 09-Archive/
+
+输出格式：
+## Inbox 转 Issue [日期]
+
+### 转换
+- [原始文件]: [目标项目/issue文件名]
+
+### 跳过（已处理/无效）
+- [文件]: [原因]
+
+约束：归档不要删除，保留原始链接`,
+
+  'project-followup': `你是效果回访 agent。请检查已完成项目的效果：
+
+1. 扫描已完成的项目：
+   - 查找 01-Projects/ 中标记为 status:completed 或有 deploy/发布 记录的
+   - 时间范围：过去 7 天
+
+2. 对每个项目：
+   - 检查是否有部署记录
+   - 生成效果问卷
+
+3. 输出问卷：
+   路径：D:/Obsidian Vault/06-Daily/[日期]-效果回访.md
+
+输出格式：
+## 项目效果回访 [日期]
+
+### 已完成/部署项目
+- [项目]: [部署日期]
+  记录位置： [文件路径]
+  效果问卷：
+  1. 上线后效果如何？
+  2. 有遇到什么问题？
+  3. 需要什么调整？
+
+约束：只生成问卷，不要发送`,
+
+  'commit-from-session': `你是 commit 助手。请从今日 sessions 提取改动建议：
+
+1. 读取今日 session summaries：
+   路径：~/.claude-mem/claude-mem.db
+   时间范围：今天
+
+2. 提取 files_read 和 files_edited 字段
+
+3. 生成 commit 建议：
+   - 按项目分组
+   - 包含改动的文件列表
+   - 建议的 commit message
+
+4. 保存到：
+   路径：D:/Obsidian Vault/00-Inbox/AI-Output/commit-suggestions/[日期].md
+
+输出格式：
+## Session 改动汇总 [日期]
+
+### [项目名]
+建议 commit message：[类型]: [简短描述]
+
+改动文件：
+- [文件1]
+- [文件2]
+
+约束：只生成建议，不要自动 commit`,
+
   'daily-report': `你是报告 agent。请汇总自动化结果：
 
 1. 读取 C:/Users/Administrator/AppData/Roaming/orca/profiles/local-default/orca-data.json
