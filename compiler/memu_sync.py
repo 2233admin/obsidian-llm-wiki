@@ -842,11 +842,41 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
-    vault: Path = args.vault.resolve()
+
+    # Determine vault path: CLI > env > D:/Obsidian Vault junction > Settings vault.path
+    vault: Path = args.vault
+    if vault == VAULT_DEFAULT:
+        # Check for known vault junction
+        known_vaults = [
+            Path("D:/Obsidian Vault"),
+            Path("D:/ObsidianVault"),
+        ]
+        for known in known_vaults:
+            if known.exists() and (known / ".obsidian").exists():
+                vault = known
+                break
+        else:
+            # Fall back to Settings vault.path
+            try:
+                default_settings = SettingsService(
+                    registry=load_registry(default_registry_path()),
+                    vault_path=VAULT_DEFAULT,
+                    environment=dict(os.environ),
+                )
+                vault_path_setting = _select_string(
+                    default_settings.snapshot_resolve()["snapshot"], "vault.path"
+                )
+                if vault_path_setting:
+                    vault = Path(vault_path_setting)
+            except Exception:
+                pass
+    vault = vault.resolve()
     if not vault.exists():
         sys.stderr.write(f"[memu_sync] vault {vault} not found\n")
         return 1
+    vault_root = vault.as_posix()
 
+    # Now resolve the MemU profile using the actual vault path
     try:
         profile, settings = _resolve_memu_sync_profile(vault, args)
     except Exception as exc:  # noqa: BLE001
@@ -864,7 +894,6 @@ def main(argv: list[str] | None = None) -> int:
             f"{','.join(profile.issues)}\n"
         )
         return 1
-    vault_root = vault.as_posix()
     t_start = time.monotonic()
 
     records = _scan_vault(vault, limit=args.limit, node_id_prefix=args.node_id_prefix)
