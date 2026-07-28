@@ -1,0 +1,205 @@
+# IMVT — Intelligent Machine Validation & Testing
+# 可复用的 Orca 自动化模块模板
+#
+# 用法：
+#   orca imvt apply [--project PROJECT] [--dry-run]
+#   orca imvt list
+#   orca imvt sync <module> [--trigger CRON>
+
+version: "1.0"
+
+# 默认设置（可被模块覆盖）
+defaults:
+  timezone: "Asia/Shanghai"
+  workspace_mode: "new_per_run"
+  provider: "claude"
+  enabled: true
+
+# IMVT 模块定义
+modules:
+  # =========================================================
+  # 开发运营模块
+  # =========================================================
+
+  build-verify:
+    name: "构建验证"
+    trigger: "0 8:30 * * 1-5"
+    description: "验证项目能否正常构建"
+    checks:
+      - type: build
+        dirs: ["mcp-server", "obsidian-plugin", "packages"]
+        cmd: "npm run build"
+      - type: typecheck
+        dirs: ["mcp-server"]
+        cmd: "npm run typecheck"
+    output:
+      format: markdown
+      fail_threshold: "any"
+
+  morning-summary:
+    name: "晨间开发摘要"
+    trigger: "0 9 * * 1-5"
+    description: "汇总未完成事项，给出当天优先项"
+    checks:
+      - type: git_status
+        pattern: "uncommitted"
+      - type: worktree_count
+        max: 10
+      - type: failed_tests
+        pattern: "*.log"
+    output:
+      format: structured
+      top_n: 3
+
+  incremental-check:
+    name: "开发增量巡检"
+    trigger: "0 */4 * * *"
+    description: "检查上次以来的新改动"
+    checks:
+      - type: git_log
+        since: "last_run"
+      - type: failure_status
+        pattern: "previous_failures"
+    output:
+      format: summary
+      delta_only: true
+
+  nightly-regression:
+    name: "夜间回归验证"
+    trigger: "0 20 * * 1-5"
+    description: "完整验证：lint + typecheck + build + test"
+    checks:
+      - type: lint
+        cmd: "npm run lint"
+      - type: typecheck
+        cmd: "npm run typecheck"
+      - type: build
+        cmd: "npm run build"
+      - type: test
+        cmd: "npm test"
+        timeout: 180
+      - type: cargo_test
+        dirs: ["."]
+        cmd: "cargo test"
+    output:
+      format: markdown
+      include_warnings: false
+      cleanup: true
+    threshold:
+      fail_on: ["lint_fail", "build_fail", "test_fail"]
+
+  dep-audit:
+    name: "依赖与安全审计"
+    trigger: "0 10 * * 1"
+    description: "检查 npm/cargo/pip 依赖更新和安全问题"
+    checks:
+      - type: npm_outdated
+      - type: npm_audit
+        level: "high"
+      - type: cargo_outdated
+      - type: cargo_audit
+    output:
+      format: markdown
+      auto_upgrade: false
+      priority_order: ["security", "major", "minor"]
+
+  arch-drift:
+    name: "架构与文档漂移"
+    trigger: "0 10 * * 5"
+    description: "检查 README、架构规则、测试缺口"
+    checks:
+      - type: readme_accuracy
+      - type: doc_command_test
+      - type: test_coverage
+        min: 70
+      - type: dead_code
+    output:
+      format: markdown
+      auto_fix: false
+
+  # =========================================================
+  # 知识管理模块
+  # =========================================================
+
+  session-sync:
+    name: "Session 同步到 Vault"
+    trigger: "*/30 * * * *"
+    description: "归档 Claude sessions 到 Obsidian"
+    checks:
+      - type: session_summary
+        db: "~/.claude-mem/claude-mem.db"
+        vault: "D:/Obsidian Vault"
+    output:
+      format: session_note
+      backfill: false
+
+  vault-sync-memu:
+    name: "Vault 同步到 MemU"
+    trigger: "0 * * * *"
+    description: "vault 内容同步到向量数据库"
+    checks:
+      - type: vault_walk
+        path: "D:/Obsidian Vault"
+        skip: [".obsidian", ".git", "node_modules"]
+      - type: hash_diff
+      - type: embed_sync
+        provider: "ollama"
+        model: "qwen3-embedding:0.6b"
+    output:
+      format: json
+      incremental: true
+
+  vault-health:
+    name: "Vault 健康检查"
+    trigger: "0 10 * * 0"
+    description: "清理、整理 vault"
+    checks:
+      - type: stale_projects
+        days: 7
+      - type: old_inbox
+        days: 30
+      - type: broken_links
+      - type: template_check
+    output:
+      format: markdown
+      auto_archive: true
+      archive_after_days: 60
+
+  # =========================================================
+  # 报告模块
+  # =========================================================
+
+  daily-report:
+    name: "每日报告写入 Obsidian"
+    trigger: "0 21 * * 1-5"
+    description: "汇总所有自动化结果写入 vault"
+    checks:
+      - type: automation_summary
+        read_from: "orca-data.json"
+      - type: failure_alert
+        threshold: "any"
+    output:
+      format: daily_note
+      path: "06-Daily/{DATE}-自动化报告.md"
+      vault: "D:/Obsidian Vault"
+
+  project-health:
+    name: "项目健康日报"
+    trigger: "0 18 * * 1-5"
+    description: "汇总当日所有项目健康状态"
+    checks:
+      - type: health_metrics
+        projects: ["obsidian-llm-wiki", "oh-my-claudecode", "omc-hub-rs"]
+    output:
+      format: markdown
+      notify: true
+
+  skills-update:
+    name: "Skills 更新维护"
+    trigger: "0 10 * * 1-5"
+    description: "检查并更新 skills 包"
+    checks:
+      - type: skills_snapshot
+      - type: skills_diff
+    output:
+      format: markdown
