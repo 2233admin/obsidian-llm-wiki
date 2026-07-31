@@ -1,3 +1,8 @@
+---
+name: vault-agent-closeout
+description: File a completed agent work unit as a reviewable AI-Output draft. Use when meaningful work needs a durable closeout with provenance and handoff metadata.
+---
+
 # vault-agent-closeout -- file a session closeout into AI-Output
 
 Use this skill when an agent finishes a meaningful work unit and the result
