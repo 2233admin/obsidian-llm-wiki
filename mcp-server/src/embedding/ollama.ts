@@ -22,6 +22,10 @@ export interface OllamaEmbedOpts {
   model?: string;
   /** Expected vector dimension for a custom model. */
   dimensions?: number;
+  /** Bearer token for API-key-protected embedding endpoints. */
+  apiKey?: string;
+  /** HTTP proxy URL (e.g. http://127.0.0.1:7897). */
+  proxy?: string;
   /** Timeout in ms. Default: 30_000 */
   timeoutMs?: number;
 }
@@ -60,12 +64,28 @@ export async function embedTextOllama(
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), timeoutMs);
 
+  const apiKey =
+    opts?.apiKey ?? process.env.OLLAMA_EMBED_API_KEY ?? process.env.VAULT_MIND_EMBED_API_KEY ?? "";
+  const proxyUrl = opts?.proxy ?? process.env.OLLAMA_EMBED_PROXY ?? "";
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (apiKey) headers["authorization"] = `Bearer ${apiKey}`;
+  let dispatcher: unknown;
+  if (proxyUrl) {
+    try {
+      const { ProxyAgent } = await import("undici");
+      dispatcher = new ProxyAgent(proxyUrl);
+    } catch {
+      /* proxy agent unavailable; fall through to direct fetch */
+    }
+  }
+
   try {
     const resp = await fetch(profile.endpoint, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers,
       body: JSON.stringify({ model: profile.model, input: [text] }),
       signal: controller.signal,
+      ...(dispatcher ? { dispatcher } : {}),
     });
     clearTimeout(t);
 

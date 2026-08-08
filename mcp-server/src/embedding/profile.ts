@@ -5,7 +5,8 @@ export const EMBEDDING_ADAPTER_SCHEMA_VERSION = "openai-compatible/v1";
 
 export type BuiltInEmbeddingProfileId =
   | "ollama/bge-m3"
-  | "ollama/qwen3-embedding:0.6b";
+  | "ollama/qwen3-embedding:0.6b"
+  | "jina/v5-omni-nano";
 
 export interface EmbeddingProfile {
   schemaVersion: typeof EMBEDDING_PROFILE_SCHEMA_VERSION;
@@ -60,6 +61,16 @@ export const BUILT_IN_EMBEDDING_PROFILES: Readonly<
     endpoint: DEFAULT_ENDPOINT,
     model: "qwen3-embedding:0.6b",
     dimensions: 1024,
+    adapterSchemaVersion: EMBEDDING_ADAPTER_SCHEMA_VERSION,
+    builtIn: true,
+  }),
+  "jina/v5-omni-nano": Object.freeze({
+    schemaVersion: EMBEDDING_PROFILE_SCHEMA_VERSION,
+    id: "jina/v5-omni-nano",
+    provider: "openai-compatible",
+    endpoint: "https://api.jina.ai/v1/embeddings",
+    model: "jina-embeddings-v5-omni-nano",
+    dimensions: 768,
     adapterSchemaVersion: EMBEDDING_ADAPTER_SCHEMA_VERSION,
     builtIn: true,
   }),
