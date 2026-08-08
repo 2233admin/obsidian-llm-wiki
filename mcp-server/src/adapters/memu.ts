@@ -142,14 +142,14 @@ export function resolveMemUAdapterConfig(
     profileId:
       config.embedProfileId
       ?? environment.OLLAMA_EMBED_PROFILE
-      ?? "ollama/qwen3-embedding:0.6b",
+      ?? "jina/v5-omni-nano",
     endpoint:
       config.embedEndpoint
       ?? environment.OLLAMA_EMBED_BASE_URL
       ?? environment.VAULT_MIND_EMBED_URL,
     model: config.embedModel ?? environment.OLLAMA_EMBED_MODEL,
     dimensions: config.embedDimensions,
-    defaultProfileId: "ollama/qwen3-embedding:0.6b",
+    defaultProfileId: "jina/v5-omni-nano",
   });
   return {
     dsn: config.dsn ?? environment.MEMU_DSN ?? DEFAULT_DSN,
@@ -253,7 +253,7 @@ export class MemUAdapter implements VaultMindAdapter {
       // Probe: confirm table + scope has data. Zero rows is a soft warning,
       // not a hard failure -- the DB might be fresh.
       const { rows } = await this.pool.query(
-        "SELECT COUNT(*)::int AS n FROM memory_items WHERE user_id = $1",
+        "SELECT COUNT(*)::int AS n FROM recall_files WHERE user_id = $1",
         [this.userId],
       );
       const n = (rows[0]?.n as number) ?? 0;
@@ -292,12 +292,52 @@ export class MemUAdapter implements VaultMindAdapter {
       model: this.embedModel,
       dimensions: this.embedDimensions,
     });
-    const queryVec = vec.length === (this.embedDimensions ?? 1024) ? vec : null;
-    const result = await this.runGraphRecall(query, queryVec, limit);
-    if (result) return this.mapRecallResult(result);
-    // Fallback: pure-PG cosine via memu_search.py (bypasses pgvector, pg_trgm fallback)
-    const pyResult = await this.runMemuSearchPy(query, queryVec, limit);
-    return pyResult;
+    const queryVec = vec.length === (this.embedDimensions ?? 768) ? vec : null;
+    if (!queryVec) return [];
+    const vecLiteral = `[${queryVec.join(",")}]`;
+    try {
+      const { rows } = await this.pool.query<{
+        id: string;
+        text: string;
+        track: string;
+        user_id: string;
+        created_at: Date;
+        file_name: string | null;
+        similarity: number;
+      }>(
+        `SELECT s.id, s.text, s.track, s.user_id, s.created_at,
+                f.name AS file_name,
+                (1 - (s.embedding <=> $2::vector))::float8 AS similarity
+         FROM recall_file_segments s
+         LEFT JOIN recall_files f ON f.id = s.recall_file_id
+         WHERE s.embedding IS NOT NULL AND s.user_id = $1
+         ORDER BY s.embedding <=> $2::vector
+         LIMIT $3`,
+        [this.userId, vecLiteral, limit],
+      );
+      return rows.map((r) => ({
+        source: this.name,
+        path: `memu/${r.file_name ?? r.id}`,
+        content: String(r.text ?? "").slice(0, 500),
+        score: typeof r.similarity === "number" ? r.similarity : 0,
+        metadata: {
+          table: "recall_file_segments",
+          track: r.track,
+          user_id: r.user_id,
+          created_at:
+            r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
+          item_id: r.id,
+          file_name: r.file_name,
+          cosine_similarity: r.similarity,
+        },
+      }));
+    } catch (err) {
+      const kind = err instanceof Error ? err.name : "Error";
+      process.stderr.write(
+        `obsidian-llm-wiki: [error] memU PG vector query (recall_file_segments) failed (${kind})\n`,
+      );
+      return [];
+    }
   }
 
   async searchByVector(
