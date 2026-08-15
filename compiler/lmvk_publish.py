@@ -69,6 +69,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 import traceback
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -472,7 +473,16 @@ def _empty_result(cfg: PublishConfig, *, full: bool, dry_run: bool, started_at: 
         "cost_guard": {"spent_today_usd": 0.0, "daily_cap_usd": cfg.daily_cap_usd},
         "html_export": None,
         "publish": None,
-        "last_success": {"at": None, "commit": None},
+        # "commit" is the PAGES-BRANCH commit sha (what's actually live on
+        # the published site -- this is what the Obsidian plugin displays,
+        # see obsidian-plugin/src/compile-publish.ts:lastPublishLabel).
+        # "vault_commit" is a separate field: the VAULT HEAD that produced
+        # that publish. These live in two different git repos/commit
+        # spaces and are never comparable to each other -- vault_commit
+        # exists so the early-exit check in _run_locked_pipeline can ask
+        # "did the last successful publish already cover the current vault
+        # HEAD?" without conflating it with the pages-branch sha.
+        "last_success": {"at": None, "commit": None, "vault_commit": None},
         "error": None,
     }
 
@@ -500,9 +510,14 @@ def _last_success_from_previous(status_path: Path) -> dict[str, Any]:
     if isinstance(previous, dict) and isinstance(previous.get("last_success"), dict):
         at = previous["last_success"].get("at")
         commit = previous["last_success"].get("commit")
-        if isinstance(at, str) or isinstance(commit, str):
-            return {"at": at, "commit": commit}
-    return {"at": None, "commit": None}
+        vault_commit = previous["last_success"].get("vault_commit")
+        if isinstance(at, str) or isinstance(commit, str) or isinstance(vault_commit, str):
+            return {
+                "at": at,
+                "commit": commit,
+                "vault_commit": vault_commit if isinstance(vault_commit, str) else None,
+            }
+    return {"at": None, "commit": None, "vault_commit": None}
 
 
 # ---------------------------------------------------------------------------
@@ -575,12 +590,43 @@ def _run_locked_pipeline(
     result["vault_head_before"] = head_before
     result["vault_head_after"] = head_after
 
+    # Early exit requires BOTH "vault HEAD didn't move" AND "the last
+    # successful publish already caught up to that HEAD". Checking HEAD
+    # alone (the original bug) is wrong: if the previous run rendered fine
+    # but `git push` failed (network blip -- see _push_pages_branch's
+    # docstring for the production evidence), that run's content never
+    # reached the pages branch. The vault HEAD legitimately doesn't move
+    # between 15-min ticks, so an unqualified HEAD-unchanged check would
+    # early-exit forever and strand that unpushed content until the vault
+    # happens to get a new commit or the weekly --full run finally forces
+    # a republish.
+    #
+    # NOTE: compare against last_success["vault_commit"], NOT
+    # last_success["commit"] -- "commit" is the PAGES-BRANCH commit sha
+    # (a different git repo/commit space entirely; see _empty_result's
+    # comment), so it can never equal a vault HEAD sha. "vault_commit" is
+    # None on a fresh deploy / lost state file -- treated as "not caught
+    # up" so the conservative choice (run once) wins.
+    last_success_vault_commit = result["last_success"].get("vault_commit")
+    caught_up = last_success_vault_commit is not None and last_success_vault_commit == head_after
+
     if head_before == head_after and not result["full"]:
-        logger.log(f"HEAD unchanged ({head_after}) and not --full -> early exit, zero LLM/render cost.")
-        result["status"] = "ok"
-        result["skipped_reason"] = "head-unchanged"
-        result["completed_at"] = _iso_now()
-        return result
+        if caught_up:
+            logger.log(
+                f"HEAD unchanged ({head_after}) and last successful publish already matches it "
+                "-> early exit, zero LLM/render cost."
+            )
+            result["status"] = "ok"
+            result["skipped_reason"] = "head-unchanged"
+            result["completed_at"] = _iso_now()
+            return result
+        logger.log(
+            f"HEAD unchanged ({head_after}) but last successful publish "
+            f"(vault_commit={last_success_vault_commit!r}) has NOT caught up to it -> NOT early-exiting "
+            "(previous run likely failed before/during push, e.g. a network error); "
+            "re-running compile/render/publish despite no new vault commits.",
+            "WARN",
+        )
 
     logger.log(f"Proceeding: HEAD {head_before} -> {head_after} (full={result['full']})")
 
@@ -654,11 +700,97 @@ def _run_locked_pipeline(
     publish = _publish_pages(cfg, git_env, logger, head_after=head_after, dry_run=result["dry_run"])
     result["publish"] = publish
     if publish["pushed"]:
-        result["last_success"] = {"at": _iso_now(), "commit": publish["commit"]}
+        # Only updated after a REAL push succeeds (publish["pushed"] is
+        # never True for --dry-run -- see _publish_pages, which returns
+        # before pushing when dry_run is set). commit = pages-branch sha
+        # (display value); vault_commit = head_after, used by the
+        # early-exit "caught up" check above on the *next* run.
+        result["last_success"] = {"at": _iso_now(), "commit": publish["commit"], "vault_commit": head_after}
 
     result["status"] = "ok"
     result["completed_at"] = _iso_now()
     return result
+
+
+# Retry budget for the pages-branch push. Trigger interval is 15 minutes
+# and a real full-vault render+push takes ~9 minutes measured -- so the
+# retry budget must stay small relative to that headroom, or a slow retry
+# storm on one run would eat into (or cross) the next scheduled trigger.
+# The lock prevents an actual overlap, but a next run that starts late only
+# to immediately skip("locked") is still wasted cadence. 3 attempts with a
+# short linear backoff (2 sleeps, <=20s total) is well inside that budget.
+_PUSH_MAX_ATTEMPTS = 3
+_PUSH_RETRY_BACKOFF_SECONDS = (5, 15)
+
+# Substrings (lowercased) that identify an authentication failure, as
+# opposed to a transient network failure. Matched against git's stderr.
+# Retrying an auth failure can never succeed -- same token, same helper --
+# so it must fail fast instead of burning the retry budget.
+_AUTH_FAILURE_MARKERS = (
+    "authentication failed",
+    "could not read username",
+    "could not read password",
+    "permission denied (publickey)",
+    "403",
+    "invalid credentials",
+)
+
+
+def _looks_like_auth_failure(stderr: str) -> bool:
+    lowered = stderr.lower()
+    return any(marker in lowered for marker in _AUTH_FAILURE_MARKERS)
+
+
+def _push_pages_branch(cfg: PublishConfig, git_env: dict[str, str], logger: _Logger) -> None:
+    """`git push origin <pages_branch>`, with limited retry + backoff to
+    absorb transient network failures.
+
+    Production evidence (34-day log audit): 8 `git push origin pages`
+    failures, none of them auth failures. Most were
+    `send-pack: unexpected disconnect while reading sideband packet`
+    immediately followed (on the next manual retry) by `Everything
+    up-to-date` -- i.e. the push had actually landed on gitea and only the
+    connection teardown failed, so git still reported a non-zero exit.
+    Retrying the identical command absorbs both a genuinely-dropped push
+    and this "already succeeded, disconnected on the way out" case, for
+    free -- no special-casing of that message needed.
+
+    NEVER force-pushed: every retry re-issues the exact same safe,
+    non-force `push origin <branch>`. This process remains the pages
+    branch's sole writer (see module docstring).
+
+    Auth failures are NOT retried -- see _looks_like_auth_failure.
+    """
+    last_error: GitError | None = None
+    for attempt in range(1, _PUSH_MAX_ATTEMPTS + 1):
+        result = _run_git_net(
+            ["push", "origin", cfg.pages_branch],
+            cwd=cfg.pages_workdir,
+            env=git_env,
+            logger=logger,
+            check=False,
+        )
+        if result.returncode == 0:
+            if attempt > 1:
+                logger.log(f"git push succeeded on attempt {attempt}/{_PUSH_MAX_ATTEMPTS}.")
+            return
+        if _looks_like_auth_failure(result.stderr):
+            raise GitError(
+                f"git push origin {cfg.pages_branch} failed with an authentication error "
+                f"(exit {result.returncode}) -- not retrying."
+            )
+        last_error = GitError(f"git push origin {cfg.pages_branch} failed (exit {result.returncode}).")
+        if attempt < _PUSH_MAX_ATTEMPTS:
+            backoff = _PUSH_RETRY_BACKOFF_SECONDS[attempt - 1]
+            logger.log(
+                f"git push attempt {attempt}/{_PUSH_MAX_ATTEMPTS} failed (exit {result.returncode}), "
+                f"treating as a transient network error -- retrying in {backoff}s.",
+                "WARN",
+            )
+            time.sleep(backoff)
+    logger.log(f"git push failed after {_PUSH_MAX_ATTEMPTS} attempts -- giving up.", "ERROR")
+    assert last_error is not None
+    raise last_error
 
 
 def _publish_pages(
@@ -767,7 +899,7 @@ def _publish_pages(
     _run_git(["add", "-A"], cwd=cfg.pages_workdir, env=git_env, logger=logger)
     _run_git(["commit", "-m", commit_msg, "--quiet"], cwd=cfg.pages_workdir, env=git_env, logger=logger)
     commit_sha = _run_git(["rev-parse", "HEAD"], cwd=cfg.pages_workdir, env=git_env, logger=logger).stdout.strip()
-    _run_git_net(["push", "origin", cfg.pages_branch], cwd=cfg.pages_workdir, env=git_env, logger=logger)
+    _push_pages_branch(cfg, git_env, logger)
     logger.log(f"Published to gitea pages branch: {commit_msg}")
 
     publish["pushed"] = True

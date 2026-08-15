@@ -322,6 +322,106 @@ def test_git_env_dict_is_never_passed_to_a_logging_call():
 
 
 # ---------------------------------------------------------------------------
+# Push retry (_push_pages_branch) -- isolated unit tests, monkeypatching
+# lmvk_publish._run_git_net so no real git process or pandoc render is
+# needed; these test the retry/backoff/auth-fast-fail decision logic in
+# precise call-count/backoff terms.
+# ---------------------------------------------------------------------------
+
+
+def _stub_push_cfg(tmp_path: Path) -> lmvk_publish.PublishConfig:
+    return lmvk_publish.PublishConfig(
+        vault_path=tmp_path / "vault",
+        state_dir=tmp_path,
+        log_path=tmp_path / "log.txt",
+        output_dir=tmp_path / "output",
+        pages_workdir=tmp_path / "pages-workdir",
+        spend_state_path=tmp_path / "spend.json",
+        status_path=tmp_path / "status.json",
+        lock_path=tmp_path / "lock",
+        askpass_path=tmp_path / "askpass.py",
+        pages_repo_url="https://example.invalid/repo.git",
+        pages_branch="pages",
+        daily_cap_usd=5.0,
+        cost_per_source_estimate_usd=0.02,
+        gitea_token_locator="GITEA_TOKEN",
+    )
+
+
+def test_push_pages_branch_retries_transient_failure_then_succeeds(tmp_path, monkeypatch):
+    cfg = _stub_push_cfg(tmp_path)
+    logger = lmvk_publish._Logger(cfg.log_path)
+    sleep_calls: list[float] = []
+    monkeypatch.setattr(lmvk_publish.time, "sleep", lambda seconds: sleep_calls.append(seconds))
+    call_count = {"n": 0}
+
+    def flaky_push(args, *, cwd, env, logger, check):
+        call_count["n"] += 1
+        if call_count["n"] == 1:
+            return subprocess.CompletedProcess(
+                args=["git", *args],
+                returncode=128,
+                stdout="",
+                stderr="send-pack: unexpected disconnect while reading sideband packet",
+            )
+        return subprocess.CompletedProcess(args=["git", *args], returncode=0, stdout="", stderr="Everything up-to-date")
+
+    monkeypatch.setattr(lmvk_publish, "_run_git_net", flaky_push)
+
+    lmvk_publish._push_pages_branch(cfg, {}, logger)  # must not raise
+
+    assert call_count["n"] == 2
+    assert sleep_calls == [lmvk_publish._PUSH_RETRY_BACKOFF_SECONDS[0]]
+
+
+def test_push_pages_branch_gives_up_after_max_attempts_on_persistent_network_failure(tmp_path, monkeypatch):
+    cfg = _stub_push_cfg(tmp_path)
+    logger = lmvk_publish._Logger(cfg.log_path)
+    sleep_calls: list[float] = []
+    monkeypatch.setattr(lmvk_publish.time, "sleep", lambda seconds: sleep_calls.append(seconds))
+    call_count = {"n": 0}
+
+    def always_network_fail(args, *, cwd, env, logger, check):
+        call_count["n"] += 1
+        return subprocess.CompletedProcess(
+            args=["git", *args], returncode=128, stdout="", stderr="fatal: unable to access: Could not resolve host"
+        )
+
+    monkeypatch.setattr(lmvk_publish, "_run_git_net", always_network_fail)
+
+    with pytest.raises(lmvk_publish.GitError):
+        lmvk_publish._push_pages_branch(cfg, {}, logger)
+
+    assert call_count["n"] == lmvk_publish._PUSH_MAX_ATTEMPTS
+    assert sleep_calls == list(lmvk_publish._PUSH_RETRY_BACKOFF_SECONDS)
+
+
+def test_push_pages_branch_auth_failure_fails_fast_without_retry(tmp_path, monkeypatch):
+    cfg = _stub_push_cfg(tmp_path)
+    logger = lmvk_publish._Logger(cfg.log_path)
+    sleep_calls: list[float] = []
+    monkeypatch.setattr(lmvk_publish.time, "sleep", lambda seconds: sleep_calls.append(seconds))
+    call_count = {"n": 0}
+
+    def auth_fail(args, *, cwd, env, logger, check):
+        call_count["n"] += 1
+        return subprocess.CompletedProcess(
+            args=["git", *args],
+            returncode=128,
+            stdout="",
+            stderr="fatal: Authentication failed for 'https://git.xart.top:8418/claudeQWQ/obsidian-knowledge.git/'",
+        )
+
+    monkeypatch.setattr(lmvk_publish, "_run_git_net", auth_fail)
+
+    with pytest.raises(lmvk_publish.GitError, match="authentication"):
+        lmvk_publish._push_pages_branch(cfg, {}, logger)
+
+    assert call_count["n"] == 1  # no retry attempted
+    assert sleep_calls == []
+
+
+# ---------------------------------------------------------------------------
 # Full pipeline (real local git repos + real pandoc render)
 # ---------------------------------------------------------------------------
 
@@ -329,9 +429,19 @@ pytestmark_pandoc = pytest.mark.skipif(not _pandoc_available(), reason="pandoc n
 
 
 @pytestmark_pandoc
-def test_early_exit_on_head_unchanged(tmp_path, repos, monkeypatch):
+def test_early_exit_on_head_unchanged_when_last_publish_already_caught_up(tmp_path, repos, monkeypatch):
+    """Early exit requires BOTH "HEAD didn't move" AND "last successful
+    publish already matches that HEAD" -- so the test has to seed a real
+    prior successful publish first (run #1, full=True to force it even
+    though it's HEAD's first-ever pass), then prove run #2 (no new vault
+    commits) early-exits against that same HEAD."""
     cfg = _fixed_config(tmp_path, repos["vault_dir"], repos["pages_origin"])
     _patch_resolve_config(monkeypatch, cfg)
+
+    first = lmvk_publish.run_pipeline(
+        repos["vault_dir"], full=True, dry_run=False, environment={**os.environ, "GITEA_TOKEN": "dummy"}
+    )
+    assert first["publish"]["pushed"] is True
 
     result = lmvk_publish.run_pipeline(
         repos["vault_dir"], full=False, dry_run=False, environment={**os.environ, "GITEA_TOKEN": "dummy"}
@@ -342,7 +452,66 @@ def test_early_exit_on_head_unchanged(tmp_path, repos, monkeypatch):
     assert result["vault_head_before"] == result["vault_head_after"]
     assert result["html_export"] is None
     assert result["publish"] is None
+    assert result["last_success"]["commit"] == first["publish"]["commit"]
+    assert result["last_success"]["vault_commit"] == result["vault_head_after"]
     assert not cfg.lock_path.exists()  # released
+
+
+@pytestmark_pandoc
+def test_no_early_exit_on_first_ever_run_even_with_head_unchanged(tmp_path, repos, monkeypatch):
+    """No prior status file at all -> last_success.commit is None. HEAD is
+    trivially "unchanged" (nothing new was pushed to the vault origin
+    since the clone), but the old bug's HEAD-only check would have
+    early-exited here forever on a fresh deploy / lost state file. The
+    conservative behavior is to run once."""
+    cfg = _fixed_config(tmp_path, repos["vault_dir"], repos["pages_origin"])
+    _patch_resolve_config(monkeypatch, cfg)
+    assert not cfg.status_path.exists()
+
+    result = lmvk_publish.run_pipeline(
+        repos["vault_dir"], full=False, dry_run=False, environment={**os.environ, "GITEA_TOKEN": "dummy"}
+    )
+
+    assert result["vault_head_before"] == result["vault_head_after"]
+    assert result["status"] == "ok"
+    assert result["skipped_reason"] is None
+    assert result["html_export"] is not None
+    assert result["publish"]["pushed"] is True
+
+
+@pytestmark_pandoc
+def test_no_early_exit_when_last_publish_did_not_catch_up_to_unchanged_head(tmp_path, repos, monkeypatch):
+    """Simulates the production failure chain: a prior run rendered fine
+    but `git push` failed, so last_success.commit never advanced to
+    (mismatches) the current HEAD -- even though the vault HEAD hasn't
+    moved since. That must NOT early-exit; it must retry the full
+    pipeline (render is zero-LLM-cost, so retrying is cheap)."""
+    cfg = _fixed_config(tmp_path, repos["vault_dir"], repos["pages_origin"])
+    _patch_resolve_config(monkeypatch, cfg)
+
+    first = lmvk_publish.run_pipeline(
+        repos["vault_dir"], full=True, dry_run=False, environment={**os.environ, "GITEA_TOKEN": "dummy"}
+    )
+    assert first["publish"]["pushed"] is True
+
+    # Simulate "the run after that failed to push" by rewriting the status
+    # file's last_success to a stale/error state, without moving vault HEAD.
+    stale_status = json.loads(cfg.status_path.read_text(encoding="utf-8"))
+    stale_status["status"] = "error"
+    stale_status["last_success"] = {"at": None, "commit": None, "vault_commit": None}
+    cfg.status_path.write_text(json.dumps(stale_status), encoding="utf-8")
+
+    result = lmvk_publish.run_pipeline(
+        repos["vault_dir"], full=False, dry_run=False, environment={**os.environ, "GITEA_TOKEN": "dummy"}
+    )
+
+    assert result["vault_head_before"] == result["vault_head_after"]  # HEAD genuinely didn't move
+    assert result["status"] == "ok"
+    assert result["skipped_reason"] is None  # did NOT early exit
+    assert result["html_export"] is not None  # actually re-ran render
+    assert result["publish"]["pushed"] is True  # and republished
+    assert result["last_success"]["commit"] == result["publish"]["commit"]
+    assert result["last_success"]["vault_commit"] == result["vault_head_after"]
 
 
 @pytestmark_pandoc
@@ -390,6 +559,45 @@ def test_full_flag_bypasses_head_unchanged_early_exit(tmp_path, repos, monkeypat
 
 
 @pytestmark_pandoc
+def test_push_retry_recovers_from_one_transient_failure_end_to_end(tmp_path, repos, monkeypatch):
+    """End-to-end wiring check: _publish_pages actually calls through
+    _push_pages_branch, so a push that fails once with a transient-looking
+    error and then succeeds on retry must still leave the whole run
+    status="ok" and the content genuinely on the remote -- not just the
+    isolated _push_pages_branch unit tests above."""
+    cfg = _fixed_config(tmp_path, repos["vault_dir"], repos["pages_origin"])
+    _patch_resolve_config(monkeypatch, cfg)
+    monkeypatch.setattr(lmvk_publish.time, "sleep", lambda seconds: None)
+
+    real_run_git_net = lmvk_publish._run_git_net
+    call_state = {"push_calls": 0}
+
+    def flaky_run_git_net(args, **kwargs):
+        if args and args[0] == "push":
+            call_state["push_calls"] += 1
+            if call_state["push_calls"] == 1:
+                return subprocess.CompletedProcess(
+                    args=["git", *args],
+                    returncode=128,
+                    stdout="",
+                    stderr="send-pack: unexpected disconnect while reading sideband packet",
+                )
+        return real_run_git_net(args, **kwargs)
+
+    monkeypatch.setattr(lmvk_publish, "_run_git_net", flaky_run_git_net)
+
+    result = lmvk_publish.run_pipeline(
+        repos["vault_dir"], full=True, dry_run=False, environment={**os.environ, "GITEA_TOKEN": "dummy"}
+    )
+
+    assert call_state["push_calls"] == 2  # failed once, real push succeeded on retry
+    assert result["status"] == "ok"
+    assert result["publish"]["pushed"] is True
+    assert result["last_success"]["commit"] == result["publish"]["commit"]
+    assert result["last_success"]["vault_commit"] == result["vault_head_after"]
+
+
+@pytestmark_pandoc
 def test_dry_run_never_pushes(tmp_path, repos, monkeypatch):
     cfg = _fixed_config(tmp_path, repos["vault_dir"], repos["pages_origin"])
     _patch_resolve_config(monkeypatch, cfg)
@@ -403,6 +611,7 @@ def test_dry_run_never_pushes(tmp_path, repos, monkeypatch):
     assert result["publish"]["pushed"] is False
     assert result["publish"]["commit"] is None
     assert result["last_success"]["commit"] is None
+    assert result["last_success"]["vault_commit"] is None  # --dry-run must not update last_success at all
 
     # The remote must be completely untouched -- no `pages` ref at all yet.
     heads = subprocess.run(
@@ -450,6 +659,7 @@ def test_republish_with_no_content_change_skips_empty_commit(tmp_path, repos, mo
     assert second["publish"]["message"] == "no-content-changes"
     # last_success is carried forward from the first (real) publish, not lost.
     assert second["last_success"]["commit"] == first["publish"]["commit"]
+    assert second["last_success"]["vault_commit"] == second["vault_head_after"]
 
 
 @pytestmark_pandoc
@@ -513,6 +723,23 @@ def test_cli_stdout_is_a_single_json_blob_and_exit_code_is_zero_on_early_exit(tm
         updated_by="test",
     )
     assert result["status"] == "committed", result
+
+    # Early exit now requires last_success.vault_commit to already match
+    # HEAD, not just "HEAD didn't move" (see run_pipeline's early-exit fix)
+    # -- seed that prior-success state directly so this test still
+    # exercises the cheap early-exit path (and doesn't need pandoc/a real
+    # render) instead of accidentally falling through to a full pipeline
+    # run. vault_commit (not commit, which is the pages-branch sha) is
+    # what the early-exit check compares against the vault HEAD.
+    cli_state_dir = tmp_path / "cli-state"
+    cli_state_dir.mkdir(parents=True, exist_ok=True)
+    current_head = _git("rev-parse", "HEAD", cwd=repos["vault_dir"]).stdout.strip()
+    (cli_state_dir / "lmvk-publish-status.json").write_text(
+        json.dumps(
+            {"last_success": {"at": "2026-01-01T00:00:00Z", "commit": "deadbeef", "vault_commit": current_head}}
+        ),
+        encoding="utf-8",
+    )
 
     repo_root = Path(__file__).resolve().parents[2]
     proc = subprocess.run(
