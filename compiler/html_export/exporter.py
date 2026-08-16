@@ -238,23 +238,47 @@ _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 # export_vault_direct -> files_failed += 1), never the whole run.
 _PANDOC_TIMEOUT_SECONDS = 120
 
+# Ceiling for the one-off `pandoc --version` probe. Deliberately generous:
+# this machine runs a local llama-server that can hold 17GB+, and under that
+# kind of memory pressure merely SPAWNING a process can take tens of seconds.
+# A tight probe timeout here does not protect anything -- it just converts
+# "the box is thrashing" into a hard startup failure.
+_PANDOC_PROBE_TIMEOUT_SECONDS = 180
+
 
 def _check_pandoc() -> tuple[bool, str]:
-    """Check if Pandoc is installed and return version."""
+    """Check if Pandoc is installed and return version.
+
+    Returns (False, "") ONLY when pandoc is genuinely absent. A probe that
+    times out raises instead of returning False, because the two are not the
+    same failure and must not produce the same message: an earlier revision
+    collapsed both into (False, "") and the caller then told the operator
+    "Pandoc not found -- install it from pandoc.org" on a machine where
+    pandoc was installed and answered `--version` in 19 milliseconds once the
+    memory pressure passed. A misleading error costs more than a slow one.
+    """
     try:
         result = subprocess.run(
             ["pandoc", "--version"],
             capture_output=True,
             text=True,
             creationflags=_NO_WINDOW,
-            timeout=30,
+            timeout=_PANDOC_PROBE_TIMEOUT_SECONDS,
         )
         if result.returncode == 0:
             version = result.stdout.split("\n")[0]
             return True, version
         return False, ""
-    except (FileNotFoundError, subprocess.TimeoutExpired):
+    except FileNotFoundError:
         return False, ""
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(
+            f"pandoc did not answer `--version` within {_PANDOC_PROBE_TIMEOUT_SECONDS}s. "
+            "This is NOT a missing-pandoc error -- do not reinstall it. The host is "
+            "almost certainly under heavy memory or disk pressure (check for a large "
+            "local model server or other RAM hog); process spawning is the symptom, "
+            "not the cause."
+        ) from None
 
 
 def _run_pandoc(
