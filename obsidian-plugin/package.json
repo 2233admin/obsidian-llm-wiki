@@ -16,11 +16,20 @@
     "verify:bundle-boundary": "node verify-production-bundle.mjs"
   },
   "license": "GPL-3.0-only",
+  "overrides": {
+    "hono": ">=4.12.34 <5.0.0",
+    "@hono/node-server": ">=1.19.15 <3.0.0",
+    "fast-uri": ">=3.1.5 <4.0.0",
+    "ip-address": ">=10.3.1 <11.0.0"
+  },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@types/node": "^26.1.1",
     "esbuild": "^0.28.1",
     "obsidian": "^1.13.1",
     "typescript": "~7.0.2"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true
   }
 }
