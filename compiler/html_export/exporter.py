@@ -5,6 +5,7 @@ Uses Pandoc to convert markdown to HTML with custom themes.
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -205,21 +206,72 @@ def build_timestamp_now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def _inject_footer(html_content: str, build_timestamp: str) -> str:
-    """Insert a build-timestamp footer before ``</body>``.
+BUILD_INFO_FILENAME = "build-info.json"
+
+
+def _inject_footer(html_content: str, build_timestamp: str, asset_prefix: str = "") -> str:
+    """Insert the build-timestamp footer before ``</body>``.
 
     LMVK L2 (spec: docs/specs/lmvk-execution-and-release.md, verification
     "页脚时间戳 ≤30min") -- lets a viewer on the served static site eyeball
-    how fresh the page is without checking git log. Applied to every
-    exported page (index, concepts/*, summaries/*) via ``_run_pandoc`` so
-    the same build carries one consistent timestamp.
+    how fresh the page is without checking git log.
+
+    The stamp is FETCHED from ``build-info.json`` at render time rather than
+    baked into the markup, and this is load-bearing: a literal timestamp in
+    every page makes every page's bytes change on every build, so a publish
+    that touched three notes still committed a 3646-file diff and spent ~8
+    minutes pushing it (with the NAS reverse proxy 502-ing or resetting the
+    connection at that size). Pages are now byte-identical across builds
+    whose content did not change, and the timestamp lives in exactly one
+    file. ``test_footer_bytes_stable_across_builds`` is the regression gate.
+
+    Freshness semantics are unchanged: the viewer still sees this build's
+    timestamp. ``cache: "no-cache"`` forces revalidation for plain HTTP
+    viewers, and offline (L4) viewers get the copy the service worker
+    precached for the build they last activated -- exactly what an inlined
+    stamp gave them.
+
+    ``asset_prefix`` walks back up to the export root, same as
+    ``_inject_assets``, so pages at any depth read the one root file.
     """
     if not build_timestamp:
         return html_content
-    footer = f'  <footer class="wiki-build-footer">Compiled: {build_timestamp}</footer>\n'
+    footer = (
+        '  <footer class="wiki-build-footer">Compiled: '
+        f'<span class="wiki-build-stamp" data-build-info="{asset_prefix}'
+        f'{BUILD_INFO_FILENAME}">—</span></footer>\n'
+        "  <script>\n"
+        "  (function () {\n"
+        '    var el = document.querySelector(".wiki-build-stamp");\n'
+        "    if (!el || !window.fetch) { return; }\n"
+        '    fetch(el.getAttribute("data-build-info"), { cache: "no-cache" })\n'
+        "      .then(function (r) { return r.ok ? r.json() : null; })\n"
+        "      .then(function (d) {\n"
+        "        if (d && d.build_timestamp) { el.textContent = d.build_timestamp; }\n"
+        "      })\n"
+        "      .catch(function () {});\n"
+        "  })();\n"
+        "  </script>\n"
+    )
     if "</body>" in html_content:
         return html_content.replace("</body>", footer + "</body>")
     return html_content + "\n" + footer
+
+
+def write_build_info(output_dir: Path, build_timestamp: str) -> Path:
+    """Write the single file every page's footer reads its stamp from.
+
+    This is the only artifact of an export whose bytes change purely because
+    time passed -- keeping it that way is the entire point (see
+    ``_inject_footer``). Callers emit it *before* ``emit_service_worker`` so
+    the L4 precache manifest includes it and offline viewers still get a
+    stamp.
+    """
+    path = Path(output_dir) / BUILD_INFO_FILENAME
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {"build_timestamp": build_timestamp}
+    path.write_text(json.dumps(payload, indent=2) + "\n", "utf-8")
+    return path
 
 
 # Pandoc is a CONSOLE program. On Windows, a subprocess.run() without this
@@ -344,7 +396,7 @@ def _run_pandoc(
         html_content = _inject_assets(
             html_content, asset_prefix=asset_prefix, register_sw=register_sw
         )
-        html_content = _inject_footer(html_content, build_timestamp)
+        html_content = _inject_footer(html_content, build_timestamp, asset_prefix)
         output_file.write_text(html_content, "utf-8")
 
     return True
@@ -738,8 +790,13 @@ def export_to_html(
         else:
             report.files_failed += 1
 
+    # The one file whose bytes track wall-clock time; every page's footer
+    # reads its stamp from here. Written before sw.js so the L4 precache
+    # manifest picks it up.
+    write_build_info(output_dir, build_timestamp)
+
     # LMVK L4: emit sw.js last so the precache manifest sees every file
-    # this run produced (pages, css/, static/).
+    # this run produced (pages, css/, static/, build-info.json).
     if options.service_worker:
         manifest = emit_service_worker(output_dir, build_timestamp, source_mtimes)
         report.precache_mode = manifest.mode
@@ -1090,8 +1147,13 @@ def export_vault_direct(
         else:
             report.files_failed += 1
 
+    # The one file whose bytes track wall-clock time; every page's footer
+    # reads its stamp from here. Written before sw.js so the L4 precache
+    # manifest picks it up.
+    write_build_info(output_dir, build_timestamp)
+
     # LMVK L4: emit sw.js last so the precache manifest sees every file
-    # this run produced (pages, css/, static/).
+    # this run produced (pages, css/, static/, build-info.json).
     if options.service_worker:
         manifest = emit_service_worker(output_dir, build_timestamp, source_mtimes)
         report.precache_mode = manifest.mode

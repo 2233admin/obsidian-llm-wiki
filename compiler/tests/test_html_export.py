@@ -207,14 +207,27 @@ def test_export_no_index_when_disabled(tmp_path):
 
 
 def test_inject_footer_stamps_before_body_close():
-    """_inject_footer inserts a build-timestamp footer before </body>."""
+    """_inject_footer inserts the build footer before </body>, with the stamp
+    pointed at build-info.json rather than baked into the markup."""
     from html_export.exporter import _inject_footer
 
     html = "<html><body><p>hi</p></body></html>"
     result = _inject_footer(html, "2026-07-12T08:15:00Z")
     assert 'class="wiki-build-footer"' in result
-    assert "Compiled: 2026-07-12T08:15:00Z" in result
+    assert 'data-build-info="build-info.json"' in result
     assert result.index('class="wiki-build-footer"') < result.index("</body>")
+    # The literal timestamp must NOT appear -- that is what made every page's
+    # bytes change on every build.
+    assert "2026-07-12T08:15:00Z" not in result
+
+
+def test_inject_footer_resolves_build_info_through_asset_prefix():
+    """A nested page reads the one root build-info.json, not a sibling."""
+    from html_export.exporter import _inject_footer
+
+    html = "<html><body><p>hi</p></body></html>"
+    result = _inject_footer(html, "2026-07-12T08:15:00Z", asset_prefix="../")
+    assert 'data-build-info="../build-info.json"' in result
 
 
 def test_inject_footer_noop_when_timestamp_empty():
@@ -225,8 +238,24 @@ def test_inject_footer_noop_when_timestamp_empty():
     assert _inject_footer(html, "") == html
 
 
-def test_export_stamps_explicit_build_timestamp_in_every_page(tmp_path):
-    """export_to_html threads options.build_timestamp into every rendered page."""
+def test_footer_bytes_stable_across_builds():
+    """REGRESSION GATE. Two builds minutes apart must produce identical page
+    bytes. When the stamp was inlined, every page changed on every build, so
+    a publish that touched three notes still pushed a 3646-file diff and took
+    ~8 minutes -- at which size the NAS reverse proxy 502s or resets."""
+    from html_export.exporter import _inject_footer
+
+    html = "<html><body><p>hi</p></body></html>"
+    first = _inject_footer(html, "2026-07-12T08:15:00Z")
+    second = _inject_footer(html, "2026-07-12T08:45:00Z")
+    assert first == second
+
+
+def test_export_writes_build_info_and_leaves_pages_timestamp_free(tmp_path):
+    """export_to_html emits one build-info.json carrying the stamp, and every
+    page points at it instead of embedding it."""
+    import json
+
     import pytest
 
     if not _pandoc_available():
@@ -239,13 +268,24 @@ def test_export_stamps_explicit_build_timestamp_in_every_page(tmp_path):
     fixed_ts = "2026-07-12T03:00:00Z"
     export_to_html(wiki_dir, output_dir, ExportOptions(build_timestamp=fixed_ts))
 
-    for rel in ("index.html", "concepts/attention-heads.html", "summaries/overview.html"):
+    info = json.loads((output_dir / "build-info.json").read_text("utf-8"))
+    assert info["build_timestamp"] == fixed_ts
+
+    for rel, prefix in (
+        ("index.html", ""),
+        ("concepts/attention-heads.html", "../"),
+        ("summaries/overview.html", "../"),
+    ):
         content = (output_dir / rel).read_text("utf-8")
-        assert f"Compiled: {fixed_ts}" in content, f"missing footer stamp in {rel}"
+        assert 'class="wiki-build-footer"' in content, f"missing footer in {rel}"
+        assert f'data-build-info="{prefix}build-info.json"' in content, rel
+        assert fixed_ts not in content, f"{rel} still embeds the literal stamp"
 
 
-def test_export_defaults_footer_timestamp_to_now(tmp_path):
-    """Without an explicit build_timestamp, export_to_html stamps UTC 'now'."""
+def test_export_defaults_build_info_timestamp_to_now(tmp_path):
+    """Without an explicit build_timestamp, export_to_html stamps UTC 'now'
+    into build-info.json."""
+    import json
     import re
 
     import pytest
@@ -259,9 +299,38 @@ def test_export_defaults_footer_timestamp_to_now(tmp_path):
     output_dir = tmp_path / "html"
     export_to_html(wiki_dir, output_dir, ExportOptions())
 
-    content = (output_dir / "index.html").read_text("utf-8")
-    match = re.search(r"Compiled: (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)", content)
-    assert match is not None, "no footer timestamp found in exported index.html"
+    info = json.loads((output_dir / "build-info.json").read_text("utf-8"))
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", info["build_timestamp"])
+
+
+def test_export_pages_identical_across_two_builds(tmp_path):
+    """End-to-end form of the regression gate: run the real exporter twice
+    with different timestamps; only build-info.json (and sw.js, which
+    versions its cache off the stamp by design) may differ."""
+    import pytest
+
+    if not _pandoc_available():
+        pytest.skip("pandoc not installed")
+
+    from html_export.exporter import ExportOptions, export_to_html
+
+    wiki_dir = _make_wiki(tmp_path, with_index=False)
+
+    def _render(out: Path, ts: str) -> dict[str, bytes]:
+        export_to_html(wiki_dir, out, ExportOptions(build_timestamp=ts))
+        return {
+            p.relative_to(out).as_posix(): p.read_bytes()
+            for p in sorted(out.rglob("*"))
+            if p.is_file()
+        }
+
+    first = _render(tmp_path / "html-a", "2026-07-12T03:00:00Z")
+    second = _render(tmp_path / "html-b", "2026-07-12T03:30:00Z")
+
+    assert first.keys() == second.keys()
+    changed = {rel for rel in first if first[rel] != second[rel]}
+    assert changed <= {"build-info.json", "sw.js"}, f"unexpected churn: {sorted(changed)}"
+    assert "build-info.json" in changed, "build-info.json should carry the new stamp"
 
 
 def _make_organic_vault(tmp_path: Path) -> Path:
@@ -319,8 +388,15 @@ def test_export_vault_direct_excludes_00_inbox_and_stamps_footer(tmp_path):
     assert report.files_exported == 3
     assert report.files_failed == 0
 
+    import json
+
     note_content = (output_dir / "01-Projects" / "note-a.html").read_text("utf-8")
-    assert f"Compiled: {fixed_ts}" in note_content
+    assert 'class="wiki-build-footer"' in note_content
+    assert 'data-build-info="../build-info.json"' in note_content
+    assert fixed_ts not in note_content
+
+    info = json.loads((output_dir / "build-info.json").read_text("utf-8"))
+    assert info["build_timestamp"] == fixed_ts
 
     index_content = (output_dir / "index.html").read_text("utf-8")
     assert "01-Projects" in index_content

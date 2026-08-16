@@ -628,9 +628,11 @@ def test_republish_with_no_content_change_skips_empty_commit(tmp_path, repos, mo
     # Two things vary run-to-run even with no real vault change, both
     # deliberately pinned here so this test isolates the "no real content
     # changed" branch instead of asserting on wall-clock flakiness:
-    #  1. export_vault_direct stamps every page's footer with
-    #     build_timestamp_now() (real "now", second resolution) when
-    #     ExportOptions.build_timestamp is unset.
+    #  1. export_vault_direct writes build-info.json from build_timestamp_now()
+    #     (real "now", second resolution) when ExportOptions.build_timestamp is
+    #     unset. Pages themselves are stamp-free and stable across builds now;
+    #     build-info.json is the one artifact that still moves with the clock,
+    #     so pinning it is what isolates the "no real content changed" branch.
     #  2. This vault has no compile.py "topics" but its emerge threshold is
     #     always overdue (no prior emerge report), so evaluate_actions
     #     schedules an "emerge" action every tick regardless -- and
