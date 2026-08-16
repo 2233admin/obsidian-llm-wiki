@@ -832,6 +832,64 @@ def _write_vault_index(
         temp_md.unlink(missing_ok=True)
 
 
+def _available_memory_gb() -> float | None:
+    """Best-effort free-RAM probe. stdlib only -- this package stays zero-dep."""
+    if os.name == "nt":
+        import ctypes
+
+        class _MemoryStatusEx(ctypes.Structure):
+            _fields_ = [
+                ("dwLength", ctypes.c_ulong),
+                ("dwMemoryLoad", ctypes.c_ulong),
+                ("ullTotalPhys", ctypes.c_ulonglong),
+                ("ullAvailPhys", ctypes.c_ulonglong),
+                ("ullTotalPageFile", ctypes.c_ulonglong),
+                ("ullAvailPageFile", ctypes.c_ulonglong),
+                ("ullTotalVirtual", ctypes.c_ulonglong),
+                ("ullAvailVirtual", ctypes.c_ulonglong),
+                ("ullAvailExtendedVirtual", ctypes.c_ulonglong),
+            ]
+
+        try:
+            stat = _MemoryStatusEx()
+            stat.dwLength = ctypes.sizeof(_MemoryStatusEx)
+            if not ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat)):  # type: ignore[attr-defined]
+                return None
+            return stat.ullAvailPhys / (1024**3)
+        except Exception:
+            return None
+    try:
+        with open("/proc/meminfo", encoding="utf-8") as fh:
+            for line in fh:
+                if line.startswith("MemAvailable:"):
+                    return int(line.split()[1]) / (1024**2)
+    except OSError:
+        pass
+    return None
+
+
+def _default_workers() -> int:
+    """Scale render concurrency to FREE RAM, not just core count.
+
+    Every concurrent pandoc is a separate process. On a box that is already
+    paging, spawning 16 of them deepens the thrash instead of rendering
+    faster -- observed 2026-08-16, when a local llama-server held 17.5GB of
+    31GB and left 3GB free while this pipeline wanted 16 workers. Core count
+    alone is the wrong input; back off under pressure instead of piling on.
+    """
+    cpu_cap = min(16, (os.cpu_count() or 4))
+    free_gb = _available_memory_gb()
+    if free_gb is None:
+        return cpu_cap
+    if free_gb < 2:
+        return 2
+    if free_gb < 4:
+        return 4
+    if free_gb < 8:
+        return min(8, cpu_cap)
+    return cpu_cap
+
+
 @dataclass
 class _PageOutcome:
     """One page's render result.
@@ -974,7 +1032,7 @@ def export_vault_direct(
     source_mtimes: dict[str, float] = {}
 
     tasks = list(_iter_vault_markdown_files(Path(vault_root), exclude))
-    workers = options.max_workers if options.max_workers else min(16, (os.cpu_count() or 4))
+    workers = options.max_workers if options.max_workers else _default_workers()
     workers = max(1, min(workers, len(tasks) or 1))
 
     # Progress heartbeat. A whole-vault render is ~3700 pandoc invocations
@@ -1003,7 +1061,9 @@ def export_vault_direct(
     if workers == 1:
         outcomes = [_run_task(task) for task in tasks]
     else:
-        print(f"  [render] {total} pages across {workers} workers", file=sys.stderr)
+        free_gb = _available_memory_gb()
+        mem_note = f", {free_gb:.1f} GB free" if free_gb is not None else ""
+        print(f"  [render] {total} pages across {workers} workers{mem_note}", file=sys.stderr)
         with ThreadPoolExecutor(max_workers=workers) as pool:
             # pool.map preserves INPUT order regardless of completion order,
             # so the fold below -- and therefore pages/index.html -- comes out
