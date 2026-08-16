@@ -100,6 +100,12 @@ from scheduler import AgentScheduler  # noqa: E402
 
 SCHEMA_VERSION = 1
 
+# See html_export/exporter.py's _NO_WINDOW for the full rationale. git, like
+# pandoc, is a console program, and every subprocess.run in this module runs
+# under a schtasks Interactive logon -- without this flag each git call
+# flashes a focus-stealing console window. No-op on non-Windows.
+_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
 # Matches the PS1's own $StateDir/$LogDir (C:\Users\Administrator\.claude\...)
 # for this machine, expressed portably so lmvk-compile-spend.json stays the
 # exact same file (and schema) across the PS1-to-Python migration -- no
@@ -288,6 +294,11 @@ def _run_git(
         text=True,
         encoding="utf-8",
         errors="replace",
+        # git is a console program: under a schtasks Interactive logon each
+        # invocation would otherwise pop a focus-stealing console window.
+        # Same reasoning (and same 2026-08-16 incident) as html_export/
+        # exporter.py's _NO_WINDOW -- see its comment for the full story.
+        creationflags=_NO_WINDOW,
     )
     if result.stdout.strip():
         logger.log(result.stdout.strip())
@@ -312,6 +323,63 @@ def _run_git_net(
     Invoke-GitNet (PS1 lines 127-136).
     """
     return _run_git(["-c", "credential.helper=", *args], cwd=cwd, env=env, logger=logger, check=check)
+
+
+# Retry budget for network-touching git reads (pull/fetch/ls-remote).
+# Deliberately the same shape as _PUSH_MAX_ATTEMPTS / _PUSH_RETRY_BACKOFF_
+# SECONDS below, for the same reason: the trigger interval is 15 minutes, so
+# a retry storm must stay small relative to that headroom.
+#
+# Production evidence (2026-08-16): the gitea host is intermittently
+# unavailable -- 12 probes over 12s measured 2 hard timeouts and latency
+# swinging between 0.9s and 7.9s, and the day's log shows THREE distinct
+# transport failures against it ("Failed to connect ... after 21034 ms",
+# "schannel: failed to receive handshake", "Empty reply from server").
+# `git pull` had no retry at all, so any one of those aborted the whole run.
+# That is not a cosmetic failure: an aborted run leaves last_success.
+# vault_commit behind HEAD, which makes the NEXT run take the "has NOT
+# caught up" branch and re-render the entire vault -- a 15-minute cron
+# amplifying a 2-second network blip into a full rebuild.
+_NET_MAX_ATTEMPTS = 3
+_NET_RETRY_BACKOFF_SECONDS = (5, 15)
+
+
+def _run_git_net_retrying(
+    args: list[str],
+    *,
+    cwd: Path | None,
+    env: dict[str, str],
+    logger: _Logger,
+    what: str,
+) -> subprocess.CompletedProcess[str]:
+    """A network git call that absorbs transient transport failures.
+
+    Auth failures are never retried (same token, same helper -- a retry
+    cannot succeed), reusing _looks_like_auth_failure so pull and push agree
+    on what "transient" means.
+    """
+    last_error: GitError | None = None
+    for attempt in range(1, _NET_MAX_ATTEMPTS + 1):
+        result = _run_git_net(args, cwd=cwd, env=env, logger=logger, check=False)
+        if result.returncode == 0:
+            if attempt > 1:
+                logger.log(f"{what} succeeded on attempt {attempt}/{_NET_MAX_ATTEMPTS}.")
+            return result
+        if _looks_like_auth_failure(result.stderr):
+            raise GitError(
+                f"{what} failed with an authentication error (exit {result.returncode}) -- not retrying."
+            )
+        last_error = GitError(f"{what} failed (exit {result.returncode}).")
+        if attempt < _NET_MAX_ATTEMPTS:
+            backoff = _NET_RETRY_BACKOFF_SECONDS[attempt - 1]
+            logger.log(
+                f"{what} attempt {attempt}/{_NET_MAX_ATTEMPTS} failed (exit {result.returncode}), "
+                f"treating as a transient transport error -- retrying in {backoff}s.",
+                "WARN",
+            )
+            time.sleep(backoff)
+    assert last_error is not None
+    raise last_error
 
 
 def initialize_git_auth(cfg: PublishConfig, environment: dict[str, str], logger: _Logger) -> dict[str, str]:
@@ -585,7 +653,7 @@ def _run_locked_pipeline(
     # input is always a fresh `git pull`, never a direct local-disk read).
     # -----------------------------------------------------------------
     head_before = _run_git(["rev-parse", "HEAD"], cwd=cfg.vault_path, env=git_env, logger=logger).stdout.strip()
-    _run_git_net(["pull"], cwd=cfg.vault_path, env=git_env, logger=logger)
+    _run_git_net_retrying(["pull"], cwd=cfg.vault_path, env=git_env, logger=logger, what="git pull")
     head_after = _run_git(["rev-parse", "HEAD"], cwd=cfg.vault_path, env=git_env, logger=logger).stdout.strip()
     result["vault_head_before"] = head_before
     result["vault_head_after"] = head_after

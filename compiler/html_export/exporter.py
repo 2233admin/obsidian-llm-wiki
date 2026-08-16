@@ -5,8 +5,11 @@ Uses Pandoc to convert markdown to HTML with custom themes.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -37,6 +40,14 @@ class ExportOptions:
     # register it from every page. False -> no sw.js, no registration
     # snippet (--no-sw on the CLI).
     service_worker: bool = True
+    # Concurrent pandoc invocations for export_vault_direct(). Each page is
+    # an independent `pandoc in -> html out` with no shared state, and the
+    # calling thread spends essentially the whole call blocked in
+    # subprocess.run (which releases the GIL), so threads -- not processes --
+    # are the right tool. None -> min(16, cpu_count). 1 forces the old
+    # strictly-serial path. Measured on the production vault (3700 notes,
+    # 9800X3D/8C16T): serial ~170s, 8 workers ~25s.
+    max_workers: int | None = None
 
 
 @dataclass
@@ -211,6 +222,23 @@ def _inject_footer(html_content: str, build_timestamp: str) -> str:
     return html_content + "\n" + footer
 
 
+# Pandoc is a CONSOLE program. On Windows, a subprocess.run() without this
+# flag pops a visible console window for every single invocation, and that
+# window steals keyboard focus. export_vault_direct() forks pandoc once per
+# note -- 3700+ on the production vault -- so an un-suppressed whole-vault
+# render fires 3700 focus-stealing windows in a row and makes the desktop
+# literally untypeable for the duration of the run (observed 2026-08-16:
+# a wedged L2 run held the desktop hostage for ~1h before it was killed).
+# getattr keeps this a no-op on non-Windows, where the attribute is absent
+# and subprocess.run ignores creationflags anyway.
+_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
+# Ceiling for a single-file pandoc conversion. A note that somehow wedges
+# pandoc must cost one file (caught by the per-file except in
+# export_vault_direct -> files_failed += 1), never the whole run.
+_PANDOC_TIMEOUT_SECONDS = 120
+
+
 def _check_pandoc() -> tuple[bool, str]:
     """Check if Pandoc is installed and return version."""
     try:
@@ -218,12 +246,14 @@ def _check_pandoc() -> tuple[bool, str]:
             ["pandoc", "--version"],
             capture_output=True,
             text=True,
+            creationflags=_NO_WINDOW,
+            timeout=30,
         )
         if result.returncode == 0:
             version = result.stdout.split("\n")[0]
             return True, version
         return False, ""
-    except FileNotFoundError:
+    except (FileNotFoundError, subprocess.TimeoutExpired):
         return False, ""
 
 
@@ -273,7 +303,13 @@ def _run_pandoc(
     if title:
         cmd.extend(["--metadata", f"title={title}"])
 
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        creationflags=_NO_WINDOW,
+        timeout=_PANDOC_TIMEOUT_SECONDS,
+    )
     if result.returncode != 0:
         print(f"  [warn] Pandoc error: {result.stderr}", file=sys.stderr)
         return False
@@ -772,6 +808,83 @@ def _write_vault_index(
         temp_md.unlink(missing_ok=True)
 
 
+@dataclass
+class _PageOutcome:
+    """One page's render result.
+
+    Collected off the worker threads and folded into the ExportReport on the
+    main thread, so the report's counters never need a lock and the fold
+    happens in a deterministic order (see export_vault_direct).
+    """
+
+    ok: bool
+    title: str = ""
+    href: str = ""
+    mtime: float = 0.0
+    links_converted: int = 0
+
+
+def _render_one_vault_page(
+    source_file: Path,
+    rel_dir: str,
+    output_dir: Path,
+    css_dest: Path,
+    build_timestamp: str,
+    register_sw: bool,
+) -> _PageOutcome:
+    """Render one vault note to HTML.
+
+    Deliberately free of shared mutable state: every path it writes
+    (``output_file`` and the temp ``.md`` beside it) is derived from this
+    note's own path and therefore unique to this call, so N of these can run
+    concurrently with no coordination. Mirrors the per-file error handling of
+    the original serial loop -- a bad note costs one file, never the run.
+    """
+    import re
+
+    depth = len(rel_dir.split("/")) if rel_dir else 0
+    asset_prefix = "../" * depth
+    out_subdir = output_dir / rel_dir if rel_dir else output_dir
+    out_subdir.mkdir(parents=True, exist_ok=True)
+    output_file = out_subdir / f"{source_file.stem}.html"
+
+    try:
+        content = source_file.read_text("utf-8-sig", errors="replace")
+        processed = _process_markdown(content, source_file)
+        links = len(re.findall(r"\[\[([^\]]+)\]\]", content))
+
+        temp_md = output_file.with_suffix(".md")
+        temp_md.write_text(processed, "utf-8")
+
+        title = _extract_title(source_file) or source_file.stem
+        try:
+            ok = _run_pandoc(
+                temp_md, output_file, css_dest, title,
+                asset_prefix=asset_prefix, build_timestamp=build_timestamp,
+                register_sw=register_sw,
+            )
+        finally:
+            temp_md.unlink(missing_ok=True)
+
+        if not ok:
+            # Matches the serial version: a link count survives a failed
+            # pandoc run, because the links were counted from source before
+            # conversion was ever attempted.
+            return _PageOutcome(ok=False, links_converted=links)
+
+        href = f"{rel_dir}/{output_file.name}" if rel_dir else output_file.name
+        return _PageOutcome(
+            ok=True,
+            title=title,
+            href=href,
+            mtime=source_file.stat().st_mtime,
+            links_converted=links,
+        )
+    except Exception as e:
+        print(f"  [warn] Failed to export {source_file}: {e}", file=sys.stderr)
+        return _PageOutcome(ok=False)
+
+
 def export_vault_direct(
     vault_root: Path,
     output_dir: Path,
@@ -836,44 +949,52 @@ def export_vault_direct(
     # precache -- see the matching comment in export_to_html).
     source_mtimes: dict[str, float] = {}
 
-    for source_file, rel_dir in _iter_vault_markdown_files(Path(vault_root), exclude):
-        depth = len(rel_dir.split("/")) if rel_dir else 0
-        asset_prefix = "../" * depth
-        out_subdir = output_dir / rel_dir if rel_dir else output_dir
-        out_subdir.mkdir(parents=True, exist_ok=True)
-        output_file = out_subdir / f"{source_file.stem}.html"
+    tasks = list(_iter_vault_markdown_files(Path(vault_root), exclude))
+    workers = options.max_workers if options.max_workers else min(16, (os.cpu_count() or 4))
+    workers = max(1, min(workers, len(tasks) or 1))
 
-        try:
-            content = source_file.read_text("utf-8-sig", errors="replace")
-            processed = _process_markdown(content, source_file)
+    # Progress heartbeat. A whole-vault render is ~3700 pandoc invocations
+    # and previously emitted NOTHING between the caller's last log line and
+    # completion, so a wedged run looked exactly like a slow one -- the
+    # 2026-08-16 incident could only be diagnosed by killing the process and
+    # noting which log line never arrived. stderr is the safe stream here:
+    # lmvk_publish wraps this whole pipeline in redirect_stdout(sys.stderr),
+    # so a heartbeat can never corrupt its "stdout is one JSON blob" contract.
+    completed = 0
+    completed_lock = threading.Lock()
+    total = len(tasks)
 
-            import re
+    def _run_task(task: tuple[Path, str]) -> _PageOutcome:
+        nonlocal completed
+        outcome = _render_one_vault_page(
+            task[0], task[1], output_dir, css_dest, build_timestamp, options.service_worker
+        )
+        with completed_lock:
+            completed += 1
+            current = completed
+        if current % 200 == 0:
+            print(f"  [progress] {current}/{total} pages rendered", file=sys.stderr)
+        return outcome
 
-            report.links_converted += len(re.findall(r"\[\[([^\]]+)\]\]", content))
+    if workers == 1:
+        outcomes = [_run_task(task) for task in tasks]
+    else:
+        print(f"  [render] {total} pages across {workers} workers", file=sys.stderr)
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            # pool.map preserves INPUT order regardless of completion order,
+            # so the fold below -- and therefore pages/index.html -- comes out
+            # byte-identical to the serial path. Using as_completed here
+            # instead would make index.html reshuffle on every build and turn
+            # each publish into a spurious full-file diff.
+            outcomes = list(pool.map(_run_task, tasks))
 
-            temp_md = output_file.with_suffix(".md")
-            temp_md.write_text(processed, "utf-8")
-
-            title = _extract_title(source_file) or source_file.stem
-            try:
-                ok = _run_pandoc(
-                    temp_md, output_file, css_dest, title,
-                    asset_prefix=asset_prefix, build_timestamp=build_timestamp,
-                    register_sw=options.service_worker,
-                )
-            finally:
-                temp_md.unlink(missing_ok=True)
-
-            if ok:
-                report.files_exported += 1
-                href = f"{rel_dir}/{output_file.name}" if rel_dir else output_file.name
-                pages.append((title, href))
-                source_mtimes[href] = source_file.stat().st_mtime
-            else:
-                report.files_failed += 1
-
-        except Exception as e:
-            print(f"  [warn] Failed to export {source_file}: {e}", file=sys.stderr)
+    for outcome in outcomes:
+        report.links_converted += outcome.links_converted
+        if outcome.ok:
+            report.files_exported += 1
+            pages.append((outcome.title, outcome.href))
+            source_mtimes[outcome.href] = outcome.mtime
+        else:
             report.files_failed += 1
 
     if options.include_index:
