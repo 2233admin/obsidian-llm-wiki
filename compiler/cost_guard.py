@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """LMVK L2 cost guardrail -- a small state file + pure gate so the 15-min
-incremental-compile cron (scripts/lmvk-incremental-compile.ps1) can refuse
-to spend past a daily dollar cap.
+incremental-compile cron (compiler/lmvk_publish.py, invoked by schtasks and
+by the Obsidian plugin) can refuse to spend past a daily dollar cap.
 
 State file (JSON), one record for "today":
     {"date": "2026-07-12", "spend_usd": 3.4}
