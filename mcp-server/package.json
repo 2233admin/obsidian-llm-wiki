@@ -47,7 +47,7 @@
     "verify:bundle": "npm run rebuild && node scripts/verify-bundles.mjs"
   },
   "dependencies": {
-    "@electric-sql/pglite": "^0.5.4",
+    "@electric-sql/pglite": "^0.5.5",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@types/pg": "^8.20.0",
     "pg": "^8.22.0",
