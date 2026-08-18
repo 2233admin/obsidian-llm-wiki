@@ -15,6 +15,40 @@ import type {
 } from "./interface.js";
 import { normalizeSearchResult } from "../retrieval/evidence.js";
 
+function expandGlobBraces(pattern: string): string[] {
+  const start = pattern.indexOf("{");
+  if (start === -1) return [pattern];
+  const end = pattern.indexOf("}", start + 1);
+  if (end === -1) return [pattern];
+  const alternatives = pattern.slice(start + 1, end).split(",");
+  return alternatives.flatMap((alternative) =>
+    expandGlobBraces(`${pattern.slice(0, start)}${alternative}${pattern.slice(end + 1)}`));
+}
+
+function globToRegExp(pattern: string): RegExp {
+  let source = "";
+  for (let index = 0; index < pattern.length; index += 1) {
+    const character = pattern[index];
+    if (character === "*" && pattern[index + 1] === "*") {
+      source += ".*";
+      index += 1;
+    } else if (character === "*") {
+      source += "[^/]*";
+    } else if (character === "?") {
+      source += "[^/]";
+    } else {
+      source += /[\\^$+?.()|[\]{}]/.test(character) ? `\\${character}` : character;
+    }
+  }
+  return new RegExp(`^(?:${source})$`);
+}
+
+function matchesGlob(relativePath: string, glob: string | undefined): boolean {
+  if (!glob) return true;
+  const normalized = relativePath.replace(/\\/g, "/");
+  return expandGlobBraces(glob.replace(/\\/g, "/")).some((pattern) => globToRegExp(pattern).test(normalized));
+}
+
 const exec = promisify(execFile);
 
 export class FilesystemAdapter implements VaultMindAdapter {
@@ -47,19 +81,24 @@ export class FilesystemAdapter implements VaultMindAdapter {
     if (!opts?.caseSensitive) args.push("-i");
     if (opts?.glob) args.push("--glob", opts.glob);
 
-    args.push("--", query, this.vaultPath); // "--" stops option parsing
+    const scopedSearch = Boolean(opts?.glob);
+    args.push("--", query, scopedSearch ? "." : this.vaultPath); // "--" stops option parsing
 
     try {
-      const { stdout } = await exec("rg", args, { maxBuffer: 2 * 1024 * 1024 });
+      const { stdout } = await exec("rg", args, {
+        maxBuffer: 2 * 1024 * 1024,
+        ...(scopedSearch ? { cwd: this.vaultPath } : {}),
+      });
       const files = stdout.split(/\r?\n/).filter(Boolean).slice(0, maxResults);
       const results: SearchResult[] = [];
 
       for (const file of files) {
         try {
-          const content = await readFile(file, "utf-8");
+          const fullPath = isAbsolute(file) ? file : join(this.vaultPath, file);
+          const content = await readFile(fullPath, "utf-8");
           results.push(normalizeSearchResult({
             source: this.name,
-            path: relative(this.vaultPath, file).replace(/\\/g, "/"),
+            path: relative(this.vaultPath, fullPath).replace(/\\/g, "/"),
             content: this.extractSnippet(content, query, opts),
             score: 1.0,
           }, this.name));
@@ -143,13 +182,14 @@ export class FilesystemAdapter implements VaultMindAdapter {
 
     try {
       const { stdout } = await exec("grep", args, { maxBuffer: 5 * 1024 * 1024 });
-      const files = stdout.split(/\r?\n/).filter(Boolean).slice(0, opts?.maxResults ?? 20);
+      const files = stdout.split(/\r?\n/).filter(Boolean);
       const results: SearchResult[] = [];
 
       for (const file of files) {
         const fullPath = isAbsolute(file) ? file : resolve(file);
         const relPath = relative(this.vaultPath, fullPath);
         if (relPath.startsWith("..") || isAbsolute(relPath)) continue;
+		if (!matchesGlob(relPath, opts?.glob)) continue;
 
         try {
           const content = await readFile(fullPath, "utf-8");
@@ -159,6 +199,7 @@ export class FilesystemAdapter implements VaultMindAdapter {
             content: this.extractSnippet(content, query, opts),
             score: 1.0,
           }, this.name));
+          if (results.length >= (opts?.maxResults ?? 20)) break;
         } catch {
           // File may have changed between grep and read; skip stale matches.
         }

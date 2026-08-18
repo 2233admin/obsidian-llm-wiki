@@ -14,6 +14,8 @@ export interface McpRuntimeOptions {
   operations: Operation[];
   ctx: OperationContext;
   logger: Logger;
+  /** Optional application-catalog invocation path. */
+  invoke?: (operation: string, params: Record<string, unknown>) => unknown | Promise<unknown>;
   prepareParams?: (
     operation: Operation,
     params: Record<string, unknown>,

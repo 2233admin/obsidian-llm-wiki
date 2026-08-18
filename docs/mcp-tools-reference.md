@@ -3,7 +3,7 @@
 > Auto-generated from `mcp-server/src/core/operations.ts`.
 > Run `npm run generate-tools-doc` to regenerate. Do not edit by hand.
 
-Total: **202** operations across **26** namespaces.
+Total: **207** operations across **26** namespaces.
 
 ## `vault.*` (31)
 
@@ -599,7 +599,7 @@ List captured conversation decision Markdown notes newest first.
 - `limit` (number, optional, default: `20`) — Maximum decisions return (default: 20)
 - `tag` (string, optional) — Optional tag filter
 
-## `compile.*` (6)
+## `compile.*` (9)
 
 ### `compile.abort`
 
@@ -650,6 +650,38 @@ Run compilation
 **Parameters:**
 
 - `topic` (string, optional) — Topic to compile
+
+### `compile.run.approve`
+
+Approve one verified compiler Run and promote its staged artifacts through VaultStore.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `runId` (string, required) — Durable Compile Run id awaiting approval
+- `topic` (string, required) — Exact topic recorded by the Compile Run
+
+### `compile.run.inspect`
+
+Inspect one durable compiler Run and its receipt state.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `runId` (string, required) — Durable Compile Run id
+
+### `compile.run.reject`
+
+Reject one verified compiler Run and discard its pending promotion without touching the Vault topic.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `runId` (string, required) — Durable Compile Run id awaiting approval
+- `topic` (string, required) — Exact topic recorded by the Compile Run
 
 ### `compile.status`
 
@@ -710,7 +742,7 @@ Check secret configuration status for a recipe
 
 - `id` (string, required) — Recipe id
 
-## `agent.*` (20)
+## `agent.*` (22)
 
 ### `agent.binding.create`
 
@@ -870,6 +902,26 @@ Derive one read-only Room from Project Context, Agent Profile/Binding, and an ac
 - `profileId` (string, required)
 - `threadId` (string, optional)
 
+### `agent.run.cancel`
+
+Request cancellation of one durable Agent Run.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `runId` (string, required) — Durable Agent Run id
+
+### `agent.run.inspect`
+
+Inspect one durable Agent Run and its receipt state.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `runId` (string, required) — Durable Agent Run id
+
 ### `agent.schedule`
 
 Schedule an agent task
@@ -960,6 +1012,7 @@ Trigger an agent action
 
 - `action` (string, required) — Action to trigger (compile, emerge, reconcile, prune, challenge)
 - `mode` (string, optional) — Agent mode
+- `topic` (string, optional) — Optional topic for the compile action
 
 ## `multimodal.*` (1)
 

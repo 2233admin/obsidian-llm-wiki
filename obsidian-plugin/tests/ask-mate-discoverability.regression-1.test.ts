@@ -116,14 +116,14 @@ test("first-run vault exposes Ask Mate and routes through Workspace Project bind
     kind: "markdown_note",
     path: "Notes/first-run.md",
   }]);
-  assert.match(Notice.messages.at(-1) ?? "", /enter a Project ID to start Ask Mate/i);
+  assert.match(Notice.messages.at(-1) ?? "", /enter a Project ID to start/i);
 });
 
 test("first-run vault exposes an always-visible Ask Mate ribbon action", async () => {
   const plugin = new FirstRunPlugin();
   await plugin.onload();
 
-  const ribbon = plugin.ribbonIcons.find(item => item.title === "Open Ask Mate");
+  const ribbon = plugin.ribbonIcons.find(item => item.title === "Open LLM Wiki");
   assert.ok(ribbon, "always-visible Ask Mate ribbon action was not registered");
   assert.equal(ribbon.icon, "sparkles");
 

@@ -1,14 +1,24 @@
-import type { Operation, OperationContext } from '../core/types.js';
+import type { Operation, OperationContext, WriteEffect } from '../core/types.js';
 import { badRequest, internal, makeErr } from '../core/types.js';
 import { ValidationError, validateParams } from '../core/validate.js';
 import {
   adjudicateOperationWrite,
   auditOperationWrite,
+  writeEffectsForVerdict,
   type OperationRegistry,
 } from '../core/write-policy.js';
 
 export interface OperationDispatcher {
   invoke(name: string, args?: Record<string, unknown>): Promise<unknown>;
+}
+
+export interface OperationDispatcherOptions {
+  /**
+   * Receives write effects after the handler and audit record have completed.
+   * Hosts use this for derived-index or compile-trigger notifications; the
+   * Operation handler itself remains transport-neutral.
+   */
+  onWriteEffect?: (effect: WriteEffect) => void | Promise<void>;
 }
 
 /**
@@ -20,6 +30,7 @@ export interface OperationDispatcher {
 export function createOperationDispatcher(
   operations: readonly Operation[],
   context: OperationContext,
+  options: OperationDispatcherOptions = {},
 ): OperationDispatcher {
   const registry: OperationRegistry = new Map(
     operations.map((operation) => [operation.name, operation]),
@@ -40,6 +51,9 @@ export function createOperationDispatcher(
       );
       const result = await operation.handler(context, params);
       auditOperationWrite(context, verdict, result);
+      for (const effect of writeEffectsForVerdict(context, verdict, result)) {
+        await options.onWriteEffect?.(effect);
+      }
       return result;
     },
   };

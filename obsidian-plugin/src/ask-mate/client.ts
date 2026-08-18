@@ -18,6 +18,8 @@ import type {
 export const ASK_MATE_OPERATIONS = {
   readMap: "visual.map.read",
   readContext: "visual.context.read",
+  answerContext: "context.recall",
+  writeAnswerDraft: "vault.writeAIOutput",
   planMap: "visual.map.plan",
   applyMap: "visual.map.apply",
   planIssue: "problem.intake.issue.plan",
@@ -73,6 +75,47 @@ export interface AskMateContextReadResult {
   warnings: string[];
   clarifications: AskMateClarification[];
   capabilities: AskMateCapabilityState;
+}
+
+export interface AskMateAnswerCitation {
+  id: string;
+  rank: number;
+  source: string;
+  path: string;
+  snippet: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface AskMateAnswerClaim {
+  text: string;
+  citations: string[];
+  confidence: "low" | "medium" | "high";
+}
+
+export interface AskMateAnswerGap {
+  type: string;
+  message: string;
+  source?: string;
+}
+
+export interface AskMateContextAnswer {
+  query: string;
+  answer: string;
+  claims: AskMateAnswerClaim[];
+  citations: AskMateAnswerCitation[];
+  gaps: AskMateAnswerGap[];
+  contradictions: AskMateAnswerClaim[];
+  confidence: "low" | "medium" | "high";
+  scope?: {
+    project: string | null;
+    glob?: string;
+  };
+}
+
+export interface AskMateAnswerDraftResult {
+  ok: boolean;
+  path: string;
+  replayed?: boolean;
 }
 
 export interface AskMateIssueChangePlan {
@@ -228,6 +271,66 @@ export class AskMateOperationClient {
         ...(context.selection ? { selection: context.selection } : {}),
         ...(context.canvasNodeIds?.length ? { canvasNodeIds: context.canvasNodeIds } : {}),
       },
+    });
+  }
+
+  answerContext(context: AskMateContext, query: string): Promise<AskMateContextAnswer> {
+    const normalizedQuery = query.trim();
+    if (!normalizedQuery) return Promise.reject(new Error("A question is required"));
+    return this.transport.invoke(ASK_MATE_OPERATIONS.answerContext, {
+      project: context.projectId,
+      query: normalizedQuery,
+      maxResults: 5,
+    });
+  }
+
+  writeAnswerDraft(input: {
+    parentQuery: string;
+    sourceNodes: string[];
+    body: string;
+    slug: string;
+  }): Promise<AskMateAnswerDraftResult> {
+    const parentQuery = input.parentQuery.trim();
+    const body = input.body.trim();
+    if (!parentQuery) return Promise.reject(new Error("A question is required"));
+    if (!body) return Promise.reject(new Error("A cited answer draft cannot be empty"));
+    if (!input.sourceNodes.length) return Promise.reject(new Error("A cited answer requires at least one source"));
+    return this.transport.invoke(ASK_MATE_OPERATIONS.writeAnswerDraft, {
+      persona: "vault-ask",
+      parentQuery,
+      sourceNodes: [...new Set(input.sourceNodes)],
+      agent: "llmwiki-context",
+      body,
+      slug: input.slug,
+      scope: "project",
+      quarantineState: "new",
+      reviewStatus: "none",
+      dryRun: false,
+    });
+  }
+
+  writeAgentfilesDraft(input: {
+    parentQuery: string;
+    sourceNodes: string[];
+    body: string;
+    slug: string;
+  }): Promise<AskMateAnswerDraftResult> {
+    const parentQuery = input.parentQuery.trim();
+    const body = input.body.trim();
+    if (!parentQuery) return Promise.reject(new Error("A conversation draft requires a title"));
+    if (!body) return Promise.reject(new Error("A conversation draft cannot be empty"));
+    if (!input.sourceNodes.length) return Promise.reject(new Error("A conversation draft requires its source session"));
+    return this.transport.invoke(ASK_MATE_OPERATIONS.writeAnswerDraft, {
+      persona: "vault-agentfiles",
+      parentQuery,
+      sourceNodes: [...new Set(input.sourceNodes)],
+      agent: "agentfiles-conversations",
+      body,
+      slug: input.slug,
+      scope: "project",
+      quarantineState: "new",
+      reviewStatus: "none",
+      dryRun: false,
     });
   }
 

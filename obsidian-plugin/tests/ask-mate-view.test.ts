@@ -165,6 +165,68 @@ test("view restores only context and never applies an unconfirmed preview", asyn
   assert.equal(view.model.hasDocument, false);
 });
 
+test("Ask Mate keeps citation retrieval read-only and requires an explicit Inbox save", async () => {
+  const calls: Array<{ operation: string; args: Record<string, unknown> }> = [];
+  const client = new AskMateOperationClient({
+    async invoke<T>(operation: string, args: Record<string, unknown>): Promise<T> {
+      calls.push({ operation, args });
+      if (operation === "visual.map.read") return mapReadResult() as T;
+      if (operation === "graph.adapters.query") return { snapshots: [] } as T;
+      if (operation === "context.recall") {
+        return {
+          query: "What owns the run lifecycle?",
+          answer: "CompileRunPort owns the run lifecycle. [C1]",
+          claims: [{ text: "CompileRunPort owns the run lifecycle.", citations: ["C1"], confidence: "high" }],
+          citations: [{ id: "C1", rank: 1, source: "filesystem", path, snippet: "CompileRunPort owns the run lifecycle." }],
+          gaps: [],
+          contradictions: [],
+          confidence: "high",
+        } as T;
+      }
+      if (operation === "vault.writeAIOutput") {
+        return { ok: true, path: "00-Inbox/AI-Output/vault-ask/2026-08-18-context-question.md" } as T;
+      }
+      throw new Error(`Unexpected operation: ${operation}`);
+    },
+  });
+  const view = new AskMateView({} as WorkspaceLeaf, client, {
+    proposalActor: "ask-mate-ui-proposer",
+    confirmationActor: "obsidian-control-plane",
+  });
+  view.render = () => undefined;
+
+  await view.openContext({ projectId, kind: "managed_map", path });
+  view.setQuestion("What owns the run lifecycle?");
+  await view.askQuestion();
+  assert.equal(calls.filter(call => call.operation === "context.recall").length, 1);
+  assert.equal(calls.filter(call => call.operation === "vault.writeAIOutput").length, 0);
+
+  await view.saveAnswerDraft();
+  assert.equal(calls.filter(call => call.operation === "vault.writeAIOutput").length, 1);
+  const draftArgs = calls.at(-1)?.args;
+  assert.deepEqual({
+    persona: draftArgs?.persona,
+    parentQuery: draftArgs?.parentQuery,
+    sourceNodes: draftArgs?.sourceNodes,
+    agent: draftArgs?.agent,
+    scope: draftArgs?.scope,
+    quarantineState: draftArgs?.quarantineState,
+    reviewStatus: draftArgs?.reviewStatus,
+    dryRun: draftArgs?.dryRun,
+  }, {
+    persona: "vault-ask",
+    parentQuery: "What owns the run lifecycle?",
+    sourceNodes: [path],
+    agent: "llmwiki-context",
+    scope: "project",
+    quarantineState: "new",
+    reviewStatus: "none",
+    dryRun: false,
+  });
+  assert.match(String(draftArgs?.body), /C1/);
+  assert.match(String(draftArgs?.slug), /^context-question-/);
+});
+
 test("Graphify lookup does not block restored outline editing", async () => {
   let releaseGraph!: () => void;
   const graphPending = new Promise<void>(resolve => { releaseGraph = resolve; });

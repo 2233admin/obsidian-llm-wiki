@@ -317,9 +317,81 @@ describe('Operation Write Policy', () => {
     assert.deepEqual(recipeVerdict.targets, ['external/recipe/**']);
 
     const compileRun = requireOperation(registry, 'compile.run');
-    const compileVerdict = adjudicateOperationWrite(makeCtx(['external/compile/**']), compileRun, {}, registry);
+    const compileVerdict = adjudicateOperationWrite(
+      makeCtx(['external/compile/**', '_llmwiki/compile-runs/v1/**', '00-Inbox/AI-Output/vault-compiler/**']),
+      compileRun,
+      {},
+      registry,
+    );
     assert.equal(compileVerdict.realWrite, true);
-    assert.deepEqual(compileVerdict.targets, ['external/compile/**']);
+    assert.deepEqual(compileVerdict.targets, [
+      'external/compile/**',
+      '_llmwiki/compile-runs/v1/**',
+      '00-Inbox/AI-Output/vault-compiler/**',
+    ]);
+
+    const scopedVerdict = adjudicateOperationWrite(
+      makeCtx(['external/compile/**', '_llmwiki/compile-runs/v1/**', '00-Inbox/AI-Output/vault-compiler/**', 'alpha/wiki/**', 'alpha/_meta.json']),
+      compileRun,
+      { topic: 'alpha' },
+      registry,
+    );
+    assert.deepEqual(scopedVerdict.targets, [
+      'external/compile/**',
+      '_llmwiki/compile-runs/v1/**',
+      '00-Inbox/AI-Output/vault-compiler/**',
+      'alpha/wiki/**',
+      'alpha/_meta.json',
+    ]);
+
+    const agentTrigger = requireOperation(registry, 'agent.trigger');
+    const agentVerdict = adjudicateOperationWrite(
+      makeCtx([
+        'external/agent/**',
+        '_llmwiki/agent-runs/v1/**',
+        'external/compile/**',
+        '_llmwiki/compile-runs/v1/**',
+        '00-Inbox/AI-Output/vault-compiler/**',
+        'alpha/wiki/**',
+        'alpha/_meta.json',
+      ]),
+      agentTrigger,
+      { action: 'compile', topic: 'alpha' },
+      registry,
+    );
+    assert.deepEqual(agentVerdict.targets, [
+      'external/agent/**',
+      '_llmwiki/agent-runs/v1/**',
+      'external/compile/**',
+      '_llmwiki/compile-runs/v1/**',
+      '00-Inbox/AI-Output/vault-compiler/**',
+      'alpha/wiki/**',
+      'alpha/_meta.json',
+    ]);
+
+    const approval = requireOperation(registry, 'compile.run.approve');
+    const approvalVerdict = adjudicateOperationWrite(
+      makeCtx(['external/compile/**', '_llmwiki/compile-runs/v1/**', '00-Inbox/AI-Output/vault-compiler/**', 'alpha/wiki/**', 'alpha/_meta.json']),
+      approval,
+      { runId: 'compile-run/approval', topic: 'alpha' },
+      registry,
+    );
+    assert.deepEqual(approvalVerdict.targets, [
+      'external/compile/**',
+      '_llmwiki/compile-runs/v1/**',
+      '00-Inbox/AI-Output/vault-compiler/**',
+      'alpha/wiki/**',
+      'alpha/_meta.json',
+    ]);
+
+    const rejection = requireOperation(registry, 'compile.run.reject');
+    const rejectionVerdict = adjudicateOperationWrite(
+      makeCtx(['external/compile/**', '_llmwiki/compile-runs/v1/**', '00-Inbox/AI-Output/vault-compiler/**', 'alpha/wiki/**', 'alpha/_meta.json']),
+      rejection,
+      { runId: 'compile-run/approval', topic: 'alpha' },
+      registry,
+    );
+    assert.deepEqual(rejectionVerdict.targets, approvalVerdict.targets);
   });
 
   test('lightrag.ingest only adjudicates external side effects when dryRun is false', () => {

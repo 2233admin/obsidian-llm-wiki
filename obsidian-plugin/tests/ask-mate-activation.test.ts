@@ -228,7 +228,7 @@ test("Project command and Markdown/Canvas file menu entries activate supported c
   const markdownMenu = new Menu();
   const markdownFile = file("01-Projects/alpha/notes/from-menu.md", "md");
   fileMenu(markdownMenu, markdownFile);
-  const markdownItem = markdownMenu.items.find(item => item.title === "Open in Ask Mate (LLM Wiki)");
+  const markdownItem = markdownMenu.items.find(item => item.title === "Open in LLM Wiki (LLM Wiki)");
   assert.ok(markdownItem?.click);
   markdownItem.click();
   assert.deepEqual(plugin.contexts.at(-1), {
@@ -240,7 +240,7 @@ test("Project command and Markdown/Canvas file menu entries activate supported c
   const canvasMenu = new Menu();
   const canvasFile = file("01-Projects/alpha/maps/from-menu.canvas", "canvas");
   fileMenu(canvasMenu, canvasFile);
-  const canvasItem = canvasMenu.items.find(item => item.title === "Open in Ask Mate (LLM Wiki)");
+  const canvasItem = canvasMenu.items.find(item => item.title === "Open in LLM Wiki (LLM Wiki)");
   assert.ok(canvasItem?.click);
   canvasItem.click();
   assert.deepEqual(plugin.contexts.at(-1), {

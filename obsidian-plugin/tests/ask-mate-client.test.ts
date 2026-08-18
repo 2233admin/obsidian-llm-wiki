@@ -73,6 +73,58 @@ test("read and preview use only their matching operations; apply is a separate e
   });
 });
 
+test("context questions stay read-only until an explicit cited Inbox draft call", async () => {
+  const calls: Array<{ operation: string; args: Record<string, unknown> }> = [];
+  const client = new AskMateOperationClient({
+    async invoke<T>(operation: string, args: Record<string, unknown>): Promise<T> {
+      calls.push({ operation, args });
+      if (operation === ASK_MATE_OPERATIONS.answerContext) {
+        return {
+          query: "What owns the run lifecycle?",
+          answer: "CompileRunPort owns the run lifecycle. [C1]",
+          claims: [{ text: "CompileRunPort owns the run lifecycle.", citations: ["C1"], confidence: "high" }],
+          citations: [{ id: "C1", rank: 1, source: "filesystem", path, snippet: "CompileRunPort owns the run lifecycle." }],
+          gaps: [],
+          contradictions: [],
+          confidence: "high",
+          scope: { project: "alpha", glob: "{01-Projects,10-Projects}/alpha/**" },
+        } as T;
+      }
+      return { ok: true, path: "00-Inbox/AI-Output/vault-ask/2026-08-18-context-question.md" } as T;
+    },
+  });
+
+  const answer = await client.answerContext({ projectId: project, kind: "markdown_note", path }, "What owns the run lifecycle?");
+  assert.equal(answer.citations[0]?.id, "C1");
+  assert.deepEqual(calls[0], {
+    operation: ASK_MATE_OPERATIONS.answerContext,
+    args: { project, query: "What owns the run lifecycle?", maxResults: 5 },
+  });
+  assert.equal(calls.some(call => call.operation === ASK_MATE_OPERATIONS.writeAnswerDraft), false);
+
+  await client.writeAnswerDraft({
+    parentQuery: "What owns the run lifecycle?",
+    sourceNodes: [path, path],
+    body: "# Context answer\n\nCompileRunPort owns the run lifecycle.",
+    slug: "context-question-run-lifecycle",
+  });
+  assert.deepEqual(calls.at(-1), {
+    operation: ASK_MATE_OPERATIONS.writeAnswerDraft,
+    args: {
+      persona: "vault-ask",
+      parentQuery: "What owns the run lifecycle?",
+      sourceNodes: [path],
+      agent: "llmwiki-context",
+      body: "# Context answer\n\nCompileRunPort owns the run lifecycle.",
+      slug: "context-question-run-lifecycle",
+      scope: "project",
+      quarantineState: "new",
+      reviewStatus: "none",
+      dryRun: false,
+    },
+  });
+});
+
 test("Graphify query keeps provenance/confidence/source path and filters unrelated edges", async () => {
   const client = new AskMateOperationClient({
     async invoke<T>(operation: string): Promise<T> {

@@ -60,6 +60,7 @@ import {
   AskMateOperationClient,
   isManagedProjectMapPath,
 } from "./ask-mate/client";
+import { AgentfilesFeature } from "./agentfiles/feature";
 import {
   ASK_MATE_VIEW_TYPE,
   AskMateView,
@@ -118,6 +119,7 @@ export function selectedCoreCanvasNodeIds(view: unknown): string[] {
 
 export default class LLMWikiPlugin extends Plugin {
   data!: LLMWikiPluginData;
+  private agentfilesFeature: AgentfilesFeature | null = null;
   projection: SettingsControlPlaneProjection | null = null;
   settingsError: string | null = null;
   private settingsClient!: SettingsOperationClient;
@@ -156,6 +158,16 @@ export default class LLMWikiPlugin extends Plugin {
     this.askMateClient = new AskMateOperationClient(transport);
     await this.applyPluginDataPlan(plan, pluginDataChanged);
     await this.refreshSettings(false);
+    this.agentfilesFeature = new AgentfilesFeature(
+      this,
+      this.data.agentfiles,
+      async settings => {
+        this.data = { ...this.data, agentfiles: settings };
+        await this.savePluginData();
+      },
+      input => this.askMateClient.writeAgentfilesDraft(input),
+    );
+    await this.agentfilesFeature.onload();
 
     this.registerView(
       ASK_MATE_VIEW_TYPE,
@@ -164,7 +176,7 @@ export default class LLMWikiPlugin extends Plugin {
         confirmationActor: OBSIDIAN_CONTROL_PLANE_ACTOR,
       }),
     );
-    this.addRibbonIcon("sparkles", "Open Ask Mate", () => this.openAskMateEntryPoint());
+    this.addRibbonIcon("sparkles", "Open LLM Wiki", () => this.openAskMateEntryPoint());
 
     this.addCommand({
       id: "promote-candidate",
@@ -185,19 +197,19 @@ export default class LLMWikiPlugin extends Plugin {
 
     this.addCommand({
       id: "open-agent-control-plane",
-      name: "Open Agent control plane (LLM Wiki)",
+      name: "Open advanced control plane (LLM Wiki)",
       callback: () => this.openAgentControlPlane(),
     });
 
     this.addCommand({
       id: "open-ask-mate",
-      name: "Open Ask Mate (LLM Wiki)",
+      name: "Open LLM Wiki",
       callback: () => this.openAskMateEntryPoint(),
     });
 
     this.addCommand({
       id: "open-ask-mate-active-note",
-      name: "Open Ask Mate for active Markdown or selection (LLM Wiki)",
+      name: "Open LLM Wiki for active Markdown or selection (LLM Wiki)",
       checkCallback: (checking: boolean) => {
         const file = this.app.workspace.getActiveFile();
         const projectId = this.workspaceProjectId();
@@ -211,7 +223,7 @@ export default class LLMWikiPlugin extends Plugin {
 
     this.addCommand({
       id: "open-ask-mate-active-canvas",
-      name: "Open Ask Mate for active core Canvas (LLM Wiki)",
+      name: "Open LLM Wiki for active core Canvas (LLM Wiki)",
       checkCallback: (checking: boolean) => {
         const file = this.app.workspace.getActiveFile();
         const projectId = this.workspaceProjectId();
@@ -225,7 +237,7 @@ export default class LLMWikiPlugin extends Plugin {
 
     this.addCommand({
       id: "open-ask-mate-project-context",
-      name: "Open Ask Mate for current Project Context (LLM Wiki)",
+      name: "Open LLM Wiki for current Project Context (LLM Wiki)",
       checkCallback: (checking: boolean) => {
         const projectId = this.workspaceProjectId();
         const ok = projectId !== null;
@@ -261,7 +273,7 @@ export default class LLMWikiPlugin extends Plugin {
           && this.workspaceProjectId()
         ) {
           menu.addItem((item) => item
-            .setTitle("Open in Ask Mate (LLM Wiki)")
+            .setTitle("Open in LLM Wiki (LLM Wiki)")
             .setIcon("git-fork")
             .onClick(() => {
               const projectId = this.workspaceProjectId();
@@ -277,6 +289,8 @@ export default class LLMWikiPlugin extends Plugin {
   }
 
   onunload(): void {
+    this.agentfilesFeature?.onunload();
+    this.agentfilesFeature = null;
     this.app.workspace.detachLeavesOfType(ASK_MATE_VIEW_TYPE);
     void this.controlPlaneTransport?.dispose?.();
     this.controlPlaneTransport = null;
@@ -358,7 +372,7 @@ export default class LLMWikiPlugin extends Plugin {
     }
     const projectId = this.workspaceProjectId();
     if (!projectId) {
-      new Notice("LLM Wiki: enter a Project ID to start Ask Mate (for example, project/my-project).");
+      new Notice("LLM Wiki: enter a Project ID to start (for example, project/my-project).");
       this.openWorkspaceProjectBindingEditor(boundProjectId => {
         this.activateBestAskMateContext(boundProjectId);
       });
@@ -372,7 +386,7 @@ export default class LLMWikiPlugin extends Plugin {
     projectId = this.workspaceProjectId(),
   ): Promise<void> {
     if (!projectId && typeof contextOrPath === "string") {
-      new Notice("LLM Wiki: bind this workspace to a canonical Project before opening Ask Mate.");
+      new Notice("LLM Wiki: bind this workspace to a canonical Project before opening.");
       return;
     }
     const context: AskMateContext = typeof contextOrPath === "string"
@@ -389,13 +403,13 @@ export default class LLMWikiPlugin extends Plugin {
     let leaf: WorkspaceLeaf | null = this.app.workspace.getLeavesOfType(ASK_MATE_VIEW_TYPE)[0] ?? null;
     if (!leaf) leaf = this.app.workspace.getRightLeaf(false);
     if (!leaf) {
-      new Notice("LLM Wiki: no workspace leaf is available for Ask Mate.");
+      new Notice("LLM Wiki: no workspace leaf is available.");
       return;
     }
     await leaf.setViewState({ type: ASK_MATE_VIEW_TYPE, active: true });
     const view = leaf.view;
     if (!(view instanceof AskMateView)) {
-      new Notice("LLM Wiki: Ask Mate view could not be activated.");
+      new Notice("LLM Wiki: workspace view could not be activated.");
       return;
     }
     await view.openContext(context);
@@ -426,10 +440,10 @@ export default class LLMWikiPlugin extends Plugin {
 
   private askMateRuntimeUnavailableReason(): string | null {
     if (Platform.isMobileApp) {
-      return "Ask Mate's local domain Operations are unavailable in the mobile app in this release.";
+      return "LLM Wiki's local domain Operations are unavailable in the mobile app in this release.";
     }
     if (!this.vaultBasePath()) {
-      return "Ask Mate requires a desktop filesystem-backed vault in this release.";
+      return "LLM Wiki requires a desktop filesystem-backed vault in this release.";
     }
     return null;
   }
@@ -457,7 +471,7 @@ export default class LLMWikiPlugin extends Plugin {
         };
       }
       new Notice(
-        `LLM Wiki: the selection exceeds ${MAX_ASK_MATE_SELECTION_CHARS.toLocaleString()} characters; Ask Mate opened the note without copying the selection.`,
+        `LLM Wiki: the selection exceeds ${MAX_ASK_MATE_SELECTION_CHARS.toLocaleString()} characters; the note was opened without copying the selection.`,
       );
     }
     return {
@@ -739,7 +753,7 @@ class WorkspaceProjectBindingModal extends Modal {
     const { contentEl } = this;
     contentEl.createEl("h2", { text: "Choose this workspace's Project" });
     contentEl.createEl("p", {
-      text: "Enter a stable Project ID such as project/my-project. If it does not exist, LLM Wiki creates its Project record and work area before opening Ask Mate.",
+      text: "Enter a stable Project ID such as project/my-project. If it does not exist, LLM Wiki creates its Project record and work area before opening the workspace.",
     });
     const input = contentEl.createEl("input", {
       type: "text",
@@ -748,7 +762,7 @@ class WorkspaceProjectBindingModal extends Modal {
       cls: "llmwiki-project-binding-input",
     });
     const buttons = contentEl.createDiv({ cls: "modal-button-container" });
-    const confirm = buttons.createEl("button", { text: "Create or bind and open Ask Mate", cls: "mod-cta" });
+    const confirm = buttons.createEl("button", { text: "Create or bind and open LLM Wiki", cls: "mod-cta" });
     confirm.onclick = async () => {
       confirm.disabled = true;
       try {
@@ -853,21 +867,18 @@ class LLMWikiSettingTab extends PluginSettingTab {
   }
 
   private renderAgentControlPlane(containerEl: HTMLElement): void {
-    containerEl.createEl("h2", { text: "Get started" });
+    containerEl.createEl("h2", { text: "Start with your knowledge" });
     containerEl.createEl("p", {
       cls: "llmwiki-settings-intro",
-      text: "Bind this vault to a Project, then open Ask Mate for the active note, Canvas, or Project.",
+      text: "Bind this vault to a Project, then work with the active note, Canvas, or Project context in LLM Wiki.",
     });
     const actions = containerEl.createDiv({ cls: "llmwiki-settings-actions llmwiki-agent-control-actions" });
-    actions.createEl("button", { text: "Open Ask Mate", cls: "mod-cta" }).onclick = () => this.llmWiki.openAskMateEntryPoint();
-    actions.createEl("button", { text: "Open control plane" }).onclick = () => this.llmWiki.openAgentControlPlane();
-    actions.createEl("button", { text: "Create Agent Profile" }).onclick = () => this.llmWiki.openAgentProfileEditor();
-    actions.createEl("button", { text: "Create Project Binding" }).onclick = () => this.llmWiki.openProjectBindingEditor();
+    actions.createEl("button", { text: "Open LLM Wiki", cls: "mod-cta" }).onclick = () => this.llmWiki.openAskMateEntryPoint();
     new Setting(containerEl)
       .setName("Workspace Project")
       .setDesc(this.llmWiki.data.deviceBinding?.workspaceProjectId
-        ? `Ask Mate is bound to ${this.llmWiki.data.deviceBinding.workspaceProjectId}.`
-        : "Required for Ask Mate. Stored only as this device's Workspace Binding; it does not redefine Project identity.")
+        ? `LLM Wiki is bound to ${this.llmWiki.data.deviceBinding.workspaceProjectId}.`
+        : "Required for LLM Wiki. Stored only as this device's Workspace Binding; it does not redefine Project identity.")
       .addButton(button => button
         .setButtonText(this.llmWiki.data.deviceBinding?.workspaceProjectId ? "Change binding" : "Bind workspace")
         .onClick(() => this.llmWiki.openWorkspaceProjectBindingEditor(() => this.display())));
@@ -875,6 +886,12 @@ class LLMWikiSettingTab extends PluginSettingTab {
       cls: "llmwiki-settings-intro",
       text: "Provider credentials stay in the Secret Reference selectors below. Agent Profiles and Project Bindings never contain plaintext credentials, usable grants, or device-local execution material.",
     });
+    const advanced = containerEl.createEl("details", { cls: "llmwiki-settings-advanced" });
+    advanced.createEl("summary", { text: "Advanced administration" });
+    const advancedActions = advanced.createDiv({ cls: "llmwiki-settings-actions llmwiki-agent-control-actions" });
+    advancedActions.createEl("button", { text: "Open control plane" }).onclick = () => this.llmWiki.openAgentControlPlane();
+    advancedActions.createEl("button", { text: "Create Agent Profile" }).onclick = () => this.llmWiki.openAgentProfileEditor();
+    advancedActions.createEl("button", { text: "Create Project Binding" }).onclick = () => this.llmWiki.openProjectBindingEditor();
   }
 
   private renderHealth(containerEl: HTMLElement, check: HealthCheck): void {

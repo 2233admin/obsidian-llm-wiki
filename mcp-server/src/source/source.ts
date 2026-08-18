@@ -14,6 +14,7 @@ import { resultPath, sourcePolicyTargetPaths, touchMarkdown } from '../core/writ
 import { preflight } from '../ingest/ingest.js';
 import { resolveProjectContext, type ProjectId } from '../project/project-context.js';
 import { makeSourceIngestRunOps } from './ingest-run.js';
+import type { VaultStore } from '../vault/store.js';
 
 type SourceInputType = 'url' | 'vaultPath' | 'filePath' | 'directoryPath' | 'repoPath' | 'text';
 
@@ -77,7 +78,11 @@ const LOCK_TTL_MS = 60_000;
 const RESERVED_INPUT_TYPES = new Set<SourceInputType>(['filePath', 'directoryPath', 'repoPath', 'text']);
 const PROTECTED_DIRS = new Set(['.obsidian', '.trash', '.git', 'node_modules']);
 
-export function makeSourceOps(vaultPath: string, options: { ingestExecutionEnabled?: boolean } = {}): Operation[] {
+export function makeSourceOps(
+  vaultPath: string,
+  options: { ingestExecutionEnabled?: boolean; store?: VaultStore } = {},
+): Operation[] {
+  const store = options.store;
   return [
     {
   name: 'source.register',
@@ -113,7 +118,7 @@ export function makeSourceOps(vaultPath: string, options: { ingestExecutionEnabl
         tags: { type: 'array', required: false, description: 'Optional tags for the Source Note and registry record' },
         notes: { type: 'string', required: false, description: 'Optional operator notes stored in the Source Note' },
       },
-      handler: async (ctx, params) => registerSource(ctx, vaultPath, params),
+      handler: async (ctx, params) => registerSource(ctx, vaultPath, params, store),
     },
     {
       name: 'source.list',
@@ -130,7 +135,7 @@ export function makeSourceOps(vaultPath: string, options: { ingestExecutionEnabl
           description: 'Filter by supported input type',
         },
       },
-      handler: async (_ctx, params) => listSources(vaultPath, params),
+      handler: async (_ctx, params) => listSources(vaultPath, params, store),
     },
     {
       name: 'source.get',
@@ -148,7 +153,7 @@ export function makeSourceOps(vaultPath: string, options: { ingestExecutionEnabl
           description: 'Input type used when resolving input to a source id',
         },
       },
-      handler: async (_ctx, params) => getSource(vaultPath, params),
+      handler: async (_ctx, params) => getSource(vaultPath, params, store),
     },
     {
       name: 'source.ingest.plan',
@@ -173,11 +178,11 @@ export function makeSourceOps(vaultPath: string, options: { ingestExecutionEnabl
           description: 'Optional read-only provider routing override for URL planning',
         },
       },
-      handler: async (_ctx, params) => planSourceIngest(vaultPath, params),
+      handler: async (_ctx, params) => planSourceIngest(vaultPath, params, store),
     },
     ...makeSourceIngestRunOps(vaultPath, {
-      getSource: (params) => getSource(vaultPath, params),
-      plan: (params) => planSourceIngest(vaultPath, params),
+      getSource: (params) => getSource(vaultPath, params, store),
+      plan: (params) => planSourceIngest(vaultPath, params, store),
       executionEnabled: options.ingestExecutionEnabled,
     }),
   ];
@@ -187,6 +192,7 @@ function registerSource(
   ctx: OperationContext,
   vaultPath: string,
   params: Record<string, unknown>,
+  store?: VaultStore,
 ): SourceRecord & { ok: true; path: string; registryPath: string } {
   const input = requireString(params.input, 'input');
   const inputType = parseInputType(params.inputType);
@@ -208,15 +214,15 @@ function registerSource(
   const prepared =
     inputType === 'url'
       ? prepareUrlSource(input, params)
-      : prepareVaultPathSource(vaultPath, input, params);
+      : prepareVaultPathSource(vaultPath, input, params, store);
 
   const title = titleOverride ?? prepared.title;
   const id = sourceId(prepared.canonical);
   const registryPath = registryFullPath(vaultPath);
   let saved: SourceRecord | undefined;
 
-  withFileLock(registryPath, () => {
-    const registry = readRegistry(registryPath);
+  const persist = () => {
+    const registry = readRegistry(vaultPath, store);
     const existing = registry.sources[id];
     const notePath =
       existing?.notePath ??
@@ -240,19 +246,23 @@ function registerSource(
       updated_at: now,
     };
 
-    writeTextLocked(vaultFullPath(vaultPath, notePath), sourceNoteMarkdown(record));
+    if (store) store.writeText(notePath, sourceNoteMarkdown(record));
+    else writeTextLocked(vaultFullPath(vaultPath, notePath), sourceNoteMarkdown(record));
     registry.sources[id] = record;
     registry.updated_at = now;
-    writeFileSync(registryPath, JSON.stringify(registry, null, 2) + '\n', 'utf-8');
+    if (store) store.writeText(REGISTRY_REL_PATH, JSON.stringify(registry, null, 2) + '\n', { lock: false });
+    else writeFileSync(registryPath, JSON.stringify(registry, null, 2) + '\n', 'utf-8');
     saved = record;
-  });
+  };
+  if (store) store.withLock(REGISTRY_REL_PATH, persist);
+  else withFileLock(registryPath, persist);
 
   if (!saved) throw conflict('source.register failed to persist registry record');
   return { ...saved, ok: true, path: saved.notePath, registryPath: REGISTRY_REL_PATH };
 }
 
-function listSources(vaultPath: string, params: Record<string, unknown>): { sources: SourceRecord[] } {
-  const registry = readRegistry(registryFullPath(vaultPath));
+function listSources(vaultPath: string, params: Record<string, unknown>, store?: VaultStore): { sources: SourceRecord[] } {
+  const registry = readRegistry(vaultPath, store);
   const projectRef = optionalString(params.project);
   const projectContext = projectRef ? resolveProjectContext(vaultPath, projectRef, 'source.list') : undefined;
   const project = projectContext?.slug;
@@ -266,8 +276,8 @@ function listSources(vaultPath: string, params: Record<string, unknown>): { sour
   return { sources };
 }
 
-function getSource(vaultPath: string, params: Record<string, unknown>): SourceRecord {
-  const registry = readRegistry(registryFullPath(vaultPath));
+function getSource(vaultPath: string, params: Record<string, unknown>, store?: VaultStore): SourceRecord {
+  const registry = readRegistry(vaultPath, store);
   const id = optionalString(params.id) ?? sourceIdForInput(vaultPath, params);
   if (!id) throw badRequest('source.get requires id or input');
   const source = registry.sources[id];
@@ -275,8 +285,8 @@ function getSource(vaultPath: string, params: Record<string, unknown>): SourceRe
   return source;
 }
 
-function planSourceIngest(vaultPath: string, params: Record<string, unknown>): SourceIngestPlan {
-  const source = getSource(vaultPath, params);
+function planSourceIngest(vaultPath: string, params: Record<string, unknown>, store?: VaultStore): SourceIngestPlan {
+  const source = getSource(vaultPath, params, store);
   if (source.inputType !== 'url' && source.inputType !== 'vaultPath') {
     throw unsupported(`source.ingest.plan does not support inputType=${source.inputType}`);
   }
@@ -332,7 +342,7 @@ function planSourceIngest(vaultPath: string, params: Record<string, unknown>): S
       execution: 'deferred' as const,
     },
   ];
-  const sourceVersion = sourceVersionFingerprint(vaultPath, source);
+  const sourceVersion = sourceVersionFingerprint(vaultPath, source, store);
   const planFingerprintInput = {
     schemaVersion: 1,
     sourceId: source.id,
@@ -394,15 +404,14 @@ function ingestPlanStatus(
   return 'ready';
 }
 
-function sourceVersionFingerprint(vaultPath: string, source: SourceRecord): string {
+function sourceVersionFingerprint(vaultPath: string, source: SourceRecord, store?: VaultStore): string {
   let content: Buffer;
   if (source.inputType === 'vaultPath') {
     const normalized = normalizeVaultRelPath(vaultPath, source.canonical.slice('vault:'.length));
-    const fullPath = vaultFullPath(vaultPath, normalized);
-    if (!statSync(fullPath).isFile()) {
+    if (store ? !store.isFile(normalized) : !statSync(vaultFullPath(vaultPath, normalized)).isFile()) {
       throw unsupported('source.ingest.plan requires vaultPath to reference a file; use directoryPath when that Source Input becomes supported');
     }
-    content = readFileSync(fullPath);
+    content = store ? (store.readBytes(normalized) as Buffer) : readFileSync(vaultFullPath(vaultPath, normalized));
   } else {
     content = Buffer.from(source.canonical, 'utf8');
   }
@@ -447,6 +456,7 @@ function prepareVaultPathSource(
   vaultPath: string,
   input: string,
   params: Record<string, unknown>,
+  store?: VaultStore,
 ): {
   canonical: string;
   platform: string;
@@ -455,7 +465,7 @@ function prepareVaultPathSource(
   preflight?: Record<string, unknown>;
 } {
   const normalized = normalizeVaultRelPath(vaultPath, input);
-  if (!existsSync(vaultFullPath(vaultPath, normalized))) {
+  if (!(store ? store.exists(normalized) : existsSync(vaultFullPath(vaultPath, normalized)))) {
     throw notFound(`Vault path not found: ${normalized}`);
   }
   return {
@@ -508,16 +518,21 @@ function normalizeVaultRelPath(vaultPath: string, input: string): string {
   return normalized;
 }
 
-function readRegistry(fullPath: string): SourceRegistry {
-  if (!existsSync(fullPath)) {
+function readRegistry(vaultPath: string, store?: VaultStore): SourceRegistry {
+  const content = store ? store.readText(REGISTRY_REL_PATH) : readRegistryFile(registryFullPath(vaultPath));
+  if (content === null) {
     return { version: 1, updated_at: new Date(0).toISOString(), sources: {} };
   }
-  const parsed = JSON.parse(readFileSync(fullPath, 'utf-8')) as Partial<SourceRegistry>;
+  const parsed = JSON.parse(content) as Partial<SourceRegistry>;
   return {
     version: 1,
     updated_at: typeof parsed.updated_at === 'string' ? parsed.updated_at : new Date(0).toISOString(),
     sources: parsed.sources && typeof parsed.sources === 'object' ? parsed.sources : {},
   };
+}
+
+function readRegistryFile(fullPath: string): string | null {
+  return existsSync(fullPath) ? readFileSync(fullPath, 'utf-8') : null;
 }
 
 function registryFullPath(vaultPath: string): string {
@@ -535,20 +550,32 @@ function sourceNotePath(project: string | undefined, platform: string, slug: str
 }
 
 function sourceNoteMarkdown(source: SourceRecord): string {
+  const preflight = source.preflight ?? {};
+  const providerRecord = preflight.provider && typeof preflight.provider === 'object'
+    ? preflight.provider as Record<string, unknown>
+    : undefined;
+  const provider = stringValue(providerRecord?.id) ?? (source.inputType === 'vaultPath' ? 'filesystem' : 'unknown');
+  const accessContext = stringValue(preflight.access_context) ?? (source.inputType === 'vaultPath' ? 'private' : 'unknown');
+  const pipeline = Array.isArray(preflight.pipeline) ? preflight.pipeline : [];
   return [
     '---',
-    'llmwiki-source: true',
-    `source-id: ${yamlString(source.id)}`,
-    `input-type: ${yamlString(source.inputType)}`,
+    'llmwiki_type: source_record',
+    `source_id: ${yamlString(source.id)}`,
+    `url: ${yamlString(source.inputType === 'url' ? source.canonical : '')}`,
     `platform: ${yamlString(source.platform)}`,
-    `source-kind: ${yamlString(source.sourceKind)}`,
-    `actor: ${yamlString(source.actor)}`,
+    `source_kind: ${yamlString(source.sourceKind)}`,
+    `access_context: ${yamlString(accessContext)}`,
+    'status: planned',
+    `provider: ${yamlString(provider)}`,
+    `pipeline: ${yamlString(JSON.stringify(pipeline))}`,
+    `created_at: ${yamlString(source.created_at)}`,
+    `updated_at: ${yamlString(source.updated_at)}`,
+    source.projectId ? `project_id: ${yamlString(source.projectId)}` : 'project_id: null',
     source.projectId ? `project-id: ${yamlString(source.projectId)}` : 'project-id: null',
-    source.project ? `project: ${yamlString(source.project)}` : 'project: null',
-    `canonical: ${yamlString(source.canonical)}`,
-    `registered-at: ${yamlString(source.created_at)}`,
-    `updated-at: ${yamlString(source.updated_at)}`,
     source.tags.length ? `tags: [${source.tags.map(yamlString).join(', ')}]` : 'tags: []',
+    `actor: ${yamlString(source.actor)}`,
+    `input_type: ${yamlString(source.inputType)}`,
+    `canonical: ${yamlString(source.canonical)}`,
     '---',
     '',
     `# ${source.title}`,
@@ -559,26 +586,24 @@ function sourceNoteMarkdown(source: SourceRecord): string {
     `- Canonical: ${source.canonical}`,
     `- Platform: ${source.platform}`,
     `- Source kind: ${source.sourceKind}`,
+    `- Access context: ${accessContext}`,
+    `- Status: planned (registration only)`,
     '',
     '## Preflight',
     '',
     source.preflight ? fencedJson(source.preflight) : '- Not applicable for this input type.',
     '',
+    '## Selection Policy',
+    '',
+    '- Registration only. No collection expansion or ingest execution was performed.',
+    '',
     '## Notes',
     '',
     source.notes?.trim() ? source.notes.trim() : '- No notes yet.',
     '',
-    '## Captures',
+    '## Related Knowledge Items',
     '',
-    '- Pending. Phase 1 registers the source only.',
-    '',
-    '## Derivatives',
-    '',
-    '- Pending. Transcript/OCR/comment digests are later ingest artifacts.',
-    '',
-    '## References',
-    '',
-    `- ${source.canonical}`,
+    '- None yet. Future captures, derivatives, and evidence items must link this Source ID.',
     '',
   ].join('\n');
 }

@@ -23,3 +23,19 @@ Before changing ingest, memory, source registration, project/work-OS behavior, o
 
 External repositories and skill packs are Sources or workflow capability providers first. Register canonical URLs, cite local inspection artifacts as evidence, and promote durable conclusions only after review.
 
+## Agent skills
+
+### Issue tracker
+
+Executable work is tracked as local Markdown issues under
+`01-Projects/<project>/issues/`; see `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Use the five default labels defined in `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+This is a single-context repository. Read the root `CONTEXT.md` and relevant
+ADRs under `docs/adr/`; see `docs/agents/domain.md`.
+

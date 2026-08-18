@@ -42,6 +42,11 @@ test('source.register stores a URL source, registry row, source note, and prefli
     };
     assert.equal(Object.keys(registry.sources).length, 1);
     const note = readFileSync(vaultJoin(vault, result.path as string), 'utf-8');
+    assert.match(note, /llmwiki_type: source_record/);
+    assert.match(note, /access_context:/);
+    assert.match(note, /provider:/);
+    assert.match(note, /## Selection Policy/);
+    assert.match(note, /## Related Knowledge Items/);
     assert.match(note, /## Preflight/);
     assert.match(note, /Example Bilibili Video/);
   } finally {

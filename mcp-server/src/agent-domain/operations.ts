@@ -14,7 +14,7 @@ import {
   assertSafeSharedState,
   canonicalDigest,
   canonicalJson,
-  compileContextEnvelope,
+  DomainContextCompiler,
   createContextConsultRequest,
   createDelegationPlan,
   dreamTimeCadenceIdentity,
@@ -94,6 +94,8 @@ const PLATFORM_KERNEL = [{
   provenance: [{ kind: 'governance' as const, id: 'llmwiki/agent-runtime', revision: 1 }],
   mandatory: true,
 }] as const;
+
+const contextCompiler = new DomainContextCompiler();
 
 interface RoomDiagnostic {
   code: string;
@@ -822,7 +824,7 @@ function roomAndContextOperations(vaultPath: string, stateRoot: string, service:
         tokenizer: 'utf8-bytes-div4/v1',
         policyFingerprint: canonicalDigest({ profileModel, settingsFingerprint }),
       };
-      const envelope = compileContextEnvelope({
+      const envelope = contextCompiler.compile({
         envelopeId: requiredString(params.envelopeId, 'envelopeId'),
         compiledAt,
         modelLock,
@@ -1522,7 +1524,7 @@ function dreamTimeCadenceOperations(
           .filter((item) => publicSettingKeys.has(item.key))
           .map((item) => ({ key: item.key, value: item.value, winningScope: item.winningScope, applyMode: item.applyMode })),
       };
-      const envelope = compileContextEnvelope({
+      const envelope = contextCompiler.compile({
         envelopeId: `context-envelope/${identity.invocationId.slice('dreamtime-cadence/'.length)}`,
         compiledAt: asOf,
         modelLock,

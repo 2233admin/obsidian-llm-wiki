@@ -609,6 +609,11 @@ def main() -> None:
         default=None,
         help="API key (env: OPENAI_API_KEY or ANTHROPIC_API_KEY)",
     )
+    parser.add_argument(
+        "--result-file",
+        default=None,
+        help="Write the machine-readable Compile Run result to this path",
+    )
     # HTML export options
     parser.add_argument(
         "--export-html",
@@ -676,12 +681,12 @@ def main() -> None:
                 print(f"\n[2/2] html-export -- theme={args.theme}...")
                 html_report = step_html_export(wiki_path, args.theme, html_output, args.dry_run)
                 report = CompileReport(0, 0, 0, 0, 0, 0)
-                _print_report(report, html_report)
+                _print_report(report, html_report, args.result_file, topic)
             else:
                 print("  [warn] No wiki/ directory found, skipping HTML export")
-                _print_report(CompileReport(0, 0, 0, 0, 0, 0))
+                _print_report(CompileReport(0, 0, 0, 0, 0, 0), result_file=args.result_file, topic=topic)
         else:
-            _print_report(CompileReport(0, 0, 0, 0, 0, 0))
+            _print_report(CompileReport(0, 0, 0, 0, 0, 0), result_file=args.result_file, topic=topic)
         return
     print(f"  {len(dirty)} file(s) to compile: {dirty}")
 
@@ -754,7 +759,7 @@ def main() -> None:
         manifests_written=manifests_written,
         concepts_retracted=concepts_retracted,
     )
-    _print_report(report, html_report)
+    _print_report(report, html_report, args.result_file, topic)
 
 
 def _load_existing_concept_names(concepts_dir: Path) -> list[str]:
@@ -774,7 +779,37 @@ def _load_existing_concept_names(concepts_dir: Path) -> list[str]:
     return names
 
 
-def _print_report(report: CompileReport, html_report: ExportReport | None = None) -> None:
+def _write_result_file(path: str, topic: str, report: CompileReport) -> None:
+    """Persist the stable machine result consumed by CompileRunPort."""
+    destination = Path(path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "protocolVersion": 1,
+        "ok": True,
+        "topic": topic,
+        "sourcesCompiled": report.sources_compiled,
+        "conceptsCreated": report.concepts_created,
+        "contradictions": report.contradictions_found,
+        "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+        "summariesWritten": report.summaries_written,
+        "conceptsUpdated": report.concepts_updated,
+        "brokenLinks": report.broken_links,
+        "manifestsWritten": report.manifests_written,
+        "conceptsRetracted": report.concepts_retracted,
+    }
+    temporary = destination.with_suffix(destination.suffix + ".tmp")
+    temporary.write_text(json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
+    temporary.replace(destination)
+
+
+def _print_report(
+    report: CompileReport,
+    html_report: ExportReport | None = None,
+    result_file: str | None = None,
+    topic: str | None = None,
+) -> None:
+    if result_file and topic:
+        _write_result_file(result_file, topic, report)
     print("\n=== Compilation Report ===")
     print(f"  Sources compiled  : {report.sources_compiled}")
     print(f"  Summaries written : {report.summaries_written}")

@@ -10,6 +10,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import type { Operation, OperationContext } from '../core/types.js';
 import { makeErr } from '../core/types.js';
+import type { VaultStore } from '../vault/store.js';
 import { projectPolicyBasePath, resultPath, touchMarkdown } from '../core/write-policy.js';
 import {
   makeProjectContextOps,
@@ -119,7 +120,11 @@ function readText(path: string): string | null {
   return existsSync(path) ? readFileSync(path, 'utf-8') : null;
 }
 
-export function writeVaultBytes(vaultPath: string, relPath: string, content: string): void {
+export function writeVaultBytes(vaultPath: string, relPath: string, content: string, store?: VaultStore): void {
+  if (store) {
+    store.writeText(relPath, content);
+    return;
+  }
   const fullPath = join(vaultPath, relPath);
   mkdirSync(dirname(fullPath), { recursive: true });
   // Write LF bytes (not text mode) so Windows CRLF translation never diverges
@@ -353,7 +358,20 @@ function slugFromEntity(entity: string | null): string {
   return parts[parts.length - 1];
 }
 
-function findIssueNote(vaultPath: string, project: string, slug: string): WorkNote | null {
+function findIssueNote(vaultPath: string, project: string, slug: string, store?: VaultStore): WorkNote | null {
+  const notePath = issuePath(project, slug);
+  if (store) {
+    const text = store.readText(notePath);
+    if (text === null) return null;
+    const raw = parseFm(text);
+    return {
+      note_id: notePath,
+      path: store.resolvePath(notePath),
+      raw,
+      body: splitBody(text),
+      entity: typeof raw.entity === 'string' ? raw.entity : null,
+    };
+  }
   const full = join(vaultPath, issuePath(project, slug));
   if (!existsSync(full)) return null;
   const text = readFileSync(full, 'utf-8');
@@ -591,8 +609,10 @@ function projectBasePath(project: string): string {
   return `${viewsRoot(project)}/issues.base`;
 }
 
-function ensureCanWriteVisual(vaultPath: string, path: string, overwrite: boolean): void {
-  if (!overwrite && existsSync(join(vaultPath, path))) throw makeErr(-32002, `Already exists: ${path}`);
+function ensureCanWriteVisual(vaultPath: string, path: string, overwrite: boolean, store?: VaultStore): void {
+  if (!overwrite && (store ? store.exists(path) : existsSync(join(vaultPath, path)))) {
+    throw makeErr(-32002, `Already exists: ${path}`);
+  }
 }
 
 function boolParam(value: unknown, defaultValue: boolean): boolean {
@@ -610,10 +630,10 @@ function resolveLang(param: unknown, notes: WorkNote[]): string {
 
 // --- unique slug -----------------------------------------------------------
 
-function uniqueSlug(vaultPath: string, project: string, base: string): string {
+function uniqueSlug(vaultPath: string, project: string, base: string, store?: VaultStore): string {
   let slug = base;
   let n = 2;
-  while (existsSync(join(vaultPath, issuePath(project, slug)))) {
+  while (store ? store.exists(issuePath(project, slug)) : existsSync(join(vaultPath, issuePath(project, slug)))) {
     slug = `${base}-${n}`;
     n += 1;
   }
@@ -622,7 +642,8 @@ function uniqueSlug(vaultPath: string, project: string, base: string): string {
 
 // ===========================================================================
 
-export function makeProjectOps(vaultPath: string): Operation[] {
+export function makeProjectOps(vaultPath: string, options: { store?: VaultStore } = {}): Operation[] {
+  const store = options.store;
   return [
     ...makeProjectContextOps(vaultPath),
     {
@@ -650,8 +671,8 @@ export function makeProjectOps(vaultPath: string): Operation[] {
         const canvas = buildProjectCanvas(project, issues);
         const content = JSON.stringify(canvas, null, 2) + '\n';
         if (!dryRun) {
-          ensureCanWriteVisual(vaultPath, path, overwrite);
-          writeVaultBytes(vaultPath, path, content);
+          ensureCanWriteVisual(vaultPath, path, overwrite, store);
+          writeVaultBytes(vaultPath, path, content, store);
         }
         return { path, nodes: canvas.nodes, edges: canvas.edges, dryRun };
       },
@@ -679,8 +700,8 @@ export function makeProjectOps(vaultPath: string): Operation[] {
         const path = projectBasePath(project);
         const base = buildProjectBase(project);
         if (!dryRun) {
-          ensureCanWriteVisual(vaultPath, path, overwrite);
-          writeVaultBytes(vaultPath, path, base.content);
+          ensureCanWriteVisual(vaultPath, path, overwrite, store);
+          writeVaultBytes(vaultPath, path, base.content, store);
         }
         return { path, sourceFolder: base.sourceFolder, fields: base.fields, dryRun };
       },
@@ -713,32 +734,33 @@ export function makeProjectOps(vaultPath: string): Operation[] {
         const registryFullPath = join(vaultPath, registryPath);
         const notePath = projectNotePath(project);
         const noteFullPath = join(vaultPath, notePath);
-        const registryExists = existsSync(registryFullPath);
-        const anchorExists = existsSync(noteFullPath);
+        const registryExists = store ? store.exists(registryPath) : existsSync(registryFullPath);
+        const anchorExists = store ? store.exists(notePath) : existsSync(noteFullPath);
 
         // Validate every pre-existing identity surface before writing either one.
         // A conflicting anchor must never leave a newly-created registry record
         // behind after project.init rejects the adoption.
         if (registryExists) {
-          const existingRegistry = parseFm(readFileSync(registryFullPath, 'utf-8'));
+          const existingRegistry = parseFm(store ? store.readTextRequired(registryPath) : readFileSync(registryFullPath, 'utf-8'));
           if (existingRegistry.entity !== `project/${project}`) {
             throw makeErr(-32010, `Existing shared Project record is incompatible: ${registryPath}; run project.migration.plan`);
           }
         }
         if (anchorExists) {
-          const existingAnchor = parseFm(readFileSync(noteFullPath, 'utf-8'));
+          const existingAnchor = parseFm(store ? store.readTextRequired(notePath) : readFileSync(noteFullPath, 'utf-8'));
           if (existingAnchor.entity !== `project/${project}`) {
             throw makeErr(-32010, `Existing Work-OS anchor disagrees with project/${project}; run project.context.doctor`);
           }
         }
 
         if (!registryExists) {
-          writeVaultBytes(vaultPath, registryPath, registryProjectNote(project, description, aliases));
+          writeVaultBytes(vaultPath, registryPath, registryProjectNote(project, description, aliases), store);
         }
         if (!anchorExists) {
-          writeVaultBytes(vaultPath, notePath, projectNote(project, description));
+          writeVaultBytes(vaultPath, notePath, projectNote(project, description), store);
         }
-        mkdirSync(join(vaultPath, issuesRoot(project)), { recursive: true });
+        if (store) store.ensureDirectory(issuesRoot(project));
+        else mkdirSync(join(vaultPath, issuesRoot(project)), { recursive: true });
         return {
           ok: true,
           project,
@@ -778,7 +800,7 @@ export function makeProjectOps(vaultPath: string): Operation[] {
         if (!title) throw makeErr(-32602, 'title required');
         const baseSlug = slugify(typeof params.slug === 'string' && params.slug.trim() ? params.slug : title);
         if (!baseSlug) throw makeErr(-32602, 'could not derive a valid slug from title/slug');
-        const slug = uniqueSlug(vaultPath, project, baseSlug);
+        const slug = uniqueSlug(vaultPath, project, baseSlug, store);
         const description = oneLine(typeof params.summary === 'string' && params.summary.trim() ? params.summary : title);
         const review = params.review === 'draft' ? 'draft' : 'reviewed';
         const fields: IssueFields = {
@@ -801,7 +823,7 @@ export function makeProjectOps(vaultPath: string): Operation[] {
         const body =
           typeof params.body === 'string' && params.body.trim() ? `${title}\n\n${params.body.trim()}` : title;
         const path = issuePath(project, slug);
-        writeVaultBytes(vaultPath, path, renderIssueNote(fields, body));
+        writeVaultBytes(vaultPath, path, renderIssueNote(fields, body), store);
         return { ok: true, entity: issueEntity(project, slug), id: `${project}/${slug}`, slug, path };
       },
     },
@@ -843,9 +865,9 @@ export function makeProjectOps(vaultPath: string): Operation[] {
       handler: async (_ctx, params) => {
         const project = existingProjectKey(vaultPath, params.project);
         const slug = slugify(String(params.slug ?? ''));
-        const note = findIssueNote(vaultPath, project, slug);
+        const note = findIssueNote(vaultPath, project, slug, store);
         if (!note) throw makeErr(-32001, `Issue not found: ${slug}`);
-        return { issue: issueView(note, project), content: readFileSync(note.path, 'utf-8') };
+        return { issue: issueView(note, project), content: store ? store.readTextRequired(note.note_id) : readFileSync(note.path, 'utf-8') };
       },
     },
     {
@@ -873,7 +895,7 @@ export function makeProjectOps(vaultPath: string): Operation[] {
       handler: async (_ctx, params) => {
         const project = existingProjectKey(vaultPath, params.project);
         const slug = slugify(String(params.slug ?? ''));
-        const note = findIssueNote(vaultPath, project, slug);
+        const note = findIssueNote(vaultPath, project, slug, store);
         if (!note) throw makeErr(-32001, `Issue not found: ${slug}`);
         const current = fieldsFromNote(note, project, slug);
         const fields: IssueFields = {
@@ -891,8 +913,8 @@ export function makeProjectOps(vaultPath: string): Operation[] {
         if (typeof params.body === 'string' && params.body.trim()) body = params.body;
         else if (note.body.trim()) body = note.body.trim();
         else body = fields.description;
-        writeVaultBytes(vaultPath, note.note_id, renderIssueNote(fields, body));
-        return { ok: true, path: note.note_id, issue: issueView(findIssueNote(vaultPath, project, slug)!, project) };
+        writeVaultBytes(vaultPath, note.note_id, renderIssueNote(fields, body), store);
+        return { ok: true, path: note.note_id, issue: issueView(findIssueNote(vaultPath, project, slug, store)!, project) };
       },
     },
     {
@@ -929,9 +951,9 @@ export function makeProjectOps(vaultPath: string): Operation[] {
           };
         }
 
-        const source = findIssueNote(vaultPath, project, slug);
+        const source = findIssueNote(vaultPath, project, slug, store);
         if (!source) throw makeErr(-32001, `Issue not found: ${slug}`);
-        const targetNote = findIssueNote(vaultPath, project, targetSlug);
+        const targetNote = findIssueNote(vaultPath, project, targetSlug, store);
         if (!targetNote) throw makeErr(-32001, `Issue not found: ${targetSlug}`);
         const targetEntity = issueEntity(project, targetSlug);
         const sourceEntity = issueEntity(project, slug);
@@ -941,14 +963,14 @@ export function makeProjectOps(vaultPath: string): Operation[] {
           const f = fieldsFromNote(source, project, slug);
           f.blockedBy = Array.from(new Set([...f.blockedBy, targetEntity]));
           f.lastVerified = isoDate();
-          writeVaultBytes(vaultPath, source.note_id, renderIssueNote(f, source.body.trim() || f.description));
+          writeVaultBytes(vaultPath, source.note_id, renderIssueNote(f, source.body.trim() || f.description), store);
           return { ok: true, path: source.note_id, relation, target: targetEntity };
         }
         // relation === 'blocks' -> target blocked-by += source entity
         const f = fieldsFromNote(targetNote, project, targetSlug);
         f.blockedBy = Array.from(new Set([...f.blockedBy, sourceEntity]));
         f.lastVerified = isoDate();
-        writeVaultBytes(vaultPath, targetNote.note_id, renderIssueNote(f, targetNote.body.trim() || f.description));
+        writeVaultBytes(vaultPath, targetNote.note_id, renderIssueNote(f, targetNote.body.trim() || f.description), store);
         return { ok: true, path: targetNote.note_id, relation, target: sourceEntity };
       },
     },
@@ -973,18 +995,18 @@ export function makeProjectOps(vaultPath: string): Operation[] {
       handler: async (ctx, params) => {
         const project = existingProjectKey(vaultPath, params.project);
         const slug = slugify(String(params.slug ?? ''));
-        const note = findIssueNote(vaultPath, project, slug);
+        const note = findIssueNote(vaultPath, project, slug, store);
         if (!note) throw makeErr(-32001, `Issue not found: ${slug}`);
         const body = String(params.body ?? '').trim();
         if (!body) throw makeErr(-32602, 'body required');
         const actor = typeof params.actor === 'string' && params.actor.trim() ? safeSegment(params.actor, 'actor') : actorFromContext(ctx);
         const session = typeof params.session === 'string' ? params.session.trim() : process.env.CODEX_THREAD_ID || '';
         const path = `${issuesRoot(project)}/${slug}.comments.md`;
-        const existing = readText(join(vaultPath, path)) ?? `# Comments for ${slug}\n\n`;
+        const existing = (store ? store.readText(path) : readText(join(vaultPath, path))) ?? `# Comments for ${slug}\n\n`;
         const now = new Date().toISOString();
         const sessionPart = session ? ` · session ${session}` : '';
         const block = `## ${now} · ${actor}${sessionPart}\n\n${body}\n\n---\n\n`;
-        writeVaultBytes(vaultPath, path, existing.replace(/\s+$/, '') + '\n\n' + block);
+        writeVaultBytes(vaultPath, path, existing.replace(/\s+$/, '') + '\n\n' + block, store);
         return { ok: true, path, actor, session };
       },
     },
@@ -1026,7 +1048,7 @@ export function makeProjectOps(vaultPath: string): Operation[] {
           if (anchor) {
             const anchorDir = dirname(anchor.note_id);
             const boardRel = anchorDir ? `${anchorDir}/board.md` : 'board.md';
-            writeVaultBytes(vaultPath, boardRel, content);
+            writeVaultBytes(vaultPath, boardRel, content, store);
             result.written = boardRel;
           }
         }
