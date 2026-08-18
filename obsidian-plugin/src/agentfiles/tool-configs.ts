@@ -23,10 +23,10 @@ function cached(id: string, check: () => boolean): boolean {
 
 function appExists(name: string): boolean {
 	if (IS_WIN) {
-		const programFiles = process.env.ProgramFiles || "C:\\Program Files";
+		const programFiles = process.env.ProgramFiles;
 		const localAppData = process.env.LOCALAPPDATA || join(HOME, "AppData", "Local");
 		return (
-			existsSync(join(programFiles, name)) ||
+			(programFiles ? existsSync(join(programFiles, name)) : false) ||
 			existsSync(join(localAppData, "Programs", name))
 		);
 	}
@@ -420,7 +420,6 @@ export const TOOL_CONFIGS: ToolConfig[] = [
 		isInstalled: () => cached("aider", () => cliExists("aider")),
 	},
 ];
-
 
 
 

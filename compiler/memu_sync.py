@@ -964,11 +964,10 @@ def main(argv: list[str] | None = None) -> int:
     vault_is_explicit = not (str(vault) == str(VAULT_DEFAULT))
     # Only auto-detect junction if vault wasn't explicitly set via --vault
     if not vault_is_explicit:
+        home_dir = Path.home()
         known_vaults = [
-            Path("D:/Obsidian Vault"),
-            Path("D:/ObsidianVault"),
-            Path("C:/Users/Administrator/Documents/Obsidian Vault"),
-            Path("C:/Users/Administrator/Documents/ObsidianVault"),
+            home_dir / "Documents" / "Obsidian Vault",
+            home_dir / "Documents" / "ObsidianVault",
         ]
         for known in known_vaults:
             if known.exists() and (known / ".obsidian").exists():
