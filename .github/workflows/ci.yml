@@ -64,7 +64,7 @@ jobs:
           node-version: "20"
           cache: npm
           cache-dependency-path: mcp-server/package-lock.json
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
       - run: cd mcp-server && npm ci
@@ -99,7 +99,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
       - run: pip install ruff
@@ -114,7 +114,7 @@ jobs:
           node-version: "20"
           cache: npm
           cache-dependency-path: obsidian-plugin/package-lock.json
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
       - name: Build Obsidian plugin release input
@@ -126,7 +126,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
       - run: pip install pytest orjson
@@ -142,7 +142,7 @@ jobs:
           cache: npm
           cache-dependency-path: mcp-server/package-lock.json
       - uses: oven-sh/setup-bun@v2
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
       - run: cd mcp-server && npm ci
@@ -160,7 +160,7 @@ jobs:
           cache: npm
           cache-dependency-path: mcp-server/package-lock.json
       - uses: oven-sh/setup-bun@v2
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
       - run: npm ci
