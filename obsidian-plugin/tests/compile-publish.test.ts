@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { join, resolve } from "node:path";
 import test from "node:test";
 import {
   compilePublishResultFromStatusReport,
@@ -18,9 +19,13 @@ import {
   type StatusFileReader,
 } from "../src/compile-publish";
 
-const KB_META_PATH = "D:\\projects\\vault-mind\\compiler\\kb_meta.py";
-const REPO_ROOT = "D:\\projects\\vault-mind";
-const VAULT_PATH = "D:\\knowledge";
+const FIXTURE_ROOT = resolve(process.cwd(), "test-fixture");
+const KB_META_PATH = join(FIXTURE_ROOT, "compiler", "kb_meta.py");
+const REPO_ROOT = FIXTURE_ROOT;
+const VAULT_PATH = join(FIXTURE_ROOT, "knowledge");
+const HOME_DIR = join(FIXTURE_ROOT, "home");
+const CUSTOM_STATE_DIR = join(FIXTURE_ROOT, "custom-state");
+const STATE_DIR = join(FIXTURE_ROOT, "state");
 
 test("compilerRepoRootFromKbMetaPath derives the repo root two levels up from compiler/kb_meta.py", () => {
   assert.equal(compilerRepoRootFromKbMetaPath(KB_META_PATH), REPO_ROOT);
@@ -250,14 +255,14 @@ test("todaysCostLabel and lastPublishLabel read the real nested cost_guard/last_
 });
 
 test("resolveStateDir prefers a non-empty setting and falls back to <home>/.claude/state otherwise", () => {
-  assert.equal(resolveStateDir("D:\\custom\\state", "C:\\Users\\Curry"), "D:\\custom\\state");
-  assert.equal(resolveStateDir("", "C:\\Users\\Curry"), "C:\\Users\\Curry\\.claude\\state");
-  assert.equal(resolveStateDir(null, "C:\\Users\\Curry"), "C:\\Users\\Curry\\.claude\\state");
-  assert.equal(resolveStateDir("   ", "C:\\Users\\Curry"), "C:\\Users\\Curry\\.claude\\state");
+  assert.equal(resolveStateDir(CUSTOM_STATE_DIR, HOME_DIR), CUSTOM_STATE_DIR);
+  assert.equal(resolveStateDir("", HOME_DIR), join(HOME_DIR, ".claude", "state"));
+  assert.equal(resolveStateDir(null, HOME_DIR), join(HOME_DIR, ".claude", "state"));
+  assert.equal(resolveStateDir("   ", HOME_DIR), join(HOME_DIR, ".claude", "state"));
 });
 
 test("statusFilePath joins the state dir with the fixed file name lmvk_publish.py itself writes", () => {
-  assert.equal(statusFilePath("D:\\state"), "D:\\state\\lmvk-publish-status.json");
+  assert.equal(statusFilePath(STATE_DIR), join(STATE_DIR, "lmvk-publish-status.json"));
 });
 
 test("compilePublishResultFromStatusReport maps status 'error' to exitCode 1 and everything else to 0, tagged as status-file", () => {
@@ -281,17 +286,17 @@ test("readCompilePublishStatus reads the status file at the resolved path and pa
     seenPaths.push(path);
     return JSON.stringify(realReport());
   });
-  const result = await readCompilePublishStatus(reader, "D:\\state", "C:\\Users\\Curry");
-  assert.deepEqual(seenPaths, ["D:\\state\\lmvk-publish-status.json"]);
+  const result = await readCompilePublishStatus(reader, STATE_DIR, HOME_DIR);
+  assert.deepEqual(seenPaths, [join(STATE_DIR, "lmvk-publish-status.json")]);
   assert.ok(result);
   assert.equal(result?.source, "status-file");
   assert.deepEqual(result?.report, realReport());
 });
 
 test("readCompilePublishStatus degrades to null (never throws) when the file is missing or unparseable", async () => {
-  assert.equal(await readCompilePublishStatus(fakeStatusFileReader(() => null), "D:\\state", "C:\\Users\\Curry"), null);
-  assert.equal(await readCompilePublishStatus(fakeStatusFileReader(() => "not json"), "D:\\state", "C:\\Users\\Curry"), null);
-  assert.equal(await readCompilePublishStatus(fakeStatusFileReader(() => "[]"), "D:\\state", "C:\\Users\\Curry"), null);
+  assert.equal(await readCompilePublishStatus(fakeStatusFileReader(() => null), STATE_DIR, HOME_DIR), null);
+  assert.equal(await readCompilePublishStatus(fakeStatusFileReader(() => "not json"), STATE_DIR, HOME_DIR), null);
+  assert.equal(await readCompilePublishStatus(fakeStatusFileReader(() => "[]"), STATE_DIR, HOME_DIR), null);
 });
 
 test("lastPublishLabel degrades each field independently to em-dash", () => {

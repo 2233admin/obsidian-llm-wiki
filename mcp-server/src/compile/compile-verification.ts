@@ -42,7 +42,8 @@ export function verifyStagedCompileArtifacts(
       : "../invalid-artifact-path";
     const stagedFile = resolve(stagedTopicPath, relativePath);
     const stagingRoot = resolve(stagedTopicPath);
-    const contained = stagedFile === stagingRoot || stagedFile.startsWith(`${stagingRoot}\\`);
+    const relativeStagedFile = relative(stagingRoot, stagedFile).replace(/\\/g, "/");
+    const contained = relativeStagedFile === "" || (relativeStagedFile !== ".." && !relativeStagedFile.startsWith("../"));
     const exists = contained && existsSync(stagedFile) && statSync(stagedFile).isFile();
     checks.push({
       checkId: `exists:${artifact.artifactId}`,

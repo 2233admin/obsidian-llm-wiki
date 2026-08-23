@@ -53,7 +53,7 @@ jobs:
           node-version: "20"
       - uses: oven-sh/setup-bun@v2
       - run: cd mcp-server && npm ci
-      - run: cd mcp-server && npm run build && npm test
+      - run: cd mcp-server && npm run verify:bundle && npm test
 
   release-runtime-parity:
     runs-on: ubuntu-latest
@@ -117,6 +117,8 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
+      - name: Install MCP server dependencies for plugin build
+        run: cd mcp-server && npm ci
       - name: Build Obsidian plugin release input
         run: cd obsidian-plugin && npm ci && npm run build
       - run: pip install pytest
