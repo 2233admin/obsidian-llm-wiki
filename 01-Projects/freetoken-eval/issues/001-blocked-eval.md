@@ -9,7 +9,9 @@ actor: "codex"
 depends_on: []
 blocks: []
 related_sources: ["src_freetoken_0ab982f10"]
-related_knowledge_items: ["30-Architecture/freetoken-runtime-on-xr-3080.md"]
+related_knowledge_items:
+  - "30-Architecture/freetoken-runtime-on-xr-3080.md"
+  - "01-Projects/freetoken-eval/research/2026-08-23-cross-host-placement.md"
 ---
 
 # 001 — FreeToken cold-start on xr-3080 is blocked
@@ -75,7 +77,8 @@ For each item: the smallest reversible action that would unblock the issue.
 | `btrfs balance start -dusage=80 -musage=80` on `/` | Free; recovers a few GiB at most; not enough for a model checkpoint | yes |
 | Repartition `nvme2n1p2` while Win11 is offline | Loses the user data store unless migrated first | partially |
 | Add an extra NVMe/SSD; repartition existing leftovers | Hardware cost | yes |
-| Run cold-start on `katana-5090` instead | Cross-host; 5090 also has competing GPU services; separate host survey required | yes |
+| Run cold-start on `katana-5090` instead | Cross-host; **5090 currently offline** (see `research/2026-08-23-cross-host-placement.md`) | yes |
+| Stage model on workstation `Z:` or `F:` and `scp -r` to xr-3080 `/tmp/freetoken-models/` | One-time network transfer (~tens of GiB over LAN) | yes; no permanent claim on 3080 disk |
 
 `needs-info`: confirm with the operator which approach is acceptable
 before any disk-mutating action.
@@ -108,32 +111,35 @@ Once the three are answered, the issue can move from `needs-info` to
 
 ## Research Questions (Captured For The Next Session)
 
-These were raised during the 2026-08-23 capture. They do not block close
-of this issue but the next agent that picks the issue up should answer or
-explicitly defer them in a follow-up issue:
-
 1. List the FreeToken-supported models whose smallest checkpoint is
    ≤ ~3 GiB (FP16/BF16). Candidate families per
    `https://github.com/FlashML-org/FreeToken/blob/main/docs/models.md`.
 2. Quantization path: GGUF + `--dtype` to enable q4 on an off-host pull.
-3. Compute the worst-case disk cost of pulling the smallest supported
-   checkpoint + 1 GiB radix cache + 1 GiB logs to a tmpfs overlay on
-   `xr-3080` — is it acceptable as a "demo only" non-persistent proof?
-4. Cross-host options: `katana-5090` nvme inventory + sshfs vs. CIFS
-   mount from the workstation.
+
+### Already Answered
+
+- **Q3 answered (2026-08-23)** — see
+  `01-Projects/freetoken-eval/research/2026-08-23-cross-host-placement.md`.
+  Default plan: **Strategy A** (workstation staging → `scp` to xr-3080 →
+  `ft serve` on 3080). Strategies B, C, D recorded for second iteration.
+- **Q4 answered (2026-08-23)** — `katana-5090` netbird FQDN
+  (`au-5090-105-128.netbird.cloud`) is currently NXDOMAIN; netbird peer
+  set visible from this workstation shows only 2 of 38 peers. 5090 is not
+  an option until the operator brings it online.
 
 ## Runbook (To Execute Once Decisions Above Are Made)
 
 ```bash
-# Step 1 — stage off-host pull on workstation NAS or workstation NVMe
-#   (DO NOT run on xr-3080 / residual 6.5 GiB)
+# Step 0 — workstation staging (Strategy A)
+# On workstation, pull the chosen model into Z:/models/freetoken/<id>/
 huggingface-cli download <chosen-model-id> \
-    --cache /mnt/nas-or-local/freetoken-models/<model-id>
+    --cache /mnt/z/Models/freetoken/<model-id>    # or use WSL2 Arch
 
-# Step 2 — synchronize or mount the model directory to xr-3080
-#   e.g. sshfs or rsync; path /mnt/data/freetoken/models on xr-3080
+# Step 1 — single transfer to xr-3080
+ssh xr-3080 'mkdir -p /tmp/freetoken-models'
+scp -r <staging-path> xr-3080:/tmp/freetoken-models/
 
-# Step 3 — unblock nvidia-smi by stopping in inverse priority
+# Step 2 — unblock nvidia-smi by stopping in inverse priority
 ssh xr-3080 '
   systemctl stop ollama.service
   docker stop 6836a36a8b5a    # vllm-openai
@@ -142,10 +148,10 @@ ssh xr-3080 '
 '
 ssh xr-3080 'timeout 5 nvidia-smi'   # expect <5s return
 
-# Step 4 — first cold start
+# Step 3 — first cold start
 ssh xr-3080 '
   source /opt/freetoken/bin/activate
-  ft serve --model-path /mnt/data/freetoken/models/<model-id> \
+  ft serve --model-path /tmp/freetoken-models/<model-id> \
            --port 8080 \
            --dtype float16 \
            --memory-ratio 0.85 \
@@ -153,7 +159,7 @@ ssh xr-3080 '
            --sampling-defaults model
 ' &
 
-# Step 5 — capture
+# Step 4 — capture
 curl -sS http://xr-3080:8080/v1/chat/completions \
   -H 'content-type: application/json' \
   -d '{"model":"<id>","messages":[{"role":"user","content":"Hello"}]}' \
@@ -162,8 +168,8 @@ curl -sS http://xr-3080:8080/v1/chat/completions \
 
 ## Evidence
 
-- Note: `30-Architecture/freetoken-runtime-on-xr-3080.md` (this issue is
-  derived from that note).
+- Note: `30-Architecture/freetoken-runtime-on-xr-3080.md`
+- Research: `01-Projects/freetoken-eval/research/2026-08-23-cross-host-placement.md`
 - Capture snapshots: none yet (cold-start runbook not executed).
 - Reproduction transcript (deadlock): `nvidia-smi` was issued three times
   on 2026-08-23 from a fresh SSH session; each call did not return within
@@ -175,4 +181,5 @@ curl -sS http://xr-3080:8080/v1/chat/completions \
 - Source: `src_freetoken_0ab982f10` (this Source Note is the upstream
   anchor)
 - Architecture note: `30-Architecture/freetoken-runtime-on-xr-3080.md`
+- Research: `01-Projects/freetoken-eval/research/2026-08-23-cross-host-placement.md`
 - Triage label mapping: `docs/agents/triage-labels.md`
