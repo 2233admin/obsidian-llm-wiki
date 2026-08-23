@@ -1,15 +1,15 @@
 {
   "schemaVersion": 2,
   "releaseTag": "v2.8.0-beta.4",
-  "testedCommit": "13cd4fb7c1dd610fdcab244fcba574ea8f6468c5",
+  "testedCommit": "67221dbe40daa0fc4b2a1c1819f554114eb75e41",
   "fixtureDigest": "3c449083070cf7e4bba1d389bf10d74688dd80df496f1cc7b65bf31b59b25613",
-  "correlationId": "76534c0b-e121-40fb-a945-880a89f4ce94",
+  "correlationId": "1616183a-4ff1-4121-bd47-2854220b24a1",
   "executionProvenance": {
     "environment": "5090",
     "deviceId": "device/cloud-5090",
     "orcaTask": "task_192b70c714e0",
     "orcaTerminal": "term_88dba0af-df72-4390-b427-9e916f8fb03c",
-    "runtimeId": "51ba86f6-dba3-4733-943f-8652de03b99e"
+    "runtimeId": "cb0d6417-480b-417b-8d00-4de7fd4587fb"
   },
   "reports": {
     "prepare": {
@@ -20,9 +20,9 @@
         "fixture": "tests/fixtures/fleet-workflow.v2.json",
         "vault": "<provided-acceptance-vault>",
         "deviceState": "<machine-local-state-redacted>",
-        "commit": "13cd4fb7c1dd610fdcab244fcba574ea8f6468c5",
+        "commit": "67221dbe40daa0fc4b2a1c1819f554114eb75e41",
         "fixtureDigest": "3c449083070cf7e4bba1d389bf10d74688dd80df496f1cc7b65bf31b59b25613",
-        "correlationId": "76534c0b-e121-40fb-a945-880a89f4ce94",
+        "correlationId": "1616183a-4ff1-4121-bd47-2854220b24a1",
         "externalRefs": [
           {
             "kind": "orca-task",
@@ -41,7 +41,7 @@
           }
         ]
       },
-      "sha256": "63807fa9f404330506f10efc87d1fa9c44af4fb4e8c1e9cd72a75dc1ed12ce75"
+      "sha256": "8af73412c3412c331bda511b723b174989beb29cfe9955573ac91994be56b29a"
     },
     "remote": {
       "report": {
@@ -51,9 +51,9 @@
         "fixture": "tests/fixtures/fleet-workflow.v2.json",
         "vault": "<provided-acceptance-vault>",
         "deviceState": "<machine-local-state-redacted>",
-        "commit": "13cd4fb7c1dd610fdcab244fcba574ea8f6468c5",
+        "commit": "67221dbe40daa0fc4b2a1c1819f554114eb75e41",
         "fixtureDigest": "3c449083070cf7e4bba1d389bf10d74688dd80df496f1cc7b65bf31b59b25613",
-        "correlationId": "76534c0b-e121-40fb-a945-880a89f4ce94",
+        "correlationId": "1616183a-4ff1-4121-bd47-2854220b24a1",
         "externalRefs": [
           {
             "kind": "orca-task",
@@ -72,7 +72,7 @@
           }
         ]
       },
-      "sha256": "625fe806c64411054a8cbfba731c14fe23934e71c0c945bb740a4cc5ba84bb18"
+      "sha256": "f216d6241651d2aea3eab3ab294f154e0236bfc3634a18107ff744fbc23b78ec"
     },
     "verify": {
       "report": {
@@ -82,9 +82,9 @@
         "fixture": "tests/fixtures/fleet-workflow.v2.json",
         "vault": "<provided-acceptance-vault>",
         "deviceState": "<machine-local-state-redacted>",
-        "commit": "13cd4fb7c1dd610fdcab244fcba574ea8f6468c5",
+        "commit": "67221dbe40daa0fc4b2a1c1819f554114eb75e41",
         "fixtureDigest": "3c449083070cf7e4bba1d389bf10d74688dd80df496f1cc7b65bf31b59b25613",
-        "correlationId": "76534c0b-e121-40fb-a945-880a89f4ce94",
+        "correlationId": "1616183a-4ff1-4121-bd47-2854220b24a1",
         "externalRefs": [
           {
             "kind": "orca-task",
@@ -143,14 +143,14 @@
           }
         ]
       },
-      "sha256": "c315575d7f40673583f898525d9fca0778f7a5ac189a5f51bb9f8031d434dced"
+      "sha256": "f53b48330c8bb5cb97ee12e17a349fb76acbdbf5bde6e1e9ea46e4d1ea767d59"
     }
   },
   "attestation": {
     "algorithm": "ed25519",
     "keyId": "0554ab8225edfaacd693ec4844fdae01b8e0ba59f61d520b1745a4dd43ff3645",
     "trustAnchor": "docs/release-evidence/trust/device-cloud-5090.json",
-    "payloadSha256": "22bd4d1bf8e41d4ba51ea94e62ffb864471c213301b0aefc6e595784fc34301d",
-    "signature": "gDYiA1wua2LdMHB14Eh7eVcu/5snDjaMjHhY3U4QNIHXqbM8cce4n1JaRbSBWkbOryJMmSNZkPyVMIQAA8TWBA=="
+    "payloadSha256": "b20ac4d24ccc07c0cff3cb5ad220cf425adfed0617171c6ad85c0b4f3d5cc881",
+    "signature": "6hDjxTiuuTASaMBjZBa0jIJf6MJD599btfykRRb6IZl0xYJdBfAUembTf2AC0Q+a9QPM8dq3V46CTux2TlgnBQ=="
   }
 }
