@@ -86,11 +86,29 @@ def test_registry_roundtrip_orders_transports_by_priority(tmp_path: Path) -> Non
     # bare 40-hex token (gitea token shape)
     {"deviceId": "d", "transports": [{"kind": "ssh", "priority": 1,
         "config": {"host": "0123456789abcdef0123456789abcdef01234567"}}]},
+    # permanent and temporary AWS access key IDs
+    {"deviceId": "d", "transports": [{"kind": "ssh", "priority": 1,
+        "config": {"host": "AKIA1234567890ABCDEF"}}]},
+    {"deviceId": "d", "transports": [{"kind": "ssh", "priority": 1,
+        "config": {"host": "ASIA1234567890ABCDEF"}}]},
+    # compact JWT
+    {"deviceId": "d", "transports": [{"kind": "ssh", "priority": 1,
+        "config": {"host": "eyJhbGciOiJSUzI1NiJ9.payload.signature"}}]},
 ])
 def test_registry_rejects_secret_shaped_material(tmp_path: Path, poison: dict) -> None:
     file = write_registry(tmp_path / "registry.json", registry_dict([poison]))
     with pytest.raises(FleetRegistryError, match="secret"):
         FleetRegistry.load(file)
+
+
+def test_registry_accepts_non_jwt_base64url_value(tmp_path: Path) -> None:
+    file = write_registry(tmp_path / "registry.json", registry_dict([{
+        "deviceId": "d",
+        "transports": [{"kind": "ssh", "priority": 1,
+            "config": {"host": "eyJAAAAAAAAAA"}}],
+    }]))
+    registry = FleetRegistry.load(file)
+    assert registry.peer("d").transports[0].config["host"] == "eyJAAAAAAAAAA"
 
 
 def test_gitea_transport_rejects_credentialed_url() -> None:
