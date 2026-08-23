@@ -5,7 +5,20 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 
 import { AdapterRegistry } from '../adapters/registry.js';
-import { makeAllOperations } from './operations.js';
+import { VaultFs } from '../index.js';
+import { makeAllOperations, multimodalMarkdown } from './operations.js';
+
+test('multimodal frontmatter round-trips backslashes, newlines, and quotes', (t) => {
+  const vault = mkdtempSync(join(tmpdir(), 'multimodal-yaml-roundtrip-'));
+  t.after(() => rmSync(vault, { recursive: true, force: true }));
+  const sourcePath = 'folder\\draft"\nsource.pdf';
+  const parser = 'custom\\parser"\nnext';
+  const content = multimodalMarkdown({ sourcePath, parser, metadata: {}, markdown: '# Parsed' });
+
+  const frontmatter = new VaultFs(vault).parseFrontmatter(content);
+  assert.equal(frontmatter?.source, sourcePath);
+  assert.equal(frontmatter?.parser, parser);
+});
 
 test('multimodal.ingest emits JSON-compatible YAML scalars for backslashes and quotes', async (t) => {
   const vault = mkdtempSync(join(tmpdir(), 'multimodal-yaml-security-'));

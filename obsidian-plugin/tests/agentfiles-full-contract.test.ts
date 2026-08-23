@@ -170,9 +170,10 @@ test("scaffolds, conversation tags, and governed export remain functional", () =
 	assert.match(content, /source: claude-code/);
 });
 
-test("conversation titles remove complete and unterminated markup in one pass", () => {
-	assert.equal(sanitizeTitle("<b>Review</b> <script"), "Review");
-	assert.equal(sanitizeTitle("<><script"), "(untitled)");
+test("conversation titles remove complete markup without truncating ordinary angle brackets", () => {
+	assert.equal(sanitizeTitle("<b>Review</b>"), "Review");
+	assert.equal(sanitizeTitle("Score 1 < 2 and 3 > 1"), "Score 1 < 2 and 3 > 1");
+	assert.equal(sanitizeTitle("Draft <script"), "Draft <script");
 });
 
 test("marketplace guards empty queries and preserves runtime mappings", async () => {

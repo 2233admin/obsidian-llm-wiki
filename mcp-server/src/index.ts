@@ -268,8 +268,14 @@ function parseYamlValue(s: string): unknown {
   if (s === "false") return false;
   if (s === "null" || s === "~") return null;
   if (/^-?\d+(\.\d+)?$/.test(s)) return Number(s);
-  if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'")))
-    return s.slice(1, -1);
+  if (s.startsWith('"') && s.endsWith('"')) {
+    try {
+      return JSON.parse(s);
+    } catch {
+      return s.slice(1, -1);
+    }
+  }
+  if (s.startsWith("'") && s.endsWith("'")) return s.slice(1, -1);
   return s;
 }
 

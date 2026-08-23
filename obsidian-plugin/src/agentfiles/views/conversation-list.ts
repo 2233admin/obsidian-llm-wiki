@@ -4,17 +4,49 @@ import type { ConversationItem, ConversationSort, ConversationDateRange } from "
 
 export function sanitizeTitle(raw: string): string {
 	let plainText = "";
-	let insideTag = false;
-	for (const character of raw) {
-		if (insideTag) {
-			if (character === ">") insideTag = false;
+	let cursor = 0;
+	while (cursor < raw.length) {
+		if (raw[cursor] !== "<") {
+			plainText += raw[cursor];
+			cursor += 1;
 			continue;
 		}
-		if (character === "<") {
-			insideTag = true;
+
+		let nameIndex = cursor + 1;
+		if (raw[nameIndex] === "/") nameIndex += 1;
+		const first = raw.charCodeAt(nameIndex);
+		const startsMarkup = (first >= 65 && first <= 90)
+			|| (first >= 97 && first <= 122)
+			|| raw[cursor + 1] === "!"
+			|| raw[cursor + 1] === "?";
+		if (!startsMarkup) {
+			plainText += "<";
+			cursor += 1;
 			continue;
 		}
-		plainText += character;
+
+		let quote = "";
+		let tagEnd = -1;
+		for (let index = nameIndex + 1; index < raw.length; index += 1) {
+			const character = raw[index];
+			if (quote) {
+				if (character === quote) quote = "";
+				continue;
+			}
+			if (character === "\"" || character === "'") {
+				quote = character;
+				continue;
+			}
+			if (character === ">") {
+				tagEnd = index;
+				break;
+			}
+		}
+		if (tagEnd < 0) {
+			plainText += raw.slice(cursor);
+			break;
+		}
+		cursor = tagEnd + 1;
 	}
 	return plainText
 		.replace(/\[Image #?\d*\]/gi, "")

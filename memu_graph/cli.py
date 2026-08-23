@@ -9,22 +9,36 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import sys
 import uuid
 from datetime import datetime, timezone
+from urllib.parse import urlsplit
 
 
 def _get_pg_pool(dsn: str):
     """Lazy psycopg2 connection helper using optional libpq environment credentials."""
     import psycopg2
 
+    if "://" in dsn:
+        parsed_dsn = urlsplit(dsn)
+        has_explicit_credentials = parsed_dsn.username is not None or parsed_dsn.password is not None
+    else:
+        dsn_keys = {
+            field.partition("=")[0].lower()
+            for field in shlex.split(dsn)
+            if "=" in field
+        }
+        has_explicit_credentials = bool(dsn_keys & {"user", "password"})
+
     connection_options = {}
-    user = os.environ.get("PGUSER")
-    password = os.environ.get("PGPASSWORD")
-    if user:
-        connection_options["user"] = user
-    if password:
-        connection_options["password"] = password
+    if not has_explicit_credentials:
+        user = os.environ.get("PGUSER")
+        password = os.environ.get("PGPASSWORD")
+        if user:
+            connection_options["user"] = user
+        if password:
+            connection_options["password"] = password
 
     conn = psycopg2.connect(dsn, **connection_options)
     conn.autocommit = False

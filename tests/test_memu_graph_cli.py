@@ -22,6 +22,22 @@ def test_pg_pool_does_not_inject_a_default_password(monkeypatch):
     assert connection.autocommit is False
 
 
+def test_pg_pool_does_not_override_explicit_dsn_credentials(monkeypatch):
+    calls: list[tuple[str, dict[str, str]]] = []
+    connection = SimpleNamespace(autocommit=True)
+    monkeypatch.setenv("PGUSER", "ambient-user")
+    monkeypatch.setenv("PGPASSWORD", "ambient-password")
+    monkeypatch.setitem(
+        sys.modules,
+        "psycopg2",
+        SimpleNamespace(connect=lambda dsn, **kwargs: calls.append((dsn, kwargs)) or connection),
+    )
+
+    dsn = "postgresql://explicit-user:explicit-password@localhost/wiki"
+    assert _get_pg_pool(dsn) is connection
+    assert calls == [(dsn, {})]
+
+
 def test_pg_pool_passes_environment_credentials_out_of_band(monkeypatch):
     calls: list[tuple[str, dict[str, str]]] = []
     connection = SimpleNamespace(autocommit=True)

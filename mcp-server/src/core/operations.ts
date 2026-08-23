@@ -1615,7 +1615,7 @@ function defaultMultimodalOutputPath(sourcePath: string): string {
   return `00-Inbox/Multimodal/${stem}.md`;
 }
 
-function multimodalMarkdown(opts: {
+export function multimodalMarkdown(opts: {
   sourcePath: string;
   parser?: string;
   metadata: Record<string, unknown>;
