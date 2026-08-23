@@ -124,8 +124,8 @@ Optional engines use a typed Toolchain Capability Profile instead of ad-hoc envi
 | `toolchain.provider_selection` | Selects optional `opencli`, `qmd`, `graphify`, `ollama`, `lightrag`, `raganything`, and `mcp-sdk` profiles. An empty selection is valid. |
 | `toolchain.capability_profiles` | Stores invocation mode (`filesystem`, `cli`, `http`, or `sdk`), version policy, required features, timeout, collection/index identity, and profile revision. |
 | `toolchain.device_bindings` | Stores device-local executable and endpoint references. Doctor redacts them and rejects credential-bearing URLs. |
-| `embeddings.default_profile` | Chooses `ollama/bge-m3` or `ollama/qwen3-embedding:0.6b` for an otherwise unbound index. |
-| `embeddings.index_profiles` | Binds each index to one embedding profile; the defaults intentionally keep VaultBrain and MemU explicit. |
+| `embeddings.default_profile` | Chooses `ollama/bge-m3`, `ollama/qwen3-embedding:0.6b`, or `jina/v5-omni-nano` for an otherwise unbound index. |
+| `embeddings.index_profiles` | Binds each index to one embedding profile; the defaults keep VaultBrain on `bge-m3` and MemU on `jina/v5-omni-nano`. |
 | `embeddings.index_fingerprints` | Records provider, redacted endpoint identity, model, dimensions, adapter schema, and digest. |
 | `embeddings.fingerprint_enforcement` | Requires a rebuild plan or rejects a mismatched index. |
 

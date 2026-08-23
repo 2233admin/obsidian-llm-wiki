@@ -14,11 +14,12 @@
  *      is unavailable. Also handles ILIKE fallback when embedding generation fails.
  *
  * Search paths:
- *   - search(query)  -> embeds via Ollama bge-m3 (1024-dim), falls back to ILIKE
- *   - searchByVector(vec) 1024-dim -> cosine via memu_search.py
- *   - searchByVector(vec) 4096-dim -> raw pgvector cosine on memory_items
+ *   - search(query) -> selected embedding profile -> recall_file_segments
+ *   - searchByVector(vec) 768-dim -> pgvector cosine on recall_file_segments
+ *   - searchByVector(vec) 1024-dim -> graph recall, then memu_search.py fallback
+ *   - searchByVector(vec) 4096-dim -> legacy pgvector cosine on memory_items
  *
- * Requires: a Settings-derived Postgres connection, Ollama serving bge-m3 at :11434.
+ * Requires a Settings-derived Postgres connection and embedding profile.
  * Gracefully degrades to [] if unavailable.
  * The constructor never reads process.env or resolves Secret References directly.
  * At each Python subprocess boundary it preserves the inherited environment and
@@ -138,16 +139,19 @@ export function resolveMemUAdapterConfig(
   runtime: { cwd?: string; platform?: NodeJS.Platform } = {},
 ): ResolvedMemUAdapterConfig {
   const python = pathPython(runtime.platform ?? process.platform);
+  const configuredProfileId = config.embedProfileId ?? environment.OLLAMA_EMBED_PROFILE;
+  const embedModel = config.embedModel ?? environment.OLLAMA_EMBED_MODEL;
+  const legacyOllamaModel = configuredProfileId === undefined ? embedModel : undefined;
   const embeddingProfile = resolveEmbeddingProfile({
     profileId:
-      config.embedProfileId
-      ?? environment.OLLAMA_EMBED_PROFILE
-      ?? "jina/v5-omni-nano",
+      configuredProfileId
+      ?? (legacyOllamaModel ? `custom/ollama/${legacyOllamaModel}` : "jina/v5-omni-nano"),
+    ...(legacyOllamaModel ? { provider: "ollama" as const } : {}),
     endpoint:
       config.embedEndpoint
       ?? environment.OLLAMA_EMBED_BASE_URL
       ?? environment.VAULT_MIND_EMBED_URL,
-    model: config.embedModel ?? environment.OLLAMA_EMBED_MODEL,
+    model: embedModel,
     dimensions: config.embedDimensions,
     defaultProfileId: "jina/v5-omni-nano",
   });
@@ -285,16 +289,23 @@ export class MemUAdapter implements VaultMindAdapter {
 
   async search(query: string, opts?: SearchOpts): Promise<SearchResult[]> {
     if (!this.available || !this.pool) return [];
-    const limit = Math.max(1, Math.min(opts?.maxResults ?? this.defaultMax, 100));
-    const vec = await embedTextOllama(query, {
+    const vector = await embedTextOllama(query, {
       profileId: this.embedProfileId,
       baseUrl: this.embedEndpoint,
       model: this.embedModel,
       dimensions: this.embedDimensions,
     });
-    const queryVec = vec.length === (this.embedDimensions ?? 768) ? vec : null;
-    if (!queryVec) return [];
-    const vecLiteral = `[${queryVec.join(",")}]`;
+    if (vector.length !== (this.embedDimensions ?? 768)) return [];
+    return this.searchRecallSegmentsByVector(vector, opts);
+  }
+
+  private async searchRecallSegmentsByVector(
+    vector: readonly number[],
+    opts?: SearchOpts,
+  ): Promise<SearchResult[]> {
+    if (!this.pool) return [];
+    const limit = Math.max(1, Math.min(opts?.maxResults ?? this.defaultMax, 100));
+    const vectorLiteral = `[${vector.join(",")}]`;
     try {
       const { rows } = await this.pool.query<{
         id: string;
@@ -313,22 +324,22 @@ export class MemUAdapter implements VaultMindAdapter {
          WHERE s.embedding IS NOT NULL AND s.user_id = $1
          ORDER BY s.embedding <=> $2::vector
          LIMIT $3`,
-        [this.userId, vecLiteral, limit],
+        [this.userId, vectorLiteral, limit],
       );
-      return rows.map((r) => ({
+      return rows.map((row) => ({
         source: this.name,
-        path: `memu/${r.file_name ?? r.id}`,
-        content: String(r.text ?? "").slice(0, 500),
-        score: typeof r.similarity === "number" ? r.similarity : 0,
+        path: `memu/${row.file_name ?? row.id}`,
+        content: String(row.text ?? "").slice(0, 500),
+        score: typeof row.similarity === "number" ? row.similarity : 0,
         metadata: {
           table: "recall_file_segments",
-          track: r.track,
-          user_id: r.user_id,
+          track: row.track,
+          user_id: row.user_id,
           created_at:
-            r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
-          item_id: r.id,
-          file_name: r.file_name,
-          cosine_similarity: r.similarity,
+            row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+          item_id: row.id,
+          file_name: row.file_name,
+          cosine_similarity: row.similarity,
         },
       }));
     } catch (err) {
@@ -346,6 +357,7 @@ export class MemUAdapter implements VaultMindAdapter {
   ): Promise<SearchResult[]> {
     if (!this.available || !this.pool) return [];
     if (vector.length === 0) return [];
+    if (vector.length === 768) return this.searchRecallSegmentsByVector(vector, opts);
     if (vector.length === 1024) {
       const limit = Math.max(1, Math.min(opts?.maxResults ?? this.defaultMax, 100));
       const result = await this.runGraphRecall("", vector, limit);

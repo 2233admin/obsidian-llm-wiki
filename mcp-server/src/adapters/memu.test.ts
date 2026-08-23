@@ -61,9 +61,10 @@ describe("MemUAdapter -- unavailable paths", () => {
     assert.equal(windows.memuSearchPy, "memu_search.py");
     assert.equal(windows.graphRecallTimeoutMs, 15_000);
     assert.equal(windows.memuSearchTimeoutMs, 20_000);
-    assert.equal(windows.embedProfileId, "ollama/qwen3-embedding:0.6b");
-    assert.equal(windows.embedModel, "qwen3-embedding:0.6b");
-    assert.equal(windows.embedDimensions, 1024);
+    assert.equal(windows.embedProfileId, "jina/v5-omni-nano");
+    assert.equal(windows.embedEndpoint, "https://api.jina.ai/v1/embeddings");
+    assert.equal(windows.embedModel, "jina-embeddings-v5-omni-nano");
+    assert.equal(windows.embedDimensions, 768);
     assert.match(windows.embedFingerprint.digest, /^sha256:[a-f0-9]{64}$/);
 
     const posix = resolveMemUAdapterConfig({}, {}, { cwd, platform: "linux" });
@@ -318,6 +319,52 @@ describe("MemUAdapter -- unavailable paths", () => {
     const adapter = new MemUAdapter({ dsn: BAD_DSN });
     const results = await adapter.searchByVector(basisVec(0));
     assert.deepEqual(results, []);
+  });
+
+  test("searchByVector() queries recall_file_segments for 768-dim Jina vectors", async () => {
+    const adapter = new MemUAdapter({ userId: "jina-user" });
+    const mutable = adapter as unknown as {
+      available: boolean;
+      pool: {
+        query: (sql: string, values: readonly unknown[]) => Promise<{ rows: unknown[] }>;
+      };
+    };
+    mutable.available = true;
+    mutable.pool = {
+      query: async (sql, values) => {
+        assert.match(sql, /FROM recall_file_segments/);
+        assert.deepEqual(values, ["jina-user", `[${Array(768).fill(0).join(",")}]`, 1]);
+        return {
+          rows: [{
+            id: "segment-1",
+            text: "Jina vector result",
+            track: "default",
+            user_id: "jina-user",
+            created_at: new Date("2026-01-02T03:04:05.000Z"),
+            file_name: "memory.md",
+            similarity: 0.875,
+          }],
+        };
+      },
+    };
+
+    const results = await adapter.searchByVector(Array(768).fill(0), { maxResults: 1 });
+
+    assert.deepEqual(results, [{
+      source: "memu",
+      path: "memu/memory.md",
+      content: "Jina vector result",
+      score: 0.875,
+      metadata: {
+        table: "recall_file_segments",
+        track: "default",
+        user_id: "jina-user",
+        created_at: "2026-01-02T03:04:05.000Z",
+        item_id: "segment-1",
+        file_name: "memory.md",
+        cosine_similarity: 0.875,
+      },
+    }]);
   });
 
   test("dispose() is safe when never init'd", async () => {

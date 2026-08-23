@@ -495,7 +495,7 @@
       "key": "embeddings.index_profiles",
       "value": {
         "vaultbrain": "ollama/bge-m3",
-        "memu": "ollama/qwen3-embedding:0.6b"
+        "memu": "jina/v5-omni-nano"
       },
       "winningScope": "product",
       "assignmentProvenance": {

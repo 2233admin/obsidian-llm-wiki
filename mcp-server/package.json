@@ -55,6 +55,7 @@
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@types/pg": "^8.23.1",
     "pg": "^8.23.0",
+    "undici": "^8.10.0",
     "ws": "^8.21.3"
   },
   "devDependencies": {

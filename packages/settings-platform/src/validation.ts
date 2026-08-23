@@ -466,6 +466,7 @@ function validateValue(
         || (
           profileId !== "ollama/bge-m3"
           && profileId !== "ollama/qwen3-embedding:0.6b"
+          && profileId !== "jina/v5-omni-nano"
         )
       ) {
         issues.push(issue(

@@ -701,7 +701,7 @@ def test_python_accepts_builtin_embedding_index_bindings_and_rejects_credentials
     profiles = next(item for item in registry["definitions"] if item["key"] == "embeddings.index_profiles")
     result = validate_effective_value(
         profiles,
-        {"vaultbrain": "ollama/bge-m3", "memu": "ollama/qwen3-embedding:0.6b"},
+        {"vaultbrain": "ollama/bge-m3", "memu": "jina/v5-omni-nano"},
     )
     assert result["valid"] is True
 

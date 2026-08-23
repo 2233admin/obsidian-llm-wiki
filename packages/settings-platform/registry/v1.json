@@ -390,14 +390,14 @@
       "owner": "runtime.embedding",
       "category": "models",
       "name": "Default embedding profile",
-      "description": "Default embedding profile for indexes without an explicit binding. Both built-in profiles remain supported.",
+      "description": "Default embedding profile for indexes without an explicit binding. All built-in profiles remain supported.",
       "valueType": "enum",
       "defaultValue": "ollama/bge-m3",
       "allowedScopes": ["user-device", "vault", "workspace-project", "session"],
       "sensitivity": "public",
       "validator": {
         "id": "enum",
-        "enum": ["ollama/bge-m3", "ollama/qwen3-embedding:0.6b"]
+        "enum": ["ollama/bge-m3", "ollama/qwen3-embedding:0.6b", "jina/v5-omni-nano"]
       },
       "requires": [],
       "applyMode": "restart-required",
@@ -408,7 +408,7 @@
       "owner": "runtime.embedding",
       "category": "models",
       "name": "Embedding endpoint",
-      "description": "Device-local OpenAI-compatible embedding endpoint shared by built-in profiles.",
+      "description": "OpenAI-compatible embedding endpoint override. Without an explicit assignment, each built-in profile uses its own endpoint.",
       "valueType": "string",
       "defaultValue": "http://localhost:11434/v1/embeddings",
       "allowedScopes": ["user-device", "session"],
@@ -432,7 +432,7 @@
       "valueType": "object",
       "defaultValue": {
         "vaultbrain": "ollama/bge-m3",
-        "memu": "ollama/qwen3-embedding:0.6b"
+        "memu": "jina/v5-omni-nano"
       },
       "allowedScopes": ["vault", "workspace-project", "session"],
       "sensitivity": "public",

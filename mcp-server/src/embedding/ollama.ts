@@ -1,12 +1,11 @@
 /**
- * Minimal Ollama embedding client.
+ * Minimal OpenAI-compatible embedding client.
  *
- * Calls Ollama's OpenAI-compatible /v1/embeddings endpoint to embed a query
- * string into a vector. Both built-in profiles are supported; this MemU-
- * oriented compatibility wrapper keeps qwen3-embedding:0.6b as its local
- * default so it matches existing gm_nodes data.
+ * Calls the selected profile's /v1/embeddings endpoint to embed a query.
+ * The legacy function name and qwen3-embedding:0.6b default remain for callers
+ * that do not select a profile explicitly.
  *
- * Zero npm deps -- uses Node 18+ built-in fetch.
+ * Uses Node 18+ built-in fetch and undici's ProxyAgent when a proxy is set.
  *
  * Failure modes: returns [] on network/HTTP/parse error and writes a
  * single-line warn to stderr. Caller decides whether to fall back to
@@ -29,6 +28,8 @@ export interface OllamaEmbedOpts {
   /** Timeout in ms. Default: 30_000 */
   timeoutMs?: number;
 }
+
+import { ProxyAgent } from "undici";
 
 import {
   resolveEmbeddingProfile,
@@ -69,15 +70,7 @@ export async function embedTextOllama(
   const proxyUrl = opts?.proxy ?? process.env.OLLAMA_EMBED_PROXY ?? "";
   const headers: Record<string, string> = { "content-type": "application/json" };
   if (apiKey) headers["authorization"] = `Bearer ${apiKey}`;
-  let dispatcher: unknown;
-  if (proxyUrl) {
-    try {
-      const { ProxyAgent } = await import("undici");
-      dispatcher = new ProxyAgent(proxyUrl);
-    } catch {
-      /* proxy agent unavailable; fall through to direct fetch */
-    }
-  }
+  const dispatcher = proxyUrl ? new ProxyAgent(proxyUrl) : undefined;
 
   try {
     const resp = await fetch(profile.endpoint, {
@@ -87,7 +80,6 @@ export async function embedTextOllama(
       signal: controller.signal,
       ...(dispatcher ? { dispatcher } : {}),
     });
-    clearTimeout(t);
 
     if (!resp.ok) {
       const errText = await resp.text().catch(() => "");
@@ -109,9 +101,11 @@ export async function embedTextOllama(
     validateEmbeddingVector(vec, profile);
     return vec;
   } catch (err) {
-    clearTimeout(t);
     const msg = err instanceof Error ? err.message : String(err);
     process.stderr.write(`obsidian-llm-wiki: [warn] ollama embed failed: ${msg}\n`);
     return [];
+  } finally {
+    clearTimeout(t);
+    await dispatcher?.close();
   }
 }

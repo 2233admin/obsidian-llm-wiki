@@ -35,6 +35,7 @@ export type ToolchainProviderId = (typeof TOOLCHAIN_PROVIDER_IDS)[number];
 export const BUILT_IN_EMBEDDING_PROFILE_IDS = [
   "ollama/bge-m3",
   "ollama/qwen3-embedding:0.6b",
+  "jina/v5-omni-nano",
 ] as const;
 
 export const INVOCATION_MODES = ["filesystem", "cli", "http", "sdk"] as const;

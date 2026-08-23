@@ -29,9 +29,9 @@ Semantic policy and device bindings are intentionally separate:
 | `toolchain.provider_selection` | Vault/Project/session list of optional profiles to evaluate. |
 | `toolchain.capability_profiles` | Semantic invocation mode, version policy, required features, timeout, collection/index identity, and profile revision. |
 | `toolchain.device_bindings` | User-device/session executable and public endpoint references. Credential-bearing URLs are rejected. |
-| `embeddings.default_profile` | Default `ollama/bge-m3` or `ollama/qwen3-embedding:0.6b`. |
-| `embeddings.endpoint` | Device-local OpenAI-compatible embedding endpoint. |
-| `embeddings.index_profiles` | Explicit profile per index; defaults keep VaultBrain on `bge-m3` and MemU on `qwen3-embedding:0.6b`. |
+| `embeddings.default_profile` | Default `ollama/bge-m3`, `ollama/qwen3-embedding:0.6b`, or `jina/v5-omni-nano`. |
+| `embeddings.endpoint` | Optional OpenAI-compatible endpoint override; otherwise each built-in profile uses its own endpoint. |
+| `embeddings.index_profiles` | Explicit profile per index; defaults keep VaultBrain on `bge-m3` and MemU on `jina/v5-omni-nano`. |
 | `embeddings.index_fingerprints` | Recorded provider, endpoint identity, model, dimensions, adapter schema, and digest. |
 | `embeddings.fingerprint_enforcement` | `rebuild-required` or `reject-mismatch`. |
 
