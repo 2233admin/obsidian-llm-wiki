@@ -1,0 +1,27 @@
+{
+  "logLevel": "INFO",
+  "citationEditorSuggester": true,
+  "showCitekeyInSuggester": true,
+  "literatureNoteFolder": "Zotero/literature",
+  "enableServer": true,
+  "serverPort": 9999,
+  "serverHostname": "127.0.0.1",
+  "template": {
+    "folder": "Resources/plugin/_Zotlit",
+    "templates": {
+      "filename": "@<%= it.citekey ?? it.DOI ?? it.title ?? it.key %>.md"
+    }
+  },
+  "updateAnnotBlock": false,
+  "updateOverwrite": false,
+  "autoPairEta": false,
+  "autoTrim": [
+    false,
+    false
+  ],
+  "autoRefresh": true,
+  "zoteroDataDir": "D:\\Users\\RavenHogwarts\\Zotero",
+  "citationLibrary": 1,
+  "imgExcerptImport": "copy",
+  "imgExcerptPath": "Zotero/attachments"
+}

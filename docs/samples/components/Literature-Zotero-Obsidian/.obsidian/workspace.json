@@ -1,0 +1,209 @@
+{
+  "main": {
+    "id": "c823b1f27906bcd5",
+    "type": "split",
+    "children": [
+      {
+        "id": "0d526c0ffc0cbfd1",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "dfd9b8ddf5dedd44",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Zotero/literature/@rodermund2024DrivingSustainableFuture.md",
+                "mode": "source",
+                "source": true
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "e056eb41b209f0f5",
+    "type": "split",
+    "children": [
+      {
+        "id": "317d187534e5f038",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "ff355eb76ee2fe84",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical"
+              }
+            }
+          },
+          {
+            "id": "56670eb8bc462ddc",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              }
+            }
+          },
+          {
+            "id": "01c32fde9543daa6",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {}
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 294.5
+  },
+  "right": {
+    "id": "9a7386a2b5471ce6",
+    "type": "split",
+    "children": [
+      {
+        "id": "7b6ade4e98f67281",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "c86d885027503b12",
+            "type": "leaf",
+            "state": {
+              "type": "zotero-annotation-view",
+              "state": {
+                "file": "Zotero/literature/@rodermund2024DrivingSustainableFuture.md",
+                "itemId": 859,
+                "attachmentId": 858,
+                "follow": "ob-note"
+              }
+            }
+          },
+          {
+            "id": "be2f9ea632db070a",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true
+              }
+            }
+          },
+          {
+            "id": "df1dc6470e9c8563",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "Zotero/literature/@rodermund2024DrivingSustainableFuture.md"
+              }
+            }
+          },
+          {
+            "id": "1bb61027dbd11643",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "Zotero/literature/@rodermund2024DrivingSustainableFuture.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              }
+            }
+          },
+          {
+            "id": "c1360c7e66a3aa99",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "Zotero/literature/@rodermund2024DrivingSustainableFuture.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:打开快速切换": false,
+      "graph:查看关系图谱": false,
+      "canvas:新建白板": false,
+      "daily-notes:打开/创建今天的日记": false,
+      "templates:插入模板": false,
+      "command-palette:打开命令面板": false
+    }
+  },
+  "active": "dfd9b8ddf5dedd44",
+  "lastOpenFiles": [
+    "Zotero/literature/@zhou2021RuHeQueLi.md",
+    "Zotero/literature/@rodermund2024DrivingSustainableFuture.md",
+    "Zotero/literature/@chen2022GuanYuYanJiu.md",
+    "README.md",
+    "Resources/assets/recording.gif",
+    "Resources/assets/Clip_2024-08-09_14-21-37.png",
+    "Literature Library.md",
+    "Resources/assets/Clip_2024-08-09_14-04-25.png",
+    "Resources/plugin/_Zotlit/zt-cite.eta.md",
+    "Resources/plugin/_Zotlit/zt-note.eta.md",
+    "Resources/plugin/_Zotlit/zt-cite2.eta.md",
+    "Resources/assets/Clip_2024-08-09_14-08-30.png",
+    "Resources/assets/Clip_2024-08-09_14-05-01.png",
+    "Resources/plugin/_ZoteroIntegration/literature.md",
+    "Zotero/publications/Science and Technology Publications.md",
+    "Zotero/publications/教育教学论坛.md",
+    "Zotero/authors/Stephanie C. Rodermund.md",
+    "Zotero/authors/周大鸣.md",
+    "Zotero/authors/吴永康.md",
+    "Zotero/publications/广东技术师范大学学报.md",
+    "Zotero/authors/陈立宏.md",
+    "Zotero/authors/刘艳.md",
+    "Zotero/authors/李旭.md",
+    "Resources/components/文献列表.components",
+    "Resources/Attachments/components/components-20240809133135.components",
+    "Resources/Attachments/components",
+    "Resources/Attachments",
+    "Resources/assets",
+    "Zotero/literature/@zhao2024DevelopmentMachineTool.md",
+    "Zotero/authors/Guan Zhao.md",
+    "Zotero/literature/@12017QuanGuoGengDi.md",
+    "Resources/assets/Clip_2024-08-09_13-14-42.png",
+    "Resources/plugin/_Zotlit/zt-field.eta.md",
+    "Resources/plugin/_Zotlit/zt-colored.eta.md",
+    "Resources/plugin/_Zotlit/zt-annots.eta.md",
+    "Resources/plugin/_Zotlit/zt-annot.eta.md",
+    "Zotero/attachments/6P2KTCVR-4-x77-y400.png",
+    "Zotero/authors",
+    "Zotero/publications",
+    "Zotero",
+    "Resources/components/DVJS-多条件复合检索V3.components",
+    "6P2KTCVR-4-x77-y400.png",
+    "Linkages/Zotero/attachments/9F6KLQM5.png",
+    "Linkages/Zotero/attachments/6P2KTCVR-4-x77-y400.png",
+    "LICENSE"
+  ]
+}

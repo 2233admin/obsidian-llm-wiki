@@ -1,0 +1,959 @@
+{
+  "components": [
+    {
+      "id": "d74392b3-4118-4c33-9f75-1dd958678f62",
+      "type": "multi",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": false,
+      "showShadow": false,
+      "createAt": "2024-05-13T07:28:49.882Z",
+      "updateAt": "2024-05-13T07:28:49.882Z",
+      "components": [
+        {
+          "componentId": "988560c2-3b05-473a-b563-50945fd33a14",
+          "layout": {
+            "mobile": {
+              "x": 0,
+              "y": 15,
+              "w": 4,
+              "h": 11
+            },
+            "laptop": {
+              "x": 0,
+              "y": 3,
+              "w": 4,
+              "h": 10
+            }
+          }
+        },
+        {
+          "componentId": "05b418a3-237e-4555-9098-03240fd80782",
+          "layout": {
+            "mobile": {
+              "x": 2,
+              "y": 10,
+              "w": 1,
+              "h": 5
+            },
+            "laptop": {
+              "x": 8,
+              "y": 0,
+              "w": 2,
+              "h": 5
+            }
+          }
+        },
+        {
+          "componentId": "67b29695-3f9f-464f-a545-952a4a26e105",
+          "layout": {
+            "mobile": {
+              "x": 2,
+              "y": 0,
+              "w": 1,
+              "h": 5
+            },
+            "laptop": {
+              "x": 8,
+              "y": 9,
+              "w": 2,
+              "h": 4
+            }
+          }
+        },
+        {
+          "componentId": "24a7d727-dfd7-45f6-8877-fbbc40345881",
+          "layout": {
+            "mobile": {
+              "x": 3,
+              "y": 0,
+              "w": 1,
+              "h": 5
+            },
+            "laptop": {
+              "x": 8,
+              "y": 5,
+              "w": 2,
+              "h": 4
+            }
+          }
+        },
+        {
+          "componentId": "e8267710-5569-4696-860a-e6a9ee76c8de",
+          "layout": {
+            "mobile": {
+              "x": 3,
+              "y": 10,
+              "w": 1,
+              "h": 5
+            },
+            "laptop": {
+              "x": 10,
+              "y": 0,
+              "w": 2,
+              "h": 5
+            }
+          }
+        },
+        {
+          "componentId": "1ea33ce0-9296-44f0-8791-13eb743f80ce",
+          "layout": {
+            "mobile": {
+              "x": 0,
+              "y": 37,
+              "w": 4,
+              "h": 55
+            },
+            "laptop": {
+              "x": 0,
+              "y": 13,
+              "w": 12,
+              "h": 32
+            }
+          }
+        },
+        {
+          "componentId": "cef44a38-95e6-431c-a6ca-f0fffedff3e9",
+          "layout": {
+            "mobile": {
+              "x": 0,
+              "y": 26,
+              "w": 4,
+              "h": 11
+            },
+            "laptop": {
+              "x": 4,
+              "y": 3,
+              "w": 4,
+              "h": 10
+            }
+          }
+        },
+        {
+          "componentId": "685f4dc9-9e1c-4a64-a42c-72be9001ca95",
+          "layout": {
+            "mobile": {
+              "x": 0,
+              "y": 0,
+              "w": 2,
+              "h": 3
+            },
+            "laptop": {
+              "x": 0,
+              "y": 0,
+              "w": 2,
+              "h": 3
+            }
+          }
+        },
+        {
+          "componentId": "0a8a61bb-03eb-4ff4-b8da-12a01e6b1308",
+          "layout": {
+            "mobile": {
+              "x": 0,
+              "y": 3,
+              "w": 2,
+              "h": 3
+            },
+            "laptop": {
+              "x": 4,
+              "y": 0,
+              "w": 4,
+              "h": 3
+            }
+          }
+        },
+        {
+          "componentId": "14cd23e5-7332-49a7-bfc6-7031fde41d65",
+          "layout": {
+            "mobile": {
+              "x": 0,
+              "y": 6,
+              "w": 2,
+              "h": 3
+            },
+            "laptop": {
+              "x": 2,
+              "y": 0,
+              "w": 2,
+              "h": 3
+            }
+          }
+        },
+        {
+          "componentId": "0b59b1f4-08d5-4190-a5c9-f1a0750e4781",
+          "layout": {
+            "mobile": {
+              "x": 3,
+              "y": 5,
+              "w": 1,
+              "h": 5
+            },
+            "laptop": {
+              "x": 10,
+              "y": 5,
+              "w": 2,
+              "h": 4
+            }
+          }
+        },
+        {
+          "componentId": "39ee1b87-8f2d-4378-915c-2ba53a384d92",
+          "layout": {
+            "mobile": {
+              "x": 2,
+              "y": 5,
+              "w": 1,
+              "h": 5
+            },
+            "laptop": {
+              "x": 10,
+              "y": 9,
+              "w": 2,
+              "h": 4
+            }
+          }
+        }
+      ],
+      "layoutType": "grid"
+    },
+    {
+      "id": "e76df3b6-de40-410d-ac41-14855dd22297",
+      "type": "dynamicDataView",
+      "titleAlign": "center",
+      "tabTitle": "日记",
+      "maxWidthRatio": -1,
+      "showBorder": false,
+      "showShadow": false,
+      "createAt": "2024-05-13T07:29:05.317Z",
+      "updateAt": "2024-05-13T07:29:05.317Z",
+      "viewType": "calendar",
+      "properties": [],
+      "templates": [
+        {
+          "id": "8f1f5965-4c89-40cb-bf4a-876dbbea82c7",
+          "path": "resource/template/journal.md",
+          "name": "journal.md",
+          "type": "normal"
+        }
+      ],
+      "groups": [],
+      "viewOptions": {
+        "openPageIn": "tab",
+        "openPageAfterCreate": false,
+        "itemSize": "components--page-card-medium",
+        "showPropertyName": false,
+        "showAllProperties": false,
+        "items": [],
+        "cover": {
+          "type": "textContent",
+          "value": "",
+          "fit": "contains",
+          "layout": "components--page-card-cover-landscape",
+          "pageContentPreview": true
+        },
+        "hideFileName": false,
+        "wrapFileName": true,
+        "dateProperty": "${file.basename}",
+        "calendarViewType": "week"
+      },
+      "filter": {
+        "id": "bc9afa86-0c6d-4468-8401-583c2f7074d6",
+        "type": "group",
+        "operator": "and",
+        "conditions": [
+          {
+            "id": "aa3621bf-2f95-4e99-a233-453713a73f8a",
+            "type": "filter",
+            "operator": "contains",
+            "property": "${file.parent}",
+            "value": "area/journal/day",
+            "conditions": []
+          }
+        ]
+      },
+      "sort": {
+        "orders": [
+          {
+            "id": "9c48cfc7-910e-4258-872e-be506f9d9944",
+            "property": "${file.basename}",
+            "direction": "desc"
+          }
+        ]
+      },
+      "defaultTemplate": "8f1f5965-4c89-40cb-bf4a-876dbbea82c7",
+      "newPageNameFormat": "{{date: YYYY-MM-DD}}",
+      "newPageLocation": {
+        "location": "area/journal/day"
+      },
+      "showTitle": false
+    },
+    {
+      "id": "05b418a3-237e-4555-9098-03240fd80782",
+      "type": "count",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-05-17T04:59:06.238Z",
+      "updateAt": "2024-05-17T04:59:06.238Z",
+      "contentPrefix": "",
+      "contentSuffix": "篇",
+      "countType": "number",
+      "query": {
+        "valueType": "totalRecords",
+        "value": 100,
+        "filter": {
+          "id": "c5722316-fa93-49dd-b146-b7185b52aeda",
+          "type": "group",
+          "operator": "and",
+          "conditions": [
+            {
+              "id": "10c2012a-8e88-471a-a693-4c7a0aadec86",
+              "type": "filter",
+              "operator": "contains",
+              "property": "tags",
+              "value": "journal",
+              "conditions": []
+            }
+          ]
+        },
+        "sort": {
+          "orders": []
+        }
+      },
+      "totalQuery": {
+        "valueType": "constant",
+        "value": 100,
+        "filter": {
+          "id": "7d36b5ef-143c-48ba-a788-5a6d4c57bcad",
+          "type": "group",
+          "operator": "and",
+          "conditions": []
+        }
+      },
+      "title": "总计"
+    },
+    {
+      "id": "67b29695-3f9f-464f-a545-952a4a26e105",
+      "type": "count",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-05-17T04:59:23.459Z",
+      "updateAt": "2024-05-17T04:59:23.459Z",
+      "contentPrefix": "",
+      "contentSuffix": "篇",
+      "countType": "number",
+      "query": {
+        "valueType": "query",
+        "value": 100,
+        "filter": {
+          "id": "c5722316-fa93-49dd-b146-b7185b52aeda",
+          "type": "group",
+          "operator": "and",
+          "conditions": [
+            {
+              "id": "2c73e506-ced5-40ec-bd2e-de8e93a7343e",
+              "type": "filter",
+              "operator": "contains",
+              "property": "tags",
+              "value": "journal",
+              "conditions": []
+            },
+            {
+              "id": "f9b74570-c181-47ee-9e9e-4ff677d66fe1",
+              "type": "filter",
+              "operator": "time_after",
+              "property": "createTime",
+              "value": "$startOfYear",
+              "conditions": []
+            },
+            {
+              "id": "04d3ec92-79e7-456b-9839-0de15e322728",
+              "type": "filter",
+              "operator": "time_before",
+              "property": "createTime",
+              "value": "$endOfYear",
+              "conditions": []
+            }
+          ]
+        }
+      },
+      "totalQuery": {
+        "valueType": "constant",
+        "value": 100,
+        "filter": {
+          "id": "7d36b5ef-143c-48ba-a788-5a6d4c57bcad",
+          "type": "group",
+          "operator": "and",
+          "conditions": []
+        }
+      },
+      "title": "今年"
+    },
+    {
+      "id": "24a7d727-dfd7-45f6-8877-fbbc40345881",
+      "type": "count",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-05-17T05:08:33.822Z",
+      "updateAt": "2024-05-17T05:08:33.822Z",
+      "contentPrefix": "",
+      "contentSuffix": "篇",
+      "countType": "number",
+      "query": {
+        "valueType": "totalRecords",
+        "value": 100,
+        "filter": {
+          "id": "c5722316-fa93-49dd-b146-b7185b52aeda",
+          "type": "group",
+          "operator": "and",
+          "conditions": [
+            {
+              "id": "4ce6ceee-adce-44a5-b001-22b752bf9af4",
+              "type": "filter",
+              "operator": "contains",
+              "property": "tags",
+              "value": "journal",
+              "conditions": []
+            },
+            {
+              "id": "1eed489f-b3cf-4484-a26e-c8933c8a5c15",
+              "type": "filter",
+              "operator": "time_after",
+              "property": "createTime",
+              "value": "$startOfMonth",
+              "conditions": []
+            }
+          ]
+        },
+        "sort": {
+          "orders": []
+        }
+      },
+      "totalQuery": {
+        "valueType": "constant",
+        "value": 100,
+        "filter": {
+          "id": "7d36b5ef-143c-48ba-a788-5a6d4c57bcad",
+          "type": "group",
+          "operator": "and",
+          "conditions": []
+        }
+      },
+      "title": "本月"
+    },
+    {
+      "id": "988560c2-3b05-473a-b563-50945fd33a14",
+      "type": "chart",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-12-27T05:57:54.921Z",
+      "updateAt": "2024-12-27T05:57:54.921Z",
+      "chartType": "heatmap",
+      "filter": {
+        "id": "e6f7d84a-499d-48a6-b779-351efdb7bfd8",
+        "type": "group",
+        "operator": "and",
+        "conditions": [
+          {
+            "id": "d1ef6824-5eda-4d93-999a-611680655bae",
+            "type": "filter",
+            "operator": "contains",
+            "property": "${file.parent}",
+            "value": "area/journal/day",
+            "conditions": []
+          }
+        ]
+      },
+      "labelProperty": "${file.basename}",
+      "labelFormat": "$none",
+      "valueProperty": "${file.words}",
+      "valuePrecision": 0,
+      "sortField": "xAxisValue",
+      "sortOrder": "asc",
+      "maxHeight": 300,
+      "chartColorSet": "default",
+      "chartLabelPosition": "top",
+      "showDataValue": false,
+      "valueScaleStartFromZero": true,
+      "smoothLine": false,
+      "fillArea": false,
+      "options": {
+        "minValue": 1,
+        "maxValue": 3000,
+        "cellSize": 12,
+        "numberOfSegments": 4,
+        "showSplitLine": false,
+        "firstDayOfWeek": 1,
+        "dateRange": {
+          "type": "currentYear",
+          "latestValue": 180,
+          "latestUnit": "day"
+        }
+      },
+      "title": "今年日记字词数热力图",
+      "categoryProperty": "${file.basename}",
+      "categoryFormatPattern": null,
+      "series": [
+        {
+          "id": "68425456-2cc6-43ec-8dea-f01c82fbe897",
+          "name": "${file.words}",
+          "precision": 0
+        }
+      ]
+    },
+    {
+      "id": "e8267710-5569-4696-860a-e6a9ee76c8de",
+      "type": "count",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-05-17T05:08:33.822Z",
+      "updateAt": "2024-05-17T05:08:33.822Z",
+      "contentPrefix": "",
+      "contentSuffix": "",
+      "countType": "number",
+      "query": {
+        "valueType": "propertyValue",
+        "value": 100,
+        "filter": {
+          "id": "c5722316-fa93-49dd-b146-b7185b52aeda",
+          "type": "group",
+          "operator": "and",
+          "conditions": [
+            {
+              "id": "4ce6ceee-adce-44a5-b001-22b752bf9af4",
+              "type": "filter",
+              "operator": "contains",
+              "property": "tags",
+              "value": "journal",
+              "conditions": []
+            }
+          ]
+        },
+        "sort": {
+          "orders": []
+        },
+        "property": "${file.words}"
+      },
+      "totalQuery": {
+        "valueType": "constant",
+        "value": 100,
+        "filter": {
+          "id": "7d36b5ef-143c-48ba-a788-5a6d4c57bcad",
+          "type": "group",
+          "operator": "and",
+          "conditions": []
+        }
+      },
+      "title": "总词数"
+    },
+    {
+      "id": "cef44a38-95e6-431c-a6ca-f0fffedff3e9",
+      "type": "chart",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-12-27T05:57:54.921Z",
+      "updateAt": "2024-12-27T05:57:54.921Z",
+      "chartType": "bar",
+      "filter": {
+        "id": "e6f7d84a-499d-48a6-b779-351efdb7bfd8",
+        "type": "group",
+        "operator": "and",
+        "conditions": [
+          {
+            "id": "d1ef6824-5eda-4d93-999a-611680655bae",
+            "type": "filter",
+            "operator": "contains",
+            "property": "${file.parent}",
+            "value": "area/journal/day",
+            "conditions": []
+          }
+        ]
+      },
+      "labelProperty": "${file.basename}",
+      "labelFormat": "$timeFormat",
+      "valueProperty": "$file_count",
+      "valuePrecision": 0,
+      "sortField": "xAxisValue",
+      "sortOrder": "asc",
+      "maxHeight": 300,
+      "chartColorSet": "default",
+      "chartLabelPosition": "top",
+      "showDataValue": true,
+      "valueScaleStartFromZero": true,
+      "smoothLine": false,
+      "fillArea": false,
+      "options": {
+        "minValue": 1,
+        "maxValue": 3000,
+        "cellSize": 12,
+        "numberOfSegments": 4,
+        "showSplitLine": false,
+        "firstDayOfWeek": 1,
+        "dateRange": {
+          "type": "currentYear",
+          "latestValue": 180,
+          "latestUnit": "day"
+        }
+      },
+      "title": "季度日记数",
+      "valueFormatPattern": "yyyy-'Q'q",
+      "labelRotation": 0,
+      "categoryProperty": "${file.basename}",
+      "categoryFormatPattern": "yyyy-'Q'q",
+      "series": [
+        {
+          "id": "f97bf1fd-d92e-4627-9a05-e297afa0c9ba",
+          "name": "$file_count",
+          "precision": 0
+        }
+      ]
+    },
+    {
+      "id": "1ea33ce0-9296-44f0-8791-13eb743f80ce",
+      "type": "multi",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": false,
+      "showShadow": false,
+      "createAt": "2024-12-27T06:03:25.806Z",
+      "updateAt": "2024-12-27T06:03:25.806Z",
+      "components": [
+        {
+          "componentId": "e76df3b6-de40-410d-ac41-14855dd22297"
+        },
+        {
+          "componentId": "3195ad0d-285f-42ae-88fd-b7661d2c53b0"
+        }
+      ],
+      "layoutType": "tab",
+      "locked": false,
+      "layoutOptions": {}
+    },
+    {
+      "id": "3195ad0d-285f-42ae-88fd-b7661d2c53b0",
+      "type": "dynamicDataView",
+      "titleAlign": "center",
+      "tabTitle": "去年今月日记",
+      "maxWidthRatio": -1,
+      "showBorder": false,
+      "showShadow": false,
+      "createAt": "2024-05-13T07:29:05.317Z",
+      "updateAt": "2024-05-13T07:29:05.317Z",
+      "viewType": "gallary",
+      "properties": [],
+      "templates": [
+        {
+          "id": "8f1f5965-4c89-40cb-bf4a-876dbbea82c7",
+          "path": "resource/template/journal.md",
+          "name": "journal.md",
+          "type": "normal"
+        }
+      ],
+      "groups": [],
+      "viewOptions": {
+        "openPageIn": "tab",
+        "openPageAfterCreate": false,
+        "itemSize": "components--page-card-medium",
+        "showPropertyName": false,
+        "showAllProperties": false,
+        "items": [],
+        "cover": {
+          "type": "textContent",
+          "value": "",
+          "fit": "contains",
+          "layout": "components--page-card-cover-landscape",
+          "pageContentPreview": true
+        },
+        "hideFileName": false,
+        "wrapFileName": true,
+        "dateProperty": "${file.basename}",
+        "pinFiltersToMenuBar": true
+      },
+      "filter": {
+        "id": "bc9afa86-0c6d-4468-8401-583c2f7074d6",
+        "type": "group",
+        "operator": "and",
+        "conditions": [
+          {
+            "id": "fc1a9378-b61f-47ba-a382-e7e7acbf4c8f",
+            "type": "filter",
+            "operator": "contains",
+            "property": "${file.parent}",
+            "value": "area/journal/day",
+            "conditions": []
+          },
+          {
+            "id": "be9e0458-8161-407a-93ee-b1710e9d419d",
+            "type": "jsQuery",
+            "operator": "contains",
+            "property": "${file.tags}",
+            "value": "$item.fileBaseName.includes(now().minus({ year: 1}).toFormat('yyyy-MM-'))",
+            "conditions": []
+          }
+        ]
+      },
+      "sort": {
+        "orders": [
+          {
+            "id": "9c48cfc7-910e-4258-872e-be506f9d9944",
+            "property": "${file.basename}",
+            "direction": "desc"
+          }
+        ]
+      },
+      "defaultTemplate": "8f1f5965-4c89-40cb-bf4a-876dbbea82c7",
+      "newPageNameFormat": "{{date: YYYY-MM-DD}}",
+      "newPageLocation": {
+        "location": "area/journal"
+      },
+      "showTitle": false
+    },
+    {
+      "id": "685f4dc9-9e1c-4a64-a42c-72be9001ca95",
+      "type": "card",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-12-27T12:14:48.052Z",
+      "updateAt": "2024-12-27T12:14:48.052Z",
+      "title": "今日日记",
+      "description": "",
+      "coverFit": "cover",
+      "coverPosition": "left",
+      "clickAction": {
+        "type": "CallCommand",
+        "id": "75e665e8-b597-40d3-9a76-746ad5f4629f",
+        "options": {
+          "commandId": "daily-notes",
+          "commandName": "日记: 打开/创建今天的日记"
+        }
+      },
+      "icon": "Calendar"
+    },
+    {
+      "id": "0a8a61bb-03eb-4ff4-b8da-12a01e6b1308",
+      "type": "card",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-12-27T12:14:48.052Z",
+      "updateAt": "2024-12-27T12:14:48.052Z",
+      "title": "创建月复盘",
+      "description": "",
+      "coverFit": "cover",
+      "coverPosition": "left",
+      "clickAction": {
+        "type": "CreateFile",
+        "id": "75e665e8-b597-40d3-9a76-746ad5f4629f",
+        "options": {
+          "commandId": "daily-notes",
+          "commandName": "日记: 打开/创建今天的日记",
+          "targetFolder": "area/journal/month",
+          "fileName": "{{date: YYYY-MM}}",
+          "openPageIn": "tab",
+          "templateFilePath": "resource/template/日记/日记月复盘模板.md"
+        }
+      },
+      "icon": "Calendar"
+    },
+    {
+      "id": "14cd23e5-7332-49a7-bfc6-7031fde41d65",
+      "type": "card",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-12-27T12:14:48.052Z",
+      "updateAt": "2024-12-27T12:14:48.052Z",
+      "title": "创建周复盘",
+      "description": "",
+      "coverFit": "cover",
+      "coverPosition": "left",
+      "clickAction": {
+        "type": "CreateFile",
+        "id": "75e665e8-b597-40d3-9a76-746ad5f4629f",
+        "options": {
+          "commandId": "daily-notes",
+          "commandName": "日记: 打开/创建今天的日记",
+          "targetFolder": "area/journal/week",
+          "fileName": "{{date: gggg-[W]WW}}",
+          "openPageIn": "tab"
+        }
+      },
+      "icon": "Calendar"
+    },
+    {
+      "id": "0b59b1f4-08d5-4190-a5c9-f1a0750e4781",
+      "type": "count",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-05-17T05:08:33.822Z",
+      "updateAt": "2024-05-17T05:08:33.822Z",
+      "contentPrefix": "",
+      "contentSuffix": "篇",
+      "countType": "number",
+      "query": {
+        "valueType": "totalRecords",
+        "value": 100,
+        "filter": {
+          "id": "c5722316-fa93-49dd-b146-b7185b52aeda",
+          "type": "group",
+          "operator": "and",
+          "conditions": [
+            {
+              "id": "4ce6ceee-adce-44a5-b001-22b752bf9af4",
+              "type": "filter",
+              "operator": "contains",
+              "property": "tags",
+              "value": "journal",
+              "conditions": []
+            },
+            {
+              "id": "1eed489f-b3cf-4484-a26e-c8933c8a5c15",
+              "type": "filter",
+              "operator": "time_after_or_equal",
+              "property": "createTime",
+              "value": {
+                "type": "$relativeTime",
+                "unit": "month",
+                "direction": "before",
+                "value": ""
+              },
+              "conditions": []
+            },
+            {
+              "id": "393a8588-c6a9-4a6d-88fa-85fe28db8439",
+              "type": "filter",
+              "operator": "time_before",
+              "property": "createTime",
+              "value": {
+                "type": "$relativeTime",
+                "unit": "month",
+                "direction": "before",
+                "value": "0"
+              },
+              "conditions": []
+            }
+          ]
+        },
+        "sort": {
+          "orders": []
+        }
+      },
+      "totalQuery": {
+        "valueType": "constant",
+        "value": 100,
+        "filter": {
+          "id": "7d36b5ef-143c-48ba-a788-5a6d4c57bcad",
+          "type": "group",
+          "operator": "and",
+          "conditions": []
+        }
+      },
+      "title": "上月"
+    },
+    {
+      "id": "39ee1b87-8f2d-4378-915c-2ba53a384d92",
+      "type": "count",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-05-17T04:59:23.459Z",
+      "updateAt": "2024-05-17T04:59:23.459Z",
+      "contentPrefix": "",
+      "contentSuffix": "篇",
+      "countType": "number",
+      "query": {
+        "valueType": "totalRecords",
+        "value": 100,
+        "filter": {
+          "id": "c5722316-fa93-49dd-b146-b7185b52aeda",
+          "type": "group",
+          "operator": "and",
+          "conditions": [
+            {
+              "id": "2c73e506-ced5-40ec-bd2e-de8e93a7343e",
+              "type": "filter",
+              "operator": "contains",
+              "property": "tags",
+              "value": "journal",
+              "conditions": []
+            },
+            {
+              "id": "f9b74570-c181-47ee-9e9e-4ff677d66fe1",
+              "type": "filter",
+              "operator": "time_after",
+              "property": "createTime",
+              "value": {
+                "type": "$startOfWeek",
+                "unit": "day",
+                "direction": "before",
+                "value": ""
+              },
+              "conditions": []
+            },
+            {
+              "id": "04d3ec92-79e7-456b-9839-0de15e322728",
+              "type": "filter",
+              "operator": "time_before",
+              "property": "createTime",
+              "value": {
+                "type": "$endOfWeek",
+                "value": "",
+                "unit": "day",
+                "direction": "before"
+              },
+              "conditions": []
+            }
+          ]
+        },
+        "sort": {
+          "orders": []
+        }
+      },
+      "totalQuery": {
+        "valueType": "constant",
+        "value": 100,
+        "filter": {
+          "id": "7d36b5ef-143c-48ba-a788-5a6d4c57bcad",
+          "type": "group",
+          "operator": "and",
+          "conditions": []
+        }
+      },
+      "title": "本周"
+    }
+  ],
+  "rootComponentId": "d74392b3-4118-4c33-9f75-1dd958678f62",
+  "version": 3.1
+}

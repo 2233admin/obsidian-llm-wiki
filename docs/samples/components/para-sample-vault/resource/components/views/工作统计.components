@@ -1,0 +1,239 @@
+{
+  "components": [
+    {
+      "id": "c9734bcc-7767-49db-949d-5a790795d154",
+      "type": "multi",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-05-17T05:12:46.785Z",
+      "updateAt": "2024-05-17T05:12:46.785Z",
+      "components": [
+        {
+          "componentId": "b6507adc-6d99-437e-b2e6-656056c0c1a4"
+        },
+        {
+          "componentId": "4ba9b04c-85e3-46da-9762-d4dd84bfefec"
+        },
+        {
+          "componentId": "346739f8-cd3d-43c3-a066-6a3f0064cd10"
+        }
+      ],
+      "layoutType": "column"
+    },
+    {
+      "id": "b6507adc-6d99-437e-b2e6-656056c0c1a4",
+      "type": "count",
+      "titleAlign": "center",
+      "tabTitle": "待办",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-05-17T05:13:03.978Z",
+      "updateAt": "2024-05-17T05:13:03.978Z",
+      "contentPrefix": "",
+      "contentSuffix": "",
+      "countType": "number",
+      "query": {
+        "valueType": "query",
+        "value": 100,
+        "filter": {
+          "id": "c5722316-fa93-49dd-b146-b7185b52aeda",
+          "type": "group",
+          "operator": "and",
+          "conditions": [
+            {
+              "id": "146fc55e-4802-48fb-9c86-b4c4632aa006",
+              "type": "filter",
+              "operator": "contains",
+              "property": "area",
+              "value": "[[工作]]",
+              "conditions": []
+            },
+            {
+              "id": "9e165e9e-2a65-4f81-823d-486ac80b1fb8",
+              "type": "group",
+              "operator": "or",
+              "conditions": [
+                {
+                  "id": "c7e0d3e3-1e50-43ba-bc09-5e9c9b74dbb7",
+                  "type": "filter",
+                  "operator": "contains",
+                  "property": "status",
+                  "value": "DOING",
+                  "conditions": []
+                },
+                {
+                  "id": "3d7b10de-aeba-40e7-ae4c-484ba10dfd0b",
+                  "type": "filter",
+                  "operator": "contains",
+                  "property": "status",
+                  "value": "TODO",
+                  "conditions": []
+                }
+              ]
+            },
+            {
+              "id": "8c418a66-30a4-4980-ba84-5d001166c521",
+              "type": "filter",
+              "operator": "contains",
+              "property": "tags",
+              "value": "project",
+              "conditions": []
+            }
+          ]
+        }
+      },
+      "totalQuery": {
+        "valueType": "constant",
+        "value": 100,
+        "filter": {
+          "id": "7d36b5ef-143c-48ba-a788-5a6d4c57bcad",
+          "type": "group",
+          "operator": "and",
+          "conditions": []
+        }
+      },
+      "title": "待办"
+    },
+    {
+      "id": "4ba9b04c-85e3-46da-9762-d4dd84bfefec",
+      "type": "count",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-05-17T05:14:29.711Z",
+      "updateAt": "2024-05-17T05:14:29.711Z",
+      "contentPrefix": "",
+      "contentSuffix": "",
+      "countType": "number",
+      "query": {
+        "valueType": "query",
+        "value": 100,
+        "filter": {
+          "id": "c5722316-fa93-49dd-b146-b7185b52aeda",
+          "type": "group",
+          "operator": "and",
+          "conditions": [
+            {
+              "id": "33e8cd4c-ea7c-4055-b747-cb7da86d11e4",
+              "type": "filter",
+              "operator": "contains",
+              "property": "tags",
+              "value": "project",
+              "conditions": []
+            },
+            {
+              "id": "0e3c8cd8-8f7e-43f5-a2eb-337654fcb0a3",
+              "type": "filter",
+              "operator": "contains",
+              "property": "area",
+              "value": "[[工作]]",
+              "conditions": []
+            },
+            {
+              "id": "cb8eb9f9-e011-4f47-9f10-0b1c3a8ccc48",
+              "type": "filter",
+              "operator": "contains",
+              "property": "type",
+              "value": "招聘",
+              "conditions": []
+            },
+            {
+              "id": "19d30719-ac36-451e-bd0c-5601deae03b0",
+              "type": "filter",
+              "operator": "not_equals",
+              "property": "status",
+              "value": "入职中",
+              "conditions": []
+            }
+          ]
+        }
+      },
+      "totalQuery": {
+        "valueType": "constant",
+        "value": 100,
+        "filter": {
+          "id": "7d36b5ef-143c-48ba-a788-5a6d4c57bcad",
+          "type": "group",
+          "operator": "and",
+          "conditions": []
+        }
+      },
+      "title": "面试中"
+    },
+    {
+      "id": "346739f8-cd3d-43c3-a066-6a3f0064cd10",
+      "type": "count",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-05-17T05:18:06.666Z",
+      "updateAt": "2024-05-17T05:18:06.666Z",
+      "contentPrefix": "",
+      "contentSuffix": "",
+      "countType": "number",
+      "query": {
+        "valueType": "query",
+        "value": 100,
+        "filter": {
+          "id": "c5722316-fa93-49dd-b146-b7185b52aeda",
+          "type": "group",
+          "operator": "and",
+          "conditions": [
+            {
+              "id": "8ff6aa11-b800-4b70-90f1-cb56c01f22fd",
+              "type": "filter",
+              "operator": "contains",
+              "property": "tags",
+              "value": "project",
+              "conditions": []
+            },
+            {
+              "id": "a4169f45-ff14-40c3-b53b-a4973419c3ad",
+              "type": "filter",
+              "operator": "contains",
+              "property": "area",
+              "value": "[[工作]]",
+              "conditions": []
+            },
+            {
+              "id": "c36ce29c-0f14-4956-913d-91e9b4696cf0",
+              "type": "filter",
+              "operator": "contains",
+              "property": "type",
+              "value": "招聘",
+              "conditions": []
+            },
+            {
+              "id": "dc5b3cd6-7fbc-4b26-a2b5-fce3227cc2a2",
+              "type": "filter",
+              "operator": "contains",
+              "property": "status",
+              "value": "入职中",
+              "conditions": []
+            }
+          ]
+        }
+      },
+      "totalQuery": {
+        "valueType": "constant",
+        "value": 100,
+        "filter": {
+          "id": "7d36b5ef-143c-48ba-a788-5a6d4c57bcad",
+          "type": "group",
+          "operator": "and",
+          "conditions": []
+        }
+      },
+      "title": "入职中"
+    }
+  ],
+  "rootComponentId": "c9734bcc-7767-49db-949d-5a790795d154"
+}

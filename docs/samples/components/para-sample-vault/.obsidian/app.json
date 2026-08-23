@@ -1,0 +1,10 @@
+{
+  "alwaysUpdateLinks": true,
+  "showUnsupportedFiles": true,
+  "readableLineLength": false,
+  "promptDelete": false,
+  "attachmentFolderPath": "resource/attachments",
+  "newFileLocation": "folder",
+  "newFileFolderPath": "inbox",
+  "showInlineTitle": false
+}

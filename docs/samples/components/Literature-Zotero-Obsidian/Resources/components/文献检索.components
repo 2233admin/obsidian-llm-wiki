@@ -1,0 +1,124 @@
+{
+  "components": [
+    {
+      "id": "a65b4f78-efb6-45f9-b5d6-8c2b5589b020",
+      "type": "multi",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "createAt": "2024-04-25T11:34:37.290Z",
+      "updateAt": "2024-04-25T11:34:37.290Z",
+      "backgroundStyle": "none",
+      "widgets": [],
+      "components": [
+        {
+          "componentId": "23f44d6b-1395-4a5e-b1d1-13cff624ca54"
+        }
+      ],
+      "layoutType": "column"
+    },
+    {
+      "id": "23f44d6b-1395-4a5e-b1d1-13cff624ca54",
+      "type": "dataview",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "query": "const options = {\n    headers: [\"title\",\"tags\"],\n    pageSize: {{PageSize}},\n    searchConditions: {\n        pageTitleLike: `{{FileName}}`,\n        authorLike: `{{Author}}`,\n        tag1Like: `{{Tag1}}`,\n        tag2Like: `{{Tag2}}`\n    },\n    sortField: `{{SortField}}`,\n    sortOrder: `{{SortOrder}}`,\n    searchPath: `\"Zotero/literature\"`\n};\ndv.view(\"Resources/scripts/Retrieval/LiteratureRetrieval\", options);",
+      "queryType": "dataviewjs",
+      "backgroundStyle": "card",
+      "maxHeight": -1,
+      "dynamicParamComponents": [
+        {
+          "id": "c4e2e7be-c19e-4c89-8b22-86dfeba97dc0",
+          "type": "text",
+          "name": "FileName",
+          "defaultValue": "",
+          "placeholder": "input filename",
+          "fromProperty": "",
+          "label": "文件名"
+        },
+        {
+          "id": "f1aa6959-dbee-4e10-8e82-c7b4407002a6",
+          "type": "text",
+          "name": "Author",
+          "defaultValue": "",
+          "placeholder": "",
+          "fromProperty": "author",
+          "label": "作者"
+        },
+        {
+          "id": "d82e226f-6331-4ee8-bfba-78925d319d90",
+          "type": "tagSuggestions",
+          "name": "Tag1",
+          "defaultValue": "",
+          "placeholder": "",
+          "fromProperty": "${file.tags}",
+          "label": "🏷️标签1"
+        },
+        {
+          "id": "c056cfed-2b0d-42af-a194-6533b0f80fc3",
+          "type": "tagSuggestions",
+          "name": "Tag2",
+          "defaultValue": "",
+          "placeholder": "",
+          "fromProperty": "",
+          "label": "🏷️标签2"
+        },
+        {
+          "id": "4415d10b-03e9-4aaf-b511-26fcd0895833",
+          "type": "number",
+          "name": "PageSize",
+          "defaultValue": "3",
+          "placeholder": "",
+          "fromProperty": "",
+          "label": "单页数量"
+        },
+        {
+          "id": "d0a4c6fd-16f3-4013-8ca9-b7904ba8b6ab",
+          "type": "select",
+          "name": "SortFiled",
+          "defaultValue": "p.file.name",
+          "placeholder": "",
+          "fromProperty": "",
+          "label": "排序",
+          "options": [
+            {
+              "id": "cdb62e6e-2099-4dcb-a6bd-f7cdcc72569f",
+              "label": "文件名",
+              "value": "p.file.name"
+            },
+            {
+              "id": "7fbe9fdf-3205-43bf-88f1-0e51598caa93",
+              "label": "创建时间",
+              "value": "formatDate(p[\"created_date\"])"
+            }
+          ]
+        },
+        {
+          "id": "652919e7-21f7-409b-81bf-9a24fa7df185",
+          "type": "select",
+          "name": "SortOrder",
+          "defaultValue": "asc",
+          "placeholder": "",
+          "fromProperty": "",
+          "options": [
+            {
+              "id": "366f5d7f-8126-4378-ad65-cc4d1a008e11",
+              "label": "升序",
+              "value": "asc"
+            },
+            {
+              "id": "98a5a785-fcd1-4f97-805c-6463c203d1ee",
+              "label": "降序",
+              "value": "desc"
+            }
+          ]
+        }
+      ],
+      "title": "🔍文献检索",
+      "updateAt": "2024-04-23T09:10:29.077Z",
+      "showBorder": true
+    }
+  ],
+  "rootComponentId": "a65b4f78-efb6-45f9-b5d6-8c2b5589b020"
+}

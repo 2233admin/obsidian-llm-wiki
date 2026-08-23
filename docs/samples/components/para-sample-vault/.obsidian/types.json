@@ -1,0 +1,13 @@
+{
+  "types": {
+    "aliases": "aliases",
+    "cssclasses": "multitext",
+    "tags": "tags",
+    "createTime": "datetime",
+    "doneTime": "datetime",
+    "area": "text",
+    "开始时间": "date",
+    "结束日期": "datetime",
+    "出行日期": "datetime"
+  }
+}

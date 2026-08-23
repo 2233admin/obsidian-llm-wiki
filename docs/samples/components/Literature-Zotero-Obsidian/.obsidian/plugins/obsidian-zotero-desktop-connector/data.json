@@ -1,0 +1,28 @@
+{
+  "database": "Zotero",
+  "noteImportFolder": "Zotero/",
+  "pdfExportImageDPI": 120,
+  "pdfExportImageFormat": "png",
+  "pdfExportImageQuality": 90,
+  "citeFormats": [
+    {
+      "name": "Insert Citation",
+      "format": "formatted-bibliography",
+      "cslStyle": "ieee"
+    }
+  ],
+  "exportFormats": [
+    {
+      "name": "Import Literature",
+      "outputPathTemplate": "Zotero/literature/@{{citekey}}.md",
+      "imageOutputPathTemplate": "Zotero/attachments/",
+      "imageBaseNameTemplate": "{{itemKey}}",
+      "templatePath": "Resources/plugin/_ZoteroIntegration/literature.md",
+      "cslStyle": "apa"
+    }
+  ],
+  "citeSuggestTemplate": "[[{{citekey}}]]",
+  "openNoteAfterImport": true,
+  "whichNotesToOpenAfterImport": "last-imported-note",
+  "exeOverridePath": "D:\\Users\\RavenHogwarts\\Documents\\WorkSpace\\Obsidian\\Literature-Zotero-Obsidian\\.obsidian\\plugins\\obsidian-zotero-desktop-connector\\pdfannots2json.exe"
+}

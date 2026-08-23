@@ -21,7 +21,7 @@ vault/
 # Unlicensed third-party sample vaults and components — see docs/samples/components/
 # for the licensed ones (Apache-2.0 / GPL-3.0). Anything outside that subtree is
 # either user-private or has no LICENSE; do not ship.
-Components/
+/Components/
 
 # IDE
 .vscode/

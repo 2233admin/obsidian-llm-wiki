@@ -1,0 +1,1 @@
+<%= it.map(lit => `[[@${lit.citekey}|(${lit.authors.map(v => v.lastName+v.firstName).first()}${lit.authors.length>1?" et al.":""}, ${lit.year?lit.year:lit.date})]]`).join("; ") %>
