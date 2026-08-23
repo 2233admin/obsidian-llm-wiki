@@ -1,8 +1,27 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { resolve, relative } from "node:path";
+import { isAbsolute, resolve, relative } from "node:path";
 
 import type { CompileArtifactReceipt, CompileVerificationCheck, CompileVerificationReport } from "./types.js";
+
+interface PathContainmentApi {
+  isAbsolute(path: string): boolean;
+  relative(from: string, to: string): string;
+}
+
+const nativePathContainmentApi: PathContainmentApi = { isAbsolute, relative };
+
+export function isPathContained(
+  root: string,
+  candidate: string,
+  pathApi: PathContainmentApi = nativePathContainmentApi,
+): boolean {
+  const relativeCandidate = pathApi.relative(root, candidate);
+  if (relativeCandidate === "") return true;
+  if (pathApi.isAbsolute(relativeCandidate)) return false;
+  const normalized = relativeCandidate.replace(/\\/g, "/");
+  return normalized !== ".." && !normalized.startsWith("../");
+}
 
 /** Deterministic manifest, scope, existence, and digest gate for compiler output. */
 export function verifyStagedCompileArtifacts(
@@ -42,8 +61,7 @@ export function verifyStagedCompileArtifacts(
       : "../invalid-artifact-path";
     const stagedFile = resolve(stagedTopicPath, relativePath);
     const stagingRoot = resolve(stagedTopicPath);
-    const relativeStagedFile = relative(stagingRoot, stagedFile).replace(/\\/g, "/");
-    const contained = relativeStagedFile === "" || (relativeStagedFile !== ".." && !relativeStagedFile.startsWith("../"));
+    const contained = isPathContained(stagingRoot, stagedFile);
     const exists = contained && existsSync(stagedFile) && statSync(stagedFile).isFile();
     checks.push({
       checkId: `exists:${artifact.artifactId}`,

@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, win32 } from "node:path";
 import { afterEach, describe, test } from "node:test";
 
-import { verifyStagedCompileArtifacts } from "./compile-verification.js";
+import { isPathContained, verifyStagedCompileArtifacts } from "./compile-verification.js";
 import type { CompileArtifactReceipt } from "./types.js";
 
 const roots: string[] = [];
@@ -29,6 +29,12 @@ function artifact(stage: string, content: string, target = "topic-a/wiki/page.md
 }
 
 describe("Compile artifact verification", () => {
+  test("rejects Windows cross-drive and same-drive sibling paths", () => {
+    assert.equal(isPathContained("C:\\staging\\topic-a", "C:\\staging\\topic-a\\wiki\\page.md", win32), true);
+    assert.equal(isPathContained("C:\\staging\\topic-a", "C:\\staging\\topic-a-copy\\page.md", win32), false);
+    assert.equal(isPathContained("C:\\staging\\topic-a", "D:\\outside.md", win32), false);
+  });
+
   test("opens the promotion gate for an in-scope artifact with a matching digest", () => {
     const root = mkdtempSync(join(tmpdir(), "llmwiki-compile-verification-"));
     roots.push(root);
