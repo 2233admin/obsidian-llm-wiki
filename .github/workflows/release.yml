@@ -22,6 +22,9 @@ jobs:
           cache: npm
           cache-dependency-path: mcp-server/package-lock.json
       - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
       - run: cd mcp-server && npm ci
       - run: cd mcp-server && npm run settings:build
       - run: cd packages/settings-platform && bun test tests/
@@ -29,7 +32,7 @@ jobs:
       - run: cd mcp-server && npm run build
       - run: cd mcp-server && npm run typecheck
       - run: cd mcp-server && npm run test
-      - name: Verify committed MCP bundle is current
+      - name: Build and verify MCP bundles
         run: cd mcp-server && npm run verify:bundle
       - name: Install Obsidian plugin dependencies
         run: cd obsidian-plugin && npm ci
@@ -47,9 +50,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
       - name: Verify clean install, upgrade, rollback, and reinstall lifecycle
         run: python scripts/verify_plugin_upgrade_rollback.py --candidate obsidian-plugin --baseline previous-release/obsidian-llm-wiki-plugin.tar.gz --json
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.11"
       - name: Verify release secrets, provenance, and runtime licenses
         run: python scripts/verify_release_security.py --json
       - name: Verify exact-SHA real-5090 release evidence
@@ -80,12 +80,12 @@ jobs:
           python-version: "3.11"
       - run: cd mcp-server && npm ci
       - run: cd mcp-server && npm run rebuild
-      - name: Verify generated MCP and CLI bundles are committed
+      - name: Verify generated MCP and CLI bundles
         run: cd mcp-server && node scripts/verify-bundles.mjs
       - name: Smoke-test packaged MCP runtime
         run: python scripts/verify_release_install.py --json
       - name: Package MCP Server
-        run: tar czf obsidian-llm-wiki-mcp.tar.gz -C mcp-server bundle.js agent-domain-cli.js memu-query.js usage-cli.js package.json -C .. LICENSE
+        run: tar czf obsidian-llm-wiki-mcp.tar.gz -C mcp-server bundle.js agent-domain-cli.js memu-query.js usage-cli.js session-archiver.js package.json -C .. LICENSE
       - uses: actions/upload-artifact@v7
         with:
           name: mcp-server
@@ -158,6 +158,7 @@ jobs:
             dist-mcp/*.tar.gz
             dist-compiler/*.tar.gz
             dist-plugin/*.tar.gz
+          body_path: RELEASE_NOTES.md
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

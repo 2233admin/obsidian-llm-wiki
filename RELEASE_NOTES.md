@@ -1,91 +1,78 @@
-# LLM Wiki v2.8.0-beta.3
+# LLM Wiki v2.8.0-beta.4
 
-This release candidate turns Settings, Project Context, governed Agent Rooms,
-Dream Time, Work Runs, external projections, and multi-device execution into
-one LLM Wiki backend. Obsidian is the primary visual control plane, while MCP,
-CLI, and Python remain usable headlessly.
+This beta makes session capture safer to ship, updates memU for its current
+PostgreSQL schema and Jina embedding profile, and refreshes the supported build
+and release toolchain. It also adds a Spanish project overview.
 
-## Shared Settings Platform
+## Added
 
-- One versioned setting registry and schema contract across TypeScript, Python, MCP, and Obsidian.
-- Deterministic precedence: `session > workspace-project > vault > user-device > product default`.
-- Expected-revision mutations, validation, provenance, snapshot explanation, migration planning, and evidence-backed Doctor health.
-- Secret References replace plaintext credentials. Snapshots, events, plugin data, Project Hubs, exports, and logs never carry resolved secret values.
-- The default Agent model connection supports `inherit`, `local`, and `cloud` modes. MCP Agent/Compiler invocations consume the effective provider, base URL, and model; only cloud mode resolves a device-local Secret Reference at invocation time.
-- `LLMWIKI_COMPILER_PATH` is the canonical source-install override; `VAULT_MIND_COMPILER_PATH` remains compatible.
+- The session archiver is now a packaged MCP CLI. It supports multiple source
+  projects, writes each project to its own archive path, and ships in the MCP
+  release archive.
+- Governed Agentfiles workflows can capture and review agent-facing project
+  instructions through the existing knowledge-governance path.
+- A Spanish README is available from the main project language navigation.
 
-## Obsidian control plane
+## Changed
 
-- The LLM Wiki settings page consumes the shared operation contract instead of duplicating settings logic.
-- Plugin data retains only presentation preferences, the local device binding reference, and the migration journal.
-- Legacy `pythonPath` and `kbMetaPath` values migrate to user-device assignments with exact-preimage compensation and revision-guarded rollback.
-- Effective value, winning scope, inheritance, validation, apply mode, Secret Reference status, and Doctor results are visible from Obsidian.
-- The Agent model section exposes model mode, provider, OpenAI-compatible base URL, model identifier, and credential reference without adding a plaintext API-key field.
-- The plugin ID remains `vault-mind-promote` so existing installations continue to load.
+- memU recall now reads `recall_files` and `recall_file_segments`, uses
+  `jina/v5-omni-nano` as the default memU embedding profile, and supports direct
+  768-dimensional vector recall.
+- Explicit embedding endpoint assignments still override profile endpoints.
+  Without an assignment, each built-in profile uses its own endpoint.
+- Proxy-enabled embedding requests use a required `undici` proxy agent and do
+  not silently bypass an explicitly configured proxy.
+- MCP, TypeScript, CodeMirror, GitHub Actions, Caddy, and OpenSpec dependencies
+  were refreshed together with their lockfiles and release workflow pins.
+- The Obsidian plugin release for this candidate is `0.4.0-beta.6`. The MCP
+  runtime package is `0.4.0-beta.4`.
 
-## Project Context and Work-OS
+## Fixed
 
-- Every Project has one durable `project/<slug>` identity across work, knowledge, runtime, settings, and integrations.
-- Repository and vault paths are machine-local Workspace Bindings. GitHub, Gitea, Linear, and Orca identifiers are External Projections.
-- Current work lives in `01-Projects/<project>/issues/`; the old `10-Projects/<project>/docket/**` store remains retired.
-- Project Hub is a read-only composition over domain owners. Its settings section uses the real Effective Settings Snapshot and reports degraded or unavailable state honestly.
-- Anchor-only and legacy layouts have inventory, deterministic plan, explicit apply, backup manifest, conflict protection, and preview-first restore operations.
+- `searchByVector()` now returns memU 2.0 recall-segment matches for the default
+  768-dimensional Jina profile instead of returning an empty result.
+- The Settings runtime no longer replaces Jina's built-in API endpoint with the
+  default local Ollama endpoint unless an endpoint override was explicitly set.
+- Session metadata, including thread names, is redacted before archive files are
+  written.
+- Fleet registry secret scanning recognizes both permanent and temporary AWS
+  access-key IDs while requiring a complete three-segment JWT, avoiding broad
+  false positives on unrelated base64url text.
+- The external release archive now includes `session-archiver.js`.
+- Prerelease plugin tags are marked as GitHub prereleases and are not promoted
+  to the repository's latest stable release.
 
-## Governed Agents and Dream Time
+## Security
 
-- Agent Profiles, Project Bindings, Threads, Rooms, Context Envelopes, consult,
-  delegation, child Work Runs, and Artifact Projections share canonical Project
-  identities instead of creating another project or memory ledger.
-- Dream Time creates immutable checkpoint, learn, and review proposals and
-  requires fingerprinted human approval before a Memory Revision changes.
-- Daily, Monday-based weekly, and monthly UTC cadences are disabled by default
-  and run only through an explicit host call; no scheduler or daemon is added.
-
-## Knowledge adapters and external project trackers
-
-- memU, LightRAG, RAG-Anything, Hindsight, Kanban, and QMD use one redacted
-  Settings-derived runtime profile. Secrets resolve only on the executing
-  device at the final adapter construction boundary.
-- Hindsight contributes read-only recall evidence only. LLM Wiki retains
-  authority over Project Context, Memory review, Sources, and Promotion.
-- GitHub, Gitea, Linear, and Plane are Project Tracker projections configured
-  independently from Host Capability Connectors. Plane uses the current
-  work-items endpoint and explicit workspace-specific state UUID mappings.
-
-## Work Runs and fleet handoff
-
-- Work Driver and workflow operations preserve the same Project ID, Work Item ID, Work Run ID, agent identity, and idempotent transitions.
-- Local joins validate the active machine-local lease.
-- `portable-handoff` uses a short-lived capability bound to the durable Work Run. Only its hash and expiry are durable; the raw capability and local workspace paths remain device-local.
-- Mismatched Project, Work Item, Work Run, agent, missing capability, and incorrect capability joins fail without mutation.
-- The acceptance harness exercises local prepare, remote join/checkpoint/leave, replay safety, and local Doctor/Project Hub verification with independent vault copies.
-
-## Link diagnostics naming
-
-**LLM Wiki** is the product name. **OBC** means only the existing **Obsidian Broken Link Checker** compatibility and link-diagnostics package. OBC consumes shared settings; it is not the settings backend or a synonym for the system.
+- Session archives redact authorization headers, API keys, bearer tokens, and
+  sensitive metadata before persistence.
+- Fleet registry validation rejects `AKIA` and `ASIA` access-key IDs and compact
+  JWTs before configuration is stored.
+- Dependency lockfiles resolve with zero known npm advisories at release
+  preparation time. The release workflow repeats dependency installation and
+  all security gates from clean environments.
 
 ## Upgrade notes
 
-1. Review [docs/INSTALL.md](docs/INSTALL.md) and [docs/SETTINGS.md](docs/SETTINGS.md).
-2. Back up existing Obsidian plugin data and Settings documents before the first upgraded plugin load.
-3. Follow [docs/MIGRATIONS.md](docs/MIGRATIONS.md) for plugin or Project layout migration.
-4. Run `settings.validate`, `settings.doctor`, and `project.context.doctor`.
-5. Inspect the read-only `project.hub.get` result for settings, workspace, runtime, and integration drift.
+1. Use Node.js 20.18.1 or newer for the MCP package.
+2. Review [docs/INSTALL.md](docs/INSTALL.md) and
+   [docs/SETTINGS.md](docs/SETTINGS.md).
+3. If memU is enabled, configure the Jina credential through the existing
+   device-local Secret Reference or explicitly bind memU to an Ollama profile.
+4. If an embedding proxy is required, set `OLLAMA_EMBED_PROXY`; direct fallback
+   is no longer used when a proxy was requested.
+5. Install Obsidian plugin `0.4.0-beta.6` from its matching numeric GitHub tag.
+   The retained plugin ID remains `vault-mind-promote`, so existing vault state
+   is preserved across the upgrade.
 
-This beta is packaged as three manual-test archives for MCP, compiler, and the Obsidian plugin. For the plugin beta, extract `main.js`, `manifest.json`, and `styles.css` into an isolated vault's plugin directory; BRAT/community-store distribution is not claimed by this beta.
+## Release evidence
 
-The current capability and authority map is in [docs/CAPABILITY_INVENTORY.md](docs/CAPABILITY_INVENTORY.md).
+The `v2.8.0-beta.4` tag workflow requires a fresh signed
+`docs/release-evidence/v2.8.0-beta.4.json` produced by the real 5090 acceptance
+sequence at the final tested product commit. The verifier rejects unsigned or
+stale reports, product changes after the tested commit, identity drift, and
+noncanonical fixtures.
 
-## Release evidence status
-
-- Local candidate gates cover shared domains, MCP, compiler, plugin, release
-  security, isolated installation, upgrade/rollback/reinstall, strict OpenSpec,
-  and the deterministic Agent-aware two-vault Fleet harness.
-- The tag workflow additionally requires
-  `docs/release-evidence/v2.8.0-beta.3.json` to prove a fresh exact-SHA real 5090
-  delegated Child Work Run. The evidence verifier rejects forged checks,
-  identity drift, noncanonical fixtures, or product changes after the tested
-  commit.
-- Real memU PostgreSQL and configured third-party network providers remain
-  opt-in environment tests; the Beta does not claim them when their credentials
-  or services are absent.
+Real memU PostgreSQL and configured third-party network providers remain opt-in
+environment tests. This beta does not claim those integrations when their
+services or credentials are absent.

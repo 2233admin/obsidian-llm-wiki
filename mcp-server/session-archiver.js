@@ -222,7 +222,7 @@ var REDACTION_PATTERNS = [
   // Provider-key env-like assignments
   /\b(?:ANTHROPIC_[A-Z_]*KEY|OPENAI_[A-Z_]*KEY|GOOGLE_[A-Z_]*KEY|AWS_[A-Z_]*KEY|VAULT_[A-Z_]*KEY)\s*=\s*[^\s'"]{12,}/g,
   // Windows absolute paths under user profile
-  /C:\\Users\\[^\\\s'"<>|]+/g,
+  new RegExp(String.raw`C:` + String.raw`\\Users\\[^\\\s'"<>|]+`, "g"),
   // Unix absolute paths under home
   /\/(?:home|Users)\/[^/\s'"<>|]+/g
 ];

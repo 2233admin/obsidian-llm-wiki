@@ -41,7 +41,7 @@ Inside any Claude Code session:
 /plugin install llmwiki@obsidian-llm-wiki
 ```
 
-That's it. No clone, no build, no config file to edit. The plugin ships the MCP server (runs from the plugin directory, Node 20+), all `/llmwiki:vault-*` knowledge-work roles, and the thinking/research commands. Start Claude Code inside your vault and the server finds it automatically (cwd is the vault); otherwise set `VAULT_MIND_VAULT_PATH` or drop a `vault-mind.yaml`.
+That's it. No clone, no build, no config file to edit. The plugin ships the MCP server (runs from the plugin directory, Node 20.18.1+), all `/llmwiki:vault-*` knowledge-work roles, and the thinking/research commands. Start Claude Code inside your vault and the server finds it automatically (cwd is the vault); otherwise set `VAULT_MIND_VAULT_PATH` or drop a `vault-mind.yaml`.
 
 ### Other hosts (Codex / OpenCode / Gemini)
 

@@ -100,8 +100,8 @@ from scheduler import AgentScheduler  # noqa: E402
 
 SCHEMA_VERSION = 1
 
-# Matches the PS1's own $StateDir/$LogDir (C:\Users\Administrator\.claude\...)
-# for this machine, expressed portably so lmvk-compile-spend.json stays the
+# Matches the PS1's own per-user .claude state and log directories,
+# expressed portably so lmvk-compile-spend.json stays the
 # exact same file (and schema) across the PS1-to-Python migration -- no
 # spend history is lost, no new schema is invented for it.
 DEFAULT_STATE_DIR = Path.home() / ".claude" / "state"
@@ -922,7 +922,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "entry point for schtasks and the Obsidian plugin)."
         ),
     )
-    parser.add_argument("vault_path", type=Path, help="Path to the vault's git working copy (e.g. D:\\knowledge).")
+    parser.add_argument(
+        "vault_path",
+        type=Path,
+        help="Path to the vault's git working copy (for example, <vault-directory>).",
+    )
     parser.add_argument(
         "--full",
         action="store_true",

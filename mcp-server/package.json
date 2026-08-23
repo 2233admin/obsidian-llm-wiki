@@ -1,6 +1,6 @@
 {
   "name": "@obsidian-llm-wiki/mcp",
-  "version": "0.4.0-beta.3",
+  "version": "0.4.0-beta.4",
   "description": "A faithful reference implementation of Karpathy's LLM Wiki pattern -- headless-first MCP server, plain markdown, keyword recall out of the box (semantic recall is an optional Ollama upgrade), Obsidian-native.",
   "type": "module",
   "main": "bundle.js",
@@ -32,10 +32,10 @@
     "start:dev": "node dist/index.js",
     "pretypecheck": "npm run platforms:build",
     "typecheck": "tsc --noEmit",
-    "pretest": "npm run platforms:build",
-    "test": "bun test tests/ src/",
+    "pretest": "npm run platforms:build && tsc",
+    "test": "npm run test:legacy && npm run test:source",
     "test:legacy": "bun test tests/",
-    "test:source": "bun test src/",
+    "test:source": "node scripts/run-source-tests.mjs",
     "memu-query": "node dist/scripts/memu-query.js",
     "sync-vault-to-memu": "node dist/scripts/sync-vault-to-memu.js",
     "claude-mem-sync": "node dist/scripts/claude-mem-sync.js",
@@ -55,7 +55,7 @@
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@types/pg": "^8.23.1",
     "pg": "^8.23.0",
-    "undici": "^8.10.0",
+    "undici": "^7.29.0",
     "ws": "^8.21.3"
   },
   "devDependencies": {
@@ -65,7 +65,7 @@
     "typescript": "~7.0.2"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=20.18.1"
   },
   "overrides": {
     "hono": ">=4.12.34 <5.0.0",
@@ -77,6 +77,6 @@
   },
   "license": "GPL-3.0-only",
   "allowScripts": {
-    "esbuild@0.28.1": true
+    "esbuild@0.28.2": true
   }
 }

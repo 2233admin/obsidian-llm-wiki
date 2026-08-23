@@ -4,10 +4,10 @@ For most people the [README quick-start](../README.md#quick-start-30-seconds) is
 
 ## Prerequisites
 
-- **Node.js 20 or higher** -- the bundled MCP server is an ESM module targeting Node 20+
+- **Node.js 20.18.1 or higher** -- the bundled MCP server is an ESM module targeting Node 20.18.1+
 - **An MCP-compatible agent host** -- Claude Code, Codex, OpenCode, or Gemini CLI
 
-Node.js 20 is sufficient for the bundled MCP server and every filesystem-only workflow. Optional qmd SDK mode follows qmd's package contract and requires Node.js 22+; qmd CLI mode does not raise the main server's Node requirement.
+Node.js 20.18.1 or newer is sufficient for the bundled MCP server and every filesystem-only workflow. Optional qmd SDK mode follows qmd's package contract and requires Node.js 22+; qmd CLI mode does not raise the main server's Node requirement.
 
 You do **not** need npm or a TypeScript toolchain to run the shipped MCP bundle. Basic filesystem search and read operations do not require Python. Compiler operations, Project layout migration, and Obsidian's governed promotion/Doctor runtime checks do require a usable Python runtime plus the LLM Wiki `compiler/` directory.
 
@@ -208,7 +208,7 @@ You should see a JSON-RPC response with `serverInfo.name = "obsidian-llm-wiki"` 
 
 **MCP server starts but `vault.search` returns nothing** -- check that `VAULT_PATH` in `.mcp.json` is absolute and points at a directory with `.md` files. The server logs the resolved vault path at startup (visible in your agent host's MCP log).
 
-**`Node version error` / `SyntaxError: Unexpected token`** -- the bundle targets Node 20+. Run `node --version` to confirm; upgrade with `nvm` / `fnm` if older.
+**`Node version error` / `SyntaxError: Unexpected token`** -- the bundle requires Node 20.18.1+. Run `node --version` to confirm; upgrade with `nvm` / `fnm` if older.
 
 **Obsidian adapter not connecting** -- the bundle includes the WebSocket adapter (`ws`), but it only activates when Obsidian is running with the `obsidian-vault-bridge` plugin. Without it, the filesystem adapter handles everything (read, search, lint, graph) -- you just lose live sync.
 

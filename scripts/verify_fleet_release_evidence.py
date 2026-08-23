@@ -118,7 +118,7 @@ def _exact_keys(value: dict[str, Any], expected: set[str], label: str) -> None:
 
 def _git_blob(repo: Path, commit: str, relative_path: str, label: str) -> bytes:
     result = subprocess.run(
-        ["git", "show", f"{commit}:{relative_path}"],
+        ["git", "cat-file", "-p", f"{commit}:{relative_path}"],
         cwd=repo,
         check=False,
         capture_output=True,
@@ -414,7 +414,9 @@ def verify_evidence(
         raise RuntimeError("testedCommit is not an ancestor of the release commit")
     changed = {
         path.replace("\\", "/")
-        for path in _git(repo, "diff", "--name-only", f"{tested_commit}..{release_commit}").stdout.splitlines()
+        for path in _git(
+            repo, "diff", "--name-only", tested_commit, release_commit,
+        ).stdout.splitlines()
         if path.strip()
     }
     allowed = EVIDENCE_ONLY_PATHS | {relative_evidence}

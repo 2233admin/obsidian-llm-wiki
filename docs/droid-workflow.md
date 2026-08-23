@@ -9,7 +9,7 @@ How to drive this repo with the Factory droid CLI in non-interactive mode.
 - Set the API key in your shell:
   - bash/zsh: `export FACTORY_API_KEY=fk_...`
   - PowerShell: `$env:FACTORY_API_KEY = "fk_..."`
-- Confirm Node 20+, Python 3.11+, and ripgrep are on PATH (see CLAUDE.md).
+- Confirm Node 20.18.1+, Python 3.11+, and ripgrep are on PATH (see CLAUDE.md).
 - Run from the repo root or pass `--cwd` to point at a worktree.
 
 Never commit the key. Keep it in `.env.local` or your OS keychain only.

@@ -4,14 +4,14 @@ LLM Wiki internalizes the stable contracts needed to run an Agent Wiki while kee
 
 ## Baseline and optional profiles
 
-The MCP server starts on Node.js 20+ with the filesystem adapter alone. Missing optional providers are reported as `disabled`, `unavailable`, or `degraded`; they do not make filesystem registration, ingest, compilation, or retrieval unavailable.
+The MCP server starts on Node.js 20.18.1+ with the filesystem adapter alone. Missing optional providers are reported as `disabled`, `unavailable`, or `degraded`; they do not make filesystem registration, ingest, compilation, or retrieval unavailable.
 
 | Profile | Mode | Compatibility contract | Role |
 |---|---|---|---|
 | `filesystem` | built-in | always available when the vault is readable | Capture `vaultPath`, raw Evidence, deterministic fallback retrieval. |
 | `opencli` | CLI | `>=1.8 <2`, structured discovery plus capture-only boundary | URL capture; never Source registration or promotion authority. |
 | `qmd` | CLI | qmd 2.5-compatible intent, explanation, `qmd://`, collections, health, and model fingerprint | Optional local ranked retrieval. |
-| `qmd` | SDK | qmd 2.x package contract and Node.js 22+ | Optional in-process retrieval with CLI-normalized parity. The main MCP runtime may remain Node 20 when SDK mode is not selected. |
+| `qmd` | SDK | qmd 2.x package contract and Node.js 22+ | Optional in-process retrieval with CLI-normalized parity. The main MCP runtime may remain on Node 20.18.1+ when SDK mode is not selected. |
 | `graphify` | CLI | legacy and 0.9.x profiles | Optional graph query normalized into the shared Evidence contract. |
 | `ollama` / OpenAI-compatible | HTTP GET probes | models/version endpoints and exact embedding fingerprint | Optional embeddings. |
 | `lightrag` | HTTP wrapper | wrapper-defined `/health` and declared query/document endpoints | Optional external retrieval/ingest wrapper. |

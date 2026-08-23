@@ -702,7 +702,10 @@ def _direct_graph_write(dsn: str, payload: dict) -> dict:
         for node in payload.get("nodes", []):
             emb = json.dumps(node.get("embedding")) if node.get("embedding") else None
             cur.execute("""
-                INSERT INTO gm_nodes (id, type, name, description, content, status, embedding, user_id, pagerank, validated_count, updated_at)
+                INSERT INTO gm_nodes (
+                    id, type, name, description, content, status, embedding,
+                    user_id, pagerank, validated_count, updated_at
+                )
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,now())
                 ON CONFLICT (id) DO UPDATE SET
                     type=EXCLUDED.type, name=EXCLUDED.name, description=EXCLUDED.description,
@@ -776,7 +779,7 @@ def _spawn_graph_cli(
     """
     cmd = [python_path, "-m", "memu_graph.cli", subcommand]
     child_env, fixed_dsn = _ensure_memu_env(dsn)
-    child_env["MEMU_DSN"] = fixed_dsn
+    child_env["MEMU_DSN"] = dsn
     try:
         proc = subprocess.run(
             cmd,
@@ -801,7 +804,10 @@ def _spawn_graph_cli(
     if proc.returncode != 0:
         # Fall back to direct write on failure (e.g. module error in memu_graph.cli)
         if subcommand == "graph-write" and stdin_payload:
-            sys.stderr.write(f"[memu_sync] memu_graph.cli failed (exit {proc.returncode}), falling back to direct write\n")
+            sys.stderr.write(
+                f"[memu_sync] memu_graph.cli failed (exit {proc.returncode}), "
+                "falling back to direct write\n"
+            )
             return _direct_graph_write(fixed_dsn, json.loads(stdin_payload))
         raise RuntimeError(
             f"memu_graph.cli {subcommand} failed (exit {proc.returncode})"
@@ -815,7 +821,7 @@ def _spawn_graph_cli(
         raise RuntimeError(
             f"memu_graph.cli {subcommand} returned invalid JSON"
         ) from exc
-    sanitized = _redact_private_dsn(parsed, fixed_dsn)
+    sanitized = _redact_private_dsn(parsed, dsn)
     if not isinstance(sanitized, dict):
         raise RuntimeError(f"memu_graph.cli {subcommand} returned an invalid result")
     return sanitized
