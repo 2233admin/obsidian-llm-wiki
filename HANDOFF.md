@@ -1,85 +1,137 @@
-# vault-mind — 工作交接(handoff)
+# obsidian-llm-wiki — 工作交接 (handoff)
 
-> 给下一个 session 的自包含简报。读完这一份就能接着干,不需要回看旧对话。
+> 给下一个 session 的自包含简报。读完这一份就能接着干，不需要回看旧对话。
 
 ## 0. 怎么跑 / 在哪
 
-- 代码:`D:\projects\vault-mind`(**有 git remote**:origin = github `2233admin/obsidian-llm-wiki`;旧记的「无 remote」是错的,别再信)
-- 真实 vault:`D:\knowledge`(gitea 备份,已授权真测;但写入只能落 gitignored 的机器层)
-- 当前 branch:`main`,HEAD `941112b`(= origin/main,已推),工作区干净。**Task 8–11 全在 main 上**
-- Python 测试(Windows GBK 会坏 UTF-8,**必须带 `PYTHONUTF8=1`**):
-  ```
-  PYTHONUTF8=1 python -m unittest discover -s tests -p "test_*.py"
-  ```
-- **回归闸(每次改完我自己跑,不信子 agent 的窄命令)**:
-  `test_currency_passes` 6/6 + `test_project_currency` 18/18 + 上面的全量 discover
-- Node(mcp-server / hook):`npm run build` + `node --test dist/**/*.test.js`
+- **代码**：`D:\projects\obsidian-llm-wiki`
+- **Git remote**：`gitea` = `https://git.xart.top:8418/Curry/obsidian-llm-wiki.git`
+  （`imvt` remote 指向 IMVT 仓 `Curry/imvt.git`，不在本仓使用）
+- **当前分支**：`codex/chatindex-knowledge-provider`
+- **HEAD**：`f2227ca` （freetoken-eval: capture 2026-08-23 host survey）
+- **工作树状态**：clean，前方 5 commits 待 push 或后续工作
+- **真实 vault**：`D:\knowledge` （用户私有，不进仓；gitea 备份已授权）
+- **OS**：Windows 11，Python 3.10/3.11/3.13 共存（编译缓存常见多版本混存，需 gitignored）
 
-## 1. 架构脊柱:一条协议 capture → promote → compile
+### Python 测试（必须带 `PYTHONUTF8=1`，Windows GBK 会坏 UTF-8）
 
-```
-输入端 capture=提案(draft): 人手写 md / agent digest(10B) / remote pull(9C-E)
-            │  全进 _triage/Pending Review
-            ▼  promote=提交(只走 git PR 闸, base-head 乐观锁→HEAD_MISMATCH, 绝不 last-write-wins)
-      ╔════════════════════════╗
-      ║  markdown 源 = 唯一真值  ║
-      ╚════════════════════════╝
-            │  compile=只读派生(gitignore/可重建/字节稳定/永不回改源)
-   _project-status.md  ·  _work-os.canvas(10A)  ·  workspace-status(9B)  ·  push 回远端
+```bash
+PYTHONUTF8=1 python -m pytest tests/ --ignore=tests/test_memu_sync_settings.py
 ```
 
-- **三个 frontmatter 轴(2026-06-27 调和后)**:workflow `state`(backlog/todo/in-progress/done/canceled;`blocked` 不持久化,由 `effective_state` 从真实 `blocked-by` 派生)× review `review`(draft/reviewed;**已从 `status` 挪出**——`status` 现归 rhizome 契约,∈{active,frozen,archived})× rhizome `kind`(note/decision/spec/...)。work note 现同时过 work-OS 与 rhizome pre-commit hook
-- **两种引用永不混**:`note-id = repo 相对路径`(结构锚:base-head/supersedes)vs `entity`(语义锚:blocked-by/related)
-- **逻辑身份 ≠ 机器路径**:entity 进共享 md;`D:\...` 机器路径只进 gitignored `.vault-mind/local-bindings.json`
+`test_memu_sync_settings.py` 因 `compiler` 模块路径 bug 当前需 `--ignore`。880 个其余测试通过。
 
-## 2. §0 不变量(所有 Task 共用,不可破)
+### Node（mcp-server / obsidian-plugin）
 
-1. markdown 是唯一真值;派生物(md/canvas/总表)永不是源
-2. 派生物:gitignore、可重建、永不提交、永不回改源、两次运行字节一致
-3. promote 只经 git PR 闸;dry-run 默认
-4. **无 runtime / daemon / webhook / cloud / 新 LLM 服务**(取概念,丢运行时)
-5. token 只从 env,只进 header,任何错误路径都不外泄
-6. 机器路径只进 gitignored `.vault-mind/`,绝不进共享/提交内容
+```bash
+cd mcp-server && npm run typecheck
+cd obsidian-plugin && npm run typecheck
+```
 
-## 3. 已建成(DONE)
+`npm test` 当前因 bun shim 指向 `C:/Users/Administrator/.x-cmd.root/.../bun.exe`（缺失）**坏掉**。
+workaround：`x-cmd pkg install bun` 修复 bun，或 `npx --no-install tsc --noEmit` 跑 typecheck。
 
-- **Task 8 — work-OS 协议(8P/8A–8G,含 Tier2 8E/8F)**:5 态状态契约、8P 事务协议(capture/promote/compile + base-head 锁)、blocker 图、triage 视图、issue 属性视图、initiative/cycle rollup、agent 自更新环。`compiler/currency.py`、`compiler/work_protocol.py`、`compiler/kb_meta.py`
-- **Task 9 — workspace 联邦(9A–9F)**:`workspace.py`(registry/scan/adopt/workspace-status,只读,无符号链接穿越)+ `forge.py`(Transport 可注入/FakeTransport;Gitea/GitHub/Linear 三 adapter;`detect_sync_conflict` anti-loop;sync-pull/plan/apply)
-- **真实全量勘察已落库**:`D:\knowledge\.vault-mind\` 里有 workspace.json + local-bindings.json(65 项目)+ _workspace-status.md。结果:**65 项目,3 个 local-only,9 个 unpushed(openalice +65 commits;code-intel-pipeline diverged;vault-mind no-upstream),61 dirty/forgotten**
-- **Task 11 — work driver 执行闭环(11A+11B 已落)**:`compiler/work_driver.py` `select_next`(actionable+未 blocked,priority+note-id 确定性)+ lease 原子签出(base-head 锁,`.vault-mind/_leases.json`)+ `work next` CLI。**11B budget gate**(`compiler/work_budget.py`,commit `30ee25e`):cap+spent 进 markdown frontmatter(`budget`/`budget-spent`,§0 #1/#7 可审,不进机器层),`work next` claim 前查池→满则停(不 lease 不 spawn,绿条 3);池化=项目容器预算(§7);`== cap` 放行/`> cap` 拦;`work budget` CLI 只读报表。**无 runtime**——一次性心跳跑完退(§0 #4)
-- **看板(kanban)统一**:`render_kanban_board` 把 work-OS 真值渲成 obsidian-kanban 插件**原生格式**(`work board` CLI 落盘 `board.md` 派生视图);lane 标题 i18n(zh/ja/en 自动探测);`ensure-plugin` CLI 自动装+启用 obsidian-kanban(用户没装也能用)
-- **MCP↔work-OS 单一真值(941112b)**:`mcp-server/src/project/workos.ts`(work-OS 脑的 TS 移植)+ `project.ts` 改薄 adapter,删 docket store。`project_board_get` 与 Python `work board` **字节相等**(`parity.test.ts` 守);`project_issue_*` 全落 work-OS note。**Linear 可弃**
-- **bundle 启动 bug 修(92e15d3)**:Windows 下 entrypoint guard 路径串比对失败 → bundle.js 静默不启服务;改 `file://` URL 比对修好
-- **Task 10A — work-OS map JSONCanvas(已落,commit `0d15551`)**:`kb_meta._render_work_os_canvas` 把 cmd_currency 已解出的 current_truth/project_status/initiative_status 编译成 `<topic>/wiki/_work-os.canvas`(Obsidian 原生读 .canvas,不装插件)。initiative 框 project、project 框 issue、`blocked-by`=edge、color=STALE 红/blocked 橙/in-progress 绿/todo 青、done 灰(不上色)。确定性嵌套网格(sorted+固定几何→字节稳定);派生不改源;`if project_status` 同闸写出 + gitignore `**/wiki/_work-os.canvas`。**≠ TS 的 per-project `project-map.canvas`**(那是单项目;这是全 work-OS 地图,两者并存)
-- **Task 10B — conversation digest(已落,commit `dd6c25a`)**:capture hook(`scripts/hooks/capture-hook.mjs`)保留 `blocked-by` 关系(进 ALLOWED_KEYS,`buildNote` emit 成 inline YAML list→编译器读成真关系→promote 后上 10A canvas 当 edge)+ 每条 capture 打 `digest-session: <sid>`(标识同一会话的 digest 组,triage 可聚类;专用 key 不撞联邦 `origin` 嵌套 map)。多块本就支持(一块一 draft),所以 digest=agent 回合末吐一组 vault-capture 块走现有 triage→promote。测试 `capture-hook.test.mjs` U 例(decision+2 issue+1 blocked-by→3 draft,blocked-by 存活成 list,全带 digest-session)。**seam**:triage 按 digest-session 聚类(绿条不要求)
+### Bundle 重建（bundle.js 不再 tracked）
 
-## 4. 待办 / 方向
+```bash
+cd mcp-server && npm run rebuild    # tsc + esbuild bundle
+cd obsidian-plugin && npm run build  # tsc + esbuild production
+```
 
-### Task 10 — structure-into-view(已起草:`TASK10-DRAFT-structure-into-view.md`)
-取 lumen-light 概念(AI 把对话结构化成视图),**丢其运行时**。两半:
-- **10A ✅ 已落(commit `0d15551`)**:`_render_work_os_canvas` 把 work-OS current-truth 编译成 `<topic>/wiki/_work-os.canvas`(**JSONCanvas,Obsidian 原生读,不装插件**)。节点=project/issue,edge=blocked-by,group=initiative,color=STALE/blocked/done。确定性网格布局。测试 `tests/test_work_os_canvas.py`(13 例,结构/边/配色/确定性/集成全绿)。
-- **10B ✅ 已落(commit `dd6c25a`)**:capture hook 保留 `blocked-by`(emit inline YAML list→真关系→上 10A canvas)+ 每条打 `digest-session: <sid>`(同会话 digest 组溯源,专用 key 不撞联邦 origin)。多块本就支持。测试 `capture-hook.test.mjs` U 例全过。seam:triage 按 digest-session 聚类(绿条不要求)。
-- 10C(deferred):Obsidian Canvas 里「promote 节点」手势,薄插件。
+## 1. 仓库脊柱
 
-### Task 11 — work driver / 执行闭环(**✅ 功能完整:select_next + lease + work next + 看板统一 + MCP 统一 + budget gate + budget-spent 回写 + 自pacing loop-trigger 心跳(`83be98d`);端到端可按需跑,recipe=`docs/WORK_LOOP.md`**)
-源自 paperclip(paperclipai/paperclip,agent 编排平台),**只取「执行闭环」概念,丢其 daemon/Postgres/org chart/多租户**。
-- **缺口**:vault-mind 到「真值正确且可查」就停了,是被动层;从不闭合到「所以 agent 去把活干了」。补一个**薄 driver**:读 work-OS authoritative 真值 → 挑下一个可执行项(priority + 未 blocked + 指给 agent)→ 锁定签出 → 拉起 agent → 结果 capture→promote → token 记账。
-- **硬骨头我们已有**(不是重写):原子签出 = 现成的 base-head 锁(HEAD_MISMATCH);持久记忆 = vault 本身 + Task 5 inject;结果写回 = capture→promote。**净新只有三样:loop trigger + budget ledger + lease(claimed-by)**。
-- **§0 兼容做法**:心跳 = OS cron / ScheduleWakeup 触发**一次性 CLI**(`vault-mind work next`),跑完退,无常驻;预算 = work note 里一行 token 账本,spawn 前硬停;签出 = `claimed-by` 租约当 capture,promote 即上锁。
-- **它吸收并升级原 brief 的 Task 5(inject)+ Task 6(e2e)**。
+```
+obsidian-llm-wiki/
+├── mcp-server/         # @obsidian-llm-wiki/mcp  v0.4.0-beta.3 (ESM strict TS)
+├── obsidian-plugin/    # Obsidian control plane   v0.4.0-beta.5 (GPL-3.0-only)
+├── packages/           # 5 个 shared TS packages (workspaces)
+│   ├── settings-platform/
+│   ├── agent-domain/
+│   ├── visual-workspace/
+│   ├── problem-intake/
+│   └── agent-wiki-contracts/
+├── compiler/           # Python: capture/promote/compile, kb_meta, currency
+├── openspec/           # 设计契约 + archived changes
+├── docs/               # 文档 + samples + designs
+├── fixtures/           # 测试用 sample vault
+├── tests/              # Python 测试
+├── scripts/            # CLI 工具（lmvk-*, verify-*, doctor, probe）
+├── skills/             # agent skills
+├── recipes/            # agent recipes
+├── hooks/              # capture hook
+├── fleet/              # fleet mode 代码
+├── creatures/          # vault-* persona prompts
+├── terrariums/         # vault-wiki-team.yaml 团队编排
+├── eval/  viewer/  deploy/  examples/  obc/  recipes/
+└── 01-Projects/        # 工作-OS issue notes (canonical work state)
+    └── obsidian-llm-wiki/issues/   # 23 个 issue，15 todo + 7 done + 1 canceled
+```
 
-## 5. 构建 cadence(沿用)
+## 2. §0 不变量（仓库范围）
 
-每个 Task:**TASK 草案(先写文档定 §0/原语映射/绿条)→ 多 agent Workflow(build 顺序 → 3 棱镜对抗 verify 并行 → fix)→ 我自己跑回归闸(不信窄命令)→ commit**。
-教训:Workflow 的子 agent 用窄测试命令漏过 `test_currency_passes`,曾把通用 current-truth 搞坏(§0 #8 回归,后在 `480e350` 修)。**回归命令必须含 currency 测试 + 全量 discover。**
+1. **Markdown 是唯一真值**：派生物（canvas/md 总表）永不是源；可重建、gitignore、字节稳定、永不回改源
+2. **机器路径永不进共享/提交内容**：仅入 gitignored 的 `.vault-mind/local-bindings.json`
+3. **promote 仅经 git PR 闸**：base-head 乐观锁 → HEAD_MISMATCH，永不 last-write-wins
+4. **无 runtime / daemon / webhook / cloud / 新 LLM 服务**：取概念，丢运行时
+5. **token 只从 env**：只进 header，任何错误路径都不外泄
+6. **bundle 产物不入仓**：`npm run rebuild` 重新生成
+7. **Components/ 用户私有 vault 不入仓**：licensed samples 走 `docs/samples/components/`
+
+## 3. 现状（2026-08-23）
+
+### 已完成
+
+- **v2.8.0-beta.3 fleet acceptance** (2026-07-25)：federated agent rooms + fleet control plane 落地
+- **Plugin 0.4.0-beta.5** (2026-08-18)：Ask Mate + Agentfiles 内化 + governed workflow
+- **project-context/v1 + session-record/v1** (2026-08-19)：Project Memory Loop MVP
+- **IMVT session capture adapter** (2026-08-19)：兼容性 adapter 交付
+- **仓库清理 (2026-08-23)**：Components/ 276MB 清除、4 个 bundle untrack、3 个 LICENSE-bearing vault 移到 `docs/samples/components/`、TS strict + ESLint flat + Prettier 工件加齐
+- **5 commits 已 push** 到 `gitea/codex/chatindex-knowledge-provider`
+
+### 在跑的 15 个 todo（按优先级）
+
+**P1（5 条，都是 plugin 数据/迁移/UX 缺陷）**：
+- `plugin-migration-data-loss`：legacy settings migration 事务性破裂
+- `fleet-agent-discovery-transports`：NetBird-only 硬编码，需 pluggable
+- `host-install-registration-wheel`：setup 脚本互相矛盾，需一站式安装
+- `plugin-promote-frontmatter-gate`：Promote 应基于 frontmatter gate
+- `gitea-federation-adapter`：gitea issue 与 work-OS 并行注册（Task 9 gap）
+
+**P2（6 条 plugin 健壮性 + 工作流）**：
+- `plugin-legacy-assignment-precedence`、`plugin-main-ts-test-coverage`（0 测试覆盖是数据丢失 bug 漏过的根因）、`plugin-promote-view-refresh`、`plugin-python-path-batch-cmd`、`temporal-graph-index-search-accelerator`
+
+**P3（4 条 plugin UX）**：
+- `plugin-binding-editor-noop-callback`、`plugin-low-hygiene-batch`、3 个 promote 体验细节
+
+完整 issue 列表见 `01-Projects/obsidian-llm-wiki/issues/`。
+
+## 4. 工具链
+
+### 规范
+- TS strict（`tsconfig.json` in `mcp-server/`、`obsidian-plugin/`、`packages/*/tsconfig.json`）
+- ESLint v9 flat config：根 `eslint.config.js`，type-aware rules
+- Prettier：根 `.prettierrc.json`（100 col、double quotes、trailing-all）
+- EditorConfig：根 `.editorconfig`（LF / 2-space）
+
+### 关键路径
+- `.gitignore` 已 cover：`Components/`、`vault/`、4 个 bundle、4 个 Python cache 规则
+- 工作-OS：`01-Projects/<project>/issues/<slug>.md` 是 canonical；`Projects/<slug>.md` 是 shared registry
+- 源注册：`_llmwiki/source-registry.json` + `00-Inbox/Sources/<platform>/<source-slug>.md`
+
+## 5. 构建 cadence（沿用）
+
+每个 issue：**draft（先写文档定 §0）→ Wave-based parallel agents build → 验证 → atomic commit → push**。
+教训：subagent 的窄测试命令会漏过跨测试，全量 typecheck 必须由主会话跑。
 
 ## 6. 下一步建议
 
-1. ~~**Task 11**~~ ✅ 功能完整。11A 选活+lease + 11B gate(`30ee25e`)+ budget-spent 回写(`176da66`:`work_budget.record_spend` 字节级改 frontmatter + `work debit` CLI)+ loop-trigger 自pacing 心跳(`83be98d`:`work next` 出 `status`[selected/idle/budget_exhausted]+`remaining`,recipe `docs/WORK_LOOP.md`)+ 11G bootstrap briefing(`d2aefd3`:`work_driver.render_briefing` + `work briefing` CLI,开工注入 current-truth 切片=state/blockers/siblings/required-reading,只读派生)。端到端 = `work next`(选)→`work briefing`(冷启上下文)→do→capture→promote→`work debit`,**按需 ScheduleWakeup 重拉、自终止**(A 机制,看情况按需要)。**剩纯操作/可选**:真用 ScheduleWakeup 起一次 on-demand(本机未起,无队列不常驻);10C Obsidian promote-节点插件(deferred,Canvas API 不确定/headless 难验)。
-2. ~~**Task 10A/10B**~~ ✅ 全落(10A `0d15551` + 10B `dd6c25a`)。**10C 设计定稿+首片落地**:design doc `TASK10C-DRAFT-promote-gesture.md`(office-hours approach C,approved `c1dd4c3`);**10C-A `kb_meta promote` CLI 已落 `ee940fc`**(包 work_protocol.promote,base-head 锁+materialize,dry-run 出 plan/`--apply` 写 reviewed,HEAD_MISMATCH 不静默,非 draft=NOT_DRAFT)——**顺手补上 Task 11 loop 缺的真 promote 步**。**10C-B `_triage.canvas` 已落 `cf328e6`**(draft 候选渲成 JSONCanvas,按 `digest-session` 分组 + blocked-by edge,`work triage-canvas` CLI,复用 10A 机器)。**spike 结论**(无需真开 Obsidian):`.canvas`=纯 JSON(10A 已在真 vault 证)+ Approach C 绕开 Canvas 节点 API → API 风险 **moot**,10C-B/C 不阻塞。**10C-C 插件已落 `98f3c74`**(`obsidian-plugin/`:command + file-menu 触发 → dry-run plan modal → `--apply` shell `kb_meta promote`,不自动 git=人审闸;Approach C 不碰 Canvas 节点 API;`tsc --noEmit` 绿 against obsidian@1.5.7)。**Task 10C 代码全完**(design+promote CLI+triage canvas+插件)。唯一剩 = 真 Obsidian **装+load-test**:`cd obsidian-plugin && npm run build`(出 main.js;本机 npm allow-scripts 闸挡了 esbuild 二进制,用户机正常)→ copy manifest/main.js/styles 到 `.obsidian/plugins/vault-mind-promote/` → enable → 配 python + kb_meta.py 路径。用户或 computer-use 验。**未验**(可选):真 `D:\knowledge` 跑 currency 看 `_work-os.canvas` / `work triage-canvas` 看候选图。
-3. 原 brief Task 5 inject / 6 e2e(已被 Task 11 概念吸收,按需)。
-4. **Task 12 — Context Core**(草案 `f407dff`,`TASK12-DRAFT-context-core.md`):内化 TrustGraph 的"Context Core = 知识作为可版本化便携工件"概念,取概念丢运行时(git=版本/pin/promote,markdown 真值,无 DB)。净新:`_context-core.json` 编译 + retrieval-policy 一等物 + explainability receipt + (可选)ontology 存量 backfill 治空转。建造序 12A(core 编译,纯 Python,先做)→12B→12C→12D(11G 重构成从 core 取)。**未建**,待开 ADR(core git-tracked vs gitignore)。**别与已发的 `v0.8.0`(`8ab11e5`)"Context Core Phase 1-3" 搞混**:那是 compiler 侧 rhizome frontmatter 契约 + 3-tier ontology + holons concept graph,已完工已发布,同名但完全是另一摊活;本条 TASK12-DRAFT 的 retrieval-policy 提案是唯一仍未建造的部分。
-5. **caura-memclaw 内化(折进现有,不新开任务)**:4 概念已折入各 draft —— ① **outcome-memory 反馈环(Karpathy loop,唯一真缺口)**→ T11 §7c + 11I(run 末标 `recall-outcome`→grounding 降权 + 失败生成 `type:rule` draft;复用 11G 注入清单 + §5 控制律);② **crystallization 近重合并** → T7 Task 7D(检测=只读 `_merge-candidates.md` 默认词法近似不引 embedding,合并=supersession 走 promote 闸);③ **per-agent retrieval tuning** → T12 §3(per-agent overlay,整定数据来自 T11 11I,别各造一套);④ **可见域 scope + 信任级** → T9 §0#14 + 9G(同步面过滤 + promote-闸修饰,非多租户 DB)。全部取概念丢运行时,**均未建**,待开工。
+1. **修 bun shim**（`x-cmd pkg install bun`），让 `npm test` 重新可用 — 不修这个 13 条 plugin todo 全是盲改
+2. **`plugin-migration-data-loss` (P1)**：唯一会 brick 用户数据的缺陷
+3. **`host-install-registration-wheel` (P1)**：前天手动做过一次，最有体感
+4. **`scripts/` / `tests/` / `fixtures/` 三个目录审计**：已经完成，均为产品代码无杂质
+5. **`ROADMAP.md` 续写**：当前停在 v2.5.0（2026-07-13），需要加 beta.3/beta.5 段落
+6. **10 个 `TASK*-DRAFT-*.md` 归档**：移到 `docs/archive/task-drafts/` + README
 
 ---
-**成本提醒**:本 session 已 ~$928 / 改了 55 文件(累计旧 session 更高)。新 session 注意收口,别一口气铺太广。
+
+> 本文件取代历史 `vault-mind` handoff。当前仓库已经从 `vault-mind` 改名为 `obsidian-llm-wiki`，详见 git log `283021e`（chore: publish plugin beta.5）以前的更名历史。
