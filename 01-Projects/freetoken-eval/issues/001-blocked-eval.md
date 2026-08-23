@@ -12,6 +12,7 @@ related_sources: ["src_freetoken_0ab982f10"]
 related_knowledge_items:
   - "30-Architecture/freetoken-runtime-on-xr-3080.md"
   - "01-Projects/freetoken-eval/research/2026-08-23-cross-host-placement.md"
+  - "01-Projects/freetoken-eval/research/2026-08-23-model-selection-and-quantization.md"
 ---
 
 # 001 — FreeToken cold-start on xr-3080 is blocked
@@ -50,25 +51,26 @@ hardware or data cost on the host.
 
 ## Acceptance Criteria
 
-- [ ] A FreeToken-supported model weight is downloaded **off-host** (or to a
-  dedicated disk prepared for FreeToken on `xr-3080`) — never into the
-  residual 6.5 GiB on `/`.
-- [ ] `nvidia-smi` returns within 5 s on `xr-3080` after the capture session.
+- [ ] A FreeToken-supported model weight is staged at workstation
+  `Z:/models/freetoken/<id>/`, transferred to xr-3080 `/tmp/` exactly once
+  via `scp`, never into the residual 6.5 GiB on `/`.
+- [ ] Model choice: `Qwen/Qwen3-30B-A3B` (BF16 MoE, 30 B total / 3 B
+  active) — see `research/2026-08-23-model-selection-and-quantization.md`.
+- [ ] `nvidia-smi` returns within 5 s on `xr-3080` after B2 unblock.
 - [ ] `ollama.service` and the two `vllm/vllm-openai:*` containers are
-  intentionally stopped (decision logged); reason and trade-off captured in
-  the same runbook below.
-- [ ] `ft serve --model-path <path> --port <port>` boots and exits only when
-  stopped. First-request latency captured.
+  intentionally stopped (decision logged).
+- [ ] `ft serve --model-path /tmp/freetoken-models/Qwen3-30B-A3B --port 8080
+  --moe-backend offload --dtype float16 --memory-ratio 0.85 --cache-type
+  radix` boots and exits only when stopped. First-request latency
+  captured.
 - [ ] One chat completion is executed via `curl` to the served OpenAI-style
   endpoint; response recorded under `01-Projects/freetoken-eval/captures/`.
 - [ ] No regression to the previous day's pacman cleanup; `pacman` cache
   size does not balloon back to > 1 GiB during the cold-start run.
-- [ ] Note in `30-Architecture/freetoken-runtime-on-xr-3080.md` is updated
-  to the new fact sheet (or replaced with `002-cold-start.md`).
+- [ ] Note `30-Architecture/freetoken-runtime-on-xr-3080.md` is updated to
+  the new fact sheet (or replaced with `002-cold-start.md`).
 
 ## Blockers
-
-For each item: the smallest reversible action that would unblock the issue.
 
 ### B1 — No dedicated disk on `xr-3080`
 
@@ -77,11 +79,8 @@ For each item: the smallest reversible action that would unblock the issue.
 | `btrfs balance start -dusage=80 -musage=80` on `/` | Free; recovers a few GiB at most; not enough for a model checkpoint | yes |
 | Repartition `nvme2n1p2` while Win11 is offline | Loses the user data store unless migrated first | partially |
 | Add an extra NVMe/SSD; repartition existing leftovers | Hardware cost | yes |
-| Run cold-start on `katana-5090` instead | Cross-host; **5090 currently offline** (see `research/2026-08-23-cross-host-placement.md`) | yes |
-| Stage model on workstation `Z:` or `F:` and `scp -r` to xr-3080 `/tmp/freetoken-models/` | One-time network transfer (~tens of GiB over LAN) | yes; no permanent claim on 3080 disk |
-
-`needs-info`: confirm with the operator which approach is acceptable
-before any disk-mutating action.
+| Run cold-start on `katana-5090` instead | Cross-host; **5090 currently offline** (see research note) | yes |
+| **Stage model on workstation `Z:` or `F:` and `scp -r` to xr-3080 `/tmp/freetoken-models/`** — chosen default | One-time network transfer (~tens of GiB over LAN) | yes; no permanent claim on 3080 disk |
 
 ### B2 — `nvidia-smi` deadlock
 
@@ -95,49 +94,62 @@ before any disk-mutating action.
 
 The DATA volume must not be reformatted. Cleaning the dirty flag
 (`ntfsfix -d /dev/nvme2n1p2`) only buys a writable mount but does not buy
-any additional free space (43 GiB remains, used for non-FreeToken data).
+any additional free space.
 
 `needs-info`: confirm that filling 43 GiB of win-data-store with
 FreeToken test artifacts is acceptable as a one-shot.
 
 ## Decision Required From Operator
 
-- Pick one of the B1 paths.
+- Confirm **B1 = workstation staging default** (`Z:/models/freetoken/…`).
 - Pick one of the B2 paths.
 - Confirm B3 default (don't touch DATA).
 
 Once the three are answered, the issue can move from `needs-info` to
 `ready-for-agent` and the runbook in §Runbook will execute.
 
-## Research Questions (Captured For The Next Session)
-
-1. List the FreeToken-supported models whose smallest checkpoint is
-   ≤ ~3 GiB (FP16/BF16). Candidate families per
-   `https://github.com/FlashML-org/FreeToken/blob/main/docs/models.md`.
-2. Quantization path: GGUF + `--dtype` to enable q4 on an off-host pull.
+## Research Questions
 
 ### Already Answered
 
+- **Q1 answered (2026-08-23)** in
+  `research/2026-08-23-model-selection-and-quantization.md`. No
+  FreeToken-supported checkpoint fits a 10 GB GPU without MoE offload.
+  Recommended: `Qwen/Qwen3-30B-A3B` (BF16 MoE, 30 B total / 3 B active)
+  with `--moe-backend offload`. Alternative: `gemma-4-12B-it` via GGUF.
+- **Q2 answered (2026-08-23)** in same research note. `--dtype` controls
+  compute precision only, not quantization. FreeToken reads HF safetensors
+  as-published. q4 path exists only for Gemma-4. Practical default
+  `--dtype float16`.
 - **Q3 answered (2026-08-23)** — see
-  `01-Projects/freetoken-eval/research/2026-08-23-cross-host-placement.md`.
-  Default plan: **Strategy A** (workstation staging → `scp` to xr-3080 →
-  `ft serve` on 3080). Strategies B, C, D recorded for second iteration.
+  `research/2026-08-23-cross-host-placement.md`. Strategy A: workstation
+  staging → `scp` to xr-3080 → `ft serve` on 3080.
 - **Q4 answered (2026-08-23)** — `katana-5090` netbird FQDN
-  (`au-5090-105-128.netbird.cloud`) is currently NXDOMAIN; netbird peer
-  set visible from this workstation shows only 2 of 38 peers. 5090 is not
-  an option until the operator brings it online.
+  (`au-5090-105-128.netbird.cloud`) is NXDOMAIN; not an option until the
+  operator brings it online.
+
+### Still Open
+
+- **R1.1** — confirm `Qwen/Qwen3-30B-A3B` total repo size on HF. Likely
+  50–70 GB (BF16). Needs outbound network from this workstation.
+- **R1.2** — confirm `Qwen/Qwen3.6-27B-FP8` exists and repo size. Fallback.
+- **R2.1** — does FreeToken's Gemma-4 GGUF path support `--moe-backend
+  offload`? If yes, `google/gemma-4-12B-it` (BF16) and any Gemma-4
+  q4 GGUF become plausible on 10 GB.
+- **R2.2** — does FreeToken accept GPTQ/AWQ/AutoGPTQ safetensors produced
+  externally? CLI does not expose a quantize flag; needs source dive.
 
 ## Runbook (To Execute Once Decisions Above Are Made)
 
 ```bash
 # Step 0 — workstation staging (Strategy A)
 # On workstation, pull the chosen model into Z:/models/freetoken/<id>/
-huggingface-cli download <chosen-model-id> \
-    --cache /mnt/z/Models/freetoken/<model-id>    # or use WSL2 Arch
+huggingface-cli download Qwen/Qwen3-30B-A3B \
+    --cache /mnt/z/Models/freetoken/Qwen3-30B-A3B    # or use WSL2 Arch
 
 # Step 1 — single transfer to xr-3080
 ssh xr-3080 'mkdir -p /tmp/freetoken-models'
-scp -r <staging-path> xr-3080:/tmp/freetoken-models/
+scp -r /mnt/z/Models/freetoken/Qwen3-30B-A3B xr-3080:/tmp/freetoken-models/
 
 # Step 2 — unblock nvidia-smi by stopping in inverse priority
 ssh xr-3080 '
@@ -151,25 +163,29 @@ ssh xr-3080 'timeout 5 nvidia-smi'   # expect <5s return
 # Step 3 — first cold start
 ssh xr-3080 '
   source /opt/freetoken/bin/activate
-  ft serve --model-path /tmp/freetoken-models/<model-id> \
-           --port 8080 \
-           --dtype float16 \
-           --memory-ratio 0.85 \
-           --tool-call-parser auto \
-           --sampling-defaults model
+  ft serve \
+    --model-path /tmp/freetoken-models/Qwen3-30B-A3B \
+    --port 8080 \
+    --dtype float16 \
+    --moe-backend offload \
+    --memory-ratio 0.85 \
+    --cache-type radix \
+    --tool-call-parser auto \
+    --sampling-defaults model
 ' &
 
 # Step 4 — capture
 curl -sS http://xr-3080:8080/v1/chat/completions \
   -H 'content-type: application/json' \
-  -d '{"model":"<id>","messages":[{"role":"user","content":"Hello"}]}' \
+  -d '{"model":"Qwen3-30B-A3B","messages":[{"role":"user","content":"Hello"}]}' \
   | tee 01-Projects/freetoken-eval/captures/001-cold-start.json
 ```
 
 ## Evidence
 
 - Note: `30-Architecture/freetoken-runtime-on-xr-3080.md`
-- Research: `01-Projects/freetoken-eval/research/2026-08-23-cross-host-placement.md`
+- Research Q1/Q2: `01-Projects/freetoken-eval/research/2026-08-23-model-selection-and-quantization.md`
+- Research Q3/Q4 (cross-host): `01-Projects/freetoken-eval/research/2026-08-23-cross-host-placement.md`
 - Capture snapshots: none yet (cold-start runbook not executed).
 - Reproduction transcript (deadlock): `nvidia-smi` was issued three times
   on 2026-08-23 from a fresh SSH session; each call did not return within
@@ -178,8 +194,8 @@ curl -sS http://xr-3080:8080/v1/chat/completions \
 
 ## Related Items
 
-- Source: `src_freetoken_0ab982f10` (this Source Note is the upstream
-  anchor)
+- Source: `src_freetoken_0ab982f10` (upstream anchor)
 - Architecture note: `30-Architecture/freetoken-runtime-on-xr-3080.md`
-- Research: `01-Projects/freetoken-eval/research/2026-08-23-cross-host-placement.md`
+- Cross-host research: `01-Projects/freetoken-eval/research/2026-08-23-cross-host-placement.md`
+- Model/quantization research: `01-Projects/freetoken-eval/research/2026-08-23-model-selection-and-quantization.md`
 - Triage label mapping: `docs/agents/triage-labels.md`
