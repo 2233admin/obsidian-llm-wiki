@@ -43,7 +43,7 @@ jobs:
           cp obsidian-plugin/main.js obsidian-plugin/manifest.json obsidian-plugin/styles.css dist-plugin/
           tar czf dist-plugin/obsidian-llm-wiki-plugin.tar.gz -C obsidian-plugin main.js manifest.json styles.css -C .. LICENSE
           python scripts/verify_obsidian_distribution.py --tag "$GITHUB_REF_NAME" --assets dist-plugin
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           prerelease: false
           make_latest: true
