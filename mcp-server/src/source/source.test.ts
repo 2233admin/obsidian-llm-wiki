@@ -54,6 +54,32 @@ test('source.register stores a URL source, registry row, source note, and prefli
   }
 });
 
+test('source.register does not classify attacker-controlled hostname suffixes as trusted platforms', async () => {
+  const domains = [
+    'douyin.com',
+    'bilibili.com',
+    'xiaohongshu.com',
+    'tiktok.com',
+    'youtube.com',
+    'twitter.com',
+    'weibo.com',
+    'zhihu.com',
+  ];
+
+  for (const domain of domains) {
+    const vault = tempVault();
+    try {
+      const register = op(vault, 'source.register');
+      const result = await register.handler(ctx(vault), {
+        input: `https://${domain}.attacker.test/watch`,
+      }) as Record<string, unknown>;
+      assert.equal(result.platform, 'generic-web', domain);
+    } finally {
+      rmSync(vault, { recursive: true, force: true });
+    }
+  }
+});
+
 test('source.register upserts the same canonical URL instead of duplicating it', async () => {
   const vault = tempVault();
   try {

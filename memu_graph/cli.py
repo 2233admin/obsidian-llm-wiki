@@ -15,18 +15,18 @@ from datetime import datetime, timezone
 
 
 def _get_pg_pool(dsn: str):
-    """Lazy psycopg2 connection helper. Injects user/password from env if DSN lacks them."""
+    """Lazy psycopg2 connection helper using optional libpq environment credentials."""
     import psycopg2
 
-    # If DSN lacks user/password, psycopg2 tries OS auth which fails on Windows.
-    # Inject from PGPASSWORD/PGUSER env vars as fallback.
-    if "://" in dsn and "@" not in dsn.split("://", 1)[1]:
-        # DSN has no credentials — inject from env
-        user = os.environ.get("PGUSER", "postgres")
-        password = os.environ.get("PGPASSWORD", "postgres")
-        dsn = dsn.replace("://", f"://{user}:{password}@")
+    connection_options = {}
+    user = os.environ.get("PGUSER")
+    password = os.environ.get("PGPASSWORD")
+    if user:
+        connection_options["user"] = user
+    if password:
+        connection_options["password"] = password
 
-    conn = psycopg2.connect(dsn)
+    conn = psycopg2.connect(dsn, **connection_options)
     conn.autocommit = False
     return conn
 

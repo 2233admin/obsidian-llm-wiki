@@ -2,11 +2,13 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { performance } from "node:perf_hooks";
 import { describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
   SettingsService,
+  assertNoSensitiveReflection,
   buildToolchainCapabilityProfiles,
   collectLegacyToolchainDiagnostics,
   embeddingFingerprintDigest,
@@ -55,6 +57,17 @@ describe("toolchain capability profile settings", () => {
       "https://localhost:11434/v1/embeddings?api_key=[redacted]",
     );
     assert.match(redactEndpoint("https://example.test/path?token=abc"), /\[redacted\]/);
+  });
+
+  test("rejects reflected credentials without polynomial URL scanning", () => {
+    assert.throws(() => assertNoSensitiveReflection({ value: "Bearer abcdefghijk" }), /Sensitive material/);
+    assert.throws(() => assertNoSensitiveReflection({ value: "https://user:password@example.test" }), /Sensitive material/);
+    assert.doesNotThrow(() => assertNoSensitiveReflection({ value: "https://example.test/path" }));
+
+    const malformed = `//!:${"!:".repeat(20_000)}`;
+    const startedAt = performance.now();
+    assertNoSensitiveReflection({ value: malformed });
+    assert.ok(performance.now() - startedAt < 200, "sensitive reflection scan exceeded 200 ms");
   });
 
   test("builds deterministic embedding fingerprint digests", () => {

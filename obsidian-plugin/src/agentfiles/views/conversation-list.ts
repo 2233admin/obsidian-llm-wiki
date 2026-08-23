@@ -2,9 +2,21 @@ import { setIcon } from "obsidian";
 import type { ConversationStore } from "../conversations/store";
 import type { ConversationItem, ConversationSort, ConversationDateRange } from "../types";
 
-function sanitizeTitle(raw: string): string {
-	return raw
-		.replace(/<[^>]+>/g, "")
+export function sanitizeTitle(raw: string): string {
+	let plainText = "";
+	let insideTag = false;
+	for (const character of raw) {
+		if (insideTag) {
+			if (character === ">") insideTag = false;
+			continue;
+		}
+		if (character === "<") {
+			insideTag = true;
+			continue;
+		}
+		plainText += character;
+	}
+	return plainText
 		.replace(/\[Image #?\d*\]/gi, "")
 		.replace(/\s+/g, " ")
 		.trim() || "(untitled)";

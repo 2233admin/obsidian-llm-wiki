@@ -1626,10 +1626,10 @@ function multimodalMarkdown(opts: {
   const parser = opts.parser ?? 'raganything';
   return [
     '---',
-    `source: "${opts.sourcePath.replace(/"/g, '\\"')}"`,
+    `source: ${JSON.stringify(opts.sourcePath)}`,
     'generated-by: raganything',
     `generated-at: "${generatedAt}"`,
-    `parser: "${parser.replace(/"/g, '\\"')}"`,
+    `parser: ${JSON.stringify(parser)}`,
     `metadata-json: '${metadata}'`,
     'status: draft',
     '---',
