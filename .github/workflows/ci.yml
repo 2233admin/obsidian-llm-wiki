@@ -63,7 +63,9 @@ jobs:
         with:
           node-version: "20"
           cache: npm
-          cache-dependency-path: mcp-server/package-lock.json
+          cache-dependency-path: |
+            mcp-server/package-lock.json
+            obsidian-plugin/package-lock.json
       - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
@@ -84,6 +86,12 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: "20"
+          cache: npm
+          cache-dependency-path: |
+            mcp-server/package-lock.json
+            obsidian-plugin/package-lock.json
+      - name: Install MCP server dependencies
+        run: cd mcp-server && npm ci
       - name: Install Obsidian plugin dependencies
         run: cd obsidian-plugin && npm ci
       - name: Test Obsidian plugin
@@ -113,12 +121,16 @@ jobs:
         with:
           node-version: "20"
           cache: npm
-          cache-dependency-path: obsidian-plugin/package-lock.json
+          cache-dependency-path: |
+            mcp-server/package-lock.json
+            obsidian-plugin/package-lock.json
       - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
       - name: Install MCP server dependencies for plugin build
         run: cd mcp-server && npm ci
+      - name: Rebuild and verify MCP release inputs
+        run: cd mcp-server && npm run verify:bundle
       - name: Build Obsidian plugin release input
         run: cd obsidian-plugin && npm ci && npm run build
       - run: pip install pytest
