@@ -446,7 +446,7 @@ function archiveSession(vaultPath: string, session: ArchivableSession, state: Sy
   const relPath = `01-Projects/${project}/sessions/${sessionSlug}.md`;
 
   const description = oneLine(
-    session.threadName || session.prompt || `Session ${session.id.slice(0, 8)}`,
+    redact(session.threadName) || redact(session.prompt) || `Session ${session.id.slice(0, 8)}`,
     200
   );
 
@@ -458,7 +458,7 @@ function archiveSession(vaultPath: string, session: ArchivableSession, state: Sy
     sessionId: session.id,
     timestamp: session.timestamp,
     prompt: redact(session.prompt),
-    threadName: session.threadName,
+    threadName: redact(session.threadName),
     project,
   });
 
