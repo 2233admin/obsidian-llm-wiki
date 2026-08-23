@@ -58,9 +58,9 @@
     "ws": "^8.21.1"
   },
   "devDependencies": {
-    "@types/node": "^26.1.1",
+    "@types/node": "^26.2.0",
     "@types/ws": "^8.18.1",
-    "esbuild": "^0.28.1",
+    "esbuild": "^0.28.2",
     "typescript": "~7.0.2"
   },
   "engines": {
