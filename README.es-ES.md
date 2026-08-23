@@ -10,7 +10,7 @@
 [![MCP](https://img.shields.io/badge/MCP-stdio-orange.svg)](https://modelcontextprotocol.io)
 [![Wiki](https://img.shields.io/badge/wiki-deep_dives-D97757.svg)](https://github.com/2233admin/obsidian-llm-wiki/wiki)
 
-**Idioma**: Español (esta página) · [简体中文](docs/zh-CN/) — **Guía**: [English](docs/GUIDE.md) · [简体中文](docs/GUIDE.zh-CN.md) — **Wiki**: [Inicio](https://github.com/2233admin/obsidian-llm-wiki/wiki) · [Arquitectura](https://github.com/2233admin/obsidian-llm-wiki/wiki/Architecture) · [Racional](https://github.com/2233admin/obsidian-llm-wiki/wiki/Rationale) · [FAQ](https://github.com/2233admin/obsidian-llm-wiki/wiki/FAQ)
+**Idioma**: Español (esta página) · [English](README.md) · [简体中文](docs/zh-CN/) — **Guía**: [English](docs/GUIDE.md) · [简体中文](docs/GUIDE.zh-CN.md) — **Wiki**: [Inicio](https://github.com/2233admin/obsidian-llm-wiki/wiki) · [Arquitectura](https://github.com/2233admin/obsidian-llm-wiki/wiki/Architecture) · [Racional](https://github.com/2233admin/obsidian-llm-wiki/wiki/Rationale) · [FAQ](https://github.com/2233admin/obsidian-llm-wiki/wiki/FAQ)
 
 ![demo](docs/gif/demo.gif)
 
@@ -20,7 +20,7 @@ No porque nadie lo haya escrito. Lo hicieron: artículos, notas de reuniones, ha
 
 LLM Wiki le da a ese caos un paso de compilación:
 
-```
+```text
 capturar -> compilar -> preguntar -> archivar -> revisar -> promover
 ```
 
@@ -36,7 +36,7 @@ Inspirado en [LLM Wiki de Andrej Karpathy](https://github.com/karpathy/llm-wiki)
 
 Dentro de cualquier sesión de Claude Code:
 
-```
+```text
 /plugin marketplace add 2233admin/obsidian-llm-wiki
 /plugin install llmwiki@obsidian-llm-wiki
 ```
@@ -118,25 +118,25 @@ Cualquier otra cosa que hable transporte stdio MCP debería funcionar — el scr
 
 Arranque en frío -- sin contexto de vault:
 
-```
+```text
 /vault-librarian what do I know about attention heads
 ```
 
 Arranque caliente -- especifica una nota que tienes:
 
-```
+```text
 /vault-librarian explain [[retrieval-augmented-generation]] in the context of my other notes on LLMs
 ```
 
 Específico de formato -- quieres una lista, no prosa:
 
-```
+```text
 /vault-historian what decisions did I make about training data between January and March 2026
 ```
 
 Iterar -- refinar una respuesta:
 
-```
+```text
 /vault-curator find all orphan notes and stale notes in my vault that have not been updated in 90 days
 ```
 
