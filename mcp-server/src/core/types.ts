@@ -93,6 +93,8 @@ export type Operation = MutatingOperation | ReadonlyOperation;
 
 export interface OperationContext {
   vault: VaultExecutor;
+  /** Shared Markdown/vault persistence seam for domain operations. */
+  store?: import('../vault/store.js').VaultStore;
   adapters: unknown | null; // AdapterRegistry -- not imported here to avoid circular deps.
   config: VaultMindConfig;
   logger: Logger;

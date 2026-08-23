@@ -1,0 +1,450 @@
+import { execFileSync, execFile } from "child_process";
+import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from "fs";
+import { isAbsolute, join, delimiter, relative, resolve } from "path";
+import { homedir, platform } from "os";
+import { requestUrl } from "obsidian";
+
+const HOME = homedir();
+const IS_WIN = platform() === "win32";
+const LOCK_PATH = join(HOME, ".agents", ".skill-lock.json");
+const API_BASE = "https://skills.sh/api";
+
+export interface MarketplaceSkill {
+	id: string;
+	skillId: string;
+	name: string;
+	source: string;
+	installs: number;
+	description?: string;
+	content?: string;
+	installed?: boolean;
+}
+
+interface SearchApiResponse {
+	skills?: {
+		id: string;
+		skillId: string;
+		name: string;
+		installs: number;
+		source: string;
+		description?: string;
+	}[];
+}
+
+export async function searchSkills(query: string): Promise<MarketplaceSkill[]> {
+	if (query.length < 2) return [];
+	try {
+		const res = await requestUrl({
+			url: `${API_BASE}/search?q=${encodeURIComponent(query)}&limit=30`,
+		});
+		const data = res.json as SearchApiResponse;
+		if (!data.skills) return [];
+		const installed = getInstalledNames();
+		return data.skills.map((s) => ({
+			...s,
+			installed: installed.has(s.name),
+		}));
+	} catch { /* empty */
+		return [];
+	}
+}
+
+const treeCache = new Map<string, { branch: string; files: string[] }>();
+
+interface GitHubRepoResponse {
+	default_branch?: string;
+}
+
+interface GitHubTreeResponse {
+	tree?: { path: string }[];
+}
+
+async function getRepoTree(source: string): Promise<{ branch: string; files: string[] }> {
+	const cached = treeCache.get(source);
+	if (cached) return cached;
+
+	const repoRes = await requestUrl({ url: `https://api.github.com/repos/${source}` });
+	const repoJson = repoRes.json as GitHubRepoResponse;
+	const branch = repoJson.default_branch || "main";
+
+	const treeRes = await requestUrl({
+		url: `https://api.github.com/repos/${source}/git/trees/${branch}?recursive=1`,
+	});
+	const treeJson = treeRes.json as GitHubTreeResponse;
+	const files = (treeJson.tree ?? [])
+		.filter((t) => t.path.endsWith("/SKILL.md"))
+		.map((t) => t.path);
+
+	const result = { branch, files };
+	treeCache.set(source, result);
+	return result;
+}
+
+function buildCandidateNames(skillName: string, skillId: string, source: string): Set<string> {
+	const idParts = skillId.split("/");
+	const folderName = idParts[idParts.length - 1] || skillName;
+	const candidates = new Set([folderName, skillName]);
+
+	for (const part of source.split("/")) {
+		if (skillName.startsWith(part + "-")) {
+			candidates.add(skillName.slice(part.length + 1));
+		}
+		for (const sub of part.split("-")) {
+			if (skillName.startsWith(sub + "-")) {
+				candidates.add(skillName.slice(sub.length + 1));
+			}
+		}
+	}
+	return candidates;
+}
+
+export async function fetchSkillContent(source: string, skillName: string, skillId: string): Promise<string | null> {
+	try {
+		const { branch, files } = await getRepoTree(source);
+		const candidates = buildCandidateNames(skillName, skillId, source);
+
+		let match = files.find((p) => {
+			const dir = p.replace("/SKILL.md", "").split("/").pop() || "";
+			return candidates.has(dir);
+		});
+
+		if (!match) {
+			match = files.find((p) => {
+				const dir = p.replace("/SKILL.md", "").split("/").pop() || "";
+				return skillName.includes(dir) || dir.includes(skillName);
+			});
+		}
+
+		const path = match || `skills/${skillName}/SKILL.md`;
+		const contentRes = await requestUrl({
+			url: `https://raw.githubusercontent.com/${source}/${branch}/${path}`,
+		});
+		return contentRes.text;
+	} catch { /* empty */
+		return null;
+	}
+}
+
+export async function getPopularSkills(): Promise<MarketplaceSkill[]> {
+	const queries = ["react", "next", "clerk", "stripe", "ai"];
+	const seen = new Set<string>();
+	const results: MarketplaceSkill[] = [];
+
+	for (const q of queries) {
+		const skills = await searchSkills(q);
+		for (const s of skills) {
+			if (!seen.has(s.id)) {
+				seen.add(s.id);
+				results.push(s);
+			}
+		}
+	}
+
+	return results.sort((a, b) => b.installs - a.installs).slice(0, 20);
+}
+
+function buildPath(): string {
+	const extra: string[] = [];
+	if (IS_WIN) {
+		const appData = process.env.APPDATA || join(HOME, "AppData", "Roaming");
+		extra.push(
+			join(appData, "npm"),
+			join(HOME, ".bun", "bin"),
+			join(HOME, "AppData", "Local", "npm"),
+		);
+	} else {
+		extra.push(
+			"/usr/local/bin",
+			"/opt/homebrew/bin",
+			join(HOME, ".local", "bin"),
+			join(HOME, ".bun", "bin"),
+		);
+	}
+	const nvmDir = IS_WIN
+		? join(HOME, "AppData", "Roaming", "nvm")
+		: join(HOME, ".nvm", "versions", "node");
+	try {
+		for (const d of readdirSync(nvmDir)) {
+			extra.push(IS_WIN ? join(nvmDir, d) : join(nvmDir, d, "bin"));
+		}
+	} catch { /* empty */ }
+	return [...extra, process.env.PATH || ""].join(delimiter);
+}
+
+function detectRunner(): string {
+	const names = IS_WIN ? ["bunx.cmd", "bunx.exe", "bunx"] : ["bunx"];
+	const dirs: string[] = [];
+	if (IS_WIN) {
+		const appData = process.env.APPDATA || join(HOME, "AppData", "Roaming");
+		dirs.push(join(HOME, ".bun", "bin"), join(appData, "npm"));
+	} else {
+		dirs.push(join(HOME, ".bun", "bin"), "/usr/local/bin", "/opt/homebrew/bin");
+	}
+	for (const dir of dirs) {
+		for (const name of names) {
+			if (existsSync(join(dir, name))) return join(dir, name);
+		}
+	}
+	return IS_WIN ? "npx.cmd" : "npx";
+}
+
+function getRunner(preference: "auto" | "npx" | "bunx" = "auto"): string {
+	if (preference === "npx") return IS_WIN ? "npx.cmd" : "npx";
+	if (preference === "bunx") return detectRunner();
+	return detectRunner();
+}
+
+function buildInstallArgs(
+	source: string,
+	agents: string[],
+	options: { globalInstall?: boolean; skillName?: string },
+): string[] {
+	const args = ["skills", "add", source, "-a", ...(agents.length > 0 ? agents : ["*"])];
+	if (options.globalInstall) args.push("-g");
+	if (options.skillName) args.push("-s", options.skillName);
+	args.push("-y");
+	return args;
+}
+
+function runFileSync(runner: string, args: string[], timeout: number): string {
+	return execFileSync(runner, args, {
+		encoding: "utf-8",
+		timeout,
+		env: { ...process.env, PATH: buildPath(), NO_COLOR: "1" },
+		stdio: ["pipe", "pipe", "ignore"],
+		windowsHide: true,
+	}).trim();
+}
+
+export const VALID_AGENTS: { id: string; label: string }[] = [
+	{ id: "claude-code", label: "Claude Code" },
+	{ id: "cursor", label: "Cursor" },
+	{ id: "codex", label: "Codex" },
+	{ id: "github-copilot", label: "GitHub Copilot" },
+	{ id: "windsurf", label: "Windsurf" },
+	{ id: "amp", label: "Amp" },
+	{ id: "opencode", label: "OpenCode" },
+	{ id: "cline", label: "Cline" },
+	{ id: "gemini-cli", label: "Gemini CLI" },
+	{ id: "goose", label: "Goose" },
+	{ id: "kiro-cli", label: "Kiro" },
+	{ id: "kilo", label: "Kilo Code" },
+	{ id: "roo", label: "Roo Code" },
+	{ id: "continue", label: "Continue" },
+	{ id: "openhands", label: "OpenHands" },
+	{ id: "antigravity", label: "Antigravity" },
+	{ id: "warp", label: "Warp" },
+	{ id: "pi", label: "Pi" },
+	{ id: "replit", label: "Replit" },
+];
+
+export const TOOL_TO_AGENT: Record<string, string> = {
+	"claude-code": "claude-code",
+	"cursor": "cursor",
+	"codex": "codex",
+	"copilot": "github-copilot",
+	"windsurf": "windsurf",
+	"amp": "amp",
+	"opencode": "opencode",
+	"antigravity": "antigravity",
+	"claude-desktop": "claude-code",
+	"pi": "pi",
+	"global-agents": "claude-code",
+	"aider": "claude-code",
+	"cline": "cline",
+	"roo-code": "roo",
+	"kilocode": "kilo",
+	"continue": "continue",
+	"openhands": "openhands",
+	"goose": "goose",
+};
+
+export function installSkill(
+	source: string,
+	agents: string[],
+	options: { runner?: "auto" | "npx" | "bunx"; globalInstall?: boolean; skillName?: string } = {}
+): { success: boolean; output: string } {
+	const resolvedRunner = getRunner(options.runner || "auto");
+	try {
+		const out = runFileSync(resolvedRunner, buildInstallArgs(source, agents, options), 120000);
+		return { success: true, output: out };
+	} catch (e: unknown) {
+		if (e && typeof e === "object" && "stdout" in e) {
+			const stdout = String((e as { stdout: string | Buffer }).stdout ?? "");
+			if (stdout.includes("Done") || stdout.includes("Installed")) {
+				return { success: true, output: stdout };
+			}
+		}
+		return { success: false, output: e instanceof Error ? e.message : "Install failed" };
+	}
+}
+
+interface SkillLockFile {
+	skills?: Record<string, unknown>;
+}
+
+function getInstalledNames(): Set<string> {
+	const names = new Set<string>();
+	if (!existsSync(LOCK_PATH)) return names;
+	try {
+		const data = JSON.parse(readFileSync(LOCK_PATH, "utf-8")) as SkillLockFile;
+		if (data.skills) {
+			for (const name of Object.keys(data.skills)) {
+				names.add(name);
+			}
+		}
+	} catch { /* empty */ }
+	return names;
+}
+
+const AGENT_SKILL_DIRS = [
+	join(HOME, ".claude", "skills"),
+	join(HOME, ".cursor", "skills"),
+	join(HOME, ".codex", "skills"),
+	join(HOME, ".codeium", "windsurf", "skills"),
+	join(HOME, ".config", "amp", "skills"),
+	join(HOME, ".config", "opencode", "skills"),
+	join(HOME, ".copilot", "skills"),
+	join(HOME, ".agents", "skills"),
+];
+
+function cleanupCopies(skillName: string): void {
+	for (const dir of AGENT_SKILL_DIRS) {
+		const skillPath = safeSkillCopyPath(dir, skillName);
+		if (!skillPath) continue;
+		if (existsSync(skillPath)) {
+			try {
+				rmSync(skillPath, { recursive: true, force: true });
+			} catch { /* empty */ }
+		}
+	}
+	cleanLockFile(skillName);
+}
+
+function safeSkillCopyPath(root: string, skillName: string): string | null {
+	if (
+		typeof skillName !== "string"
+		|| !skillName.trim()
+		|| skillName.includes("/")
+		|| skillName.includes("\\")
+		|| skillName === "."
+		|| skillName === ".."
+		|| /^[A-Za-z]:/.test(skillName)
+		|| skillName.startsWith("\\\\")
+	) return null;
+	const rootPath = resolve(root);
+	const targetPath = resolve(rootPath, skillName);
+	const targetRelative = relative(rootPath, targetPath);
+	if (!targetRelative || targetRelative.startsWith("..") || isAbsolute(targetRelative)) return null;
+	return targetPath;
+}
+
+function cleanLockFile(skillName: string): void {
+	const lockPath = join(HOME, ".agents", ".skill-lock.json");
+	if (!existsSync(lockPath)) return;
+	try {
+		const data = JSON.parse(readFileSync(lockPath, "utf-8")) as SkillLockFile;
+		if (data.skills && data.skills[skillName]) {
+			delete data.skills[skillName];
+			writeFileSync(lockPath, JSON.stringify(data, null, 2) + "\n", "utf-8");
+		}
+	} catch { /* empty */ }
+}
+
+export function removeSkill(skillName: string, runner: "auto" | "npx" | "bunx" = "auto"): { success: boolean; output: string } {
+	const resolvedRunner = getRunner(runner);
+	let cliSuccess = false;
+	let output = "";
+	try {
+		output = runFileSync(resolvedRunner, ["skills", "remove", skillName, "-y"], 30000);
+		cliSuccess = true;
+	} catch (e: unknown) {
+		if (e && typeof e === "object" && "stdout" in e) {
+			const stdout = String((e as { stdout: string | Buffer }).stdout ?? "");
+			if (stdout.includes("Removed") || stdout.includes("Done")) {
+				cliSuccess = true;
+				output = stdout;
+			}
+		}
+		if (!cliSuccess) {
+			output = e instanceof Error ? e.message : "Remove failed";
+		}
+	}
+
+	if (cliSuccess) cleanupCopies(skillName);
+	return { success: cliSuccess, output: cliSuccess ? output : `${output || "Remove failed"}; local copies were kept` };
+}
+
+export function updateAllSkills(runner: "auto" | "npx" | "bunx" = "auto"): { success: boolean; output: string; count: number } {
+	const resolvedRunner = getRunner(runner);
+	try {
+		const out = runFileSync(resolvedRunner, ["skills", "update"], 120000);
+		const match = out.match(/Updated (\d+) skill/);
+		const count = match ? parseInt(match[1]) : 0;
+		return { success: true, output: out, count };
+	} catch (e: unknown) {
+		if (e && typeof e === "object" && "stdout" in e) {
+			const stdout = String((e as { stdout: string | Buffer }).stdout ?? "");
+			if (stdout.includes("Updated") || stdout.includes("already up to date")) {
+				const match = stdout.match(/Updated (\d+) skill/);
+				return { success: true, output: stdout, count: match ? parseInt(match[1]) : 0 };
+			}
+		}
+		return { success: false, output: e instanceof Error ? e.message : "Update failed", count: 0 };
+	}
+}
+
+export function refreshInstalledStatus(skills: MarketplaceSkill[]): MarketplaceSkill[] {
+	const installed = getInstalledNames();
+	for (const s of skills) {
+		s.installed = installed.has(s.name);
+	}
+	return skills;
+}
+
+function execAsync(runner: string, args: string[], timeout = 120000): Promise<{ success: boolean; output: string }> {
+	return new Promise((resolve) => {
+		execFile(runner, args, {
+			encoding: "utf-8",
+			timeout,
+			env: { ...process.env, PATH: buildPath(), NO_COLOR: "1" },
+			windowsHide: true,
+		}, (error, stdout) => {
+			const out = String(stdout ?? "");
+			if (!error || out.includes("Done") || out.includes("Installed") || out.includes("Removed") || out.includes("Updated")) {
+				resolve({ success: true, output: out });
+			} else {
+				resolve({ success: false, output: error?.message ?? "Command failed" });
+			}
+		});
+	});
+}
+
+export async function installSkillAsync(
+	source: string,
+	agents: string[],
+	options: { runner?: "auto" | "npx" | "bunx"; globalInstall?: boolean; skillName?: string } = {}
+): Promise<{ success: boolean; output: string }> {
+	const resolvedRunner = getRunner(options.runner || "auto");
+	return execAsync(resolvedRunner, buildInstallArgs(source, agents, options));
+}
+
+export async function removeSkillAsync(skillName: string, runner: "auto" | "npx" | "bunx" = "auto"): Promise<{ success: boolean; output: string }> {
+	const resolvedRunner = getRunner(runner);
+	const result = await execAsync(resolvedRunner, ["skills", "remove", skillName, "-y"], 30000);
+	if (result.success) cleanupCopies(skillName);
+	return { success: result.success, output: result.output || (result.success ? `Cleaned ${skillName}` : "Remove failed; local copies were kept") };
+}
+
+export async function updateAllSkillsAsync(runner: "auto" | "npx" | "bunx" = "auto"): Promise<{ success: boolean; output: string; count: number }> {
+	const resolvedRunner = getRunner(runner);
+	const result = await execAsync(resolvedRunner, ["skills", "update"]);
+	const match = result.output.match(/Updated (\d+) skill/);
+	return { ...result, count: match ? parseInt(match[1]) : 0 };
+}
+
+export function formatInstalls(n: number): string {
+	if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+	if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
+	return String(n);
+}

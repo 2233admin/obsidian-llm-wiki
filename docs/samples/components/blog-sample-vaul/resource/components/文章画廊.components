@@ -1,0 +1,66 @@
+{
+  "components": [
+    {
+      "id": "2bd19d9b-6dd0-4cb0-8d08-47b508e34e52",
+      "type": "multi",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-06-03T09:37:41.880Z",
+      "updateAt": "2024-06-03T09:37:41.881Z",
+      "components": [
+        {
+          "componentId": "50c04bc9-58ee-444c-a926-481e4bf0d8ad"
+        }
+      ],
+      "layoutType": "column"
+    },
+    {
+      "id": "50c04bc9-58ee-444c-a926-481e4bf0d8ad",
+      "type": "dynamicDataView",
+      "titleAlign": "center",
+      "tabTitle": "文章",
+      "maxWidthRatio": -1,
+      "showBorder": false,
+      "showShadow": false,
+      "createAt": "2024-06-03T09:37:53.363Z",
+      "updateAt": "2024-06-03T09:37:53.363Z",
+      "viewType": "gallary",
+      "properties": [],
+      "templates": [],
+      "groups": [],
+      "viewOptions": {
+        "openPageIn": "tab",
+        "itemSize": "components--page-card-small",
+        "showPropertyName": false,
+        "hideFileName": false,
+        "wrapFileName": true,
+        "cover": {
+          "type": "pageFirstImage",
+          "value": "",
+          "fit": "cover",
+          "layout": "components--page-card-cover-landscape"
+        }
+      },
+      "filter": {
+        "id": "bb59a42d-5001-429e-a886-10bc818978c2",
+        "type": "group",
+        "operator": "and",
+        "conditions": [
+          {
+            "id": "a7efa879-7940-4340-82c1-6f8f55370a51",
+            "type": "filter",
+            "operator": "contains",
+            "property": "tags",
+            "value": "post",
+            "conditions": []
+          }
+        ]
+      },
+      "newPageNameFormat": ""
+    }
+  ],
+  "rootComponentId": "2bd19d9b-6dd0-4cb0-8d08-47b508e34e52"
+}

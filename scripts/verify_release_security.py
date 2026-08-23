@@ -252,10 +252,9 @@ ASK_MATE_SOURCE_CONTRACTS: dict[Path, tuple[str, ...]] = {
         "problem.intake.contribution.apply",
     ),
     Path("obsidian-plugin/src/production-control-plane-host.ts"): (
+        "createApplicationRuntime",
         "createVaultGovernedContributionPort",
-        "makeVisualWorkspaceOps",
-        "makeProblemIntakeOps",
-        "createProductionProjectHubIntegration",
+        "createExecFileObcRunner",
     ),
     Path("mcp-server/src/contributions/contracts.ts"): (
         "PendingContributionReceipt",

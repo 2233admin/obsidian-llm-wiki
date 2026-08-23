@@ -8,13 +8,15 @@
     "obsidian-llm-wiki-mcp": "bundle.js",
     "memu-query": "memu-query.js",
     "llmwiki-usage": "usage-cli.js",
-    "llmwiki-agent": "agent-domain-cli.js"
+    "llmwiki-agent": "agent-domain-cli.js",
+    "session-archiver": "session-archiver.js"
   },
   "files": [
     "bundle.js",
     "agent-domain-cli.js",
     "memu-query.js",
     "usage-cli.js",
+    "session-archiver.js",
     "package.json"
   ],
   "scripts": {
@@ -37,26 +39,28 @@
     "memu-query": "node dist/scripts/memu-query.js",
     "sync-vault-to-memu": "node dist/scripts/sync-vault-to-memu.js",
     "claude-mem-sync": "node dist/scripts/claude-mem-sync.js",
+    "session-archiver": "node dist/scripts/session-archiver.js",
     "generate-tools-doc": "node dist/scripts/generate-tools-doc.js",
     "bundle:mcp": "esbuild dist/index.js --bundle --platform=node --target=node20 --format=esm --outfile=bundle.js --external:@electric-sql/pglite --external:@electric-sql/pglite/* --banner:js=\"import{createRequire}from'module';const require=createRequire(import.meta.url);\" --log-level=warning",
     "bundle:agent-domain-cli": "esbuild dist/agent-domain/cli.js --bundle --platform=node --target=node20 --format=esm --outfile=agent-domain-cli.js --log-level=warning",
     "bundle:memu-query": "esbuild dist/scripts/memu-query.js --bundle --platform=node --target=node20 --format=esm --outfile=memu-query.js --log-level=warning",
     "bundle:usage-cli": "esbuild dist/usage/cli.js --bundle --platform=node --target=node20 --format=esm --outfile=usage-cli.js --log-level=warning",
-    "bundle": "npm run bundle:mcp && npm run bundle:agent-domain-cli && npm run bundle:memu-query && npm run bundle:usage-cli",
+    "bundle:session-archiver": "esbuild dist/scripts/session-archiver.js --bundle --platform=node --target=node20 --format=esm --outfile=session-archiver.js --log-level=warning",
+    "bundle": "npm run bundle:mcp && npm run bundle:agent-domain-cli && npm run bundle:memu-query && npm run bundle:usage-cli && npm run bundle:session-archiver",
     "rebuild": "npm run build && npm run bundle",
     "verify:bundle": "npm run rebuild && node scripts/verify-bundles.mjs"
   },
   "dependencies": {
-    "@electric-sql/pglite": "^0.5.4",
-    "@modelcontextprotocol/sdk": "^1.29.0",
-    "@types/pg": "^8.20.0",
-    "pg": "^8.22.0",
-    "ws": "^8.21.1"
+    "@electric-sql/pglite": "^0.5.6",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@types/pg": "^8.23.1",
+    "pg": "^8.23.0",
+    "ws": "^8.21.3"
   },
   "devDependencies": {
-    "@types/node": "^26.1.1",
+    "@types/node": "^26.2.0",
     "@types/ws": "^8.18.1",
-    "esbuild": "^0.28.1",
+    "esbuild": "^0.28.2",
     "typescript": "~7.0.2"
   },
   "engines": {

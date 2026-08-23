@@ -1,0 +1,262 @@
+{
+  "main": {
+    "id": "5b11b41c31aa15de",
+    "type": "split",
+    "children": [
+      {
+        "id": "f5421a441330fe2e",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "6b6a0d3f6643dd53",
+            "type": "leaf",
+            "state": {
+              "type": "components-file-view",
+              "state": {
+                "file": "Home.components"
+              },
+              "icon": "gantt-chart",
+              "title": "Home"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "9f7f9960c6f94de2",
+    "type": "split",
+    "children": [
+      {
+        "id": "846718564602f7ee",
+        "type": "tabs",
+        "dimension": 39.150090415913205,
+        "children": [
+          {
+            "id": "a2f3896f5426f1f7",
+            "type": "leaf",
+            "pinned": true,
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "resource/components/views/Area 导航.md",
+                "mode": "preview",
+                "source": false
+              },
+              "pinned": true,
+              "icon": "lucide-file",
+              "title": "Area 导航"
+            }
+          },
+          {
+            "id": "52f2d3242156b701",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "date",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "搜索"
+            }
+          },
+          {
+            "id": "d22e41c5c4daa8a2",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "书签"
+            }
+          }
+        ]
+      },
+      {
+        "id": "69eef7710309438f",
+        "type": "tabs",
+        "dimension": 60.8499095840868,
+        "children": [
+          {
+            "id": "fca371bc7716cb1a",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "文件列表"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 297.5
+  },
+  "right": {
+    "id": "82009f7c92a8569a",
+    "type": "split",
+    "children": [
+      {
+        "id": "3377601b98ad7993",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "0b8417c63804aa81",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "Home.components",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Home 的反向链接列表"
+            }
+          },
+          {
+            "id": "4bf51b36a517c238",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "Home.components",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Home 的出链列表"
+            }
+          },
+          {
+            "id": "a6147d37af98a284",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "标签"
+            }
+          },
+          {
+            "id": "938ed122f25892f1",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "Home.md"
+              },
+              "icon": "lucide-list",
+              "title": "Home 的大纲"
+            }
+          }
+        ],
+        "currentTab": 2
+      },
+      {
+        "id": "a68e849f838a6126",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "b9eb7793b1676a07",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "添加笔记属性"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 313.5,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "bases:创建新数据库": false,
+      "switcher:打开快速切换": false,
+      "graph:查看关系图谱": false,
+      "canvas:新建白板": false,
+      "daily-notes:打开/创建今天的日记": false,
+      "templates:插入模板": false,
+      "command-palette:打开命令面板": false,
+      "workspaces:管理工作区布局": false,
+      "obsidian-weread-plugin:同步微信读书笔记": false
+    }
+  },
+  "active": "a2f3896f5426f1f7",
+  "lastOpenFiles": [
+    "Home.components",
+    "README.md",
+    "resource/components/area/书库.components",
+    "resource/components/views/Area 导航.md",
+    "resource/components/area/旅游.components",
+    "resource/components/area/pkm.components",
+    "resource/components/area/工作.components",
+    "resource/components/area/日记.components",
+    "area/work/研发/250612.md",
+    "inbox/20250612.md",
+    "resource/template/inbox.md",
+    "area/journal/day/2025-06-12.md",
+    "area/journal/day/2025-03-01.md",
+    "resource/components/views/area.components",
+    "area/工作.md",
+    "area/旅游.md",
+    "area/journal/day/2025-03-22.md",
+    "resource/components/views/导航栏.md",
+    "area/journal/week/2025-W08.md",
+    "area/journal/week/25-08.md",
+    "area/journal/day/2025-02-22.md",
+    "resource/图片素材/clay-banks-QPivxTs7QVU-unsplash.jpg",
+    "resource/图片素材/8397f96d0016889d9b61a72015567ab3.jpeg",
+    "resource/图片素材/cb4e4686c53cb0d09d5737a2c0d41b0d.jpeg",
+    "resource/图片素材/aa22cd4338ba11367282c03fa9738a4a.jpeg",
+    "resource/图片素材/93ae28e3f3b280700b8994b6c4e3479e.jpeg",
+    "resource/图片素材/4b5aab40997b69ae94db25e378b66f14.jpg",
+    "resource/图片素材/carolina-nichitin-5OY83OiKlNQ-unsplash.jpg",
+    "resource/图片素材/braden-collum-75XHJzEIeUc-unsplash.jpg",
+    "resource/图片素材/anders-jilden-cYrMQA7a3Wc-unsplash.jpg",
+    "resource/图片素材/3254002f58d97566b5ceb0e54f99aadd.jpg",
+    "resource/template/日记/日记模板.md",
+    "area/journal/day/2025-02-16.md",
+    "para-sample-vault2.zip",
+    "para-sample-vault.zip",
+    "Archive.zip",
+    "area/journal/day/2025-02-11.md",
+    "area/books/manual/世界简史.md",
+    "area/journal/day/2024-12-31.md",
+    "area/journal/day/2025-04-01.md",
+    "area/journal/month/2024-12.md",
+    "area/journal/day/2024-12-27.md",
+    "area/知识管理.md",
+    "area/阅读.md",
+    "area/日记.md"
+  ]
+}

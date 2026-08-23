@@ -16,6 +16,12 @@ _tmp/
 # Local vault (user's own notes, never committed)
 knowledge/
 .cnxq/
+vault/
+
+# Unlicensed third-party sample vaults and components — see docs/samples/components/
+# for the licensed ones (Apache-2.0 / GPL-3.0). Anything outside that subtree is
+# either user-private or has no LICENSE; do not ship.
+/Components/
 
 # IDE
 .vscode/
@@ -79,6 +85,19 @@ capture-hook.seen.log
 # machine path must NEVER appear in any shared/committed markdown note (§0 #9).
 # Holds workspace.json (workspace-roots) + local-bindings.json (entity -> path).
 .vault-mind/
+
+# esbuild bundle outputs — always regenerate via `npm run rebuild`. Never commit.
+/mcp-server/bundle.js
+/mcp-server/agent-domain-cli.js
+/mcp-server/memu-query.js
+/mcp-server/usage-cli.js
+/obsidian-plugin/main.js
+
+# Stray one-off project artifacts that should not have been created at the repo root
+# (cleaned up; rule kept so future accidents stay ignored).
+/1.5
+/HUMAN_INPUT.md
+/test-integration.md
 
 # Local planning / GSD artifacts (per-dev, not part of shipped product)
 .planning/

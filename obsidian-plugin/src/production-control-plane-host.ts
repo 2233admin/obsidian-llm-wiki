@@ -1,26 +1,21 @@
-import { createOperationDispatcher, type OperationDispatcher } from "../../mcp-server/src/control-plane/dispatcher";
 import { AdapterRegistry } from "../../mcp-server/src/adapters/registry";
-import { makeAdapterGraphOps } from "../../mcp-server/src/adapters/graph-query";
+import { FilesystemAdapter } from "../../mcp-server/src/adapters/filesystem";
 import { GraphifyAdapter } from "../../mcp-server/src/adapters/graphify";
 import { resolveKnowledgeAdaptersRuntimeProfile } from "../../mcp-server/src/adapters/settings-runtime";
-import { makeAgentDomainOps } from "../../mcp-server/src/agent-domain/operations";
-import { makeLegacyAgentMigrationOps } from "../../mcp-server/src/agent-domain/legacy-migration";
+import { CompileTrigger } from "../../mcp-server/src/compile-trigger";
+import { LegacyCompileRunAdapter } from "../../mcp-server/src/compile/compile-run-port";
+import { LegacyAgentRunnerAdapter, PythonEvaluateRunner } from "../../mcp-server/src/agent/agent-runner-port";
+import { createApplicationRuntime, type ApplicationRuntime } from "../../mcp-server/src/application/runtime";
+import { FileVaultStore } from "../../mcp-server/src/vault/store";
 import { badRequest, conflict, type Logger, type OperationContext, type VaultExecutor } from "../../mcp-server/src/core/types";
-import { makeHostCapabilityOps, type HostCapabilityTransportFactory } from "../../mcp-server/src/host-capabilities/operations";
-import { createDefaultHostCapabilityTransportFactory } from "../../mcp-server/src/host-capabilities/transport";
-import { makeProjectHubOps } from "../../mcp-server/src/project/project-hub";
-import { makeProjectOps } from "../../mcp-server/src/project/project";
-import { makeProblemIntakeOps } from "../../mcp-server/src/problem-intake/operations";
+import { type HostCapabilityTransportFactory } from "../../mcp-server/src/host-capabilities/operations";
 import { createExecFileObcRunner } from "../../mcp-server/src/problem-intake/obc-runner";
-import { createProductionProblemIntakeDependencies } from "../../mcp-server/src/problem-intake/production";
-import { createProductionProjectHubIntegration } from "../../mcp-server/src/project-hub/production";
 import {
   createVaultGovernedContributionPort,
   type UiWorkRunApprovalPairPort,
 } from "../../mcp-server/src/contributions";
-import { createSettingsService, makeSettingsOps } from "../../mcp-server/src/settings/settings";
-import { makeUsageOps } from "../../mcp-server/src/usage/operations";
-import { makeVisualWorkspaceOps } from "../../mcp-server/src/visual-workspace/operations";
+import { createSettingsService, resolveAgentModelProcessEnvironment } from "../../mcp-server/src/settings/settings";
+import { isObsidianControlPlaneOperation } from "./host-operation-filter";
 import type { AgentControlPlaneTransport } from "./control-plane-client";
 import { InProcessSettingsTransport } from "./settings-host";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -44,13 +39,12 @@ export interface ProductionControlPlaneOptions {
 /**
  * Desktop-only production host for the shared Operation registry.
  *
- * It deliberately imports operation makers rather than the MCP server entry
- * point, so loading the Obsidian plugin cannot start a listener or a service.
+ * It deliberately imports the shared application runtime rather than the MCP
+ * server entry point, so loading the Obsidian plugin cannot start a listener
+ * or a service.
  */
 export class ProductionControlPlaneTransport implements AgentControlPlaneTransport {
-  private readonly dispatcher: OperationDispatcher;
-  private readonly ready: Promise<void>;
-  private readonly disposeContribution: () => Promise<void>;
+  private readonly runtime: ApplicationRuntime;
 
   constructor(options: ProductionControlPlaneOptions) {
     const settingsOptions = {
@@ -72,14 +66,18 @@ export class ProductionControlPlaneTransport implements AgentControlPlaneTranspo
       service: settingsService,
     });
     const adapters = new AdapterRegistry();
-    this.ready = initializeGraphifyAdapter(
+    const filesystemAdapter = new FilesystemAdapter(options.vaultPath);
+    adapters.register(filesystemAdapter);
+    const filesystemReady = filesystemAdapter.init().catch(() => undefined);
+    const graphifyReady = initializeGraphifyAdapter(
       adapters,
       settingsHost.service,
       options.vaultPath,
       options.environment,
     ).catch(() => undefined);
     const context: OperationContext = {
-      vault: new PromotionVaultExecutor(options.vaultPath),
+      vault: new ObsidianAIOutputVaultExecutor(options.vaultPath),
+      store: new FileVaultStore(options.vaultPath),
       adapters,
       config: {
         vault_path: options.vaultPath,
@@ -97,76 +95,78 @@ export class ProductionControlPlaneTransport implements AgentControlPlaneTranspo
             "Projects/**",
             "01-Projects/**",
             "00-Inbox/AI-Output/vault-dreamtime/**",
+            "00-Inbox/AI-Output/vault-ask/**",
+            "00-Inbox/AI-Output/vault-agentfiles/**",
           ],
         },
       },
       logger: options.logger ?? quietLogger,
       dryRun: false,
     };
-    const projectOps = makeProjectOps(options.vaultPath);
-    const projectOpsByName = new Map(projectOps.map(operation => [operation.name, operation]));
     const contribution = createVaultGovernedContributionPort({
       vaultPath: options.vaultPath,
       ...(options.contributionApprovalPairs
         ? { approvalPairs: options.contributionApprovalPairs }
         : {}),
     });
-    this.disposeContribution = () => contribution.dispose();
-    const problemDependencies = createProductionProblemIntakeDependencies(
-      options.vaultPath,
-      {
-        async call(operationName, params, operationContext) {
-          const operation = projectOpsByName.get(operationName);
-          if (!operation) throw new Error(`Project operation unavailable: ${operationName}`);
-          const result = await operation.handler(
-            (operationContext ?? context) as OperationContext,
-            params,
-          );
-          if (!result || typeof result !== "object" || Array.isArray(result)) {
-            throw new Error(`Project operation returned an invalid result: ${operationName}`);
-          }
-          return result as Record<string, unknown>;
-        },
-      },
-      { contribution },
-    );
-    const projectHubIntegration = createProductionProjectHubIntegration({
+    const python = options.pythonPath ?? "python";
+    const compilerPath = options.compilerPath ?? join(options.vaultPath, "compiler");
+    const compileTrigger = new CompileTrigger({
       vaultPath: options.vaultPath,
-      problemIntake: problemDependencies,
+      compilerPath,
+      python,
+      vaultStore: context.store,
+      autoCompile: false,
+      schedulingMode: "legacy-threshold",
     });
-    const obcRunner = createExecFileObcRunner({
-      ...(options.pythonPath ? { pythonCommand: options.pythonPath } : {}),
-      ...(options.compilerPath ? { cwd: dirname(options.compilerPath) } : {}),
+    const compileRunPort = new LegacyCompileRunAdapter(compileTrigger, { vaultPath: options.vaultPath });
+    compileTrigger.setRunScheduler(compileRunPort);
+    const agentRunnerPort = new LegacyAgentRunnerAdapter(
+      new PythonEvaluateRunner({
+        vaultPath: options.vaultPath,
+        compilerPath,
+        python,
+        environmentResolver: () => resolveAgentModelProcessEnvironment(settingsService),
+      }),
+      { vaultPath: options.vaultPath },
+    );
+    const ready = Promise.all([
+      filesystemReady,
+      graphifyReady,
+      compileRunPort.recover(),
+      agentRunnerPort.recover(),
+    ]).then(() => undefined);
+    this.runtime = createApplicationRuntime({
+      compileTrigger,
+      compileRunPort,
+      agentRunnerPort,
+      registry: adapters,
+      python,
+      compilerPath,
+      vaultPath: options.vaultPath,
+      store: context.store,
+      environment: options.environment,
+      settingsOptions,
+      settingsService: settingsHost.service,
+      hostCapabilityTransportFactory: options.hostCapabilityTransportFactory,
+      obcRunner: createExecFileObcRunner({
+        pythonCommand: python,
+        cwd: options.compilerPath ? dirname(options.compilerPath) : undefined,
+      }),
+      problemContributionFactory: () => ({ contribution }),
+      context,
+      operationFilter: isObsidianControlPlaneOperation,
+      ready,
+      onDispose: () => contribution.dispose(),
     });
-    this.dispatcher = createOperationDispatcher([
-      ...makeSettingsOps(settingsOptions, settingsHost.service),
-      ...makeAdapterGraphOps(adapters),
-      ...projectOps,
-      ...makeVisualWorkspaceOps(options.vaultPath),
-      ...makeProblemIntakeOps(options.vaultPath, problemDependencies, { obcRunner }),
-      ...makeAgentDomainOps(options.vaultPath),
-      ...makeProjectHubOps(adapters, settingsHost.service, {
-        loadVisualTriage: projectHubIntegration.loadVisualTriage,
-      }),
-      ...makeUsageOps(options.vaultPath),
-      ...makeHostCapabilityOps(options.vaultPath, {
-        settingsService,
-        environment: options.environment,
-        transportFactory: options.hostCapabilityTransportFactory
-          ?? createDefaultHostCapabilityTransportFactory({ environment: options.environment }),
-        observePluginDiagnostic: projectHubIntegration.observePluginDiagnostic,
-      }),
-      ...makeLegacyAgentMigrationOps(),
-    ], context);
   }
 
   async invoke<T>(operation: string, args: Record<string, unknown> = {}): Promise<T> {
-    if (operation === "graph.adapters.query") await this.ready;
-    return this.dispatcher.invoke(operation, args) as Promise<T>;
+    return this.runtime.invoke(operation, args) as Promise<T>;
   }
 
   async dispose(): Promise<void> {
-    await this.disposeContribution();
+    await this.runtime.dispose();
   }
 }
 
@@ -196,11 +196,11 @@ const quietLogger: Logger = {
 };
 
 /**
- * Dream Time Promotion needs one narrow VaultExecutor method: write a
- * deterministic quarantined Markdown candidate. Replays preserve the original
- * bytes; no general Vault mutation surface is exposed to this host.
+ * Obsidian's governed AI Output flows need one narrow VaultExecutor method:
+ * write a deterministic quarantined Markdown candidate. Replays preserve the
+ * original bytes; no general Vault mutation surface is exposed to this host.
  */
-class PromotionVaultExecutor implements VaultExecutor {
+class ObsidianAIOutputVaultExecutor implements VaultExecutor {
   constructor(private readonly vaultPath: string) {}
 
   async execute(method: string, params: Record<string, unknown>): Promise<unknown> {
@@ -210,10 +210,13 @@ class PromotionVaultExecutor implements VaultExecutor {
 
   private async writePromotionCandidate(params: Record<string, unknown>): Promise<Record<string, unknown>> {
     const persona = requiredString(params.persona, "persona");
-    if (persona !== "vault-dreamtime") throw badRequest("Obsidian Promotion only accepts the vault-dreamtime persona");
+    if (persona !== "vault-dreamtime" && persona !== "vault-ask" && persona !== "vault-agentfiles") {
+      throw badRequest("Obsidian AI Output only accepts the vault-dreamtime, vault-ask, or vault-agentfiles persona");
+    }
     const agent = requiredString(params.agent, "agent");
     const parentQuery = requiredString(params.parentQuery, "parentQuery").slice(0, 200).replace(/"/g, "”");
     const body = requiredString(params.body, "body");
+    if (/^---\r?\n/.test(body)) throw badRequest("body must not include frontmatter");
     const slug = safeSlug(requiredString(params.slug, "slug"));
     const sourceNodes = stringArray(params.sourceNodes, "sourceNodes");
     const scope = params.scope === undefined ? "project" : requiredString(params.scope, "scope");
@@ -228,14 +231,14 @@ class PromotionVaultExecutor implements VaultExecutor {
 
     const generatedAt = new Date().toISOString();
     const yamlNodes = sourceNodes.length
-      ? `source-nodes:\n${sourceNodes.map(node => `  - "${node.replace(/"/g, "”")}"`).join("\n")}`
+      ? `source-nodes:\n${sourceNodes.map(node => `  - ${yamlQuoted(node)}`).join("\n")}`
       : "source-nodes: []";
     const content = [
       "---",
       `generated-by: ${persona}`,
       `generated-at: ${generatedAt}`,
-      `agent: ${agent}`,
-      `parent-query: "${parentQuery}"`,
+      `agent: ${yamlQuoted(agent)}`,
+      `parent-query: ${yamlQuoted(parentQuery)}`,
       yamlNodes,
       "status: draft",
       `scope: ${scope}`,
@@ -275,6 +278,12 @@ function stringArray(value: unknown, name: string): string[] {
     throw badRequest(`${name} must be an array of strings`);
   }
   return value as string[];
+}
+
+function yamlQuoted(value: string): string {
+  // JSON string quoting is also valid YAML double-quoted scalar syntax and
+  // keeps user-controlled newlines, quotes, and backslashes inside metadata.
+  return JSON.stringify(value);
 }
 
 function safeSlug(value: string): string {

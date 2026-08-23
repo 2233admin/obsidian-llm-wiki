@@ -434,6 +434,8 @@ export function makeContextOps(
           claims: answer.claims,
           citations: answer.citations,
           gaps: answer.gaps,
+          contradictions: answer.contradictions,
+          confidence: answer.confidence,
           traceSummary: summarizeTrace(answer),
         };
       },

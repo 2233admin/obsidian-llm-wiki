@@ -372,6 +372,26 @@ function governedBackendOperationAllowsTarget(toolName: string, target: string):
   if (toolName === 'dreamtime.promotion.handoff') {
     return normalized === '00-Inbox/AI-Output/vault-dreamtime/**';
   }
+  if (toolName === 'compile.run' || toolName === 'compile.run.approve' || toolName === 'compile.run.reject') {
+    return normalized === '_llmwiki/compile-runs/v1/**'
+      || normalized === 'external/compile/**'
+      || normalized === '00-Inbox/AI-Output/vault-compiler/**'
+      || /^[A-Za-z0-9._-]+\/wiki\/\*\*$/.test(normalized)
+      || /^[A-Za-z0-9._-]+\/_meta\.json$/.test(normalized);
+  }
+  if (toolName === 'agent.trigger') {
+    return normalized === '_llmwiki/agent-runs/v1/**'
+      || normalized === 'external/agent/**'
+      || normalized === '_llmwiki/compile-runs/v1/**'
+      || normalized === 'external/compile/**'
+      || normalized === '00-Inbox/AI-Output/vault-compiler/**'
+      || /^[A-Za-z0-9._-]+\/wiki\/\*\*$/.test(normalized)
+      || /^[A-Za-z0-9._-]+\/_meta\.json$/.test(normalized);
+  }
+  if (toolName === 'agent.run.cancel') {
+    return normalized === '_llmwiki/agent-runs/v1/**'
+      || normalized === 'external/agent/**';
+  }
   if (new Set([
     'dreamtime.checkpoint.propose',
     'dreamtime.learn.propose',

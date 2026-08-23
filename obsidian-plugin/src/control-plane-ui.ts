@@ -110,10 +110,10 @@ export class AgentControlPlaneModal extends Modal {
   private render(): void {
     const { contentEl } = this;
     contentEl.empty();
-    contentEl.createEl("h2", { text: "Agent control plane" });
+    contentEl.createEl("h2", { text: "Advanced control plane" });
     contentEl.createEl("p", {
       cls: "llmwiki-control-plane-intro",
-      text: "Backend-owned Project, Agent, Room, Dream Time, collaboration, connector, and Usage projections. This surface keeps no approval ledger.",
+      text: "Technical administration for Project, Agent, connector, and capability state. Use LLM Wiki for day-to-day knowledge work; this surface is for setup, diagnostics, and advanced approvals.",
     });
     this.renderQuery(contentEl);
     if (this.error) contentEl.createEl("p", { cls: "llmwiki-control-plane-error", text: this.error });

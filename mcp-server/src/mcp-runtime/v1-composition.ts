@@ -56,8 +56,10 @@ function registerDomainOperationV1(
         const preparedParams = options.prepareParams
           ? await options.prepareParams(operation, rawParams)
           : rawParams;
-        const result = await operation.handler(options.ctx, preparedParams);
-        if (options.afterOperation) {
+        const result = options.invoke
+          ? await options.invoke(operation.name, preparedParams)
+          : await operation.handler(options.ctx, preparedParams);
+        if (!options.invoke && options.afterOperation) {
           await options.afterOperation(operation, preparedParams, result);
         }
         return formatOperationResult(result);

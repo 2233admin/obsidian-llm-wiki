@@ -100,6 +100,17 @@ Inventory and describe them, but keep authority boundaries clear:
 - obsidian-llm-wiki Project Hubs should link the owning runtime and summarize only what a
   human needs to resume work.
 
+### Agentfiles native capability
+
+The LLM Wiki Obsidian plugin internalizes the capability surface of
+`https://github.com/Railly/agentfiles` under `obsidian-plugin/src/agentfiles/`.
+It is one feature of the existing plugin, not a second plugin or a replacement
+for the external runtimes. Its scanner may read supported global and
+project-local agent-file paths, while edits and marketplace installation remain
+explicit user actions. Claude session export is routed to
+`00-Inbox/AI-Output/agentfiles/` with `review: draft`; no external session is
+promoted to memory or durable knowledge automatically.
+
 ## LazyCodex example
 
 For `https://github.com/code-yeongyu/lazycodex`:

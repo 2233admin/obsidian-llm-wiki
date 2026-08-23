@@ -8,10 +8,12 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { CompileTrigger } from "./compile-trigger.js";
+import { LegacyCompileRunAdapter } from "./compile/compile-run-port.js";
+import { FileVaultStore } from "./vault/store.js";
 
 const FAKE_VAULT = "/nonexistent/vault";
 const FAKE_COMPILER = "/nonexistent/compiler";
@@ -211,6 +213,7 @@ describe("CompileTrigger -- run", () => {
         vaultPath,
         compilerPath,
         python: process.execPath,
+        vaultStore: new FileVaultStore(vaultPath),
         autoCompile: false,
         environmentResolver: async () => ({ ...process.env, ENV_CAPTURE: environmentCapture, COMPILE_MODEL: "settings-model" }),
         onCompileSuccess: (wikiPaths) => {
@@ -226,6 +229,67 @@ describe("CompileTrigger -- run", () => {
         resolve(join(wikiDir, "concepts", "memory.md")),
         resolve(join(wikiDir, "summary.md")),
       ].sort());
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("run() executes in durable staging and waits for approval before promotion", async () => {
+    const root = mkdtempSync(join(tmpdir(), "vault-compile-staging-"));
+    try {
+      const vaultPath = join(root, "vault");
+      const compilerPath = join(root, "compiler");
+      const topicPath = join(vaultPath, "topic-a");
+      mkdirSync(join(topicPath, "raw"), { recursive: true });
+      mkdirSync(join(topicPath, "wiki"), { recursive: true });
+      mkdirSync(compilerPath, { recursive: true });
+      writeFileSync(join(topicPath, "raw", "source.md"), "source\n", "utf-8");
+      writeFileSync(join(topicPath, "_meta.json"), "{}\n", "utf-8");
+      writeFileSync(
+        join(compilerPath, "compile.py"),
+        "const fs = require('node:fs');\n" +
+          "const path = require('node:path');\n" +
+          "const topic = process.argv[2];\n" +
+          "fs.mkdirSync(path.join(topic, 'wiki'), { recursive: true });\n" +
+          "fs.writeFileSync(path.join(topic, 'wiki', 'generated.md'), '# staged output\\n');\n" +
+          "const result = process.argv.indexOf('--result-file');\n" +
+          "fs.writeFileSync(process.argv[result + 1], JSON.stringify({ protocolVersion: 1, ok: true, topic: path.basename(topic), sourcesCompiled: 1, conceptsCreated: 1, contradictions: 0, timestamp: '2026-08-15T00:00:00.000Z' }));\n",
+        "utf-8",
+      );
+
+      const trigger = new CompileTrigger({
+        vaultPath,
+        compilerPath,
+        python: process.execPath,
+        vaultStore: new FileVaultStore(vaultPath),
+        autoCompile: false,
+      });
+      const port = new LegacyCompileRunAdapter(trigger, {
+        vaultPath,
+        runId: () => "compile-run/staging",
+      });
+      const pending = await (await port.submit({ trigger: "manual", topic: "topic-a", promotionMode: "approval-required" })).wait();
+      const result = pending.result;
+
+      assert.ok(result);
+      assert.equal(result.ok, true);
+      assert.equal(result.sourcesCompiled, 1);
+      assert.equal(result.artifacts?.length, 1);
+      assert.equal(result.artifacts?.[0]?.proposedTarget, "topic-a/wiki/generated.md");
+      assert.match(result.artifacts?.[0]?.contentDigest ?? "", /^sha256:[a-f0-9]{64}$/);
+      assert.equal(pending.status, "awaiting_approval");
+      assert.equal(pending.verification?.passed, true);
+      assert.equal(pending.promotion?.status, "awaiting-approval");
+      assert.equal(pending.reviewPath, "00-Inbox/AI-Output/vault-compiler/compile-staging.md");
+      assert.match(readFileSync(join(vaultPath, pending.reviewPath!), "utf-8"), /review-status: pending/);
+      assert.equal(existsSync(join(topicPath, "wiki", "generated.md")), false);
+
+      const receipt = await port.approve(pending.runId);
+      assert.equal(receipt.status, "succeeded");
+      assert.equal(receipt.promotion?.status, "promoted");
+      assert.match(readFileSync(join(vaultPath, receipt.reviewPath!), "utf-8"), /review-status: approved/);
+      assert.equal(readFileSync(join(topicPath, "wiki", "generated.md"), "utf-8"), "# staged output\n");
+      assert.equal(readFileSync(join(vaultPath, "_llmwiki", "compile-runs", "v1", "staging", "staging", "topic-a", "wiki", "generated.md"), "utf-8"), "# staged output\n");
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

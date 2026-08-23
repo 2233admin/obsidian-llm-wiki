@@ -1,5 +1,4 @@
 import { execFile, spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
@@ -15,6 +14,16 @@ import { ensureBackfill, recallGaps } from '../adapters/vaultbrain/lazy-index.js
 import type { RAGAnythingAdapter } from '../adapters/raganything.js';
 import type { LightRAGAdapter } from '../adapters/lightrag.js';
 import type { CompileTrigger } from '../compile-trigger.js';
+import {
+  LegacyCompileRunAdapter,
+  type CompileRunPort,
+} from '../compile/compile-run-port.js';
+import {
+  AGENT_ACTIONS,
+  LegacyAgentRunnerAdapter,
+  PythonEvaluateRunner,
+  type AgentRunnerPort,
+} from '../agent/agent-runner-port.js';
 import { ContextCoreLoader } from '../holons/loader.js';
 import { makeHolonOps } from '../holons/holon.js';
 import { makeCausalOps } from '../holons/causal.js';
@@ -26,12 +35,19 @@ import { makeProjectOps } from '../project/project.js';
 import { makeProjectHubOps } from '../project/project-hub.js';
 import { makeIngestOps } from '../ingest/ingest.js';
 import { makeSourceOps } from '../source/source.js';
+import type { VaultStore } from '../vault/store.js';
 import { makeConversationOps } from '../conversation/conversation.js';
 import { makeContextOps } from '../context/context.js';
 import { makeWorkflowOps } from '../workflow/workflow.js';
 import { resolveProjectContext } from '../project/project-context.js';
 import { makeProjectMigrationOps } from '../project/project-migration.js';
-import { createSettingsService, makeSettingsOps, resolveAgentModelProcessEnvironment } from '../settings/settings.js';
+import {
+  createSettingsService,
+  makeSettingsOps,
+  resolveAgentModelProcessEnvironment,
+  type SettingsOperationsOptions,
+} from '../settings/settings.js';
+import type { SettingsService } from '../../../packages/settings-platform/dist/src/index.js';
 import { makeUsageOps } from '../usage/operations.js';
 import {
   makeHostCapabilityOps,
@@ -50,21 +66,23 @@ import { createProductionProblemIntakeDependencies } from '../problem-intake/pro
 import {
   createExecFileObcRunner,
   runObcReadOnlyLint,
+  type ObcRunner,
 } from '../problem-intake/obc-runner.js';
 import { createProductionProjectHubIntegration } from '../project-hub/production.js';
+import type { ProductionProjectHubIntegration } from '../project-hub/production.js';
 import {
   createVaultGovernedContributionPort,
   type UiWorkRunApprovalPairPort,
 } from '../contributions/index.js';
 import { makeAgentWikiFeatureOps, resolveAgentWikiFeatureFlags } from '../release/feature-flags.js';
+import { resolveProjectRoot } from '../runtime-paths.js';
 
 export { makeAdapterGraphOps };
 
 const execAsync = promisify(execFile);
 const PROTECTED_DIRS = new Set(['.obsidian', '.trash', '.git', 'node_modules']);
 
-const _thisDir = dirname(fileURLToPath(import.meta.url));
-const _projectRoot = join(_thisDir, '..', '..', '..');
+const _projectRoot = resolveProjectRoot();
 
 const dryRunPathPolicy = (event: 'create' | 'modify' | 'delete' = 'modify'): OperationWritePolicy => ({
   realWrite: 'dryRunFalse',
@@ -89,6 +107,50 @@ const batchWritePolicy = (): OperationWritePolicy => ({
 const externalSideEffectPolicy = (target: string): OperationWritePolicy => ({
   realWrite: 'always',
   targets: staticTargets(`external/${target}`),
+  audit: 'required',
+});
+
+const agentRunWritePolicy = (fallbackTopic?: () => string | undefined): OperationWritePolicy => ({
+  realWrite: 'always',
+  targets: (_ctx, params) => {
+    const targets = ['external/agent/**', '_llmwiki/agent-runs/v1/**'];
+    if (params.action === 'compile') {
+      const topic = typeof params.topic === 'string' && params.topic.trim()
+        ? params.topic.trim()
+        : fallbackTopic?.();
+      targets.push('external/compile/**', '_llmwiki/compile-runs/v1/**', '00-Inbox/AI-Output/vault-compiler/**');
+      if (topic) targets.push(`${topic}/wiki/**`, `${topic}/_meta.json`);
+    }
+    return targets;
+  },
+  audit: 'required',
+});
+
+const compileRunWritePolicy = (fallbackTopic?: () => string | undefined): OperationWritePolicy => ({
+  realWrite: 'always',
+  targets: (_ctx, params) => {
+    const requested = typeof params.topic === 'string' && params.topic.trim() ? params.topic.trim() : fallbackTopic?.();
+    return [
+      'external/compile/**',
+      '_llmwiki/compile-runs/v1/**',
+      '00-Inbox/AI-Output/vault-compiler/**',
+      ...(requested ? [`${requested}/wiki/**`, `${requested}/_meta.json`] : []),
+    ];
+  },
+  audit: 'required',
+});
+
+const compileRunApprovalWritePolicy = (): OperationWritePolicy => ({
+  realWrite: 'always',
+  targets: (_ctx, params) => {
+    const topic = typeof params.topic === 'string' && params.topic.trim() ? params.topic.trim() : undefined;
+    return [
+      'external/compile/**',
+      '_llmwiki/compile-runs/v1/**',
+      '00-Inbox/AI-Output/vault-compiler/**',
+      ...(topic ? [`${topic}/wiki/**`, `${topic}/_meta.json`] : []),
+    ];
+  },
   audit: 'required',
 });
 
@@ -659,11 +721,17 @@ export const operations: Operation[] = [
 
 export interface AllOperationsDeps {
   compileTrigger: CompileTrigger;
+  /** Governed compiler execution seam; defaults to a legacy adapter. */
+  compileRunPort?: CompileRunPort;
+  /** Governed legacy agent action execution seam. */
+  agentRunnerPort?: AgentRunnerPort;
   registry: AdapterRegistry;
   defaultWeights?: Record<string, number>;
   python: string;
   compilerPath: string;
   vaultPath: string;
+  /** Shared vault persistence adapter for domain writes and reads. */
+  store?: VaultStore;
   configPath?: string;
   contextCorePath?: string;
   hostCapabilityTransportFactory?: HostCapabilityTransportFactory;
@@ -678,23 +746,43 @@ export interface AllOperationsDeps {
   };
   /** Optional external issuer for exact, expiring UI/Work Run approval pairs. */
   problemContributionApprovalPairs?: UiWorkRunApprovalPairPort;
+  /** Reuse the host's authoritative Settings service instead of creating a second one. */
+  settingsOptions?: SettingsOperationsOptions;
+  settingsService?: SettingsService;
+  environment?: NodeJS.ProcessEnv;
+  /** Host-specific OBC process adapter. */
+  obcRunner?: ObcRunner;
+  /** Optional host-specific Project Hub projection integration. */
+  projectHubIntegration?: ProductionProjectHubIntegration;
 }
 
 export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
   const { compileTrigger, registry, defaultWeights, python, compilerPath, vaultPath, configPath } = deps;
+  const compileRunPort = deps.compileRunPort ?? new LegacyCompileRunAdapter(compileTrigger, { vaultPath });
   const ccPath = deps.contextCorePath
     ?? process.env['CONTEXT_CORE_PATH']
     ?? join(dirname(compilerPath), 'context-core.json');
   const contextCoreLoader = new ContextCoreLoader(ccPath);
-  const settingsOptions = {
+  const settingsOptions = deps.settingsOptions ?? {
     vaultPath,
     pythonPath: python,
     compilerPath,
+    ...(deps.environment ? { environment: deps.environment } : {}),
   };
-  const settingsService = createSettingsService(settingsOptions);
+  const settingsService = deps.settingsService ?? createSettingsService(settingsOptions);
+  const agentRunnerPort = deps.agentRunnerPort ?? new LegacyAgentRunnerAdapter(
+    new PythonEvaluateRunner({
+      vaultPath,
+      compilerPath,
+      python,
+      ...(configPath ? { configPath } : {}),
+      environmentResolver: () => resolveAgentModelProcessEnvironment(settingsService),
+    }),
+    { vaultPath },
+  );
   const agentWikiFeatures = resolveAgentWikiFeatureFlags();
   compileTrigger?.setEnvironmentResolver?.(() => resolveAgentModelProcessEnvironment(settingsService));
-  const projectOps = makeProjectOps(vaultPath);
+  const projectOps = makeProjectOps(vaultPath, { store: deps.store });
   const projectOpsByName = new Map(projectOps.map((operation) => [operation.name, operation]));
   const problemContribution = deps.problemContributionFactory?.({ vaultPath }) ?? {
     contribution: createVaultGovernedContributionPort({
@@ -704,7 +792,7 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
         : {}),
     }),
   };
-  const obcRunner = createExecFileObcRunner({
+  const obcRunner = deps.obcRunner ?? createExecFileObcRunner({
     pythonCommand: python,
     cwd: _projectRoot,
   });
@@ -725,7 +813,7 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
       contribution: problemContribution.contribution,
     },
   );
-  const projectHubIntegration = createProductionProjectHubIntegration({
+  const projectHubIntegration = deps.projectHubIntegration ?? createProductionProjectHubIntegration({
     vaultPath,
     problemIntake: problemDependencies,
   });
@@ -757,11 +845,106 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
       namespace: 'compile',
       description: 'Run compilation',
  mutating: true,
-      writePolicy: externalSideEffectPolicy('compile/**'),
+      writePolicy: compileRunWritePolicy(() => compileTrigger.status().dirty[0]?.split(/[\\/]/)[0]),
  params: {
         topic: { type: 'string', required: false, description: 'Topic to compile' },
       },
-      handler: async (_ctx, params) => compileTrigger.run(params.topic as string | undefined),
+      handler: async (_ctx, params) => {
+        const handle = await compileRunPort.submit({
+          trigger: 'manual',
+          promotionMode: 'approval-required',
+          ...(typeof params.topic === 'string' && params.topic ? { topic: params.topic } : {}),
+        });
+        const receipt = await handle.wait();
+        return {
+          ...(receipt.result ?? {
+            ok: receipt.status === 'succeeded',
+            topic: typeof params.topic === 'string' ? params.topic : '',
+            sourcesCompiled: 0,
+            conceptsCreated: 0,
+            contradictions: 0,
+            timestamp: receipt.finishedAt ?? new Date().toISOString(),
+          }),
+           runId: receipt.runId,
+           runStatus: receipt.status,
+           artifacts: receipt.artifacts,
+           verification: receipt.verification,
+           promotion: receipt.promotion,
+           reviewPath: receipt.reviewPath,
+           diagnostics: receipt.diagnostics,
+        };
+      },
+    },
+    {
+      name: 'compile.run.inspect',
+      namespace: 'compile',
+      description: 'Inspect one durable compiler Run and its receipt state.',
+      mutating: false,
+      params: {
+        runId: { type: 'string', required: true, description: 'Durable Compile Run id' },
+      },
+      handler: async (_ctx, params) => ({
+        run: await compileRunPort.inspect(params.runId as string),
+      }),
+    },
+    {
+      name: 'compile.run.approve',
+      namespace: 'compile',
+      description: 'Approve one verified compiler Run and promote its staged artifacts through VaultStore.',
+      mutating: true,
+      writePolicy: compileRunApprovalWritePolicy(),
+      params: {
+        runId: { type: 'string', required: true, description: 'Durable Compile Run id awaiting approval' },
+        topic: { type: 'string', required: true, description: 'Exact topic recorded by the Compile Run' },
+      },
+      handler: async (_ctx, params) => {
+        const runId = params.runId as string;
+        const topic = params.topic as string;
+        const record = await compileRunPort.inspect(runId);
+        if (!record) throw makeErr(-32004, `Compile Run not found: ${runId}`);
+        if (record.topic !== topic) throw makeErr(-40901, 'Compile Run topic does not match the approval target');
+        const receipt = await compileRunPort.approve(runId);
+        return {
+          ...(receipt.result ?? { ok: receipt.status === 'succeeded', topic, sourcesCompiled: 0, conceptsCreated: 0, contradictions: 0, timestamp: receipt.finishedAt ?? new Date().toISOString() }),
+          runId: receipt.runId,
+          runStatus: receipt.status,
+          artifacts: receipt.artifacts,
+          verification: receipt.verification,
+          promotion: receipt.promotion,
+          reviewPath: receipt.reviewPath,
+          diagnostics: receipt.diagnostics,
+        };
+      },
+    },
+    {
+      name: 'compile.run.reject',
+      namespace: 'compile',
+      description: 'Reject one verified compiler Run and discard its pending promotion without touching the Vault topic.',
+      mutating: true,
+      writePolicy: compileRunApprovalWritePolicy(),
+      params: {
+        runId: { type: 'string', required: true, description: 'Durable Compile Run id awaiting approval' },
+        topic: { type: 'string', required: true, description: 'Exact topic recorded by the Compile Run' },
+      },
+      handler: async (_ctx, params) => {
+        const runId = params.runId as string;
+        const topic = params.topic as string;
+        const record = await compileRunPort.inspect(runId);
+        if (!record) throw makeErr(-32004, `Compile Run not found: ${runId}`);
+        if (record.topic !== topic) throw makeErr(-40901, 'Compile Run topic does not match the rejection target');
+        if (record.status !== 'awaiting_approval') throw makeErr(-40902, 'Compile Run is not awaiting promotion approval');
+        const receipt = await compileRunPort.cancel(runId);
+        return {
+          ...(receipt.result ?? { ok: false, topic, sourcesCompiled: 0, conceptsCreated: 0, contradictions: 0, timestamp: receipt.finishedAt ?? new Date().toISOString() }),
+          runId: receipt.runId,
+          runStatus: receipt.status,
+          artifacts: receipt.artifacts,
+          verification: receipt.verification,
+          promotion: receipt.promotion,
+          reviewPath: receipt.reviewPath,
+          diagnostics: receipt.diagnostics,
+        };
+      },
     },
     {
       name: 'compile.diff',
@@ -1253,38 +1436,77 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
       namespace: 'agent',
       description: 'Trigger an agent action',
  mutating: true,
-      writePolicy: externalSideEffectPolicy('agent/**'),
+      writePolicy: agentRunWritePolicy(() => compileTrigger.status().dirty[0]?.split(/[\\/]/)[0]),
  params: {
         action: { type: 'string', required: true, description: 'Action to trigger (compile, emerge, reconcile, prune, challenge)' },
         mode: { type: 'string', required: false, description: 'Agent mode' },
+        topic: { type: 'string', required: false, description: 'Optional topic for the compile action' },
       },
       handler: async (_ctx, params) => {
-        const { resolve } = await import('node:path');
-        const evaluatePy = resolve(compilerPath, 'evaluate.py');
-        const baseArgs = [evaluatePy];
-        if (configPath) baseArgs.push('--config', configPath);
-        baseArgs.push('--vault', vaultPath);
         const action = params.action as string | undefined;
         if (!action) throw makeErr(-32602, 'action required');
-        const validActions = ['compile', 'emerge', 'reconcile', 'prune', 'challenge'];
-        if (!validActions.includes(action)) {
-          throw makeErr(-32602, `Unknown action: ${action}. Valid: ${validActions.join(', ')}`);
+        if (!AGENT_ACTIONS.includes(action as (typeof AGENT_ACTIONS)[number])) {
+          throw makeErr(-32602, `Unknown action: ${action}. Valid: ${AGENT_ACTIONS.join(', ')}`);
         }
-        const args = [...baseArgs, '--trigger', action];
         const mode = params.mode as string | undefined;
-        if (mode) args.push('--mode', mode);
-        try {
-          const childEnvironment = await resolveAgentModelProcessEnvironment(settingsService);
-          const { stdout } = await execAsync(python, args, {
-            timeout: 300_000,
-            maxBuffer: 10 * 1024 * 1024,
-            env: childEnvironment,
-          });
-          return JSON.parse(stdout);
-        } catch (e) {
-          throw makeErr(-32000, `agent.trigger failed: ${(e as Error).message}`);
+        if (mode && !['day', 'night', 'auto', 'manual'].includes(mode)) {
+          throw makeErr(-32602, 'mode must be one of: day, night, auto, manual');
         }
+        if (action === 'compile') {
+          const handle = await compileRunPort.submit({
+            trigger: 'manual',
+            promotionMode: 'approval-required',
+            ...(typeof params.topic === 'string' && params.topic ? { topic: params.topic } : {}),
+          });
+          const receipt = await handle.wait();
+          return {
+            action,
+            status: receipt.status === 'succeeded' ? 'ok' : receipt.status,
+            runId: receipt.runId,
+            runStatus: receipt.status,
+            result: receipt.result,
+            artifacts: receipt.artifacts,
+            verification: receipt.verification,
+            promotion: receipt.promotion,
+            reviewPath: receipt.reviewPath,
+            diagnostics: receipt.diagnostics,
+          };
+        }
+        const handle = await agentRunnerPort.submit({
+          action: action as (typeof AGENT_ACTIONS)[number],
+          ...(mode ? { mode: mode as 'day' | 'night' | 'auto' | 'manual' } : {}),
+        });
+        const receipt = await handle.wait();
+        return {
+          ...(receipt.result ?? { action, status: receipt.status }),
+          runId: receipt.runId,
+          runStatus: receipt.status,
+          diagnostics: receipt.diagnostics,
+        };
       },
+    },
+    {
+      name: 'agent.run.inspect',
+      namespace: 'agent',
+      description: 'Inspect one durable Agent Run and its receipt state.',
+      mutating: false,
+      params: {
+        runId: { type: 'string', required: true, description: 'Durable Agent Run id' },
+      },
+      handler: async (_ctx, params) => ({
+        run: await agentRunnerPort.inspect(params.runId as string),
+      }),
+    },
+    {
+      name: 'agent.run.cancel',
+      namespace: 'agent',
+      description: 'Request cancellation of one durable Agent Run.',
+      mutating: true,
+      writePolicy: agentRunWritePolicy(),
+      params: {
+        runId: { type: 'string', required: true, description: 'Durable Agent Run id' },
+      },
+      handler: async (_ctx, params) => agentRunnerPort.cancel(params.runId as string),
     },
     {
       name: 'agent.schedule',
@@ -1341,7 +1563,10 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     }),
     ...makeProjectMigrationOps({ python, compilerPath, vaultPath }),
     ...makeIngestOps(),
-    ...makeSourceOps(vaultPath, { ingestExecutionEnabled: agentWikiFeatures.sourceIngestExecution }),
+    ...makeSourceOps(vaultPath, {
+      ingestExecutionEnabled: agentWikiFeatures.sourceIngestExecution,
+      store: deps.store,
+    }),
     ...makeConversationOps(vaultPath),
     ...makeWorkflowOps(vaultPath),
     ...makeContextOps(vaultPath, registry, defaultWeights),
@@ -1349,7 +1574,8 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     ...makeAgentWikiFeatureOps(agentWikiFeatures),
     ...makeUsageOps(vaultPath),
     ...makeHostCapabilityOps(vaultPath, {
-      transportFactory: deps.hostCapabilityTransportFactory ?? createDefaultHostCapabilityTransportFactory(),
+      transportFactory: deps.hostCapabilityTransportFactory
+        ?? createDefaultHostCapabilityTransportFactory({ environment: deps.environment }),
       settingsService,
       observePluginDiagnostic: projectHubIntegration.observePluginDiagnostic,
     }),

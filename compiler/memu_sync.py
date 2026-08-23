@@ -429,6 +429,11 @@ def _hash_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def _default_memu_dsn() -> str:
+    """Default DSN when Settings provides no value (Windows-compatible)."""
+    return "postgresql://127.0.0.1:5432/memu"
+
+
 def _load_existing_hashes(dsn: str) -> dict[str, str]:
     """Read vault_sync_state into {node_id -> source_hash}.
 
@@ -660,6 +665,98 @@ def _build_edge_payloads(
 # Subprocess bridge to memu_graph.cli
 # --------------------------------------------------------------------------
 
+def _ensure_memu_env(dsn: str) -> tuple[dict[str, str], str]:
+    """Add PGUSER and fix localhost→127.0.0.1 for Windows PostgreSQL auth."""
+    env = dict(os.environ)
+    env.setdefault("PGUSER", "postgres")
+    # Windows resolves localhost via IPv6 first, causing wrong-user auth failure.
+    # Replace localhost with 127.0.0.1 so IPv4 is used and PGUSER takes effect.
+    fixed_dsn = re.sub(r"://([^@]*@)?localhost(?=:\d+)", r"://\g<1>127.0.0.1", dsn)
+    return env, fixed_dsn
+
+
+def _ensure_memu_dsn(dsn: str) -> str:
+    """Ensure DSN uses 127.0.0.1 instead of localhost for Windows PostgreSQL auth."""
+    if not dsn:
+        return "postgresql://127.0.0.1:5432/memu"
+    return re.sub(r"://([^@]*@)?localhost(?=:\d+)", r"://\g<1>127.0.0.1", dsn)
+
+
+def _direct_graph_write(dsn: str, payload: dict) -> dict:
+    """Direct psycopg2 fallback when memu_graph.cli is unavailable."""
+    try:
+        import psycopg2
+    except ImportError:
+        raise RuntimeError("psycopg2 not available for direct write fallback")
+
+    env, fixed_dsn = _ensure_memu_env(dsn)
+    # Apply PGUSER to os.environ so psycopg2 reads it (not just the returned dict).
+    os.environ.setdefault("PGUSER", "postgres")
+    conn = psycopg2.connect(fixed_dsn, connect_timeout=10)
+    cur = conn.cursor()
+    nodes_written = 0
+    edges_written = 0
+    edges_skipped = 0
+
+    try:
+        for node in payload.get("nodes", []):
+            emb = json.dumps(node.get("embedding")) if node.get("embedding") else None
+            cur.execute("""
+                INSERT INTO gm_nodes (id, type, name, description, content, status, embedding, user_id, pagerank, validated_count, updated_at)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,now())
+                ON CONFLICT (id) DO UPDATE SET
+                    type=EXCLUDED.type, name=EXCLUDED.name, description=EXCLUDED.description,
+                    content=EXCLUDED.content, status=EXCLUDED.status, embedding=EXCLUDED.embedding,
+                    user_id=EXCLUDED.user_id, pagerank=EXCLUDED.pagerank, validated_count=EXCLUDED.validated_count,
+                    updated_at=now()
+            """, (node["id"], node["type"], node["name"], node["description"], node["content"],
+                  node["status"], emb, node["user_id"], node["pagerank"], node["validated_count"]))
+            nodes_written += 1
+
+        for edge in payload.get("edges", []):
+            try:
+                cur.execute("""
+                    INSERT INTO gm_edges (id, from_id, to_id, type, instruction, relation_category, updated_at)
+                    VALUES (%s,%s,%s,%s,%s,%s,now())
+                    ON CONFLICT DO NOTHING
+                """, (edge["id"], edge["from_id"], edge["to_id"], edge["type"],
+                      edge["instruction"], edge["relation_category"]))
+                if cur.rowcount == 0:
+                    edges_skipped += 1
+                edges_written += 1
+            except Exception:
+                edges_skipped += 1
+
+        conn.commit()
+
+        # Sync state is non-critical; failures should not roll back the node/edge write.
+        sync_errors = 0
+        for ss in payload.get("sync_state", []):
+            try:
+                cur.execute("""
+                    INSERT INTO vault_sync_state (node_id, source_hash, vault_root, updated_at)
+                    VALUES (%s,%s,%s,now())
+                    ON CONFLICT (node_id) DO UPDATE SET
+                        source_hash=EXCLUDED.source_hash, vault_root=EXCLUDED.vault_root, updated_at=now()
+                """, (ss["node_id"], ss["source_hash"], ss["vault_root"]))
+            except Exception:
+                sync_errors += 1
+
+        if sync_errors:
+            sys.stderr.write(f"[memu_sync] warn: {sync_errors} sync_state rows failed\n")
+
+        conn.commit()
+    except Exception as exc:
+        conn.rollback()
+        sys.stderr.write(f"[memu_sync] direct-write error: {type(exc).__name__}: {exc}\n")
+        raise
+    finally:
+        cur.close()
+        conn.close()
+
+    return {"nodes_written": nodes_written, "edges_written": edges_written, "edges_skipped_unresolved": edges_skipped}
+
+
 def _spawn_graph_cli(
     python_path: str,
     subcommand: str,
@@ -674,21 +771,38 @@ def _spawn_graph_cli(
     ``memu_graph.cli`` consumes ``MEMU_DSN`` as its device-local default. The
     private value is deliberately absent from the operating-system argument
     vector and every error/result is redacted before it crosses this boundary.
+
+    Falls back to direct psycopg2 write when memu_graph.cli is unavailable.
     """
     cmd = [python_path, "-m", "memu_graph.cli", subcommand]
-    child_environment = dict(os.environ)
-    child_environment["MEMU_DSN"] = dsn
-    proc = subprocess.run(
-        cmd,
-        input=stdin_payload,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        env=child_environment,
-        cwd=cwd,
-        timeout=timeout_ms / 1000,
-    )
+    child_env, fixed_dsn = _ensure_memu_env(dsn)
+    child_env["MEMU_DSN"] = fixed_dsn
+    try:
+        proc = subprocess.run(
+            cmd,
+            input=stdin_payload,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            env=child_env,
+            cwd=cwd,
+            timeout=timeout_ms / 1000,
+        )
+    except FileNotFoundError:
+        # memu_graph.cli not installed — use direct psycopg2 fallback
+        if subcommand == "graph-write" and stdin_payload:
+            os.environ.setdefault("PGUSER", "postgres")
+            return _direct_graph_write(fixed_dsn, json.loads(stdin_payload))
+        elif subcommand == "run-maintenance":
+            sys.stderr.write("[memu_sync] run-maintenance skipped (memu_graph.cli unavailable)\n")
+            return {}
+        raise RuntimeError("memu_graph.cli not found and no fallback available")
+
     if proc.returncode != 0:
+        # Fall back to direct write on failure (e.g. module error in memu_graph.cli)
+        if subcommand == "graph-write" and stdin_payload:
+            sys.stderr.write(f"[memu_sync] memu_graph.cli failed (exit {proc.returncode}), falling back to direct write\n")
+            return _direct_graph_write(fixed_dsn, json.loads(stdin_payload))
         raise RuntimeError(
             f"memu_graph.cli {subcommand} failed (exit {proc.returncode})"
         )
@@ -701,7 +815,7 @@ def _spawn_graph_cli(
         raise RuntimeError(
             f"memu_graph.cli {subcommand} returned invalid JSON"
         ) from exc
-    sanitized = _redact_private_dsn(parsed, dsn)
+    sanitized = _redact_private_dsn(parsed, fixed_dsn)
     if not isinstance(sanitized, dict):
         raise RuntimeError(f"memu_graph.cli {subcommand} returned an invalid result")
     return sanitized
@@ -843,13 +957,17 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
 
-    # Determine vault path: CLI > env > D:/Obsidian Vault junction > Settings vault.path
+    # Determine vault path: CLI > env > known junctions > Settings vault.path
     vault: Path = args.vault
-    if vault == VAULT_DEFAULT:
-        # Check for known vault junction
+    # Track if vault was explicitly provided to avoid auto-detection and .resolve()
+    # (which would follow junctions and lose the original path)
+    vault_is_explicit = not (str(vault) == str(VAULT_DEFAULT))
+    # Only auto-detect junction if vault wasn't explicitly set via --vault
+    if not vault_is_explicit:
+        home_dir = Path.home()
         known_vaults = [
-            Path("D:/Obsidian Vault"),
-            Path("D:/ObsidianVault"),
+            home_dir / "Documents" / "Obsidian Vault",
+            home_dir / "Documents" / "ObsidianVault",
         ]
         for known in known_vaults:
             if known.exists() and (known / ".obsidian").exists():
@@ -870,7 +988,9 @@ def main(argv: list[str] | None = None) -> int:
                     vault = Path(vault_path_setting)
             except Exception:
                 pass
-    vault = vault.resolve()
+    # Only resolve() if we auto-detected; explicit paths are kept as-is to preserve junctions
+    if not vault_is_explicit:
+        vault = vault.resolve()
     if not vault.exists():
         sys.stderr.write(f"[memu_sync] vault {vault} not found\n")
         return 1
@@ -905,6 +1025,11 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         read_dsn = _resolve_memu_connection_dsn(profile, settings)
+        if not read_dsn:
+            read_dsn = _default_memu_dsn()
+        read_dsn = _ensure_memu_dsn(read_dsn)
+        # Ensure PGUSER is set so SQLAlchemy's psycopg2 driver uses postgres auth.
+        os.environ.setdefault("PGUSER", "postgres")
         existing = _load_existing_hashes(read_dsn)
         del read_dsn
     except MemUSyncConfigurationError as exc:
@@ -1026,6 +1151,9 @@ def main(argv: list[str] | None = None) -> int:
     }
     try:
         write_dsn = _resolve_memu_connection_dsn(profile, settings)
+        if not write_dsn:
+            write_dsn = _default_memu_dsn()
+        write_dsn = _ensure_memu_dsn(write_dsn)
         write_result = _spawn_graph_cli(
             profile.graph_python,
             "graph-write",
@@ -1035,8 +1163,8 @@ def main(argv: list[str] | None = None) -> int:
             timeout_ms=profile.graph_timeout_ms,
         )
         del write_dsn
-    except Exception:  # noqa: BLE001
-        sys.stderr.write("[memu_sync] graph-write failed\n")
+    except Exception as exc:  # noqa: BLE001
+        sys.stderr.write(f"[memu_sync] graph-write failed: {type(exc).__name__}: {exc}\n")
         return 1
 
     # 5. Optional maintenance
@@ -1044,6 +1172,9 @@ def main(argv: list[str] | None = None) -> int:
     if not args.no_recompute:
         try:
             maintenance_dsn = _resolve_memu_connection_dsn(profile, settings)
+            if not maintenance_dsn:
+                maintenance_dsn = _default_memu_dsn()
+            maintenance_dsn = _ensure_memu_dsn(maintenance_dsn)
             maint_result = _spawn_graph_cli(
                 profile.graph_python,
                 "run-maintenance",

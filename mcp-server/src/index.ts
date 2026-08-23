@@ -31,17 +31,13 @@ import {
   resolveMemUConnectionString,
 } from "./adapters/settings-runtime.js";
 import { CompileTrigger } from "./compile-trigger.js";
-import type { VaultMindAdapter } from "./adapters/interface.js";
-import { makeAllOperations } from "./core/operations.js";
-import type { OperationContext, Logger, VaultExecutor, VaultMindConfig, WriteEffect } from "./core/types.js";
-import {
-  adjudicateOperationWrite,
-  auditOperationWrite,
-  writeEffectsForVerdict,
-  type OperationWriteVerdict,
-} from "./core/write-policy.js";
-import { validateParams, rejectDangerousRegex } from "./core/validate.js";
-import { createSettingsService } from "./settings/settings.js";
+import type { Logger, VaultMindConfig, WriteEffect } from "./core/types.js";
+import { rejectDangerousRegex } from "./core/validate.js";
+import { createSettingsService, resolveAgentModelProcessEnvironment } from "./settings/settings.js";
+import { createApplicationRuntime } from "./application/runtime.js";
+import { FileVaultStore } from "./vault/store.js";
+import { LegacyCompileRunAdapter } from "./compile/compile-run-port.js";
+import { LegacyAgentRunnerAdapter, PythonEvaluateRunner } from "./agent/agent-runner-port.js";
 
 // Precompiled regex patterns for performance (avoid recompilation on every call)
 const WIKILINK_RE = /\[\[([^\]|]+)(?:\|([^\]]*))?\]\]/g;
@@ -1714,10 +1710,12 @@ async function main(): Promise<void> {
   const __dirname = dirname(fileURLToPath(import.meta.url));
   const compilerPath = resolveCompilerPath(__dirname);
   const python = process.env.VAULT_MIND_PYTHON ?? process.env.PYTHON ?? "python";
+  const vaultStore = new FileVaultStore(config.vault_path);
   const compileTrigger = new CompileTrigger({
     vaultPath: config.vault_path,
     compilerPath,
     python,
+    vaultStore,
     schedulingMode: process.env.VAULT_MIND_COMPILE_TRIGGER_MODE === "legacy-threshold"
       ? "legacy-threshold"
       : "durable",
@@ -1734,6 +1732,20 @@ async function main(): Promise<void> {
       }
     },
   });
+  const compileRunPort = new LegacyCompileRunAdapter(compileTrigger, { vaultPath: config.vault_path });
+  await compileRunPort.recover();
+  compileTrigger.setRunScheduler(compileRunPort);
+  const agentRunnerPort = new LegacyAgentRunnerAdapter(
+    new PythonEvaluateRunner({
+      vaultPath: config.vault_path,
+      compilerPath,
+      python,
+      ...(config.config_path ? { configPath: config.config_path } : {}),
+      environmentResolver: () => resolveAgentModelProcessEnvironment(settingsService),
+    }),
+    { vaultPath: config.vault_path },
+  );
+  await agentRunnerPort.recover();
 
   // Wire Obsidian file events into compile trigger (when Obsidian is running)
   const obsidianAdapter = registry.get("obsidian");
@@ -1766,27 +1778,6 @@ async function main(): Promise<void> {
     error: (msg) => process.stderr.write(`[ERROR] ${msg}\n`),
   };
 
-  // Single source of truth: all tool definitions come from operations
-  const allOps = makeAllOperations({
-    compileTrigger,
-    registry,
-    defaultWeights: config.adapter_weights,
-    python,
-    compilerPath,
-    vaultPath: config.vault_path,
-    configPath: config.config_path,
-  });
-  const operationsByName = new Map(allOps.map((operation) => [operation.name, operation]));
-  const writeVerdicts = new WeakMap<Record<string, unknown>, OperationWriteVerdict>();
-
-  const ctx: OperationContext = {
-    vault: vaultFs as VaultExecutor,
-    adapters: registry,
-    config,
-    logger: stderrLogger,
-    dryRun: false,
-  };
-
   const ingestMarkdownIntoVaultBrain = (relPath: string): void => {
     if (!vaultBrainAdapter || !relPath.endsWith(".md")) return;
     try {
@@ -1814,24 +1805,46 @@ async function main(): Promise<void> {
     touchMarkdown(effect.path, effect.event);
   };
 
+  const runtime = createApplicationRuntime({
+    compileTrigger,
+    compileRunPort,
+    agentRunnerPort,
+    registry,
+    defaultWeights: config.adapter_weights,
+    python,
+    compilerPath,
+    vaultPath: config.vault_path,
+    store: vaultStore,
+    configPath: config.config_path,
+    environment: process.env,
+    settingsOptions: {
+      vaultPath: config.vault_path,
+      pythonPath: python,
+      compilerPath,
+      environment: process.env,
+    },
+    settingsService,
+    context: {
+      vault: vaultFs,
+      store: vaultStore,
+      adapters: registry,
+      config,
+      logger: stderrLogger,
+      dryRun: false,
+    },
+    onWriteEffect: applyWriteEffect,
+  });
+
   const server = createMcpServer({
     name: "obsidian-llm-wiki",
     version: VERSION,
-    operations: allOps,
-    ctx,
+    operations: [...runtime.operations],
+    ctx: runtime.context,
+    invoke: (operation, params) => runtime.invoke(operation, params),
     logger: stderrLogger,
-    prepareParams: (operation, toolArgs) => {
+    prepareParams: (_operation, toolArgs) => {
       checkAuth(config, toolArgs);
-      const validatedArgs = validateParams(operation.params, toolArgs);
-      const verdict = adjudicateOperationWrite(ctx, operation, validatedArgs, operationsByName);
-      writeVerdicts.set(validatedArgs, verdict);
-      return validatedArgs;
-    },
-    afterOperation: (operation, validatedArgs, result) => {
-      const verdict = writeVerdicts.get(validatedArgs) ??
-        adjudicateOperationWrite(ctx, operation, validatedArgs, operationsByName);
-      auditOperationWrite(ctx, verdict, result);
-      for (const effect of writeEffectsForVerdict(ctx, verdict, result)) applyWriteEffect(effect);
+      return toolArgs;
     },
   });
 

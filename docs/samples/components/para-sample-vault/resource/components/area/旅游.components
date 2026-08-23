@@ -1,0 +1,165 @@
+{
+  "components": [
+    {
+      "id": "889dbe3f-a03a-479e-b4e7-292c78eaad9b",
+      "type": "multi",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": false,
+      "showShadow": false,
+      "createAt": "2024-05-13T08:30:42.581Z",
+      "updateAt": "2024-05-13T08:30:42.581Z",
+      "components": [
+        {
+          "componentId": "1d9863d1-3916-4019-89d0-aab8598e0549"
+        }
+      ],
+      "layoutType": "tab"
+    },
+    {
+      "id": "1d9863d1-3916-4019-89d0-aab8598e0549",
+      "type": "dynamicDataView",
+      "titleAlign": "center",
+      "tabTitle": "旅行计划",
+      "maxWidthRatio": -1,
+      "showBorder": false,
+      "showShadow": false,
+      "createAt": "2024-05-13T08:30:50.410Z",
+      "updateAt": "2024-05-13T08:30:50.410Z",
+      "viewType": "gallary",
+      "properties": [
+        {
+          "id": "__componentsTitleProperty_0x7c00",
+          "name": "文件名",
+          "type": "text",
+          "isShow": true,
+          "wrap": false,
+          "options": {}
+        },
+        {
+          "id": "aca896b2-efa9-46ce-abb5-c491db80d300",
+          "name": "计划清单",
+          "isShow": true,
+          "type": "taskList",
+          "options": {
+            "showTaskList": true,
+            "showAllTasks": false,
+            "hideTaskFields": false,
+            "timeRecordStyle": "tasks",
+            "insertPosition": {
+              "position": "TopUnderHeading",
+              "headingLine": "## 计划清单"
+            }
+          }
+        },
+        {
+          "id": "10dd3cd5-4822-4d98-b5b1-bf4d626f3d12",
+          "name": "tags",
+          "type": "multiSelect",
+          "isShow": false,
+          "wrap": false,
+          "options": {}
+        },
+        {
+          "id": "336ff4f8-c8d9-4dc7-a9c6-04e70fddd92d",
+          "name": "area",
+          "type": "link",
+          "isShow": false,
+          "wrap": false,
+          "options": {}
+        },
+        {
+          "id": "d88018fa-3233-45b1-8d88-4b52f786278b",
+          "name": "createTime",
+          "type": "datetime",
+          "isShow": true,
+          "wrap": false,
+          "options": {}
+        },
+        {
+          "id": "1a237a9d-155e-4581-afce-8c61deb56f81",
+          "name": "status",
+          "type": "select",
+          "isShow": true,
+          "wrap": false,
+          "options": {}
+        },
+        {
+          "id": "8205e3ef-e516-4bf1-96c4-5888963489f2",
+          "name": "出行日期",
+          "type": "datetime",
+          "isShow": true,
+          "wrap": false,
+          "options": {}
+        },
+        {
+          "id": "115a7ec4-0bb7-4ee7-aa4f-8937b6db4aac",
+          "name": "结束日期",
+          "type": "datetime",
+          "isShow": true,
+          "wrap": false,
+          "options": {}
+        }
+      ],
+      "templates": [
+        {
+          "id": "426f7404-2761-46c8-a87d-1ce0097ab504",
+          "path": "resource/template/旅游/旅游项目模板.md",
+          "name": "旅游项目模板.md",
+          "type": "normal"
+        }
+      ],
+      "groups": [],
+      "viewOptions": {
+        "openPageIn": "tab",
+        "openPageAfterCreate": false,
+        "itemSize": "components--page-card-medium",
+        "showPropertyName": true,
+        "showAllProperties": true,
+        "items": [],
+        "cover": {
+          "type": "image",
+          "value": "",
+          "fit": "cover",
+          "layout": "components--page-card-cover-landscape",
+          "position": "top"
+        },
+        "pinFiltersToMenuBar": true
+      },
+      "filter": {
+        "id": "bc9afa86-0c6d-4468-8401-583c2f7074d6",
+        "type": "group",
+        "operator": "and",
+        "conditions": [
+          {
+            "id": "8e850dc4-a89b-4c77-8f2e-c044b23d65f3",
+            "type": "filter",
+            "operator": "contains",
+            "property": "${file.parent}",
+            "value": "area/traval",
+            "conditions": []
+          }
+        ]
+      },
+      "newPageNameFormat": "{{date: YYMMDD}}",
+      "newPageLocation": {
+        "location": "area/traval"
+      },
+      "sort": {
+        "orders": [
+          {
+            "id": "e0dcc428-09ed-4f71-8842-7f3b4833b50f",
+            "property": "createTime",
+            "direction": "desc",
+            "disabled": false
+          }
+        ]
+      },
+      "defaultTemplate": "426f7404-2761-46c8-a87d-1ce0097ab504",
+      "showTitle": false
+    }
+  ],
+  "rootComponentId": "889dbe3f-a03a-479e-b4e7-292c78eaad9b",
+  "version": 3.1
+}

@@ -1,0 +1,125 @@
+{
+  "components": [
+    {
+      "id": "8d896791-9a4a-45bc-a5e6-4b012b7fbc8d",
+      "type": "multi",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-06-03T07:11:45.709Z",
+      "updateAt": "2024-06-03T07:11:45.709Z",
+      "components": [
+        {
+          "componentId": "8dffdb94-7a12-44ea-b002-46dccfc0b268"
+        },
+        {
+          "componentId": "d22232af-35d5-4e8b-95a6-51b1f4bb2b3d"
+        },
+        {
+          "componentId": "3029de45-063e-4bd8-b5e8-9a0a8527fc57"
+        },
+        {
+          "componentId": "cd51b3bd-3b1c-48f9-88da-90e523761e31"
+        }
+      ],
+      "layoutType": "column"
+    },
+    {
+      "id": "8dffdb94-7a12-44ea-b002-46dccfc0b268",
+      "type": "card",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-06-03T07:11:50.034Z",
+      "updateAt": "2024-06-03T07:11:50.034Z",
+      "title": "Components",
+      "description": "长期价值主义实践",
+      "coverFit": "cover",
+      "coverPosition": "left",
+      "clickAction": {
+        "type": "OpenUrl",
+        "id": "c3c41e0e-8a39-4aab-8b49-9a6b42d2501a",
+        "options": {
+          "url": "https://github.com/orgs/obsidian-components/repositories"
+        }
+      },
+      "icon": "AlignLeft",
+      "cover": "resource/images/开车休息.png"
+    },
+    {
+      "id": "d22232af-35d5-4e8b-95a6-51b1f4bb2b3d",
+      "type": "card",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-06-03T07:13:18.331Z",
+      "updateAt": "2024-06-03T07:13:18.332Z",
+      "title": "Contribution Graph",
+      "description": "边学边做，小试牛刀",
+      "coverFit": "cover",
+      "coverPosition": "left",
+      "clickAction": {
+        "type": "OpenUrl",
+        "id": "626366a8-7cde-49c0-8bad-78adadc5e048",
+        "options": {
+          "url": "https://github.com/vran-dev/obsidian-contribution-graph"
+        }
+      },
+      "icon": "GanttChart",
+      "cover": "resource/images/开车休息 (2).png"
+    },
+    {
+      "id": "3029de45-063e-4bd8-b5e8-9a0a8527fc57",
+      "type": "card",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-06-03T07:14:07.637Z",
+      "updateAt": "2024-06-03T07:14:07.637Z",
+      "title": "Attachment Pro",
+      "description": "一次尝试和探索",
+      "coverFit": "cover",
+      "coverPosition": "left",
+      "clickAction": {
+        "type": "OpenUrl",
+        "id": "7f88de18-662d-4a62-b63e-5c9588914516",
+        "options": {
+          "url": "https://github.com/vran-dev/obsidian-attachment-pro"
+        }
+      },
+      "icon": "Folder",
+      "cover": "resource/images/开车休息 (1).png"
+    },
+    {
+      "id": "cd51b3bd-3b1c-48f9-88da-90e523761e31",
+      "type": "card",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-06-03T07:17:58.964Z",
+      "updateAt": "2024-06-03T07:17:58.964Z",
+      "title": "？",
+      "description": "皆为序章",
+      "coverFit": "cover",
+      "coverPosition": "left",
+      "clickAction": {
+        "type": "CallCommand",
+        "id": "b3921a87-3a9c-48a0-8036-0e222ef176ef",
+        "options": {}
+      },
+      "icon": "Smile",
+      "cover": "resource/images/跑步 (1).png"
+    }
+  ],
+  "rootComponentId": "8d896791-9a4a-45bc-a5e6-4b012b7fbc8d"
+}

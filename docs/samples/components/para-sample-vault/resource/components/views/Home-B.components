@@ -1,0 +1,118 @@
+{
+  "components": [
+    {
+      "id": "846b172e-8ef4-476c-9001-be2db988368b",
+      "type": "multi",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-05-13T07:06:53.264Z",
+      "updateAt": "2024-05-13T07:06:53.264Z",
+      "components": [
+        {
+          "componentId": "c4b2bbc3-e3cb-42df-8fb2-7700c8e7e677"
+        },
+        {
+          "componentId": "3d6e7245-7b58-4fe2-9427-5eda6ea2238c"
+        }
+      ],
+      "layoutType": "column"
+    },
+    {
+      "id": "dca93efc-7a54-4a8c-ae0f-36c529e15e6d",
+      "type": "quote",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-05-13T07:06:57.589Z",
+      "updateAt": "2024-05-13T07:06:57.589Z",
+      "contentType": "page",
+      "coverType": "pageFirstImage",
+      "filter": {
+        "id": "811bd9bd-c0bb-4d18-9830-4d387c638588",
+        "type": "group",
+        "operator": "and",
+        "conditions": [
+          {
+            "id": "409b6073-1331-479d-b667-2d66d57a7c27",
+            "type": "filter",
+            "operator": "contains",
+            "property": "${file.tags}",
+            "value": "",
+            "conditions": []
+          }
+        ]
+      },
+      "maxHeight": 300
+    },
+    {
+      "id": "c4b2bbc3-e3cb-42df-8fb2-7700c8e7e677",
+      "type": "chart",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-05-13T07:07:39.209Z",
+      "updateAt": "2024-05-13T07:07:39.209Z",
+      "chartType": "pie",
+      "maxHeight": 170,
+      "labelProperty": "area",
+      "labelFormat": "$none",
+      "valueProperty": "$file_count",
+      "filter": {
+        "id": "b8fa751a-4bf2-401e-84ab-0d965dbfeee4",
+        "type": "group",
+        "operator": "and",
+        "conditions": [
+          {
+            "id": "212a3e41-9e05-4b63-87fa-7d75e0f100ce",
+            "type": "filter",
+            "operator": "contains",
+            "property": "tags",
+            "value": "project",
+            "conditions": []
+          }
+        ]
+      },
+      "chartColorSet": [],
+      "chartLabelPosition": "hidden",
+      "title": "领域投入度"
+    },
+    {
+      "id": "3d6e7245-7b58-4fe2-9427-5eda6ea2238c",
+      "type": "dailyCheck",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": false,
+      "showShadow": false,
+      "createAt": "2024-05-13T07:27:19.376Z",
+      "updateAt": "2024-05-13T07:27:19.376Z",
+      "tasks": [
+        {
+          "id": "a240fe09-779b-4ffb-8a4f-126641cdf773",
+          "name": "健身",
+          "options": {}
+        },
+        {
+          "id": "a24953e2-6226-4a8a-afde-84a39e45e0cd",
+          "name": "阅读",
+          "options": {}
+        },
+        {
+          "id": "a848f332-c8cd-44c9-96c6-03807bcebb8e",
+          "name": "冥想",
+          "options": {}
+        }
+      ],
+      "folder": "resource/dailyCheck",
+      "dataRecordType": "journalProperty"
+    }
+  ],
+  "rootComponentId": "846b172e-8ef4-476c-9001-be2db988368b"
+}

@@ -4,15 +4,15 @@ The Obsidian-native control surface for LLM Wiki.
 
 ## First run
 
-1. Click the **sparkles** icon in Obsidian's left ribbon, or run **Open Ask Mate
+1. Click the **sparkles** icon in Obsidian's left ribbon, or run **Open LLM Wiki
    (LLM Wiki)** from the command palette.
 2. Enter a stable Project ID such as `project/my-project`. The binding stays on
    this device.
-3. Ask Mate opens the active Markdown note, selected text, core Canvas, or the
+3. LLM Wiki opens the active Markdown note, selected text, core Canvas, or the
    current Project when no supported file is active.
 
-You can change the binding later in **Settings → LLM Wiki → Get started**.
-Ask Mate reads only the context shown in its panel and never scans the vault
+You can change the binding later in **Settings → LLM Wiki → Start with your knowledge**.
+LLM Wiki reads only the context shown in its panel and never scans the vault
 implicitly.
 
 ## Install
@@ -66,7 +66,7 @@ authoritative and the plugin never auto-commits.
 
 ## Agent control plane
 
-Run **Open Agent control plane (LLM Wiki)** or use the buttons in Settings to:
+Run **Open advanced control plane (LLM Wiki)** from Settings → Advanced administration to:
 
 - create versioned Agent Profiles and Project Agent Bindings through shared backend operations;
 - inspect derived Rooms, durable Threads, related Work Runs, approved memory fingerprints, connector state, and diagnostics;
@@ -87,9 +87,25 @@ plaintext credentials, usable grant/lease tokens, or governance composition.
 Provider credentials continue to use the Secret Reference selectors in the
 Settings section.
 
-## Ask Mate
+## Capability Library
 
-For a workspace bound to a Project, Ask Mate can:
+LLM Wiki includes the Agentfiles capability natively in the same Obsidian
+plugin. Run **Open Capability Library (LLM Wiki)** from the command palette to
+browse, search, create, edit, favorite, and organize skills, commands, agents,
+rules, and memories across Claude Code, Cursor, Windsurf, Codex, and other
+supported runtimes. The view also includes project scanning, Claude session
+exploration, marketplace discovery, and optional `@crafter/skillkit` analytics.
+
+Agentfiles state is stored with the existing LLM Wiki plugin data migration.
+Conversation export is deliberately written to
+`00-Inbox/AI-Output/agentfiles/Claude Sessions/` as `type: transcript` and
+`review: draft`; it never becomes durable knowledge or memory authority on its
+own. The upstream MIT notice is retained in
+`src/agentfiles/UPSTREAM-LICENSE.txt`.
+
+## Context workspace
+
+For a workspace bound to a Project, the LLM Wiki context workspace can:
 
 - read the LLM Wiki managed nested-list section through the shared Visual
   Workspace Operations;
@@ -106,7 +122,7 @@ the Graphify CLI is unavailable. If Graphify is disabled, missing, or stale,
 managed-map outline, preview, and apply remain usable.
 
 Ordinary Markdown and core Canvas are bounded, read-only context until the user
-reviews a supported plan. Ask Mate does not provide direct node dragging;
+reviews a supported plan. The context workspace does not provide direct node dragging;
 ecosystem mind-map plugins remain optional enhancers rather than required state
 owners.
 

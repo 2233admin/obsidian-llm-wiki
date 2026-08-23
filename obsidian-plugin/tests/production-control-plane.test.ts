@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readdirSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, test } from "node:test";
@@ -23,12 +23,74 @@ import {
   OBSIDIAN_CONTROL_PLANE_ACTOR,
   ProductionControlPlaneTransport,
 } from "../src/production-control-plane-host";
+import { isObsidianControlPlaneOperation } from "../src/host-operation-filter";
 import { AgentControlPlaneClient } from "../src/control-plane-client";
 
 const roots: string[] = [];
 
 afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+});
+
+test("Obsidian exposure is a filtered view of the shared application catalog", () => {
+  const allowed = [
+    "settings.definitions.list",
+    "project.init",
+    "visual.map.read",
+    "graph.adapters.query",
+    "context.recall",
+    "vault.writeAIOutput",
+  ];
+  const rejected = [
+    "vault.read",
+    "compile.run",
+    "project.migration.apply",
+    "agent.trigger",
+    "query.answer",
+  ];
+
+  for (const name of allowed) assert.equal(isObsidianControlPlaneOperation({ name }), true, name);
+  for (const name of rejected) assert.equal(isObsidianControlPlaneOperation({ name }), false, name);
+});
+
+test("production host answers from Project Context and writes only an Inbox draft", async () => {
+  const vaultPath = mkdtempSync(join(tmpdir(), "llmwiki-obsidian-query-"));
+  roots.push(vaultPath);
+  const transport = new ProductionControlPlaneTransport({
+    vaultPath,
+    userDeviceId: "device-query-test",
+    userDevicePath: join(vaultPath, "device-settings.json"),
+    environment: {},
+  });
+
+  await invoke(transport, "project.init", { project: "alpha", description: "Query acceptance" });
+  const notePath = join(vaultPath, "10-Projects", "alpha", "evidence.md");
+  mkdirSync(join(vaultPath, "10-Projects", "alpha"), { recursive: true });
+  writeFileSync(notePath, "CompileRunPort owns the recovered run lifecycle.\n", "utf-8");
+
+  const answer = await invoke<{ citations: Array<{ path: string }>; answer: string }>(transport, "context.recall", {
+    project: "project/alpha",
+    query: "CompileRunPort",
+    maxResults: 5,
+  });
+  assert.ok(answer.citations.some(citation => citation.path === "10-Projects/alpha/evidence.md"));
+  assert.match(answer.answer, /CompileRunPort/i);
+
+  const draft = await invoke<{ ok: boolean; path: string }>(transport, "vault.writeAIOutput", {
+    persona: "vault-ask",
+    parentQuery: "What owns the recovered run lifecycle?",
+    sourceNodes: ["10-Projects/alpha/evidence.md"],
+    agent: "llmwiki-context",
+    body: "# Context answer\n\nCompileRunPort owns the recovered run lifecycle.\n",
+    slug: "context-question-acceptance",
+    scope: "project",
+    quarantineState: "new",
+    reviewStatus: "none",
+    dryRun: false,
+  });
+  assert.equal(draft.ok, true);
+  assert.ok(draft.path.startsWith("00-Inbox/AI-Output/vault-ask/"));
+  assert.ok(existsSync(join(vaultPath, ...draft.path.split("/"))));
 });
 
 test("production registry executes Settings, Agent, Dream Time, Project Hub, Usage, and Promotion through one dispatcher", async () => {

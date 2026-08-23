@@ -1,0 +1,746 @@
+{
+  "components": [
+    {
+      "id": "c85cbda2-e747-420e-b54f-bd67a3a302bd",
+      "type": "multi",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": false,
+      "showShadow": false,
+      "createAt": "2024-05-13T08:01:51.193Z",
+      "updateAt": "2024-05-13T08:01:51.193Z",
+      "components": [
+        {
+          "componentId": "f87878bc-4452-40be-9dcd-6f914c60dfde",
+          "layout": {
+            "mobile": {
+              "x": 0,
+              "y": 0,
+              "w": 4,
+              "h": 4
+            },
+            "laptop": {
+              "x": 0,
+              "y": 7,
+              "w": 12,
+              "h": 39
+            }
+          }
+        },
+        {
+          "componentId": "ee5aaa0f-084a-4e63-bc07-28b2903c4fa0",
+          "layout": {
+            "mobile": {
+              "x": 0,
+              "y": 4,
+              "w": 4,
+              "h": 4
+            },
+            "laptop": {
+              "x": 0,
+              "y": 0,
+              "w": 2,
+              "h": 7
+            }
+          }
+        },
+        {
+          "componentId": "8b9f5876-a0de-4d2d-9aea-9a9645813255",
+          "layout": {
+            "mobile": {
+              "x": 0,
+              "y": 8,
+              "w": 4,
+              "h": 4
+            },
+            "laptop": {
+              "x": 2,
+              "y": 0,
+              "w": 2,
+              "h": 7
+            }
+          }
+        },
+        {
+          "componentId": "4622f9c8-34e1-4da3-935f-e9bffda96b52",
+          "layout": {
+            "mobile": {
+              "x": 0,
+              "y": 12,
+              "w": 4,
+              "h": 4
+            },
+            "laptop": {
+              "x": 4,
+              "y": 0,
+              "w": 3,
+              "h": 7
+            }
+          }
+        }
+      ],
+      "layoutType": "grid"
+    },
+    {
+      "id": "9150e559-71ae-4026-9440-c833dfb62b52",
+      "type": "dynamicDataView",
+      "titleAlign": "center",
+      "tabTitle": "招聘看板",
+      "maxWidthRatio": -1,
+      "showBorder": false,
+      "showShadow": false,
+      "createAt": "2024-05-13T08:01:54.051Z",
+      "updateAt": "2024-05-13T08:01:54.052Z",
+      "viewType": "kanban",
+      "properties": [
+        {
+          "id": "abb7a66f-e3a8-4d0b-9b4e-62b6a245892b",
+          "name": "tags",
+          "type": "multiSelect",
+          "isShow": true,
+          "options": {}
+        },
+        {
+          "id": "46a78d83-7700-4f8a-a1b6-bb5ba9404fb9",
+          "name": "createTime",
+          "type": "datetime",
+          "isShow": true,
+          "options": {}
+        },
+        {
+          "id": "9d2574d0-9b69-43dd-b24e-f728c1d8fe28",
+          "name": "status",
+          "type": "select",
+          "isShow": true,
+          "options": {}
+        },
+        {
+          "id": "9b68309c-7355-4b38-a661-848e47d3485e",
+          "name": "doneTime",
+          "type": "text",
+          "isShow": true,
+          "options": {}
+        },
+        {
+          "id": "d0a97eb6-ca0d-4022-8bc9-834242e9659d",
+          "name": "type",
+          "type": "select",
+          "isShow": true,
+          "options": {}
+        }
+      ],
+      "templates": [
+        {
+          "id": "b97ff483-d177-4442-954d-3374e5faf821",
+          "path": "resource/template/Headcount.md",
+          "name": "Headcount.md",
+          "type": "normal"
+        }
+      ],
+      "groups": [
+        {
+          "id": "ac163523-36af-43f9-8cbe-950def523b0d",
+          "name": "候选",
+          "items": [],
+          "collapsed": false
+        },
+        {
+          "id": "deed91eb-e807-4487-b285-b60de5f10fc2",
+          "name": "一面",
+          "items": [],
+          "collapsed": false
+        },
+        {
+          "id": "0b2f5bee-e36d-4c30-90c6-c63377f01b49",
+          "name": "二面",
+          "items": [],
+          "collapsed": false
+        },
+        {
+          "id": "b94dba2d-ae0c-4af6-a66f-63cb81dadd10",
+          "name": "三面",
+          "items": [],
+          "collapsed": false
+        },
+        {
+          "id": "ff47c5fc-ab40-4c0e-9c70-0f1842519b3c",
+          "name": "终面",
+          "items": [],
+          "collapsed": false
+        },
+        {
+          "id": "4b532cd0-6d23-46df-b190-867cf15d92b0",
+          "name": "入职中",
+          "items": [],
+          "collapsed": false
+        },
+        {
+          "id": "285d69f0-ab18-4e30-bb50-4aa3e77e8f2f",
+          "name": "__$uncategorizedGroup",
+          "items": [],
+          "collapsed": false
+        }
+      ],
+      "viewOptions": {
+        "openPageIn": "tab",
+        "itemSize": "components--page-card-medium",
+        "showPropertyName": false,
+        "hideFileName": false,
+        "wrapFileName": true,
+        "cover": {
+          "type": "pageFirstImage",
+          "value": "",
+          "fit": "cover",
+          "layout": "components--page-card-cover-landscape"
+        },
+        "pinFiltersToMenuBar": true
+      },
+      "groupBy": "status",
+      "defaultTemplate": "b97ff483-d177-4442-954d-3374e5faf821",
+      "newPageLocation": {
+        "location": "area/work/招聘"
+      },
+      "filter": {
+        "id": "bc9afa86-0c6d-4468-8401-583c2f7074d6",
+        "type": "group",
+        "operator": "and",
+        "conditions": [
+          {
+            "id": "142307a7-c3d7-4baf-b5ef-37cad1a1e802",
+            "type": "filter",
+            "operator": "contains",
+            "property": "${file.path}",
+            "value": "area/work/招聘",
+            "conditions": []
+          }
+        ]
+      },
+      "newPageNameFormat": "",
+      "showTitle": false
+    },
+    {
+      "id": "3e9ea363-5efc-4325-a75d-9fbdf066ad0d",
+      "type": "dynamicDataView",
+      "titleAlign": "center",
+      "tabTitle": "研发项目",
+      "maxWidthRatio": -1,
+      "showBorder": false,
+      "showShadow": false,
+      "createAt": "2024-05-13T08:13:00.687Z",
+      "updateAt": "2024-05-13T08:13:00.687Z",
+      "viewType": "kanban",
+      "properties": [
+        {
+          "id": "__componentsTitleProperty_0x7c00",
+          "name": "文件名",
+          "type": "text",
+          "isShow": true,
+          "wrap": false,
+          "options": {}
+        },
+        {
+          "id": "4a14642d-e483-4c9f-9c7c-606eec2a3f88",
+          "name": "tags",
+          "type": "multiSelect",
+          "isShow": true,
+          "options": {}
+        },
+        {
+          "id": "99b0d477-a716-4de5-8ed4-5bdbd5253e60",
+          "name": "area",
+          "type": "link",
+          "isShow": true,
+          "options": {}
+        },
+        {
+          "id": "72b47200-fdfc-4779-b34e-2dcc6e60a400",
+          "name": "createTime",
+          "type": "datetime",
+          "isShow": false,
+          "options": {}
+        },
+        {
+          "id": "29cfc4df-e82b-48a3-8eba-de96c1b5d336",
+          "name": "doneTime",
+          "type": "text",
+          "isShow": true,
+          "options": {}
+        },
+        {
+          "id": "9484087c-b982-4530-b66f-716eb8e1d3ff",
+          "name": "status",
+          "type": "select",
+          "isShow": true,
+          "options": {},
+          "alias": ""
+        },
+        {
+          "id": "aade62d0-85ce-4f45-9434-48fa3567b0f9",
+          "name": "tasks",
+          "isShow": true,
+          "type": "taskList",
+          "options": {
+            "showTaskList": true,
+            "showAllTasks": false,
+            "hideTaskFields": false,
+            "timeRecordStyle": "tasks",
+            "insertPosition": {
+              "position": "BottomOfNote",
+              "headingLine": ""
+            }
+          }
+        },
+        {
+          "id": "757ccc4a-27ef-4f4d-9c42-0e765170f3d2",
+          "name": "完成",
+          "type": "button",
+          "isShow": true,
+          "options": {
+            "name": "完成项目",
+            "action": {
+              "type": "updateProperty",
+              "properties": [
+                {
+                  "id": "fd412938-eb23-4dff-bb04-9091bc6f0d59",
+                  "name": "doneTime",
+                  "type": "datetime",
+                  "value": "$now"
+                },
+                {
+                  "id": "d7c2b63e-f978-480f-bad6-aabfc50933c9",
+                  "name": "status",
+                  "type": "string",
+                  "value": "DONE"
+                }
+              ]
+            }
+          },
+          "alias": ""
+        },
+        {
+          "id": "5e5cf778-9ac0-452d-99b4-15e8408a43e1",
+          "name": "取消",
+          "type": "button",
+          "isShow": true,
+          "options": {
+            "name": "取消项目",
+            "action": {
+              "type": "updateProperty",
+              "properties": [
+                {
+                  "id": "fd412938-eb23-4dff-bb04-9091bc6f0d59",
+                  "name": "doneTime",
+                  "type": "datetime",
+                  "value": "$now"
+                },
+                {
+                  "id": "d7c2b63e-f978-480f-bad6-aabfc50933c9",
+                  "name": "status",
+                  "type": "string",
+                  "value": "CANCELED"
+                }
+              ]
+            }
+          },
+          "alias": ""
+        }
+      ],
+      "templates": [
+        {
+          "id": "9638c6cf-715b-4bc3-8194-6c96fadec88c",
+          "path": "resource/template/工作/工作项目模板.md",
+          "name": "工作项目模板.md",
+          "type": "normal"
+        }
+      ],
+      "groups": [
+        {
+          "id": "9bf80cdf-a8e0-4fad-b284-7adab98452bd",
+          "name": "TODO",
+          "items": [],
+          "collapsed": false
+        },
+        {
+          "id": "391584b4-db02-4c4a-b694-dc49d47ab2a1",
+          "name": "DOING",
+          "items": [],
+          "collapsed": false
+        },
+        {
+          "id": "92142ff0-e5a0-44fb-907f-69ffb087dfdc",
+          "name": "DONE",
+          "items": [],
+          "collapsed": false
+        },
+        {
+          "id": "4e5fb76f-1486-4a93-8be8-a9f9244825ba",
+          "name": "CANCELED",
+          "items": [],
+          "collapsed": false
+        },
+        {
+          "id": "99fa69b7-f2ce-4705-8213-b7dcbe087127",
+          "name": "__$uncategorizedGroup",
+          "items": [],
+          "collapsed": false
+        }
+      ],
+      "viewOptions": {
+        "openPageIn": "tab",
+        "itemSize": "components--page-card-medium",
+        "showPropertyName": false,
+        "cover": {
+          "type": "pageFirstImage",
+          "value": "",
+          "fit": "contains",
+          "layout": "components--page-card-cover-landscape"
+        },
+        "headColumnWidth": "266",
+        "headColumnStatisticType": "count",
+        "pinFiltersToMenuBar": true
+      },
+      "filter": {
+        "id": "bc9afa86-0c6d-4468-8401-583c2f7074d6",
+        "type": "group",
+        "operator": "and",
+        "conditions": [
+          {
+            "id": "75cf6053-82c9-4c1f-a37e-eaedfedf7460",
+            "type": "filter",
+            "operator": "contains",
+            "property": "${file.parent}",
+            "value": "area/work/研发",
+            "conditions": []
+          }
+        ]
+      },
+      "defaultTemplate": "9638c6cf-715b-4bc3-8194-6c96fadec88c",
+      "groupBy": "status",
+      "newPageLocation": {
+        "location": "area/work/研发"
+      },
+      "newPageNameFormat": "{{date: YYMMDD}} ",
+      "groupStates": {
+        "sort": "manual",
+        "orders": [
+          "__$uncategorizedGroup",
+          "TODO",
+          "DOING",
+          "DONE"
+        ]
+      },
+      "showTitle": false
+    },
+    {
+      "id": "f87878bc-4452-40be-9dcd-6f914c60dfde",
+      "type": "multi",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": false,
+      "showShadow": false,
+      "createAt": "2024-12-27T11:10:56.348Z",
+      "updateAt": "2024-12-27T11:10:56.348Z",
+      "components": [
+        {
+          "componentId": "3e9ea363-5efc-4325-a75d-9fbdf066ad0d"
+        },
+        {
+          "componentId": "30090b1a-636f-4495-924e-be1fcbdf12d4"
+        },
+        {
+          "componentId": "9150e559-71ae-4026-9440-c833dfb62b52"
+        }
+      ],
+      "layoutType": "tab",
+      "locked": false,
+      "layoutOptions": {}
+    },
+    {
+      "id": "ee5aaa0f-084a-4e63-bc07-28b2903c4fa0",
+      "type": "count",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-12-27T11:11:15.406Z",
+      "updateAt": "2024-12-27T11:11:15.406Z",
+      "countValueAlign": "center",
+      "contentPrefix": "",
+      "contentSuffix": "",
+      "countType": "number",
+      "precision": 0,
+      "query": {
+        "valueType": "totalRecords",
+        "value": 100,
+        "filter": {
+          "id": "a89cca03-bb0b-4af4-9bb8-c0eec69cdbbc",
+          "type": "group",
+          "operator": "and",
+          "conditions": [
+            {
+              "id": "3ea01221-a846-4e18-b528-4daff4358c65",
+              "type": "filter",
+              "operator": "contains",
+              "property": "${file.parent}",
+              "value": "area/work/研发",
+              "conditions": []
+            },
+            {
+              "id": "edbf3f92-05cc-46b1-b676-6153e3c4ada2",
+              "type": "group",
+              "operator": "or",
+              "conditions": [
+                {
+                  "id": "b5667733-92c6-409c-a0c6-3b2900844da9",
+                  "type": "filter",
+                  "operator": "contains",
+                  "property": "status",
+                  "value": "TODO",
+                  "conditions": []
+                },
+                {
+                  "id": "43cfcdd9-be7e-4098-ba48-2c5de98023e7",
+                  "type": "filter",
+                  "operator": "contains",
+                  "property": "status",
+                  "value": "DOING",
+                  "conditions": []
+                }
+              ]
+            }
+          ]
+        },
+        "sort": {
+          "orders": []
+        }
+      },
+      "totalQuery": {
+        "valueType": "constant",
+        "value": 100,
+        "filter": {
+          "id": "03b29510-572d-46a8-8909-2b790ce061b6",
+          "type": "group",
+          "operator": "and",
+          "conditions": []
+        },
+        "sort": {
+          "orders": []
+        }
+      },
+      "title": "待办项目"
+    },
+    {
+      "id": "8b9f5876-a0de-4d2d-9aea-9a9645813255",
+      "type": "count",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-12-27T11:11:15.406Z",
+      "updateAt": "2024-12-27T11:11:15.406Z",
+      "countValueAlign": "center",
+      "contentPrefix": "",
+      "contentSuffix": "",
+      "countType": "number",
+      "precision": 0,
+      "query": {
+        "valueType": "totalRecords",
+        "value": 100,
+        "filter": {
+          "id": "a89cca03-bb0b-4af4-9bb8-c0eec69cdbbc",
+          "type": "group",
+          "operator": "and",
+          "conditions": []
+        },
+        "sort": {
+          "orders": []
+        }
+      },
+      "totalQuery": {
+        "valueType": "constant",
+        "value": 100,
+        "filter": {
+          "id": "03b29510-572d-46a8-8909-2b790ce061b6",
+          "type": "group",
+          "operator": "and",
+          "conditions": []
+        },
+        "sort": {
+          "orders": []
+        }
+      }
+    },
+    {
+      "id": "4622f9c8-34e1-4da3-935f-e9bffda96b52",
+      "type": "countdown",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-12-27T11:12:12.795Z",
+      "updateAt": "2024-12-27T11:12:12.795Z",
+      "repeatType": "monthly",
+      "pictureFit": "cover",
+      "picturePosition": "left",
+      "showEndDateTime": true,
+      "endDayOfWeek": 0,
+      "endHour": 14,
+      "endMinute": 0,
+      "endSecond": 0,
+      "title": "⌛️距下次发布还有",
+      "endDayOfMonth": 20,
+      "timeTextPattern": "d"
+    },
+    {
+      "id": "30090b1a-636f-4495-924e-be1fcbdf12d4",
+      "type": "dynamicDataView",
+      "titleAlign": "center",
+      "tabTitle": "发布计划",
+      "maxWidthRatio": -1,
+      "showBorder": false,
+      "showShadow": false,
+      "createAt": "2024-05-13T08:13:00.687Z",
+      "updateAt": "2024-05-13T08:13:00.687Z",
+      "viewType": "table",
+      "properties": [
+        {
+          "id": "__componentsTitleProperty_0x7c00",
+          "name": "文件名",
+          "type": "text",
+          "isShow": true,
+          "wrap": false,
+          "options": {}
+        },
+        {
+          "id": "4a14642d-e483-4c9f-9c7c-606eec2a3f88",
+          "name": "tags",
+          "type": "multiSelect",
+          "isShow": true,
+          "options": {}
+        },
+        {
+          "id": "99b0d477-a716-4de5-8ed4-5bdbd5253e60",
+          "name": "area",
+          "type": "link",
+          "isShow": true,
+          "options": {}
+        },
+        {
+          "id": "72b47200-fdfc-4779-b34e-2dcc6e60a400",
+          "name": "createTime",
+          "type": "datetime",
+          "isShow": false,
+          "options": {}
+        },
+        {
+          "id": "29cfc4df-e82b-48a3-8eba-de96c1b5d336",
+          "name": "doneTime",
+          "type": "text",
+          "isShow": true,
+          "options": {}
+        },
+        {
+          "id": "9484087c-b982-4530-b66f-716eb8e1d3ff",
+          "name": "status",
+          "type": "select",
+          "isShow": true,
+          "options": {},
+          "alias": ""
+        },
+        {
+          "id": "aade62d0-85ce-4f45-9434-48fa3567b0f9",
+          "name": "tasks",
+          "isShow": true,
+          "type": "taskList",
+          "options": {
+            "showTaskList": true,
+            "showAllTasks": false,
+            "hideTaskFields": false,
+            "timeRecordStyle": "tasks",
+            "insertPosition": {
+              "position": "BottomOfNote",
+              "headingLine": ""
+            }
+          }
+        },
+        {
+          "id": "d8f2bfb4-b4c7-414f-b163-7b3b28e468f4",
+          "name": "发布",
+          "isShow": true,
+          "type": "button",
+          "options": {
+            "action": {
+              "type": "updateProperty",
+              "properties": [
+                {
+                  "id": "6fbf6fe4-f23a-4f25-bf2b-bbc76c196bf4",
+                  "name": "doneTime",
+                  "type": "datetime",
+                  "value": "$now"
+                },
+                {
+                  "id": "9cee9ca9-b658-45ee-9eb7-94686aee8ae5",
+                  "name": "status",
+                  "type": "string",
+                  "value": "DONE"
+                }
+              ]
+            }
+          },
+          "alias": ""
+        }
+      ],
+      "templates": [
+        {
+          "id": "9638c6cf-715b-4bc3-8194-6c96fadec88c",
+          "path": "resource/template/工作/工作项目模板.md",
+          "name": "工作项目模板.md",
+          "type": "normal"
+        }
+      ],
+      "groups": [],
+      "viewOptions": {
+        "openPageIn": "tab",
+        "itemSize": "components--page-card-medium",
+        "showPropertyName": false,
+        "cover": {
+          "type": "pageFirstImage",
+          "value": "",
+          "fit": "contains",
+          "layout": "components--page-card-cover-landscape"
+        },
+        "headColumnWidth": "266",
+        "headColumnStatisticType": "count",
+        "pinFiltersToMenuBar": true
+      },
+      "filter": {
+        "id": "bc9afa86-0c6d-4468-8401-583c2f7074d6",
+        "type": "group",
+        "operator": "and",
+        "conditions": [
+          {
+            "id": "75cf6053-82c9-4c1f-a37e-eaedfedf7460",
+            "type": "filter",
+            "operator": "contains",
+            "property": "${file.parent}",
+            "value": "area/work/发布计划",
+            "conditions": []
+          }
+        ]
+      },
+      "defaultTemplate": "9638c6cf-715b-4bc3-8194-6c96fadec88c",
+      "newPageLocation": {
+        "location": "area/work/发布计划"
+      },
+      "newPageNameFormat": "{{date: YYMMDD}} ",
+      "showTitle": false
+    }
+  ],
+  "rootComponentId": "c85cbda2-e747-420e-b54f-bd67a3a302bd",
+  "version": 3.1
+}

@@ -1,0 +1,58 @@
+{
+  "components": [
+    {
+      "id": "8f53ab04-628c-4b35-8545-5f26622f5cd1",
+      "type": "multi",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-05-13T07:58:55.776Z",
+      "updateAt": "2024-05-13T07:58:55.776Z",
+      "components": [
+        {
+          "componentId": "8e0978ff-9aed-45f9-b50b-585d59078a23"
+        },
+        {
+          "componentId": "aeffeb64-7ebc-4a7e-8c9e-e6d526d51adf"
+        }
+      ],
+      "layoutType": "column"
+    },
+    {
+      "id": "8e0978ff-9aed-45f9-b50b-585d59078a23",
+      "type": "timing",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-05-13T07:59:18.299Z",
+      "updateAt": "2024-05-13T07:59:18.299Z",
+      "showStartDateTime": true,
+      "timeTextPattern": "d",
+      "title": "😊\n今年已经过去了",
+      "startDateTime": "2024-01-01 00:00:00"
+    },
+    {
+      "id": "aeffeb64-7ebc-4a7e-8c9e-e6d526d51adf",
+      "type": "countdown",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-05-13T07:59:21.673Z",
+      "updateAt": "2024-05-13T07:59:21.673Z",
+      "repeatType": "daily",
+      "showEndDateTime": true,
+      "endHour": 23,
+      "endMinute": 30,
+      "endSecond": 0,
+      "title": "😴\n年轻人\n不要熬夜",
+      "timeTextPattern": "Hms"
+    }
+  ],
+  "rootComponentId": "8f53ab04-628c-4b35-8545-5f26622f5cd1"
+}

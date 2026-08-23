@@ -1,10 +1,10 @@
 import { readdirSync, existsSync } from 'node:fs';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { resolveProjectAsset } from '../runtime-paths.js';
+import { join } from 'node:path';
 import { parseRecipe } from './_framework.js';
 import type { Recipe } from './_types.js';
 
-const DEFAULT_RECIPES_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'recipes');
+const DEFAULT_RECIPES_DIR = resolveProjectAsset('recipes');
 
 let _cache: Recipe[] | null = null;
 

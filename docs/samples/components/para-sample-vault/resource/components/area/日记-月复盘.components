@@ -1,0 +1,199 @@
+{
+  "components": [
+    {
+      "id": "2b9aa451-0869-4b8e-ad61-3570b269567b",
+      "type": "multi",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-12-27T12:19:04.025Z",
+      "updateAt": "2024-12-27T12:19:04.025Z",
+      "components": [
+        {
+          "componentId": "f4cdad9c-83a2-46a8-a27b-35eab7dcaa8d"
+        },
+        {
+          "componentId": "a111d020-953e-42f5-b2ff-830331578e11"
+        }
+      ],
+      "layoutType": "tab",
+      "locked": false,
+      "layoutOptions": {}
+    },
+    {
+      "id": "a111d020-953e-42f5-b2ff-830331578e11",
+      "type": "dynamicDataView",
+      "titleAlign": "center",
+      "tabTitle": "画廊",
+      "maxWidthRatio": -1,
+      "showBorder": false,
+      "showShadow": false,
+      "createAt": "2024-12-27T12:19:07.833Z",
+      "updateAt": "2024-12-27T12:19:07.833Z",
+      "viewType": "gallary",
+      "newPageNameFormat": "{{date:YYYYMMDDHHmmss}} ",
+      "properties": [
+        {
+          "id": "__componentsTitleProperty_0x7c00",
+          "name": "文件名",
+          "type": "text",
+          "isShow": true,
+          "wrap": false,
+          "options": {}
+        }
+      ],
+      "templates": [],
+      "groups": [],
+      "colorfulGroups": false,
+      "viewOptions": {
+        "openPageIn": "tab",
+        "openPageAfterCreate": true,
+        "items": [],
+        "pinFiltersToMenuBar": true,
+        "showGrid": false,
+        "heightType": "auto",
+        "heightValue": 600
+      },
+      "filter": {
+        "id": "daab5c44-d1e9-438d-a287-a124582d5ad9",
+        "type": "group",
+        "operator": "and",
+        "conditions": [
+          {
+            "id": "ecfacb6c-d6dd-4516-be25-c2132db641cb",
+            "type": "filter",
+            "operator": "contains",
+            "property": "tags",
+            "value": "journal",
+            "conditions": []
+          },
+          {
+            "id": "bedf8d70-e577-487c-984d-bdbd299fe7c4",
+            "type": "filter",
+            "operator": "has_value",
+            "property": "createTime",
+            "value": null,
+            "conditions": []
+          },
+          {
+            "id": "f5b48deb-b399-4c5c-b956-2266f68ca1f6",
+            "type": "jsQuery",
+            "operator": "contains",
+            "property": "${file.tags}",
+            "value": "DateTime.fromISO($item.frontmatter?.createTime).toFormat('yyyy-MM') === DateTime.fromISO($parentFile.frontmatter?.createTime).toFormat('yyyy-MM')",
+            "conditions": []
+          }
+        ]
+      },
+      "sort": {
+        "orders": [
+          {
+            "id": "2cfba55c-8f41-44c4-94be-362c1dacd757",
+            "property": "${file.basename}",
+            "direction": "desc",
+            "disabled": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "f4cdad9c-83a2-46a8-a27b-35eab7dcaa8d",
+      "type": "dynamicDataView",
+      "titleAlign": "center",
+      "tabTitle": "表格",
+      "maxWidthRatio": -1,
+      "showBorder": false,
+      "showShadow": false,
+      "createAt": "2024-12-27T12:19:07.833Z",
+      "updateAt": "2024-12-27T12:19:07.833Z",
+      "viewType": "table",
+      "newPageNameFormat": "{{date:YYYYMMDDHHmmss}} ",
+      "properties": [
+        {
+          "id": "__componentsTitleProperty_0x7c00",
+          "name": "文件名",
+          "type": "text",
+          "isShow": true,
+          "wrap": false,
+          "options": {
+            "statisticType": "count"
+          }
+        },
+        {
+          "id": "a2cfa035-2bb3-4651-97fa-f937195d9a81",
+          "name": "${file.tags}",
+          "type": "multiSelect",
+          "isShow": true,
+          "wrap": false,
+          "options": {},
+          "alias": ""
+        },
+        {
+          "id": "6ce7e589-ee9d-4654-b529-44499e2737d5",
+          "name": "${file.words}",
+          "type": "text",
+          "isShow": true,
+          "wrap": false,
+          "options": {},
+          "alias": ""
+        }
+      ],
+      "templates": [],
+      "groups": [],
+      "colorfulGroups": false,
+      "viewOptions": {
+        "openPageIn": "tab",
+        "openPageAfterCreate": true,
+        "items": [],
+        "pinFiltersToMenuBar": true,
+        "showGrid": false,
+        "heightType": "auto",
+        "heightValue": 600
+      },
+      "filter": {
+        "id": "daab5c44-d1e9-438d-a287-a124582d5ad9",
+        "type": "group",
+        "operator": "and",
+        "conditions": [
+          {
+            "id": "ecfacb6c-d6dd-4516-be25-c2132db641cb",
+            "type": "filter",
+            "operator": "contains",
+            "property": "tags",
+            "value": "journal",
+            "conditions": []
+          },
+          {
+            "id": "bedf8d70-e577-487c-984d-bdbd299fe7c4",
+            "type": "filter",
+            "operator": "has_value",
+            "property": "createTime",
+            "value": null,
+            "conditions": []
+          },
+          {
+            "id": "f5b48deb-b399-4c5c-b956-2266f68ca1f6",
+            "type": "jsQuery",
+            "operator": "contains",
+            "property": "${file.tags}",
+            "value": "DateTime.fromISO($item.frontmatter?.createTime).toFormat('yyyy-MM') === DateTime.fromISO($parentFile.frontmatter?.createTime).toFormat('yyyy-MM')",
+            "conditions": []
+          }
+        ]
+      },
+      "sort": {
+        "orders": [
+          {
+            "id": "2cfba55c-8f41-44c4-94be-362c1dacd757",
+            "property": "${file.basename}",
+            "direction": "desc",
+            "disabled": false
+          }
+        ]
+      }
+    }
+  ],
+  "rootComponentId": "2b9aa451-0869-4b8e-ad61-3570b269567b"
+}

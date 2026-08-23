@@ -1,0 +1,140 @@
+{
+  "components": [
+    {
+      "id": "67561dc9-887c-4dc8-abf5-c2db988f8ad9",
+      "type": "multi",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": false,
+      "showShadow": false,
+      "createAt": "2024-05-13T07:24:18.623Z",
+      "updateAt": "2024-05-13T07:24:18.623Z",
+      "components": [
+        {
+          "componentId": "ca2b37e3-3efd-41f8-8598-f1f5c26ad255"
+        }
+      ],
+      "layoutType": "tab"
+    },
+    {
+      "id": "ca2b37e3-3efd-41f8-8598-f1f5c26ad255",
+      "type": "dynamicDataView",
+      "titleAlign": "center",
+      "tabTitle": "项目看板",
+      "maxWidthRatio": -1,
+      "showBorder": false,
+      "showShadow": false,
+      "createAt": "2024-05-13T07:24:21.585Z",
+      "updateAt": "2024-05-13T07:24:21.585Z",
+      "viewType": "kanban",
+      "properties": [
+        {
+          "id": "52ba3ca7-b23f-408f-9719-a6e2174e7519",
+          "name": "tags",
+          "type": "multiSelect",
+          "isShow": true,
+          "options": {}
+        },
+        {
+          "id": "46d1dc04-9522-4f97-8a1a-d615fd1a7369",
+          "name": "area",
+          "type": "link",
+          "isShow": true,
+          "options": {}
+        },
+        {
+          "id": "6df29446-7272-42c0-a87d-c4f6db739c50",
+          "name": "createTime",
+          "type": "datetime",
+          "isShow": true,
+          "options": {}
+        },
+        {
+          "id": "dcd90c26-c37c-4986-b5c6-ac29d97a15e7",
+          "name": "doneTime",
+          "type": "text",
+          "isShow": true,
+          "options": {}
+        },
+        {
+          "id": "c31ec44c-65d1-451c-9dc6-56199f061416",
+          "name": "status",
+          "type": "select",
+          "isShow": true,
+          "options": {}
+        }
+      ],
+      "templates": [
+        {
+          "id": "e954708c-5f83-4ec6-8fe3-ba8bd5607b68",
+          "path": "resource/template/project.md",
+          "name": "project.md",
+          "type": "normal"
+        }
+      ],
+      "groups": [
+        {
+          "id": "3a591a38-9f82-49b4-bf87-b882e39cb8f5",
+          "name": "TODO",
+          "items": [],
+          "collapsed": false
+        },
+        {
+          "id": "d8b8a614-74df-436b-b2a0-e6aa3cba6990",
+          "name": "DOING",
+          "items": [],
+          "collapsed": false
+        },
+        {
+          "id": "08eb4761-6a90-4d47-b246-fcb700c9660f",
+          "name": "DONE",
+          "items": [],
+          "collapsed": false
+        }
+      ],
+      "viewOptions": {
+        "openPageIn": "tab",
+        "itemSize": "components--page-card-medium",
+        "showPropertyName": false,
+        "cover": {
+          "type": "none",
+          "value": "",
+          "fit": "contains",
+          "layout": "components--page-card-cover-landscape"
+        }
+      },
+      "filter": {
+        "id": "bc9afa86-0c6d-4468-8401-583c2f7074d6",
+        "type": "group",
+        "operator": "and",
+        "conditions": [
+          {
+            "id": "307d38bb-94f5-4aff-a047-2c982b642390",
+            "type": "filter",
+            "operator": "contains",
+            "property": "tags",
+            "value": "project",
+            "conditions": []
+          },
+          {
+            "id": "25bdfcc9-fda7-4ced-bbeb-1144cef17e01",
+            "type": "filter",
+            "operator": "contains",
+            "property": "area",
+            "value": "[[知识管理]]",
+            "conditions": []
+          }
+        ]
+      },
+      "groupBy": "status",
+      "newPageLocation": {
+        "location": "space"
+      },
+      "loadLimitPerPage": 25,
+      "showTitle": false
+    }
+  ],
+  "rootComponentId": "67561dc9-887c-4dc8-abf5-c2db988f8ad9",
+  "version": 3.1
+}

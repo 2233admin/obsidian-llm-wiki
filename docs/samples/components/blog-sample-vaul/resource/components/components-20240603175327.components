@@ -1,0 +1,44 @@
+{
+  "components": [
+    {
+      "id": "6913a6e2-3ed2-44d8-ba99-0311ef9fd401",
+      "type": "multi",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-06-03T09:53:27.600Z",
+      "updateAt": "2024-06-03T09:53:27.600Z",
+      "components": [
+        {
+          "componentId": "9e1146bb-f87a-4ddf-b41c-5b6de029a7cd"
+        }
+      ],
+      "layoutType": "column"
+    },
+    {
+      "id": "9e1146bb-f87a-4ddf-b41c-5b6de029a7cd",
+      "type": "card",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": false,
+      "showShadow": false,
+      "createAt": "2024-06-03T09:53:31.754Z",
+      "updateAt": "2024-06-03T09:53:31.754Z",
+      "title": "小红书 Vran",
+      "description": "个位数博主",
+      "coverFit": "cover",
+      "coverPosition": "left",
+      "clickAction": {
+        "type": "CallCommand",
+        "id": "c024c936-bbf4-4332-aa2d-d3aeb4e3a3e8",
+        "options": {}
+      },
+      "icon": "MoonStar",
+      "cover": "resource/images/程序员.png"
+    }
+  ],
+  "rootComponentId": "6913a6e2-3ed2-44d8-ba99-0311ef9fd401"
+}

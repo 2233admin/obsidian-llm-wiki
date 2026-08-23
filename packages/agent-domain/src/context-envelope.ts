@@ -38,6 +38,17 @@ const EVICTION_ORDER: Record<ContextLayerName, number> = {
 
 export const TOKEN_ESTIMATOR = "utf8-bytes-div4/v1" as const;
 
+export interface ContextCompilerPort {
+  compile(input: ContextEnvelopeCompileInput): ContextEnvelope;
+}
+
+/** Stable domain seam; hosts inject this contract instead of owning compilation rules. */
+export class DomainContextCompiler implements ContextCompilerPort {
+  compile(input: ContextEnvelopeCompileInput): ContextEnvelope {
+    return compileContextEnvelope(input);
+  }
+}
+
 export function estimateTokens(content: JsonValue): number {
   return Math.max(1, Math.ceil(Buffer.byteLength(canonicalJson(content), "utf8") / 4));
 }

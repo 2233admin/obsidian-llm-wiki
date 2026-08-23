@@ -1,0 +1,43 @@
+{
+  "components": [
+    {
+      "id": "a5922858-c590-4b66-9846-a5494f7c8470",
+      "type": "multi",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-06-03T09:52:39.368Z",
+      "updateAt": "2024-06-03T09:52:39.368Z",
+      "components": [
+        {
+          "componentId": "9cb5b5d5-439b-4b78-868a-2e459f63dcea"
+        }
+      ],
+      "layoutType": "column"
+    },
+    {
+      "id": "9cb5b5d5-439b-4b78-868a-2e459f63dcea",
+      "type": "card",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": false,
+      "showShadow": false,
+      "createAt": "2024-06-03T09:52:42.807Z",
+      "updateAt": "2024-06-03T09:52:42.807Z",
+      "title": "",
+      "description": "",
+      "coverFit": "cover",
+      "coverPosition": "top",
+      "clickAction": {
+        "type": "CallCommand",
+        "id": "cd8af00e-5c67-48ea-b964-f1413f3a3cc6",
+        "options": {}
+      },
+      "cover": "resource/images/上学读书.png"
+    }
+  ],
+  "rootComponentId": "a5922858-c590-4b66-9846-a5494f7c8470"
+}

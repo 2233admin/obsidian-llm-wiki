@@ -17,7 +17,7 @@
 
 services:
   lmvk-caddy:
-    image: caddy:2.10-alpine        # 固定版本, 回滚 = 改回旧 tag
+    image: caddy:2.11.4-alpine      # 固定版本, 回滚 = 改回旧 tag
     container_name: lmvk-caddy
     restart: unless-stopped
 

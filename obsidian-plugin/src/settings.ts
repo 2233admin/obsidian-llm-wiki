@@ -10,6 +10,7 @@ import {
   type SettingScope,
   type SettingsOperationClient,
 } from "./settings-client";
+import { DEFAULT_SETTINGS as AGENTFILES_DEFAULT_SETTINGS, type ChopsSettings } from "./agentfiles/types";
 
 export const PLUGIN_DATA_SCHEMA_VERSION = 2;
 
@@ -59,6 +60,7 @@ export interface LLMWikiPluginData {
   presentation: PluginPresentation;
   deviceBinding?: DeviceBindingReference;
   legacyMigration?: LegacyMigrationMarker;
+  agentfiles?: ChopsSettings;
 }
 
 export interface PluginDataMigrationPlan {
@@ -104,6 +106,25 @@ function readDeviceBinding(raw: Record<string, unknown>): DeviceBindingReference
     binding.workspaceProjectId = raw.deviceBinding.workspaceProjectId;
   }
   return binding;
+}
+
+function readAgentfilesSettings(raw: Record<string, unknown>): ChopsSettings | undefined {
+  if (!isRecord(raw.agentfiles)) return undefined;
+  const source = raw.agentfiles;
+  return {
+    ...AGENTFILES_DEFAULT_SETTINGS,
+    ...source,
+    tools: isRecord(source.tools) ? source.tools as ChopsSettings["tools"] : {},
+    favorites: Array.isArray(source.favorites)
+      ? source.favorites.filter((value): value is string => typeof value === "string")
+      : [],
+    collections: isRecord(source.collections)
+      ? source.collections as ChopsSettings["collections"]
+      : {},
+    customScanPaths: Array.isArray(source.customScanPaths)
+      ? source.customScanPaths.filter((value): value is string => typeof value === "string")
+      : [],
+  };
 }
 
 function readRevisions(value: unknown): Partial<Record<SettingScope, number>> | undefined {
@@ -205,11 +226,13 @@ export function planPluginDataMigration(raw: unknown): PluginDataMigrationPlan {
   }
   const assignments = collectLegacyAssignments(raw);
   const existingMarker = readMarker(raw);
+  const agentfiles = readAgentfilesSettings(raw);
   const data: LLMWikiPluginData = {
     schemaVersion: PLUGIN_DATA_SCHEMA_VERSION,
     presentation: readPresentation(raw),
     deviceBinding: readDeviceBinding(raw),
     legacyMigration: existingMarker,
+    ...(agentfiles ? { agentfiles } : {}),
   };
   if (assignments.length) {
     data.legacyMigration = {
@@ -237,7 +260,12 @@ export function preservePendingMigrationSource(
   data: LLMWikiPluginData,
 ): unknown {
   if (!pendingSource) return data;
-  return { ...pendingSource, presentation: data.presentation, deviceBinding: data.deviceBinding };
+  return {
+    ...pendingSource,
+    presentation: data.presentation,
+    deviceBinding: data.deviceBinding,
+    ...(data.agentfiles ? { agentfiles: data.agentfiles } : {}),
+  };
 }
 
 export function selectEditingScope(data: LLMWikiPluginData, scope: SettingScope): LLMWikiPluginData {

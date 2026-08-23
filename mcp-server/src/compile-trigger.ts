@@ -2,7 +2,7 @@
  * Compile trigger -- dirty queue + auto-batch compilation.
  *
  * Tracks vault file changes (create/modify in raw/ paths).
- * When dirty count >= threshold, spawns compile.py as subprocess.
+ * When dirty count >= threshold, routes a compile Run through the worker port.
  * Also supports manual trigger via compile.run MCP method.
  */
 
@@ -11,6 +11,12 @@ import { readdirSync, existsSync } from "node:fs";
 import { promisify } from "node:util";
 import { resolve } from "node:path";
 import { DurableMaintenanceQueue, type MaintenancePlan } from "./maintenance/queue.js";
+import type { CompileExecutionContext, CompilePromotionResult, CompileRunPort, CompileRunTrigger, CompileVerificationResult } from "./compile/compile-run-port.js";
+import type { CompileResult, CompileStatus } from "./compile/types.js";
+import { PythonCompileWorker } from "./compile/compile-worker.js";
+import type { VaultStore } from "./vault/store.js";
+
+export type { CompileResult, CompileStatus } from "./compile/types.js";
 
 const exec = promisify(execFile);
 
@@ -25,6 +31,8 @@ export interface CompileTriggerConfig {
   threshold?: number;
   /** Model tier for LLM extraction (default: "haiku") */
   tier?: string;
+  /** Authoritative VaultStore used for verified staging promotion. */
+  vaultStore?: VaultStore;
   /** Auto-compile enabled (default: true) */
   autoCompile?: boolean;
   /** Called after successful compile with list of modified wiki paths for re-indexing */
@@ -39,33 +47,6 @@ export interface CompileTriggerConfig {
   drainTimeBudgetMs?: number;
 }
 
-export interface CompileStatus {
-  dirty: string[];
-  dirtyCount: number;
-  threshold: number;
-  running: boolean;
-  lastRun: string | null;
-  lastResult: CompileResult | null;
-  autoCompile: boolean;
-  schedulingMode: "durable" | "legacy-threshold";
-  maintenance?: {
-    eligible: number;
-    deferred: number;
-    quarantined: number;
-    nextWakeAt?: string;
-  };
-}
-
-export interface CompileResult {
-  ok: boolean;
-  topic: string;
-  sourcesCompiled: number;
-  conceptsCreated: number;
-  contradictions: number;
-  error?: string;
-  timestamp: string;
-}
-
 export class CompileTrigger {
   private dirty = new Set<string>();
   private running = false;
@@ -76,10 +57,9 @@ export class CompileTrigger {
   private readonly compilerPath: string;
   private readonly python: string;
   private readonly threshold: number;
-  private readonly tier: string;
   private readonly autoCompile: boolean;
   private readonly onCompileSuccess?: (wikiPaths: string[]) => void;
-  private environmentResolver?: () => Promise<NodeJS.ProcessEnv>;
+  private readonly worker: PythonCompileWorker;
   private readonly schedulingMode: "durable" | "legacy-threshold";
   private readonly debounceMs: number;
   private readonly maximumLagMs: number;
@@ -87,16 +67,23 @@ export class CompileTrigger {
   private readonly drainTimeBudgetMs: number;
   private readonly maintenanceQueue?: DurableMaintenanceQueue;
   private maintenanceTimer?: NodeJS.Timeout;
+  private scheduledRunner?: (trigger: CompileRunTrigger, topic: string) => Promise<CompileResult>;
 
   constructor(config: CompileTriggerConfig) {
     this.vaultPath = config.vaultPath;
     this.compilerPath = config.compilerPath;
     this.python = config.python ?? "python";
     this.threshold = config.threshold ?? 3;
-    this.tier = config.tier ?? "haiku";
     this.autoCompile = config.autoCompile ?? true;
     this.onCompileSuccess = config.onCompileSuccess;
-    this.environmentResolver = config.environmentResolver;
+    this.worker = new PythonCompileWorker({
+      vaultPath: config.vaultPath,
+      compilerPath: config.compilerPath,
+      python: this.python,
+      tier: config.tier ?? "haiku",
+      vaultStore: config.vaultStore,
+      environmentResolver: config.environmentResolver,
+    });
     this.schedulingMode = config.schedulingMode ?? "legacy-threshold";
     this.debounceMs = config.debounceMs ?? 30_000;
     this.maximumLagMs = config.maximumLagMs ?? 5 * 60_000;
@@ -108,7 +95,24 @@ export class CompileTrigger {
   }
 
   setEnvironmentResolver(resolver: () => Promise<NodeJS.ProcessEnv>): void {
-    this.environmentResolver = resolver;
+    this.worker.setEnvironmentResolver(resolver);
+  }
+
+  /** Route scheduled work through the durable CompileRunPort once the host wires it. */
+  setRunScheduler(port: CompileRunPort): void {
+    this.scheduledRunner = async (trigger, topic) => {
+      const handle = await port.submit({ trigger, topic });
+      const receipt = await handle.wait();
+      return receipt.result ?? {
+        ok: receipt.status === "succeeded",
+        topic,
+        sourcesCompiled: 0,
+        conceptsCreated: 0,
+        contradictions: 0,
+        ...(receipt.status === "succeeded" ? {} : { error: receipt.diagnostics.at(-1)?.message ?? receipt.status }),
+        timestamp: receipt.finishedAt ?? new Date().toISOString(),
+      };
+    };
   }
 
   /**
@@ -141,7 +145,7 @@ export class CompileTrigger {
   }
 
   /** Manual trigger for a specific topic. */
-  async run(topic?: string): Promise<CompileResult> {
+  async run(topic?: string, context?: CompileExecutionContext): Promise<CompileResult> {
     if (this.running) {
       return {
         ok: false,
@@ -167,7 +171,29 @@ export class CompileTrigger {
       };
     }
 
-    return this.compile(targetTopic);
+    return this.compile(targetTopic, context);
+  }
+
+  async promote(
+    topic: string | undefined,
+    context: CompileExecutionContext,
+    result: CompileResult,
+  ): Promise<CompilePromotionResult> {
+    const promoted = await this.worker.promote(topic, context, result);
+    if (promoted.promotion.status === "promoted") {
+      this.finalizeCompile(topic ?? result.topic);
+    } else {
+      this.lastResult = promoted.result;
+    }
+    return promoted;
+  }
+
+  async verify(
+    topic: string | undefined,
+    context: CompileExecutionContext,
+    result: CompileResult,
+  ): Promise<CompileVerificationResult> {
+    return this.worker.verify(topic, context, result);
   }
 
   /** Get current status. */
@@ -219,7 +245,9 @@ export class CompileTrigger {
     const result = await this.maintenanceQueue.drain(async (entry) => {
       const topic = entry.topicKeys[0];
       if (!topic) throw Object.assign(new Error("topic missing"), { code: "MAINTENANCE_TOPIC_MISSING", transient: false });
-      const compiled = await this.compile(topic);
+      const compiled = this.scheduledRunner
+        ? await this.scheduledRunner("maintenance", topic)
+        : await this.compile(topic);
       if (!compiled.ok) throw Object.assign(new Error("compile failed"), { code: "MAINTENANCE_COMPILE_FAILED", transient: true });
     }, {
       owner: options.owner ?? `compile-trigger/${process.pid}`,
@@ -284,15 +312,15 @@ export class CompileTrigger {
     if (this.autoCompile && this.maintenanceQueue) this.scheduleMaintenance();
   }
 
-  /** Abort: just resets running flag (compile.py subprocess isn't killable cleanly). */
-  abort(): { ok: boolean; message: string } {
+  /** Delegate cancellation to the worker that owns the child process. */
+  abort(): { ok: boolean; message: string; confirmed: boolean } {
     if (this.maintenanceTimer) {
       clearTimeout(this.maintenanceTimer);
       this.maintenanceTimer = undefined;
     }
-    if (!this.running) return { ok: false, message: "No compilation running" };
-    this.running = false;
-    return { ok: true, message: "Compilation abort requested" };
+    if (!this.running) return { ok: false, message: "No compilation running", confirmed: false };
+    const attempt = this.worker.abort();
+    return { ...attempt, confirmed: attempt.confirmed ?? false };
   }
 
   // --- Internal ---
@@ -301,9 +329,14 @@ export class CompileTrigger {
     if (this.running) return;
     const topic = this.detectTopic();
     if (!topic) return;
-    this.running = true; // claim lock synchronously before async work
     process.stderr.write(`llmwiki: [compile] auto-trigger for topic "${topic}" (${this.dirty.size} dirty)\n`);
-    this.compile(topic).catch((e) => {
+    const run = this.scheduledRunner
+      ? this.scheduledRunner("auto", topic)
+      : (() => {
+        this.running = true; // claim lock synchronously for the legacy direct path
+        return this.compile(topic);
+      })();
+    run.catch((e) => {
       this.running = false;
       process.stderr.write(`llmwiki: [compile] auto-trigger error: ${(e as Error).message}\n`);
     });
@@ -341,38 +374,17 @@ export class CompileTrigger {
     return null;
   }
 
-  private async compile(topic: string): Promise<CompileResult> {
+  private async compile(topic: string, context?: CompileExecutionContext): Promise<CompileResult> {
     this.running = true;
-    const topicPath = resolve(this.vaultPath, topic);
-    const compilePy = resolve(this.compilerPath, "compile.py");
-    const args = [compilePy, topicPath, "--tier", this.tier];
     const timestamp = new Date().toISOString();
 
     try {
-      const { stdout, stderr } = await exec(this.python, args, {
-        timeout: 120_000, // 2 min max
-        maxBuffer: 10 * 1024 * 1024,
-        env: this.environmentResolver ? await this.environmentResolver() : { ...process.env },
-      });
+      const result = await this.worker.run(topic, context);
 
-      // Parse compile report from stdout
-      const result = this.parseCompileOutput(topic, stdout, timestamp);
-
-      if (stderr) {
-        process.stderr.write(`llmwiki: [compile] stderr: ${stderr.slice(0, 500)}\n`);
-      }
-
-      // Clear dirty files for this topic
-      for (const path of [...this.dirty]) {
-        if (path.startsWith(topic + "/") || path.startsWith(topic + "\\")) {
-          this.dirty.delete(path);
-        }
-      }
-
-      // Notify index to re-index vaultbrain after compile writes wiki/ files
-      if (this.onCompileSuccess) {
-        this.onCompileSuccess(this.findWikiFiles(topic));
-      }
+      // Direct legacy calls have no Run promotion callback; they already wrote the
+      // live compatibility path and can finalize here. Durable Runs finalize only
+      // from promote(), after verification and the staging gate pass.
+      if (result.ok && !context) this.finalizeCompile(topic);
 
       this.lastRun = timestamp;
       this.lastResult = result;
@@ -395,26 +407,11 @@ export class CompileTrigger {
     }
   }
 
-  private parseCompileOutput(topic: string, stdout: string, timestamp: string): CompileResult {
-    // Parse the "=== Compilation Report ===" section from compile.py output
-    const sources = this.extractNumber(stdout, "Sources compiled");
-    const concepts = this.extractNumber(stdout, "Concepts created");
-    const contradictions = this.extractNumber(stdout, "Contradictions");
-
-    return {
-      ok: true,
-      topic,
-      sourcesCompiled: sources,
-      conceptsCreated: concepts,
-      contradictions,
-      timestamp,
-    };
-  }
-
-  private extractNumber(text: string, label: string): number {
-    const re = new RegExp(label + "\\s*:\\s*(\\d+)");
-    const m = text.match(re);
-    return m ? parseInt(m[1], 10) : 0;
+  private finalizeCompile(topic: string): void {
+    for (const path of [...this.dirty]) {
+      if (path.startsWith(topic + "/") || path.startsWith(topic + "\\")) this.dirty.delete(path);
+    }
+    if (this.onCompileSuccess) this.onCompileSuccess(this.findWikiFiles(topic));
   }
 
   /** Find all wiki/ output files for a topic after compilation */

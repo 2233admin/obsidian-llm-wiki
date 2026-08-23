@@ -107,3 +107,19 @@ Key routing rules:
 - Save progress → invoke /context-save
 - Resume context → invoke /context-restore
 - Author a backlog-ready spec/issue → invoke /spec
+
+## Agent skills
+
+### Issue tracker
+
+Executable work is tracked as local Markdown issues under
+`01-Projects/<project>/issues/`; see `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Use the five default labels defined in `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+This is a single-context repository. Read the root `CONTEXT.md` and relevant
+ADRs under `docs/adr/`; see `docs/agents/domain.md`.

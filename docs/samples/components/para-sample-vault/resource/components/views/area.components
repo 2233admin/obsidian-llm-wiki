@@ -1,0 +1,295 @@
+{
+  "components": [
+    {
+      "id": "33eb493a-2dbf-4462-949d-84807a9f2daa",
+      "type": "multi",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-05-13T07:16:22.681Z",
+      "updateAt": "2024-05-13T07:16:22.681Z",
+      "components": [
+        {
+          "componentId": "52b4f5fa-8fe6-4dbf-b1b5-2709074958ea"
+        },
+        {
+          "componentId": "23c2b5ba-e5d5-4dec-8cf3-b8e3025ea827"
+        },
+        {
+          "componentId": "9f462797-7f1b-4dc9-8e85-4a2b6596e328"
+        }
+      ],
+      "layoutType": "tab"
+    },
+    {
+      "id": "52b4f5fa-8fe6-4dbf-b1b5-2709074958ea",
+      "type": "dynamicDataView",
+      "titleAlign": "center",
+      "tabTitle": "领域",
+      "maxWidthRatio": -1,
+      "showBorder": false,
+      "showShadow": false,
+      "createAt": "2024-05-13T07:16:25.496Z",
+      "updateAt": "2024-05-13T07:16:25.496Z",
+      "viewType": "gallary",
+      "properties": [
+        {
+          "id": "e36f3c53-1b1b-4cc2-a945-97b2dfd5b2a4",
+          "name": "tags",
+          "type": "multiSelect",
+          "isShow": true,
+          "options": {}
+        },
+        {
+          "id": "abc9b8b5-bebf-478e-a966-9e72dd1d31c0",
+          "name": "createTime",
+          "type": "datetime",
+          "isShow": true,
+          "options": {}
+        },
+        {
+          "id": "7524a544-6695-4bd1-a42b-cf9103dbc218",
+          "name": "cover",
+          "isShow": false,
+          "type": "image",
+          "options": {},
+          "alias": ""
+        },
+        {
+          "id": "28955685-6052-4dd4-86b5-93a7a9552ebd",
+          "name": "关联项目数",
+          "isShow": true,
+          "type": "formula",
+          "options": {
+            "formula": "countBacklinks()"
+          },
+          "alias": ""
+        },
+        {
+          "id": "f3f78c58-a6bb-499f-b115-d8d203a1f376",
+          "name": "archived",
+          "isShow": false,
+          "type": "checkbox",
+          "options": {},
+          "alias": ""
+        }
+      ],
+      "templates": [
+        {
+          "id": "27a3b39b-a816-4994-b5f7-e9f5247584ca",
+          "path": "resource/template/area.md",
+          "name": "area.md",
+          "type": "normal"
+        }
+      ],
+      "groups": [],
+      "viewOptions": {
+        "openPageIn": "tab",
+        "itemSize": "components--page-card-medium",
+        "showPropertyName": false,
+        "cover": {
+          "type": "pageProperty",
+          "value": "cover",
+          "fit": "contains",
+          "layout": "components--page-card-cover-landscape"
+        },
+        "headColumnStatisticType": "count"
+      },
+      "filter": {
+        "id": "bc9afa86-0c6d-4468-8401-583c2f7074d6",
+        "type": "group",
+        "operator": "and",
+        "conditions": [
+          {
+            "id": "e6b36b14-5042-40b2-aa5c-89a6a6e59e92",
+            "type": "filter",
+            "operator": "contains",
+            "property": "tags",
+            "value": "area",
+            "conditions": []
+          },
+          {
+            "id": "c9205607-fed1-46fe-8133-cef063c25ebb",
+            "type": "filter",
+            "operator": "not_contains",
+            "property": "${file.path}",
+            "value": "resource/template",
+            "conditions": []
+          },
+          {
+            "id": "bfa1b19a-bb7d-4d0f-aa65-cbf32e9374ce",
+            "type": "filter",
+            "operator": "not_equals",
+            "property": "archived",
+            "value": "true",
+            "conditions": []
+          }
+        ]
+      },
+      "newPageLocation": {
+        "location": "space"
+      },
+      "defaultTemplate": "27a3b39b-a816-4994-b5f7-e9f5247584ca",
+      "newPageNameFormat": ""
+    },
+    {
+      "id": "9f462797-7f1b-4dc9-8e85-4a2b6596e328",
+      "type": "dynamicDataView",
+      "titleAlign": "center",
+      "tabTitle": "资源",
+      "maxWidthRatio": -1,
+      "showBorder": false,
+      "showShadow": false,
+      "createAt": "2024-05-13T07:23:11.816Z",
+      "updateAt": "2024-05-13T07:23:11.816Z",
+      "viewType": "gallary",
+      "properties": [
+        {
+          "id": "b5e7f06d-01ef-4e0c-bce2-a4dc19d1b037",
+          "name": "createTime",
+          "isShow": true,
+          "type": "text",
+          "options": {}
+        }
+      ],
+      "templates": [
+        {
+          "id": "5d9a7956-6e1c-4296-b34e-719de45307b8",
+          "path": "resource/template/resource.md",
+          "name": "resource.md",
+          "type": "normal"
+        }
+      ],
+      "groups": [],
+      "viewOptions": {
+        "openPageIn": "tab",
+        "itemSize": "components--page-card-medium",
+        "showPropertyName": false,
+        "cover": {
+          "type": "none",
+          "value": "",
+          "fit": "contains",
+          "layout": "components--page-card-cover-landscape"
+        }
+      },
+      "filter": {
+        "id": "bc9afa86-0c6d-4468-8401-583c2f7074d6",
+        "type": "group",
+        "operator": "and",
+        "conditions": [
+          {
+            "id": "41541b01-3b6c-4bf8-9a5c-e87bcceae5aa",
+            "type": "filter",
+            "operator": "contains",
+            "property": "tags",
+            "value": "resource",
+            "conditions": []
+          },
+          {
+            "id": "3a006923-993c-44c1-8ba4-d6992aa92ec1",
+            "type": "filter",
+            "operator": "not_contains",
+            "property": "${file.path}",
+            "value": "resource/template",
+            "conditions": []
+          }
+        ]
+      },
+      "defaultTemplate": "5d9a7956-6e1c-4296-b34e-719de45307b8",
+      "newPageLocation": {
+        "location": "space"
+      }
+    },
+    {
+      "id": "23c2b5ba-e5d5-4dec-8cf3-b8e3025ea827",
+      "type": "dynamicDataView",
+      "titleAlign": "center",
+      "tabTitle": "最近项目",
+      "maxWidthRatio": -1,
+      "showBorder": false,
+      "showShadow": false,
+      "createAt": "2024-05-13T08:36:13.379Z",
+      "updateAt": "2024-05-13T08:36:13.379Z",
+      "viewType": "table",
+      "properties": [
+        {
+          "id": "f3d61a26-565e-4c6d-93a7-8477a5c216fe",
+          "name": "tags",
+          "type": "multiSelect",
+          "isShow": true,
+          "options": {}
+        },
+        {
+          "id": "8709f656-e0f9-4146-bd8d-148fb2aadce3",
+          "name": "area",
+          "type": "link",
+          "isShow": true,
+          "options": {}
+        },
+        {
+          "id": "0b3cd4bc-5dae-49d0-83c2-7e8fddbbd39c",
+          "name": "createTime",
+          "type": "datetime",
+          "isShow": true,
+          "options": {}
+        },
+        {
+          "id": "6b993e6a-b385-4062-b644-ba53a5d88bbe",
+          "name": "doneTime",
+          "type": "text",
+          "isShow": true,
+          "options": {}
+        },
+        {
+          "id": "d1cdabdb-2d9a-4252-9454-8d381441e1a9",
+          "name": "status",
+          "type": "select",
+          "isShow": true,
+          "options": {},
+          "alias": ""
+        }
+      ],
+      "templates": [],
+      "groups": [],
+      "viewOptions": {
+        "openPageIn": "tab",
+        "itemSize": "components--page-card-medium",
+        "showPropertyName": false,
+        "cover": {
+          "type": "pageFirstImage",
+          "value": "",
+          "fit": "contains",
+          "layout": "components--page-card-cover-landscape"
+        },
+        "headColumnWidth": "280",
+        "heightType": "auto"
+      },
+      "filter": {
+        "id": "bc9afa86-0c6d-4468-8401-583c2f7074d6",
+        "type": "group",
+        "operator": "and",
+        "conditions": [
+          {
+            "id": "6d42e2cd-074c-4569-8240-ca8b155e80d7",
+            "type": "filter",
+            "operator": "contains",
+            "property": "tags",
+            "value": "project",
+            "conditions": []
+          },
+          {
+            "id": "584e0432-d8a8-4528-aca5-eee1a0222150",
+            "type": "filter",
+            "operator": "not_contains",
+            "property": "${file.path}",
+            "value": "resource/template",
+            "conditions": []
+          }
+        ]
+      }
+    }
+  ],
+  "rootComponentId": "33eb493a-2dbf-4462-949d-84807a9f2daa"
+}

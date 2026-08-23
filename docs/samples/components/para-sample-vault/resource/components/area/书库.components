@@ -1,0 +1,1124 @@
+{
+  "components": [
+    {
+      "id": "bde5561a-88e2-4da5-a3d4-351ec22bba2b",
+      "type": "multi",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": false,
+      "showShadow": false,
+      "createAt": "2024-12-13T04:44:07.769Z",
+      "updateAt": "2024-12-13T04:44:07.769Z",
+      "components": [
+        {
+          "componentId": "2d5833ae-2bf4-420f-bc61-79494db86038",
+          "layout": {
+            "mobile": {
+              "x": 2,
+              "y": 0,
+              "w": 1,
+              "h": 4
+            },
+            "laptop": {
+              "x": 0,
+              "y": 0,
+              "w": 2,
+              "h": 4
+            }
+          }
+        },
+        {
+          "componentId": "c2a7d53e-1a52-4605-ba8a-ef115692b7a7",
+          "layout": {
+            "mobile": {
+              "x": 3,
+              "y": 0,
+              "w": 1,
+              "h": 4
+            },
+            "laptop": {
+              "x": 2,
+              "y": 0,
+              "w": 2,
+              "h": 4
+            }
+          }
+        },
+        {
+          "componentId": "1a210a27-4a99-4dcb-bbed-53f8774ff0c6",
+          "layout": {
+            "mobile": {
+              "x": 2,
+              "y": 12,
+              "w": 2,
+              "h": 9
+            },
+            "laptop": {
+              "x": 10,
+              "y": 0,
+              "w": 2,
+              "h": 4
+            }
+          }
+        },
+        {
+          "componentId": "b560824b-7a0a-4724-96b1-4bde7f7549e4",
+          "layout": {
+            "mobile": {
+              "x": 0,
+              "y": 4,
+              "w": 2,
+              "h": 17
+            },
+            "laptop": {
+              "x": 8,
+              "y": 4,
+              "w": 4,
+              "h": 11
+            }
+          }
+        },
+        {
+          "componentId": "699e4171-afab-4268-9121-ba1531fe1184",
+          "layout": {
+            "mobile": {
+              "x": 0,
+              "y": 21,
+              "w": 4,
+              "h": 36
+            },
+            "laptop": {
+              "x": 0,
+              "y": 18,
+              "w": 12,
+              "h": 46
+            }
+          }
+        },
+        {
+          "componentId": "3c121512-d53b-4d8e-b21c-cb592305d0d4",
+          "layout": {
+            "mobile": {
+              "x": 0,
+              "y": 57,
+              "w": 4,
+              "h": 14
+            },
+            "laptop": {
+              "x": 0,
+              "y": 4,
+              "w": 2,
+              "h": 11
+            }
+          }
+        },
+        {
+          "componentId": "6171dd95-2bfc-4973-86e3-03ef12f86225",
+          "layout": {
+            "mobile": {
+              "x": 0,
+              "y": 71,
+              "w": 4,
+              "h": 14
+            },
+            "laptop": {
+              "x": 2,
+              "y": 4,
+              "w": 2,
+              "h": 11
+            }
+          }
+        },
+        {
+          "componentId": "00acad6b-779c-4b4b-8fa0-2f539ee146a6",
+          "layout": {
+            "mobile": {
+              "x": 2,
+              "y": 4,
+              "w": 1,
+              "h": 8
+            },
+            "laptop": {
+              "x": 8,
+              "y": 0,
+              "w": 2,
+              "h": 4
+            }
+          }
+        },
+        {
+          "componentId": "41a3fdab-c73f-45cb-ba8e-f0a4eff4b478",
+          "layout": {
+            "mobile": {
+              "x": 0,
+              "y": 85,
+              "w": 4,
+              "h": 12
+            },
+            "laptop": {
+              "x": 4,
+              "y": 4,
+              "w": 4,
+              "h": 11
+            }
+          }
+        },
+        {
+          "componentId": "d62a83d7-ca59-44d8-b733-b3f9a788518d",
+          "layout": {
+            "mobile": {
+              "x": 3,
+              "y": 8,
+              "w": 1,
+              "h": 4
+            },
+            "laptop": {
+              "x": 4,
+              "y": 0,
+              "w": 2,
+              "h": 4
+            }
+          }
+        },
+        {
+          "componentId": "93e32b09-ab68-4bb2-8467-1b162abba6b9",
+          "layout": {
+            "mobile": {
+              "x": 3,
+              "y": 4,
+              "w": 1,
+              "h": 4
+            },
+            "laptop": {
+              "x": 6,
+              "y": 0,
+              "w": 2,
+              "h": 4
+            }
+          }
+        },
+        {
+          "componentId": "e93d2978-642f-4888-8831-7284202ee9cb",
+          "layout": {
+            "mobile": {
+              "x": 0,
+              "y": 0,
+              "w": 2,
+              "h": 4
+            },
+            "laptop": {
+              "x": 0,
+              "y": 15,
+              "w": 3,
+              "h": 3
+            }
+          }
+        }
+      ],
+      "layoutType": "grid",
+      "locked": false,
+      "layoutOptions": {}
+    },
+    {
+      "id": "05ddd46c-37eb-49a3-9a1e-071046b81cf0",
+      "type": "dynamicDataView",
+      "titleAlign": "center",
+      "tabTitle": "在读",
+      "maxWidthRatio": -1,
+      "showBorder": false,
+      "showShadow": false,
+      "createAt": "2024-12-13T04:44:31.582Z",
+      "updateAt": "2024-12-13T04:44:31.582Z",
+      "viewType": "gallary",
+      "newPageNameFormat": "{{date: YYMMDD}}",
+      "properties": [
+        {
+          "id": "__componentsTitleProperty_0x7c00",
+          "name": "文件名",
+          "type": "text",
+          "isShow": true,
+          "wrap": false,
+          "options": {}
+        },
+        {
+          "id": "1222f760-45cc-48df-9f61-91b46769f4b6",
+          "name": "tags",
+          "type": "multiSelect",
+          "isShow": true,
+          "wrap": false,
+          "options": {}
+        },
+        {
+          "id": "9ee7b3ac-34f5-4561-be3b-95832d22bb97",
+          "name": "createTime",
+          "type": "datetime",
+          "isShow": true,
+          "wrap": false,
+          "options": {}
+        },
+        {
+          "id": "56ac245c-23e8-434a-af59-fd31304d5a91",
+          "name": "author",
+          "type": "text",
+          "isShow": true,
+          "wrap": false,
+          "options": {}
+        },
+        {
+          "id": "1eea8ca7-0c09-4625-b549-8e48afc7848f",
+          "name": "isbn",
+          "type": "number",
+          "isShow": true,
+          "wrap": false,
+          "options": {}
+        },
+        {
+          "id": "5a755369-61a0-41bf-b046-7dfb1af68a85",
+          "name": "progress",
+          "type": "number",
+          "isShow": true,
+          "wrap": false,
+          "options": {
+            "prefix": "",
+            "suffix": "",
+            "totalValueType": "constant",
+            "color": "components--color-none",
+            "uiType": "progressBar",
+            "total": 100
+          }
+        }
+      ],
+      "templates": [
+        {
+          "id": "e23d1e2d-72ab-44e9-a414-4a80506f6e9c",
+          "path": "resource/template/book.md",
+          "name": "book.md",
+          "type": "normal"
+        }
+      ],
+      "groups": [],
+      "colorfulGroups": false,
+      "viewOptions": {
+        "openPageIn": "tab",
+        "openPageAfterCreate": true,
+        "itemSize": "components--page-card-medium",
+        "showPropertyName": false,
+        "showAllProperties": false,
+        "items": [],
+        "cover": {
+          "type": "image",
+          "source": "property",
+          "fit": "contains",
+          "layout": "components--page-card-cover-landscape",
+          "position": "top",
+          "sourceValue": "cover"
+        },
+        "showGrid": false,
+        "heightType": "auto",
+        "heightValue": 600,
+        "pinFiltersToMenuBar": true
+      },
+      "filter": {
+        "id": "6ab2ebdb-5617-4a77-98ec-748c09fc11bc",
+        "type": "group",
+        "operator": "and",
+        "conditions": [
+          {
+            "id": "25584918-829c-4de9-92fc-1118b4ad88e0",
+            "type": "filter",
+            "operator": "contains",
+            "property": "${file.parent}",
+            "value": "area/books",
+            "conditions": []
+          },
+          {
+            "id": "822c48a9-08c1-4581-83b1-0036988baa80",
+            "type": "filter",
+            "operator": "contains",
+            "property": "readingStatus",
+            "value": "Reading",
+            "conditions": []
+          }
+        ]
+      },
+      "newPageLocation": {
+        "location": "area/books"
+      },
+      "defaultTemplate": "e23d1e2d-72ab-44e9-a414-4a80506f6e9c",
+      "showTitle": false
+    },
+    {
+      "id": "2d5833ae-2bf4-420f-bc61-79494db86038",
+      "type": "count",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-12-13T04:47:59.487Z",
+      "updateAt": "2024-12-13T04:47:59.487Z",
+      "countValueAlign": "center",
+      "contentPrefix": "",
+      "contentSuffix": "",
+      "countType": "number",
+      "precision": 0,
+      "query": {
+        "valueType": "totalRecords",
+        "value": 100,
+        "filter": {
+          "id": "6ceceacf-02bb-47a0-8e15-ce7dbfff2050",
+          "type": "group",
+          "operator": "and",
+          "conditions": [
+            {
+              "id": "9cf73f94-2aa0-46ee-9c79-dd5af34a79f2",
+              "type": "filter",
+              "operator": "contains",
+              "property": "${file.parent}",
+              "value": "area/books",
+              "conditions": []
+            }
+          ]
+        },
+        "sort": {
+          "orders": []
+        }
+      },
+      "totalQuery": {
+        "valueType": "constant",
+        "value": 100,
+        "filter": {
+          "id": "946fd8db-0b55-4c4c-b072-680f8ab726a8",
+          "type": "group",
+          "operator": "and",
+          "conditions": []
+        },
+        "sort": {
+          "orders": []
+        }
+      },
+      "title": "📚 累计阅读"
+    },
+    {
+      "id": "c2a7d53e-1a52-4605-ba8a-ef115692b7a7",
+      "type": "count",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-12-13T04:47:59.487Z",
+      "updateAt": "2024-12-13T04:47:59.487Z",
+      "countValueAlign": "center",
+      "contentPrefix": "",
+      "contentSuffix": "",
+      "countType": "number",
+      "precision": 0,
+      "query": {
+        "valueType": "totalRecords",
+        "value": 100,
+        "filter": {
+          "id": "6ceceacf-02bb-47a0-8e15-ce7dbfff2050",
+          "type": "group",
+          "operator": "and",
+          "conditions": [
+            {
+              "id": "9cf73f94-2aa0-46ee-9c79-dd5af34a79f2",
+              "type": "filter",
+              "operator": "contains",
+              "property": "${file.parent}",
+              "value": "area/books",
+              "conditions": []
+            },
+            {
+              "id": "db8a1668-3a55-49ff-9122-2c95243f5e6e",
+              "type": "filter",
+              "operator": "contains",
+              "property": "readingStatus",
+              "value": "Done",
+              "conditions": []
+            }
+          ]
+        },
+        "sort": {
+          "orders": []
+        }
+      },
+      "totalQuery": {
+        "valueType": "constant",
+        "value": 100,
+        "filter": {
+          "id": "946fd8db-0b55-4c4c-b072-680f8ab726a8",
+          "type": "group",
+          "operator": "and",
+          "conditions": []
+        },
+        "sort": {
+          "orders": []
+        }
+      },
+      "title": "🎉 已完成阅读"
+    },
+    {
+      "id": "1a210a27-4a99-4dcb-bbed-53f8774ff0c6",
+      "type": "count",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-12-13T04:47:59.487Z",
+      "updateAt": "2024-12-13T04:47:59.487Z",
+      "countValueAlign": "center",
+      "contentPrefix": "",
+      "contentSuffix": "",
+      "countType": "number",
+      "precision": 0,
+      "query": {
+        "valueType": "propertyValue",
+        "value": 100,
+        "filter": {
+          "id": "6ceceacf-02bb-47a0-8e15-ce7dbfff2050",
+          "type": "group",
+          "operator": "and",
+          "conditions": [
+            {
+              "id": "9cf73f94-2aa0-46ee-9c79-dd5af34a79f2",
+              "type": "filter",
+              "operator": "contains",
+              "property": "${file.parent}",
+              "value": "area/books",
+              "conditions": []
+            }
+          ]
+        },
+        "sort": {
+          "orders": []
+        },
+        "property": "${file.words}"
+      },
+      "totalQuery": {
+        "valueType": "constant",
+        "value": 100,
+        "filter": {
+          "id": "946fd8db-0b55-4c4c-b072-680f8ab726a8",
+          "type": "group",
+          "operator": "and",
+          "conditions": []
+        },
+        "sort": {
+          "orders": []
+        }
+      },
+      "title": "📊 笔记总字数"
+    },
+    {
+      "id": "b560824b-7a0a-4724-96b1-4bde7f7549e4",
+      "type": "quote",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-12-13T04:50:09.150Z",
+      "updateAt": "2024-12-13T04:50:09.150Z",
+      "contentType": "block",
+      "coverType": "none",
+      "filter": {
+        "id": "2ed68175-55fa-4ad6-91f6-ac2c543ae936",
+        "type": "group",
+        "operator": "and",
+        "conditions": [
+          {
+            "id": "e60bc732-0a50-4594-a12f-41e22c54ae60",
+            "type": "filter",
+            "operator": "contains",
+            "property": "${file.parent}",
+            "value": "area/books",
+            "conditions": []
+          }
+        ]
+      },
+      "maxHeight": -1,
+      "coverValue": "cover"
+    },
+    {
+      "id": "699e4171-afab-4268-9121-ba1531fe1184",
+      "type": "multi",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": false,
+      "showShadow": false,
+      "createAt": "2024-12-13T04:53:26.433Z",
+      "updateAt": "2024-12-13T04:53:26.433Z",
+      "components": [
+        {
+          "componentId": "05ddd46c-37eb-49a3-9a1e-071046b81cf0"
+        },
+        {
+          "componentId": "f497d4b0-fa99-40b2-92bf-3d98ecc8dc36"
+        },
+        {
+          "componentId": "21b4c0de-6b08-4006-a701-0c856b4f2812"
+        }
+      ],
+      "layoutType": "tab",
+      "locked": false,
+      "layoutOptions": {}
+    },
+    {
+      "id": "f497d4b0-fa99-40b2-92bf-3d98ecc8dc36",
+      "type": "dynamicDataView",
+      "titleAlign": "center",
+      "tabTitle": "书架",
+      "maxWidthRatio": -1,
+      "showBorder": false,
+      "showShadow": false,
+      "createAt": "2024-12-13T04:44:31.582Z",
+      "updateAt": "2024-12-13T04:44:31.582Z",
+      "viewType": "gallary",
+      "newPageNameFormat": "{{date: YYMMDD}}",
+      "properties": [
+        {
+          "id": "__componentsTitleProperty_0x7c00",
+          "name": "文件名",
+          "type": "text",
+          "isShow": true,
+          "wrap": false,
+          "options": {}
+        },
+        {
+          "id": "1222f760-45cc-48df-9f61-91b46769f4b6",
+          "name": "tags",
+          "type": "multiSelect",
+          "isShow": true,
+          "wrap": false,
+          "options": {}
+        },
+        {
+          "id": "9ee7b3ac-34f5-4561-be3b-95832d22bb97",
+          "name": "createTime",
+          "type": "datetime",
+          "isShow": true,
+          "wrap": false,
+          "options": {}
+        },
+        {
+          "id": "56ac245c-23e8-434a-af59-fd31304d5a91",
+          "name": "author",
+          "type": "text",
+          "isShow": true,
+          "wrap": false,
+          "options": {}
+        },
+        {
+          "id": "1eea8ca7-0c09-4625-b549-8e48afc7848f",
+          "name": "isbn",
+          "type": "number",
+          "isShow": true,
+          "wrap": false,
+          "options": {}
+        },
+        {
+          "id": "5a755369-61a0-41bf-b046-7dfb1af68a85",
+          "name": "progress",
+          "type": "number",
+          "isShow": false,
+          "wrap": false,
+          "options": {
+            "prefix": "",
+            "suffix": "",
+            "totalValueType": "constant",
+            "color": "components--color-none",
+            "uiType": "progressBar",
+            "total": 100
+          }
+        }
+      ],
+      "templates": [
+        {
+          "id": "06e93e21-e956-455e-a00b-5b5374169c7e",
+          "path": "resource/template/book.md",
+          "name": "book.md",
+          "type": "normal"
+        }
+      ],
+      "groups": [],
+      "colorfulGroups": false,
+      "viewOptions": {
+        "openPageIn": "tab",
+        "openPageAfterCreate": true,
+        "itemSize": "components--page-card-medium",
+        "showPropertyName": false,
+        "showAllProperties": false,
+        "items": [],
+        "cover": {
+          "type": "image",
+          "source": "property",
+          "fit": "contains",
+          "layout": "components--page-card-cover-landscape",
+          "position": "left",
+          "sourceValue": "cover"
+        },
+        "showGrid": false,
+        "heightType": "auto",
+        "heightValue": 600,
+        "pinFiltersToMenuBar": true
+      },
+      "filter": {
+        "id": "6ab2ebdb-5617-4a77-98ec-748c09fc11bc",
+        "type": "group",
+        "operator": "and",
+        "conditions": [
+          {
+            "id": "25584918-829c-4de9-92fc-1118b4ad88e0",
+            "type": "filter",
+            "operator": "contains",
+            "property": "${file.parent}",
+            "value": "area/books",
+            "conditions": []
+          }
+        ]
+      },
+      "defaultTemplate": "06e93e21-e956-455e-a00b-5b5374169c7e",
+      "newPageLocation": {
+        "location": "area/books"
+      },
+      "showTitle": false
+    },
+    {
+      "id": "3c121512-d53b-4d8e-b21c-cb592305d0d4",
+      "type": "chart",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-12-13T04:57:31.973Z",
+      "updateAt": "2024-12-13T04:57:31.973Z",
+      "chartType": "pie",
+      "filter": {
+        "id": "64442988-9cd9-420e-9a54-7cd323f6b5f3",
+        "type": "group",
+        "operator": "and",
+        "conditions": [
+          {
+            "id": "d61633c7-b64c-466b-b846-cda95353413c",
+            "type": "filter",
+            "operator": "contains",
+            "property": "${file.parent}",
+            "value": "area/books",
+            "conditions": []
+          }
+        ]
+      },
+      "labelProperty": "category",
+      "labelFormat": "$none",
+      "valueProperty": "$file_count",
+      "valuePrecision": 0,
+      "sortField": "xAxisValue",
+      "sortOrder": "asc",
+      "maxHeight": 300,
+      "chartColorSet": "default",
+      "chartLabelPosition": "top",
+      "showDataValue": true,
+      "valueScaleStartFromZero": true,
+      "smoothLine": false,
+      "options": {},
+      "title": "📊 总分类阅读占比",
+      "categoryProperty": "category",
+      "categoryFormatPattern": null,
+      "series": [
+        {
+          "id": "1e4f3820-7797-4a26-b396-c17925685aad",
+          "name": "$file_count",
+          "precision": 0
+        }
+      ]
+    },
+    {
+      "id": "6171dd95-2bfc-4973-86e3-03ef12f86225",
+      "type": "chart",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-12-13T04:57:31.973Z",
+      "updateAt": "2024-12-13T04:57:31.973Z",
+      "chartType": "pie",
+      "filter": {
+        "id": "64442988-9cd9-420e-9a54-7cd323f6b5f3",
+        "type": "group",
+        "operator": "and",
+        "conditions": [
+          {
+            "id": "d61633c7-b64c-466b-b846-cda95353413c",
+            "type": "filter",
+            "operator": "contains",
+            "property": "${file.parent}",
+            "value": "area/books",
+            "conditions": []
+          },
+          {
+            "id": "f4960a7b-04cf-4dee-aa6d-7d07be573ad9",
+            "type": "filter",
+            "operator": "time_after_or_equal",
+            "property": "createTime",
+            "value": {
+              "type": "$startOfYear",
+              "unit": "day",
+              "direction": "before",
+              "value": null
+            },
+            "conditions": []
+          }
+        ]
+      },
+      "labelProperty": "category",
+      "labelFormat": "$none",
+      "valueProperty": "$file_count",
+      "valuePrecision": 0,
+      "sortField": "xAxisValue",
+      "sortOrder": "asc",
+      "maxHeight": 300,
+      "chartColorSet": "default",
+      "chartLabelPosition": "top",
+      "showDataValue": true,
+      "valueScaleStartFromZero": true,
+      "smoothLine": false,
+      "options": {},
+      "title": "📊 今年分类阅读占比",
+      "categoryProperty": "category",
+      "categoryFormatPattern": null,
+      "series": [
+        {
+          "id": "9e79d21a-2a30-45e3-9740-0beb6fb17c7f",
+          "name": "$file_count",
+          "precision": 0
+        }
+      ]
+    },
+    {
+      "id": "00acad6b-779c-4b4b-8fa0-2f539ee146a6",
+      "type": "count",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-12-13T04:47:59.487Z",
+      "updateAt": "2024-12-13T04:47:59.487Z",
+      "countValueAlign": "center",
+      "contentPrefix": "",
+      "contentSuffix": "%",
+      "countType": "percent",
+      "precision": 0,
+      "query": {
+        "valueType": "totalRecords",
+        "value": 100,
+        "filter": {
+          "id": "6ceceacf-02bb-47a0-8e15-ce7dbfff2050",
+          "type": "group",
+          "operator": "and",
+          "conditions": [
+            {
+              "id": "9cf73f94-2aa0-46ee-9c79-dd5af34a79f2",
+              "type": "filter",
+              "operator": "contains",
+              "property": "${file.parent}",
+              "value": "area/books",
+              "conditions": []
+            },
+            {
+              "id": "65b9bc6a-9e1d-4159-897e-702cb501c928",
+              "type": "filter",
+              "operator": "time_after_or_equal",
+              "property": "createTime",
+              "value": {
+                "type": "$startOfYear",
+                "unit": "day",
+                "direction": "before",
+                "value": null
+              },
+              "conditions": []
+            }
+          ]
+        },
+        "sort": {
+          "orders": []
+        },
+        "property": "${file.words}"
+      },
+      "totalQuery": {
+        "valueType": "constant",
+        "value": 30,
+        "filter": {
+          "id": "946fd8db-0b55-4c4c-b072-680f8ab726a8",
+          "type": "group",
+          "operator": "and",
+          "conditions": []
+        },
+        "sort": {
+          "orders": []
+        }
+      },
+      "title": "🔥 年目标"
+    },
+    {
+      "id": "41a3fdab-c73f-45cb-ba8e-f0a4eff4b478",
+      "type": "chart",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-12-13T05:00:18.258Z",
+      "updateAt": "2024-12-13T05:00:18.258Z",
+      "chartType": "bar",
+      "filter": {
+        "id": "b8bd417d-3ba9-4301-b7ce-40fac155ccb3",
+        "type": "group",
+        "operator": "and",
+        "conditions": [
+          {
+            "id": "559b616e-72a9-4c9e-b8b0-f705f0536989",
+            "type": "filter",
+            "operator": "contains",
+            "property": "${file.parent}",
+            "value": "area/books",
+            "conditions": []
+          }
+        ]
+      },
+      "labelProperty": "createTime",
+      "labelFormat": "$timeFormat",
+      "valueProperty": "$file_count",
+      "valuePrecision": 0,
+      "sortField": "xAxisValue",
+      "sortOrder": "asc",
+      "maxHeight": 300,
+      "chartColorSet": "default",
+      "chartLabelPosition": "top",
+      "showDataValue": false,
+      "valueScaleStartFromZero": true,
+      "smoothLine": false,
+      "options": {},
+      "title": "月度阅读趋势",
+      "valueFormatPattern": "yyyy-MM",
+      "categoryProperty": "createTime",
+      "categoryFormatPattern": "yyyy-MM",
+      "series": [
+        {
+          "id": "9291d418-90a7-4aa9-a6b0-e761d28d8a26",
+          "name": "$file_count",
+          "precision": 0
+        }
+      ]
+    },
+    {
+      "id": "d62a83d7-ca59-44d8-b733-b3f9a788518d",
+      "type": "count",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-12-13T04:47:59.487Z",
+      "updateAt": "2024-12-13T04:47:59.487Z",
+      "countValueAlign": "center",
+      "contentPrefix": "",
+      "contentSuffix": "%",
+      "countType": "percent",
+      "precision": 0,
+      "query": {
+        "valueType": "totalRecords",
+        "value": 100,
+        "filter": {
+          "id": "6ceceacf-02bb-47a0-8e15-ce7dbfff2050",
+          "type": "group",
+          "operator": "and",
+          "conditions": [
+            {
+              "id": "9cf73f94-2aa0-46ee-9c79-dd5af34a79f2",
+              "type": "filter",
+              "operator": "contains",
+              "property": "${file.parent}",
+              "value": "area/books",
+              "conditions": []
+            },
+            {
+              "id": "65b9bc6a-9e1d-4159-897e-702cb501c928",
+              "type": "filter",
+              "operator": "time_after_or_equal",
+              "property": "createTime",
+              "value": {
+                "type": "$startOfMonth",
+                "unit": "day",
+                "direction": "before",
+                "value": null
+              },
+              "conditions": []
+            }
+          ]
+        },
+        "sort": {
+          "orders": []
+        },
+        "property": "${file.words}"
+      },
+      "totalQuery": {
+        "valueType": "constant",
+        "value": 3,
+        "filter": {
+          "id": "946fd8db-0b55-4c4c-b072-680f8ab726a8",
+          "type": "group",
+          "operator": "and",
+          "conditions": []
+        },
+        "sort": {
+          "orders": []
+        }
+      },
+      "title": "🔥 月目标"
+    },
+    {
+      "id": "93e32b09-ab68-4bb2-8467-1b162abba6b9",
+      "type": "count",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-12-13T04:47:59.487Z",
+      "updateAt": "2024-12-13T04:47:59.487Z",
+      "countValueAlign": "center",
+      "contentPrefix": "",
+      "contentSuffix": "%",
+      "countType": "percent",
+      "precision": 0,
+      "query": {
+        "valueType": "totalRecords",
+        "value": 100,
+        "filter": {
+          "id": "6ceceacf-02bb-47a0-8e15-ce7dbfff2050",
+          "type": "group",
+          "operator": "and",
+          "conditions": [
+            {
+              "id": "9cf73f94-2aa0-46ee-9c79-dd5af34a79f2",
+              "type": "filter",
+              "operator": "contains",
+              "property": "${file.parent}",
+              "value": "area/books",
+              "conditions": []
+            },
+            {
+              "id": "65b9bc6a-9e1d-4159-897e-702cb501c928",
+              "type": "filter",
+              "operator": "time_after_or_equal",
+              "property": "createTime",
+              "value": {
+                "type": "$startOfQuarter",
+                "unit": "day",
+                "direction": "before",
+                "value": null
+              },
+              "conditions": []
+            }
+          ]
+        },
+        "sort": {
+          "orders": []
+        },
+        "property": "${file.words}"
+      },
+      "totalQuery": {
+        "valueType": "constant",
+        "value": 6,
+        "filter": {
+          "id": "946fd8db-0b55-4c4c-b072-680f8ab726a8",
+          "type": "group",
+          "operator": "and",
+          "conditions": []
+        },
+        "sort": {
+          "orders": []
+        }
+      },
+      "title": "🔥 季目标"
+    },
+    {
+      "id": "21b4c0de-6b08-4006-a701-0c856b4f2812",
+      "type": "timeLine",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-12-13T05:08:22.652Z",
+      "updateAt": "2024-12-13T05:08:22.652Z",
+      "filter": {
+        "id": "a78b3aea-cff4-4ccb-a7fa-6b3aa81e5d14",
+        "type": "group",
+        "operator": "and",
+        "conditions": [
+          {
+            "id": "d1153e14-0ccc-4562-a488-605688705246",
+            "type": "filter",
+            "operator": "contains",
+            "property": "${file.parent}",
+            "value": "area/books",
+            "conditions": []
+          }
+        ]
+      },
+      "sort": {
+        "orders": []
+      },
+      "nodeTitle": {
+        "property": "createTime",
+        "format": "yyyy-MM-dd"
+      },
+      "nodeCover": {
+        "type": "image",
+        "coverTypeLabel": "节点封面",
+        "source": "property",
+        "sourceValue": "cover"
+      },
+      "title": "",
+      "nodeStatus": {
+        "options": [],
+        "property": "readingStatus"
+      }
+    },
+    {
+      "id": "e93d2978-642f-4888-8831-7284202ee9cb",
+      "type": "card",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-12-27T14:20:14.122Z",
+      "updateAt": "2024-12-27T14:20:14.122Z",
+      "title": "同步微信读书",
+      "description": "将微信读书笔记同步到本地库",
+      "coverFit": "cover",
+      "coverPosition": "left",
+      "clickAction": {
+        "type": "CallCommand",
+        "id": "fa9c0fdf-52f8-4224-b165-612777abdc0f",
+        "options": {
+          "commandId": "obsidian-weread-plugin:sync-weread-notes-command",
+          "commandName": "Weread: 同步微信读书笔记"
+        }
+      },
+      "icon": "BookOpen"
+    }
+  ],
+  "rootComponentId": "bde5561a-88e2-4da5-a3d4-351ec22bba2b",
+  "version": 3.1
+}

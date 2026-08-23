@@ -11,6 +11,31 @@ export class Notice {
   }
 }
 
+export class Events {
+  on(): { event: string } { return { event: "" }; }
+  offref(): void {}
+  trigger(): void {}
+}
+
+export class Component {
+  load(): void {}
+  unload(): void {}
+}
+
+export const MarkdownRenderer = {
+  async render(): Promise<void> {},
+};
+
+export function setIcon(_element: unknown, _icon: string): void {}
+
+export function parseYaml(_source: string): unknown {
+  return {};
+}
+
+export async function requestUrl(_request: unknown): Promise<{ text: string; json: unknown; status: number }> {
+  return { text: "", json: {}, status: 200 };
+}
+
 export class TFile {
   path = "";
   extension = "md";

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-07-15T15:43:10.175Z",
+  "updated_at": "2026-08-08T00:00:00.000Z",
   "sources": {
     "src_cf6515f951be": {
       "id": "src_cf6515f951be",
@@ -245,6 +245,35 @@
       },
       "created_at": "2026-07-15T15:43:10.175Z",
       "updated_at": "2026-07-15T15:43:10.175Z"
+    },
+    "src_69dcd55d159b": {
+      "id": "src_69dcd55d159b",
+      "inputType": "url",
+      "input": "https://github.com/Railly/agentfiles",
+      "canonical": "https://github.com/Railly/agentfiles",
+      "platform": "github",
+      "sourceKind": "repo",
+      "title": "Railly Agentfiles capability reference",
+      "actor": "codex",
+      "notePath": "00-Inbox/Sources/github/railly-agentfiles-69dcd55d159b.md",
+      "tags": ["agentfiles", "agent-skills", "obsidian", "upstream-mit"],
+      "notes": "Inspected commit 5e8a20c7e80441c97790f7924427e9373c5367fe on 2026-08-08. MIT license; upstream notice retained. Internalize capabilities into the single LLM Wiki plugin and keep external workflow output in draft state.",
+      "preflight": {
+        "url": "https://github.com/Railly/agentfiles",
+        "platform": "github",
+        "sourceKind": "repo",
+        "access_context": "public",
+        "can_auto_ingest": false,
+        "status": "needs_provider",
+        "confidence": "high",
+        "limitations": [
+          "Remote repository contents are not durable knowledge until captured and reviewed.",
+          "Marketplace installation may execute package-manager commands and remains an explicit user action."
+        ],
+        "next_action": "Use the checked-out source and local inspection artifact as implementation evidence; do not auto-promote repository content."
+      },
+      "created_at": "2026-08-08T00:00:00.000Z",
+      "updated_at": "2026-08-08T00:00:00.000Z"
     }
   }
 }

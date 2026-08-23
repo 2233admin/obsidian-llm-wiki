@@ -253,6 +253,17 @@ class FileSystemAdapter {
   getBasePath() { return this.basePath; }
 }
 
+class Component {
+  load() {}
+  unload() {}
+}
+
+class Events {
+  on() { return { type: "event-ref" }; }
+  off() {}
+  trigger() {}
+}
+
 class Plugin {
   constructor(app, manifest) {
     this.app = app;
@@ -284,6 +295,7 @@ class ItemView {
   constructor(leaf) { this.leaf = leaf; this.app = leaf?.app; this.containerEl = element(); }
 }
 class WorkspaceLeaf {}
+class MarkdownView {}
 class Setting {
   constructor() {}
   setName() { return this; } setDesc() { return this; }
@@ -294,20 +306,29 @@ class Notice { constructor(message) { this.message = message; } }
 class TAbstractFile {}
 class TFile extends TAbstractFile {}
 class Menu {}
+const Platform = { isMobileApp: false };
+const MarkdownRenderer = { render() {} };
+function setIcon() {}
 function element() { return { createEl: element, createDiv: element, addClass() {}, empty() {}, setText() {} }; }
 
 module.exports = {
   FileSystemAdapter,
+  Component,
+  Events,
   Plugin,
   PluginSettingTab,
   Modal,
   ItemView,
   WorkspaceLeaf,
+  MarkdownView,
   Setting,
   Notice,
   TAbstractFile,
   TFile,
   Menu,
+  Platform,
+  MarkdownRenderer,
+  setIcon,
 };
 '''
 
@@ -383,12 +404,27 @@ def make_runtime_stub(root: Path) -> Path:
 def boot_plugin(vault: Path, harness: Path, action: str = "load") -> dict[str, Any]:
     environment = os.environ.copy()
     node_modules = harness.parent / "node_modules"
+    smoke_home = harness.parent / "home"
+    smoke_home.mkdir(parents=True, exist_ok=True)
     environment.update({
+        "HOME": str(smoke_home),
+        "USERPROFILE": str(smoke_home),
         "NODE_PATH": str(node_modules),
         "LLMWIKI_SMOKE_VAULT": str(vault),
         "LLMWIKI_DEVICE_ID": "qa-device",
         "LLMWIKI_SETTINGS_USER_PATH": str(vault / "_llmwiki" / "settings" / "user-device.json"),
     })
+    data_file = vault / ".obsidian" / "plugins" / "vault-mind-promote" / "data.json"
+    if not data_file.exists():
+        data_file.parent.mkdir(parents=True, exist_ok=True)
+        data_file.write_text(
+            json.dumps({
+                "schemaVersion": 2,
+                "presentation": {"selectedScope": "user-device", "showAdvanced": False},
+                "agentfiles": {"watchEnabled": False, "projectScanEnabled": False},
+            }) + "\n",
+            encoding="utf-8",
+        )
     process = subprocess.run(
         ["node", str(harness), str(vault), action],
         cwd=harness.parent,

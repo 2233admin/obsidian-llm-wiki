@@ -5,6 +5,7 @@ import type {
 } from "../../../packages/visual-workspace/dist/src/index.js";
 import {
   AskMateOperationClient,
+  type AskMateContextAnswer,
   type AskMateContextReadResult,
   type AskMateContributionAction,
   type AskMateExternalContributionPlan,
@@ -83,6 +84,9 @@ export class AskMateView extends ItemView {
   #problemAction: ProblemWorkflowAction = "local_issue";
   #problemUnavailable: string | null = null;
   #lastProblemResult: string | null = null;
+  #question = "";
+  #answer: AskMateContextAnswer | null = null;
+  #answerDraftPath: string | null = null;
   #renderedNodeCount = 0;
   #contributionDraft: ProblemDraft = {
     observationId: "",
@@ -112,7 +116,7 @@ export class AskMateView extends ItemView {
   }
 
   getDisplayText(): string {
-    return "Ask Mate";
+    return "LLM Wiki";
   }
 
   getIcon(): string {
@@ -134,6 +138,9 @@ export class AskMateView extends ItemView {
     this.#reviewPlan = null;
     this.#problemUnavailable = null;
     this.#lastProblemResult = null;
+    this.#question = "";
+    this.#answer = null;
+    this.#answerDraftPath = null;
     this.clearExternalAuthority();
     this.#confirmedFingerprint = null;
     const context = parseRestoredAskMateContext(state);
@@ -152,6 +159,9 @@ export class AskMateView extends ItemView {
     this.#reviewPlan = null;
     this.#problemUnavailable = null;
     this.#lastProblemResult = null;
+    this.#question = "";
+    this.#answer = null;
+    this.#answerDraftPath = null;
     this.clearExternalAuthority();
     this.#confirmedFingerprint = null;
   }
@@ -163,6 +173,9 @@ export class AskMateView extends ItemView {
     this.#reviewPlan = null;
     this.#problemUnavailable = null;
     this.#lastProblemResult = null;
+    this.#question = "";
+    this.#answer = null;
+    this.#answerDraftPath = null;
     this.clearExternalAuthority();
     this.#confirmedFingerprint = null;
     this.render();
@@ -231,6 +244,62 @@ export class AskMateView extends ItemView {
     this.#confirmedProblemAction = null;
     this.clearExternalAuthority();
     this.render();
+  }
+
+  setQuestion(question: string): void {
+    this.#question = question;
+    this.#answer = null;
+    this.#answerDraftPath = null;
+    this.#error = null;
+  }
+
+  async askQuestion(): Promise<void> {
+    const context = this.requireContext();
+    this.requireRead();
+    const query = this.#question.trim();
+    if (!query) throw new Error("Enter a question before asking");
+    this.#busy = true;
+    this.#error = null;
+    this.#answer = null;
+    this.#answerDraftPath = null;
+    this.render();
+    try {
+      this.#answer = await this.client.answerContext(context, query);
+    } catch (error) {
+      this.#error = safeError(error);
+    } finally {
+      this.#busy = false;
+      this.render();
+    }
+  }
+
+  async saveAnswerDraft(): Promise<void> {
+    const context = this.requireContext();
+    const answer = this.#answer;
+    const question = this.#question.trim();
+    if (!answer || !answer.citations.length) {
+      throw new Error("Only an answer with citations can be sent to Inbox review");
+    }
+    if (!question) throw new Error("The saved answer requires its original question");
+    this.#busy = true;
+    this.#error = null;
+    this.render();
+    try {
+      const result = await this.client.writeAnswerDraft({
+        parentQuery: question,
+        sourceNodes: answer.citations.map(citation => citation.path),
+        body: renderAnswerDraft(question, answer, this.#context?.path ?? this.#context?.projectId ?? ""),
+        slug: answerDraftSlug(question, context.projectId),
+      });
+      this.#answerDraftPath = result.path;
+      new Notice("LLM Wiki: cited answer saved to Inbox for review.");
+    } catch (error) {
+      this.#error = safeError(error);
+      throw error;
+    } finally {
+      this.#busy = false;
+      this.render();
+    }
   }
 
   answerClarification(clarificationId: string, optionId: string): void {
@@ -469,7 +538,7 @@ export class AskMateView extends ItemView {
       // Re-read through the Operation boundary so the view reflects the
       // backend-authoritative bytes and revision after apply.
       await this.openContext(context);
-      new Notice("LLM Wiki: Ask Mate map changes applied.");
+      new Notice("LLM Wiki: map changes applied.");
     } catch (error) {
       this.#error = safeError(error);
       this.#busy = false;
@@ -482,9 +551,17 @@ export class AskMateView extends ItemView {
     const container = this.containerEl.children[1] as HTMLElement;
     container.empty();
     container.addClass("llmwiki-ask-mate");
-    container.style.maxWidth = "100%";
-    container.style.overflowX = "auto";
-    container.createEl("h2", { text: "Ask Mate", attr: { id: "llmwiki-ask-mate-title" } });
+    container.style.maxWidth = "980px";
+    container.style.width = "100%";
+    container.style.margin = "0 auto";
+    container.style.overflowX = "hidden";
+    container.setAttr("role", "main");
+    container.setAttr("aria-labelledby", "llmwiki-ask-mate-title");
+    container.createEl("h2", { text: "LLM Wiki", attr: { id: "llmwiki-ask-mate-title" } });
+    container.createEl("p", {
+      cls: "llmwiki-ask-mate-intro",
+      text: "Work with the current context: understand it, shape a map, or prepare a reviewed change.",
+    });
     const liveRegion = container.createEl("p", { cls: "llmwiki-ask-mate-status" });
     liveRegion.setAttr("role", "status");
     liveRegion.setAttr("aria-live", "polite");
@@ -492,7 +569,7 @@ export class AskMateView extends ItemView {
     if (!this.#context) {
       container.createEl("p", {
         cls: "llmwiki-ask-mate-empty",
-        text: "Choose an active Markdown note, selected text, a supported Obsidian core Canvas, a managed Mind Map Document, or the current Project Context. Ask Mate never scans the vault implicitly.",
+        text: "Open LLM Wiki from a Markdown note, selected text, a supported Canvas, a managed map, or a bound Project. Only the context shown here is read; the vault is never scanned implicitly.",
       });
       return;
     }
@@ -516,11 +593,12 @@ export class AskMateView extends ItemView {
     }
 
     const intents = container.createEl("nav", { cls: "llmwiki-ask-mate-intents" });
-    intents.setAttr("aria-label", "Ask Mate intent");
+    intents.setAttr("aria-label", "LLM Wiki task");
     const intentOptions: Array<[AskMateIntent, string]> = [
-      ["understand", "Understand this"],
-      ["make_map", "Make or revise a map"],
-      ["report_problem", "Report or fix a problem"],
+      ["ask", "Ask this context"],
+      ["understand", "Understand"],
+      ["make_map", "Shape a map"],
+      ["report_problem", "Prepare a fix"],
     ];
     for (const [intent, label] of intentOptions) {
       const button = intents.createEl("button", { text: label });
@@ -535,6 +613,10 @@ export class AskMateView extends ItemView {
       this.renderProblemIntent(container);
       return;
     }
+    if (this.interaction.intent === "ask") {
+      this.renderAskIntent(container);
+      return;
+    }
     if (!this.model.hasDocument) {
       container.createEl("p", {
         text: this.#read?.readOnly
@@ -546,6 +628,66 @@ export class AskMateView extends ItemView {
 
     this.renderUnderstandIntent(container);
     if (this.interaction.intent === "make_map") this.renderMapIntent(container);
+  }
+
+  private renderAskIntent(container: HTMLElement): void {
+    const section = container.createEl("section", { cls: "llmwiki-ask-mate-panel llmwiki-ask-mate-question" });
+    section.createEl("h3", { text: "Ask this context" });
+    section.createEl("p", {
+      text: "Answers use citation-backed retrieval from the current Project Context. They are extractive and remain a draft until you send them to Inbox review.",
+    });
+    const label = section.createEl("label");
+    label.createSpan({ text: "Question" });
+    const input = label.createEl("textarea");
+    input.value = this.#question;
+    input.placeholder = "What do you need to understand about this context?";
+    input.setAttr("aria-label", "Question for the current context");
+    const ask = section.createEl("button", { text: "Get cited answer", cls: "mod-cta" });
+    ask.disabled = this.#busy || !this.#question.trim();
+    input.oninput = () => {
+      this.setQuestion(input.value);
+      ask.disabled = this.#busy || !input.value.trim();
+    };
+    ask.onclick = () => void this.askQuestion().catch(() => undefined);
+
+    const answer = this.#answer;
+    if (!answer) return;
+
+    const answerSection = container.createEl("section", { cls: "llmwiki-ask-mate-panel llmwiki-ask-mate-answer" });
+    answerSection.createEl("div", { cls: "llmwiki-ask-mate-eyebrow", text: `Citation-backed answer · confidence ${answer.confidence}` });
+    answerSection.createEl("h3", { text: "Answer" });
+    answerSection.createEl("pre", { text: safePresentationText(answer.answer) });
+
+    const citations = answerSection.createEl("section", { cls: "llmwiki-ask-mate-citations" });
+    citations.createEl("h4", { text: `Citations (${answer.citations.length})` });
+    if (!answer.citations.length) {
+      citations.createEl("p", { text: "No evidence was retrieved. This answer cannot become an Inbox draft." });
+    }
+    for (const citation of answer.citations) {
+      const item = citations.createEl("article", { cls: "llmwiki-ask-mate-citation" });
+      item.createEl("h5", { text: `[${citation.id}] ${citation.path}` });
+      item.createEl("p", { text: safePresentationText(citation.snippet) });
+      item.createEl("small", { text: `${citation.source} · rank ${citation.rank}` });
+    }
+
+    for (const gap of answer.gaps) {
+      answerSection.createEl("p", { cls: "llmwiki-proposal-warnings", text: gap.message });
+    }
+
+    const draftSection = container.createEl("section", { cls: "llmwiki-ask-mate-panel llmwiki-ask-mate-draft" });
+    draftSection.createEl("h4", { text: "Inbox review" });
+    draftSection.createEl("p", {
+      text: "Saving creates a draft under 00-Inbox/AI-Output. It does not promote knowledge or change protected notes.",
+    });
+    if (this.#answerDraftPath) {
+      draftSection.createEl("p", {
+        cls: "llmwiki-ask-mate-success",
+        text: `Draft ready for review: ${this.#answerDraftPath}`,
+      });
+    }
+    const save = draftSection.createEl("button", { text: "Save cited answer to Inbox for review", cls: "mod-cta" });
+    save.disabled = this.#busy || !answer.citations.length;
+    save.onclick = () => void this.saveAnswerDraft().catch(() => undefined);
   }
 
   private renderClarifications(container: HTMLElement): void {
@@ -934,12 +1076,12 @@ export class AskMateView extends ItemView {
   }
 
   private requireContext(): AskMateContext {
-    if (!this.#context) throw new Error("Ask Mate has no selected context");
+    if (!this.#context) throw new Error("LLM Wiki has no selected context");
     return this.#context;
   }
 
   private requireRead(): AskMateContextReadResult {
-    if (!this.#read) throw new Error("Ask Mate has no inspected context");
+    if (!this.#read) throw new Error("LLM Wiki has no inspected context");
     return this.#read;
   }
 
@@ -1052,4 +1194,45 @@ function nextPullRequestAction(
 function safeError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   return safePresentationText(message).slice(0, 500);
+}
+
+function answerDraftSlug(question: string, projectId: string): string {
+  let hash = 2166136261;
+  for (const character of `${projectId}\u0000${question}`) {
+    hash ^= character.codePointAt(0) ?? 0;
+    hash = Math.imul(hash, 16777619);
+  }
+  return `context-question-${(hash >>> 0).toString(36)}`;
+}
+
+function renderAnswerDraft(
+  question: string,
+  answer: AskMateContextAnswer,
+  contextPath: string,
+): string {
+  const lines = [
+    "# Context answer",
+    "",
+    `> Question: ${safePresentationText(question).replace(/\n/g, " ")}`,
+    contextPath ? `> Context: ${safePresentationText(contextPath)}` : "",
+    "",
+    "## Answer",
+    "",
+    safePresentationText(answer.answer),
+    "",
+    "## Citations",
+    "",
+  ];
+  for (const citation of answer.citations) {
+    const snippet = safePresentationText(citation.snippet).replace(/\n/g, "\n  > ");
+    lines.push(`- [${citation.id}] ${citation.path}`);
+    lines.push(`  > ${snippet}`);
+    lines.push(`  > source: ${citation.source}; rank: ${citation.rank}`);
+  }
+  if (answer.gaps.length) {
+    lines.push("", "## Gaps", "");
+    for (const gap of answer.gaps) lines.push(`- ${safePresentationText(gap.message)}`);
+  }
+  lines.push("", "_Draft only. Review before promoting any knowledge claim._", "");
+  return lines.filter((line, index) => line || (index > 0 && lines[index - 1])).join("\n");
 }

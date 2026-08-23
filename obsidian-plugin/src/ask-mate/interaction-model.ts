@@ -1,4 +1,4 @@
-export type AskMateIntent = "understand" | "make_map" | "report_problem";
+export type AskMateIntent = "ask" | "understand" | "make_map" | "report_problem";
 
 export type AskMateContextKind =
   | "managed_map"
@@ -108,7 +108,7 @@ export function parseRestoredAskMateContext(state: unknown): AskMateContext | nu
 }
 
 export class AskMateInteractionModel {
-  #intent: AskMateIntent = "understand";
+  #intent: AskMateIntent = "ask";
   #clarifications: AskMateClarification[] = [];
   #answers = new Map<string, string>();
   #capabilities: AskMateCapabilityState = structuredClone(DEFAULT_ASK_MATE_CAPABILITIES);
@@ -181,7 +181,7 @@ export class AskMateInteractionModel {
   }
 
   reset(): void {
-    this.#intent = "understand";
+    this.#intent = "ask";
     this.#clarifications = [];
     this.#answers.clear();
     this.#capabilities = structuredClone(DEFAULT_ASK_MATE_CAPABILITIES);

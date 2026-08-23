@@ -1,0 +1,466 @@
+import { execFile, execFileSync, execSync } from "child_process";
+import { existsSync, readdirSync } from "fs";
+import { join, delimiter } from "path";
+import { homedir, platform } from "os";
+
+const BUILTIN_TOOL_NAMES_PLUGIN = new Set([
+	"Read", "Write", "Edit", "MultiEdit", "Bash", "Glob", "Grep",
+	"WebSearch", "WebFetch", "TodoRead", "TodoWrite", "Task", "Agent",
+	"Skill", "LSP", "NotebookEdit", "AskFollowupQuestion",
+	"AttemptCompletion", "SearchReplace", "InsertCodeBlock",
+	"ReadImages", "ExecuteCommand", "ListFiles", "SearchFiles",
+	"ReadFile", "WriteFile", "ReplaceInFile", "ListCodeDefinitionNames",
+	"BrowserAction", "UseMcp", "shell", "shell_command",
+	"update_plan", "create_plan", "read_file", "write_file",
+	"execute_command", "spawn_agent", "write_stdin",
+	"multi_tool_use.parallel",
+]);
+
+function isRealSkillName(name: string): boolean {
+	if (BUILTIN_TOOL_NAMES_PLUGIN.has(name)) return false;
+	if (name.startsWith("mcp__") || name.startsWith("mcp_")) return false;
+	return true;
+}
+
+const HOME = homedir();
+const IS_WIN = platform() === "win32";
+const DB_PATH = join(HOME, ".skillkit", "analytics.db");
+const BIN_NAMES = IS_WIN ? ["skillkit.cmd", "skillkit.exe", "skillkit"] : ["skillkit"];
+
+function buildPath(): string {
+	const extra: string[] = [];
+	if (IS_WIN) {
+		const appData = process.env.APPDATA || join(HOME, "AppData", "Roaming");
+		extra.push(
+			join(appData, "npm"),
+			join(HOME, ".bun", "bin"),
+			join(HOME, "AppData", "Local", "npm"),
+		);
+	} else {
+		extra.push(
+			"/usr/local/bin",
+			"/opt/homebrew/bin",
+			join(HOME, ".local", "bin"),
+			join(HOME, ".bun", "bin"),
+			join(HOME, ".local", "share", "pnpm"),                              // pnpm global bin
+			join(HOME, ".volta", "bin"),                                          // Volta
+			join(HOME, ".yarn", "bin"),                                           // Yarn classic
+			join(HOME, ".config", "yarn", "global", "node_modules", ".bin"),      // Yarn modern
+			join(HOME, ".fnm", "aliases", "default", "bin"),                      // fnm
+			join(HOME, ".asdf", "shims"),                                         // asdf
+			join(HOME, ".proto", "bin"),                                          // proto
+		);
+	}
+	const nvmDir = IS_WIN
+		? join(HOME, "AppData", "Roaming", "nvm")
+		: join(HOME, ".nvm", "versions", "node");
+	try {
+		for (const d of readdirSync(nvmDir)) {
+			extra.push(IS_WIN ? join(nvmDir, d) : join(nvmDir, d, "bin"));
+		}
+	} catch { /* empty */ }
+	if (!IS_WIN) {
+		const miseDir = join(HOME, ".local", "share", "mise", "installs");
+		for (const runtime of ["node", "bun"]) {
+			try {
+				for (const d of readdirSync(join(miseDir, runtime))) {
+					extra.push(join(miseDir, runtime, d, "bin"));
+				}
+			} catch { /* empty */ }
+		}
+	}
+	return [...extra, process.env.PATH || ""].join(delimiter);
+}
+
+function isCrafterSkillkit(binPath: string): boolean {
+	try {
+		const out = execFileSync(binPath, ["help"], {
+			encoding: "utf-8",
+			timeout: 5000,
+			env: { ...process.env, NO_COLOR: "1", PATH: buildPath() },
+			stdio: ["pipe", "pipe", "pipe"],
+		});
+		return out.includes("Analytics for AI agent skills");
+	} catch { return false; }
+}
+
+function findSkillkitBin(): string | null {
+	const candidates: string[] = [];
+	const searchDirs: string[] = [];
+	if (IS_WIN) {
+		const appData = process.env.APPDATA || join(HOME, "AppData", "Roaming");
+		searchDirs.push(
+			join(appData, "npm"),
+			join(HOME, ".bun", "bin"),
+			join(HOME, "AppData", "Local", "npm"),
+		);
+	} else {
+		searchDirs.push(
+			"/usr/local/bin",
+			"/opt/homebrew/bin",
+			join(HOME, ".local", "bin"),
+			join(HOME, ".bun", "bin"),
+			join(HOME, ".local", "share", "mise", "shims"),
+			join(HOME, ".local", "share", "pnpm"),                              // pnpm global bin
+			join(HOME, ".volta", "bin"),                                          // Volta
+			join(HOME, ".yarn", "bin"),                                           // Yarn classic
+			join(HOME, ".config", "yarn", "global", "node_modules", ".bin"),      // Yarn modern
+			join(HOME, ".fnm", "aliases", "default", "bin"),                      // fnm
+			join(HOME, ".asdf", "shims"),                                         // asdf
+			join(HOME, ".proto", "bin"),                                          // proto
+		);
+	}
+	for (const dir of searchDirs) {
+		for (const bin of BIN_NAMES) {
+			const p = join(dir, bin);
+			if (existsSync(p)) candidates.push(p);
+		}
+	}
+	const nvmDir = IS_WIN
+		? join(HOME, "AppData", "Roaming", "nvm")
+		: join(HOME, ".nvm", "versions", "node");
+	try {
+		for (const d of readdirSync(nvmDir)) {
+			const binDir = IS_WIN ? join(nvmDir, d) : join(nvmDir, d, "bin");
+			for (const bin of BIN_NAMES) {
+				const p = join(binDir, bin);
+				if (existsSync(p)) candidates.push(p);
+			}
+		}
+	} catch { /* empty */ }
+	if (!IS_WIN) {
+		const miseDir = join(HOME, ".local", "share", "mise", "installs");
+		for (const runtime of ["node", "bun"]) {
+			try {
+				for (const d of readdirSync(join(miseDir, runtime))) {
+					const p = join(miseDir, runtime, d, "bin", "skillkit");
+					if (existsSync(p)) candidates.push(p);
+				}
+			} catch { /* empty */ }
+		}
+	}
+	// Dynamic fallback: only runs when static paths found no candidates,
+	// so the common case stays zero-cost (no child processes spawned).
+	// Each command queries a package manager for its global bin directory.
+	// Returns immediately once a valid crafter skillkit binary is found.
+	if (candidates.length === 0 && !IS_WIN) {
+		const dynamicCmds = [
+			["pnpm", "bin", "-g"],    // pnpm global bin directory
+			["yarn", "global", "bin"], // yarn global bin directory
+			["npm", "bin", "-g"],      // npm global bin directory
+		];
+		for (const args of dynamicCmds) {
+			try {
+				const dir = execSync(args.join(" "), {
+					encoding: "utf-8",
+					timeout: 5000,
+					stdio: ["pipe", "pipe", "pipe"],
+				}).trim();
+				if (dir) {
+					for (const bin of BIN_NAMES) {
+						const p = join(dir, bin);
+						if (existsSync(p) && isCrafterSkillkit(p)) return p;
+					}
+				}
+			} catch { /* command not available — skip to next */ }
+		}
+	}
+	for (const c of candidates) {
+		if (isCrafterSkillkit(c)) return c;
+	}
+	return null;
+}
+
+let _bin: string | null | undefined;
+function getSkillkitBin(): string | null {
+	if (_bin === undefined) _bin = findSkillkitBin();
+	return _bin;
+}
+
+export interface SkillkitStats {
+	uses: number;
+	lastUsed: string | null;
+	daysSinceUsed: number | null;
+	isStale: boolean;
+	isHeavy: boolean;
+}
+
+export function isSkillkitAvailable(): boolean {
+	return getSkillkitBin() !== null || existsSync(DB_PATH);
+}
+
+function splitCommandArgs(command: string): string[] {
+	return command.match(/"[^"\\]*(?:\\.[^"\\]*)*"|'[^']*'|\S+/g)?.map((arg) => {
+		if ((arg.startsWith('"') && arg.endsWith('"')) || (arg.startsWith("'") && arg.endsWith("'"))) {
+			return arg.slice(1, -1);
+		}
+		return arg;
+	}) ?? [];
+}
+
+function runSkillkitJsonArgs(args: string[]): Record<string, unknown> | unknown[] | null {
+	const bin = getSkillkitBin();
+	if (!bin) return null;
+	try {
+		const out = execFileSync(bin, [...args, "--json"], {
+			encoding: "utf-8",
+			timeout: 15000,
+			env: { ...process.env, NO_COLOR: "1", PATH: buildPath() },
+			stdio: ["pipe", "pipe", "pipe"],
+		}).trim();
+		return parseJsonOutput(out);
+	} catch { /* empty */ return null; }
+}
+
+export function runSkillkitJson(cmd: string): Record<string, unknown> | unknown[] | null {
+	return runSkillkitJsonArgs(splitCommandArgs(cmd));
+}
+
+function parseJsonOutput(out: string): Record<string, unknown> | unknown[] | null {
+	const jsonStart = out.indexOf("{");
+	const jsonStartArr = out.indexOf("[");
+	const start = jsonStart === -1 ? jsonStartArr : jsonStartArr === -1 ? jsonStart : Math.min(jsonStart, jsonStartArr);
+	if (start === -1) return null;
+	return JSON.parse(out.slice(start)) as Record<string, unknown> | unknown[];
+}
+
+export function runSkillkitJsonAsync(cmd: string): Promise<Record<string, unknown> | unknown[] | null> {
+	const bin = getSkillkitBin();
+	if (!bin) return Promise.resolve(null);
+	return new Promise((resolve) => {
+		execFile(bin, [...splitCommandArgs(cmd), "--json"], {
+			encoding: "utf-8",
+			timeout: 15000,
+			env: { ...process.env, NO_COLOR: "1", PATH: buildPath() },
+		}, (error, stdout) => {
+			if (error) { resolve(null); return; }
+			try { resolve(parseJsonOutput(String(stdout).trim())); }
+			catch { resolve(null); }
+		});
+	});
+}
+
+export function getSkillkitStats(): Map<string, SkillkitStats> {
+	const stats = new Map<string, SkillkitStats>();
+	if (!isSkillkitAvailable()) return stats;
+
+	const data = runSkillkitJson("stats") as {
+		top_skills: { name: string; total: number; daily: { date: string; count: number }[] }[];
+	} | null;
+
+	if (!data?.top_skills) return stats;
+
+	const now = Date.now();
+	for (const skill of data.top_skills) {
+		if (!isRealSkillName(skill.name)) continue;
+		const lastDay = skill.daily.length > 0
+			? skill.daily[skill.daily.length - 1]?.date
+			: null;
+		let daysSinceUsed: number | null = null;
+
+		if (lastDay) {
+			daysSinceUsed = Math.floor((now - new Date(lastDay).getTime()) / (1000 * 60 * 60 * 24));
+		}
+
+		stats.set(skill.name, {
+			uses: skill.total,
+			lastUsed: lastDay || null,
+			daysSinceUsed,
+			isStale: daysSinceUsed !== null && daysSinceUsed > 30,
+			isHeavy: false,
+		});
+	}
+
+	return stats;
+}
+
+export interface SkillkitStatsWithDaily extends SkillkitStats {
+	daily: { date: string; count: number }[];
+}
+
+export function getSkillkitStatsWithDaily(): Map<string, SkillkitStatsWithDaily> {
+	const stats = new Map<string, SkillkitStatsWithDaily>();
+	if (!isSkillkitAvailable()) return stats;
+
+	const data = runSkillkitJson("stats") as {
+		top_skills: { name: string; total: number; daily: { date: string; count: number }[] }[];
+	} | null;
+
+	if (!data?.top_skills) return stats;
+
+	const now = Date.now();
+	for (const skill of data.top_skills) {
+		if (!isRealSkillName(skill.name)) continue;
+		const lastDay = skill.daily.length > 0
+			? skill.daily[skill.daily.length - 1]?.date
+			: null;
+		let daysSinceUsed: number | null = null;
+		if (lastDay) {
+			daysSinceUsed = Math.floor((now - new Date(lastDay).getTime()) / (1000 * 60 * 60 * 24));
+		}
+
+		stats.set(skill.name, {
+			uses: skill.total,
+			lastUsed: lastDay || null,
+			daysSinceUsed,
+			isStale: daysSinceUsed !== null && daysSinceUsed > 30,
+			isHeavy: false,
+			daily: skill.daily,
+		});
+	}
+	return stats;
+}
+
+export function getSkillConflicts(): Map<string, { skillName: string; similarity: number }[]> {
+	const conflicts = new Map<string, { skillName: string; similarity: number }[]>();
+	if (!isSkillkitAvailable()) return conflicts;
+
+	const data = runSkillkitJson("conflicts --dry-run") as {
+		pairs?: { skill_a: string; skill_b: string; similarity: number }[];
+	} | null;
+
+	if (!data || !("pairs" in data)) return conflicts;
+
+	for (const pair of (data as { pairs: { skill_a: string; skill_b: string; similarity: number }[] }).pairs) {
+		if (!conflicts.has(pair.skill_a)) conflicts.set(pair.skill_a, []);
+		if (!conflicts.has(pair.skill_b)) conflicts.set(pair.skill_b, []);
+		conflicts.get(pair.skill_a)!.push({ skillName: pair.skill_b, similarity: pair.similarity });
+		conflicts.get(pair.skill_b)!.push({ skillName: pair.skill_a, similarity: pair.similarity });
+	}
+	return conflicts;
+}
+
+export function getSkillTraces(skillName: string): { traceId: string; timestamp: string; tokens: number; cost: number; duration: number; model: string }[] {
+	if (!isSkillkitAvailable()) return [];
+
+	const data = runSkillkitJsonArgs(["trace", "--list", "--skill", skillName, "--limit", "5"]) as {
+		trace_id: string; timestamp: string; tokens_total: number; cost_estimate: number; duration_ms: number; model: string;
+	}[] | null;
+
+	if (!Array.isArray(data)) return [];
+
+	return data.map((t) => ({
+		traceId: t.trace_id,
+		timestamp: t.timestamp,
+		tokens: t.tokens_total,
+		cost: t.cost_estimate,
+		duration: t.duration_ms,
+		model: t.model || "unknown",
+	}));
+}
+
+export function getSkillWarnings(): { oversized: { name: string; lines: number }[]; longDesc: { name: string; chars: number }[] } {
+	if (!isSkillkitAvailable()) return { oversized: [], longDesc: [] };
+
+	const data = runSkillkitJson("health") as {
+		warnings?: { oversized: { name: string; lines: number }[]; long_descriptions: { name: string; chars: number }[] };
+	} | null;
+
+	if (!data?.warnings) return { oversized: [], longDesc: [] };
+	return {
+		oversized: data.warnings.oversized || [],
+		longDesc: data.warnings.long_descriptions || [],
+	};
+}
+
+export async function getSkillkitStatsWithDailyAsync(): Promise<Map<string, SkillkitStatsWithDaily>> {
+	const stats = new Map<string, SkillkitStatsWithDaily>();
+	if (!isSkillkitAvailable()) return stats;
+
+	const data = await runSkillkitJsonAsync("stats") as {
+		top_skills: { name: string; total: number; daily: { date: string; count: number }[] }[];
+	} | null;
+
+	if (!data?.top_skills) return stats;
+
+	const now = Date.now();
+	for (const skill of data.top_skills) {
+		if (!isRealSkillName(skill.name)) continue;
+		const lastDay = skill.daily.length > 0
+			? skill.daily[skill.daily.length - 1]?.date
+			: null;
+		let daysSinceUsed: number | null = null;
+		if (lastDay) {
+			daysSinceUsed = Math.floor((now - new Date(lastDay).getTime()) / (1000 * 60 * 60 * 24));
+		}
+
+		stats.set(skill.name, {
+			uses: skill.total,
+			lastUsed: lastDay || null,
+			daysSinceUsed,
+			isStale: daysSinceUsed !== null && daysSinceUsed > 30,
+			isHeavy: false,
+			daily: skill.daily,
+		});
+	}
+	return stats;
+}
+
+export async function getSkillConflictsAsync(): Promise<Map<string, { skillName: string; similarity: number }[]>> {
+	const conflicts = new Map<string, { skillName: string; similarity: number }[]>();
+	if (!isSkillkitAvailable()) return conflicts;
+
+	const data = await runSkillkitJsonAsync("conflicts --dry-run") as {
+		pairs?: { skill_a: string; skill_b: string; similarity: number }[];
+	} | null;
+
+	if (!data || !("pairs" in data)) return conflicts;
+
+	for (const pair of (data as { pairs: { skill_a: string; skill_b: string; similarity: number }[] }).pairs) {
+		if (!conflicts.has(pair.skill_a)) conflicts.set(pair.skill_a, []);
+		if (!conflicts.has(pair.skill_b)) conflicts.set(pair.skill_b, []);
+		conflicts.get(pair.skill_a)!.push({ skillName: pair.skill_b, similarity: pair.similarity });
+		conflicts.get(pair.skill_b)!.push({ skillName: pair.skill_a, similarity: pair.similarity });
+	}
+	return conflicts;
+}
+
+export async function getSkillWarningsAsync(): Promise<{ oversized: { name: string; lines: number }[]; longDesc: { name: string; chars: number }[] }> {
+	if (!isSkillkitAvailable()) return { oversized: [], longDesc: [] };
+
+	const data = await runSkillkitJsonAsync("health") as {
+		warnings?: { oversized: { name: string; lines: number }[]; long_descriptions: { name: string; chars: number }[] };
+	} | null;
+
+	if (!data?.warnings) return { oversized: [], longDesc: [] };
+	return {
+		oversized: data.warnings.oversized || [],
+		longDesc: data.warnings.long_descriptions || [],
+	};
+}
+
+export function runSkillkitAction(cmd: string): { success: boolean; output: string } {
+	return runSkillkitActionArgs(splitCommandArgs(cmd));
+}
+
+export function runSkillkitActionArgs(args: string[]): { success: boolean; output: string } {
+	const bin = getSkillkitBin();
+	if (!bin) return { success: false, output: "skillkit not found" };
+	try {
+		const out = execFileSync(bin, args, {
+			encoding: "utf-8",
+			timeout: 30000,
+			env: { ...process.env, NO_COLOR: "1", PATH: buildPath() },
+			stdio: ["pipe", "pipe", "pipe"],
+		}).trim();
+		return { success: true, output: out };
+	} catch (e: unknown) { /* empty */
+		return { success: false, output: e instanceof Error ? e.message : "unknown error" };
+	}
+}
+
+export function formatLastUsed(lastUsed: string | null): string {
+	if (!lastUsed) return "never";
+	const ms = Date.now() - new Date(lastUsed).getTime();
+	const mins = Math.floor(ms / 60000);
+	if (mins < 60) return `${mins}m ago`;
+	const hours = Math.floor(mins / 60);
+	if (hours < 24) return `${hours}h ago`;
+	const days = Math.floor(hours / 24);
+	if (days < 30) return `${days}d ago`;
+	return `${Math.floor(days / 30)}mo ago`;
+}
+
+
+
+

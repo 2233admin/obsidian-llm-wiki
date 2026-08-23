@@ -1,0 +1,120 @@
+{
+  "components": [
+    {
+      "id": "d53e61d6-924e-4315-a449-297a0ff31794",
+      "type": "multi",
+      "titleAlign": "center",
+      "tabTitle": "",
+      "maxWidthRatio": -1,
+      "showBorder": true,
+      "showShadow": false,
+      "createAt": "2024-08-09T05:31:59.896Z",
+      "updateAt": "2024-08-09T05:31:59.896Z",
+      "components": [
+        {
+          "componentId": "2e1cc4d0-f865-41d1-bd16-4add3dac639a"
+        }
+      ],
+      "layoutType": "tab"
+    },
+    {
+      "id": "2e1cc4d0-f865-41d1-bd16-4add3dac639a",
+      "type": "dynamicDataView",
+      "titleAlign": "center",
+      "tabTitle": "文献库",
+      "maxWidthRatio": -1,
+      "showBorder": false,
+      "showShadow": false,
+      "createAt": "2024-08-09T05:32:21.648Z",
+      "updateAt": "2024-08-09T05:32:21.648Z",
+      "viewType": "table",
+      "newPageNameFormat": "{{date:YYYYMMDDHHmmss}} new",
+      "properties": [
+        {
+          "id": "__componentsTitleProperty_0x7c00",
+          "name": "文件名",
+          "type": "text",
+          "isShow": true,
+          "wrap": false,
+          "options": {
+            "width": "104"
+          },
+          "alias": "citekey"
+        },
+        {
+          "id": "6b2067a1-b336-4c77-aa33-1442f3665e48",
+          "name": "title",
+          "isShow": true,
+          "type": "text",
+          "options": {},
+          "alias": "",
+          "wrap": true
+        },
+        {
+          "id": "5745372e-28c0-4509-8dfc-06b6c74d2d07",
+          "name": "publication_date",
+          "isShow": true,
+          "type": "datetime",
+          "options": {
+            "formatType": "date",
+            "width": "165"
+          },
+          "wrap": false,
+          "alias": ""
+        },
+        {
+          "id": "099d42e2-b376-4b1a-a94c-07f00db62f7b",
+          "name": "author",
+          "isShow": true,
+          "type": "multiSelect",
+          "options": {
+            "width": "163"
+          },
+          "wrap": true
+        },
+        {
+          "id": "678c7897-e6bd-481d-b91f-e5dfd8669824",
+          "name": "publication",
+          "isShow": true,
+          "type": "select",
+          "options": {},
+          "alias": "",
+          "wrap": true
+        },
+        {
+          "id": "aa0126ba-9d60-4579-85da-6fd5466fc77b",
+          "name": "tags",
+          "isShow": true,
+          "type": "multiSelect",
+          "options": {
+            "width": "137"
+          },
+          "alias": "",
+          "wrap": true
+        }
+      ],
+      "templates": [],
+      "groups": [],
+      "colorfulGroups": false,
+      "viewOptions": {
+        "openPageIn": "tab"
+      },
+      "filter": {
+        "id": "42c807f9-7d39-4a3d-882e-ede2dd27ac3a",
+        "type": "group",
+        "operator": "and",
+        "conditions": [
+          {
+            "id": "05ef7288-507a-4acb-a71c-125680ca286c",
+            "type": "filter",
+            "operator": "contains",
+            "property": "${file.path}",
+            "value": "Zotero/literature",
+            "conditions": []
+          }
+        ]
+      }
+    }
+  ],
+  "rootComponentId": "d53e61d6-924e-4315-a449-297a0ff31794"
+}
