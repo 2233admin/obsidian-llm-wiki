@@ -37,6 +37,7 @@
     "memu-query": "node dist/scripts/memu-query.js",
     "sync-vault-to-memu": "node dist/scripts/sync-vault-to-memu.js",
     "claude-mem-sync": "node dist/scripts/claude-mem-sync.js",
+    "session-archiver": "node dist/scripts/session-archiver.js",
     "generate-tools-doc": "node dist/scripts/generate-tools-doc.js",
     "bundle:mcp": "esbuild dist/index.js --bundle --platform=node --target=node20 --format=esm --outfile=bundle.js --external:@electric-sql/pglite --external:@electric-sql/pglite/* --banner:js=\"import{createRequire}from'module';const require=createRequire(import.meta.url);\" --log-level=warning",
     "bundle:agent-domain-cli": "esbuild dist/agent-domain/cli.js --bundle --platform=node --target=node20 --format=esm --outfile=agent-domain-cli.js --log-level=warning",
