@@ -7,25 +7,103 @@
 
 param(
   [string]$VaultHost = "claude",
-  [switch]$DryRun
+  [switch]$DryRun,
+  [switch]$Doctor,
+  [switch]$List
 )
 
 $ErrorActionPreference = "Stop"
 
 $SkillName = "vault-wiki"
+$SupportedHosts = @("claude", "codex", "opencode", "gemini")
 switch ($VaultHost) {
   "claude"   { $SkillsDir = "$HOME\.claude\skills\$SkillName" }
   "codex"    { $SkillsDir = "$HOME\.codex\skills\$SkillName" }
   "opencode" { $SkillsDir = "$HOME\.config\opencode\skills\$SkillName" }
   "gemini"   { $SkillsDir = "$HOME\.gemini\skills\$SkillName" }
   default {
-    Write-Error "Unknown -VaultHost '$VaultHost'. Expected: claude, codex, opencode, gemini"
+    Write-Error "Unknown -VaultHost '$VaultHost'. Expected: $($SupportedHosts -join ', ')"
     exit 1
   }
 }
 
 $ScriptDir = $PSScriptRoot
 if (-not $ScriptDir) { $ScriptDir = "." }
+
+# -Doctor: run MCP server verification and exit
+if ($Doctor) {
+    $checksFailed = $false
+
+    Write-Host "LLM Wiki doctor check"
+    Write-Host "===================="
+    Write-Host ""
+
+    # (a) bundle exists
+    $bundlePath = Join-Path $ScriptDir "mcp-server\bundle.js"
+    if (Test-Path $bundlePath) {
+        Write-Host "[PASS] (a) Bundle exists: $bundlePath"
+    } else {
+        Write-Host "[FAIL] (a) Bundle not found: $bundlePath"
+        $checksFailed = $true
+    }
+
+    # (b) server starts
+    if (Test-Path $bundlePath) {
+        try {
+            $null = & node $bundlePath --version 2>$null
+            Write-Host "[PASS] (b) Server starts"
+        } catch {
+            Write-Host "[FAIL] (b) Server failed to start"
+            $checksFailed = $true
+        }
+    }
+
+    # (c) vault path set
+    $vaultVal = $env:VAULT_MIND_VAULT_PATH
+    if (-not $vaultVal) { $vaultVal = $env:VAULT_PATH }
+    if ($vaultVal) {
+        Write-Host "[PASS] (c) Vault path set: $vaultVal"
+    } else {
+        Write-Host "[FAIL] (c) VAULT_MIND_VAULT_PATH or VAULT_PATH is not set"
+        $checksFailed = $true
+    }
+
+    # (d) first vault operation via llmwiki_doctor.py
+    $doctorScript = Join-Path $ScriptDir "scripts\llmwiki_doctor.py"
+    if (Test-Path $doctorScript) {
+        if ($vaultVal) {
+            try {
+                $result = & python $doctorScript --vault $vaultVal --json 2>$null | ConvertFrom-Json
+                if ($result.errors -eq 0) {
+                    Write-Host "[PASS] (d) Vault operation succeeds"
+                } else {
+                    Write-Host "[FAIL] (d) llmwiki_doctor.py reported $($result.errors) error(s)"
+                    $checksFailed = $true
+                }
+            } catch {
+                Write-Host "[FAIL] (d) llmwiki_doctor.py failed"
+                $checksFailed = $true
+            }
+        }
+    } else {
+        Write-Host "[WARN] (d) llmwiki_doctor.py not found -- skipping"
+    }
+
+    Write-Host ""
+    if ($checksFailed) {
+        Write-Host "Some checks failed."
+        exit 1
+    } else {
+        Write-Host "All checks passed."
+        exit 0
+    }
+}
+
+# -List: print supported hosts and exit
+if ($List) {
+    Write-Host "Supported hosts: $($SupportedHosts -join ' ')"
+    exit 0
+}
 
 # Bundle must exist before install. Fail loud so paste-install users see
 # the real cause instead of a missing-file error at MCP boot.

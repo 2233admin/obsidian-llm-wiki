@@ -2,6 +2,7 @@ import { execFile, spawnSync } from 'node:child_process';
 import { promisify } from 'node:util';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
+import { badRequest, notFound } from './types.js';
 import type { Operation, OperationWritePolicy } from './types.js';
 import { resultPath, staticTargets, targetOrWildcard, targetParams, touchMarkdown } from './write-policy.js';
 import { scanRecipes, findRecipe } from '../recipes/_registry.js';
@@ -208,7 +209,7 @@ export const operations: Operation[] = [
  params: {
       path: { type: 'string', required: true, description: 'Vault-relative path for the new note' },
       content: { type: 'string', required: false, description: 'Initial content' },
-      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: true)', default: true },
+      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: false)', default: false },
     },
     handler: async (ctx, params) => ctx.vault.execute('vault.create', params),
   },
@@ -221,7 +222,7 @@ export const operations: Operation[] = [
  params: {
       path: { type: 'string', required: true, description: 'Vault-relative path to the note' },
       content: { type: 'string', required: true, description: 'New content' },
-      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: true)', default: true },
+      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: false)', default: false },
     },
     handler: async (ctx, params) => ctx.vault.execute('vault.modify', params),
   },
@@ -234,7 +235,7 @@ export const operations: Operation[] = [
  params: {
       path: { type: 'string', required: true, description: 'Vault-relative path to the note' },
       content: { type: 'string', required: true, description: 'Content to append' },
-      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: true)', default: true },
+      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: false)', default: false },
     },
     handler: async (ctx, params) => ctx.vault.execute('vault.append', params),
   },
@@ -246,7 +247,7 @@ export const operations: Operation[] = [
  writePolicy: dryRunPathPolicy('delete'),
  params: {
       path: { type: 'string', required: true, description: 'Vault-relative path to delete' },
-      dryRun: { type: 'boolean', required: false, description: 'Simulate without deleting (default: true)', default: true },
+      dryRun: { type: 'boolean', required: false, description: 'Simulate without deleting (default: false)', default: false },
     },
     handler: async (ctx, params) => ctx.vault.execute('vault.delete', params),
   },
@@ -264,7 +265,7 @@ export const operations: Operation[] = [
  params: {
       from: { type: 'string', required: true, description: 'Source vault-relative path' },
       to: { type: 'string', required: true, description: 'Destination vault-relative path' },
-      dryRun: { type: 'boolean', required: false, description: 'Simulate without moving (default: true)', default: true },
+      dryRun: { type: 'boolean', required: false, description: 'Simulate without moving (default: false)', default: false },
     },
     handler: async (ctx, params) => ctx.vault.execute('vault.rename', params),
   },
@@ -276,7 +277,7 @@ export const operations: Operation[] = [
  writePolicy: dryRunPathPolicy(),
  params: {
       path: { type: 'string', required: true, description: 'Vault-relative directory path to create' },
-      dryRun: { type: 'boolean', required: false, description: 'Simulate without creating (default: true)', default: true },
+      dryRun: { type: 'boolean', required: false, description: 'Simulate without creating (default: false)', default: false },
     },
     handler: async (ctx, params) => ctx.vault.execute('vault.mkdir', params),
   },
@@ -351,12 +352,12 @@ export const operations: Operation[] = [
   {
     name: 'vault.lint',
     namespace: 'vault',
-    description: 'Vault health audit: finds orphans (no inbound wikilinks), broken wikilinks, empty files, duplicate titles, and optionally missing required frontmatter keys. Read-only; does not check modification time.',
+    description: '[DEPRECATED] Use problem.intake.scan instead. Vault health audit: finds orphans (no inbound wikilinks), broken wikilinks, empty files, duplicate titles, and optionally missing required frontmatter keys. Read-only; does not check modification time.',
     mutating: false,
     params: {
       requiredFrontmatter: { type: 'array', required: false, description: 'List of frontmatter keys that every note must have' },
     },
-    handler: async (ctx, params) => ctx.vault.execute('vault.lint', params),
+    handler: async (_ctx, _params) => ({ deprecated: true, useInstead: 'problem.intake.scan' }),
   },
   {
  name: 'vault.daily',
@@ -369,7 +370,7 @@ export const operations: Operation[] = [
       mood: { type: 'string', required: false, description: 'Mood rating', enum: ['great', 'good', 'neutral', 'low', 'bad'] },
       energy: { type: 'string', required: false, description: 'Energy level', enum: ['high', 'medium', 'low'] },
       tags: { type: 'array', required: false, description: 'Extra tags' },
-      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: true)', default: true },
+      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: false)', default: false },
     },
     handler: async (ctx, params) => ctx.vault.execute('vault.daily', params),
   },
@@ -385,7 +386,7 @@ export const operations: Operation[] = [
       company: { type: 'string', required: false, description: 'Organization' },
       relationship: { type: 'string', required: false, description: 'How you know them' },
       notes: { type: 'string', required: false, description: 'Additional context' },
-      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: true)', default: true },
+      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: false)', default: false },
     },
     handler: async (ctx, params) => ctx.vault.execute('vault.person', params),
   },
@@ -402,17 +403,26 @@ export const operations: Operation[] = [
       team: { type: 'array', required: false, description: 'Team member names (wikilinked in content)' },
       tags: { type: 'array', required: false, description: 'Extra tags' },
       entity: { type: 'string', required: false, description: 'Currency entity key (default: project/<name-slug>); drives the status-drift guard' },
-      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: true)', default: true },
+      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: false)', default: false },
     },
     handler: async (ctx, params) => {
       const name = params.name;
       if (typeof name !== 'string' || !name.trim()) throw makeErr(-32602, 'name required');
       const project = resolveProjectContext(ctx.config.vault_path, name, 'vault.project');
-      const result = await ctx.vault.execute('vault.project', {
-        ...params,
-        name: project.slug,
-        entity: project.projectId,
-      });
+      let result;
+      try {
+        result = await ctx.vault.execute('vault.project', {
+          ...params,
+          name: project.slug,
+          entity: project.projectId,
+        });
+      } catch (err) {
+        const e = err as { code?: number; message?: string };
+        if (e.code === -32004) {
+          throw makeErr(-32004, e.message + ' Use project.init to create a new Project ID');
+        }
+        throw err;
+      }
       return {
         result,
         projectId: project.projectId,
@@ -441,7 +451,7 @@ export const operations: Operation[] = [
       project: { type: 'string', required: false, description: 'Owning project (namespaces the currency entity as project/<slug>/decision/<title>)' },
       entity: { type: 'string', required: false, description: 'Currency entity key override (default derived from project + title)' },
       source: { type: 'string', required: false, description: 'Verifiable source (commit:/path:/test:/url:); without it the decision shows UNSUPPORTED in the currency view' },
-      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: true)', default: true },
+      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: false)', default: false },
     },
     handler: async (ctx, params) => ctx.vault.execute('vault.decide', params),
   },
@@ -457,7 +467,7 @@ export const operations: Operation[] = [
       decisions: { type: 'array', required: false, description: 'List of decisions made' },
       actions: { type: 'array', required: false, description: 'Action items (strings)' },
       summary: { type: 'string', required: false, description: 'Meeting summary' },
-      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: true)', default: true },
+      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: false)', default: false },
     },
     handler: async (ctx, params) => ctx.vault.execute('vault.meeting', params),
   },
@@ -474,7 +484,7 @@ export const operations: Operation[] = [
       type: { type: 'string', required: false, description: 'Content type', default: 'note', enum: ['article', 'research', 'note', 'reference'] },
       tags: { type: 'array', required: false, description: 'Extra tags' },
       preamble: { type: 'string', required: false, description: '2-3 sentence "For future Claude" preamble' },
-      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: true)', default: true },
+      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: false)', default: false },
     },
     handler: async (ctx, params) => ctx.vault.execute('vault.ingest', params),
   },
@@ -492,7 +502,7 @@ export const operations: Operation[] = [
  params: {
       topic: { type: 'string', required: false, description: 'Topic name (used as directory name and KB title); topic mode' },
       methodology: { type: 'string', required: false, description: 'Vault folder scaffold to create; methodology mode', enum: ['generic', 'para', 'lyt', 'zettelkasten'] },
-      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (methodology mode only, default: true)', default: true },
+      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (methodology mode only, default: false)', default: false },
     },
     handler: async (ctx, params) => ctx.vault.execute('vault.init', params),
   },
@@ -507,7 +517,7 @@ export const operations: Operation[] = [
  audit: 'required',
  },
  params: {
-      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: true)', default: true },
+      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: false)', default: false },
       topLevelOnly: { type: 'boolean', required: false, description: 'Only process top-level directories (default: true)', default: true },
       skipDirs: { type: 'array', required: false, description: 'Additional directory names to skip beyond the built-in protected list' },
     },
@@ -537,7 +547,7 @@ export const operations: Operation[] = [
       scope: { type: 'string', required: false, description: 'Governance namespace for the entry (default: project)', default: 'project', enum: ['project', 'global', 'cross-project', 'host-local'] },
       quarantineState: { type: 'string', required: false, description: 'Trust-gate state in the candidate lifecycle (default: new)', default: 'new', enum: ['new', 'reviewed', 'promoted', 'discarded'] },
       reviewStatus: { type: 'string', required: false, description: 'When user-confirmed, appends #user-confirmed tag to the body so Obsidian tag search picks it up. Default: none (no tag appended).', default: 'none', enum: ['none', 'user-confirmed'] },
-      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: true)', default: true },
+      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: false)', default: false },
     },
     handler: async (ctx, params) => ctx.vault.execute('vault.writeAIOutput', params),
   },
@@ -596,9 +606,9 @@ export const operations: Operation[] = [
     },
     handler: async (_ctx, params) => {
       const id = params.id;
-      if (typeof id !== 'string' || id === '') throw new Error('Missing required param: id');
+      if (typeof id !== 'string' || id === '') throw badRequest('Missing required param: id');
       const recipe = findRecipe(id);
-      if (!recipe) throw new Error(`Recipe not found: ${id}`);
+      if (!recipe) throw notFound(`Recipe not found: ${id}`);
       return { frontmatter: recipe.frontmatter, body: recipe.body };
     },
   },
@@ -612,9 +622,9 @@ export const operations: Operation[] = [
     },
     handler: async (_ctx, params) => {
       const id = params.id;
-      if (typeof id !== 'string' || id === '') throw new Error('Missing required param: id');
+      if (typeof id !== 'string' || id === '') throw badRequest('Missing required param: id');
       const recipe = findRecipe(id);
-      if (!recipe) throw new Error(`Recipe not found: ${id}`);
+      if (!recipe) throw notFound(`Recipe not found: ${id}`);
       return getRecipeStatus(recipe);
     },
   },
@@ -629,9 +639,9 @@ export const operations: Operation[] = [
     },
     handler: async (_ctx, params) => {
       const id = params.id;
-      if (typeof id !== 'string' || id === '') throw new Error('Missing required param: id');
+      if (typeof id !== 'string' || id === '') throw badRequest('Missing required param: id');
       const recipe = findRecipe(id);
-      if (!recipe) throw new Error(`Recipe not found: ${id}`);
+      if (!recipe) throw notFound(`Recipe not found: ${id}`);
       const status = getRecipeStatus(recipe);
       const checks: Array<{ command: string; ok: boolean; output: string }> = [];
       for (const hc of recipe.frontmatter.health_checks ?? []) {
@@ -658,10 +668,10 @@ export const operations: Operation[] = [
     },
     handler: async (_ctx, params) => {
       const id = params.id;
-      if (typeof id !== 'string' || id === '') throw new Error('Missing required param: id');
+      if (typeof id !== 'string' || id === '') throw badRequest('Missing required param: id');
 
       const recipe = findRecipe(id);
-      if (!recipe) throw new Error(`Recipe not found: ${id}`);
+      if (!recipe) throw notFound(`Recipe not found: ${id}`);
 
       // Early-out: missing secrets
       const status = getRecipeStatus(recipe);

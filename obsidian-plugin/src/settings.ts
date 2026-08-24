@@ -17,6 +17,7 @@ export const PLUGIN_DATA_SCHEMA_VERSION = 2;
 export interface PluginPresentation {
   selectedScope: SettingScope;
   showAdvanced: boolean;
+  settingsExpandedSections: string[];
 }
 
 export interface DeviceBindingReference {
@@ -86,16 +87,18 @@ function isSettingValue(value: unknown): value is SettingValue {
 function defaultData(): LLMWikiPluginData {
   return {
     schemaVersion: PLUGIN_DATA_SCHEMA_VERSION,
-    presentation: { selectedScope: "user-device", showAdvanced: false },
+    presentation: { selectedScope: "user-device", showAdvanced: false, settingsExpandedSections: [] },
   };
 }
 
 function readPresentation(raw: Record<string, unknown>): PluginPresentation {
   const source = isRecord(raw.presentation) ? raw.presentation : {};
   const selected = source.selectedScope;
+  const expandedSections = Array.isArray(source.settingsExpandedSections) ? source.settingsExpandedSections as string[] : [];
   return {
     selectedScope: EDITABLE_SCOPES.includes(selected as SettingScope) ? selected as SettingScope : "user-device",
     showAdvanced: source.showAdvanced === true,
+    settingsExpandedSections: expandedSections,
   };
 }
 

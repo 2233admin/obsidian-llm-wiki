@@ -618,7 +618,7 @@ export default class LLMWikiPlugin extends Plugin {
 
   private async promote(file: TFile): Promise<void> {
     const noteId = file.path;
-    new Notice("LLM Wiki: computing promote plan…");
+    new Notice("Detecting draft…");
     const dry = await this.runPromote(noteId, false);
     if (dry.error) { new Notice(`LLM Wiki: ${dry.error}`); return; }
     if (dry.outcome !== "MATERIALIZED") {
@@ -626,12 +626,13 @@ export default class LLMWikiPlugin extends Plugin {
       return;
     }
     new PromotePlanModal(this.app, noteId, dry, async () => {
+      new Notice("Writing…");
       const result = await this.runPromote(noteId, true);
       if (result.error || result.outcome !== "MATERIALIZED") {
         new Notice(`LLM Wiki: promote failed — ${result.error ?? result.outcome}`);
         return;
       }
-      new Notice(`LLM Wiki: promoted → ${result.snapshot_note_id ?? "(written)"}. Review & commit via git.`);
+      new Notice("Promoted successfully");
     }).open();
   }
 
@@ -799,6 +800,21 @@ const SCOPE_LABELS: Record<SettingScope | "product", string> = {
   product: "Product default",
 };
 
+class ScopeHelpModal extends Modal {
+  constructor(app: App) { super(app); }
+
+  onOpen(): void {
+    const { contentEl } = this;
+    contentEl.createEl("h3", { text: "Scope help" });
+    const list = contentEl.createEl("ul");
+    list.createEl("li", { text: "User-device: only this computer" });
+    list.createEl("li", { text: "Vault: everyone using this vault shares this value" });
+    list.createEl("li", { text: "Product: the built-in default" });
+  }
+
+  onClose(): void { this.contentEl.empty(); }
+}
+
 class LLMWikiSettingTab extends PluginSettingTab {
   constructor(app: App, private readonly llmWiki: LLMWikiPlugin) {
     super(app, llmWiki);
@@ -816,11 +832,65 @@ class LLMWikiSettingTab extends PluginSettingTab {
     this.renderOverview(containerEl);
     this.renderAgentControlPlane(containerEl);
     if (!this.llmWiki.projection) return;
-    this.renderScopeSelector(containerEl);
 
+    const expandedSections = this.llmWiki.data.presentation.settingsExpandedSections;
+    const isFirstVisit = expandedSections.length === 0;
+
+    // Getting Started section — always visible, collapsible
+    const gettingStartedId = "getting-started";
+    const gettingStartedExpanded = isFirstVisit || expandedSections.includes(gettingStartedId);
+    const gettingStarted = containerEl.createEl("details", {
+      cls: "llmwiki-settings-section",
+      attr: { "data-section": gettingStartedId },
+    });
+    gettingStarted.createEl("summary", { text: "Getting Started" });
+    const gettingStartedContent = gettingStarted.createDiv({ cls: "llmwiki-settings-section-content" });
+    this.renderGettingStartedContent(gettingStartedContent);
+    if (gettingStartedExpanded) gettingStarted.setAttr("open", "");
+
+    // All Settings section — collapsed by default
+    const allSettingsId = "all-settings";
+    const allSettingsExpanded = expandedSections.includes(allSettingsId);
+    const allSettings = containerEl.createEl("details", {
+      cls: "llmwiki-settings-section",
+      attr: { "data-section": allSettingsId },
+    });
+    allSettings.createEl("summary", { text: "All Settings" });
+    const allSettingsContent = allSettings.createDiv({ cls: "llmwiki-settings-section-content" });
+    this.renderAllSettingsContent(allSettingsContent);
+    if (allSettingsExpanded) allSettings.setAttr("open", "");
+
+    // Track section toggle and persist
+    for (const details of [gettingStarted, allSettings]) {
+      details.onclick = (e) => {
+        const target = e.target as HTMLElement;
+        if (target.tagName !== "SUMMARY") return;
+        const sectionId = details.getAttr("data-section") as string;
+        const currentlyExpanded = details.hasAttribute("open");
+        const newExpanded = !currentlyExpanded;
+        const current = this.llmWiki.data.presentation.settingsExpandedSections;
+        const next = newExpanded
+          ? [...current.filter(s => s !== sectionId), sectionId]
+          : current.filter(s => s !== sectionId);
+        if (JSON.stringify(current) !== JSON.stringify(next)) {
+          this.llmWiki.data = {
+            ...this.llmWiki.data,
+            presentation: { ...this.llmWiki.data.presentation, settingsExpandedSections: next },
+          };
+          void this.llmWiki.savePluginData();
+        }
+      };
+    }
+  }
+
+  private renderGettingStartedContent(containerEl: HTMLElement): void {
+    this.renderScopeSelector(containerEl);
+  }
+
+  private renderAllSettingsContent(containerEl: HTMLElement): void {
     const scope = this.llmWiki.data.presentation.selectedScope;
-    for (const category of [...new Set(this.llmWiki.projection.definitions.map(item => item.category))]) {
-      const definitions = this.llmWiki.projection.definitions.filter(definition =>
+    for (const category of [...new Set(this.llmWiki.projection!.definitions.map(item => item.category))]) {
+      const definitions = this.llmWiki.projection!.definitions.filter(definition =>
         definition.category === category
         && definition.allowedScopes.includes(scope)
         && (this.llmWiki.data.presentation.showAdvanced || definition.visibility !== "advanced"),
@@ -914,7 +984,11 @@ class LLMWikiSettingTab extends PluginSettingTab {
         .onChange(async value => {
           await this.llmWiki.setEditingScope(value as SettingScope);
           this.display();
-        }));
+        }))
+      .addButton(button => button
+        .setIcon("help")
+        .setTooltip("Scope help")
+        .onClick(() => new ScopeHelpModal(this.app).open()));
   }
 
   private renderDefinition(containerEl: HTMLElement, definition: SettingDefinition): void {
@@ -960,12 +1034,19 @@ class LLMWikiSettingTab extends PluginSettingTab {
           : "Reference locator — never paste the secret value");
         text.inputEl.type = "text";
         text.inputEl.autocomplete = "off";
-        text.inputEl.addEventListener("change", () => void this.mutate(async () => {
-          const locator = text.getValue().trim();
-          if (!locator) return;
-          await this.llmWiki.updateSetting(scope, definition.key, { provider, locator });
-          text.setValue("");
-        }));
+        let debounceTimer: number | null = null;
+        text.inputEl.addEventListener("change", () => {
+          if (debounceTimer !== null) clearTimeout(debounceTimer);
+          debounceTimer = window.setTimeout(() => {
+            debounceTimer = null;
+            void this.mutate(async () => {
+              const locator = text.getValue().trim();
+              if (!locator) return;
+              await this.llmWiki.updateSetting(scope, definition.key, { provider, locator });
+              text.setValue("");
+            });
+          }, 300);
+        });
       });
     } else if (definition.valueType === "enum" && definition.validator.enum?.length) {
       setting.addDropdown(dropdown => {

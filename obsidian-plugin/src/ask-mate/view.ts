@@ -567,10 +567,27 @@ export class AskMateView extends ItemView {
     liveRegion.setAttr("aria-live", "polite");
     liveRegion.setText(this.#busy ? "Working…" : this.#error ?? "Ready");
     if (!this.#context) {
+      container.createEl("h2", { text: "Ask your vault" });
       container.createEl("p", {
         cls: "llmwiki-ask-mate-empty",
-        text: "Open LLM Wiki from a Markdown note, selected text, a supported Canvas, a managed map, or a bound Project. Only the context shown here is read; the vault is never scanned implicitly.",
+        text: "No note selected. Open a note or select text to begin.",
       });
+      // Pre-focus question textarea with intents visible
+      const intents = container.createEl("nav", { cls: "llmwiki-ask-mate-intents" });
+      intents.setAttr("aria-label", "LLM Wiki task");
+      const intentOptions: Array<[AskMateIntent, string]> = [
+        ["ask", "Ask this context"],
+        ["understand", "Understand"],
+        ["make_map", "Shape a map"],
+        ["report_problem", "Prepare a fix"],
+      ];
+      for (const [intent, label] of intentOptions) {
+        const button = intents.createEl("button", { text: label });
+        button.setAttr("aria-pressed", String(this.interaction.intent === intent));
+        button.disabled = this.#busy;
+        button.onclick = () => this.selectIntent(intent);
+      }
+      this.renderAskIntent(container, true);
       return;
     }
     container.createEl("p", {
@@ -630,18 +647,21 @@ export class AskMateView extends ItemView {
     if (this.interaction.intent === "make_map") this.renderMapIntent(container);
   }
 
-  private renderAskIntent(container: HTMLElement): void {
+  private renderAskIntent(container: HTMLElement, autofocus = false): void {
     const section = container.createEl("section", { cls: "llmwiki-ask-mate-panel llmwiki-ask-mate-question" });
-    section.createEl("h3", { text: "Ask this context" });
-    section.createEl("p", {
-      text: "Answers use citation-backed retrieval from the current Project Context. They are extractive and remain a draft until you send them to Inbox review.",
-    });
+    if (this.#context) {
+      section.createEl("h3", { text: "Ask this context" });
+      section.createEl("p", {
+        text: "Answers use citation-backed retrieval from the current Project Context. They are extractive and remain a draft until you send them to Inbox review.",
+      });
+    }
     const label = section.createEl("label");
     label.createSpan({ text: "Question" });
     const input = label.createEl("textarea");
     input.value = this.#question;
     input.placeholder = "What do you need to understand about this context?";
     input.setAttr("aria-label", "Question for the current context");
+    if (autofocus) input.focus();
     const ask = section.createEl("button", { text: "Get cited answer", cls: "mod-cta" });
     ask.disabled = this.#busy || !this.#question.trim();
     input.oninput = () => {

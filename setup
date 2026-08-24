@@ -14,17 +14,28 @@ esac
 DRY_RUN=0
 HOST="claude"
 SKILL_NAME="vault-wiki"
+DOCTOR=0
+LIST=0
+
+SUPPORTED_HOSTS="claude codex opencode gemini"
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --host)
-      [ -z "$2" ] && echo "Error: --host requires a value (claude, codex, opencode, gemini)" >&2 && exit 1
+      [ -z "$2" ] && echo "Error: --host requires a value ($SUPPORTED_HOSTS)" >&2 && exit 1
       HOST="$2"; shift 2 ;;
     --host=*) HOST="${1#--host=}"; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
+    --doctor) DOCTOR=1; shift ;;
+    --list) LIST=1; shift ;;
     *) shift ;;
   esac
 done
+
+if [ "$LIST" = 1 ]; then
+  echo "Supported hosts: $SUPPORTED_HOSTS"
+  exit 0
+fi
 
 case "$HOST" in
   claude)   SKILLS_DIR="$HOME/.claude/skills/$SKILL_NAME" ;;
@@ -33,6 +44,70 @@ case "$HOST" in
   gemini)   SKILLS_DIR="$HOME/.gemini/skills/$SKILL_NAME" ;;
   *) echo "Error: Unknown --host '$HOST'. Expected: claude, codex, opencode, gemini" >&2; exit 1 ;;
 esac
+
+
+# --doctor: run MCP server verification and exit
+if [ "$DOCTOR" = 1 ]; then
+  SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
+  if [ "$IS_WINDOWS" = 1 ]; then
+    SCRIPT_DIR="$(cygpath -m "$SCRIPT_DIR")"
+  fi
+  echo "LLM Wiki doctor check"
+  echo "===================="
+  echo ""
+
+  BUNDLE="$SCRIPT_DIR/mcp-server/bundle.js"
+  CHECKS_FAILED=0
+
+  # (a) bundle exists
+  if [ -f "$BUNDLE" ]; then
+    echo "[PASS] (a) Bundle exists: $BUNDLE"
+  else
+    echo "[FAIL] (a) Bundle not found: $BUNDLE"
+    CHECKS_FAILED=1
+  fi
+
+  # (b) server starts
+  if [ -f "$BUNDLE" ]; then
+    if node "$BUNDLE" --version >/dev/null 2>&1; then
+      echo "[PASS] (b) Server starts"
+    else
+      echo "[FAIL] (b) Server failed to start"
+      CHECKS_FAILED=1
+    fi
+  fi
+
+  # (c) vault path set
+  VAULT_VAL="${VAULT_MIND_VAULT_PATH:-${VAULT_PATH:-}}"
+  if [ -n "$VAULT_VAL" ]; then
+    echo "[PASS] (c) Vault path set: $VAULT_VAL"
+  else
+    echo "[FAIL] (c) VAULT_MIND_VAULT_PATH or VAULT_PATH is not set"
+    CHECKS_FAILED=1
+  fi
+
+  # (d) first vault operation via llmwiki_doctor.py
+  DOCTOR_SCRIPT="$SCRIPT_DIR/scripts/llmwiki_doctor.py"
+  if [ -f "$DOCTOR_SCRIPT" ] && [ -n "$VAULT_VAL" ]; then
+    if python "$DOCTOR_SCRIPT" --vault "$VAULT_VAL" --json >/dev/null 2>&1; then
+      echo "[PASS] (d) Vault operation succeeds"
+    else
+      echo "[FAIL] (d) llmwiki_doctor.py reported errors"
+      CHECKS_FAILED=1
+    fi
+  elif [ ! -f "$DOCTOR_SCRIPT" ]; then
+    echo "[WARN] (d) llmwiki_doctor.py not found -- skipping"
+  fi
+
+  echo ""
+  if [ $CHECKS_FAILED -eq 0 ]; then
+    echo "All checks passed."
+    exit 0
+  else
+    echo "Some checks failed."
+    exit 1
+  fi
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 if [ "$IS_WINDOWS" = 1 ]; then
