@@ -23,6 +23,22 @@ Before changing ingest, memory, source registration, project/work-OS behavior, o
 
 External repositories and skill packs are Sources or workflow capability providers first. Register canonical URLs, cite local inspection artifacts as evidence, and promote durable conclusions only after review.
 
+## Default workflow
+
+Use the repository's BMAD-lite intake before implementation:
+
+```text
+raw voice → normalized intent → product brief → architecture / UX boundary
+→ Work-OS issue → implementation plan → code → verification evidence
+```
+
+Voice input is draft material. Normalize product and module names against
+`CONTEXT.md`; if a transcription ambiguity can change scope or architecture,
+ask one focused clarification before creating code work. Keep the raw input and
+unreviewed interpretation under the draft paths, keep executable work under the
+Work-OS issue paths, and record approved architecture in `30-Architecture/`.
+BMAD-lite supplements Work-OS; it does not create a second task system.
+
 ## Agent skills
 
 ### Issue tracker

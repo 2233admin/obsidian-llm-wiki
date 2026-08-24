@@ -5,6 +5,38 @@ Detailed release notes per version live in `CHANGELOG.md`; per-issue
 work state lives in `01-Projects/obsidian-llm-wiki/issues/`. Archive
 drafts from prior planning rounds are in `docs/archive/task-drafts/`.
 
+## Current priority: product foundation
+
+LLM Wiki is an Obsidian-first product. The Obsidian plugin is the primary
+human-facing product and control plane; MCP and CLI are access surfaces; Python
+compiler and adapter processes are optional capability workers. The canonical
+architecture is recorded in `30-Architecture/llm-wiki-product-spine.md`.
+
+Before adding new MCP tools, adapters, Fleet features, or isolated setup
+patches, complete this foundation:
+
+- [ ] Obsidian-first onboarding and vault binding
+- [ ] Capability health with actionable remediation
+- [ ] TypeScript-owned boundary for Python and external workers
+- [ ] Clear ownership between plugin, MCP, CLI, and durable vault state
+- [ ] Roadmap and Work-OS issues grouped by product milestone
+
+Feature expansion is paused until these five foundation items are designed and
+accepted.
+
+### Current issue taxonomy
+
+| Product area | Current issues |
+|---|---|
+| Core product / Obsidian UX | `ux-audit-findings`, `plugin-migration-data-loss`, `plugin-main-ts-test-coverage`, `plugin-legacy-assignment-precedence`, `plugin-python-path-batch-cmd`, `plugin-binding-editor-noop-callback`, `plugin-low-hygiene-batch`, `plugin-promote-frontmatter-gate`, `plugin-promote-view-refresh`, `plugin-promote-open-snapshot`, `plugin-promote-obsidian-git-handoff`, `plugin-promote-autodetect-kbmeta` |
+| Product infrastructure | `host-install-registration-wheel` |
+| Compatibility / search worker | `temporal-graph-index-search-accelerator` |
+| Later / experimental | `fleet-agent-discovery-transports`, `gitea-federation-adapter` |
+
+The taxonomy is product-oriented, not file-oriented. A change belongs to the
+product area it serves even when its implementation crosses TypeScript,
+Python, plugin, or MCP directories.
+
 ## Shipped
 
 ### Phase: graphify adapter
@@ -63,7 +95,7 @@ drafts from prior planning rounds are in `docs/archive/task-drafts/`.
 
 ### Phase: Plugin 0.4.0 Beta series (beta.1 → beta.5)
 
-- **Status**: in flight (current tag 0.4.0-beta.5, 2026-08-18)
+- **Status**: paused pending product foundation (current tag 0.4.0-beta.5, 2026-08-18)
 - **Done**:
   - [x] `add-ask-mate-visual-workspace` — Ask Mate, mind maps, governed
     Problem Intake, user-approved Issue/PR contribution (Issue #add-ask-mate-visual-workspace)
@@ -78,7 +110,7 @@ drafts from prior planning rounds are in `docs/archive/task-drafts/`.
     workflow intake contract
   - [x] `fix-work-os-nested-worktree-duplication` — scanner exclusion
     of machine-local `.orca/worktrees/**`
-- **In progress**:
+- **Deferred backlog after foundation**:
   - [ ] `plugin-migration-data-loss` (P1) — legacy settings migration
     transactional guarantee broken
   - [ ] `plugin-main-ts-test-coverage` (P2) — `main.ts` zero coverage
@@ -96,13 +128,15 @@ drafts from prior planning rounds are in `docs/archive/task-drafts/`.
 
 ## Next
 
-### Phase: Plugin 0.4.0 GA → v2.8.0 GA
+### Phase: Foundation exit → Plugin 0.4.0 GA
 
-- **Goal**: clear the 13 open plugin todo entries, ship a stable release.
-- **Trigger**: `plugin-migration-data-loss` resolved + `plugin-main-ts-test-coverage`
-  regression test green + `host-install-registration-wheel` shipped.
-- **Out of scope**: fleet federation, ask-mate UI polish beyond beta.5,
-  graph v2 redesign.
+- **Goal**: make the Obsidian-first product path coherent before shipping the
+  next plugin release.
+- **Trigger**: onboarding, capability health, TS/Python boundary, access-surface
+  ownership, and Work-OS milestone alignment are accepted.
+- **After the trigger**: resume the existing Plugin 0.4.0 GA safety and UX work.
+- **Out of scope during foundation**: new adapters, Fleet federation, Gitea
+  federation, and graph v2 redesign.
 - **Definition of done**:
   - [ ] All P1 plugin todo entries closed
   - [ ] `npm test` green (requires bun shim repair on the host machine)

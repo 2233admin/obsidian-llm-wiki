@@ -3,10 +3,12 @@ type: project
 entity: project/obsidian-llm-wiki
 kind: knowledge-task
 id: obsidian-llm-wiki/project
-description: Work-OS project for obsidian-llm-wiki workflow governance
+description: Obsidian-first LLM Wiki product foundation and workflow governance
 status: active
-last-verified: 2026-06-30
+last-verified: 2026-08-24
 ---
 
-obsidian-llm-wiki workflow governance
+LLM Wiki is an Obsidian-first product. This project owns the product spine,
+access-surface boundaries, capability-worker separation, and milestone alignment
+before feature expansion.
 

@@ -68,6 +68,36 @@ Durable team truth belongs only in reviewed surfaces such as
 changes to those surfaces, but should not silently promote their own draft
 output into protected knowledge.
 
+## Voice intake and BMAD-lite workflow
+
+Voice input is an intake channel, not an implementation specification. Preserve
+raw speech as draft material and normalize it before creating executable work.
+Treat likely transcription errors such as `obsdina` as uncertain terms; use the
+canonical product vocabulary from `CONTEXT.md` and ask one focused question when
+an ambiguity could change scope, architecture, or product identity.
+
+The default BMAD-lite path is:
+
+```text
+raw voice → normalized intent → product brief → architecture / UX boundary
+→ Work-OS issue → implementation plan → code → verification evidence
+```
+
+Use the existing repository surfaces for each stage:
+
+| Stage | Canonical surface | Rule |
+|---|---|---|
+| Raw voice and unreviewed interpretation | `00-Inbox/AI-Output/<agent>/` | Never treat as implementation truth. |
+| Normalized intent and product brief | Work-OS issue draft | Record affected product area, scope, non-goals, and success signal. |
+| Approved architecture or UX boundary | `30-Architecture/`, `20-Decisions/` | Review before implementation when the product spine or ownership changes. |
+| Executable work | `01-Projects/<project>/issues/<slug>.md` | One issue must have a bounded outcome and acceptance evidence. |
+| Implementation | Git worktree | Follow the approved issue and plan; do not expand scope silently. |
+| Verification and release evidence | issue comments or release evidence | Evidence comes after the behavior exists; it does not replace product design. |
+
+The BMAD-lite stages are a workflow gate, not a second project-management
+system. Work-OS remains the execution source of truth, and the Obsidian-first
+product spine remains the architectural source of truth.
+
 ## Work-OS issue routing
 
 Actionable workflow improvements use work-OS issue notes:
