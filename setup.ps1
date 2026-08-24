@@ -74,10 +74,10 @@ if ($Doctor) {
         if ($vaultVal) {
             try {
                 $result = & python $doctorScript --vault $vaultVal --json 2>$null | ConvertFrom-Json
-                if ($result.errors -eq 0) {
+                if ($result.ok -eq $true) {
                     Write-Host "[PASS] (d) Vault operation succeeds"
                 } else {
-                    Write-Host "[FAIL] (d) llmwiki_doctor.py reported $($result.errors) error(s)"
+                    Write-Host "[FAIL] (d) llmwiki_doctor.py reported non-ok result"
                     $checksFailed = $true
                 }
             } catch {
