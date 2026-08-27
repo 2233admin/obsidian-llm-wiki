@@ -17,18 +17,20 @@ last-verified: 2026-08-27
 # P0 S08: recovery-loop integration acceptance
 
 Parent brief: [[llmwiki-project-driven-knowledge-workspace]]
+OpenSpec: `openspec/changes/project-hub-recovery-loop/`
+Implementation plan: `docs/superpowers/plans/2026-08-27-project-hub-recovery-loop.md` Tasks 14–15
 
 ## What to build
 
-Create one sanitized end-to-end fixture and run the full recovery journey through accepted S06A/S06B Obsidian surfaces plus MCP and dedicated CLI parity. Cover normal recovery, interrupted work, S01 and downstream-owner staleness, missing capability, expired Work Run, output governance, three apply crash windows, replay, outcome-unknown reconciliation, and explicit remediation.
+Create one sanitized end-to-end fixture and run the full recovery journey through accepted S06A/S06B Obsidian surfaces plus MCP and dedicated CLI parity. Cover normal recovery, interrupted work, S01/downstream-owner staleness, missing capability, expired Work Run, valid and quarantined output, apply and output-routing crash windows, replay, outcome-unknown reconciliation, and explicit remediation.
 
 ## Acceptance
 
 - [ ] The fixture contains Project ID, Workspace Binding, Work-OS items, citations, reviewed memory, Session Record, Work Run, capability state, and expected recovery snapshot.
 - [ ] A normal project opens with current state, evidence, resumable context, and a bounded next action.
-- [ ] Stale evidence, missing capability, expired run, malformed result, and invalid action each produce visible diagnostics and a manual or governed next step.
-- [ ] Obsidian, MCP, and CLI produce equivalent snapshot fingerprints and equivalent action receipts for the same fixture.
-- [ ] Identical transition replay and each crash window preserve exactly one Work Run; unprovable outcomes block replay and require doctor reconciliation.
+- [ ] Stale evidence, missing capability, expired run, quarantined malformed result, and invalid action each produce visible diagnostics and a manual or governed next step without unsafe payload echo.
+- [ ] Obsidian, MCP, and CLI produce equivalent snapshot fingerprints, apply states, and action receipts for the same fixture.
+- [ ] Same-token replay, apply/output claim races, and every crash window preserve exactly one Work Run and at most one routed owner effect; unprovable outcomes block replay and require reconciliation.
 - [ ] After one familiarization run, three measured runs start at Open Project Hub invocation and stop when a cited action's plan preview appears; all three are under 60 seconds and record raw timestamps.
 - [ ] No fixture or serialized domain/Obsidian/MCP/CLI/claim/receipt/error output contains private vault material, canaries, tokens, cookies, transcript bodies, or absolute paths.
 - [ ] Any failure blocks the foundation exit and creates a linked follow-up issue rather than being waived as pre-existing.

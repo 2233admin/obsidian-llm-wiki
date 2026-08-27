@@ -24,6 +24,43 @@ patches, complete this foundation:
 Feature expansion is paused until these five foundation items are designed and
 accepted.
 
+### Draft foundation slice: Project Hub interrupted-work recovery
+
+The current candidate slice makes Project Hub the Obsidian-first path from an
+interrupted Project to a cited, immutable next-action plan and a governed
+Workflow receipt. S01 (`project-hub-recovery/v1`) is implemented. S02–S08 remain
+draft and non-executable until the OpenSpec Phase 0 source-completeness,
+authority, naming, issue-split, and Luna-delegation gates are approved.
+
+Dependency order:
+
+```text
+S01 complete
+  -> S02 resumable context + shared Workflow read model
+       -> S03 cited retrieval
+            -> S04A read-only candidates/plan
+                 -> S06A LLM Wiki Project-context preview
+                 -> S04B crash-safe Workflow apply
+                 -> S05 output governance
+                 -> S06B apply/receipt/refresh
+                 -> S07 MCP/CLI parity
+                 -> S08 foundation acceptance
+```
+
+Planning sources:
+
+- `openspec/changes/project-hub-recovery-loop/`
+- `docs/superpowers/plans/2026-08-27-project-hub-recovery-loop.md`
+- `01-Projects/obsidian-llm-wiki/issues/p0-s02-*` through `p0-s08-*`, including
+  the S04A/S04B and S06A/S06B splits
+
+The detailed plan is source-bound: it uses the existing LLM Wiki/Ask Mate
+Project-context ItemView as the primary UI, extracts Workflow store/read seams
+before S02/S04B, keeps generic unified retrieval from becoming Project
+authority, freezes every `makeWorkflowOps` caller including the fleet verifier,
+and removes the unused Python output router only when claimed TypeScript output
+governance lands.
+
 ### Current issue taxonomy
 
 | Product area | Current issues |

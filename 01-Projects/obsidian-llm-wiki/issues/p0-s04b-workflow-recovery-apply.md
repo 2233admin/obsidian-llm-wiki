@@ -18,6 +18,7 @@ last-verified: 2026-08-27
 
 Parent brief: [[llmwiki-project-driven-knowledge-workspace]]
 OpenSpec: `openspec/changes/project-hub-recovery-loop/`
+Implementation plan: `docs/superpowers/plans/2026-08-27-project-hub-recovery-loop.md` Task 10
 
 ## What to build
 
@@ -27,10 +28,11 @@ Apply one current full `project-hub-action-plan/v1` through Workflow-owned `work
 
 - [ ] The closed apply request carries the complete canonical plan, presented plan fingerprint, and transition token; authenticated actor context comes from the operation runtime.
 - [ ] Plan-keyed claim, token index, `recovery-apply/v1` claim, and closed receipt fields/nulls/enums/bounds/fingerprints/timestamps match OpenSpec D8.
-- [ ] Resume reuses the exact Project ID, Work Item ID, Work Run ID, and Agent Binding/Profile through existing join.
-- [ ] Create does not call manual `workflow.agent.start`; it derives Work Run ID solely from the plan, then creates or verifies one durable leased run and local lease for the authoritative unblocked Work Item and exact Agent Binding/Profile before join.
+- [ ] Resume reuses the exact Project ID, Work Item ID, Work Run ID, and Agent Binding/Profile through existing join; the authenticated Operation actor becomes Work Run agent identity because Binding/Profile owns no agent or host identity.
+- [ ] Create does not call manual `workflow.agent.start`; it derives Work Run ID solely from the plan, then creates or verifies one durable leased run and local lease for the authoritative unblocked Work Item, exact Binding/Profile, and authenticated actor before join.
 - [ ] Token rebound conflicts; same-token replay returns the owner receipt; concurrent different tokens for one plan can produce at most one Work Run.
-- [ ] Failure before owner mutation, after run/lease creation before join receipt, after applied receipt before response, and the two-token race are deterministic and tested.
+- [ ] An existing exact claim is loaded before fresh-plan expiry checks; retry after expiry recovers that claim, while an expired unclaimed plan rejects.
+- [ ] Failure before owner mutation, after run/lease creation before join receipt, after applied receipt before response, expiry after claim, and the two-token race are deterministic and tested.
 - [ ] Unprovable owner outcome persists `outcome-unknown`, blocks automatic replay, and requires `workflow.agent.doctor` reconciliation.
 - [ ] Project Hub remains read-only and no issue, memory, settings, or plugin-owned state is written directly.
 

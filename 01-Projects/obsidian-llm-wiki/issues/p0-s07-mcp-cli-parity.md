@@ -19,6 +19,8 @@ last-verified: 2026-08-27
 # P0 S07: MCP and CLI parity
 
 Parent brief: [[llmwiki-project-driven-knowledge-workspace]]
+OpenSpec: `openspec/changes/project-hub-recovery-loop/`
+Implementation plan: `docs/superpowers/plans/2026-08-27-project-hub-recovery-loop.md` Task 13
 
 ## What to build
 

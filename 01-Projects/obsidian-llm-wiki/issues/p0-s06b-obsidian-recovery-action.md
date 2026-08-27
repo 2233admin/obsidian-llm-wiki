@@ -18,6 +18,7 @@ last-verified: 2026-08-27
 
 Parent brief: [[llmwiki-project-driven-knowledge-workspace]]
 OpenSpec: `openspec/changes/project-hub-recovery-loop/`
+Implementation plan: `docs/superpowers/plans/2026-08-27-project-hub-recovery-loop.md` Task 12
 
 ## What to build
 

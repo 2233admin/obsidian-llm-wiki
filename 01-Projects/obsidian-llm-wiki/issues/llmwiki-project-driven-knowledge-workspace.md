@@ -104,6 +104,35 @@ A personal developer who works across one or more repositories, uses Agent sessi
 | P2 | External projections | GitHub, Gitea, Linear, and other projections expose drift and links without becoming project truth. |
 | P2 | Dashboard and visual projections | Data views, Canvas, and other renderers present derived project state without storing authoritative task or knowledge state. |
 
+## Proposed recovery foundation decomposition
+
+The active OpenSpec proposes promoting only the parts of the P1 rows required to
+finish the first interrupted-work journey into the Foundation exit gate. This
+does not reprioritize generic search, generic output processing, dashboards, or
+external projections.
+
+| Slice | Bounded outcome | Gate |
+|---|---|---|
+| S01 | Existing immutable `project-hub-recovery/v1` snapshot | complete baseline |
+| S02 | Bounded resumable Work Run/Session context with owner locks | S01 |
+| S03 | Project-scoped cited retrieval over existing owner records | S01 + S02 shared Workflow read model |
+| S04A | Additive action candidates and immutable read-only plan | S01 + S02 + S03 |
+| S06A | LLM Wiki/Ask Mate Project-context preview in actual Obsidian | S04A |
+| S04B | Crash-safe Workflow apply and owner receipt | accepted S06A |
+| S05 | TypeScript-owned Work Run output governance | S04B |
+| S06B | Confirm/apply/receipt/refresh journey in actual Obsidian | S04B + S05 |
+| S07 | MCP and dedicated CLI semantic parity | accepted S06B |
+| S08 | Sanitized cross-surface recovery acceptance and timing gate | S07 |
+
+Planning contract:
+
+- `openspec/changes/project-hub-recovery-loop/`
+- `docs/superpowers/plans/2026-08-27-project-hub-recovery-loop.md`
+
+All slices remain `review: draft` and non-executable until OpenSpec Phase 0
+approves the source-completeness baseline, authority, schema/operation names,
+issue splits, and delegation contract.
+
 ## Success metrics
 
 Baselines are not yet measured. The first implementation issue must add a reproducible measurement path before claiming improvement.

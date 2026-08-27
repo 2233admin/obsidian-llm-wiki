@@ -16,6 +16,8 @@ last-verified: 2026-08-27
 # P0 S02: resumable Agent context
 
 Parent brief: [[llmwiki-project-driven-knowledge-workspace]]
+OpenSpec: `openspec/changes/project-hub-recovery-loop/`
+Implementation plan: `docs/superpowers/plans/2026-08-27-project-hub-recovery-loop.md` Tasks 1–4
 
 ## What to build
 
@@ -42,12 +44,13 @@ From a Project Hub recovery snapshot, resolve the latest valid resumable Work Ru
 
 ### Owning code boundaries
 
-- Unchanged S01 recovery contract: `mcp-server/src/project-hub/recovery.ts`; S02 must not edit it.
-- New S02 selection, closed schema, safe normalization, and fingerprint: `mcp-server/src/project-hub/resume-context.ts`
+- S01 behavior and public exports remain unchanged. `mcp-server/src/project-hub/recovery.ts` may change only to consume behavior-preserving helpers extracted into `contract-support.ts`; S01 canonical bytes must remain identical.
+- Shared closed-contract normalization, safety, bounds, and fingerprints: `mcp-server/src/project-hub/contract-support.ts`
+- Workflow durable authority and bounded checkpoint reads: `mcp-server/src/workflow/work-run-store.ts` and `mcp-server/src/workflow/workflow-read-model.ts`
+- New S02 selection and closed schema: `mcp-server/src/project-hub/resume-context.ts`
 - Project Hub operation wiring: `mcp-server/src/project/project-hub.ts`
 - Reviewed memory and Session Records: `mcp-server/src/project-memory/**` through `createDurableProjectMemorySource`
-- Work Run and checkpoint authority: `mcp-server/src/workflow/workflow.ts`
-- Tests: `mcp-server/src/project-hub/resume-context.test.ts` and `mcp-server/src/project/project-hub.test.ts`
+- Focused tests: `contract-support.test.ts`, `work-run-store.test.ts`, `workflow-read-model.test.ts`, `resume-context.test.ts`, and `project/project-hub.test.ts`
 
 ### Non-goals
 

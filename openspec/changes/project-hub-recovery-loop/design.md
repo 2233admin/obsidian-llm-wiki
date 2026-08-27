@@ -221,7 +221,7 @@ Each candidate has exactly `{ candidateId, kind, projectId, workItemId, workRunI
 | `candidateSetFingerprint` / `candidateId` | exact selected current available candidate |
 | `kind` | `resume|create` |
 | `workItemId` / `workRunId` | canonical Work Item; Work Run canonical for resume and null for create |
-| `agent` | `{ agentId, role, host, bindingId, bindingRevision, profileId, profileRevision }`; IDs canonical, role/host 1–128 safe bytes, revisions positive integers |
+| `agentSelection` | `{ role, bindingId, bindingRevision, profileId, profileRevision }`; role 1–128 safe bytes, IDs canonical, revisions positive integers |
 | `snapshotFingerprint` / `contextFingerprint` / `searchFingerprint` | current upstream digests |
 | `capabilityFacts` | max 16 closed capability facts, all `available|degraded` |
 | `citationTargets` | 1–32 safe refs |
@@ -239,7 +239,7 @@ Plans are not persisted. Apply receives the full plan:
 | `planFingerprint` | presented digest equal to recomputed `plan.fingerprint` |
 | `transitionToken` | 1–128 safe identifier bytes |
 
-The authenticated actor comes from `OperationContext`, never caller JSON. Apply recomputes the plan fingerprint, checks the five-minute expiry, Agent Binding/Profile revision, capabilities, and every upstream lock, then hashes the token.
+The authenticated actor comes from `OperationContext`, never caller JSON, and becomes the Work Run `agentId`; existing Workflow behavior records that authenticated actor as host when no separately authenticated host authority exists. The immutable plan binds only role and exact Binding/Profile revisions because those Agent Domain records do not own `agentId` or host.
 
 Under the existing Workflow lock it atomically maintains two bindings:
 
@@ -261,55 +261,137 @@ The `recovery-apply/v1` plan claim contains:
 
 The closed receipt contains `{ schemaVersion, tokenDigest, planFingerprint, state, projectId, workItemId, workRunId, ownerOperation, ownerReceiptFingerprint, diagnostics, recordedAt, fingerprint }`; state is `applied|outcome-unknown`, owner operation is `workflow.agent.join|workflow.recovery.apply:create`, and recordedAt is excluded from its fingerprint.
 
-Resume validates the existing Work Run/lease and calls replay-safe `workflow.agent.join`. Create does **not** call manual `workflow.agent.start`. The TypeScript create branch:
+Apply ordering is normative:
 
-1. revalidates the authoritative unblocked Work Item, Agent Binding/Profile, and capability facts;
-2. derives `work-run/recovery-<first 32 hex>` solely from Project ID, Work Item ID, and plan fingerprint;
-3. under the Workflow lock, atomically creates or verifies the durable `leased` Work Run and matching machine-local lease with the plan's 15-minute duration;
-4. calls `workflow.agent.join` with the deterministic ID, agent facts, upstream context fingerprint, and winning transition token;
-5. persists the `applied` receipt atomically.
+1. Validate the closed request shape, recompute the presented plan fingerprint, authenticate the actor, and hash the transition token without checking plan expiry.
+2. Under the Workflow lock, load the token index and plan claim. A token bound to other plan bytes or actor conflicts.
+3. If the exact claim is `applied`, return its stored receipt even when the plan is now expired. If it is `outcome-unknown`, block replay. If it is `claimed`, recover or continue that already-authorized transition using the same frozen plan.
+4. Only when no claim exists, check five-minute expiry, Binding/Profile revision, capabilities, every upstream lock, and lease prerequisites, then atomically create the claim and token index.
 
-A token index bound to another plan conflicts. The first token to claim a plan wins. A second token for the same plan returns the stored receipt only when the plan claim is `applied`; while `claimed` or `outcome-unknown` it conflicts with reconciliation instructions. Thus concurrent two-token apply cannot create another Work Run. A same-token retry re-enters the replay-safe branch. If neither owner receipt nor absence of mutation can be proven, persist `outcome-unknown`, block replay, and require `workflow.agent.doctor`. Fault-injection covers before owner mutation, after run/lease creation before join receipt, after receipt persistence before response, and concurrent different-token apply of one plan.
+Claim recovery revalidates request/plan/token/actor binding and local Work Run/lease identity. It does not re-evaluate plan expiry or mutable upstream selection locks: successful claim creation is the durable authorization point after those facts passed. It reconciles the owner receipt and Work Run bytes before another owner call; an unprovable outcome becomes `outcome-unknown`.
 
-### D9. Output governance is a closed four-class contract
+Resume calls replay-safe `workflow.agent.join` with the authenticated actor as `agentId`, the plan's role/Binding/Profile locks, and the existing Work Run identity. Create does **not** call manual `workflow.agent.start`. The TypeScript create branch:
 
-Schema version: `work-run-output/v1`.
+1. derives `work-run/recovery-<first 32 hex>` solely from Project ID, Work Item ID, and plan fingerprint;
+2. under the Workflow lock, atomically creates or verifies the durable `leased` Work Run and matching machine-local lease with the authenticated actor and the plan's 15-minute duration;
+3. calls `workflow.agent.join` with the deterministic ID, authenticated actor, plan role/Binding/Profile locks, upstream context fingerprint, and winning transition token;
+4. persists the `applied` receipt atomically.
 
-- `view`: derived output; store only as an artifact/receipt and never promote as truth.
-- `work-state-transition`: apply only allowlisted mechanical transitions through Work-OS and record a receipt.
-- `knowledge-claim`: create a cited reviewable draft; never auto-promote.
-- `external-side-effect`: require exact per-run approval plus Operation Write Policy before execution.
+A token index bound to another plan conflicts. The first token to claim a plan wins. A second token for the same plan returns the stored receipt only when the plan claim is `applied`; while `claimed` or `outcome-unknown` it conflicts with reconciliation instructions. Thus concurrent two-token apply cannot create another Work Run. A same-token retry recovers the existing claim before any fresh expiry check. If neither owner receipt nor absence of mutation can be proven, persist `outcome-unknown`, block replay, and require `workflow.agent.doctor`. Fault-injection covers before owner mutation, after run/lease creation before join receipt, after receipt persistence before response, expiry after claim, and concurrent different-token apply of one plan.
 
-Malformed or unclassifiable output routes to review with its Work Run ID and provenance. No class may silently discard a completed result.
+### D9. Output governance is a closed, claimed completion protocol
+
+`workflow.agent.leave` accepts the closed `work-run-output-submission/v1` with
+exactly `{ schemaVersion, result, output, quarantine }`. `result` is
+`output|quarantine`; the selected arm is non-null and the other arm is explicit
+`null`.
+
+The valid `output` arm is `work-run-output/v1`. Every field is required and
+unknown fields are invalid:
+
+| Field | Required shape |
+|---|---|
+| `schemaVersion` | exact `work-run-output/v1` |
+| `outputId` | safe stable ID, 1–160 bytes |
+| `projectId` / `workItemId` / `workRunId` | exact identities of the completing Work Run |
+| `outputClass` | `view|work-state-transition|knowledge-claim|external-side-effect` |
+| `payload` | JSON-safe value, max 64 KiB canonical JSON |
+| `citationTargets` | max 32 safe refs; at least one for `knowledge-claim` |
+| `provenance` | 1–32 safe logical refs |
+| `producedAt` | ISO-8601 UTC, excluded from the fingerprint |
+| `fingerprint` | digest of every other normalized field except `producedAt` |
+
+The closed `quarantine` arm carries exactly `{ projectId, workItemId, workRunId,
+observedClass, payloadFingerprint, provenance, diagnostics, producedAt,
+fingerprint }`. Identities must match the authoritative Work Run;
+`observedClass` is a safe string or null; the unsafe/malformed payload is never
+persisted or echoed; `payloadFingerprint` is SHA-256 or null; provenance is
+1–32 safe logical refs; diagnostics is 1–16 closed citation-safe diagnostics.
+Quarantine always routes to `awaiting_review`.
+
+The closed route receipt uses `work-run-output-route/v1` and contains exactly
+`{ schemaVersion, outputFingerprint, tokenDigest, state, ownerOperation,
+ownerReceiptFingerprint, diagnostics, recordedAt, fingerprint }`. `state` is
+`accepted|review-required|denied|outcome-unknown`; owner fields are explicit
+nullable values; `recordedAt` is excluded from its fingerprint.
+
+Before any owner mutation, Workflow atomically maintains:
+
+- output claim: `01-Projects/<slug>/runs/output-claims/<output-fingerprint-hex>.json`;
+- token index: `01-Projects/<slug>/runs/output-tokens/<token-digest>.json`.
+
+The claim is `work-run-output-claim/v1` with exactly `{ schemaVersion,
+outputFingerprint, tokenDigest, actorId, workRunId, state, receipt, updatedAt }`;
+state is `claimed|routed|outcome-unknown`. The leave transition token is the
+replay key. First token wins; rebound output/token/actor conflicts. Same-token
+retry loads the claim before another owner call, returns the routed receipt,
+reconciles a claimed owner outcome, or blocks on outcome-unknown. Every owner
+port is idempotent on output fingerprint and returns a durable receipt. Failure
+before owner mutation, after owner mutation before route-receipt persistence,
+and after receipt persistence before response are fault-injected. Unprovable
+owner outcome persists `outcome-unknown`; it takes precedence over retry.
+
+`workflow.agent.leave` is the single successful/review completion boundary.
+`workflow.agent.step` may record `reflect` and `workflow.agent.checkpoint` may
+record evidence, but neither may move a Work Run to `completed` or
+`awaiting_review`; failed/cancelled paths remain available. Leaving as
+`completed` or `awaiting_review` requires the submission, while failed/cancelled
+leave does not. The cutover migrates every TypeScript caller/test and preserves
+cross-runtime durable `output_class` and `approval_status` summary fields.
+
+TypeScript owns routing and its receipt:
+
+- `view`: artifact/receipt only; never Project or Knowledge truth.
+- `work-state-transition`: one allowlisted Work-OS transition through an output-fingerprint-idempotent owner port.
+- `knowledge-claim`: one cited Project Memory draft, or idempotent binding to an existing exact Project Memory proposal supplied by an existing owner flow such as Dream Time; never auto-promote.
+- `external-side-effect`: exact per-run approval plus Operation Write Policy before an output-fingerprint-idempotent owner call.
+- `quarantine`: review-required receipt with bounded diagnostics; no owner content mutation.
+
+The production-unused Python `route_work_run_output` helper is removed when this
+TypeScript protocol lands; Python Work Driver creation/transition records keep
+their existing durable field shape.
 
 ### D10. Obsidian proves the journey before mutating and adapter surfaces
 
+The primary recovery entry is the existing LLM Wiki/Ask Mate ItemView opened for
+current Project Context. `control-plane-ui.ts` remains the advanced
+administrative surface and does not become the day-to-day recovery journey. A
+focused recovery client/panel owns only ephemeral UI selection and delegates all
+semantics to shared operations.
+
 Split the Obsidian delivery:
 
-- **S06A recovery preview**, after S02/S03 and S04A read-only candidate/plan contracts: render current stage/work groups, freshness, diagnostics, citations, context, retrieval, additive action candidates, and immutable plan preview. Actual-Obsidian verification must prove this path is understandable before S04B mutation.
+- **S06A recovery preview**, after S02/S03 and S04A read-only candidate/plan contracts: render current stage/work groups, freshness, diagnostics, citations, context, retrieval, additive action candidates, exact current Agent Binding selection, and immutable plan preview. Actual-Obsidian verification must prove this path is understandable before S04B mutation.
 - **S06B action and receipt**, after S04B/S05: confirm `workflow.recovery.apply`, show claimed/applied/outcome-unknown state, display the owner receipt, and refresh the derived snapshot.
 
-The plugin stores only ephemeral UI selection. All durable state remains in owning domain records. Missing or stale inputs display remediation rather than an empty success state. Keyboard order, focus retention, cancellation, and no pre-confirmation write are acceptance requirements.
+The plugin stores only ephemeral UI selection. All durable state remains in
+owning domain records. Missing or stale inputs display remediation rather than
+an empty success state. Keyboard order, focus retention, cancellation, and no
+pre-confirmation write are acceptance requirements.
 
 ### D11. MCP and CLI follow verified Obsidian behavior
 
-S07 starts only after S06B passes actual-Obsidian verification. MCP and CLI then expose equivalent snapshot, context, search, candidate, plan, apply, claim-state, and receipt semantics through the shared operations. Adapter-specific errors stay at the transport boundary. Contract parity tests run the same sanitized fixture and compare fingerprints, reason codes, citations, diagnostics, and receipts.
+S07 starts only after S06B passes actual-Obsidian verification. MCP and CLI expose equivalent snapshot, context, search, candidate, plan, and apply semantics through the shared operations. Claim state is internal Workflow storage; adapters observe it only through the apply response/receipt and doctor remediation, not by reading claim files. Adapter-specific errors stay at the transport boundary. Contract parity tests run the same sanitized fixture and compare fingerprints, reason codes, citations, diagnostics, apply states, and receipts.
 
 ### D12. Delivery follows the Obsidian-first dependency graph
 
 ```text
 S01 complete
- ├─ S02 resumable context ─┐
- └─ S03 cited retrieval ───┴─> S04A read-only candidates/plan
-                                  -> S06A Obsidian preview proof
-                                  -> S04B Workflow apply
-                                  -> S05 output governance
-                                  -> S06B Obsidian apply/receipt proof
-                                  -> S07 MCP/CLI parity
-                                  -> S08 acceptance
+  -> S02 resumable context + shared Workflow read model
+       -> S03 cited retrieval
+            -> S04A read-only candidates/plan
+                 -> S06A Obsidian preview proof
+                 -> S04B Workflow apply
+                 -> S05 output governance
+                 -> S06B Obsidian apply/receipt proof
+                 -> S07 MCP/CLI parity
+                 -> S08 acceptance
 ```
 
-S02 and S03 may run independently. No backend action mutation starts until S06A proves the plan in the primary human surface. MCP/CLI parity never defines the UX because S07 is gated on S06B.
+S03 depends on S02's shared Workflow read model so it can include Work Run
+evidence without duplicating owner reads. No backend action mutation starts
+until S06A proves the plan in the primary human surface. MCP/CLI parity never
+defines the UX because S07 is gated on S06B.
 
 ## Data flow
 
@@ -382,7 +464,7 @@ Each slice adds observable contract tests before its implementation is accepted:
 - MCP/CLI/domain fingerprint parity after Obsidian proof;
 - one sanitized end-to-end fixture covering normal, interrupted, stale, missing-capability, expired-run, malformed-output, replay, and remediation paths.
 
-The 60-second metric uses a previously active sanitized Project with Obsidian and the vault already loaded. After one unmeasured familiarization run, record three runs. Start at invocation of the Open Project Hub command; stop when the user selects a cited next action and its immutable plan preview is visible. No raw issue, transcript, or code file may be opened during a run. All three runs must be under 60 seconds. T6.3 records raw start/stop timestamps and duration; T6.4 fails S08 if any run misses the threshold.
+The 60-second metric uses a previously active sanitized Project with Obsidian and the vault already loaded. After one unmeasured familiarization run, record three runs. Start at invocation of the Open Project Hub command; stop when the user selects a cited next action and its immutable plan preview is visible. No raw issue, transcript, or code file may be opened during a run. All three runs must be under 60 seconds. T9.3 records raw start/stop timestamps and duration; T9.4 fails S08 if any run misses the threshold.
 
 ## Luna delegation gate
 

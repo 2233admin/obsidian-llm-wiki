@@ -174,9 +174,9 @@ The system SHALL accept only the closed D8 apply request containing the full can
 - **WHEN** the identical request is repeated
 - **THEN** the prior receipt is returned without another Work Run or state transition
 
-#### Scenario R7.4: Token is rebound or a prerequisite expired
+#### Scenario R7.4: Token is rebound or a new claim prerequisite expired
 
-- **GIVEN** a transition token is bound to different plan bytes or actor, or a plan/owner lock/lease/capability/identity is stale or invalid
+- **GIVEN** a transition token is bound to different plan bytes or actor, or no claim exists and the plan/owner lock/lease/capability/identity is stale or invalid
 - **WHEN** apply runs
 - **THEN** it fails before mutation with an explicit conflict or remediation
 
@@ -210,9 +210,15 @@ The system SHALL accept only the closed D8 apply request containing the full can
 - **WHEN** Workflow atomically claims the plan fingerprint
 - **THEN** one token wins, one deterministic Work Run may be created, and the other request returns the applied receipt or an explicit in-progress/outcome-unknown conflict without another Work Run
 
+#### Scenario R7.10: Plan expires after a durable claim
+
+- **GIVEN** the exact actor, plan bytes, and transition token already created a valid durable claim before plan expiry
+- **WHEN** the same request is retried after plan expiry
+- **THEN** Workflow loads and recovers the existing claim before fresh-claim expiry checks, revalidates request/plan/token/actor and local Work Run/lease identity, and does not re-evaluate mutable pre-claim selection locks
+
 ### Requirement: R8. Closed Agent-output governance
 
-The system SHALL classify every completed Work Run result as `view`, `work-state-transition`, `knowledge-claim`, or `external-side-effect` under `work-run-output/v1` and route it through the matching owner and policy.
+The system SHALL accept every successful/review Work Run completion at `workflow.agent.leave` as the closed `work-run-output-submission/v1`, route a valid `work-run-output/v1` as `view`, `work-state-transition`, `knowledge-claim`, or `external-side-effect`, quarantine malformed/unclassifiable material without persisting it, and return a claimed/replay-safe `work-run-output-route/v1` receipt while preserving the existing cross-runtime durable Work Run summary fields.
 
 #### Scenario R8.1: Four valid output classes complete
 
@@ -222,13 +228,31 @@ The system SHALL classify every completed Work Run result as `view`, `work-state
 
 #### Scenario R8.2: Output is malformed or unclassifiable
 
-- **GIVEN** a completed Work Run result with an unknown class or invalid shape
-- **WHEN** routing runs
-- **THEN** the result enters review with provenance and diagnostics and is neither promoted nor discarded
+- **GIVEN** a completed Work Run result whose class or payload cannot form valid `work-run-output/v1`
+- **WHEN** the caller submits the closed quarantine arm with authoritative Work Run identities, safe observed classification metadata, payload fingerprint, provenance, and bounded diagnostics
+- **THEN** the unsafe payload is neither persisted nor echoed, the Work Run enters review with a `review-required` route receipt, and nothing is promoted or discarded silently
+
+#### Scenario R8.3: No second output-routing authority remains
+
+- **GIVEN** TypeScript Workflow owns completion routing and the Python Work Driver still produces compatible durable Work Run records
+- **WHEN** output governance lands
+- **THEN** the production-unused Python output router is removed, Python retains only compatible Work Run creation/transition behavior, and no caller can bypass the TypeScript route to promote or execute output
+
+#### Scenario R8.4: Successful completion cannot bypass output routing
+
+- **GIVEN** an active Work Run reaches `reflect` or records a checkpoint
+- **WHEN** a caller attempts to set `completed` or `awaiting_review` through `workflow.agent.step` or `workflow.agent.checkpoint`
+- **THEN** Workflow rejects the transition and requires `workflow.agent.leave` with the closed output submission; failed and cancelled termination remain available without a successful output
+
+#### Scenario R8.5: Output routing survives retries and crashes
+
+- **GIVEN** one output fingerprint and leave transition token are claimed before an owner mutation
+- **WHEN** the same request is retried before owner mutation, after owner mutation but before route-receipt persistence, or after receipt persistence but before response
+- **THEN** Workflow returns or recovers one owner receipt, never repeats the owner effect, rejects token/output/actor rebound, and persists `outcome-unknown` when the owner result cannot be proven
 
 ### Requirement: R9. Obsidian-first recovery surface
 
-The Obsidian plugin SHALL first prove a derived, keyboard-operable preview journey over S01–S03 plus S04A's read-only candidate/plan contracts, then integrate Workflow apply and receipts after S04B/S05, with every durable write routed through shared domain operations.
+The Obsidian plugin SHALL first prove the recovery journey through the existing LLM Wiki/Ask Mate Project-context ItemView, not the advanced administrative control-plane modal. The journey is a derived, keyboard-operable preview over S01–S03 plus S04A's read-only candidate/plan contracts, then integrates Workflow apply and receipts after S04B/S05, with every durable write routed through shared domain operations.
 
 #### Scenario R9.1: Preview is proven before action mutation
 

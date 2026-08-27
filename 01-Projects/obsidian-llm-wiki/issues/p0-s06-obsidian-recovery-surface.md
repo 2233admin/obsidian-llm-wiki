@@ -19,6 +19,8 @@ last-verified: 2026-08-27
 # P0 S06A: Obsidian recovery preview
 
 Parent brief: [[llmwiki-project-driven-knowledge-workspace]]
+OpenSpec: `openspec/changes/project-hub-recovery-loop/`
+Implementation plan: `docs/superpowers/plans/2026-08-27-project-hub-recovery-loop.md` Tasks 8–9
 
 ## What to build
 
@@ -33,6 +35,13 @@ Make the Obsidian plugin prove the primary human recovery journey before Workflo
 - [ ] Every Project Hub operation used by this preview is read-only and the sanitized fixture remains byte-identical.
 - [ ] Keyboard order, focus retention, cancellation, and plan-preview readability pass in the actual Obsidian surface.
 - [ ] Principal accepts the actual-surface preview before S04B mutation starts.
+
+## Implementation boundary
+
+- Use the existing LLM Wiki/Ask Mate ItemView opened for current Project Context.
+- Add a focused `project-hub/recovery-client.ts` and `project-hub/recovery-panel.ts`; keep recovery selection ephemeral.
+- Modify `ask-mate/view.ts` only to delegate Project context. Note, selection, and Canvas behavior remain unchanged.
+- `control-plane-ui.ts` remains the advanced administrative surface and is not the primary recovery journey.
 
 ## Demo
 
