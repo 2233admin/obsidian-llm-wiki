@@ -11,4 +11,8 @@ export * from "./data-view-markdown.js";
 export * from "./data-view-types.js";
 export * from "./data-view-validation.js";
 export * from "./data-view-query.js";
+export * from "./data-view-projections.js";
+export * from "./data-view-plans.js";
+export * from "./data-view-service.js";
+export * from "./replay-safe.js";
 export * from "./validation.js";

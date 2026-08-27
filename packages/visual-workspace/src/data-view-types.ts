@@ -76,6 +76,7 @@ export interface DataViewQueryResult {
       field?: string;
     }>;
   };
+  sourceLocks: Record<string, Sha256Digest>;
   fingerprint: Sha256Digest;
 }
 
@@ -83,4 +84,70 @@ export interface DataViewValueV1 {
   state: "known" | "unknown";
   value?: DataViewScalar | DataViewScalar[];
   source: { path: string; field?: string; start?: number; end?: number; blockId?: string };
+}
+
+export interface DataViewActionRequestV1 {
+  schemaVersion: 1;
+  kind: "edit-property" | "move-card";
+  queryId: string;
+  sourcePath: string;
+  field: string;
+  value: DataViewScalar | DataViewScalar[];
+  actor: string;
+}
+
+export interface DataViewEditPlan {
+  schemaVersion: 1;
+  source: {
+    path: string;
+    sha256: Sha256Digest;
+  };
+  preview: {
+    before: {
+      sourceMarkdown: string;
+      sourceSha256: Sha256Digest;
+    };
+    after: {
+      sourceMarkdown: string;
+      sourceSha256: Sha256Digest;
+    };
+  };
+  provenance: {
+    actor: string;
+    origin: "user" | "assistant" | "import";
+    queryId: string;
+    view: DataViewKind;
+    actionKind: DataViewActionRequestV1["kind"];
+    sourcePath: string;
+    field: string;
+    range: { start: number; end: number };
+    groupBy?: string;
+  };
+  affectedPaths: string[];
+  warnings: string[];
+  fingerprint: Sha256Digest;
+}
+
+export interface DataViewPlanInput {
+  definition: DataViewDefinitionV1;
+  result: DataViewQueryResult;
+  action: DataViewActionRequestV1;
+  sourceMarkdown: string;
+}
+
+export interface DataViewApplyRequest {
+  plan: DataViewEditPlan;
+  presentedFingerprint: Sha256Digest;
+  actor: string;
+  transitionToken: string;
+}
+
+export interface ApplyDataViewEditPlanResult {
+  path: string;
+  source: string;
+  sourceSha256: Sha256Digest;
+  planFingerprint: Sha256Digest;
+  actor: string;
+  transitionToken: string;
+  replayed: boolean;
 }

@@ -55,7 +55,10 @@ export function executeDataViewQuery(input: DataViewQueryInput): DataViewQueryRe
     groups,
     diagnostics,
   };
-  return { model, fingerprint: canonicalDigest(model) };
+  const rowPaths = new Set(rows.map((row) => row.source.path));
+  const sourcesWithRows = scopedSources.filter((source) => rowPaths.has(source.path));
+  const sourceLocks = Object.fromEntries(sourcesWithRows.map((source) => [source.path, source.sha256]));
+  return { model, sourceLocks, fingerprint: canonicalDigest({ model, sourceLocks }) };
 }
 
 function buildRow(
@@ -64,9 +67,10 @@ function buildRow(
   diagnostics: Diagnostic[],
 ): DataViewQueryResult["model"]["rows"][number] | null {
   const values: Record<string, ResolvedValue> = {};
-  for (const column of definition.select) {
-    values[column.field] = resolveField(source, column.field, diagnostics);
-  }
+  const fields = new Set(definition.select.map((column) => column.field));
+  if (definition.groupBy !== undefined) fields.add(definition.groupBy);
+  for (const order of definition.orderBy ?? []) fields.add(order.field);
+  for (const field of fields) values[field] = resolveField(source, field, diagnostics);
   if (definition.where !== undefined && evaluatePredicate(definition.where, source, diagnostics) !== "true") return null;
   return { id: `source:${source.path}`, source: { path: source.path }, values };
 }
@@ -148,7 +152,9 @@ function sortRows(
       );
       if (comparison !== 0) return order.direction === "asc" ? comparison : -comparison;
     }
-    return left.source.path < right.source.path ? -1 : left.source.path > right.source.path ? 1 : 0;
+    if (left.source.path < right.source.path) return -1;
+    if (left.source.path > right.source.path) return 1;
+    return 0;
   });
   for (const order of orderBy) {
     if (!definition.select.some((column) => column.field === order.field)) {
@@ -166,11 +172,13 @@ function buildGroups(
   const groups = new Map<string, DataViewQueryResult["model"]["groups"][number]>();
   for (const row of rows) {
     const value = row.values[definition.groupBy] ?? unknown(row.source.path, definition.groupBy);
+    let label: string;
     if (value.state !== "known" || Array.isArray(value.value) || value.value === null) {
       diagnostics.push({ code: "UNKNOWN_GROUP", severity: "info", message: `Group field ${definition.groupBy} is unknown`, sourcePath: row.source.path, field: definition.groupBy });
-      continue;
+      label = "unknown";
+    } else {
+      label = String(value.value);
     }
-    const label = String(value.value);
     const group = groups.get(label) ?? { id: `group:${label}`, label, rowIds: [] };
     group.rowIds.push(row.id);
     groups.set(label, group);
