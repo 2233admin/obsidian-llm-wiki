@@ -2,49 +2,46 @@
 type: issue
 entity: project/obsidian-llm-wiki/issue/p0-s04b-workflow-recovery-apply
 state: backlog
-review: draft
+review: reviewed
 kind: knowledge-task
 id: obsidian-llm-wiki/p0-s04b-workflow-recovery-apply
-description: "P0 S04B: apply an approved recovery plan through crash-safe Workflow ownership"
+description: "P0 S04B: apply one Recovery Flow v2 Plan through crash-safe Workflow ownership"
 status: active
 priority: 1
 blocked-by:
-  - obsidian-llm-wiki/p0-s04-work-run-next-action
   - obsidian-llm-wiki/p0-s06-obsidian-recovery-surface
-last-verified: 2026-08-27
+last-verified: 2026-08-28
 ---
 
-# P0 S04B: crash-safe Workflow recovery apply
+# P0 S04B: claim-first Recovery Flow apply
 
 Parent brief: [[llmwiki-project-driven-knowledge-workspace]]
 OpenSpec: `openspec/changes/project-hub-recovery-loop/`
-Implementation plan: `docs/superpowers/plans/2026-08-27-project-hub-recovery-loop.md` Task 10
+Implementation plan: `docs/superpowers/plans/2026-08-27-project-hub-recovery-loop.md` Task 12
 
 ## What to build
 
-Apply one current full `project-hub-action-plan/v1` through Workflow-owned `workflow.recovery.apply`. Recompute the presented fingerprint and owner locks, bind the authenticated actor and transition-token digest, then either join the existing run or execute the TypeScript-governed create-and-join branch. Persist a closed auditable receipt and stop for reconciliation when owner outcome cannot be proven.
+Apply one complete current `project-hub-recovery-plan/v2` plus safe ephemeral query/limit planning input through Workflow-owned `workflow.recovery.apply`. Validate Plan bytes, planning proof, and authenticated actor; load exact claims before fresh expiry checks; claim plan/token/planning-input digests before owner mutation; then resume the exact Work Run or execute deterministic TypeScript-governed create-and-join. Persist one auditable receipt or outcome-unknown and never persist the raw query.
 
 ## Acceptance
 
-- [ ] The closed apply request carries the complete canonical plan, presented plan fingerprint, and transition token; authenticated actor context comes from the operation runtime.
-- [ ] Plan-keyed claim, token index, `recovery-apply/v1` claim, and closed receipt fields/nulls/enums/bounds/fingerprints/timestamps match OpenSpec D8.
-- [ ] Resume reuses the exact Project ID, Work Item ID, Work Run ID, and Agent Binding/Profile through existing join; the authenticated Operation actor becomes Work Run agent identity because Binding/Profile owns no agent or host identity.
-- [ ] Create does not call manual `workflow.agent.start`; it derives Work Run ID solely from the plan, then creates or verifies one durable leased run and local lease for the authoritative unblocked Work Item, exact Binding/Profile, and authenticated actor before join.
-- [ ] Token rebound conflicts; same-token replay returns the owner receipt; concurrent different tokens for one plan can produce at most one Work Run.
-- [ ] An existing exact claim is loaded before fresh-plan expiry checks; retry after expiry recovers that claim, while an expired unclaimed plan rejects.
-- [ ] Failure before owner mutation, after run/lease creation before join receipt, after applied receipt before response, expiry after claim, and the two-token race are deterministic and tested.
-- [ ] Unprovable owner outcome persists `outcome-unknown`, blocks automatic replay, and requires `workflow.agent.doctor` reconciliation.
-- [ ] Project Hub remains read-only and no issue, memory, settings, or plugin-owned state is written directly.
+- [ ] `recovery-apply-request/v2` contains the complete Plan, presented fingerprint, safe normalized `{query,limit}` planning input, and transition token; actor comes only from OperationContext.
+- [ ] Immutable Plan owns role/Binding/Profile and search-input/search/candidate fingerprints but no raw query, agent ID, or host; authenticated actor becomes Work Run identity and host fallback.
+- [ ] Existing exact applied/claimed/outcome-unknown claims are loaded before new-claim expiry checks; claim recovery after Plan expiry verifies Plan/token/planning-input/actor and local Work Run/lease identity without re-reading mutable pre-claim selection locks.
+- [ ] A new claim uses ephemeral planning input to recompute open→search→candidate→Binding and prove the Plan basis, then revalidates current owner/capability/lease facts and expiry before mutation; claim persists only the planning-input digest.
+- [ ] Resume reuses exact Project/Work Item/Work Run. Create derives one Work Run ID from Project/Work Item/Plan fingerprint, creates/verifies one durable lease and local lease for actor, and never calls manual start.
+- [ ] Same-token replay returns/recovers one receipt; rebound conflicts; two-token race creates/joins at most one Work Run.
+- [ ] Every crash window, including expiry after claim, deterministically returns one receipt or persists outcome-unknown and blocks mutation replay.
+- [ ] Every frozen `makeWorkflowOps` caller, including Fleet verifier, is migrated and verified.
 
 ## Demo
 
-Apply one resume and one create plan, interrupt each fault-injection window, retry with the same token, and observe either the same single Work Run receipt or an explicit outcome-unknown reconciliation state.
+Apply resume/create Plans, interrupt every claim/owner/receipt window, retry before and after Plan expiry, race two tokens, and observe one Work Run receipt or explicit outcome-unknown reconciliation.
 
 ## Dependencies
 
-Blocked by S04A and S06A. The primary Obsidian preview must prove the plan is understandable before mutation is implemented.
+Blocked by accepted S06A actual-Obsidian preview. Project Hub remains read-only.
 
 ## Non-goals
 
-- Do not add a mutating `project.hub.*` operation.
-- Do not change S01 semantics, call manual `workflow.agent.start`, or require the Python Work Driver.
+- Do not add a mutating Project Hub Operation, server Flow session, manual Work Run start, or Plan store.

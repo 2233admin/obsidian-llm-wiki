@@ -9,7 +9,7 @@ description: "P0 S01: compose a deterministic Project Hub recovery snapshot"
 status: active
 priority: 1
 blocked-by: []
-last-verified: 2026-08-27
+last-verified: 2026-08-28
 ---
 
 # P0 S01: Project Hub recovery snapshot
@@ -42,3 +42,11 @@ Open a sanitized Project Hub input and see a deterministic recovery snapshot wit
 ## Dependencies
 
 None. This slice creates the shared read model consumed by later slices.
+
+## Historical status and successor
+
+This issue remains the completed V1 behavior/evidence record and is never
+reopened or rewritten as V2. The approved successor is
+[[p0-s01b-project-hub-recovery-flow-v2]]. S04A will use this issue's fixture for
+V1-to-V2 action-fact equivalence, then clean-remove V1 production code without
+altering this historical completion record.

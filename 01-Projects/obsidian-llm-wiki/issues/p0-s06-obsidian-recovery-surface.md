@@ -2,56 +2,47 @@
 type: issue
 entity: project/obsidian-llm-wiki/issue/p0-s06-obsidian-recovery-surface
 state: backlog
-review: draft
+review: reviewed
 kind: knowledge-task
 id: obsidian-llm-wiki/p0-s06-obsidian-recovery-surface
-description: "P0 S06A: prove the Obsidian Project Hub recovery preview before mutation"
+description: "P0 S06A: prove the read-only Recovery Flow in Ask Mate Project Context"
 status: active
 priority: 1
 blocked-by:
-  - obsidian-llm-wiki/p0-s01-project-hub-recovery-snapshot
-  - obsidian-llm-wiki/p0-s02-resumable-agent-context
-  - obsidian-llm-wiki/p0-s03-project-cited-retrieval
   - obsidian-llm-wiki/p0-s04-work-run-next-action
-last-verified: 2026-08-27
+last-verified: 2026-08-28
 ---
 
-# P0 S06A: Obsidian recovery preview
+# P0 S06A: Ask Mate Recovery Flow preview
 
 Parent brief: [[llmwiki-project-driven-knowledge-workspace]]
 OpenSpec: `openspec/changes/project-hub-recovery-loop/`
-Implementation plan: `docs/superpowers/plans/2026-08-27-project-hub-recovery-loop.md` Tasks 8–9
+Implementation plan: `docs/superpowers/plans/2026-08-27-project-hub-recovery-loop.md` Tasks 10–11
 
 ## What to build
 
-Make the Obsidian plugin prove the primary human recovery journey before Workflow mutation is implemented. Present the S01 snapshot, S02 context, S03 cited retrieval, additive S04A candidates, and immutable plan preview without copying domain state or performing a write.
+Expose the complete read-only V2 Flow through the existing LLM Wiki/Ask Mate ItemView opened for current Project Context. Add a stateless typed client and focused panel for open, repeated search, automatic recommended-request following, explicit Binding selection, candidate replacement, planned, explicit Plan refresh, stale restart, and unavailable remediation.
 
 ## Acceptance
 
-- [ ] The user can open a Project Hub for a Project ID and see the bounded current recovery snapshot, work-state groups, freshness, and diagnostics without opening raw files.
-- [ ] Important claims link to Citation Targets and distinguish reviewed evidence from drafts or model summaries.
-- [ ] The user can inspect context, search evidence, select an available candidate, choose an exact current Project Agent Binding revision, and inspect the immutable plan and effects.
-- [ ] Missing capability, blocked work, unavailable candidate, stale S01/owner/Agent Binding lock, and unavailable evidence show exact remediation; the UI never presents empty or guessed state as current.
-- [ ] Every Project Hub operation used by this preview is read-only and the sanitized fixture remains byte-identical.
-- [ ] Keyboard order, focus retention, cancellation, and plan-preview readability pass in the actual Obsidian surface.
-- [ ] Principal accepts the actual-surface preview before S04B mutation starts.
-
-## Implementation boundary
-
-- Use the existing LLM Wiki/Ask Mate ItemView opened for current Project Context.
-- Add a focused `project-hub/recovery-client.ts` and `project-hub/recovery-panel.ts`; keep recovery selection ephemeral.
-- Modify `ask-mate/view.ts` only to delegate Project context. Note, selection, and Canvas behavior remain unchanged.
-- `control-plane-ui.ts` remains the advanced administrative surface and is not the primary recovery journey.
+- [ ] The primary entry is Ask Mate Project Context; `control-plane-ui.ts` remains advanced administration.
+- [ ] S06A maps only `project.hub.recovery.flow`; it has no apply method or Workflow mutation path.
+- [ ] The panel renders all six stages, work/context/evidence/candidates/Binding/Plan facts, Citation Targets, omissions, and exact remediation without empty success states.
+- [ ] Only the server-supplied closed recommended next request may auto-advance; multiple Bindings require user selection.
+- [ ] Candidate replacement validates the full prior Plan and makes the new Plan the only confirmation object.
+- [ ] Expired Plan remains visible as expired until explicit Refresh Plan; no background replacement occurs.
+- [ ] Query, results, Flow fingerprints, candidate, Binding, and Plan live only in ItemView memory; dispose/reload/reopen starts at current open and plugin data remains byte-identical.
+- [ ] Keyboard order, semantic labels/headings, live status, focus retention, cancellation, stale/unavailable readability, and Plan readability pass in actual Obsidian.
+- [ ] Principal accepts actual-surface evidence before S04B starts.
 
 ## Demo
 
-Open a sanitized interrupted Project in Obsidian, inspect state/context/citations, search the current blocker, select resume or create candidate, and review the immutable plan while proving that no Work Run or durable state changed.
+Open the sanitized Project, search twice, auto-follow a unique Binding, exercise multiple-Binding selection and candidate replacement, expire/refresh a Plan, restart stale Flow, reload the ItemView, and prove no durable or plugin-owned Flow state exists.
 
 ## Dependencies
 
-Blocked by S01, S02, S03, and S04A. S04B is blocked on this actual-Obsidian proof.
+Blocked by complete S04A V2 read Flow and V1 cutover. S04B remains blocked until actual Obsidian proof is accepted.
 
 ## Non-goals
 
-- Do not call `workflow.recovery.apply`, create/resume a Work Run, or show a success receipt.
-- Do not persist plugin-owned recovery, task, plan, or run state.
+- Do not apply a Plan, show a success receipt, persist Flow state, or place recovery in the advanced control-plane modal.

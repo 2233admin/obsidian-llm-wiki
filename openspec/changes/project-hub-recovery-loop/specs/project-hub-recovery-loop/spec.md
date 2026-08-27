@@ -1,311 +1,374 @@
-# Project Hub recovery-loop specification
+# Project Hub Recovery Flow v2 specification
 
 ## ADDED Requirements
 
-### Requirement: R1. Contract-specific recovery locks
+### Requirement: R1. Clean Recovery Flow v2 cutover
 
-The system SHALL keep `project-hub-recovery/v1` unchanged, bind every downstream result to its S01 fingerprint, and additionally bind the exact owner revisions or source hashes read by context, search, candidate, and plan contracts.
+The system SHALL replace repository use of `project-hub-recovery/v1` with `project-hub-recovery-flow/v2`, expose the complete read path through read-only `project.hub.recovery.flow`, keep `project.hub.get` as ordinary Hub composition without a `recovery` field, and retain no dual-version shim after S04A.
 
-#### Scenario R1.1: Current locks are reused
+#### Scenario R1.1: V2 becomes publicly available only when complete
 
-- **GIVEN** an unchanged sanitized Project and valid S01 and owner-lock fingerprints
-- **WHEN** context resolution or Project-scoped retrieval runs
-- **THEN** the result carries those locks and deterministic output derived from the same authoritative state
+- **GIVEN** S01B defines the complete internal V2 contract and S02/S03 implement open/context/search components
+- **WHEN** S04A completes candidates and planning
+- **THEN** the full Flow operation is registered once, every repository caller/fixture/doc migrates, and V1 types/validator/export/tests are removed in the same cutover
 
-#### Scenario R1.2: S01-projected action fact changed
+#### Scenario R1.2: A caller requests an unsupported shape
 
-- **GIVEN** an action-relevant fact represented in the displayed S01 snapshot changed
-- **WHEN** the prior S01 fingerprint is submitted
-- **THEN** the operation rejects with `snapshot_stale`, performs no mutation, and instructs the caller to refresh
+- **GIVEN** a Flow request/response contains an old V1 schema, unknown action/stage, unknown field, omitted required null, or invalid enum
+- **WHEN** validation runs
+- **THEN** it rejects before owner reads or mutation and does not translate the input through a compatibility alias
 
-#### Scenario R1.3: Non-projected owner fact changed
+#### Scenario R1.3: Existing S01 facts survive migration
 
-- **GIVEN** S01 bytes are unchanged but a bound Memory, Session, checkpoint, run, or search-owner revision changed
-- **WHEN** the prior downstream fingerprint is submitted
-- **THEN** the affected context, search, candidate, or plan lock is rejected without falsely reporting the S01 snapshot as stale
+- **GIVEN** the same sanitized Project facts used by S01
+- **WHEN** V2 open composition runs before V1 deletion
+- **THEN** Project identity, stage, work groups, freshness, diagnostics, citations, and safe next-action facts are behaviorally equivalent under the V2 field model
 
-### Requirement: R2. Versioned bounded resumable context
+### Requirement: R2. Closed stateless staged Flow
 
-The system SHALL return the closed `project-hub-resume-context/v1` schema defined in design D6 as a `resumable` or `not-resumable` result. Every field is required, nullable fields use explicit JSON null, owner locks and omissions are fingerprinted, display time is excluded, and unknown fields are rejected.
+The system SHALL implement `project-hub-recovery-flow-request/v2` actions `open|search|plan|refresh-plan|restart` and `project-hub-recovery-flow/v2` stages `open|searched|needs-agent-selection|planned|stale|unavailable` without persisting a Flow session, response cache, query history, selection, or Plan.
 
-#### Scenario R2.1: Active Work Run is resumable
+#### Scenario R2.1: Open starts a Flow without self-reference
 
-- **GIVEN** the current snapshot recommends a non-expired active Work Run whose Project and Work Item identities match
-- **WHEN** `project.hub.resume-context.get` resolves it
-- **THEN** the result is `resumable`, is sourced from that Work Run, and includes bounded authoritative context without a raw transcript
+- **GIVEN** a canonical Project ID
+- **WHEN** action `open` runs
+- **THEN** the server hashes the intrinsic open projection first, assigns that digest to both `flowFingerprint` and the excluded convenience field `rootOpenFlowFingerprint`, sets `previousFlowFingerprint` null, and derives search requests afterward
 
-#### Scenario R2.2: Explicit Work Run is invalid
+#### Scenario R2.2: Search proves its open prerequisite
 
-- **GIVEN** the caller explicitly requests a missing, terminal, expired, malformed, or identity-mismatched Work Run
-- **WHEN** context resolution runs
-- **THEN** the result is `not-resumable` with a stable reason code and manual next action, and the resolver does not silently choose another run
+- **GIVEN** action `search` carries an open Flow Fingerprint, normalized query, and limit
+- **WHEN** the server recomputes current open state
+- **THEN** it continues only if the recomputed open fingerprint matches and otherwise returns `stale`
 
-#### Scenario R2.3: Session fallback is available
+#### Scenario R2.3: First Plan proves its searched prerequisite
 
-- **GIVEN** no valid Work Run exists and a current Session Record is associated with the current Project and Work Item
-- **WHEN** context resolution runs without an explicit Work Run ID
-- **THEN** the result is session-sourced, sets `workRunId` to null, includes only safe Session metadata and reviewed context, and may be used only by a governed create path
+- **GIVEN** `plan/from-search` carries open and searched-basis fingerprints, query, limit, candidate, Binding, `plannedFlowFingerprint:null`, and `priorPlan:null`
+- **WHEN** planning runs
+- **THEN** the server recomputes open, search, candidates, and Binding eligibility and rejects any mixed branch or substituted input
 
-#### Scenario R2.4: Shape differs from the closed schema
+#### Scenario R2.4: Override and refresh prove immediate planned state
 
-- **GIVEN** a context result omits a required nullable field, adds an unknown field, uses an unlisted reason code, or exceeds a field bound
-- **WHEN** contract validation runs
-- **THEN** validation fails before the value can be returned, persisted, fingerprinted, or consumed by another surface
+- **GIVEN** `plan/override` or `refresh-plan` carries `searchedBasisFlowFingerprint`, `plannedFlowFingerprint`, and the complete prior Plan
+- **WHEN** the server validates the prior Plan and recomputes the planned response
+- **THEN** it continues only when the immediate planned fingerprint and underlying searched basis both match
 
-### Requirement: R3. Reviewed-only, secret-safe context
+#### Scenario R2.5: Restart uses a finite stale proof
 
-The system SHALL exclude draft, unresolved, superseded, stale, or unreviewed claims from `reviewedDecisions` and SHALL never return or persist raw prompts, complete transcripts, credentials, environment values, or absolute machine paths.
+- **GIVEN** action `restart` carries one closed `RecoveryStaleProofV2` containing no response or next request
+- **WHEN** its intrinsic fingerprint validates
+- **THEN** the server composes a new open stage from current owners without reading hidden Flow state
 
-#### Scenario R3.1: Reviewed and draft claims coexist
+#### Scenario R2.6: Stage and payload arms cannot be crossed
 
-- **GIVEN** Project Memory contains one current reviewed decision and one draft session-derived claim
-- **WHEN** the context bundle is composed
-- **THEN** only the reviewed decision appears as context and the draft claim is represented, if needed, only by a citation-safe diagnostic
+- **GIVEN** a response combines one literal stage with another stage's payload or next-request type
+- **WHEN** V2 response validation runs
+- **THEN** it rejects because `RecoveryFlowResponseV2` is a six-interface discriminated union, not independent stage/payload unions
 
-#### Scenario R3.2: Sensitive payload enters an owning record
+### Requirement: R3. Bounded authoritative open context
 
-- **GIVEN** a Work Run, Session Record, error, or checkpoint contains a token marker, cookie, authorization value, raw prompt, transcript body, Windows path, POSIX absolute path, UNC path, or home-relative path
-- **WHEN** any recovery contract is serialized
-- **THEN** unsafe caller fields are rejected without echo, unsafe optional owner values are omitted with a stable diagnostic, unsafe mandatory identity/safety values make the result unavailable, and every serialized surface remains canary-free
+The system SHALL compose open-stage work and resumable context from Project Context, Work-OS, Workflow, Project Memory, Session Record, Settings, and Agent Domain owners without returning raw private session evidence.
 
-### Requirement: R4. Deterministic limits and fingerprints
+#### Scenario R3.1: Current Work Run context is available
 
-The system SHALL use the collection comparators and byte-allocation order in design D4, enforce 32 reviewed claims, 32 checkpoints, 64 Citation Targets, 32 diagnostics, and 64 KiB of canonical JSON, and fingerprint omissions and limit facts.
+- **GIVEN** a current resumable Work Run for the active Project and Work Item
+- **WHEN** open runs
+- **THEN** bounded context uses that exact Work Run identity, current task state, reviewed decisions, chronological retained checkpoints, prerequisites, citations, and owner locks
 
-#### Scenario R4.1: Same inputs resolve twice
+#### Scenario R3.2: Session fallback is available
 
-- **GIVEN** identical authoritative records and differing wall-clock invocation times
-- **WHEN** the same context is resolved twice
-- **THEN** ordering, bounded content, diagnostics, and fingerprint are identical while display timestamps may differ
+- **GIVEN** no valid resumable Work Run and one safe current Session Record for the current Work Item
+- **WHEN** open runs
+- **THEN** context is session-sourced, `workRunId` is null, only safe metadata/reviewed context appears, and later candidates may use it only for governed create
 
-#### Scenario R4.2: Context exceeds a limit
+#### Scenario R3.3: Context cannot be made safe
 
-- **GIVEN** more reviewed claims, checkpoints, citations, diagnostics, or bytes than the contract permits
-- **WHEN** the bundle is composed
-- **THEN** items survive according to the normative comparator/allocation order, omitted counts are explicit, each retained evidence item keeps a Citation Target, and the result remains within every limit
+- **GIVEN** mandatory identity/security data is unsafe, owners are unavailable, or mandatory content exceeds 64 KiB
+- **WHEN** open runs
+- **THEN** the Flow returns `unavailable` with bounded citations/diagnostics and one manual remediation, never a partial success disguised as current
 
-#### Scenario R4.3: Mandatory envelope exceeds the byte cap
+#### Scenario R3.4: Optional context is truncated deterministically
 
-- **GIVEN** identity, task state, prerequisites, or blocking/security diagnostics alone exceed 64 KiB
-- **WHEN** the bundle is composed
-- **THEN** the result is `not-resumable` with `context_too_large` and no partially trusted context is returned
+- **GIVEN** reviewed decisions, checkpoints, citations, or diagnostics exceed their 32/32/64/32 limits or byte budget
+- **WHEN** open serializes context
+- **THEN** mandatory data is allocated first, optional data follows normative ordering, and omission counts/bytes are fingerprinted
 
-### Requirement: R5. Project-scoped cited retrieval
+### Requirement: R4. Chained Flow fingerprints and layered owner locks
 
-The system SHALL expose `project-hub-search/v1` through `project.hub.search`, normalize and bound queries and owner results as defined in design D7, exclude other Projects, return at most 25 cited results and 32 diagnostics within 128 KiB, and fingerprint owner locks and omissions.
+The system SHALL distinguish one action-relevant recovery fingerprint from exact per-owner locks and SHALL chain every stage fingerprint to its prior stage, normalized current input, locks read, payload fingerprint, diagnostics, and omission facts.
 
-#### Scenario R5.1: Current Project evidence is found
+#### Scenario R4.1: Unrelated owner data changes
 
-- **GIVEN** the active Project has a matching Work-OS issue, reviewed decision, and Source/Evidence record
-- **WHEN** the user searches for the current blocker
-- **THEN** normalized results carry stable identities, Knowledge Item types, provenance, freshness, confidence state, Citation Targets, deterministic ordering, and a search fingerprint
+- **GIVEN** an owner record changes without affecting the open-stage action projection
+- **WHEN** a downstream stage validates
+- **THEN** the affected owner lock changes without falsely claiming the recovery fingerprint changed
 
-#### Scenario R5.2: Another Project also matches
+#### Scenario R4.2: Search branches differ
 
-- **GIVEN** a stronger text match belongs to another Project
-- **WHEN** P0 Project-scoped search runs
-- **THEN** that result is excluded and cannot influence ordering or the fingerprint
+- **GIVEN** two normalized queries from the same open Flow
+- **WHEN** search runs for each
+- **THEN** each receives an independent chained fingerprint and neither branch's candidate can be planned with the other's fingerprint
 
-#### Scenario R5.3: One search owner is unavailable
+#### Scenario R4.3: Upstream owner changed
 
-- **GIVEN** at least one owning search boundary is stale or unavailable while another returns valid evidence
+- **GIVEN** any owner lock read by the prior stage changed before the next action
+- **WHEN** prerequisite recomputation runs
+- **THEN** the response stage is `stale`, lists ordered changed owners and safe Citation Targets, and includes one closed restart request without silently retaining user selection
+
+#### Scenario R4.4: Derived requests cannot create a fingerprint cycle
+
+- **GIVEN** an open, searched, planned, or stale response exposes next requests that refer to the current Flow fingerprint
+- **WHEN** the response fingerprint is computed and validated
+- **THEN** only fingerprint-free semantic intents participate in the intrinsic hash, while root convenience data and exact requests are derived afterward and checked against those intents
+
+### Requirement: R5. Mandatory repeatable Project-scoped cited search
+
+The system SHALL require one valid searched branch before planning and SHALL normalize results only from current Project Work-OS, Project Memory, Project Source/Evidence, Session Record, and Workflow owner records.
+
+#### Scenario R5.1: Search finds current Project evidence
+
+- **GIVEN** the active Project has a matching Work Item, reviewed decision, Source/Evidence record, and Work Run checkpoint
+- **WHEN** a safe query runs
+- **THEN** results carry stable Knowledge Item identity/type, owner, match class, integer score, freshness, confidence, provenance, and 1–4 resolvable Citation Targets in deterministic order
+
+#### Scenario R5.2: Search is repeated
+
+- **GIVEN** a current open Flow
+- **WHEN** the user submits multiple different safe queries
+- **THEN** each query produces a separate searched branch and only the branch passed to planning is bound into the Plan
+
+#### Scenario R5.3: Search input is unsafe or oversized
+
+- **GIVEN** a query is empty after NFKC normalization, exceeds 2048 UTF-8 bytes, contains controls, credentials, transcript markers, or unsafe paths
+- **WHEN** search validation runs
+- **THEN** it rejects without echo and performs no owner search
+
+#### Scenario R5.4: An owner is stale or unavailable
+
+- **GIVEN** one search owner is stale or unavailable while others remain readable
 - **WHEN** search runs
-- **THEN** valid results remain visible, the response is partial with an owner diagnostic, and unavailable material is not represented as current truth
+- **THEN** returned evidence is marked partial with the exact owner diagnostic and is never promoted to current
 
-#### Scenario R5.4: Query or response exceeds a bound
+#### Scenario R5.5: Cross-Project material is discovered
 
-- **GIVEN** a normalized query exceeds 2048 UTF-8 bytes or ordered results exceed the response limit
-- **WHEN** Project-scoped search runs
-- **THEN** an oversized query is rejected, while an oversized result set is truncated only by the normative order with explicit fingerprinted omissions
+- **GIVEN** an adapter or filesystem candidate belongs to another Project
+- **WHEN** owner-source normalization runs
+- **THEN** it is excluded before ranking and cannot contribute citations or fingerprints
 
-### Requirement: R6. Additive action candidates and immutable plan
+### Requirement: R6. Safe candidates, Binding eligibility, and immutable Plans
 
-The system SHALL keep S01 unchanged, return the closed available/unavailable `project-hub-action-candidates/v1` from current S01/context/search/capability locks, and produce `project-hub-action-plan/v1` only from one available candidate plus an exact current Project Agent Binding selection.
+The system SHALL derive bounded candidates from the chosen searched branch,
+auto-recommend exactly one safe candidate, derive a plan request only when
+exactly one compatible current Binding exists, and generate
+`project-hub-recovery-plan/v2` only from explicit exact candidate and Binding
+input.
 
-#### Scenario R6.1: Resume candidate comes from S01
+#### Scenario R6.1: Unique Binding allows a derived recommended request
 
-- **GIVEN** S01 contains a valid `resume-work-run` action and context/search locks are current
-- **WHEN** action candidates and a plan are requested
-- **THEN** the candidate reuses the exact S01 Work Run identity and the plan binds the candidate-set fingerprint, owning Workflow operation, citations, prerequisites, capability facts, expiry, and upstream locks without mutation
+- **GIVEN** one recommended safe candidate and exactly one current enabled Project-matching Profile-current capability-compatible Binding
+- **WHEN** search composition completes
+- **THEN** the intrinsic searched response contains one fingerprint-free plan intent and, after Flow fingerprint computation, exposes the exact closed recommended plan request with no Plan yet
 
-#### Scenario R6.2: Session context produces a create candidate
+#### Scenario R6.2: Two through sixteen Bindings require selection
 
-- **GIVEN** no valid resume candidate exists, context is session-sourced with `workRunId: null`, its Work Item matches the current unblocked S01 inspect action, and required capabilities are satisfied
-- **WHEN** `project.hub.action-candidates.get` runs
-- **THEN** it returns one additive `create:<sha256>` candidate without changing or reinterpreting S01
+- **GIVEN** 2–16 compatible current Bindings
+- **WHEN** search composition completes
+- **THEN** stage is `needs-agent-selection`, it returns every exact Binding revision, and no Binding is selected by sorting or inference
 
-#### Scenario R6.3: Candidate is invented or stale
+#### Scenario R6.3: More than sixteen Bindings is unavailable
 
-- **GIVEN** a candidate ID is absent from the current candidate set or any upstream lock changed
-- **WHEN** action planning runs
-- **THEN** planning rejects before mutation and does not substitute a different candidate
+- **GIVEN** 17 or more compatible current Bindings
+- **WHEN** search composition completes
+- **THEN** stage is `unavailable` with reason `binding_selection_too_large` and Agent Domain remediation; no list is silently truncated
 
-#### Scenario R6.4: No safe action is available
+#### Scenario R6.4: No Binding or candidate is safe
 
-- **GIVEN** there is no resumable run and create is blocked by missing capability, blocked Work Item, or unavailable context/search
-- **WHEN** `project.hub.action-candidates.get` runs
-- **THEN** it returns the fingerprinted unavailable arm with zero candidates, exact capability facts, reason code, diagnostics, and one manual remediation
+- **GIVEN** no compatible Binding, blocked work, unavailable capability, unavailable context/search, or no safe candidate
+- **WHEN** candidate composition runs
+- **THEN** stage is `unavailable` with exact owner remediation and no invented action
 
-#### Scenario R6.5: Agent binding changed after selection
+#### Scenario R6.5: Recommended request is automatically submitted
 
-- **GIVEN** the caller selects a Project Agent Binding revision and that binding or Profile revision changed
-- **WHEN** `project.hub.action.plan` runs
-- **THEN** planning rejects instead of inventing agent identity, role, host, or capabilities
+- **GIVEN** a searched response contains the derived closed recommended plan request
+- **WHEN** an adapter auto-submits that exact request
+- **THEN** the server recomputes all prerequisites and returns `planned` only if every fingerprint and Binding revision remains current
 
-### Requirement: R7. Replay-safe Work Run apply
+#### Scenario R6.6: User replaces candidate
 
-The system SHALL accept only the closed D8 apply request containing the full canonical plan, presented fingerprint, and transition token; bind the authenticated actor; revalidate all locks; execute resume or TypeScript-governed create; and return the closed auditable receipt.
+- **GIVEN** a planned response lists another available candidate
+- **WHEN** the user submits `plan/override` with searched-basis and immediate planned Flow fingerprints, the complete prior Plan, and another exact candidate/Binding
+- **THEN** the server validates both prior layers, recomputes the search basis, and returns a new Plan/Flow fingerprint; the old Plan is not the current confirmation object
+
+#### Scenario R6.7: Plan expires
+
+- **GIVEN** a visible Plan is older than five minutes
+- **WHEN** the user attempts to confirm or continue it
+- **THEN** it remains visibly expired and only explicit `refresh-plan` with the complete prior Plan can produce a replacement after current-owner validation
+
+#### Scenario R6.8: Plan never invents runtime identity
+
+- **GIVEN** Agent Binding/Profile owns role and revisions but not runtime agent ID or host
+- **WHEN** a Plan is composed
+- **THEN** it binds only role, Binding/Profile revisions and capabilities; authenticated execution identity remains absent until apply
+
+### Requirement: R7. Replay-safe Workflow apply
+
+The system SHALL accept only `recovery-apply-request/v2` carrying the complete V2 Plan, presented fingerprint, safe ephemeral `{ query, limit }` planning input, and transition token; bind authenticated actor context; recompute mandatory search/candidate/Binding basis before a new claim; claim before owner mutation; resume or create exactly one Work Run; and return a closed durable receipt.
 
 #### Scenario R7.1: Existing Work Run resumes
 
-- **GIVEN** a current approved resume plan, valid lease/capability facts, and a fresh transition token
+- **GIVEN** a current approved resume Plan and fresh token
 - **WHEN** `workflow.recovery.apply` runs
-- **THEN** it reuses the same Project ID, Work Item ID, and Work Run ID and returns the owning operation's receipt
+- **THEN** it joins the exact Work Run with authenticated actor identity and Plan role/Binding/Profile locks
 
-#### Scenario R7.2: Session context creates a Work Run
+#### Scenario R7.2: Session candidate creates one Work Run
 
-- **GIVEN** a current create plan sourced from safe Session fallback, current authoritative unblocked Work Item, available capabilities, and authenticated agent context
-- **WHEN** `workflow.recovery.apply` runs
-- **THEN** Workflow derives one deterministic Work Run ID, atomically creates or verifies its durable leased run and local lease, joins it without calling manual `workflow.agent.start`, and returns that single ID in the receipt
-
-#### Scenario R7.3: Transition request is replayed
-
-- **GIVEN** an already completed plan fingerprint and transition token
-- **WHEN** the identical request is repeated
-- **THEN** the prior receipt is returned without another Work Run or state transition
-
-#### Scenario R7.4: Token is rebound or a new claim prerequisite expired
-
-- **GIVEN** a transition token is bound to different plan bytes or actor, or no claim exists and the plan/owner lock/lease/capability/identity is stale or invalid
+- **GIVEN** a current approved create Plan from safe Session context
 - **WHEN** apply runs
-- **THEN** it fails before mutation with an explicit conflict or remediation
+- **THEN** Workflow derives one deterministic Work Run ID, creates/verifies one durable lease and local lease for the actor, and joins without calling manual `workflow.agent.start`
 
-#### Scenario R7.5: Apply stops before owner mutation
+#### Scenario R7.3: Same token is replayed
 
-- **GIVEN** the transition claim is durable and execution stops before the owner call
-- **WHEN** the same plan and transition token are retried
-- **THEN** Workflow continues the same claimed transition and creates or joins at most one Work Run
+- **GIVEN** an exact plan/token/planning-input/actor claim already exists
+- **WHEN** the request repeats
+- **THEN** applied returns its receipt, claimed recovers the same owner transition, and outcome-unknown blocks mutation replay
 
-#### Scenario R7.6: Response is lost after Work Run mutation
+#### Scenario R7.4: Token, planning input, or actor is rebound
 
-- **GIVEN** the replay-safe owner operation committed a Work Run and its durable transition receipt but the wrapper receipt or response was interrupted
-- **WHEN** the same plan and transition token are retried
-- **THEN** Workflow recovers the owner receipt, persists `applied`, and returns the same Work Run without duplication
+- **GIVEN** a token is presented with different Plan bytes, normalized query/limit, or actor
+- **WHEN** apply loads token/plan claims
+- **THEN** it conflicts before another owner mutation
 
-#### Scenario R7.7: Owner outcome cannot be proven
+#### Scenario R7.5: Plan expires after claim
 
-- **GIVEN** a claimed transition has neither a provable owner receipt nor a provable absence of mutation
-- **WHEN** apply recovery runs
-- **THEN** Workflow persists `outcome-unknown`, blocks automatic mutation replay, and requires doctor reconciliation
+- **GIVEN** the exact valid claim was created before Plan expiry
+- **WHEN** the same request retries after expiry
+- **THEN** Workflow recovers the existing claim before fresh expiry checks and revalidates request/Plan/token/planning-input/actor plus local Work Run/lease identity, not mutable pre-claim selection locks
 
-#### Scenario R7.8: Apply request omits the canonical plan
+#### Scenario R7.6: Expired or unverifiable unclaimed Plan is submitted
 
-- **GIVEN** a caller submits only a plan fingerprint, changes the presented plan bytes, or adds an unknown request field
-- **WHEN** `workflow.recovery.apply` validates the request
-- **THEN** it rejects before claim creation because a fingerprint is not a plan store or execution payload
+- **GIVEN** no claim exists and the Plan is expired, planning input cannot reproduce its search/candidate/Binding basis, or any current owner/capability/lease prerequisite changed
+- **WHEN** apply runs
+- **THEN** it rejects before claim creation and persists no raw query
 
-#### Scenario R7.9: Two tokens race on one create plan
+#### Scenario R7.7: Crash windows occur
 
-- **GIVEN** the same unexpired create plan is submitted concurrently with two fresh transition tokens
-- **WHEN** Workflow atomically claims the plan fingerprint
-- **THEN** one token wins, one deterministic Work Run may be created, and the other request returns the applied receipt or an explicit in-progress/outcome-unknown conflict without another Work Run
+- **GIVEN** execution stops before owner mutation, after create before join receipt, after owner receipt before wrapper receipt, or after wrapper receipt before response
+- **WHEN** the exact request retries
+- **THEN** Workflow proves absence/receipt and continues once, or persists outcome-unknown when the owner result cannot be proven
 
-#### Scenario R7.10: Plan expires after a durable claim
+#### Scenario R7.8: Two tokens race
 
-- **GIVEN** the exact actor, plan bytes, and transition token already created a valid durable claim before plan expiry
-- **WHEN** the same request is retried after plan expiry
-- **THEN** Workflow loads and recovers the existing claim before fresh-claim expiry checks, revalidates request/plan/token/actor and local Work Run/lease identity, and does not re-evaluate mutable pre-claim selection locks
+- **GIVEN** one unexpired Plan is submitted concurrently with two fresh tokens
+- **WHEN** plan fingerprint is claimed atomically
+- **THEN** one token wins, at most one Work Run is created/joined, and the other receives the stored receipt or explicit claimed/outcome-unknown conflict
 
-### Requirement: R8. Closed Agent-output governance
+### Requirement: R8. Claimed Work Run output governance
 
-The system SHALL accept every successful/review Work Run completion at `workflow.agent.leave` as the closed `work-run-output-submission/v1`, route a valid `work-run-output/v1` as `view`, `work-state-transition`, `knowledge-claim`, or `external-side-effect`, quarantine malformed/unclassifiable material without persisting it, and return a claimed/replay-safe `work-run-output-route/v1` receipt while preserving the existing cross-runtime durable Work Run summary fields.
+The system SHALL clean-cut `workflow.agent.leave` to a closed request union:
+`mode:complete` with exact Work Run identity, transition token,
+`target_state:completed|awaiting_review`, and closed output submission; or
+`mode:terminate` with `target_state:failed|cancelled` and `submission:null`.
+Authenticated actor comes from OperationContext. Workflow SHALL claim output
+before owner mutation and return a replay-safe route receipt.
 
-#### Scenario R8.1: Four valid output classes complete
+#### Scenario R8.1: Four valid classes route
 
-- **GIVEN** one completed synthetic result for each class
-- **WHEN** governance routing runs
-- **THEN** view remains derived, an allowlisted work transition returns a Work-OS receipt, a knowledge claim becomes a cited reviewable draft, and an external side effect requires exact per-run approval plus Operation Write Policy
+- **GIVEN** one valid complete-mode request for each cited output class
+- **WHEN** leave routes it
+- **THEN** view remains artifact-only, work-state transition returns one allowlisted Work-OS receipt, knowledge claim creates/binds one cited Project Memory draft without promotion, and external side effect requires exact approval plus Operation Write Policy
 
-#### Scenario R8.2: Output is malformed or unclassifiable
+#### Scenario R8.2: Output is malformed
 
-- **GIVEN** a completed Work Run result whose class or payload cannot form valid `work-run-output/v1`
-- **WHEN** the caller submits the closed quarantine arm with authoritative Work Run identities, safe observed classification metadata, payload fingerprint, provenance, and bounded diagnostics
-- **THEN** the unsafe payload is neither persisted nor echoed, the Work Run enters review with a `review-required` route receipt, and nothing is promoted or discarded silently
+- **GIVEN** output cannot form valid `work-run-output/v1`
+- **WHEN** the complete-mode request carries a closed quarantine arm with exact Work Run identities, safe classification metadata, payload fingerprint, provenance and diagnostics
+- **THEN** unsafe payload bytes are neither persisted nor echoed and the route receipt is review-required
 
-#### Scenario R8.3: No second output-routing authority remains
+#### Scenario R8.3: Legacy or alternate completion bypass is attempted
 
-- **GIVEN** TypeScript Workflow owns completion routing and the Python Work Driver still produces compatible durable Work Run records
-- **WHEN** output governance lands
-- **THEN** the production-unused Python output router is removed, Python retains only compatible Work Run creation/transition behavior, and no caller can bypass the TypeScript route to promote or execute output
+- **GIVEN** step/checkpoint attempts `completed|awaiting_review`, or leave uses legacy `work_run_state|output_class|approval_status` fields
+- **WHEN** Workflow validates the request
+- **THEN** it rejects and requires the closed complete-mode leave arm; terminate mode remains available for failed/cancelled
 
-#### Scenario R8.4: Successful completion cannot bypass output routing
+#### Scenario R8.4: Output routing is replayed or interrupted
 
-- **GIVEN** an active Work Run reaches `reflect` or records a checkpoint
-- **WHEN** a caller attempts to set `completed` or `awaiting_review` through `workflow.agent.step` or `workflow.agent.checkpoint`
-- **THEN** Workflow rejects the transition and requires `workflow.agent.leave` with the closed output submission; failed and cancelled termination remain available without a successful output
+- **GIVEN** one output/token/actor claim exists
+- **WHEN** retry occurs before owner mutation, after owner mutation before route receipt, or after receipt before response
+- **THEN** Workflow returns/recovers one owner receipt, never repeats the owner effect, rejects rebound, and persists outcome-unknown when proof is impossible
 
-#### Scenario R8.5: Output routing survives retries and crashes
+#### Scenario R8.5: No second routing authority remains
 
-- **GIVEN** one output fingerprint and leave transition token are claimed before an owner mutation
-- **WHEN** the same request is retried before owner mutation, after owner mutation but before route-receipt persistence, or after receipt persistence but before response
-- **THEN** Workflow returns or recovers one owner receipt, never repeats the owner effect, rejects token/output/actor rebound, and persists `outcome-unknown` when the owner result cannot be proven
+- **GIVEN** TypeScript owns output completion and Python still writes compatible Work Run records
+- **WHEN** S05 lands
+- **THEN** the production-unused Python output router is removed and no caller can bypass TypeScript promotion/effect policy
 
-### Requirement: R9. Obsidian-first recovery surface
+### Requirement: R9. Obsidian-first ephemeral Recovery Flow
 
-The Obsidian plugin SHALL first prove the recovery journey through the existing LLM Wiki/Ask Mate Project-context ItemView, not the advanced administrative control-plane modal. The journey is a derived, keyboard-operable preview over S01–S03 plus S04A's read-only candidate/plan contracts, then integrates Workflow apply and receipts after S04B/S05, with every durable write routed through shared domain operations.
+The Obsidian plugin SHALL expose Recovery Flow through the existing LLM Wiki/Ask Mate Project-context ItemView, keep all Flow/query/search/candidate/Binding/Plan state ephemeral, prove read-only preview before apply, and route confirmed mutation through Workflow.
 
-#### Scenario R9.1: Preview is proven before action mutation
+#### Scenario R9.1: Preview completes without write
 
-- **GIVEN** S02, S03, and S04A are complete and S04B mutation has not started
-- **WHEN** the user opens the S06A Project Hub preview
-- **THEN** stage, work groups, freshness, diagnostics, citations, context, retrieval, additive candidates, and immutable plan preview are understandable and testable without any write
+- **GIVEN** complete V2 read stages and no S04B mutation
+- **WHEN** the user opens, searches, accepts or changes candidate/Binding, and previews a Plan
+- **THEN** stage/work/context/evidence/candidates/Plan/stale/unavailable states are keyboard-operable and no durable bytes change
 
-#### Scenario R9.2: User completes normal recovery
+#### Scenario R9.2: ItemView reloads
 
-- **GIVEN** S04B/S05 are complete and a sanitized interrupted Project has current evidence, context, and capability health
-- **WHEN** the user inspects a Citation Target, reviews context, confirms one plan, and receives the owner result
-- **THEN** S06B shows claim/receipt state and refreshes the derived snapshot without plugin-owned durable task or run state
+- **GIVEN** an in-memory searched or planned Flow
+- **WHEN** Obsidian reloads or the view reopens
+- **THEN** no query/selection/Plan is restored from plugin data and the Flow starts from current `open`
 
-#### Scenario R9.3: Recovery input is stale or unavailable
+#### Scenario R9.3: Plan expires in UI
 
-- **GIVEN** stale evidence, a missing capability, an expired Work Run, or an outcome-unknown apply claim
-- **WHEN** the user opens or acts from Project Hub
-- **THEN** the affected state and remediation are visible, focus remains usable, and the UI never renders an empty or guessed success state
+- **GIVEN** a displayed Plan expires
+- **WHEN** the user remains on the panel or attempts confirmation
+- **THEN** the Plan is marked expired and a deliberate Refresh Plan action is required; no background substitution occurs
 
-### Requirement: R10. MCP and CLI semantic parity
+#### Scenario R9.4: Confirmed recovery applies
 
-MCP and CLI SHALL start only after S06B actual-Obsidian verification and SHALL consume the same shared snapshot, context, search, candidate, plan, apply-claim, and receipt contracts, differing only in argument and response formatting.
+- **GIVEN** a current exact Plan and explicit confirmation
+- **WHEN** S06B invokes Workflow apply
+- **THEN** cancellation writes nothing, success shows exact receipt and restarts Flow from owners, and outcome-unknown disables another mutation with doctor remediation
 
-#### Scenario R10.1: Same fixture is inspected through three surfaces
+### Requirement: R10. MCP and CLI parity
 
-- **GIVEN** one sanitized Project fixture
-- **WHEN** Obsidian, MCP, and CLI request snapshot, context, retrieval, and action planning
-- **THEN** schema versions, fingerprints, reason codes, citations, diagnostics, and action semantics are equivalent
+The system SHALL expose the same Flow actions/stages and Workflow apply through MCP and a dedicated CLI after accepted S06B, without adapter-owned transition, recommendation, refresh, or claim semantics.
 
-#### Scenario R10.2: Adapter receives an internal failure
+#### Scenario R10.1: Read stages agree
 
-- **GIVEN** a shared operation returns an internal error with a cause
-- **WHEN** MCP or CLI formats it
-- **THEN** the adapter returns its supported error shape without a stack, secret, transcript body, or absolute path
+- **GIVEN** one sanitized fixture and identical Flow requests
+- **WHEN** domain, MCP, and CLI execute them
+- **THEN** stages, Flow/Plan fingerprints, owner locks, reason codes, citations, diagnostics, and recommended requests agree
 
-### Requirement: R11. Recovery-loop foundation acceptance
+#### Scenario R10.2: Apply agrees
 
-The system SHALL provide one sanitized end-to-end fixture and reproducible procedure covering normal recovery, interrupted work, stale evidence, missing capability, expired run, malformed output, action replay, and explicit remediation.
+- **GIVEN** the same full Plan and token/actor context
+- **WHEN** adapters invoke shared Workflow apply
+- **THEN** apply state and receipt semantics agree and errors are redacted at adapter boundaries
 
-#### Scenario R11.1: Foundation acceptance passes
+### Requirement: R11. Foundation acceptance
 
-- **GIVEN** S02–S07, including S06A and S06B actual-Obsidian gates, are complete
-- **WHEN** the S08 procedure and three measured timing runs execute
-- **THEN** the user identifies stage, blockers, next action, and Agent context; verifies one citation; applies one governed action; reproduces equivalent adapter results; and every measured plan-preview selection completes in under 60 seconds
+The system SHALL provide one sanitized end-to-end fixture and reproducible actual-Obsidian procedure covering the full V2 Flow, clean V1 removal, failure/replay paths, privacy canaries, parity, and the under-60-second Plan-preview metric.
 
-#### Scenario R11.2: Timing target fails
+#### Scenario R11.1: End-to-end recovery passes
 
-- **GIVEN** one of the three measured runs takes 60 seconds or longer
-- **WHEN** foundation exit is evaluated
-- **THEN** S08 remains incomplete and records the raw start, stop, and duration evidence
+- **GIVEN** a previously active sanitized interrupted Project
+- **WHEN** a user opens Flow, searches, previews an evidence-backed Plan, confirms apply, observes output routing, and sees refreshed owner state
+- **THEN** normal and degraded behavior satisfies R1–R10 with no second state store or authority violation
 
-#### Scenario R11.3: Any required path fails
+#### Scenario R11.2: Timing target passes
 
-- **GIVEN** one required normal, failure, privacy, crash-window, replay, parity, accessibility, or timing check fails
-- **WHEN** foundation exit is evaluated
-- **THEN** exit remains blocked and a linked Work-OS issue records the failing evidence rather than waiving it as pre-existing
+- **GIVEN** Obsidian and the sanitized vault are already loaded and one unmeasured familiarization run is complete
+- **WHEN** three runs start at Open Project Hub invocation and stop when a cited immutable Plan preview is visible
+- **THEN** every run is under 60 seconds and raw start/stop timestamps/durations are recorded
+
+#### Scenario R11.3: Privacy gate passes
+
+- **GIVEN** canaries under suspicious and benign keys across fixture owners
+- **WHEN** every domain, plugin-client, MCP, CLI, Flow, Plan, claim, receipt, diagnostic, quarantine, and error serialization is scanned
+- **THEN** none contains private vault content, canaries, credentials, transcript bodies, or absolute paths
+
+#### Scenario R11.4: Any gate fails
+
+- **GIVEN** any contract, behavior, actual-surface, parity, timing, or privacy check fails
+- **WHEN** Foundation acceptance is evaluated
+- **THEN** S08 and Foundation remain incomplete and a linked Work-OS follow-up records the failure without waiver

@@ -2,43 +2,47 @@
 type: issue
 entity: project/obsidian-llm-wiki/issue/p0-s08-recovery-loop-acceptance
 state: backlog
-review: draft
+review: reviewed
 kind: knowledge-task
 id: obsidian-llm-wiki/p0-s08-recovery-loop-acceptance
-description: "P0 S08: verify the complete project recovery loop across failure states and hosts"
+description: "P0 S08: verify Recovery Flow v2 cutover, failures, parity, privacy, and timing"
 status: active
 priority: 1
 blocked-by:
-  - obsidian-llm-wiki/p0-s06b-obsidian-recovery-action
   - obsidian-llm-wiki/p0-s07-mcp-cli-parity
-last-verified: 2026-08-27
+last-verified: 2026-08-28
 ---
 
-# P0 S08: recovery-loop integration acceptance
+# P0 S08: Recovery Flow v2 Foundation acceptance
 
 Parent brief: [[llmwiki-project-driven-knowledge-workspace]]
 OpenSpec: `openspec/changes/project-hub-recovery-loop/`
-Implementation plan: `docs/superpowers/plans/2026-08-27-project-hub-recovery-loop.md` Tasks 14–15
+Implementation plan: `docs/superpowers/plans/2026-08-27-project-hub-recovery-loop.md` Task 16
 
 ## What to build
 
-Create one sanitized end-to-end fixture and run the full recovery journey through accepted S06A/S06B Obsidian surfaces plus MCP and dedicated CLI parity. Cover normal recovery, interrupted work, S01/downstream-owner staleness, missing capability, expired Work Run, valid and quarantined output, apply and output-routing crash windows, replay, outcome-unknown reconciliation, and explicit remediation.
+Create one sanitized end-to-end fixture and actual-Obsidian procedure covering V1 removal, all V2 Flow actions/stages, stateless recomputation, repeated search branches, Binding/candidate/Plan decisions, explicit refresh, Workflow apply, output routing, parity, privacy canaries, failure/replay paths, and the under-60-second Plan-preview target.
 
 ## Acceptance
 
-- [ ] The fixture contains Project ID, Workspace Binding, Work-OS items, citations, reviewed memory, Session Record, Work Run, capability state, and expected recovery snapshot.
-- [ ] A normal project opens with current state, evidence, resumable context, and a bounded next action.
-- [ ] Stale evidence, missing capability, expired run, quarantined malformed result, and invalid action each produce visible diagnostics and a manual or governed next step without unsafe payload echo.
-- [ ] Obsidian, MCP, and CLI produce equivalent snapshot fingerprints, apply states, and action receipts for the same fixture.
-- [ ] Same-token replay, apply/output claim races, and every crash window preserve exactly one Work Run and at most one routed owner effect; unprovable outcomes block replay and require reconciliation.
-- [ ] After one familiarization run, three measured runs start at Open Project Hub invocation and stop when a cited action's plan preview appears; all three are under 60 seconds and record raw timestamps.
-- [ ] No fixture or serialized domain/Obsidian/MCP/CLI/claim/receipt/error output contains private vault material, canaries, tokens, cookies, transcript bodies, or absolute paths.
-- [ ] Any failure blocks the foundation exit and creates a linked follow-up issue rather than being waived as pre-existing.
+- [ ] V1 production schema/types/validator/export/file and `project.hub.get.recovery` are absent; V1 historical issue/ADR prose remains.
+- [ ] Fixture includes every owner, Work Run/events, unique/multiple/no compatible Bindings, reviewed/draft memory, repeated queries, alternate candidates, capabilities, claims, outputs, and canaries.
+- [ ] All five request actions and six response stages pass; minimal-input prerequisite recomputation rejects branch mixing and full-prior-Plan refresh/override works.
+- [ ] Search is mandatory/repeatable; auto-plan eligibility uses exactly one Binding; multiple Binding, candidate override, expired Plan, explicit refresh, stale restart, and unavailable remediation are observable.
+- [ ] Apply/output same-token replay, both claim races, every crash window, and outcome-unknown preserve exactly one Work Run and at most one owner effect.
+- [ ] Obsidian, MCP, and CLI agree on Flow/Plan fingerprints, locks, stages, recommendations, apply state, and receipts.
+- [ ] ItemView reload persists no Flow state and no serialized surface contains canaries, credentials, transcript bodies, unsafe query material, or absolute paths.
+- [ ] After one familiarization, three actual-Obsidian runs from Open Project Hub invocation to cited immutable Plan preview are each under 60 seconds with raw timings.
+- [ ] Any failure creates a linked follow-up and leaves S08/Foundation incomplete.
 
 ## Demo
 
-Start with a deliberately interrupted sanitized project, recover it in Obsidian, verify one citation, resume or select the next action, then reproduce the same snapshot and receipt through MCP and CLI while exercising stale and blocked paths.
+Recover a deliberately interrupted sanitized Project end to end, repeat and mix searches, exercise Binding/candidate/refresh/stale/unavailable paths, confirm one Plan, route output, verify parity and privacy, then record three timing runs.
 
 ## Dependencies
 
-Blocked by accepted S06B actual-Obsidian verification and S07 parity. This is the final cross-host foundation gate.
+Blocked by S07 parity. This is the final Foundation gate.
+
+## Non-goals
+
+- Do not waive pre-existing failures, retain V1 compatibility, or declare Foundation complete from automated tests alone without actual Obsidian evidence.

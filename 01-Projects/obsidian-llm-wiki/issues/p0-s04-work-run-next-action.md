@@ -2,47 +2,47 @@
 type: issue
 entity: project/obsidian-llm-wiki/issue/p0-s04-work-run-next-action
 state: backlog
-review: draft
+review: reviewed
 kind: knowledge-task
 id: obsidian-llm-wiki/p0-s04-work-run-next-action
-description: "P0 S04A: derive additive recovery action candidates and immutable plans"
+description: "P0 S04A: complete Recovery Flow candidates and Plans, then clean-cut V1"
 status: active
 priority: 1
 blocked-by:
-  - obsidian-llm-wiki/p0-s01-project-hub-recovery-snapshot
-  - obsidian-llm-wiki/p0-s02-resumable-agent-context
   - obsidian-llm-wiki/p0-s03-project-cited-retrieval
-last-verified: 2026-08-27
+last-verified: 2026-08-28
 ---
 
-# P0 S04A: recovery action candidates and plan
+# P0 S04A: complete read-only Recovery Flow and V1 cutover
 
 Parent brief: [[llmwiki-project-driven-knowledge-workspace]]
+ADR: `docs/adr/0001-project-hub-recovery-flow-v2.md`
 OpenSpec: `openspec/changes/project-hub-recovery-loop/`
-Implementation plan: `docs/superpowers/plans/2026-08-27-project-hub-recovery-loop.md` Tasks 6–7
+Implementation plan: `docs/superpowers/plans/2026-08-27-project-hub-recovery-loop.md` Tasks 7–9
 
 ## What to build
 
-Derive a versioned action-candidate set from the unchanged S01 snapshot plus current S02 context and S03 search locks. Reuse S01 resume actions and add a create candidate only through the OpenSpec rule; then produce an immutable, read-only plan for one candidate. This slice performs no Work Run mutation.
+Add resume/create candidates, exact compatible Binding/Profile eligibility, immutable five-minute Plans, full stateless prerequisite recomputation, explicit Plan refresh, and candidate replacement. Then register the complete read-only `project.hub.recovery.flow`, migrate every repository caller, remove `project.hub.get.recovery`, and delete the V1 contract in one clean cutover.
 
 ## Acceptance
 
-- [ ] The closed candidate contract preserves S01, reuses valid resume identities, creates only from valid session/context/work/capability locks, and returns a fingerprinted zero-candidate unavailable arm with capability facts and remediation when no safe action exists.
-- [ ] `project-hub-action-plan/v1` binds Project ID, Work Item ID, nullable Work Run ID, all upstream fingerprints, exact current Project Agent Binding/Profile revisions, citations, capability facts, five-minute expiry, owning operation, and candidate-set fingerprint.
-- [ ] `project.hub.action-candidates.get` and `project.hub.action.plan` are read-only; all Project Hub operations remain `mutating: false`.
-- [ ] Invented/stale candidates, unavailable arms, and changed/mismatched Agent Binding, Profile, capability, identity, or lock inputs reject explicitly and never substitute another action or agent.
-- [ ] Same inputs produce the same candidate-set and plan fingerprints.
-- [ ] Tests cover OpenSpec R6 and leave the sanitized fixture byte-identical.
+- [ ] Candidate set reuses exact resume identity or permits governed Session create only under current unblocked Work Item/context/capability facts; exactly one safe candidate is recommended.
+- [ ] Zero compatible Bindings returns unavailable; one produces a fingerprint-free plan intent then a derived closed request; 2–16 returns every Binding in needs-agent-selection; 17+ returns `binding_selection_too_large` without truncation.
+- [ ] Plan binds root open and searched-basis Flow fingerprints, search-input/search/candidate fingerprints, candidate, role, exact Binding/Profile revisions, owner locks, capabilities, citations, five-minute expiry, and Workflow owning operation; it contains no invented agent ID or host.
+- [ ] Plan/from-search requires null planned/prior Plan fields; plan/override and refresh require immediate planned plus searched-basis fingerprints and the complete prior Plan.
+- [ ] Candidate replacement produces a new current Plan/fingerprint; expired Plans require explicit refresh and are never silently substituted.
+- [ ] The complete Flow Operation supports all five actions/six stages, remains `mutating:false`, and writes no bytes.
+- [ ] V1 action facts pass equivalence before `project-hub-recovery/v1`, its types/validator/export/tests/file, and `project.hub.get.recovery` are removed.
+- [ ] No V1 compatibility alias, dual response, standalone public search/candidate/plan Operation, or partial V2 branch remains.
 
 ## Demo
 
-From a cited S01 snapshot, show one valid resume candidate; from a session-only fallback, show one additive create candidate; preview each immutable plan and prove that no Work Run or other durable state changed.
+Open, search, auto-follow one unique Binding, preview a Plan, replace the candidate, refresh an expired Plan, exercise multiple-Binding selection, and prove V1 symbols are absent while `project.hub.get` remains a normal Hub read.
 
 ## Dependencies
 
-Blocked by S01, S02, and S03. This read-only plan must pass before S06A Obsidian preview; S04B owns mutation.
+Blocked by S03. S06A begins only after the complete V2 read Flow and clean cutover pass independent review.
 
 ## Non-goals
 
-- Do not start, join, resume, or create a Work Run.
-- Do not change `project-hub-recovery/v1` or reinterpret `inspect-work-item` as a create action.
+- Do not call `workflow.recovery.apply`, create/resume a Work Run, or persist Flow state.

@@ -2,48 +2,47 @@
 type: issue
 entity: project/obsidian-llm-wiki/issue/p0-s05-agent-output-governance
 state: backlog
-review: draft
+review: reviewed
 kind: knowledge-task
 id: obsidian-llm-wiki/p0-s05-agent-output-governance
-description: "P0 S05: classify Agent output and route it through governance"
+description: "P0 S05: claim and route every successful/review Work Run output exactly once"
 status: active
 priority: 1
 blocked-by:
   - obsidian-llm-wiki/p0-s04b-workflow-recovery-apply
-last-verified: 2026-08-27
+last-verified: 2026-08-28
 ---
 
-# P0 S05: Agent output governance
+# P0 S05: claimed Work Run output governance
 
 Parent brief: [[llmwiki-project-driven-knowledge-workspace]]
 OpenSpec: `openspec/changes/project-hub-recovery-loop/`
-Implementation plan: `docs/superpowers/plans/2026-08-27-project-hub-recovery-loop.md` Task 11
+Implementation plan: `docs/superpowers/plans/2026-08-27-project-hub-recovery-loop.md` Task 13
 
 ## What to build
 
-Classify every completed Agent result from the Work Run boundary as a derived view, work-state transition, knowledge claim, or external side effect. Route each class through the matching Promotion Policy, capture draft evidence where needed, and keep the Project Hub refresh derived from accepted domain state.
+Clean-cut `workflow.agent.leave` to a closed request union: complete mode carries exact Work Run identity, transition token, `completed|awaiting_review`, and one valid/quarantine submission; terminate mode carries `failed|cancelled` and `submission:null`. Actor comes from OperationContext. Claim output fingerprint plus leave-token/actor digest before owner mutation, route exactly once, and return a durable receipt or outcome-unknown.
 
 ## Acceptance
 
-- [ ] The four Run Output Classes are explicit and versioned.
-- [ ] View output cannot be promoted as project truth.
-- [ ] Work-state transitions may follow the allowlisted automatic path and return a receipt.
-- [ ] Knowledge claims always enter a reviewable draft or review queue with citations.
-- [ ] External side effects require explicit per-run approval and an Operation Write Policy verdict.
-- [ ] Unclassifiable or malformed output uses a closed quarantine arm that persists only safe identity, payload fingerprint, provenance, and diagnostics; unsafe payload bytes are neither stored nor echoed.
-- [ ] Output fingerprint plus leave transition token is claimed before owner mutation; same-token retry returns or recovers one owner receipt, rebound conflicts, and unprovable owner outcome becomes `outcome-unknown` without repeating the effect.
-- [ ] Accepted output is captured with Project ID, Work Run ID, provenance, and a refreshable fingerprint.
-
-## Implementation boundary
-
-- `workflow.agent.leave` is the single `completed|awaiting_review` boundary and consumes the closed output submission; step/checkpoint may record progress but cannot bypass routing.
-- Preserve the durable `output_class` and `approval_status` fields used by TypeScript and Python Work Run records.
-- TypeScript owns claimed routing and the route receipt. Remove the production-unused Python `route_work_run_output` helper when the TypeScript route lands; keep Python Work Run creation/transition compatibility.
+- [ ] Complete/terminate arms reject unknown fields and invalid target/submission combinations; legacy leave `work_run_state|output_class|approval_status` is rejected.
+- [ ] Valid classes are explicit: view, work-state-transition, knowledge-claim, and external-side-effect.
+- [ ] Quarantine persists only authoritative Work Run identities, safe observed class, payload fingerprint, provenance, and bounded diagnostics; malformed payload bytes are never stored or echoed.
+- [ ] Output/token/actor claim is durable before owner mutation; same-token retry returns or recovers one owner receipt, rebound conflicts, and unprovable owner result becomes outcome-unknown without repeating the effect.
+- [ ] View remains artifact-only; work-state transition uses allowlisted Work-OS; knowledge claim creates/binds one cited Project Memory draft without promotion; external effect requires exact approval and Operation Write Policy.
+- [ ] step/checkpoint cannot enter `completed|awaiting_review`; all existing successful/review callers migrate to complete-mode leave. Failed/cancelled uses terminate mode.
+- [ ] Durable `output_class` and `approval_status` remain compatible inside TypeScript/Python Work Run records even though legacy public leave fields are removed.
+- [ ] The production-unused Python output router is removed and no second routing authority remains.
+- [ ] Only accepted owner state changes the recomposed Recovery Flow; review-required/denied/quarantined output is not current truth.
 
 ## Demo
 
-Run one Agent task that returns each output class and see the four distinct routes, including a hard approval gate for an external side effect and a draft artifact for a knowledge claim.
+Route every valid class and quarantine, replay/race/interupt each mutating owner path, bind an existing Dream Time proposal without duplication, and observe one owner receipt or outcome-unknown.
 
 ## Dependencies
 
 Blocked by S04B because governance starts from the applied Work Run result boundary.
+
+## Non-goals
+
+- Do not auto-promote claims, repeat unknown external effects, or persist raw Agent responses.

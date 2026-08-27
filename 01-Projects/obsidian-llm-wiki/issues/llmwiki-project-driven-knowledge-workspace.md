@@ -2,14 +2,15 @@
 type: issue
 entity: project/obsidian-llm-wiki/issue/llmwiki-project-driven-knowledge-workspace
 state: backlog
-review: draft
+review: reviewed
 kind: knowledge-task
 id: obsidian-llm-wiki/llmwiki-project-driven-knowledge-workspace
 description: "BMAD product brief: an AI project workspace built on a searchable, citable personal knowledge base"
 status: active
 priority: 1
-blocked-by: []
-last-verified: 2026-08-27
+blocked-by:
+  - obsidian-llm-wiki/p0-s08-recovery-loop-acceptance
+last-verified: 2026-08-28
 ---
 
 # LLM Wiki: project-driven knowledge workspace
@@ -20,8 +21,8 @@ last-verified: 2026-08-27
 - **Approver**: Product owner
 - **Contributors**: Product, domain, Obsidian UX, Agent workflow
 - **Informed**: MCP, CLI, capability-worker maintainers
-- **Lifecycle**: Product definition draft before implementation sequencing
-- **Decision needed**: Accept the product wedge and first vertical journey before opening implementation issues
+- **Lifecycle**: Product wedge and Recovery Flow v2 approved before implementation
+- **Decision outcome**: Recovery-required S01B–S08 work is part of Foundation exit; implementation proceeds blockers-first from reviewed S01B
 
 ## Takeaway
 
@@ -54,18 +55,15 @@ A personal developer who works across one or more repositories, uses Agent sessi
 
 ## First vertical journey: recover interrupted work
 
-1. The user opens the Project Hub for a Project ID.
-2. The Hub resolves the current Workspace Binding without exposing machine-local paths as project identity.
-3. The Hub assembles:
-   - Work-OS state: current stage, completed items, open items, dependencies, and blockers;
-   - Project Memory: durable decisions, learned constraints, and recent summaries;
-   - Evidence: cited vault, code, Source, and external-material references;
-   - Work Runs and Session Records: recent Agent activity, checkpoints, and resumable context;
-   - capability health: what can run now and what requires remediation.
-4. The Hub presents a bounded recovery snapshot with clear freshness and diagnostic state.
-5. The user chooses one next action: resume an Agent Work Run, open a task, inspect evidence, or repair a missing capability.
-6. The selected action runs through the owning domain and returns a receipt or explicit failure.
-7. The result is captured as draft or work-state evidence according to Promotion Policy; the Hub refreshes as a derived view.
+1. The user opens Recovery Flow for a canonical Project ID through Ask Mate Project Context.
+2. The Flow resolves Workspace Binding without treating a machine-local path as Project identity.
+3. The `open` stage composes Work-OS state, bounded Work Run/Session context, reviewed Project Memory, capability health, freshness, diagnostics, citations, and suggested queries.
+4. The user performs mandatory Project-scoped cited search and may repeat queries; every query forms its own fingerprinted branch.
+5. The Flow derives safe resume/create candidates and exact compatible Project Agent Bindings.
+6. With exactly one compatible Binding, the searched stage supplies a closed recommended next request; multiple Bindings require explicit selection.
+7. The Flow returns one immutable five-minute Plan. Candidate replacement and Plan refresh are explicit and produce new fingerprints.
+8. After exact confirmation, `workflow.recovery.apply` claims and resumes/creates one Work Run and returns a receipt or explicit outcome-unknown.
+9. `workflow.agent.leave` claims and routes Work Run output through Promotion/Write Policy; the UI discards ephemeral Flow state and opens current owner state again.
 
 ## Product goals
 
@@ -91,47 +89,48 @@ A personal developer who works across one or more repositories, uses Agent sessi
 
 | Priority | Requirement | Observable acceptance |
 |---|---|---|
-| P0 | Project identity and workspace binding | Opening a Project Hub uses a stable Project ID and shows the bound workspace without confusing the local path with identity. |
-| P0 | Recovery snapshot | The Hub shows current stage, done, in-progress, blocked, not-started, freshness, and a concrete next action. |
-| P0 | Evidence links | Every displayed decision or status claim has at least one resolvable citation target or is marked unknown/uncorroborated. |
-| P0 | Resumable Agent context | The user can select a recent resumable Work Run or Session Record and receive the required context without manually reconstructing it. |
-| P0 | Explicit action boundary | Resume, run, update, or promote actions require the owning domain operation and return an auditable receipt or explained error. |
-| P0 | Safe degradation | Missing capability, stale state, partial output, and failed recovery are visible with remediation or a manual next step. |
-| P1 | Knowledge retrieval in project scope | Search prioritizes the active Project's sources, decisions, memory, and evidence while retaining citation targets. |
-| P1 | Agent output landing | A completed Agent result is classified as view, work-state transition, knowledge claim, or external side effect and routed through the matching policy. |
-| P1 | Progress refresh | Work-OS changes, Agent receipts, and approved memory updates refresh the derived Hub without a second state store. |
-| P1 | Cross-surface parity | Obsidian, MCP, and CLI consume the same domain operation and contract for the recovery snapshot. |
+| P0 | Project identity and workspace binding | Recovery Flow uses stable Project ID and never persists local path as identity. |
+| P0 | Stateless staged Recovery Flow | Closed V2 actions/stages advance through recomputed fingerprints without a server session/cache or plugin-persisted Flow state. |
+| P0 | Current recovery facts and bounded context | Open shows stage, work groups, freshness, reviewed context, checkpoints, prerequisites, citations, and capability health within fixed bounds. |
+| P0 | Mandatory Project-scoped evidence | Repeatable search returns only active-Project owner evidence with resolvable Citation Targets, provenance, freshness, and independent branch fingerprints. |
+| P0 | Safe candidate and Plan boundary | Candidate/Binding choice is explicit or uniquely eligible; immutable Plan is previewed before mutation and never invents execution identity. |
+| P0 | Explicit action boundary | Workflow claims before resume/create and returns one auditable receipt or outcome-unknown. |
+| P0 | Agent output landing | Successful/review completion uses claimed output routing for view, work-state transition, knowledge claim, external side effect, or quarantine. |
+| P0 | Safe degradation and refresh | Stale, unavailable, partial, expired, malformed, and uncertain outcomes are visible with explicit restart/refresh/remediation. |
+| P0 | Progress refresh | Accepted owner receipts cause a new owner-derived Flow open without a second state store. |
+| P0 | Cross-surface parity | Obsidian proves the journey first; MCP/CLI later expose the same Flow/apply contracts. |
 | P2 | External projections | GitHub, Gitea, Linear, and other projections expose drift and links without becoming project truth. |
 | P2 | Dashboard and visual projections | Data views, Canvas, and other renderers present derived project state without storing authoritative task or knowledge state. |
 
-## Proposed recovery foundation decomposition
+## Approved recovery foundation decomposition
 
-The active OpenSpec proposes promoting only the parts of the P1 rows required to
-finish the first interrupted-work journey into the Foundation exit gate. This
-does not reprioritize generic search, generic output processing, dashboards, or
-external projections.
+Only the parts required for the first interrupted-work journey move into
+Foundation exit. Generic search expansion, generic output processing,
+dashboards, adapters, Fleet work, and external projections remain outside this
+change.
 
-| Slice | Bounded outcome | Gate |
+| Slice | Bounded outcome | Direct gate |
 |---|---|---|
-| S01 | Existing immutable `project-hub-recovery/v1` snapshot | complete baseline |
-| S02 | Bounded resumable Work Run/Session context with owner locks | S01 |
-| S03 | Project-scoped cited retrieval over existing owner records | S01 + S02 shared Workflow read model |
-| S04A | Additive action candidates and immutable read-only plan | S01 + S02 + S03 |
-| S06A | LLM Wiki/Ask Mate Project-context preview in actual Obsidian | S04A |
-| S04B | Crash-safe Workflow apply and owner receipt | accepted S06A |
-| S05 | TypeScript-owned Work Run output governance | S04B |
-| S06B | Confirm/apply/receipt/refresh journey in actual Obsidian | S04B + S05 |
+| S01 | Historical completed `project-hub-recovery/v1` behavior baseline | complete |
+| S01B | Complete internal closed Recovery Flow v2 contract kernel; no public partial Operation | S01 |
+| S02 | Workflow store/read seams plus V2 open and bounded context | S01B |
+| S03 | Mandatory repeatable Project-scoped cited search | S02 |
+| S04A | Candidates, Binding eligibility, immutable Plan, complete Flow registration, caller migration, V1 removal | S03 |
+| S06A | Ephemeral Ask Mate Project-context preview in actual Obsidian | S04A |
+| S04B | Claim-first Workflow apply and owner receipt | accepted S06A |
+| S05 | Claimed Work Run output governance | S04B |
+| S06B | Exact confirm/apply/receipt and owner-backed Flow restart in actual Obsidian | S05 |
 | S07 | MCP and dedicated CLI semantic parity | accepted S06B |
-| S08 | Sanitized cross-surface recovery acceptance and timing gate | S07 |
+| S08 | Sanitized cross-surface acceptance, privacy, replay, and timing gate | S07 |
 
 Planning contract:
 
+- `docs/adr/0001-project-hub-recovery-flow-v2.md`
 - `openspec/changes/project-hub-recovery-loop/`
 - `docs/superpowers/plans/2026-08-27-project-hub-recovery-loop.md`
 
-All slices remain `review: draft` and non-executable until OpenSpec Phase 0
-approves the source-completeness baseline, authority, schema/operation names,
-issue splits, and delegation contract.
+S01B–S08 are reviewed Work-OS contracts. Only S01B is immediately executable;
+the remaining leaves are blocked by the direct dependency chain above.
 
 ## Success metrics
 
@@ -146,79 +145,95 @@ Baselines are not yet measured. The first implementation issue must add a reprod
 
 ## Acceptance criteria for this product brief
 
-This brief is ready to decompose when:
+This brief is approved and decomposed. Implementation starts from reviewed S01B
+because:
 
-- the Project Hub is accepted as the primary recovery entry;
-- Project ID, Workspace Binding, Work-OS, Knowledge, Memory, Session Record, Work Run, and capability health ownership is explicit;
-- the recovery journey has an observable start, end, user choice, and failure path;
-- P0 requirements have deterministic acceptance checks;
-- non-goals prevent a second task system and uncontrolled Agent autonomy;
-- implementation work is split into bounded Work-OS issues, each with verification evidence.
+- Ask Mate Project Context is the primary recovery entry;
+- Project ID, Workspace Binding, Work-OS, Knowledge, Memory, Session Record, Work Run, Settings, Agent Domain, and Promotion/Write Policy ownership is explicit;
+- Recovery Flow has observable start/end, user query/choice, stale/unavailable paths, exact Plan boundary, Workflow receipt, and output route;
+- P0 requirements have deterministic automated and actual-surface acceptance;
+- non-goals prevent a second task/Flow state store and bound Luna autonomy;
+- S01B–S08 are reviewed Work-OS issues with direct blocking edges and verification evidence destinations.
 
-The product is not ready to call complete until a real sanitized project can pass the recovery journey end to end.
+The product is not complete until a real sanitized Project passes R1–R11,
+including actual Obsidian timing and privacy gates.
 
 ## Domain and authority boundary
 
 ```text
 Project Hub (derived, read-only composition)
 ├── Project ID + Workspace Binding
+├── Recovery Flow v2 (stateless staged read model)
 ├── Work-OS truth: issues, dependencies, blockers, stage
 ├── Knowledge truth: cited Evidence and Source material
 ├── Memory truth: reviewed decisions and durable context
-├── Session Record: resumable Agent context
-├── Work Run: execution attempt and receipt
+├── Session Record: safe resumable context metadata
+├── Workflow: Work Run, lease, recovery/output claims and receipts
+├── Agent Domain: Binding/Profile role, revisions and capabilities
 ├── Settings Platform: effective config and capability health
-└── Promotion Policy: routing for output and side effects
+└── Promotion/Write Policy: output and external-side-effect routing
 ```
 
-The Hub may summarize and link these domains. It must not duplicate their authoritative state. A recovery snapshot is a projection with freshness and diagnostic metadata.
+Recovery Flow may summarize and link these owners. It persists no Flow state and
+owns no mutation. A later request repeats minimum inputs and recomputes its
+prior stage. Apply/output writes remain Workflow-owned.
 
 ## First implementation slices
 
-1. Define a `Project Hub recovery snapshot` contract with explicit freshness, citations, next-action candidates, and missing-capability diagnostics.
-2. Build a deterministic read-only composer over existing Project, Work-OS, Memory, Session Record, Work Run, and Settings contracts.
-3. Add one Obsidian-first recovery surface with evidence links and a clear action boundary.
-4. Add one resumable Agent action using stable Project/Work Item/Work Run identifiers and explicit transition context.
-5. Capture the result as a governed Work Run output and refresh the derived Hub.
-6. Add MCP/CLI parity only after the Obsidian path is understandable and verified.
+1. S01B defines the complete internal closed V2 request/response/stage/fingerprint kernel while V1 remains byte-stable.
+2. S02 extracts Workflow store/read seams and composes open plus bounded context.
+3. S03 adds mandatory repeatable Project-scoped cited search.
+4. S04A adds candidates/Binding eligibility/immutable Plans, registers the complete Flow, migrates callers, and removes V1.
+5. S06A proves the ephemeral read-only Flow through Ask Mate Project Context in actual Obsidian.
+6. S04B applies one exact Plan through claim-first Workflow ownership.
+7. S05 claims and routes Work Run output through owner policy.
+8. S06B proves confirmation, receipt, outcome remediation, and owner-backed Flow restart in actual Obsidian.
+9. S07 adds MCP/CLI parity only after the human journey is accepted.
+10. S08 enforces sanitized cross-surface behavior, privacy, replay, and timing.
 
 ## Risks and mitigations
 
 | Risk | Mitigation |
 |---|---|
-| Hub becomes a second task database | Keep it read-only; every write delegates to the owning domain and records a receipt. |
-| Model summary is mistaken for truth | Label freshness and evidence; require citations for P0 claims; route knowledge claims to review. |
-| Session output drifts from project state | Treat Session Record as recovery material, not Work-OS authority; reconcile through explicit Work Run output. |
-| Scope expands into every adapter and platform | Gate work by the recovery journey; defer external projections and new workers until P0 passes. |
-| Missing optional runtime blocks the whole product | Expose Capability Health and manual remediation; keep the core Project Hub usable. |
-| Project identity leaks machine-local paths | Use Project ID as durable identity and Workspace Binding as local association. |
+| Recovery becomes a second task or session database | Flow is read-only/stateless; no server cache or plugin persistence; every mutation delegates to Workflow. |
+| V2 ships partially while V1 and V2 drift | S01B is internal only; public registration and V1 removal happen together after all read stages exist. |
+| Client mixes search branches or stale selections | Chained Flow Fingerprints and minimal-input recomputation reject branch mixing and return explicit stale restart. |
+| Automatic planning guesses an Agent identity | Auto-plan eligibility requires exactly one compatible Binding; Plan binds only role/Binding/Profile; apply actor supplies execution identity. |
+| User confirms a silently replaced Plan | Plan expires visibly and refresh is explicit; candidate override/refresh validates complete prior Plan and produces a new fingerprint. |
+| Model summary is mistaken for truth | Require citations/freshness; reviewed-only memory; quarantine malformed output; claims never auto-promote. |
+| Apply/output retry duplicates mutation | Durable plan/output claims, idempotent owner receipts, replay/rebound rules, and outcome-unknown precedence. |
+| Scope expands into adapters/platforms | Foundation gate is limited to the first recovery journey; external projections/workers remain deferred. |
+| Missing optional runtime blocks core | Expose capability remediation; core Flow requires no new runtime or Python worker. |
+| Luna implementation shape drifts from approved design | Internal shape may vary, but contract/authority/effect changes stop; controller updates canonical plans after review. |
 
-## Assumptions and open questions
+## Approved assumptions and remaining measurement work
 
-- The existing Project, Work-OS, Project Memory Loop, Session Record, Work Run, Settings Platform, and Promotion Policy contracts can expose the minimum read surfaces without becoming a new shared database.
-- A Project Hub recovery snapshot can remain derived and be regenerated after every accepted state transition.
-- Obsidian remains the primary human-facing surface; MCP and CLI are access surfaces.
-- What minimum context must be included for an Agent resume to be safe: last prompt, current issue, decisions, source citations, or a structured bundle?
-- Which existing Project Hub or session-record contracts are stable enough to compose, and which need a versioned recovery-specific adapter?
-- What is the smallest sanitized project fixture that represents interruption, stale evidence, blocked capability, and resumable Agent work?
-- Should the first recovery action resume an existing Work Run only, or also create a new Work Run from a reviewed next action?
-- Which metrics can be measured locally without recording private transcript content?
+- Existing owner records can expose minimum read facts through extracted TypeScript seams without a new shared database.
+- Search is required before planning and may repeat; only the selected branch feeds Plan.
+- The UI can meet the under-60-second target with a searched response plus a closed recommended next request and optional automatic second read call.
+- Flow/query/selection/Plan state is intentionally disposable across ItemView reload.
+- Local measurement records no private transcript or raw unsafe query material.
+- The remaining unknown is the measured baseline and actual three-run duration; S08 records it rather than predicting it.
 
 ## Assets touched by future implementation
 
 | asset_id | relation | change_or_usage | scope | risk | verify | rollback |
 |---|---|---|---|---|---|---|
-| `project-hub-recovery-contract` | new domain contract | Defines the derived recovery snapshot and next-action candidates | Shared TypeScript domain | Contract drift across plugin/MCP/CLI | Contract fixtures, typecheck, parity test | Revert contract version and adapters |
-| `project-memory-loop` | input authority | Supplies reviewed project memory and session-derived context | Project Memory Loop | Stale or unreviewed memory appears authoritative | Freshness and promotion-policy tests | Disable the input adapter |
-| `work-os-issues` | input authority | Supplies current work state and blockers | `01-Projects/<project>/issues/` | Duplicate task state if Hub writes directly | Issue list/board verification | Keep Hub read-only |
-| `obsidian-plugin-project-hub` | primary surface | Displays recovery snapshot and explicit actions | Obsidian plugin | UX hides freshness or action risk | Sanitized Obsidian smoke path | Remove view/command registration |
-| `mcp-project-hub` | agent access surface | Exposes the same recovery operation through MCP | MCP server | Protocol shape leaks into domain | MCP operation contract test | Remove operation registration |
-| `cli-project-hub` | automation surface | Provides headless inspection and resume planning | CLI | CLI becomes the only supported path | Real sanitized CLI preview | Remove CLI entrypoint |
+| `project-hub-recovery-flow-v2` | replacement domain contract | Closed stateless actions/stages, layered locks, chained fingerprints and clean V1 cutover | Shared TypeScript domain | Partial/dual contract or branch mixing | Contract kernel, equivalence, absence scan, parity | Revert the cutover release |
+| `project-hub-recovery-operation` | read access surface | Complete `project.hub.recovery.flow`; ordinary `project.hub.get` loses V1 recovery field | MCP application catalog | Adapter owns stage semantics | Operation contract and read-only byte tests | Remove Flow registration and revert cutover |
+| `workflow-recovery-claims` | mutation authority | Plan/token and output/token claims plus receipts/outcome-unknown | Work-OS Project runtime roots | Duplicate Work Run or owner effect | Fault injection, races, replay and doctor tests | Disable apply/output mutation; retain claims for reconciliation |
+| `project-memory-loop` | input/output owner | Supplies reviewed context and receives cited draft claims | Project Memory | Unreviewed memory appears current or drafts duplicate | Reviewed-only and idempotent owner-receipt tests | Disable owner port |
+| `work-os-issues` | input/output owner | Supplies work/blockers and receives allowlisted transitions | `01-Projects/<project>/issues/` | Hub writes task truth directly | Work-OS operation/board tests | Keep Flow read-only and disable transition route |
+| `obsidian-ask-mate-recovery-panel` | primary human surface | Ephemeral open/search/selection/Plan/apply/receipt/restart | Obsidian plugin | Hidden stale Plan or persisted sensitive query | Actual Obsidian, reload-reset, keyboard/focus tests | Remove panel wiring |
+| `mcp-project-hub` | agent access surface | Exposes shared Flow/apply after Obsidian proof | MCP server | Protocol shape leaks into domain | Domain/MCP parity test | Remove adapter exposure |
+| `cli-project-hub` | automation surface | Headless Flow/apply mapping | CLI | CLI becomes reference behavior | Real fixture CLI and parity tests | Remove CLI bin/target |
 
 ## Evidence used
 
 - `CONTEXT.md` for canonical vocabulary and authority boundaries.
+- `docs/adr/0001-project-hub-recovery-flow-v2.md` for the Snapshot-to-Flow decision.
 - `30-Architecture/llm-wiki-product-spine.md` for Obsidian-first ownership and access-surface boundaries.
-- `docs/AGENT_WORKFLOW_INTEGRATION.md` for the BMAD-lite path and Work-OS issue routing.
-- `ROADMAP.md` for the current product-foundation priority and existing issue taxonomy.
-- Current repository package and issue structure inspected on 2026-08-27.
+- `docs/AGENT_WORKFLOW_INTEGRATION.md` for BMAD-lite and Work-OS routing.
+- `openspec/changes/project-hub-recovery-loop/` for approved V2 contracts and scenarios.
+- `ROADMAP.md` for Foundation dependency order.
+- Current repository source/caller/issue structure inspected on 2026-08-28.

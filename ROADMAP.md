@@ -13,58 +13,62 @@ compiler and adapter processes are optional capability workers. The canonical
 architecture is recorded in `30-Architecture/llm-wiki-product-spine.md`.
 
 Before adding new MCP tools, adapters, Fleet features, or isolated setup
-patches, complete this foundation:
+patches, complete and verify this foundation:
 
 - [ ] Obsidian-first onboarding and vault binding
 - [ ] Capability health with actionable remediation
 - [ ] TypeScript-owned boundary for Python and external workers
 - [ ] Clear ownership between plugin, MCP, CLI, and durable vault state
 - [ ] Roadmap and Work-OS issues grouped by product milestone
+- [ ] Stateless Project Hub Recovery Flow v2 passes the complete actual-Obsidian Foundation gate
 
-Feature expansion is paused until these five foundation items are designed and
+Feature expansion is paused until these Foundation gates are implemented and
 accepted.
 
-### Draft foundation slice: Project Hub interrupted-work recovery
+### Approved foundation slice: Project Hub Recovery Flow v2
 
-The current candidate slice makes Project Hub the Obsidian-first path from an
-interrupted Project to a cited, immutable next-action plan and a governed
-Workflow receipt. S01 (`project-hub-recovery/v1`) is implemented. S02–S08 remain
-draft and non-executable until the OpenSpec Phase 0 source-completeness,
-authority, naming, issue-split, and Luna-delegation gates are approved.
+The approved slice replaces `project-hub-recovery/v1` with a stateless staged
+Recovery Flow that moves from current Project facts through mandatory cited
+search and immutable Plan preview, then delegates confirmed mutation and output
+routing to Workflow. S01 v1 remains completed history. S01B is the only
+immediately executable leaf; every later issue is reviewed but blocked by the
+direct chain.
 
 Dependency order:
 
 ```text
-S01 complete
-  -> S02 resumable context + shared Workflow read model
-       -> S03 cited retrieval
-            -> S04A read-only candidates/plan
-                 -> S06A LLM Wiki Project-context preview
-                 -> S04B crash-safe Workflow apply
-                 -> S05 output governance
-                 -> S06B apply/receipt/refresh
-                 -> S07 MCP/CLI parity
-                 -> S08 foundation acceptance
+S01 v1 complete (historical)
+  -> S01B complete internal V2 contract kernel
+       -> S02 open/context + Workflow store/read seams
+            -> S03 mandatory repeatable cited search
+                 -> S04A candidates/Plan + complete Flow registration + V1 removal
+                      -> S06A actual Obsidian read-only preview
+                           -> S04B claim-first Workflow apply
+                                -> S05 claimed output governance
+                                     -> S06B actual Obsidian apply/receipt/restart
+                                          -> S07 MCP/CLI parity
+                                               -> S08 Foundation acceptance
 ```
 
 Planning sources:
 
+- `docs/adr/0001-project-hub-recovery-flow-v2.md`
 - `openspec/changes/project-hub-recovery-loop/`
 - `docs/superpowers/plans/2026-08-27-project-hub-recovery-loop.md`
-- `01-Projects/obsidian-llm-wiki/issues/p0-s02-*` through `p0-s08-*`, including
-  the S04A/S04B and S06A/S06B splits
+- `01-Projects/obsidian-llm-wiki/issues/p0-s01b-*` through `p0-s08-*`
 
-The detailed plan is source-bound: it uses the existing LLM Wiki/Ask Mate
-Project-context ItemView as the primary UI, extracts Workflow store/read seams
-before S02/S04B, keeps generic unified retrieval from becoming Project
-authority, freezes every `makeWorkflowOps` caller including the fleet verifier,
-and removes the unused Python output router only when claimed TypeScript output
-governance lands.
+The plan is source-bound: Flow has no server/plugin state; search is mandatory
+and branch-fingerprinted; automatic planning requires exactly one compatible
+Binding; candidate override and explicit Plan refresh validate the complete
+prior Plan; S04A performs one clean V1 cutover; all Workflow factory and
+completion callers are frozen; apply/output use durable claims and honest
+outcome-unknown recovery.
 
 ### Current issue taxonomy
 
 | Product area | Current issues |
 |---|---|
+| Foundation / Project recovery | `p0-s01b-project-hub-recovery-flow-v2`, `p0-s02-resumable-agent-context`, `p0-s03-project-cited-retrieval`, `p0-s04-work-run-next-action`, `p0-s06-obsidian-recovery-surface`, `p0-s04b-workflow-recovery-apply`, `p0-s05-agent-output-governance`, `p0-s06b-obsidian-recovery-action`, `p0-s07-mcp-cli-parity`, `p0-s08-recovery-loop-acceptance` |
 | Core product / Obsidian UX | `ux-audit-findings`, `plugin-migration-data-loss`, `plugin-main-ts-test-coverage`, `plugin-legacy-assignment-precedence`, `plugin-python-path-batch-cmd`, `plugin-binding-editor-noop-callback`, `plugin-low-hygiene-batch`, `plugin-promote-frontmatter-gate`, `plugin-promote-view-refresh`, `plugin-promote-open-snapshot`, `plugin-promote-obsidian-git-handoff`, `plugin-promote-autodetect-kbmeta` |
 | Product infrastructure | `host-install-registration-wheel` |
 | Compatibility / search worker | `temporal-graph-index-search-accelerator` |
