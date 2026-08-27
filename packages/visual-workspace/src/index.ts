@@ -7,4 +7,8 @@ export * from "./projections.js";
 export * from "./service.js";
 export * from "./sources.js";
 export * from "./types.js";
+export * from "./data-view-markdown.js";
+export * from "./data-view-types.js";
+export * from "./data-view-validation.js";
+export * from "./data-view-query.js";
 export * from "./validation.js";
