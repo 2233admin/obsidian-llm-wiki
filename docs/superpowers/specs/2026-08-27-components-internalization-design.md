@@ -51,6 +51,67 @@ The following are explicitly out of scope:
 The feature name, schema names, module names, algorithms, and persistence
 format in this design belong to LLM Wiki.
 
+### 2.1 Evidence from the supplied templates
+
+The supplied vault templates add concrete product evidence beyond the public
+release metadata:
+
+- `*.components` files persist a graph of reusable components with stable IDs.
+- `multi` containers compose children as list, column, tab, or grid layouts.
+- Grid layouts carry separate mobile and laptop coordinates, showing that
+  responsive composition is a first-class concern.
+- `dynamicDataView` components define typed properties such as text, select,
+  multi-select, number, image, date, formula, task list, and button.
+- Data views support nested boolean filter groups, relative-time predicates,
+  sorting, grouping, pagination, templates, and “create new page” behavior.
+- Practical templates combine views with business workflows: PARA
+  classification, journal and emotion tracking, habit logging, inventory
+  management, file relocation, and project task capture.
+- Dashboards combine count cards, progress indicators, charts, calendars,
+  quotes, navigation buttons, references, and time-based widgets.
+- Custom components can read vault files, metadata, Dataview state, local
+  component storage, and external resources; this explains their flexibility
+  but also identifies arbitrary code execution and opaque side effects as a
+  boundary we must not inherit.
+- Sample records remain ordinary Markdown/frontmatter: journal notes,
+  inventory notes, and PARA notes are the durable business data.
+
+### 2.2 Requirements derived from the templates
+
+The internalized architecture must account for four distinct layers:
+
+```text
+source records
+    ↓
+query and aggregation
+    ↓
+view and dashboard composition
+    ↓
+typed, reviewable actions
+```
+
+The first vertical slice remains Table and Kanban, but the architecture must
+reserve explicit extension points for:
+
+- composite containers (`stack`, `columns`, `tabs`, `grid`) with responsive
+  layout profiles;
+- nested boolean predicates, relative-time windows, aggregates, and typed
+  derived values;
+- template-driven record creation and domain-specific workflows;
+- typed actions such as open source, invoke a registered command, create from a
+  template, patch a property, or move a source file.
+
+These extension points do not authorize arbitrary scripts. Every future action
+must resolve to an allowlisted intent with source provenance and an immutable
+edit or execution plan. Dashboard layout must remain separate from source
+records and query results, so it can be rebuilt without data loss.
+
+The templates also establish an important product principle: users do not want
+to configure an abstract query engine first. They want a useful dashboard for
+an actual domain such as projects, journals, habits, or inventory. The
+implementation should therefore ship domain-oriented examples and templates
+over the same generic contracts rather than exposing only low-level primitives.
+
 ## 3. Product goals
 
 ### 3.1 Goals
@@ -66,6 +127,9 @@ format in this design belong to LLM Wiki.
   visible instead of silently guessing.
 - Leave room for Gallery, Calendar, Chart, and Canvas without coupling those
   projections to the query engine.
+- Support composed dashboards built from reusable view blocks, with responsive
+  layout profiles kept separate from source records.
+
 
 ### 3.2 Non-goals
 
@@ -103,7 +167,7 @@ format in this design belong to LLM Wiki.
 ## 5. System architecture
 
 ```text
-Managed Markdown data-view block
+Managed Markdown dashboard or data-view block
               |
               v
   strict parser and validator
@@ -115,13 +179,18 @@ Managed Markdown data-view block
        declarative query evaluator
               |
               v
-   DataViewModel + diagnostics + provenance
-        /             |              \
-       v              v               v
-   Obsidian        MCP preview       CLI JSON
-   renderer        and planning      and diagnostics
-        \             |              /
-         v            v             v
+     DataViewModel + diagnostics
+              |
+              v
+      dashboard composition layer
+        /          |           \
+       v           v            v
+    Table       Kanban       later views
+        \          |           /
+         v         v          v
+      Plugin / MCP preview / CLI JSON
+              |
+              v
           VisualEditPlan
                 |
                 v
@@ -370,7 +439,27 @@ Kanban requires one `groupBy` field:
 - a move creates a controlled property-edit plan;
 - any stale source lock rejects the entire move, not only one card.
 
-### 9.3 Later projections
+### 9.3 Composition model
+
+Dashboard composition is a separate projection over view blocks. Its v2
+extension points are:
+
+- `stack` for ordered vertical composition;
+- `columns` for responsive horizontal composition;
+- `tabs` for alternate views over related data;
+- `grid` for explicit block placement;
+- `reference` for reusing a named view or component definition.
+
+Composition nodes have stable IDs and may carry mobile and laptop layout
+profiles. They reference view definitions; they do not duplicate query results
+or source records. Removing or corrupting a layout must leave the underlying
+view definitions valid and allow a deterministic default layout to be rebuilt.
+
+The first slice renders one view at a time. It does not persist drag-and-drop
+coordinates.
+
+### 9.4 Later projections
+
 
 The architecture reserves, but does not implement in v1:
 
