@@ -68,18 +68,21 @@ function validateDataView(name: string, input: Record<string, unknown>): void {
       source.paths.forEach((item, i) => path(item, `source.paths[${i}]`));
     } else path(source.path, "source.path");
     assert.ok(Array.isArray(input.select));
-    for (const item of input.select) { const field = object(item, "select item"); exactKeys(field, ["field", "label"], "select item"); assert.ok(field.field && field.label); }
+    for (const item of input.select) { const field = object(item, "select item"); exactKeys(field, ["field", "label"], "select item"); assert.equal(typeof field.field, "string"); assert.equal(typeof field.label, "string"); assert.ok((field.field as string).length > 0 && (field.label as string).length > 0); }
     if (input.where !== undefined) validatePredicate(input.where);
+    if (input.groupBy !== undefined) { assert.equal(typeof input.groupBy, "string"); assert.ok((input.groupBy as string).length > 0); }
+    if (input.groupOrder !== undefined) { assert.ok(Array.isArray(input.groupOrder)); input.groupOrder.forEach((item, i) => { assert.equal(typeof item, "string"); assert.ok((item as string).length > 0, `groupOrder[${i}]`); }); }
     if (input.orderBy !== undefined) {
       assert.ok(Array.isArray(input.orderBy));
-      for (const item of input.orderBy) { const order = object(item, "order"); exactKeys(order, ["field", "direction"], "order"); assert.ok(order.field && (order.direction === "asc" || order.direction === "desc")); }
+      for (const item of input.orderBy) { const order = object(item, "order"); exactKeys(order, ["field", "direction"], "order"); assert.equal(typeof order.field, "string"); assert.ok((order.field as string).length > 0); assert.ok(order.direction === "asc" || order.direction === "desc"); }
     }
   } else if (name === "data-view-model") {
-    assert.ok(input.queryId && (input.view === "table" || input.view === "kanban"));
+    assert.ok(typeof input.queryId === "string" && input.queryId.length > 0 && (input.view === "table" || input.view === "kanban"));
     assert.ok(Array.isArray(input.columns) && Array.isArray(input.rows) && Array.isArray(input.groups) && Array.isArray(input.diagnostics));
-    for (const item of input.rows) { const row = object(item, "row"); exactKeys(row, ["id", "source", "values"], "row"); assert.ok(row.id); const source = object(row.source, "row.source"); assert.ok(source.path); exactKeys(source, ["path", "blockId"], "row.source"); path(source.path, "row.source.path"); const values = object(row.values, "row.values"); for (const value of Object.values(values)) validateValue(value); }
-    for (const item of input.groups) { const group = object(item, "group"); exactKeys(group, ["id", "label", "rowIds"], "group"); assert.ok(group.id && group.label && Array.isArray(group.rowIds)); }
-    for (const item of input.diagnostics) { const diagnostic = object(item, "diagnostic"); assert.ok(diagnostic.code && diagnostic.message && ["info", "warning", "error"].includes(String(diagnostic.severity))); exactKeys(diagnostic, ["code", "severity", "message", "sourcePath", "field"], "diagnostic"); if (diagnostic.sourcePath !== undefined) path(diagnostic.sourcePath, "diagnostic.sourcePath"); }
+    for (const item of input.columns) { const column = object(item, "column"); exactKeys(column, ["field", "label"], "column"); assert.equal(typeof column.field, "string"); assert.equal(typeof column.label, "string"); assert.ok((column.field as string).length > 0 && (column.label as string).length > 0); }
+    for (const item of input.rows) { const row = object(item, "row"); exactKeys(row, ["id", "source", "values"], "row"); assert.equal(typeof row.id, "string"); assert.ok((row.id as string).length > 0); const source = object(row.source, "row.source"); exactKeys(source, ["path", "blockId"], "row.source"); path(source.path, "row.source.path"); if (source.blockId !== undefined) { assert.equal(typeof source.blockId, "string"); assert.ok((source.blockId as string).length > 0); } const values = object(row.values, "row.values"); for (const value of Object.values(values)) validateValue(value); }
+    for (const item of input.groups) { const group = object(item, "group"); exactKeys(group, ["id", "label", "rowIds"], "group"); assert.equal(typeof group.id, "string"); assert.equal(typeof group.label, "string"); assert.ok((group.id as string).length > 0 && (group.label as string).length > 0 && Array.isArray(group.rowIds)); group.rowIds.forEach((id, i) => { assert.equal(typeof id, "string"); assert.ok((id as string).length > 0, `group.rowIds[${i}]`); }); }
+    for (const item of input.diagnostics) { const diagnostic = object(item, "diagnostic"); exactKeys(diagnostic, ["code", "severity", "message", "sourcePath", "field"], "diagnostic"); assert.equal(typeof diagnostic.code, "string"); assert.equal(typeof diagnostic.message, "string"); assert.ok((diagnostic.code as string).length > 0 && (diagnostic.message as string).length > 0 && ["info", "warning", "error"].includes(String(diagnostic.severity))); if (diagnostic.sourcePath !== undefined) path(diagnostic.sourcePath, "diagnostic.sourcePath"); if (diagnostic.field !== undefined) { assert.equal(typeof diagnostic.field, "string"); assert.ok((diagnostic.field as string).length > 0); } }
   } else if (name === "data-view-action-request") {
     assert.ok(input.queryId && input.field && input.actor && ["edit-property", "move-card"].includes(String(input.kind))); path(input.sourcePath, "sourcePath"); scalarOrArray(input.value, "value");
   } else {
@@ -173,9 +176,10 @@ describe("Agent Wiki shared contracts", () => {
   test("validates data-view fixtures and rejects invalid wire states", () => {
     const fixtures = Object.fromEntries(SCHEMA_NAMES.slice(7).map((name) => [name, json(`../fixtures/v1/${name}.json`)]));
     for (const [name, fixture] of Object.entries(fixtures)) {
-      const schema = json(`../schemas/${name}.schema.json`) as { required: string[]; properties: Record<string, unknown>; additionalProperties: boolean };
+      const schema = json(`../schemas/${name}.schema.json`) as { required: string[]; properties: Record<string, unknown>; additionalProperties: boolean; $defs?: Record<string, { pattern?: string }> };
       assert.equal(schema.additionalProperties, false);
       for (const key of schema.required) assert.ok(key in fixture, `${name} requires ${key}`);
+      if (schema.$defs?.path?.pattern !== undefined) assert.equal(schema.$defs.path.pattern, "^(?!/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\u0000\\\\]+$");
       validateDataView(name, fixture);
     }
     const definition = clone(fixtures["data-view-definition"]!);
@@ -187,15 +191,21 @@ describe("Agent Wiki shared contracts", () => {
     const badSource = object(definition.source, "source"); assert.throws(() => validateDataView("data-view-definition", { ...definition, source: { ...badSource, kind: "url" } }));
     const badPredicate = { kind: "field", field: "status", operator: "matches", value: "x" }; assert.throws(() => validateDataView("data-view-definition", { ...definition, where: badPredicate }));
     assert.throws(() => validateDataView("data-view-definition", { ...definition, source: { ...badSource, path: "https://example.com/secret" } }));
+    assert.throws(() => validateDataView("data-view-definition", { ...definition, source: { ...badSource, path: "/absolute/path" } }));
+    assert.throws(() => validateDataView("data-view-definition", { ...definition, source: { ...badSource, path: "C:/absolute/path" } }));
     const row = object((model.rows as unknown[])[0], "row"); const rowSource = object(row.source, "row.source");
     assert.throws(() => validateDataView("data-view-model", { ...model, rows: [{ ...row, extra: true }] }));
     assert.throws(() => validateDataView("data-view-model", { ...model, rows: [{ ...row, source: { ...rowSource, path: "file://secret" } }] }));
+    assert.throws(() => validateDataView("data-view-model", { ...model, rows: [{ ...row, source: { ...rowSource, path: "/absolute/path" } }] }));
     const value = object((row.values as Record<string, unknown>).status, "value");
     assert.throws(() => validateDataView("data-view-model", { ...model, rows: [{ ...row, values: { status: { ...value, state: "invalid" } } }] }));
     assert.throws(() => validateDataView("data-view-action-request", { ...action, sourcePath: "vault://secret" }));
+    assert.throws(() => validateDataView("data-view-action-request", { ...action, sourcePath: "/absolute/path" }));
     assert.throws(() => validateDataView("data-view-import-plan", { ...plan, targetRoot: "https://example.com" }));
+    assert.throws(() => validateDataView("data-view-import-plan", { ...plan, targetRoot: "/absolute/path" }));
     const file = object((plan.files as unknown[])[0], "file");
     assert.throws(() => validateDataView("data-view-import-plan", { ...plan, files: [{ ...file, path: "file://secret" }] }));
+    assert.throws(() => validateDataView("data-view-import-plan", { ...plan, files: [{ ...file, path: "C:/absolute/path" }] }));
   });
 
   test("fixtures never serialize credential material or raw machine paths", () => {

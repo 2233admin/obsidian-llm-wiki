@@ -169,7 +169,7 @@ export interface QueryTrace {
   fallbacks: string[];
   createdAt: string;
 }
- 
+
 export type DataViewKind = "table" | "kanban";
 export type DataViewScalar = string | number | boolean | null;
 
