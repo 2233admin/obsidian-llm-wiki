@@ -1,5 +1,5 @@
-import { createHash } from 'node:crypto';
 import { isCanonicalWorkItemId, isCanonicalWorkRunId } from '../workflow/workflow.js';
+import { canonicalRecoveryJson, fingerprintRecoveryValue } from './contract-support.js';
 
 export const PROJECT_HUB_RECOVERY_SCHEMA_VERSION = 'project-hub-recovery/v1' as const;
 
@@ -136,29 +136,8 @@ export interface ProjectHubRecoveryInput {
 const ABSOLUTE_PATH = /^(?:[A-Za-z]:[\\/]|\\|\/)/;
 const PROJECT_ID = /^project\/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/;
 const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
-function canonicalize(value: unknown): unknown {
-  if (value === undefined) return null;
-  if (Array.isArray(value)) return value.map(canonicalize);
-  if (value !== null && typeof value === 'object') {
-    const objectValue = value as Record<string, unknown>;
-    return Object.fromEntries(
-      Object.entries(objectValue)
-        .sort(([left], [right]) => left.localeCompare(right))
-        .map(([key, item]) => [key, canonicalize(item)]),
-    );
-  }
-  if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  throw new Error('Project Hub recovery snapshot contains a non-JSON value');
-}
-
-
 function canonicalJson(value: unknown): string {
-  return JSON.stringify(canonicalize(value));
-}
-
-function sha256(value: string): `sha256:${string}` {
-  return `sha256:${createHash('sha256').update(value, 'utf8').digest('hex')}`;
+  return canonicalRecoveryJson(value);
 }
 
 function safeRef(value: unknown): string | null {
@@ -508,7 +487,7 @@ function nextActions(
 export function fingerprintProjectHubRecoverySnapshot(snapshot: Omit<ProjectHubRecoverySnapshot, 'fingerprint'>): `sha256:${string}` {
   const { generatedAt: _generatedAt, fingerprint: _fingerprint, freshness, ...rest } = snapshot as ProjectHubRecoverySnapshot;
   const { generatedAt: _freshnessGeneratedAt, ...stableFreshness } = freshness;
-  return sha256(canonicalJson({ ...rest, freshness: stableFreshness }));
+  return fingerprintRecoveryValue({ ...rest, freshness: stableFreshness });
 }
 export function composeProjectHubRecoverySnapshot(input: ProjectHubRecoveryInput): ProjectHubRecoverySnapshot {
   if (!PROJECT_ID.test(input.projectId)) throw new Error('Project Hub recovery projectId must be a canonical Project ID');
@@ -592,7 +571,7 @@ export function composeProjectHubRecoverySnapshot(input: ProjectHubRecoveryInput
 }
 
 export function canonicalProjectHubRecoveryJson(snapshot: ProjectHubRecoverySnapshot): string {
-  return `${JSON.stringify(canonicalize(snapshot), null, 2)}\n`;
+  return `${JSON.stringify(JSON.parse(canonicalRecoveryJson(snapshot)), null, 2)}\n`;
 }
 
 function objectValue(value: unknown, label: string): Record<string, unknown> {
@@ -713,7 +692,6 @@ export function validateProjectHubRecoverySnapshot(value: unknown): ProjectHubRe
     if (!['current', 'stale', 'unavailable', 'unknown'].includes(item.status as string)) throw new Error(`Project Hub recovery citations[${index}].status is invalid`);
   }
   const candidate = snapshot as unknown as ProjectHubRecoverySnapshot;
-  canonicalize(candidate);
   if (fingerprintProjectHubRecoverySnapshot(candidate) !== candidate.fingerprint) throw new Error('Project Hub recovery snapshot fingerprint does not match its content');
   return candidate;
 }
