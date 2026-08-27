@@ -8,10 +8,11 @@ export interface RecoveryTextBounds {
 }
 
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f]/u;
-const ABSOLUTE_OR_HOME_PATH = /^(?:[A-Za-z]:[\\/]|[\\/]{1,2}|~(?:[\\/]|$))/u;
+const ABSOLUTE_OR_HOME_PATH = /(?:[A-Za-z]:[\\/]|(?:^|[\s"'([{])(?:[\\/]{1,2}|~(?:[\\/]|$)))/u;
 const SENSITIVE_KEY = /(?:authorization|cookie|token|secret|password|credential|api[-_]?key|access[-_]?key|refresh[-_]?token|private[-_]?key|prompt|transcript|environment|process[-_]?env|headers?)/iu;
 const SENSITIVE_VALUE = /(?:^|\b)(?:bearer|basic)\s+[A-Za-z0-9+/=._~-]{8,}|(?:^|\s)(?:gh[pousr]_[A-Za-z0-9_]{10,}|github_pat_[A-Za-z0-9_]{10,}|xox[baprs]-[A-Za-z0-9-]{10,}|sk-[A-Za-z0-9_-]{10,}|AIza[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|npm_[A-Za-z0-9]{10,}|pypi-[A-Za-z0-9_-]{10,})(?:$|\s)|eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}|-----BEGIN [A-Z ]*PRIVATE KEY-----/u;
-const RAW_MATERIAL_MARKER = /(?:raw\s+)?(?:system|user|assistant)?\s*(?:prompt|transcript)|(?:begin|end)\s+(?:raw\s+)?(?:prompt|transcript)|transcript[_ -]?body/iu;
+const RAW_MATERIAL_MARKER = /(?:raw[\s_-]*(?:prompt|transcript)|(?:raw[\s_-]*)?(?:system|user|assistant)[\s_-]*(?:prompt|transcript)|(?:begin|end)[\s_-]+(?:raw[\s_-]+)?(?:prompt|transcript)|(?:raw[\s_-]*)?(?:prompt|transcript)[\s_-]*body)/iu;
+const CREDENTIAL_ASSIGNMENT = /(?:^|[\s"'([{,;])(?:password|token|secret|api[-_]?key|access[-_]?key|refresh[-_]?token|private[-_]?key|credential)\s*(?:=|:)\s*\S+/iu;
 
 function canonicalize(value: unknown, depth = 0): unknown {
   if (depth > 64) throw new Error('Recovery contract value exceeds maximum nesting depth');
@@ -62,12 +63,12 @@ export function assertClosedRecoveryObject(
   }
   return objectValue;
 }
-
 function unsafeString(value: string): boolean {
   return CONTROL_CHARACTERS.test(value)
     || ABSOLUTE_OR_HOME_PATH.test(value)
     || SENSITIVE_VALUE.test(value)
-    || RAW_MATERIAL_MARKER.test(value);
+    || RAW_MATERIAL_MARKER.test(value)
+    || CREDENTIAL_ASSIGNMENT.test(value);
 }
 
 export function hasUnsafeRecoveryMaterial(value: unknown): boolean {

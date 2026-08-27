@@ -1,9 +1,10 @@
+import { isCanonicalWorkItemId, isCanonicalWorkRunId } from '../workflow/workflow.js';
 import {
   assertClosedRecoveryObject,
   canonicalRecoveryJson,
   fingerprintRecoveryValue,
-  hasUnsafeRecoveryMaterial,
   safeRecoveryText,
+  utf8JsonBytes,
   type RecoveryFingerprint,
 } from './contract-support.js';
 
@@ -69,16 +70,15 @@ export interface RecoveryOwnerLock {
   fingerprint: RecoveryFingerprint | null;
   state: 'current' | 'stale' | 'unavailable';
 }
-
 export interface RecoveryAgentSelectionV2 {
   bindingId: string;
-  bindingRevision: string | number;
+  bindingRevision: number;
 }
 
 export interface RecoveryPlanAgentSelectionV2 extends RecoveryAgentSelectionV2 {
   role: string;
   profileId: string;
-  profileRevision: string | number;
+  profileRevision: number;
 }
 
 export interface RecoveryCapabilityFactV2 {
@@ -297,7 +297,12 @@ export interface RecoveryFlowIntrinsicProjectionV2 {
   omitted: RecoveryOmittedV2;
 }
 
-export interface RecoveryFlowResponseBaseV2<S extends RecoveryFlowStage, P, I extends RecoveryFlowRequestIntentV2> {
+export interface RecoveryFlowResponseBaseV2<
+  S extends RecoveryFlowStage,
+  P,
+  I extends RecoveryFlowRequestIntentV2,
+  R extends RecoveryFlowRequestV2,
+> {
   schemaVersion: typeof RECOVERY_FLOW_SCHEMA_VERSION;
   stage: S;
   projectId: string;
@@ -310,16 +315,16 @@ export interface RecoveryFlowResponseBaseV2<S extends RecoveryFlowStage, P, I ex
   diagnostics: RecoveryFlowDiagnosticV2[];
   omitted: RecoveryOmittedV2;
   rootOpenFlowFingerprint: RecoveryFingerprint;
-  nextRequests: RecoveryFlowRequestV2[];
+  nextRequests: R[];
   generatedAt: string;
   flowFingerprint: RecoveryFingerprint;
 }
-export type RecoveryOpenResponseV2 = RecoveryFlowResponseBaseV2<'open', RecoveryOpenPayloadV2, RecoverySearchRequestIntentV2>;
-export type RecoverySearchedResponseV2 = RecoveryFlowResponseBaseV2<'searched', RecoverySearchedPayloadV2, RecoveryPlanRequestIntentV2>;
-export type RecoveryNeedsAgentSelectionResponseV2 = RecoveryFlowResponseBaseV2<'needs-agent-selection', RecoveryNeedsAgentSelectionPayloadV2, never>;
-export type RecoveryPlannedResponseV2 = RecoveryFlowResponseBaseV2<'planned', RecoveryPlannedPayloadV2, RecoveryPlanRequestIntentV2 | RecoveryRefreshRequestIntentV2>;
-export type RecoveryStaleResponseV2 = RecoveryFlowResponseBaseV2<'stale', RecoveryStaleProofV2, RecoveryRestartRequestIntentV2>;
-export type RecoveryUnavailableResponseV2 = RecoveryFlowResponseBaseV2<'unavailable', RecoveryUnavailablePayloadV2, RecoveryFlowRequestIntentV2>;
+export type RecoveryOpenResponseV2 = RecoveryFlowResponseBaseV2<'open', RecoveryOpenPayloadV2, RecoverySearchRequestIntentV2, RecoverySearchRequestV2>;
+export type RecoverySearchedResponseV2 = RecoveryFlowResponseBaseV2<'searched', RecoverySearchedPayloadV2, RecoveryPlanRequestIntentV2, RecoveryPlanFromSearchRequestV2>;
+export type RecoveryNeedsAgentSelectionResponseV2 = RecoveryFlowResponseBaseV2<'needs-agent-selection', RecoveryNeedsAgentSelectionPayloadV2, never, never>;
+export type RecoveryPlannedResponseV2 = RecoveryFlowResponseBaseV2<'planned', RecoveryPlannedPayloadV2, RecoveryPlanRequestIntentV2 | RecoveryRefreshRequestIntentV2, RecoveryPlanOverrideRequestV2 | RecoveryRefreshPlanRequestV2>;
+export type RecoveryStaleResponseV2 = RecoveryFlowResponseBaseV2<'stale', RecoveryStaleProofV2, RecoveryRestartRequestIntentV2, RecoveryRestartRequestV2>;
+export type RecoveryUnavailableResponseV2 = RecoveryFlowResponseBaseV2<'unavailable', RecoveryUnavailablePayloadV2, never, never>;
 export type RecoveryFlowResponseV2 =
   | RecoveryOpenResponseV2
   | RecoverySearchedResponseV2
@@ -354,13 +359,17 @@ function nullableFingerprint(value: unknown, label: string): RecoveryFingerprint
   return value === null ? null : fingerprint(value, label);
 }
 function validateRevision(value: unknown, label: string): string | number {
-  if ((typeof value !== 'string' && typeof value !== 'number') || (typeof value === 'number' && !Number.isFinite(value))) {
-    fail(label, 'must be a finite string or number');
-  }
+  if (typeof value === 'string') return safeRecoveryText(value, label, { minBytes: 1, maxBytes: 256 });
+  if (typeof value !== 'number' || !Number.isSafeInteger(value)) fail(label, 'must be a safe integer or bounded string');
   return value;
 }
-function validateProjectOrSafeRef(value: unknown, label: string): string {
-  return boundedId(value, label);
+function validateWorkItemId(value: unknown, label: string, project: string): string {
+  if (!isCanonicalWorkItemId(value) || !value.startsWith(`${project}/issue/`)) fail(label, 'must be a canonical Work Item for the request Project');
+  return value;
+}
+function validateWorkRunId(value: unknown, label: string): string {
+  if (!isCanonicalWorkRunId(value)) fail(label, 'must be a canonical Work Run ID');
+  return value;
 }
 function validateOwner(value: unknown, label: string): RecoveryOwner {
   if (typeof value !== 'string' || OWNER_SET[value as RecoveryOwner] !== true) fail(label, 'has an invalid owner');
@@ -379,23 +388,35 @@ function validateOwnerLocks(value: unknown, label: string): RecoveryOwnerLock[] 
       state,
     } as RecoveryOwnerLock;
   });
-  for (let index = 0; index < locks.length; index += 1) {
-    if (locks[index]!.owner !== OWNER_ORDER[index]) fail(label, 'must use canonical owner-lock order without duplicates');
+  let previousOwnerIndex = -1;
+  for (const lock of locks) {
+    const ownerIndex = OWNER_ORDER.indexOf(lock.owner);
+    if (ownerIndex <= previousOwnerIndex) fail(label, 'must use canonical owner-lock order without duplicates');
+    previousOwnerIndex = ownerIndex;
   }
   return locks;
 }
 function validateAgentSelection(value: unknown, label: string): RecoveryAgentSelectionV2 {
   const entry = object(value, label, ['bindingId', 'bindingRevision']);
-  return { bindingId: boundedId(entry.bindingId, `${label}.bindingId`), bindingRevision: validateRevision(entry.bindingRevision, `${label}.bindingRevision`) };
+  if (typeof entry.bindingRevision !== 'number' || !Number.isSafeInteger(entry.bindingRevision) || entry.bindingRevision < 1) {
+    fail(`${label}.bindingRevision`, 'must be a positive safe integer');
+  }
+  return { bindingId: boundedId(entry.bindingId, `${label}.bindingId`), bindingRevision: entry.bindingRevision };
 }
 function validatePlanAgentSelection(value: unknown, label: string): RecoveryPlanAgentSelectionV2 {
   const entry = object(value, label, ['role', 'bindingId', 'bindingRevision', 'profileId', 'profileRevision']);
+  if (typeof entry.bindingRevision !== 'number' || !Number.isSafeInteger(entry.bindingRevision) || entry.bindingRevision < 1) {
+    fail(`${label}.bindingRevision`, 'must be a positive safe integer');
+  }
+  if (typeof entry.profileRevision !== 'number' || !Number.isSafeInteger(entry.profileRevision) || entry.profileRevision < 1) {
+    fail(`${label}.profileRevision`, 'must be a positive safe integer');
+  }
   return {
     role: boundedId(entry.role, `${label}.role`),
     bindingId: boundedId(entry.bindingId, `${label}.bindingId`),
-    bindingRevision: validateRevision(entry.bindingRevision, `${label}.bindingRevision`),
+    bindingRevision: entry.bindingRevision,
     profileId: boundedId(entry.profileId, `${label}.profileId`),
-    profileRevision: validateRevision(entry.profileRevision, `${label}.profileRevision`),
+    profileRevision: entry.profileRevision,
   };
 }
 function validateQuery(value: unknown, label: string): string {
@@ -409,14 +430,22 @@ function validateTimestamp(value: unknown, label: string): string {
   if (typeof value !== 'string' || !ISO_TIMESTAMP.test(value) || Number.isNaN(Date.parse(value))) fail(label, 'must be an ISO-8601 UTC timestamp');
   return value;
 }
-function validateCitations(value: unknown, label: string, max = 64): string[] {
-  return list(value, label, max, (item, itemLabel) => boundedId(item, itemLabel, 512));
+function validateCitations(value: unknown, label: string, max = 64, min = 0): string[] {
+  const citations = list(value, label, max, (item, itemLabel) => boundedId(item, itemLabel, 512));
+  if (citations.length < min) fail(label, `must contain at least ${min} item${min === 1 ? '' : 's'}`);
+  return citations;
 }
 function validateStaleProof(value: unknown, label: string): RecoveryStaleProofV2 {
   const entry = object(value, label, ['schemaVersion', 'projectId', 'rootOpenFlowFingerprint', 'priorFlowFingerprint', 'priorActionInputFingerprint', 'recoveryFingerprint', 'changedOwners', 'citationTargets', 'fingerprint']);
   if (entry.schemaVersion !== RECOVERY_STALE_PROOF_SCHEMA_VERSION) fail(`${label}.schemaVersion`, 'has an invalid schema version');
   const changedOwners = list(entry.changedOwners, `${label}.changedOwners`, OWNER_ORDER.length, validateOwner);
-  if (changedOwners.some((owner, index) => owner !== OWNER_ORDER[index])) fail(`${label}.changedOwners`, 'must use canonical owner order without duplicates');
+  if (changedOwners.length < 1) fail(`${label}.changedOwners`, 'must contain at least one owner');
+  let previousOwnerIndex = -1;
+  for (const owner of changedOwners) {
+    const ownerIndex = OWNER_ORDER.indexOf(owner);
+    if (ownerIndex <= previousOwnerIndex) fail(`${label}.changedOwners`, 'must use canonical owner order without duplicates');
+    previousOwnerIndex = ownerIndex;
+  }
   const proof = {
     schemaVersion: RECOVERY_STALE_PROOF_SCHEMA_VERSION,
     projectId: projectId(entry.projectId, `${label}.projectId`),
@@ -444,9 +473,10 @@ export function validateRecoveryPlanV2(value: unknown): RecoveryPlanV2 {
   if (entry.schemaVersion !== RECOVERY_PLAN_SCHEMA_VERSION) fail('priorPlan.schemaVersion', 'has an invalid schema version');
   if (entry.kind !== 'resume' && entry.kind !== 'create') fail('priorPlan.kind', 'has an invalid kind');
   if (entry.owningOperation !== 'workflow.recovery.apply') fail('priorPlan.owningOperation', 'must be workflow.recovery.apply');
-  if (entry.workRunId !== null) boundedId(entry.workRunId, 'priorPlan.workRunId');
+  const planProjectId = projectId(entry.projectId, 'priorPlan.projectId');
   if (entry.kind === 'resume' && entry.workRunId === null) fail('priorPlan.workRunId', 'is required for resume plans');
   if (entry.kind === 'create' && entry.workRunId !== null) fail('priorPlan.workRunId', 'must be null for create plans');
+  if (entry.workRunId !== null) validateWorkRunId(entry.workRunId, 'priorPlan.workRunId');
   if ((entry.kind === 'resume' && entry.leaseDurationMs !== 0) || (entry.kind === 'create' && entry.leaseDurationMs !== 900000)) {
     fail('priorPlan.leaseDurationMs', 'must be 0 for resume or 900000 for create');
   }
@@ -454,8 +484,8 @@ export function validateRecoveryPlanV2(value: unknown): RecoveryPlanV2 {
   const expiresAt = validateTimestamp(entry.expiresAt, 'priorPlan.expiresAt');
   if (Date.parse(expiresAt) - Date.parse(createdAt) !== 300000) fail('priorPlan.expiresAt', 'must be exactly five minutes after createdAt');
   const plan = {
-    schemaVersion: entry.schemaVersion,
-    projectId: projectId(entry.projectId, 'priorPlan.projectId'),
+    schemaVersion: RECOVERY_PLAN_SCHEMA_VERSION,
+    projectId: planProjectId,
     rootOpenFlowFingerprint: fingerprint(entry.rootOpenFlowFingerprint, 'priorPlan.rootOpenFlowFingerprint'),
     searchedBasisFlowFingerprint: fingerprint(entry.searchedBasisFlowFingerprint, 'priorPlan.searchedBasisFlowFingerprint'),
     recoveryFingerprint: fingerprint(entry.recoveryFingerprint, 'priorPlan.recoveryFingerprint'),
@@ -464,20 +494,19 @@ export function validateRecoveryPlanV2(value: unknown): RecoveryPlanV2 {
     candidateSetFingerprint: fingerprint(entry.candidateSetFingerprint, 'priorPlan.candidateSetFingerprint'),
     candidateId: boundedId(entry.candidateId, 'priorPlan.candidateId'),
     kind: entry.kind,
-    workItemId: validateProjectOrSafeRef(entry.workItemId, 'priorPlan.workItemId'),
-    workRunId: entry.workRunId === null ? null : boundedId(entry.workRunId, 'priorPlan.workRunId'),
+    workItemId: validateWorkItemId(entry.workItemId, 'priorPlan.workItemId', planProjectId),
+    workRunId: entry.workRunId === null ? null : validateWorkRunId(entry.workRunId, 'priorPlan.workRunId'),
     agentSelection: validatePlanAgentSelection(entry.agentSelection, 'priorPlan.agentSelection'),
     ownerLocks: validateOwnerLocks(entry.ownerLocks, 'priorPlan.ownerLocks'),
     capabilityFacts: validateCapabilityFacts(entry.capabilityFacts, 'priorPlan.capabilityFacts'),
-    citationTargets: validateCitations(entry.citationTargets, 'priorPlan.citationTargets', 32),
+    citationTargets: validateCitations(entry.citationTargets, 'priorPlan.citationTargets', 32, 1),
     owningOperation: entry.owningOperation,
     createdAt,
     expiresAt,
     leaseDurationMs: entry.leaseDurationMs,
     fingerprint: fingerprint(entry.fingerprint, 'priorPlan.fingerprint'),
   } as RecoveryPlanV2;
-  const planWithoutFingerprint = { ...plan };
-  delete (planWithoutFingerprint as Partial<RecoveryPlanV2>).fingerprint;
+  const { fingerprint: _fingerprint, ...planWithoutFingerprint } = plan;
   if (fingerprintRecoveryValue(planWithoutFingerprint) !== plan.fingerprint) fail('priorPlan', 'fingerprint does not match');
   return plan;
 }
@@ -515,23 +544,23 @@ function validateIntent(value: unknown, label: string): RecoveryFlowRequestInten
   }
   fail(label, 'has an invalid action');
 }
-function validateCommon(entry: Record<string, unknown>, label: string): void {
+function validateCommon(entry: Record<string, unknown>, label: string): string {
   if (entry.schemaVersion !== RECOVERY_FLOW_REQUEST_SCHEMA_VERSION) fail(`${label}.schemaVersion`, 'has an invalid schema version');
-  projectId(entry.projectId, `${label}.projectId`);
+  return projectId(entry.projectId, `${label}.projectId`);
 }
 export function validateRecoveryFlowRequestV2(value: unknown): RecoveryFlowRequestV2 {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) fail('Recovery Flow request', 'must be an object');
   const raw = value as Record<string, unknown>;
-  validateCommon(raw, 'Recovery Flow request');
+  const project = validateCommon(raw, 'Recovery Flow request');
   if (typeof raw.action !== 'string' || ACTION_SET[raw.action as RecoveryFlowAction] !== true) fail('Recovery Flow request.action', 'has an invalid action');
   const schemaVersion = RECOVERY_FLOW_REQUEST_SCHEMA_VERSION;
   if (raw.action === 'open') {
     object(value, 'Recovery Flow open request', ['schemaVersion', 'projectId', 'action']);
-    return { schemaVersion, projectId: projectId(raw.projectId, 'projectId'), action: 'open' };
+    return { schemaVersion, projectId: project, action: 'open' };
   }
   if (raw.action === 'search') {
     const entry = object(value, 'Recovery Flow search request', ['schemaVersion', 'projectId', 'action', 'openFlowFingerprint', 'query', 'limit']);
-    return { schemaVersion, projectId: projectId(entry.projectId, 'projectId'), action: 'search', openFlowFingerprint: fingerprint(entry.openFlowFingerprint, 'openFlowFingerprint'), query: validateQuery(entry.query, 'query'), limit: validateLimit(entry.limit, 'limit') };
+    return { schemaVersion, projectId: project, action: 'search', openFlowFingerprint: fingerprint(entry.openFlowFingerprint, 'openFlowFingerprint'), query: validateQuery(entry.query, 'query'), limit: validateLimit(entry.limit, 'limit') };
   }
   if (raw.action === 'plan') {
     const entry = object(value, 'Recovery Flow plan request', ['schemaVersion', 'projectId', 'action', 'mode', 'openFlowFingerprint', 'searchedBasisFlowFingerprint', 'plannedFlowFingerprint', 'query', 'limit', 'candidateId', 'agentSelection', 'priorPlan']);
@@ -541,7 +570,7 @@ export function validateRecoveryFlowRequestV2(value: unknown): RecoveryFlowReque
     if ((entry.mode === 'from-search') !== (plannedFlowFingerprint === null) || (entry.mode === 'from-search') !== (priorPlan === null)) fail('Recovery Flow plan request', 'mode and nullable fields do not match');
     const plan = {
       schemaVersion,
-      projectId: projectId(entry.projectId, 'projectId'),
+      projectId: project,
       action: 'plan' as const,
       mode: entry.mode,
       openFlowFingerprint: fingerprint(entry.openFlowFingerprint, 'openFlowFingerprint'),
@@ -554,17 +583,23 @@ export function validateRecoveryFlowRequestV2(value: unknown): RecoveryFlowReque
       priorPlan,
     };
     if (priorPlan !== null && priorPlan.projectId !== plan.projectId) fail('priorPlan.projectId', 'must match request projectId');
+    if (entry.mode === 'override' && priorPlan !== null) {
+      if (plan.openFlowFingerprint !== priorPlan.rootOpenFlowFingerprint) fail('openFlowFingerprint', 'must match priorPlan.rootOpenFlowFingerprint');
+      if (plan.searchedBasisFlowFingerprint !== priorPlan.searchedBasisFlowFingerprint) fail('searchedBasisFlowFingerprint', 'must match priorPlan.searchedBasisFlowFingerprint');
+    }
     return plan as RecoveryPlanFromSearchRequestV2 | RecoveryPlanOverrideRequestV2;
   }
   if (raw.action === 'refresh-plan') {
     const entry = object(value, 'Recovery Flow refresh-plan request', ['schemaVersion', 'projectId', 'action', 'openFlowFingerprint', 'searchedBasisFlowFingerprint', 'plannedFlowFingerprint', 'query', 'limit', 'priorPlan']);
     const priorPlan = validateRecoveryPlanV2(entry.priorPlan);
-    const project = projectId(entry.projectId, 'projectId');
     if (priorPlan.projectId !== project) fail('priorPlan.projectId', 'must match request projectId');
-    return { schemaVersion, projectId: project, action: 'refresh-plan', openFlowFingerprint: fingerprint(entry.openFlowFingerprint, 'openFlowFingerprint'), searchedBasisFlowFingerprint: fingerprint(entry.searchedBasisFlowFingerprint, 'searchedBasisFlowFingerprint'), plannedFlowFingerprint: fingerprint(entry.plannedFlowFingerprint, 'plannedFlowFingerprint'), query: validateQuery(entry.query, 'query'), limit: validateLimit(entry.limit, 'limit'), priorPlan };
+    const openFlowFingerprint = fingerprint(entry.openFlowFingerprint, 'openFlowFingerprint');
+    const searchedBasisFlowFingerprint = fingerprint(entry.searchedBasisFlowFingerprint, 'searchedBasisFlowFingerprint');
+    if (openFlowFingerprint !== priorPlan.rootOpenFlowFingerprint) fail('openFlowFingerprint', 'must match priorPlan.rootOpenFlowFingerprint');
+    if (searchedBasisFlowFingerprint !== priorPlan.searchedBasisFlowFingerprint) fail('searchedBasisFlowFingerprint', 'must match priorPlan.searchedBasisFlowFingerprint');
+    return { schemaVersion, projectId: project, action: 'refresh-plan', openFlowFingerprint, searchedBasisFlowFingerprint, plannedFlowFingerprint: fingerprint(entry.plannedFlowFingerprint, 'plannedFlowFingerprint'), query: validateQuery(entry.query, 'query'), limit: validateLimit(entry.limit, 'limit'), priorPlan };
   }
   const entry = object(value, 'Recovery Flow restart request', ['schemaVersion', 'projectId', 'action', 'staleProof']);
-  const project = projectId(entry.projectId, 'projectId');
   const staleProof = validateStaleProof(entry.staleProof, 'staleProof');
   if (staleProof.projectId !== project) fail('staleProof.projectId', 'must match request projectId');
   return { schemaVersion, projectId: project, action: 'restart', staleProof };
@@ -601,10 +636,11 @@ function validateSearchResult(value: unknown, label: string, expectedProjectId: 
     freshness: boundedId(entry.freshness, `${label}.freshness`, 64),
     confidence: boundedId(entry.confidence, `${label}.confidence`, 64),
     provenance: boundedId(entry.provenance, `${label}.provenance`, 512),
-    citationTargets: validateCitations(entry.citationTargets, `${label}.citationTargets`, 4),
+    citationTargets: validateCitations(entry.citationTargets, `${label}.citationTargets`, 4, 1),
   };
   if (result.projectId !== expectedProjectId) fail(`${label}.projectId`, 'must match response projectId');
   if (typeof result.score !== 'number' || !Number.isInteger(result.score) || result.score < 0) fail(`${label}.score`, 'must be a non-negative integer');
+  if (utf8JsonBytes(result) > 4096) fail(label, 'must not exceed 4096 canonical JSON bytes');
   return result as RecoverySearchResultV2;
 }
 function validatePayload(stage: RecoveryFlowStage, value: unknown, project: string): RecoveryFlowPayloadV2 {
@@ -613,43 +649,90 @@ function validatePayload(stage: RecoveryFlowStage, value: unknown, project: stri
     const entry = object(value, 'payload', ['kind', 'workItemId', 'workRunId', 'contextSource', 'citations']);
     if (entry.kind !== 'open') fail('payload.kind', 'does not match stage');
     if (entry.contextSource !== 'work-run' && entry.contextSource !== 'session-record' && entry.contextSource !== 'none') fail('payload.contextSource', 'has an invalid source');
-    return { kind: 'open', workItemId: entry.workItemId === null ? null : boundedId(entry.workItemId, 'payload.workItemId'), workRunId: entry.workRunId === null ? null : boundedId(entry.workRunId, 'payload.workRunId'), contextSource: entry.contextSource, citations: validateCitations(entry.citations, 'payload.citations') };
+    const workItemId = entry.workItemId === null ? null : validateWorkItemId(entry.workItemId, 'payload.workItemId', project);
+    const workRunId = entry.workRunId === null ? null : validateWorkRunId(entry.workRunId, 'payload.workRunId');
+    if (entry.contextSource === 'work-run' && workRunId === null) fail('payload.workRunId', 'is required for work-run context');
+    if (entry.contextSource !== 'work-run' && workRunId !== null) fail('payload.workRunId', 'must be null for session-record or empty context');
+    const payload = { kind: 'open' as const, workItemId, workRunId, contextSource: entry.contextSource as RecoveryOpenPayloadV2['contextSource'], citations: validateCitations(entry.citations, 'payload.citations') };
+    if (utf8JsonBytes(payload) > 64 * 1024) fail('payload', 'must not exceed 64 KiB');
+    return payload;
   }
   if (stage === 'searched') {
     const entry = object(value, 'payload', ['kind', 'query', 'limit', 'searchInputFingerprint', 'searchFingerprint', 'results']);
     if (entry.kind !== 'searched') fail('payload.kind', 'does not match stage');
-    return { kind: 'searched', query: validateQuery(entry.query, 'payload.query'), limit: validateLimit(entry.limit, 'payload.limit'), searchInputFingerprint: fingerprint(entry.searchInputFingerprint, 'payload.searchInputFingerprint'), searchFingerprint: fingerprint(entry.searchFingerprint, 'payload.searchFingerprint'), results: list(entry.results, 'payload.results', 25, (item, label) => validateSearchResult(item, label, project)) };
+    const payload = { kind: 'searched' as const, query: validateQuery(entry.query, 'payload.query'), limit: validateLimit(entry.limit, 'payload.limit'), searchInputFingerprint: fingerprint(entry.searchInputFingerprint, 'payload.searchInputFingerprint'), searchFingerprint: fingerprint(entry.searchFingerprint, 'payload.searchFingerprint'), results: list(entry.results, 'payload.results', 25, (item, label) => validateSearchResult(item, label, project)) };
+    if (utf8JsonBytes(payload) > 128 * 1024) fail('payload', 'must not exceed 128 KiB');
+    return payload;
   }
   if (stage === 'needs-agent-selection') {
     const entry = object(value, 'payload', ['kind', 'candidates', 'bindings']);
     if (entry.kind !== 'needs-agent-selection') fail('payload.kind', 'does not match stage');
-    return { kind: 'needs-agent-selection', candidates: list(entry.candidates, 'payload.candidates', 3, (item, label) => boundedId(item, label)), bindings: list(entry.bindings, 'payload.bindings', 16, validateAgentSelection) };
+    const candidates = list(entry.candidates, 'payload.candidates', 3, (item, label) => boundedId(item, label));
+    if (candidates.length < 1 || new Set(candidates).size !== candidates.length) fail('payload.candidates', 'must contain 1-3 unique candidates');
+    const bindings = list(entry.bindings, 'payload.bindings', 16, validateAgentSelection);
+    const bindingKeys = bindings.map((binding) => `${binding.bindingId}\u0000${binding.bindingRevision}`);
+    if (bindings.length < 2 || new Set(bindingKeys).size !== bindings.length) fail('payload.bindings', 'must contain 2-16 unique compatible bindings');
+    return { kind: 'needs-agent-selection', candidates, bindings };
   }
   if (stage === 'planned') {
     const entry = object(value, 'payload', ['kind', 'plan', 'candidates']);
     if (entry.kind !== 'planned') fail('payload.kind', 'does not match stage');
     const plan = validateRecoveryPlanV2(entry.plan);
     if (plan.projectId !== project) fail('payload.plan.projectId', 'must match response projectId');
-    return { kind: 'planned', plan, candidates: list(entry.candidates, 'payload.candidates', 3, (item, label) => boundedId(item, label)) };
+    const candidates = list(entry.candidates, 'payload.candidates', 3, (item, label) => boundedId(item, label));
+    if (candidates.length < 1 || new Set(candidates).size !== candidates.length || !candidates.includes(plan.candidateId)) {
+      fail('payload.candidates', 'must contain 1-3 unique candidates including plan.candidateId');
+    }
+    return { kind: 'planned', plan, candidates };
   }
   const entry = object(value, 'payload', ['kind', 'reason', 'remediation']);
   if (entry.kind !== 'unavailable') fail('payload.kind', 'does not match stage');
   return { kind: 'unavailable', reason: boundedId(entry.reason, 'payload.reason', 128), remediation: boundedId(entry.remediation, 'payload.remediation', 1024) };
 }
-function validateIntents(stage: RecoveryFlowStage, value: unknown): RecoveryFlowRequestIntentV2[] {
+function validateIntents(stage: RecoveryFlowStage, value: unknown, payload: RecoveryFlowPayloadV2): RecoveryFlowRequestIntentV2[] {
   const intents = list(value, 'nextRequestIntents', 8, validateIntent);
-  const allowed: Partial<Record<RecoveryFlowAction, true>> = stage === 'open'
-    ? { search: true }
-    : stage === 'searched'
-      ? { plan: true }
-      : stage === 'planned'
-        ? { plan: true, 'refresh-plan': true }
-        : stage === 'stale'
-          ? { restart: true }
-          : {};
-  if (stage === 'stale' && intents.length !== 1) fail('nextRequestIntents', 'stale responses must contain exactly one restart intent');
-  if (stage === 'searched' && intents.some((intent) => intent.action !== 'plan' || intent.mode !== 'from-search' || intent.priorPlan !== null)) fail('nextRequestIntents', 'searched responses require from-search plan intents');
-  if (stage === 'planned' && intents.some((intent) => (intent.action === 'plan' && (intent.mode !== 'override' || intent.priorPlan === null)) || (intent.action === 'refresh-plan' && intent.priorPlan === null))) fail('nextRequestIntents', 'planned responses require complete prior Plan intents');
+  let allowed: Partial<Record<RecoveryFlowAction, true>>;
+  switch (stage) {
+    case 'open':
+      allowed = { search: true };
+      break;
+    case 'searched':
+      allowed = { plan: true };
+      break;
+    case 'planned':
+      allowed = { plan: true, 'refresh-plan': true };
+      break;
+    case 'stale':
+      allowed = { restart: true };
+      break;
+    default:
+      allowed = {};
+  }
+  if (stage === 'searched') {
+    if (intents.length > 1) fail('nextRequestIntents', 'searched responses allow at most one plan intent');
+    const searched = payload as RecoverySearchedPayloadV2;
+    if (intents.some((intent) => intent.action !== 'plan' || intent.mode !== 'from-search' || intent.priorPlan !== null || intent.query !== searched.query || intent.limit !== searched.limit)) {
+      fail('nextRequestIntents', 'searched responses require a from-search plan intent bound to the payload query and limit');
+    }
+  }
+  if ((stage === 'needs-agent-selection' || stage === 'unavailable') && intents.length !== 0) {
+    fail('nextRequestIntents', `${stage} responses do not permit next-request intents`);
+  }
+  if (stage === 'planned') {
+    const currentPlan = (payload as RecoveryPlannedPayloadV2).plan;
+    if (intents.some((intent) => {
+      if (intent.action === 'plan' && intent.mode !== 'override') return true;
+      const priorPlan = intent.action === 'plan' || intent.action === 'refresh-plan' ? intent.priorPlan : null;
+      return priorPlan === null || canonicalRecoveryJson(priorPlan) !== canonicalRecoveryJson(currentPlan);
+    })) fail('nextRequestIntents', 'planned responses must derive override or refresh intents from the current Plan');
+  }
+  if (stage === 'stale') {
+    const proof = payload as RecoveryStaleProofV2;
+    const intent = intents[0];
+    if (intent === undefined || intent.action !== 'restart' || canonicalRecoveryJson(intent.staleProof) !== canonicalRecoveryJson(proof)) {
+      fail('nextRequestIntents', 'stale restart intent must derive from the current stale proof');
+    }
+  }
   if (intents.some((intent) => allowed[intent.action] !== true)) fail('nextRequestIntents', 'contains an action not allowed by the current stage');
   return intents;
 }
@@ -674,7 +757,7 @@ export function fingerprintRecoveryFlowIntrinsicStage(input: RecoveryFlowIntrins
 function deriveRequest(response: RecoveryFlowResponseV2, intent: RecoveryFlowRequestIntentV2): RecoveryFlowRequestV2 {
   const common = { schemaVersion: RECOVERY_FLOW_REQUEST_SCHEMA_VERSION, projectId: response.projectId };
   if (intent.action === 'search') return { ...common, action: 'search', openFlowFingerprint: response.flowFingerprint, query: intent.query, limit: intent.limit };
-  if (intent.action === 'plan') return { ...common, action: 'plan', mode: intent.mode, openFlowFingerprint: response.rootOpenFlowFingerprint, searchedBasisFlowFingerprint: response.flowFingerprint, plannedFlowFingerprint: intent.priorPlan === null ? null : response.flowFingerprint, query: intent.query, limit: intent.limit, candidateId: intent.candidateId, agentSelection: intent.agentSelection, priorPlan: intent.priorPlan } as RecoveryFlowRequestV2;
+  if (intent.action === 'plan') return { ...common, action: 'plan', mode: intent.mode, openFlowFingerprint: response.rootOpenFlowFingerprint, searchedBasisFlowFingerprint: intent.priorPlan?.searchedBasisFlowFingerprint ?? response.flowFingerprint, plannedFlowFingerprint: intent.priorPlan === null ? null : response.flowFingerprint, query: intent.query, limit: intent.limit, candidateId: intent.candidateId, agentSelection: intent.agentSelection, priorPlan: intent.priorPlan } as RecoveryFlowRequestV2;
   if (intent.action === 'refresh-plan') return { ...common, action: 'refresh-plan', openFlowFingerprint: response.rootOpenFlowFingerprint, searchedBasisFlowFingerprint: intent.priorPlan.searchedBasisFlowFingerprint, plannedFlowFingerprint: response.flowFingerprint, query: intent.query, limit: intent.limit, priorPlan: intent.priorPlan };
   return { ...common, action: 'restart', staleProof: intent.staleProof };
 }
@@ -691,7 +774,8 @@ export function validateRecoveryFlowResponseV2(value: unknown): RecoveryFlowResp
   const entry = object(value, 'Recovery Flow response', ['schemaVersion', 'stage', 'projectId', 'previousFlowFingerprint', 'actionInputFingerprint', 'recoveryFingerprint', 'ownerLocks', 'payload', 'nextRequestIntents', 'diagnostics', 'omitted', 'rootOpenFlowFingerprint', 'nextRequests', 'generatedAt', 'flowFingerprint']);
   const project = projectId(entry.projectId, 'projectId');
   const payload = validatePayload(stage, entry.payload, project);
-  const intents = validateIntents(stage, entry.nextRequestIntents);
+  if (stage === 'stale' && (payload as RecoveryStaleProofV2).projectId !== project) fail('payload.projectId', 'must match response projectId');
+  const intents = validateIntents(stage, entry.nextRequestIntents, payload);
   const diagnostics = list(entry.diagnostics, 'diagnostics', 32, validateDiagnostic);
   const ownerLocks = validateOwnerLocks(entry.ownerLocks, 'ownerLocks');
   const response = {
@@ -712,7 +796,20 @@ export function validateRecoveryFlowResponseV2(value: unknown): RecoveryFlowResp
     flowFingerprint: fingerprint(entry.flowFingerprint, 'flowFingerprint'),
   } as RecoveryFlowResponseV2;
   if (response.stage === 'open' && response.previousFlowFingerprint !== null) fail('previousFlowFingerprint', 'must be null for open');
+  if (response.stage !== 'open' && response.previousFlowFingerprint === null) fail('previousFlowFingerprint', 'must be present for non-open responses');
   if (response.stage === 'open' && response.rootOpenFlowFingerprint !== response.flowFingerprint) fail('rootOpenFlowFingerprint', 'must equal open flowFingerprint');
+  if (response.stage === 'planned') {
+    const plan = (response.payload as RecoveryPlannedPayloadV2).plan;
+    if (response.rootOpenFlowFingerprint !== plan.rootOpenFlowFingerprint) fail('rootOpenFlowFingerprint', 'must match payload.plan');
+    if (response.recoveryFingerprint !== plan.recoveryFingerprint) fail('recoveryFingerprint', 'must match payload.plan');
+  }
+  if (response.stage === 'stale') {
+    const proof = response.payload as RecoveryStaleProofV2;
+    if (response.rootOpenFlowFingerprint !== proof.rootOpenFlowFingerprint) fail('rootOpenFlowFingerprint', 'must match stale proof');
+    if (response.previousFlowFingerprint !== proof.priorFlowFingerprint) fail('previousFlowFingerprint', 'must match stale proof');
+    if (response.actionInputFingerprint !== proof.priorActionInputFingerprint) fail('actionInputFingerprint', 'must match stale proof');
+    if (response.recoveryFingerprint !== proof.recoveryFingerprint) fail('recoveryFingerprint', 'must match stale proof');
+  }
   const intrinsic = intrinsicFromResponse(response, payload, intents);
   if (fingerprintRecoveryFlowIntrinsicStage(intrinsic) !== response.flowFingerprint) fail('flowFingerprint', 'does not match intrinsic stage projection');
   const expectedRequests = intents.map((intent) => deriveRequest(response, intent));

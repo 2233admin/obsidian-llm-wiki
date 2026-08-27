@@ -1,7 +1,7 @@
 ---
 type: issue
 entity: project/obsidian-llm-wiki/issue/p0-s01b-project-hub-recovery-flow-v2
-state: todo
+state: done
 review: reviewed
 kind: knowledge-task
 id: obsidian-llm-wiki/p0-s01b-project-hub-recovery-flow-v2
@@ -28,6 +28,7 @@ Define the complete internal `project-hub-recovery-flow-request/v2` and `project
 
 - [x] Every action/stage rejects unknown fields and omitted required nulls and enforces canonical Project identity, UTF-8/count/byte bounds, safe normalization, and canonical fingerprints.
 - [x] Response is a six-interface literal-stage discriminated union; every cross-stage payload/intent/request arm rejects.
+- [x] Request actions are exactly `open|search|plan|refresh-plan|restart`, and response stages are exactly `open|searched|needs-agent-selection|planned|stale|unavailable`; cross-stage payloads and next requests reject.
 - [x] Flow Fingerprints use an intrinsic projection with fingerprint-free next-request intents; root convenience fields and exact next requests are derived only after hashing, so no field is self-referential.
 - [x] `restart` carries one finite `RecoveryStaleProofV2` containing no response or next request.
 - [x] Plan/from-search, plan/override, and refresh contracts use explicit searched-basis/planned fingerprints and minimum replay inputs; override/refresh require the complete prior Plan.
@@ -44,9 +45,10 @@ Blocked by completed S01 v1 only as the behavior baseline. S02 starts after this
 
 ## Verification
 
-- `npm exec bun -- test src/project-hub/contract-support.test.ts src/project-hub/recovery-flow.test.ts src/project/project-hub.test.ts` — 28 passed across 3 files.
+- `npm exec bun -- test src/project-hub/contract-support.test.ts src/project-hub/recovery-flow.test.ts src/project/project-hub.test.ts` — 37 passed across 3 files.
 - `npm run typecheck` — passed, including Settings Platform, Agent Domain, Visual Workspace, and Problem Intake builds.
-- V1 characterization remains green; the V1 recovery module only delegates canonical JSON/fingerprint behavior to the shared helpers, with no public V1 shape or caller change.
+- `openspec validate project-hub-recovery-loop --strict --no-interactive` — valid.
+- V1 characterization remains green; the pre-extraction golden canonical serialization and fixed fingerprint assertion pass alongside the existing V1 behavior checks.
 - V2 remains internal: only `project-hub/index.ts` exports the kernel; no `project.hub.recovery.flow` Operation or persisted Flow state was added.
 
 ## Non-goals

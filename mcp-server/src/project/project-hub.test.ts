@@ -9,7 +9,7 @@ import type { OperationContext } from '../core/types.js';
 import { AgentDomainService, canonicalDigest } from '../../../packages/agent-domain/dist/src/index.js';
 import { createSettingsService } from '../settings/settings.js';
 import { makeProjectHubOps } from './project-hub.js';
-import { validateProjectHubRecoverySnapshot, type ProjectHubRecoverySnapshot } from '../project-hub/recovery.js';
+import { canonicalProjectHubRecoveryJson, composeProjectHubRecoverySnapshot, validateProjectHubRecoverySnapshot, type ProjectHubRecoverySnapshot } from '../project-hub/recovery.js';
 import { normalizedProjectContext, resolveProjectContext } from './project-context.js';
 
 const roots: string[] = [];
@@ -504,5 +504,129 @@ describe('project.hub.get', () => {
     assert.equal(hub.recovery.memory.freshness, 'stale');
     assert.ok(hub.recovery.diagnostics.some((item) => item.code === 'project_memory_stale'));
     assert.equal(hub.recovery.memory.sessions[0]?.freshness, 'stale');
+  });
+  test('preserves the pre-extraction V1 canonical golden serialization', () => {
+    const snapshot = composeProjectHubRecoverySnapshot({
+      projectId: 'project/alpha',
+      generatedAt: '2026-08-27T12:00:00.000Z',
+      projectDiagnostics: [],
+      sections: {
+        runtime: {
+          owner: 'workflow',
+          freshness: '2026-08-27T11:00:00.000Z',
+          health: 'healthy',
+          drift: [],
+          data: { stage: 'execute', stageCitation: '01-Projects/alpha/workflow/status.md' },
+          citationTargets: ['01-Projects/alpha/workflow/status.md'],
+        },
+        work: {
+          owner: 'work-os',
+          freshness: '2026-08-27T11:00:00.000Z',
+          health: 'healthy',
+          drift: [],
+          data: { authoritativeItems: [] },
+          citationTargets: ['01-Projects/alpha/_project.md'],
+        },
+      },
+      memory: null,
+    });
+    const expected = `{
+  "blocked": [],
+  "citations": [
+    {
+      "kind": "vault-path",
+      "ref": "01-Projects/alpha/_project.md",
+      "status": "current"
+    },
+    {
+      "kind": "vault-path",
+      "ref": "01-Projects/alpha/workflow/status.md",
+      "status": "current"
+    }
+  ],
+  "currentStage": {
+    "citationTargets": [
+      "01-Projects/alpha/workflow/status.md"
+    ],
+    "source": "work-driver",
+    "state": "current",
+    "value": "execute"
+  },
+  "diagnostics": [
+    {
+      "citationTargets": [],
+      "code": "project_memory_missing",
+      "message": "No Project Memory projection is available.",
+      "owner": "project-memory",
+      "remediation": "Review or restore a Project Memory source before using memory claims as current.",
+      "severity": "warning",
+      "state": "missing"
+    }
+  ],
+  "done": [],
+  "fingerprint": "sha256:178ee341f535e9ddc3e031bb44a06eeb36bbf1e7ce2a36e0f9f953e4849bb2af",
+  "freshness": {
+    "byOwner": {
+      "project-memory": "missing",
+      "runtime": "current",
+      "work": "current"
+    },
+    "generatedAt": "2026-08-27T12:00:00.000Z",
+    "latestObservedAt": "2026-08-27T11:00:00.000Z",
+    "state": "partial"
+  },
+  "generatedAt": "2026-08-27T12:00:00.000Z",
+  "inProgress": [],
+  "memory": {
+    "authority": "unknown",
+    "conflictCount": 0,
+    "currentClaimCount": 0,
+    "fingerprint": null,
+    "freshness": "missing",
+    "reviewedClaimCount": 0,
+    "revision": null,
+    "schemaVersion": null,
+    "sessions": []
+  },
+  "nextAction": {
+    "actionId": "evidence:project_memory_missing",
+    "citationTargets": [],
+    "kind": "inspect-evidence",
+    "label": "Inspect Project evidence",
+    "prerequisites": [
+      "Review or restore a Project Memory source before using memory claims as current."
+    ],
+    "projectId": "project/alpha",
+    "reason": "No Project Memory projection is available.",
+    "recommended": true,
+    "state": "manual",
+    "workItemId": null,
+    "workRunId": null
+  },
+  "nextActions": [
+    {
+      "actionId": "evidence:project_memory_missing",
+      "citationTargets": [],
+      "kind": "inspect-evidence",
+      "label": "Inspect Project evidence",
+      "prerequisites": [
+        "Review or restore a Project Memory source before using memory claims as current."
+      ],
+      "projectId": "project/alpha",
+      "reason": "No Project Memory projection is available.",
+      "recommended": true,
+      "state": "manual",
+      "workItemId": null,
+      "workRunId": null
+    }
+  ],
+  "notStarted": [],
+  "projectId": "project/alpha",
+  "readOnly": true,
+  "schemaVersion": "project-hub-recovery/v1"
+}
+`;
+    assert.equal(canonicalProjectHubRecoveryJson(snapshot), expected);
+    assert.equal(snapshot.fingerprint, 'sha256:178ee341f535e9ddc3e031bb44a06eeb36bbf1e7ce2a36e0f9f953e4849bb2af');
   });
 });

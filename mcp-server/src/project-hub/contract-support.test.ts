@@ -51,5 +51,8 @@ test('hasUnsafeRecoveryMaterial detects unsafe values under suspicious and benig
   assert.equal(hasUnsafeRecoveryMaterial({ path: '/Users/admin/vault' }), true);
   assert.equal(hasUnsafeRecoveryMaterial({ path: '\\\\server\\share\\vault' }), true);
   assert.equal(hasUnsafeRecoveryMaterial({ home: '~/vault' }), true);
+  assert.equal(hasUnsafeRecoveryMaterial({ label: 'read C:\\Users\\Admin\\vault' }), true);
+  assert.equal(hasUnsafeRecoveryMaterial({ label: 'raw_prompt' }), true);
+  assert.equal(hasUnsafeRecoveryMaterial({ label: 'raw-transcript' }), true);
   assert.equal(hasUnsafeRecoveryMaterial({ label: 'normal project summary', count: 2 }), false);
 });

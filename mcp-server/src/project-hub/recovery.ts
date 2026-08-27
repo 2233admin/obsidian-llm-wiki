@@ -136,9 +136,6 @@ export interface ProjectHubRecoveryInput {
 const ABSOLUTE_PATH = /^(?:[A-Za-z]:[\\/]|\\|\/)/;
 const PROJECT_ID = /^project\/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/;
 const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
-function canonicalJson(value: unknown): string {
-  return canonicalRecoveryJson(value);
-}
 
 function safeRef(value: unknown): string | null {
   if (typeof value !== 'string') return null;
