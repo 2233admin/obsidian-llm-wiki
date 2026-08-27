@@ -9,7 +9,7 @@ description: "P0 S05: classify Agent output and route it through governance"
 status: active
 priority: 1
 blocked-by:
-  - obsidian-llm-wiki/p0-s04-work-run-next-action
+  - obsidian-llm-wiki/p0-s04b-workflow-recovery-apply
 last-verified: 2026-08-27
 ---
 
@@ -37,4 +37,4 @@ Run one Agent task that returns each output class and see the four distinct rout
 
 ## Dependencies
 
-Blocked by S04 because governance starts from the Work Run result boundary.
+Blocked by S04B because governance starts from the applied Work Run result boundary.

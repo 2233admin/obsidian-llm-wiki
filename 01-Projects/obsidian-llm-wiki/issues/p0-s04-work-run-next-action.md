@@ -5,7 +5,7 @@ state: backlog
 review: draft
 kind: knowledge-task
 id: obsidian-llm-wiki/p0-s04-work-run-next-action
-description: "P0 S04: turn a cited recovery next action into a governed Work Run"
+description: "P0 S04A: derive additive recovery action candidates and immutable plans"
 status: active
 priority: 1
 blocked-by:
@@ -15,27 +15,32 @@ blocked-by:
 last-verified: 2026-08-27
 ---
 
-# P0 S04: Work Run next action
+# P0 S04A: recovery action candidates and plan
 
 Parent brief: [[llmwiki-project-driven-knowledge-workspace]]
 
 ## What to build
 
-Let the user choose one bounded next action from the recovery snapshot and either resume a valid Work Run or create a new governed Work Run. Pass stable Project ID, Work Item ID, Work Run ID, transition context, citations, and capability prerequisites through the owning Work Driver and Agent Layer.
+Derive a versioned action-candidate set from the unchanged S01 snapshot plus current S02 context and S03 search locks. Reuse S01 resume actions and add a create candidate only through the OpenSpec rule; then produce an immutable, read-only plan for one candidate. This slice performs no Work Run mutation.
 
 ## Acceptance
 
-- [ ] A next-action candidate can be selected only from the current, fingerprinted recovery snapshot.
-- [ ] Resume and create paths use stable Project ID, Work Item ID, Work Run ID, and transition token values.
-- [ ] The action carries the relevant evidence and context bundle without copying private transcript material into project truth.
-- [ ] Missing capability, expired lease, stale snapshot, invalid target, and duplicate transition token fail explicitly before mutation.
-- [ ] A successful start or resume returns an auditable Work Run receipt and updates no state outside the owning operation.
-- [ ] Repeating the same transition request is replay-safe and does not create a second Work Run.
+- [ ] The closed candidate contract preserves S01, reuses valid resume identities, creates only from valid session/context/work/capability locks, and returns a fingerprinted zero-candidate unavailable arm with capability facts and remediation when no safe action exists.
+- [ ] `project-hub-action-plan/v1` binds Project ID, Work Item ID, nullable Work Run ID, all upstream fingerprints, exact current Project Agent Binding/Profile revisions, citations, capability facts, five-minute expiry, owning operation, and candidate-set fingerprint.
+- [ ] `project.hub.action-candidates.get` and `project.hub.action.plan` are read-only; all Project Hub operations remain `mutating: false`.
+- [ ] Invented/stale candidates, unavailable arms, and changed/mismatched Agent Binding, Profile, capability, identity, or lock inputs reject explicitly and never substitute another action or agent.
+- [ ] Same inputs produce the same candidate-set and plan fingerprints.
+- [ ] Tests cover OpenSpec R6 and leave the sanitized fixture byte-identical.
 
 ## Demo
 
-From a cited recovery snapshot, choose “continue next task,” resume the valid Work Run, and see its receipt; repeat the request and receive the recorded result instead of a duplicate run.
+From a cited S01 snapshot, show one valid resume candidate; from a session-only fallback, show one additive create candidate; preview each immutable plan and prove that no Work Run or other durable state changed.
 
 ## Dependencies
 
-Blocked by S01, S02, and S03. The action needs the recovery snapshot, resumable context, and cited retrieval result.
+Blocked by S01, S02, and S03. This read-only plan must pass before S06A Obsidian preview; S04B owns mutation.
+
+## Non-goals
+
+- Do not start, join, resume, or create a Work Run.
+- Do not change `project-hub-recovery/v1` or reinterpret `inspect-work-item` as a create action.

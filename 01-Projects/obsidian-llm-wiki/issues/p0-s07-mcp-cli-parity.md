@@ -10,8 +10,9 @@ status: active
 priority: 2
 blocked-by:
   - obsidian-llm-wiki/p0-s01-project-hub-recovery-snapshot
-  - obsidian-llm-wiki/p0-s04-work-run-next-action
+  - obsidian-llm-wiki/p0-s04b-workflow-recovery-apply
   - obsidian-llm-wiki/p0-s05-agent-output-governance
+  - obsidian-llm-wiki/p0-s06b-obsidian-recovery-action
 last-verified: 2026-08-27
 ---
 
@@ -38,4 +39,4 @@ Run the same project recovery query from Obsidian, MCP, and CLI and compare the 
 
 ## Dependencies
 
-Blocked by S01, S04, and S05. S06 is intentionally not a dependency so MCP/CLI work can proceed in parallel with the Obsidian surface.
+Blocked by S04B, S05, and accepted S06B actual-Obsidian verification. MCP/CLI may not become the reference surface before the human journey is proven.
