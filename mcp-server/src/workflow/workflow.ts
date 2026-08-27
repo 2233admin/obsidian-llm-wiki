@@ -77,7 +77,7 @@ const AGENT_STAGE_EVIDENCE_REQUIREMENTS: Partial<Record<AgentStage, readonly str
   ship: ['review:', 'test:'],
 } as const;
 
-interface WorkflowState {
+export interface WorkflowState {
   project: string;
   stage: WorkflowStage;
   objective: string;
@@ -252,9 +252,13 @@ function leaseCandidates(vaultPath: string, workRunId: string): Array<Record<str
   ));
 }
 
+export function isCanonicalWorkItemId(value: unknown): value is string {
+  return typeof value === 'string' && /^project\/[a-z0-9][a-z0-9-]*\/issue\/[a-z0-9][a-z0-9-]*$/.test(value);
+}
+
 function canonicalWorkItemId(value: unknown): string {
   const id = optionalString(value);
-  if (!/^project\/[a-z0-9][a-z0-9-]*\/issue\/[a-z0-9][a-z0-9-]*$/.test(id)) {
+  if (!isCanonicalWorkItemId(id)) {
     throw conflict('Work Item identity conflict: work_item_id must be canonical');
   }
   return id;
@@ -841,6 +845,10 @@ function projectId(project: string): string {
   return `project/${project}`;
 }
 
+export function isCanonicalWorkRunId(value: unknown): value is string {
+  return typeof value === 'string' && /^work-run\/[a-z0-9][a-z0-9-]*$/.test(value);
+}
+
 function parseWorkRunId(value: unknown, fallbackProject?: string, fallbackAgent?: string): string {
   const id = optionalString(value);
   if (!id && fallbackProject && fallbackAgent) return `work-run/legacy-${fallbackProject}-${fallbackAgent}`;
@@ -1079,13 +1087,14 @@ function renderState(state: WorkflowState, notes: string): string {
 
 function parseState(project: string, path: string, content: string): WorkflowState {
   const fm = parseFrontmatter(content);
+  if (fm.type !== 'workflow-state' || fm.project !== project || typeof fm.stage !== 'string' || !STAGES.includes(fm.stage as WorkflowStage)) {
+    throw new Error(`Malformed workflow state: ${path}`);
+  }
   const rawEvidence = fm.evidence;
   const evidence = Array.isArray(rawEvidence) ? rawEvidence.filter((item): item is string => typeof item === 'string') : [];
-  const stage = STAGES.includes(fm.stage as WorkflowStage) ? (fm.stage as WorkflowStage) : 'intake';
-
   return {
     project,
-    stage,
+    stage: fm.stage as WorkflowStage,
     objective: typeof fm.objective === 'string' ? fm.objective : '',
     branch: typeof fm.branch === 'string' ? fm.branch : '',
     host: typeof fm.host === 'string' ? fm.host : '',
@@ -1124,7 +1133,7 @@ function parseYamlScalar(raw: string): unknown {
   return raw;
 }
 
-function readState(vaultPath: string, project: string): WorkflowState | null {
+export function readWorkflowState(vaultPath: string, project: string): WorkflowState | null {
   const path = statePath(project);
   const fullPath = vaultJoin(vaultPath, path);
   if (!existsSync(fullPath)) return null;
@@ -1690,7 +1699,7 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
       handler: async (_ctx, params) => {
         const project = existingProjectKey(vaultPath, params.project, 'workflow.state.get');
         const path = statePath(project);
-        const state = readState(vaultPath, project);
+        const state = readWorkflowState(vaultPath, project);
         return { exists: state !== null, project, path, state };
       },
     },

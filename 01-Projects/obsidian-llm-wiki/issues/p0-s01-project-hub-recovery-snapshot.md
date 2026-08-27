@@ -1,8 +1,8 @@
 ---
 type: issue
 entity: project/obsidian-llm-wiki/issue/p0-s01-project-hub-recovery-snapshot
-state: backlog
-review: draft
+state: done
+review: reviewed
 kind: knowledge-task
 id: obsidian-llm-wiki/p0-s01-project-hub-recovery-snapshot
 description: "P0 S01: compose a deterministic Project Hub recovery snapshot"
@@ -22,16 +22,22 @@ Define and implement the read-only recovery snapshot that Project Hub uses as it
 
 ## Acceptance
 
-- [ ] A versioned JSON-safe snapshot contract exists with stable Project ID, freshness, diagnostics, citations, current stage, done, in-progress, blocked, not-started, and next-action fields.
-- [ ] The composer reads each input through its owning domain boundary and never writes Work-OS, Memory, Session Record, or Settings state.
-- [ ] Machine-local workspace paths remain bindings and never replace Project ID.
-- [ ] Missing, stale, partial, and unavailable inputs remain explicit states with a remediation or manual next step.
-- [ ] A sanitized project fixture produces the same snapshot and fingerprint on repeated runs.
-- [ ] Contract tests prove that a malformed or stale input cannot silently become current truth.
+- [x] A versioned JSON-safe snapshot contract exists with stable Project ID, freshness, diagnostics, citations, current stage, done, in-progress, blocked, not-started, and next-action fields.
+- [x] The composer reads each input through its owning domain boundary and never writes Work-OS, Memory, Session Record, or Settings state.
+- [x] Machine-local workspace paths remain bindings and never replace Project ID.
+- [x] Missing, stale, partial, and unavailable inputs remain explicit states with a remediation or manual next step.
+- [x] A sanitized project fixture produces the same snapshot and fingerprint on repeated runs.
+- [x] Contract tests prove that a malformed or stale input cannot silently become current truth.
 
 ## Demo
 
 Open a sanitized Project Hub input and see a deterministic recovery snapshot with the project state, evidence links, freshness, diagnostics, and one bounded next action.
+
+## Verification
+
+- `npm exec bun -- test src/project/project-hub.test.ts src/project/agent-room-legacy-characterization.test.ts src/workflow/workflow.test.ts` — 50 passed.
+- `npm run typecheck` — passed, including settings, Agent Domain, Visual Workspace, and Problem Intake package builds.
+- `npm run test:source` — 725 passed; one pre-existing stale generated-doc failure remains in `src/scripts/generate-tools-doc.test.ts` because `docs/mcp-tools-reference.md` does not match the generator output.
 
 ## Dependencies
 

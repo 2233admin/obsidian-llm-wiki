@@ -6,7 +6,7 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join, relative, resolve } from 'node:path';
 import type { Operation, OperationContext } from './types.js';
 import { badRequest } from './types.js';
 import { memoryPolicyBasePath } from './write-policy.js';
@@ -246,7 +246,7 @@ function saveResearchRecord(
   return { record, path: relativePath, idempotent };
 }
 
-function createDurableProjectMemorySource(vaultPath: string): ProjectMemorySource {
+export function createDurableProjectMemorySource(vaultPath: string): ProjectMemorySource {
   return {
     listSessions: (projectId) => latestSessionRecords(
       listJsonRecords<SessionRecord>(vaultPath, `10-Projects/${projectId.slice('project/'.length)}/${SESSION_RECORDS_DIR}`)
@@ -255,6 +255,53 @@ function createDurableProjectMemorySource(vaultPath: string): ProjectMemorySourc
     listResearchRecords: (projectId) => listJsonRecords<ResearchRecord>(vaultPath, `10-Projects/${projectId.slice('project/'.length)}/agents`)
       .filter((record) => record.schemaVersion === RESEARCH_RECORD_SCHEMA && record.projectId === projectId),
   };
+}
+export function durableProjectMemoryDiagnostics(vaultPath: string, projectId: string): string[] {
+  const slug = projectId.slice('project/'.length);
+  const roots = [
+    `10-Projects/${slug}/${SESSION_RECORDS_DIR}`,
+    `10-Projects/${slug}/agents`,
+  ];
+  const diagnostics: string[] = [];
+  for (const relativeRoot of roots) {
+    const root = resolve(vaultPath, ...relativeRoot.split('/'));
+    if (!existsSync(root)) continue;
+    try {
+      if (!statSync(root).isDirectory()) {
+        diagnostics.push(`invalid_memory_root:${relativeRoot}`);
+        continue;
+      }
+    } catch {
+      diagnostics.push(`unavailable_memory_root:${relativeRoot}`);
+      continue;
+    }
+    const visit = (directory: string): void => {
+      let entries;
+      try {
+        entries = readdirSync(directory, { withFileTypes: true });
+      } catch {
+        diagnostics.push(`unavailable_memory_root:${relative(vaultPath, directory).replaceAll('\\', '/')}`);
+        return;
+      }
+      for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+        const full = join(directory, entry.name);
+        if (entry.isDirectory()) {
+          visit(full);
+          continue;
+        }
+        if (!entry.isFile() || !entry.name.endsWith('.json')) continue;
+        const path = relative(vaultPath, full).replaceAll('\\', '/');
+        try {
+          const value = JSON.parse(readFileSync(full, 'utf8')) as unknown;
+          if (!isRecord(value)) diagnostics.push(`invalid_memory_record:${path}`);
+        } catch {
+          diagnostics.push(`malformed_memory_record:${path}`);
+        }
+      }
+    };
+    visit(root);
+  }
+  return diagnostics.sort();
 }
 
 function latestSessionRecords(records: SessionRecord[]): SessionRecord[] {

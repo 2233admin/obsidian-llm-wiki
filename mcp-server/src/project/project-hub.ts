@@ -15,11 +15,18 @@ import {
 import type { AdapterRegistry } from '../adapters/registry.js';
 import type { Operation, OperationContext } from '../core/types.js';
 import { badRequest } from '../core/types.js';
+import { createDurableProjectMemorySource, durableProjectMemoryDiagnostics } from '../core/project-memory-operations.js';
+import { projectContextFromSource, type ProjectContextProjection } from '../project-memory/index.js';
 import { createSettingsService } from '../settings/settings.js';
 import { UsageLedger } from '../usage/ledger.js';
 import { projectUsage } from '../usage/projections.js';
 import { HOST_CAPABILITY_RELATIVE_ROOT, HostCapabilityStore } from '../host-capabilities/store.js';
 import { fingerprintContract } from '../host-capabilities/contracts.js';
+import {
+  composeProjectHubRecoverySnapshot,
+  type ProjectHubRecoveryMemory,
+  type ProjectHubRecoverySection,
+} from '../project-hub/recovery.js';
 import {
   PROJECT_HUB_PROJECTION_SCHEMA_VERSION,
   composeProjectHubVisualTriageProjection,
@@ -29,6 +36,16 @@ import {
   type ProjectHubProjectionInput,
   type ProjectHubVisualTriageProjection,
 } from '../project-hub/index.js';
+import {
+  authoritativeHeadDiagnostics,
+  blockedByRefs,
+  cardLabel,
+  currentAuthoritativeHeads,
+  hasUnresolvedBlocker,
+  scanWorkNotes,
+  workState,
+} from './workos.js';
+import { isCanonicalWorkItemId, isCanonicalWorkRunId, readWorkflowState } from '../workflow/workflow.js';
 import {
   normalizedProjectContext,
   resolveProjectContext,
@@ -43,11 +60,17 @@ interface HubSection<T> {
   health: Health;
   drift: string[];
   data: T;
+  citationTargets?: string[];
 }
 
 export interface ProjectHubOperationsOptions {
   now?: () => number;
   loadVisualTriage?: (request: {
+    projectId: string;
+    generatedAt: string;
+    vaultPath: string;
+  }) => Promise<unknown> | unknown;
+  loadProjectMemory?: (request: {
     projectId: string;
     generatedAt: string;
     vaultPath: string;
@@ -93,6 +116,7 @@ function section<T>(owner: string, files: FileSummary[], data: T, drift: string[
     health: drift.length > 0 ? 'degraded' : files.length > 0 ? 'healthy' : 'empty',
     drift,
     data,
+    citationTargets: files.map((file) => file.path).sort(),
   };
 }
 
@@ -110,8 +134,29 @@ function workSection(vaultPath: string, context: ProjectContext): HubSection<Rec
     states[status] = (states[status] ?? 0) + 1;
   }
   const anchor = files.find((file) => file.path.endsWith('/_project.md'));
-  return section('work-os', files, { root: context.roots.workOs, anchor: anchor?.path ?? null, issueCount: issues.length, states },
-    anchor ? [] : ['missing_work_os_anchor']);
+  const projectPrefix = `${context.projectId}/issue/`;
+  const workNotes = scanWorkNotes(vaultPath).filter((note) => note.entity?.startsWith(projectPrefix));
+  const authoritative = currentAuthoritativeHeads(workNotes)
+    .filter((note) => note.entity?.startsWith(projectPrefix) && !note.entity.endsWith('/project'))
+    .map((note) => ({
+      entity: note.entity!,
+      label: cardLabel(note),
+      state: workState(note.raw),
+      blockedBy: hasUnresolvedBlocker(workNotes, note.entity!) ? blockedByRefs(note.raw) : [],
+      citationTargets: [note.note_id],
+    }));
+  const drift = [
+    ...(anchor ? [] : ['missing_work_os_anchor']),
+    ...authoritativeHeadDiagnostics(workNotes).map((item) => `${item.code}:${item.entity}`),
+    ...(issues.length > 0 && authoritative.length === 0 ? ['work_os_authoritative_items_unavailable'] : []),
+  ];
+  return section('work-os', files, {
+    root: context.roots.workOs,
+    anchor: anchor?.path ?? null,
+    issueCount: issues.length,
+    states,
+    authoritativeItems: authoritative,
+  }, drift);
 }
 
 function knowledgeSection(vaultPath: string, context: ProjectContext): HubSection<Record<string, unknown>> {
@@ -120,29 +165,97 @@ function knowledgeSection(vaultPath: string, context: ProjectContext): HubSectio
   return section('knowledge', files, { root: context.roots.knowledge, itemCount: markdown.length });
 }
 
-function runtimeSection(vaultPath: string, context: ProjectContext): HubSection<Record<string, unknown>> {
+function aliasedRunField(
+  raw: Record<string, unknown>,
+  canonical: string,
+  legacy: string,
+  path: string,
+  drift: string[],
+): unknown {
+  const current = raw[canonical];
+  const previous = raw[legacy];
+  if (current !== undefined && previous !== undefined && current !== previous) {
+    drift.push(`run_${canonical}_conflict:${path}`);
+    return undefined;
+  }
+  return current ?? previous;
+}
+
+function runtimeSection(vaultPath: string, context: ProjectContext, observedAt = Date.now()): HubSection<Record<string, unknown>> {
   const runFiles = filesBelow(vaultPath, `${context.roots.workOs}/runs`).filter((file) => file.path.endsWith('.json'));
   const agentFiles = filesBelow(vaultPath, `${context.roots.workOs}/agents`);
+  const workflowFiles = filesBelow(vaultPath, `${context.roots.workOs}/workflow/status.md`);
   const runs: Array<Record<string, unknown>> = [];
   const drift: string[] = [];
   for (const file of runFiles) {
     try {
       const raw = JSON.parse(readFileSync(join(vaultPath, file.path), 'utf-8')) as Record<string, unknown>;
+      const runProjectId = aliasedRunField(raw, 'projectId', 'project_id', file.path, drift);
+      if (typeof runProjectId !== 'string') {
+        drift.push(`run_project_id_missing:${file.path}`);
+        continue;
+      }
+      if (runProjectId !== context.projectId) {
+        drift.push(`run_project_mismatch:${file.path}`);
+        continue;
+      }
+      const workRunId = aliasedRunField(raw, 'workRunId', 'work_run_id', file.path, drift);
+      const validWorkRunId = isCanonicalWorkRunId(workRunId);
+      if (!validWorkRunId) drift.push(`run_work_id_invalid:${file.path}`);
+      const workItemId = aliasedRunField(raw, 'workItemId', 'work_item_id', file.path, drift);
+      const validWorkItemId = isCanonicalWorkItemId(workItemId) && workItemId.startsWith(`${context.projectId}/`);
+      if (!validWorkItemId) drift.push(`run_work_item_id_invalid:${file.path}`);
+      const expiryValues = [
+        raw.leaseExpiresAt,
+        raw.lease_expires_at,
+        raw.handoffExpiresAt,
+        raw.handoff_expires_at,
+        raw.expiresAt,
+        raw.expires_at,
+      ].filter((value): value is string => value !== undefined).map(String);
+      const expiry = expiryValues[0];
+      const expiryConflict = expiryValues.some((value) => value !== expiry);
+      if (expiryConflict) drift.push(`run_expiry_conflict:${file.path}`);
+      const expiryMs = expiry ? Date.parse(expiry) : Number.NaN;
+      const validExpiry = !expiry || (!expiryConflict && Number.isFinite(expiryMs));
+      if (expiry && !Number.isFinite(expiryMs)) drift.push(`run_expiry_invalid:${file.path}`);
+      const stale = Boolean(expiry) && Number.isFinite(expiryMs) && expiryMs <= observedAt;
+      if (stale) drift.push(`expired_work_run:${file.path}`);
       runs.push({
-        workRunId: raw.workRunId ?? raw.work_run_id ?? null,
+        projectId: runProjectId,
+        workRunId: validWorkRunId ? workRunId : null,
         state: raw.state ?? null,
-        workItemId: raw.workItemId ?? raw.work_item_id ?? null,
+        stage: raw.stage ?? raw.agentStage ?? null,
+        workItemId: validWorkItemId ? workItemId : null,
+        resumable: validWorkRunId && validWorkItemId && validExpiry,
         path: file.path,
+        stale,
+        citationTargets: [file.path],
       });
     } catch {
       drift.push(`malformed_run:${file.path}`);
     }
   }
+  let workflowState;
+  try {
+    workflowState = readWorkflowState(vaultPath, context.slug);
+  } catch {
+    workflowState = null;
+    drift.push('malformed_workflow_state');
+  }
   const activeStates = new Set(['planned', 'leased', 'running', 'awaiting_review']);
-  return section('runtime', [...runFiles, ...agentFiles], {
-    activeRuns: runs.filter((run) => activeStates.has(String(run.state))),
+  const activeRuns = runs.filter((run) => activeStates.has(String(run.state)) && run.stale !== true);
+  const stagedRun = activeRuns.find((run) => run.resumable === true && typeof run.stage === 'string' && run.stage.trim());
+  return section('runtime', [...runFiles, ...agentFiles, ...workflowFiles], {
+    activeRuns,
+    staleRuns: runs.filter((run) => run.stale === true),
     runCount: runs.length,
     agentStateFiles: agentFiles.map((file) => file.path),
+    workflowState: workflowState
+      ? { stage: workflowState.stage, objective: workflowState.objective, path: workflowState.path }
+      : null,
+    stage: workflowState?.stage ?? (typeof stagedRun?.stage === 'string' ? stagedRun.stage : null),
+    stageCitation: workflowState?.path ?? (typeof stagedRun?.path === 'string' ? stagedRun.path : null),
   }, drift);
 }
 
@@ -550,6 +663,100 @@ function projectReference(params: Record<string, unknown>): string {
   }
   return reference;
 }
+function recoveryMemory(
+  projection: ProjectContextProjection | null,
+  unavailable: boolean,
+): ProjectHubRecoveryMemory {
+  if (!projection) {
+    return {
+      schemaVersion: null,
+      revision: null,
+      fingerprint: null,
+      freshness: unavailable ? 'unavailable' : 'missing',
+      authority: 'unknown',
+      reviewedClaimCount: 0,
+      currentClaimCount: 0,
+      conflictCount: 0,
+      sessions: [],
+    };
+  }
+  const claims = [
+    ...projection.sections.goal,
+    ...projection.sections.currentState,
+    ...projection.sections.completed,
+    ...projection.sections.openWork,
+    ...projection.sections.relations,
+  ];
+  return {
+    schemaVersion: projection.schemaVersion,
+    revision: projection.revision,
+    fingerprint: projection.fingerprint,
+    freshness: projection.freshness.state,
+    authority: projection.authority.state,
+    reviewedClaimCount: claims.filter((claim) => claim.reviewStatus !== 'draft').length,
+    currentClaimCount: claims.filter((claim) => claim.reviewStatus !== 'draft' && claim.state === 'current').length,
+    conflictCount: projection.sections.conflicts.length,
+    sessions: projection.sections.sessions.map((session) => ({
+      sessionId: session.sessionId,
+      status: session.status,
+      freshness: session.freshness,
+      citationTargets: session.evidenceRefs.map((evidence) => evidence.ref),
+    })),
+  };
+}
+function assertProjectMemoryProjection(value: unknown, projectId: string): ProjectContextProjection {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Project Memory projection is malformed');
+  }
+  const candidate = value as Record<string, unknown>;
+  if (candidate.schemaVersion !== 'project-context/v1' || candidate.projectId !== projectId || candidate.readOnly !== true) {
+    throw new Error('Project Memory projection identity is invalid');
+  }
+  if (typeof candidate.fingerprint !== 'string' || !/^sha256:[a-f0-9]{64}$/.test(candidate.fingerprint)) {
+    throw new Error('Project Memory projection fingerprint is invalid');
+  }
+  const sections = candidate.sections;
+  if (sections === null || typeof sections !== 'object' || Array.isArray(sections)) {
+    throw new Error('Project Memory projection sections are malformed');
+  }
+  const sectionRecord = sections as Record<string, unknown>;
+  const claimSections = ['goal', 'currentState', 'completed', 'openWork', 'relations'];
+  for (const key of [...claimSections, 'conflicts', 'sessions']) {
+    if (!Array.isArray(sectionRecord[key])) throw new Error(`Project Memory projection section ${key} is malformed`);
+  }
+  const freshness = candidate.freshness;
+  if (freshness === null || typeof freshness !== 'object' || Array.isArray(freshness)) throw new Error('Project Memory freshness is malformed');
+  if (!['current', 'stale', 'unknown'].includes((freshness as Record<string, unknown>).state as string)) throw new Error('Project Memory freshness state is invalid');
+  const authority = candidate.authority;
+  if (authority === null || typeof authority !== 'object' || Array.isArray(authority)) throw new Error('Project Memory authority is malformed');
+  if (!['source', 'derived', 'unknown'].includes((authority as Record<string, unknown>).state as string)) throw new Error('Project Memory authority state is invalid');
+  for (const [index, rawConflict] of (sectionRecord.conflicts as unknown[]).entries()) {
+    if (rawConflict === null || typeof rawConflict !== 'object' || Array.isArray(rawConflict)) throw new Error(`Project Memory conflict[${index}] is malformed`);
+    const conflict = rawConflict as Record<string, unknown>;
+    if (typeof conflict.conflictId !== 'string' || !Array.isArray(conflict.claims)) throw new Error(`Project Memory conflict[${index}] is invalid`);
+  }
+  for (const key of claimSections) {
+    for (const [index, rawClaim] of (sectionRecord[key] as unknown[]).entries()) {
+      if (rawClaim === null || typeof rawClaim !== 'object' || Array.isArray(rawClaim)) throw new Error(`Project Memory claim ${key}[${index}] is malformed`);
+      const claim = rawClaim as Record<string, unknown>;
+      for (const field of ['claimId', 'key', 'sourceId']) {
+        if (typeof claim[field] !== 'string' || !claim[field].trim()) throw new Error(`Project Memory claim ${key}[${index}].${field} is malformed`);
+      }
+      if (!['draft', 'reviewed', 'promoted'].includes(claim.reviewStatus as string)) throw new Error(`Project Memory claim ${key}[${index}].reviewStatus is invalid`);
+      if (!['current', 'superseded', 'stale', 'unresolved'].includes(claim.state as string)) throw new Error(`Project Memory claim ${key}[${index}].state is invalid`);
+      if (!Array.isArray(claim.evidenceRefs)) throw new Error(`Project Memory claim ${key}[${index}].evidenceRefs is malformed`);
+    }
+  }
+  for (const [index, rawSession] of (sectionRecord.sessions as unknown[]).entries()) {
+    if (rawSession === null || typeof rawSession !== 'object' || Array.isArray(rawSession)) throw new Error(`Project Memory session[${index}] is malformed`);
+    const session = rawSession as Record<string, unknown>;
+    for (const field of ['sessionId', 'status', 'freshness']) {
+      if (typeof session[field] !== 'string' || !session[field].trim()) throw new Error(`Project Memory session[${index}].${field} is malformed`);
+    }
+    if (!['current', 'stale', 'unknown'].includes(session.freshness as string) || !Array.isArray(session.evidenceRefs)) throw new Error(`Project Memory session[${index}] freshness or evidence is invalid`);
+  }
+  return value as ProjectContextProjection;
+}
 
 export async function composeProjectHub(
   ctx: OperationContext,
@@ -567,6 +774,56 @@ export async function composeProjectHub(
     generatedAt,
     options,
   );
+  const sections = {
+    identity: section('project-registry', registryFiles, {
+      projectId: project.projectId,
+      slug: project.slug,
+      lifecycle: project.lifecycle,
+      aliases: project.aliases,
+      registryRecord: project.roots.registryRecord,
+    }, project.diagnostics.filter((item) => item.severity !== 'info').map((item) => item.code)),
+    work: workSection(ctx.config.vault_path, project),
+    knowledge: knowledgeSection(ctx.config.vault_path, project),
+    runtime: runtimeSection(ctx.config.vault_path, project, Date.parse(generatedAt)),
+    settings: await settingsSection(settingsService, project),
+    capabilities: capabilitySection(registry),
+    workspace: workspaceSection(project),
+    integrations: integrationSection(project),
+    hostCapabilities: hostCapabilitySection(ctx.config.vault_path, project),
+    usage: usageSection(ctx.config.vault_path, project),
+    agents: await agentDomainSection(ctx.config.vault_path, project),
+    visual: visualHubSection(visualTriage),
+    triage: triageHubSection(visualTriage),
+  };
+  const memoryDiagnostics = durableProjectMemoryDiagnostics(ctx.config.vault_path, project.projectId);
+  let memoryProjection: ProjectContextProjection | null = null;
+  let memoryUnavailable = false;
+  try {
+    memoryProjection = assertProjectMemoryProjection(await (
+      options.loadProjectMemory
+        ? options.loadProjectMemory({
+            projectId: project.projectId,
+            generatedAt,
+            vaultPath: ctx.config.vault_path,
+          })
+        : projectContextFromSource(
+            createDurableProjectMemorySource(ctx.config.vault_path),
+            project.projectId,
+            { generatedAt },
+          )
+    ), project.projectId);
+  } catch {
+    memoryProjection = null;
+    memoryUnavailable = true;
+  }
+  const recovery = composeProjectHubRecoverySnapshot({
+    projectId: project.projectId,
+    generatedAt,
+    projectDiagnostics: project.diagnostics,
+    sections: sections as Record<string, ProjectHubRecoverySection>,
+    memory: recoveryMemory(memoryProjection, memoryUnavailable),
+    memoryDiagnostics,
+  });
   return {
     projectId: project.projectId,
     slug: project.slug,
@@ -574,27 +831,8 @@ export async function composeProjectHub(
     generatedAt,
     readOnly: true,
     diagnostics: project.diagnostics,
-    sections: {
-      identity: section('project-registry', registryFiles, {
-        projectId: project.projectId,
-        slug: project.slug,
-        lifecycle: project.lifecycle,
-        aliases: project.aliases,
-        registryRecord: project.roots.registryRecord,
-      }, project.diagnostics.filter((item) => item.severity !== 'info').map((item) => item.code)),
-      work: workSection(ctx.config.vault_path, project),
-      knowledge: knowledgeSection(ctx.config.vault_path, project),
-      runtime: runtimeSection(ctx.config.vault_path, project),
-      settings: await settingsSection(settingsService, project),
-      capabilities: capabilitySection(registry),
-      workspace: workspaceSection(project),
-      integrations: integrationSection(project),
-      hostCapabilities: hostCapabilitySection(ctx.config.vault_path, project),
-      usage: usageSection(ctx.config.vault_path, project),
-      agents: await agentDomainSection(ctx.config.vault_path, project),
-      visual: visualHubSection(visualTriage),
-      triage: triageHubSection(visualTriage),
-    },
+    sections,
+    recovery,
     mutationRoutes: {
       identity: 'project.init',
       work: 'project.issue.* / workflow.agent.*',
