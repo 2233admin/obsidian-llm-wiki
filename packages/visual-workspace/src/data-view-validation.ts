@@ -7,7 +7,7 @@ import type {
 
 const WINDOWS_DRIVE_PATH = /^[A-Za-z]:/u;
 const URI_SCHEME = /^[A-Za-z][A-Za-z0-9+.-]*:/u;
-const SECRET_PATTERN = /(?:api[_-]?key|password|secret[_-]?key|bearer\s+[A-Za-z0-9._-]+|sk-[A-Za-z0-9][A-Za-z0-9_-]{7,})/iu;
+const SECRET_PATTERN = /(?:api[_-]?key|client[_-]?secret|access[_-]?token|refresh[_-]?token|authorization|password|secret[_-]?key|\btoken\b|bearer\s+[A-Za-z0-9._-]+|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16}|sk-[A-Za-z0-9][A-Za-z0-9_-]{7,})/iu;
 
 function fail(message: string): never {
   throw new VisualWorkspaceError("INVALID_CONTRACT", message);

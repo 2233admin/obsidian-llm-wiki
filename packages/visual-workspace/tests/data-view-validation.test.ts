@@ -31,7 +31,8 @@ describe("data-view definition validation", () => {
     assert.throws(() => validateDataViewDefinition({ ...definition, view: "kanban" }), /groupBy/);
   });
 
-  test("rejects secret-bearing values", () => {
+  test("rejects credential-shaped values", () => {
+    assert.throws(() => validateDataViewDefinition({ ...definition, title: "access_token=abc" }), /secret-bearing/);
     assert.throws(() => validateDataViewDefinition({ ...definition, title: "api_key=abc" }), /secret-bearing/);
   });
 });
