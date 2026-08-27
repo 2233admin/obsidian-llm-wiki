@@ -20,6 +20,10 @@ const SCHEMA_NAMES = [
   "execution-receipt",
   "embedding-fingerprint",
   "query-trace",
+  "data-view-definition",
+  "data-view-model",
+  "data-view-action-request",
+  "data-view-import-plan",
 ] as const;
 
 function json(relative: string): Record<string, unknown> {
@@ -76,7 +80,7 @@ describe("Agent Wiki shared contracts", () => {
       "queryTrace",
     ];
     assert.equal(Object.keys(fixture.cases).length, caseNames.length);
-    SCHEMA_NAMES.forEach((schemaName, index) => {
+    SCHEMA_NAMES.slice(0, 7).forEach((schemaName, index) => {
       const schema = json(`../schemas/${schemaName}.schema.json`) as {
         required: string[];
         properties: Record<string, unknown>;
@@ -88,8 +92,28 @@ describe("Agent Wiki shared contracts", () => {
     });
   });
 
+  test("validates data-view fixtures and guards strict wire invariants", () => {
+    for (const name of SCHEMA_NAMES.slice(7)) {
+      const schema = json(`../schemas/${name}.schema.json`) as { required: string[]; properties: Record<string, unknown>; additionalProperties: boolean };
+      const fixture = json(`../fixtures/v1/${name}.json`);
+      assert.equal(schema.additionalProperties, false);
+      assert.equal(fixture.schemaVersion, 1);
+      for (const key of schema.required) assert.ok(key in fixture, `${name} requires ${key}`);
+      for (const key of Object.keys(fixture)) assert.ok(key in schema.properties, `${name} declares ${key}`);
+    }
+    const definition = json("../fixtures/v1/data-view-definition.json");
+    const action = json("../fixtures/v1/data-view-action-request.json");
+    const definitionSource = definition.source as { path: string };
+    assert.equal(definitionSource.path.startsWith("/"), false);
+    assert.equal(typeof action.sourcePath, "string");
+    assert.equal((action.sourcePath as string).startsWith("/"), false);
+    const definitionSchema = json("../schemas/data-view-definition.schema.json") as { $defs: Record<string, unknown> };
+    const predicate = definitionSchema.$defs.predicate as { oneOf: Array<{ properties: Record<string, { enum?: string[] }> }> };
+    assert.deepEqual(predicate.oneOf[1]!.properties.operator!.enum, ["equals", "in", "exists", "contains"]);
+  });
+
   test("fixtures never serialize credential material or raw machine paths", () => {
-    const serialized = JSON.stringify(json("../fixtures/v1/serialization-cases.json"));
+    const serialized = JSON.stringify(json("../fixtures/v1/serialization-cases.json")) + JSON.stringify(json("../fixtures/v1/data-view-import-plan.json"));
     assert.doesNotMatch(serialized, /(?:api[_-]?key|bearer |password|sk-[a-z0-9]|[a-z]:\\\\users\\)/i);
   });
 });

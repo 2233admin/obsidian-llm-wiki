@@ -1,0 +1,8 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://schemas.llmwiki.org/agent-wiki/v1/data-view-import-plan.schema.json",
+  "type":"object","required":["schemaVersion","source","targetRoot","files","selectedItemIds","warnings","provenance","fingerprint"],
+  "properties":{"schemaVersion":{"const":1},"source":{"type":"object","required":["name","sha256"],"properties":{"name":{"type":"string","minLength":1},"sha256":{"type":"string","pattern":"^[a-f0-9]{64}$"}},"additionalProperties":false},"targetRoot":{"$ref":"#/$defs/path"},"files":{"type":"array","items":{"type":"object","required":["path","after","afterSha256"],"properties":{"path":{"$ref":"#/$defs/path"},"beforeSha256":{"type":"string","pattern":"^[a-f0-9]{64}$"},"before":{"type":"string"},"after":{"type":"string"},"afterSha256":{"type":"string","pattern":"^[a-f0-9]{64}$"}},"additionalProperties":false}},"selectedItemIds":{"type":"array","items":{"$ref":"common.schema.json#/$defs/identifier"}},"warnings":{"type":"array","items":{"type":"string"}},"provenance":{"type":"object","required":["actor","origin"],"properties":{"actor":{"$ref":"common.schema.json#/$defs/identifier"},"origin":{"const":"import"}},"additionalProperties":false},"fingerprint":{"type":"string","minLength":1}},
+  "additionalProperties":false,
+  "$defs":{"path":{"type":"string","minLength":1,"pattern":"^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\u0000\\\\]+$"}}
+}

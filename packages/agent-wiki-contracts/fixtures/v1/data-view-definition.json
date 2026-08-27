@@ -1,0 +1,1 @@
+{"schemaVersion":1,"id":"issues-table","title":"Open Issues","view":"table","source":{"kind":"folder","path":"01-Projects/issues"},"select":[{"field":"status","label":"Status"},{"field":"priority","label":"Priority"}],"where":{"kind":"field","field":"status","operator":"in","value":["planned","captured"]},"orderBy":[{"field":"priority","direction":"asc"}]}
