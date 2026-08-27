@@ -116,6 +116,61 @@ test('validates every request action and exact plan nullability', () => {
   assert.throws(() => validateRecoveryFlowRequestV2({ schemaVersion: RECOVERY_FLOW_REQUEST_SCHEMA_VERSION, projectId: 'Project/alpha', action: 'restart', staleProof }), /canonical Project ID/i);
   assert.equal(validateRecoveryFlowRequestV2({ schemaVersion: RECOVERY_FLOW_REQUEST_SCHEMA_VERSION, projectId: 'project/alpha', action: 'restart', staleProof }).action, 'restart');
 });
+test('rejects searched and Binding-selection responses with mismatched root fingerprints', () => {
+  const build = (stage: 'searched' | 'needs-agent-selection', payload: RecoveryFlowPayloadV2) => {
+    const previousFlowFingerprint = digest('a');
+    const intrinsic = {
+      schemaVersion: RECOVERY_FLOW_SCHEMA_VERSION,
+      stage,
+      projectId: 'project/alpha',
+      previousFlowFingerprint,
+      actionInputFingerprint: digest('1'),
+      recoveryFingerprint: digest('2'),
+      ownerLocks: locks,
+      payloadFingerprint: fingerprintRecoveryValue(payload),
+      nextRequestIntents: [],
+      diagnostics: [],
+      omitted: { items: 0, citations: 0, diagnostics: 0, bytes: 0 },
+    };
+    const flowFingerprint = fingerprintRecoveryFlowIntrinsicStage(intrinsic);
+    return {
+      schemaVersion: RECOVERY_FLOW_SCHEMA_VERSION,
+      stage,
+      projectId: 'project/alpha',
+      previousFlowFingerprint,
+      actionInputFingerprint: intrinsic.actionInputFingerprint,
+      recoveryFingerprint: intrinsic.recoveryFingerprint,
+      ownerLocks: locks,
+      payload,
+      nextRequestIntents: [],
+      diagnostics: [],
+      omitted: intrinsic.omitted,
+      rootOpenFlowFingerprint: digest('0'),
+      nextRequests: [],
+      generatedAt: '2026-08-28T12:00:00.000Z',
+      flowFingerprint,
+    };
+  };
+  const searched = build('searched', {
+    kind: 'searched',
+    query: 'recovery',
+    limit: 1,
+    searchInputFingerprint: digest('1'),
+    searchFingerprint: digest('2'),
+    results: [],
+  });
+  assert.throws(() => validateRecoveryFlowResponseV2(searched), /rootOpenFlowFingerprint.*previousFlowFingerprint/i);
+  const needsSelection = build('needs-agent-selection', {
+    kind: 'needs-agent-selection',
+    candidates: ['resume:one'],
+    bindings: [
+      { bindingId: 'binding/one', bindingRevision: 1 },
+      { bindingId: 'binding/two', bindingRevision: 2 },
+    ],
+  });
+  assert.throws(() => validateRecoveryFlowResponseV2(needsSelection), /rootOpenFlowFingerprint.*previousFlowFingerprint/i);
+});
+
 
 test('rejects unsafe and oversized search input without accepting alternate normalization', () => {
   const base = { schemaVersion: RECOVERY_FLOW_REQUEST_SCHEMA_VERSION, projectId: 'project/alpha', action: 'search' as const, openFlowFingerprint: digest('a'), query: 'ok', limit: 1 };
@@ -124,6 +179,31 @@ test('rejects unsafe and oversized search input without accepting alternate norm
   assert.throws(() => validateRecoveryFlowRequestV2({ ...base, limit: 0 }), /1 through 25/i);
   assert.throws(() => validateRecoveryFlowRequestV2({ ...base, query: 'C:\\Users\\Admin\\vault' }), /unsafe|material/i);
 });
+test('rejects assigned local paths in direct search requests without rejecting URL schemes', () => {
+  const base = {
+    schemaVersion: RECOVERY_FLOW_REQUEST_SCHEMA_VERSION,
+    projectId: 'project/alpha',
+    action: 'search' as const,
+    openFlowFingerprint: digest('a'),
+    limit: 1,
+  };
+  for (const query of [
+    'workspace=/Users/admin/vault',
+    'cwd=\\\\server\\share',
+    'home=~/vault',
+    'path:C:\\vault',
+    'file=/tmp/evidence.md',
+  ]) {
+    assert.throws(() => validateRecoveryFlowRequestV2({ ...base, query }), /unsafe|path|material/i);
+  }
+  const httpsResult = validateRecoveryFlowRequestV2({ ...base, query: 'https://example.com/workspace' });
+  if (httpsResult.action !== 'search') throw new Error('URL fixture did not preserve search action');
+  assert.equal(httpsResult.query, 'https://example.com/workspace');
+  const gitResult = validateRecoveryFlowRequestV2({ ...base, query: 'git+ssh://git.example.com/repo' });
+  if (gitResult.action !== 'search') throw new Error('URL fixture did not preserve search action');
+  assert.equal(gitResult.query, 'git+ssh://git.example.com/repo');
+});
+
 
 test('validates finite stale proof and rejects response or next-request nesting', () => {
   assert.equal(validateRecoveryFlowRequestV2({ schemaVersion: RECOVERY_FLOW_REQUEST_SCHEMA_VERSION, projectId: 'project/alpha', action: 'restart', staleProof }).action, 'restart');
@@ -398,6 +478,65 @@ test('rejects credential assignments and escaped search results over 4096 bytes'
     flowFingerprint: fingerprintRecoveryFlowIntrinsicStage(intrinsic),
   }), /4096|maximum|bytes/i);
 });
+test('enforces the aggregate open-context byte budget including diagnostics and omissions', () => {
+  const payload = {
+    kind: 'open' as const,
+    workItemId: 'project/alpha/issue/one',
+    workRunId: null,
+    contextSource: 'session-record' as const,
+    citations: Array.from({ length: 32 }, () => '"'.repeat(512)),
+  };
+  const diagnostics = Array.from({ length: 32 }, (_, index) => ({
+    owner: 'project' as const,
+    code: `diagnostic-${index}`,
+    severity: 'warning' as const,
+    message: 'm'.repeat(1024),
+    remediation: 'r'.repeat(1024),
+    citationTargets: ['citation'],
+  }));
+  const omitted = { items: 0, citations: 0, diagnostics: 0, bytes: 1024 };
+  assert.ok(utf8JsonBytes(payload) < 64 * 1024);
+  assert.ok(utf8JsonBytes({ payload, diagnostics, omitted }) > 64 * 1024);
+  const intrinsic = {
+    schemaVersion: RECOVERY_FLOW_SCHEMA_VERSION,
+    stage: 'open' as const,
+    projectId: 'project/alpha',
+    previousFlowFingerprint: null,
+    actionInputFingerprint: digest('1'),
+    recoveryFingerprint: digest('2'),
+    ownerLocks: locks,
+    payloadFingerprint: fingerprintRecoveryValue(payload),
+    nextRequestIntents: [{ action: 'search' as const, query: 'recovery', limit: 1 }],
+    diagnostics,
+    omitted,
+  };
+  const flowFingerprint = fingerprintRecoveryFlowIntrinsicStage(intrinsic);
+  assert.throws(() => validateRecoveryFlowResponseV2({
+    schemaVersion: RECOVERY_FLOW_SCHEMA_VERSION,
+    stage: 'open',
+    projectId: 'project/alpha',
+    previousFlowFingerprint: null,
+    actionInputFingerprint: intrinsic.actionInputFingerprint,
+    recoveryFingerprint: intrinsic.recoveryFingerprint,
+    ownerLocks: locks,
+    payload,
+    nextRequestIntents: intrinsic.nextRequestIntents,
+    diagnostics,
+    omitted,
+    rootOpenFlowFingerprint: flowFingerprint,
+    nextRequests: [{
+      schemaVersion: RECOVERY_FLOW_REQUEST_SCHEMA_VERSION,
+      projectId: 'project/alpha',
+      action: 'search',
+      openFlowFingerprint: flowFingerprint,
+      query: 'recovery',
+      limit: 1,
+    }],
+    generatedAt: '2026-08-28T12:00:00.000Z',
+    flowFingerprint,
+  }), /64 KiB|aggregate|context|bytes/i);
+});
+
 
 test('enforces stale, Binding-selection, and planned candidate invariants', () => {
   const emptyProof = {
@@ -449,6 +588,141 @@ test('enforces stale, Binding-selection, and planned candidate invariants', () =
     /candidate.*contain|candidates/i,
   );
 });
+test('requires one refresh intent and unique alternative planned overrides', () => {
+  const complete = { ...basePlan, fingerprint: fingerprintRecoveryValue(basePlan) };
+  const refreshIntent: Extract<RecoveryFlowRequestIntentV2, { action: 'refresh-plan' }> = {
+    action: 'refresh-plan',
+    query: 'recovery',
+    limit: 5,
+    priorPlan: complete,
+  };
+  const overrideIntent: Extract<RecoveryFlowRequestIntentV2, { action: 'plan' }> = {
+    action: 'plan',
+    mode: 'override',
+    query: 'recovery',
+    limit: 5,
+    candidateId: 'resume:two',
+    agentSelection: { bindingId: 'binding/two', bindingRevision: 2 },
+    priorPlan: complete,
+  };
+  const make = (intents: Array<Extract<RecoveryFlowRequestIntentV2, { action: 'plan' | 'refresh-plan' }>>, candidates = [complete.candidateId, 'resume:two']) => {
+    const payload = { kind: 'planned' as const, plan: complete, candidates };
+    const intrinsic = {
+      schemaVersion: RECOVERY_FLOW_SCHEMA_VERSION,
+      stage: 'planned' as const,
+      projectId: 'project/alpha',
+      previousFlowFingerprint: digest('3'),
+      actionInputFingerprint: digest('4'),
+      recoveryFingerprint: complete.recoveryFingerprint,
+      ownerLocks: locks,
+      payloadFingerprint: fingerprintRecoveryValue(payload),
+      nextRequestIntents: intents,
+      diagnostics: [],
+      omitted: { items: 0, citations: 0, diagnostics: 0, bytes: 0 },
+    };
+    const flowFingerprint = fingerprintRecoveryFlowIntrinsicStage(intrinsic);
+    const nextRequests = intents.map((intent) => {
+      if (intent.action === 'refresh-plan') {
+        return {
+          schemaVersion: RECOVERY_FLOW_REQUEST_SCHEMA_VERSION,
+          projectId: 'project/alpha',
+          action: 'refresh-plan' as const,
+          openFlowFingerprint: complete.rootOpenFlowFingerprint,
+          searchedBasisFlowFingerprint: complete.searchedBasisFlowFingerprint,
+          plannedFlowFingerprint: flowFingerprint,
+          query: intent.query,
+          limit: intent.limit,
+          priorPlan: complete,
+        };
+      }
+      return {
+        schemaVersion: RECOVERY_FLOW_REQUEST_SCHEMA_VERSION,
+        projectId: 'project/alpha',
+        action: 'plan' as const,
+        mode: 'override' as const,
+        openFlowFingerprint: complete.rootOpenFlowFingerprint,
+        searchedBasisFlowFingerprint: complete.searchedBasisFlowFingerprint,
+        plannedFlowFingerprint: flowFingerprint,
+        query: intent.query,
+        limit: intent.limit,
+        candidateId: intent.candidateId,
+        agentSelection: intent.agentSelection,
+        priorPlan: complete,
+      };
+    });
+    return {
+      ...openResponse(),
+      stage: 'planned' as const,
+      previousFlowFingerprint: intrinsic.previousFlowFingerprint,
+      actionInputFingerprint: intrinsic.actionInputFingerprint,
+      recoveryFingerprint: intrinsic.recoveryFingerprint,
+      ownerLocks: locks,
+      payload,
+      nextRequestIntents: intents,
+      diagnostics: [],
+      omitted: intrinsic.omitted,
+      rootOpenFlowFingerprint: complete.rootOpenFlowFingerprint,
+      nextRequests,
+      flowFingerprint,
+    };
+  };
+  const valid = make([refreshIntent, overrideIntent]);
+  assert.deepEqual(validateRecoveryFlowResponseV2(valid), valid);
+  assert.throws(() => validateRecoveryFlowResponseV2(make([])), /exactly one.*refresh|refresh.*required/i);
+  assert.throws(() => validateRecoveryFlowResponseV2(make([refreshIntent, overrideIntent, overrideIntent])), /duplicate|unique|override/i);
+  assert.throws(() => validateRecoveryFlowResponseV2(make([refreshIntent, { ...overrideIntent, candidateId: 'resume:three' }])), /candidate.*member|candidate/i);
+  assert.throws(() => validateRecoveryFlowResponseV2(make([refreshIntent, { ...overrideIntent, candidateId: complete.candidateId }])), /different|current candidate|override/i);
+});
+
+test('requires exactly one stale restart intent and request', () => {
+  const intent: RecoveryFlowRequestIntentV2 = { action: 'restart', staleProof };
+  const intrinsic = {
+    schemaVersion: RECOVERY_FLOW_SCHEMA_VERSION,
+    stage: 'stale' as const,
+    projectId: 'project/alpha',
+    previousFlowFingerprint: staleProof.priorFlowFingerprint,
+    actionInputFingerprint: staleProof.priorActionInputFingerprint,
+    recoveryFingerprint: staleProof.recoveryFingerprint,
+    ownerLocks: locks,
+    payloadFingerprint: fingerprintRecoveryValue(staleProof),
+    nextRequestIntents: [intent],
+    diagnostics: [],
+    omitted: { items: 0, citations: 0, diagnostics: 0, bytes: 0 },
+  };
+  const flowFingerprint = fingerprintRecoveryFlowIntrinsicStage(intrinsic);
+  const nextRequest = {
+    schemaVersion: RECOVERY_FLOW_REQUEST_SCHEMA_VERSION,
+    projectId: 'project/alpha',
+    action: 'restart' as const,
+    staleProof,
+  };
+  const response = {
+    ...openResponse(),
+    stage: 'stale' as const,
+    previousFlowFingerprint: staleProof.priorFlowFingerprint,
+    actionInputFingerprint: staleProof.priorActionInputFingerprint,
+    recoveryFingerprint: staleProof.recoveryFingerprint,
+    payload: staleProof,
+    nextRequestIntents: [intent],
+    nextRequests: [nextRequest],
+    rootOpenFlowFingerprint: staleProof.rootOpenFlowFingerprint,
+    flowFingerprint,
+  };
+  assert.deepEqual(validateRecoveryFlowResponseV2(response), response);
+  const duplicateIntents = [intent, intent];
+  const duplicateIntrinsic = { ...intrinsic, nextRequestIntents: duplicateIntents };
+  const duplicateFlowFingerprint = fingerprintRecoveryFlowIntrinsicStage(duplicateIntrinsic);
+  assert.throws(
+    () => validateRecoveryFlowResponseV2({
+      ...response,
+      nextRequestIntents: duplicateIntents,
+      nextRequests: [nextRequest, nextRequest],
+      flowFingerprint: duplicateFlowFingerprint,
+    }),
+    /exactly one|one.*restart|duplicate/i,
+  );
+});
+
 test('binds planned and stale response fingerprints to their finite payload proofs', () => {
   const complete = { ...basePlan, fingerprint: fingerprintRecoveryValue(basePlan) };
   const planned = {
@@ -461,7 +735,7 @@ test('binds planned and stale response fingerprints to their finite payload proo
     nextRequests: [],
     rootOpenFlowFingerprint: digest('b'),
   };
-  assert.throws(() => validateRecoveryFlowResponseV2(planned), /rootOpenFlowFingerprint.*payload\.plan/i);
+  assert.throws(() => validateRecoveryFlowResponseV2(planned), /rootOpenFlowFingerprint.*payload\.plan|planned responses require.*refresh/i);
   const stale = {
     ...openResponse(),
     stage: 'stale' as const,
@@ -541,7 +815,7 @@ test('accepts valid fixtures for every response stage', () => {
     digest('3'),
     digest('4'),
     digest('5'),
-    digest('6'),
+    digest('3'),
     [],
     [],
   );
@@ -555,21 +829,60 @@ test('accepts valid fixtures for every response stage', () => {
     digest('7'),
     digest('8'),
     digest('9'),
-    digest('a'),
+    digest('7'),
     [],
     [],
   );
   const complete = { ...basePlan, fingerprint: fingerprintRecoveryValue(basePlan) };
+  const plannedIntents: RecoveryFlowRequestIntentV2[] = [
+    { action: 'refresh-plan', query: 'recovery', limit: 5, priorPlan: complete },
+    {
+      action: 'plan',
+      mode: 'override',
+      query: 'recovery',
+      limit: 5,
+      candidateId: 'resume:two',
+      agentSelection: { bindingId: 'binding/two', bindingRevision: 2 },
+      priorPlan: complete,
+    },
+  ];
   const planned = make(
     'planned',
-    { kind: 'planned', plan: complete, candidates: [complete.candidateId] },
+    { kind: 'planned', plan: complete, candidates: [complete.candidateId, 'resume:two'] },
     digest('b'),
     digest('c'),
     complete.recoveryFingerprint,
     complete.rootOpenFlowFingerprint,
-    [],
+    plannedIntents,
     [],
   );
+  planned.nextRequests = [
+    {
+      schemaVersion: RECOVERY_FLOW_REQUEST_SCHEMA_VERSION,
+      projectId: 'project/alpha',
+      action: 'refresh-plan',
+      openFlowFingerprint: complete.rootOpenFlowFingerprint,
+      searchedBasisFlowFingerprint: complete.searchedBasisFlowFingerprint,
+      plannedFlowFingerprint: planned.flowFingerprint,
+      query: 'recovery',
+      limit: 5,
+      priorPlan: complete,
+    },
+    {
+      schemaVersion: RECOVERY_FLOW_REQUEST_SCHEMA_VERSION,
+      projectId: 'project/alpha',
+      action: 'plan',
+      mode: 'override',
+      openFlowFingerprint: complete.rootOpenFlowFingerprint,
+      searchedBasisFlowFingerprint: complete.searchedBasisFlowFingerprint,
+      plannedFlowFingerprint: planned.flowFingerprint,
+      query: 'recovery',
+      limit: 5,
+      candidateId: 'resume:two',
+      agentSelection: { bindingId: 'binding/two', bindingRevision: 2 },
+      priorPlan: complete,
+    },
+  ];
   const stale = make(
     'stale',
     staleProof,

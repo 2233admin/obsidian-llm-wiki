@@ -720,13 +720,33 @@ function validateIntents(stage: RecoveryFlowStage, value: unknown, payload: Reco
   }
   if (stage === 'planned') {
     const currentPlan = (payload as RecoveryPlannedPayloadV2).plan;
-    if (intents.some((intent) => {
-      if (intent.action === 'plan' && intent.mode !== 'override') return true;
+    const plannedIntents = intents.filter((intent) => intent.action === 'plan' || intent.action === 'refresh-plan');
+    if (plannedIntents.filter((intent) => intent.action === 'refresh-plan').length !== 1) {
+      fail('nextRequestIntents', 'planned responses require exactly one refresh-plan intent');
+    }
+    const overrideCandidates = new Set<string>();
+    for (const intent of plannedIntents) {
       const priorPlan = intent.action === 'plan' || intent.action === 'refresh-plan' ? intent.priorPlan : null;
-      return priorPlan === null || canonicalRecoveryJson(priorPlan) !== canonicalRecoveryJson(currentPlan);
-    })) fail('nextRequestIntents', 'planned responses must derive override or refresh intents from the current Plan');
+      if (priorPlan === null || canonicalRecoveryJson(priorPlan) !== canonicalRecoveryJson(currentPlan)) {
+        fail('nextRequestIntents', 'planned responses must derive override or refresh intents from the current Plan');
+      }
+      if (intent.action === 'plan') {
+        if (intent.mode !== 'override') fail('nextRequestIntents', 'planned plan intents must use override mode');
+        if (!((payload as RecoveryPlannedPayloadV2).candidates).includes(intent.candidateId)) {
+          fail('nextRequestIntents', 'override candidate must be a member of payload.candidates');
+        }
+        if (intent.candidateId === currentPlan.candidateId) {
+          fail('nextRequestIntents', 'override candidate must differ from the current Plan candidate');
+        }
+        if (overrideCandidates.has(intent.candidateId)) {
+          fail('nextRequestIntents', 'override candidates must be unique');
+        }
+        overrideCandidates.add(intent.candidateId);
+      }
+    }
   }
   if (stage === 'stale') {
+    if (intents.length !== 1) fail('nextRequestIntents', 'stale responses require exactly one restart intent');
     const proof = payload as RecoveryStaleProofV2;
     const intent = intents[0];
     if (intent === undefined || intent.action !== 'restart' || canonicalRecoveryJson(intent.staleProof) !== canonicalRecoveryJson(proof)) {
@@ -778,6 +798,7 @@ export function validateRecoveryFlowResponseV2(value: unknown): RecoveryFlowResp
   const intents = validateIntents(stage, entry.nextRequestIntents, payload);
   const diagnostics = list(entry.diagnostics, 'diagnostics', 32, validateDiagnostic);
   const ownerLocks = validateOwnerLocks(entry.ownerLocks, 'ownerLocks');
+  const omitted = validateOmitted(entry.omitted, 'omitted');
   const response = {
     schemaVersion: RECOVERY_FLOW_SCHEMA_VERSION,
     stage,
@@ -789,7 +810,7 @@ export function validateRecoveryFlowResponseV2(value: unknown): RecoveryFlowResp
     payload,
     nextRequestIntents: intents,
     diagnostics,
-    omitted: validateOmitted(entry.omitted, 'omitted'),
+    omitted,
     rootOpenFlowFingerprint: fingerprint(entry.rootOpenFlowFingerprint, 'rootOpenFlowFingerprint'),
     nextRequests: list(entry.nextRequests, 'nextRequests', 8, (item, label) => validateRecoveryFlowRequestV2(item)),
     generatedAt: validateTimestamp(entry.generatedAt, 'generatedAt'),
@@ -798,6 +819,12 @@ export function validateRecoveryFlowResponseV2(value: unknown): RecoveryFlowResp
   if (response.stage === 'open' && response.previousFlowFingerprint !== null) fail('previousFlowFingerprint', 'must be null for open');
   if (response.stage !== 'open' && response.previousFlowFingerprint === null) fail('previousFlowFingerprint', 'must be present for non-open responses');
   if (response.stage === 'open' && response.rootOpenFlowFingerprint !== response.flowFingerprint) fail('rootOpenFlowFingerprint', 'must equal open flowFingerprint');
+  if ((stage === 'searched' || stage === 'needs-agent-selection') && response.rootOpenFlowFingerprint !== response.previousFlowFingerprint) {
+    fail('rootOpenFlowFingerprint', 'must equal previousFlowFingerprint for searched or needs-agent-selection responses');
+  }
+  if (stage === 'open' && utf8JsonBytes({ payload, diagnostics, omitted }) > 64 * 1024) {
+    fail('open context', 'must not exceed 64 KiB including payload, diagnostics, and omissions');
+  }
   if (response.stage === 'planned') {
     const plan = (response.payload as RecoveryPlannedPayloadV2).plan;
     if (response.rootOpenFlowFingerprint !== plan.rootOpenFlowFingerprint) fail('rootOpenFlowFingerprint', 'must match payload.plan');
