@@ -20,9 +20,10 @@ The architecture combines two decisions:
 Canvas/layout is a later projection. It is not the authority for query state,
 row data, or source content.
 
-The first implementation slice is a complete vertical path for Table and
-Kanban views backed by Markdown/frontmatter, including controlled property
-edits through the existing immutable `VisualEditPlan` boundary.
+The first implementation slice is a complete path for importing supported
+template semantics into the new LLM Wiki format, then rendering Table and
+Kanban views backed by Markdown/frontmatter. Imported actions remain plans until
+explicitly reviewed and applied.
 
 ## 2. Reference ideas and clean-room boundary
 
@@ -35,17 +36,20 @@ contract:
 - A page can be composed from multiple blocks.
 - Components can participate in workflows through controlled actions.
 
-The allowed internalization input is limited to those ideas, public product
-labels, public documentation, release metadata, and independently observed
-sample data. The implementation must remain independently designed and
-written.
+The allowed internalization input includes the supplied template files and
+archives, public product labels, public documentation, release metadata, and
+independently observed sample data. The implementation remains independently
+designed and written.
 
 The following are explicitly out of scope:
 
-- importing the reference bundle or its source code;
+- copying or embedding the reference bundle or its source code;
 - decompiling or reproducing bundled implementation logic;
-- parsing or writing the reference `.components` runtime format;
-- claiming compatibility with its undocumented persistence or execution model;
+- treating `.components` as an LLM Wiki runtime or wire format;
+- writing new data back in the reference format or promising drop-in
+  compatibility;
+- executing embedded `viewCode`, `settingsCode`, `runScript`, `dataviewjs`, or
+  other arbitrary code during import or runtime;
 - distributing a derivative of its bundle or dependencies.
 
 The feature name, schema names, module names, algorithms, and persistence
@@ -111,6 +115,49 @@ to configure an abstract query engine first. They want a useful dashboard for
 an actual domain such as projects, journals, habits, or inventory. The
 implementation should therefore ship domain-oriented examples and templates
 over the same generic contracts rather than exposing only low-level primitives.
+
+### 2.3 Reference template import
+
+Reference artifacts are supported as **import inputs only**. The importer is a
+read-only, isolated adapter that produces a neutral intermediate
+representation, diagnostics, and a reviewable import plan. It never executes
+embedded code and never writes the input format.
+
+The semantic mapping is:
+
+| Reference concept | LLM Wiki result |
+|---|---|
+| `multi` composition tree | versioned dashboard composition |
+| list / column / tab / grid | typed layout node |
+| mobile / laptop coordinates | responsive layout profiles |
+| `dynamicDataView` | query plus Table/Kanban/Calendar projection |
+| typed properties | field descriptors and source bindings |
+| filter groups and temporal predicates | declarative predicate tree |
+| count / progress / chart / time | metric or visualization proposal |
+| template reference | LLM Wiki record-template proposal |
+| open file / registered command / URL | allowlisted typed action proposal |
+| `runScript`, custom code, `dataviewjs` | quarantined unsupported item |
+| external asset reference | provenance-backed asset proposal |
+
+The importer output contains:
+
+- input artifact identity and SHA-256;
+- extracted semantic model;
+- generated LLM Wiki definitions;
+- source and asset provenance;
+- unsupported or ambiguous constructs;
+- warnings requiring human review;
+- an immutable import plan.
+
+Static Markdown/frontmatter templates may be transformed into new LLM Wiki
+templates after review. Embedded JavaScript is recorded as an unsupported
+capability, not evaluated or copied. External assets require explicit user
+approval and provenance; they are never silently redistributed.
+
+Import is therefore a migration of **intent**, not a compatibility layer. A
+successful import produces a usable LLM Wiki dashboard and templates in the new
+format, while the original artifact remains untouched and independently
+usable.
 
 ## 3. Product goals
 
@@ -615,14 +662,16 @@ MCP/CLI contract tests, and an Obsidian smoke path all pass.
 ## 16. Delivery sequence
 
 1. Define and test the shared v1 contract.
-2. Implement source snapshot, managed block, query, and diagnostic behavior in
+2. Implement the isolated reference-template importer, neutral intermediate
+   representation, semantic mappings, and import fixtures.
+3. Implement source snapshots, managed blocks, query, and diagnostic behavior in
    `visual-workspace`.
-3. Implement Table and Kanban projections and controlled action planning.
-4. Add the Obsidian source adapter and renderer.
-5. Add MCP discover/preview/plan integration.
-6. Add CLI validation/query/preview commands.
-7. Run cross-surface fixtures and the Obsidian smoke path.
-8. Document the user-facing Markdown format and migration/rollback behavior.
+4. Implement Table and Kanban projections and controlled action planning.
+5. Add the Obsidian source adapter and renderer.
+6. Add MCP discover/preview/plan integration.
+7. Add CLI validation/query/preview commands.
+8. Run import, cross-surface fixtures, and the Obsidian smoke path.
+9. Document the user-facing Markdown format and migration/rollback behavior.
 
 No later projection or reference-project feature may bypass the v1 contract,
 source traceability, or edit-plan boundary.
@@ -642,5 +691,10 @@ The implementation will be accepted when:
 - controlled edits produce reviewable immutable plans;
 - stale or conflicting sources cause no partial writes;
 - Plugin, MCP, and CLI agree on the shared contract;
+- supported reference templates can be imported into the new format without
+  executing embedded code or writing the original format;
+- unsupported and ambiguous template constructs are reported and quarantined;
+- an approved import produces usable LLM Wiki views, dashboards, and templates
+  while leaving the source artifact unchanged;
 - no arbitrary code execution, vault escape, or private-format compatibility
   has been introduced.
