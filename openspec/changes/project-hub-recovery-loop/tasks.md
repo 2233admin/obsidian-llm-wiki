@@ -16,9 +16,9 @@ Luna receives one reviewed Task at a time. It may alter internal implementation 
 
 ## Phase 1 — S01B complete internal V2 contract kernel
 
-- [ ] **T1.1 Shared closed-contract support (R1, R2, R4)** — Add `mcp-server/src/project-hub/contract-support.ts` and its test; migrate reusable canonical JSON/fingerprint/safety helpers from `recovery.ts` without changing V1 bytes while V1 remains live.
-- [ ] **T1.2 Recovery Flow request/response reducer (R1, R2, R4)** — Add `mcp-server/src/project-hub/recovery-flow.ts`, its test, and internal export. Implement every request action/response stage, exact nullable arms, bounds, owner-lock ordering, chained Flow Fingerprints, minimal-input prerequisite descriptors, full-prior-Plan validation requirements, and stale/unavailable shapes. Do not register a public partial V2 operation.
-- [ ] **T1.3 Verify S01B** — From `mcp-server/`, run `npm exec bun -- test src/project-hub/contract-support.test.ts src/project-hub/recovery-flow.test.ts src/project/project-hub.test.ts` and `npm run typecheck`. Prove V1 bytes remain unchanged and record evidence in `p0-s01b-project-hub-recovery-flow-v2.md`; independent review precedes reviewed/executable S02.
+- [x] **T1.1 Shared closed-contract support (R1, R2, R4)** — Add `mcp-server/src/project-hub/contract-support.ts` and its test; migrate reusable canonical JSON/fingerprint/safety helpers from `recovery.ts` without changing V1 bytes while V1 remains live.
+- [x] **T1.2 Recovery Flow request/response reducer (R1, R2, R4)** — Add `mcp-server/src/project-hub/recovery-flow.ts`, its test, and internal export. Implement every request action/response stage, exact nullable arms, bounds, owner-lock ordering, chained Flow Fingerprints, minimal-input prerequisite descriptors, full-prior-Plan validation requirements, and stale/unavailable shapes. Do not register a public partial V2 operation.
+- [x] **T1.3 Verify S01B** — From `mcp-server/`, run `npm exec bun -- test src/project-hub/contract-support.test.ts src/project-hub/recovery-flow.test.ts src/project/project-hub.test.ts` and `npm run typecheck`. Prove V1 bytes remain unchanged and record evidence in `p0-s01b-project-hub-recovery-flow-v2.md`; independent review precedes reviewed/executable S02.
 
 ## Phase 2 — S02 open/context and Workflow read seams
 

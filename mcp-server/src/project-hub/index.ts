@@ -3,3 +3,4 @@ export * from "./production.js";
 export * from "./projection.js";
 export * from "./recovery.js";
 export * from "./contract-support.js";
+export * from "./recovery-flow.js";
