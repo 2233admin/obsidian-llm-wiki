@@ -49,6 +49,11 @@ function scalar(value: unknown, label: string): void {
   assert.ok(value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean", `${label} must be scalar`);
 }
 
+function nonEmptyString(value: unknown, label: string): void {
+  assert.equal(typeof value, "string", `${label} must be a string`);
+  assert.ok((value as string).length > 0, `${label} must not be empty`);
+}
+
 function validateDataView(name: string, input: Record<string, unknown>): void {
   const rootKeys: Record<string, readonly string[]> = {
     "data-view-definition": ["schemaVersion", "id", "title", "view", "source", "select", "where", "groupBy", "groupOrder", "orderBy"],
@@ -84,12 +89,12 @@ function validateDataView(name: string, input: Record<string, unknown>): void {
     for (const item of input.groups) { const group = object(item, "group"); exactKeys(group, ["id", "label", "rowIds"], "group"); assert.equal(typeof group.id, "string"); assert.equal(typeof group.label, "string"); assert.ok((group.id as string).length > 0 && (group.label as string).length > 0 && Array.isArray(group.rowIds)); group.rowIds.forEach((id, i) => { assert.equal(typeof id, "string"); assert.ok((id as string).length > 0, `group.rowIds[${i}]`); }); }
     for (const item of input.diagnostics) { const diagnostic = object(item, "diagnostic"); exactKeys(diagnostic, ["code", "severity", "message", "sourcePath", "field"], "diagnostic"); assert.equal(typeof diagnostic.code, "string"); assert.equal(typeof diagnostic.message, "string"); assert.ok((diagnostic.code as string).length > 0 && (diagnostic.message as string).length > 0 && ["info", "warning", "error"].includes(String(diagnostic.severity))); if (diagnostic.sourcePath !== undefined) path(diagnostic.sourcePath, "diagnostic.sourcePath"); if (diagnostic.field !== undefined) { assert.equal(typeof diagnostic.field, "string"); assert.ok((diagnostic.field as string).length > 0); } }
   } else if (name === "data-view-action-request") {
-    assert.ok(input.queryId && input.field && input.actor && ["edit-property", "move-card"].includes(String(input.kind))); path(input.sourcePath, "sourcePath"); scalarOrArray(input.value, "value");
+    assert.ok(input.kind === "edit-property" || input.kind === "move-card"); nonEmptyString(input.queryId, "queryId"); path(input.sourcePath, "sourcePath"); nonEmptyString(input.field, "field"); scalarOrArray(input.value, "value"); nonEmptyString(input.actor, "actor");
   } else {
-    const source = object(input.source, "import source"); exactKeys(source, ["name", "sha256"], "import source"); assert.ok(source.name && /^[a-f0-9]{64}$/u.test(String(source.sha256)));
+    const source = object(input.source, "import source"); exactKeys(source, ["name", "sha256"], "import source"); nonEmptyString(source.name, "source.name"); assert.ok(/^[a-f0-9]{64}$/u.test(String(source.sha256)));
     path(input.targetRoot, "targetRoot"); assert.ok(Array.isArray(input.files));
-    for (const item of input.files) { const file = object(item, "file"); exactKeys(file, ["path", "beforeSha256", "before", "after", "afterSha256"], "file"); path(file.path, "file.path"); assert.ok(typeof file.after === "string" && /^[a-f0-9]{64}$/u.test(String(file.afterSha256))); }
-    assert.ok(Array.isArray(input.selectedItemIds) && Array.isArray(input.warnings)); const provenance = object(input.provenance, "provenance"); exactKeys(provenance, ["actor", "origin"], "provenance"); assert.equal(provenance.origin, "import"); assert.ok(input.fingerprint);
+    for (const item of input.files) { const file = object(item, "file"); exactKeys(file, ["path", "beforeSha256", "before", "after", "afterSha256"], "file"); path(file.path, "file.path"); if (file.beforeSha256 !== undefined) assert.ok(/^[a-f0-9]{64}$/u.test(String(file.beforeSha256))); if (file.before !== undefined) assert.equal(typeof file.before, "string"); nonEmptyString(file.after, "file.after"); assert.ok(/^[a-f0-9]{64}$/u.test(String(file.afterSha256))); }
+    assert.ok(Array.isArray(input.selectedItemIds) && Array.isArray(input.warnings)); input.selectedItemIds.forEach((id, i) => nonEmptyString(id, `selectedItemIds[${i}]`)); input.warnings.forEach((warning, i) => assert.equal(typeof warning, "string", `warnings[${i}]`)); const provenance = object(input.provenance, "provenance"); exactKeys(provenance, ["actor", "origin"], "provenance"); nonEmptyString(provenance.actor, "provenance.actor"); assert.equal(provenance.origin, "import"); nonEmptyString(input.fingerprint, "fingerprint");
   }
 }
 
@@ -101,7 +106,7 @@ function scalarOrArray(value: unknown, label: string): void {
 function validatePredicate(value: unknown): void {
   const predicate = object(value, "predicate");
   if (predicate.kind === "and" || predicate.kind === "or") { exactKeys(predicate, ["kind", "predicates"], "predicate"); assert.ok(Array.isArray(predicate.predicates)); predicate.predicates.forEach(validatePredicate); }
-  else { exactKeys(predicate, ["kind", "field", "operator", "value"], "predicate"); assert.equal(predicate.kind, "field"); assert.ok(predicate.field && ["equals", "in", "exists", "contains"].includes(String(predicate.operator))); if (predicate.value !== undefined) scalarOrArray(predicate.value, "predicate.value"); }
+  else { exactKeys(predicate, ["kind", "field", "operator", "value"], "predicate"); assert.equal(predicate.kind, "field"); nonEmptyString(predicate.field, "predicate.field"); assert.ok(["equals", "in", "exists", "contains"].includes(String(predicate.operator))); if (predicate.value !== undefined) scalarOrArray(predicate.value, "predicate.value"); }
 }
 
 function validateValue(value: unknown): void {
@@ -206,6 +211,15 @@ describe("Agent Wiki shared contracts", () => {
     const file = object((plan.files as unknown[])[0], "file");
     assert.throws(() => validateDataView("data-view-import-plan", { ...plan, files: [{ ...file, path: "file://secret" }] }));
     assert.throws(() => validateDataView("data-view-import-plan", { ...plan, files: [{ ...file, path: "C:/absolute/path" }] }));
+    assert.throws(() => validateDataView("data-view-model", { ...model, columns: [{ field: "", label: "Title" }] }));
+    assert.throws(() => validateDataView("data-view-definition", { ...definition, where: { kind: "field", field: "", operator: "equals" } }));
+    assert.throws(() => validateDataView("data-view-action-request", { ...action, queryId: "" }));
+    assert.throws(() => validateDataView("data-view-action-request", { ...action, field: 42 }));
+    assert.throws(() => validateDataView("data-view-action-request", { ...action, actor: "" }));
+    assert.throws(() => validateDataView("data-view-import-plan", { ...plan, files: [{ ...file, beforeSha256: "bad" }] }));
+    assert.throws(() => validateDataView("data-view-import-plan", { ...plan, selectedItemIds: [""] }));
+    assert.throws(() => validateDataView("data-view-import-plan", { ...plan, warnings: [42] }));
+    assert.throws(() => validateDataView("data-view-import-plan", { ...plan, provenance: { actor: "", origin: "import" } }));
   });
 
   test("fixtures never serialize credential material or raw machine paths", () => {
