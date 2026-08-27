@@ -105,7 +105,7 @@ function validatePredicate(value: unknown): void {
 }
 
 function validateValue(value: unknown): void {
-  const result = object(value, "value"); exactKeys(result, ["state", "value", "source"], "value"); assert.ok(result.state === "known" || result.state === "unknown"); if (result.value !== undefined) scalarOrArray(result.value, "value.value"); const source = object(result.source, "value.source"); exactKeys(source, ["path", "field", "start", "end", "blockId"], "value.source"); path(source.path, "value.source.path");
+  const result = object(value, "value"); exactKeys(result, ["state", "value", "source"], "value"); assert.ok(result.state === "known" || result.state === "unknown"); if (result.value !== undefined) scalarOrArray(result.value, "value.value"); const source = object(result.source, "value.source"); exactKeys(source, ["path", "field", "start", "end", "blockId"], "value.source"); path(source.path, "value.source.path"); if (source.field !== undefined) { assert.equal(typeof source.field, "string"); assert.ok((source.field as string).length > 0); } for (const key of ["start", "end"]) if (source[key] !== undefined) { assert.equal(typeof source[key], "number"); assert.equal(Number.isInteger(source[key]), true); assert.ok((source[key] as number) >= 0); } if (source.blockId !== undefined) { assert.equal(typeof source.blockId, "string"); assert.ok((source.blockId as string).length > 0); }
 }
 
 function clone(value: Record<string, unknown>): Record<string, unknown> {
