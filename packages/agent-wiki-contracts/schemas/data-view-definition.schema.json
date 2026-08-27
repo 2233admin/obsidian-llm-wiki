@@ -17,7 +17,7 @@
   },
   "additionalProperties": false,
   "$defs": {
-    "path": { "type": "string", "minLength": 1, "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\u0000\\\\]+$" },
+    "path": { "type": "string", "minLength": 1, "pattern": "^(?!/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\u0000\\\\]+$" },
     "source": {
       "oneOf": [
         { "type": "object", "required": ["kind", "path"], "properties": { "kind": { "const": "file" }, "path": { "$ref": "#/$defs/path" } }, "additionalProperties": false },

@@ -4,5 +4,5 @@
   "type":"object","required":["schemaVersion","kind","queryId","sourcePath","field","value","actor"],
   "properties":{"schemaVersion":{"const":1},"kind":{"enum":["edit-property","move-card"]},"queryId":{"$ref":"common.schema.json#/$defs/identifier"},"sourcePath":{"$ref":"#/$defs/path"},"field":{"type":"string","minLength":1},"value":{"oneOf":[{"$ref":"#/$defs/scalar"},{"type":"array","items":{"$ref":"#/$defs/scalar"}}]},"actor":{"$ref":"common.schema.json#/$defs/identifier"}},
   "additionalProperties":false,
-  "$defs":{"path":{"type":"string","minLength":1,"pattern":"^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\u0000\\\\]+$"},"scalar":{"type":["string","number","boolean","null"]}}
+  "$defs":{"path":{"type":"string","minLength":1,"pattern":"^(?!/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\u0000\\\\]+$"},"scalar":{"type":["string","number","boolean","null"]}}
 }
