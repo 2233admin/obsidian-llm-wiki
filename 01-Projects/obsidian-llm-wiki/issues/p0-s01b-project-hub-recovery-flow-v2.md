@@ -45,11 +45,12 @@ Blocked by completed S01 v1 only as the behavior baseline. S02 starts after this
 
 ## Verification
 
-- `npm exec bun -- test src/project-hub/contract-support.test.ts src/project-hub/recovery-flow.test.ts src/project/project-hub.test.ts` — 37 passed across 3 files.
+- `npm exec bun -- test src/project-hub/contract-support.test.ts src/project-hub/recovery-flow.test.ts src/project/project-hub.test.ts` — 42 passed across 3 files.
 - `npm run typecheck` — passed, including Settings Platform, Agent Domain, Visual Workspace, and Problem Intake builds.
 - `openspec validate project-hub-recovery-loop --strict --no-interactive` — valid.
 - V1 characterization remains green; the pre-extraction golden canonical serialization and fixed fingerprint assertion pass alongside the existing V1 behavior checks.
 - V2 remains internal: only `project-hub/index.ts` exports the kernel; no `project.hub.recovery.flow` Operation or persisted Flow state was added.
+- Independent final code review after both repair passes — approved with no Critical or Important findings.
 
 ## Non-goals
 
