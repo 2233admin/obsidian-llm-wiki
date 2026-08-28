@@ -19,6 +19,8 @@ class FakeElement {
   textContent = "";
   value = "";
   onclick: ((event: unknown) => void) | null = null;
+  oninput: (() => void) | null = null;
+  onkeydown: ((event: { key: string }) => void) | null = null;
   disabled = false;
 
   constructor(readonly tagName: string) {}
@@ -106,6 +108,47 @@ test("panel cancellation ignores a late search response", async () => {
   await search;
   assert.equal(panel.state.flow?.stage, "open");
   assert.equal(panel.state.busy, false);
+});
+
+test("search button follows the current query and submits once", async () => {
+  const root = new FakeElement("div");
+  const calls: Array<{ operation: string; args: Record<string, unknown> }> = [];
+  const client = new ProjectHubRecoveryClient({
+    async invoke<T>(operation: string, args: Record<string, unknown>): Promise<T> {
+      calls.push({ operation, args });
+      const request = args.request as { action: string };
+      if (request.action === "open") return openResponse() as T;
+      return { ...searchedResponse(), payload: { ...searchedResponse().payload, recommendedCandidateId: null, bindings: [] }, nextRequests: [] } as T;
+    },
+  });
+  const panel = new ProjectHubRecoveryPanel(client, root as unknown as HTMLElement);
+
+  await panel.open(projectId);
+
+  const input = root.querySelectorAll<FakeElement>("input").find(element => element.getAttribute("type") === "search");
+  const button = root.querySelectorAll<FakeElement>("button").find(element => element.textContent === "Search");
+  assert.ok(input);
+  assert.ok(button);
+  assert.equal(button.disabled, true);
+
+  input.value = "   ";
+  input.oninput?.();
+  assert.equal(button.disabled, true);
+
+  input.value = "current query";
+  input.oninput?.();
+  assert.equal(button.disabled, false);
+
+  input.value = "\t";
+  input.oninput?.();
+  assert.equal(button.disabled, true);
+
+  input.value = "current query";
+  input.oninput?.();
+  button.onclick?.({});
+  await Promise.resolve();
+  assert.deepEqual(calls.map(call => (call.args.request as { action: string }).action), ["open", "search"]);
+  assert.equal((calls[1]?.args.request as { query: string }).query, "current query");
 });
 
 test("citation actions are named native buttons with exact callback targets", async () => {

@@ -438,12 +438,15 @@ export class ProjectHubRecoveryPanel {
     input.placeholder = "Search cited Project context";
     input.setAttr("aria-label", "Search cited Project context");
     input.setAttr("data-recovery-focus", "query");
-    input.oninput = () => { this.#state.query = input.value; };
     input.onkeydown = event => {
       if (event.key === "Enter") void this.search(input.value);
     };
     const button = section.createEl("button", { text: "Search" });
     button.disabled = this.#state.busy || !input.value.trim();
+    input.oninput = () => {
+      this.#state.query = input.value;
+      button.disabled = this.#state.busy || !input.value.trim();
+    };
     button.onclick = () => void this.search(input.value);
   }
 
