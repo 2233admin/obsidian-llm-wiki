@@ -50,7 +50,8 @@ Blocked by S03. S06A begins only after the complete V2 read Flow and clean cutov
 ## Evidence
 
 - Added exact candidate/Binding/Profile eligibility, immutable Plan derivation, explicit refresh/recomputation, and the complete read-only `project.hub.recovery.flow`; removed the V1 recovery module and `project.hub.get.recovery` response.
-- From `mcp-server/`: the required T4.4 suite — 48 passed, 0 failed.
+- Repaired adversarial S04A findings: exact Work Run/Work Item and Session binding, reviewed-only memory, strict Agent Domain claims, bounded alternate resume candidates and override requests, authoritative default memory wiring, unavailable owner/error handling, invalid search-owner state rejection, and complete prior-Plan binding checks.
+- From `mcp-server/`: the required T4.4 suite — 57 passed, 0 failed.
 - From `mcp-server/`: `npm run typecheck -- --pretty false` — passed, including platform builds.
 - Repository root: `openspec validate project-hub-recovery-loop --strict --no-interactive` — passed.
 - Runtime absence scan found no V1 schema/type/validator/export/module or `project.hub.get.recovery` references outside permitted historical contract prose. Generated operation references were regenerated with `npm run build` and `npm run generate-tools-doc`.
