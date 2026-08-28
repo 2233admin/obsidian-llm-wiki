@@ -763,6 +763,8 @@ export interface AllOperationsDeps {
   environment?: NodeJS.ProcessEnv;
   /** Host-specific OBC process adapter. */
   obcRunner?: ObcRunner;
+  /** Optional governed Work Run capability-grant reader for output side effects. */
+  capabilityOperationGrantLoader?: (grantId: string) => Promise<unknown>;
   /** Optional host-specific Project Hub projection integration. */
   projectHubIntegration?: ProductionProjectHubIntegration;
 }
@@ -1593,6 +1595,7 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     ...makeWorkflowOps(vaultPath, {
       recoveryRuntime,
       recoveryPlanningService,
+      ...(deps.capabilityOperationGrantLoader ? { capabilityOperationGrantLoader: deps.capabilityOperationGrantLoader } : {}),
       // Apply authorization is an independently injected production capability;
       // the Plan capability fact is intentionally not reused for mutation.
       recoveryApplyCapability: async () => ({ capability: 'workflow.recovery.apply' as const, state: 'available' as const }),

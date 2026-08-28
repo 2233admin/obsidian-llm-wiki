@@ -247,7 +247,7 @@ function adjudicateBatchWrite(
     };
     if (params.dryRun !== undefined && childParams.dryRun === undefined) childParams.dryRun = params.dryRun;
     if (params.dry_run !== undefined && childParams.dry_run === undefined) childParams.dry_run = params.dry_run;
-    const validated = validateParams(child.params, childParams);
+    const validated = validateParams(child.params, childParams, child.closedParams);
     return adjudicateOperationWrite(ctx, child, validated, registry);
   });
 

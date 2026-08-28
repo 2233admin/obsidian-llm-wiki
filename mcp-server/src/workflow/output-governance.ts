@@ -31,7 +31,16 @@ export interface WorkRunOutputV1 {
   provenance: string[];
   producedAt: string;
   fingerprint: RecoveryFingerprint;
-  approval?: { status: 'approved'; fingerprint: RecoveryFingerprint; actor: string };
+  approval?: {
+    status: 'approved';
+    fingerprint: RecoveryFingerprint;
+    actor: string;
+    projectId: string;
+    workRunId: string;
+    outputFingerprint: RecoveryFingerprint;
+    operation: string;
+    grantId: string;
+  };
 }
 
 export interface WorkRunOutputQuarantineV1 {
@@ -83,6 +92,13 @@ export interface OutputGovernanceOwnerResult {
   diagnostics?: RecoveryFlowDiagnosticV2[];
 }
 
+export interface OutputGovernanceReconciliation {
+  state: Exclude<WorkRunOutputRouteReceiptV1['state'], 'outcome-unknown'>;
+  ownerOperation: string | null;
+  ownerReceipt: Record<string, unknown> | null;
+  diagnostics?: RecoveryFlowDiagnosticV2[];
+}
+
 export interface OutputGovernanceDependencies {
   store: WorkRunStore;
   now?: () => number;
@@ -92,6 +108,14 @@ export interface OutputGovernanceDependencies {
     output: WorkRunOutputV1 | null,
     quarantine: WorkRunOutputQuarantineV1 | null,
   ) => Promise<OutputGovernanceOwnerResult>;
+  /** Exact owner probe used after restart; null means the owner outcome is unprovable. */
+  reconcile?: (
+    request: WorkflowAgentLeaveRequestV2,
+    actor: string,
+    output: WorkRunOutputV1 | null,
+    quarantine: WorkRunOutputQuarantineV1 | null,
+    claim: Record<string, unknown>,
+  ) => Promise<OutputGovernanceReconciliation | null>;
 }
 
 const OWNER: RecoveryFlowDiagnosticV2['owner'] = 'workflow';
@@ -137,8 +161,20 @@ function diagnostic(value: unknown, label: string): RecoveryFlowDiagnosticV2 {
     code: bounded(entry.code, `${label}.code`, 128), severity,
     message: bounded(entry.message, `${label}.message`, 1024),
     remediation: bounded(entry.remediation, `${label}.remediation`, 1024),
-    citationTargets: Array.isArray(entry.citationTargets) ? entry.citationTargets.map((item) => bounded(item, `${label}.citationTargets`, 256)).slice(0, 8) : [],
+    citationTargets: diagnosticCitations(entry.citationTargets, `${label}.citationTargets`),
   };
+}
+
+function diagnosticCitations(value: unknown, label: string): string[] {
+  if (!Array.isArray(value) || value.length > 8) throw badRequest(`${label} must be an array of 0-8 items`);
+  const citations = value.map((item) => bounded(item, label, 256));
+  if (new Set(citations).size !== citations.length) throw badRequest(`${label} must not contain duplicates`);
+  return citations;
+}
+
+function diagnostics(value: unknown, label: string): RecoveryFlowDiagnosticV2[] {
+  if (!Array.isArray(value) || value.length > 16) throw badRequest(`${label} must be an array of 0-16 items`);
+  return value.map((item, index) => diagnostic(item, `${label}[${index}]`));
 }
 
 function validateOutput(value: unknown, projectId: string, workItemId: string, workRunId: string): WorkRunOutputV1 {
@@ -155,14 +191,29 @@ function validateOutput(value: unknown, projectId: string, workItemId: string, w
   const citations = list(entry.citations, 'output.citations', 16, 512);
   const provenance = list(entry.provenance, 'output.provenance', 16, 512);
   const producedAt = bounded(entry.producedAt, 'output.producedAt', 64);
+  if (!Number.isFinite(Date.parse(producedAt))) throw badRequest('output.producedAt must be an ISO timestamp');
   const suppliedFingerprint = fingerprint(entry.fingerprint, 'output.fingerprint');
-  const material = { schemaVersion: WORK_RUN_OUTPUT_SCHEMA, projectId, workItemId, workRunId, outputClass: entry.outputClass, payload: entry.payload, citations, provenance, producedAt, ...(entry.approval === undefined ? {} : { approval: entry.approval }) };
-  if (fingerprintRecoveryValue(material) !== suppliedFingerprint) throw conflict('output.fingerprint does not match output content');
   let approval: WorkRunOutputV1['approval'];
   if (entry.approval !== undefined) {
-    const approvalEntry = assertClosedRecoveryObject(entry.approval, ['status', 'fingerprint', 'actor'], 'output.approval');
+    const approvalEntry = assertClosedRecoveryObject(entry.approval, ['status', 'fingerprint', 'actor', 'projectId', 'workRunId', 'outputFingerprint', 'operation', 'grantId'], 'output.approval');
     if (approvalEntry.status !== 'approved') throw badRequest('output.approval.status must be approved');
-    approval = { status: 'approved', fingerprint: fingerprint(approvalEntry.fingerprint, 'output.approval.fingerprint'), actor: bounded(approvalEntry.actor, 'output.approval.actor', 128) };
+    approval = {
+      status: 'approved',
+      fingerprint: fingerprint(approvalEntry.fingerprint, 'output.approval.fingerprint'),
+      actor: identity(approvalEntry.actor, 'output.approval.actor', /^[A-Za-z0-9][A-Za-z0-9._-]*$/u),
+      projectId: identity(approvalEntry.projectId, 'output.approval.projectId', /^project\/[a-z0-9][a-z0-9-]*$/u),
+      workRunId: identity(approvalEntry.workRunId, 'output.approval.workRunId', /^work-run\/[a-z0-9][a-z0-9-]*$/u),
+      outputFingerprint: fingerprint(approvalEntry.outputFingerprint, 'output.approval.outputFingerprint'),
+      operation: identity(approvalEntry.operation, 'output.approval.operation', /^[a-z][a-z0-9]*(?:\.[a-z][a-z0-9-]*)+$/u),
+      grantId: identity(approvalEntry.grantId, 'output.approval.grantId', /^[a-z][a-z0-9]*(?:\/[a-z0-9][a-z0-9._-]*)+$/u),
+    };
+  }
+  const material = { schemaVersion: WORK_RUN_OUTPUT_SCHEMA, projectId, workItemId, workRunId, outputClass: entry.outputClass, payload: entry.payload, citations, provenance, producedAt };
+  if (fingerprintRecoveryValue(material) !== suppliedFingerprint) throw conflict('output.fingerprint does not match output content');
+  if (approval) {
+    if (approval.outputFingerprint !== suppliedFingerprint) throw conflict('output.approval is bound to another output fingerprint');
+    const approvalMaterial = { status: approval.status, actor: approval.actor, projectId: approval.projectId, workRunId: approval.workRunId, outputFingerprint: approval.outputFingerprint, operation: approval.operation, grantId: approval.grantId };
+    if (fingerprintRecoveryValue(approvalMaterial) !== approval.fingerprint) throw conflict('output.approval.fingerprint does not match approval content');
   }
   return { schemaVersion: WORK_RUN_OUTPUT_SCHEMA, projectId, workItemId, workRunId, outputClass: entry.outputClass as WorkRunOutputClass, payload: entry.payload, citations, provenance, producedAt, fingerprint: suppliedFingerprint, ...(approval ? { approval } : {}) };
 }
@@ -177,6 +228,7 @@ function validateQuarantine(value: unknown, projectId: string, workItemId: strin
   if (!Array.isArray(entry.diagnostics) || entry.diagnostics.length < 1 || entry.diagnostics.length > 16) throw badRequest('quarantine.diagnostics must contain 1-16 items');
   const diagnostics = entry.diagnostics.map((item, index) => diagnostic(item, `quarantine.diagnostics[${index}]`));
   const producedAt = bounded(entry.producedAt, 'quarantine.producedAt', 64);
+  if (!Number.isFinite(Date.parse(producedAt))) throw badRequest('quarantine.producedAt must be an ISO timestamp');
   const suppliedFingerprint = fingerprint(entry.fingerprint, 'quarantine.fingerprint');
   const material = { schemaVersion: 'work-run-output-quarantine/v1', projectId, workItemId, workRunId, observedClass: entry.observedClass, payloadFingerprint, provenance, diagnostics, producedAt };
   if (fingerprintRecoveryValue(material) !== suppliedFingerprint) throw conflict('quarantine.fingerprint does not match quarantine content');
@@ -268,7 +320,8 @@ function requestFingerprint(request: WorkflowAgentLeaveRequestV2): RecoveryFinge
 function receipt(request: WorkflowAgentLeaveRequestV2, claim: OutputClaim, result: OutputGovernanceOwnerResult, now: string): WorkRunOutputRouteReceiptV1 {
   const ownerReceipt = result.ownerReceipt && !hasUnsafeRecoveryMaterial(result.ownerReceipt) ? result.ownerReceipt : null;
   const ownerReceiptFingerprint = ownerReceipt ? fingerprintRecoveryValue(ownerReceipt) : null;
-  const base = { schemaVersion: WORK_RUN_OUTPUT_ROUTE_SCHEMA, outputFingerprint: claim.outputFingerprint, tokenDigest: claim.tokenDigest, state: result.state ?? (request.mode === 'complete' && request.submission?.result === 'quarantine' ? 'review-required' : 'accepted'), ownerOperation: result.ownerOperation, ownerReceiptFingerprint, diagnostics: (result.diagnostics ?? []).slice(0, 16), recordedAt: now } satisfies Omit<WorkRunOutputRouteReceiptV1, 'fingerprint'>;
+  const ownerOperation = ownerReceipt ? result.ownerOperation : null;
+  const base = { schemaVersion: WORK_RUN_OUTPUT_ROUTE_SCHEMA, outputFingerprint: claim.outputFingerprint, tokenDigest: claim.tokenDigest, state: result.state ?? (request.mode === 'complete' && request.submission?.result === 'quarantine' ? 'review-required' : 'accepted'), ownerOperation, ownerReceiptFingerprint, diagnostics: diagnostics(result.diagnostics ?? [], 'receipt.diagnostics'), recordedAt: now } satisfies Omit<WorkRunOutputRouteReceiptV1, 'fingerprint'>;
   return { ...base, fingerprint: fingerprintRecoveryValue(base) };
 }
 
@@ -279,8 +332,54 @@ function outputFingerprint(request: WorkflowAgentLeaveRequestV2): RecoveryFinger
 
 function claimFrom(value: Record<string, unknown> | null): OutputClaim | null {
   if (!value) return null;
-  if (value.schemaVersion !== WORK_RUN_OUTPUT_ROUTE_SCHEMA || typeof value.outputFingerprint !== 'string' || typeof value.requestDigest !== 'string' || typeof value.tokenDigest !== 'string' || typeof value.actorId !== 'string' || typeof value.projectId !== 'string' || typeof value.workRunId !== 'string' || (value.state !== 'claimed' && value.state !== 'routed' && value.state !== 'outcome-unknown')) throw conflict('Work Run output claim is malformed');
-  return value as unknown as OutputClaim;
+  const entry = assertClosedRecoveryObject(value, ['schemaVersion', 'outputFingerprint', 'requestDigest', 'tokenDigest', 'actorId', 'projectId', 'workItemId', 'workRunId', 'targetState', 'state', 'receipt', 'ownerStarted', 'claimedAt', 'updatedAt'], 'Work Run output claim');
+  if (entry.schemaVersion !== WORK_RUN_OUTPUT_ROUTE_SCHEMA) throw conflict('Work Run output claim has an invalid schema version');
+  const claim: OutputClaim = {
+    schemaVersion: WORK_RUN_OUTPUT_ROUTE_SCHEMA,
+    outputFingerprint: fingerprint(entry.outputFingerprint, 'claim.outputFingerprint'),
+    requestDigest: fingerprint(entry.requestDigest, 'claim.requestDigest'),
+    tokenDigest: fingerprint(entry.tokenDigest, 'claim.tokenDigest'),
+    actorId: identity(entry.actorId, 'claim.actorId', /^[A-Za-z0-9][A-Za-z0-9._-]*$/u),
+    projectId: identity(entry.projectId, 'claim.projectId', /^project\/[a-z0-9][a-z0-9-]*$/u),
+    workItemId: entry.workItemId === null ? null : identity(entry.workItemId, 'claim.workItemId', /^project\/[a-z0-9][a-z0-9-]*\/issue\/[a-z0-9][a-z0-9-]*$/u),
+    workRunId: identity(entry.workRunId, 'claim.workRunId', /^work-run\/[a-z0-9][a-z0-9-]*$/u),
+    targetState: identity(entry.targetState, 'claim.targetState', /^[a-z_]+$/u),
+    state: entry.state as OutputClaim['state'],
+    receipt: entry.receipt === null ? null : validateReceipt(entry.receipt),
+    ownerStarted: entry.ownerStarted as boolean,
+    claimedAt: bounded(entry.claimedAt, 'claim.claimedAt', 64),
+    updatedAt: bounded(entry.updatedAt, 'claim.updatedAt', 64),
+  };
+  if (!['claimed', 'routed', 'outcome-unknown'].includes(claim.state)) throw conflict('Work Run output claim state is invalid');
+  if (typeof entry.ownerStarted !== 'boolean') throw conflict('Work Run output claim ownerStarted is invalid');
+  if (!Number.isFinite(Date.parse(claim.claimedAt)) || !Number.isFinite(Date.parse(claim.updatedAt))) throw conflict('Work Run output claim timestamps are invalid');
+  if (claim.state === 'routed' && !claim.receipt) throw conflict('Routed Work Run output claim is missing its receipt');
+  if (claim.state === 'outcome-unknown' && claim.receipt && claim.receipt.state !== 'outcome-unknown') throw conflict('Outcome-unknown claim has an accepted receipt');
+  if (claim.receipt && (claim.receipt.outputFingerprint !== claim.outputFingerprint || claim.receipt.tokenDigest !== claim.tokenDigest)) throw conflict('Work Run output receipt is bound to another claim');
+  if (claim.state === 'routed' && claim.receipt?.state === 'outcome-unknown') throw conflict('Routed Work Run output claim contains an unknown receipt');
+  return claim;
+}
+
+function validateReceipt(value: unknown): WorkRunOutputRouteReceiptV1 {
+  const entry = assertClosedRecoveryObject(value, ['schemaVersion', 'outputFingerprint', 'tokenDigest', 'state', 'ownerOperation', 'ownerReceiptFingerprint', 'diagnostics', 'recordedAt', 'fingerprint'], 'Work Run output receipt');
+  if (entry.schemaVersion !== WORK_RUN_OUTPUT_ROUTE_SCHEMA) throw conflict('Work Run output receipt has an invalid schema version');
+  const state = entry.state;
+  if (!['accepted', 'review-required', 'denied', 'outcome-unknown'].includes(String(state))) throw conflict('Work Run output receipt state is invalid');
+  const base = {
+    schemaVersion: WORK_RUN_OUTPUT_ROUTE_SCHEMA,
+    outputFingerprint: fingerprint(entry.outputFingerprint, 'receipt.outputFingerprint'),
+    tokenDigest: fingerprint(entry.tokenDigest, 'receipt.tokenDigest'),
+    state: state as WorkRunOutputRouteReceiptV1['state'],
+    ownerOperation: entry.ownerOperation === null ? null : bounded(entry.ownerOperation, 'receipt.ownerOperation', 128),
+    ownerReceiptFingerprint: entry.ownerReceiptFingerprint === null ? null : fingerprint(entry.ownerReceiptFingerprint, 'receipt.ownerReceiptFingerprint'),
+    diagnostics: diagnostics(entry.diagnostics, 'receipt.diagnostics'),
+    recordedAt: bounded(entry.recordedAt, 'receipt.recordedAt', 64),
+  } satisfies Omit<WorkRunOutputRouteReceiptV1, 'fingerprint'>;
+  if (!Number.isFinite(Date.parse(base.recordedAt))) throw conflict('Work Run output receipt timestamp is invalid');
+  const supplied = fingerprint(entry.fingerprint, 'receipt.fingerprint');
+  if (fingerprintRecoveryValue(base) !== supplied) throw conflict('Work Run output receipt fingerprint is invalid');
+  if ((base.ownerOperation === null) !== (base.ownerReceiptFingerprint === null)) throw conflict('Work Run output receipt owner binding is invalid');
+  return { ...base, fingerprint: supplied };
 }
 
 function responseFrom(claim: OutputClaim): WorkRunOutputRouteReceiptV1 {
@@ -302,53 +401,108 @@ export async function governWorkRunOutput(
   const now = () => new Date(dependencies.now?.() ?? Date.now()).toISOString();
   let startOwner = false;
   let waiter: Deferred | undefined;
-  const claim = dependencies.store.withLock(() => {
-    const outputClaim = claimFrom(dependencies.store.readOutputClaim(project, outputFp));
-    const tokenClaim = claimFrom(dependencies.store.readOutputToken(project, tokenFp));
-    if (outputClaim || tokenClaim) {
-      const current = outputClaim ?? tokenClaim!;
-      if (current.outputFingerprint !== outputFp || current.requestDigest !== requestFp || current.tokenDigest !== tokenFp || current.actorId !== actor || current.projectId !== normalized.project || current.workRunId !== normalized.work_run_id) throw conflict('Work Run output claim is already bound to another request');
-      if (tokenClaim && !outputClaim) return current;
-      if (current.state === 'claimed' && current.ownerStarted) waiter = inFlight.get(`${project}:${outputFp}`);
-      return current;
-    }
-    const created: OutputClaim = {
+  let claim: OutputClaim;
+  try {
+    claim = dependencies.store.withLock(() => {
+      const outputClaim = claimFrom(dependencies.store.readOutputClaim(project, outputFp));
+      const tokenClaim = claimFrom(dependencies.store.readOutputToken(project, tokenFp));
+      if (outputClaim || tokenClaim) {
+        const current = outputClaim ?? tokenClaim!;
+        if (current.outputFingerprint !== outputFp || current.requestDigest !== requestFp || current.tokenDigest !== tokenFp || current.actorId !== actor || current.projectId !== normalized.project || current.workRunId !== normalized.work_run_id) throw conflict('Work Run output claim is already bound to another request');
+        if (outputClaim && tokenClaim && fingerprintRecoveryValue(outputClaim) !== fingerprintRecoveryValue(tokenClaim)) throw conflict('Work Run output indexes disagree');
+        if (!outputClaim) {
+          try { dependencies.store.writeOutputClaimAtomic(project, outputFp, current as unknown as Record<string, unknown>); }
+          catch { if (current.receipt) return current; throw new Error('output claim index repair failed'); }
+        }
+        if (!tokenClaim) {
+          try { dependencies.store.writeOutputTokenAtomic(project, tokenFp, current as unknown as Record<string, unknown>); }
+          catch { if (current.receipt) return current; throw new Error('output token index repair failed'); }
+        }
+        if (current.state === 'claimed' && current.ownerStarted) waiter = inFlight.get(`${project}:${outputFp}`);
+        if (current.state === 'claimed' && !current.ownerStarted) {
+          const started = { ...current, ownerStarted: true, updatedAt: now() };
+          dependencies.store.writeOutputClaimAtomic(project, outputFp, started as unknown as Record<string, unknown>);
+          dependencies.store.writeOutputTokenAtomic(project, tokenFp, started as unknown as Record<string, unknown>);
+          startOwner = true;
+          waiter = deferred();
+          inFlight.set(`${project}:${outputFp}`, waiter);
+          return started;
+        }
+        return current;
+      }
+      const created: OutputClaim = {
+        schemaVersion: WORK_RUN_OUTPUT_ROUTE_SCHEMA, outputFingerprint: outputFp, requestDigest: requestFp, tokenDigest: tokenFp, actorId: actor,
+        projectId: normalized.project, workItemId: normalized.mode === 'complete' ? (normalized.submission.output?.workItemId ?? normalized.submission.quarantine?.workItemId ?? null) : null,
+        workRunId: normalized.work_run_id, targetState: normalized.target_state, state: 'claimed', receipt: null, ownerStarted: false, claimedAt: now(), updatedAt: now(),
+      };
+      dependencies.store.writeOutputClaimAtomic(project, outputFp, created as unknown as Record<string, unknown>);
+      dependencies.store.writeOutputTokenAtomic(project, tokenFp, created as unknown as Record<string, unknown>);
+      const started = { ...created, ownerStarted: true, updatedAt: now() };
+      dependencies.store.writeOutputClaimAtomic(project, outputFp, started as unknown as Record<string, unknown>);
+      dependencies.store.writeOutputTokenAtomic(project, tokenFp, started as unknown as Record<string, unknown>);
+      startOwner = true;
+      waiter = deferred();
+      inFlight.set(`${project}:${outputFp}`, waiter);
+      return started;
+    });
+  } catch (error) {
+    if (error instanceof Error && /already bound|indexes disagree/u.test(error.message)) throw error;
+    // A partially written index is never allowed to become an effect-capable claim.
+    const unknown: OutputClaim = {
       schemaVersion: WORK_RUN_OUTPUT_ROUTE_SCHEMA, outputFingerprint: outputFp, requestDigest: requestFp, tokenDigest: tokenFp, actorId: actor,
       projectId: normalized.project, workItemId: normalized.mode === 'complete' ? (normalized.submission.output?.workItemId ?? normalized.submission.quarantine?.workItemId ?? null) : null,
-      workRunId: normalized.work_run_id, targetState: normalized.target_state, state: 'claimed', receipt: null, ownerStarted: true, claimedAt: now(), updatedAt: now(),
+      workRunId: normalized.work_run_id, targetState: normalized.target_state, state: 'outcome-unknown', receipt: null, ownerStarted: false, claimedAt: now(), updatedAt: now(),
     };
-    dependencies.store.writeOutputClaimAtomic(project, outputFp, created as unknown as Record<string, unknown>);
-    try { dependencies.store.writeOutputTokenAtomic(project, tokenFp, created as unknown as Record<string, unknown>); } catch { /* canonical output claim repairs the token index */ }
-    startOwner = true;
-    waiter = deferred();
-    inFlight.set(`${project}:${outputFp}`, waiter);
-    return created;
-  });
+    try { dependencies.store.withLock(() => dependencies.store.writeOutputClaimAtomic(project, outputFp, unknown as unknown as Record<string, unknown>)); } catch { /* no owner effect was started */ }
+    return receipt(normalized, unknown, { ownerOperation: null, ownerReceipt: null, state: 'outcome-unknown', diagnostics: [{ owner: OWNER, code: 'output-claim-unavailable', severity: 'error', message: 'Output claim could not be reconciled safely.', remediation: 'Repair the output indexes before retrying.', citationTargets: [] }] }, now());
+  }
   if (!startOwner) {
     if (waiter) {
       await waiter.promise;
       const latest = dependencies.store.withLock(() => claimFrom(dependencies.store.readOutputClaim(project, outputFp)));
       return latest ? responseFrom(latest) : responseFrom(claim);
     }
-    return responseFrom(claim);
+    if (claim.receipt || claim.state === 'outcome-unknown') return responseFrom(claim);
+    if (dependencies.reconcile) {
+      const recovered = await dependencies.reconcile(normalized, actor, normalized.mode === 'complete' && normalized.submission.result === 'output' ? normalized.submission.output : null, normalized.mode === 'complete' && normalized.submission.result === 'quarantine' ? normalized.submission.quarantine : null, claim as unknown as Record<string, unknown>);
+      if (recovered) {
+        const recoveredReceipt = receipt(normalized, claim, recovered, now());
+        const routed: OutputClaim = { ...claim, state: recoveredReceipt.state === 'outcome-unknown' ? 'outcome-unknown' : 'routed', receipt: recoveredReceipt, updatedAt: now() };
+        dependencies.store.withLock(() => { dependencies.store.writeOutputClaimAtomic(project, outputFp, routed as unknown as Record<string, unknown>); dependencies.store.writeOutputTokenAtomic(project, tokenFp, routed as unknown as Record<string, unknown>); });
+        return recoveredReceipt;
+      }
+    }
+    const unknown = { ...claim, state: 'outcome-unknown' as const, receipt: null, updatedAt: now() };
+    dependencies.store.withLock(() => {
+      dependencies.store.writeOutputClaimAtomic(project, outputFp, unknown as unknown as Record<string, unknown>);
+      dependencies.store.writeOutputTokenAtomic(project, tokenFp, unknown as unknown as Record<string, unknown>);
+    });
+    return responseFrom(unknown);
   }
+  let receiptPersisted: WorkRunOutputRouteReceiptV1 | undefined;
   try {
     const result = await dependencies.owner(normalized, actor, normalized.mode === 'complete' && normalized.submission.result === 'output' ? normalized.submission.output : null, normalized.mode === 'complete' && normalized.submission.result === 'quarantine' ? normalized.submission.quarantine : null);
     const routed = receipt(normalized, claim, result, now());
     const completed: OutputClaim = { ...claim, state: routed.state === 'outcome-unknown' ? 'outcome-unknown' : 'routed', receipt: routed, updatedAt: now() };
     dependencies.store.withLock(() => {
       dependencies.store.writeOutputClaimAtomic(project, outputFp, completed as unknown as Record<string, unknown>);
-      try { dependencies.store.writeOutputTokenAtomic(project, tokenFp, completed as unknown as Record<string, unknown>); } catch { /* output claim remains authoritative */ }
+      receiptPersisted = routed;
+      dependencies.store.writeOutputTokenAtomic(project, tokenFp, completed as unknown as Record<string, unknown>);
     });
     waiter?.resolve();
     inFlight.delete(`${project}:${outputFp}`);
     return routed;
   } catch {
+    if (receiptPersisted) {
+      waiter?.resolve();
+      inFlight.delete(`${project}:${outputFp}`);
+      return receiptPersisted;
+    }
     const unknown: OutputClaim = { ...claim, state: 'outcome-unknown', receipt: null, updatedAt: now() };
     try {
       dependencies.store.withLock(() => {
         dependencies.store.writeOutputClaimAtomic(project, outputFp, unknown as unknown as Record<string, unknown>);
-        try { dependencies.store.writeOutputTokenAtomic(project, tokenFp, unknown as unknown as Record<string, unknown>); } catch { /* canonical claim is durable */ }
+        dependencies.store.writeOutputTokenAtomic(project, tokenFp, unknown as unknown as Record<string, unknown>);
       });
     } finally {
       waiter?.resolve();

@@ -70,6 +70,8 @@ export function createApplicationRuntime(
     options.context,
     { onWriteEffect: options.onWriteEffect },
   );
+  // Owner ports use this exact dispatcher for nested, policy-adjudicated writes.
+  options.context.operationDispatcher = dispatcher;
   const operationMap = new Map(operations.map((operation) => [operation.name, operation]));
   const ready = options.ready ?? Promise.resolve();
   const catalog: OperationCatalog = {

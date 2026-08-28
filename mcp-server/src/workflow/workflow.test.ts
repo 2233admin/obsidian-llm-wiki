@@ -8,6 +8,7 @@ import { isWorkRunTransitionAllowed, makeWorkflowOps, WORK_RUN_STATES, type Work
 import type { Operation, OperationContext } from '../core/types.js';
 import { compatibilityReadReport } from '../project/project-context.js';
 import { fingerprintRecoveryValue } from '../project-hub/contract-support.js';
+import { createOperationDispatcher } from '../control-plane/dispatcher.js';
 
 function makeHarness() {
   const root = join(tmpdir(), `llmwiki-workflow-${randomUUID()}`);
@@ -1693,7 +1694,7 @@ test('workflow.agent.checkpoint leave and doctor preserve lifetime evidence', as
         mode: 'complete', target_state: 'completed', transition_token: 'review:approved',
         submission: outputSubmission('alpha', pending.lifetime.workItemId, pending.lifetime.workRunId, 'knowledge-claim'), summary: 'approved',
       })) as { outputRoute: { state: string } };
-      assert.equal(approved.outputRoute.state, 'accepted');
+      assert.equal(approved.outputRoute.state, 'review-required');
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -1730,4 +1731,22 @@ test('workflow.agent.checkpoint leave and doctor preserve lifetime evidence', as
       rmSync(root, { recursive: true, force: true });
     }
   });
+});
+
+test('workflow.agent.leave authorizes the exact agent through the production dispatcher', async () => {
+  const { root, call, byName, ctx } = makeHarness();
+  try {
+    const started = await call('workflow.agent.start', { project: 'alpha', agent: 'worker', transition_token: 'join:authz' }) as { workRunId: string };
+    ctx.config.collaboration!.allowed_write_paths = ['01-Projects/**'];
+    const dispatcher = createOperationDispatcher([...byName.values()], ctx);
+    await assert.rejects(
+      () => dispatcher.invoke('workflow.agent.leave', {
+        project: 'project/alpha', agent: 'worker', mode: 'terminate', work_run_id: started.workRunId,
+        target_state: 'cancelled', transition_token: 'leave:authz', submission: null, summary: 'not authorized',
+      }),
+      /not authorized for the requested agent lifetime/,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

@@ -63,4 +63,22 @@ describe('claimed Work Run output governance', () => {
     assert.equal(calls, 1); assert.equal(first.fingerprint, second.fingerprint);
     await assert.rejects(() => governWorkRunOutput(dependencies, ctx, { ...request(), target_state: 'awaiting_review' }), /already bound/);
   });
+
+  test('missing token index repairs from the receipt without repeating the owner effect', async () => {
+    const workStore = store(); let calls = 0; let tokenWrites = 0;
+    const writeToken = workStore.writeOutputTokenAtomic;
+    workStore.writeOutputTokenAtomic = (project, token, value) => {
+      tokenWrites += 1;
+      if (tokenWrites === 3) { workStore.tokens.delete(token); throw new Error('token index interrupted'); }
+      writeToken(project, token, value);
+    };
+    const dependencies = { store: workStore, owner: async () => { calls += 1; return { ownerOperation: 'workflow.agent.leave', ownerReceipt: { ok: true } }; } };
+    const first = await governWorkRunOutput(dependencies, ctx, request());
+    assert.equal(first.state, 'accepted');
+    assert.equal(workStore.tokens.size, 0);
+    const replay = await governWorkRunOutput(dependencies, ctx, request());
+    assert.equal(replay.fingerprint, first.fingerprint);
+    assert.equal(workStore.tokens.size, 1);
+    assert.equal(calls, 1);
+  });
 });

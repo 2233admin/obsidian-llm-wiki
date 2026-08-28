@@ -23,6 +23,8 @@ export type ParamType = 'string' | 'number' | 'boolean' | 'object' | 'array' | '
 export interface ParamDef {
   type: ParamType;
   required?: boolean;
+  /** A required parameter may explicitly carry null without making omission valid. */
+  nullable?: boolean;
   description?: string;
   default?: unknown;
   enum?: string[];
@@ -76,6 +78,8 @@ interface OperationBase {
   namespace: OperationNamespace;
   description: string;
   params: Record<string, ParamDef>;
+  /** Reject transport-level fields not declared by the operation. */
+  closedParams?: boolean;
   handler: (ctx: OperationContext, params: Record<string, unknown>) => Promise<unknown>;
 }
 
@@ -99,6 +103,13 @@ export interface OperationContext {
   config: VaultMindConfig;
   logger: Logger;
   dryRun: boolean;
+  /** Optional nested production dispatcher used by governed owner ports. */
+  operationDispatcher?: {
+    invoke(name: string, args?: Record<string, unknown>): Promise<unknown>;
+    get?(name: string): Operation | undefined;
+  };
+  /** Optional loader for the durable, server-issued Work Run capability grant. */
+  loadCapabilityOperationGrant?: (grantId: string) => Promise<unknown>;
 }
 
 export interface Logger {

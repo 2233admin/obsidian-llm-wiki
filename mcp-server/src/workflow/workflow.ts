@@ -26,6 +26,7 @@ import {
   governWorkRunOutput,
   validateWorkflowAgentLeaveRequestV2,
   WORK_RUN_OUTPUT_CLASSES as GOVERNED_OUTPUT_CLASSES,
+  type WorkRunOutputV1,
 } from './output-governance.js';
 
 export interface WorkflowOperationsOptions {
@@ -33,6 +34,7 @@ export interface WorkflowOperationsOptions {
   recoveryPlanningService?: RecoveryPlanningService;
   recoveryApplyDependencies?: RecoveryApplyDependencies;
   recoveryApplyCapability?: () => Promise<RecoveryApplyCapability>;
+  capabilityOperationGrantLoader?: (grantId: string) => Promise<unknown>;
 }
 
 const STAGES = ['intake', 'understand', 'plan', 'execute', 'review', 'verify', 'archive'] as const;
@@ -1756,6 +1758,81 @@ export function createDefaultRecoveryApplyDependencies(
   };
 }
 
+function record(value: unknown, label: string): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw makeErr(-32602, `${label} must be an object`);
+  return value as Record<string, unknown>;
+}
+
+function closedRecord(value: unknown, keys: readonly string[], label: string): Record<string, unknown> {
+  const result = record(value, label);
+  for (const key of Object.keys(result)) if (!keys.includes(key)) throw makeErr(-32602, `${label} contains unknown field ${key}`);
+  return result;
+}
+
+async function routeWorkStateTransition(
+  ctx: OperationContext,
+  leave: Extract<import('./output-governance.js').WorkflowAgentLeaveRequestV2, { mode: 'complete' }>,
+  output: WorkRunOutputV1 | null,
+  current: AgentLifetimeState,
+): Promise<void> {
+  const dispatcher = ctx.operationDispatcher;
+  const payload = record(output?.payload, 'work-state-transition payload');
+  const operation = payload.operation;
+  if (operation !== 'project.issue.update' || !dispatcher?.invoke) {
+    throw conflict('work-state-transition requires the production project.issue.update dispatcher');
+  }
+  const params = closedRecord(payload.params, ['project', 'slug', 'state'], 'work-state-transition params');
+  const expectedProject = current.projectId;
+  const expectedSlug = current.workItemId.slice(`${expectedProject}/issue/`.length);
+  const expectedState = leave.target_state === 'completed' ? 'done' : 'in-progress';
+  if (params.project !== expectedProject || params.slug !== expectedSlug || params.state !== expectedState) {
+    throw conflict('work-state-transition must target the joined Project and Work Item with the expected state');
+  }
+  const operationDefinition = dispatcher.get?.('project.issue.update');
+  if (operationDefinition && !operationDefinition.mutating) throw conflict('project.issue.update must be mutating');
+  const result = await dispatcher.invoke('project.issue.update', params);
+  if (record(result, 'project.issue.update result').ok === false) throw conflict('project.issue.update owner rejected the transition');
+}
+
+async function executeExternalSideEffect(
+  ctx: OperationContext,
+  leave: Extract<import('./output-governance.js').WorkflowAgentLeaveRequestV2, { mode: 'complete' }>,
+  output: WorkRunOutputV1 | null,
+  actor: string,
+  now: () => number = () => Date.now(),
+): Promise<boolean> {
+  if (!output?.approval || output.approval.status !== 'approved') return false;
+  const payload = record(output.payload, 'external-side-effect payload');
+  const payloadKeys = Object.keys(payload);
+  if (payloadKeys.some((key) => !['operation', 'params', 'grantId'].includes(key))) return false;
+  const operation = typeof payload.operation === 'string' ? payload.operation : '';
+  const params = record(payload.params, 'external-side-effect params');
+  const grantId = typeof payload.grantId === 'string' ? payload.grantId : '';
+  const approval = output.approval;
+  if (approval.actor !== actor || approval.projectId !== output.projectId || approval.workRunId !== output.workRunId
+    || approval.outputFingerprint !== output.fingerprint || approval.operation !== operation || approval.grantId !== grantId) return false;
+  const dispatcher = ctx.operationDispatcher;
+  const definition = dispatcher?.get?.(operation);
+  if (!dispatcher?.invoke || !definition || !definition.mutating || operation === 'workflow.agent.leave' || operation === 'vault.batch') return false;
+  let targets: string[];
+  try { targets = definition.writePolicy.targets(ctx, params).map((target) => target.replace(/\\/g, '/')); }
+  catch { return false; }
+  if (targets.length === 0 || targets.some((target) => !target.startsWith('external/'))) return false;
+  const grant = await ctx.loadCapabilityOperationGrant?.(grantId);
+  if (!grant || typeof grant !== 'object') return false;
+  try {
+    const { validateCapabilityOperationGrant } = await import('../host-capabilities/contracts.js');
+    validateCapabilityOperationGrant(grant as never);
+  } catch { return false; }
+  const checked = grant as { projectId?: unknown; workRunId?: unknown; expiresAt?: unknown; operations?: unknown; sideEffectClasses?: unknown; grantId?: unknown };
+  if (checked.projectId !== output.projectId || checked.workRunId !== output.workRunId || checked.grantId !== grantId
+    || !Array.isArray(checked.operations) || !checked.operations.includes(operation)
+    || !Array.isArray(checked.sideEffectClasses) || !checked.sideEffectClasses.includes('external-write')
+    || typeof checked.expiresAt !== 'string' || Date.parse(checked.expiresAt) <= now()) return false;
+  await dispatcher.invoke(operation, params);
+  return true;
+}
+
 export function makeWorkflowOps(vaultPath: string, options: WorkflowOperationsOptions = {}): Operation[] {
   const store = createFileWorkRunStore(vaultPath);
   const recoveryPlanningService = options.recoveryPlanningService
@@ -2258,9 +2335,10 @@ export function makeWorkflowOps(vaultPath: string, options: WorkflowOperationsOp
       },
     },
     {
-  name: 'workflow.agent.leave',
+      name: 'workflow.agent.leave',
       namespace: 'workflow' as Operation['namespace'],
       description: 'Claim and route one complete or terminate Work Run output before applying its owner transition.',
+    closedParams: true,
     mutating: true,
     writePolicy: {
       realWrite: 'always',
@@ -2276,12 +2354,13 @@ export function makeWorkflowOps(vaultPath: string, options: WorkflowOperationsOp
         work_run_id: { type: 'string', required: true, description: 'Exact Work Run ID' },
         target_state: { type: 'string', required: true, enum: ['completed', 'awaiting_review', 'failed', 'cancelled'] },
         transition_token: { type: 'string', required: true, description: 'Stable idempotency token' },
-        submission: { type: 'object', required: true, description: 'Closed output/quarantine submission; null for terminate' },
+        submission: { type: 'object', required: true, nullable: true, description: 'Closed output/quarantine submission; null for terminate' },
       },
       handler: async (ctx, params) => {
         const actor = actorFromContext(ctx);
         const project = existingProjectKey(vaultPath, params.project, 'workflow.agent.leave');
         const agent = agentKey(params.agent, actor);
+        if (ctx.operationDispatcher && agent !== actor) throw makeErr(-32403, 'workflow.agent.leave actor is not authorized for the requested agent lifetime');
         const allowedLeaveFields = new Set(['mode', 'project', 'agent', 'work_run_id', 'transition_token', 'target_state', 'submission', 'summary']);
         for (const key of Object.keys(params)) if (!allowedLeaveFields.has(key)) throw makeErr(-32602, `workflow.agent.leave contains unknown field ${key}`);
         {
@@ -2310,10 +2389,37 @@ export function makeWorkflowOps(vaultPath: string, options: WorkflowOperationsOp
             if (itemId !== current.workItemId) throw conflict('Output Work Item does not match the joined Work Run');
             if (request.target_state === 'completed' && request.submission.result === 'quarantine') throw makeErr(-32602, 'quarantine output must target awaiting_review');
           }
+          const governanceContext = options.capabilityOperationGrantLoader && !ctx.loadCapabilityOperationGrant
+            ? { ...ctx, loadCapabilityOperationGrant: options.capabilityOperationGrantLoader }
+            : ctx;
           const outputRoute = governWorkRunOutput({
             store,
+            reconcile: async (leave, ownerActor, output, quarantine) => {
+              if (quarantine) return null;
+              const latest = readAgentLifetime(vaultPath, project, agent);
+              if (!latest || latest.projectId !== leave.project || latest.workRunId !== leave.work_run_id || latest.agent !== ownerActor
+                || !latest.transitions.some((item) => item.operation === 'leave' && item.token === leave.transition_token)) return null;
+              const routeState = output?.outputClass === 'knowledge-claim'
+                ? 'review-required'
+                : output?.outputClass === 'external-side-effect' && output.approval?.status !== 'approved'
+                  ? 'denied'
+                  : 'accepted';
+              return {
+                state: routeState,
+                ownerOperation: 'workflow.agent.leave',
+                ownerReceipt: { ok: true, projectId: latest.projectId, workItemId: latest.workItemId, workRunId: latest.workRunId, agent: latest.agent, workRunState: latest.workRunState },
+              };
+            },
             owner: async (leave, ownerActor, output, quarantine) => {
               const outputClass = output?.outputClass ?? quarantine?.observedClass ?? current.outputClass;
+              if (quarantine) {
+                return {
+                  ownerOperation: null,
+                  ownerReceipt: null,
+                  state: 'review-required',
+                  diagnostics: quarantine.diagnostics,
+                };
+              }
               const approvalStatus = quarantine
                 ? 'pending'
                 : output?.approval?.status === 'approved'
@@ -2323,12 +2429,18 @@ export function makeWorkflowOps(vaultPath: string, options: WorkflowOperationsOp
                     : 'pending';
               let nextWorkRunState: WorkRunState = leave.target_state as WorkRunState;
               let routeState: 'accepted' | 'review-required' | 'denied' = 'accepted';
-              if (leave.mode === 'complete' && outputClass === 'external-side-effect' && output?.approval?.status !== 'approved') {
-                nextWorkRunState = 'awaiting_review';
-                routeState = 'denied';
-              } else if (leave.mode === 'complete' && leave.submission.result === 'quarantine') {
+              if (leave.mode === 'complete' && outputClass === 'knowledge-claim') {
                 nextWorkRunState = 'awaiting_review';
                 routeState = 'review-required';
+              } else if (leave.mode === 'complete' && outputClass === 'work-state-transition') {
+                await routeWorkStateTransition(governanceContext, leave, output, current);
+              } else if (leave.mode === 'complete' && outputClass === 'external-side-effect') {
+                let allowed = false;
+                try { allowed = await executeExternalSideEffect(governanceContext, leave, output, ownerActor, dependencies.now); } catch { allowed = false; }
+                if (!allowed) {
+                  nextWorkRunState = 'awaiting_review';
+                  routeState = 'denied';
+                }
               }
               nextWorkRunState = transitionWorkRun(current.workRunState, nextWorkRunState);
               const transitionToken = parseTransitionToken(leave.transition_token);
@@ -2337,7 +2449,7 @@ export function makeWorkflowOps(vaultPath: string, options: WorkflowOperationsOp
                 ...current,
                 status: 'archived',
                 workRunState: nextWorkRunState,
-                provenance: mergeStringLists(current.provenance, output?.provenance ?? quarantine?.provenance ?? []),
+                provenance: mergeStringLists(current.provenance, output?.provenance ?? []),
                 outputClass,
                 approvalStatus,
                 updatedAt: isoNow(),
@@ -2350,12 +2462,12 @@ export function makeWorkflowOps(vaultPath: string, options: WorkflowOperationsOp
               return withFileRollback(vaultPath, [state.path, eventsPath, runPath, ...(draftPath ? [draftPath] : [])], () => {
                 writeVaultBytes(vaultPath, state.path, renderAgentLifetime(state, summary));
                 syncDurableWorkRunUnlocked(vaultPath, state, transitionToken, undefined, store);
-                if (draftPath && output) persistWorkRunOutputDraft(vaultPath, ctx.store, output, ownerActor);
+                if (draftPath && output) persistWorkRunOutputDraft(vaultPath, governanceContext.store, output, ownerActor);
                 appendAgentEvent(vaultPath, state, { kind: 'leave', summary: summary || `${agent} archived`, actor: ownerActor, transitionToken });
                 return { ownerOperation: 'workflow.agent.leave', ownerReceipt: { ok: true, projectId: state.projectId, workItemId: state.workItemId, workRunId: state.workRunId, agent: state.agent, workRunState: state.workRunState }, state: routeState };
               });
             },
-          }, ctx, request);
+          }, governanceContext, request);
           return outputRoute.then((route) => ({ ok: route.state !== 'outcome-unknown', idempotent: false, project, projectId: current.projectId, agent, workRunId: current.workRunId, outputRoute: route, path: current.path, eventsPath: agentEventsPath(project, agent), runPath: durableRunPath(project, current.workRunId) }));
         }
       },
