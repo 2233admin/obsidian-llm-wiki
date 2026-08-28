@@ -21,6 +21,8 @@ import {
 } from "./interaction-model";
 import { AskMateOutlineModel, renderTextualTree } from "./outline-model";
 import { safePresentationText, safeSummary } from "../control-plane-client";
+import { ProjectHubRecoveryClient } from "../project-hub/recovery-client";
+import { ProjectHubRecoveryPanel } from "../project-hub/recovery-panel";
 
 export const ASK_MATE_VIEW_TYPE = "llmwiki-ask-mate";
 
@@ -102,11 +104,13 @@ export class AskMateView extends ItemView {
     pullRequestId: "",
     expectedPullRequestRevision: "",
   };
+  #recoveryPanel: ProjectHubRecoveryPanel | null = null;
 
   constructor(
     leaf: WorkspaceLeaf,
     private readonly client: AskMateOperationClient,
     private readonly actors: AskMateActors,
+    private readonly recoveryClient?: ProjectHubRecoveryClient,
   ) {
     super(leaf);
   }
@@ -143,6 +147,8 @@ export class AskMateView extends ItemView {
     this.#answerDraftPath = null;
     this.clearExternalAuthority();
     this.#confirmedFingerprint = null;
+    this.#recoveryPanel?.dispose();
+    this.#recoveryPanel = null;
     const context = parseRestoredAskMateContext(state);
     if (context) await this.openContext(context);
     else {
@@ -164,6 +170,8 @@ export class AskMateView extends ItemView {
     this.#answerDraftPath = null;
     this.clearExternalAuthority();
     this.#confirmedFingerprint = null;
+    this.#recoveryPanel?.dispose();
+    this.#recoveryPanel = null;
   }
 
   async openContext(context: AskMateContext): Promise<void> {
@@ -178,6 +186,19 @@ export class AskMateView extends ItemView {
     this.#answerDraftPath = null;
     this.clearExternalAuthority();
     this.#confirmedFingerprint = null;
+    this.#recoveryPanel?.dispose();
+    this.#recoveryPanel = context.kind === "project" && this.recoveryClient
+      ? new ProjectHubRecoveryPanel(this.recoveryClient, null, target => {
+        const workspace = (this.app as unknown as { workspace?: { openLinkText?: (link: string, sourcePath: string, newLeaf?: boolean) => unknown } }).workspace;
+        void workspace?.openLinkText?.(target, target, false);
+      })
+      : null;
+    if (this.#recoveryPanel) {
+      await this.#recoveryPanel.open(context.projectId);
+      this.#busy = false;
+      this.render();
+      return;
+    }
     this.render();
     try {
       const read = await this.client.readContext(context);
@@ -588,6 +609,15 @@ export class AskMateView extends ItemView {
         button.onclick = () => this.selectIntent(intent);
       }
       this.renderAskIntent(container, true);
+      return;
+    }
+    if (this.#context.kind === "project") {
+      const recovery = container.createEl("section", { cls: "llmwiki-ask-mate-project-recovery" });
+      if (this.#recoveryPanel) this.#recoveryPanel.render(recovery);
+      else {
+        recovery.createEl("h3", { text: "Project recovery preview unavailable" });
+        recovery.createEl("p", { text: "The read-only Recovery Flow client is unavailable in this host." });
+      }
       return;
     }
     container.createEl("p", {

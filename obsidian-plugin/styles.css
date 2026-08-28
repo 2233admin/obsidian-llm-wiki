@@ -2974,6 +2974,8 @@
 }
 
 .llmwiki-ask-mate button:focus-visible,
+.llmwiki-ask-mate input:focus-visible,
+.llmwiki-ask-mate a:focus-visible,
 .llmwiki-settings button:focus-visible,
 .llmwiki-control-plane-modal button:focus-visible,
 .llmwiki-control-plane-modal input:focus-visible,
@@ -3068,4 +3070,59 @@
 
 .llmwiki-ask-mate-success {
   color: var(--text-success);
+}
+
+.llmwiki-ask-mate-project-recovery {
+  margin-top: 14px;
+}
+
+.llmwiki-recovery-stages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 8px 0;
+  padding-left: 24px;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+
+.llmwiki-recovery-stages .is-current {
+  color: var(--text-normal);
+  font-weight: 600;
+}
+
+.llmwiki-recovery-fact {
+  overflow-wrap: anywhere;
+  margin: 5px 0;
+}
+
+.llmwiki-recovery-result {
+  border-top: 1px solid var(--background-modifier-border);
+  padding: 8px 0;
+}
+
+.llmwiki-recovery-result h4 {
+  margin: 0 0 3px;
+}
+
+.llmwiki-recovery-result p {
+  color: var(--text-muted);
+  margin: 3px 0;
+}
+
+.llmwiki-recovery-candidates {
+  display: grid;
+  gap: 8px;
+  padding-left: 22px;
+}
+
+.llmwiki-recovery-candidates button {
+  margin-left: 8px;
+}
+
+.llmwiki-recovery-expired,
+.llmwiki-recovery-remediation {
+  border-left: 3px solid var(--color-yellow);
+  color: var(--text-warning, var(--color-yellow));
+  padding-left: 10px;
 }

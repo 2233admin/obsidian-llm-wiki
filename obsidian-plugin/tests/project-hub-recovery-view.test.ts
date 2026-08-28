@@ -1,0 +1,67 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {
+  ProjectHubRecoveryClient,
+  RECOVERY_FLOW_REQUEST_SCHEMA_VERSION,
+} from "../src/project-hub/recovery-client";
+import { ProjectHubRecoveryPanel } from "../src/project-hub/recovery-panel";
+import type { RecoveryFlowResponseV2 } from "../../mcp-server/src/project-hub/recovery-flow";
+
+const projectId = "project/alpha" as const;
+const fp = (char: string) => `sha256:${char.repeat(64)}` as `sha256:${string}`;
+const binding = { bindingId: "binding/alpha/builder", bindingRevision: 2, role: "builder", profileId: "agent/builder", profileRevision: 3 };
+const candidate = { candidateId: "resume:work-run/one", kind: "resume" as const, workItemId: "project/alpha/issue/alpha", workRunId: "work-run/one", contextSource: "work-run" as const, recommended: true };
+
+function openResponse(): RecoveryFlowResponseV2 {
+  return { schemaVersion: "project-hub-recovery-flow/v2", stage: "open", projectId, previousFlowFingerprint: null, actionInputFingerprint: fp("1"), recoveryFingerprint: fp("2"), ownerLocks: [], payload: { kind: "open", workItemId: candidate.workItemId, workRunId: candidate.workRunId, contextSource: "work-run", citations: ["issue:alpha"], suggestedQueries: ["recovery"] }, nextRequestIntents: [{ action: "search", query: "recovery", limit: 5 }], diagnostics: [], omitted: { items: 0, citations: 0, diagnostics: 0, bytes: 0 }, rootOpenFlowFingerprint: fp("3"), nextRequests: [{ schemaVersion: RECOVERY_FLOW_REQUEST_SCHEMA_VERSION, projectId, action: "search", openFlowFingerprint: fp("3"), query: "recovery", limit: 5 }], generatedAt: "2026-08-28T00:00:00.000Z", flowFingerprint: fp("3") } as RecoveryFlowResponseV2;
+}
+
+function searchedResponse(): RecoveryFlowResponseV2 {
+  return { schemaVersion: "project-hub-recovery-flow/v2", stage: "searched", projectId, previousFlowFingerprint: fp("3"), actionInputFingerprint: fp("4"), recoveryFingerprint: fp("2"), ownerLocks: [], payload: { kind: "searched", query: "recovery", limit: 5, searchInputFingerprint: fp("5"), searchFingerprint: fp("6"), results: [], candidates: [candidate], recommendedCandidateId: candidate.candidateId, candidateSetFingerprint: fp("7"), bindings: [binding] }, nextRequestIntents: [{ action: "plan", mode: "from-search", query: "recovery", limit: 5, candidateId: candidate.candidateId, agentSelection: { bindingId: binding.bindingId, bindingRevision: binding.bindingRevision }, priorPlan: null }], diagnostics: [], omitted: { items: 0, citations: 0, diagnostics: 0, bytes: 0 }, rootOpenFlowFingerprint: fp("3"), nextRequests: [{ schemaVersion: RECOVERY_FLOW_REQUEST_SCHEMA_VERSION, projectId, action: "plan", mode: "from-search", openFlowFingerprint: fp("3"), searchedBasisFlowFingerprint: fp("8"), plannedFlowFingerprint: null, query: "recovery", limit: 5, candidateId: candidate.candidateId, agentSelection: { bindingId: binding.bindingId, bindingRevision: binding.bindingRevision }, priorPlan: null }], generatedAt: "2026-08-28T00:00:00.000Z", flowFingerprint: fp("8") } as RecoveryFlowResponseV2;
+}
+
+function plannedResponse(): RecoveryFlowResponseV2 {
+  const plan = { schemaVersion: "project-hub-recovery-plan/v2" as const, projectId, rootOpenFlowFingerprint: fp("3"), searchedBasisFlowFingerprint: fp("8"), recoveryFingerprint: fp("2"), searchInputFingerprint: fp("5"), searchFingerprint: fp("6"), candidateSetFingerprint: fp("7"), candidateId: candidate.candidateId, kind: "resume" as const, workItemId: candidate.workItemId, workRunId: candidate.workRunId, agentSelection: binding, ownerLocks: [], capabilityFacts: [], citationTargets: ["issue:alpha"], owningOperation: "workflow.recovery.apply" as const, createdAt: "2026-08-28T00:00:00.000Z", expiresAt: "2999-08-28T00:05:00.000Z", leaseDurationMs: 0 as const, fingerprint: fp("9") };
+  return { schemaVersion: "project-hub-recovery-flow/v2", stage: "planned", projectId, previousFlowFingerprint: fp("8"), actionInputFingerprint: fp("a"), recoveryFingerprint: fp("2"), ownerLocks: [], payload: { kind: "planned", plan, candidates: [candidate.candidateId] }, nextRequestIntents: [{ action: "refresh-plan", query: "recovery", limit: 5, priorPlan: plan }], diagnostics: [], omitted: { items: 0, citations: 0, diagnostics: 0, bytes: 0 }, rootOpenFlowFingerprint: fp("3"), nextRequests: [{ schemaVersion: RECOVERY_FLOW_REQUEST_SCHEMA_VERSION, projectId, action: "refresh-plan", openFlowFingerprint: fp("3"), searchedBasisFlowFingerprint: fp("8"), plannedFlowFingerprint: fp("a"), query: "recovery", limit: 5, priorPlan: plan }], generatedAt: "2026-08-28T00:00:00.000Z", flowFingerprint: fp("a") } as RecoveryFlowResponseV2;
+}
+
+test("panel follows only the exact closed recommendation and keeps state ephemeral", async () => {
+  const calls: Array<{ operation: string; args: Record<string, unknown> }> = [];
+  const client = new ProjectHubRecoveryClient({
+    async invoke<T>(operation: string, args: Record<string, unknown>): Promise<T> {
+      calls.push({ operation, args });
+      const request = args.request as { action: string };
+      if (request.action === "open") return openResponse() as T;
+      if (request.action === "search") return searchedResponse() as T;
+      return plannedResponse() as T;
+    },
+  });
+  const panel = new ProjectHubRecoveryPanel(client, null);
+  await panel.open(projectId);
+  await panel.search("recovery");
+  assert.equal(panel.state.flow?.stage, "planned");
+  assert.deepEqual(calls.map(call => (call.args.request as { action: string }).action), ["open", "search", "plan"]);
+  assert.deepEqual(calls[2]?.args.request, searchedResponse().nextRequests[0]);
+  panel.dispose();
+  assert.equal(panel.state.flow, null);
+  assert.equal(panel.state.query, "");
+  assert.equal(panel.state.selectedBinding, null);
+});
+
+test("panel cancellation ignores a late search response", async () => {
+  let release!: (response: RecoveryFlowResponseV2) => void;
+  const client = new ProjectHubRecoveryClient({
+    async invoke<T>(_operation: string, args: Record<string, unknown>): Promise<T> {
+      if ((args.request as { action: string }).action === "open") return openResponse() as T;
+      return new Promise<RecoveryFlowResponseV2>(resolve => { release = resolve; }) as Promise<T>;
+    },
+  });
+  const panel = new ProjectHubRecoveryPanel(client, null);
+  await panel.open(projectId);
+  const search = panel.search("recovery");
+  panel.cancel();
+  release(searchedResponse());
+  await search;
+  assert.equal(panel.state.flow?.stage, "open");
+  assert.equal(panel.state.busy, false);
+});
