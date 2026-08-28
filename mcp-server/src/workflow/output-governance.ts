@@ -404,6 +404,24 @@ export async function governWorkRunOutput(
   let startOwner = false;
   let waiter: Deferred | undefined;
   let claim: OutputClaim;
+  const repairPreOwnerClaim = (): OutputClaim | null => {
+    try {
+      return dependencies.store.withLock(() => {
+        const outputClaim = claimFrom(dependencies.store.readOutputClaim(project, outputFp));
+        const tokenClaim = claimFrom(dependencies.store.readOutputToken(project, tokenFp));
+        if (outputClaim && tokenClaim && fingerprintRecoveryValue(outputClaim) !== fingerprintRecoveryValue(tokenClaim)) return null;
+        const current = outputClaim ?? tokenClaim;
+        if (!current || current.outputFingerprint !== outputFp || current.requestDigest !== requestFp || current.tokenDigest !== tokenFp
+          || current.actorId !== actor || current.projectId !== normalized.project || current.workRunId !== normalized.work_run_id
+          || current.state !== 'claimed' || current.ownerStarted || current.receipt) return null;
+        dependencies.store.writeOutputClaimAtomic(project, outputFp, current as unknown as Record<string, unknown>);
+        dependencies.store.writeOutputTokenAtomic(project, tokenFp, current as unknown as Record<string, unknown>);
+        return current;
+      });
+    } catch {
+      return null;
+    }
+  };
   try {
     claim = dependencies.store.withLock(() => {
       const outputClaim = claimFrom(dependencies.store.readOutputClaim(project, outputFp));
@@ -429,8 +447,18 @@ export async function governWorkRunOutput(
         if (current.state === 'claimed' && current.ownerStarted) waiter = inFlight.get(`${project}:${outputFp}`);
         if (current.state === 'claimed' && !current.ownerStarted) {
           const started = { ...current, ownerStarted: true, updatedAt: now() };
-          dependencies.store.writeOutputClaimAtomic(project, outputFp, started as unknown as Record<string, unknown>);
-          dependencies.store.writeOutputTokenAtomic(project, tokenFp, started as unknown as Record<string, unknown>);
+          try {
+            dependencies.store.writeOutputClaimAtomic(project, outputFp, started as unknown as Record<string, unknown>);
+            dependencies.store.writeOutputTokenAtomic(project, tokenFp, started as unknown as Record<string, unknown>);
+          } catch (error) {
+            try {
+              dependencies.store.writeOutputClaimAtomic(project, outputFp, current as unknown as Record<string, unknown>);
+              dependencies.store.writeOutputTokenAtomic(project, tokenFp, current as unknown as Record<string, unknown>);
+            } catch {
+              // The outer handler returns an ephemeral unknown; no owner has started.
+            }
+            throw error;
+          }
           startOwner = true;
           waiter = deferred();
           inFlight.set(`${project}:${outputFp}`, waiter);
@@ -446,8 +474,18 @@ export async function governWorkRunOutput(
       dependencies.store.writeOutputClaimAtomic(project, outputFp, created as unknown as Record<string, unknown>);
       dependencies.store.writeOutputTokenAtomic(project, tokenFp, created as unknown as Record<string, unknown>);
       const started = { ...created, ownerStarted: true, updatedAt: now() };
-      dependencies.store.writeOutputClaimAtomic(project, outputFp, started as unknown as Record<string, unknown>);
-      dependencies.store.writeOutputTokenAtomic(project, tokenFp, started as unknown as Record<string, unknown>);
+      try {
+        dependencies.store.writeOutputClaimAtomic(project, outputFp, started as unknown as Record<string, unknown>);
+        dependencies.store.writeOutputTokenAtomic(project, tokenFp, started as unknown as Record<string, unknown>);
+      } catch (error) {
+        try {
+          dependencies.store.writeOutputClaimAtomic(project, outputFp, created as unknown as Record<string, unknown>);
+          dependencies.store.writeOutputTokenAtomic(project, tokenFp, created as unknown as Record<string, unknown>);
+        } catch {
+          // The outer handler returns an ephemeral unknown; no owner has started.
+        }
+        throw error;
+      }
       startOwner = true;
       waiter = deferred();
       inFlight.set(`${project}:${outputFp}`, waiter);
@@ -455,13 +493,19 @@ export async function governWorkRunOutput(
     });
   } catch (error) {
     if (error instanceof Error && /already bound|indexes disagree/u.test(error.message)) throw error;
-    // A partially written index is never allowed to become an effect-capable claim.
+    // A pre-owner index failure must remain retryable. Only an owner-started claim
+    // is effect-capable; preserve the canonical claimed/false pair when possible.
+    const repaired = repairPreOwnerClaim();
+    if (repaired) {
+      return receipt(normalized, repaired, { ownerOperation: null, ownerReceipt: null, state: 'outcome-unknown', diagnostics: [{ owner: OWNER, code: 'output-claim-transient', severity: 'error', message: 'Output claim setup was interrupted before the owner started.', remediation: 'Retry the exact request to repair indexes and route the output.', citationTargets: [] }] }, now());
+    }
     const unknown: OutputClaim = {
       schemaVersion: WORK_RUN_OUTPUT_ROUTE_SCHEMA, outputFingerprint: outputFp, requestDigest: requestFp, tokenDigest: tokenFp, actorId: actor,
       projectId: normalized.project, workItemId: normalized.mode === 'complete' ? (normalized.submission.output?.workItemId ?? normalized.submission.quarantine?.workItemId ?? null) : null,
       workRunId: normalized.work_run_id, targetState: normalized.target_state, state: 'outcome-unknown', receipt: null, ownerStarted: false, claimedAt: now(), updatedAt: now(),
     };
-    try { dependencies.store.withLock(() => dependencies.store.writeOutputClaimAtomic(project, outputFp, unknown as unknown as Record<string, unknown>)); } catch { /* no owner effect was started */ }
+    // Do not persist outcome-unknown here: the owner did not start, so an exact
+    // retry must be able to claim and execute once.
     return receipt(normalized, unknown, { ownerOperation: null, ownerReceipt: null, state: 'outcome-unknown', diagnostics: [{ owner: OWNER, code: 'output-claim-unavailable', severity: 'error', message: 'Output claim could not be reconciled safely.', remediation: 'Repair the output indexes before retrying.', citationTargets: [] }] }, now());
   }
   if (!startOwner) {

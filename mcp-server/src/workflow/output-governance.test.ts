@@ -83,6 +83,27 @@ describe('claimed Work Run output governance', () => {
     assert.equal(calls, 1);
   });
 
+  test('pre-owner token write failure preserves a claimed retry and runs one owner effect', async () => {
+    const workStore = store(); let calls = 0; let tokenWrites = 0;
+    const writeToken = workStore.writeOutputTokenAtomic;
+    workStore.writeOutputTokenAtomic = (project, token, value) => {
+      tokenWrites += 1;
+      if (tokenWrites === 1) throw new Error('token index interrupted before owner start');
+      writeToken(project, token, value);
+    };
+    const dependencies = { store: workStore, owner: async () => { calls += 1; return { ownerOperation: 'workflow.agent.leave', ownerReceipt: { ok: true } }; } };
+    const first = await governWorkRunOutput(dependencies, ctx, request());
+    assert.equal(first.state, 'outcome-unknown');
+    const claimed = [...workStore.claims.values()][0];
+    assert.equal(claimed?.state, 'claimed');
+    assert.equal(claimed?.ownerStarted, false);
+    const replay = await governWorkRunOutput(dependencies, ctx, request());
+    assert.equal(replay.state, 'accepted');
+    assert.equal(calls, 1);
+    const changed = { ...request(), target_state: 'awaiting_review' };
+    await assert.rejects(() => governWorkRunOutput(dependencies, ctx, changed), /already bound/);
+  });
+
   test('initial split index rebound finds the token claim before a second owner effect', async () => {
     const workStore = store(); let calls = 0; let tokenWrites = 0;
     const writeToken = workStore.writeOutputTokenAtomic;

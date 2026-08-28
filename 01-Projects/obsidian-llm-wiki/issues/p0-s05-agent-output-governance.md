@@ -75,3 +75,10 @@ Crash-route matrix:
 | terminate | exact leave receipt or unknown | exact lifetime leave receipt recovers | claim scan repairs missing token | one terminal transition |
 
 The repository-wide `npm test` invocation remains Bun-runner incompatible in this checkout: its mixed `node:test` files produce nested `describe()`/`test()` errors after the passing suites; no S05 assertion failure was observed in the focused slices above.
+
+## Verification evidence — 2026-08-29 (R8 integration repair)
+
+- `bun test src/workflow/output-governance.test.ts src/workflow/workflow.test.ts`: **48 passed, 0 failed**. Named new coverage: `pre-owner token write failure preserves a claimed retry and runs one owner effect`; `work-state output routes through the production dispatcher and reconciles a nested owner throw`; `external output uses a real Agent Domain grant and production nested dispatcher exactly once`; `review-required outputs cannot complete without explicit approval`; `workflow.agent.leave quarantine is review-required and does not mutate lifetime or events`.
+- `bun test mcp-server/src/agent-domain/operations.test.ts`: **13 passed, 0 failed**.
+- `npm run typecheck`: **passed**. `npm run build`: **passed**.
+- Repairs cover pre-owner claim recovery, observable Work-OS state reconciliation, real Agent Domain grant loading (including canonical `child.grantSummary == grant`), cited draft-only knowledge routing, and Windows-safe draft filenames. S05 remains **in-progress**; Fleet/Python/strict OpenSpec gates were not run in this worker checkout.

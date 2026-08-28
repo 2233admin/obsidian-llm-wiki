@@ -20,6 +20,7 @@ import {
   type RecoveryPlanningService,
 } from '../project-hub/recovery-planning-service.js';
 import { canonicalRecoveryJson, fingerprintRecoveryValue } from '../project-hub/contract-support.js';
+import { canonicalJson } from '../../../packages/agent-domain/dist/src/index.js';
 import { RECOVERY_FLOW_REQUEST_SCHEMA_VERSION, type RecoveryFlowDiagnosticV2, type RecoveryPlanV2 } from '../project-hub/recovery-flow.js';
 import { persistWorkRunOutputDraft } from '../core/project-memory-operations.js';
 import { AgentDomainService, DelegationStore, type CapabilityGrant } from '../../../packages/agent-domain/dist/src/index.js';
@@ -1791,8 +1792,29 @@ async function routeWorkStateTransition(
   }
   const operationDefinition = dispatcher.get?.('project.issue.update');
   if (operationDefinition && !operationDefinition.mutating) throw conflict('project.issue.update must be mutating');
-  const result = await dispatcher.invoke('project.issue.update', params);
-  if (record(result, 'project.issue.update result').ok === false) throw conflict('project.issue.update owner rejected the transition');
+  let observedBefore: unknown;
+  try {
+    const before = record(await dispatcher.invoke('project.issue.get', { project: params.project, slug: params.slug }), 'project.issue.get result');
+    observedBefore = record(before.issue, 'project.issue.get issue').state;
+  } catch {
+    // Reconciliation requires a known pre-owner state; fail closed if it is unavailable.
+  }
+  try {
+    const result = await dispatcher.invoke('project.issue.update', params);
+    if (record(result, 'project.issue.update result').ok === false) throw conflict('project.issue.update owner rejected the transition');
+  } catch (error) {
+    // A nested owner can commit the issue and then fail before leave finalizes.
+    // Observe the exact desired state and let the caller finalize once, without
+    // invoking the mutating owner a second time.
+    if (observedBefore !== expectedState) try {
+      const observed = record(await dispatcher.invoke('project.issue.get', { project: params.project, slug: params.slug }), 'project.issue.get result');
+      const issue = record(observed.issue, 'project.issue.get issue');
+      if (issue.state === expectedState) return;
+    } catch {
+      // Preserve the original owner failure when the desired state is not observable.
+    }
+    throw error;
+  }
 }
 
 interface ExternalSideEffectDecision {
@@ -1806,7 +1828,7 @@ function externalDenied(code: string, message: string, remediation: string): Ext
 
 async function loadServerCapabilityGrant(ctx: OperationContext, projectId: string, grantId: string, now: () => number): Promise<CapabilityGrant | null> {
   const stateRoot = join(ctx.config.vault_path, '_llmwiki/agent-domain/v1');
-  const project = projectId.slice('project/'.length) as `project/${string}`;
+  const project = projectId as `project/${string}`;
   const delegation = new DelegationStore({ collaborationRoot: join(stateRoot, 'collaboration'), projectId: project });
   const grant = await delegation.readGrant(grantId as CapabilityGrant['grantId']);
   if (!grant) return null;
@@ -1814,6 +1836,8 @@ async function loadServerCapabilityGrant(ctx: OperationContext, projectId: strin
   if (!child || !new Set(['ready', 'running']).has(child.lifecycle)
     || grant.projectId !== projectId || child.projectId !== projectId || child.workRunId !== grant.workRunId
     || child.assignment.profileId !== grant.profileId || child.assignment.profileRevision !== grant.profileRevision) return null;
+  // R8.6 invariant: child.grantSummary must canonicalJson-match the grant for server-issued authority.
+  if (canonicalJson(child.grantSummary) !== canonicalJson(grant)) return null;
   const service = new AgentDomainService({ stateRoot });
   const exactProfile = await service.profiles.readRevision(grant.profileId, grant.profileRevision);
   const currentProfile = await service.profiles.read(grant.profileId);

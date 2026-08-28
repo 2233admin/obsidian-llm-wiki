@@ -56,7 +56,7 @@ export function persistWorkRunOutputDraft(
 ): string {
   const safeActor = safeSegment(actor, 'actor');
   const project = safeSegment(output.projectId.slice('project/'.length), 'project');
-  const relativePath = `10-Projects/${project}/agents/${safeActor}/memory-drafts/${output.fingerprint}.json`;
+  const relativePath = `10-Projects/${project}/agents/${safeActor}/memory-drafts/${output.fingerprint.replace(/^sha256:/u, 'sha256-')}.json`;
   const proposalId = isRecord(output.payload) && typeof output.payload.proposalId === 'string' ? output.payload.proposalId : undefined;
   writeJson(vaultPath, store, relativePath, {
     schemaVersion: 'project-memory-draft/v1',
