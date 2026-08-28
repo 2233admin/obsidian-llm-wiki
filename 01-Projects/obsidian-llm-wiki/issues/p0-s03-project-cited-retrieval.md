@@ -50,7 +50,8 @@ Blocked by S02 because search reuses its Workflow read model and recomputes its 
 
 - Added internal Project owner snapshots and cited searched basis composition in `mcp-server/src/project-hub/search-source.ts` and `mcp-server/src/project-hub/search.ts`, with focused contract tests.
 - Verified canonical Project scoping, reviewed/safe owner material, foreign-record exclusion before ranking/fingerprinting, exact owner locks, query/response bounds, deterministic branches, and explicit stale recomputation.
-- `mcp-server/`: `npm exec bun -- test src/project-hub/recovery-open.test.ts src/project-hub/search-source.test.ts src/project-hub/search.test.ts src/workflow/workflow-read-model.test.ts` — 11 pass.
-- OpenSpec T3.3 command including `src/project-hub/recovery-flow.test.ts` — 31 pass.
+- `mcp-server/`: `npm exec bun -- test src/project-hub/recovery-open.test.ts src/project-hub/search-source.test.ts src/project-hub/search.test.ts src/workflow/workflow-read-model.test.ts` — 12 pass.
+- OpenSpec T3.3 command including `src/project-hub/recovery-flow.test.ts` — 32 pass.
 - `mcp-server/`: `npm run typecheck` — pass.
+- Repair evidence: removed the dead ISO-date regex and added a deterministic response-budget test asserting exact canonical bytes reported by `omitted.bytes`.
 - OpenSpec T3.1–T3.3 implementation evidence is recorded; S03 remains `in-progress` until independent review.

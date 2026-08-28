@@ -61,7 +61,6 @@ export interface RecoverySearchInput {
 const PROJECT_ID = /^project\/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/u;
 const OWNER_PRIORITY: Record<string, number> = { 'work-os': 0, 'project-memory': 1, 'source-evidence': 2, 'session-record': 3, workflow: 4 };
 const MATCH_PRIORITY: Record<string, number> = { exact: 0, phrase: 1, terms: 2, partial: 3 };
-const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u;
 
 function query(value: unknown): string {
   return safeRecoveryText(value, 'query', { minBytes: 1, maxBytes: 2048 });
@@ -274,7 +273,6 @@ export async function searchRecovery(input: RecoverySearchInput): Promise<Recove
     limit: limit(request.limit),
   };
   const generatedAt = new Date(dependencies.now ? dependencies.now() : Date.now()).toISOString();
-  if (!ISO.test(generatedAt)) throw new Error('search clock must produce an ISO timestamp');
   const currentOpen = await composeRecoveryOpenStage(projectId, dependencies.openOwners, generatedAt);
   if (currentOpen.stage !== 'open' || currentOpen.flowFingerprint !== normalizedRequest.openFlowFingerprint) return staleResponse(normalizedRequest, currentOpen, dependencies.currentOpen);
   if (dependencies.currentOpen && dependencies.currentOpen.flowFingerprint !== currentOpen.flowFingerprint) return staleResponse(normalizedRequest, currentOpen, dependencies.currentOpen);

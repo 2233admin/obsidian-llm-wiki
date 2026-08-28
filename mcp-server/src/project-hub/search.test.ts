@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { composeRecoveryOpenStage, type RecoveryOpenOwners } from './recovery-open.js';
-import { fingerprintRecoveryValue } from './contract-support.js';
+import { fingerprintRecoveryValue, utf8JsonBytes } from './contract-support.js';
 import { createProjectSearchSource } from './search-source.js';
-import { searchRecovery } from './search.js';
+import { composeRecoverySearchBasis, searchRecovery } from './search.js';
+import type { ProjectOwnerSnapshot } from './search-source.js';
 
 const digest = (value: unknown) => fingerprintRecoveryValue(value);
 
@@ -71,4 +72,30 @@ test('unsafe and oversized queries reject before owner search', async () => {
   if (open.stage !== 'open') return;
   await assert.rejects(() => searchRecovery({ request: { schemaVersion: 'project-hub-recovery-flow-request/v2', projectId: 'project/alpha', action: 'search', openFlowFingerprint: open.flowFingerprint, query: 'x'.repeat(2049), limit: 1 }, dependencies: { openOwners: owners, searchSource: sourceSpy } }), /maximum byte bound/u);
   assert.equal(calls, 0);
+});
+
+test('omitted.bytes counts the canonical bytes removed by response-budget truncation', async () => {
+  const currentOpen = await composeRecoveryOpenStage('project/alpha', openOwners(), '2026-08-28T02:00:00.000Z');
+  assert.equal(currentOpen.stage, 'open');
+  if (currentOpen.stage !== 'open') return;
+  const items = Array.from({ length: 25 }, (_, index) => ({
+    itemId: `project/alpha/evidence/${String(index).padStart(2, '0')}`,
+    itemType: 'evidence',
+    label: 'recovery ' + 'l'.repeat(480),
+    projectId: 'project/alpha',
+    searchableText: 'recovery',
+    provenance: 'p'.repeat(480),
+    citationTargets: Array.from({ length: 4 }, (_, citation) => `evidence:${index}:${'c'.repeat(480)}:${citation}`),
+  }));
+  const request = { schemaVersion: 'project-hub-recovery-flow-request/v2' as const, projectId: 'project/alpha', action: 'search' as const, openFlowFingerprint: currentOpen.flowFingerprint, query: 'recovery', limit: 25 };
+  const baseOwner: ProjectOwnerSnapshot = { owner: 'source-evidence', revision: 1, fingerprint: digest('source'), state: 'current', items, diagnostics: [] };
+  const unbounded = composeRecoverySearchBasis({ request, currentOpen, owners: [baseOwner] });
+  const noisyOwner: ProjectOwnerSnapshot = {
+    ...baseOwner,
+    diagnostics: Array.from({ length: 32 }, (_, index) => ({ owner: 'source-evidence' as const, code: `diagnostic-${index}`, severity: 'warning' as const, message: 'm'.repeat(1024), remediation: 'r'.repeat(1024), citationTargets: [] })),
+  };
+  const bounded = composeRecoverySearchBasis({ request, currentOpen, owners: [noisyOwner] });
+  assert.ok(bounded.payload.results.length < unbounded.payload.results.length);
+  const expected = utf8JsonBytes(unbounded.payload.results) - utf8JsonBytes(bounded.payload.results);
+  assert.equal(bounded.omitted.bytes, expected);
 });
