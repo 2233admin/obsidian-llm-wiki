@@ -19,7 +19,7 @@ import {
   type RecoveryPlanDependencies,
   type RecoveryPlanningService,
 } from '../project-hub/recovery-planning-service.js';
-import { canonicalRecoveryJson, fingerprintRecoveryValue } from '../project-hub/contract-support.js';
+import { canonicalRecoveryJson, fingerprintRecoveryValue, utf8JsonBytes } from '../project-hub/contract-support.js';
 import { canonicalJson } from '../../../packages/agent-domain/dist/src/index.js';
 import { RECOVERY_FLOW_REQUEST_SCHEMA_VERSION, type RecoveryFlowDiagnosticV2, type RecoveryPlanV2 } from '../project-hub/recovery-flow.js';
 import { persistWorkRunOutputDraft } from '../core/project-memory-operations.js';
@@ -1890,7 +1890,14 @@ async function executeExternalSideEffect(
   // Invocation begins only after every denial check. A throw or unknown result
   // after this point is governed as outcome-unknown by the caller.
   const result = await dispatcher.invoke(operation, params);
-  if (result === undefined || result === null) throw new Error('External operation returned an unknown result');
+  let boundedResult = false;
+  try { boundedResult = typeof result === 'object' && result !== null && !Array.isArray(result) && utf8JsonBytes(result) <= 64 * 1024; } catch { boundedResult = false; }
+  if (!boundedResult || (result as { ok?: unknown }).ok === undefined) {
+    throw new Error('External operation returned an unknown result');
+  }
+  if ((result as { ok?: unknown }).ok !== true) {
+    return externalDenied('external-operation-denied', 'External operation reported that its effect was denied.', 'Review the bounded owner diagnostic before retrying.');
+  }
   return { allowed: true };
 }
 

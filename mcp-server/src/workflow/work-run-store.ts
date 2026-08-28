@@ -5,6 +5,9 @@ import { conflict } from '../core/types.js';
 import type { RecoveryFingerprint } from '../project-hub/contract-support.js';
 
 const WORK_RUN_LOCK_PATH = '.vault-mind/_work-run.lock';
+const MAX_OUTPUT_CLAIM_ENTRIES = 256;
+const MAX_OUTPUT_CLAIM_FILE_BYTES = 128 * 1024;
+const MAX_OUTPUT_CLAIM_AGGREGATE_BYTES = 4 * 1024 * 1024;
 
 export interface WorkRunStore {
   withLock<T>(action: () => T): T;
@@ -20,8 +23,11 @@ export interface WorkRunStore {
   writeOutputClaimAtomic(projectSlug: string, outputFingerprint: RecoveryFingerprint, value: Record<string, unknown>): void;
   readOutputToken(projectSlug: string, tokenDigest: RecoveryFingerprint): Record<string, unknown> | null;
   writeOutputTokenAtomic(projectSlug: string, tokenDigest: RecoveryFingerprint, value: Record<string, unknown>): void;
-  /** Strictly scan bounded output claims to recover a token whose output index was interrupted. */
-  findOutputClaimByTokenDigest(projectSlug: string, tokenDigest: RecoveryFingerprint): Record<string, unknown> | null;
+  /** The digest-keyed Work Run claim is the canonical first-token-wins boundary. */
+  readOutputRun(projectSlug: string, workRunDigest: RecoveryFingerprint): Record<string, unknown> | null;
+  writeOutputRunAtomic(projectSlug: string, workRunDigest: RecoveryFingerprint, value: Record<string, unknown>): void;
+  /** Strictly scan bounded output claims; callers perform full claim validation. */
+  listOutputClaims(projectSlug: string): Record<string, unknown>[];
 }
 
 export function vaultJoin(vaultPath: string, relPath: string): string {
@@ -51,10 +57,12 @@ export function withFileRollback<T>(vaultPath: string, relPaths: string[], actio
   }
 }
 
-function readObject(path: string, label: string): Record<string, unknown> | null {
+function readObject(path: string, label: string, maxBytes?: number): Record<string, unknown> | null {
   if (!existsSync(path)) return null;
   try {
-    const value = JSON.parse(readFileSync(path, 'utf8')) as unknown;
+    const bytes = readFileSync(path);
+    if (maxBytes !== undefined && bytes.byteLength > maxBytes) throw new Error('file exceeds the byte limit');
+    const value = JSON.parse(bytes.toString('utf8')) as unknown;
     if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('expected an object');
     return value as Record<string, unknown>;
   } catch (error) {
@@ -77,21 +85,36 @@ function claimPath(vaultPath: string, project: string, kind: string, digest: str
   return vaultJoin(vaultPath, `01-Projects/${project}/runs/${kind}/${digestPart(digest)}.json`);
 }
 
-function findOutputClaimByTokenDigest(vaultPath: string, project: string, tokenDigest: RecoveryFingerprint): Record<string, unknown> | null {
+function listOutputClaims(vaultPath: string, project: string): Record<string, unknown>[] {
   const directory = vaultJoin(vaultPath, `01-Projects/${project}/runs/output-claims`);
-  if (!existsSync(directory)) return null;
-  const matches: Record<string, unknown>[] = [];
-  for (const name of readdirSync(directory)) {
+  if (!existsSync(directory)) return [];
+  const names = readdirSync(directory).sort();
+  if (names.length > MAX_OUTPUT_CLAIM_ENTRIES) throw conflict('Work Run output claim index exceeds the entry limit');
+  let aggregateBytes = 0;
+  const claims: Record<string, unknown>[] = [];
+  for (const name of names) {
     if (!/^[a-f0-9]{64}\.json$/u.test(name)) throw conflict('Work Run output claim index contains an unsafe entry');
-    const value = readObject(join(directory, name), 'Work Run output claim');
-    if (value && value.tokenDigest === tokenDigest) matches.push(value);
+    const bytes = readFileSync(join(directory, name));
+    if (bytes.byteLength > MAX_OUTPUT_CLAIM_FILE_BYTES) throw conflict('Work Run output claim exceeds the file limit');
+    aggregateBytes += bytes.byteLength;
+    if (aggregateBytes > MAX_OUTPUT_CLAIM_AGGREGATE_BYTES) throw conflict('Work Run output claim index exceeds the byte limit');
+    try {
+      const value = JSON.parse(bytes.toString('utf8')) as unknown;
+      if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('expected an object');
+      claims.push(value as Record<string, unknown>);
+    } catch (error) {
+      throw conflict(`Work Run output claim identity conflict: ${(error as Error).message}`);
+    }
   }
-  if (matches.length > 1) throw conflict('Work Run output token is bound to multiple claims');
-  return matches[0] ?? null;
+  return claims;
+}
+
+function outputRunPath(vaultPath: string, project: string, workRunDigest: RecoveryFingerprint): string {
+  return claimPath(vaultPath, project, 'output-runs', workRunDigest);
 }
 
 export function createFileWorkRunStore(vaultPath: string): WorkRunStore {
-  const readClaim = (project: string, kind: string, digest: string) => readObject(claimPath(vaultPath, project, kind, digest), `${kind} claim`);
+  const readClaim = (project: string, kind: string, digest: string) => readObject(claimPath(vaultPath, project, kind, digest), `${kind} claim`, kind.startsWith('output-') ? MAX_OUTPUT_CLAIM_FILE_BYTES : undefined);
   const writeClaim = (project: string, kind: string, digest: string, value: Record<string, unknown>) => writeJsonAtomic(claimPath(vaultPath, project, kind, digest), value);
   return {
     withLock<T>(action: () => T): T {
@@ -140,6 +163,8 @@ export function createFileWorkRunStore(vaultPath: string): WorkRunStore {
     writeOutputClaimAtomic: (project, digest, value) => writeClaim(project, 'output-claims', digest, value),
     readOutputToken: (project, digest) => readClaim(project, 'output-tokens', digest),
     writeOutputTokenAtomic: (project, digest, value) => writeClaim(project, 'output-tokens', digest, value),
-    findOutputClaimByTokenDigest: (project, tokenDigest) => findOutputClaimByTokenDigest(vaultPath, project, tokenDigest),
+    readOutputRun: (project, workRunDigest) => readObject(outputRunPath(vaultPath, project, workRunDigest), 'Work Run output claim', MAX_OUTPUT_CLAIM_FILE_BYTES),
+    writeOutputRunAtomic: (project, workRunDigest, value) => writeJsonAtomic(outputRunPath(vaultPath, project, workRunDigest), value),
+    listOutputClaims: (project) => listOutputClaims(vaultPath, project),
   };
 }

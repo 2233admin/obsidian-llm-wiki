@@ -144,6 +144,33 @@ describe('Operation Write Policy', () => {
     );
   });
 
+  test('generic mutation operations cannot target Work Run claim, recovery, or lock namespaces', () => {
+    const generic = createOp();
+    const context = makeCtx([
+      '01-Projects/alpha/runs/**',
+      '01-Projects/alpha/runs/run.json',
+      '01-Projects/alpha/runs/output-runs/**',
+      '01-Projects/alpha/runs/recovery-plans/**',
+      '.vault-mind/_work-run.lock',
+    ]);
+    for (const path of [
+      '01-Projects/alpha/runs/**',
+      '01-Projects/alpha/runs/run.json',
+      '01-Projects/alpha/runs/output-runs/claim.json',
+      '01-Projects/alpha/runs/recovery-plans/claim.json',
+      '.vault-mind/_work-run.lock',
+    ]) {
+      assert.throws(
+        () => adjudicateOperationWrite(context, generic, { path, dryRun: false }, new Map([[generic.name, generic]])),
+        /governance namespace is owner-protected/u,
+      );
+    }
+    assert.throws(
+      () => adjudicateOperationWrite(context, { ...generic, name: 'workflow.agent.forged' }, { path: '01-Projects/alpha/runs/output-runs/claim.json', dryRun: false }, new Map()),
+      /governance namespace is owner-protected/u,
+    );
+  });
+
   test('settings paths are authorized only for settings assignment operations', () => {
     const generic = createOp();
     const context = makeCtx([]);

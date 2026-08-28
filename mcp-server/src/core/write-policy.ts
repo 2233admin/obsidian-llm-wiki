@@ -31,7 +31,22 @@ type BatchChildResult = {
 
 const DEFAULT_PROTECTED_PATHS = ['20-Decisions/**', '30-Architecture/**', '40-Runbooks/**', 'README.md'];
 const DREAMTIME_CADENCE_AUTHORIZED_ROLES = new Set(['human', 'approver', 'admin']);
+const WORK_RUN_OWNER_OPERATIONS = new Set([
+  'workflow.agent.start', 'workflow.agent.join', 'workflow.agent.step',
+  'workflow.agent.checkpoint', 'workflow.agent.leave', 'workflow.recovery.apply',
+  'dreamtime.cadence.run',
+]);
 const globCache = new Map<string, RegExp>();
+
+function isWorkRunGovernanceNamespace(target: string): boolean {
+  const normalized = normalizePolicyPath(target);
+  return normalized === '.vault-mind/_work-run.lock'
+    || /(?:^|\/)runs(?:\/|$)/u.test(normalized);
+}
+
+function isWorkRunOwnerOperation(operation: string): boolean {
+  return WORK_RUN_OWNER_OPERATIONS.has(operation);
+}
 
 export function adjudicateOperationWrite(
   ctx: OperationContext,
@@ -288,6 +303,9 @@ function enforceCollaborationPolicy(
   ];
 
   for (const target of targets) {
+    if (isWorkRunGovernanceNamespace(target) && !isWorkRunOwnerOperation(toolName)) {
+      throw makeErr(-32403, `Collaboration policy blocked ${toolName} by ${actor}: Work Run governance namespace is owner-protected`);
+    }
     const protectedHit = matchAny(target, protectedPaths);
     const allowedHit = settingsOperationAllowsTarget(toolName, target)
       || cadenceTargets?.has(normalizePolicyPath(target)) === true

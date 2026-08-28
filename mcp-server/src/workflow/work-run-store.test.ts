@@ -45,16 +45,43 @@ test('Work Run lock fails closed and rollback restores bytes', () => {
   }
 });
 
-test('output claim token scan recovers split indexes and rejects unsafe entries', () => {
+test('output claim token scan is bounded and leaves validation to governance', () => {
   const vault = mkdtempSync(join(tmpdir(), 'llmwiki-work-run-scan-'));
   try {
     const store = createFileWorkRunStore(vault);
     const token = `sha256:${'b'.repeat(64)}` as `sha256:${string}`;
     const output = `sha256:${'c'.repeat(64)}` as `sha256:${string}`;
     store.writeOutputClaimAtomic('alpha', output, { tokenDigest: token, outputFingerprint: output });
-    assert.deepEqual(store.findOutputClaimByTokenDigest('alpha', token), { tokenDigest: token, outputFingerprint: output });
+    assert.deepEqual(store.listOutputClaims('alpha'), [{ tokenDigest: token, outputFingerprint: output }]);
     writeFileSync(join(vault, '01-Projects/alpha/runs/output-claims/unsafe.txt'), '{}', 'utf8');
-    assert.throws(() => store.findOutputClaimByTokenDigest('alpha', token), /unsafe entry/u);
+    assert.throws(() => store.listOutputClaims('alpha'), /unsafe entry/u);
+  } finally {
+    rmSync(vault, { recursive: true, force: true });
+  }
+});
+
+test('output claim scan enforces file and aggregate limits', () => {
+  const vault = mkdtempSync(join(tmpdir(), 'llmwiki-work-run-scan-limits-'));
+  try {
+    const store = createFileWorkRunStore(vault);
+    const directory = join(vault, '01-Projects/alpha/runs/output-claims');
+    mkdirSync(directory, { recursive: true });
+    writeFileSync(join(directory, `${'a'.repeat(64)}.json`), JSON.stringify({ payload: 'x'.repeat(128 * 1024) }), 'utf8');
+    assert.throws(() => store.listOutputClaims('alpha'), /file limit/u);
+    rmSync(directory, { recursive: true, force: true });
+    mkdirSync(directory, { recursive: true });
+    for (let index = 0; index < 257; index += 1) {
+      const hex = index.toString(16).padStart(64, '0');
+      writeFileSync(join(directory, `${hex}.json`), '{}', 'utf8');
+    }
+    assert.throws(() => store.listOutputClaims('alpha'), /entry limit/u);
+    rmSync(directory, { recursive: true, force: true });
+    mkdirSync(directory, { recursive: true });
+    for (let index = 0; index < 35; index += 1) {
+      const hex = (index + 300).toString(16).padStart(64, '0');
+      writeFileSync(join(directory, `${hex}.json`), JSON.stringify({ payload: 'x'.repeat(120 * 1024) }), 'utf8');
+    }
+    assert.throws(() => store.listOutputClaims('alpha'), /byte limit/u);
   } finally {
     rmSync(vault, { recursive: true, force: true });
   }

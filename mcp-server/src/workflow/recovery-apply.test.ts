@@ -55,7 +55,9 @@ function memoryStore(): WorkRunStore & { claims: Map<string, Record<string, unkn
     writeOutputClaimAtomic: () => {},
     readOutputToken: () => null,
     writeOutputTokenAtomic: () => {},
-    findOutputClaimByTokenDigest: () => null,
+    readOutputRun: () => null,
+    writeOutputRunAtomic: () => {},
+    listOutputClaims: () => [],
   };
 }
 

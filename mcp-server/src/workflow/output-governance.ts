@@ -120,6 +120,7 @@ export interface OutputGovernanceDependencies {
 }
 
 const OWNER: RecoveryFlowDiagnosticV2['owner'] = 'workflow';
+const WORKFLOW_OWNER_OPERATION = 'workflow.agent.leave';
 const RECOVERY_OWNERS = new Set(['project', 'work-os', 'workflow', 'project-memory', 'session-record', 'source-evidence', 'agent-domain', 'settings']);
 const DIAGNOSTIC_KEYS = ['owner', 'code', 'severity', 'message', 'remediation', 'citationTargets'] as const;
 
@@ -315,15 +316,28 @@ function actorFromContext(ctx: OperationContext): string {
 
 function tokenDigest(token: string): RecoveryFingerprint { return digest({ transitionToken: token }); }
 
+function workRunDigest(workRunId: string): RecoveryFingerprint { return digest({ workRunId }); }
+
 function requestFingerprint(request: WorkflowAgentLeaveRequestV2): RecoveryFingerprint {
   return fingerprintRecoveryValue({ ...request, transition_token: undefined });
 }
 
 function receipt(request: WorkflowAgentLeaveRequestV2, claim: OutputClaim, result: OutputGovernanceOwnerResult, now: string): WorkRunOutputRouteReceiptV1 {
-  const ownerReceipt = result.ownerReceipt && !hasUnsafeRecoveryMaterial(result.ownerReceipt) ? result.ownerReceipt : null;
+  let ownerReceipt: Record<string, unknown> | null = null;
+  try {
+    if (result.ownerReceipt && !hasUnsafeRecoveryMaterial(result.ownerReceipt) && utf8JsonBytes(result.ownerReceipt) <= 64 * 1024) ownerReceipt = result.ownerReceipt;
+  } catch {
+    ownerReceipt = null;
+  }
   const ownerReceiptFingerprint = ownerReceipt ? fingerprintRecoveryValue(ownerReceipt) : null;
   const ownerOperation = ownerReceipt ? result.ownerOperation : null;
-  const base = { schemaVersion: WORK_RUN_OUTPUT_ROUTE_SCHEMA, outputFingerprint: claim.outputFingerprint, tokenDigest: claim.tokenDigest, state: result.state ?? (request.mode === 'complete' && request.submission?.result === 'quarantine' ? 'review-required' : 'accepted'), ownerOperation, ownerReceiptFingerprint, diagnostics: diagnostics(result.diagnostics ?? [], 'receipt.diagnostics'), recordedAt: now } satisfies Omit<WorkRunOutputRouteReceiptV1, 'fingerprint'>;
+  let state = result.state ?? (request.mode === 'complete' && request.submission?.result === 'quarantine' ? 'review-required' : 'accepted');
+  const routeDiagnostics = result.diagnostics ?? [];
+  if (state === 'accepted' && (ownerOperation !== WORKFLOW_OWNER_OPERATION || !ownerReceiptFingerprint)) {
+    state = 'outcome-unknown';
+    routeDiagnostics.push({ owner: OWNER, code: 'owner-proof-unavailable', severity: 'error', message: 'Accepted owner proof is unavailable.', remediation: 'Reconcile the Work Run before retrying.', citationTargets: [] });
+  }
+  const base = { schemaVersion: WORK_RUN_OUTPUT_ROUTE_SCHEMA, outputFingerprint: claim.outputFingerprint, tokenDigest: claim.tokenDigest, state, ownerOperation, ownerReceiptFingerprint, diagnostics: diagnostics(routeDiagnostics, 'receipt.diagnostics'), recordedAt: now } satisfies Omit<WorkRunOutputRouteReceiptV1, 'fingerprint'>;
   return { ...base, fingerprint: fingerprintRecoveryValue(base) };
 }
 
@@ -380,7 +394,8 @@ function validateReceipt(value: unknown): WorkRunOutputRouteReceiptV1 {
   if (!Number.isFinite(Date.parse(base.recordedAt))) throw conflict('Work Run output receipt timestamp is invalid');
   const supplied = fingerprint(entry.fingerprint, 'receipt.fingerprint');
   if (fingerprintRecoveryValue(base) !== supplied) throw conflict('Work Run output receipt fingerprint is invalid');
-  if ((base.ownerOperation === null) !== (base.ownerReceiptFingerprint === null)) throw conflict('Work Run output receipt owner binding is invalid');
+  if (base.state !== 'accepted' && (base.ownerOperation === null) !== (base.ownerReceiptFingerprint === null)) throw conflict('Work Run output receipt owner binding is invalid');
+  if (base.state === 'accepted' && base.ownerOperation !== null && base.ownerReceiptFingerprint === null) throw conflict('Accepted Work Run output receipt owner binding is invalid');
   return { ...base, fingerprint: supplied };
 }
 
@@ -400,22 +415,59 @@ export async function governWorkRunOutput(
   const tokenFp = tokenDigest(normalized.transition_token);
   const requestFp = requestFingerprint(normalized);
   const project = normalized.project.slice('project/'.length);
+  const runFp = workRunDigest(normalized.work_run_id);
   const now = () => new Date(dependencies.now?.() ?? Date.now()).toISOString();
   let startOwner = false;
   let waiter: Deferred | undefined;
   let claim: OutputClaim;
+
+  const ownerArgs = () => ({
+    output: normalized.mode === 'complete' && normalized.submission.result === 'output' ? normalized.submission.output : null,
+    quarantine: normalized.mode === 'complete' && normalized.submission.result === 'quarantine' ? normalized.submission.quarantine : null,
+  });
+  const writeClaimBundle = (value: OutputClaim): void => {
+    const serialized = value as unknown as Record<string, unknown>;
+    // The Work Run claim is the first-token-wins authority. The two indexes
+    // are repairable projections of it.
+    dependencies.store.writeOutputRunAtomic(project, runFp, serialized);
+    dependencies.store.writeOutputClaimAtomic(project, outputFp, serialized);
+    dependencies.store.writeOutputTokenAtomic(project, tokenFp, serialized);
+  };
+  const claimMatchesRequest = (current: OutputClaim): void => {
+    if (current.outputFingerprint !== outputFp || current.requestDigest !== requestFp || current.tokenDigest !== tokenFp
+      || current.actorId !== actor || current.projectId !== normalized.project || current.workRunId !== normalized.work_run_id) {
+      throw conflict('Work Run output claim is already bound to another request');
+    }
+  };
+  const claimFromIndexes = (runClaim: OutputClaim | null, outputClaim: OutputClaim | null, tokenClaim: OutputClaim | null): OutputClaim | null => {
+    let scannedTokenClaim: OutputClaim | null = null;
+    if (!runClaim && !outputClaim && !tokenClaim) {
+      const candidates = dependencies.store.listOutputClaims(project).map((candidate) => claimFrom(candidate));
+      const matches = candidates.filter((candidate): candidate is OutputClaim => candidate !== null && candidate.tokenDigest === tokenFp);
+      if (matches.length > 1) throw conflict('Work Run output token is bound to multiple claims');
+      scannedTokenClaim = matches[0] ?? null;
+    }
+    const current = runClaim ?? outputClaim ?? tokenClaim ?? scannedTokenClaim;
+    if (!current) return null;
+    for (const sibling of [runClaim, outputClaim, tokenClaim, scannedTokenClaim]) {
+      if (sibling && fingerprintRecoveryValue(sibling) !== fingerprintRecoveryValue(current)) throw conflict('Work Run output indexes disagree');
+    }
+    // A Work Run can only be claimed once. Once its owner outcome is already
+    // unknown, a competing output receives that durable outcome rather than
+    // getting a second chance to invoke an owner.
+    if (runClaim && runClaim.outputFingerprint !== outputFp && runClaim.state === 'outcome-unknown') return runClaim;
+    claimMatchesRequest(current);
+    return current;
+  };
   const repairPreOwnerClaim = (): OutputClaim | null => {
     try {
       return dependencies.store.withLock(() => {
+        const runClaim = claimFrom(dependencies.store.readOutputRun(project, runFp));
         const outputClaim = claimFrom(dependencies.store.readOutputClaim(project, outputFp));
         const tokenClaim = claimFrom(dependencies.store.readOutputToken(project, tokenFp));
-        if (outputClaim && tokenClaim && fingerprintRecoveryValue(outputClaim) !== fingerprintRecoveryValue(tokenClaim)) return null;
-        const current = outputClaim ?? tokenClaim;
-        if (!current || current.outputFingerprint !== outputFp || current.requestDigest !== requestFp || current.tokenDigest !== tokenFp
-          || current.actorId !== actor || current.projectId !== normalized.project || current.workRunId !== normalized.work_run_id
-          || current.state !== 'claimed' || current.ownerStarted || current.receipt) return null;
-        dependencies.store.writeOutputClaimAtomic(project, outputFp, current as unknown as Record<string, unknown>);
-        dependencies.store.writeOutputTokenAtomic(project, tokenFp, current as unknown as Record<string, unknown>);
+        const current = claimFromIndexes(runClaim, outputClaim, tokenClaim);
+        if (!current || current.state !== 'claimed' || current.ownerStarted || current.receipt) return null;
+        writeClaimBundle(current);
         return current;
       });
     } catch {
@@ -424,36 +476,23 @@ export async function governWorkRunOutput(
   };
   try {
     claim = dependencies.store.withLock(() => {
+      const runClaim = claimFrom(dependencies.store.readOutputRun(project, runFp));
       const outputClaim = claimFrom(dependencies.store.readOutputClaim(project, outputFp));
       const tokenClaim = claimFrom(dependencies.store.readOutputToken(project, tokenFp));
-      // The token index can be missing after a crash. Re-scan the bounded
-      // output-claim namespace before creating anything for a rebound token;
-      // otherwise a changed output fingerprint could create a second effect.
-      const scannedTokenClaim = !outputClaim && !tokenClaim
-        ? claimFrom(dependencies.store.findOutputClaimByTokenDigest(project, tokenFp))
-        : null;
-      if (outputClaim || tokenClaim || scannedTokenClaim) {
-        const current = outputClaim ?? tokenClaim ?? scannedTokenClaim!;
-        if (current.outputFingerprint !== outputFp || current.requestDigest !== requestFp || current.tokenDigest !== tokenFp || current.actorId !== actor || current.projectId !== normalized.project || current.workRunId !== normalized.work_run_id) throw conflict('Work Run output claim is already bound to another request');
-        if (outputClaim && tokenClaim && fingerprintRecoveryValue(outputClaim) !== fingerprintRecoveryValue(tokenClaim)) throw conflict('Work Run output indexes disagree');
-        if (!outputClaim) {
-          try { dependencies.store.writeOutputClaimAtomic(project, outputFp, current as unknown as Record<string, unknown>); }
-          catch { if (current.receipt) return current; throw new Error('output claim index repair failed'); }
+      const current = claimFromIndexes(runClaim, outputClaim, tokenClaim);
+      if (current) {
+        if (!runClaim || !outputClaim || !tokenClaim) {
+          try { writeClaimBundle(current); }
+          catch { if (current.receipt) return current; throw new Error('Work Run output claim index repair failed'); }
         }
-        if (!tokenClaim) {
-          try { dependencies.store.writeOutputTokenAtomic(project, tokenFp, current as unknown as Record<string, unknown>); }
-          catch { if (current.receipt) return current; throw new Error('output token index repair failed'); }
-        }
-        if (current.state === 'claimed' && current.ownerStarted) waiter = inFlight.get(`${project}:${outputFp}`);
+        if (current.state === 'claimed' && current.ownerStarted) waiter = inFlight.get(`${project}:${normalized.work_run_id}`);
         if (current.state === 'claimed' && !current.ownerStarted) {
           const started = { ...current, ownerStarted: true, updatedAt: now() };
           try {
-            dependencies.store.writeOutputClaimAtomic(project, outputFp, started as unknown as Record<string, unknown>);
-            dependencies.store.writeOutputTokenAtomic(project, tokenFp, started as unknown as Record<string, unknown>);
+            writeClaimBundle(started);
           } catch (error) {
             try {
-              dependencies.store.writeOutputClaimAtomic(project, outputFp, current as unknown as Record<string, unknown>);
-              dependencies.store.writeOutputTokenAtomic(project, tokenFp, current as unknown as Record<string, unknown>);
+              writeClaimBundle(current);
             } catch {
               // The outer handler returns an ephemeral unknown; no owner has started.
             }
@@ -461,7 +500,7 @@ export async function governWorkRunOutput(
           }
           startOwner = true;
           waiter = deferred();
-          inFlight.set(`${project}:${outputFp}`, waiter);
+          inFlight.set(`${project}:${normalized.work_run_id}`, waiter);
           return started;
         }
         return current;
@@ -471,16 +510,15 @@ export async function governWorkRunOutput(
         projectId: normalized.project, workItemId: normalized.mode === 'complete' ? (normalized.submission.output?.workItemId ?? normalized.submission.quarantine?.workItemId ?? null) : null,
         workRunId: normalized.work_run_id, targetState: normalized.target_state, state: 'claimed', receipt: null, ownerStarted: false, claimedAt: now(), updatedAt: now(),
       };
+      dependencies.store.writeOutputRunAtomic(project, runFp, created as unknown as Record<string, unknown>);
       dependencies.store.writeOutputClaimAtomic(project, outputFp, created as unknown as Record<string, unknown>);
       dependencies.store.writeOutputTokenAtomic(project, tokenFp, created as unknown as Record<string, unknown>);
       const started = { ...created, ownerStarted: true, updatedAt: now() };
       try {
-        dependencies.store.writeOutputClaimAtomic(project, outputFp, started as unknown as Record<string, unknown>);
-        dependencies.store.writeOutputTokenAtomic(project, tokenFp, started as unknown as Record<string, unknown>);
+        writeClaimBundle(started);
       } catch (error) {
         try {
-          dependencies.store.writeOutputClaimAtomic(project, outputFp, created as unknown as Record<string, unknown>);
-          dependencies.store.writeOutputTokenAtomic(project, tokenFp, created as unknown as Record<string, unknown>);
+          writeClaimBundle(created);
         } catch {
           // The outer handler returns an ephemeral unknown; no owner has started.
         }
@@ -488,7 +526,7 @@ export async function governWorkRunOutput(
       }
       startOwner = true;
       waiter = deferred();
-      inFlight.set(`${project}:${outputFp}`, waiter);
+      inFlight.set(`${project}:${normalized.work_run_id}`, waiter);
       return started;
     });
   } catch (error) {
@@ -511,43 +549,58 @@ export async function governWorkRunOutput(
   if (!startOwner) {
     if (waiter) {
       await waiter.promise;
-      const latest = dependencies.store.withLock(() => claimFrom(dependencies.store.readOutputClaim(project, outputFp)));
+      const latest = dependencies.store.withLock(() => claimFrom(dependencies.store.readOutputRun(project, runFp)));
       return latest ? responseFrom(latest) : responseFrom(claim);
+    }
+    if (claim.receipt?.state === 'accepted') {
+      let recovered: OutputGovernanceReconciliation | null = null;
+      try {
+        recovered = dependencies.reconcile ? await dependencies.reconcile(normalized, actor, ownerArgs().output, ownerArgs().quarantine, claim as unknown as Record<string, unknown>) : null;
+      } catch {
+        recovered = null;
+      }
+      const expected = claim.receipt;
+      if (!recovered || recovered.state !== expected.state || recovered.ownerOperation !== expected.ownerOperation
+        || !recovered.ownerReceipt || !expected.ownerReceiptFingerprint
+        || fingerprintRecoveryValue(recovered.ownerReceipt) !== expected.ownerReceiptFingerprint) {
+        const unknown = { ...claim, state: 'outcome-unknown' as const, receipt: null, updatedAt: now() };
+        dependencies.store.withLock(() => writeClaimBundle(unknown));
+        return responseFrom(unknown);
+      }
+      return expected;
     }
     if (claim.receipt || claim.state === 'outcome-unknown') return responseFrom(claim);
     if (dependencies.reconcile) {
-      const recovered = await dependencies.reconcile(normalized, actor, normalized.mode === 'complete' && normalized.submission.result === 'output' ? normalized.submission.output : null, normalized.mode === 'complete' && normalized.submission.result === 'quarantine' ? normalized.submission.quarantine : null, claim as unknown as Record<string, unknown>);
+      const recovered = await dependencies.reconcile(normalized, actor, ownerArgs().output, ownerArgs().quarantine, claim as unknown as Record<string, unknown>);
       if (recovered) {
         const recoveredReceipt = receipt(normalized, claim, recovered, now());
         const routed: OutputClaim = { ...claim, state: recoveredReceipt.state === 'outcome-unknown' ? 'outcome-unknown' : 'routed', receipt: recoveredReceipt, updatedAt: now() };
-        dependencies.store.withLock(() => { dependencies.store.writeOutputClaimAtomic(project, outputFp, routed as unknown as Record<string, unknown>); dependencies.store.writeOutputTokenAtomic(project, tokenFp, routed as unknown as Record<string, unknown>); });
+        dependencies.store.withLock(() => writeClaimBundle(routed));
         return recoveredReceipt;
       }
     }
     const unknown = { ...claim, state: 'outcome-unknown' as const, receipt: null, updatedAt: now() };
-    dependencies.store.withLock(() => {
-      dependencies.store.writeOutputClaimAtomic(project, outputFp, unknown as unknown as Record<string, unknown>);
-      dependencies.store.writeOutputTokenAtomic(project, tokenFp, unknown as unknown as Record<string, unknown>);
-    });
+    dependencies.store.withLock(() => writeClaimBundle(unknown));
     return responseFrom(unknown);
   }
   let receiptPersisted: WorkRunOutputRouteReceiptV1 | undefined;
   try {
-    const result = await dependencies.owner(normalized, actor, normalized.mode === 'complete' && normalized.submission.result === 'output' ? normalized.submission.output : null, normalized.mode === 'complete' && normalized.submission.result === 'quarantine' ? normalized.submission.quarantine : null);
+    const result = await dependencies.owner(normalized, actor, ownerArgs().output, ownerArgs().quarantine);
     const routed = receipt(normalized, claim, result, now());
     const completed: OutputClaim = { ...claim, state: routed.state === 'outcome-unknown' ? 'outcome-unknown' : 'routed', receipt: routed, updatedAt: now() };
     dependencies.store.withLock(() => {
+      dependencies.store.writeOutputRunAtomic(project, runFp, completed as unknown as Record<string, unknown>);
       dependencies.store.writeOutputClaimAtomic(project, outputFp, completed as unknown as Record<string, unknown>);
       receiptPersisted = routed;
       dependencies.store.writeOutputTokenAtomic(project, tokenFp, completed as unknown as Record<string, unknown>);
     });
     waiter?.resolve();
-    inFlight.delete(`${project}:${outputFp}`);
+    inFlight.delete(`${project}:${normalized.work_run_id}`);
     return routed;
   } catch {
     if (receiptPersisted) {
       waiter?.resolve();
-      inFlight.delete(`${project}:${outputFp}`);
+      inFlight.delete(`${project}:${normalized.work_run_id}`);
       return receiptPersisted;
     }
     // The owner may have completed before its promise rejected or the process
@@ -559,19 +612,20 @@ export async function governWorkRunOutput(
         const recovered = await dependencies.reconcile(
           normalized,
           actor,
-          normalized.mode === 'complete' && normalized.submission.result === 'output' ? normalized.submission.output : null,
-          normalized.mode === 'complete' && normalized.submission.result === 'quarantine' ? normalized.submission.quarantine : null,
+          ownerArgs().output,
+          ownerArgs().quarantine,
           claim as unknown as Record<string, unknown>,
         );
         if (recovered) {
           const recoveredReceipt = receipt(normalized, claim, recovered, now());
           const routed: OutputClaim = { ...claim, state: recoveredReceipt.state === 'outcome-unknown' ? 'outcome-unknown' : 'routed', receipt: recoveredReceipt, updatedAt: now() };
           dependencies.store.withLock(() => {
+            dependencies.store.writeOutputRunAtomic(project, runFp, routed as unknown as Record<string, unknown>);
             dependencies.store.writeOutputClaimAtomic(project, outputFp, routed as unknown as Record<string, unknown>);
             dependencies.store.writeOutputTokenAtomic(project, tokenFp, routed as unknown as Record<string, unknown>);
           });
           waiter?.resolve();
-          inFlight.delete(`${project}:${outputFp}`);
+          inFlight.delete(`${project}:${normalized.work_run_id}`);
           return recoveredReceipt;
         }
       } catch {
@@ -581,12 +635,13 @@ export async function governWorkRunOutput(
     const unknown: OutputClaim = { ...claim, state: 'outcome-unknown', receipt: null, updatedAt: now() };
     try {
       dependencies.store.withLock(() => {
+        dependencies.store.writeOutputRunAtomic(project, runFp, unknown as unknown as Record<string, unknown>);
         dependencies.store.writeOutputClaimAtomic(project, outputFp, unknown as unknown as Record<string, unknown>);
         dependencies.store.writeOutputTokenAtomic(project, tokenFp, unknown as unknown as Record<string, unknown>);
       });
     } finally {
       waiter?.resolve();
-      inFlight.delete(`${project}:${outputFp}`);
+      inFlight.delete(`${project}:${normalized.work_run_id}`);
     }
     return receipt(normalized, unknown, { ownerOperation: null, ownerReceipt: null, state: 'outcome-unknown', diagnostics: [{ owner: OWNER, code: 'owner-outcome-unknown', severity: 'error', message: 'Owner outcome is unknown.', remediation: 'Reconcile before retrying.', citationTargets: [] }] }, now());
   }

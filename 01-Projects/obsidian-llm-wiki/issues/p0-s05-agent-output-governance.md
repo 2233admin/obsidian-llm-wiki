@@ -82,3 +82,11 @@ The repository-wide `npm test` invocation remains Bun-runner incompatible in thi
 - `bun test mcp-server/src/agent-domain/operations.test.ts`: **13 passed, 0 failed**.
 - `npm run typecheck`: **passed**. `npm run build`: **passed**.
 - Repairs cover pre-owner claim recovery, observable Work-OS state reconciliation, real Agent Domain grant loading (including canonical `child.grantSummary == grant`), cited draft-only knowledge routing, and Windows-safe draft filenames. S05 remains **in-progress**; Fleet/Python/strict OpenSpec gates were not run in this worker checkout.
+
+## Verification report — 2026-08-29 (S05 final security findings)
+
+- Added the digest-keyed `runs/output-runs/` Work Run claim as the canonical first-token-wins boundary; output and token indexes are repaired projections under the same WorkRunStore lock, and same-process/file-restart tests prove one owner effect for distinct outputs.
+- Replaced raw token scanning with bounded filename, entry, per-file, and aggregate-byte limits; output-governance performs full claim validation for every scanned candidate and fails closed on malformed nonmatching entries.
+- External owner results now require a bounded object with `ok === true`; `ok:false` is denied/review-required, missing `ok` and post-effect throws are outcome-unknown, and replay never invokes the owner again. Accepted replay requires production reconciliation with exact state, owner operation, and owner receipt fingerprint; forged/null/mismatched proofs become durable outcome-unknown. Generic mutation Operations are blocked from Work Run governance namespaces.
+- Exact tests: `bun test src/workflow src/control-plane/dispatcher.test.ts src/core/write-policy.test.ts src/agent-domain/operations.test.ts` — **111 passed, 0 failed**; compiled `dist` slices — **79 passed, 0 failed**. `npm run typecheck`, `npm run build`, `npm run bundle`, `node scripts/verify-bundles.mjs`, and `npx -y @fission-ai/openspec@1.6.0 validate --all --strict` passed.
+- `pytest -q`: **268 passed, 1 skipped, 14 failed**, all in existing fleet-release/plugin/release-security environment gates (not S05 workflow assertions). Fleet acceptance: **8 passed, 7 failed** because its Python lease helper exits nonzero in this checkout. S05 remains **in-progress**; no claim of full repository release readiness is made.

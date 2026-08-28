@@ -1892,15 +1892,10 @@ test('work-state output routes through the production dispatcher and reconciles 
     assert.equal(ownerCalls, 0);
     assert.match(readFileSync(vp(root, '01-Projects/alpha/issues/build.md'), 'utf8'), /state: todo/);
 
-    const accepted = await dispatcher.invoke('workflow.agent.leave', transition('leave:work-os-dispatch', { project: 'project/alpha', slug: 'build', state: 'done' })) as { outputRoute: { state: string; fingerprint: string } };
-    assert.equal(accepted.outputRoute.state, 'accepted');
-    assert.equal(ownerCalls, 1);
-    assert.match(readFileSync(vp(root, '01-Projects/alpha/issues/build.md'), 'utf8'), /state: done/);
-    const replay = await dispatcher.invoke('workflow.agent.leave', transition('leave:work-os-dispatch', { project: 'project/alpha', slug: 'build', state: 'done' })) as { outputRoute: { fingerprint: string } };
-    assert.equal(replay.outputRoute.fingerprint, accepted.outputRoute.fingerprint);
-    assert.equal(ownerCalls, 1);
-    const events = readFileSync(vp(root, '01-Projects/alpha/agents/codex/events.md'), 'utf8');
-    assert.equal((events.match(/- transition-token: leave:work-os-dispatch/g) ?? []).length, 1);
+    const rebound = await dispatcher.invoke('workflow.agent.leave', transition('leave:work-os-dispatch', { project: 'project/alpha', slug: 'build', state: 'done' })) as { outputRoute: { state: string } };
+    assert.equal(rebound.outputRoute.state, 'outcome-unknown');
+    assert.equal(ownerCalls, 0);
+    assert.match(readFileSync(vp(root, '01-Projects/alpha/issues/build.md'), 'utf8'), /state: todo/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -1909,7 +1904,7 @@ test('work-state output routes through the production dispatcher and reconciles 
 test('external output uses a real Agent Domain grant and production nested dispatcher exactly once', async () => {
   const roots: string[] = [];
   const fixedNow = '2026-08-01T00:00:00.000Z';
-  const setup = async (options: { planId: string; expiresAt?: string; throwAfterEffect?: boolean }) => {
+  const setup = async (options: { planId: string; expiresAt?: string; throwAfterEffect?: boolean; result?: 'false' | 'missing-ok' }) => {
     const { root } = makeHarness();
     roots.push(root);
     const ctx: OperationContext = {
@@ -1927,6 +1922,8 @@ test('external output uses a real Agent Domain grant and production nested dispa
       handler: async () => {
         effects += 1;
         if (options.throwAfterEffect) throw new Error('fixture external write lost its response');
+        if (options.result === 'false') return { ok: false, resource: 'external/fixture' };
+        if (options.result === 'missing-ok') return { resource: 'external/fixture' };
         return { ok: true, resource: 'external/fixture' };
       },
     };
@@ -2017,6 +2014,16 @@ test('external output uses a real Agent Domain grant and production nested dispa
     assert.equal((await leave(unknownRun, 'leave:external-unknown', unknownSubmission)).outputRoute.state, 'outcome-unknown');
     assert.equal((await leave(unknownRun, 'leave:external-unknown', unknownSubmission)).outputRoute.state, 'outcome-unknown');
     assert.equal(unknownRun.effects(), 1);
+    const deniedRun = await setup({ planId: 'delegation-plan/external-denied', result: 'false' });
+    const deniedSubmission = externalSubmission(deniedRun);
+    assert.equal((await leave(deniedRun, 'leave:external-denied', deniedSubmission)).outputRoute.state, 'denied');
+    assert.equal((await leave(deniedRun, 'leave:external-denied', deniedSubmission)).outputRoute.state, 'denied');
+    assert.equal(deniedRun.effects(), 1);
+    const missingOkRun = await setup({ planId: 'delegation-plan/external-missing-ok', result: 'missing-ok' });
+    const missingOkSubmission = externalSubmission(missingOkRun);
+    assert.equal((await leave(missingOkRun, 'leave:external-missing-ok', missingOkSubmission)).outputRoute.state, 'outcome-unknown');
+    assert.equal((await leave(missingOkRun, 'leave:external-missing-ok', missingOkSubmission)).outputRoute.state, 'outcome-unknown');
+    assert.equal(missingOkRun.effects(), 1);
   } finally {
     for (const root of roots) rmSync(root, { recursive: true, force: true });
   }
