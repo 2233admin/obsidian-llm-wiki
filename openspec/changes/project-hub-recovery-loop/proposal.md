@@ -1,6 +1,6 @@
 # Proposal: complete interrupted-work recovery with Recovery Flow v2
 
-> Status: APPROVED DESIGN — implementation remains gated by reviewed Work-OS leaves
+> Status: DRAFT/PROPOSED — principal approval required before implementation; S04P remains gated by its reviewed Work-OS promotion
 > Scope: Foundation gate for S01B–S08; S01 v1 remains completed history
 > Out of scope: server-side recovery sessions, a second Project/task store, autonomous knowledge promotion, external tracker federation
 
@@ -31,7 +31,7 @@ The product instead needs one stateless, staged Recovery Flow vocabulary that:
 - S02: bounded authoritative context and Workflow read/store seams used by the V2 open stage.
 - S03: mandatory, repeatable Project-scoped cited search. Each query branches from the current open/context basis and receives its own fingerprint.
 - S04A: candidates, Binding eligibility, immutable plans, the complete Flow operation, caller migration, and v1 removal.
-- **S04P (proposed next): read-only `workflow.recovery.plan` Operation.** Registers a `mutating: false` Workflow Operation that accepts only Plan request arms (outer request schema `workflow-recovery-plan-request/v1` containing `project-hub-recovery-flow-request/v2` arms) and returns `planned|stale|unavailable` (V2 Flow response schemas). Introduces `workflow.recovery.plan: available` capability so candidate composition reaches `searched`/`needs-agent-selection`/`planned` without S04B. Does not implement apply. There is no `workflow-recovery-plan/v1` Plan or response schema.
+- **S04P (draft/proposed, principal-gated): read-only `workflow.recovery.plan` Operation.** Registers a `mutating: false` Workflow Operation that accepts only Plan request arms (outer request schema `workflow-recovery-plan-request/v1` containing `project-hub-recovery-flow-request/v2` arms) and returns `planned|stale|unavailable` (V2 Flow response schemas). Introduces `workflow.recovery.plan: available` capability so candidate composition reaches `searched`/`needs-agent-selection`/`planned` without S04B. Does not implement apply. There is no `workflow-recovery-plan/v1` Plan or response schema. The first post-approval commit promotes S04P from `review: draft` to `review: reviewed` with `state: todo`; only then is it executable.
 - S04B: Workflow-owned, claim-first resume/create apply with authenticated runtime actor identity and crash recovery. Requires S06A principal acceptance before starting.
 - S06A/S06B: the Ask Mate Project-context preview and apply/receipt journey with no plugin-persisted Flow state. S06A desktop acceptance is unblocked after S04P lands and resumes before S04B starts.
 - S07/S08: MCP/CLI parity and sanitized end-to-end acceptance.

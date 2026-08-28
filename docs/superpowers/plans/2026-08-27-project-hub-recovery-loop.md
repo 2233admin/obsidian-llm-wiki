@@ -524,77 +524,157 @@ export function makeProjectHubOps(
 **Files:**
 - Create: `mcp-server/src/project-hub/recovery-planning-service.ts`
 - Create: `mcp-server/src/project-hub/recovery-planning-service.test.ts`
+- Create: `mcp-server/src/workflow/recovery-plan.ts`
+- Modify: `mcp-server/src/project-hub/recovery-flow.ts`
+- Modify: `mcp-server/src/project-hub/action-plan.ts`
+- Modify: `mcp-server/src/project-hub/action-candidates.ts`
+- Modify: `mcp-server/src/project-hub/agent-selection.ts`
+- Modify: `mcp-server/src/project/project-hub.ts`
 - Modify: `mcp-server/src/workflow/workflow.ts`
 - Modify: `mcp-server/src/core/operations.ts`
-- Modify: `mcp-server/src/project/project-hub.ts`
-- Modify: `mcp-server/src/project-hub/action-candidates.ts`
-- Modify: `mcp-server/src/project-hub/action-candidates.test.ts`
-- Modify: `mcp-server/src/project-hub/recovery-flow.ts`
-- Modify: `mcp-server/src/core/operations.test.ts`
-- Modify: `mcp-server/src/project-hub/recovery-flow.test.ts`
-- Modify: generated operation reference inputs/tests affected by the new Operation catalog
+- Tests: `mcp-server/src/project-hub/action-plan.test.ts`
+- Tests: `mcp-server/src/project-hub/search.test.ts`
+- Tests: `mcp-server/src/project-hub/agent-selection.test.ts`
+- Tests: `mcp-server/src/project-hub/action-candidates.test.ts`
+- Tests: `mcp-server/src/project/project-hub.test.ts`
+- Tests: `mcp-server/src/project-hub/recovery-flow.test.ts`
+- Tests: `mcp-server/src/project-hub/recovery-planning-service.test.ts`
+- Tests: `mcp-server/src/workflow/recovery-plan.test.ts`
+- Tests: `mcp-server/src/workflow/workflow.test.ts`
+- Tests: `mcp-server/src/core/operations.test.ts`
+- Checks: `mcp-server/src/scripts/generate-tools-doc.ts`
+- Checks: `mcp-server/src/scripts/generate-tools-doc.test.ts`
+- Generated artifact: `docs/mcp-tools-reference.md`
 
-**Root cause:** S06A desktop acceptance blocked by capability cycle: S04A exposes no `workflow.recovery.apply` capability; candidate composition requires it `available`; S04B blocked on S06A acceptance. Solution: introduce a read-only planning Operation and capability separate from the mutating apply Operation.
+The generator source is changed only if catalog handling cannot represent the new
+Workflow operation. Its current unknown-namespace fallback already renders new
+catalog entries, so the expected S04P change is the generated artifact plus the
+generator drift/catalog tests; `generate-tools-doc.ts` remains unchanged unless
+the operation metadata contract requires new rendering logic.
 
-**Schema vocabulary:**
-- Operation request schema: `workflow-recovery-plan-request/v1` (outer envelope)
-- Plan arm source schema: `project-hub-recovery-flow-request/v2`
-- Plan schema: `project-hub-recovery-plan/v2`
-- Response schemas: `RecoveryPlannedResponseV2`, `RecoveryStaleResponseV2`, `RecoveryUnavailableResponseV2`
-- There is **no** `workflow-recovery-plan/v1` Plan or response schema.
+**Root cause:** Before S04P, candidate composition incorrectly used the future
+apply capability as its planning gate. S04B is correctly blocked on S06A
+principal acceptance, so S04P introduces a separate read-only planning
+Operation and capability; apply remains unavailable until S04B.
 
-**Interfaces:**
+**Schema vocabulary and interfaces:**
 
 ```ts
-// Shared service (constructed once by core composition, injected into both surfaces)
-export class RecoveryPlanningService {
-  constructor(deps: RecoveryPlanDependencies);
-  handlePlanRequest(
-    request: RecoveryPlanFromSearchRequestV2 | RecoveryPlanOverrideRequestV2 | RecoveryRefreshPlanRequestV2,
-    dependencies: RecoveryPlanDependencies,
-  ): Promise<RecoveryPlannedResponseV2 | RecoveryStaleResponseV2 | RecoveryUnavailableResponseV2>;
+export const WORKFLOW_RECOVERY_PLAN_REQUEST_SCHEMA_VERSION =
+  "workflow-recovery-plan-request/v1" as const;
+
+export interface WorkflowRecoveryPlanEnvelopeV1 {
+  schemaVersion: typeof WORKFLOW_RECOVERY_PLAN_REQUEST_SCHEMA_VERSION;
+  request:
+    | RecoveryPlanFromSearchRequestV2
+    | RecoveryPlanOverrideRequestV2
+    | RecoveryRefreshPlanRequestV2;
 }
 
-// New Operation request envelope (subset of Flow plan arms)
-export const WORKFLOW_RECOVERY_PLAN_REQUEST_SCHEMA_VERSION = "workflow-recovery-plan-request/v1" as const;
-// Accepts only: plan/from-search | plan/override | refresh-plan (from project-hub-recovery-flow-request/v2)
-// Responses reuse existing V2 Flow schemas; there is no workflow-recovery-plan/v1 Plan or response schema
+export interface RecoveryPlanDependencies {
+  openOwners: RecoveryOpenOwners;
+  searchSource?: ProjectSearchSource;
+  agentSelection?: RecoveryAgentSelectionSource;
+  now?: () => number;
+  currentPlanned?: RecoveryPlannedResponseV2;
+}
+
+export interface RecoveryPlanningService {
+  readonly capabilityFact: RecoveryCapabilityFactV2;
+  plan(
+    request:
+      | RecoveryPlanFromSearchRequestV2
+      | RecoveryPlanOverrideRequestV2
+      | RecoveryRefreshPlanRequestV2,
+  ): Promise<
+    | RecoveryPlannedResponseV2
+    | RecoveryStaleResponseV2
+    | RecoveryUnavailableResponseV2
+  >;
+}
+
+export function createRecoveryPlanningService(
+  dependencies: RecoveryPlanDependencies,
+): RecoveryPlanningService;
 ```
+
+The envelope accepts no `open`, `search`, or `restart` arm. The Plan arm source
+is `project-hub-recovery-flow-request/v2`; the Plan is
+`project-hub-recovery-plan/v2`; responses reuse
+`RecoveryPlannedResponseV2`, `RecoveryStaleResponseV2`, and
+`RecoveryUnavailableResponseV2`. There is no `workflow-recovery-plan/v1` Plan
+or response schema.
 
 **Shared service construction (core composition):**
 
 ```ts
-// Core composition root (inside makeAllOperations or equivalent)
-const recoveryPlanHandler = new RecoveryPlanningService(planDeps);
-const projectHubOps = makeProjectHubOps(registry, settings, { recoveryPlanHandler });
-const workflowOps = makeWorkflowOps(registry, settings, { recoveryPlanHandler });
+// Core composition root (inside makeAllOperations, before either array exists)
+const recoveryRuntime = createDefaultRecoveryRuntime({
+  vaultPath,
+  registry,
+  capabilityFact: {
+    capability: 'workflow.recovery.plan',
+    state: 'available',
+  },
+});
+const recoveryPlanningService = createRecoveryPlanningService(
+  recoveryRuntime.dependencies,
+);
+const projectHubOps = makeProjectHubOps(registry, settingsService, {
+  ...projectHubOptions,
+  recoveryRuntime,
+  recoveryPlanningService,
+});
+const workflowOps = makeWorkflowOps(vaultPath, {
+  recoveryRuntime,
+  recoveryPlanningService,
+});
 ```
 
-**Exact callers of `composeRecoveryCandidates` capability check to migrate:**
+The current factory shapes remain the base: `makeProjectHubOps(registry,
+settingsService?, options?)` and `makeWorkflowOps(vaultPath)`. S04P adds the
+typed recovery dependencies to those option objects and injects the same
+runtime/service into both. `defaultRecoveryOwners` is created once by that
+runtime; it no longer supplies an empty `loadCapabilities: () => []` planning
+adapter. Operation order cannot control capability visibility.
+
+**Exact callers and validator migration:**
 
 | Caller | File | Change |
 |---|---|---|
 | `composeRecoveryCandidates` | `mcp-server/src/project-hub/action-candidates.ts` | `workflow.recovery.apply` → `workflow.recovery.plan` |
 | `composeRecoveryCandidates` tests | `mcp-server/src/project-hub/action-candidates.test.ts` | capability fixture update |
-| `recovery-flow.ts` plan action | `mcp-server/src/project-hub/recovery-flow.ts` | delegate to `RecoveryPlanningService` |
+| `recovery-flow.ts` plan action | `mcp-server/src/project-hub/recovery-flow.ts` | delegate to `RecoveryPlanningService`; migrate `validateRecoveryPlanV2` capability invariant from available `workflow.recovery.apply` to available `workflow.recovery.plan` |
+| Plan construction | `mcp-server/src/project-hub/action-plan.ts` | preserve `owningOperation: 'workflow.recovery.apply'`; include the available planning fact in `capabilityFacts` |
 | Flow plan action tests | `mcp-server/src/project-hub/recovery-flow.test.ts` | add delegation + capability-gated tests |
 | Core operations tests | `mcp-server/src/core/operations.test.ts` | add capability fact + operation order tests |
 
-- [ ] **Step 1:** Add failing tests for Operation registration (`mutating: false`, request schema `workflow-recovery-plan-request/v1`, response schemas V2, correct request/response arms, no apply/token/actor/claim).
-- [ ] **Step 2:** Construct `RecoveryPlanningService` once in core composition and inject it into both `makeProjectHubOps` and `makeWorkflowOps`. Operation order does not determine capability visibility.
-- [ ] **Step 3:** Factor the internal planning logic from `action-plan.ts` into `RecoveryPlanningService` that both `project.hub.recovery.flow` and `workflow.recovery.plan` delegate to. Verify `project.hub.recovery.flow` plan action tests pass after the delegation — existing test structure is preserved, not modified in scope.
-- [ ] **Step 4:** Register `workflow.recovery.plan` in `makeWorkflowOps` as a read-only Operation. Add `workflow.recovery.plan` to the capability fact factory. The capability enters `available` state when the Operation is registered.
-- [ ] **Step 5:** Modify `composeRecoveryCandidates` in `action-candidates.ts` to check `workflow.recovery.plan: available` (not `workflow.recovery.apply`) before recommending candidates. Missing planning capability produces `capability_unavailable` with bounded remediation.
-- [ ] **Step 6:** Update `action-candidates.test.ts` capability fixture from `workflow.recovery.apply` to `workflow.recovery.plan`. Add new test: `workflow.recovery.plan` capability is required for candidate recommendation.
-- [ ] **Step 7:** Add integration tests in `mcp-server/src/core/operations.test.ts`: (a) `workflow.recovery.plan` capability appears after registration; (b) capability appears even when `makeWorkflowOps` is called before `makeProjectHubOps`; (c) `workflow.recovery.apply` is not advertised before S04B; (d) plan alone produces Plan; (e) apply request returns `unavailable` before S04B.
-- [ ] **Step 8:** Run focused Operation registration, capability fact, candidate composition, and `project.hub.recovery.flow` plan action tests. Run `npm run typecheck` and `npm run generate-tools-doc`. Regenerate `docs/mcp-tools-reference.md`. Record S04P evidence in `p0-s04p-workflow-recovery-plan.md`.
-- [ ] **Step 9:** Create local commit `docs: harden Recovery planning operation spec`.
+- [ ] **Step 1:** Add failing tests for Operation registration (`mutating: false`, exact outer envelope, response schemas V2, all three request arms, no apply/token/actor/claim).
+- [ ] **Step 2:** Construct one default Recovery runtime with `workflow.recovery.plan: available`, create one `RecoveryPlanningService` from its dependencies, and inject the same runtime/service into `makeProjectHubOps` and `makeWorkflowOps` before either operation array is built.
+- [ ] **Step 3:** Factor planning from `action-plan.ts` into `RecoveryPlanningService`; `project.hub.recovery.flow` and `workflow.recovery.plan` both call `plan(request)`. The Workflow Operation unwraps the envelope; it does not reimplement validation or fingerprints.
+- [ ] **Step 4:** Register `workflow.recovery.plan` in `mcp-server/src/workflow/recovery-plan.ts` / `makeWorkflowOps` as read-only. Make capability visibility independent of operation order.
+- [ ] **Step 5:** Modify `action-candidates.ts` and Compatible Agent Profile requirements to require `workflow.recovery.plan: available`, never apply, and return bounded `capability_unavailable` remediation when missing.
+- [ ] **Step 6:** Migrate `validateRecoveryPlanV2` in `recovery-flow.ts` and focused validator tests from requiring available `workflow.recovery.apply` to requiring available `workflow.recovery.plan`; retain `owningOperation: 'workflow.recovery.apply'` because the Plan is later consumed by apply.
+- [ ] **Step 7:** Migrate fixtures in `action-plan.test.ts`, `search.test.ts`, `agent-selection.test.ts`, `action-candidates.test.ts`, `project/project-hub.test.ts`, and `recovery-flow.test.ts` from apply-only planning facts to plan facts. Add plan-only → planned, apply absent/unusable, and later S04B apply-rejects-without-apply cases; preserve `needs-agent-selection` for valid multiple Bindings with bindings/candidates and no generated Plan request.
+- [ ] **Step 8:** Add Workflow/core/catalog tests for registration, order independence, shared service identity/response parity, no writes, plan-only success, absent/unusable apply, and exact envelope arms. Run `mcp-server/src/scripts/generate-tools-doc.test.ts`; change `generate-tools-doc.ts` only if catalog handling requires it; run `npm run generate-tools-doc` and verify `docs/mcp-tools-reference.md`.
+- [ ] **Step 9:** Run the focused test matrix, `npm run typecheck`, `git diff --check`, strict OpenSpec validation, and no-write hash/byte proof. Create local commit `docs: close Recovery planning spec blockers`.
 
-**Stop conditions for T5.3 (S06A actual Obsidian QA):**
-- `searched` stage unreachable without `workflow.recovery.plan` capability → stop, evidence returned, re-run after S04P.
-- `planned` stage unreachable without `workflow.recovery.apply` capability → expected; continue.
-- Any byte written to vault/plugin data during read-only stages → stop, bug filed.
-- Keyboard/focus/cancellation does not work → stop, bug filed.
+**S06A actual Obsidian six-stage gate and stop conditions:**
+
+After S04P is implemented and its principal gate is accepted, reload the real
+plugin and exercise all six read-only stages: `open`; `searched` with a unique
+Binding; `needs-agent-selection` with valid multiple Bindings, candidates, and
+no generated Plan request; `planned` with `workflow.recovery.plan` available
+while `workflow.recovery.apply` is absent/unusable; `stale` after a controlled
+owner-lock change; and `unavailable` for a bounded missing-capability or
+no-safe-candidate fixture. Capture before/after SHA-256 and byte counts for
+fixture vault files, plugin `data.json`, and durable recovery roots; every
+read-only case must prove identical hashes and bytes.
+
+- Planning capability missing → stop and return bounded evidence; do not treat apply absence as the planning gate.
+- `planned` cannot be reached with plan capability while apply is absent/unusable → stop; this is a defect, not an expected result.
+- Any byte written to vault/plugin data/durable recovery roots during read-only stages → stop, bug filed.
+- Any stage skips server-supplied request/fingerprint validation, or keyboard/focus/cancellation fails → stop, bug filed.
 
 **Rollback:** Revert delegation call in `project.hub.recovery.flow` to inline planning. Revert `composeRecoveryCandidates` capability check. Revert Agent Domain Profile requirements. Operation registration can remain; callers use inline path.
 

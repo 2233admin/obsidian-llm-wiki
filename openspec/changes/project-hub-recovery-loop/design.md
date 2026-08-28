@@ -371,8 +371,8 @@ S01 v1 complete (historical)
        -> S02 open/context + Workflow read/store seams
             -> S03 mandatory cited search
                  -> S04A candidates/plan + register complete Flow + migrate/remove v1
-                      -> S04P read-only workflow.recovery.plan Operation [next]
-                           -> S06A actual-Obsidian read-only preview [resumes after S04P]
+                  -> S04P read-only workflow.recovery.plan Operation [draft/proposed; principal gate]
+                       -> S06A actual-Obsidian read-only preview [blocked until S04P approval/promotion]
                                 -> S04B Workflow apply
                                      -> S05 output governance
                                           -> S06B actual-Obsidian apply/receipt proof
@@ -392,13 +392,63 @@ Canonical operations:
 - `workflow.recovery.apply` — the only recovery resume/create mutation (S04B).
 - `workflow.agent.leave` — the successful/review Work Run completion and output-routing boundary.
 
-**Schema vocabulary:** The Operation request schema is `workflow-recovery-plan-request/v1` (outer envelope). It contains one closed Plan arm from `project-hub-recovery-flow-request/v2` (`plan/from-search`, `plan/override`, or `refresh-plan`). There is no `workflow-recovery-plan/v1` Plan or response schema. Responses reuse existing V2 Flow schemas: `RecoveryPlannedResponseV2`, `RecoveryStaleResponseV2`, `RecoveryUnavailableResponseV2`.
+**Schema vocabulary:**
+
+```ts
+export const WORKFLOW_RECOVERY_PLAN_REQUEST_SCHEMA_VERSION =
+  "workflow-recovery-plan-request/v1" as const;
+export interface WorkflowRecoveryPlanEnvelopeV1 {
+  schemaVersion: typeof WORKFLOW_RECOVERY_PLAN_REQUEST_SCHEMA_VERSION;
+  request:
+    | RecoveryPlanFromSearchRequestV2
+    | RecoveryPlanOverrideRequestV2
+    | RecoveryRefreshPlanRequestV2;
+}
+```
+
+The envelope contains one closed Plan arm from
+`project-hub-recovery-flow-request/v2` (`plan/from-search`, `plan/override`,
+or `refresh-plan`). There is no `workflow-recovery-plan/v1` Plan or response
+schema. Responses reuse existing V2 Flow schemas:
+`RecoveryPlannedResponseV2`, `RecoveryStaleResponseV2`,
+`RecoveryUnavailableResponseV2`.
 
 `workflow.recovery.plan` is `mutating: false`, writes zero bytes, has no actor/token/claim/apply path, and persists nothing. It accepts only `plan/from-search`, `plan/override`, and `refresh-plan` arms and returns only `planned`, `stale`, or `unavailable` responses.
 
 ### D16. `RecoveryPlanningService`: one shared runtime-constructed service
 
-**Construction:** `RecoveryPlanningService` is constructed once by core composition (inside `makeAllOperations` or the equivalent composition root) and injected into both `makeProjectHubOps` (for `project.hub.recovery.flow` plan/refresh/override delegation) and `makeWorkflowOps` (for `workflow.recovery.plan` registration). Operation order does not determine capability visibility.
+**Exact service contract:**
+
+```ts
+export interface RecoveryPlanDependencies {
+  openOwners: RecoveryOpenOwners;
+  searchSource?: ProjectSearchSource;
+  agentSelection?: RecoveryAgentSelectionSource;
+  now?: () => number;
+  currentPlanned?: RecoveryPlannedResponseV2;
+}
+export interface RecoveryPlanningService {
+  readonly capabilityFact: RecoveryCapabilityFactV2;
+  plan(
+    request:
+      | RecoveryPlanFromSearchRequestV2
+      | RecoveryPlanOverrideRequestV2
+      | RecoveryRefreshPlanRequestV2,
+  ): Promise<
+    | RecoveryPlannedResponseV2
+    | RecoveryStaleResponseV2
+    | RecoveryUnavailableResponseV2
+  >;
+}
+export function createRecoveryPlanningService(
+  dependencies: RecoveryPlanDependencies,
+): RecoveryPlanningService;
+```
+
+`RecoveryPlanningService` is constructed once by core composition (inside
+`makeAllOperations` or the equivalent composition root) and injected into both
+`makeProjectHubOps` (for `project.hub.recovery.flow` plan/refresh/override
+delegation) and `makeWorkflowOps` (for `workflow.recovery.plan` registration).
 
 **Service owns:**
 - Full stateless prerequisite recomputation: open → search → candidate → Binding
@@ -409,13 +459,26 @@ Canonical operations:
 
 **Service does not own:** actor validation, claim creation, transition tokens, or receipts — those are apply-only.
 
-**Surface duplication is intentional:** `project.hub.recovery.flow` and `workflow.recovery.plan` both expose plan actions. The shared service ensures semantics, validators, and fingerprints are not copied. Callers of either surface experience identical `planned`/`stale`/`unavailable` behavior.
+**Surface duplication is intentional:** `project.hub.recovery.flow` and
+`workflow.recovery.plan` both expose plan actions. The shared service ensures
+semantics, validators, and fingerprints are not copied. The Workflow Operation
+unwraps `WorkflowRecoveryPlanEnvelopeV1.request` and calls
+`RecoveryPlanningService.plan(request)`; callers of either surface experience
+identical `planned`/`stale`/`unavailable` behavior.
 
 ### D17. Capability separation: planning never authorizes mutation
 
 **Capability fact introduction:** `workflow.recovery.plan` capability enters production state `available` when the Operation is registered in `makeWorkflowOps`. Operation order does not determine capability visibility — the capability fact is injected alongside the Operation registration.
 
-**`defaultRecoveryOwners` / core wiring change:** In the core composition root where `loadCapabilities` is configured for the Recovery open stage, add the `RecoveryPlanningService` instance as an injected dependency. The capability fact factory resolves `workflow.recovery.plan: available` from the same factory used by other Workflow Operations.
+**`defaultRecoveryOwners` / core wiring change:** Create the default Recovery
+runtime once with the `workflow.recovery.plan: available` capability fact, then
+create the service from that capability-aware runtime's dependencies. Inject the
+same runtime and service into `makeProjectHubOps(registry, settingsService?,
+options?)` and `makeWorkflowOps(vaultPath, options?)` before either operation
+array is built. The capability fact factory resolves planning availability from
+the same factory used by other Workflow Operations; operation order cannot
+control visibility. `defaultRecoveryOwners` must not use an empty
+`loadCapabilities: () => []` planning adapter.
 
 **Candidate composition (S04A `composeRecoveryCandidates`):** Requires `workflow.recovery.plan: available` instead of `workflow.recovery.apply: available` for candidate recommendation.
 
@@ -427,11 +490,31 @@ Canonical operations:
 3. Valid transition token and authenticated actor
 4. No existing claim for this plan/token/actor
 
+S04B performs the separate apply-capability check before creating a claim.
+
 Missing planning capability → explicit bounded remediation in the unavailable response. Missing apply capability → separate unavailable response from the apply Operation itself.
 
 **Why this breaks the cycle:** Candidate recommendation no longer depends on `workflow.recovery.apply` availability. The full read-only Flow (`searched`, `needs-agent-selection`, `planned`) is reachable without S04B. S04B retains its correct dependency order: apply requires demonstrated preview first.
 
-**Integration test:** After `makeWorkflowOps` registers `workflow.recovery.plan`, calling the capability factory returns `workflow.recovery.plan: available`. This test passes even if `makeProjectHubOps` is not yet called — operation order does not determine capability visibility. Before S04B, `workflow.recovery.apply` is not available; after S04P, apply request returns `unavailable`.
+**Integration test:** After `makeWorkflowOps` registers `workflow.recovery.plan`,
+calling the capability factory returns `workflow.recovery.plan: available` even
+if `makeProjectHubOps` is not yet called. Before S04B,
+`workflow.recovery.apply` is absent/unusable; a later S04B apply request rejects
+before claims when apply is unavailable. Operation order does not determine
+capability visibility.
+
+`validateRecoveryPlanV2` in `mcp-server/src/project-hub/recovery-flow.ts`
+migrates its capability invariant from available
+`workflow.recovery.apply` to available `workflow.recovery.plan`. The Plan's
+`owningOperation` remains `workflow.recovery.apply` because the Plan is later
+consumed by apply.
+
+Catalog verification covers `docs/mcp-tools-reference.md`,
+`mcp-server/src/scripts/generate-tools-doc.ts`, and
+`mcp-server/src/scripts/generate-tools-doc.test.ts`; run `npm run
+generate-tools-doc`. The generator source changes only if catalog handling
+requires new metadata/rendering; its current unknown-namespace fallback should
+render the new Workflow operation without source changes.
 
 ## Data flow
 
@@ -480,6 +563,12 @@ confirm
 | Output malformed | quarantine safe metadata only; review-required. |
 | Output owner outcome unprovable | persist output outcome-unknown; no repeat. |
 | Adapter failure | format at boundary without stacks, secrets, transcript text, or absolute paths. |
+
+For 2–16 valid compatible Bindings, `needs-agent-selection` includes the
+candidate list and exact Binding/Profile revisions but emits no generated Plan
+request. Multiple valid Bindings alone must not be reported as
+`no_compatible_binding` or `no_safe_candidate`; those reasons require their
+respective absent/unsafe conditions.
 
 ## Security and privacy
 

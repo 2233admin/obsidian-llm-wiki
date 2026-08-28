@@ -49,13 +49,19 @@ Expose the complete read-only V2 Flow through the existing LLM Wiki/Ask Mate Ite
 
 - The built plugin was installed and reloaded in desktop Obsidian 1.13.7. `vault-mind-promote:open-ask-mate-project-context` mounted one `.llmwiki-ask-mate-project-recovery` surface and rendered the real `open` stage for `project/llmwiki-product`, including Flow fingerprint, eight owner locks, bounded facts, search controls, diagnostics, and explicit Work-OS remediation.
 - Installed plugin `data.json` remained byte-identical before and after the actual open flow (`sha256:cc0f866e947e22de07286f00e6028b7b89b6b1ed7a13634e551453bf23baa767`).
-- Full-stage acceptance is blocked by a dependency cycle: S04A exposes no `workflow.recovery.apply` capability until S04B registers it; candidate composition requires that capability `available`; S04B is blocked on S06A acceptance. Therefore `searched`, `needs-agent-selection`, `planned`, candidate replacement, and refresh cannot be reached without S04P.
-- **Resolution:** ADR 0002 introduces `workflow.recovery.plan` as a read-only Workflow Operation. S04P registers it, introduces the `workflow.recovery.plan: available` capability fact, and updates candidate composition to check planning capability instead of apply capability. S06A desktop acceptance resumes after S04P lands.
-- T5.3 and principal acceptance remain open until S04P is implemented and the full Flow stages are verified in actual Obsidian.
+- Full-stage acceptance is blocked pending the principal-gated S04P design and implementation. The prior apply-coupled planning gate is corrected by ADR 0002: S04P registers the read-only `workflow.recovery.plan` Operation and capability, while `workflow.recovery.apply` remains absent/unusable until S04B.
+- S06A must reach `planned` with the plan capability available while apply is absent/unusable; apply availability is not a prerequisite for read-only preview.
+- T5.3 and principal acceptance remain open until S04P is promoted/implemented and all six Flow stages are verified in actual Obsidian.
 
 ## Demo
 
-Open the sanitized Project, search twice, auto-follow a unique Binding, exercise multiple-Binding selection and candidate replacement, expire/refresh a Plan, restart stale Flow, reload the ItemView, and prove no durable or plugin-owned Flow state exists.
+Open the sanitized Project, search twice, auto-follow a unique Binding,
+exercise `needs-agent-selection` with valid multiple Bindings/candidates and no
+generated Plan request, reach `planned` with apply absent/unusable, exercise
+candidate replacement, expire/refresh a Plan, restart stale Flow, render
+`unavailable` remediation, reload the ItemView, and prove no durable or
+plugin-owned Flow state exists. Capture before/after SHA-256 and byte counts for
+fixture vault files, plugin `data.json`, and durable recovery roots.
 
 ## Dependencies
 

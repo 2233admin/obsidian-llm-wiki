@@ -29,6 +29,7 @@ Apply one complete current `project-hub-recovery-plan/v2` plus safe ephemeral qu
 - [ ] Immutable Plan owns role/Binding/Profile and search-input/search/candidate fingerprints but no raw query, agent ID, or host; authenticated actor becomes Work Run identity and host fallback.
 - [ ] Existing exact applied/claimed/outcome-unknown claims are loaded before new-claim expiry checks; claim recovery after Plan expiry verifies Plan/token/planning-input/actor and local Work Run/lease identity without re-reading mutable pre-claim selection locks.
 - [ ] A new claim uses ephemeral planning input to recompute open→search→candidate→Binding and prove the Plan basis, then revalidates current owner/capability/lease facts and expiry before mutation; claim persists only the planning-input digest.
+- [ ] A Plan produced with `workflow.recovery.plan` but missing or unusable `workflow.recovery.apply` is rejected as `unavailable` before claim creation; cover this in `mcp-server/src/workflow/recovery-apply.test.ts`.
 - [ ] Resume reuses exact Project/Work Item/Work Run. Create derives one Work Run ID from Project/Work Item/Plan fingerprint, creates/verifies one durable lease and local lease for actor, and never calls manual start.
 - [ ] Same-token replay returns/recovers one receipt; rebound conflicts; two-token race creates/joins at most one Work Run.
 - [ ] Every crash window, including expiry after claim, deterministically returns one receipt or persists outcome-unknown and blocks mutation replay.

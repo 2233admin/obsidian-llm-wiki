@@ -31,8 +31,10 @@ The approved slice replaces `project-hub-recovery/v1` with a stateless staged
 Recovery Flow that moves from current Project facts through mandatory cited
 search and immutable Plan preview, then delegates confirmed mutation and output
 routing to Workflow. S01 v1 remains completed history. S01B–S04A are verified
-completions. S06A is the only immediately executable leaf; every later issue
-is reviewed but blocked by the direct chain.
+completions. S04P remains a draft/proposed, principal-gated issue; S06A is
+blocked by S04P and is not immediately executable or the next leaf. The first
+post-approval commit promotes S04P from `review: draft` to `review: reviewed`
+with `state: todo`, and only then makes its implementation executable.
 
 Dependency order:
 
@@ -42,8 +44,8 @@ S01 v1 complete (historical)
        -> S02 open/context + Workflow store/read seams [done]
             -> S03 mandatory repeatable cited search [done]
                  -> S04A candidates/Plan + complete Flow registration + V1 removal [done]
-                      -> S04P read-only workflow.recovery.plan Operation [next]
-                           -> S06A actual Obsidian read-only preview [resumes after S04P]
+                      -> S04P read-only workflow.recovery.plan Operation [draft/proposed; principal gate]
+                           -> S06A actual Obsidian read-only preview [blocked]
                                 -> S04B claim-first Workflow apply
                                      -> S05 claimed output governance
                                           -> S06B actual Obsidian apply/receipt/restart
@@ -51,7 +53,12 @@ S01 v1 complete (historical)
                                                     -> S08 Foundation acceptance
 ```
 
-**S04P** registers `workflow.recovery.plan` as a `mutating: false` Workflow Operation that breaks the capability cycle blocking S06A surface acceptance. S04P does not implement apply. S06A desktop acceptance resumes after S04P lands.
+**S04P** is a draft/proposed, principal-gated design for registering
+`workflow.recovery.plan` as a `mutating: false` Workflow Operation. It separates
+the read-only planning capability from apply; it does not implement apply.
+**S06A is blocked** until S04P is approved, promoted, and implemented. The
+first post-approval commit promotes S04P to `review: reviewed`/`state: todo`,
+then implementation becomes executable; S06A resumes only after that.
 
 Planning sources:
 

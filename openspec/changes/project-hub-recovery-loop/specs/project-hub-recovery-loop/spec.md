@@ -174,6 +174,12 @@ input.
 - **WHEN** search composition completes
 - **THEN** stage is `needs-agent-selection`, it returns every exact Binding revision, and no Binding is selected by sorting or inference
 
+The `needs-agent-selection` response includes the valid candidate list and
+compatible Binding/Profile revisions, but contains no generated Plan request.
+The presence of multiple valid Bindings is not `no_compatible_binding` or
+`no_safe_candidate`; those reasons are reserved for their respective empty or
+unsafe conditions.
+
 #### Scenario R6.3: More than sixteen Bindings is unavailable
 
 - **GIVEN** 17 or more compatible current Bindings
@@ -375,7 +381,26 @@ The system SHALL provide one sanitized end-to-end fixture and reproducible actua
 
 ### Requirement: R12. `workflow.recovery.plan` is a read-only Workflow Operation
 
-The system SHALL register `workflow.recovery.plan` as a `mutating: false` Workflow Operation that accepts only closed Plan request arms (`plan/from-search`, `plan/override`, `refresh-plan`) and returns only `planned|stale|unavailable` Flow responses, writes zero bytes, has no actor/token/claim/apply path, and persists nothing.
+The system SHALL register `workflow.recovery.plan` as a `mutating: false` Workflow Operation with the exact outer envelope:
+
+```ts
+export const WORKFLOW_RECOVERY_PLAN_REQUEST_SCHEMA_VERSION =
+  "workflow-recovery-plan-request/v1" as const;
+export interface WorkflowRecoveryPlanEnvelopeV1 {
+  schemaVersion: typeof WORKFLOW_RECOVERY_PLAN_REQUEST_SCHEMA_VERSION;
+  request:
+    | RecoveryPlanFromSearchRequestV2
+    | RecoveryPlanOverrideRequestV2
+    | RecoveryRefreshPlanRequestV2;
+}
+```
+
+It SHALL accept only those closed Plan request arms and return only
+`RecoveryPlannedResponseV2 | RecoveryStaleResponseV2 |
+RecoveryUnavailableResponseV2` (`planned|stale|unavailable`), write zero
+bytes, have no actor/token/claim/apply path, and persist nothing. The Plan arm
+source remains `project-hub-recovery-flow-request/v2`; there is no
+`workflow-recovery-plan/v1` Plan or response schema.
 
 #### Scenario R12.1: Operation is registered
 
@@ -407,9 +432,42 @@ The system SHALL register `workflow.recovery.plan` as a `mutating: false` Workfl
 - **WHEN** both execute
 - **THEN** the `planned|stale|unavailable` response is byte-identical; semantics, validators, and fingerprints are not duplicated
 
+The Workflow operation unwraps `WorkflowRecoveryPlanEnvelopeV1.request` and
+calls `RecoveryPlanningService.plan(request)`; it does not implement a second
+validator, reducer, or fingerprint path.
+
 ### Requirement: R13. One shared planning service
 
-The system SHALL own one internal planning service (`RecoveryPlanningService`) that `project.hub.recovery.flow` and `workflow.recovery.plan` both delegate to, without duplicating semantics, validators, or fingerprints.
+The system SHALL own one internal planning service with this exact contract:
+
+```ts
+export interface RecoveryPlanDependencies {
+  openOwners: RecoveryOpenOwners;
+  searchSource?: ProjectSearchSource;
+  agentSelection?: RecoveryAgentSelectionSource;
+  now?: () => number;
+  currentPlanned?: RecoveryPlannedResponseV2;
+}
+export interface RecoveryPlanningService {
+  readonly capabilityFact: RecoveryCapabilityFactV2;
+  plan(
+    request:
+      | RecoveryPlanFromSearchRequestV2
+      | RecoveryPlanOverrideRequestV2
+      | RecoveryRefreshPlanRequestV2,
+  ): Promise<
+    | RecoveryPlannedResponseV2
+    | RecoveryStaleResponseV2
+    | RecoveryUnavailableResponseV2
+  >;
+}
+export function createRecoveryPlanningService(
+  dependencies: RecoveryPlanDependencies,
+): RecoveryPlanningService;
+```
+
+`project.hub.recovery.flow` and `workflow.recovery.plan` SHALL both delegate to
+this service without duplicating semantics, validators, or fingerprints.
 
 #### Scenario R13.1: Service owns prerequisite recomputation
 
@@ -423,9 +481,24 @@ The system SHALL own one internal planning service (`RecoveryPlanningService`) t
 - **WHEN** the service returns stale or unavailable
 - **THEN** the response matches the same shapes and diagnostics as the Flow-only path
 
+#### Scenario R13.3: Core composition shares runtime and service
+
+- **GIVEN** core composition creates the default Recovery runtime with the `workflow.recovery.plan: available` capability fact
+- **WHEN** it creates `RecoveryPlanningService` from that runtime's capability-aware dependencies
+- **THEN** it injects the same runtime and service into `makeProjectHubOps(registry, settingsService?, options?)` and `makeWorkflowOps(vaultPath, options?)` before either operation array is built; operation order cannot control capability visibility
+
+The current `defaultRecoveryOwners` adapter SHALL be produced once by this
+runtime and SHALL not use an empty planning `loadCapabilities` implementation.
+
 ### Requirement: R14. Capability separation: planning never authorizes mutation
 
 The system SHALL introduce `workflow.recovery.plan` capability as `available` when the Operation is registered, require it for candidate recommendation, and keep it independent of `workflow.recovery.apply` availability.
+
+`validateRecoveryPlanV2` in `mcp-server/src/project-hub/recovery-flow.ts` SHALL
+migrate its capability invariant from requiring available
+`workflow.recovery.apply` to requiring available `workflow.recovery.plan`.
+The Plan's `owningOperation` remains `workflow.recovery.apply`; S04B performs
+the separate apply-capability check before creating a claim.
 
 #### Scenario R14.1: Planning capability introduced when Operation registered
 
@@ -451,6 +524,9 @@ The system SHALL introduce `workflow.recovery.plan` capability as `available` wh
 - **WHEN** S04B validates the request
 - **THEN** it checks both the planning basis (Plan fingerprint, `searchInputFingerprint`, `searchFingerprint`, `candidateSetFingerprint`) and `workflow.recovery.apply: available`
 
+The S04B apply-capability check occurs before claim creation; an absent or
+unusable apply capability is never treated as a planning failure.
+
 #### Scenario R14.5: Missing planning capability is not apply failure
 
 - **GIVEN** `workflow.recovery.apply` runs but `workflow.recovery.plan` capability is missing
@@ -473,8 +549,19 @@ The system SHALL exercise the full read-only Flow in actual Obsidian after S04P 
 - **WHEN** the user auto-follows or explicitly submits the plan request
 - **THEN** the `planned` stage is returned with an immutable Plan preview
 
+This scenario SHALL pass while `workflow.recovery.apply` is absent or
+unusable; apply availability is not a prerequisite for the S06A Plan preview.
+
 #### Scenario R15.3: S06A principal acceptance resumes after S04P
 
 - **GIVEN** S04P has landed
 - **WHEN** T5.3 runs in actual Obsidian
 - **THEN** `searched`, `needs-agent-selection`, `planned`, candidate replacement, and explicit refresh are all exercised and principal accepts the surface
+
+The actual Obsidian gate SHALL also exercise `open`, `stale` after a controlled
+owner-lock change, and `unavailable` with bounded remediation. Before and after
+each read-only stage, it SHALL compare SHA-256 and byte counts for fixture vault
+files, plugin `data.json`, and durable recovery roots; any difference fails the
+gate. Missing plan capability, a failure to reach `planned` while apply is
+absent/unusable, any write, skipped fingerprint validation, or broken
+keyboard/focus/cancellation is a stop condition.
