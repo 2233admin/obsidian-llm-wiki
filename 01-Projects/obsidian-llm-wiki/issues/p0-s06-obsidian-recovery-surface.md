@@ -1,7 +1,7 @@
 ---
 type: issue
 entity: project/obsidian-llm-wiki/issue/p0-s06-obsidian-recovery-surface
-state: backlog
+state: in-progress
 review: reviewed
 kind: knowledge-task
 id: obsidian-llm-wiki/p0-s06-obsidian-recovery-surface
@@ -34,6 +34,18 @@ Expose the complete read-only V2 Flow through the existing LLM Wiki/Ask Mate Ite
 - [ ] Query, results, Flow fingerprints, candidate, Binding, and Plan live only in ItemView memory; dispose/reload/reopen starts at current open and plugin data remains byte-identical.
 - [ ] Keyboard order, semantic labels/headings, live status, focus retention, cancellation, stale/unavailable readability, and Plan readability pass in actual Obsidian.
 - [ ] Principal accepts actual-surface evidence before S04B starts.
+
+## S06A automated evidence
+
+- Recovery client and panel focused tests pass; lifecycle injection test passes.
+- `npm run typecheck -- --pretty false` passes with declared `mcp-server` dependencies installed locally.
+- `npm run build` passes.
+- `openspec validate project-hub-recovery-loop --strict --no-interactive` passes.
+- Full `npm test` reaches all recovery tests successfully but retains three unrelated baseline settings-shape failures involving `settingsExpandedSections`; no recovery test fails.
+
+## Actual-surface gate remaining
+
+Coordinator must run the built plugin in desktop Obsidian against the sanitized Project and record truthful evidence for: all six stages; repeated search; exact unique recommendation follow; multiple-Binding selection; candidate replacement; expired Plan and explicit refresh; citation activation; cancellation; stale/unavailable remediation; reload/reopen reset; unchanged plugin-data and fixture bytes; keyboard order, focus retention, live/urgent status, readable Plan, and minimum hit targets. T5.3 and principal acceptance remain open; S04B stays blocked.
 
 ## Demo
 
