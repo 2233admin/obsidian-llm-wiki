@@ -3126,3 +3126,13 @@
   color: var(--text-warning, var(--color-yellow));
   padding-left: 10px;
 }
+
+.llmwiki-ask-mate-citation-action {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: left;
+}

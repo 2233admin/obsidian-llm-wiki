@@ -482,7 +482,7 @@ export class ProjectHubRecoveryPanel {
     const section = parent.createEl("section", { cls: "llmwiki-ask-mate-citations" });
     section.createEl("h4", { text: "Citation Targets" });
     for (const target of [...new Set(citations)].slice(0, 32)) {
-      const button = section.createEl("button", { text: safePresentationText(target) });
+      const button = section.createEl("button", { text: safePresentationText(target), cls: "llmwiki-ask-mate-citation-action" });
       button.setAttr("aria-label", `Open citation target ${safePresentationText(target)}`);
       button.onclick = () => this.onCitation?.(target);
     }

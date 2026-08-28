@@ -175,3 +175,53 @@ test("citation actions are named native buttons with exact callback targets", as
   citationButton.onclick?.({});
   assert.deepEqual(opened, [citationTarget]);
 });
+
+test("citation action carries the citation-action class and the CSS contract holds", async () => {
+  const root = new FakeElement("div");
+  const longTarget = "01-Projects/s06a-qa/issues/recovery.md";
+  const secondTarget = "issue:alpha";
+  const opened: string[] = [];
+  const client = new ProjectHubRecoveryClient({
+    async invoke<T>(): Promise<T> {
+      return { ...openResponse(), payload: { ...openResponse().payload, citations: [longTarget, secondTarget, longTarget] } } as T;
+    },
+  });
+  const panel = new ProjectHubRecoveryPanel(client, root as unknown as HTMLElement, target => opened.push(target));
+
+  await panel.open(projectId);
+
+  const citationButtons = root.querySelectorAll<FakeElement>("button").filter(button => button.getAttribute("aria-label")?.startsWith("Open citation target "));
+  assert.equal(citationButtons.length, 2, "duplicate citations must dedupe before rendering");
+  for (const citationButton of citationButtons) {
+    const className = citationButton.attributes.get("class") ?? "";
+    assert.ok(className.includes("llmwiki-ask-mate-citation-action"),
+      "native citation button must carry the citation-action class");
+    assert.equal(citationButton.tagName, "BUTTON");
+    assert.equal(citationButton.getAttribute("href"), null);
+  }
+
+  const longButton = citationButtons.find(button => button.textContent === longTarget)!;
+  longButton.onclick?.({});
+  assert.deepEqual(opened, [longTarget], "exact callback target must be preserved and not re-target by class");
+
+  const css = await readStylesCss();
+  assert.match(css, /\.llmwiki-ask-mate-citation-action\s*\{[^}]*max-width\s*:\s*100%/,
+    "citation-action CSS must keep max-width:100%");
+  assert.match(css, /\.llmwiki-ask-mate-citation-action\s*\{[^}]*box-sizing\s*:\s*border-box/,
+    "citation-action CSS must use box-sizing:border-box");
+  assert.match(css, /\.llmwiki-ask-mate-citation-action\s*\{[^}]*overflow-wrap\s*:\s*anywhere/,
+    "citation-action CSS must wrap with overflow-wrap:anywhere");
+  assert.match(css, /\.llmwiki-ask-mate-citation-action\s*\{[^}]*display\s*:\s*block/,
+    "citation-action CSS must lay out as block");
+  assert.match(css, /\.llmwiki-ask-mate-citation-action\s*\{[^}]*white-space\s*:\s*normal/,
+    "citation-action CSS must keep normal white-space so long paths wrap");
+  assert.match(css, /\.llmwiki-ask-mate-citation-action\s*\{[^}]*text-align\s*:\s*left/,
+    "citation-action CSS must left-align the label");
+});
+
+async function readStylesCss(): Promise<string> {
+  const fs = await import("node:fs/promises");
+  const path = await import("node:path");
+  const cssPath = (path as { resolve: (...args: string[]) => string }).resolve(process.cwd(), "styles.css");
+  return fs.readFile(cssPath, "utf8");
+}
