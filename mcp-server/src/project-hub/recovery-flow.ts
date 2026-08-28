@@ -194,6 +194,35 @@ export interface RecoveryOpenPayloadV2 {
   workRunId: string | null;
   contextSource: 'work-run' | 'session-record' | 'none';
   citations: string[];
+  currentStage?: { value: string | null; state: string; source: string | null; citationTargets: string[] };
+  workGroups?: {
+    done: RecoveryOpenWorkItemV2[];
+    inProgress: RecoveryOpenWorkItemV2[];
+    blocked: RecoveryOpenWorkItemV2[];
+    notStarted: RecoveryOpenWorkItemV2[];
+  };
+  context?: RecoveryOpenContextV2;
+  capabilities?: RecoveryOpenCapabilityV2[];
+  suggestedQueries?: string[];
+}
+export interface RecoveryOpenWorkItemV2 {
+  entity: string;
+  label: string;
+  state: string;
+  blockedBy: string[];
+  citationTargets: string[];
+}
+export interface RecoveryOpenContextV2 {
+  workItemId: string | null;
+  workRunId: string | null;
+  decisions: Array<{ decisionId: string; text: string; citationTargets: string[] }>;
+  checkpoints: Array<{ checkpointId: string; stage: string; status: string; summary: string; recordedAt: string; citationTargets: string[] }>;
+  prerequisites: string[];
+  citations: string[];
+}
+export interface RecoveryOpenCapabilityV2 {
+  capability: string;
+  state: 'available' | 'degraded';
 }
 export interface RecoverySearchResultV2 {
   itemId: string;
@@ -338,6 +367,12 @@ function fail(label: string, message: string): never {
 }
 function object(value: unknown, label: string, requiredKeys: readonly string[]): Record<string, unknown> {
   return assertClosedRecoveryObject(value, requiredKeys, label);
+}
+function optionalObject(value: unknown, label: string, allowedKeys: readonly string[]): Record<string, unknown> {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) fail(label, 'must be an object');
+  const record = value as Record<string, unknown>;
+  for (const key of Object.keys(record)) if (!allowedKeys.includes(key)) fail(`${label}.${key}`, 'is an unknown field and is not supported');
+  return record;
 }
 function fingerprint(value: unknown, label: string): RecoveryFingerprint {
   if (typeof value !== 'string' || !FINGERPRINT.test(value)) fail(label, 'must be a sha256 fingerprint');
@@ -646,14 +681,58 @@ function validateSearchResult(value: unknown, label: string, expectedProjectId: 
 function validatePayload(stage: RecoveryFlowStage, value: unknown, project: string): RecoveryFlowPayloadV2 {
   if (stage === 'stale') return validateStaleProof(value, 'payload');
   if (stage === 'open') {
-    const entry = object(value, 'payload', ['kind', 'workItemId', 'workRunId', 'contextSource', 'citations']);
+    const entry = optionalObject(value, 'payload', ['kind', 'workItemId', 'workRunId', 'contextSource', 'citations', 'currentStage', 'workGroups', 'context', 'capabilities', 'suggestedQueries']);
+    for (const key of ['kind', 'workItemId', 'workRunId', 'contextSource', 'citations']) if (!(key in entry)) fail(`payload.${key}`, 'is required');
     if (entry.kind !== 'open') fail('payload.kind', 'does not match stage');
     if (entry.contextSource !== 'work-run' && entry.contextSource !== 'session-record' && entry.contextSource !== 'none') fail('payload.contextSource', 'has an invalid source');
     const workItemId = entry.workItemId === null ? null : validateWorkItemId(entry.workItemId, 'payload.workItemId', project);
     const workRunId = entry.workRunId === null ? null : validateWorkRunId(entry.workRunId, 'payload.workRunId');
     if (entry.contextSource === 'work-run' && workRunId === null) fail('payload.workRunId', 'is required for work-run context');
     if (entry.contextSource !== 'work-run' && workRunId !== null) fail('payload.workRunId', 'must be null for session-record or empty context');
-    const payload = { kind: 'open' as const, workItemId, workRunId, contextSource: entry.contextSource as RecoveryOpenPayloadV2['contextSource'], citations: validateCitations(entry.citations, 'payload.citations') };
+    const currentStage = entry.currentStage === undefined ? undefined : (() => {
+      const stageValue = object(entry.currentStage, 'payload.currentStage', ['value', 'state', 'source', 'citationTargets']);
+      return {
+        value: stageValue.value === null ? null : boundedId(stageValue.value, 'payload.currentStage.value'),
+        state: boundedId(stageValue.state, 'payload.currentStage.state', 32),
+        source: stageValue.source === null ? null : boundedId(stageValue.source, 'payload.currentStage.source'),
+        citationTargets: validateCitations(stageValue.citationTargets, 'payload.currentStage.citationTargets', 64),
+      };
+    })();
+    const workGroups = entry.workGroups === undefined ? undefined : (() => {
+      const groups = object(entry.workGroups, 'payload.workGroups', ['done', 'inProgress', 'blocked', 'notStarted']);
+      const parseItems = (key: string) => list(groups[key], `payload.workGroups.${key}`, 128, (raw, itemLabel) => {
+        const item = object(raw, itemLabel, ['entity', 'label', 'state', 'blockedBy', 'citationTargets']);
+        return {
+          entity: validateWorkItemId(item.entity, `${itemLabel}.entity`, project),
+          label: boundedId(item.label, `${itemLabel}.label`),
+          state: boundedId(item.state, `${itemLabel}.state`, 32),
+          blockedBy: list(item.blockedBy, `${itemLabel}.blockedBy`, 128, (ref, refLabel) => validateWorkItemId(ref, refLabel, project)),
+          citationTargets: validateCitations(item.citationTargets, `${itemLabel}.citationTargets`, 64),
+        };
+      });
+      return { done: parseItems('done'), inProgress: parseItems('inProgress'), blocked: parseItems('blocked'), notStarted: parseItems('notStarted') };
+    })();
+    const context = entry.context === undefined ? undefined : (() => {
+      const rawContext = object(entry.context, 'payload.context', ['workItemId', 'workRunId', 'decisions', 'checkpoints', 'prerequisites', 'citations']);
+      const contextWorkItemId = rawContext.workItemId === null ? null : validateWorkItemId(rawContext.workItemId, 'payload.context.workItemId', project);
+      const contextWorkRunId = rawContext.workRunId === null ? null : validateWorkRunId(rawContext.workRunId, 'payload.context.workRunId');
+      const decisions = list(rawContext.decisions, 'payload.context.decisions', 32, (raw, itemLabel) => {
+        const decision = object(raw, itemLabel, ['decisionId', 'text', 'citationTargets']);
+        return { decisionId: boundedId(decision.decisionId, `${itemLabel}.decisionId`), text: boundedId(decision.text, `${itemLabel}.text`, 4096), citationTargets: validateCitations(decision.citationTargets, `${itemLabel}.citationTargets`, 64) };
+      });
+      const checkpoints = list(rawContext.checkpoints, 'payload.context.checkpoints', 32, (raw, itemLabel) => {
+        const checkpoint = object(raw, itemLabel, ['checkpointId', 'stage', 'status', 'summary', 'recordedAt', 'citationTargets']);
+        return { checkpointId: boundedId(checkpoint.checkpointId, `${itemLabel}.checkpointId`), stage: boundedId(checkpoint.stage, `${itemLabel}.stage`, 64), status: boundedId(checkpoint.status, `${itemLabel}.status`, 64), summary: boundedId(checkpoint.summary, `${itemLabel}.summary`, 4096), recordedAt: validateTimestamp(checkpoint.recordedAt, `${itemLabel}.recordedAt`), citationTargets: validateCitations(checkpoint.citationTargets, `${itemLabel}.citationTargets`, 64) };
+      });
+      return { workItemId: contextWorkItemId, workRunId: contextWorkRunId, decisions, checkpoints, prerequisites: validateCitations(rawContext.prerequisites, 'payload.context.prerequisites', 16), citations: validateCitations(rawContext.citations, 'payload.context.citations', 64) };
+    })();
+    const capabilities = entry.capabilities === undefined ? undefined : list(entry.capabilities, 'payload.capabilities', 16, (raw, itemLabel) => {
+      const capability = object(raw, itemLabel, ['capability', 'state']);
+      if (capability.state !== 'available' && capability.state !== 'degraded') fail(`${itemLabel}.state`, 'has an invalid state');
+      return { capability: boundedId(capability.capability, `${itemLabel}.capability`), state: capability.state } as const;
+    });
+    const suggestedQueries = entry.suggestedQueries === undefined ? undefined : list(entry.suggestedQueries, 'payload.suggestedQueries', 3, (raw, itemLabel) => boundedId(raw, itemLabel, 2048));
+    const payload = { kind: 'open' as const, workItemId, workRunId, contextSource: entry.contextSource as RecoveryOpenPayloadV2['contextSource'], citations: validateCitations(entry.citations, 'payload.citations'), ...(currentStage ? { currentStage } : {}), ...(workGroups ? { workGroups } : {}), ...(context ? { context } : {}), ...(capabilities ? { capabilities } : {}), ...(suggestedQueries ? { suggestedQueries } : {}) };
     if (utf8JsonBytes(payload) > 64 * 1024) fail('payload', 'must not exceed 64 KiB');
     return payload;
   }

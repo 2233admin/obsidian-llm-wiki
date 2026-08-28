@@ -1,7 +1,7 @@
 ---
 type: issue
 entity: project/obsidian-llm-wiki/issue/p0-s02-resumable-agent-context
-state: backlog
+state: in-progress
 review: reviewed
 kind: knowledge-task
 id: obsidian-llm-wiki/p0-s02-resumable-agent-context
@@ -25,13 +25,13 @@ Extract Workflow Work Run store/read seams and implement the V2 `open` stage. Co
 
 ## Acceptance
 
-- [ ] Work Run identity/lifecycle comes from durable Workflow records; checkpoint summary/evidence comes from matching agent event records.
-- [ ] Open selects current Work Run context before safe Session fallback and never treats raw Session evidence as Project truth.
-- [ ] The open payload keeps V1-equivalent Project/stage/work-group/freshness/diagnostic/citation behavior while adding bounded context and suggested queries.
-- [ ] Context retains at most 32 reviewed decisions, 32 checkpoints, 64 citations, 16 prerequisites, and 32 diagnostics within 64 KiB canonical JSON; mandatory safety data is allocated first.
-- [ ] Owner locks are exact and ordered; unrelated owner changes do not falsely change the action-relevant recovery fingerprint.
-- [ ] Unsafe identity/mandatory facts make the stage unavailable; unsafe optional values are omitted with bounded diagnostics and no echo.
-- [ ] The issue registers no public partial V2 Operation and performs no mutation.
+- [x] Work Run identity/lifecycle comes from durable Workflow records; checkpoint summary/evidence comes from matching agent event records.
+- [x] Open selects current Work Run context before safe Session fallback and never treats raw Session evidence as Project truth.
+- [x] The open payload keeps V1-equivalent Project/stage/work-group/freshness/diagnostic/citation behavior while adding bounded context and suggested queries.
+- [x] Context retains at most 32 reviewed decisions, 32 checkpoints, 64 citations, 16 prerequisites, and 32 diagnostics within 64 KiB canonical JSON; mandatory safety data is allocated first.
+- [x] Owner locks are exact and ordered; unrelated owner changes do not falsely change the action-relevant recovery fingerprint.
+- [x] Unsafe identity/mandatory facts make the stage unavailable; unsafe optional values are omitted with bounded diagnostics and no echo.
+- [x] The issue registers no public partial V2 Operation and performs no mutation.
 
 ## Demo
 
@@ -44,3 +44,9 @@ Blocked by reviewed S01B contract kernel. S03 consumes the Workflow read model a
 ## Non-goals
 
 - Do not perform search, derive candidates, select a Binding, generate a Plan, apply Workflow, or remove V1.
+
+## Verification
+
+- From `mcp-server/`: `npm exec bun -- test src/project-hub/recovery-flow.test.ts src/project-hub/recovery-open.test.ts src/workflow/work-run-store.test.ts src/workflow/workflow-read-model.test.ts src/workflow/workflow.test.ts src/project/agent-room-legacy-characterization.test.ts` — 63 passed, 0 failed.
+- From `mcp-server/`: `npm run typecheck` — passed (including the required settings, Agent Domain, visual workspace, and problem-intake package builds).
+- No public V2 Flow operation, candidate/Plan path, mutation, search source, or V1 removal was added; independent review remains.

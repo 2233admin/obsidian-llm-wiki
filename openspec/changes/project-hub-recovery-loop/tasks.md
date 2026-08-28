@@ -22,10 +22,10 @@ Luna receives one reviewed Task at a time. It may alter internal implementation 
 
 ## Phase 2 — S02 open/context and Workflow read seams
 
-- [ ] **T2.1 Extract Work Run store** — Add `mcp-server/src/workflow/work-run-store.ts` and its test; migrate `workflow.ts` lock, durable run, local lease, atomic write, rollback, recovery-claim, and output-claim primitives without changing current operation behavior.
-- [ ] **T2.2 Add bounded Workflow read model (R3)** — Add `mcp-server/src/workflow/workflow-read-model.ts` and its test. Read durable Work Run identity/lifecycle and matching agent-event checkpoints; test active/terminal/expired/malformed/mismatched records, deterministic ordering, locks, and private-field exclusion.
-- [ ] **T2.3 Compose V2 open stage (R2–R4)** — Add `mcp-server/src/project-hub/recovery-open.ts` and its test; modify internal exports. Compose current V1-equivalent action facts plus bounded authoritative context, capability summary, citations, owner locks, suggested queries, omission facts, and open Flow Fingerprint. No public Flow operation registration yet.
-- [ ] **T2.4 Verify S02** — Run `npm exec bun -- test src/project-hub/recovery-flow.test.ts src/project-hub/recovery-open.test.ts src/workflow/work-run-store.test.ts src/workflow/workflow-read-model.test.ts src/workflow/workflow.test.ts src/project/agent-room-legacy-characterization.test.ts` and `npm run typecheck`. Record evidence in `p0-s02-resumable-agent-context.md`.
+- [x] **T2.1 Extract Work Run store** — Add `mcp-server/src/workflow/work-run-store.ts` and its test; migrate `workflow.ts` lock, durable run, local lease, atomic write, rollback, recovery-claim, and output-claim primitives without changing current operation behavior.
+- [x] **T2.2 Add bounded Workflow read model (R3)** — Add `mcp-server/src/workflow/workflow-read-model.ts` and its test. Read durable Work Run identity/lifecycle and matching agent-event checkpoints; test active/terminal/expired/malformed/mismatched records, deterministic ordering, locks, and private-field exclusion.
+- [x] **T2.3 Compose V2 open stage (R2–R4)** — Add `mcp-server/src/project-hub/recovery-open.ts` and its test; modify internal exports. Compose current V1-equivalent action facts plus bounded authoritative context, capability summary, citations, owner locks, suggested queries, omission facts, and open Flow Fingerprint. No public Flow operation registration yet.
+- [x] **T2.4 Verify S02** — Run `npm exec bun -- test src/project-hub/recovery-flow.test.ts src/project-hub/recovery-open.test.ts src/workflow/work-run-store.test.ts src/workflow/workflow-read-model.test.ts src/workflow/workflow.test.ts src/project/agent-room-legacy-characterization.test.ts` and `npm run typecheck`. Record evidence in `p0-s02-resumable-agent-context.md`.
 
 ## Phase 3 — S03 mandatory Project-scoped cited search
 
