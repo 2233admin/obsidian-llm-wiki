@@ -10,14 +10,21 @@ import {
   makeRecoveryPlanOperation,
 } from './recovery-plan.js';
 import {
+  makeRecoveryApplyOperation,
+  type RecoveryApplyDependencies,
+} from './recovery-apply.js';
+import {
   createRecoveryPlanningService,
   type RecoveryPlanDependencies,
   type RecoveryPlanningService,
 } from '../project-hub/recovery-planning-service.js';
+import { canonicalRecoveryJson, fingerprintRecoveryValue } from '../project-hub/contract-support.js';
+import { RECOVERY_FLOW_REQUEST_SCHEMA_VERSION, type RecoveryPlanV2 } from '../project-hub/recovery-flow.js';
 
 export interface WorkflowOperationsOptions {
   recoveryRuntime?: { dependencies: RecoveryPlanDependencies };
   recoveryPlanningService?: RecoveryPlanningService;
+  recoveryApplyDependencies?: RecoveryApplyDependencies;
 }
 
 const STAGES = ['intake', 'understand', 'plan', 'execute', 'review', 'verify', 'archive'] as const;
@@ -1591,12 +1598,164 @@ function beginAgentLifetime(
   };
 }
 
+function recoveryActorContext(vaultPath: string, actor: string): OperationContext {
+  return {
+    vault: null as never,
+    adapters: null,
+    config: { vault_path: vaultPath, collaboration: { actor, role: 'agent' } },
+    logger: { info() {}, warn() {}, error() {} },
+    dryRun: false,
+  };
+}
+
+function recoveryPlanBasis(plan: RecoveryPlanV2): Record<string, unknown> {
+  return {
+    projectId: plan.projectId,
+    rootOpenFlowFingerprint: plan.rootOpenFlowFingerprint,
+    searchedBasisFlowFingerprint: plan.searchedBasisFlowFingerprint,
+    recoveryFingerprint: plan.recoveryFingerprint,
+    searchInputFingerprint: plan.searchInputFingerprint,
+    searchFingerprint: plan.searchFingerprint,
+    candidateSetFingerprint: plan.candidateSetFingerprint,
+    candidateId: plan.candidateId,
+    kind: plan.kind,
+    workItemId: plan.workItemId,
+    workRunId: plan.workRunId,
+    agentSelection: plan.agentSelection,
+    ownerLocks: plan.ownerLocks,
+    capabilityFacts: plan.capabilityFacts,
+    citationTargets: plan.citationTargets,
+    owningOperation: plan.owningOperation,
+    leaseDurationMs: plan.leaseDurationMs,
+  };
+}
+
+function createDefaultRecoveryApplyDependencies(
+  vaultPath: string,
+  store: WorkRunStore,
+  planningService: RecoveryPlanningService,
+  now: () => number = () => Date.now(),
+): RecoveryApplyDependencies {
+  const join = async (plan: RecoveryPlanV2, actor: string, token: string): Promise<Record<string, unknown>> => (
+    beginAgentLifetime(
+      vaultPath,
+      recoveryActorContext(vaultPath, actor),
+      {
+        project: plan.projectId,
+        agent: actor,
+        role: plan.agentSelection.role,
+        work_run_id: plan.workRunId,
+        work_run_state: 'leased',
+        work_item_id: plan.workItemId,
+        agent_profile_id: plan.agentSelection.profileId,
+        agent_profile_revision: plan.agentSelection.profileRevision,
+        project_agent_binding_id: plan.agentSelection.bindingId,
+        project_agent_binding_revision: plan.agentSelection.bindingRevision,
+        transition_token: token,
+        stage: 'think',
+        evidence: ['recovery:apply'],
+        provenance: [`recovery-plan:${plan.fingerprint}`],
+      },
+      'leased',
+      store,
+    ) as unknown as Record<string, unknown>
+  );
+  const createAndJoin = async (plan: RecoveryPlanV2, actor: string, token: string): Promise<Record<string, unknown>> => {
+    const runId = `work-run/recovery-${plan.fingerprint.slice('sha256:'.length, 'sha256:'.length + 32)}`;
+    const project = plan.projectId.slice('project/'.length);
+    store.withLock(() => {
+      const existing = store.readRun(project, runId);
+      const nowMs = Math.max(Date.now(), Date.parse(plan.createdAt));
+      const lease = store.readLocalLease(runId);
+      const identity = {
+        project_id: plan.projectId,
+        work_item_id: plan.workItemId,
+        work_run_id: runId,
+        agent_id: actor,
+      };
+      if (existing) {
+        for (const [key, value] of Object.entries(identity)) if (existing[key] !== value) throw conflict('Recovery create Work Run identity conflict');
+        if (existing.state !== 'leased' && existing.state !== 'running') throw conflict('Recovery create Work Run is no longer joinable');
+      } else {
+        store.writeRunAtomic(project, runId, {
+          schema_version: 2,
+          ...identity,
+          state: 'leased',
+          output_class: 'view',
+          approval_status: 'not-required',
+          created_at: new Date(nowMs).toISOString(),
+          updated_at: new Date(nowMs).toISOString(),
+          provenance: [`recovery-plan:${plan.fingerprint}`],
+          transitions: [{ transition_token: `recovery:lease:${plan.fingerprint.slice(-24)}`, from: 'planned', to: 'leased', recorded_at: new Date(nowMs).toISOString() }],
+          agent_profile_id: plan.agentSelection.profileId,
+          agent_profile_revision: plan.agentSelection.profileRevision,
+          project_agent_binding_id: plan.agentSelection.bindingId,
+          project_agent_binding_revision: plan.agentSelection.bindingRevision,
+        });
+      }
+      if (lease) {
+        if (lease.agent_id !== actor || lease.project_id !== plan.projectId || lease.work_item_id !== plan.workItemId) throw conflict('Recovery local lease identity conflict');
+      } else {
+        store.writeLocalLeaseAtomic(actor, {
+          agent_id: actor,
+          project_id: plan.projectId,
+          work_item_id: plan.workItemId,
+          work_run_id: runId,
+          base_head: `recovery:${plan.fingerprint}`,
+          acquired_at: Math.floor(nowMs / 1000),
+          expires_at: Math.floor(nowMs / 1000) + 900,
+        });
+      }
+    });
+    return join({ ...plan, workRunId: runId }, actor, token);
+  };
+  return {
+    store,
+    async recomputeCurrentPlanBasis(plan, planningInput) {
+      const result = await planningService.plan({
+        schemaVersion: RECOVERY_FLOW_REQUEST_SCHEMA_VERSION,
+        projectId: plan.projectId,
+        action: 'plan',
+        mode: 'from-search',
+        openFlowFingerprint: plan.rootOpenFlowFingerprint,
+        searchedBasisFlowFingerprint: plan.searchedBasisFlowFingerprint,
+        plannedFlowFingerprint: null,
+        query: planningInput.query,
+        limit: planningInput.limit,
+        candidateId: plan.candidateId,
+        agentSelection: { bindingId: plan.agentSelection.bindingId, bindingRevision: plan.agentSelection.bindingRevision },
+        priorPlan: null,
+      });
+      if (result.stage !== 'planned' || canonicalRecoveryJson(recoveryPlanBasis(result.payload.plan)) !== canonicalRecoveryJson(recoveryPlanBasis(plan))) {
+        throw conflict('Recovery Plan basis is stale');
+      }
+      if (plan.kind === 'resume') {
+        const project = plan.projectId.slice('project/'.length);
+        const run = store.readRun(project, plan.workRunId!);
+        const lease = store.readLocalLease(plan.workRunId!);
+        if (!run || run.project_id !== plan.projectId || run.work_item_id !== plan.workItemId || run.work_run_id !== plan.workRunId || (run.state !== 'leased' && run.state !== 'running')) {
+          throw conflict('Recovery Work Run prerequisite is unavailable');
+        }
+        if (!lease || lease.project_id !== plan.projectId || lease.work_item_id !== plan.workItemId || lease.work_run_id !== plan.workRunId || typeof lease.expires_at !== 'number' || lease.expires_at <= Date.now() / 1000) {
+          throw conflict('Recovery local lease prerequisite is unavailable');
+        }
+      }
+    },
+    join,
+    createAndJoin,
+    now,
+  };
+}
+
 export function makeWorkflowOps(vaultPath: string, options: WorkflowOperationsOptions = {}): Operation[] {
   const store = createFileWorkRunStore(vaultPath);
   const recoveryPlanningService = options.recoveryPlanningService
     ?? (options.recoveryRuntime ? createRecoveryPlanningService(options.recoveryRuntime.dependencies) : undefined);
+  const recoveryApplyDependencies = options.recoveryApplyDependencies
+    ?? (recoveryPlanningService ? createDefaultRecoveryApplyDependencies(vaultPath, store, recoveryPlanningService, options.recoveryRuntime?.dependencies.now) : undefined);
   return [
     makeRecoveryPlanOperation(recoveryPlanningService),
+    makeRecoveryApplyOperation(recoveryApplyDependencies),
     {
   name: 'workflow.state.set',
       namespace: 'workflow' as Operation['namespace'],

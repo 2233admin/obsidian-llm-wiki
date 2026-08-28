@@ -18,7 +18,8 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { AdapterRegistry } from '../mcp-server/src/adapters/registry.ts';
 import type { Operation, OperationContext } from '../mcp-server/src/core/types.ts';
-import { makeProjectHubOps } from '../mcp-server/src/project/project-hub.ts';
+import { createDefaultRecoveryRuntime, makeProjectHubOps } from '../mcp-server/src/project/project-hub.ts';
+import { createRecoveryPlanningService } from '../mcp-server/src/project-hub/recovery-planning-service.ts';
 import { makeProjectOps } from '../mcp-server/src/project/project.ts';
 import { makeWorkflowOps } from '../mcp-server/src/workflow/workflow.ts';
 
@@ -633,7 +634,11 @@ function readMarker(
 
 function operationHarness(vault: string): { call(name: string, params?: Record<string, unknown>): Promise<unknown> } {
   const registry = new AdapterRegistry();
-  const operations = [...makeProjectOps(vault), ...makeWorkflowOps(vault), ...makeProjectHubOps(registry)];
+  const recoveryRuntime = createDefaultRecoveryRuntime({ vaultPath: vault, registry, capabilityFact: { capability: 'workflow.recovery.plan', state: 'available' } });
+  const recoveryPlanningService = createRecoveryPlanningService(recoveryRuntime.dependencies);
+  const workflowOptions = { recoveryRuntime, recoveryPlanningService };
+  const operations = [...makeProjectOps(vault), ...makeWorkflowOps(vault, workflowOptions), ...makeProjectHubOps(registry, undefined, workflowOptions)];
+  assert.ok(operations.some((operation) => operation.name === 'workflow.recovery.apply'), 'Fleet verifier must register Workflow Recovery apply');
   const byName = new Map(operations.map((operation) => [operation.name, operation]));
   const context: OperationContext = {
     vault: { async execute() { return {}; } },

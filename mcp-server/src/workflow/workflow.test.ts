@@ -20,6 +20,9 @@ function makeHarness() {
   }
   const ops = makeWorkflowOps(root);
   const byName = new Map(ops.map((op) => [op.name, op]));
+  const recoveryApply = byName.get('workflow.recovery.apply');
+  assert.ok(recoveryApply, 'claim-first recovery apply must be registered');
+  assert.equal(recoveryApply.mutating, true);
   const ctx: OperationContext = {
     vault: null as never,
     adapters: null,

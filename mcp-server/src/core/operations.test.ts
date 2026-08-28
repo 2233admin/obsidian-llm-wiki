@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { makeAllOperations } from './operations.js';
 
-test('core catalog exposes planning independently of apply', () => {
+test('core catalog exposes planning and claim-first apply independently', () => {
   const root = join(tmpdir(), `llmwiki-recovery-plan-${randomUUID()}`);
   mkdirSync(root, { recursive: true });
   try {
@@ -21,7 +21,9 @@ test('core catalog exposes planning independently of apply', () => {
     const plan = operations.find((operation) => operation.name === 'workflow.recovery.plan');
     assert.ok(plan);
     assert.equal(plan.mutating, false);
-    assert.equal(operations.some((operation) => operation.name === 'workflow.recovery.apply'), false);
+    const apply = operations.find((operation) => operation.name === 'workflow.recovery.apply');
+    assert.ok(apply);
+    assert.equal(apply.mutating, true);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

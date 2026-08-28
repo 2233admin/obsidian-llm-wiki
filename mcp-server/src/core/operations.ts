@@ -1604,7 +1604,10 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
       settingsService,
       observePluginDiagnostic: projectHubIntegration.observePluginDiagnostic,
     }),
-    ...makeAgentDomainOps(vaultPath),
+    ...makeAgentDomainOps(vaultPath, {
+      recoveryRuntime,
+      recoveryPlanningService,
+    }),
     ...makeLegacyAgentMigrationOps(),
     ...makeVisualWorkspaceOps(vaultPath),
     ...makeAdapterGraphOps(registry),

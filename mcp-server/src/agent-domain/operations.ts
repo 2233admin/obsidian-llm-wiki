@@ -59,7 +59,7 @@ import { normalizedProjectContext, resolveProjectContext, type ProjectContext } 
 import { createSettingsService } from '../settings/settings.js';
 import { createUsageEvent, known, unknown, type UsageEventKind } from '../usage/contracts.js';
 import { UsageLedger } from '../usage/ledger.js';
-import { makeWorkflowOps } from '../workflow/workflow.js';
+import { makeWorkflowOps, type WorkflowOperationsOptions } from '../workflow/workflow.js';
 
 export const AGENT_DOMAIN_RELATIVE_ROOT = '_llmwiki/agent-domain/v1' as const;
 export const USAGE_RELATIVE_ROOT = '_llmwiki/usage/v1' as const;
@@ -285,8 +285,8 @@ function cadenceWorkRun(
   return matches[0] ?? null;
 }
 
-function workflowOperation(vaultPath: string, name: string): Operation {
-  const operation = makeWorkflowOps(vaultPath).find((candidate) => candidate.name === name);
+function workflowOperation(vaultPath: string, name: string, options: WorkflowOperationsOptions = {}): Operation {
+  const operation = makeWorkflowOps(vaultPath, options).find((candidate) => candidate.name === name);
   if (!operation) throw internal(`Required workflow operation ${name} is unavailable`);
   return operation;
 }
@@ -338,8 +338,9 @@ async function moveCadenceWorkRunToReview(
   identity: ReturnType<typeof dreamTimeCadenceIdentity>,
   workRunId: WorkRunId,
   proposalId: MemoryProposalId,
+  workflowOptions: WorkflowOperationsOptions,
 ): Promise<void> {
-  await workflowOperation(vaultPath, 'workflow.agent.step').handler(ctx, {
+  await workflowOperation(vaultPath, 'workflow.agent.step', workflowOptions).handler(ctx, {
     project: project.projectId,
     agent: identity.agentId,
     stage: 'review',
@@ -1209,6 +1210,7 @@ function dreamTimeCadenceOperations(
   vaultPath: string,
   stateRoot: string,
   service: AgentDomainService,
+  workflowOptions: WorkflowOperationsOptions = {},
 ): Operation[] {
   const cadenceParams = {
     project: { type: 'string', required: true } as const,
@@ -1372,7 +1374,7 @@ function dreamTimeCadenceOperations(
           requestedActor,
           cadenceRequestFingerprint,
         );
-        await moveCadenceWorkRunToReview(ctx, vaultPath, project, identity, workRunId, existingProposal.proposalId);
+        await moveCadenceWorkRunToReview(ctx, vaultPath, project, identity, workRunId, existingProposal.proposalId, workflowOptions);
         appendGovernedUsage(vaultPath, {
           kind: 'dreamtime',
           idempotencyKey: `dreamtime-cadence:${identity.invocationId}`,
@@ -1469,7 +1471,7 @@ function dreamTimeCadenceOperations(
 
       let workRunId: WorkRunId;
       try {
-        const started = await workflowOperation(vaultPath, 'workflow.agent.start').handler(ctx, {
+        const started = await workflowOperation(vaultPath, 'workflow.agent.start', workflowOptions).handler(ctx, {
           project: project.projectId,
           agent: identity.agentId,
           role: 'memory-maintenance',
@@ -1580,7 +1582,7 @@ function dreamTimeCadenceOperations(
         candidate: { ...preflightCandidate, provenance: proposalProvenance },
         actor: requestedActor,
       }, () => asOf);
-      await moveCadenceWorkRunToReview(ctx, vaultPath, project, identity, workRunId, proposal.proposalId);
+      await moveCadenceWorkRunToReview(ctx, vaultPath, project, identity, workRunId, proposal.proposalId, workflowOptions);
       appendGovernedUsage(vaultPath, {
         kind: 'dreamtime',
         idempotencyKey: `dreamtime-cadence:${identity.invocationId}`,
@@ -1824,7 +1826,7 @@ function delegationOperations(
   }];
 }
 
-export function makeAgentDomainOps(vaultPath: string): Operation[] {
+export function makeAgentDomainOps(vaultPath: string, workflowOptions: WorkflowOperationsOptions = {}): Operation[] {
   const stateRoot = join(vaultPath, ...AGENT_DOMAIN_RELATIVE_ROOT.split('/'));
   const service = new AgentDomainService({ stateRoot });
   return [
@@ -1833,7 +1835,7 @@ export function makeAgentDomainOps(vaultPath: string): Operation[] {
     ...threadOperations(vaultPath, service),
     ...roomAndContextOperations(vaultPath, stateRoot, service),
     ...dreamTimeOperations(vaultPath, stateRoot, service),
-    ...dreamTimeCadenceOperations(vaultPath, stateRoot, service),
+    ...dreamTimeCadenceOperations(vaultPath, stateRoot, service, workflowOptions),
     ...consultOperations(vaultPath, stateRoot, service),
     ...delegationOperations(vaultPath, stateRoot, service),
   ];

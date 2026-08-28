@@ -10,7 +10,8 @@ import type { VaultMindAdapter } from '../adapters/interface.js';
 import type { Operation, OperationContext } from '../core/types.js';
 import { makeSourceOps } from '../source/source.js';
 import { makeWorkflowOps } from '../workflow/workflow.js';
-import { makeProjectHubOps } from './project-hub.js';
+import { createDefaultRecoveryRuntime, makeProjectHubOps } from './project-hub.js';
+import { createRecoveryPlanningService } from '../project-hub/recovery-planning-service.js';
 import { makeProjectMigrationOps } from './project-migration.js';
 import { makeProjectOps } from './project.js';
 
@@ -30,6 +31,8 @@ test('Project Context end-to-end contract closes one work and migration loop', a
     async init() {}, async dispose() {},
   };
   adapters.register(filesystem);
+  const recoveryRuntime = createDefaultRecoveryRuntime({ vaultPath: vault, registry: adapters, capabilityFact: { capability: 'workflow.recovery.plan', state: 'available' } });
+  const recoveryPlanningService = createRecoveryPlanningService(recoveryRuntime.dependencies);
   const ctx: OperationContext = {
     vault: { async execute() { return {}; } }, adapters,
     config: { vault_path: vault, adapters: ['filesystem'], auth_token: 'never-return-me', collaboration: { actor: 'codex', role: 'agent' } },
@@ -38,8 +41,8 @@ test('Project Context end-to-end contract closes one work and migration loop', a
   const operations = new Map<string, Operation>([
     ...makeProjectOps(vault),
     ...makeSourceOps(vault),
-    ...makeWorkflowOps(vault),
-    ...makeProjectHubOps(adapters),
+    ...makeWorkflowOps(vault, { recoveryRuntime, recoveryPlanningService }),
+    ...makeProjectHubOps(adapters, undefined, { recoveryRuntime, recoveryPlanningService }),
     ...makeProjectMigrationOps({ python, compilerPath, vaultPath: vault }),
   ].map((operation) => [operation.name, operation]));
   const call = (name: string, params: Record<string, unknown> = {}) => operations.get(name)!.handler(ctx, params);
