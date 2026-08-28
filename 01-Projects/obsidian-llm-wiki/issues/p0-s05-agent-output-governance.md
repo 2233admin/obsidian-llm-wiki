@@ -97,3 +97,9 @@ The repository-wide `npm test` invocation remains Bun-runner incompatible in thi
 - Added production-dispatcher interruption/restart coverage: after a real `ok:false` finalization, all three route receipts are stripped, replay recovers `denied`, never `accepted`, and the external fixture is invoked exactly once.
 - Operation Write Policy now protects Work Run governance namespaces unconditionally before collaboration opt-out. Direct generic writes and generic batch children are denied with `enforce:false` and without an actor; exact Workflow owner operations remain allowed.
 - Exact verification: focused source and compiled workflow/output/write-policy/dispatcher slices **76 passed, 0 failed**; `npm run typecheck` passed; `npm run build` passed; strict OpenSpec validation passed (**19/19**); `git diff --check` passed. S05 remains **in-progress**.
+
+## Verification evidence — 2026-08-29 (Fleet actor migration)
+
+- Fleet operation harness now accepts a validated authenticated actor; setup and read-only verification retain `fleet-acceptance`, while remote portable-handoff execution binds the context actor to `marker.agentId`.
+- The remote mismatch matrix proves a wrong actor rejects without mutation; exact remote actor leave succeeds and join/checkpoint/leave results plus shared files remain handoff-token-free. Fleet acceptance: **15 passed, 0 failed**; phase-all: **13/13**.
+- Project Hub runtime scanning excludes output governance projections from Work Run counts. S05 remains **in-progress**.

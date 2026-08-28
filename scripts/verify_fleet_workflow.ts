@@ -653,7 +653,8 @@ function readMarker(
   return marker;
 }
 
-function operationHarness(vault: string): { call(name: string, params?: Record<string, unknown>): Promise<unknown> } {
+function operationHarness(vault: string, actor = 'fleet-acceptance'): { call(name: string, params?: Record<string, unknown>): Promise<unknown> } {
+  assert.match(actor, /^[A-Za-z0-9][A-Za-z0-9._-]*$/u, 'invalid authenticated actor identity');
   const registry = new AdapterRegistry();
   const recoveryRuntime = createDefaultRecoveryRuntime({ vaultPath: vault, registry, capabilityFact: { capability: 'workflow.recovery.plan', state: 'available' } });
   const recoveryPlanningService = createRecoveryPlanningService(recoveryRuntime.dependencies);
@@ -670,7 +671,7 @@ function operationHarness(vault: string): { call(name: string, params?: Record<s
     adapters: registry,
     config: {
       vault_path: vault,
-      collaboration: { actor: 'fleet-acceptance', role: 'agent' },
+      collaboration: { actor, role: 'agent' },
     },
     logger: { info() {}, warn() {}, error() {} },
     dryRun: false,
@@ -1110,7 +1111,7 @@ async function executeRemote(
       assertSharedSecretFree(vault, handoffToken);
       return 'replayed';
     }
-    const { call } = operationHarness(vault);
+    const { call } = operationHarness(vault, marker.agentId);
     const capabilityFreeBase = {
       project: marker.projectId,
       agent: marker.agentId,
