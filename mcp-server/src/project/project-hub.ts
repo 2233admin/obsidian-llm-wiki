@@ -210,7 +210,7 @@ function aliasedRunField(
 }
 
 function runtimeSection(vaultPath: string, context: ProjectContext, observedAt = Date.now()): HubSection<Record<string, unknown>> {
-  const runFiles = filesBelow(vaultPath, `${context.roots.workOs}/runs`).filter((file) => file.path.endsWith('.json'));
+  const runFiles = filesBelow(vaultPath, `${context.roots.workOs}/runs`).filter((file) => file.path.endsWith('.json') && !/(?:^|\/)(?:output|recovery)-(?:claims|tokens)\//u.test(file.path));
   const agentFiles = filesBelow(vaultPath, `${context.roots.workOs}/agents`);
   const workflowFiles = filesBelow(vaultPath, `${context.roots.workOs}/workflow/status.md`);
   const runs: Array<Record<string, unknown>> = [];

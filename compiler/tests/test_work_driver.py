@@ -481,19 +481,6 @@ class WorkRunContractTest(unittest.TestCase):
             )
         self.assertEqual(work_driver.read_leases(self.vault), {})
 
-    def test_output_policy_routes_claims_and_denies_unapproved_external_effects(self) -> None:
-        lease = self._lease().lease
-        work_driver.transition_work_run(
-            self.vault, lease["project_id"], lease["work_run_id"], "running",
-            transition_token="join", now=1001)
-        routed = work_driver.route_work_run_output(
-            self.vault, lease["project_id"], lease["work_run_id"],
-            "external-side-effect", transition_token="output", now=1002)
-        self.assertEqual(routed["promotion"], "human-review")
-        self.assertFalse(routed["external_side_effect_allowed"])
-        self.assertTrue(routed["operation_write_policy_required"])
-        self.assertEqual(routed["run"]["approval_status"], "denied")
-
     def test_expired_lease_marks_run_failed_without_losing_history(self) -> None:
         lease = self._lease(now=1000, ttl=5).lease
         work_driver.transition_work_run(

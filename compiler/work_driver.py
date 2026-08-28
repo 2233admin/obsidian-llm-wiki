@@ -805,38 +805,6 @@ def release_lease(vault_dir, note_id, agent_id) -> bool:
         return _release_lease_unlocked(vault_dir, note_id, agent_id)
 
 
-def route_work_run_output(vault_dir, project_id, work_run_id, output_class, *,
-                          transition_token, now, external_approved=False,
-                          provenance=None):
-    """Route output through Promotion Policy before a caller performs writes.
-
-    The returned gate is deliberately explicit: TypeScript Operation Write
-    Policy still adjudicates the actual vault write or external side effect.
-    """
-    if output_class not in WORK_RUN_OUTPUT_CLASSES:
-        raise ValueError(f"Invalid Work Run output class: {output_class}")
-    if output_class == "knowledge-claim":
-        target, approval = "awaiting_review", "pending"
-    elif output_class == "external-side-effect" and not external_approved:
-        target, approval = "awaiting_review", "denied"
-    else:
-        target, approval = "completed", (
-            "approved" if output_class == "external-side-effect" else "not-required"
-        )
-    run = transition_work_run(
-        vault_dir, project_id, work_run_id, target,
-        transition_token=transition_token, now=now,
-        output_class=output_class, approval_status=approval,
-        provenance=provenance,
-    )
-    return {
-        "run": run,
-        "promotion": "human-review" if target == "awaiting_review" else "allowed",
-        "operation_write_policy_required": True,
-        "external_side_effect_allowed": output_class != "external-side-effect" or external_approved,
-    }
-
-
 def _recover_expired_work_runs_unlocked(vault_dir, *, now):
     """Fail interrupted durable runs whose machine-local lease expired."""
     leases = read_leases(vault_dir)

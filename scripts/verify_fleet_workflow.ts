@@ -22,6 +22,7 @@ import { createDefaultRecoveryRuntime, makeProjectHubOps } from '../mcp-server/s
 import { createRecoveryPlanningService } from '../mcp-server/src/project-hub/recovery-planning-service.ts';
 import { makeProjectOps } from '../mcp-server/src/project/project.ts';
 import { makeWorkflowOps } from '../mcp-server/src/workflow/workflow.ts';
+import { fingerprintRecoveryValue } from '../mcp-server/src/project-hub/contract-support.ts';
 
 type Phase = 'prepare' | 'remote' | 'verify' | 'all';
 
@@ -50,6 +51,11 @@ interface FleetFixtureBase {
     workItemId: string;
     transitionToken: string;
   };
+}
+
+function viewSubmission(projectId: string, workItemId: string, workRunId: string) {
+  const material = { schemaVersion: 'work-run-output/v1' as const, projectId, workItemId, workRunId, outputClass: 'view' as const, payload: { artifactId: 'artifact/fleet-result' }, citations: ['fixture:fleet-workflow'], provenance: ['test:fleet-workflow'], producedAt: '2026-08-28T00:00:00.000Z' };
+  return { schemaVersion: 'work-run-output-submission/v1' as const, result: 'output' as const, output: { ...material, fingerprint: fingerprintRecoveryValue(material) }, quarantine: null };
 }
 
 interface FleetFixtureV1 extends FleetFixtureBase {
@@ -1172,8 +1178,10 @@ async function executeRemote(
       project: marker.projectId,
       agent: marker.agentId,
       work_run_id: marker.workRunId,
-      work_run_state: 'completed',
+      mode: 'complete',
+      target_state: 'completed',
       transition_token: marker.leaveToken,
+      submission: viewSubmission(marker.projectId, marker.workItemId, marker.workRunId),
       summary: `${fixture.run.label} fleet execution completed`,
     };
     const leave = await call('workflow.agent.leave', leaveParams);

@@ -21,6 +21,12 @@ import {
 } from '../project-hub/recovery-planning-service.js';
 import { canonicalRecoveryJson, fingerprintRecoveryValue } from '../project-hub/contract-support.js';
 import { RECOVERY_FLOW_REQUEST_SCHEMA_VERSION, type RecoveryPlanV2 } from '../project-hub/recovery-flow.js';
+import { persistWorkRunOutputDraft } from '../core/project-memory-operations.js';
+import {
+  governWorkRunOutput,
+  validateWorkflowAgentLeaveRequestV2,
+  WORK_RUN_OUTPUT_CLASSES as GOVERNED_OUTPUT_CLASSES,
+} from './output-governance.js';
 
 export interface WorkflowOperationsOptions {
   recoveryRuntime?: { dependencies: RecoveryPlanDependencies };
@@ -69,7 +75,7 @@ export const WORK_RUN_STATES = [
 export type WorkRunState = (typeof WORK_RUN_STATES)[number];
 
 export const WORK_RUN_TERMINAL_STATES = ['completed', 'failed', 'cancelled'] as const;
-const WORK_RUN_OUTPUT_CLASSES = ['view', 'work-state-transition', 'knowledge-claim', 'external-side-effect'] as const;
+const WORK_RUN_OUTPUT_CLASSES = GOVERNED_OUTPUT_CLASSES;
 type WorkRunOutputClass = (typeof WORK_RUN_OUTPUT_CLASSES)[number];
 const WORK_RUN_APPROVAL_STATUSES = ['not-required', 'pending', 'approved', 'denied'] as const;
 type WorkRunApprovalStatus = (typeof WORK_RUN_APPROVAL_STATUSES)[number];
@@ -913,15 +919,6 @@ function transitionWorkRun(current: WorkRunState, next: WorkRunState): WorkRunSt
     throw makeErr(-32602, `invalid Work Run transition: ${current} -> ${next}`);
   }
   return next;
-}
-
-function completionState(outputClass: WorkRunOutputClass, approval: WorkRunApprovalStatus): WorkRunState {
-  if (outputClass === 'external-side-effect' && approval !== 'approved') {
-    return 'awaiting_review';
-  }
-  if (outputClass === 'knowledge-claim' && approval === 'pending') return 'awaiting_review';
-  if (approval === 'denied') return 'failed';
-  return 'completed';
 }
 
 function assertWorkRunIdentity(current: AgentLifetimeState, supplied: unknown): void {
@@ -2091,10 +2088,10 @@ export function makeWorkflowOps(vaultPath: string, options: WorkflowOperationsOp
           let nextWorkRunState = optionalString(params.work_run_state)
             ? parseWorkRunState(params.work_run_state, current.workRunState)
             : stage === 'reflect'
-              ? completionState(outputClass, approvalStatus)
+              ? current.workRunState
               : current.workRunState;
-          if (nextWorkRunState === 'completed' && completionState(outputClass, approvalStatus) !== 'completed') {
-            throw makeErr(-32602, `${outputClass} output requires approval before completion`);
+          if (nextWorkRunState === 'completed' || nextWorkRunState === 'awaiting_review') {
+            throw makeErr(-32602, 'step cannot enter completed or awaiting_review; use workflow.agent.leave complete mode');
           }
           nextWorkRunState = transitionWorkRun(current.workRunState, nextWorkRunState);
           const defaultAgentStatus: AgentStatus = nextWorkRunState === 'completed' || stage === 'reflect'
@@ -2204,8 +2201,8 @@ export function makeWorkflowOps(vaultPath: string, options: WorkflowOperationsOp
             : status === 'failed'
               ? 'failed'
               : current.workRunState;
-          if (nextWorkRunState === 'completed' && completionState(outputClass, approvalStatus) !== 'completed') {
-            throw makeErr(-32602, `${outputClass} output requires approval before completion`);
+          if (nextWorkRunState === 'completed' || nextWorkRunState === 'awaiting_review') {
+            throw makeErr(-32602, 'checkpoint cannot enter completed or awaiting_review; use workflow.agent.leave complete mode');
           }
           nextWorkRunState = transitionWorkRun(current.workRunState, nextWorkRunState);
           const incomingEvidence = persistedStringList('evidence', params.evidence);
@@ -2263,7 +2260,7 @@ export function makeWorkflowOps(vaultPath: string, options: WorkflowOperationsOp
     {
   name: 'workflow.agent.leave',
       namespace: 'workflow' as Operation['namespace'],
-      description: 'Leave a Work Run through awaiting-review or terminal state while preserving its durable lifetime and event log.',
+      description: 'Claim and route one complete or terminate Work Run output before applying its owner transition.',
     mutating: true,
     writePolicy: {
       realWrite: 'always',
@@ -2273,70 +2270,94 @@ export function makeWorkflowOps(vaultPath: string, options: WorkflowOperationsOp
     },
     params: {
         project: { type: 'string', required: true, description: 'Project key' },
-        agent: { type: 'string', required: false, description: 'Agent id; defaults collaboration actor' },
-        summary: { type: 'string', required: false, description: 'Leave summary' },
-        work_run_id: { type: 'string', required: false, description: 'Joined Work Run ID; resolved from lifetime when omitted' },
-        work_run_state: {
-          type: 'string',
-          required: false,
-          enum: ['awaiting_review', 'completed', 'failed', 'cancelled'],
-          description: 'Final or review handoff state; defaults to cancelled for an unfinished run',
-        },
-        transition_token: { type: 'string', required: false, description: 'Idempotency token; generated for legacy calls' },
-        output_class: { type: 'string', required: false, enum: [...WORK_RUN_OUTPUT_CLASSES] },
-        approval_status: { type: 'string', required: false, enum: [...WORK_RUN_APPROVAL_STATUSES] },
-        provenance: { type: 'array', required: false },
+        mode: { type: 'string', required: true, enum: ['complete', 'terminate'] },
+        agent: { type: 'string', required: true, description: 'Agent id authorized for the Work Run' },
+        summary: { type: 'string', required: true, description: 'Leave summary' },
+        work_run_id: { type: 'string', required: true, description: 'Exact Work Run ID' },
+        target_state: { type: 'string', required: true, enum: ['completed', 'awaiting_review', 'failed', 'cancelled'] },
+        transition_token: { type: 'string', required: true, description: 'Stable idempotency token' },
+        submission: { type: 'object', required: true, description: 'Closed output/quarantine submission; null for terminate' },
       },
       handler: async (ctx, params) => {
         const actor = actorFromContext(ctx);
         const project = existingProjectKey(vaultPath, params.project, 'workflow.agent.leave');
         const agent = agentKey(params.agent, actor);
-        return store.withLock(() => {
+        const allowedLeaveFields = new Set(['mode', 'project', 'agent', 'work_run_id', 'transition_token', 'target_state', 'submission', 'summary']);
+        for (const key of Object.keys(params)) if (!allowedLeaveFields.has(key)) throw makeErr(-32602, `workflow.agent.leave contains unknown field ${key}`);
+        {
           const current = readAgentLifetime(vaultPath, project, agent);
           if (!current) throw makeErr(-32001, `Agent lifetime not found: ${agent}`);
+          if (params.agent !== undefined && agent !== current.agent) throw makeErr(-32602, 'agent does not match joined Work Run');
           assertWorkRunIdentity(current, params.work_run_id);
           assertDurableLifetimeIdentity(vaultPath, current);
-          const transitionToken = parseTransitionToken(params.transition_token);
-          const receipt = findTransitionReceipt(current, transitionToken, 'leave');
-          if (receipt) return replayResult(current, receipt, agentEventsPath(project, agent));
-          assertWorkRunMutable(current);
-          const outputClass = parseOutputClass(params.output_class, current.outputClass);
-          const approvalStatus = parseApprovalStatus(
-            params.approval_status,
-            outputClass,
-            outputClass === current.outputClass ? current.approvalStatus : undefined,
-          );
-          let nextWorkRunState = parseWorkRunState(params.work_run_state, 'cancelled');
-          if (nextWorkRunState === 'completed' && completionState(outputClass, approvalStatus) !== 'completed') {
-            throw makeErr(-32602, `${outputClass} output requires approval before completion`);
+          const replayToken = typeof params.transition_token === 'string' ? params.transition_token : '';
+          if (isTerminalWorkRunState(current.workRunState) && !current.transitions.some((item) => item.token === replayToken)) {
+            assertWorkRunMutable(current);
           }
-          nextWorkRunState = transitionWorkRun(current.workRunState, nextWorkRunState);
-          const summary = persistedOneLine('summary', params.summary);
-          let state: AgentLifetimeState = {
-            ...current,
-            status: 'archived',
-            workRunState: nextWorkRunState,
-            provenance: mergeStringLists(current.provenance, durableProvenance(params.provenance)),
-            outputClass,
-            approvalStatus,
-            updatedAt: isoNow(),
+          const requestInput = {
+            mode: params.mode,
+            project: projectId(project),
+            agent,
+            work_run_id: current.workRunId,
+            transition_token: params.transition_token,
+            target_state: params.target_state,
+            submission: params.submission,
+            summary: params.summary,
           };
-          state = withTransitionReceipt(state, transitionToken, 'leave');
-          assertAgentLifetimeTextSafe(state);
-          const eventsPath = agentEventsPath(project, agent);
-          const runPath = durableRunPath(project, state.workRunId);
-          return withFileRollback(vaultPath, [state.path, eventsPath, runPath], () => {
-            writeVaultBytes(vaultPath, state.path, renderAgentLifetime(state, summary));
-            syncDurableWorkRunUnlocked(vaultPath, state, transitionToken, undefined, store);
-            appendAgentEvent(vaultPath, state, {
-              kind: 'leave',
-              summary: summary || `${agent} archived`,
-              actor,
-              transitionToken,
-            });
-            return { ok: true, idempotent: false, project, projectId: state.projectId, agent, workRunId: state.workRunId, path: state.path, eventsPath, runPath, lifetime: state };
-          });
-        });
+          const request = validateWorkflowAgentLeaveRequestV2(requestInput);
+          if (request.mode === 'complete') {
+            const itemId = request.submission.output?.workItemId ?? request.submission.quarantine?.workItemId;
+            if (itemId !== current.workItemId) throw conflict('Output Work Item does not match the joined Work Run');
+            if (request.target_state === 'completed' && request.submission.result === 'quarantine') throw makeErr(-32602, 'quarantine output must target awaiting_review');
+          }
+          const outputRoute = governWorkRunOutput({
+            store,
+            owner: async (leave, ownerActor, output, quarantine) => {
+              const outputClass = output?.outputClass ?? quarantine?.observedClass ?? current.outputClass;
+              const approvalStatus = quarantine
+                ? 'pending'
+                : output?.approval?.status === 'approved'
+                  ? 'approved'
+                  : outputClass === 'view' || outputClass === 'work-state-transition'
+                    ? 'not-required'
+                    : 'pending';
+              let nextWorkRunState: WorkRunState = leave.target_state as WorkRunState;
+              let routeState: 'accepted' | 'review-required' | 'denied' = 'accepted';
+              if (leave.mode === 'complete' && outputClass === 'external-side-effect' && output?.approval?.status !== 'approved') {
+                nextWorkRunState = 'awaiting_review';
+                routeState = 'denied';
+              } else if (leave.mode === 'complete' && leave.submission.result === 'quarantine') {
+                nextWorkRunState = 'awaiting_review';
+                routeState = 'review-required';
+              }
+              nextWorkRunState = transitionWorkRun(current.workRunState, nextWorkRunState);
+              const transitionToken = parseTransitionToken(leave.transition_token);
+              const summary = persistedOneLine('summary', leave.summary);
+              let state: AgentLifetimeState = {
+                ...current,
+                status: 'archived',
+                workRunState: nextWorkRunState,
+                provenance: mergeStringLists(current.provenance, output?.provenance ?? quarantine?.provenance ?? []),
+                outputClass,
+                approvalStatus,
+                updatedAt: isoNow(),
+              };
+              state = withTransitionReceipt(state, transitionToken, 'leave');
+              assertAgentLifetimeTextSafe(state);
+              const eventsPath = agentEventsPath(project, agent);
+              const runPath = durableRunPath(project, state.workRunId);
+              const draftPath = outputClass === 'knowledge-claim' && output ? `10-Projects/${project}/agents/${agent}/memory-drafts/${output.fingerprint}.json` : null;
+              return withFileRollback(vaultPath, [state.path, eventsPath, runPath, ...(draftPath ? [draftPath] : [])], () => {
+                writeVaultBytes(vaultPath, state.path, renderAgentLifetime(state, summary));
+                syncDurableWorkRunUnlocked(vaultPath, state, transitionToken, undefined, store);
+                if (draftPath && output) persistWorkRunOutputDraft(vaultPath, ctx.store, output, ownerActor);
+                appendAgentEvent(vaultPath, state, { kind: 'leave', summary: summary || `${agent} archived`, actor: ownerActor, transitionToken });
+                return { ownerOperation: 'workflow.agent.leave', ownerReceipt: { ok: true, projectId: state.projectId, workItemId: state.workItemId, workRunId: state.workRunId, agent: state.agent, workRunState: state.workRunState }, state: routeState };
+              });
+            },
+          }, ctx, request);
+          return outputRoute.then((route) => ({ ok: route.state !== 'outcome-unknown', idempotent: false, project, projectId: current.projectId, agent, workRunId: current.workRunId, outputRoute: route, path: current.path, eventsPath: agentEventsPath(project, agent), runPath: durableRunPath(project, current.workRunId) }));
+        }
       },
     },
     {

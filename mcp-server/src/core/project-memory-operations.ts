@@ -30,6 +30,7 @@ import {
   type SessionRecord,
 } from '../project-memory/index.js';
 import type { VaultStore } from '../vault/store.js';
+import type { WorkRunOutputV1 } from '../workflow/output-governance.js';
 
 const SESSION_RECORD_SCHEMA = 'session-record/v1';
 const RESEARCH_RECORD_SCHEMA = 'research-record/v1';
@@ -44,6 +45,31 @@ interface ProjectMemoryOpsOptions {
 interface PersistedResearchRecord extends ResearchRecord {
   readonly revision: number;
   readonly contentHash: string;
+}
+
+/** Persist only the cited, reviewable Work Run draft projection; output bytes stay out of durable memory. */
+export function persistWorkRunOutputDraft(
+  vaultPath: string,
+  store: VaultStore | undefined,
+  output: WorkRunOutputV1,
+  actor: string,
+): string {
+  const safeActor = safeSegment(actor, 'actor');
+  const project = safeSegment(output.projectId.slice('project/'.length), 'project');
+  const relativePath = `10-Projects/${project}/agents/${safeActor}/memory-drafts/${output.fingerprint}.json`;
+  const proposalId = isRecord(output.payload) && typeof output.payload.proposalId === 'string' ? output.payload.proposalId : undefined;
+  writeJson(vaultPath, store, relativePath, {
+    schemaVersion: 'project-memory-draft/v1',
+    projectId: output.projectId,
+    workItemId: output.workItemId,
+    workRunId: output.workRunId,
+    citations: output.citations,
+    provenance: output.provenance,
+    payloadFingerprint: output.fingerprint,
+    ...(proposalId ? { proposalId } : {}),
+    reviewStatus: 'draft',
+  });
+  return relativePath;
 }
 
 /**

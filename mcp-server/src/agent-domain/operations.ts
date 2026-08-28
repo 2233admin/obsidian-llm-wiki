@@ -60,6 +60,7 @@ import { createSettingsService } from '../settings/settings.js';
 import { createUsageEvent, known, unknown, type UsageEventKind } from '../usage/contracts.js';
 import { UsageLedger } from '../usage/ledger.js';
 import { makeWorkflowOps, type WorkflowOperationsOptions } from '../workflow/workflow.js';
+import { fingerprintRecoveryValue } from '../project-hub/contract-support.js';
 
 export const AGENT_DOMAIN_RELATIVE_ROOT = '_llmwiki/agent-domain/v1' as const;
 export const USAGE_RELATIVE_ROOT = '_llmwiki/usage/v1' as const;
@@ -340,19 +341,32 @@ async function moveCadenceWorkRunToReview(
   proposalId: MemoryProposalId,
   workflowOptions: WorkflowOperationsOptions,
 ): Promise<void> {
-  await workflowOperation(vaultPath, 'workflow.agent.step', workflowOptions).handler(ctx, {
+  const workRun = readCanonicalWorkRun(vaultPath, project, workRunId);
+  const outputMaterial = {
+    schemaVersion: 'work-run-output/v1' as const,
+    projectId: project.projectId,
+    workItemId: requiredString(workRun.work_item_id, 'workRun.work_item_id'),
+    workRunId,
+    outputClass: 'knowledge-claim' as const,
+    payload: { proposalId },
+    citations: [`proposal:${proposalId}`],
+    provenance: [`dreamtime-proposal:${proposalId}`],
+    producedAt: requiredString(workRun.created_at, 'workRun.created_at'),
+  };
+  await workflowOperation(vaultPath, 'workflow.agent.leave', workflowOptions).handler(ctx, {
     project: project.projectId,
     agent: identity.agentId,
-    stage: 'review',
+    mode: 'complete',
     work_run_id: workRunId,
-    work_run_state: 'awaiting_review',
+    target_state: 'awaiting_review',
     transition_token: `${identity.transitionToken}-proposal`,
-    output_class: 'knowledge-claim',
-    approval_status: 'pending',
-    provenance: [`dreamtime-proposal:${proposalId}`],
-    evidence: [`proposal:${proposalId}`],
+    submission: {
+      schemaVersion: 'work-run-output-submission/v1',
+      result: 'output',
+      output: { ...outputMaterial, fingerprint: fingerprintRecoveryValue(outputMaterial) },
+      quarantine: null,
+    },
     summary: 'Dream Time cadence produced an immutable proposal and is awaiting explicit review.',
-    next: 'Approve or reject the exact Memory Proposal fingerprint.',
   });
 }
 

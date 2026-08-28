@@ -1746,21 +1746,20 @@ Assert and join an existing Work Driver lease without overwriting its durable id
 
 ### `workflow.agent.leave`
 
-Leave a Work Run through awaiting-review or terminal state while preserving its durable lifetime and event log.
+Claim and route one complete or terminate Work Run output before applying its owner transition.
 
 **Mutating:** yes
 
 **Parameters:**
 
 - `project` (string, required) — Project key
-- `agent` (string, optional) — Agent id; defaults collaboration actor
-- `summary` (string, optional) — Leave summary
-- `work_run_id` (string, optional) — Joined Work Run ID; resolved from lifetime when omitted
-- `work_run_state` (string, optional, enum: `awaiting_review` | `completed` | `failed` | `cancelled`) — Final or review handoff state; defaults to cancelled for an unfinished run
-- `transition_token` (string, optional) — Idempotency token; generated for legacy calls
-- `output_class` (string, optional, enum: `view` | `work-state-transition` | `knowledge-claim` | `external-side-effect`)
-- `approval_status` (string, optional, enum: `not-required` | `pending` | `approved` | `denied`)
-- `provenance` (array, optional)
+- `mode` (string, required, enum: `complete` | `terminate`)
+- `agent` (string, required) — Agent id authorized for the Work Run
+- `summary` (string, required) — Leave summary
+- `work_run_id` (string, required) — Exact Work Run ID
+- `target_state` (string, required, enum: `completed` | `awaiting_review` | `failed` | `cancelled`)
+- `transition_token` (string, required) — Stable idempotency token
+- `submission` (object, required) — Closed output/quarantine submission; null for terminate
 
 ### `workflow.agent.start`
 

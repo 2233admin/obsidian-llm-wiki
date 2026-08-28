@@ -7,6 +7,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { isWorkRunTransitionAllowed, makeWorkflowOps, WORK_RUN_STATES, type WorkRunState } from './workflow.js';
 import type { Operation, OperationContext } from '../core/types.js';
 import { compatibilityReadReport } from '../project/project-context.js';
+import { fingerprintRecoveryValue } from '../project-hub/contract-support.js';
 
 function makeHarness() {
   const root = join(tmpdir(), `llmwiki-workflow-${randomUUID()}`);
@@ -43,6 +44,21 @@ function makeHarness() {
 
 function vp(root: string, rel: string): string {
   return join(root, ...rel.split('/'));
+}
+
+function outputSubmission(project: string, workItemId: string, workRunId: string, outputClass: 'view' | 'work-state-transition' | 'knowledge-claim' | 'external-side-effect' = 'view') {
+  const material = {
+    schemaVersion: 'work-run-output/v1' as const,
+    projectId: `project/${project}`,
+    workItemId,
+    workRunId,
+    outputClass,
+    payload: { artifactId: 'artifact/test-output' },
+    citations: ['issue:test'],
+    provenance: ['test:workflow'],
+    producedAt: '2026-08-28T00:00:00.000Z',
+  };
+  return { schemaVersion: 'work-run-output-submission/v1' as const, result: 'output' as const, output: { ...material, fingerprint: fingerprintRecoveryValue(material) }, quarantine: null };
 }
 
 interface WorkRunContractFixture {
@@ -1163,7 +1179,7 @@ describe('agent project workflow operations', () => {
     const cases = [
       { operation: 'workflow.agent.step', params: { stage: 'plan' } },
       { operation: 'workflow.agent.checkpoint', params: { status: 'passed', summary: 'checkpoint' } },
-      { operation: 'workflow.agent.leave', params: { summary: 'leave' } },
+      { operation: 'workflow.agent.leave', params: { mode: 'terminate', target_state: 'cancelled', submission: null, summary: 'leave' } },
     ];
     for (const item of cases) {
       const { root, call } = makeHarness();
@@ -1193,7 +1209,7 @@ describe('agent project workflow operations', () => {
             provenance: ['repo:/opt/private'],
             ...item.params,
           }),
-          /must not contain machine-local paths or lease tokens/,
+          /must not contain machine-local paths or lease tokens|unknown field|mode must be complete or terminate/,
         );
         assert.equal(readFileSync(lifetimePath, 'utf-8'), before.lifetime);
         assert.equal(readFileSync(eventsPath, 'utf-8'), before.events);
@@ -1334,7 +1350,7 @@ describe('agent project workflow operations', () => {
         const value = item.field === 'evidence' || item.field === 'provenance' ? [unsafe] : unsafe;
         await assert.rejects(
           () => call(item.operation, { ...item.params, [item.field]: value }),
-          /machine-local paths or lease tokens\/handoff tokens/,
+          /machine-local paths or lease tokens\/handoff tokens|unknown field|mode must be complete or terminate/,
           `${item.operation}.${item.field}`,
         );
         assert.equal(existsSync(vp(root, '01-Projects/alpha')), false, `${item.operation}.${item.field}`);
@@ -1386,7 +1402,7 @@ describe('agent project workflow operations', () => {
             ...item.base,
             [item.field]: value,
           }),
-          /machine-local paths or lease tokens\/handoff tokens/,
+          /machine-local paths or lease tokens\/handoff tokens|unknown field|unsafe material/,
           `${item.operation}.${item.field}`,
         );
         assert.equal(readFileSync(lifetimePath, 'utf-8'), before.lifetime);
@@ -1401,7 +1417,7 @@ describe('agent project workflow operations', () => {
   test('workflow.agent.step enforces ordered lifetime stages and allows review rework', async () => {
     const { root, call } = makeHarness();
     try {
-      await call('workflow.agent.start', { project: 'alpha', agent: 'worker', role: 'worker' });
+      const started = await call('workflow.agent.start', { project: 'alpha', agent: 'worker', role: 'worker' }) as { workRunId: string };
 
       await assert.rejects(
         () => call('workflow.agent.step', { project: 'alpha', agent: 'worker', stage: 'build' }),
@@ -1428,7 +1444,7 @@ describe('agent project workflow operations', () => {
   test('workflow.agent.step requires evidence to ship and reflect closes lifetime', async () => {
     const { root, call } = makeHarness();
     try {
-      await call('workflow.agent.start', { project: 'alpha', agent: 'worker', role: 'worker' });
+      const started = await call('workflow.agent.start', { project: 'alpha', agent: 'worker', role: 'worker' }) as { workRunId: string };
       await call('workflow.agent.step', { project: 'alpha', agent: 'worker', stage: 'plan' });
       await call('workflow.agent.step', { project: 'alpha', agent: 'worker', stage: 'build' });
     await call('workflow.agent.step', { project: 'alpha', agent: 'worker', stage: 'review' });
@@ -1532,7 +1548,7 @@ test('workflow.agent.checkpoint leave and doctor preserve lifetime evidence', as
       assert.equal(missing.ok, false);
       assert.deepEqual(missing.missing, ['01-Projects/alpha/agents/worker/lifetime.md']);
 
-      await call('workflow.agent.start', { project: 'alpha', agent: 'worker', role: 'worker' });
+      const started = await call('workflow.agent.start', { project: 'alpha', agent: 'worker', role: 'worker' }) as { workRunId: string };
       const checkpoint = (await call('workflow.agent.checkpoint', {
         project: 'alpha',
         agent: 'worker',
@@ -1546,9 +1562,14 @@ test('workflow.agent.checkpoint leave and doctor preserve lifetime evidence', as
       const left = (await call('workflow.agent.leave', {
         project: 'alpha',
         agent: 'worker',
+        mode: 'terminate',
+        work_run_id: started.workRunId,
+        target_state: 'cancelled',
+        transition_token: 'leave:session-ended',
+        submission: null,
         summary: 'session ended',
-      })) as { lifetime: { status: string } };
-      assert.equal(left.lifetime.status, 'archived');
+      })) as { outputRoute: { state: string } };
+      assert.equal(left.outputRoute.state, 'accepted');
 
       const doctor = (await call('workflow.agent.doctor', { project: 'alpha', agent: 'worker' })) as {
         ok: boolean;
@@ -1573,6 +1594,7 @@ test('workflow.agent.checkpoint leave and doctor preserve lifetime evidence', as
       await call('workflow.agent.start', {
         project: 'alpha',
         agent: 'worker',
+        issue: 'build',
         transition_token: 'join:terminal-contract',
       });
       await call('workflow.agent.step', { project: 'alpha', agent: 'worker', stage: 'plan', transition_token: 'step:plan' });
@@ -1592,13 +1614,19 @@ test('workflow.agent.checkpoint leave and doctor preserve lifetime evidence', as
         evidence: ['test:workflow'],
         transition_token: 'step:ship',
       });
-      const completed = (await call('workflow.agent.step', {
+      const reflected = (await call('workflow.agent.step', {
         project: 'alpha',
         agent: 'worker',
         stage: 'reflect',
         transition_token: 'step:reflect',
-      })) as { lifetime: { workRunState: string } };
-      assert.equal(completed.lifetime.workRunState, 'completed');
+      })) as { lifetime: { workRunState: string; workRunId: string; workItemId: string } };
+      assert.equal(reflected.lifetime.workRunState, 'running');
+      const completed = (await call('workflow.agent.leave', {
+        project: 'alpha', agent: 'worker', work_run_id: reflected.lifetime.workRunId,
+        mode: 'complete', target_state: 'completed', transition_token: 'leave:reflect',
+        submission: outputSubmission('alpha', reflected.lifetime.workItemId, reflected.lifetime.workRunId), summary: 'completed',
+      })) as { lifetime?: { workRunState: string }; outputRoute: { state: string } };
+      assert.equal(completed.outputRoute.state, 'accepted');
 
       await assert.rejects(
         () => call('workflow.agent.checkpoint', {
@@ -1629,6 +1657,7 @@ test('workflow.agent.checkpoint leave and doctor preserve lifetime evidence', as
       await call('workflow.agent.start', {
         project: 'alpha',
         agent: 'worker',
+        issue: 'build',
         transition_token: 'join:review-contract',
         output_class: 'knowledge-claim',
       });
@@ -1654,29 +1683,17 @@ test('workflow.agent.checkpoint leave and doctor preserve lifetime evidence', as
         agent: 'worker',
         stage: 'reflect',
         transition_token: 'review:reflect',
-      })) as { lifetime: { workRunState: string; outputClass: string; approvalStatus: string } };
+      })) as { lifetime: { workRunState: string; outputClass: string; approvalStatus: string; workRunId: string; workItemId: string } };
       assert.deepEqual(
         [pending.lifetime.workRunState, pending.lifetime.outputClass, pending.lifetime.approvalStatus],
-        ['awaiting_review', 'knowledge-claim', 'pending'],
-      );
-
-      await assert.rejects(
-        () => call('workflow.agent.leave', {
-          project: 'alpha',
-          agent: 'worker',
-          work_run_state: 'completed',
-          transition_token: 'review:complete-without-approval',
-        }),
-        /requires approval before completion/,
+        ['running', 'knowledge-claim', 'pending'],
       );
       const approved = (await call('workflow.agent.leave', {
-        project: 'alpha',
-        agent: 'worker',
-        work_run_state: 'completed',
-        approval_status: 'approved',
-        transition_token: 'review:approved',
-      })) as { lifetime: { workRunState: string; approvalStatus: string } };
-      assert.deepEqual([approved.lifetime.workRunState, approved.lifetime.approvalStatus], ['completed', 'approved']);
+        project: 'alpha', agent: 'worker', work_run_id: pending.lifetime.workRunId,
+        mode: 'complete', target_state: 'completed', transition_token: 'review:approved',
+        submission: outputSubmission('alpha', pending.lifetime.workItemId, pending.lifetime.workRunId, 'knowledge-claim'), summary: 'approved',
+      })) as { outputRoute: { state: string } };
+      assert.equal(approved.outputRoute.state, 'accepted');
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -1688,6 +1705,7 @@ test('workflow.agent.checkpoint leave and doctor preserve lifetime evidence', as
       await call('workflow.agent.start', {
         project: 'alpha',
         agent: 'worker',
+        issue: 'build',
         transition_token: 'external:join',
       });
       const denied = (await call('workflow.agent.checkpoint', {
@@ -1697,21 +1715,17 @@ test('workflow.agent.checkpoint leave and doctor preserve lifetime evidence', as
         summary: 'push requested without approval',
         output_class: 'external-side-effect',
         approval_status: 'denied',
-        work_run_state: 'awaiting_review',
       })) as { lifetime: { workRunState: string; outputClass: string; approvalStatus: string } };
       assert.deepEqual(
         [denied.lifetime.workRunState, denied.lifetime.outputClass, denied.lifetime.approvalStatus],
-        ['awaiting_review', 'external-side-effect', 'denied'],
+        ['running', 'external-side-effect', 'denied'],
       );
-      await assert.rejects(
-        () => call('workflow.agent.leave', {
-          project: 'alpha',
-          agent: 'worker',
-          transition_token: 'external:complete-denied',
-          work_run_state: 'completed',
-        }),
-        /requires approval before completion/,
-      );
+      const result = (await call('workflow.agent.leave', {
+        project: 'alpha', agent: 'worker', work_run_id: (denied as any).lifetime.workRunId,
+        mode: 'complete', target_state: 'completed', transition_token: 'external:complete-denied',
+        submission: outputSubmission('alpha', (denied as any).lifetime.workItemId, (denied as any).lifetime.workRunId, 'external-side-effect'), summary: 'external review',
+      })) as { outputRoute: { state: string } };
+      assert.equal(result.outputRoute.state, 'denied');
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

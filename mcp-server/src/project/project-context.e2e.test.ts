@@ -10,6 +10,7 @@ import type { VaultMindAdapter } from '../adapters/interface.js';
 import type { Operation, OperationContext } from '../core/types.js';
 import { makeSourceOps } from '../source/source.js';
 import { makeWorkflowOps } from '../workflow/workflow.js';
+import { fingerprintRecoveryValue } from '../project-hub/contract-support.js';
 import { createDefaultRecoveryRuntime, makeProjectHubOps } from './project-hub.js';
 import { createRecoveryPlanningService } from '../project-hub/recovery-planning-service.js';
 import { makeProjectMigrationOps } from './project-migration.js';
@@ -86,11 +87,24 @@ test('Project Context end-to-end contract closes one work and migration loop', a
     work_run_state: 'leased', work_item_id: lease.work_item_id,
     transition_token: 'e2e:join', provenance: ['work-driver:lease-acquired'],
   });
-  await call('workflow.agent.checkpoint', {
+  const outputMaterial = {
+    schemaVersion: 'work-run-output/v1' as const,
+    projectId: lease.project_id,
+    workItemId: lease.work_item_id,
+    workRunId: lease.work_run_id,
+    outputClass: 'knowledge-claim' as const,
+    payload: { artifactId: 'artifact/e2e-output' },
+    citations: ['test:e2e'],
+    provenance: ['work-driver:lease-acquired'],
+    producedAt: '2026-08-28T00:00:00.000Z',
+  };
+  await call('workflow.agent.leave', {
     project: lease.project_id, agent: 'codex', work_run_id: lease.work_run_id,
-    work_run_state: 'awaiting_review', transition_token: 'e2e:review',
-    output_class: 'knowledge-claim', approval_status: 'pending',
-    summary: 'Knowledge output awaits review', evidence: ['test:e2e'],
+    mode: 'complete', target_state: 'awaiting_review', transition_token: 'e2e:review',
+    submission: {
+      schemaVersion: 'work-run-output-submission/v1', result: 'output',
+      output: { ...outputMaterial, fingerprint: fingerprintRecoveryValue(outputMaterial) }, quarantine: null,
+    }, summary: 'Knowledge output awaits review',
   });
   const durableRun = JSON.parse(readFileSync(
     join(vault, '01-Projects', 'alpha', 'runs', `${lease.work_run_id.slice('work-run/'.length)}.json`),
