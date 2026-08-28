@@ -30,7 +30,7 @@ Append content to a note
 
 - `path` (string, required) — Vault-relative path to the note
 - `content` (string, required) — Content to append
-- `dryRun` (boolean, optional, default: `true`) — Simulate without writing (default: true)
+- `dryRun` (boolean, optional, default: `false`) — Simulate without writing (default: false)
 
 ### `vault.backlinks`
 
@@ -63,7 +63,7 @@ Create a new note (dry-run by default)
 
 - `path` (string, required) — Vault-relative path for the new note
 - `content` (string, optional) — Initial content
-- `dryRun` (boolean, optional, default: `true`) — Simulate without writing (default: true)
+- `dryRun` (boolean, optional, default: `false`) — Simulate without writing (default: false)
 
 ### `vault.daily`
 
@@ -77,7 +77,7 @@ Create or update today's daily note with AI-First frontmatter (date, mood, energ
 - `mood` (string, optional, enum: `great` | `good` | `neutral` | `low` | `bad`) — Mood rating
 - `energy` (string, optional, enum: `high` | `medium` | `low`) — Energy level
 - `tags` (array, optional) — Extra tags
-- `dryRun` (boolean, optional, default: `true`) — Simulate without writing (default: true)
+- `dryRun` (boolean, optional, default: `false`) — Simulate without writing (default: false)
 
 ### `vault.decide`
 
@@ -97,7 +97,7 @@ Create a structured decision log (ADR). Path: Decisions/YYYY-MM-DD -- {title-slu
 - `project` (string, optional) — Owning project (namespaces the currency entity as project/<slug>/decision/<title>)
 - `entity` (string, optional) — Currency entity key override (default derived from project + title)
 - `source` (string, optional) — Verifiable source (commit:/path:/test:/url:); without it the decision shows UNSUPPORTED in the currency view
-- `dryRun` (boolean, optional, default: `true`) — Simulate without writing (default: true)
+- `dryRun` (boolean, optional, default: `false`) — Simulate without writing (default: false)
 
 ### `vault.delete`
 
@@ -108,7 +108,7 @@ Delete a note or folder
 **Parameters:**
 
 - `path` (string, required) — Vault-relative path to delete
-- `dryRun` (boolean, optional, default: `true`) — Simulate without deleting (default: true)
+- `dryRun` (boolean, optional, default: `false`) — Simulate without deleting (default: false)
 
 ### `vault.enforceDiscipline`
 
@@ -118,7 +118,7 @@ Retroactively enforce Karpathy LLM Wiki discipline: ensure each top-level topic 
 
 **Parameters:**
 
-- `dryRun` (boolean, optional, default: `true`) — Simulate without writing (default: true)
+- `dryRun` (boolean, optional, default: `false`) — Simulate without writing (default: false)
 - `topLevelOnly` (boolean, optional, default: `true`) — Only process top-level directories (default: true)
 - `skipDirs` (array, optional) — Additional directory names to skip beyond the built-in protected list
 
@@ -166,7 +166,7 @@ Ingest content into vault with AI-First frontmatter (ai-first: true, source, rec
 - `type` (string, optional, default: `"note"`, enum: `article` | `research` | `note` | `reference`) — Content type
 - `tags` (array, optional) — Extra tags
 - `preamble` (string, optional) — 2-3 sentence "For future Claude" preamble
-- `dryRun` (boolean, optional, default: `true`) — Simulate without writing (default: true)
+- `dryRun` (boolean, optional, default: `false`) — Simulate without writing (default: false)
 
 ### `vault.init`
 
@@ -178,7 +178,7 @@ Scaffold the vault. methodology mode creates the folder layout (generic|para|lyt
 
 - `topic` (string, optional) — Topic name (used as directory name and KB title); topic mode
 - `methodology` (string, optional, enum: `generic` | `para` | `lyt` | `zettelkasten`) — Vault folder scaffold to create; methodology mode
-- `dryRun` (boolean, optional, default: `true`) — Simulate without writing (methodology mode only, default: true)
+- `dryRun` (boolean, optional, default: `false`) — Simulate without writing (methodology mode only, default: false)
 
 ### `vault.lint`
 
@@ -213,7 +213,7 @@ Create a meeting note with attendees, decisions, and action items. Path: Meeting
 - `decisions` (array, optional) — List of decisions made
 - `actions` (array, optional) — Action items (strings)
 - `summary` (string, optional) — Meeting summary
-- `dryRun` (boolean, optional, default: `true`) — Simulate without writing (default: true)
+- `dryRun` (boolean, optional, default: `false`) — Simulate without writing (default: false)
 
 ### `vault.mkdir`
 
@@ -224,7 +224,7 @@ Create a directory
 **Parameters:**
 
 - `path` (string, required) — Vault-relative directory path to create
-- `dryRun` (boolean, optional, default: `true`) — Simulate without creating (default: true)
+- `dryRun` (boolean, optional, default: `false`) — Simulate without creating (default: false)
 
 ### `vault.modify`
 
@@ -236,7 +236,7 @@ Overwrite an existing note
 
 - `path` (string, required) — Vault-relative path to the note
 - `content` (string, required) — New content
-- `dryRun` (boolean, optional, default: `true`) — Simulate without writing (default: true)
+- `dryRun` (boolean, optional, default: `false`) — Simulate without writing (default: false)
 
 ### `vault.person`
 
@@ -251,7 +251,7 @@ Create or update a person note with AI-First frontmatter. Path: People/{name}.md
 - `company` (string, optional) — Organization
 - `relationship` (string, optional) — How you know them
 - `notes` (string, optional) — Additional context
-- `dryRun` (boolean, optional, default: `true`) — Simulate without writing (default: true)
+- `dryRun` (boolean, optional, default: `false`) — Simulate without writing (default: false)
 
 ### `vault.project`
 
@@ -267,7 +267,7 @@ Deprecated compatibility update for an already-registered Project. Unknown names
 - `team` (array, optional) — Team member names (wikilinked in content)
 - `tags` (array, optional) — Extra tags
 - `entity` (string, optional) — Currency entity key (default: project/<name-slug>); drives the status-drift guard
-- `dryRun` (boolean, optional, default: `true`) — Simulate without writing (default: true)
+- `dryRun` (boolean, optional, default: `false`) — Simulate without writing (default: false)
 
 ### `vault.read`
 
@@ -300,7 +300,7 @@ Rename/move a file
 
 - `from` (string, required) — Source vault-relative path
 - `to` (string, required) — Destination vault-relative path
-- `dryRun` (boolean, optional, default: `true`) — Simulate without moving (default: true)
+- `dryRun` (boolean, optional, default: `false`) — Simulate without moving (default: false)
 
 ### `vault.search`
 
@@ -388,7 +388,7 @@ Write a persona-authored analysis into 00-Inbox/AI-Output/{persona}/YYYY-MM-DD-{
 - `scope` (string, optional, default: `"project"`, enum: `project` | `global` | `cross-project` | `host-local`) — Governance namespace for the entry (default: project)
 - `quarantineState` (string, optional, default: `"new"`, enum: `new` | `reviewed` | `promoted` | `discarded`) — Trust-gate state in the candidate lifecycle (default: new)
 - `reviewStatus` (string, optional, default: `"none"`, enum: `none` | `user-confirmed`) — When user-confirmed, appends #user-confirmed tag to the body so Obsidian tag search picks it up. Default: none (no tag appended).
-- `dryRun` (boolean, optional, default: `true`) — Simulate without writing (default: true)
+- `dryRun` (boolean, optional, default: `false`) — Simulate without writing (default: false)
 
 ## `query.*` (8)
 
