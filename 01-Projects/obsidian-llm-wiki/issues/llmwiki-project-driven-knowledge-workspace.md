@@ -22,7 +22,7 @@ last-verified: 2026-08-28
 - **Contributors**: Product, domain, Obsidian UX, Agent workflow
 - **Informed**: MCP, CLI, capability-worker maintainers
 - **Lifecycle**: Product wedge and Recovery Flow v2 approved before implementation
-- **Decision outcome**: Recovery-required S01B–S08 work is part of Foundation exit; S01B and S02 are verified completions, and implementation proceeds blockers-first from reviewed S03
+- **Decision outcome**: Recovery-required S01B–S08 work is part of Foundation exit; S01B–S03 are verified completions, and implementation proceeds blockers-first from reviewed S04A
 
 ## Takeaway
 
@@ -129,8 +129,8 @@ Planning contract:
 - `openspec/changes/project-hub-recovery-loop/`
 - `docs/superpowers/plans/2026-08-27-project-hub-recovery-loop.md`
 
-S01B and S02 are verified completions. S03 is the immediately executable leaf;
-S04A–S08 remain blocked by the direct dependency chain above.
+S01B–S03 are verified completions. S04A is the immediately executable leaf;
+S06A–S08 remain blocked by the direct dependency chain above.
 
 ## Success metrics
 
@@ -145,8 +145,8 @@ Baselines are not yet measured. S08 owns the reproducible measurement path and b
 
 ## Acceptance criteria for this product brief
 
-This brief is approved and decomposed. S01B and S02 have passed focused
-verification and independent review. Implementation continues from S03 because:
+This brief is approved and decomposed. S01B–S03 have passed focused
+verification and independent review. Implementation continues from S04A because:
 
 - Ask Mate Project Context is the primary recovery entry;
 - Project ID, Workspace Binding, Work-OS, Knowledge, Memory, Session Record, Work Run, Settings, Agent Domain, and Promotion/Write Policy ownership is explicit;
@@ -182,8 +182,8 @@ prior stage. Apply/output writes remain Workflow-owned.
 
 1. **Complete — S01B** defines the complete internal closed V2 request/response/stage/fingerprint kernel while V1 remains byte-stable.
 2. **Complete — S02** extracts Workflow store/read seams and composes open plus bounded context.
-3. **Next — S03** adds mandatory repeatable Project-scoped cited search.
-4. S04A adds candidates/Binding eligibility/immutable Plans, registers the complete Flow, migrates callers, and removes V1.
+3. **Complete — S03** adds mandatory repeatable Project-scoped cited search.
+4. **Next — S04A** adds candidates/Binding eligibility/immutable Plans, registers the complete Flow, migrates callers, and removes V1.
 5. S06A proves the ephemeral read-only Flow through Ask Mate Project Context in actual Obsidian.
 6. S04B applies one exact Plan through claim-first Workflow ownership.
 7. S05 claims and routes Work Run output through owner policy.
