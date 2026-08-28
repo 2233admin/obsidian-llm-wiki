@@ -40,11 +40,21 @@ Luna receives one reviewed Task at a time. It may alter internal implementation 
 - [x] **T4.3 Register complete Flow and clean-cut V1 (R1–R6)** — Modify `mcp-server/src/project/project-hub.ts`, its tests, `project-hub/index.ts`, core operation composition, generated-operation tests/docs inputs, and every V1 caller. Register only the complete `project.hub.recovery.flow`; remove `project.hub.get.recovery`, `project-hub-recovery/v1` types/validator/export/tests, and `mcp-server/src/project-hub/recovery.ts`. Add V1-to-V2 action-fact equivalence before deletion.
 - [x] **T4.4 Verify S04A** — Required T4.4 suite: 57 passed, 0 failed; `npm run typecheck -- --pretty false`: passed; strict OpenSpec validation: passed; absence scan: no runtime V1 references or stale operation name outside permitted historical prose. Independent review remains pending.
 
+## Phase 4.5 — S04P read-only `workflow.recovery.plan` Operation
+
+> Breaks the S06A surface blocker. Introduces `workflow.recovery.plan` capability so candidate composition reaches `searched`/`needs-agent-selection`/`planned` without S04B.
+
+- [ ] **T4.5.1 Register planning Operation (R12, R13, R15)** — Add `workflow.recovery.plan` to `makeWorkflowOps` with `mutating: false`, schema `workflow-recovery-plan/v1`, request arms `plan/from-search|override|refresh-plan`, response stages `planned|stale|unavailable`. The Operation delegates plan/refresh/override actions to the same internal handler used by `project.hub.recovery.flow`; semantics, validators, and fingerprints are not duplicated.
+- [ ] **T4.5.2 Introduce planning capability fact (R14, R15)** — After Operation registration, `workflow.recovery.plan` capability enters `available` state. Add `workflow-recovery-plan/v1` schema and capability fact injection to the same capability factory used by other Workflow Operations.
+- [ ] **T4.5.3 Update candidate composition (R12, R14)** — Modify `composeRecoveryCandidates` to check `workflow.recovery.plan: available` instead of `workflow.recovery.apply: available` for candidate recommendation. Missing planning capability produces `capability_unavailable` with bounded remediation.
+- [ ] **T4.5.4 Update Agent Domain Profile requirements (R14)** — Modify Compatible Agent Profile capability requirements to use `workflow.recovery.plan` (not `workflow.recovery.apply`) for the planning gate.
+- [ ] **T4.5.5 Verify S04P** — Run focused Operation registration test, capability fact test, candidate composition test, and Agent Domain Profile test. Run existing `project.hub.recovery.flow` plan action tests — they pass without modification because the handler is shared. Record S04P evidence; S06A T5.3 resumes after principal accepts this work.
+
 ## Phase 5 — S06A Ask Mate Recovery Flow preview
 
 - [x] **T5.1 Stateless Flow client (R9.1–R9.3)** — Add `obsidian-plugin/src/project-hub/recovery-client.ts` and its test; modify `main.ts`, lifecycle tests, and `test-settings.mjs`. Map only read-only Flow actions/stages; no apply method, server validator copy, retry store, or persisted Flow state. Automated evidence: focused client test passed; `npm run typecheck -- --pretty false` passed after installing declared MCP dependencies.
 - [x] **T5.2 Project-context Flow panel (R9.1–R9.3)** — Add `obsidian-plugin/src/project-hub/recovery-panel.ts` and its view test; modify `ask-mate/view.ts`, its test, styles, and test loader. Render open/search/Binding selection/planned/stale/unavailable, auto-submit only the closed recommended request, allow candidate replacement, require explicit plan refresh, and preserve keyboard/focus/cancellation/no-write behavior. Automated evidence: focused panel/lifecycle tests passed; `npm run build` passed. Actual Obsidian keyboard/visual/principal evidence remains T5.3.
-- [ ] **T5.3 Verify S06A in actual Obsidian** — Run plugin tests/typecheck/build, prove no fixture bytes or plugin data change, reload the ItemView to prove Flow state disappears, and record interaction/visual evidence. S04B remains blocked until principal accepts the actual surface.
+- [ ] **T5.3 Verify S06A in actual Obsidian** — Run plugin tests/typecheck/build, prove no fixture bytes or plugin data change, reload the ItemView to prove Flow state disappears, and record interaction/visual evidence. S06A resumes after S04P lands; S04B remains blocked until principal accepts the actual surface.
 
 ## Phase 6 — S04B claim-first Workflow apply
 

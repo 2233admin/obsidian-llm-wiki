@@ -372,3 +372,109 @@ The system SHALL provide one sanitized end-to-end fixture and reproducible actua
 - **GIVEN** any contract, behavior, actual-surface, parity, timing, or privacy check fails
 - **WHEN** Foundation acceptance is evaluated
 - **THEN** S08 and Foundation remain incomplete and a linked Work-OS follow-up records the failure without waiver
+
+### Requirement: R12. `workflow.recovery.plan` is a read-only Workflow Operation
+
+The system SHALL register `workflow.recovery.plan` as a `mutating: false` Workflow Operation that accepts only closed Plan request arms (`plan/from-search`, `plan/override`, `refresh-plan`) and returns only `planned|stale|unavailable` Flow responses, writes zero bytes, has no actor/token/claim/apply path, and persists nothing.
+
+#### Scenario R12.1: Operation is registered
+
+- **GIVEN** S04P registers `workflow.recovery.plan`
+- **WHEN** the Operation catalog is built
+- **THEN** it is declared `mutating: false` with schema `workflow-recovery-plan/v1`, request arms `plan/from-search|override|refresh-plan`, and response stages `planned|stale|unavailable`
+
+#### Scenario R12.2: Operation accepts only Plan arms
+
+- **GIVEN** a request to `workflow.recovery.plan` with `open`, `search`, or `restart` action
+- **WHEN** Operation validation runs
+- **THEN** it rejects as an unsupported action
+
+#### Scenario R12.3: Operation returns only planned/stale/unavailable
+
+- **GIVEN** a valid Plan request to `workflow.recovery.plan`
+- **WHEN** the Operation executes
+- **THEN** it returns `planned|stale|unavailable` and never `open|searched|needs-agent-selection`
+
+#### Scenario R12.4: No write occurs
+
+- **GIVEN** any request to `workflow.recovery.plan`
+- **WHEN** the Operation executes
+- **THEN** zero bytes are written, no claim/token/Plan/session is persisted, and no actor/token/claim/apply path exists
+
+#### Scenario R12.5: Handler is shared with Flow
+
+- **GIVEN** the same Plan request is sent to `project.hub.recovery.flow` and `workflow.recovery.plan`
+- **WHEN** both execute
+- **THEN** the `planned|stale|unavailable` response is byte-identical; semantics, validators, and fingerprints are not duplicated
+
+### Requirement: R13. One shared planning handler
+
+The system SHALL own one internal planning handler that `project.hub.recovery.flow` and `workflow.recovery.plan` both delegate to, without duplicating semantics, validators, or fingerprints.
+
+#### Scenario R13.1: Handler owns prerequisite recomputation
+
+- **GIVEN** a Plan request to either surface
+- **WHEN** the handler executes
+- **THEN** it recomputes open → search → candidate → Binding and derives Plan fingerprint without re-implementing that logic in each caller
+
+#### Scenario R13.2: Handler owns stale/unavailable composition
+
+- **GIVEN** a prerequisite fingerprint mismatch or missing capability
+- **WHEN** the handler returns stale or unavailable
+- **THEN** the response matches the same shapes and diagnostics as the Flow-only path
+
+### Requirement: R14. Capability separation: planning never authorizes mutation
+
+The system SHALL introduce `workflow.recovery.plan` capability as `available` when the Operation is registered, require it for candidate recommendation, and keep it independent of `workflow.recovery.apply` availability.
+
+#### Scenario R14.1: Planning capability introduced when Operation registered
+
+- **GIVEN** S04P registers `workflow.recovery.plan`
+- **WHEN** the capability factory runs
+- **THEN** `workflow.recovery.plan: available` appears in the capability list and `workflow.recovery.apply: available` does not appear until S04B registers apply
+
+#### Scenario R14.2: Candidate composition requires planning capability
+
+- **GIVEN** `composeRecoveryCandidates` runs with `workflow.recovery.plan: available`
+- **WHEN** candidates and compatible Bindings are computed
+- **THEN** candidates are recommended and the searched/needs-agent-selection stage is reachable
+
+#### Scenario R14.3: Candidate composition blocked without planning capability
+
+- **GIVEN** `composeRecoveryCandidates` runs without `workflow.recovery.plan: available`
+- **WHEN** candidates and compatible Bindings are computed
+- **THEN** `unavailable` with `capability_unavailable` reason and bounded remediation is returned
+
+#### Scenario R14.4: Apply independently proves both capabilities
+
+- **GIVEN** a Plan request to `workflow.recovery.apply`
+- **WHEN** S04B validates the request
+- **THEN** it checks both the planning basis (Plan fingerprint, `searchInputFingerprint`, `searchFingerprint`, `candidateSetFingerprint`) and `workflow.recovery.apply: available`
+
+#### Scenario R14.5: Missing planning capability is not apply failure
+
+- **GIVEN** `workflow.recovery.apply` runs but `workflow.recovery.plan` capability is missing
+- **WHEN** S04B validates
+- **THEN** apply returns `unavailable` with its own remediation; the planning capability failure and apply capability failure are distinct responses
+
+### Requirement: R15. S06A surface unblocked after S04P
+
+The system SHALL exercise the full read-only Flow in actual Obsidian after S04P registers `workflow.recovery.plan`, reaching `searched`, `needs-agent-selection`, and `planned` stages without S04B.
+
+#### Scenario R15.1: Searched stage reachable after S04P
+
+- **GIVEN** S04P has landed and the plugin is reloaded in Obsidian 1.13.7
+- **WHEN** the user opens the Flow, submits a safe query, and `composeRecoveryCandidates` runs
+- **THEN** the `searched` or `needs-agent-selection` stage is returned with candidates and recommended plan intent
+
+#### Scenario R15.2: Planned stage reachable after S04P
+
+- **GIVEN** the `searched` stage is visible with a recommended plan request
+- **WHEN** the user auto-follows or explicitly submits the plan request
+- **THEN** the `planned` stage is returned with an immutable Plan preview
+
+#### Scenario R15.3: S06A principal acceptance resumes after S04P
+
+- **GIVEN** S04P has landed
+- **WHEN** T5.3 runs in actual Obsidian
+- **THEN** `searched`, `needs-agent-selection`, `planned`, candidate replacement, and explicit refresh are all exercised and principal accepts the surface

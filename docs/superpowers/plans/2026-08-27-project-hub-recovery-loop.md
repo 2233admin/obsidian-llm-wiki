@@ -517,6 +517,48 @@ export function makeProjectHubOps(
 
 ---
 
+### Task 9A: Register read-only `workflow.recovery.plan` Operation
+
+**Work-OS:** S04P
+
+**Files:**
+- Modify: `mcp-server/src/workflow/workflow.ts`
+- Modify: `mcp-server/src/core/operations.ts`
+- Modify: `mcp-server/src/project-hub/action-candidates.ts`
+- Modify: `mcp-server/src/project-hub/action-candidates.test.ts`
+- Modify: `mcp-server/src/project-hub/recovery-flow.ts`
+- Modify: generated operation reference inputs/tests affected by the new Operation catalog
+
+**Root cause:** S06A desktop acceptance blocked by capability cycle: S04A exposes no `workflow.recovery.apply` capability; candidate composition requires it `available`; S04B blocked on S06A acceptance. Solution: introduce a read-only planning Operation and capability separate from the mutating apply Operation.
+
+**Interfaces:**
+
+```ts
+// New Operation request (subset of Flow plan arms)
+export const WORKFLOW_RECOVERY_PLAN_REQUEST_SCHEMA_VERSION = "workflow-recovery-plan-request/v1" as const;
+// Accepts only: plan/from-search | plan/override | refresh-plan
+// Response: RecoveryPlannedResponseV2 | RecoveryStaleResponseV2 | RecoveryUnavailableResponseV2
+
+// Shared handler (also called by project.hub.recovery.flow)
+export interface RecoveryPlanHandler {
+  handlePlanRequest(
+    request: RecoveryPlanFromSearchRequestV2 | RecoveryPlanOverrideRequestV2 | RecoveryRefreshPlanRequestV2,
+    dependencies: RecoveryPlanDependencies,
+  ): Promise<RecoveryPlannedResponseV2 | RecoveryStaleResponseV2 | RecoveryUnavailableResponseV2>;
+}
+```
+
+- [ ] **Step 1:** Add failing tests for Operation registration (`mutating: false`, correct schema, correct request/response arms, no apply/token/actor/claim).
+- [ ] **Step 2:** Register `workflow.recovery.plan` in `makeWorkflowOps` as a read-only Operation. It accepts only `plan/from-search`, `plan/override`, and `refresh-plan` request arms and returns only `planned|stale|unavailable` responses. It writes zero bytes and persists nothing.
+- [ ] **Step 3:** Factor the internal planning logic from `action-plan.ts` into a shared `RecoveryPlanHandler` that both `project.hub.recovery.flow` and `workflow.recovery.plan` delegate to. Verify `project.hub.recovery.flow` plan action tests pass unchanged.
+- [ ] **Step 4:** Add `workflow.recovery.plan` to the capability fact factory with `workflow-recovery-plan/v1` schema version. The capability enters `available` state when the Operation is registered.
+- [ ] **Step 5:** Modify `composeRecoveryCandidates` in `action-candidates.ts` to check `workflow.recovery.plan: available` (not `workflow.recovery.apply`) before recommending candidates. Missing planning capability produces `capability_unavailable` with bounded remediation.
+- [ ] **Step 6:** Verify existing `action-candidates.test.ts` passes after the capability check migration. Add new test asserting `workflow.recovery.plan` capability is required for recommendation.
+- [ ] **Step 7:** Run focused Operation registration, capability fact, candidate composition, and `project.hub.recovery.flow` plan action tests. Run `npm run typecheck` and `npm run generate-tools-doc`. Record S04P evidence.
+- [ ] **Step 8:** Create local commit `feat: register read-only workflow.recovery.plan Operation`.
+
+---
+
 ### Task 10: Add the stateless Obsidian Flow client
 
 **Work-OS:** S06A

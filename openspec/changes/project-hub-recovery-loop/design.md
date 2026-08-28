@@ -371,15 +371,59 @@ S01 v1 complete (historical)
        -> S02 open/context + Workflow read/store seams
             -> S03 mandatory cited search
                  -> S04A candidates/plan + register complete Flow + migrate/remove v1
-                      -> S06A actual-Obsidian read-only proof
-                           -> S04B Workflow apply
-                                -> S05 output governance
-                                     -> S06B actual-Obsidian apply/receipt proof
-                                          -> S07 MCP/CLI parity
-                                               -> S08 acceptance
+                      -> S04P read-only workflow.recovery.plan Operation [next]
+                           -> S06A actual-Obsidian read-only preview [resumes after S04P]
+                                -> S04B Workflow apply
+                                     -> S05 output governance
+                                          -> S06B actual-Obsidian apply/receipt proof
+                                               -> S07 MCP/CLI parity
+                                                    -> S08 acceptance
 ```
 
-No public partial V2 operation is registered. S03 depends on S02's Workflow read model. Mutation starts only after S06A proves the Plan in the primary human surface.
+No public partial V2 operation is registered. S03 depends on S02's Workflow read model. S04P registers the planning Operation before S06A exercises the full Flow. Mutation starts only after S06A proves the Plan in the primary human surface.
+
+### D15. `workflow.recovery.plan` is a read-only Workflow Operation
+
+Canonical operations:
+
+- `project.hub.get` — ordinary derived Hub sections; no Recovery Snapshot field after cutover.
+- `project.hub.recovery.flow` — read-only staged V2 composition.
+- **`workflow.recovery.plan`** — read-only immutable Plan preview from closed Plan request arms.
+- `workflow.recovery.apply` — the only recovery resume/create mutation (S04B).
+- `workflow.agent.leave` — the successful/review Work Run completion and output-routing boundary.
+
+`workflow.recovery.plan` is `mutating: false`, writes zero bytes, has no actor/token/claim/apply path, and persists nothing. It accepts only `plan/from-search`, `plan/override`, and `refresh-plan` arms and returns only `planned`, `stale`, or `unavailable` responses.
+
+### D16. One shared planning handler, two public surfaces
+
+**Handler ownership:** `project.hub.recovery.flow` delegates its `plan`, `refresh-plan`, and `plan/override` actions to one shared internal planning handler. The handler owns:
+
+- Full stateless prerequisite recomputation: open → search → candidate → Binding
+- Plan fingerprint derivation and immutable Plan composition
+- Stale/unavailable response composition with ordered changed owners
+- Five-minute expiry enforcement
+
+The handler does not own actor validation, claim creation, transition tokens, or receipts — those are apply-only.
+
+**Surface duplication is intentional:** `project.hub.recovery.flow` and `workflow.recovery.plan` both expose plan actions. The shared handler ensures semantics, validators, and fingerprints are not copied. Callers of either surface experience identical `planned`/`stale`/`unavailable` behavior.
+
+### D17. Capability separation: planning never authorizes mutation
+
+**Capability fact introduction:** `workflow.recovery.plan` capability enters production state `available` only when the Operation is registered in `makeWorkflowOps`.
+
+**Candidate composition (S04A `composeRecoveryCandidates`):** Requires `workflow.recovery.plan: available` instead of `workflow.recovery.apply: available` for candidate recommendation.
+
+**Compatible Agent Profiles:** Profile capability requirements use `workflow.recovery.plan` for the planning gate, not `workflow.recovery.apply`.
+
+**Apply independence:** `workflow.recovery.apply` independently proves:
+1. Current planning basis (Plan fingerprint, `searchInputFingerprint`, `searchFingerprint`, `candidateSetFingerprint`)
+2. `workflow.recovery.apply: available` capability
+3. Valid transition token and authenticated actor
+4. No existing claim for this plan/token/actor
+
+Missing planning capability → explicit bounded remediation in the unavailable response. Missing apply capability → separate unavailable response from the apply Operation itself.
+
+**Why this breaks the cycle:** Candidate recommendation no longer depends on `workflow.recovery.apply` availability. The full read-only Flow (`searched`, `needs-agent-selection`, `planned`) is reachable without S04B. S04B retains its correct dependency order: apply requires demonstrated preview first.
 
 ## Data flow
 

@@ -42,13 +42,16 @@ S01 v1 complete (historical)
        -> S02 open/context + Workflow store/read seams [done]
             -> S03 mandatory repeatable cited search [done]
                  -> S04A candidates/Plan + complete Flow registration + V1 removal [done]
-                      -> S06A actual Obsidian read-only preview [next]
-                           -> S04B claim-first Workflow apply
-                                -> S05 claimed output governance
-                                     -> S06B actual Obsidian apply/receipt/restart
-                                          -> S07 MCP/CLI parity
-                                               -> S08 Foundation acceptance
+                      -> S04P read-only workflow.recovery.plan Operation [next]
+                           -> S06A actual Obsidian read-only preview [resumes after S04P]
+                                -> S04B claim-first Workflow apply
+                                     -> S05 claimed output governance
+                                          -> S06B actual Obsidian apply/receipt/restart
+                                               -> S07 MCP/CLI parity
+                                                    -> S08 Foundation acceptance
 ```
+
+**S04P** registers `workflow.recovery.plan` as a `mutating: false` Workflow Operation that breaks the capability cycle blocking S06A surface acceptance. S04P does not implement apply. S06A desktop acceptance resumes after S04P lands.
 
 Planning sources:
 
@@ -68,7 +71,7 @@ outcome-unknown recovery.
 
 | Product area | Current issues |
 |---|---|
-| Foundation / Project recovery | `p0-s01b-project-hub-recovery-flow-v2`, `p0-s02-resumable-agent-context`, `p0-s03-project-cited-retrieval`, `p0-s04-work-run-next-action`, `p0-s06-obsidian-recovery-surface`, `p0-s04b-workflow-recovery-apply`, `p0-s05-agent-output-governance`, `p0-s06b-obsidian-recovery-action`, `p0-s07-mcp-cli-parity`, `p0-s08-recovery-loop-acceptance` |
+| Foundation / Project recovery | `p0-s01b-project-hub-recovery-flow-v2`, `p0-s02-resumable-agent-context`, `p0-s03-project-cited-retrieval`, `p0-s04-work-run-next-action`, `p0-s04p-workflow-recovery-plan`, `p0-s06-obsidian-recovery-surface`, `p0-s04b-workflow-recovery-apply`, `p0-s05-agent-output-governance`, `p0-s06b-obsidian-recovery-action`, `p0-s07-mcp-cli-parity`, `p0-s08-recovery-loop-acceptance` |
 | Core product / Obsidian UX | `ux-audit-findings`, `plugin-migration-data-loss`, `plugin-main-ts-test-coverage`, `plugin-legacy-assignment-precedence`, `plugin-python-path-batch-cmd`, `plugin-binding-editor-noop-callback`, `plugin-low-hygiene-batch`, `plugin-promote-frontmatter-gate`, `plugin-promote-view-refresh`, `plugin-promote-open-snapshot`, `plugin-promote-obsidian-git-handoff`, `plugin-promote-autodetect-kbmeta` |
 | Product infrastructure | `host-install-registration-wheel` |
 | Compatibility / search worker | `temporal-graph-index-search-accelerator` |

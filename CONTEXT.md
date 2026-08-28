@@ -253,5 +253,8 @@ _Avoid_: draft plan, saved job, Agent assignment
 **Recovery Claim**: A durable Workflow authorization record binding an authenticated actor, immutable Recovery Plan, and transition token before a recovery mutation begins.
 _Avoid_: Recovery Plan, Work Run, retry cache
 
+**Workflow Recovery Plan Operation**: A read-only Workflow Operation that accepts closed Plan request arms (`plan/from-search`, `plan/override`, `refresh-plan`) and returns only `planned|stale|unavailable` Flow responses. It performs full stateless prerequisite recomputation, writes zero bytes, has no actor/token/claim/apply path, and persists nothing. Its capability fact (`workflow.recovery.plan`) is introduced when the Operation is registered; it is required for candidate recommendation but never authorizes mutation. Apply independently proves both current planning basis and `workflow.recovery.apply` availability.
+_Avoid_: Recovery Claim, Workflow mutation, apply token, persisted Plan
+
 **Work Run Output Submission**: The closed completion input accepted by Workflow, containing either a valid classified Work Run output or a bounded quarantine record that never persists or echoes malformed payload bytes.
 _Avoid_: raw Agent response, Work Run receipt, promoted knowledge

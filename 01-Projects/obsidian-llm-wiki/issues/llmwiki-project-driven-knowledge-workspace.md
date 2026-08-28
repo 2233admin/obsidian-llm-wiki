@@ -116,7 +116,8 @@ change.
 | S02 | Workflow store/read seams plus V2 open and bounded context | S01B |
 | S03 | Mandatory repeatable Project-scoped cited search | S02 |
 | S04A | Candidates, Binding eligibility, immutable Plan, complete Flow registration, caller migration, V1 removal | S03 |
-| S06A | Ephemeral Ask Mate Project-context preview in actual Obsidian | S04A |
+| S04P | Read-only `workflow.recovery.plan` Operation; breaks S06A capability cycle | S04A |
+| S06A | Ephemeral Ask Mate Project-context preview in actual Obsidian | S04P |
 | S04B | Claim-first Workflow apply and owner receipt | accepted S06A |
 | S05 | Claimed Work Run output governance | S04B |
 | S06B | Exact confirm/apply/receipt and owner-backed Flow restart in actual Obsidian | S05 |
@@ -129,8 +130,7 @@ Planning contract:
 - `openspec/changes/project-hub-recovery-loop/`
 - `docs/superpowers/plans/2026-08-27-project-hub-recovery-loop.md`
 
-S01B–S04A are verified completions. S06A is the immediately executable leaf;
-S04B–S08 remain blocked by the direct dependency chain above.
+S01B–S04A are verified completions. S04P is next. S06A resumes after S04P; S04B–S08 remain blocked by the direct dependency chain above.
 
 ## Success metrics
 

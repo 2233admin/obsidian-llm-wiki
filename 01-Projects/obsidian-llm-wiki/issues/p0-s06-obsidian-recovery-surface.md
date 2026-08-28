@@ -10,6 +10,7 @@ status: active
 priority: 1
 blocked-by:
   - obsidian-llm-wiki/p0-s04-work-run-next-action
+  - obsidian-llm-wiki/p0-s04p-workflow-recovery-plan
 last-verified: 2026-08-28
 ---
 
@@ -48,8 +49,9 @@ Expose the complete read-only V2 Flow through the existing LLM Wiki/Ask Mate Ite
 
 - The built plugin was installed and reloaded in desktop Obsidian 1.13.7. `vault-mind-promote:open-ask-mate-project-context` mounted one `.llmwiki-ask-mate-project-recovery` surface and rendered the real `open` stage for `project/llmwiki-product`, including Flow fingerprint, eight owner locks, bounded facts, search controls, diagnostics, and explicit Work-OS remediation.
 - Installed plugin `data.json` remained byte-identical before and after the actual open flow (`sha256:cc0f866e947e22de07286f00e6028b7b89b6b1ed7a13634e551453bf23baa767`).
-- Full-stage acceptance is blocked by a dependency cycle in the approved contract: production S04A truthfully exposes no `workflow.recovery.apply` capability until S04B registers it, while candidate composition requires that capability to be `available`; S04B is itself blocked on S06A principal acceptance. Therefore actual `searched` candidate composition, `needs-agent-selection`, `planned`, candidate replacement, and refresh cannot be reached without either reordering S04B or changing the S06A gate.
-- T5.3 and principal acceptance remain open. S04B remains blocked until the product owner resolves this dependency cycle.
+- Full-stage acceptance is blocked by a dependency cycle: S04A exposes no `workflow.recovery.apply` capability until S04B registers it; candidate composition requires that capability `available`; S04B is blocked on S06A acceptance. Therefore `searched`, `needs-agent-selection`, `planned`, candidate replacement, and refresh cannot be reached without S04P.
+- **Resolution:** ADR 0002 introduces `workflow.recovery.plan` as a read-only Workflow Operation. S04P registers it, introduces the `workflow.recovery.plan: available` capability fact, and updates candidate composition to check planning capability instead of apply capability. S06A desktop acceptance resumes after S04P lands.
+- T5.3 and principal acceptance remain open until S04P is implemented and the full Flow stages are verified in actual Obsidian.
 
 ## Demo
 

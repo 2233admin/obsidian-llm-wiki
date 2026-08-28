@@ -42,6 +42,8 @@ Apply resume/create Plans, interrupt every claim/owner/receipt window, retry bef
 
 Blocked by accepted S06A actual-Obsidian preview. Project Hub remains read-only.
 
+**Capability dependency:** S04B registers `workflow.recovery.apply`. The apply Operation independently proves both current planning basis (Plan fingerprint, `searchInputFingerprint`, `searchFingerprint`, `candidateSetFingerprint`) and `workflow.recovery.apply: available` capability. Planning capability (`workflow.recovery.plan`) is necessary but not sufficient for mutation; it is checked separately in candidate composition (S04P) and does not authorize apply.
+
 ## Non-goals
 
 - Do not add a mutating Project Hub Operation, server Flow session, manual Work Run start, or Plan store.

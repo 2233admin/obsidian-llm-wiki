@@ -31,9 +31,9 @@ The product instead needs one stateless, staged Recovery Flow vocabulary that:
 - S02: bounded authoritative context and Workflow read/store seams used by the V2 open stage.
 - S03: mandatory, repeatable Project-scoped cited search. Each query branches from the current open/context basis and receives its own fingerprint.
 - S04A: candidates, Binding eligibility, immutable plans, the complete Flow operation, caller migration, and v1 removal.
-- S04B: Workflow-owned, claim-first resume/create apply with authenticated runtime actor identity and crash recovery.
-- S05: closed output submission/quarantine plus claim-first owner routing at `workflow.agent.leave`.
-- S06A/S06B: the Ask Mate Project-context preview and apply/receipt journey with no plugin-persisted Flow state.
+- **S04P (new): read-only `workflow.recovery.plan` Operation.** Registers a `mutating: false` Workflow Operation that accepts only Plan request arms and returns `planned|stale|unavailable`. Introduces `workflow.recovery.plan: available` capability so candidate composition reaches `searched`/`needs-agent-selection`/`planned` without S04B. Does not implement apply.
+- S04B: Workflow-owned, claim-first resume/create apply with authenticated runtime actor identity and crash recovery. Requires S06A principal acceptance before starting.
+- S06A/S06B: the Ask Mate Project-context preview and apply/receipt journey with no plugin-persisted Flow state. S06A desktop acceptance is unblocked after S04P lands and resumes before S04B starts.
 - S07/S08: MCP/CLI parity and sanitized end-to-end acceptance.
 
 ## Approved interaction rules
@@ -45,6 +45,7 @@ The product instead needs one stateless, staged Recovery Flow vocabulary that:
 - The user may replace the recommended candidate. Every replacement produces a new immutable Plan and Flow Fingerprint.
 - Expired Plans require explicit `refresh-plan`; the UI never silently substitutes a new Plan.
 - `project.hub.recovery.flow` stops at `planned`. Mutation remains `workflow.recovery.apply`.
+- `workflow.recovery.plan` is a read-only Operation that produces `planned|stale|unavailable` without S04B. Planning capability (`workflow.recovery.plan`) is required for candidate recommendation; it never authorizes mutation. Apply (`workflow.recovery.apply`) independently proves both current planning basis and apply availability.
 
 ## Priority
 
