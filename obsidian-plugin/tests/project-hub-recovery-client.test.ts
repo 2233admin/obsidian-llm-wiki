@@ -223,3 +223,35 @@ test("Recovery client fails closed on null, cross-Plan, forged, and malformed ap
     await assert.rejects(client.apply(plan, { query: "recovery", limit: 5 }, "obsidian-control-plane"), /unavailable/);
   }
 });
+
+test("Recovery client rejects unsafe or overlong apply planning input", () => {
+  const client = new ProjectHubRecoveryClient({
+    async invoke<T>(): Promise<T> {
+      throw new Error("transport must not be called");
+    },
+  });
+  assert.throws(
+    () => client.apply(plan, { query: "x".repeat(1_001), limit: 5 }, "obsidian-control-plane"),
+    /query is unavailable/,
+  );
+  assert.throws(
+    () => client.apply(plan, { query: "C:\\secret\\token.txt", limit: 5 }, "obsidian-control-plane"),
+    /query is unavailable/,
+  );
+});
+
+test("Recovery client rejects an apply response bound to another actor", async () => {
+  const forged = { ...applyEnvelope() };
+  delete (forged as { fingerprint?: string }).fingerprint;
+  forged.actorId = "another-actor";
+  forged.fingerprint = fingerprintRecoveryValue(forged);
+  const client = new ProjectHubRecoveryClient({
+    async invoke<T>(): Promise<T> {
+      return forged as T;
+    },
+  });
+  await assert.rejects(
+    client.apply(plan, { query: "recovery", limit: 5 }, "obsidian-control-plane"),
+    /unavailable/,
+  );
+});

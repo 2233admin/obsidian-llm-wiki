@@ -268,6 +268,37 @@ describe('Operation Write Policy', () => {
     );
   });
 
+  test('Recovery apply owner paths are authorized only for its owner operation', () => {
+    const operation = createOp() as Extract<Operation, { mutating: true }>;
+    operation.name = 'workflow.recovery.apply';
+    operation.writePolicy = {
+      realWrite: 'always',
+      targets: staticTargets(
+        '.vault-mind/_leases.json',
+        '.vault-mind/_work-run.lock',
+        '01-Projects/alpha/runs/recovery-plans/' + 'a'.repeat(64) + '.json',
+        '01-Projects/alpha/runs/recovery-tokens/' + 'b'.repeat(64) + '.json',
+        '01-Projects/alpha/agents/codex/lifetime.md',
+      ),
+      audit: 'required',
+    };
+    const registry = new Map([[operation.name, operation]]);
+    const verdict = adjudicateOperationWrite(makeCtx([]), operation, {}, registry);
+    assert.equal(verdict.realWrite, true);
+    assert.equal(verdict.targets.length, 5);
+
+    const generic = createOp();
+    assert.throws(
+      () => adjudicateOperationWrite(
+        makeCtx([]),
+        generic,
+        { path: '.vault-mind/_leases.json', dryRun: false },
+        new Map([[generic.name, generic]]),
+      ),
+      /outside allowed write paths/,
+    );
+  });
+
   test('Agent Domain operations are narrowly authorized for governed state, usage, and Promotion handoff targets', () => {
     const registry = makeOperationRegistry();
     const context = makeCtx([]);

@@ -191,7 +191,7 @@ export class AskMateView extends ItemView {
       ? new ProjectHubRecoveryPanel(this.recoveryClient, null, target => {
         const workspace = (this.app as unknown as { workspace?: { openLinkText?: (link: string, sourcePath: string, newLeaf?: boolean) => unknown } }).workspace;
         void workspace?.openLinkText?.(target, target, false);
-      })
+      }, this.actors.confirmationActor)
       : null;
     if (this.#recoveryPanel) {
       await this.#recoveryPanel.open(context.projectId);

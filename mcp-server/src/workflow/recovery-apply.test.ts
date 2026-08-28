@@ -315,7 +315,7 @@ test('production recovery apply persists real resume/create/replay files with in
 
     const resumeRun = 'work-run/current';
     store.writeRunAtomic('alpha', resumeRun, {
-      schema_version: 2, project_id: projectId, work_item_id: plan.workItemId, work_run_id: resumeRun, agent_id: 'codex', state: 'leased',
+      schema_version: 2, project_id: projectId, work_item_id: plan.workItemId, work_run_id: resumeRun, agent_id: 'codex', state: 'running',
       output_class: 'view', approval_status: 'not-required', created_at: new Date(now).toISOString(), updated_at: new Date(now).toISOString(),
       transitions: [], agent_profile_id: plan.agentSelection.profileId, agent_profile_revision: plan.agentSelection.profileRevision,
       project_agent_binding_id: plan.agentSelection.bindingId, project_agent_binding_revision: plan.agentSelection.bindingRevision,

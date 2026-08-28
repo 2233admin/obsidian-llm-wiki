@@ -125,6 +125,7 @@ export function validateRecoveryApplyResponse(
   value: unknown,
   plan: RecoveryApplyRequestV2["plan"],
   expectedTokenDigest?: `sha256:${string}`,
+  expectedActor?: string,
 ): RecoveryApplyResponseV2 {
   try {
     if (!applyFingerprint(plan.fingerprint)) throw new Error("Plan fingerprint is invalid");
@@ -138,6 +139,7 @@ export function validateRecoveryApplyResponse(
     if (expectedTokenDigest && entry.tokenDigest !== expectedTokenDigest) throw new Error("token identity conflict");
     boundedText(entry.projectId);
     boundedText(entry.actorId);
+    if (expectedActor !== undefined && entry.actorId !== expectedActor) throw new Error("response actor conflict");
     if (!(APPLY_KINDS as readonly unknown[]).includes(entry.kind) || entry.kind !== plan.kind) throw new Error("kind is invalid");
     if (entry.workRunId !== plan.workRunId && !(entry.workRunId === null && plan.workRunId === null)) throw new Error("Work Run identity conflict");
     if (!Array.isArray(entry.diagnostics) || entry.diagnostics.length > MAX_APPLY_DIAGNOSTICS) throw new Error("diagnostics are unbounded");
@@ -230,8 +232,12 @@ export class ProjectHubRecoveryClient {
     planningInput: RecoveryApplyPlanningInput,
     confirmationActor: string,
   ): Promise<RecoveryApplyResponseV2> {
-    const query = planningInput.query.trim();
-    if (!query) throw new Error("Recovery apply query is unavailable");
+    if (typeof planningInput.query !== "string") throw new Error("Recovery apply query is unavailable");
+    const query = planningInput.query.normalize("NFKC").replace(/\s+/gu, " ").trim();
+    if (!query || query.length > 1_000 || new TextEncoder().encode(query).byteLength > 2_048
+      || /[\u0000-\u001f\u007f-\u009f]/u.test(query) || safePresentationText(query) !== query) {
+      throw new Error("Recovery apply query is unavailable");
+    }
     if (!Number.isSafeInteger(planningInput.limit) || planningInput.limit < 1 || planningInput.limit > 25) {
       throw new Error("Recovery apply limit is unavailable");
     }
@@ -249,9 +255,9 @@ export class ProjectHubRecoveryClient {
       }),
     };
     return this.transport.invoke<unknown>(RECOVERY_APPLY_OPERATION, { request })
-      .then(response => validateRecoveryApplyResponse(response, plan, transitionTokenDigest(request.transitionToken)));
-  }
+      .then(response => validateRecoveryApplyResponse(response, plan, transitionTokenDigest(request.transitionToken), actor));
 
+  }
   private invoke(request: RecoveryFlowRequestV2): Promise<RecoveryFlowResponseV2> {
     return this.transport.invoke<RecoveryFlowResponseV2>(RECOVERY_FLOW_OPERATION, { request: { ...request } });
   }

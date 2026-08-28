@@ -383,6 +383,13 @@ function settingsOperationAllowsTarget(toolName: string, target: string): boolea
 
 function governedBackendOperationAllowsTarget(toolName: string, target: string): boolean {
   const normalized = normalizePolicyPath(target);
+  if (toolName === 'workflow.recovery.apply') {
+    return normalized === '.vault-mind/_leases.json'
+      || normalized === '.vault-mind/_work-run.lock'
+      || /^01-Projects\/[a-z0-9][a-z0-9-]*\/runs\/(?:recovery-plans|recovery-tokens)\/[a-f0-9]{64}\.json$/.test(normalized)
+      || /^01-Projects\/[a-z0-9][a-z0-9-]*\/runs\/[A-Za-z0-9._-]+\.json$/.test(normalized)
+      || /^01-Projects\/[a-z0-9][a-z0-9-]*\/agents\/[A-Za-z0-9._-]+\/(?:lifetime|events)\.md$/.test(normalized);
+  }
   if (toolName === 'visual.map.apply') {
     return /^01-Projects\/[a-z0-9][a-z0-9-]*\/maps\/(?:[^/]+\/)*[^/]+$/.test(normalized)
       && !normalized.split('/').some((segment) => segment === '.' || segment === '..');

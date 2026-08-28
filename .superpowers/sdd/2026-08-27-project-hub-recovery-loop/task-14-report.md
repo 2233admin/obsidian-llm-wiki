@@ -4,13 +4,13 @@ Date: 2026-08-29
 Base: `df55fc77e3632b1a1df98f305283b2d1dfaecf43`
 Commit: `fix: harden Obsidian Recovery Flow action`
 
-## RED → GREEN
+## Verification
 
-- Full plugin suite is GREEN: 91 passed, 0 failed.
-- `npm run typecheck -- --pretty false` and `npm run build` remain blocked only by the pre-existing missing `@electric-sql/pglite` and `@electric-sql/pglite/contrib/pg_trgm` modules imported by `mcp-server/src/adapters/vaultbrain/pglite-engine.ts`; the changed plugin files report no TypeScript diagnostics.
-- Direct `node esbuild.config.mjs production` succeeds.
-- `openspec validate project-hub-recovery-loop --strict --no-interactive` succeeds.
-- `git diff --check` succeeds.
+- Plugin suite: `npm test` — 93 passed, 0 failed.
+- MCP source suite: `bun test src/` — 818 passed, 18 skipped, 0 failed.
+- Focused Workflow/write-policy suite: 70 passed, 0 failed.
+- Direct production bundle build, `npm run verify:bundle-boundary`, and `git diff --check` passed.
+- TypeScript typecheck: plugin and MCP `npm run typecheck` both passed after the final owner-receipt and policy fixes.
 
 ## Implementation
 
@@ -38,12 +38,17 @@ Commit: `fix: harden Obsidian Recovery Flow action`
 - `claimed|applied|unavailable`: live bounded apply result and diagnostics; applied includes the exact sanitized owner receipt.
 - `outcome-unknown`: alert remediation text; apply/replay controls are disabled and owner truth is not replaced.
 
-## Manual QA / concerns
+## Review resolution
 
-1. In desktop Obsidian, open a bound Project Hub and run Open → Search → Plan; verify the full Plan and fingerprints are visible.
-2. Select Confirm exact Plan, inspect the inline step, then Cancel; verify no `workflow.recovery.apply` request or vault bytes change.
-3. Confirm once; verify one apply call, claimed/applied receipt, and a fresh owner-backed Open stage. Activate Confirm/apply twice rapidly and verify one request.
-4. Exercise an expired Plan and owner-stale/rebound/capability/lease/adapter failures; verify explicit Refresh or bounded unavailable/error state, never success.
-5. Simulate outcome-unknown; verify Workflow doctor remediation and disabled retry. Reload/reopen and verify the panel starts at Open with no prior query/Plan/receipt.
+- Outcome-unknown now latches the panel against Plan refresh and all apply paths until Workflow doctor reconciliation; the regression test verifies no refresh request is sent.
+- Apply planning input is normalized and bounded client-side; response actor identity is checked against the confirmation actor.
+- Workflow recovery apply explicitly authorizes its own bounded owner paths. Resume join no longer forces `leased` when the durable run is already `running`; first and replay owner receipts include Work Item identity.
 
-Independent review and actual Obsidian verification remain pending by design; issue remains `in-progress`.
+## Actual Obsidian verification
+
+- In the sanitized `.gstack/qa-vault`, Open → Search (`recovery`) → exact Plan displayed all fingerprints and citations.
+- Cancel returned to the Plan without invoking apply. Confirm and apply returned `applied`, rendered the sanitized owner receipt, and reopened `open` from current owner state.
+- Final bundle reload started at `open` with no Plan, apply result, query, or transition token in the UI; plugin `data.json` remained limited to presentation and device binding.
+- Failure-path behavior is covered by the plugin DOM tests, including expired Plan, malformed/forged responses, cancellation, focus/ARIA, and outcome-unknown replay blocking.
+
+S06B is accepted. S07 MCP/CLI parity remains the next slice.

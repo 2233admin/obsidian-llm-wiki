@@ -190,8 +190,10 @@ test("exact Plan confirmation supports zero-mutation cancel and applied owner re
 
 test("outcome-unknown displays reconciliation and disables replay", async () => {
   const root = new FakeElement("div");
+  const calls: string[] = [];
   const client = new ProjectHubRecoveryClient({
     async invoke<T>(operation: string, args: Record<string, unknown>): Promise<T> {
+      calls.push(operation);
       if (operation === RECOVERY_APPLY_OPERATION) return applyResponse("outcome-unknown") as T;
       const action = (args.request as { action: string }).action;
       if (action === "open") return openResponse() as T;
@@ -209,6 +211,12 @@ test("outcome-unknown displays reconciliation and disables replay", async () => 
   assert.equal(panel.state.applyResponse?.state, "outcome-unknown");
   const confirm = root.querySelectorAll<FakeElement>("button").find(button => button.textContent === "Confirm exact Plan");
   assert.equal(confirm?.disabled, true);
+  const refresh = root.querySelectorAll<FakeElement>("button").find(button => button.textContent === "Refresh Plan");
+  assert.equal(refresh?.disabled, true);
+  const callCount = calls.length;
+  await panel.refreshPlan();
+  assert.equal(calls.length, callCount, "unknown outcome cannot refresh into a replayable Plan");
+  assert.match(panel.state.error ?? "", /Workflow doctor/);
   assert.ok(root.querySelectorAll<FakeElement>("p").some(item => item.textContent.includes("Workflow outcome is unknown")));
   assert.equal(panel.state.flow?.stage, "planned", "unknown outcome does not become current owner truth");
 });

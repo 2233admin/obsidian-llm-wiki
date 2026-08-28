@@ -900,13 +900,13 @@ export interface WorkRunOutputRouteReceiptV1 {
 - Modify: `obsidian-plugin/tests/project-hub-recovery-view.test.ts`
 - Modify: `obsidian-plugin/styles.css`
 
-- [ ] **Step 1:** Add exact `workflow.recovery.apply` mapping only after Task 12, with full V2 Plan/fingerprint, safe ephemeral current query/limit planning input, and replay-stable token derived from operation, Project, Plan and confirmation actor; persist no raw query.
-- [ ] **Step 2:** Require explicit confirmation of the exact visible unexpired Plan; cancellation invokes no mutation and auto-refresh is forbidden.
-- [ ] **Step 3:** Render claimed/applied/outcome-unknown and exact owner receipt; outcome-unknown disables another apply and links doctor remediation.
-- [ ] **Step 4:** After applied receipt, discard ephemeral Flow state and call Flow open from current owners; persist no claim/receipt/task/query/Plan state.
-- [ ] **Step 5:** Test stale/expired Plan, rebound, capability/lease failure, adapter error, cancellation, focus and owner restart.
-- [ ] **Step 6:** Run plugin tests/typecheck/build and actual sanitized apply/receipt/restart journey.
-- [ ] **Step 7:** Record S06B evidence and create local commit `feat: complete Obsidian Recovery Flow action`.
+- [x] **Step 1:** Add exact `workflow.recovery.apply` mapping only after Task 12, with full V2 Plan/fingerprint, safe ephemeral current query/limit planning input, and replay-stable token derived from operation, Project, Plan and confirmation actor; persist no raw query.
+- [x] **Step 2:** Require explicit confirmation of the exact visible unexpired Plan; cancellation invokes no mutation and auto-refresh is forbidden.
+- [x] **Step 3:** Render claimed/applied/outcome-unknown and exact owner receipt; outcome-unknown disables another apply and links doctor remediation.
+- [x] **Step 4:** After applied receipt, discard ephemeral Flow state and call Flow open from current owners; persist no claim/receipt/task/query/Plan state.
+- [x] **Step 5:** Test stale/expired Plan, rebound, capability/lease failure, adapter error, cancellation, focus and owner restart.
+- [x] **Step 6:** Run plugin tests/typecheck/build and actual sanitized apply/receipt/restart journey.
+- [x] **Step 7:** Record S06B evidence and create local commit `feat: complete Obsidian Recovery Flow action`.
 
 ---
 

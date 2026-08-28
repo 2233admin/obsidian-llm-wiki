@@ -49,6 +49,7 @@ export class ProjectHubRecoveryPanel {
   #generation = 0;
   #disposed = false;
   #busyMutation = false;
+  #applyBlocked = false;
   #focusTarget: string | null = null;
 
   constructor(
@@ -65,6 +66,7 @@ export class ProjectHubRecoveryPanel {
   }
 
   async open(projectId: RecoveryProjectId): Promise<void> {
+    if (this.#state.projectId !== projectId) this.#applyBlocked = false;
     this.#disposed = false;
     this.#busyMutation = false;
     this.#generation += 1;
@@ -163,6 +165,10 @@ export class ProjectHubRecoveryPanel {
       this.fail("There is no current Plan to refresh.");
       return;
     }
+    if (this.#applyBlocked || this.#state.applyResponse?.state === "outcome-unknown") {
+      this.fail("Workflow outcome is unknown. Run Workflow doctor before refreshing or retrying recovery.");
+      return;
+    }
     const request = flow.nextRequests.find(item => item.action === "refresh-plan");
     if (!request) {
       this.fail("The server did not provide an exact Plan refresh request.");
@@ -170,6 +176,7 @@ export class ProjectHubRecoveryPanel {
     }
     this.#state.applyResponse = null;
     this.#state.confirming = false;
+    this.#focusTarget = "status";
     await this.execute(() => this.client.refreshPlan(request));
   }
 
@@ -179,7 +186,7 @@ export class ProjectHubRecoveryPanel {
       this.fail("Show the current Recovery Plan before confirming it.");
       return;
     }
-    if (this.#state.applyResponse?.state === "outcome-unknown") {
+    if (this.#applyBlocked || this.#state.applyResponse?.state === "outcome-unknown") {
       this.fail("Owner outcome is unknown. Apply and replay are disabled until Workflow doctor reconciliation.");
       return;
     }
@@ -205,6 +212,10 @@ export class ProjectHubRecoveryPanel {
   async apply(): Promise<void> {
     const flow = this.#state.flow;
     if (this.#state.busy || !this.#state.confirming) return;
+    if (this.#applyBlocked || this.#state.applyResponse?.state === "outcome-unknown") {
+      this.fail("Owner outcome is unknown. Apply and replay are disabled until Workflow doctor reconciliation.");
+      return;
+    }
     if (!flow || flow.stage !== "planned") {
       this.fail("Show the current Recovery Plan before applying it.");
       return;
@@ -338,6 +349,7 @@ export class ProjectHubRecoveryPanel {
   dispose(): void {
     this.#generation += 1;
     this.#disposed = true;
+    this.#applyBlocked = false;
     this.#state = this.emptyState(this.#state.projectId);
   }
 
@@ -375,6 +387,7 @@ export class ProjectHubRecoveryPanel {
     try {
       const response = validateRecoveryApplyResponse(await operation(), plan);
       if (this.#disposed || generation !== this.#generation) return null;
+      if (response.state === "outcome-unknown") this.#applyBlocked = true;
       this.#state.applyResponse = response;
       this.#focusTarget = "apply-status";
       return response;
@@ -560,10 +573,10 @@ export class ProjectHubRecoveryPanel {
         });
       }
     }
+    const unknown = this.#applyBlocked || this.#state.applyResponse?.state === "outcome-unknown";
     const refresh = section.createEl("button", { text: "Refresh Plan" });
-    refresh.disabled = this.#state.busy;
+    refresh.disabled = this.#state.busy || unknown;
     refresh.onclick = () => void this.refreshPlan();
-    const unknown = this.#state.applyResponse?.state === "outcome-unknown";
     const confirm = section.createEl("button", { text: "Confirm exact Plan", cls: "mod-cta" });
     confirm.disabled = this.#state.busy || unknown || planExpired;
     confirm.setAttr("data-recovery-focus", "confirm-plan");

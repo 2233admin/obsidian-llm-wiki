@@ -79,9 +79,9 @@ Luna receives one reviewed Task at a time. It may alter internal implementation 
 
 ## Phase 8 — S06B Obsidian apply, receipt, and Flow restart
 
-- [ ] **T8.1 Add exact apply mapping after S04B** — Extend recovery client/panel tests with `workflow.recovery.apply`, replay-stable ephemeral token derivation, explicit exact-Plan confirmation, and cancellation/no-write assertions.
-- [ ] **T8.2 Receipt/outcome/restart UI** — Show apply states and owner receipt, disable replay on outcome-unknown, restart Flow from current owners after accepted receipt, and persist no Flow/query/Plan data.
-- [ ] **T8.3 Verify S06B in actual Obsidian** — Run plugin tests/typecheck/build and the real sanitized confirm/apply/receipt/restart path. Record evidence; S07 remains blocked until principal acceptance.
+- [x] **T8.1 Add exact apply mapping after S04B** — Added the sole `workflow.recovery.apply` client mapping with full Plan/fingerprint, bounded ephemeral planning input, replay-stable token, exact confirmation, and no-write cancellation.
+- [x] **T8.2 Receipt/outcome/restart UI** — Added receipt/state rendering, outcome-unknown replay latch and doctor remediation, owner-backed Flow restart, focus/ARIA handling, and no Flow/query/Plan persistence.
+- [x] **T8.3 Verify S06B in actual Obsidian** — Plugin and MCP tests passed; the sanitized Obsidian QA flow completed Plan confirmation, cancel, apply, owner receipt, owner restart, and reload isolation. S07 remains next.
 
 ## Phase 9 — S07 MCP and dedicated CLI parity
 
