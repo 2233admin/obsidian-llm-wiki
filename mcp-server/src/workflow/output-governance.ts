@@ -268,8 +268,7 @@ export function validateWorkflowAgentLeaveRequestV2(value: unknown): WorkflowAge
     const workItemId = rawArm && typeof rawArm === 'object' && !Array.isArray(rawArm)
       ? (rawArm as Record<string, unknown>).workItemId
       : undefined;
-    if (!workItemId) throw badRequest('complete mode requires exact work item identity');
-    if (typeof workItemId !== 'string') throw badRequest('complete mode requires exact work item identity');
+    if (typeof workItemId !== 'string' || workItemId.length === 0) throw badRequest('complete mode requires exact work item identity');
     return { mode: 'complete', project, agent, work_run_id: workRunId, transition_token: token, target_state: entry.target_state, submission: validateWorkRunOutputSubmissionV1(entry.submission, project, workItemId, workRunId), summary };
   }
   if (entry.mode === 'terminate') {
@@ -417,14 +416,14 @@ export async function governWorkRunOutput(
   const project = normalized.project.slice('project/'.length);
   const runFp = workRunDigest(normalized.work_run_id);
   const now = () => new Date(dependencies.now?.() ?? Date.now()).toISOString();
+  const output = normalized.mode === 'complete' && normalized.submission.result === 'output' ? normalized.submission.output : null;
+  const quarantine = normalized.mode === 'complete' && normalized.submission.result === 'quarantine' ? normalized.submission.quarantine : null;
+  const workItemId = output?.workItemId ?? quarantine?.workItemId ?? null;
+  const inFlightKey = `${project}:${normalized.work_run_id}`;
   let startOwner = false;
   let waiter: Deferred | undefined;
   let claim: OutputClaim;
 
-  const ownerArgs = () => ({
-    output: normalized.mode === 'complete' && normalized.submission.result === 'output' ? normalized.submission.output : null,
-    quarantine: normalized.mode === 'complete' && normalized.submission.result === 'quarantine' ? normalized.submission.quarantine : null,
-  });
   const writeClaimBundle = (value: OutputClaim): void => {
     const serialized = value as unknown as Record<string, unknown>;
     // The Work Run claim is the first-token-wins authority. The two indexes
@@ -485,7 +484,7 @@ export async function governWorkRunOutput(
           try { writeClaimBundle(current); }
           catch { if (current.receipt) return current; throw new Error('Work Run output claim index repair failed'); }
         }
-        if (current.state === 'claimed' && current.ownerStarted) waiter = inFlight.get(`${project}:${normalized.work_run_id}`);
+        if (current.state === 'claimed' && current.ownerStarted) waiter = inFlight.get(inFlightKey);
         if (current.state === 'claimed' && !current.ownerStarted) {
           const started = { ...current, ownerStarted: true, updatedAt: now() };
           try {
@@ -500,19 +499,17 @@ export async function governWorkRunOutput(
           }
           startOwner = true;
           waiter = deferred();
-          inFlight.set(`${project}:${normalized.work_run_id}`, waiter);
+          inFlight.set(inFlightKey, waiter);
           return started;
         }
         return current;
       }
       const created: OutputClaim = {
         schemaVersion: WORK_RUN_OUTPUT_ROUTE_SCHEMA, outputFingerprint: outputFp, requestDigest: requestFp, tokenDigest: tokenFp, actorId: actor,
-        projectId: normalized.project, workItemId: normalized.mode === 'complete' ? (normalized.submission.output?.workItemId ?? normalized.submission.quarantine?.workItemId ?? null) : null,
+        projectId: normalized.project, workItemId,
         workRunId: normalized.work_run_id, targetState: normalized.target_state, state: 'claimed', receipt: null, ownerStarted: false, claimedAt: now(), updatedAt: now(),
       };
-      dependencies.store.writeOutputRunAtomic(project, runFp, created as unknown as Record<string, unknown>);
-      dependencies.store.writeOutputClaimAtomic(project, outputFp, created as unknown as Record<string, unknown>);
-      dependencies.store.writeOutputTokenAtomic(project, tokenFp, created as unknown as Record<string, unknown>);
+      writeClaimBundle(created);
       const started = { ...created, ownerStarted: true, updatedAt: now() };
       try {
         writeClaimBundle(started);
@@ -526,7 +523,7 @@ export async function governWorkRunOutput(
       }
       startOwner = true;
       waiter = deferred();
-      inFlight.set(`${project}:${normalized.work_run_id}`, waiter);
+      inFlight.set(inFlightKey, waiter);
       return started;
     });
   } catch (error) {
@@ -539,7 +536,7 @@ export async function governWorkRunOutput(
     }
     const unknown: OutputClaim = {
       schemaVersion: WORK_RUN_OUTPUT_ROUTE_SCHEMA, outputFingerprint: outputFp, requestDigest: requestFp, tokenDigest: tokenFp, actorId: actor,
-      projectId: normalized.project, workItemId: normalized.mode === 'complete' ? (normalized.submission.output?.workItemId ?? normalized.submission.quarantine?.workItemId ?? null) : null,
+      projectId: normalized.project, workItemId,
       workRunId: normalized.work_run_id, targetState: normalized.target_state, state: 'outcome-unknown', receipt: null, ownerStarted: false, claimedAt: now(), updatedAt: now(),
     };
     // Do not persist outcome-unknown here: the owner did not start, so an exact
@@ -555,7 +552,7 @@ export async function governWorkRunOutput(
     if (claim.receipt?.state === 'accepted') {
       let recovered: OutputGovernanceReconciliation | null = null;
       try {
-        recovered = dependencies.reconcile ? await dependencies.reconcile(normalized, actor, ownerArgs().output, ownerArgs().quarantine, claim as unknown as Record<string, unknown>) : null;
+        recovered = dependencies.reconcile ? await dependencies.reconcile(normalized, actor, output, quarantine, claim as unknown as Record<string, unknown>) : null;
       } catch {
         recovered = null;
       }
@@ -571,7 +568,7 @@ export async function governWorkRunOutput(
     }
     if (claim.receipt || claim.state === 'outcome-unknown') return responseFrom(claim);
     if (dependencies.reconcile) {
-      const recovered = await dependencies.reconcile(normalized, actor, ownerArgs().output, ownerArgs().quarantine, claim as unknown as Record<string, unknown>);
+      const recovered = await dependencies.reconcile(normalized, actor, output, quarantine, claim as unknown as Record<string, unknown>);
       if (recovered) {
         const recoveredReceipt = receipt(normalized, claim, recovered, now());
         const routed: OutputClaim = { ...claim, state: recoveredReceipt.state === 'outcome-unknown' ? 'outcome-unknown' : 'routed', receipt: recoveredReceipt, updatedAt: now() };
@@ -585,7 +582,7 @@ export async function governWorkRunOutput(
   }
   let receiptPersisted: WorkRunOutputRouteReceiptV1 | undefined;
   try {
-    const result = await dependencies.owner(normalized, actor, ownerArgs().output, ownerArgs().quarantine);
+    const result = await dependencies.owner(normalized, actor, output, quarantine);
     const routed = receipt(normalized, claim, result, now());
     const completed: OutputClaim = { ...claim, state: routed.state === 'outcome-unknown' ? 'outcome-unknown' : 'routed', receipt: routed, updatedAt: now() };
     dependencies.store.withLock(() => {
@@ -595,12 +592,12 @@ export async function governWorkRunOutput(
       dependencies.store.writeOutputTokenAtomic(project, tokenFp, completed as unknown as Record<string, unknown>);
     });
     waiter?.resolve();
-    inFlight.delete(`${project}:${normalized.work_run_id}`);
+    inFlight.delete(inFlightKey);
     return routed;
   } catch {
     if (receiptPersisted) {
       waiter?.resolve();
-      inFlight.delete(`${project}:${normalized.work_run_id}`);
+      inFlight.delete(inFlightKey);
       return receiptPersisted;
     }
     // The owner may have completed before its promise rejected or the process
@@ -612,20 +609,16 @@ export async function governWorkRunOutput(
         const recovered = await dependencies.reconcile(
           normalized,
           actor,
-          ownerArgs().output,
-          ownerArgs().quarantine,
+          output,
+          quarantine,
           claim as unknown as Record<string, unknown>,
         );
         if (recovered) {
           const recoveredReceipt = receipt(normalized, claim, recovered, now());
           const routed: OutputClaim = { ...claim, state: recoveredReceipt.state === 'outcome-unknown' ? 'outcome-unknown' : 'routed', receipt: recoveredReceipt, updatedAt: now() };
-          dependencies.store.withLock(() => {
-            dependencies.store.writeOutputRunAtomic(project, runFp, routed as unknown as Record<string, unknown>);
-            dependencies.store.writeOutputClaimAtomic(project, outputFp, routed as unknown as Record<string, unknown>);
-            dependencies.store.writeOutputTokenAtomic(project, tokenFp, routed as unknown as Record<string, unknown>);
-          });
+          dependencies.store.withLock(() => writeClaimBundle(routed));
           waiter?.resolve();
-          inFlight.delete(`${project}:${normalized.work_run_id}`);
+          inFlight.delete(inFlightKey);
           return recoveredReceipt;
         }
       } catch {
@@ -634,14 +627,10 @@ export async function governWorkRunOutput(
     }
     const unknown: OutputClaim = { ...claim, state: 'outcome-unknown', receipt: null, updatedAt: now() };
     try {
-      dependencies.store.withLock(() => {
-        dependencies.store.writeOutputRunAtomic(project, runFp, unknown as unknown as Record<string, unknown>);
-        dependencies.store.writeOutputClaimAtomic(project, outputFp, unknown as unknown as Record<string, unknown>);
-        dependencies.store.writeOutputTokenAtomic(project, tokenFp, unknown as unknown as Record<string, unknown>);
-      });
+      dependencies.store.withLock(() => writeClaimBundle(unknown));
     } finally {
       waiter?.resolve();
-      inFlight.delete(`${project}:${normalized.work_run_id}`);
+      inFlight.delete(inFlightKey);
     }
     return receipt(normalized, unknown, { ownerOperation: null, ownerReceipt: null, state: 'outcome-unknown', diagnostics: [{ owner: OWNER, code: 'owner-outcome-unknown', severity: 'error', message: 'Owner outcome is unknown.', remediation: 'Reconcile before retrying.', citationTargets: [] }] }, now());
   }

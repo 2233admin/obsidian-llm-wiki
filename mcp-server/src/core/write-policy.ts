@@ -44,10 +44,6 @@ function isWorkRunGovernanceNamespace(target: string): boolean {
     || /(?:^|\/)runs(?:\/|$)/u.test(normalized);
 }
 
-function isWorkRunOwnerOperation(operation: string): boolean {
-  return WORK_RUN_OWNER_OPERATIONS.has(operation);
-}
-
 export function adjudicateOperationWrite(
   ctx: OperationContext,
   operation: Operation,
@@ -319,7 +315,7 @@ function enforceCollaborationPolicy(
 }
 
 function enforceWorkRunOwnerNamespace(toolName: string, targets: string[]): void {
-  if (isWorkRunOwnerOperation(toolName)) return;
+  if (WORK_RUN_OWNER_OPERATIONS.has(toolName)) return;
   if (targets.some(isWorkRunGovernanceNamespace)) {
     throw makeErr(-32403, `Operation Write Policy blocked ${toolName}: Work Run governance namespace is owner-protected`);
   }

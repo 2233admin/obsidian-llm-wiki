@@ -1833,7 +1833,7 @@ async function loadServerCapabilityGrant(ctx: OperationContext, projectId: strin
   const grant = await delegation.readGrant(grantId as CapabilityGrant['grantId']);
   if (!grant) return null;
   const child = await delegation.readChild(grant.workRunId);
-  if (!child || !new Set(['ready', 'running']).has(child.lifecycle)
+  if (!child || (child.lifecycle !== 'ready' && child.lifecycle !== 'running')
     || grant.projectId !== projectId || child.projectId !== projectId || child.workRunId !== grant.workRunId
     || child.assignment.profileId !== grant.profileId || child.assignment.profileRevision !== grant.profileRevision) return null;
   // R8.6 invariant: child.grantSummary must canonicalJson-match the grant for server-issued authority.
@@ -2457,7 +2457,6 @@ export function makeWorkflowOps(vaultPath: string, options: WorkflowOperationsOp
             if (itemId !== current.workItemId) throw conflict('Output Work Item does not match the joined Work Run');
             if (request.target_state === 'completed' && request.submission.result === 'quarantine') throw makeErr(-32602, 'quarantine output must target awaiting_review');
           }
-          const governanceContext = ctx;
           const outputRoute = governWorkRunOutput({
             store,
             reconcile: async (leave, ownerActor, output, quarantine) => {
@@ -2473,15 +2472,16 @@ export function makeWorkflowOps(vaultPath: string, options: WorkflowOperationsOp
               const latest = readAgentLifetime(vaultPath, project, agent);
               if (!latest || latest.projectId !== leave.project || latest.workRunId !== leave.work_run_id || latest.agent !== ownerActor
                 || !latest.transitions.some((item) => item.operation === 'leave' && item.token === leave.transition_token)) return null;
-              const routeState = output?.outputClass === 'knowledge-claim'
-                ? 'review-required'
-                : output?.outputClass === 'external-side-effect'
-                  ? latest.approvalStatus === 'denied'
-                    ? 'denied'
-                    : latest.approvalStatus === 'approved'
-                      ? 'accepted'
-                      : null
-                  : 'accepted';
+              let routeState: 'accepted' | 'review-required' | 'denied' | null = 'accepted';
+              if (output?.outputClass === 'knowledge-claim') {
+                routeState = 'review-required';
+              } else if (output?.outputClass === 'external-side-effect') {
+                if (latest.approvalStatus === 'denied') {
+                  routeState = 'denied';
+                } else if (latest.approvalStatus !== 'approved') {
+                  routeState = null;
+                }
+              }
               if (routeState === null) return null;
               return {
                 state: routeState,
@@ -2499,13 +2499,12 @@ export function makeWorkflowOps(vaultPath: string, options: WorkflowOperationsOp
                   diagnostics: quarantine.diagnostics,
                 };
               }
-              let approvalStatus: WorkRunApprovalStatus = quarantine
-                ? 'pending'
-                : output?.approval?.status === 'approved'
-                  ? 'approved'
-                  : outputClass === 'view' || outputClass === 'work-state-transition'
-                    ? 'not-required'
-                    : 'pending';
+              let approvalStatus: WorkRunApprovalStatus = 'pending';
+              if (output?.approval?.status === 'approved') {
+                approvalStatus = 'approved';
+              } else if (outputClass === 'view' || outputClass === 'work-state-transition') {
+                approvalStatus = 'not-required';
+              }
               let nextWorkRunState: WorkRunState = leave.target_state as WorkRunState;
               let routeState: 'accepted' | 'review-required' | 'denied' = 'accepted';
               let routeDiagnostics: RecoveryFlowDiagnosticV2[] | undefined;
@@ -2513,9 +2512,9 @@ export function makeWorkflowOps(vaultPath: string, options: WorkflowOperationsOp
                 nextWorkRunState = 'awaiting_review';
                 routeState = 'review-required';
               } else if (leave.mode === 'complete' && outputClass === 'work-state-transition') {
-                await routeWorkStateTransition(governanceContext, leave, output, current);
+                await routeWorkStateTransition(ctx, leave, output, current);
               } else if (leave.mode === 'complete' && outputClass === 'external-side-effect') {
-                const decision = await executeExternalSideEffect(governanceContext, leave, output, ownerActor);
+                const decision = await executeExternalSideEffect(ctx, leave, output, ownerActor);
                 if (!decision.allowed) {
                   approvalStatus = 'denied';
                   nextWorkRunState = 'awaiting_review';
@@ -2545,12 +2544,12 @@ export function makeWorkflowOps(vaultPath: string, options: WorkflowOperationsOp
               return withFileRollback(vaultPath, [state.path, eventsPath, runPath, ...(draftPath ? [draftPath] : [])], () => {
                 writeVaultBytes(vaultPath, state.path, renderAgentLifetime(state, summary));
                 syncDurableWorkRunUnlocked(vaultPath, state, transitionToken, undefined, store);
-                if (draftPath && output) persistWorkRunOutputDraft(vaultPath, governanceContext.store, output, ownerActor);
+                if (draftPath && output) persistWorkRunOutputDraft(vaultPath, ctx.store, output, ownerActor);
                 appendAgentEvent(vaultPath, state, { kind: 'leave', summary: summary || `${agent} archived`, actor: ownerActor, transitionToken });
                 return { ownerOperation: 'workflow.agent.leave', ownerReceipt: { ok: true, projectId: state.projectId, workItemId: state.workItemId, workRunId: state.workRunId, agent: state.agent, workRunState: state.workRunState }, state: routeState, diagnostics: routeDiagnostics };
               });
             },
-          }, governanceContext, request);
+          }, ctx, request);
           return outputRoute.then((route) => ({ ok: route.state !== 'outcome-unknown', idempotent: false, project, projectId: current.projectId, agent, workRunId: current.workRunId, outputRoute: route, path: current.path, eventsPath: agentEventsPath(project, agent), runPath: durableRunPath(project, current.workRunId) }));
         }
       },
