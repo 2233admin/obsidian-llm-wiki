@@ -1,6 +1,6 @@
 import { after, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
@@ -27,13 +27,21 @@ function makeVault(): string {
   return dir;
 }
 
-function makeCtx(allowed_write_paths = ['notes/**']): OperationContext {
+function makeCtx(
+  allowed_write_paths = ['notes/**'],
+  options: { actor?: string; enforce?: boolean } = {},
+): OperationContext {
   return {
     vault: null as never,
     adapters: null,
     config: {
       vault_path: makeVault(),
-      collaboration: { actor: 'codex', role: 'agent', allowed_write_paths },
+      collaboration: {
+        ...(options.actor === undefined ? { actor: 'codex' } : options.actor ? { actor: options.actor } : {}),
+        role: 'agent',
+        allowed_write_paths,
+        ...(options.enforce === undefined ? {} : { enforce: options.enforce }),
+      },
     },
     logger: { info() {}, warn() {}, error() {} },
     dryRun: false,
@@ -169,6 +177,40 @@ describe('Operation Write Policy', () => {
       () => adjudicateOperationWrite(context, { ...generic, name: 'workflow.agent.forged' }, { path: '01-Projects/alpha/runs/output-runs/claim.json', dryRun: false }, new Map()),
       /governance namespace is owner-protected/u,
     );
+  });
+
+  test('Work Run owner namespaces stay protected without collaboration enforcement or actor', () => {
+    const generic = createOp();
+    const registry = new Map([[generic.name, generic]]);
+    for (const context of [
+      makeCtx(['01-Projects/alpha/runs/**'], { enforce: false }),
+      makeCtx(['01-Projects/alpha/runs/**'], { actor: '', enforce: false }),
+    ]) {
+      assert.throws(
+        () => adjudicateOperationWrite(context, generic, { path: '01-Projects/alpha/runs/output-claims/claim.json', dryRun: false }, registry),
+        /governance namespace is owner-protected/u,
+      );
+      const batch = createBatchOp();
+      assert.throws(
+        () => adjudicateOperationWrite(context, batch, {
+          dryRun: false,
+          operations: [{ method: generic.name, params: { path: '01-Projects/alpha/runs/recovery-tokens/token.json' } }],
+        }, new Map([[batch.name, batch], [generic.name, generic]])),
+        /governance namespace is owner-protected/u,
+      );
+    }
+
+    const ownerContext = makeCtx([], { actor: '', enforce: false });
+    mkdirSync(join(ownerContext.config.vault_path, 'Projects'), { recursive: true });
+    writeFileSync(join(ownerContext.config.vault_path, 'Projects', 'alpha.md'), '---\ntype: project\nentity: project/alpha\n---\n', 'utf8');
+    const owner = requireOperation(makeOperationRegistry(), 'workflow.agent.start');
+    const allowed = adjudicateOperationWrite(
+      ownerContext,
+      owner,
+      { project: 'project/alpha' },
+      makeOperationRegistry(),
+    );
+    assert.ok(allowed.targets.some((target) => target.endsWith('/runs/**')));
   });
 
   test('settings paths are authorized only for settings assignment operations', () => {

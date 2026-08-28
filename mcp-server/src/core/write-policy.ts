@@ -62,6 +62,7 @@ export function adjudicateOperationWrite(
     throw makeErr(-32602, `Operation Write Policy for ${operation.name} produced no write targets`);
   }
   if (verdict.realWrite) {
+    enforceWorkRunOwnerNamespace(operation.name, verdict.targets);
     enforceCollaborationPolicy(ctx.config, operation.name, verdict.params, verdict.targets);
   }
   return verdict;
@@ -303,9 +304,6 @@ function enforceCollaborationPolicy(
   ];
 
   for (const target of targets) {
-    if (isWorkRunGovernanceNamespace(target) && !isWorkRunOwnerOperation(toolName)) {
-      throw makeErr(-32403, `Collaboration policy blocked ${toolName} by ${actor}: Work Run governance namespace is owner-protected`);
-    }
     const protectedHit = matchAny(target, protectedPaths);
     const allowedHit = settingsOperationAllowsTarget(toolName, target)
       || cadenceTargets?.has(normalizePolicyPath(target)) === true
@@ -317,6 +315,13 @@ function enforceCollaborationPolicy(
     if (!allowedHit) {
       throw makeErr(-32403, `Collaboration policy blocked ${toolName} by ${actor}: ${target} is outside allowed write paths`);
     }
+  }
+}
+
+function enforceWorkRunOwnerNamespace(toolName: string, targets: string[]): void {
+  if (isWorkRunOwnerOperation(toolName)) return;
+  if (targets.some(isWorkRunGovernanceNamespace)) {
+    throw makeErr(-32403, `Operation Write Policy blocked ${toolName}: Work Run governance namespace is owner-protected`);
   }
 }
 

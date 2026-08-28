@@ -1973,7 +1973,14 @@ test('external output uses a real Agent Domain grant and production nested dispa
     const joined = await dispatcher.invoke('workflow.agent.join', {
       project: seeded.projectId, agent: 'codex', work_run_id: seeded.workRunId, work_item_id: seeded.workItemId, transition_token: `join:${options.planId.slice(-8)}`,
     }) as { workRunId: string; lifetime: { workItemId: string } };
-    return { root, dispatcher, joined, grant: approved.grant, effects: () => effects };
+    return {
+      root,
+      dispatcher,
+      joined,
+      grant: approved.grant,
+      effects: () => effects,
+      restart: () => createOperationDispatcher([...makeWorkflowOps(root), ...makeProjectOps(root), externalOperation], ctx),
+    };
   };
   const externalSubmission = (run: { joined: { workRunId: string; lifetime: { workItemId: string } }; grant: { grantId: string; externalSideEffectApproval: { approvalFingerprint?: string } } }, overrides: { actor?: string; grantId?: string; operation?: string } = {}) => {
     const operation = overrides.operation ?? 'external.fixture.write';
@@ -2017,6 +2024,22 @@ test('external output uses a real Agent Domain grant and production nested dispa
     const deniedRun = await setup({ planId: 'delegation-plan/external-denied', result: 'false' });
     const deniedSubmission = externalSubmission(deniedRun);
     assert.equal((await leave(deniedRun, 'leave:external-denied', deniedSubmission)).outputRoute.state, 'denied');
+    const deniedDoctor = await deniedRun.dispatcher.invoke('workflow.agent.doctor', { project: 'project/alpha', agent: 'codex' }) as { lifetime: { workRunState: string; approvalStatus: string } };
+    assert.deepEqual([deniedDoctor.lifetime.workRunState, deniedDoctor.lifetime.approvalStatus], ['awaiting_review', 'denied']);
+    const routeDirs = ['output-runs', 'output-claims', 'output-tokens'];
+    for (const dir of routeDirs) {
+      const routeDir = vp(deniedRun.root, `01-Projects/alpha/runs/${dir}`);
+      const [name] = readdirSync(routeDir);
+      if (!name) throw new Error(`${dir} receipt exists`);
+      const routePath = join(routeDir, name);
+      const claim = JSON.parse(readFileSync(routePath, 'utf8')) as Record<string, unknown>;
+      assert.equal((claim.receipt as Record<string, unknown>).state, 'denied');
+      claim.state = 'claimed';
+      claim.receipt = null;
+      claim.ownerStarted = true;
+      writeFileSync(routePath, JSON.stringify(claim, null, 2) + '\n', 'utf8');
+    }
+    deniedRun.dispatcher = deniedRun.restart();
     assert.equal((await leave(deniedRun, 'leave:external-denied', deniedSubmission)).outputRoute.state, 'denied');
     assert.equal(deniedRun.effects(), 1);
     const missingOkRun = await setup({ planId: 'delegation-plan/external-missing-ok', result: 'missing-ok' });

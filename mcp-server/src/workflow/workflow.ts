@@ -2475,9 +2475,14 @@ export function makeWorkflowOps(vaultPath: string, options: WorkflowOperationsOp
                 || !latest.transitions.some((item) => item.operation === 'leave' && item.token === leave.transition_token)) return null;
               const routeState = output?.outputClass === 'knowledge-claim'
                 ? 'review-required'
-                : output?.outputClass === 'external-side-effect' && output.approval?.status !== 'approved'
-                  ? 'denied'
+                : output?.outputClass === 'external-side-effect'
+                  ? latest.approvalStatus === 'denied'
+                    ? 'denied'
+                    : latest.approvalStatus === 'approved'
+                      ? 'accepted'
+                      : null
                   : 'accepted';
+              if (routeState === null) return null;
               return {
                 state: routeState,
                 ownerOperation: 'workflow.agent.leave',
@@ -2494,7 +2499,7 @@ export function makeWorkflowOps(vaultPath: string, options: WorkflowOperationsOp
                   diagnostics: quarantine.diagnostics,
                 };
               }
-              const approvalStatus = quarantine
+              let approvalStatus: WorkRunApprovalStatus = quarantine
                 ? 'pending'
                 : output?.approval?.status === 'approved'
                   ? 'approved'
@@ -2512,9 +2517,12 @@ export function makeWorkflowOps(vaultPath: string, options: WorkflowOperationsOp
               } else if (leave.mode === 'complete' && outputClass === 'external-side-effect') {
                 const decision = await executeExternalSideEffect(governanceContext, leave, output, ownerActor);
                 if (!decision.allowed) {
+                  approvalStatus = 'denied';
                   nextWorkRunState = 'awaiting_review';
                   routeState = 'denied';
                   routeDiagnostics = decision.diagnostics;
+                } else {
+                  approvalStatus = 'approved';
                 }
               }
               nextWorkRunState = transitionWorkRun(current.workRunState, nextWorkRunState);
