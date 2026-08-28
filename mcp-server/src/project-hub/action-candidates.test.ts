@@ -9,7 +9,7 @@ function openOwners(overrides: Partial<RecoveryOpenOwners> = {}): RecoveryOpenOw
   return {
     workflow: { readRun: () => run, listRuns: () => [run], listCheckpoints: () => [], checkpointSetFingerprint: () => fingerprintRecoveryValue([]) },
     loadWorkItems: () => [{ entity: 'project/alpha/issue/build', label: 'Build', state: 'in-progress', blockedBy: [], citationTargets: ['issue:build'] }],
-    loadProjectMemory: async () => ({}), listSessions: async () => [], loadCapabilities: async () => [], ...overrides,
+    loadProjectMemory: async () => ({}), listSessions: async () => [], loadCapabilities: async () => [{ capability: 'workflow.recovery.apply', state: 'available' as const }], ...overrides,
   };
 }
 const result = { itemId: 'project/alpha/issue/build', itemType: 'issue', label: 'Build', projectId: 'project/alpha', owner: 'work-os' as const, matchClass: 'exact', score: 1000, freshness: 'current', confidence: 'owner', provenance: 'work-os', citationTargets: ['issue:build'] };
@@ -39,4 +39,9 @@ test('Session create is rejected when the current Work Item is blocked', async (
     listSessions: async () => [{ sessionId: 'session/current', projectId: 'project/alpha', workItemId: 'project/alpha/issue/build', status: 'captured', citationTargets: ['session:current'] }],
   }), '2026-08-28T02:00:00.000Z');
   assert.equal(composeRecoveryCandidates({ open, search: result, compatibleBindings: [binding] }).reason, 'no_safe_candidate');
+});
+
+test('unavailable recovery capability fails closed', async () => {
+  const open = await composeRecoveryOpenStage('project/alpha', openOwners({ loadCapabilities: async () => [{ capability: 'workflow.recovery.apply', state: 'degraded' as const }] }), '2026-08-28T02:00:00.000Z');
+  assert.equal(composeRecoveryCandidates({ open, search: result, compatibleBindings: [binding] }).reason, 'capability_unavailable');
 });
