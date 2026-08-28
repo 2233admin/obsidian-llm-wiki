@@ -1,7 +1,7 @@
 ---
 type: issue
 entity: project/obsidian-llm-wiki/issue/p0-s03b-production-recovery-search-owners
-state: in-progress
+state: done
 review: reviewed
 kind: knowledge-task
 id: obsidian-llm-wiki/p0-s03b-production-recovery-search-owners
@@ -26,15 +26,15 @@ The reviewed S03 contract requires Project-scoped search over Work-OS, Project M
 
 ## Acceptance
 
-- [ ] Production configures all five canonical readers: `work-os`, `project-memory`, `source-evidence`, `session-record`, and `workflow`.
-- [ ] Readers reuse authoritative owner read models; they do not introduce a second index, database, or generic adapter authority.
-- [ ] Cross-Project records are excluded before normalization, ranking, fingerprinting, and diagnostics.
-- [ ] Project Memory emits reviewed decisions only; Session Record emits safe captured/indexed metadata only.
-- [ ] Workflow emits current Project Work Runs and safe checkpoints with stable identities and resolvable Citation Targets; no actor secrets, tokens, prompts, transcript bodies, or absolute paths.
-- [ ] Source/Evidence uses canonical Source Registry/evidence records and bounded safe text; a missing registry is a current empty owner, while malformed/unreadable state is explicit unavailable.
-- [ ] Owner revision/fingerprint/state and deterministic ordering remain stable; reads write zero bytes.
-- [ ] A production-wiring integration test with two current Workflow runs yields a recommended resume candidate plus an alternate candidate, enabling explicit candidate replacement.
-- [ ] Existing repeated-query, branch-mixing, stale/unavailable, response-bound, S04P Plan, and V1-absence gates remain green.
+- [x] Production configures all five canonical readers: `work-os`, `project-memory`, `source-evidence`, `session-record`, and `workflow`.
+- [x] Readers reuse authoritative owner read models; they do not introduce a second index, database, or generic adapter authority.
+- [x] Cross-Project records are excluded before normalization, ranking, fingerprinting, and diagnostics.
+- [x] Project Memory emits reviewed decisions only; Session Record emits safe captured/indexed metadata only.
+- [x] Workflow emits current Project Work Runs and safe checkpoints with stable identities and resolvable Citation Targets; no actor secrets, tokens, prompts, transcript bodies, or absolute paths.
+- [x] Source/Evidence uses canonical Source Registry/evidence records and bounded safe text; a missing registry is a current empty owner, while malformed/unreadable state is explicit unavailable.
+- [x] Owner revision/fingerprint/state and deterministic ordering remain stable; reads write zero bytes.
+- [x] A production-wiring integration test with two current Workflow runs yields a recommended resume candidate plus an alternate candidate, enabling explicit candidate replacement.
+- [x] Existing repeated-query, branch-mixing, stale/unavailable, response-bound, S04P Plan, and V1-absence gates remain green.
 
 ## Non-goals
 
@@ -46,11 +46,13 @@ The reviewed S03 contract requires Project-scoped search over Work-OS, Project M
 
 Run focused Project Hub/search/workflow/memory/source tests, MCP typecheck/build, strict OpenSpec validation, a no-write byte/hash proof, and the actual sanitized Obsidian candidate-replacement path. Keep S06A T5.3 blocked until independent review and integration pass.
 
-## Evidence (implementation; independent review pending)
+## Evidence
 
 - Production wiring now composes all five canonical owner readers from the Work-OS, Project Memory, Source Registry/evidence, Session Record, and Workflow read models.
 - Focused affected-owner suite: 80 passed, 0 failed across 13 files.
 - S04P Task 9A matrix command: 86 passed, 0 failed across 11 files (the count includes the three new production-wiring cases).
 - `npm run typecheck -- --pretty false`: passed; `npm run build`: passed; `openspec validate project-hub-recovery-loop --strict --no-interactive`: valid.
 - Production-wiring tests prove missing/malformed Source Registry handling, foreign-project exclusion before normalization, privacy filtering, deterministic repeated snapshots, query branch mixing, alternate Work Run replacement, and unchanged SHA-256 file hashes across reads.
-- Remaining gate: independent review and the actual sanitized S06A Obsidian six-stage/candidate-replacement run; state remains `in-progress`.
+- Independent review: Spec Compliance PASS; Task Quality APPROVED; zero findings.
+- Integrated verification: 76 passed across 13 affected owner files, 86 passed across the S04P parity matrix, typecheck passed, and strict OpenSpec validation passed.
+- Remaining gate: the actual sanitized S06A Obsidian six-stage and candidate-replacement run.
