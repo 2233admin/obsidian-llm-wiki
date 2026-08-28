@@ -877,15 +877,15 @@ export interface WorkRunOutputRouteReceiptV1 {
 }
 ```
 
-- [ ] **Step 1:** Validate the full complete/terminate leave union, exact identity/token/target/submission relationships, valid/quarantine arms, classifications, bounds, citations/provenance and safe non-persistence/non-echo. Actor comes only from OperationContext.
-- [ ] **Step 2:** Reject legacy leave `work_run_state|output_class|approval_status`, unknown fields, complete mode without submission, and terminate mode with submission.
-- [ ] **Step 3:** Claim output fingerprint plus leave-token/actor digest before owner mutation; implement first-token-wins, same-token replay, rebound, owner-receipt recovery and outcome-unknown.
-- [ ] **Step 4:** Route view artifact-only, allowlisted Work-OS transition, cited Project Memory draft/exact existing Dream Time proposal, approved external effect, and quarantine review receipt.
-- [ ] **Step 5:** Reject `completed|awaiting_review` from step/checkpoint; migrate Agent Domain, Project E2E, Workflow and Fleet verifier successful/review callers to complete-mode leave. Failed/cancelled uses terminate mode.
-- [ ] **Step 6:** Remove only the production-unused Python output router and its isolated test; retain durable Work Run field compatibility.
-- [ ] **Step 7:** Fault-test each mutating route before owner, after owner/before route receipt, and after receipt/before response; prove one owner effect.
-- [ ] **Step 8:** Run MCP focused tests/typecheck, Fleet verifier tests and Python Work Driver tests.
-- [ ] **Step 9:** Record S05 evidence and create local commit `feat: govern Work Run output claims`.
+- [x] **Step 1:** Validate the full complete/terminate leave union, exact identity/token/target/submission relationships, valid/quarantine arms, classifications, bounds, citations/provenance and safe non-persistence/non-echo. Actor comes only from OperationContext.
+- [x] **Step 2:** Reject legacy leave `work_run_state|output_class|approval_status`, unknown fields, complete mode without submission, and terminate mode with submission.
+- [x] **Step 3:** Claim output fingerprint plus leave-token/actor digest before owner mutation; implement first-token-wins, same-token replay, rebound, owner-receipt recovery and outcome-unknown.
+- [x] **Step 4:** Route view artifact-only, allowlisted Work-OS transition, cited Project Memory draft/exact existing Dream Time proposal, approved external effect, and quarantine review receipt.
+- [x] **Step 5:** Reject `completed|awaiting_review` from step/checkpoint; migrate Agent Domain, Project E2E, Workflow and Fleet verifier successful/review callers to complete-mode leave. Failed/cancelled uses terminate mode.
+- [x] **Step 6:** Remove only the production-unused Python output router and its isolated test; retain durable Work Run field compatibility.
+- [x] **Step 7:** Fault-test each mutating route before owner, after owner/before route receipt, and after receipt/before response; prove one owner effect.
+- [x] **Step 8:** Run MCP focused tests/typecheck, Fleet verifier tests and Python Work Driver tests.
+- [x] **Step 9:** Record S05 evidence and create local commit `feat: govern Work Run output claims`.
 
 ---
 

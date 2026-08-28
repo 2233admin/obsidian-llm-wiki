@@ -30,8 +30,8 @@ accepted.
 The approved slice replaces `project-hub-recovery/v1` with a stateless staged
 Recovery Flow that moves from current Project facts through mandatory cited
 search and immutable Plan preview, then delegates confirmed mutation and output
-routing to Workflow. S01 v1 remains completed history. S01B–S04B are verified
-completions. S05 is the only immediately executable leaf.
+routing to Workflow. S01 v1 remains completed history. S01B–S05 are verified
+completions. S06B is the only immediately executable leaf.
 
 Dependency order:
 
@@ -44,15 +44,15 @@ S01 v1 complete (historical)
                       -> S04P read-only workflow.recovery.plan Operation [done]
                            -> S06A actual Obsidian read-only preview [done]
                                 -> S04B claim-first Workflow apply [done]
-                                     -> S05 claimed output governance [next]
-                                          -> S06B actual Obsidian apply/receipt/restart
+                                     -> S05 claimed output governance [done]
+                                          -> S06B actual Obsidian apply/receipt/restart [next]
                                                -> S07 MCP/CLI parity
                                                     -> S08 Foundation acceptance
 ```
 
-**S04P, S06A, and S04B are verified complete.** Planning and apply remain
-separate, and the first Recovery mutation boundary is claim-first and replay-safe.
-**S05 is next** and owns claimed Work Run output completion.
+**S04P, S06A, S04B, and S05 are verified complete.** Planning, apply, and
+output routing remain separate, claim-first, and replay-safe.
+**S06B is next** and owns exact confirmation, receipt remediation, and owner-backed Flow restart.
 
 Planning sources:
 

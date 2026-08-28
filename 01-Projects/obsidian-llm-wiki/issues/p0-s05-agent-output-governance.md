@@ -1,7 +1,7 @@
 ---
 type: issue
 entity: project/obsidian-llm-wiki/issue/p0-s05-agent-output-governance
-state: in-progress
+state: done
 review: reviewed
 kind: knowledge-task
 id: obsidian-llm-wiki/p0-s05-agent-output-governance
@@ -25,15 +25,15 @@ Clean-cut `workflow.agent.leave` to a closed request union: complete mode carrie
 
 ## Acceptance
 
-- [ ] Complete/terminate arms reject unknown fields and invalid target/submission combinations; legacy leave `work_run_state|output_class|approval_status` is rejected.
-- [ ] Valid classes are explicit: view, work-state-transition, knowledge-claim, and external-side-effect.
-- [ ] Quarantine persists only authoritative Work Run identities, safe observed class, payload fingerprint, provenance, and bounded diagnostics; malformed payload bytes are never stored or echoed.
-- [ ] Output/token/actor claim is durable before owner mutation; same-token retry returns or recovers one owner receipt, rebound conflicts, and unprovable owner result becomes outcome-unknown without repeating the effect.
-- [ ] View remains artifact-only; work-state transition uses allowlisted Work-OS; knowledge claim creates/binds one cited Project Memory draft without promotion; external effect requires exact approval and Operation Write Policy.
-- [ ] step/checkpoint cannot enter `completed|awaiting_review`; all existing successful/review callers migrate to complete-mode leave. Failed/cancelled uses terminate mode.
-- [ ] Durable `output_class` and `approval_status` remain compatible inside TypeScript/Python Work Run records even though legacy public leave fields are removed.
-- [ ] The production-unused Python output router is removed and no second routing authority remains.
-- [ ] Only accepted owner state changes the recomposed Recovery Flow; review-required/denied/quarantined output is not current truth.
+- [x] Complete/terminate arms reject unknown fields and invalid target/submission combinations; legacy leave `work_run_state|output_class|approval_status` is rejected.
+- [x] Valid classes are explicit: view, work-state-transition, knowledge-claim, and external-side-effect.
+- [x] Quarantine persists only authoritative Work Run identities, safe observed class, payload fingerprint, provenance, and bounded diagnostics; malformed payload bytes are never stored or echoed.
+- [x] Output/token/actor claim is durable before owner mutation; same-token retry returns or recovers one owner receipt, rebound conflicts, and unprovable owner result becomes outcome-unknown without repeating the effect.
+- [x] View remains artifact-only; work-state transition uses allowlisted Work-OS; knowledge claim creates/binds one cited Project Memory draft without promotion; external effect requires exact approval and Operation Write Policy.
+- [x] step/checkpoint cannot enter `completed|awaiting_review`; all existing successful/review callers migrate to complete-mode leave. Failed/cancelled uses terminate mode.
+- [x] Durable `output_class` and `approval_status` remain compatible inside TypeScript/Python Work Run records even though legacy public leave fields are removed.
+- [x] The production-unused Python output router is removed and no second routing authority remains.
+- [x] Only accepted owner state changes the recomposed Recovery Flow; review-required/denied/quarantined output is not current truth.
 
 ## Demo
 
@@ -103,3 +103,16 @@ The repository-wide `npm test` invocation remains Bun-runner incompatible in thi
 - Fleet operation harness now accepts a validated authenticated actor; setup and read-only verification retain `fleet-acceptance`, while remote portable-handoff execution binds the context actor to `marker.agentId`.
 - The remote mismatch matrix proves a wrong actor rejects without mutation; exact remote actor leave succeeds and join/checkpoint/leave results plus shared files remain handoff-token-free. Fleet acceptance: **15 passed, 0 failed**; phase-all: **13/13**.
 - Project Hub runtime scanning excludes output governance projections from Work Run counts. S05 remains **in-progress**.
+
+## Accepted evidence — 2026-08-29
+
+S05 is accepted at `90edc1c85d15f86eeeb4e7dcb0cedbdc51863a6f`.
+
+- Source contract tests: **102 passed, 0 failed** across output governance, Work Run storage, Workflow, Operation Write Policy/dispatcher, Project Memory, Agent Domain, Project E2E, and Project Hub.
+- Compiled contract tests: **80 passed, 0 failed** after `npm run rebuild`; the isolated release-install smoke reported **210** shipped Operations and `workflow.agent.leave` returned `accepted`.
+- Python Work Driver compatibility: **60 passed, 0 failed**.
+- Fleet acceptance: **15 passed, 0 failed**; phase-all: **13/13**, including exact actor binding, replay-byte identity, Project Hub graph, and secret-free shared state.
+- Typecheck, bundle rebuild, strict OpenSpec validation, generated catalog drift, release-install smoke, and diff checks passed.
+- Independent final reviews: Task 13 spec/task quality **PASS / APPROVED**; adversarial security review **APPROVED** after canonical Work Run serialization, bounded strict claim scanning, external denial recovery, verified accepted receipts, and unconditional owner-namespace protection; Fleet actor migration **PASS / APPROVED**.
+
+S06B is now the next executable Recovery Flow slice.

@@ -73,9 +73,9 @@ Luna receives one reviewed Task at a time. It may alter internal implementation 
 
 ## Phase 7 — S05 claimed Work Run output governance
 
-- [ ] **T7.1 Closed leave request union, submission/quarantine/claim/receipt (R8)** — Add `output-governance.ts` and its test; extend Work Run store for output/token indexes. Define complete/terminate leave arms with exact transition token and target states, reject legacy completion fields, implement valid/quarantine submission, safe non-echo, output claim, replay/rebound/reconciliation, and outcome-unknown precedence.
-- [ ] **T7.2 Owner routes and completion cutover (R8)** — Route view, allowlisted Work-OS transition, Project Memory draft/existing Dream Time proposal, external effect policy, and quarantine. Reject terminal/review transitions from step/checkpoint, make complete-mode leave the only successful/review boundary, and migrate Agent Domain, Project E2E, Workflow, and Fleet verifier callers.
-- [ ] **T7.3 Remove Python routing authority and verify S05** — Remove production-unused Python output router, retain durable field compatibility, run MCP focused tests/typecheck, Fleet verifier tests, and Python Work Driver tests. Record S05 evidence.
+- [x] **T7.1 Closed leave request union, submission/quarantine/claim/receipt (R8)** — Added the exact complete/terminate union, nullable terminate contract, safe output/quarantine validation, canonical Work Run/output/token claims, bounded strict recovery scans, first-token-wins replay/rebound handling, verified accepted receipts, and outcome-unknown precedence.
+- [x] **T7.2 Owner routes and completion cutover (R8)** — Routed view receipts, allowlisted Work-OS transitions, cited Project Memory drafts/existing Dream Time proposals, exact approved external effects, and effect-free quarantine. Successful/review callers now use complete-mode leave; failed/cancelled uses terminate.
+- [x] **T7.3 Remove Python routing authority and verify S05** — Removed the unused Python router while retaining durable field compatibility. Source tests passed 102/102, compiled tests 80/80, Python 60/60, Fleet 15/15 and phase-all 13/13; typecheck/rebuild, strict OpenSpec, catalog, release-install, privacy, and diff gates passed.
 
 ## Phase 8 — S06B Obsidian apply, receipt, and Flow restart
 
