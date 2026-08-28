@@ -1,7 +1,7 @@
 ---
 type: issue
 entity: project/obsidian-llm-wiki/issue/p0-s04b-workflow-recovery-apply
-state: backlog
+state: todo
 review: reviewed
 kind: knowledge-task
 id: obsidian-llm-wiki/p0-s04b-workflow-recovery-apply

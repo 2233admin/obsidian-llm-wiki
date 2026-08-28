@@ -1,7 +1,7 @@
 ---
 type: issue
 entity: project/obsidian-llm-wiki/issue/p0-s06-obsidian-recovery-surface
-state: in-progress
+state: done
 review: reviewed
 kind: knowledge-task
 id: obsidian-llm-wiki/p0-s06-obsidian-recovery-surface
@@ -34,7 +34,7 @@ Expose the complete read-only V2 Flow through the existing LLM Wiki/Ask Mate Ite
 - [x] Expired Plan remains visible as expired until explicit Refresh Plan; no background replacement occurs.
 - [x] Query, results, Flow fingerprints, candidate, Binding, and Plan live only in ItemView memory; dispose/reload/reopen starts at current open and plugin data remains byte-identical.
 - [x] Keyboard order, semantic labels/headings, live status, focus retention, cancellation, stale/unavailable readability, and Plan readability pass in actual Obsidian.
-- [ ] Principal accepts actual-surface evidence before S04B starts.
+- [x] Principal accepts actual-surface evidence before S04B starts.
 
 ## S06A automated evidence
 
@@ -54,7 +54,7 @@ Expose the complete read-only V2 Flow through the existing LLM Wiki/Ask Mate Ite
 - The visible Cancel control suppressed a delayed plan response and left the panel at `searched`, not `planned`. Reopening Project Context reset stage to `open`, cleared the query, and discarded the prior candidate/Plan.
 - Keyboard order moved from the non-empty query input to enabled Search; the actual focused Search button had a 2px solid outline. Citation buttons opened the exact vault note, retained 40px hit height, wrapped long targets, and reduced panel horizontal overflow from 26px to zero (`clientWidth == scrollWidth == 264`).
 - Before/after manifests covered 13 fixture, Source, Work-OS, Workflow, Agent Domain, and plugin-data files. Every byte count and SHA-256 matched after all read-only flows; controlled stale/Binding mutations were restored before comparison.
-- Principal acceptance remains the only open S06A gate. S04B remains blocked until that decision.
+- Principal accepted the complete S06A actual-surface evidence on 2026-08-28; S04B is unblocked.
 
 ## Demo
 
@@ -68,7 +68,7 @@ fixture vault files, plugin `data.json`, and durable recovery roots.
 
 ## Dependencies
 
-Blocked by complete S04A V2 read Flow and V1 cutover. S04B remains blocked until actual Obsidian proof is accepted.
+Accepted S06A actual-Obsidian preview unblocks S04B. Project Hub remains read-only.
 
 ## Non-goals
 
