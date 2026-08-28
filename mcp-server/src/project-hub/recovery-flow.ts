@@ -566,8 +566,8 @@ export function validateRecoveryPlanV2(value: unknown): RecoveryPlanV2 {
     fail('priorPlan.ownerLocks', 'must contain every ordered owner lock');
   }
   const capabilityNames = plan.capabilityFacts.map((fact) => fact.capability);
-  if (new Set(capabilityNames).size !== capabilityNames.length || !plan.capabilityFacts.some((fact) => fact.capability === 'workflow.recovery.apply' && fact.state === 'available')) {
-    fail('priorPlan.capabilityFacts', 'must contain unique complete capabilities including available workflow.recovery.apply');
+  if (new Set(capabilityNames).size !== capabilityNames.length || !plan.capabilityFacts.some((fact) => fact.capability === 'workflow.recovery.plan' && fact.state === 'available')) {
+    fail('priorPlan.capabilityFacts', 'must contain unique complete capabilities including available workflow.recovery.plan');
   }
   const { fingerprint: _fingerprint, ...planWithoutFingerprint } = plan;
   if (fingerprintRecoveryValue(planWithoutFingerprint) !== plan.fingerprint) fail('priorPlan', 'fingerprint does not match');

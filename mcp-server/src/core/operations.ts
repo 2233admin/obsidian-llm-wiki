@@ -33,13 +33,14 @@ import { makeGraphOps } from '../holons/graph.js';
 import { makeVaultWriteOps } from '../holons/write.js';
 import { makeMemoryOps } from '../memory/memory.js';
 import { makeProjectOps } from '../project/project.js';
-import { makeProjectHubOps } from '../project/project-hub.js';
+import { createDefaultRecoveryRuntime, makeProjectHubOps } from '../project/project-hub.js';
 import { makeIngestOps } from '../ingest/ingest.js';
 import { makeSourceOps } from '../source/source.js';
 import type { VaultStore } from '../vault/store.js';
 import { makeConversationOps } from '../conversation/conversation.js';
 import { makeContextOps } from '../context/context.js';
 import { makeWorkflowOps } from '../workflow/workflow.js';
+import { createRecoveryPlanningService } from '../project-hub/recovery-planning-service.js';
 import { resolveProjectContext } from '../project/project-context.js';
 import { makeProjectMigrationOps } from '../project/project-migration.js';
 import {
@@ -832,6 +833,15 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     problemDependencies,
     { obcRunner },
   );
+  const recoveryRuntime = createDefaultRecoveryRuntime({
+    vaultPath,
+    registry,
+    capabilityFact: {
+      capability: 'workflow.recovery.plan',
+      state: 'available',
+    },
+  });
+  const recoveryPlanningService = createRecoveryPlanningService(recoveryRuntime.dependencies);
   const catalogOperations = operations.map((operation) => {
     if (operation.name !== 'vault.lint') return operation;
     return {
@@ -1570,6 +1580,8 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     ...projectOps,
     ...makeProjectHubOps(registry, settingsService, {
       loadVisualTriage: projectHubIntegration.loadVisualTriage,
+      recoveryRuntime,
+      recoveryPlanningService,
     }),
     ...makeProjectMigrationOps({ python, compilerPath, vaultPath }),
     ...makeIngestOps(),
@@ -1578,7 +1590,10 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
       store: deps.store,
     }),
     ...makeConversationOps(vaultPath),
-    ...makeWorkflowOps(vaultPath),
+    ...makeWorkflowOps(vaultPath, {
+      recoveryRuntime,
+      recoveryPlanningService,
+    }),
     ...makeContextOps(vaultPath, registry, defaultWeights),
     ...makeSettingsOps(settingsOptions, settingsService),
     ...makeAgentWikiFeatureOps(agentWikiFeatures),

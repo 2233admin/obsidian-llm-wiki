@@ -49,7 +49,11 @@ import {
 import { searchRecovery, type RecoverySearchDependencies } from '../project-hub/search.js';
 import { createProjectSearchSource, type ProjectSearchSource } from '../project-hub/search-source.js';
 import { createAgentSelectionSource, type RecoveryAgentSelectionSource } from '../project-hub/agent-selection.js';
-import { composeRecoveryPlannedStage } from '../project-hub/action-plan.js';
+import {
+  createRecoveryPlanningService,
+  type RecoveryPlanDependencies,
+  type RecoveryPlanningService,
+} from '../project-hub/recovery-planning-service.js';
 import {
   RECOVERY_FLOW_REQUEST_SCHEMA_VERSION,
   validateRecoveryFlowRequestV2,
@@ -90,6 +94,13 @@ export interface ProjectHubOperationsOptions {
     searchSource?: ProjectSearchSource;
     agentSelection?: RecoveryAgentSelectionSource;
   };
+  recoveryRuntime?: RecoveryRuntime;
+  recoveryPlanningService?: RecoveryPlanningService;
+}
+
+export interface RecoveryRuntime {
+  readonly capabilityFact: { capability: 'workflow.recovery.plan'; state: 'available' };
+  readonly dependencies: RecoveryPlanDependencies;
 }
 
 interface FileSummary {
@@ -679,7 +690,11 @@ function projectReference(params: Record<string, unknown>): string {
   return reference;
 }
 
-function defaultRecoveryOwners(vaultPath: string, registry: AdapterRegistry): RecoveryOpenOwners {
+function defaultRecoveryOwners(
+  vaultPath: string,
+  registry: AdapterRegistry,
+  capabilityFact: RecoveryRuntime['capabilityFact'],
+): RecoveryOpenOwners {
   const memorySource = createDurableProjectMemorySource(vaultPath);
   return {
     workflow: createWorkflowReadModel(vaultPath),
@@ -721,8 +736,24 @@ function defaultRecoveryOwners(vaultPath: string, registry: AdapterRegistry): Re
       const workItemId = (session as typeof session & { workItemId?: unknown }).workItemId;
       return typeof workItemId === 'string' ? [{ sessionId: session.sessionId, projectId: session.projectId, workItemId, capturedAt: session.capturedAt ?? null, status: session.status, revision: session.revision ?? null, citationTargets: (session.sourceRefs ?? []).map((reference) => typeof reference === 'string' ? reference : reference.ref) }] : [];
     }),
-    // S04B owns the apply Operation; this read-only adapter must not claim it.
-    loadCapabilities: async () => [],
+    // S04B owns the apply Operation; planning remains independently available.
+    loadCapabilities: async () => [capabilityFact],
+  };
+}
+
+export function createDefaultRecoveryRuntime(input: {
+  vaultPath: string;
+  registry: AdapterRegistry;
+  capabilityFact: RecoveryRuntime['capabilityFact'];
+}): RecoveryRuntime {
+  const openOwners = defaultRecoveryOwners(input.vaultPath, input.registry, input.capabilityFact);
+  return {
+    capabilityFact: input.capabilityFact,
+    dependencies: {
+      openOwners,
+      searchSource: defaultRecoverySearchSource(input.vaultPath),
+      agentSelection: defaultRecoveryAgentSelection(input.vaultPath),
+    },
   };
 }
 
@@ -770,14 +801,25 @@ async function recoveryFlow(
 ): Promise<unknown> {
   const request = validateRecoveryFlowRequestV2(params.request) as RecoveryFlowRequestV2;
   const configured = options.recoveryFlow ?? {};
-  const owners = configured.openOwners ?? defaultRecoveryOwners(ctx.config.vault_path, registry);
-  const searchSource = configured.searchSource ?? defaultRecoverySearchSource(ctx.config.vault_path);
-  const agentSelection = configured.agentSelection ?? defaultRecoveryAgentSelection(ctx.config.vault_path);
+  const runtime = options.recoveryRuntime ?? createDefaultRecoveryRuntime({
+    vaultPath: ctx.config.vault_path,
+    registry,
+    capabilityFact: { capability: 'workflow.recovery.plan', state: 'available' },
+  });
+  const owners = configured.openOwners ?? runtime.dependencies.openOwners;
+  const searchSource = configured.searchSource ?? runtime.dependencies.searchSource ?? defaultRecoverySearchSource(ctx.config.vault_path);
+  const agentSelection = configured.agentSelection ?? runtime.dependencies.agentSelection ?? defaultRecoveryAgentSelection(ctx.config.vault_path);
   const now = configured.now ?? options.now;
   if (request.action === 'open') return composeRecoveryOpenStage(request.projectId, owners, new Date(now?.() ?? Date.now()).toISOString());
   if (request.action === 'search') return searchRecovery({ request, dependencies: { openOwners: owners, searchSource, agentSelection, now } as RecoverySearchDependencies });
   if (request.action === 'restart') return composeRecoveryOpenStage(request.projectId, owners, new Date(now?.() ?? Date.now()).toISOString());
-  return composeRecoveryPlannedStage(request, { openOwners: owners, searchSource, agentSelection, now });
+  const planningService = options.recoveryPlanningService ?? createRecoveryPlanningService({
+    openOwners: owners,
+    searchSource,
+    agentSelection,
+    now,
+  });
+  return planningService.plan(request);
 }
 export async function composeProjectHub(
   ctx: OperationContext,

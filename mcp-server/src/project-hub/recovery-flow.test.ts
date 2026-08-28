@@ -66,7 +66,7 @@ const basePlan = {
   workRunId: 'work-run/one',
   agentSelection: { role: 'coder', bindingId: 'binding/one', bindingRevision: 1, profileId: 'profile/one', profileRevision: 2 },
   ownerLocks: planLocks,
-  capabilityFacts: [{ capability: 'workflow.recovery.apply', state: 'available' as const }],
+  capabilityFacts: [{ capability: 'workflow.recovery.plan', state: 'available' as const }],
   citationTargets: ['01-Projects/alpha/issues/one.md'],
   owningOperation: 'workflow.recovery.apply' as const,
   createdAt: '2026-08-28T12:00:00.000Z',

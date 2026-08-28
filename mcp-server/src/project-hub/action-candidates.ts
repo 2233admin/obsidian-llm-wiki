@@ -60,7 +60,7 @@ export function composeRecoveryCandidates(input: {
   // owner-only fields such as Project ID and raw capability claims.
   const bindings = [...input.compatibleBindings].sort((left, right) => left.bindingId.localeCompare(right.bindingId) || left.bindingRevision - right.bindingRevision);
   if (candidates.length === 0) return unavailable('no_safe_candidate', 'Repair the current unblocked Work Item and safe Session/Work Run context before retrying recovery.', bindings);
-  if (!capabilities.some(({ capability, state }) => capability === 'workflow.recovery.apply' && state === 'available')) return unavailable('capability_unavailable', 'Restore the workflow.recovery.apply capability before retrying recovery.', bindings);
+  if (!capabilities.some(({ capability, state }) => capability === 'workflow.recovery.plan' && state === 'available')) return unavailable('capability_unavailable', 'Restore the workflow.recovery.plan capability before retrying recovery.', bindings);
   if (bindings.length === 0) return unavailable('no_compatible_binding', 'Create or enable one current Project Agent Binding with a current Profile and required capabilities.', bindings);
   if (bindings.length > 16) return unavailable('binding_selection_too_large', 'Reduce compatible Project Agent Bindings to at most sixteen before retrying recovery.', bindings);
   const candidateSetFingerprint = fingerprintRecoveryValue({

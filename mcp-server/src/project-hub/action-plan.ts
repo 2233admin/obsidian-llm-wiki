@@ -25,17 +25,11 @@ import {
 } from './recovery-flow.js';
 import { composeRecoveryOpenStage, type RecoveryOpenOwners } from './recovery-open.js';
 import { composeRecoverySearchBasis } from './search.js';
-import { createProjectSearchSource, type ProjectSearchSource } from './search-source.js';
+import { createProjectSearchSource } from './search-source.js';
 import { composeRecoveryCandidates } from './action-candidates.js';
-import type { RecoveryAgentSelectionSource } from './agent-selection.js';
+import type { RecoveryPlanDependencies } from './recovery-planning-service.js';
 
-export interface RecoveryPlanDependencies {
-  openOwners: RecoveryOpenOwners;
-  searchSource?: ProjectSearchSource;
-  agentSelection?: RecoveryAgentSelectionSource;
-  now?: () => number;
-  currentPlanned?: RecoveryPlannedResponseV2;
-}
+export type { RecoveryPlanDependencies } from './recovery-planning-service.js';
 
 const ownerOrder: readonly RecoveryOwner[] = ['project', 'work-os', 'workflow', 'project-memory', 'session-record', 'source-evidence', 'agent-domain', 'settings'];
 const diag = (owner: RecoveryOwner, code: string, message: string, remediation: string, severity: RecoveryFlowDiagnosticV2['severity'] = 'error'): RecoveryFlowDiagnosticV2 => ({ owner, code, severity, message, remediation, citationTargets: [] });

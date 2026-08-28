@@ -6,6 +6,19 @@ import { conflict, makeErr } from '../core/types.js';
 import { resultPath, touchMarkdown, workflowAgentPolicyBasePath, workflowPolicyBasePath } from '../core/write-policy.js';
 import { resolveProjectContext } from '../project/project-context.js';
 import { createFileWorkRunStore, durableRunPath, vaultJoin, withFileRollback, type WorkRunStore } from './work-run-store.js';
+import {
+  makeRecoveryPlanOperation,
+} from './recovery-plan.js';
+import {
+  createRecoveryPlanningService,
+  type RecoveryPlanDependencies,
+  type RecoveryPlanningService,
+} from '../project-hub/recovery-planning-service.js';
+
+export interface WorkflowOperationsOptions {
+  recoveryRuntime?: { dependencies: RecoveryPlanDependencies };
+  recoveryPlanningService?: RecoveryPlanningService;
+}
 
 const STAGES = ['intake', 'understand', 'plan', 'execute', 'review', 'verify', 'archive'] as const;
 type WorkflowStage = (typeof STAGES)[number];
@@ -1578,9 +1591,12 @@ function beginAgentLifetime(
   };
 }
 
-export function makeWorkflowOps(vaultPath: string): Operation[] {
+export function makeWorkflowOps(vaultPath: string, options: WorkflowOperationsOptions = {}): Operation[] {
   const store = createFileWorkRunStore(vaultPath);
+  const recoveryPlanningService = options.recoveryPlanningService
+    ?? (options.recoveryRuntime ? createRecoveryPlanningService(options.recoveryRuntime.dependencies) : undefined);
   return [
+    makeRecoveryPlanOperation(recoveryPlanningService),
     {
   name: 'workflow.state.set',
       namespace: 'workflow' as Operation['namespace'],

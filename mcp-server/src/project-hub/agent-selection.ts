@@ -22,7 +22,7 @@ function validRevision(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
 }
 
-/** Normalize the Agent Domain read into the exact revision tuple used by Flow. */
+/** Normalize the Agent Domain read into the exact revision tuple used by the read-only planning Flow. */
 export function normalizeCompatibleBindings(
   projectId: string,
   capabilities: RecoveryCapabilityFactV2[],

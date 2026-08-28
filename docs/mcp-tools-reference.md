@@ -3,7 +3,7 @@
 > Auto-generated from `mcp-server/src/core/operations.ts`.
 > Run `npm run generate-tools-doc` to regenerate. Do not edit by hand.
 
-Total: **208** operations across **26** namespaces.
+Total: **209** operations across **26** namespaces.
 
 ## `vault.*` (31)
 
@@ -1672,7 +1672,7 @@ Register a long-lived source in the lightweight Source Registry. URL inputs run 
 - `tags` (array, optional) — Optional tags for the Source Note and registry record
 - `notes` (string, optional) — Optional operator notes stored in the Source Note
 
-## `workflow.*` (10)
+## `workflow.*` (11)
 
 ### `workflow.agent.checkpoint`
 
@@ -1833,6 +1833,16 @@ Check whether a project has the vault-first workflow files needed by Codex, Clau
 **Parameters:**
 
 - `project` (string, required) — Project key
+
+### `workflow.recovery.plan`
+
+Compose a read-only Recovery Plan from a closed Project Hub Flow plan request.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `request` (object, required) — Closed workflow-recovery-plan-request/v1 envelope containing project-hub-recovery-flow-request/v2 plan/from-search, plan/override, or refresh-plan request.
 
 ### `workflow.state.get`
 
