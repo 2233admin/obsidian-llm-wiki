@@ -1,7 +1,7 @@
 ---
 type: issue
 entity: project/obsidian-llm-wiki/issue/p0-s04-work-run-next-action
-state: backlog
+state: in-progress
 review: reviewed
 kind: knowledge-task
 id: obsidian-llm-wiki/p0-s04-work-run-next-action
@@ -26,14 +26,14 @@ Add resume/create candidates, exact compatible Binding/Profile eligibility, immu
 
 ## Acceptance
 
-- [ ] Candidate set reuses exact resume identity or permits governed Session create only under current unblocked Work Item/context/capability facts; exactly one safe candidate is recommended.
-- [ ] Zero compatible Bindings returns unavailable; one produces a fingerprint-free plan intent then a derived closed request; 2–16 returns every Binding in needs-agent-selection; 17+ returns `binding_selection_too_large` without truncation.
-- [ ] Plan binds root open and searched-basis Flow fingerprints, search-input/search/candidate fingerprints, candidate, role, exact Binding/Profile revisions, owner locks, capabilities, citations, five-minute expiry, and Workflow owning operation; it contains no invented agent ID or host.
-- [ ] Plan/from-search requires null planned/prior Plan fields; plan/override and refresh require immediate planned plus searched-basis fingerprints and the complete prior Plan.
-- [ ] Candidate replacement produces a new current Plan/fingerprint; expired Plans require explicit refresh and are never silently substituted.
-- [ ] The complete Flow Operation supports all five actions/six stages, remains `mutating:false`, and writes no bytes.
-- [ ] V1 action facts pass equivalence before `project-hub-recovery/v1`, its types/validator/export/tests/file, and `project.hub.get.recovery` are removed.
-- [ ] No V1 compatibility alias, dual response, standalone public search/candidate/plan Operation, or partial V2 branch remains.
+- [x] Candidate set reuses exact resume identity or permits governed Session create only under current unblocked Work Item/context/capability facts; exactly one safe candidate is recommended.
+- [x] Zero compatible Bindings returns unavailable; one produces a fingerprint-free plan intent then a derived closed request; 2–16 returns every Binding in needs-agent-selection; 17+ returns `binding_selection_too_large` without truncation.
+- [x] Plan binds root open and searched-basis Flow fingerprints, search-input/search/candidate fingerprints, candidate, role, exact Binding/Profile revisions, owner locks, capabilities, citations, five-minute expiry, and Workflow owning operation; it contains no invented agent ID or host.
+- [x] Plan/from-search requires null planned/prior Plan fields; plan/override and refresh require immediate planned plus searched-basis fingerprints and the complete prior Plan.
+- [x] Candidate replacement produces a new current Plan/fingerprint; expired Plans require explicit refresh and are never silently substituted.
+- [x] The complete Flow Operation supports all five actions/six stages, remains `mutating:false`, and writes no bytes.
+- [x] V1 action facts pass equivalence before `project-hub-recovery/v1`, its types/validator/export/tests/file, and `project.hub.get.recovery` are removed.
+- [x] No V1 compatibility alias, dual response, standalone public search/candidate/plan Operation, or partial V2 branch remains.
 
 ## Demo
 
@@ -46,3 +46,12 @@ Blocked by S03. S06A begins only after the complete V2 read Flow and clean cutov
 ## Non-goals
 
 - Do not call `workflow.recovery.apply`, create/resume a Work Run, or persist Flow state.
+
+## Evidence
+
+- Added exact candidate/Binding/Profile eligibility, immutable Plan derivation, explicit refresh/recomputation, and the complete read-only `project.hub.recovery.flow`; removed the V1 recovery module and `project.hub.get.recovery` response.
+- From `mcp-server/`: the required T4.4 suite — 47 passed, 0 failed.
+- From `mcp-server/`: `npm run typecheck -- --pretty false` — passed, including platform builds.
+- Repository root: `openspec validate project-hub-recovery-loop --strict --no-interactive` — passed.
+- Runtime absence scan found no V1 schema/type/validator/export/module or `project.hub.get.recovery` references outside permitted historical contract prose. Generated operation references were regenerated with `npm run build` and `npm run generate-tools-doc`.
+- Independent review remains pending; issue intentionally stays `in-progress` and S06A+ remains untouched.

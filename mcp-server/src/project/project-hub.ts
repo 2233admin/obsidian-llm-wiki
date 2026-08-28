@@ -15,18 +15,11 @@ import {
 import type { AdapterRegistry } from '../adapters/registry.js';
 import type { Operation, OperationContext } from '../core/types.js';
 import { badRequest } from '../core/types.js';
-import { createDurableProjectMemorySource, durableProjectMemoryDiagnostics } from '../core/project-memory-operations.js';
-import { projectContextFromSource, type ProjectContextProjection } from '../project-memory/index.js';
 import { createSettingsService } from '../settings/settings.js';
 import { UsageLedger } from '../usage/ledger.js';
 import { projectUsage } from '../usage/projections.js';
 import { HOST_CAPABILITY_RELATIVE_ROOT, HostCapabilityStore } from '../host-capabilities/store.js';
 import { fingerprintContract } from '../host-capabilities/contracts.js';
-import {
-  composeProjectHubRecoverySnapshot,
-  type ProjectHubRecoveryMemory,
-  type ProjectHubRecoverySection,
-} from '../project-hub/recovery.js';
 import {
   PROJECT_HUB_PROJECTION_SCHEMA_VERSION,
   composeProjectHubVisualTriageProjection,
@@ -46,6 +39,20 @@ import {
   workState,
 } from './workos.js';
 import { isCanonicalWorkItemId, isCanonicalWorkRunId, readWorkflowState } from '../workflow/workflow.js';
+import { createWorkflowReadModel } from '../workflow/workflow-read-model.js';
+import {
+  composeRecoveryOpenStage,
+  type RecoveryOpenOwners,
+} from '../project-hub/recovery-open.js';
+import { searchRecovery, type RecoverySearchDependencies } from '../project-hub/search.js';
+import { createProjectSearchSource, type ProjectSearchSource } from '../project-hub/search-source.js';
+import { createAgentSelectionSource, type RecoveryAgentSelectionSource } from '../project-hub/agent-selection.js';
+import { composeRecoveryPlannedStage } from '../project-hub/action-plan.js';
+import {
+  RECOVERY_FLOW_REQUEST_SCHEMA_VERSION,
+  validateRecoveryFlowRequestV2,
+  type RecoveryFlowRequestV2,
+} from '../project-hub/recovery-flow.js';
 import {
   normalizedProjectContext,
   resolveProjectContext,
@@ -75,6 +82,12 @@ export interface ProjectHubOperationsOptions {
     generatedAt: string;
     vaultPath: string;
   }) => Promise<unknown> | unknown;
+  recoveryFlow?: {
+    now?: () => number;
+    openOwners?: RecoveryOpenOwners;
+    searchSource?: ProjectSearchSource;
+    agentSelection?: RecoveryAgentSelectionSource;
+  };
 }
 
 interface FileSummary {
@@ -663,101 +676,79 @@ function projectReference(params: Record<string, unknown>): string {
   }
   return reference;
 }
-function recoveryMemory(
-  projection: ProjectContextProjection | null,
-  unavailable: boolean,
-): ProjectHubRecoveryMemory {
-  if (!projection) {
-    return {
-      schemaVersion: null,
-      revision: null,
-      fingerprint: null,
-      freshness: unavailable ? 'unavailable' : 'missing',
-      authority: 'unknown',
-      reviewedClaimCount: 0,
-      currentClaimCount: 0,
-      conflictCount: 0,
-      sessions: [],
-    };
-  }
-  const claims = [
-    ...projection.sections.goal,
-    ...projection.sections.currentState,
-    ...projection.sections.completed,
-    ...projection.sections.openWork,
-    ...projection.sections.relations,
-  ];
+
+function defaultRecoveryOwners(vaultPath: string, registry: AdapterRegistry): RecoveryOpenOwners {
   return {
-    schemaVersion: projection.schemaVersion,
-    revision: projection.revision,
-    fingerprint: projection.fingerprint,
-    freshness: projection.freshness.state,
-    authority: projection.authority.state,
-    reviewedClaimCount: claims.filter((claim) => claim.reviewStatus !== 'draft').length,
-    currentClaimCount: claims.filter((claim) => claim.reviewStatus !== 'draft' && claim.state === 'current').length,
-    conflictCount: projection.sections.conflicts.length,
-    sessions: projection.sections.sessions.map((session) => ({
-      sessionId: session.sessionId,
-      status: session.status,
-      freshness: session.freshness,
-      citationTargets: session.evidenceRefs.map((evidence) => evidence.ref),
-    })),
+    workflow: createWorkflowReadModel(vaultPath),
+    loadWorkItems: (projectId) => scanWorkNotes(vaultPath)
+      .filter((note) => note.entity?.startsWith(`${projectId}/issue/`) && note.entity !== `${projectId}/issue/project`)
+      .map((note) => ({
+        entity: note.entity!,
+        label: cardLabel(note),
+        state: workState(note.raw),
+        blockedBy: hasUnresolvedBlocker(scanWorkNotes(vaultPath), note.entity!) ? blockedByRefs(note.raw) : [],
+        citationTargets: [note.note_id],
+        currentStage: null,
+      })),
+    loadProjectMemory: async () => ({}),
+    listSessions: async () => [],
+    loadCapabilities: async () => [{ capability: 'workflow.recovery.apply', state: 'available', citationTargets: ['workflow.recovery.apply'] }],
   };
 }
-function assertProjectMemoryProjection(value: unknown, projectId: string): ProjectContextProjection {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error('Project Memory projection is malformed');
-  }
-  const candidate = value as Record<string, unknown>;
-  if (candidate.schemaVersion !== 'project-context/v1' || candidate.projectId !== projectId || candidate.readOnly !== true) {
-    throw new Error('Project Memory projection identity is invalid');
-  }
-  if (typeof candidate.fingerprint !== 'string' || !/^sha256:[a-f0-9]{64}$/.test(candidate.fingerprint)) {
-    throw new Error('Project Memory projection fingerprint is invalid');
-  }
-  const sections = candidate.sections;
-  if (sections === null || typeof sections !== 'object' || Array.isArray(sections)) {
-    throw new Error('Project Memory projection sections are malformed');
-  }
-  const sectionRecord = sections as Record<string, unknown>;
-  const claimSections = ['goal', 'currentState', 'completed', 'openWork', 'relations'];
-  for (const key of [...claimSections, 'conflicts', 'sessions']) {
-    if (!Array.isArray(sectionRecord[key])) throw new Error(`Project Memory projection section ${key} is malformed`);
-  }
-  const freshness = candidate.freshness;
-  if (freshness === null || typeof freshness !== 'object' || Array.isArray(freshness)) throw new Error('Project Memory freshness is malformed');
-  if (!['current', 'stale', 'unknown'].includes((freshness as Record<string, unknown>).state as string)) throw new Error('Project Memory freshness state is invalid');
-  const authority = candidate.authority;
-  if (authority === null || typeof authority !== 'object' || Array.isArray(authority)) throw new Error('Project Memory authority is malformed');
-  if (!['source', 'derived', 'unknown'].includes((authority as Record<string, unknown>).state as string)) throw new Error('Project Memory authority state is invalid');
-  for (const [index, rawConflict] of (sectionRecord.conflicts as unknown[]).entries()) {
-    if (rawConflict === null || typeof rawConflict !== 'object' || Array.isArray(rawConflict)) throw new Error(`Project Memory conflict[${index}] is malformed`);
-    const conflict = rawConflict as Record<string, unknown>;
-    if (typeof conflict.conflictId !== 'string' || !Array.isArray(conflict.claims)) throw new Error(`Project Memory conflict[${index}] is invalid`);
-  }
-  for (const key of claimSections) {
-    for (const [index, rawClaim] of (sectionRecord[key] as unknown[]).entries()) {
-      if (rawClaim === null || typeof rawClaim !== 'object' || Array.isArray(rawClaim)) throw new Error(`Project Memory claim ${key}[${index}] is malformed`);
-      const claim = rawClaim as Record<string, unknown>;
-      for (const field of ['claimId', 'key', 'sourceId']) {
-        if (typeof claim[field] !== 'string' || !claim[field].trim()) throw new Error(`Project Memory claim ${key}[${index}].${field} is malformed`);
-      }
-      if (!['draft', 'reviewed', 'promoted'].includes(claim.reviewStatus as string)) throw new Error(`Project Memory claim ${key}[${index}].reviewStatus is invalid`);
-      if (!['current', 'superseded', 'stale', 'unresolved'].includes(claim.state as string)) throw new Error(`Project Memory claim ${key}[${index}].state is invalid`);
-      if (!Array.isArray(claim.evidenceRefs)) throw new Error(`Project Memory claim ${key}[${index}].evidenceRefs is malformed`);
-    }
-  }
-  for (const [index, rawSession] of (sectionRecord.sessions as unknown[]).entries()) {
-    if (rawSession === null || typeof rawSession !== 'object' || Array.isArray(rawSession)) throw new Error(`Project Memory session[${index}] is malformed`);
-    const session = rawSession as Record<string, unknown>;
-    for (const field of ['sessionId', 'status', 'freshness']) {
-      if (typeof session[field] !== 'string' || !session[field].trim()) throw new Error(`Project Memory session[${index}].${field} is malformed`);
-    }
-    if (!['current', 'stale', 'unknown'].includes(session.freshness as string) || !Array.isArray(session.evidenceRefs)) throw new Error(`Project Memory session[${index}] freshness or evidence is invalid`);
-  }
-  return value as ProjectContextProjection;
+
+function defaultRecoverySearchSource(vaultPath: string): ProjectSearchSource {
+  return createProjectSearchSource({
+    'work-os': (projectId) => scanWorkNotes(vaultPath)
+      .filter((note) => note.entity?.startsWith(`${projectId}/issue/`) && note.entity !== `${projectId}/issue/project`)
+      .map((note) => ({ itemId: note.entity!, itemType: 'issue', label: cardLabel(note), text: note.body || cardLabel(note), projectId, citationTargets: [note.note_id], provenance: 'work-os' })),
+  });
 }
 
+function defaultRecoveryAgentSelection(vaultPath: string): RecoveryAgentSelectionSource {
+  return createAgentSelectionSource(async (projectId, capabilities) => {
+    const service = new AgentDomainService({ stateRoot: join(vaultPath, '_llmwiki', 'agent-domain', 'v1') });
+    const bindings = await service.bindings.list({ projectId: projectId as AgentProjectId });
+    const expectedContext = resolveProjectContext(vaultPath, projectId, 'project.hub.recovery.flow');
+    const expectedFingerprint = canonicalDigest(normalizedProjectContext(expectedContext));
+    const records = [];
+    for (const binding of bindings) {
+      const profile = await service.profiles.readRevision(binding.profileId, binding.profileRevision);
+      if (!profile) continue;
+      records.push({
+        role: binding.role,
+        bindingId: binding.bindingId,
+        bindingRevision: binding.revision,
+        profileId: profile.profileId,
+        profileRevision: profile.revision,
+        enabled: binding.enabled,
+        projectId: binding.projectId,
+        projectContextCurrent: binding.projectContextFingerprint === expectedFingerprint,
+        profileCurrent: profile.revision === binding.profileRevision,
+        capabilityClaims: profile.capabilityClaims,
+        capabilityCompatible: capabilities.every((capability) => capability.state === 'available' || capability.state === 'degraded'),
+      });
+    }
+    return records;
+  });
+}
+
+async function recoveryFlow(
+  ctx: OperationContext,
+  registry: AdapterRegistry,
+  params: Record<string, unknown>,
+  options: ProjectHubOperationsOptions,
+): Promise<unknown> {
+  const request = validateRecoveryFlowRequestV2(params.request) as RecoveryFlowRequestV2;
+  const configured = options.recoveryFlow ?? {};
+  const owners = configured.openOwners ?? defaultRecoveryOwners(ctx.config.vault_path, registry);
+  const searchSource = configured.searchSource ?? defaultRecoverySearchSource(ctx.config.vault_path);
+  const agentSelection = configured.agentSelection ?? defaultRecoveryAgentSelection(ctx.config.vault_path);
+  const now = configured.now ?? options.now;
+  if (request.action === 'open') return composeRecoveryOpenStage(request.projectId, owners, new Date(now?.() ?? Date.now()).toISOString());
+  if (request.action === 'search') return searchRecovery({ request, dependencies: { openOwners: owners, searchSource, agentSelection, now } as RecoverySearchDependencies });
+  if (request.action === 'restart') return composeRecoveryOpenStage(request.projectId, owners, new Date(now?.() ?? Date.now()).toISOString());
+  return composeRecoveryPlannedStage(request, { openOwners: owners, searchSource, agentSelection, now });
+}
 export async function composeProjectHub(
   ctx: OperationContext,
   registry: AdapterRegistry,
@@ -795,35 +786,6 @@ export async function composeProjectHub(
     visual: visualHubSection(visualTriage),
     triage: triageHubSection(visualTriage),
   };
-  const memoryDiagnostics = durableProjectMemoryDiagnostics(ctx.config.vault_path, project.projectId);
-  let memoryProjection: ProjectContextProjection | null = null;
-  let memoryUnavailable = false;
-  try {
-    memoryProjection = assertProjectMemoryProjection(await (
-      options.loadProjectMemory
-        ? options.loadProjectMemory({
-            projectId: project.projectId,
-            generatedAt,
-            vaultPath: ctx.config.vault_path,
-          })
-        : projectContextFromSource(
-            createDurableProjectMemorySource(ctx.config.vault_path),
-            project.projectId,
-            { generatedAt },
-          )
-    ), project.projectId);
-  } catch {
-    memoryProjection = null;
-    memoryUnavailable = true;
-  }
-  const recovery = composeProjectHubRecoverySnapshot({
-    projectId: project.projectId,
-    generatedAt,
-    projectDiagnostics: project.diagnostics,
-    sections: sections as Record<string, ProjectHubRecoverySection>,
-    memory: recoveryMemory(memoryProjection, memoryUnavailable),
-    memoryDiagnostics,
-  });
   return {
     projectId: project.projectId,
     slug: project.slug,
@@ -832,7 +794,6 @@ export async function composeProjectHub(
     readOnly: true,
     diagnostics: project.diagnostics,
     sections,
-    recovery,
     mutationRoutes: {
       identity: 'project.init',
       work: 'project.issue.* / workflow.agent.*',
@@ -874,6 +835,16 @@ export function makeProjectHubOps(
       );
     },
   };
+  const recoveryFlowOperation: Operation = {
+    name: 'project.hub.recovery.flow',
+    namespace: 'project',
+    description: 'Compose the read-only stateless Project recovery Flow through open, search, candidate selection, and immutable Plan preview.',
+    mutating: false,
+    params: {
+      request: { type: 'object', required: true, description: `Closed ${RECOVERY_FLOW_REQUEST_SCHEMA_VERSION} request.` },
+    },
+    handler: async (ctx, params) => recoveryFlow(ctx, registry, params, options),
+  };
   const derived = (
     name: string,
     description: string,
@@ -913,6 +884,7 @@ export function makeProjectHubOps(
   });
   return [
     get,
+    recoveryFlowOperation,
     derived(
       'project.hub.text',
       'Render the read-only Project Hub visual and problem trace as Markdown.',

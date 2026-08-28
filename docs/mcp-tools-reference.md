@@ -3,7 +3,7 @@
 > Auto-generated from `mcp-server/src/core/operations.ts`.
 > Run `npm run generate-tools-doc` to regenerate. Do not edit by hand.
 
-Total: **207** operations across **26** namespaces.
+Total: **208** operations across **26** namespaces.
 
 ## `vault.*` (31)
 
@@ -1281,7 +1281,7 @@ Persist a named memory across MCP sessions. Use for inferences, user preferences
 - `value` (string, required) — Memory content (Markdown supported)
 - `tags` (array, optional) — Optional tags for grouping, e.g. ["project", "decision"]
 
-## `project.*` (22)
+## `project.*` (23)
 
 ### `project.base.export`
 
@@ -1384,6 +1384,16 @@ Compose a read-only Project Hub from registry, Work-OS, knowledge, runtime, sett
 
 - `ref` (string, optional) — Canonical Project ID, registered alias/slug, or bound workspace path
 - `project` (string, optional) — Compatibility alias for ref
+
+### `project.hub.recovery.flow`
+
+Compose the read-only stateless Project recovery Flow through open, search, candidate selection, and immutable Plan preview.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `request` (object, required) — Closed project-hub-recovery-flow-request/v2 request.
 
 ### `project.hub.text`
 
