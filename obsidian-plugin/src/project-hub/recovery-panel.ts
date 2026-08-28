@@ -15,6 +15,7 @@ import type { RecoveryApplyResponseV2 } from "../../../mcp-server/src/workflow/r
 import {
   ProjectHubRecoveryClient,
   RECOVERY_FLOW_REQUEST_SCHEMA_VERSION,
+  validateRecoveryApplyResponse,
   type RecoveryApplyPlanningInput,
   type RecoveryPlanRequestV2,
   type RecoveryProjectId,
@@ -22,6 +23,11 @@ import {
 
 const SEARCH_LIMIT = 25;
 const STAGES = ["open", "searched", "needs-agent-selection", "planned", "stale", "unavailable"] as const;
+const ABSOLUTE_PATH = /(?:^|[\s"'([{,;])(?:[A-Za-z]:[\\/]|[\\/]{1,2}|~[\\/])/u;
+
+function safeReceiptPresentation(value: unknown): string {
+  return ABSOLUTE_PATH.test(String(value ?? "")) ? "[redacted unsafe value]" : safePresentationText(value);
+}
 
 export interface RecoveryPanelState {
   projectId: RecoveryProjectId;
@@ -43,6 +49,7 @@ export class ProjectHubRecoveryPanel {
   #generation = 0;
   #disposed = false;
   #busyMutation = false;
+  #focusTarget: string | null = null;
 
   constructor(
     private readonly client: ProjectHubRecoveryClient,
@@ -176,12 +183,14 @@ export class ProjectHubRecoveryPanel {
       this.fail("Owner outcome is unknown. Apply and replay are disabled until Workflow doctor reconciliation.");
       return;
     }
-    if (Date.parse(flow.payload.plan.expiresAt) <= Date.now()) {
+    const expiry = Date.parse(flow.payload.plan.expiresAt);
+    if (!Number.isFinite(expiry) || expiry <= Date.now()) {
       this.fail("This Plan is expired. Refresh Plan explicitly before confirming it.");
       return;
     }
     this.#state.error = null;
     this.#state.confirming = true;
+    this.#focusTarget = "confirm-apply";
     this.render();
   }
 
@@ -189,6 +198,7 @@ export class ProjectHubRecoveryPanel {
     if (!this.#state.confirming) return;
     this.#state.confirming = false;
     this.#state.error = null;
+    this.#focusTarget = "confirm-plan";
     this.render();
   }
 
@@ -200,7 +210,8 @@ export class ProjectHubRecoveryPanel {
       return;
     }
     const plan = flow.payload.plan;
-    if (Date.parse(plan.expiresAt) <= Date.now()) {
+    const expiry = Date.parse(plan.expiresAt);
+    if (!Number.isFinite(expiry) || expiry <= Date.now()) {
       this.#state.confirming = false;
       this.fail("This Plan is expired. Refresh Plan explicitly before applying it.");
       return;
@@ -216,7 +227,7 @@ export class ProjectHubRecoveryPanel {
       limit: refreshRequest.limit,
     };
     this.#state.confirming = false;
-    const response = await this.executeApply(() => this.client.apply(plan, planningInput, this.confirmationActor));
+    const response = await this.executeApply(() => this.client.apply(plan, planningInput, this.confirmationActor), plan);
     if (response?.state !== "applied" || this.#disposed) return;
 
     // An applied receipt is the only path that discards this Flow. The fresh
@@ -226,6 +237,7 @@ export class ProjectHubRecoveryPanel {
     this.#state.query = "";
     this.#state.selectedCandidateId = null;
     this.#state.selectedBinding = null;
+    this.#focusTarget = "open-stage";
     await this.execute(() => this.client.open(projectId));
   }
 
@@ -268,7 +280,9 @@ export class ProjectHubRecoveryPanel {
     heading.setAttr("id", "llmwiki-recovery-title");
     const status = target.createEl("p", { cls: "llmwiki-ask-mate-status" });
     status.setAttr("role", this.#state.error ? "alert" : "status");
-    status.setAttr("aria-live", this.#state.error ? "assertive" : "polite");
+    if (!this.#state.error) status.setAttr("aria-live", "polite");
+    status.setAttr("data-recovery-focus", "status");
+    status.setAttr("tabindex", "-1");
     status.setText(this.#state.busy ? "Working…" : this.#state.error ?? this.#state.flow?.stage ?? "Ready");
     if (this.#state.error) status.addClass("llmwiki-control-plane-error");
 
@@ -284,13 +298,16 @@ export class ProjectHubRecoveryPanel {
     const flow = this.#state.flow;
     if (!flow) {
       if (this.#state.applyResponse) this.renderApplyResponse(target, this.#state.applyResponse);
-      if (focusKey) {
+      if (this.#focusTarget || focusKey) {
+        let focusedTarget = false;
         for (const element of target.querySelectorAll<HTMLElement>("[data-recovery-focus]")) {
-          if (element.getAttribute("data-recovery-focus") === focusKey) {
+          if (element.getAttribute("data-recovery-focus") === (this.#focusTarget ?? focusKey)) {
             element.focus();
+            focusedTarget = true;
             break;
           }
         }
+        if (focusedTarget || !this.#focusTarget) this.#focusTarget = null;
       }
       return;
     }
@@ -305,13 +322,16 @@ export class ProjectHubRecoveryPanel {
     }
     if (this.#state.applyResponse) this.renderApplyResponse(target, this.#state.applyResponse);
     this.renderDiagnostics(target, flow);
-    if (focusKey) {
+    if (this.#focusTarget || focusKey) {
+      let focusedTarget = false;
       for (const element of target.querySelectorAll<HTMLElement>("[data-recovery-focus]")) {
-        if (element.getAttribute("data-recovery-focus") === focusKey) {
+        if (element.getAttribute("data-recovery-focus") === (this.#focusTarget ?? focusKey)) {
           element.focus();
+          focusedTarget = true;
           break;
         }
       }
+      if (focusedTarget || !this.#focusTarget) this.#focusTarget = null;
     }
   }
 
@@ -337,6 +357,7 @@ export class ProjectHubRecoveryPanel {
     } catch (error) {
       if (this.#disposed || generation !== this.#generation) return;
       this.#state.error = safePresentationText(error instanceof Error ? error.message : error);
+      this.#focusTarget = "status";
     } finally {
       if (!this.#disposed && generation === this.#generation) {
         this.#state.busy = false;
@@ -345,20 +366,23 @@ export class ProjectHubRecoveryPanel {
     }
   }
 
-  private async executeApply(operation: () => Promise<RecoveryApplyResponseV2>): Promise<RecoveryApplyResponseV2 | null> {
+  private async executeApply(operation: () => Promise<RecoveryApplyResponseV2>, plan: RecoveryPlanV2): Promise<RecoveryApplyResponseV2 | null> {
     const generation = ++this.#generation;
     this.#busyMutation = true;
     this.#state.busy = true;
     this.#state.error = null;
     this.render();
     try {
-      const response = await operation();
+      const response = validateRecoveryApplyResponse(await operation(), plan);
       if (this.#disposed || generation !== this.#generation) return null;
       this.#state.applyResponse = response;
+      this.#focusTarget = "apply-status";
       return response;
     } catch (error) {
       if (!this.#disposed && generation === this.#generation) {
         this.#state.error = safePresentationText(error instanceof Error ? error.message : error);
+        this.#state.applyResponse = null;
+        this.#focusTarget = "status";
       }
       return null;
     } finally {
@@ -407,6 +431,8 @@ export class ProjectHubRecoveryPanel {
 
   private renderOpen(container: HTMLElement, payload: RecoveryOpenPayloadV2): void {
     const section = this.section(container, "Current work and context");
+    section.firstElementChild?.setAttribute("id", "llmwiki-recovery-open-stage");
+    section.firstElementChild?.setAttribute("data-recovery-focus", "open-stage");
     this.fact(section, "Work item", payload.workItemId ?? "None identified");
     this.fact(section, "Work run", payload.workRunId ?? "None identified");
     this.fact(section, "Context source", payload.contextSource);
@@ -508,8 +534,10 @@ export class ProjectHubRecoveryPanel {
     this.fact(section, "Owner locks", `${plan.ownerLocks.length} bound owner revisions`);
     for (const capability of plan.capabilityFacts.slice(0, 16)) this.fact(section, `Capability ${capability.capability}`, capability.state);
     this.renderCitations(section, plan.citationTargets);
-    if (Date.parse(plan.expiresAt) <= Date.now()) {
-      const expired = section.createEl("p", { cls: "llmwiki-recovery-expired", text: "This Plan is expired. Refresh Plan explicitly to obtain a new Plan." });
+    const expiry = Date.parse(plan.expiresAt);
+    const planExpired = !Number.isFinite(expiry) || expiry <= Date.now();
+    if (planExpired) {
+      const expired = section.createEl("p", { cls: "llmwiki-recovery-expired", text: "This Plan is expired or has an invalid expiry. Refresh Plan explicitly to obtain a new Plan." });
       expired.setAttr("role", "alert");
     }
     const alternatives = candidates.filter(candidate => candidate !== plan.candidateId);
@@ -521,7 +549,7 @@ export class ProjectHubRecoveryPanel {
           ? this.#state.flow.nextRequests.find(item => item.action === "plan" && item.mode === "override" && item.candidateId === candidate)
           : undefined;
         const button = choices.createEl("button", { text: `Use ${safePresentationText(candidate)}` });
-        button.disabled = !request || this.#state.busy || Date.parse(plan.expiresAt) <= Date.now();
+        button.disabled = !request || this.#state.busy || planExpired;
         button.onclick = () => request && request.action === "plan" && void this.execute(() => this.client.plan(request), response => {
           if (response.stage !== "planned") return;
           this.#state.selectedCandidateId = response.payload.plan.candidateId;
@@ -537,7 +565,7 @@ export class ProjectHubRecoveryPanel {
     refresh.onclick = () => void this.refreshPlan();
     const unknown = this.#state.applyResponse?.state === "outcome-unknown";
     const confirm = section.createEl("button", { text: "Confirm exact Plan", cls: "mod-cta" });
-    confirm.disabled = this.#state.busy || unknown || Date.parse(plan.expiresAt) <= Date.now();
+    confirm.disabled = this.#state.busy || unknown || planExpired;
     confirm.setAttr("data-recovery-focus", "confirm-plan");
     confirm.onclick = () => this.beginConfirmation();
     if (this.#state.confirming) {
@@ -563,18 +591,27 @@ export class ProjectHubRecoveryPanel {
     const section = this.section(container, "Recovery apply result");
     const status = section.createEl("p", { text: `Apply state: ${safePresentationText(response.state)}` });
     status.setAttr("role", response.state === "outcome-unknown" || response.state === "unavailable" ? "alert" : "status");
-    status.setAttr("aria-live", "polite");
+    if (response.state !== "outcome-unknown" && response.state !== "unavailable") status.setAttr("aria-live", "polite");
+    status.setAttr("id", "llmwiki-recovery-apply-status");
+    status.setAttr("data-recovery-focus", "apply-status");
+    status.setAttr("tabindex", "-1");
     this.fact(section, "Applied Plan fingerprint", response.planFingerprint);
     this.fact(section, "Token digest", response.tokenDigest);
     for (const diagnostic of response.diagnostics) section.createEl("p", { text: safePresentationText(diagnostic) });
     if (response.receipt) {
       this.fact(section, "Owner operation", response.receipt.ownerOperation);
       this.fact(section, "Receipt fingerprint", response.receipt.fingerprint);
-      const receipt = section.createEl("pre", {
-        cls: "llmwiki-recovery-receipt",
-        text: JSON.stringify(response.receipt, null, 2),
-      });
-      receipt.setAttr("aria-label", "Exact sanitized owner receipt");
+      const receipt = this.section(section, "Sanitized owner receipt");
+      const owner = response.receipt.ownerReceipt;
+      for (const key of ["ok", "idempotent", "projectId", "workItemId", "workRunId", "agent"] as const) {
+        if (owner[key] !== undefined) this.fact(receipt, key, safeReceiptPresentation(owner[key]));
+      }
+      if (owner.lifetime && typeof owner.lifetime === "object" && !Array.isArray(owner.lifetime)) {
+        for (const key of ["projectId", "workItemId", "workRunId", "agent", "workRunState", "stage", "status"] as const) {
+          const value = (owner.lifetime as Record<string, unknown>)[key];
+          if (value !== undefined) this.fact(receipt, `lifetime ${key}`, safeReceiptPresentation(value));
+        }
+      }
     }
     if (response.state === "outcome-unknown") {
       const remediation = section.createEl("p", {
@@ -587,6 +624,7 @@ export class ProjectHubRecoveryPanel {
 
   private renderStale(container: HTMLElement, proof: RecoveryStaleProofV2): void {
     const section = this.section(container, "Flow is stale");
+    section.firstElementChild?.setAttribute("data-recovery-focus", "stale-stage");
     section.createEl("p", { text: "A recovery owner changed. Restart explicitly to recompute from the current Project." });
     this.fact(section, "Changed owners", proof.changedOwners.join(", "));
     this.renderCitations(section, proof.citationTargets);

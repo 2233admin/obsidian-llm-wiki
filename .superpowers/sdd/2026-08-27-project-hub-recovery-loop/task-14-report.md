@@ -2,13 +2,12 @@
 
 Date: 2026-08-29
 Base: `df55fc77e3632b1a1df98f305283b2d1dfaecf43`
-Commit: `feat: complete Obsidian Recovery Flow action`
+Commit: `fix: harden Obsidian Recovery Flow action`
 
 ## RED → GREEN
 
-- Initial full plugin run was RED because the accepted S06A client test still asserted that no mutation method existed after S06B added the approved apply mapping.
-- Updated the regression contract and added client/panel coverage; full plugin test suite is GREEN: 87 passed, 0 failed.
-- `npm run typecheck` and `npm run build` remain blocked by the pre-existing missing `@electric-sql/pglite` and `@electric-sql/pglite/contrib/pg_trgm` modules imported by `mcp-server/src/adapters/vaultbrain/pglite-engine.ts`; the changed plugin code has no remaining TypeScript diagnostic.
+- Full plugin suite is GREEN: 91 passed, 0 failed.
+- `npm run typecheck -- --pretty false` and `npm run build` remain blocked only by the pre-existing missing `@electric-sql/pglite` and `@electric-sql/pglite/contrib/pg_trgm` modules imported by `mcp-server/src/adapters/vaultbrain/pglite-engine.ts`; the changed plugin files report no TypeScript diagnostics.
 - Direct `node esbuild.config.mjs production` succeeds.
 - `openspec validate project-hub-recovery-loop --strict --no-interactive` succeeds.
 - `git diff --check` succeeds.
@@ -20,7 +19,11 @@ Commit: `feat: complete Obsidian Recovery Flow action`
 - Added claimed/applied/outcome-unknown/unavailable rendering and the sanitized exact owner receipt. Outcome-unknown disables confirm/replay and provides Workflow doctor reconciliation text.
 - On applied only, the panel clears ephemeral Flow/query/selection state and opens the current Project again from owner state; reload/open still resets to open.
 - Exposed only `workflow.recovery.apply` in the Obsidian operation filter; no settings/data/vault persistence was added.
-- Preserved focus retention, live status/alerts, native controls, keyboard order, cancellation, and reduced-motion-compatible CSS; recovery controls have 40px minimum targets.
+- Added a closed bounded client response contract: applied requires exact Plan/project/kind/Work Item/Work Run/token/receipt fingerprints, accepted owner identity, and bounded closed receipt fields; malformed, null, forged, or cross-Plan responses retain the visible Plan and cannot restart.
+- Replaced raw receipt serialization with an allowlisted safe projection through existing presentation helpers; diagnostics are bounded, closed, and fail closed on unsafe/malformed values.
+- Invalid or expired Plan timestamps are rejected at both confirmation and apply, with explicit Refresh retained.
+- Confirmation/cancel/apply-error/outcome/restart focus targets are explicit and stable; implicit assertive alerts no longer carry a polite live-region override.
+- Added hostile response, secret/path, diagnostics, invalid expiry, double activation, cancellation, focus, ARIA, and owner-restart DOM coverage.
 
 ## Privacy audit
 

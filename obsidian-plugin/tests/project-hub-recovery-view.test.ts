@@ -1,9 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { fingerprintRecoveryValue } from "../../mcp-server/src/project-hub/contract-support";
 import {
   ProjectHubRecoveryClient,
   RECOVERY_APPLY_OPERATION,
   RECOVERY_FLOW_REQUEST_SCHEMA_VERSION,
+  recoveryApplyTransitionToken,
 } from "../src/project-hub/recovery-client";
 import { ProjectHubRecoveryPanel } from "../src/project-hub/recovery-panel";
 import type { RecoveryFlowResponseV2 } from "../../mcp-server/src/project-hub/recovery-flow";
@@ -17,7 +20,7 @@ const candidate = { candidateId: "resume:work-run/one", kind: "resume" as const,
 class FakeElement {
   readonly children: FakeElement[] = [];
   readonly attributes = new Map<string, string>();
-  readonly ownerDocument = { activeElement: null as FakeElement | null };
+  readonly ownerDocument: { activeElement: FakeElement | null };
   textContent = "";
   value = "";
   onclick: ((event: unknown) => void) | null = null;
@@ -25,10 +28,14 @@ class FakeElement {
   onkeydown: ((event: { key: string }) => void) | null = null;
   disabled = false;
 
-  constructor(readonly tagName: string) {}
+  constructor(readonly tagName: string, ownerDocument: { activeElement: FakeElement | null } = { activeElement: null }) {
+    this.ownerDocument = ownerDocument;
+  }
+
+  get firstElementChild(): FakeElement | null { return this.children[0] ?? null; }
 
   createEl(tag: string, options: { text?: string; cls?: string; href?: string; type?: string; attr?: Record<string, string> } = {}): FakeElement {
-    const child = new FakeElement(tag.toUpperCase());
+    const child = new FakeElement(tag.toUpperCase(), this.ownerDocument);
     child.textContent = options.text ?? "";
     if (options.cls) child.attributes.set("class", options.cls);
     if (options.href) child.attributes.set("href", options.href);
@@ -43,6 +50,7 @@ class FakeElement {
   empty(): void { this.children.length = 0; }
   addClass(cls: string): void { this.attributes.set("class", `${this.attributes.get("class") ?? ""} ${cls}`.trim()); }
   setAttr(name: string, value: string): void { this.attributes.set(name, value); }
+  setAttribute(name: string, value: string): void { this.setAttr(name, value); }
   getAttribute(name: string): string | null { return this.attributes.get(name) ?? null; }
   setText(text: string): void { this.textContent = text; }
   focus(): void { this.ownerDocument.activeElement = this; }
@@ -72,33 +80,36 @@ function plannedResponse(): RecoveryFlowResponseV2 {
 }
 
 function applyResponse(state: RecoveryApplyResponseV2["state"]): RecoveryApplyResponseV2 {
-  const receipt = state === "applied" ? {
+  const transitionToken = recoveryApplyTransitionToken({ projectId, planFingerprint: fp("9"), confirmationActor: "obsidian-control-plane" });
+  const tokenDigest = `sha256:${createHash("sha256").update(transitionToken, "utf8").digest("hex")}` as `sha256:${string}`;
+  const ownerReceipt = { ok: true, projectId, workItemId: candidate.workItemId, workRunId: candidate.workRunId, agent: "obsidian-control-plane" };
+  const receiptBase = state === "applied" ? {
     schemaVersion: "recovery-apply/v2" as const,
     planFingerprint: fp("9"),
-    tokenDigest: fp("b"),
+    tokenDigest,
     projectId,
     kind: "resume" as const,
     workItemId: candidate.workItemId,
     workRunId: candidate.workRunId,
     ownerOperation: "workflow.agent.join" as const,
-    ownerReceiptFingerprint: fp("c"),
-    ownerReceipt: { ok: true, projectId, workItemId: candidate.workItemId, workRunId: candidate.workRunId, agent: "obsidian-control-plane" },
+    ownerReceiptFingerprint: fingerprintRecoveryValue(ownerReceipt),
+    ownerReceipt,
     recordedAt: "2026-08-28T00:01:00.000Z",
-    fingerprint: fp("d"),
   } : null;
-  return {
+  const receipt = receiptBase ? { ...receiptBase, fingerprint: fingerprintRecoveryValue(receiptBase) } : null;
+  const responseBase = {
     schemaVersion: "recovery-apply/v2",
     state,
     projectId,
     planFingerprint: fp("9"),
-    tokenDigest: fp("b"),
+    tokenDigest,
     actorId: "obsidian-control-plane",
     kind: "resume",
     workRunId: candidate.workRunId,
     receipt,
     diagnostics: state === "outcome-unknown" ? ["Owner outcome is unknown; reconcile before retrying."] : [],
-    fingerprint: fp("e"),
   };
+  return { ...responseBase, fingerprint: fingerprintRecoveryValue({ ...responseBase, receipt }) };
 }
 
 test("panel follows only the exact closed recommendation and keeps state ephemeral", async () => {
@@ -165,14 +176,13 @@ test("exact Plan confirmation supports zero-mutation cancel and applied owner re
 
   root.querySelectorAll<FakeElement>("button").find(button => button.textContent === "Confirm exact Plan")?.onclick?.({});
   root.querySelectorAll<FakeElement>("button").find(button => button.textContent === "Confirm and apply")?.onclick?.({});
-  await Promise.resolve();
-  await Promise.resolve();
-  await Promise.resolve();
+  for (let index = 0; index < 8; index += 1) await Promise.resolve();
   assert.equal(calls.filter(call => call.operation === RECOVERY_APPLY_OPERATION).length, 1, "double activation has one apply request");
   const applyCall = calls.find(call => call.operation === RECOVERY_APPLY_OPERATION)!;
   assert.deepEqual((applyCall.args.request as { plan: unknown }).plan, plannedResponse().payload.plan);
   assert.deepEqual((applyCall.args.request as { planningInput: unknown }).planningInput, { query: "recovery", limit: 5 });
   assert.equal(panel.state.flow?.stage, "open", "applied receipt restarts from current owners");
+  assert.equal(root.ownerDocument.activeElement?.getAttribute("data-recovery-focus"), "open-stage");
   assert.equal(panel.state.query, "", "owner restart discards current ephemeral query");
   assert.equal(JSON.stringify(panel.state).includes("transitionToken"), false);
   assert.ok(root.querySelectorAll<FakeElement>("p").some(item => item.textContent.includes("Apply state: applied")));
@@ -201,6 +211,92 @@ test("outcome-unknown displays reconciliation and disables replay", async () => 
   assert.equal(confirm?.disabled, true);
   assert.ok(root.querySelectorAll<FakeElement>("p").some(item => item.textContent.includes("Workflow outcome is unknown")));
   assert.equal(panel.state.flow?.stage, "planned", "unknown outcome does not become current owner truth");
+});
+
+test("confirmation, cancellation, apply error, and alerts keep focus and ARIA contracts", async () => {
+  const root = new FakeElement("div");
+  const client = new ProjectHubRecoveryClient({
+    async invoke<T>(operation: string, args: Record<string, unknown>): Promise<T> {
+      if (operation === RECOVERY_APPLY_OPERATION) return applyResponse("unavailable") as T;
+      const action = (args.request as { action: string }).action;
+      if (action === "open") return openResponse() as T;
+      if (action === "search") return searchedResponse() as T;
+      return plannedResponse() as T;
+    },
+  });
+  const panel = new ProjectHubRecoveryPanel(client, root as unknown as HTMLElement);
+  await panel.open(projectId);
+  const initialStatus = root.querySelectorAll<FakeElement>("p").find(item => item.getAttribute("role") === "status");
+  assert.equal(initialStatus?.getAttribute("aria-live"), "polite");
+  await panel.search("recovery");
+  root.querySelectorAll<FakeElement>("button").find(button => button.textContent === "Confirm exact Plan")?.onclick?.({});
+  assert.equal(root.ownerDocument.activeElement?.textContent, "Confirm and apply");
+  root.querySelectorAll<FakeElement>("button").find(button => button.textContent === "Cancel")?.onclick?.({});
+  assert.equal(root.ownerDocument.activeElement?.textContent, "Confirm exact Plan");
+  root.querySelectorAll<FakeElement>("button").find(button => button.textContent === "Confirm exact Plan")?.onclick?.({});
+  root.querySelectorAll<FakeElement>("button").find(button => button.textContent === "Confirm and apply")?.onclick?.({});
+  for (let index = 0; index < 8; index += 1) await Promise.resolve();
+  assert.equal(root.ownerDocument.activeElement?.getAttribute("data-recovery-focus"), "apply-status");
+  const applyAlert = root.querySelectorAll<FakeElement>("p").find(item => item.getAttribute("role") === "alert");
+  assert.equal(applyAlert?.getAttribute("aria-live"), null);
+});
+
+test("safe receipt projection never exposes secrets or paths", async () => {
+  const root = new FakeElement("div");
+  let openCount = 0;
+  let releaseOpen!: (response: RecoveryFlowResponseV2) => void;
+  const client = new ProjectHubRecoveryClient({
+    async invoke<T>(operation: string, args: Record<string, unknown>): Promise<T> {
+      if (operation === RECOVERY_APPLY_OPERATION) {
+        const initial = applyResponse("applied");
+        const unsafeOwner = { ...initial.receipt!.ownerReceipt, agent: "C:\\secret\\token.txt" };
+        const receiptBase = { ...initial.receipt!, ownerReceipt: unsafeOwner, ownerReceiptFingerprint: fingerprintRecoveryValue(unsafeOwner) };
+        delete (receiptBase as { fingerprint?: string }).fingerprint;
+        const receipt = { ...receiptBase, fingerprint: fingerprintRecoveryValue(receiptBase) };
+        const responseBase = { ...initial, receipt, diagnostics: ["Owner accepted the recovery request."] };
+        delete (responseBase as { fingerprint?: string }).fingerprint;
+        return { ...responseBase, fingerprint: fingerprintRecoveryValue(responseBase) } as T;
+      }
+      const action = (args.request as { action: string }).action;
+      if (action === "open") {
+        openCount += 1;
+        if (openCount === 2) return new Promise<RecoveryFlowResponseV2>(resolve => { releaseOpen = resolve; }) as Promise<T>;
+        return openResponse() as T;
+      }
+      if (action === "search") return searchedResponse() as T;
+      return plannedResponse() as T;
+    },
+  });
+  const panel = new ProjectHubRecoveryPanel(client, root as unknown as HTMLElement);
+  await panel.open(projectId);
+  await panel.search("recovery");
+  root.querySelectorAll<FakeElement>("button").find(button => button.textContent === "Confirm exact Plan")?.onclick?.({});
+  root.querySelectorAll<FakeElement>("button").find(button => button.textContent === "Confirm and apply")?.onclick?.({});
+  for (let index = 0; index < 8; index += 1) await Promise.resolve();
+  const rendered = root.children.map(child => child.textContent).join(" ");
+  assert.equal(rendered.includes("C:\\secret\\token.txt"), false);
+  assert.equal(rendered.includes("authorization: super-secret"), false);
+  releaseOpen(openResponse());
+});
+
+test("invalid Plan expiry remains planned and requires explicit Refresh", async () => {
+  const root = new FakeElement("div");
+  const client = new ProjectHubRecoveryClient({
+    async invoke<T>(operation: string, args: Record<string, unknown>): Promise<T> {
+      const action = (args.request as { action: string }).action;
+      if (operation === RECOVERY_APPLY_OPERATION) throw new Error("apply must not run");
+      if (action === "open") return openResponse() as T;
+      if (action === "search") return searchedResponse() as T;
+      return { ...plannedResponse(), payload: { ...plannedResponse().payload, plan: { ...plannedResponse().payload.plan, expiresAt: "not-a-date" } } } as T;
+    },
+  });
+  const panel = new ProjectHubRecoveryPanel(client, root as unknown as HTMLElement);
+  await panel.open(projectId);
+  await panel.search("recovery");
+  panel.beginConfirmation();
+  assert.equal(panel.state.confirming, false);
+  assert.match(panel.state.error ?? "", /expired/i);
+  assert.equal(root.querySelectorAll<FakeElement>("button").find(button => button.textContent === "Confirm exact Plan")?.disabled, true);
 });
 
 test("search button follows the current query and submits once", async () => {
