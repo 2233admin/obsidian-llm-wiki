@@ -2,7 +2,7 @@
 type: issue
 entity: project/obsidian-llm-wiki/issue/p0-s04p-workflow-recovery-plan
 state: todo
-review: draft
+review: reviewed
 kind: knowledge-task
 id: obsidian-llm-wiki/p0-s04p-workflow-recovery-plan
 description: "P0 S04P: register read-only workflow.recovery.plan Operation to unblock S06A surface"
@@ -86,11 +86,10 @@ The product owner explicitly selected a **new public read-only `workflow.recover
 
 ## PRD/ROADMAP wording
 
-S04P remains **draft/proposed and principal-gated**, not immediately
-executable. S06A is blocked, not the next executable leaf. The first
-post-approval commit promotes this issue from `review: draft` to
-`review: reviewed` with `state: todo`; only then does implementation become
-executable.
+The product owner approved ADR 0002 and promoted S04P to
+`review: reviewed` with `state: todo`. S04P is the immediately executable
+leaf. S06A remains blocked until S04P implementation and independent
+verification pass.
 
 ## Dependencies
 
@@ -98,7 +97,7 @@ Blocked by complete S04A V2 read Flow and V1 cutover. Blocks completion of S06A 
 
 ## Demo
 
-After principal approval/promotion, register the Operation, invoke it directly
+Register the Operation, invoke it directly
 with a complete Plan request, observe `planned|stale|unavailable` responses,
 verify before/after SHA-256 and byte equality for fixture vault files, plugin
 `data.json`, and durable recovery roots, verify `composeRecoveryCandidates`

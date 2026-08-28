@@ -1,9 +1,9 @@
 # ADR 0002 — Read-Only `workflow.recovery.plan` Operation
 
-> **Status:** proposed
+> **Status:** accepted
 > **Date:** 2026-08-28
 > **Deciders:** product owner
-> **Obsidian blocker addressed:** S06A desktop acceptance was blocked because candidate composition used the future apply capability as its planning gate. S04P separates planning from apply; principal acceptance and the S04B mutation gate remain required.
+> **Decision target:** S06A desktop acceptance was blocked because candidate composition used the future apply capability as its planning gate. S04P separates planning from apply; S06A surface acceptance and the S04B mutation gate remain required.
 
 ---
 
@@ -470,8 +470,8 @@ The capability fact must be introduced by production Operation registration, not
 
 ## Verification
 
-1. **Design review:** Independent reviewer validates this ADR against actual S04A code contracts and the S06A blocker evidence.
-2. **ADR approval:** Principal approves before implementation.
+1. **Design review:** Complete — independent review of `becc17c..f187996` found no Critical, Important, or Minor findings.
+2. **ADR approval:** Complete — product owner approved integration and implementation on 2026-08-28.
 3. **S04P implementation:** Register `workflow.recovery.plan` as `mutating: false`, construct and inject `RecoveryPlanningService`, delegate from Flow, update capability check in `composeRecoveryCandidates`, update Agent Domain Profile requirements.
 4. **S06A re-exercise:** After S04P lands, re-run actual Obsidian surface test. Verify `searched`, `needs-agent-selection`, and `planned` stages are reachable.
 5. **S04B proceeds:** After S06A principal acceptance, S04B implementation starts with correct capability separation.
@@ -480,17 +480,17 @@ The capability fact must be introduced by production Operation registration, not
 
 ## Evidence destinations and promotion gate
 
-This ADR is `review: draft` and non-executable until the principal approves the
-written spec. S04P remains draft/proposed and principal-gated; S06A is blocked,
-not the next executable leaf. The first post-approval commit promotes the
-Work-OS issue `p0-s04p-workflow-recovery-plan` to `review: reviewed` with
-`state: todo`; only then does implementation become executable.
+This ADR is accepted. The Work-OS issue
+`p0-s04p-workflow-recovery-plan` is promoted to `review: reviewed` with
+`state: todo`, making Task 9A executable. S06A remains blocked until S04P
+implementation passes independent review and the actual six-stage Obsidian
+gate.
 
 Evidence collected during S04P implementation:
 - S04P verification evidence → `01-Projects/obsidian-llm-wiki/issues/p0-s04p-workflow-recovery-plan.md`
 - S06A T5.3 surface evidence → `01-Projects/obsidian-llm-wiki/issues/p0-s06-obsidian-recovery-surface.md`
 
-Promotion gate: principal must approve the `review: draft` ADR before any implementation commit is created in this worktree.
+Promotion gate passed on 2026-08-28; implementation evidence must still satisfy the S04P issue before S06A resumes.
 
 ---
 
