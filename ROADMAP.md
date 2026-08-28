@@ -30,10 +30,8 @@ accepted.
 The approved slice replaces `project-hub-recovery/v1` with a stateless staged
 Recovery Flow that moves from current Project facts through mandatory cited
 search and immutable Plan preview, then delegates confirmed mutation and output
-routing to Workflow. S01 v1 remains completed history. S01B–S04A are verified
-completions. S04P is reviewed, `todo`, and the only immediately executable
-leaf. S06A remains blocked until S04P implementation and independent
-verification pass.
+routing to Workflow. S01 v1 remains completed history. S01B–S04P are verified
+completions. S06A is the only immediately executable leaf.
 
 Dependency order:
 
@@ -43,8 +41,8 @@ S01 v1 complete (historical)
        -> S02 open/context + Workflow store/read seams [done]
             -> S03 mandatory repeatable cited search [done]
                  -> S04A candidates/Plan + complete Flow registration + V1 removal [done]
-                      -> S04P read-only workflow.recovery.plan Operation [next]
-                           -> S06A actual Obsidian read-only preview [blocked]
+                      -> S04P read-only workflow.recovery.plan Operation [done]
+                           -> S06A actual Obsidian read-only preview [next]
                                 -> S04B claim-first Workflow apply
                                      -> S05 claimed output governance
                                           -> S06B actual Obsidian apply/receipt/restart
@@ -52,11 +50,9 @@ S01 v1 complete (historical)
                                                     -> S08 Foundation acceptance
 ```
 
-**S04P** is an approved, reviewed slice for registering
-`workflow.recovery.plan` as a `mutating: false` Workflow Operation. It separates
-the read-only planning capability from apply; it does not implement apply.
-**S06A is blocked** until S04P is implemented and independently verified, then
-the actual six-stage Obsidian gate resumes.
+**S04P** is verified complete: `workflow.recovery.plan` is a `mutating: false`
+Workflow Operation, and planning capability remains separate from apply.
+**S06A is next** and resumes at the actual six-stage Obsidian gate.
 
 Planning sources:
 

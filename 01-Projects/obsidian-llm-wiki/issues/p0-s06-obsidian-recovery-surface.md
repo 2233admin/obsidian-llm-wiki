@@ -49,9 +49,9 @@ Expose the complete read-only V2 Flow through the existing LLM Wiki/Ask Mate Ite
 
 - The built plugin was installed and reloaded in desktop Obsidian 1.13.7. `vault-mind-promote:open-ask-mate-project-context` mounted one `.llmwiki-ask-mate-project-recovery` surface and rendered the real `open` stage for `project/llmwiki-product`, including Flow fingerprint, eight owner locks, bounded facts, search controls, diagnostics, and explicit Work-OS remediation.
 - Installed plugin `data.json` remained byte-identical before and after the actual open flow (`sha256:cc0f866e947e22de07286f00e6028b7b89b6b1ed7a13634e551453bf23baa767`).
-- Full-stage acceptance is blocked pending approved S04P implementation. ADR 0002 requires S04P to register the read-only `workflow.recovery.plan` Operation and capability, while `workflow.recovery.apply` remains absent/unusable until S04B.
+- S04P is implemented and independently verified: the read-only `workflow.recovery.plan` Operation and capability are available, while `workflow.recovery.apply` remains absent/unusable until S04B.
 - S06A must reach `planned` with the plan capability available while apply is absent/unusable; apply availability is not a prerequisite for read-only preview.
-- T5.3 and principal acceptance remain open until S04P is implemented and all six Flow stages are verified in actual Obsidian.
+- T5.3 is unblocked. Full six-stage actual Obsidian verification and principal acceptance remain open.
 
 ## Demo
 
