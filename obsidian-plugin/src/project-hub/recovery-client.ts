@@ -14,6 +14,8 @@ export const RECOVERY_FLOW_REQUEST_SCHEMA_VERSION = "project-hub-recovery-flow-r
 
 export type RecoveryPlanRequestV2 = RecoveryPlanFromSearchRequestV2 | RecoveryPlanOverrideRequestV2;
 export type RecoveryProjectId = `project/${string}`;
+export type ProjectId = RecoveryProjectId;
+export type { RecoveryFlowResponseV2, RecoverySearchRequestV2, RecoveryRefreshPlanRequestV2, RecoveryRestartRequestV2 };
 
 /** Thin, stateless adapter over the shared read-only Operation transport. */
 export class ProjectHubRecoveryClient {

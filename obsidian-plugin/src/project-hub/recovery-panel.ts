@@ -41,7 +41,7 @@ export class ProjectHubRecoveryPanel {
 
   constructor(
     private readonly client: ProjectHubRecoveryClient,
-    private container: HTMLElement | null,
+    private container: HTMLElement | null = null,
     private readonly onCitation?: CitationHandler,
   ) {
     this.#state = this.emptyState("project/unknown");
