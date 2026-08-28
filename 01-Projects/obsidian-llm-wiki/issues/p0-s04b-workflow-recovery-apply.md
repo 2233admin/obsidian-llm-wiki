@@ -1,7 +1,7 @@
 ---
 type: issue
 entity: project/obsidian-llm-wiki/issue/p0-s04b-workflow-recovery-apply
-state: todo
+state: done
 review: reviewed
 kind: knowledge-task
 id: obsidian-llm-wiki/p0-s04b-workflow-recovery-apply
@@ -25,15 +25,15 @@ Apply one complete current `project-hub-recovery-plan/v2` plus safe ephemeral qu
 
 ## Acceptance
 
-- [ ] `recovery-apply-request/v2` contains the complete Plan, presented fingerprint, safe normalized `{query,limit}` planning input, and transition token; actor comes only from OperationContext.
-- [ ] Immutable Plan owns role/Binding/Profile and search-input/search/candidate fingerprints but no raw query, agent ID, or host; authenticated actor becomes Work Run identity and host fallback.
-- [ ] Existing exact applied/claimed/outcome-unknown claims are loaded before new-claim expiry checks; claim recovery after Plan expiry verifies Plan/token/planning-input/actor and local Work Run/lease identity without re-reading mutable pre-claim selection locks.
-- [ ] A new claim uses ephemeral planning input to recompute open→search→candidate→Binding and prove the Plan basis, then revalidates current owner/capability/lease facts and expiry before mutation; claim persists only the planning-input digest.
-- [ ] A Plan produced with `workflow.recovery.plan` but missing or unusable `workflow.recovery.apply` is rejected as `unavailable` before claim creation; cover this in `mcp-server/src/workflow/recovery-apply.test.ts`.
-- [ ] Resume reuses exact Project/Work Item/Work Run. Create derives one Work Run ID from Project/Work Item/Plan fingerprint, creates/verifies one durable lease and local lease for actor, and never calls manual start.
-- [ ] Same-token replay returns/recovers one receipt; rebound conflicts; two-token race creates/joins at most one Work Run.
-- [ ] Every crash window, including expiry after claim, deterministically returns one receipt or persists outcome-unknown and blocks mutation replay.
-- [ ] Every frozen `makeWorkflowOps` caller, including Fleet verifier, is migrated and verified.
+- [x] `recovery-apply-request/v2` contains the complete Plan, presented fingerprint, safe normalized `{query,limit}` planning input, and transition token; actor comes only from OperationContext.
+- [x] Immutable Plan owns role/Binding/Profile and search-input/search/candidate fingerprints but no raw query, agent ID, or host; authenticated actor becomes Work Run identity and host fallback.
+- [x] Existing exact applied/claimed/outcome-unknown claims are loaded before new-claim expiry checks; claim recovery after Plan expiry verifies Plan/token/planning-input/actor and local Work Run/lease identity without re-reading mutable pre-claim selection locks.
+- [x] A new claim uses ephemeral planning input to recompute open→search→candidate→Binding and prove the Plan basis, then revalidates current owner/capability/lease facts and expiry before mutation; claim persists only the planning-input digest.
+- [x] A Plan produced with `workflow.recovery.plan` but missing or unusable `workflow.recovery.apply` is rejected as `unavailable` before claim creation; cover this in `mcp-server/src/workflow/recovery-apply.test.ts`.
+- [x] Resume reuses exact Project/Work Item/Work Run. Create derives one Work Run ID from Project/Work Item/Plan fingerprint, creates/verifies one durable lease and local lease for actor, and never calls manual start.
+- [x] Same-token replay returns/recovers one receipt; rebound conflicts; two-token race creates/joins at most one Work Run.
+- [x] Every crash window, including expiry after claim, deterministically returns one receipt or persists outcome-unknown and blocks mutation replay.
+- [x] Every frozen `makeWorkflowOps` caller, including Fleet verifier, is migrated and verified.
 
 ## Demo
 
@@ -48,6 +48,16 @@ Blocked by accepted S06A actual-Obsidian preview. Project Hub remains read-only.
 ## Non-goals
 
 - Do not add a mutating Project Hub Operation, server Flow session, manual Work Run start, or Plan store.
+
+## Verification evidence
+
+- Integrated commits: `b411435` (apply), `cb93531` (security hardening), and `fbb5dbf` (Fleet privacy gate).
+- Independent task review: Spec Compliance PASS; Task Quality APPROVED. Independent security re-review: Security APPROVED; all seven findings addressed with no new Critical or Important breakage.
+- Integrated focused backend matrix: 83 passed across nine Workflow/core/Agent/Project files. Compiled real-vault apply smoke: 14 passed, including resume, deterministic create-and-join, replay, apply capability absence, concurrency, privacy, future clock, and index recovery.
+- Apply authorization is injected independently from planning capability. Same-token concurrency performs one owner call. Receipt projection is allowlist-only. New claims reject future Plans. Write Policy enumerates exact claim, run, lease, lock, lifetime, and event targets.
+- Claims persist digests and bounded identity/receipt fields only; raw planning query, transition token, prompts, transcripts, secrets, and machine paths are absent.
+- `PYTHON=python bun test scripts/verify_fleet_workflow.test.ts`: 15 passed. Phase-all Fleet acceptance: 13/13 checks passed.
+- `npm run typecheck -- --pretty false`, `npm run build`, strict OpenSpec validation, catalog drift, privacy scans, and `git diff --check` passed.
 
 ## Fix round 2 (Fleet verifier portable base_head)
 

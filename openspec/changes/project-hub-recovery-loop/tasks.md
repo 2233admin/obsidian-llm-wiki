@@ -67,9 +67,9 @@ Luna receives one reviewed Task at a time. It may alter internal implementation 
 
 ## Phase 6 — S04B claim-first Workflow apply
 
-- [ ] **T6.1 V2 apply request, planning proof, claims, and receipt (R7)** — Add `recovery-apply.ts` and its test. Validate full Plan plus safe ephemeral `{query,limit}` planning input, recompute mandatory open/search/candidate/Binding basis before a new claim, persist only its digest, load exact claims before fresh expiry checks, reject planning-input rebound, recover expiry-after-claim, and implement `claimed|applied|outcome-unknown` receipts.
-- [ ] **T6.2 Governed resume/create and caller migration (R7)** — Modify Workflow/core/Agent Domain composition and every frozen `makeWorkflowOps` caller/test, including both Project characterization tests and Fleet verifier. Resume exact run; create deterministic run/lease for authenticated actor; never call manual start.
-- [ ] **T6.3 Verify S04B** — Run focused apply/store/Workflow/Plan/Project/Agent Domain tests, Fleet verifier tests, and typecheck. Cover every crash window, same-token replay, rebound, expiry after claim, and two-token race. Record S04B evidence.
+- [x] **T6.1 V2 apply request, planning proof, claims, and receipt (R7)** — Added closed `recovery-apply-request/v2`, full Plan/planning-input proof, independently injected apply authorization, digest-only Plan/token claims, existing-claim-first replay, and `claimed|applied|outcome-unknown` receipts.
+- [x] **T6.2 Governed resume/create and caller migration (R7)** — Workflow resumes exact IDs or creates one deterministic actor-bound Work Run/lease, never manual start. Core, Agent Domain, Project characterization/E2E, and Fleet callers are migrated.
+- [x] **T6.3 Verify S04B** — 83 focused backend tests and 14 compiled real-vault apply tests passed. Security re-review approved apply capability separation, same-token concurrency, allowlist receipt privacy, injected clocks, exact write-policy targets, and claim-index recovery. Fleet tests passed 15/15 and phase-all acceptance passed 13/13. Typecheck/build/OpenSpec/catalog/privacy/diff gates passed.
 
 ## Phase 7 — S05 claimed Work Run output governance
 
