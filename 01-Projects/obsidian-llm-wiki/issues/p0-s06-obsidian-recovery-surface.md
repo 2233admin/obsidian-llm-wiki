@@ -25,8 +25,8 @@ Expose the complete read-only V2 Flow through the existing LLM Wiki/Ask Mate Ite
 
 ## Acceptance
 
-- [ ] The primary entry is Ask Mate Project Context; `control-plane-ui.ts` remains advanced administration.
-- [ ] S06A maps only `project.hub.recovery.flow`; it has no apply method or Workflow mutation path.
+- [x] The primary entry is Ask Mate Project Context; `control-plane-ui.ts` remains advanced administration.
+- [x] S06A maps only `project.hub.recovery.flow`; it has no apply method or Workflow mutation path.
 - [ ] The panel renders all six stages, work/context/evidence/candidates/Binding/Plan facts, Citation Targets, omissions, and exact remediation without empty success states.
 - [ ] Only the server-supplied closed recommended next request may auto-advance; multiple Bindings require user selection.
 - [ ] Candidate replacement validates the full prior Plan and makes the new Plan the only confirmation object.
@@ -41,11 +41,15 @@ Expose the complete read-only V2 Flow through the existing LLM Wiki/Ask Mate Ite
 - `npm run typecheck -- --pretty false` passes with declared `mcp-server` dependencies installed locally.
 - `npm run build` passes.
 - `openspec validate project-hub-recovery-loop --strict --no-interactive` passes.
-- Full `npm test` reaches all recovery tests successfully but retains three unrelated baseline settings-shape failures involving `settingsExpandedSections`; no recovery test fails.
+- Full `npm test` passes 82/82 after correcting three stale `PluginPresentation` test expectations; `npm run typecheck -- --pretty false` and `npm run build` also pass after integration.
+- Independent code/spec review found no Critical, Important, or Minor findings. Accessibility review's placeholder citation-link blocker was repaired in `b1be249` and independently verified closed.
 
-## Actual-surface gate remaining
+## Actual-surface evidence and blocker
 
-Coordinator must run the built plugin in desktop Obsidian against the sanitized Project and record truthful evidence for: all six stages; repeated search; exact unique recommendation follow; multiple-Binding selection; candidate replacement; expired Plan and explicit refresh; citation activation; cancellation; stale/unavailable remediation; reload/reopen reset; unchanged plugin-data and fixture bytes; keyboard order, focus retention, live/urgent status, readable Plan, and minimum hit targets. T5.3 and principal acceptance remain open; S04B stays blocked.
+- The built plugin was installed and reloaded in desktop Obsidian 1.13.7. `vault-mind-promote:open-ask-mate-project-context` mounted one `.llmwiki-ask-mate-project-recovery` surface and rendered the real `open` stage for `project/llmwiki-product`, including Flow fingerprint, eight owner locks, bounded facts, search controls, diagnostics, and explicit Work-OS remediation.
+- Installed plugin `data.json` remained byte-identical before and after the actual open flow (`sha256:cc0f866e947e22de07286f00e6028b7b89b6b1ed7a13634e551453bf23baa767`).
+- Full-stage acceptance is blocked by a dependency cycle in the approved contract: production S04A truthfully exposes no `workflow.recovery.apply` capability until S04B registers it, while candidate composition requires that capability to be `available`; S04B is itself blocked on S06A principal acceptance. Therefore actual `searched` candidate composition, `needs-agent-selection`, `planned`, candidate replacement, and refresh cannot be reached without either reordering S04B or changing the S06A gate.
+- T5.3 and principal acceptance remain open. S04B remains blocked until the product owner resolves this dependency cycle.
 
 ## Demo
 
