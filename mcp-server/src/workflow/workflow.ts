@@ -1,10 +1,11 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import type { Operation, OperationContext, WriteEffect } from '../core/types.js';
 import { conflict, makeErr } from '../core/types.js';
 import { resultPath, touchMarkdown, workflowAgentPolicyBasePath, workflowPolicyBasePath } from '../core/write-policy.js';
 import { resolveProjectContext } from '../project/project-context.js';
+import { createFileWorkRunStore, durableRunPath, vaultJoin, withFileRollback, type WorkRunStore } from './work-run-store.js';
 
 const STAGES = ['intake', 'understand', 'plan', 'execute', 'review', 'verify', 'archive'] as const;
 type WorkflowStage = (typeof STAGES)[number];
@@ -185,36 +186,6 @@ function agentLifetimePath(project: string, agent: string): string {
 
 function agentEventsPath(project: string, agent: string): string {
   return `${agentRoot(project, agent)}/events.md`;
-}
-
-function durableRunPath(project: string, workRunId: string): string {
-  return `01-Projects/${project}/runs/${workRunId.slice('work-run/'.length)}.json`;
-}
-
-const WORK_RUN_LOCK_PATH = '.vault-mind/_work-run.lock';
-
-function withWorkRunLock<T>(vaultPath: string, action: () => T): T {
-  const lockPath = vaultJoin(vaultPath, WORK_RUN_LOCK_PATH);
-  const token = `${process.pid}:${randomUUID()}`;
-  mkdirSync(dirname(lockPath), { recursive: true });
-  const claim = () => writeFileSync(lockPath, token, { encoding: 'utf-8', flag: 'wx' });
-  try {
-    claim();
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
-    throw conflict(
-      `Work Run is busy with another runtime; verify the owner and remove ${WORK_RUN_LOCK_PATH} manually only after confirming no writer is active`,
-    );
-  }
-  try {
-    return action();
-  } finally {
-    try {
-      if (readFileSync(lockPath, 'utf-8') === token) rmSync(lockPath, { force: true });
-    } catch {
-      // A missing lock is already released; never remove a successor's token.
-    }
-  }
 }
 
 interface LeasedRunIdentity {
@@ -602,6 +573,7 @@ function syncDurableWorkRunUnlocked(
   state: AgentLifetimeState,
   transitionToken: string,
   leasedIdentity?: LeasedRunIdentity,
+  store?: WorkRunStore,
 ): string {
   const path = durableRunPath(state.project, state.workRunId);
   const fullPath = vaultJoin(vaultPath, path);
@@ -661,7 +633,8 @@ function syncDurableWorkRunUnlocked(
     rmSync(temporary, { force: true });
     throw conflict(`Work Run changed concurrently: ${state.workRunId}`);
   }
-  renameSync(temporary, fullPath);
+  (store ?? createFileWorkRunStore(vaultPath)).writeRunAtomic(state.project, state.workRunId, durable);
+  rmSync(temporary, { force: true });
   return path;
 }
 
@@ -678,35 +651,6 @@ function assertDurableLifetimeIdentity(vaultPath: string, state: AgentLifetimeSt
       durable: durable.state,
     });
   }
-}
-
-interface FilePreimage {
-  fullPath: string;
-  content: Buffer | null;
-}
-
-function withFileRollback<T>(vaultPath: string, relPaths: string[], action: () => T): T {
-  const preimages: FilePreimage[] = [...new Set(relPaths)].map((relPath) => {
-    const fullPath = vaultJoin(vaultPath, relPath);
-    return { fullPath, content: existsSync(fullPath) ? readFileSync(fullPath) : null };
-  });
-  try {
-    return action();
-  } catch (error) {
-    for (const preimage of preimages.reverse()) {
-      if (preimage.content === null) {
-        rmSync(preimage.fullPath, { force: true });
-      } else {
-        mkdirSync(dirname(preimage.fullPath), { recursive: true });
-        writeFileSync(preimage.fullPath, preimage.content);
-      }
-    }
-    throw error;
-  }
-}
-
-function vaultJoin(vaultPath: string, relPath: string): string {
-  return join(vaultPath, ...relPath.split('/'));
 }
 
 function writeVaultBytes(vaultPath: string, relPath: string, content: string): void {
@@ -1460,6 +1404,7 @@ function beginAgentLifetime(
   ctx: OperationContext,
   params: Record<string, unknown>,
   mode: 'leased' | 'manual',
+  store: WorkRunStore,
 ) {
   const operation = mode === 'leased' ? 'workflow.agent.join' : 'workflow.agent.start';
   const actor = actorFromContext(ctx);
@@ -1594,7 +1539,7 @@ function beginAgentLifetime(
   const lifetimeFullPath = vaultJoin(vaultPath, path);
   const expectedLifetimeBytes = existsSync(lifetimeFullPath) ? readFileSync(lifetimeFullPath, 'utf-8') : null;
 
-  const { runPath, eventsPath } = withWorkRunLock(vaultPath, () => {
+  const { runPath, eventsPath } = store.withLock(() => {
     const lockedLifetimeBytes = existsSync(lifetimeFullPath) ? readFileSync(lifetimeFullPath, 'utf-8') : null;
     if (lockedLifetimeBytes !== expectedLifetimeBytes) {
       throw conflict(`${agent} lifetime changed while joining Work Run ${workRunId}; retry the operation`);
@@ -1605,6 +1550,7 @@ function beginAgentLifetime(
         state,
         transitionToken,
         leasedIdentity ?? undefined,
+        store,
       );
       writeVaultBytes(vaultPath, path, renderAgentLifetime(state, notes));
       const persistedEventsPath = appendAgentEvent(vaultPath, state, {
@@ -1633,6 +1579,7 @@ function beginAgentLifetime(
 }
 
 export function makeWorkflowOps(vaultPath: string): Operation[] {
+  const store = createFileWorkRunStore(vaultPath);
   return [
     {
   name: 'workflow.state.set',
@@ -1804,7 +1751,7 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
         },
         notes: { type: 'string', required: false, description: 'Manual start notes' },
       },
-      handler: async (ctx, params) => beginAgentLifetime(vaultPath, ctx, params, 'manual'),
+      handler: async (ctx, params) => beginAgentLifetime(vaultPath, ctx, params, 'manual', store),
     },
     {
   name: 'workflow.agent.join',
@@ -1874,7 +1821,7 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
         },
         notes: { type: 'string', required: false, description: 'Join notes' },
       },
-      handler: async (ctx, params) => beginAgentLifetime(vaultPath, ctx, params, 'leased'),
+      handler: async (ctx, params) => beginAgentLifetime(vaultPath, ctx, params, 'leased', store),
     },
     {
   name: 'workflow.agent.step',
@@ -1924,7 +1871,7 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
         const actor = actorFromContext(ctx);
         const project = existingProjectKey(vaultPath, params.project, 'workflow.agent.step');
         const agent = agentKey(params.agent, actor);
-        return withWorkRunLock(vaultPath, () => {
+        return store.withLock(() => {
           const current = readAgentLifetime(vaultPath, project, agent);
           if (!current) throw makeErr(-32001, `Agent lifetime not found: ${agent}`);
           assertWorkRunIdentity(current, params.work_run_id);
@@ -1991,7 +1938,7 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
           const runPath = durableRunPath(project, state.workRunId);
           return withFileRollback(vaultPath, [state.path, eventsPath, runPath], () => {
             writeVaultBytes(vaultPath, state.path, renderAgentLifetime(state, summary));
-            syncDurableWorkRunUnlocked(vaultPath, state, transitionToken);
+            syncDurableWorkRunUnlocked(vaultPath, state, transitionToken, undefined, store);
             appendAgentEvent(vaultPath, state, {
               kind: 'step',
               summary: summary || `${current.stage} -> ${stage}`,
@@ -2040,7 +1987,7 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
         const actor = actorFromContext(ctx);
         const project = existingProjectKey(vaultPath, params.project, 'workflow.agent.checkpoint');
         const agent = agentKey(params.agent, actor);
-        return withWorkRunLock(vaultPath, () => {
+        return store.withLock(() => {
           const current = readAgentLifetime(vaultPath, project, agent);
           if (!current) throw makeErr(-32001, `Agent lifetime not found: ${agent}`);
           assertWorkRunIdentity(current, params.work_run_id);
@@ -2091,7 +2038,7 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
           const runPath = durableRunPath(project, state.workRunId);
           return withFileRollback(vaultPath, [state.path, eventsPath, runPath], () => {
             writeVaultBytes(vaultPath, state.path, renderAgentLifetime(state, summary));
-            syncDurableWorkRunUnlocked(vaultPath, state, transitionToken);
+            syncDurableWorkRunUnlocked(vaultPath, state, transitionToken, undefined, store);
             appendAgentEvent(vaultPath, state, {
               kind: `checkpoint:${status}`,
               summary,
@@ -2151,7 +2098,7 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
         const actor = actorFromContext(ctx);
         const project = existingProjectKey(vaultPath, params.project, 'workflow.agent.leave');
         const agent = agentKey(params.agent, actor);
-        return withWorkRunLock(vaultPath, () => {
+        return store.withLock(() => {
           const current = readAgentLifetime(vaultPath, project, agent);
           if (!current) throw makeErr(-32001, `Agent lifetime not found: ${agent}`);
           assertWorkRunIdentity(current, params.work_run_id);
@@ -2187,7 +2134,7 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
           const runPath = durableRunPath(project, state.workRunId);
           return withFileRollback(vaultPath, [state.path, eventsPath, runPath], () => {
             writeVaultBytes(vaultPath, state.path, renderAgentLifetime(state, summary));
-            syncDurableWorkRunUnlocked(vaultPath, state, transitionToken);
+            syncDurableWorkRunUnlocked(vaultPath, state, transitionToken, undefined, store);
             appendAgentEvent(vaultPath, state, {
               kind: 'leave',
               summary: summary || `${agent} archived`,
