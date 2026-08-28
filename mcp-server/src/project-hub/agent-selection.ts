@@ -34,10 +34,11 @@ export function normalizeCompatibleBindings(
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return [];
     const record = raw as Record<string, unknown>;
     try {
-      if (record.enabled === false || record.projectId !== undefined && record.projectId !== projectId) return [];
+      if (record.enabled === false || record.projectId !== projectId) return [];
       if (record.projectContextCurrent === false || record.profileCurrent === false || record.capabilityCompatible === false) return [];
-      const claims = Array.isArray(record.capabilityClaims) ? record.capabilityClaims.filter((item): item is string => typeof item === 'string') : [];
-      if (required.size > 0 && claims.length > 0 && ![...required].every((item) => claims.includes(item))) return [];
+      if (!Array.isArray(record.capabilityClaims)) return [];
+      const claims = record.capabilityClaims.filter((item): item is string => typeof item === 'string');
+      if (![...required].every((item) => claims.includes(item))) return [];
       const bindingId = text(record.bindingId, 'bindingId');
       const profileId = text(record.profileId, 'profileId');
       const role = text(record.role, 'role');

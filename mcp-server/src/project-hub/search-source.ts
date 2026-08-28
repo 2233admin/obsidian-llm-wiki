@@ -115,7 +115,8 @@ function normalizeItem(projectId: string, owner: ProjectSearchOwner, raw: Projec
 
 function normalizeSnapshot(projectId: string, owner: ProjectSearchOwner, value: ProjectOwnerSnapshotInput | ProjectOwnerSearchItem[] | undefined): ProjectOwnerSnapshot {
   const supplied: Partial<ProjectOwnerSnapshotInput> & { items?: ProjectOwnerSearchItem[] } = Array.isArray(value) ? { items: value } : value ?? {};
-  const state = supplied?.state === 'stale' || supplied?.state === 'unavailable' ? supplied.state : 'current';
+  const stateInvalid = supplied?.state !== undefined && supplied.state !== 'current' && supplied.state !== 'stale' && supplied.state !== 'unavailable';
+  const state = stateInvalid ? 'unavailable' : supplied?.state ?? 'current';
   const items = (supplied?.items ?? [])
     .filter((item): item is ProjectOwnerSearchItem => Boolean(item))
     .map((item) => normalizeItem(projectId, owner, item))
@@ -130,13 +131,14 @@ function normalizeSnapshot(projectId: string, owner: ProjectSearchOwner, value: 
     citationTargets: refs(item.citationTargets).slice(0, 8),
   }));
   if (state === 'unavailable' && diagnostics.length === 0) diagnostics.push(diagnostic(owner, 'owner_unavailable', 'The Project search owner is unavailable.', 'Repair the owner and retry search.', 'error'));
+  if (stateInvalid) diagnostics.unshift(diagnostic(owner, 'owner_state_invalid', 'The Project search owner reported an invalid state.', 'Repair the owner state and retry search.', 'error'));
   if (state === 'stale' && diagnostics.length === 0) diagnostics.push(diagnostic(owner, 'owner_stale', 'The Project search owner is stale.', 'Refresh the owner before relying on search results.'));
   const sourceItems = supplied?.items ?? [];
   const droppedItems = sourceItems.length !== items.length;
   return {
     owner,
     revision: revision(supplied?.revision),
-    fingerprint: !droppedItems && supplied?.fingerprint && FINGERPRINT.test(supplied.fingerprint) ? supplied.fingerprint : fingerprintRecoveryValue(items),
+    fingerprint: !stateInvalid && !droppedItems && supplied?.fingerprint && FINGERPRINT.test(supplied.fingerprint) ? supplied.fingerprint : fingerprintRecoveryValue(items),
     state,
     items: state === 'unavailable' ? [] : items,
     diagnostics,

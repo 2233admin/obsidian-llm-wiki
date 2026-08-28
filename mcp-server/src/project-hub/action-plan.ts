@@ -92,7 +92,7 @@ async function recompute(request: RecoverySearchRequestV2, dependencies: Recover
     itemType: 'work-item', label: open.payload.workItemId ?? request.projectId, projectId: request.projectId,
     owner: 'work-os' as const, matchClass: 'none', score: 0, freshness: 'current', confidence: 'owner', provenance: 'work-os', citationTargets: open.payload.citations.slice(0, 1),
   };
-  const candidates = composeRecoveryCandidates({ open, search, compatibleBindings: bindings });
+  const candidates = composeRecoveryCandidates({ open, search: basis.payload.results.length ? basis.payload.results : search, compatibleBindings: bindings });
   return { open, searched: basis, basis, candidates };
 }
 
@@ -145,6 +145,29 @@ function planFromCandidate(request: RecoveryPlanFromSearchRequestV2 | RecoveryPl
   return validateRecoveryPlanV2({ ...planWithoutFingerprint, fingerprint: fingerprintRecoveryValue(planWithoutFingerprint) });
 }
 
+function planMatchesCurrent(plan: RecoveryPlanV2, current: Awaited<ReturnType<typeof recompute>>): boolean {
+  if (!current.open || current.open.stage !== 'open' || !current.basis || !current.candidates || current.candidates.reason) return false;
+  const candidate = current.candidates.candidates.find((item) => item.candidateId === plan.candidateId);
+  const binding = current.candidates.bindings.find((item) => item.bindingId === plan.agentSelection.bindingId && item.bindingRevision === plan.agentSelection.bindingRevision);
+  const citations = [...new Set([...current.open.payload.citations, ...current.basis.payload.results.flatMap((result) => result.citationTargets)])].slice(0, 32);
+  return plan.projectId === current.open.projectId
+    && plan.rootOpenFlowFingerprint === current.open.flowFingerprint
+    && plan.recoveryFingerprint === current.open.recoveryFingerprint
+    && plan.searchedBasisFlowFingerprint === searchedFingerprint(current.basis, current.candidates)
+    && plan.searchInputFingerprint === current.basis.payload.searchInputFingerprint
+    && plan.searchFingerprint === current.basis.payload.searchFingerprint
+    && plan.candidateSetFingerprint === current.candidates.candidateSetFingerprint
+    && canonicalRecoveryJson(plan.ownerLocks) === canonicalRecoveryJson(current.basis.ownerLocks)
+    && canonicalRecoveryJson(plan.capabilityFacts) === canonicalRecoveryJson(current.open.payload.capabilities ?? [])
+    && canonicalRecoveryJson(plan.citationTargets) === canonicalRecoveryJson(citations)
+    && candidate !== undefined
+    && plan.kind === candidate.kind
+    && plan.workItemId === candidate.workItemId
+    && plan.workRunId === candidate.workRunId
+    && binding !== undefined
+    && canonicalRecoveryJson(plan.agentSelection) === canonicalRecoveryJson(binding);
+}
+
 function plannedResponse(plan: RecoveryPlanV2, current: Awaited<ReturnType<typeof recompute>>, generatedAt: string): RecoveryPlannedResponseV2 {
   const candidates = current.candidates?.candidates.map((candidate) => candidate.candidateId) ?? [plan.candidateId];
   const refresh = { action: 'refresh-plan' as const, query: current.basis!.payload.query, limit: current.basis!.payload.limit, priorPlan: plan };
@@ -185,6 +208,13 @@ export async function composeRecoveryPlannedStage(
   const basisFlow = searchedFingerprint(current.basis, current.candidates);
   if (request.searchedBasisFlowFingerprint !== basisFlow) return stale(request.projectId, request.plannedFlowFingerprint ?? request.searchedBasisFlowFingerprint, current.open, ['work-os', 'workflow', 'project-memory', 'session-record', 'source-evidence'], generatedAt);
   if (request.action === 'plan' && request.mode === 'from-search' && (request.plannedFlowFingerprint !== null || request.priorPlan !== null)) throw new Error('from-search requires null plannedFlowFingerprint and priorPlan');
+  if (request.action === 'plan' && request.mode === 'override' || request.action === 'refresh-plan') {
+    const priorPlan = request.priorPlan;
+    if (!planMatchesCurrent(priorPlan, current)) {
+      const changed = changedOwners(priorPlan.ownerLocks, current.basis.ownerLocks);
+      return stale(request.projectId, request.plannedFlowFingerprint, current.open, changed.length ? changed : [...ownerOrder], generatedAt);
+    }
+  }
   if (request.action === 'plan' && request.mode === 'override') {
     const reconstructed = plannedResponse(request.priorPlan, current, request.priorPlan.createdAt);
     if (reconstructed.flowFingerprint !== request.plannedFlowFingerprint || dependencies.currentPlanned && dependencies.currentPlanned.flowFingerprint !== request.plannedFlowFingerprint) return stale(request.projectId, request.plannedFlowFingerprint, current.open, ['workflow'], generatedAt);

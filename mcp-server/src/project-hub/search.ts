@@ -21,6 +21,7 @@ import {
   type RecoverySearchRequestV2,
   type RecoverySearchResultV2,
   type RecoverySearchedPayloadV2,
+  type RecoveryCompatibleBindingV2,
   type RecoveryStaleProofV2,
 } from './recovery-flow.js';
 import {
@@ -131,6 +132,24 @@ function searchInputFingerprint(projectId: string, normalizedQuery: string, norm
 
 function currentOpenLocks(currentOpen: RecoveryOpenResponseV2): RecoveryOwnerLock[] {
   return currentOpen.ownerLocks.map((lock) => ({ ...lock }));
+}
+
+function unavailableForAgentSelection(currentOpen: RecoveryOpenResponseV2, basis: RecoverySearchedBasisV2, generatedAt: string): RecoveryFlowResponseV2 {
+  const payload = { kind: 'unavailable' as const, reason: 'agent_selection_unavailable', remediation: 'Repair the Agent Domain Binding/Profile owner and retry search.' };
+  const diagnostics = [...basis.diagnostics, diagnostic('agent-domain', 'agent_selection_unavailable', 'Agent Domain could not provide a safe Binding selection.', 'Repair Agent Domain and retry search.', 'error')].slice(0, 32);
+  const intrinsic = {
+    schemaVersion: RECOVERY_FLOW_SCHEMA_VERSION,
+    stage: 'unavailable' as const,
+    projectId: currentOpen.projectId,
+    previousFlowFingerprint: currentOpen.flowFingerprint,
+    actionInputFingerprint: basis.actionInputFingerprint,
+    recoveryFingerprint: currentOpen.recoveryFingerprint,
+    ownerLocks: basis.ownerLocks,
+    payloadFingerprint: fingerprintRecoveryValue(payload),
+    nextRequestIntents: [], diagnostics,
+    omitted: { ...basis.omitted, diagnostics: Math.max(0, basis.omitted.diagnostics + basis.diagnostics.length + 1 - diagnostics.length) },
+  };
+  return validateRecoveryFlowResponseV2({ ...responseFields(intrinsic), payload, rootOpenFlowFingerprint: currentOpen.rootOpenFlowFingerprint, nextRequests: [], generatedAt, flowFingerprint: fingerprintRecoveryFlowIntrinsicStage(intrinsic) } as RecoveryFlowResponseV2);
 }
 
 export function composeRecoverySearchBasis(input: {
@@ -284,15 +303,20 @@ export async function searchRecovery(input: RecoverySearchInput): Promise<Recove
   const source = dependencies.searchSource ?? createProjectSearchSource({});
   const owners = await source.snapshot(projectId);
   const basis = composeRecoverySearchBasis({ request: normalizedRequest, currentOpen, owners });
-  const bindings = dependencies.agentSelection
-    ? await dependencies.agentSelection.listCompatible(projectId, currentOpen.payload.capabilities ?? [])
-    : [];
+  let bindings: RecoveryCompatibleBindingV2[] = [];
+  try {
+    bindings = dependencies.agentSelection
+      ? await dependencies.agentSelection.listCompatible(projectId, currentOpen.payload.capabilities ?? [])
+      : [];
+  } catch {
+    return unavailableForAgentSelection(currentOpen, basis, generatedAt);
+  }
   const searchResult = basis.payload.results[0] ?? {
     itemId: `${projectId}/issue/${currentOpen.payload.workItemId?.split('/').at(-1) ?? 'current'}`,
     itemType: 'work-item', label: currentOpen.payload.workItemId ?? projectId, projectId,
     owner: 'work-os' as const, matchClass: 'none', score: 0, freshness: 'current', confidence: 'owner', provenance: 'work-os', citationTargets: currentOpen.payload.citations.slice(0, 1),
   };
-  const candidateStage = composeRecoveryCandidates({ open: currentOpen, search: searchResult, compatibleBindings: bindings });
+  const candidateStage = composeRecoveryCandidates({ open: currentOpen, search: basis.payload.results.length ? basis.payload.results : searchResult, compatibleBindings: bindings });
   if (candidateStage.reason) {
     const payload = { kind: 'unavailable' as const, reason: candidateStage.reason, remediation: candidateStage.remediation ?? 'Repair recovery owners and retry.' };
     const intrinsic = {

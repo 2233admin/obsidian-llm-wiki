@@ -45,3 +45,18 @@ test('unavailable recovery capability fails closed', async () => {
   const open = await composeRecoveryOpenStage('project/alpha', openOwners({ loadCapabilities: async () => [{ capability: 'workflow.recovery.apply', state: 'degraded' as const }] }), '2026-08-28T02:00:00.000Z');
   assert.equal(composeRecoveryCandidates({ open, search: result, compatibleBindings: [binding] }).reason, 'capability_unavailable');
 });
+
+test('bounded current Workflow search results expose explicit alternate resume candidates', async () => {
+  const open = await composeRecoveryOpenStage('project/alpha', openOwners(), '2026-08-28T02:00:00.000Z');
+  const stage = composeRecoveryCandidates({
+    open,
+    search: [
+      result,
+      { ...result, itemId: 'work-run/other', itemType: 'work-run', owner: 'workflow', label: 'Other run', freshness: 'current' },
+      { ...result, itemId: 'work-run/third', itemType: 'work-run', owner: 'workflow', label: 'Third run', freshness: 'current' },
+    ],
+    compatibleBindings: [binding],
+  });
+  assert.deepEqual(stage.candidates.map((candidate) => candidate.candidateId), ['resume:work-run/current', 'resume:work-run/other', 'resume:work-run/third']);
+  assert.equal(stage.candidates.filter((candidate) => candidate.recommended).length, 1);
+});

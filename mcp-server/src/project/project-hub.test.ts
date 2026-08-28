@@ -94,4 +94,12 @@ describe('project.hub', () => {
     assert.equal(result.payload.bindings.length, 2);
     assert.equal(result.nextRequests.length, 0);
   });
+
+  test('default Recovery Flow wiring does not advertise an unregistered apply capability', async () => {
+    const { ctx, registry } = fixture();
+    const flow = makeProjectHubOps(registry)[1]!;
+    const open = await flow.handler(ctx, { request: { schemaVersion: 'project-hub-recovery-flow-request/v2', projectId: 'project/alpha', action: 'open' } }) as any;
+    assert.equal(open.stage, 'open');
+    assert.equal(open.payload.capabilities?.some((item: any) => item.capability === 'workflow.recovery.apply'), false);
+  });
 });

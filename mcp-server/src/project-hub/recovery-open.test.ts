@@ -72,3 +72,45 @@ test('open returns unavailable when a mandatory owner cannot be read', async () 
   assert.equal(response.payload.kind, 'unavailable');
   assert.equal(response.payload.reason, 'mandatory_owner_unavailable');
 });
+
+test('open binds the selected Work Run to its exact Work Item and rejects unsafe session/memory records', async () => {
+  const base = owners();
+  const runB = {
+    ...base.workflow.listRuns('project/alpha')[0]!,
+    workItemId: 'project/alpha/issue/review',
+    workRunId: 'work-run/review',
+    observedAt: '2026-08-28T01:00:00.000Z',
+  };
+  const response = await composeRecoveryOpenStage('project/alpha', {
+    ...base,
+    workflow: { ...base.workflow, listRuns: () => [base.workflow.listRuns('project/alpha')[0]!, runB] },
+    loadWorkItems: () => [
+      { entity: 'project/alpha/issue/build', label: 'Build', state: 'in-progress', blockedBy: [], citationTargets: ['issue:build'] },
+      { entity: 'project/alpha/issue/review', label: 'Review', state: 'todo', blockedBy: [], citationTargets: ['issue:review'] },
+    ],
+    listSessions: async () => [
+      { sessionId: 'session/foreign', projectId: 'project/beta', workItemId: 'project/alpha/issue/build', status: 'captured', citationTargets: ['foreign'] },
+      { sessionId: 'session/unknown', projectId: 'project/alpha', workItemId: 'project/alpha/issue/build', status: 'draft', citationTargets: ['unknown'] },
+    ],
+    loadProjectMemory: async () => ({ decisions: [
+      { decisionId: 'decision/reviewed', text: 'safe', citationTargets: ['decision:safe'], reviewStatus: 'reviewed' },
+      { decisionId: 'decision/unknown', text: 'unsafe to trust', citationTargets: ['decision:unknown'], reviewStatus: 'unknown' },
+    ] }),
+  }, '2026-08-28T02:00:00.000Z');
+  assert.equal(response.stage, 'open');
+  assert.equal(response.payload.workItemId, 'project/alpha/issue/review');
+  assert.equal(response.payload.workRunId, 'work-run/review');
+  assert.deepEqual(response.payload.context?.decisions.map((item) => item.decisionId), ['decision/reviewed']);
+});
+
+test('open omits malformed owner arrays instead of throwing', async () => {
+  const base = owners();
+  const response = await composeRecoveryOpenStage('project/alpha', {
+    ...base,
+    loadWorkItems: () => undefined as never,
+    loadProjectMemory: async () => ({ decisions: {} as never }),
+  }, '2026-08-28T02:00:00.000Z');
+  assert.equal(response.stage, 'open');
+  assert.equal(response.payload.workItemId, null);
+  assert.ok(response.diagnostics.some((item) => item.code === 'work_items_unavailable'));
+});

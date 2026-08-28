@@ -99,3 +99,21 @@ test('omitted.bytes counts the canonical bytes removed by response-budget trunca
   const expected = utf8JsonBytes(unbounded.payload.results) - utf8JsonBytes(bounded.payload.results);
   assert.equal(bounded.omitted.bytes, expected);
 });
+
+test('Agent Domain reader failure returns bounded unavailable without echoing the owner error', async () => {
+  const open = await composeRecoveryOpenStage('project/alpha', openOwners(), '2026-08-28T02:00:00.000Z');
+  assert.equal(open.stage, 'open');
+  if (open.stage !== 'open') return;
+  const result = await searchRecovery({
+    request: open.nextRequests[0]!,
+    dependencies: {
+      openOwners: openOwners(),
+      searchSource: source(),
+      agentSelection: { listCompatible: async () => { throw new Error('secret binding path / credentials'); } },
+      now: () => Date.parse('2026-08-28T02:00:00.000Z'),
+    },
+  });
+  assert.equal(result.stage, 'unavailable');
+  assert.equal(result.payload.reason, 'agent_selection_unavailable');
+  assert.doesNotMatch(JSON.stringify(result), /secret binding path|credentials/u);
+});

@@ -562,6 +562,13 @@ export function validateRecoveryPlanV2(value: unknown): RecoveryPlanV2 {
     leaseDurationMs: entry.leaseDurationMs,
     fingerprint: fingerprint(entry.fingerprint, 'priorPlan.fingerprint'),
   } as RecoveryPlanV2;
+  if (plan.ownerLocks.length !== OWNER_ORDER.length || plan.ownerLocks.some((entry, index) => entry.owner !== OWNER_ORDER[index])) {
+    fail('priorPlan.ownerLocks', 'must contain every ordered owner lock');
+  }
+  const capabilityNames = plan.capabilityFacts.map((fact) => fact.capability);
+  if (new Set(capabilityNames).size !== capabilityNames.length || !plan.capabilityFacts.some((fact) => fact.capability === 'workflow.recovery.apply' && fact.state === 'available')) {
+    fail('priorPlan.capabilityFacts', 'must contain unique complete capabilities including available workflow.recovery.apply');
+  }
   const { fingerprint: _fingerprint, ...planWithoutFingerprint } = plan;
   if (fingerprintRecoveryValue(planWithoutFingerprint) !== plan.fingerprint) fail('priorPlan', 'fingerprint does not match');
   return plan;

@@ -73,6 +73,7 @@ export interface RecoveryOpenOwners {
 const PROJECT_ID = /^project\/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])$/u;
 const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u;
 const RUN_STATES = new Set(['planned', 'leased', 'running', 'awaiting_review']);
+const SESSION_STATES = new Set(['captured', 'indexed']);
 const OWNER_ORDER: readonly RecoveryOwner[] = ['project', 'work-os', 'workflow', 'project-memory', 'session-record', 'source-evidence', 'agent-domain', 'settings'];
 
 function text(value: unknown, label: string, max = 512, required = false): string {
@@ -103,8 +104,10 @@ function diagnostic(owner: RecoveryOwner, code: string, severity: RecoveryFlowDi
   return { owner, code, severity, message, remediation, citationTargets: refs(citationTargets) };
 }
 
-function normalizeItems(projectId: string, rawItems: RecoveryWorkItemRead[]): RecoveryWorkItemRead[] {
+function normalizeItems(projectId: string, rawItems: unknown): RecoveryWorkItemRead[] {
+  if (!Array.isArray(rawItems)) return [];
   return rawItems.flatMap((raw) => {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return [];
     const entity = text(raw?.entity, 'work item entity', 256);
     const label = text(raw?.label, 'work item label', 512);
     if (!entity.startsWith(`${projectId}/issue/`) || !/^project\/[a-z0-9][a-z0-9-]*\/issue\/[a-z0-9][a-z0-9-]*$/u.test(entity) || !label) return [];
@@ -129,17 +132,23 @@ function chooseWorkItem(items: RecoveryWorkItemRead[]): RecoveryWorkItemRead | n
     ?? null;
 }
 
-function chooseRun(projectId: string, items: RecoveryWorkItemRead[], runs: WorkflowRunRead[], generatedAt: string): WorkflowRunRead | null {
+function chooseRun(projectId: string, items: RecoveryWorkItemRead[], runs: unknown, generatedAt: string): WorkflowRunRead | null {
   const itemIds = new Set(items.map((item) => item.entity));
+  if (!Array.isArray(runs)) return null;
   return runs
+    .filter((run): run is WorkflowRunRead => Boolean(run && typeof run === 'object' && !Array.isArray(run)))
     .filter((run) => !run.malformed && run.projectId === projectId && itemIds.has(run.workItemId) && RUN_STATES.has(run.state))
     .filter((run) => !run.leaseExpiresAt || Date.parse(run.leaseExpiresAt) > Date.parse(generatedAt))
     .sort((left, right) => right.observedAt.localeCompare(left.observedAt) || left.workRunId.localeCompare(right.workRunId))[0] ?? null;
 }
 
-function chooseSession(projectId: string, item: RecoveryWorkItemRead | null, sessions: RecoverySessionRead[]): RecoverySessionRead | null {
+function chooseSession(projectId: string, item: RecoveryWorkItemRead | null, sessions: unknown): RecoverySessionRead | null {
+  if (!item || !Array.isArray(sessions)) return null;
   return sessions
-    .filter((session) => (!session.projectId || session.projectId === projectId) && (!session.workItemId || session.workItemId === item?.entity) && session.status !== 'unavailable')
+    .filter((session): session is RecoverySessionRead => Boolean(session && typeof session === 'object' && !Array.isArray(session)
+      && session.projectId === projectId && session.workItemId === item.entity
+      && SESSION_STATES.has(session.status ?? '') && text(session.sessionId, 'session id', 256)
+      && validTimestamp(session.capturedAt)))
     .sort((left, right) => String(right.capturedAt ?? '').localeCompare(String(left.capturedAt ?? '')) || left.sessionId.localeCompare(right.sessionId))[0] ?? null;
 }
 
@@ -159,7 +168,7 @@ function lock(owner: RecoveryOwner, value: unknown, state: RecoveryOwnerLock['st
 }
 
 function contextDecision(raw: RecoveryDecisionRead): { decisionId: string; text: string; citationTargets: string[] } | null {
-  if (raw.reviewStatus === 'draft' || raw.state === 'superseded' || raw.state === 'stale') return null;
+  if (raw.reviewStatus !== 'reviewed') return null;
   const decisionId = text(raw.decisionId ?? raw.claimId, 'decision id', 256);
   const rawText = raw.text || (typeof raw.value === 'string' ? raw.value : raw.value === undefined ? '' : JSON.stringify(raw.value));
   const decisionText = text(rawText, 'decision text', 4096);
@@ -228,22 +237,27 @@ export async function composeRecoveryOpenStage(projectId: string, owners: Recove
   } catch {
     return unavailable(projectId, generatedAt, OWNER_ORDER.map((owner) => lock(owner, null, owner === 'project' || owner === 'work-os' ? 'unavailable' : 'current')), 'mandatory_owner_unavailable', 'Inspect the owning Project, Work-OS, Workflow, and capability sources before retrying recovery.', [diagnostic('project', 'owner_unavailable', 'error', 'A mandatory recovery owner could not be read.', 'Repair the owner and retry open.')], fingerprintRecoveryValue({ projectId }));
   }
-  const items = normalizeItems(projectId, rawItems ?? []);
-  const item = chooseWorkItem(items);
-  const runs = owners.workflow.listRuns(projectId);
+  const rawItemList = Array.isArray(rawItems) ? rawItems : [];
+  const items = normalizeItems(projectId, rawItemList);
+  let runs: WorkflowRunRead[] = [];
+  try { runs = owners.workflow.listRuns(projectId); } catch {
+    return unavailable(projectId, generatedAt, OWNER_ORDER.map((owner) => lock(owner, null, owner === 'workflow' ? 'unavailable' : 'current')), 'mandatory_owner_unavailable', 'Inspect the owning Workflow source before retrying recovery.', [diagnostic('workflow', 'owner_unavailable', 'error', 'The Workflow owner could not be read.', 'Repair Workflow and retry open.')], fingerprintRecoveryValue({ projectId }));
+  }
   const selectedRun = chooseRun(projectId, items, runs, generatedAt);
+  const item = selectedRun ? items.find((entry) => entry.entity === selectedRun.workItemId) ?? null : chooseWorkItem(items);
   const selectedSession = selectedRun ? null : chooseSession(projectId, item, sessions ?? []);
-  const runCheckpoints = selectedRun ? owners.workflow.listCheckpoints(projectId, selectedRun.workRunId) : [];
-  const memory = rawMemory ?? {};
-  const rawDecisions = memory.reviewedDecisions ?? memory.decisions ?? memory.claims ?? memory.sections?.currentState?.claims ?? [];
-  const decisions = rawDecisions.map(contextDecision).filter((value): value is NonNullable<typeof value> => value !== null).sort((left, right) => left.decisionId.localeCompare(right.decisionId));
-  const caps = capabilityFacts(capabilities ?? []);
+  let runCheckpoints: WorkflowCheckpointRead[] = [];
+  try { runCheckpoints = selectedRun ? owners.workflow.listCheckpoints(projectId, selectedRun.workRunId) : []; } catch { runCheckpoints = []; }
+  const memory = rawMemory && typeof rawMemory === 'object' && !Array.isArray(rawMemory) ? rawMemory : {};
+  const rawDecisions = Array.isArray(memory.reviewedDecisions) ? memory.reviewedDecisions : Array.isArray(memory.decisions) ? memory.decisions : Array.isArray(memory.claims) ? memory.claims : Array.isArray(memory.sections?.currentState?.claims) ? memory.sections.currentState.claims : [];
+  const decisions = rawDecisions.filter((value): value is RecoveryDecisionRead => Boolean(value && typeof value === 'object' && !Array.isArray(value))).map(contextDecision).filter((value): value is NonNullable<typeof value> => value !== null).sort((left, right) => left.decisionId.localeCompare(right.decisionId));
+  const caps = capabilityFacts(Array.isArray(capabilities) ? capabilities : []);
   const diagnostics: RecoveryFlowDiagnosticV2[] = [];
   if (items.length === 0) diagnostics.push(diagnostic('work-os', 'work_items_unavailable', 'error', 'No safe current Work Item is available for this Project.', 'Repair the Work-OS owner before opening recovery.'));
-  if (rawItems.length > items.length) diagnostics.push(diagnostic('work-os', 'unsafe_work_items_omitted', 'warning', 'One or more Work-OS items were omitted because their identity or content was unsafe.', 'Repair the Work-OS item and retry open.'));
+  if (rawItemList.length > items.length) diagnostics.push(diagnostic('work-os', 'unsafe_work_items_omitted', 'warning', 'One or more Work-OS items were omitted because their identity or content was unsafe.', 'Repair the Work-OS item and retry open.'));
   if (rawDecisions.length > decisions.length) diagnostics.push(diagnostic('project-memory', 'unsafe_memory_context_omitted', 'warning', 'One or more Project Memory decisions were omitted because their content was unsafe or unreviewed.', 'Review the Project Memory owner before relying on it.'));
   if (memory.freshness === 'unavailable') diagnostics.push(diagnostic('project-memory', 'memory_unavailable', 'warning', 'Project Memory is unavailable; reviewed decisions were omitted.', 'Repair or review Project Memory before relying on remembered decisions.'));
-  for (const code of memory.diagnostics ?? []) diagnostics.push(diagnostic('project-memory', text(code, 'memory diagnostic', 128) || 'memory_diagnostic', 'warning', 'Project Memory reported a bounded diagnostic.', 'Inspect the Project Memory owner.'));
+  for (const code of Array.isArray(memory.diagnostics) ? memory.diagnostics : []) diagnostics.push(diagnostic('project-memory', text(code, 'memory diagnostic', 128) || 'memory_diagnostic', 'warning', 'Project Memory reported a bounded diagnostic.', 'Inspect the Project Memory owner.'));
   const groupsPayload = groups(items);
   const contextSource = selectedRun ? 'work-run' : selectedSession ? 'session-record' : 'none';
   const stageText = text(item?.currentStage, 'current stage', 64);

@@ -33,3 +33,12 @@ test('owner failures are explicit and do not leak thrown material', async () => 
   assert.equal(memory?.revision, 7);
 });
 
+test('invalid owner state is unavailable and its items never index as current', async () => {
+  const source = createProjectSearchSource({
+    'work-os': () => ({ state: 'corrupted' as never, items: [{ itemId: 'project/alpha/issue/build', itemType: 'issue', label: 'Build', text: 'build', citationTargets: ['issue:build'] }] }),
+  });
+  const [workOs] = await source.snapshot('project/alpha');
+  assert.equal(workOs?.state, 'unavailable');
+  assert.deepEqual(workOs?.items, []);
+  assert.ok(workOs?.diagnostics.some((item) => item.code === 'owner_state_invalid'));
+});

@@ -26,6 +26,16 @@ function digest(seed: string): `sha256:${string}` {
 
 const lock: RecoveryOwnerLock = { owner: 'project', revision: 1, fingerprint: digest('a'), state: 'current' };
 const locks = [lock];
+const planLocks: RecoveryOwnerLock[] = [
+  lock,
+  { owner: 'work-os', revision: 1, fingerprint: digest('b'), state: 'current' },
+  { owner: 'workflow', revision: 1, fingerprint: digest('c'), state: 'current' },
+  { owner: 'project-memory', revision: 1, fingerprint: digest('d'), state: 'current' },
+  { owner: 'session-record', revision: 1, fingerprint: digest('e'), state: 'current' },
+  { owner: 'source-evidence', revision: 1, fingerprint: digest('f'), state: 'current' },
+  { owner: 'agent-domain', revision: 1, fingerprint: digest('7'), state: 'current' },
+  { owner: 'settings', revision: 1, fingerprint: digest('8'), state: 'current' },
+];
 const proofWithoutFingerprint = {
   schemaVersion: RECOVERY_STALE_PROOF_SCHEMA_VERSION,
   projectId: 'project/alpha',
@@ -55,8 +65,8 @@ const basePlan = {
   workItemId: 'project/alpha/issue/one',
   workRunId: 'work-run/one',
   agentSelection: { role: 'coder', bindingId: 'binding/one', bindingRevision: 1, profileId: 'profile/one', profileRevision: 2 },
-  ownerLocks: locks,
-  capabilityFacts: [{ capability: 'workflow.join', state: 'available' as const }],
+  ownerLocks: planLocks,
+  capabilityFacts: [{ capability: 'workflow.recovery.apply', state: 'available' as const }],
   citationTargets: ['01-Projects/alpha/issues/one.md'],
   owningOperation: 'workflow.recovery.apply' as const,
   createdAt: '2026-08-28T12:00:00.000Z',
@@ -240,14 +250,15 @@ test('owner locks and diagnostics are closed, ordered, and bounded', () => {
   assert.throws(() => validateRecoveryFlowResponseV2({ ...response, payload: { ...response.payload, contextSource: 'work-run' } }), /workRunId|required/i);
 });
 
-test('accepts ordered owner-lock subsets and rejects cross-project Work-OS identities', () => {
+test('requires complete owner locks and rejects cross-project Work-OS identities', () => {
   const workflowLock: RecoveryOwnerLock = { owner: 'workflow', revision: 2, fingerprint: digest('b'), state: 'current' };
   const plan = { ...basePlan, ownerLocks: [lock, workflowLock] };
   const complete = { ...plan, fingerprint: fingerprintRecoveryValue(plan) };
-  assert.deepEqual(validateRecoveryPlanV2(complete), complete);
-  assert.throws(() => validateRecoveryPlanV2({ ...complete, workItemId: 'project/beta/issue/one' }), /canonical Work Item|Project/i);
-  assert.throws(() => validateRecoveryPlanV2({ ...complete, workRunId: 'run/one' }), /canonical Work Run/i);
-  assert.throws(() => validateRecoveryPlanV2({ ...complete, citationTargets: [] }), /at least 1/i);
+  assert.throws(() => validateRecoveryPlanV2(complete), /ownerLocks/i);
+  const valid = { ...basePlan, fingerprint: fingerprintRecoveryValue(basePlan) };
+  assert.throws(() => validateRecoveryPlanV2({ ...valid, workItemId: 'project/beta/issue/one' }), /canonical Work Item|Project/i);
+  assert.throws(() => validateRecoveryPlanV2({ ...valid, workRunId: 'run/one' }), /canonical Work Run/i);
+  assert.throws(() => validateRecoveryPlanV2({ ...valid, citationTargets: [] }), /at least 1/i);
 });
 
 test('plan validator requires the complete prior Plan and exact five-minute lifetime', () => {
@@ -256,6 +267,11 @@ test('plan validator requires the complete prior Plan and exact five-minute life
   assert.throws(() => validateRecoveryPlanV2({ ...complete, expiresAt: '2026-08-28T12:05:01.000Z' }), /five minutes/i);
   assert.throws(() => validateRecoveryPlanV2({ ...complete, fingerprint: digest('bad') }), /fingerprint does not match/i);
   assert.throws(() => validateRecoveryPlanV2({ ...complete, workRunId: null }), /required for resume/i);
+});
+
+test('plan validator rejects self-fingerprinted Plans with incomplete locks or capabilities', () => {
+  const incomplete = { ...basePlan, ownerLocks: [], capabilityFacts: [], fingerprint: fingerprintRecoveryValue({ ...basePlan, ownerLocks: [], capabilityFacts: [] }) };
+  assert.throws(() => validateRecoveryPlanV2(incomplete), /ownerLocks|capabilit/i);
 });
 test('rejects mixed prior Plan roots and bases for override and refresh', () => {
   const complete = { ...basePlan, fingerprint: fingerprintRecoveryValue(basePlan) };

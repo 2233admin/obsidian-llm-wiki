@@ -40,6 +40,8 @@ import {
 } from './workos.js';
 import { isCanonicalWorkItemId, isCanonicalWorkRunId, readWorkflowState } from '../workflow/workflow.js';
 import { createWorkflowReadModel } from '../workflow/workflow-read-model.js';
+import { createDurableProjectMemorySource } from '../core/project-memory-operations.js';
+import { projectContextFromSource } from '../project-memory/index.js';
 import {
   composeRecoveryOpenStage,
   type RecoveryOpenOwners,
@@ -678,6 +680,7 @@ function projectReference(params: Record<string, unknown>): string {
 }
 
 function defaultRecoveryOwners(vaultPath: string, registry: AdapterRegistry): RecoveryOpenOwners {
+  const memorySource = createDurableProjectMemorySource(vaultPath);
   return {
     workflow: createWorkflowReadModel(vaultPath),
     loadWorkItems: (projectId) => scanWorkNotes(vaultPath)
@@ -690,9 +693,36 @@ function defaultRecoveryOwners(vaultPath: string, registry: AdapterRegistry): Re
         citationTargets: [note.note_id],
         currentStage: null,
       })),
-    loadProjectMemory: async () => ({}),
-    listSessions: async () => [],
-    loadCapabilities: async () => [{ capability: 'workflow.recovery.apply', state: 'available', citationTargets: ['workflow.recovery.apply'] }],
+    loadProjectMemory: async (projectId) => {
+      const context = await projectContextFromSource(memorySource, projectId);
+      const claims = [
+        ...context.sections.goal,
+        ...context.sections.currentState,
+        ...context.sections.completed,
+        ...context.sections.openWork,
+        ...context.sections.relations,
+      ];
+      return {
+        projectId,
+        revision: context.revision,
+        fingerprint: context.fingerprint as `sha256:${string}`,
+        freshness: context.freshness.state,
+        reviewedDecisions: claims.map((claim) => ({
+          decisionId: claim.claimId,
+          text: typeof claim.value === 'string' ? claim.value : JSON.stringify(claim.value),
+          citationTargets: claim.evidenceRefs.map((reference) => reference.ref),
+          reviewStatus: claim.reviewStatus,
+          state: claim.state,
+        })),
+        citationTargets: context.evidenceRefs.map((reference) => reference.ref),
+      };
+    },
+    listSessions: async (projectId) => (await memorySource.listSessions(projectId)).flatMap((session) => {
+      const workItemId = (session as typeof session & { workItemId?: unknown }).workItemId;
+      return typeof workItemId === 'string' ? [{ sessionId: session.sessionId, projectId: session.projectId, workItemId, capturedAt: session.capturedAt ?? null, status: session.status, revision: session.revision ?? null, citationTargets: (session.sourceRefs ?? []).map((reference) => typeof reference === 'string' ? reference : reference.ref) }] : [];
+    }),
+    // S04B owns the apply Operation; this read-only adapter must not claim it.
+    loadCapabilities: async () => [],
   };
 }
 
