@@ -1,0 +1,47 @@
+---
+type: issue
+entity: project/obsidian-llm-wiki/issue/p0-s03b-production-recovery-search-owners
+state: in-progress
+review: reviewed
+kind: knowledge-task
+id: obsidian-llm-wiki/p0-s03b-production-recovery-search-owners
+description: "P0 S03B: wire every canonical Recovery search owner in production"
+status: active
+priority: 1
+blocked-by:
+  - obsidian-llm-wiki/p0-s04p-workflow-recovery-plan
+blocks:
+  - obsidian-llm-wiki/p0-s06-obsidian-recovery-surface
+last-verified: 2026-08-28
+---
+
+# P0 S03B: production Recovery search owner wiring
+
+Parent brief: [[llmwiki-project-driven-knowledge-workspace]]
+OpenSpec: `openspec/changes/project-hub-recovery-loop/`
+
+## Root cause
+
+The reviewed S03 contract requires Project-scoped search over Work-OS, Project Memory, Source/Evidence, Session Record, and Workflow records. Production `defaultRecoverySearchSource` currently configures only the Work-OS reader. Unit tests use injected readers, so they pass while the real Obsidian Flow cannot return Workflow Work Runs/checkpoints as search results. Consequently candidate composition cannot expose alternate resume candidates and S06A candidate replacement is unreachable in production.
+
+## Acceptance
+
+- [ ] Production configures all five canonical readers: `work-os`, `project-memory`, `source-evidence`, `session-record`, and `workflow`.
+- [ ] Readers reuse authoritative owner read models; they do not introduce a second index, database, or generic adapter authority.
+- [ ] Cross-Project records are excluded before normalization, ranking, fingerprinting, and diagnostics.
+- [ ] Project Memory emits reviewed decisions only; Session Record emits safe captured/indexed metadata only.
+- [ ] Workflow emits current Project Work Runs and safe checkpoints with stable identities and resolvable Citation Targets; no actor secrets, tokens, prompts, transcript bodies, or absolute paths.
+- [ ] Source/Evidence uses canonical Source Registry/evidence records and bounded safe text; a missing registry is a current empty owner, while malformed/unreadable state is explicit unavailable.
+- [ ] Owner revision/fingerprint/state and deterministic ordering remain stable; reads write zero bytes.
+- [ ] A production-wiring integration test with two current Workflow runs yields a recommended resume candidate plus an alternate candidate, enabling explicit candidate replacement.
+- [ ] Existing repeated-query, branch-mixing, stale/unavailable, response-bound, S04P Plan, and V1-absence gates remain green.
+
+## Non-goals
+
+- Do not add an index or change generic `query.unified` ranking.
+- Do not change Recovery schemas, candidate limits, Plan semantics, S04P capability separation, or S04B apply behavior.
+- Do not persist search or Flow state.
+
+## Verification
+
+Run focused Project Hub/search/workflow/memory/source tests, MCP typecheck/build, strict OpenSpec validation, a no-write byte/hash proof, and the actual sanitized Obsidian candidate-replacement path. Keep S06A T5.3 blocked until independent review and integration pass.
