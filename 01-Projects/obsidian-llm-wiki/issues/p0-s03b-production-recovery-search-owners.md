@@ -45,3 +45,12 @@ The reviewed S03 contract requires Project-scoped search over Work-OS, Project M
 ## Verification
 
 Run focused Project Hub/search/workflow/memory/source tests, MCP typecheck/build, strict OpenSpec validation, a no-write byte/hash proof, and the actual sanitized Obsidian candidate-replacement path. Keep S06A T5.3 blocked until independent review and integration pass.
+
+## Evidence (implementation; independent review pending)
+
+- Production wiring now composes all five canonical owner readers from the Work-OS, Project Memory, Source Registry/evidence, Session Record, and Workflow read models.
+- Focused affected-owner suite: 80 passed, 0 failed across 13 files.
+- S04P Task 9A matrix command: 86 passed, 0 failed across 11 files (the count includes the three new production-wiring cases).
+- `npm run typecheck -- --pretty false`: passed; `npm run build`: passed; `openspec validate project-hub-recovery-loop --strict --no-interactive`: valid.
+- Production-wiring tests prove missing/malformed Source Registry handling, foreign-project exclusion before normalization, privacy filtering, deterministic repeated snapshots, query branch mixing, alternate Work Run replacement, and unchanged SHA-256 file hashes across reads.
+- Remaining gate: independent review and the actual sanitized S06A Obsidian six-stage/candidate-replacement run; state remains `in-progress`.

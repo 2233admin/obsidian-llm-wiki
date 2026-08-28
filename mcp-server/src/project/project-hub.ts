@@ -42,6 +42,8 @@ import { isCanonicalWorkItemId, isCanonicalWorkRunId, readWorkflowState } from '
 import { createWorkflowReadModel } from '../workflow/workflow-read-model.js';
 import { createDurableProjectMemorySource } from '../core/project-memory-operations.js';
 import { projectContextFromSource } from '../project-memory/index.js';
+import { readSourceRegistry, type SourceRecord } from '../source/source.js';
+import { fingerprintRecoveryValue, safeRecoveryText } from '../project-hub/contract-support.js';
 import {
   composeRecoveryOpenStage,
   type RecoveryOpenOwners,
@@ -698,18 +700,9 @@ function defaultRecoveryOwners(
   const memorySource = createDurableProjectMemorySource(vaultPath);
   return {
     workflow: createWorkflowReadModel(vaultPath),
-    loadWorkItems: (projectId) => scanWorkNotes(vaultPath)
-      .filter((note) => note.entity?.startsWith(`${projectId}/issue/`) && note.entity !== `${projectId}/issue/project`)
-      .map((note) => ({
-        entity: note.entity!,
-        label: cardLabel(note),
-        state: workState(note.raw),
-        blockedBy: hasUnresolvedBlocker(scanWorkNotes(vaultPath), note.entity!) ? blockedByRefs(note.raw) : [],
-        citationTargets: [note.note_id],
-        currentStage: null,
-      })),
+    loadWorkItems: (projectId) => defaultRecoveryWorkItems(vaultPath, projectId),
     loadProjectMemory: async (projectId) => {
-      const context = await projectContextFromSource(memorySource, projectId);
+      const context = await projectContextFromSource(memorySource, projectId, { staleAfterMs: Infinity });
       const claims = [
         ...context.sections.goal,
         ...context.sections.currentState,
@@ -734,7 +727,7 @@ function defaultRecoveryOwners(
     },
     listSessions: async (projectId) => (await memorySource.listSessions(projectId)).flatMap((session) => {
       const workItemId = (session as typeof session & { workItemId?: unknown }).workItemId;
-      return typeof workItemId === 'string' ? [{ sessionId: session.sessionId, projectId: session.projectId, workItemId, capturedAt: session.capturedAt ?? null, status: session.status, revision: session.revision ?? null, citationTargets: (session.sourceRefs ?? []).map((reference) => typeof reference === 'string' ? reference : reference.ref) }] : [];
+      return [{ sessionId: session.sessionId, projectId: session.projectId, workItemId: typeof workItemId === 'string' ? workItemId : null, capturedAt: session.capturedAt ?? null, status: session.status, revision: session.revision ?? null, citationTargets: (session.sourceRefs ?? []).map((reference) => typeof reference === 'string' ? reference : reference.ref) }];
     }),
     // S04B owns the apply Operation; planning remains independently available.
     loadCapabilities: async () => [capabilityFact],
@@ -758,11 +751,218 @@ export function createDefaultRecoveryRuntime(input: {
 }
 
 function defaultRecoverySearchSource(vaultPath: string): ProjectSearchSource {
+  const memorySource = createDurableProjectMemorySource(vaultPath);
+  const workflow = createWorkflowReadModel(vaultPath);
   return createProjectSearchSource({
-    'work-os': (projectId) => scanWorkNotes(vaultPath)
-      .filter((note) => note.entity?.startsWith(`${projectId}/issue/`) && note.entity !== `${projectId}/issue/project`)
-      .map((note) => ({ itemId: note.entity!, itemType: 'issue', label: cardLabel(note), text: note.body || cardLabel(note), projectId, citationTargets: [note.note_id], provenance: 'work-os' })),
+    'work-os': (projectId) => {
+      const workItems = defaultRecoveryWorkItems(vaultPath, projectId);
+      const notes = scanWorkNotes(vaultPath);
+      const notesByEntity = new Map(notes.filter((note) => note.entity).map((note) => [note.entity!, note]));
+      return { fingerprint: fingerprintRecoveryValue(workItems), items: workItems.map((item) => {
+        const note = notesByEntity.get(item.entity);
+        return { itemId: item.entity, itemType: 'issue', label: item.label, text: safeSearchText(note?.body || item.label, 'work item text'), projectId, citationTargets: item.citationTargets, provenance: 'work-os' };
+      }) };
+    },
+    'project-memory': async (projectId) => {
+      const context = await projectContextFromSource(memorySource, projectId, { staleAfterMs: Infinity });
+      const claims = [
+        ...context.sections.goal,
+        ...context.sections.currentState,
+        ...context.sections.completed,
+        ...context.sections.openWork,
+        ...context.sections.relations,
+      ];
+      const items = claims
+        .filter((claim) => claim.reviewStatus === 'reviewed' && claim.state === 'current')
+        .map((claim) => ({
+          itemId: claim.claimId,
+          itemType: 'memory',
+          label: claim.key,
+          text: typeof claim.value === 'string' ? claim.value : JSON.stringify(claim.value),
+          projectId,
+          freshness: claim.freshness,
+          confidence: claim.authority,
+          provenance: 'project-memory',
+          citationTargets: claim.evidenceRefs.map((reference) => reference.ref).length
+            ? claim.evidenceRefs.map((reference) => reference.ref)
+            : [`memory:${claim.claimId}`],
+        }));
+      return { revision: context.revision, fingerprint: context.fingerprint as `sha256:${string}`, state: context.freshness.state === 'stale' ? 'stale' as const : 'current' as const, items };
+    },
+    'session-record': async (projectId) => {
+      const sessions = await memorySource.listSessions(projectId);
+      const mappedSessions = sessions
+        .filter((session) => session.projectId === projectId)
+        .map((session) => {
+          const extended = session as typeof session & { workItemId?: unknown };
+          return {
+            sessionId: session.sessionId,
+            projectId: session.projectId,
+            workItemId: typeof extended.workItemId === 'string' ? extended.workItemId : null,
+            capturedAt: session.capturedAt ?? null,
+            status: session.status,
+            revision: session.revision ?? null,
+            citationTargets: (session.sourceRefs ?? []).map((reference) => typeof reference === 'string' ? reference : reference.ref),
+          };
+        });
+      const items = mappedSessions
+        .filter((session) => session.projectId === projectId && (session.status === 'captured' || session.status === 'indexed'))
+        .map((session) => {
+          const metadata = [session.sessionId, session.status, session.workItemId]
+            .map((value) => safeSearchText(value, 'session metadata', 512))
+            .filter(Boolean)
+            .join(' ');
+          const citations = session.citationTargets
+            .map((reference) => safeSearchText(reference, 'session citation', 512))
+            .filter(Boolean) ?? [];
+          return {
+            itemId: session.sessionId,
+            itemType: 'session',
+            label: safeSearchText(`Session ${session.sessionId}`, 'session label', 512) || session.sessionId,
+            text: metadata || `Session ${session.sessionId}`,
+            projectId,
+            freshness: 'current',
+            confidence: 'owner',
+            provenance: 'session-record',
+            citationTargets: [...new Set([...citations, `session:${session.sessionId}`])],
+          };
+        });
+      return { fingerprint: fingerprintRecoveryValue(mappedSessions), items };
+    },
+    workflow: (projectId) => {
+      const runs = workflow.listRuns(projectId).filter((run) => !run.malformed && run.projectId === projectId);
+      const checkpointsByRun = new Map(runs.map((run) => [run.workRunId, workflow.listCheckpoints(projectId, run.workRunId)]));
+      const checkpoints = [...checkpointsByRun.values()].flat();
+      const items = [];
+      for (const run of runs) {
+        if (run.malformed || run.projectId !== projectId || !['running', 'awaiting_review'].includes(run.state)) continue;
+        items.push({
+          itemId: run.workRunId,
+          itemType: 'work-run',
+          label: `Work Run ${run.workRunId}`,
+          text: `${run.workRunId} ${run.workItemId} ${run.state}`,
+          projectId,
+          observedAt: run.observedAt,
+          freshness: 'current',
+          confidence: 'owner',
+          provenance: 'workflow',
+          citationTargets: [`workflow:${run.workRunId}`],
+        });
+        for (const checkpoint of checkpointsByRun.get(run.workRunId) ?? []) {
+          items.push({
+            itemId: `${run.workRunId}/${checkpoint.checkpointId}`,
+            itemType: 'checkpoint',
+            label: checkpoint.summary,
+            text: `${checkpoint.stage} ${checkpoint.status} ${checkpoint.summary}`,
+            projectId,
+            observedAt: checkpoint.recordedAt,
+            freshness: 'current',
+            confidence: 'owner',
+            provenance: 'workflow',
+            citationTargets: checkpoint.citationTargets.length ? checkpoint.citationTargets : [`workflow:${run.workRunId}/${checkpoint.checkpointId}`],
+          });
+        }
+      }
+      return { fingerprint: fingerprintRecoveryValue({ runs, checkpoints }), items };
+    },
+    'source-evidence': (projectId) => {
+      const items = sourceEvidenceItems(vaultPath, projectId).sort((left, right) => left.itemId.localeCompare(right.itemId));
+      return { fingerprint: fingerprintRecoveryValue(items), items };
+    },
   });
+}
+
+function defaultRecoveryWorkItems(vaultPath: string, projectId: string): Array<{ entity: string; label: string; state: string; blockedBy: string[]; citationTargets: string[]; currentStage: null }> {
+  const notes = scanWorkNotes(vaultPath);
+  return currentAuthoritativeHeads(notes)
+    .filter((note) => note.entity?.startsWith(`${projectId}/issue/`) && note.entity !== `${projectId}/issue/project`)
+    .map((note) => ({
+      entity: note.entity!,
+      label: cardLabel(note),
+      state: workState(note.raw),
+      blockedBy: hasUnresolvedBlocker(notes, note.entity!) ? blockedByRefs(note.raw) : [],
+      citationTargets: [note.note_id],
+      currentStage: null,
+    }));
+}
+
+function safeSearchText(value: unknown, label: string, max = 16 * 1024): string {
+  try { return safeRecoveryText(typeof value === 'string' ? value.replace(/\s+/gu, ' ') : value, label, { minBytes: 1, maxBytes: max }); }
+  catch { return ''; }
+}
+
+function sourceEvidenceItems(vaultPath: string, projectId: string): ProjectSearchSourceReadersResult {
+  const registry = readSourceRegistry(vaultPath);
+  const records = Object.values(registry.sources);
+  if (records.some((source) => !source || typeof source !== 'object' || typeof source.id !== 'string' || typeof source.title !== 'string' || typeof source.platform !== 'string' || typeof source.sourceKind !== 'string' || typeof source.notePath !== 'string' || !Array.isArray(source.tags) || source.tags.some((tag) => typeof tag !== 'string') || (source.projectId !== undefined && typeof source.projectId !== 'string'))) throw new Error('Source Registry record is malformed');
+  const sources = records.filter((source) => source.projectId === projectId);
+  const sourceIds = new Map(sources.map((source) => [source.id, source]));
+  const items = sources.map((source) => sourceSearchItem(source, projectId));
+  const root = join(vaultPath, '00-Inbox', 'Evidence');
+  if (!existsSync(root)) return items;
+  const visit = (directory: string): void => {
+    for (const entry of readdirSync(directory, { withFileTypes: true }).sort((left, right) => left.name.localeCompare(right.name))) {
+      const full = join(directory, entry.name);
+      if (entry.isDirectory()) { visit(full); continue; }
+      if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+      const content = readFileSync(full, 'utf8');
+      if (!/^llmwiki-evidence:\s*true\s*$/mu.test(content)) continue;
+      const sourceId = content.match(/^source-id:\s*["']?([^"'\r\n]+)["']?\s*$/mu)?.[1]?.trim();
+      if (!sourceId) throw new Error('Source evidence record is malformed');
+      const source = sourceIds.get(sourceId);
+      if (!source) continue;
+      const body = content.replace(/^---[\s\S]*?---\s*/u, '').replace(/^# Evidence[^\n]*\n?/u, '').trim();
+      const searchableText = safeSearchText(body, 'source evidence text', 16 * 1024);
+      if (!searchableText) continue;
+      const evidencePath = relative(vaultPath, full).replaceAll('\\', '/');
+      items.push({
+        itemId: `evidence/${source.id}/${entry.name.slice(0, -3)}`,
+        itemType: 'evidence',
+        label: `Evidence ${source.title}`,
+        text: searchableText,
+        projectId,
+        freshness: 'current',
+        confidence: 'owner',
+        provenance: 'source-evidence',
+        citationTargets: [evidencePath, `source:${source.id}`],
+      });
+    }
+  };
+  visit(root);
+  return items;
+}
+
+type ProjectSearchSourceReadersResult = Array<{
+  itemId: string;
+  itemType: string;
+  label: string;
+  text: string;
+  projectId: string;
+  freshness?: string;
+  confidence?: string;
+  provenance?: string;
+  citationTargets: string[];
+  observedAt?: string | null;
+}>;
+
+function sourceSearchItem(source: SourceRecord, projectId: string): ProjectSearchSourceReadersResult[number] {
+  const label = safeSearchText(source.title, 'source title', 512) || source.id;
+  const text = [label, source.platform, source.sourceKind, ...source.tags]
+    .map((value) => safeSearchText(value, 'source metadata', 512))
+    .filter(Boolean)
+    .join(' ') || source.id;
+  const notePath = safeSearchText(source.notePath, 'source note citation', 512);
+  return {
+    itemId: `source/${source.id}`,
+    itemType: 'source_record',
+    label,
+    text,
+    projectId,
+    freshness: 'current',
+    confidence: 'owner',
+    provenance: 'source-evidence',
+    citationTargets: [...new Set([notePath, `source:${source.id}`].filter(Boolean))],
+  };
 }
 
 function defaultRecoveryAgentSelection(vaultPath: string): RecoveryAgentSelectionSource {

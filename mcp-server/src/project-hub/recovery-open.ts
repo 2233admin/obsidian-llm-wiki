@@ -248,6 +248,10 @@ export async function composeRecoveryOpenStage(projectId: string, owners: Recove
   const selectedSession = selectedRun ? null : chooseSession(projectId, item, sessions ?? []);
   let runCheckpoints: WorkflowCheckpointRead[] = [];
   try { runCheckpoints = selectedRun ? owners.workflow.listCheckpoints(projectId, selectedRun.workRunId) : []; } catch { runCheckpoints = []; }
+  const validRuns = runs.filter((run) => !run.malformed && run.projectId === projectId);
+  const allRunCheckpoints = validRuns.flatMap((run) => {
+    try { return owners.workflow.listCheckpoints(projectId, run.workRunId); } catch { return []; }
+  });
   const memory = rawMemory && typeof rawMemory === 'object' && !Array.isArray(rawMemory) ? rawMemory : {};
   const rawDecisions = Array.isArray(memory.reviewedDecisions) ? memory.reviewedDecisions : Array.isArray(memory.decisions) ? memory.decisions : Array.isArray(memory.claims) ? memory.claims : Array.isArray(memory.sections?.currentState?.claims) ? memory.sections.currentState.claims : [];
   const decisions = rawDecisions.filter((value): value is RecoveryDecisionRead => Boolean(value && typeof value === 'object' && !Array.isArray(value))).map(contextDecision).filter((value): value is NonNullable<typeof value> => value !== null).sort((left, right) => left.decisionId.localeCompare(right.decisionId));
@@ -306,9 +310,9 @@ export async function composeRecoveryOpenStage(projectId: string, owners: Recove
   const ownerValues: Record<RecoveryOwner, unknown> = {
     project: { projectId },
     'work-os': items,
-    workflow: { run: selectedRun, checkpoints: runCheckpoints, fingerprint: selectedRun?.recordFingerprint ?? null },
+    workflow: { runs: validRuns, checkpoints: allRunCheckpoints },
     'project-memory': { revision: revision(memory.revision), fingerprint: memory.fingerprint ?? fingerprintRecoveryValue(decisions), freshness: memory.freshness ?? 'unknown' },
-    'session-record': selectedSession,
+    'session-record': sessions,
     'source-evidence': null,
     'agent-domain': caps.facts,
     settings: caps.facts,

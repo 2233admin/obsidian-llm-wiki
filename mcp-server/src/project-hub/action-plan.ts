@@ -81,12 +81,12 @@ async function recompute(request: RecoverySearchRequestV2, dependencies: Recover
   const owners = await source.snapshot(request.projectId);
   const basis = composeRecoverySearchBasis({ request, currentOpen: open, owners });
   const bindings = dependencies.agentSelection ? await dependencies.agentSelection.listCompatible(request.projectId, open.payload.capabilities ?? []) : [];
-  const search = basis.payload.results[0] ?? {
+  const search = basis.payload.results.length ? basis.payload.results : {
     itemId: `${request.projectId}/issue/${open.payload.workItemId?.split('/').at(-1) ?? 'current'}`,
     itemType: 'work-item', label: open.payload.workItemId ?? request.projectId, projectId: request.projectId,
     owner: 'work-os' as const, matchClass: 'none', score: 0, freshness: 'current', confidence: 'owner', provenance: 'work-os', citationTargets: open.payload.citations.slice(0, 1),
   };
-  const candidates = composeRecoveryCandidates({ open, search: basis.payload.results.length ? basis.payload.results : search, compatibleBindings: bindings });
+  const candidates = composeRecoveryCandidates({ open, search, compatibleBindings: bindings });
   return { open, searched: basis, basis, candidates };
 }
 
@@ -100,8 +100,8 @@ function searchedFingerprint(basis: ReturnType<typeof composeRecoverySearchBasis
     const payload = { kind: 'needs-agent-selection' as const, candidates: candidateStage.candidates.map((candidate) => candidate.candidateId), bindings: candidateStage.bindings };
     return fingerprintRecoveryFlowIntrinsicStage({ schemaVersion: RECOVERY_FLOW_SCHEMA_VERSION, stage: 'needs-agent-selection', projectId: basis.projectId, previousFlowFingerprint: basis.previousFlowFingerprint, actionInputFingerprint: basis.actionInputFingerprint, recoveryFingerprint: basis.recoveryFingerprint, ownerLocks: basis.ownerLocks, payloadFingerprint: fingerprintRecoveryValue(payload), nextRequestIntents: [], diagnostics: basis.diagnostics, omitted: basis.omitted });
   }
-  const intents = candidateStage.bindings.length === 1 && candidateStage.candidates.length === 1
-    ? [{ action: 'plan' as const, mode: 'from-search' as const, query: payload.query, limit: payload.limit, candidateId: candidateStage.candidates[0]!.candidateId, agentSelection: { bindingId: candidateStage.bindings[0]!.bindingId, bindingRevision: candidateStage.bindings[0]!.bindingRevision }, priorPlan: null }]
+  const intents = candidateStage.bindings.length === 1 && candidateStage.candidates.length > 0
+    ? [{ action: 'plan' as const, mode: 'from-search' as const, query: payload.query, limit: payload.limit, candidateId: candidateStage.recommendedCandidateId!, agentSelection: { bindingId: candidateStage.bindings[0]!.bindingId, bindingRevision: candidateStage.bindings[0]!.bindingRevision }, priorPlan: null }]
     : [];
   return fingerprintRecoveryFlowIntrinsicStage({ schemaVersion: RECOVERY_FLOW_SCHEMA_VERSION, stage: 'searched', projectId: basis.projectId, previousFlowFingerprint: basis.previousFlowFingerprint, actionInputFingerprint: basis.actionInputFingerprint, recoveryFingerprint: basis.recoveryFingerprint, ownerLocks: basis.ownerLocks, payloadFingerprint: fingerprintRecoveryValue(payload), nextRequestIntents: intents, diagnostics: basis.diagnostics, omitted: basis.omitted });
 }

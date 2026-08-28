@@ -1,12 +1,13 @@
 import { afterEach, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { AdapterRegistry } from '../adapters/registry.js';
 import type { VaultMindAdapter } from '../adapters/interface.js';
 import type { OperationContext } from '../core/types.js';
-import { makeProjectHubOps } from './project-hub.js';
+import { createDefaultRecoveryRuntime, makeProjectHubOps } from './project-hub.js';
 import { createProjectSearchSource } from '../project-hub/search-source.js';
 import { fingerprintRecoveryValue } from '../project-hub/contract-support.js';
 import type { RecoveryOpenOwners } from '../project-hub/recovery-open.js';
@@ -101,5 +102,100 @@ describe('project.hub', () => {
     const open = await flow.handler(ctx, { request: { schemaVersion: 'project-hub-recovery-flow-request/v2', projectId: 'project/alpha', action: 'open' } }) as any;
     assert.equal(open.stage, 'open');
     assert.equal(open.payload.capabilities?.some((item: any) => item.capability === 'workflow.recovery.apply'), false);
+  });
+
+  test('default Recovery search reads every canonical owner and exposes an alternate Work Run', async () => {
+    const { ctx, registry, root } = fixture();
+    writeFileSync(join(root, '01-Projects', 'alpha', 'runs', 'alternate.json'), JSON.stringify({ project_id: 'project/alpha', work_run_id: 'work-run/alternate', state: 'running', work_item_id: 'project/alpha/issue/build', agent_id: 'codex', observed_at: '2026-08-28T01:00:00.000Z' }));
+    mkdirSync(join(root, '10-Projects', 'alpha', 'agents', 'codex', 'research', 'records'), { recursive: true });
+    writeFileSync(join(root, '10-Projects', 'alpha', 'agents', 'codex', 'research', 'records', 'decision.json'), JSON.stringify({ schemaVersion: 'research-record/v1', recordId: 'research/decision', projectId: 'project/alpha', sessionRefs: [], decisions: ['Recovery remains read-only'], sources: ['decision:recovery'], reviewStatus: 'reviewed' }));
+    mkdirSync(join(root, '10-Projects', 'alpha', 'sessions', 'records'), { recursive: true });
+    writeFileSync(join(root, '10-Projects', 'alpha', 'sessions', 'records', 'session.json'), JSON.stringify({ schemaVersion: 'session-record/v1', sessionId: 'session/current', projectId: 'project/alpha', source: 'import', status: 'captured', host: 'codex', capturedAt: '2026-08-28T01:00:00.000Z', sourceRefs: ['session:current'], revision: 1 }));
+    mkdirSync(join(root, '_llmwiki'), { recursive: true });
+    writeFileSync(join(root, '_llmwiki', 'source-registry.json'), JSON.stringify({ version: 1, updated_at: '2026-08-28T01:00:00.000Z', sources: { src_alpha: { id: 'src_alpha', inputType: 'url', input: 'https://example.test/recovery', canonical: 'https://example.test/recovery', platform: 'web', sourceKind: 'post', title: 'Recovery source', project: 'alpha', projectId: 'project/alpha', actor: 'agent', notePath: '10-Projects/alpha/sources/web/recovery.md', tags: ['recovery'], created_at: '2026-08-28T00:00:00.000Z', updated_at: '2026-08-28T00:00:00.000Z' } } }));
+    mkdirSync(join(root, '00-Inbox', 'Evidence'), { recursive: true });
+    writeFileSync(join(root, '00-Inbox', 'Evidence', 'recovery.md'), ['---', 'llmwiki-evidence: true', 'source-id: src_alpha', 'validation-status: accepted', '---', '', '# Evidence · Recovery source', '', 'Recovery evidence is safe and cited.'].join('\n'));
+
+    const runtime = createDefaultRecoveryRuntime({ vaultPath: root, registry, capabilityFact: { capability: 'workflow.recovery.plan', state: 'available' } });
+    const snapshots = await runtime.dependencies.searchSource!.snapshot('project/alpha');
+    assert.deepEqual(snapshots.map((snapshot) => snapshot.owner), ['work-os', 'project-memory', 'source-evidence', 'session-record', 'workflow']);
+    assert.ok(snapshots.find((snapshot) => snapshot.owner === 'project-memory')?.items.length);
+    assert.ok(snapshots.find((snapshot) => snapshot.owner === 'source-evidence')?.items.length);
+    assert.ok(snapshots.find((snapshot) => snapshot.owner === 'session-record')?.items.length);
+    assert.ok(snapshots.find((snapshot) => snapshot.owner === 'workflow')?.items.some((item) => item.itemType === 'work-run'));
+    assert.doesNotMatch(JSON.stringify(snapshots), /absolute|private|token|prompt|transcript|C:\\\\Users/u);
+
+    const flow = makeProjectHubOps(registry, undefined, {
+      recoveryRuntime: runtime,
+      recoveryFlow: {
+        agentSelection: { listCompatible: async () => [{ role: 'builder', bindingId: 'binding/alpha/builder', bindingRevision: 1, profileId: 'agent/builder', profileRevision: 1 }] },
+        now: () => Date.parse('2026-08-28T02:00:00.000Z'),
+      },
+    })[1]!;
+    const open = await flow.handler(ctx, { request: { schemaVersion: 'project-hub-recovery-flow-request/v2', projectId: 'project/alpha', action: 'open' } }) as any;
+    const searched = await flow.handler(ctx, { request: { ...open.nextRequests[0], query: 'build', limit: 25 } }) as any;
+    assert.equal(searched.stage, 'searched');
+    assert.deepEqual(searched.payload.candidates.map((candidate: any) => candidate.workRunId), ['work-run/alternate', 'work-run/current']);
+    assert.equal(searched.payload.recommendedCandidateId, 'resume:work-run/alternate');
+    const planned = await flow.handler(ctx, { request: searched.nextRequests[0] }) as any;
+    assert.equal(planned.stage, 'planned');
+    assert.deepEqual(planned.payload.candidates, ['resume:work-run/alternate', 'resume:work-run/current']);
+    const replacement = await flow.handler(ctx, { request: planned.nextRequests[0] }) as any;
+    assert.equal(replacement.stage, 'planned');
+    assert.equal(replacement.payload.plan.workRunId, 'work-run/current');
+  });
+
+  test('default Source Registry search owner treats missing as empty and malformed as unavailable', async () => {
+    const { registry, root } = fixture();
+    const runtime = createDefaultRecoveryRuntime({ vaultPath: root, registry, capabilityFact: { capability: 'workflow.recovery.plan', state: 'available' } });
+    const missing = await runtime.dependencies.searchSource!.snapshot('project/alpha');
+    assert.equal(missing.find((snapshot) => snapshot.owner === 'source-evidence')?.state, 'current');
+    mkdirSync(join(root, '_llmwiki'), { recursive: true });
+    writeFileSync(join(root, '_llmwiki', 'source-registry.json'), '{ malformed');
+    const malformed = await runtime.dependencies.searchSource!.snapshot('project/alpha');
+    const source = malformed.find((snapshot) => snapshot.owner === 'source-evidence');
+    assert.equal(source?.state, 'unavailable');
+    assert.ok(source?.diagnostics.some((item) => item.code === 'owner_unavailable'));
+    writeFileSync(join(root, '_llmwiki', 'source-registry.json'), JSON.stringify({ version: 1, sources: { broken: 'not-a-source-record' } }));
+    const malformedRecord = await runtime.dependencies.searchSource!.snapshot('project/alpha');
+    assert.equal(malformedRecord.find((snapshot) => snapshot.owner === 'source-evidence')?.state, 'unavailable');
+  });
+
+  test('default Recovery owners stay deterministic, project-scoped, and read-only across query branches', async () => {
+    const { ctx, registry, root } = fixture();
+    writeFileSync(join(root, '01-Projects', 'alpha', 'issues', 'foreign.md'), '---\ntype: issue\nentity: project/beta/issue/secret\nstate: in-progress\nreview: reviewed\n---\nprivate token transcript must not appear\n');
+    writeFileSync(join(root, '01-Projects', 'alpha', 'runs', 'foreign.json'), JSON.stringify({ project_id: 'project/beta', work_run_id: 'work-run/foreign', state: 'running', work_item_id: 'project/beta/issue/secret', agent_id: 'codex', observed_at: '2026-08-28T01:30:00.000Z' }));
+    mkdirSync(join(root, '10-Projects', 'alpha', 'sessions', 'records'), { recursive: true });
+    writeFileSync(join(root, '10-Projects', 'alpha', 'sessions', 'records', 'foreign.json'), JSON.stringify({ schemaVersion: 'session-record/v1', sessionId: 'session/foreign', projectId: 'project/beta', status: 'captured', sourceRefs: ['private-token'] }));
+    mkdirSync(join(root, '_llmwiki'), { recursive: true });
+    writeFileSync(join(root, '_llmwiki', 'source-registry.json'), JSON.stringify({ version: 1, updated_at: '2026-08-28T01:00:00.000Z', sources: {
+      src_alpha: { id: 'src_alpha', inputType: 'url', input: 'https://example.test/alpha', canonical: 'https://example.test/alpha', platform: 'web', sourceKind: 'post', title: 'Alpha source', project: 'alpha', projectId: 'project/alpha', actor: 'agent', notePath: '10-Projects/alpha/sources/web/alpha.md', tags: ['recovery'], created_at: '2026-08-28T00:00:00.000Z', updated_at: '2026-08-28T00:00:00.000Z' },
+      src_beta: { id: 'src_beta', inputType: 'url', input: 'https://example.test/beta', canonical: 'https://example.test/beta', platform: 'web', sourceKind: 'post', title: 'Beta private token transcript', project: 'beta', projectId: 'project/beta', actor: 'agent', notePath: '10-Projects/beta/sources/web/beta.md', tags: ['private'], created_at: '2026-08-28T00:00:00.000Z', updated_at: '2026-08-28T00:00:00.000Z' },
+    } }));
+    mkdirSync(join(root, '00-Inbox', 'Evidence'), { recursive: true });
+    writeFileSync(join(root, '00-Inbox', 'Evidence', 'alpha.md'), '---\nllmwiki-evidence: true\nsource-id: src_alpha\n---\n\nAlpha evidence for build recovery.');
+    writeFileSync(join(root, '00-Inbox', 'Evidence', 'beta.md'), '---\nllmwiki-evidence: true\nsource-id: src_beta\n---\n\nPrivate token transcript.');
+    const tracked = [
+      '01-Projects/alpha/issues/build.md', '01-Projects/alpha/issues/foreign.md',
+      '01-Projects/alpha/runs/current.json', '01-Projects/alpha/runs/foreign.json',
+      '10-Projects/alpha/sessions/records/foreign.json', '_llmwiki/source-registry.json',
+      '00-Inbox/Evidence/alpha.md', '00-Inbox/Evidence/beta.md',
+    ];
+    const hash = () => createHash('sha256').update(tracked.map((path) => `${path}\0${readFileSync(join(root, path), 'utf8')}`).join('\0')).digest('hex');
+    const before = hash();
+    const runtime = createDefaultRecoveryRuntime({ vaultPath: root, registry, capabilityFact: { capability: 'workflow.recovery.plan', state: 'available' } });
+    const first = await runtime.dependencies.searchSource!.snapshot('project/alpha');
+    const second = await runtime.dependencies.searchSource!.snapshot('project/alpha');
+    assert.deepEqual(second, first);
+    assert.doesNotMatch(JSON.stringify(first), /project\/beta|private|token|transcript|secret/i);
+    const flow = makeProjectHubOps(registry, undefined, { recoveryRuntime: runtime, recoveryFlow: { agentSelection: { listCompatible: async () => [{ role: 'builder', bindingId: 'binding/alpha/builder', bindingRevision: 1, profileId: 'agent/builder', profileRevision: 1 }] } } })[1]!;
+    const open = await flow.handler(ctx, { request: { schemaVersion: 'project-hub-recovery-flow-request/v2', projectId: 'project/alpha', action: 'open' } }) as any;
+    const searchedBuild = await flow.handler(ctx, { request: { ...open.nextRequests[0], query: 'build', limit: 25 } }) as any;
+    const searchedRecovery = await flow.handler(ctx, { request: { ...open.nextRequests[0], query: 'recovery', limit: 25 } }) as any;
+    assert.equal(searchedBuild.stage, 'searched');
+    assert.equal(searchedRecovery.stage, 'searched');
+    const mixed = await flow.handler(ctx, { request: { ...searchedBuild.nextRequests[0], query: 'recovery' } }) as any;
+    assert.equal(mixed.stage, 'stale');
+    assert.equal(hash(), before);
   });
 });
