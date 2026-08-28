@@ -12,6 +12,48 @@ const fp = (char: string) => `sha256:${char.repeat(64)}` as `sha256:${string}`;
 const binding = { bindingId: "binding/alpha/builder", bindingRevision: 2, role: "builder", profileId: "agent/builder", profileRevision: 3 };
 const candidate = { candidateId: "resume:work-run/one", kind: "resume" as const, workItemId: "project/alpha/issue/alpha", workRunId: "work-run/one", contextSource: "work-run" as const, recommended: true };
 
+class FakeElement {
+  readonly children: FakeElement[] = [];
+  readonly attributes = new Map<string, string>();
+  readonly ownerDocument = { activeElement: null as FakeElement | null };
+  textContent = "";
+  value = "";
+  onclick: ((event: unknown) => void) | null = null;
+  disabled = false;
+
+  constructor(readonly tagName: string) {}
+
+  createEl(tag: string, options: { text?: string; cls?: string; href?: string; type?: string; attr?: Record<string, string> } = {}): FakeElement {
+    const child = new FakeElement(tag.toUpperCase());
+    child.textContent = options.text ?? "";
+    if (options.cls) child.attributes.set("class", options.cls);
+    if (options.href) child.attributes.set("href", options.href);
+    if (options.type) child.attributes.set("type", options.type);
+    for (const [name, value] of Object.entries(options.attr ?? {})) child.attributes.set(name, value);
+    this.children.push(child);
+    return child;
+  }
+
+  createSpan(options: { text?: string } = {}): FakeElement { return this.createEl("span", options); }
+  createDiv(options: { text?: string; cls?: string } = {}): FakeElement { return this.createEl("div", options); }
+  empty(): void { this.children.length = 0; }
+  addClass(cls: string): void { this.attributes.set("class", `${this.attributes.get("class") ?? ""} ${cls}`.trim()); }
+  setAttr(name: string, value: string): void { this.attributes.set(name, value); }
+  getAttribute(name: string): string | null { return this.attributes.get(name) ?? null; }
+  setText(text: string): void { this.textContent = text; }
+  focus(): void { this.ownerDocument.activeElement = this; }
+
+  querySelectorAll<T extends FakeElement>(selector: string): T[] {
+    const matches: FakeElement[] = [];
+    const visit = (element: FakeElement): void => {
+      if (selector === element.tagName.toLowerCase() || (selector === "[data-recovery-focus]" && element.attributes.has("data-recovery-focus"))) matches.push(element);
+      for (const child of element.children) visit(child);
+    };
+    for (const child of this.children) visit(child);
+    return matches as T[];
+  }
+}
+
 function openResponse(): RecoveryFlowResponseV2 {
   return { schemaVersion: "project-hub-recovery-flow/v2", stage: "open", projectId, previousFlowFingerprint: null, actionInputFingerprint: fp("1"), recoveryFingerprint: fp("2"), ownerLocks: [], payload: { kind: "open", workItemId: candidate.workItemId, workRunId: candidate.workRunId, contextSource: "work-run", citations: ["issue:alpha"], suggestedQueries: ["recovery"] }, nextRequestIntents: [{ action: "search", query: "recovery", limit: 5 }], diagnostics: [], omitted: { items: 0, citations: 0, diagnostics: 0, bytes: 0 }, rootOpenFlowFingerprint: fp("3"), nextRequests: [{ schemaVersion: RECOVERY_FLOW_REQUEST_SCHEMA_VERSION, projectId, action: "search", openFlowFingerprint: fp("3"), query: "recovery", limit: 5 }], generatedAt: "2026-08-28T00:00:00.000Z", flowFingerprint: fp("3") } as RecoveryFlowResponseV2;
 }
@@ -64,4 +106,29 @@ test("panel cancellation ignores a late search response", async () => {
   await search;
   assert.equal(panel.state.flow?.stage, "open");
   assert.equal(panel.state.busy, false);
+});
+
+test("citation actions are named native buttons with exact callback targets", async () => {
+  const root = new FakeElement("div");
+  const citationTarget = "issue:alpha";
+  const opened: string[] = [];
+  const client = new ProjectHubRecoveryClient({
+    async invoke<T>(): Promise<T> {
+      return { ...openResponse(), payload: { ...openResponse().payload, citations: [citationTarget] } } as T;
+    },
+  });
+  const panel = new ProjectHubRecoveryPanel(client, root as unknown as HTMLElement, target => opened.push(target));
+
+  await panel.open(projectId);
+
+  assert.equal(root.querySelectorAll("a").length, 0, "callback-only citation actions must not use placeholder anchors");
+  const citationButtons = root.querySelectorAll<FakeElement>("button").filter(button => button.getAttribute("aria-label")?.startsWith("Open citation target "));
+  assert.equal(citationButtons.length, 1);
+  const citationButton = citationButtons[0]!;
+  assert.equal(citationButton.tagName, "BUTTON");
+  assert.equal(citationButton.textContent, citationTarget);
+  assert.equal(citationButton.getAttribute("aria-label"), `Open citation target ${citationTarget}`);
+  assert.equal(citationButton.getAttribute("href"), null);
+  citationButton.onclick?.({});
+  assert.deepEqual(opened, [citationTarget]);
 });

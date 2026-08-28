@@ -479,12 +479,9 @@ export class ProjectHubRecoveryPanel {
     const section = parent.createEl("section", { cls: "llmwiki-ask-mate-citations" });
     section.createEl("h4", { text: "Citation Targets" });
     for (const target of [...new Set(citations)].slice(0, 32)) {
-      const link = section.createEl("a", { text: safePresentationText(target), href: "#citation-target" });
-      link.setAttr("aria-label", `Open citation target ${safePresentationText(target)}`);
-      link.onclick = event => {
-        event.preventDefault();
-        this.onCitation?.(target);
-      };
+      const button = section.createEl("button", { text: safePresentationText(target) });
+      button.setAttr("aria-label", `Open citation target ${safePresentationText(target)}`);
+      button.onclick = () => this.onCitation?.(target);
     }
   }
 }
