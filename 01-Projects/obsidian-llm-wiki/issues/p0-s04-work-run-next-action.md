@@ -1,7 +1,7 @@
 ---
 type: issue
 entity: project/obsidian-llm-wiki/issue/p0-s04-work-run-next-action
-state: in-progress
+state: done
 review: reviewed
 kind: knowledge-task
 id: obsidian-llm-wiki/p0-s04-work-run-next-action
@@ -55,4 +55,4 @@ Blocked by S03. S06A begins only after the complete V2 read Flow and clean cutov
 - From `mcp-server/`: `npm run typecheck -- --pretty false` — passed, including platform builds.
 - Repository root: `openspec validate project-hub-recovery-loop --strict --no-interactive` — passed.
 - Runtime absence scan found no V1 schema/type/validator/export/module or `project.hub.get.recovery` references outside permitted historical contract prose. Generated operation references were regenerated with `npm run build` and `npm run generate-tools-doc`.
-- Independent review remains pending; issue intentionally stays `in-progress` and S06A+ remains untouched.
+- Independent spec review found no Critical or Important findings; adversarial review findings were repaired in `bad889d`, independently verified closed, and the coordinator repeated the exact 57-test gate, typecheck, strict OpenSpec validation, and V1 absence scan after integration.
