@@ -636,7 +636,11 @@ function operationHarness(vault: string): { call(name: string, params?: Record<s
   const registry = new AdapterRegistry();
   const recoveryRuntime = createDefaultRecoveryRuntime({ vaultPath: vault, registry, capabilityFact: { capability: 'workflow.recovery.plan', state: 'available' } });
   const recoveryPlanningService = createRecoveryPlanningService(recoveryRuntime.dependencies);
-  const workflowOptions = { recoveryRuntime, recoveryPlanningService };
+  const workflowOptions = {
+    recoveryRuntime,
+    recoveryPlanningService,
+    recoveryApplyCapability: async () => ({ capability: 'workflow.recovery.apply' as const, state: 'available' as const }),
+  };
   const operations = [...makeProjectOps(vault), ...makeWorkflowOps(vault, workflowOptions), ...makeProjectHubOps(registry, undefined, workflowOptions)];
   assert.ok(operations.some((operation) => operation.name === 'workflow.recovery.apply'), 'Fleet verifier must register Workflow Recovery apply');
   const byName = new Map(operations.map((operation) => [operation.name, operation]));

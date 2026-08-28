@@ -1593,6 +1593,9 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     ...makeWorkflowOps(vaultPath, {
       recoveryRuntime,
       recoveryPlanningService,
+      // Apply authorization is an independently injected production capability;
+      // the Plan capability fact is intentionally not reused for mutation.
+      recoveryApplyCapability: async () => ({ capability: 'workflow.recovery.apply' as const, state: 'available' as const }),
     }),
     ...makeContextOps(vaultPath, registry, defaultWeights),
     ...makeSettingsOps(settingsOptions, settingsService),
@@ -1607,6 +1610,7 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     ...makeAgentDomainOps(vaultPath, {
       recoveryRuntime,
       recoveryPlanningService,
+      recoveryApplyCapability: async () => ({ capability: 'workflow.recovery.apply' as const, state: 'available' as const }),
     }),
     ...makeLegacyAgentMigrationOps(),
     ...makeVisualWorkspaceOps(vaultPath),

@@ -11,6 +11,7 @@ import {
 } from './recovery-plan.js';
 import {
   makeRecoveryApplyOperation,
+  type RecoveryApplyCapability,
   type RecoveryApplyDependencies,
 } from './recovery-apply.js';
 import {
@@ -25,6 +26,7 @@ export interface WorkflowOperationsOptions {
   recoveryRuntime?: { dependencies: RecoveryPlanDependencies };
   recoveryPlanningService?: RecoveryPlanningService;
   recoveryApplyDependencies?: RecoveryApplyDependencies;
+  recoveryApplyCapability?: () => Promise<RecoveryApplyCapability>;
 }
 
 const STAGES = ['intake', 'understand', 'plan', 'execute', 'review', 'verify', 'archive'] as const;
@@ -273,6 +275,7 @@ function assertWorkItemOwnership(projectIdentity: string, workItemId: string): v
 function assertActiveLeaseIdentity(
   vaultPath: string,
   identity: Pick<LeasedRunIdentity, 'projectId' | 'workItemId' | 'workRunId' | 'agentId'>,
+  nowMs = Date.now(),
 ): void {
   const leases = leaseCandidates(vaultPath, identity.workRunId);
   if (leases.length !== 1) {
@@ -287,7 +290,7 @@ function assertActiveLeaseIdentity(
   identityEquals('Work Run', identity.workRunId, lease.work_run_id);
   identityEquals('agent', identity.agentId, lease.agent_id);
   const expiresAt = lease.expires_at;
-  if (typeof expiresAt !== 'number' || !Number.isFinite(expiresAt) || Date.now() / 1000 >= expiresAt) {
+  if (typeof expiresAt !== 'number' || !Number.isFinite(expiresAt) || nowMs / 1000 >= expiresAt) {
     throw conflict('Lease expiry identity conflict: local lease is missing or expired', {
       workRunId: identity.workRunId,
       expiresAt,
@@ -491,7 +494,7 @@ function governedRunExtensions(run: Record<string, unknown>): Record<string, unk
   return extensions;
 }
 
-function assertPortableHandoffAuthority(durable: Record<string, unknown>, handoffToken: unknown): void {
+function assertPortableHandoffAuthority(durable: Record<string, unknown>, handoffToken: unknown, nowMs = Date.now()): void {
   const token = typeof handoffToken === 'string' ? handoffToken : '';
   if (token.length < 16 || token.length > 4096) {
     throw makeErr(-32602, 'handoff_token is required for lease_mode=portable-handoff');
@@ -505,7 +508,7 @@ function assertPortableHandoffAuthority(durable: Record<string, unknown>, handof
     typeof expiresAt !== 'string'
     || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(expiresAt)
     || !Number.isFinite(Date.parse(expiresAt))
-    || Date.now() >= Date.parse(expiresAt)
+    || nowMs >= Date.parse(expiresAt)
   ) {
     throw conflict('Portable handoff authority conflict: durable handoff is missing or expired');
   }
@@ -520,13 +523,14 @@ function assertJoinLeaseAuthority(
   vaultPath: string,
   identity: Pick<LeasedRunIdentity, 'projectId' | 'workItemId' | 'workRunId' | 'agentId' | 'leaseMode' | 'handoffToken'>,
   durable: Record<string, unknown>,
+  nowMs = Date.now(),
 ): void {
   const registryPath = join(vaultPath, '.vault-mind', '_leases.json');
   if (identity.leaseMode === 'portable-handoff') {
-    assertPortableHandoffAuthority(durable, identity.handoffToken);
+    assertPortableHandoffAuthority(durable, identity.handoffToken, nowMs);
     if (!existsSync(registryPath)) return;
   }
-  assertActiveLeaseIdentity(vaultPath, identity);
+  assertActiveLeaseIdentity(vaultPath, identity, nowMs);
 }
 
 function assertDurableRunIdentity(
@@ -553,6 +557,7 @@ function assertLeasedRunIdentity(
   project: string,
   agent: string,
   params: Record<string, unknown>,
+  nowMs = Date.now(),
 ): LeasedRunIdentity {
   const workRunId = parseWorkRunId(params.work_run_id);
   const workItemId = canonicalWorkItemId(params.work_item_id);
@@ -569,7 +574,7 @@ function assertLeasedRunIdentity(
   if (state !== 'leased' && state !== 'running') {
     throw conflict(`Work Run identity conflict: join requires leased or running state, found ${String(state)}`);
   }
-  assertJoinLeaseAuthority(vaultPath, identity, durable.record);
+  assertJoinLeaseAuthority(vaultPath, identity, durable.record, nowMs);
   return { ...identity, state };
 }
 
@@ -594,6 +599,7 @@ function syncDurableWorkRunUnlocked(
   transitionToken: string,
   leasedIdentity?: LeasedRunIdentity,
   store?: WorkRunStore,
+  nowMs = Date.now(),
 ): string {
   const path = durableRunPath(state.project, state.workRunId);
   const fullPath = vaultJoin(vaultPath, path);
@@ -617,7 +623,7 @@ function syncDurableWorkRunUnlocked(
       throw conflict(`Invalid Work Run transition: ${previousState} -> ${state.workRunState}`);
     }
   }
-  if (leasedIdentity) assertJoinLeaseAuthority(vaultPath, leasedIdentity, run);
+  if (leasedIdentity) assertJoinLeaseAuthority(vaultPath, leasedIdentity, run, nowMs);
   const transitions = durableTransitions(run.transitions);
   if (!transitions.some((item) => item.transition_token === transitionToken)) {
     const previous = typeof run.state === 'string' ? run.state : state.workRunState === 'running' ? 'leased' : 'planned';
@@ -1425,6 +1431,7 @@ function beginAgentLifetime(
   params: Record<string, unknown>,
   mode: 'leased' | 'manual',
   store: WorkRunStore,
+  nowProvider: () => number = () => Date.now(),
 ) {
   const operation = mode === 'leased' ? 'workflow.agent.join' : 'workflow.agent.start';
   const actor = actorFromContext(ctx);
@@ -1467,10 +1474,10 @@ function beginAgentLifetime(
       identityEquals('agent', agent, priorLifetime.agent);
       const durable = assertDurableRunIdentity(vaultPath, project, requestedIdentity);
       assertGovernedRunLocks(params, durable.record);
-      assertJoinLeaseAuthority(vaultPath, requestedIdentity, durable.record);
+      assertJoinLeaseAuthority(vaultPath, requestedIdentity, durable.record, nowProvider());
       return replayResult(priorLifetime, priorReceipt, agentEventsPath(project, agent));
     }
-    leasedIdentity = assertLeasedRunIdentity(vaultPath, project, agent, params);
+    leasedIdentity = assertLeasedRunIdentity(vaultPath, project, agent, params, nowProvider());
     workRunId = leasedIdentity.workRunId;
     workItemId = leasedIdentity.workItemId;
   } else {
@@ -1571,6 +1578,7 @@ function beginAgentLifetime(
         transitionToken,
         leasedIdentity ?? undefined,
         store,
+        nowProvider(),
       );
       writeVaultBytes(vaultPath, path, renderAgentLifetime(state, notes));
       const persistedEventsPath = appendAgentEvent(vaultPath, state, {
@@ -1630,12 +1638,14 @@ function recoveryPlanBasis(plan: RecoveryPlanV2): Record<string, unknown> {
   };
 }
 
-function createDefaultRecoveryApplyDependencies(
+export function createDefaultRecoveryApplyDependencies(
   vaultPath: string,
   store: WorkRunStore,
   planningService: RecoveryPlanningService,
   now: () => number = () => Date.now(),
+  loadApplyCapability: () => Promise<RecoveryApplyCapability> = async () => ({ capability: 'workflow.recovery.apply', state: 'unavailable' }),
 ): RecoveryApplyDependencies {
+  const ownerTransitionToken = (token: string): string => `recovery:${createHash('sha256').update(token, 'utf8').digest('hex')}`;
   const join = async (plan: RecoveryPlanV2, actor: string, token: string): Promise<Record<string, unknown>> => (
     beginAgentLifetime(
       vaultPath,
@@ -1651,13 +1661,14 @@ function createDefaultRecoveryApplyDependencies(
         agent_profile_revision: plan.agentSelection.profileRevision,
         project_agent_binding_id: plan.agentSelection.bindingId,
         project_agent_binding_revision: plan.agentSelection.bindingRevision,
-        transition_token: token,
+        transition_token: ownerTransitionToken(token),
         stage: 'think',
         evidence: ['recovery:apply'],
         provenance: [`recovery-plan:${plan.fingerprint}`],
       },
       'leased',
       store,
+      now,
     ) as unknown as Record<string, unknown>
   );
   const createAndJoin = async (plan: RecoveryPlanV2, actor: string, token: string): Promise<Record<string, unknown>> => {
@@ -1665,7 +1676,7 @@ function createDefaultRecoveryApplyDependencies(
     const project = plan.projectId.slice('project/'.length);
     store.withLock(() => {
       const existing = store.readRun(project, runId);
-      const nowMs = Math.max(Date.now(), Date.parse(plan.createdAt));
+      const nowMs = now();
       const lease = store.readLocalLease(runId);
       const identity = {
         project_id: plan.projectId,
@@ -1736,7 +1747,7 @@ function createDefaultRecoveryApplyDependencies(
         if (!run || run.project_id !== plan.projectId || run.work_item_id !== plan.workItemId || run.work_run_id !== plan.workRunId || (run.state !== 'leased' && run.state !== 'running')) {
           throw conflict('Recovery Work Run prerequisite is unavailable');
         }
-        if (!lease || lease.project_id !== plan.projectId || lease.work_item_id !== plan.workItemId || lease.work_run_id !== plan.workRunId || typeof lease.expires_at !== 'number' || lease.expires_at <= Date.now() / 1000) {
+        if (!lease || lease.project_id !== plan.projectId || lease.work_item_id !== plan.workItemId || lease.work_run_id !== plan.workRunId || typeof lease.expires_at !== 'number' || lease.expires_at <= now() / 1000) {
           throw conflict('Recovery local lease prerequisite is unavailable');
         }
       }
@@ -1744,6 +1755,7 @@ function createDefaultRecoveryApplyDependencies(
     join,
     createAndJoin,
     now,
+    loadApplyCapability,
   };
 }
 
@@ -1752,7 +1764,13 @@ export function makeWorkflowOps(vaultPath: string, options: WorkflowOperationsOp
   const recoveryPlanningService = options.recoveryPlanningService
     ?? (options.recoveryRuntime ? createRecoveryPlanningService(options.recoveryRuntime.dependencies) : undefined);
   const recoveryApplyDependencies = options.recoveryApplyDependencies
-    ?? (recoveryPlanningService ? createDefaultRecoveryApplyDependencies(vaultPath, store, recoveryPlanningService, options.recoveryRuntime?.dependencies.now) : undefined);
+    ?? (recoveryPlanningService ? createDefaultRecoveryApplyDependencies(
+      vaultPath,
+      store,
+      recoveryPlanningService,
+      options.recoveryRuntime?.dependencies.now,
+      options.recoveryApplyCapability,
+    ) : undefined);
   return [
     makeRecoveryPlanOperation(recoveryPlanningService),
     makeRecoveryApplyOperation(recoveryApplyDependencies),

@@ -1,11 +1,17 @@
 import { createHash } from 'node:crypto';
-import { assertClosedRecoveryObject, fingerprintRecoveryValue, safeRecoveryText, type RecoveryFingerprint } from '../project-hub/contract-support.js';
+import { assertClosedRecoveryObject, fingerprintRecoveryValue, hasUnsafeRecoveryMaterial, safeRecoveryText, type RecoveryFingerprint } from '../project-hub/contract-support.js';
 import { validateRecoveryPlanV2, type RecoveryPlanV2 } from '../project-hub/recovery-flow.js';
 import { conflict, makeErr, type Operation, type OperationContext } from '../core/types.js';
 import type { WorkRunStore } from './work-run-store.js';
 
 export const RECOVERY_APPLY_REQUEST_SCHEMA_VERSION = 'recovery-apply-request/v2' as const;
 export const RECOVERY_APPLY_SCHEMA_VERSION = 'recovery-apply/v2' as const;
+
+const SAFE_OWNER_LIFETIME_VALUES = {
+  workRunState: new Set(['planned', 'leased', 'running', 'awaiting_review', 'completed', 'failed', 'cancelled']),
+  stage: new Set(['think', 'plan', 'build', 'review', 'test', 'ship', 'reflect']),
+  status: new Set(['active', 'blocked', 'done', 'archived']),
+} as const;
 
 export interface RecoveryApplyRequestV2 {
   schemaVersion: typeof RECOVERY_APPLY_REQUEST_SCHEMA_VERSION;
@@ -24,6 +30,13 @@ export interface RecoveryApplyDependencies {
   join(plan: RecoveryPlanV2, actorId: string, token: string): Promise<Record<string, unknown>>;
   createAndJoin(plan: RecoveryPlanV2, actorId: string, token: string): Promise<Record<string, unknown>>;
   now(): number;
+  /** Independently resolves the current mutation capability; Plan facts never authorize apply. */
+  loadApplyCapability?: () => Promise<RecoveryApplyCapability>;
+}
+
+export interface RecoveryApplyCapability {
+  capability: 'workflow.recovery.apply';
+  state: 'available' | 'degraded' | 'unavailable' | 'disabled';
 }
 
 export interface RecoveryApplyReceiptV2 {
@@ -71,6 +84,7 @@ interface RecoveryApplyClaimV2 {
   receipt: RecoveryApplyReceiptV2 | null;
   claimedAt: string;
   updatedAt: string;
+  ownerStarted: boolean;
 }
 
 function digest(value: string): RecoveryFingerprint {
@@ -135,27 +149,104 @@ function responseFromClaim(claim: RecoveryApplyClaimV2, actor: string): Recovery
   return { ...base, fingerprint: fingerprintRecoveryValue(base) };
 }
 
-function ownerReceipt(value: Record<string, unknown>): Record<string, unknown> {
+function safeOwnerId(value: unknown, expected: string | null, label: string): string | null {
+  if (typeof value !== 'string' || value !== expected || hasUnsafeRecoveryMaterial(value)) return null;
+  try {
+    return safeRecoveryText(value, label, { minBytes: 1, maxBytes: 256 });
+  } catch {
+    return null;
+  }
+}
+
+function ownerReceipt(value: Record<string, unknown>, request: RecoveryApplyRequestV2, claim: RecoveryApplyClaimV2): Record<string, unknown> {
   const result: Record<string, unknown> = {};
-  for (const [key, item] of Object.entries(value)) {
-    if (/path|token|secret|credential|password|environment|workspace/i.test(key)) continue;
-    if (typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean' || item === null) result[key] = item;
-    else if (key === 'lifetime' && item && typeof item === 'object' && !Array.isArray(item)) {
-      const lifetime = item as Record<string, unknown>;
-      result[key] = Object.fromEntries(['projectId', 'workRunId', 'workItemId', 'agent', 'workRunState', 'stage', 'status'].filter((name) => lifetime[name] !== undefined).map((name) => [name, lifetime[name]]));
+  if (value.ok === true || value.ok === false) result.ok = value.ok;
+  if (value.idempotent === true || value.idempotent === false) result.idempotent = value.idempotent;
+  const expectedProjectId = request.plan.projectId;
+  const expectedWorkItemId = request.plan.workItemId;
+  const expectedWorkRunId = claim.workRunId;
+  const expectedAgent = claim.actorId;
+  const projectId = safeOwnerId(value.projectId, expectedProjectId, 'ownerReceipt.projectId');
+  const workItemId = safeOwnerId(value.workItemId, expectedWorkItemId, 'ownerReceipt.workItemId');
+  const workRunId = expectedWorkRunId === null ? null : safeOwnerId(value.workRunId, expectedWorkRunId, 'ownerReceipt.workRunId');
+  const agent = safeOwnerId(value.agent, expectedAgent, 'ownerReceipt.agent');
+  if (projectId) result.projectId = projectId;
+  if (workItemId) result.workItemId = workItemId;
+  if (workRunId) result.workRunId = workRunId;
+  if (agent) result.agent = agent;
+  if (value.lifetime && typeof value.lifetime === 'object' && !Array.isArray(value.lifetime)) {
+    const raw = value.lifetime as Record<string, unknown>;
+    const lifetime: Record<string, unknown> = {};
+    const lifetimeProjectId = safeOwnerId(raw.projectId, expectedProjectId, 'ownerReceipt.lifetime.projectId');
+    const lifetimeWorkItemId = safeOwnerId(raw.workItemId, expectedWorkItemId, 'ownerReceipt.lifetime.workItemId');
+    const lifetimeWorkRunId = expectedWorkRunId === null ? null : safeOwnerId(raw.workRunId, expectedWorkRunId, 'ownerReceipt.lifetime.workRunId');
+    const lifetimeAgent = safeOwnerId(raw.agent, expectedAgent, 'ownerReceipt.lifetime.agent');
+    if (lifetimeProjectId) lifetime.projectId = lifetimeProjectId;
+    if (lifetimeWorkItemId) lifetime.workItemId = lifetimeWorkItemId;
+    if (lifetimeWorkRunId) lifetime.workRunId = lifetimeWorkRunId;
+    if (lifetimeAgent) lifetime.agent = lifetimeAgent;
+    for (const key of ['workRunState', 'stage', 'status'] as const) {
+      const item = raw[key];
+      if (typeof item === 'string' && SAFE_OWNER_LIFETIME_VALUES[key].has(item)) lifetime[key] = item;
     }
+    if (Object.keys(lifetime).length > 0) result.lifetime = lifetime;
   }
   return result;
 }
 
 function makeReceipt(request: RecoveryApplyRequestV2, claim: RecoveryApplyClaimV2, owner: Record<string, unknown>, recordedAt: string): RecoveryApplyReceiptV2 {
-  const safeOwner = ownerReceipt(owner);
+  const safeOwner = ownerReceipt(
+    owner,
+    request,
+    claim.workRunId === null ? { ...claim, workRunId: recoveryCreateWorkRunId(request.plan) } : claim,
+  );
   const ownerReceiptFingerprint = fingerprintRecoveryValue(safeOwner);
   const base = { schemaVersion: RECOVERY_APPLY_SCHEMA_VERSION, planFingerprint: request.planFingerprint, tokenDigest: claim.tokenDigest, projectId: request.plan.projectId, kind: request.plan.kind, workItemId: request.plan.workItemId, workRunId: request.plan.workRunId, ownerOperation: request.plan.kind === 'resume' ? 'workflow.agent.join' as const : 'workflow.recovery.create-and-join' as const, ownerReceiptFingerprint, ownerReceipt: safeOwner, recordedAt };
   return { ...base, fingerprint: fingerprintRecoveryValue(base) };
 }
 
+function projectSlug(projectId: string): string {
+  return projectId.slice('project/'.length);
+}
+
+function recoveryCreateWorkRunId(plan: RecoveryPlanV2): string {
+  return `work-run/recovery-${plan.fingerprint.slice('sha256:'.length, 'sha256:'.length + 32)}`;
+}
+
+/** Every file the apply owner can mutate is enumerated before the handler runs. */
+export function recoveryApplyWriteTargets(ctx: OperationContext, params: Record<string, unknown>): string[] {
+  const request = validateRecoveryApplyRequestV2(params.request);
+  const actor = actorId(ctx);
+  const project = projectSlug(request.plan.projectId);
+  const workRunId = request.plan.workRunId ?? recoveryCreateWorkRunId(request.plan);
+  return [
+    `01-Projects/${project}/runs/recovery-plans/${request.planFingerprint.slice('sha256:'.length)}.json`,
+    `01-Projects/${project}/runs/recovery-tokens/${digest(request.transitionToken).slice('sha256:'.length)}.json`,
+    `01-Projects/${project}/runs/${workRunId.slice('work-run/'.length)}.json`,
+    `.vault-mind/_leases.json`,
+    `.vault-mind/_work-run.lock`,
+    `01-Projects/${project}/agents/${actor}/lifetime.md`,
+    `01-Projects/${project}/agents/${actor}/events.md`,
+  ];
+}
+
+interface Deferred {
+  promise: Promise<void>;
+  resolve: () => void;
+}
+
+function deferred(): Deferred {
+  let resolve!: () => void;
+  const promise = new Promise<void>((complete) => { resolve = complete; });
+  return { promise, resolve };
+}
+
+function unknownFromTokenClaim(claim: RecoveryApplyClaimV2): RecoveryApplyClaimV2 {
+  return { ...claim, state: 'outcome-unknown', receipt: null };
+}
+
 export function makeRecoveryApplyOperation(dependencies: RecoveryApplyDependencies | undefined): Operation {
+  const inFlight = new Map<string, Deferred>();
   return {
     name: 'workflow.recovery.apply',
     namespace: 'workflow',
@@ -163,7 +254,7 @@ export function makeRecoveryApplyOperation(dependencies: RecoveryApplyDependenci
     mutating: true,
     writePolicy: {
       realWrite: 'always',
-      targets: () => ['01-Projects/**/runs/**', '.vault-mind/_leases.json'],
+      targets: recoveryApplyWriteTargets,
       audit: 'required',
     },
     params: {
@@ -175,63 +266,115 @@ export function makeRecoveryApplyOperation(dependencies: RecoveryApplyDependenci
       const tokenDigest = digest(request.transitionToken);
       if (!dependencies) return unavailable(request, tokenDigest, actor, 'workflow.recovery.apply is unavailable');
       const { store } = dependencies;
-      const current = store.withLock(() => {
-        const existingPlan = claimFrom(store.readRecoveryClaim(request.plan.projectId.slice('project/'.length), request.planFingerprint));
-        const existingToken = claimFrom(store.readRecoveryToken(request.plan.projectId.slice('project/'.length), tokenDigest));
-        if (existingPlan) {
-          compareClaim(existingPlan, request, actor);
-          if (existingToken) compareClaim(existingToken, request, actor);
-        } else if (existingToken) {
-          compareClaim(existingToken, request, actor);
+      const project = projectSlug(request.plan.projectId);
+      const initial = store.withLock(() => {
+        const planClaim = claimFrom(store.readRecoveryClaim(project, request.planFingerprint));
+        const tokenClaim = claimFrom(store.readRecoveryToken(project, tokenDigest));
+        if (planClaim) {
+          compareClaim(planClaim, request, actor);
+          if (tokenClaim) compareClaim(tokenClaim, request, actor);
+          return { claim: planClaim, tokenPresent: tokenClaim !== null, tokenOnly: false };
         }
-        return existingPlan ?? existingToken;
+        if (tokenClaim) {
+          compareClaim(tokenClaim, request, actor);
+          return { claim: unknownFromTokenClaim(tokenClaim), tokenPresent: true, tokenOnly: true };
+        }
+        return { claim: null, tokenPresent: false, tokenOnly: false };
       });
-      if (current && current.tokenDigest !== tokenDigest) return responseFromClaim(current, actor);
-      if (current && current.state === 'applied') return responseFromClaim(current, actor);
-      if (current && current.state === 'outcome-unknown') return responseFromClaim(current, actor);
+      if (initial.tokenOnly && initial.claim) return responseFromClaim(initial.claim, actor);
 
+      const current = initial.claim;
       if (!current) {
+        let capability: RecoveryApplyCapability | undefined;
+        try {
+          capability = await dependencies.loadApplyCapability?.();
+        } catch {
+          capability = undefined;
+        }
+        if (capability?.capability !== 'workflow.recovery.apply' || capability.state !== 'available') {
+          return unavailable(request, tokenDigest, actor, 'workflow.recovery.apply is unavailable');
+        }
+        if (Date.parse(request.plan.createdAt) > dependencies.now()) return unavailable(request, tokenDigest, actor, 'Recovery Plan is from the future');
         try {
           await dependencies.recomputeCurrentPlanBasis(request.plan, request.planningInput);
         } catch {
           return unavailable(request, tokenDigest, actor, 'Recovery Plan basis is unavailable or stale');
         }
-        if (dependencies.now() >= Date.parse(request.plan.expiresAt)) return unavailable(request, tokenDigest, actor, 'Recovery Plan is expired');
+        const nowMs = dependencies.now();
+        if (nowMs >= Date.parse(request.plan.expiresAt)) return unavailable(request, tokenDigest, actor, 'Recovery Plan is expired');
       }
 
-      const now = new Date(dependencies.now()).toISOString();
+      let startOwner = false;
+      let ownerWaiter: Deferred | undefined;
       const claim = store.withLock<RecoveryApplyClaimV2>(() => {
-        const planClaim = claimFrom(store.readRecoveryClaim(request.plan.projectId.slice('project/'.length), request.planFingerprint));
-        const tokenClaim = claimFrom(store.readRecoveryToken(request.plan.projectId.slice('project/'.length), tokenDigest));
+        let planClaim = claimFrom(store.readRecoveryClaim(project, request.planFingerprint));
+        const tokenClaim = claimFrom(store.readRecoveryToken(project, tokenDigest));
         if (planClaim) {
           compareClaim(planClaim, request, actor);
-          if (planClaim.tokenDigest !== tokenDigest) return planClaim;
-        }
-        if (tokenClaim) {
+          if (tokenClaim) compareClaim(tokenClaim, request, actor);
+          if (!tokenClaim) {
+            try {
+              store.writeRecoveryTokenAtomic(project, tokenDigest, planClaim as unknown as Record<string, unknown>);
+            } catch {
+              return planClaim;
+            }
+          }
+        } else if (tokenClaim) {
           compareClaim(tokenClaim, request, actor);
-          return tokenClaim;
+          return unknownFromTokenClaim(tokenClaim);
+        } else {
+          const now = new Date(dependencies.now()).toISOString();
+          planClaim = {
+            schemaVersion: RECOVERY_APPLY_SCHEMA_VERSION,
+            planFingerprint: request.planFingerprint,
+            tokenDigest,
+            planningInputDigest: fingerprintRecoveryValue(request.planningInput),
+            actorId: actor,
+            projectId: request.plan.projectId,
+            kind: request.plan.kind,
+            workItemId: request.plan.workItemId,
+            workRunId: request.plan.workRunId,
+            state: 'claimed',
+            receipt: null,
+            claimedAt: now,
+            updatedAt: now,
+            ownerStarted: false,
+          };
+          // The Plan index is authoritative and must precede its token index.
+          store.writeRecoveryClaimAtomic(project, request.planFingerprint, planClaim as unknown as Record<string, unknown>);
+          try {
+            store.writeRecoveryTokenAtomic(project, tokenDigest, planClaim as unknown as Record<string, unknown>);
+          } catch {
+            return planClaim;
+          }
         }
-        const created: RecoveryApplyClaimV2 = {
-          schemaVersion: RECOVERY_APPLY_SCHEMA_VERSION,
-          planFingerprint: request.planFingerprint,
-          tokenDigest,
-          planningInputDigest: fingerprintRecoveryValue(request.planningInput),
-          actorId: actor,
-          projectId: request.plan.projectId,
-          kind: request.plan.kind,
-          workItemId: request.plan.workItemId,
-          workRunId: request.plan.workRunId,
-          state: 'claimed',
-          receipt: null,
-          claimedAt: now,
-          updatedAt: now,
-        };
-        store.writeRecoveryClaimAtomic(request.plan.projectId.slice('project/'.length), request.planFingerprint, created as unknown as Record<string, unknown>);
-        store.writeRecoveryTokenAtomic(request.plan.projectId.slice('project/'.length), tokenDigest, created as unknown as Record<string, unknown>);
-        return created;
+        if (planClaim.state === 'claimed' && !planClaim.ownerStarted) {
+          const started = { ...planClaim, ownerStarted: true, updatedAt: new Date(dependencies.now()).toISOString() };
+          store.writeRecoveryClaimAtomic(project, request.planFingerprint, started as unknown as Record<string, unknown>);
+          try {
+            store.writeRecoveryTokenAtomic(project, tokenDigest, started as unknown as Record<string, unknown>);
+          } catch {
+            // The Plan marker is authoritative; the next request repairs the token index.
+          }
+          ownerWaiter = deferred();
+          inFlight.set(`${request.planFingerprint}:${tokenDigest}`, ownerWaiter);
+          startOwner = true;
+          return started;
+        }
+        return planClaim;
       });
-      if (claim.tokenDigest !== tokenDigest) return responseFromClaim(claim, actor);
+      if (claim.tokenDigest !== tokenDigest || claim.state === 'outcome-unknown' && !startOwner) return responseFromClaim(claim, actor);
       if (claim.state === 'applied' || claim.state === 'outcome-unknown') return responseFromClaim(claim, actor);
+
+      if (!startOwner) {
+        const pending = inFlight.get(`${request.planFingerprint}:${tokenDigest}`);
+        if (pending) {
+          await pending.promise;
+          const latest = store.withLock(() => claimFrom(store.readRecoveryClaim(project, request.planFingerprint)));
+          return latest ? responseFromClaim(latest, actor) : responseFromClaim(claim, actor);
+        }
+        return responseFromClaim(claim, actor);
+      }
 
       try {
         const owner = request.plan.kind === 'resume'
@@ -240,18 +383,33 @@ export function makeRecoveryApplyOperation(dependencies: RecoveryApplyDependenci
         const receipt = makeReceipt(request, claim, owner, new Date(dependencies.now()).toISOString());
         const applied = { ...claim, state: 'applied' as const, receipt, updatedAt: new Date(dependencies.now()).toISOString() };
         store.withLock(() => {
-          const latest = claimFrom(store.readRecoveryClaim(request.plan.projectId.slice('project/'.length), request.planFingerprint));
+          const latest = claimFrom(store.readRecoveryClaim(project, request.planFingerprint));
           if (latest) compareClaim(latest, request, actor);
-          store.writeRecoveryClaimAtomic(request.plan.projectId.slice('project/'.length), request.planFingerprint, applied as unknown as Record<string, unknown>);
-          store.writeRecoveryTokenAtomic(request.plan.projectId.slice('project/'.length), tokenDigest, applied as unknown as Record<string, unknown>);
+          store.writeRecoveryClaimAtomic(project, request.planFingerprint, applied as unknown as Record<string, unknown>);
+          try {
+            store.writeRecoveryTokenAtomic(project, tokenDigest, applied as unknown as Record<string, unknown>);
+          } catch {
+            // The authoritative Plan receipt is durable; the next request repairs this index.
+          }
         });
+        ownerWaiter?.resolve();
+        inFlight.delete(`${request.planFingerprint}:${tokenDigest}`);
         return responseFromClaim(applied, actor);
       } catch {
         const unknown = { ...claim, state: 'outcome-unknown' as const, receipt: null, updatedAt: new Date(dependencies.now()).toISOString() };
-        store.withLock(() => {
-          store.writeRecoveryClaimAtomic(request.plan.projectId.slice('project/'.length), request.planFingerprint, unknown as unknown as Record<string, unknown>);
-          store.writeRecoveryTokenAtomic(request.plan.projectId.slice('project/'.length), tokenDigest, unknown as unknown as Record<string, unknown>);
-        });
+        try {
+          store.withLock(() => {
+            store.writeRecoveryClaimAtomic(project, request.planFingerprint, unknown as unknown as Record<string, unknown>);
+            try {
+              store.writeRecoveryTokenAtomic(project, tokenDigest, unknown as unknown as Record<string, unknown>);
+            } catch {
+              // The authoritative Plan outcome-unknown marker is enough to block replay.
+            }
+          });
+        } finally {
+          ownerWaiter?.resolve();
+          inFlight.delete(`${request.planFingerprint}:${tokenDigest}`);
+        }
         return responseFromClaim(unknown, actor);
       }
     },
