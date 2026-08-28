@@ -175,6 +175,21 @@ function assertPortableFixture(value: unknown, label: string): void {
   visit(value, '$');
 }
 
+export function assertPortableBaseHead(baseHead: unknown, label: string): void {
+  assert.equal(typeof baseHead, 'string', `${label} base_head must be a portable string`);
+  const value = baseHead as string;
+  assert.ok(value.length > 0 && value.length <= 1024,
+    `${label} base_head length ${value.length} is outside the portable range`);
+  assert.equal(/(?:^[a-zA-Z]:[\\/]|^[\\/][\\/]|^file:\/\/|\/(?:Users|home|private|tmp|var\/tmp)\/)/.test(value), false,
+    `${label} base_head must not start with a drive, UNC, file URL, or machine-local prefix: ${value}`);
+  assert.equal(value.includes('\\'), false,
+    `${label} base_head must use portable forward slashes: ${value}`);
+  assert.equal(isAbsolute(value), false,
+    `${label} base_head must not be an absolute path: ${value}`);
+  assert.match(value, /^[A-Za-z0-9][A-Za-z0-9._-]*(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)*\.md$/,
+    `${label} base_head must be a relative note-id-shaped value: ${value}`);
+}
+
 function assertArtifactProjection(value: ArtifactProjection, label: string): void {
   assert.match(value.artifact_id, /^artifact\/[a-z0-9][a-z0-9-]*$/, `${label} has invalid artifact identity`);
   assert.match(value.kind, /^[a-z][a-z0-9-]*$/, `${label} has invalid kind`);
@@ -1312,9 +1327,12 @@ async function verifyFixture(
 
   addCheck(checks, 'shared-state-secret-free', 'machine-local paths and lease fields never enter shared state', () => {
     const shared = JSON.stringify({ marker, durable, parentDurable, hub });
-    for (const value of [vault, deviceState, resolve(leasePath(vault, fixture)), proof.lease.base_head]) {
+    for (const value of [vault, deviceState, resolve(leasePath(vault, fixture))]) {
       assert.equal(shared.includes(value), false, `machine-local value leaked: ${value}`);
     }
+    assertPortableBaseHead(proof.lease.base_head, 'shared-state-secret-free');
+    assert.equal(shared.includes(proof.lease.base_head), true,
+      'relative note-id base_head must appear in shared durable work-item identity (e.g. hub citations)');
     assert.equal(Object.hasOwn(marker, 'lease'), false);
     assert.equal(Object.hasOwn(marker, 'vault'), false);
     assert.equal(Object.hasOwn(marker, 'deviceState'), false);

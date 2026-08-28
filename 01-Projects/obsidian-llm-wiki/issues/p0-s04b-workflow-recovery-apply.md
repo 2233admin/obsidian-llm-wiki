@@ -48,3 +48,45 @@ Blocked by accepted S06A actual-Obsidian preview. Project Hub remains read-only.
 ## Non-goals
 
 - Do not add a mutating Project Hub Operation, server Flow session, manual Work Run start, or Plan store.
+
+## Fix round 2 (Fleet verifier portable base_head)
+
+The phase-all Fleet verifier flagged the legitimate Work Driver `base_head`
+(`01-Projects/fleet-acceptance/issues/cloud-workflow.md`) as a machine-local
+value leak because it was bundled with `vault`, `deviceState`, and the local
+lease path. `base_head` is intentionally the authoritative relative Work
+Note ID and must travel in shared state (hub citations reference it).
+The fix introduces `assertPortableBaseHead`, drops `base_head` from the
+machine-local deny list, and re-asserts every other privacy rule.
+
+- `scripts/verify_fleet_workflow.ts`: exported `assertPortableBaseHead`,
+  removed `proof.lease.base_head` from the leak loop, asserted the portable
+  note-id shape and that it appears in shared state.
+- `scripts/verify_fleet_workflow.test.ts`: positive case accepts the
+  canonical `01-Projects/fleet-acceptance/issues/cloud-workflow.md`;
+  negative case rejects drive (`C:\...`, `C:/...`), UNC, `file://`,
+  `/Users`, `/home`, `/private`, `/tmp`, `/var/tmp`, backslash segments,
+  empty string, missing `.md` suffix, leading `/`, and non-string inputs.
+- `assertSharedSecretFree` and the broad privacy scans remain unchanged.
+
+### Evidence
+
+```
+$ PYTHON=python bun test scripts/verify_fleet_workflow.test.ts
+ 15 pass
+ 0 fail
+Ran 15 tests across 1 file. [6.06s]
+
+$ PYTHON=python bun scripts/verify_fleet_workflow.ts --phase all --json
+... 13 checks pass, including "shared-state-secret-free" ...
+
+$ openspec validate --changes --strict
+✓ change/add-ask-mate-visual-workspace
+✓ change/internalize-agent-wiki-toolchain
+✓ change/official-obsidian-plugin-distribution
+✓ change/project-hub-recovery-loop
+Totals: 4 passed, 0 failed (4 items)
+
+$ git diff --check
+(no output)
+```
