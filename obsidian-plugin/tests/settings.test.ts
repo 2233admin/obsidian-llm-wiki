@@ -180,7 +180,7 @@ test("plugin data migration keeps only presentation, binding, and migration stat
     deviceBinding: { deviceId: "device/local" },
   });
   assert.equal(plan.data.schemaVersion, 2);
-  assert.deepEqual(plan.data.presentation, { selectedScope: "vault", showAdvanced: true });
+  assert.deepEqual(plan.data.presentation, { selectedScope: "vault", showAdvanced: true, settingsExpandedSections: [] });
   assert.deepEqual(plan.data.deviceBinding, { deviceId: "device/local" });
   assert.equal("assignments" in plan.data, false);
   assert.equal("pythonPath" in plan.data, false);
@@ -206,7 +206,7 @@ test("plugin data does not become an Agent Room, Work Run, or memory authority",
 
   assert.deepEqual(plan.data, {
     schemaVersion: 2,
-    presentation: { selectedScope: "vault", showAdvanced: true },
+    presentation: { selectedScope: "vault", showAdvanced: true, settingsExpandedSections: [] },
     deviceBinding: { deviceId: "device/local" },
     legacyMigration: undefined,
   });
