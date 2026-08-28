@@ -381,7 +381,7 @@ The system SHALL register `workflow.recovery.plan` as a `mutating: false` Workfl
 
 - **GIVEN** S04P registers `workflow.recovery.plan`
 - **WHEN** the Operation catalog is built
-- **THEN** it is declared `mutating: false` with schema `workflow-recovery-plan/v1`, request arms `plan/from-search|override|refresh-plan`, and response stages `planned|stale|unavailable`
+- **THEN** it is declared `mutating: false` with schema `workflow-recovery-plan-request/v1`, request arms `plan/from-search|override|refresh-plan` (envelope containing `project-hub-recovery-flow-request/v2` arms), and response stages `planned|stale|unavailable` (V2 Flow response schemas)
 
 #### Scenario R12.2: Operation accepts only Plan arms
 
@@ -407,20 +407,20 @@ The system SHALL register `workflow.recovery.plan` as a `mutating: false` Workfl
 - **WHEN** both execute
 - **THEN** the `planned|stale|unavailable` response is byte-identical; semantics, validators, and fingerprints are not duplicated
 
-### Requirement: R13. One shared planning handler
+### Requirement: R13. One shared planning service
 
-The system SHALL own one internal planning handler that `project.hub.recovery.flow` and `workflow.recovery.plan` both delegate to, without duplicating semantics, validators, or fingerprints.
+The system SHALL own one internal planning service (`RecoveryPlanningService`) that `project.hub.recovery.flow` and `workflow.recovery.plan` both delegate to, without duplicating semantics, validators, or fingerprints.
 
-#### Scenario R13.1: Handler owns prerequisite recomputation
+#### Scenario R13.1: Service owns prerequisite recomputation
 
 - **GIVEN** a Plan request to either surface
-- **WHEN** the handler executes
+- **WHEN** the service executes
 - **THEN** it recomputes open → search → candidate → Binding and derives Plan fingerprint without re-implementing that logic in each caller
 
-#### Scenario R13.2: Handler owns stale/unavailable composition
+#### Scenario R13.2: Service owns stale/unavailable composition
 
 - **GIVEN** a prerequisite fingerprint mismatch or missing capability
-- **WHEN** the handler returns stale or unavailable
+- **WHEN** the service returns stale or unavailable
 - **THEN** the response matches the same shapes and diagnostics as the Flow-only path
 
 ### Requirement: R14. Capability separation: planning never authorizes mutation

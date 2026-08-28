@@ -392,24 +392,30 @@ Canonical operations:
 - `workflow.recovery.apply` — the only recovery resume/create mutation (S04B).
 - `workflow.agent.leave` — the successful/review Work Run completion and output-routing boundary.
 
+**Schema vocabulary:** The Operation request schema is `workflow-recovery-plan-request/v1` (outer envelope). It contains one closed Plan arm from `project-hub-recovery-flow-request/v2` (`plan/from-search`, `plan/override`, or `refresh-plan`). There is no `workflow-recovery-plan/v1` Plan or response schema. Responses reuse existing V2 Flow schemas: `RecoveryPlannedResponseV2`, `RecoveryStaleResponseV2`, `RecoveryUnavailableResponseV2`.
+
 `workflow.recovery.plan` is `mutating: false`, writes zero bytes, has no actor/token/claim/apply path, and persists nothing. It accepts only `plan/from-search`, `plan/override`, and `refresh-plan` arms and returns only `planned`, `stale`, or `unavailable` responses.
 
-### D16. One shared planning handler, two public surfaces
+### D16. `RecoveryPlanningService`: one shared runtime-constructed service
 
-**Handler ownership:** `project.hub.recovery.flow` delegates its `plan`, `refresh-plan`, and `plan/override` actions to one shared internal planning handler. The handler owns:
+**Construction:** `RecoveryPlanningService` is constructed once by core composition (inside `makeAllOperations` or the equivalent composition root) and injected into both `makeProjectHubOps` (for `project.hub.recovery.flow` plan/refresh/override delegation) and `makeWorkflowOps` (for `workflow.recovery.plan` registration). Operation order does not determine capability visibility.
 
+**Service owns:**
 - Full stateless prerequisite recomputation: open → search → candidate → Binding
 - Plan fingerprint derivation and immutable Plan composition
 - Stale/unavailable response composition with ordered changed owners
 - Five-minute expiry enforcement
+- The single `handlePlanRequest` method called by both surfaces
 
-The handler does not own actor validation, claim creation, transition tokens, or receipts — those are apply-only.
+**Service does not own:** actor validation, claim creation, transition tokens, or receipts — those are apply-only.
 
-**Surface duplication is intentional:** `project.hub.recovery.flow` and `workflow.recovery.plan` both expose plan actions. The shared handler ensures semantics, validators, and fingerprints are not copied. Callers of either surface experience identical `planned`/`stale`/`unavailable` behavior.
+**Surface duplication is intentional:** `project.hub.recovery.flow` and `workflow.recovery.plan` both expose plan actions. The shared service ensures semantics, validators, and fingerprints are not copied. Callers of either surface experience identical `planned`/`stale`/`unavailable` behavior.
 
 ### D17. Capability separation: planning never authorizes mutation
 
-**Capability fact introduction:** `workflow.recovery.plan` capability enters production state `available` only when the Operation is registered in `makeWorkflowOps`.
+**Capability fact introduction:** `workflow.recovery.plan` capability enters production state `available` when the Operation is registered in `makeWorkflowOps`. Operation order does not determine capability visibility — the capability fact is injected alongside the Operation registration.
+
+**`defaultRecoveryOwners` / core wiring change:** In the core composition root where `loadCapabilities` is configured for the Recovery open stage, add the `RecoveryPlanningService` instance as an injected dependency. The capability fact factory resolves `workflow.recovery.plan: available` from the same factory used by other Workflow Operations.
 
 **Candidate composition (S04A `composeRecoveryCandidates`):** Requires `workflow.recovery.plan: available` instead of `workflow.recovery.apply: available` for candidate recommendation.
 
@@ -424,6 +430,8 @@ The handler does not own actor validation, claim creation, transition tokens, or
 Missing planning capability → explicit bounded remediation in the unavailable response. Missing apply capability → separate unavailable response from the apply Operation itself.
 
 **Why this breaks the cycle:** Candidate recommendation no longer depends on `workflow.recovery.apply` availability. The full read-only Flow (`searched`, `needs-agent-selection`, `planned`) is reachable without S04B. S04B retains its correct dependency order: apply requires demonstrated preview first.
+
+**Integration test:** After `makeWorkflowOps` registers `workflow.recovery.plan`, calling the capability factory returns `workflow.recovery.plan: available`. This test passes even if `makeProjectHubOps` is not yet called — operation order does not determine capability visibility. Before S04B, `workflow.recovery.apply` is not available; after S04P, apply request returns `unavailable`.
 
 ## Data flow
 
