@@ -2,10 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   ProjectHubRecoveryClient,
+  RECOVERY_APPLY_OPERATION,
   RECOVERY_FLOW_REQUEST_SCHEMA_VERSION,
 } from "../src/project-hub/recovery-client";
 import { ProjectHubRecoveryPanel } from "../src/project-hub/recovery-panel";
 import type { RecoveryFlowResponseV2 } from "../../mcp-server/src/project-hub/recovery-flow";
+import type { RecoveryApplyResponseV2 } from "../../mcp-server/src/workflow/recovery-apply";
 
 const projectId = "project/alpha" as const;
 const fp = (char: string) => `sha256:${char.repeat(64)}` as `sha256:${string}`;
@@ -69,6 +71,36 @@ function plannedResponse(): RecoveryFlowResponseV2 {
   return { schemaVersion: "project-hub-recovery-flow/v2", stage: "planned", projectId, previousFlowFingerprint: fp("8"), actionInputFingerprint: fp("a"), recoveryFingerprint: fp("2"), ownerLocks: [], payload: { kind: "planned", plan, candidates: [candidate.candidateId] }, nextRequestIntents: [{ action: "refresh-plan", query: "recovery", limit: 5, priorPlan: plan }], diagnostics: [], omitted: { items: 0, citations: 0, diagnostics: 0, bytes: 0 }, rootOpenFlowFingerprint: fp("3"), nextRequests: [{ schemaVersion: RECOVERY_FLOW_REQUEST_SCHEMA_VERSION, projectId, action: "refresh-plan", openFlowFingerprint: fp("3"), searchedBasisFlowFingerprint: fp("8"), plannedFlowFingerprint: fp("a"), query: "recovery", limit: 5, priorPlan: plan }], generatedAt: "2026-08-28T00:00:00.000Z", flowFingerprint: fp("a") } as RecoveryFlowResponseV2;
 }
 
+function applyResponse(state: RecoveryApplyResponseV2["state"]): RecoveryApplyResponseV2 {
+  const receipt = state === "applied" ? {
+    schemaVersion: "recovery-apply/v2" as const,
+    planFingerprint: fp("9"),
+    tokenDigest: fp("b"),
+    projectId,
+    kind: "resume" as const,
+    workItemId: candidate.workItemId,
+    workRunId: candidate.workRunId,
+    ownerOperation: "workflow.agent.join" as const,
+    ownerReceiptFingerprint: fp("c"),
+    ownerReceipt: { ok: true, projectId, workItemId: candidate.workItemId, workRunId: candidate.workRunId, agent: "obsidian-control-plane" },
+    recordedAt: "2026-08-28T00:01:00.000Z",
+    fingerprint: fp("d"),
+  } : null;
+  return {
+    schemaVersion: "recovery-apply/v2",
+    state,
+    projectId,
+    planFingerprint: fp("9"),
+    tokenDigest: fp("b"),
+    actorId: "obsidian-control-plane",
+    kind: "resume",
+    workRunId: candidate.workRunId,
+    receipt,
+    diagnostics: state === "outcome-unknown" ? ["Owner outcome is unknown; reconcile before retrying."] : [],
+    fingerprint: fp("e"),
+  };
+}
+
 test("panel follows only the exact closed recommendation and keeps state ephemeral", async () => {
   const calls: Array<{ operation: string; args: Record<string, unknown> }> = [];
   const client = new ProjectHubRecoveryClient({
@@ -108,6 +140,67 @@ test("panel cancellation ignores a late search response", async () => {
   await search;
   assert.equal(panel.state.flow?.stage, "open");
   assert.equal(panel.state.busy, false);
+});
+
+test("exact Plan confirmation supports zero-mutation cancel and applied owner restart", async () => {
+  const root = new FakeElement("div");
+  const calls: Array<{ operation: string; args: Record<string, unknown> }> = [];
+  const client = new ProjectHubRecoveryClient({
+    async invoke<T>(operation: string, args: Record<string, unknown>): Promise<T> {
+      calls.push({ operation, args });
+      if (operation === RECOVERY_APPLY_OPERATION) return applyResponse("applied") as T;
+      const request = args.request as { action: string };
+      if (request.action === "open") return openResponse() as T;
+      if (request.action === "search") return searchedResponse() as T;
+      return plannedResponse() as T;
+    },
+  });
+  const panel = new ProjectHubRecoveryPanel(client, root as unknown as HTMLElement, undefined, "obsidian-control-plane");
+  await panel.open(projectId);
+  await panel.search("recovery");
+
+  root.querySelectorAll<FakeElement>("button").find(button => button.textContent === "Confirm exact Plan")?.onclick?.({});
+  root.querySelectorAll<FakeElement>("button").find(button => button.textContent === "Cancel")?.onclick?.({});
+  assert.equal(calls.some(call => call.operation === RECOVERY_APPLY_OPERATION), false, "cancel must not invoke Workflow apply");
+
+  root.querySelectorAll<FakeElement>("button").find(button => button.textContent === "Confirm exact Plan")?.onclick?.({});
+  root.querySelectorAll<FakeElement>("button").find(button => button.textContent === "Confirm and apply")?.onclick?.({});
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(calls.filter(call => call.operation === RECOVERY_APPLY_OPERATION).length, 1, "double activation has one apply request");
+  const applyCall = calls.find(call => call.operation === RECOVERY_APPLY_OPERATION)!;
+  assert.deepEqual((applyCall.args.request as { plan: unknown }).plan, plannedResponse().payload.plan);
+  assert.deepEqual((applyCall.args.request as { planningInput: unknown }).planningInput, { query: "recovery", limit: 5 });
+  assert.equal(panel.state.flow?.stage, "open", "applied receipt restarts from current owners");
+  assert.equal(panel.state.query, "", "owner restart discards current ephemeral query");
+  assert.equal(JSON.stringify(panel.state).includes("transitionToken"), false);
+  assert.ok(root.querySelectorAll<FakeElement>("p").some(item => item.textContent.includes("Apply state: applied")));
+});
+
+test("outcome-unknown displays reconciliation and disables replay", async () => {
+  const root = new FakeElement("div");
+  const client = new ProjectHubRecoveryClient({
+    async invoke<T>(operation: string, args: Record<string, unknown>): Promise<T> {
+      if (operation === RECOVERY_APPLY_OPERATION) return applyResponse("outcome-unknown") as T;
+      const action = (args.request as { action: string }).action;
+      if (action === "open") return openResponse() as T;
+      if (action === "search") return searchedResponse() as T;
+      return plannedResponse() as T;
+    },
+  });
+  const panel = new ProjectHubRecoveryPanel(client, root as unknown as HTMLElement);
+  await panel.open(projectId);
+  await panel.search("recovery");
+  root.querySelectorAll<FakeElement>("button").find(button => button.textContent === "Confirm exact Plan")?.onclick?.({});
+  root.querySelectorAll<FakeElement>("button").find(button => button.textContent === "Confirm and apply")?.onclick?.({});
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(panel.state.applyResponse?.state, "outcome-unknown");
+  const confirm = root.querySelectorAll<FakeElement>("button").find(button => button.textContent === "Confirm exact Plan");
+  assert.equal(confirm?.disabled, true);
+  assert.ok(root.querySelectorAll<FakeElement>("p").some(item => item.textContent.includes("Workflow outcome is unknown")));
+  assert.equal(panel.state.flow?.stage, "planned", "unknown outcome does not become current owner truth");
 });
 
 test("search button follows the current query and submits once", async () => {

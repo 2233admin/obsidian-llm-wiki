@@ -3136,3 +3136,21 @@
   overflow-wrap: anywhere;
   text-align: left;
 }
+
+.llmwiki-ask-mate-recovery button,
+.llmwiki-ask-mate-recovery input {
+  min-height: 40px;
+}
+
+.llmwiki-recovery-confirmation {
+  border-left: 3px solid var(--interactive-accent);
+  margin-top: 12px;
+  padding: 10px 12px;
+}
+
+.llmwiki-recovery-receipt {
+  max-width: 100%;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

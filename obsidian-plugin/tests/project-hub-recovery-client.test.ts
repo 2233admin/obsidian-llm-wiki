@@ -2,8 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   ProjectHubRecoveryClient,
+  RECOVERY_APPLY_OPERATION,
+  RECOVERY_APPLY_REQUEST_SCHEMA_VERSION,
   RECOVERY_FLOW_OPERATION,
   RECOVERY_FLOW_REQUEST_SCHEMA_VERSION,
+  recoveryApplyTransitionToken,
 } from "../src/project-hub/recovery-client";
 import type {
   RecoveryPlanFromSearchRequestV2,
@@ -49,7 +52,7 @@ const plan = {
   fingerprint,
 };
 
-test("Recovery client forwards only the pinned read-only Operation payloads", async () => {
+test("Recovery client forwards Flow and exact apply Operation payloads", async () => {
   const calls: Array<{ operation: string; args: Record<string, unknown> }> = [];
   const client = new ProjectHubRecoveryClient({
     async invoke<T>(operation: string, args: Record<string, unknown>): Promise<T> {
@@ -101,6 +104,7 @@ test("Recovery client forwards only the pinned read-only Operation payloads", as
     staleProof,
   };
   await client.restart(restart);
+  await client.apply(plan, { query: " recovery ", limit: 5 }, "obsidian-control-plane");
 
   assert.deepEqual(calls.map(call => call.operation), [
     RECOVERY_FLOW_OPERATION,
@@ -108,8 +112,41 @@ test("Recovery client forwards only the pinned read-only Operation payloads", as
     RECOVERY_FLOW_OPERATION,
     RECOVERY_FLOW_OPERATION,
     RECOVERY_FLOW_OPERATION,
+    RECOVERY_APPLY_OPERATION,
   ]);
-  assert.deepEqual(calls.map(call => (call.args.request as { action: string }).action), ["open", "search", "plan", "refresh-plan", "restart"]);
-  assert.equal("apply" in client, false, "the preview client exposes no mutation method");
-  assert.equal(JSON.stringify(calls).includes("token"), false);
+  assert.deepEqual(calls.slice(0, 5).map(call => (call.args.request as { action: string }).action), ["open", "search", "plan", "refresh-plan", "restart"]);
+  const apply = calls[5]?.args.request as {
+    schemaVersion: string;
+    plan: typeof plan;
+    planFingerprint: string;
+    planningInput: { query: string; limit: number };
+    transitionToken: string;
+  };
+  assert.equal(apply.schemaVersion, RECOVERY_APPLY_REQUEST_SCHEMA_VERSION);
+  assert.deepEqual(apply.plan, plan);
+  assert.equal(apply.planFingerprint, plan.fingerprint);
+  assert.deepEqual(apply.planningInput, { query: "recovery", limit: 5 });
+  assert.equal(apply.transitionToken, recoveryApplyTransitionToken({
+    projectId,
+    planFingerprint: plan.fingerprint,
+    confirmationActor: "obsidian-control-plane",
+  }));
+  assert.equal(apply.transitionToken, recoveryApplyTransitionToken({
+    projectId,
+    planFingerprint: plan.fingerprint,
+    confirmationActor: "obsidian-control-plane",
+  }));
+  assert.notEqual(apply.transitionToken, recoveryApplyTransitionToken({
+    projectId,
+    planFingerprint: plan.fingerprint,
+    confirmationActor: "another-actor",
+  }));
+});
+
+test("Recovery apply token binds operation, canonical Project, Plan fingerprint, and actor", () => {
+  const base = recoveryApplyTransitionToken({ projectId, planFingerprint: fingerprint, confirmationActor: "actor-a" });
+  assert.match(base, /^recovery-apply:[a-f0-9]{64}$/);
+  assert.notEqual(base, recoveryApplyTransitionToken({ projectId: "project/beta", planFingerprint: fingerprint, confirmationActor: "actor-a" }));
+  assert.notEqual(base, recoveryApplyTransitionToken({ projectId, planFingerprint: `sha256:${"b".repeat(64)}`, confirmationActor: "actor-a" }));
+  assert.notEqual(base, recoveryApplyTransitionToken({ projectId, planFingerprint: fingerprint, confirmationActor: "actor-b" }));
 });

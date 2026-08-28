@@ -1,7 +1,7 @@
 ---
 type: issue
 entity: project/obsidian-llm-wiki/issue/p0-s06b-obsidian-recovery-action
-state: backlog
+state: in-progress
 review: reviewed
 kind: knowledge-task
 id: obsidian-llm-wiki/p0-s06b-obsidian-recovery-action

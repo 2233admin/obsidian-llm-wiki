@@ -11,9 +11,11 @@ import type {
   RecoverySearchedPayloadV2,
   RecoveryStaleProofV2,
 } from "../../../mcp-server/src/project-hub/recovery-flow";
+import type { RecoveryApplyResponseV2 } from "../../../mcp-server/src/workflow/recovery-apply";
 import {
   ProjectHubRecoveryClient,
   RECOVERY_FLOW_REQUEST_SCHEMA_VERSION,
+  type RecoveryApplyPlanningInput,
   type RecoveryPlanRequestV2,
   type RecoveryProjectId,
 } from "./recovery-client";
@@ -27,6 +29,8 @@ export interface RecoveryPanelState {
   query: string;
   selectedCandidateId: string | null;
   selectedBinding: RecoveryAgentSelectionV2 | null;
+  applyResponse: RecoveryApplyResponseV2 | null;
+  confirming: boolean;
   busy: boolean;
   error: string | null;
 }
@@ -38,11 +42,13 @@ export class ProjectHubRecoveryPanel {
   #state: RecoveryPanelState;
   #generation = 0;
   #disposed = false;
+  #busyMutation = false;
 
   constructor(
     private readonly client: ProjectHubRecoveryClient,
     private container: HTMLElement | null = null,
     private readonly onCitation?: CitationHandler,
+    private readonly confirmationActor = "obsidian-control-plane",
   ) {
     this.#state = this.emptyState("project/unknown");
   }
@@ -53,6 +59,7 @@ export class ProjectHubRecoveryPanel {
 
   async open(projectId: RecoveryProjectId): Promise<void> {
     this.#disposed = false;
+    this.#busyMutation = false;
     this.#generation += 1;
     this.#state = this.emptyState(projectId);
     await this.execute(() => this.client.open(projectId));
@@ -72,6 +79,8 @@ export class ProjectHubRecoveryPanel {
     this.#state.query = normalized;
     this.#state.selectedCandidateId = null;
     this.#state.selectedBinding = null;
+    this.#state.applyResponse = null;
+    this.#state.confirming = false;
     const request: RecoverySearchRequestV2 = {
       schemaVersion: RECOVERY_FLOW_REQUEST_SCHEMA_VERSION,
       projectId: this.#state.projectId,
@@ -152,7 +161,72 @@ export class ProjectHubRecoveryPanel {
       this.fail("The server did not provide an exact Plan refresh request.");
       return;
     }
+    this.#state.applyResponse = null;
+    this.#state.confirming = false;
     await this.execute(() => this.client.refreshPlan(request));
+  }
+
+  beginConfirmation(): void {
+    const flow = this.#state.flow;
+    if (!flow || flow.stage !== "planned") {
+      this.fail("Show the current Recovery Plan before confirming it.");
+      return;
+    }
+    if (this.#state.applyResponse?.state === "outcome-unknown") {
+      this.fail("Owner outcome is unknown. Apply and replay are disabled until Workflow doctor reconciliation.");
+      return;
+    }
+    if (Date.parse(flow.payload.plan.expiresAt) <= Date.now()) {
+      this.fail("This Plan is expired. Refresh Plan explicitly before confirming it.");
+      return;
+    }
+    this.#state.error = null;
+    this.#state.confirming = true;
+    this.render();
+  }
+
+  cancelConfirmation(): void {
+    if (!this.#state.confirming) return;
+    this.#state.confirming = false;
+    this.#state.error = null;
+    this.render();
+  }
+
+  async apply(): Promise<void> {
+    const flow = this.#state.flow;
+    if (this.#state.busy || !this.#state.confirming) return;
+    if (!flow || flow.stage !== "planned") {
+      this.fail("Show the current Recovery Plan before applying it.");
+      return;
+    }
+    const plan = flow.payload.plan;
+    if (Date.parse(plan.expiresAt) <= Date.now()) {
+      this.#state.confirming = false;
+      this.fail("This Plan is expired. Refresh Plan explicitly before applying it.");
+      return;
+    }
+    const refreshRequest = flow.nextRequests.find(request => request.action === "refresh-plan");
+    if (!refreshRequest || refreshRequest.priorPlan.fingerprint !== plan.fingerprint) {
+      this.#state.confirming = false;
+      this.fail("The exact visible Plan planning input is unavailable; refresh the Plan explicitly.");
+      return;
+    }
+    const planningInput: RecoveryApplyPlanningInput = {
+      query: refreshRequest.query,
+      limit: refreshRequest.limit,
+    };
+    this.#state.confirming = false;
+    const response = await this.executeApply(() => this.client.apply(plan, planningInput, this.confirmationActor));
+    if (response?.state !== "applied" || this.#disposed) return;
+
+    // An applied receipt is the only path that discards this Flow. The fresh
+    // open is then sourced from current owners, not the old in-memory Plan.
+    const projectId = this.#state.projectId;
+    this.#state.flow = null;
+    this.#state.query = "";
+    this.#state.selectedCandidateId = null;
+    this.#state.selectedBinding = null;
+    await this.execute(() => this.client.open(projectId));
   }
 
   async restart(): Promise<void> {
@@ -175,7 +249,7 @@ export class ProjectHubRecoveryPanel {
   }
 
   cancel(): void {
-    if (!this.#state.busy) return;
+    if (!this.#state.busy || this.#busyMutation) return;
     this.#generation += 1;
     this.#state.busy = false;
     this.#state.error = "Request cancelled. No recovery data was written.";
@@ -203,12 +277,23 @@ export class ProjectHubRecoveryPanel {
       const item = progress.createEl("li", { text: stage, cls: stage === this.#state.flow?.stage ? "is-current" : undefined });
       item.setAttr("aria-current", stage === this.#state.flow?.stage ? "step" : "false");
     }
-    if (this.#state.busy) {
+    if (this.#state.busy && !this.#busyMutation) {
       const cancel = target.createEl("button", { text: "Cancel" });
       cancel.onclick = () => this.cancel();
     }
     const flow = this.#state.flow;
-    if (!flow) return;
+    if (!flow) {
+      if (this.#state.applyResponse) this.renderApplyResponse(target, this.#state.applyResponse);
+      if (focusKey) {
+        for (const element of target.querySelectorAll<HTMLElement>("[data-recovery-focus]")) {
+          if (element.getAttribute("data-recovery-focus") === focusKey) {
+            element.focus();
+            break;
+          }
+        }
+      }
+      return;
+    }
     this.renderFlowFacts(target, flow);
     switch (flow.stage) {
       case "open": this.renderOpen(target, flow.payload); break;
@@ -218,6 +303,7 @@ export class ProjectHubRecoveryPanel {
       case "stale": this.renderStale(target, flow.payload); break;
       case "unavailable": this.renderUnavailable(target, flow.payload.reason, flow.payload.remediation); break;
     }
+    if (this.#state.applyResponse) this.renderApplyResponse(target, this.#state.applyResponse);
     this.renderDiagnostics(target, flow);
     if (focusKey) {
       for (const element of target.querySelectorAll<HTMLElement>("[data-recovery-focus]")) {
@@ -259,13 +345,48 @@ export class ProjectHubRecoveryPanel {
     }
   }
 
+  private async executeApply(operation: () => Promise<RecoveryApplyResponseV2>): Promise<RecoveryApplyResponseV2 | null> {
+    const generation = ++this.#generation;
+    this.#busyMutation = true;
+    this.#state.busy = true;
+    this.#state.error = null;
+    this.render();
+    try {
+      const response = await operation();
+      if (this.#disposed || generation !== this.#generation) return null;
+      this.#state.applyResponse = response;
+      return response;
+    } catch (error) {
+      if (!this.#disposed && generation === this.#generation) {
+        this.#state.error = safePresentationText(error instanceof Error ? error.message : error);
+      }
+      return null;
+    } finally {
+      if (!this.#disposed && generation === this.#generation) {
+        this.#state.busy = false;
+        this.render();
+      }
+      if (generation === this.#generation) this.#busyMutation = false;
+    }
+  }
+
   private fail(message: string): void {
     this.#state.error = message;
     this.render();
   }
 
   private emptyState(projectId: RecoveryProjectId): RecoveryPanelState {
-    return { projectId, flow: null, query: "", selectedCandidateId: null, selectedBinding: null, busy: false, error: null };
+    return {
+      projectId,
+      flow: null,
+      query: "",
+      selectedCandidateId: null,
+      selectedBinding: null,
+      applyResponse: null,
+      confirming: false,
+      busy: false,
+      error: null,
+    };
   }
 
   private isClosedRecommendation(flow: RecoveryFlowResponseV2 | null): flow is Extract<RecoveryFlowResponseV2, { stage: "searched" }> {
@@ -376,6 +497,12 @@ export class ProjectHubRecoveryPanel {
     this.fact(section, "Profile", `${plan.agentSelection.profileId} · revision ${plan.agentSelection.profileRevision}`);
     this.fact(section, "Created", plan.createdAt);
     this.fact(section, "Expires", plan.expiresAt);
+    this.fact(section, "Root open fingerprint", plan.rootOpenFlowFingerprint);
+    this.fact(section, "Searched basis fingerprint", plan.searchedBasisFlowFingerprint);
+    this.fact(section, "Recovery fingerprint", plan.recoveryFingerprint);
+    this.fact(section, "Search input fingerprint", plan.searchInputFingerprint);
+    this.fact(section, "Search fingerprint", plan.searchFingerprint);
+    this.fact(section, "Candidate set fingerprint", plan.candidateSetFingerprint);
     this.fact(section, "Plan fingerprint", plan.fingerprint);
     this.fact(section, "Apply boundary", plan.owningOperation);
     this.fact(section, "Owner locks", `${plan.ownerLocks.length} bound owner revisions`);
@@ -408,7 +535,54 @@ export class ProjectHubRecoveryPanel {
     const refresh = section.createEl("button", { text: "Refresh Plan" });
     refresh.disabled = this.#state.busy;
     refresh.onclick = () => void this.refreshPlan();
-    section.createEl("p", { text: "S06A is preview-only. No apply or success receipt is available here." });
+    const unknown = this.#state.applyResponse?.state === "outcome-unknown";
+    const confirm = section.createEl("button", { text: "Confirm exact Plan", cls: "mod-cta" });
+    confirm.disabled = this.#state.busy || unknown || Date.parse(plan.expiresAt) <= Date.now();
+    confirm.setAttr("data-recovery-focus", "confirm-plan");
+    confirm.onclick = () => this.beginConfirmation();
+    if (this.#state.confirming) {
+      const confirmation = section.createEl("div", {
+        cls: "llmwiki-recovery-confirmation",
+        attr: { role: "group", "aria-labelledby": "llmwiki-recovery-confirmation-title" },
+      });
+      confirmation.createEl("h4", { text: "Confirm exact Plan" }).setAttr("id", "llmwiki-recovery-confirmation-title");
+      confirmation.createEl("p", { text: `Apply the currently visible Plan ${safePresentationText(plan.fingerprint)} for ${safePresentationText(plan.projectId)}?` });
+      confirmation.createEl("p", { text: "This is the only mutation step. Cancel performs no Workflow request." });
+      const apply = confirmation.createEl("button", { text: "Confirm and apply", cls: "mod-cta" });
+      apply.disabled = this.#state.busy || unknown;
+      apply.setAttr("data-recovery-focus", "confirm-apply");
+      apply.onclick = () => void this.apply();
+      const cancel = confirmation.createEl("button", { text: "Cancel" });
+      cancel.disabled = this.#state.busy;
+      cancel.setAttr("data-recovery-focus", "cancel-confirmation");
+      cancel.onclick = () => this.cancelConfirmation();
+    }
+  }
+
+  private renderApplyResponse(container: HTMLElement, response: RecoveryApplyResponseV2): void {
+    const section = this.section(container, "Recovery apply result");
+    const status = section.createEl("p", { text: `Apply state: ${safePresentationText(response.state)}` });
+    status.setAttr("role", response.state === "outcome-unknown" || response.state === "unavailable" ? "alert" : "status");
+    status.setAttr("aria-live", "polite");
+    this.fact(section, "Applied Plan fingerprint", response.planFingerprint);
+    this.fact(section, "Token digest", response.tokenDigest);
+    for (const diagnostic of response.diagnostics) section.createEl("p", { text: safePresentationText(diagnostic) });
+    if (response.receipt) {
+      this.fact(section, "Owner operation", response.receipt.ownerOperation);
+      this.fact(section, "Receipt fingerprint", response.receipt.fingerprint);
+      const receipt = section.createEl("pre", {
+        cls: "llmwiki-recovery-receipt",
+        text: JSON.stringify(response.receipt, null, 2),
+      });
+      receipt.setAttr("aria-label", "Exact sanitized owner receipt");
+    }
+    if (response.state === "outcome-unknown") {
+      const remediation = section.createEl("p", {
+        cls: "llmwiki-recovery-remediation",
+        text: "Workflow outcome is unknown; apply and replay are disabled. Run Workflow doctor to reconcile the owner before any retry.",
+      });
+      remediation.setAttr("role", "alert");
+    }
   }
 
   private renderStale(container: HTMLElement, proof: RecoveryStaleProofV2): void {
