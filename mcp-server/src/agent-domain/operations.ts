@@ -339,6 +339,7 @@ async function moveCadenceWorkRunToReview(
   identity: ReturnType<typeof dreamTimeCadenceIdentity>,
   workRunId: WorkRunId,
   proposalId: MemoryProposalId,
+  actor: string,
   workflowOptions: WorkflowOperationsOptions,
 ): Promise<void> {
   const workRun = readCanonicalWorkRun(vaultPath, project, workRunId);
@@ -355,7 +356,7 @@ async function moveCadenceWorkRunToReview(
   };
   await workflowOperation(vaultPath, 'workflow.agent.leave', workflowOptions).handler(ctx, {
     project: project.projectId,
-    agent: identity.agentId,
+    agent: actor,
     mode: 'complete',
     work_run_id: workRunId,
     target_state: 'awaiting_review',
@@ -1388,7 +1389,7 @@ function dreamTimeCadenceOperations(
           requestedActor,
           cadenceRequestFingerprint,
         );
-        await moveCadenceWorkRunToReview(ctx, vaultPath, project, identity, workRunId, existingProposal.proposalId, workflowOptions);
+        await moveCadenceWorkRunToReview(ctx, vaultPath, project, identity, workRunId, existingProposal.proposalId, requestedActor, workflowOptions);
         appendGovernedUsage(vaultPath, {
           kind: 'dreamtime',
           idempotencyKey: `dreamtime-cadence:${identity.invocationId}`,
@@ -1487,7 +1488,7 @@ function dreamTimeCadenceOperations(
       try {
         const started = await workflowOperation(vaultPath, 'workflow.agent.start', workflowOptions).handler(ctx, {
           project: project.projectId,
-          agent: identity.agentId,
+          agent: requestedActor,
           role: 'memory-maintenance',
           host: 'llmwiki-dreamtime',
           objective: `Dream Time ${window.operation} proposal for ${window.periodKey}`,
@@ -1596,7 +1597,7 @@ function dreamTimeCadenceOperations(
         candidate: { ...preflightCandidate, provenance: proposalProvenance },
         actor: requestedActor,
       }, () => asOf);
-      await moveCadenceWorkRunToReview(ctx, vaultPath, project, identity, workRunId, proposal.proposalId, workflowOptions);
+      await moveCadenceWorkRunToReview(ctx, vaultPath, project, identity, workRunId, proposal.proposalId, requestedActor, workflowOptions);
       appendGovernedUsage(vaultPath, {
         kind: 'dreamtime',
         idempotencyKey: `dreamtime-cadence:${identity.invocationId}`,

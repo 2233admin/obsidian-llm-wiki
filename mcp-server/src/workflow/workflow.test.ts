@@ -38,7 +38,14 @@ function makeHarness() {
   const call = async (name: string, params: Record<string, unknown> = {}) => {
     const op = byName.get(name) as Operation | undefined;
     assert.ok(op, `missing op: ${name}`);
-    return op.handler(ctx, params);
+    // Direct handler tests now model the authenticated child actor explicitly;
+    // production leave never trusts params.agent as an actor source.
+    const previousActor = ctx.config.collaboration?.actor;
+    if (name === 'workflow.agent.leave' && typeof params.agent === 'string' && ctx.config.collaboration) {
+      ctx.config.collaboration.actor = params.agent;
+    }
+    try { return await op.handler(ctx, params); }
+    finally { if (ctx.config.collaboration) ctx.config.collaboration.actor = previousActor; }
   };
   return { root, call, byName, ctx };
 }
@@ -60,6 +67,21 @@ function outputSubmission(project: string, workItemId: string, workRunId: string
     producedAt: '2026-08-28T00:00:00.000Z',
   };
   return { schemaVersion: 'work-run-output-submission/v1' as const, result: 'output' as const, output: { ...material, fingerprint: fingerprintRecoveryValue(material) }, quarantine: null };
+}
+
+function quarantineSubmission(project: string, workItemId: string, workRunId: string) {
+  const material = {
+    schemaVersion: 'work-run-output-quarantine/v1' as const,
+    projectId: `project/${project}`,
+    workItemId,
+    workRunId,
+    observedClass: 'view' as const,
+    payloadFingerprint: null,
+    provenance: ['test:quarantine'],
+    diagnostics: [{ owner: 'workflow' as const, code: 'malformed-output', severity: 'error' as const, message: 'Output requires review.', remediation: 'Inspect and resubmit.', citationTargets: [] }],
+    producedAt: '2026-08-28T00:00:00.000Z',
+  };
+  return { schemaVersion: 'work-run-output-submission/v1' as const, result: 'quarantine' as const, output: null, quarantine: { ...material, fingerprint: fingerprintRecoveryValue(material) } };
 }
 
 interface WorkRunContractFixture {
@@ -1746,6 +1768,50 @@ test('workflow.agent.leave authorizes the exact agent through the production dis
       }),
       /not authorized for the requested agent lifetime/,
     );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('workflow.agent.leave rejects a cross-agent actor without a dispatcher', async () => {
+  const { root, call, byName, ctx } = makeHarness();
+  try {
+    const started = await call('workflow.agent.start', { project: 'alpha', agent: 'worker', transition_token: 'join:direct-authz' }) as { workRunId: string };
+    await assert.rejects(
+      () => (byName.get('workflow.agent.leave') as Operation).handler(ctx, {
+        project: 'project/alpha', agent: 'worker', mode: 'terminate', work_run_id: started.workRunId,
+        target_state: 'cancelled', transition_token: 'leave:direct-authz', submission: null, summary: 'not authorized',
+      }),
+      /not authorized for the requested agent lifetime/,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('workflow.agent.leave quarantine is review-required and does not mutate lifetime or events', async () => {
+  const { root, call } = makeHarness();
+  try {
+    const started = await call('workflow.agent.start', { project: 'alpha', agent: 'worker', issue: 'build', transition_token: 'join:quarantine' }) as { workRunId: string; path: string; eventsPath: string; lifetime: { workItemId: string } };
+    const workItemId = started.lifetime.workItemId;
+    const beforeLifetime = readFileSync(vp(root, started.path), 'utf8');
+    const beforeEvents = readFileSync(vp(root, started.eventsPath), 'utf8');
+    const result = await call('workflow.agent.leave', {
+      project: 'alpha', agent: 'worker', work_run_id: started.workRunId,
+      mode: 'complete', target_state: 'awaiting_review', transition_token: 'leave:quarantine',
+      submission: quarantineSubmission('alpha', workItemId, started.workRunId), summary: 'quarantined',
+    }) as { outputRoute: { state: string; ownerOperation: string | null; ownerReceiptFingerprint: string | null; fingerprint: string } };
+    assert.equal(result.outputRoute.state, 'review-required');
+    assert.equal(result.outputRoute.ownerOperation, null);
+    assert.equal(result.outputRoute.ownerReceiptFingerprint, null);
+    assert.equal(readFileSync(vp(root, started.path), 'utf8'), beforeLifetime);
+    assert.equal(readFileSync(vp(root, started.eventsPath), 'utf8'), beforeEvents);
+    const replay = await call('workflow.agent.leave', {
+      project: 'alpha', agent: 'worker', work_run_id: started.workRunId,
+      mode: 'complete', target_state: 'awaiting_review', transition_token: 'leave:quarantine',
+      submission: quarantineSubmission('alpha', workItemId, started.workRunId), summary: 'quarantined',
+    }) as { outputRoute: { fingerprint: string } };
+    assert.equal(replay.outputRoute.fingerprint, result.outputRoute.fingerprint);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

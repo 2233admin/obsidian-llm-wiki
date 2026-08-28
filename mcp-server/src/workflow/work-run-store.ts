@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { conflict } from '../core/types.js';
@@ -20,6 +20,8 @@ export interface WorkRunStore {
   writeOutputClaimAtomic(projectSlug: string, outputFingerprint: RecoveryFingerprint, value: Record<string, unknown>): void;
   readOutputToken(projectSlug: string, tokenDigest: RecoveryFingerprint): Record<string, unknown> | null;
   writeOutputTokenAtomic(projectSlug: string, tokenDigest: RecoveryFingerprint, value: Record<string, unknown>): void;
+  /** Strictly scan bounded output claims to recover a token whose output index was interrupted. */
+  findOutputClaimByTokenDigest(projectSlug: string, tokenDigest: RecoveryFingerprint): Record<string, unknown> | null;
 }
 
 export function vaultJoin(vaultPath: string, relPath: string): string {
@@ -75,6 +77,19 @@ function claimPath(vaultPath: string, project: string, kind: string, digest: str
   return vaultJoin(vaultPath, `01-Projects/${project}/runs/${kind}/${digestPart(digest)}.json`);
 }
 
+function findOutputClaimByTokenDigest(vaultPath: string, project: string, tokenDigest: RecoveryFingerprint): Record<string, unknown> | null {
+  const directory = vaultJoin(vaultPath, `01-Projects/${project}/runs/output-claims`);
+  if (!existsSync(directory)) return null;
+  const matches: Record<string, unknown>[] = [];
+  for (const name of readdirSync(directory)) {
+    if (!/^[a-f0-9]{64}\.json$/u.test(name)) throw conflict('Work Run output claim index contains an unsafe entry');
+    const value = readObject(join(directory, name), 'Work Run output claim');
+    if (value && value.tokenDigest === tokenDigest) matches.push(value);
+  }
+  if (matches.length > 1) throw conflict('Work Run output token is bound to multiple claims');
+  return matches[0] ?? null;
+}
+
 export function createFileWorkRunStore(vaultPath: string): WorkRunStore {
   const readClaim = (project: string, kind: string, digest: string) => readObject(claimPath(vaultPath, project, kind, digest), `${kind} claim`);
   const writeClaim = (project: string, kind: string, digest: string, value: Record<string, unknown>) => writeJsonAtomic(claimPath(vaultPath, project, kind, digest), value);
@@ -125,5 +140,6 @@ export function createFileWorkRunStore(vaultPath: string): WorkRunStore {
     writeOutputClaimAtomic: (project, digest, value) => writeClaim(project, 'output-claims', digest, value),
     readOutputToken: (project, digest) => readClaim(project, 'output-tokens', digest),
     writeOutputTokenAtomic: (project, digest, value) => writeClaim(project, 'output-tokens', digest, value),
+    findOutputClaimByTokenDigest: (project, tokenDigest) => findOutputClaimByTokenDigest(vaultPath, project, tokenDigest),
   };
 }

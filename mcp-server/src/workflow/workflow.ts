@@ -20,8 +20,9 @@ import {
   type RecoveryPlanningService,
 } from '../project-hub/recovery-planning-service.js';
 import { canonicalRecoveryJson, fingerprintRecoveryValue } from '../project-hub/contract-support.js';
-import { RECOVERY_FLOW_REQUEST_SCHEMA_VERSION, type RecoveryPlanV2 } from '../project-hub/recovery-flow.js';
+import { RECOVERY_FLOW_REQUEST_SCHEMA_VERSION, type RecoveryFlowDiagnosticV2, type RecoveryPlanV2 } from '../project-hub/recovery-flow.js';
 import { persistWorkRunOutputDraft } from '../core/project-memory-operations.js';
+import { AgentDomainService, DelegationStore, type CapabilityGrant } from '../../../packages/agent-domain/dist/src/index.js';
 import {
   governWorkRunOutput,
   validateWorkflowAgentLeaveRequestV2,
@@ -1794,43 +1795,79 @@ async function routeWorkStateTransition(
   if (record(result, 'project.issue.update result').ok === false) throw conflict('project.issue.update owner rejected the transition');
 }
 
+interface ExternalSideEffectDecision {
+  allowed: boolean;
+  diagnostics?: RecoveryFlowDiagnosticV2[];
+}
+
+function externalDenied(code: string, message: string, remediation: string): ExternalSideEffectDecision {
+  return { allowed: false, diagnostics: [{ owner: 'workflow', code, severity: 'error', message, remediation, citationTargets: [] }] };
+}
+
+async function loadServerCapabilityGrant(ctx: OperationContext, projectId: string, grantId: string, now: () => number): Promise<CapabilityGrant | null> {
+  const stateRoot = join(ctx.config.vault_path, '_llmwiki/agent-domain/v1');
+  const project = projectId.slice('project/'.length) as `project/${string}`;
+  const delegation = new DelegationStore({ collaborationRoot: join(stateRoot, 'collaboration'), projectId: project });
+  const grant = await delegation.readGrant(grantId as CapabilityGrant['grantId']);
+  if (!grant) return null;
+  const child = await delegation.readChild(grant.workRunId);
+  if (!child || !new Set(['ready', 'running']).has(child.lifecycle)
+    || grant.projectId !== projectId || child.projectId !== projectId || child.workRunId !== grant.workRunId
+    || child.assignment.profileId !== grant.profileId || child.assignment.profileRevision !== grant.profileRevision) return null;
+  const service = new AgentDomainService({ stateRoot });
+  const exactProfile = await service.profiles.readRevision(grant.profileId, grant.profileRevision);
+  const currentProfile = await service.profiles.read(grant.profileId);
+  const exactBinding = await service.bindings.readRevision(child.assignment.bindingId, child.assignment.bindingRevision);
+  const currentBinding = await service.bindings.read(child.assignment.bindingId);
+  if (!exactProfile || !currentProfile || currentProfile.revision !== grant.profileRevision
+    || !exactBinding || !currentBinding || currentBinding.revision !== child.assignment.bindingRevision
+    || !exactBinding.enabled || !currentBinding.enabled || exactBinding.projectId !== projectId
+    || exactBinding.profileId !== grant.profileId || exactBinding.profileRevision !== grant.profileRevision
+    || Date.parse(grant.expiresAt) <= now()) return null;
+  return grant;
+}
+
 async function executeExternalSideEffect(
   ctx: OperationContext,
   leave: Extract<import('./output-governance.js').WorkflowAgentLeaveRequestV2, { mode: 'complete' }>,
   output: WorkRunOutputV1 | null,
   actor: string,
   now: () => number = () => Date.now(),
-): Promise<boolean> {
-  if (!output?.approval || output.approval.status !== 'approved') return false;
-  const payload = record(output.payload, 'external-side-effect payload');
-  const payloadKeys = Object.keys(payload);
-  if (payloadKeys.some((key) => !['operation', 'params', 'grantId'].includes(key))) return false;
+): Promise<ExternalSideEffectDecision> {
+  if (!output?.approval || output.approval.status !== 'approved') return externalDenied('external-approval-required', 'External side effect requires explicit approval.', 'Obtain an exact per-run approval before retrying.');
+  let payload: Record<string, unknown>;
+  try { payload = record(output.payload, 'external-side-effect payload'); } catch { return externalDenied('external-operation-invalid', 'External side-effect operation is invalid.', 'Submit a bounded operation and parameter object.'); }
+  if (Object.keys(payload).some((key) => !['operation', 'params', 'grantId'].includes(key))) return externalDenied('external-operation-invalid', 'External side-effect payload contains unsupported fields.', 'Submit only operation, params, and grantId.');
   const operation = typeof payload.operation === 'string' ? payload.operation : '';
-  const params = record(payload.params, 'external-side-effect params');
+  let params: Record<string, unknown>;
+  try { params = record(payload.params, 'external-side-effect params'); } catch { return externalDenied('external-operation-invalid', 'External side-effect parameters are invalid.', 'Submit a bounded parameter object.'); }
   const grantId = typeof payload.grantId === 'string' ? payload.grantId : '';
   const approval = output.approval;
   if (approval.actor !== actor || approval.projectId !== output.projectId || approval.workRunId !== output.workRunId
-    || approval.outputFingerprint !== output.fingerprint || approval.operation !== operation || approval.grantId !== grantId) return false;
+    || approval.outputFingerprint !== output.fingerprint || approval.operation !== operation || approval.grantId !== grantId) return externalDenied('external-approval-mismatch', 'External approval is not bound to this actor, output, Work Run, or operation.', 'Request a matching per-run approval.');
   const dispatcher = ctx.operationDispatcher;
   const definition = dispatcher?.get?.(operation);
-  if (!dispatcher?.invoke || !definition || !definition.mutating || operation === 'workflow.agent.leave' || operation === 'vault.batch') return false;
+  if (!dispatcher?.invoke || !definition || !definition.mutating || operation === 'workflow.agent.leave' || operation === 'vault.batch') return externalDenied('external-operation-denied', 'External operation is not an eligible governed mutation.', 'Use an allowlisted mutating operation.');
   let targets: string[];
   try { targets = definition.writePolicy.targets(ctx, params).map((target) => target.replace(/\\/g, '/')); }
-  catch { return false; }
-  if (targets.length === 0 || targets.some((target) => !target.startsWith('external/'))) return false;
-  const grant = await ctx.loadCapabilityOperationGrant?.(grantId);
-  if (!grant || typeof grant !== 'object') return false;
-  try {
-    const { validateCapabilityOperationGrant } = await import('../host-capabilities/contracts.js');
-    validateCapabilityOperationGrant(grant as never);
-  } catch { return false; }
-  const checked = grant as { projectId?: unknown; workRunId?: unknown; expiresAt?: unknown; operations?: unknown; sideEffectClasses?: unknown; grantId?: unknown };
-  if (checked.projectId !== output.projectId || checked.workRunId !== output.workRunId || checked.grantId !== grantId
-    || !Array.isArray(checked.operations) || !checked.operations.includes(operation)
-    || !Array.isArray(checked.sideEffectClasses) || !checked.sideEffectClasses.includes('external-write')
-    || typeof checked.expiresAt !== 'string' || Date.parse(checked.expiresAt) <= now()) return false;
-  await dispatcher.invoke(operation, params);
-  return true;
+  catch { return externalDenied('external-operation-denied', 'External operation targets could not be adjudicated.', 'Repair the operation target policy before retrying.'); }
+  if (targets.length === 0 || targets.some((target) => !target.startsWith('external/'))) return externalDenied('external-operation-denied', 'External operation targets are outside the external side-effect boundary.', 'Use an operation with explicitly external targets.');
+  let grant: CapabilityGrant | null;
+  try { grant = await loadServerCapabilityGrant(ctx, output.projectId, grantId, now); } catch { grant = null; }
+  if (!grant) return externalDenied('external-grant-denied', 'No active server-issued Capability Grant authorizes this external operation.', 'Obtain an active exact Project/Profile/Binding grant before retrying.');
+  const externalApproval = grant.externalSideEffectApproval;
+  if (grant.projectId !== output.projectId || grant.workRunId !== output.workRunId || grant.grantId !== grantId
+    || grant.policyDecision.actor !== actor || !grant.scope.operations.includes(operation)
+    || !grant.scope.sideEffectClasses.includes('external-write') || externalApproval.mode !== 'per-run'
+    || externalApproval.approvedWorkRunId !== output.workRunId || !externalApproval.approvedClasses.includes('external-write')
+    || !externalApproval.approvalFingerprint || approval.approvalFingerprint !== externalApproval.approvalFingerprint) {
+    return externalDenied('external-grant-denied', 'Capability Grant approval is not bound to this exact external operation.', 'Obtain an exact per-run approval and grant binding.');
+  }
+  // Invocation begins only after every denial check. A throw or unknown result
+  // after this point is governed as outcome-unknown by the caller.
+  const result = await dispatcher.invoke(operation, params);
+  if (result === undefined || result === null) throw new Error('External operation returned an unknown result');
+  return { allowed: true };
 }
 
 export function makeWorkflowOps(vaultPath: string, options: WorkflowOperationsOptions = {}): Operation[] {
@@ -2360,7 +2397,7 @@ export function makeWorkflowOps(vaultPath: string, options: WorkflowOperationsOp
         const actor = actorFromContext(ctx);
         const project = existingProjectKey(vaultPath, params.project, 'workflow.agent.leave');
         const agent = agentKey(params.agent, actor);
-        if (ctx.operationDispatcher && agent !== actor) throw makeErr(-32403, 'workflow.agent.leave actor is not authorized for the requested agent lifetime');
+        if (agent !== actor) throw makeErr(-32403, 'workflow.agent.leave actor is not authorized for the requested agent lifetime');
         const allowedLeaveFields = new Set(['mode', 'project', 'agent', 'work_run_id', 'transition_token', 'target_state', 'submission', 'summary']);
         for (const key of Object.keys(params)) if (!allowedLeaveFields.has(key)) throw makeErr(-32602, `workflow.agent.leave contains unknown field ${key}`);
         {
@@ -2389,13 +2426,19 @@ export function makeWorkflowOps(vaultPath: string, options: WorkflowOperationsOp
             if (itemId !== current.workItemId) throw conflict('Output Work Item does not match the joined Work Run');
             if (request.target_state === 'completed' && request.submission.result === 'quarantine') throw makeErr(-32602, 'quarantine output must target awaiting_review');
           }
-          const governanceContext = options.capabilityOperationGrantLoader && !ctx.loadCapabilityOperationGrant
-            ? { ...ctx, loadCapabilityOperationGrant: options.capabilityOperationGrantLoader }
-            : ctx;
+          const governanceContext = ctx;
           const outputRoute = governWorkRunOutput({
             store,
             reconcile: async (leave, ownerActor, output, quarantine) => {
-              if (quarantine) return null;
+              // Quarantine is intentionally effect-free. A crash after claim
+              // creation must recover its review receipt, never invent an
+              // owner effect or downgrade the safe route to unknown.
+              if (quarantine) return {
+                state: 'review-required',
+                ownerOperation: null,
+                ownerReceipt: null,
+                diagnostics: quarantine.diagnostics,
+              };
               const latest = readAgentLifetime(vaultPath, project, agent);
               if (!latest || latest.projectId !== leave.project || latest.workRunId !== leave.work_run_id || latest.agent !== ownerActor
                 || !latest.transitions.some((item) => item.operation === 'leave' && item.token === leave.transition_token)) return null;
@@ -2429,17 +2472,18 @@ export function makeWorkflowOps(vaultPath: string, options: WorkflowOperationsOp
                     : 'pending';
               let nextWorkRunState: WorkRunState = leave.target_state as WorkRunState;
               let routeState: 'accepted' | 'review-required' | 'denied' = 'accepted';
+              let routeDiagnostics: RecoveryFlowDiagnosticV2[] | undefined;
               if (leave.mode === 'complete' && outputClass === 'knowledge-claim') {
                 nextWorkRunState = 'awaiting_review';
                 routeState = 'review-required';
               } else if (leave.mode === 'complete' && outputClass === 'work-state-transition') {
                 await routeWorkStateTransition(governanceContext, leave, output, current);
               } else if (leave.mode === 'complete' && outputClass === 'external-side-effect') {
-                let allowed = false;
-                try { allowed = await executeExternalSideEffect(governanceContext, leave, output, ownerActor, dependencies.now); } catch { allowed = false; }
-                if (!allowed) {
+                const decision = await executeExternalSideEffect(governanceContext, leave, output, ownerActor);
+                if (!decision.allowed) {
                   nextWorkRunState = 'awaiting_review';
                   routeState = 'denied';
+                  routeDiagnostics = decision.diagnostics;
                 }
               }
               nextWorkRunState = transitionWorkRun(current.workRunState, nextWorkRunState);
@@ -2464,7 +2508,7 @@ export function makeWorkflowOps(vaultPath: string, options: WorkflowOperationsOp
                 syncDurableWorkRunUnlocked(vaultPath, state, transitionToken, undefined, store);
                 if (draftPath && output) persistWorkRunOutputDraft(vaultPath, governanceContext.store, output, ownerActor);
                 appendAgentEvent(vaultPath, state, { kind: 'leave', summary: summary || `${agent} archived`, actor: ownerActor, transitionToken });
-                return { ownerOperation: 'workflow.agent.leave', ownerReceipt: { ok: true, projectId: state.projectId, workItemId: state.workItemId, workRunId: state.workRunId, agent: state.agent, workRunState: state.workRunState }, state: routeState };
+                return { ownerOperation: 'workflow.agent.leave', ownerReceipt: { ok: true, projectId: state.projectId, workItemId: state.workItemId, workRunId: state.workRunId, agent: state.agent, workRunState: state.workRunState }, state: routeState, diagnostics: routeDiagnostics };
               });
             },
           }, governanceContext, request);

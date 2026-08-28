@@ -1,7 +1,7 @@
 ---
 type: issue
 entity: project/obsidian-llm-wiki/issue/p0-s05-agent-output-governance
-state: backlog
+state: in-progress
 review: reviewed
 kind: knowledge-task
 id: obsidian-llm-wiki/p0-s05-agent-output-governance
@@ -10,7 +10,7 @@ status: active
 priority: 1
 blocked-by:
   - obsidian-llm-wiki/p0-s04b-workflow-recovery-apply
-last-verified: 2026-08-28
+last-verified: 2026-08-29
 ---
 
 # P0 S05: claimed Work Run output governance
@@ -46,3 +46,32 @@ Blocked by S04B because governance starts from the applied Work Run result bound
 ## Non-goals
 
 - Do not auto-promote claims, repeat unknown external effects, or persist raw Agent responses.
+
+## Verification report — 2026-08-29
+
+Implemented the remaining governance hardening on top of `a9a8bdacb7aa4f6ae8f9ef6ff93b87af1ccd6145`:
+
+- `workflow.agent.leave` now rejects any `agent` other than the authenticated `OperationContext` actor, including direct handler invocation.
+- `WorkRunStore` strictly scans bounded output claims by token digest before creating a claim, preventing an initial split-index rebound from producing a second owner effect; missing indexes are repaired.
+- Quarantine receipts remain review-required and effect-free across interruption/restart; malformed diagnostics and non-array citation targets are rejected without raw payload echo.
+- Safe owner reconciliation runs before `outcome-unknown`; external nested invocation exceptions/results after invocation remain unknown and are never relabeled denied. External authorization uses the server-issued Agent Domain grant path with active child/profile/binding checks, exact operation/project/run/actor/output approval bindings, and external-write scope.
+- Dream Time’s internal leave caller now uses the authenticated actor, satisfying the same actor invariant.
+
+Exact verified tests:
+
+- `bun test src/workflow`: 67 passed, 0 failed across `output-governance.test.ts`, `recovery-apply.test.ts`, `recovery-plan.test.ts`, `work-run-store.test.ts`, `workflow-read-model.test.ts`, and `workflow.test.ts`.
+- `bun test src/agent-domain/operations.test.ts`: 13 passed, 0 failed.
+- `npm run typecheck`: passed; platform builds and TypeScript no-emit passed.
+
+Crash-route matrix:
+
+| Route | Before owner | After owner / before receipt | Receipt / token split | Replay result |
+|---|---|---|---|---|
+| quarantine | review receipt, no owner mutation | review receipt via safe reconcile | claim scan repairs missing token | same review receipt |
+| view | unknown unless exact owner receipt is observable | exact lifetime leave receipt recovers | claim scan repairs missing token | one receipt; no repeat |
+| work-state transition | unknown unless exact issue owner result is observable | nested dispatcher policy/target checks apply | claim scan repairs missing token | one joined issue mutation |
+| knowledge claim | unknown unless exact owner receipt is observable | one cited draft / lifetime receipt | claim scan repairs missing token | one draft, no promotion |
+| external side effect | denied with diagnostic before nested invocation | throw/unknown result persists outcome-unknown | claim scan repairs missing token | blocked until explicit reconciliation |
+| terminate | exact leave receipt or unknown | exact lifetime leave receipt recovers | claim scan repairs missing token | one terminal transition |
+
+The repository-wide `npm test` invocation remains Bun-runner incompatible in this checkout: its mixed `node:test` files produce nested `describe()`/`test()` errors after the passing suites; no S05 assertion failure was observed in the focused slices above.

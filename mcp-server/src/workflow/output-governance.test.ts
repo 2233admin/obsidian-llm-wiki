@@ -21,6 +21,7 @@ function store(): WorkRunStore & { claims: Map<string, Record<string, unknown>>;
     readRecoveryClaim: () => null, writeRecoveryClaimAtomic() {}, readRecoveryToken: () => null, writeRecoveryTokenAtomic() {},
     readOutputClaim: (_project, fp) => claims.get(fp) ?? null, writeOutputClaimAtomic: (_project, fp, value) => { claims.set(fp, value); },
     readOutputToken: (_project, fp) => tokens.get(fp) ?? null, writeOutputTokenAtomic: (_project, fp, value) => { tokens.set(fp, value); },
+    findOutputClaimByTokenDigest: (_project, token) => [...claims.values()].find((claim) => claim.tokenDigest === token) ?? null,
   };
 }
 
@@ -80,5 +81,54 @@ describe('claimed Work Run output governance', () => {
     assert.equal(replay.fingerprint, first.fingerprint);
     assert.equal(workStore.tokens.size, 1);
     assert.equal(calls, 1);
+  });
+
+  test('initial split index rebound finds the token claim before a second owner effect', async () => {
+    const workStore = store(); let calls = 0; let tokenWrites = 0;
+    const writeToken = workStore.writeOutputTokenAtomic;
+    workStore.writeOutputTokenAtomic = (project, token, value) => {
+      tokenWrites += 1;
+      if (tokenWrites === 1) throw new Error('interrupted token index');
+      writeToken(project, token, value);
+    };
+    const dependencies = { store: workStore, owner: async () => { calls += 1; return { ownerOperation: 'workflow.agent.leave', ownerReceipt: { ok: true } }; } };
+    const first = await governWorkRunOutput(dependencies, ctx, request());
+    assert.equal(first.state, 'outcome-unknown');
+    const changedMaterial = { ...output(), payload: { artifactId: 'artifact/changed' } };
+    delete (changedMaterial as { fingerprint?: unknown }).fingerprint;
+    const changed = { ...request(), submission: { ...(request().submission as Record<string, unknown>), output: { ...changedMaterial, fingerprint: fingerprintRecoveryValue(changedMaterial) }, quarantine: null } };
+    await assert.rejects(() => governWorkRunOutput(dependencies, ctx, changed), /already bound/);
+    assert.equal(calls, 0);
+  });
+
+  test('quarantine is a review receipt with bounded diagnostics and no owner effect', async () => {
+    const workStore = store(); let calls = 0;
+    const diagnostic = { owner: 'workflow', code: 'invalid-output', severity: 'error', message: 'Output was malformed.', remediation: 'Review and resubmit.', citationTargets: [] };
+    const material = { schemaVersion: 'work-run-output-quarantine/v1' as const, projectId: ids.project, workItemId: ids.workItem, workRunId: ids.workRun, observedClass: null, payloadFingerprint: null, provenance: ['test:quarantine'], diagnostics: [diagnostic], producedAt: '2026-08-28T00:00:00.000Z' };
+    const quarantine = { ...material, fingerprint: fingerprintRecoveryValue(material) };
+    const quarantined = { ...request(), submission: { schemaVersion: 'work-run-output-submission/v1', result: 'quarantine', output: null, quarantine } };
+    const dependencies = { store: workStore, owner: async () => { calls += 1; return { ownerOperation: 'workflow.agent.leave', ownerReceipt: { ok: true } }; } };
+    const first = await governWorkRunOutput(dependencies, ctx, quarantined);
+    const replay = await governWorkRunOutput({ ...dependencies, owner: async () => { calls += 1; throw new Error('must not run'); } }, ctx, quarantined);
+    assert.equal(first.state, 'review-required');
+    assert.equal(replay.fingerprint, first.fingerprint);
+    assert.equal(calls, 1);
+    assert.equal(JSON.stringify([...workStore.claims.values(), ...workStore.tokens.values()]).includes('malformed raw payload'), false);
+    assert.throws(() => validateWorkflowAgentLeaveRequestV2({ ...quarantined, submission: { ...quarantined.submission, quarantine: { ...quarantine, diagnostics: [{ ...diagnostic, citationTargets: 'not-an-array', message: 'malformed raw payload' }] } } }), /citationTargets must be an array/);
+  });
+
+  test('effect-free quarantine interruption reconciles to review instead of unknown', async () => {
+    const workStore = store();
+    const diagnostic = { owner: 'workflow', code: 'invalid-output', severity: 'error', message: 'Review required.', remediation: 'Inspect the bounded diagnostics.', citationTargets: [] };
+    const material = { schemaVersion: 'work-run-output-quarantine/v1' as const, projectId: ids.project, workItemId: ids.workItem, workRunId: ids.workRun, observedClass: 'view' as const, payloadFingerprint: null, provenance: ['test:quarantine-restart'], diagnostics: [diagnostic], producedAt: '2026-08-28T00:00:00.000Z' };
+    const quarantine = { ...material, fingerprint: fingerprintRecoveryValue(material) };
+    const quarantined = { ...request(), submission: { schemaVersion: 'work-run-output-submission/v1', result: 'quarantine', output: null, quarantine } };
+    const first = await governWorkRunOutput({
+      store: workStore,
+      owner: async () => { throw new Error('interrupted before safe route response'); },
+      reconcile: async () => ({ state: 'review-required' as const, ownerOperation: null, ownerReceipt: null, diagnostics: [{ ...diagnostic, owner: 'workflow' as const, severity: 'error' as const }] }),
+    }, ctx, quarantined);
+    assert.equal(first.state, 'review-required');
+    assert.equal((await governWorkRunOutput({ store: workStore, owner: async () => { throw new Error('must not retry'); } }, ctx, quarantined)).fingerprint, first.fingerprint);
   });
 });

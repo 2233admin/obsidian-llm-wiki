@@ -44,3 +44,18 @@ test('Work Run lock fails closed and rollback restores bytes', () => {
     rmSync(vault, { recursive: true, force: true });
   }
 });
+
+test('output claim token scan recovers split indexes and rejects unsafe entries', () => {
+  const vault = mkdtempSync(join(tmpdir(), 'llmwiki-work-run-scan-'));
+  try {
+    const store = createFileWorkRunStore(vault);
+    const token = `sha256:${'b'.repeat(64)}` as `sha256:${string}`;
+    const output = `sha256:${'c'.repeat(64)}` as `sha256:${string}`;
+    store.writeOutputClaimAtomic('alpha', output, { tokenDigest: token, outputFingerprint: output });
+    assert.deepEqual(store.findOutputClaimByTokenDigest('alpha', token), { tokenDigest: token, outputFingerprint: output });
+    writeFileSync(join(vault, '01-Projects/alpha/runs/output-claims/unsafe.txt'), '{}', 'utf8');
+    assert.throws(() => store.findOutputClaimByTokenDigest('alpha', token), /unsafe entry/u);
+  } finally {
+    rmSync(vault, { recursive: true, force: true });
+  }
+});

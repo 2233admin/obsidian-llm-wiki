@@ -38,6 +38,7 @@ export interface WorkRunOutputV1 {
     projectId: string;
     workRunId: string;
     outputFingerprint: RecoveryFingerprint;
+    approvalFingerprint: RecoveryFingerprint;
     operation: string;
     grantId: string;
   };
@@ -195,11 +196,12 @@ function validateOutput(value: unknown, projectId: string, workItemId: string, w
   const suppliedFingerprint = fingerprint(entry.fingerprint, 'output.fingerprint');
   let approval: WorkRunOutputV1['approval'];
   if (entry.approval !== undefined) {
-    const approvalEntry = assertClosedRecoveryObject(entry.approval, ['status', 'fingerprint', 'actor', 'projectId', 'workRunId', 'outputFingerprint', 'operation', 'grantId'], 'output.approval');
+    const approvalEntry = assertClosedRecoveryObject(entry.approval, ['status', 'fingerprint', 'approvalFingerprint', 'actor', 'projectId', 'workRunId', 'outputFingerprint', 'operation', 'grantId'], 'output.approval');
     if (approvalEntry.status !== 'approved') throw badRequest('output.approval.status must be approved');
     approval = {
       status: 'approved',
       fingerprint: fingerprint(approvalEntry.fingerprint, 'output.approval.fingerprint'),
+      approvalFingerprint: fingerprint(approvalEntry.approvalFingerprint, 'output.approval.approvalFingerprint'),
       actor: identity(approvalEntry.actor, 'output.approval.actor', /^[A-Za-z0-9][A-Za-z0-9._-]*$/u),
       projectId: identity(approvalEntry.projectId, 'output.approval.projectId', /^project\/[a-z0-9][a-z0-9-]*$/u),
       workRunId: identity(approvalEntry.workRunId, 'output.approval.workRunId', /^work-run\/[a-z0-9][a-z0-9-]*$/u),
@@ -406,8 +408,14 @@ export async function governWorkRunOutput(
     claim = dependencies.store.withLock(() => {
       const outputClaim = claimFrom(dependencies.store.readOutputClaim(project, outputFp));
       const tokenClaim = claimFrom(dependencies.store.readOutputToken(project, tokenFp));
-      if (outputClaim || tokenClaim) {
-        const current = outputClaim ?? tokenClaim!;
+      // The token index can be missing after a crash. Re-scan the bounded
+      // output-claim namespace before creating anything for a rebound token;
+      // otherwise a changed output fingerprint could create a second effect.
+      const scannedTokenClaim = !outputClaim && !tokenClaim
+        ? claimFrom(dependencies.store.findOutputClaimByTokenDigest(project, tokenFp))
+        : null;
+      if (outputClaim || tokenClaim || scannedTokenClaim) {
+        const current = outputClaim ?? tokenClaim ?? scannedTokenClaim!;
         if (current.outputFingerprint !== outputFp || current.requestDigest !== requestFp || current.tokenDigest !== tokenFp || current.actorId !== actor || current.projectId !== normalized.project || current.workRunId !== normalized.work_run_id) throw conflict('Work Run output claim is already bound to another request');
         if (outputClaim && tokenClaim && fingerprintRecoveryValue(outputClaim) !== fingerprintRecoveryValue(tokenClaim)) throw conflict('Work Run output indexes disagree');
         if (!outputClaim) {
@@ -497,6 +505,34 @@ export async function governWorkRunOutput(
       waiter?.resolve();
       inFlight.delete(`${project}:${outputFp}`);
       return receiptPersisted;
+    }
+    // The owner may have completed before its promise rejected or the process
+    // may have interrupted before any owner write. Probe the exact durable
+    // owner receipt before declaring an unknown outcome; effect-free routes
+    // (quarantine/view/terminate) can therefore safely resume after restart.
+    if (dependencies.reconcile) {
+      try {
+        const recovered = await dependencies.reconcile(
+          normalized,
+          actor,
+          normalized.mode === 'complete' && normalized.submission.result === 'output' ? normalized.submission.output : null,
+          normalized.mode === 'complete' && normalized.submission.result === 'quarantine' ? normalized.submission.quarantine : null,
+          claim as unknown as Record<string, unknown>,
+        );
+        if (recovered) {
+          const recoveredReceipt = receipt(normalized, claim, recovered, now());
+          const routed: OutputClaim = { ...claim, state: recoveredReceipt.state === 'outcome-unknown' ? 'outcome-unknown' : 'routed', receipt: recoveredReceipt, updatedAt: now() };
+          dependencies.store.withLock(() => {
+            dependencies.store.writeOutputClaimAtomic(project, outputFp, routed as unknown as Record<string, unknown>);
+            dependencies.store.writeOutputTokenAtomic(project, tokenFp, routed as unknown as Record<string, unknown>);
+          });
+          waiter?.resolve();
+          inFlight.delete(`${project}:${outputFp}`);
+          return recoveredReceipt;
+        }
+      } catch {
+        // Fall through to the durable unknown marker below.
+      }
     }
     const unknown: OutputClaim = { ...claim, state: 'outcome-unknown', receipt: null, updatedAt: now() };
     try {
