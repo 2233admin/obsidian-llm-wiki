@@ -13,6 +13,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { App, PluginManifest } from "obsidian";
 import LLMWikiPlugin from "../src/main";
+import { AskMateView } from "../src/ask-mate/view";
 import { InProcessSettingsTransport, obsidianUserDeviceId } from "../src/settings-host";
 import type { SettingsOperationTransport } from "../src/settings-client";
 import type { AgentControlPlaneTransport } from "../src/control-plane-client";
@@ -198,4 +199,40 @@ test("lifecycle: runtime.python.path rejects shell wrappers at the platform boun
     plugin.updateSetting("user-device", "runtime.python.path", "C:/wrappers/python.bat"),
     /wrapper|not allowed|validation/i,
   );
+});
+
+test("lifecycle: project Ask Mate view receives the stateless Recovery client", async (t) => {
+  const adapter = new MemoryAdapter();
+  const store = legacyStore();
+  const plugin = new TestPlugin(adapter, store, await inProcessTransport(t));
+  await plugin.onload();
+  const calls: string[] = [];
+  plugin.setAgentControlPlaneTransport({
+    async invoke<T>(operation: string): Promise<T> {
+      calls.push(operation);
+      return {
+        schemaVersion: "project-hub-recovery-flow/v2",
+        stage: "unavailable",
+        projectId: "project/alpha",
+        previousFlowFingerprint: null,
+        actionInputFingerprint: "sha256:a",
+        recoveryFingerprint: "sha256:b",
+        ownerLocks: [],
+        payload: { kind: "unavailable", reason: "test", remediation: "test" },
+        nextRequestIntents: [],
+        diagnostics: [],
+        omitted: { items: 0, citations: 0, diagnostics: 0, bytes: 0 },
+        rootOpenFlowFingerprint: "sha256:c",
+        nextRequests: [],
+        generatedAt: "2026-08-28T00:00:00.000Z",
+        flowFingerprint: "sha256:d",
+      } as T;
+    },
+  });
+  const creator = plugin.views.get("llmwiki-ask-mate");
+  assert.ok(creator);
+  const view = creator({} as WorkspaceLeaf) as AskMateView;
+  view.render = () => undefined;
+  await view.openContext({ projectId: "project/alpha", kind: "project" });
+  assert.deepEqual(calls, ["project.hub.recovery.flow"]);
 });

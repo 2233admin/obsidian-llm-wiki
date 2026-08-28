@@ -60,6 +60,7 @@ import {
   AskMateOperationClient,
   isManagedProjectMapPath,
 } from "./ask-mate/client";
+import { ProjectHubRecoveryClient } from "./project-hub/recovery-client";
 import { AgentfilesFeature } from "./agentfiles/feature";
 import {
   ASK_MATE_VIEW_TYPE,
@@ -125,6 +126,7 @@ export default class LLMWikiPlugin extends Plugin {
   private settingsClient!: SettingsOperationClient;
   private agentControlPlaneClient!: AgentControlPlaneClient;
   private askMateClient!: AskMateOperationClient;
+  private recoveryClient!: ProjectHubRecoveryClient;
   private controlPlaneTransport: (
     SettingsOperationTransport
     & AgentControlPlaneTransport
@@ -156,6 +158,7 @@ export default class LLMWikiPlugin extends Plugin {
     this.settingsClient = new SettingsOperationClient(transport);
     this.agentControlPlaneClient = new AgentControlPlaneClient(transport);
     this.askMateClient = new AskMateOperationClient(transport);
+    this.recoveryClient = new ProjectHubRecoveryClient(transport);
     await this.applyPluginDataPlan(plan, pluginDataChanged);
     await this.refreshSettings(false);
     this.agentfilesFeature = new AgentfilesFeature(
@@ -174,7 +177,7 @@ export default class LLMWikiPlugin extends Plugin {
       (leaf: WorkspaceLeaf) => new AskMateView(leaf, this.askMateClient, {
         proposalActor: OBSIDIAN_CONTROL_PLANE_ACTOR,
         confirmationActor: OBSIDIAN_CONTROL_PLANE_ACTOR,
-      }),
+      }, this.recoveryClient),
     );
     this.addRibbonIcon("sparkles", "Open LLM Wiki", () => this.openAskMateEntryPoint());
 
@@ -300,6 +303,7 @@ export default class LLMWikiPlugin extends Plugin {
   setAgentControlPlaneTransport(transport: AgentControlPlaneTransport): void {
     this.agentControlPlaneClient = new AgentControlPlaneClient(transport);
     this.askMateClient = new AskMateOperationClient(transport);
+    this.recoveryClient = new ProjectHubRecoveryClient(transport);
   }
 
   openAgentControlPlane(): void {
@@ -360,6 +364,7 @@ export default class LLMWikiPlugin extends Plugin {
     this.settingsClient = new SettingsOperationClient(transport);
     this.agentControlPlaneClient = new AgentControlPlaneClient(transport);
     this.askMateClient = new AskMateOperationClient(transport);
+    this.recoveryClient = new ProjectHubRecoveryClient(transport);
     await this.refreshSettings(false);
     return boundProjectId;
   }
