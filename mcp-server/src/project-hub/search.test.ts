@@ -36,7 +36,7 @@ test('search returns bounded deterministic cited results and independent query b
   const currentOpen = await composeRecoveryOpenStage('project/alpha', openOwners(), '2026-08-28T02:00:00.000Z');
   assert.equal(currentOpen.stage, 'open');
   if (currentOpen.stage !== 'open') return;
-  const deps = { openOwners: openOwners(), searchSource: source(), now: () => Date.parse('2026-08-28T02:00:00.000Z'), currentOpen };
+  const deps = { openOwners: openOwners(), searchSource: source(), agentSelection: { listCompatible: async () => [{ role: 'researcher', bindingId: 'binding/alpha/researcher', bindingRevision: 1, profileId: 'agent/researcher', profileRevision: 1 }] }, now: () => Date.parse('2026-08-28T02:00:00.000Z'), currentOpen };
   const first = await searchRecovery({ request: { schemaVersion: 'project-hub-recovery-flow-request/v2', projectId: 'project/alpha', action: 'search', openFlowFingerprint: currentOpen.flowFingerprint, query: '  RECOVERY  ', limit: 25 }, dependencies: deps });
   const second = await searchRecovery({ request: { schemaVersion: 'project-hub-recovery-flow-request/v2', projectId: 'project/alpha', action: 'search', openFlowFingerprint: currentOpen.flowFingerprint, query: 'decision', limit: 25 }, dependencies: deps });
   const repeat = await searchRecovery({ request: { schemaVersion: 'project-hub-recovery-flow-request/v2', projectId: 'project/alpha', action: 'search', openFlowFingerprint: currentOpen.flowFingerprint, query: '  RECOVERY  ', limit: 25 }, dependencies: deps });

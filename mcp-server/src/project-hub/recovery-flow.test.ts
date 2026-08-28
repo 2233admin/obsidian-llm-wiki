@@ -164,8 +164,8 @@ test('rejects searched and Binding-selection responses with mismatched root fing
     kind: 'needs-agent-selection',
     candidates: ['resume:one'],
     bindings: [
-      { bindingId: 'binding/one', bindingRevision: 1 },
-      { bindingId: 'binding/two', bindingRevision: 2 },
+      { role: 'one', bindingId: 'binding/one', bindingRevision: 1, profileId: 'profile/one', profileRevision: 1 },
+      { role: 'two', bindingId: 'binding/two', bindingRevision: 2, profileId: 'profile/two', profileRevision: 1 },
     ],
   });
   assert.throws(() => validateRecoveryFlowResponseV2(needsSelection), /rootOpenFlowFingerprint.*previousFlowFingerprint/i);
@@ -824,7 +824,7 @@ test('accepts valid fixtures for every response stage', () => {
     {
       kind: 'needs-agent-selection',
       candidates: ['resume:one'],
-      bindings: [{ bindingId: 'binding/one', bindingRevision: 1 }, { bindingId: 'binding/two', bindingRevision: 2 }],
+      bindings: [{ role: 'one', bindingId: 'binding/one', bindingRevision: 1, profileId: 'profile/one', profileRevision: 1 }, { role: 'two', bindingId: 'binding/two', bindingRevision: 2, profileId: 'profile/two', profileRevision: 1 }],
     },
     digest('7'),
     digest('8'),

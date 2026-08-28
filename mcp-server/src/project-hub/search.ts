@@ -30,6 +30,9 @@ import {
   type ProjectOwnerSnapshot,
   type ProjectSearchSource,
 } from './search-source.js';
+import type { RecoveryAgentSelectionSource } from './agent-selection.js';
+import { applyCandidateStageToSearch, composeRecoveryCandidates } from './action-candidates.js';
+const responseFields = (intrinsic: Record<string, unknown>) => { const { payloadFingerprint: _payloadFingerprint, ...fields } = intrinsic; return fields; };
 
 export interface RecoverySearchedBasisV2 {
   schemaVersion: typeof RECOVERY_FLOW_SCHEMA_VERSION;
@@ -51,6 +54,7 @@ export interface RecoverySearchDependencies {
   searchSource?: ProjectSearchSource;
   now?: () => number;
   currentOpen?: RecoveryOpenResponseV2;
+  agentSelection?: RecoveryAgentSelectionSource;
 }
 
 export interface RecoverySearchInput {
@@ -241,6 +245,7 @@ function staleResponse(request: RecoverySearchRequestV2, currentOpen: RecoveryFl
     diagnostics,
     omitted,
   };
+  const flowFingerprint = fingerprintRecoveryFlowIntrinsicStage(intrinsic);
   const response = {
     schemaVersion: RECOVERY_FLOW_SCHEMA_VERSION,
     stage: 'stale' as const,
@@ -279,11 +284,53 @@ export async function searchRecovery(input: RecoverySearchInput): Promise<Recove
   const source = dependencies.searchSource ?? createProjectSearchSource({});
   const owners = await source.snapshot(projectId);
   const basis = composeRecoverySearchBasis({ request: normalizedRequest, currentOpen, owners });
+  const bindings = dependencies.agentSelection
+    ? await dependencies.agentSelection.listCompatible(projectId, currentOpen.payload.capabilities ?? [])
+    : [];
+  const searchResult = basis.payload.results[0] ?? {
+    itemId: `${projectId}/issue/${currentOpen.payload.workItemId?.split('/').at(-1) ?? 'current'}`,
+    itemType: 'work-item', label: currentOpen.payload.workItemId ?? projectId, projectId,
+    owner: 'work-os' as const, matchClass: 'none', score: 0, freshness: 'current', confidence: 'owner', provenance: 'work-os', citationTargets: currentOpen.payload.citations.slice(0, 1),
+  };
+  const candidateStage = composeRecoveryCandidates({ open: currentOpen, search: searchResult, compatibleBindings: bindings });
+  if (candidateStage.reason) {
+    const payload = { kind: 'unavailable' as const, reason: candidateStage.reason, remediation: candidateStage.remediation ?? 'Repair recovery owners and retry.' };
+    const intrinsic = {
+      schemaVersion: RECOVERY_FLOW_SCHEMA_VERSION, stage: 'unavailable' as const, projectId,
+      previousFlowFingerprint: currentOpen.flowFingerprint,
+      actionInputFingerprint: basis.actionInputFingerprint,
+      recoveryFingerprint: currentOpen.recoveryFingerprint,
+      ownerLocks: basis.ownerLocks,
+      payloadFingerprint: fingerprintRecoveryValue(payload), nextRequestIntents: [], diagnostics: basis.diagnostics, omitted: basis.omitted,
+    };
+    return validateRecoveryFlowResponseV2({ ...responseFields(intrinsic), payload, rootOpenFlowFingerprint: currentOpen.rootOpenFlowFingerprint, nextRequests: [], generatedAt, flowFingerprint: fingerprintRecoveryFlowIntrinsicStage(intrinsic) } as RecoveryFlowResponseV2);
+  }
+  if (bindings.length > 1) {
+    const payload = { kind: 'needs-agent-selection' as const, candidates: candidateStage.candidates.map((candidate) => candidate.candidateId), bindings: candidateStage.bindings };
+    const intrinsic = {
+      schemaVersion: RECOVERY_FLOW_SCHEMA_VERSION, stage: 'needs-agent-selection' as const, projectId,
+      previousFlowFingerprint: currentOpen.flowFingerprint, actionInputFingerprint: basis.actionInputFingerprint,
+      recoveryFingerprint: currentOpen.recoveryFingerprint, ownerLocks: basis.ownerLocks,
+      payloadFingerprint: fingerprintRecoveryValue(payload), nextRequestIntents: [], diagnostics: basis.diagnostics, omitted: basis.omitted,
+    };
+    return validateRecoveryFlowResponseV2({ ...responseFields(intrinsic), payload, rootOpenFlowFingerprint: currentOpen.flowFingerprint, nextRequests: [], generatedAt, flowFingerprint: fingerprintRecoveryFlowIntrinsicStage(intrinsic) } as RecoveryFlowResponseV2);
+  }
+  const searchedPayload = applyCandidateStageToSearch(basis.payload, candidateStage);
+  const selected = candidateStage.bindings[0]!;
+  const intents = [{ action: 'plan' as const, mode: 'from-search' as const, query: searchedPayload.query, limit: searchedPayload.limit, candidateId: candidateStage.recommendedCandidateId!, agentSelection: { bindingId: selected.bindingId, bindingRevision: selected.bindingRevision }, priorPlan: null }];
+  const intrinsic = {
+    schemaVersion: RECOVERY_FLOW_SCHEMA_VERSION, stage: 'searched' as const, projectId,
+    previousFlowFingerprint: currentOpen.flowFingerprint, actionInputFingerprint: basis.actionInputFingerprint,
+    recoveryFingerprint: currentOpen.recoveryFingerprint, ownerLocks: basis.ownerLocks,
+    payloadFingerprint: fingerprintRecoveryValue(searchedPayload), nextRequestIntents: intents, diagnostics: basis.diagnostics, omitted: basis.omitted,
+  };
+  const flowFingerprint = fingerprintRecoveryFlowIntrinsicStage(intrinsic);
   const response = {
-    ...basis,
-    nextRequestIntents: [],
-    nextRequests: [],
-    generatedAt,
+    ...responseFields(intrinsic),
+    payload: searchedPayload,
+    rootOpenFlowFingerprint: currentOpen.flowFingerprint,
+    nextRequests: [{ schemaVersion: RECOVERY_FLOW_REQUEST_SCHEMA_VERSION, projectId, action: 'plan' as const, mode: 'from-search' as const, openFlowFingerprint: currentOpen.flowFingerprint, searchedBasisFlowFingerprint: flowFingerprint, plannedFlowFingerprint: null, query: searchedPayload.query, limit: searchedPayload.limit, candidateId: candidateStage.recommendedCandidateId!, agentSelection: { bindingId: selected.bindingId, bindingRevision: selected.bindingRevision }, priorPlan: null }], generatedAt,
+    flowFingerprint,
   } as RecoveryFlowResponseV2;
   return validateRecoveryFlowResponseV2(response);
 }

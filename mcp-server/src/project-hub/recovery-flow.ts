@@ -237,6 +237,23 @@ export interface RecoverySearchResultV2 {
   provenance: string;
   citationTargets: string[];
 }
+export interface RecoveryCandidateV2 {
+  candidateId: string;
+  kind: 'resume' | 'create';
+  workItemId: string;
+  workRunId: string | null;
+  contextSource: 'work-run' | 'session-record';
+  recommended: boolean;
+}
+export interface RecoveryCompatibleBindingV2 extends RecoveryPlanAgentSelectionV2 {}
+export interface RecoveryCandidateStageV2 {
+  candidates: RecoveryCandidateV2[];
+  recommendedCandidateId: string | null;
+  candidateSetFingerprint: RecoveryFingerprint;
+  bindings: RecoveryCompatibleBindingV2[];
+  reason?: string;
+  remediation?: string;
+}
 export interface RecoverySearchedPayloadV2 {
   kind: 'searched';
   query: string;
@@ -244,11 +261,15 @@ export interface RecoverySearchedPayloadV2 {
   searchInputFingerprint: RecoveryFingerprint;
   searchFingerprint: RecoveryFingerprint;
   results: RecoverySearchResultV2[];
+  candidates?: RecoveryCandidateV2[];
+  recommendedCandidateId?: string | null;
+  candidateSetFingerprint?: RecoveryFingerprint;
+  bindings?: RecoveryCompatibleBindingV2[];
 }
 export interface RecoveryNeedsAgentSelectionPayloadV2 {
   kind: 'needs-agent-selection';
   candidates: string[];
-  bindings: RecoveryAgentSelectionV2[];
+  bindings: Array<RecoveryAgentSelectionV2 | RecoveryCompatibleBindingV2>;
 }
 export interface RecoveryPlannedPayloadV2 {
   kind: 'planned';
@@ -737,9 +758,28 @@ function validatePayload(stage: RecoveryFlowStage, value: unknown, project: stri
     return payload;
   }
   if (stage === 'searched') {
-    const entry = object(value, 'payload', ['kind', 'query', 'limit', 'searchInputFingerprint', 'searchFingerprint', 'results']);
+    const entry = optionalObject(value, 'payload', ['kind', 'query', 'limit', 'searchInputFingerprint', 'searchFingerprint', 'results', 'candidates', 'recommendedCandidateId', 'candidateSetFingerprint', 'bindings']);
+    for (const key of ['kind', 'query', 'limit', 'searchInputFingerprint', 'searchFingerprint', 'results']) if (!(key in entry)) fail(`payload.${key}`, 'is required');
     if (entry.kind !== 'searched') fail('payload.kind', 'does not match stage');
-    const payload = { kind: 'searched' as const, query: validateQuery(entry.query, 'payload.query'), limit: validateLimit(entry.limit, 'payload.limit'), searchInputFingerprint: fingerprint(entry.searchInputFingerprint, 'payload.searchInputFingerprint'), searchFingerprint: fingerprint(entry.searchFingerprint, 'payload.searchFingerprint'), results: list(entry.results, 'payload.results', 25, (item, label) => validateSearchResult(item, label, project)) };
+    const candidates = entry.candidates === undefined ? undefined : list(entry.candidates, 'payload.candidates', 3, (item, label) => {
+      const candidate = object(item, label, ['candidateId', 'kind', 'workItemId', 'workRunId', 'contextSource', 'recommended']);
+      if (candidate.kind !== 'resume' && candidate.kind !== 'create') fail(`${label}.kind`, 'has an invalid kind');
+      if (candidate.contextSource !== 'work-run' && candidate.contextSource !== 'session-record') fail(`${label}.contextSource`, 'has an invalid source');
+      if (typeof candidate.recommended !== 'boolean') fail(`${label}.recommended`, 'must be boolean');
+      const workItemId = validateWorkItemId(candidate.workItemId, `${label}.workItemId`, project);
+      const workRunId = candidate.workRunId === null ? null : validateWorkRunId(candidate.workRunId, `${label}.workRunId`);
+      if ((candidate.kind === 'resume') !== (workRunId !== null)) fail(`${label}.workRunId`, 'does not match candidate kind');
+      return { candidateId: boundedId(candidate.candidateId, `${label}.candidateId`), kind: candidate.kind, workItemId, workRunId, contextSource: candidate.contextSource, recommended: candidate.recommended } as RecoveryCandidateV2;
+    });
+    const recommendedCandidateId = entry.recommendedCandidateId === undefined ? undefined : entry.recommendedCandidateId === null ? null : boundedId(entry.recommendedCandidateId, 'payload.recommendedCandidateId');
+    if (candidates) {
+      if (candidates.length < 1 || new Set(candidates.map((candidate) => candidate.candidateId)).size !== candidates.length) fail('payload.candidates', 'must contain 1-3 unique candidates');
+      if (candidates.filter((candidate) => candidate.recommended).length !== 1) fail('payload.candidates', 'must contain exactly one recommended candidate');
+      if (recommendedCandidateId !== candidates.find((candidate) => candidate.recommended)?.candidateId) fail('payload.recommendedCandidateId', 'must match the recommended candidate');
+    }
+    const bindings = entry.bindings === undefined ? undefined : list(entry.bindings, 'payload.bindings', 16, (item, label) => validatePlanAgentSelection(item, label));
+    if (bindings && (new Set(bindings.map((binding) => `${binding.bindingId}\0${binding.bindingRevision}`)).size !== bindings.length)) fail('payload.bindings', 'must contain unique bindings');
+    const payload = { kind: 'searched' as const, query: validateQuery(entry.query, 'payload.query'), limit: validateLimit(entry.limit, 'payload.limit'), searchInputFingerprint: fingerprint(entry.searchInputFingerprint, 'payload.searchInputFingerprint'), searchFingerprint: fingerprint(entry.searchFingerprint, 'payload.searchFingerprint'), results: list(entry.results, 'payload.results', 25, (item, label) => validateSearchResult(item, label, project)), ...(candidates ? { candidates } : {}), ...(recommendedCandidateId !== undefined ? { recommendedCandidateId } : {}), ...(entry.candidateSetFingerprint !== undefined ? { candidateSetFingerprint: fingerprint(entry.candidateSetFingerprint, 'payload.candidateSetFingerprint') } : {}), ...(bindings ? { bindings } : {}) };
     if (utf8JsonBytes(payload) > 128 * 1024) fail('payload', 'must not exceed 128 KiB');
     return payload;
   }
@@ -748,7 +788,7 @@ function validatePayload(stage: RecoveryFlowStage, value: unknown, project: stri
     if (entry.kind !== 'needs-agent-selection') fail('payload.kind', 'does not match stage');
     const candidates = list(entry.candidates, 'payload.candidates', 3, (item, label) => boundedId(item, label));
     if (candidates.length < 1 || new Set(candidates).size !== candidates.length) fail('payload.candidates', 'must contain 1-3 unique candidates');
-    const bindings = list(entry.bindings, 'payload.bindings', 16, validateAgentSelection);
+    const bindings = list(entry.bindings, 'payload.bindings', 16, validatePlanAgentSelection);
     const bindingKeys = bindings.map((binding) => `${binding.bindingId}\u0000${binding.bindingRevision}`);
     if (bindings.length < 2 || new Set(bindingKeys).size !== bindings.length) fail('payload.bindings', 'must contain 2-16 unique compatible bindings');
     return { kind: 'needs-agent-selection', candidates, bindings };
