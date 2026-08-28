@@ -29,9 +29,9 @@ Luna receives one reviewed Task at a time. It may alter internal implementation 
 
 ## Phase 3 — S03 mandatory Project-scoped cited search
 
-- [ ] **T3.1 Project owner search source (R5)** — Add `mcp-server/src/project-hub/search-source.ts` and its test. Read only canonical current Project Work-OS, Project Memory, Project Source/Evidence, Session Record, and Workflow roots with exact owner locks; exclude cross-Project material before ranking; do not modify generic RRF semantics or add an index.
-- [ ] **T3.2 Internal searched basis only (R2, R4, R5)** — Add `mcp-server/src/project-hub/search.ts` and its test. Implement safe query normalization, deterministic bounds/order, repeated search branches, owner locks, intrinsic searched payload facts, and stale recomputation over S02 open. Do not derive candidates, read Agent Bindings, finalize searched/needs-selection/unavailable stages, or construct recommended requests in S03.
-- [ ] **T3.3 Verify S03** — Run `npm exec bun -- test src/project-hub/recovery-flow.test.ts src/project-hub/recovery-open.test.ts src/project-hub/search-source.test.ts src/project-hub/search.test.ts src/workflow/workflow-read-model.test.ts` and `npm run typecheck`. Record evidence in `p0-s03-project-cited-retrieval.md`.
+- [x] **T3.1 Project owner search source (R5)** — Add `mcp-server/src/project-hub/search-source.ts` and its test. Read only canonical current Project Work-OS, Project Memory, Project Source/Evidence, Session Record, and Workflow roots with exact owner locks; exclude cross-Project material before ranking; do not modify generic RRF semantics or add an index.
+- [x] **T3.2 Internal searched basis only (R2, R4, R5)** — Add `mcp-server/src/project-hub/search.ts` and its test. Implement safe query normalization, deterministic bounds/order, repeated search branches, owner locks, intrinsic searched payload facts, and stale recomputation over S02 open. Do not derive candidates, read Agent Bindings, finalize searched/needs-selection/unavailable stages, or construct recommended requests in S03.
+- [x] **T3.3 Verify S03** — Run `npm exec bun -- test src/project-hub/recovery-flow.test.ts src/project-hub/recovery-open.test.ts src/project-hub/search-source.test.ts src/project-hub/search.test.ts src/workflow/workflow-read-model.test.ts` and `npm run typecheck`. Record evidence in `p0-s03-project-cited-retrieval.md`.
 
 ## Phase 4 — S04A candidates, immutable Plan, complete Flow registration, V1 removal
 

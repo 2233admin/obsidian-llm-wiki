@@ -5,3 +5,5 @@ export * from "./recovery.js";
 export * from "./contract-support.js";
 export * from "./recovery-flow.js";
 export * from "./recovery-open.js";
+export * from "./search-source.js";
+export * from "./search.js";
