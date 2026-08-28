@@ -1,7 +1,7 @@
 ---
 type: issue
 entity: project/obsidian-llm-wiki/issue/p0-s02-resumable-agent-context
-state: in-progress
+state: done
 review: reviewed
 kind: knowledge-task
 id: obsidian-llm-wiki/p0-s02-resumable-agent-context
@@ -49,4 +49,4 @@ Blocked by reviewed S01B contract kernel. S03 consumes the Workflow read model a
 
 - From `mcp-server/`: `npm exec bun -- test src/project-hub/recovery-flow.test.ts src/project-hub/recovery-open.test.ts src/workflow/work-run-store.test.ts src/workflow/workflow-read-model.test.ts src/workflow/workflow.test.ts src/project/agent-room-legacy-characterization.test.ts` — 63 passed, 0 failed.
 - From `mcp-server/`: `npm run typecheck` — passed (including the required settings, Agent Domain, visual workspace, and problem-intake package builds).
-- No public V2 Flow operation, candidate/Plan path, mutation, search source, or V1 removal was added; independent review remains.
+- Independent read-only review of `d766c86..91d071b` found no Critical or Important findings; the coordinator then repeated the 63-test gate and typecheck after integration with the same passing result.

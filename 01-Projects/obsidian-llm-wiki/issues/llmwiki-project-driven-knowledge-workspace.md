@@ -22,7 +22,7 @@ last-verified: 2026-08-28
 - **Contributors**: Product, domain, Obsidian UX, Agent workflow
 - **Informed**: MCP, CLI, capability-worker maintainers
 - **Lifecycle**: Product wedge and Recovery Flow v2 approved before implementation
-- **Decision outcome**: Recovery-required S01B–S08 work is part of Foundation exit; implementation proceeds blockers-first from reviewed S01B
+- **Decision outcome**: Recovery-required S01B–S08 work is part of Foundation exit; S01B and S02 are verified completions, and implementation proceeds blockers-first from reviewed S03
 
 ## Takeaway
 
@@ -129,12 +129,12 @@ Planning contract:
 - `openspec/changes/project-hub-recovery-loop/`
 - `docs/superpowers/plans/2026-08-27-project-hub-recovery-loop.md`
 
-S01B–S08 are reviewed Work-OS contracts. Only S01B is immediately executable;
-the remaining leaves are blocked by the direct dependency chain above.
+S01B and S02 are verified completions. S03 is the immediately executable leaf;
+S04A–S08 remain blocked by the direct dependency chain above.
 
 ## Success metrics
 
-Baselines are not yet measured. The first implementation issue must add a reproducible measurement path before claiming improvement.
+Baselines are not yet measured. S08 owns the reproducible measurement path and baseline; no earlier slice may claim improvement without that evidence.
 
 - **Time to first defensible next action**: from opening a Project Hub to selecting a cited next action. Initial target: under 60 seconds for a previously active project.
 - **Recovery completeness**: in a scripted interruption test, the user can identify current stage, blockers, next action, and the relevant Agent context without reopening the full prior transcript. Initial target: 4/4 checks.
@@ -145,8 +145,8 @@ Baselines are not yet measured. The first implementation issue must add a reprod
 
 ## Acceptance criteria for this product brief
 
-This brief is approved and decomposed. Implementation starts from reviewed S01B
-because:
+This brief is approved and decomposed. S01B and S02 have passed focused
+verification and independent review. Implementation continues from S03 because:
 
 - Ask Mate Project Context is the primary recovery entry;
 - Project ID, Workspace Binding, Work-OS, Knowledge, Memory, Session Record, Work Run, Settings, Agent Domain, and Promotion/Write Policy ownership is explicit;
@@ -180,9 +180,9 @@ prior stage. Apply/output writes remain Workflow-owned.
 
 ## First implementation slices
 
-1. S01B defines the complete internal closed V2 request/response/stage/fingerprint kernel while V1 remains byte-stable.
-2. S02 extracts Workflow store/read seams and composes open plus bounded context.
-3. S03 adds mandatory repeatable Project-scoped cited search.
+1. **Complete — S01B** defines the complete internal closed V2 request/response/stage/fingerprint kernel while V1 remains byte-stable.
+2. **Complete — S02** extracts Workflow store/read seams and composes open plus bounded context.
+3. **Next — S03** adds mandatory repeatable Project-scoped cited search.
 4. S04A adds candidates/Binding eligibility/immutable Plans, registers the complete Flow, migrates callers, and removes V1.
 5. S06A proves the ephemeral read-only Flow through Ask Mate Project Context in actual Obsidian.
 6. S04B applies one exact Plan through claim-first Workflow ownership.
