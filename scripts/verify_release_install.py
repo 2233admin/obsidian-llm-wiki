@@ -14,7 +14,6 @@ import time
 from pathlib import Path
 from typing import Any
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 RELEASE_INSTALL_ALLOWLIST: tuple[Path, ...] = (
@@ -280,7 +279,7 @@ class McpClient:
             raise RuntimeError(f"tools/list failed: {resp['error']}")
         tools = resp.get("result", {}).get("tools", [])
         if not isinstance(tools, list):
-            raise RuntimeError("tools/list returned a non-list tools payload")
+            raise TypeError("tools/list returned a non-list tools payload")
         names = [tool.get("name") for tool in tools if isinstance(tool, dict)]
         if any(not isinstance(name, str) or not name for name in names):
             raise RuntimeError("tools/list returned a tool without a valid name")
@@ -303,9 +302,17 @@ def run_step(results: list[dict[str, Any]], code: str, fn: Any) -> None:
     try:
         detail = fn()
         results.append({"ok": True, "code": code, "detail": detail})
-    except Exception as e:
+    except (
+        subprocess.SubprocessError,
+        AssertionError,
+        AttributeError,
+        KeyError,
+        OSError,
+        RuntimeError,
+        TypeError,
+        ValueError,
+    ) as e:
         results.append({"ok": False, "code": code, "detail": str(e)})
-
 
 def make_temp_vault(root: Path) -> Path:
     vault = root / "vault"

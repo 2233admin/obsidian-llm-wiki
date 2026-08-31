@@ -3,7 +3,7 @@
 > Auto-generated from `mcp-server/src/core/operations.ts`.
 > Run `npm run generate-tools-doc` to regenerate. Do not edit by hand.
 
-Total: **210** operations across **26** namespaces.
+Total: **211** operations across **26** namespaces.
 
 ## `vault.*` (31)
 
@@ -2494,7 +2494,7 @@ Transition one Child Work Run without inferring any parent terminal state.
 - `actor` (string, required)
 - `diagnosticArtifact` (object, optional)
 
-## `visual.*` (5)
+## `visual.*` (6)
 
 ### `visual.context.read`
 
@@ -2561,6 +2561,17 @@ Read one canonical managed mind-map Markdown section without writing.
 
 - `project` (string, required) — Canonical Project ID (project/<slug>)
 - `path` (string, required) — 01-Projects/<slug>/maps/**.md path
+
+### `visual.template.preview`
+
+Preview a static TemplateManifest upload envelope without executing code or writing the vault. content must be JSON {manifest, artifactContent}; the artifact digest is verified.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `path` (string, required) — Vault-relative artifact path
+- `content` (string, required) — JSON upload envelope containing manifest and artifactContent
 
 ## `problem.*` (9)
 

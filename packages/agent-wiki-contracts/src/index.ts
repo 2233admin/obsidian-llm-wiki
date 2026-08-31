@@ -251,3 +251,4 @@ export interface DataViewImportPlanV1 {
   provenance: { actor: string; origin: "import" };
   fingerprint: string;
 }
+export * from "./template-manifest.js";

@@ -22,6 +22,7 @@ describe("session archiver redaction", () => {
       const timestamp = Date.UTC(2026, 7, 18, 12, 0, 0);
       const promptSecret = `ghp_${"a".repeat(20)}`;
       const threadSecret = `sk-proj-${"b".repeat(20)}`;
+      const vaultPathSecret = join(vault, "nested", "note.md");
 
       writeFileSync(
         join(claudeDir, "history.jsonl"),
@@ -29,7 +30,7 @@ describe("session archiver redaction", () => {
           sessionId: "12345678-1234-1234-1234-123456789abc",
           timestamp,
           project: "test-project",
-          display: `token=${promptSecret}`,
+          display: `token=${promptSecret} path=${vaultPathSecret}`,
         })}\n`,
       );
       writeFileSync(
@@ -58,6 +59,7 @@ describe("session archiver redaction", () => {
 
       expect(promptNote).toContain("<REDACTED>");
       expect(promptNote).not.toContain(promptSecret);
+      expect(promptNote).not.toContain(vaultPathSecret);
       expect(threadNote).toContain("<REDACTED>");
       expect(threadNote).not.toContain(threadSecret);
     } finally {

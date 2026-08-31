@@ -15,7 +15,6 @@ from typing import Any
 
 import verify_fleet_release_evidence as verifier
 
-
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_TRUST_ANCHOR = Path("docs/release-evidence/trust/device-cloud-5090.json")
 BASE_FIELDS = {
@@ -95,7 +94,7 @@ def sign_evidence(
     private_key = _outside_repository(private_key_path)
     payload = json.loads(evidence_path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
-        raise RuntimeError("release evidence draft must be a JSON object")
+        raise TypeError("release evidence draft must be a JSON object")
     if frozenset(payload) not in {
         frozenset(BASE_FIELDS),
         frozenset(BASE_FIELDS | {"attestation"}),
@@ -173,7 +172,7 @@ def main() -> int:
             args.private_key,
             args.trust_anchor,
         )
-    except Exception as error:
+    except (KeyError, OSError, RuntimeError, subprocess.SubprocessError, TypeError, ValueError) as error:
         print(f"Fleet release evidence signing: failed: {error}", file=sys.stderr)
         return 1
     print(json.dumps(result, indent=2))

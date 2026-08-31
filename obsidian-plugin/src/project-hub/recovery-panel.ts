@@ -57,6 +57,7 @@ export class ProjectHubRecoveryPanel {
     private container: HTMLElement | null = null,
     private readonly onCitation?: CitationHandler,
     private readonly confirmationActor = "obsidian-control-plane",
+    private readonly onSearchCompleted?: () => void,
   ) {
     this.#state = this.emptyState("project/unknown");
   }
@@ -102,6 +103,9 @@ export class ProjectHubRecoveryPanel {
       if (response.stage === "searched") {
         this.#state.query = response.payload.query;
         this.#state.selectedCandidateId = response.payload.recommendedCandidateId ?? null;
+        if (response.payload.results.some(result => result.citationTargets.length > 0)) {
+          this.onSearchCompleted?.();
+        }
       }
     });
     if (this.isClosedRecommendation(this.#state.flow)) await this.followRecommended();

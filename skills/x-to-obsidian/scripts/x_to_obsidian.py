@@ -6,20 +6,17 @@ import csv
 import datetime as dt
 import hashlib
 import json
-import os
 import platform
 import re
 import shutil
 import sqlite3
 import subprocess
-import sys
 import time
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-
 
 USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -84,7 +81,7 @@ class BrowserTab:
 
 
 def run(cmd: list[str], *, input_bytes: bytes | None = None, check: bool = True) -> subprocess.CompletedProcess:
-    return subprocess.run(cmd, input=input_bytes, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=check)
+    return subprocess.run(cmd, input=input_bytes, capture_output=True, check=check)
 
 
 def browser_profile(browser: str, profile: str) -> BrowserProfile:
@@ -905,7 +902,7 @@ def trigger_web_clipper(profile: BrowserProfile, vault: Path, url: str, mode: st
             try:
                 send_shortcut(actual_mode, profile.app_name)
                 return wait_for_new_note(vault, before, timeout), target_tab
-            except Exception as exc:
+            except (OSError, RuntimeError, ValueError) as exc:
                 errors.append(f"{actual_mode}: {exc}")
                 before = markdown_files(vault)
         raise RuntimeError("; ".join(errors))
@@ -975,7 +972,7 @@ def collect_candidates(client: XClient, accounts: list[Account], threshold: int,
                 if stop_for_age or not cursor:
                     break
                 time.sleep(api_delay)
-        except Exception as exc:
+        except (AttributeError, IndexError, KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
             summary["failed"] += 1
             print(f"  account failed: {exc}", flush=True)
     return candidates, summaries
@@ -1122,13 +1119,13 @@ def main() -> int:
                         try:
                             close_browser_tab(profile, target_tab)
                             print(f"  closed target tab  {candidate.clip_url}", flush=True)
-                        except Exception as exc:
+                        except (OSError, RuntimeError) as exc:
                             message = f"close_after_save_failed: {exc}"
                             print(f"  warning {candidate.tweet_url}: {message}", flush=True)
                     else:
                         message = "close_after_save_skipped: no dedicated target tab was detected"
                         print(f"  warning {candidate.tweet_url}: {message}", flush=True)
-            except Exception as exc:
+            except (KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
                 status = "failed"
                 message = str(exc)
                 print(f"  failed {candidate.tweet_url}: {message}", flush=True)

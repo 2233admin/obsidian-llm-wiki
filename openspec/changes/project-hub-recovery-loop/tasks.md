@@ -85,16 +85,16 @@ Luna receives one reviewed Task at a time. It may alter internal implementation 
 
 ## Phase 9 — S07 MCP and dedicated CLI parity
 
-- [ ] **T9.1 Dedicated Recovery Flow CLI** — Add `project-hub/cli.ts` and its test; update package bin/files/build targets. Expose flow `open|search|plan|refresh-plan|restart` plus Workflow apply through shared Operations; no claim-file reads or copied transition semantics.
-- [ ] **T9.2 Domain/MCP/CLI parity (R10)** — Add parity tests over identical requests/fixture. Compare stage, Flow/Plan fingerprints, locks, recommended requests, reason codes, citations, diagnostics, apply states, and receipts; redact adapter errors.
-- [ ] **T9.3 Verify S07** — Run CLI/parity/Project tests, typecheck/build, and real CLI open/search/plan smoke commands. Record S07 evidence.
+- [x] **T9.1 Dedicated Recovery Flow CLI** — Added `project-hub/cli.ts` and tests; package bin/files/build targets expose `open|search|plan|refresh-plan|restart|apply` through shared Operations. Later-stage requests are JSON-file inputs and claim files remain internal.
+- [x] **T9.2 Domain/MCP/CLI parity (R10)** — Parity tests compare identical Flow requests, stages, fingerprints, owner locks, recommendations, citations, diagnostics, and Plan payloads; adapter errors redact credentials and absolute paths.
+- [x] **T9.3 Verify S07** — CLI/parity/Foundation tests pass 7/7, MCP typecheck/build pass, and sanitized CLI `open→search→plan` smoke passes.
 
 ## Phase 10 — S08 Foundation acceptance
 
-- [ ] **T10.1 Sanitized V2 fixture and canary matrix (R11)** — Add fixture and end-to-end test containing every owner, unique/multiple/no Binding cases, repeated queries, candidate override, expired Plan, stale locks, claims, outputs, and canaries.
-- [ ] **T10.2 Automate R1–R10** — Cover clean V1 removal, stateless recomputation, branch mixing rejection, all stages/actions, apply/output crash windows and races, parity, and privacy.
-- [ ] **T10.3 Actual-surface timing** — One familiarization plus three measured Obsidian runs from Open Project Hub invocation to cited immutable Plan preview; all under 60 seconds with raw timings.
-- [ ] **T10.4 Exact Foundation gate** — Run complete MCP/plugin/Fleet/Python/OpenSpec verification. Any failure creates a linked issue and leaves S08/Foundation incomplete.
+- [ ] **T10.1 Sanitized V2 fixture and canary matrix (R11)** — A focused sanitized fixture and privacy canary test exists; the full every-owner/claim/output matrix remains open.
+- [x] **T10.2 Automate R1–R10** — The Foundation gate covers V1 absence, stateless read path, branch mixing rejection, refresh/restart, privacy, and parity; existing S04B–S06B suites cover apply/output crash and replay cases.
+- [x] **T10.3 Actual-surface timing** — Updated plugin QA rendered the Getting Started/remediation card; three actual Obsidian Project Hub → cited Plan runs measured 312 ms, 408 ms, and 547 ms.
+- [ ] **T10.4 Exact Foundation gate** — MCP/plugin/focused Python/OpenSpec gates pass, but the full root Python matrix has two failures and the default `py.cmd` wrapper fails Fleet lease acquisition. Follow-up `foundation-gate-follow-up-2026-08-29` blocks Foundation.
 
 ## Phase 11 — closeout
 

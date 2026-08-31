@@ -1,8 +1,10 @@
 import { watch, type FSWatcher } from "fs";
 
+type DebounceTimer = number | NodeJS.Timeout;
+
 export class SkillWatcher {
 	private watchers: FSWatcher[] = [];
-	private debounceTimer: number | null = null;
+	private debounceTimer: DebounceTimer | null = null;
 	private debounceMs: number;
 	private onChange: () => void;
 
@@ -23,8 +25,8 @@ export class SkillWatcher {
 	}
 
 	private scheduleUpdate(): void {
-		if (this.debounceTimer) window.clearTimeout(this.debounceTimer);
-		this.debounceTimer = window.setTimeout(() => {
+		if (this.debounceTimer) clearTimeout(this.debounceTimer);
+		this.debounceTimer = setTimeout(() => {
 			this.debounceTimer = null;
 			this.onChange();
 		}, this.debounceMs);
@@ -32,7 +34,7 @@ export class SkillWatcher {
 
 	close(): void {
 		if (this.debounceTimer) {
-			window.clearTimeout(this.debounceTimer);
+			clearTimeout(this.debounceTimer);
 			this.debounceTimer = null;
 		}
 		for (const w of this.watchers) {

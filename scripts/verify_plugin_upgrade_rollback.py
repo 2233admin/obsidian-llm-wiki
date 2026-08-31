@@ -25,7 +25,6 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN_ID = "vault-mind-promote"
 RELEASE_FILES = ("main.js", "manifest.json", "styles.css")
@@ -132,14 +131,14 @@ def load_payload(source: Path) -> PluginPayload:
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
         raise RuntimeError(f"invalid manifest.json: {error}") from error
     if not isinstance(manifest, dict):
-        raise RuntimeError("manifest.json must contain an object")
+        raise TypeError("manifest.json must contain an object")
     if manifest.get("id") != PLUGIN_ID:
         raise RuntimeError(f"plugin id must stay {PLUGIN_ID} for upgrade compatibility")
     version = manifest.get("version")
     if not isinstance(version, str) or not SEMVER.fullmatch(version):
         raise RuntimeError(f"manifest version is not semver: {version!r}")
     if not isinstance(manifest.get("minAppVersion"), str):
-        raise RuntimeError("manifest minAppVersion must be a string")
+        raise TypeError("manifest minAppVersion must be a string")
     if b"module.exports" not in files["main.js"] and b"exports.default" not in files["main.js"]:
         raise RuntimeError("main.js does not look like a loadable Obsidian CommonJS bundle")
     return PluginPayload(str(source), files, manifest)
@@ -421,6 +420,7 @@ def boot_plugin(vault: Path, harness: Path, action: str = "load") -> dict[str, A
             json.dumps({
                 "schemaVersion": 2,
                 "presentation": {"selectedScope": "user-device", "showAdvanced": False},
+                "deviceBinding": {"deviceId": "qa-device"},
                 "agentfiles": {"watchEnabled": False, "projectScanEnabled": False},
             }) + "\n",
             encoding="utf-8",
@@ -568,7 +568,18 @@ def main() -> int:
     args = parser.parse_args()
     try:
         report = verify(Path(args.candidate), Path(args.baseline))
-    except Exception as error:
+    except (
+        AttributeError,
+        KeyError,
+        OSError,
+        RuntimeError,
+        TypeError,
+        ValueError,
+        shutil.Error,
+        subprocess.SubprocessError,
+        tarfile.TarError,
+        zipfile.BadZipFile,
+    ) as error:
         report = {"ok": False, "error": str(error)}
     if args.json:
         print(json.dumps(report, ensure_ascii=False, indent=2))

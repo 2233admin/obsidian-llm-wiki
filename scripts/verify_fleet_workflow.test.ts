@@ -5,7 +5,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, 
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { describe, test } from 'bun:test';
-import { assertArtifactOnlyCommitRange, assertPortableBaseHead } from './verify_fleet_workflow';
+import { assertArtifactOnlyCommitRange, assertPortableBaseHead, runPythonCommand } from './verify_fleet_workflow';
 
 const ROOT = resolve(import.meta.dir, '..');
 const SCRIPT = resolve(import.meta.dir, 'verify_fleet_workflow.ts');
@@ -54,6 +54,32 @@ describe('fleet workflow acceptance harness safety', () => {
     const result = invoke(['--help']);
     assert.equal(result.status, 0, result.stderr || result.stdout);
     assert.match(result.stdout, /--require-clean\s+Reject tracked or untracked worktree changes before acceptance/);
+  });
+
+  test('runPythonCommand invokes Windows .cmd wrappers without interpreting argument metacharacters', () => {
+    if (process.platform !== 'win32') return;
+    const root = mkdtempSync(join(tmpdir(), 'fleet-python-wrapper-'));
+    const wrapper = join(root, 'python shim.cmd');
+    const argument = join(root, 'safe path & value.txt');
+    try {
+      writeFileSync(wrapper, '@echo off\r\necho [%~1]\r\n', 'utf-8');
+      const result = runPythonCommand(wrapper, [argument], {
+        cwd: root,
+        encoding: 'utf-8',
+        windowsHide: true,
+      });
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(result.stdout.trim(), `[${argument}]`);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('falls back when configured Python is unavailable', () => {
+    const result = invoke(['--phase', 'prepare', '--json'], {
+      PYTHON: join(tmpdir(), 'missing-python.cmd'),
+    });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
   });
 
   test('descendant acceptance rejects product changes even with --tested-commit', () => {

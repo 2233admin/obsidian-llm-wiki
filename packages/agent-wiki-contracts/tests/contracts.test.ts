@@ -26,6 +26,8 @@ const SCHEMA_NAMES = [
   "data-view-import-plan",
 ] as const;
 
+const ALL_SCHEMA_NAMES = [...SCHEMA_NAMES, "template-manifest"] as const;
+
 function json(relative: string): Record<string, unknown> {
   const path = fileURLToPath(new URL(relative, import.meta.url));
   return JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
@@ -120,7 +122,7 @@ function clone(value: Record<string, unknown>): Record<string, unknown> {
 describe("Agent Wiki shared contracts", () => {
   test("publishes each lifecycle contract under a stable versioned schema id", () => {
     const ids = new Set<string>();
-    for (const name of SCHEMA_NAMES) {
+    for (const name of ALL_SCHEMA_NAMES) {
       const schema = json(`../schemas/${name}.schema.json`);
       assert.equal(schema.$schema, "https://json-schema.org/draft/2020-12/schema");
       assert.equal(schema.$id, `https://schemas.llmwiki.org/agent-wiki/v1/${name}.schema.json`);

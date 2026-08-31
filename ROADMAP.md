@@ -15,23 +15,26 @@ architecture is recorded in `30-Architecture/llm-wiki-product-spine.md`.
 Before adding new MCP tools, adapters, Fleet features, or isolated setup
 patches, complete and verify this foundation:
 
-- [ ] Obsidian-first onboarding and vault binding
-- [ ] Capability health with actionable remediation
-- [ ] TypeScript-owned boundary for Python and external workers
-- [ ] Clear ownership between plugin, MCP, CLI, and durable vault state
-- [ ] Roadmap and Work-OS issues grouped by product milestone
+- [x] Obsidian-first onboarding and vault binding
+- [x] Capability health with actionable remediation
+- [x] TypeScript-owned worker boundary for named compiler, trigger, MemU, and agent callers; no production direct Python callsites remain (direct Python calls are test-only)
+- [x] Clear ownership between plugin, MCP, CLI, and durable vault state
+- [x] Roadmap and Work-OS issues grouped by product milestone
 - [ ] Stateless Project Hub Recovery Flow v2 passes the complete actual-Obsidian Foundation gate
 
-Feature expansion is paused until these Foundation gates are implemented and
-accepted.
+The setup surface is TS-owned by `mcp-server/src/scripts/setup.ts`; `setup`
+and `setup.ps1` are thin launchers.
+
+Feature expansion remains paused until the remaining S08 durable-store
+fixture breadth is accepted.
 
 ### Approved foundation slice: Project Hub Recovery Flow v2
 
 The approved slice replaces `project-hub-recovery/v1` with a stateless staged
 Recovery Flow that moves from current Project facts through mandatory cited
 search and immutable Plan preview, then delegates confirmed mutation and output
-routing to Workflow. S01 v1 remains completed history. S01B–S06B are verified
-completions. S07 and S08 remain.
+routing to Workflow. S01 v1 remains completed history. S01B–S07 are verified
+completions. S08 remains the final Foundation gate.
 
 Dependency order:
 
@@ -46,14 +49,18 @@ S01 v1 complete (historical)
                                 -> S04B claim-first Workflow apply [done]
                                      -> S05 claimed output governance [done]
                                           -> S06B actual Obsidian apply/receipt/restart [done]
-                                               -> S07 MCP/CLI parity [next]
-                                                    -> S08 Foundation acceptance
-```
-
-**S04P, S06A, S04B, S05, and S06B are verified complete.** Planning, apply,
-output routing, and the human Obsidian recovery journey remain separate,
-claim-first, and replay-safe.
-**S07 is next** and owns MCP/CLI parity; S08 remains the Foundation acceptance gate.
+                                               -> S07 MCP/CLI parity [done]
+                                                    -> S08 Foundation acceptance [in progress]
+**S04P, S06A, S04B, S05, S06B, and S07 are verified complete.** Planning,
+apply, output routing, the human Obsidian recovery journey, and MCP/CLI parity
+remain separate, claim-first, and replay-safe.
+**S08 remains in progress**; acceptance item 30 is still open, so Foundation
+exit is not claimed.
+Current verification totals:
+- Root Python: `python -m pytest -q` — 282 passed, 1 skipped.
+- MCP: `npm test` — 858 passed, 18 skipped, 0 failed.
+- Obsidian plugin: `npm test` — 98 passed, 0 failed; typecheck and production build passed.
+- Fleet verifier: 17 passed, 0 failed.
 
 Planning sources:
 

@@ -1,10 +1,9 @@
 """Tests for fix planner (PR3)."""
-import pytest
-import json
 from pathlib import Path
-from obc.planner import FixPlanner, FixPlan, FixCandidate
+
+from obc.extract import LinkKind, LinkRef
+from obc.planner import FixCandidate, FixPlan, FixPlanner
 from obc.resolver import Diagnostic, DiagnosticCode
-from obc.extract import LinkRef, LinkKind
 
 
 def make_diagnostic(code, target_raw="Target", candidates=None, suggested_fix=None, safety_level="S0"):
@@ -24,15 +23,7 @@ def make_diagnostic(code, target_raw="Target", candidates=None, suggested_fix=No
         alias=None,
     )
 
-    from obc.index import FileEntry
-    target = FileEntry(
-        path=Path("Target.md"),
-        normalized_path="Target.md",
-        stem="Target",
-        basename="Target.md",
-        ext=".md",
-        content_hash="abc123",
-    )
+
 
     return Diagnostic(
         code=code,
@@ -230,7 +221,7 @@ class TestApplyFixes:
 
         # Apply with dry run
         planner = FixPlanner()
-        modified, errors, backups = planner.apply_fixes(plan, dry_run=True)
+        modified, _errors, _backups = planner.apply_fixes(plan, dry_run=True)
 
         # File should not be modified
         assert test_file.read_text() == "[[Targer]] is broken"

@@ -8,12 +8,9 @@ Preserves alias/embed/fragment structure.
 
 from __future__ import annotations
 
-import json
-import difflib
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 from obc.resolver import Diagnostic, DiagnosticCode
 
@@ -32,7 +29,8 @@ class FixCandidate:
 
     # Evidence
     reason: str
-    target_path: Optional[str] = None
+    target_path: str | None = None
+
 
     def to_dict(self) -> dict:
         return {
@@ -170,7 +168,8 @@ class FixPlanner:
         plan.total_candidates = len(plan.safe_fixes) + len(plan.review_fixes)
         return plan
 
-    def _plan_fix(self, diag: Diagnostic) -> Optional[FixCandidate]:
+    def _plan_fix(self, diag: Diagnostic) -> FixCandidate | None:
+
         """
         Plan a fix for a single diagnostic.
 
@@ -336,8 +335,9 @@ class FixPlanner:
                         file_path.write_text(content, encoding='utf-8')
                         modified.append(file_path)
 
-            except Exception as e:
+            except OSError as e:
                 errors.append(f"{file_path}: {e}")
+
 
         return modified, errors, backups
 
@@ -358,9 +358,9 @@ class FixPlanner:
         Returns:
             (new_error_count, fixed_count)
         """
-        from obc.extract import extract_links
         import itertools
 
+        from obc.extract import extract_links
         fixed = 0
         new_errors = 0
 
@@ -378,10 +378,12 @@ class FixPlanner:
 
         # Count fixed
         for diag in original_diagnostics:
-            if diag.severity in ("error", "warning"):
-                if diag.link.source_file not in modified_files:
-                    continue
-                # Check if this diagnostic is now OK
-                # (simplified - full validation would re-resolve)
+            if not (
+                diag.severity in ("error", "warning")
+                and diag.link.source_file in modified_files
+            ):
+                continue
+            # Check if this diagnostic is now OK
+            # (simplified - full validation would re-resolve)
 
         return new_errors, fixed

@@ -61,6 +61,7 @@ import {
   isManagedProjectMapPath,
 } from "./ask-mate/client";
 import { ProjectHubRecoveryClient } from "./project-hub/recovery-client";
+import { deriveOnboardingState } from "./onboarding/onboarding-state";
 import { AgentfilesFeature } from "./agentfiles/feature";
 import {
   ASK_MATE_VIEW_TYPE,
@@ -127,6 +128,7 @@ export default class LLMWikiPlugin extends Plugin {
   private agentControlPlaneClient!: AgentControlPlaneClient;
   private askMateClient!: AskMateOperationClient;
   private recoveryClient!: ProjectHubRecoveryClient;
+  private firstSearchCompleted = false;
   private controlPlaneTransport: (
     SettingsOperationTransport
     & AgentControlPlaneTransport
@@ -177,7 +179,9 @@ export default class LLMWikiPlugin extends Plugin {
       (leaf: WorkspaceLeaf) => new AskMateView(leaf, this.askMateClient, {
         proposalActor: OBSIDIAN_CONTROL_PLANE_ACTOR,
         confirmationActor: OBSIDIAN_CONTROL_PLANE_ACTOR,
-      }, this.recoveryClient),
+      }, this.recoveryClient, () => {
+        this.firstSearchCompleted = true;
+      }),
     );
     this.addRibbonIcon("sparkles", "Open LLM Wiki", () => this.openAskMateEntryPoint());
 
@@ -693,6 +697,25 @@ export default class LLMWikiPlugin extends Plugin {
       if (notify) new Notice(`LLM Wiki: settings unavailable — ${this.settingsError}`);
     }
   }
+  getOnboardingState() {
+    const health = this.projection?.health ?? (this.settingsError ? [{
+      capabilityId: "settings-platform",
+      state: "unavailable" as const,
+      summary: "Settings Platform could not be reached.",
+      evidence: [],
+      remediations: [{ code: "retry-settings", summary: "Refresh the Settings Platform health check." }],
+      checkedAt: new Date().toISOString(),
+      snapshotId: "unavailable",
+    }] : []);
+    return deriveOnboardingState({
+      vaultAvailable: this.vaultBasePath() !== null,
+      projectId: this.workspaceProjectId() ?? undefined,
+      capabilityHealth: health,
+      validationIssues: this.projection?.validation.issues ?? [],
+      firstSearchCompleted: this.firstSearchCompleted,
+    });
+  }
+
 
   async updateSetting(scope: SettingScope, key: string, value: SettingValue | SecretReference): Promise<void> {
     const revision = this.projection?.snapshot.sourceRevisions[scope]?.revision;
@@ -836,7 +859,6 @@ class LLMWikiSettingTab extends PluginSettingTab {
     });
     this.renderOverview(containerEl);
     this.renderAgentControlPlane(containerEl);
-    if (!this.llmWiki.projection) return;
 
     const expandedSections = this.llmWiki.data.presentation.settingsExpandedSections;
     const isFirstVisit = expandedSections.length === 0;
@@ -852,6 +874,7 @@ class LLMWikiSettingTab extends PluginSettingTab {
     const gettingStartedContent = gettingStarted.createDiv({ cls: "llmwiki-settings-section-content" });
     this.renderGettingStartedContent(gettingStartedContent);
     if (gettingStartedExpanded) gettingStarted.setAttr("open", "");
+    if (!this.llmWiki.projection) return;
 
     // All Settings section — collapsed by default
     const allSettingsId = "all-settings";
@@ -889,6 +912,43 @@ class LLMWikiSettingTab extends PluginSettingTab {
   }
 
   private renderGettingStartedContent(containerEl: HTMLElement): void {
+    const state = this.llmWiki.getOnboardingState();
+    const card = containerEl.createDiv({ cls: `llmwiki-onboarding llmwiki-onboarding-${state.step}` });
+    card.createEl("h2", { text: state.title });
+    card.createEl("p", { text: state.nextAction });
+    const steps = card.createEl("ol", { cls: "llmwiki-onboarding-steps" });
+    const labels: Record<string, string> = {
+      vault: "Open a desktop vault",
+      project: "Bind a Project",
+      capabilities: "Repair capabilities",
+      "minimum-settings": "Complete minimum settings",
+      "first-search": "Run the first search",
+      complete: "Ready",
+    };
+    for (const step of ["vault", "project", "capabilities", "minimum-settings", "first-search", "complete"]) {
+      const item = steps.createEl("li", { text: labels[step] });
+      if (step === state.step) item.addClass("llmwiki-onboarding-current");
+      if (step === "complete" && state.step === "complete") item.addClass("llmwiki-onboarding-done");
+    }
+    const actions = card.createDiv({ cls: "llmwiki-settings-actions llmwiki-agent-control-actions" });
+    if (state.step === "project") {
+      actions.createEl("button", { text: "Bind workspace", cls: "mod-cta" })
+        .onclick = () => this.llmWiki.openWorkspaceProjectBindingEditor(() => this.display());
+    } else if (state.step === "capabilities") {
+      actions.createEl("button", { text: "Run Doctor", cls: "mod-cta" })
+        .onclick = async () => { await this.llmWiki.refreshSettings(true); this.display(); };
+    } else if (state.step === "first-search" || state.step === "complete") {
+      actions.createEl("button", { text: "Open LLM Wiki", cls: "mod-cta" })
+        .onclick = () => this.llmWiki.openAskMateEntryPoint();
+    }
+    if (state.blockingHealth.length) {
+      const health = card.createDiv({ cls: "llmwiki-health-list" });
+      for (const check of state.blockingHealth) this.renderHealth(health, check);
+    }
+    if (state.blockingSettings.length) {
+      const errors = card.createEl("ul", { cls: "llmwiki-onboarding-errors" });
+      for (const issue of state.blockingSettings) errors.createEl("li", { text: issue.message });
+    }
     this.renderScopeSelector(containerEl);
   }
 
@@ -941,6 +1001,26 @@ class LLMWikiSettingTab extends PluginSettingTab {
     };
   }
 
+  private renderHealth(containerEl: HTMLElement, check: HealthCheck): void {
+    const item = containerEl.createDiv({ cls: `llmwiki-health llmwiki-health-${check.state}` });
+    item.createEl("span", { cls: "llmwiki-health-dot" });
+    const copy = item.createDiv();
+    copy.createEl("strong", { text: check.capabilityId });
+    const remediation = check.remediations[0];
+    copy.createEl("small", { text: remediation ? `${check.summary} ${remediation.summary}` : check.summary });
+    if (remediation) {
+      const button = copy.createEl("button", {
+        text: remediation.code === "retry-doctor" || remediation.code === "retry-settings" ? "Retry" : "How to fix",
+      });
+      button.onclick = () => {
+        if (remediation.code === "retry-doctor" || remediation.code === "retry-settings") {
+          void this.llmWiki.refreshSettings(true);
+          return;
+        }
+        new Notice(`LLM Wiki: ${remediation.summary}`);
+      };
+    }
+  }
   private renderAgentControlPlane(containerEl: HTMLElement): void {
     containerEl.createEl("h2", { text: "Start with your knowledge" });
     containerEl.createEl("p", {
@@ -969,14 +1049,6 @@ class LLMWikiSettingTab extends PluginSettingTab {
     advancedActions.createEl("button", { text: "Create Project Binding" }).onclick = () => this.llmWiki.openProjectBindingEditor();
   }
 
-  private renderHealth(containerEl: HTMLElement, check: HealthCheck): void {
-    const item = containerEl.createDiv({ cls: `llmwiki-health llmwiki-health-${check.state}` });
-    item.createEl("span", { cls: "llmwiki-health-dot" });
-    const copy = item.createDiv();
-    copy.createEl("strong", { text: check.capabilityId });
-    const remediation = check.remediations[0]?.summary;
-    copy.createEl("small", { text: remediation ? `${check.summary} ${remediation}` : check.summary });
-  }
 
   private renderScopeSelector(containerEl: HTMLElement): void {
     new Setting(containerEl)

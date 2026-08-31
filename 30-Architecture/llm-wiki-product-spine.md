@@ -68,6 +68,9 @@ Install or enable the Obsidian plugin
   → Show the result, provenance, and next action
 ```
 
+The executable first-run procedure is [Obsidian-first onboarding](../docs/ONBOARDING.md);
+capability failures follow [Capability remediation](../docs/CAPABILITY_REMEDIATION.md).
+
 PowerShell and Bash are compatibility launchers for developer, CI, and headless flows. They must not own product logic, require manual configuration copying for the normal path, or make Python a hidden prerequisite for opening the product.
 
 ## TypeScript and Python boundary

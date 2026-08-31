@@ -10,7 +10,7 @@ status: active
 priority: 1
 blocked-by:
   - obsidian-llm-wiki/p0-s08-recovery-loop-acceptance
-last-verified: 2026-08-28
+last-verified: 2026-08-29
 ---
 
 # LLM Wiki: project-driven knowledge workspace
@@ -23,6 +23,10 @@ last-verified: 2026-08-28
 - **Informed**: MCP, CLI, capability-worker maintainers
 - **Lifecycle**: Product wedge and Recovery Flow v2 approved before implementation
 - **Decision outcome**: Recovery-required S01B–S08 work is part of Foundation exit; S01B–S05 are verified completions, and S06B is the next executable leaf
+
+## Historical status
+
+This is a historical product brief. Its “Project Hub primary entry” wording describes the project recovery and project work layer only; it is superseded for cross-domain product entry routing and MUST NOT be used as the current entry rule. The `product-shape-convergence` issue is the normative authority for the current entry relationship, and `30-Architecture/llm-wiki-product-shape.md` is the companion architecture explanation. S06’s “Ask Mate primary entry” wording is understood under that authority as Ask Mate being the cross-domain entry. The historical decisions and implementation contract below remain unchanged.
 
 ## Takeaway
 

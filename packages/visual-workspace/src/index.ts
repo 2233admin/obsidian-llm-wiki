@@ -15,4 +15,6 @@ export * from "./data-view-projections.js";
 export * from "./data-view-plans.js";
 export * from "./data-view-service.js";
 export * from "./replay-safe.js";
+export * from "./template-import-types.js";
+export * from "./template-import.js";
 export * from "./validation.js";

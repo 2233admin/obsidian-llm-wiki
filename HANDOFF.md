@@ -8,35 +8,48 @@
 - **Git remote**：`gitea` = `https://git.xart.top:8418/Curry/obsidian-llm-wiki.git`
   （`imvt` remote 指向 IMVT 仓 `Curry/imvt.git`，不在本仓使用）
 - **当前分支**：`feat/session-archiver-multi-source`
-- **HEAD**：`d854b45` （fix(setup.ps1): restore $SkillName escaping; use $result.ok for doctor check）
-- **工作树状态**：clean；相对 `main` 落后 38 commits、领先 2 commits
-- **真实 vault**：`D:\knowledge` （用户私有，不进仓；gitea 备份已授权）
+- **HEAD**：`db116f9`（`feat: complete Obsidian Recovery Flow action`）
+- **工作树状态**：有一个用户已有未跟踪研究文件 `00-Inbox/Sources/github/obsidian-components-implementation-research.md`；不要覆盖或删除
+- **真实 vault**：`D:\knowledge`（用户私有，不进仓；gitea 备份已授权）
 - **OS**：Windows 11，Python 3.10/3.11/3.13 共存（编译缓存常见多版本混存，需 gitignored）
 
-### Python 测试（必须带 `PYTHONUTF8=1`，Windows GBK 会坏 UTF-8）
+### Python 测试（Windows 可带 `PYTHONUTF8=1`）
 
 ```bash
 PYTHONUTF8=1 python -m pytest tests/ --ignore=tests/test_memu_sync_settings.py
 ```
 
-`test_memu_sync_settings.py` 因 `compiler` 模块路径 bug 当前需 `--ignore`。880 个其余测试通过。
+Full root run on 2026-08-29: 282 passed, 1 skipped.
+
+The Python worker boundary is implemented in TypeScript for named compiler,
+trigger, MemU, and agent callers. No production direct Python callsites remain;
+direct Python calls are confined to test-only coverage.
 
 ### Node（mcp-server / obsidian-plugin）
 
 ```bash
-cd mcp-server && npm run typecheck
-cd obsidian-plugin && npm run typecheck
+cd mcp-server && npm run typecheck && npm test
+cd obsidian-plugin && npm run typecheck && npm test
 ```
 
-`npm test` 当前因 bun shim 指向 `C:/Users/Administrator/.x-cmd.root/.../bun.exe`（缺失）**坏掉**。
-workaround：`x-cmd pkg install bun` 修复 bun，或 `npx --no-install tsc --noEmit` 跑 typecheck。
+Current verified totals: MCP 858 passed / 18 skipped / 0 failed; Obsidian plugin
+98 passed / 0 failed; root Python 282 passed / 1 skipped; Fleet verifier 17
+passed / 0 failed. S08 remains in progress with acceptance item 30 open;
+Foundation exit is not claimed.
+SkillWatcher’s Node/browser timer flake is resolved: the lifecycle harness lacked
+`window.setTimeout`/`window.clearTimeout`; `obsidian-plugin/src/agentfiles/watcher.ts`
+now uses the Node-safe timer boundary. Three consecutive plugin runs each passed
+98/98; plugin typecheck and production build also passed.
 
 ### Bundle 重建（bundle.js 不再 tracked）
 
 ```bash
-cd mcp-server && npm run rebuild    # tsc + esbuild bundle
-cd obsidian-plugin && npm run build  # tsc + esbuild production
+cd mcp-server && npm run rebuild    # tsc + esbuild, includes recovery-flow-cli.js
+cd obsidian-plugin && npm run build # tsc + esbuild production
 ```
+
+The setup surface is TS-owned by `mcp-server/src/scripts/setup.ts`; `setup`
+and `setup.ps1` are thin launchers that invoke the generated setup CLI.
 
 ## 1. 仓库脊柱
 
@@ -77,7 +90,7 @@ obsidian-llm-wiki/
 6. **bundle 产物不入仓**：`npm run rebuild` 重新生成
 7. **Components/ 用户私有 vault 不入仓**：licensed samples 走 `docs/samples/components/`
 
-## 3. 现状（2026-08-24）
+## 3. 现状（2026-08-29）
 
 ### 产品方向已重新定级
 
@@ -98,13 +111,20 @@ obsidian-llm-wiki/
 
 ### 当前 Foundation 阶段
 
-1. Obsidian-first onboarding 和 vault binding
-2. Capability health 和可行动 remediation
-3. TypeScript-owned Python / external worker boundary
-4. Plugin、MCP、CLI、vault truth 的 ownership 对齐
-5. Roadmap、issue、branch、handoff 按产品 milestone 对齐
+- [x] Obsidian-first onboarding and vault binding; the plugin now exposes a
+  resumable Getting Started state machine and actionable capability actions.
+- [x] Capability health and remediation guide; optional workers degrade without
+  blocking filesystem search.
+- [x] TypeScript-owned Python / external worker boundary for named compiler,
+  trigger, MemU, and agent callers; no production direct Python callsites remain.
+- [x] Plugin, MCP, CLI, and vault truth ownership is documented and the dedicated
+  Recovery Flow CLI uses the shared Operation dispatcher.
+- [x] Roadmap, Work-OS issues, branch, and handoff are aligned with the product
+  milestone.
+- [ ] S08 Foundation exit remains blocked; acceptance item 30 is still open.
 
-当前 issue 真值在 `01-Projects/obsidian-llm-wiki/issues/`：21 个 issue，16 todo、4 done、1 canceled。现有 feature backlog 在 Foundation 之后恢复。
+Current verification evidence is recorded in
+`01-Projects/obsidian-llm-wiki/issues/p0-s08-recovery-loop-acceptance.md`.
 
 ## 4. 工具链
 
@@ -126,13 +146,12 @@ obsidian-llm-wiki/
 
 ## 6. 下一步建议
 
-1. **完成 Foundation 设计**：以 `30-Architecture/llm-wiki-product-spine.md` 为基线，补齐 onboarding、capability health、TS/Python boundary 和 ownership contract。
-2. **重新归类 issue**：Core Product、Product Infrastructure、Compatibility Workers、Later / Experimental；暂停无关 feature 扩张。
-3. **重做安装与首次使用路径**：Obsidian-first；setup 退为 headless / developer / CI 入口，消除普通用户的 PowerShell、Python 和手动复制粘贴前置条件。
-4. **收敛 Python 边界**：把 compiler、`kb_meta`、MemU、Graph 变成 TS 管理的 capability，不做一次性全量 Python 重写。
-5. **基础设计通过后**：再处理 Plugin 0.4.0 GA 的数据安全、Promote UX 和测试门禁。
-6. **最后恢复扩展线**：Session Archiver、Fleet、Gitea federation、其他 adapters 按新的产品 taxonomy 排期。
-7. bun shim、全量测试和 doctor 绿灯属于后续执行门禁，不改变当前 Foundation 优先级。
+1. Complete the remaining S08 durable-store fixture breadth and close
+   acceptance item 30.
+2. Keep direct Python subprocess calls confined to test-only coverage; do not
+   widen provider scope.
+3. After S08 is accepted, reopen the Plugin 0.4.0 GA safety backlog and schedule
+   deferred extension work.
 
 ---
 

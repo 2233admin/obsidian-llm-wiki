@@ -15,11 +15,10 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
 COMMIT = re.compile(r"^[0-9a-f]{40}$")
-CORRELATION = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", re.I)
+CORRELATION = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", re.IGNORECASE)
 REPORT_PHASES = ("prepare", "remote", "verify")
 CANONICAL_FIXTURE = Path("tests/fixtures/fleet-workflow.v2.json")
 ATTESTATION_ALGORITHM = "ed25519"
@@ -73,17 +72,17 @@ def canonical_attestation_payload(payload: dict[str, Any]) -> bytes:
     reports = payload.get("reports")
     provenance = payload.get("executionProvenance")
     if not isinstance(attestation, dict):
-        raise RuntimeError("attestation is required")
+        raise TypeError("attestation is required")
     if not isinstance(reports, dict) or set(reports) != set(REPORT_PHASES):
         raise RuntimeError("evidence must contain exactly prepare, remote, and verify reports")
     if not isinstance(provenance, dict):
-        raise RuntimeError("executionProvenance is required")
+        raise TypeError("executionProvenance is required")
     report_digests: dict[str, str] = {}
     for phase in REPORT_PHASES:
         entry = reports.get(phase)
         report = entry.get("report") if isinstance(entry, dict) else None
         if not isinstance(report, dict):
-            raise RuntimeError(f"{phase} evidence must contain the raw report")
+            raise TypeError(f"{phase} evidence must contain the raw report")
         report_digests[phase] = report_sha256(report)
     canonical = {
         "schemaVersion": 1,
@@ -174,7 +173,7 @@ def _parse_trust_anchor(raw: bytes) -> dict[str, Any]:
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
         raise RuntimeError("fleet release trust anchor is invalid") from error
     if not isinstance(anchor, dict):
-        raise RuntimeError("fleet release trust anchor is invalid")
+        raise TypeError("fleet release trust anchor is invalid")
     _exact_keys(
         anchor,
         {
@@ -238,7 +237,7 @@ def _verify_attestation(
 ) -> dict[str, str]:
     attestation = payload.get("attestation")
     if not isinstance(attestation, dict):
-        raise RuntimeError("attestation is required")
+        raise TypeError("attestation is required")
     _exact_keys(
         attestation,
         {"algorithm", "keyId", "trustAnchor", "payloadSha256", "signature"},
@@ -297,7 +296,7 @@ def verify_evidence(
     if payload != release_payload:
         raise RuntimeError("release evidence does not match the release commit")
     if not isinstance(payload, dict):
-        raise RuntimeError("release evidence must be a JSON object")
+        raise TypeError("release evidence must be a JSON object")
     _exact_keys(payload, {
         "schemaVersion", "releaseTag", "testedCommit", "fixtureDigest",
         "correlationId", "executionProvenance", "reports", "attestation",
@@ -378,7 +377,7 @@ def verify_evidence(
     remote_refs = reports["remote"]["report"].get("externalRefs")
     provenance = payload.get("executionProvenance")
     if not isinstance(provenance, dict):
-        raise RuntimeError("executionProvenance is required")
+        raise TypeError("executionProvenance is required")
     _exact_keys(
         provenance,
         {"environment", "deviceId", "orcaTask", "orcaTerminal", "runtimeId"},
@@ -449,7 +448,7 @@ def main() -> int:
     args = parser.parse_args()
     try:
         report = verify_evidence(ROOT, args.evidence, args.release_commit, args.tag)
-    except Exception as error:
+    except (OSError, TypeError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
         if args.json:
             print(json.dumps({"ok": False, "error": str(error)}, indent=2))
         else:

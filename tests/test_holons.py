@@ -6,14 +6,8 @@ Run: uv run --python 3.11 --with pytest python -m pytest tests/test_holons.py -v
 import sys
 from pathlib import Path
 
-import pytest
-
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from compiler.meta_ontology import CAUSAL_TYPES, ENTITY_CLASSES, resolve_entity_class
-from compiler.ontology import DomainOntology, load_domain_ontology, _parse_ontology_yaml
-from compiler.holons.holon import CausalEdge, Holon, HolonSet
-from compiler.holons.extractor import extract_holon, extract_vault
 from compiler.holons.concept_graph import (
     attach_edges,
     build_wikilink_graph,
@@ -22,7 +16,10 @@ from compiler.holons.concept_graph import (
     fuse_confidence,
     wikilink_distance,
 )
-
+from compiler.holons.extractor import extract_holon
+from compiler.holons.holon import CausalEdge, Holon, HolonSet
+from compiler.meta_ontology import CAUSAL_TYPES, ENTITY_CLASSES, resolve_entity_class
+from compiler.ontology import DomainOntology, _parse_ontology_yaml, load_domain_ontology
 
 # ---------------------------------------------------------------------------
 # meta_ontology

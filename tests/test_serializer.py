@@ -4,8 +4,6 @@ import json
 import sys
 from pathlib import Path
 
-import pytest
-
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from compiler.holons.holon import CausalEdge, Holon, HolonSet, HyperEdge
@@ -41,7 +39,7 @@ class TestToDict:
 
     def test_exported_at_present(self):
         d = holon_set_to_dict(_make_hs())
-        assert "exported_at" in d and d["exported_at"]
+        assert d.get("exported_at")
 
     def test_holons_serialized(self):
         d = holon_set_to_dict(_make_hs())

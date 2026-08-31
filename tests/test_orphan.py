@@ -1,7 +1,6 @@
 """Tests for orphan detection."""
-import pytest
-from pathlib import Path
-from obc.orphan import find_orphans, OrphanReport
+
+from obc.orphan import OrphanReport, find_orphans
 
 
 class TestFindOrphans:

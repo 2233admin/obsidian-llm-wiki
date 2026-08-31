@@ -24,7 +24,9 @@ Raw notes become compiled summaries and concepts. Useful agent answers become qu
 
 It is not an AI companion. It is a knowledge compiler for team vaults: `raw/` becomes `wiki/`, cited answers land in `00-Inbox/AI-Output/`, and durable memory is promoted through review.
 
-It works with **Claude Code, Codex, OpenCode, and Gemini CLI**. Obsidian is optional — the filesystem adapter handles everything without it.
+LLM Wiki is **Obsidian-first** for human setup and control. MCP and CLI remain available for agents and automation; filesystem search does not require Python, the compiler, or optional adapters.
+
+Follow the [Obsidian-first onboarding](ONBOARDING.md) for the first binding, capability health check, minimum settings, and cited first search.
 
 ---
 

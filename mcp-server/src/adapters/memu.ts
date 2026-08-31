@@ -27,7 +27,7 @@
  */
 
 import pg from "pg";
-import { spawn } from "node:child_process";
+import { runPythonWorker, PYTHON_WORKER_DIAGNOSTICS } from "../capabilities/python-worker.js";
 import { embedTextOllama } from "../embedding/ollama.js";
 import {
   embeddingFingerprint,
@@ -94,9 +94,6 @@ function memuChildEnvironment(dsn: string): NodeJS.ProcessEnv {
   };
 }
 
-function redactResolvedDsn(value: string, dsn: string): string {
-  return dsn.length > 0 ? value.split(dsn).join("[redacted]") : value;
-}
 
 export interface ResolvedMemUAdapterConfig {
   dsn: string;
@@ -391,88 +388,38 @@ export class MemUAdapter implements VaultMindAdapter {
       query_vec: queryVec && queryVec.length === 1024 ? Array.from(queryVec) : null,
       max_nodes: maxNodes,
     };
-
-    return new Promise<RecallResult | null>((resolve) => {
-      let stdout = "";
-      let settled = false;
-
-      const proc = spawn(
-        this.pythonExe,
-        ["-m", "memu_graph.cli", "graph-recall"],
-        {
-          cwd: this.memuGraphCwd,
-          env: memuChildEnvironment(this.dsn),
-          windowsHide: true,
-          stdio: ["pipe", "pipe", "pipe"],
-        },
-      );
-
-      const timer = setTimeout(() => {
-        if (settled) return;
-        settled = true;
-        proc.kill("SIGKILL");
-        process.stderr.write(
-          `obsidian-llm-wiki: [warn] memu_graph.cli timeout after ${this.graphRecallTimeoutMs}ms\n`,
-        );
-        resolve(null);
-      }, this.graphRecallTimeoutMs);
-
-      proc.stdout.on("data", (d) => { stdout += d.toString("utf-8"); });
-      proc.stderr.on("data", () => { /* drain redacted subprocess diagnostics */ });
-
-      proc.on("error", (err) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        process.stderr.write(
-          `obsidian-llm-wiki: [warn] memu_graph.cli spawn failed: ${redactResolvedDsn(err.message, this.dsn)}\n`,
-        );
-        resolve(null);
-      });
-
-      proc.on("close", (code) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        if (code !== 0) {
-          process.stderr.write(
-            `obsidian-llm-wiki: [warn] memu_graph.cli exit ${code}; stderr redacted\n`,
-          );
-          resolve(null);
-          return;
-        }
-        if (this.dsn.length > 0 && stdout.includes(this.dsn)) {
-          process.stderr.write(
-            "obsidian-llm-wiki: [warn] memu_graph.cli stdout contained resolved DSN; output rejected\n",
-          );
-          resolve(null);
-          return;
-        }
-        try {
-          const parsed = JSON.parse(stdout) as RecallResult;
-          resolve(parsed);
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
-          process.stderr.write(
-            `obsidian-llm-wiki: [warn] memu_graph.cli stdout JSON parse failed: ${msg}\n`,
-          );
-          resolve(null);
-        }
-      });
-
-      try {
-        proc.stdin.end(JSON.stringify(request));
-      } catch (e) {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        const msg = e instanceof Error ? e.message : String(e);
-        process.stderr.write(
-          `obsidian-llm-wiki: [warn] memu_graph.cli stdin write failed: ${redactResolvedDsn(msg, this.dsn)}\n`,
-        );
-        resolve(null);
-      }
+    const workerResult = await runPythonWorker({
+      capabilityId: "memu-graph-recall",
+      executable: this.pythonExe,
+      args: ["-m", "memu_graph.cli", "graph-recall"],
+      cwd: this.memuGraphCwd,
+      timeoutMs: this.graphRecallTimeoutMs,
+      environment: memuChildEnvironment(this.dsn),
+      stdin: JSON.stringify(request),
     });
+
+    if (!workerResult.ok) {
+      process.stderr.write(
+        `obsidian-llm-wiki: [warn] memu_graph.cli failed: ${workerResult.diagnosticCode ?? PYTHON_WORKER_DIAGNOSTICS.spawnFailed}\n`,
+      );
+      return null;
+    }
+    const stdout = workerResult.stdout;
+    if (this.dsn.length > 0 && stdout.includes(this.dsn)) {
+      process.stderr.write(
+        "obsidian-llm-wiki: [warn] memu_graph.cli stdout contained resolved DSN; output rejected\n",
+      );
+      return null;
+    }
+    try {
+      return JSON.parse(stdout) as RecallResult;
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      process.stderr.write(
+        `obsidian-llm-wiki: [warn] ${PYTHON_WORKER_DIAGNOSTICS.invalidOutput}: memu_graph.cli stdout JSON parse failed: ${msg}\n`,
+      );
+      return null;
+    }
   }
 
   /**
@@ -485,91 +432,54 @@ export class MemUAdapter implements VaultMindAdapter {
     vec: readonly number[] | null,
     limit: number,
   ): Promise<SearchResult[]> {
-    return new Promise<SearchResult[]>((resolve) => {
-      let stdout = "";
-      let settled = false;
+    const args = [this.memuSearchPy, "--limit", String(limit)];
+    if (query) {
+      args.push("--query", query);
+      if (vec) args.push("--embed", JSON.stringify(Array.from(vec)));
+    } else if (vec) {
+      args.push("--embed", JSON.stringify(Array.from(vec)));
+    } else {
+      return [];
+    }
 
-      const args = [
-        this.memuSearchPy,
-        "--limit", String(limit),
-      ];
-      if (query) {
-        args.push("--query", query);
-        if (vec) args.push("--embed", JSON.stringify(Array.from(vec)));
-      } else if (vec) {
-        args.push("--embed", JSON.stringify(Array.from(vec)));
-      } else {
-        resolve([]);
-        return;
-      }
-
-      const proc = spawn(this.memuSearchPythonExe, args, {
-        cwd: this.memuGraphCwd,
-        env: memuChildEnvironment(this.dsn),
-        windowsHide: true,
-        stdio: ["pipe", "pipe", "pipe"],
-      });
-
-      const timer = setTimeout(() => {
-        if (settled) return;
-        settled = true;
-        proc.kill("SIGKILL");
-        process.stderr.write(
-          `obsidian-llm-wiki: [warn] memu_search.py timeout after ${this.memuSearchTimeoutMs}ms\n`,
-        );
-        resolve([]);
-      }, this.memuSearchTimeoutMs);
-
-      proc.stdout.on("data", (d) => { stdout += d.toString("utf-8"); });
-      proc.stderr.on("data", () => { /* drain redacted subprocess diagnostics */ });
-
-      proc.on("error", (err) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        process.stderr.write(
-          `obsidian-llm-wiki: [warn] memu_search.py spawn failed: ${redactResolvedDsn(err.message, this.dsn)}\n`,
-        );
-        resolve([]);
-      });
-
-      proc.on("close", (code) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        if (code !== 0) {
-          process.stderr.write(
-            `obsidian-llm-wiki: [warn] memu_search.py exit ${code}; stderr redacted\n`,
-          );
-          resolve([]);
-          return;
-        }
-        if (this.dsn.length > 0 && stdout.includes(this.dsn)) {
-          process.stderr.write(
-            "obsidian-llm-wiki: [warn] memu_search.py stdout contained resolved DSN; output rejected\n",
-          );
-          resolve([]);
-          return;
-        }
-        try {
-          const parsed = JSON.parse(stdout) as Array<{
-            id?: string;
-            summary?: string;
-            memory_type?: string;
-            happened_at?: string;
-            extra?: Record<string, unknown>;
-            score?: number;
-          }>;
-          resolve(this.mapMemuSearchPyResult(parsed));
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
-          process.stderr.write(
-            `obsidian-llm-wiki: [warn] memu_search.py stdout JSON parse failed: ${msg}\n`,
-          );
-          resolve([]);
-        }
-      });
+    const workerResult = await runPythonWorker({
+      capabilityId: "memu-search",
+      executable: this.memuSearchPythonExe,
+      args,
+      cwd: this.memuGraphCwd,
+      timeoutMs: this.memuSearchTimeoutMs,
+      environment: memuChildEnvironment(this.dsn),
     });
+    if (!workerResult.ok) {
+      process.stderr.write(
+        `obsidian-llm-wiki: [warn] memu_search.py failed: ${workerResult.diagnosticCode ?? PYTHON_WORKER_DIAGNOSTICS.spawnFailed}\n`,
+      );
+      return [];
+    }
+    const stdout = workerResult.stdout;
+    if (this.dsn.length > 0 && stdout.includes(this.dsn)) {
+      process.stderr.write(
+        "obsidian-llm-wiki: [warn] memu_search.py stdout contained resolved DSN; output rejected\n",
+      );
+      return [];
+    }
+    try {
+      const parsed = JSON.parse(stdout) as Array<{
+        id?: string;
+        summary?: string;
+        memory_type?: string;
+        happened_at?: string;
+        extra?: Record<string, unknown>;
+        score?: number;
+      }>;
+      return this.mapMemuSearchPyResult(parsed);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      process.stderr.write(
+        `obsidian-llm-wiki: [warn] ${PYTHON_WORKER_DIAGNOSTICS.invalidOutput}: memu_search.py stdout JSON parse failed: ${msg}\n`,
+      );
+      return [];
+    }
   }
 
   private mapMemuSearchPyResult(rows: Array<{

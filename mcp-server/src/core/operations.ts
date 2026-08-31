@@ -1,5 +1,4 @@
-import { execFile, spawnSync } from 'node:child_process';
-import { promisify } from 'node:util';
+import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { badRequest, notFound } from './types.js';
@@ -25,6 +24,7 @@ import {
   PythonEvaluateRunner,
   type AgentRunnerPort,
 } from '../agent/agent-runner-port.js';
+import { runPythonWorker, PYTHON_WORKER_DIAGNOSTICS } from '../capabilities/python-worker.js';
 import { ContextCoreLoader } from '../holons/loader.js';
 import { makeHolonOps } from '../holons/holon.js';
 import { makeCausalOps } from '../holons/causal.js';
@@ -81,7 +81,6 @@ import { resolveProjectRoot } from '../runtime-paths.js';
 
 export { makeAdapterGraphOps };
 
-const execAsync = promisify(execFile);
 const PROTECTED_DIRS = new Set(['.obsidian', '.trash', '.git', 'node_modules']);
 
 const _projectRoot = resolveProjectRoot();
@@ -1442,12 +1441,19 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
         const mode = params.mode as string | undefined;
         if (mode) args.push('--mode', mode);
         try {
-          const { stdout } = await execAsync(python, args, {
-            timeout: 30_000,
+          const result = await runPythonWorker({
+            capabilityId: 'agent-status',
+            executable: python,
+            args,
+            timeoutMs: 30_000,
             maxBuffer: 2 * 1024 * 1024,
-            env: { ...process.env },
+            environment: { ...process.env },
           });
-          return JSON.parse(stdout);
+          if (!result.ok) {
+            const diagnostic = result.diagnosticCode ?? PYTHON_WORKER_DIAGNOSTICS.spawnFailed;
+            throw new Error(`${diagnostic}: ${result.stderr.trim() || 'evaluate.py failed'}`);
+          }
+          return JSON.parse(result.stdout);
         } catch (e) {
           throw makeErr(-32000, `agent.status failed: ${(e as Error).message}`);
         }
@@ -1559,12 +1565,19 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
         const limit = params.limit as number | undefined;
         if (limit !== undefined) args.push('--limit', String(limit));
         try {
-          const { stdout } = await execAsync(python, args, {
-            timeout: 10_000,
+          const result = await runPythonWorker({
+            capabilityId: 'agent-history',
+            executable: python,
+            args,
+            timeoutMs: 10_000,
             maxBuffer: 2 * 1024 * 1024,
-            env: { ...process.env },
+            environment: { ...process.env },
           });
-          return JSON.parse(stdout);
+          if (!result.ok) {
+            const diagnostic = result.diagnosticCode ?? PYTHON_WORKER_DIAGNOSTICS.spawnFailed;
+            throw new Error(`${diagnostic}: ${result.stderr.trim() || 'evaluate.py failed'}`);
+          }
+          return JSON.parse(result.stdout);
         } catch (e) {
           throw makeErr(-32000, `agent.history failed: ${(e as Error).message}`);
         }

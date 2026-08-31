@@ -8,10 +8,10 @@ Skips fenced code blocks and inline code.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from collections.abc import Iterator
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Iterator
 
 
 class LinkKind(Enum):
@@ -125,11 +125,6 @@ def extract_links(
             is_in_frontmatter = True
         else:
             is_in_frontmatter = False
-
-        # Check if this line is a code block delimiter
-        stripped = line.strip()
-        is_code_start = stripped.startswith('```') or stripped.startswith('~~~')
-        is_code_end = stripped.startswith('```') or stripped.startswith('~~~')
 
         # Track code block state
         in_code_block = _is_in_range(line_start, line_start + len(line), code_block_ranges)
@@ -403,8 +398,7 @@ def _parse_fragment(target: str) -> tuple[str | None, str | None]:
     path_part, fragment = target.split('#', 1)
 
     # Remove leading / from path if present
-    if path_part.startswith('/'):
-        path_part = path_part[1:]
+    path_part = path_part.removeprefix('/')
 
     return path_part if path_part else None, fragment
 

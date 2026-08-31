@@ -108,6 +108,44 @@
   flex-wrap: wrap;
   margin: 8px 0 12px;
 }
+.llmwiki-onboarding {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 10px;
+  background: var(--background-secondary);
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+.llmwiki-onboarding h2 {
+  margin: 0 0 6px;
+}
+
+.llmwiki-onboarding p {
+  color: var(--text-muted);
+  margin: 0 0 10px;
+}
+
+.llmwiki-onboarding-steps {
+  display: grid;
+  gap: 4px;
+  margin: 10px 0;
+  padding-left: 24px;
+}
+
+.llmwiki-onboarding-current {
+  color: var(--text-accent);
+  font-weight: 600;
+}
+
+.llmwiki-onboarding-done {
+  color: var(--text-success);
+}
+
+.llmwiki-onboarding-errors {
+  color: var(--text-error);
+  margin: 8px 0 0;
+}
+
 
 .llmwiki-control-plane-modal {
   width: min(1120px, 94vw);

@@ -3,15 +3,13 @@ Fleet Tests — Unit tests for llmwiki fleet mode.
 """
 
 import json
-import tempfile
 from pathlib import Path
 
 import pytest
 
-from fleet import FleetHub, ScoutShip, WorkerShip, VerifyShip
-from fleet.message import ShipType, WorkTask, ReviewDecision
+from fleet import FleetHub, ScoutShip, VerifyShip, WorkerShip
 from fleet.context import ContextTrimmer, SessionManager
-
+from fleet.message import ReviewDecision, ShipType, WorkTask
 
 # Fixtures moved to conftest.py (temp_vault) so sibling test modules
 # (e.g. test_dispatch_cycle.py) can share it too.

@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 import assert from 'node:assert/strict';
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync, type SpawnSyncOptionsWithStringEncoding, type SpawnSyncReturns } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import {
   existsSync,
@@ -695,6 +695,33 @@ function addExternalRefs(vault: string, fixture: FleetFixture): void {
   writeFileSync(path, updated, 'utf-8');
 }
 
+function isWindowsCommandWrapper(command: string): boolean {
+  return process.platform === 'win32' && /\.(?:cmd|bat)$/i.test(command);
+}
+
+function quoteWindowsCommandArgument(value: string): string {
+  // cmd.exe receives one command string for /c. Quote every token and escape
+  // metacharacters so user-controlled paths cannot become shell syntax.
+  return `"${value.replace(/(["^&|<>()%!])/g, '^$1')}"`;
+}
+
+export function runPythonCommand(
+  command: string,
+  args: readonly string[],
+  options: SpawnSyncOptionsWithStringEncoding,
+): SpawnSyncReturns<string> {
+  if (!isWindowsCommandWrapper(command)) {
+    return spawnSync(command, [...args], options);
+  }
+  const commandLine = `"${[command, ...args].map(quoteWindowsCommandArgument).join(' ')}"`;
+  return spawnSync(
+    process.env.ComSpec ?? process.env.COMSPEC ?? 'cmd.exe',
+    ['/d', '/s', '/c', commandLine],
+    { ...options, windowsVerbatimArguments: true },
+  );
+}
+
+
 function runPythonWorkNext(vault: string, deviceState: string, fixture: FleetFixture): Record<string, any> {
   const args = [KB_META, 'work', 'next', vault, '--claim', fixture.run.agentId, '--ttl', '86400', '--project', fixture.project.slug];
   if (isGovernedFixture(fixture)) {
@@ -702,22 +729,30 @@ function runPythonWorkNext(vault: string, deviceState: string, fixture: FleetFix
     writeJson(assignmentPath, fixture.governedAssignment);
     args.push('--governed-assignment', assignmentPath);
   }
-  const candidates: Array<{ command: string; prefix: string[] }> = process.env.PYTHON
+  const fallbacks: Array<{ command: string; prefix: string[] }> = process.platform === 'win32'
+    ? [{ command: 'py', prefix: ['-3'] }, { command: 'python', prefix: [] }]
+    : [{ command: 'python3', prefix: [] }, { command: 'python', prefix: [] }];
+  const configured = process.env.PYTHON
     ? [{ command: process.env.PYTHON, prefix: [] }]
-    : process.platform === 'win32'
-      ? [{ command: 'py', prefix: ['-3'] }, { command: 'python', prefix: [] }]
-      : [{ command: 'python3', prefix: [] }, { command: 'python', prefix: [] }];
+    : [];
+  const candidates = [...configured, ...fallbacks].filter((candidate, index, all) =>
+    all.findIndex((other) => other.command === candidate.command && other.prefix.join('\0') === candidate.prefix.join('\0')) === index,
+  );
   let lastError = '';
   for (const candidate of candidates) {
-    const result = spawnSync(candidate.command, [...candidate.prefix, ...args], {
+    const result = runPythonCommand(candidate.command, [...candidate.prefix, ...args], {
       cwd: COMPILER_DIR,
       encoding: 'utf-8',
       windowsHide: true,
     });
-    if (result.error && (result.error as NodeJS.ErrnoException).code === 'ENOENT') continue;
+    if (result.error) {
+      const code = (result.error as NodeJS.ErrnoException).code;
+      lastError = `${candidate.command} unavailable${code ? ` (${String(code)})` : ''} while acquiring the fleet lease`;
+      continue;
+    }
     if (result.status !== 0) {
       lastError = `${candidate.command} exited ${String(result.status)} while acquiring the fleet lease`;
-      break;
+      continue;
     }
     return JSON.parse(result.stdout) as Record<string, any>;
   }

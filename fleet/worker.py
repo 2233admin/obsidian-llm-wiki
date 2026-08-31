@@ -129,6 +129,7 @@ class WorkerShip:
                 text=True,
                 encoding="utf-8",
                 timeout=300,
+                check=False,
             )
 
             output_path = str(self.vault / topic / "wiki")
@@ -150,7 +151,7 @@ class WorkerShip:
                 success=False,
                 errors=["Compile task timed out after 5 minutes"],
             )
-        except Exception as e:
+        except (OSError, ValueError) as e:
             return WorkOutput(
                 session_id="",
                 task_id=input_spec.get("task_id", ""),
@@ -218,7 +219,7 @@ class WorkerShip:
                 output_path=str(output_path),
                 summary=f"Created {output_path}",
             )
-        except Exception as e:
+        except (OSError, TypeError, ValueError) as e:
             return WorkOutput(
                 session_id="",
                 task_id=input_spec.get("task_id", ""),

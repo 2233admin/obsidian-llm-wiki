@@ -1,15 +1,23 @@
 # Install guide
 
-For most people the [README quick-start](../README.md#quick-start-30-seconds) is the right path. This doc covers per-host variants, manual install, troubleshooting, and uninstall.
+For most people the [Obsidian-first onboarding](ONBOARDING.md) is the right path. This
+doc covers per-host variants, headless setup, troubleshooting, and uninstall.
 
 ## Prerequisites
 
-- **Node.js 20 or higher** -- the bundled MCP server is an ESM module targeting Node 20+
-- **An MCP-compatible agent host** -- Claude Code, Codex, OpenCode, or Gemini CLI
+- **Obsidian desktop** with a filesystem-backed vault for the normal human path.
+- **Node.js 20 or higher** for the bundled MCP server and local control-plane runtime.
+- **An MCP-compatible agent host** — Claude Code, Codex, OpenCode, or Gemini CLI — only
+  when using the agent access surface.
 
-Node.js 20 is sufficient for the bundled MCP server and every filesystem-only workflow. Optional qmd SDK mode follows qmd's package contract and requires Node.js 22+; qmd CLI mode does not raise the main server's Node requirement.
+Node.js 20 is sufficient for the bundled MCP server and every filesystem-only workflow.
+Optional qmd SDK mode follows qmd's package contract and requires Node.js 22+; qmd CLI
+mode does not raise the main server's Node requirement.
 
-You do **not** need npm or a TypeScript toolchain to run the shipped MCP bundle. Basic filesystem search and read operations do not require Python. Compiler operations, Project layout migration, and Obsidian's governed promotion/Doctor runtime checks do require a usable Python runtime plus the LLM Wiki `compiler/` directory.
+Python, npm, and a TypeScript toolchain are not required to open the Obsidian plugin or
+use filesystem search. Compiler operations, Project layout migration, and optional
+worker capabilities report their own health and remediation when their dependencies
+are missing.
 
 ## Quick install (recap)
 
@@ -39,6 +47,11 @@ Windows / PowerShell:
 ```
 
 `--dry-run` (bash) or `-DryRun` (PowerShell) prints every copy operation without touching disk -- use it to confirm the allowlist before committing to a real install.
+
+After the host is configured, open the plugin settings and follow the Getting Started
+card. Use [Capability remediation](CAPABILITY_REMEDIATION.md) when Doctor reports a
+missing optional worker or invalid setting. Headless automation can use the dedicated
+`llmwiki-recovery` CLI; it invokes the same Operations as MCP and Obsidian.
 
 ## After setup -- two paste-in steps
 

@@ -111,6 +111,7 @@ export class AskMateView extends ItemView {
     private readonly client: AskMateOperationClient,
     private readonly actors: AskMateActors,
     private readonly recoveryClient?: ProjectHubRecoveryClient,
+    private readonly onFirstSearchCompleted?: () => void,
   ) {
     super(leaf);
   }
@@ -191,7 +192,7 @@ export class AskMateView extends ItemView {
       ? new ProjectHubRecoveryPanel(this.recoveryClient, null, target => {
         const workspace = (this.app as unknown as { workspace?: { openLinkText?: (link: string, sourcePath: string, newLeaf?: boolean) => unknown } }).workspace;
         void workspace?.openLinkText?.(target, target, false);
-      }, this.actors.confirmationActor)
+      }, this.actors.confirmationActor, this.onFirstSearchCompleted)
       : null;
     if (this.#recoveryPanel) {
       await this.#recoveryPanel.open(context.projectId);
@@ -286,6 +287,7 @@ export class AskMateView extends ItemView {
     this.render();
     try {
       this.#answer = await this.client.answerContext(context, query);
+      if (this.#answer.citations.length > 0) this.onFirstSearchCompleted?.();
     } catch (error) {
       this.#error = safeError(error);
     } finally {

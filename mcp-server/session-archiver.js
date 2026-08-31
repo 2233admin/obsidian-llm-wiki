@@ -212,6 +212,9 @@ function oneLine(value, max = 200) {
   const s = (value || "").replace(/\r?\n/g, " ").trim();
   return s.length > max ? s.slice(0, max - 1) + "\u2026" : s;
 }
+var REDACTION_BACKSLASH = String.fromCharCode(92);
+var REDACTION_BACKSLASH_PATTERN = REDACTION_BACKSLASH.repeat(2);
+var REDACTION_SLASH = String.fromCharCode(47);
 var REDACTION_PATTERNS = [
   // Bearer / token / api-key style headers and assignments
   /(?:bearer|api[_-]?key|access[_-]?token|auth[_-]?token|secret[_-]?key|token)\s*[=:]\s*["']?[A-Za-z0-9._\-+/=]{16,}/gi,
@@ -222,9 +225,9 @@ var REDACTION_PATTERNS = [
   // Provider-key env-like assignments
   /\b(?:ANTHROPIC_[A-Z_]*KEY|OPENAI_[A-Z_]*KEY|GOOGLE_[A-Z_]*KEY|AWS_[A-Z_]*KEY|VAULT_[A-Z_]*KEY)\s*=\s*[^\s'"]{12,}/g,
   // Windows absolute paths under user profile
-  /C:\\Users\\[^\\\s'"<>|]+/g,
+  new RegExp(`C:${REDACTION_BACKSLASH_PATTERN}Users${REDACTION_BACKSLASH_PATTERN}[^${REDACTION_BACKSLASH_PATTERN}\\s'"<>|]+`, "g"),
   // Unix absolute paths under home
-  /\/(?:home|Users)\/[^/\s'"<>|]+/g
+  new RegExp(`${REDACTION_SLASH}(?:home|Users)${REDACTION_SLASH}[^${REDACTION_SLASH}\\s'"<>|]+`, "g")
 ];
 function redact(value) {
   if (!value)
