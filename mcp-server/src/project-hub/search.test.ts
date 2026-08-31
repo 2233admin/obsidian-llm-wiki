@@ -18,7 +18,9 @@ function openOwners(): RecoveryOpenOwners {
     loadWorkItems: () => [{ entity: 'project/alpha/issue/build', label: 'Build recovery', state: 'in-progress', blockedBy: [], citationTargets: ['issue:build'], currentStage: 'build' }],
     loadProjectMemory: async () => ({ revision: 2, fingerprint: digest({ memory: 2 }), freshness: 'current', reviewedDecisions: [] }),
     listSessions: async () => [],
-    loadCapabilities: async () => [{ capability: 'workflow.recovery.plan', state: 'available' as const }],
+    listSourceEvidence: async () => ({ records: [] }),
+    loadAgentDomainCapabilities: async () => ({ records: [{ capability: 'workflow.recovery.plan', state: 'available' as const }] }),
+    loadSettingsCapabilities: async () => ({ records: [] }),
   };
 }
 

@@ -62,12 +62,26 @@ export interface RecoveryCapabilityRead {
   fingerprint?: RecoveryFingerprint | null;
   citationTargets?: string[];
 }
+export interface RecoverySourceEvidenceRead {
+  itemId: string;
+  projectId: string;
+  revision?: string | number | null;
+  fingerprint?: RecoveryFingerprint | null;
+  citationTargets?: string[];
+}
+export interface RecoveryOwnerSnapshot<T> {
+  revision?: string | number | null;
+  fingerprint?: RecoveryFingerprint | null;
+  records: T[];
+}
 export interface RecoveryOpenOwners {
   workflow: WorkflowReadModel;
   loadWorkItems(projectId: string): RecoveryWorkItemRead[];
   loadProjectMemory(projectId: string): Promise<RecoveryMemoryRead>;
   listSessions(projectId: string): Promise<RecoverySessionRead[]>;
-  loadCapabilities(projectId: string): Promise<RecoveryCapabilityRead[]>;
+  listSourceEvidence(projectId: string): Promise<RecoveryOwnerSnapshot<RecoverySourceEvidenceRead>>;
+  loadAgentDomainCapabilities(projectId: string): Promise<RecoveryOwnerSnapshot<RecoveryCapabilityRead>>;
+  loadSettingsCapabilities(projectId: string): Promise<RecoveryOwnerSnapshot<RecoveryCapabilityRead>>;
 }
 
 const PROJECT_ID = /^project\/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])$/u;
@@ -152,13 +166,54 @@ function chooseSession(projectId: string, item: RecoveryWorkItemRead | null, ses
     .sort((left, right) => String(right.capturedAt ?? '').localeCompare(String(left.capturedAt ?? '')) || left.sessionId.localeCompare(right.sessionId))[0] ?? null;
 }
 
-function capabilityFacts(capabilities: RecoveryCapabilityRead[]): { facts: RecoveryCapabilityFactV2[]; citations: string[]; fingerprint: RecoveryFingerprint } {
-  const facts = capabilities.flatMap((raw) => {
+function snapshotRecords<T>(snapshot: RecoveryOwnerSnapshot<T> | null | undefined): T[] {
+  return snapshot && typeof snapshot === 'object' && Array.isArray(snapshot.records) ? snapshot.records : [];
+}
+
+function snapshotFingerprint<T>(snapshot: RecoveryOwnerSnapshot<T> | null | undefined, records: T[]): RecoveryFingerprint {
+  const provided = snapshot && typeof snapshot.fingerprint === 'string' && /^sha256:[a-f0-9]{64}$/u.test(snapshot.fingerprint)
+    ? snapshot.fingerprint as RecoveryFingerprint
+    : null;
+  return provided ?? fingerprintRecoveryValue(records);
+}
+
+function normalizeSourceEvidence(projectId: string, rawRecords: unknown): RecoverySourceEvidenceRead[] {
+  if (!Array.isArray(rawRecords)) return [];
+  return rawRecords.flatMap((raw) => {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return [];
+    const itemId = text(raw.itemId, 'source evidence item id', 256);
+    const recordProjectId = text(raw.projectId, 'source evidence project id', 128);
+    if (!itemId || recordProjectId !== projectId) return [];
+    return [{
+      itemId,
+      projectId,
+      revision: revision(raw.revision),
+      fingerprint: typeof raw.fingerprint === 'string' && /^sha256:[a-f0-9]{64}$/u.test(raw.fingerprint) ? raw.fingerprint as RecoveryFingerprint : null,
+      citationTargets: refs(raw.citationTargets),
+    }];
+  }).sort((left, right) => left.itemId.localeCompare(right.itemId));
+}
+
+function capabilityFacts(snapshot: RecoveryOwnerSnapshot<RecoveryCapabilityRead>): { facts: RecoveryCapabilityFactV2[]; citations: string[]; fingerprint: RecoveryFingerprint } {
+  const capabilities = snapshotRecords(snapshot);
+  const safeCapabilities = capabilities.filter((raw): raw is RecoveryCapabilityRead => Boolean(raw && typeof raw === 'object' && !Array.isArray(raw)));
+  const facts = safeCapabilities.flatMap((raw) => {
     const capability = text(raw.capability, 'capability', 256);
     if (!capability || (raw.state !== 'available' && raw.state !== 'degraded')) return [];
     return [{ capability, state: raw.state } as RecoveryCapabilityFactV2];
   }).sort((left, right) => left.capability.localeCompare(right.capability));
-  return { facts, citations: capabilities.flatMap((item) => refs(item.citationTargets)), fingerprint: fingerprintRecoveryValue(facts) };
+  return { facts, citations: safeCapabilities.flatMap((item) => refs(item.citationTargets)), fingerprint: snapshotFingerprint(snapshot, facts) };
+}
+
+function mergeCapabilityFacts(...groups: RecoveryCapabilityFactV2[][]): RecoveryCapabilityFactV2[] {
+  const merged = new Map<string, RecoveryCapabilityFactV2['state']>();
+  for (const group of groups) {
+    for (const fact of group) {
+      const current = merged.get(fact.capability);
+      merged.set(fact.capability, current === 'degraded' || fact.state === 'degraded' ? 'degraded' : fact.state);
+    }
+  }
+  return [...merged.entries()].map(([capability, state]) => ({ capability, state })).sort((left, right) => left.capability.localeCompare(right.capability));
 }
 
 function lock(owner: RecoveryOwner, value: unknown, state: RecoveryOwnerLock['state'] = 'current'): RecoveryOwnerLock {
@@ -226,19 +281,35 @@ export async function composeRecoveryOpenStage(projectId: string, owners: Recove
   let rawItems: RecoveryWorkItemRead[];
   let rawMemory: RecoveryMemoryRead;
   let sessions: RecoverySessionRead[];
-  let capabilities: RecoveryCapabilityRead[];
+  let sourceEvidenceSnapshot: RecoveryOwnerSnapshot<RecoverySourceEvidenceRead>;
+  let agentDomainSnapshot: RecoveryOwnerSnapshot<RecoveryCapabilityRead>;
+  let settingsSnapshot: RecoveryOwnerSnapshot<RecoveryCapabilityRead>;
   try {
-    [rawItems, rawMemory, sessions, capabilities] = await Promise.all([
+    [rawItems, rawMemory, sessions, sourceEvidenceSnapshot, agentDomainSnapshot, settingsSnapshot] = await Promise.all([
       Promise.resolve(owners.loadWorkItems(projectId)),
       owners.loadProjectMemory(projectId),
       owners.listSessions(projectId),
-      owners.loadCapabilities(projectId),
+      owners.listSourceEvidence(projectId),
+      owners.loadAgentDomainCapabilities(projectId),
+      owners.loadSettingsCapabilities(projectId),
     ]);
   } catch {
     return unavailable(projectId, generatedAt, OWNER_ORDER.map((owner) => lock(owner, null, owner === 'project' || owner === 'work-os' ? 'unavailable' : 'current')), 'mandatory_owner_unavailable', 'Inspect the owning Project, Work-OS, Workflow, and capability sources before retrying recovery.', [diagnostic('project', 'owner_unavailable', 'error', 'A mandatory recovery owner could not be read.', 'Repair the owner and retry open.')], fingerprintRecoveryValue({ projectId }));
   }
+  const sourceEvidenceOwner: RecoveryOwnerSnapshot<RecoverySourceEvidenceRead> = sourceEvidenceSnapshot && typeof sourceEvidenceSnapshot === 'object' ? sourceEvidenceSnapshot : { records: [] };
+  const agentDomainOwner: RecoveryOwnerSnapshot<RecoveryCapabilityRead> = agentDomainSnapshot && typeof agentDomainSnapshot === 'object' ? agentDomainSnapshot : { records: [] };
+  const settingsOwner: RecoveryOwnerSnapshot<RecoveryCapabilityRead> = settingsSnapshot && typeof settingsSnapshot === 'object' ? settingsSnapshot : { records: [] };
   const rawItemList = Array.isArray(rawItems) ? rawItems : [];
   const items = normalizeItems(projectId, rawItemList);
+  const sourceEvidence = normalizeSourceEvidence(projectId, snapshotRecords(sourceEvidenceOwner));
+  const agentDomain = capabilityFacts(agentDomainOwner);
+  const settings = capabilityFacts(settingsOwner);
+  const mergedCapabilities = mergeCapabilityFacts(agentDomain.facts, settings.facts);
+  const caps = {
+    facts: mergedCapabilities,
+    citations: refs([...agentDomain.citations, ...settings.citations]),
+    fingerprint: fingerprintRecoveryValue(mergedCapabilities),
+  };
   let runs: WorkflowRunRead[] = [];
   try { runs = owners.workflow.listRuns(projectId); } catch {
     return unavailable(projectId, generatedAt, OWNER_ORDER.map((owner) => lock(owner, null, owner === 'workflow' ? 'unavailable' : 'current')), 'mandatory_owner_unavailable', 'Inspect the owning Workflow source before retrying recovery.', [diagnostic('workflow', 'owner_unavailable', 'error', 'The Workflow owner could not be read.', 'Repair Workflow and retry open.')], fingerprintRecoveryValue({ projectId }));
@@ -255,12 +326,11 @@ export async function composeRecoveryOpenStage(projectId: string, owners: Recove
   const memory = rawMemory && typeof rawMemory === 'object' && !Array.isArray(rawMemory) ? rawMemory : {};
   const rawDecisions = Array.isArray(memory.reviewedDecisions) ? memory.reviewedDecisions : Array.isArray(memory.decisions) ? memory.decisions : Array.isArray(memory.claims) ? memory.claims : Array.isArray(memory.sections?.currentState?.claims) ? memory.sections.currentState.claims : [];
   const decisions = rawDecisions.filter((value): value is RecoveryDecisionRead => Boolean(value && typeof value === 'object' && !Array.isArray(value))).map(contextDecision).filter((value): value is NonNullable<typeof value> => value !== null).sort((left, right) => left.decisionId.localeCompare(right.decisionId));
-  const caps = capabilityFacts(Array.isArray(capabilities) ? capabilities : []);
   const diagnostics: RecoveryFlowDiagnosticV2[] = [];
   if (items.length === 0) diagnostics.push(diagnostic('work-os', 'work_items_unavailable', 'error', 'No safe current Work Item is available for this Project.', 'Repair the Work-OS owner before opening recovery.'));
   if (rawItemList.length > items.length) diagnostics.push(diagnostic('work-os', 'unsafe_work_items_omitted', 'warning', 'One or more Work-OS items were omitted because their identity or content was unsafe.', 'Repair the Work-OS item and retry open.'));
   if (rawDecisions.length > decisions.length) diagnostics.push(diagnostic('project-memory', 'unsafe_memory_context_omitted', 'warning', 'One or more Project Memory decisions were omitted because their content was unsafe or unreviewed.', 'Review the Project Memory owner before relying on it.'));
-  if (memory.freshness === 'unavailable') diagnostics.push(diagnostic('project-memory', 'memory_unavailable', 'warning', 'Project Memory is unavailable; reviewed decisions were omitted.', 'Repair or review Project Memory before relying on remembered decisions.'));
+  if (memory.freshness === 'unavailable') diagnostics.push(diagnostic('project-memory', 'memory_unavailable', 'warning', 'Project Memory is unavailable; reviewed decisions were omitted.', 'Repair or review Project Memory before relying on it.'));
   for (const code of Array.isArray(memory.diagnostics) ? memory.diagnostics : []) diagnostics.push(diagnostic('project-memory', text(code, 'memory diagnostic', 128) || 'memory_diagnostic', 'warning', 'Project Memory reported a bounded diagnostic.', 'Inspect the Project Memory owner.'));
   const groupsPayload = groups(items);
   const contextSource = selectedRun ? 'work-run' : selectedSession ? 'session-record' : 'none';
@@ -278,6 +348,7 @@ export async function composeRecoveryOpenStage(projectId: string, owners: Recove
       ...(selectedSession?.citationTargets ?? []),
       ...decisions.flatMap((decision) => decision.citationTargets),
       ...runCheckpoints.flatMap((checkpoint) => checkpoint.citationTargets),
+      ...sourceEvidence.flatMap((item) => item.citationTargets ?? []),
       ...caps.citations,
       ...(memory.citationTargets ?? []),
     ]).slice(0, 64),
@@ -288,8 +359,18 @@ export async function composeRecoveryOpenStage(projectId: string, owners: Recove
     currentStage, workGroups: groupsPayload, context, capabilities: caps.facts, suggestedQueries,
   };
   const mandatoryPayload: RecoveryOpenPayloadV2 = { ...payload, citations: [], context: { ...context, decisions: [], checkpoints: [], citations: [] } };
+  const mandatoryOwnerValues: Record<RecoveryOwner, unknown> = {
+    project: caps.facts,
+    'work-os': items,
+    workflow: selectedRun,
+    'project-memory': caps.facts,
+    'session-record': caps.facts,
+    'source-evidence': sourceEvidence,
+    'agent-domain': agentDomain.facts,
+    settings: settings.facts,
+  };
   if (utf8JsonBytes({ payload: mandatoryPayload, diagnostics, omitted: { items: 0, citations: 0, diagnostics: 0, bytes: 0 } }) > 64 * 1024) {
-    return unavailable(projectId, generatedAt, OWNER_ORDER.map((owner) => lock(owner, owner === 'work-os' ? items : owner === 'workflow' ? selectedRun : caps.facts)), 'mandatory_context_too_large', 'Reduce mandatory Work-OS labels or repair the owner data before retrying recovery.', [diagnostic('work-os', 'mandatory_context_too_large', 'error', 'Mandatory Project recovery facts exceed the context byte bound.', 'Reduce the owning Work-OS payload and retry open.')], fingerprintRecoveryValue({ projectId, items: items.map((entry) => entry.entity) }));
+    return unavailable(projectId, generatedAt, OWNER_ORDER.map((owner) => lock(owner, mandatoryOwnerValues[owner])), 'mandatory_context_too_large', 'Reduce mandatory Work-OS labels or repair the owner data before opening recovery.', [diagnostic('work-os', 'mandatory_context_too_large', 'error', 'Mandatory Project recovery facts exceed the context byte bound.', 'Reduce the owning Work-OS payload and retry open.')], fingerprintRecoveryValue({ projectId, items: items.map((entry) => entry.entity) }));
   }
   const groupCount = Object.values(groupsPayload ?? {}).reduce((total, group) => total + group.length, 0);
   let omittedItems = Math.max(0, items.length - groupCount) + Math.max(0, decisions.length - context.decisions.length) + Math.max(0, runCheckpoints.length - context.checkpoints.length);
@@ -313,9 +394,9 @@ export async function composeRecoveryOpenStage(projectId: string, owners: Recove
     workflow: { runs: validRuns, checkpoints: allRunCheckpoints },
     'project-memory': { revision: revision(memory.revision), fingerprint: memory.fingerprint ?? fingerprintRecoveryValue(decisions), freshness: memory.freshness ?? 'unknown' },
     'session-record': sessions,
-    'source-evidence': null,
-    'agent-domain': caps.facts,
-    settings: caps.facts,
+    'source-evidence': { revision: revision(sourceEvidenceOwner.revision), fingerprint: snapshotFingerprint(sourceEvidenceOwner, sourceEvidence) },
+    'agent-domain': { revision: revision(agentDomainOwner.revision), fingerprint: agentDomain.fingerprint },
+    settings: { revision: revision(settingsOwner.revision), fingerprint: settings.fingerprint },
   };
   const ownerLocks = OWNER_ORDER.map((owner) => lock(owner, ownerValues[owner], owner === 'project-memory' && memory.freshness === 'unavailable' ? 'unavailable' : owner === 'project-memory' && memory.freshness === 'stale' ? 'stale' : 'current'));
   const recoveryFingerprint = fingerprintRecoveryValue({ projectId, workItems: items, resumable: selectedRun ? { workRunId: selectedRun.workRunId, workItemId: selectedRun.workItemId, state: selectedRun.state } : null, capabilities: caps.facts });

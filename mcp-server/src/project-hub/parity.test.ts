@@ -57,7 +57,9 @@ function fixture() {
     loadWorkItems: () => [{ entity: "project/alpha/issue/build", label: "Build recovery", state: "in-progress", blockedBy: [], citationTargets: ["issue:build"] }],
     loadProjectMemory: async () => ({ revision: 1, fingerprint: fingerprintRecoveryValue("memory"), freshness: "current", reviewedDecisions: [] }),
     listSessions: async () => [],
-    loadCapabilities: async () => [{ capability: "workflow.recovery.plan", state: "available", citationTargets: ["capability:plan"] }],
+    listSourceEvidence: async () => ({ records: [] }),
+    loadAgentDomainCapabilities: async () => ({ records: [{ capability: "workflow.recovery.plan", state: "available", citationTargets: ["capability:plan"] }] }),
+    loadSettingsCapabilities: async () => ({ records: [] }),
   };
   const registry = new AdapterRegistry();
   const filesystem: VaultMindAdapter = { name: "filesystem", capabilities: ["search", "read"], isAvailable: true, async init() {}, async dispose() {} };

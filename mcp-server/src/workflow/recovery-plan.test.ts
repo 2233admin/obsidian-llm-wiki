@@ -62,7 +62,9 @@ test('compiled direct Operation reaches planned with apply absent', async () => 
       loadWorkItems: () => [{ entity: 'project/alpha/issue/build', label: 'Build recovery', state: 'in-progress', blockedBy: [], citationTargets: ['issue:build'] }],
       loadProjectMemory: async () => ({}),
       listSessions: async () => [],
-      loadCapabilities: async () => [{ capability: 'workflow.recovery.plan', state: 'available' as const }],
+      listSourceEvidence: async () => ({ records: [] }),
+      loadAgentDomainCapabilities: async () => ({ records: [{ capability: 'workflow.recovery.plan', state: 'available' as const }] }),
+      loadSettingsCapabilities: async () => ({ records: [] }),
     };
     const dependencies = {
       openOwners,

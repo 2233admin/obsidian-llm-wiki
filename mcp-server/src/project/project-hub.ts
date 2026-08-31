@@ -46,7 +46,10 @@ import { readSourceRegistry, type SourceRecord } from '../source/source.js';
 import { fingerprintRecoveryValue, safeRecoveryText } from '../project-hub/contract-support.js';
 import {
   composeRecoveryOpenStage,
+  type RecoveryCapabilityRead,
   type RecoveryOpenOwners,
+  type RecoveryOwnerSnapshot,
+  type RecoverySourceEvidenceRead,
 } from '../project-hub/recovery-open.js';
 import { searchRecovery, type RecoverySearchDependencies } from '../project-hub/search.js';
 import { createProjectSearchSource, type ProjectSearchSource } from '../project-hub/search-source.js';
@@ -729,8 +732,14 @@ function defaultRecoveryOwners(
       const workItemId = (session as typeof session & { workItemId?: unknown }).workItemId;
       return [{ sessionId: session.sessionId, projectId: session.projectId, workItemId: typeof workItemId === 'string' ? workItemId : null, capturedAt: session.capturedAt ?? null, status: session.status, revision: session.revision ?? null, citationTargets: (session.sourceRefs ?? []).map((reference) => typeof reference === 'string' ? reference : reference.ref) }];
     }),
-    // S04B owns the apply Operation; planning remains independently available.
-    loadCapabilities: async () => [capabilityFact],
+    listSourceEvidence: async (projectId): Promise<RecoveryOwnerSnapshot<RecoverySourceEvidenceRead>> => {
+      const items = sourceEvidenceItems(vaultPath, projectId);
+      const records = items.map(({ itemId, projectId: recordProjectId, citationTargets }) => ({ itemId, projectId: recordProjectId, citationTargets }));
+      return { records, fingerprint: fingerprintRecoveryValue(records) };
+    },
+    // Agent Domain and Settings are separate owner reads even when they share the same capability fact.
+    loadAgentDomainCapabilities: async (): Promise<RecoveryOwnerSnapshot<RecoveryCapabilityRead>> => ({ records: [capabilityFact], fingerprint: fingerprintRecoveryValue([capabilityFact]) }),
+    loadSettingsCapabilities: async (): Promise<RecoveryOwnerSnapshot<RecoveryCapabilityRead>> => ({ records: [capabilityFact], fingerprint: fingerprintRecoveryValue([capabilityFact]) }),
   };
 }
 

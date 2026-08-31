@@ -18,7 +18,9 @@ function owners(overrides: Partial<RecoveryOpenOwners> = {}): RecoveryOpenOwners
     loadWorkItems: () => [{ entity: 'project/alpha/issue/build', label: 'Build recovery', state: 'in-progress', blockedBy: [], citationTargets: ['issue:build'], currentStage: 'build' }],
     loadProjectMemory: async () => ({ revision: 2, fingerprint: fingerprintRecoveryValue({ memory: 2 }), freshness: 'current', reviewedDecisions: [{ decisionId: 'decision/one', text: 'Keep recovery read-only', citationTargets: ['decision:one'], reviewStatus: 'reviewed' }, { decisionId: 'decision/draft', text: 'Do not expose this', citationTargets: [], reviewStatus: 'draft' }] }),
     listSessions: async () => [{ sessionId: 'session/old', projectId: 'project/alpha', workItemId: 'project/alpha/issue/build', capturedAt: '2026-08-27T00:00:00.000Z', status: 'captured', citationTargets: ['session:old'] }],
-    loadCapabilities: async () => [{ capability: 'repository.read', state: 'available', citationTargets: ['capability:read'] }],
+    listSourceEvidence: async () => ({ records: [], fingerprint: fingerprintRecoveryValue('source-evidence') }),
+    loadAgentDomainCapabilities: async () => ({ records: [{ capability: 'repository.read', state: 'available', citationTargets: ['capability:read'] }] }),
+    loadSettingsCapabilities: async () => ({ records: [] }),
     ...overrides,
   };
 }
@@ -36,6 +38,30 @@ test('open composes V1-equivalent work facts with Work Run context before Sessio
   assert.ok(response.nextRequests[0]?.openFlowFingerprint === response.flowFingerprint);
   assert.deepEqual(response.ownerLocks.map((lock) => lock.owner), ['project', 'work-os', 'workflow', 'project-memory', 'session-record', 'source-evidence', 'agent-domain', 'settings']);
   assert.doesNotMatch(JSON.stringify(response), /Do not expose|transcript|prompt|C:\\|must-never/u);
+});
+test('keeps source evidence, Agent Domain, and Settings owner inputs independent', async () => {
+  const base = owners();
+  const response = await composeRecoveryOpenStage('project/alpha', {
+    ...base,
+    listSourceEvidence: async () => ({ records: [{ itemId: 'evidence/recovery', projectId: 'project/alpha', citationTargets: ['evidence:recovery'] }], revision: 4 }),
+    loadAgentDomainCapabilities: async () => ({ records: [
+      { capability: 'agent.binding', state: 'available', citationTargets: ['capability:binding'] },
+      { capability: 'repository.read', state: 'available', citationTargets: ['capability:read'] },
+    ], revision: 5 }),
+    loadSettingsCapabilities: async () => ({ records: [{ capability: 'settings.vault', state: 'degraded', citationTargets: ['capability:vault'] }], revision: 6 }),
+  }, '2026-08-28T02:00:00.000Z');
+  assert.equal(response.stage, 'open');
+  assert.ok(response.payload.context?.citations.includes('evidence:recovery'));
+  assert.deepEqual(response.payload.capabilities, [
+    { capability: 'agent.binding', state: 'available' },
+    { capability: 'repository.read', state: 'available' },
+    { capability: 'settings.vault', state: 'degraded' },
+  ]);
+  const locks = new Map(response.ownerLocks.map((lock) => [lock.owner, lock]));
+  assert.equal(locks.get('source-evidence')?.revision, 4);
+  assert.equal(locks.get('agent-domain')?.revision, 5);
+  assert.equal(locks.get('settings')?.revision, 6);
+  assert.notEqual(locks.get('agent-domain')?.fingerprint, locks.get('settings')?.fingerprint);
 });
 
 test('open safely falls back to current Session metadata and never returns reviewed-out memory', async () => {
@@ -113,4 +139,15 @@ test('open omits malformed owner arrays instead of throwing', async () => {
   assert.equal(response.stage, 'open');
   assert.equal(response.payload.workItemId, null);
   assert.ok(response.diagnostics.some((item) => item.code === 'work_items_unavailable'));
+});
+test('open omits malformed capability-owner snapshots instead of throwing', async () => {
+  const base = owners();
+  const response = await composeRecoveryOpenStage('project/alpha', {
+    ...base,
+    listSourceEvidence: async () => ({ records: [null] as never[] }),
+    loadAgentDomainCapabilities: async () => ({ records: [null] as never[] }),
+    loadSettingsCapabilities: async () => ({ records: [null] as never[] }),
+  }, '2026-08-28T02:00:00.000Z');
+  assert.equal(response.stage, 'open');
+  assert.deepEqual(response.payload.capabilities, []);
 });

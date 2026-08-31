@@ -11,7 +11,7 @@ function deps(): RecoveryOpenOwners {
   return {
     workflow: { readRun: () => run, listRuns: () => [run], listCheckpoints: () => [], checkpointSetFingerprint: () => fingerprintRecoveryValue([]) },
     loadWorkItems: () => [{ entity: 'project/alpha/issue/build', label: 'Build recovery', state: 'in-progress', blockedBy: [], citationTargets: ['issue:build'] }],
-    loadProjectMemory: async () => ({}), listSessions: async () => [], loadCapabilities: async () => [{ capability: 'workflow.recovery.plan', state: 'available' as const }],
+    loadProjectMemory: async () => ({}), listSessions: async () => [], listSourceEvidence: async () => ({ records: [] }), loadAgentDomainCapabilities: async () => ({ records: [{ capability: 'workflow.recovery.plan', state: 'available' as const }] }), loadSettingsCapabilities: async () => ({ records: [] }),
   };
 }
 

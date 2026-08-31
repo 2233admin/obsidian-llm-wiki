@@ -21,7 +21,9 @@ test('planning service delegates the shared Plan composer without adding mutatio
       loadWorkItems: () => [],
       loadProjectMemory: async () => ({}),
       listSessions: async () => [],
-      loadCapabilities: async () => [{ capability: 'workflow.recovery.plan', state: 'available' }],
+      listSourceEvidence: async () => ({ records: [] }),
+      loadAgentDomainCapabilities: async () => ({ records: [{ capability: 'workflow.recovery.plan', state: 'available' }] }),
+      loadSettingsCapabilities: async () => ({ records: [] }),
     },
   };
   const service = createRecoveryPlanningService(serviceDependencies);

@@ -94,7 +94,7 @@ function fixture(options: FixtureOptions = {}) {
     memoryMarkers: ["reviewed", "draft"],
     repeatedQueries: ["recovery", "build"],
     alternateCandidates: ["resume:work-run/current", "resume:work-run/alternate"],
-    capabilityFacts: ["workflow.recovery.apply", "workflow.recovery.plan"],
+    capabilityFacts: ["agent.binding", "settings.vault", "workflow.recovery.plan"],
     claimRecords: ["recovery-plan-claim", "recovery-token-claim"],
     outputRecords: ["output-claim", "output-token-claim"],
     privacyCanaryLabels: ["query", "token", "path", "secret", "prompt", "transcript", "arbitrary"],
@@ -170,10 +170,14 @@ function fixture(options: FixtureOptions = {}) {
       ],
     }),
     listSessions: async () => [{ sessionId: "session/recovery", projectId: "project/alpha", workItemId: "project/alpha/issue/build", capturedAt: "2026-08-28T01:00:00.000Z", status: "captured", revision: 1, citationTargets: ["session:recovery"] }],
-    loadCapabilities: async () => [
-      { capability: "workflow.recovery.plan", state: "available", citationTargets: ["capability:plan"] },
-      { capability: "workflow.recovery.apply", state: "available", citationTargets: ["capability:apply"] },
-    ],
+    listSourceEvidence: async () => ({ records: [{ itemId: "evidence/recovery", projectId: "project/alpha", revision: 2, citationTargets: ["evidence:recovery"] }], revision: 2 }),
+    loadAgentDomainCapabilities: async () => ({ records: [
+      { capability: "agent.binding", state: "available", revision: 3, citationTargets: ["capability:binding"] },
+      { capability: "workflow.recovery.plan", state: "available", revision: 3, citationTargets: ["capability:plan"] },
+    ], revision: 3 }),
+    loadSettingsCapabilities: async () => ({ records: [
+      { capability: "settings.vault", state: "available", revision: 4, citationTargets: ["capability:vault"] },
+    ], revision: 4 }),
   };
   const registry = new AdapterRegistry();
   const filesystem: VaultMindAdapter = { name: "filesystem", capabilities: ["search", "read"], isAvailable: true, async init() {}, async dispose() {} };
@@ -361,6 +365,12 @@ describe("Foundation Recovery Flow gate", () => {
       }) as any;
       assert.deepEqual(open.ownerLocks.map((lock: any) => lock.owner), coverage.ownerIds);
       assert.deepEqual(open.payload.capabilities.map((capability: any) => capability.capability), coverage.capabilityFacts);
+      assert.ok(open.payload.context.citations.includes("evidence:recovery"));
+      const ownerLocks = new Map((open.ownerLocks as Array<{ owner: string; revision?: string | number | null; fingerprint?: string | null }>).map((lock) => [lock.owner, lock] as const));
+      assert.equal(ownerLocks.get("source-evidence")?.revision, 2);
+      assert.equal(ownerLocks.get("agent-domain")?.revision, 3);
+      assert.equal(ownerLocks.get("settings")?.revision, 4);
+      assert.notEqual(ownerLocks.get("agent-domain")?.fingerprint, ownerLocks.get("settings")?.fingerprint);
       assert.equal(open.payload.context.checkpoints.length, 1);
       assert.deepEqual(
         [...new Set(searched.payload.results.map((result: any) => result.owner))],
