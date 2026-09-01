@@ -1667,7 +1667,7 @@ function defaultMultimodalOutputPath(sourcePath: string): string {
   return `00-Inbox/Multimodal/${stem}.md`;
 }
 
-function multimodalMarkdown(opts: {
+export function multimodalMarkdown(opts: {
   sourcePath: string;
   parser?: string;
   metadata: Record<string, unknown>;
@@ -1678,10 +1678,10 @@ function multimodalMarkdown(opts: {
   const parser = opts.parser ?? 'raganything';
   return [
     '---',
-    `source: "${opts.sourcePath.replace(/"/g, '\\"')}"`,
+    `source: ${JSON.stringify(opts.sourcePath)}`,
     'generated-by: raganything',
     `generated-at: "${generatedAt}"`,
-    `parser: "${parser.replace(/"/g, '\\"')}"`,
+    `parser: ${JSON.stringify(parser)}`,
     `metadata-json: '${metadata}'`,
     'status: draft',
     '---',

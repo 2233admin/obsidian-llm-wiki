@@ -14,11 +14,12 @@
  *      is unavailable. Also handles ILIKE fallback when embedding generation fails.
  *
  * Search paths:
- *   - search(query)  -> embeds via Ollama bge-m3 (1024-dim), falls back to ILIKE
- *   - searchByVector(vec) 1024-dim -> cosine via memu_search.py
- *   - searchByVector(vec) 4096-dim -> raw pgvector cosine on memory_items
+ *   - search(query) -> selected embedding profile -> recall_file_segments
+ *   - searchByVector(vec) 768-dim -> pgvector cosine on recall_file_segments
+ *   - searchByVector(vec) 1024-dim -> graph recall, then memu_search.py fallback
+ *   - searchByVector(vec) 4096-dim -> legacy pgvector cosine on memory_items
  *
- * Requires: a Settings-derived Postgres connection, Ollama serving bge-m3 at :11434.
+ * Requires a Settings-derived Postgres connection and embedding profile.
  * Gracefully degrades to [] if unavailable.
  * The constructor never reads process.env or resolves Secret References directly.
  * At each Python subprocess boundary it preserves the inherited environment and
@@ -135,18 +136,21 @@ export function resolveMemUAdapterConfig(
   runtime: { cwd?: string; platform?: NodeJS.Platform } = {},
 ): ResolvedMemUAdapterConfig {
   const python = pathPython(runtime.platform ?? process.platform);
+  const configuredProfileId = config.embedProfileId ?? environment.OLLAMA_EMBED_PROFILE;
+  const embedModel = config.embedModel ?? environment.OLLAMA_EMBED_MODEL;
+  const legacyOllamaModel = configuredProfileId === undefined ? embedModel : undefined;
   const embeddingProfile = resolveEmbeddingProfile({
     profileId:
-      config.embedProfileId
-      ?? environment.OLLAMA_EMBED_PROFILE
-      ?? "ollama/qwen3-embedding:0.6b",
+      configuredProfileId
+      ?? (legacyOllamaModel ? `custom/ollama/${legacyOllamaModel}` : "jina/v5-omni-nano"),
+    ...(legacyOllamaModel ? { provider: "ollama" as const } : {}),
     endpoint:
       config.embedEndpoint
       ?? environment.OLLAMA_EMBED_BASE_URL
       ?? environment.VAULT_MIND_EMBED_URL,
-    model: config.embedModel ?? environment.OLLAMA_EMBED_MODEL,
+    model: embedModel,
     dimensions: config.embedDimensions,
-    defaultProfileId: "ollama/qwen3-embedding:0.6b",
+    defaultProfileId: "jina/v5-omni-nano",
   });
   return {
     dsn: config.dsn ?? environment.MEMU_DSN ?? DEFAULT_DSN,
@@ -250,7 +254,7 @@ export class MemUAdapter implements VaultMindAdapter {
       // Probe: confirm table + scope has data. Zero rows is a soft warning,
       // not a hard failure -- the DB might be fresh.
       const { rows } = await this.pool.query(
-        "SELECT COUNT(*)::int AS n FROM memory_items WHERE user_id = $1",
+        "SELECT COUNT(*)::int AS n FROM recall_files WHERE user_id = $1",
         [this.userId],
       );
       const n = (rows[0]?.n as number) ?? 0;
@@ -282,19 +286,66 @@ export class MemUAdapter implements VaultMindAdapter {
 
   async search(query: string, opts?: SearchOpts): Promise<SearchResult[]> {
     if (!this.available || !this.pool) return [];
-    const limit = Math.max(1, Math.min(opts?.maxResults ?? this.defaultMax, 100));
-    const vec = await embedTextOllama(query, {
+    const vector = await embedTextOllama(query, {
       profileId: this.embedProfileId,
       baseUrl: this.embedEndpoint,
       model: this.embedModel,
       dimensions: this.embedDimensions,
     });
-    const queryVec = vec.length === (this.embedDimensions ?? 1024) ? vec : null;
-    const result = await this.runGraphRecall(query, queryVec, limit);
-    if (result) return this.mapRecallResult(result);
-    // Fallback: pure-PG cosine via memu_search.py (bypasses pgvector, pg_trgm fallback)
-    const pyResult = await this.runMemuSearchPy(query, queryVec, limit);
-    return pyResult;
+    if (vector.length !== (this.embedDimensions ?? 768)) return [];
+    return this.searchRecallSegmentsByVector(vector, opts);
+  }
+
+  private async searchRecallSegmentsByVector(
+    vector: readonly number[],
+    opts?: SearchOpts,
+  ): Promise<SearchResult[]> {
+    if (!this.pool) return [];
+    const limit = Math.max(1, Math.min(opts?.maxResults ?? this.defaultMax, 100));
+    const vectorLiteral = `[${vector.join(",")}]`;
+    try {
+      const { rows } = await this.pool.query<{
+        id: string;
+        text: string;
+        track: string;
+        user_id: string;
+        created_at: Date;
+        file_name: string | null;
+        similarity: number;
+      }>(
+        `SELECT s.id, s.text, s.track, s.user_id, s.created_at,
+                f.name AS file_name,
+                (1 - (s.embedding <=> $2::vector))::float8 AS similarity
+         FROM recall_file_segments s
+         LEFT JOIN recall_files f ON f.id = s.recall_file_id
+         WHERE s.embedding IS NOT NULL AND s.user_id = $1
+         ORDER BY s.embedding <=> $2::vector
+         LIMIT $3`,
+        [this.userId, vectorLiteral, limit],
+      );
+      return rows.map((row) => ({
+        source: this.name,
+        path: `memu/${row.file_name ?? row.id}`,
+        content: String(row.text ?? "").slice(0, 500),
+        score: typeof row.similarity === "number" ? row.similarity : 0,
+        metadata: {
+          table: "recall_file_segments",
+          track: row.track,
+          user_id: row.user_id,
+          created_at:
+            row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+          item_id: row.id,
+          file_name: row.file_name,
+          cosine_similarity: row.similarity,
+        },
+      }));
+    } catch (err) {
+      const kind = err instanceof Error ? err.name : "Error";
+      process.stderr.write(
+        `obsidian-llm-wiki: [error] memU PG vector query (recall_file_segments) failed (${kind})\n`,
+      );
+      return [];
+    }
   }
 
   async searchByVector(
@@ -303,6 +354,7 @@ export class MemUAdapter implements VaultMindAdapter {
   ): Promise<SearchResult[]> {
     if (!this.available || !this.pool) return [];
     if (vector.length === 0) return [];
+    if (vector.length === 768) return this.searchRecallSegmentsByVector(vector, opts);
     if (vector.length === 1024) {
       const limit = Math.max(1, Math.min(opts?.maxResults ?? this.defaultMax, 100));
       const result = await this.runGraphRecall("", vector, limit);

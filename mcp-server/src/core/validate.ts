@@ -1,11 +1,71 @@
 import type { ParamDef } from './types.js';
 
+interface RegexGroupFrame {
+  hasQuantifier: boolean;
+  branchHeads: string[];
+  branchHead: string;
+}
+
 /** ReDoS guard: reject regex patterns with nested quantifiers or overlapping alternation. */
 export function rejectDangerousRegex(pattern: string): void {
-  if (/(\([^)]*[+*}]\s*\))[+*{]/.test(pattern))
-    throw new ValidationError('regex rejected: nested quantifiers (ReDoS risk)');
-  if (/\([^)]*\|[^)]*\)[+*{]/.test(pattern) && /(\w)\|.*\1/.test(pattern))
-    throw new ValidationError('regex rejected: overlapping alternation (ReDoS risk)');
+  const groups: RegexGroupFrame[] = [];
+  let inCharacterClass = false;
+
+  for (let index = 0; index < pattern.length; index += 1) {
+    const char = pattern[index];
+    if (char === '\\') {
+      index += 1;
+      const frame = groups[groups.length - 1];
+      if (frame && !frame.branchHead && index < pattern.length) frame.branchHead = pattern[index];
+      continue;
+    }
+    if (char === '[') {
+      inCharacterClass = true;
+      continue;
+    }
+    if (char === ']' && inCharacterClass) {
+      inCharacterClass = false;
+      continue;
+    }
+    if (inCharacterClass) continue;
+
+    if (char === '(') {
+      groups.push({ hasQuantifier: false, branchHeads: [], branchHead: '' });
+      continue;
+    }
+    if (char === '|') {
+      const frame = groups[groups.length - 1];
+      if (frame) {
+        frame.branchHeads.push(frame.branchHead);
+        frame.branchHead = '';
+      }
+      continue;
+    }
+    if (char === ')') {
+      const frame = groups.pop();
+      if (!frame) continue;
+      let next = index + 1;
+      while (next < pattern.length && /\s/.test(pattern[next])) next += 1;
+      const quantified = next < pattern.length && (pattern[next] === '+' || pattern[next] === '*' || pattern[next] === '{');
+      if (quantified && frame.hasQuantifier) {
+        throw new ValidationError('regex rejected: nested quantifiers (ReDoS risk)');
+      }
+      if (quantified && frame.branchHeads.length > 0) {
+        const heads = [...frame.branchHeads, frame.branchHead].filter(Boolean);
+        if (new Set(heads).size !== heads.length) {
+          throw new ValidationError('regex rejected: overlapping alternation (ReDoS risk)');
+        }
+      }
+      const parent = groups[groups.length - 1];
+      if (parent && (frame.hasQuantifier || quantified)) parent.hasQuantifier = true;
+      continue;
+    }
+
+    const frame = groups[groups.length - 1];
+    if (!frame) continue;
+    if (char === '+' || char === '*' || char === '{') frame.hasQuantifier = true;
+    else if (!frame.branchHead && !'^$?.'.includes(char)) frame.branchHead = char;
+  }
 }
 
 export class ValidationError extends Error {

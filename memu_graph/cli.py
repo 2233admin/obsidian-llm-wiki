@@ -9,24 +9,38 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import sys
 import uuid
 from datetime import datetime, timezone
+from urllib.parse import urlsplit
 
 
 def _get_pg_pool(dsn: str):
-    """Lazy psycopg2 connection helper. Injects user/password from env if DSN lacks them."""
+    """Lazy psycopg2 connection helper using optional libpq environment credentials."""
     import psycopg2
 
-    # If DSN lacks user/password, psycopg2 tries OS auth which fails on Windows.
-    # Inject from PGPASSWORD/PGUSER env vars as fallback.
-    if "://" in dsn and "@" not in dsn.split("://", 1)[1]:
-        # DSN has no credentials — inject from env
-        user = os.environ.get("PGUSER", "postgres")
-        password = os.environ.get("PGPASSWORD", "postgres")
-        dsn = dsn.replace("://", f"://{user}:{password}@")
+    if "://" in dsn:
+        parsed_dsn = urlsplit(dsn)
+        has_explicit_credentials = parsed_dsn.username is not None or parsed_dsn.password is not None
+    else:
+        dsn_keys = {
+            field.partition("=")[0].lower()
+            for field in shlex.split(dsn)
+            if "=" in field
+        }
+        has_explicit_credentials = bool(dsn_keys & {"user", "password"})
 
-    conn = psycopg2.connect(dsn)
+    connection_options = {}
+    if not has_explicit_credentials:
+        user = os.environ.get("PGUSER")
+        password = os.environ.get("PGPASSWORD")
+        if user:
+            connection_options["user"] = user
+        if password:
+            connection_options["password"] = password
+
+    conn = psycopg2.connect(dsn, **connection_options)
     conn.autocommit = False
     return conn
 

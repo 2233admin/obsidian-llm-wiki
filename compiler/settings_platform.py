@@ -63,7 +63,11 @@ TOOLCHAIN_PROVIDER_IDS = (
     "mcp-sdk",
 )
 TOOLCHAIN_INVOCATION_MODES = ("filesystem", "cli", "http", "sdk")
-BUILT_IN_EMBEDDING_PROFILE_IDS = ("ollama/bge-m3", "ollama/qwen3-embedding:0.6b")
+BUILT_IN_EMBEDDING_PROFILE_IDS = (
+    "ollama/bge-m3",
+    "ollama/qwen3-embedding:0.6b",
+    "jina/v5-omni-nano",
+)
 LEGACY_TOOLCHAIN_ENV_MAP = (
     ("VAULT_MIND_ADAPTERS", "adapters.enabled", "Migrate enabled adapters into adapters.enabled."),
     (

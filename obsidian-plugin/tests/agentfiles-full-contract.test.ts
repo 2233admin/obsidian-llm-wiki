@@ -13,6 +13,7 @@ import { DEFAULT_SETTINGS, type ChopsSettings, type ConversationItem } from "../
 import { generateTags } from "../src/agentfiles/conversations/tagger";
 import { generateNoteContent, generateNotePath } from "../src/agentfiles/conversations/note-exporter";
 import { formatInstalls, searchSkills, TOOL_TO_AGENT, VALID_AGENTS } from "../src/agentfiles/marketplace";
+import { sanitizeTitle } from "../src/agentfiles/views/conversation-list";
 
 function settingsFor(root: string): ChopsSettings {
 	return {
@@ -167,6 +168,12 @@ test("scaffolds, conversation tags, and governed export remain functional", () =
 	assert.match(content, /type: transcript/);
 	assert.match(content, /review: draft/);
 	assert.match(content, /source: claude-code/);
+});
+
+test("conversation titles remove complete markup without truncating ordinary angle brackets", () => {
+	assert.equal(sanitizeTitle("<b>Review</b>"), "Review");
+	assert.equal(sanitizeTitle("Score 1 < 2 and 3 > 1"), "Score 1 < 2 and 3 > 1");
+	assert.equal(sanitizeTitle("Draft <script"), "Draft <script");
 });
 
 test("marketplace guards empty queries and preserves runtime mappings", async () => {

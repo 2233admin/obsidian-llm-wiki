@@ -39,17 +39,28 @@ def test_default_mcp_test_command_discovers_legacy_and_colocated_suites() -> Non
     package = json.loads(package_json.read_text(encoding="utf-8"))
     scripts = package["scripts"]
 
-    assert scripts["test"].split() == ["bun", "test", "tests/", "src/"]
+    assert scripts["test"].split() == [
+        "npm", "run", "test:legacy", "&&", "npm", "run", "test:source",
+    ]
+    assert scripts["test:legacy"] == "bun test tests/"
+    assert scripts["test:source"] == "node scripts/run-source-tests.mjs"
+    assert scripts["pretest"].endswith("&& tsc")
     assert package["bin"]["llmwiki-agent"] == "agent-domain-cli.js"
     assert package["bin"]["memu-query"] == "memu-query.js"
     assert package["bin"]["llmwiki-usage"] == "usage-cli.js"
+    assert package["bin"]["session-archiver"] == "session-archiver.js"
     assert "types" not in package
-    assert {"agent-domain-cli.js", "memu-query.js", "usage-cli.js"} <= set(package["files"])
+    assert {
+        "agent-domain-cli.js", "memu-query.js", "usage-cli.js", "session-archiver.js",
+    } <= set(package["files"])
     assert scripts["verify:bundle"].endswith("node scripts/verify-bundles.mjs")
     assert "git status" not in scripts["verify:bundle"]
     verifier = (MODULE_PATH.parents[1] / "mcp-server" / "scripts" / "verify-bundles.mjs").read_text(encoding="utf-8")
     assert "--untracked-files=all" in verifier
-    assert all(name in verifier for name in ("bundle.js", "agent-domain-cli.js", "memu-query.js", "usage-cli.js"))
+    assert all(name in verifier for name in (
+        "bundle.js", "agent-domain-cli.js", "memu-query.js", "usage-cli.js",
+        "session-archiver.js",
+    ))
 
 
 def test_release_workflows_package_and_verify_every_production_bundle() -> None:
@@ -64,12 +75,13 @@ def test_release_workflows_package_and_verify_every_production_bundle() -> None:
     assert "cd mcp-server && node scripts/verify-bundles.mjs" in release
     assert (
         "-C mcp-server bundle.js agent-domain-cli.js memu-query.js "
-        "usage-cli.js package.json -C .. LICENSE"
+        "usage-cli.js session-archiver.js package.json -C .. LICENSE"
     ) in release
     assert "bundle.js agent-domain-cli.js package.json dist" not in release
     assert Path("mcp-server/agent-domain-cli.js") in RELEASE_INSTALL_ALLOWLIST
     assert Path("mcp-server/memu-query.js") in RELEASE_INSTALL_ALLOWLIST
     assert Path("mcp-server/usage-cli.js") in RELEASE_INSTALL_ALLOWLIST
+    assert Path("mcp-server/session-archiver.js") in RELEASE_INSTALL_ALLOWLIST
 
 
 def test_required_operation_report_covers_every_release_capability() -> None:

@@ -211,6 +211,29 @@ def smoke_usage_cli(server_dir: Path) -> dict[str, Any]:
     return {"entrypoint": cli.name, "contractError": payload}
 
 
+def smoke_session_archiver_cli(server_dir: Path) -> dict[str, Any]:
+    """Prove the packaged session archiver boots and enforces vault selection."""
+    cli = server_dir / "session-archiver.js"
+    env = os.environ.copy()
+    env.pop("VAULT_MIND_VAULT_PATH", None)
+    proc = subprocess.run(
+        ["node", str(cli)],
+        cwd=server_dir,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    expected = "vault path not set: pass --vault PATH or set VAULT_MIND_VAULT_PATH"
+    if proc.returncode != 1 or expected not in proc.stderr:
+        raise RuntimeError(
+            f"session archiver contract probe exited {proc.returncode}: "
+            f"{(proc.stderr or proc.stdout).strip()}"
+        )
+    return {"entrypoint": cli.name, "contractError": expected}
+
+
 class McpClient:
     def __init__(
         self,
@@ -440,6 +463,11 @@ def verify(repo: Path) -> dict[str, Any]:
             results,
             "usage-cli-isolated-smoke",
             lambda: smoke_usage_cli(server_dir),
+        )
+        run_step(
+            results,
+            "session-archiver-isolated-smoke",
+            lambda: smoke_session_archiver_cli(server_dir),
         )
         client = McpClient(server_dir, vault, compiler_dir)
         try:

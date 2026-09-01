@@ -1,12 +1,11 @@
 /**
- * Minimal Ollama embedding client.
+ * Minimal OpenAI-compatible embedding client.
  *
- * Calls Ollama's OpenAI-compatible /v1/embeddings endpoint to embed a query
- * string into a vector. Both built-in profiles are supported; this MemU-
- * oriented compatibility wrapper keeps qwen3-embedding:0.6b as its local
- * default so it matches existing gm_nodes data.
+ * Calls the selected profile's /v1/embeddings endpoint to embed a query.
+ * The legacy function name and qwen3-embedding:0.6b default remain for callers
+ * that do not select a profile explicitly.
  *
- * Zero npm deps -- uses Node 18+ built-in fetch.
+ * Uses Node 18+ built-in fetch and undici's ProxyAgent when a proxy is set.
  *
  * Failure modes: returns [] on network/HTTP/parse error and writes a
  * single-line warn to stderr. Caller decides whether to fall back to
@@ -22,9 +21,15 @@ export interface OllamaEmbedOpts {
   model?: string;
   /** Expected vector dimension for a custom model. */
   dimensions?: number;
+  /** Bearer token for API-key-protected embedding endpoints. */
+  apiKey?: string;
+  /** HTTP proxy URL (e.g. http://127.0.0.1:7897). */
+  proxy?: string;
   /** Timeout in ms. Default: 30_000 */
   timeoutMs?: number;
 }
+
+import { ProxyAgent } from "undici";
 
 import {
   resolveEmbeddingProfile,
@@ -60,14 +65,21 @@ export async function embedTextOllama(
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), timeoutMs);
 
+  const apiKey =
+    opts?.apiKey ?? process.env.OLLAMA_EMBED_API_KEY ?? process.env.VAULT_MIND_EMBED_API_KEY ?? "";
+  const proxyUrl = opts?.proxy ?? process.env.OLLAMA_EMBED_PROXY ?? "";
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (apiKey) headers["authorization"] = `Bearer ${apiKey}`;
+  const dispatcher = proxyUrl ? new ProxyAgent(proxyUrl) : undefined;
+
   try {
     const resp = await fetch(profile.endpoint, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers,
       body: JSON.stringify({ model: profile.model, input: [text] }),
       signal: controller.signal,
+      ...(dispatcher ? { dispatcher } : {}),
     });
-    clearTimeout(t);
 
     if (!resp.ok) {
       const errText = await resp.text().catch(() => "");
@@ -89,9 +101,11 @@ export async function embedTextOllama(
     validateEmbeddingVector(vec, profile);
     return vec;
   } catch (err) {
-    clearTimeout(t);
     const msg = err instanceof Error ? err.message : String(err);
     process.stderr.write(`obsidian-llm-wiki: [warn] ollama embed failed: ${msg}\n`);
     return [];
+  } finally {
+    clearTimeout(t);
+    await dispatcher?.close();
   }
 }

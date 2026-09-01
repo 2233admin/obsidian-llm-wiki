@@ -13,15 +13,18 @@ jobs:
     name: Quality Gates
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "20"
           cache: npm
           cache-dependency-path: mcp-server/package-lock.json
       - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
       - run: cd mcp-server && npm ci
       - run: cd mcp-server && npm run settings:build
       - run: cd packages/settings-platform && bun test tests/
@@ -29,7 +32,7 @@ jobs:
       - run: cd mcp-server && npm run build
       - run: cd mcp-server && npm run typecheck
       - run: cd mcp-server && npm run test
-      - name: Verify committed MCP bundle is current
+      - name: Build and verify MCP bundles
         run: cd mcp-server && npm run verify:bundle
       - name: Install Obsidian plugin dependencies
         run: cd obsidian-plugin && npm ci
@@ -47,9 +50,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
       - name: Verify clean install, upgrade, rollback, and reinstall lifecycle
         run: python scripts/verify_plugin_upgrade_rollback.py --candidate obsidian-plugin --baseline previous-release/obsidian-llm-wiki-plugin.tar.gz --json
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
       - name: Verify release secrets, provenance, and runtime licenses
         run: python scripts/verify_release_security.py --json
       - name: Verify exact-SHA real-5090 release evidence
@@ -60,7 +60,7 @@ jobs:
       - run: python -m pytest compiler/tests/ -q
       - run: bun test scripts/verify_fleet_workflow.test.ts
       - run: bun scripts/verify_fleet_workflow.ts --phase all --json
-      - run: npx -y @fission-ai/openspec@1.6.0 validate --all --strict
+      - run: npx -y @fission-ai/openspec@1.10.0 validate --all --strict
       - name: Smoke-test shipped MCP bundle operations
         run: python scripts/verify_release_install.py --json
 
@@ -69,24 +69,24 @@ jobs:
     needs: quality
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: "20"
           cache: npm
           cache-dependency-path: mcp-server/package-lock.json
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
       - run: cd mcp-server && npm ci
       - run: cd mcp-server && npm run rebuild
-      - name: Verify generated MCP and CLI bundles are committed
+      - name: Verify generated MCP and CLI bundles
         run: cd mcp-server && node scripts/verify-bundles.mjs
       - name: Smoke-test packaged MCP runtime
         run: python scripts/verify_release_install.py --json
       - name: Package MCP Server
-        run: tar czf obsidian-llm-wiki-mcp.tar.gz -C mcp-server bundle.js agent-domain-cli.js memu-query.js usage-cli.js package.json -C .. LICENSE
-      - uses: actions/upload-artifact@v4
+        run: tar czf obsidian-llm-wiki-mcp.tar.gz -C mcp-server bundle.js agent-domain-cli.js memu-query.js usage-cli.js session-archiver.js package.json -C .. LICENSE
+      - uses: actions/upload-artifact@v7
         with:
           name: mcp-server
           path: obsidian-llm-wiki-mcp.tar.gz
@@ -96,14 +96,14 @@ jobs:
     needs: quality
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
       - name: Package compiler
         run: |
           tar --exclude='compiler/tests' --exclude='compiler/**/__pycache__' --exclude='compiler/.pytest_cache' -czf obsidian-llm-wiki-compiler.tar.gz compiler/ LICENSE
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: compiler
           path: obsidian-llm-wiki-compiler.tar.gz
@@ -113,14 +113,14 @@ jobs:
     needs: quality
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: "20"
       - run: cd obsidian-plugin && npm ci && npm run build && npm run verify:bundle-boundary
       - name: Package Obsidian plugin
         run: tar czf obsidian-llm-wiki-plugin.tar.gz -C obsidian-plugin main.js manifest.json styles.css -C .. LICENSE
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: obsidian-plugin
           path: obsidian-llm-wiki-plugin.tar.gz
@@ -130,19 +130,19 @@ jobs:
     needs: [build-mcp, build-compiler, build-plugin]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Download MCP Server
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: mcp-server
           path: dist-mcp
       - name: Download Compiler
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: compiler
           path: dist-compiler
       - name: Download Obsidian Plugin
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: obsidian-plugin
           path: dist-plugin
@@ -151,13 +151,14 @@ jobs:
           ls -la dist-mcp/
           ls -la dist-compiler/
       - name: Create Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           prerelease: ${{ contains(github.ref_name, '-') }}
           files: |
             dist-mcp/*.tar.gz
             dist-compiler/*.tar.gz
             dist-plugin/*.tar.gz
+          body_path: RELEASE_NOTES.md
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

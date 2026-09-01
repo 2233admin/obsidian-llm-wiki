@@ -4,14 +4,14 @@ LLM Wiki internalizes the stable contracts needed to run an Agent Wiki while kee
 
 ## Baseline and optional profiles
 
-The MCP server starts on Node.js 20+ with the filesystem adapter alone. Missing optional providers are reported as `disabled`, `unavailable`, or `degraded`; they do not make filesystem registration, ingest, compilation, or retrieval unavailable.
+The MCP server starts on Node.js 20.18.1+ with the filesystem adapter alone. Missing optional providers are reported as `disabled`, `unavailable`, or `degraded`; they do not make filesystem registration, ingest, compilation, or retrieval unavailable.
 
 | Profile | Mode | Compatibility contract | Role |
 |---|---|---|---|
 | `filesystem` | built-in | always available when the vault is readable | Capture `vaultPath`, raw Evidence, deterministic fallback retrieval. |
 | `opencli` | CLI | `>=1.8 <2`, structured discovery plus capture-only boundary | URL capture; never Source registration or promotion authority. |
 | `qmd` | CLI | qmd 2.5-compatible intent, explanation, `qmd://`, collections, health, and model fingerprint | Optional local ranked retrieval. |
-| `qmd` | SDK | qmd 2.x package contract and Node.js 22+ | Optional in-process retrieval with CLI-normalized parity. The main MCP runtime may remain Node 20 when SDK mode is not selected. |
+| `qmd` | SDK | qmd 2.x package contract and Node.js 22+ | Optional in-process retrieval with CLI-normalized parity. The main MCP runtime may remain on Node 20.18.1+ when SDK mode is not selected. |
 | `graphify` | CLI | legacy and 0.9.x profiles | Optional graph query normalized into the shared Evidence contract. |
 | `ollama` / OpenAI-compatible | HTTP GET probes | models/version endpoints and exact embedding fingerprint | Optional embeddings. |
 | `lightrag` | HTTP wrapper | wrapper-defined `/health` and declared query/document endpoints | Optional external retrieval/ingest wrapper. |
@@ -29,9 +29,9 @@ Semantic policy and device bindings are intentionally separate:
 | `toolchain.provider_selection` | Vault/Project/session list of optional profiles to evaluate. |
 | `toolchain.capability_profiles` | Semantic invocation mode, version policy, required features, timeout, collection/index identity, and profile revision. |
 | `toolchain.device_bindings` | User-device/session executable and public endpoint references. Credential-bearing URLs are rejected. |
-| `embeddings.default_profile` | Default `ollama/bge-m3` or `ollama/qwen3-embedding:0.6b`. |
-| `embeddings.endpoint` | Device-local OpenAI-compatible embedding endpoint. |
-| `embeddings.index_profiles` | Explicit profile per index; defaults keep VaultBrain on `bge-m3` and MemU on `qwen3-embedding:0.6b`. |
+| `embeddings.default_profile` | Default `ollama/bge-m3`, `ollama/qwen3-embedding:0.6b`, or `jina/v5-omni-nano`. |
+| `embeddings.endpoint` | Optional OpenAI-compatible endpoint override; otherwise each built-in profile uses its own endpoint. |
+| `embeddings.index_profiles` | Explicit profile per index; defaults keep VaultBrain on `bge-m3` and MemU on `jina/v5-omni-nano`. |
 | `embeddings.index_fingerprints` | Recorded provider, endpoint identity, model, dimensions, adapter schema, and digest. |
 | `embeddings.fingerprint_enforcement` | `rebuild-required` or `reject-mismatch`. |
 

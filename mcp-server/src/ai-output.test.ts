@@ -9,6 +9,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, rmSync, readFileSync, existsSync, utimesSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { performance } from 'node:perf_hooks';
 import { randomUUID } from 'node:crypto';
 
 import { VaultFs } from './index.js';
@@ -350,6 +351,30 @@ describe('vault.writeAIOutput', () => {
     const content = readFileSync(join(vault, result.path!), 'utf-8');
     assert.ok(content.includes('source-nodes: []'), `expected inline [] in:\n${content}`);
     assert.ok(!/^\s+-\s/m.test(content.split('---')[1] ?? ''), 'no multiline array items for empty');
+  });
+
+  test('user-confirmed tagging handles long non-trailing newline runs in bounded time', () => {
+    const body = `${LONG_BODY}${'\n'.repeat(50_000)}not-a-trailing-newline`;
+    const startedAt = performance.now();
+    const result = vaultFs.dispatch('vault.writeAIOutput', {
+      persona: 'vault-architect',
+      parentQuery: 'bounded newline handling',
+      sourceNodes: [],
+      agent: 'claude-opus-4-7',
+      body,
+      reviewStatus: 'user-confirmed',
+      dryRun: false,
+    }) as WriteOk;
+    assert.ok(performance.now() - startedAt < 250, 'newline trimming exceeded 250 ms');
+    assert.match(readFileSync(join(vault, result.path!), 'utf8'), /not-a-trailing-newline\n\n#user-confirmed/);
+  });
+
+  test('wikilink parsing preserves aliases without regex backtracking', () => {
+    assert.deepEqual(vaultFs.parseWikilinks('[[alpha|Alpha]] and [[beta]]'), [
+      { link: 'alpha', displayText: 'Alpha' },
+      { link: 'beta', displayText: 'beta' },
+    ]);
+    assert.deepEqual(vaultFs.parseWikilinks('[[unterminated'), []);
   });
 });
 

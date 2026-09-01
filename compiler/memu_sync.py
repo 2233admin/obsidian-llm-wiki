@@ -779,7 +779,7 @@ def _spawn_graph_cli(
     """
     cmd = [python_path, "-m", "memu_graph.cli", subcommand]
     child_env, fixed_dsn = _ensure_memu_env(dsn)
-    child_env["MEMU_DSN"] = fixed_dsn
+    child_env["MEMU_DSN"] = dsn
     try:
         proc = subprocess.run(
             cmd,
@@ -821,7 +821,7 @@ def _spawn_graph_cli(
         raise RuntimeError(
             f"memu_graph.cli {subcommand} returned invalid JSON"
         ) from exc
-    sanitized = _redact_private_dsn(parsed, fixed_dsn)
+    sanitized = _redact_private_dsn(parsed, dsn)
     if not isinstance(sanitized, dict):
         raise RuntimeError(f"memu_graph.cli {subcommand} returned an invalid result")
     return sanitized

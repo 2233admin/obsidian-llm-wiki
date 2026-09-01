@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "registryVersion": "1.9.0",
+  "registryVersion": "1.10.0",
   "definitions": [
     {
       "key": "models.agent.mode",
@@ -390,14 +390,14 @@
       "owner": "runtime.embedding",
       "category": "models",
       "name": "Default embedding profile",
-      "description": "Default embedding profile for indexes without an explicit binding. Both built-in profiles remain supported.",
+      "description": "Default embedding profile for indexes without an explicit binding. All built-in profiles remain supported.",
       "valueType": "enum",
       "defaultValue": "ollama/bge-m3",
       "allowedScopes": ["user-device", "vault", "workspace-project", "session"],
       "sensitivity": "public",
       "validator": {
         "id": "enum",
-        "enum": ["ollama/bge-m3", "ollama/qwen3-embedding:0.6b"]
+        "enum": ["ollama/bge-m3", "ollama/qwen3-embedding:0.6b", "jina/v5-omni-nano"]
       },
       "requires": [],
       "applyMode": "restart-required",
@@ -408,7 +408,7 @@
       "owner": "runtime.embedding",
       "category": "models",
       "name": "Embedding endpoint",
-      "description": "Device-local OpenAI-compatible embedding endpoint shared by built-in profiles.",
+      "description": "OpenAI-compatible embedding endpoint override. Without an explicit assignment, each built-in profile uses its own endpoint.",
       "valueType": "string",
       "defaultValue": "http://localhost:11434/v1/embeddings",
       "allowedScopes": ["user-device", "session"],
@@ -432,7 +432,7 @@
       "valueType": "object",
       "defaultValue": {
         "vaultbrain": "ollama/bge-m3",
-        "memu": "ollama/qwen3-embedding:0.6b"
+        "memu": "jina/v5-omni-nano"
       },
       "allowedScopes": ["vault", "workspace-project", "session"],
       "sensitivity": "public",
@@ -1246,6 +1246,98 @@
       "requires": ["vault.id"],
       "applyMode": "restart-required",
       "visibility": "normal"
+    },
+    {
+      "key": "lmvk.publish.pages_repo_url",
+      "owner": "lmvk.publish-leg",
+      "category": "lmvk",
+      "name": "LMVK pages repository URL",
+      "description": "Gitea HTTPS remote the compiled vault is published to (pages branch). Carries a bare username only -- never a password or token; the generic \"url\" validator's blanket userinfo ban does not apply here because the deliberate design (scripts/lmvk-compile-publish.ps1 Initialize-GitAuth) keeps a non-secret username in the URL and supplies the credential separately via GIT_ASKPASS. This validator still rejects any userinfo containing a colon (i.e. an embedded password/token).",
+      "valueType": "string",
+      "defaultValue": "https://Curry@git.xart.top:8418/claudeQWQ/obsidian-knowledge.git",
+      "allowedScopes": ["user-device", "vault", "session"],
+      "sensitivity": "public",
+      "validator": { "id": "credential-free-https-url", "required": true, "pattern": "^https://[^\\s:@]+@[^\\s]+$" },
+      "requires": [],
+      "applyMode": "next-operation",
+      "visibility": "advanced",
+      "placeholder": "https://<user>@host:port/org/repo.git"
+    },
+    {
+      "key": "lmvk.publish.pages_branch",
+      "owner": "lmvk.publish-leg",
+      "category": "lmvk",
+      "name": "LMVK pages branch",
+      "description": "Branch of lmvk.publish.pages_repo_url that receives the compiled HTML export. Orphan-bootstrapped on first publish if absent.",
+      "valueType": "string",
+      "defaultValue": "pages",
+      "allowedScopes": ["user-device", "vault", "session"],
+      "sensitivity": "public",
+      "validator": { "id": "non-empty-string", "required": true, "maxLength": 200 },
+      "requires": ["lmvk.publish.pages_repo_url"],
+      "applyMode": "next-operation",
+      "visibility": "advanced"
+    },
+    {
+      "key": "lmvk.publish.daily_cap_usd",
+      "owner": "lmvk.publish-leg",
+      "category": "lmvk",
+      "name": "LMVK daily compile cost cap (USD)",
+      "description": "Guardrail consumed by compiler/cost_guard.py: once today's recorded spend reaches this cap, the incremental LLM compile step is skipped for the rest of the UTC day (the zero-LLM render + publish steps still run).",
+      "valueType": "number",
+      "defaultValue": 5.0,
+      "allowedScopes": ["user-device", "vault", "session"],
+      "sensitivity": "public",
+      "validator": { "id": "number", "required": true, "min": 0, "max": 1000 },
+      "requires": [],
+      "applyMode": "next-operation",
+      "visibility": "normal"
+    },
+    {
+      "key": "lmvk.publish.cost_per_source_estimate_usd",
+      "owner": "lmvk.publish-leg",
+      "category": "lmvk",
+      "name": "LMVK per-source cost estimate (USD)",
+      "description": "compile.py reports no actual dollar cost, so spend against lmvk.publish.daily_cap_usd is an explicit ESTIMATE: sources_compiled * this coefficient. Not a measurement -- tune once real haiku-tier invoices are observed.",
+      "valueType": "number",
+      "defaultValue": 0.02,
+      "allowedScopes": ["user-device", "vault", "session"],
+      "sensitivity": "public",
+      "validator": { "id": "number", "required": true, "min": 0, "max": 10 },
+      "requires": ["lmvk.publish.daily_cap_usd"],
+      "applyMode": "next-operation",
+      "visibility": "advanced"
+    },
+    {
+      "key": "lmvk.publish.gitea_token.secret_ref",
+      "owner": "lmvk.publish-leg",
+      "category": "lmvk",
+      "name": "LMVK gitea push credential reference",
+      "description": "Secret Reference naming the environment variable that holds the gitea push token (default GITEA_TOKEN). The literal token value is never read by Settings, never stored in a document, and never appears in argv/logs/.git config -- only the referenced variable NAME is used to build the GIT_ASKPASS helper, which reads the value itself at call time (see compiler/lmvk_publish.py::initialize_git_auth, porting scripts/lmvk-compile-publish.ps1 Initialize-GitAuth 1:1; pinned by scripts/lmvk-compile-publish.token-leak.test.ps1).",
+      "valueType": "secret-reference",
+      "defaultSecretRef": { "provider": "environment", "locator": "GITEA_TOKEN" },
+      "allowedScopes": ["user-device", "session"],
+      "sensitivity": "secret-reference",
+      "validator": { "id": "secret-reference" },
+      "requires": ["lmvk.publish.pages_repo_url"],
+      "applyMode": "next-operation",
+      "visibility": "advanced",
+      "placeholder": "environment:GITEA_TOKEN"
+    },
+    {
+      "key": "lmvk.publish.state_dir",
+      "owner": "lmvk.publish-leg",
+      "category": "lmvk",
+      "name": "LMVK publish state directory",
+      "description": "Device-local directory for the publish leg's lock file, spend-guard state, status snapshot, askpass helper, HTML export staging, and pages workdir. Blank uses the built-in default (~/.claude/state, matching scripts/lmvk-compile-publish.ps1's historical $StateDir so lmvk-compile-spend.json stays compatible across the PS1-to-Python migration).",
+      "valueType": "path",
+      "defaultValue": "",
+      "allowedScopes": ["user-device", "session"],
+      "sensitivity": "local",
+      "validator": { "id": "path" },
+      "requires": [],
+      "applyMode": "next-operation",
+      "visibility": "advanced"
     }
   ],
   "migrations": [

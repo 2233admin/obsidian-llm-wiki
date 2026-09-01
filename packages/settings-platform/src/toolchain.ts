@@ -35,6 +35,7 @@ export type ToolchainProviderId = (typeof TOOLCHAIN_PROVIDER_IDS)[number];
 export const BUILT_IN_EMBEDDING_PROFILE_IDS = [
   "ollama/bge-m3",
   "ollama/qwen3-embedding:0.6b",
+  "jina/v5-omni-nano",
 ] as const;
 
 export const INVOCATION_MODES = ["filesystem", "cli", "http", "sdk"] as const;
@@ -427,10 +428,31 @@ export function collectLegacyToolchainDiagnostics(
   return issues;
 }
 
+function containsUrlCredentials(text: string): boolean {
+  let cursor = 0;
+  while (cursor < text.length - 1) {
+    const authority = text.indexOf("//", cursor);
+    if (authority < 0) return false;
+    let colon = -1;
+    let index = authority + 2;
+    for (; index < text.length; index += 1) {
+      const character = text[index];
+      if (character === "/" || character === "\\" || character === "\"" || /\s/.test(character)) break;
+      if (character === ":" && colon < 0) colon = index;
+      if (character === "@" && colon > authority + 2 && index > colon + 1) return true;
+    }
+    cursor = Math.max(index, authority + 2);
+  }
+  return false;
+}
+
 export function assertNoSensitiveReflection(payload: unknown): void {
   const text = JSON.stringify(payload);
   if (!text) return;
-  if (/(?:sk-[A-Za-z0-9_-]{8,}|bearer\s+[A-Za-z0-9._~+/=-]+|\/\/[^/@\s]+:[^/@\s]+@)/i.test(text)) {
+  const containsSecret = /sk-[A-Za-z0-9_-]{8,}/i.test(text)
+    || /bearer\s+[A-Za-z0-9._~+/=-]+/i.test(text)
+    || containsUrlCredentials(text);
+  if (containsSecret) {
     throw new Error("Sensitive material reflected in toolchain diagnostic payload");
   }
 }

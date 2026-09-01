@@ -243,7 +243,7 @@ export async function resolveKnowledgeAdaptersRuntimeProfile(
     snapshot,
     "embeddings.index_profiles",
     undefined,
-    { vaultbrain: "ollama/bge-m3", memu: "ollama/qwen3-embedding:0.6b" },
+    { vaultbrain: "ollama/bge-m3", memu: "jina/v5-omni-nano" },
   );
 
   const portablePython = process.platform === "win32" ? "python" : "python3";
@@ -299,7 +299,9 @@ export async function resolveKnowledgeAdaptersRuntimeProfile(
         : undefined;
       const profile = resolveEmbeddingProfile({
         profileId,
-        endpoint: normalizedEmbeddingEndpoint,
+        ...(embeddingEndpoint.explicit || legacyModel
+          ? { endpoint: normalizedEmbeddingEndpoint }
+          : {}),
         ...(legacyModel ? { provider: "ollama", model: legacyModel, dimensions: 1024 } : {}),
       });
       embeddingBindings[indexId] = {
@@ -323,7 +325,7 @@ export async function resolveKnowledgeAdaptersRuntimeProfile(
     try {
       const profile = resolveEmbeddingProfile({
         profileId: embeddingDefaultProfile.value,
-        endpoint: normalizedEmbeddingEndpoint,
+        ...(embeddingEndpoint.explicit ? { endpoint: normalizedEmbeddingEndpoint } : {}),
       });
       embeddingBindings[requiredIndex] = {
         indexId: requiredIndex,
@@ -505,11 +507,11 @@ export async function resolveKnowledgeAdaptersRuntimeProfile(
       memuSearchPy: memuSearchPy.value,
       memuSearchPythonExe: memuSearchPython.value,
       memuSearchTimeoutMs: memuSearchTimeout.value,
-      embedProfileId: memuEmbedding?.profile.id ?? "ollama/qwen3-embedding:0.6b",
+      embedProfileId: memuEmbedding?.profile.id ?? "jina/v5-omni-nano",
       embedEndpoint: memuEmbedding?.profile.endpoint ?? normalizedEmbeddingEndpoint,
       embedModel: memuEmbedding?.profile.model ?? memuEmbedModel.value,
       ...(memuEmbedding?.profile.dimensions === undefined ? {} : { embedDimensions: memuEmbedding.profile.dimensions }),
-      embedFingerprint: memuEmbedding?.fingerprint ?? embeddingFingerprint(resolveEmbeddingProfile({ profileId: "ollama/qwen3-embedding:0.6b" })),
+      embedFingerprint: memuEmbedding?.fingerprint ?? embeddingFingerprint(resolveEmbeddingProfile({ profileId: "jina/v5-omni-nano" })),
       ...(memuCredential.profile ? { credential: memuCredential.profile } : {}),
       provenance: {
         dsn: memuDsn.provenance,

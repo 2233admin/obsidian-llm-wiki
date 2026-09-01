@@ -53,13 +53,14 @@ describe("knowledge adapter Settings runtime profile", () => {
 
     assert.equal(defaults.embeddings.valid, true);
     assert.equal(defaults.embeddings.bindings.vaultbrain?.profile.id, "ollama/bge-m3");
-    assert.equal(defaults.embeddings.bindings.memu?.profile.id, "ollama/qwen3-embedding:0.6b");
+    assert.equal(defaults.embeddings.bindings.memu?.profile.id, "jina/v5-omni-nano");
     assert.notEqual(
       defaults.embeddings.bindings.vaultbrain?.fingerprint.digest,
       defaults.embeddings.bindings.memu?.fingerprint.digest,
     );
-    assert.equal(defaults.memu.embedProfileId, "ollama/qwen3-embedding:0.6b");
-    assert.equal(defaults.memu.embedDimensions, 1024);
+    assert.equal(defaults.memu.embedProfileId, "jina/v5-omni-nano");
+    assert.equal(defaults.memu.embedEndpoint, "https://api.jina.ai/v1/embeddings");
+    assert.equal(defaults.memu.embedDimensions, 768);
 
     await setSession(service, "embeddings.index_profiles", {
       vaultbrain: "ollama/qwen3-embedding:0.6b",

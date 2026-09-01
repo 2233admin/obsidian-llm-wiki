@@ -45,7 +45,6 @@ import { VaultFileWatcher } from "./vault-watcher.js";
 
 
 // Precompiled regex patterns for performance (avoid recompilation on every call)
-const WIKILINK_RE = /\[\[([^\]|]+)(?:\|([^\]]*))?\]\]/g;
 const TAG_RE = /(?:^|\s)#([a-zA-Z_一-鿿][\w/一-鿿-]*)/gm;
 const CODE_FENCE_RE = /```[\s\S]*?```/g;
 const INLINE_CODE_RE = /`[^`]*`/g;
@@ -202,7 +201,7 @@ function loadEnvCollaboration(result: Record<string, string> = {}): VaultMindCon
 // Helpers
 
 const PROTECTED_DIRS = new Set([".obsidian", ".trash", ".git", "node_modules"]);
-const VERSION = "0.4.0-beta.3";
+const VERSION = "0.4.0-beta.4";
 
 function err(code: number, message: string): { code: number; message: string } {
   return { code, message };
@@ -274,8 +273,14 @@ function parseYamlValue(s: string): unknown {
   if (s === "false") return false;
   if (s === "null" || s === "~") return null;
   if (/^-?\d+(\.\d+)?$/.test(s)) return Number(s);
-  if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'")))
-    return s.slice(1, -1);
+  if (s.startsWith('"') && s.endsWith('"')) {
+    try {
+      return JSON.parse(s);
+    } catch {
+      return s.slice(1, -1);
+    }
+  }
+  if (s.startsWith("'") && s.endsWith("'")) return s.slice(1, -1);
   return s;
 }
 
@@ -377,11 +382,20 @@ export class VaultFs {
 
   parseWikilinks(content: string): Array<{ link: string; displayText: string }> {
     const links: Array<{ link: string; displayText: string }> = [];
-    // Use precompiled regex from module level
-    WIKILINK_RE.lastIndex = 0;
-    let m: RegExpExecArray | null;
-    while ((m = WIKILINK_RE.exec(content)) !== null) {
-      links.push({ link: m[1], displayText: m[2] || m[1] });
+    let cursor = 0;
+    while (cursor < content.length - 1) {
+      const start = content.indexOf('[[', cursor);
+      if (start < 0) break;
+      const end = content.indexOf(']]', start + 2);
+      if (end < 0) break;
+      const inner = content.slice(start + 2, end);
+      const separator = inner.indexOf('|');
+      const link = separator < 0 ? inner : inner.slice(0, separator);
+      if (link && !link.includes(']')) {
+        const displayText = separator < 0 ? link : inner.slice(separator + 1) || link;
+        links.push({ link, displayText });
+      }
+      cursor = end + 2;
     }
     return links;
   }
@@ -1174,15 +1188,21 @@ const re = new RegExp(
 
         // Derive slug
         const deriveSlug = (src: string): string => {
-          const cleaned = src
+          const normalized = src
             .replace(/[<>:"/\\|?*]/g, " ")
             .replace(/\s+/g, "-")
-            .toLowerCase()
-            .replace(/^-+|-+$/g, "");
+            .toLowerCase();
+          let start = 0;
+          let end = normalized.length;
+          while (start < end && normalized[start] === "-") start += 1;
+          while (end > start && normalized[end - 1] === "-") end -= 1;
+          const cleaned = normalized.slice(start, end);
           if (!cleaned) return "";
           const words = cleaned.split("-").filter((w) => w.length > 0).slice(0, 6);
-          const joined = words.join("-");
-          return joined.slice(0, 60).replace(/-+$/, "");
+          const joined = words.join("-").slice(0, 60);
+          let joinedEnd = joined.length;
+          while (joinedEnd > 0 && joined[joinedEnd - 1] === "-") joinedEnd -= 1;
+          return joined.slice(0, joinedEnd);
         };
         let slug = typeof p.slug === "string" && p.slug !== "" ? deriveSlug(p.slug) : deriveSlug(parentQueryRaw);
         if (!slug) {
@@ -1226,8 +1246,10 @@ const re = new RegExp(
 
         // Body tag injection for human-confirmed entries. Obsidian treats
         // repeated tags as one, but we skip duplicate writes to keep diffs clean.
+        let bodyEnd = body.length;
+        while (bodyEnd > 0 && body.charCodeAt(bodyEnd - 1) === 10) bodyEnd -= 1;
         const bodyWithTag = reviewStatus === "user-confirmed" && !USER_CONFIRMED_RE.test(body)
-          ? `${body.replace(/\n+$/, "")}\n\n#user-confirmed`
+          ? `${body.slice(0, bodyEnd)}\n\n#user-confirmed`
           : body;
 
         if (p.dryRun !== false) {

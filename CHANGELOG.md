@@ -12,6 +12,40 @@ cut.** Internal `package.json`/`pyproject.toml` version fields are not
 force-aligned to this changelog's numbering -- treat this file as the
 source of truth for what shipped when.
 
+## v2.8.0-beta.4 -- 2026-08-24
+
+### Added
+
+- Added a packaged, multi-source session archiver with per-project output paths
+  and governed Agentfiles workflow support.
+- Added a linked Spanish project README.
+
+### Changed
+
+- Migrated memU recall to the current `recall_files` and
+  `recall_file_segments` schema, with `jina/v5-omni-nano` as the default memU
+  embedding profile and direct 768-dimensional vector search.
+- Refreshed all npm dependency graphs, GitHub Actions, Caddy, and OpenSpec pins;
+  release preparation resolves with zero known npm advisories.
+- Advanced the Obsidian plugin to `0.4.0-beta.6` and the MCP runtime package to
+  `0.4.0-beta.4`; the MCP package now declares its actual Node.js 20.18.1+
+  runtime floor.
+
+### Fixed
+
+- Preserved built-in embedding endpoints unless an operator explicitly assigns
+  an override, so the Jina profile no longer receives the local Ollama URL.
+- Added the session archiver to the MCP release archive and corrected plugin
+  prerelease/latest-release metadata.
+
+### Security
+
+- Redact sensitive session metadata, including thread names, before archival.
+- Reject both permanent and temporary AWS access-key IDs and complete compact
+  JWTs in fleet registry values without rejecting unrelated base64url text.
+- Require the embedding proxy dependency and close proxy dispatchers after each
+  request instead of silently falling back to a direct request.
+
 ## v2.8.0-beta.3 -- 2026-07-24
 
 ### Highlights

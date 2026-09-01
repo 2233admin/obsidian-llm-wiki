@@ -492,7 +492,10 @@ def test_release_workflow_runs_gate_and_excludes_test_build_trees() -> None:
     assert "python scripts/verify_fleet_release_evidence.py" in release
     assert "verify_plugin_upgrade_rollback.py" in release
     assert "bundle.js agent-domain-cli.js package.json dist" not in release
-    assert "bundle.js agent-domain-cli.js memu-query.js usage-cli.js package.json" in release
+    assert (
+        "bundle.js agent-domain-cli.js memu-query.js usage-cli.js "
+        "session-archiver.js package.json"
+    ) in release
     assert release.count("LICENSE") >= 3
     assert "--exclude='compiler/tests'" in release
 

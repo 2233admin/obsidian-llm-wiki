@@ -33,6 +33,10 @@ _SECRET_VALUE_PATTERNS = [
     re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{10,}"),
     re.compile(r"://[^/\s]+:[^@/\s]+@"),  # userinfo with a password/token
     re.compile(r"\b[a-f0-9]{40,}\b", re.IGNORECASE),  # bare 40+ hex token
+    re.compile(r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b"),  # AWS access key ID
+    re.compile(
+        r"\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+(?![A-Za-z0-9_-])"
+    ),  # compact JWT
 ]
 _SECRET_KEY_PATTERN = re.compile(r"token|secret|password|passwd|credential|apikey|api_key|private_key", re.IGNORECASE)
 

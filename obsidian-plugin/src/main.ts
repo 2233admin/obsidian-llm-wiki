@@ -12,7 +12,16 @@ import {
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { isAbsolute } from "path";
+import { homedir } from "os";
 import { buildPythonInvocation } from "./executable-command";
+import {
+  CompilePublishRunResult,
+  createExecFileCompilePublishRunner,
+  createFsStatusFileReader,
+  readCompilePublishStatus,
+  summarizeOutcome,
+} from "./compile-publish";
+import { CompilePublishStatusModal } from "./compile-publish-ui";
 import {
   applyPluginDataMigration,
   DeviceBindingReference,
@@ -145,6 +154,13 @@ export default class LLMWikiPlugin extends Plugin {
   // The original (unstripped) plugin data document, retained while a legacy
   // migration is pending so saves cannot destroy the migration source.
   private pendingMigrationSource: Record<string, unknown> | null = null;
+  // LMVK L2 compile & publish: most recent manual trigger from THIS session
+  // only. Deliberately not persisted to data.json (that document is
+  // Obsidian-owned UI/journal state, not a settings or run-history source of
+  // truth) and not read back from a status file the Python side may write --
+  // see src/compile-publish-ui.ts's module doc for the "read fresh" rationale.
+  private compilePublishResult: CompilePublishRunResult | null = null;
+  private compilePublishBusy = false;
 
   async onload(): Promise<void> {
     const rawData = await this.loadData();
@@ -202,6 +218,42 @@ export default class LLMWikiPlugin extends Plugin {
         if (ok && !checking) void this.promote(file as TFile);
         return ok;
       },
+    });
+
+    this.addCommand({
+      id: "compile-publish-now",
+      name: "Compile & publish now (LLM Wiki)",
+      checkCallback: (checking: boolean) => {
+        const ok = this.compilePublishUnavailableReason() === null;
+        if (ok && !checking) {
+          void (async () => {
+            await this.triggerCompilePublish("run");
+            this.openCompilePublishStatus();
+          })();
+        }
+        return ok;
+      },
+    });
+
+    this.addCommand({
+      id: "compile-publish-dry-run",
+      name: "Compile & publish (dry run, no push) (LLM Wiki)",
+      checkCallback: (checking: boolean) => {
+        const ok = this.compilePublishUnavailableReason() === null;
+        if (ok && !checking) {
+          void (async () => {
+            await this.triggerCompilePublish("dry-run");
+            this.openCompilePublishStatus();
+          })();
+        }
+        return ok;
+      },
+    });
+
+    this.addCommand({
+      id: "open-compile-publish-status",
+      name: "Open compile & publish status (LLM Wiki)",
+      callback: () => this.openCompilePublishStatus(),
     });
 
     this.addCommand({
@@ -670,6 +722,80 @@ export default class LLMWikiPlugin extends Plugin {
     }, () => undefined);
   }
 
+  /** Mirrors askMateRuntimeUnavailableReason's mobile / non-filesystem-vault
+   * guard (manifest.json: isDesktopOnly). */
+  private compilePublishUnavailableReason(): string | null {
+    if (Platform.isMobileApp) {
+      return "Compile & publish is unavailable in the mobile app in this release.";
+    }
+    if (!this.vaultBasePath()) {
+      return "Compile & publish requires a desktop filesystem-backed vault in this release.";
+    }
+    return null;
+  }
+
+  private openCompilePublishStatus(): void {
+    new CompilePublishStatusModal(this.app, {
+      unavailableReason: () => this.compilePublishUnavailableReason(),
+      isBusy: () => this.compilePublishBusy,
+      lastResult: () => this.compilePublishResult,
+      triggerRun: mode => this.triggerCompilePublish(mode),
+      loadStatusFromDisk: () => this.loadCompilePublishStatusFromDisk(),
+    }).open();
+  }
+
+  /** Best-effort: seeds the panel from the on-disk status file (written by
+   * compiler/lmvk_publish.py after every run, schtasks or plugin-triggered)
+   * so it isn't blank on first open. Never overwrites a result this session
+   * already captured directly from a live trigger's stdout -- that's the
+   * more authoritative read (the Python module's own comment: "status
+   * persistence is best-effort; stdout is the contract of record"). */
+  private async loadCompilePublishStatusFromDisk(): Promise<void> {
+    if (this.compilePublishResult) return;
+    try {
+      let stateDirSetting = "";
+      try { stateDirSetting = this.effectiveValue<string>("lmvk.publish.state_dir"); } catch { /* setting not resolved yet; fall back to default state dir */ }
+      const result = await readCompilePublishStatus(createFsStatusFileReader(), stateDirSetting, homedir());
+      if (result && !this.compilePublishResult) this.compilePublishResult = result;
+    } catch { /* best-effort only; the modal already renders "no known run yet" gracefully */ }
+  }
+
+  private async triggerCompilePublish(mode: "run" | "dry-run"): Promise<void> {
+    const unavailable = this.compilePublishUnavailableReason();
+    if (unavailable) { new Notice(`LLM Wiki: ${unavailable}`); return; }
+    if (this.compilePublishBusy) {
+      new Notice("LLM Wiki: a compile & publish run is already in progress.");
+      return;
+    }
+    let pythonCommand: string;
+    let kbMetaPath: string;
+    try {
+      pythonCommand = this.effectiveValue<string>("runtime.python.path");
+      kbMetaPath = this.effectiveValue<string>("runtime.kb_meta.path");
+    } catch (error) {
+      new Notice(`LLM Wiki: settings unavailable — ${String((error as Error)?.message ?? error)}`);
+      return;
+    }
+    const vaultPath = this.vaultBasePath();
+    if (!vaultPath) {
+      new Notice("LLM Wiki: vault is not on the local filesystem (desktop only).");
+      return;
+    }
+    this.compilePublishBusy = true;
+    new Notice(mode === "dry-run"
+      ? "LLM Wiki: compile & publish dry run starting…"
+      : "LLM Wiki: compile & publish starting…");
+    try {
+      const runner = createExecFileCompilePublishRunner({ pythonCommand, kbMetaPath, execFileAsync: pexecFile });
+      const result = await runner.run({ vaultPath, dryRun: mode === "dry-run" });
+      this.compilePublishResult = result;
+      new Notice(`LLM Wiki: compile & publish — ${summarizeOutcome(result)}`);
+    } catch (error) {
+      new Notice(`LLM Wiki: compile & publish failed — ${String((error as Error)?.message ?? error)}`);
+    } finally {
+      this.compilePublishBusy = false;
+    }
+  }
 
   private async applyPluginDataPlan(
     plan: PluginDataMigrationPlan,

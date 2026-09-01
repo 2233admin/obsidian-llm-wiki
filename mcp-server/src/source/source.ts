@@ -698,16 +698,20 @@ function stringArray(value: unknown): string[] {
     .map((item) => item.trim());
 }
 
+function matchesDomain(host: string, domain: string): boolean {
+  return host === domain || host.endsWith(`.${domain}`);
+}
+
 function detectPlatform(canonical: string): string {
-  const host = new URL(canonical).hostname.replace(/^www\./, '');
-  if (host.includes('douyin.com')) return 'douyin';
-  if (host.includes('bilibili.com') || host === 'b23.tv') return 'bilibili';
-  if (host.includes('xiaohongshu.com') || host === 'xhslink.com') return 'xiaohongshu';
-  if (host.includes('tiktok.com')) return 'tiktok';
-  if (host.includes('youtube.com') || host === 'youtu.be') return 'youtube';
-  if (host === 'x.com' || host.includes('twitter.com')) return 'x';
-  if (host.includes('weibo.com')) return 'weibo';
-  if (host.includes('zhihu.com')) return 'zhihu';
+  const host = new URL(canonical).hostname;
+  if (matchesDomain(host, 'douyin.com')) return 'douyin';
+  if (matchesDomain(host, 'bilibili.com') || host === 'b23.tv') return 'bilibili';
+  if (matchesDomain(host, 'xiaohongshu.com') || host === 'xhslink.com') return 'xiaohongshu';
+  if (matchesDomain(host, 'tiktok.com')) return 'tiktok';
+  if (matchesDomain(host, 'youtube.com') || host === 'youtu.be') return 'youtube';
+  if (host === 'x.com' || matchesDomain(host, 'twitter.com')) return 'x';
+  if (matchesDomain(host, 'weibo.com')) return 'weibo';
+  if (matchesDomain(host, 'zhihu.com')) return 'zhihu';
   if (host === 'mp.weixin.qq.com') return 'wechat';
   return 'web';
 }

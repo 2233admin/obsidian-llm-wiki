@@ -1,6 +1,6 @@
 {
   "name": "@obsidian-llm-wiki/mcp",
-  "version": "0.4.0-beta.3",
+  "version": "0.4.0-beta.4",
   "description": "A faithful reference implementation of Karpathy's LLM Wiki pattern -- headless-first MCP server, plain markdown, keyword recall out of the box (semantic recall is an optional Ollama upgrade), Obsidian-native.",
   "type": "module",
   "main": "bundle.js",
@@ -38,10 +38,10 @@
     "start:dev": "node dist/index.js",
     "pretypecheck": "npm run platforms:build",
     "typecheck": "tsc --noEmit",
-    "pretest": "npm run platforms:build",
-    "test": "bun test tests/ src/",
+    "pretest": "npm run platforms:build && tsc",
+    "test": "npm run test:legacy && npm run test:source",
     "test:legacy": "bun test tests/",
-    "test:source": "bun test src/",
+    "test:source": "node scripts/run-source-tests.mjs",
     "memu-query": "node dist/scripts/memu-query.js",
     "sync-vault-to-memu": "node dist/scripts/sync-vault-to-memu.js",
     "claude-mem-sync": "node dist/scripts/claude-mem-sync.js",
@@ -60,22 +60,34 @@
     "verify:bundle": "npm run rebuild && node scripts/verify-bundles.mjs"
   },
   "dependencies": {
-    "@electric-sql/pglite": "^0.5.4",
-    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@electric-sql/pglite": "^0.5.6",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@obsidian-llm-wiki/agent-wiki-contracts": "file:../packages/agent-wiki-contracts",
     "@obsidian-llm-wiki/visual-workspace": "file:../packages/visual-workspace",
-    "@types/pg": "^8.20.0",
-    "pg": "^8.22.0",
-    "ws": "^8.21.1"
+    "@types/pg": "^8.23.1",
+    "pg": "^8.23.0",
+    "undici": "^7.29.0",
+    "ws": "^8.21.3"
   },
   "devDependencies": {
-    "@types/node": "^26.1.1",
+    "@types/node": "^26.2.0",
     "@types/ws": "^8.18.1",
-    "esbuild": "^0.28.1",
+    "esbuild": "^0.28.2",
     "typescript": "~7.0.2"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=20.18.1"
   },
-  "license": "GPL-3.0-only"
+  "overrides": {
+    "hono": ">=4.12.34 <5.0.0",
+    "@hono/node-server": ">=1.19.15 <3.0.0",
+    "fast-uri": ">=3.1.5 <4.0.0",
+    "ip-address": ">=10.3.1 <11.0.0",
+    "body-parser": ">=2.3.0 <3.0.0",
+    "qs": ">=6.15.2 <7.0.0"
+  },
+  "license": "GPL-3.0-only",
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  }
 }

@@ -53,7 +53,10 @@ main 绿 → tag `v2.6.0` → release.yml 自动 quality→build→gh release（
 ## 执行台账（2026-07-16）
 
 - **R1-R7 全部完成**：main CI 绿（gh run list 验证）、ruff 干净、`tests/fleet_tests/` 已改名、compiler pytest 已入 ci.yml/release.yml、CHANGELOG 已并轨、TASK14 已标 DESIGNED、v2.6.0 已发（两个 tar.gz 产物齐全，后续已至 v2.8.0-beta.1）。
-- **L1/L2 完成**（见 6f5db7b / 2b75bc1 / f7bfc9a / d51f6db）。注意：生产编译脚本 `lmvk-compile-publish.ps1` 仅存于 5090 本地，未入库——待收编。
+- **L1/L2 完成**（见 6f5db7b / 2b75bc1 / f7bfc9a / d51f6db）。
+- **L2 编译腿收编（2026-08-16）**：编排逻辑从 `scripts/lmvk-compile-publish.ps1` 迁入 `compiler/lmvk_publish.py`，PS1 已退役删除（含其 `token-leak.test.ps1`，不变量由 `compiler/tests/test_lmvk_publish.py::TestTokenNeverLeaks` 接管）。schtasks 与 Obsidian 插件**共用同一入口** `python -m compiler.lmvk_publish <vault> [--full] [--dry-run] --format json`（stdout 单个 JSON blob，人类日志走 stderr）。PS1 必须退役的硬原因：`obsidian-plugin/src/executable-command.ts` 的 `assertNotShellWrapper` 拒绝把 `.ps1/.bat/.cmd` 当运行时解释器，插件调不动它。
+  - **调度归属（混合方案）**：定时仍归 schtasks（`lmvk-compile-publish` 15 分钟增量、`lmvk-compile-full` 周日全量），action 已改为 `pythonw.exe`；插件只提供手动触发与状态面板。理由：插件的 `registerInterval` 只在 Obsidian 运行时生效，全盘插件化会导致 Obsidian 关闭期间停止发布。
+  - **新增并发锁**：PS1 时代无锁，仅靠「5090 主 / 5080 备用禁用」的组织性约定。实测一次全量运行耗时 12 分钟而触发间隔 15 分钟，裕度仅 3 分钟，故 `lmvk_publish.py` 增加 `O_CREAT|O_EXCL` 锁 + 陈旧锁接管；抢锁失败按 `skipped: "locked"` 正常退出（码 0）。
 - **L4 完成**：`compiler/html_export/service_worker.py` + `static/sw.template.js`，两种导出模式均出 sw.js（SWR + 构建时 precache，>100MB 降级索引+近30天，缓存版本随构建时间戳），`--no-sw` 可关，13 个新测试，全套 718 passed。
 - **L3 交付部署包**（HITL 待执行）：`deploy/lmvk-caddy/`——Caddyfile（NetBird bind、tls internal、每设备 bcrypt）、compose（host 网络，禁 ports 映射）、sync-pages.sh、开户脚本、双语 runbook。
 - **L5 交付安装脚本**（待 5080 执行）：`scripts/setup_vault_governance.py`，dry-run 默认，rhizome pre-commit / obsidian-git 驯化 / gitignore 机器状态三步。

@@ -1,6 +1,6 @@
 {
   "name": "obsidian-llm-wiki",
-  "version": "0.4.0-beta.5",
+  "version": "0.4.0-beta.6",
   "description": "Obsidian control surface for LLM Wiki settings, health, and governed knowledge operations.",
   "main": "main.js",
   "type": "module",
@@ -16,20 +16,29 @@
     "verify:bundle-boundary": "node verify-production-bundle.mjs"
   },
   "license": "GPL-3.0-only",
+  "overrides": {
+    "hono": ">=4.12.34 <5.0.0",
+    "@hono/node-server": ">=1.19.15 <3.0.0",
+    "fast-uri": ">=3.1.5 <4.0.0",
+    "ip-address": ">=10.3.1 <11.0.0"
+  },
   "devDependencies": {
-    "@codemirror/autocomplete": "^6.20.1",
-    "@codemirror/commands": "^6.10.3",
-    "@codemirror/lang-markdown": "^6.5.0",
-    "@codemirror/language": "^6.12.3",
-    "@codemirror/lint": "^6.9.5",
-    "@codemirror/search": "^6.6.0",
-    "@codemirror/state": "^6.6.0",
-    "@codemirror/view": "^6.41.0",
-    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@codemirror/autocomplete": "^6.20.3",
+    "@codemirror/commands": "6.10.2",
+    "@codemirror/lang-markdown": "^6.5.2",
+    "@codemirror/language": "^6.12.4",
+    "@codemirror/lint": "6.9.5",
+    "@codemirror/search": "^6.7.1",
+    "@codemirror/state": "6.5.0",
+    "@codemirror/view": "6.38.6",
     "@lezer/highlight": "^1.2.3",
-    "@types/node": "^26.1.1",
-    "esbuild": "^0.28.1",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@types/node": "^26.2.0",
+    "esbuild": "^0.28.2",
     "obsidian": "^1.13.1",
     "typescript": "~7.0.2"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
   }
 }

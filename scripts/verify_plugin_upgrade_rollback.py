@@ -419,6 +419,7 @@ def boot_plugin(vault: Path, harness: Path, action: str = "load") -> dict[str, A
         data_file.write_text(
             json.dumps({
                 "schemaVersion": 2,
+                "deviceBinding": {"deviceId": "qa-device"},
                 "presentation": {"selectedScope": "user-device", "showAdvanced": False},
                 "deviceBinding": {"deviceId": "qa-device"},
                 "agentfiles": {"watchEnabled": False, "projectScanEnabled": False},

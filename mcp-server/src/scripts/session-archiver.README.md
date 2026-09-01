@@ -44,6 +44,7 @@ redaction pass:
 - Vendor key shapes (`sk-ant-…`, `sk-or-…`, `ghp_…`, `xox?-…`)
 - Provider env-style assignments (`ANTHROPIC_API_KEY=…`)
 - Absolute paths under `<vault-path>`
+- Absolute paths under Windows user profiles and Unix home directories
 
 Matches are replaced with `<REDACTED>`. False positives are accepted
 as the safer failure mode.

@@ -1,6 +1,6 @@
 {
-  "snapshotId": "settings:1.9.0:device-a:vault-alpha:project/alpha:session-a:3:7:2:1",
-  "registryVersion": "1.9.0",
+  "snapshotId": "settings:1.10.0:device-a:vault-alpha:project/alpha:session-a:3:7:2:1",
+  "registryVersion": "1.10.0",
   "context": {
     "userDeviceId": "device-a",
     "vaultId": "vault-alpha",
@@ -495,7 +495,7 @@
       "key": "embeddings.index_profiles",
       "value": {
         "vaultbrain": "ollama/bge-m3",
-        "memu": "ollama/qwen3-embedding:0.6b"
+        "memu": "jina/v5-omni-nano"
       },
       "winningScope": "product",
       "assignmentProvenance": {
@@ -972,7 +972,7 @@
         },
         {
           "scope": "product",
-          "revision": "1.9.0",
+          "revision": "1.10.0",
           "value": false,
           "provenance": {
             "actor": "registry",
@@ -997,7 +997,7 @@
       "overriddenCandidates": [
         {
           "scope": "product",
-          "revision": "1.9.0",
+          "revision": "1.10.0",
           "value": false,
           "provenance": {
             "actor": "registry",
@@ -1028,7 +1028,7 @@
       "overriddenCandidates": [
         {
           "scope": "product",
-          "revision": "1.9.0",
+          "revision": "1.10.0",
           "value": {
             "secretRef": {
               "provider": "environment",
@@ -1320,7 +1320,7 @@
         },
         {
           "scope": "product",
-          "revision": "1.9.0",
+          "revision": "1.10.0",
           "value": false,
           "provenance": {
             "actor": "registry",
@@ -1345,7 +1345,7 @@
       "overriddenCandidates": [
         {
           "scope": "product",
-          "revision": "1.9.0",
+          "revision": "1.10.0",
           "value": "",
           "provenance": {
             "actor": "registry",
@@ -1370,7 +1370,7 @@
       "overriddenCandidates": [
         {
           "scope": "product",
-          "revision": "1.9.0",
+          "revision": "1.10.0",
           "value": "python",
           "provenance": {
             "actor": "registry",
@@ -1395,7 +1395,7 @@
       "overriddenCandidates": [
         {
           "scope": "product",
-          "revision": "1.9.0",
+          "revision": "1.10.0",
           "value": "",
           "provenance": {
             "actor": "registry",
@@ -1420,7 +1420,7 @@
       "overriddenCandidates": [
         {
           "scope": "product",
-          "revision": "1.9.0",
+          "revision": "1.10.0",
           "value": "",
           "provenance": {
             "actor": "registry",
@@ -1428,12 +1428,108 @@
           }
         }
       ]
+    },
+    {
+      "key": "lmvk.publish.pages_repo_url",
+      "value": "https://Curry@git.xart.top:8418/claudeQWQ/obsidian-knowledge.git",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "next-operation",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "lmvk.publish.pages_branch",
+      "value": "pages",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "next-operation",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "lmvk.publish.daily_cap_usd",
+      "value": 5,
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "next-operation",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "lmvk.publish.cost_per_source_estimate_usd",
+      "value": 0.02,
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "next-operation",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "lmvk.publish.gitea_token.secret_ref",
+      "value": {
+        "secretRef": {
+          "provider": "environment",
+          "locator": "GITEA_TOKEN"
+        },
+        "status": "missing"
+      },
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "next-operation",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "lmvk.publish.state_dir",
+      "value": "",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "next-operation",
+      "overriddenCandidates": []
     }
   ],
   "sourceRevisions": {
     "product": {
       "targetId": "settings-platform",
-      "revision": "1.9.0"
+      "revision": "1.10.0"
     },
     "user-device": {
       "targetId": "device-a",
