@@ -22,24 +22,33 @@ export class VaultFileWatcher {
   private readonly knownFiles = new Set<string>();
   private started = false;
   private readonly retryTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private readonly knownStamps = new Map<string, number>();
+  private pollTimer?: ReturnType<typeof setInterval>;
 
   constructor(options: VaultFileWatcherOptions) {
     this.root = options.root;
     this.onEvent = options.onEvent;
   }
-
   start(): void {
     if (this.started) return;
     this.started = true;
-    this.watchDirectory(this.root, false);
+    if (process.platform === "win32") {
+      this.scanDirectory(this.root, false);
+      this.pollTimer = setInterval(() => this.scanDirectory(this.root, true), 250);
+      this.pollTimer.unref?.();
+    } else {
+      this.watchDirectory(this.root, false);
+    }
   }
-
   stop(): void {
     for (const watcher of this.watchers.values()) watcher.close();
     for (const timer of this.retryTimers.values()) clearTimeout(timer);
+    if (this.pollTimer) clearInterval(this.pollTimer);
+    this.pollTimer = undefined;
     this.watchers.clear();
     this.retryTimers.clear();
     this.knownFiles.clear();
+    this.knownStamps.clear();
     this.started = false;
   }
 
@@ -68,26 +77,55 @@ export class VaultFileWatcher {
       this.scheduleRetry(dirPath, emitDiscovered);
     });
     this.watchers.set(dirPath, watcher);
+    this.scanDirectory(dirPath, emitDiscovered);
+  }
 
+  private scanDirectory(
+    dirPath: string,
+    emitDiscovered: boolean,
+    seen = new Set<string>(),
+  ): boolean {
     try {
+      let complete = true;
       for (const entry of readdirSync(dirPath, { withFileTypes: true })) {
         const fullPath = join(dirPath, entry.name);
         if (entry.isDirectory()) {
-          this.watchDirectory(fullPath, emitDiscovered);
+          if (this.isIgnoredPath(fullPath)) continue;
+          if (process.platform === "win32") {
+            complete = this.scanDirectory(fullPath, emitDiscovered, seen) && complete;
+          } else {
+            this.watchDirectory(fullPath, emitDiscovered);
+          }
         } else if (entry.isFile() && this.isIndexableFile(fullPath)) {
           const vaultRelativePath = this.relativePath(fullPath);
+          const fileStamp = statSync(fullPath).mtimeMs;
+          seen.add(vaultRelativePath);
+          const previousStamp = this.knownStamps.get(vaultRelativePath);
           const isNew = !this.knownFiles.has(vaultRelativePath);
           this.knownFiles.add(vaultRelativePath);
+          this.knownStamps.set(vaultRelativePath, fileStamp);
           if (emitDiscovered && isNew) {
             this.onEvent({ type: "create", path: vaultRelativePath, timestamp: Date.now() });
+          } else if (emitDiscovered && previousStamp !== undefined && previousStamp !== fileStamp) {
+            this.onEvent({ type: "modify", path: vaultRelativePath, timestamp: Date.now() });
           }
         }
       }
+      if (dirPath === this.root && emitDiscovered && complete) {
+        for (const knownPath of this.knownFiles) {
+          if (seen.has(knownPath)) continue;
+          this.knownFiles.delete(knownPath);
+          this.knownStamps.delete(knownPath);
+          this.onEvent({ type: "delete", path: knownPath, timestamp: Date.now() });
+        }
+      }
+      return complete;
     } catch {
       this.closeWatcherSubtree(dirPath);
       this.scheduleRetry(dirPath, emitDiscovered);
       // A directory can disappear while it is being scanned; retrying lets
       // the watcher reconcile it when the filesystem settles.
+      return false;
     }
   }
   private handleEvent(eventType: WatchEventType, dirPath: string, name: string): void {
@@ -106,6 +144,8 @@ export class VaultFileWatcher {
       if (this.isIgnoredPath(fullPath)) {
         this.emitDeletedSubtree(this.relativePath(fullPath));
         this.closeWatcherSubtree(fullPath);
+      } else if (process.platform === "win32") {
+        this.scanDirectory(fullPath, true);
       } else {
         this.watchDirectory(fullPath, true);
       }
@@ -113,9 +153,12 @@ export class VaultFileWatcher {
     }
 
     if (!stats || !stats.isFile()) {
-      const hadDirectory = this.hasWatcherSubtree(fullPath);
-      this.closeWatcherSubtree(fullPath);
       const relPath = this.relativePath(fullPath);
+      const hadDirectory =
+        process.platform === "win32"
+          ? this.hasKnownFileSubtree(relPath)
+          : this.hasWatcherSubtree(fullPath);
+      this.closeWatcherSubtree(fullPath);
       if (hadDirectory) {
         this.emitDeletedSubtree(relPath);
       } else if (this.knownFiles.delete(relPath)) {
@@ -134,6 +177,14 @@ export class VaultFileWatcher {
   private hasWatcherSubtree(dirPath: string): boolean {
     for (const watchedPath of this.watchers.keys()) {
       if (this.isWatcherSubtree(watchedPath, dirPath)) return true;
+    }
+    return false;
+  }
+
+  private hasKnownFileSubtree(relativeDirPath: string): boolean {
+    const prefix = `${relativeDirPath}/`;
+    for (const knownPath of this.knownFiles) {
+      if (knownPath.startsWith(prefix)) return true;
     }
     return false;
   }
@@ -166,7 +217,11 @@ export class VaultFileWatcher {
     if (!this.started || this.retryTimers.has(dirPath)) return;
     const timer = setTimeout(() => {
       this.retryTimers.delete(dirPath);
-      this.watchDirectory(dirPath, emitDiscovered);
+      if (process.platform === "win32") {
+        this.scanDirectory(dirPath, emitDiscovered);
+      } else {
+        this.watchDirectory(dirPath, emitDiscovered);
+      }
     }, 1000);
     timer.unref?.();
     this.retryTimers.set(dirPath, timer);

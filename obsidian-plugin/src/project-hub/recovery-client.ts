@@ -1,6 +1,5 @@
 import { createHash } from "node:crypto";
-import { fingerprintRecoveryValue } from "../../../mcp-server/src/project-hub/contract-support";
-import { safePresentationText } from "../control-plane-client";
+import { fingerprintRecoveryValue } from "../../../mcp-server/src/project-hub/contract-support.ts";
 import type { SettingsOperationTransport } from "../settings-client";
 import type {
   RecoveryFlowResponseV2,
@@ -16,6 +15,26 @@ import type {
   RecoveryApplyResponseV2,
 } from "../../../mcp-server/src/workflow/recovery-apply";
 
+const EMBEDDED_CREDENTIAL = /(?:\bBearer\s+\S+|\bsk-(?:proj-)?[A-Za-z0-9_-]{8,}|\bgh[pousr]_[A-Za-z0-9]{8,}|\bxox[baprs]-\S+|\bAKIA[A-Z0-9]{12,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----)/i;
+const EMBEDDED_WINDOWS_PATH = /(?:^|[\s('"`])(?:[A-Za-z]:[\\/]|\\\\[^\\\s]+\\)[^\s'"`)]+/;
+const EMBEDDED_POSIX_PATH = /(?:^|[\s('"`])\/(?:Users|home|root|var|etc|opt|private|tmp)(?:\/[^\s'"`)]+)+/;
+const EMBEDDED_SECRET_FIELD = /\b(?:authorization|cookie|password|passphrase|api[-_]?key|private[-_]?key|client[-_]?secret|secret(?:Value|Text)?|lease[-_]?token|grant[-_]?token|token|(?:access|refresh|session|bearer|id)[-_]?token|oauth2?[-_]?(?:(?:access|refresh|bearer|id)[-_]?)?token)\s*[:=]/i;
+const EMBEDDED_CREDENTIAL_URL = /(?:^|\s)https?:\/\/[^\s/@:]+:[^\s/@]+@/i;
+
+function safePresentationText(value: unknown): string {
+  const text = String(value ?? "").trim();
+  if (!text) return "Backend operation unavailable";
+  if (
+    EMBEDDED_CREDENTIAL.test(text)
+    || EMBEDDED_WINDOWS_PATH.test(text)
+    || EMBEDDED_POSIX_PATH.test(text)
+    || EMBEDDED_SECRET_FIELD.test(text)
+    || EMBEDDED_CREDENTIAL_URL.test(text)
+  ) {
+    return "[redacted unsafe value]";
+  }
+  return text.slice(0, 1_000);
+}
 export const RECOVERY_FLOW_OPERATION = "project.hub.recovery.flow" as const;
 export const RECOVERY_FLOW_REQUEST_SCHEMA_VERSION = "project-hub-recovery-flow-request/v2" as const;
 export const RECOVERY_APPLY_OPERATION = "workflow.recovery.apply" as const;
@@ -201,7 +220,11 @@ export function recoveryApplyTransitionToken(input: RecoveryApplyTokenInput): st
 
 /** Thin, stateless adapter over the shared read-only Operation transport. */
 export class ProjectHubRecoveryClient {
-  constructor(private readonly transport: SettingsOperationTransport) {}
+  private readonly transport: SettingsOperationTransport;
+
+  constructor(transport: SettingsOperationTransport) {
+    this.transport = transport;
+  }
 
   open(projectId: RecoveryProjectId): Promise<RecoveryFlowResponseV2> {
     return this.invoke({

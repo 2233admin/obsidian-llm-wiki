@@ -20,6 +20,7 @@ import {
   _resetLazyIndex,
 } from "./lazy-index.js";
 import type { VaultBrainAdapter } from "./index.js";
+import type { FileStamp, ReindexState } from "./engine.js";
 
 function makeVault(files: Record<string, string>): string {
   const dir = mkdtempSync(join(tmpdir(), "vblazy-"));
