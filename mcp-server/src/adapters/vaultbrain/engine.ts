@@ -3,6 +3,8 @@
  * Only methods actually used by VaultBrainAdapter are declared.
  */
 
+import type { EmbeddingFingerprint } from "../../embedding/profile.js";
+
 export interface ChunkResult {
   slug: string;
   chunkIndex: number;
@@ -17,20 +19,47 @@ export interface ChunkInput {
   tokenCount: number;
 }
 
-import type { EmbeddingFingerprint } from "../../embedding/profile.js";
+export interface FileStamp {
+  mtimeMs: number;
+  sizeBytes: number;
+}
+export interface ReindexState {
+  status: "running" | "complete" | "incomplete";
+  startedAt: number;
+  finishedAt?: number;
+  indexed: number;
+  total: number;
+  skipped: number;
+  deleted: number;
+  errors: string[];
+}
 
 export interface VaultBrainEngine {
   connect(): Promise<void>;
   disconnect(): Promise<void>;
-  initSchema(): Promise<void>;
   ensureEmbeddingFingerprint(fingerprint: EmbeddingFingerprint): Promise<void>;
+  upsertPage(slug: string, title: string, content: string, hash: string, stamp?: FileStamp): Promise<void>;
+  getPageHash(slug: string): Promise<string | null>;
+  getPageStamp(slug: string): Promise<FileStamp | null>;
+  listPageSlugs(): Promise<string[]>;
+  replacePage(
+    slug: string,
+    title: string,
+    content: string,
+    hash: string,
+    chunks: ChunkInput[],
+    links: string[],
+    tags: string[],
+    stamp?: FileStamp,
+  ): Promise<void>;
 
-  // pages
-  upsertPage(slug: string, title: string, content: string, hash: string): Promise<void>;
   deletePage(slug: string): Promise<void>;
+  clearPageMetadata(slug: string): Promise<void>;
 
   // chunks
   upsertChunks(slug: string, chunks: ChunkInput[]): Promise<void>;
+  setReindexState(state: ReindexState): Promise<void>;
+  getReindexState(): Promise<ReindexState | null>;
   deleteChunks(slug: string): Promise<void>;
 
   // search

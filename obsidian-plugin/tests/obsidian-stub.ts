@@ -155,8 +155,8 @@ export class Plugin {
   commands: StubCommand[] = [];
   ribbonIcons: StubRibbonIcon[] = [];
   views = new Map<string, (leaf: WorkspaceLeaf) => unknown>();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  constructor(public app: any, public manifest: { id?: string; dir?: string }) {}
+  settingTabs: unknown[] = [];
+  constructor(public app: unknown, public manifest: { id?: string; dir?: string }) {}
   addCommand(command: StubCommand): StubCommand {
     this.commands.push(command);
     return command;
@@ -165,7 +165,9 @@ export class Plugin {
     this.ribbonIcons.push({ icon, title, callback });
     return {} as HTMLElement;
   }
-  addSettingTab(_tab: unknown): void {}
+  addSettingTab(tab: unknown): void {
+    this.settingTabs.push(tab);
+  }
   registerView(type: string, creator: (leaf: WorkspaceLeaf) => unknown): void {
     this.views.set(type, creator);
   }

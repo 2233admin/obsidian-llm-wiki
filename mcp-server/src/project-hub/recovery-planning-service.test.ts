@@ -17,7 +17,7 @@ test('planning service exposes only the independent planning capability', () => 
 test('planning service delegates the shared Plan composer without adding mutation inputs', async () => {
   const serviceDependencies: RecoveryPlanDependencies = {
     openOwners: {
-      workflow: { readRun: () => null, listRuns: () => [], listCheckpoints: () => [], checkpointSetFingerprint: () => ('sha256:' + '0'.repeat(64)) as `sha256:${string}` },
+      workflow: { readRun: () => null, listRuns: () => [], listCheckpoints: () => [], checkpointSetFingerprint: () => ('sha256:' + '0'.repeat(64)) as `sha256:${string}`, readRuntimeProjection: () => ({ activeRuns: [], staleRuns: [], runCount: 0, agentStateFiles: [], workflowState: null, stage: null, stageCitation: null, sourceFiles: [], drift: [] }) },
       loadWorkItems: () => [],
       loadProjectMemory: async () => ({}),
       listSessions: async () => [],

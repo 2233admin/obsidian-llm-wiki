@@ -24,6 +24,9 @@ test('core catalog exposes planning and claim-first apply independently', () => 
     const apply = operations.find((operation) => operation.name === 'workflow.recovery.apply');
     assert.ok(apply);
     assert.equal(apply.mutating, true);
+    const reindexStatus = operations.find((operation) => operation.name === 'vault.reindex_status');
+    assert.ok(reindexStatus);
+    assert.equal(reindexStatus.mutating, false);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

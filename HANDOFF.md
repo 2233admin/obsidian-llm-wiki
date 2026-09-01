@@ -19,7 +19,7 @@
 PYTHONUTF8=1 python -m pytest tests/ --ignore=tests/test_memu_sync_settings.py
 ```
 
-Full root run on 2026-08-29: 282 passed, 1 skipped.
+Full root run on 2026-09-01: 284 passed, 1 skipped.
 
 The Python worker boundary is implemented in TypeScript for named compiler,
 trigger, MemU, and agent callers. No production direct Python callsites remain;
@@ -32,10 +32,11 @@ cd mcp-server && npm run typecheck && npm test
 cd obsidian-plugin && npm run typecheck && npm test
 ```
 
-Current verified totals: MCP 858 passed / 18 skipped / 0 failed; Obsidian plugin
-98 passed / 0 failed; root Python 282 passed / 1 skipped; Fleet verifier 17
-passed / 0 failed. S08 remains in progress with acceptance item 30 open;
-Foundation exit is not claimed.
+Current verified totals: MCP 868 passed / 18 skipped / 0 failed; Obsidian plugin
+98 passed / 0 failed; root Python 284 passed / 1 skipped; Fleet verifier all
+checks ok. Focused S08 acceptance verification: 58 passed / 0 failed; typecheck
+passed; OpenSpec strict valid; diff-check passed. S08 is done and Foundation
+exit is accepted.
 SkillWatcher’s Node/browser timer flake is resolved: the lifecycle harness lacked
 `window.setTimeout`/`window.clearTimeout`; `obsidian-plugin/src/agentfiles/watcher.ts`
 now uses the Node-safe timer boundary. Three consecutive plugin runs each passed
@@ -77,7 +78,7 @@ obsidian-llm-wiki/
 ├── terrariums/         # vault-wiki-team.yaml 团队编排
 ├── eval/  viewer/  deploy/  examples/  obc/  recipes/
 └── 01-Projects/        # 工作-OS issue notes (canonical work state)
-    └── obsidian-llm-wiki/issues/   # 当前 21 个 issue，16 todo + 4 done + 1 canceled
+    └── 当前 21 个 issue，15 todo + 5 done + 1 canceled
 ```
 
 ## 2. §0 不变量（仓库范围）
@@ -90,7 +91,7 @@ obsidian-llm-wiki/
 6. **bundle 产物不入仓**：`npm run rebuild` 重新生成
 7. **Components/ 用户私有 vault 不入仓**：licensed samples 走 `docs/samples/components/`
 
-## 3. 现状（2026-08-29）
+## 3. 现状（2026-09-01）
 
 ### 产品方向已重新定级
 
@@ -121,7 +122,7 @@ obsidian-llm-wiki/
   Recovery Flow CLI uses the shared Operation dispatcher.
 - [x] Roadmap, Work-OS issues, branch, and handoff are aligned with the product
   milestone.
-- [ ] S08 Foundation exit remains blocked; acceptance item 30 is still open.
+- [x] S08 Foundation exit is accepted; acceptance item 30 is complete.
 
 Current verification evidence is recorded in
 `01-Projects/obsidian-llm-wiki/issues/p0-s08-recovery-loop-acceptance.md`.
@@ -146,12 +147,11 @@ Current verification evidence is recorded in
 
 ## 6. 下一步建议
 
-1. Complete the remaining S08 durable-store fixture breadth and close
-   acceptance item 30.
+1. Host-install registration wheel is done; continue the remaining Plugin
+   0.4.0 GA backlog. Overall GA is not complete.
 2. Keep direct Python subprocess calls confined to test-only coverage; do not
    widen provider scope.
-3. After S08 is accepted, reopen the Plugin 0.4.0 GA safety backlog and schedule
-   deferred extension work.
+3. Schedule deferred extension work after the Plugin 0.4.0 GA safety work.
 
 ---
 

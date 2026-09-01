@@ -7,7 +7,7 @@ import { WsTransport } from './ws-transport.js';
 import { FsTransport } from './fs-transport.js';
 import type { OperationContext, Logger, VaultExecutor } from '../core/types.js';
 import { validateParams } from '../core/validate.js';
-
+import { readVaultEnvironment } from '../runtime-env.js';
 const PORT_FILE = path.join(os.homedir(), '.obsidian-ws-port');
 const VERSION = '0.4.0-beta.3';
 
@@ -41,7 +41,7 @@ async function main(): Promise<void> {
       transport = new FsTransport(info.vault);
     }
   } else {
-    const vaultPath = process.argv[2] || process.env['VAULT_BRIDGE_VAULT'] || '';
+    const vaultPath = process.argv[2] || readVaultEnvironment() || '';
     if (!vaultPath) {
       process.stderr.write('llmwiki connector: no port file and no vault path\n');
       process.exit(1);

@@ -34,7 +34,7 @@ Example MCP environment:
 
 ```json
 {
-  "VAULT_PATH": "/path/to/vault",
+  "VAULT_MIND_VAULT_PATH": "/path/to/vault",
   "LLMWIKI_COMPILER_PATH": "/path/to/obsidian-llm-wiki/compiler",
   "VAULT_MIND_PYTHON": "python"
 }

@@ -19,7 +19,7 @@ import { createInterface } from 'node:readline';
 import { dirname, join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 
-// --- Types ---
+import { readVaultEnvironment } from '../runtime-env.js';
 
 interface ArchivableSession {
   id: string;
@@ -70,7 +70,7 @@ function parseArgs(argv: string[]): CliOpts {
 
 function resolveVaultPath(explicit?: string): string {
   if (explicit) return explicit;
-  const env = process.env.VAULT_MIND_VAULT_PATH || process.env.VAULT_BRIDGE_VAULT;
+  const env = readVaultEnvironment();
   if (env) return env;
   throw new Error('vault path not set: pass --vault PATH or set VAULT_MIND_VAULT_PATH');
 }

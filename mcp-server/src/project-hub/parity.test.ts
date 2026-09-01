@@ -53,7 +53,7 @@ function fixture() {
     malformed: false,
   };
   const openOwners: RecoveryOpenOwners = {
-    workflow: { readRun: () => run, listRuns: () => [run], listCheckpoints: () => [], checkpointSetFingerprint: () => fingerprintRecoveryValue([]) },
+    workflow: { readRun: () => run, listRuns: () => [run], listCheckpoints: () => [], checkpointSetFingerprint: () => fingerprintRecoveryValue([]), readRuntimeProjection: () => ({ activeRuns: [], staleRuns: [], runCount: 0, agentStateFiles: [], workflowState: null, stage: null, stageCitation: null, sourceFiles: [], drift: [] }) },
     loadWorkItems: () => [{ entity: "project/alpha/issue/build", label: "Build recovery", state: "in-progress", blockedBy: [], citationTargets: ["issue:build"] }],
     loadProjectMemory: async () => ({ revision: 1, fingerprint: fingerprintRecoveryValue("memory"), freshness: "current", reviewedDecisions: [] }),
     listSessions: async () => [],

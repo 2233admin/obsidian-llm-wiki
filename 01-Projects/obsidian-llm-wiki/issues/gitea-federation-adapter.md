@@ -43,3 +43,9 @@ wayfinder map is the pilot case to federate first.
 - Existing work-OS regression suite (`compiler/tests/test_work_os.py`,
   `mcp-server/src/project/parity.test.ts`) stays green; no change to
   `SNAPSHOT_FIELDS` or the shipped Task 8 schema.
+
+## Evaluation gate decision (2026-09-01)
+
+Deferred until Plugin GA safety and live Recovery/Memory/Citation evaluation
+gates pass. No Gitea adapter, bidirectional sync, or conflict-resolution work is
+authorized in the current slice.

@@ -11,9 +11,29 @@ import { createDefaultRecoveryRuntime, makeProjectHubOps } from './project-hub.j
 import { createProjectSearchSource } from '../project-hub/search-source.js';
 import { fingerprintRecoveryValue } from '../project-hub/contract-support.js';
 import type { RecoveryOpenOwners } from '../project-hub/recovery-open.js';
+import type { WorkflowReadModel } from '../workflow/workflow-read-model.js';
 
 const roots: string[] = [];
 afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true }); });
+type RuntimeHub = {
+  sections: {
+    runtime: {
+      data: {
+        activeRuns: readonly Record<string, unknown>[];
+        staleRuns: readonly Record<string, unknown>[];
+        runCount: number;
+        agentStateFiles: readonly string[];
+        workflowState: unknown;
+        stage: string | null;
+        stageCitation: string | null;
+      };
+      drift: readonly string[];
+      health: string;
+      citationTargets: readonly string[];
+      freshness: string | null;
+    };
+  };
+};
 
 function fixture(): { root: string; ctx: OperationContext; registry: AdapterRegistry; openOwners: RecoveryOpenOwners } {
   const root = mkdtempSync(join(tmpdir(), 'llmwiki-hub-')); roots.push(root);
@@ -26,7 +46,7 @@ function fixture(): { root: string; ctx: OperationContext; registry: AdapterRegi
   writeFileSync(join(root, '01-Projects', 'alpha', 'runs', 'current.json'), JSON.stringify({ project_id: 'project/alpha', work_run_id: 'work-run/current', state: 'running', work_item_id: 'project/alpha/issue/build', agent_id: 'codex', observed_at: '2026-08-28T00:00:00.000Z' }));
   const run = { projectId: 'project/alpha', workItemId: 'project/alpha/issue/build', workRunId: 'work-run/current', agentId: 'codex', state: 'running', observedAt: '2026-08-28T00:00:00.000Z', leaseExpiresAt: null, recordFingerprint: fingerprintRecoveryValue('run'), malformed: false };
   const openOwners: RecoveryOpenOwners = {
-    workflow: { readRun: () => run, listRuns: () => [run], listCheckpoints: () => [], checkpointSetFingerprint: () => fingerprintRecoveryValue([]) },
+    workflow: { readRun: () => run, listRuns: () => [run], listCheckpoints: () => [], checkpointSetFingerprint: () => fingerprintRecoveryValue([]), readRuntimeProjection: () => ({ activeRuns: [], staleRuns: [], runCount: 0, agentStateFiles: [], workflowState: null, stage: null, stageCitation: null, sourceFiles: [], drift: [] }) },
     loadWorkItems: () => [{ entity: 'project/alpha/issue/build', label: 'Build recovery', state: 'in-progress', blockedBy: [], citationTargets: ['issue:build'] }],
     loadProjectMemory: async () => ({ revision: 1, fingerprint: fingerprintRecoveryValue('memory'), freshness: 'current', reviewedDecisions: [] }),
     listSessions: async () => [],
@@ -105,6 +125,18 @@ describe('project.hub', () => {
     assert.equal(open.stage, 'open');
     assert.equal(open.payload.capabilities?.some((item: any) => item.capability === 'workflow.recovery.apply'), false);
   });
+  test('default Recovery owners keep Settings separate from Agent Domain planning facts', async () => {
+    const { ctx, registry } = fixture();
+    const flow = makeProjectHubOps(registry)[1]!;
+    const open = await flow.handler(ctx, { request: { schemaVersion: 'project-hub-recovery-flow-request/v2', projectId: 'project/alpha', action: 'open' } }) as {
+      ownerLocks: Array<{ owner: string; revision?: string | number | null; fingerprint?: string | null }>;
+      payload: { capabilities: Array<{ capability: string }> };
+    };
+    const locks = new Map(open.ownerLocks.map((lock) => [lock.owner, lock]));
+    assert.equal(locks.get('settings')?.revision, 'settings-owner/v1');
+    assert.notEqual(locks.get('agent-domain')?.fingerprint, locks.get('settings')?.fingerprint);
+    assert.equal(open.payload.capabilities.some((item) => item.capability === 'workflow.recovery.plan'), true);
+  });
 
   test('default Recovery search reads every canonical owner and exposes an alternate Work Run', async () => {
     const { ctx, registry, root } = fixture();
@@ -119,6 +151,16 @@ describe('project.hub', () => {
     writeFileSync(join(root, '00-Inbox', 'Evidence', 'recovery.md'), ['---', 'llmwiki-evidence: true', 'source-id: src_alpha', 'validation-status: accepted', '---', '', '# Evidence · Recovery source', '', 'Recovery evidence is safe and cited.'].join('\n'));
 
     const runtime = createDefaultRecoveryRuntime({ vaultPath: root, registry, capabilityFact: { capability: 'workflow.recovery.plan', state: 'available' } });
+    const sourceRegistryPath = join(root, '_llmwiki', 'source-registry.json');
+    const sourceRegistry = JSON.parse(readFileSync(sourceRegistryPath, 'utf8')) as { version: number; updated_at: string; sources: Record<string, Record<string, unknown>> };
+    sourceRegistry.sources.src_beta = { ...sourceRegistry.sources.src_alpha, id: 'src_beta', title: 'Second recovery source' };
+    writeFileSync(sourceRegistryPath, JSON.stringify(sourceRegistry));
+    const firstEvidence = await runtime.dependencies.openOwners.listSourceEvidence('project/alpha');
+    sourceRegistry.sources = Object.fromEntries(Object.entries(sourceRegistry.sources).reverse());
+    writeFileSync(sourceRegistryPath, JSON.stringify(sourceRegistry));
+    const secondEvidence = await runtime.dependencies.openOwners.listSourceEvidence('project/alpha');
+    assert.deepEqual(secondEvidence.records, firstEvidence.records);
+    assert.equal(secondEvidence.fingerprint, firstEvidence.fingerprint);
     const snapshots = await runtime.dependencies.searchSource!.snapshot('project/alpha');
     assert.deepEqual(snapshots.map((snapshot) => snapshot.owner), ['work-os', 'project-memory', 'source-evidence', 'session-record', 'workflow']);
     assert.ok(snapshots.find((snapshot) => snapshot.owner === 'project-memory')?.items.length);
@@ -199,5 +241,270 @@ describe('project.hub', () => {
     const mixed = await flow.handler(ctx, { request: { ...searchedBuild.nextRequests[0], query: 'recovery' } }) as any;
     assert.equal(mixed.stage, 'stale');
     assert.equal(hash(), before);
+  });
+  test('runtime assembly reads one projection and never legacy Work Run readers', async () => {
+    const { ctx, registry, root } = fixture();
+    const observedAt = Date.parse('2026-08-28T02:00:00.000Z');
+    let projectionCalls = 0;
+    let projectionArguments: [string, number | undefined] | undefined;
+    let legacyReaderCalls = 0;
+    const workflowReadModel: WorkflowReadModel = {
+      readRun() {
+        legacyReaderCalls += 1;
+        return null;
+      },
+      listRuns() {
+        legacyReaderCalls += 1;
+        return [];
+      },
+      listCheckpoints() {
+        legacyReaderCalls += 1;
+        return [];
+      },
+      checkpointSetFingerprint() {
+        legacyReaderCalls += 1;
+        return fingerprintRecoveryValue([]);
+      },
+      readRuntimeProjection(projectId, requestedObservedAt) {
+        projectionCalls += 1;
+        projectionArguments = [projectId, requestedObservedAt];
+        return {
+          activeRuns: [{
+            projectId,
+            workRunId: 'work-run/injected',
+            workItemId: 'project/alpha/issue/build',
+            state: 'running',
+            stage: 'execute',
+            resumable: true,
+            path: '01-Projects/alpha/runs/current.json',
+            stale: false,
+            citationTargets: ['01-Projects/alpha/runs/current.json'],
+          }],
+          staleRuns: [],
+          runCount: 1,
+          agentStateFiles: [],
+          workflowState: null,
+          stage: 'execute',
+          stageCitation: '01-Projects/alpha/runs/current.json',
+          sourceFiles: ['01-Projects/alpha/runs/current.json'],
+          drift: ['injected_projection_drift'],
+        };
+      },
+    };
+    const hub = await makeProjectHubOps(registry, undefined, {
+      now: () => observedAt,
+      workflowReadModel,
+    })[0]!.handler(ctx, { ref: 'project/alpha' }) as RuntimeHub;
+    const runtime = hub.sections.runtime;
+    assert.equal(projectionCalls, 1);
+    assert.deepEqual(projectionArguments, ['project/alpha', observedAt]);
+    assert.equal(legacyReaderCalls, 0);
+    assert.deepEqual(runtime.data.activeRuns, [{
+      projectId: 'project/alpha',
+      workRunId: 'work-run/injected',
+      workItemId: 'project/alpha/issue/build',
+      state: 'running',
+      stage: 'execute',
+      resumable: true,
+      path: '01-Projects/alpha/runs/current.json',
+      stale: false,
+      citationTargets: ['01-Projects/alpha/runs/current.json'],
+    }]);
+    assert.deepEqual(runtime.data.staleRuns, []);
+    assert.equal(runtime.data.runCount, 1);
+    assert.equal(runtime.data.stage, 'execute');
+    assert.equal(runtime.data.stageCitation, '01-Projects/alpha/runs/current.json');
+    assert.deepEqual(runtime.drift, ['injected_projection_drift']);
+    assert.deepEqual(runtime.citationTargets, ['01-Projects/alpha/runs/current.json']);
+  });
+
+  test('runtime section preserves the normal completed-state projection shape', async () => {
+    const { ctx, registry, root } = fixture();
+    writeFileSync(join(root, '01-Projects', 'alpha', 'runs', 'current.json'), JSON.stringify({
+      project_id: 'project/alpha',
+      work_run_id: 'work-run/current',
+      work_item_id: 'project/alpha/issue/build',
+      agent_id: 'codex',
+      state: 'completed',
+      stage: 'verify',
+      observed_at: '2026-08-28T00:00:00.000Z',
+    }));
+    const hub = await makeProjectHubOps(registry)[0]!.handler(ctx, { ref: 'project/alpha' }) as RuntimeHub;
+    const runtime = hub.sections.runtime;
+    assert.deepEqual(runtime.data, {
+      activeRuns: [],
+      staleRuns: [],
+      runCount: 1,
+      agentStateFiles: [],
+      workflowState: null,
+      stage: null,
+      stageCitation: null,
+    });
+    assert.deepEqual(runtime.citationTargets, ['01-Projects/alpha/runs/current.json']);
+    assert.equal(typeof runtime.freshness, 'string');
+    assert.equal(runtime.health, 'healthy');
+  });
+
+  test('runtime section preserves resumability metadata for expired valid runs', async () => {
+    const { ctx, registry, root } = fixture();
+    writeFileSync(join(root, '01-Projects', 'alpha', 'runs', 'current.json'), JSON.stringify({
+      project_id: 'project/alpha',
+      work_run_id: 'work-run/expired',
+      work_item_id: 'project/alpha/issue/build',
+      agent_id: 'codex',
+      state: 'running',
+      lease_expires_at: '2026-08-28T01:00:00.000Z',
+      observed_at: '2026-08-28T00:00:00.000Z',
+    }));
+    const hub = await makeProjectHubOps(registry, undefined, { now: () => Date.parse('2026-08-28T02:00:00.000Z') })[0]!.handler(ctx, { ref: 'project/alpha' }) as RuntimeHub;
+    const runtime = hub.sections.runtime;
+    assert.deepEqual(runtime.data.activeRuns, []);
+    assert.equal(runtime.data.staleRuns.length, 1);
+    assert.equal(runtime.data.staleRuns[0]?.resumable, true);
+    assert.ok(runtime.drift.includes('expired_work_run:01-Projects/alpha/runs/current.json'));
+  });
+
+  test('runtime section preserves lexical run ordering for staged fallback', async () => {
+    const { ctx, registry, root } = fixture();
+    writeFileSync(join(root, '01-Projects', 'alpha', 'runs', 'current.json'), JSON.stringify({
+      project_id: 'project/alpha',
+      work_run_id: 'work-run/completed',
+      work_item_id: 'project/alpha/issue/build',
+      agent_id: 'codex',
+      state: 'completed',
+      observed_at: '2026-08-28T00:00:00.000Z',
+    }));
+    writeFileSync(join(root, '01-Projects', 'alpha', 'runs', 'a-first.json'), JSON.stringify({
+      project_id: 'project/alpha',
+      work_run_id: 'work-run/a-first',
+      work_item_id: 'project/alpha/issue/first',
+      agent_id: 'codex',
+      state: 'running',
+      stage: 'first',
+      observed_at: '2026-08-28T00:00:00.000Z',
+    }));
+    writeFileSync(join(root, '01-Projects', 'alpha', 'runs', 'z-second.json'), JSON.stringify({
+      project_id: 'project/alpha',
+      work_run_id: 'work-run/z-second',
+      work_item_id: 'project/alpha/issue/second',
+      agent_id: 'codex',
+      state: 'running',
+      stage: 'second',
+      observed_at: '2026-08-28T01:00:00.000Z',
+    }));
+    const hub = await makeProjectHubOps(registry, undefined, { now: () => Date.parse('2026-08-28T02:00:00.000Z') })[0]!.handler(ctx, { ref: 'project/alpha' }) as RuntimeHub;
+    const runtime = hub.sections.runtime;
+    assert.deepEqual(runtime.data.activeRuns.map((run) => run.path), [
+      '01-Projects/alpha/runs/a-first.json',
+      '01-Projects/alpha/runs/z-second.json',
+    ]);
+    assert.equal(runtime.data.stage, 'first');
+    assert.equal(runtime.data.stageCitation, '01-Projects/alpha/runs/a-first.json');
+  });
+
+  test('runtime section preserves missing-project diagnostics for arrays/scalars and malformed diagnostics for null JSON', async () => {
+    const { ctx, registry, root } = fixture();
+    writeFileSync(join(root, '01-Projects', 'alpha', 'runs', 'array.json'), '[]');
+    writeFileSync(join(root, '01-Projects', 'alpha', 'runs', 'scalar.json'), JSON.stringify('runtime'));
+    writeFileSync(join(root, '01-Projects', 'alpha', 'runs', 'null.json'), 'null');
+    const hub = await makeProjectHubOps(registry)[0]!.handler(ctx, { ref: 'project/alpha' }) as RuntimeHub;
+    const runtime = hub.sections.runtime;
+    assert.equal(runtime.data.runCount, 1);
+    assert.ok(runtime.drift.includes('run_project_id_missing:01-Projects/alpha/runs/array.json'));
+    assert.ok(runtime.drift.includes('run_project_id_missing:01-Projects/alpha/runs/scalar.json'));
+    assert.ok(runtime.drift.includes('malformed_run:01-Projects/alpha/runs/null.json'));
+    assert.ok(!runtime.drift.includes('malformed_run:01-Projects/alpha/runs/array.json'));
+    assert.ok(!runtime.drift.includes('malformed_run:01-Projects/alpha/runs/scalar.json'));
+  });
+
+  test('runtime section preserves legacy Work Run aliases', async () => {
+    const { ctx, registry, root } = fixture();
+    writeFileSync(join(root, '01-Projects', 'alpha', 'runs', 'current.json'), JSON.stringify({
+      project_id: 'project/alpha',
+      work_run_id: 'work-run/legacy',
+      work_item_id: 'project/alpha/issue/build',
+      agent_id: 'codex',
+      state: 'awaiting_review',
+      agentStage: 'review',
+      handoff_expires_at: '2026-08-28T03:00:00.000Z',
+      observed_at: '2026-08-28T01:00:00.000Z',
+    }));
+    mkdirSync(join(root, '01-Projects', 'alpha', 'agents', 'codex'), { recursive: true });
+    mkdirSync(join(root, '01-Projects', 'alpha', 'workflow'), { recursive: true });
+    writeFileSync(join(root, '01-Projects', 'alpha', 'agents', 'codex', 'events.md'), '## legacy state\n');
+    writeFileSync(join(root, '01-Projects', 'alpha', 'workflow', 'status.md'), [
+      '---',
+      'type: workflow-state',
+      'project: alpha',
+      'stage: execute',
+      'objective: Verify the legacy runtime',
+      '---',
+      '',
+      '# Workflow State: alpha',
+    ].join('\n'));
+    const hub = await makeProjectHubOps(registry, undefined, { now: () => Date.parse('2026-08-28T02:00:00.000Z') })[0]!.handler(ctx, { ref: 'project/alpha' }) as RuntimeHub;
+    const runtime = hub.sections.runtime;
+    assert.deepEqual(runtime.data, {
+      activeRuns: [{
+        projectId: 'project/alpha',
+        workRunId: 'work-run/legacy',
+        workItemId: 'project/alpha/issue/build',
+        state: 'awaiting_review',
+        stage: 'review',
+        resumable: true,
+        path: '01-Projects/alpha/runs/current.json',
+        stale: false,
+        citationTargets: ['01-Projects/alpha/runs/current.json'],
+      }],
+      staleRuns: [],
+      runCount: 1,
+      agentStateFiles: ['01-Projects/alpha/agents/codex/events.md'],
+      workflowState: {
+        stage: 'execute',
+        objective: 'Verify the legacy runtime',
+        path: '01-Projects/alpha/workflow/status.md',
+      },
+      stage: 'execute',
+      stageCitation: '01-Projects/alpha/workflow/status.md',
+    });
+    assert.deepEqual(runtime.citationTargets, [
+      '01-Projects/alpha/agents/codex/events.md',
+      '01-Projects/alpha/runs/current.json',
+      '01-Projects/alpha/workflow/status.md',
+    ]);
+    assert.equal(typeof runtime.freshness, 'string');
+    assert.deepEqual(runtime.drift, []);
+  });
+
+  test('runtime section reports malformed and mismatched Work Run drift', async () => {
+    const { ctx, registry, root } = fixture();
+    writeFileSync(join(root, '01-Projects', 'alpha', 'runs', 'current.json'), '{ malformed');
+    writeFileSync(join(root, '01-Projects', 'alpha', 'runs', 'foreign.json'), JSON.stringify({
+      project_id: 'project/beta',
+      work_run_id: 'work-run/foreign',
+      work_item_id: 'project/beta/issue/private',
+      agent_id: 'codex',
+      state: 'running',
+      observed_at: '2026-08-28T01:00:00.000Z',
+    }));
+    const hub = await makeProjectHubOps(registry)[0]!.handler(ctx, { ref: 'project/alpha' }) as RuntimeHub;
+    const runtime = hub.sections.runtime;
+    assert.deepEqual(runtime.data, {
+      activeRuns: [],
+      staleRuns: [],
+      runCount: 0,
+      agentStateFiles: [],
+      workflowState: null,
+      stage: null,
+      stageCitation: null,
+    });
+    assert.deepEqual(runtime.citationTargets, [
+      '01-Projects/alpha/runs/current.json',
+      '01-Projects/alpha/runs/foreign.json',
+    ]);
+    assert.equal(typeof runtime.freshness, 'string');
+    assert.ok(runtime.drift.includes('malformed_run:01-Projects/alpha/runs/current.json'));
+    assert.ok(runtime.drift.includes('run_project_mismatch:01-Projects/alpha/runs/foreign.json'));
+    assert.equal(runtime.health, 'degraded');
   });
 });

@@ -117,11 +117,13 @@ export async function embedTextsWithProfile(
 
   const allEmbeddings: EmbeddingResult[] = [];
   for (let i = 0; i < texts.length; i += EMBED_BATCH_SIZE) {
+    if (options?.signal?.aborted) throw new Error("embedTexts: aborted");
     const batch = texts.slice(i, i + EMBED_BATCH_SIZE);
     try {
       const results = await Promise.all(batch.map((t) => embed(t, options)));
       allEmbeddings.push(...results);
     } catch (err) {
+      if (options?.signal?.aborted) throw err;
       console.warn(`[vaultbrain] embedTexts batch error: ${(err as Error).message}`);
       return [];
     }

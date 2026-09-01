@@ -170,6 +170,10 @@ function snapshotRecords<T>(snapshot: RecoveryOwnerSnapshot<T> | null | undefine
   return snapshot && typeof snapshot === 'object' && Array.isArray(snapshot.records) ? snapshot.records : [];
 }
 
+function settledValue<T>(result: PromiseSettledResult<T>, fallback: T): T {
+  return result.status === 'fulfilled' ? result.value : fallback;
+}
+
 function snapshotFingerprint<T>(snapshot: RecoveryOwnerSnapshot<T> | null | undefined, records: T[]): RecoveryFingerprint {
   const provided = snapshot && typeof snapshot.fingerprint === 'string' && /^sha256:[a-f0-9]{64}$/u.test(snapshot.fingerprint)
     ? snapshot.fingerprint as RecoveryFingerprint
@@ -278,27 +282,56 @@ function unavailable(projectId: string, generatedAt: string, locks: RecoveryOwne
 export async function composeRecoveryOpenStage(projectId: string, owners: RecoveryOpenOwners, generatedAt: string): Promise<RecoveryFlowResponseV2 & { stage: 'open' | 'unavailable' }> {
   if (!PROJECT_ID.test(projectId)) throw new Error('Recovery open projectId must be canonical');
   if (!ISO.test(generatedAt) || !Number.isFinite(Date.parse(generatedAt))) throw new Error('Recovery open generatedAt must be an ISO timestamp');
-  let rawItems: RecoveryWorkItemRead[];
-  let rawMemory: RecoveryMemoryRead;
-  let sessions: RecoverySessionRead[];
-  let sourceEvidenceSnapshot: RecoveryOwnerSnapshot<RecoverySourceEvidenceRead>;
-  let agentDomainSnapshot: RecoveryOwnerSnapshot<RecoveryCapabilityRead>;
-  let settingsSnapshot: RecoveryOwnerSnapshot<RecoveryCapabilityRead>;
+  const [workItemsResult, memoryResult, sessionsResult, sourceEvidenceResult, agentDomainResult, settingsResult] = await Promise.allSettled([
+    Promise.resolve().then(() => owners.loadWorkItems(projectId)),
+    Promise.resolve().then(() => owners.loadProjectMemory(projectId)),
+    Promise.resolve().then(() => owners.listSessions(projectId)),
+    Promise.resolve().then(() => owners.listSourceEvidence(projectId)),
+    Promise.resolve().then(() => owners.loadAgentDomainCapabilities(projectId)),
+    Promise.resolve().then(() => owners.loadSettingsCapabilities(projectId)),
+  ]);
+  const mandatoryFailures: Array<readonly [RecoveryOwner, PromiseSettledResult<unknown>]> = [
+    ['work-os', workItemsResult],
+    ['project-memory', memoryResult],
+    ['session-record', sessionsResult],
+  ];
+  const newOwnerReads: Array<readonly [RecoveryOwner, PromiseSettledResult<unknown>]> = [
+    ['source-evidence', sourceEvidenceResult],
+    ['agent-domain', agentDomainResult],
+    ['settings', settingsResult],
+  ];
+  const failedOwners = [
+    ...mandatoryFailures.filter(([, result]) => result.status === 'rejected').map(([owner]) => owner),
+    ...newOwnerReads.filter(([, result]) => result.status === 'rejected').map(([owner]) => owner),
+  ];
+  const failedOwnerSet = new Set<RecoveryOwner>(failedOwners);
+  let runs: WorkflowRunRead[] = [];
   try {
-    [rawItems, rawMemory, sessions, sourceEvidenceSnapshot, agentDomainSnapshot, settingsSnapshot] = await Promise.all([
-      Promise.resolve(owners.loadWorkItems(projectId)),
-      owners.loadProjectMemory(projectId),
-      owners.listSessions(projectId),
-      owners.listSourceEvidence(projectId),
-      owners.loadAgentDomainCapabilities(projectId),
-      owners.loadSettingsCapabilities(projectId),
-    ]);
+    runs = owners.workflow.listRuns(projectId);
   } catch {
-    return unavailable(projectId, generatedAt, OWNER_ORDER.map((owner) => lock(owner, null, owner === 'project' || owner === 'work-os' ? 'unavailable' : 'current')), 'mandatory_owner_unavailable', 'Inspect the owning Project, Work-OS, Workflow, and capability sources before retrying recovery.', [diagnostic('project', 'owner_unavailable', 'error', 'A mandatory recovery owner could not be read.', 'Repair the owner and retry open.')], fingerprintRecoveryValue({ projectId }));
+    failedOwnerSet.add('workflow');
   }
+  if (failedOwnerSet.size > 0) {
+    return unavailable(
+      projectId,
+      generatedAt,
+      OWNER_ORDER.map((owner) => lock(owner, null, failedOwnerSet.has(owner) ? 'unavailable' : 'current')),
+      'mandatory_owner_unavailable',
+      'Inspect the owning Project, Work-OS, Workflow, Session, Source Evidence, Agent Domain, and Settings sources before retrying recovery.',
+      [...failedOwnerSet].map((owner) => diagnostic(owner, 'owner_unavailable', 'error', 'A mandatory recovery owner could not be read.', 'Repair the owner and retry open.')),
+      fingerprintRecoveryValue({ projectId }),
+    );
+  }
+  const rawItems = settledValue(workItemsResult, []);
+  const rawMemory = settledValue(memoryResult, {});
+  const sessions = settledValue(sessionsResult, []);
+  const sourceEvidenceSnapshot = settledValue(sourceEvidenceResult, { records: [] });
+  const agentDomainSnapshot = settledValue(agentDomainResult, { records: [] });
+  const settingsSnapshot = settledValue(settingsResult, { records: [] });
   const sourceEvidenceOwner: RecoveryOwnerSnapshot<RecoverySourceEvidenceRead> = sourceEvidenceSnapshot && typeof sourceEvidenceSnapshot === 'object' ? sourceEvidenceSnapshot : { records: [] };
   const agentDomainOwner: RecoveryOwnerSnapshot<RecoveryCapabilityRead> = agentDomainSnapshot && typeof agentDomainSnapshot === 'object' ? agentDomainSnapshot : { records: [] };
   const settingsOwner: RecoveryOwnerSnapshot<RecoveryCapabilityRead> = settingsSnapshot && typeof settingsSnapshot === 'object' ? settingsSnapshot : { records: [] };
+  const diagnostics: RecoveryFlowDiagnosticV2[] = [];
   const rawItemList = Array.isArray(rawItems) ? rawItems : [];
   const items = normalizeItems(projectId, rawItemList);
   const sourceEvidence = normalizeSourceEvidence(projectId, snapshotRecords(sourceEvidenceOwner));
@@ -310,10 +343,6 @@ export async function composeRecoveryOpenStage(projectId: string, owners: Recove
     citations: refs([...agentDomain.citations, ...settings.citations]),
     fingerprint: fingerprintRecoveryValue(mergedCapabilities),
   };
-  let runs: WorkflowRunRead[] = [];
-  try { runs = owners.workflow.listRuns(projectId); } catch {
-    return unavailable(projectId, generatedAt, OWNER_ORDER.map((owner) => lock(owner, null, owner === 'workflow' ? 'unavailable' : 'current')), 'mandatory_owner_unavailable', 'Inspect the owning Workflow source before retrying recovery.', [diagnostic('workflow', 'owner_unavailable', 'error', 'The Workflow owner could not be read.', 'Repair Workflow and retry open.')], fingerprintRecoveryValue({ projectId }));
-  }
   const selectedRun = chooseRun(projectId, items, runs, generatedAt);
   const item = selectedRun ? items.find((entry) => entry.entity === selectedRun.workItemId) ?? null : chooseWorkItem(items);
   const selectedSession = selectedRun ? null : chooseSession(projectId, item, sessions ?? []);
@@ -326,7 +355,6 @@ export async function composeRecoveryOpenStage(projectId: string, owners: Recove
   const memory = rawMemory && typeof rawMemory === 'object' && !Array.isArray(rawMemory) ? rawMemory : {};
   const rawDecisions = Array.isArray(memory.reviewedDecisions) ? memory.reviewedDecisions : Array.isArray(memory.decisions) ? memory.decisions : Array.isArray(memory.claims) ? memory.claims : Array.isArray(memory.sections?.currentState?.claims) ? memory.sections.currentState.claims : [];
   const decisions = rawDecisions.filter((value): value is RecoveryDecisionRead => Boolean(value && typeof value === 'object' && !Array.isArray(value))).map(contextDecision).filter((value): value is NonNullable<typeof value> => value !== null).sort((left, right) => left.decisionId.localeCompare(right.decisionId));
-  const diagnostics: RecoveryFlowDiagnosticV2[] = [];
   if (items.length === 0) diagnostics.push(diagnostic('work-os', 'work_items_unavailable', 'error', 'No safe current Work Item is available for this Project.', 'Repair the Work-OS owner before opening recovery.'));
   if (rawItemList.length > items.length) diagnostics.push(diagnostic('work-os', 'unsafe_work_items_omitted', 'warning', 'One or more Work-OS items were omitted because their identity or content was unsafe.', 'Repair the Work-OS item and retry open.'));
   if (rawDecisions.length > decisions.length) diagnostics.push(diagnostic('project-memory', 'unsafe_memory_context_omitted', 'warning', 'One or more Project Memory decisions were omitted because their content was unsafe or unreviewed.', 'Review the Project Memory owner before relying on it.'));

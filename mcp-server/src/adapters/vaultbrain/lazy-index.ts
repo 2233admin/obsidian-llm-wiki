@@ -19,14 +19,21 @@
  * tsvector even when embedding fails (13A), so NL keyword recall works daemon-free.
  */
 
-import { readdirSync, readFileSync, type Dirent } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync, type Dirent } from "node:fs";
 import { join, relative } from "node:path";
+import { pathToSlug } from "./index.js";
 import type { VaultBrainAdapter } from "./index.js";
+import type { FileStamp, ReindexState } from "./engine.js";
 
 // Directories never worth indexing as knowledge (machine/state/derived output).
-const PROTECTED_DIRS = new Set([
-  ".git", ".obsidian", ".vault-mind", "node_modules", "wiki", ".trash",
-]);
+export const PROTECTED_DIRS: Record<string, true> = {
+  ".git": true,
+  ".obsidian": true,
+  ".vault-mind": true,
+  "node_modules": true,
+  "wiki": true,
+  ".trash": true,
+};
 
 const DEFAULT_SYNC_CAP = 300; // <= this many notes: index inline; more: background.
 
@@ -34,6 +41,22 @@ export interface ReindexResult {
   indexed: number;
   total: number;
   skipped: number;
+  deleted: number;
+  errors: string[];
+}
+export interface ReindexProgress {
+  phase: "scan" | "index" | "delete" | "complete";
+  completed: number;
+  total: number;
+}
+
+interface ReindexCandidate {
+  fullPath: string;
+  relativePath: string;
+  stamp: FileStamp | null;
+}
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 export type BackfillStatus =
@@ -51,11 +74,23 @@ export interface BackfillOutcome {
 let _vba: VaultBrainAdapter | null = null;
 let _vaultPath = "";
 let _inFlight: Promise<unknown> | null = null;
+let _backfillAbortController: AbortController | null = null;
 
 /** Wire the coordinator at server startup (index.ts). */
 export function configureLazyIndex(vba: VaultBrainAdapter, vaultPath: string): void {
   _vba = vba;
   _vaultPath = vaultPath;
+}
+
+/** Stop an inline or background reconciliation; the persisted run remains incomplete. */
+export function cancelBackfill(): void {
+  _backfillAbortController?.abort();
+}
+
+/** Abort and wait for a lazy reconciliation to settle before process shutdown. */
+export async function cancelBackfillAndWait(): Promise<void> {
+  cancelBackfill();
+  await _inFlight;
 }
 
 /**
@@ -68,56 +103,175 @@ export function isBackfillInFlight(): boolean {
   return _inFlight !== null;
 }
 
-/** Walk the vault for indexable markdown, skipping machine/derived dirs. */
-export function listVaultMarkdown(vaultPath: string): string[] {
+interface VaultMarkdownScan {
+  files: string[];
+  complete: boolean;
+}
+
+function scanVaultMarkdown(vaultPath: string): VaultMarkdownScan {
   const files: string[] = [];
+  let complete = true;
   const walk = (dir: string): void => {
     let entries: Dirent<string>[];
     try {
       entries = readdirSync(dir, { withFileTypes: true });
     } catch {
-      return; // unreadable dir -- skip, non-fatal
+      complete = false;
+      return;
     }
     for (const e of entries) {
       if (e.isDirectory()) {
-        if (!PROTECTED_DIRS.has(e.name)) walk(join(dir, e.name));
-      } else if (e.isFile() && e.name.endsWith(".md")) {
+        if (!e.name.startsWith(".") && PROTECTED_DIRS[e.name] !== true) walk(join(dir, e.name));
+      } else if (e.isFile() && !e.name.startsWith(".") && e.name.endsWith(".md")) {
         files.push(join(dir, e.name));
       }
     }
   };
   walk(vaultPath);
-  return files;
+  return { files, complete };
+}
+
+/** Walk the vault for indexable markdown, skipping machine/derived dirs. */
+export function listVaultMarkdown(vaultPath: string): string[] {
+  return scanVaultMarkdown(vaultPath).files;
 }
 
 /**
- * Bulk-ingest every markdown file into vaultbrain. Shared by the manual
- * `vault.reindex` tool and the lazy backfill so there is one reindex impl.
+ * Reconcile every markdown file with vaultbrain, skipping unchanged content
+ * and removing indexed files that no longer exist in the vault.
  */
 export async function reindexVault(
   vba: VaultBrainAdapter,
   vaultPath: string,
-  opts?: { concurrency?: number },
+  opts?: {
+    concurrency?: number;
+    onProgress?: (event: ReindexProgress) => void;
+    signal?: AbortSignal;
+  },
 ): Promise<ReindexResult> {
-  const files = listVaultMarkdown(vaultPath);
+  const scan = scanVaultMarkdown(vaultPath);
+  const candidates: ReindexCandidate[] = scan.files.map((fullPath) => {
+    let stamp: FileStamp | null = null;
+    try {
+      const stats = statSync(fullPath);
+      stamp = { mtimeMs: Math.floor(stats.mtimeMs), sizeBytes: stats.size };
+    } catch {
+      // Reading below reports the actionable filesystem error.
+    }
+    return {
+      fullPath,
+      relativePath: relative(vaultPath, fullPath).replace(/\\/g, "/"),
+      stamp,
+    };
+  });
+  const errors: string[] = [];
+  const startedAt = Date.now();
+  const report = (event: ReindexProgress): void => {
+    try {
+      opts?.onProgress?.(event);
+    } catch (error) {
+      errors.push(`progress: ${errorMessage(error)}`);
+    }
+  };
+  const persist = async (state: ReindexState): Promise<void> => {
+    try {
+      await vba.setReindexState(state);
+    } catch (error) {
+      errors.push(`reindex state: ${errorMessage(error)}`);
+    }
+  };
+  await persist({
+    status: "running",
+    startedAt,
+    indexed: 0,
+    total: candidates.length,
+    skipped: 0,
+    deleted: 0,
+    errors: [],
+  });
+  report({ phase: "scan", completed: 0, total: candidates.length });
+
+  let indexedSlugs = new Set<string>();
+  try {
+    indexedSlugs = new Set(await vba.listIndexedSlugs());
+  } catch (error) {
+    errors.push(`indexed paths: ${errorMessage(error)}`);
+  }
+  const currentSlugs = new Set(candidates.map((candidate) => pathToSlug(candidate.relativePath)));
   const concurrency = Math.max(1, Math.floor(opts?.concurrency ?? 4));
   let indexed = 0;
   let skipped = 0;
-  for (let i = 0; i < files.length; i += concurrency) {
-    const batch = files.slice(i, i + concurrency);
-    const results = await Promise.allSettled(
-      batch.map(async (full) => {
-        const content = readFileSync(full, "utf-8");
-        const rel = relative(vaultPath, full).replace(/\\/g, "/");
-        await vba.ingest(rel, content);
-      }),
-    );
-    for (const r of results) {
-      if (r.status === "fulfilled") indexed++;
-      else skipped++;
+  let deleted = 0;
+  if (!scan.complete) errors.push("vault scan incomplete; stale deletion skipped");
+
+  for (let i = 0; i < candidates.length; i += concurrency) {
+    if (opts?.signal?.aborted) {
+      errors.push("reindex cancelled");
+      break;
+    }
+    const batch = candidates.slice(i, i + concurrency);
+    const outcomes = await Promise.all(batch.map(async (candidate) => {
+      try {
+        if (opts?.signal?.aborted) return { kind: "cancelled" as const };
+        if (candidate.stamp) {
+          const indexedStamp = await vba.getIndexedStamp(candidate.relativePath);
+          if (
+            indexedStamp &&
+            indexedStamp.mtimeMs === candidate.stamp.mtimeMs &&
+            indexedStamp.sizeBytes === candidate.stamp.sizeBytes
+          ) {
+            return { kind: "skipped" as const };
+          }
+        }
+        const content = readFileSync(candidate.fullPath, "utf-8");
+        const changed = await vba.ingest(candidate.relativePath, content, candidate.stamp ?? undefined, opts?.signal);
+        return changed === false
+          ? { kind: "skipped" as const }
+          : { kind: "indexed" as const };
+      } catch (error) {
+        return {
+          kind: "error" as const,
+          path: candidate.relativePath,
+          message: errorMessage(error),
+        };
+      }
+    }));
+    for (const outcome of outcomes) {
+      if (outcome.kind === "indexed") indexed++;
+      else if (outcome.kind === "skipped") skipped++;
+      else if (outcome.kind === "cancelled") errors.push("reindex cancelled");
+      else errors.push(`${outcome.path}: ${outcome.message}`);
+    }
+    report({ phase: "index", completed: indexed + skipped, total: candidates.length });
+    if (opts?.signal?.aborted) {
+      errors.push("reindex cancelled");
+      break;
     }
   }
-  return { indexed, total: files.length, skipped };
+
+  if (scan.complete && !opts?.signal?.aborted) {
+    for (const slug of indexedSlugs) {
+      if (currentSlugs.has(slug) || existsSync(join(vaultPath, `${slug}.md`))) continue;
+      try {
+        await vba.deleteSlug(slug, opts?.signal);
+        deleted++;
+        report({ phase: "delete", completed: deleted, total: indexedSlugs.size });
+      } catch (error) {
+        const message = errorMessage(error);
+        errors.push(`${slug}: ${message}`);
+      }
+    }
+  }
+
+  const result = { indexed, total: candidates.length, skipped, deleted, errors };
+  report({ phase: "complete", completed: indexed + skipped, total: candidates.length });
+  await persist({
+    ...result,
+    status: errors.length === 0 && scan.complete ? "complete" : "incomplete",
+    startedAt,
+    finishedAt: Date.now(),
+  });
+  return result;
 }
 
 /**
@@ -125,44 +279,71 @@ export async function reindexVault(
  * Returns immediately for large vaults (background) so recall is never blocked;
  * awaits inline only for small vaults. Idempotent + single-flight.
  */
-export async function ensureBackfill(opts?: { syncCap?: number }): Promise<BackfillOutcome> {
+export async function ensureBackfill(opts?: { syncCap?: number; force?: boolean }): Promise<BackfillOutcome> {
   const vba = _vba;
   if (!vba || !vba.isAvailable) return { status: "unavailable" };
   if (_inFlight) return { status: "in_progress" };
 
-  // Claim the single-flight lock SYNCHRONOUSLY -- before the first await -- so a
-  // concurrent first-query cannot slip past the guard above and launch a second
-  // backfill. The lock auto-clears when released.
+  // Claim the single-flight lock synchronously before the first await.
   let release!: () => void;
   const lock = new Promise<void>((r) => { release = r; });
   _inFlight = lock;
   void lock.then(() => { if (_inFlight === lock) _inFlight = null; });
   const done = (o: BackfillOutcome): BackfillOutcome => { release(); return o; };
 
-  let count: number;
-  try {
-    count = await vba.countChunks();
-  } catch {
-    return done({ status: "unavailable" });
+  let count = 0;
+  let priorState: ReindexState | null = null;
+  if (!opts?.force) {
+    try {
+      count = await vba.countChunks();
+      priorState = await vba.getReindexState();
+    } catch {
+      return done({ status: "unavailable" });
+    }
+    // Chunks alone do not prove a complete reconciliation. An incomplete or
+    // interrupted run must be retried so failed notes do not stay invisible.
+    if (count > 0 && (!priorState || priorState.status === "complete")) {
+      return done({ status: "populated" });
+    }
   }
-  if (count > 0) return done({ status: "populated" });
 
-  const fileCount = listVaultMarkdown(_vaultPath).length;
-  if (fileCount === 0) return done({ status: "populated" });
+  const scan = scanVaultMarkdown(_vaultPath);
+  if (!scan.complete) return done({ status: "unavailable", fileCount: scan.files.length });
+  const fileCount = scan.files.length;
+  const controller = new AbortController();
+  _backfillAbortController = controller;
+  const releaseController = (): void => {
+    if (_backfillAbortController === controller) _backfillAbortController = null;
+  };
+  const reindexOpts = { signal: controller.signal };
 
   const syncCap = opts?.syncCap ?? DEFAULT_SYNC_CAP;
   if (fileCount <= syncCap) {
     try {
-      await reindexVault(vba, _vaultPath);
+      await reindexVault(vba, _vaultPath, reindexOpts);
     } finally {
+      releaseController();
       release();
     }
     return { status: "indexed_sync", fileCount };
   }
 
-  // Large vault: run in the background, holding the lock until it finishes so
-  // recall is not blocked but re-entrant calls see "in_progress".
-  void reindexVault(vba, _vaultPath).finally(() => release());
+  // Large vault: run in the background, holding the lock until it finishes.
+  void reindexVault(vba, _vaultPath, reindexOpts)
+    .then((result) => {
+      for (const error of result.errors) {
+        process.stderr.write(`obsidian-llm-wiki: [vaultbrain] background reindex warning: ${error}\n`);
+      }
+    })
+    .catch((error) => {
+      process.stderr.write(
+        `obsidian-llm-wiki: [vaultbrain] background reindex error: ${error instanceof Error ? error.message : String(error)}\n`,
+      );
+    })
+    .finally(() => {
+      releaseController();
+      release();
+    });
   return { status: "indexing_background", fileCount };
 }
 
@@ -178,6 +359,8 @@ export async function recallGaps(
   const gaps: Array<{ type: "retrieval_limitation"; message: string }> = [];
   if (backfill.status === "indexing_background") {
     gaps.push({ type: "retrieval_limitation", message: `semantic index building in background (${backfill.fileCount} notes); recall sharpens once it finishes` });
+  } else if (backfill.status === "in_progress") {
+    gaps.push({ type: "retrieval_limitation", message: "semantic index is already building; retry recall after it finishes or inspect `vault.reindex_status`" });
   } else if (backfill.status === "indexed_sync") {
     gaps.push({ type: "retrieval_limitation", message: `indexed your vault (${backfill.fileCount} notes) just now for recall` });
   }
@@ -195,6 +378,8 @@ export async function recallGaps(
 
 /** Test-only: clear coordinator state between cases. */
 export function _resetLazyIndex(): void {
+  _backfillAbortController?.abort();
+  _backfillAbortController = null;
   _vba = null;
   _vaultPath = "";
   _inFlight = null;

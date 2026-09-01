@@ -158,6 +158,7 @@ function fixture(options: FixtureOptions = {}) {
       listRuns: () => [run],
       listCheckpoints: () => [checkpoint],
       checkpointSetFingerprint: () => fingerprintRecoveryValue([checkpoint]),
+      readRuntimeProjection: () => ({ activeRuns: [], staleRuns: [], runCount: 0, agentStateFiles: [], workflowState: null, stage: null, stageCitation: null, sourceFiles: [], drift: [] }),
     },
     loadWorkItems: () => [{ entity: "project/alpha/issue/build", label: "Build recovery", state: "in-progress", blockedBy: [], citationTargets: ["issue:build"] }],
     loadProjectMemory: async () => ({

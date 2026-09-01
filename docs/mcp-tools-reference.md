@@ -3,9 +3,9 @@
 > Auto-generated from `mcp-server/src/core/operations.ts`.
 > Run `npm run generate-tools-doc` to regenerate. Do not edit by hand.
 
-Total: **211** operations across **26** namespaces.
+Total: **212** operations across **26** namespaces.
 
-## `vault.*` (31)
+## `vault.*` (32)
 
 ### `vault.annotate`
 
@@ -281,14 +281,22 @@ Read a note's content
 
 ### `vault.reindex`
 
-Bulk-index all markdown files into VaultBrain semantic store. Use after initial setup or vault migration.
+Incrementally reconcile indexable markdown with VaultBrain; unchanged files are skipped and stale indexed pages are removed after a complete scan.
 
-**Mutating:** no
+**Mutating:** yes
 
 **Parameters:**
 
 - `dryRun` (boolean, optional, default: `false`) — Count files without ingesting (default: false)
 - `concurrency` (number, optional, default: `4`) — Max concurrent ingest calls (default: 4)
+
+### `vault.reindex_status`
+
+Read the durable VaultBrain reindex state, including whether the last run completed or was incomplete and its progress counters.
+
+**Mutating:** no
+
+**Parameters:** none
 
 ### `vault.rename`
 

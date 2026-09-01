@@ -7,7 +7,7 @@ import { fingerprintRecoveryValue } from './contract-support.js';
 function openOwners(overrides: Partial<RecoveryOpenOwners> = {}): RecoveryOpenOwners {
   const run = { projectId: 'project/alpha', workItemId: 'project/alpha/issue/build', workRunId: 'work-run/current', agentId: 'codex', state: 'running', observedAt: '2026-08-28T00:00:00.000Z', leaseExpiresAt: null, recordFingerprint: fingerprintRecoveryValue('run'), malformed: false };
   return {
-    workflow: { readRun: () => run, listRuns: () => [run], listCheckpoints: () => [], checkpointSetFingerprint: () => fingerprintRecoveryValue([]) },
+    workflow: { readRun: () => run, listRuns: () => [run], listCheckpoints: () => [], checkpointSetFingerprint: () => fingerprintRecoveryValue([]), readRuntimeProjection: () => ({ activeRuns: [], staleRuns: [], runCount: 0, agentStateFiles: [], workflowState: null, stage: null, stageCitation: null, sourceFiles: [], drift: [] }) },
     loadWorkItems: () => [{ entity: 'project/alpha/issue/build', label: 'Build', state: 'in-progress', blockedBy: [], citationTargets: ['issue:build'] }],
     loadProjectMemory: async () => ({}), listSessions: async () => [], listSourceEvidence: async () => ({ records: [] }), loadAgentDomainCapabilities: async () => ({ records: [{ capability: 'workflow.recovery.plan', state: 'available' as const }] }), loadSettingsCapabilities: async () => ({ records: [] }), ...overrides,
   };
@@ -34,7 +34,7 @@ test('zero, many, and oversized Binding sets fail closed without truncation', as
 
 test('Session create is rejected when the current Work Item is blocked', async () => {
   const open = await composeRecoveryOpenStage('project/alpha', openOwners({
-    workflow: { readRun: () => null, listRuns: () => [], listCheckpoints: () => [], checkpointSetFingerprint: () => fingerprintRecoveryValue([]) },
+    workflow: { readRun: () => null, listRuns: () => [], listCheckpoints: () => [], checkpointSetFingerprint: () => fingerprintRecoveryValue([]), readRuntimeProjection: () => ({ activeRuns: [], staleRuns: [], runCount: 0, agentStateFiles: [], workflowState: null, stage: null, stageCitation: null, sourceFiles: [], drift: [] }) },
     loadWorkItems: () => [{ entity: 'project/alpha/issue/build', label: 'Build', state: 'todo', blockedBy: ['project/alpha/issue/other'], citationTargets: ['issue:build'] }],
     listSessions: async () => [{ sessionId: 'session/current', projectId: 'project/alpha', workItemId: 'project/alpha/issue/build', status: 'captured', citationTargets: ['session:current'] }],
   }), '2026-08-28T02:00:00.000Z');

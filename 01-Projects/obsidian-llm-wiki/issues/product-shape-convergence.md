@@ -208,3 +208,16 @@ Acceptance criteria:
 8. Existing focused tests are reused as regression coverage; verification remains scoped to IA, entry, routing, context, ownership, migration, and accessibility reachability.
 9. Entry acceptance covers keyboard and screen-reader reachability, reduced motion, zoom/reflow, focus restoration, non-color status, validation/error announcements, and touch target bounds.
 10. Relevant product vocabulary and surface documentation no longer describe projections or access/archive surfaces as domain truth, introduce a duplicate product identity, or present historical Project Hub/Ask Mate entry wording as unresolved; the historical `llmwiki-project-driven-knowledge-workspace` brief is marked as historical/layered or otherwise excluded as a current-rule source, this issue is used as the entry-relationship authority, and `30-Architecture/llm-wiki-product-shape.md` is identified as the companion architecture explanation.
+
+## Evaluation decision
+
+The 23-case `eval/recovery-memory-citation.v1.jsonl` contract fixture passes
+the current deterministic thresholds with `hit_rate=0.913`,
+`mrr=0.913`, and `citation_coverage=1.000`. `precision_at_k=0.183` remains
+low because the fixture supplies only two ranked contexts per case, and the
+fixture does not invoke a live adapter.
+
+This is sufficient to continue evaluation work, but not sufficient to approve
+the full IA convergence scope. The next IA work is limited to a host-level
+integration slice after live adapter retrieval evidence is collected; broad
+navigation and visual redesign remains deferred.

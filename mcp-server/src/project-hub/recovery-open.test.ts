@@ -14,6 +14,7 @@ function owners(overrides: Partial<RecoveryOpenOwners> = {}): RecoveryOpenOwners
       listRuns: () => [run],
       listCheckpoints: () => [{ checkpointId: 'checkpoint/one', stage: 'build', status: 'passed', summary: 'build is resumable', recordedAt: '2026-08-28T00:01:00.000Z', citationTargets: ['test:build'] }],
       checkpointSetFingerprint: () => fingerprintRecoveryValue({ checkpoint: 'one' }),
+      readRuntimeProjection: () => ({ activeRuns: [], staleRuns: [], runCount: 0, agentStateFiles: [], workflowState: null, stage: null, stageCitation: null, sourceFiles: [], drift: [] }),
     },
     loadWorkItems: () => [{ entity: 'project/alpha/issue/build', label: 'Build recovery', state: 'in-progress', blockedBy: [], citationTargets: ['issue:build'], currentStage: 'build' }],
     loadProjectMemory: async () => ({ revision: 2, fingerprint: fingerprintRecoveryValue({ memory: 2 }), freshness: 'current', reviewedDecisions: [{ decisionId: 'decision/one', text: 'Keep recovery read-only', citationTargets: ['decision:one'], reviewStatus: 'reviewed' }, { decisionId: 'decision/draft', text: 'Do not expose this', citationTargets: [], reviewStatus: 'draft' }] }),
@@ -150,4 +151,36 @@ test('open omits malformed capability-owner snapshots instead of throwing', asyn
   }, '2026-08-28T02:00:00.000Z');
   assert.equal(response.stage, 'open');
   assert.deepEqual(response.payload.capabilities, []);
+});
+test('new-owner read failures fail closed with independent locks and diagnostics', async () => {
+  const throwing = async (): Promise<never> => { throw new Error('RAW_SECRET_CANARY'); };
+  for (const owner of ['source-evidence', 'agent-domain', 'settings'] as const) {
+    const overrides: Partial<RecoveryOpenOwners> = owner === 'source-evidence'
+      ? { listSourceEvidence: throwing }
+      : owner === 'agent-domain'
+        ? { loadAgentDomainCapabilities: throwing }
+        : { loadSettingsCapabilities: throwing };
+    const response = await composeRecoveryOpenStage('project/alpha', { ...owners(), ...overrides }, '2026-08-28T02:00:00.000Z');
+    assert.equal(response.stage, 'unavailable');
+    assert.equal(response.payload.kind, 'unavailable');
+    assert.equal(response.nextRequests.length, 0);
+    const locks = new Map(response.ownerLocks.map((lock) => [lock.owner, lock]));
+    assert.equal(locks.get(owner)?.state, 'unavailable');
+    assert.equal([...locks.values()].filter((lock) => lock.state === 'unavailable').length, 1);
+    assert.ok(response.diagnostics.some((item) => item.owner === owner && item.code === 'owner_unavailable'));
+    assert.doesNotMatch(JSON.stringify(response), /RAW_SECRET_CANARY/u);
+  }
+  const base = owners();
+  const combined = await composeRecoveryOpenStage('project/alpha', {
+    ...base,
+    listSourceEvidence: throwing,
+    workflow: { ...base.workflow, listRuns: () => { throw new Error('RAW_WORKFLOW_CANARY'); } },
+  }, '2026-08-28T02:00:00.000Z');
+  assert.equal(combined.stage, 'unavailable');
+  const combinedLocks = new Map(combined.ownerLocks.map((lock) => [lock.owner, lock]));
+  assert.equal(combinedLocks.get('source-evidence')?.state, 'unavailable');
+  assert.equal(combinedLocks.get('workflow')?.state, 'unavailable');
+  assert.ok(combined.diagnostics.some((item) => item.owner === 'source-evidence' && item.code === 'owner_unavailable'));
+  assert.ok(combined.diagnostics.some((item) => item.owner === 'workflow' && item.code === 'owner_unavailable'));
+  assert.doesNotMatch(JSON.stringify(combined), /RAW_SECRET_CANARY|RAW_WORKFLOW_CANARY/u);
 });

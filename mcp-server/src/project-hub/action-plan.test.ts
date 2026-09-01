@@ -9,7 +9,7 @@ import { fingerprintRecoveryFlowIntrinsicStage, RECOVERY_FLOW_SCHEMA_VERSION, RE
 function deps(): RecoveryOpenOwners {
   const run = { projectId: 'project/alpha', workItemId: 'project/alpha/issue/build', workRunId: 'work-run/current', agentId: 'codex', state: 'running', observedAt: '2026-08-28T00:00:00.000Z', leaseExpiresAt: null, recordFingerprint: fingerprintRecoveryValue('run'), malformed: false };
   return {
-    workflow: { readRun: () => run, listRuns: () => [run], listCheckpoints: () => [], checkpointSetFingerprint: () => fingerprintRecoveryValue([]) },
+    workflow: { readRun: () => run, listRuns: () => [run], listCheckpoints: () => [], checkpointSetFingerprint: () => fingerprintRecoveryValue([]), readRuntimeProjection: () => ({ activeRuns: [], staleRuns: [], runCount: 0, agentStateFiles: [], workflowState: null, stage: null, stageCitation: null, sourceFiles: [], drift: [] }) },
     loadWorkItems: () => [{ entity: 'project/alpha/issue/build', label: 'Build recovery', state: 'in-progress', blockedBy: [], citationTargets: ['issue:build'] }],
     loadProjectMemory: async () => ({}), listSessions: async () => [], listSourceEvidence: async () => ({ records: [] }), loadAgentDomainCapabilities: async () => ({ records: [{ capability: 'workflow.recovery.plan', state: 'available' as const }] }), loadSettingsCapabilities: async () => ({ records: [] }),
   };

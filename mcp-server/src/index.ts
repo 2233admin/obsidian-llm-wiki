@@ -22,7 +22,9 @@ import { RAGAnythingAdapter } from "./adapters/raganything.js";
 import { HindsightAdapter } from "./adapters/hindsight.js";
 import { VaultBrainAdapter } from "./adapters/vaultbrain/index.js";
 import { GraphifyAdapter } from "./adapters/graphify.js";
-import { configureLazyIndex } from "./adapters/vaultbrain/lazy-index.js";
+import { cancelBackfillAndWait, configureLazyIndex, ensureBackfill } from "./adapters/vaultbrain/lazy-index.js";
+import { IndexWatchPlanner } from "./index-watch-planner.js";
+import { IndexWatchRunner } from "./index-watch-runner.js";
 import { AdapterRegistry } from "./adapters/registry.js";
 import {
   parseLegacyKnowledgeAdaptersYaml,
@@ -38,6 +40,9 @@ import { createApplicationRuntime } from "./application/runtime.js";
 import { FileVaultStore } from "./vault/store.js";
 import { LegacyCompileRunAdapter } from "./compile/compile-run-port.js";
 import { LegacyAgentRunnerAdapter, PythonEvaluateRunner } from "./agent/agent-runner-port.js";
+import { CANONICAL_VAULT_ENV, readVaultEnvironment } from "./runtime-env.js";
+import { VaultFileWatcher } from "./vault-watcher.js";
+
 
 // Precompiled regex patterns for performance (avoid recompilation on every call)
 const WIKILINK_RE = /\[\[([^\]|]+)(?:\|([^\]]*))?\]\]/g;
@@ -115,7 +120,7 @@ function loadConfig(): RuntimeVaultMindConfig {
   // env var is a declaration of intent and must not be silently shadowed by an
   // abandoned yaml in cwd or parent -- prior to this fix a stale dev-workspace
   // yaml could quietly redirect the server away from the user's chosen vault.
-  const envVault = process.env.VAULT_MIND_VAULT_PATH || process.env.VAULT_BRIDGE_VAULT;
+  const envVault = readVaultEnvironment();
   if (envVault) {
     const envWeights = process.env.VAULT_MIND_ADAPTER_WEIGHTS;
     const envAdapters = process.env.VAULT_MIND_ADAPTERS;
@@ -135,7 +140,7 @@ function loadConfig(): RuntimeVaultMindConfig {
   for (const p of candidates) {
     if (existsSync(p)) return { ...parseSimpleYaml(readFileSync(p, "utf-8")), config_path: p };
   }
-  throw new Error("No vault-mind.yaml found and VAULT_MIND_VAULT_PATH not set");
+  throw new Error(`No vault-mind.yaml found and ${CANONICAL_VAULT_ENV} not set`);
 }
 
 function parseSimpleYaml(raw: string): RuntimeVaultMindConfig {
@@ -1747,24 +1752,6 @@ async function main(): Promise<void> {
   );
   await agentRunnerPort.recover();
 
-  // Wire Obsidian file events into compile trigger (when Obsidian is running)
-  const obsidianAdapter = registry.get("obsidian");
-  if (obsidianAdapter?.isAvailable && typeof obsidianAdapter.onFileChange === "function") {
-    obsidianAdapter.onFileChange((e) => {
-      if (e.type === "create" || e.type === "modify") {
-        compileTrigger.onFileChange(e.path, e.type);
-        if (vaultBrainAdapter && e.path.endsWith(".md")) {
-          try {
-            const fullPath = join(config.vault_path, e.path.replace(/\\/g, "/"));
-            const content = readFileSync(fullPath, "utf-8");
-            vaultBrainAdapter.ingest(e.path, content).catch((err) =>
-              process.stderr.write(`obsidian-llm-wiki: [vaultbrain] ingest error: ${(err as Error).message}\n`)
-            );
-          } catch { /* file may not exist yet */ }
-        }
-      }
-    });
-  }
 
   // Populate dirty set from kb_meta diff (files changed while server was offline)
   await compileTrigger.loadInitialDirty();
@@ -1777,23 +1764,76 @@ async function main(): Promise<void> {
     warn: (msg) => process.stderr.write(`[WARN] ${msg}\n`),
     error: (msg) => process.stderr.write(`[ERROR] ${msg}\n`),
   };
-
-  const ingestMarkdownIntoVaultBrain = (relPath: string): void => {
-    if (!vaultBrainAdapter || !relPath.endsWith(".md")) return;
-    try {
-      const fullPath = join(config.vault_path, relPath.replace(/\\/g, "/"));
-      if (!existsSync(fullPath)) return;
-      const content = readFileSync(fullPath, "utf-8");
-      vaultBrainAdapter.ingest(relPath, content).catch((err) =>
-        process.stderr.write(`obsidian-llm-wiki: [vaultbrain] ingest error: ${(err as Error).message}\n`)
-      );
-    } catch { /* ignore */ }
+  const obsidianAdapter = registry.get("obsidian");
+  const hasObsidianEvents = Boolean(
+    obsidianAdapter?.isAvailable && typeof obsidianAdapter.onFileChange === "function",
+  );
+  const watchPlanner = new IndexWatchPlanner({ debounceMs: 250 });
+  let watchFlushTimer: ReturnType<typeof setTimeout> | undefined;
+  const scheduleWatchFlush = (): void => {
+    clearTimeout(watchFlushTimer);
+    const nextDueAt = watchPlanner.nextDueAt();
+    if (nextDueAt === null) return;
+    const delay = Math.max(0, nextDueAt - Date.now());
+    watchFlushTimer = setTimeout(() => {
+      watchFlushTimer = undefined;
+      void watchRunner.flush().then(scheduleWatchFlush, scheduleWatchFlush);
+    }, delay);
+    watchFlushTimer.unref?.();
+  };
+  const watchRunner = new IndexWatchRunner({
+    onError: (error) =>
+      process.stderr.write(
+        `obsidian-llm-wiki: [vaultbrain] watcher flush error: ${error instanceof Error ? error.message : String(error)}\n`,
+      ),
+    index: async (signal) => {
+      const paths = watchPlanner.take(Date.now());
+      for (let index = 0; index < paths.length; index += 1) {
+        const path = paths[index];
+        if (signal.aborted) {
+          for (const remaining of paths.slice(index)) watchPlanner.record(remaining, Date.now());
+          return;
+        }
+        try {
+          const fullPath = join(config.vault_path, path.replace(/\\/g, "/"));
+          if (!vaultBrainAdapter) return;
+          if (!existsSync(fullPath)) {
+            await vaultBrainAdapter.deletePath(path, signal);
+            continue;
+          }
+          const content = readFileSync(fullPath, "utf-8");
+          const stats = statSync(fullPath);
+          await vaultBrainAdapter.ingest(
+            path,
+            content,
+            {
+              mtimeMs: Math.floor(stats.mtimeMs),
+              sizeBytes: stats.size,
+            },
+            signal,
+          );
+        } catch (error) {
+          watchPlanner.record(path, Date.now());
+          for (const remaining of paths.slice(index + 1)) watchPlanner.record(remaining, Date.now());
+          throw error;
+        }
+      }
+    },
+    graceMs: 5000,
+  });
+  const queueVaultBrainPath = (path: string, timestamp = Date.now()): void => {
+    if (!vaultBrainAdapter || !path.endsWith(".md")) return;
+    watchPlanner.record(path, timestamp);
+    scheduleWatchFlush();
   };
 
-  const touchMarkdown = (relPath: unknown, event: "create" | "modify" | "delete"): void => {
+  const touchMarkdown = (
+    relPath: unknown,
+    event: "create" | "modify" | "delete",
+  ): void => {
     if (typeof relPath !== "string" || !relPath.endsWith(".md")) return;
     compileTrigger.onFileChange(relPath, event);
-    if (event !== "delete") ingestMarkdownIntoVaultBrain(relPath);
+    queueVaultBrainPath(relPath);
   };
 
   const applyWriteEffect = (effect: WriteEffect): void => {
@@ -1804,15 +1844,35 @@ async function main(): Promise<void> {
     }
     touchMarkdown(effect.path, effect.event);
   };
+  const vaultWatcher = new VaultFileWatcher({
+    root: config.vault_path,
+    onEvent: (event) => {
+      if (event.type === "rename") return;
+      touchMarkdown(event.path, event.type);
+    },
+  });
+  vaultWatcher.start();
+  if (hasObsidianEvents) {
+    obsidianAdapter!.onFileChange!((event) => {
+      if (event.type === "rename") {
+        if (event.oldPath) touchMarkdown(event.oldPath, "delete");
+        touchMarkdown(event.path, "create");
+        return;
+      }
+      if (event.type !== "create" && event.type !== "modify" && event.type !== "delete") return;
+      touchMarkdown(event.path, event.type);
+    });
+  }
+  if (vaultBrainAdapter) void ensureBackfill({ force: true, syncCap: 0 });
 
   const runtime = createApplicationRuntime({
     compileTrigger,
     compileRunPort,
     agentRunnerPort,
     registry,
-    defaultWeights: config.adapter_weights,
     python,
     compilerPath,
+    defaultWeights: config.adapter_weights,
     vaultPath: config.vault_path,
     store: vaultStore,
     configPath: config.config_path,
@@ -1848,8 +1908,35 @@ async function main(): Promise<void> {
     },
   });
 
-  await startStdioServer(server);
+  let shutdownPromise: Promise<void> | undefined;
+  const shutdown = (): Promise<void> => {
+    if (!shutdownPromise) {
+      shutdownPromise = (async () => {
+        clearTimeout(watchFlushTimer);
+        await cancelBackfillAndWait();
+        await watchRunner.shutdown();
+        vaultWatcher.stop();
+      })();
+    }
+    return shutdownPromise;
+  };
+  const handleSignal = (): void => {
+    void shutdown().then(
+      () => process.exit(0),
+      (error) => {
+        process.stderr.write(`obsidian-llm-wiki: shutdown failed: ${error instanceof Error ? error.message : String(error)}\n`);
+        process.exit(1);
+      },
+    );
+  };
+  process.once("SIGINT", handleSignal);
+  process.once("SIGTERM", handleSignal);
+  process.once("exit", () => {
+    clearTimeout(watchFlushTimer);
+    vaultWatcher.stop();
+  });
 
+  await startStdioServer(server);
   const adapterNames = registry.list().map((a) => a.name).join(", ");
   process.stderr.write(`obsidian-llm-wiki: MCP server running (stdio, v${VERSION}, adapters: ${adapterNames})\n`);
   process.stderr.write(`obsidian-llm-wiki: try "what do I know about <topic>" to invoke vault-librarian\n`);

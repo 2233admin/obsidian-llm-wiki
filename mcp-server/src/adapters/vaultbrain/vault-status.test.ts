@@ -44,6 +44,11 @@ function fakeVba(opts?: {
       if (opts?.reject) throw new Error("boom");
       return opts?.lastIndexedAtMs ?? null;
     },
+    async listIndexedSlugs() { return []; },
+    async getIndexedStamp() { return null; },
+    async setReindexState() {},
+    async deletePath() {},
+    async deleteSlug() {},
   } as unknown as VaultBrainAdapter;
 }
 
@@ -224,6 +229,12 @@ test("gatherVaultStatus: defaults indexingInProgress to isBackfillInFlight() whe
   const vba = {
     name: "vaultbrain",
     isAvailable: true,
+    async listIndexedSlugs() { return []; },
+    async getIndexedStamp() { return null; },
+    async getReindexState() { return null; },
+    async setReindexState() {},
+    async deletePath() {},
+    async deleteSlug() {},
     async countChunks() { return primed ? 20 : 0; },
     async getLastIndexedAtMs() { return null; },
     async ingest(path: string) { primed = true; await gate; ingested.push(path); },

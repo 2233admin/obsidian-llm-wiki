@@ -11,9 +11,19 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$Cli = Join-Path $PSScriptRoot "mcp-server\setup-cli.js"
+$McpDir = Join-Path $PSScriptRoot "mcp-server"
+$Cli = Join-Path $McpDir "setup-cli.js"
 if (-not (Test-Path $Cli)) {
-  Write-Error "TypeScript setup bundle not found at $Cli. Build it with: cd mcp-server; npm run rebuild"
+  Write-Warning "Setup bundle not found; bootstrapping MCP dependencies and rebuilding now."
+  if (-not (Test-Path (Join-Path $McpDir "node_modules"))) {
+    & npm --prefix $McpDir ci
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  }
+  & npm --prefix $McpDir run rebuild
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
+if (-not (Test-Path $Cli)) {
+  Write-Error "Setup bundle could not be built at $Cli"
   exit 1
 }
 

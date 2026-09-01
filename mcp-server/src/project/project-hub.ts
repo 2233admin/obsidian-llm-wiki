@@ -38,8 +38,7 @@ import {
   scanWorkNotes,
   workState,
 } from './workos.js';
-import { isCanonicalWorkItemId, isCanonicalWorkRunId, readWorkflowState } from '../workflow/workflow.js';
-import { createWorkflowReadModel } from '../workflow/workflow-read-model.js';
+import { createWorkflowReadModel, type WorkflowReadModel } from '../workflow/workflow-read-model.js';
 import { createDurableProjectMemorySource } from '../core/project-memory-operations.js';
 import { projectContextFromSource } from '../project-memory/index.js';
 import { readSourceRegistry, type SourceRecord } from '../source/source.js';
@@ -83,6 +82,7 @@ interface HubSection<T> {
 
 export interface ProjectHubOperationsOptions {
   now?: () => number;
+  workflowReadModel?: WorkflowReadModel;
   loadVisualTriage?: (request: {
     projectId: string;
     generatedAt: string;
@@ -196,98 +196,26 @@ function knowledgeSection(vaultPath: string, context: ProjectContext): HubSectio
   return section('knowledge', files, { root: context.roots.knowledge, itemCount: markdown.length });
 }
 
-function aliasedRunField(
-  raw: Record<string, unknown>,
-  canonical: string,
-  legacy: string,
-  path: string,
-  drift: string[],
-): unknown {
-  const current = raw[canonical];
-  const previous = raw[legacy];
-  if (current !== undefined && previous !== undefined && current !== previous) {
-    drift.push(`run_${canonical}_conflict:${path}`);
-    return undefined;
-  }
-  return current ?? previous;
-}
-
-function runtimeSection(vaultPath: string, context: ProjectContext, observedAt = Date.now()): HubSection<Record<string, unknown>> {
-  const runFiles = filesBelow(vaultPath, `${context.roots.workOs}/runs`).filter((file) => file.path.endsWith('.json') && !/(?:^|\/)(?:output|recovery)-(?:claims|runs|tokens)\//u.test(file.path));
-  const agentFiles = filesBelow(vaultPath, `${context.roots.workOs}/agents`);
-  const workflowFiles = filesBelow(vaultPath, `${context.roots.workOs}/workflow/status.md`);
-  const runs: Array<Record<string, unknown>> = [];
-  const drift: string[] = [];
-  for (const file of runFiles) {
-    try {
-      const raw = JSON.parse(readFileSync(join(vaultPath, file.path), 'utf-8')) as Record<string, unknown>;
-      const runProjectId = aliasedRunField(raw, 'projectId', 'project_id', file.path, drift);
-      if (typeof runProjectId !== 'string') {
-        drift.push(`run_project_id_missing:${file.path}`);
-        continue;
-      }
-      if (runProjectId !== context.projectId) {
-        drift.push(`run_project_mismatch:${file.path}`);
-        continue;
-      }
-      const workRunId = aliasedRunField(raw, 'workRunId', 'work_run_id', file.path, drift);
-      const validWorkRunId = isCanonicalWorkRunId(workRunId);
-      if (!validWorkRunId) drift.push(`run_work_id_invalid:${file.path}`);
-      const workItemId = aliasedRunField(raw, 'workItemId', 'work_item_id', file.path, drift);
-      const validWorkItemId = isCanonicalWorkItemId(workItemId) && workItemId.startsWith(`${context.projectId}/`);
-      if (!validWorkItemId) drift.push(`run_work_item_id_invalid:${file.path}`);
-      const expiryValues = [
-        raw.leaseExpiresAt,
-        raw.lease_expires_at,
-        raw.handoffExpiresAt,
-        raw.handoff_expires_at,
-        raw.expiresAt,
-        raw.expires_at,
-      ].filter((value): value is string => value !== undefined).map(String);
-      const expiry = expiryValues[0];
-      const expiryConflict = expiryValues.some((value) => value !== expiry);
-      if (expiryConflict) drift.push(`run_expiry_conflict:${file.path}`);
-      const expiryMs = expiry ? Date.parse(expiry) : Number.NaN;
-      const validExpiry = !expiry || (!expiryConflict && Number.isFinite(expiryMs));
-      if (expiry && !Number.isFinite(expiryMs)) drift.push(`run_expiry_invalid:${file.path}`);
-      const stale = Boolean(expiry) && Number.isFinite(expiryMs) && expiryMs <= observedAt;
-      if (stale) drift.push(`expired_work_run:${file.path}`);
-      runs.push({
-        projectId: runProjectId,
-        workRunId: validWorkRunId ? workRunId : null,
-        state: raw.state ?? null,
-        stage: raw.stage ?? raw.agentStage ?? null,
-        workItemId: validWorkItemId ? workItemId : null,
-        resumable: validWorkRunId && validWorkItemId && validExpiry,
-        path: file.path,
-        stale,
-        citationTargets: [file.path],
-      });
-    } catch {
-      drift.push(`malformed_run:${file.path}`);
-    }
-  }
-  let workflowState;
-  try {
-    workflowState = readWorkflowState(vaultPath, context.slug);
-  } catch {
-    workflowState = null;
-    drift.push('malformed_workflow_state');
-  }
-  const activeStates = new Set(['planned', 'leased', 'running', 'awaiting_review']);
-  const activeRuns = runs.filter((run) => activeStates.has(String(run.state)) && run.stale !== true);
-  const stagedRun = activeRuns.find((run) => run.resumable === true && typeof run.stage === 'string' && run.stage.trim());
-  return section('runtime', [...runFiles, ...agentFiles, ...workflowFiles], {
-    activeRuns,
-    staleRuns: runs.filter((run) => run.stale === true),
-    runCount: runs.length,
-    agentStateFiles: agentFiles.map((file) => file.path),
-    workflowState: workflowState
-      ? { stage: workflowState.stage, objective: workflowState.objective, path: workflowState.path }
-      : null,
-    stage: workflowState?.stage ?? (typeof stagedRun?.stage === 'string' ? stagedRun.stage : null),
-    stageCitation: workflowState?.path ?? (typeof stagedRun?.path === 'string' ? stagedRun.path : null),
-  }, drift);
+function runtimeSection(
+  workflow: WorkflowReadModel,
+  vaultPath: string,
+  context: ProjectContext,
+  observedAt = Date.now(),
+): HubSection<Record<string, unknown>> {
+  const projection = workflow.readRuntimeProjection(context.projectId, observedAt);
+  const files = projection.sourceFiles.map((path) => ({
+    path,
+    modifiedAt: statSync(join(vaultPath, path)).mtime.toISOString(),
+  }));
+  return section('runtime', files, {
+    activeRuns: projection.activeRuns,
+    staleRuns: projection.staleRuns,
+    runCount: projection.runCount,
+    agentStateFiles: projection.agentStateFiles,
+    workflowState: projection.workflowState,
+    stage: projection.stage,
+    stageCitation: projection.stageCitation,
+  }, [...projection.drift]);
 }
 
 function redactedEffectiveSetting(service: SettingsService, item: EffectiveSetting): Record<string, unknown> {
@@ -694,7 +622,12 @@ function projectReference(params: Record<string, unknown>): string {
   }
   return reference;
 }
-
+function compareRecoverySearchItems(left: ProjectSearchSourceReadersResult[number], right: ProjectSearchSourceReadersResult[number]): number {
+  return left.itemId.localeCompare(right.itemId)
+    || left.itemType.localeCompare(right.itemType)
+    || left.label.localeCompare(right.label)
+    || JSON.stringify(left.citationTargets).localeCompare(JSON.stringify(right.citationTargets));
+}
 function defaultRecoveryOwners(
   vaultPath: string,
   registry: AdapterRegistry,
@@ -733,13 +666,16 @@ function defaultRecoveryOwners(
       return [{ sessionId: session.sessionId, projectId: session.projectId, workItemId: typeof workItemId === 'string' ? workItemId : null, capturedAt: session.capturedAt ?? null, status: session.status, revision: session.revision ?? null, citationTargets: (session.sourceRefs ?? []).map((reference) => typeof reference === 'string' ? reference : reference.ref) }];
     }),
     listSourceEvidence: async (projectId): Promise<RecoveryOwnerSnapshot<RecoverySourceEvidenceRead>> => {
-      const items = sourceEvidenceItems(vaultPath, projectId);
+      const items = sourceEvidenceItems(vaultPath, projectId).sort(compareRecoverySearchItems);
       const records = items.map(({ itemId, projectId: recordProjectId, citationTargets }) => ({ itemId, projectId: recordProjectId, citationTargets }));
       return { records, fingerprint: fingerprintRecoveryValue(records) };
     },
-    // Agent Domain and Settings are separate owner reads even when they share the same capability fact.
     loadAgentDomainCapabilities: async (): Promise<RecoveryOwnerSnapshot<RecoveryCapabilityRead>> => ({ records: [capabilityFact], fingerprint: fingerprintRecoveryValue([capabilityFact]) }),
-    loadSettingsCapabilities: async (): Promise<RecoveryOwnerSnapshot<RecoveryCapabilityRead>> => ({ records: [capabilityFact], fingerprint: fingerprintRecoveryValue([capabilityFact]) }),
+    loadSettingsCapabilities: async (): Promise<RecoveryOwnerSnapshot<RecoveryCapabilityRead>> => {
+      const records: RecoveryCapabilityRead[] = [];
+      const revision = 'settings-owner/v1';
+      return { records, revision, fingerprint: fingerprintRecoveryValue({ owner: 'settings', revision, records }) };
+    },
   };
 }
 
@@ -875,7 +811,7 @@ function defaultRecoverySearchSource(vaultPath: string): ProjectSearchSource {
       return { fingerprint: fingerprintRecoveryValue({ runs, checkpoints }), items };
     },
     'source-evidence': (projectId) => {
-      const items = sourceEvidenceItems(vaultPath, projectId).sort((left, right) => left.itemId.localeCompare(right.itemId));
+      const items = sourceEvidenceItems(vaultPath, projectId).sort(compareRecoverySearchItems);
       return { fingerprint: fingerprintRecoveryValue(items), items };
     },
   });
@@ -1039,6 +975,7 @@ export async function composeProjectHub(
 ): Promise<Record<string, unknown>> {
   const project = resolveProjectContext(ctx.config.vault_path, reference, 'project.hub.get');
   const generatedAt = new Date(options.now?.() ?? Date.now()).toISOString();
+  const workflow = options.workflowReadModel ?? createWorkflowReadModel(ctx.config.vault_path);
   const registryFiles = filesBelow(ctx.config.vault_path, project.roots.registryRecord);
   const visualTriage = await visualTriageProjection(
     ctx,
@@ -1056,7 +993,7 @@ export async function composeProjectHub(
     }, project.diagnostics.filter((item) => item.severity !== 'info').map((item) => item.code)),
     work: workSection(ctx.config.vault_path, project),
     knowledge: knowledgeSection(ctx.config.vault_path, project),
-    runtime: runtimeSection(ctx.config.vault_path, project, Date.parse(generatedAt)),
+    runtime: runtimeSection(workflow, ctx.config.vault_path, project, Date.parse(generatedAt)),
     settings: await settingsSection(settingsService, project),
     capabilities: capabilitySection(registry),
     workspace: workspaceSection(project),

@@ -1,8 +1,8 @@
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { fingerprintRecoveryValue, hasUnsafeRecoveryMaterial, type RecoveryFingerprint } from '../project-hub/contract-support.js';
-import { isCanonicalWorkItemId, isCanonicalWorkRunId } from './workflow.js';
+import { isCanonicalWorkItemId, isCanonicalWorkRunId, readWorkflowState } from './workflow.js';
 
 export interface WorkflowRunRead {
   projectId: string;
@@ -25,11 +25,36 @@ export interface WorkflowCheckpointRead {
   citationTargets: string[];
 }
 
+export interface NormalizedWorkRunRuntime {
+  readonly projectId: string;
+  readonly workRunId: string | null;
+  readonly workItemId: string | null;
+  readonly state: string | null;
+  readonly stage: string | null;
+  readonly resumable: boolean;
+  readonly path: string;
+  readonly stale: boolean;
+  readonly citationTargets: readonly string[];
+}
+
+export interface NormalizedWorkRunProjection {
+  readonly activeRuns: readonly NormalizedWorkRunRuntime[];
+  readonly staleRuns: readonly NormalizedWorkRunRuntime[];
+  readonly runCount: number;
+  readonly agentStateFiles: readonly string[];
+  readonly workflowState: { readonly stage: string; readonly objective: string; readonly path: string } | null;
+  readonly stage: string | null;
+  readonly stageCitation: string | null;
+  readonly sourceFiles: readonly string[];
+  readonly drift: readonly string[];
+}
+
 export interface WorkflowReadModel {
   readRun(projectId: string, workRunId: string): WorkflowRunRead | null;
   listRuns(projectId: string): WorkflowRunRead[];
   listCheckpoints(projectId: string, workRunId: string): WorkflowCheckpointRead[];
   checkpointSetFingerprint(projectId: string, workRunId: string): RecoveryFingerprint;
+  readRuntimeProjection(projectId: string, observedAt?: number): NormalizedWorkRunProjection;
 }
 
 const PROJECT_ID = /^project\/[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])$/u;
@@ -63,6 +88,10 @@ function safeField(value: unknown, max = 512): string {
   if (!normalized || normalized.length > max || hasUnsafeRecoveryMaterial(normalized)) return '';
   return normalized;
 }
+function protocolField(value: unknown, max = 64): string | null {
+  if (typeof value !== 'string' || value.length > max || hasUnsafeRecoveryMaterial(value)) return null;
+  return value;
+}
 
 function runFromBytes(projectId: string, workRunId: string, bytes: string): WorkflowRunRead {
   const malformed = (fingerprint: RecoveryFingerprint): WorkflowRunRead => ({
@@ -89,6 +118,7 @@ function runFromBytes(projectId: string, workRunId: string, bytes: string): Work
   const recordRun = safeField(field(record, 'work_run_id', 'workRunId'), 200);
   const workItemId = safeField(field(record, 'work_item_id', 'workItemId'), 256);
   const agentId = safeField(field(record, 'agent_id', 'agentId'), 128);
+
   const state = safeField(record.state, 64);
   const observedAt = timestamp(field(record, 'updated_at', 'updatedAt', 'observed_at', 'observedAt'))
     || timestamp(field(record, 'created_at', 'createdAt'));
@@ -113,6 +143,121 @@ function runFromBytes(projectId: string, workRunId: string, bytes: string): Work
     recordFingerprint,
     malformed: false,
   };
+}
+
+function aliasedRuntimeField(
+  raw: Record<string, unknown>,
+  canonical: string,
+  legacy: string,
+  path: string,
+  drift: string[],
+): unknown {
+  const canonicalValue = raw[canonical];
+  const legacyValue = raw[legacy];
+  if (canonicalValue !== undefined && legacyValue !== undefined && canonicalValue !== legacyValue) {
+    drift.push(`run_${canonical}_conflict:${path}`);
+    return undefined;
+  }
+  return canonicalValue ?? legacyValue;
+}
+function isRegularFile(path: string): boolean {
+  try { return statSync(path).isFile(); } catch { return false; }
+}
+
+
+function discoverRuntimeFiles(
+  vault: string,
+  rootRelative: string,
+  predicate: (name: string) => boolean,
+  excludeRuntimeDirectories = false,
+): string[] {
+  const files: string[] = [];
+  const visit = (directory: string, relativeDirectory: string): void => {
+    let entries;
+    try {
+      entries = readdirSync(directory, { withFileTypes: true }).sort((left, right) => left.name.localeCompare(right.name));
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const fullPath = join(directory, entry.name);
+      const relativePath = `${relativeDirectory}/${entry.name}`;
+      if (entry.isDirectory()) {
+        if (!excludeRuntimeDirectories || !/^(?:output|recovery)-/u.test(entry.name)) visit(fullPath, relativePath);
+      } else if (entry.isFile() && predicate(entry.name)) files.push(relativePath);
+    }
+  };
+  visit(vaultPath(vault, rootRelative), rootRelative);
+  return files.sort((left, right) => left.localeCompare(right));
+}
+
+function normalizedRuntimeRun(
+  projectId: string,
+  path: string,
+  bytes: string,
+  observedAt: number,
+  drift: string[],
+): NormalizedWorkRunRuntime | null {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(bytes);
+  } catch {
+    drift.push(`malformed_run:${path}`);
+    return null;
+  }
+  try {
+    const record = raw as Record<string, unknown>;
+    const recordProject = aliasedRuntimeField(record, 'projectId', 'project_id', path, drift);
+    if (typeof recordProject !== 'string') {
+      drift.push(`run_project_id_missing:${path}`);
+      return null;
+    }
+    if (recordProject !== projectId) {
+      drift.push(`run_project_mismatch:${path}`);
+      return null;
+    }
+
+    const workRunValue = aliasedRuntimeField(record, 'workRunId', 'work_run_id', path, drift);
+    const validWorkRunId = isCanonicalWorkRunId(workRunValue);
+    if (!validWorkRunId) drift.push(`run_work_id_invalid:${path}`);
+    const workItemValue = aliasedRuntimeField(record, 'workItemId', 'work_item_id', path, drift);
+    const validWorkItemId = isCanonicalWorkItemId(workItemValue) && workItemValue.startsWith(`${projectId}/`);
+    if (!validWorkItemId) drift.push(`run_work_item_id_invalid:${path}`);
+
+    const expiryValues = [
+      record.leaseExpiresAt,
+      record.lease_expires_at,
+      record.handoffExpiresAt,
+      record.handoff_expires_at,
+      record.expiresAt,
+      record.expires_at,
+    ].filter((value): value is Exclude<unknown, undefined> => value !== undefined).map(String);
+    const expiry = expiryValues[0] ?? '';
+    const expiryConflict = expiryValues.some((value) => value !== expiry);
+    if (expiryConflict) drift.push(`run_expiry_conflict:${path}`);
+    const expiryMs = expiry ? Date.parse(expiry) : Number.NaN;
+    const validExpiry = !expiry || (!expiryConflict && Number.isFinite(expiryMs));
+    if (expiry && !Number.isFinite(expiryMs)) drift.push(`run_expiry_invalid:${path}`);
+    const stale = Boolean(expiry) && Number.isFinite(expiryMs) && expiryMs <= observedAt;
+    if (stale) drift.push(`expired_work_run:${path}`);
+    const state = protocolField(record.state);
+    const stage = protocolField(record.stage ?? record.agentStage);
+    const runtime: NormalizedWorkRunRuntime = {
+      projectId,
+      workRunId: validWorkRunId ? workRunValue : null,
+      workItemId: validWorkItemId ? workItemValue : null,
+      state,
+      stage,
+      resumable: validWorkRunId && validWorkItemId && validExpiry,
+      path,
+      stale,
+      citationTargets: [path],
+    };
+    return runtime;
+  } catch {
+    drift.push(`malformed_run:${path}`);
+    return null;
+  }
 }
 
 function runFile(vault: string, projectId: string, workRunId: string): string {
@@ -214,6 +359,77 @@ export function createWorkflowReadModel(vault: string): WorkflowReadModel {
         }
       }
       return runs.sort((left, right) => right.observedAt.localeCompare(left.observedAt) || left.workRunId.localeCompare(right.workRunId));
+    },
+    readRuntimeProjection(projectId, observedAt = Date.now()) {
+      const project = slug(projectId);
+      if (!project) {
+        return {
+          activeRuns: [],
+          staleRuns: [],
+          runCount: 0,
+          agentStateFiles: [],
+          workflowState: null,
+          stage: null,
+          stageCitation: null,
+          sourceFiles: [],
+          drift: [],
+        };
+      }
+
+      const runsRoot = `01-Projects/${project}/runs`;
+      const runFiles = discoverRuntimeFiles(vault, runsRoot, (name) => name.endsWith('.json'), true);
+      const drift: string[] = [];
+      const parsedRuns: NormalizedWorkRunRuntime[] = [];
+      for (const path of runFiles) {
+        const nestedPath = path.slice(runsRoot.length + 1);
+        if (nestedPath.includes('/')) drift.push(`run_noncanonical_path:${path}`);
+        try {
+          const parsed = normalizedRuntimeRun(projectId, path, readFileSync(vaultPath(vault, path), 'utf8'), observedAt, drift);
+          if (parsed) parsedRuns.push(parsed);
+        } catch {
+          drift.push(`malformed_run:${path}`);
+        }
+      }
+
+      const agentStateFiles = discoverRuntimeFiles(
+        vault,
+        `01-Projects/${project}/agents`,
+        () => true,
+      );
+      const workflowPath = `01-Projects/${project}/workflow/status.md`;
+      const workflowPathExists = existsSync(vaultPath(vault, workflowPath));
+      const workflowFileExists = workflowPathExists && isRegularFile(vaultPath(vault, workflowPath));
+      let workflowState: { readonly stage: string; readonly objective: string; readonly path: string } | null = null;
+      if (workflowPathExists) {
+        try {
+          const state = readWorkflowState(vault, project);
+          const safeStage = safeField(state?.stage, 64);
+          const safeObjective = safeField(state?.objective, 1_024);
+          workflowState = state && safeStage
+            ? { stage: safeStage, objective: safeObjective, path: state.path }
+            : null;
+          if (!state || !safeStage) drift.push('malformed_workflow_state');
+        } catch {
+          drift.push('malformed_workflow_state');
+        }
+      }
+
+      const activeStates = new Set(['planned', 'leased', 'running', 'awaiting_review']);
+      const activeRuns = parsedRuns
+        .filter((run) => activeStates.has(run.state ?? '') && !run.stale);
+      const staleRuns = parsedRuns.filter((run) => run.stale);
+      const stagedRun = activeRuns.find((run) => run.resumable && Boolean(run.stage?.trim()));
+      return {
+        activeRuns,
+        staleRuns,
+        runCount: parsedRuns.length,
+        agentStateFiles: [...agentStateFiles],
+        workflowState,
+        stage: workflowState?.stage ?? stagedRun?.stage ?? null,
+        stageCitation: workflowState?.path ?? stagedRun?.path ?? null,
+        sourceFiles: [...agentStateFiles, ...runFiles, ...(workflowFileExists ? [workflowPath] : [])].sort((left, right) => left.localeCompare(right)),
+        drift: [...new Set(drift)],
+      };
     },
     listCheckpoints(projectId, workRunId) {
       const run = this.readRun(projectId, workRunId);

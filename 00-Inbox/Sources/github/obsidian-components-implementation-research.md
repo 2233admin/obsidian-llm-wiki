@@ -16,6 +16,37 @@ updated_at: "2026-08-31T00:00:00.000Z"
 
 # Obsidian Components implementation research
 
+<!-- REVIEW: COMPLETE -->
+<!--
+  Review date: 2026-09-02
+  Reviewer: codex
+  Findings:
+    1. COMPLETENESS: Core APIs covered. Gaps noted below.
+    2. BROKEN LINKS: None found. All GitHub URLs point to valid paths.
+    3. ADR ALIGNMENT: Aligns with docs/superpowers/specs/2026-08-27-components-internalization-design.md
+       and with packages/agent-wiki-contracts/src/template-manifest.ts and
+       packages/visual-workspace/src/template-import.ts. The local manifest contract is narrower
+       than the observed sample schema (see gaps below); this is intentional per the design doc
+       and correctly documented in section "Local implementation and contract evidence".
+    4. ADR PROMOTION CANDIDATE: Section "Effect on the bounded internalization slice" encodes
+       three significant architectural decisions that should be lifted to formal ADRs:
+         - Store .components as opaque hash-locked external-observation artifacts
+         - Use manifest-plus-artifact envelope for all write operations
+         - Stop condition: no code internalization without license + dependency audit
+       Recommend authoring ADR-0007 for these three supply-chain provenance decisions.
+  Gaps (minor):
+    - Sample Home.components reveals component types not explicitly named in the bundle-string
+      section: dynamicDataView, quote, countdown, time. These appear as type values in the
+      sample but not as feature labels in the bundle scan. Add to Feature-string evidence.
+    - TemplateManifestV1 component types (multi, data-view, form, card, count, markdown, time)
+      are a proper subset of the sample's observed types (dynamicDataView, quote, countdown,
+      dynamicDataView with viewType). This is intentional per the design spec but could
+      confuse a reader who expects 1:1 correspondence. A note clarifying the mapping gap
+      would help.
+    - The "Bounded first internalization slice" is a roadmap; it is unclear which items
+      are implemented vs. planned. Consider adding a status column or checklist.
+-->
+
 ## Source
 
 - Input and canonical source: [obsidian-components/obsidian-components-release](https://github.com/obsidian-components/obsidian-components-release)
@@ -55,6 +86,15 @@ The expanded GitHub asset listing exposes six release assets ([expanded assets](
 The direct bundle URL is [published `main.js`](https://github.com/obsidian-components/obsidian-components-release/releases/download/3.1.260826/main.js). The inventory establishes availability and integrity hashes, but not build reproducibility, source correspondence, or dependency provenance.
 
 ### Feature-string evidence from the published bundle
+
+<!-- REVIEW NOTE: Gaps in bundle-string section — the scan misses type values that appear
+     in the sample Home.components but not as feature labels in main.js:
+       - dynamicDataView (observed as type: "dynamicDataView" in sample)
+       - quote (observed as type: "quote" in sample)
+       - countdown (observed as type: "countdown" in sample)
+     These may be settings-only strings, internalized identifiers, or render-time labels
+     not present as top-level strings. They should be noted here as "sample-only" types
+     and marked as "inferred" to avoid implying they were verified in the bundle scan. -->
 
 A string-only scan of the published bundle found the following labels/keys. These are **artifact evidence of names present in the shipped bundle, not proof of every runtime path or interaction** ([published `main.js`](https://github.com/obsidian-components/obsidian-components-release/releases/download/3.1.260826/main.js)):
 
@@ -103,7 +143,38 @@ The local branch now has a host-neutral, contract-first path for treating a `.co
 
 The observed sample's nested `multi.components` entries (`componentId` plus per-device `layout`) and presentation/timestamp fields do not fit the local manifest's flat `children: string[]`, bounded layout, and allowlisted field model ([sample](../../../docs/samples/components/para-sample-vault/Home.components), [local type contract](../../../packages/agent-wiki-contracts/src/template-manifest.ts)). This mismatch is evidence for an explicit observation adapter and diagnostics, **not** evidence that the external plugin accepts or produces the local contract.
 
+<!-- REVIEW NOTE: Type mapping summary for future readers:
+     Local TemplateManifestV1 supports: multi, data-view, form, card, count, markdown, time.
+     Observed sample types NOT in local contract: dynamicDataView, quote, countdown.
+     This is intentional per the design spec — the contract is a bounded internal slice,
+     not a 1:1 replica of the external plugin. The diagnostic system handles unmapped types. -->
+
 ### Effect on the bounded internalization slice
+
+<!-- REVIEW NOTE: The research doc correctly references
+     docs/superpowers/specs/2026-08-27-components-internalization-design.md as the design
+     document. The existing ADR range (0001-0006 in the code-intel index) appears to be stale
+     or points to files renamed/moved. The actual ADR files on disk (0001-project-hub-*.md,
+     0002-workflow-*.md, 0003-workflow-*.md) cover project-hub recovery flows and read
+     projections, not visual-workspace or external-source provenance. No conflict with this
+     research note was found in the on-disk ADRs.
+
+     RECOMMEND PROMOTION TO FORMAL ADR:
+     This section encodes three architecturally significant decisions that apply beyond
+     this single research note:
+       1. Store external .components artifacts as opaque, hash-locked external-observation
+          artifacts — never as runtime-compatible wire formats.
+       2. All write operations pass through a manifest-plus-artifact envelope with source locks,
+          size limits, and deterministic fingerprints; no plugin code execution, no renderer
+          emulation, no write/apply behavior inferred from preview paths.
+       3. Stop condition: no code internalization until the publisher provides the plugin
+          license, third-party notices/dependency inventory, and implementation
+          source/build provenance.
+     These are supply-chain provenance decisions that affect every future external-source
+     ingestion path. They should be captured as an ADR rather than living only in this
+     research note, which is scoped to a single source. Aligns with
+     docs/superpowers/specs/2026-08-27-components-internalization-design.md sections 2, 3.1,
+     3.2, and 13. -->
 
 1. Keep `Home.components` as an opaque, hash-locked external-observation artifact. Produce a `TemplateManifestV1` only through an explicit, versioned observation adapter; map fields covered by the local contract and emit `unsupported`/`ambiguous` diagnostics with evidence for nested layout metadata and other unmapped sample fields ([diagnostic contract](../../../packages/agent-wiki-contracts/src/template-manifest.ts), [sample](../../../docs/samples/components/para-sample-vault/Home.components)).
 2. Send only the manifest-plus-artifact envelope through `visual.template.preview`; preserve the read-only, source-lock, size-limit, safe-input, and deterministic-fingerprint gates. Do not execute the plugin, emulate its renderer/database/query runtime, or infer write/apply behavior from this local preview path ([reader](../../../mcp-server/src/visual-workspace/template-import-reader.ts), [operation](../../../mcp-server/src/visual-workspace/template-import-ops.ts)).
@@ -118,6 +189,11 @@ Allowed evidence in this note is limited to repository metadata, release/tag met
 The local `packages/agent-wiki-contracts` Foundation is a host-neutral, versioned serialization boundary for capability profiles, source-versioned manifests, evidence, and receipts. The local `packages/visual-workspace` core makes ordinary Markdown the canonical source, preserves source ranges and block IDs, records relation provenance, and requires immutable edit plans, complete source locks, and explicit apply confirmation ([local visual-workspace contract](../../../packages/visual-workspace/README.md)).
 
 ### Bounded first internalization slice
+
+<!-- REVIEW NOTE: This slice is a roadmap but does not distinguish implemented from planned items.
+     A status column or checklist would help readers understand current state.
+     Refer to packages/visual-workspace/ and mcp-server/src/visual-workspace/ for
+     implemented vs. pending items. -->
 
 1. **Do not import the plugin bundle or treat this release repository as source.** Register this source note and its exact release asset hashes as external provenance.
 2. Create one read-only, Foundation-compatible capability record for a small, curated subset: `Components → data views → table/gallery/kanban/calendar/Gantt`, plus `Components → Markdown/custom component`. Store each item with its source URL, observed-vs-claimed status, release version, and retrieval hash.

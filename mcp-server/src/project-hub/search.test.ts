@@ -14,7 +14,7 @@ function openOwners(): RecoveryOpenOwners {
     recordFingerprint: digest({ run: 'current' }), malformed: false,
   };
   return {
-    workflow: { readRun: () => run, listRuns: () => [run], listCheckpoints: () => [], checkpointSetFingerprint: () => digest([]) },
+    workflow: { readRun: () => run, listRuns: () => [run], listCheckpoints: () => [], checkpointSetFingerprint: () => digest([]), readRuntimeProjection: () => ({ activeRuns: [], staleRuns: [], runCount: 0, agentStateFiles: [], workflowState: null, stage: null, stageCitation: null, sourceFiles: [], drift: [] }) },
     loadWorkItems: () => [{ entity: 'project/alpha/issue/build', label: 'Build recovery', state: 'in-progress', blockedBy: [], citationTargets: ['issue:build'], currentStage: 'build' }],
     loadProjectMemory: async () => ({ revision: 2, fingerprint: digest({ memory: 2 }), freshness: 'current', reviewedDecisions: [] }),
     listSessions: async () => [],

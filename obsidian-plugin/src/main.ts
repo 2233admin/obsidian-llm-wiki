@@ -20,6 +20,7 @@ import {
   LLMWikiPluginData,
   parseSettingInput,
   planPluginDataMigration,
+  PluginDataMigrationPlan,
   preservePendingMigrationSource,
   rollbackPluginDataMigration,
   selectEditingScope,
@@ -70,6 +71,12 @@ import {
 import type { AskMateContext } from "./ask-mate/interaction-model";
 
 const pexecFile = promisify(execFile);
+type PromoteExecOptions = {
+  cwd: string;
+  env: NodeJS.ProcessEnv;
+  windowsHide: true;
+};
+
 const MAX_ASK_MATE_SELECTION_CHARS = 100_000;
 const MAX_ASK_MATE_CANVAS_NODE_IDS = 200;
 // Shape of `kb_meta promote` JSON (compiler/kb_meta.cmd_promote).
@@ -141,11 +148,12 @@ export default class LLMWikiPlugin extends Plugin {
 
   async onload(): Promise<void> {
     const rawData = await this.loadData();
-    const plan = planPluginDataMigration(rawData);
+    const plan = await planPluginDataMigration(rawData);
     this.pendingMigrationSource =
       plan.assignments.length && rawData && typeof rawData === "object" && !Array.isArray(rawData)
         ? (rawData as Record<string, unknown>)
         : null;
+
     this.data = plan.data;
     let pluginDataChanged = plan.migrated;
     if (!this.data.deviceBinding) {
@@ -598,6 +606,14 @@ export default class LLMWikiPlugin extends Plugin {
     return effective.value as T;
   }
 
+  protected async execFile(
+    executable: string,
+    args: string[],
+    options: PromoteExecOptions,
+  ): Promise<{ stdout: string | Buffer }> {
+    return pexecFile(executable, args, options);
+  }
+
   private async runPromote(noteId: string, apply: boolean): Promise<PromoteResult> {
     try {
       const pythonCommand = this.effectiveValue<string>("runtime.python.path");
@@ -610,7 +626,7 @@ export default class LLMWikiPlugin extends Plugin {
       const args = [kbMetaPath, "promote", "--note", noteId];
       if (apply) args.push("--apply");
       const invocation = buildPythonInvocation(pythonCommand, args);
-      const { stdout } = await pexecFile(invocation.executable, invocation.args, {
+      const { stdout } = await this.execFile(invocation.executable, invocation.args, {
         cwd,
         env: { ...process.env, PYTHONUTF8: "1" },
         windowsHide: true,
@@ -625,6 +641,15 @@ export default class LLMWikiPlugin extends Plugin {
     }
   }
 
+  protected openPromoteConfirmation(
+    noteId: string,
+    result: PromoteResult,
+    onConfirm: () => Promise<void>,
+    onCancel: () => void = () => undefined,
+  ): void {
+    new PromotePlanModal(this.app, noteId, result, onConfirm, onCancel).open();
+  }
+
   private async promote(file: TFile): Promise<void> {
     const noteId = file.path;
     new Notice("Detecting draft…");
@@ -634,7 +659,7 @@ export default class LLMWikiPlugin extends Plugin {
       new Notice(`LLM Wiki: cannot promote — ${dry.outcome}${dry.reason ? `: ${dry.reason}` : ""}`);
       return;
     }
-    new PromotePlanModal(this.app, noteId, dry, async () => {
+    this.openPromoteConfirmation(noteId, dry, async () => {
       new Notice("Writing…");
       const result = await this.runPromote(noteId, true);
       if (result.error || result.outcome !== "MATERIALIZED") {
@@ -642,25 +667,33 @@ export default class LLMWikiPlugin extends Plugin {
         return;
       }
       new Notice("Promoted successfully");
-    }).open();
+    }, () => undefined);
   }
 
+
   private async applyPluginDataPlan(
-    plan: ReturnType<typeof planPluginDataMigration>,
+    plan: PluginDataMigrationPlan,
     pluginDataChanged: boolean,
   ): Promise<void> {
     if (plan.assignments.length) {
       try {
         const migrated = await applyPluginDataMigration(this.settingsClient, plan);
+        let migratedData = migrated.data;
         try {
           // Persist the full preimage device-locally BEFORE adopting the
           // stripped document, so the applied journal always has a matching
           // restorable backup for rollbackLegacyMigration.
           await this.writeMigrationPreimage(migrated.preimage);
         } catch (preimageError) {
+          const marker = migrated.data.legacyMigration;
+          if (marker) {
+            const markerWithoutPreimage = { ...marker };
+            delete markerWithoutPreimage.preimageJournal;
+            migratedData = { ...migrated.data, legacyMigration: markerWithoutPreimage };
+          }
           new Notice(`LLM Wiki: migration applied, but the preimage backup could not be written — rollback is unavailable: ${String((preimageError as Error)?.message ?? preimageError)}`);
         }
-        this.data = migrated.data;
+        this.data = migratedData;
         this.pendingMigrationSource = null;
         await this.savePluginData();
       } catch (error) {
@@ -754,6 +787,7 @@ class PromotePlanModal extends Modal {
     private readonly noteId: string,
     private readonly result: PromoteResult,
     private readonly onConfirm: () => Promise<void>,
+    private readonly onCancel: () => void,
   ) { super(app); }
 
   onOpen(): void {
@@ -765,7 +799,7 @@ class PromotePlanModal extends Modal {
     const buttons = contentEl.createDiv({ cls: "modal-button-container" });
     const confirm = buttons.createEl("button", { text: "Promote (writes reviewed snapshot)", cls: "mod-cta" });
     confirm.onclick = async () => { this.close(); await this.onConfirm(); };
-    buttons.createEl("button", { text: "Cancel" }).onclick = () => this.close();
+    buttons.createEl("button", { text: "Cancel" }).onclick = () => { this.onCancel(); this.close(); };
   }
 
   onClose(): void { this.contentEl.empty(); }

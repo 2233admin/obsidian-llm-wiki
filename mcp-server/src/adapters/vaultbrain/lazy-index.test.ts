@@ -8,12 +8,13 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, statSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import {
   listVaultMarkdown,
   reindexVault,
+  recallGaps,
   ensureBackfill,
   configureLazyIndex,
   _resetLazyIndex,
@@ -30,21 +31,42 @@ function makeVault(files: Record<string, string>): string {
   return dir;
 }
 
-// Minimal fake: the coordinator only touches isAvailable + countChunks + ingest.
-// countChunks reflects what ingest has recorded, so an empty store reports 0 and
-// becomes populated after a backfill. ingestGate lets a test hold ingests mid-flight.
-function fakeVba(opts?: { available?: boolean; ingestGate?: Promise<void> }) {
+// Minimal fake for coordinator lifecycle tests. The indexed-path methods model
+// the adapter's reconciliation surface without requiring PGlite.
+function fakeVba(opts?: {
+  available?: boolean;
+  ingestGate?: Promise<void>;
+  indexedSlugs?: string[];
+  indexedStamps?: Record<string, FileStamp>;
+  ingestResult?: (path: string) => boolean;
+  stateEvents?: unknown[];
+  reindexState?: ReindexState | null;
+  chunkCount?: number;
+}) {
   const ingested: string[] = [];
+  const deleted: string[] = [];
+  const indexedSlugs = new Set(opts?.indexedSlugs ?? []);
   const adapter = {
     name: "vaultbrain",
     isAvailable: opts?.available ?? true,
-    async countChunks() { return ingested.length; },
+    async countChunks() { return opts?.chunkCount ?? ingested.length; },
     async ingest(path: string) {
       if (opts?.ingestGate) await opts.ingestGate;
-      ingested.push(path);
+      const changed = opts?.ingestResult?.(path) ?? true;
+      if (changed) ingested.push(path);
+      return changed;
+    },
+    async listIndexedSlugs() { return [...indexedSlugs]; },
+    async setReindexState(state: unknown) { opts?.stateEvents?.push(state); },
+    async getReindexState() { return opts?.reindexState ?? null; },
+    async getIndexedStamp(path: string) { return opts?.indexedStamps?.[path] ?? null; },
+    async deletePath(_path: string) {},
+    async deleteSlug(slug: string) {
+      indexedSlugs.delete(slug);
+      deleted.push(slug);
     },
   } as unknown as VaultBrainAdapter;
-  return { adapter, ingested };
+  return { adapter, ingested, deleted };
 }
 
 test("listVaultMarkdown skips machine/derived dirs", () => {
@@ -104,6 +126,33 @@ test("ensureBackfill: large vault backfills in background, single-flight locked"
   } finally { _resetLazyIndex(); rmSync(dir, { recursive: true, force: true }); }
 });
 
+test("ensureBackfill retries when durable state says the prior run was incomplete", async () => {
+  _resetLazyIndex();
+  const dir = makeVault({ "retry.md": "retryable note" });
+  const { adapter, ingested } = fakeVba({
+    chunkCount: 1,
+    reindexState: {
+      status: "incomplete",
+      startedAt: 1,
+      finishedAt: 2,
+      indexed: 0,
+      total: 1,
+      skipped: 0,
+      deleted: 0,
+      errors: ["retry.md: previous failure"],
+    },
+  });
+  configureLazyIndex(adapter, dir);
+  try {
+    const result = await ensureBackfill({ syncCap: 10 });
+    assert.equal(result.status, "indexed_sync");
+    assert.deepEqual(ingested, ["retry.md"]);
+  } finally {
+    _resetLazyIndex();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("ensureBackfill: unavailable adapter -> unavailable", async () => {
   _resetLazyIndex();
   const dir = makeVault({ "a.md": "x" });
@@ -112,6 +161,16 @@ test("ensureBackfill: unavailable adapter -> unavailable", async () => {
   try {
     assert.equal((await ensureBackfill({ syncCap: 10 })).status, "unavailable");
   } finally { _resetLazyIndex(); rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("recallGaps explains an already-running reconciliation", async () => {
+  _resetLazyIndex();
+  try {
+    const gaps = await recallGaps({ status: "in_progress" });
+    assert.match(gaps[0]?.message ?? "", /retry recall|vault\.reindex_status/);
+  } finally {
+    _resetLazyIndex();
+  }
 });
 
 test("reindexVault ingests every markdown file, skipping protected dirs", async () => {
@@ -123,4 +182,65 @@ test("reindexVault ingests every markdown file, skipping protected dirs", async 
     assert.equal(res.indexed, 2);
     assert.equal(ingested.length, 2);
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("reindexVault counts unchanged files as skipped and removes stale indexed files", async () => {
+  const dir = makeVault({ "a.md": "x", "b.md": "y", "double.md.md": "z" });
+  const { adapter, deleted } = fakeVba({
+    indexedSlugs: ["a", "b", "double.md", "stale"],
+    ingestResult: (path) => path !== "a.md",
+  });
+  try {
+    const res = await reindexVault(adapter, dir);
+    assert.equal(res.total, 3);
+    assert.equal(res.indexed, 2);
+    assert.equal(res.skipped, 1);
+    assert.equal(res.deleted, 1);
+    assert.deepEqual(deleted, ["stale"]);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("reindexVault skips a file when persisted mtime and size match", async () => {
+  const dir = makeVault({ "a.md": "unchanged" });
+  const file = statSync(join(dir, "a.md"));
+  const { adapter, ingested } = fakeVba({
+    indexedStamps: { "a.md": { mtimeMs: Math.floor(file.mtimeMs), sizeBytes: file.size } },
+  });
+  try {
+    const res = await reindexVault(adapter, dir);
+    assert.equal(res.indexed, 0);
+    assert.equal(res.skipped, 1);
+    assert.deepEqual(ingested, []);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("reindexVault reports progress and persists complete state", async () => {
+  const dir = makeVault({ "a.md": "x", "b.md": "y" });
+  const states: unknown[] = [];
+  const progress: unknown[] = [];
+  const { adapter } = fakeVba({ stateEvents: states });
+  try {
+    const res = await reindexVault(adapter, dir, {
+      onProgress: (event) => progress.push(event),
+    });
+    const firstState = states[0];
+    const lastState = states.at(-1);
+    assert.ok(firstState && typeof firstState === "object" && "status" in firstState);
+    assert.ok(lastState && typeof lastState === "object" && "status" in lastState);
+    assert.equal(firstState.status, "running");
+    assert.equal(lastState.status, "complete");
+    assert.ok(progress.length >= 2);
+    assert.deepEqual(progress.at(-1), { phase: "complete", completed: 2, total: 2 });
+    assert.equal(res.errors.length, 0);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("reindexVault preserves indexed slugs when the vault scan is incomplete", async () => {
+  const dir = makeVault({ "a.md": "x" });
+  rmSync(dir, { recursive: true, force: true });
+  const { adapter, deleted } = fakeVba({ indexedSlugs: ["a"] });
+  const res = await reindexVault(adapter, dir);
+  assert.equal(res.deleted, 0);
+  assert.deepEqual(deleted, []);
+  assert.ok(res.errors.some((error) => error.includes("stale deletion skipped")));
 });

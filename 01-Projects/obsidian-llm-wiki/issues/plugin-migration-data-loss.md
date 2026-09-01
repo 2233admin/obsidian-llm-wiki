@@ -1,7 +1,7 @@
 ---
 type: issue
 entity: project/obsidian-llm-wiki/issue/plugin-migration-data-loss
-state: todo
+state: done
 review: reviewed
 kind: knowledge-task
 id: obsidian-llm-wiki/plugin-migration-data-loss
@@ -9,7 +9,7 @@ description: "Plugin 0.4.0: legacy settings migration can permanently destroy un
 status: active
 priority: 1
 blocked-by: []
-last-verified: 2026-07-16
+last-verified: 2026-09-01
 ---
 
 Plugin migration: transactional guarantee is broken (HIGH)
@@ -54,3 +54,21 @@ coverage on this path.
   fields still intact on next onload.
 - Legacy plaintext-preimage vault upgrades → rollback still works.
 - New regression test red on old code, green on fix.
+
+## Verification evidence (Plugin 0.4.0 GA safety slice)
+
+- Legacy plaintext preimage sanitization now computes and persists
+  `assignmentDigest` asynchronously while omitting the plaintext assignment.
+- Regression coverage first failed on the old behavior with 15 passing tests
+  and the new rollback test failing because the digest was empty; after the
+  fix the focused settings run passed 16/16.
+- Pending migration save regression first failed with
+  `legacyMigration.preimage` still present; after sanitization it passed and
+  retained the retry-required legacy fields without the plaintext preimage.
+- `obsidian-plugin/npm run typecheck` passed.
+- `obsidian-plugin/npm run build` passed.
+- Full plugin test suite passed 100/100.
+- `git diff --check` passed.
+- The existing rollback failure Notice remains the user-visible fallback; no
+  new Notice was added because this slice restores the missing rollback
+  capability without dropping it.

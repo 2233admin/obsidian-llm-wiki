@@ -20,21 +20,20 @@ patches, complete and verify this foundation:
 - [x] TypeScript-owned worker boundary for named compiler, trigger, MemU, and agent callers; no production direct Python callsites remain (direct Python calls are test-only)
 - [x] Clear ownership between plugin, MCP, CLI, and durable vault state
 - [x] Roadmap and Work-OS issues grouped by product milestone
-- [ ] Stateless Project Hub Recovery Flow v2 passes the complete actual-Obsidian Foundation gate
+- [x] Stateless Project Hub Recovery Flow v2 passes the complete actual-Obsidian Foundation gate
 
 The setup surface is TS-owned by `mcp-server/src/scripts/setup.ts`; `setup`
 and `setup.ps1` are thin launchers.
 
-Feature expansion remains paused until the remaining S08 durable-store
-fixture breadth is accepted.
+Feature expansion may resume now that the S08 Foundation gate is accepted.
 
 ### Approved foundation slice: Project Hub Recovery Flow v2
 
 The approved slice replaces `project-hub-recovery/v1` with a stateless staged
 Recovery Flow that moves from current Project facts through mandatory cited
 search and immutable Plan preview, then delegates confirmed mutation and output
-routing to Workflow. S01 v1 remains completed history. S01B–S07 are verified
-completions. S08 remains the final Foundation gate.
+routing to Workflow. S01 v1 remains completed history. S01B–S08 are verified
+completions. Foundation exit is accepted.
 
 Dependency order:
 
@@ -50,17 +49,15 @@ S01 v1 complete (historical)
                                      -> S05 claimed output governance [done]
                                           -> S06B actual Obsidian apply/receipt/restart [done]
                                                -> S07 MCP/CLI parity [done]
-                                                    -> S08 Foundation acceptance [in progress]
-**S04P, S06A, S04B, S05, S06B, and S07 are verified complete.** Planning,
+                                               -> S08 Foundation acceptance [done]
+**S04P, S06A, S04B, S05, S06B, S07, and S08 are verified complete.** Planning,
 apply, output routing, the human Obsidian recovery journey, and MCP/CLI parity
-remain separate, claim-first, and replay-safe.
-**S08 remains in progress**; acceptance item 30 is still open, so Foundation
-exit is not claimed.
+remain separate, claim-first, and replay-safe. Foundation exit is accepted.
 Current verification totals:
-- Root Python: `python -m pytest -q` — 282 passed, 1 skipped.
-- MCP: `npm test` — 858 passed, 18 skipped, 0 failed.
+- Root Python: `python -m pytest -q` — 284 passed, 1 skipped.
+- MCP: `npm test` — 868 passed, 18 skipped, 0 failed.
 - Obsidian plugin: `npm test` — 98 passed, 0 failed; typecheck and production build passed.
-- Fleet verifier: 17 passed, 0 failed.
+- Fleet verifier: all checks ok.
 
 Planning sources:
 
@@ -164,7 +161,7 @@ Python, plugin, or MCP directories.
   - [x] `fix-work-os-nested-worktree-duplication` — scanner exclusion
     of machine-local `.orca/worktrees/**`
 - **Deferred backlog after foundation**:
-  - [ ] `plugin-migration-data-loss` (P1) — legacy settings migration
+  - [x] `plugin-migration-data-loss` (P1) — legacy settings migration
     transactional guarantee broken
   - [ ] `plugin-main-ts-test-coverage` (P2) — `main.ts` zero coverage
     (root cause of the data-loss bug shipping)
@@ -172,8 +169,8 @@ Python, plugin, or MCP directories.
     `plugin-promote-open-snapshot`,
     `plugin-promote-obsidian-git-handoff`,
     `plugin-promote-autodetect-kbmeta` (P2/P3) — promote flow polish
-  - [ ] `host-install-registration-wheel` (P1) — single host-install
-    mechanism replacing three drifting setup scripts
+  - [x] `host-install-registration-wheel` (P1) — single host-install
+    mechanism replacing three drifting setup scripts (delivered; full MCP suite remains Bun-runner blocked)
   - [ ] `fleet-agent-discovery-transports` (P2) — transport-pluggable
     discovery (NetBird / WireGuard / SSH / orca)
   - [ ] `gitea-federation-adapter` (P3) — gitea issue ↔ work-OS
@@ -187,7 +184,7 @@ Python, plugin, or MCP directories.
   next plugin release.
 - **Trigger**: onboarding, capability health, TS/Python boundary, access-surface
   ownership, and Work-OS milestone alignment are accepted.
-- **After the trigger**: resume the existing Plugin 0.4.0 GA safety and UX work.
+- **Next step**: resume the existing Plugin 0.4.0 GA safety and UX work now that the Foundation trigger is accepted.
 - **Out of scope during foundation**: new adapters, Fleet federation, Gitea
   federation, and graph v2 redesign.
 - **Definition of done**:

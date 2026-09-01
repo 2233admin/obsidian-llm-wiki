@@ -26,7 +26,7 @@ git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git ~/obsidia
 cd ~/obsidian-llm-wiki-src && ./setup
 ```
 
-Setup copies a 1.6 MB curated allowlist (`skills/`, `examples/`, `docs/`, `terrariums/`, `viewer/`, `smoke/`, `mcp-server/{bundle.js, package.json}`, top-level docs, `vercel.json`) into your host's skills directory. After setup runs you can delete the source clone.
+Setup copies a 1.6 MB curated allowlist (`skills/`, `examples/`, `docs/`, `terrariums/`, `viewer/`, `smoke/`, `mcp-server/{bundle.js, package.json}`, top-level docs, `vercel.json`) into your host's skills directory and, for the supported Claude JSON host format, writes the MCP registration and managed Vault Roles block. Re-running setup is idempotent. Other listed hosts receive the skill bundle but their non-JSON config formats are not modified by this command.
 
 ## Per-host install
 
@@ -53,15 +53,20 @@ card. Use [Capability remediation](CAPABILITY_REMEDIATION.md) when Doctor report
 missing optional worker or invalid setting. Headless automation can use the dedicated
 `llmwiki-recovery` CLI; it invokes the same Operations as MCP and Obsidian.
 
-## After setup -- two paste-in steps
+## After setup
 
-Setup prints both snippets at the end. Copy them into the right place:
+For Claude, setup writes the `vault-mind` entry to `~/.mcp.json` and adds a bounded
+`Vault Roles` block to `~/.claude/CLAUDE.md`. The registration points at the installed
+bundle and sets the canonical `VAULT_MIND_VAULT_PATH` environment variable. Pass
+`--vault /absolute/path/to/vault` (or set that variable) during setup.
 
-**1. Add to your `.mcp.json`:** the printed JSON snippet registers `vault-mind` as an MCP server pointing at the installed `bundle.js`. The `VAULT_PATH` env var must be set to the absolute path of your Obsidian vault (or any markdown directory).
+Run `./setup --doctor --vault /absolute/path/to/vault` (or
+`.\setup.ps1 -Doctor -Vault ...`) to verify the host registration separately from
+the MCP server behavior doctor. Setup never prints or stores secret values.
 
-**2. Add to `CLAUDE.md` (or equivalent host instructions):** the printed `## Vault Roles` section tells your agent which `/vault-*` role command to invoke for each task.
-
-Restart your agent host so the MCP registration is picked up.
+The Codex, OpenCode, and Gemini entries remain copy-only in this slice because their
+host configuration formats are not parsed or rewritten here; configure those hosts
+with their native MCP settings and the canonical environment variable.
 
 ## Shared Settings Platform
 
@@ -76,7 +81,7 @@ For source installs, set the canonical compiler directory when automatic discove
       "command": "node",
       "args": ["/path/to/vault-wiki/mcp-server/bundle.js"],
       "env": {
-        "VAULT_PATH": "/path/to/vault",
+        "VAULT_MIND_VAULT_PATH": "/path/to/vault",
         "LLMWIKI_COMPILER_PATH": "/path/to/obsidian-llm-wiki/compiler",
         "VAULT_MIND_PYTHON": "python"
       }
@@ -97,7 +102,7 @@ See [SETTINGS.md](SETTINGS.md) for the complete model and [MIGRATIONS.md](MIGRAT
 
 ### Optional Agent Wiki toolchain
 
-No optional provider is required. Start with only `VAULT_PATH`, register a `vaultPath` Source, and run the filesystem lifecycle. Add providers one at a time through Toolchain Settings and confirm each with `settings.doctor` before enabling workflows that depend on it.
+No optional provider is required. Start with only `VAULT_MIND_VAULT_PATH`, register a `vaultPath` Source, and run the filesystem lifecycle. Add providers one at a time through Toolchain Settings and confirm each with `settings.doctor` before enabling workflows that depend on it.
 
 A copyable MCP example is in `examples/agent-wiki-toolchain.mcp.example.json`; the separate Settings example shows semantic profiles without machine paths or credentials. OpenCLI remains a capture-only Provider, qmd/Graphify/LightRAG/RAG-Anything are retrieval or processing adapters, and Ollama/OpenAI-compatible endpoints provide optional embeddings. See [AGENT_WIKI_TOOLCHAIN.md](AGENT_WIKI_TOOLCHAIN.md) for version policies, capability names, diagnostics, and rollback flags.
 
@@ -132,7 +137,7 @@ Then add the `.mcp.json` entry manually:
     "vault-mind": {
       "command": "node",
       "args": ["/absolute/path/to/host/skills/vault-wiki/mcp-server/bundle.js"],
-      "env": { "VAULT_PATH": "/absolute/path/to/your/vault" }
+      "env": { "VAULT_MIND_VAULT_PATH": "/absolute/path/to/your/vault" }
     }
   }
 }
@@ -206,7 +211,7 @@ After setup, boot the bundle directly with a probe:
 
 ```bash
 echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"smoke","version":"0"}}}' \
-  | VAULT_PATH=/path/to/your/vault node ~/.claude/skills/vault-wiki/mcp-server/bundle.js
+  | VAULT_MIND_VAULT_PATH=/path/to/your/vault node ~/.claude/skills/vault-wiki/mcp-server/bundle.js
 ```
 
 You should see a JSON-RPC response with `serverInfo.name = "obsidian-llm-wiki"` and `protocolVersion = "2024-11-05"`. Server stderr prints the resolved adapter list, including `kanban` when the default adapter list is used.
@@ -219,7 +224,7 @@ You should see a JSON-RPC response with `serverInfo.name = "obsidian-llm-wiki"` 
 
 **`Error: Dynamic require of "events" is not supported`** -- the bundle was built without the `createRequire` shim banner. Re-run `npm run bundle` -- the `package.json` `bundle` script includes the correct banner flag.
 
-**MCP server starts but `vault.search` returns nothing** -- check that `VAULT_PATH` in `.mcp.json` is absolute and points at a directory with `.md` files. The server logs the resolved vault path at startup (visible in your agent host's MCP log).
+**MCP server starts but `vault.search` returns nothing** -- check that `VAULT_MIND_VAULT_PATH` in `.mcp.json` is absolute and points at a directory with `.md` files. The server logs the resolved vault path at startup (visible in your agent host's MCP log).
 
 **`Node version error` / `SyntaxError: Unexpected token`** -- the bundle targets Node 20+. Run `node --version` to confirm; upgrade with `nvm` / `fnm` if older.
 

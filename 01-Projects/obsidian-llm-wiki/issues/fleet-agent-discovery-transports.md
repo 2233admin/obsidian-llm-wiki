@@ -64,3 +64,9 @@ control plane" (fe4c89a/7433dde, 2026-07-15). Before designing the registry,
 read what that control plane already provides — this ticket may narrow to
 "add transport adapters + discovery to the shipped control plane" instead of
 a new registry.
+
+## Evaluation gate decision (2026-09-01)
+
+Deferred until Plugin GA safety and live Recovery/Memory/Citation evaluation
+gates pass. No transport registry, fallback probe, or fleet federation work is
+authorized in the current slice.

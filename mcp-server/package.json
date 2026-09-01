@@ -11,7 +11,8 @@
     "llmwiki-agent": "agent-domain-cli.js",
     "llmwiki-recovery": "recovery-flow-cli.js",
     "llmwiki-setup": "setup-cli.js",
-    "session-archiver": "session-archiver.js"
+    "session-archiver": "session-archiver.js",
+    "vault": "vault-cli.js"
   },
   "files": [
     "bundle.js",
@@ -21,6 +22,7 @@
     "recovery-flow-cli.js",
     "setup-cli.js",
     "session-archiver.js",
+    "vault-cli.js",
     "package.json"
   ],
   "scripts": {
@@ -52,7 +54,8 @@
     "bundle:recovery-cli": "esbuild dist/project-hub/cli.js --bundle --platform=node --target=node20 --format=esm --outfile=recovery-flow-cli.js --log-level=warning",
     "bundle:setup": "esbuild dist/scripts/setup.js --bundle --platform=node --target=node20 --format=esm --outfile=setup-cli.js --log-level=warning",
     "bundle:session-archiver": "esbuild dist/scripts/session-archiver.js --bundle --platform=node --target=node20 --format=esm --outfile=session-archiver.js --log-level=warning",
-    "bundle": "npm run bundle:mcp && npm run bundle:agent-domain-cli && npm run bundle:memu-query && npm run bundle:usage-cli && npm run bundle:recovery-cli && npm run bundle:setup && npm run bundle:session-archiver",
+    "bundle:vault-cli": "esbuild dist/scripts/vault-cli.js --bundle --platform=node --target=node20 --format=esm --outfile=vault-cli.js --log-level=warning",
+    "bundle": "npm run bundle:mcp && npm run bundle:agent-domain-cli && npm run bundle:memu-query && npm run bundle:usage-cli && npm run bundle:recovery-cli && npm run bundle:setup && npm run bundle:session-archiver && npm run bundle:vault-cli",
     "rebuild": "npm run build && npm run bundle",
     "verify:bundle": "npm run rebuild && node scripts/verify-bundles.mjs"
   },

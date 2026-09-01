@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { badRequest, notFound } from './types.js';
 import type { Operation, OperationWritePolicy } from './types.js';
@@ -7,10 +7,11 @@ import { resultPath, staticTargets, targetOrWildcard, targetParams, touchMarkdow
 import { scanRecipes, findRecipe } from '../recipes/_registry.js';
 import { getRecipeStatus, runHealthCheck, appendHeartbeat } from '../recipes/_framework.js';
 import { answerQuery, traceUnifiedQuery, unifiedQuery, unifiedQueryByVector } from '../unified-query.js';
+import { processRecallTthw } from '../recall-metrics.js';
 import { embed } from '../embedding-client.js';
 import type { AdapterRegistry } from '../adapters/registry.js';
 import type { VaultBrainAdapter } from '../adapters/vaultbrain/index.js';
-import { ensureBackfill, recallGaps } from '../adapters/vaultbrain/lazy-index.js';
+import { ensureBackfill, recallGaps, listVaultMarkdown, reindexVault } from '../adapters/vaultbrain/lazy-index.js';
 import type { RAGAnythingAdapter } from '../adapters/raganything.js';
 import type { LightRAGAdapter } from '../adapters/lightrag.js';
 import type { CompileTrigger } from '../compile-trigger.js';
@@ -81,7 +82,6 @@ import { resolveProjectRoot } from '../runtime-paths.js';
 
 export { makeAdapterGraphOps };
 
-const PROTECTED_DIRS = new Set(['.obsidian', '.trash', '.git', 'node_modules']);
 
 const _projectRoot = resolveProjectRoot();
 
@@ -1022,45 +1022,48 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     {
       name: 'vault.reindex',
       namespace: 'vault',
-      description: 'Bulk-index all markdown files into VaultBrain semantic store. Use after initial setup or vault migration.',
-      mutating: false,
+      description: 'Incrementally reconcile indexable markdown with VaultBrain; unchanged files are skipped and stale indexed pages are removed after a complete scan.',
+      mutating: true,
+      writePolicy: {
+        realWrite: 'dryRunFalse',
+        targets: staticTargets('external/vaultbrain/**'),
+        audit: 'required',
+      },
       params: {
         dryRun: { type: 'boolean', required: false, default: false, description: 'Count files without ingesting (default: false)' },
         concurrency: { type: 'number', required: false, default: 4, description: 'Max concurrent ingest calls (default: 4)' },
       },
       handler: async (_ctx, params) => {
         const vba = (registry as AdapterRegistry).get('vaultbrain') as VaultBrainAdapter | undefined;
-        if (!vba) throw makeErr(-32001, 'VaultBrain adapter not available or not initialized');
-        const files: string[] = [];
-        const walk = (dir: string): void => {
-          for (const entry of readdirSync(dir, { withFileTypes: true })) {
-            if (entry.isDirectory()) {
-              if (!PROTECTED_DIRS.has(entry.name)) walk(join(dir, entry.name));
-            } else if (entry.isFile() && entry.name.endsWith('.md')) {
-              files.push(join(dir, entry.name));
-            }
-          }
-        };
-        walk(vaultPath);
+        if (!vba || !vba.isAvailable) throw makeErr(-32001, 'VaultBrain adapter not available or not initialized');
         if ((params.dryRun as boolean | undefined) ?? false) {
+          const files = listVaultMarkdown(vaultPath);
           return { dryRun: true, total: files.length, message: 'Run with dryRun: false to index' };
         }
-        const concurrency = Math.max(1, Math.floor((params.concurrency as number | undefined) ?? 4));
-        let indexed = 0;
-        const errors: string[] = [];
-        for (let i = 0; i < files.length; i += concurrency) {
-          const batch = files.slice(i, i + concurrency);
-          const results = await Promise.allSettled(batch.map(async (fullPath) => {
-            const content = readFileSync(fullPath, 'utf-8');
-            const relPath = relative(vaultPath, fullPath).replace(/\\/g, '/');
-            await vba.ingest(relPath, content);
-          }));
-          results.forEach((result, idx) => {
-            if (result.status === 'fulfilled') indexed++;
-            else errors.push(`${relative(vaultPath, batch[idx]).replace(/\\/g, '/')}: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`);
-          });
-        }
-        return { indexed, skipped: errors.length, errors, totalFiles: files.length };
+        const result = await reindexVault(vba, vaultPath, {
+          concurrency: (params.concurrency as number | undefined) ?? 4,
+        });
+        return {
+          indexed: result.indexed,
+          skipped: result.skipped,
+          deleted: result.deleted,
+          errors: result.errors,
+          totalFiles: result.total,
+        };
+      },
+    },
+    {
+      name: 'vault.reindex_status',
+      namespace: 'vault',
+      description: 'Read the durable VaultBrain reindex state, including whether the last run completed or was incomplete and its progress counters.',
+      mutating: false,
+      params: {},
+      handler: async () => {
+        const vba = (registry as AdapterRegistry).get('vaultbrain') as VaultBrainAdapter | undefined;
+        return {
+          available: Boolean(vba?.isAvailable),
+          state: vba && vba.isAvailable ? await vba.getReindexState() : null,
+        };
       },
     },
     {
@@ -1167,6 +1170,7 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
         tierRouting: agentWikiFeatures.tieredRetrieval,
       });
       for (const g of await recallGaps(backfill)) answer.gaps.unshift(g);
+      processRecallTthw.record(answer.citations.length);
       return answer;
     },
   },
