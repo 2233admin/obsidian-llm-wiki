@@ -1,12 +1,16 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createHash, randomUUID } from 'node:crypto';
 import { isWorkRunTransitionAllowed, makeWorkflowOps, WORK_RUN_STATES, type WorkRunState } from './workflow.js';
 import type { Operation, OperationContext } from '../core/types.js';
-import { compatibilityReadReport } from '../project/project-context.js';
+import { compatibilityReadReport, normalizedProjectContext, resolveProjectContext } from '../project/project-context.js';
+import { fingerprintRecoveryValue } from '../project-hub/contract-support.js';
+import { createOperationDispatcher } from '../control-plane/dispatcher.js';
+import { makeProjectOps } from '../project/project.js';
+import { AgentDomainService, DelegationStore, canonicalDigest, canonicalJson, createDelegationPlan } from '../../../packages/agent-domain/dist/src/index.js';
 
 function makeHarness() {
   const root = join(tmpdir(), `llmwiki-workflow-${randomUUID()}`);
@@ -20,6 +24,9 @@ function makeHarness() {
   }
   const ops = makeWorkflowOps(root);
   const byName = new Map(ops.map((op) => [op.name, op]));
+  const recoveryApply = byName.get('workflow.recovery.apply');
+  assert.ok(recoveryApply, 'claim-first recovery apply must be registered');
+  assert.equal(recoveryApply.mutating, true);
   const ctx: OperationContext = {
     vault: null as never,
     adapters: null,
@@ -33,13 +40,50 @@ function makeHarness() {
   const call = async (name: string, params: Record<string, unknown> = {}) => {
     const op = byName.get(name) as Operation | undefined;
     assert.ok(op, `missing op: ${name}`);
-    return op.handler(ctx, params);
+    // Direct handler tests now model the authenticated child actor explicitly;
+    // production leave never trusts params.agent as an actor source.
+    const previousActor = ctx.config.collaboration?.actor;
+    if (name === 'workflow.agent.leave' && typeof params.agent === 'string' && ctx.config.collaboration) {
+      ctx.config.collaboration.actor = params.agent;
+    }
+    try { return await op.handler(ctx, params); }
+    finally { if (ctx.config.collaboration) ctx.config.collaboration.actor = previousActor; }
   };
   return { root, call, byName, ctx };
 }
 
 function vp(root: string, rel: string): string {
   return join(root, ...rel.split('/'));
+}
+
+function outputSubmission(project: string, workItemId: string, workRunId: string, outputClass: 'view' | 'work-state-transition' | 'knowledge-claim' | 'external-side-effect' = 'view', payload: unknown = { artifactId: 'artifact/test-output' }) {
+  const material = {
+    schemaVersion: 'work-run-output/v1' as const,
+    projectId: `project/${project}`,
+    workItemId,
+    workRunId,
+    outputClass,
+    payload,
+    citations: ['issue:test'],
+    provenance: ['test:workflow'],
+    producedAt: '2026-08-28T00:00:00.000Z',
+  };
+  return { schemaVersion: 'work-run-output-submission/v1' as const, result: 'output' as const, output: { ...material, fingerprint: fingerprintRecoveryValue(material) }, quarantine: null };
+}
+
+function quarantineSubmission(project: string, workItemId: string, workRunId: string) {
+  const material = {
+    schemaVersion: 'work-run-output-quarantine/v1' as const,
+    projectId: `project/${project}`,
+    workItemId,
+    workRunId,
+    observedClass: 'view' as const,
+    payloadFingerprint: null,
+    provenance: ['test:quarantine'],
+    diagnostics: [{ owner: 'workflow' as const, code: 'malformed-output', severity: 'error' as const, message: 'Output requires review.', remediation: 'Inspect and resubmit.', citationTargets: [] }],
+    producedAt: '2026-08-28T00:00:00.000Z',
+  };
+  return { schemaVersion: 'work-run-output-submission/v1' as const, result: 'quarantine' as const, output: null, quarantine: { ...material, fingerprint: fingerprintRecoveryValue(material) } };
 }
 
 interface WorkRunContractFixture {
@@ -1160,7 +1204,7 @@ describe('agent project workflow operations', () => {
     const cases = [
       { operation: 'workflow.agent.step', params: { stage: 'plan' } },
       { operation: 'workflow.agent.checkpoint', params: { status: 'passed', summary: 'checkpoint' } },
-      { operation: 'workflow.agent.leave', params: { summary: 'leave' } },
+      { operation: 'workflow.agent.leave', params: { mode: 'terminate', target_state: 'cancelled', submission: null, summary: 'leave' } },
     ];
     for (const item of cases) {
       const { root, call } = makeHarness();
@@ -1190,7 +1234,7 @@ describe('agent project workflow operations', () => {
             provenance: ['repo:/opt/private'],
             ...item.params,
           }),
-          /must not contain machine-local paths or lease tokens/,
+          /must not contain machine-local paths or lease tokens|unknown field|mode must be complete or terminate/,
         );
         assert.equal(readFileSync(lifetimePath, 'utf-8'), before.lifetime);
         assert.equal(readFileSync(eventsPath, 'utf-8'), before.events);
@@ -1331,7 +1375,7 @@ describe('agent project workflow operations', () => {
         const value = item.field === 'evidence' || item.field === 'provenance' ? [unsafe] : unsafe;
         await assert.rejects(
           () => call(item.operation, { ...item.params, [item.field]: value }),
-          /machine-local paths or lease tokens\/handoff tokens/,
+          /machine-local paths or lease tokens\/handoff tokens|unknown field|mode must be complete or terminate/,
           `${item.operation}.${item.field}`,
         );
         assert.equal(existsSync(vp(root, '01-Projects/alpha')), false, `${item.operation}.${item.field}`);
@@ -1383,7 +1427,7 @@ describe('agent project workflow operations', () => {
             ...item.base,
             [item.field]: value,
           }),
-          /machine-local paths or lease tokens\/handoff tokens/,
+          /machine-local paths or lease tokens\/handoff tokens|unknown field|unsafe material/,
           `${item.operation}.${item.field}`,
         );
         assert.equal(readFileSync(lifetimePath, 'utf-8'), before.lifetime);
@@ -1398,7 +1442,7 @@ describe('agent project workflow operations', () => {
   test('workflow.agent.step enforces ordered lifetime stages and allows review rework', async () => {
     const { root, call } = makeHarness();
     try {
-      await call('workflow.agent.start', { project: 'alpha', agent: 'worker', role: 'worker' });
+      const started = await call('workflow.agent.start', { project: 'alpha', agent: 'worker', role: 'worker' }) as { workRunId: string };
 
       await assert.rejects(
         () => call('workflow.agent.step', { project: 'alpha', agent: 'worker', stage: 'build' }),
@@ -1425,7 +1469,7 @@ describe('agent project workflow operations', () => {
   test('workflow.agent.step requires evidence to ship and reflect closes lifetime', async () => {
     const { root, call } = makeHarness();
     try {
-      await call('workflow.agent.start', { project: 'alpha', agent: 'worker', role: 'worker' });
+      const started = await call('workflow.agent.start', { project: 'alpha', agent: 'worker', role: 'worker' }) as { workRunId: string };
       await call('workflow.agent.step', { project: 'alpha', agent: 'worker', stage: 'plan' });
       await call('workflow.agent.step', { project: 'alpha', agent: 'worker', stage: 'build' });
     await call('workflow.agent.step', { project: 'alpha', agent: 'worker', stage: 'review' });
@@ -1529,7 +1573,7 @@ test('workflow.agent.checkpoint leave and doctor preserve lifetime evidence', as
       assert.equal(missing.ok, false);
       assert.deepEqual(missing.missing, ['01-Projects/alpha/agents/worker/lifetime.md']);
 
-      await call('workflow.agent.start', { project: 'alpha', agent: 'worker', role: 'worker' });
+      const started = await call('workflow.agent.start', { project: 'alpha', agent: 'worker', role: 'worker' }) as { workRunId: string };
       const checkpoint = (await call('workflow.agent.checkpoint', {
         project: 'alpha',
         agent: 'worker',
@@ -1543,9 +1587,14 @@ test('workflow.agent.checkpoint leave and doctor preserve lifetime evidence', as
       const left = (await call('workflow.agent.leave', {
         project: 'alpha',
         agent: 'worker',
+        mode: 'terminate',
+        work_run_id: started.workRunId,
+        target_state: 'cancelled',
+        transition_token: 'leave:session-ended',
+        submission: null,
         summary: 'session ended',
-      })) as { lifetime: { status: string } };
-      assert.equal(left.lifetime.status, 'archived');
+      })) as { outputRoute: { state: string } };
+      assert.equal(left.outputRoute.state, 'accepted');
 
       const doctor = (await call('workflow.agent.doctor', { project: 'alpha', agent: 'worker' })) as {
         ok: boolean;
@@ -1570,6 +1619,7 @@ test('workflow.agent.checkpoint leave and doctor preserve lifetime evidence', as
       await call('workflow.agent.start', {
         project: 'alpha',
         agent: 'worker',
+        issue: 'build',
         transition_token: 'join:terminal-contract',
       });
       await call('workflow.agent.step', { project: 'alpha', agent: 'worker', stage: 'plan', transition_token: 'step:plan' });
@@ -1589,13 +1639,19 @@ test('workflow.agent.checkpoint leave and doctor preserve lifetime evidence', as
         evidence: ['test:workflow'],
         transition_token: 'step:ship',
       });
-      const completed = (await call('workflow.agent.step', {
+      const reflected = (await call('workflow.agent.step', {
         project: 'alpha',
         agent: 'worker',
         stage: 'reflect',
         transition_token: 'step:reflect',
-      })) as { lifetime: { workRunState: string } };
-      assert.equal(completed.lifetime.workRunState, 'completed');
+      })) as { lifetime: { workRunState: string; workRunId: string; workItemId: string } };
+      assert.equal(reflected.lifetime.workRunState, 'running');
+      const completed = (await call('workflow.agent.leave', {
+        project: 'alpha', agent: 'worker', work_run_id: reflected.lifetime.workRunId,
+        mode: 'complete', target_state: 'completed', transition_token: 'leave:reflect',
+        submission: outputSubmission('alpha', reflected.lifetime.workItemId, reflected.lifetime.workRunId), summary: 'completed',
+      })) as { lifetime?: { workRunState: string }; outputRoute: { state: string } };
+      assert.equal(completed.outputRoute.state, 'accepted');
 
       await assert.rejects(
         () => call('workflow.agent.checkpoint', {
@@ -1626,6 +1682,7 @@ test('workflow.agent.checkpoint leave and doctor preserve lifetime evidence', as
       await call('workflow.agent.start', {
         project: 'alpha',
         agent: 'worker',
+        issue: 'build',
         transition_token: 'join:review-contract',
         output_class: 'knowledge-claim',
       });
@@ -1651,29 +1708,31 @@ test('workflow.agent.checkpoint leave and doctor preserve lifetime evidence', as
         agent: 'worker',
         stage: 'reflect',
         transition_token: 'review:reflect',
-      })) as { lifetime: { workRunState: string; outputClass: string; approvalStatus: string } };
+      })) as { lifetime: { workRunState: string; outputClass: string; approvalStatus: string; workRunId: string; workItemId: string } };
       assert.deepEqual(
         [pending.lifetime.workRunState, pending.lifetime.outputClass, pending.lifetime.approvalStatus],
-        ['awaiting_review', 'knowledge-claim', 'pending'],
-      );
-
-      await assert.rejects(
-        () => call('workflow.agent.leave', {
-          project: 'alpha',
-          agent: 'worker',
-          work_run_state: 'completed',
-          transition_token: 'review:complete-without-approval',
-        }),
-        /requires approval before completion/,
+        ['running', 'knowledge-claim', 'pending'],
       );
       const approved = (await call('workflow.agent.leave', {
-        project: 'alpha',
-        agent: 'worker',
-        work_run_state: 'completed',
-        approval_status: 'approved',
-        transition_token: 'review:approved',
-      })) as { lifetime: { workRunState: string; approvalStatus: string } };
-      assert.deepEqual([approved.lifetime.workRunState, approved.lifetime.approvalStatus], ['completed', 'approved']);
+        project: 'alpha', agent: 'worker', work_run_id: pending.lifetime.workRunId,
+        mode: 'complete', target_state: 'completed', transition_token: 'review:approved',
+        submission: outputSubmission('alpha', pending.lifetime.workItemId, pending.lifetime.workRunId, 'knowledge-claim', { proposalId: 'proposal/reviewed', rawPayload: 'raw payload bytes', currentTruth: 'do not promote' }), summary: 'approved',
+      })) as { outputRoute: { state: string } };
+      assert.equal(approved.outputRoute.state, 'review-required');
+      const draftDir = vp(root, '10-Projects/alpha/agents/worker/memory-drafts');
+      const drafts = readdirSync(draftDir).filter((name) => name.endsWith('.json'));
+      assert.equal(drafts.length, 1);
+      const draft = readFileSync(join(draftDir, drafts[0]!), 'utf8');
+      assert.deepEqual((JSON.parse(draft) as { citations: string[] }).citations, ['issue:test']);
+      assert.doesNotMatch(draft, /artifact\/test-output|raw payload|currentTruth|20-Decisions|30-Architecture|40-Runbooks/);
+      const replay = await call('workflow.agent.leave', {
+        project: 'alpha', agent: 'worker', work_run_id: pending.lifetime.workRunId,
+        mode: 'complete', target_state: 'completed', transition_token: 'review:approved',
+        submission: outputSubmission('alpha', pending.lifetime.workItemId, pending.lifetime.workRunId, 'knowledge-claim', { proposalId: 'proposal/reviewed', rawPayload: 'raw payload bytes', currentTruth: 'do not promote' }), summary: 'approved',
+      }) as { outputRoute: { state: string } };
+      assert.equal(replay.outputRoute.state, 'review-required');
+      assert.equal(readdirSync(draftDir).filter((name) => name.endsWith('.json')).length, 1);
+      assert.equal(existsSync(vp(root, '20-Decisions')), false);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -1685,6 +1744,7 @@ test('workflow.agent.checkpoint leave and doctor preserve lifetime evidence', as
       await call('workflow.agent.start', {
         project: 'alpha',
         agent: 'worker',
+        issue: 'build',
         transition_token: 'external:join',
       });
       const denied = (await call('workflow.agent.checkpoint', {
@@ -1694,23 +1754,300 @@ test('workflow.agent.checkpoint leave and doctor preserve lifetime evidence', as
         summary: 'push requested without approval',
         output_class: 'external-side-effect',
         approval_status: 'denied',
-        work_run_state: 'awaiting_review',
       })) as { lifetime: { workRunState: string; outputClass: string; approvalStatus: string } };
       assert.deepEqual(
         [denied.lifetime.workRunState, denied.lifetime.outputClass, denied.lifetime.approvalStatus],
-        ['awaiting_review', 'external-side-effect', 'denied'],
+        ['running', 'external-side-effect', 'denied'],
       );
-      await assert.rejects(
-        () => call('workflow.agent.leave', {
-          project: 'alpha',
-          agent: 'worker',
-          transition_token: 'external:complete-denied',
-          work_run_state: 'completed',
-        }),
-        /requires approval before completion/,
-      );
+      const result = (await call('workflow.agent.leave', {
+        project: 'alpha', agent: 'worker', work_run_id: (denied as any).lifetime.workRunId,
+        mode: 'complete', target_state: 'completed', transition_token: 'external:complete-denied',
+        submission: outputSubmission('alpha', (denied as any).lifetime.workItemId, (denied as any).lifetime.workRunId, 'external-side-effect'), summary: 'external review',
+      })) as { outputRoute: { state: string } };
+      assert.equal(result.outputRoute.state, 'denied');
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
   });
+});
+
+test('workflow.agent.leave authorizes the exact agent through the production dispatcher', async () => {
+  const { root, call, byName, ctx } = makeHarness();
+  try {
+    const started = await call('workflow.agent.start', { project: 'alpha', agent: 'worker', transition_token: 'join:authz' }) as { workRunId: string };
+    ctx.config.collaboration!.allowed_write_paths = ['01-Projects/**'];
+    const dispatcher = createOperationDispatcher([...byName.values()], ctx);
+    await assert.rejects(
+      () => dispatcher.invoke('workflow.agent.leave', {
+        project: 'project/alpha', agent: 'worker', mode: 'terminate', work_run_id: started.workRunId,
+        target_state: 'cancelled', transition_token: 'leave:authz', submission: null, summary: 'not authorized',
+      }),
+      /not authorized for the requested agent lifetime/,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('workflow.agent.leave rejects a cross-agent actor without a dispatcher', async () => {
+  const { root, call, byName, ctx } = makeHarness();
+  try {
+    const started = await call('workflow.agent.start', { project: 'alpha', agent: 'worker', transition_token: 'join:direct-authz' }) as { workRunId: string };
+    await assert.rejects(
+      () => (byName.get('workflow.agent.leave') as Operation).handler(ctx, {
+        project: 'project/alpha', agent: 'worker', mode: 'terminate', work_run_id: started.workRunId,
+        target_state: 'cancelled', transition_token: 'leave:direct-authz', submission: null, summary: 'not authorized',
+      }),
+      /not authorized for the requested agent lifetime/,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('workflow.agent.leave quarantine is review-required and does not mutate lifetime or events', async () => {
+  const { root, call } = makeHarness();
+  try {
+    const started = await call('workflow.agent.start', { project: 'alpha', agent: 'worker', issue: 'build', transition_token: 'join:quarantine' }) as { workRunId: string; path: string; eventsPath: string; runPath: string; lifetime: { workItemId: string } };
+    const workItemId = started.lifetime.workItemId;
+    const beforeLifetime = readFileSync(vp(root, started.path), 'utf8');
+    const beforeEvents = readFileSync(vp(root, started.eventsPath), 'utf8');
+    const beforeRun = readFileSync(vp(root, started.runPath), 'utf8');
+    const result = await call('workflow.agent.leave', {
+      project: 'alpha', agent: 'worker', work_run_id: started.workRunId,
+      mode: 'complete', target_state: 'awaiting_review', transition_token: 'leave:quarantine',
+      submission: quarantineSubmission('alpha', workItemId, started.workRunId), summary: 'quarantined',
+    }) as { outputRoute: { state: string; ownerOperation: string | null; ownerReceiptFingerprint: string | null; fingerprint: string } };
+    assert.equal(result.outputRoute.state, 'review-required');
+    assert.equal(result.outputRoute.ownerOperation, null);
+    assert.equal(result.outputRoute.ownerReceiptFingerprint, null);
+    assert.equal(readFileSync(vp(root, started.path), 'utf8'), beforeLifetime);
+    assert.equal(readFileSync(vp(root, started.eventsPath), 'utf8'), beforeEvents);
+    assert.equal(readFileSync(vp(root, started.runPath), 'utf8'), beforeRun);
+    const replay = await call('workflow.agent.leave', {
+      project: 'alpha', agent: 'worker', work_run_id: started.workRunId,
+      mode: 'complete', target_state: 'awaiting_review', transition_token: 'leave:quarantine',
+      submission: quarantineSubmission('alpha', workItemId, started.workRunId), summary: 'quarantined',
+    }) as { outputRoute: { fingerprint: string } };
+    assert.equal(replay.outputRoute.fingerprint, result.outputRoute.fingerprint);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('work-state output routes through the production dispatcher and reconciles a nested owner throw', async () => {
+  const { root } = makeHarness();
+  try {
+    const workflowOps = makeWorkflowOps(root);
+    const projectOps = makeProjectOps(root);
+    const projectUpdate = projectOps.find((operation) => operation.name === 'project.issue.update');
+    assert.ok(projectUpdate && projectUpdate.mutating && projectUpdate.writePolicy, 'real project issue update is governed');
+    const realUpdate = projectUpdate.handler;
+    let ownerCalls = 0;
+    let throwAfterWrite = true;
+    projectUpdate.handler = async (ctx, params) => {
+      ownerCalls += 1;
+      const result = await realUpdate(ctx, params);
+      if (throwAfterWrite) {
+        throwAfterWrite = false;
+        throw new Error('nested owner failed after issue write');
+      }
+      return result;
+    };
+    const ctx: OperationContext = {
+      vault: null as never,
+      adapters: null,
+      config: { vault_path: root, collaboration: { actor: 'codex', role: 'agent', allowed_write_paths: ['01-Projects/**', 'Projects/**'] } },
+      logger: { info() {}, warn() {}, error() {} },
+      dryRun: false,
+    };
+    const dispatcher = createOperationDispatcher([...workflowOps, ...projectOps], ctx);
+    await dispatcher.invoke('project.init', { project: 'alpha' });
+    await dispatcher.invoke('project.issue.create', { project: 'alpha', slug: 'build', title: 'Build issue', state: 'todo' });
+    const seeded = seedDriverLease(root, {
+      projectId: 'project/alpha',
+      workItemId: 'project/alpha/issue/build',
+      workRunId: 'work-run/work-os-dispatch',
+      agentId: 'codex',
+    });
+    const joined = await dispatcher.invoke('workflow.agent.join', {
+      project: seeded.projectId,
+      agent: 'codex',
+      work_run_id: seeded.workRunId,
+      work_item_id: seeded.workItemId,
+      transition_token: 'join:work-os-dispatch',
+    }) as { workRunId: string; lifetime: { workItemId: string } };
+    const transition = (token: string, params: Record<string, unknown>) => ({
+      project: 'project/alpha', agent: 'codex', work_run_id: joined.workRunId,
+      mode: 'complete', target_state: 'completed', transition_token: token,
+      submission: outputSubmission('alpha', joined.lifetime.workItemId, joined.workRunId, 'work-state-transition', { operation: 'project.issue.update', params }),
+      summary: 'apply issue state',
+    });
+
+    const foreign = await dispatcher.invoke('workflow.agent.leave', transition('leave:foreign', { project: 'project/other', slug: 'build', state: 'done' })) as { outputRoute: { state: string } };
+    assert.equal(foreign.outputRoute.state, 'outcome-unknown');
+    assert.equal(ownerCalls, 0);
+    const extra = await dispatcher.invoke('workflow.agent.leave', transition('leave:extra', { project: 'project/alpha', slug: 'build', state: 'done', extra: 'reject' })) as { outputRoute: { state: string } };
+    assert.equal(extra.outputRoute.state, 'outcome-unknown');
+    assert.equal(ownerCalls, 0);
+    assert.match(readFileSync(vp(root, '01-Projects/alpha/issues/build.md'), 'utf8'), /state: todo/);
+
+    const rebound = await dispatcher.invoke('workflow.agent.leave', transition('leave:work-os-dispatch', { project: 'project/alpha', slug: 'build', state: 'done' })) as { outputRoute: { state: string } };
+    assert.equal(rebound.outputRoute.state, 'outcome-unknown');
+    assert.equal(ownerCalls, 0);
+    assert.match(readFileSync(vp(root, '01-Projects/alpha/issues/build.md'), 'utf8'), /state: todo/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('external output uses a real Agent Domain grant and production nested dispatcher exactly once', async () => {
+  const roots: string[] = [];
+  const fixedNow = '2026-08-01T00:00:00.000Z';
+  const setup = async (options: { planId: string; expiresAt?: string; throwAfterEffect?: boolean; result?: 'false' | 'missing-ok' }) => {
+    const { root } = makeHarness();
+    roots.push(root);
+    const ctx: OperationContext = {
+      vault: null as never,
+      adapters: null,
+      config: { vault_path: root, collaboration: { actor: 'codex', role: 'agent', allowed_write_paths: ['01-Projects/**', 'Projects/**', 'external/**'] } },
+      logger: { info() {}, warn() {}, error() {} },
+      dryRun: false,
+    };
+    let effects = 0;
+    const externalOperation: Operation = {
+      name: 'external.fixture.write', namespace: 'host', description: 'Fixture external write', mutating: true, closedParams: true,
+      params: { resource: { type: 'string', required: true } },
+      writePolicy: { realWrite: 'always', targets: () => ['external/fixture/**'], audit: 'required' },
+      handler: async () => {
+        effects += 1;
+        if (options.throwAfterEffect) throw new Error('fixture external write lost its response');
+        if (options.result === 'false') return { ok: false, resource: 'external/fixture' };
+        if (options.result === 'missing-ok') return { resource: 'external/fixture' };
+        return { ok: true, resource: 'external/fixture' };
+      },
+    };
+    const dispatcher = createOperationDispatcher([...makeWorkflowOps(root), ...makeProjectOps(root), externalOperation], ctx);
+    await dispatcher.invoke('project.init', { project: 'alpha' });
+    const stateRoot = join(root, '_llmwiki/agent-domain/v1');
+    const service = new AgentDomainService({ stateRoot });
+    await service.createProfile({
+      profileId: 'agent/worker', displayName: 'Worker', role: 'External worker', responsibilities: ['Perform governed writes'],
+      capabilityClaims: ['fixture-write'], constitution: { principles: ['Use explicit grants'], instructions: ['Preserve receipts'] },
+      defaultModelPolicy: { mode: 'local', provider: 'local', model: 'fixture-model' }, actor: 'codex',
+    });
+    const projectContextFingerprint = canonicalDigest(normalizedProjectContext(resolveProjectContext(root, 'project/alpha')));
+    await service.createBinding({
+      projectId: 'project/alpha', projectContextFingerprint, profileId: 'agent/worker', profileRevision: 1,
+      role: 'External worker', connectorGrantRefs: [], actor: 'codex',
+    });
+    const expiresAt = options.expiresAt ?? '2099-08-01T00:00:00.000Z';
+    const assignmentPlanFingerprint = canonicalDigest({ assignment: options.planId });
+    const deviceFingerprint = canonicalDigest({ device: options.planId });
+    const contextFingerprint = canonicalDigest({ context: options.planId });
+    const plan = createDelegationPlan({
+      planId: options.planId as `delegation-plan/${string}`,
+      projectId: 'project/alpha', parentWorkRunId: 'work-run/parent', objective: 'Run a fixture external write',
+      assignment: {
+        assignmentPlanId: `assignment-plan/${options.planId.slice('delegation-plan/'.length)}`,
+        assignmentPlanVersion: 1, assignmentPlanFingerprint,
+        deviceSnapshot: { snapshotId: `device-snapshot/${options.planId.slice('delegation-plan/'.length)}`, deviceId: 'fixture-device', revision: 1, fingerprint: deviceFingerprint, capturedAt: fixedNow, expiresAt: '2099-08-01T00:00:00.000Z' },
+        profileId: 'agent/worker', profileRevision: 1, bindingId: 'binding/alpha/worker', bindingRevision: 1, contextEnvelopeFingerprint: contextFingerprint,
+      },
+      inputArtifactIds: [],
+      requestedCapabilityScope: { connectors: ['fixture'], operations: ['external.fixture.write'], resources: ['resource/fixture'], sideEffectClasses: ['external-write'] },
+      budget: { policyVersion: 'fixture/v1', maxInputTokens: 1_000, maxOutputTokens: 1_000, maxDurationMs: 10_000 },
+      expiresAt, expectedOutput: { outputClass: 'external-operation-result', mediaType: 'application/json', requiredArtifactCount: 1, acceptanceCriteria: ['one receipt'] },
+      sideEffectPolicy: { externalEffectsRequirePerRunApproval: true, requestedExternalClasses: ['external-write'] },
+      provenance: [], createdAt: fixedNow, createdBy: 'codex',
+    });
+    const delegation = new DelegationStore({ collaborationRoot: join(stateRoot, 'collaboration'), projectId: 'project/alpha', clock: () => fixedNow });
+    await delegation.createPlan(plan);
+    const approved = await delegation.approve({
+      planId: plan.planId, presentedFingerprint: plan.fingerprint, transitionToken: `approve:${options.planId.slice(-8)}`,
+      actor: 'codex', approvedExternalClasses: ['external-write'],
+      authorize: async () => ({ allowed: true, policyVersion: 'fixture-policy/v1', reason: 'test approval', decidedAt: fixedNow, actor: 'codex' }),
+    });
+    assert.equal(canonicalJson(approved.child.grantSummary), canonicalJson(approved.grant));
+    const seeded = seedDriverLease(root, { projectId: 'project/alpha', workItemId: 'project/alpha/issue/build', workRunId: approved.child.workRunId, agentId: 'codex' });
+    const joined = await dispatcher.invoke('workflow.agent.join', {
+      project: seeded.projectId, agent: 'codex', work_run_id: seeded.workRunId, work_item_id: seeded.workItemId, transition_token: `join:${options.planId.slice(-8)}`,
+    }) as { workRunId: string; lifetime: { workItemId: string } };
+    return {
+      root,
+      dispatcher,
+      joined,
+      grant: approved.grant,
+      effects: () => effects,
+      restart: () => createOperationDispatcher([...makeWorkflowOps(root), ...makeProjectOps(root), externalOperation], ctx),
+    };
+  };
+  const externalSubmission = (run: { joined: { workRunId: string; lifetime: { workItemId: string } }; grant: { grantId: string; externalSideEffectApproval: { approvalFingerprint?: string } } }, overrides: { actor?: string; grantId?: string; operation?: string } = {}) => {
+    const operation = overrides.operation ?? 'external.fixture.write';
+    const grantId = overrides.grantId ?? run.grant.grantId;
+    const payload = { operation, params: { resource: 'resource/fixture' }, grantId };
+    const material = { schemaVersion: 'work-run-output/v1' as const, projectId: 'project/alpha', workItemId: run.joined.lifetime.workItemId, workRunId: run.joined.workRunId, outputClass: 'external-side-effect' as const, payload, citations: ['external:fixture'], provenance: ['test:external-governance'], producedAt: fixedNow };
+    const outputFingerprint = fingerprintRecoveryValue(material);
+    const approvalMaterial = { status: 'approved' as const, actor: overrides.actor ?? 'codex', projectId: material.projectId, workRunId: material.workRunId, outputFingerprint, operation, grantId };
+    const approval = { ...approvalMaterial, approvalFingerprint: run.grant.externalSideEffectApproval.approvalFingerprint!, fingerprint: fingerprintRecoveryValue(approvalMaterial) };
+    return { schemaVersion: 'work-run-output-submission/v1' as const, result: 'output' as const, output: { ...material, fingerprint: outputFingerprint, approval }, quarantine: null };
+  };
+  const leave = (run: Awaited<ReturnType<typeof setup>>, token: string, submission: unknown) => run.dispatcher.invoke('workflow.agent.leave', {
+    project: 'project/alpha', agent: 'codex', work_run_id: run.joined.workRunId, mode: 'complete', target_state: 'completed', transition_token: token, submission, summary: 'external fixture',
+  }) as Promise<{ outputRoute: { state: string; fingerprint: string } }>;
+  try {
+    const acceptedRun = await setup({ planId: 'delegation-plan/external-accepted' });
+    const acceptedSubmission = externalSubmission(acceptedRun);
+    const accepted = await leave(acceptedRun, 'leave:external-accepted', acceptedSubmission);
+    assert.equal(accepted.outputRoute.state, 'accepted');
+    const acceptedReplay = await leave(acceptedRun, 'leave:external-accepted', acceptedSubmission);
+    assert.equal(acceptedReplay.outputRoute.fingerprint, accepted.outputRoute.fingerprint);
+    assert.equal(acceptedRun.effects(), 1);
+
+    const grantMismatchRun = await setup({ planId: 'delegation-plan/external-grant-mismatch' });
+    assert.equal((await leave(grantMismatchRun, 'leave:external-grant-mismatch', externalSubmission(grantMismatchRun, { grantId: 'grant/not-issued' }))).outputRoute.state, 'denied');
+    assert.equal(grantMismatchRun.effects(), 0);
+    const actorMismatchRun = await setup({ planId: 'delegation-plan/external-actor-mismatch' });
+    assert.equal((await leave(actorMismatchRun, 'leave:external-actor-mismatch', externalSubmission(actorMismatchRun, { actor: 'other' }))).outputRoute.state, 'denied');
+    assert.equal(actorMismatchRun.effects(), 0);
+    const expiryMismatchRun = await setup({ planId: 'delegation-plan/external-expired', expiresAt: '2026-08-15T00:00:00.000Z' });
+    assert.equal((await leave(expiryMismatchRun, 'leave:external-expired', externalSubmission(expiryMismatchRun))).outputRoute.state, 'denied');
+    assert.equal(expiryMismatchRun.effects(), 0);
+    const operationMismatchRun = await setup({ planId: 'delegation-plan/external-operation-mismatch' });
+    assert.equal((await leave(operationMismatchRun, 'leave:external-operation-mismatch', externalSubmission(operationMismatchRun, { operation: 'external.other.write' }))).outputRoute.state, 'denied');
+    assert.equal(operationMismatchRun.effects(), 0);
+    const unknownRun = await setup({ planId: 'delegation-plan/external-unknown', throwAfterEffect: true });
+    const unknownSubmission = externalSubmission(unknownRun);
+    assert.equal((await leave(unknownRun, 'leave:external-unknown', unknownSubmission)).outputRoute.state, 'outcome-unknown');
+    assert.equal((await leave(unknownRun, 'leave:external-unknown', unknownSubmission)).outputRoute.state, 'outcome-unknown');
+    assert.equal(unknownRun.effects(), 1);
+    const deniedRun = await setup({ planId: 'delegation-plan/external-denied', result: 'false' });
+    const deniedSubmission = externalSubmission(deniedRun);
+    assert.equal((await leave(deniedRun, 'leave:external-denied', deniedSubmission)).outputRoute.state, 'denied');
+    const deniedDoctor = await deniedRun.dispatcher.invoke('workflow.agent.doctor', { project: 'project/alpha', agent: 'codex' }) as { lifetime: { workRunState: string; approvalStatus: string } };
+    assert.deepEqual([deniedDoctor.lifetime.workRunState, deniedDoctor.lifetime.approvalStatus], ['awaiting_review', 'denied']);
+    const routeDirs = ['output-runs', 'output-claims', 'output-tokens'];
+    for (const dir of routeDirs) {
+      const routeDir = vp(deniedRun.root, `01-Projects/alpha/runs/${dir}`);
+      const [name] = readdirSync(routeDir);
+      if (!name) throw new Error(`${dir} receipt exists`);
+      const routePath = join(routeDir, name);
+      const claim = JSON.parse(readFileSync(routePath, 'utf8')) as Record<string, unknown>;
+      assert.equal((claim.receipt as Record<string, unknown>).state, 'denied');
+      claim.state = 'claimed';
+      claim.receipt = null;
+      claim.ownerStarted = true;
+      writeFileSync(routePath, JSON.stringify(claim, null, 2) + '\n', 'utf8');
+    }
+    deniedRun.dispatcher = deniedRun.restart();
+    assert.equal((await leave(deniedRun, 'leave:external-denied', deniedSubmission)).outputRoute.state, 'denied');
+    assert.equal(deniedRun.effects(), 1);
+    const missingOkRun = await setup({ planId: 'delegation-plan/external-missing-ok', result: 'missing-ok' });
+    const missingOkSubmission = externalSubmission(missingOkRun);
+    assert.equal((await leave(missingOkRun, 'leave:external-missing-ok', missingOkSubmission)).outputRoute.state, 'outcome-unknown');
+    assert.equal((await leave(missingOkRun, 'leave:external-missing-ok', missingOkSubmission)).outputRoute.state, 'outcome-unknown');
+    assert.equal(missingOkRun.effects(), 1);
+  } finally {
+    for (const root of roots) rmSync(root, { recursive: true, force: true });
+  }
 });

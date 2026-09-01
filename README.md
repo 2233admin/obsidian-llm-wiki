@@ -50,7 +50,7 @@ git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git
 cd obsidian-llm-wiki && ./setup                      # --host codex | opencode | gemini
 ```
 
-Windows: `.\setup.ps1`. The script copies the skill bundle into your host's skills directory and prints the `.mcp.json` snippet to paste into your agent config. [docs/INSTALL.md](docs/INSTALL.md) has per-host paths and the manual recipe.
+Windows: `.\setup.ps1`. The script installs the skill bundle, writes the supported host registration, and updates the managed Vault Roles block. Use `setup --doctor` to verify it. [docs/INSTALL.md](docs/INSTALL.md) has per-host paths and the supported-host limitation.
 
 ### Install the Obsidian plugin
 
@@ -75,6 +75,17 @@ immediately — large vaults index in the background and sharpen as they finish.
 with `ollama pull bge-m3` (or point `VAULT_MIND_EMBED_URL` at any OpenAI-compatible
 embedding endpoint). Recall answers tell you when semantic is off and how to turn
 it on; keyword recall keeps working regardless.
+
+For a direct smoke test from a terminal, run the packaged citation demo:
+
+```bash
+vault recall "what did we decide about the compiler?" --vault /path/to/vault
+```
+
+It prints the extractive answer and stable `[C1]`-style citations. Omit
+`--vault` when `VAULT_MIND_VAULT_PATH` is configured. To measure time-to-first
+cited answer for a local run, set `VAULT_MIND_TTHW_METRICS=1`; the server emits
+one `recall_first_success` JSON event to stderr and never logs the query text.
 
 ---
 
@@ -113,7 +124,7 @@ Any MCP-compatible host:
 | OpenCode | `./setup --host opencode` | path configured, smoke-tested |
 | Gemini CLI | `./setup --host gemini` | path configured, smoke-tested |
 
-Anything else speaking stdio MCP transport should work — the `setup` script only copies skills into the right directory and prints the `.mcp.json` snippet. If your host reads MCP config from somewhere else, paste the snippet there by hand.
+Anything else speaking stdio MCP transport should work — the `setup` script installs skills and registers the supported host format. If your host uses another configuration format, use its native MCP configuration and set `VAULT_MIND_VAULT_PATH` there.
 
 ---
 

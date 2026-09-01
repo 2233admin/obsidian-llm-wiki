@@ -1,16 +1,17 @@
-import { execFile, spawnSync } from 'node:child_process';
-import { promisify } from 'node:util';
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
+import { badRequest, notFound } from './types.js';
 import type { Operation, OperationWritePolicy } from './types.js';
 import { resultPath, staticTargets, targetOrWildcard, targetParams, touchMarkdown } from './write-policy.js';
 import { scanRecipes, findRecipe } from '../recipes/_registry.js';
 import { getRecipeStatus, runHealthCheck, appendHeartbeat } from '../recipes/_framework.js';
 import { answerQuery, traceUnifiedQuery, unifiedQuery, unifiedQueryByVector } from '../unified-query.js';
+import { processRecallTthw } from '../recall-metrics.js';
 import { embed } from '../embedding-client.js';
 import type { AdapterRegistry } from '../adapters/registry.js';
 import type { VaultBrainAdapter } from '../adapters/vaultbrain/index.js';
-import { ensureBackfill, recallGaps } from '../adapters/vaultbrain/lazy-index.js';
+import { ensureBackfill, recallGaps, listVaultMarkdown, reindexVault } from '../adapters/vaultbrain/lazy-index.js';
 import type { RAGAnythingAdapter } from '../adapters/raganything.js';
 import type { LightRAGAdapter } from '../adapters/lightrag.js';
 import type { CompileTrigger } from '../compile-trigger.js';
@@ -24,6 +25,7 @@ import {
   PythonEvaluateRunner,
   type AgentRunnerPort,
 } from '../agent/agent-runner-port.js';
+import { runPythonWorker, PYTHON_WORKER_DIAGNOSTICS } from '../capabilities/python-worker.js';
 import { ContextCoreLoader } from '../holons/loader.js';
 import { makeHolonOps } from '../holons/holon.js';
 import { makeCausalOps } from '../holons/causal.js';
@@ -32,13 +34,14 @@ import { makeGraphOps } from '../holons/graph.js';
 import { makeVaultWriteOps } from '../holons/write.js';
 import { makeMemoryOps } from '../memory/memory.js';
 import { makeProjectOps } from '../project/project.js';
-import { makeProjectHubOps } from '../project/project-hub.js';
+import { createDefaultRecoveryRuntime, makeProjectHubOps } from '../project/project-hub.js';
 import { makeIngestOps } from '../ingest/ingest.js';
 import { makeSourceOps } from '../source/source.js';
 import type { VaultStore } from '../vault/store.js';
 import { makeConversationOps } from '../conversation/conversation.js';
 import { makeContextOps } from '../context/context.js';
 import { makeWorkflowOps } from '../workflow/workflow.js';
+import { createRecoveryPlanningService } from '../project-hub/recovery-planning-service.js';
 import { resolveProjectContext } from '../project/project-context.js';
 import { makeProjectMigrationOps } from '../project/project-migration.js';
 import {
@@ -79,8 +82,6 @@ import { resolveProjectRoot } from '../runtime-paths.js';
 
 export { makeAdapterGraphOps };
 
-const execAsync = promisify(execFile);
-const PROTECTED_DIRS = new Set(['.obsidian', '.trash', '.git', 'node_modules']);
 
 const _projectRoot = resolveProjectRoot();
 
@@ -208,7 +209,7 @@ export const operations: Operation[] = [
  params: {
       path: { type: 'string', required: true, description: 'Vault-relative path for the new note' },
       content: { type: 'string', required: false, description: 'Initial content' },
-      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: true)', default: true },
+      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: false)', default: false },
     },
     handler: async (ctx, params) => ctx.vault.execute('vault.create', params),
   },
@@ -221,7 +222,7 @@ export const operations: Operation[] = [
  params: {
       path: { type: 'string', required: true, description: 'Vault-relative path to the note' },
       content: { type: 'string', required: true, description: 'New content' },
-      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: true)', default: true },
+      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: false)', default: false },
     },
     handler: async (ctx, params) => ctx.vault.execute('vault.modify', params),
   },
@@ -234,7 +235,7 @@ export const operations: Operation[] = [
  params: {
       path: { type: 'string', required: true, description: 'Vault-relative path to the note' },
       content: { type: 'string', required: true, description: 'Content to append' },
-      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: true)', default: true },
+      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: false)', default: false },
     },
     handler: async (ctx, params) => ctx.vault.execute('vault.append', params),
   },
@@ -246,7 +247,7 @@ export const operations: Operation[] = [
  writePolicy: dryRunPathPolicy('delete'),
  params: {
       path: { type: 'string', required: true, description: 'Vault-relative path to delete' },
-      dryRun: { type: 'boolean', required: false, description: 'Simulate without deleting (default: true)', default: true },
+      dryRun: { type: 'boolean', required: false, description: 'Simulate without deleting (default: false)', default: false },
     },
     handler: async (ctx, params) => ctx.vault.execute('vault.delete', params),
   },
@@ -264,7 +265,7 @@ export const operations: Operation[] = [
  params: {
       from: { type: 'string', required: true, description: 'Source vault-relative path' },
       to: { type: 'string', required: true, description: 'Destination vault-relative path' },
-      dryRun: { type: 'boolean', required: false, description: 'Simulate without moving (default: true)', default: true },
+      dryRun: { type: 'boolean', required: false, description: 'Simulate without moving (default: false)', default: false },
     },
     handler: async (ctx, params) => ctx.vault.execute('vault.rename', params),
   },
@@ -276,7 +277,7 @@ export const operations: Operation[] = [
  writePolicy: dryRunPathPolicy(),
  params: {
       path: { type: 'string', required: true, description: 'Vault-relative directory path to create' },
-      dryRun: { type: 'boolean', required: false, description: 'Simulate without creating (default: true)', default: true },
+      dryRun: { type: 'boolean', required: false, description: 'Simulate without creating (default: false)', default: false },
     },
     handler: async (ctx, params) => ctx.vault.execute('vault.mkdir', params),
   },
@@ -351,12 +352,12 @@ export const operations: Operation[] = [
   {
     name: 'vault.lint',
     namespace: 'vault',
-    description: 'Vault health audit: finds orphans (no inbound wikilinks), broken wikilinks, empty files, duplicate titles, and optionally missing required frontmatter keys. Read-only; does not check modification time.',
+    description: '[DEPRECATED] Use problem.intake.scan instead. Vault health audit: finds orphans (no inbound wikilinks), broken wikilinks, empty files, duplicate titles, and optionally missing required frontmatter keys. Read-only; does not check modification time.',
     mutating: false,
     params: {
       requiredFrontmatter: { type: 'array', required: false, description: 'List of frontmatter keys that every note must have' },
     },
-    handler: async (ctx, params) => ctx.vault.execute('vault.lint', params),
+    handler: async (_ctx, _params) => ({ deprecated: true, useInstead: 'problem.intake.scan' }),
   },
   {
  name: 'vault.daily',
@@ -369,7 +370,7 @@ export const operations: Operation[] = [
       mood: { type: 'string', required: false, description: 'Mood rating', enum: ['great', 'good', 'neutral', 'low', 'bad'] },
       energy: { type: 'string', required: false, description: 'Energy level', enum: ['high', 'medium', 'low'] },
       tags: { type: 'array', required: false, description: 'Extra tags' },
-      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: true)', default: true },
+      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: false)', default: false },
     },
     handler: async (ctx, params) => ctx.vault.execute('vault.daily', params),
   },
@@ -385,7 +386,7 @@ export const operations: Operation[] = [
       company: { type: 'string', required: false, description: 'Organization' },
       relationship: { type: 'string', required: false, description: 'How you know them' },
       notes: { type: 'string', required: false, description: 'Additional context' },
-      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: true)', default: true },
+      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: false)', default: false },
     },
     handler: async (ctx, params) => ctx.vault.execute('vault.person', params),
   },
@@ -402,17 +403,26 @@ export const operations: Operation[] = [
       team: { type: 'array', required: false, description: 'Team member names (wikilinked in content)' },
       tags: { type: 'array', required: false, description: 'Extra tags' },
       entity: { type: 'string', required: false, description: 'Currency entity key (default: project/<name-slug>); drives the status-drift guard' },
-      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: true)', default: true },
+      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: false)', default: false },
     },
     handler: async (ctx, params) => {
       const name = params.name;
       if (typeof name !== 'string' || !name.trim()) throw makeErr(-32602, 'name required');
       const project = resolveProjectContext(ctx.config.vault_path, name, 'vault.project');
-      const result = await ctx.vault.execute('vault.project', {
-        ...params,
-        name: project.slug,
-        entity: project.projectId,
-      });
+      let result;
+      try {
+        result = await ctx.vault.execute('vault.project', {
+          ...params,
+          name: project.slug,
+          entity: project.projectId,
+        });
+      } catch (err) {
+        const e = err as { code?: number; message?: string };
+        if (e.code === -32004) {
+          throw makeErr(-32004, e.message + ' Use project.init to create a new Project ID');
+        }
+        throw err;
+      }
       return {
         result,
         projectId: project.projectId,
@@ -441,7 +451,7 @@ export const operations: Operation[] = [
       project: { type: 'string', required: false, description: 'Owning project (namespaces the currency entity as project/<slug>/decision/<title>)' },
       entity: { type: 'string', required: false, description: 'Currency entity key override (default derived from project + title)' },
       source: { type: 'string', required: false, description: 'Verifiable source (commit:/path:/test:/url:); without it the decision shows UNSUPPORTED in the currency view' },
-      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: true)', default: true },
+      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: false)', default: false },
     },
     handler: async (ctx, params) => ctx.vault.execute('vault.decide', params),
   },
@@ -457,7 +467,7 @@ export const operations: Operation[] = [
       decisions: { type: 'array', required: false, description: 'List of decisions made' },
       actions: { type: 'array', required: false, description: 'Action items (strings)' },
       summary: { type: 'string', required: false, description: 'Meeting summary' },
-      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: true)', default: true },
+      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: false)', default: false },
     },
     handler: async (ctx, params) => ctx.vault.execute('vault.meeting', params),
   },
@@ -474,7 +484,7 @@ export const operations: Operation[] = [
       type: { type: 'string', required: false, description: 'Content type', default: 'note', enum: ['article', 'research', 'note', 'reference'] },
       tags: { type: 'array', required: false, description: 'Extra tags' },
       preamble: { type: 'string', required: false, description: '2-3 sentence "For future Claude" preamble' },
-      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: true)', default: true },
+      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: false)', default: false },
     },
     handler: async (ctx, params) => ctx.vault.execute('vault.ingest', params),
   },
@@ -492,7 +502,7 @@ export const operations: Operation[] = [
  params: {
       topic: { type: 'string', required: false, description: 'Topic name (used as directory name and KB title); topic mode' },
       methodology: { type: 'string', required: false, description: 'Vault folder scaffold to create; methodology mode', enum: ['generic', 'para', 'lyt', 'zettelkasten'] },
-      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (methodology mode only, default: true)', default: true },
+      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (methodology mode only, default: false)', default: false },
     },
     handler: async (ctx, params) => ctx.vault.execute('vault.init', params),
   },
@@ -507,7 +517,7 @@ export const operations: Operation[] = [
  audit: 'required',
  },
  params: {
-      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: true)', default: true },
+      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: false)', default: false },
       topLevelOnly: { type: 'boolean', required: false, description: 'Only process top-level directories (default: true)', default: true },
       skipDirs: { type: 'array', required: false, description: 'Additional directory names to skip beyond the built-in protected list' },
     },
@@ -537,7 +547,7 @@ export const operations: Operation[] = [
       scope: { type: 'string', required: false, description: 'Governance namespace for the entry (default: project)', default: 'project', enum: ['project', 'global', 'cross-project', 'host-local'] },
       quarantineState: { type: 'string', required: false, description: 'Trust-gate state in the candidate lifecycle (default: new)', default: 'new', enum: ['new', 'reviewed', 'promoted', 'discarded'] },
       reviewStatus: { type: 'string', required: false, description: 'When user-confirmed, appends #user-confirmed tag to the body so Obsidian tag search picks it up. Default: none (no tag appended).', default: 'none', enum: ['none', 'user-confirmed'] },
-      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: true)', default: true },
+      dryRun: { type: 'boolean', required: false, description: 'Simulate without writing (default: false)', default: false },
     },
     handler: async (ctx, params) => ctx.vault.execute('vault.writeAIOutput', params),
   },
@@ -596,9 +606,9 @@ export const operations: Operation[] = [
     },
     handler: async (_ctx, params) => {
       const id = params.id;
-      if (typeof id !== 'string' || id === '') throw new Error('Missing required param: id');
+      if (typeof id !== 'string' || id === '') throw badRequest('Missing required param: id');
       const recipe = findRecipe(id);
-      if (!recipe) throw new Error(`Recipe not found: ${id}`);
+      if (!recipe) throw notFound(`Recipe not found: ${id}`);
       return { frontmatter: recipe.frontmatter, body: recipe.body };
     },
   },
@@ -612,9 +622,9 @@ export const operations: Operation[] = [
     },
     handler: async (_ctx, params) => {
       const id = params.id;
-      if (typeof id !== 'string' || id === '') throw new Error('Missing required param: id');
+      if (typeof id !== 'string' || id === '') throw badRequest('Missing required param: id');
       const recipe = findRecipe(id);
-      if (!recipe) throw new Error(`Recipe not found: ${id}`);
+      if (!recipe) throw notFound(`Recipe not found: ${id}`);
       return getRecipeStatus(recipe);
     },
   },
@@ -629,9 +639,9 @@ export const operations: Operation[] = [
     },
     handler: async (_ctx, params) => {
       const id = params.id;
-      if (typeof id !== 'string' || id === '') throw new Error('Missing required param: id');
+      if (typeof id !== 'string' || id === '') throw badRequest('Missing required param: id');
       const recipe = findRecipe(id);
-      if (!recipe) throw new Error(`Recipe not found: ${id}`);
+      if (!recipe) throw notFound(`Recipe not found: ${id}`);
       const status = getRecipeStatus(recipe);
       const checks: Array<{ command: string; ok: boolean; output: string }> = [];
       for (const hc of recipe.frontmatter.health_checks ?? []) {
@@ -658,10 +668,10 @@ export const operations: Operation[] = [
     },
     handler: async (_ctx, params) => {
       const id = params.id;
-      if (typeof id !== 'string' || id === '') throw new Error('Missing required param: id');
+      if (typeof id !== 'string' || id === '') throw badRequest('Missing required param: id');
 
       const recipe = findRecipe(id);
-      if (!recipe) throw new Error(`Recipe not found: ${id}`);
+      if (!recipe) throw notFound(`Recipe not found: ${id}`);
 
       // Early-out: missing secrets
       const status = getRecipeStatus(recipe);
@@ -752,6 +762,8 @@ export interface AllOperationsDeps {
   environment?: NodeJS.ProcessEnv;
   /** Host-specific OBC process adapter. */
   obcRunner?: ObcRunner;
+  /** Optional governed Work Run capability-grant reader for output side effects. */
+  capabilityOperationGrantLoader?: (grantId: string) => Promise<unknown>;
   /** Optional host-specific Project Hub projection integration. */
   projectHubIntegration?: ProductionProjectHubIntegration;
 }
@@ -822,6 +834,15 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     problemDependencies,
     { obcRunner },
   );
+  const recoveryRuntime = createDefaultRecoveryRuntime({
+    vaultPath,
+    registry,
+    capabilityFact: {
+      capability: 'workflow.recovery.plan',
+      state: 'available',
+    },
+  });
+  const recoveryPlanningService = createRecoveryPlanningService(recoveryRuntime.dependencies);
   const catalogOperations = operations.map((operation) => {
     if (operation.name !== 'vault.lint') return operation;
     return {
@@ -1001,45 +1022,48 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     {
       name: 'vault.reindex',
       namespace: 'vault',
-      description: 'Bulk-index all markdown files into VaultBrain semantic store. Use after initial setup or vault migration.',
-      mutating: false,
+      description: 'Incrementally reconcile indexable markdown with VaultBrain; unchanged files are skipped and stale indexed pages are removed after a complete scan.',
+      mutating: true,
+      writePolicy: {
+        realWrite: 'dryRunFalse',
+        targets: staticTargets('external/vaultbrain/**'),
+        audit: 'required',
+      },
       params: {
         dryRun: { type: 'boolean', required: false, default: false, description: 'Count files without ingesting (default: false)' },
         concurrency: { type: 'number', required: false, default: 4, description: 'Max concurrent ingest calls (default: 4)' },
       },
       handler: async (_ctx, params) => {
         const vba = (registry as AdapterRegistry).get('vaultbrain') as VaultBrainAdapter | undefined;
-        if (!vba) throw makeErr(-32001, 'VaultBrain adapter not available or not initialized');
-        const files: string[] = [];
-        const walk = (dir: string): void => {
-          for (const entry of readdirSync(dir, { withFileTypes: true })) {
-            if (entry.isDirectory()) {
-              if (!PROTECTED_DIRS.has(entry.name)) walk(join(dir, entry.name));
-            } else if (entry.isFile() && entry.name.endsWith('.md')) {
-              files.push(join(dir, entry.name));
-            }
-          }
-        };
-        walk(vaultPath);
+        if (!vba || !vba.isAvailable) throw makeErr(-32001, 'VaultBrain adapter not available or not initialized');
         if ((params.dryRun as boolean | undefined) ?? false) {
+          const files = listVaultMarkdown(vaultPath);
           return { dryRun: true, total: files.length, message: 'Run with dryRun: false to index' };
         }
-        const concurrency = Math.max(1, Math.floor((params.concurrency as number | undefined) ?? 4));
-        let indexed = 0;
-        const errors: string[] = [];
-        for (let i = 0; i < files.length; i += concurrency) {
-          const batch = files.slice(i, i + concurrency);
-          const results = await Promise.allSettled(batch.map(async (fullPath) => {
-            const content = readFileSync(fullPath, 'utf-8');
-            const relPath = relative(vaultPath, fullPath).replace(/\\/g, '/');
-            await vba.ingest(relPath, content);
-          }));
-          results.forEach((result, idx) => {
-            if (result.status === 'fulfilled') indexed++;
-            else errors.push(`${relative(vaultPath, batch[idx]).replace(/\\/g, '/')}: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`);
-          });
-        }
-        return { indexed, skipped: errors.length, errors, totalFiles: files.length };
+        const result = await reindexVault(vba, vaultPath, {
+          concurrency: (params.concurrency as number | undefined) ?? 4,
+        });
+        return {
+          indexed: result.indexed,
+          skipped: result.skipped,
+          deleted: result.deleted,
+          errors: result.errors,
+          totalFiles: result.total,
+        };
+      },
+    },
+    {
+      name: 'vault.reindex_status',
+      namespace: 'vault',
+      description: 'Read the durable VaultBrain reindex state, including whether the last run completed or was incomplete and its progress counters.',
+      mutating: false,
+      params: {},
+      handler: async () => {
+        const vba = (registry as AdapterRegistry).get('vaultbrain') as VaultBrainAdapter | undefined;
+        return {
+          available: Boolean(vba?.isAvailable),
+          state: vba && vba.isAvailable ? await vba.getReindexState() : null,
+        };
       },
     },
     {
@@ -1146,6 +1170,7 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
         tierRouting: agentWikiFeatures.tieredRetrieval,
       });
       for (const g of await recallGaps(backfill)) answer.gaps.unshift(g);
+      processRecallTthw.record(answer.citations.length);
       return answer;
     },
   },
@@ -1420,12 +1445,19 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
         const mode = params.mode as string | undefined;
         if (mode) args.push('--mode', mode);
         try {
-          const { stdout } = await execAsync(python, args, {
-            timeout: 30_000,
+          const result = await runPythonWorker({
+            capabilityId: 'agent-status',
+            executable: python,
+            args,
+            timeoutMs: 30_000,
             maxBuffer: 2 * 1024 * 1024,
-            env: { ...process.env },
+            environment: { ...process.env },
           });
-          return JSON.parse(stdout);
+          if (!result.ok) {
+            const diagnostic = result.diagnosticCode ?? PYTHON_WORKER_DIAGNOSTICS.spawnFailed;
+            throw new Error(`${diagnostic}: ${result.stderr.trim() || 'evaluate.py failed'}`);
+          }
+          return JSON.parse(result.stdout);
         } catch (e) {
           throw makeErr(-32000, `agent.status failed: ${(e as Error).message}`);
         }
@@ -1537,12 +1569,19 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
         const limit = params.limit as number | undefined;
         if (limit !== undefined) args.push('--limit', String(limit));
         try {
-          const { stdout } = await execAsync(python, args, {
-            timeout: 10_000,
+          const result = await runPythonWorker({
+            capabilityId: 'agent-history',
+            executable: python,
+            args,
+            timeoutMs: 10_000,
             maxBuffer: 2 * 1024 * 1024,
-            env: { ...process.env },
+            environment: { ...process.env },
           });
-          return JSON.parse(stdout);
+          if (!result.ok) {
+            const diagnostic = result.diagnosticCode ?? PYTHON_WORKER_DIAGNOSTICS.spawnFailed;
+            throw new Error(`${diagnostic}: ${result.stderr.trim() || 'evaluate.py failed'}`);
+          }
+          return JSON.parse(result.stdout);
         } catch (e) {
           throw makeErr(-32000, `agent.history failed: ${(e as Error).message}`);
         }
@@ -1560,6 +1599,8 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
     ...projectOps,
     ...makeProjectHubOps(registry, settingsService, {
       loadVisualTriage: projectHubIntegration.loadVisualTriage,
+      recoveryRuntime,
+      recoveryPlanningService,
     }),
     ...makeProjectMigrationOps({ python, compilerPath, vaultPath }),
     ...makeIngestOps(),
@@ -1568,7 +1609,14 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
       store: deps.store,
     }),
     ...makeConversationOps(vaultPath),
-    ...makeWorkflowOps(vaultPath),
+    ...makeWorkflowOps(vaultPath, {
+      recoveryRuntime,
+      recoveryPlanningService,
+      ...(deps.capabilityOperationGrantLoader ? { capabilityOperationGrantLoader: deps.capabilityOperationGrantLoader } : {}),
+      // Apply authorization is an independently injected production capability;
+      // the Plan capability fact is intentionally not reused for mutation.
+      recoveryApplyCapability: async () => ({ capability: 'workflow.recovery.apply' as const, state: 'available' as const }),
+    }),
     ...makeContextOps(vaultPath, registry, defaultWeights),
     ...makeSettingsOps(settingsOptions, settingsService),
     ...makeAgentWikiFeatureOps(agentWikiFeatures),
@@ -1579,7 +1627,11 @@ export function makeAllOperations(deps: AllOperationsDeps): Operation[] {
       settingsService,
       observePluginDiagnostic: projectHubIntegration.observePluginDiagnostic,
     }),
-    ...makeAgentDomainOps(vaultPath),
+    ...makeAgentDomainOps(vaultPath, {
+      recoveryRuntime,
+      recoveryPlanningService,
+      recoveryApplyCapability: async () => ({ capability: 'workflow.recovery.apply' as const, state: 'available' as const }),
+    }),
     ...makeLegacyAgentMigrationOps(),
     ...makeVisualWorkspaceOps(vaultPath),
     ...makeAdapterGraphOps(registry),

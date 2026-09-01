@@ -6,19 +6,16 @@
  * Also supports manual trigger via compile.run MCP method.
  */
 
-import { execFile } from "node:child_process";
 import { readdirSync, existsSync } from "node:fs";
-import { promisify } from "node:util";
 import { resolve } from "node:path";
 import { DurableMaintenanceQueue, type MaintenancePlan } from "./maintenance/queue.js";
 import type { CompileExecutionContext, CompilePromotionResult, CompileRunPort, CompileRunTrigger, CompileVerificationResult } from "./compile/compile-run-port.js";
 import type { CompileResult, CompileStatus } from "./compile/types.js";
 import { PythonCompileWorker } from "./compile/compile-worker.js";
+import { runPythonWorker, PYTHON_WORKER_DIAGNOSTICS } from "./capabilities/python-worker.js";
 import type { VaultStore } from "./vault/store.js";
 
 export type { CompileResult, CompileStatus } from "./compile/types.js";
-
-const exec = promisify(execFile);
 
 export interface CompileTriggerConfig {
   /** Path to vault root */
@@ -60,6 +57,7 @@ export class CompileTrigger {
   private readonly autoCompile: boolean;
   private readonly onCompileSuccess?: (wikiPaths: string[]) => void;
   private readonly worker: PythonCompileWorker;
+  private readonly environmentResolver?: () => Promise<NodeJS.ProcessEnv>;
   private readonly schedulingMode: "durable" | "legacy-threshold";
   private readonly debounceMs: number;
   private readonly maximumLagMs: number;
@@ -75,6 +73,7 @@ export class CompileTrigger {
     this.python = config.python ?? "python";
     this.threshold = config.threshold ?? 3;
     this.autoCompile = config.autoCompile ?? true;
+    this.environmentResolver = config.environmentResolver;
     this.onCompileSuccess = config.onCompileSuccess;
     this.worker = new PythonCompileWorker({
       vaultPath: config.vaultPath,
@@ -280,11 +279,20 @@ export class CompileTrigger {
 
     for (const topic of topics) {
       try {
-        const { stdout } = await exec(this.python, [kbMeta, "diff", this.vaultPath, topic], {
-          timeout: 10_000,
-          maxBuffer: 1024 * 1024,
-          env: { ...process.env },
+        const workerResult = await runPythonWorker({
+          capabilityId: "kb-meta",
+          executable: this.python,
+          args: [kbMeta, "diff", this.vaultPath, topic],
+          timeoutMs: 10_000,
+          environment: this.environmentResolver ? await this.environmentResolver() : { ...process.env },
         });
+        if (!workerResult.ok) {
+          process.stderr.write(
+            `llmwiki: [compile] startup diff failed for "${topic}": ${workerResult.diagnosticCode ?? PYTHON_WORKER_DIAGNOSTICS.spawnFailed}\n`,
+          );
+          continue;
+        }
+        const { stdout } = workerResult;
         const result = JSON.parse(stdout) as { new?: string[]; changed?: string[] };
         const dirty = [...(result.new ?? []), ...(result.changed ?? [])];
         for (const f of dirty) {

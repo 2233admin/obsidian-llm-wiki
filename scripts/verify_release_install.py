@@ -14,7 +14,6 @@ import time
 from pathlib import Path
 from typing import Any
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 RELEASE_INSTALL_ALLOWLIST: tuple[Path, ...] = (
@@ -303,7 +302,7 @@ class McpClient:
             raise RuntimeError(f"tools/list failed: {resp['error']}")
         tools = resp.get("result", {}).get("tools", [])
         if not isinstance(tools, list):
-            raise RuntimeError("tools/list returned a non-list tools payload")
+            raise TypeError("tools/list returned a non-list tools payload")
         names = [tool.get("name") for tool in tools if isinstance(tool, dict)]
         if any(not isinstance(name, str) or not name for name in names):
             raise RuntimeError("tools/list returned a tool without a valid name")
@@ -326,9 +325,17 @@ def run_step(results: list[dict[str, Any]], code: str, fn: Any) -> None:
     try:
         detail = fn()
         results.append({"ok": True, "code": code, "detail": detail})
-    except Exception as e:
+    except (
+        subprocess.SubprocessError,
+        AssertionError,
+        AttributeError,
+        KeyError,
+        OSError,
+        RuntimeError,
+        TypeError,
+        ValueError,
+    ) as e:
         results.append({"ok": False, "code": code, "detail": str(e)})
-
 
 def make_temp_vault(root: Path) -> Path:
     vault = root / "vault"
@@ -525,11 +532,30 @@ def verify(repo: Path) -> dict[str, Any]:
                     "summary": "Shipped workflow checkpoint succeeded",
                     "evidence": ["release-install-smoke"],
                 })
+                output_material = {
+                    "schemaVersion": "work-run-output/v1",
+                    "projectId": identity["project"],
+                    "workItemId": identity["work_item_id"],
+                    "workRunId": identity["work_run_id"],
+                    "outputClass": "view",
+                    "payload": {"artifactId": "artifact/release-result"},
+                    "citations": ["test:release-install"],
+                    "provenance": ["test:release-install"],
+                    "producedAt": "2026-08-28T00:00:00.000Z",
+                }
+                output_material["fingerprint"] = "sha256:" + hashlib.sha256(json.dumps(output_material, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
                 left = require_tool(client, "workflow.agent.leave", {
                     **identity,
+                    "mode": "complete",
+                    "target_state": "completed",
                     "transition_token": "release:leave",
                     "summary": "Shipped workflow leave succeeded",
-                    "work_run_state": "cancelled",
+                    "submission": {
+                        "schemaVersion": "work-run-output-submission/v1",
+                        "result": "output",
+                        "output": output_material,
+                        "quarantine": None,
+                    },
                 })
                 serialized = json.dumps([joined, checkpoint, left])
                 if "release-install-local-lease" in serialized:
@@ -537,7 +563,7 @@ def verify(repo: Path) -> dict[str, Any]:
                 return {
                     "joined": joined.get("workRunId"),
                     "checkpointState": checkpoint.get("workRunState"),
-                    "leaveState": left.get("lifetime", {}).get("workRunState"),
+                    "leaveState": left.get("outputRoute", {}).get("state"),
                 }
 
             run_step(results, "workflow-roundtrip", workflow_roundtrip)

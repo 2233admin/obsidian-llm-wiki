@@ -24,7 +24,9 @@ Raw notes become compiled summaries and concepts. Useful agent answers become qu
 
 It is not an AI companion. It is a knowledge compiler for team vaults: `raw/` becomes `wiki/`, cited answers land in `00-Inbox/AI-Output/`, and durable memory is promoted through review.
 
-It works with **Claude Code, Codex, OpenCode, and Gemini CLI**. Obsidian is optional — the filesystem adapter handles everything without it.
+LLM Wiki is **Obsidian-first** for human setup and control. MCP and CLI remain available for agents and automation; filesystem search does not require Python, the compiler, or optional adapters.
+
+Follow the [Obsidian-first onboarding](ONBOARDING.md) for the first binding, capability health check, minimum settings, and cited first search.
 
 ---
 
@@ -51,7 +53,7 @@ cd "$HOME\obsidian-llm-wiki-src"; .\setup.ps1
 ./setup --host gemini
 ```
 
-After setup prints two paste-in snippets (a `.mcp.json` entry + a `CLAUDE.md` role block), restart your agent host.
+After setup writes the supported registration and managed role block, restart your agent host. Run `./setup --doctor --vault /absolute/path/to/vault` to verify it.
 
 Full install details, per-host paths, manual install, and uninstall are in [INSTALL.md](INSTALL.md).
 
@@ -92,7 +94,7 @@ See [RESEARCH_COMPILER_LOOP.md](RESEARCH_COMPILER_LOOP.md) for the full operatin
 
 ## First agent session
 
-After install, point `VAULT_PATH` at a real markdown vault and restart your agent host.
+After install, setup has already registered the canonical `VAULT_MIND_VAULT_PATH`; if you configure it manually, point it at a real markdown vault and restart your agent host.
 
 ### 1. Sanity check — list one role
 
@@ -390,7 +392,7 @@ your-vault/
         └── ...
 ```
 
-If you don't want AI-Output in your root, set `VAULT_PATH` in `.mcp.json` to a sub-folder of your actual vault. The MCP server treats `VAULT_PATH` as the root — it won't write outside it.
+If you don't want AI-Output in your root, set `VAULT_MIND_VAULT_PATH` in `.mcp.json` to a sub-folder of your actual vault. The MCP server treats that path as the root — it won't write outside it.
 
 ---
 
@@ -416,15 +418,15 @@ Restart your agent host. MCP registration is picked up at startup. If it still d
 
 ### `vault.search` returns nothing but your vault has files
 
-`VAULT_PATH` in your `.mcp.json` is probably wrong or relative. Must be an absolute path to a directory that contains `.md` files.
+`VAULT_MIND_VAULT_PATH` in your `.mcp.json` is probably wrong or relative. It must be an absolute path to a directory that contains `.md` files.
 
 ### Agent writes to the wrong place
 
-Check `VAULT_PATH` again. The MCP server refuses to write outside that path — if writes are landing somewhere unexpected, your path is unexpected.
+Check `VAULT_MIND_VAULT_PATH` again. The MCP server refuses to write outside that path — if writes are landing somewhere unexpected, your path is unexpected.
 
 ### I don't want AI-Output in my vault
 
-Two options: (a) set `VAULT_PATH` to a dedicated scratch directory, or (b) after use, move useful AI-Output files into proper topic folders and delete the rest.
+Two options: (a) set `VAULT_MIND_VAULT_PATH` to a dedicated scratch directory, or (b) after use, move useful AI-Output files into proper topic folders and delete the rest.
 
 ### The `node` command errors with "stdin is not a tty"
 

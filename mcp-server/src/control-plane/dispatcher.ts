@@ -10,6 +10,7 @@ import {
 
 export interface OperationDispatcher {
   invoke(name: string, args?: Record<string, unknown>): Promise<unknown>;
+  get?(name: string): Operation | undefined;
 }
 
 export interface OperationDispatcherOptions {
@@ -36,7 +37,10 @@ export function createOperationDispatcher(
     operations.map((operation) => [operation.name, operation]),
   );
 
-  return {
+  const dispatcher: OperationDispatcher = {
+    get(name) {
+      return registry.get(name);
+    },
     async invoke(name, args = {}) {
       const operation = registry.get(name);
       if (!operation) {
@@ -45,7 +49,7 @@ export function createOperationDispatcher(
 
       assertMutatingOperationIsGoverned(operation);
 
-      const params = asOperationError(() => validateParams(operation.params, args));
+      const params = asOperationError(() => validateParams(operation.params, args, operation.closedParams));
       const verdict = asOperationError(() =>
         adjudicateOperationWrite(context, operation, params, registry),
       );
@@ -57,6 +61,8 @@ export function createOperationDispatcher(
       return result;
     },
   };
+  context.operationDispatcher = dispatcher;
+  return dispatcher;
 }
 
 function assertMutatingOperationIsGoverned(operation: Operation): void {

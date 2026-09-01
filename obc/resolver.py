@@ -6,13 +6,15 @@ Resolve links against the vault index and classify diagnostics.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 
-from obc.extract import LinkRef, LinkKind
-from obc.index import VaultIndex, FileEntry
+from obc.extract import LinkRef
+from obc.index import FileEntry, VaultIndex
+
+logger = logging.getLogger(__name__)
 
 
 class DiagnosticCode(Enum):
@@ -49,16 +51,16 @@ class Diagnostic:
     """A diagnostic result for a link."""
     code: DiagnosticCode
     link: LinkRef
-    target_file: Optional[FileEntry] = None
+    target_file: FileEntry | None = None
     candidates: list[FileEntry] = None
     message: str = ""
 
     # Fragment resolution
     fragment_exists: bool = False
-    fragment_type: Optional[str] = None  # "heading" or "block"
+    fragment_type: str | None = None  # "heading" or "block"
 
     # Fix suggestion
-    suggested_fix: Optional[str] = None
+    suggested_fix: str | None = None
     safety_level: str = "S0"  # S0-S3
 
     def __post_init__(self):
@@ -317,8 +319,8 @@ class Resolver:
                             suggested_fix=self._make_alias_suggestion(link, semantic_entries[0]),
                             safety_level="S2",
                         )
-            except Exception:
-                pass  # Semantic matching is optional
+            except (AttributeError, ImportError, IndexError, OSError, TypeError, ValueError, RuntimeError) as exc:
+                logger.debug("Semantic matching unavailable: %s", exc, exc_info=True)
 
         # 7. Broken
         return Diagnostic(

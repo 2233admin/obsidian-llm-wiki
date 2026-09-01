@@ -11,8 +11,10 @@ import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { App, PluginManifest } from "obsidian";
+import { Menu, TFile } from "obsidian";
+import type { App, PluginManifest, TAbstractFile, WorkspaceLeaf } from "obsidian";
 import LLMWikiPlugin from "../src/main";
+import { ASK_MATE_VIEW_TYPE, AskMateView } from "../src/ask-mate/view";
 import { InProcessSettingsTransport, obsidianUserDeviceId } from "../src/settings-host";
 import type { SettingsOperationTransport } from "../src/settings-client";
 import type { AgentControlPlaneTransport } from "../src/control-plane-client";
@@ -21,6 +23,20 @@ import type { DeviceBindingReference } from "../src/settings";
 type ControlPlaneTransport = SettingsOperationTransport & AgentControlPlaneTransport;
 
 const PREIMAGE_PATH = ".obsidian/plugins/obsidian-llm-wiki/legacy-migration-preimage.json";
+
+interface LifecycleHarness {
+  activeFile: TAbstractFile | null;
+  events: Map<string, unknown>;
+  detachedViewTypes: string[];
+}
+
+function lifecycleHarness(): LifecycleHarness {
+  return {
+    activeFile: null,
+    events: new Map(),
+    detachedViewTypes: [],
+  };
+}
 
 class MemoryAdapter {
   files = new Map<string, string>();
@@ -36,6 +52,12 @@ class MemoryAdapter {
     this.files.delete(path);
   }
 }
+class PreimageFailingAdapter extends MemoryAdapter {
+  override async write(path: string, data: string): Promise<void> {
+    if (path === PREIMAGE_PATH) throw new Error("preimage backup unavailable");
+    await super.write(path, data);
+  }
+}
 
 interface DataStore {
   current: unknown;
@@ -47,10 +69,19 @@ class FailingTransport implements SettingsOperationTransport {
   }
 }
 
-function fakeApp(adapter: MemoryAdapter): App {
+function fakeApp(adapter: MemoryAdapter, harness = lifecycleHarness()): App {
   return {
     vault: { adapter },
-    workspace: { on: () => ({}), getActiveFile: () => null },
+    workspace: {
+      on: (event: string, callback: unknown) => {
+        harness.events.set(event, callback);
+        return {};
+      },
+      getActiveFile: () => harness.activeFile,
+      detachLeavesOfType: (viewType: string) => {
+        harness.detachedViewTypes.push(viewType);
+      },
+    },
   } as unknown as App;
 }
 
@@ -59,9 +90,10 @@ class TestPlugin extends LLMWikiPlugin {
     adapter: MemoryAdapter,
     private readonly store: DataStore,
     private readonly transport: ControlPlaneTransport,
+    harness = lifecycleHarness(),
   ) {
     super(
-      fakeApp(adapter),
+      fakeApp(adapter, harness),
       { id: "obsidian-llm-wiki", dir: ".obsidian/plugins/obsidian-llm-wiki" } as PluginManifest,
     );
   }
@@ -188,6 +220,51 @@ test("lifecycle: rollback without a device-local backup fails closed", async (t)
     "journal must stay applied when the backup is missing",
   );
 });
+test("lifecycle: preimage backup failure leaves migration applied but rollback fails closed", async (t) => {
+  const adapter = new PreimageFailingAdapter();
+  const store = legacyStore();
+  const plugin = new TestPlugin(adapter, store, await inProcessTransport(t));
+  await plugin.onload();
+
+  const migrated = store.current as Record<string, unknown>;
+  assert.equal(migrated.schemaVersion, 2);
+  assert.equal("pythonPath" in migrated, false);
+  assert.equal("kbMetaPath" in migrated, false);
+  assert.equal(adapter.files.has(PREIMAGE_PATH), false);
+  const rollback = plugin.commands.find(command => command.id === "rollback-legacy-migration");
+  assert.equal(rollback?.checkCallback?.(true), false);
+
+  await plugin.rollbackLegacyMigration();
+  assert.equal(
+    ((store.current as Record<string, unknown>).legacyMigration as { state: string }).state,
+    "applied",
+    "rollback must not mutate the journal without a preimage",
+  );
+});
+
+test("lifecycle: schema-v2 binding initialization uses the ordinary save path", async (t) => {
+  const adapter = new MemoryAdapter();
+  const store: DataStore = {
+    current: {
+      schemaVersion: 2,
+      presentation: { selectedScope: "user-device", showAdvanced: false },
+    },
+  };
+  const plugin = new TestPlugin(adapter, store, await inProcessTransport(t));
+  await plugin.onload();
+
+  const persisted = store.current as Record<string, unknown>;
+  assert.equal(persisted.schemaVersion, 2);
+  assert.deepEqual(persisted.presentation, {
+    selectedScope: "user-device",
+    showAdvanced: false,
+    settingsExpandedSections: [],
+  });
+  assert.deepEqual(persisted.deviceBinding, {
+    deviceId: obsidianUserDeviceId(process.env),
+  });
+  assert.equal(adapter.files.has(PREIMAGE_PATH), false);
+});
 
 test("lifecycle: runtime.python.path rejects shell wrappers at the platform boundary", async (t) => {
   const adapter = new MemoryAdapter();
@@ -198,4 +275,139 @@ test("lifecycle: runtime.python.path rejects shell wrappers at the platform boun
     plugin.updateSetting("user-device", "runtime.python.path", "C:/wrappers/python.bat"),
     /wrapper|not allowed|validation/i,
   );
+});
+
+test("lifecycle: project Ask Mate view receives the stateless Recovery client", async (t) => {
+  const adapter = new MemoryAdapter();
+  const store = legacyStore();
+  const plugin = new TestPlugin(adapter, store, await inProcessTransport(t));
+  await plugin.onload();
+  const calls: string[] = [];
+  plugin.setAgentControlPlaneTransport({
+    async invoke<T>(operation: string): Promise<T> {
+      calls.push(operation);
+      return {
+        schemaVersion: "project-hub-recovery-flow/v2",
+        stage: "unavailable",
+        projectId: "project/alpha",
+        previousFlowFingerprint: null,
+        actionInputFingerprint: "sha256:a",
+        recoveryFingerprint: "sha256:b",
+        ownerLocks: [],
+        payload: { kind: "unavailable", reason: "test", remediation: "test" },
+        nextRequestIntents: [],
+        diagnostics: [],
+        omitted: { items: 0, citations: 0, diagnostics: 0, bytes: 0 },
+        rootOpenFlowFingerprint: "sha256:c",
+        nextRequests: [],
+        generatedAt: "2026-08-28T00:00:00.000Z",
+        flowFingerprint: "sha256:d",
+      } as T;
+    },
+  });
+  const creator = plugin.views.get("llmwiki-ask-mate");
+  assert.ok(creator);
+  const view = creator({} as WorkspaceLeaf) as AskMateView;
+  view.render = () => undefined;
+  await view.openContext({ projectId: "project/alpha", kind: "project" });
+  assert.deepEqual(calls, ["project.hub.recovery.flow"]);
+});
+test("lifecycle: onload registers supported surfaces and unload cleans them up", async (t) => {
+  const adapter = new MemoryAdapter();
+  const store: DataStore = {
+    current: {
+      schemaVersion: 2,
+      deviceBinding: {
+        deviceId: obsidianUserDeviceId(process.env),
+        workspaceProjectId: "project/alpha",
+      },
+      presentation: {
+        selectedScope: "user-device",
+        showAdvanced: false,
+        settingsExpandedSections: [],
+      },
+    },
+  };
+  const transport = await inProcessTransport(t) as ControlPlaneTransport & { dispose: () => void };
+  let disposeCount = 0;
+  transport.dispose = () => {
+    disposeCount += 1;
+  };
+  const harness = lifecycleHarness();
+  const plugin = new TestPlugin(adapter, store, transport, harness);
+  await plugin.onload();
+
+  assert.ok(plugin.views.has(ASK_MATE_VIEW_TYPE));
+  assert.equal(plugin.ribbonIcons.some(icon => icon.title === "Open LLM Wiki"), true);
+  assert.equal(plugin.settingTabs.length, 2);
+  const commandIds = plugin.commands.map(command => command.id);
+  assert.deepEqual([...commandIds].sort(), [
+    "open-agentfiles",
+    "promote-candidate",
+    "refresh-settings-control-plane",
+    "open-agent-control-plane",
+    "open-ask-mate",
+    "open-ask-mate-active-note",
+    "open-ask-mate-active-canvas",
+    "open-ask-mate-project-context",
+    "rollback-legacy-migration",
+  ].sort());
+
+  const markdownFile = new TFile("notes/candidate.md", "md");
+  const canvasFile = new TFile("maps/project.canvas", "canvas");
+  harness.activeFile = markdownFile;
+  const promote = plugin.commands.find(command => command.id === "promote-candidate");
+  const activeNote = plugin.commands.find(command => command.id === "open-ask-mate-active-note");
+  const activeCanvas = plugin.commands.find(command => command.id === "open-ask-mate-active-canvas");
+  const projectContext = plugin.commands.find(command => command.id === "open-ask-mate-project-context");
+  assert.equal(promote?.checkCallback?.(true), true);
+  assert.equal(activeNote?.checkCallback?.(true), true);
+  assert.equal(activeCanvas?.checkCallback?.(true), false);
+  assert.equal(projectContext?.checkCallback?.(true), true);
+
+  harness.activeFile = canvasFile;
+  assert.equal(promote?.checkCallback?.(true), false);
+  assert.equal(activeNote?.checkCallback?.(true), false);
+  assert.equal(activeCanvas?.checkCallback?.(true), true);
+
+  harness.activeFile = null;
+  assert.equal(promote?.checkCallback?.(true), false);
+  assert.equal(activeNote?.checkCallback?.(true), false);
+  assert.equal(activeCanvas?.checkCallback?.(true), false);
+
+  const fileMenuHandler = harness.events.get("file-menu");
+  assert.equal(typeof fileMenuHandler, "function");
+  const addFileMenuItems = fileMenuHandler as (menu: Menu, file: TAbstractFile) => void;
+  const markdownMenu = new Menu();
+  addFileMenuItems(markdownMenu, markdownFile);
+  assert.deepEqual([...markdownMenu.items.map(item => item.title)].sort(), [
+    "Promote candidate (LLM Wiki)",
+    "Open in LLM Wiki (LLM Wiki)",
+  ].sort());
+  const canvasMenu = new Menu();
+  addFileMenuItems(canvasMenu, canvasFile);
+  assert.deepEqual([...canvasMenu.items.map(item => item.title)].sort(), [
+    "Open in LLM Wiki (LLM Wiki)",
+  ].sort());
+
+  plugin.data = {
+    ...plugin.data,
+    deviceBinding: { deviceId: obsidianUserDeviceId(process.env) },
+  };
+  harness.activeFile = markdownFile;
+  assert.equal(activeNote?.checkCallback?.(true), false);
+  assert.equal(projectContext?.checkCallback?.(true), false);
+
+  const unboundMarkdownMenu = new Menu();
+  addFileMenuItems(unboundMarkdownMenu, markdownFile);
+  assert.deepEqual(unboundMarkdownMenu.items.map(item => item.title), [
+    "Promote candidate (LLM Wiki)",
+  ]);
+  const unboundCanvasMenu = new Menu();
+  addFileMenuItems(unboundCanvasMenu, canvasFile);
+  assert.deepEqual(unboundCanvasMenu.items, []);
+
+  plugin.onunload();
+  assert.deepEqual(harness.detachedViewTypes, ["agentfiles-view", ASK_MATE_VIEW_TYPE]);
+  assert.equal(disposeCount, 1);
 });

@@ -14,8 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from knowledge_health import run as run_knowledge_health
-from vault_collab_lint import Finding, load_policy, lint
-
+from vault_collab_lint import lint, load_policy
 
 ROOT = Path(__file__).resolve().parents[1]
 MCP_BUNDLE = ROOT / "mcp-server" / "bundle.js"
@@ -199,7 +198,7 @@ def check_lint(vault: Path, policy: dict[str, Any] | None, checks: list[Check]) 
 def check_knowledge_health(vault: Path, checks: list[Check]) -> None:
     try:
         data = run_knowledge_health(vault)
-    except Exception as e:
+    except OSError as e:
         add(checks, "error", "knowledge-health-failed", "knowledge health check failed", detail=str(e))
         return
     findings = data.get("findings", [])
@@ -280,7 +279,7 @@ def check_actor_policy(vault: Path, actor: str | None, role: str | None, checks:
                 stderr_lower = stderr.lower()
                 if stderr.strip() and any(marker in stderr_lower for marker in ["[warn]", "[error]", "fatal"]):
                     add(checks, "warn", "mcp-stderr", "MCP server wrote to stderr during doctor", detail=stderr.strip()[:2000])
-    except Exception as e:
+    except (AttributeError, KeyError, OSError, RuntimeError, TypeError, ValueError) as e:
         add(checks, "error", "actor-policy-failed", "MCP actor policy check failed", detail=str(e))
 
 

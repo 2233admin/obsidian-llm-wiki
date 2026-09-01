@@ -5,7 +5,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, 
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { describe, test } from 'bun:test';
-import { assertArtifactOnlyCommitRange } from './verify_fleet_workflow';
+import { assertArtifactOnlyCommitRange, assertPortableBaseHead, runPythonCommand } from './verify_fleet_workflow';
 
 const ROOT = resolve(import.meta.dir, '..');
 const SCRIPT = resolve(import.meta.dir, 'verify_fleet_workflow.ts');
@@ -54,6 +54,32 @@ describe('fleet workflow acceptance harness safety', () => {
     const result = invoke(['--help']);
     assert.equal(result.status, 0, result.stderr || result.stdout);
     assert.match(result.stdout, /--require-clean\s+Reject tracked or untracked worktree changes before acceptance/);
+  });
+
+  test('runPythonCommand invokes Windows .cmd wrappers without interpreting argument metacharacters', () => {
+    if (process.platform !== 'win32') return;
+    const root = mkdtempSync(join(tmpdir(), 'fleet-python-wrapper-'));
+    const wrapper = join(root, 'python shim.cmd');
+    const argument = join(root, 'safe path & value.txt');
+    try {
+      writeFileSync(wrapper, '@echo off\r\necho [%~1]\r\n', 'utf-8');
+      const result = runPythonCommand(wrapper, [argument], {
+        cwd: root,
+        encoding: 'utf-8',
+        windowsHide: true,
+      });
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(result.stdout.trim(), `[${argument}]`);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('falls back when configured Python is unavailable', () => {
+    const result = invoke(['--phase', 'prepare', '--json'], {
+      PYTHON: join(tmpdir(), 'missing-python.cmd'),
+    });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
   });
 
   test('descendant acceptance rejects product changes even with --tested-commit', () => {
@@ -379,6 +405,38 @@ describe('fleet workflow acceptance harness safety', () => {
       } finally {
         rmSync(root, { recursive: true, force: true });
       }
+    }
+  });
+
+  test('assertPortableBaseHead accepts canonical relative note-id base_head', () => {
+    assertPortableBaseHead('01-Projects/fleet-acceptance/issues/cloud-workflow.md', 'canonical');
+    assertPortableBaseHead('KB/alpha/topics/web.md', 'kb');
+    assertPortableBaseHead('00-Inbox/AI-Output/curry.md', 'inbox');
+  });
+
+  test('assertPortableBaseHead rejects machine-local and absolute base_head values', () => {
+    const rejects: Array<[string, string]> = [
+      ['drive-windows', 'C:\\Users\\curry\\obsidian\\fleet.md'],
+      ['drive-unix', 'C:/Users/curry/obsidian/fleet.md'],
+      ['unc', '\\\\fs01\\share\\fleet.md'],
+      ['file-url', 'file:///Users/curry/vault/fleet.md'],
+      ['posix-users', '/Users/curry/vault/01-Projects/fleet.md'],
+      ['posix-home', '/home/curry/vault/01-Projects/fleet.md'],
+      ['posix-private', '/private/var/folders/fleet.md'],
+      ['posix-tmp', '/tmp/llmwiki-fleet-local-AbCdEf/01-Projects/fleet.md'],
+      ['posix-var-tmp', '/var/tmp/llmwiki-fleet-device-AbCdEf/fleet.md'],
+      ['backslash-segment', '01-Projects\\fleet-acceptance\\issues\\cloud-workflow.md'],
+      ['empty', ''],
+      ['no-md-suffix', '01-Projects/fleet-acceptance/issues/cloud-workflow'],
+      ['leading-slash', '/01-Projects/fleet-acceptance/issues/cloud-workflow.md'],
+      ['non-string', 12345 as unknown as string],
+    ];
+    for (const [label, value] of rejects) {
+      assert.throws(
+        () => assertPortableBaseHead(value, label),
+        /base_head|must not|must be|must use|outside the portable range/i,
+        `${label}: ${JSON.stringify(value)}`,
+      );
     }
   });
 });

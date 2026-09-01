@@ -31,7 +31,18 @@ type BatchChildResult = {
 
 const DEFAULT_PROTECTED_PATHS = ['20-Decisions/**', '30-Architecture/**', '40-Runbooks/**', 'README.md'];
 const DREAMTIME_CADENCE_AUTHORIZED_ROLES = new Set(['human', 'approver', 'admin']);
+const WORK_RUN_OWNER_OPERATIONS = new Set([
+  'workflow.agent.start', 'workflow.agent.join', 'workflow.agent.step',
+  'workflow.agent.checkpoint', 'workflow.agent.leave', 'workflow.recovery.apply',
+  'dreamtime.cadence.run',
+]);
 const globCache = new Map<string, RegExp>();
+
+function isWorkRunGovernanceNamespace(target: string): boolean {
+  const normalized = normalizePolicyPath(target);
+  return normalized === '.vault-mind/_work-run.lock'
+    || /(?:^|\/)runs(?:\/|$)/u.test(normalized);
+}
 
 export function adjudicateOperationWrite(
   ctx: OperationContext,
@@ -47,6 +58,7 @@ export function adjudicateOperationWrite(
     throw makeErr(-32602, `Operation Write Policy for ${operation.name} produced no write targets`);
   }
   if (verdict.realWrite) {
+    enforceWorkRunOwnerNamespace(operation.name, verdict.targets);
     enforceCollaborationPolicy(ctx.config, operation.name, verdict.params, verdict.targets);
   }
   return verdict;
@@ -247,7 +259,7 @@ function adjudicateBatchWrite(
     };
     if (params.dryRun !== undefined && childParams.dryRun === undefined) childParams.dryRun = params.dryRun;
     if (params.dry_run !== undefined && childParams.dry_run === undefined) childParams.dry_run = params.dry_run;
-    const validated = validateParams(child.params, childParams);
+    const validated = validateParams(child.params, childParams, child.closedParams);
     return adjudicateOperationWrite(ctx, child, validated, registry);
   });
 
@@ -299,6 +311,13 @@ function enforceCollaborationPolicy(
     if (!allowedHit) {
       throw makeErr(-32403, `Collaboration policy blocked ${toolName} by ${actor}: ${target} is outside allowed write paths`);
     }
+  }
+}
+
+function enforceWorkRunOwnerNamespace(toolName: string, targets: string[]): void {
+  if (WORK_RUN_OWNER_OPERATIONS.has(toolName)) return;
+  if (targets.some(isWorkRunGovernanceNamespace)) {
+    throw makeErr(-32403, `Operation Write Policy blocked ${toolName}: Work Run governance namespace is owner-protected`);
   }
 }
 
@@ -364,6 +383,13 @@ function settingsOperationAllowsTarget(toolName: string, target: string): boolea
 
 function governedBackendOperationAllowsTarget(toolName: string, target: string): boolean {
   const normalized = normalizePolicyPath(target);
+  if (toolName === 'workflow.recovery.apply') {
+    return normalized === '.vault-mind/_leases.json'
+      || normalized === '.vault-mind/_work-run.lock'
+      || /^01-Projects\/[a-z0-9][a-z0-9-]*\/runs\/(?:recovery-plans|recovery-tokens)\/[a-f0-9]{64}\.json$/.test(normalized)
+      || /^01-Projects\/[a-z0-9][a-z0-9-]*\/runs\/[A-Za-z0-9._-]+\.json$/.test(normalized)
+      || /^01-Projects\/[a-z0-9][a-z0-9-]*\/agents\/[A-Za-z0-9._-]+\/(?:lifetime|events)\.md$/.test(normalized);
+  }
   if (toolName === 'visual.map.apply') {
     return /^01-Projects\/[a-z0-9][a-z0-9-]*\/maps\/(?:[^/]+\/)*[^/]+$/.test(normalized)
       && !normalized.split('/').some((segment) => segment === '.' || segment === '..');

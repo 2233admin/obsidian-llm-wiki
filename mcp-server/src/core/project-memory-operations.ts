@@ -6,7 +6,7 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join, relative, resolve } from 'node:path';
 import type { Operation, OperationContext } from './types.js';
 import { badRequest } from './types.js';
 import { memoryPolicyBasePath } from './write-policy.js';
@@ -30,6 +30,7 @@ import {
   type SessionRecord,
 } from '../project-memory/index.js';
 import type { VaultStore } from '../vault/store.js';
+import type { WorkRunOutputV1 } from '../workflow/output-governance.js';
 
 const SESSION_RECORD_SCHEMA = 'session-record/v1';
 const RESEARCH_RECORD_SCHEMA = 'research-record/v1';
@@ -44,6 +45,31 @@ interface ProjectMemoryOpsOptions {
 interface PersistedResearchRecord extends ResearchRecord {
   readonly revision: number;
   readonly contentHash: string;
+}
+
+/** Persist only the cited, reviewable Work Run draft projection; output bytes stay out of durable memory. */
+export function persistWorkRunOutputDraft(
+  vaultPath: string,
+  store: VaultStore | undefined,
+  output: WorkRunOutputV1,
+  actor: string,
+): string {
+  const safeActor = safeSegment(actor, 'actor');
+  const project = safeSegment(output.projectId.slice('project/'.length), 'project');
+  const relativePath = `10-Projects/${project}/agents/${safeActor}/memory-drafts/${output.fingerprint.replace(/^sha256:/u, 'sha256-')}.json`;
+  const proposalId = isRecord(output.payload) && typeof output.payload.proposalId === 'string' ? output.payload.proposalId : undefined;
+  writeJson(vaultPath, store, relativePath, {
+    schemaVersion: 'project-memory-draft/v1',
+    projectId: output.projectId,
+    workItemId: output.workItemId,
+    workRunId: output.workRunId,
+    citations: output.citations,
+    provenance: output.provenance,
+    payloadFingerprint: output.fingerprint,
+    ...(proposalId ? { proposalId } : {}),
+    reviewStatus: 'draft',
+  });
+  return relativePath;
 }
 
 /**
@@ -246,7 +272,7 @@ function saveResearchRecord(
   return { record, path: relativePath, idempotent };
 }
 
-function createDurableProjectMemorySource(vaultPath: string): ProjectMemorySource {
+export function createDurableProjectMemorySource(vaultPath: string): ProjectMemorySource {
   return {
     listSessions: (projectId) => latestSessionRecords(
       listJsonRecords<SessionRecord>(vaultPath, `10-Projects/${projectId.slice('project/'.length)}/${SESSION_RECORDS_DIR}`)
@@ -255,6 +281,53 @@ function createDurableProjectMemorySource(vaultPath: string): ProjectMemorySourc
     listResearchRecords: (projectId) => listJsonRecords<ResearchRecord>(vaultPath, `10-Projects/${projectId.slice('project/'.length)}/agents`)
       .filter((record) => record.schemaVersion === RESEARCH_RECORD_SCHEMA && record.projectId === projectId),
   };
+}
+export function durableProjectMemoryDiagnostics(vaultPath: string, projectId: string): string[] {
+  const slug = projectId.slice('project/'.length);
+  const roots = [
+    `10-Projects/${slug}/${SESSION_RECORDS_DIR}`,
+    `10-Projects/${slug}/agents`,
+  ];
+  const diagnostics: string[] = [];
+  for (const relativeRoot of roots) {
+    const root = resolve(vaultPath, ...relativeRoot.split('/'));
+    if (!existsSync(root)) continue;
+    try {
+      if (!statSync(root).isDirectory()) {
+        diagnostics.push(`invalid_memory_root:${relativeRoot}`);
+        continue;
+      }
+    } catch {
+      diagnostics.push(`unavailable_memory_root:${relativeRoot}`);
+      continue;
+    }
+    const visit = (directory: string): void => {
+      let entries;
+      try {
+        entries = readdirSync(directory, { withFileTypes: true });
+      } catch {
+        diagnostics.push(`unavailable_memory_root:${relative(vaultPath, directory).replaceAll('\\', '/')}`);
+        return;
+      }
+      for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+        const full = join(directory, entry.name);
+        if (entry.isDirectory()) {
+          visit(full);
+          continue;
+        }
+        if (!entry.isFile() || !entry.name.endsWith('.json')) continue;
+        const path = relative(vaultPath, full).replaceAll('\\', '/');
+        try {
+          const value = JSON.parse(readFileSync(full, 'utf8')) as unknown;
+          if (!isRecord(value)) diagnostics.push(`invalid_memory_record:${path}`);
+        } catch {
+          diagnostics.push(`malformed_memory_record:${path}`);
+        }
+      }
+    };
+    visit(root);
+  }
+  return diagnostics.sort();
 }
 
 function latestSessionRecords(records: SessionRecord[]): SessionRecord[] {

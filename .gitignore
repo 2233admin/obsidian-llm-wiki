@@ -91,6 +91,8 @@ capture-hook.seen.log
 /mcp-server/agent-domain-cli.js
 /mcp-server/memu-query.js
 /mcp-server/usage-cli.js
+/mcp-server/recovery-flow-cli.js
+/mcp-server/setup-cli.js
 /obsidian-plugin/main.js
 
 # Stray one-off project artifacts that should not have been created at the repo root

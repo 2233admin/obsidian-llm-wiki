@@ -19,9 +19,9 @@
  * DSN is never forwarded into the Python process argument vector.
  */
 
-import { spawn } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { runPythonWorker, PYTHON_WORKER_DIAGNOSTICS } from "../capabilities/python-worker.js";
 
 const _thisDir = dirname(fileURLToPath(import.meta.url));
 // dist/scripts/sync-vault-to-memu.js -> obsidian-llm-wiki repo root
@@ -111,37 +111,22 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     return 2;
   }
 
-  const cwd = COMPILER_REPO;
-  const child = spawn(
-    "python",
-    ["-m", "compiler.memu_sync", ...forwarded],
-    {
-      cwd,
-      stdio: ["inherit", "inherit", "inherit"],
-      env: process.env,
-    },
-  );
-
-  return await new Promise<number>((resolveExit) => {
-    child.on("error", (err) => {
-      process.stderr.write(
-        `sync-vault-to-memu: failed to spawn python: ${(err as Error).message}\n`,
-      );
-      resolveExit(1);
-    });
-    child.on("exit", (code, signal) => {
-      if (typeof code === "number") {
-        resolveExit(code);
-        return;
-      }
-      if (signal) {
-        process.stderr.write(`sync-vault-to-memu: terminated by signal ${signal}\n`);
-        resolveExit(1);
-        return;
-      }
-      resolveExit(1);
-    });
+  const result = await runPythonWorker({
+    capabilityId: "memu-sync",
+    executable: "python",
+    args: ["-m", "compiler.memu_sync", ...forwarded],
+    cwd: COMPILER_REPO,
+    timeoutMs: 0,
+    environment: process.env,
   });
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+  if (result.ok) return result.exitCode ?? 0;
+  if (result.exitCode !== undefined) return result.exitCode;
+  process.stderr.write(
+    `sync-vault-to-memu: ${result.diagnosticCode ?? PYTHON_WORKER_DIAGNOSTICS.spawnFailed}\n`,
+  );
+  return 1;
 }
 
 const invokedDirectly = process.argv[1]

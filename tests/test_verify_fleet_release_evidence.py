@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import base64
-import importlib.util
 import hashlib
+import importlib.util
 import json
 import subprocess
 from pathlib import Path
 
 import pytest
-
 
 MODULE_PATH = Path(__file__).resolve().parents[1] / "scripts" / "verify_fleet_release_evidence.py"
 SPEC = importlib.util.spec_from_file_location("verify_fleet_release_evidence", MODULE_PATH)

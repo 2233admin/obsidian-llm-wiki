@@ -1,8 +1,9 @@
 """Tests for stale note detection."""
-import pytest
-from datetime import datetime, timedelta
+import os
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from obc.stale import find_stale_notes, StaleNote, StaleReport
+
+from obc.stale import StaleNote, StaleReport, find_stale_notes
 
 
 class TestFindStaleNotes:
@@ -20,9 +21,6 @@ class TestFindStaleNotes:
 
     def test_finds_stale_notes(self, tmp_path):
         """Should find notes older than threshold."""
-        import os
-        from datetime import timedelta
-
         # Create an old note (modify its mtime)
         old_note = tmp_path / "old.md"
         old_note.write_text("# Old Note\n\nNot updated in months.")
@@ -32,9 +30,8 @@ class TestFindStaleNotes:
         recent_note.write_text("# Recent Note\n\nModified yesterday.")
 
         # Manually set old note's mtime to 100 days ago
-        old_time = (datetime.now() - timedelta(days=100)).timestamp()
+        old_time = (datetime.now(timezone.utc) - timedelta(days=100)).timestamp()
         os.utime(old_note, (old_time, old_time))
-
         # With 30 day threshold, old note is stale
         stale = find_stale_notes(tmp_path, min_age_days=30)
         assert len(stale) >= 1
@@ -82,7 +79,8 @@ class TestStaleNote:
         """Should serialize to dict."""
         note = StaleNote(
             path=Path("test.md"),
-            last_modified=datetime.now().timestamp(),
+            last_modified=datetime.now(timezone.utc).timestamp(),
+
             age_days=45.5,
             links_to=3,
         )
@@ -102,7 +100,7 @@ class TestStaleReport:
         notes = [
             StaleNote(
                 path=Path("old1.md"),
-                last_modified=datetime.now().timestamp(),
+                last_modified=datetime.now(timezone.utc).timestamp(),
                 age_days=60.0,
                 links_to=0,
             ),

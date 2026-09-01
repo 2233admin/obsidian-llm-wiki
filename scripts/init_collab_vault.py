@@ -6,7 +6,6 @@ import argparse
 import json
 from pathlib import Path
 
-
 DEFAULT_AGENTS = ["codex", "claude"]
 BASE_DIRS = [
     "10-Projects",

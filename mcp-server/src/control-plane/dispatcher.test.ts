@@ -90,6 +90,18 @@ async function expectOperationError(
 }
 
 describe('Operation dispatcher', () => {
+  test('required nullable object accepts null but preserves presence and shape checks', async () => {
+    const operation: Operation = {
+      name: 'workflow.leave-contract', namespace: 'workflow', description: 'contract', mutating: false,
+      params: { submission: { type: 'object', required: true, nullable: true } },
+      handler: async (_ctx, params) => params,
+    };
+    const dispatcher = createOperationDispatcher([operation], makeContext());
+    assert.deepEqual(await dispatcher.invoke(operation.name, { submission: null }), { submission: null });
+    await expectOperationError(() => dispatcher.invoke(operation.name), -32602, /Missing required param: submission/);
+    await expectOperationError(() => dispatcher.invoke(operation.name, { submission: 'wrong-shape' }), -32602, /expected object/);
+  });
+
   test('invokes a readonly operation with validated params', async () => {
     const operation = readonlyOperation('project data');
     const dispatcher = createOperationDispatcher([operation], makeContext());

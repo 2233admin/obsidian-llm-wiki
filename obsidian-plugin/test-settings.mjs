@@ -9,7 +9,7 @@ try {
   await verifyProductionBundleBoundary();
   await esbuild.build({
     stdin: {
-      contents: 'import "./tests/settings.test.ts"; import "./tests/control-plane.test.ts"; import "./tests/production-control-plane.test.ts"; import "./tests/main-lifecycle.test.ts"; import "./tests/ask-mate-outline.test.ts"; import "./tests/ask-mate-client.test.ts"; import "./tests/ask-mate-interaction.test.ts"; import "./tests/ask-mate-view.test.ts"; import "./tests/ask-mate-activation.test.ts"; import "./tests/ask-mate-discoverability.regression-1.test.ts"; import "./tests/ask-mate-production.test.ts"; import "./tests/compile-publish.test.ts"; import "./tests/agentfiles-contract.test.ts"; import "./tests/agentfiles-full-contract.test.ts";',
+      contents: 'import "./tests/settings.test.ts"; import "./tests/control-plane.test.ts"; import "./tests/production-control-plane.test.ts"; import "./tests/main-lifecycle.test.ts"; import "./tests/promote-flow.test.ts"; import "./tests/ask-mate-outline.test.ts"; import "./tests/ask-mate-client.test.ts"; import "./tests/ask-mate-interaction.test.ts"; import "./tests/ask-mate-view.test.ts"; import "./tests/ask-mate-activation.test.ts"; import "./tests/ask-mate-discoverability.regression-1.test.ts"; import "./tests/ask-mate-production.test.ts"; import "./tests/compile-publish.test.ts"; import "./tests/project-hub-recovery-client.test.ts"; import "./tests/project-hub-recovery-view.test.ts"; import "./tests/agentfiles-contract.test.ts"; import "./tests/agentfiles-full-contract.test.ts"; import "./src/onboarding/onboarding-state.test.ts";',
       resolveDir: process.cwd(),
       sourcefile: "tests/all.test.ts",
       loader: "ts",

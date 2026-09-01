@@ -6,7 +6,6 @@ import argparse
 import os
 from pathlib import Path
 
-
 HOOK = """#!/bin/sh
 set -eu
 

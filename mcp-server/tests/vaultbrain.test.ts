@@ -126,9 +126,15 @@ describe("VaultBrainAdapter RRF fusion", () => {
       initSchema: async () => {},
       ensureEmbeddingFingerprint: async () => {},
       upsertPage: async () => {},
+      getPageHash: async () => null,
+      getPageStamp: async () => null,
+      listPageSlugs: async () => [],
+      replacePage: async () => {},
       deletePage: async () => {},
       upsertChunks: async () => {},
       deleteChunks: async () => {},
+      setReindexState: async () => {},
+      getReindexState: async () => null,
       searchKeyword: async (): Promise<ChunkResult[]> => [
         { slug: "a", chunkIndex: 0, chunkText: "shared", score: 0.9 },
         { slug: "b", chunkIndex: 0, chunkText: "keyword", score: 0.8 },
@@ -141,6 +147,7 @@ describe("VaultBrainAdapter RRF fusion", () => {
       countEmbeddedChunks: async () => 0,
       getLastIndexedAtMs: async () => null,
       upsertLink: async () => {},
+      clearPageMetadata: async () => {},
       upsertTag: async () => {},
     };
     (adapter as unknown as { engine: VaultBrainEngine }).engine = engine;

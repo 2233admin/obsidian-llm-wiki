@@ -189,11 +189,10 @@ def main() -> int:
         print(f"FAIL: hit_rate {report['hit_rate']:.3f} < {args.min_hit_rate:.3f}", file=sys.stderr)
         failed = True
     coverage = report["citation_coverage"]
-    if args.min_citation_coverage is not None:
-        if coverage is None or coverage < args.min_citation_coverage:
-            actual = "n/a" if coverage is None else f"{coverage:.3f}"
-            print(f"FAIL: citation_coverage {actual} < {args.min_citation_coverage:.3f}", file=sys.stderr)
-            failed = True
+    if args.min_citation_coverage is not None and (coverage is None or coverage < args.min_citation_coverage):
+        actual = "n/a" if coverage is None else f"{coverage:.3f}"
+        print(f"FAIL: citation_coverage {actual} < {args.min_citation_coverage:.3f}", file=sys.stderr)
+        failed = True
     return 1 if failed else 0
 
 

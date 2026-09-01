@@ -1,0 +1,20 @@
+[
+  {
+    "path": "Projects/alpha.md",
+    "sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "title": "Alpha",
+    "frontmatter": { "status": "doing", "priority": 2, "labels": ["core", "urgent"] },
+    "blocks": [
+      { "id": "summary", "text": "Alpha summary", "range": { "start": 10, "end": 23, "startLine": 2, "endLine": 2 } }
+    ]
+  },
+  {
+    "path": "Projects/beta.md",
+    "sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "title": "Beta",
+    "frontmatter": { "status": "todo", "priority": 1, "labels": ["core"] },
+    "blocks": [
+      { "id": "summary", "text": "Beta summary", "range": { "start": 10, "end": 22, "startLine": 2, "endLine": 2 } }
+    ]
+  }
+]

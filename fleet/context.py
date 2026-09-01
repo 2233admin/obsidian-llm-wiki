@@ -275,10 +275,11 @@ class ContextTrimmer:
         for line in lines:
             line_tokens = self.estimate_tokens(line)
 
-            if line.startswith("# ") or tokens < budget_tokens:
-                kept_lines.append(line)
-                tokens += line_tokens
-            elif tokens + line_tokens <= budget:
+            if (
+                line.startswith("# ")
+                or tokens < budget_tokens
+                or tokens + line_tokens <= budget
+            ):
                 kept_lines.append(line)
                 tokens += line_tokens
 
@@ -303,32 +304,32 @@ class ContextTrimmer:
         """
         lines = [
             f"# Briefing — {ship_type.upper()}",
-            f"",
-            f"## Task",
+            "",
+            "## Task",
             f"- ID: {task.get('id', 'N/A')}",
             f"- Entity: {task.get('entity', 'N/A')}",
             f"- Type: {task.get('type', 'N/A')}",
-            f"",
+            "",
         ]
 
         # Ship-specific instructions
         if ship_type == "scout":
             lines.extend([
-                f"## Your Mission",
-                f"",
-                f"Scan the vault for issues. Be thorough but efficient.",
-                f"",
-                f"### Focus Areas",
-                f"- Broken wikilinks",
-                f"- Orphan pages (no incoming links)",
-                f"- Stale content (>6 months old)",
-                f"- Unresolved contradictions",
-                f"",
-                f"### Output",
-                f"Return JSON with:",
-                f'- issues: list of {{id, severity, type, location, description}}',
-                f'- stats: counts by severity and type',
-                f'- summary: one-line summary',
+                "## Your Mission",
+                "",
+                "Scan the vault for issues. Be thorough but efficient.",
+                "",
+                "### Focus Areas",
+                "- Broken wikilinks",
+                "- Orphan pages (no incoming links)",
+                "- Stale content (>6 months old)",
+                "- Unresolved contradictions",
+                "",
+                "### Output",
+                "Return JSON with:",
+                "- issues: list of {id, severity, type, location, description}",
+                "- stats: counts by severity and type",
+                "- summary: one-line summary",
             ])
 
         elif ship_type == "worker":
@@ -336,69 +337,69 @@ class ContextTrimmer:
             output_spec = task.get("output", {})
 
             lines.extend([
-                f"## Your Mission",
-                f"",
-                f"Execute the task and produce the required output.",
-                f"",
-                f"### Input",
+                "## Your Mission",
+                "",
+                "Execute the task and produce the required output.",
+                "",
+                "### Input",
                 f"- Source: {input_spec.get('source', 'N/A')}",
                 f"- Spec: {input_spec.get('spec', 'N/A')}",
-                f"",
-                f"### Output Target",
+                "",
+                "### Output Target",
                 f"- Path: {output_spec.get('path', 'N/A')}",
                 f"- Format: {output_spec.get('format', 'markdown')}",
-                f"",
+                "",
             ])
 
             constraints = task.get("constraints", [])
             if constraints:
-                lines.append(f"### Constraints")
+                lines.append("### Constraints")
                 for c in constraints:
                     lines.append(f"- {c}")
                 lines.append("")
 
             lines.extend([
-                f"### Output Format",
-                f"Return JSON with:",
-                f'- success: boolean',
-                f'- files_created/modified/deleted: lists',
-                f'- summary: description of what was done',
+                "### Output Format",
+                "Return JSON with:",
+                "- success: boolean",
+                "- files_created/modified/deleted: lists",
+                "- summary: description of what was done",
             ])
 
         elif ship_type == "verify":
             lines.extend([
-                f"## Your Mission",
-                f"",
-                f"Verify the work output and check quality.",
-                f"",
-                f"### Checks to Run",
-                f"- Broken links",
-                f"- Orphan pages",
-                f"- Contradictions",
-                f"- Format compliance",
-                f"",
-                f"### Output Format",
-                f"Return JSON with:",
-                f'- status: "pass" | "fail" | "warning"',
-                f'- checks: list of {{check_type, status, message}}',
-                f'- issues: any problems found',
-                f'- summary: overall assessment',
+                "## Your Mission",
+                "",
+                "Verify the work output and check quality.",
+                "",
+                "### Checks to Run",
+                "- Broken links",
+                "- Orphan pages",
+                "- Contradictions",
+                "- Format compliance",
+                "",
+                "### Output Format",
+                "Return JSON with:",
+                '- status: "pass" | "fail" | "warning"',
+                "- checks: list of {check_type, status, message}",
+                "- issues: any problems found",
+                "- summary: overall assessment",
             ])
 
         # Add vault state summary if available
         if vault_state:
             lines.extend([
-                f"",
-                f"## Vault State",
+                "",
+                "## Vault State",
                 f"- Files: {vault_state.get('file_count', 'N/A')}",
                 f"- Directories: {vault_state.get('dir_count', 'N/A')}",
                 f"- Last scan: {vault_state.get('last_scan', 'N/A')}",
             ])
 
         lines.extend([
-            f"",
-            f"---",
-            f"*Context trimmed for efficiency. Focus on your mission.*",
+            "",
+            "---",
+            "*Context trimmed for efficiency. Focus on your mission.*",
         ])
 
         return "\n".join(lines)
@@ -426,7 +427,7 @@ class ContextTrimmer:
         if "summary" in result:
             summary["key_findings"].append(result["summary"][:500])
 
-        if "issues" in result and result["issues"]:
+        if result.get("issues"):
             # Top 3 by severity
             by_severity = {}
             for issue in result["issues"]:

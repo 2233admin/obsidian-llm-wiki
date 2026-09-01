@@ -7,11 +7,10 @@ Red Phase: Write failing tests for the dispatch cycle:
 3. State propagation between ships
 """
 
-import json
 import pytest
 
-from fleet import FleetHub, ScoutShip, WorkerShip, VerifyShip
-from fleet.message import ShipType, WorkTask, ReviewDecision, ReviewStatus
+from fleet import FleetHub, ScoutShip, VerifyShip, WorkerShip
+from fleet.message import ReviewDecision, ReviewStatus, ShipType, WorkTask
 
 
 class TestFleetDispatchCycle:
@@ -38,7 +37,7 @@ class TestFleetDispatchCycle:
 
         Currently fails because we need to define the full cycle.
         """
-        hub, scout, worker, verify, vault = hub_and_vault
+        hub, scout, _worker, _verify, _vault = hub_and_vault
 
         # Dispatch to Scout
         task = WorkTask(
@@ -66,7 +65,7 @@ class TestFleetDispatchCycle:
 
         Currently fails because we need review blocking logic.
         """
-        hub, scout, worker, verify, vault = hub_and_vault
+        hub, scout, _worker, _verify, _vault = hub_and_vault
 
         # Setup: dispatch and run scout
         task = WorkTask(id="review_block_test", entity="t/p", type="scout")
@@ -95,7 +94,7 @@ class TestFleetDispatchCycle:
 
         Currently fails because we need sequential dispatch logic.
         """
-        hub, scout, worker, verify, vault = hub_and_vault
+        hub, scout, _worker, _verify, _vault = hub_and_vault
 
         # Phase 1: Scout
         scout_task = WorkTask(
@@ -138,7 +137,7 @@ class TestFleetDispatchCycle:
 
         Currently fails because we need history tracking.
         """
-        hub, scout, worker, verify, vault = hub_and_vault
+        hub, scout, _worker, _verify, _vault = hub_and_vault
 
         # Run full cycle
         task = WorkTask(id="history_test", entity="t/p", type="scout")
@@ -167,7 +166,7 @@ class TestFleetDispatchCycle:
 
         Currently fails because we need rejection handling.
         """
-        hub, scout, worker, verify, vault = hub_and_vault
+        hub, scout, _worker, _verify, _vault = hub_and_vault
 
         # Scout
         task = WorkTask(id="reject_test", entity="t/p", type="scout")
@@ -188,7 +187,6 @@ class TestFleetDispatchCycle:
         assert decision["status"] == "rejected"
 
         # No new dispatches should be auto-created
-        state = hub.sync()
         # After rejection, the cycle should stop
 
     def test_should_run_full_scout_worker_verify_cycle(self, hub_and_vault):
@@ -197,7 +195,7 @@ class TestFleetDispatchCycle:
 
         This is the main integration test for the dispatch cycle.
         """
-        hub, scout, worker, verify, vault = hub_and_vault
+        hub, scout, _worker, verify, _vault = hub_and_vault
 
         # === PHASE 1: SCOUT ===
         scout_task = WorkTask(
@@ -263,7 +261,7 @@ class TestFleetDispatchCycle:
         assert len(state["sessions"]) >= 2  # scout + verify
 
         # All reviews decided
-        for review_id, review in state["review_points"].items():
+        for review in state["review_points"].values():
             assert review["status"] in ["approved", "rejected"]
 
         # Final decision should be approved
@@ -285,7 +283,7 @@ class TestFleetDispatchSequencing:
         """
         RED: Should dispatch to multiple ships in sequence.
         """
-        hub, vault = hub_and_vault
+        hub, _vault = hub_and_vault
 
         # Dispatch Scout
         task1 = WorkTask(id="seq1", entity="t/p", type="scout")
@@ -306,9 +304,7 @@ class TestFleetDispatchSequencing:
         """
         RED: Should reject dispatch to unknown ship type.
         """
-        hub, vault = hub_and_vault
-
-        task = WorkTask(id="unknown", entity="t/p", type="test")
+        _hub, _vault = hub_and_vault
 
         # This should raise or return an error
         # For now, just verify the enum check works
@@ -333,11 +329,11 @@ class TestFleetReviewBlocking:
         """
         RED: Should accurately track pending reviews.
         """
-        hub, vault = hub_and_vault
+        hub, _vault = hub_and_vault
 
         # Create some reviews
         r1 = hub.request_review(after_ship=ShipType.SCOUT, name="R1", data={})
-        r2 = hub.request_review(after_ship=ShipType.WORKER, name="R2", data={})
+        hub.request_review(after_ship=ShipType.WORKER, name="R2", data={})
 
         pending = hub.get_pending_reviews()
 
@@ -352,7 +348,7 @@ class TestFleetReviewBlocking:
         """
         RED: Should record decision and notes.
         """
-        hub, vault = hub_and_vault
+        hub, _vault = hub_and_vault
 
         review = hub.request_review(
             after_ship=ShipType.SCOUT,
@@ -374,7 +370,7 @@ class TestFleetReviewBlocking:
         """
         RED: Should support SKIP decision to bypass review.
         """
-        hub, vault = hub_and_vault
+        hub, _vault = hub_and_vault
 
         review = hub.request_review(after_ship=ShipType.SCOUT, name="Skip Test", data={})
         decision = hub.decide_review(review.id, ReviewDecision.SKIP)

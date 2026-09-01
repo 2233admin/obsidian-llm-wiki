@@ -114,6 +114,7 @@ class ScoutShip:
                     text=True,
                     encoding="utf-8",
                     timeout=60,
+                    check=False,
                 )
                 if result.returncode == 0:
                     data = json.loads(result.stdout)
@@ -274,7 +275,7 @@ class ScoutShip:
 
     def _check_stale(self, directories: list[str] | None) -> list[Issue]:
         """Check for stale content."""
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta, timezone
 
         issues: list[Issue] = []
         scan_dirs = self._resolve_directories(directories)
@@ -351,7 +352,7 @@ class ScoutShip:
             "contradiction": "high",
         }
 
-        impact, reasoning = severity_map.get(
+        _impact, reasoning = severity_map.get(
             issue.severity,
             ("medium", "Standard priority issue")
         )
@@ -437,10 +438,10 @@ def main():
         print(json.dumps(result, indent=2, ensure_ascii=False))
     else:
         print(result["summary"])
-        print(f"\nIssues by type:")
+        print("\nIssues by type:")
         for issue_type, count in result["stats"]["by_type"].items():
             print(f"  {issue_type}: {count}")
-        print(f"\nIssues by severity:")
+        print("\nIssues by severity:")
         for severity, count in result["stats"]["by_severity"].items():
             print(f"  {severity}: {count}")
 

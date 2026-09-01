@@ -23,6 +23,7 @@ import { homedir } from 'node:os';
 
 import { renderIssueNote, writeVaultBytes, projectNote, type IssueFields } from '../project/project.js';
 import { scanWorkNotes, isAuthoritative, renderKanbanBoard, detectVaultLang } from '../project/workos.js';
+import { readVaultEnvironment } from '../runtime-env.js';
 
 interface SessionSummaryRow {
   id: number;
@@ -61,7 +62,7 @@ function parseArgs(argv: string[]) {
 
 function resolveVaultPath(explicit: string | undefined): string {
   if (explicit) return explicit;
-  const env = process.env.VAULT_MIND_VAULT_PATH || process.env.VAULT_BRIDGE_VAULT;
+  const env = readVaultEnvironment();
   if (env) return env;
   throw new Error('vault path not set: pass --vault PATH or set VAULT_MIND_VAULT_PATH');
 }

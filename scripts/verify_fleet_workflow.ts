@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 import assert from 'node:assert/strict';
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync, type SpawnSyncOptionsWithStringEncoding, type SpawnSyncReturns } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import {
   existsSync,
@@ -18,9 +18,11 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { AdapterRegistry } from '../mcp-server/src/adapters/registry.ts';
 import type { Operation, OperationContext } from '../mcp-server/src/core/types.ts';
-import { makeProjectHubOps } from '../mcp-server/src/project/project-hub.ts';
+import { createDefaultRecoveryRuntime, makeProjectHubOps } from '../mcp-server/src/project/project-hub.ts';
+import { createRecoveryPlanningService } from '../mcp-server/src/project-hub/recovery-planning-service.ts';
 import { makeProjectOps } from '../mcp-server/src/project/project.ts';
 import { makeWorkflowOps } from '../mcp-server/src/workflow/workflow.ts';
+import { fingerprintRecoveryValue } from '../mcp-server/src/project-hub/contract-support.ts';
 
 type Phase = 'prepare' | 'remote' | 'verify' | 'all';
 
@@ -49,6 +51,11 @@ interface FleetFixtureBase {
     workItemId: string;
     transitionToken: string;
   };
+}
+
+function viewSubmission(projectId: string, workItemId: string, workRunId: string) {
+  const material = { schemaVersion: 'work-run-output/v1' as const, projectId, workItemId, workRunId, outputClass: 'view' as const, payload: { artifactId: 'artifact/fleet-result' }, citations: ['fixture:fleet-workflow'], provenance: ['test:fleet-workflow'], producedAt: '2026-08-28T00:00:00.000Z' };
+  return { schemaVersion: 'work-run-output-submission/v1' as const, result: 'output' as const, output: { ...material, fingerprint: fingerprintRecoveryValue(material) }, quarantine: null };
 }
 
 interface FleetFixtureV1 extends FleetFixtureBase {
@@ -172,6 +179,21 @@ function assertPortableFixture(value: unknown, label: string): void {
     }
   };
   visit(value, '$');
+}
+
+export function assertPortableBaseHead(baseHead: unknown, label: string): void {
+  assert.equal(typeof baseHead, 'string', `${label} base_head must be a portable string`);
+  const value = baseHead as string;
+  assert.ok(value.length > 0 && value.length <= 1024,
+    `${label} base_head length ${value.length} is outside the portable range`);
+  assert.equal(/(?:^[a-zA-Z]:[\\/]|^[\\/][\\/]|^file:\/\/|\/(?:Users|home|private|tmp|var\/tmp)\/)/.test(value), false,
+    `${label} base_head must not start with a drive, UNC, file URL, or machine-local prefix: ${value}`);
+  assert.equal(value.includes('\\'), false,
+    `${label} base_head must use portable forward slashes: ${value}`);
+  assert.equal(isAbsolute(value), false,
+    `${label} base_head must not be an absolute path: ${value}`);
+  assert.match(value, /^[A-Za-z0-9][A-Za-z0-9._-]*(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)*\.md$/,
+    `${label} base_head must be a relative note-id-shaped value: ${value}`);
 }
 
 function assertArtifactProjection(value: ArtifactProjection, label: string): void {
@@ -631,16 +653,25 @@ function readMarker(
   return marker;
 }
 
-function operationHarness(vault: string): { call(name: string, params?: Record<string, unknown>): Promise<unknown> } {
+function operationHarness(vault: string, actor = 'fleet-acceptance'): { call(name: string, params?: Record<string, unknown>): Promise<unknown> } {
+  assert.match(actor, /^[A-Za-z0-9][A-Za-z0-9._-]*$/u, 'invalid authenticated actor identity');
   const registry = new AdapterRegistry();
-  const operations = [...makeProjectOps(vault), ...makeWorkflowOps(vault), ...makeProjectHubOps(registry)];
+  const recoveryRuntime = createDefaultRecoveryRuntime({ vaultPath: vault, registry, capabilityFact: { capability: 'workflow.recovery.plan', state: 'available' } });
+  const recoveryPlanningService = createRecoveryPlanningService(recoveryRuntime.dependencies);
+  const workflowOptions = {
+    recoveryRuntime,
+    recoveryPlanningService,
+    recoveryApplyCapability: async () => ({ capability: 'workflow.recovery.apply' as const, state: 'available' as const }),
+  };
+  const operations = [...makeProjectOps(vault), ...makeWorkflowOps(vault, workflowOptions), ...makeProjectHubOps(registry, undefined, workflowOptions)];
+  assert.ok(operations.some((operation) => operation.name === 'workflow.recovery.apply'), 'Fleet verifier must register Workflow Recovery apply');
   const byName = new Map(operations.map((operation) => [operation.name, operation]));
   const context: OperationContext = {
     vault: { async execute() { return {}; } },
     adapters: registry,
     config: {
       vault_path: vault,
-      collaboration: { actor: 'fleet-acceptance', role: 'agent' },
+      collaboration: { actor, role: 'agent' },
     },
     logger: { info() {}, warn() {}, error() {} },
     dryRun: false,
@@ -664,6 +695,33 @@ function addExternalRefs(vault: string, fixture: FleetFixture): void {
   writeFileSync(path, updated, 'utf-8');
 }
 
+function isWindowsCommandWrapper(command: string): boolean {
+  return process.platform === 'win32' && /\.(?:cmd|bat)$/i.test(command);
+}
+
+function quoteWindowsCommandArgument(value: string): string {
+  // cmd.exe receives one command string for /c. Quote every token and escape
+  // metacharacters so user-controlled paths cannot become shell syntax.
+  return `"${value.replace(/(["^&|<>()%!])/g, '^$1')}"`;
+}
+
+export function runPythonCommand(
+  command: string,
+  args: readonly string[],
+  options: SpawnSyncOptionsWithStringEncoding,
+): SpawnSyncReturns<string> {
+  if (!isWindowsCommandWrapper(command)) {
+    return spawnSync(command, [...args], options);
+  }
+  const commandLine = `"${[command, ...args].map(quoteWindowsCommandArgument).join(' ')}"`;
+  return spawnSync(
+    process.env.ComSpec ?? process.env.COMSPEC ?? 'cmd.exe',
+    ['/d', '/s', '/c', commandLine],
+    { ...options, windowsVerbatimArguments: true },
+  );
+}
+
+
 function runPythonWorkNext(vault: string, deviceState: string, fixture: FleetFixture): Record<string, any> {
   const args = [KB_META, 'work', 'next', vault, '--claim', fixture.run.agentId, '--ttl', '86400', '--project', fixture.project.slug];
   if (isGovernedFixture(fixture)) {
@@ -671,22 +729,30 @@ function runPythonWorkNext(vault: string, deviceState: string, fixture: FleetFix
     writeJson(assignmentPath, fixture.governedAssignment);
     args.push('--governed-assignment', assignmentPath);
   }
-  const candidates: Array<{ command: string; prefix: string[] }> = process.env.PYTHON
+  const fallbacks: Array<{ command: string; prefix: string[] }> = process.platform === 'win32'
+    ? [{ command: 'py', prefix: ['-3'] }, { command: 'python', prefix: [] }]
+    : [{ command: 'python3', prefix: [] }, { command: 'python', prefix: [] }];
+  const configured = process.env.PYTHON
     ? [{ command: process.env.PYTHON, prefix: [] }]
-    : process.platform === 'win32'
-      ? [{ command: 'py', prefix: ['-3'] }, { command: 'python', prefix: [] }]
-      : [{ command: 'python3', prefix: [] }, { command: 'python', prefix: [] }];
+    : [];
+  const candidates = [...configured, ...fallbacks].filter((candidate, index, all) =>
+    all.findIndex((other) => other.command === candidate.command && other.prefix.join('\0') === candidate.prefix.join('\0')) === index,
+  );
   let lastError = '';
   for (const candidate of candidates) {
-    const result = spawnSync(candidate.command, [...candidate.prefix, ...args], {
+    const result = runPythonCommand(candidate.command, [...candidate.prefix, ...args], {
       cwd: COMPILER_DIR,
       encoding: 'utf-8',
       windowsHide: true,
     });
-    if (result.error && (result.error as NodeJS.ErrnoException).code === 'ENOENT') continue;
+    if (result.error) {
+      const code = (result.error as NodeJS.ErrnoException).code;
+      lastError = `${candidate.command} unavailable${code ? ` (${String(code)})` : ''} while acquiring the fleet lease`;
+      continue;
+    }
     if (result.status !== 0) {
       lastError = `${candidate.command} exited ${String(result.status)} while acquiring the fleet lease`;
-      break;
+      continue;
     }
     return JSON.parse(result.stdout) as Record<string, any>;
   }
@@ -1080,7 +1146,7 @@ async function executeRemote(
       assertSharedSecretFree(vault, handoffToken);
       return 'replayed';
     }
-    const { call } = operationHarness(vault);
+    const { call } = operationHarness(vault, marker.agentId);
     const capabilityFreeBase = {
       project: marker.projectId,
       agent: marker.agentId,
@@ -1148,8 +1214,10 @@ async function executeRemote(
       project: marker.projectId,
       agent: marker.agentId,
       work_run_id: marker.workRunId,
-      work_run_state: 'completed',
+      mode: 'complete',
+      target_state: 'completed',
       transition_token: marker.leaveToken,
+      submission: viewSubmission(marker.projectId, marker.workItemId, marker.workRunId),
       summary: `${fixture.run.label} fleet execution completed`,
     };
     const leave = await call('workflow.agent.leave', leaveParams);
@@ -1303,9 +1371,12 @@ async function verifyFixture(
 
   addCheck(checks, 'shared-state-secret-free', 'machine-local paths and lease fields never enter shared state', () => {
     const shared = JSON.stringify({ marker, durable, parentDurable, hub });
-    for (const value of [vault, deviceState, resolve(leasePath(vault, fixture)), proof.lease.base_head]) {
+    for (const value of [vault, deviceState, resolve(leasePath(vault, fixture))]) {
       assert.equal(shared.includes(value), false, `machine-local value leaked: ${value}`);
     }
+    assertPortableBaseHead(proof.lease.base_head, 'shared-state-secret-free');
+    assert.equal(shared.includes(proof.lease.base_head), true,
+      'relative note-id base_head must appear in shared durable work-item identity (e.g. hub citations)');
     assert.equal(Object.hasOwn(marker, 'lease'), false);
     assert.equal(Object.hasOwn(marker, 'vault'), false);
     assert.equal(Object.hasOwn(marker, 'deviceState'), false);

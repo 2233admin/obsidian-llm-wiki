@@ -153,7 +153,7 @@ test("Workspace Project binding is validated, persisted, and applied to a fresh 
   assert.deepEqual(plugin.projectInitializations, [{ project: "alpha" }]);
   assert.deepEqual(plugin.savedData(), {
     schemaVersion: 2,
-    presentation: { selectedScope: "user-device", showAdvanced: false },
+    presentation: { selectedScope: "user-device", showAdvanced: false, settingsExpandedSections: [] },
     deviceBinding: {
       deviceId: "test-device",
       workspaceProjectId: "project/alpha",

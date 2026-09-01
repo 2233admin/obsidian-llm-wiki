@@ -27,7 +27,7 @@ import sys
 import tempfile
 import time
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 
@@ -131,7 +131,7 @@ class SshTransport(Transport):
         try:
             completed = subprocess.run(
                 self.probe_argv(timeout),
-                capture_output=True, text=True, timeout=timeout + 4,
+                capture_output=True, text=True, timeout=timeout + 4, check=False,
             )
         except FileNotFoundError:
             return self._probe(False, started, "ssh binary not found")
@@ -144,7 +144,7 @@ class SshTransport(Transport):
         remote = " ".join(argv)
         completed = subprocess.run(
             self._base_argv(timeout) + [self.destination, remote],
-            capture_output=True, text=True, timeout=timeout,
+            capture_output=True, text=True, timeout=timeout, check=False,
         )
         return ExecResult(completed.returncode, completed.stdout, completed.stderr)
 
@@ -156,7 +156,7 @@ class SshTransport(Transport):
         if self.port:
             argv += ["-P", self.port]
         argv += [src, f"{self.destination}:{dst}"]
-        completed = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
+        completed = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, check=False)
         if completed.returncode != 0:
             raise RuntimeError(f"scp failed: {completed.stderr.strip()}")
 
@@ -180,7 +180,7 @@ class LocalFsTransport(Transport):
 
     def exec(self, argv: list[str], timeout: float = 60.0) -> ExecResult:
         completed = subprocess.run(
-            argv, capture_output=True, text=True, timeout=timeout, cwd=str(self.path),
+            argv, capture_output=True, text=True, timeout=timeout, cwd=str(self.path), check=False,
         )
         return ExecResult(completed.returncode, completed.stdout, completed.stderr)
 
@@ -236,7 +236,7 @@ class GiteaTransport(Transport):
         try:
             completed = subprocess.run(
                 ["git", "-c", "credential.helper=", "ls-remote", self.remote, self.ref],
-                capture_output=True, text=True, timeout=timeout + 12, env=self._git_env(),
+                capture_output=True, text=True, timeout=timeout + 12, env=self._git_env(), check=False,
             )
         except FileNotFoundError:
             return self._probe(False, started, "git binary not found")

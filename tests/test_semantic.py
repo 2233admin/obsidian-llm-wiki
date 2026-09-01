@@ -1,13 +1,14 @@
 """Tests for semantic similarity matching."""
-import pytest
 from pathlib import Path
+
+import pytest
 
 # obc/semantic.py is an optional feature (resolver.py imports it lazily inside a
 # try/except and treats failures as "semantic matching is optional"); sklearn is
 # not a declared project dependency, so skip this whole module cleanly instead
 # of erroring out pytest collection when it isn't installed.
 pytest.importorskip("sklearn")
-from obc.semantic import suggest_similar, SimilarNote  # noqa: E402
+from obc.semantic import SimilarNote, suggest_similar
 
 
 class TestSuggestSimilar:

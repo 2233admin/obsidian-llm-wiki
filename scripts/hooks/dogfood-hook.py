@@ -16,7 +16,7 @@ def main() -> None:
     mode = sys.argv[1] if len(sys.argv) > 1 else "unknown"
     try:
         payload = json.loads(sys.stdin.read() or "{}")
-    except Exception:
+    except (json.JSONDecodeError, OSError, UnicodeError):
         payload = {}
 
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -48,12 +48,12 @@ def main() -> None:
     try:
         with LOG.open("a", encoding="utf-8") as f:
             f.write(line)
-    except Exception:
-        pass
+    except OSError:
+        return
 
 
 if __name__ == "__main__":
     try:
         main()
-    except Exception:
-        pass
+    except (AttributeError, IndexError, OSError, TypeError, UnicodeError, ValueError):
+        sys.exit(0)

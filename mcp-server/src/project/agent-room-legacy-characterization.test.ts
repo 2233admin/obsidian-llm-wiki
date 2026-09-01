@@ -11,7 +11,8 @@ import { makeContextOps } from '../context/context.js';
 import { makeMemoryOps } from '../memory/memory.js';
 import { makeSettingsOps, createSettingsService } from '../settings/settings.js';
 import { makeWorkflowOps } from '../workflow/workflow.js';
-import { makeProjectHubOps } from './project-hub.js';
+import { createDefaultRecoveryRuntime, makeProjectHubOps } from './project-hub.js';
+import { createRecoveryPlanningService } from '../project-hub/recovery-planning-service.js';
 
 test('legacy Agent memory, context, Work Run, settings, and Project Hub remain one Project-rooted contract', async () => {
   const vault = mkdtempSync(join(tmpdir(), 'llmwiki-agent-room-baseline-'));
@@ -28,10 +29,12 @@ test('legacy Agent memory, context, Work Run, settings, and Project Hub remain o
       sessionId: 'session/baseline',
       environment: { BASELINE_SECRET: 'must-never-leak' },
     });
+    const recoveryRuntime = createDefaultRecoveryRuntime({ vaultPath: vault, registry, capabilityFact: { capability: 'workflow.recovery.plan', state: 'available' } });
+    const recoveryPlanningService = createRecoveryPlanningService(recoveryRuntime.dependencies);
     const operations = new Map<string, Operation>([
       ...makeMemoryOps(vault),
       ...makeContextOps(vault, registry),
-      ...makeWorkflowOps(vault),
+      ...makeWorkflowOps(vault, { recoveryRuntime, recoveryPlanningService }),
       ...makeSettingsOps({
         vaultPath: vault,
         userDevicePath,
@@ -40,7 +43,7 @@ test('legacy Agent memory, context, Work Run, settings, and Project Hub remain o
         workspaceProjectId: 'project/alpha',
         sessionId: 'session/baseline',
       }, settings),
-      ...makeProjectHubOps(registry, settings),
+      ...makeProjectHubOps(registry, settings, { recoveryRuntime, recoveryPlanningService }),
     ].map((operation) => [operation.name, operation]));
     const ctx: OperationContext = {
       vault: { async execute() { return {}; } },
