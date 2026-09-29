@@ -163,10 +163,14 @@ Claude Code and Codex both follow the same intake ladder:
 1. classify Source Input;
 2. register supported `url` or `vaultPath` inputs with `source.register`;
 3. write unreviewed analysis under `00-Inbox/AI-Output/<agent>/` or `10-Projects/<project>/agents/<agent>/`;
-4. create executable obsidian-llm-wiki work under `01-Projects/<project>/issues/`;
+4. track agent execution in native Multica issues on the `obsidian-llm-wiki`
+   project (`0f8253b3`); product Work-OS notes stay under
+   `01-Projects/<project>/issues/`;
 5. promote only reviewed summaries into durable team truth.
 
 For the full host-neutral contract, use `docs/AGENT_WORKFLOW_INTEGRATION.md`.
 
-Never treat `10-Projects/<project>/docket/**` as current work state. The docket store is retired; work-OS issue notes under `01-Projects/<project>/issues/` are the source truth.
+Never treat `10-Projects/<project>/docket/**` as current work state. The docket
+store is retired; notes under `01-Projects/<project>/issues/` are the LLM Wiki
+product's Work-OS truth, not agent work tickets.
 

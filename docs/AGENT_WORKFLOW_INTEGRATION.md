@@ -68,9 +68,9 @@ Durable team truth belongs only in reviewed surfaces such as
 changes to those surfaces, but should not silently promote their own draft
 output into protected knowledge.
 
-## Work-OS issue routing
+## Product Work-OS issue routing
 
-Actionable workflow improvements use work-OS issue notes:
+The LLM Wiki product stores Work-OS issue notes at:
 
 ```text
 01-Projects/<project>/_project.md
@@ -81,12 +81,16 @@ Do not create or revive `10-Projects/<project>/docket/**`. Boards, Canvas, and
 Bases are derived views from `01-Projects/<project>/issues/*.md`, never source
 truth.
 
+These notes are product data, not tickets for an agent changing this repository.
+Track that agent work in native Multica issues on the `obsidian-llm-wiki`
+project (`0f8253b3`); see `docs/agents/issue-tracker.md`.
+
 Once the Work Driver acquires a lease it creates one durable Work Run ID. Pass that same Project ID, Work Item ID, Work Run ID, and stable transition token to `workflow.agent.join`, then reuse the Work Run ID for step, checkpoint, leave, and doctor calls. Lease tokens stay machine-local; durable Work Run history stays under the owning Work-OS Project. Knowledge claims require review and external side effects require explicit per-run approval plus Operation Write Policy.
 
-Use an issue when there is executable work, such as adding a provider,
-repairing a source-registration behavior, updating agent host instructions, or
-validating a workflow. Use a Source Note when the object is an external input
-to be revisited. Use an agent draft when the content is unreviewed analysis.
+Use Multica for agent work such as adding a provider, repairing source
+registration, updating host instructions, or validating a workflow. Use a
+Source Note when the object is an external input to be revisited. Use an agent
+draft when the content is unreviewed analysis.
 
 ## Skill packs and external runtimes
 
@@ -121,8 +125,8 @@ For `https://github.com/code-yeongyu/lazycodex`:
 3. If a local clone or code-intel report exists, cite it from an agent draft or
    Evidence Note as inspection evidence; do not register the local clone path as
    a Phase 1 Source.
-4. Track any obsidian-llm-wiki improvement as a work-OS issue under
-   `01-Projects/obsidian-llm-wiki/issues/`.
+4. Track the agent's obsidian-llm-wiki improvement in the `obsidian-llm-wiki`
+   Multica project.
 5. Promote durable conclusions only after review into the protected knowledge
    surfaces or link them from the obsidian-llm-wiki Project Hub.
 
@@ -133,7 +137,7 @@ Before claiming an integration is done, verify at least one evidence path:
 - `source.register` produced `_llmwiki/source-registry.json` and a Source Note.
 - `vault.search` or `query.unified` can find the Source Note, Evidence Note, or
   work-OS issue.
-- `project.issue.list` or `project.board.get` can see the work item when the
-  change created executable project work.
+- `project.issue.list` or `project.board.get` can see the Work-OS issue when
+  the product workflow created one.
 - The host-facing entrypoint (`CLAUDE.md` or `AGENTS.md`) links this document.
 
