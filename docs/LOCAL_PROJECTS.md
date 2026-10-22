@@ -182,17 +182,25 @@ Use `project.base.export` to create `01-Projects/<project>/views/issues.base`. T
 
 Both tools default to `dryRun=true`, support `overwrite=true`, and only generate view files. They do not rewrite issue notes or parse user-edited Canvas files.
 
-## Agent Workflow Integration Issues
+## Agent workflow integration and product issues
 
-When an external workflow project requires executable obsidian-llm-wiki work, create or update a work-OS issue under:
+Track agent implementation and validation work in native Multica issues on the
+`obsidian-llm-wiki` project (`0f8253b3`); see `docs/agents/issue-tracker.md`.
+The LLM Wiki product stores its own Work-OS issue notes under:
 
 ```text
 01-Projects/<project>/issues/<slug>.md
 ```
 
-Use this for implementation or validation work such as provider integration, source-registration behavior, host instruction changes, workflow migration, or regression checks. Use Source Notes for durable external inputs, and use agent draft folders for unreviewed analysis.
+Use these notes for the product's project workflow, not for agent work such as
+provider integration, source-registration changes, host instruction updates,
+workflow migration, or regression checks. Use Source Notes for durable external
+inputs, and agent draft folders for unreviewed analysis.
 
-Claude Code and Codex must not create `10-Projects/<project>/docket/**` for new work. That path is retired even if older skill text still mentions docket. Current project state is the work-OS issue note plus derived board/canvas/base views.
+Claude Code and Codex must not create `10-Projects/<project>/docket/**` for new
+work. That path is retired even if older skill text still mentions docket.
+Current product Project state is the Work-OS issue note plus derived
+board/canvas/base views.
 
 ## Compatibility and migration
 
