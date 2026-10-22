@@ -8,7 +8,6 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-
 WIKILINK_RE = re.compile(r"\[\[([^\]#|]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]")
 
 

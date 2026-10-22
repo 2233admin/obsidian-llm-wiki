@@ -36,6 +36,27 @@ Fields:
 - `citations`: paths cited by the answer, optional.
 - `reference`: gold answer, optional for external judges.
 
+The repository's broader contract fixture is
+`eval/recovery-memory-citation.v1.jsonl`. It contains 23 sanitized cases across
+Recovery Flow, Project/Work-OS, Memory, Source/Ingest, Settings, Visual
+Workspace, capability degradation, citations, and insufficient-evidence
+responses. Two negative cases retain their expected paths but intentionally omit
+those paths from the retrieved contexts to exercise negative retrieval and
+abstention-oriented answers.
+
+Run it with:
+
+```bash
+python scripts/rag_eval.py eval/recovery-memory-citation.v1.jsonl --json
+python scripts/rag_eval.py eval/recovery-memory-citation.v1.jsonl --min-hit-rate 0.8 --min-citation-coverage 0.8
+```
+
+This JSONL currently supplies ranked fixture contexts to the scorecard; it does
+not invoke a live adapter. The resulting score is a contract-fixture baseline,
+not proof of production retrieval quality. Live adapter evaluation must collect
+the `retrieved` rows from the adapter under test without changing the expected
+paths or case semantics.
+
 ## Local Scorecard
 
 ```bash

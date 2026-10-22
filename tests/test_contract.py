@@ -8,21 +8,17 @@ import re
 import sys
 from pathlib import Path
 
-import pytest
-
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from compiler.rhizome.check import check_file, check_vault
 from compiler.rhizome.contract import (
     VALID_KINDS,
     VALID_STATUSES,
-    ContractViolation,
     id_from_path,
     is_frozen,
     validate_note,
 )
-from compiler.rhizome.check import CheckResult, check_file, check_vault
-from compiler.rhizome.sources import Domain, discover_domains
-
+from compiler.rhizome.sources import discover_domains
 
 # ---------------------------------------------------------------------------
 # validate_note

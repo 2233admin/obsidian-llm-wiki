@@ -26,6 +26,9 @@
   "engines": {
     "node": ">=20"
   },
+  "dependencies": {
+    "@obsidian-llm-wiki/agent-wiki-contracts": "file:../agent-wiki-contracts"
+  },
   "devDependencies": {
     "@types/node": "^26.2.0",
     "typescript": "~7.0.2"

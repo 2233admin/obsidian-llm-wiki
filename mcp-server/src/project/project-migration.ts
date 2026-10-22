@@ -1,11 +1,8 @@
-import { execFile } from 'node:child_process';
 import { join } from 'node:path';
-import { promisify } from 'node:util';
 import type { Operation } from '../core/types.js';
 import { makeErr } from '../core/types.js';
 import { staticTargets } from '../core/write-policy.js';
-
-const execAsync = promisify(execFile);
+import { runPythonWorker, PYTHON_WORKER_DIAGNOSTICS } from '../capabilities/python-worker.js';
 const PYTHON_BRIDGE = 'import json,sys; import project_migration as m; '
   + 'action,vault,payload=sys.argv[1],sys.argv[2],json.loads(sys.argv[3]); '
   + 'result=(m.inventory_project_layout(vault) if action=="inventory" else '
@@ -22,13 +19,20 @@ async function invokeMigration(
   payload: Record<string, unknown> = {},
 ): Promise<unknown> {
   try {
-    const { stdout } = await execAsync(python, ['-c', PYTHON_BRIDGE, action, vaultPath, JSON.stringify(payload)], {
+    const result = await runPythonWorker({
+      capabilityId: `project-migration-${action}`,
+      executable: python,
+      args: ['-c', PYTHON_BRIDGE, action, vaultPath, JSON.stringify(payload)],
       cwd: compilerPath,
-      timeout: 120_000,
+      timeoutMs: 120_000,
       maxBuffer: 20 * 1024 * 1024,
-      env: { ...process.env },
+      environment: { ...process.env },
     });
-    return JSON.parse(stdout);
+    if (!result.ok) {
+      const diagnostic = result.diagnosticCode ?? PYTHON_WORKER_DIAGNOSTICS.spawnFailed;
+      throw new Error(`${diagnostic}: ${result.stderr.trim() || 'project migration worker failed'}`);
+    }
+    return JSON.parse(result.stdout);
   } catch (error) {
     throw makeErr(-32000, `Project migration ${action} failed: ${(error as Error).message}`);
   }

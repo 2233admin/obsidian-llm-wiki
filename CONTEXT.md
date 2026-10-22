@@ -237,3 +237,24 @@ _Avoid_: Project source of truth, Workspace Binding, provider-owned identity
 
 **Project Hub**: A derived, read-only view that assembles Project intent, current work, knowledge state, active Work Runs, workspace health, settings, and integration drift from their owning domains. It does not own or directly mutate any of those states.
 _Avoid_: project database, canonical project file, writable dashboard state
+
+**Recovery Flow**: A stateless, read-only, staged Project Hub interaction that moves from current Project recovery facts through cited search and action planning without persisting server-side flow state.
+_Avoid_: Recovery Snapshot, recovery session, workflow run
+
+**Recovery Flow Stage**: One closed response state in a Recovery Flow: `open`, `searched`, `needs-agent-selection`, `planned`, `stale`, or `unavailable`.
+_Avoid_: page, screen, mutable session status
+
+**Flow Fingerprint**: A chained digest that binds the previous Recovery Flow stage, the current normalized input, the exact owner locks read, and the current stage payload fingerprint.
+_Avoid_: session ID, cache key, global Project revision
+
+**Recovery Plan**: An immutable, five-minute, read-only preview of one selected recovery candidate bound to current evidence, capability facts, and exact Project Agent Binding/Profile revisions; authenticated execution identity is bound only at apply.
+_Avoid_: draft plan, saved job, Agent assignment
+
+**Recovery Claim**: A durable Workflow authorization record binding an authenticated actor, immutable Recovery Plan, and transition token before a recovery mutation begins.
+_Avoid_: Recovery Plan, Work Run, retry cache
+
+**Workflow Recovery Plan Operation**: A read-only Workflow Operation that accepts closed Plan request arms (`plan/from-search`, `plan/override`, `refresh-plan`) and returns only `planned|stale|unavailable` Flow responses. It performs full stateless prerequisite recomputation, writes zero bytes, has no actor/token/claim/apply path, and persists nothing. Its capability fact (`workflow.recovery.plan`) is introduced when the Operation is registered; it is required for candidate recommendation but never authorizes mutation. Apply independently proves both current planning basis and `workflow.recovery.apply` availability.
+_Avoid_: Recovery Claim, Workflow mutation, apply token, persisted Plan
+
+**Work Run Output Submission**: The closed completion input accepted by Workflow, containing either a valid classified Work Run output or a bounded quarantine record that never persists or echoes malformed payload bytes.
+_Avoid_: raw Agent response, Work Run receipt, promoted knowledge

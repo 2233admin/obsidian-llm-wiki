@@ -1,7 +1,9 @@
 """Tests for vault index (PR2)."""
-import pytest
 from pathlib import Path
-from obc.index import VaultIndex, FileEntry, build_index
+
+import pytest
+
+from obc.index import FileEntry, VaultIndex, build_index
 
 
 class TestVaultIndex:

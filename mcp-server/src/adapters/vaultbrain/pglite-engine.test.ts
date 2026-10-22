@@ -118,6 +118,117 @@ test("getLastIndexedAtMs: null with no pages, MAX(updated_at) after upsertPage",
   }
 });
 
+test("page stamps persist alongside page hashes", { timeout: PGLITE_TEST_TIMEOUT_MS }, async () => {
+  const { engine, dir } = await freshEngine();
+  try {
+    await engine.upsertPage("stamp", "Stamp", "content", "hash", { mtimeMs: 1234, sizeBytes: 56 });
+    assert.deepEqual(await engine.getPageStamp("stamp"), { mtimeMs: 1234, sizeBytes: 56 });
+  } finally {
+    await engine.disconnect();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("reindex state persists in vaultbrain metadata", { timeout: PGLITE_TEST_TIMEOUT_MS }, async () => {
+  const { engine, dir } = await freshEngine();
+  try {
+    const state = {
+      status: "incomplete" as const,
+      startedAt: 1,
+      finishedAt: 2,
+      indexed: 1,
+      total: 2,
+      skipped: 0,
+      deleted: 0,
+      errors: ["b.md: read failed"],
+    };
+    await engine.setReindexState(state);
+    assert.deepEqual(await engine.getReindexState(), state);
+  } finally {
+    await engine.disconnect();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("replacePage atomically replaces chunks, metadata, and page record", { timeout: PGLITE_TEST_TIMEOUT_MS }, async () => {
+  const { engine, dir } = await freshEngine();
+  try {
+    await engine.upsertPage("replace", "Old", "old content", "old-hash");
+    await engine.upsertChunks("replace", [chunk(0, "legacyneedle only")]);
+    await engine.upsertLink("replace", "old-target");
+    await engine.upsertTag("replace", "old-tag");
+
+    await engine.replacePage(
+      "replace",
+      "New",
+      "new content",
+      "new-hash",
+      [chunk(0, "freshneedle only")],
+      ["new-target"],
+      ["new-tag"],
+      { mtimeMs: 10, sizeBytes: 18 },
+    );
+
+    assert.equal(await engine.getPageHash("replace"), "new-hash");
+    assert.deepEqual(await engine.getPageStamp("replace"), { mtimeMs: 10, sizeBytes: 18 });
+    assert.ok((await engine.searchKeyword("legacyneedle", 10)).every((hit) => hit.chunkText !== "legacyneedle only"));
+    assert.equal((await engine.searchKeyword("freshneedle", 10))[0]?.chunkText, "freshneedle only");
+  } finally {
+    await engine.disconnect();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("replacePage rolls back the whole page when a write fails", { timeout: PGLITE_TEST_TIMEOUT_MS }, async () => {
+  const { engine, dir } = await freshEngine();
+  try {
+    await engine.upsertPage("rollback", "Old", "old content", "old-hash");
+    await engine.upsertChunks("rollback", [chunk(0, "legacyneedle")]);
+    await engine.upsertLink("rollback", "old-target");
+    await engine.upsertTag("rollback", "old-tag");
+
+    await assert.rejects(() =>
+      engine.replacePage(
+        "rollback",
+        "New",
+        "new content",
+        "new-hash",
+        [chunk(2_147_483_648, "invalid integer")],
+        ["new-target"],
+        ["new-tag"],
+      ),
+    );
+
+    assert.equal(await engine.getPageHash("rollback"), "old-hash");
+    assert.equal((await engine.searchKeyword("legacyneedle", 10))[0]?.chunkText, "legacyneedle");
+    assert.equal((await engine.searchKeyword("new-target", 10)).length, 0);
+  } finally {
+    await engine.disconnect();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("page hashes and deletion reconcile indexed page state", { timeout: PGLITE_TEST_TIMEOUT_MS }, async () => {
+  const { engine, dir } = await freshEngine();
+  try {
+    await engine.upsertPage("keep", "Keep", "content", "hash-keep");
+    await engine.upsertChunks("keep", [chunk(0, "keep chunk")]);
+    await engine.upsertPage("remove", "Remove", "content", "hash-remove");
+    await engine.upsertChunks("remove", [chunk(0, "remove chunk")]);
+
+    assert.equal(await engine.getPageHash("keep"), "hash-keep");
+    assert.deepEqual(await engine.listPageSlugs(), ["keep", "remove"]);
+
+    await engine.deletePage("remove");
+
+    const remaining = await engine.searchKeyword("remove chunk", 10);
+    assert.ok(remaining.every((hit) => hit.slug !== "remove"));
+  } finally {
+    await engine.disconnect();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("searchKeyword: no match -> [] ; identical queries are deterministic", { timeout: PGLITE_TEST_TIMEOUT_MS }, async () => {
   const { engine, dir } = await freshEngine();
   try {

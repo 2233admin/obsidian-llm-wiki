@@ -1,6 +1,6 @@
-import { execFile } from 'node:child_process';
 import { isAbsolute, relative, resolve } from 'node:path';
-import { promisify } from 'node:util';
+
+import { runPythonWorker, PYTHON_WORKER_DIAGNOSTICS } from '../capabilities/python-worker.js';
 
 import type {
   ProblemObservation,
@@ -11,7 +11,6 @@ import type { ProblemIntakeExecutor } from './executor.js';
 import { normalizeObcDiagnostic } from './obc-adapter.js';
 import { asRecord, invalid, requiredString } from './safety.js';
 
-const execFileAsync = promisify(execFile);
 const MAX_DIAGNOSTICS = 10_000;
 
 export interface ObcCheckReport {
@@ -58,17 +57,19 @@ export function createExecFileObcRunner(
     async check(vaultPath: string): Promise<ObcCheckReport> {
       let stdout: string;
       try {
-        const result = await execFileAsync(
-          pythonCommand,
-          ['-m', 'obc.cli', 'check', vaultPath, '--format', 'json'],
-          {
-            cwd: options.cwd,
-            timeout,
-            maxBuffer,
-            windowsHide: true,
-            encoding: 'utf8',
-          },
-        );
+        const result = await runPythonWorker({
+          capabilityId: 'obc-check',
+          executable: pythonCommand,
+          args: ['-m', 'obc.cli', 'check', vaultPath, '--format', 'json'],
+          cwd: options.cwd,
+          timeoutMs: timeout,
+          maxBuffer,
+          environment: { ...process.env },
+        });
+        if (!result.ok) {
+          const diagnostic = result.diagnosticCode ?? PYTHON_WORKER_DIAGNOSTICS.spawnFailed;
+          throw new Error(`${diagnostic}: ${result.stderr.trim() || 'OBC worker failed'}`);
+        }
         stdout = result.stdout;
       } catch (error) {
         throw new ProblemIntakeExecutionError(

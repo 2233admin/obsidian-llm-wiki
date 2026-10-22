@@ -4,6 +4,7 @@ import type { AdapterRegistry } from '../adapters/registry.js';
 import type { Operation, OperationContext } from '../core/types.js';
 import { makeErr } from '../core/types.js';
 import { answerQuery, type QueryAnswerResult } from '../unified-query.js';
+import { processRecallTthw } from '../recall-metrics.js';
 import { ensureBackfill, recallGaps } from '../adapters/vaultbrain/lazy-index.js';
 import { gatherVaultStatus } from '../adapters/vaultbrain/vault-status.js';
 import type { VaultBrainAdapter } from '../adapters/vaultbrain/index.js';
@@ -262,6 +263,7 @@ async function answerForScope(
     glob: scope.glob,
   });
   for (const g of await recallGaps(backfill)) answer.gaps.unshift(g);
+  processRecallTthw.record(answer.citations.length);
   return answer;
 }
 

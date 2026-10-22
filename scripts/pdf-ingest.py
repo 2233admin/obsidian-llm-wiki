@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """pdf-ingest.py -- extract PDF text via PyMuPDF and ingest into vaultbrain PGLite."""
-import argparse, json, os, subprocess, tempfile
+import argparse
+import json
+import os
+import subprocess
+import tempfile
+import urllib.request
 from pathlib import Path
 
 OLLAMA = "http://localhost:11434"
@@ -9,7 +14,6 @@ NODE_BIN = r"C:\Program Files\nodejs\node.exe"
 
 def embed(text):
     if not text.strip(): return None
-    import urllib.request
     payload = json.dumps({"model": MODEL, "input": text[:8000]}).encode()
     req = urllib.request.Request(f"{OLLAMA}/v1/embeddings", data=payload,
         headers={"Content-Type": "application/json"})
@@ -17,7 +21,8 @@ def embed(text):
         with urllib.request.urlopen(req, timeout=60) as r:
             d = json.loads(r.read())
             return d.get("data", [{}])[0].get("embedding")
-    except: return None
+    except (OSError, ValueError, TypeError, IndexError, AttributeError):
+        return None
 
 def simple_hash(s):
     h = 5381
@@ -82,7 +87,7 @@ upsert().catch(e=>{{console.error('FAIL:',e.message);process.exit(1);}});
         f.write(script)
         tmp = f.name
     try:
-        r = subprocess.run([NODE_BIN, tmp], capture_output=True, text=True)
+        r = subprocess.run([NODE_BIN, tmp], capture_output=True, text=True, check=False)
         if r.returncode != 0 or "OK" not in r.stdout:
             print(f"Node ERR: {r.stderr[:200]}")
             print(f"Node OUT: {r.stdout[:200]}")
@@ -117,6 +122,6 @@ def main():
         ok = upsert(slug, title, text, h, chunks, embs, str(db_dir))
         n_emb = sum(1 for e in embs if e)
         print(f"({n_emb}/{len(embs)} emb) {'OK' if ok else 'FAIL'}")
-    print(f"\nDone.")
+    print("\nDone.")
 
 if __name__ == "__main__": main()

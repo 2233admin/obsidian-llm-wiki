@@ -18,7 +18,7 @@ import type { VaultStore } from '../vault/store.js';
 
 type SourceInputType = 'url' | 'vaultPath' | 'filePath' | 'directoryPath' | 'repoPath' | 'text';
 
-interface SourceRecord {
+export interface SourceRecord {
   id: string;
   inputType: SourceInputType;
   input: string;
@@ -37,7 +37,7 @@ interface SourceRecord {
   updated_at: string;
 }
 
-interface SourceRegistry {
+export interface SourceRegistry {
   version: 1;
   updated_at: string;
   sources: Record<string, SourceRecord>;
@@ -524,11 +524,19 @@ function readRegistry(vaultPath: string, store?: VaultStore): SourceRegistry {
     return { version: 1, updated_at: new Date(0).toISOString(), sources: {} };
   }
   const parsed = JSON.parse(content) as Partial<SourceRegistry>;
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || parsed.version !== 1 || !parsed.sources || typeof parsed.sources !== 'object' || Array.isArray(parsed.sources)) {
+    throw new Error('Source Registry is malformed');
+  }
   return {
     version: 1,
     updated_at: typeof parsed.updated_at === 'string' ? parsed.updated_at : new Date(0).toISOString(),
     sources: parsed.sources && typeof parsed.sources === 'object' ? parsed.sources : {},
   };
+}
+
+/** Read the canonical Source Registry without creating or mutating records. */
+export function readSourceRegistry(vaultPath: string): SourceRegistry {
+  return readRegistry(vaultPath);
 }
 
 function readRegistryFile(fullPath: string): string | null {

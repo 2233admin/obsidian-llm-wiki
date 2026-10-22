@@ -1,6 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { execFile } from "node:child_process";
-import type { ChildProcess } from "node:child_process";
+import { PythonWorker, PYTHON_WORKER_DIAGNOSTICS } from "../capabilities/python-worker.js";
 import {
   cpSync,
   existsSync,
@@ -39,7 +38,7 @@ export interface PythonCompileWorkerConfig {
 /** Owns the Python process and the staging-to-authority promotion boundary. */
 export class PythonCompileWorker implements CompileExecutionPort {
   private environmentResolver?: () => Promise<NodeJS.ProcessEnv>;
-  private activeProcess?: ChildProcess;
+  private readonly pythonWorker = new PythonWorker();
 
   constructor(private readonly config: PythonCompileWorkerConfig) {
     this.environmentResolver = config.environmentResolver;
@@ -70,7 +69,6 @@ export class PythonCompileWorker implements CompileExecutionPort {
       ];
       const { stdout, stderr } = await this.runCompiler(args, {
         timeout: 120_000,
-        maxBuffer: 10 * 1024 * 1024,
         env: this.environmentResolver ? await this.environmentResolver() : { ...process.env },
       });
 
@@ -92,13 +90,13 @@ export class PythonCompileWorker implements CompileExecutionPort {
   }
 
   abort(): CompileCancelAttempt {
-    if (!this.activeProcess) {
+    const attempt = this.pythonWorker.abort();
+    if (!attempt.ok && attempt.message === "No Python worker is running") {
       return { ok: true, message: "Compilation abort requested before process start; termination is not confirmed", confirmed: false };
     }
-    const requested = this.activeProcess.kill();
     return {
-      ok: requested,
-      message: requested
+      ok: attempt.ok,
+      message: attempt.ok
         ? "Compilation process termination requested; exit is not yet confirmed"
         : "Compilation process termination could not be requested",
       confirmed: false,
@@ -176,21 +174,26 @@ export class PythonCompileWorker implements CompileExecutionPort {
     }
   }
 
-  private runCompiler(
+  private async runCompiler(
     args: string[],
-    options: { timeout: number; maxBuffer: number; env: NodeJS.ProcessEnv },
+    options: { timeout: number; env: NodeJS.ProcessEnv },
   ): Promise<{ stdout: string; stderr: string }> {
-    return new Promise((resolvePromise, reject) => {
-      const child = execFile(this.config.python, args, { ...options, encoding: "utf8" }, (error, stdout, stderr) => {
-        this.activeProcess = undefined;
-        if (error) {
-          reject(Object.assign(error, { stdout, stderr }));
-          return;
-        }
-        resolvePromise({ stdout: String(stdout), stderr: String(stderr) });
-      });
-      this.activeProcess = child;
+    const result = await this.pythonWorker.run({
+      capabilityId: "compiler",
+      executable: this.config.python,
+      args,
+      timeoutMs: options.timeout,
+      environment: options.env,
     });
+    if (!result.ok) {
+      const code = result.diagnosticCode ?? PYTHON_WORKER_DIAGNOSTICS.spawnFailed;
+      const detail = result.stderr.trim() || "Python compiler worker failed";
+      throw Object.assign(new Error(`${code}: ${detail}`), {
+        stdout: result.stdout,
+        stderr: result.stderr,
+      });
+    }
+    return { stdout: result.stdout, stderr: result.stderr };
   }
 
   private parseCompileOutput(
@@ -215,7 +218,7 @@ export class PythonCompileWorker implements CompileExecutionPort {
           timestamp: typeof protocol.timestamp === "string" ? protocol.timestamp : timestamp,
         };
       } catch (error) {
-        throw new Error(`Invalid compiler result protocol: ${(error as Error).message}`);
+        throw new Error(`${PYTHON_WORKER_DIAGNOSTICS.invalidOutput}: Invalid compiler result protocol: ${(error as Error).message}`);
       }
     }
 

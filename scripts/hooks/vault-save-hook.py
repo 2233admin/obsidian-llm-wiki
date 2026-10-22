@@ -7,7 +7,7 @@ import json
 import os
 import re
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -25,7 +25,7 @@ def load_transcript(path: str) -> list:
     try:
         with open(path, "r", encoding="utf-8") as f:
             return [json.loads(line) for line in f if line.strip()]
-    except Exception:
+    except (OSError, UnicodeError, json.JSONDecodeError):
         return []
 
 
@@ -67,7 +67,7 @@ def summarize(entries: list) -> dict:
                 name = block.get("name", "")
                 inp = block.get("input", {}) or {}
 
-                if name.startswith("mcp__vault-mind") or name.startswith("mcp__llm-wiki"):
+                if name.startswith(("mcp__vault-mind", "mcp__llm-wiki")):
                     op = name.split("__", 2)[-1]
                     if any(k in op.lower() for k in ("create", "modify", "append", "write")):
                         p = inp.get("path") or inp.get("filepath") or ""
@@ -106,7 +106,8 @@ def already_seen(sid: str) -> bool:
         return False
     try:
         return sid in SEEN_LOG.read_text(encoding="utf-8").splitlines()
-    except Exception:
+    except (OSError, UnicodeError) as exc:
+        fail(f"read seen log failed: {exc}")
         return False
 
 
@@ -114,17 +115,17 @@ def mark_seen(sid: str) -> None:
     try:
         with SEEN_LOG.open("a", encoding="utf-8") as f:
             f.write(sid + "\n")
-    except Exception:
-        pass
+    except (OSError, UnicodeError) as exc:
+        fail(f"mark seen failed: {exc}")
 
 
 def fail(msg: str) -> None:
-    ts = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+    ts = datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%dT%H:%M:%S")
     try:
         with FAIL_LOG.open("a", encoding="utf-8") as f:
             f.write(f"{ts}\t{msg}\n")
-    except Exception:
-        pass
+    except (OSError, UnicodeError) as exc:
+        sys.stderr.write(f"vault-save-hook: failed to write failure log: {exc}\n")
 
 
 def build_recap(now: datetime, sid: str, cwd: str, s: dict) -> str:
@@ -184,14 +185,14 @@ def write_daily(recap: str, now: datetime) -> None:
             daily.write_text(header, encoding="utf-8")
         with daily.open("a", encoding="utf-8") as f:
             f.write(recap)
-    except Exception as e:
+    except (OSError, UnicodeError) as e:
         fail(f"write daily failed: {e}")
 
 
 def main() -> None:
     try:
         payload = json.loads(sys.stdin.read() or "{}")
-    except Exception:
+    except (OSError, UnicodeError, json.JSONDecodeError):
         return
 
     sid = payload.get("session_id") or ""
@@ -220,7 +221,7 @@ def main() -> None:
         mark_seen(sid)
         return
 
-    now = datetime.now()
+    now = datetime.now(timezone.utc).astimezone()
     recap = build_recap(now, sid, cwd, s)
     write_daily(recap, now)
     mark_seen(sid)
@@ -229,5 +230,5 @@ def main() -> None:
 if __name__ == "__main__":
     try:
         main()
-    except Exception:
-        pass
+    except (OSError, UnicodeError, ValueError, TypeError, AttributeError, KeyError) as exc:
+        fail(f"hook failed: {exc}")

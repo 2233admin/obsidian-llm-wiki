@@ -2,42 +2,44 @@
 
 ## What This Is
 
-LLM Wiki for AI agents. 四层架构:
-1. **MCP Server** (TypeScript, stdio) — 统一接口
-2. **Adapter Registry** — filesystem(default) / obsidian(WS) / memU(pgvector) / gitnexus(graph)
-3. **KB Compiler** (Python, zero-dep) — raw/ → wiki/ 单向编译
-4. **Agent Scheduler** — compile/emerge/reconcile/prune/challenge 自动调度
+Obsidian LLM Wiki is an Obsidian-first product. The Obsidian plugin is the
+primary human-facing product and control plane. Shared TypeScript domains own
+product semantics; the MCP server and CLI are agent and automation access
+surfaces; Python compiler and adapter processes are optional capability workers.
 
-核心命题: **知识不编译就是垃圾。**
+核心命题: **让本地知识可被人和 Agent 可靠地使用。**
 
 ## Stack
 
 - TypeScript + @modelcontextprotocol/sdk (stdio transport)
-- Python 3.11+ (kb_meta.py / compile.py, zero-dep)
-- ripgrep subprocess (filesystem adapter search)
+- Obsidian plugin + shared TypeScript domain packages
+- Python compiler / `kb_meta.py` / optional adapter workers
 - esbuild bundler
 
 ## Architecture
 
 ```
-Claude Code ─stdio→ MCP Server ─┬─ vault.* (CRUD + search + graph)
-                                 ├─ compile.* (status/run/diff/abort)
-                                 ├─ query.* (unified/search/explain)
-                                 └─ agent.* (status/trigger/schedule)
-                                      │
-                          AdapterRegistry
-                          ├─ filesystem (default, always on)
-                          ├─ obsidian (WS → vault-bridge)
-                          ├─ memU (subprocess → pgvector)
-                          └─ gitnexus (subprocess → graph)
+Obsidian user ─→ Obsidian Plugin ─┬─ Settings / Project / Knowledge / Memory
+                                  ├─ onboarding + capability health
+                                  └─ Shared TypeScript Domain
+
+Agent ────────→ MCP Server ──────┘
+Automation ────→ CLI ─────────────┘
+
+Shared TypeScript capability boundary
+  ├─ filesystem / Obsidian / external adapters
+  ├─ Python compiler and kb_meta workers (optional)
+  ├─ MemU / graph workers (optional)
+  └─ durable vault Markdown + Work-OS truth
 ```
 
 ## Key Invariants
 
-1. **Filesystem fallback is global invariant** — Obsidian 不开也能用
-2. **编译是单向的** — raw/ → compile.py → wiki/，不反向污染源
-3. **adapter 失败不阻塞** — Promise.allSettled 隔离，静默降级
-4. **dryRun=true 默认** — 所有写操作
+1. **Obsidian is the primary human product** — MCP and CLI do not own the user lifecycle
+2. **Shared TypeScript domains own semantics** — transports format access; they do not redefine product truth
+3. **Optional capabilities degrade explicitly** — missing Python or adapters produce health states and remediation, not opaque startup failure
+4. **Markdown and Work-OS are durable truth** — boards, caches, and runtime output are derived or operational state
+5. **Voice input passes intake normalization** — raw transcription never becomes implementation truth directly
 
 ## Repo Layout
 
@@ -88,6 +90,18 @@ Key constraints:
 - write unreviewed analysis under `00-Inbox/AI-Output/<agent>/` or `10-Projects/<project>/agents/<agent>/`;
 - track executable obsidian-llm-wiki work under `01-Projects/<project>/issues/`, never `10-Projects/<project>/docket/**`;
 - promote durable team truth only through reviewed Decisions, Architecture, Runbooks, or Project Hub links.
+
+Default intake is BMAD-lite:
+
+```text
+raw voice → normalized intent → product brief → architecture / UX boundary
+→ Work-OS issue → implementation plan → code → verification evidence
+```
+
+Normalize voice transcription against `CONTEXT.md`; ask one focused question
+when an uncertain product or module name changes scope or architecture. Do not
+turn raw voice directly into code or an implementation issue. Use
+`docs/AGENT_WORKFLOW_INTEGRATION.md` for the artifact mapping and review gates.
 
 ## Skill routing
 

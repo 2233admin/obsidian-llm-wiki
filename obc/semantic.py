@@ -7,10 +7,10 @@ Supports caching for performance.
 
 from __future__ import annotations
 
-import os
 import pickle
 from dataclasses import dataclass, field
 from pathlib import Path
+
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -50,7 +50,7 @@ class SemanticIndex:
             }, f)
 
     @classmethod
-    def load(cls, vault_path: Path) -> 'SemanticIndex | None':
+    def load(cls, vault_path: Path) -> SemanticIndex | None:
         """Load index from disk cache if valid."""
         cache_path = vault_path / ".obc_semantic_cache.pkl"
         if not cache_path.exists():
@@ -68,7 +68,16 @@ class SemanticIndex:
             index.tfidf_matrix = data['tfidf_matrix']
             index.vectorizer = data['vectorizer']
             return index
-        except Exception:
+        except (
+            OSError,
+            EOFError,
+            pickle.UnpicklingError,
+            AttributeError,
+            ImportError,
+            KeyError,
+            TypeError,
+            ValueError,
+        ):
             return None
 
     def query(self, query: str, top_k: int = 5) -> list[SimilarNote]:
@@ -168,7 +177,7 @@ def _build_index(vault: Path) -> SemanticIndex | None:
 
     try:
         tfidf_matrix = vectorizer.fit_transform(texts)
-    except Exception:
+    except ValueError:
         return None
 
     index = SemanticIndex(vault_path=vault)
@@ -188,5 +197,5 @@ def _read_note_content(file_path: Path) -> str:
             if end > 0:
                 content = content[end + 4:]
         return content
-    except Exception:
+    except OSError:
         return ""

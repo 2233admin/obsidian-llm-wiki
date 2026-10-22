@@ -1,8 +1,8 @@
 """Tests for link extraction (PR1)."""
-import pytest
 import itertools
 from pathlib import Path
-from obc.extract import extract_links, extract_vault_links, LinkKind
+
+from obc.extract import LinkKind, extract_links
 
 
 class TestExtractLinks:

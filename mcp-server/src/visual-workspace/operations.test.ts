@@ -156,6 +156,7 @@ describe('Visual Workspace MCP operations', () => {
           ['visual.map.plan', false],
           ['visual.map.project', false],
           ['visual.map.apply', true],
+          ['visual.template.preview', false],
         ],
       );
       const before = readFileSync(vp(harness.root, harness.mapPath), 'utf8');

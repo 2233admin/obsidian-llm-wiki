@@ -84,13 +84,20 @@ export class ValidationError extends Error {
 export function validateParams(
   schema: Record<string, ParamDef>,
   raw: Record<string, unknown>,
+  closed = false,
 ): Record<string, unknown> {
   const result: Record<string, unknown> = {};
+
+  if (closed) {
+    for (const key of Object.keys(raw)) {
+      if (!Object.prototype.hasOwnProperty.call(schema, key)) throw new ValidationError(`Unknown param: ${key}`);
+    }
+  }
 
   for (const [key, def] of Object.entries(schema)) {
     let val = raw[key];
 
-    if (val === undefined || val === null) {
+    if (val === undefined) {
       if (def.required) {
         throw new ValidationError(`Missing required param: ${key}`);
       }
@@ -99,10 +106,20 @@ export function validateParams(
       }
       continue;
     }
+    if (val === null) {
+      if (!def.nullable) {
+        if (def.required) throw new ValidationError(`Param ${key}: expected ${def.type}, got null`);
+        continue;
+      }
+      result[key] = null;
+      continue;
+    }
 
     // Type check
     const actual = Array.isArray(val) ? 'array' : typeof val;
-    if (def.type !== 'object' && def.type !== 'array' && def.type !== 'unknown') {
+    if (def.type === 'object' || def.type === 'array') {
+      if (actual !== def.type) throw new ValidationError(`Param ${key}: expected ${def.type}, got ${actual}`);
+    } else if (def.type !== 'unknown') {
       if (actual !== def.type) {
         // Coerce number from string for convenience
         if (def.type === 'number' && typeof val === 'string' && !isNaN(Number(val))) {

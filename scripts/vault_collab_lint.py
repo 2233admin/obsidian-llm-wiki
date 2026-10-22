@@ -10,7 +10,6 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-
 DEFAULT_POLICY = {
     "team": [],
     "agents": ["codex", "claude"],
@@ -158,9 +157,8 @@ def lint_ai_output(path: Path, rel_path: str) -> list[Finding]:
 
     if status == "reviewed" and "#user-confirmed" not in body:
         findings.append(Finding("warn", "ai-output-reviewed-without-user-tag", rel_path, "reviewed AI-Output should include #user-confirmed in the body"))
-    if status in {"reviewed", "superseded"} or quarantine_state in {"reviewed", "promoted", "discarded"}:
-        if "history" not in fm:
-            findings.append(Finding("warn", "ai-output-history-missing", rel_path, "reviewed/promoted AI-Output should include history entries"))
+    if (status in {"reviewed", "superseded"} or quarantine_state in {"reviewed", "promoted", "discarded"}) and "history" not in fm:
+        findings.append(Finding("warn", "ai-output-history-missing", rel_path, "reviewed/promoted AI-Output should include history entries"))
     if quarantine_state == "promoted" and not re.search(r"\[\[(20-Decisions|30-Architecture|40-Runbooks)/", body):
         findings.append(Finding("warn", "ai-output-promoted-link-missing", rel_path, "promoted AI-Output should link to the durable reviewed note"))
     return findings
@@ -199,9 +197,8 @@ def lint(vault: Path, policy: dict) -> list[Finding]:
             elif team and parts[1] not in team:
                 findings.append(Finding("warn", "unknown-person", rel_path, f"person '{parts[1]}' is not listed in .vault-collab.json"))
 
-        if is_markdown(path) and rel_path.startswith("20-Decisions/"):
-            if not re.match(r"^20-Decisions/\d{4}-\d{2}-\d{2}-[A-Za-z0-9][A-Za-z0-9._-]*\.md$", rel_path):
-                findings.append(Finding("warn", "decision-name", rel_path, "decision notes should use 20-Decisions/YYYY-MM-DD-title.md"))
+        if is_markdown(path) and rel_path.startswith("20-Decisions/") and not re.match(r"^20-Decisions/\d{4}-\d{2}-\d{2}-[A-Za-z0-9][A-Za-z0-9._-]*\.md$", rel_path):
+            findings.append(Finding("warn", "decision-name", rel_path, "decision notes should use 20-Decisions/YYYY-MM-DD-title.md"))
 
         if is_markdown(path) and is_protected(rel_path, protected) and has_generated_frontmatter(path):
             findings.append(Finding("error", "agent-in-protected-path", rel_path, "agent-generated note is in a protected shared path"))

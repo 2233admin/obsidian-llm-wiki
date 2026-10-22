@@ -11,6 +11,7 @@ export function isObsidianControlPlaneOperation(operation: Pick<Operation, "name
   if (operation.name === "graph.adapters.query") return true;
   if (operation.name === "context.recall") return true;
   if (operation.name === "vault.writeAIOutput") return true;
+  if (operation.name === "workflow.recovery.apply") return true;
   if (operation.name.startsWith("project.migration.")) return false;
   if (["agent.status", "agent.trigger", "agent.schedule", "agent.history"].includes(operation.name)) {
     return false;

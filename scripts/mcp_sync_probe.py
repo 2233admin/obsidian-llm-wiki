@@ -18,7 +18,6 @@ import time
 from pathlib import Path
 from typing import Any
 
-
 ROOT = Path(__file__).resolve().parents[1]
 DIST_SERVER = ROOT / "mcp-server" / "dist" / "index.js"
 BUNDLE_SERVER = ROOT / "mcp-server" / "bundle.js"

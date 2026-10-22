@@ -16,10 +16,10 @@
 
 import { createReadStream, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 
-// --- Types ---
+import { readVaultEnvironment } from '../runtime-env.js';
 
 interface ArchivableSession {
   id: string;
@@ -70,7 +70,7 @@ function parseArgs(argv: string[]): CliOpts {
 
 function resolveVaultPath(explicit?: string): string {
   if (explicit) return explicit;
-  const env = process.env.VAULT_MIND_VAULT_PATH || process.env.VAULT_BRIDGE_VAULT;
+  const env = readVaultEnvironment();
   if (env) return env;
   throw new Error('vault path not set: pass --vault PATH or set VAULT_MIND_VAULT_PATH');
 }
@@ -304,6 +304,9 @@ function oneLine(value: string, max = 200): string {
 // write. Replaces the matched span with `<REDACTED>` so downstream search
 // cannot leak credentials through archived session notes. Pattern set is
 // deliberately conservative — false positives are safer than leaks.
+const REDACTION_BACKSLASH = String.fromCharCode(92);
+const REDACTION_BACKSLASH_PATTERN = REDACTION_BACKSLASH.repeat(2);
+const REDACTION_SLASH = String.fromCharCode(47);
 const REDACTION_PATTERNS: RegExp[] = [
   // Bearer / token / api-key style headers and assignments
   /(?:bearer|api[_-]?key|access[_-]?token|auth[_-]?token|secret[_-]?key|token)\s*[=:]\s*["']?[A-Za-z0-9._\-+/=]{16,}/gi,
@@ -316,16 +319,30 @@ const REDACTION_PATTERNS: RegExp[] = [
   // Windows absolute paths under user profile
   new RegExp(String.raw`C:` + String.raw`\\Users\\[^\\\s'"<>|]+`, 'g'),
   // Unix absolute paths under home
-  /\/(?:home|Users)\/[^/\s'"<>|]+/g,
+  new RegExp(`${REDACTION_SLASH}(?:home|Users)${REDACTION_SLASH}[^${REDACTION_SLASH}\\s'"<>|]+`, "g"),
 ];
 
-function redact(value: string | undefined): string | undefined {
+function redact(value: string | undefined, vaultPath?: string): string | undefined {
   if (!value) return value;
   let out = value;
   for (const pat of REDACTION_PATTERNS) {
     out = out.replace(pat, '<REDACTED>');
   }
+  if (vaultPath) out = out.replace(configuredVaultPathPattern(vaultPath), '<REDACTED>');
   return out;
+}
+
+function configuredVaultPathPattern(vaultPath: string): RegExp {
+  const separator = `[${REDACTION_BACKSLASH_PATTERN}${REDACTION_SLASH}]`;
+  const escapedPath = escapeRegExp(resolve(vaultPath)).replaceAll(REDACTION_BACKSLASH_PATTERN, separator);
+  return new RegExp(
+    `(?<![A-Za-z0-9_])${escapedPath}(?:${separator}[^\\s'"<>|]*)?(?=$|[\\s'"<>|])`,
+    'g',
+  );
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 // Map a free-form session.project string to a vault-safe project slug.
@@ -446,7 +463,7 @@ function archiveSession(vaultPath: string, session: ArchivableSession, state: Sy
   const relPath = `01-Projects/${project}/sessions/${sessionSlug}.md`;
 
   const description = oneLine(
-    redact(session.threadName) || redact(session.prompt) || `Session ${session.id.slice(0, 8)}`,
+    redact(session.threadName, vaultPath) || redact(session.prompt, vaultPath) || `Session ${session.id.slice(0, 8)}`,
     200
   );
 
@@ -457,8 +474,8 @@ function archiveSession(vaultPath: string, session: ArchivableSession, state: Sy
     source: session.source,
     sessionId: session.id,
     timestamp: session.timestamp,
-    prompt: redact(session.prompt),
-    threadName: redact(session.threadName),
+    prompt: redact(session.prompt, vaultPath),
+    threadName: redact(session.threadName, vaultPath),
     project,
   });
 

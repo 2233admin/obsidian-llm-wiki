@@ -11,7 +11,7 @@ import type {
   SearchResult,
   SearchOpts,
 } from "../interface.js";
-import type { VaultBrainEngine, ChunkResult } from "./engine.js";
+import type { VaultBrainEngine, ChunkResult, FileStamp, ReindexState } from "./engine.js";
 import { PGliteEngine } from "./pglite-engine.js";
 import { chunkMarkdown, embedTextsWithProfile } from "./ingest.js";
 import { EmbeddingIndexRebuildRequiredError } from "./embedding-index.js";
@@ -31,6 +31,7 @@ export class VaultBrainAdapter implements VaultMindAdapter {
 
   private engine: VaultBrainEngine | null = null;
   private _available = false;
+  private readonly mutationTails = new Map<string, Promise<unknown>>();
 
   get isAvailable(): boolean { return this._available; }
 
@@ -140,45 +141,93 @@ export class VaultBrainAdapter implements VaultMindAdapter {
   }
 
   /**
-   * Ingest a compiled file -- upsert page, re-chunk, re-embed, extract links/tags.
-   * Called by compile-trigger in Phase 3 (not wired up yet).
+   * Ingest a Markdown file, skipping unchanged content before rebuilding chunks.
+   * Returns true when the page is written and false when no write occurs.
    */
-  async ingest(path: string, content: string): Promise<void> {
-    if (!this.engine) return;
-
+  async ingest(
+    path: string,
+    content: string,
+    stamp?: FileStamp,
+    signal?: AbortSignal,
+  ): Promise<boolean> {
     const slug = pathToSlug(path);
-    const title = extractTitle(content);
-    const hash = simpleHash(content);
+    return this.enqueueMutation(slug, async () => {
+      if (!this.engine) return false;
+      if (signal?.aborted) throw new Error("VaultBrain ingest aborted");
 
-    await this.engine.upsertPage(slug, title, content, hash);
+      const title = extractTitle(content);
+      const hash = simpleHash(content);
+      if ((await this.engine.getPageHash(slug)) === hash) return false;
 
-    await this.engine.deleteChunks(slug);
-    const chunks = chunkMarkdown(content);
-    const embeddings = await embedTextsWithProfile(chunks, this.embedOptions());
-    if (embeddings[0]) {
-      await this.engine.ensureEmbeddingFingerprint(embeddings[0].fingerprint);
-      if (embeddings.some(result => result.fingerprint.digest !== embeddings[0]!.fingerprint.digest)) {
-        throw new Error("VaultBrain embedding batch returned mixed profile fingerprints");
+      const chunks = chunkMarkdown(content);
+      const embeddings = await embedTextsWithProfile(chunks, {
+        ...this.embedOptions(),
+        signal,
+      });
+      if (signal?.aborted) throw new Error("VaultBrain ingest aborted");
+      if (embeddings[0]) {
+        await this.engine.ensureEmbeddingFingerprint(embeddings[0].fingerprint);
+        if (embeddings.some(result => result.fingerprint.digest !== embeddings[0]!.fingerprint.digest)) {
+          throw new Error("VaultBrain embedding batch returned mixed profile fingerprints");
+        }
       }
-    }
+      if (signal?.aborted) throw new Error("VaultBrain ingest aborted");
 
-    await this.engine.upsertChunks(
-      slug,
-      chunks.map((chunkText, i) => ({
-        chunkIndex: i,
-        chunkText,
-        embedding: embeddings[i]?.vector ?? null,
-        tokenCount: Math.ceil(chunkText.length / 4),
-      })),
-    );
+      await this.engine.replacePage(
+        slug,
+        title,
+        content,
+        hash,
+        chunks.map((chunkText, i) => ({
+          chunkIndex: i,
+          chunkText,
+          embedding: embeddings[i]?.vector ?? null,
+          tokenCount: Math.ceil(chunkText.length / 4),
+        })),
+        extractWikiLinks(content),
+        extractTags(content),
+        stamp,
+      );
+      return true;
+    });
+  }
 
-    for (const toSlug of extractWikiLinks(content)) {
-      await this.engine.upsertLink(slug, toSlug);
-    }
+  async listIndexedSlugs(): Promise<string[]> {
+    if (!this.engine) return [];
+    return this.engine.listPageSlugs();
+  }
+  async getIndexedStamp(path: string): Promise<FileStamp | null> {
+    if (!this.engine) return null;
+    return this.engine.getPageStamp(pathToSlug(path));
+  }
+  async setReindexState(state: ReindexState): Promise<void> {
+    if (this.engine) await this.engine.setReindexState(state);
+  }
 
-    for (const tag of extractTags(content)) {
-      await this.engine.upsertTag(slug, tag);
-    }
+  async getReindexState(): Promise<ReindexState | null> {
+    if (!this.engine) return null;
+    return this.engine.getReindexState();
+  }
+
+  async deletePath(path: string, signal?: AbortSignal): Promise<void> {
+    await this.deleteSlug(pathToSlug(path), signal);
+  }
+
+  async deleteSlug(slug: string, signal?: AbortSignal): Promise<void> {
+    await this.enqueueMutation(slug, async () => {
+      if (signal?.aborted) throw new Error("VaultBrain delete aborted");
+      if (this.engine) await this.engine.deletePage(slug);
+    });
+  }
+  private enqueueMutation<T>(slug: string, mutation: () => Promise<T>): Promise<T> {
+    const previous = this.mutationTails.get(slug) ?? Promise.resolve();
+    const current = previous.catch(() => undefined).then(mutation);
+    this.mutationTails.set(slug, current);
+    const clear = () => {
+      if (this.mutationTails.get(slug) === current) this.mutationTails.delete(slug);
+    };
+    void current.then(clear, clear);
+    return current;
   }
 
   private embedOptions() {
@@ -193,7 +242,7 @@ export class VaultBrainAdapter implements VaultMindAdapter {
 
 // --- Helpers ---
 
-function pathToSlug(path: string): string {
+export function pathToSlug(path: string): string {
   return path.replace(/\\/g, "/").replace(/\.md$/, "");
 }
 

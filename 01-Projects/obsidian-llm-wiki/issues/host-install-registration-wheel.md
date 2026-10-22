@@ -1,15 +1,15 @@
 ---
 type: issue
 entity: project/obsidian-llm-wiki/issue/host-install-registration-wheel
-state: todo
+state: done
 review: reviewed
 kind: knowledge-task
 id: obsidian-llm-wiki/host-install-registration-wheel
 description: No single mechanism writes/verifies host MCP registration -- setup scripts print instructions instead of doing it, and disagree with each other on the env var name
-status: active
+status: done
 priority: 2
 blocked-by: []
-last-verified: 2026-07-12
+last-verified: 2026-09-01
 ---
 
 Build one host-install wheel instead of three scripts that print instructions
@@ -58,3 +58,11 @@ work, and `obsidian-plugin/` already exists as the consolidation point.
   exists, with the right env var) -- distinct from and in addition to
   `llmwiki_doctor.py`'s existing server-behavior checks.
 - No new daemon; this runs at install/doctor time only.
+
+## Verification (2026-09-01)
+
+- RED baseline: 6 passed, 5 feature failures.
+- Focused setup tests: 13/13 passed; `bun test src/scripts`: 20/20 passed.
+- `npm run typecheck`, `npm run build`, and `npm run bundle:setup` passed.
+- Missing-bundle smoke passed for `bash setup.sh --list` and PowerShell `setup.ps1 -List`; both rebuilt the ignored setup bundle and returned the host list.
+- Full `npm test` remains 194 passed / 110 failed across 322 tests because Bun 1.3.14 raises nested `test()`/`describe()` errors when loading the multi-file suite. Isolated relevant suites pass.

@@ -1,4 +1,3 @@
-import { execFile, type ChildProcess } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import {
   existsSync,
@@ -9,6 +8,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
+import { PythonWorker, PYTHON_WORKER_DIAGNOSTICS } from "../capabilities/python-worker.js";
 import { dirname, join } from "node:path";
 
 export const AGENT_RUN_SCHEMA_VERSION = 1 as const;
@@ -280,57 +280,46 @@ export interface PythonEvaluateRunnerConfig {
 
 /** Process ownership for evaluate.py. It is intentionally only a legacy adapter. */
 export class PythonEvaluateRunner implements AgentExecutionPort {
-  private activeProcess: ChildProcess | undefined;
+  private readonly worker = new PythonWorker();
 
   constructor(private readonly config: PythonEvaluateRunnerConfig) {}
 
   async run(request: AgentRunRequest): Promise<AgentRunResult> {
     assertRequest(request);
-    if (this.activeProcess) {
-      return {
-        action: request.action,
-        status: "error",
-        details: "The legacy evaluate runner is already executing another Agent Run",
-      };
-    }
     const evaluatePy = join(this.config.compilerPath, "evaluate.py");
     const args = [evaluatePy];
     if (this.config.configPath) args.push("--config", this.config.configPath);
     args.push("--vault", this.config.vaultPath, "--trigger", request.action);
     if (request.mode && request.mode !== "manual") args.push("--mode", request.mode);
-    const environment = await this.config.environmentResolver?.() ?? { ...process.env };
-
-    return new Promise<AgentRunResult>((resolve) => {
-      const child = execFile(this.config.python, args, {
-        timeout: 300_000,
-        maxBuffer: 10 * 1024 * 1024,
-        env: environment,
-        windowsHide: true,
-      }, (error, stdout, stderr) => {
-        if (this.activeProcess === child) this.activeProcess = undefined;
-        const parsed = parseJsonObject(stdout);
-        if (parsed) {
-          resolve(parsed);
-          return;
-        }
-        const message = error instanceof Error ? error.message : "evaluate.py returned no JSON result";
-        resolve({
-          action: request.action,
-          status: "error",
-          details: message,
-          stderr: stderr.trim(),
-        });
-      });
-      this.activeProcess = child;
+    const result = await this.worker.run({
+      capabilityId: "legacy-evaluate",
+      executable: this.config.python,
+      args,
+      timeoutMs: 300_000,
+      environment: await this.config.environmentResolver?.() ?? { ...process.env },
     });
+    const parsed = parseJsonObject(result.stdout);
+    if (parsed) return parsed;
+
+    const details = result.ok
+      ? `${PYTHON_WORKER_DIAGNOSTICS.invalidOutput}: evaluate.py returned no JSON result`
+      : `${result.diagnosticCode ?? PYTHON_WORKER_DIAGNOSTICS.spawnFailed}: ${result.stderr.trim() || "evaluate.py failed"}`;
+    return {
+      action: request.action,
+      status: "error",
+      details,
+      stderr: result.stderr.trim(),
+    };
   }
 
   abort(): AgentCancelAttempt {
-    if (!this.activeProcess) return { ok: false, message: "No agent action running", confirmed: false };
-    const accepted = this.activeProcess.kill();
+    const attempt = this.worker.abort();
+    if (!attempt.ok && attempt.message === "No Python worker is running") {
+      return { ok: false, message: "No agent action running", confirmed: false };
+    }
     return {
-      ok: accepted,
-      message: accepted ? "Agent process termination requested" : "Agent process termination was not accepted",
+      ok: attempt.ok,
+      message: attempt.ok ? "Agent process termination requested" : "Agent process termination was not accepted",
       confirmed: false,
     };
   }

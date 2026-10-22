@@ -29,6 +29,7 @@ import {
   LLMWikiPluginData,
   parseSettingInput,
   planPluginDataMigration,
+  PluginDataMigrationPlan,
   preservePendingMigrationSource,
   rollbackPluginDataMigration,
   selectEditingScope,
@@ -69,6 +70,8 @@ import {
   AskMateOperationClient,
   isManagedProjectMapPath,
 } from "./ask-mate/client";
+import { ProjectHubRecoveryClient } from "./project-hub/recovery-client";
+import { deriveOnboardingState } from "./onboarding/onboarding-state";
 import { AgentfilesFeature } from "./agentfiles/feature";
 import {
   ASK_MATE_VIEW_TYPE,
@@ -77,6 +80,12 @@ import {
 import type { AskMateContext } from "./ask-mate/interaction-model";
 
 const pexecFile = promisify(execFile);
+type PromoteExecOptions = {
+  cwd: string;
+  env: NodeJS.ProcessEnv;
+  windowsHide: true;
+};
+
 const MAX_ASK_MATE_SELECTION_CHARS = 100_000;
 const MAX_ASK_MATE_CANVAS_NODE_IDS = 200;
 // Shape of `kb_meta promote` JSON (compiler/kb_meta.cmd_promote).
@@ -134,6 +143,8 @@ export default class LLMWikiPlugin extends Plugin {
   private settingsClient!: SettingsOperationClient;
   private agentControlPlaneClient!: AgentControlPlaneClient;
   private askMateClient!: AskMateOperationClient;
+  private recoveryClient!: ProjectHubRecoveryClient;
+  private firstSearchCompleted = false;
   private controlPlaneTransport: (
     SettingsOperationTransport
     & AgentControlPlaneTransport
@@ -153,11 +164,12 @@ export default class LLMWikiPlugin extends Plugin {
 
   async onload(): Promise<void> {
     const rawData = await this.loadData();
-    const plan = planPluginDataMigration(rawData);
+    const plan = await planPluginDataMigration(rawData);
     this.pendingMigrationSource =
       plan.assignments.length && rawData && typeof rawData === "object" && !Array.isArray(rawData)
         ? (rawData as Record<string, unknown>)
         : null;
+
     this.data = plan.data;
     let pluginDataChanged = plan.migrated;
     if (!this.data.deviceBinding) {
@@ -172,6 +184,7 @@ export default class LLMWikiPlugin extends Plugin {
     this.settingsClient = new SettingsOperationClient(transport);
     this.agentControlPlaneClient = new AgentControlPlaneClient(transport);
     this.askMateClient = new AskMateOperationClient(transport);
+    this.recoveryClient = new ProjectHubRecoveryClient(transport);
     await this.applyPluginDataPlan(plan, pluginDataChanged);
     await this.refreshSettings(false);
     this.agentfilesFeature = new AgentfilesFeature(
@@ -190,6 +203,8 @@ export default class LLMWikiPlugin extends Plugin {
       (leaf: WorkspaceLeaf) => new AskMateView(leaf, this.askMateClient, {
         proposalActor: OBSIDIAN_CONTROL_PLANE_ACTOR,
         confirmationActor: OBSIDIAN_CONTROL_PLANE_ACTOR,
+      }, this.recoveryClient, () => {
+        this.firstSearchCompleted = true;
       }),
     );
     this.addRibbonIcon("sparkles", "Open LLM Wiki", () => this.openAskMateEntryPoint());
@@ -352,6 +367,7 @@ export default class LLMWikiPlugin extends Plugin {
   setAgentControlPlaneTransport(transport: AgentControlPlaneTransport): void {
     this.agentControlPlaneClient = new AgentControlPlaneClient(transport);
     this.askMateClient = new AskMateOperationClient(transport);
+    this.recoveryClient = new ProjectHubRecoveryClient(transport);
   }
 
   openAgentControlPlane(): void {
@@ -412,6 +428,7 @@ export default class LLMWikiPlugin extends Plugin {
     this.settingsClient = new SettingsOperationClient(transport);
     this.agentControlPlaneClient = new AgentControlPlaneClient(transport);
     this.askMateClient = new AskMateOperationClient(transport);
+    this.recoveryClient = new ProjectHubRecoveryClient(transport);
     await this.refreshSettings(false);
     return boundProjectId;
   }
@@ -641,6 +658,14 @@ export default class LLMWikiPlugin extends Plugin {
     return effective.value as T;
   }
 
+  protected async execFile(
+    executable: string,
+    args: string[],
+    options: PromoteExecOptions,
+  ): Promise<{ stdout: string | Buffer }> {
+    return pexecFile(executable, args, options);
+  }
+
   private async runPromote(noteId: string, apply: boolean): Promise<PromoteResult> {
     try {
       const pythonCommand = this.effectiveValue<string>("runtime.python.path");
@@ -653,7 +678,7 @@ export default class LLMWikiPlugin extends Plugin {
       const args = [kbMetaPath, "promote", "--note", noteId];
       if (apply) args.push("--apply");
       const invocation = buildPythonInvocation(pythonCommand, args);
-      const { stdout } = await pexecFile(invocation.executable, invocation.args, {
+      const { stdout } = await this.execFile(invocation.executable, invocation.args, {
         cwd,
         env: { ...process.env, PYTHONUTF8: "1" },
         windowsHide: true,
@@ -668,23 +693,33 @@ export default class LLMWikiPlugin extends Plugin {
     }
   }
 
+  protected openPromoteConfirmation(
+    noteId: string,
+    result: PromoteResult,
+    onConfirm: () => Promise<void>,
+    onCancel: () => void = () => undefined,
+  ): void {
+    new PromotePlanModal(this.app, noteId, result, onConfirm, onCancel).open();
+  }
+
   private async promote(file: TFile): Promise<void> {
     const noteId = file.path;
-    new Notice("LLM Wiki: computing promote plan…");
+    new Notice("Detecting draft…");
     const dry = await this.runPromote(noteId, false);
     if (dry.error) { new Notice(`LLM Wiki: ${dry.error}`); return; }
     if (dry.outcome !== "MATERIALIZED") {
       new Notice(`LLM Wiki: cannot promote — ${dry.outcome}${dry.reason ? `: ${dry.reason}` : ""}`);
       return;
     }
-    new PromotePlanModal(this.app, noteId, dry, async () => {
+    this.openPromoteConfirmation(noteId, dry, async () => {
+      new Notice("Writing…");
       const result = await this.runPromote(noteId, true);
       if (result.error || result.outcome !== "MATERIALIZED") {
         new Notice(`LLM Wiki: promote failed — ${result.error ?? result.outcome}`);
         return;
       }
-      new Notice(`LLM Wiki: promoted → ${result.snapshot_note_id ?? "(written)"}. Review & commit via git.`);
-    }).open();
+      new Notice("Promoted successfully");
+    }, () => undefined);
   }
 
   /** Mirrors askMateRuntimeUnavailableReason's mobile / non-filesystem-vault
@@ -763,21 +798,28 @@ export default class LLMWikiPlugin extends Plugin {
   }
 
   private async applyPluginDataPlan(
-    plan: ReturnType<typeof planPluginDataMigration>,
+    plan: PluginDataMigrationPlan,
     pluginDataChanged: boolean,
   ): Promise<void> {
     if (plan.assignments.length) {
       try {
         const migrated = await applyPluginDataMigration(this.settingsClient, plan);
+        let migratedData = migrated.data;
         try {
           // Persist the full preimage device-locally BEFORE adopting the
           // stripped document, so the applied journal always has a matching
           // restorable backup for rollbackLegacyMigration.
           await this.writeMigrationPreimage(migrated.preimage);
         } catch (preimageError) {
+          const marker = migrated.data.legacyMigration;
+          if (marker) {
+            const markerWithoutPreimage = { ...marker };
+            delete markerWithoutPreimage.preimageJournal;
+            migratedData = { ...migrated.data, legacyMigration: markerWithoutPreimage };
+          }
           new Notice(`LLM Wiki: migration applied, but the preimage backup could not be written — rollback is unavailable: ${String((preimageError as Error)?.message ?? preimageError)}`);
         }
-        this.data = migrated.data;
+        this.data = migratedData;
         this.pendingMigrationSource = null;
         await this.savePluginData();
       } catch (error) {
@@ -814,6 +856,25 @@ export default class LLMWikiPlugin extends Plugin {
       if (notify) new Notice(`LLM Wiki: settings unavailable — ${this.settingsError}`);
     }
   }
+  getOnboardingState() {
+    const health = this.projection?.health ?? (this.settingsError ? [{
+      capabilityId: "settings-platform",
+      state: "unavailable" as const,
+      summary: "Settings Platform could not be reached.",
+      evidence: [],
+      remediations: [{ code: "retry-settings", summary: "Refresh the Settings Platform health check." }],
+      checkedAt: new Date().toISOString(),
+      snapshotId: "unavailable",
+    }] : []);
+    return deriveOnboardingState({
+      vaultAvailable: this.vaultBasePath() !== null,
+      projectId: this.workspaceProjectId() ?? undefined,
+      capabilityHealth: health,
+      validationIssues: this.projection?.validation.issues ?? [],
+      firstSearchCompleted: this.firstSearchCompleted,
+    });
+  }
+
 
   async updateSetting(scope: SettingScope, key: string, value: SettingValue | SecretReference): Promise<void> {
     const revision = this.projection?.snapshot.sourceRevisions[scope]?.revision;
@@ -852,6 +913,7 @@ class PromotePlanModal extends Modal {
     private readonly noteId: string,
     private readonly result: PromoteResult,
     private readonly onConfirm: () => Promise<void>,
+    private readonly onCancel: () => void,
   ) { super(app); }
 
   onOpen(): void {
@@ -863,7 +925,7 @@ class PromotePlanModal extends Modal {
     const buttons = contentEl.createDiv({ cls: "modal-button-container" });
     const confirm = buttons.createEl("button", { text: "Promote (writes reviewed snapshot)", cls: "mod-cta" });
     confirm.onclick = async () => { this.close(); await this.onConfirm(); };
-    buttons.createEl("button", { text: "Cancel" }).onclick = () => this.close();
+    buttons.createEl("button", { text: "Cancel" }).onclick = () => { this.onCancel(); this.close(); };
   }
 
   onClose(): void { this.contentEl.empty(); }
@@ -926,6 +988,21 @@ const SCOPE_LABELS: Record<SettingScope | "product", string> = {
   product: "Product default",
 };
 
+class ScopeHelpModal extends Modal {
+  constructor(app: App) { super(app); }
+
+  onOpen(): void {
+    const { contentEl } = this;
+    contentEl.createEl("h3", { text: "Scope help" });
+    const list = contentEl.createEl("ul");
+    list.createEl("li", { text: "User-device: only this computer" });
+    list.createEl("li", { text: "Vault: everyone using this vault shares this value" });
+    list.createEl("li", { text: "Product: the built-in default" });
+  }
+
+  onClose(): void { this.contentEl.empty(); }
+}
+
 class LLMWikiSettingTab extends PluginSettingTab {
   constructor(app: App, private readonly llmWiki: LLMWikiPlugin) {
     super(app, llmWiki);
@@ -942,12 +1019,103 @@ class LLMWikiSettingTab extends PluginSettingTab {
     });
     this.renderOverview(containerEl);
     this.renderAgentControlPlane(containerEl);
-    if (!this.llmWiki.projection) return;
-    this.renderScopeSelector(containerEl);
 
+    const expandedSections = this.llmWiki.data.presentation.settingsExpandedSections;
+    const isFirstVisit = expandedSections.length === 0;
+
+    // Getting Started section — always visible, collapsible
+    const gettingStartedId = "getting-started";
+    const gettingStartedExpanded = isFirstVisit || expandedSections.includes(gettingStartedId);
+    const gettingStarted = containerEl.createEl("details", {
+      cls: "llmwiki-settings-section",
+      attr: { "data-section": gettingStartedId },
+    });
+    gettingStarted.createEl("summary", { text: "Getting Started" });
+    const gettingStartedContent = gettingStarted.createDiv({ cls: "llmwiki-settings-section-content" });
+    this.renderGettingStartedContent(gettingStartedContent);
+    if (gettingStartedExpanded) gettingStarted.setAttr("open", "");
+    if (!this.llmWiki.projection) return;
+
+    // All Settings section — collapsed by default
+    const allSettingsId = "all-settings";
+    const allSettingsExpanded = expandedSections.includes(allSettingsId);
+    const allSettings = containerEl.createEl("details", {
+      cls: "llmwiki-settings-section",
+      attr: { "data-section": allSettingsId },
+    });
+    allSettings.createEl("summary", { text: "All Settings" });
+    const allSettingsContent = allSettings.createDiv({ cls: "llmwiki-settings-section-content" });
+    this.renderAllSettingsContent(allSettingsContent);
+    if (allSettingsExpanded) allSettings.setAttr("open", "");
+
+    // Track section toggle and persist
+    for (const details of [gettingStarted, allSettings]) {
+      details.onclick = (e) => {
+        const target = e.target as HTMLElement;
+        if (target.tagName !== "SUMMARY") return;
+        const sectionId = details.getAttr("data-section") as string;
+        const currentlyExpanded = details.hasAttribute("open");
+        const newExpanded = !currentlyExpanded;
+        const current = this.llmWiki.data.presentation.settingsExpandedSections;
+        const next = newExpanded
+          ? [...current.filter(s => s !== sectionId), sectionId]
+          : current.filter(s => s !== sectionId);
+        if (JSON.stringify(current) !== JSON.stringify(next)) {
+          this.llmWiki.data = {
+            ...this.llmWiki.data,
+            presentation: { ...this.llmWiki.data.presentation, settingsExpandedSections: next },
+          };
+          void this.llmWiki.savePluginData();
+        }
+      };
+    }
+  }
+
+  private renderGettingStartedContent(containerEl: HTMLElement): void {
+    const state = this.llmWiki.getOnboardingState();
+    const card = containerEl.createDiv({ cls: `llmwiki-onboarding llmwiki-onboarding-${state.step}` });
+    card.createEl("h2", { text: state.title });
+    card.createEl("p", { text: state.nextAction });
+    const steps = card.createEl("ol", { cls: "llmwiki-onboarding-steps" });
+    const labels: Record<string, string> = {
+      vault: "Open a desktop vault",
+      project: "Bind a Project",
+      capabilities: "Repair capabilities",
+      "minimum-settings": "Complete minimum settings",
+      "first-search": "Run the first search",
+      complete: "Ready",
+    };
+    for (const step of ["vault", "project", "capabilities", "minimum-settings", "first-search", "complete"]) {
+      const item = steps.createEl("li", { text: labels[step] });
+      if (step === state.step) item.addClass("llmwiki-onboarding-current");
+      if (step === "complete" && state.step === "complete") item.addClass("llmwiki-onboarding-done");
+    }
+    const actions = card.createDiv({ cls: "llmwiki-settings-actions llmwiki-agent-control-actions" });
+    if (state.step === "project") {
+      actions.createEl("button", { text: "Bind workspace", cls: "mod-cta" })
+        .onclick = () => this.llmWiki.openWorkspaceProjectBindingEditor(() => this.display());
+    } else if (state.step === "capabilities") {
+      actions.createEl("button", { text: "Run Doctor", cls: "mod-cta" })
+        .onclick = async () => { await this.llmWiki.refreshSettings(true); this.display(); };
+    } else if (state.step === "first-search" || state.step === "complete") {
+      actions.createEl("button", { text: "Open LLM Wiki", cls: "mod-cta" })
+        .onclick = () => this.llmWiki.openAskMateEntryPoint();
+    }
+    if (state.blockingHealth.length) {
+      const health = card.createDiv({ cls: "llmwiki-health-list" });
+      for (const check of state.blockingHealth) this.renderHealth(health, check);
+    }
+    if (state.blockingSettings.length) {
+      const errors = card.createEl("ul", { cls: "llmwiki-onboarding-errors" });
+      for (const issue of state.blockingSettings) errors.createEl("li", { text: issue.message });
+    }
+    this.renderScopeSelector(containerEl);
+  }
+
+  private renderAllSettingsContent(containerEl: HTMLElement): void {
     const scope = this.llmWiki.data.presentation.selectedScope;
-    for (const category of [...new Set(this.llmWiki.projection.definitions.map(item => item.category))]) {
-      const definitions = this.llmWiki.projection.definitions.filter(definition =>
+    for (const category of [...new Set(this.llmWiki.projection!.definitions.map(item => item.category))]) {
+      const definitions = this.llmWiki.projection!.definitions.filter(definition =>
         definition.category === category
         && definition.allowedScopes.includes(scope)
         && (this.llmWiki.data.presentation.showAdvanced || definition.visibility !== "advanced"),
@@ -993,6 +1161,26 @@ class LLMWikiSettingTab extends PluginSettingTab {
     };
   }
 
+  private renderHealth(containerEl: HTMLElement, check: HealthCheck): void {
+    const item = containerEl.createDiv({ cls: `llmwiki-health llmwiki-health-${check.state}` });
+    item.createEl("span", { cls: "llmwiki-health-dot" });
+    const copy = item.createDiv();
+    copy.createEl("strong", { text: check.capabilityId });
+    const remediation = check.remediations[0];
+    copy.createEl("small", { text: remediation ? `${check.summary} ${remediation.summary}` : check.summary });
+    if (remediation) {
+      const button = copy.createEl("button", {
+        text: remediation.code === "retry-doctor" || remediation.code === "retry-settings" ? "Retry" : "How to fix",
+      });
+      button.onclick = () => {
+        if (remediation.code === "retry-doctor" || remediation.code === "retry-settings") {
+          void this.llmWiki.refreshSettings(true);
+          return;
+        }
+        new Notice(`LLM Wiki: ${remediation.summary}`);
+      };
+    }
+  }
   private renderAgentControlPlane(containerEl: HTMLElement): void {
     containerEl.createEl("h2", { text: "Start with your knowledge" });
     containerEl.createEl("p", {
@@ -1021,14 +1209,6 @@ class LLMWikiSettingTab extends PluginSettingTab {
     advancedActions.createEl("button", { text: "Create Project Binding" }).onclick = () => this.llmWiki.openProjectBindingEditor();
   }
 
-  private renderHealth(containerEl: HTMLElement, check: HealthCheck): void {
-    const item = containerEl.createDiv({ cls: `llmwiki-health llmwiki-health-${check.state}` });
-    item.createEl("span", { cls: "llmwiki-health-dot" });
-    const copy = item.createDiv();
-    copy.createEl("strong", { text: check.capabilityId });
-    const remediation = check.remediations[0]?.summary;
-    copy.createEl("small", { text: remediation ? `${check.summary} ${remediation}` : check.summary });
-  }
 
   private renderScopeSelector(containerEl: HTMLElement): void {
     new Setting(containerEl)
@@ -1041,7 +1221,11 @@ class LLMWikiSettingTab extends PluginSettingTab {
         .onChange(async value => {
           await this.llmWiki.setEditingScope(value as SettingScope);
           this.display();
-        }));
+        }))
+      .addButton(button => button
+        .setIcon("help")
+        .setTooltip("Scope help")
+        .onClick(() => new ScopeHelpModal(this.app).open()));
   }
 
   private renderDefinition(containerEl: HTMLElement, definition: SettingDefinition): void {
@@ -1087,12 +1271,19 @@ class LLMWikiSettingTab extends PluginSettingTab {
           : "Reference locator — never paste the secret value");
         text.inputEl.type = "text";
         text.inputEl.autocomplete = "off";
-        text.inputEl.addEventListener("change", () => void this.mutate(async () => {
-          const locator = text.getValue().trim();
-          if (!locator) return;
-          await this.llmWiki.updateSetting(scope, definition.key, { provider, locator });
-          text.setValue("");
-        }));
+        let debounceTimer: number | null = null;
+        text.inputEl.addEventListener("change", () => {
+          if (debounceTimer !== null) clearTimeout(debounceTimer);
+          debounceTimer = window.setTimeout(() => {
+            debounceTimer = null;
+            void this.mutate(async () => {
+              const locator = text.getValue().trim();
+              if (!locator) return;
+              await this.llmWiki.updateSetting(scope, definition.key, { provider, locator });
+              text.setValue("");
+            });
+          }, 300);
+        });
       });
     } else if (definition.valueType === "enum" && definition.validator.enum?.length) {
       setting.addDropdown(dropdown => {

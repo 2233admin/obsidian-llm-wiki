@@ -17,6 +17,7 @@ export const PLUGIN_DATA_SCHEMA_VERSION = 2;
 export interface PluginPresentation {
   selectedScope: SettingScope;
   showAdvanced: boolean;
+  settingsExpandedSections: string[];
 }
 
 export interface DeviceBindingReference {
@@ -86,16 +87,18 @@ function isSettingValue(value: unknown): value is SettingValue {
 function defaultData(): LLMWikiPluginData {
   return {
     schemaVersion: PLUGIN_DATA_SCHEMA_VERSION,
-    presentation: { selectedScope: "user-device", showAdvanced: false },
+    presentation: { selectedScope: "user-device", showAdvanced: false, settingsExpandedSections: [] },
   };
 }
 
 function readPresentation(raw: Record<string, unknown>): PluginPresentation {
   const source = isRecord(raw.presentation) ? raw.presentation : {};
   const selected = source.selectedScope;
+  const expandedSections = Array.isArray(source.settingsExpandedSections) ? source.settingsExpandedSections as string[] : [];
   return {
     selectedScope: EDITABLE_SCOPES.includes(selected as SettingScope) ? selected as SettingScope : "user-device",
     showAdvanced: source.showAdvanced === true,
+    settingsExpandedSections: expandedSections,
   };
 }
 
@@ -157,21 +160,28 @@ function readPreimageJournal(value: unknown): LegacyMigrationJournalEntry[] | un
 }
 
 /** Strip legacy full preimages without retaining their values in Obsidian-owned data. */
-function readLegacyPreimageJournal(value: unknown): LegacyMigrationJournalEntry[] | undefined {
+async function readLegacyPreimageJournal(value: unknown): Promise<LegacyMigrationJournalEntry[] | undefined> {
   if (!Array.isArray(value)) return undefined;
-  const result: LegacyMigrationJournalEntry[] = [];
-  for (const item of value) {
-    if (!isRecord(item) || !LEGACY_SCOPES.includes(item.scope as SettingScope) || typeof item.key !== "string") continue;
-    result.push({
+  const entries = value.flatMap(item => {
+    if (!isRecord(item) || !LEGACY_SCOPES.includes(item.scope as SettingScope) || typeof item.key !== "string") return [];
+    const assignment = isRecord(item.assignment) && item.assignment.key === item.key
+      ? item.assignment as unknown as SettingAssignment
+      : undefined;
+    return [{
       scope: item.scope as SettingScope,
       key: item.key,
-      hadAssignment: isRecord(item.assignment) && item.assignment.key === item.key,
-    });
-  }
-  return result.length ? result : undefined;
+      hadAssignment: Boolean(assignment),
+      assignment,
+    }];
+  });
+  if (!entries.length) return undefined;
+  return Promise.all(entries.map(async ({ assignment, ...entry }) => ({
+    ...entry,
+    ...(assignment ? { assignmentDigest: await digestAssignment(assignment) } : {}),
+  })));
 }
 
-function readMarker(raw: Record<string, unknown>): LegacyMigrationMarker | undefined {
+async function readMarker(raw: Record<string, unknown>): Promise<LegacyMigrationMarker | undefined> {
   if (!isRecord(raw.legacyMigration) || raw.legacyMigration.version !== 1) return undefined;
   const state = raw.legacyMigration.state;
   if (state !== "pending" && state !== "applied" && state !== "rolled-back") return undefined;
@@ -184,7 +194,7 @@ function readMarker(raw: Record<string, unknown>): LegacyMigrationMarker | undef
     initialRevisions: readRevisions(raw.legacyMigration.initialRevisions),
     appliedRevisions: readRevisions(raw.legacyMigration.appliedRevisions),
     preimageJournal: readPreimageJournal(raw.legacyMigration.preimageJournal)
-      ?? readLegacyPreimageJournal(raw.legacyMigration.preimage),
+      ?? await readLegacyPreimageJournal(raw.legacyMigration.preimage),
     appliedAt: typeof raw.legacyMigration.appliedAt === "string" ? raw.legacyMigration.appliedAt : undefined,
     rolledBackAt: typeof raw.legacyMigration.rolledBackAt === "string" ? raw.legacyMigration.rolledBackAt : undefined,
   };
@@ -218,14 +228,14 @@ function collectLegacyAssignments(raw: Record<string, unknown>): LegacyMigration
   return [...byIdentity.values()];
 }
 
-export function planPluginDataMigration(raw: unknown): PluginDataMigrationPlan {
+export async function planPluginDataMigration(raw: unknown): Promise<PluginDataMigrationPlan> {
   const defaults = defaultData();
   if (!isRecord(raw)) return { data: defaults, assignments: [], migrated: false };
   if (typeof raw.schemaVersion === "number" && raw.schemaVersion > PLUGIN_DATA_SCHEMA_VERSION) {
     throw new Error(`Unsupported plugin data schema version: ${raw.schemaVersion}`);
   }
   const assignments = collectLegacyAssignments(raw);
-  const existingMarker = readMarker(raw);
+  const existingMarker = await readMarker(raw);
   const agentfiles = readAgentfilesSettings(raw);
   const data: LLMWikiPluginData = {
     schemaVersion: PLUGIN_DATA_SCHEMA_VERSION,
@@ -260,8 +270,13 @@ export function preservePendingMigrationSource(
   data: LLMWikiPluginData,
 ): unknown {
   if (!pendingSource) return data;
+  const legacyMigration = pendingSource.legacyMigration;
+  const sanitizedLegacyMigration = isRecord(legacyMigration) && "preimage" in legacyMigration
+    ? Object.fromEntries(Object.entries(legacyMigration).filter(([key]) => key !== "preimage"))
+    : legacyMigration;
   return {
     ...pendingSource,
+    ...(sanitizedLegacyMigration !== legacyMigration ? { legacyMigration: sanitizedLegacyMigration } : {}),
     presentation: data.presentation,
     deviceBinding: data.deviceBinding,
     ...(data.agentfiles ? { agentfiles: data.agentfiles } : {}),

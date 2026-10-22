@@ -1,13 +1,11 @@
 """Benchmark extractor.py - focus on _call_api and message building"""
 
-import time
-import sys
-sys.path.insert(0, 'compiler')
-
 import json
-import orjson
+import time
 from dataclasses import dataclass
-from models import Chunk
+
+import orjson
+
 
 # Simulate a chunk
 @dataclass
@@ -31,7 +29,7 @@ def benchmark_build_message():
     for _ in range(iterations):
         existing_str = ", ".join(existing_concepts[:50]) if existing_concepts else "none"
         heading_str = f"\nSection: {chunk.heading}" if chunk.heading else ""
-        result = (
+        (
             f"Source: {chunk.source}"
             f"{heading_str}\n"
             f"Existing concepts (skip these): {existing_str}\n\n"
@@ -51,7 +49,7 @@ def benchmark_json_payload():
 
     start = time.perf_counter()
     for _ in range(iterations):
-        payload = orjson.dumps({
+        orjson.dumps({
             "model": "test-model",
             "messages": messages,
             "max_tokens": 1024,
@@ -63,7 +61,7 @@ def benchmark_json_payload():
     # Compare with stdlib json
     start = time.perf_counter()
     for _ in range(iterations):
-        payload = json.dumps({
+        json.dumps({
             "model": "test-model",
             "messages": messages,
             "max_tokens": 1024,

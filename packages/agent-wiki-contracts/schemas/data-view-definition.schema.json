@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.llmwiki.org/agent-wiki/v1/data-view-definition.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "id", "title", "view", "source", "select"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "id": { "$ref": "common.schema.json#/$defs/identifier" },
+    "title": { "type": "string", "minLength": 1 },
+    "view": { "enum": ["table", "kanban"] },
+    "source": { "$ref": "#/$defs/source" },
+    "select": { "type": "array", "items": { "$ref": "#/$defs/fieldLabel" } },
+    "where": { "$ref": "#/$defs/predicate" },
+    "groupBy": { "type": "string", "minLength": 1 },
+    "groupOrder": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "orderBy": { "type": "array", "items": { "$ref": "#/$defs/order" } }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "path": { "type": "string", "minLength": 1, "pattern": "^(?!/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\u0000\\\\]+$" },
+    "source": {
+      "oneOf": [
+        { "type": "object", "required": ["kind", "path"], "properties": { "kind": { "const": "file" }, "path": { "$ref": "#/$defs/path" } }, "additionalProperties": false },
+        { "type": "object", "required": ["kind", "path"], "properties": { "kind": { "const": "folder" }, "path": { "$ref": "#/$defs/path" } }, "additionalProperties": false },
+        { "type": "object", "required": ["kind", "paths"], "properties": { "kind": { "const": "files" }, "paths": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/path" } } }, "additionalProperties": false }
+      ]
+    },
+    "fieldLabel": { "type": "object", "required": ["field", "label"], "properties": { "field": { "type": "string", "minLength": 1 }, "label": { "type": "string", "minLength": 1 } }, "additionalProperties": false },
+    "order": { "type": "object", "required": ["field", "direction"], "properties": { "field": { "type": "string", "minLength": 1 }, "direction": { "enum": ["asc", "desc"] } }, "additionalProperties": false },
+    "predicate": {
+      "oneOf": [
+        { "type": "object", "required": ["kind", "predicates"], "properties": { "kind": { "enum": ["and", "or"] }, "predicates": { "type": "array", "items": { "$ref": "#/$defs/predicate" } } }, "additionalProperties": false },
+        { "type": "object", "required": ["kind", "field", "operator"], "properties": { "kind": { "const": "field" }, "field": { "type": "string", "minLength": 1 }, "operator": { "enum": ["equals", "in", "exists", "contains"] }, "value": { "oneOf": [{ "$ref": "#/$defs/scalar" }, { "type": "array", "items": { "$ref": "#/$defs/scalar" } }] } }, "additionalProperties": false }
+      ]
+    },
+    "scalar": { "type": ["string", "number", "boolean", "null"] }
+  }
+}

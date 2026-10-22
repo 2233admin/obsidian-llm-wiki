@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 
-
 MODULE_PATH = Path(__file__).resolve().parents[1] / "scripts" / "verify_release_security.py"
 SPEC = importlib.util.spec_from_file_location("verify_release_security", MODULE_PATH)
 assert SPEC is not None and SPEC.loader is not None
@@ -381,6 +380,47 @@ def test_exxeta_dependency_is_rejected_even_with_compatible_license(tmp_path: Pa
     assert any(item["rule"] == "prohibited-exxeta-dependency" for item in report["findings"])
 
 
+def test_runtime_license_review_rejects_link_without_target_metadata(tmp_path: Path) -> None:
+    repo = _minimal_repo(tmp_path)
+    lock_path = repo / "mcp-server" / "package-lock.json"
+    lock = json.loads(lock_path.read_text(encoding="utf-8"))
+    lock["packages"]["node_modules/missing-runtime"] = {
+        "resolved": "../packages/missing-runtime",
+        "link": True,
+    }
+    lock_path.write_text(json.dumps(lock), encoding="utf-8")
+
+    report = verify_release_security.review_runtime_licenses(repo)
+
+    assert report["ok"] is False
+    assert any(
+        item["rule"] == "invalid-lockfile"
+        and item["path"].endswith("#node_modules/missing-runtime")
+        for item in report["findings"]
+    )
+
+
+def test_runtime_license_review_scans_link_target_canonical_name(tmp_path: Path) -> None:
+    repo = _minimal_repo(tmp_path)
+    lock_path = repo / "mcp-server" / "package-lock.json"
+    lock = json.loads(lock_path.read_text(encoding="utf-8"))
+    lock["packages"]["../packages/local-runtime"] = {
+        "name": "@exxeta/local-runtime",
+        "version": "1.0.0",
+        "license": "MIT",
+    }
+    lock["packages"]["node_modules/local-runtime"] = {
+        "resolved": "../packages/local-runtime",
+        "link": True,
+    }
+    lock_path.write_text(json.dumps(lock), encoding="utf-8")
+
+    report = verify_release_security.review_runtime_licenses(repo)
+
+    assert report["ok"] is False
+    assert any(item["rule"] == "prohibited-exxeta-dependency" for item in report["findings"])
+
+
 def test_unreviewed_python_runtime_dependency_fails_closed(tmp_path: Path) -> None:
     repo = _minimal_repo(tmp_path)
     pyproject = repo / "compiler" / "pyproject.toml"
@@ -404,7 +444,7 @@ def test_unreviewed_python_runtime_dependency_fails_closed(tmp_path: Path) -> No
 def test_release_archives_are_deterministic_and_scan_member_bytes(tmp_path: Path) -> None:
     repo = _minimal_repo(tmp_path)
     first_findings, first_report = verify_release_security.scan_release_archives(repo)
-    second_findings, second_report = verify_release_security.scan_release_archives(repo)
+    _second_findings, second_report = verify_release_security.scan_release_archives(repo)
 
     assert first_findings == []
     assert first_report == second_report

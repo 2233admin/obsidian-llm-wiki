@@ -12,7 +12,6 @@ import hashlib
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterator
 
 
 @dataclass
@@ -232,7 +231,6 @@ def _extract_aliases(content: str) -> list[str]:
     # aliases:
     #   - AI
     #   - Artificial Intelligence
-    yaml_list = re.findall(r'(?:^|\n)\s*-\s*(.+?)(?:\n|$)', fm_content)
     in_alias_section = False
     for line in fm_content.split('\n'):
         if re.match(r'aliases:\s*$', line):

@@ -55,7 +55,7 @@ class TransportEndpoint:
         return {"kind": self.kind, "priority": self.priority, "config": dict(self.config)}
 
     @classmethod
-    def from_dict(cls, data: dict) -> "TransportEndpoint":
+    def from_dict(cls, data: dict) -> TransportEndpoint:
         return cls(
             kind=str(data.get("kind", "")),
             priority=int(data.get("priority", 100)),
@@ -85,7 +85,7 @@ class PeerSpec:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "PeerSpec":
+    def from_dict(cls, data: dict) -> PeerSpec:
         device_id = str(data.get("deviceId", "")).strip()
         if not device_id:
             raise FleetRegistryError("peer entry is missing deviceId")
@@ -148,7 +148,7 @@ class FleetRegistry:
         return Path(vault) / ".vault-mind" / "fleet" / "registry.json"
 
     @classmethod
-    def load(cls, path: str | os.PathLike[str]) -> "FleetRegistry":
+    def load(cls, path: str | os.PathLike[str]) -> FleetRegistry:
         raw = json.loads(Path(path).read_text(encoding="utf-8"))
         if raw.get("schemaVersion") != FLEET_REGISTRY_SCHEMA_VERSION:
             raise FleetRegistryError(

@@ -12,7 +12,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from textwrap import dedent
 
-
 REPO_URL = "https://github.com/chubbyguan/chubbyskills.git"
 
 

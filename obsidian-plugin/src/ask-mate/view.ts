@@ -21,6 +21,8 @@ import {
 } from "./interaction-model";
 import { AskMateOutlineModel, renderTextualTree } from "./outline-model";
 import { safePresentationText, safeSummary } from "../control-plane-client";
+import { ProjectHubRecoveryClient } from "../project-hub/recovery-client";
+import { ProjectHubRecoveryPanel } from "../project-hub/recovery-panel";
 
 export const ASK_MATE_VIEW_TYPE = "llmwiki-ask-mate";
 
@@ -102,11 +104,14 @@ export class AskMateView extends ItemView {
     pullRequestId: "",
     expectedPullRequestRevision: "",
   };
+  #recoveryPanel: ProjectHubRecoveryPanel | null = null;
 
   constructor(
     leaf: WorkspaceLeaf,
     private readonly client: AskMateOperationClient,
     private readonly actors: AskMateActors,
+    private readonly recoveryClient?: ProjectHubRecoveryClient,
+    private readonly onFirstSearchCompleted?: () => void,
   ) {
     super(leaf);
   }
@@ -143,6 +148,8 @@ export class AskMateView extends ItemView {
     this.#answerDraftPath = null;
     this.clearExternalAuthority();
     this.#confirmedFingerprint = null;
+    this.#recoveryPanel?.dispose();
+    this.#recoveryPanel = null;
     const context = parseRestoredAskMateContext(state);
     if (context) await this.openContext(context);
     else {
@@ -164,6 +171,8 @@ export class AskMateView extends ItemView {
     this.#answerDraftPath = null;
     this.clearExternalAuthority();
     this.#confirmedFingerprint = null;
+    this.#recoveryPanel?.dispose();
+    this.#recoveryPanel = null;
   }
 
   async openContext(context: AskMateContext): Promise<void> {
@@ -178,6 +187,19 @@ export class AskMateView extends ItemView {
     this.#answerDraftPath = null;
     this.clearExternalAuthority();
     this.#confirmedFingerprint = null;
+    this.#recoveryPanel?.dispose();
+    this.#recoveryPanel = context.kind === "project" && this.recoveryClient
+      ? new ProjectHubRecoveryPanel(this.recoveryClient, null, target => {
+        const workspace = (this.app as unknown as { workspace?: { openLinkText?: (link: string, sourcePath: string, newLeaf?: boolean) => unknown } }).workspace;
+        void workspace?.openLinkText?.(target, target, false);
+      }, this.actors.confirmationActor, this.onFirstSearchCompleted)
+      : null;
+    if (this.#recoveryPanel) {
+      await this.#recoveryPanel.open(context.projectId);
+      this.#busy = false;
+      this.render();
+      return;
+    }
     this.render();
     try {
       const read = await this.client.readContext(context);
@@ -265,6 +287,7 @@ export class AskMateView extends ItemView {
     this.render();
     try {
       this.#answer = await this.client.answerContext(context, query);
+      if (this.#answer.citations.length > 0) this.onFirstSearchCompleted?.();
     } catch (error) {
       this.#error = safeError(error);
     } finally {
@@ -567,10 +590,36 @@ export class AskMateView extends ItemView {
     liveRegion.setAttr("aria-live", "polite");
     liveRegion.setText(this.#busy ? "Working…" : this.#error ?? "Ready");
     if (!this.#context) {
+      container.createEl("h2", { text: "Ask your vault" });
       container.createEl("p", {
         cls: "llmwiki-ask-mate-empty",
-        text: "Open LLM Wiki from a Markdown note, selected text, a supported Canvas, a managed map, or a bound Project. Only the context shown here is read; the vault is never scanned implicitly.",
+        text: "No note selected. Open a note or select text to begin.",
       });
+      // Pre-focus question textarea with intents visible
+      const intents = container.createEl("nav", { cls: "llmwiki-ask-mate-intents" });
+      intents.setAttr("aria-label", "LLM Wiki task");
+      const intentOptions: Array<[AskMateIntent, string]> = [
+        ["ask", "Ask this context"],
+        ["understand", "Understand"],
+        ["make_map", "Shape a map"],
+        ["report_problem", "Prepare a fix"],
+      ];
+      for (const [intent, label] of intentOptions) {
+        const button = intents.createEl("button", { text: label });
+        button.setAttr("aria-pressed", String(this.interaction.intent === intent));
+        button.disabled = this.#busy;
+        button.onclick = () => this.selectIntent(intent);
+      }
+      this.renderAskIntent(container, true);
+      return;
+    }
+    if (this.#context.kind === "project") {
+      const recovery = container.createEl("section", { cls: "llmwiki-ask-mate-project-recovery" });
+      if (this.#recoveryPanel) this.#recoveryPanel.render(recovery);
+      else {
+        recovery.createEl("h3", { text: "Project recovery preview unavailable" });
+        recovery.createEl("p", { text: "The read-only Recovery Flow client is unavailable in this host." });
+      }
       return;
     }
     container.createEl("p", {
@@ -630,18 +679,21 @@ export class AskMateView extends ItemView {
     if (this.interaction.intent === "make_map") this.renderMapIntent(container);
   }
 
-  private renderAskIntent(container: HTMLElement): void {
+  private renderAskIntent(container: HTMLElement, autofocus = false): void {
     const section = container.createEl("section", { cls: "llmwiki-ask-mate-panel llmwiki-ask-mate-question" });
-    section.createEl("h3", { text: "Ask this context" });
-    section.createEl("p", {
-      text: "Answers use citation-backed retrieval from the current Project Context. They are extractive and remain a draft until you send them to Inbox review.",
-    });
+    if (this.#context) {
+      section.createEl("h3", { text: "Ask this context" });
+      section.createEl("p", {
+        text: "Answers use citation-backed retrieval from the current Project Context. They are extractive and remain a draft until you send them to Inbox review.",
+      });
+    }
     const label = section.createEl("label");
     label.createSpan({ text: "Question" });
     const input = label.createEl("textarea");
     input.value = this.#question;
     input.placeholder = "What do you need to understand about this context?";
     input.setAttr("aria-label", "Question for the current context");
+    if (autofocus) input.focus();
     const ask = section.createEl("button", { text: "Get cited answer", cls: "mod-cta" });
     ask.disabled = this.#busy || !this.#question.trim();
     input.oninput = () => {

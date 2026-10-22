@@ -171,8 +171,8 @@ class FakeTransport implements SettingsOperationTransport {
   }
 }
 
-test("plugin data migration keeps only presentation, binding, and migration state", () => {
-  const plan = planPluginDataMigration({
+test("plugin data migration keeps only presentation, binding, and migration state", async () => {
+  const plan = await planPluginDataMigration({
     pythonPath: "  py -3  ",
     kbMetaPath: " D:\\repo\\compiler\\kb_meta.py ",
     assignments: { vault: { "query.semantic.enabled": true } },
@@ -180,7 +180,7 @@ test("plugin data migration keeps only presentation, binding, and migration stat
     deviceBinding: { deviceId: "device/local" },
   });
   assert.equal(plan.data.schemaVersion, 2);
-  assert.deepEqual(plan.data.presentation, { selectedScope: "vault", showAdvanced: true });
+  assert.deepEqual(plan.data.presentation, { selectedScope: "vault", showAdvanced: true, settingsExpandedSections: [] });
   assert.deepEqual(plan.data.deviceBinding, { deviceId: "device/local" });
   assert.equal("assignments" in plan.data, false);
   assert.equal("pythonPath" in plan.data, false);
@@ -191,8 +191,8 @@ test("plugin data migration keeps only presentation, binding, and migration stat
   ]);
 });
 
-test("plugin data does not become an Agent Room, Work Run, or memory authority", () => {
-  const plan = planPluginDataMigration({
+test("plugin data does not become an Agent Room, Work Run, or memory authority", async () => {
+  const plan = await planPluginDataMigration({
     schemaVersion: 2,
     presentation: { selectedScope: "vault", showAdvanced: true },
     deviceBinding: { deviceId: "device/local" },
@@ -206,7 +206,7 @@ test("plugin data does not become an Agent Room, Work Run, or memory authority",
 
   assert.deepEqual(plan.data, {
     schemaVersion: 2,
-    presentation: { selectedScope: "vault", showAdvanced: true },
+    presentation: { selectedScope: "vault", showAdvanced: true, settingsExpandedSections: [] },
     deviceBinding: { deviceId: "device/local" },
     legacyMigration: undefined,
   });
@@ -227,7 +227,7 @@ test("legacy migration journals only hashes and restores an in-memory preimage e
     provenance: { actor: "person:test", source: "manual" },
   }]));
   const client = new SettingsOperationClient(transport);
-  const plan = planPluginDataMigration({ pythonPath: "py -3", kbMetaPath: "D:\\repo\\kb_meta.py" });
+  const plan = await planPluginDataMigration({ pythonPath: "py -3", kbMetaPath: "D:\\repo\\kb_meta.py" });
   const applied = await applyPluginDataMigration(client, plan, new Date("2026-07-14T00:00:00.000Z"));
   assert.equal(applied.data.legacyMigration?.state, "applied");
   assert.equal(applied.data.legacyMigration?.initialRevisions?.["user-device"], 3);
@@ -264,8 +264,9 @@ test("failed legacy batch compensates every earlier mutation", async () => {
   }]));
   transport.failKey = "runtime.kb_meta.path";
   const client = new SettingsOperationClient(transport);
+  const plan = await planPluginDataMigration({ pythonPath: "new-python", kbMetaPath: "D:\\kb.py" });
   await assert.rejects(
-    () => applyPluginDataMigration(client, planPluginDataMigration({ pythonPath: "new-python", kbMetaPath: "D:\\kb.py" })),
+    () => applyPluginDataMigration(client, plan),
     /forced failure/,
   );
   assert.equal(transport.documents.get("user-device")?.assignments[0].value, "old-python");
@@ -274,14 +275,16 @@ test("failed legacy batch compensates every earlier mutation", async () => {
 test("rollback refuses to overwrite a scope changed after migration", async () => {
   const transport = new FakeTransport();
   const client = new SettingsOperationClient(transport);
-  const applied = await applyPluginDataMigration(client, planPluginDataMigration({ pythonPath: "py -3" }));
+  const plan = await planPluginDataMigration({ pythonPath: "py -3" });
+  const applied = await applyPluginDataMigration(client, plan);
   const current = transport.documents.get("user-device")!;
   transport.documents.set("user-device", { ...current, revision: current.revision + 1 });
   await assert.rejects(() => rollbackPluginDataMigration(client, applied.data, applied.preimage), /changed at revision 2/);
 });
 
-test("legacy full preimages are sanitized before plugin data is saved again", () => {
-  const plan = planPluginDataMigration({
+
+test("legacy full preimages are sanitized before plugin data is saved again", async () => {
+  const plan = await planPluginDataMigration({
     schemaVersion: 2,
     presentation: {},
     legacyMigration: {
@@ -305,8 +308,44 @@ test("legacy full preimages are sanitized before plugin data is saved again", ()
   assert.equal("preimage" in (plan.data.legacyMigration ?? {}), false);
 });
 
-test("editing scope changes presentation only", () => {
-  const { data } = planPluginDataMigration({ schemaVersion: 2, presentation: {} });
+test("legacy plaintext preimage upgrade retains a digest for rollback", async () => {
+  const preimage = [{
+    scope: "user-device" as const,
+    key: "runtime.python.path",
+    assignment: {
+      key: "runtime.python.path",
+      value: "C:\\private\\python.exe",
+      provenance: { actor: "legacy", source: "legacy" },
+    },
+  }];
+  const plan = await planPluginDataMigration({
+    schemaVersion: 2,
+    presentation: {},
+    legacyMigration: {
+      version: 1,
+      state: "applied",
+      assignmentKeys: ["user-device:runtime.python.path"],
+      preimage,
+    },
+  });
+  const journal = plan.data.legacyMigration?.preimageJournal?.[0];
+  assert.match(journal?.assignmentDigest ?? "", /^sha256:[a-f0-9]{64}$/);
+
+  const transport = new FakeTransport();
+  const rolledBack = await rollbackPluginDataMigration(
+    new SettingsOperationClient(transport),
+    plan.data,
+    preimage,
+  );
+  assert.equal(rolledBack.data.legacyMigration?.state, "rolled-back");
+  assert.equal(
+    transport.documents.get("user-device")?.assignments.find(item => item.key === "runtime.python.path")?.value,
+    "C:\\private\\python.exe",
+  );
+});
+
+test("editing scope changes presentation only", async () => {
+  const { data } = await planPluginDataMigration({ schemaVersion: 2, presentation: {} });
   const updated = selectEditingScope(data, "vault");
   assert.equal(updated.presentation.selectedScope, "vault");
   assert.equal("assignments" in updated, false);
@@ -388,8 +427,8 @@ test("parses Python executable and fixed argv without shell composition", () => 
 
 // Issue #51 P1 regressions -------------------------------------------------
 
-test("new-format assignments override legacy top-level runtime bindings", () => {
-  const plan = planPluginDataMigration({
+test("new-format assignments override legacy top-level runtime bindings", async () => {
+  const plan = await planPluginDataMigration({
     schemaVersion: 1,
     pythonPath: "C:/legacy/python.exe",
     assignments: { "user-device": { "runtime.python.path": "C:/new/python.exe" } },
@@ -399,18 +438,18 @@ test("new-format assignments override legacy top-level runtime bindings", () => 
   );
   assert.equal(binding?.value, "C:/new/python.exe");
   // a legacy key nothing else binds still migrates
-  const kbPlan = planPluginDataMigration({ schemaVersion: 1, kbMetaPath: "C:/legacy/kb_meta.py" });
+  const kbPlan = await planPluginDataMigration({ schemaVersion: 1, kbMetaPath: "C:/legacy/kb_meta.py" });
   const kbBinding = kbPlan.assignments.find((a) => a.key === "runtime.kb_meta.path");
   assert.equal(kbBinding?.value, "C:/legacy/kb_meta.py");
 });
 
-test("pending migration source survives saves until Settings Platform accepts", () => {
+test("pending migration source survives saves until Settings Platform accepts", async () => {
   const raw = {
     pythonPath: "C:/legacy/python.exe",
     kbMetaPath: "C:/legacy/kb_meta.py",
     presentation: { selectedScope: "user-device", showAdvanced: false },
   };
-  const plan = planPluginDataMigration(raw);
+  const plan = await planPluginDataMigration(raw);
   assert.ok(plan.assignments.length >= 2);
   // migration failed; the user changes scope and the plugin saves
   const afterScopeChange = selectEditingScope(plan.data, "vault");
@@ -419,10 +458,40 @@ test("pending migration source survives saves until Settings Platform accepts", 
   assert.equal(persisted.kbMetaPath, "C:/legacy/kb_meta.py");
   assert.equal((persisted.presentation as { selectedScope: string }).selectedScope, "vault");
   // restart: replanning from the persisted document still finds the legacy work
-  const replanned = planPluginDataMigration(persisted);
+  const replanned = await planPluginDataMigration(persisted);
   assert.equal(replanned.assignments.length, plan.assignments.length);
   // once accepted, nothing is preserved and the migrated document persists as-is
   assert.equal(preservePendingMigrationSource(null, plan.data), plan.data);
+});
+
+test("pending migration saves strip legacy preimage plaintext", async () => {
+  const raw = {
+    pythonPath: "C:/legacy/python.exe",
+    kbMetaPath: "C:/legacy/kb_meta.py",
+    presentation: { selectedScope: "user-device", showAdvanced: false },
+    legacyMigration: {
+      version: 1,
+      state: "pending",
+      assignmentKeys: ["user-device:runtime.python.path"],
+      preimage: [{
+        scope: "user-device",
+        key: "runtime.python.path",
+        assignment: {
+          key: "runtime.python.path",
+          value: "C:\\private\\legacy-python.exe",
+          provenance: { actor: "legacy", source: "legacy" },
+        },
+      }],
+    },
+  };
+  const plan = await planPluginDataMigration(raw);
+  const afterScopeChange = selectEditingScope(plan.data, "vault");
+  const persisted = preservePendingMigrationSource(raw, afterScopeChange) as Record<string, unknown>;
+  assert.equal(persisted.pythonPath, "C:/legacy/python.exe");
+  assert.equal(persisted.kbMetaPath, "C:/legacy/kb_meta.py");
+  const persistedMarker = persisted.legacyMigration as Record<string, unknown>;
+  assert.equal("preimage" in persistedMarker, false);
+  assert.equal(JSON.stringify(persisted).includes("C:\\private\\legacy-python.exe"), false);
 });
 
 test("runtime.python.path rejects .bat/.cmd/.ps1 wrappers at both defense lines", () => {

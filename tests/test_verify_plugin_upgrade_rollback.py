@@ -9,7 +9,6 @@ from pathlib import Path
 
 import pytest
 
-
 MODULE_PATH = Path(__file__).resolve().parents[1] / "scripts" / "verify_plugin_upgrade_rollback.py"
 SPEC = importlib.util.spec_from_file_location("verify_plugin_upgrade_rollback", MODULE_PATH)
 assert SPEC is not None and SPEC.loader is not None

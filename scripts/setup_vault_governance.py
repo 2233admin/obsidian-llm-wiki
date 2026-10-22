@@ -144,6 +144,7 @@ def run_git(vault: Path, *args: str) -> subprocess.CompletedProcess:
         text=True,
         encoding="utf-8",
         errors="replace",
+        check=False,
     )
 
 

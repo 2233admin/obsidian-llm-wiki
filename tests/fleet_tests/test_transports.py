@@ -20,8 +20,6 @@ from fleet.registry import (
     FLEET_REGISTRY_SCHEMA_VERSION,
     FleetRegistry,
     FleetRegistryError,
-    PeerSpec,
-    TransportEndpoint,
 )
 from fleet.transports import (
     GiteaTransport,

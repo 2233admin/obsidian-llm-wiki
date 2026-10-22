@@ -23,8 +23,12 @@ CREATE TABLE IF NOT EXISTS pages (
   title TEXT,
   content TEXT,
   hash TEXT,
+  mtime_ms BIGINT,
+  size_bytes BIGINT,
   updated_at TIMESTAMPTZ DEFAULT now()
 );
+ALTER TABLE pages ADD COLUMN IF NOT EXISTS mtime_ms BIGINT;
+ALTER TABLE pages ADD COLUMN IF NOT EXISTS size_bytes BIGINT;
 
 CREATE TABLE IF NOT EXISTS chunks (
   slug TEXT NOT NULL,

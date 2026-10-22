@@ -8,7 +8,7 @@ Some files are excluded by default (logs, templates, index files).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from obc.extract import extract_vault_links
@@ -36,7 +36,9 @@ class OrphanReport:
             "orphans": [
                 {
                     "path": str(o.path),
-                    "last_modified": datetime.fromtimestamp(o.last_modified).isoformat(),
+                    "last_modified": datetime.fromtimestamp(
+                        o.last_modified, tz=timezone.utc
+                    ).isoformat(),
                     "links_to": o.links_to,
                 }
                 for o in self.orphans
@@ -107,24 +109,20 @@ def find_orphans(
 
         # Check if this file is linked
         if stem not in linked_stems:
-            # Also check by full name (case-insensitive)
-            if not any(
-                linked_stem == stem
-                for linked_stem in linked_stems
-            ):
-                mtime = md_file.stat().st_mtime
+            mtime = md_file.stat().st_mtime
 
-                # Count outgoing links
-                links_from_this = sum(
-                    1 for link in links
-                    if str(link.source_file) == str(md_file)
-                )
+            # Count outgoing links
+            links_from_this = sum(
+                1 for link in links
+                if str(link.source_file) == str(md_file)
+            )
 
-                orphans.append(Orphan(
-                    path=rel_path,
-                    last_modified=mtime,
-                    links_to=links_from_this,
-                ))
+            orphans.append(Orphan(
+                path=rel_path,
+                last_modified=mtime,
+                links_to=links_from_this,
+            ))
+
 
     # Sort by last modified (oldest first)
     orphans.sort(key=lambda o: o.last_modified)

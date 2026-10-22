@@ -1,0 +1,257 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { fingerprintRecoveryValue } from "../../mcp-server/src/project-hub/contract-support";
+import {
+  ProjectHubRecoveryClient,
+  RECOVERY_APPLY_OPERATION,
+  RECOVERY_APPLY_REQUEST_SCHEMA_VERSION,
+  RECOVERY_FLOW_OPERATION,
+  RECOVERY_FLOW_REQUEST_SCHEMA_VERSION,
+  recoveryApplyTransitionToken,
+} from "../src/project-hub/recovery-client";
+import type {
+  RecoveryPlanFromSearchRequestV2,
+  RecoveryRefreshPlanRequestV2,
+  RecoveryRestartRequestV2,
+  RecoverySearchRequestV2,
+} from "../../mcp-server/src/project-hub/recovery-flow";
+import type { RecoveryApplyResponseV2 } from "../../mcp-server/src/workflow/recovery-apply";
+
+const projectId = "project/alpha" as const;
+const fingerprint = `sha256:${"a".repeat(64)}` as const;
+const staleProof = {
+  schemaVersion: "project-hub-recovery-stale-proof/v2" as const,
+  projectId,
+  rootOpenFlowFingerprint: fingerprint,
+  priorFlowFingerprint: fingerprint,
+  priorActionInputFingerprint: fingerprint,
+  recoveryFingerprint: fingerprint,
+  changedOwners: ["project" as const],
+  citationTargets: ["issue:alpha"],
+  fingerprint,
+};
+const plan = {
+  schemaVersion: "project-hub-recovery-plan/v2" as const,
+  projectId,
+  rootOpenFlowFingerprint: fingerprint,
+  searchedBasisFlowFingerprint: fingerprint,
+  recoveryFingerprint: fingerprint,
+  searchInputFingerprint: fingerprint,
+  searchFingerprint: fingerprint,
+  candidateSetFingerprint: fingerprint,
+  candidateId: "resume:work-run/one",
+  kind: "resume" as const,
+  workItemId: "project/alpha/issue/alpha",
+  workRunId: "work-run/one",
+  agentSelection: { bindingId: "binding/alpha/builder", bindingRevision: 2, role: "builder", profileId: "agent/builder", profileRevision: 3 },
+  ownerLocks: [],
+  capabilityFacts: [],
+  citationTargets: ["issue:alpha"],
+  owningOperation: "workflow.recovery.apply" as const,
+  createdAt: "2026-08-28T00:00:00.000Z",
+  expiresAt: "2026-08-28T00:05:00.000Z",
+  leaseDurationMs: 0 as const,
+  fingerprint,
+};
+
+test("Recovery client forwards Flow and exact apply Operation payloads", async () => {
+  const calls: Array<{ operation: string; args: Record<string, unknown> }> = [];
+  const client = new ProjectHubRecoveryClient({
+    async invoke<T>(operation: string, args: Record<string, unknown>): Promise<T> {
+      calls.push({ operation, args });
+      if (operation === RECOVERY_APPLY_OPERATION) {
+        const applyRequest = args.request as { transitionToken: string };
+        const tokenDigest = `sha256:${createHash("sha256").update(applyRequest.transitionToken, "utf8").digest("hex")}`;
+        const responseBase = {
+          schemaVersion: "recovery-apply/v2" as const,
+          state: "unavailable" as const,
+          projectId,
+          planFingerprint: plan.fingerprint,
+          tokenDigest,
+          actorId: "obsidian-control-plane",
+          kind: plan.kind,
+          workRunId: plan.workRunId,
+          receipt: null,
+          diagnostics: ["fixture unavailable"],
+        };
+        return { ...responseBase, fingerprint: fingerprintRecoveryValue(responseBase) } as T;
+      }
+      return {} as T;
+    },
+  });
+  await client.open(projectId);
+  const search: RecoverySearchRequestV2 = {
+    schemaVersion: RECOVERY_FLOW_REQUEST_SCHEMA_VERSION,
+    projectId,
+    action: "search",
+    openFlowFingerprint: fingerprint,
+    query: " recovery ",
+    limit: 5,
+  };
+  await client.search(search);
+  const fromSearch: RecoveryPlanFromSearchRequestV2 = {
+    schemaVersion: RECOVERY_FLOW_REQUEST_SCHEMA_VERSION,
+    projectId,
+    action: "plan",
+    mode: "from-search",
+    openFlowFingerprint: fingerprint,
+    searchedBasisFlowFingerprint: fingerprint,
+    plannedFlowFingerprint: null,
+    query: "recovery",
+    limit: 5,
+    candidateId: "resume:work-run/one",
+    agentSelection: { bindingId: "binding/alpha/builder", bindingRevision: 2 },
+    priorPlan: null,
+  };
+  await client.plan(fromSearch);
+  const refresh: RecoveryRefreshPlanRequestV2 = {
+    schemaVersion: RECOVERY_FLOW_REQUEST_SCHEMA_VERSION,
+    projectId,
+    action: "refresh-plan",
+    openFlowFingerprint: fingerprint,
+    searchedBasisFlowFingerprint: fingerprint,
+    plannedFlowFingerprint: fingerprint,
+    query: "recovery",
+    limit: 5,
+    priorPlan: plan,
+  };
+  await client.refreshPlan(refresh);
+  const restart: RecoveryRestartRequestV2 = {
+    schemaVersion: RECOVERY_FLOW_REQUEST_SCHEMA_VERSION,
+    projectId,
+    action: "restart",
+    staleProof,
+  };
+  await client.restart(restart);
+  await client.apply(plan, { query: " recovery ", limit: 5 }, "obsidian-control-plane");
+
+  assert.deepEqual(calls.map(call => call.operation), [
+    RECOVERY_FLOW_OPERATION,
+    RECOVERY_FLOW_OPERATION,
+    RECOVERY_FLOW_OPERATION,
+    RECOVERY_FLOW_OPERATION,
+    RECOVERY_FLOW_OPERATION,
+    RECOVERY_APPLY_OPERATION,
+  ]);
+  assert.deepEqual(calls.slice(0, 5).map(call => (call.args.request as { action: string }).action), ["open", "search", "plan", "refresh-plan", "restart"]);
+  const apply = calls[5]?.args.request as {
+    schemaVersion: string;
+    plan: typeof plan;
+    planFingerprint: string;
+    planningInput: { query: string; limit: number };
+    transitionToken: string;
+  };
+  assert.equal(apply.schemaVersion, RECOVERY_APPLY_REQUEST_SCHEMA_VERSION);
+  assert.deepEqual(apply.plan, plan);
+  assert.equal(apply.planFingerprint, plan.fingerprint);
+  assert.deepEqual(apply.planningInput, { query: "recovery", limit: 5 });
+  assert.equal(apply.transitionToken, recoveryApplyTransitionToken({
+    projectId,
+    planFingerprint: plan.fingerprint,
+    confirmationActor: "obsidian-control-plane",
+  }));
+  assert.equal(apply.transitionToken, recoveryApplyTransitionToken({
+    projectId,
+    planFingerprint: plan.fingerprint,
+    confirmationActor: "obsidian-control-plane",
+  }));
+  assert.notEqual(apply.transitionToken, recoveryApplyTransitionToken({
+    projectId,
+    planFingerprint: plan.fingerprint,
+    confirmationActor: "another-actor",
+  }));
+});
+
+test("Recovery apply token binds operation, canonical Project, Plan fingerprint, and actor", () => {
+  const base = recoveryApplyTransitionToken({ projectId, planFingerprint: fingerprint, confirmationActor: "actor-a" });
+  assert.match(base, /^recovery-apply:[a-f0-9]{64}$/);
+  assert.notEqual(base, recoveryApplyTransitionToken({ projectId: "project/beta", planFingerprint: fingerprint, confirmationActor: "actor-a" }));
+  assert.notEqual(base, recoveryApplyTransitionToken({ projectId, planFingerprint: `sha256:${"b".repeat(64)}`, confirmationActor: "actor-a" }));
+  assert.notEqual(base, recoveryApplyTransitionToken({ projectId, planFingerprint: fingerprint, confirmationActor: "actor-b" }));
+});
+
+function applyEnvelope(overrides: Partial<RecoveryApplyResponseV2> = {}): RecoveryApplyResponseV2 {
+  const ownerReceipt = {
+    ok: true,
+    projectId,
+    workItemId: plan.workItemId,
+    workRunId: plan.workRunId,
+    agent: "obsidian-control-plane",
+  };
+  const receiptBase = {
+    schemaVersion: "recovery-apply/v2" as const,
+    planFingerprint: plan.fingerprint,
+    tokenDigest: fingerprint,
+    projectId,
+    kind: plan.kind,
+    workItemId: plan.workItemId,
+    workRunId: plan.workRunId,
+    ownerOperation: "workflow.agent.join" as const,
+    ownerReceiptFingerprint: fingerprintRecoveryValue(ownerReceipt),
+    ownerReceipt,
+    recordedAt: "2026-08-29T00:00:00.000Z",
+  };
+  const receipt = { ...receiptBase, fingerprint: fingerprintRecoveryValue(receiptBase) };
+  const base = {
+    schemaVersion: "recovery-apply/v2" as const,
+    state: "applied" as const,
+    projectId,
+    planFingerprint: plan.fingerprint,
+    tokenDigest: fingerprint,
+    actorId: "obsidian-control-plane",
+    kind: plan.kind,
+    workRunId: plan.workRunId,
+    receipt,
+    diagnostics: [],
+  };
+  return { ...base, fingerprint: fingerprintRecoveryValue(base), ...overrides };
+}
+
+test("Recovery client fails closed on null, cross-Plan, forged, and malformed apply responses", async () => {
+  const responses: unknown[] = [
+    applyEnvelope({ receipt: null }),
+    applyEnvelope({ receipt: { ...applyEnvelope().receipt!, projectId: "project/other" } }),
+    applyEnvelope({ receipt: { ...applyEnvelope().receipt!, ownerReceipt: { ok: true, projectId, workItemId: plan.workItemId, workRunId: plan.workRunId, token: "secret" } } }),
+    { ...applyEnvelope(), diagnostics: [null] },
+    { ...applyEnvelope(), diagnostics: ["x".repeat(513)] },
+  ];
+  for (const response of responses) {
+    const client = new ProjectHubRecoveryClient({
+      async invoke<T>(): Promise<T> { return response as T; },
+    });
+    await assert.rejects(client.apply(plan, { query: "recovery", limit: 5 }, "obsidian-control-plane"), /unavailable/);
+  }
+});
+
+test("Recovery client rejects unsafe or overlong apply planning input", () => {
+  const client = new ProjectHubRecoveryClient({
+    async invoke<T>(): Promise<T> {
+      throw new Error("transport must not be called");
+    },
+  });
+  assert.throws(
+    () => client.apply(plan, { query: "x".repeat(1_001), limit: 5 }, "obsidian-control-plane"),
+    /query is unavailable/,
+  );
+  assert.throws(
+    () => client.apply(plan, { query: "C:\\secret\\token.txt", limit: 5 }, "obsidian-control-plane"),
+    /query is unavailable/,
+  );
+});
+
+test("Recovery client rejects an apply response bound to another actor", async () => {
+  const forged = { ...applyEnvelope() };
+  delete (forged as { fingerprint?: string }).fingerprint;
+  forged.actorId = "another-actor";
+  forged.fingerprint = fingerprintRecoveryValue(forged);
+  const client = new ProjectHubRecoveryClient({
+    async invoke<T>(): Promise<T> {
+      return forged as T;
+    },
+  });
+  await assert.rejects(
+    client.apply(plan, { query: "recovery", limit: 5 }, "obsidian-control-plane"),
+    /unavailable/,
+  );
+});

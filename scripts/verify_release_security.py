@@ -11,9 +11,9 @@ import json
 import re
 import tarfile
 from collections import Counter
+from collections.abc import Iterable, Iterator
 from pathlib import Path, PurePosixPath
-from typing import Any, Iterable, Iterator
-
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 POLICY_VERSION = 2
@@ -551,24 +551,26 @@ def _archive_entries(repo: Path) -> dict[str, list[tuple[str, Path]]]:
 
 def _deterministic_tar(entries: list[tuple[str, Path]]) -> bytes:
     output = io.BytesIO()
-    with gzip.GzipFile(filename="", mode="wb", fileobj=output, mtime=0) as compressed:
-        with tarfile.open(fileobj=compressed, mode="w", format=tarfile.GNU_FORMAT) as archive:
-            for name, path in entries:
-                data = path.read_bytes()
-                info = tarfile.TarInfo(name=name)
-                info.size = len(data)
-                info.mtime = 0
-                info.uid = 0
-                info.gid = 0
-                info.uname = "root"
-                info.gname = "root"
-                info.mode = 0o755 if path.name in {
-                    "bundle.js",
-                    "agent-domain-cli.js",
-                    "memu-query.js",
-                    "usage-cli.js",
-                } else 0o644
-                archive.addfile(info, io.BytesIO(data))
+    with (
+        gzip.GzipFile(filename="", mode="wb", fileobj=output, mtime=0) as compressed,
+        tarfile.open(fileobj=compressed, mode="w", format=tarfile.GNU_FORMAT) as archive,
+    ):
+        for name, path in entries:
+            data = path.read_bytes()
+            info = tarfile.TarInfo(name=name)
+            info.size = len(data)
+            info.mtime = 0
+            info.uid = 0
+            info.gid = 0
+            info.uname = "root"
+            info.gname = "root"
+            info.mode = 0o755 if path.name in {
+                "bundle.js",
+                "agent-domain-cli.js",
+                "memu-query.js",
+                "usage-cli.js",
+            } else 0o644
+            archive.addfile(info, io.BytesIO(data))
     return output.getvalue()
 
 
@@ -631,11 +633,10 @@ def _node_components(repo: Path) -> tuple[tuple[Path, Path], ...]:
         return CORE_NODE_COMPONENTS + ASK_MATE_NODE_COMPONENTS
     return CORE_NODE_COMPONENTS
 
-
 def _load_json_object(path: Path) -> dict[str, Any]:
     value = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
-        raise ValueError("expected a JSON object")
+        raise TypeError("expected a JSON object")
     return value
 
 
@@ -659,14 +660,14 @@ def _review_node_component_metadata(
         return None, None, findings
     try:
         package = _load_json_object(package_file)
-    except (json.JSONDecodeError, ValueError) as error:
+    except (json.JSONDecodeError, TypeError, ValueError) as error:
         findings.append(
             _finding("invalid-package-metadata", "runtime-license", package_path.as_posix(), 0, str(error))
         )
         return None, None, findings
     try:
         lock = _load_json_object(lock_file)
-    except (json.JSONDecodeError, ValueError) as error:
+    except (json.JSONDecodeError, TypeError, ValueError) as error:
         findings.append(
             _finding("invalid-lockfile", "runtime-license", lock_path.as_posix(), 0, str(error))
         )
@@ -781,6 +782,19 @@ def review_runtime_licenses(repo: Path) -> dict[str, Any]:
         for package_path, metadata in sorted(packages.items()):
             if not package_path or not isinstance(metadata, dict) or metadata.get("dev") is True:
                 continue
+            if metadata.get("link") is True:
+                resolved = metadata.get("resolved")
+                if not isinstance(resolved, str) or not isinstance(packages.get(resolved), dict):
+                    findings.append(
+                        _finding(
+                            "invalid-lockfile",
+                            "runtime-license",
+                            f"{relative_lock.as_posix()}#{package_path}",
+                            0,
+                            "link target metadata",
+                        )
+                    )
+                continue
             name = _dependency_name(package_path)
             license_expression = metadata.get("license")
             item = {
@@ -793,7 +807,7 @@ def review_runtime_licenses(repo: Path) -> dict[str, Any]:
             dependencies.append(item)
             provenance = " ".join(
                 str(value)
-                for value in (name, metadata.get("resolved", ""))
+                for value in (name, metadata.get("name", ""), metadata.get("resolved", ""))
             )
             if PROHIBITED_PROVENANCE.search(provenance):
                 findings.append(
@@ -958,7 +972,7 @@ def review_ask_mate_release(repo: Path) -> dict[str, Any]:
         counts["schemas"] += 1
         try:
             schema = _load_json_object(schema_path)
-        except (json.JSONDecodeError, ValueError) as error:
+        except (json.JSONDecodeError, TypeError, ValueError) as error:
             findings.append(
                 _finding(
                     "invalid-ask-mate-schema",

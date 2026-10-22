@@ -3,9 +3,9 @@
 > Auto-generated from `mcp-server/src/core/operations.ts`.
 > Run `npm run generate-tools-doc` to regenerate. Do not edit by hand.
 
-Total: **207** operations across **26** namespaces.
+Total: **212** operations across **26** namespaces.
 
-## `vault.*` (31)
+## `vault.*` (32)
 
 ### `vault.annotate`
 
@@ -30,7 +30,7 @@ Append content to a note
 
 - `path` (string, required) — Vault-relative path to the note
 - `content` (string, required) — Content to append
-- `dryRun` (boolean, optional, default: `true`) — Simulate without writing (default: true)
+- `dryRun` (boolean, optional, default: `false`) — Simulate without writing (default: false)
 
 ### `vault.backlinks`
 
@@ -63,7 +63,7 @@ Create a new note (dry-run by default)
 
 - `path` (string, required) — Vault-relative path for the new note
 - `content` (string, optional) — Initial content
-- `dryRun` (boolean, optional, default: `true`) — Simulate without writing (default: true)
+- `dryRun` (boolean, optional, default: `false`) — Simulate without writing (default: false)
 
 ### `vault.daily`
 
@@ -77,7 +77,7 @@ Create or update today's daily note with AI-First frontmatter (date, mood, energ
 - `mood` (string, optional, enum: `great` | `good` | `neutral` | `low` | `bad`) — Mood rating
 - `energy` (string, optional, enum: `high` | `medium` | `low`) — Energy level
 - `tags` (array, optional) — Extra tags
-- `dryRun` (boolean, optional, default: `true`) — Simulate without writing (default: true)
+- `dryRun` (boolean, optional, default: `false`) — Simulate without writing (default: false)
 
 ### `vault.decide`
 
@@ -97,7 +97,7 @@ Create a structured decision log (ADR). Path: Decisions/YYYY-MM-DD -- {title-slu
 - `project` (string, optional) — Owning project (namespaces the currency entity as project/<slug>/decision/<title>)
 - `entity` (string, optional) — Currency entity key override (default derived from project + title)
 - `source` (string, optional) — Verifiable source (commit:/path:/test:/url:); without it the decision shows UNSUPPORTED in the currency view
-- `dryRun` (boolean, optional, default: `true`) — Simulate without writing (default: true)
+- `dryRun` (boolean, optional, default: `false`) — Simulate without writing (default: false)
 
 ### `vault.delete`
 
@@ -108,7 +108,7 @@ Delete a note or folder
 **Parameters:**
 
 - `path` (string, required) — Vault-relative path to delete
-- `dryRun` (boolean, optional, default: `true`) — Simulate without deleting (default: true)
+- `dryRun` (boolean, optional, default: `false`) — Simulate without deleting (default: false)
 
 ### `vault.enforceDiscipline`
 
@@ -118,7 +118,7 @@ Retroactively enforce Karpathy LLM Wiki discipline: ensure each top-level topic 
 
 **Parameters:**
 
-- `dryRun` (boolean, optional, default: `true`) — Simulate without writing (default: true)
+- `dryRun` (boolean, optional, default: `false`) — Simulate without writing (default: false)
 - `topLevelOnly` (boolean, optional, default: `true`) — Only process top-level directories (default: true)
 - `skipDirs` (array, optional) — Additional directory names to skip beyond the built-in protected list
 
@@ -166,7 +166,7 @@ Ingest content into vault with AI-First frontmatter (ai-first: true, source, rec
 - `type` (string, optional, default: `"note"`, enum: `article` | `research` | `note` | `reference`) — Content type
 - `tags` (array, optional) — Extra tags
 - `preamble` (string, optional) — 2-3 sentence "For future Claude" preamble
-- `dryRun` (boolean, optional, default: `true`) — Simulate without writing (default: true)
+- `dryRun` (boolean, optional, default: `false`) — Simulate without writing (default: false)
 
 ### `vault.init`
 
@@ -178,7 +178,7 @@ Scaffold the vault. methodology mode creates the folder layout (generic|para|lyt
 
 - `topic` (string, optional) — Topic name (used as directory name and KB title); topic mode
 - `methodology` (string, optional, enum: `generic` | `para` | `lyt` | `zettelkasten`) — Vault folder scaffold to create; methodology mode
-- `dryRun` (boolean, optional, default: `true`) — Simulate without writing (methodology mode only, default: true)
+- `dryRun` (boolean, optional, default: `false`) — Simulate without writing (methodology mode only, default: false)
 
 ### `vault.lint`
 
@@ -213,7 +213,7 @@ Create a meeting note with attendees, decisions, and action items. Path: Meeting
 - `decisions` (array, optional) — List of decisions made
 - `actions` (array, optional) — Action items (strings)
 - `summary` (string, optional) — Meeting summary
-- `dryRun` (boolean, optional, default: `true`) — Simulate without writing (default: true)
+- `dryRun` (boolean, optional, default: `false`) — Simulate without writing (default: false)
 
 ### `vault.mkdir`
 
@@ -224,7 +224,7 @@ Create a directory
 **Parameters:**
 
 - `path` (string, required) — Vault-relative directory path to create
-- `dryRun` (boolean, optional, default: `true`) — Simulate without creating (default: true)
+- `dryRun` (boolean, optional, default: `false`) — Simulate without creating (default: false)
 
 ### `vault.modify`
 
@@ -236,7 +236,7 @@ Overwrite an existing note
 
 - `path` (string, required) — Vault-relative path to the note
 - `content` (string, required) — New content
-- `dryRun` (boolean, optional, default: `true`) — Simulate without writing (default: true)
+- `dryRun` (boolean, optional, default: `false`) — Simulate without writing (default: false)
 
 ### `vault.person`
 
@@ -251,7 +251,7 @@ Create or update a person note with AI-First frontmatter. Path: People/{name}.md
 - `company` (string, optional) — Organization
 - `relationship` (string, optional) — How you know them
 - `notes` (string, optional) — Additional context
-- `dryRun` (boolean, optional, default: `true`) — Simulate without writing (default: true)
+- `dryRun` (boolean, optional, default: `false`) — Simulate without writing (default: false)
 
 ### `vault.project`
 
@@ -267,7 +267,7 @@ Deprecated compatibility update for an already-registered Project. Unknown names
 - `team` (array, optional) — Team member names (wikilinked in content)
 - `tags` (array, optional) — Extra tags
 - `entity` (string, optional) — Currency entity key (default: project/<name-slug>); drives the status-drift guard
-- `dryRun` (boolean, optional, default: `true`) — Simulate without writing (default: true)
+- `dryRun` (boolean, optional, default: `false`) — Simulate without writing (default: false)
 
 ### `vault.read`
 
@@ -281,14 +281,22 @@ Read a note's content
 
 ### `vault.reindex`
 
-Bulk-index all markdown files into VaultBrain semantic store. Use after initial setup or vault migration.
+Incrementally reconcile indexable markdown with VaultBrain; unchanged files are skipped and stale indexed pages are removed after a complete scan.
 
-**Mutating:** no
+**Mutating:** yes
 
 **Parameters:**
 
 - `dryRun` (boolean, optional, default: `false`) — Count files without ingesting (default: false)
 - `concurrency` (number, optional, default: `4`) — Max concurrent ingest calls (default: 4)
+
+### `vault.reindex_status`
+
+Read the durable VaultBrain reindex state, including whether the last run completed or was incomplete and its progress counters.
+
+**Mutating:** no
+
+**Parameters:** none
 
 ### `vault.rename`
 
@@ -300,7 +308,7 @@ Rename/move a file
 
 - `from` (string, required) — Source vault-relative path
 - `to` (string, required) — Destination vault-relative path
-- `dryRun` (boolean, optional, default: `true`) — Simulate without moving (default: true)
+- `dryRun` (boolean, optional, default: `false`) — Simulate without moving (default: false)
 
 ### `vault.search`
 
@@ -388,7 +396,7 @@ Write a persona-authored analysis into 00-Inbox/AI-Output/{persona}/YYYY-MM-DD-{
 - `scope` (string, optional, default: `"project"`, enum: `project` | `global` | `cross-project` | `host-local`) — Governance namespace for the entry (default: project)
 - `quarantineState` (string, optional, default: `"new"`, enum: `new` | `reviewed` | `promoted` | `discarded`) — Trust-gate state in the candidate lifecycle (default: new)
 - `reviewStatus` (string, optional, default: `"none"`, enum: `none` | `user-confirmed`) — When user-confirmed, appends #user-confirmed tag to the body so Obsidian tag search picks it up. Default: none (no tag appended).
-- `dryRun` (boolean, optional, default: `true`) — Simulate without writing (default: true)
+- `dryRun` (boolean, optional, default: `false`) — Simulate without writing (default: false)
 
 ## `query.*` (8)
 
@@ -1281,7 +1289,7 @@ Persist a named memory across MCP sessions. Use for inferences, user preferences
 - `value` (string, required) — Memory content (Markdown supported)
 - `tags` (array, optional) — Optional tags for grouping, e.g. ["project", "decision"]
 
-## `project.*` (22)
+## `project.*` (23)
 
 ### `project.base.export`
 
@@ -1384,6 +1392,16 @@ Compose a read-only Project Hub from registry, Work-OS, knowledge, runtime, sett
 
 - `ref` (string, optional) — Canonical Project ID, registered alias/slug, or bound workspace path
 - `project` (string, optional) — Compatibility alias for ref
+
+### `project.hub.recovery.flow`
+
+Compose the read-only stateless Project recovery Flow through open, search, candidate selection, and immutable Plan preview.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `request` (object, required) — Closed project-hub-recovery-flow-request/v2 request.
 
 ### `project.hub.text`
 
@@ -1662,7 +1680,7 @@ Register a long-lived source in the lightweight Source Registry. URL inputs run 
 - `tags` (array, optional) — Optional tags for the Source Note and registry record
 - `notes` (string, optional) — Optional operator notes stored in the Source Note
 
-## `workflow.*` (10)
+## `workflow.*` (12)
 
 ### `workflow.agent.checkpoint`
 
@@ -1736,21 +1754,20 @@ Assert and join an existing Work Driver lease without overwriting its durable id
 
 ### `workflow.agent.leave`
 
-Leave a Work Run through awaiting-review or terminal state while preserving its durable lifetime and event log.
+Claim and route one complete or terminate Work Run output before applying its owner transition.
 
 **Mutating:** yes
 
 **Parameters:**
 
 - `project` (string, required) — Project key
-- `agent` (string, optional) — Agent id; defaults collaboration actor
-- `summary` (string, optional) — Leave summary
-- `work_run_id` (string, optional) — Joined Work Run ID; resolved from lifetime when omitted
-- `work_run_state` (string, optional, enum: `awaiting_review` | `completed` | `failed` | `cancelled`) — Final or review handoff state; defaults to cancelled for an unfinished run
-- `transition_token` (string, optional) — Idempotency token; generated for legacy calls
-- `output_class` (string, optional, enum: `view` | `work-state-transition` | `knowledge-claim` | `external-side-effect`)
-- `approval_status` (string, optional, enum: `not-required` | `pending` | `approved` | `denied`)
-- `provenance` (array, optional)
+- `mode` (string, required, enum: `complete` | `terminate`)
+- `agent` (string, required) — Agent id authorized for the Work Run
+- `summary` (string, required) — Leave summary
+- `work_run_id` (string, required) — Exact Work Run ID
+- `target_state` (string, required, enum: `completed` | `awaiting_review` | `failed` | `cancelled`)
+- `transition_token` (string, required) — Stable idempotency token
+- `submission` (object, required) — Closed output/quarantine submission; null for terminate
 
 ### `workflow.agent.start`
 
@@ -1823,6 +1840,26 @@ Check whether a project has the vault-first workflow files needed by Codex, Clau
 **Parameters:**
 
 - `project` (string, required) — Project key
+
+### `workflow.recovery.apply`
+
+Claim-first application of one exact Recovery Plan through Workflow-owned Work Run mutation.
+
+**Mutating:** yes
+
+**Parameters:**
+
+- `request` (object, required) — Closed recovery-apply-request/v2 request.
+
+### `workflow.recovery.plan`
+
+Compose a read-only Recovery Plan from a closed Project Hub Flow plan request.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `request` (object, required) — Closed workflow-recovery-plan-request/v1 envelope containing project-hub-recovery-flow-request/v2 plan/from-search, plan/override, or refresh-plan request.
 
 ### `workflow.state.get`
 
@@ -2465,7 +2502,7 @@ Transition one Child Work Run without inferring any parent terminal state.
 - `actor` (string, required)
 - `diagnosticArtifact` (object, optional)
 
-## `visual.*` (5)
+## `visual.*` (6)
 
 ### `visual.context.read`
 
@@ -2532,6 +2569,17 @@ Read one canonical managed mind-map Markdown section without writing.
 
 - `project` (string, required) — Canonical Project ID (project/<slug>)
 - `path` (string, required) — 01-Projects/<slug>/maps/**.md path
+
+### `visual.template.preview`
+
+Preview a static TemplateManifest upload envelope without executing code or writing the vault. content must be JSON {manifest, artifactContent}; the artifact digest is verified.
+
+**Mutating:** no
+
+**Parameters:**
+
+- `path` (string, required) — Vault-relative artifact path
+- `content` (string, required) — JSON upload envelope containing manifest and artifactContent
 
 ## `problem.*` (9)
 

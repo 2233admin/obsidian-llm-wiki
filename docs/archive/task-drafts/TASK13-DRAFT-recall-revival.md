@@ -120,12 +120,12 @@ Overall DX         |  3/10  | 8/10  |
 - citation/`gaps[]`/`query_trace` —— F3 在其上加可执行项，不重写。
 
 ### 5.10 Implementation Tasks（本评审综合，派生自具体发现）
-- [ ] **T1 (P1)** — vaultbrain/engine — 13A PG-FTS floor（已建 `schema.ts`+`pglite-engine.ts`+测试，**待全量回归绿 + commit**）。Verify：`pglite-engine.test.js` 3/3 + 全套 `node --test`。
-- [ ] **T2 (P1)** — onboarding — F2 惰性/显式回填：quickstart 一行 `vault reindex` 或首查惰性触发；`ingest` embed 失败仍存 chunk+tsvector。Files：`core/operations.ts`、`adapters/vaultbrain/index.ts`。
-- [ ] **T3 (P1)** — docs — F1 改 `package.json` description + README recall getting-started + 语义升级页。Files：`package.json`、`README.md`、`mcp-server/README.md`。
-- [ ] **T4 (P2)** — query — F3 `answerQuery`/`context_recall` 的 `gaps[]` 加可执行命令（库空→reindex；Ollama 不可达→pull bge-m3）。Files：`unified-query.ts`、`adapters/vaultbrain/index.ts`。
-- [ ] **T5 (P2)** — cli — recall demo 命令（magical moment 载体）：`kb_meta recall "..."` / `vault recall` 出 citation 的 NL 答案。
-- [ ] **T6 (P3)** — measurement — TTHW-到-首次成功-recall 埋点（DX EXPANSION，可选）。
+- [x] **T1 (P1)** — vaultbrain/engine — 13A PG-FTS floor（`schema.ts` + `pglite-engine.ts` + rollback/regression tests）。
+- [x] **T2 (P1)** — onboarding — F2 惰性/显式回填：首查惰性触发、`vault.reindex` 可显式回填；`ingest` embed 失败仍存 chunk+tsvector。
+- [x] **T3 (P1)** — docs — F1 更新 package description + README recall getting-started + 语义升级说明。
+- [x] **T4 (P2)** — query — F3 `context.recall`/`query.answer` 的 `gaps[]` 提供 reindex、Ollama 和当前回填状态的可执行提示。
+- [x] **T5 (P2)** — cli — `vault recall` demo 命令初始化 VaultBrain、触发回填并输出带 citation 的 NL 答案。
+- [x] **T6 (P3)** — measurement — opt-in `VAULT_MIND_TTHW_METRICS=1` 记录首次带 citation recall 的 TTHW，不记录 query 文本。
 
 > 注：gstack JSONL artifact（`~/.gstack/projects/.../tasks-*.jsonl`）未写 —— 本机 PowerShell/bash + 多仓父目录下 gstack-slug 不可靠，且 vault-mind 非 gstack-tracked 项目。Implementation Tasks 以上表为准。
 

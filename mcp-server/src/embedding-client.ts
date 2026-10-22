@@ -33,6 +33,7 @@ export interface EmbedOpts {
   model?: string;
   dimensions?: number;
   timeoutMs?: number;
+  signal?: AbortSignal;
 }
 
 export interface EmbeddingResult {
@@ -71,6 +72,11 @@ export async function embedWithProfile(
   const timeoutMs = opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
   const ctrl = new AbortController();
+  function abort(): void {
+    ctrl.abort();
+  }
+  if (opts?.signal?.aborted) ctrl.abort();
+  else opts?.signal?.addEventListener("abort", abort, { once: true });
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const res = await fetch(profile.endpoint, {
@@ -92,10 +98,12 @@ export async function embedWithProfile(
     return { vector: vec, fingerprint: embeddingFingerprint(profile) };
   } catch (e) {
     if ((e as { name?: string })?.name === "AbortError") {
+      if (opts?.signal?.aborted) throw new Error("embed: aborted");
       throw new Error(`embed: timeout after ${timeoutMs}ms`);
     }
     throw e;
   } finally {
     clearTimeout(timer);
+    opts?.signal?.removeEventListener("abort", abort);
   }
 }

@@ -1,10 +1,43 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import type { Operation, OperationContext, WriteEffect } from '../core/types.js';
 import { conflict, makeErr } from '../core/types.js';
 import { resultPath, touchMarkdown, workflowAgentPolicyBasePath, workflowPolicyBasePath } from '../core/write-policy.js';
 import { resolveProjectContext } from '../project/project-context.js';
+import { createFileWorkRunStore, durableRunPath, vaultJoin, withFileRollback, type WorkRunStore } from './work-run-store.js';
+import {
+  makeRecoveryPlanOperation,
+} from './recovery-plan.js';
+import {
+  makeRecoveryApplyOperation,
+  type RecoveryApplyCapability,
+  type RecoveryApplyDependencies,
+} from './recovery-apply.js';
+import {
+  createRecoveryPlanningService,
+  type RecoveryPlanDependencies,
+  type RecoveryPlanningService,
+} from '../project-hub/recovery-planning-service.js';
+import { canonicalRecoveryJson, fingerprintRecoveryValue, utf8JsonBytes } from '../project-hub/contract-support.js';
+import { canonicalJson } from '../../../packages/agent-domain/dist/src/index.js';
+import { RECOVERY_FLOW_REQUEST_SCHEMA_VERSION, type RecoveryFlowDiagnosticV2, type RecoveryPlanV2 } from '../project-hub/recovery-flow.js';
+import { persistWorkRunOutputDraft } from '../core/project-memory-operations.js';
+import { AgentDomainService, DelegationStore, type CapabilityGrant } from '../../../packages/agent-domain/dist/src/index.js';
+import {
+  governWorkRunOutput,
+  validateWorkflowAgentLeaveRequestV2,
+  WORK_RUN_OUTPUT_CLASSES as GOVERNED_OUTPUT_CLASSES,
+  type WorkRunOutputV1,
+} from './output-governance.js';
+
+export interface WorkflowOperationsOptions {
+  recoveryRuntime?: { dependencies: RecoveryPlanDependencies };
+  recoveryPlanningService?: RecoveryPlanningService;
+  recoveryApplyDependencies?: RecoveryApplyDependencies;
+  recoveryApplyCapability?: () => Promise<RecoveryApplyCapability>;
+  capabilityOperationGrantLoader?: (grantId: string) => Promise<unknown>;
+}
 
 const STAGES = ['intake', 'understand', 'plan', 'execute', 'review', 'verify', 'archive'] as const;
 type WorkflowStage = (typeof STAGES)[number];
@@ -46,7 +79,7 @@ export const WORK_RUN_STATES = [
 export type WorkRunState = (typeof WORK_RUN_STATES)[number];
 
 export const WORK_RUN_TERMINAL_STATES = ['completed', 'failed', 'cancelled'] as const;
-const WORK_RUN_OUTPUT_CLASSES = ['view', 'work-state-transition', 'knowledge-claim', 'external-side-effect'] as const;
+const WORK_RUN_OUTPUT_CLASSES = GOVERNED_OUTPUT_CLASSES;
 type WorkRunOutputClass = (typeof WORK_RUN_OUTPUT_CLASSES)[number];
 const WORK_RUN_APPROVAL_STATUSES = ['not-required', 'pending', 'approved', 'denied'] as const;
 type WorkRunApprovalStatus = (typeof WORK_RUN_APPROVAL_STATUSES)[number];
@@ -77,7 +110,7 @@ const AGENT_STAGE_EVIDENCE_REQUIREMENTS: Partial<Record<AgentStage, readonly str
   ship: ['review:', 'test:'],
 } as const;
 
-interface WorkflowState {
+export interface WorkflowState {
   project: string;
   stage: WorkflowStage;
   objective: string;
@@ -187,36 +220,6 @@ function agentEventsPath(project: string, agent: string): string {
   return `${agentRoot(project, agent)}/events.md`;
 }
 
-function durableRunPath(project: string, workRunId: string): string {
-  return `01-Projects/${project}/runs/${workRunId.slice('work-run/'.length)}.json`;
-}
-
-const WORK_RUN_LOCK_PATH = '.vault-mind/_work-run.lock';
-
-function withWorkRunLock<T>(vaultPath: string, action: () => T): T {
-  const lockPath = vaultJoin(vaultPath, WORK_RUN_LOCK_PATH);
-  const token = `${process.pid}:${randomUUID()}`;
-  mkdirSync(dirname(lockPath), { recursive: true });
-  const claim = () => writeFileSync(lockPath, token, { encoding: 'utf-8', flag: 'wx' });
-  try {
-    claim();
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
-    throw conflict(
-      `Work Run is busy with another runtime; verify the owner and remove ${WORK_RUN_LOCK_PATH} manually only after confirming no writer is active`,
-    );
-  }
-  try {
-    return action();
-  } finally {
-    try {
-      if (readFileSync(lockPath, 'utf-8') === token) rmSync(lockPath, { force: true });
-    } catch {
-      // A missing lock is already released; never remove a successor's token.
-    }
-  }
-}
-
 interface LeasedRunIdentity {
   projectId: string;
   workItemId: string;
@@ -252,9 +255,13 @@ function leaseCandidates(vaultPath: string, workRunId: string): Array<Record<str
   ));
 }
 
+export function isCanonicalWorkItemId(value: unknown): value is string {
+  return typeof value === 'string' && /^project\/[a-z0-9][a-z0-9-]*\/issue\/[a-z0-9][a-z0-9-]*$/.test(value);
+}
+
 function canonicalWorkItemId(value: unknown): string {
   const id = optionalString(value);
-  if (!/^project\/[a-z0-9][a-z0-9-]*\/issue\/[a-z0-9][a-z0-9-]*$/.test(id)) {
+  if (!isCanonicalWorkItemId(id)) {
     throw conflict('Work Item identity conflict: work_item_id must be canonical');
   }
   return id;
@@ -278,6 +285,7 @@ function assertWorkItemOwnership(projectIdentity: string, workItemId: string): v
 function assertActiveLeaseIdentity(
   vaultPath: string,
   identity: Pick<LeasedRunIdentity, 'projectId' | 'workItemId' | 'workRunId' | 'agentId'>,
+  nowMs = Date.now(),
 ): void {
   const leases = leaseCandidates(vaultPath, identity.workRunId);
   if (leases.length !== 1) {
@@ -292,7 +300,7 @@ function assertActiveLeaseIdentity(
   identityEquals('Work Run', identity.workRunId, lease.work_run_id);
   identityEquals('agent', identity.agentId, lease.agent_id);
   const expiresAt = lease.expires_at;
-  if (typeof expiresAt !== 'number' || !Number.isFinite(expiresAt) || Date.now() / 1000 >= expiresAt) {
+  if (typeof expiresAt !== 'number' || !Number.isFinite(expiresAt) || nowMs / 1000 >= expiresAt) {
     throw conflict('Lease expiry identity conflict: local lease is missing or expired', {
       workRunId: identity.workRunId,
       expiresAt,
@@ -496,7 +504,7 @@ function governedRunExtensions(run: Record<string, unknown>): Record<string, unk
   return extensions;
 }
 
-function assertPortableHandoffAuthority(durable: Record<string, unknown>, handoffToken: unknown): void {
+function assertPortableHandoffAuthority(durable: Record<string, unknown>, handoffToken: unknown, nowMs = Date.now()): void {
   const token = typeof handoffToken === 'string' ? handoffToken : '';
   if (token.length < 16 || token.length > 4096) {
     throw makeErr(-32602, 'handoff_token is required for lease_mode=portable-handoff');
@@ -510,7 +518,7 @@ function assertPortableHandoffAuthority(durable: Record<string, unknown>, handof
     typeof expiresAt !== 'string'
     || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(expiresAt)
     || !Number.isFinite(Date.parse(expiresAt))
-    || Date.now() >= Date.parse(expiresAt)
+    || nowMs >= Date.parse(expiresAt)
   ) {
     throw conflict('Portable handoff authority conflict: durable handoff is missing or expired');
   }
@@ -525,13 +533,14 @@ function assertJoinLeaseAuthority(
   vaultPath: string,
   identity: Pick<LeasedRunIdentity, 'projectId' | 'workItemId' | 'workRunId' | 'agentId' | 'leaseMode' | 'handoffToken'>,
   durable: Record<string, unknown>,
+  nowMs = Date.now(),
 ): void {
   const registryPath = join(vaultPath, '.vault-mind', '_leases.json');
   if (identity.leaseMode === 'portable-handoff') {
-    assertPortableHandoffAuthority(durable, identity.handoffToken);
+    assertPortableHandoffAuthority(durable, identity.handoffToken, nowMs);
     if (!existsSync(registryPath)) return;
   }
-  assertActiveLeaseIdentity(vaultPath, identity);
+  assertActiveLeaseIdentity(vaultPath, identity, nowMs);
 }
 
 function assertDurableRunIdentity(
@@ -558,6 +567,7 @@ function assertLeasedRunIdentity(
   project: string,
   agent: string,
   params: Record<string, unknown>,
+  nowMs = Date.now(),
 ): LeasedRunIdentity {
   const workRunId = parseWorkRunId(params.work_run_id);
   const workItemId = canonicalWorkItemId(params.work_item_id);
@@ -574,7 +584,7 @@ function assertLeasedRunIdentity(
   if (state !== 'leased' && state !== 'running') {
     throw conflict(`Work Run identity conflict: join requires leased or running state, found ${String(state)}`);
   }
-  assertJoinLeaseAuthority(vaultPath, identity, durable.record);
+  assertJoinLeaseAuthority(vaultPath, identity, durable.record, nowMs);
   return { ...identity, state };
 }
 
@@ -598,6 +608,8 @@ function syncDurableWorkRunUnlocked(
   state: AgentLifetimeState,
   transitionToken: string,
   leasedIdentity?: LeasedRunIdentity,
+  store?: WorkRunStore,
+  nowMs = Date.now(),
 ): string {
   const path = durableRunPath(state.project, state.workRunId);
   const fullPath = vaultJoin(vaultPath, path);
@@ -621,7 +633,7 @@ function syncDurableWorkRunUnlocked(
       throw conflict(`Invalid Work Run transition: ${previousState} -> ${state.workRunState}`);
     }
   }
-  if (leasedIdentity) assertJoinLeaseAuthority(vaultPath, leasedIdentity, run);
+  if (leasedIdentity) assertJoinLeaseAuthority(vaultPath, leasedIdentity, run, nowMs);
   const transitions = durableTransitions(run.transitions);
   if (!transitions.some((item) => item.transition_token === transitionToken)) {
     const previous = typeof run.state === 'string' ? run.state : state.workRunState === 'running' ? 'leased' : 'planned';
@@ -657,7 +669,8 @@ function syncDurableWorkRunUnlocked(
     rmSync(temporary, { force: true });
     throw conflict(`Work Run changed concurrently: ${state.workRunId}`);
   }
-  renameSync(temporary, fullPath);
+  (store ?? createFileWorkRunStore(vaultPath)).writeRunAtomic(state.project, state.workRunId, durable);
+  rmSync(temporary, { force: true });
   return path;
 }
 
@@ -674,35 +687,6 @@ function assertDurableLifetimeIdentity(vaultPath: string, state: AgentLifetimeSt
       durable: durable.state,
     });
   }
-}
-
-interface FilePreimage {
-  fullPath: string;
-  content: Buffer | null;
-}
-
-function withFileRollback<T>(vaultPath: string, relPaths: string[], action: () => T): T {
-  const preimages: FilePreimage[] = [...new Set(relPaths)].map((relPath) => {
-    const fullPath = vaultJoin(vaultPath, relPath);
-    return { fullPath, content: existsSync(fullPath) ? readFileSync(fullPath) : null };
-  });
-  try {
-    return action();
-  } catch (error) {
-    for (const preimage of preimages.reverse()) {
-      if (preimage.content === null) {
-        rmSync(preimage.fullPath, { force: true });
-      } else {
-        mkdirSync(dirname(preimage.fullPath), { recursive: true });
-        writeFileSync(preimage.fullPath, preimage.content);
-      }
-    }
-    throw error;
-  }
-}
-
-function vaultJoin(vaultPath: string, relPath: string): string {
-  return join(vaultPath, ...relPath.split('/'));
 }
 
 function writeVaultBytes(vaultPath: string, relPath: string, content: string): void {
@@ -841,6 +825,10 @@ function projectId(project: string): string {
   return `project/${project}`;
 }
 
+export function isCanonicalWorkRunId(value: unknown): value is string {
+  return typeof value === 'string' && /^work-run\/[a-z0-9][a-z0-9-]*$/.test(value);
+}
+
 function parseWorkRunId(value: unknown, fallbackProject?: string, fallbackAgent?: string): string {
   const id = optionalString(value);
   if (!id && fallbackProject && fallbackAgent) return `work-run/legacy-${fallbackProject}-${fallbackAgent}`;
@@ -937,15 +925,6 @@ function transitionWorkRun(current: WorkRunState, next: WorkRunState): WorkRunSt
   return next;
 }
 
-function completionState(outputClass: WorkRunOutputClass, approval: WorkRunApprovalStatus): WorkRunState {
-  if (outputClass === 'external-side-effect' && approval !== 'approved') {
-    return 'awaiting_review';
-  }
-  if (outputClass === 'knowledge-claim' && approval === 'pending') return 'awaiting_review';
-  if (approval === 'denied') return 'failed';
-  return 'completed';
-}
-
 function assertWorkRunIdentity(current: AgentLifetimeState, supplied: unknown): void {
   const id = optionalString(supplied);
   if (id && parseWorkRunId(id) !== current.workRunId) {
@@ -996,8 +975,8 @@ function replayResult(state: AgentLifetimeState, receipt: WorkRunTransitionRecei
     project: state.project,
     projectId: state.projectId,
     agent: state.agent,
+    workItemId: state.workItemId,
     workRunId: state.workRunId,
-    path: state.path,
     eventsPath,
     lifetime: {
       ...state,
@@ -1021,8 +1000,8 @@ function replayJoin(state: AgentLifetimeState, eventsPath: string) {
     project: state.project,
     projectId: state.projectId,
     agent: state.agent,
+    workItemId: state.workItemId,
     workRunId: state.workRunId,
-    path: state.path,
     eventsPath,
     runPath: durableRunPath(state.project, state.workRunId),
     lifetime: state,
@@ -1079,13 +1058,14 @@ function renderState(state: WorkflowState, notes: string): string {
 
 function parseState(project: string, path: string, content: string): WorkflowState {
   const fm = parseFrontmatter(content);
+  if (fm.type !== 'workflow-state' || fm.project !== project || typeof fm.stage !== 'string' || !STAGES.includes(fm.stage as WorkflowStage)) {
+    throw new Error(`Malformed workflow state: ${path}`);
+  }
   const rawEvidence = fm.evidence;
   const evidence = Array.isArray(rawEvidence) ? rawEvidence.filter((item): item is string => typeof item === 'string') : [];
-  const stage = STAGES.includes(fm.stage as WorkflowStage) ? (fm.stage as WorkflowStage) : 'intake';
-
   return {
     project,
-    stage,
+    stage: fm.stage as WorkflowStage,
     objective: typeof fm.objective === 'string' ? fm.objective : '',
     branch: typeof fm.branch === 'string' ? fm.branch : '',
     host: typeof fm.host === 'string' ? fm.host : '',
@@ -1124,7 +1104,7 @@ function parseYamlScalar(raw: string): unknown {
   return raw;
 }
 
-function readState(vaultPath: string, project: string): WorkflowState | null {
+export function readWorkflowState(vaultPath: string, project: string): WorkflowState | null {
   const path = statePath(project);
   const fullPath = vaultJoin(vaultPath, path);
   if (!existsSync(fullPath)) return null;
@@ -1451,6 +1431,8 @@ function beginAgentLifetime(
   ctx: OperationContext,
   params: Record<string, unknown>,
   mode: 'leased' | 'manual',
+  store: WorkRunStore,
+  nowProvider: () => number = () => Date.now(),
 ) {
   const operation = mode === 'leased' ? 'workflow.agent.join' : 'workflow.agent.start';
   const actor = actorFromContext(ctx);
@@ -1493,10 +1475,10 @@ function beginAgentLifetime(
       identityEquals('agent', agent, priorLifetime.agent);
       const durable = assertDurableRunIdentity(vaultPath, project, requestedIdentity);
       assertGovernedRunLocks(params, durable.record);
-      assertJoinLeaseAuthority(vaultPath, requestedIdentity, durable.record);
+      assertJoinLeaseAuthority(vaultPath, requestedIdentity, durable.record, nowProvider());
       return replayResult(priorLifetime, priorReceipt, agentEventsPath(project, agent));
     }
-    leasedIdentity = assertLeasedRunIdentity(vaultPath, project, agent, params);
+    leasedIdentity = assertLeasedRunIdentity(vaultPath, project, agent, params, nowProvider());
     workRunId = leasedIdentity.workRunId;
     workItemId = leasedIdentity.workItemId;
   } else {
@@ -1585,7 +1567,7 @@ function beginAgentLifetime(
   const lifetimeFullPath = vaultJoin(vaultPath, path);
   const expectedLifetimeBytes = existsSync(lifetimeFullPath) ? readFileSync(lifetimeFullPath, 'utf-8') : null;
 
-  const { runPath, eventsPath } = withWorkRunLock(vaultPath, () => {
+  const { runPath, eventsPath } = store.withLock(() => {
     const lockedLifetimeBytes = existsSync(lifetimeFullPath) ? readFileSync(lifetimeFullPath, 'utf-8') : null;
     if (lockedLifetimeBytes !== expectedLifetimeBytes) {
       throw conflict(`${agent} lifetime changed while joining Work Run ${workRunId}; retry the operation`);
@@ -1596,6 +1578,8 @@ function beginAgentLifetime(
         state,
         transitionToken,
         leasedIdentity ?? undefined,
+        store,
+        nowProvider(),
       );
       writeVaultBytes(vaultPath, path, renderAgentLifetime(state, notes));
       const persistedEventsPath = appendAgentEvent(vaultPath, state, {
@@ -1616,6 +1600,7 @@ function beginAgentLifetime(
     projectId: state.projectId,
     agent,
     workRunId,
+    workItemId,
     path,
     eventsPath,
     runPath,
@@ -1623,8 +1608,314 @@ function beginAgentLifetime(
   };
 }
 
-export function makeWorkflowOps(vaultPath: string): Operation[] {
+function recoveryActorContext(vaultPath: string, actor: string): OperationContext {
+  return {
+    vault: null as never,
+    adapters: null,
+    config: { vault_path: vaultPath, collaboration: { actor, role: 'agent' } },
+    logger: { info() {}, warn() {}, error() {} },
+    dryRun: false,
+  };
+}
+
+function recoveryPlanBasis(plan: RecoveryPlanV2): Record<string, unknown> {
+  return {
+    projectId: plan.projectId,
+    rootOpenFlowFingerprint: plan.rootOpenFlowFingerprint,
+    searchedBasisFlowFingerprint: plan.searchedBasisFlowFingerprint,
+    recoveryFingerprint: plan.recoveryFingerprint,
+    searchInputFingerprint: plan.searchInputFingerprint,
+    searchFingerprint: plan.searchFingerprint,
+    candidateSetFingerprint: plan.candidateSetFingerprint,
+    candidateId: plan.candidateId,
+    kind: plan.kind,
+    workItemId: plan.workItemId,
+    workRunId: plan.workRunId,
+    agentSelection: plan.agentSelection,
+    ownerLocks: plan.ownerLocks,
+    capabilityFacts: plan.capabilityFacts,
+    citationTargets: plan.citationTargets,
+    owningOperation: plan.owningOperation,
+    leaseDurationMs: plan.leaseDurationMs,
+  };
+}
+
+export function createDefaultRecoveryApplyDependencies(
+  vaultPath: string,
+  store: WorkRunStore,
+  planningService: RecoveryPlanningService,
+  now: () => number = () => Date.now(),
+  loadApplyCapability: () => Promise<RecoveryApplyCapability> = async () => ({ capability: 'workflow.recovery.apply', state: 'unavailable' }),
+): RecoveryApplyDependencies {
+  const ownerTransitionToken = (token: string): string => `recovery:${createHash('sha256').update(token, 'utf8').digest('hex')}`;
+  const join = async (plan: RecoveryPlanV2, actor: string, token: string): Promise<Record<string, unknown>> => (
+    beginAgentLifetime(
+      vaultPath,
+      recoveryActorContext(vaultPath, actor),
+      {
+        project: plan.projectId,
+        agent: actor,
+        role: plan.agentSelection.role,
+        work_run_id: plan.workRunId,
+        work_item_id: plan.workItemId,
+        agent_profile_id: plan.agentSelection.profileId,
+        agent_profile_revision: plan.agentSelection.profileRevision,
+        project_agent_binding_id: plan.agentSelection.bindingId,
+        project_agent_binding_revision: plan.agentSelection.bindingRevision,
+        transition_token: ownerTransitionToken(token),
+        stage: 'think',
+        evidence: ['recovery:apply'],
+        provenance: [`recovery-plan:${plan.fingerprint}`],
+      },
+      'leased',
+      store,
+      now,
+    ) as unknown as Record<string, unknown>
+  );
+  const createAndJoin = async (plan: RecoveryPlanV2, actor: string, token: string): Promise<Record<string, unknown>> => {
+    const runId = `work-run/recovery-${plan.fingerprint.slice('sha256:'.length, 'sha256:'.length + 32)}`;
+    const project = plan.projectId.slice('project/'.length);
+    store.withLock(() => {
+      const existing = store.readRun(project, runId);
+      const nowMs = now();
+      const lease = store.readLocalLease(runId);
+      const identity = {
+        project_id: plan.projectId,
+        work_item_id: plan.workItemId,
+        work_run_id: runId,
+        agent_id: actor,
+      };
+      if (existing) {
+        for (const [key, value] of Object.entries(identity)) if (existing[key] !== value) throw conflict('Recovery create Work Run identity conflict');
+        if (existing.state !== 'leased' && existing.state !== 'running') throw conflict('Recovery create Work Run is no longer joinable');
+      } else {
+        store.writeRunAtomic(project, runId, {
+          schema_version: 2,
+          ...identity,
+          state: 'leased',
+          output_class: 'view',
+          approval_status: 'not-required',
+          created_at: new Date(nowMs).toISOString(),
+          updated_at: new Date(nowMs).toISOString(),
+          provenance: [`recovery-plan:${plan.fingerprint}`],
+          transitions: [{ transition_token: `recovery:lease:${plan.fingerprint.slice(-24)}`, from: 'planned', to: 'leased', recorded_at: new Date(nowMs).toISOString() }],
+          agent_profile_id: plan.agentSelection.profileId,
+          agent_profile_revision: plan.agentSelection.profileRevision,
+          project_agent_binding_id: plan.agentSelection.bindingId,
+          project_agent_binding_revision: plan.agentSelection.bindingRevision,
+        });
+      }
+      if (lease) {
+        if (lease.agent_id !== actor || lease.project_id !== plan.projectId || lease.work_item_id !== plan.workItemId) throw conflict('Recovery local lease identity conflict');
+      } else {
+        store.writeLocalLeaseAtomic(actor, {
+          agent_id: actor,
+          project_id: plan.projectId,
+          work_item_id: plan.workItemId,
+          work_run_id: runId,
+          base_head: `recovery:${plan.fingerprint}`,
+          acquired_at: Math.floor(nowMs / 1000),
+          expires_at: Math.floor(nowMs / 1000) + 900,
+        });
+      }
+    });
+    return join({ ...plan, workRunId: runId }, actor, token);
+  };
+  return {
+    store,
+    async recomputeCurrentPlanBasis(plan, planningInput) {
+      const result = await planningService.plan({
+        schemaVersion: RECOVERY_FLOW_REQUEST_SCHEMA_VERSION,
+        projectId: plan.projectId,
+        action: 'plan',
+        mode: 'from-search',
+        openFlowFingerprint: plan.rootOpenFlowFingerprint,
+        searchedBasisFlowFingerprint: plan.searchedBasisFlowFingerprint,
+        plannedFlowFingerprint: null,
+        query: planningInput.query,
+        limit: planningInput.limit,
+        candidateId: plan.candidateId,
+        agentSelection: { bindingId: plan.agentSelection.bindingId, bindingRevision: plan.agentSelection.bindingRevision },
+        priorPlan: null,
+      });
+      if (result.stage !== 'planned' || canonicalRecoveryJson(recoveryPlanBasis(result.payload.plan)) !== canonicalRecoveryJson(recoveryPlanBasis(plan))) {
+        throw conflict('Recovery Plan basis is stale');
+      }
+      if (plan.kind === 'resume') {
+        const project = plan.projectId.slice('project/'.length);
+        const run = store.readRun(project, plan.workRunId!);
+        const lease = store.readLocalLease(plan.workRunId!);
+        if (!run || run.project_id !== plan.projectId || run.work_item_id !== plan.workItemId || run.work_run_id !== plan.workRunId || (run.state !== 'leased' && run.state !== 'running')) {
+          throw conflict('Recovery Work Run prerequisite is unavailable');
+        }
+        if (!lease || lease.project_id !== plan.projectId || lease.work_item_id !== plan.workItemId || lease.work_run_id !== plan.workRunId || typeof lease.expires_at !== 'number' || lease.expires_at <= now() / 1000) {
+          throw conflict('Recovery local lease prerequisite is unavailable');
+        }
+      }
+    },
+    join,
+    createAndJoin,
+    now,
+    loadApplyCapability,
+  };
+}
+
+function record(value: unknown, label: string): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw makeErr(-32602, `${label} must be an object`);
+  return value as Record<string, unknown>;
+}
+
+function closedRecord(value: unknown, keys: readonly string[], label: string): Record<string, unknown> {
+  const result = record(value, label);
+  for (const key of Object.keys(result)) if (!keys.includes(key)) throw makeErr(-32602, `${label} contains unknown field ${key}`);
+  return result;
+}
+
+async function routeWorkStateTransition(
+  ctx: OperationContext,
+  leave: Extract<import('./output-governance.js').WorkflowAgentLeaveRequestV2, { mode: 'complete' }>,
+  output: WorkRunOutputV1 | null,
+  current: AgentLifetimeState,
+): Promise<void> {
+  const dispatcher = ctx.operationDispatcher;
+  const payload = record(output?.payload, 'work-state-transition payload');
+  const operation = payload.operation;
+  if (operation !== 'project.issue.update' || !dispatcher?.invoke) {
+    throw conflict('work-state-transition requires the production project.issue.update dispatcher');
+  }
+  const params = closedRecord(payload.params, ['project', 'slug', 'state'], 'work-state-transition params');
+  const expectedProject = current.projectId;
+  const expectedSlug = current.workItemId.slice(`${expectedProject}/issue/`.length);
+  const expectedState = leave.target_state === 'completed' ? 'done' : 'in-progress';
+  if (params.project !== expectedProject || params.slug !== expectedSlug || params.state !== expectedState) {
+    throw conflict('work-state-transition must target the joined Project and Work Item with the expected state');
+  }
+  const operationDefinition = dispatcher.get?.('project.issue.update');
+  if (operationDefinition && !operationDefinition.mutating) throw conflict('project.issue.update must be mutating');
+  let observedBefore: unknown;
+  try {
+    const before = record(await dispatcher.invoke('project.issue.get', { project: params.project, slug: params.slug }), 'project.issue.get result');
+    observedBefore = record(before.issue, 'project.issue.get issue').state;
+  } catch {
+    // Reconciliation requires a known pre-owner state; fail closed if it is unavailable.
+  }
+  try {
+    const result = await dispatcher.invoke('project.issue.update', params);
+    if (record(result, 'project.issue.update result').ok === false) throw conflict('project.issue.update owner rejected the transition');
+  } catch (error) {
+    // A nested owner can commit the issue and then fail before leave finalizes.
+    // Observe the exact desired state and let the caller finalize once, without
+    // invoking the mutating owner a second time.
+    if (observedBefore !== expectedState) try {
+      const observed = record(await dispatcher.invoke('project.issue.get', { project: params.project, slug: params.slug }), 'project.issue.get result');
+      const issue = record(observed.issue, 'project.issue.get issue');
+      if (issue.state === expectedState) return;
+    } catch {
+      // Preserve the original owner failure when the desired state is not observable.
+    }
+    throw error;
+  }
+}
+
+interface ExternalSideEffectDecision {
+  allowed: boolean;
+  diagnostics?: RecoveryFlowDiagnosticV2[];
+}
+
+function externalDenied(code: string, message: string, remediation: string): ExternalSideEffectDecision {
+  return { allowed: false, diagnostics: [{ owner: 'workflow', code, severity: 'error', message, remediation, citationTargets: [] }] };
+}
+
+async function loadServerCapabilityGrant(ctx: OperationContext, projectId: string, grantId: string, now: () => number): Promise<CapabilityGrant | null> {
+  const stateRoot = join(ctx.config.vault_path, '_llmwiki/agent-domain/v1');
+  const project = projectId as `project/${string}`;
+  const delegation = new DelegationStore({ collaborationRoot: join(stateRoot, 'collaboration'), projectId: project });
+  const grant = await delegation.readGrant(grantId as CapabilityGrant['grantId']);
+  if (!grant) return null;
+  const child = await delegation.readChild(grant.workRunId);
+  if (!child || (child.lifecycle !== 'ready' && child.lifecycle !== 'running')
+    || grant.projectId !== projectId || child.projectId !== projectId || child.workRunId !== grant.workRunId
+    || child.assignment.profileId !== grant.profileId || child.assignment.profileRevision !== grant.profileRevision) return null;
+  // R8.6 invariant: child.grantSummary must canonicalJson-match the grant for server-issued authority.
+  if (canonicalJson(child.grantSummary) !== canonicalJson(grant)) return null;
+  const service = new AgentDomainService({ stateRoot });
+  const exactProfile = await service.profiles.readRevision(grant.profileId, grant.profileRevision);
+  const currentProfile = await service.profiles.read(grant.profileId);
+  const exactBinding = await service.bindings.readRevision(child.assignment.bindingId, child.assignment.bindingRevision);
+  const currentBinding = await service.bindings.read(child.assignment.bindingId);
+  if (!exactProfile || !currentProfile || currentProfile.revision !== grant.profileRevision
+    || !exactBinding || !currentBinding || currentBinding.revision !== child.assignment.bindingRevision
+    || !exactBinding.enabled || !currentBinding.enabled || exactBinding.projectId !== projectId
+    || exactBinding.profileId !== grant.profileId || exactBinding.profileRevision !== grant.profileRevision
+    || Date.parse(grant.expiresAt) <= now()) return null;
+  return grant;
+}
+
+async function executeExternalSideEffect(
+  ctx: OperationContext,
+  leave: Extract<import('./output-governance.js').WorkflowAgentLeaveRequestV2, { mode: 'complete' }>,
+  output: WorkRunOutputV1 | null,
+  actor: string,
+  now: () => number = () => Date.now(),
+): Promise<ExternalSideEffectDecision> {
+  if (!output?.approval || output.approval.status !== 'approved') return externalDenied('external-approval-required', 'External side effect requires explicit approval.', 'Obtain an exact per-run approval before retrying.');
+  let payload: Record<string, unknown>;
+  try { payload = record(output.payload, 'external-side-effect payload'); } catch { return externalDenied('external-operation-invalid', 'External side-effect operation is invalid.', 'Submit a bounded operation and parameter object.'); }
+  if (Object.keys(payload).some((key) => !['operation', 'params', 'grantId'].includes(key))) return externalDenied('external-operation-invalid', 'External side-effect payload contains unsupported fields.', 'Submit only operation, params, and grantId.');
+  const operation = typeof payload.operation === 'string' ? payload.operation : '';
+  let params: Record<string, unknown>;
+  try { params = record(payload.params, 'external-side-effect params'); } catch { return externalDenied('external-operation-invalid', 'External side-effect parameters are invalid.', 'Submit a bounded parameter object.'); }
+  const grantId = typeof payload.grantId === 'string' ? payload.grantId : '';
+  const approval = output.approval;
+  if (approval.actor !== actor || approval.projectId !== output.projectId || approval.workRunId !== output.workRunId
+    || approval.outputFingerprint !== output.fingerprint || approval.operation !== operation || approval.grantId !== grantId) return externalDenied('external-approval-mismatch', 'External approval is not bound to this actor, output, Work Run, or operation.', 'Request a matching per-run approval.');
+  const dispatcher = ctx.operationDispatcher;
+  const definition = dispatcher?.get?.(operation);
+  if (!dispatcher?.invoke || !definition || !definition.mutating || operation === 'workflow.agent.leave' || operation === 'vault.batch') return externalDenied('external-operation-denied', 'External operation is not an eligible governed mutation.', 'Use an allowlisted mutating operation.');
+  let targets: string[];
+  try { targets = definition.writePolicy.targets(ctx, params).map((target) => target.replace(/\\/g, '/')); }
+  catch { return externalDenied('external-operation-denied', 'External operation targets could not be adjudicated.', 'Repair the operation target policy before retrying.'); }
+  if (targets.length === 0 || targets.some((target) => !target.startsWith('external/'))) return externalDenied('external-operation-denied', 'External operation targets are outside the external side-effect boundary.', 'Use an operation with explicitly external targets.');
+  let grant: CapabilityGrant | null;
+  try { grant = await loadServerCapabilityGrant(ctx, output.projectId, grantId, now); } catch { grant = null; }
+  if (!grant) return externalDenied('external-grant-denied', 'No active server-issued Capability Grant authorizes this external operation.', 'Obtain an active exact Project/Profile/Binding grant before retrying.');
+  const externalApproval = grant.externalSideEffectApproval;
+  if (grant.projectId !== output.projectId || grant.workRunId !== output.workRunId || grant.grantId !== grantId
+    || grant.policyDecision.actor !== actor || !grant.scope.operations.includes(operation)
+    || !grant.scope.sideEffectClasses.includes('external-write') || externalApproval.mode !== 'per-run'
+    || externalApproval.approvedWorkRunId !== output.workRunId || !externalApproval.approvedClasses.includes('external-write')
+    || !externalApproval.approvalFingerprint || approval.approvalFingerprint !== externalApproval.approvalFingerprint) {
+    return externalDenied('external-grant-denied', 'Capability Grant approval is not bound to this exact external operation.', 'Obtain an exact per-run approval and grant binding.');
+  }
+  // Invocation begins only after every denial check. A throw or unknown result
+  // after this point is governed as outcome-unknown by the caller.
+  const result = await dispatcher.invoke(operation, params);
+  let boundedResult = false;
+  try { boundedResult = typeof result === 'object' && result !== null && !Array.isArray(result) && utf8JsonBytes(result) <= 64 * 1024; } catch { boundedResult = false; }
+  if (!boundedResult || (result as { ok?: unknown }).ok === undefined) {
+    throw new Error('External operation returned an unknown result');
+  }
+  if ((result as { ok?: unknown }).ok !== true) {
+    return externalDenied('external-operation-denied', 'External operation reported that its effect was denied.', 'Review the bounded owner diagnostic before retrying.');
+  }
+  return { allowed: true };
+}
+
+export function makeWorkflowOps(vaultPath: string, options: WorkflowOperationsOptions = {}): Operation[] {
+  const store = createFileWorkRunStore(vaultPath);
+  const recoveryPlanningService = options.recoveryPlanningService
+    ?? (options.recoveryRuntime ? createRecoveryPlanningService(options.recoveryRuntime.dependencies) : undefined);
+  const recoveryApplyDependencies = options.recoveryApplyDependencies
+    ?? (recoveryPlanningService ? createDefaultRecoveryApplyDependencies(
+      vaultPath,
+      store,
+      recoveryPlanningService,
+      options.recoveryRuntime?.dependencies.now,
+      options.recoveryApplyCapability,
+    ) : undefined);
   return [
+    makeRecoveryPlanOperation(recoveryPlanningService),
+    makeRecoveryApplyOperation(recoveryApplyDependencies),
     {
   name: 'workflow.state.set',
       namespace: 'workflow' as Operation['namespace'],
@@ -1690,7 +1981,7 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
       handler: async (_ctx, params) => {
         const project = existingProjectKey(vaultPath, params.project, 'workflow.state.get');
         const path = statePath(project);
-        const state = readState(vaultPath, project);
+        const state = readWorkflowState(vaultPath, project);
         return { exists: state !== null, project, path, state };
       },
     },
@@ -1795,7 +2086,7 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
         },
         notes: { type: 'string', required: false, description: 'Manual start notes' },
       },
-      handler: async (ctx, params) => beginAgentLifetime(vaultPath, ctx, params, 'manual'),
+      handler: async (ctx, params) => beginAgentLifetime(vaultPath, ctx, params, 'manual', store),
     },
     {
   name: 'workflow.agent.join',
@@ -1865,7 +2156,7 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
         },
         notes: { type: 'string', required: false, description: 'Join notes' },
       },
-      handler: async (ctx, params) => beginAgentLifetime(vaultPath, ctx, params, 'leased'),
+      handler: async (ctx, params) => beginAgentLifetime(vaultPath, ctx, params, 'leased', store),
     },
     {
   name: 'workflow.agent.step',
@@ -1915,7 +2206,7 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
         const actor = actorFromContext(ctx);
         const project = existingProjectKey(vaultPath, params.project, 'workflow.agent.step');
         const agent = agentKey(params.agent, actor);
-        return withWorkRunLock(vaultPath, () => {
+        return store.withLock(() => {
           const current = readAgentLifetime(vaultPath, project, agent);
           if (!current) throw makeErr(-32001, `Agent lifetime not found: ${agent}`);
           assertWorkRunIdentity(current, params.work_run_id);
@@ -1942,10 +2233,10 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
           let nextWorkRunState = optionalString(params.work_run_state)
             ? parseWorkRunState(params.work_run_state, current.workRunState)
             : stage === 'reflect'
-              ? completionState(outputClass, approvalStatus)
+              ? current.workRunState
               : current.workRunState;
-          if (nextWorkRunState === 'completed' && completionState(outputClass, approvalStatus) !== 'completed') {
-            throw makeErr(-32602, `${outputClass} output requires approval before completion`);
+          if (nextWorkRunState === 'completed' || nextWorkRunState === 'awaiting_review') {
+            throw makeErr(-32602, 'step cannot enter completed or awaiting_review; use workflow.agent.leave complete mode');
           }
           nextWorkRunState = transitionWorkRun(current.workRunState, nextWorkRunState);
           const defaultAgentStatus: AgentStatus = nextWorkRunState === 'completed' || stage === 'reflect'
@@ -1982,7 +2273,7 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
           const runPath = durableRunPath(project, state.workRunId);
           return withFileRollback(vaultPath, [state.path, eventsPath, runPath], () => {
             writeVaultBytes(vaultPath, state.path, renderAgentLifetime(state, summary));
-            syncDurableWorkRunUnlocked(vaultPath, state, transitionToken);
+            syncDurableWorkRunUnlocked(vaultPath, state, transitionToken, undefined, store);
             appendAgentEvent(vaultPath, state, {
               kind: 'step',
               summary: summary || `${current.stage} -> ${stage}`,
@@ -2031,7 +2322,7 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
         const actor = actorFromContext(ctx);
         const project = existingProjectKey(vaultPath, params.project, 'workflow.agent.checkpoint');
         const agent = agentKey(params.agent, actor);
-        return withWorkRunLock(vaultPath, () => {
+        return store.withLock(() => {
           const current = readAgentLifetime(vaultPath, project, agent);
           if (!current) throw makeErr(-32001, `Agent lifetime not found: ${agent}`);
           assertWorkRunIdentity(current, params.work_run_id);
@@ -2055,8 +2346,8 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
             : status === 'failed'
               ? 'failed'
               : current.workRunState;
-          if (nextWorkRunState === 'completed' && completionState(outputClass, approvalStatus) !== 'completed') {
-            throw makeErr(-32602, `${outputClass} output requires approval before completion`);
+          if (nextWorkRunState === 'completed' || nextWorkRunState === 'awaiting_review') {
+            throw makeErr(-32602, 'checkpoint cannot enter completed or awaiting_review; use workflow.agent.leave complete mode');
           }
           nextWorkRunState = transitionWorkRun(current.workRunState, nextWorkRunState);
           const incomingEvidence = persistedStringList('evidence', params.evidence);
@@ -2082,7 +2373,7 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
           const runPath = durableRunPath(project, state.workRunId);
           return withFileRollback(vaultPath, [state.path, eventsPath, runPath], () => {
             writeVaultBytes(vaultPath, state.path, renderAgentLifetime(state, summary));
-            syncDurableWorkRunUnlocked(vaultPath, state, transitionToken);
+            syncDurableWorkRunUnlocked(vaultPath, state, transitionToken, undefined, store);
             appendAgentEvent(vaultPath, state, {
               kind: `checkpoint:${status}`,
               summary,
@@ -2112,9 +2403,10 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
       },
     },
     {
-  name: 'workflow.agent.leave',
+      name: 'workflow.agent.leave',
       namespace: 'workflow' as Operation['namespace'],
-      description: 'Leave a Work Run through awaiting-review or terminal state while preserving its durable lifetime and event log.',
+      description: 'Claim and route one complete or terminate Work Run output before applying its owner transition.',
+    closedParams: true,
     mutating: true,
     writePolicy: {
       realWrite: 'always',
@@ -2124,70 +2416,142 @@ export function makeWorkflowOps(vaultPath: string): Operation[] {
     },
     params: {
         project: { type: 'string', required: true, description: 'Project key' },
-        agent: { type: 'string', required: false, description: 'Agent id; defaults collaboration actor' },
-        summary: { type: 'string', required: false, description: 'Leave summary' },
-        work_run_id: { type: 'string', required: false, description: 'Joined Work Run ID; resolved from lifetime when omitted' },
-        work_run_state: {
-          type: 'string',
-          required: false,
-          enum: ['awaiting_review', 'completed', 'failed', 'cancelled'],
-          description: 'Final or review handoff state; defaults to cancelled for an unfinished run',
-        },
-        transition_token: { type: 'string', required: false, description: 'Idempotency token; generated for legacy calls' },
-        output_class: { type: 'string', required: false, enum: [...WORK_RUN_OUTPUT_CLASSES] },
-        approval_status: { type: 'string', required: false, enum: [...WORK_RUN_APPROVAL_STATUSES] },
-        provenance: { type: 'array', required: false },
+        mode: { type: 'string', required: true, enum: ['complete', 'terminate'] },
+        agent: { type: 'string', required: true, description: 'Agent id authorized for the Work Run' },
+        summary: { type: 'string', required: true, description: 'Leave summary' },
+        work_run_id: { type: 'string', required: true, description: 'Exact Work Run ID' },
+        target_state: { type: 'string', required: true, enum: ['completed', 'awaiting_review', 'failed', 'cancelled'] },
+        transition_token: { type: 'string', required: true, description: 'Stable idempotency token' },
+        submission: { type: 'object', required: true, nullable: true, description: 'Closed output/quarantine submission; null for terminate' },
       },
       handler: async (ctx, params) => {
         const actor = actorFromContext(ctx);
         const project = existingProjectKey(vaultPath, params.project, 'workflow.agent.leave');
         const agent = agentKey(params.agent, actor);
-        return withWorkRunLock(vaultPath, () => {
+        if (agent !== actor) throw makeErr(-32403, 'workflow.agent.leave actor is not authorized for the requested agent lifetime');
+        const allowedLeaveFields = new Set(['mode', 'project', 'agent', 'work_run_id', 'transition_token', 'target_state', 'submission', 'summary']);
+        for (const key of Object.keys(params)) if (!allowedLeaveFields.has(key)) throw makeErr(-32602, `workflow.agent.leave contains unknown field ${key}`);
+        {
           const current = readAgentLifetime(vaultPath, project, agent);
           if (!current) throw makeErr(-32001, `Agent lifetime not found: ${agent}`);
+          if (params.agent !== undefined && agent !== current.agent) throw makeErr(-32602, 'agent does not match joined Work Run');
           assertWorkRunIdentity(current, params.work_run_id);
           assertDurableLifetimeIdentity(vaultPath, current);
-          const transitionToken = parseTransitionToken(params.transition_token);
-          const receipt = findTransitionReceipt(current, transitionToken, 'leave');
-          if (receipt) return replayResult(current, receipt, agentEventsPath(project, agent));
-          assertWorkRunMutable(current);
-          const outputClass = parseOutputClass(params.output_class, current.outputClass);
-          const approvalStatus = parseApprovalStatus(
-            params.approval_status,
-            outputClass,
-            outputClass === current.outputClass ? current.approvalStatus : undefined,
-          );
-          let nextWorkRunState = parseWorkRunState(params.work_run_state, 'cancelled');
-          if (nextWorkRunState === 'completed' && completionState(outputClass, approvalStatus) !== 'completed') {
-            throw makeErr(-32602, `${outputClass} output requires approval before completion`);
+          const replayToken = typeof params.transition_token === 'string' ? params.transition_token : '';
+          if (isTerminalWorkRunState(current.workRunState) && !current.transitions.some((item) => item.token === replayToken)) {
+            assertWorkRunMutable(current);
           }
-          nextWorkRunState = transitionWorkRun(current.workRunState, nextWorkRunState);
-          const summary = persistedOneLine('summary', params.summary);
-          let state: AgentLifetimeState = {
-            ...current,
-            status: 'archived',
-            workRunState: nextWorkRunState,
-            provenance: mergeStringLists(current.provenance, durableProvenance(params.provenance)),
-            outputClass,
-            approvalStatus,
-            updatedAt: isoNow(),
+          const requestInput = {
+            mode: params.mode,
+            project: projectId(project),
+            agent,
+            work_run_id: current.workRunId,
+            transition_token: params.transition_token,
+            target_state: params.target_state,
+            submission: params.submission,
+            summary: params.summary,
           };
-          state = withTransitionReceipt(state, transitionToken, 'leave');
-          assertAgentLifetimeTextSafe(state);
-          const eventsPath = agentEventsPath(project, agent);
-          const runPath = durableRunPath(project, state.workRunId);
-          return withFileRollback(vaultPath, [state.path, eventsPath, runPath], () => {
-            writeVaultBytes(vaultPath, state.path, renderAgentLifetime(state, summary));
-            syncDurableWorkRunUnlocked(vaultPath, state, transitionToken);
-            appendAgentEvent(vaultPath, state, {
-              kind: 'leave',
-              summary: summary || `${agent} archived`,
-              actor,
-              transitionToken,
-            });
-            return { ok: true, idempotent: false, project, projectId: state.projectId, agent, workRunId: state.workRunId, path: state.path, eventsPath, runPath, lifetime: state };
-          });
-        });
+          const request = validateWorkflowAgentLeaveRequestV2(requestInput);
+          if (request.mode === 'complete') {
+            const itemId = request.submission.output?.workItemId ?? request.submission.quarantine?.workItemId;
+            if (itemId !== current.workItemId) throw conflict('Output Work Item does not match the joined Work Run');
+            if (request.target_state === 'completed' && request.submission.result === 'quarantine') throw makeErr(-32602, 'quarantine output must target awaiting_review');
+          }
+          const outputRoute = governWorkRunOutput({
+            store,
+            reconcile: async (leave, ownerActor, output, quarantine) => {
+              // Quarantine is intentionally effect-free. A crash after claim
+              // creation must recover its review receipt, never invent an
+              // owner effect or downgrade the safe route to unknown.
+              if (quarantine) return {
+                state: 'review-required',
+                ownerOperation: null,
+                ownerReceipt: null,
+                diagnostics: quarantine.diagnostics,
+              };
+              const latest = readAgentLifetime(vaultPath, project, agent);
+              if (!latest || latest.projectId !== leave.project || latest.workRunId !== leave.work_run_id || latest.agent !== ownerActor
+                || !latest.transitions.some((item) => item.operation === 'leave' && item.token === leave.transition_token)) return null;
+              let routeState: 'accepted' | 'review-required' | 'denied' | null = 'accepted';
+              if (output?.outputClass === 'knowledge-claim') {
+                routeState = 'review-required';
+              } else if (output?.outputClass === 'external-side-effect') {
+                if (latest.approvalStatus === 'denied') {
+                  routeState = 'denied';
+                } else if (latest.approvalStatus !== 'approved') {
+                  routeState = null;
+                }
+              }
+              if (routeState === null) return null;
+              return {
+                state: routeState,
+                ownerOperation: 'workflow.agent.leave',
+                ownerReceipt: { ok: true, projectId: latest.projectId, workItemId: latest.workItemId, workRunId: latest.workRunId, agent: latest.agent, workRunState: latest.workRunState },
+              };
+            },
+            owner: async (leave, ownerActor, output, quarantine) => {
+              const outputClass = output?.outputClass ?? quarantine?.observedClass ?? current.outputClass;
+              if (quarantine) {
+                return {
+                  ownerOperation: null,
+                  ownerReceipt: null,
+                  state: 'review-required',
+                  diagnostics: quarantine.diagnostics,
+                };
+              }
+              let approvalStatus: WorkRunApprovalStatus = 'pending';
+              if (output?.approval?.status === 'approved') {
+                approvalStatus = 'approved';
+              } else if (outputClass === 'view' || outputClass === 'work-state-transition') {
+                approvalStatus = 'not-required';
+              }
+              let nextWorkRunState: WorkRunState = leave.target_state as WorkRunState;
+              let routeState: 'accepted' | 'review-required' | 'denied' = 'accepted';
+              let routeDiagnostics: RecoveryFlowDiagnosticV2[] | undefined;
+              if (leave.mode === 'complete' && outputClass === 'knowledge-claim') {
+                nextWorkRunState = 'awaiting_review';
+                routeState = 'review-required';
+              } else if (leave.mode === 'complete' && outputClass === 'work-state-transition') {
+                await routeWorkStateTransition(ctx, leave, output, current);
+              } else if (leave.mode === 'complete' && outputClass === 'external-side-effect') {
+                const decision = await executeExternalSideEffect(ctx, leave, output, ownerActor);
+                if (!decision.allowed) {
+                  approvalStatus = 'denied';
+                  nextWorkRunState = 'awaiting_review';
+                  routeState = 'denied';
+                  routeDiagnostics = decision.diagnostics;
+                } else {
+                  approvalStatus = 'approved';
+                }
+              }
+              nextWorkRunState = transitionWorkRun(current.workRunState, nextWorkRunState);
+              const transitionToken = parseTransitionToken(leave.transition_token);
+              const summary = persistedOneLine('summary', leave.summary);
+              let state: AgentLifetimeState = {
+                ...current,
+                status: 'archived',
+                workRunState: nextWorkRunState,
+                provenance: mergeStringLists(current.provenance, output?.provenance ?? []),
+                outputClass,
+                approvalStatus,
+                updatedAt: isoNow(),
+              };
+              state = withTransitionReceipt(state, transitionToken, 'leave');
+              assertAgentLifetimeTextSafe(state);
+              const eventsPath = agentEventsPath(project, agent);
+              const runPath = durableRunPath(project, state.workRunId);
+              const draftPath = outputClass === 'knowledge-claim' && output ? `10-Projects/${project}/agents/${agent}/memory-drafts/${output.fingerprint}.json` : null;
+              return withFileRollback(vaultPath, [state.path, eventsPath, runPath, ...(draftPath ? [draftPath] : [])], () => {
+                writeVaultBytes(vaultPath, state.path, renderAgentLifetime(state, summary));
+                syncDurableWorkRunUnlocked(vaultPath, state, transitionToken, undefined, store);
+                if (draftPath && output) persistWorkRunOutputDraft(vaultPath, ctx.store, output, ownerActor);
+                appendAgentEvent(vaultPath, state, { kind: 'leave', summary: summary || `${agent} archived`, actor: ownerActor, transitionToken });
+                return { ownerOperation: 'workflow.agent.leave', ownerReceipt: { ok: true, projectId: state.projectId, workItemId: state.workItemId, workRunId: state.workRunId, agent: state.agent, workRunState: state.workRunState }, state: routeState, diagnostics: routeDiagnostics };
+              });
+            },
+          }, ctx, request);
+          return outputRoute.then((route) => ({ ok: route.state !== 'outcome-unknown', idempotent: false, project, projectId: current.projectId, agent, workRunId: current.workRunId, outputRoute: route, path: current.path, eventsPath: agentEventsPath(project, agent), runPath: durableRunPath(project, current.workRunId) }));
+        }
       },
     },
     {

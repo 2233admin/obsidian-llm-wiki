@@ -1,9 +1,9 @@
 """Tests for link resolver (PR2)."""
-import pytest
 from pathlib import Path
-from obc.index import VaultIndex, FileEntry
-from obc.resolver import Resolver, ResolutionConfig, DiagnosticCode
-from obc.extract import LinkRef, LinkKind
+
+from obc.extract import LinkKind, LinkRef
+from obc.index import BlockIdEntry, FileEntry, HeadingEntry, VaultIndex
+from obc.resolver import DiagnosticCode, Resolver
 
 
 def make_index():
@@ -22,7 +22,7 @@ def make_index():
     index.add_file(real_link)
 
     # Add Target Note.md with heading and block
-    from obc.index import HeadingEntry, BlockIdEntry
+
     target_note = FileEntry(
         path=Path("Target Note.md"),
         normalized_path="Target Note.md",

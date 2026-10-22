@@ -25,6 +25,7 @@ Usage:
     hub.decide_review(review.id, ReviewDecision.APPROVE)
 """
 
+from .hub import FleetHub, FleetState, SessionState
 from .message import (
     CheckResult,
     FleetMessage,
@@ -40,11 +41,6 @@ from .message import (
     WorkOutput,
     WorkTask,
 )
-from .hub import FleetHub, FleetState, SessionState
-from .scout import ScoutShip
-from .worker import WorkerShip
-from .verify import VerifyShip
-from .review import ReviewManager, ReviewSession
 from .registry import (
     FLEET_REGISTRY_SCHEMA_VERSION,
     FleetRegistry,
@@ -53,6 +49,8 @@ from .registry import (
     PeerSpec,
     TransportEndpoint,
 )
+from .review import ReviewManager, ReviewSession
+from .scout import ScoutShip
 from .transports import (
     ExecResult,
     GiteaTransport,
@@ -64,47 +62,49 @@ from .transports import (
     build_transport,
     known_transport_kinds,
 )
+from .verify import VerifyShip
+from .worker import WorkerShip
 
 __all__ = [
-    # Message types
-    "FleetMessage",
-    "MessageType",
-    "ShipType",
-    "ReviewDecision",
-    "ReviewStatus",
-    "WorkTask",
-    "WorkOutput",
-    "ScoutReport",
-    "VerifyResult",
-    "CheckResult",
-    "Issue",
-    "SignificanceScore",
-    "ReviewPoint",
-    # Hub types
-    "FleetState",
-    "SessionState",
-    # Ships
-    "FleetHub",
-    "ScoutShip",
-    "WorkerShip",
-    "VerifyShip",
-    # Review
-    "ReviewManager",
-    "ReviewSession",
     # Fleet registry + transports
     "FLEET_REGISTRY_SCHEMA_VERSION",
+    "CheckResult",
+    "ExecResult",
+    # Ships
+    "FleetHub",
+    # Message types
+    "FleetMessage",
     "FleetRegistry",
     "FleetRegistryError",
+    # Hub types
+    "FleetState",
+    "GiteaTransport",
+    "Issue",
+    "LocalFsTransport",
+    "MessageType",
     "PeerProbeReport",
     "PeerSpec",
-    "TransportEndpoint",
+    "ProbeResult",
+    "ReviewDecision",
+    # Review
+    "ReviewManager",
+    "ReviewPoint",
+    "ReviewSession",
+    "ReviewStatus",
+    "ScoutReport",
+    "ScoutShip",
+    "SessionState",
+    "ShipType",
+    "SignificanceScore",
+    "SshTransport",
     "Transport",
     "TransportCapabilityError",
-    "SshTransport",
-    "LocalFsTransport",
-    "GiteaTransport",
-    "ProbeResult",
-    "ExecResult",
+    "TransportEndpoint",
+    "VerifyResult",
+    "VerifyShip",
+    "WorkOutput",
+    "WorkTask",
+    "WorkerShip",
     "build_transport",
     "known_transport_kinds",
 ]

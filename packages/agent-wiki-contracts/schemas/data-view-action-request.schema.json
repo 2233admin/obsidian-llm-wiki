@@ -1,0 +1,8 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://schemas.llmwiki.org/agent-wiki/v1/data-view-action-request.schema.json",
+  "type":"object","required":["schemaVersion","kind","queryId","sourcePath","field","value","actor"],
+  "properties":{"schemaVersion":{"const":1},"kind":{"enum":["edit-property","move-card"]},"queryId":{"$ref":"common.schema.json#/$defs/identifier"},"sourcePath":{"$ref":"#/$defs/path"},"field":{"type":"string","minLength":1},"value":{"oneOf":[{"$ref":"#/$defs/scalar"},{"type":"array","items":{"$ref":"#/$defs/scalar"}}]},"actor":{"$ref":"common.schema.json#/$defs/identifier"}},
+  "additionalProperties":false,
+  "$defs":{"path":{"type":"string","minLength":1,"pattern":"^(?!/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\u0000\\\\]+$"},"scalar":{"type":["string","number","boolean","null"]}}
+}

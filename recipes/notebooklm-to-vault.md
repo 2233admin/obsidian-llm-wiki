@@ -6,7 +6,10 @@ description: Bidirectional bridge -- push vault notes to NotebookLM as sources, 
 category: research
 setup_time: 10 min
 cost_estimate: "$0 (NotebookLM free tier; unofficial API)"
-requires: ["python>=3.10", "notebooklm-py", "one-time `notebooklm login`"]
+requires:
+  - "python>=3.10"
+  - "notebooklm-py"
+  - "one-time `notebooklm login`"
 ---
 
 # NotebookLM-to-Vault (experimental)

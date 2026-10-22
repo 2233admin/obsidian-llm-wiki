@@ -3,7 +3,7 @@
  * Uses @electric-sql/pglite with pgvector + pg_trgm extensions.
  */
 
-import type { VaultBrainEngine, ChunkResult, ChunkInput } from "./engine.js";
+import type { VaultBrainEngine, ChunkResult, ChunkInput, FileStamp, ReindexState } from "./engine.js";
 import { VAULTBRAIN_CORE_SCHEMA_SQL, VAULTBRAIN_VECTOR_SCHEMA_SQL } from "./schema.js";
 import {
   embeddingFingerprintsMatch,
@@ -11,10 +11,11 @@ import {
 } from "../../embedding/profile.js";
 import { EmbeddingIndexRebuildRequiredError } from "./embedding-index.js";
 
-// Dynamic type placeholder -- PGlite's exact type is resolved at runtime
+// Dynamic type placeholder -- PGlite's exact type is resolved at runtime.
 type PGliteDB = {
   exec(sql: string): Promise<unknown>;
   query<T = unknown>(sql: string, params?: unknown[]): Promise<{ rows: T[] }>;
+  transaction<T>(callback: (tx: PGliteDB) => Promise<T>): Promise<T>;
   close(): Promise<void>;
   waitReady: Promise<void>;
 };
@@ -108,31 +109,114 @@ export class PGliteEngine implements VaultBrainEngine {
     }
   }
 
-  async upsertPage(slug: string, title: string, content: string, hash: string): Promise<void> {
+  async upsertPage(slug: string, title: string, content: string, hash: string, stamp?: FileStamp): Promise<void> {
     await this.requireDb().query(
-      `INSERT INTO pages (slug, title, content, hash, updated_at)
-       VALUES ($1, $2, $3, $4, now())
+      `INSERT INTO pages (slug, title, content, hash, mtime_ms, size_bytes, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, now())
        ON CONFLICT (slug) DO UPDATE SET
          title = EXCLUDED.title,
          content = EXCLUDED.content,
          hash = EXCLUDED.hash,
+         mtime_ms = EXCLUDED.mtime_ms,
+         size_bytes = EXCLUDED.size_bytes,
          updated_at = now()`,
-      [slug, title, content, hash],
+      [slug, title, content, hash, stamp?.mtimeMs ?? null, stamp?.sizeBytes ?? null],
     );
   }
 
-  async deletePage(slug: string): Promise<void> {
-    await this.requireDb().query(`DELETE FROM pages WHERE slug = $1`, [slug]);
+  async getPageHash(slug: string): Promise<string | null> {
+    const { rows } = await this.requireDb().query<{ hash: string | null }>(
+      `SELECT hash FROM pages WHERE slug = $1`,
+      [slug],
+    );
+    return rows[0]?.hash ?? null;
   }
 
-  async upsertChunks(slug: string, chunks: ChunkInput[]): Promise<void> {
-    if (chunks.length === 0) return;
-    const db = this.requireDb();
+  async getPageStamp(slug: string): Promise<FileStamp | null> {
+    const { rows } = await this.requireDb().query<{ mtime_ms: number | null; size_bytes: number | null }>(
+      `SELECT mtime_ms, size_bytes FROM pages WHERE slug = $1`,
+      [slug],
+    );
+    const row = rows[0];
+    if (!row || row.mtime_ms === null || row.size_bytes === null) return null;
+    return { mtimeMs: Number(row.mtime_ms), sizeBytes: Number(row.size_bytes) };
+  }
 
+  async listPageSlugs(): Promise<string[]> {
+    const { rows } = await this.requireDb().query<{ slug: string }>(
+      `SELECT slug FROM pages ORDER BY slug`,
+    );
+    return rows.map((row) => row.slug);
+  }
+
+  async deletePage(slug: string): Promise<void> {
+    const db = this.requireDb();
+    await db.query(`DELETE FROM chunks WHERE slug = $1`, [slug]);
+    await db.query(`DELETE FROM page_tags WHERE slug = $1`, [slug]);
+    await db.query(`DELETE FROM page_links WHERE from_slug = $1 OR to_slug = $1`, [slug]);
+    await db.query(`DELETE FROM pages WHERE slug = $1`, [slug]);
+  }
+  async clearPageMetadata(slug: string): Promise<void> {
+    const db = this.requireDb();
+    await db.query(`DELETE FROM page_tags WHERE slug = $1`, [slug]);
+    await db.query(`DELETE FROM page_links WHERE from_slug = $1`, [slug]);
+  }
+  async replacePage(
+    slug: string,
+    title: string,
+    content: string,
+    hash: string,
+    chunks: ChunkInput[],
+    links: string[],
+    tags: string[],
+    stamp?: FileStamp,
+  ): Promise<void> {
+    const db = this.requireDb();
+    await db.transaction(async (tx) => {
+      await tx.query(`DELETE FROM chunks WHERE slug = $1`, [slug]);
+      await tx.query(`DELETE FROM page_tags WHERE slug = $1`, [slug]);
+      await tx.query(`DELETE FROM page_links WHERE from_slug = $1`, [slug]);
+      await this.upsertChunksOn(tx, slug, chunks);
+      for (const toSlug of links) {
+        await tx.query(
+          `INSERT INTO page_links (from_slug, to_slug)
+           VALUES ($1, $2)
+           ON CONFLICT (from_slug, to_slug) DO NOTHING`,
+          [slug, toSlug],
+        );
+      }
+      for (const tag of tags) {
+        await tx.query(
+          `INSERT INTO page_tags (slug, tag)
+           VALUES ($1, $2)
+           ON CONFLICT (slug, tag) DO NOTHING`,
+          [slug, tag],
+        );
+      }
+      await tx.query(
+        `INSERT INTO pages (slug, title, content, hash, mtime_ms, size_bytes, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, now())
+         ON CONFLICT (slug) DO UPDATE SET
+           title = EXCLUDED.title,
+           content = EXCLUDED.content,
+           hash = EXCLUDED.hash,
+           mtime_ms = EXCLUDED.mtime_ms,
+           size_bytes = EXCLUDED.size_bytes,
+           updated_at = now()`,
+        [slug, title, content, hash, stamp?.mtimeMs ?? null, stamp?.sizeBytes ?? null],
+      );
+    });
+  }
+
+
+
+  async upsertChunks(slug: string, chunks: ChunkInput[]): Promise<void> {
+    await this.upsertChunksOn(this.requireDb(), slug, chunks);
+  }
+
+  private async upsertChunksOn(db: PGliteDB, slug: string, chunks: ChunkInput[]): Promise<void> {
+    if (chunks.length === 0) return;
     for (const chunk of chunks) {
-      // The `embedding` column doesn't exist at all when the vector extension
-      // failed to load (see schema.ts's VAULTBRAIN_VECTOR_SCHEMA_SQL) -- never
-      // reference it in that case, even for a NULL value.
       if (!this.hasVector) {
         await db.query(
           `INSERT INTO chunks (slug, chunk_index, chunk_text, token_count)
@@ -148,7 +232,6 @@ export class PGliteEngine implements VaultBrainEngine {
       const embeddingStr = chunk.embedding && chunk.embedding.length > 0
         ? JSON.stringify(chunk.embedding)
         : null;
-
       if (embeddingStr) {
         await db.query(
           `INSERT INTO chunks (slug, chunk_index, chunk_text, embedding, token_count)
@@ -279,6 +362,26 @@ export class PGliteEngine implements VaultBrainEngine {
     );
     const last = rows[0]?.last;
     return last ? new Date(last).getTime() : null;
+  }
+  async setReindexState(state: ReindexState): Promise<void> {
+    await this.requireDb().query(
+      `INSERT INTO vaultbrain_metadata (key, value_json, updated_at)
+       VALUES ($1, $2, now())
+       ON CONFLICT (key) DO UPDATE SET
+         value_json = EXCLUDED.value_json,
+         updated_at = now()`,
+      ["reindex-state", JSON.stringify(state)],
+    );
+  }
+
+  async getReindexState(): Promise<ReindexState | null> {
+    const { rows } = await this.requireDb().query<{ value_json: string }>(
+      `SELECT value_json FROM vaultbrain_metadata WHERE key = $1`,
+      ["reindex-state"],
+    );
+    const value = rows[0]?.value_json;
+    if (!value) return null;
+    return JSON.parse(value) as ReindexState;
   }
 
   async upsertLink(fromSlug: string, toSlug: string): Promise<void> {

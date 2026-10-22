@@ -152,3 +152,10 @@ Relevant domain terms are Temporal Graph Index, Graph Index Rebuild, Provenance-
 Relevant architectural decisions are ADR 0012 through ADR 0017. This PRD assumes those decisions remain accepted.
 
 This PRD is ready for agent implementation planning. The next workflow step is to split it into independently implementable issues.
+
+## Evaluation gate decision (2026-09-01)
+
+Deferred until Plugin GA safety and live Recovery/Memory/Citation evaluation
+gates pass. The current deterministic fixture is not a live adapter benchmark,
+so no temporal graph index, Graphiti adapter, or retrieval accelerator work is
+authorized in the current slice.

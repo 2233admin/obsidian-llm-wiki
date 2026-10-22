@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-import io
 import importlib.util
+import io
 import json
 import subprocess
 from pathlib import Path
 from typing import Any
 
 import pytest
-
 
 MODULE_PATH = Path(__file__).resolve().parents[1] / "scripts" / "verify_release_install.py"
 SPEC = importlib.util.spec_from_file_location("verify_release_install", MODULE_PATH)

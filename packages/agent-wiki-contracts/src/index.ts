@@ -169,3 +169,86 @@ export interface QueryTrace {
   fallbacks: string[];
   createdAt: string;
 }
+
+export type DataViewKind = "table" | "kanban";
+export type DataViewScalar = string | number | boolean | null;
+
+export interface DataViewDefinitionV1 {
+  schemaVersion: 1;
+  id: string;
+  title: string;
+  view: DataViewKind;
+  source: {
+    kind: "file" | "folder" | "files";
+    path?: string;
+    paths?: string[];
+  };
+  select: Array<{ field: string; label: string }>;
+  where?: DataViewPredicateV1;
+  groupBy?: string;
+  groupOrder?: string[];
+  orderBy?: Array<{ field: string; direction: "asc" | "desc" }>;
+}
+
+export type DataViewPredicateV1 =
+  | { kind: "and" | "or"; predicates: DataViewPredicateV1[] }
+  | {
+      kind: "field";
+      field: string;
+      operator: "equals" | "in" | "exists" | "contains";
+      value?: DataViewScalar | DataViewScalar[];
+    };
+
+export interface DataViewModelV1 {
+  schemaVersion: 1;
+  queryId: string;
+  view: DataViewKind;
+  columns: Array<{ field: string; label: string }>;
+  rows: Array<{
+    id: string;
+    source: { path: string; blockId?: string };
+    values: Record<string, DataViewValueV1>;
+  }>;
+  groups: Array<{ id: string; label: string; rowIds: string[] }>;
+  diagnostics: Array<{
+    code: string;
+    severity: "info" | "warning" | "error";
+    message: string;
+    sourcePath?: string;
+    field?: string;
+  }>;
+}
+
+export interface DataViewValueV1 {
+  state: "known" | "unknown";
+  value?: DataViewScalar | DataViewScalar[];
+  source: { path: string; field?: string; start?: number; end?: number; blockId?: string };
+}
+
+export interface DataViewActionRequestV1 {
+  schemaVersion: 1;
+  kind: "edit-property" | "move-card";
+  queryId: string;
+  sourcePath: string;
+  field: string;
+  value: DataViewScalar | DataViewScalar[];
+  actor: string;
+}
+
+export interface DataViewImportPlanV1 {
+  schemaVersion: 1;
+  source: { name: string; sha256: string };
+  targetRoot: string;
+  files: Array<{
+    path: string;
+    beforeSha256?: string;
+    before?: string;
+    after: string;
+    afterSha256: string;
+  }>;
+  selectedItemIds: string[];
+  warnings: string[];
+  provenance: { actor: string; origin: "import" };
+  fingerprint: string;
+}
+export * from "./template-manifest.js";

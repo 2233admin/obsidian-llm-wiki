@@ -40,6 +40,7 @@ test("Obsidian exposure is a filtered view of the shared application catalog", (
     "graph.adapters.query",
     "context.recall",
     "vault.writeAIOutput",
+    "workflow.recovery.apply",
   ];
   const rejected = [
     "vault.read",

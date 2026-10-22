@@ -1,0 +1,20 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://schemas.llmwiki.org/agent-wiki/v1/data-view-model.schema.json",
+  "type":"object",
+  "required":["schemaVersion","queryId","view","columns","rows","groups","diagnostics"],
+  "properties":{
+    "schemaVersion":{"const":1},"queryId":{"$ref":"common.schema.json#/$defs/identifier"},"view":{"enum":["table","kanban"]},
+    "columns":{"type":"array","items":{"$ref":"#/$defs/fieldLabel"}},
+    "rows":{"type":"array","items":{"type":"object","required":["id","source","values"],"properties":{"id":{"$ref":"common.schema.json#/$defs/identifier"},"source":{"type":"object","required":["path"],"properties":{"path":{"$ref":"#/$defs/path"},"blockId":{"type":"string","minLength":1}},"additionalProperties":false},"values":{"type":"object","additionalProperties":{"$ref":"#/$defs/value"}}},"additionalProperties":false}},
+    "groups":{"type":"array","items":{"type":"object","required":["id","label","rowIds"],"properties":{"id":{"$ref":"common.schema.json#/$defs/identifier"},"label":{"type":"string","minLength":1},"rowIds":{"type":"array","items":{"$ref":"common.schema.json#/$defs/identifier"}}},"additionalProperties":false}},
+    "diagnostics":{"type":"array","items":{"type":"object","required":["code","severity","message"],"properties":{"code":{"type":"string","minLength":1},"severity":{"enum":["info","warning","error"]},"message":{"type":"string","minLength":1},"sourcePath":{"$ref":"#/$defs/path"},"field":{"type":"string","minLength":1}},"additionalProperties":false}}
+  },
+  "additionalProperties":false,
+  "$defs":{
+    "path":{"type":"string","minLength":1,"pattern":"^(?!/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\u0000\\\\]+$"},
+    "fieldLabel":{"type":"object","required":["field","label"],"properties":{"field":{"type":"string","minLength":1},"label":{"type":"string","minLength":1}},"additionalProperties":false},
+    "scalar":{"type":["string","number","boolean","null"]},
+    "value":{"type":"object","required":["state","source"],"properties":{"state":{"enum":["known","unknown"]},"value":{"oneOf":[{"$ref":"#/$defs/scalar"},{"type":"array","items":{"$ref":"#/$defs/scalar"}}]},"source":{"type":"object","required":["path"],"properties":{"path":{"$ref":"#/$defs/path"},"field":{"type":"string","minLength":1},"start":{"type":"integer","minimum":0},"end":{"type":"integer","minimum":0},"blockId":{"type":"string","minLength":1}},"additionalProperties":false}},"additionalProperties":false}
+  }
+}

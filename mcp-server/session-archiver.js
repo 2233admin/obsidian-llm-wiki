@@ -3,8 +3,17 @@
 // dist/scripts/session-archiver.js
 import { createReadStream, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createInterface } from "node:readline";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { homedir } from "node:os";
+
+// dist/runtime-env.js
+var CANONICAL_VAULT_ENV = "VAULT_MIND_VAULT_PATH";
+var LEGACY_VAULT_ENV = "VAULT_BRIDGE_VAULT";
+function readVaultEnvironment(environment = process.env) {
+  return environment[CANONICAL_VAULT_ENV] || environment[LEGACY_VAULT_ENV];
+}
+
+// dist/scripts/session-archiver.js
 function parseArgs(argv) {
   const out = { dryRun: false, verbose: false };
   for (let i = 0; i < argv.length; i++) {
@@ -21,7 +30,7 @@ function parseArgs(argv) {
 function resolveVaultPath(explicit) {
   if (explicit)
     return explicit;
-  const env = process.env.VAULT_MIND_VAULT_PATH || process.env.VAULT_BRIDGE_VAULT;
+  const env = readVaultEnvironment();
   if (env)
     return env;
   throw new Error("vault path not set: pass --vault PATH or set VAULT_MIND_VAULT_PATH");
@@ -212,6 +221,9 @@ function oneLine(value, max = 200) {
   const s = (value || "").replace(/\r?\n/g, " ").trim();
   return s.length > max ? s.slice(0, max - 1) + "\u2026" : s;
 }
+var REDACTION_BACKSLASH = String.fromCharCode(92);
+var REDACTION_BACKSLASH_PATTERN = REDACTION_BACKSLASH.repeat(2);
+var REDACTION_SLASH = String.fromCharCode(47);
 var REDACTION_PATTERNS = [
   // Bearer / token / api-key style headers and assignments
   /(?:bearer|api[_-]?key|access[_-]?token|auth[_-]?token|secret[_-]?key|token)\s*[=:]\s*["']?[A-Za-z0-9._\-+/=]{16,}/gi,
@@ -224,16 +236,26 @@ var REDACTION_PATTERNS = [
   // Windows absolute paths under user profile
   new RegExp(String.raw`C:` + String.raw`\\Users\\[^\\\s'"<>|]+`, "g"),
   // Unix absolute paths under home
-  /\/(?:home|Users)\/[^/\s'"<>|]+/g
+  new RegExp(`${REDACTION_SLASH}(?:home|Users)${REDACTION_SLASH}[^${REDACTION_SLASH}\\s'"<>|]+`, "g")
 ];
-function redact(value) {
+function redact(value, vaultPath) {
   if (!value)
     return value;
   let out = value;
   for (const pat of REDACTION_PATTERNS) {
     out = out.replace(pat, "<REDACTED>");
   }
+  if (vaultPath)
+    out = out.replace(configuredVaultPathPattern(vaultPath), "<REDACTED>");
   return out;
+}
+function configuredVaultPathPattern(vaultPath) {
+  const separator = `[${REDACTION_BACKSLASH_PATTERN}${REDACTION_SLASH}]`;
+  const escapedPath = escapeRegExp(resolve(vaultPath)).replaceAll(REDACTION_BACKSLASH_PATTERN, separator);
+  return new RegExp(`(?<![A-Za-z0-9_])${escapedPath}(?:${separator}[^\\s'"<>|]*)?(?=$|[\\s'"<>|])`, "g");
+}
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 function projectSlug(raw) {
   const fallback = "inbox";
@@ -329,7 +351,7 @@ function archiveSession(vaultPath, session, state) {
   const sessionSlug = `${date}-${session.id.slice(0, 8)}`;
   const project = projectSlug(session.project);
   const relPath = `01-Projects/${project}/sessions/${sessionSlug}.md`;
-  const description = oneLine(redact(session.threadName) || redact(session.prompt) || `Session ${session.id.slice(0, 8)}`, 200);
+  const description = oneLine(redact(session.threadName, vaultPath) || redact(session.prompt, vaultPath) || `Session ${session.id.slice(0, 8)}`, 200);
   const content = renderIssueNote({
     slug: sessionSlug,
     description,
@@ -337,8 +359,8 @@ function archiveSession(vaultPath, session, state) {
     source: session.source,
     sessionId: session.id,
     timestamp: session.timestamp,
-    prompt: redact(session.prompt),
-    threadName: redact(session.threadName),
+    prompt: redact(session.prompt, vaultPath),
+    threadName: redact(session.threadName, vaultPath),
     project
   });
   writeVaultBytes(vaultPath, relPath, content);

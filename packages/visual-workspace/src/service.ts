@@ -1,19 +1,14 @@
 import { deepFreeze, sha256Text } from "./canonical.js";
 import { VisualWorkspaceError } from "./errors.js";
 import { parseManagedMindMapSection } from "./markdown.js";
+import { ReplaySafeTransitionLedger } from "./replay-safe.js";
 import { assertVisualApplyRequest } from "./plans.js";
 import type { ApplyVisualEditPlanResult, VisualApplyRequest } from "./types.js";
 import { mindMapFingerprint } from "./validation.js";
 
-interface RecordedTransition {
-  planFingerprint: string;
-  actor: string;
-  result: ApplyVisualEditPlanResult;
-}
-
 export class InMemoryVisualWorkspace {
   readonly #sources = new Map<string, string>();
-  readonly #transitions = new Map<string, RecordedTransition>();
+  readonly #transitions = new ReplaySafeTransitionLedger<ApplyVisualEditPlanResult>();
 
   constructor(initialSources: Readonly<Record<string, string>> = {}) {
     for (const [path, source] of Object.entries(initialSources)) {
@@ -29,16 +24,8 @@ export class InMemoryVisualWorkspace {
     assertVisualApplyRequest(value);
     const request: VisualApplyRequest = value;
     const { plan } = request;
-    const recorded = this.#transitions.get(request.transitionToken);
-    if (recorded) {
-      if (recorded.planFingerprint !== plan.fingerprint || recorded.actor !== request.actor) {
-        throw new VisualWorkspaceError(
-          "TRANSITION_TOKEN_REUSED",
-          "The transition token was already used by another visual apply request",
-        );
-      }
-      return deepFreeze({ ...recorded.result, replayed: true });
-    }
+    const replayed = this.#transitions.replay(request.transitionToken, plan.fingerprint, request.actor);
+    if (replayed) return deepFreeze({ ...replayed, replayed: true });
 
     const currentSource = this.#sources.get(plan.source.path);
     if (currentSource === undefined) {
@@ -68,11 +55,12 @@ export class InMemoryVisualWorkspace {
       transitionToken: request.transitionToken,
       replayed: false,
     };
-    this.#transitions.set(request.transitionToken, {
-      planFingerprint: plan.fingerprint,
-      actor: request.actor,
-      result: deepFreeze({ ...result }) as ApplyVisualEditPlanResult,
-    });
+    this.#transitions.record(
+      request.transitionToken,
+      plan.fingerprint,
+      request.actor,
+      deepFreeze({ ...result }) as ApplyVisualEditPlanResult,
+    );
     return deepFreeze(result);
   }
 }

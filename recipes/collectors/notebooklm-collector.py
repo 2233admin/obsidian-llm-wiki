@@ -16,7 +16,7 @@ import asyncio
 import json
 import re
 import sys
-from datetime import date
+from datetime import datetime
 from pathlib import Path
 
 try:
@@ -69,7 +69,7 @@ async def cmd_ask(args):
             return {"ok": False, "error": f"notebook '{args.notebook}' had no sources (just created); push first"}
         result = await client.chat.ask(nb.id, args.question)
 
-        today = date.today().isoformat()
+        today = datetime.now().astimezone().date().isoformat()
         slug = slugify(args.question)
         rel = f"00-Inbox/NotebookLM/{today}--{slug}.md"
         out = vault / rel
@@ -110,7 +110,7 @@ async def cmd_report(args):
         if completed.status != "COMPLETED":
             return {"ok": False, "error": f"generation ended as {completed.status}", "task_id": status.task_id}
 
-        today = date.today().isoformat()
+        today = datetime.now().astimezone().date().isoformat()
         rel = f"Research/NotebookLM/{today}--{slugify(args.notebook)}--{args.format}.md"
         out = vault / rel
         out.parent.mkdir(parents=True, exist_ok=True)
@@ -142,8 +142,8 @@ def main():
     handler = {"push": cmd_push, "ask": cmd_ask, "report": cmd_report}[args.cmd]
     try:
         result = asyncio.run(handler(args))
-    except Exception as e:
-        result = {"ok": False, "error": f"{type(e).__name__}: {e}"}
+    except Exception as error:  # noqa: BLE001 - preserve the one-JSON-object CLI contract
+        result = {"ok": False, "error": f"{type(error).__name__}: {error}"}
     print(json.dumps(result, ensure_ascii=False))
     sys.exit(0 if result.get("ok") else 1)
 

@@ -6,10 +6,10 @@ A stale note is one whose last modification date is older than the threshold.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime
-from pathlib import Path
 from collections import Counter
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
 
 from obc.extract import extract_vault_links
 
@@ -25,7 +25,9 @@ class StaleNote:
     def to_dict(self) -> dict:
         return {
             "path": str(self.path),
-            "last_modified": datetime.fromtimestamp(self.last_modified).isoformat(),
+            "last_modified": datetime.fromtimestamp(
+                self.last_modified, tz=timezone.utc
+            ).isoformat(),
             "age_days": round(self.age_days, 1),
             "links_to": self.links_to,
         }
@@ -88,7 +90,7 @@ def find_stale_notes(
     if ignore_folders is None:
         ignore_folders = IGNORED_FOLDERS
 
-    now = datetime.now().timestamp()
+    now = datetime.now(tz=timezone.utc).timestamp()
     threshold_seconds = min_age_days * 86400
 
     # Extract all links to count outgoing links per file

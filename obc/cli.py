@@ -17,7 +17,7 @@ import json
 import sys
 from pathlib import Path
 
-from obc.extract import extract_vault_links, LinkRef
+from obc.extract import extract_vault_links
 
 
 def cmd_extract(vault: Path, args: argparse.Namespace) -> int:
@@ -54,6 +54,8 @@ def cmd_extract(vault: Path, args: argparse.Namespace) -> int:
 
 def cmd_check(vault: Path, args: argparse.Namespace) -> int:
     """Check vault links with resolution."""
+    from collections import Counter
+
     from obc.index import build_index
     from obc.resolver import Resolver
 
@@ -64,7 +66,6 @@ def cmd_check(vault: Path, args: argparse.Namespace) -> int:
     diagnostics = resolver.resolve_all(links)
 
     # Group by severity
-    from collections import Counter
     by_severity = Counter(d.severity for d in diagnostics)
 
     if args.format == "json":
@@ -105,7 +106,9 @@ def cmd_check(vault: Path, args: argparse.Namespace) -> int:
 
 def cmd_orphan(vault: Path, args: argparse.Namespace) -> int:
     """Find orphan notes in vault."""
-    from obc.orphan import find_orphans, OrphanReport
+    from datetime import datetime, timezone
+
+    from obc.orphan import OrphanReport, find_orphans
 
     orphans = find_orphans(vault)
     report = OrphanReport(vault=str(vault), orphans=orphans)
@@ -116,8 +119,7 @@ def cmd_orphan(vault: Path, args: argparse.Namespace) -> int:
         print(f"Found {len(orphans)} orphan notes in {vault}")
         print()
         for orphan in orphans[:20]:
-            from datetime import datetime
-            age_days = (datetime.now().timestamp() - orphan.last_modified) / 86400
+            age_days = (datetime.now(timezone.utc).timestamp() - orphan.last_modified) / 86400
             print(f"  [{age_days:5.0f}d] {orphan.path}")
         if len(orphans) > 20:
             print(f"  ... and {len(orphans) - 20} more")
@@ -127,7 +129,7 @@ def cmd_orphan(vault: Path, args: argparse.Namespace) -> int:
 
 def cmd_stale(vault: Path, args: argparse.Namespace) -> int:
     """Find stale notes in vault."""
-    from obc.stale import find_stale_notes, StaleReport
+    from obc.stale import StaleReport, find_stale_notes
 
     min_days = args.days or 30
     stale = find_stale_notes(vault, min_age_days=min_days)
@@ -157,8 +159,8 @@ def cmd_stale(vault: Path, args: argparse.Namespace) -> int:
 def cmd_plan(vault: Path, args: argparse.Namespace) -> int:
     """Generate fix plan from vault diagnostics."""
     from obc.index import build_index
-    from obc.resolver import Resolver
     from obc.planner import FixPlanner
+    from obc.resolver import Resolver
 
     # Build index and extract links
     index = build_index(vault)
@@ -180,7 +182,7 @@ def cmd_plan(vault: Path, args: argparse.Namespace) -> int:
 
 def cmd_apply(args: argparse.Namespace) -> int:
     """Apply fixes from a plan."""
-    from obc.planner import FixPlanner, FixPlan, FixCandidate
+    from obc.planner import FixCandidate, FixPlan, FixPlanner
 
     plan_path = Path(args.plan)
     if not plan_path.exists():

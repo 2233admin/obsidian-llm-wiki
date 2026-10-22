@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "manifestId": "template/demo-home",
+  "source": { "path": "_llmwiki/templates/Home.components", "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+  "template": { "path": "Templates/project.md", "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" },
+  "home": { "path": "Home.components", "dashboard": { "layout": "grid", "componentIds": ["dashboard", "project-form"] } },
+  "components": [
+    { "id": "dashboard", "type": "data-view", "title": "Projects", "layout": { "laptop": { "x": 0, "y": 0, "w": 12, "h": 6 } } },
+    { "id": "project-form", "type": "form", "title": "New project", "fields": [{ "id": "name", "label": "Name", "type": "text", "property": "name" }], "actions": [{ "kind": "create-file", "templatePath": "Templates/project.md", "targetFolder": "Projects", "fileName": "{{name}}" }] }
+  ],
+  "diagnostics": [{ "kind": "unsupported", "code": "unsupported-widget", "message": "Widget type was not imported", "componentId": "dashboard", "evidence": ["_llmwiki/templates/Home.components:widget-1"] }],
+  "provenance": { "origin": "external-observation", "sourceUrl": "https://example.com/components", "release": "3.1.260826" },
+  "fingerprint": "622c297e14540e963a87cc24609398e37edb273cffae6136b4c8b25d16a478af"
+}

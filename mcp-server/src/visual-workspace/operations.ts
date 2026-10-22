@@ -42,6 +42,7 @@ import {
   type Operation,
   type OperationContext,
 } from '../core/types.js';
+import { makeTemplateImportOps } from "./template-import-ops.js";
 import { touchMarkdown } from '../core/write-policy.js';
 import { resolveProjectContext } from '../project/project-context.js';
 
@@ -1052,5 +1053,6 @@ export function makeVisualWorkspaceOps(vaultPath: string): Operation[] {
         });
       },
     },
+    ...makeTemplateImportOps(),
   ];
 }

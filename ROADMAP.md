@@ -5,6 +5,88 @@ Detailed release notes per version live in `CHANGELOG.md`; per-issue
 work state lives in `01-Projects/obsidian-llm-wiki/issues/`. Archive
 drafts from prior planning rounds are in `docs/archive/task-drafts/`.
 
+## Current priority: product foundation
+
+LLM Wiki is an Obsidian-first product. The Obsidian plugin is the primary
+human-facing product and control plane; MCP and CLI are access surfaces; Python
+compiler and adapter processes are optional capability workers. The canonical
+architecture is recorded in `30-Architecture/llm-wiki-product-spine.md`.
+
+Before adding new MCP tools, adapters, Fleet features, or isolated setup
+patches, complete and verify this foundation:
+
+- [x] Obsidian-first onboarding and vault binding
+- [x] Capability health with actionable remediation
+- [x] TypeScript-owned worker boundary for named compiler, trigger, MemU, and agent callers; no production direct Python callsites remain (direct Python calls are test-only)
+- [x] Clear ownership between plugin, MCP, CLI, and durable vault state
+- [x] Roadmap and Work-OS issues grouped by product milestone
+- [x] Stateless Project Hub Recovery Flow v2 passes the complete actual-Obsidian Foundation gate
+
+The setup surface is TS-owned by `mcp-server/src/scripts/setup.ts`; `setup`
+and `setup.ps1` are thin launchers.
+
+Feature expansion may resume now that the S08 Foundation gate is accepted.
+
+### Approved foundation slice: Project Hub Recovery Flow v2
+
+The approved slice replaces `project-hub-recovery/v1` with a stateless staged
+Recovery Flow that moves from current Project facts through mandatory cited
+search and immutable Plan preview, then delegates confirmed mutation and output
+routing to Workflow. S01 v1 remains completed history. S01B–S08 are verified
+completions. Foundation exit is accepted.
+
+Dependency order:
+
+```text
+S01 v1 complete (historical)
+  -> S01B complete internal V2 contract kernel [done]
+       -> S02 open/context + Workflow store/read seams [done]
+            -> S03 mandatory repeatable cited search [done]
+                 -> S04A candidates/Plan + complete Flow registration + V1 removal [done]
+                      -> S04P read-only workflow.recovery.plan Operation [done]
+                           -> S06A actual Obsidian read-only preview [done]
+                                -> S04B claim-first Workflow apply [done]
+                                     -> S05 claimed output governance [done]
+                                          -> S06B actual Obsidian apply/receipt/restart [done]
+                                               -> S07 MCP/CLI parity [done]
+                                               -> S08 Foundation acceptance [done]
+**S04P, S06A, S04B, S05, S06B, S07, and S08 are verified complete.** Planning,
+apply, output routing, the human Obsidian recovery journey, and MCP/CLI parity
+remain separate, claim-first, and replay-safe. Foundation exit is accepted.
+Current verification totals:
+- Root Python: `python -m pytest -q` — 284 passed, 1 skipped.
+- MCP: `npm test` — 868 passed, 18 skipped, 0 failed.
+- Obsidian plugin: `npm test` — 98 passed, 0 failed; typecheck and production build passed.
+- Fleet verifier: all checks ok.
+
+Planning sources:
+
+- `docs/adr/0001-project-hub-recovery-flow-v2.md`
+- `openspec/changes/project-hub-recovery-loop/`
+- `docs/superpowers/plans/2026-08-27-project-hub-recovery-loop.md`
+- `01-Projects/obsidian-llm-wiki/issues/p0-s01b-*` through `p0-s08-*`
+
+The plan is source-bound: Flow has no server/plugin state; search is mandatory
+and branch-fingerprinted; automatic planning requires exactly one compatible
+Binding; candidate override and explicit Plan refresh validate the complete
+prior Plan; S04A performs one clean V1 cutover; all Workflow factory and
+completion callers are frozen; apply/output use durable claims and honest
+outcome-unknown recovery.
+
+### Current issue taxonomy
+
+| Product area | Current issues |
+|---|---|
+| Foundation / Project recovery | `p0-s01b-project-hub-recovery-flow-v2`, `p0-s02-resumable-agent-context`, `p0-s03-project-cited-retrieval`, `p0-s04-work-run-next-action`, `p0-s04p-workflow-recovery-plan`, `p0-s06-obsidian-recovery-surface`, `p0-s04b-workflow-recovery-apply`, `p0-s05-agent-output-governance`, `p0-s06b-obsidian-recovery-action`, `p0-s07-mcp-cli-parity`, `p0-s08-recovery-loop-acceptance` |
+| Core product / Obsidian UX | `ux-audit-findings`, `plugin-migration-data-loss`, `plugin-main-ts-test-coverage`, `plugin-legacy-assignment-precedence`, `plugin-python-path-batch-cmd`, `plugin-binding-editor-noop-callback`, `plugin-low-hygiene-batch`, `plugin-promote-frontmatter-gate`, `plugin-promote-view-refresh`, `plugin-promote-open-snapshot`, `plugin-promote-obsidian-git-handoff`, `plugin-promote-autodetect-kbmeta` |
+| Product infrastructure | `host-install-registration-wheel` |
+| Compatibility / search worker | `temporal-graph-index-search-accelerator` |
+| Later / experimental | `fleet-agent-discovery-transports`, `gitea-federation-adapter` |
+
+The taxonomy is product-oriented, not file-oriented. A change belongs to the
+product area it serves even when its implementation crosses TypeScript,
+Python, plugin, or MCP directories.
+
 ## Shipped
 
 ### Phase: graphify adapter
@@ -63,7 +145,7 @@ drafts from prior planning rounds are in `docs/archive/task-drafts/`.
 
 ### Phase: Plugin 0.4.0 Beta series (beta.1 → beta.5)
 
-- **Status**: in flight (current tag 0.4.0-beta.5, 2026-08-18)
+- **Status**: paused pending product foundation (current tag 0.4.0-beta.5, 2026-08-18)
 - **Done**:
   - [x] `add-ask-mate-visual-workspace` — Ask Mate, mind maps, governed
     Problem Intake, user-approved Issue/PR contribution (Issue #add-ask-mate-visual-workspace)
@@ -78,8 +160,8 @@ drafts from prior planning rounds are in `docs/archive/task-drafts/`.
     workflow intake contract
   - [x] `fix-work-os-nested-worktree-duplication` — scanner exclusion
     of machine-local `.orca/worktrees/**`
-- **In progress**:
-  - [ ] `plugin-migration-data-loss` (P1) — legacy settings migration
+- **Deferred backlog after foundation**:
+  - [x] `plugin-migration-data-loss` (P1) — legacy settings migration
     transactional guarantee broken
   - [ ] `plugin-main-ts-test-coverage` (P2) — `main.ts` zero coverage
     (root cause of the data-loss bug shipping)
@@ -87,8 +169,8 @@ drafts from prior planning rounds are in `docs/archive/task-drafts/`.
     `plugin-promote-open-snapshot`,
     `plugin-promote-obsidian-git-handoff`,
     `plugin-promote-autodetect-kbmeta` (P2/P3) — promote flow polish
-  - [ ] `host-install-registration-wheel` (P1) — single host-install
-    mechanism replacing three drifting setup scripts
+  - [x] `host-install-registration-wheel` (P1) — single host-install
+    mechanism replacing three drifting setup scripts (delivered; full MCP suite remains Bun-runner blocked)
   - [ ] `fleet-agent-discovery-transports` (P2) — transport-pluggable
     discovery (NetBird / WireGuard / SSH / orca)
   - [ ] `gitea-federation-adapter` (P3) — gitea issue ↔ work-OS
@@ -96,13 +178,15 @@ drafts from prior planning rounds are in `docs/archive/task-drafts/`.
 
 ## Next
 
-### Phase: Plugin 0.4.0 GA → v2.8.0 GA
+### Phase: Foundation exit → Plugin 0.4.0 GA
 
-- **Goal**: clear the 13 open plugin todo entries, ship a stable release.
-- **Trigger**: `plugin-migration-data-loss` resolved + `plugin-main-ts-test-coverage`
-  regression test green + `host-install-registration-wheel` shipped.
-- **Out of scope**: fleet federation, ask-mate UI polish beyond beta.5,
-  graph v2 redesign.
+- **Goal**: make the Obsidian-first product path coherent before shipping the
+  next plugin release.
+- **Trigger**: onboarding, capability health, TS/Python boundary, access-surface
+  ownership, and Work-OS milestone alignment are accepted.
+- **Next step**: resume the existing Plugin 0.4.0 GA safety and UX work now that the Foundation trigger is accepted.
+- **Out of scope during foundation**: new adapters, Fleet federation, Gitea
+  federation, and graph v2 redesign.
 - **Definition of done**:
   - [ ] All P1 plugin todo entries closed
   - [ ] `npm test` green (requires bun shim repair on the host machine)

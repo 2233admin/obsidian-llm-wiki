@@ -19,7 +19,7 @@ def main() -> int:
 
     compiler_root = Path(args.compiler_root)
     sys.path.insert(0, str(compiler_root))
-    from contribution_manifest import (  # noqa: E402
+    from contribution_manifest import (
         apply_source_revision,
         build_contributions_for_source,
         build_manifest,
