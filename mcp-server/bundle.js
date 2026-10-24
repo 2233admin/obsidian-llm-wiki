@@ -92102,15 +92102,20 @@ function boundedWakeup(result, maxChars) {
     return clone3;
   clone3.truncated = true;
   const layers = clone3.layers;
+  const top = clone3;
   if (layers.l2RoomRecall) {
     layers.l2RoomRecall.answer = trimText(layers.l2RoomRecall.answer ?? "", 600);
     layers.l2RoomRecall.claims = [];
+    layers.l2RoomRecall.gaps = [];
     layers.l2RoomRecall.traceSummary = void 0;
+    delete top.citations;
   }
   if (JSON.stringify(clone3).length <= maxChars)
     return clone3;
-  if (layers.l2RoomRecall)
+  if (layers.l2RoomRecall) {
+    top.citations = layers.l2RoomRecall.citations ?? [];
     delete layers.l2RoomRecall;
+  }
   if (layers.l1EssentialStory?.sessions) {
     layers.l1EssentialStory.sessions = layers.l1EssentialStory.sessions.slice(0, 2).map((session) => ({
       ...session,
