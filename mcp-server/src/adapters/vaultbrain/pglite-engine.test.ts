@@ -135,3 +135,22 @@ test("searchKeyword: no match -> [] ; identical queries are deterministic", { ti
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("searchVector ranks embedded chunks by cosine similarity (pgvector loads)", { timeout: PGLITE_TEST_TIMEOUT_MS }, async () => {
+  const { engine, dir } = await freshEngine();
+  const dim = parseInt(process.env.VAULTBRAIN_EMBED_DIM ?? "1024", 10);
+  const unit = (axis: number) => Array.from({ length: dim }, (_, i) => (i === axis ? 1 : 0));
+  try {
+    await engine.upsertChunks("a", [{ ...chunk(0, "about cats"), embedding: unit(0) }]);
+    await engine.upsertChunks("b", [{ ...chunk(0, "about dogs"), embedding: unit(1) }]);
+    await engine.upsertChunks("c", [chunk(0, "not embedded")]);
+    assert.equal(await engine.countEmbeddedChunks(), 2);
+
+    const hits = await engine.searchVector(unit(1), 5);
+    assert.deepEqual(hits.map((h) => h.slug), ["b", "a"]);
+    assert.ok(Math.abs(hits[0]!.score - 1) < 1e-6);
+  } finally {
+    await engine.disconnect();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
