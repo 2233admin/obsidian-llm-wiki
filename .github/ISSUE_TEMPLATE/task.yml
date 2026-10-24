@@ -1,0 +1,27 @@
+name: 任务
+description: 一件可以独立完成的工作（bug、改进、杂务）
+labels: ["needs-triage"]
+body:
+  - type: textarea
+    id: background
+    attributes:
+      label: 背景
+      description: 现在是什么情况、为什么要做。写清楚相关文件、命令、报错，让没有上下文的人（或 agent）也能直接开工。
+    validations:
+      required: true
+  - type: textarea
+    id: work
+    attributes:
+      label: 要做什么
+      description: 期望的改动或做法。不确定的地方写出来。
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 验收标准
+      description: 可检查的完成条件，每条一个 checkbox。
+      value: |
+        - [ ] 
+    validations:
+      required: true

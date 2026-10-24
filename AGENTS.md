@@ -17,7 +17,8 @@ Before changing ingest, memory, source registration, project/work-OS behavior, o
 - Supported Phase 1 Source Registration inputs: `url`, `vaultPath`.
 - Reserved Source Input vocabulary that must not be passed to `source.register` yet: `repoPath`, `filePath`, `directoryPath`, `text`.
 - Agent drafts: `00-Inbox/AI-Output/<agent>/` or `10-Projects/<project>/agents/<agent>/`.
-- Current work items: `01-Projects/<project>/issues/<slug>.md`.
+- Current development work items: GitHub Issues (`docs/agents/issue-tracker.md`).
+- Product work-OS issue notes: `01-Projects/<project>/issues/<slug>.md`.
 - Retired work store: `10-Projects/<project>/docket/**`.
 - Protected durable knowledge: `20-Decisions/`, `30-Architecture/`, `40-Runbooks/`.
 
@@ -27,8 +28,8 @@ External repositories and skill packs are Sources or workflow capability provide
 
 ### Issue tracker
 
-Executable work is tracked as local Markdown issues under
-`01-Projects/<project>/issues/`; see `docs/agents/issue-tracker.md`.
+Development work on this repository is tracked as GitHub Issues; see
+`docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

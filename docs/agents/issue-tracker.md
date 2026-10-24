@@ -2,24 +2,27 @@
 
 ## Source of truth
 
-This repository uses local Markdown issues as the executable work tracker.
+Development work on this repository is tracked as GitHub Issues in
+[2233admin/obsidian-llm-wiki](https://github.com/2233admin/obsidian-llm-wiki/issues).
+Any human or agent picks up work from there; progress must not depend on a
+single chat session.
 
-- Active issues: `01-Projects/<project>/issues/<slug>.md`
-- Retired work: `10-Projects/<project>/docket/**`
-- Agent drafts: `00-Inbox/AI-Output/<agent>/` or
-  `10-Projects/<project>/agents/<agent>/`
+- New work: open an issue with the **任务** template (背景 / 要做什么 / 验收标准).
+- Write each issue so it is self-contained: files, commands, error output, and
+  checkable acceptance criteria.
+- Link the PR to the issue (`Fixes #N`) so merging closes it.
 
-The Gitea remote is used for source control. No automatic Gitea issue workflow
-is configured for these skills, so do not create GitHub/GitLab issues or use
-`.scratch/` as a competing tracker.
+`01-Projects/<project>/issues/<slug>.md` is the product's work-OS issue format
+(used by `project.*` tools and user vaults). It is not the tracker for
+developing this repository; do not add new development tasks there.
 
 ## Issue contract
 
-Read the issue frontmatter and acceptance criteria before implementation.
-Keep status, verification evidence, and blocking relationships in the issue.
-Use the project's existing vocabulary and paths.
+Read the issue body and acceptance criteria before implementation. Record
+verification evidence and blocking relationships in the issue or the linked PR.
 
 ## Triage
 
-Apply the mappings in `docs/agents/triage-labels.md` when triage skills refer
-to canonical roles.
+Apply the labels in `docs/agents/triage-labels.md`. `ready-for-agent` means an
+agent can finish it without a human; `ready-for-human` means it needs a person
+or a specific machine (e.g. 5070X, 5090).

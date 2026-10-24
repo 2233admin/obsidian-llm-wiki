@@ -86,7 +86,7 @@ Key constraints:
 - register durable external inputs through `source.register` only when Phase 1 supports the Source Input (`url` or `vaultPath`);
 - keep local clone paths, repo paths, file paths, directory paths, and pasted text out of `source.register` until those input types are implemented;
 - write unreviewed analysis under `00-Inbox/AI-Output/<agent>/` or `10-Projects/<project>/agents/<agent>/`;
-- track executable obsidian-llm-wiki work under `01-Projects/<project>/issues/`, never `10-Projects/<project>/docket/**`;
+- track development work on this repository as GitHub Issues, never `10-Projects/<project>/docket/**`;
 - promote durable team truth only through reviewed Decisions, Architecture, Runbooks, or Project Hub links.
 
 ## Skill routing
@@ -112,8 +112,8 @@ Key routing rules:
 
 ### Issue tracker
 
-Executable work is tracked as local Markdown issues under
-`01-Projects/<project>/issues/`; see `docs/agents/issue-tracker.md`.
+Development work on this repository is tracked as GitHub Issues; see
+`docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
