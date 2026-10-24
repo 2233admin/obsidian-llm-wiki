@@ -23,6 +23,7 @@ import { embeddingFingerprint, resolveEmbeddingProfile } from "../../embedding/p
 import { EmbeddingIndexRebuildRequiredError } from "./embedding-index.js";
 
 const PGLITE_TEST_TIMEOUT_MS = 20_000;
+const TEST_DIM = 1024;
 
 function chunk(i: number, text: string): ChunkInput {
   return { chunkIndex: i, chunkText: text, embedding: null, tokenCount: Math.ceil(text.length / 4) };
@@ -32,7 +33,7 @@ async function freshEngine(): Promise<{ engine: PGliteEngine; dir: string }> {
   const dir = mkdtempSync(join(tmpdir(), "vbtest-"));
   const engine = new PGliteEngine(dir);
   await engine.connect();
-  await engine.initSchema();
+  await engine.initSchema(TEST_DIM);
   return { engine, dir };
 }
 
@@ -136,9 +137,26 @@ test("searchKeyword: no match -> [] ; identical queries are deterministic", { ti
   }
 });
 
+test("initSchema resizes an empty embedding column to the bound dimensions", { timeout: PGLITE_TEST_TIMEOUT_MS }, async () => {
+  const { engine, dir } = await freshEngine();
+  try {
+    await engine.upsertChunks("a", [chunk(0, "keyword only")]);
+    await engine.initSchema(3);
+    await engine.upsertChunks("b", [{ ...chunk(0, "small"), embedding: [1, 0, 0] }]);
+    assert.equal(await engine.countEmbeddedChunks(), 1);
+    assert.equal(await engine.countChunks(), 2);
+
+    await engine.initSchema(4);
+    assert.equal(await engine.countEmbeddedChunks(), 1, "a store holding vectors keeps its column");
+  } finally {
+    await engine.disconnect();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("searchVector ranks embedded chunks by cosine similarity (pgvector loads)", { timeout: PGLITE_TEST_TIMEOUT_MS }, async () => {
   const { engine, dir } = await freshEngine();
-  const dim = parseInt(process.env.VAULTBRAIN_EMBED_DIM ?? "1024", 10);
+  const dim = TEST_DIM;
   const unit = (axis: number) => Array.from({ length: dim }, (_, i) => (i === axis ? 1 : 0));
   try {
     await engine.upsertChunks("a", [{ ...chunk(0, "about cats"), embedding: unit(0) }]);

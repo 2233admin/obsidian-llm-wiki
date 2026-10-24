@@ -87,7 +87,8 @@ export function resolveEmbeddingProfile(
     options.endpoint ?? builtIn?.endpoint ?? DEFAULT_ENDPOINT,
   );
   const model = nonEmpty(options.model ?? builtIn?.model, "embedding model");
-  const dimensions = options.dimensions ?? builtIn?.dimensions;
+  // Built-in dimensions describe the built-in model only, never a replacement model.
+  const dimensions = options.dimensions ?? (model === builtIn?.model ? builtIn.dimensions : undefined);
   if (dimensions !== undefined && (!Number.isInteger(dimensions) || dimensions <= 0)) {
     throw new Error("embedding dimensions must be a positive integer");
   }
