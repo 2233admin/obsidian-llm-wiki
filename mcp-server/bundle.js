@@ -38051,7 +38051,7 @@ function resolveEmbeddingProfile(options = {}) {
   const builtIn = isBuiltInEmbeddingProfileId(requestedId) ? BUILT_IN_EMBEDDING_PROFILES[requestedId] : void 0;
   const endpoint = normalizeEmbeddingEndpoint(options.endpoint ?? builtIn?.endpoint ?? DEFAULT_ENDPOINT);
   const model = nonEmpty(options.model ?? builtIn?.model, "embedding model");
-  const dimensions = options.dimensions ?? builtIn?.dimensions;
+  const dimensions = options.dimensions ?? (model === builtIn?.model ? builtIn.dimensions : void 0);
   if (dimensions !== void 0 && (!Number.isInteger(dimensions) || dimensions <= 0)) {
     throw new Error("embedding dimensions must be a positive integer");
   }
@@ -68166,7 +68166,6 @@ import { homedir as homedir2 } from "node:os";
 import { join as join4 } from "node:path";
 
 // dist/adapters/vaultbrain/schema.js
-var EMBED_DIM = parseInt(process.env.VAULTBRAIN_EMBED_DIM ?? "1024", 10);
 var VAULTBRAIN_SCHEMA_SQL = `
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE EXTENSION IF NOT EXISTS vector;
@@ -68222,14 +68221,15 @@ ALTER TABLE chunks ADD COLUMN IF NOT EXISTS chunk_tsv tsvector
 
 CREATE INDEX IF NOT EXISTS chunks_tsv_idx
   ON chunks USING gin (chunk_tsv);
-
--- ADD COLUMN IF NOT EXISTS also migrates stores created while pgvector failed
--- to load (pglite 0.5 moved it to @electric-sql/pglite-pgvector).
-ALTER TABLE chunks ADD COLUMN IF NOT EXISTS embedding vector(${EMBED_DIM});
+`;
+function vaultbrainVectorSchemaSql(dimensions) {
+  return `
+ALTER TABLE chunks ADD COLUMN IF NOT EXISTS embedding vector(${dimensions});
 
 CREATE INDEX IF NOT EXISTS chunks_embedding_idx
   ON chunks USING hnsw (embedding vector_cosine_ops);
 `;
+}
 
 // dist/adapters/vaultbrain/pglite-engine.js
 init_profile();
@@ -68277,8 +68277,19 @@ var PGliteEngine = class {
       this.db = null;
     }
   }
-  async initSchema() {
-    await this.requireDb().exec(VAULTBRAIN_SCHEMA_SQL);
+  async initSchema(dimensions) {
+    if (!Number.isInteger(dimensions) || dimensions <= 0) {
+      throw new Error("vaultbrain embedding dimensions must be a positive integer");
+    }
+    const db = this.requireDb();
+    await db.exec(VAULTBRAIN_SCHEMA_SQL);
+    const { rows } = await db.query(`SELECT atttypmod AS dims FROM pg_attribute
+       WHERE attrelid = 'chunks'::regclass AND attname = 'embedding' AND NOT attisdropped`);
+    const existing = rows[0]?.dims;
+    if (existing !== void 0 && existing !== dimensions && await this.countEmbeddedChunks() === 0) {
+      await db.exec(`DROP INDEX IF EXISTS chunks_embedding_idx; ALTER TABLE chunks DROP COLUMN embedding;`);
+    }
+    await db.exec(vaultbrainVectorSchemaSql(dimensions));
   }
   async ensureEmbeddingFingerprint(fingerprint2) {
     const db = this.requireDb();
@@ -68523,6 +68534,7 @@ async function embedTextsWithProfile(texts, options) {
 
 // dist/adapters/vaultbrain/index.js
 var RRF_K = 60;
+var DEFAULT_EMBED_DIMENSIONS = 1024;
 var VaultBrainAdapter = class {
   dataDir;
   embedding;
@@ -68543,7 +68555,7 @@ var VaultBrainAdapter = class {
       mkdirSync(dir, { recursive: true });
       const engine = new PGliteEngine(dir);
       await engine.connect();
-      await engine.initSchema();
+      await engine.initSchema(this.embedding.dimensions ?? DEFAULT_EMBED_DIMENSIONS);
       this.engine = engine;
       this._available = true;
     } catch (err2) {
@@ -69143,6 +69155,13 @@ async function resolveKnowledgeAdaptersRuntimeProfile(service, options = {}) {
   const embeddingDefaultProfile = selectString(snapshot, "embeddings.default_profile", environment.VAULT_MIND_EMBED_PROFILE, "VAULT_MIND_EMBED_PROFILE", "ollama/bge-m3");
   const legacyEmbeddingEndpoint = environment.VAULT_MIND_EMBED_URL ?? environment.OLLAMA_EMBED_BASE_URL;
   const embeddingEndpoint = selectString(snapshot, "embeddings.endpoint", legacyEmbeddingEndpoint, environment.VAULT_MIND_EMBED_URL ? "VAULT_MIND_EMBED_URL" : "OLLAMA_EMBED_BASE_URL", "http://localhost:11434/v1/embeddings");
+  const embeddingEndpointOverridden = embeddingEndpoint.explicit || embeddingEndpoint.provenance.source === "legacy-env";
+  const embeddingModel = selectString(snapshot, "embeddings.model", environment.VAULT_MIND_EMBED_MODEL, "VAULT_MIND_EMBED_MODEL", "");
+  const embeddingDimensions = selectNumber(snapshot, "embeddings.dimensions", environment.VAULT_MIND_EMBED_DIMENSIONS, "VAULT_MIND_EMBED_DIMENSIONS", 0);
+  const embeddingModelOverride = {
+    ...embeddingModel.value ? { model: embeddingModel.value } : {},
+    ...embeddingDimensions.value ? { dimensions: embeddingDimensions.value } : {}
+  };
   const embeddingIndexProfiles = selectField(snapshot, "embeddings.index_profiles", void 0, { vaultbrain: "ollama/bge-m3", memu: "jina/v5-omni-nano" });
   const portablePython = process.platform === "win32" ? "python" : "python3";
   const memuDsn = selectMemUDsn(snapshot, environment);
@@ -69168,6 +69187,13 @@ async function resolveKnowledgeAdaptersRuntimeProfile(service, options = {}) {
       key: "embeddings.endpoint"
     });
   }
+  if (!Number.isInteger(embeddingDimensions.value) || embeddingDimensions.value < 0) {
+    embeddingIssues.push({
+      code: "embedding-dimensions-invalid",
+      message: "embeddings.dimensions must be a non-negative integer.",
+      key: "embeddings.dimensions"
+    });
+  }
   if (!isBuiltInEmbeddingProfileId(embeddingDefaultProfile.value)) {
     embeddingIssues.push({
       code: "embedding-default-profile-invalid",
@@ -69188,7 +69214,8 @@ async function resolveKnowledgeAdaptersRuntimeProfile(service, options = {}) {
       const legacyModel = profileId.startsWith("custom/ollama/") ? profileId.slice("custom/ollama/".length) : void 0;
       const profile = resolveEmbeddingProfile({
         profileId,
-        ...embeddingEndpoint.explicit || legacyModel ? { endpoint: normalizedEmbeddingEndpoint } : {},
+        ...embeddingEndpointOverridden || legacyModel ? { endpoint: normalizedEmbeddingEndpoint } : {},
+        ...embeddingModelOverride,
         ...legacyModel ? { provider: "ollama", model: legacyModel, dimensions: 1024 } : {}
       });
       embeddingBindings[indexId] = {
@@ -69211,7 +69238,8 @@ async function resolveKnowledgeAdaptersRuntimeProfile(service, options = {}) {
     try {
       const profile = resolveEmbeddingProfile({
         profileId: embeddingDefaultProfile.value,
-        ...embeddingEndpoint.explicit ? { endpoint: normalizedEmbeddingEndpoint } : {}
+        ...embeddingEndpointOverridden ? { endpoint: normalizedEmbeddingEndpoint } : {},
+        ...embeddingModelOverride
       });
       embeddingBindings[requiredIndex] = {
         indexId: requiredIndex,
@@ -69222,6 +69250,13 @@ async function resolveKnowledgeAdaptersRuntimeProfile(service, options = {}) {
       configuredIndexProfiles[requiredIndex] = embeddingDefaultProfile.value;
     } catch {
     }
+  }
+  if (embeddingBindings.vaultbrain && embeddingBindings.vaultbrain.profile.dimensions === void 0) {
+    embeddingIssues.push({
+      code: "embedding-dimensions-required",
+      message: "embeddings.dimensions is required when embeddings.model is not a built-in model.",
+      key: "embeddings.dimensions"
+    });
   }
   const memuEmbedding = embeddingBindings.memu;
   const memuCredential = selectCredential(snapshot, "adapters.memu.secret_ref", environment, "MEMU_DSN");
@@ -71579,6 +71614,44 @@ var v1_default = {
         pattern: "^https?://[^\\s]+$"
       },
       requires: ["embeddings.default_profile"],
+      applyMode: "restart-required",
+      visibility: "advanced"
+    },
+    {
+      key: "embeddings.model",
+      owner: "runtime.embedding",
+      category: "models",
+      name: "Embedding model",
+      description: "Model identifier sent to the embedding endpoint. Empty uses each built-in profile's own model.",
+      valueType: "string",
+      defaultValue: "",
+      allowedScopes: ["user-device", "vault", "session"],
+      sensitivity: "public",
+      validator: {
+        id: "string",
+        maxLength: 300
+      },
+      requires: ["embeddings.default_profile"],
+      applyMode: "restart-required",
+      visibility: "advanced",
+      placeholder: "text-embedding-3-small"
+    },
+    {
+      key: "embeddings.dimensions",
+      owner: "runtime.embedding",
+      category: "models",
+      name: "Embedding dimensions",
+      description: "Vector length returned by embeddings.model. Required with a custom model; 0 uses the built-in profile's dimensions.",
+      valueType: "integer",
+      defaultValue: 0,
+      allowedScopes: ["user-device", "vault", "session"],
+      sensitivity: "public",
+      validator: {
+        id: "integer",
+        min: 0,
+        max: 16e3
+      },
+      requires: ["embeddings.model"],
       applyMode: "restart-required",
       visibility: "advanced"
     },
@@ -74073,7 +74146,8 @@ var LEGACY_TOOLCHAIN_ENV_MAP = [
   { env: "VAULT_MIND_QMD_BINARY", targetKey: "toolchain.device_bindings", summary: "Migrate QMD executable into toolchain.device_bindings.qmd.executable." },
   { env: "VAULT_MIND_GRAPHIFY_BINARY", targetKey: "toolchain.device_bindings", summary: "Migrate Graphify executable into toolchain.device_bindings.graphify.executable." },
   { env: "VAULT_MIND_EMBED_URL", targetKey: "embeddings.endpoint", summary: "Migrate embedding endpoint into embeddings.endpoint." },
-  { env: "VAULT_MIND_EMBED_MODEL", targetKey: "embeddings.default_profile", summary: "Migrate embedding model into embeddings.default_profile or embeddings.index_profiles." },
+  { env: "VAULT_MIND_EMBED_MODEL", targetKey: "embeddings.model", summary: "Migrate embedding model into embeddings.model." },
+  { env: "VAULT_MIND_EMBED_DIMENSIONS", targetKey: "embeddings.dimensions", summary: "Migrate embedding dimensions into embeddings.dimensions." },
   { env: "VAULT_MIND_EMBED_PROFILE", targetKey: "embeddings.default_profile", summary: "Migrate embedding profile id into embeddings.default_profile." },
   { env: "OLLAMA_HOST", targetKey: "embeddings.endpoint", summary: "Migrate Ollama host into embeddings.endpoint / toolchain.device_bindings.ollama.endpoint." },
   { env: "OLLAMA_EMBED_MODEL", targetKey: "embeddings.default_profile", summary: "Migrate Ollama embed model into embeddings.default_profile." },
