@@ -61,8 +61,8 @@ try {
   const recall = await callTool('context.recall', { query: 'attention heads' });
   check(JSON.stringify(recall).includes('attention.md'), 'context.recall did not cite the fixture note');
 
-  // Keyword recall needs pglite from the plugin's node_modules.
-  check(!/\[vaultbrain\] init failed/.test(stderr), 'vaultbrain (keyword index) failed to start');
+  // Recall needs pglite and pglite-pgvector from the plugin's node_modules.
+  check(!/\[vaultbrain\] init failed/.test(stderr), 'vaultbrain (recall index) failed to start');
 
   console.log(`smoke ok: ${pluginDir}`);
 } finally {

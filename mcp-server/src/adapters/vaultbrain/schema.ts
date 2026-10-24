@@ -2,20 +2,13 @@
  * VaultBrain schema -- aligned with vaultbrain-ingest.mjs data layout.
  * Uses slug-based chunk association (no FK dependency).
  * pgvector HNSW index for embedding search, pg_trgm for keyword search.
- *
- * pgvector is optional: newer @electric-sql/pglite releases (>=0.5.0) no
- * longer ship a "./vector" subpath export, so the JS-side extension module
- * may be unavailable at runtime (see PGliteEngine.connect()). The schema is
- * split so the core tables + pg_trgm/tsvector keyword floor -- this
- * package's stated "keyword recall out of the box" guarantee -- always
- * initialize; the `embedding` column/index only get added when the vector
- * extension actually loaded.
  */
 
 const EMBED_DIM = parseInt(process.env.VAULTBRAIN_EMBED_DIM ?? "1024", 10);
 
-export const VAULTBRAIN_CORE_SCHEMA_SQL = `
+export const VAULTBRAIN_SCHEMA_SQL = `
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE EXTENSION IF NOT EXISTS vector;
 
 CREATE TABLE IF NOT EXISTS pages (
   id SERIAL PRIMARY KEY,
@@ -68,12 +61,9 @@ ALTER TABLE chunks ADD COLUMN IF NOT EXISTS chunk_tsv tsvector
 
 CREATE INDEX IF NOT EXISTS chunks_tsv_idx
   ON chunks USING gin (chunk_tsv);
-`;
 
-// Only run when the pgvector extension actually loaded (PGliteEngine.hasVector).
-export const VAULTBRAIN_VECTOR_SCHEMA_SQL = `
-CREATE EXTENSION IF NOT EXISTS vector;
-
+-- ADD COLUMN IF NOT EXISTS also migrates stores created while pgvector failed
+-- to load (pglite 0.5 moved it to @electric-sql/pglite-pgvector).
 ALTER TABLE chunks ADD COLUMN IF NOT EXISTS embedding vector(${EMBED_DIM});
 
 CREATE INDEX IF NOT EXISTS chunks_embedding_idx
