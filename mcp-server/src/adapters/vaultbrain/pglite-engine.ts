@@ -4,7 +4,7 @@
  */
 
 import type { VaultBrainEngine, ChunkResult, ChunkInput } from "./engine.js";
-import { VAULTBRAIN_CORE_SCHEMA_SQL, VAULTBRAIN_VECTOR_SCHEMA_SQL } from "./schema.js";
+import { VAULTBRAIN_SCHEMA_SQL, vaultbrainVectorSchemaSql } from "./schema.js";
 import {
   embeddingFingerprintsMatch,
   type EmbeddingFingerprint,
@@ -19,21 +19,8 @@ type PGliteDB = {
   waitReady: Promise<void>;
 };
 
-// Wrapped in a Function so tsc never statically resolves the specifier -- newer
-// @electric-sql/pglite releases (>=0.5.0) dropped the "./vector" subpath export
-// entirely, which would otherwise be a compile-time TS2307 even though the
-// import is already guarded by try/catch below for the runtime case.
-const dynamicImport = new Function(
-  "specifier",
-  "return import(specifier)",
-) as (specifier: string) => Promise<Record<string, unknown>>;
-
 export class PGliteEngine implements VaultBrainEngine {
   private db: PGliteDB | null = null;
-  // True only if the pgvector extension module loaded successfully. When false,
-  // the schema/queries fall back to a keyword-only floor (see schema.ts) --
-  // vector search is an optional upgrade, not a hard dependency.
-  private hasVector = false;
 
   constructor(private readonly dataDir: string) {}
 
@@ -41,20 +28,9 @@ export class PGliteEngine implements VaultBrainEngine {
     // Dynamic import so loading failure (missing wasm, etc.) is catchable at call-site
     const { PGlite } = await import("@electric-sql/pglite");
     const { pg_trgm } = await import("@electric-sql/pglite/contrib/pg_trgm");
+    const { vector } = await import("@electric-sql/pglite-pgvector");
 
-    let extensions: Record<string, typeof pg_trgm> = { pg_trgm };
-    try {
-      const { vector } = await dynamicImport("@electric-sql/pglite/vector");
-      extensions = { vector: vector as typeof pg_trgm, pg_trgm };
-      this.hasVector = true;
-    } catch (err) {
-      console.warn(
-        `[vaultbrain] pgvector extension unavailable, falling back to keyword-only search: ${(err as Error).message}`,
-      );
-      this.hasVector = false;
-    }
-
-    this.db = new PGlite(this.dataDir, { extensions }) as unknown as PGliteDB;
+    this.db = new PGlite(this.dataDir, { extensions: { vector, pg_trgm } }) as unknown as PGliteDB;
     await this.db.waitReady;
   }
 
@@ -65,12 +41,24 @@ export class PGliteEngine implements VaultBrainEngine {
     }
   }
 
-  async initSchema(): Promise<void> {
-    const db = this.requireDb();
-    await db.exec(VAULTBRAIN_CORE_SCHEMA_SQL);
-    if (this.hasVector) {
-      await db.exec(VAULTBRAIN_VECTOR_SCHEMA_SQL);
+  async initSchema(dimensions: number): Promise<void> {
+    if (!Number.isInteger(dimensions) || dimensions <= 0) {
+      throw new Error("vaultbrain embedding dimensions must be a positive integer");
     }
+    const db = this.requireDb();
+    await db.exec(VAULTBRAIN_SCHEMA_SQL);
+    // pgvector stores a vector column's dimensions as its typmod.
+    const { rows } = await db.query<{ dims: number }>(
+      `SELECT atttypmod AS dims FROM pg_attribute
+       WHERE attrelid = 'chunks'::regclass AND attname = 'embedding' AND NOT attisdropped`,
+    );
+    const existing = rows[0]?.dims;
+    if (existing !== undefined && existing !== dimensions && await this.countEmbeddedChunks() === 0) {
+      // No vectors to lose: resize instead of failing every insert. A store
+      // that holds vectors keeps its column and fails the fingerprint check.
+      await db.exec(`DROP INDEX IF EXISTS chunks_embedding_idx; ALTER TABLE chunks DROP COLUMN embedding;`);
+    }
+    await db.exec(vaultbrainVectorSchemaSql(dimensions));
   }
 
   async ensureEmbeddingFingerprint(fingerprint: EmbeddingFingerprint): Promise<void> {
@@ -130,21 +118,6 @@ export class PGliteEngine implements VaultBrainEngine {
     const db = this.requireDb();
 
     for (const chunk of chunks) {
-      // The `embedding` column doesn't exist at all when the vector extension
-      // failed to load (see schema.ts's VAULTBRAIN_VECTOR_SCHEMA_SQL) -- never
-      // reference it in that case, even for a NULL value.
-      if (!this.hasVector) {
-        await db.query(
-          `INSERT INTO chunks (slug, chunk_index, chunk_text, token_count)
-           VALUES ($1, $2, $3, $4)
-           ON CONFLICT (slug, chunk_index) DO UPDATE SET
-             chunk_text = EXCLUDED.chunk_text,
-             token_count = EXCLUDED.token_count`,
-          [slug, chunk.chunkIndex, chunk.chunkText, chunk.tokenCount],
-        );
-        continue;
-      }
-
       const embeddingStr = chunk.embedding && chunk.embedding.length > 0
         ? JSON.stringify(chunk.embedding)
         : null;
@@ -233,8 +206,6 @@ export class PGliteEngine implements VaultBrainEngine {
   }
 
   async searchVector(embedding: number[], limit: number): Promise<ChunkResult[]> {
-    // `embedding` column/`vector` type don't exist without the extension.
-    if (!this.hasVector) return [];
     const vecStr = JSON.stringify(embedding);
     const { rows } = await this.requireDb().query<{
       slug: string;
@@ -266,7 +237,6 @@ export class PGliteEngine implements VaultBrainEngine {
   }
 
   async countEmbeddedChunks(): Promise<number> {
-    if (!this.hasVector) return 0;
     const { rows } = await this.requireDb().query<{ n: number }>(
       `SELECT count(*)::int AS n FROM chunks WHERE embedding IS NOT NULL`,
     );

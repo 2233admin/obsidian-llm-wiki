@@ -233,7 +233,7 @@ You should see a JSON-RPC response with `serverInfo.name = "obsidian-llm-wiki"`.
 
 **`fatal: No vault-mind.yaml found and VAULT_MIND_VAULT_PATH not set`** -- the server was started without a vault. In Claude Code run `/plugin configure llmwiki@obsidian-llm-wiki`; elsewhere add `VAULT_MIND_VAULT_PATH` to the MCP entry's env. Older docs said `VAULT_PATH`, which the server never read.
 
-**`[vaultbrain] init failed ... Cannot find package '@electric-sql/pglite'`** -- the runtime dependency is missing, so keyword recall is off. For a git install run `npm ci --omit=dev` in `~/.llmwiki`. In Claude Code, `/plugin` shows a note on the plugin when its dependency install failed; reinstall the plugin.
+**`[vaultbrain] init failed ... Cannot find package '@electric-sql/pglite'`** (or `pglite-pgvector`) -- a runtime dependency is missing, so keyword recall is off. For a git install run `npm ci --omit=dev` in `~/.llmwiki`. In Claude Code, `/plugin` shows a note on the plugin when its dependency install failed; reinstall the plugin.
 
 **`SyntaxError` or a Node version error** -- the bundle requires Node 20.18.1+. Check `node --version`.
 

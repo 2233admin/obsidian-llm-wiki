@@ -41,11 +41,13 @@ for (const entry of readdirSync(join(root, 'skills'), { withFileTypes: true })) 
   }
 }
 
-// bundle.js inlines everything except pglite (it loads its wasm/data files from
-// its own package directory), so that is the only runtime dependency. Pin it to
-// the version mcp-server is tested with.
+// bundle.js inlines everything except pglite and its pgvector extension (both
+// load wasm/data files from their own package directories), so those are the
+// only runtime dependencies. Pin them to the versions mcp-server is tested with.
 const lock = JSON.parse(readFileSync(join(root, 'mcp-server', 'package-lock.json'), 'utf-8'));
-const pglite = lock.packages['node_modules/@electric-sql/pglite'].version;
+const runtimeDeps = Object.fromEntries(
+  ['@electric-sql/pglite', '@electric-sql/pglite-pgvector'].map((name) => [name, lock.packages[`node_modules/${name}`].version]),
+);
 const server = JSON.parse(readFileSync(join(root, 'mcp-server', 'package.json'), 'utf-8'));
 writeFileSync(
   join(out, 'package.json'),
@@ -56,7 +58,7 @@ writeFileSync(
       type: 'module',
       license: server.license,
       engines: server.engines,
-      dependencies: { '@electric-sql/pglite': pglite },
+      dependencies: runtimeDeps,
     },
     null,
     2,

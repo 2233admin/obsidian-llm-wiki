@@ -18,6 +18,8 @@ import { chunkMarkdown, embedTextsWithProfile } from "./ingest.js";
 import { EmbeddingIndexRebuildRequiredError } from "./embedding-index.js";
 
 const RRF_K = 60;
+// Dimensions of the default ollama/bge-m3 profile.
+const DEFAULT_EMBED_DIMENSIONS = 1024;
 
 export interface VaultBrainEmbeddingConfig {
   profileId?: string;
@@ -46,7 +48,7 @@ export class VaultBrainAdapter implements VaultMindAdapter {
       mkdirSync(dir, { recursive: true });
       const engine = new PGliteEngine(dir);
       await engine.connect();
-      await engine.initSchema();
+      await engine.initSchema(this.embedding.dimensions ?? DEFAULT_EMBED_DIMENSIONS);
       this.engine = engine;
       this._available = true;
     } catch (err) {

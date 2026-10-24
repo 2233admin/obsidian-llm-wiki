@@ -186,7 +186,7 @@ export async function recallGaps(
     try {
       const total = await vba.countChunks();
       if (total > 0 && (await vba.countEmbeddedChunks()) === 0) {
-        gaps.push({ type: "retrieval_limitation", message: "semantic recall is off (no embeddings) -- start Ollama and run `ollama pull bge-m3` for vector recall; keyword recall is active" });
+        gaps.push({ type: "retrieval_limitation", message: "semantic recall is off (no embeddings) -- start Ollama, run `ollama pull bge-m3`, then call `vault.reindex` for vector recall; keyword recall is active" });
       }
     } catch { /* non-fatal: never let status-hints break a recall */ }
   }
