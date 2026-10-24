@@ -424,6 +424,44 @@
       "visibility": "advanced"
     },
     {
+      "key": "embeddings.model",
+      "owner": "runtime.embedding",
+      "category": "models",
+      "name": "Embedding model",
+      "description": "Model identifier sent to the embedding endpoint. Empty uses each built-in profile's own model.",
+      "valueType": "string",
+      "defaultValue": "",
+      "allowedScopes": ["user-device", "vault", "session"],
+      "sensitivity": "public",
+      "validator": {
+        "id": "string",
+        "maxLength": 300
+      },
+      "requires": ["embeddings.default_profile"],
+      "applyMode": "restart-required",
+      "visibility": "advanced",
+      "placeholder": "text-embedding-3-small"
+    },
+    {
+      "key": "embeddings.dimensions",
+      "owner": "runtime.embedding",
+      "category": "models",
+      "name": "Embedding dimensions",
+      "description": "Vector length returned by embeddings.model. Required with a custom model; 0 uses the built-in profile's dimensions.",
+      "valueType": "integer",
+      "defaultValue": 0,
+      "allowedScopes": ["user-device", "vault", "session"],
+      "sensitivity": "public",
+      "validator": {
+        "id": "integer",
+        "min": 0,
+        "max": 16000
+      },
+      "requires": ["embeddings.model"],
+      "applyMode": "restart-required",
+      "visibility": "advanced"
+    },
+    {
       "key": "embeddings.index_profiles",
       "owner": "runtime.embedding",
       "category": "models",

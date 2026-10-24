@@ -70,8 +70,9 @@ full-text + trigram, sin embeddings, sin daemon), por lo que un agente puede hac
 inmediatamente — los vaults grandes se indexan en segundo plano y se refinan al terminar.
 
 **El recuerdo semántico (vectorial) es una mejora opcional**: ejecuta [Ollama](https://ollama.com)
-con `ollama pull bge-m3` (o apunta `VAULT_MIND_EMBED_URL` a cualquier endpoint de
-embeddings compatible con OpenAI). Las respuestas de recuerdo te indicarán cuándo el semántico está apagado y cómo activarlo; el recuerdo por palabras clave seguirá funcionando independientemente.
+con `ollama pull bge-m3`, o apunta `VAULT_MIND_EMBED_URL` a cualquier endpoint de
+embeddings compatible con OpenAI y define `VAULT_MIND_EMBED_MODEL` y `VAULT_MIND_EMBED_DIMENSIONS`
+para su modelo (Settings: `embeddings.endpoint`, `embeddings.model`, `embeddings.dimensions`). Las respuestas de recuerdo te indicarán cuándo el semántico está apagado y cómo activarlo; el recuerdo por palabras clave seguirá funcionando independientemente.
 
 ---
 

@@ -239,6 +239,27 @@ export async function resolveKnowledgeAdaptersRuntimeProfile(
     environment.VAULT_MIND_EMBED_URL ? "VAULT_MIND_EMBED_URL" : "OLLAMA_EMBED_BASE_URL",
     "http://localhost:11434/v1/embeddings",
   );
+  // A legacy env endpoint is a real user choice, not a default: honor it like a Settings assignment.
+  const embeddingEndpointOverridden = embeddingEndpoint.explicit
+    || embeddingEndpoint.provenance.source === "legacy-env";
+  const embeddingModel = selectString(
+    snapshot,
+    "embeddings.model",
+    environment.VAULT_MIND_EMBED_MODEL,
+    "VAULT_MIND_EMBED_MODEL",
+    "",
+  );
+  const embeddingDimensions = selectNumber(
+    snapshot,
+    "embeddings.dimensions",
+    environment.VAULT_MIND_EMBED_DIMENSIONS,
+    "VAULT_MIND_EMBED_DIMENSIONS",
+    0,
+  );
+  const embeddingModelOverride = {
+    ...(embeddingModel.value ? { model: embeddingModel.value } : {}),
+    ...(embeddingDimensions.value ? { dimensions: embeddingDimensions.value } : {}),
+  };
   const embeddingIndexProfiles = selectField<unknown>(
     snapshot,
     "embeddings.index_profiles",
@@ -270,6 +291,13 @@ export async function resolveKnowledgeAdaptersRuntimeProfile(
       key: "embeddings.endpoint",
     });
   }
+  if (!Number.isInteger(embeddingDimensions.value) || embeddingDimensions.value < 0) {
+    embeddingIssues.push({
+      code: "embedding-dimensions-invalid",
+      message: "embeddings.dimensions must be a non-negative integer.",
+      key: "embeddings.dimensions",
+    });
+  }
   if (!isBuiltInEmbeddingProfileId(embeddingDefaultProfile.value)) {
     embeddingIssues.push({
       code: "embedding-default-profile-invalid",
@@ -299,9 +327,10 @@ export async function resolveKnowledgeAdaptersRuntimeProfile(
         : undefined;
       const profile = resolveEmbeddingProfile({
         profileId,
-        ...(embeddingEndpoint.explicit || legacyModel
+        ...(embeddingEndpointOverridden || legacyModel
           ? { endpoint: normalizedEmbeddingEndpoint }
           : {}),
+        ...embeddingModelOverride,
         ...(legacyModel ? { provider: "ollama", model: legacyModel, dimensions: 1024 } : {}),
       });
       embeddingBindings[indexId] = {
@@ -325,7 +354,8 @@ export async function resolveKnowledgeAdaptersRuntimeProfile(
     try {
       const profile = resolveEmbeddingProfile({
         profileId: embeddingDefaultProfile.value,
-        ...(embeddingEndpoint.explicit ? { endpoint: normalizedEmbeddingEndpoint } : {}),
+        ...(embeddingEndpointOverridden ? { endpoint: normalizedEmbeddingEndpoint } : {}),
+        ...embeddingModelOverride,
       });
       embeddingBindings[requiredIndex] = {
         indexId: requiredIndex,
@@ -337,6 +367,13 @@ export async function resolveKnowledgeAdaptersRuntimeProfile(
     } catch {
       // The default-profile issue above is sufficient and contains no device-local value.
     }
+  }
+  if (embeddingBindings.vaultbrain && embeddingBindings.vaultbrain.profile.dimensions === undefined) {
+    embeddingIssues.push({
+      code: "embedding-dimensions-required",
+      message: "embeddings.dimensions is required when embeddings.model is not a built-in model.",
+      key: "embeddings.dimensions",
+    });
   }
   const memuEmbedding = embeddingBindings.memu;
   const memuCredential = selectCredential(snapshot, "adapters.memu.secret_ref", environment, "MEMU_DSN");
