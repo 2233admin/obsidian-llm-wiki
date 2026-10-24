@@ -86,7 +86,9 @@ Key constraints:
 - register durable external inputs through `source.register` only when Phase 1 supports the Source Input (`url` or `vaultPath`);
 - keep local clone paths, repo paths, file paths, directory paths, and pasted text out of `source.register` until those input types are implemented;
 - write unreviewed analysis under `00-Inbox/AI-Output/<agent>/` or `10-Projects/<project>/agents/<agent>/`;
-- track executable obsidian-llm-wiki work under `01-Projects/<project>/issues/`, never `10-Projects/<project>/docket/**`;
+- track agent execution in native Multica issues on the `obsidian-llm-wiki`
+  project (`0f8253b3`); product Work-OS notes remain under
+  `01-Projects/<project>/issues/`, never `10-Projects/<project>/docket/**`;
 - promote durable team truth only through reviewed Decisions, Architecture, Runbooks, or Project Hub links.
 
 ## Skill routing
@@ -112,8 +114,10 @@ Key routing rules:
 
 ### Issue tracker
 
-Executable work is tracked as local Markdown issues under
-`01-Projects/<project>/issues/`; see `docs/agents/issue-tracker.md`.
+Track agent work in native Multica issues on the `obsidian-llm-wiki` project
+(`0f8253b3`). Product Work-OS notes are not agent tickets. If Multica is down,
+continue authorized work using chat and PR evidence, then backfill when it
+recovers; see `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
