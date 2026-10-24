@@ -291,16 +291,22 @@ function boundedWakeup<T extends { truncated: boolean; layers: Record<string, un
       decisions?: Array<{ preview: string }>;
       sessions?: Array<{ preview: string }>;
     };
-    l2RoomRecall?: { answer?: string; claims?: unknown[]; gaps?: unknown[]; traceSummary?: unknown };
+    l2RoomRecall?: { answer?: string; claims?: unknown[]; citations?: unknown[]; gaps?: unknown[]; traceSummary?: unknown };
   };
+  const top = clone as { citations?: unknown[] };
   if (layers.l2RoomRecall) {
     layers.l2RoomRecall.answer = trimText(layers.l2RoomRecall.answer ?? '', 600);
     layers.l2RoomRecall.claims = [];
     layers.l2RoomRecall.gaps = [];
     layers.l2RoomRecall.traceSummary = undefined;
+    // Top-level citations duplicate l2RoomRecall.citations; keep one copy.
+    delete top.citations;
   }
   if (JSON.stringify(clone).length <= maxChars) return clone;
-  if (layers.l2RoomRecall) delete layers.l2RoomRecall;
+  if (layers.l2RoomRecall) {
+    top.citations = layers.l2RoomRecall.citations ?? [];
+    delete layers.l2RoomRecall;
+  }
   if (layers.l1EssentialStory?.sessions) {
     layers.l1EssentialStory.sessions = layers.l1EssentialStory.sessions.slice(0, 2).map((session) => ({
       ...session,
