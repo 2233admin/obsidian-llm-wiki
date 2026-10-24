@@ -291,11 +291,12 @@ function boundedWakeup<T extends { truncated: boolean; layers: Record<string, un
       decisions?: Array<{ preview: string }>;
       sessions?: Array<{ preview: string }>;
     };
-    l2RoomRecall?: { answer?: string; claims?: unknown[]; traceSummary?: unknown };
+    l2RoomRecall?: { answer?: string; claims?: unknown[]; gaps?: unknown[]; traceSummary?: unknown };
   };
   if (layers.l2RoomRecall) {
     layers.l2RoomRecall.answer = trimText(layers.l2RoomRecall.answer ?? '', 600);
     layers.l2RoomRecall.claims = [];
+    layers.l2RoomRecall.gaps = [];
     layers.l2RoomRecall.traceSummary = undefined;
   }
   if (JSON.stringify(clone).length <= maxChars) return clone;
