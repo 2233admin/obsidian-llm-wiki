@@ -72,6 +72,19 @@ describe("knowledge adapter Settings runtime profile", () => {
     assert.equal(swapped.memu.embedModel, "bge-m3");
   });
 
+  it("routes embeddings to the legacy VAULT_MIND_EMBED_URL endpoint until Settings assigns one", async () => {
+    const environment = { VAULT_MIND_EMBED_URL: "http://embed.example:8080/v1" };
+    const service = setup(environment);
+    const legacy = await resolveKnowledgeAdaptersRuntimeProfile(service, { environment });
+    assert.equal(legacy.embeddings.valid, true);
+    assert.equal(legacy.embeddings.bindings.vaultbrain?.profile.endpoint, "http://embed.example:8080/v1/embeddings");
+    assert.equal(legacy.embeddings.bindings.vaultbrain?.profile.model, "bge-m3");
+
+    await setSession(service, "embeddings.endpoint", "http://settings.example/v1", 0);
+    const assigned = await resolveKnowledgeAdaptersRuntimeProfile(service, { environment });
+    assert.equal(assigned.embeddings.bindings.vaultbrain?.profile.endpoint, "http://settings.example/v1/embeddings");
+  });
+
   it("keeps legacy MemU model overrides until an explicit per-index binding replaces them", async () => {
     const environment = { OLLAMA_EMBED_MODEL: "bge-m3" };
     const service = setup(environment);
