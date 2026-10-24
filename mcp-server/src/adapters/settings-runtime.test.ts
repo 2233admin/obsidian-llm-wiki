@@ -85,6 +85,26 @@ describe("knowledge adapter Settings runtime profile", () => {
     assert.equal(assigned.embeddings.bindings.vaultbrain?.profile.endpoint, "http://settings.example/v1/embeddings");
   });
 
+  it("binds a custom embedding model with its own dimensions and requires dimensions for it", async () => {
+    const environment = {
+      VAULT_MIND_EMBED_URL: "https://api.openai.com/v1",
+      VAULT_MIND_EMBED_MODEL: "text-embedding-3-small",
+    };
+    const service = setup(environment);
+    const missing = await resolveKnowledgeAdaptersRuntimeProfile(service, { environment });
+    assert.equal(missing.embeddings.valid, false);
+    assert.ok(missing.embeddings.issues.some(item => item.code === "embedding-dimensions-required"));
+
+    await setSession(service, "embeddings.dimensions", 1536, 0);
+    const custom = await resolveKnowledgeAdaptersRuntimeProfile(service, { environment });
+    const vaultbrain = custom.embeddings.bindings.vaultbrain?.profile;
+    assert.equal(custom.embeddings.valid, true);
+    assert.equal(vaultbrain?.endpoint, "https://api.openai.com/v1/embeddings");
+    assert.equal(vaultbrain?.model, "text-embedding-3-small");
+    assert.equal(vaultbrain?.dimensions, 1536);
+    assert.equal(vaultbrain?.builtIn, false);
+  });
+
   it("keeps legacy MemU model overrides until an explicit per-index binding replaces them", async () => {
     const environment = { OLLAMA_EMBED_MODEL: "bge-m3" };
     const service = setup(environment);

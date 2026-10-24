@@ -74,8 +74,9 @@ full-text + trigram, no embeddings, no daemon), so an agent can ask questions
 immediately — large vaults index in the background and sharpen as they finish.
 
 **Semantic (vector) recall is an optional upgrade**: run [Ollama](https://ollama.com)
-with `ollama pull bge-m3` (or point `VAULT_MIND_EMBED_URL` at any OpenAI-compatible
-embedding endpoint). Recall answers tell you when semantic is off and how to turn
+with `ollama pull bge-m3`, or point `VAULT_MIND_EMBED_URL` at any OpenAI-compatible
+embedding endpoint and set `VAULT_MIND_EMBED_MODEL` and `VAULT_MIND_EMBED_DIMENSIONS`
+for its model (Settings: `embeddings.endpoint`, `embeddings.model`, `embeddings.dimensions`). Recall answers tell you when semantic is off and how to turn
 it on; keyword recall keeps working regardless.
 
 ---

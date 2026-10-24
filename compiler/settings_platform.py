@@ -81,10 +81,11 @@ LEGACY_TOOLCHAIN_ENV_MAP = (
         "Migrate Graphify executable into toolchain.device_bindings.graphify.executable.",
     ),
     ("VAULT_MIND_EMBED_URL", "embeddings.endpoint", "Migrate embedding endpoint into embeddings.endpoint."),
+    ("VAULT_MIND_EMBED_MODEL", "embeddings.model", "Migrate embedding model into embeddings.model."),
     (
-        "VAULT_MIND_EMBED_MODEL",
-        "embeddings.default_profile",
-        "Migrate embedding model into embeddings.default_profile or embeddings.index_profiles.",
+        "VAULT_MIND_EMBED_DIMENSIONS",
+        "embeddings.dimensions",
+        "Migrate embedding dimensions into embeddings.dimensions.",
     ),
     (
         "VAULT_MIND_EMBED_PROFILE",
