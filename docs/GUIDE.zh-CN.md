@@ -28,32 +28,27 @@
 
 ---
 
-## 30 秒装好
+## 安装
+
+**Claude Code：**
+
+```
+/plugin marketplace add 2233admin/obsidian-llm-wiki
+/plugin install llmwiki@obsidian-llm-wiki
+```
+
+Claude Code 会让你填 vault 路径，其余依赖它自己装好。
+
+**Codex / OpenCode / Gemini CLI：**
 
 ```bash
-git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git ~/obsidian-llm-wiki-src
-cd ~/obsidian-llm-wiki-src && ./setup
+git clone --depth 1 -b plugin https://github.com/2233admin/obsidian-llm-wiki.git ~/.llmwiki
+cd ~/.llmwiki && npm ci --omit=dev
 ```
 
-**Windows PowerShell：**
+然后把 `node ~/.llmwiki/mcp-server/bundle.js` 注册成 MCP server，环境变量 `VAULT_MIND_VAULT_PATH` 设成你的 vault 绝对路径，再把 `~/.llmwiki/skills/*` 链接进 host 的 skills 目录。
 
-```powershell
-git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git "$HOME\obsidian-llm-wiki-src"
-cd "$HOME\obsidian-llm-wiki-src"; .\setup.ps1
-```
-
-**指定 host：**
-
-```bash
-./setup --host claude     # 默认
-./setup --host codex
-./setup --host opencode
-./setup --host gemini
-```
-
-setup 跑完会打两个片段给你贴——一个进 `.mcp.json`，一个进 `CLAUDE.md`（或等价的 host 指令文件）。贴完重启 agent host，MCP 注册才生效。
-
-更细的每 host 路径、手工安装、卸载流程在 [INSTALL.md](INSTALL.md)。
+各 host 的具体配置、Windows 命令、更新和卸载见 [INSTALL.md](INSTALL.md)。
 
 ---
 
@@ -92,7 +87,7 @@ raw/ -> wiki/ -> query -> 00-Inbox/AI-Output/ -> reviewed/promoted
 
 ## 第一次 agent session
 
-安装后，把 `VAULT_PATH` 指向一个真实 markdown vault，然后重启 agent host。
+安装后，确认 vault 路径指向一个真实的 markdown vault，然后重启 agent host。
 
 ### 1. 先确认通路——问个计数
 
@@ -229,7 +224,7 @@ your-vault/
         └── ...
 ```
 
-不想让 AI-Output 出现在 vault 根目录？把 `.mcp.json` 里的 `VAULT_PATH` 指向真正 vault 下的一个子目录即可——MCP server 把 `VAULT_PATH` 当根，不会越界写出去。
+不想让 AI-Output 出现在 vault 根目录？把 vault 路径指向真正 vault 下的一个子目录即可——MCP server 把 `VAULT_MIND_VAULT_PATH` 当根，不会越界写出去。
 
 ---
 
@@ -255,15 +250,15 @@ your-vault/
 
 ### `vault.search` 啥都搜不到，但 vault 里明明有文件
 
-`.mcp.json` 里的 `VAULT_PATH` 基本是错的或者是相对路径。必须是**绝对路径**，且指向一个含 `.md` 的目录。
+vault 路径基本是错的或者是相对路径。必须是**绝对路径**，且指向一个含 `.md` 的目录。
 
 ### agent 写到了错的地方
 
-再检查 `VAULT_PATH`。MCP server 拒绝写出这个路径之外——如果写到了奇怪位置，说明你的路径本身就是奇怪的。
+再检查 `VAULT_MIND_VAULT_PATH`。MCP server 拒绝写出这个路径之外——如果写到了奇怪位置，说明你的路径本身就是奇怪的。
 
 ### 我不想让 AI-Output 出现在 vault 根里
 
-两条路：(a) 把 `VAULT_PATH` 指向一个专用的草稿目录；(b) 用完之后把有价值的 AI-Output 手动挪到合适的主题目录，其余删掉。
+两条路：(a) 把 `VAULT_MIND_VAULT_PATH` 指向一个专用的草稿目录；(b) 用完之后把有价值的 AI-Output 手动挪到合适的主题目录，其余删掉。
 
 ### `node` 命令报 "stdin is not a tty"
 
@@ -295,11 +290,11 @@ server 用 UTC 统一时间。你的本地时钟可能差了一个时区。vault
 
 ### 怎么升级？
 
-`cd ~/obsidian-llm-wiki-src && git pull && ./setup`——setup 会重新把最新 bundle 拷过去。
+Claude Code：`/plugin marketplace update obsidian-llm-wiki`（或在 `/plugin` 里打开自动更新）。其他 host：`cd ~/.llmwiki && git pull && npm ci --omit=dev`。
 
 ### 对真实 vault 安全吗？
 
-安全。所有修改操作默认 `dryRun: true`。server 拒绝 `VAULT_PATH` 之外的路径，也默认屏蔽 `.obsidian/`、`.trash/`、`.git/`、`node_modules/`。AI-Output 写入只落在一个可整目录删除的子目录里。
+安全。所有修改操作默认 `dryRun: true`。server 拒绝 `VAULT_MIND_VAULT_PATH` 之外的路径，也默认屏蔽 `.obsidian/`、`.trash/`、`.git/`、`node_modules/`。AI-Output 写入只落在一个可整目录删除的子目录里。
 
 ### 能换我自己的模型吗？
 

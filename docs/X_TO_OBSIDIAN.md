@@ -15,38 +15,20 @@ This is not an MCP-server scraper. Browser automation, logged-in X access, and W
 - The browser is logged into X/Twitter.
 - Obsidian is running.
 - The official Obsidian Web Clipper extension is installed and configured for the target vault.
-- LLM Wiki is installed with `./setup` or `.\setup.ps1`, which registers `x-to-obsidian` alongside the vault skills.
+- LLM Wiki is installed (see [INSTALL.md](INSTALL.md)); the plugin ships `x-to-obsidian` alongside the vault skills.
 
 ## Install
 
-Run the normal LLM Wiki setup:
-
-```bash
-./setup --host claude
-./setup --host codex
-./setup --host opencode
-./setup --host gemini
-```
-
-Windows PowerShell:
-
-```powershell
-.\setup.ps1 -VaultHost codex
-```
-
-The installed script lives under the host skill directory:
+Install LLM Wiki normally ([INSTALL.md](INSTALL.md)). In Claude Code the skill is `/llmwiki:x-to-obsidian`. For a git install the script lives at:
 
 ```text
-~/.claude/skills/x-to-obsidian/scripts/x_to_obsidian.py
-~/.codex/skills/x-to-obsidian/scripts/x_to_obsidian.py
-~/.config/opencode/skills/x-to-obsidian/scripts/x_to_obsidian.py
-~/.gemini/skills/x-to-obsidian/scripts/x_to_obsidian.py
+~/.llmwiki/skills/x-to-obsidian/scripts/x_to_obsidian.py
 ```
 
 Use the script help for current flags:
 
 ```bash
-python3 ~/.claude/skills/x-to-obsidian/scripts/x_to_obsidian.py --help
+python3 ~/.llmwiki/skills/x-to-obsidian/scripts/x_to_obsidian.py --help
 ```
 
 ## Recommended vault flow

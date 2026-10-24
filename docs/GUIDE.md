@@ -28,32 +28,27 @@ It works with **Claude Code, Codex, OpenCode, and Gemini CLI**. Obsidian is opti
 
 ---
 
-## 30-second install
+## Install
+
+**Claude Code:**
+
+```
+/plugin marketplace add 2233admin/obsidian-llm-wiki
+/plugin install llmwiki@obsidian-llm-wiki
+```
+
+Claude Code asks for your vault path and installs everything else.
+
+**Codex / OpenCode / Gemini CLI:**
 
 ```bash
-git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git ~/obsidian-llm-wiki-src
-cd ~/obsidian-llm-wiki-src && ./setup
+git clone --depth 1 -b plugin https://github.com/2233admin/obsidian-llm-wiki.git ~/.llmwiki
+cd ~/.llmwiki && npm ci --omit=dev
 ```
 
-**Windows PowerShell:**
+Then register `node ~/.llmwiki/mcp-server/bundle.js` as an MCP server with `VAULT_MIND_VAULT_PATH` set to your vault, and link `~/.llmwiki/skills/*` into the host's skills directory.
 
-```powershell
-git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git "$HOME\obsidian-llm-wiki-src"
-cd "$HOME\obsidian-llm-wiki-src"; .\setup.ps1
-```
-
-**Pick a host explicitly:**
-
-```bash
-./setup --host claude     # default
-./setup --host codex
-./setup --host opencode
-./setup --host gemini
-```
-
-After setup prints two paste-in snippets (a `.mcp.json` entry + a `CLAUDE.md` role block), restart your agent host.
-
-Full install details, per-host paths, manual install, and uninstall are in [INSTALL.md](INSTALL.md).
+Per-host config, Windows commands, update, and uninstall are in [INSTALL.md](INSTALL.md).
 
 ---
 
@@ -92,7 +87,7 @@ See [RESEARCH_COMPILER_LOOP.md](RESEARCH_COMPILER_LOOP.md) for the full operatin
 
 ## First agent session
 
-After install, point `VAULT_PATH` at a real markdown vault and restart your agent host.
+After install, make sure the vault path points at a real markdown vault and restart your agent host.
 
 ### 1. Sanity check — list one role
 
@@ -390,7 +385,7 @@ your-vault/
         └── ...
 ```
 
-If you don't want AI-Output in your root, set `VAULT_PATH` in `.mcp.json` to a sub-folder of your actual vault. The MCP server treats `VAULT_PATH` as the root — it won't write outside it.
+If you don't want AI-Output in your root, set the vault path to a sub-folder of your actual vault. The MCP server treats `VAULT_MIND_VAULT_PATH` as the root — it won't write outside it.
 
 ---
 
@@ -416,15 +411,15 @@ Restart your agent host. MCP registration is picked up at startup. If it still d
 
 ### `vault.search` returns nothing but your vault has files
 
-`VAULT_PATH` in your `.mcp.json` is probably wrong or relative. Must be an absolute path to a directory that contains `.md` files.
+The vault path is probably wrong or relative. Must be an absolute path to a directory that contains `.md` files.
 
 ### Agent writes to the wrong place
 
-Check `VAULT_PATH` again. The MCP server refuses to write outside that path — if writes are landing somewhere unexpected, your path is unexpected.
+Check `VAULT_MIND_VAULT_PATH` again. The MCP server refuses to write outside that path — if writes are landing somewhere unexpected, your path is unexpected.
 
 ### I don't want AI-Output in my vault
 
-Two options: (a) set `VAULT_PATH` to a dedicated scratch directory, or (b) after use, move useful AI-Output files into proper topic folders and delete the rest.
+Two options: (a) set `VAULT_MIND_VAULT_PATH` to a dedicated scratch directory, or (b) after use, move useful AI-Output files into proper topic folders and delete the rest.
 
 ### The `node` command errors with "stdin is not a tty"
 
@@ -456,11 +451,11 @@ The compile step builds an in-memory graph; at 10k notes expect ~30-60s on first
 
 ### How do I update?
 
-`cd ~/obsidian-llm-wiki-src && git pull && ./setup` — setup re-copies the latest bundle.
+Claude Code: `/plugin marketplace update obsidian-llm-wiki` (or enable auto-update in `/plugin`). Other hosts: `cd ~/.llmwiki && git pull && npm ci --omit=dev`.
 
 ### Is it safe to run against my real vault?
 
-Yes. All mutating operations default to `dryRun: true`. The server refuses paths outside `VAULT_PATH` and rejects `.obsidian/`, `.trash/`, `.git/`, `node_modules/` by design. AI-Output writes go into one scoped directory you can delete wholesale.
+Yes. All mutating operations default to `dryRun: true`. The server refuses paths outside `VAULT_MIND_VAULT_PATH` and rejects `.obsidian/`, `.trash/`, `.git/`, `node_modules/` by design. AI-Output writes go into one scoped directory you can delete wholesale.
 
 ### Can I use my own models?
 

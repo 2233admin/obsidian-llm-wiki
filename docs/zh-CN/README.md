@@ -32,21 +32,25 @@ LLM Wiki 给这堆东西补一个编译流程：
 
 ---
 
-## 30 秒装好
+## 快速开始
+
+**Claude Code**，在任意会话里：
+
+```
+/plugin marketplace add 2233admin/obsidian-llm-wiki
+/plugin install llmwiki@obsidian-llm-wiki
+```
+
+Claude Code 会让你填 vault 路径（Obsidian vault 或任意 Markdown 目录的绝对路径），其余依赖它自己装好，需要 Node.js 20.18.1+。更新用 `/plugin marketplace update obsidian-llm-wiki`，或在 `/plugin` 里给这个 marketplace 打开自动更新；改 vault 用 `/plugin configure llmwiki@obsidian-llm-wiki`。
+
+**Codex / OpenCode / Gemini CLI：**
 
 ```bash
-git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git
-cd obsidian-llm-wiki && ./setup                      # --host claude | codex | opencode | gemini
+git clone --depth 1 -b plugin https://github.com/2233admin/obsidian-llm-wiki.git ~/.llmwiki
+cd ~/.llmwiki && npm ci --omit=dev
 ```
 
-Windows（PowerShell）：
-
-```powershell
-git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git
-cd obsidian-llm-wiki; .\setup.ps1
-```
-
-`setup` 脚本把一份 1.6 MB 的 skill 包解压到 host 的 skills 目录，把 `.mcp.json` 片段打到屏幕让你贴进 agent 配置，然后退出。重启 agent host 之后就能看到 MCP 服务器和 `/vault-*` 知识工种。装完仓库本体可以删——skill 是独立的。一条命令跑不通，[INSTALL.md](../INSTALL.md) 里有各 host 的路径和手工安装流程。
+然后把 `node ~/.llmwiki/mcp-server/bundle.js` 注册成 MCP server，设置 `VAULT_MIND_VAULT_PATH`，再把 `~/.llmwiki/skills/*` 链接进 host 的 skills 目录。更新用 `git pull && npm ci --omit=dev`。各 host 的具体配置、Windows 命令和卸载见 [INSTALL.md](../INSTALL.md)。
 
 ---
 
@@ -80,12 +84,12 @@ python scripts/llmwiki_doctor.py --vault examples/collab-vault --json
 
 | Host | 命令 | 状态 |
 |---|---|---|
-| Claude Code | `./setup --host claude` | 主测试目标，全量跑过 |
-| Codex CLI | `./setup --host codex` | 路径配好，冒烟过 |
-| OpenCode | `./setup --host opencode` | 路径配好，冒烟过 |
-| Gemini CLI | `./setup --host gemini` | 路径配好，冒烟过 |
+| Claude Code | `/plugin install llmwiki@obsidian-llm-wiki` | 主测试目标，全量跑过 |
+| Codex CLI | clone `plugin` 分支 | 冒烟过 |
+| OpenCode | clone `plugin` 分支 | 冒烟过 |
+| Gemini CLI | clone `plugin` 分支 | 冒烟过 |
 
-其他讲 stdio MCP 的 host 也能用——`setup` 只是把 skill 复制到正确目录并打印 `.mcp.json` 片段。如果你的 host 从别的地方读 MCP 配置，手工把片段贴过去即可。
+其他讲 stdio MCP 的 host 也能用：server 就是一条 `node .../mcp-server/bundle.js` 命令加 `VAULT_MIND_VAULT_PATH`，见 [INSTALL.md](../INSTALL.md)。
 
 ---
 

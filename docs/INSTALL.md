@@ -1,69 +1,136 @@
 # Install guide
 
-For most people the [README quick-start](../README.md#quick-start-30-seconds) is the right path. This doc covers per-host variants, manual install, troubleshooting, and uninstall.
+LLM Wiki is distributed from the `plugin` branch of this repository. CI builds it from `main` on every change (`.github/workflows/plugin.yml`), so the branch always holds a ready-to-run MCP server (`mcp-server/bundle.js`), every skill and command, and a lockfile for the one runtime dependency. Nothing is built on your machine.
 
 ## Prerequisites
 
-- **Node.js 20.18.1 or higher** -- the bundled MCP server is an ESM module targeting Node 20.18.1+
-- **An MCP-compatible agent host** -- Claude Code, Codex, OpenCode, or Gemini CLI
+- **Node.js 20.18.1 or newer** and npm
+- **git**
+- **An MCP-compatible agent host**: Claude Code, Codex, OpenCode, or Gemini CLI
 
-Node.js 20.18.1 or newer is sufficient for the bundled MCP server and every filesystem-only workflow. Optional qmd SDK mode follows qmd's package contract and requires Node.js 22+; qmd CLI mode does not raise the main server's Node requirement.
+Basic search, read, and keyword recall need nothing else. Compiler operations, Project layout migration, and Obsidian's governed promotion/Doctor checks also need Python and the `compiler/` directory from a full source checkout (see [Shared Settings Platform](#shared-settings-platform)).
 
-You do **not** need npm or a TypeScript toolchain to run the shipped MCP bundle. Basic filesystem search and read operations do not require Python. Compiler operations, Project layout migration, and Obsidian's governed promotion/Doctor runtime checks do require a usable Python runtime plus the LLM Wiki `compiler/` directory.
+## Claude Code
 
-## Quick install (recap)
+Inside a Claude Code session:
+
+```
+/plugin marketplace add 2233admin/obsidian-llm-wiki
+/plugin install llmwiki@obsidian-llm-wiki
+```
+
+Claude Code asks for your **vault path** (an absolute path to your Obsidian vault or any folder of Markdown notes) and installs the runtime dependency itself. Run `/reload-plugins` or restart, then try:
+
+```
+/llmwiki:vault-librarian what do I know about attention heads
+```
+
+From a shell, `claude plugin install` does not prompt, so pass the path: `claude plugin install llmwiki@obsidian-llm-wiki --config vault_path=/absolute/path/to/vault`.
+
+- **Change the vault:** `/plugin configure llmwiki@obsidian-llm-wiki`
+- **Update:** `/plugin marketplace update obsidian-llm-wiki`, or `claude plugin update llmwiki@obsidian-llm-wiki` from a shell. Every publish of the `plugin` branch is a new version. To update automatically, open `/plugin`, go to **Marketplaces**, and enable auto-update for `obsidian-llm-wiki`.
+- **Uninstall:** `/plugin uninstall llmwiki@obsidian-llm-wiki`
+
+## Codex, OpenCode, Gemini CLI, and other MCP hosts
+
+Clone the plugin branch once and install its dependency:
 
 ```bash
-git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git ~/obsidian-llm-wiki-src
-cd ~/obsidian-llm-wiki-src && ./setup
+git clone --depth 1 -b plugin https://github.com/2233admin/obsidian-llm-wiki.git ~/.llmwiki
+cd ~/.llmwiki && npm ci --omit=dev
 ```
 
-Setup copies a 1.6 MB curated allowlist (`skills/`, `examples/`, `docs/`, `terrariums/`, `viewer/`, `smoke/`, `mcp-server/{bundle.js, package.json}`, top-level docs, `vercel.json`) into your host's skills directory. After setup runs you can delete the source clone.
+### 1. Register the MCP server
 
-## Per-host install
+The server needs one setting, `VAULT_MIND_VAULT_PATH`, the absolute path of your vault. Use absolute paths everywhere; most hosts do not expand `~`.
 
-Pass `--host` to target a specific agent. Default is `claude`.
+**Codex:**
 
 ```bash
-./setup --host claude     # ~/.claude/skills/vault-wiki
-./setup --host codex      # ~/.codex/skills/vault-wiki
-./setup --host opencode   # ~/.config/opencode/skills/vault-wiki
-./setup --host gemini     # ~/.gemini/skills/vault-wiki
+codex mcp add vault-mind --env VAULT_MIND_VAULT_PATH=/absolute/path/to/vault -- node "$HOME/.llmwiki/mcp-server/bundle.js"
 ```
 
-Windows / PowerShell:
-
-```powershell
-.\setup.ps1 -VaultHost claude
-.\setup.ps1 -VaultHost claude -DryRun     # preview without writing
-```
-
-`--dry-run` (bash) or `-DryRun` (PowerShell) prints every copy operation without touching disk -- use it to confirm the allowlist before committing to a real install.
-
-## After setup -- two paste-in steps
-
-Setup prints both snippets at the end. Copy them into the right place:
-
-**1. Add to your `.mcp.json`:** the printed JSON snippet registers `vault-mind` as an MCP server pointing at the installed `bundle.js`. The `VAULT_PATH` env var must be set to the absolute path of your Obsidian vault (or any markdown directory).
-
-**2. Add to `CLAUDE.md` (or equivalent host instructions):** the printed `## Vault Roles` section tells your agent which `/vault-*` role command to invoke for each task.
-
-Restart your agent host so the MCP registration is picked up.
-
-## Shared Settings Platform
-
-MCP, Python, and Obsidian consume the same Settings Platform. Obsidian is the primary visual control plane, but the system remains headless: closing Obsidian does not remove `settings.*`, Project Context, Project Hub, or workflow operations.
-
-For source installs, set the canonical compiler directory when automatic discovery cannot find it:
+**Gemini CLI** (`~/.gemini/settings.json`) and other hosts that use the common `mcpServers` shape:
 
 ```json
 {
   "mcpServers": {
     "vault-mind": {
       "command": "node",
-      "args": ["/path/to/vault-wiki/mcp-server/bundle.js"],
+      "args": ["/home/you/.llmwiki/mcp-server/bundle.js"],
+      "env": { "VAULT_MIND_VAULT_PATH": "/absolute/path/to/vault" }
+    }
+  }
+}
+```
+
+**OpenCode** (`opencode.json`):
+
+```json
+{
+  "mcp": {
+    "vault-mind": {
+      "type": "local",
+      "command": ["node", "/home/you/.llmwiki/mcp-server/bundle.js"],
+      "environment": { "VAULT_MIND_VAULT_PATH": "/absolute/path/to/vault" }
+    }
+  }
+}
+```
+
+### 2. Link the skills
+
+Link each skill into your host's skills directory so that `git pull` updates them in place. Replace `~/.codex/skills` with `~/.config/opencode/skills` or `~/.gemini/skills` as needed:
+
+```bash
+mkdir -p ~/.codex/skills
+for s in ~/.llmwiki/skills/*/; do ln -sfn "${s%/}" ~/.codex/skills/; done
+```
+
+Windows PowerShell (junctions need no admin rights):
+
+```powershell
+$dest = "$HOME\.codex\skills"; New-Item -ItemType Directory -Force $dest | Out-Null
+Get-ChildItem "$HOME\.llmwiki\skills" -Directory | ForEach-Object {
+  New-Item -ItemType Junction -Force -Path (Join-Path $dest $_.Name) -Target $_.FullName | Out-Null
+}
+```
+
+The thinking/research commands are in `~/.llmwiki/commands/`; link them into your host's prompt or command directory if it has one.
+
+Restart the host, then ask `/vault-librarian what do I know about attention heads`.
+
+### Update
+
+```bash
+cd ~/.llmwiki && git pull && npm ci --omit=dev
+```
+
+Re-run the link loop only when a release adds a new skill.
+
+### Uninstall
+
+Remove the `vault-mind` MCP entry from your host config, then:
+
+```bash
+find ~/.codex/skills -maxdepth 1 -lname "$HOME/.llmwiki/*" -delete
+rm -rf ~/.llmwiki
+```
+
+## Shared Settings Platform
+
+MCP, Python, and Obsidian consume the same Settings Platform. Obsidian is the primary visual control plane, but the system remains headless: closing Obsidian does not remove `settings.*`, Project Context, Project Hub, or workflow operations.
+
+Compiler-backed operations need the `compiler/` directory from a full source checkout (the plugin branch ships only the MCP server and skills). Point the server at it when automatic discovery cannot find it:
+
+```json
+{
+  "mcpServers": {
+    "vault-mind": {
+      "command": "node",
+      "args": ["/path/to/.llmwiki/mcp-server/bundle.js"],
       "env": {
-        "VAULT_PATH": "/path/to/vault",
+        "VAULT_MIND_VAULT_PATH": "/path/to/vault",
         "LLMWIKI_COMPILER_PATH": "/path/to/obsidian-llm-wiki/compiler",
         "VAULT_MIND_PYTHON": "python"
       }
@@ -72,7 +139,7 @@ For source installs, set the canonical compiler directory when automatic discove
 }
 ```
 
-`LLMWIKI_COMPILER_PATH` points to the directory containing `kb_meta.py`. `VAULT_MIND_COMPILER_PATH` remains a compatibility alias; new setup should use the canonical name. Machine-specific runtime and vault paths belong in process environment or `user-device` settings, never in shared Project records.
+`LLMWIKI_COMPILER_PATH` points to the directory containing `kb_meta.py`. `VAULT_MIND_COMPILER_PATH` remains a compatibility alias; new configs should use the canonical name. Machine-specific runtime and vault paths belong in process environment or `user-device` settings, never in shared Project records.
 
 Settings precedence is `session > workspace-project > vault > user-device > product default`. Use `settings.scopes.get` to read a revision before `settings.assignment.set` or `settings.assignment.unset`; stale revisions return a conflict instead of overwriting another host.
 
@@ -84,7 +151,7 @@ See [SETTINGS.md](SETTINGS.md) for the complete model and [MIGRATIONS.md](MIGRAT
 
 ### Optional Agent Wiki toolchain
 
-No optional provider is required. Start with only `VAULT_PATH`, register a `vaultPath` Source, and run the filesystem lifecycle. Add providers one at a time through Toolchain Settings and confirm each with `settings.doctor` before enabling workflows that depend on it.
+No optional provider is required. Start with only `VAULT_MIND_VAULT_PATH`, register a `vaultPath` Source, and run the filesystem lifecycle. Add providers one at a time through Toolchain Settings and confirm each with `settings.doctor` before enabling workflows that depend on it.
 
 A copyable MCP example is in `examples/agent-wiki-toolchain.mcp.example.json`; the separate Settings example shows semantic profiles without machine paths or credentials. OpenCLI remains a capture-only Provider, qmd/Graphify/LightRAG/RAG-Anything are retrieval or processing adapters, and Ollama/OpenAI-compatible endpoints provide optional embeddings. See [AGENT_WIKI_TOOLCHAIN.md](AGENT_WIKI_TOOLCHAIN.md) for version policies, capability names, diagnostics, and rollback flags.
 
@@ -94,46 +161,15 @@ The built desktop plugin consists of `obsidian-plugin/manifest.json`, `main.js`,
 
 The retained plugin ID preserves existing installations. The plugin stores only presentation preferences, a device binding reference, and migration recovery state. Operational assignments live in Settings Platform scope stores. On first load it migrates legacy `pythonPath` and `kbMetaPath` values to the `user-device` scope; Doctor shows the resulting effective value and health.
 
-## Manual install (no setup script)
-
-If you prefer to copy files by hand:
-
-```bash
-git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git
-cd obsidian-llm-wiki
-
-# pick your host's skills dir
-HOST_DIR="$HOME/.claude/skills/vault-wiki"
-mkdir -p "$HOST_DIR/mcp-server"
-
-cp -r skills examples docs terrariums viewer smoke "$HOST_DIR/"
-cp README.md CHANGELOG.md RELEASE_NOTES.md vercel.json "$HOST_DIR/"
-cp mcp-server/bundle.js mcp-server/package.json "$HOST_DIR/mcp-server/"
-```
-
-Then add the `.mcp.json` entry manually:
-
-```json
-{
-  "mcpServers": {
-    "vault-mind": {
-      "command": "node",
-      "args": ["/absolute/path/to/host/skills/vault-wiki/mcp-server/bundle.js"],
-      "env": { "VAULT_PATH": "/absolute/path/to/your/vault" }
-    }
-  }
-}
-```
-
 ## Optional ChubbySkills ingest pack
 
-Setup registers `/chubbyskills` as a top-level skill. It does not install upstream media/transcription dependencies into LLM Wiki. Instead, it bundles a helper that prints safe install commands for [chubbyguan/chubbyskills](https://github.com/chubbyguan/chubbyskills).
+The plugin ships `/chubbyskills` as a skill. It does not install upstream media/transcription dependencies into LLM Wiki. Instead, it bundles a helper that prints safe install commands for [chubbyguan/chubbyskills](https://github.com/chubbyguan/chubbyskills).
 
-Example after setup:
+Example from a git install (inside Claude Code, ask `/llmwiki:chubbyskills` instead):
 
 ```bash
-python3 ~/.codex/skills/chubbyskills/scripts/chubbyskills_bridge.py list
-python3 ~/.codex/skills/chubbyskills/scripts/chubbyskills_bridge.py plan \
+python3 ~/.llmwiki/skills/chubbyskills/scripts/chubbyskills_bridge.py list
+python3 ~/.llmwiki/skills/chubbyskills/scripts/chubbyskills_bridge.py plan \
   --vault /path/to/your/vault \
   --skills bilibili-transcribe podcast-transcribe wechat-article-ingest
 ```
@@ -142,24 +178,17 @@ See [CHUBBYSKILLS.md](CHUBBYSKILLS.md).
 
 ## Optional X/Twitter capture skill
 
-Setup now also registers `x-to-obsidian` when the host supports installed skills. It bundles the upstream-style browser automation script under the installed skill directory.
+The plugin also ships the `x-to-obsidian` skill, with the upstream-style browser automation script under its skill directory.
 
 Use it only on machines that can run the workflow requirements: macOS, a supported logged-in browser, Obsidian, and the official Obsidian Web Clipper.
 
-Installed paths usually look like:
-
-```text
-~/.claude/skills/x-to-obsidian/scripts/x_to_obsidian.py
-~/.codex/skills/x-to-obsidian/scripts/x_to_obsidian.py
-~/.config/opencode/skills/x-to-obsidian/scripts/x_to_obsidian.py
-~/.gemini/skills/x-to-obsidian/scripts/x_to_obsidian.py
-```
+For a git install the script is at `~/.llmwiki/skills/x-to-obsidian/scripts/x_to_obsidian.py`.
 
 See [X_TO_OBSIDIAN.md](X_TO_OBSIDIAN.md).
 
 ## Optional memory and Kanban settings
 
-Released bundles now include Markdown memory tools and the read-only `kanban` adapter.
+The MCP server includes Markdown memory tools and the read-only `kanban` adapter.
 
 | Env var | Default | Use |
 |---|---|---|
@@ -175,48 +204,37 @@ Source Registry Phase 1 adds `source.register`, `source.list`, and `source.get`.
 
 After registration, use `source.ingest.plan`, then execute the returned exact `planId` with `source.ingest.run`. `source.ingest.inspect` and `source.ingest.verify` remain read-only. Successful changed content creates an Evidence Note and a durable maintenance entry; unchanged content is idempotent.
 
-## Building from source (rare)
+## Building the plugin from source
 
-You only need this if you forked the repo and changed `mcp-server/src/`:
+Only needed when you change `mcp-server/`, `skills/`, `commands/`, or `plugin/` and want to try it before CI publishes:
 
 ```bash
-cd mcp-server
-npm install            # installs ws, MCP SDK, pglite, esbuild devDep
-npm run rebuild        # tsc -> dist/, then esbuild --bundle -> bundle.js
+cd mcp-server && npm ci && npm run rebuild && cd ..
+node scripts/build-plugin.mjs                 # assembles dist/plugin
+(cd dist/plugin && npm ci --omit=dev)
+node scripts/smoke-plugin.mjs dist/plugin     # boots it against a temp vault
+claude --plugin-dir dist/plugin               # or point another host at dist/plugin
 ```
 
-`npm run rebuild` produces a fresh `bundle.js` in ~2 seconds. Commit it alongside your source changes so paste-install users don't see a "build it first" error.
+`bundle.js` and `dist/` are build outputs and are never committed to `main`.
 
 ## Verify the install
 
-After setup, boot the bundle directly with a probe:
+Boot the bundle directly with a probe:
 
 ```bash
 echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"smoke","version":"0"}}}' \
-  | VAULT_PATH=/path/to/your/vault node ~/.claude/skills/vault-wiki/mcp-server/bundle.js
+  | VAULT_MIND_VAULT_PATH=/absolute/path/to/vault node ~/.llmwiki/mcp-server/bundle.js
 ```
 
-You should see a JSON-RPC response with `serverInfo.name = "obsidian-llm-wiki"` and `protocolVersion = "2024-11-05"`. Server stderr prints the resolved adapter list, including `kanban` when the default adapter list is used.
+You should see a JSON-RPC response with `serverInfo.name = "obsidian-llm-wiki"`. In Claude Code, `claude mcp list` should show `plugin:llmwiki:vault-mind ... Connected`.
 
 ## Troubleshooting
 
-**`Error: mcp-server/bundle.js not found`** -- you're installing from a fresh clone that hasn't been built. Run `cd mcp-server && npm install && npm run rebuild`, then re-run `./setup`. (The released tarballs ship `bundle.js` pre-built; you'd only hit this from a `--depth 1` clone of an actively-changing branch.)
+**`fatal: No vault-mind.yaml found and VAULT_MIND_VAULT_PATH not set`** -- the server was started without a vault. In Claude Code run `/plugin configure llmwiki@obsidian-llm-wiki`; elsewhere add `VAULT_MIND_VAULT_PATH` to the MCP entry's env. Older docs said `VAULT_PATH`, which the server never read.
 
-**`Error: Host directory not found: ~/.claude/skills`** -- the agent host you specified isn't installed (or hasn't been launched once). Install / launch it, then re-run setup.
+**`[vaultbrain] init failed ... Cannot find package '@electric-sql/pglite'`** -- the runtime dependency is missing, so keyword recall is off. For a git install run `npm ci --omit=dev` in `~/.llmwiki`. In Claude Code, `/plugin` shows a note on the plugin when its dependency install failed; reinstall the plugin.
 
-**`Error: Dynamic require of "events" is not supported`** -- the bundle was built without the `createRequire` shim banner. Re-run `npm run bundle` -- the `package.json` `bundle` script includes the correct banner flag.
+**`SyntaxError` or a Node version error** -- the bundle requires Node 20.18.1+. Check `node --version`.
 
-**MCP server starts but `vault.search` returns nothing** -- check that `VAULT_PATH` in `.mcp.json` is absolute and points at a directory with `.md` files. The server logs the resolved vault path at startup (visible in your agent host's MCP log).
-
-**`Node version error` / `SyntaxError: Unexpected token`** -- the bundle requires Node 20.18.1+. Run `node --version` to confirm; upgrade with `nvm` / `fnm` if older.
-
-**Obsidian adapter not connecting** -- the bundle includes the WebSocket adapter (`ws`), but it only activates when Obsidian is running with the `obsidian-vault-bridge` plugin. Without it, the filesystem adapter handles everything (read, search, lint, graph) -- you just lose live sync.
-
-## Uninstall
-
-```bash
-rm -rf ~/.claude/skills/vault-wiki
-# Then remove the "vault-mind" entry from your .mcp.json manually.
-```
-
-For other hosts, replace `~/.claude/` with `~/.codex/`, `~/.config/opencode/`, or `~/.gemini/`.
+**Obsidian adapter not connecting** -- the WebSocket adapter only activates when Obsidian is running with the `obsidian-vault-bridge` plugin. Without it, the filesystem adapter handles everything (read, search, lint, graph); you only lose live sync.

@@ -25,17 +25,13 @@ Source: `https://github.com/chubbyguan/chubbyskills`.
 
 ## Install pattern
 
-Install LLM Wiki as usual:
-
-```bash
-./setup --host codex
-```
+Install LLM Wiki as usual ([INSTALL.md](INSTALL.md)).
 
 Then use the installed `/chubbyskills` skill or helper script to plan the upstream install:
 
 ```bash
-python3 ~/.codex/skills/chubbyskills/scripts/chubbyskills_bridge.py list
-python3 ~/.codex/skills/chubbyskills/scripts/chubbyskills_bridge.py plan \
+python3 ~/.llmwiki/skills/chubbyskills/scripts/chubbyskills_bridge.py list
+python3 ~/.llmwiki/skills/chubbyskills/scripts/chubbyskills_bridge.py plan \
   --vault /path/to/your/vault \
   --skills bilibili-transcribe podcast-transcribe wechat-article-ingest
 ```

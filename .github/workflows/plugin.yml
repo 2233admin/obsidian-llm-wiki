@@ -1,0 +1,55 @@
+name: Publish plugin
+
+# Builds the installable plugin from main and publishes it to the `plugin`
+# branch. The Claude Code marketplace points at that branch with no version,
+# so every publish is an update (tracked by commit SHA); other hosts clone the
+# same branch and update with `git pull`.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - mcp-server/**
+      - packages/**
+      - skills/**
+      - commands/**
+      - plugin/**
+      - scripts/build-plugin.mjs
+      - scripts/smoke-plugin.mjs
+      - .github/workflows/plugin.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-plugin
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: mcp-server/package-lock.json
+      - run: cd mcp-server && npm ci && npm run rebuild
+      - run: node scripts/verify-skill-frontmatter.mjs
+      - run: node scripts/build-plugin.mjs
+      - name: Smoke-test the plugin as a host would run it
+        run: |
+          cd dist/plugin && npm ci --ignore-scripts && cd ../..
+          node scripts/smoke-plugin.mjs dist/plugin
+          rm -rf dist/plugin/node_modules
+      - uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: plugin
+          publish_dir: dist/plugin
+          enable_jekyll: true
+          user_name: github-actions[bot]
+          user_email: 41898282+github-actions[bot]@users.noreply.github.com
+          full_commit_message: "build: plugin from ${{ github.sha }}"

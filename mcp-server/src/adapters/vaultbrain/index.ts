@@ -3,6 +3,7 @@
  * Hybrid search via RRF fusion of keyword (pg_trgm similarity) and vector (cosine) results.
  */
 
+import { mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type {
@@ -42,6 +43,7 @@ export class VaultBrainAdapter implements VaultMindAdapter {
   async init(): Promise<void> {
     const dir = this.dataDir ?? join(homedir(), ".vault-mind", "vaultbrain");
     try {
+      mkdirSync(dir, { recursive: true });
       const engine = new PGliteEngine(dir);
       await engine.connect();
       await engine.initSchema();

@@ -32,25 +32,25 @@ Inspirado en [LLM Wiki de Andrej Karpathy](https://github.com/karpathy/llm-wiki)
 
 ---
 
-## Inicio rápido (10 segundos, Claude Code)
+## Inicio rápido (Claude Code)
 
 Dentro de cualquier sesión de Claude Code:
 
-```text
+```
 /plugin marketplace add 2233admin/obsidian-llm-wiki
 /plugin install llmwiki@obsidian-llm-wiki
 ```
 
-Eso es todo. Sin clonar, sin compilar, sin archivo de configuración que editar. El plugin incluye el servidor MCP (se ejecuta desde el directorio del plugin, Node 20+), todos los roles de trabajo de conocimiento `/llmwiki:vault-*` y los comandos de pensamiento/investigación. Inicia Claude Code dentro de tu vault y el servidor lo encontrará automáticamente (el cwd es el vault); de lo contrario, establece `VAULT_MIND_VAULT_PATH` o coloca un `vault-mind.yaml`.
+Claude Code te pide la ruta de tu vault (ruta absoluta a tu vault de Obsidian o a cualquier carpeta de notas Markdown) e instala todo lo demás. Sin clonar, sin compilar. Necesitas Node.js 20.18.1+. Actualiza con `/plugin marketplace update obsidian-llm-wiki` o activa la actualización automática del marketplace en `/plugin`. Cambia el vault con `/plugin configure llmwiki@obsidian-llm-wiki`.
 
 ### Otros hosts (Codex / OpenCode / Gemini)
 
 ```bash
-git clone --depth 1 https://github.com/2233admin/obsidian-llm-wiki.git
-cd obsidian-llm-wiki && ./setup                      # --host codex | opencode | gemini
+git clone --depth 1 -b plugin https://github.com/2233admin/obsidian-llm-wiki.git ~/.llmwiki
+cd ~/.llmwiki && npm ci --omit=dev
 ```
 
-Windows: `.\setup.ps1`. El script copia el paquete de habilidades en el directorio de habilidades de tu host e imprime el fragmento `.mcp.json` para pegar en la configuración de tu agente. [docs/INSTALL.md](docs/INSTALL.md) tiene las rutas por host y la receta manual.
+Después registra `node ~/.llmwiki/mcp-server/bundle.js` como servidor MCP con `VAULT_MIND_VAULT_PATH` apuntando a tu vault y enlaza `~/.llmwiki/skills/*` en el directorio de habilidades de tu host. Actualiza con `git pull && npm ci --omit=dev`. [docs/INSTALL.md](docs/INSTALL.md) tiene la configuración exacta por host, los comandos de Windows y la desinstalación.
 
 ### Instalar el plugin de Obsidian
 
@@ -105,12 +105,12 @@ Cualquier host compatible con MCP:
 
 | Host | Comando | Estado |
 |---|---|---|
-| Claude Code | `./setup --host claude` | objetivo principal, totalmente probado |
-| Codex CLI | `./setup --host codex` | ruta configurada, prueba de humo realizada |
-| OpenCode | `./setup --host opencode` | ruta configurada, prueba de humo realizada |
-| Gemini CLI | `./setup --host gemini` | ruta configurada, prueba de humo realizada |
+| Claude Code | `/plugin install llmwiki@obsidian-llm-wiki` | objetivo principal, totalmente probado |
+| Codex CLI | clonar la rama `plugin` | prueba de humo realizada |
+| OpenCode | clonar la rama `plugin` | prueba de humo realizada |
+| Gemini CLI | clonar la rama `plugin` | prueba de humo realizada |
 
-Cualquier otra cosa que hable transporte stdio MCP debería funcionar — el script `setup` solo copia las habilidades en el directorio correcto e imprime el fragmento `.mcp.json`. Si tu host lee la configuración MCP de otro lugar, pega el fragmento allí manualmente.
+Cualquier otra cosa que hable transporte stdio MCP debería funcionar: el servidor es un único comando `node .../mcp-server/bundle.js` más `VAULT_MIND_VAULT_PATH`. Consulta [docs/INSTALL.md](docs/INSTALL.md).
 
 ---
 
