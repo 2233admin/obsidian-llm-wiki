@@ -68167,8 +68167,9 @@ import { join as join4 } from "node:path";
 
 // dist/adapters/vaultbrain/schema.js
 var EMBED_DIM = parseInt(process.env.VAULTBRAIN_EMBED_DIM ?? "1024", 10);
-var VAULTBRAIN_CORE_SCHEMA_SQL = `
+var VAULTBRAIN_SCHEMA_SQL = `
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE EXTENSION IF NOT EXISTS vector;
 
 CREATE TABLE IF NOT EXISTS pages (
   id SERIAL PRIMARY KEY,
@@ -68221,10 +68222,9 @@ ALTER TABLE chunks ADD COLUMN IF NOT EXISTS chunk_tsv tsvector
 
 CREATE INDEX IF NOT EXISTS chunks_tsv_idx
   ON chunks USING gin (chunk_tsv);
-`;
-var VAULTBRAIN_VECTOR_SCHEMA_SQL = `
-CREATE EXTENSION IF NOT EXISTS vector;
 
+-- ADD COLUMN IF NOT EXISTS also migrates stores created while pgvector failed
+-- to load (pglite 0.5 moved it to @electric-sql/pglite-pgvector).
 ALTER TABLE chunks ADD COLUMN IF NOT EXISTS embedding vector(${EMBED_DIM});
 
 CREATE INDEX IF NOT EXISTS chunks_embedding_idx
@@ -68258,30 +68258,17 @@ var EmbeddingIndexRebuildRequiredError = class extends Error {
 };
 
 // dist/adapters/vaultbrain/pglite-engine.js
-var dynamicImport = new Function("specifier", "return import(specifier)");
 var PGliteEngine = class {
   dataDir;
   db = null;
-  // True only if the pgvector extension module loaded successfully. When false,
-  // the schema/queries fall back to a keyword-only floor (see schema.ts) --
-  // vector search is an optional upgrade, not a hard dependency.
-  hasVector = false;
   constructor(dataDir) {
     this.dataDir = dataDir;
   }
   async connect() {
     const { PGlite } = await import("@electric-sql/pglite");
     const { pg_trgm } = await import("@electric-sql/pglite/contrib/pg_trgm");
-    let extensions = { pg_trgm };
-    try {
-      const { vector } = await dynamicImport("@electric-sql/pglite/vector");
-      extensions = { vector, pg_trgm };
-      this.hasVector = true;
-    } catch (err2) {
-      console.warn(`[vaultbrain] pgvector extension unavailable, falling back to keyword-only search: ${err2.message}`);
-      this.hasVector = false;
-    }
-    this.db = new PGlite(this.dataDir, { extensions });
+    const { vector } = await import("@electric-sql/pglite-pgvector");
+    this.db = new PGlite(this.dataDir, { extensions: { vector, pg_trgm } });
     await this.db.waitReady;
   }
   async disconnect() {
@@ -68291,11 +68278,7 @@ var PGliteEngine = class {
     }
   }
   async initSchema() {
-    const db = this.requireDb();
-    await db.exec(VAULTBRAIN_CORE_SCHEMA_SQL);
-    if (this.hasVector) {
-      await db.exec(VAULTBRAIN_VECTOR_SCHEMA_SQL);
-    }
+    await this.requireDb().exec(VAULTBRAIN_SCHEMA_SQL);
   }
   async ensureEmbeddingFingerprint(fingerprint2) {
     const db = this.requireDb();
@@ -68337,14 +68320,6 @@ var PGliteEngine = class {
       return;
     const db = this.requireDb();
     for (const chunk of chunks) {
-      if (!this.hasVector) {
-        await db.query(`INSERT INTO chunks (slug, chunk_index, chunk_text, token_count)
-           VALUES ($1, $2, $3, $4)
-           ON CONFLICT (slug, chunk_index) DO UPDATE SET
-             chunk_text = EXCLUDED.chunk_text,
-             token_count = EXCLUDED.token_count`, [slug, chunk.chunkIndex, chunk.chunkText, chunk.tokenCount]);
-        continue;
-      }
       const embeddingStr = chunk.embedding && chunk.embedding.length > 0 ? JSON.stringify(chunk.embedding) : null;
       if (embeddingStr) {
         await db.query(`INSERT INTO chunks (slug, chunk_index, chunk_text, embedding, token_count)
@@ -68404,8 +68379,6 @@ var PGliteEngine = class {
     }));
   }
   async searchVector(embedding, limit) {
-    if (!this.hasVector)
-      return [];
     const vecStr = JSON.stringify(embedding);
     const { rows } = await this.requireDb().query(`SELECT slug, chunk_index, chunk_text,
               1 - (embedding <=> $1::vector) AS score
@@ -68425,8 +68398,6 @@ var PGliteEngine = class {
     return Number(rows[0]?.n ?? 0);
   }
   async countEmbeddedChunks() {
-    if (!this.hasVector)
-      return 0;
     const { rows } = await this.requireDb().query(`SELECT count(*)::int AS n FROM chunks WHERE embedding IS NOT NULL`);
     return Number(rows[0]?.n ?? 0);
   }
@@ -69096,7 +69067,7 @@ async function recallGaps(backfill) {
     try {
       const total = await vba.countChunks();
       if (total > 0 && await vba.countEmbeddedChunks() === 0) {
-        gaps.push({ type: "retrieval_limitation", message: "semantic recall is off (no embeddings) -- start Ollama and run `ollama pull bge-m3` for vector recall; keyword recall is active" });
+        gaps.push({ type: "retrieval_limitation", message: "semantic recall is off (no embeddings) -- start Ollama, run `ollama pull bge-m3`, then call `vault.reindex` for vector recall; keyword recall is active" });
       }
     } catch {
     }
