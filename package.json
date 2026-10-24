@@ -1,0 +1,12 @@
+{
+  "name": "llmwiki-plugin",
+  "private": true,
+  "type": "module",
+  "license": "GPL-3.0-only",
+  "engines": {
+    "node": ">=20.18.1"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "0.5.6"
+  }
+}
