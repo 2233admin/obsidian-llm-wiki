@@ -22,7 +22,7 @@ import type { EmbeddingFingerprint } from "../../embedding/profile.js";
 export interface VaultBrainEngine {
   connect(): Promise<void>;
   disconnect(): Promise<void>;
-  initSchema(): Promise<void>;
+  initSchema(dimensions: number): Promise<void>;
   ensureEmbeddingFingerprint(fingerprint: EmbeddingFingerprint): Promise<void>;
 
   // pages

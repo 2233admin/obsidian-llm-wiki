@@ -492,6 +492,36 @@
       "overriddenCandidates": []
     },
     {
+      "key": "embeddings.model",
+      "value": "",
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
+      "key": "embeddings.dimensions",
+      "value": 0,
+      "winningScope": "product",
+      "assignmentProvenance": {
+        "actor": "registry",
+        "source": "registry/v1.json"
+      },
+      "validation": {
+        "valid": true,
+        "issues": []
+      },
+      "applyMode": "restart-required",
+      "overriddenCandidates": []
+    },
+    {
       "key": "embeddings.index_profiles",
       "value": {
         "vaultbrain": "ollama/bge-m3",

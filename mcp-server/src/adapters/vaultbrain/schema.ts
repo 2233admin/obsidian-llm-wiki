@@ -4,8 +4,6 @@
  * pgvector HNSW index for embedding search, pg_trgm for keyword search.
  */
 
-const EMBED_DIM = parseInt(process.env.VAULTBRAIN_EMBED_DIM ?? "1024", 10);
-
 export const VAULTBRAIN_SCHEMA_SQL = `
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE EXTENSION IF NOT EXISTS vector;
@@ -61,11 +59,18 @@ ALTER TABLE chunks ADD COLUMN IF NOT EXISTS chunk_tsv tsvector
 
 CREATE INDEX IF NOT EXISTS chunks_tsv_idx
   ON chunks USING gin (chunk_tsv);
+`;
 
--- ADD COLUMN IF NOT EXISTS also migrates stores created while pgvector failed
--- to load (pglite 0.5 moved it to @electric-sql/pglite-pgvector).
-ALTER TABLE chunks ADD COLUMN IF NOT EXISTS embedding vector(${EMBED_DIM});
+/**
+ * The embedding column is sized by the bound embedding profile. ADD COLUMN IF
+ * NOT EXISTS also migrates stores created while pgvector failed to load
+ * (pglite 0.5 moved it to @electric-sql/pglite-pgvector).
+ */
+export function vaultbrainVectorSchemaSql(dimensions: number): string {
+  return `
+ALTER TABLE chunks ADD COLUMN IF NOT EXISTS embedding vector(${dimensions});
 
 CREATE INDEX IF NOT EXISTS chunks_embedding_idx
   ON chunks USING hnsw (embedding vector_cosine_ops);
 `;
+}

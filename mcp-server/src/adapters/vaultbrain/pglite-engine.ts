@@ -4,7 +4,7 @@
  */
 
 import type { VaultBrainEngine, ChunkResult, ChunkInput } from "./engine.js";
-import { VAULTBRAIN_SCHEMA_SQL } from "./schema.js";
+import { VAULTBRAIN_SCHEMA_SQL, vaultbrainVectorSchemaSql } from "./schema.js";
 import {
   embeddingFingerprintsMatch,
   type EmbeddingFingerprint,
@@ -41,8 +41,24 @@ export class PGliteEngine implements VaultBrainEngine {
     }
   }
 
-  async initSchema(): Promise<void> {
-    await this.requireDb().exec(VAULTBRAIN_SCHEMA_SQL);
+  async initSchema(dimensions: number): Promise<void> {
+    if (!Number.isInteger(dimensions) || dimensions <= 0) {
+      throw new Error("vaultbrain embedding dimensions must be a positive integer");
+    }
+    const db = this.requireDb();
+    await db.exec(VAULTBRAIN_SCHEMA_SQL);
+    // pgvector stores a vector column's dimensions as its typmod.
+    const { rows } = await db.query<{ dims: number }>(
+      `SELECT atttypmod AS dims FROM pg_attribute
+       WHERE attrelid = 'chunks'::regclass AND attname = 'embedding' AND NOT attisdropped`,
+    );
+    const existing = rows[0]?.dims;
+    if (existing !== undefined && existing !== dimensions && await this.countEmbeddedChunks() === 0) {
+      // No vectors to lose: resize instead of failing every insert. A store
+      // that holds vectors keeps its column and fails the fingerprint check.
+      await db.exec(`DROP INDEX IF EXISTS chunks_embedding_idx; ALTER TABLE chunks DROP COLUMN embedding;`);
+    }
+    await db.exec(vaultbrainVectorSchemaSql(dimensions));
   }
 
   async ensureEmbeddingFingerprint(fingerprint: EmbeddingFingerprint): Promise<void> {
