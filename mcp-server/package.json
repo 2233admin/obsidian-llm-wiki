@@ -57,11 +57,11 @@
     "@types/pg": "^8.23.1",
     "pg": "^8.23.0",
     "undici": "^7.29.0",
-    "ws": "^8.21.3"
+    "ws": "^8.22.0"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",
-    "@types/ws": "^8.18.1",
+    "@types/ws": "^8.18.2",
     "esbuild": "^0.28.2",
     "typescript": "~7.0.2"
   },
