@@ -239,6 +239,9 @@ export async function resolveKnowledgeAdaptersRuntimeProfile(
     environment.VAULT_MIND_EMBED_URL ? "VAULT_MIND_EMBED_URL" : "OLLAMA_EMBED_BASE_URL",
     "http://localhost:11434/v1/embeddings",
   );
+  // A legacy env endpoint is a real user choice, not a default: honor it like a Settings assignment.
+  const embeddingEndpointOverridden = embeddingEndpoint.explicit
+    || embeddingEndpoint.provenance.source === "legacy-env";
   const embeddingIndexProfiles = selectField<unknown>(
     snapshot,
     "embeddings.index_profiles",
@@ -299,7 +302,7 @@ export async function resolveKnowledgeAdaptersRuntimeProfile(
         : undefined;
       const profile = resolveEmbeddingProfile({
         profileId,
-        ...(embeddingEndpoint.explicit || legacyModel
+        ...(embeddingEndpointOverridden || legacyModel
           ? { endpoint: normalizedEmbeddingEndpoint }
           : {}),
         ...(legacyModel ? { provider: "ollama", model: legacyModel, dimensions: 1024 } : {}),
@@ -325,7 +328,7 @@ export async function resolveKnowledgeAdaptersRuntimeProfile(
     try {
       const profile = resolveEmbeddingProfile({
         profileId: embeddingDefaultProfile.value,
-        ...(embeddingEndpoint.explicit ? { endpoint: normalizedEmbeddingEndpoint } : {}),
+        ...(embeddingEndpointOverridden ? { endpoint: normalizedEmbeddingEndpoint } : {}),
       });
       embeddingBindings[requiredIndex] = {
         indexId: requiredIndex,
