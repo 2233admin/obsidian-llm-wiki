@@ -366,8 +366,11 @@ export function readObsidianCanvasSource(source: string, sourcePath: string): Vi
     let from = canvasToMap.get(edge.fromNode);
     let to = canvasToMap.get(edge.toNode);
     if (!from || !to) continue;
-    if (edge.fromEnd === "arrow" && edge.toEnd !== "arrow") [from, to] = [to, from];
-    if (edge.fromEnd !== "arrow" && edge.toEnd !== "arrow") {
+    // JSON Canvas 1.0 defaults: fromEnd "none", toEnd "arrow".
+    const fromArrow = (edge.fromEnd ?? "none") === "arrow";
+    const toArrow = (edge.toEnd ?? "arrow") === "arrow";
+    if (fromArrow && !toArrow) [from, to] = [to, from];
+    if (!fromArrow && !toArrow) {
       diagnostics.push({
         code: "UNDIRECTED_CANVAS_EDGE",
         severity: "warning",
