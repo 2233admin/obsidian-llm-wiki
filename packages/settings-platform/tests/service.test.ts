@@ -105,6 +105,23 @@ describe("settings service operations", () => {
       .every(capability => capability.remediations.length > 0));
   });
 
+  test("doctor reports a missing LLM Wiki runtime entry with a remediation", async () => {
+    const { service } = setup();
+    const missing = (await service.doctor()).capabilities.find(item => item.capabilityId === "runtime.kb_meta")!;
+    assert.equal(missing.state, "unavailable");
+    assert.ok(missing.remediations.some(item => item.code === "configure-kb-meta"));
+
+    await service.assignmentSet({
+      scope: "session",
+      key: "runtime.kb_meta.path",
+      value: fileURLToPath(import.meta.url),
+      expectedRevision: 0,
+      updatedBy: "service-test",
+    });
+    const present = (await service.doctor()).capabilities.find(item => item.capabilityId === "runtime.kb_meta")!;
+    assert.equal(present.state, "available");
+  });
+
   test("degrades semantic diagnostics when its enabled query runtime is unavailable", async () => {
     const { service } = setup();
     await service.assignmentSet({

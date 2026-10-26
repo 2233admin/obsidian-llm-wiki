@@ -1230,7 +1230,7 @@
       "owner": "runtime.python",
       "category": "runtime",
       "name": "LLM Wiki runtime entry",
-      "description": "Machine-local path to compiler/kb_meta.py.",
+      "description": "Absolute path to compiler/kb_meta.py in your LLM Wiki checkout. Promote and Compile need it.",
       "valueType": "path",
       "defaultValue": "",
       "allowedScopes": ["user-device", "session"],
@@ -1238,7 +1238,7 @@
       "validator": { "id": "non-empty-path", "required": true },
       "requires": ["runtime.python.path"],
       "applyMode": "next-operation",
-      "visibility": "advanced"
+      "visibility": "normal"
     },
     {
       "key": "runtime.python.path",

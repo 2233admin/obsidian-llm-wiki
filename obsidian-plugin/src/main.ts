@@ -647,7 +647,7 @@ export default class LLMWikiPlugin extends Plugin {
       const pythonCommand = this.effectiveValue<string>("runtime.python.path");
       const kbMetaPath = this.effectiveValue<string>("runtime.kb_meta.path");
       if (!kbMetaPath || !isAbsolute(kbMetaPath)) {
-        return { outcome: "ERROR", error: "Set an absolute LLM Wiki runtime entry in Settings Platform." };
+        return { outcome: "ERROR", error: "Set LLM Wiki runtime entry (the absolute path to compiler/kb_meta.py) in Settings → LLM Wiki → Runtime." };
       }
       const cwd = this.vaultBasePath();
       if (!cwd) return { outcome: "ERROR", error: "Vault is not on the local filesystem (desktop only)." };
