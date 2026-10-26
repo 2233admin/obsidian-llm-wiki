@@ -55,7 +55,7 @@
     "@electric-sql/pglite-pgvector": "0.0.12",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@types/pg": "^8.23.1",
-    "pg": "^8.23.0",
+    "pg": "^8.23.1",
     "undici": "^7.29.0",
     "ws": "^8.21.3"
   },
