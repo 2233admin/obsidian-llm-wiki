@@ -21,7 +21,7 @@ body:
     attributes:
       label: 验收标准
       description: 可检查的完成条件，每条一个 checkbox。
-      value: |
-        - [ ] 
+      placeholder: |
+        - [ ] 运行 xxx 后输出 yyy
     validations:
       required: true
