@@ -2886,7 +2886,9 @@
   box-sizing: border-box;
   color: var(--text-normal);
   line-height: 1.55;
+  margin: 0 auto;
   max-width: 980px;
+  overflow-x: hidden;
   width: 100%;
 }
 

@@ -1,0 +1,11 @@
+{
+  "name": "obsidian-llm-wiki-lint",
+  "private": true,
+  "description": "Obsidian plugin guideline lint. Kept separate because typescript-eslint needs TypeScript < 6.1 while the plugin builds with TypeScript 7.",
+  "type": "module",
+  "devDependencies": {
+    "eslint": "^9.39.5",
+    "eslint-plugin-obsidianmd": "^0.4.2",
+    "typescript": "~6.0.3"
+  }
+}

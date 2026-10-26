@@ -67,7 +67,7 @@ const MAX_RENDERED_OUTLINE_NODES = 200;
 const MAX_RENDERED_OUTLINE_DEPTH = 12;
 
 function transitionToken(planFingerprint: Sha256Digest): string {
-  const entropy = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+  const entropy = activeWindow.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
   return `ask-mate:${planFingerprint.slice("sha256:".length, "sha256:".length + 16)}:${entropy}`;
 }
 
@@ -551,10 +551,6 @@ export class AskMateView extends ItemView {
     const container = this.containerEl.children[1] as HTMLElement;
     container.empty();
     container.addClass("llmwiki-ask-mate");
-    container.style.maxWidth = "980px";
-    container.style.width = "100%";
-    container.style.margin = "0 auto";
-    container.style.overflowX = "hidden";
     container.setAttr("role", "main");
     container.setAttr("aria-labelledby", "llmwiki-ask-mate-title");
     container.createEl("h2", { text: "LLM Wiki", attr: { id: "llmwiki-ask-mate-title" } });
@@ -569,7 +565,7 @@ export class AskMateView extends ItemView {
     if (!this.#context) {
       container.createEl("p", {
         cls: "llmwiki-ask-mate-empty",
-        text: "Open LLM Wiki from a Markdown note, selected text, a supported Canvas, a managed map, or a bound Project. Only the context shown here is read; the vault is never scanned implicitly.",
+        text: "Open LLM Wiki from a Markdown note, selected text, a supported Canvas, a managed map, or a bound project. Only the context shown here is read; the vault is never scanned implicitly.",
       });
       return;
     }
@@ -634,7 +630,7 @@ export class AskMateView extends ItemView {
     const section = container.createEl("section", { cls: "llmwiki-ask-mate-panel llmwiki-ask-mate-question" });
     section.createEl("h3", { text: "Ask this context" });
     section.createEl("p", {
-      text: "Answers use citation-backed retrieval from the current Project Context. They are extractive and remain a draft until you send them to Inbox review.",
+      text: "Answers use citation-backed retrieval from the current project context. They are extractive and remain a draft until you send them to Inbox review.",
     });
     const label = section.createEl("label");
     label.createSpan({ text: "Question" });
@@ -654,7 +650,7 @@ export class AskMateView extends ItemView {
     if (!answer) return;
 
     const answerSection = container.createEl("section", { cls: "llmwiki-ask-mate-panel llmwiki-ask-mate-answer" });
-    answerSection.createEl("div", { cls: "llmwiki-ask-mate-eyebrow", text: `Citation-backed answer · confidence ${answer.confidence}` });
+    answerSection.createDiv({ cls: "llmwiki-ask-mate-eyebrow", text: `Citation-backed answer · confidence ${answer.confidence}` });
     answerSection.createEl("h3", { text: "Answer" });
     answerSection.createEl("pre", { text: safePresentationText(answer.answer) });
 

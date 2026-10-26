@@ -113,6 +113,6 @@ export class CompilePublishStatusModal extends Modal {
   private fact(container: HTMLElement, name: string, value: string): void {
     const row = container.createDiv({ cls: "llmwiki-control-fact" });
     row.createEl("strong", { text: name });
-    row.createEl("span", { text: value });
+    row.createSpan({ text: value });
   }
 }
