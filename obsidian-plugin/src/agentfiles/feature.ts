@@ -1,7 +1,6 @@
 import {
   FileSystemAdapter,
   ItemView,
-  PluginSettingTab,
   type App,
   type Plugin,
   type WorkspaceLeaf,
@@ -10,7 +9,6 @@ import { AgentfilesView, VIEW_TYPE } from "./views/main-view";
 import { SkillStore } from "./store";
 import { SkillWatcher } from "./watcher";
 import { getWatchPaths } from "./scanner";
-import { AgentfilesSettingTab } from "./settings";
 import { DEFAULT_SETTINGS, type ChopsSettings } from "./types";
 
 export interface AgentfilesDraftWriter {
@@ -30,7 +28,6 @@ export interface AgentfilesHost {
   ): void;
   addRibbonIcon(icon: string, title: string, callback: () => void): HTMLElement;
   addCommand(command: Parameters<Plugin["addCommand"]>[0]): void;
-  addSettingTab(settingTab: PluginSettingTab): void;
 }
 
 function cloneDefaults(): ChopsSettings {
@@ -93,7 +90,6 @@ export class AgentfilesFeature {
       name: "Open Capability Library (LLM Wiki)",
       callback: () => void this.activateView(),
     });
-	this.host.addSettingTab(new AgentfilesSettingTab(this.host.app, this, this.host as unknown as Plugin));
 
     this.store.setDeepSearch(this.settings.deepSearchDefault ?? false);
     this.store.setDeepSearchScope(this.settings.deepSearchScope ?? "both");

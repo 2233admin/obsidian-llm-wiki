@@ -1,5 +1,5 @@
 import { homedir } from "os";
-import { Plugin, PluginSettingTab, Setting, type App } from "obsidian";
+import { Setting } from "obsidian";
 import { TOOL_CONFIGS } from "./tool-configs";
 import type { AgentfilesFeature } from "./feature";
 
@@ -9,17 +9,14 @@ function expandHome(path: string): string {
 	return path;
 }
 
-export class AgentfilesSettingTab extends PluginSettingTab {
-	private readonly feature: AgentfilesFeature;
+/** Renders the Capability Library section inside the plugin's single settings tab. */
+export class AgentfilesSettingsSection {
+	constructor(
+		private readonly feature: AgentfilesFeature,
+		private readonly redraw: () => void,
+	) {}
 
-	constructor(app: App, plugin: AgentfilesFeature, owner: Plugin) {
-		super(app, owner);
-		this.feature = plugin;
-	}
-
-	display(): void {
-		const { containerEl } = this;
-		containerEl.empty();
+	display(containerEl: HTMLElement): void {
 
 		new Setting(containerEl)
 			.setName("File watching")
@@ -162,7 +159,7 @@ export class AgentfilesSettingTab extends PluginSettingTab {
 							await this.feature.saveSettings();
 							this.feature.refreshStore();
 							this.feature.restartWatcher();
-							this.display();
+							this.redraw();
 						})
 				);
 		}
@@ -192,7 +189,7 @@ export class AgentfilesSettingTab extends PluginSettingTab {
 						await this.feature.saveSettings();
 						this.feature.refreshStore();
 						this.feature.restartWatcher();
-						this.display();
+						this.redraw();
 					})
 			);
 

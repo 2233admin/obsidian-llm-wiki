@@ -67,7 +67,6 @@ test("Agentfiles registers as a feature of the existing plugin host", async t =>
   const vaultPath = await mkdtemp(join(tmpdir(), "agentfiles-host-"));
   t.after(() => rm(vaultPath, { recursive: true, force: true }));
   const registrations: string[] = [];
-  let settingTabPlugin: unknown = null;
   let persisted: unknown = null;
   const app = {
     vault: { adapter: { getBasePath: () => vaultPath } },
@@ -83,7 +82,6 @@ test("Agentfiles registers as a feature of the existing plugin host", async t =>
     registerView: (type: string) => registrations.push(type),
     addRibbonIcon: () => ({} as HTMLElement),
     addCommand: (command: { id: string }) => registrations.push(command.id),
-    addSettingTab: tab => { settingTabPlugin = tab.plugin; },
   };
   const feature = new AgentfilesFeature(host, undefined, async settings => { persisted = settings; });
 
@@ -93,6 +91,5 @@ test("Agentfiles registers as a feature of the existing plugin host", async t =>
 
   assert.ok(registrations.includes("agentfiles-view"));
   assert.ok(registrations.includes("open-agentfiles"));
-  assert.equal(settingTabPlugin, host);
   assert.equal((persisted as { customScanPaths: string[] }).customScanPaths.includes(vaultPath), true);
 });
