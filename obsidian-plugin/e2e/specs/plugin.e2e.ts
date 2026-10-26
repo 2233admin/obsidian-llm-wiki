@@ -139,6 +139,9 @@ describe("LLM Wiki plugin in Obsidian", function () {
     expect(tabCount).toBe(1);
     expect(status).toContain("System status");
     expect(status).toContain("vault.filesystem");
+    expect(status).toContain("runtime.kb_meta");
+    expect(status).toContain("LLM Wiki runtime entry is not set");
+    expect(status).toContain("Absolute path to compiler/kb_meta.py");
     expect(status).toContain("Capability Library");
     expect(status).toContain("File watching");
   });

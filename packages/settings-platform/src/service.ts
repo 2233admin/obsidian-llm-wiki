@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { hostname } from "node:os";
-import { basename } from "node:path";
+import { basename, isAbsolute } from "node:path";
 import { spawnSync } from "node:child_process";
 
 import { deepClone } from "./canonical.js";
@@ -410,6 +410,21 @@ export class SettingsService {
       snapshot.snapshotId,
       pythonAvailable ? "pass" : "fail",
       pythonAvailable ? [] : [{ code: "configure-python", summary: "Set runtime.python.path to an executable Python runtime.", operation: "settings.assignment.set" }],
+    ));
+    const kbMeta = value("runtime.kb_meta.path");
+    const kbMetaAvailable = typeof kbMeta === "string" && isAbsolute(kbMeta) && existsSync(kbMeta);
+    capabilities.push(this.health(
+      "runtime.kb_meta",
+      kbMetaAvailable ? "available" : "unavailable",
+      kbMetaAvailable
+        ? "LLM Wiki runtime entry is present."
+        : kbMeta
+          ? `LLM Wiki runtime entry ${String(kbMeta)} is not an existing absolute path; Promote and Compile are unavailable.`
+          : "LLM Wiki runtime entry is not set; Promote and Compile are unavailable.",
+      checkedAt,
+      snapshot.snapshotId,
+      kbMetaAvailable ? "pass" : "fail",
+      kbMetaAvailable ? [] : [{ code: "configure-kb-meta", summary: "Set LLM Wiki runtime entry (runtime.kb_meta.path) to the absolute path of compiler/kb_meta.py in your LLM Wiki checkout.", operation: "settings.assignment.set" }],
     ));
     const vaultPath = value("vault.path");
     const vaultAvailable = typeof vaultPath === "string" && existsSync(vaultPath);
