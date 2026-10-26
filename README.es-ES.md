@@ -41,7 +41,9 @@ Dentro de cualquier sesión de Claude Code:
 /plugin install llmwiki@obsidian-llm-wiki
 ```
 
-Claude Code te pide la ruta de tu vault (ruta absoluta a tu vault de Obsidian o a cualquier carpeta de notas Markdown) e instala todo lo demás. Sin clonar, sin compilar. Necesitas Node.js 20.18.1+. Actualiza con `/plugin marketplace update obsidian-llm-wiki` o activa la actualización automática del marketplace en `/plugin`. Cambia el vault con `/plugin configure llmwiki@obsidian-llm-wiki`.
+Claude Code te pide la ruta de tu vault (ruta absoluta a tu vault de Obsidian o a cualquier carpeta de notas Markdown) e instala todo lo demás. Sin clonar, sin compilar. Necesitas Node.js 20.18.1+. El plugin incluye el servidor MCP, todos los roles de trabajo de conocimiento `/llmwiki:vault-*` y los comandos de pensamiento/investigación. Prueba `/llmwiki:vault-librarian qué sé sobre <tema>`.
+
+Actualiza con `/plugin marketplace update obsidian-llm-wiki` o activa la actualización automática del marketplace en `/plugin`. Cambia el vault con `/plugin configure llmwiki@obsidian-llm-wiki`.
 
 ### Otros hosts (Codex / OpenCode / Gemini)
 
