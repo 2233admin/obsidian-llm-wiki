@@ -103,6 +103,31 @@ jobs:
       - name: Verify Obsidian plugin production bundle boundary
         run: cd obsidian-plugin && npm run verify:bundle-boundary
 
+  obsidian-e2e:
+    # Runs the built plugin inside a real Obsidian desktop app under xvfb.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: |
+            mcp-server/package-lock.json
+            obsidian-plugin/package-lock.json
+      - uses: actions/cache@v4
+        with:
+          path: obsidian-plugin/.obsidian-cache
+          key: obsidian-cache-${{ runner.os }}-${{ hashFiles('obsidian-plugin/package-lock.json') }}
+      - name: Install MCP server dependencies
+        run: cd mcp-server && npm ci
+      - name: Install Obsidian plugin dependencies
+        run: cd obsidian-plugin && npm ci
+      - name: Build Obsidian plugin
+        run: cd obsidian-plugin && npm run build
+      - name: Run end-to-end tests in Obsidian
+        run: cd obsidian-plugin && xvfb-run -a npm run e2e
+
   lint-python:
     runs-on: ${{ vars.CI_5070X_ENABLED == 'true' && (((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/')) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)) && 'ci-5070x-linux' || 'ubuntu-latest' }}
     steps:

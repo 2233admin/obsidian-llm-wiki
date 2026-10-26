@@ -1,0 +1,1 @@
+{"nodes":[{"id":"a1","type":"text","text":"Onboarding","x":0,"y":0,"width":200,"height":60},{"id":"b2","type":"text","text":"Install docs","x":0,"y":120,"width":200,"height":60}],"edges":[{"id":"e1","fromNode":"a1","toNode":"b2"}]}

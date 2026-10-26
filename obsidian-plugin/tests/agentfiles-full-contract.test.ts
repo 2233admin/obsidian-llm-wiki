@@ -111,7 +111,6 @@ test("custom scan paths are watched and feature lifecycle refreshes them", async
 		},
 		addRibbonIcon: () => ({} as HTMLElement),
 		addCommand: (value: { id: string; callback?: () => void }) => { command = value; },
-		addSettingTab: () => undefined,
 	};
 	const feature = new AgentfilesFeature(host, settings, async value => { persisted = value; });
 

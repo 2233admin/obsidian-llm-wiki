@@ -355,6 +355,17 @@ function filterCanvasSelection(source: string, nodeIdsValue: unknown): string {
   return JSON.stringify({ nodes, edges });
 }
 
+function diagnosticWarnings(diagnostics: VisualSourceReadResult['diagnostics']): string[] {
+  // Ordinary notes have no block IDs; one summary line instead of one line per node.
+  const inferred = diagnostics.filter((item) => item.code === 'INFERRED_ID').length;
+  return [
+    ...(inferred
+      ? [`${inferred} ${inferred === 1 ? 'node has' : 'nodes have'} no block ID yet; adoption will assign them when you apply a map.`]
+      : []),
+    ...diagnostics.filter((item) => item.code !== 'INFERRED_ID').map((item) => item.message),
+  ];
+}
+
 function contextCapabilities(): Record<string, unknown> {
   return {
     model: 'degraded',
@@ -905,7 +916,7 @@ export function makeVisualWorkspaceOps(vaultPath: string): Operation[] {
             adoptionRequired: !targetIsManagedProjectMap && existingTarget === undefined,
             readOnly: false,
             warnings: [
-              ...read.diagnostics.map((item) => item.message),
+              ...diagnosticWarnings(read.diagnostics),
               ...(!targetIsManagedProjectMap
                 ? ['The embedded managed section will be adopted into the Project maps directory after confirmation.']
                 : []),
@@ -929,7 +940,7 @@ export function makeVisualWorkspaceOps(vaultPath: string): Operation[] {
           adoptionRequired: existingTarget === undefined,
           readOnly: false,
           warnings: [
-            ...read.diagnostics.map((item) => item.message),
+            ...diagnosticWarnings(read.diagnostics),
             ...(existingTarget ? ['A managed map already exists for this source; Ask Mate opened that map.'] : []),
           ],
           clarifications: existingTarget ? [] : clarificationsForCandidate(read.adoptionCandidate),

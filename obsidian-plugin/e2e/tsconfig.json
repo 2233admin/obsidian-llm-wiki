@@ -1,0 +1,7 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "types": ["node", "@wdio/globals/types", "@wdio/mocha-framework", "wdio-obsidian-service"]
+  },
+  "include": ["specs/**/*.ts", "../wdio.conf.mts"]
+}

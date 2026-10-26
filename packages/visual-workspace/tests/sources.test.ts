@@ -92,4 +92,26 @@ describe("read-only Markdown and core Canvas source adapters", () => {
     assert.ok(result.diagnostics.some((diagnostic) => diagnostic.code === "AMBIGUOUS_ROOT"));
     assert.equal(result.document, undefined);
   });
+
+  test("applies JSON Canvas default edge ends", () => {
+    const canvas = (edge: Record<string, string>) => JSON.stringify({
+      nodes: [
+        { id: "a", type: "text", text: "A", x: 0, y: 0, width: 100, height: 100 },
+        { id: "b", type: "text", text: "B", x: 200, y: 0, width: 100, height: 100 },
+      ],
+      edges: [{ id: "e1", fromNode: "a", toNode: "b", ...edge }],
+    });
+    const undirected = (result: ReturnType<typeof readObsidianCanvasSource>) =>
+      result.diagnostics.some((diagnostic) => diagnostic.code === "UNDIRECTED_CANVAS_EDGE");
+
+    const implicit = readObsidianCanvasSource(canvas({}), "Projects/default.canvas");
+    assert.equal(undirected(implicit), false);
+    assert.deepEqual(implicit.adoptionCandidate?.candidateRootIds, ["a"]);
+
+    assert.equal(undirected(readObsidianCanvasSource(canvas({ toEnd: "none" }), "Projects/none.canvas")), true);
+
+    const reversed = readObsidianCanvasSource(canvas({ fromEnd: "arrow", toEnd: "none" }), "Projects/reversed.canvas");
+    assert.equal(undirected(reversed), false);
+    assert.deepEqual(reversed.adoptionCandidate?.candidateRootIds, ["b"]);
+  });
 });

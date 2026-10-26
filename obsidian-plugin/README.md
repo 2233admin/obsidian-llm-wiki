@@ -135,6 +135,20 @@ npm test
 npm run build
 ```
 
+### End-to-end tests in real Obsidian
+
+`npm run e2e` loads the built plugin into a real Obsidian desktop app through
+[wdio-obsidian-service](https://github.com/jesse-r-s-hines/wdio-obsidian-service),
+opens the test vault in `e2e/vaults/basic`, and runs `e2e/specs/*.e2e.ts`.
+Obsidian is downloaded into `.obsidian-cache/` on first run. Build first, and on
+a Linux machine without a display wrap the run in `xvfb-run`:
+
+```bash
+npm run build
+xvfb-run -a npm run e2e   # or plain `npm run e2e` on a desktop
+OBSIDIAN_VERSION=1.8.10 npm run e2e   # pin an app version; defaults to latest
+```
+
 Copy `manifest.json`, `main.js`, and `styles.css` into:
 
 ```text

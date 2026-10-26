@@ -337,7 +337,7 @@ function buildTraceLimitations(
     limitations.push("single-term queries can over-rank literal matches; use a phrase or more context for better evidence.");
   }
   if (selectedAdapters.includes("filesystem")) {
-    limitations.push("filesystem search is literal ripgrep matching, not BM25.");
+    limitations.push("filesystem search matches query terms literally with ripgrep and ranks by matched-term share, not BM25.");
   }
   if (selectedAdapters.includes("vaultbrain")) {
     limitations.push("vaultbrain keyword search uses pg_trgm similarity plus optional vector search, not a native BM25 scorer.");

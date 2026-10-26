@@ -165,7 +165,7 @@ export function createExecFileCompilePublishRunner(
       });
 
       if (!config.kbMetaPath || !isAbsolute(config.kbMetaPath)) {
-        return fail("Set an absolute LLM Wiki runtime entry (runtime.kb_meta.path) in Settings Platform.");
+        return fail("Set LLM Wiki runtime entry (the absolute path to compiler/kb_meta.py) in Settings → LLM Wiki → Runtime.");
       }
       const cwd = compilerRepoRootFromKbMetaPath(config.kbMetaPath);
 
