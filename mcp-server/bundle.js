@@ -66265,6 +66265,64 @@ function matchesGlob(relativePath2, glob) {
   return expandGlobBraces(glob.replace(/\\/g, "/")).some((pattern) => globToRegExp(pattern).test(normalized2));
 }
 var exec = promisify(execFile);
+var STOPWORDS = /* @__PURE__ */ new Set([
+  "a",
+  "an",
+  "and",
+  "are",
+  "as",
+  "at",
+  "be",
+  "by",
+  "can",
+  "do",
+  "does",
+  "for",
+  "from",
+  "how",
+  "i",
+  "in",
+  "is",
+  "it",
+  "me",
+  "my",
+  "of",
+  "on",
+  "or",
+  "our",
+  "should",
+  "that",
+  "the",
+  "this",
+  "to",
+  "was",
+  "we",
+  "were",
+  "what",
+  "when",
+  "where",
+  "which",
+  "who",
+  "why",
+  "will",
+  "with",
+  "you"
+]);
+function queryTerms(query, caseSensitive = false) {
+  const text4 = caseSensitive ? query : query.toLowerCase();
+  const terms = /* @__PURE__ */ new Set();
+  for (const token of text4.match(new RegExp("\\p{Script=Han}+|[^\\s\\p{P}\\p{S}\\p{Script=Han}]+", "gu")) ?? []) {
+    if (new RegExp("\\p{Script=Han}", "u").test(token)) {
+      if (token.length === 1)
+        terms.add(token);
+      for (let index = 0; index + 1 < token.length; index += 1)
+        terms.add(token.slice(index, index + 2));
+    } else if (token.length > 1 && !STOPWORDS.has(token.toLowerCase())) {
+      terms.add(token);
+    }
+  }
+  return terms.size ? [...terms] : [query.trim()];
+}
 var FilesystemAdapter = class {
   vaultPath;
   name = "filesystem";
@@ -66279,47 +66337,33 @@ var FilesystemAdapter = class {
   async dispose() {
   }
   async search(query, opts) {
-    const maxResults = opts?.maxResults ?? 20;
+    const terms = queryTerms(query, opts?.caseSensitive);
     const args = [
       "--files-with-matches",
-      "--fixed-strings",
-      // treat query literal, not regex (ReDoS protection)
-      "--max-count",
-      "1"
-      // stop after the first match in each file
+      "--fixed-strings"
+      // treat terms literally, not regex (ReDoS protection)
     ];
     if (!opts?.caseSensitive)
       args.push("-i");
     if (opts?.glob)
       args.push("--glob", opts.glob);
+    for (const term of terms)
+      args.push("-e", term);
     const scopedSearch = Boolean(opts?.glob);
-    args.push("--", query, scopedSearch ? "." : this.vaultPath);
+    args.push("--", scopedSearch ? "." : this.vaultPath);
+    let files;
     try {
       const { stdout } = await exec("rg", args, {
         maxBuffer: 2 * 1024 * 1024,
         ...scopedSearch ? { cwd: this.vaultPath } : {}
       });
-      const files = stdout.split(/\r?\n/).filter(Boolean).slice(0, maxResults);
-      const results = [];
-      for (const file2 of files) {
-        try {
-          const fullPath2 = isAbsolute2(file2) ? file2 : join(this.vaultPath, file2);
-          const content = await readFile(fullPath2, "utf-8");
-          results.push(normalizeSearchResult({
-            source: this.name,
-            path: relative(this.vaultPath, fullPath2).replace(/\\/g, "/"),
-            content: this.extractSnippet(content, query, opts),
-            score: 1
-          }, this.name));
-        } catch {
-        }
-      }
-      return results;
+      files = stdout.split(/\r?\n/).filter(Boolean).map((file2) => isAbsolute2(file2) ? file2 : join(this.vaultPath, file2));
     } catch (err2) {
       if (this.isExitCode(err2, 1))
         return [];
-      return this.fallbackSearch(query, opts);
+      files = await this.fallbackFiles(terms, opts);
     }
+    return this.rankFiles(files, query, terms, opts);
   }
   async read(path) {
     const fullPath2 = this.resolvePath(path);
@@ -66340,70 +66384,62 @@ var FilesystemAdapter = class {
     }
     return resolved;
   }
-  extractSnippet(content, query, opts) {
-    const context = Math.max(0, opts?.context ?? 0);
-    const needle = opts?.caseSensitive ? query : query.toLowerCase();
-    const lines = content.split(/\r?\n/);
-    for (let i = 0; i < lines.length; i++) {
-      const haystack = opts?.caseSensitive ? lines[i] : lines[i].toLowerCase();
-      if (haystack.includes(needle)) {
-        const start = Math.max(0, i - context);
-        const end = Math.min(lines.length, i + context + 1);
-        return lines.slice(start, end).join("\n").trim();
+  /** Scores each file by the share of query terms it contains; a literal match of the whole query scores 1. */
+  async rankFiles(files, query, terms, opts) {
+    const fold = (text4) => opts?.caseSensitive ? text4 : text4.toLowerCase();
+    const phrase = fold(query.trim());
+    const ranked = [];
+    for (const fullPath2 of files) {
+      let content;
+      try {
+        content = await readFile(fullPath2, "utf-8");
+      } catch {
+        continue;
       }
+      const haystack = fold(content);
+      const matched = terms.filter((term) => haystack.includes(term));
+      if (!matched.length)
+        continue;
+      const score = haystack.includes(phrase) ? 1 : matched.length / terms.length;
+      ranked.push({
+        score,
+        result: normalizeSearchResult({
+          source: this.name,
+          path: relative(this.vaultPath, fullPath2).replace(/\\/g, "/"),
+          content: this.extractSnippet(content, [phrase, ...matched], opts),
+          score
+        }, this.name)
+      });
     }
+    return ranked.sort((left, right) => right.score - left.score || left.result.path.localeCompare(right.result.path)).slice(0, opts?.maxResults ?? 20).map((item) => item.result);
+  }
+  extractSnippet(content, needles, opts) {
+    const context = Math.max(0, opts?.context ?? 0);
+    const lines = content.split(/\r?\n/);
+    for (const needle of needles)
+      for (let i = 0; i < lines.length; i++) {
+        const haystack = opts?.caseSensitive ? lines[i] : lines[i].toLowerCase();
+        if (haystack.includes(needle)) {
+          const start = Math.max(0, i - context);
+          const end = Math.min(lines.length, i + context + 1);
+          return lines.slice(start, end).join("\n").trim();
+        }
+      }
     return lines.find((line) => line.trim())?.trim() ?? "";
   }
-  parseRipgrepJson(stdout) {
-    const results = [];
-    for (const line of stdout.split("\n").filter(Boolean)) {
-      try {
-        const msg = JSON.parse(line);
-        if (msg.type === "match") {
-          const path = relative(this.vaultPath, msg.data.path.text).replace(/\\/g, "/");
-          results.push(normalizeSearchResult({
-            source: this.name,
-            path,
-            content: msg.data.lines.text.trim(),
-            score: 1
-            // ripgrep doesn't rank -- all matches equal
-          }, this.name));
-        }
-      } catch {
-      }
-    }
-    return results;
-  }
-  async fallbackSearch(query, opts) {
+  async fallbackFiles(terms, opts) {
     const args = ["-r", "-l", "-F"];
     if (!opts?.caseSensitive)
       args.push("-i");
-    args.push("--", query, this.vaultPath);
+    for (const term of terms)
+      args.push("-e", term);
+    args.push("--", this.vaultPath);
     try {
       const { stdout } = await exec("grep", args, { maxBuffer: 5 * 1024 * 1024 });
-      const files = stdout.split(/\r?\n/).filter(Boolean);
-      const results = [];
-      for (const file2 of files) {
-        const fullPath2 = isAbsolute2(file2) ? file2 : resolve(file2);
+      return stdout.split(/\r?\n/).filter(Boolean).map((file2) => isAbsolute2(file2) ? file2 : resolve(file2)).filter((fullPath2) => {
         const relPath = relative(this.vaultPath, fullPath2);
-        if (relPath.startsWith("..") || isAbsolute2(relPath))
-          continue;
-        if (!matchesGlob(relPath, opts?.glob))
-          continue;
-        try {
-          const content = await readFile(fullPath2, "utf-8");
-          results.push(normalizeSearchResult({
-            source: this.name,
-            path: relPath.replace(/\\/g, "/"),
-            content: this.extractSnippet(content, query, opts),
-            score: 1
-          }, this.name));
-          if (results.length >= (opts?.maxResults ?? 20))
-            break;
-        } catch {
-        }
-      }
-      return results;
+        return !relPath.startsWith("..") && !isAbsolute2(relPath) && matchesGlob(relPath, opts?.glob);
+      });
     } catch (err2) {
       if (this.isExitCode(err2, 1))
         return [];
@@ -72424,7 +72460,7 @@ var v1_default = {
       owner: "runtime.python",
       category: "runtime",
       name: "LLM Wiki runtime entry",
-      description: "Machine-local path to compiler/kb_meta.py.",
+      description: "Absolute path to compiler/kb_meta.py in your LLM Wiki checkout. Promote and Compile need it.",
       valueType: "path",
       defaultValue: "",
       allowedScopes: ["user-device", "session"],
@@ -72432,7 +72468,7 @@ var v1_default = {
       validator: { id: "non-empty-path", required: true },
       requires: ["runtime.python.path"],
       applyMode: "next-operation",
-      visibility: "advanced"
+      visibility: "normal"
     },
     {
       key: "runtime.python.path",
@@ -73857,7 +73893,7 @@ function changedAssignmentKeys(before, after) {
 // ../packages/settings-platform/dist/src/service.js
 import { existsSync as existsSync6 } from "node:fs";
 import { hostname as hostname3 } from "node:os";
-import { basename as basename6 } from "node:path";
+import { basename as basename6, isAbsolute as isAbsolute5 } from "node:path";
 import { spawnSync } from "node:child_process";
 
 // ../packages/settings-platform/dist/src/toolchain.js
@@ -74412,6 +74448,9 @@ var SettingsService = class _SettingsService {
     const python = value("runtime.python.path");
     const pythonAvailable = typeof python === "string" && probePython(python);
     capabilities.push(this.health("runtime.python", pythonAvailable ? "available" : "unavailable", pythonAvailable ? "Python runtime responded to a version probe." : "Python runtime could not be executed.", checkedAt, snapshot.snapshotId, pythonAvailable ? "pass" : "fail", pythonAvailable ? [] : [{ code: "configure-python", summary: "Set runtime.python.path to an executable Python runtime.", operation: "settings.assignment.set" }]));
+    const kbMeta = value("runtime.kb_meta.path");
+    const kbMetaAvailable = typeof kbMeta === "string" && isAbsolute5(kbMeta) && existsSync6(kbMeta);
+    capabilities.push(this.health("runtime.kb_meta", kbMetaAvailable ? "available" : "unavailable", kbMetaAvailable ? "LLM Wiki runtime entry is present." : kbMeta ? `LLM Wiki runtime entry ${String(kbMeta)} is not an existing absolute path; Promote and Compile are unavailable.` : "LLM Wiki runtime entry is not set; Promote and Compile are unavailable.", checkedAt, snapshot.snapshotId, kbMetaAvailable ? "pass" : "fail", kbMetaAvailable ? [] : [{ code: "configure-kb-meta", summary: "Set LLM Wiki runtime entry (runtime.kb_meta.path) to the absolute path of compiler/kb_meta.py in your LLM Wiki checkout.", operation: "settings.assignment.set" }]));
     const vaultPath = value("vault.path");
     const vaultAvailable = typeof vaultPath === "string" && existsSync6(vaultPath);
     capabilities.push(this.health("vault.filesystem", vaultAvailable ? "available" : "unavailable", vaultAvailable ? "Configured vault path is accessible." : "Configured vault path is unavailable on this device.", checkedAt, snapshot.snapshotId, vaultAvailable ? "pass" : "fail", vaultAvailable ? [] : [{ code: "configure-vault-path", summary: "Set vault.path at user-device or session scope.", operation: "settings.assignment.set" }]));
@@ -74766,7 +74805,7 @@ function hostCapabilitySecretRequired(transport, _connectorId, _credentialProven
 
 // dist/project/project-context.js
 import { existsSync as existsSync7, readFileSync as readFileSync10, readdirSync as readdirSync7 } from "node:fs";
-import { isAbsolute as isAbsolute5, join as join11, resolve as resolve6 } from "node:path";
+import { isAbsolute as isAbsolute6, join as join11, resolve as resolve6 } from "node:path";
 
 // dist/project/workos.js
 import { readdirSync as readdirSync6, readFileSync as readFileSync9, statSync as statSync3 } from "node:fs";
@@ -75379,7 +75418,7 @@ function normalizeProjectRef(value) {
     const normalizedValue2 = candidate.value.trim();
     if (candidate.kind === "id")
       parseProjectId(normalizedValue2);
-    if (candidate.kind === "workspace" && !isAbsolute5(normalizedValue2)) {
+    if (candidate.kind === "workspace" && !isAbsolute6(normalizedValue2)) {
       throw badRequest("Workspace Project references must be absolute paths");
     }
     return { kind: candidate.kind, value: normalizedValue2 };
@@ -75391,7 +75430,7 @@ function normalizeProjectRef(value) {
     parseProjectId(normalizedValue);
     return { kind: "id", value: normalizedValue };
   }
-  return { kind: isAbsolute5(normalizedValue) ? "workspace" : "name", value: normalizedValue };
+  return { kind: isAbsolute6(normalizedValue) ? "workspace" : "name", value: normalizedValue };
 }
 function scalar2(frontmatter, key) {
   const value = frontmatter[key];
@@ -75422,7 +75461,7 @@ function projectionsOf(value) {
   }).filter((descriptor) => descriptor.kind && descriptor.target && !unsafeProjection(descriptor.kind, descriptor.target)).sort((left, right) => left.kind.localeCompare(right.kind) || left.target.localeCompare(right.target));
 }
 function looksAbsolutePath(value) {
-  return isAbsolute5(value) || /^[A-Za-z]:[\\/]/.test(value) || value.startsWith("\\\\");
+  return isAbsolute6(value) || /^[A-Za-z]:[\\/]/.test(value) || value.startsWith("\\\\");
 }
 function unsafeProjection(kind, target) {
   return SENSITIVE_PROJECTION_KINDS.has(kind.trim().toLowerCase()) || looksAbsolutePath(target.trim());
@@ -77018,7 +77057,7 @@ function buildTraceLimitations(query, opts, availableAdapters, selectedAdapters,
     limitations.push("single-term queries can over-rank literal matches; use a phrase or more context for better evidence.");
   }
   if (selectedAdapters.includes("filesystem")) {
-    limitations.push("filesystem search is literal ripgrep matching, not BM25.");
+    limitations.push("filesystem search matches query terms literally with ripgrep and ranks by matched-term share, not BM25.");
   }
   if (selectedAdapters.includes("vaultbrain")) {
     limitations.push("vaultbrain keyword search uses pg_trgm similarity plus optional vector search, not a native BM25 scorer.");
@@ -85680,7 +85719,7 @@ function validateProjectHubProjectionInput(value) {
 // dist/project-hub/production.js
 import { createHash as createHash18 } from "node:crypto";
 import { existsSync as existsSync20, readFileSync as readFileSync21, readdirSync as readdirSync14, statSync as statSync6 } from "node:fs";
-import { isAbsolute as isAbsolute6, join as join27, relative as relative8, resolve as resolve11 } from "node:path";
+import { isAbsolute as isAbsolute7, join as join27, relative as relative8, resolve as resolve11 } from "node:path";
 
 // ../packages/visual-workspace/dist/src/canonical.js
 import { createHash as createHash15 } from "node:crypto";
@@ -86946,9 +86985,11 @@ function readObsidianCanvasSource(source, sourcePath) {
     let to = canvasToMap.get(edge.toNode);
     if (!from || !to)
       continue;
-    if (edge.fromEnd === "arrow" && edge.toEnd !== "arrow")
+    const fromArrow = (edge.fromEnd ?? "none") === "arrow";
+    const toArrow = (edge.toEnd ?? "arrow") === "arrow";
+    if (fromArrow && !toArrow)
       [from, to] = [to, from];
-    if (edge.fromEnd !== "arrow" && edge.toEnd !== "arrow") {
+    if (!fromArrow && !toArrow) {
       diagnostics.push({
         code: "UNDIRECTED_CANVAS_EDGE",
         severity: "warning",
@@ -88734,13 +88775,13 @@ function projectSlug2(projectId2) {
 function assertConfiguredVault(configured, requested) {
   const expected = resolve11(configured);
   const actual = resolve11(requested);
-  if (!isAbsolute6(expected) || !isAbsolute6(actual) || expected !== actual) {
+  if (!isAbsolute7(expected) || !isAbsolute7(actual) || expected !== actual) {
     throw new Error("Project Hub loader vault does not match its production binding");
   }
 }
 function vaultRelative(vaultRoot, path) {
   const value = relative8(vaultRoot, path).replaceAll("\\", "/");
-  if (!value || value.startsWith("../") || isAbsolute6(value))
+  if (!value || value.startsWith("../") || isAbsolute7(value))
     return void 0;
   return value;
 }
@@ -89001,7 +89042,7 @@ function diagnosticProblemReport(candidate) {
 }
 function createProductionProjectHubIntegration(options) {
   const vaultRoot = resolve11(options.vaultPath);
-  if (!isAbsolute6(vaultRoot))
+  if (!isAbsolute7(vaultRoot))
     throw new Error("Project Hub vault path must be absolute");
   const executor = new ProblemIntakeExecutor(options.problemIntake);
   const diagnostics = /* @__PURE__ */ new Map();
@@ -101805,7 +101846,7 @@ function makeAgentDomainOps(vaultPath) {
 // dist/visual-workspace/operations.js
 import { createHash as createHash26, randomUUID as randomUUID15 } from "node:crypto";
 import { existsSync as existsSync31, mkdirSync as mkdirSync19, readFileSync as readFileSync31, readdirSync as readdirSync21, realpathSync, renameSync as renameSync9, rmSync as rmSync12, writeFileSync as writeFileSync15 } from "node:fs";
-import { basename as basename15, dirname as dirname22, isAbsolute as isAbsolute7, join as join40, relative as relative13, resolve as resolve14 } from "node:path";
+import { basename as basename15, dirname as dirname22, isAbsolute as isAbsolute8, join as join40, relative as relative13, resolve as resolve14 } from "node:path";
 var PROJECT_ID_RE6 = /^project\/([a-z0-9][a-z0-9-]*)$/;
 var RECEIPT_SCHEMA_VERSION = 1;
 function requiredString8(value, label) {
@@ -101840,7 +101881,7 @@ function visualPath(vaultPath, projectValue, pathValue, operation, mustExist = t
   const vaultRoot = realpathSync(resolve14(vaultPath));
   const fullPath2 = resolve14(vaultRoot, path);
   const rel = relative13(vaultRoot, fullPath2);
-  if (rel.startsWith("..") || isAbsolute7(rel))
+  if (rel.startsWith("..") || isAbsolute8(rel))
     throw badRequest("path escapes the vault");
   if (mustExist) {
     assertExistingRealPathInsideVault(vaultRoot, fullPath2);
@@ -101856,14 +101897,14 @@ function assertExistingRealPathInsideVault(vaultRoot, fullPath2) {
     throw notFound(`Mind map not found: ${basename15(fullPath2)}`);
   const realTarget = realpathSync(fullPath2);
   const rel = relative13(vaultRoot, realTarget);
-  if (rel.startsWith("..") || isAbsolute7(rel))
+  if (rel.startsWith("..") || isAbsolute8(rel))
     throw badRequest("path escapes the vault through a symbolic link");
 }
 function safeFuturePath(vaultPath, relativePath2) {
   const vaultRoot = realpathSync(resolve14(vaultPath));
   const fullPath2 = resolve14(vaultRoot, relativePath2);
   const rel = relative13(vaultRoot, fullPath2);
-  if (rel.startsWith("..") || isAbsolute7(rel))
+  if (rel.startsWith("..") || isAbsolute8(rel))
     throw badRequest("path escapes the vault");
   let ancestor = dirname22(fullPath2);
   while (!existsSync31(ancestor)) {
@@ -101874,7 +101915,7 @@ function safeFuturePath(vaultPath, relativePath2) {
   }
   const realAncestor = realpathSync(ancestor);
   const ancestorRel = relative13(vaultRoot, realAncestor);
-  if (ancestorRel.startsWith("..") || isAbsolute7(ancestorRel)) {
+  if (ancestorRel.startsWith("..") || isAbsolute8(ancestorRel)) {
     throw badRequest("path escapes the vault through a symbolic link");
   }
   return fullPath2;
@@ -101906,7 +101947,7 @@ function readVaultSource(vaultPath, pathValue, readContent = true) {
   const vaultRoot = realpathSync(resolve14(vaultPath));
   const fullPath2 = resolve14(vaultRoot, path);
   const rel = relative13(vaultRoot, fullPath2);
-  if (rel.startsWith("..") || isAbsolute7(rel))
+  if (rel.startsWith("..") || isAbsolute8(rel))
     throw badRequest("context.path escapes the vault");
   assertExistingRealPathInsideVault(vaultRoot, fullPath2);
   return { path, source: readContent ? readFileSync31(fullPath2, "utf8") : "" };
@@ -102033,6 +102074,13 @@ function filterCanvasSelection(source, nodeIdsValue) {
     return selected.has(String(edge.fromNode ?? "")) && selected.has(String(edge.toNode ?? ""));
   });
   return JSON.stringify({ nodes, edges });
+}
+function diagnosticWarnings(diagnostics) {
+  const inferred = diagnostics.filter((item) => item.code === "INFERRED_ID").length;
+  return [
+    ...inferred ? [`${inferred} ${inferred === 1 ? "node has" : "nodes have"} no block ID yet; adoption will assign them when you apply a map.`] : [],
+    ...diagnostics.filter((item) => item.code !== "INFERRED_ID").map((item) => item.message)
+  ];
 }
 function contextCapabilities() {
   return {
@@ -102500,7 +102548,7 @@ function makeVisualWorkspaceOps(vaultPath) {
             adoptionRequired: !targetIsManagedProjectMap && existingTarget2 === void 0,
             readOnly: false,
             warnings: [
-              ...read.diagnostics.map((item) => item.message),
+              ...diagnosticWarnings(read.diagnostics),
               ...!targetIsManagedProjectMap ? ["The embedded managed section will be adopted into the Project maps directory after confirmation."] : []
             ],
             clarifications: [],
@@ -102521,7 +102569,7 @@ function makeVisualWorkspaceOps(vaultPath) {
           adoptionRequired: existingTarget === void 0,
           readOnly: false,
           warnings: [
-            ...read.diagnostics.map((item) => item.message),
+            ...diagnosticWarnings(read.diagnostics),
             ...existingTarget ? ["A managed map already exists for this source; Ask Mate opened that map."] : []
           ],
           clarifications: existingTarget ? [] : clarificationsForCandidate(read.adoptionCandidate),
@@ -102735,7 +102783,7 @@ function makeAdapterGraphOps(registry3) {
 
 // dist/problem-intake/obc-runner.js
 import { execFile as execFile8 } from "node:child_process";
-import { isAbsolute as isAbsolute8, relative as relative14, resolve as resolve15 } from "node:path";
+import { isAbsolute as isAbsolute9, relative as relative14, resolve as resolve15 } from "node:path";
 import { promisify as promisify6 } from "node:util";
 
 // dist/problem-intake/obc-adapter.js
@@ -102878,10 +102926,10 @@ function vaultRelativeEvidencePath(vaultPath, candidate) {
     return candidate;
   const normalizedVault = resolve15(vaultPath);
   const normalizedCandidate = resolve15(candidate);
-  if (!isAbsolute8(candidate))
+  if (!isAbsolute9(candidate))
     return candidate.replaceAll("\\", "/");
   const rel = relative14(normalizedVault, normalizedCandidate);
-  if (rel.startsWith("..") || isAbsolute8(rel)) {
+  if (rel.startsWith("..") || isAbsolute9(rel)) {
     throw new ProblemIntakeExecutionError("INVALID_INPUT", "OBC returned diagnostic evidence outside the configured vault");
   }
   return rel.replaceAll("\\", "/");
@@ -103273,7 +103321,7 @@ function makeProblemIntakeOps(vaultPath, dependencies, options = {}) {
 // dist/problem-intake/durable-store.js
 import { randomUUID as randomUUID16 } from "node:crypto";
 import { existsSync as existsSync32, mkdirSync as mkdirSync20, readFileSync as readFileSync32, readdirSync as readdirSync22, renameSync as renameSync10, rmSync as rmSync13, writeFileSync as writeFileSync16 } from "node:fs";
-import { basename as basename16, dirname as dirname23, isAbsolute as isAbsolute9, join as join41, relative as relative15, resolve as resolve16 } from "node:path";
+import { basename as basename16, dirname as dirname23, isAbsolute as isAbsolute10, join as join41, relative as relative15, resolve as resolve16 } from "node:path";
 var PROJECT_RE2 = /^project\/([a-z0-9][a-z0-9-]*)$/;
 var SHA_RE = /^sha256:[0-9a-f]{64}$/;
 function projectSlug3(projectId2) {
@@ -103284,7 +103332,7 @@ function projectSlug3(projectId2) {
 }
 function assertInside(root, path) {
   const rel = relative15(root, path);
-  if (!rel || rel.startsWith("..") || isAbsolute9(rel)) {
+  if (!rel || rel.startsWith("..") || isAbsolute10(rel)) {
     throw new Error("Problem Intake persistence path escapes the vault");
   }
 }
@@ -103332,7 +103380,7 @@ var JsonFileProblemObservationRepository = class {
   #vaultRoot;
   constructor(vaultPath) {
     this.#vaultRoot = resolve16(vaultPath);
-    if (!isAbsolute9(this.#vaultRoot))
+    if (!isAbsolute10(this.#vaultRoot))
       throw new Error("Vault path must be absolute");
   }
   get(id3) {
@@ -103654,13 +103702,13 @@ function createUiWorkRunApprovalConfirmationAdapter(pairs = denyAllApprovalPairs
 
 // dist/contributions/contribution-policy.js
 import { lstat, readFile as readFile8, realpath } from "node:fs/promises";
-import { isAbsolute as isAbsolute12, relative as relative17, resolve as resolve18 } from "node:path";
+import { isAbsolute as isAbsolute13, relative as relative17, resolve as resolve18 } from "node:path";
 
 // dist/contributions/local-production.js
 import { randomUUID as randomUUID18 } from "node:crypto";
 import { existsSync as existsSync33, lstatSync, mkdirSync as mkdirSync21, mkdtempSync, readFileSync as readFileSync33, realpathSync as realpathSync2, rmSync as rmSync15, statSync as statSync14, symlinkSync, writeFileSync as writeFileSync18 } from "node:fs";
 import { tmpdir as tmpdir2 } from "node:os";
-import { basename as basename17, dirname as dirname24, isAbsolute as isAbsolute11, join as join43, relative as relative16, resolve as resolve17, sep as sep4 } from "node:path";
+import { basename as basename17, dirname as dirname24, isAbsolute as isAbsolute12, join as join43, relative as relative16, resolve as resolve17, sep as sep4 } from "node:path";
 
 // dist/contributions/gh-cli.js
 import { execFile as execFile9 } from "node:child_process";
@@ -103983,7 +104031,7 @@ var GhCliContributionTransport = class {
 };
 
 // dist/contributions/sanitize.js
-import { isAbsolute as isAbsolute10 } from "node:path";
+import { isAbsolute as isAbsolute11 } from "node:path";
 var MAX_TITLE = 200;
 var MAX_BODY = 16e3;
 var MAX_EVIDENCE = 20;
@@ -104068,7 +104116,7 @@ function sanitizeContent(input) {
 function assertSafeRelativePaths(paths, label) {
   return paths.map((value, index) => {
     const path = boundedString(value, `${label}[${index}]`, 500).replaceAll("\\", "/");
-    if (isAbsolute10(path) || /^[A-Za-z]:\//.test(path) || path.startsWith("/") || path.split("/").some((segment) => segment === ".." || !segment)) {
+    if (isAbsolute11(path) || /^[A-Za-z]:\//.test(path) || path.startsWith("/") || path.split("/").some((segment) => segment === ".." || !segment)) {
       throw new ContributionError("SECRET_OR_PATH_UNSAFE", `${label}[${index}] must be repository-relative`);
     }
     return path;
@@ -104102,7 +104150,7 @@ var DEFAULT_TEST_TIMEOUT_MS = 12e4;
 var MAX_COMMAND_LENGTH = 1e3;
 function isInside(root, candidate) {
   const path = relative16(root, candidate);
-  return path === "" || !path.startsWith(`..${sep4}`) && path !== ".." && !isAbsolute11(path);
+  return path === "" || !path.startsWith(`..${sep4}`) && path !== ".." && !isAbsolute12(path);
 }
 function samePath(left, right) {
   const leftStat = statSync14(left, { bigint: true });
@@ -104199,7 +104247,7 @@ function createStrictTestCommandPolicy(allowedTestScripts = DEFAULT_TEST_SCRIPTS
       }
       const args = argv.slice(1);
       if (executable === "node" || executable === "node.exe") {
-        if (args[0] !== "--test" || args.some((arg) => arg === "-e" || arg === "--eval" || arg === "-p" || arg === "--print" || arg.startsWith("--test-reporter-destination") || isAbsolute11(arg) || arg.split(/[\\/]/).includes(".."))) {
+        if (args[0] !== "--test" || args.some((arg) => arg === "-e" || arg === "--eval" || arg === "-p" || arg === "--print" || arg.startsWith("--test-reporter-destination") || isAbsolute12(arg) || arg.split(/[\\/]/).includes(".."))) {
           throw new ContributionError("PR_UNAVAILABLE", "Node tests must use bounded node --test argv", {
             fallback: "submit_issue"
           });
@@ -104209,7 +104257,7 @@ function createStrictTestCommandPolicy(allowedTestScripts = DEFAULT_TEST_SCRIPTS
       const operation = args[0];
       const script = operation === "run" ? args[1] : operation;
       const scriptOffset = operation === "run" ? 2 : 1;
-      if (!script || !allowedScripts.has(script) || args.slice(scriptOffset).some((arg) => isAbsolute11(arg) || arg.split(/[\\/]/).includes("..") || /^(?:--prefix|--global|--location|--userconfig|--registry|--cache)(?:=|$)/.test(arg))) {
+      if (!script || !allowedScripts.has(script) || args.slice(scriptOffset).some((arg) => isAbsolute12(arg) || arg.split(/[\\/]/).includes("..") || /^(?:--prefix|--global|--location|--userconfig|--registry|--cache)(?:=|$)/.test(arg))) {
         throw new ContributionError("PR_UNAVAILABLE", "Package-manager tests must invoke an allowed reviewed script", { fallback: "submit_issue" });
       }
       return argv;
@@ -104279,7 +104327,7 @@ var LocalContributionArtifactRuntime = class {
     if (!/^project\/[a-z0-9][a-z0-9-]*$/.test(options.binding.projectId)) {
       throw new ContributionError("INVALID_INPUT", "binding.projectId must be canonical");
     }
-    if (!isAbsolute11(options.binding.localRepositoryPath)) {
+    if (!isAbsolute12(options.binding.localRepositoryPath)) {
       throw new ContributionError("INVALID_INPUT", "Workspace binding path must be absolute");
     }
     const requestedPath = resolve17(options.binding.localRepositoryPath);
@@ -104825,7 +104873,7 @@ function parsePreparation(value, label) {
   };
 }
 async function readPolicyFile(vaultPath) {
-  if (!isAbsolute12(vaultPath)) {
+  if (!isAbsolute13(vaultPath)) {
     throw new ContributionError("INVALID_INPUT", "vaultPath must be absolute");
   }
   const vault = resolve18(vaultPath);
@@ -104845,7 +104893,7 @@ async function readPolicyFile(vaultPath) {
   }
   const [realVault, realPolicy] = await Promise.all([realpath(vault), realpath(policyPath)]);
   const containment = relative17(realVault, realPolicy);
-  if (containment.startsWith("..") || isAbsolute12(containment)) {
+  if (containment.startsWith("..") || isAbsolute13(containment)) {
     throw new ContributionError("SECRET_OR_PATH_UNSAFE", "Contribution policy escaped the vault", { fallback: "submit_issue" });
   }
   let text4;
@@ -104918,7 +104966,7 @@ var CONTRIBUTION_RECEIPT_SCHEMA_VERSION = 1;
 // dist/contributions/receipts.js
 import { randomUUID as randomUUID19 } from "node:crypto";
 import { existsSync as existsSync34, mkdirSync as mkdirSync22, readFileSync as readFileSync34, renameSync as renameSync11, rmSync as rmSync16, writeFileSync as writeFileSync19 } from "node:fs";
-import { basename as basename18, dirname as dirname25, isAbsolute as isAbsolute13, join as join44, relative as relative18, resolve as resolve19 } from "node:path";
+import { basename as basename18, dirname as dirname25, isAbsolute as isAbsolute14, join as join44, relative as relative18, resolve as resolve19 } from "node:path";
 function receiptIdentity(receipt) {
   return `${receipt.planFingerprint}\0${receipt.action}`;
 }
@@ -104957,7 +105005,7 @@ var JsonFileContributionReceiptStore = class {
   root;
   constructor(rootPath) {
     const root = resolve19(rootPath);
-    if (!isAbsolute13(root)) {
+    if (!isAbsolute14(root)) {
       throw new ContributionError("INVALID_INPUT", "Receipt root must be absolute");
     }
     this.root = root;
@@ -104979,7 +105027,7 @@ var JsonFileContributionReceiptStore = class {
   pathFor(receipt) {
     const path = resolve19(this.root, receiptFileName(receipt));
     const rel = relative18(this.root, path);
-    if (rel.startsWith("..") || isAbsolute13(rel)) {
+    if (rel.startsWith("..") || isAbsolute14(rel)) {
       throw new ContributionError("INVALID_INPUT", "Receipt path escapes its configured root");
     }
     return path;
@@ -104988,7 +105036,7 @@ var JsonFileContributionReceiptStore = class {
     const tokenDir = resolve19(this.root, ".tokens");
     const path = resolve19(tokenDir, `${transitionTokenDigest2.slice("sha256:".length)}.json`);
     const rel = relative18(this.root, path);
-    if (rel.startsWith("..") || isAbsolute13(rel)) {
+    if (rel.startsWith("..") || isAbsolute14(rel)) {
       throw new ContributionError("INVALID_INPUT", "Token marker path escapes its configured root");
     }
     return path;
@@ -105765,7 +105813,7 @@ function repositoryCandidateFromProjectContext(context) {
 }
 
 // dist/contributions/problem-bridge.js
-import { isAbsolute as isAbsolute14, relative as relative19, resolve as resolve20 } from "node:path";
+import { isAbsolute as isAbsolute15, relative as relative19, resolve as resolve20 } from "node:path";
 var MAX_DIFF_BYTES_DEFAULT2 = 128e3;
 var MAX_DIFF_BYTES_HARD2 = 1e6;
 var SAFE_REF_RE3 = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,254}$/;
@@ -105926,7 +105974,7 @@ function productionRuntime(options, repositoryMappingFingerprint) {
   return runtime;
 }
 function createProjectContextGovernedContributionPort(options) {
-  if (!isAbsolute14(options.vaultPath)) {
+  if (!isAbsolute15(options.vaultPath)) {
     throw new ContributionError("INVALID_INPUT", "vaultPath must be absolute");
   }
   const candidate = repositoryCandidateFromProjectContext(options.context);
@@ -105938,7 +105986,7 @@ function createProjectContextGovernedContributionPort(options) {
   const vaultRoot = resolve20(options.vaultPath);
   const receiptRoot = options.receiptRoot ? resolve20(options.receiptRoot) : resolve20(vaultRoot, options.context.roots.workOs, "projection-receipts", "external-contributions");
   const receiptRelative = relative19(vaultRoot, receiptRoot);
-  if (options.receiptRoot && !isAbsolute14(options.receiptRoot) || !options.receiptRoot && (receiptRelative.startsWith("..") || isAbsolute14(receiptRelative))) {
+  if (options.receiptRoot && !isAbsolute15(options.receiptRoot) || !options.receiptRoot && (receiptRelative.startsWith("..") || isAbsolute15(receiptRelative))) {
     throw new ContributionError("INVALID_INPUT", "Contribution receipt root is not governed");
   }
   const receipts = options.receipts ?? new JsonFileContributionReceiptStore(receiptRoot);
@@ -107901,7 +107949,7 @@ function createApplicationRuntime(options) {
 
 // dist/vault/store.js
 import { existsSync as existsSync36, mkdirSync as mkdirSync24, readFileSync as readFileSync36, rmSync as rmSync17, statSync as statSync15, realpathSync as realpathSync3, writeFileSync as writeFileSync21, appendFileSync as appendFileSync3 } from "node:fs";
-import { dirname as dirname27, isAbsolute as isAbsolute15, relative as relative21, resolve as resolve21 } from "node:path";
+import { dirname as dirname27, isAbsolute as isAbsolute16, relative as relative21, resolve as resolve21 } from "node:path";
 var DEFAULT_LOCK_TTL_MS = 6e4;
 var PROTECTED_DIRS5 = /* @__PURE__ */ new Set([".obsidian", ".trash", ".git", "node_modules"]);
 var FileVaultStore = class {
@@ -107924,7 +107972,7 @@ var FileVaultStore = class {
     }
     if (!raw)
       throw badRequest("path required");
-    if (/^[A-Za-z]:[\\/]/.test(raw) || raw.startsWith("\\\\") || raw.startsWith("//") || isAbsolute15(raw)) {
+    if (/^[A-Za-z]:[\\/]/.test(raw) || raw.startsWith("\\\\") || raw.startsWith("//") || isAbsolute16(raw)) {
       throw badRequest("path traversal blocked");
     }
     const normalized2 = raw.replace(/\\/g, "/").replace(/\/+/g, "/");
@@ -107940,7 +107988,7 @@ var FileVaultStore = class {
     const normalized2 = this.normalizePath(path, options);
     const fullPath2 = resolve21(this.rootPath, normalized2);
     const lexicalRelative = relative21(this.rootPath, fullPath2);
-    if (lexicalRelative.startsWith("..") || isAbsolute15(lexicalRelative)) {
+    if (lexicalRelative.startsWith("..") || isAbsolute16(lexicalRelative)) {
       throw badRequest("path escapes vault");
     }
     this.assertRealPathInsideVault(fullPath2);
@@ -108030,7 +108078,7 @@ var FileVaultStore = class {
   assertRealPathInsideVault(fullPath2) {
     const realTarget = existsSync36(fullPath2) ? realpathSync3(fullPath2) : this.realpathExistingAncestor(dirname27(fullPath2));
     const realRelative = relative21(this.realRootPath, realTarget);
-    if (realRelative.startsWith("..") || isAbsolute15(realRelative)) {
+    if (realRelative.startsWith("..") || isAbsolute16(realRelative)) {
       throw badRequest("path traversal blocked");
     }
   }
