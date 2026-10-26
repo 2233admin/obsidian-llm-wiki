@@ -94,6 +94,10 @@ jobs:
         run: cd mcp-server && npm ci
       - name: Install Obsidian plugin dependencies
         run: cd obsidian-plugin && npm ci
+      - name: Install Obsidian guideline lint dependencies
+        run: cd obsidian-plugin/lint && npm ci
+      - name: Lint against Obsidian plugin guidelines
+        run: cd obsidian-plugin && npm run lint
       - name: Test Obsidian plugin
         run: cd obsidian-plugin && npm run test
       - name: Typecheck Obsidian plugin

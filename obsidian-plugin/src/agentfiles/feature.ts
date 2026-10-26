@@ -87,7 +87,7 @@ export class AgentfilesFeature {
 
     this.host.addCommand({
       id: "open-agentfiles",
-      name: "Open Capability Library (LLM Wiki)",
+      name: "Open Capability Library",
       callback: () => void this.activateView(),
     });
 
@@ -153,7 +153,8 @@ export class AgentfilesFeature {
 
   onunload(): void {
     this.stopWatcher();
-    this.host.app.workspace.detachLeavesOfType(VIEW_TYPE);
+    // Leave view leaves in place; Obsidian cleans them up and detaching here
+    // would reset the user's layout (Obsidian plugin guideline).
   }
 
   private addVaultPath(): void {

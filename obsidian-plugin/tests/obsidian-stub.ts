@@ -4,6 +4,11 @@
  * inside the Obsidian app). Only what LLMWikiPlugin touches is implemented.
  */
 
+// Obsidian exposes `activeWindow` as a global (the focused window, used for
+// popout-window support). Node test bundles have no such global, so shim it to
+// the current global object.
+(globalThis as Record<string, unknown>).activeWindow ??= globalThis;
+
 export class Notice {
   static messages: string[] = [];
   constructor(public message?: string) {

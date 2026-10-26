@@ -22,6 +22,7 @@ export default [
       "mcp-server/memu-query.js",
       "mcp-server/usage-cli.js",
       "obsidian-plugin/main.js",
+      "obsidian-plugin/lint/**", // self-contained Obsidian-guideline lint workspace
       "packages/*/dist/**",
       ".orca/imvt/scripts/**/__pycache__/**",
       ".vault-mind/**",

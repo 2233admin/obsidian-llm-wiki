@@ -127,7 +127,10 @@ test("custom scan paths are watched and feature lifecycle refreshes them", async
 	await feature.saveSettings();
 	assert.ok(persisted?.customScanPaths.includes(root));
 	feature.onunload();
-	assert.equal(detached, true);
+	// Obsidian plugin guideline: do not detach leaves in onunload, or the view
+	// is reset to its default location on next load instead of where the user
+	// put it. Obsidian detaches the leaves itself.
+	assert.equal(detached, false);
 });
 
 test("scaffolds, conversation tags, and governed export remain functional", () => {

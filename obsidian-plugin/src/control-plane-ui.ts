@@ -113,7 +113,7 @@ export class AgentControlPlaneModal extends Modal {
     contentEl.createEl("h2", { text: "Advanced control plane" });
     contentEl.createEl("p", {
       cls: "llmwiki-control-plane-intro",
-      text: "Technical administration for Project, Agent, connector, and capability state. Use LLM Wiki for day-to-day knowledge work; this surface is for setup, diagnostics, and advanced approvals.",
+      text: "Technical administration for project, agent, connector, and capability state. Use LLM Wiki for day-to-day knowledge work; this surface is for setup, diagnostics, and advanced approvals.",
     });
     this.renderQuery(contentEl);
     if (this.error) contentEl.createEl("p", { cls: "llmwiki-control-plane-error", text: this.error });
@@ -122,7 +122,7 @@ export class AgentControlPlaneModal extends Modal {
       return;
     }
     if (!this.projection) {
-      contentEl.createEl("p", { cls: "llmwiki-control-plane-empty", text: "Enter a canonical Project ID and refresh." });
+      contentEl.createEl("p", { cls: "llmwiki-control-plane-empty", text: "Enter a canonical project ID and refresh." });
       return;
     }
     this.renderDiagnostics(contentEl);
@@ -200,7 +200,7 @@ export class AgentControlPlaneModal extends Modal {
     for (const item of projection.diagnostics) {
       const row = section.createDiv({ cls: `llmwiki-diagnostic llmwiki-diagnostic-${item.severity}` });
       row.createEl("strong", { text: item.code });
-      row.createEl("span", { text: safePresentationText(item.message ?? item.remediationKey ?? "No detail") });
+      row.createSpan({ text: safePresentationText(item.message ?? item.remediationKey ?? "No detail") });
     }
   }
 
@@ -208,10 +208,10 @@ export class AgentControlPlaneModal extends Modal {
     const projection = this.projection!;
     const section = this.section(container, "Profiles and Project bindings", "Versioned backend records; model credentials remain Secret References in Settings.");
     const actions = section.createDiv({ cls: "llmwiki-control-actions" });
-    actions.createEl("button", { text: "Create Agent Profile" }).onclick = () => {
+    actions.createEl("button", { text: "Create agent profile" }).onclick = () => {
       new AgentProfileEditorModal(this.app, this.host.client, () => this.refresh()).open();
     };
-    actions.createEl("button", { text: "Create Project Binding" }).onclick = () => {
+    actions.createEl("button", { text: "Create project binding" }).onclick = () => {
       new ProjectBindingEditorModal(this.app, this.host.client, this.query.project, this.query.profileId, () => this.refresh()).open();
     };
     const grid = section.createDiv({ cls: "llmwiki-control-grid" });
@@ -254,7 +254,7 @@ export class AgentControlPlaneModal extends Modal {
       }
       for (const diagnostic of room.diagnostics) this.fact(connectors, diagnostic.code, `${diagnostic.severity}${diagnostic.remediationKey ? ` · ${diagnostic.remediationKey}` : ""}`);
     } else {
-      section.createEl("p", { text: "Select an Agent to resolve its Room projection." });
+      section.createEl("p", { text: "Select an agent to resolve its room projection." });
     }
     const threads = this.card(section, `Threads (${projection.threads.length})`);
     for (const thread of projection.threads) {
@@ -274,7 +274,7 @@ export class AgentControlPlaneModal extends Modal {
       for (const summary of doctor.proposalSummaries ?? []) {
         const row = section.createDiv({ cls: "llmwiki-proposal-summary" });
         row.createEl("code", { text: summary.proposalId });
-        row.createEl("span", { text: `${summary.operation} · ${summary.lifecycle} · ${summary.warningCount} warnings` });
+        row.createSpan({ text: `${summary.operation} · ${summary.lifecycle} · ${summary.warningCount} warnings` });
         row.createEl("button", { text: "Inspect" }).onclick = () => {
           this.query.proposalId = summary.proposalId;
           void this.refresh();
@@ -365,16 +365,16 @@ export class AgentControlPlaneModal extends Modal {
       this.renderArtifact(card, this.consult.artifact);
     }
     if (projection.delegation) this.renderDelegation(section, projection.delegation);
-    else section.createEl("p", { text: "Enter a Delegation Plan ID above to review capability, budget, device, side effects, child state, and artifacts." });
+    else section.createEl("p", { text: "Enter a delegation plan ID above to review capability, budget, device, side effects, child state, and artifacts." });
   }
 
   private renderConsultControls(container: HTMLElement): void {
     const controls = container.createDiv({ cls: "llmwiki-consult-controls" });
     controls.createEl("p", {
-      text: "Consult execution consumes a workflow-prepared request, scoped Capability Grant, invocation token, and worker output. This UI never mints its own authority.",
+      text: "Consult execution consumes a workflow-prepared request, scoped capability grant, invocation token, and worker output. This UI never mints its own authority.",
     });
     const field = controls.createEl("label", { cls: "llmwiki-editor-field" });
-    field.createEl("span", { text: "Prepared consult execution envelope (JSON)" });
+    field.createSpan({ text: "Prepared consult execution envelope (JSON)" });
     const input = field.createEl("textarea", {
       placeholder: '{"project":"project/example","request":{...},"invocationToken":"...","grant":{...},"workerOutput":{...},"inputArtifactIds":[],"actor":"obsidian-control-plane"}',
     });
@@ -563,14 +563,14 @@ export class AgentControlPlaneModal extends Modal {
       .filter(binding => binding.projectId === projection.projectId && binding.enabled)
       .flatMap(binding => binding.connectorGrantRefs.map(grantId => ({ bindingId: binding.bindingId, grantId })));
     if (candidates.length !== 1) return;
-    this.query.bindingId = candidates[0]!.bindingId;
-    this.query.grantId = candidates[0]!.grantId;
+    this.query.bindingId = candidates[0].bindingId;
+    this.query.grantId = candidates[0].grantId;
   }
 
   private renderHostWorkflow(container: HTMLElement): void {
     const card = this.card(container, "Use Host Capability");
     if (!this.hostAuthorizationSnapshot) {
-      card.createEl("p", { text: "Select or enter a backend Binding ID and server-issued Grant ID, then complete a successful refresh. No Binding or Grant object is accepted here." });
+      card.createEl("p", { text: "Select or enter a backend binding ID and server-issued grant ID, then complete a successful refresh. No binding or grant object is accepted here." });
       return;
     }
     this.textField(card, "Search", "issue, review, diagnose…", this.hostFlow.searchQuery, value => { this.hostFlow.searchQuery = value; });
@@ -669,7 +669,7 @@ export class AgentControlPlaneModal extends Modal {
 
   private jsonField(container: HTMLElement, label: string, value: string, update: (value: string) => void): void {
     const wrapper = container.createEl("label", { cls: "llmwiki-editor-field" });
-    wrapper.createEl("span", { text: label });
+    wrapper.createSpan({ text: label });
     const input = wrapper.createEl("textarea", { text: value });
     input.rows = 6;
     input.addEventListener("input", () => update(input.value));
@@ -681,7 +681,7 @@ export class AgentControlPlaneModal extends Modal {
 
   private textField(container: HTMLElement, label: string, placeholder: string, value: string, update: (value: string) => void): HTMLInputElement {
     const wrapper = container.createEl("label");
-    wrapper.createEl("span", { text: label });
+    wrapper.createSpan({ text: label });
     const input = wrapper.createEl("input", { type: "text", placeholder, value });
     input.autocomplete = "off";
     input.oninput = () => update(input.value);
@@ -704,7 +704,7 @@ export class AgentControlPlaneModal extends Modal {
   private fact(container: HTMLElement, name: string, value: string): void {
     const row = container.createDiv({ cls: "llmwiki-control-fact" });
     row.createEl("strong", { text: name });
-    row.createEl("span", { text: value });
+    row.createSpan({ text: value });
   }
 }
 
@@ -729,8 +729,8 @@ export class AgentProfileEditorModal extends Modal {
       model: "",
     };
     const { contentEl } = this;
-    contentEl.createEl("h2", { text: "Create Agent Profile" });
-    contentEl.createEl("p", { text: "The Profile stores versioned role and constitution metadata only. Configure provider credentials with the Secret Reference selectors in LLM Wiki Settings." });
+    contentEl.createEl("h2", { text: "Create agent profile" });
+    contentEl.createEl("p", { text: "The profile stores versioned role and constitution metadata only. Configure provider credentials with the secret reference selectors in LLM Wiki settings." });
     for (const [key, label, placeholder] of [
       ["profileId", "Profile ID", "agent/reviewer"],
       ["displayName", "Display name", "Reviewer"],
@@ -743,11 +743,11 @@ export class AgentProfileEditorModal extends Modal {
       ["model", "Model", "optional"],
     ] as const) editorField(contentEl, label, placeholder, values[key], value => { values[key] = value; }, key === "principles" || key === "instructions");
     const mode = contentEl.createEl("label", { cls: "llmwiki-editor-field" });
-    mode.createEl("span", { text: "Model policy" });
+    mode.createSpan({ text: "Model policy" });
     const select = mode.createEl("select");
     for (const item of ["inherit", "local", "cloud"]) select.createEl("option", { text: item, value: item });
     select.onchange = () => { values.modelMode = select.value; };
-    const save = contentEl.createEl("button", { text: "Create Profile", cls: "mod-cta" });
+    const save = contentEl.createEl("button", { text: "Create profile", cls: "mod-cta" });
     save.onclick = async () => {
       try {
         const input: AgentProfileCreate = {
@@ -798,7 +798,7 @@ export class ProjectBindingEditorModal extends Modal {
       grantRefs: "",
     };
     const { contentEl } = this;
-    contentEl.createEl("h2", { text: "Create Project Agent Binding" });
+    contentEl.createEl("h2", { text: "Create project agent binding" });
     contentEl.createEl("p", { text: "Binding records contain logical grant references only. Usable grant tokens and connector secrets never enter plugin data." });
     for (const [key, label, placeholder] of [
       ["projectId", "Project ID", "project/example"],
@@ -809,7 +809,7 @@ export class ProjectBindingEditorModal extends Modal {
       ["memoryScopes", "Memory scopes", "comma-separated"],
       ["grantRefs", "Connector grant references", "grant/… comma-separated"],
     ] as const) editorField(contentEl, label, placeholder, values[key], value => { values[key] = value; });
-    const save = contentEl.createEl("button", { text: "Create Binding", cls: "mod-cta" });
+    const save = contentEl.createEl("button", { text: "Create binding", cls: "mod-cta" });
     save.onclick = async () => {
       try {
         const input: ProjectAgentBindingCreate = {
@@ -839,7 +839,7 @@ export class ProjectBindingEditorModal extends Modal {
 
 function editorField(container: HTMLElement, label: string, placeholder: string, value: string, update: (value: string) => void, multiline = false): void {
   const wrapper = container.createEl("label", { cls: "llmwiki-editor-field" });
-  wrapper.createEl("span", { text: label });
+  wrapper.createSpan({ text: label });
   const input = multiline
     ? wrapper.createEl("textarea", { placeholder, text: value })
     : wrapper.createEl("input", { type: "text", placeholder, value });

@@ -137,7 +137,7 @@ export default class LLMWikiPlugin extends Plugin {
   private askMateClient!: AskMateOperationClient;
   private controlPlaneTransport: (
     SettingsOperationTransport
-    & AgentControlPlaneTransport
+     
     & { dispose?: () => Promise<void> | void }
   ) | null = null;
   private migrationError: string | null = null;
@@ -197,18 +197,18 @@ export default class LLMWikiPlugin extends Plugin {
 
     this.addCommand({
       id: "promote-candidate",
-      name: "Promote candidate (LLM Wiki)",
+      name: "Promote candidate",
       checkCallback: (checking: boolean) => {
         const file = this.app.workspace.getActiveFile();
         const ok = !!file && file.extension === "md";
-        if (ok && !checking) void this.promote(file as TFile);
+        if (ok && !checking) void this.promote(file);
         return ok;
       },
     });
 
     this.addCommand({
       id: "compile-publish-now",
-      name: "Compile & publish now (LLM Wiki)",
+      name: "Compile & publish now",
       checkCallback: (checking: boolean) => {
         const ok = this.compilePublishUnavailableReason() === null;
         if (ok && !checking) {
@@ -223,7 +223,7 @@ export default class LLMWikiPlugin extends Plugin {
 
     this.addCommand({
       id: "compile-publish-dry-run",
-      name: "Compile & publish (dry run, no push) (LLM Wiki)",
+      name: "Compile & publish (dry run, no push)",
       checkCallback: (checking: boolean) => {
         const ok = this.compilePublishUnavailableReason() === null;
         if (ok && !checking) {
@@ -238,19 +238,19 @@ export default class LLMWikiPlugin extends Plugin {
 
     this.addCommand({
       id: "open-compile-publish-status",
-      name: "Open compile & publish status (LLM Wiki)",
+      name: "Open compile & publish status",
       callback: () => this.openCompilePublishStatus(),
     });
 
     this.addCommand({
       id: "refresh-settings-control-plane",
-      name: "Refresh settings control plane (LLM Wiki)",
+      name: "Refresh settings control plane",
       callback: () => void this.refreshSettings(true),
     });
 
     this.addCommand({
       id: "open-agent-control-plane",
-      name: "Open advanced control plane (LLM Wiki)",
+      name: "Open advanced control plane",
       callback: () => this.openAgentControlPlane(),
     });
 
@@ -262,7 +262,7 @@ export default class LLMWikiPlugin extends Plugin {
 
     this.addCommand({
       id: "open-ask-mate-active-note",
-      name: "Open LLM Wiki for active Markdown or selection (LLM Wiki)",
+      name: "Open LLM Wiki for active Markdown or selection",
       checkCallback: (checking: boolean) => {
         const file = this.app.workspace.getActiveFile();
         const projectId = this.workspaceProjectId();
@@ -276,7 +276,7 @@ export default class LLMWikiPlugin extends Plugin {
 
     this.addCommand({
       id: "open-ask-mate-active-canvas",
-      name: "Open LLM Wiki for active core Canvas (LLM Wiki)",
+      name: "Open LLM Wiki for active core Canvas",
       checkCallback: (checking: boolean) => {
         const file = this.app.workspace.getActiveFile();
         const projectId = this.workspaceProjectId();
@@ -290,7 +290,7 @@ export default class LLMWikiPlugin extends Plugin {
 
     this.addCommand({
       id: "open-ask-mate-project-context",
-      name: "Open LLM Wiki for current Project Context (LLM Wiki)",
+      name: "Open LLM Wiki for current project context",
       checkCallback: (checking: boolean) => {
         const projectId = this.workspaceProjectId();
         const ok = projectId !== null;
@@ -303,7 +303,7 @@ export default class LLMWikiPlugin extends Plugin {
 
     this.addCommand({
       id: "rollback-legacy-migration",
-      name: "Roll back legacy settings migration (LLM Wiki)",
+      name: "Roll back legacy settings migration",
       checkCallback: (checking: boolean) => {
         const marker = this.data.legacyMigration;
         const ok = marker?.state === "applied" && !!marker.preimageJournal;
@@ -326,7 +326,7 @@ export default class LLMWikiPlugin extends Plugin {
           && this.workspaceProjectId()
         ) {
           menu.addItem((item) => item
-            .setTitle("Open in LLM Wiki (LLM Wiki)")
+            .setTitle("Open in LLM Wiki")
             .setIcon("git-fork")
             .onClick(() => {
               const projectId = this.workspaceProjectId();
@@ -344,7 +344,8 @@ export default class LLMWikiPlugin extends Plugin {
   onunload(): void {
     this.agentfilesFeature?.onunload();
     this.agentfilesFeature = null;
-    this.app.workspace.detachLeavesOfType(ASK_MATE_VIEW_TYPE);
+    // Obsidian detaches our view's leaves on unload; detaching them here would
+    // discard the position the user moved the view to (Obsidian plugin guideline).
     void this.controlPlaneTransport?.dispose?.();
     this.controlPlaneTransport = null;
   }
@@ -425,7 +426,7 @@ export default class LLMWikiPlugin extends Plugin {
     }
     const projectId = this.workspaceProjectId();
     if (!projectId) {
-      new Notice("LLM Wiki: enter a Project ID to start (for example, project/my-project).");
+      new Notice("LLM Wiki: enter a project ID to start (for example, project/my-project).");
       this.openWorkspaceProjectBindingEditor(boundProjectId => {
         this.activateBestAskMateContext(boundProjectId);
       });
@@ -439,7 +440,7 @@ export default class LLMWikiPlugin extends Plugin {
     projectId = this.workspaceProjectId(),
   ): Promise<void> {
     if (!projectId && typeof contextOrPath === "string") {
-      new Notice("LLM Wiki: bind this workspace to a canonical Project before opening.");
+      new Notice("LLM Wiki: bind this workspace to a canonical project before opening.");
       return;
     }
     const context: AskMateContext = typeof contextOrPath === "string"
@@ -577,7 +578,7 @@ export default class LLMWikiPlugin extends Plugin {
   protected createControlPlaneTransport(
     deviceBinding: DeviceBindingReference,
   ): SettingsOperationTransport
-    & AgentControlPlaneTransport
+     
     & { dispose?: () => Promise<void> | void } {
     const vaultPath = this.vaultBasePath();
     return (vaultPath
@@ -588,11 +589,13 @@ export default class LLMWikiPlugin extends Plugin {
           environment: process.env,
         })
       : new UnavailableSettingsTransport("LLM Wiki control plane requires a desktop filesystem vault; mobile and non-filesystem vaults are unavailable.")
-    ) as SettingsOperationTransport & AgentControlPlaneTransport;
+    );
   }
 
   private migrationPreimagePath(): string {
-    return `${this.manifest.dir ?? ".obsidian/plugins/obsidian-llm-wiki"}/legacy-migration-preimage.json`;
+    const pluginDir = this.manifest.dir
+      ?? `${this.app.vault.configDir}/plugins/${this.manifest.id}`;
+    return `${pluginDir}/legacy-migration-preimage.json`;
   }
 
   private async writeMigrationPreimage(preimage: LegacyMigrationPreimage[]): Promise<void> {
@@ -879,9 +882,9 @@ class WorkspaceProjectBindingModal extends Modal {
 
   onOpen(): void {
     const { contentEl } = this;
-    contentEl.createEl("h2", { text: "Choose this workspace's Project" });
+    contentEl.createEl("h2", { text: "Choose this workspace's project" });
     contentEl.createEl("p", {
-      text: "Enter a stable Project ID such as project/my-project. If it does not exist, LLM Wiki creates its Project record and work area before opening the workspace.",
+      text: "Enter a stable project ID such as project/my-project. If it does not exist, LLM Wiki creates its project record and work area before opening the workspace.",
     });
     const input = contentEl.createEl("input", {
       type: "text",
@@ -936,7 +939,6 @@ class LLMWikiSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
     containerEl.addClass("llmwiki-settings");
-    containerEl.createEl("h1", { text: "LLM Wiki" });
     containerEl.createEl("p", {
       cls: "llmwiki-settings-intro",
       text: "This page is a control plane over Settings Platform. Obsidian stores presentation and device binding only.",
@@ -958,7 +960,7 @@ class LLMWikiSettingTab extends PluginSettingTab {
         && (this.llmWiki.data.presentation.showAdvanced || definition.visibility !== "advanced"),
       );
       if (!definitions.length) continue;
-      containerEl.createEl("h2", { text: CATEGORY_LABELS[category] ?? category });
+      new Setting(containerEl).setName(CATEGORY_LABELS[category] ?? category).setHeading();
       for (const definition of definitions) this.renderDefinition(containerEl, definition);
     }
 
@@ -980,7 +982,7 @@ class LLMWikiSettingTab extends PluginSettingTab {
   private renderCapabilityLibrary(containerEl: HTMLElement): void {
     const feature = this.llmWiki.agentfilesFeature;
     if (!feature) return;
-    containerEl.createEl("h2", { text: "Capability Library" });
+    new Setting(containerEl).setName("Capability Library").setHeading();
     new AgentfilesSettingsSection(feature, () => this.display()).display(containerEl);
   }
 
@@ -988,7 +990,7 @@ class LLMWikiSettingTab extends PluginSettingTab {
     const overview = containerEl.createDiv({ cls: "llmwiki-settings-overview" });
     const heading = overview.createDiv({ cls: "llmwiki-settings-overview-heading" });
     heading.createEl("strong", { text: "System status" });
-    heading.createEl("span", {
+    heading.createSpan({
       text: this.llmWiki.projection
         ? `Refreshed ${this.llmWiki.projection.refreshedAt}`
         : "Settings Platform unavailable",
@@ -996,7 +998,7 @@ class LLMWikiSettingTab extends PluginSettingTab {
     if (this.llmWiki.settingsError) overview.createEl("p", { text: this.llmWiki.settingsError });
     for (const check of this.llmWiki.projection?.health ?? []) this.renderHealth(overview, check);
     const actions = overview.createDiv({ cls: "llmwiki-settings-actions" });
-    const refresh = actions.createEl("button", { text: "Refresh / Run Doctor", cls: "mod-cta" });
+    const refresh = actions.createEl("button", { text: "Refresh / run Doctor", cls: "mod-cta" });
     refresh.onclick = async () => {
       refresh.disabled = true;
       refresh.setText("Checking…");
@@ -1006,15 +1008,15 @@ class LLMWikiSettingTab extends PluginSettingTab {
   }
 
   private renderAgentControlPlane(containerEl: HTMLElement): void {
-    containerEl.createEl("h2", { text: "Start with your knowledge" });
+    new Setting(containerEl).setName("Start with your knowledge").setHeading();
     containerEl.createEl("p", {
       cls: "llmwiki-settings-intro",
-      text: "Bind this vault to a Project, then work with the active note, Canvas, or Project context in LLM Wiki.",
+      text: "Bind this vault to a project, then work with the active note, Canvas, or project context in LLM Wiki.",
     });
     const actions = containerEl.createDiv({ cls: "llmwiki-settings-actions llmwiki-agent-control-actions" });
     actions.createEl("button", { text: "Open LLM Wiki", cls: "mod-cta" }).onclick = () => this.llmWiki.openAskMateEntryPoint();
     new Setting(containerEl)
-      .setName("Workspace Project")
+      .setName("Workspace project")
       .setDesc(this.llmWiki.data.deviceBinding?.workspaceProjectId
         ? `LLM Wiki is bound to ${this.llmWiki.data.deviceBinding.workspaceProjectId}.`
         : "Required for LLM Wiki. Stored only as this device's Workspace Binding; it does not redefine Project identity.")
@@ -1023,19 +1025,19 @@ class LLMWikiSettingTab extends PluginSettingTab {
         .onClick(() => this.llmWiki.openWorkspaceProjectBindingEditor(() => this.display())));
     containerEl.createEl("p", {
       cls: "llmwiki-settings-intro",
-      text: "Provider credentials stay in the Secret Reference selectors below. Agent Profiles and Project Bindings never contain plaintext credentials, usable grants, or device-local execution material.",
+      text: "Provider credentials stay in the secret reference selectors below. Agent profiles and project bindings never contain plaintext credentials, usable grants, or device-local execution material.",
     });
     const advanced = containerEl.createEl("details", { cls: "llmwiki-settings-advanced" });
     advanced.createEl("summary", { text: "Advanced administration" });
     const advancedActions = advanced.createDiv({ cls: "llmwiki-settings-actions llmwiki-agent-control-actions" });
     advancedActions.createEl("button", { text: "Open control plane" }).onclick = () => this.llmWiki.openAgentControlPlane();
-    advancedActions.createEl("button", { text: "Create Agent Profile" }).onclick = () => this.llmWiki.openAgentProfileEditor();
-    advancedActions.createEl("button", { text: "Create Project Binding" }).onclick = () => this.llmWiki.openProjectBindingEditor();
+    advancedActions.createEl("button", { text: "Create agent profile" }).onclick = () => this.llmWiki.openAgentProfileEditor();
+    advancedActions.createEl("button", { text: "Create project binding" }).onclick = () => this.llmWiki.openProjectBindingEditor();
   }
 
   private renderHealth(containerEl: HTMLElement, check: HealthCheck): void {
     const item = containerEl.createDiv({ cls: `llmwiki-health llmwiki-health-${check.state}` });
-    item.createEl("span", { cls: "llmwiki-health-dot" });
+    item.createSpan({ cls: "llmwiki-health-dot" });
     const copy = item.createDiv();
     copy.createEl("strong", { text: check.capabilityId });
     const remediation = check.remediations[0]?.summary;

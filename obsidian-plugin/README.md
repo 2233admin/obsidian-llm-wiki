@@ -135,6 +135,28 @@ npm test
 npm run build
 ```
 
+### Obsidian plugin guideline lint
+
+`npm run lint` checks the source against Obsidian's official
+[`eslint-plugin-obsidianmd`](https://github.com/obsidianmd/eslint-plugin) —
+the same rule set the community-plugin review applies (sentence-case UI text,
+`setHeading` over raw `<h1>/<h2>`, no leaking the plugin name into command
+names, no inline styles, no detaching leaves in `onunload`, and so on). It
+lives in its own `lint/` workspace with its own TypeScript, because
+`typescript-eslint` needs TypeScript < 6.1 while the plugin builds with
+TypeScript 7:
+
+```bash
+cd obsidian-plugin/lint && npm ci
+cd .. && npm run lint
+```
+
+The config keeps a short allow-list of product nouns (`LLM Wiki`, `Doctor`,
+`Graphify`, `Canvas`, `Inbox`, …) so sentence-case does not fight the domain
+vocabulary in `CONTEXT.md`. CI fails on errors; the remaining warnings are
+tracked follow-ups (declarative `getSettingDefinitions()` migration, and a few
+code/path strings the sentence-case rule mis-flags).
+
 ### End-to-end tests in real Obsidian
 
 `npm run e2e` loads the built plugin into a real Obsidian desktop app through
