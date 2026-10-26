@@ -577,21 +577,6 @@ export class AskMateView extends ItemView {
       cls: "llmwiki-ask-mate-context",
       text: `Reads only: ${describeAskMateContext(this.#context)}`,
     });
-    if (this.#error) liveRegion.addClass("llmwiki-control-plane-error");
-    if (this.#read) {
-      for (const warning of this.#read.warnings) {
-        container.createEl("p", { cls: "llmwiki-proposal-warnings", text: warning });
-      }
-      const capabilities = this.interaction.capabilities;
-      container.createEl("p", {
-        cls: "llmwiki-ask-mate-capabilities",
-        text: `Model: ${capabilities.model} · Graphify: ${capabilities.graphify} · Problem Intake: ${capabilities.problemIntake}`,
-      });
-      for (const message of capabilities.messages) {
-        container.createEl("p", { cls: "llmwiki-ask-mate-degraded", text: message });
-      }
-    }
-
     const intents = container.createEl("nav", { cls: "llmwiki-ask-mate-intents" });
     intents.setAttr("aria-label", "LLM Wiki task");
     const intentOptions: Array<[AskMateIntent, string]> = [
@@ -605,6 +590,21 @@ export class AskMateView extends ItemView {
       button.setAttr("aria-pressed", String(this.interaction.intent === intent));
       button.disabled = this.#busy;
       button.onclick = () => this.selectIntent(intent);
+    }
+
+    if (this.#error) liveRegion.addClass("llmwiki-control-plane-error");
+    if (this.#read) {
+      for (const warning of this.#read.warnings) {
+        container.createEl("p", { cls: "llmwiki-proposal-warnings", text: warning });
+      }
+      const capabilities = this.interaction.capabilities;
+      container.createEl("p", {
+        cls: "llmwiki-ask-mate-capabilities",
+        text: `Model: ${capabilities.model} · Graphify: ${capabilities.graphify} · Problem Intake: ${capabilities.problemIntake}`,
+      });
+      for (const message of capabilities.messages) {
+        container.createEl("p", { cls: "llmwiki-ask-mate-degraded", text: message });
+      }
     }
 
     this.renderClarifications(container);

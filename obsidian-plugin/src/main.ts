@@ -70,6 +70,7 @@ import {
   isManagedProjectMapPath,
 } from "./ask-mate/client";
 import { AgentfilesFeature } from "./agentfiles/feature";
+import { AgentfilesSettingsSection } from "./agentfiles/settings";
 import {
   ASK_MATE_VIEW_TYPE,
   AskMateView,
@@ -128,7 +129,7 @@ export function selectedCoreCanvasNodeIds(view: unknown): string[] {
 
 export default class LLMWikiPlugin extends Plugin {
   data!: LLMWikiPluginData;
-  private agentfilesFeature: AgentfilesFeature | null = null;
+  agentfilesFeature: AgentfilesFeature | null = null;
   projection: SettingsControlPlaneProjection | null = null;
   settingsError: string | null = null;
   private settingsClient!: SettingsOperationClient;
@@ -942,12 +943,16 @@ class LLMWikiSettingTab extends PluginSettingTab {
     });
     this.renderOverview(containerEl);
     this.renderAgentControlPlane(containerEl);
-    if (!this.llmWiki.projection) return;
+    if (this.llmWiki.projection) this.renderSettingsPlatform(containerEl, this.llmWiki.projection);
+    this.renderCapabilityLibrary(containerEl);
+  }
+
+  private renderSettingsPlatform(containerEl: HTMLElement, projection: SettingsControlPlaneProjection): void {
     this.renderScopeSelector(containerEl);
 
     const scope = this.llmWiki.data.presentation.selectedScope;
-    for (const category of [...new Set(this.llmWiki.projection.definitions.map(item => item.category))]) {
-      const definitions = this.llmWiki.projection.definitions.filter(definition =>
+    for (const category of [...new Set(projection.definitions.map(item => item.category))]) {
+      const definitions = projection.definitions.filter(definition =>
         definition.category === category
         && definition.allowedScopes.includes(scope)
         && (this.llmWiki.data.presentation.showAdvanced || definition.visibility !== "advanced"),
@@ -970,6 +975,13 @@ class LLMWikiSettingTab extends PluginSettingTab {
           await this.llmWiki.savePluginData();
           this.display();
         }));
+  }
+
+  private renderCapabilityLibrary(containerEl: HTMLElement): void {
+    const feature = this.llmWiki.agentfilesFeature;
+    if (!feature) return;
+    containerEl.createEl("h2", { text: "Capability Library" });
+    new AgentfilesSettingsSection(feature, () => this.display()).display(containerEl);
   }
 
   private renderOverview(containerEl: HTMLElement): void {

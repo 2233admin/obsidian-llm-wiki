@@ -33,7 +33,8 @@ async function vaultFiles(): Promise<string[]> {
   return browser.executeObsidian(({ app }) => app.vault.getFiles().map(f => f.path).sort());
 }
 
-// Scroll inside the Ask Mate pane so the status bar never covers the target.
+// Obsidian's status bar floats over the bottom of the pane, and WebDriver
+// scrolls targets only to the viewport edge, so center them before clicking.
 async function clickInAskMate(selector: string): Promise<void> {
   const element = await browser.$(ASK_MATE).$(selector);
   await element.waitForEnabled();
@@ -82,6 +83,11 @@ describe("LLM Wiki plugin in Obsidian", function () {
     await obsidianPage.openFile("notes/plan.md");
     await browser.executeObsidianCommand(`${PLUGIN_ID}:open-ask-mate-active-note`);
     await expect(browser.$(ASK_MATE)).toHaveText(expect.stringContaining("Markdown note notes/plan.md"));
+    for (const label of ["Ask this context", "Understand", "Shape a map", "Prepare a fix"]) {
+      await expect(browser.$(ASK_MATE).$(`button=${label}`)).toBeDisplayed({ withinViewport: true });
+    }
+    const blockIdNotes = await browser.$(ASK_MATE).$$("p*=no block ID").length;
+    expect(blockIdNotes).toBe(1);
 
     await clickAskMate("Understand");
     await expect(browser.$(ASK_MATE)).toHaveText(expect.stringContaining("Interpreted structure"));
@@ -101,7 +107,7 @@ describe("LLM Wiki plugin in Obsidian", function () {
     await obsidianPage.openFile("01-Projects/e2e-demo/risks.md");
     await browser.executeObsidianCommand(`${PLUGIN_ID}:open-ask-mate-active-note`);
     await clickAskMate("Ask this context");
-    await browser.$(ASK_MATE).$("textarea").setValue("Python runtime");
+    await browser.$(ASK_MATE).$("textarea").setValue("What are the risks?");
     await clickAskMate("Get cited answer");
     await expect(browser.$(ASK_MATE)).toHaveText(expect.stringContaining("01-Projects/e2e-demo/risks.md"));
 
@@ -109,23 +115,32 @@ describe("LLM Wiki plugin in Obsidian", function () {
     await browser.waitUntil(async () => (await vaultFiles()).some(path => path.startsWith("00-Inbox/AI-Output/vault-ask/")));
   });
 
+  it("reads default Canvas edges as directed", async function () {
+    await obsidianPage.openFile("board.canvas");
+    await browser.executeObsidianCommand(`${PLUGIN_ID}:open-ask-mate-active-canvas`);
+    await expect(browser.$(ASK_MATE)).toHaveText(expect.stringContaining("Model:"));
+    await expect(browser.$(ASK_MATE)).not.toHaveText(expect.stringContaining("has no arrow"));
+  });
+
   it("renders the settings page and runs Doctor", async function () {
-    const status = await browser.executeObsidian(async ({ app }) => {
+    const { tabCount, status } = await browser.executeObsidian(async ({ app }) => {
       const setting = (app as any).setting;
       setting.open();
-      const tab = setting.pluginTabs.find((t: any) => t.id === "vault-mind-promote"
-        && (t.display(), t.containerEl.innerText.includes("Refresh / Run Doctor")));
-      setting.openTab(tab);
+      setting.openTabById("vault-mind-promote");
+      const tab = setting.activeTab;
       const doctor = Array.from(tab.containerEl.querySelectorAll("button") as NodeListOf<HTMLButtonElement>)
         .find(b => b.innerText.includes("Doctor"));
       doctor?.click();
       await new Promise(resolve => setTimeout(resolve, 3000));
       const text = tab.containerEl.innerText as string;
       setting.close();
-      return text;
+      return { tabCount: setting.pluginTabs.filter((t: any) => t.id === "vault-mind-promote").length, status: text };
     });
+    expect(tabCount).toBe(1);
     expect(status).toContain("System status");
     expect(status).toContain("vault.filesystem");
+    expect(status).toContain("Capability Library");
+    expect(status).toContain("File watching");
   });
 
   it("survives disable, re-enable, and an app restart", async function () {
