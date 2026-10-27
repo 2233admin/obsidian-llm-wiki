@@ -346,7 +346,7 @@ async function main() {
   const adapter = new obsidian.FileSystemAdapter(vault);
   const app = {
     vault: { adapter },
-    workspace: { getActiveFile: () => null, on: () => ({ type: "event-ref" }) },
+    workspace: { getActiveFile: () => null, on: () => ({ type: "event-ref" }), onLayoutReady: () => undefined },
   };
   const loaded = require(path.join(pluginDir, "main.js"));
   const PluginClass = loaded.default || loaded;
