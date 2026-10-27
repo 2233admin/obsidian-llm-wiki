@@ -1,7 +1,9 @@
 {
   "name": "llmwiki",
   "description": "Reviewed team memory compiler for Obsidian vaults — vault MCP server, knowledge-work roles, and thinking/research commands",
-  "author": { "name": "2233admin" },
+  "author": {
+    "name": "2233admin"
+  },
   "homepage": "https://github.com/2233admin/obsidian-llm-wiki",
   "repository": "https://github.com/2233admin/obsidian-llm-wiki",
   "license": "GPL-3.0-only",
@@ -9,8 +11,8 @@
     "vault_path": {
       "type": "directory",
       "title": "Vault path",
-      "description": "Absolute path of your Obsidian vault (or any folder of Markdown notes).",
-      "required": true
+      "description": "Absolute path of your Obsidian vault (or any folder of Markdown notes). Leave empty to use the Obsidian vault you start Claude Code in.",
+      "required": false
     }
   }
 }
