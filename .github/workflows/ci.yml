@@ -8,7 +8,7 @@ on:
 
 jobs:
   shared-domains:
-    runs-on: ${{ vars.CI_5070X_ENABLED == 'true' && (((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/')) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)) && 'ci-5070x-linux' || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -23,7 +23,7 @@ jobs:
       - run: cd packages/agent-domain && npm ci && bun test tests/ && npm run typecheck && npm run build
 
   build:
-    runs-on: ${{ vars.CI_5070X_ENABLED == 'true' && (((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/')) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)) && 'ci-5070x-linux' || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -35,7 +35,7 @@ jobs:
       - run: cd mcp-server && npm run build
 
   typecheck:
-    runs-on: ${{ vars.CI_5070X_ENABLED == 'true' && (((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/')) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)) && 'ci-5070x-linux' || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -45,7 +45,7 @@ jobs:
       - run: cd mcp-server && npm run typecheck
 
   test:
-    runs-on: ${{ vars.CI_5070X_ENABLED == 'true' && (((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/')) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)) && 'ci-5070x-linux' || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -80,7 +80,7 @@ jobs:
         run: python scripts/verify_release_install.py --json
 
   obsidian-plugin:
-    runs-on: ${{ vars.CI_5070X_ENABLED == 'true' && (((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/')) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)) && 'ci-5070x-linux' || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -129,7 +129,7 @@ jobs:
         run: cd obsidian-plugin && xvfb-run -a npm run e2e
 
   lint-python:
-    runs-on: ${{ vars.CI_5070X_ENABLED == 'true' && (((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/')) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)) && 'ci-5070x-linux' || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -139,7 +139,7 @@ jobs:
       - run: cd compiler && ruff check . ../run_aide.py
 
   test-python:
-    runs-on: ${{ vars.CI_5070X_ENABLED == 'true' && (((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/')) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)) && 'ci-5070x-linux' || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -162,7 +162,7 @@ jobs:
       - run: python -m pytest tests/ -v --tb=short --ignore=compiler/
 
   test-compiler:
-    runs-on: ${{ vars.CI_5070X_ENABLED == 'true' && (((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/')) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)) && 'ci-5070x-linux' || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -172,7 +172,7 @@ jobs:
       - run: python -m pytest compiler/tests/ -q
 
   fleet-acceptance:
-    runs-on: ${{ vars.CI_5070X_ENABLED == 'true' && (((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/')) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)) && 'ci-5070x-linux' || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -190,7 +190,7 @@ jobs:
       - run: bun scripts/verify_fleet_workflow.ts --phase all --json
 
   windows-filesystem:
-    runs-on: ${{ vars.CI_5070X_ENABLED == 'true' && (((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/')) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)) && 'ci-5070x-windows' || 'windows-latest' }}
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -222,7 +222,7 @@ jobs:
       - run: python -m pytest compiler/tests/test_settings_platform.py compiler/tests/test_work_driver.py compiler/tests/test_project_migration.py -q --basetemp "$env:RUNNER_TEMP\pytest-windows"
 
   openspec:
-    runs-on: ${{ vars.CI_5070X_ENABLED == 'true' && (((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/')) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)) && 'ci-5070x-linux' || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
