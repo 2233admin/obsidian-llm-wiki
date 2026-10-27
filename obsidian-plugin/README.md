@@ -24,7 +24,7 @@ During beta, install [BRAT](https://github.com/TfTHacker/obsidian42-brat), choos
 After acceptance into Obsidian's Community Plugins directory, install it from
 **Settings → Community plugins → Browse** by searching for **LLM Wiki**.
 For a manual install, download `main.js`, `manifest.json`, and `styles.css` from
-the matching plugin-version GitHub release and copy them to
+the latest GitHub release and copy them to
 `<vault>/.obsidian/plugins/vault-mind-promote/`.
 
 ## Settings surface
