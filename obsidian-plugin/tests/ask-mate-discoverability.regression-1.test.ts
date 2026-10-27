@@ -8,7 +8,7 @@ import {
   type App,
   type PluginManifest,
 } from "obsidian";
-import LLMWikiPlugin from "../src/main";
+import LLMWikiPlugin, { defaultProjectId } from "../src/main";
 import type { AgentControlPlaneTransport } from "../src/control-plane-client";
 import type { AskMateContext } from "../src/ask-mate/interaction-model";
 import type { DeviceBindingReference } from "../src/settings";
@@ -51,7 +51,7 @@ class FirstRunPlugin extends LLMWikiPlugin {
       detachLeavesOfType: () => undefined,
     };
     super({
-      vault: { adapter: new TestFilesystemAdapter() },
+      vault: { adapter: new TestFilesystemAdapter(), getName: () => "Alpha Vault" },
       workspace,
     } as unknown as App, {
       id: "obsidian-llm-wiki",
@@ -99,7 +99,7 @@ class FirstRunPlugin extends LLMWikiPlugin {
   }
 }
 
-test("first-run vault exposes Ask Mate and routes through Workspace Project binding", async () => {
+test("first run opens LLM Wiki on a Project named after the vault, without asking", async () => {
   Notice.messages.length = 0;
   const plugin = new FirstRunPlugin();
   await plugin.onload();
@@ -108,15 +108,25 @@ test("first-run vault exposes Ask Mate and routes through Workspace Project bind
   assert.ok(command?.callback, "always-visible Ask Mate command was not registered");
   assert.equal(command.checkCallback, undefined, "first-run visibility must not depend on Project Binding");
 
-  command.callback();
+  await command.callback();
 
-  assert.equal(plugin.bindingRequests, 1);
+  assert.equal(plugin.bindingRequests, 0);
+  assert.deepEqual(plugin.projectInitializations, [{ project: "alpha-vault" }]);
   assert.deepEqual(plugin.contexts, [{
-    projectId: "project/alpha",
+    projectId: "project/alpha-vault",
     kind: "markdown_note",
     path: "Notes/first-run.md",
   }]);
-  assert.match(Notice.messages.at(-1) ?? "", /enter a Project ID to start/i);
+  assert.match(Notice.messages.at(-1) ?? "", /this vault uses project\/alpha-vault/i);
+
+  await command.callback();
+  assert.equal(plugin.projectInitializations.length, 1, "an existing binding is reused");
+});
+
+test("default Project IDs are lowercase kebab slugs of the vault name", () => {
+  assert.equal(defaultProjectId("My Research Vault"), "project/my-research-vault");
+  assert.equal(defaultProjectId("Café_Notes 2026"), "project/cafe-notes-2026");
+  assert.equal(defaultProjectId("知识库"), "project/vault");
 });
 
 test("first-run vault exposes an always-visible Ask Mate ribbon action", async () => {
@@ -127,11 +137,11 @@ test("first-run vault exposes an always-visible Ask Mate ribbon action", async (
   assert.ok(ribbon, "always-visible Ask Mate ribbon action was not registered");
   assert.equal(ribbon.icon, "sparkles");
 
-  ribbon.callback();
+  await ribbon.callback();
 
-  assert.equal(plugin.bindingRequests, 1);
+  assert.equal(plugin.bindingRequests, 0);
   assert.deepEqual(plugin.contexts, [{
-    projectId: "project/alpha",
+    projectId: "project/alpha-vault",
     kind: "markdown_note",
     path: "Notes/first-run.md",
   }]);

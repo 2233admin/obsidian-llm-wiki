@@ -216,8 +216,8 @@ test("Project command and Markdown/Canvas file menu entries activate supported c
   const plugin = new CapturePlugin(workspace);
   await plugin.onload();
   const projectCommand = plugin.commands.find(item => item.id === "open-ask-mate-project-context");
-  assert.ok(projectCommand?.checkCallback);
-  projectCommand.checkCallback(false);
+  assert.ok(projectCommand?.callback);
+  await projectCommand.callback();
   assert.deepEqual(plugin.contexts.at(-1), {
     projectId: "project/alpha",
     kind: "project",
