@@ -65,18 +65,24 @@ describe("LLM Wiki plugin in Obsidian", function () {
     ]));
   });
 
-  it("binds a Project from the ribbon on first run", async function () {
+  it("opens from the ribbon on first run without asking for a Project", async function () {
     await browser.$('.side-dock-ribbon-action[aria-label="Open LLM Wiki"]').click();
-    const input = browser.$(".llmwiki-project-binding-input");
-    await input.waitForDisplayed();
-    await input.setValue(PROJECT_ID);
-    await browser.$("button=Create or bind and open LLM Wiki").click();
-
     await browser.$(ASK_MATE).waitForDisplayed();
+    expect(await browser.$(".llmwiki-project-binding-input").isExisting()).toBe(false);
+
+    const slug = await browser.executeObsidian(({ app }) =>
+      (app as any).plugins.plugins["vault-mind-promote"].data.deviceBinding.workspaceProjectId.slice("project/".length),
+    );
+    expect(slug).toMatch(/^[a-z0-9][a-z0-9-]*$/);
     expect(await vaultFiles()).toEqual(expect.arrayContaining([
-      "01-Projects/e2e-demo/_project.md",
-      "Projects/e2e-demo.md",
+      `01-Projects/${slug}/_project.md`,
+      `Projects/${slug}.md`,
     ]));
+
+    // The rest of the suite works in a fixed Project.
+    await browser.executeObsidian(async ({ app }, projectId) => {
+      await (app as any).plugins.plugins["vault-mind-promote"].bindWorkspaceProject(projectId);
+    }, PROJECT_ID);
   });
 
   it("understands the active note and applies a map plan", async function () {

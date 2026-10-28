@@ -265,10 +265,9 @@ export default class LLMWikiPlugin extends Plugin {
       name: "Open LLM Wiki for active Markdown or selection (LLM Wiki)",
       checkCallback: (checking: boolean) => {
         const file = this.app.workspace.getActiveFile();
-        const projectId = this.workspaceProjectId();
-        const ok = !!file && file.extension === "md" && projectId !== null;
+        const ok = !!file && file.extension === "md";
         if (ok && !checking) {
-          this.activateAskMate(() => this.markdownAskMateContext(file, projectId));
+          void this.withWorkspaceProject(projectId => this.activateAskMate(() => this.markdownAskMateContext(file, projectId)));
         }
         return ok;
       },
@@ -279,10 +278,9 @@ export default class LLMWikiPlugin extends Plugin {
       name: "Open LLM Wiki for active core Canvas (LLM Wiki)",
       checkCallback: (checking: boolean) => {
         const file = this.app.workspace.getActiveFile();
-        const projectId = this.workspaceProjectId();
-        const ok = !!file && file.extension === "canvas" && projectId !== null;
+        const ok = !!file && file.extension === "canvas";
         if (ok && !checking) {
-          this.activateAskMate(() => this.canvasAskMateContext(file, projectId));
+          void this.withWorkspaceProject(projectId => this.activateAskMate(() => this.canvasAskMateContext(file, projectId)));
         }
         return ok;
       },
@@ -291,14 +289,7 @@ export default class LLMWikiPlugin extends Plugin {
     this.addCommand({
       id: "open-ask-mate-project-context",
       name: "Open LLM Wiki for current Project Context (LLM Wiki)",
-      checkCallback: (checking: boolean) => {
-        const projectId = this.workspaceProjectId();
-        const ok = projectId !== null;
-        if (ok && !checking) {
-          this.activateAskMate({ projectId, kind: "project" });
-        }
-        return ok;
-      },
+      callback: () => this.withWorkspaceProject(projectId => this.activateAskMate({ projectId, kind: "project" })),
     });
 
     this.addCommand({
@@ -323,18 +314,13 @@ export default class LLMWikiPlugin extends Plugin {
         if (
           file instanceof TFile
           && (file.extension === "md" || file.extension === "canvas")
-          && this.workspaceProjectId()
         ) {
           menu.addItem((item) => item
             .setTitle("Open in LLM Wiki (LLM Wiki)")
             .setIcon("git-fork")
-            .onClick(() => {
-              const projectId = this.workspaceProjectId();
-              if (!projectId) return;
-              this.activateAskMate(() => file.extension === "canvas"
-                ? this.canvasAskMateContext(file, projectId)
-                : this.markdownAskMateContext(file, projectId));
-            }));
+            .onClick(() => void this.withWorkspaceProject(projectId => this.activateAskMate(() => file.extension === "canvas"
+              ? this.canvasAskMateContext(file, projectId)
+              : this.markdownAskMateContext(file, projectId)))));
         }
       }),
     );
@@ -417,21 +403,32 @@ export default class LLMWikiPlugin extends Plugin {
     return boundProjectId;
   }
 
-  openAskMateEntryPoint(): void {
+  async openAskMateEntryPoint(): Promise<void> {
     const unavailable = this.askMateRuntimeUnavailableReason();
     if (unavailable) {
       new Notice(`LLM Wiki: ${unavailable} No note, selection, Canvas, or Project data was scanned or changed.`);
       return;
     }
-    const projectId = this.workspaceProjectId();
+    await this.withWorkspaceProject(projectId => this.activateBestAskMateContext(projectId));
+  }
+
+  /**
+   * Runs `open` with this vault's Project. The first time, the vault is bound
+   * to a Project named after it, so LLM Wiki opens without asking for an ID;
+   * Settings → LLM Wiki changes it.
+   */
+  async withWorkspaceProject(open: (projectId: `project/${string}`) => void): Promise<void> {
+    let projectId = this.workspaceProjectId();
     if (!projectId) {
-      new Notice("LLM Wiki: enter a Project ID to start (for example, project/my-project).");
-      this.openWorkspaceProjectBindingEditor(boundProjectId => {
-        this.activateBestAskMateContext(boundProjectId);
-      });
-      return;
+      try {
+        projectId = await this.bindWorkspaceProject(defaultProjectId(this.app.vault.getName()));
+      } catch (error) {
+        new Notice(`LLM Wiki: could not set up a Project for this vault — ${String((error as Error)?.message ?? error)}`);
+        return;
+      }
+      new Notice(`LLM Wiki: this vault uses ${projectId}. Change it in Settings → LLM Wiki.`);
     }
-    this.activateBestAskMateContext(projectId);
+    open(projectId);
   }
 
   async openAskMate(
@@ -870,6 +867,12 @@ class PromotePlanModal extends Modal {
   onClose(): void { this.contentEl.empty(); }
 }
 
+/** `project/<vault name as a lowercase kebab slug>`; `project/vault` when nothing is left. */
+export function defaultProjectId(vaultName: string): `project/${string}` {
+  const slug = vaultName.normalize("NFKD").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return `project/${slug || "vault"}`;
+}
+
 class WorkspaceProjectBindingModal extends Modal {
   constructor(
     app: App,
@@ -1009,17 +1012,17 @@ class LLMWikiSettingTab extends PluginSettingTab {
     containerEl.createEl("h2", { text: "Start with your knowledge" });
     containerEl.createEl("p", {
       cls: "llmwiki-settings-intro",
-      text: "Bind this vault to a Project, then work with the active note, Canvas, or Project context in LLM Wiki.",
+      text: "Work with the active note, Canvas, or Project context in LLM Wiki.",
     });
     const actions = containerEl.createDiv({ cls: "llmwiki-settings-actions llmwiki-agent-control-actions" });
-    actions.createEl("button", { text: "Open LLM Wiki", cls: "mod-cta" }).onclick = () => this.llmWiki.openAskMateEntryPoint();
+    actions.createEl("button", { text: "Open LLM Wiki", cls: "mod-cta" }).onclick = () => void this.llmWiki.openAskMateEntryPoint();
     new Setting(containerEl)
       .setName("Workspace Project")
       .setDesc(this.llmWiki.data.deviceBinding?.workspaceProjectId
         ? `LLM Wiki is bound to ${this.llmWiki.data.deviceBinding.workspaceProjectId}.`
-        : "Required for LLM Wiki. Stored only as this device's Workspace Binding; it does not redefine Project identity.")
+        : `Set the first time you open LLM Wiki: ${defaultProjectId(this.app.vault.getName())}, named after this vault.`)
       .addButton(button => button
-        .setButtonText(this.llmWiki.data.deviceBinding?.workspaceProjectId ? "Change binding" : "Bind workspace")
+        .setButtonText(this.llmWiki.data.deviceBinding?.workspaceProjectId ? "Change binding" : "Choose another Project")
         .onClick(() => this.llmWiki.openWorkspaceProjectBindingEditor(() => this.display())));
     containerEl.createEl("p", {
       cls: "llmwiki-settings-intro",
