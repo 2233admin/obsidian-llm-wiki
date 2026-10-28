@@ -57,7 +57,10 @@ describe("settings service operations", () => {
 
     assert.equal(service.defaultContext.userDeviceId, defaultUserDeviceId({}));
     assert.equal(service.defaultContext.userDeviceId, defaultUserDeviceId({}));
-    assert.doesNotMatch(service.defaultContext.userDeviceId, new RegExp(String(process.pid)));
+    // Not the per-process session identity. Matching the bare pid would flake
+    // whenever the runner's hostname happens to contain those digits.
+    assert.notEqual(service.defaultContext.userDeviceId, service.defaultContext.sessionId);
+    assert.doesNotMatch(service.defaultContext.userDeviceId, /^process-/);
   });
 
   test("makes product defaults an explicit read-only scope store", () => {

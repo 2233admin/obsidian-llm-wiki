@@ -42,6 +42,7 @@ interface TestWorkspace {
   getActiveFile(): TFile | null;
   getActiveViewOfType<T>(): T | null;
   on(name: string, callback: (...args: unknown[]) => void): object;
+  onLayoutReady(callback: () => void): void;
 }
 
 function testWorkspace(): TestWorkspace {
@@ -56,6 +57,7 @@ function testWorkspace(): TestWorkspace {
       this.events.set(name, callback);
       return {};
     },
+    onLayoutReady() {},
   };
 }
 

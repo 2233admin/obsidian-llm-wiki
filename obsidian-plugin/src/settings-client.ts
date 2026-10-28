@@ -95,7 +95,7 @@ export class SettingsOperationClient {
     key: string,
     value: SettingValue | SecretReference,
     expectedRevision: number,
-    options: { reason?: string; expiresAt?: string } = {},
+    options: { reason?: string; expiresAt?: string; updatedBy?: string } = {},
   ): Promise<SettingsSnapshotResult> {
     const result = await this.transport.invoke<SettingsMutationResult>("settings.assignment.set", {
       scope,

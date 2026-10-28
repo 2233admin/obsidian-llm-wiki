@@ -50,7 +50,7 @@ class FailingTransport implements SettingsOperationTransport {
 function fakeApp(adapter: MemoryAdapter): App {
   return {
     vault: { adapter },
-    workspace: { on: () => ({}), getActiveFile: () => null },
+    workspace: { on: () => ({}), getActiveFile: () => null, onLayoutReady: () => {} },
   } as unknown as App;
 }
 
