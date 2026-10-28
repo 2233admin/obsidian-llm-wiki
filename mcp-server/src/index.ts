@@ -110,7 +110,8 @@ interface RuntimeVaultMindConfig extends VaultMindConfig {
 }
 
 function loadConfig(): RuntimeVaultMindConfig {
-  // Precedence: env var > ./vault-mind.yaml > ../vault-mind.yaml. An explicit
+  // Precedence: env var > ./vault-mind.yaml > ../vault-mind.yaml > enclosing
+  // Obsidian vault. An explicit
   // env var is a declaration of intent and must not be silently shadowed by an
   // abandoned yaml in cwd or parent -- prior to this fix a stale dev-workspace
   // yaml could quietly redirect the server away from the user's chosen vault.
@@ -134,7 +135,22 @@ function loadConfig(): RuntimeVaultMindConfig {
   for (const p of candidates) {
     if (existsSync(p)) return { ...parseSimpleYaml(readFileSync(p, "utf-8")), config_path: p };
   }
-  throw new Error("No vault-mind.yaml found and VAULT_MIND_VAULT_PATH not set");
+  // Like git finding .git: an agent started anywhere inside an Obsidian vault
+  // uses that vault without any configuration.
+  const vault = findObsidianVault(process.cwd());
+  if (vault) return { vault_path: vault, config_path: undefined };
+  throw new Error(
+    "No vault found. Start your agent inside an Obsidian vault, or set the vault path " +
+      "(Claude Code: /plugin configure llmwiki@obsidian-llm-wiki; other hosts: VAULT_MIND_VAULT_PATH).",
+  );
+}
+
+/** The nearest directory at or above `start` that contains `.obsidian/`. */
+export function findObsidianVault(start: string): string | undefined {
+  for (let dir = resolve(start); ; dir = dirname(dir)) {
+    if (existsSync(join(dir, ".obsidian"))) return dir;
+    if (dirname(dir) === dir) return undefined;
+  }
 }
 
 function parseSimpleYaml(raw: string): RuntimeVaultMindConfig {
