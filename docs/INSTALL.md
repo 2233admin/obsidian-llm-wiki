@@ -1,6 +1,6 @@
 # Install guide
 
-LLM Wiki is distributed from the `plugin` branch of this repository. CI builds it from `main` on every change (`.github/workflows/plugin.yml`), so the branch always holds a ready-to-run MCP server (`mcp-server/bundle.js`), every skill and command, and a lockfile for the one runtime dependency. Nothing is built on your machine.
+LLM Wiki is distributed from the `plugin` branch of this repository. CI builds it from `main` on every change (`.github/workflows/plugin.yml`), so the branch always holds a ready-to-run MCP server (`mcp-server/bundle.js`), the Python compiler (`compiler/`), every skill and command, and a lockfile for the one runtime dependency. Nothing is built on your machine.
 
 ## Prerequisites
 
@@ -8,7 +8,7 @@ LLM Wiki is distributed from the `plugin` branch of this repository. CI builds i
 - **git**
 - **An MCP-compatible agent host**: Claude Code, Codex, OpenCode, or Gemini CLI
 
-Basic search, read, and keyword recall need nothing else. Compiler operations, Project layout migration, and Obsidian's governed promotion/Doctor checks also need Python and the `compiler/` directory from a full source checkout (see [Shared Settings Platform](#shared-settings-platform)).
+Basic search, read, and keyword recall need nothing else. Compiler operations, Project layout migration, and Obsidian's governed promotion also need Python 3.11+; the compiler itself ships with the plugin.
 
 ## Claude Code
 
@@ -121,7 +121,7 @@ rm -rf ~/.llmwiki
 
 MCP, Python, and Obsidian consume the same Settings Platform. Obsidian is the primary visual control plane, but the system remains headless: closing Obsidian does not remove `settings.*`, Project Context, Project Hub, or workflow operations.
 
-Compiler-backed operations need the `compiler/` directory from a full source checkout (the plugin branch ships only the MCP server and skills). Point the server at it when automatic discovery cannot find it:
+The server runs the compiler shipped next to it (`compiler/` in the plugin). To use a different checkout, set `LLMWIKI_COMPILER_PATH`:
 
 ```json
 {
