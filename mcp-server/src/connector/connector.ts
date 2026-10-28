@@ -7,9 +7,9 @@ import { WsTransport } from './ws-transport.js';
 import { FsTransport } from './fs-transport.js';
 import type { OperationContext, Logger, VaultExecutor } from '../core/types.js';
 import { validateParams } from '../core/validate.js';
+import { VERSION } from '../version.js';
 
 const PORT_FILE = path.join(os.homedir(), '.obsidian-ws-port');
-const VERSION = '0.4.0-beta.4';
 
 function readPortFile(): { port: number; token: string; vault: string } | null {
   try { return JSON.parse(fs.readFileSync(PORT_FILE, 'utf-8')); }
