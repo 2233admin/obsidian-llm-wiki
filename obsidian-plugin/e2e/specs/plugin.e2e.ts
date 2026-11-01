@@ -122,6 +122,19 @@ describe("LLM Wiki plugin in Obsidian", function () {
     await expect(browser.$(ASK_MATE)).not.toHaveText(expect.stringContaining("has no arrow"));
   });
 
+  it("finds the compiler from the Claude Code plugin and offers Promote", async function () {
+    await browser.waitUntil(() => browser.executeObsidian(({ app }) => {
+      const plugin = (app as any).plugins.plugins["vault-mind-promote"];
+      const kbMeta = plugin.projection?.snapshot.effective.find((s: any) => s.key === "runtime.kb_meta.path")?.value;
+      return typeof kbMeta === "string" && kbMeta.endsWith("kb_meta.py");
+    }), { timeout: 10_000, timeoutMsg: "runtime.kb_meta.path was not detected" });
+    await obsidianPage.openFile("notes/plan.md");
+    const promoteAvailable = await browser.executeObsidian(({ app }) =>
+      (app as any).commands.findCommand("vault-mind-promote:promote-candidate").checkCallback(true),
+    );
+    expect(promoteAvailable).toBe(true);
+  });
+
   it("renders the settings page and runs Doctor", async function () {
     const { tabCount, status } = await browser.executeObsidian(async ({ app }) => {
       const setting = (app as any).setting;
@@ -140,8 +153,7 @@ describe("LLM Wiki plugin in Obsidian", function () {
     expect(status).toContain("System status");
     expect(status).toContain("vault.filesystem");
     expect(status).toContain("runtime.kb_meta");
-    expect(status).toContain("LLM Wiki runtime entry is not set");
-    expect(status).toContain("Absolute path to compiler/kb_meta.py");
+    expect(status).toContain("LLM Wiki runtime entry is present");
     expect(status).toContain("Capability Library");
     expect(status).toContain("File watching");
   });

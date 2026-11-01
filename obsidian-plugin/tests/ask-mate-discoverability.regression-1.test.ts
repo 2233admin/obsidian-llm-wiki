@@ -49,6 +49,7 @@ class FirstRunPlugin extends LLMWikiPlugin {
       }, activeFile) as T,
       on: () => ({}),
       detachLeavesOfType: () => undefined,
+      onLayoutReady: () => undefined,
     };
     super({
       vault: { adapter: new TestFilesystemAdapter() },

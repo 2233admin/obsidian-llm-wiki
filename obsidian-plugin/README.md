@@ -59,10 +59,18 @@ diagnostic mutations.
 
 ## Knowledge promotion
 
-The existing **Promote candidate (LLM Wiki)** command and file-menu action are
-unchanged. They run `kb_meta promote` as a dry-run, show the materialized plan,
-and write only after explicit confirmation. The work-OS base-head lock remains
-authoritative and the plugin never auto-commits.
+The **Promote candidate (LLM Wiki)** command and file-menu action run
+`kb_meta promote` as a dry-run, show the materialized plan, and write only after
+explicit confirmation. The work-OS base-head lock remains authoritative and the
+plugin never auto-commits.
+
+Promote and Compile need Python and the LLM Wiki compiler. On startup the plugin
+looks for both and binds them for this device: Python as `python3`/`python`
+(`python`/`py` on Windows, plus the Homebrew paths on macOS), and
+`compiler/kb_meta.py` in the LLM Wiki Claude Code plugin, then in a `plugin`
+branch clone at `~/.llmwiki`. It follows the Claude Code plugin to its new path
+after updates and never replaces a value you set yourself. Until the compiler is
+found, the Promote and Compile commands stay hidden and Doctor says how to get it.
 
 ## Agent control plane
 

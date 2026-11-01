@@ -49,9 +49,11 @@ import {
   SettingsOperationClient,
   SettingsOperationTransport,
   SettingValue,
+  sourceRevision,
   UnavailableSettingsTransport,
 } from "./settings-client";
 import { obsidianUserDeviceId } from "./settings-host";
+import { nodeRuntimeDetectHost, planRuntimeDetection, RUNTIME_DETECT_ACTOR } from "./runtime-detect";
 import {
   OBSIDIAN_CONTROL_PLANE_ACTOR,
   ProductionControlPlaneTransport,
@@ -175,6 +177,7 @@ export default class LLMWikiPlugin extends Plugin {
     this.askMateClient = new AskMateOperationClient(transport);
     await this.applyPluginDataPlan(plan, pluginDataChanged);
     await this.refreshSettings(false);
+    this.app.workspace.onLayoutReady(() => void this.detectRuntime());
     this.agentfilesFeature = new AgentfilesFeature(
       this,
       this.data.agentfiles,
@@ -200,7 +203,7 @@ export default class LLMWikiPlugin extends Plugin {
       name: "Promote candidate (LLM Wiki)",
       checkCallback: (checking: boolean) => {
         const file = this.app.workspace.getActiveFile();
-        const ok = !!file && file.extension === "md";
+        const ok = !!file && file.extension === "md" && this.runtimeEntry() !== null;
         if (ok && !checking) void this.promote(file as TFile);
         return ok;
       },
@@ -314,7 +317,7 @@ export default class LLMWikiPlugin extends Plugin {
 
     this.registerEvent(
       this.app.workspace.on("file-menu", (menu: Menu, file: TAbstractFile) => {
-        if (file instanceof TFile && file.extension === "md") {
+        if (file instanceof TFile && file.extension === "md" && this.runtimeEntry()) {
           menu.addItem((item) => item
             .setTitle("Promote candidate (LLM Wiki)")
             .setIcon("check-circle")
@@ -636,6 +639,29 @@ export default class LLMWikiPlugin extends Plugin {
     }
   }
 
+  /** Absolute compiler/kb_meta.py path, or null while Promote and Compile cannot run. */
+  private runtimeEntry(): string | null {
+    const value = this.projection && effectiveSetting(this.projection.snapshot, "runtime.kb_meta.path")?.value;
+    return typeof value === "string" && isAbsolute(value) ? value : null;
+  }
+
+  /** Background: bind Python and kb_meta.py found on this device (see runtime-detect.ts). */
+  private async detectRuntime(): Promise<void> {
+    try {
+      const userDevice = (await this.settingsClient.scope("user-device")).document;
+      const plan = await planRuntimeDetection(nodeRuntimeDetectHost(homedir()), userDevice);
+      if (!plan.length) return;
+      let snapshot = (await this.settingsClient.snapshot()).snapshot;
+      for (const { key, value } of plan) {
+        snapshot = (await this.settingsClient.setAssignment("user-device", key, value, sourceRevision(snapshot, "user-device"), {
+          updatedBy: RUNTIME_DETECT_ACTOR,
+          reason: "Detected on this device",
+        })).snapshot;
+      }
+      await this.refreshSettings(false);
+    } catch { /* detection is best-effort; Doctor still reports what is missing */ }
+  }
+
   private effectiveValue<T extends SettingValue>(key: string): T {
     const effective = this.projection && effectiveSetting(this.projection.snapshot, key);
     if (!effective) throw new Error(`Effective setting is unavailable: ${key}`);
@@ -696,6 +722,9 @@ export default class LLMWikiPlugin extends Plugin {
     }
     if (!this.vaultBasePath()) {
       return "Compile & publish requires a desktop filesystem-backed vault in this release.";
+    }
+    if (!this.runtimeEntry()) {
+      return "Compile & publish needs the LLM Wiki compiler. Install the LLM Wiki Claude Code plugin, or set LLM Wiki runtime entry in Settings → LLM Wiki → Runtime.";
     }
     return null;
   }

@@ -424,7 +424,7 @@ export class SettingsService {
       checkedAt,
       snapshot.snapshotId,
       kbMetaAvailable ? "pass" : "fail",
-      kbMetaAvailable ? [] : [{ code: "configure-kb-meta", summary: "Set LLM Wiki runtime entry (runtime.kb_meta.path) to the absolute path of compiler/kb_meta.py in your LLM Wiki checkout.", operation: "settings.assignment.set" }],
+      kbMetaAvailable ? [] : [{ code: "configure-kb-meta", summary: "Install the LLM Wiki Claude Code plugin and its compiler is found automatically, or set LLM Wiki runtime entry (runtime.kb_meta.path) to the absolute path of compiler/kb_meta.py.", operation: "settings.assignment.set" }],
     ));
     const vaultPath = value("vault.path");
     const vaultAvailable = typeof vaultPath === "string" && existsSync(vaultPath);
