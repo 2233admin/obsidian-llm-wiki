@@ -861,3 +861,32 @@ test('collaboration policy rejects malformed policy JSON objects', async () => {
     rmSync(badPolicyRoot, { recursive: true, force: true });
   }
 });
+
+test('finds the enclosing Obsidian vault when no vault path is configured', async () => {
+  const vault = join(tmpdir(), `obsidian-llm-wiki-autodetect-${randomUUID()}`);
+  mkdirSync(join(vault, '.obsidian'), { recursive: true });
+  mkdirSync(join(vault, 'Projects', 'alpha'), { recursive: true });
+  writeFileSync(join(vault, 'found-me.md'), '# Found me\n', 'utf-8');
+  const env = { ...process.env } as Record<string, string>;
+  delete env.VAULT_MIND_VAULT_PATH;
+  delete env.VAULT_BRIDGE_VAULT;
+  // Claude Code passes an unset optional plugin option as an empty string.
+  env.VAULT_MIND_VAULT_PATH = '';
+  const autodetect = new StdioClientTransport({
+    command: process.execPath,
+    args: [BUNDLE_PATH],
+    cwd: join(vault, 'Projects', 'alpha'),
+    env,
+    stderr: 'pipe',
+  });
+  const autodetectClient = new Client({ name: 'smoke-autodetect', version: '0.0.1' }, { capabilities: {} });
+  try {
+    await autodetectClient.connect(autodetect);
+    const result = await autodetectClient.callTool({ name: 'vault.exists', arguments: { path: 'found-me.md' } });
+    const text = (result.content as Array<{ type: string; text: string }>)[0].text;
+    assert.match(text, /true/);
+  } finally {
+    try { await autodetectClient.close(); } catch { /* best effort */ }
+    rmSync(vault, { recursive: true, force: true });
+  }
+});

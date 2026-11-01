@@ -41,7 +41,9 @@ Inside any Claude Code session:
 /plugin install llmwiki@obsidian-llm-wiki
 ```
 
-Claude Code asks for your vault path (an absolute path to your Obsidian vault or any folder of Markdown notes) and installs everything else. No clone, no build. You need Node.js 20.18.1+. The plugin ships the MCP server, all `/llmwiki:vault-*` knowledge-work roles, and the thinking/research commands. Try `/llmwiki:vault-librarian what do I know about <topic>`.
+Start Claude Code inside your Obsidian vault and LLM Wiki uses it; no clone, no build, no paths to type. To use one vault from anywhere, enter its path when Claude Code asks (or later with `/plugin configure llmwiki@obsidian-llm-wiki`). You need Node.js 20.18.1+. The plugin ships the MCP server, all `/llmwiki:vault-*` knowledge-work roles, and the thinking/research commands.
+
+Run `/llmwiki:doctor` first: it checks the setup, offers a starter layout for an empty vault, and suggests what to ask.
 
 Update with `/plugin marketplace update obsidian-llm-wiki`, or turn on auto-update for the marketplace in `/plugin`. Change the vault with `/plugin configure llmwiki@obsidian-llm-wiki`.
 

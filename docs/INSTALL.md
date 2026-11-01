@@ -19,13 +19,15 @@ Inside a Claude Code session:
 /plugin install llmwiki@obsidian-llm-wiki
 ```
 
-Claude Code asks for your **vault path** (an absolute path to your Obsidian vault or any folder of Markdown notes) and installs the runtime dependency itself. Run `/reload-plugins` or restart, then try:
+Claude Code installs the runtime dependency itself. The **vault path** is optional: leave it empty and LLM Wiki uses the Obsidian vault you start Claude Code in (the nearest folder at or above the working directory that contains `.obsidian/`). Set it to use one vault from anywhere; from a shell, `claude plugin install llmwiki@obsidian-llm-wiki --config vault_path=/absolute/path/to/vault`.
+
+Run `/reload-plugins` or restart, then:
 
 ```
-/llmwiki:vault-librarian what do I know about attention heads
+/llmwiki:doctor
 ```
 
-From a shell, `claude plugin install` does not prompt, so pass the path: `claude plugin install llmwiki@obsidian-llm-wiki --config vault_path=/absolute/path/to/vault`.
+It checks the vault, Python, and the compiler, offers a starter layout for an empty vault, and suggests first questions to ask.
 
 - **Change the vault:** `/plugin configure llmwiki@obsidian-llm-wiki`
 - **Update:** `/plugin marketplace update obsidian-llm-wiki`, or `claude plugin update llmwiki@obsidian-llm-wiki` from a shell. Every publish of the `plugin` branch is a new version. To update automatically, open `/plugin`, go to **Marketplaces**, and enable auto-update for `obsidian-llm-wiki`.
@@ -231,7 +233,7 @@ You should see a JSON-RPC response with `serverInfo.name = "obsidian-llm-wiki"`.
 
 ## Troubleshooting
 
-**`fatal: No vault-mind.yaml found and VAULT_MIND_VAULT_PATH not set`** -- the server was started without a vault. In Claude Code run `/plugin configure llmwiki@obsidian-llm-wiki`; elsewhere add `VAULT_MIND_VAULT_PATH` to the MCP entry's env. Older docs said `VAULT_PATH`, which the server never read.
+**`No vault found`** -- the agent was started outside an Obsidian vault and no vault path is set. Start it inside the vault, or in Claude Code run `/plugin configure llmwiki@obsidian-llm-wiki`; elsewhere add `VAULT_MIND_VAULT_PATH` to the MCP entry's env.
 
 **`[vaultbrain] init failed ... Cannot find package '@electric-sql/pglite'`** (or `pglite-pgvector`) -- a runtime dependency is missing, so keyword recall is off. For a git install run `npm ci --omit=dev` in `~/.llmwiki`. In Claude Code, `/plugin` shows a note on the plugin when its dependency install failed; reinstall the plugin.
 
