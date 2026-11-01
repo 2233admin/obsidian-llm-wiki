@@ -4,14 +4,15 @@ The Obsidian-native control surface for LLM Wiki.
 
 ## First run
 
-1. Click the **sparkles** icon in Obsidian's left ribbon, or run **Open LLM Wiki
-   (LLM Wiki)** from the command palette.
-2. Enter a stable Project ID such as `project/my-project`. The binding stays on
-   this device.
-3. LLM Wiki opens the active Markdown note, selected text, core Canvas, or the
+1. Click the **sparkles** icon in Obsidian's left ribbon, or run **Open LLM Wiki**
+   from the command palette.
+2. LLM Wiki opens the active Markdown note, selected text, core Canvas, or the
    current Project when no supported file is active.
 
-You can change the binding later in **Settings → LLM Wiki → Start with your knowledge**.
+The first time, LLM Wiki binds this vault to a Project named after it (a vault
+called "My Research" uses `project/my-research`) and creates its Project record.
+The binding stays on this device; change it in **Settings → LLM Wiki → Start
+with your knowledge**.
 LLM Wiki reads only the context shown in its panel and never scans the vault
 implicitly.
 
