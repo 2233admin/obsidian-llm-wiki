@@ -6,6 +6,7 @@
 //   .claude-plugin/plugin.json, .mcp.json, README.md   <- plugin/
 //   mcp-server/bundle.js                               <- mcp-server/
 //   skills/<name>/SKILL.md, commands/*.md              <- skills/, commands/
+//   compiler/ (zero-dependency Python, no tests)       <- compiler/
 //   package.json + package-lock.json                   <- bundle.js externals only
 
 import { execFileSync } from 'node:child_process';
@@ -28,6 +29,12 @@ cpSync(join(root, 'plugin'), out, { recursive: true });
 cpSync(bundle, join(out, 'mcp-server', 'bundle.js'));
 cpSync(join(root, 'commands'), join(out, 'commands'), { recursive: true });
 cpSync(join(root, 'LICENSE'), join(out, 'LICENSE'));
+// The server finds the compiler next to mcp-server/, so compile.* and the
+// other Python-backed operations work without a source checkout.
+cpSync(join(root, 'compiler'), join(out, 'compiler'), {
+  recursive: true,
+  filter: (src) => !/[\\/](tests|__pycache__|\.pytest_cache)$|\.pyc$/.test(src),
+});
 
 // Hosts discover skills as <skills>/<name>/SKILL.md; flat skills/<name>.md become that shape.
 for (const entry of readdirSync(join(root, 'skills'), { withFileTypes: true })) {

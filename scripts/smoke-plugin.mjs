@@ -3,7 +3,7 @@
 // host does, against a throwaway vault, and fail on anything a new user would hit.
 // Usage: node scripts/smoke-plugin.mjs [pluginDir]
 
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -63,6 +63,13 @@ try {
 
   // Recall needs pglite and pglite-pgvector from the plugin's node_modules.
   check(!/\[vaultbrain\] init failed/.test(stderr), 'vaultbrain (recall index) failed to start');
+
+  // compile.* runs the shipped Python compiler; it must start from the plugin alone.
+  const python = process.platform === 'win32' ? 'python' : 'python3';
+  const status = JSON.parse(
+    execFileSync(python, [join(pluginDir, 'compiler', 'kb_meta.py'), 'workspace-status', vault], { encoding: 'utf-8' }),
+  );
+  check(status.ok === true, `kb_meta.py workspace-status failed: ${JSON.stringify(status)}`);
 
   console.log(`smoke ok: ${pluginDir}`);
 } finally {
