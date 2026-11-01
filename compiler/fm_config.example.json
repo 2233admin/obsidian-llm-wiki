@@ -1,0 +1,53 @@
+{
+  "_note": "Copy to fm_config.local.json (gitignored) and edit. Supports ${ENV_VAR} substitution.",
+
+  "vault_path": "/path/to/your/vault",
+
+  "skip_dirs": [".git", ".obsidian", ".trash", "KB", "Excalidraw", "08-Templates"],
+
+  "folder_type_map": {
+    "01-Projects": "project",
+    "02-Infrastructure": "infrastructure",
+    "03-Trading": "trading",
+    "04-Research": "research",
+    "05-Engineering": "engineering",
+    "06-Daily": "daily",
+    "07-Protocols": "protocol",
+    "09-Archive": "research",
+    "00-Index": "index",
+    "10-External": "external",
+    "decisions": "decision",
+    "errors": "engineering"
+  },
+
+  "status_rules": {
+    "09-Archive": "archived",
+    "01-Projects": "active",
+    "03-Trading": "active",
+    "_default": "seed"
+  },
+
+  "tag_blacklist": [
+    "example_project_name",
+    "delete_me"
+  ],
+
+  "tag_pool": {
+    "min_folder_diversity": 2,
+    "top_n": 50
+  },
+
+  "llm": {
+    "endpoint": "https://api.anthropic.com/v1/messages",
+    "model": "claude-haiku-4-5",
+    "api_keys": ["${ANTHROPIC_API_KEY}"],
+    "max_tokens": 1200,
+    "max_concurrent": 10,
+    "timeout": 90,
+    "anthropic_version": "2023-06-01"
+  },
+
+  "work_dir": "./fm_work",
+  "log_path": "/path/to/your/vault/log.md",
+  "git_commit": true
+}

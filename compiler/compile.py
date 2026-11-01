@@ -1,0 +1,830 @@
+#!/usr/bin/env python3
+"""KB auto-orchestration pipeline.
+
+Usage:
+    python compile.py <vault_topic_path> [--tier haiku|sonnet|opus] [--dry-run]
+                      [--chunk-size N] [--chunk-overlap N]
+                      [--base-url URL] [--api-key KEY]
+                      [--force-full-rebuild]
+
+Environment variables:
+    OPENAI_API_KEY   (or ANTHROPIC_API_KEY) -- API key
+    OPENAI_BASE_URL  -- base URL for OpenAI-compatible API (default: https://api.openai.com/v1)
+    COMPILE_MODEL    -- override model name directly
+
+Pipeline:
+    raw/ -> [diff] -> [chunk] -> [extract] -> [merge] -> [write] -> [index] -> [report]
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+from chunker import chunk_file
+from contribution_manifest import (
+    apply_compile_extractions,
+    load_store,
+    source_id_from_path,
+    source_revision_from_bytes,
+)
+from extractor import ExtractionResult, extract_chunk, resolve_model, resolve_provider_url
+from models import Claim, CompileReport, Contradiction
+from wal import WAL
+
+# HTML export (optional)
+try:
+    from html_export import ExportOptions, ExportReport, export_to_html
+    HTML_EXPORT_AVAILABLE = True
+except ImportError:
+    HTML_EXPORT_AVAILABLE = False
+    ExportOptions = None
+    ExportReport = None
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _slugify(name: str) -> str:
+    """Convert a concept name to a filesystem-safe slug."""
+    slug = name.lower().strip()
+    slug = re.sub(r"[^\w\s-]", "", slug)
+    slug = re.sub(r"[\s_]+", "-", slug)
+    slug = re.sub(r"-{2,}", "-", slug)
+    return slug.strip("-")[:80]
+
+
+def _today() -> str:
+    return datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+
+
+def _run_kb_meta(vault: str, topic: str, *extra_args: str) -> dict:
+    """Invoke kb_meta.py as a subprocess and return parsed JSON output."""
+    kb_meta = Path(__file__).parent / "kb_meta.py"
+    cmd = [sys.executable, str(kb_meta), *extra_args, vault, topic]
+    # kb_meta expects: <cmd> <vault> <topic> [args...]
+    # but update-hash needs file as 3rd arg after topic -- handle separately
+    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
+    if result.returncode != 0 and result.stderr:
+        print(f"[warn] kb_meta stderr: {result.stderr.strip()}", file=sys.stderr)
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return {}
+
+
+def _run_kb_meta_cmd(args: list[str]) -> dict:
+    """Invoke kb_meta.py with an explicit args list."""
+    kb_meta = Path(__file__).parent / "kb_meta.py"
+    cmd = [sys.executable, str(kb_meta), *args]
+    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
+    if result.returncode != 0 and result.stderr:
+        print(f"[warn] kb_meta stderr: {result.stderr.strip()}", file=sys.stderr)
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return {}
+
+
+# ---------------------------------------------------------------------------
+# Step: diff
+# ---------------------------------------------------------------------------
+
+def _git_diff_dirty(vault: str, topic: str) -> list[str]:
+    """Return changed file paths via git diff --name-only, filtered to the topic's raw/ dir.
+
+    Returns an empty list if not in a git repo or if the command fails.
+    """
+    base = Path(vault) / topic
+    raw_dir = base / "raw"
+    if not raw_dir.exists():
+        return []
+
+    try:
+        result = subprocess.run(
+            ["git", "diff", "--name-only", "HEAD"],
+            cwd=str(base),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+    except FileNotFoundError:
+        # git not on PATH
+        return []
+
+    if result.returncode != 0:
+        return []
+
+    dirty: list[str] = []
+    for line in result.stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        # git diff returns paths relative to base (cwd); strip raw/ prefix if present
+        if line.startswith("raw/"):
+            rel = line[4:]
+        elif line.startswith("raw\\"):
+            rel = line[4:]
+        else:
+            # not under raw/ -- skip
+            continue
+        dirty.append(rel)
+
+    return dirty
+
+
+def _all_raw_files(vault: str, topic: str) -> list[str]:
+    """Return every raw/*.md file's path relative to <vault>/<topic> (LMVK L2
+    weekly full pass -- deliberately bypasses git-diff and kb_meta's hash
+    diff so a periodic full recompile can't silently miss a file whose hash
+    was never recorded, without touching kb_meta's _meta.json format at
+    all: step_update_hashes still runs update-hash per file afterward,
+    exactly as it does for a normal incremental run)."""
+    raw_dir = Path(vault) / topic / "raw"
+    if not raw_dir.exists():
+        return []
+    base = Path(vault) / topic
+    return sorted(f.relative_to(base).as_posix() for f in raw_dir.rglob("*.md"))
+
+
+def step_diff(vault: str, topic: str, wal: WAL | None = None, full: bool = False) -> list[str]:
+    """Return relative paths of raw files to (re)compile.
+
+    full=True (LMVK L2 weekly full pass): every raw/*.md file, ignoring
+    incremental dirty-detection entirely.
+
+    Otherwise (default, 15-min incremental): uses git diff --name-only when
+    available and falls back to kb_meta diff for non-git vaults.
+    """
+    if full:
+        dirty = _all_raw_files(vault, topic)
+        if wal is not None:
+            for rel in dirty:
+                wal.append("discover", rel)
+        return dirty
+
+    git_dirty = _git_diff_dirty(vault, topic)
+    if git_dirty:
+        if wal is not None:
+            for rel in git_dirty:
+                wal.append("discover", rel)
+        return git_dirty
+
+    # Fallback: use kb_meta diff (handles non-git vaults and untracked files)
+    result = _run_kb_meta_cmd(["diff", vault, topic])
+    dirty = result.get("new", []) + result.get("changed", [])
+    if wal is not None:
+        for rel in dirty:
+            wal.append("discover", rel)
+    return dirty
+
+
+# ---------------------------------------------------------------------------
+# Step: chunk
+# ---------------------------------------------------------------------------
+
+def step_chunk(vault: str, topic: str, dirty: list[str], chunk_size: int, overlap: int):
+    """Yield Chunk objects for each dirty file."""
+
+    base = Path(vault) / topic
+    for rel in dirty:
+        full = base / rel
+        if not full.exists():
+            print(f"[warn] File not found, skipping: {rel}", file=sys.stderr)
+            continue
+        chunks = chunk_file(full, source=rel, chunk_size=chunk_size, chunk_overlap=overlap)
+        print(f"  chunked {rel} -> {len(chunks)} chunk(s)")
+        yield from chunks
+
+
+# ---------------------------------------------------------------------------
+# Step: extract
+# ---------------------------------------------------------------------------
+
+def step_extract(
+    chunks,
+    existing_concepts: list[str],
+    model: str,
+    base_url: str,
+    api_key: str,
+    dry_run: bool,
+) -> list[ExtractionResult]:
+    """Run LLM extraction on each chunk."""
+    results: list[ExtractionResult] = []
+    for chunk in chunks:
+        if dry_run:
+            # stub result for dry-run
+            from extractor import ExtractionResult as ER  # noqa: PLC0415
+            results.append(ER(
+                summary=f"[dry-run] {chunk.source} / {chunk.heading or 'top'}",
+                concepts=[],
+                relationships=[],
+                claims=[],
+                chunk=chunk,
+            ))
+            continue
+        result = extract_chunk(chunk, existing_concepts, model, base_url, api_key)
+        if result is not None:
+            results.append(result)
+            # update known concepts so later chunks skip them
+            for c in result.concepts:
+                name = c.get("name", "")
+                if name and name not in existing_concepts:
+                    existing_concepts.append(name)
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Step: merge & write
+# ---------------------------------------------------------------------------
+
+def _load_existing_concepts(wiki_concepts: Path) -> dict[str, str]:
+    """Return {slug: name} for all existing concept files."""
+    mapping: dict[str, str] = {}
+    if not wiki_concepts.exists():
+        return mapping
+    for f in wiki_concepts.iterdir():
+        if f.suffix == ".md" and not f.name.startswith("_"):
+            mapping[f.stem] = f.stem  # stem is the slug
+    return mapping
+
+
+def _resolve_source_file(topic_root: Path, source_rel: str) -> Path | None:
+    """Resolve a compile source path under the topic root (raw/ optional prefix)."""
+    candidates = [
+        topic_root / source_rel,
+        topic_root / "raw" / source_rel,
+    ]
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def _read_concept_file(path: Path) -> str:
+    if path.exists():
+        return path.read_text("utf-8-sig", errors="replace")
+    return ""
+
+
+def _write_atomic(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    try:
+        tmp.write_text(content, "utf-8")
+        tmp.replace(path)
+    except Exception:
+        tmp.unlink(missing_ok=True)
+        raise
+
+
+def step_merge_write(
+    extractions: list[ExtractionResult],
+    vault: str,
+    topic: str,
+    dry_run: bool,
+    wal: WAL | None = None,
+    force_full_rebuild: bool = False,
+) -> tuple[int, int, int, int, list[Contradiction], int, int]:
+    """Merge extracted knowledge into wiki/ via source-versioned contribution manifests.
+
+    Returns (summaries_written, concepts_created, concepts_updated,
+    contradictions_found, contradictions, manifests_written, concepts_retracted).
+    """
+    base = Path(vault) / topic
+    wiki = base / "wiki"
+    wiki_concepts = wiki / "concepts"
+    wiki_summaries = wiki / "summaries"
+    wiki_concepts.mkdir(parents=True, exist_ok=True)
+    wiki_summaries.mkdir(parents=True, exist_ok=True)
+
+    existing_slugs = _load_existing_concepts(wiki_concepts)
+
+    # group extractions by source file
+    by_source: dict[str, list[ExtractionResult]] = {}
+    for ex in extractions:
+        by_source.setdefault(ex.chunk.source, []).append(ex)
+
+    # collect all claims across extractions for contradiction detection
+    all_claims: list[Claim] = []
+    source_revisions: dict[str, str] = {}
+
+    for source_rel, source_extractions in by_source.items():
+        source_file = _resolve_source_file(base, source_rel)
+        if source_file is not None:
+            source_revisions[source_rel] = source_revision_from_bytes(source_file.read_bytes())
+        else:
+            source_revisions[source_rel] = source_revision_from_bytes(source_rel.encode("utf-8"))
+
+        for ex in source_extractions:
+            for claim_dict in ex.claims:
+                content = claim_dict.get("content", "").strip()
+                confidence = float(claim_dict.get("confidence", 0.5))
+                if content:
+                    all_claims.append(Claim(
+                        content=content,
+                        source=source_rel,
+                        date=_today(),
+                        confidence=confidence,
+                    ))
+
+    contradictions = _detect_contradictions(all_claims)
+
+    # Snapshot managed concept set before apply for created/updated accounting.
+    before_store = load_store(base)
+    before_concepts = {
+        key
+        for manifest in before_store.get("manifests", {}).values()
+        if manifest.get("active")
+        for key in manifest.get("affectedConceptKeys", [])
+    }
+
+    results = apply_compile_extractions(
+        base,
+        by_source,
+        source_revisions=source_revisions,
+        contradictions=contradictions,
+        dry_run=dry_run,
+        force_full_rebuild=force_full_rebuild,
+    )
+
+    after_store = load_store(base) if not dry_run else before_store
+    after_concepts = {
+        key
+        for manifest in after_store.get("manifests", {}).values()
+        if manifest.get("active")
+        for key in manifest.get("affectedConceptKeys", [])
+    }
+    concepts_created = len(after_concepts - before_concepts)
+    concepts_retracted = len(before_concepts - after_concepts)
+    # Updated = still present and touched by this apply.
+    touched: set[str] = set()
+    for result in results:
+        touched.update(result.affected_concepts)
+    concepts_updated = len((touched & before_concepts & after_concepts))
+
+    summaries_written = 0
+    manifests_written = 0
+    for result in results:
+        if result.activated_manifest_id:
+            manifests_written += 1
+        for rel in result.swap.written:
+            if rel.startswith("summaries/"):
+                summaries_written += 1
+            if wal is not None and not dry_run:
+                wal.append("write", f"wiki/{rel}")
+        for rel in result.swap.deleted:
+            if wal is not None and not dry_run:
+                wal.append("delete", f"wiki/{rel}")
+
+    if dry_run:
+        for source_rel in by_source:
+            print(
+                f"  [dry-run] would activate manifest for {source_rel} "
+                f"({source_id_from_path(source_rel)})"
+            )
+        # Fall back to counting sources when dry-run does not persist store diffs.
+        if summaries_written == 0:
+            summaries_written = len(by_source)
+        if concepts_created == 0 and concepts_updated == 0:
+            planned = set()
+            for source_extractions in by_source.values():
+                for ex in source_extractions:
+                    for concept_dict in ex.concepts:
+                        name = concept_dict.get("name", "").strip()
+                        if name:
+                            planned.add(_slugify(name))
+            concepts_created = len(planned - set(existing_slugs))
+            concepts_updated = len(planned & set(existing_slugs))
+
+    n_contradictions = len(contradictions)
+    return (
+        summaries_written,
+        concepts_created,
+        concepts_updated,
+        n_contradictions,
+        contradictions,
+        manifests_written,
+        concepts_retracted,
+    )
+
+
+def _detect_contradictions(claims: list[Claim]) -> list[Contradiction]:
+    """Heuristic contradiction detection -- same source claims are not compared."""
+    contradictions: list[Contradiction] = []
+    negation_words = {"not", "never", "no", "false", "incorrect", "wrong", "cannot", "impossible"}
+    temporal_words = {"previously", "formerly", "used to", "was", "before", "old", "deprecated"}
+
+    for i, ca in enumerate(claims):
+        for cb in claims[i + 1:]:
+            if ca.source == cb.source:
+                continue
+            words_a = set(ca.content.lower().split())
+            words_b = set(cb.content.lower().split())
+            shared = words_a & words_b - {"the", "a", "an", "is", "are", "of", "in", "to", "and"}
+            if len(shared) < 3:
+                continue  # not enough overlap to be a contradiction
+
+            neg_a = bool(negation_words & words_a)
+            neg_b = bool(negation_words & words_b)
+            temp_a = bool(temporal_words & words_a)
+            temp_b = bool(temporal_words & words_b)
+
+            if neg_a != neg_b:
+                severity = "direct"
+            elif temp_a or temp_b:
+                severity = "temporal"
+            elif len(shared) >= 5:
+                severity = "nuanced"
+            else:
+                continue
+
+            contradictions.append(Contradiction(
+                claim_a=ca,
+                claim_b=cb,
+                severity=severity,
+                resolution=None,
+            ))
+
+    return contradictions
+
+
+def _write_contradictions(wiki: Path, contradictions: list[Contradiction], dry_run: bool) -> None:
+    path = wiki / "_contradictions.md"
+    existing = path.read_text("utf-8-sig", errors="replace") if path.exists() else ""
+
+    new_entries: list[str] = []
+    for c in contradictions:
+        entry = (
+            f"\n---\n"
+            f"**Severity**: {c.severity}  \n"
+            f"**Claim A** (`{c.claim_a.source}`): {c.claim_a.content}  \n"
+            f"**Claim B** (`{c.claim_b.source}`): {c.claim_b.content}  \n"
+            f"**Resolution**: {c.resolution or 'unresolved'}  \n"
+            f"**Detected**: {_today()}\n"
+        )
+        new_entries.append(entry)
+
+    if not existing.strip():
+        header = "# Contradictions\n\n> Auto-detected conflicts between source claims.\n"
+        content = header + "".join(new_entries)
+    else:
+        content = existing.rstrip() + "\n" + "".join(new_entries)
+
+    if dry_run:
+        print(f"  [dry-run] would write {path.name} ({len(contradictions)} contradiction(s))")
+    else:
+        _write_atomic(path, content)
+
+
+# ---------------------------------------------------------------------------
+# Step: update hash
+# ---------------------------------------------------------------------------
+
+def step_update_hashes(vault: str, topic: str, dirty: list[str], dry_run: bool, wal: WAL | None = None) -> None:
+    for rel in dirty:
+        if dry_run:
+            print(f"  [dry-run] would update hash for {rel}")
+        else:
+            _run_kb_meta_cmd(["update-hash", vault, topic, rel])
+            if wal is not None:
+                wal.append("hash-update", rel)
+
+
+# ---------------------------------------------------------------------------
+# Step: index + check-links
+# ---------------------------------------------------------------------------
+
+def step_index(vault: str, topic: str, dry_run: bool) -> int:
+    """Run update-index and check-links. Returns broken link count."""
+    if dry_run:
+        print("  [dry-run] would run update-index + check-links")
+        return 0
+    _run_kb_meta_cmd(["update-index", vault, topic])
+    links_result = _run_kb_meta_cmd(["check-links", vault, topic])
+    broken = links_result.get("broken", [])
+    if broken:
+        print(f"  [warn] {len(broken)} broken link(s) detected:")
+        for b in broken[:10]:
+            print(f"    {b.get('from')} -> {b.get('to')}")
+    return len(broken)
+
+
+# ---------------------------------------------------------------------------
+# Step: html-export (optional)
+# ---------------------------------------------------------------------------
+
+def step_html_export(
+    wiki_dir: Path,
+    theme: str,
+    output_dir: Path | None,
+    dry_run: bool,
+) -> ExportReport | None:
+    """Export wiki to HTML using the selected theme."""
+    if not HTML_EXPORT_AVAILABLE:
+        print("  [warn] html_export module not available, skipping HTML export")
+        return None
+
+    options = ExportOptions(
+        theme=theme,
+        include_summaries=True,
+        include_concepts=True,
+        include_index=True,
+        output_dir=output_dir,
+    )
+
+    if dry_run:
+        out_dir = output_dir or wiki_dir.parent / "html"
+        print(f"  [dry-run] would export HTML to {out_dir}")
+        print(f"  [dry-run] theme: {theme}")
+        return None
+
+    try:
+        out_dir = output_dir or wiki_dir.parent / "html"
+        return export_to_html(wiki_dir, out_dir, options)
+    except RuntimeError as e:
+        print(f"  [warn] HTML export failed: {e}")
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="KB auto-orchestration pipeline",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=__doc__,
+    )
+    parser.add_argument(
+        "vault_topic",
+        help="Path to <vault>/<topic> directory (e.g. /path/to/vault/my-topic)",
+    )
+    parser.add_argument(
+        "--tier",
+        default="haiku",
+        choices=["haiku", "sonnet", "opus"],
+        help="Model tier (default: haiku)",
+    )
+    parser.add_argument("--dry-run", action="store_true", help="Print actions without executing")
+    parser.add_argument(
+        "--full",
+        action="store_true",
+        help="Recompile every raw file, bypassing incremental dirty-detection (LMVK L2 weekly full pass)",
+    )
+    parser.add_argument(
+        "--force-full-rebuild",
+        action="store_true",
+        help=(
+            "Explicitly authorize replacing legacy wiki projections without complete "
+            "contribution provenance. Use only after reviewing the unknown-provenance report."
+        ),
+    )
+    parser.add_argument(
+        "--chunk-size",
+        type=int,
+        default=1000,
+        help="Max chars per chunk (default: 1000)",
+    )
+    parser.add_argument(
+        "--chunk-overlap",
+        type=int,
+        default=200,
+        help="Overlap chars between chunks (default: 200)",
+    )
+    parser.add_argument(
+        "--base-url",
+        default=None,
+        help="OpenAI-compatible API base URL (env: OPENAI_BASE_URL)",
+    )
+    parser.add_argument(
+        "--api-key",
+        default=None,
+        help="API key (env: OPENAI_API_KEY or ANTHROPIC_API_KEY)",
+    )
+    parser.add_argument(
+        "--result-file",
+        default=None,
+        help="Write the machine-readable Compile Run result to this path",
+    )
+    # HTML export options
+    parser.add_argument(
+        "--export-html",
+        action="store_true",
+        help="Export compiled wiki to HTML (requires Pandoc)",
+    )
+    parser.add_argument(
+        "--theme",
+        default="reading",
+        choices=["article", "report", "reading", "interactive"],
+        help="HTML theme for export (default: reading)",
+    )
+    parser.add_argument(
+        "--html-output-dir",
+        default=None,
+        help="Output directory for HTML (default: <topic>/html)",
+    )
+    args = parser.parse_args()
+
+    # resolve vault / topic
+    topic_path = Path(args.vault_topic).resolve()
+    if not topic_path.exists():
+        print(f"Error: path does not exist: {topic_path}", file=sys.stderr)
+        sys.exit(1)
+    vault = str(topic_path.parent)
+    topic = topic_path.name
+
+    # resolve API config
+    provider = os.environ.get("COMPILE_PROVIDER", "anthropic")
+    base_url = (
+        args.base_url
+        or os.environ.get("OPENAI_BASE_URL")
+        or resolve_provider_url(provider)
+        or "https://api.openai.com/v1"
+    )
+    api_key = (
+        args.api_key
+        or os.environ.get("OPENAI_API_KEY")
+        or os.environ.get("ANTHROPIC_API_KEY", "")
+    )
+    model = os.environ.get("COMPILE_MODEL") or resolve_model(args.tier, provider)
+
+    dry_tag = " [DRY RUN]" if args.dry_run else ""
+    print(f"\n=== KB Compile: {topic}{dry_tag} ===")
+    print(f"    vault : {vault}")
+    print(f"    model : {model}  (provider: {provider})")
+    print(f"    chunks: size={args.chunk_size} overlap={args.chunk_overlap}")
+
+    # ensure init
+    _run_kb_meta_cmd(["init", vault, topic])
+
+    # WAL
+    wal = WAL(vault)
+
+    # 1. diff
+    print("\n[1/7] diff -- finding dirty files...")
+    dirty = step_diff(vault, topic, wal, full=args.full)
+    if not dirty:
+        print("  Nothing to compile. All sources up to date.")
+        # Still allow HTML export if requested
+        if args.export_html:
+            wiki_path = Path(vault) / topic / "wiki"
+            if wiki_path.exists():
+                html_output = Path(args.html_output_dir) if args.html_output_dir else None
+                print(f"\n[2/2] html-export -- theme={args.theme}...")
+                html_report = step_html_export(wiki_path, args.theme, html_output, args.dry_run)
+                report = CompileReport(0, 0, 0, 0, 0, 0)
+                _print_report(report, html_report, args.result_file, topic)
+            else:
+                print("  [warn] No wiki/ directory found, skipping HTML export")
+                _print_report(CompileReport(0, 0, 0, 0, 0, 0), result_file=args.result_file, topic=topic)
+        else:
+            _print_report(CompileReport(0, 0, 0, 0, 0, 0), result_file=args.result_file, topic=topic)
+        return
+    print(f"  {len(dirty)} file(s) to compile: {dirty}")
+
+    # 2. chunk
+    print("\n[2/7] chunk -- splitting files...")
+    all_chunks = list(step_chunk(vault, topic, dirty, args.chunk_size, args.chunk_overlap))
+    print(f"  Total chunks: {len(all_chunks)}")
+
+    # 3. extract
+    print("\n[3/7] extract -- calling LLM...")
+    concepts_dir = Path(vault) / topic / "wiki" / "concepts"
+    existing_concepts: list[str] = _load_existing_concept_names(concepts_dir)
+    extractions = step_extract(
+        all_chunks,
+        existing_concepts,
+        model=model,
+        base_url=base_url,
+        api_key=api_key,
+        dry_run=args.dry_run,
+    )
+    print(f"  Extracted {len(extractions)} result(s)")
+
+    # 4+5. merge + write
+    print("\n[4/7] merge + [5/7] write -- updating wiki...")
+    (
+        summaries_written,
+        concepts_created,
+        concepts_updated,
+        contradictions_found,
+        _,
+        manifests_written,
+        concepts_retracted,
+    ) = step_merge_write(
+        extractions,
+        vault,
+        topic,
+        args.dry_run,
+        wal,
+        force_full_rebuild=args.force_full_rebuild,
+    )
+    print(
+        f"  manifests={manifests_written} created={concepts_created} "
+        f"updated={concepts_updated} retracted={concepts_retracted}"
+    )
+
+    # 6. update hashes
+    print("\n[6/7] update-hash -- marking sources compiled...")
+    step_update_hashes(vault, topic, dirty, args.dry_run, wal)
+
+    # 7. index + links
+    print("\n[7/7] index + check-links...")
+    broken_links = step_index(vault, topic, args.dry_run)
+
+    # 8. html-export (optional)
+    html_report = None
+    if args.export_html:
+        wiki_path = Path(vault) / topic / "wiki"
+        html_output = Path(args.html_output_dir) if args.html_output_dir else None
+        print(f"\n[8/8] html-export -- theme={args.theme}...")
+        html_report = step_html_export(wiki_path, args.theme, html_output, args.dry_run)
+
+    # report
+    report = CompileReport(
+        sources_compiled=len(dirty),
+        summaries_written=summaries_written,
+        concepts_created=concepts_created,
+        concepts_updated=concepts_updated,
+        contradictions_found=contradictions_found,
+        broken_links=broken_links,
+        manifests_written=manifests_written,
+        concepts_retracted=concepts_retracted,
+    )
+    _print_report(report, html_report, args.result_file, topic)
+
+
+def _load_existing_concept_names(concepts_dir: Path) -> list[str]:
+    if not concepts_dir.exists():
+        return []
+    names = []
+    for f in concepts_dir.iterdir():
+        if f.suffix == ".md" and not f.name.startswith("_"):
+            # read first heading as canonical name
+            text = f.read_text("utf-8-sig", errors="replace")
+            for line in text.splitlines():
+                if line.startswith("# "):
+                    names.append(line[2:].strip())
+                    break
+            else:
+                names.append(f.stem)
+    return names
+
+
+def _write_result_file(path: str, topic: str, report: CompileReport) -> None:
+    """Persist the stable machine result consumed by CompileRunPort."""
+    destination = Path(path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "protocolVersion": 1,
+        "ok": True,
+        "topic": topic,
+        "sourcesCompiled": report.sources_compiled,
+        "conceptsCreated": report.concepts_created,
+        "contradictions": report.contradictions_found,
+        "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+        "summariesWritten": report.summaries_written,
+        "conceptsUpdated": report.concepts_updated,
+        "brokenLinks": report.broken_links,
+        "manifestsWritten": report.manifests_written,
+        "conceptsRetracted": report.concepts_retracted,
+    }
+    temporary = destination.with_suffix(destination.suffix + ".tmp")
+    temporary.write_text(json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
+    temporary.replace(destination)
+
+
+def _print_report(
+    report: CompileReport,
+    html_report: ExportReport | None = None,
+    result_file: str | None = None,
+    topic: str | None = None,
+) -> None:
+    if result_file and topic:
+        _write_result_file(result_file, topic, report)
+    print("\n=== Compilation Report ===")
+    print(f"  Sources compiled  : {report.sources_compiled}")
+    print(f"  Summaries written : {report.summaries_written}")
+    print(f"  Concepts created  : {report.concepts_created}")
+    print(f"  Concepts updated  : {report.concepts_updated}")
+    print(f"  Concepts retracted: {report.concepts_retracted}")
+    print(f"  Manifests written : {report.manifests_written}")
+    print(f"  Contradictions    : {report.contradictions_found}")
+    print(f"  Broken links      : {report.broken_links}")
+    if html_report:
+        print(f"  HTML exported     : {html_report.files_exported} file(s) [{html_report.theme}]")
+        if html_report.files_failed > 0:
+            print(f"  HTML failed       : {html_report.files_failed} file(s)")
+    print()
+
+
+if __name__ == "__main__":
+    main()
