@@ -108094,6 +108094,9 @@ var FileVaultStore = class {
   }
 };
 
+// dist/version.js
+var VERSION = "2.9.0";
+
 // dist/index.js
 var TAG_RE = /(?:^|\s)#([a-zA-Z_一-鿿][\w/一-鿿-]*)/gm;
 var CODE_FENCE_RE = /```[\s\S]*?```/g;
@@ -108203,7 +108206,6 @@ function loadEnvCollaboration(result = {}) {
   };
 }
 var PROTECTED_DIRS6 = /* @__PURE__ */ new Set([".obsidian", ".trash", ".git", "node_modules"]);
-var VERSION = "0.4.0-beta.4";
 function err(code, message) {
   return { code, message };
 }
