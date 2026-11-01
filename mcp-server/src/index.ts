@@ -38,6 +38,7 @@ import { createApplicationRuntime } from "./application/runtime.js";
 import { FileVaultStore } from "./vault/store.js";
 import { LegacyCompileRunAdapter } from "./compile/compile-run-port.js";
 import { LegacyAgentRunnerAdapter, PythonEvaluateRunner } from "./agent/agent-runner-port.js";
+import { VERSION } from "./version.js";
 
 // Precompiled regex patterns for performance (avoid recompilation on every call)
 const TAG_RE = /(?:^|\s)#([a-zA-Z_一-鿿][\w/一-鿿-]*)/gm;
@@ -196,7 +197,6 @@ function loadEnvCollaboration(result: Record<string, string> = {}): VaultMindCon
 // Helpers
 
 const PROTECTED_DIRS = new Set([".obsidian", ".trash", ".git", "node_modules"]);
-const VERSION = "0.4.0-beta.4";
 
 function err(code: number, message: string): { code: number; message: string } {
   return { code, message };

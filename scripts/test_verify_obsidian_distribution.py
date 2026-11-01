@@ -21,6 +21,10 @@ class DistributionContractTest(unittest.TestCase):
             (plugin / "versions.json", versions),
         ):
             path.write_text(json.dumps(value))
+        server = self.root / "mcp-server"
+        (server / "src").mkdir(parents=True)
+        (server / "package.json").write_text(json.dumps({"version": "1.2.3-beta.1"}))
+        (server / "src" / "version.ts").write_text('export const VERSION = "1.2.3-beta.1";\n')
         self.assets = self.root / "dist"
         self.assets.mkdir()
         for name in ("main.js", "styles.css"):
@@ -36,6 +40,11 @@ class DistributionContractTest(unittest.TestCase):
     def test_tag_must_match_manifest(self):
         with self.assertRaisesRegex(AssertionError, "exactly match"):
             verify(self.root, "v1.2.3-beta.1", self.assets)
+
+    def test_mcp_server_version_must_match_manifest(self):
+        (self.root / "mcp-server" / "src" / "version.ts").write_text('export const VERSION = "0.0.1";\n')
+        with self.assertRaisesRegex(AssertionError, "version.ts"):
+            verify(self.root, "1.2.3-beta.1", self.assets)
 
 
 if __name__ == "__main__":

@@ -487,6 +487,7 @@ VAULT_MIND_VAULT_PATH=D:/knowledge \
 | git commit 粒度 | 一次变更一个文件一个 commit（docket/gitops.py） |
 | Domain Ontology | LLM 生成初版，人工 review 后设 `reviewed: true` 锁定 |
 | Context Core 版本 | 每次 compile 后 `git tag context-core-vYYYYMMDD-HHMM` |
+| 产品版本与发布 | Obsidian 插件和 MCP server 共用一个版本号。`node scripts/bump-version.mjs <版本>` 改全部版本字段，提交后打同名 tag（不带 `v`，如 `2.9.0`），`release.yml` 发布并附带 Obsidian 的 main.js / manifest.json / styles.css |
 | trust_level 优先级 | human(1.0) > assisted(0.8) > extracted(0.6) > inferred(0.4) |
 | 自动化原则 | 自动化是一等公民，不是事后补丁。人不会主动维护，系统必须自维护 |
 

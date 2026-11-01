@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Verify the Obsidian community-plugin distribution contract."""
+"""Verify the Obsidian community-plugin distribution contract.
+
+The Obsidian plugin and the MCP server share the product version; a release
+tag is that exact version (set with scripts/bump-version.mjs).
+"""
 
 from __future__ import annotations
 
@@ -23,6 +27,12 @@ def verify(root: Path, tag: str | None = None, assets: Path | None = None) -> No
     assert SEMVER.fullmatch(manifest["version"]), "manifest version must be semantic"
     assert versions.get(manifest["version"]) == manifest["minAppVersion"], (
         "versions.json must map the current version to minAppVersion"
+    )
+    server = json.loads((root / "mcp-server/package.json").read_text())
+    server_version = re.search(r'VERSION = "([^"]+)"', (root / "mcp-server/src/version.ts").read_text())
+    assert server["version"] == manifest["version"], "mcp-server/package.json must match the manifest version"
+    assert server_version and server_version[1] == manifest["version"], (
+        "mcp-server/src/version.ts must match the manifest version"
     )
     if tag:
         assert tag == manifest["version"], "release tag must exactly match manifest version"

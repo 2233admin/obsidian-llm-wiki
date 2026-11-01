@@ -1,9 +1,13 @@
 name: Release
 
+# One release per product version. The tag is the exact version with no `v`
+# prefix (scripts/bump-version.mjs), and every release carries the Obsidian
+# plugin assets, so BRAT and Obsidian's community directory find main.js on
+# whichever release is newest.
 on:
   push:
     tags:
-      - 'v*'
+      - '[0-9]*'
 
 permissions:
   contents: write
@@ -25,6 +29,8 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
+      - name: Verify version and tag
+        run: python scripts/verify_obsidian_distribution.py --tag "$GITHUB_REF_NAME"
       - run: cd mcp-server && npm ci
       - run: cd mcp-server && npm run settings:build
       - run: cd packages/settings-platform && bun test tests/
@@ -119,12 +125,16 @@ jobs:
         with:
           node-version: "20"
       - run: cd obsidian-plugin && npm ci && npm run build && npm run verify:bundle-boundary
-      - name: Package Obsidian plugin
-        run: tar czf obsidian-llm-wiki-plugin.tar.gz -C obsidian-plugin main.js manifest.json styles.css -C .. LICENSE
+      - name: Stage Obsidian plugin assets
+        run: |
+          mkdir dist-plugin
+          cp obsidian-plugin/main.js obsidian-plugin/manifest.json obsidian-plugin/styles.css dist-plugin/
+          tar czf dist-plugin/obsidian-llm-wiki-plugin.tar.gz -C obsidian-plugin main.js manifest.json styles.css -C .. LICENSE
+          python3 scripts/verify_obsidian_distribution.py --tag "$GITHUB_REF_NAME" --assets dist-plugin
       - uses: actions/upload-artifact@v7
         with:
           name: obsidian-plugin
-          path: obsidian-llm-wiki-plugin.tar.gz
+          path: dist-plugin
 
   release:
     name: Create Release
@@ -155,10 +165,11 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           prerelease: ${{ contains(github.ref_name, '-') }}
+          make_latest: ${{ !contains(github.ref_name, '-') }}
           files: |
             dist-mcp/*.tar.gz
             dist-compiler/*.tar.gz
-            dist-plugin/*.tar.gz
+            dist-plugin/*
           body_path: RELEASE_NOTES.md
           generate_release_notes: true
         env:
